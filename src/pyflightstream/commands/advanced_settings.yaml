@@ -36,7 +36,7 @@ SET_SOLVER_CONVERGENCE_ITERATIONS:
     "26.000": {status: documented, note: "FSM-26.000 p.318, same grammar as 26.120"}
     "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
-    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...]"}
+    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.120 p.344; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
@@ -59,7 +59,7 @@ SOLVER_MINIMUM_CP:
     "26.000": {status: documented, note: "FSM-26.000 p.314, same grammar as 26.120"}
     "26.100": {status: documented, note: "FSM-26.100 p.342, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.344, same grammar as 26.120"}
-    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...]"}
+    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.120 p.345; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
@@ -103,8 +103,8 @@ REYNOLDS_AVERAGED_DRAG_FORCES:
     "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
-    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...]"}
-    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...] Prior edition evidence: FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.120 p.344; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
+    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.123 p.349; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
   notes: >
@@ -126,8 +126,8 @@ SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY:
     "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
-    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...]"}
-    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...] Prior edition evidence: FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.120 p.344; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
+    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.123 p.349; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
 
@@ -146,8 +146,8 @@ SOLVER_SET_FARFIELD_LAYERS:
     "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
-    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...]"}
-    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...] Prior edition evidence: FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.120 p.344; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
+    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.123 p.349; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
   default: 3
@@ -171,8 +171,8 @@ SOLVER_UNSTEADY_PRESSURE_AND_KUTTA:
     "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
-    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...]"}
-    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...] Prior edition evidence: FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.120 p.344; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
+    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.123 p.349; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
   notes: >
@@ -214,8 +214,8 @@ SET_WAKE_ON_WAKE_INDUCTION:
     "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "FSM-26.100 p.342, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
-    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...]"}
-    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...] Prior edition evidence: FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.120 pp.344-345; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
+    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.123 p.349; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.349"}
   notes: >
@@ -233,8 +233,8 @@ ADDITIONAL_WAKE_RELAXATION_ITERATION:
     "26.121": {status: documented, note: "FSM-26.121 p.348, same grammar as 26.120"}
     "26.100": {status: documented, note: "FSM-26.100 p.342, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.344, same grammar as 26.120"}
-    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...]"}
-    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...] Prior edition evidence: FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
+    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.120 p.345; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
+    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "FSM-26.123 p.350; direct inconclusive evidence: convergence and a loads export do not isolate this setting's effect. The cited reanalysis report retains the run and the limits of that evidence."}
     "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
   notes: >

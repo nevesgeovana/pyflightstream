@@ -283,6 +283,8 @@ SET_AEROELASTIC_CONVERGENCE_THRESHOLD:
     - name: threshold
       type: float
   manual_ref: "FSM-26.125 p.390"
+  default: 0.001
+  default_ref: "FSM-26.125 p.390"
   versions:
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.390, the first edition to document it"}
   notes: >

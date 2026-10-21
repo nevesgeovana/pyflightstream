@@ -88,6 +88,27 @@ def test_p0430_fd01_altitude_refusals_are_complete_and_public():
     assert "erratum_2026-08-11.md" not in entry.versions["26.122"].note
 
 
+def test_p0430_fd01_aeroelastic_threshold_default_is_queryable():
+    entry = CommandRegistry.load().for_version("26.125")["SET_AEROELASTIC_CONVERGENCE_THRESHOLD"]
+    assert entry.default == 0.001
+    assert entry.default_ref == "FSM-26.125 p.390"
+
+
+def test_p0430_fd01_inconclusive_advanced_settings_have_complete_citations():
+    data = yaml.safe_load((COMMANDS_DIR / "advanced_settings.yaml").read_text(encoding="utf-8"))
+    rows = [
+        (build, row)
+        for entry in data.values()
+        for build, row in entry["versions"].items()
+        if "rotor-effect-reanalysis" in row.get("report", "")
+    ]
+    assert rows
+    for build, row in rows:
+        assert "[...]" not in row["note"]
+        assert re.search(rf"FSM-{re.escape(build)} pp?\.\d+", row["note"])
+        assert "direct inconclusive evidence" in row["note"]
+
+
 def test_p0420_p2_1a_separation_refusal_is_scoped_to_measured_build():
     """26.120 has direct refusal evidence, not an inherited February-build row."""
     data = yaml.safe_load((COMMANDS_DIR / "solver_settings.yaml").read_text(encoding="utf-8"))
