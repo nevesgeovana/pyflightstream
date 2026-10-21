@@ -273,8 +273,14 @@ def test_cross_check_totals_integrates_not_sums():
 def test_x_f_0316_a_nan_total_is_refused_not_passed():
     """X-F-0316 NaN > rel_tol is False, so the guard must test the tolerance the other way."""
     blade = parse_sectional_loads(CALL2).split(TWO_FAMILIES)["blade_1"]
+    loads = to_elastic_axis(blade, fixture_covering_config())
+    fx = float((blade.fx_n_per_m * loads.tributary_width_m).sum())
+    fz = float((blade.fz_n_per_m * loads.tributary_width_m).sum())
+    # The other component is exact, so only the NaN can make the guard raise.
     with pytest.raises(ValueError, match="RPT-006"):
-        cross_check_totals(blade, float("nan"), 1.0, rel_tol=0.05)
+        cross_check_totals(blade, float("nan"), fz, rel_tol=0.05)
+    with pytest.raises(ValueError, match="RPT-006"):
+        cross_check_totals(blade, fx, float("nan"), rel_tol=0.05)
 
 
 # --- PYFS-009, the sectional-loads half of the same shift ------------------
