@@ -200,7 +200,12 @@ def step_export_groups(
         matched = _STEP_EXPORT.match(path.name)
         if matched is None:
             continue
-        export = (matched.group("stem"), matched.group("ext"))
+        stem, digits = matched.group("stem"), matched.group("step")
+        if len(digits) > 1 and digits.startswith("0"):
+            # 1 and 01 are two spellings of one step number: keep them as separate exports
+            # so neither file replaces the other in the retention selection.
+            stem = f"{stem}_iteration=<{len(digits)} digits>"
+        export = (stem, matched.group("ext"))
         by_step = groups.setdefault(path.parent, {}).setdefault(export, {})
         by_step[int(matched.group("step"))] = path
     return groups

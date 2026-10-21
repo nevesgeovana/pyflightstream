@@ -334,3 +334,13 @@ def test_the_command_line_summary_says_what_each_table_keeps(tmp_path, capsys):
         out = capsys.readouterr().out
         assert code == 0 and words in out, out
     assert "kept (step 30)" in out or "kept (last step 30)" in out
+
+
+def test_f1221_step_one_and_step_zero_one_are_two_files_of_the_selection(tmp_path):
+    """F-1221: iteration suffixes 1 and 01 name different files; neither replaces the other."""
+    folder = tmp_path / "sim"
+    point = folder / "datapoints" / "DP-1"
+    names = ["loads_iteration=1.txt", "loads_iteration=01.txt", "loads_iteration=2.txt"]
+    groups = step_prune.step_export_groups(folder, [point / name for name in names])
+    seen = [path.name for by_step in groups[point].values() for path in by_step.values()]
+    assert sorted(seen) == sorted(names)
