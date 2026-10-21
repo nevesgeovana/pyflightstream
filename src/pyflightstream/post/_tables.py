@@ -1161,7 +1161,9 @@ def _chain(
         found = _plots_export(path) if stamp else None
         alike = found is not None and (found.scale, found.columns) == (end.scale, end.columns)
         if earlier is None or found is None or not alike:
-            return chain, f"the history of {later.continues!r} is not readable at {path}"
+            # A chain with an older run missing is no chain: the table then holds
+            # the continuation's own export, as the definition states.
+            return [], f"the history of {later.continues!r} is not readable at {path}"
         chain.insert(0, (str(later.continues), found))
         later = earlier
     return chain, ""
@@ -1197,9 +1199,13 @@ def _march_history(
         if history is None or joined is None:
             if history is not None:
                 missing = f"the export of {run_id!r} cannot be joined to the run before it"
+                # No partial chain: the table holds the continuation's own export.
+                export, run_id, idle = end, record.run_id, []
             history = (export.rows, export.values, export.steps)
             told = [f"{run_id!r} steps {int(export.steps[0])} to {int(export.steps[-1])}"]
             before = run_id
+            if joined is None and run_id == record.run_id:
+                break
             continue
         reached = int(history[2][-1])
         history, how = joined
