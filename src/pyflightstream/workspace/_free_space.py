@@ -257,6 +257,10 @@ def _forget_pruned_listings(workspace: CampaignWorkspace, deleted: set[Path]) ->
             document = json.loads(manifest.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
+        # A manifest of the wrong shape is skipped like an unreadable one: it
+        # must not fail after the exports were already unlinked.
+        if not isinstance(document, dict) or not isinstance(document.get("products", {}), dict):
+            continue
         products = dict(document.get("products", {}))
         gone = [name for name in products if (manifest.parent / name).resolve() in deleted]
         if not gone:
@@ -384,6 +388,7 @@ def _run_recipe(
         # folder a later step can select: the preview refuses what the apply would.
         compacted = {str(item["sim_id"]) for item in step["sims"]}
         present = [sim for sim in present if sim not in compacted]
+    listed: set[Path] = set()  # a file an earlier step lists is not listed again (preview = apply)
     for spec in document.get("delete_extensions", []):
         extensions = [str(e).lower() for e in spec.get("extensions", [])]
         step = {
@@ -406,10 +411,13 @@ def _run_recipe(
                 if file.suffix.lower() not in extensions:
                     continue
                 relative = file.relative_to(workspace.root).as_posix()
+                if file.resolve() in listed:
+                    continue
                 if file.resolve() in keep:
                     step["kept"].append(relative)
                     continue
                 size = _size(file)
+                listed.add(file.resolve())
                 step["files"].append({"path": relative, "bytes": size})
                 if apply:
                     file.unlink()
