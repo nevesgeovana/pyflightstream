@@ -3748,6 +3748,29 @@ class TestF2Package0405:
 
     @staticmethod
     @pytest.mark.requirement("FR-1135")
+    def test_rb4_every_string_of_the_instruction_reads_back_unchanged(tmp_path):
+        """RB4-02: F-1503, a boundary name with a quote or a backslash reads back as written.
+
+        The sidecar's strings go through the shared TOML writer: a quote became an
+        apostrophe (another boundary) and a backslash an escape (malformed TOML).
+        """
+        import tomllib
+
+        from pyflightstream.workspace._geometry_convert import instruction_from_sidecar
+
+        root = _geometry_build__workspace(tmp_path)
+        folder = root / "inputs" / "geometries" / "wing"
+        folder.mkdir()
+        (folder / "wing.stl").write_text("solid x\n", encoding="utf-8")
+        (folder / "wing.boundaries.toml").write_text(
+            'boundaries = ["Wing\\"tip", "Root\\\\q"]\n[import]\nunits = "METER"\n',
+            encoding="utf-8",
+        )
+        text = instruction_from_sidecar("wing.stl", root=root).text
+        assert tomllib.loads(text)["boundaries"] == ['Wing"tip', "Root\\q"]
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1135")
     def test_p0430_f1504_a_missing_cad_sidecar_is_refused(tmp_path):
         """F-1504: a CAD geometry with no sidecar is refused, never given defaults."""
         from pyflightstream.workspace._geometry_convert import instruction_from_sidecar

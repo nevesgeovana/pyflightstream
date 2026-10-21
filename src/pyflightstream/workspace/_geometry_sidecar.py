@@ -16,6 +16,7 @@ file as it is. The sidecar then marks the edges by detection, and says so.
 
 from __future__ import annotations
 
+import json
 import tomllib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -48,7 +49,9 @@ def toml_value(value: Any) -> str:
     if isinstance(value, (int, float)):
         return repr(value)
     if isinstance(value, str):
-        return '"' + value.replace('"', "'") + '"'
+        # A basic string that reads back as exactly ``value`` (RB4-02): JSON's escapes are
+        # TOML's, and DEL, which TOML also refuses raw, is escaped too.
+        return json.dumps(value, ensure_ascii=False).replace("\x7f", "\\u007f")
     if isinstance(value, Mapping):
         return "{ " + ", ".join(f"{key} = {toml_value(item)}" for key, item in value.items()) + " }"
     return "[" + ", ".join(toml_value(item) for item in value) + "]"
