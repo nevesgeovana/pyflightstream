@@ -173,3 +173,37 @@ def test_unresolved_layout_repost_retires_previous_split(tmp_path, monkeypatch, 
     assert not (workspace.products_dir(None) / "sections/AL-020_cp_wing.csv").exists(), (
         "unresolved distribution left its old table current"
     )
+
+
+def test_f4_0506_a_wrong_shape_manifest_is_refused_and_a_rebuild_keeps_the_old_one(
+    tmp_path, monkeypatch
+):
+    from pyflightstream.post.products import _retire_previous_manifest
+
+    workspace, _ = _workspace(tmp_path, monkeypatch)
+    write_campaign_products(workspace)
+    manifest = workspace.products_dir(None) / "products.json"
+    # F-784: retiring without an archive no longer unlinks the inventory
+    _retire_previous_manifest(workspace.root, manifest, matrix="products", archive=False)
+    assert manifest.is_file()
+    # F-1392: valid JSON of the wrong shape is a ProductError, not an AttributeError
+    manifest.write_text("[1, 2]", encoding="utf-8")
+    with pytest.raises(ProductError, match="not a products manifest"):
+        write_campaign_products(workspace, overwrite=True)
+
+
+def test_f4_0506_an_unreadable_streamline_export_is_a_named_skip(tmp_path, monkeypatch):
+    from pyflightstream.post.streamlines import write_streamline_products
+
+    export = tmp_path / "p_slo.txt"
+    export.write_text("x", encoding="utf-8")
+    original = Path.read_text
+
+    def denied(self, *args, **kwargs):
+        if self == export:
+            raise PermissionError("denied")
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", denied)
+    outcomes = write_streamline_products({"streamlines_off_body": export}, tmp_path, "p")
+    assert "p_slo.txt" in str(outcomes["p_off_body.vtk"])

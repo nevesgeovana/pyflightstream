@@ -163,7 +163,7 @@ def write_streamline_products(
                 report = parse_off_body_streamlines(
                     off_body.read_text(encoding="utf-8", errors="replace")
                 )
-            except (PyflightstreamError, ValueError) as error:
+            except (PyflightstreamError, ValueError, OSError) as error:
                 outcomes[name] = f"the off-body streamline export {off_body.name}: {error}"
             else:
                 path = out / STREAMLINES_DIR / name

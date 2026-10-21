@@ -29,9 +29,11 @@ record, so any spreadsheet or dataframe reads them with nothing else:
 * the REDUCTIONS of that table, one file per applicable reduction beside
   it (PFS-2015.04): ``probes/<point>_time_average.csv``,
   ``probes/<point>_phase_locked.csv`` and
-  ``probes/<point>_per_blade.csv``,
-  each a row per window with the window in solver steps and then the
-  plots table's own columns averaged over it. a row that
+  ``probes/<point>_per_blade.csv``. The time average is a row per window
+  with the window in solver steps and then the plots table's own columns
+  averaged over it; the phase-locked table is a row per AZIMUTHAL POSITION,
+  each value the mean across the last revolutions at that fixed azimuth
+  (``docs/definitions/phase_locked.md``); the per-blade table follows below. a row that
   NAMES ITS ROTORS reduces per rotor (FR-68), so the two passage files
   carry the rotor's alias, ``probes/<point>_per_blade_<ALIAS>.csv``, and
   their manifest entries carry a ``rotor`` field; the time average is one
@@ -693,7 +695,10 @@ def _selection_before_the_log(
 
 
 def _retire_previous_manifest(root: Path, previous: Path, *, matrix: str, archive: bool) -> None:
-    """Remove the previous ``products.json``, archiving it first only when asked.
+    """Archive the previous ``products.json`` when asked, leaving it for the rebuild to replace.
+
+    The manifest is NOT unlinked here: the rebuild replaces it whole through a temporary
+    file, so a kill in between leaves the old inventory instead of none.
 
     Parameters
     ----------
@@ -709,7 +714,6 @@ def _retire_previous_manifest(root: Path, previous: Path, *, matrix: str, archiv
     """
     if archive:
         archive_previous(root, previous, matrix=matrix)
-    previous.unlink()
 
 
 def _campaign_products(
@@ -1281,6 +1285,14 @@ def _prepare_campaign_rebuild(
                 "Post again without sims (CLI: --sims) to rebuild every product and the "
                 "manifest."
             ) from None
+        if not isinstance(previous_document, dict) or not isinstance(
+            previous_document.get("products", {}), dict
+        ):
+            raise ProductError(
+                f"{previous} parses but is not a products manifest (an object holding "
+                "'products'). Post again without "
+                "sims (CLI: --sims) to rebuild every product and the manifest."
+            )
         # 0.32.0 (P0320-RESTORE-ARCHIVE): archived, not merely removed, so
         # `restore products` has the file this rebuild replaces.
         _retire_previous_manifest(workspace.root, previous, matrix=out.name, archive=archive)
