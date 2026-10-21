@@ -929,13 +929,12 @@ def _plan_rotor_row(
     # asked for -- disobeying the rule this package states in
     # `point_condition`'s own docstring, that the REPORTED condition
     # wins over the requested one, because the two differ exactly when
-    # something went wrong. A fixture in this suite already carries a
-    # run whose free stream is 50 and whose reference velocity is 100,
-    # in Unsteady mode: a factor of four in dynamic pressure.
+    # something went wrong. The two differ by a factor of four in dynamic
+    # pressure when VREF is twice the free stream, and a static free stream with a
+    # positive VREF still recovers newtons: licensed batch 9, hover arms H20, H40
+    # and H80 (reports/PFS-2127.001_hover-normalization_2026-10-16.md).
     #
     # When the two velocities agree, existing numbers do not change.
-    # The published sentence about a static point stays
-    # TRUE: with the two equal, hover really is divided by zero.
     reported = getattr(point.loads, "reference_velocity_m_s", None) if point.loads else None
     speed = reported if isinstance(reported, int | float) else None
     if rpm is None:

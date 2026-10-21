@@ -199,7 +199,9 @@ def rotor_shaft_loads(
     density_kg_m3 : float
         Air density in kg/m^3.
     speed_m_s : float
-        Free-stream speed in m/s; zero or below gives NaN loads.
+        The export's reference velocity in m/s, the speed its coefficients are divided
+        by; zero or below gives NaN loads. A static free stream with a positive
+        reference velocity gives dimensional loads.
     aliases : mapping of str to sequence of str, optional
         The boundary aliases a rotor member may name.
     alpha_deg : float, optional
@@ -254,15 +256,13 @@ def rotor_shaft_loads(
             moment[index] += math.nan if stated is None else float(stated)
 
     # The dynamic pressure the export's own coefficients were taken against.
-    # AT V = 0 IT IS ZERO, AND NOTHING IS RECOVERABLE. The export states
-    # DIMENSIONLESS coefficients, normalised by this pressure; at rest there is
-    # no pressure to divide by and a hovering rotor's real thrust has been
-    # divided away. Returning 0.0 would be a lie a reader believes -- a static
-    # rotor produces plenty of thrust -- so the loads are NOT A NUMBER and the
-    # funnel writes `NA`.
-    # This is a finding rather than a design: item 6's coefficients cannot be
-    # derived from a dimensionless export for a static point at all, whatever
-    # is wired. A hover figure of merit needs the run to state a force.
+    # THE SPEED IS THE EXPORT'S REFERENCE VELOCITY (VREF), not the free stream. The
+    # export's coefficients are divided by 0.5 rho VREF^2, so multiplying them back
+    # recovers newtons whenever VREF is positive, a static free stream (hover) included
+    # (reports/PFS-2127.001_hover-normalization_2026-10-16.md: batch 9, arms H20, H40 and
+    # H80). Only a ZERO reference velocity has nothing to recover: it is divided away, and
+    # a 0.0 would be a lie a reader believes, so the loads are NOT A NUMBER and the
+    # funnel writes `NA`. At a zero free stream J is zero and the efficiency stays NA.
     # ONE PREMISE, ONE VERDICT. The frame check guarded `wind_force_n` alone for
     # one commit, and a test of mine PINNED that asymmetry -- "the thrust is
     # unaffected: it is a projection on the shaft, which needs no wind axes".

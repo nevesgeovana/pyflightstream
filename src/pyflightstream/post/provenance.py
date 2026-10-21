@@ -639,15 +639,12 @@ def run_provenance(
     stems = {record.run_id: point_name_of(record) for record in records}
     claims = Counter(stem for stem in stems.values() if stem is not None)
     index: dict[str, str] = {}
-    names = {
-        record.run_id: provenance_file_name(
-            record.run_id,
-            point_name=None
-            if stems[record.run_id] is None or claims[stems[record.run_id]] > 1
-            else stems[record.run_id],
-        )
-        for record in records
-    }
+    names: dict[str, str] = {}
+    for record in records:
+        stem = stems[record.run_id]
+        if stem is not None and claims[stem] > 1:
+            stem = None
+        names[record.run_id] = provenance_file_name(record.run_id, point_name=stem)
     names = _without_colliding_names(names)
     for record in records:
         if sims is not None and record.sim_id not in sims:
