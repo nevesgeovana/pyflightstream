@@ -651,25 +651,30 @@ def test_an_illegal_directory_name_is_refused_naming_the_option(tmp_path, capsys
     assert "--name" in err and "my campaign" in err
 
 
-def test_f1219_one_overlong_line_is_shown_and_flagged_not_dropped(tmp_path):
+@pytest.fixture
+def query_workspace(tmp_path):
+    """The synthetic query workspace of test_p0350_query_point (its fixture body, reused)."""
+    from tests.tier1_offline import test_p0350_query_point
+
+    return test_p0350_query_point.workspace._get_wrapped_function()(tmp_path)
+
+
+def test_f1219_one_overlong_line_is_shown_and_flagged_not_dropped(query_workspace, capsys):
     """F-1219: a file whose only line exceeds the tail window is present with its end shown."""
-    from types import SimpleNamespace
+    import json
 
-    from pyflightstream.workspace import _query_files
-
-    (tmp_path / "log.txt").write_text("x" * (_query_files._TAIL_BYTES * 2), encoding="utf-8")
-    shown = _query_files._evidence(SimpleNamespace(root=tmp_path), "log.txt")
+    log = query_workspace / "sims" / "sim_9101" / "datapoints" / "DP-A0" / "solver.log"
+    log.write_text("x" * (256 * 1024), encoding="utf-8")
+    assert main(["show", "9101_1", "--workspace", str(query_workspace), "--json"]) == 0
+    shown = json.loads(capsys.readouterr().out)["rows"][0]["evidence"][0]
     assert shown["state"] == "present"
     assert len(shown["last_lines"]) == 1 and shown["last_lines"][0].startswith("xxx")
     assert shown["truncated"] is True
 
 
-def test_f1512_a_windows_form_matrix_path_gives_its_stem_with_posix_path_semantics(monkeypatch):
+def test_f1512_a_windows_form_matrix_path_gives_its_stem_with_posix_path_semantics():
     """F-1512: backslashes do not stay in the stem when pathlib.Path is the POSIX flavour."""
-    from pathlib import PurePosixPath
-
     from pyflightstream.workspace import _query_files
 
-    monkeypatch.setattr(_query_files, "Path", PurePosixPath)
     assert _query_files.matrix_stem("inputs\\matrices\\l1_g6.fs") == "l1_g6"
     assert _query_files.matrix_stem("inputs/matrices/l1_g6.fs") == "l1_g6"

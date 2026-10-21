@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -65,6 +67,14 @@ def _workspace(tmp_path: Path) -> CampaignWorkspace:
     }
     (products / "products.json").write_text(json.dumps(document), encoding="utf-8")
     return workspace
+
+
+def _link(target: Path, link: Path) -> None:
+    """Make ``link`` a directory link to ``target``; skip when the host does not permit one."""
+    try:
+        os.symlink(target, link, target_is_directory=True)
+    except OSError as error:
+        pytest.skip(f"links are not permitted here: {error}")
 
 
 def _rows(workspace: CampaignWorkspace) -> list[dict]:
@@ -182,11 +192,6 @@ def test_f_743_a_product_path_outside_the_post_folder_deletes_nothing(tmp_path):
 def test_f_742_a_planted_staging_link_is_unlinked_and_never_extracted_through(tmp_path):
     """F2-0203: F-742, the restore's staging folder is a link to an outside folder: the link
     is removed, and the archive is extracted into a real folder."""
-    import os
-    import zipfile
-
-    from pyflightstream.workspace import _make_dir_link
-
     workspace = _workspace(tmp_path)
     folder = workspace.sim_dir("7001")
     archive = folder.with_name(folder.name + ".zip")
@@ -195,7 +200,7 @@ def test_f_742_a_planted_staging_link_is_unlinked_and_never_extracted_through(tm
     outside = tmp_path / "outside"
     outside.mkdir()
     staging = folder.with_name(folder.name + f".{os.getpid()}.restoring")
-    _make_dir_link(outside, staging)
+    _link(outside, staging)
     assert storage_module.ensure_sim_expanded(workspace, "7001", reason="the test")
     assert (folder / "x.txt").read_text(encoding="utf-8") == "restored"
     assert list(outside.iterdir()) == []
@@ -204,15 +209,13 @@ def test_f_742_a_planted_staging_link_is_unlinked_and_never_extracted_through(tm
 def test_rb4_a_product_reached_through_a_linked_folder_deletes_nothing(tmp_path):
     """RB4-01: F-743, a product key whose folder is a link leaves the post folder too.
 
-    The link is a junction (no privilege needed), so the test runs on every host.
+    The link is a symbolic link, skipped on a host that does not permit one.
     """
-    from pyflightstream.workspace import _make_dir_link
-
     workspace = _workspace(tmp_path)
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     (elsewhere / "p.csv").write_text("another workspace's product", encoding="utf-8")
-    _make_dir_link(elsewhere, workspace.root / "post" / "matriz" / "shared")
+    _link(elsewhere, workspace.root / "post" / "matriz" / "shared")
     manifest = workspace.root / "post" / "matriz" / "products.json"
     document = json.loads(manifest.read_text(encoding="utf-8"))
     document["products"]["shared/p.csv"] = {"sim_id": "6002", "runs": []}
@@ -248,7 +251,7 @@ def test_f1497_unmappable_source_link_is_not_reported_as_linked(tmp_path):
     (main.inputs_dir / "geometries").mkdir(parents=True, exist_ok=True)
     folder = other.sim_dir("8020")
     _write(folder / "scripts" / "point.fs", "script")
-    storage_module._make_dir_link(stray.resolve(), folder / "inputs")
+    _link(stray.resolve(), folder / "inputs")
     other.append_record(_storage_record("8020", "camp/sim_8020/AL+000"))
     (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
     assert not (main.sim_dir("8020") / "inputs").exists()
@@ -257,14 +260,23 @@ def test_f1497_unmappable_source_link_is_not_reported_as_linked(tmp_path):
 
 def test_f1271_a_recorded_windows_path_is_split_on_any_platform(tmp_path):
     recorded = "D:\\old\\camp\\inputs\\geometries\\wing"
-    from pyflightstream.workspace import _free_space
-
-    assert _free_space._recorded_parts(recorded)[-3:] == ("inputs", "geometries", "wing")
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.init(workspace.root)
     _write(workspace.inputs_dir / "geometries" / "wing" / "wing.obj", "o w\n")
-    wanted = storage_module._library_target(workspace, recorded)
-    assert wanted == (workspace.inputs_dir / "geometries" / "wing").resolve()
+    archive = workspace.root / "sims" / "sim_9101.zip"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive, "w") as bundle:
+        bundle.writestr("a.txt", "a")
+        bundle.writestr(
+            "_pyfs_compacted.json",
+            json.dumps({"sim_id": "9101", "inputs_link": recorded, "members": {}}),
+        )
+    assert storage_module.ensure_sim_expanded(workspace, "9101", reason="the test")
+    call = storage_module.read_storage_calls(workspace.root)[-1]
+    wanted = (workspace.inputs_dir / "geometries" / "wing").resolve()
+    assert call["inputs_link_restored"] is True
+    assert Path(call["inputs_link_target"]) == wanted
+    assert (workspace.sim_dir("9101") / "inputs" / "wing.obj").is_file()
 
 
 def test_f347_disk_estimate_ignores_empty_datapoint_folders(tmp_path):
@@ -279,14 +291,14 @@ def test_f347_disk_estimate_ignores_empty_datapoint_folders(tmp_path):
 
 
 def test_f1235_a_submitted_compacted_simulation_is_not_brought(tmp_path):
-    other = tmp_path / "other"
-    (other / "sims").mkdir(parents=True)
-    (other / "sims" / "sim_6001.zip").write_bytes(b"zip")
-    (other / "sims" / "sim_6002.zip").write_bytes(b"zip")
-    brought, _ = storage_module._sync_files(other, "all", {"6001"})
-    names = {path.name for path in brought}
-    assert "sim_6001.zip" not in names
-    assert "sim_6002.zip" in names
+    main, other = _sync_pair(tmp_path, "zips")
+    (other.root / "sims").mkdir(parents=True, exist_ok=True)
+    (other.root / "sims" / "sim_6001.zip").write_bytes(b"zip")
+    (other.root / "sims" / "sim_6002.zip").write_bytes(b"zip")
+    other.append_record(_storage_record("6001", "camp/sim_6001/AL+000", status=RunStatus.SUBMITTED))
+    storage_module.sync_workspaces(main.root, "all", apply=True)
+    assert not (main.root / "sims" / "sim_6001.zip").exists()
+    assert (main.root / "sims" / "sim_6002.zip").is_file()
 
 
 def test_f1236_sync_does_not_relink_a_submitted_record_only_simulation(tmp_path):
@@ -302,32 +314,27 @@ def test_f1236_sync_does_not_relink_a_submitted_record_only_simulation(tmp_path)
 
 
 def test_f746_sync_refuses_to_write_through_a_destination_link(tmp_path):
-    main = CampaignWorkspace(tmp_path / "main")
-    main.init(main.root)
+    main, other = _sync_pair(tmp_path, "dstlink")
     outside = tmp_path / "outside"
     outside.mkdir()
     (main.root / "post").rmdir()
-    storage_module._make_dir_link(outside.resolve(), main.root / "post")
-    source = tmp_path / "src.csv"
-    source.write_text("data", encoding="utf-8")
-    target = main.root / "post" / "m" / "p.csv"
+    _link(outside.resolve(), main.root / "post")
+    _write(other.root / "post" / "m" / "p.csv", "data")
     with pytest.raises(StorageError, match="is a link"):
-        storage_module._atomic_copy(source, target, root=main.root)
+        storage_module.sync_workspaces(main.root, "post", apply=True)
     assert list(outside.iterdir()) == []
 
 
 def test_f747_a_planted_name_at_the_temporary_path_is_not_written_through(tmp_path):
+    main, other = _sync_pair(tmp_path, "planted")
     victim = tmp_path / "victim.txt"
     victim.write_text("precious", encoding="utf-8")
-    source = tmp_path / "src.txt"
-    source.write_text("new", encoding="utf-8")
-    target = tmp_path / "dest" / "t.txt"
-    target.parent.mkdir()
-    planted = target.with_name(
-        f".{target.name}.{storage_module.os.getpid()}{storage_module._SYNC_TEMPORARY}"
-    )
-    storage_module.os.link(victim, planted)  # same inode as the victim, as a link would be
-    storage_module._atomic_copy(source, target, root=tmp_path)
+    _write(other.root / "post" / "m" / "t.txt", "new")
+    target = main.root / "post" / "m" / "t.txt"
+    target.parent.mkdir(parents=True)
+    planted = target.with_name(f".{target.name}.{os.getpid()}.pyfs-sync.tmp")
+    os.link(victim, planted)  # same inode as the victim, as a link would be
+    storage_module.sync_workspaces(main.root, "post", apply=True)
     assert victim.read_text(encoding="utf-8") == "precious"
     assert target.read_text(encoding="utf-8") == "new"
 
@@ -336,13 +343,13 @@ def test_f1234_a_tombstone_names_its_call_by_stamp_when_another_call_intervenes(
     tmp_path, monkeypatch
 ):
     workspace = _workspace(tmp_path)
-    original = storage_module._replace_rows
+    original = CampaignWorkspace._replace_manifest
 
-    def _with_a_concurrent_call(*args, **kwargs):
+    def _with_a_concurrent_call(self, *args, **kwargs):
         storage_module.record_storage_call(workspace.root, {"action": "other-command"})
-        return original(*args, **kwargs)
+        return original(self, *args, **kwargs)
 
-    monkeypatch.setattr(storage_module, "_replace_rows", _with_a_concurrent_call)
+    monkeypatch.setattr(CampaignWorkspace, "_replace_manifest", _with_a_concurrent_call)
     storage_module.delete_sims(workspace.root, ["6002"], apply=True)
     tombstone = next(row for row in _rows(workspace) if row.get("deleted_sim") == "6002")
     calls = storage_module.read_storage_calls(workspace.root)
@@ -352,8 +359,6 @@ def test_f1234_a_tombstone_names_its_call_by_stamp_when_another_call_intervenes(
 
 
 def _archive_with_hash_table(tmp_path, members):
-    import zipfile
-
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.init(workspace.root)
     archive = workspace.root / "sims" / "sim_9001.zip"
@@ -361,7 +366,7 @@ def _archive_with_hash_table(tmp_path, members):
     with zipfile.ZipFile(archive, "w") as zf:
         zf.writestr("a.txt", "a")
         if members is not None:
-            zf.writestr(storage_module._COMPACT_META, json.dumps({"members": members}))
+            zf.writestr("_pyfs_compacted.json", json.dumps({"members": members}))
     return workspace, archive
 
 
@@ -369,7 +374,7 @@ def test_x_f1369_a_member_missing_from_the_zip_is_a_storage_error_and_leaves_no_
     workspace, archive = _archive_with_hash_table(tmp_path, {"gone.txt": "0" * 64})
     folder = workspace.sim_dir("9001")
     with pytest.raises(StorageError, match="gone.txt"):
-        storage_module._expand_archive(workspace, folder, archive)
+        storage_module.ensure_sim_expanded(workspace, "9001", reason="the test")
     assert not list(folder.parent.glob("*.restoring"))
     assert archive.is_file()
 
@@ -377,7 +382,7 @@ def test_x_f1369_a_member_missing_from_the_zip_is_a_storage_error_and_leaves_no_
 def test_x_f1370_an_archive_without_a_hash_table_warns_that_nothing_is_verified(tmp_path):
     workspace, archive = _archive_with_hash_table(tmp_path, None)
     with pytest.warns(Warning, match="without a hash check"):
-        storage_module._expand_archive(workspace, workspace.sim_dir("9001"), archive)
+        storage_module.ensure_sim_expanded(workspace, "9001", reason="the test")
 
 
 @pytest.mark.parametrize("text", ["{not json", "[1, 2]", "5", "null"])

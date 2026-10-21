@@ -530,16 +530,15 @@ def test_f_1200_one_corrupt_archive_is_one_identified_row_and_history_writes_not
 
 def test_f2_0809_a_plan_file_that_vanishes_after_it_is_read_is_not_a_crash(workspace, monkeypatch):
     """F-1224: a plan removed between the read and the stat still gives a snapshot."""
-    from pyflightstream.workspace import ledger as ledger_module
+    real_read_text = Path.read_text
 
-    real = ledger_module._read_plan
+    def read_then_remove(self, *args, **kwargs):
+        text = real_read_text(self, *args, **kwargs)
+        if self.name == "plan.json":
+            self.unlink()
+        return text
 
-    def read_then_remove(path: Path):
-        plan = real(path)
-        path.unlink()
-        return plan
-
-    monkeypatch.setattr(ledger_module, "_read_plan", read_then_remove)
+    monkeypatch.setattr(Path, "read_text", read_then_remove)
     ledger = read_ledger(workspace)
     assert ledger.sources[f"post/{MATRIX}/plan.json"] == "unavailable"
 

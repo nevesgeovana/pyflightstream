@@ -341,10 +341,15 @@ def _book(tmp_path: Path) -> Path:
 
 
 def _runs_part(book: Path) -> str:
-    from pyflightstream.workspace.excel_file import _parts
+    import re
 
     with ZipFile(book) as archive:
-        return _parts(archive)["Runs"]
+        workbook = archive.read("xl/workbook.xml").decode("utf-8")
+        rels = archive.read("xl/_rels/workbook.xml.rels").decode("utf-8")
+    sheet = re.search(r'<sheet\b[^>]*name="Runs"[^>]*', workbook)[0]
+    rid = re.search(r'r:id="([^"]+)"', sheet)[1]
+    rel = next(m[0] for m in re.finditer(r"<Relationship\b[^>]*>", rels) if f'"{rid}"' in m[0])
+    return "xl/" + re.search(r'Target="([^"]+)"', rel)[1].lstrip("/").removeprefix("xl/")
 
 
 def _rewrite_member(book: Path, member: str, transform) -> None:
@@ -438,30 +443,27 @@ def test_f1589_check_reports_a_runs_row_without_identity(tmp_path: Path) -> None
     assert main(["check", str(book)]) == 2
 
 
-def _sheet(tmp_path: Path, cells: str) -> ZipFile:
-    from zipfile import ZIP_DEFLATED
-
-    namespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-    xml = f'<worksheet xmlns="{namespace}"><sheetData><row r="1">{cells}</row></sheetData>'
-    xml += "</worksheet>"
-    target = tmp_path / "sheet.zip"
-    with ZipFile(target, "w", ZIP_DEFLATED) as archive:
-        archive.writestr("xl/worksheets/sheet1.xml", xml)
-    return ZipFile(target)
-
-
 def test_x_f_0572_boolean_cells_read_as_their_words_and_error_cells_are_refused(
     tmp_path: Path,
 ) -> None:
-    from pyflightstream.workspace.excel_file import _table
+    from pyflightstream.workspace.excel_file import read_snapshot
     from pyflightstream.workspace.excel_sync import ExcelSyncError
 
-    good = _sheet(tmp_path, '<c r="A1" t="b"><v>1</v></c><c r="B1" t="b"><v>0</v></c>')
-    cells = _table(good, "xl/worksheets/sheet1.xml", [])
-    assert [cells[1, 1].value, cells[1, 2].value] == ["TRUE", "FALSE"]
-    bad = _sheet(tmp_path, '<c r="C1" t="e"><v>#N/A</v></c>')
-    with pytest.raises(ExcelSyncError, match=r"C1.*#N/A"):
-        _table(bad, "xl/worksheets/sheet1.xml", [])
+    def inject(cells: bytes):
+        return lambda data: data.replace(
+            b"<sheetData>", b"<sheetData><row r='9'>" + cells + b"</row>", 1
+        )
+
+    book = _book(tmp_path)
+    runs = _runs_part(book)
+    _rewrite_member(book, runs, inject(b'<c r="A9" t="b"><v>1</v></c><c r="B9" t="b"><v>0</v></c>'))
+    row = read_snapshot(book).rows[-1]
+    assert [row[0].value, row[1].value] == ["TRUE", "FALSE"]
+    (tmp_path / "bad").mkdir()
+    bad = _book(tmp_path / "bad")
+    _rewrite_member(bad, runs, inject(b'<c r="A9" t="e"><v>#N/A</v></c>'))
+    with pytest.raises(ExcelSyncError, match=r"A9.*#N/A"):
+        read_snapshot(bad)
 
 
 def _previewed(tmp_path: Path, name: str) -> tuple[Path, Path]:

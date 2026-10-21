@@ -627,11 +627,15 @@ def test_f1237_f350_a_malformed_mesh_is_refused_as_an_input_artifact(vertices, f
     with the documented class, not aliased onto other vertices or broadcast."""
     from types import SimpleNamespace
 
-    from pyflightstream.workspace.wake_edges import _mesh_edge_midpoints
-
     mesh = SimpleNamespace(vertices=numpy.asarray(vertices, float), faces=numpy.asarray(faces))
     with pytest.raises(InputArtifactError, match=words):
-        _mesh_edge_midpoints(mesh)
+        matched_trailing_edge_points(
+            [[0.0, 0.0, 0.0]],
+            points_unit="METER",
+            mesh=mesh,
+            mesh_unit="METER",
+            simulation_unit="METER",
+        )
 
 
 def test_a_byte_order_mark_before_the_unit_line_is_accepted(tmp_path):

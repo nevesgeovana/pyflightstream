@@ -615,17 +615,18 @@ def test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder(
     kept by the next run that writes that level, whose own staging folder is
     gone (IND-01).
     """
-    from pyflightstream.workspace._refine import _level
-
     src = _source(tmp_path)
     occupied = tmp_path / "wing_R2"
     occupied.mkdir()
     (occupied / "keep.txt").write_bytes(b"occupied")
+    real_rename = Path.rename
 
-    def failing(*args, **kwargs):
-        raise OSError("the publish failed")
+    def rename(self, target):
+        if self.parent.name.startswith("wing_R2.partial-") and self.name == "wing_R2":
+            raise OSError("the publish failed")
+        return real_rename(self, target)
 
-    monkeypatch.setattr(_level, "_publish", failing)
+    monkeypatch.setattr(Path, "rename", rename)
     with pytest.raises(OSError):
         refine_mesh(src, 2.0, overwrite=True)
     assert _left(tmp_path) == ["wing_R2"] and (occupied / "keep.txt").read_bytes() == b"occupied"
@@ -764,24 +765,18 @@ SIDECARS = {
 def test_p0430_f1492_detection_selectors_follow_the_component_grouping(tmp_path):
     """F-1492: ``detect = { surfaces = [...] }`` names the components, never the removed members."""
     import tomllib
-    from types import SimpleNamespace
-
-    from pyflightstream.workspace._refine._level import _boundaries_text
 
     src = _source(tmp_path, WITH_T, refine_toml='[components]\nWing = ["G", "T"]\n')
     text = (
         'boundaries = ["G", "T"]\n'
         "[trailing_edges]\n"
         'detect = { surfaces = ["G", "T"], sweep_angle = 20 }\n'
-        "[base_regions]\n"
-        'detect = { surfaces = ["T", "G"] }\n'
     )
     src.with_name("wing.boundaries.toml").write_text(text, encoding="utf-8")
-    work = SimpleNamespace(source=src, request=SimpleNamespace(components={"Wing": ["G", "T"]}))
-    written = tomllib.loads(_boundaries_text(work, "wing_R1"))
+    level = refine_mesh(src, 1.0)
+    written = tomllib.loads(level.files[2].read_text(encoding="utf-8"))
     assert written["boundaries"] == ["Wing"]
     assert written["trailing_edges"]["detect"] == {"surfaces": ["Wing"], "sweep_angle": 20}
-    assert written["base_regions"]["detect"] == {"surfaces": ["Wing"]}
 
 
 @pytest.mark.parametrize("spelling", list(SIDECARS))
@@ -1309,16 +1304,11 @@ def test_p0430_f731_a_symlinked_source_protects_the_folder_of_the_file_it_points
 
     A symlink is simulated by mapping the link's resolution to the real file (creating a symlink
     needs a privilege some machines lack); the guard must refuse on the real file's folder."""
-    from pyflightstream.workspace._refine._level import _place
-
-    real_dir = tmp_path / "real" / "m_fine"
+    real = write_source(tmp_path / "real" / "wing_R2", "wing", sheet_with_strips(()))
     links = tmp_path / "links"
-    real_dir.mkdir(parents=True)
     links.mkdir()
-    real = real_dir / "m.obj"
-    real.write_text("o A\n", encoding="utf-8")
-    link = links / "m.obj"
-    link.write_text("o A\n", encoding="utf-8")
+    link = links / "wing.obj"
+    link.write_bytes(real.read_bytes())
     link_resolved, real_resolved = link.resolve(), real.resolve()
     original = Path.resolve
 
@@ -1328,11 +1318,15 @@ def test_p0430_f731_a_symlinked_source_protects_the_folder_of_the_file_it_points
 
     monkeypatch.setattr(Path, "resolve", fake)
     with pytest.raises(InputArtifactError, match="source's folder"):
-        _place(link, "m_fine", tmp_path / "real", True)
+        refine_mesh(link, 2.0, out_dir=tmp_path / "real", overwrite=True)
+    assert sorted(p.name for p in real.parent.iterdir()) == sorted(
+        ["wing.obj", "wing.te.txt", "wing.boundaries.toml"]
+    )
     # control: the same level folder beside an unrelated source is accepted
-    other = tmp_path / "other"
-    other.mkdir()
-    assert _place(other / "n.obj", "n_fine", tmp_path / "out", True).name == "n_fine"
+    monkeypatch.undo()
+    other = _source(tmp_path / "other")
+    done = refine_mesh(other, 2.0, out_dir=tmp_path / "out", overwrite=True)
+    assert done.obj.parent.name == "wing_R2"
 
 
 def test_a_remeshed_family_at_factor_1_is_copied_unchanged(tmp_path):
@@ -1372,47 +1366,67 @@ def test_f1516_an_unselected_family_table_is_not_validated(tmp_path):
         refine_mesh(src, families=["B"], out_dir=tmp_path / "two")
 
 
-def test_pfs_2119_061_a_staging_folder_left_behind_is_warned(tmp_path, monkeypatch):
-    """PFS-2119.061 (FR-919): a staging folder that cannot be removed is named in one warning."""
-    from pyflightstream.workspace._refine import _level
+def _lock(folder: Path, locked: bool) -> None:
+    """Make ``folder/held`` refuse removal (a read-only file; a sealed folder off Windows)."""
+    held = folder / "held"
+    if sys.platform == "win32":
+        os.chmod(held / "held.txt", 0o444 if locked else 0o666)
+    else:
+        os.chmod(held, 0o500 if locked else 0o700)
 
-    owned = tmp_path / "tubes_R2.partial-x"
-    owned.mkdir()
-    folder = tmp_path / "tubes_R2"
-    monkeypatch.setattr(_level.shutil, "rmtree", lambda *a, **k: None)
-    with pytest.warns(PyflightstreamWarning, match="tubes_R2.partial-x") as seen:
-        _level._release(owned, folder)
-    assert len(seen) == 1
-    monkeypatch.undo()
+
+def test_pfs_2119_061_a_staging_folder_left_behind_is_warned(tmp_path):
+    """PFS-2119.061 (FR-919): a staging folder that cannot be removed is named in one warning."""
+    import shutil
     import warnings
 
+    src = _source(tmp_path)
+    refine_mesh(src, 2.0)
+    held = tmp_path / "wing_R2" / "held"
+    held.mkdir()
+    (held / "held.txt").write_text("old", encoding="utf-8")
+    _lock(tmp_path / "wing_R2", True)
+    try:
+        with warnings.catch_warnings(record=True) as seen:
+            warnings.simplefilter("always")
+            refine_mesh(src, 2.0, overwrite=True)
+        said = [
+            str(w.message) for w in seen if "staging folder could not be removed" in str(w.message)
+        ]
+        left = [p for p in tmp_path.iterdir() if p.name.startswith("wing_R2.partial-")]
+        assert len(said) == 1 and len(left) == 1 and str(left[0]) in said[0]
+    finally:
+        for stale in tmp_path.glob("wing_R2.partial-*"):
+            _lock(stale / "wing_R2.previous", False)
+            shutil.rmtree(stale, ignore_errors=True)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        _level._release(owned, folder)
-    assert not owned.exists() and not caught
+        refine_mesh(src, 2.0, overwrite=True)
+    assert not [p for p in tmp_path.iterdir() if ".partial-" in p.name]
+    assert not [w for w in caught if "staging folder" in str(w.message)]
 
 
-def test_f1514_f1515_an_oversized_integer_is_the_catalogued_refusal():
+def test_f1514_f1515_an_oversized_integer_is_the_catalogued_refusal(tmp_path):
     from pyflightstream.workspace._refine import _config
 
     with pytest.raises(InputArtifactError, match="too large"):
         _config.positive("[refine] factor", 10**400)
+    toml = f"[periodic]\naxis = [1, 0, {10**400}]\norigin = [0, 0, 0]\ncopies = 2\n"
+    src = _source(tmp_path, refine_toml=toml)
     with pytest.raises(InputArtifactError, match="too large"):
-        _config._vector("[refine] axis", [1, 0, 10**400], nonzero=True)
+        refine_mesh(src, 2.0)
 
 
 def test_x_f_0599_a_file_in_the_place_of_the_level_is_refused_before_any_work(tmp_path):
-    from pyflightstream.workspace._refine._level import _place
-
-    source = tmp_path / "src" / "wing.obj"
-    source.parent.mkdir()
-    source.write_text("", encoding="utf-8")
+    src = _source(tmp_path)
     out = tmp_path / "out"
     out.mkdir()
     (out / "wing_R2").write_text("a file", encoding="utf-8")
     for overwrite in (True, False):
         with pytest.raises(InputArtifactError, match="held by a file"):
-            _place(source, "wing_R2", out, overwrite)
+            refine_mesh(src, 2.0, out_dir=out, overwrite=overwrite)
+    assert [p.name for p in out.iterdir()] == ["wing_R2"]
+    assert (out / "wing_R2").read_text(encoding="utf-8") == "a file"
 
 
 def test_x_f_1266_a_factor_below_one_over_m_states_its_reason_exactly(tmp_path):

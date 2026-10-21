@@ -603,15 +603,19 @@ def test_p0430_f1203_g5_fails_when_a_family_that_shared_nodes_is_gone(tmp_path):
     assert not audit.passed
 
 
-def test_p0430_f303_a_duplicated_edge_does_not_erase_the_ends_of_the_line():
+def test_p0430_f303_a_duplicated_edge_does_not_erase_the_ends_of_the_line(tmp_path):
     """F-303: edges listed twice are one edge; the line keeps its two ends and its length."""
-    from pyflightstream.workspace._refine._audit import _line
-
-    verts = numpy.array([[0.0, 0, 0], [1.0, 0, 0], [2.0, 0, 0]])
-    once = _line(verts, numpy.array([[0, 1], [1, 2]]))
-    twice = _line(verts, numpy.array([[0, 1], [1, 0], [0, 1], [1, 2]]))
-    assert len(once.ends) == 2 and len(twice.ends) == 2
-    assert twice.length == pytest.approx(once.length) == pytest.approx(2.0)
+    m = Mesh()
+    once, src = _pair(tmp_path / "once", m)
+    twice_points = numpy.vstack([m.te_points()[:1], m.te_points()])
+    twice, _ = _pair(tmp_path / "twice", m, te_points=twice_points)
+    clean, _said = _audit(once, src)
+    doubled, _said = _audit(twice, src)
+    assert _item(clean, "G4").values["source_ends_missing"] == 0
+    g4 = _item(doubled, "G4").values
+    assert g4["points_sharing_an_edge"] == 1
+    assert g4["source_ends_missing"] == 0
+    assert g4["length"] == pytest.approx(_item(clean, "G4").values["length"])
 
 
 def test_p0430_f304_g2_judges_a_closed_body_split_into_open_families(tmp_path):
@@ -655,14 +659,18 @@ def test_files_read_is_the_one_list_with_the_record_and_the_source(tmp_path):
         audit.write_csv(level.with_name(level.stem + ".refine.json"))
 
 
-def test_f321_the_enclosed_volume_does_not_depend_on_where_the_mesh_sits():
+def test_f321_the_enclosed_volume_does_not_depend_on_where_the_mesh_sits(tmp_path):
     """F-321 (FR-938): a closed family's volume is the same far from the origin."""
-    from pyflightstream.workspace._refine._audit import _volume
-
-    verts = numpy.array([[0.0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]])
-    faces = [[0, 2, 1], [0, 1, 3], [0, 3, 2], [1, 2, 3]]
-    assert _volume(verts, faces) == pytest.approx(1 / 6, rel=1e-12)
-    assert _volume(verts + 2.0**27, faces) == pytest.approx(1 / 6, rel=1e-9)
+    near = Mesh()
+    far = Mesh()
+    far.verts[-8:] += 2.0**20
+    near_audit, _said = _audit(near.write(tmp_path / "near", "wing"))
+    far_audit, _said = _audit(far.write(tmp_path / "far", "wing"))
+    volume = _item(near_audit, "G2", "Pod").values["enclosed_volume"]
+    assert volume == pytest.approx(0.2**3, rel=1e-9)
+    assert _item(far_audit, "G2", "Pod").values["enclosed_volume"] == pytest.approx(
+        volume, rel=1e-6
+    )
 
 
 def test_f324_two_loops_touching_at_a_node_both_hold_it():

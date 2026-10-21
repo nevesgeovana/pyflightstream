@@ -335,22 +335,17 @@ def _words_of(line):
     return [pieces[index] for index in range(count.value)]
 
 
-def test_f6_0102_x_f_1300_a_preview_holding_a_refusal_exits_two_a_clean_one_zero(monkeypatch):
+def test_f6_0102_x_f_1300_a_preview_holding_a_refusal_exits_two_a_clean_one_zero(tmp_path, capsys):
     """X-F-1300: mark-converged's preview exits as --apply does, 2 on a refusal, 0 when clean."""
-    import argparse
+    from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace, pyfs
 
-    from pyflightstream.run import _mark_converged as module
-
-    def entry(refused):
-        return {
-            "applied": False,
-            "marked": [{"sim_id": "1", "run_id": "w/sim_1/a", "from": "RAN_MISSING_LOG"}],
-            "already": [],
-            "refused": refused,
-        }
-
-    args = argparse.Namespace(workspace=".", sims=["1"], reason="r", points=None, apply=False)
-    monkeypatch.setattr(module, "mark_converged", lambda *a, **k: entry({"w/sim_1/b": "why"}))
-    assert module.cmd_mark_converged(args) == 2
-    monkeypatch.setattr(module, "mark_converged", lambda *a, **k: entry({}))
-    assert module.cmd_mark_converged(args) == 0
+    workspace = grouped_workspace(tmp_path / "ws", mode="alone", logs=False, sims=("7001", "7003"))
+    loads = workspace.sim_dir("7003") / "datapoints" / "DP-V0300RE120AL+000"
+    (loads / "V0300RE120AL+000.txt").unlink()
+    argv = ["mark-converged", "--reason", "r"]
+    code, said = pyfs([*argv, "--sims", "7003"], workspace.root, capsys)
+    assert code == 2, said
+    assert "refused:" in said, said
+    code, said = pyfs([*argv, "--sims", "7001"], workspace.root, capsys)
+    assert code == 0, said
+    assert "would mark CONVERGED" in said, said

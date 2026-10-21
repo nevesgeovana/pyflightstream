@@ -1009,26 +1009,30 @@ def test_x_f0577_an_absolute_job_end_glob_is_refused_where_it_is_written(tmp_pat
 
 def test_x_f0577_a_glob_that_formats_to_an_absolute_path_is_warned_not_raised(tmp_path):
     from pyflightstream._errors import PyflightstreamWarning
-    from pyflightstream.workspace import _batch_life
+    from pyflightstream.workspace._batch_life import end_evidence
 
-    job = {"dir": "sim_1", "values": {"work_dir": str(tmp_path)}}
+    job = {"dir": "sim_1", "script": "job.sh", "values": {"work_dir": str(tmp_path)}}
     with pytest.warns(PyflightstreamWarning, match="cannot be searched"):
-        assert _batch_life._end_files(tmp_path, job, ["{work_dir}/*.o"]) is None
+        assert end_evidence(tmp_path, job, ["{work_dir}/*.o"]) is None
 
 
-def test_x_f1352_a_linked_job_file_at_the_top_of_a_batch_is_not_synced(tmp_path, monkeypatch):
+def test_x_f1352_a_linked_job_file_at_the_top_of_a_batch_is_not_synced(tmp_path):
+    import os
+
     from pyflightstream.workspace import _batch_life
 
     root = tmp_path / "ws"
-    batch = root / "sims" / "batch_1"
+    batch = root / "sims" / "batch" / "m_b1"
     batch.mkdir(parents=True)
     plain = batch / "job.sh"
     linked = batch / "linked.sh"
-    for item in (plain, linked):
+    target = tmp_path / "elsewhere.sh"
+    for item in (plain, target):
         item.write_text("x", encoding="utf-8")
-    monkeypatch.setattr(_batch_life, "batch_dirs", lambda ws: [batch])
-    real = _batch_life.is_reparse
-    monkeypatch.setattr(_batch_life, "is_reparse", lambda p: p == linked or real(p))
+    try:
+        os.symlink(target, linked)
+    except OSError as error:
+        pytest.skip(f"links are not permitted here: {error}")
     found = _batch_life.batch_files(root, 3, set())
     assert plain in found and linked not in found
 

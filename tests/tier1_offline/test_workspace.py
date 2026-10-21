@@ -149,7 +149,7 @@ def test_f683_f684_setup_warnings_state_only_what_the_code_does():
 
 def test_f1507_a_malformed_outputs_entry_is_an_input_artifact_error(tmp_path):
     """F-1507: a build record whose outputs entry is not an object is refused by name."""
-    from pyflightstream.workspace._geometry_record import _judge_the_record
+    from pyflightstream.workspace._geometry_record import judge_the_row_geometry
 
     folder = tmp_path / "body"
     folder.mkdir()
@@ -166,7 +166,7 @@ def test_f1507_a_malformed_outputs_entry_is_an_input_artifact_error(tmp_path):
     }
     (folder / "body.build.json").write_text(json.dumps(record), encoding="utf-8")
     with pytest.raises(InputArtifactError, match="outputs must be a list of objects"):
-        _judge_the_record(folder / "body.obj", "1", None)
+        judge_the_row_geometry(folder / "body.obj", "1", fs_build=None, mesh_import=None)
 
 
 def test_collect_outputs_moves_declared_files_into_outputs(tmp_path):
@@ -3105,11 +3105,22 @@ def test_x_f_1308_a_corrupt_additional_manifest_is_a_named_refusal(tmp_path):
         workspace.read_additional()
 
 
-def test_x_f_1309_a_truncated_query_record_names_its_file(tmp_path):
-    from pyflightstream.workspace._query_files import _json
+@pytest.fixture
+def query_workspace(tmp_path):
+    """The synthetic query workspace of test_p0350_query_point (its fixture body, reused)."""
+    from tests.tier1_offline import test_p0350_query_point
 
-    path = tmp_path / "products.json"
-    path.write_text('{"a": ', encoding="utf-8")
-    with pytest.raises(ValueError, match="products.json"):
-        _json(path)
-    assert _json(tmp_path / "absent.json", 3) == 3
+    return test_p0350_query_point.workspace._get_wrapped_function()(tmp_path)
+
+
+def test_x_f_1309_a_truncated_query_record_names_its_file(query_workspace, capsys):
+    from pyflightstream.run.cli import main
+    from tests.tier1_offline.test_p0350_query_point import PRODUCT
+
+    provenance = query_workspace / "post" / "demo" / "provenance" / "A0.prov.json"
+    provenance.write_text('{"a": ', encoding="utf-8")
+    assert main(["trace", PRODUCT, "--workspace", str(query_workspace), "--json"]) != 0
+    assert "A0.prov.json: not readable JSON" in capsys.readouterr().err
+    provenance.unlink()
+    assert main(["trace", PRODUCT, "--workspace", str(query_workspace), "--json"]) == 0
+    capsys.readouterr()

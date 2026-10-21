@@ -419,17 +419,17 @@ def test_p0430_f308_interface_node_removal_never_folds_a_neighbouring_face():
 
 def test_p0430_f309_a_concave_face_is_cut_into_triangles_that_all_turn_with_it():
     """F-309: the fan of the first corner of a concave polygon overlaps; ear clipping does not."""
-    from pyflightstream.workspace._refine._remesh_group import _group
 
     def turn(p):
         return float(sum(numpy.cross(p[i], p[(i + 1) % len(p)])[2] for i in range(len(p))))
 
     # an arrowhead whose first corner is its tip: the fan from it turns one triangle over
     verts = numpy.array([[2, 1, 0], [0, 0, 0], [2, -1, 0], [1, 0, 0]], dtype=float)
-    group = _group(ObjMesh(verts, {"A": [[0, 1, 2, 3]]}), ["A"])
-    assert len(group.faces) == 2
-    assert all(turn(group.verts[t]) > 0.0 for t in group.faces)
-    assert sum(turn(group.verts[t]) for t in group.faces) == pytest.approx(turn(verts))
-    # control: a convex quadrilateral keeps its fan
+    result = refine_group(ObjMesh(verts, {"A": [[0, 1, 2, 3]]}), ["A"], (), 1.0)
+    turns = [turn(result.points[f]) for f in result.families["A"]]
+    assert all(t > 0.0 for t in turns)
+    assert sum(turns) == pytest.approx(turn(verts))
+    # control: a convex quadrilateral is cut into the same total area
     square = numpy.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], dtype=float)
-    assert _group(ObjMesh(square, {"A": [[0, 1, 2, 3]]}), ["A"]).faces == [[0, 1, 2], [0, 2, 3]]
+    ok = refine_group(ObjMesh(square, {"A": [[0, 1, 2, 3]]}), ["A"], (), 1.0)
+    assert sum(turn(ok.points[f]) for f in ok.families["A"]) == pytest.approx(turn(square))

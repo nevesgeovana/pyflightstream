@@ -451,11 +451,17 @@ def test_f_948_the_same_call_writes_the_same_bytes(tmp_path):
 
 
 def test_f1502_an_oversized_root_offset_is_refused_as_an_input_artifact(tmp_path):
+    vertices, faces = _blade()
+    source = _write_obj(tmp_path / "blade.obj", vertices, faces)
     with pytest.raises(InputArtifactError, match="not a number"):
-        _degenerate._checked_offset(tmp_path / "blade.obj", 10**400)
+        derive_thin_blade(source, root_offset=10**400)
+    assert not thin_blade_path(source).exists()
 
 
-def test_x_f0421_an_obj_group_name_with_a_space_reads_back_whole():
-    text = "o my blade\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n"
-    _, groups = _degenerate._obj_statements(text)
-    assert list(groups) == ["my blade"]
+def test_x_f0421_an_obj_group_name_with_a_space_reads_back_whole(tmp_path):
+    vertices, faces = _blade()
+    lines = ["o my blade"] + [f"v {x!r} {y!r} {z!r}" for x, y, z in vertices.tolist()]
+    lines += [f"f {a + 1} {b + 1} {c + 1}" for a, b, c in faces]
+    source = tmp_path / "blade.obj"
+    source.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    assert derive_thin_blade(source, root_offset=0.05).boundary == "my blade"

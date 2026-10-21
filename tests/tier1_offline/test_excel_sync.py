@@ -348,33 +348,46 @@ def test_p0430_fr_2311_an_interrupted_replacement_leaves_the_previous_matrix_who
     assert done.written == ["batch.fs"] and b"changed" in first.read_bytes()
 
 
-def test_p0430_nl_wksp_7_a_workbook_digest_ignores_save_time_and_zip_envelope() -> None:
+def test_p0430_nl_wksp_7_a_workbook_digest_ignores_save_time_and_zip_envelope(
+    tmp_path: Path,
+) -> None:
     """NL-WKSP-7: two saves of the same cells agree whatever the clock read; a changed cell
     does not."""
-    import io
+    import json
+    import re
     from zipfile import ZipFile, ZipInfo
 
-    from pyflightstream.workspace.excel_file import _workbook_digest
+    from pyflightstream.workspace.excel import create_workbook
+    from pyflightstream.workspace.excel_file import patch_cells, preview_file
 
-    def save(cell: str, stamp: str, date_time: tuple[int, int, int, int, int, int]) -> bytes:
-        buffer = io.BytesIO()
-        with ZipFile(buffer, "w") as archive:
-            for name, data in (
-                ("xl/workbook.xml", f"<c>{cell}</c>".encode()),
-                (
-                    "docProps/core.xml",
-                    f"<cp><dcterms:modified xsi:type='x'>{stamp}</dcterms:modified></cp>".encode(),
-                ),
-            ):
-                archive.writestr(ZipInfo(name, date_time), data)
-        return buffer.getvalue()
+    matrix(tmp_path)
+    early = create_workbook(tmp_path / "early.xlsx", workspace=tmp_path)
 
-    early = save("1", "2026-01-01T00:00:00Z", (2026, 1, 1, 0, 0, 0))
-    late = save("1", "2026-10-21T09:30:00Z", (2026, 10, 21, 9, 30, 0))
-    assert early != late
-    assert _workbook_digest(early) == _workbook_digest(late)
-    changed = save("2", "2026-01-01T00:00:00Z", (2026, 1, 1, 0, 0, 0))
-    assert _workbook_digest(changed) != _workbook_digest(early)
+    def resave(source: Path, name: str, stamp: str, date_time: tuple) -> Path:
+        target = tmp_path / name
+        with ZipFile(source) as read, ZipFile(target, "w") as archive:
+            for info in read.infolist():
+                data = read.read(info)
+                if info.filename == "docProps/core.xml":
+                    data = re.sub(
+                        rb"(<dcterms:(?:created|modified)[^>]*>)[^<]*",
+                        rb"\g<1>" + stamp.encode(),
+                        data,
+                    )
+                archive.writestr(ZipInfo(info.filename, date_time), data)
+        return target
+
+    def digest(book: Path) -> str:
+        batch = tmp_path / f"batch-{len(list(tmp_path.glob('batch-*.json')))}.json"
+        preview_file(book, workspace=tmp_path, direction="read", batch=batch)
+        return json.loads(batch.read_text(encoding="utf-8"))["workbook_sha256"]
+
+    late = resave(early, "late.xlsx", "2026-10-21T09:30:00Z", (2026, 10, 21, 9, 30, 0))
+    assert early.read_bytes() != late.read_bytes()
+    assert digest(early) == digest(late)
+    changed = resave(early, "changed.xlsx", "2026-01-01T00:00:00Z", (2026, 1, 1, 0, 0, 0))
+    patch_cells(changed, {"Runs": {(2, 1): "batch.fs", (2, 2): "001"}})
+    assert digest(changed) != digest(early)
 
 
 def _bridge_write_request(tmp_path: Path, description: str = "edited") -> Path:
@@ -455,13 +468,12 @@ def test_f736_a_preview_token_that_is_a_path_is_refused_before_any_folder_exists
 
 
 def test_f1589_check_snapshot_refuses_a_runs_row_without_identity(tmp_path: Path) -> None:
-    from pyflightstream.workspace.excel_sync import _check_snapshot
+    from pyflightstream.workspace.excel_bridge import bridge
 
     matrix(tmp_path)
-    snap = imported(tmp_path)
-    _check_snapshot(snap)
-    pol = snap.headers.index("POL")
-    snap.rows.append([Cell("x") for _ in snap.headers])
-    snap.rows[-1][pol] = Cell("")
-    with pytest.raises(ExcelSyncError, match="MATRIX and POL"):
-        _check_snapshot(snap)
+    request = _bridge_write_request(tmp_path)
+    response = tmp_path / "response.tsv"
+    assert bridge("check", request, response, tmp_path / "preview.json") == 0
+    request.write_text(request.read_text() + "CELL\t1\t2\tx\t0\n")
+    assert bridge("check", request, response, tmp_path / "preview.json") == 1
+    assert "MATRIX and POL" in response.read_text()

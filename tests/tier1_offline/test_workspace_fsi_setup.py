@@ -330,19 +330,17 @@ def test_geometric_pitch_calibration_reaches_structural_nodes_once(tmp_path, tem
 
 
 def test_f1524_a_blank_factor_cell_is_absent_for_an_external_row_as_for_the_others(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path,
 ) -> None:
-    from pyflightstream.workspace import fsi_external_setup
-    from pyflightstream.workspace.fsi_setup import _resolve_external_row
+    from pyflightstream.fsi.external import ExternalStructure
+    from pyflightstream.workspace.fsi_setup import resolve_row_fsi
+    from tests.tier1_offline.test_regression_fsi_integration import _gaps_rt_fsiext___inputs
 
-    path = tmp_path / "f001.toml"
-    path.write_text('mode = "external"\n', encoding="utf-8")
-    sentinel = object()
-    monkeypatch.setattr(fsi_external_setup, "resolve_external_fsi", lambda _path: sentinel)
+    inputs = _gaps_rt_fsiext___inputs(tmp_path).parent.parent
     blank = {"FSI_BENDING_STIFFNESS_N_M2_FACTOR": "", "FSI_TORSION_STIFFNESS_N_M2_FACTOR": "-"}
-    assert _resolve_external_row(path, "f001", blank) is sentinel
+    assert isinstance(resolve_row_fsi(inputs, {"FSI": "f010", **blank}), ExternalStructure)
     with pytest.raises(FsiSetupError, match="does not know the external model"):
-        _resolve_external_row(path, "f001", {"FSI_BENDING_STIFFNESS_N_M2_FACTOR": "2"})
+        resolve_row_fsi(inputs, {"FSI": "f010", "FSI_BENDING_STIFFNESS_N_M2_FACTOR": "2"})
 
 
 def test_f1223_restaging_removes_an_optional_input_the_setup_no_longer_asks_for(

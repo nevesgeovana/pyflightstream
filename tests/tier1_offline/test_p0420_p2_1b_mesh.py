@@ -144,31 +144,56 @@ def test_p0420_a_sheet_with_no_trailing_edge_is_refused_for_that_reason():
 _TOL = 1e-9  # DUPLICATE_FRACTION of a unit size
 
 
-def test_p0430_f305_weld_follows_the_tolerance_not_a_rounding_grid():
+def test_p0430_f305_weld_follows_the_tolerance_not_a_rounding_grid(tmp_path):
     """F-305: nodes closer than the tolerance weld across a bin edge; farther ones stay apart."""
-    from pyflightstream.workspace._refine._level import _weld
+    size = float(numpy.hypot(3.0, 1.0))  # the diagonal of the two families' bounding box
 
-    near = numpy.array([[0.49 * _TOL, 0.0, 0.0], [0.51 * _TOL, 0.0, 0.0]])
-    verts, faces = _weld(near, {"W": [[0, 1, 1]]}, 1.0)
-    assert len(verts) == 1
-    far = numpy.array([[-0.49 * _TOL] * 3, [0.49 * _TOL] * 3])  # 1.7 tolerances apart
-    verts, faces = _weld(far, {"W": [[0, 1, 1]]}, 1.0)
-    assert len(verts) == 2
+    def level_nodes(name: str, offset) -> int:
+        # W is the strip of OBJ; X is a quadrilateral whose first node sits at W's node
+        # (2, 0, 0) displaced by `offset`, in a family of its own (no shared node index)
+        folder = tmp_path / name
+        folder.mkdir()
+        x0 = numpy.array([2.0, 0.0, 0.0]) + numpy.asarray(offset) * size * _TOL
+        rows = [r for r in OBJ.splitlines() if r.startswith("v ")]
+        rows += ["v {!r} {!r} {!r}".format(*map(float, x0)), "v 3 0 0", "v 3 1 0", "v 2.5 1 0"]
+        text = "\n".join([*rows, "g W", "f 1 2 5 4", "f 2 3 6 5", "g X", "f 7 8 9 10"]) + "\n"
+        (folder / "w.obj").write_text(text, encoding="utf-8")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PyflightstreamWarning)
+            level = refine_mesh(folder / "w.obj", 2, out_dir=tmp_path / f"out_{name}")
+        return len(read_obj(level.obj).verts)
+
+    welded = level_nodes("near", [0.02, 0.0, 0.0])  # 0.02 tolerances apart
+    apart = level_nodes("far", [0.98] * 3)  # 1.7 tolerances apart
+    assert apart == welded + 1
 
 
-def test_p0430_f330_fixed_side_nodes_follow_the_tolerance(monkeypatch):
+def test_p0430_f330_fixed_side_nodes_follow_the_tolerance():
     """F-330: the fixed-side cut nodes keep distinct nodes and drop coincident ones by distance."""
-    from types import SimpleNamespace
+    from pyflightstream.workspace._refine._config import Periodic
+    from pyflightstream.workspace._refine._periodic import CutPair, plan_conform
 
-    from pyflightstream.workspace._refine import _periodic
+    periodic = Periodic(axis=(0.0, 0.0, 1.0), origin=(0.0, 0.0, 0.0), copies=4)
+    size = float(numpy.hypot(2.0, 2.0))  # the diagonal of the used vertices' bounding box
 
-    def nodes(points):
-        plan = SimpleNamespace(grids={}, verts=numpy.array(points), size=1.0)
-        monkeypatch.setattr(_periodic, "_edges_of", lambda *_: [(0, 1)])
-        return _periodic._fixed_nodes(plan, [0, 1], ["W"])
+    def slave_nodes(gap: float) -> int:
+        # M is fixed, S is remeshed: S's cut is rebuilt on the quarter-turn image of M's cut
+        # nodes, whose last two nodes lie `gap` tolerances apart
+        eps = gap * _TOL * size
+        verts = numpy.array(
+            [
+                [1.0, 0, 0], [2.0, 0, 0], [2.0 + eps, 0, 0], [1.0, 1.0, 0.0],
+                [0, 1.0, 0], [0, 2.0, 0], [0, 2.0 + eps, 0], [-1.0, 1.0, 0.0],
+            ]
+        )  # fmt: skip
+        families = {"M": [[0, 1, 3], [1, 2, 3]], "S": [[4, 5, 7], [5, 6, 7]]}
+        cut = CutPair((0, 1, 2), (4, 5, 6), 1, 0.0, (("M",), ("S",)))
+        planned = plan_conform(verts, families, [cut], periodic, remeshed={"S": 1.0}, grids={})
+        ((_, nodes),) = planned["S"]
+        return len(nodes)
 
-    assert len(nodes([[0.49 * _TOL, 0.0, 0.0], [0.51 * _TOL, 0.0, 0.0]])) == 1
-    assert len(nodes([[-0.49 * _TOL] * 3, [0.49 * _TOL] * 3])) == 2
+    assert slave_nodes(0.02) == 2  # coincident within the tolerance: one node
+    assert slave_nodes(1.7) == 3  # farther apart than the tolerance: two nodes
 
 
 # ---------------------------------------------------------------- F-331 X-F-0435
@@ -176,25 +201,39 @@ def test_p0430_f330_fixed_side_nodes_follow_the_tolerance(monkeypatch):
 
 def test_p0430_f331_an_interior_edge_between_two_fixed_nodes_stays_free():
     """F-331: an interior edge is not frozen because both its nodes are shared outside."""
-    from pyflightstream.workspace._refine._remesh_group import _curves, _Group
+    from pyflightstream.workspace._refine._geometry import edge_faces
+    from pyflightstream.workspace._refine._obj import ObjMesh
+    from pyflightstream.workspace._refine._remesh import refine_group
 
-    verts = numpy.array([[0.0, 0, 0], [1, 0, 0], [0.5, 1, 0], [0.5, -1, 0]])
-    faces = [[0, 1, 2], [1, 0, 3]]
-    group = _Group([0, 1, 2, 3], verts, faces, ["W", "W"], {"W": faces})
-    curve, frozen = _curves(group, {0, 1}, set())
-    assert (0, 1) not in curve and (0, 1) not in frozen
-    assert curve[(0, 2)] == "boundary"  # the control: a boundary edge is still a curve
+    verts = numpy.array(
+        [[0.0, 0, 0], [1, 0, 0], [0.5, 1, 0], [0.5, -1, 0], [-1, 0, 0], [-1, 1, 0], [2, 0, 0],
+         [2, 1, 0]]
+    )  # fmt: skip
+    # W is remeshed; O shares W's nodes 0 and 1 (each by one face) and is left alone
+    mesh = ObjMesh(verts, {"W": [[0, 1, 2], [1, 0, 3]], "O": [[0, 4, 5], [1, 6, 7]]})
+    result = refine_group(mesh, ["W"], (), 2.0)
+    assert result.info["curve_edges"] == {"boundary": 4}  # the four outer edges, not the interior
+    ends = [
+        int(numpy.flatnonzero(numpy.linalg.norm(result.points - verts[v], axis=1) < 1e-12)[0])
+        for v in (0, 1)
+    ]
+    # the interior edge (0, 1) was split at factor 2, which it could not be if it were frozen
+    assert (min(ends), max(ends)) not in edge_faces(result.families["W"])
 
 
 def test_p0430_x_f0435_the_remesh_target_ignores_the_fan_diagonal_of_a_quad():
     """X-F-0435: a unit square's target is its side, not an average with the diagonal."""
+    from pyflightstream.workspace._refine._geometry import edge_faces
     from pyflightstream.workspace._refine._obj import ObjMesh
-    from pyflightstream.workspace._refine._remesh_group import _group, _targets
+    from pyflightstream.workspace._refine._remesh import refine_group
 
     square = numpy.array([[0.0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]])
-    group = _group(ObjMesh(square, {"W": [[0, 1, 2, 3]]}), ["W"])
-    assert _targets(group, {"W": 1.0}) == pytest.approx(numpy.ones(4))
-    assert _targets(group, {"W": 2.0}) == pytest.approx(numpy.full(4, 0.5))
+    result = refine_group(ObjMesh(square, {"W": [[0, 1, 2, 3]]}), ["W"], (), 2.0)
+    edges = list(edge_faces(result.families["W"]))
+    lengths = [float(numpy.linalg.norm(result.points[a] - result.points[b])) for a, b in edges]
+    # target 0.5 (the side over the factor); the diagonal averaged in would give 0.54 and a
+    # mean edge of 0.55, measured 0.499 without it
+    assert numpy.mean(lengths) == pytest.approx(0.5, abs=0.03)
 
 
 # ---------------------------------------------------------------- FR-936
@@ -224,14 +263,34 @@ def test_p0430_fr936_the_level_keeps_the_identity_of_the_source_open_loop(tmp_pa
 # ---------------------------------------------------------------- F-1584
 
 
-def test_p0430_f1584_the_text_a_refusal_offers_for_a_value_is_valid_toml():
-    """F-1584: an inline table and a DEL character are offered in TOML, not JSON, syntax."""
+def test_p0430_f1584_the_text_a_refusal_offers_for_a_value_is_valid_toml(tmp_path):
+    """F-1584: an inline table is offered in TOML, not JSON, syntax, and parses to the value."""
     import tomllib
 
-    from pyflightstream.workspace._refine._level import _toml
+    from tests.tier1_offline.test_p0390_firstrow import Composite, _tube_source, write_source
 
-    for value in ({"surfaces": ["W", "T"], "on": True}, ["a", 'b"c'], "x\x7fy", {}, 2.5):
-        assert tomllib.loads("v = " + _toml(value))["v"] == value
+    lens = _tube_source(sharp_le=True)
+    ring = 6 * 48 + 48
+    body_edge = 0.5 * (lens.verts[ring + 12] + lens.verts[ring + 13])
+    mesh = Composite(lens.verts, lens.families, body_edge[None, :], {})
+    toml = (
+        "[families.Wing]\nspanwise = 2.0\nkeep_first_row = true\n"
+        "trailing_edge_direction = [1.0, 0.0, 0.0]\n"
+    )
+    src = write_source(tmp_path / "lens", "wing", mesh, refine_toml=toml)
+    side = src.with_name("wing.boundaries.toml")
+    # the detect route spelled as a table header: no `detect =` text a rewrite could replace
+    side.write_text(
+        side.read_text(encoding="utf-8").replace('file = "wing.te.txt"', "").rstrip()
+        + '\n[trailing_edges.detect]\nsurfaces = ["Wing"]\n[import]\nunits = "METER"\n',
+        encoding="utf-8",
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        with pytest.raises(InputArtifactError, match="cannot be rewritten") as caught:
+            refine_mesh(src, out_dir=tmp_path / "out")
+    offered = str(caught.value).split("state it as ", 1)[1].split(" and run again", 1)[0]
+    assert tomllib.loads(offered)["detect"] == {"surfaces": ["Wing"]}
 
 
 # ---------------------------------------------------------------- F-1517

@@ -502,24 +502,22 @@ def test_history_reports_an_unreadable_zip_as_a_row_and_still_answers(workspace,
     assert code in (0, 2), err
 
 
-def test_f1583_a_huge_since_duration_is_a_workspace_error():
-    from pyflightstream.workspace import WorkspaceError
-    from pyflightstream.workspace import _query_logs as logs
-
-    with pytest.raises(WorkspaceError, match="too long"):
-        logs._since("9" * 400 + "d")
+def test_f1583_a_huge_since_duration_is_a_workspace_error(workspace, capsys):
+    code, _, err = _query(workspace, capsys, "log", "--since", "9" * 400 + "d")
+    assert code != 0
+    assert "too long" in err
 
 
-def test_x_f0582_a_non_iso_stamp_sorts_first_and_never_passes_a_since_cutoff():
-    from datetime import timedelta
-
-    from pyflightstream.workspace import _query_logs as logs
-
-    rows = [{"timestamp": "2026-01-02T00:00:00Z"}, {"timestamp": "yesterday-ish"}]
-    assert sorted(rows, key=logs._chronology)[0]["timestamp"] == "yesterday-ish"
-    cutoff = datetime(2026, 1, 1, tzinfo=UTC) - timedelta(days=1)
-    assert logs._at_or_after(rows[0], cutoff) is True
-    assert logs._at_or_after(rows[1], cutoff) is False
+def test_x_f0582_a_non_iso_stamp_sorts_first_and_never_passes_a_since_cutoff(workspace, capsys):
+    calls = [
+        {"at": "2026-01-02T00:00:00Z", "action": "delete-sims", "sims": []},
+        {"at": "yesterday-ish", "action": "space-in-use", "sims": 2},
+    ]
+    _write(workspace / "storage_management.json", {"schema": STORAGE_SCHEMA, "calls": calls})
+    rows = _rows(workspace, capsys, "log", "--storage")
+    assert [row["at"] for row in rows] == ["yesterday-ish", "2026-01-02T00:00:00Z"]
+    rows = _rows(workspace, capsys, "log", "--storage", "--since", "2025-12-31T00:00:00Z")
+    assert [row["at"] for row in rows] == ["2026-01-02T00:00:00Z"]
 
 
 def test_f2_0809_the_python_queries_write_nothing_and_equal_the_console_rows(workspace, capsys):

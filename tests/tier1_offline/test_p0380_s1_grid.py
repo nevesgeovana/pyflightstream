@@ -551,9 +551,8 @@ def test_f328_a_twisted_grid_keeps_its_trailing_edge_column():
 
 def test_f329_a_sweep_starting_inside_the_ring_is_read_across_the_seam():
     """F-329 (FR-921): the sweep's direction does not rest on cells zero and one being adjacent."""
-    from pyflightstream.workspace._refine._grid import _source_sweep
-
-    grid = _recovered(tube_pole_quads())
+    fx = tube_pole_quads()
+    grid = _recovered(fx)
     k, n = grid.ids.shape
     for start, step in ((1, 1), (n - 2, -1), (5, 1)):
         cols = [(start + step * t) % n for t in range(n)]
@@ -565,6 +564,11 @@ def test_f329_a_sweep_starting_inside_the_ring_is_read_across_the_seam():
                 faces.append(
                     [int(ids[row, i]), int(ids[row, j]), int(ids[row + 1, j]), int(ids[row + 1, i])]
                 )
-        sweep = _source_sweep(grid, faces)
-        assert sweep is not None, (start, step)
-        assert (sweep.i_dir, sweep.start_i) == (step, start)
+        level = refine_grid(fx.verts, faces, grid, chordwise=2.0, spanwise=1.0)
+        assert level.report["order"] == "sweep", (start, step)
+        where, shape = _places(fx, level, 2.0, 1.0)
+        nc = shape[1]
+        seen = [where[f[0]][1] for f in level.faces[:nc]]
+        first = round(start * (nc - 1) / (n - 1))
+        assert seen == [(first + step * t) % nc for t in range(nc)], (start, step)
+        assert where[level.faces[0][0]][0] == 0, (start, step)

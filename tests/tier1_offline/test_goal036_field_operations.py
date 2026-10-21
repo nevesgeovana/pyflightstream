@@ -701,18 +701,28 @@ def test_f737_a_sidecar_suffix_cannot_leave_the_freestream_folder(tmp_path, suff
     assert not (tmp_path / "escape.txt").exists()
 
 
-def test_f1588_a_file_whose_name_has_brackets_is_a_file_not_a_pattern(tmp_path):
-    from pyflightstream.workspace.cli import _expand
+def test_f1588_a_file_whose_name_has_brackets_is_a_file_not_a_pattern(tmp_path, capsys):
+    def fluctuation(*patterns):
+        code = workspace_cli(
+            ["field", "time-mean", *patterns, "--fluctuation-only", "--last", "2"]
+            + ["--out", "m", "--workspace", str(tmp_path)]
+        )
+        captured = capsys.readouterr()
+        return code, captured.out + captured.err
 
-    literal = tmp_path / "step[1].dat"
-    literal.write_text("x", encoding="utf-8")
-    assert _expand([str(literal)]) == [str(literal)]
+    literal = [
+        _write(tmp_path / f"p[1]_step_{step}.inflow.dat", _step_rows(30.0 + step, 1.0, -1.0))
+        for step in (3, 4)
+    ]
+    code, text = fluctuation(*map(str, literal))
+    assert code == 0, text
     # A pattern that names no file is still a pattern, and still refused when it matches none.
-    with pytest.raises(WorkspaceError, match="no file matches"):
-        _expand([str(tmp_path / "step[2].dat")])
-    other = tmp_path / "step_a.dat"
-    other.write_text("x", encoding="utf-8")
-    assert _expand([str(tmp_path / "step_?.dat")]) == [str(other)]
+    code, text = fluctuation(str(tmp_path / "p[2]_step_3.inflow.dat"))
+    assert code == 2 and "no file matches" in text
+    for step in (5, 6):
+        _write(tmp_path / f"q_step_{step}.inflow.dat", _step_rows(30.0 + step, 1.0, -1.0))
+    code, text = fluctuation(str(tmp_path / "q_step_?.inflow.dat"))
+    assert code == 0, text
 
 
 @pytest.mark.parametrize("vinf", ["nan", "inf", "-5", "0"])

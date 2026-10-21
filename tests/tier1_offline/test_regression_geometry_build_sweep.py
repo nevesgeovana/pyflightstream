@@ -3920,56 +3920,110 @@ class TestF2Package0607Workspace:
         assert "ERP2, ERP3" in str(raised.value) and "more" in str(raised.value)
 
     @staticmethod
-    def test_pfs_2117_023_f1511_one_link_predicate_reads_the_reparse_tag(tmp_path, monkeypatch):
+    def _recorded_workspace(root, runs):
+        """A workspace root whose runs.json holds one record per ``(sim, cwd, script, inputs)``.
+
+        Each run's script is written under its simulation folder and recorded by digest.
+        """
+        from pyflightstream.workspace import RunRecord, RunStatus
+        from pyflightstream.workspace.record_document import encode_rows
+
+        rows = []
+        for sim, cwd, script, inputs in runs:
+            folder = root / "sims" / f"sim_{sim}"
+            (folder / "scripts").mkdir(parents=True, exist_ok=True)
+            (folder / "scripts" / "run.txt").write_bytes(script.encode())
+            for name, text in inputs.items():
+                (folder / "inputs" / name).parent.mkdir(parents=True, exist_ok=True)
+                (folder / "inputs" / name).write_text(text, encoding="utf-8")
+            rows.append(
+                RunRecord(
+                    run_id=f"t/sim_{sim}/A0",
+                    sim_id=sim,
+                    matrix_stem="t",
+                    point={"alpha": 0.0},
+                    fs_version_requested="26.124",
+                    package_version="0.43.0",
+                    recipe="steady",
+                    raw_flag=False,
+                    status=RunStatus.CONVERGED,
+                    outputs=[],
+                    cwd=cwd,
+                    script_path="scripts/run.txt",
+                    script_sha256=hashlib.sha256(script.encode()).hexdigest(),
+                    inputs_sha256=dict(inputs),
+                ).model_dump(mode="json")
+            )
+        (root / "runs.json").write_text(json.dumps(encode_rows(rows)), encoding="utf-8")
+        return root
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("tag", "is_a_link"), [(0x9000701A, False), (0xA000000C, True), (0xA0000003, True)]
+    )
+    def test_pfs_2117_023_f1511_one_link_predicate_reads_the_reparse_tag(
+        tmp_path, monkeypatch, tag, is_a_link
+    ):
         """PFS-2117.023 F-1511: a cloud-file reparse tag is a regular file, a junction is a link."""
         import stat
 
-        from pyflightstream.workspace import _ledger_history
-        from pyflightstream.workspace._links import _is_link, is_reparse
+        from pyflightstream.workspace._links import is_reparse
+        from pyflightstream.workspace.ledger import history
 
-        target = tmp_path / "archive.zip"
-        target.write_bytes(b"x")
-        for tag, expected in ((0x9000701A, False), (0xA000000C, True), (0xA0000003, True)):
-            info = SimpleNamespace(
-                st_mode=stat.S_IFREG, st_file_attributes=0x400, st_reparse_tag=tag
-            )
-            monkeypatch.setattr(Path, "lstat", lambda self, info=info: info)
-            assert is_reparse(target) is expected
-            assert _is_link(target) is expected
-            assert _ledger_history._linked(target) is expected
+        root = TestF2Package0607Workspace._recorded_workspace(
+            tmp_path, [("1", "", "SET_X 5\n", {})]
+        )
+        archived = root / "sims/sim_1/datapoints/DP-A0/archive/20260202-020202"
+        archived.mkdir(parents=True)
+        (archived / "x.txt").write_text("x", encoding="utf-8")
+        info = SimpleNamespace(st_mode=stat.S_IFREG, st_file_attributes=0x400, st_reparse_tag=tag)
+        monkeypatch.setattr(Path, "lstat", lambda self: info)
+        assert is_reparse(root / "runs.json") is is_a_link
+        # The history walk reads the same predicate: a linked folder is never entered.
+        (row,) = history(root, "A0")
+        assert bool(row["datapoint_archives"]) is not is_a_link
 
     @staticmethod
     def test_f1217_zip_history_takes_the_stamp_from_the_archive_part_of_the_member(tmp_path):
         """F-1217: a timestamp earlier in the member path is not the archive stamp."""
         import zipfile
 
-        from pyflightstream.workspace._ledger_history import _zip_documents
+        from pyflightstream.workspace.ledger import history
 
-        path = tmp_path / "sim_1.zip"
+        root = TestF2Package0607Workspace._recorded_workspace(
+            tmp_path, [("1", "", "SET_X 5\n", {})]
+        )
         member = "20260101-101010_run/datapoints/DP-A/archive/20260202-020202/runs.json"
-        with zipfile.ZipFile(path, "w") as bundle:
-            bundle.writestr(member, "[]")
-        ((_, stamp, _),) = list(_zip_documents(path, "sims/sim_1.zip"))
-        assert stamp == "20260202-020202"
+        with zipfile.ZipFile(root / "sims" / "sim_1.zip", "w") as bundle:
+            bundle.writestr(member, (root / "runs.json").read_bytes())
+        stamps = {row["archive_stamp"] for row in history(root, "A0")} - {None}
+        assert stamps == {"20260202-020202"}
 
     @staticmethod
-    def test_f1218_the_run_root_is_cut_at_the_records_own_simulation_folder():
+    def test_f1218_the_run_root_is_cut_at_the_records_own_simulation_folder(tmp_path):
         """F-1218: a workspace under a folder called sims/ keeps its whole root."""
-        from pyflightstream.workspace._ledger_history import _run_root
+        from pyflightstream.workspace.ledger import diff
 
-        ledger = SimpleNamespace(root=Path("/elsewhere"))
-        record = {"sim_id": "9101", "cwd": "/home/u/sims/ws/sims/sim_9101/datapoints/DP-A"}
-        assert _run_root(ledger, record) == "/home/u/sims/ws"
-        assert _run_root(ledger, {"sim_id": "7", "cwd": "/home/u/ws/sims/sim_7"}) == "/home/u/ws"
-        assert _run_root(ledger, {"sim_id": "7", "cwd": ""}) == "/elsewhere"
+        def load(root):
+            return f'LOAD "{root}/a.obj"\n'
+
+        runs = [
+            ("9101", "/home/u/sims/ws/sims/sim_9101/datapoints/DP-A", load("/home/u/sims/ws"), {}),
+            ("7", "/home/u/ws/sims/sim_7", load("/home/u/ws"), {}),
+            ("8", "", load(tmp_path.as_posix()), {}),
+        ]
+        root = TestF2Package0607Workspace._recorded_workspace(tmp_path, runs)
+        for first, second in (("9101", "7"), ("7", "8"), ("8", "9101")):
+            rows = diff(root, f"t/sim_{first}/A0", f"t/sim_{second}/A0")
+            assert not [row for row in rows if row["field"] == "script_comparison"]
 
     @staticmethod
     def test_f682_a_root_is_set_aside_only_at_a_path_boundary():
         """F-682: /a does not match inside /ab, so distinct external paths stay different."""
-        from pyflightstream.workspace._ledger_history import _normalised
+        from pyflightstream.workspace._script_comparison import normalise_line
 
-        assert _normalised('LOAD "C:/ab/x.obj"', "C:/a") == ['LOAD "C:/ab/x.obj"']
-        assert _normalised('LOAD "C:\\a\\x.obj"', "C:/a") == ['LOAD "<workspace>/x.obj"']
+        assert normalise_line('LOAD "C:/ab/x.obj"', "C:/a") == 'LOAD "C:/ab/x.obj"'
+        assert normalise_line('LOAD "C:\\a\\x.obj"', "C:/a") == 'LOAD "<workspace>/x.obj"'
 
     @staticmethod
     def test_f1519_a_print_message_is_compared_as_written():
@@ -3997,22 +4051,23 @@ class TestF2Package0607Workspace:
     @staticmethod
     def test_f1585_a_short_changed_token_is_not_reported_as_no_input_responsible(tmp_path):
         """F-1585: when only short words changed, the message says it cannot attribute them."""
-        from pyflightstream.workspace._script_comparison import _Comparison, drift
+        from pyflightstream.workspace._script_comparison import compare_scripts, drift
 
-        comparison = _Comparison(False, None, ["SET_X 5"], ["SET_X 7"])
+        comparison = compare_scripts("SET_X 5", "SET_X 7", Path("C:/ws"))
         text = drift(comparison, tmp_path, [])
         assert "too short to attribute" in text and "no input of the row" not in text
 
     @staticmethod
     def test_fr219_a_rebuild_refusal_names_every_changed_line(tmp_path):
         """FR-219: each changed script line is named with its class, not the first six."""
-        from pyflightstream.workspace._script_comparison import _Comparison, drift
+        from pyflightstream.workspace._script_comparison import compare_scripts, drift
 
-        ran = [f"SET_PLOT_TYPE old{number}" for number in range(9)]
-        renders = [f"SET_PLOT_TYPE new{number}" for number in range(9)]
+        ran = "\n".join(f"SET_PLOT_TYPE old{number}" for number in range(9))
+        renders = "\n".join(f"SET_PLOT_TYPE new{number}" for number in range(9))
         (tmp_path / "pproc").mkdir()
         (tmp_path / "pproc" / "p1.toml").write_text("new8 = 1\n", encoding="utf-8")
-        text = drift(_Comparison(False, None, renders, ran), tmp_path, ["pproc/p1.toml"])
+        comparison = compare_scripts(renders, ran, Path("C:/ws"))
+        text = drift(comparison, tmp_path, ["pproc/p1.toml"])
         assert "line 9:" in text and "more changed" not in text
         assert text.count("plot type line") == 9
         assert "(plot type line, from inputs/pproc/p1.toml)" in text.split("; ")[8]
@@ -4020,27 +4075,18 @@ class TestF2Package0607Workspace:
     @staticmethod
     def test_fr785_fr3079_a_diff_names_the_changed_input_a_line_comes_from(tmp_path):
         """FR-785 FR-3079: the script difference of two runs names the input it originates in."""
-        import hashlib
+        from pyflightstream.workspace.ledger import diff
 
-        from pyflightstream.workspace._ledger_history import _script_diff
-
-        rows = []
-        for sim, word in (("1", "old_plot"), ("2", "new_plot")):
-            folder = tmp_path / "sims" / f"sim_{sim}"
-            (folder / "scripts").mkdir(parents=True)
-            (folder / "inputs" / "pproc").mkdir(parents=True)
-            script = f"SET_PLOT_TYPE {word}\n"
-            (folder / "scripts" / "run.txt").write_bytes(script.encode())
-            (folder / "inputs" / "pproc" / "p1.toml").write_text(f"{word} = 1\n", encoding="utf-8")
-            record = {
-                "sim_id": sim,
-                "script_path": "scripts/run.txt",
-                "script_sha256": hashlib.sha256(script.encode()).hexdigest(),
-                "inputs_sha256": {"pproc/p1.toml": word},
-            }
-            rows.append({"record": record})
-        ledger = SimpleNamespace(root=tmp_path, sim_folders=lambda sim: [f"sims/sim_{sim}"])
-        (row,) = _script_diff(ledger, rows[0], rows[1])
+        runs = [
+            (sim, "", f"SET_PLOT_TYPE {word}\n", {"pproc/p1.toml": f"{word} = 1\n"})
+            for sim, word in (("1", "old_plot"), ("2", "new_plot"))
+        ]
+        root = TestF2Package0607Workspace._recorded_workspace(tmp_path, runs)
+        (row,) = [
+            row
+            for row in diff(root, "t/sim_1/A0", "t/sim_2/A0")
+            if row["field"] == "script_comparison"
+        ]
         assert "line 1" in row["detail"] and "a 'SET_PLOT_TYPE old_plot'" in row["detail"]
         assert "(plot type line, from inputs/pproc/p1.toml)" in row["detail"]
 
@@ -4239,24 +4285,21 @@ def test_x_f1093_a_bad_record_refuses_before_any_record_is_stamped(tmp_path):
     assert (geometries / "a" / "a.build.json").read_text(encoding="utf-8") == "{}"
 
 
-def test_x_f1090_an_unreadable_saved_mesh_raises_the_build_error(tmp_path, monkeypatch):
-    """mesh_face_counts failing on the saved file is a GeometryBuildError (exit 3), not a
+def test_x_f1090_an_unreadable_saved_mesh_raises_the_build_error(tmp_path):
+    """The saved file's face counts failing to read is a GeometryBuildError (exit 3), not a
     MeshReadError that escapes the documented class."""
-    fsm = tmp_path / "w.fsm"
-    fsm.write_bytes(b"x")
-    variant = SimpleNamespace(
-        instruction=SimpleNamespace(marks_trailing_edges=lambda: False, boundaries=()),
-        folder=tmp_path,
+    truncated = tmp_path / "truncated.fsm"
+    truncated.write_bytes(_GEOMETRY_BUILD__WING_FSM.read_bytes()[:8800])
+    root = _geometry_build__workspace(tmp_path)
+    folder = _geometry_build__geometry(
+        root,
+        "wing",
+        'fs_build = "26.125"\nboundaries = ["Wing"]\noutputs = ["fsm", "obj"]\n'
+        '[mesh]\nfile = "src.obj"\nunits = "METER"\n',
     )
-
-    def _boom(path):
-        raise MeshReadError("cannot be decoded")
-
-    monkeypatch.setattr(build, "boundary_names", lambda path: ())
-    monkeypatch.setattr(build, "trailing_edge_midpoints", lambda path: None)
-    monkeypatch.setattr(build, "mesh_face_counts", _boom)
+    plan = plan_geometry_build(folder, registry=_geometry_build__verified_registry())
     with pytest.raises(build.GeometryBuildError, match="face counts and unit"):
-        build._read_back(variant, fsm)
+        apply_geometry_build(plan, runner=_geometry_build__runner(truncated))
 
 
 def test_x_f0426_a_boundary_name_with_a_quote_is_written_as_readable_toml():
@@ -4290,32 +4333,35 @@ def test_x_f1257_a_string_for_a_name_list_is_refused_not_split_into_letters(tmp_
         read_geometry_instruction(path)
 
 
-def test_f1594_the_cleanup_command_quotes_a_path_with_spaces(monkeypatch):
+def test_f1594_the_cleanup_command_quotes_a_path_with_spaces(tmp_path):
+    from pyflightstream._fsm import MESH_MARKER
     from pyflightstream.workspace import _geometry_clean
 
-    monkeypatch.setattr(
-        _geometry_clean, "saved_solver_actions", lambda path: [("act", "python x", "kind")]
-    )
+    command = "python x"
+    body = [MESH_MARKER, "9999", "99", "1", "2, T, T, F", "Wing", ".500,.500,.500"]
+    body += ["$MESH_END$", "$SOLVER_START$", " F", "0", "0", "1,1, F", "1"]
+    body += ["act".ljust(70), command.ljust(70), f"{len(command)},1, F"]
+    body += ["$SOLVER_END$", "$POST_START$", "0", "$POST_END$"]
+    geometry = tmp_path / "wing.fsm"
+    geometry.write_text("\r\n".join(body) + "\r\n", encoding="utf-8", newline="")
     shown = "C:\\my files\\wing.fsm"
-    text = _geometry_clean.saved_action_warning(Path(shown), shown, [])
+    text = _geometry_clean.saved_action_warning(geometry, shown, [])
     assert f'pyfs-matrix inventory "{shown}" --clean' in text
-    plain = _geometry_clean.saved_action_warning(Path("wing.fsm"), "wing.fsm", [])
+    plain = _geometry_clean.saved_action_warning(geometry, "wing.fsm", [])
     assert "pyfs-matrix inventory wing.fsm --clean" in plain
 
 
-def test_x_f1094_an_unreadable_matrix_is_named_when_it_is_skipped(tmp_path, monkeypatch):
+def test_x_f1094_an_unreadable_matrix_is_named_when_it_is_skipped(tmp_path):
     from pyflightstream.workspace import _geometry_convert as convert
 
-    matrix = tmp_path / "m001.txt"
-    matrix.write_text("x", encoding="utf-8")
-    monkeypatch.setattr(convert, "matrix_files", lambda root: [matrix])
-
-    def _unreadable(path):
-        raise InputArtifactError("no header")
-
-    monkeypatch.setattr(convert, "read_matrix", _unreadable)
-    with pytest.warns(PyflightstreamWarning, match="m001.txt could not be read"):
-        assert convert._rows_naming(tmp_path, "wing") == []
+    (tmp_path / "m001.fs").write_text("x", encoding="utf-8")
+    folder = tmp_path / "inputs" / "geometries" / "wing"
+    folder.mkdir(parents=True)
+    (folder / "wing.obj").write_text("v 0 0 0", encoding="utf-8")
+    (folder / "wing.boundaries.toml").write_text('[import]\nunits = "METER"\n', encoding="utf-8")
+    with pytest.warns(PyflightstreamWarning, match="m001.fs could not be read"):
+        converted = convert.instruction_from_sidecar("wing/wing.obj", root=tmp_path)
+    assert converted.notes == ()
 
 
 def test_x_f1256_rows_with_a_wrong_cell_count_are_named_and_a_superscript_pol_does_not_crash(
@@ -4328,11 +4374,9 @@ def test_x_f1256_rows_with_a_wrong_cell_count_are_named_and_a_superscript_pol_do
         "POL | CONFIGURATION | GEOMETRY\n1 | a | b\n\u00b2 | c | d\n3 | too | many | cells\n",
         encoding="utf-8",
     )
-    with pytest.warns(PyflightstreamWarning, match="1 line"):
-        header, rows = convert._header_and_rows(matrix)
-    assert len(rows) == 2
-    with pytest.warns(PyflightstreamWarning):
+    with pytest.warns(PyflightstreamWarning, match="1 line") as caught:
         added = convert.rows_for_built_geometries(matrix, "1", [(None, "g.fsm")])
+    assert len(caught) == 1
     assert added[0].startswith("2 | ")
 
 
@@ -4347,24 +4391,13 @@ def test_f2_0809_a_drive_relative_output_name_is_refused(name):
     assert template.render_output("sub/ok.txt", campaign="camp", sim="1", point={"alpha": 0.0})
 
 
-def test_f2_0809_a_drive_qualified_manifest_name_is_refused_on_every_platform(
-    tmp_path, monkeypatch
-):
+def test_f2_0809_a_drive_qualified_manifest_name_is_refused_on_every_platform(tmp_path):
     """F-1533: C:x.json passes on a POSIX host unless the name is read as a Windows path."""
-    from pathlib import PurePosixPath
-
-    from pyflightstream.workspace import naming
     from pyflightstream.workspace.naming import RunsManifestError, resolve_manifest
 
-    real_path = naming.Path
-
-    def as_on_posix(argument):
-        # The name under test is read as a POSIX host reads it; the workspace root stays real.
-        return PurePosixPath(argument) if argument in names else real_path(argument)
-
-    names = ("C:rebuilt.json", "d:runs.json")
-    monkeypatch.setattr(naming, "Path", as_on_posix)
-    for name in names:
+    # The rule reads the name as a Windows path whatever the host, so the same names are
+    # refused here as on a POSIX host.
+    for name in ("C:rebuilt.json", "d:runs.json"):
         with pytest.raises(RunsManifestError):
             resolve_manifest(tmp_path, name)
     assert resolve_manifest(tmp_path, "runs-rebuilt.json").name == "runs-rebuilt.json"

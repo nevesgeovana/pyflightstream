@@ -104,17 +104,11 @@ def test_ind01_a_failed_publish_removes_only_its_own_folder(tmp_path, monkeypatc
     The existing level and the unrelated reserved folders are kept and the run's
     own staging folder is gone.
     """
-    from pyflightstream.workspace._refine import _level
-
     src = _source(tmp_path / "src")
     partial = _sentinel(tmp_path / "wing_R2.partial")
     previous = _sentinel(tmp_path / "wing_R2.previous")
     level = _sentinel(tmp_path / "wing_R2")
-
-    def failing(*args, **kwargs):
-        raise OSError("the publish failed")
-
-    monkeypatch.setattr(_level, "_publish", failing)
+    _failing_renames(monkeypatch, fail_put_back=False)
     with pytest.raises(OSError):
         refine_mesh(src, 2.0, overwrite=True)
     assert _tree(tmp_path / "wing_R2") == level

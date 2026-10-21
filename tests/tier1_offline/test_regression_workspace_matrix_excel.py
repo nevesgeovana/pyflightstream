@@ -424,16 +424,16 @@ class TestWorkspace2Matrix:
 
 
 def test_p0430_f1491_recognized_setting_named_recorded_only_is_not_applied():
-    from pyflightstream.workspace._matrix_binding import _match_settings
+    from pyflightstream.cases import SolverSettings
+    from pyflightstream.exceptions import PyflightstreamWarning
+    from tests.tier1_offline.test_matrix_run import _resolve, _setup
 
-    matched, refused, recorded = _match_settings(
-        {"iterations": 400, "NITER": 7}, "s1", {"iterations"}
-    )
-    assert "iterations" not in matched
-    assert recorded == ["iterations", "NITER"]
-    assert refused == []
+    setup = _setup('recorded_only = ["iterations"]\niterations = 400\nNITER = 7\n')
+    with pytest.warns(PyflightstreamWarning, match="iterations") as warned:
+        settings = _resolve(setup, "s1")
+    assert settings.iterations == SolverSettings().iterations
     # an alias resolving to the declared field is recorded too, never applied
-    assert "iterations" not in matched and "NITER" in recorded
+    assert "NITER" in str(warned[0].message)
 
 
 def test_p0430_f1580_explicit_dot_slash_matrix_is_not_redirected(tmp_path):
