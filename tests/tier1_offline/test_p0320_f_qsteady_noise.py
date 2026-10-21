@@ -458,3 +458,60 @@ def test_f158_a_constant_record_is_refused_whatever_its_round_off():
         with pytest.raises(ProductError, match="not constant"):
             qn.compare_signals(first, second)
     assert qn.compare_signals(varying, varying).rms_ratio == pytest.approx(1.0)
+
+
+# --------------------------------------------------------------------------- F4-0506 guards
+
+
+def test_f4_0506_numbers_are_refused_or_exact_not_silently_wrong():
+    gutin = dict(
+        blades=2,
+        omega_rad_s=100.0,
+        c0=340.0,
+        distance_m=10.0,
+        theta_rad=0.5,
+        axial_force_n=1.0,
+        axial_radius_m=1.0,
+    )
+    # F-1394: zero tangential force with zero radius is a zero contribution
+    assert qn.gutin_harmonic_rms(2, tangential_force_n=0.0, inplane_radius_m=0.0, **gutin) > 0
+    with pytest.raises(ProductError, match="in-plane radius"):
+        qn.gutin_harmonic_rms(2, tangential_force_n=1.0, inplane_radius_m=0.0, **gutin)
+    # F-156: a NaN axial force is not a finite azimuth
+    with pytest.raises(ProductError, match="finite"):
+        qn.azimuth_from_moment(
+            (0.0, 1.0, 0.0), float("nan"), axis=(1.0, 0.0, 0.0), reference=(0.0, 0.0, 1.0)
+        )
+    # F-200: an axis of large finite magnitude is still an axis
+    e_a, _, _ = qn._frame((1e200, 0.0, 0.0), (0.0, 1.0, 0.0))
+    assert e_a.tolist() == [1.0, 0.0, 0.0]
+    # F-202: a NaN azimuth is refused, not dropped from the order
+    with pytest.raises(ProductError, match="finite"):
+        qn.fit_azimuthal_series([0.0, 90.0, float("nan"), 180.0, 270.0], [1, 2, 3, 4, 5])
+    # F-203: harmonic 2048 of a zero argument is zero, J_n(0) = 0
+    assert qn._bessel_j(2048, 0.0) == pytest.approx(0.0, abs=1e-12)
+    assert qn._bessel_j(0, 0.0) == pytest.approx(1.0)
+    # F-204: scale cannot turn a record into a constant or an infinity
+    t = np.linspace(0.0, 1.0, 20)
+    wave = np.sin(2 * np.pi * t)
+    for scale in (1e200, 1e-200):
+        got = qn.compare_signals(wave * scale, wave * scale * 2)
+        assert got.rms_ratio == pytest.approx(2.0)
+        assert got.correlation == pytest.approx(1.0)
+
+
+def test_f4_0506_a_subsonic_moving_rotor_is_accepted_f_157():
+    # hub 100 m/s along the axis, tip speed 300 m/s in the plane: |v| <= 316 < 340,
+    # while the sum 400 exceeded c0
+    motion = qn.RotorMotion(
+        blades=1,
+        omega_rad_s=300.0,
+        azimuth0_deg=0.0,
+        axis=(1.0, 0.0, 0.0),
+        reference=(0.0, 1.0, 0.0),
+        hub_velocity_m_s=(100.0, 0.0, 0.0),
+    )
+    load = qn.BladeLoad.steady(axial=-40.0, tangential=0.0, axial_radius_m=1.0)
+    for source in qn.rotor_point_forces(motion, load):
+        assert source.max_speed_m_s == pytest.approx(math.hypot(100.0, 300.0))
+        assert source.max_speed_m_s < 340.0

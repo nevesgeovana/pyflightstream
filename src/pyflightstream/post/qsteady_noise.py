@@ -29,7 +29,9 @@ reports on the blade), ``r`` the distance from the source to the observer and
 ``Ldot_r = (dL/dtau) . rhat``, ``L_M = L. M``, ``M_r = M. rhat`` and
 ``Mdot_r = (dM/dtau) . rhat``. The first term is the far field; the other two
 are the near field, which is kept because an observer a few radii away is
-inside it at the shaft harmonic.
+inside it at the shaft harmonic. The first bracket is of order 1/r, the second of
+order 1/r^2, and the third mixes the two: its ``r Mdot_r`` part is of order 1/r,
+so the source acceleration is not purely near field.
 
 THE RETARDATION. The emission time of an observer time ``t`` is the root
 ``tau < t`` of ``|x(t) - y(tau)| = c0 (t - tau)``, unique for a subsonic
@@ -125,14 +127,20 @@ def _vector(value: ArrayLike, what: str) -> Array:
     return array
 
 
+def _unit(vector: Array, empty: str) -> Array:
+    """Return ``vector`` over its length, scaled first so a huge finite vector cannot overflow."""
+    big = float(np.max(np.abs(vector)))
+    if big == 0.0:
+        raise ProductError(empty)
+    scaled = vector / big
+    return scaled / float(np.linalg.norm(scaled))
+
+
 def _frame(axis: ArrayLike, reference: ArrayLike) -> tuple[Array, Array, Array]:
     """Return ``(e_a, e1, e2)``: the unit axis and the right-handed azimuth-zero pair."""
-    e_a = _vector(axis, "axis")
-    length = float(np.linalg.norm(e_a))
-    if length == 0.0:
-        raise ProductError("the rotor axis has no length")
-    e_a = e_a / length
+    e_a = _unit(_vector(axis, "axis"), "the rotor axis has no length")
     e_1 = _vector(reference, "reference")
+    e_1 = e_1 / max(float(np.max(np.abs(e_1))), 1e-300)
     e_1 = e_1 - float(e_1 @ e_a) * e_a
     reach = float(np.linalg.norm(e_1))
     if reach <= 1e-9:
@@ -220,6 +228,8 @@ def fit_azimuthal_series(
     samples = np.asarray(values, dtype=float).reshape(-1)
     if azimuths.size == 0 or azimuths.shape != samples.shape:
         raise ProductError("a series needs one value per azimuth and at least one sample")
+    if not np.all(np.isfinite(azimuths)):
+        raise ProductError("every azimuth must be a finite number; a NaN azimuth is refused")
     distinct = _distinct(azimuths)
     most = (distinct - 1) // 2
     if orders is None:
@@ -365,6 +375,8 @@ def azimuth_from_moment(
     vector = _vector(moment, "moment")
     plane = vector - float(vector @ e_a) * e_a
     reach = float(np.linalg.norm(plane))
+    if not math.isfinite(axial_force):
+        raise ProductError(f"the axial force must be finite, got {axial_force!r}")
     if axial_force == 0.0 or reach == 0.0:
         raise ProductError("an azimuth needs an axial force and an in-plane moment")
     e_t = -plane / reach * math.copysign(1.0, axial_force)
@@ -605,7 +617,6 @@ def _blade_sources(
 ) -> list[PointForce]:
     """Return one blade's axial and in-plane compact sources, blade one's azimuth at ``start``."""
     e_a, e_1, e_2 = frame
-    speed = float(np.linalg.norm(hub_velocity))
 
     def psi(tau: Array) -> Array:
         return start + omega * np.asarray(tau, dtype=float)
@@ -652,7 +663,12 @@ def _blade_sources(
             result: Array = -radius * omega**2 * radial(tau)
             return result
 
-        return PointForce(where, velocity, acceleration, force, rate, speed + abs(omega * radius))
+        # exact bound on |hub velocity + omega r t|: the axial part of the hub velocity is
+        # perpendicular to the turning plane, the in-plane part can line up with t once
+        axial_part = float(hub_velocity @ e_a)
+        in_plane = float(np.linalg.norm(hub_velocity - axial_part * e_a))
+        bound = math.hypot(axial_part, in_plane + abs(omega * radius))
+        return PointForce(where, velocity, acceleration, force, rate, bound)
 
     return [
         source(float(load.axial_radius_m), axial_force, axial_rate),
@@ -747,7 +763,10 @@ def rotor_loading_noise(
 
 def _bessel_j(order: int, argument: float) -> float:
     """Return ``J_n(z) = (1 / 2 pi) int_0^2pi cos(n t - z sin t) dt`` by the trapezoid rule."""
-    t = np.linspace(0.0, 2.0 * math.pi, _BESSEL_POINTS, endpoint=False)
+    # the trapezoid rule on a period is exact once the points outnumber the integrand's
+    # highest harmonic (order + |argument|); below that, order 2048 aliases to order 0
+    points = max(_BESSEL_POINTS, 2 * (abs(order) + int(abs(argument)) + 1))
+    t = np.linspace(0.0, 2.0 * math.pi, points, endpoint=False)
     return float(np.mean(np.cos(order * t - argument * np.sin(t))))
 
 
@@ -826,12 +845,15 @@ def gutin_harmonic_rms(
     wave = harmonic * omega_rad_s / c0
     sine = math.sin(theta_rad)
     term = axial_force_n * math.cos(theta_rad) * _bessel_j(harmonic, wave * axial_radius_m * sine)
-    term += (
-        tangential_force_n
-        * c0
-        / (omega_rad_s * inplane_radius_m)
-        * _bessel_j(harmonic, wave * inplane_radius_m * sine)
-    )
+    if tangential_force_n != 0.0:
+        if inplane_radius_m == 0.0:
+            raise ProductError("a tangential force needs a nonzero in-plane radius")
+        term += (
+            tangential_force_n
+            * c0
+            / (omega_rad_s * inplane_radius_m)
+            * _bessel_j(harmonic, wave * inplane_radius_m * sine)
+        )
     scale = blades * harmonic * omega_rad_s / (2.0 * math.sqrt(2.0) * math.pi * c0 * distance_m)
     return scale * abs(term)
 
@@ -888,8 +910,9 @@ def compare_signals(
             "a comparison needs two records of the same length, of two samples or more"
         )
     ref_wave, new_wave = ref - ref.mean(), new - new.mean()
-    ref_rms = float(np.sqrt(np.mean(ref_wave**2)))
-    new_rms = float(np.sqrt(np.mean(new_wave**2)))
+    # unit-scaled waves: squares of a 1e200 or a 1e-200 record overflow or underflow
+    ref_scale = float(np.max(np.abs(ref_wave)))
+    new_scale = float(np.max(np.abs(new_wave)))
 
     def constant(record: Array) -> bool:
         # The mean of a constant record is round-off away from it, so the waves are
@@ -897,14 +920,20 @@ def compare_signals(
         spread = float(np.ptp(record))
         return bool(spread <= 8.0 * np.finfo(float).eps * float(np.max(np.abs(record))))
 
-    if constant(ref) or constant(new) or ref_rms == 0.0 or new_rms == 0.0:
+    if constant(ref) or constant(new) or ref_scale == 0.0 or new_scale == 0.0:
         raise ProductError("a comparison needs two records that are not constant")
-    ratio = new_rms / ref_rms
+    ref_unit, new_unit = ref_wave / ref_scale, new_wave / new_scale
+    ref_rms = float(np.sqrt(np.mean(ref_unit**2)))
+    new_rms = float(np.sqrt(np.mean(new_unit**2)))
+    stretch = new_scale / ref_scale
+    ratio = new_rms / ref_rms * stretch
     return SignalComparison(
         rms_ratio=ratio,
-        level_difference_db=20.0 * math.log10(ratio),
-        correlation=float(np.mean(ref_wave * new_wave) / (ref_rms * new_rms)),
-        normalized_rms_difference=float(np.sqrt(np.mean((new_wave - ref_wave) ** 2)) / ref_rms),
+        level_difference_db=20.0 * (math.log10(new_rms / ref_rms) + math.log10(stretch)),
+        correlation=float(np.mean(ref_unit * new_unit) / (ref_rms * new_rms)),
+        normalized_rms_difference=float(
+            np.sqrt(np.mean((new_unit * stretch - ref_unit) ** 2)) / ref_rms
+        ),
         mean_ratio=None if ref.mean() == 0.0 else float(new.mean() / ref.mean()),
     )
 
