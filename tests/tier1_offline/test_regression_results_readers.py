@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import ProductExistsError, PyflightstreamWarning
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.results import (
     REDUCTION_CODES,
@@ -431,6 +431,25 @@ class TestResultsAmbiguity:
         for name in record.outputs:
             assert name in str(caught.value)
 
+    @staticmethod
+    def test_f_1444_the_recorded_path_selects_one_of_two_outputs_sharing_a_name(tmp_path):
+        """F-1444: the diagnostic's selector can select; the base name alone cannot."""
+        workspace, record = _results_loads_support___one_run(
+            tmp_path,
+            ("AL+020", "loads.txt", _RESULTS_LOADS_SUPPORT__STEADY),
+            ("AL+000", "loads.txt", _RESULTS_LOADS_SUPPORT__STEADY),
+        )
+        for name in record.outputs:
+            assert parse_run_loads(workspace, record, loads_file=name) is not None
+        with pytest.raises(AmbiguousLoadsError, match="recorded path"):
+            parse_run_loads(workspace, record, loads_file="loads.txt")
+
+    @staticmethod
+    def test_f_1445_the_sweep_table_docstring_points_at_the_guarded_writer():
+        """F-1445: the one write path is write_table, not DataFrame.to_csv."""
+        assert "DataFrame.to_csv" not in (sweep_table.__doc__ or "")
+        assert "write_table" in (sweep_table.__doc__ or "")
+
 
 class TestResultsDetection:
     """P0400-RESULTS: the results tables of 0.40.0 (lane results)."""
@@ -608,9 +627,9 @@ class TestResultsWriters:
         report = parse_loads(_RESULTS_LOADS_SUPPORT__STEADY)
         target = to_csv(report, tmp_path / "loads.csv")
         before = target.read_bytes()
-        with pytest.raises(MalformedOutputError, match="already exists"):
+        with pytest.raises(ProductExistsError, match="already exists"):
             to_csv(report, target)
-        with pytest.raises(MalformedOutputError, match="already exists"):
+        with pytest.raises(ProductExistsError, match="already exists"):
             write_table(to_table(report), target)
         assert target.read_bytes() == before
         assert to_csv(report, target, overwrite=True) == target

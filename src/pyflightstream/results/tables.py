@@ -72,7 +72,12 @@ if TYPE_CHECKING:
     import pandas as pd
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._errors import (
+    ProductExistsError,
+    PyflightstreamError,
+    PyflightstreamWarning,
+    warn,
+)
 from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN, plain_cell
 from pyflightstream.extras import missing_extra
 from pyflightstream.results.conditions import bind_conditions
@@ -364,8 +369,8 @@ def to_table(result: object) -> pd.DataFrame:
             )
     if isinstance(result, pd.DataFrame):
         raise UnsupportedResultTypeError(
-            "the result is already a pandas DataFrame; call its .to_csv method "
-            "directly instead of tabulating it again"
+            "the result is already a pandas DataFrame; write it with write_table, which "
+            "checks that it states its provenance, instead of tabulating it again"
         )
     sectional_type = _sectional_loads_type()
     if sectional_type is not None and isinstance(result, sectional_type):
@@ -454,11 +459,12 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = Fals
     """
     _refuse_a_frame_that_cannot_say_what_it_is(frame)
     target = Path(path)
+    exists = (
+        f"{target} already exists and overwrite=False; write under a name that "
+        "carries the point, or pass overwrite=True to replace it deliberately"
+    )
     if target.exists() and not overwrite:
-        raise MalformedOutputError(
-            f"{target} already exists and overwrite=False; write under a name that "
-            "carries the point, or pass overwrite=True to replace it deliberately"
-        )
+        raise ProductExistsError(exists)
     # NO CELL HOLDS A COMMA OR A DOUBLE QUOTE (G16), and nothing is
     # quoted: a reader that splits each line on `,` (`numpy.genfromtxt` does, and
     # honours no CSV quoting) reads every row to the header's count. The campaign
@@ -469,7 +475,18 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = Fals
     plain = frame.rename(columns=lambda name: plain_cell(str(name)))
     plain = plain.map(lambda value: plain_cell(value) if isinstance(value, str) else value)
     # A declined value (NaN) is the NA token, as every other product writes it (F-251).
-    plain.to_csv(target, index=False, lineterminator=_textio.LINE_END, na_rep=NOT_APPLICABLE)
+    if overwrite:
+        plain.to_csv(target, index=False, lineterminator=_textio.LINE_END, na_rep=NOT_APPLICABLE)
+        return target
+    # Created exclusively: a writer that appeared between the check above and
+    # here must not be truncated by a call that promised not to replace a file.
+    try:
+        with target.open("x", encoding="utf-8", newline="") as stream:
+            plain.to_csv(
+                stream, index=False, lineterminator=_textio.LINE_END, na_rep=NOT_APPLICABLE
+            )
+    except FileExistsError:
+        raise ProductExistsError(exists) from None
     return target
 
 
@@ -677,8 +694,9 @@ def parse_run_loads(
         The manifest record, or its ``run_id`` to look up in the
         manifest.
     loads_file : str, optional
-        Exact file name of the loads spreadsheet among the collected
-        outputs; required when several outputs parse as loads tables.
+        File name of the loads spreadsheet among the collected outputs, or
+        the recorded path of one of them when several share the name;
+        required when several outputs parse as loads tables.
 
     Returns
     -------
@@ -716,7 +734,11 @@ def parse_run_loads(
             "EXPORT_SOLVER_ANALYSIS_SPREADSHEET leaves no coefficient table behind"
         )
     if loads_file is not None:
-        candidates = [name for name in record.outputs if Path(name).name == loads_file]
+        # The recorded relative path selects one file exactly; the base name
+        # selects every file of that name.
+        candidates = [name for name in record.outputs if name == loads_file] or [
+            name for name in record.outputs if Path(name).name == loads_file
+        ]
         if not candidates:
             raise LoadsNotFoundError(
                 f"run {record.run_id!r} has no collected output named {loads_file!r}; "
@@ -729,7 +751,8 @@ def parse_run_loads(
             raise AmbiguousLoadsError(
                 f"run {record.run_id!r} holds {len(candidates)} collected outputs named "
                 f"{loads_file!r} ({', '.join(candidates)}); the base name does not say "
-                "which is the coefficient table of this run"
+                "which is the coefficient table of this run. Pass loads_file as the recorded "
+                f"path of one of them, for example {candidates[0]!r}"
             )
         report = parse_loads(
             _read_output(sim_dir, candidates[0], record),
@@ -818,8 +841,9 @@ def sweep_table(
     resolved through :func:`parse_run_loads`. Runs without a loads
     spreadsheet (failed points) keep their identity row with NaN
     coefficients, so the sweep table always accounts for every
-    executed point. ``DataFrame.to_csv(path, index=False)`` then
-    writes the final csv.
+    executed point. :func:`write_table` then writes the final csv; it is
+    the one write path, and it refuses a table that does not state its
+    provenance.
 
     Parameters
     ----------

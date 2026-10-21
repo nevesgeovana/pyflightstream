@@ -15,6 +15,7 @@ import pandas as pd
 import pytest
 
 import pyflightstream
+from pyflightstream._errors import ProductExistsError
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.results import (
     DATA_ORIGIN_CODES,
@@ -162,7 +163,7 @@ def test_to_dataframe_refuses_unknown_inputs_didactically():
         to_table(object())
     with pytest.raises(ValueError, match="empty result list"):
         to_table([])
-    with pytest.raises(TypeError, match="to_csv method directly"):
+    with pytest.raises(TypeError, match="write it with write_table"):
         to_table(pd.DataFrame({"CL": [0.4]}))
 
 
@@ -989,8 +990,27 @@ def test_write_table_can_be_told_not_to_replace_a_file(tmp_path):
     target = tmp_path / "polar.csv"
     write_table(frame, target)
     assert write_table(frame, target, overwrite=True).is_file()
-    with pytest.raises(MalformedOutputError, match="already exists"):
+    with pytest.raises(ProductExistsError, match="already exists") as refused:
         write_table(frame, target, overwrite=False)
+    assert isinstance(refused.value, ValueError)  # handlers that caught it still do
+
+
+def test_f_830_a_file_created_after_the_existence_check_is_not_truncated(tmp_path, monkeypatch):
+    frame = pd.DataFrame(
+        {
+            "CL": [0.4],
+            "data_origin": ["raw"],
+            "reduction": ["none"],
+            "reduction_window": ["not_applicable"],
+        }
+    )
+    racing = tmp_path / "racing.csv"
+    racing.write_text("kept", encoding="utf-8")
+    real_exists = Path.exists
+    monkeypatch.setattr(Path, "exists", lambda self: False if self == racing else real_exists(self))
+    with pytest.raises(ProductExistsError):
+        write_table(frame, racing, overwrite=False)
+    assert racing.read_text(encoding="utf-8") == "kept"
 
 
 def test_the_published_codes_are_integers_and_append_only():
