@@ -130,6 +130,28 @@ def test_p0430_f727_write_script_refuses_names_that_leave_scripts(tmp_path, name
     assert not (tmp_path / "abs.txt").exists()
 
 
+def test_f1507_a_malformed_outputs_entry_is_an_input_artifact_error(tmp_path):
+    """F-1507: a build record whose outputs entry is not an object is refused by name."""
+    from pyflightstream.workspace._geometry_record import _judge_the_record
+
+    folder = tmp_path / "body"
+    folder.mkdir()
+    instruction = folder / "body.geometry.toml"
+    instruction.write_text("x = 1\n", encoding="utf-8")
+    (folder / "body.obj").write_text("v 0 0 0\n", encoding="utf-8")
+    record = {
+        "instruction": {
+            "file": instruction.name,
+            "sha256": hashlib.sha256(instruction.read_bytes()).hexdigest(),
+        },
+        "inputs": [],
+        "outputs": ["body.obj"],
+    }
+    (folder / "body.build.json").write_text(json.dumps(record), encoding="utf-8")
+    with pytest.raises(InputArtifactError, match="outputs must be a list of objects"):
+        _judge_the_record(folder / "body.obj", "1", None)
+
+
 def test_collect_outputs_moves_declared_files_into_outputs(tmp_path):
     produced = tmp_path / "loads.txt"
     produced.write_text("data", encoding="utf-8")

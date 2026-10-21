@@ -107,11 +107,14 @@ def _judge_the_record(geometry: Path, pol: str, fs_build: str | None) -> None:
             f"({', '.join(changed)}): the body on disk is not the one the instruction now "
             f"describes. Rebuild it with `{_rebuild_command(record, data)}` ({_PAGE})."
         )
-    outputs = [
-        item
-        for item in data.get("outputs", [])
-        if Path(str(item.get("file", ""))).name == geometry.name
-    ]
+    listed = data.get("outputs", [])
+    if not isinstance(listed, list) or not all(isinstance(item, dict) for item in listed):
+        # F-1507: a malformed entry is a refusal naming the record, never an AttributeError.
+        raise InputArtifactError(
+            f"{record} cannot be read as a build record: outputs must be a list of "
+            "objects, each with a file and a sha256."
+        )
+    outputs = [item for item in listed if Path(str(item.get("file", ""))).name == geometry.name]
     if outputs and geometry.is_file() and file_sha256(geometry) != outputs[0].get("sha256"):
         warn(
             f"{where}, and the file no longer hashes as its build recorded: it was saved again "
