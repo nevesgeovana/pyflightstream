@@ -408,3 +408,14 @@ def test_workbook_creation_uses_the_shared_missing_extra(tmp_path, monkeypatch):
     assert caught.value.remedy == "pip install pyflightstream[excel]"
     assert isinstance(caught.value.__cause__, ImportError)
     assert not target.parent.exists()
+
+
+def test_f_1281_missing_extra_error_survives_pickling():
+    """F-1281 X-F-1133: the keyword-only constructor must not break a round trip."""
+    import pickle
+
+    error = MissingExtraError(extra="plot", package="matplotlib", purpose="Drawing")
+    again = pickle.loads(pickle.dumps(error))
+    assert isinstance(again, MissingExtraError)
+    assert (again.extra, again.package, again.purpose) == ("plot", "matplotlib", "Drawing")
+    assert str(again) == str(error)

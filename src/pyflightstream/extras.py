@@ -67,12 +67,22 @@ class MissingExtraError(PyflightstreamError, ImportError):
             )
         self.extra = extra
         self.package = package
+        self.purpose = purpose
         self.remedy = f"pip install pyflightstream[{extra}]"
         super().__init__(
             f"{purpose} needs {package}, which ships with the optional "
             f"[{extra}] extra and is not installed in this environment. "
             f"Install it with: {self.remedy}"
         )
+
+    def __reduce__(self) -> tuple[object, tuple[str, str, str]]:
+        """Pickle by the keyword fields, since ``__init__`` takes no positional message."""
+        return (_rebuild_missing_extra, (self.extra, self.package, self.purpose))
+
+
+def _rebuild_missing_extra(extra: str, package: str, purpose: str) -> MissingExtraError:
+    """Rebuild a :class:`MissingExtraError` from its fields, for unpickling."""
+    return MissingExtraError(extra=extra, package=package, purpose=purpose)
 
 
 def missing_extra(extra: str, *, package: str, purpose: str) -> MissingExtraError:
