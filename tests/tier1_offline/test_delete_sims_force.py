@@ -239,6 +239,17 @@ def test_f1543_malformed_storage_register_raises_storage_error(tmp_path, documen
         storage_module.record_storage_call(workspace.root, {"action": "x"})
 
 
+
+
+def test_f347_disk_estimate_ignores_empty_datapoint_folders(tmp_path):
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.init(workspace.root)
+    _write(workspace.sim_dir("7001") / "datapoints" / "DP-1" / "x.bin", "a" * 1000)
+    (workspace.sim_dir("7001") / "datapoints" / "DP-2").mkdir(parents=True)
+    (workspace.sim_dir("7001") / "datapoints" / "DP-3").mkdir(parents=True)
+    line, fits = storage_module.disk_estimate(workspace, 10)
+    assert "(1 measured)" in line
+    assert fits
 def test_f1236_sync_does_not_relink_a_submitted_record_only_simulation(tmp_path):
     main, other = _sync_pair(tmp_path, "submitted")
     _linked_sim(other, "8010")

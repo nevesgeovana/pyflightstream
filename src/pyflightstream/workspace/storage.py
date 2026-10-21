@@ -2087,7 +2087,9 @@ def disk_estimate(
     sims = workspace.root / "sims"
     for datapoint in sims.glob("sim_*/datapoints/DP-*") if sims.is_dir() else []:
         if datapoint.is_dir() and not is_reparse(datapoint):
-            sizes.append(sum(_size(p) for p in _walk_files(datapoint)))
+            size = sum(_size(p) for p in _walk_files(datapoint))
+            if size > 0:  # an empty folder is no completed sample
+                sizes.append(size)
     if not sizes:
         return (
             f"{pending_points} point(s) to run; {human_bytes(free)} free on the workspace disk; "
