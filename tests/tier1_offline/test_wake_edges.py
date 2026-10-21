@@ -641,3 +641,11 @@ def test_a_byte_order_mark_before_the_unit_line_is_accepted(tmp_path):
     read = read_trailing_edge_points(path)
     assert read.unit == "METER"
     assert read.points.shape == (1, 3)
+
+
+def test_the_node_file_note_states_lf_line_ends_not_the_platform_mode(tmp_path):
+    """X-F-1748: the writer emits LF on every platform, and its note says so."""
+    destination = tmp_path / "n.txt"
+    write_node_file(destination, THREE_NODES, unit="METER", simulation_unit="METER")
+    assert b"\r" not in destination.read_bytes()
+    assert "platform's text mode" not in (write_node_file.__doc__ or "")

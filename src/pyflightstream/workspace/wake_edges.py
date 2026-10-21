@@ -767,8 +767,9 @@ def matched_trailing_edge_points(
     mid-point lies within ``tolerance`` of a
     point and marks nothing, in silence, for a point outside that distance
     of every edge's mid-point (RPT-061); an end vertex of an edge is such a
-    point. So each point must lie within the tolerance of a mesh-edge
-    mid-point, compared in the simulation's length unit, and no two points
+    point whenever the edge is longer than twice the tolerance. So each
+    point must lie within the tolerance of a mesh-edge mid-point,
+    compared in the simulation's length unit, and no two points
     may be nearest one edge, since the solver would then log fewer
     imported edges than points written and the run would be refused after
     the seat is spent.
@@ -946,8 +947,8 @@ def write_node_file(
     importing it here would point upward. The rule it enforces is the
     same rule.
 
-    The file is written in the platform's text mode, as the run writes
-    the script that names it, which is the form the measured file had.
+    The file is written with LF line ends on every platform, which is
+    the form the measured file had.
 
     Examples
     --------
