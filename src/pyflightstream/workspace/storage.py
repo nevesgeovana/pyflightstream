@@ -161,6 +161,22 @@ class StorageError(WorkspaceError):
 # --------------------------------------------------------------------------- helpers
 
 
+def _load_toml(path: Path, kind: str) -> dict[str, Any]:
+    """Read a TOML document of the storage commands, refusing it by path when it cannot be read."""
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise StorageError(f"{path}: the {kind} cannot be read as TOML ({error})") from error
+
+
+def _load_json(path: Path, kind: str) -> Any:
+    """Read a JSON document of the storage commands, refusing it by path when it cannot be read."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise StorageError(f"{path}: the {kind} cannot be read as JSON ({error})") from error
+
+
 def _stamp() -> str:
     # THE PACKAGE'S ONE ARCHIVE CLOCK, local time (PFS-2096.026): every other
     # writer of archive/<stem>-<stamp>.json stamps its copy in local time, and
@@ -192,7 +208,7 @@ def _read_rows(path: Path) -> list[dict[str, Any]]:
         return read_rows(path)
     if not path.is_file():
         return []
-    rows = json.loads(path.read_text(encoding="utf-8"))
+    rows = _load_json(path, "list of run records")
     if not isinstance(rows, list):
         raise StorageError(f"{path} is not a list of run records")
     return rows
@@ -297,7 +313,7 @@ def read_storage_calls(root: str | Path) -> list[dict[str, Any]]:
     path = Path(root) / STORAGE_FILE
     if not path.is_file():
         return []
-    document = json.loads(path.read_text(encoding="utf-8"))
+    document = _load_json(path, "storage record")
     if (
         not isinstance(document, dict)
         or document.get("schema") != STORAGE_SCHEMA
@@ -752,7 +768,7 @@ def read_recipe(root: Path, recipe: str) -> tuple[Path, dict[str, Any]]:
     path = root / MANAGEMENT_DIR / f"{name}.toml"
     if not path.is_file():
         raise StorageError(f"{path}: no such recipe")
-    document = tomllib.loads(path.read_text(encoding="utf-8"))
+    document = _load_toml(path, "storage recipe")
     unknown = set(document).difference(_RECIPE_TABLES + ("description",))
     if unknown:
         raise StorageError(
@@ -1010,7 +1026,7 @@ def _forget_products(
     products that still hold the deleted points are named under
     ``deleted_by_storage`` until a post rebuilds the manifest.
     """
-    document = json.loads(manifest.read_text(encoding="utf-8"))
+    document = _load_json(manifest, "products manifest")
     products = dict(document.get("products", {}))
     for name in item["own"]:
         products.pop(name, None)
@@ -1308,7 +1324,7 @@ def read_sync_config(root: Path) -> tuple[str, dict[str, Path]]:
             f'{path} not found: name the workspaces there, main = "<name>" and one '
             '[workspaces.<name>] table with path = "..." per workspace'
         )
-    document = tomllib.loads(path.read_text(encoding="utf-8"))
+    document = _load_toml(path, "sync configuration")
     main, table = document.get("main"), document.get("workspaces")
     if not isinstance(table, dict) or not table:
         raise StorageError(f"{path}: no [workspaces.<name>] table")
@@ -1339,7 +1355,7 @@ def read_matrix_owners(root: Path) -> dict[str, str]:
     both workspaces.
     """
     path = root / SYNC_CONFIG
-    document = tomllib.loads(path.read_text(encoding="utf-8"))
+    document = _load_toml(path, "sync configuration")
     owners: dict[str, str] = {}
     for name, item in dict(document.get("workspaces", {})).items():
         declared = item.get("matrices", []) if isinstance(item, dict) else []

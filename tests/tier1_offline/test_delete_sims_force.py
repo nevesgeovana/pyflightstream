@@ -376,3 +376,27 @@ def test_x_f1370_an_archive_without_a_hash_table_warns_that_nothing_is_verified(
     workspace, archive = _archive_with_hash_table(tmp_path, None)
     with pytest.warns(Warning, match="without a hash check"):
         storage_module._expand_archive(workspace, workspace.sim_dir("9001"), archive)
+
+
+@pytest.mark.parametrize("text", ["{not json", "[1, 2]", "5", "null"])
+def test_f2_0809_a_storage_record_that_is_not_a_record_is_a_storage_error(tmp_path, text):
+    """PFS-2119.013: invalid JSON and a non-object document both refuse by path."""
+    (tmp_path / storage_module.STORAGE_FILE).write_text(text, encoding="utf-8")
+    with pytest.raises(StorageError) as caught:
+        storage_module.read_storage_calls(tmp_path)
+    assert storage_module.STORAGE_FILE in str(caught.value)
+
+
+def test_f2_0809_a_malformed_toml_of_the_storage_commands_names_the_file(tmp_path):
+    """PFS-2119.013: the recipe and sync-configuration readers refuse a broken file by path."""
+    (tmp_path / storage_module.MANAGEMENT_DIR).mkdir(parents=True)
+    recipe = tmp_path / storage_module.MANAGEMENT_DIR / "m001.toml"
+    recipe.write_text("[[prune_step_exports\n", encoding="utf-8")
+    with pytest.raises(StorageError, match="m001.toml"):
+        storage_module.read_recipe(tmp_path, "m001")
+    config = tmp_path / storage_module.SYNC_CONFIG
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text("main = \n", encoding="utf-8")
+    for reader in (storage_module.read_sync_config, storage_module.read_matrix_owners):
+        with pytest.raises(StorageError, match=config.name):
+            reader(tmp_path)
