@@ -492,8 +492,9 @@ def _warn_recorded_settings(recorded: list[str], set_code: str) -> None:
         )
         warnings.warn(
             f"setup preset {set_code!r}: key(s) {reasons} are RECORDED in the artifact "
-            "and emit nothing, so the solver takes its own default for each. Every "
-            "other key of this preset reaches the script.",
+            "and emit nothing from this preset: the reason beside each key says what, "
+            "if anything, supplies that setting instead; where nothing does, the solver "
+            "takes its own default. Every other key of this preset reaches the script.",
             PyflightstreamWarning,
             stacklevel=3,
         )
@@ -536,8 +537,8 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         warnings.warn(
             f"setup preset {set_code!r}: stabilization is DISABLED, so no "
             "stabilization strength is emitted and the solver takes its own default. "
-            "A disabled stabilization is an absent one and not a strength of zero, "
-            "which would still be switched on.",
+            "A disabled stabilization is written as an absent strength, never as a "
+            "strength of zero.",
             PyflightstreamWarning,
             stacklevel=2,
         )

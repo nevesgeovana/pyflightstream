@@ -130,6 +130,23 @@ def test_p0430_f727_write_script_refuses_names_that_leave_scripts(tmp_path, name
     assert not (tmp_path / "abs.txt").exists()
 
 
+def test_f683_f684_setup_warnings_state_only_what_the_code_does():
+    """F-683, F-684: the recorded-only warning points at each key's reason; no unevidenced claim."""
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace.inputs import SetupArtifact
+    from pyflightstream.workspace.matrix import _solver_from_setup
+
+    with pytest.warns(PyflightstreamWarning) as caught:
+        _solver_from_setup(
+            SetupArtifact(settings={"wake_layers": 3, "stabilization": False}), "s001"
+        )
+    said = " ".join(str(item.message) for item in caught)
+    assert "the reason beside each key says what" in said, said
+    assert "takes its own default for each" not in said, said
+    assert "would still be switched on" not in said, said
+    assert "never as a strength of zero" in said, said
+
+
 def test_f1507_a_malformed_outputs_entry_is_an_input_artifact_error(tmp_path):
     """F-1507: a build record whose outputs entry is not an object is refused by name."""
     from pyflightstream.workspace._geometry_record import _judge_the_record
