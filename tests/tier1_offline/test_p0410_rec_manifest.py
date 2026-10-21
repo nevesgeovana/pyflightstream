@@ -105,6 +105,22 @@ def test_p0430_w007_non_file_history_is_refused(tmp_path):
         read_rows(path)
 
 
+@pytest.mark.parametrize("timeout", [float("nan"), float("inf"), -1.0])
+def test_p0430_w007_lock_refuses_invalid_timeout(tmp_path, timeout):
+    from pyflightstream.workspace.manifest import manifest_lock
+
+    with pytest.raises(WorkspaceError, match="timeout_s"):
+        with manifest_lock(
+            tmp_path / "runs.json",
+            root=tmp_path,
+            timeout_s=timeout,
+            renew_s=5,
+            stale_s=300,
+            poll_s=0.001,
+        ):
+            pass
+
+
 def test_p0410_rec_shared_definitions(tmp_path):
     ws = CampaignWorkspace(tmp_path)
     ws.append_record(_record())

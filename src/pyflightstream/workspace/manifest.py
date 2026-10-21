@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import enum
 import json
+import math
 import os
 import shutil
 import socket
@@ -1356,7 +1357,8 @@ def manifest_lock(
     root : Path
         The workspace directory, created before acquiring the lease.
     timeout_s : float
-        Maximum wait in seconds for another writer or the arbitration guard.
+        Finite, nonnegative maximum wait in seconds for another writer or the
+        arbitration guard.
     renew_s : float
         Seconds between heartbeat renewals while the lease is held.
     stale_s : float
@@ -1372,8 +1374,13 @@ def manifest_lock(
     Raises
     ------
     WorkspaceError
-        If another writer holds the manifest for the configured wait bound.
+        If the timeout is invalid or another writer holds the manifest for the
+        configured wait bound.
     """
+    if not math.isfinite(timeout_s) or timeout_s < 0:
+        raise WorkspaceError(
+            f"timeout_s={timeout_s!r} is invalid; provide a finite nonnegative wait in seconds"
+        )
     root.mkdir(parents=True, exist_ok=True)
     guarded = manifest
     lock = guarded.with_suffix(".json.lock")
