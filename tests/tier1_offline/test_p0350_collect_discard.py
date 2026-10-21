@@ -266,3 +266,20 @@ def test_help_explains_default_mode_rerun(capsys):
     assert "--discard-walltime" in out
     assert "a default-mode plan needs --force-rerun" in out
     assert "A grouped plan takes it again from the start automatically" in out
+
+
+def test_f609_discard_walltime_leaves_a_superseded_predecessor_alone(tmp_path):
+    """F-609: a record a later run continues is not current, so the discard does not take it."""
+    from pyflightstream.run.collect import _discard_walltime
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.init(tmp_path / "camp")
+    workspace.append_record(record("camp/sim_2006/AL+000"))
+    workspace.append_record(
+        record("camp/sim_2006/r1/AL+000").model_copy(update={"continues": "camp/sim_2006/AL+000"})
+    )
+    (discarded,) = _discard_walltime(workspace, None)
+    assert discarded.run_id == "camp/sim_2006/r1/AL+000"
+    by_id = {entry.run_id: entry.status for entry in workspace.read_manifest()}
+    assert by_id["camp/sim_2006/AL+000"] is RunStatus.WALLTIME_REACHED
+    assert by_id["camp/sim_2006/r1/AL+000"] is RunStatus.FAILED_MARKED

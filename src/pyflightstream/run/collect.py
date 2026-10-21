@@ -1529,10 +1529,12 @@ def _discard_walltime(
     from pyflightstream.run._record_files import mark_runs_failed
 
     latest = {record.run_id: record for record in workspace.read_manifest()}
+    # F-609: a record a later run continues is superseded; only the end of a chain is current.
+    superseded = {record.continues for record in latest.values() if record.continues}
     run_ids = [
         record.run_id
         for record in _of_the_simulations(list(latest.values()), selected)
-        if record.status is RunStatus.WALLTIME_REACHED
+        if record.status is RunStatus.WALLTIME_REACHED and record.run_id not in superseded
     ]
     return mark_runs_failed(
         workspace,
