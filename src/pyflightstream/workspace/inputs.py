@@ -32,11 +32,11 @@ The library tree, created by ``CampaignWorkspace.init``:
   keeps the raw values for later matrix binding. The id
   begins with ``s``.
 - ``inputs/pproc/<id>.toml``: the post-processing artifact (PFS-2029.07),
-  six optional tables: ``[groups]`` maps a group name to the families it
-  aggregates, ``[exports]`` selects the export kinds, ``[sections]``,
-  ``[plots]`` and ``[[probes]]`` are the solver definitions, ``[products]``
-  says which files are written after the run. The id begins with ``p``,
-  after the PPROC column that carries it.
+  twelve optional tables (listed on :class:`PprocArtifact`): ``[groups]`` maps a
+  product name to one alias string, ``[exports]`` selects the export kinds,
+  ``[sections]``, ``[plots]`` and ``[[probes]]`` are the solver definitions,
+  ``[products]`` says which files are written after the run. The id begins
+  with ``p``, after the PPROC column that carries it.
 - ``inputs/geometries/``: staged geometry files of any extension,
   registered by file name; the id is the stem. A geometry sits either
   directly in the folder (the flat layout) or in one subfolder named by

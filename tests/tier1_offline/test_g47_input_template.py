@@ -1032,6 +1032,16 @@ def test_x_f1352_a_linked_job_file_at_the_top_of_a_batch_is_not_synced(tmp_path,
     assert plain in found and linked not in found
 
 
+
+
+def test_x_f1741_the_module_and_the_class_agree_on_the_pproc_tables():
+    import pyflightstream.workspace.inputs as inputs_module
+
+    assert "twelve optional tables" in inputs_module.__doc__
+    assert "twelve tables" in inputs_module.PprocArtifact.__doc__
+    assert "six optional tables" not in inputs_module.__doc__
+
+
 @pytest.mark.parametrize("name", ["", "..", "."])
 def test_x_f1363_a_declared_output_that_is_not_a_file_name_is_refused(tmp_path, name):
     from pyflightstream.workspace.fsi_external_setup import (
