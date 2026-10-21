@@ -4001,3 +4001,17 @@ class TestF2Package0607Workspace:
         comparison = _Comparison(False, None, ["SET_X 5"], ["SET_X 7"])
         text = drift(comparison, tmp_path, [])
         assert "too short to attribute" in text and "no input of the row" not in text
+
+    @staticmethod
+    def test_fr219_a_rebuild_refusal_names_every_changed_line(tmp_path):
+        """FR-219: each changed script line is named with its class, not the first six."""
+        from pyflightstream.workspace._script_comparison import _Comparison, drift
+
+        ran = [f"SET_PLOT_TYPE old{number}" for number in range(9)]
+        renders = [f"SET_PLOT_TYPE new{number}" for number in range(9)]
+        (tmp_path / "pproc").mkdir()
+        (tmp_path / "pproc" / "p1.toml").write_text("new8 = 1\n", encoding="utf-8")
+        text = drift(_Comparison(False, None, renders, ran), tmp_path, ["pproc/p1.toml"])
+        assert "line 9:" in text and "more changed" not in text
+        assert text.count("plot type line") == 9
+        assert "(plot type line, from inputs/pproc/p1.toml)" in text.split("; ")[8]

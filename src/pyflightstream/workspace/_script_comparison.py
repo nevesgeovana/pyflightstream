@@ -11,7 +11,7 @@ import contextlib
 import dataclasses
 import difflib
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 #: A quoted interpreter path in a rendered script, which names the Python that wrote it.
@@ -152,8 +152,41 @@ def _commands(lines: Sequence[str]) -> list[tuple[int, str]]:
     return [(number, " | ".join(parts)) for number, parts in commands]
 
 
+def changed_words(left: str, right: str) -> tuple[str, list[str]]:
+    """Return a changed command's verb and the words its two sides differ by."""
+    verb = (left or right).split(" ")[0]
+    left_words = {word for word in re.split(r"[\s,|]+", left) if word}
+    right_words = {word for word in re.split(r"[\s,|]+", right) if word}
+    return verb, sorted(word for word in left_words ^ right_words if word != verb)
+
+
+def holders_of(differing: Sequence[str], texts: Mapping[str, str]) -> list[str]:
+    """Return the inputs whose text holds a word the two sides differ by (words of 3+ letters)."""
+    words = [word for word in differing if len(word) > 2]
+    return sorted(
+        name
+        for name, text in texts.items()
+        if any(
+            re.search(rf"(?<![A-Za-z0-9_]){re.escape(word)}(?![A-Za-z0-9_])", text)
+            for word in words
+        )
+    )
+
+
+def drift_class(verb: str, holders: Sequence[str]) -> str:
+    """Name what a changed command is: a drift class by its verb, else a renamed group or a line."""
+    what = _DRIFT_VERBS.get(verb)
+    if what is not None:
+        return what
+    return (
+        "pproc group renamed"
+        if any(name.startswith("pproc/") for name in holders)
+        else "script line"
+    )
+
+
 def drift(
-    comparison: _Comparison, inputs: Path, input_files: Sequence[str], *, limit: int | None = 6
+    comparison: _Comparison, inputs: Path, input_files: Sequence[str], *, limit: int | None = None
 ) -> str:
     """Name each difference between the executed and the rendered script (RST-8).
 
@@ -164,7 +197,8 @@ def drift(
     there now, so a reader knows WHICH input changed after the run rather
     than only that something did. An input is named when it holds a word the
     two sides differ by; failing that, the inputs a class's lines come from
-    are named as candidates.
+    are named as candidates. Every changed command is named unless ``limit``
+    caps the list.
     """
     texts = {}
     for name in input_files:
@@ -173,26 +207,9 @@ def drift(
     items = _changed_commands(comparison)
     described: list[str] = []
     for line, left, right in items[:limit]:
-        verb = (left or right).split(" ")[0]
-        what = _DRIFT_VERBS.get(verb)
-        left_words = {word for word in re.split(r"[\s,|]+", left) if word}
-        right_words = {word for word in re.split(r"[\s,|]+", right) if word}
-        differing = sorted(word for word in left_words ^ right_words if word != verb)
-        words = [word for word in differing if len(word) > 2]
-        holders = sorted(
-            name
-            for name, text in texts.items()
-            if any(
-                re.search(rf"(?<![A-Za-z0-9_]){re.escape(word)}(?![A-Za-z0-9_])", text)
-                for word in words
-            )
-        )
-        if what is None:
-            what = (
-                "pproc group renamed"
-                if any(name.startswith("pproc/") for name in holders)
-                else "script line"
-            )
+        verb, differing = changed_words(left, right)
+        holders = holders_of(differing, texts)
+        what = drift_class(verb, holders)
         if holders:
             where = f"from inputs/{', inputs/'.join(holders)}"
         else:
@@ -204,7 +221,7 @@ def drift(
                 else (
                     f"from an input not identified: the changed text {differing[:4]} is too "
                     "short to attribute to one"
-                    if differing and not words
+                    if differing and not any(len(word) > 2 for word in differing)
                     else "from no input of the row (the package's own rendering)"
                 )
             )
