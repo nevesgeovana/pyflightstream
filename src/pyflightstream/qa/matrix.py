@@ -918,8 +918,16 @@ def physics_from_workspace(
     0
     """
     path = physics_matrix(root, matrix)
-    physics_build(path)
-    physics_rows(path)
+    build = physics_build(path)
+    unsupported = [
+        case_id for case_id in physics_rows(path) if not PHYSICS_CASES[case_id].supports(build)
+    ]
+    if unsupported:
+        raise PhysicsEnvironmentError(
+            f"{', '.join(unsupported)} of {path.name} has no evidence for FlightStream {build} "
+            "(its minimum version is later); nothing was run. Move the row to a matrix of a "
+            "build that supports it."
+        )
     workspace = _workspace(root)
     try:
         run_physics_matrix(workspace, path, name=name, resume=resume)

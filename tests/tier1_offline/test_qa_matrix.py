@@ -537,3 +537,22 @@ def test_a_case_named_by_two_rows_is_refused_naming_both(stub_workspace, tmp_pat
     assert CampaignWorkspace(stub_workspace).read_manifest() == [], (
         "points ran before the two-rows refusal; the shape of the matrix is known before the run"
     )
+
+
+def test_a_case_the_build_has_no_evidence_for_is_refused_before_anything_runs(
+    stub_workspace, tmp_path, capsys, monkeypatch
+):
+    """PFS-2119.044: the case version gate is enforced, not only shown."""
+    import dataclasses
+
+    from pyflightstream.qa import matrix as qa_matrix
+
+    case = qa_matrix.PHYSICS_CASES["PHY-01"]
+    monkeypatch.setitem(
+        qa_matrix.PHYSICS_CASES, "PHY-01", dataclasses.replace(case, minimum_version="26.125")
+    )
+    code = _cli(["physics", "--workspace", str(stub_workspace), "--report-dir", str(tmp_path)])
+    error = capsys.readouterr().err
+    assert code == 2
+    assert "PHY-01" in error and "no evidence" in error, error
+    assert not list(tmp_path.glob("PHY-*"))
