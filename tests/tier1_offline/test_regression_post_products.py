@@ -1741,3 +1741,53 @@ def test_f3_0203_f1373_an_acoustic_only_record_still_gets_its_acoustic_products(
     )
     assert any(path.name == "P1_acoustics_summary.csv" for path in written)
     assert "acoustics/P1_acoustics_summary.csv" in names
+
+
+def _f3_0203_unreadable(monkeypatch, path):
+    """Make reading ``path`` raise a PermissionError, as an unreadable export does."""
+    original = Path.read_text
+
+    def refuse(self, *args, **kwargs):
+        if self == path:
+            raise PermissionError("denied")
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", refuse)
+
+
+def _f3_0203_sim_ctx(tmp_path, **products):
+    return SimpleNamespace(
+        pproc=SimpleNamespace(
+            products=SimpleNamespace(sections=True, polars=True, **products),
+            probes=[],
+            samples_normal_probes=lambda: False,
+        ),
+        record_of={"P1": SimpleNamespace(recipe="steady", package_version="0.42.0")},
+        out=tmp_path / "out",
+        target=lambda p: p,
+        skipped={},
+        sim_id="3207",
+        probe_positions={},
+    )
+
+
+def test_f3_0203_f789_an_unreadable_sectional_export_is_a_skip_of_its_product(
+    tmp_path, monkeypatch
+):
+    """F-789: an OSError reading the sectional export names the product, never raises."""
+    ctx = _f3_0203_sim_ctx(tmp_path)
+    export = tmp_path / "P1_sectional.txt"
+    export.write_text("x", encoding="utf-8")
+    _f3_0203_unreadable(monkeypatch, export)
+    _sim._sections_products(ctx, SimpleNamespace(name="P1"), export)
+    assert "denied" in ctx.skipped["sections/P1_sections.csv"]
+
+
+def test_f3_0203_f790_an_unreadable_probe_export_is_a_skip_of_its_product(tmp_path, monkeypatch):
+    """F-790: an OSError reading the probe-points export names the product, never raises."""
+    ctx = _f3_0203_sim_ctx(tmp_path)
+    export = tmp_path / "P1_probes.txt"
+    export.write_text("x", encoding="utf-8")
+    _f3_0203_unreadable(monkeypatch, export)
+    _sim._probes_products(ctx, SimpleNamespace(name="P1"), export, False)
+    assert "denied" in ctx.skipped["probes/P1_probes.csv"]

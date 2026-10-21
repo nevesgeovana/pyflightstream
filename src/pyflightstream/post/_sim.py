@@ -772,7 +772,7 @@ def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | N
             rotors=_section_rotors(ctx.live, ctx.aliases, record),
             pol=ctx.sim_id,
         )
-    except ProductError as error:
+    except (ProductError, OSError) as error:
         ctx.skipped[relative] = str(error)
         return
     if done is None:
@@ -927,7 +927,7 @@ def _probes_products(
             # FR-887: a normal probe holds the run's last time step.
             step=_last_time_step(record) if normal else None,
         )
-    except ProductError as error:
+    except (ProductError, OSError) as error:
         ctx.skipped[probe_relative] = str(error)
         return
     if done is None:
