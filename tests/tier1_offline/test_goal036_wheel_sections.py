@@ -547,6 +547,25 @@ def test_p0430_clockings_refuse_no_selected_surface(tmp_path):
     assert isinstance(result, str) and "surface" in result
 
 
+def test_p0430_clocking_headers_reject_inconsistent_blade_order(tmp_path):
+    from dataclasses import replace
+
+    record = _record(1200)
+    clockings = [post_qsteady.Clocking(0, 0, (1.0,) * len(post_qsteady.load_columns(record)))]
+    points = [
+        post_qsteady.WheelPoint("1", {}, rec, clockings, post_qsteady.PointValidity({}))
+        for rec in (record, replace(record, families_blades=tuple(reversed(BLADES))))
+    ]
+    with pytest.raises(post_qsteady.ProductError, match="columns"):
+        post_qsteady.write_qsteady_tables(
+            tmp_path / "positions.csv",
+            tmp_path / "average.csv",
+            points,
+            reference=None,
+        )
+    assert not (tmp_path / "positions.csv").exists()
+
+
 @pytest.mark.parametrize((), [pytest.param(id="P0430-F-785")])
 def test_p0430_missing_clocking_zero_keeps_surviving_exports(tmp_path, monkeypatch):
     from pyflightstream.post.section_distributions import write_section_distributions

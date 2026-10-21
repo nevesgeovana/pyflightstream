@@ -1469,6 +1469,10 @@ def write_qsteady_tables(
     if not usable:
         return None
     columns = load_columns(usable[0].record)
+    if any(load_columns(point.record) != columns for point in usable):
+        raise ProductError(
+            "quasi-steady points have inconsistent load columns; use the same rotor and blade order"
+        )
     lengths = reference.as_lengths() if reference is not None else None
     moment = tuple(reference.as_moment_point().values()) if reference is not None else (None,) * 3
     position_rows = []
