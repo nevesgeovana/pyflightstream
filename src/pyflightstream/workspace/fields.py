@@ -404,10 +404,14 @@ def _point(values: Sequence[float], what: str) -> tuple[float, float, float]:
 
 
 def _cell(row: Sequence[float], tolerance_m: float) -> tuple[int, int, int]:
+    # Bins are twice the tolerance wide and floored, so two positions within the tolerance
+    # along each axis lie in the same bin or in neighbouring ones whatever the rounding of
+    # the quotient: round() sends 0.5 to 0 and 1.5 to 2, two bins apart at one tolerance.
+    width = 2.0 * tolerance_m
     return (
-        round(row[0] / tolerance_m),
-        round(row[1] / tolerance_m),
-        round(row[2] / tolerance_m),
+        math.floor(row[0] / width),
+        math.floor(row[1] / width),
+        math.floor(row[2] / width),
     )
 
 
@@ -751,8 +755,9 @@ def fluctuation_report(
     Returns
     -------
     FluctuationReport
-        Per probe its position and the standard deviation of each velocity component and of the
-        magnitude, with the steps and the source files.
+        Per probe its position, the population standard deviation of each velocity component and
+        ``std_mag``, the root-sum-square of those three (not the standard deviation of the
+        speed), with the steps and the source files.
 
     Raises
     ------
@@ -994,6 +999,29 @@ def _check_stem(stem: str) -> str:
     return text
 
 
+def _recorded_path(root: str | Path, path: str | Path) -> str:
+    """Name an input file for a provenance record without a machine-local path.
+
+    The path relative to the workspace root, in POSIX form, when the file lies under it, and
+    the file name alone otherwise; the recorded sha256 identifies the content.
+    """
+    resolved = Path(path).resolve()
+    try:
+        return resolved.relative_to(Path(root).resolve()).as_posix()
+    except ValueError:
+        return resolved.name
+
+
+def _check_sidecar_suffix(suffix: str) -> str:
+    if not re.fullmatch(r"\.[A-Za-z0-9][A-Za-z0-9_.-]*", suffix) or ".." in suffix:
+        raise WorkspaceError(
+            f"sidecar suffix {suffix!r}: a sidecar is written beside the field as <stem><suffix>, "
+            "so the suffix is a dot and a plain name (letters, digits, '.', '_' and '-'), "
+            "with no folder."
+        )
+    return suffix
+
+
 def write_freestream(
     root: str | Path,
     stem: str,
@@ -1070,7 +1098,10 @@ def write_freestream(
             f"{others[0]} exists: the stem {name!r} would name two files, and the extension "
             "states the form, so one stem names one file. Choose another stem, or remove it."
         )
-    extras = {folder / f"{name}{suffix_}": text for suffix_, text in (sidecars or {}).items()}
+    extras = {
+        folder / f"{name}{_check_sidecar_suffix(suffix_)}": text
+        for suffix_, text in (sidecars or {}).items()
+    }
     # F-1495: a sidecar suffix that names the field's own file, the provenance record
     # or another sidecar (case-insensitively) would overwrite one with the other.
     claimed = {target.name.casefold(), sidecar.name.casefold()}
@@ -1093,7 +1124,9 @@ def write_freestream(
         "schema": FIELD_PROVENANCE_SCHEMA,
         "operation": operation,
         "parameters": dict(parameters),
-        "inputs": [{"path": str(Path(p)), "sha256": file_sha256(Path(p))} for p in inputs],
+        "inputs": [
+            {"path": _recorded_path(root, p), "sha256": file_sha256(Path(p))} for p in inputs
+        ],
         "output": {
             "file": f"inputs/{FREESTREAM_DIR}/{target.name}",
             "form": field.form,
@@ -1179,7 +1212,9 @@ def write_fluctuation(
         "schema": FIELD_PROVENANCE_SCHEMA,
         "operation": "fluctuation",
         "parameters": dict(parameters),
-        "inputs": [{"path": str(Path(p)), "sha256": file_sha256(Path(p))} for p in inputs],
+        "inputs": [
+            {"path": _recorded_path(root, p), "sha256": file_sha256(Path(p))} for p in inputs
+        ],
         "output": {
             "file": f"inputs/{FREESTREAM_DIR}/{target.name}",
             "form": "CSV",

@@ -279,7 +279,7 @@ def test_cli_previews_by_default_and_writes_only_with_apply(tmp_path, capsys):
     record = json.loads((target.parent / "mirrored.provenance.json").read_text())
     assert record["schema"] == "pyfs-field-operation/1"
     assert record["operation"] == "mirror" and record["parameters"] == {"plane": "y = 0"}
-    assert record["inputs"] == [{"path": str(source), "sha256": file_sha256(source)}]
+    assert record["inputs"] == [{"path": source.name, "sha256": file_sha256(source)}]
     assert record["output"]["sha256"] == file_sha256(target)
     assert record["output"]["file"] == "inputs/freestreams/mirrored.dat"
     assert record["units"] == {
@@ -631,3 +631,71 @@ def test_p0430_f1206_fluctuation_unserializable_parameters_fail_before_publishin
                 tmp_path, "f", report, parameters={"x": object()}, inputs=[], apply=apply
             )
     assert not (tmp_path / "inputs").exists()
+
+
+def test_f340_points_exactly_one_tolerance_apart_match_at_every_bin_edge():
+    # round() sent 0.5 to bin 0 and 1.5 to bin 2: two bins apart, so the neighbour search missed.
+    total = Field("UNSTRUCTURED", ((0.5, 0.0, 0.0, 3.0, 0.0, 0.0),))
+    other = Field("UNSTRUCTURED", ((1.5, 0.0, 0.0, 1.0, 0.0, 0.0),))
+    result = subtract_fields(total, other, reference_m_s=(0.0, 0.0, 0.0), tolerance_m=1.0)
+    assert result.rows == ((0.5, 0.0, 0.0, 2.0, 0.0, 0.0),)
+
+
+def test_f1274_f1275_the_provenance_has_no_machine_local_path_and_sorted_keys(tmp_path):
+    source = _write(tmp_path / "surveys" / "survey.dat", SURVEY)
+    inside = _write(tmp_path / "campaign" / "inputs" / "freestreams" / "in.dat", SURVEY)
+    root = tmp_path / "campaign"
+    written = wfields.write_freestream(
+        root,
+        "out",
+        Field("UNSTRUCTURED", SURVEY),
+        operation="mirror",
+        parameters={"zeta": 1, "alpha": {"b": 2, "a": 1}},
+        inputs=[source, inside],
+        apply=True,
+    )
+    assert [entry["path"] for entry in written.provenance["inputs"]] == [
+        "survey.dat",
+        "inputs/freestreams/in.dat",
+    ]
+    text = written.sidecar.read_text(encoding="utf-8")
+    assert str(tmp_path) not in text and "\\" not in text
+    assert text.index('"alpha"') < text.index('"zeta"') and text.index('"a"') < text.index('"b"')
+    assert list(json.loads(text)) == sorted(json.loads(text))
+
+
+def test_f1276_f1277_the_fluctuation_provenance_is_the_same(tmp_path):
+    source = _write(tmp_path / "surveys" / "step_1.dat", SURVEY)
+    steps = [StepField(float(i), Field("UNSTRUCTURED", SURVEY)) for i in (1, 2)]
+    report = wfields.fluctuation_report(steps)
+    written = wfields.write_fluctuation(
+        tmp_path / "campaign",
+        "fl",
+        report,
+        parameters={"z": 1, "a": 2},
+        inputs=[source],
+        apply=True,
+    )
+    text = written.sidecar.read_text(encoding="utf-8")
+    assert str(tmp_path) not in text
+    assert text.index('"a"') < text.index('"z"')
+
+
+@pytest.mark.parametrize(
+    "suffix", ["/../escape.txt", "..\\escape", "/x", ".", ".a/b", ".provenance.json"]
+)
+def test_f737_a_sidecar_suffix_cannot_leave_the_freestream_folder(tmp_path, suffix):
+    root = tmp_path / "campaign"
+    with pytest.raises(WorkspaceError, match="suffix"):
+        wfields.write_freestream(
+            root,
+            "out",
+            Field("UNSTRUCTURED", SURVEY),
+            operation="mirror",
+            parameters={},
+            inputs=[],
+            apply=True,
+            sidecars={suffix: "x"},
+        )
+    assert not root.exists()
+    assert not (tmp_path / "escape.txt").exists()
