@@ -169,3 +169,14 @@ def test_reader_refuses_an_action_whose_command_length_disagrees_fr_308(tmp_path
     geometry.write_bytes(geometry.read_bytes().replace(stated, f"{len(CLOCK) + 1},1, F".encode()))
     with pytest.raises(MeshReadError):
         saved_solver_actions(geometry)
+
+
+def test_x_f_0275_element_count_of_a_non_ascii_digit_is_none_not_an_error(tmp_path):
+    """X-F-0275: the superscript two passes str.isdigit and fails int(); the promise is None."""
+    from pyflightstream._fsm import element_count
+
+    path = tmp_path / "a.fsm"
+    path.write_text("$MESH_START$\n²\n", encoding="utf-8")
+    assert element_count(path) is None
+    path.write_text("$MESH_START$\n12\n", encoding="utf-8")
+    assert element_count(path) == 12

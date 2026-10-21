@@ -156,7 +156,7 @@ def element_count(path: str | Path) -> int | None:
             for line in handle:
                 if line.strip() == MESH_MARKER:
                     stated = handle.readline().strip()
-                    return int(stated) if stated.isdigit() else None
+                    return int(stated) if stated.isascii() and stated.isdigit() else None
     except OSError:
         return None
     return None
