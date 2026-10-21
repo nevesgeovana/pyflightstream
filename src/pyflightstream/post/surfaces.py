@@ -42,6 +42,7 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import ProductError, ProductExistsError, PyflightstreamWarning, warn
 from pyflightstream.post.series import stamped_exports
 from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average
+from pyflightstream.post.writers import _refuse_a_token
 from pyflightstream.results import (
     NOT_CARRIED_BY_THE_VTK,
     IncompleteOutputError,
@@ -309,6 +310,8 @@ def write_surface_average(
         If either destination exists and ``overwrite`` is false; both are
         tested first, so nothing is written then.
     """
+    for field_name in (*average.surface.cell_data, *average.surface.point_data):
+        _refuse_a_token("field name", str(field_name))
     # BOTH DESTINATIONS BEFORE EITHER WRITE, as write_output_pair tests its
     # pair: the Tecplot was written and then the VTK refused, half a pair.
     if vtk is not None and (

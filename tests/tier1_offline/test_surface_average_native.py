@@ -160,3 +160,15 @@ def test_p0430_f3_equal_dat_and_vtk_destinations_are_refused(tmp_path):
     with pytest.raises(ProductError, match="one file"):
         write_surface_average(tmp_path / "same.out", result, vtk=tmp_path / "same.out")
     assert not (tmp_path / "same.out").exists()
+
+
+def test_p0430_f3_a_surface_field_name_the_format_cannot_carry_is_refused_before_writing(tmp_path):
+    """FR-2328: a name with a blank in the averaged surface refuses both files, writing none."""
+    from pyflightstream.post.surfaces import write_surface_average
+
+    vtk, _ = _pair(tmp_path)
+    result = average_surface_exports(vtk, window=(7, 8), frame=REFERENCE_FRAME)
+    result.surface.cell_data["my cp"] = result.surface.cell_data["Cp_reference"]
+    with pytest.raises(ProductError, match="field name"):
+        write_surface_average(tmp_path / "bad.dat", result, vtk=tmp_path / "bad.vtk")
+    assert not (tmp_path / "bad.dat").exists() and not (tmp_path / "bad.vtk").exists()
