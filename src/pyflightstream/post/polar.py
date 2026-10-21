@@ -32,6 +32,7 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+from warnings import warn
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError
@@ -263,8 +264,8 @@ class GroupCoefficients:
     drag_profile: float
     drag_induced: float
     families_used: tuple[str, ...]
-    force: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    moment: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    force: tuple[float, float, float] | None = None
+    moment: tuple[float, float, float] | None = None
     #: The product columns ``drag_profile`` and ``drag_induced`` are written under
     #: (FR-423): ``CD0, CDI`` up to 26.124, ``CDV, CDP`` on 26.125.
     drag_columns: tuple[str, str] = (COEFFICIENT_COLUMNS[-2], COEFFICIENT_COLUMNS[-1])
@@ -469,7 +470,7 @@ def polar_row(
     *,
     cref_m: float,
     bref_m: float,
-    beta_deg: float = 0.0,
+    beta_deg: float | None = None,
 ) -> tuple[float, ...]:
     """Return the twenty-four coefficient values of one polar row.
 
@@ -491,9 +492,9 @@ def polar_row(
 
     ``CD0`` and ``CDI`` stay the solver's own profile and induced drag.
 
-    AN OMITTED ``beta_deg`` ASSERTS ZERO SIDESLIP. The axes are turned by it, so
-    a caller whose point flew at sideslip states it, or gets the row of a point
-    that did not.
+    Omitting ``beta_deg`` is deprecated and warns while retaining zero sideslip.
+    It will be required at the next breaking window; pass the point's sideslip explicitly.
+    Both measured vectors must be supplied; absent vectors are never measured zeros.
 
     AN INDUCED DRAG THE SOLVER DECLINED (PFS-2006.03) is ``CDI`` NaN, and so is
     every axis column the x force reaches at this point's angles: the export's
@@ -517,7 +518,7 @@ def polar_row(
     bref_m : float
         Reference span in metres.
     beta_deg : float, optional
-        Sideslip angle in degrees; zero where omitted.
+        Sideslip angle in degrees; omission warns and currently uses zero.
 
     Returns
     -------
@@ -527,6 +528,16 @@ def polar_row(
         ``CDI``.
     """
     g = coefficients
+    if beta_deg is None:
+        warn(
+            "Omitting beta_deg from polar_row is deprecated; pass beta_deg explicitly. "
+            "It will be required at the next breaking window; zero is used for now.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        beta_deg = 0.0
+    if g.force is None or g.moment is None:
+        raise ProductError("polar_row needs measured force and moment vectors; supply both")
     axes = polar_axis_coefficients(
         g.force, g.moment, alpha_deg, beta_deg, cref_m=cref_m, bref_m=bref_m
     )
@@ -856,7 +867,7 @@ def group_polar_rows(
     rows = []
     for point in points:
         frame = point.loads.frame
-        if frame is not None and frame.strip().casefold() not in GEOMETRY_ANALYSIS_FRAMES:
+        if frame is None or frame.strip().casefold() not in GEOMETRY_ANALYSIS_FRAMES:
             raise ProductError(
                 f"{point.loads_path} states analysis frame {frame!r}; polar axes require "
                 "vectors in the geometry's axes, and this frame's rotation is unknown"

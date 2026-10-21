@@ -44,6 +44,32 @@ NAMES = (
 CREF, BREF = 2.526, 20.0
 
 
+def test_p0430_f151_absent_vectors_are_not_measured_zero():
+    from pyflightstream._errors import ProductError
+    from pyflightstream.post.polar import GroupCoefficients
+
+    coefficients = GroupCoefficients(1, 2, 3, 4, 5, 6, 0.1, 0.2, ("W",))
+    with pytest.raises(ProductError):
+        polar_row(0, 0.2, 1, coefficients, cref_m=1, bref_m=1, beta_deg=0)
+
+
+def test_p0430_omitted_beta_warns_before_required_transition():
+    coefficients = group_coefficients(parse_loads(LOADS), ["W"], bref_m=BREF)
+    with pytest.warns(DeprecationWarning, match="beta_deg"):
+        polar_row(0, 0.2, 1, coefficients, cref_m=CREF, bref_m=BREF)
+
+
+def test_p0430_f152_missing_analysis_frame_is_refused(tmp_path):
+    from dataclasses import replace
+
+    from pyflightstream._errors import ProductError
+
+    loads = replace(parse_loads(LOADS), frame=None)
+    point = PolarPoint(name="P", loads=loads, loads_path=tmp_path / "P.txt", point={"alpha": 0})
+    with pytest.raises(ProductError, match="frame"):
+        group_polar_rows([point], ["W"], mach=0.2, reference=REFERENCE)
+
+
 def _passive(axis, angle_rad: float) -> np.ndarray:
     return Rotation.from_rotvec(np.asarray(axis, dtype=float) * angle_rad).as_matrix().T
 
@@ -70,7 +96,7 @@ def _oracle(force, moment, alpha_deg: float, beta_deg: float) -> dict[str, float
 def _row(loads, families, alpha_deg=None):
     coefficients = group_coefficients(loads, families, bref_m=BREF)
     alpha = loads.angle_of_attack_deg if alpha_deg is None else alpha_deg
-    row = polar_row(alpha, 0.2, 11.77, coefficients, cref_m=CREF, bref_m=BREF)
+    row = polar_row(alpha, 0.2, 11.77, coefficients, cref_m=CREF, bref_m=BREF, beta_deg=0.0)
     return dict(zip(NAMES, row, strict=True))
 
 

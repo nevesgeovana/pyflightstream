@@ -118,6 +118,7 @@ def test_a_polar_row_carries_her_numbers():
         coefficients,
         cref_m=2.526,
         bref_m=20.0,
+        beta_deg=0.0,
     )
     assert [f"{v:.5f}" for v in row] == HER_ROW
 
@@ -195,7 +196,9 @@ def test_polar_table_round_trips(tmp_path):
     """The CSV a reader takes apart is the one written: columns, rows, values."""
     loads = _loads()
     coefficients = group_coefficients(loads, ["W", "B"], bref_m=20.0)
-    row = polar_row(-2.0, 0.2, loads.reynolds / 1e6, coefficients, cref_m=2.526, bref_m=20.0)
+    row = polar_row(
+        -2.0, 0.2, loads.reynolds / 1e6, coefficients, cref_m=2.526, bref_m=20.0, beta_deg=0.0
+    )
     target = write_polar_table(
         tmp_path / polar_file_name("3207", 0.2, "1"),
         polar="3207",

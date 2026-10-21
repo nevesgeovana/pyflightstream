@@ -26,6 +26,10 @@ super file's union reads such a table's `POLAR` as `POL`
 The loads export states ONE force and ONE moment per surface, in the
 geometry's own frame: **x aft, y right, z up**. Every axis column of a steady
 polar row is that pair, summed over the group's surfaces and turned.
+An absent analysis frame is refused because its rotation cannot be established.
+The Python `polar_row` call requires measured force and moment vectors.
+Omitting `beta_deg` currently warns and uses zero; supply sideslip explicitly
+because it becomes required at the next breaking window.
 
 | columns | axes | how |
 |---|---|---|
