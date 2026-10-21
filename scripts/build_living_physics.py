@@ -135,9 +135,9 @@ def build_report() -> str:
     lines.append("")
     lines.append(
         "PFS-2018.06. This page is GENERATED from the per-build physics reports in this "
-        "folder; the generator is `scripts/build_living_physics.py` and a tier-1 test "
-        "refuses a stale copy of this file, so a build that arrives shows up here without "
-        "anyone remembering to add it."
+        "folder; the generator is `scripts/build_living_physics.py` and its `--check` "
+        "refuses a stale copy of this file, so a build that arrives shows up here once "
+        "the generator is run."
     )
     lines.append("")
     lines.append(
@@ -233,6 +233,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(f"{REPORT.name} is current")
         return 0
+    REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text(rendered, encoding="utf-8")
     print(f"wrote {REPORT.relative_to(REPO).as_posix()}")
     return 0

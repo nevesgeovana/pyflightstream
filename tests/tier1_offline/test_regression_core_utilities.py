@@ -542,3 +542,66 @@ def test_check_parity_cli_control_goes_through_the_report_comparison():
     source = (Path(module.__file__)).read_text(encoding="utf-8")
     assert "cli_refused(base_spellings | {planted_flag}, release_spellings)" in source
     assert '"missing": cli_refused(base_spellings, release_spellings)' in source
+
+
+class TestF7MaintainerScripts:
+    """X-F-0053, X-F-0472, X-F-1516, X-F-0474: the maintainer scripts say and do what they claim."""
+
+    @staticmethod
+    def test_x_f_0053_living_physics_writes_into_a_missing_folder(tmp_path, monkeypatch):
+        module = _f7_load_script("build_living_physics")
+        monkeypatch.setattr(module, "PHYSICS", tmp_path / "absent")
+        monkeypatch.setattr(module, "REPORT", tmp_path / "absent" / "LIVING.md")
+        monkeypatch.setattr(module, "REPO", tmp_path)
+        assert module.main([]) == 0
+        assert (tmp_path / "absent" / "LIVING.md").is_file()
+        assert module.main(["--check"]) == 0
+
+    @staticmethod
+    def test_x_f_1516_parity_help_does_not_call_the_baseline_the_previous_release(capsys):
+        module = _f7_load_script("check_parity")
+        with pytest.raises(SystemExit):
+            module.main(["--help"])
+        flat = " ".join(capsys.readouterr().out.split())
+        assert "not the previous release" in flat and "v0.32.0" in flat
+
+    @staticmethod
+    def test_x_f_0472_stale_export_in_a_reused_out_is_not_counted(tmp_path, monkeypatch):
+        module = _f7_load_script("capture_export_corpus")
+        (tmp_path / "stale.txt").write_text("old", encoding="utf-8")
+        fake_script = types.SimpleNamespace(render=lambda: "x")
+
+        def fake_stl(spec, path):
+            path.write_text("s", encoding="utf-8")
+            return path
+
+        monkeypatch.setattr(module, "generate_wing_stl", fake_stl)
+        monkeypatch.setattr(
+            module, "build_capture", lambda stl, out: (fake_script, {"CMD": "stale.txt"})
+        )
+
+        class Quiet:
+            def __init__(self, exe):
+                pass
+
+            def run_script(self, script, out, timeout_s):
+                return types.SimpleNamespace(return_code=0, wall_time_s=0.0, timed_out=False)
+
+        monkeypatch.setattr(module, "LocalExecutor", Quiet)
+        monkeypatch.setattr(sys, "argv", ["x", "--exe", "solver", "--out", str(tmp_path)])
+        assert module.main() == 1
+        assert not (tmp_path / "stale.txt").exists()
+
+    @staticmethod
+    def test_x_f_0474_export_without_an_angle_is_skipped_with_a_message(
+        tmp_path, monkeypatch, capsys
+    ):
+        module = _f7_load_script("extract_recorded_total_rows")
+        raw = tmp_path / "sim_1" / "raw"
+        raw.mkdir(parents=True)
+        (raw / "a.txt").write_text(
+            "Surface,Cx,Cy,Cz,CL,CDi,CDo\nTotal,1,2,3,4,5,6\n", encoding="utf-8"
+        )
+        monkeypatch.setattr(module, "SIMS", tmp_path)
+        assert module.rows() == []
+        assert "angle of attack" in capsys.readouterr().err

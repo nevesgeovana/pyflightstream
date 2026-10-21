@@ -2036,7 +2036,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--base", default="v0.32.0", help="the previous release tag")
+    parser.add_argument(
+        "--base",
+        default="v0.32.0",
+        help=(
+            "the release tag to compare against (default: v0.32.0, the parity baseline, "
+            "not the previous release)"
+        ),
+    )
     parser.add_argument("--release", default="HEAD", help="the release commit")
     parser.add_argument("--workspace", type=Path, help="a recorded campaign workspace to post")
     parser.add_argument("--out", type=Path, help="where the JSON receipt is written")

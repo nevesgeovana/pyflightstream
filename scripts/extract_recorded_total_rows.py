@@ -19,6 +19,7 @@ import csv
 import hashlib
 import os
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -97,8 +98,19 @@ def rows() -> list[dict[str, str]]:
         if total is None:
             raise ValueError(f"{path}: loads export has no Total row")
         frame = re.search(r"Coordinate frame for analysis:\s*(\S.*)", text)
-        if alpha is None or beta is None or total is None or "Cx" not in total:
+        missing = [
+            label
+            for label, absent in (
+                ("angle of attack", alpha is None),
+                ("side-slip angle", beta is None),
+                ("Cx in the Total row", "Cx" not in total),
+            )
+            if absent
+        ]
+        if missing:
+            print(f"skipped {path}: it prints no {' and no '.join(missing)}", file=sys.stderr)
             continue
+        assert alpha is not None and beta is not None and total is not None
         table.append(
             {
                 "export": f"{path.parent.parent.name}/{path.name}",
