@@ -868,6 +868,15 @@ def _matrix_names(path: Path, pols: Iterable[str]) -> set[str]:
     return names
 
 
+def _recorded_matrix_names(root: Path, stem: str, pols: set[str]) -> set[str]:
+    """Gather names from the same unambiguous matrix home as the row reader."""
+    try:
+        path = find_matrix(root, stem)
+    except WorkspaceError:
+        return set()
+    return set() if path is None else _matrix_names(path, pols)
+
+
 def union_the_workspace_knows(
     root: Path,
     out: Path,
@@ -934,7 +943,7 @@ def union_the_workspace_knows(
         pols.add(str(record.get("sim_id")))
         known |= _record_field_names(record)
     if matrix_stem:
-        known |= _matrix_names(root / f"{matrix_stem}{_MATRIX_SUFFIX}", pols)
+        known |= _recorded_matrix_names(root, matrix_stem, pols)
     return known
 
 

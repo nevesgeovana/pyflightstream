@@ -49,6 +49,23 @@ def test_p0430_rb2_superfile_union_refuses_unreadable_history(tmp_path):
     )
 
 
+def test_p0430_union_reads_matrix_in_inputs_home(tmp_path):
+    from pyflightstream.post.superfile import union_the_workspace_knows
+
+    folder = tmp_path / "inputs" / "matrices"
+    folder.mkdir(parents=True)
+    (folder / "study.fs").write_text("POL|VAR_NAMES_VALUES\n1|CUSTOM_FIELD:7\n", encoding="utf-8")
+    known = union_the_workspace_knows(
+        tmp_path,
+        tmp_path / "post",
+        "study",
+        polars_dir="polars",
+        probes_dir="probes",
+        raw_records=[{"matrix_stem": "study", "sim_id": "1"}],
+    )
+    assert {"POL", "VAR_NAMES_VALUES", "CUSTOM_FIELD"} <= known
+
+
 @pytest.mark.parametrize((), [pytest.param(id="P0430-F-162")])
 def test_p0430_recorded_rotor_speed_precedes_current_matrix():
     from types import SimpleNamespace
