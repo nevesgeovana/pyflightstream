@@ -278,8 +278,11 @@ def write_output_pair(
     record = provenance_path(destination)
     _refuse_existing(destination, overwrite)
     _refuse_existing(record, overwrite)
+    # THE RECORD IS RENDERED BEFORE THE DATA IS WRITTEN: a record that cannot be serialized
+    # must leave no data file behind, or the pair-or-neither promise is broken.
+    payload = _provenance_payload(provenance, destination)
     _textio.write_text(destination, text)
-    _textio.write_text(record, _provenance_payload(provenance, destination))
+    _textio.write_text(record, payload)
     return destination, record
 
 

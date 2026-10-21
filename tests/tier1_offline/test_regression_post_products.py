@@ -1593,3 +1593,19 @@ def test_f3_0203_f166_an_infinite_density_writes_no_coefficients_and_says_why():
     )
     assert added == [] and any("RHO" in note for note in notes)
     assert len(values) == len(_SIX_COMPONENTS)
+
+
+def test_f3_0203_f1247_a_record_that_cannot_be_rendered_leaves_no_data_file(tmp_path):
+    """F-1247: the pair is both files or neither, also when the record fails to serialize."""
+    from pyflightstream.post.writers import OutputProvenance, write_vtk_points
+    from tests.tier1_offline.test_post_writers import make_provenance
+
+    good = make_provenance()
+    bad = OutputProvenance(
+        run_id=good.run_id, campaign="c", setup=good.setup, sampling={"bad": object()}
+    )
+    destination = tmp_path / "probes.vtk"
+    with pytest.raises(TypeError):
+        write_vtk_points(destination, np.zeros((2, 3)), provenance=bad)
+    assert not destination.exists()
+    assert not list(tmp_path.iterdir())
