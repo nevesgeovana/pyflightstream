@@ -4225,6 +4225,20 @@ class TestF2Package0607SweepOverlay:
         assert not (tmp_path / "wing.sweep.vtk").exists()
 
 
+def test_x_f1093_a_bad_record_refuses_before_any_record_is_stamped(tmp_path):
+    """Records are all read before the first is written; a record that is no JSON
+    leaves the earlier ones unstamped and raises the documented refusal."""
+    from pyflightstream.workspace._geometry_build import accept_geometries
+
+    geometries = tmp_path / "geometries"
+    for name, text in (("a", "{}"), ("b", "not json")):
+        (geometries / name).mkdir(parents=True)
+        (geometries / name / f"{name}.build.json").write_text(text, encoding="utf-8")
+    with pytest.raises(InputArtifactError, match="cannot be read as a build record"):
+        accept_geometries(["a", "b"], geometries=geometries)
+    assert (geometries / "a" / "a.build.json").read_text(encoding="utf-8") == "{}"
+
+
 def test_x_f1090_an_unreadable_saved_mesh_raises_the_build_error(tmp_path, monkeypatch):
     """mesh_face_counts failing on the saved file is a GeometryBuildError (exit 3), not a
     MeshReadError that escapes the documented class."""
