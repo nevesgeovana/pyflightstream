@@ -19,6 +19,7 @@ from pyflightstream.post._tables import (
     _DECIMALS,
     _REFERENCE_COLUMNS,
     COEFFICIENT_COLUMNS,
+    NOT_APPLICABLE,
     ProductError,
     ReferenceValues,
     _mach_code,
@@ -127,7 +128,14 @@ def custom_field(value: object) -> str:
     str
         The value as text, right-aligned to the format's width.
     """
-    return f"{value!s:>{CUSTOM_WIDTH}}"
+    text = f"{value!s}"
+    if len(text) >= CUSTOM_WIDTH:
+        raise ProductError(
+            f"{text!r} does not fit the custom polar format's {CUSTOM_WIDTH}-character field "
+            "with a blank before it; a header name has at most "
+            f"{CUSTOM_WIDTH - 1} characters"
+        )
+    return f"{text:>{CUSTOM_WIDTH}}"
 
 
 def _bounded_field(value: float, decimals: int | None = None) -> str:
@@ -300,17 +308,23 @@ def write_custom_polar_format(
     Raises
     ------
     ProductError
-        If a row has a different length from ``columns``, or a value does not fit a
-        field with a blank before it even with no decimals.
+        If a row has a different length from ``columns``, a value does not fit a
+        field with a blank before it even with no decimals, or a header name has
+        ten or more characters. A value that is not a number is written ``nan``
+        (the format writes every number ``%10.5f``) and
+        :func:`read_custom_polar_format` reads ``nan``, ``NA`` and the
+        historical ``-`` back as missing; a line break in the description or
+        the configuration is folded to a blank.
     """
     # FR-94. THE CONFIGURATION GOES ON LINE 1 AND NOWHERE ELSE, because
     # the format has exactly nine header lines and the reader counts them:
     # a tenth would make every file this writes unreadable by the
     # reference tooling. The title is the one line with room for a word,
     # and ` - ` is the separator the prefix itself already uses.
-    title = f"{CUSTOM_TITLE_PREFIX}{description}"
+    # A line break in the description would add a tenth header line.
+    title = f"{CUSTOM_TITLE_PREFIX}{' '.join(str(description).split())}"
     if configuration and configuration.strip() and configuration.strip() != "-":
-        title = f"{title} - {configuration.strip()}"
+        title = f"{title} - {' '.join(configuration.split())}"
     lines = [
         _ascii_title(title),
         f"{polar}{_mach_code(mach):02d}",
@@ -382,11 +396,18 @@ def custom_count(line: str, path: Path, number: int, what: str) -> int:
 def _numbers(cells: Sequence[str], path: Path, number: int) -> list[float]:
     """Read a line's cells as numbers, refusing a cell that is not one by its line."""
     try:
-        return [math.nan if cell == "NA" else float(cell) for cell in cells]
+        return [float("nan") if cell in (NOT_APPLICABLE, "-") else float(cell) for cell in cells]
     except ValueError:
         raise ProductError(
             f"{path} line {number} should hold numbers; it reads {' '.join(cells)!r}"
         ) from None
+
+
+def _refuse_repeats(names: tuple[str, ...], target: Path, number: int) -> None:
+    """Refuse a header line that names one column twice: a mapping would drop the earlier value."""
+    repeated = sorted({name for name in names if names.count(name) > 1})
+    if repeated:
+        raise ProductError(f"{target} line {number} names {', '.join(repeated)} more than once")
 
 
 def _reference_count_and_group(target: Path, line: str) -> tuple[int, int]:
@@ -474,6 +495,7 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
             f"{target} line 4 states {reference_count} reference columns and lines 5 and 6 "
             f"carry {len(names)} names and {len(values)} values"
         )
+    _refuse_repeats(names, target, 5)
     reference_values = dict(zip(names, _numbers(values, target, 6), strict=True))
     row_count = custom_count(lines[6], target, 7, "data rows")
     column_count = custom_count(lines[7], target, 8, "data columns")
@@ -482,6 +504,7 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
         raise ProductError(
             f"{target} line 8 states {column_count} columns and line 9 names {len(columns)}"
         )
+    _refuse_repeats(columns, target, 9)
     rows = _custom_rows(target, lines[9:], columns, row_count)
     mach = reference_values.pop("MNOM", None)
     if mach is None:

@@ -2170,3 +2170,59 @@ def test_f3_0203_x_f_0348_steps_is_the_number_of_frames_that_entered_the_average
     )
     _columns, rows = read_csv_table(path)
     assert {(r["FIRST_STEP"], r["LAST_STEP"], r["STEPS"]) for r in rows} == {("5", "8", "3")}
+
+
+def _f3_polar(tmp_path, *, description="CRUISE", rows=None, columns=None, name="p.dat"):
+    from pyflightstream.post._tables import ReferenceValues
+    from pyflightstream.post.custom_polar import write_custom_polar_format
+
+    reference = ReferenceValues.from_mapping(
+        {"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152}
+    )
+    columns = columns or ("ALPHA", "CL")
+    return write_custom_polar_format(
+        tmp_path / name,
+        polar="3207",
+        description=description,
+        group=1,
+        mach=0.2,
+        reference=reference,
+        rows=rows if rows is not None else [[1.0, 0.5]],
+        date="Tue Sep 08 23:41:07  2026",
+        columns=columns,
+    )
+
+
+def test_p0430_f3_custom_polar_title_line_break_keeps_nine_header_lines(tmp_path):
+    """F-1366: a line break in the description cannot add a header line."""
+    from pyflightstream.post.custom_polar import read_custom_polar_format
+
+    path = _f3_polar(tmp_path, description="CRUISE" + chr(10) + "second line")
+    assert read_custom_polar_format(path).rows == [{"ALPHA": 1.0, "CL": 0.5}]
+
+
+def test_p0430_f3_custom_polar_reads_na_and_dash_as_missing(tmp_path):
+    """F-1367: the reader accepts NA and the historical dash beside nan, as missing values."""
+    from pyflightstream.post.custom_polar import read_custom_polar_format
+
+    path = _f3_polar(tmp_path, rows=[[1.0, float("nan")]])
+    text = path.read_text(encoding="ascii")
+    assert math.isnan(read_custom_polar_format(path).rows[0]["CL"])
+    for token in ("NA", "-"):
+        path.write_text(text.replace("       nan", token.rjust(10)), encoding="ascii")
+        assert math.isnan(read_custom_polar_format(path).rows[0]["CL"])
+
+
+def test_p0430_f3_custom_polar_long_header_name_is_refused(tmp_path):
+    """F-1381: a header name that would fuse with its left neighbour is refused, naming it."""
+    with pytest.raises(ProductError, match="CDINDUCED12"):
+        _f3_polar(tmp_path, columns=("ALPHA", "CDINDUCED12"))
+
+
+def test_p0430_f3_custom_polar_repeated_header_name_is_refused(tmp_path):
+    """F-1382: a header naming one column twice is refused by the reader, naming it."""
+    from pyflightstream.post.custom_polar import read_custom_polar_format
+
+    path = _f3_polar(tmp_path, columns=("ALPHA", "ALPHA"))
+    with pytest.raises(ProductError, match="ALPHA more than once"):
+        read_custom_polar_format(path)
