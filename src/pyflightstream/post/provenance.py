@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import optional_file_sha256
+from pyflightstream._errors import ProductError
 from pyflightstream.cases import classify_outputs
 from pyflightstream.post._tables import NOT_APPLICABLE, ProductExistsError
 from pyflightstream.post.series import surface_export_metadata, translated_surface
@@ -259,6 +260,34 @@ def provenance_file_name(run_id: str, *, point_name: str | None = None) -> str:
     """
     stem = run_id if point_name is None else point_name
     return stem.replace("/", "_") + PROVENANCE_SUFFIX
+
+
+def _without_colliding_names(names: dict[str, str]) -> dict[str, str]:
+    """Return ``names`` with no two runs on one file, comparing names as the file system does.
+
+    A point name two records share is already sent back to the run id above; what is left is a
+    run id whose separators collapse onto another's (``a/b`` and ``a_b``) or names that differ
+    only by case. A run that carries a point name falls back to its run id; a collision that
+    remains is refused, because one document for two runs is the defect this stage exists to
+    make impossible.
+    """
+
+    def claimed(table: dict[str, str]) -> dict[str, list[str]]:
+        groups: dict[str, list[str]] = {}
+        for run_id, name in table.items():
+            groups.setdefault(name.casefold(), []).append(run_id)
+        return {key: runs for key, runs in groups.items() if len(runs) > 1}
+
+    fixed = dict(names)
+    for runs in claimed(fixed).values():
+        for run_id in runs:
+            fixed[run_id] = provenance_file_name(run_id)
+    for runs in claimed(fixed).values():
+        raise ProductError(
+            f"runs {', '.join(sorted(runs))} would share one provenance document "
+            f"({fixed[runs[0]]}); give each run an id that differs by more than '/', '_' or case"
+        )
+    return fixed
 
 
 def attributes(**pairs: object) -> dict[str, object]:
@@ -610,13 +639,20 @@ def run_provenance(
     stems = {record.run_id: point_name_of(record) for record in records}
     claims = Counter(stem for stem in stems.values() if stem is not None)
     index: dict[str, str] = {}
+    names = {
+        record.run_id: provenance_file_name(
+            record.run_id,
+            point_name=None
+            if stems[record.run_id] is None or claims[stems[record.run_id]] > 1
+            else stems[record.run_id],
+        )
+        for record in records
+    }
+    names = _without_colliding_names(names)
     for record in records:
         if sims is not None and record.sim_id not in sims:
             continue
-        stem = stems[record.run_id]
-        if stem is not None and claims[stem] > 1:
-            stem = None
-        relative = f"{PROVENANCE_DIR}/{provenance_file_name(record.run_id, point_name=stem)}"
+        relative = f"{PROVENANCE_DIR}/{names[record.run_id]}"
         target = out / relative
         if target.exists() and archive:
             # THE SAME RULE AS A PRODUCT. A provenance document about to

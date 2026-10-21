@@ -3026,3 +3026,37 @@ def test_fr_491_fr_800_a_shorter_restatement_keeps_the_march_end_and_says_the_id
     idle = [line for line in said if "adds no time step" in line]
     assert len(idle) == 1
     assert "camp/sim_7001/AL-020" in idle[0] and "camp/sim_7001/r20261001-120000/AL-020" in idle[0]
+
+
+def test_f4_0506_runs_that_would_share_a_provenance_file_are_kept_apart_or_refused(tmp_path):
+    """F-480: ids that collapse onto one file name, or differ by case, never share a document."""
+    from pyflightstream.post.provenance import run_provenance
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+
+    def record(run_id, sim_id, script=None):
+        return RunRecord(
+            run_id=run_id,
+            sim_id=sim_id,
+            fs_version_requested="26.124",
+            package_version="0.42.0",
+            script_sha256="0" * 64,
+            raw_flag=False,
+            status=RunStatus.CONVERGED,
+            script_path=script,
+        )
+
+    workspace = CampaignWorkspace(tmp_path)
+    out = tmp_path / "post"
+    clash = [record("camp/sim_1/a", "1"), record("camp_sim_1_a", "2")]
+    with pytest.raises(ProductError, match="share one provenance document"):
+        run_provenance(workspace, clash, out, archive=False, overwrite=True)
+    assert not (out / "provenance").exists()
+    apart = [
+        record("camp/sim_1/x", "1", "scripts/P.txt"),
+        record("camp/sim_2/y", "2", "scripts/p.txt"),
+    ]
+    index = run_provenance(workspace, apart, out, archive=False, overwrite=True)
+    assert sorted(index.values()) == [
+        "provenance/camp_sim_1_x.prov.json",
+        "provenance/camp_sim_2_y.prov.json",
+    ]
