@@ -2428,6 +2428,33 @@ def test_x_f_0338_a_section_load_in_a_disc_map_keeps_six_significant_digits(tmp_
     assert row["VALUE"] == "1.23457e-05"
 
 
+def test_x_f_0327_an_infinite_clock_is_a_named_skip_not_an_overflow(tmp_path):
+    """X-F-0327: inf passed `>= 0.5` and `int(round(inf))` aborted the point."""
+    from pyflightstream.post._reduction_stage import _write_the_per_revolution_products
+
+    skipped: dict[str, str] = {}
+    _write_the_per_revolution_products(
+        cast(Any, None),
+        [],
+        {"rotors": {"R": {"steps_per_revolution": float("inf")}}},
+        tmp_path,
+        stem="P",
+        runs=[],
+        target=lambda path: path,
+        written=[],
+        written_names={},
+        skipped=skipped,
+        condition=None,
+        reference=None,
+        names=None,
+        frozen=None,
+        pol=None,
+        drift_limit_pct=5.0,
+    )
+    assert list(skipped) == ["probes/P_per_revolution_R.csv"]
+    assert "states no steps per revolution" in skipped["probes/P_per_revolution_R.csv"]
+
+
 def test_f168_a_large_reference_area_is_held_to_the_printed_precision(tmp_path):
     """F-168: a part relative to the area let 1.0e-3 pass at 1000 m2 where 5e-4 is the print."""
     from pyflightstream._errors import PyflightstreamWarning

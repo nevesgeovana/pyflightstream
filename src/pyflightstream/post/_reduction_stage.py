@@ -20,6 +20,7 @@ joining :mod:`pyflightstream.post.point_tables`.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -287,6 +288,8 @@ def _write_the_per_revolution_products(
             isinstance(per_revolution, bool)
             or not isinstance(per_revolution, int | float)
             or not per_revolution >= 0.5
+            # inf passes `>= 0.5` and then `int(round(inf))` raises OverflowError.
+            or not math.isfinite(per_revolution)
         ):
             skipped[relative] = (
                 f"the run record states no steps per revolution for {who}, so a revolution "
