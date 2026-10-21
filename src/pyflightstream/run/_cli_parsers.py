@@ -22,9 +22,6 @@ the provenance are :mod:`pyflightstream.workspace._settings_file`'s.
 from __future__ import annotations
 
 import argparse
-import os
-import shlex
-import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -52,7 +49,7 @@ from pyflightstream.run._cli_parsers_storage import (
 )
 from pyflightstream.run._cli_query import add_query_parsers
 from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
-from pyflightstream.run._ids import _add_sim_ids
+from pyflightstream.run._ids import _add_sim_ids, command_line_text
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
 from pyflightstream.workspace.cli import take_settings, withhold_defaults
@@ -364,7 +361,11 @@ def _select_for_this_invocation(args: argparse.Namespace) -> None:
         for_this_invocation(_SELECTED_HPC, hpc)
     cost_file = getattr(args, "cost_file", None)
     if cost_file is not None:
-        for_this_invocation(_SELECTED_COST_FILE, Path(cost_file).stem)
+        # ONLY A FINAL .toml IS A SUFFIX (F-1566): Path.stem cut a dotted name at its last dot.
+        name = Path(cost_file).name
+        for_this_invocation(
+            _SELECTED_COST_FILE, name[: -len(".toml")] if name.lower().endswith(".toml") else name
+        )
 
 
 def resume_hint(argv: Sequence[str]) -> str:
@@ -375,7 +376,7 @@ def resume_hint(argv: Sequence[str]) -> str:
     elsewhere. Nothing is asked of the user; a run may be detached or scripted.
     """
     words = ["pyfs-matrix", *argv, "--resume"]
-    line = subprocess.list2cmdline(words) if os.name == "nt" else shlex.join(words)
+    line = command_line_text(words)
     return f"To continue with the points that are new, run:\n  {line}"
 
 

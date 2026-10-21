@@ -82,3 +82,30 @@ def test_one_profile_without_selection_is_unchanged(tmp_path):
     assert profile is not None
     assert profile.application_id == "app-h001"
     assert resolve_hpc_profile(tmp_path / "nowhere") is None
+
+
+def test_p0430_f1566_a_dotted_cost_file_name_keeps_its_dots() -> None:
+    """F-1566: only a final .toml is a suffix of --cost-file."""
+    import argparse
+
+    from pyflightstream._cli import _SELECTED_COST_FILE
+    from pyflightstream.run._cli_parsers import _select_for_this_invocation
+
+    token = _SELECTED_COST_FILE.set(None)
+    try:
+        _select_for_this_invocation(argparse.Namespace(hpc=None, cost_file="c1.2"))
+        assert _SELECTED_COST_FILE.get() == "c1.2"
+        _select_for_this_invocation(argparse.Namespace(hpc=None, cost_file="c001.toml"))
+        assert _SELECTED_COST_FILE.get() == "c001"
+    finally:
+        _SELECTED_COST_FILE.reset(token)
+
+
+def test_p0430_f1567_f1563_a_windows_command_line_quotes_metacharacters(monkeypatch) -> None:
+    """F-1567, F-1563: a word with & or a space is quoted in the printed command."""
+    from pyflightstream.run import _ids
+
+    monkeypatch.setattr(_ids.os, "name", "nt")
+    text = _ids.command_line_text(["pyfs-matrix", "--workspace", "C:/a b/c&d", "x"])
+    assert text == 'pyfs-matrix --workspace "C:/a b/c&d" x'
+    assert _ids.command_line_text(["a&b"]) == '"a&b"'

@@ -1288,7 +1288,8 @@ def _finish_campaign(state: _CampaignState) -> list[RunRecord]:
             f"submitted {queued_count} point(s) to the scheduler and ran {state.ran_here} here"
             + (f"; {refused_count} failed before they ran" if refused_count else "")
             + f"; nothing is posted until they are collected: pyfs-matrix collect "
-            f"--workspace {state.workspace.root} (add --watch to wait), which posts once "
+            f"{_ids.command_line_text(['--workspace', str(state.workspace.root)])} "
+            "(add --watch to wait), which posts once "
             "their outputs land."
         )
     elif state.recorded:

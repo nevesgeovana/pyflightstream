@@ -10,6 +10,9 @@ order and imports no module of the package.
 from __future__ import annotations
 
 import argparse
+import os
+import shlex
+import subprocess
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any
@@ -47,6 +50,26 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace.ledger import SIMS_IDS_HELP, listed_sims
 from pyflightstream.workspace.matrix import ResolvedMatrix
+
+_CMD_METACHARACTERS = frozenset("&|<>^%()")
+
+
+def command_line_text(words: Sequence[str]) -> str:
+    """Return ``words`` as one command line that pastes into the shell it is printed for.
+
+    POSIX: ``shlex.join``. Windows: the command-line rule of ``list2cmdline`` (spaces, quotes),
+    and a word holding a ``cmd`` metacharacter (``& | < > ^ % ( )``) is quoted too, which
+    ``list2cmdline`` leaves bare (F-1567, F-1563).
+    """
+    if os.name != "nt":
+        return shlex.join(words)
+    parts = []
+    for word in words:
+        text = subprocess.list2cmdline([word])
+        if not text.startswith('"') and any(ch in _CMD_METACHARACTERS for ch in word):
+            text = f'"{text}"'
+        parts.append(text)
+    return " ".join(parts)
 
 
 class CampaignErrors(PyflightstreamError, RuntimeError):  # noqa: N818 (the SAD Section 7 name)
