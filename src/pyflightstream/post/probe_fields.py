@@ -38,10 +38,19 @@ def _refuse_existing(destination: Path, overwrite: bool) -> None:
         )
 
 
+def _numeric_field_arrays(points_m, velocity_m_s):
+    """Convert field arrays, preserving the product exception boundary."""
+    try:
+        return np.asarray(points_m, dtype=float), np.asarray(velocity_m_s, dtype=float)
+    except (TypeError, ValueError) as error:
+        raise ProductError(
+            "probe positions and velocities must be numeric (N, 3) arrays"
+        ) from error
+
+
 def _validate_field(points_m, velocity_m_s, frame, formats, reusable_inflow):
     """Validate a complete field without creating any output."""
-    points = np.asarray(points_m, dtype=float)
-    velocity = np.asarray(velocity_m_s, dtype=float)
+    points, velocity = _numeric_field_arrays(points_m, velocity_m_s)
     if frame != "REFERENCE":
         raise ProductError("probe field export requires the explicit REFERENCE frame")
     if points.ndim != 2 or points.shape[1:] != (3,) or velocity.shape != points.shape:
@@ -153,7 +162,7 @@ def write_probe_field(
     Raises
     ------
     ProductError
-        If the frame, shapes, finiteness, formats or inflow conditions are not
+        If numeric conversion, frame, shapes, finiteness, formats or inflow conditions are not
         met; nothing is written then.
     OutputExistsError
         If any destination exists and ``overwrite`` is false; every one is
@@ -259,6 +268,35 @@ def write_probe_field(
     return written
 
 
+def _sample_number(source, row, column, row_number):
+    """Read a finite sample cell with its source location in every refusal."""
+    value = _float_or_nan(row[column])
+    if not np.isfinite(value):
+        raise ProductError(
+            f"{source}: row {row_number}, {column}={row[column]!r}: "
+            "probe field samples require finite numeric cells; supply a complete sample"
+        )
+    return value
+
+
+def _sample_groups(source, rows, row_numbers):
+    """Group samples by actual step after checking their identities."""
+    groups = {}
+    for row in rows:
+        step = "NA"
+        if row.get("STEP", "NA") not in ("NA", "-", "", None):
+            step = format(_sample_number(source, row, "STEP", row_numbers[id(row)]), ".17g")
+        group = groups.setdefault(step, {})
+        sample_id = _sample_number(source, row, "PROBE", row_numbers[id(row)])
+        if not sample_id.is_integer() or int(sample_id) in group:
+            raise ProductError(
+                f"{source}: row {row_numbers[id(row)]}, PROBE={row['PROBE']!r}: "
+                "probe field table has invalid or duplicate sample IDs"
+            )
+        group[int(sample_id)] = row
+    return groups
+
+
 def write_recorded_probe_fields(
     table,
     record,
@@ -316,20 +354,9 @@ def write_recorded_probe_fields(
     required = {"PROBE", "X", "Y", "Z", "VX", "VY", "VZ"}
     if not rows or not required <= rows[0].keys():
         raise ProductError("probe field table lacks sample identity, XYZ or VX/VY/VZ")
-    groups = {}
-    for row in rows:
-        raw_step = row.get("STEP", "NA")
-        step = "NA"
-        if raw_step not in ("NA", "-", "", None):
-            value = float(raw_step)
-            if not np.isfinite(value):
-                raise ProductError("probe field STEP must be finite")
-            step = format(value, ".17g")
-        group = groups.setdefault(step, {})
-        number = float(row["PROBE"])
-        if not number.is_integer() or int(number) in group:
-            raise ProductError("probe field table has invalid or duplicate sample IDs")
-        group[int(number)] = row
+    row_numbers = {id(row): index for index, row in enumerate(rows, start=2)}
+
+    groups = _sample_groups(source, rows, row_numbers)
     step_evidence = None
     if step_source is not None:
         with Path(step_source).open(encoding="utf-8-sig", newline="") as stream:
@@ -368,8 +395,16 @@ def write_recorded_probe_fields(
             selected = [group[i] for i in ids]
             if any(row.get("FRAME", layout["frame"]) != layout["frame"] for row in selected):
                 raise ProductError("probe table FRAME differs from its recorded sampling frame")
-            points = np.array([[float(row[a]) for a in ("X", "Y", "Z")] for row in selected])
-            velocity = np.array([[float(row[a]) for a in ("VX", "VY", "VZ")] for row in selected])
+            samples = np.array(
+                [
+                    [
+                        _sample_number(source, row, a, row_numbers[id(row)])
+                        for a in ("X", "Y", "Z", "VX", "VY", "VZ")
+                    ]
+                    for row in selected
+                ]
+            )
+            points, velocity = samples[:, :3], samples[:, 3:]
             suffix = ""
             if step not in ("NA", "", None):
                 value = float(step)

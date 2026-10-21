@@ -14,6 +14,57 @@ from pyflightstream.post.probe_fields import point_field_products
 from pyflightstream.script import Script, helpers
 
 
+@pytest.mark.parametrize(
+    ("column", "cell"),
+    [(column, cell) for column in ("PROBE", "X", "VX") for cell in ("NA", "invalid", "inf")]
+    + [("STEP", cell) for cell in ("invalid", "inf")],
+)
+def test_p0430_w012_invalid_sample_names_source_and_column(tmp_path, column, cell):
+    from pyflightstream.post.probe_fields import write_recorded_probe_fields
+
+    cells = dict(PROBE="1", STEP="2", X="0", Y="1", Z="2", VX="3", VY="4", VZ="5")
+    cells[column] = cell
+    source = tmp_path / "samples.csv"
+    source.write_text(",".join(cells) + "\n" + ",".join(cells.values()) + "\n", encoding="utf-8")
+    record = SimpleNamespace(
+        run_id="control",
+        probe_field_layout=[
+            dict(
+                entry=1,
+                probe_ids=[1],
+                frame="REFERENCE",
+                native_to_m=1,
+                formats=["vtk"],
+                reusable_inflow=False,
+            )
+        ],
+        solver_setup=helpers.solver_settings(Script("26.124"), velocity=30).model_dump(mode="json"),
+    )
+    with pytest.raises(ValueError) as caught:
+        write_recorded_probe_fields(source, record, tmp_path / "fields", "point")
+    assert isinstance(caught.value, ProductError)
+    assert source.name in str(caught.value) and column in str(caught.value)
+    assert "row 2" in str(caught.value)
+    assert not (tmp_path / "fields").exists()
+
+
+@pytest.mark.parametrize("values", [[["bad", 0, 0]], [[object(), 0, 0]], [[0], [0, 1]]])
+def test_p0430_w012_nonnumeric_field_is_product_error(tmp_path, values):
+    provenance = post.OutputProvenance(
+        run_id="test/point", setup=helpers.solver_settings(Script("26.124"), velocity=30)
+    )
+    with pytest.raises((ValueError, TypeError)) as caught:
+        post.write_probe_field(
+            tmp_path / "field",
+            values,
+            [[0, 0, 0]],
+            source=tmp_path / "source",
+            provenance=provenance,
+        )
+    assert isinstance(caught.value, ProductError)
+    assert not list(tmp_path.glob("field*"))
+
+
 def test_p0430_historical_dash_step_is_an_unstamped_field(tmp_path):
     from pyflightstream.post.probe_fields import write_recorded_probe_fields
 
