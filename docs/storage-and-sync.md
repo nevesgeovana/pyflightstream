@@ -68,7 +68,7 @@ lines are read from the entry the call records in `storage_management.json`;
 ### delete-sims
 
 ```bash
-pyfs-matrix delete-sims 4001,2009 --workspace . --apply
+pyfs-matrix delete-sims --sims 4001 2009 --workspace . --apply
 ```
 
 Deletes the named simulations outright: the `sims/sim_<id>` folder (or its
