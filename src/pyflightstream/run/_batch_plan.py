@@ -227,8 +227,18 @@ def _clock(seconds: float | None) -> str:
 
 
 def _sims_text(sims: Sequence[str]) -> str:
-    """Return the sims of a job as ``2006-2007``, or the one sim."""
-    return sims[0] if len(sims) == 1 else f"{sims[0]}-{sims[-1]}"
+    """Return the sims of a job: ``2006-2007`` for a consecutive run, every id otherwise.
+
+    A set that is not consecutive is listed (``2006,2008``): ``first-last`` would claim the ids
+    between them, which the job does not hold (F-1562).
+    """
+    if len(sims) == 1:
+        return sims[0]
+    if all(s.isascii() and s.isdigit() for s in sims) and all(
+        int(b) == int(a) + 1 for a, b in zip(sims, sims[1:], strict=False)
+    ):
+        return f"{sims[0]}-{sims[-1]}"
+    return ",".join(sims)
 
 
 def grouping_table_lines(receipt: GroupingReceipt) -> list[str]:

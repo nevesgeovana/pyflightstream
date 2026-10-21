@@ -344,3 +344,12 @@ def test_p0350_plan_fr362_the_command_line_prints_the_table(tmp_path, capsys):
         "grouping"
     ]
     assert grouping["batch_count"] == 2
+
+
+def test_p0430_f1562_a_job_of_separate_sims_lists_each_instead_of_a_range():
+    """F-1562: 2006 and 2008 are not 2006-2008; a consecutive run keeps the short form."""
+    from pyflightstream.run._batch_plan import _sims_text
+
+    assert _sims_text(["2006", "2008"]) == "2006,2008"
+    assert _sims_text(["2006", "2007", "2008"]) == "2006-2008"
+    assert _sims_text(["2006"]) == "2006"
