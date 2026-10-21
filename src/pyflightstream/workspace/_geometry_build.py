@@ -710,12 +710,33 @@ def _built_two_at_a_time(
     parallel: int,
 ) -> tuple[_Staged, ...]:
     """Build the variants ``parallel`` at a time, and each failed one again alone (FR-1117)."""
+    import threading
+    import time
     from concurrent.futures import ThreadPoolExecutor
+
+    running = 0
+    gate = threading.Condition()
+
+    def gated(variant: GeometryVariant) -> _Staged:
+        # The memory floor is read at every start, not once: a queued variant
+        # starts beside another run only while the floor is free, else alone.
+        nonlocal running
+        with gate:
+            while running and not _room_for_a_second_run():
+                gate.wait(timeout=0.2)
+                time.sleep(0)
+            running += 1
+        try:
+            return build(variant)
+        finally:
+            with gate:
+                running -= 1
+                gate.notify_all()
 
     done: dict[int, _Staged] = {}
     again: list[int] = []
     with ThreadPoolExecutor(max_workers=parallel) as pool:
-        futures = {position: pool.submit(build, v) for position, v in enumerate(variants)}
+        futures = {position: pool.submit(gated, v) for position, v in enumerate(variants)}
         for position, future in futures.items():
             try:
                 done[position] = future.result()
@@ -885,7 +906,12 @@ def _read_back(variant: GeometryVariant, fsm: Path) -> dict[str, Any]:
         )
     try:
         midpoints: tuple[tuple[float, float, float], ...] | None = trailing_edge_midpoints(fsm)
-    except MeshReadError:
+    except MeshReadError as error:
+        if instruction.marks_trailing_edges():
+            raise GeometryBuildError(
+                f"the instruction marks trailing edges and the saved {fsm.name} cannot be read "
+                f"for them: {error}; nothing was promoted"
+            ) from error
         midpoints = None
     if instruction.marks_trailing_edges() and midpoints is not None and not midpoints:
         raise GeometryBuildError(
@@ -1251,8 +1277,18 @@ def accept_geometries(
         "at": datetime.now(UTC).isoformat(timespec="seconds"),
         "by": by or getpass.getuser(),
     }
-    for record in records:
-        data = json.loads(record.read_text(encoding="utf-8"))
+    loaded: list[tuple[Path, dict[str, Any]]] = []
+    for record in records:  # read every record first: a bad one refuses the whole batch
+        try:
+            data = json.loads(record.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise _refuse(
+                f"{record} cannot be read as a build record ({exc}). Nothing was written"
+            ) from exc
+        if not isinstance(data, dict):
+            raise _refuse(f"{record} is not a build record (a JSON object). Nothing was written")
+        loaded.append((record, data))
+    for record, data in loaded:
         data["inspected"] = stamp
         _textio.write_json(record, data)
     return tuple(records)
