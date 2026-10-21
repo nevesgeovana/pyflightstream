@@ -13,27 +13,36 @@ functions. This checks retained numerical behavior, not the removal contract.
 """
 
 import dataclasses
+import math
 
 import numpy as np
 import pytest
 
 from pyflightstream.farfield import (
+    FarfieldInputError,
     axial_flux,
     axial_force,
     azimuthal_harmonics,
     crossflow_kinetic_energy,
     cylindrical_components,
+    grid_integral,
+    hub_frame_velocities,
     in_plane_moment,
     lattice_fields,
     mass_closure,
     mass_flux,
+    plane_fields,
     plane_integral,
+    plane_vorticity_drag,
+    rotor_channels,
     sample_coverage,
     shaft_torque,
     spurious_diagnostic,
     symmetry_floor,
+    trace_forces,
     transverse_flux,
     transverse_force,
+    wake_crossings,
 )
 from pyflightstream.probes import build_lattice
 
@@ -541,3 +550,124 @@ def test_mass_closure_states_a_zero_mean_instead_of_an_unlabelled_nan():
     assert open_.absolute_spread == pytest.approx(float(np.abs(open_.mdot).max()))
     assert open_.absolute_spread > 0.0
     assert mass_closure(make_dataset(uniform_fields()), RHO).status == "ok"
+
+
+# ---- F7-0809 (0.43.0): shape, finiteness and density checks of the far-field core ----
+
+
+def _trace():
+    y = np.linspace(-1.0, 1.0, 5)
+    return y, np.zeros(5), 1.0 - y**2
+
+
+def test_f093_hub_frame_velocities_refuse_a_missing_row():
+    points = np.zeros((4, 3))
+    with pytest.raises(FarfieldInputError, match="match"):
+        hub_frame_velocities(
+            points,
+            velocities=np.ones((3, 3)),
+            omega=1.0,
+            axis=np.array([1.0, 0.0, 0.0]),
+            origin=np.zeros(3),
+        )
+
+
+def test_f094_f095_f096_mismatched_grids_are_refused():
+    lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
+    ds = lattice_fields(lattice, fields={"u": np.ones((1, lattice.n_r, lattice.n_psi))})
+    with pytest.raises(FarfieldInputError, match="trailing axes"):
+        plane_integral(ds, np.ones((1, lattice.n_r, lattice.n_psi - 1)))
+    y = np.linspace(0.0, 1.0, 5)
+    with pytest.raises(FarfieldInputError, match="partial column"):
+        grid_integral(y, z=y, integrand=np.ones((5, 4)))
+    with pytest.raises(FarfieldInputError, match="azimuth"):
+        azimuthal_harmonics(np.ones(16), psi=np.linspace(0.0, 2 * np.pi, 8, endpoint=False))
+
+
+def test_f101_infinite_samples_give_nan_integrals():
+    y = np.linspace(0.0, 1.0, 5)
+    field = np.ones((5, 5))
+    field[2, 2] = np.inf
+    assert math.isnan(grid_integral(y, z=y, integrand=field))
+    lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
+    ds = lattice_fields(lattice, fields={"u": np.ones((1, lattice.n_r, lattice.n_psi))})
+    bad = np.ones((1, lattice.n_r, lattice.n_psi))
+    bad[0, 0, 0] = np.inf
+    assert np.isnan(plane_integral(ds, bad)[0])
+
+
+def test_f102_a_station_end_rule_refuses_instead_of_returning_nan():
+    y, z, gamma = _trace()
+    with pytest.raises(FarfieldInputError, match="shed filament"):
+        trace_forces(y, z=z, gamma=gamma, rho=1.2, v_inf=30.0, ends="station")
+
+
+@pytest.mark.parametrize("rho", [-1.2, 0.0, float("nan")])
+def test_f103_an_invalid_density_is_refused(rho):
+    y, z, gamma = _trace()
+    with pytest.raises(FarfieldInputError, match="density"):
+        trace_forces(y, z=z, gamma=gamma, rho=rho, v_inf=30.0)
+
+
+def test_f099_a_nonpositive_chunk_is_refused():
+    axis = np.linspace(0.0, 1.0, 5)
+    plane = plane_fields(axis, z=axis, fields={"v": np.ones((5, 5)), "w": np.ones((5, 5))})
+    with pytest.raises(FarfieldInputError, match="chunk"):
+        plane_vorticity_drag(plane, rho=1.2, chunk=-1)
+
+
+def test_f104_rotor_coverage_counts_every_channel():
+    lattice = build_lattice(tip_radius=1.0, stations=(0.0, 1.0), lateral_radius=None)
+    shape = (2, lattice.n_r, lattice.n_psi)
+    values = {k: np.ones(shape) for k in ("u", "v", "w", "p_prime")}
+    values["p_prime"][1, 0, 0] = np.nan
+    ds = cylindrical_components(lattice_fields(lattice, fields=values))
+    assert rotor_channels(ds, rho=1.2, v_inf=1.0, station=1.0).coverage < 1.0
+
+
+@pytest.mark.parametrize("line", [np.empty((0, 3)), np.zeros((3, 2)), np.zeros(3)])
+def test_f1357_a_misshapen_wake_line_raises_the_documented_error(line):
+    good = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+    with pytest.raises(FarfieldInputError, match="wake line"):
+        wake_crossings([good, line], values=np.ones(2), x_t=0.5)
+
+
+@pytest.mark.requirement("FR-1033")
+def test_a_farfield_plane_is_normal_to_the_freestream_and_centred_on_its_line():
+    from pyflightstream.probes.layouts import farfield_plane
+
+    direction = np.array([np.cos(0.2), 0.0, np.sin(0.2)])
+    origin = np.array([1.0, 2.0, 3.0])
+    plane = farfield_plane(
+        origin, direction=direction, distance=5.0, half_width=1.0, half_height=1.0, spacing=0.5
+    )
+    centre = origin + 5.0 * direction
+    offsets = plane.points - centre
+    assert np.allclose(offsets @ direction, 0.0, atol=1e-12)
+    assert np.allclose(offsets.mean(axis=0), 0.0, atol=1e-12)
+
+
+@pytest.mark.requirement("FR-1030")
+def test_plane_induced_drag_is_the_crossflow_energy_integral():
+    axis = np.linspace(0.0, 2.0, 5)
+    plane = plane_fields(axis, z=axis, fields={"v": np.full((5, 5), 0.5), "w": np.zeros((5, 5))})
+    from pyflightstream.farfield import plane_induced_drag
+
+    drag = plane_induced_drag(plane, rho=1.2, v_inf=30.0)
+    # (rho / 2) * integral of (v^2 + w^2) over the 2 m by 2 m plane.
+    assert drag.induced_drag == pytest.approx(0.5 * 1.2 * 0.25 * 4.0)
+    assert drag.coverage == 1.0
+
+
+@pytest.mark.requirement("FR-1028")
+def test_the_edge_trace_of_a_flat_wake_matches_the_strip_trace_to_roundoff():
+    from pyflightstream.farfield.quadrature import strip_edges
+    from pyflightstream.farfield.trefftz import _edge_trace
+
+    y, z, gamma = _trace()
+    strips = trace_forces(y, z=z, gamma=gamma, rho=1.2, v_inf=30.0)
+    edges = _edge_trace(
+        strip_edges(y), strip_edges(z), gamma, np.ones(len(y), dtype=bool), rho=1.2, v_inf=30.0
+    )
+    assert edges.lift == pytest.approx(strips.lift, rel=1e-12)
+    assert edges.induced_drag == pytest.approx(strips.induced_drag, rel=1e-12)

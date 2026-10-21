@@ -119,7 +119,13 @@ def plane_integral(fields: LatticeFields, integrand: np.ndarray) -> np.ndarray:
     -------
     numpy.ndarray
         The integral over the two trailing axes, the leading axes preserved,
-        in integrand units times square meters.
+        in integrand units times square meters; NaN where any sample is not
+        finite.
+
+    Raises
+    ------
+    FarfieldInputError
+        If the trailing axes are not ``(n_r, n_psi)`` of the lattice.
     """
     scale = float(fields.tip_radius) ** 2
     # PYFS-010. A missing sample propagates as NaN and is never dropped: a sum
@@ -129,7 +135,16 @@ def plane_integral(fields: LatticeFields, integrand: np.ndarray) -> np.ndarray:
     # of flux, force, torque or energy. Use sample_coverage() to ask HOW much is
     # missing before deciding whether a plane is usable.
     weights = ring_sample_weights(fields)[:, None]
-    return (np.asarray(integrand) * weights).sum(axis=(-2, -1)) * scale
+    data = np.asarray(integrand)
+    if data.ndim < 2 or data.shape[-2:] != (weights.shape[0], len(fields.psi)):
+        raise FarfieldInputError(
+            f"the integrand's trailing axes are {data.shape[-2:]} but the lattice has "
+            f"{weights.shape[0]} rings and {len(fields.psi)} azimuths; a partial plane would "
+            "broadcast into a plausible reduced integral"
+        )
+    total = (data * weights).sum(axis=(-2, -1)) * scale
+    # Infinity is a missing sample like NaN: the integral is NaN, never infinite.
+    return np.where(np.isfinite(data).all(axis=(-2, -1)), total, np.nan)
 
 
 def sample_coverage(integrand: np.ndarray) -> np.ndarray:
@@ -243,8 +258,22 @@ def grid_integral(y: np.ndarray, *, z: np.ndarray, integrand: np.ndarray) -> flo
     -------
     float
         Trapezoidal integral over the rectangular grid.
+
+    Raises
+    ------
+    FarfieldInputError
+        If the integrand is not shaped ``(len(y), len(z))``.
     """
-    return float((np.asarray(integrand) * grid_weights(y, z=z)).sum())
+    data = np.asarray(integrand)
+    weights = grid_weights(y, z=z)
+    if data.shape != weights.shape:
+        raise FarfieldInputError(
+            f"the integrand is shaped {data.shape} but the grid is {weights.shape} (y, z); "
+            "a partial column would broadcast into a plausible full-plane integral"
+        )
+    if not np.all(np.isfinite(data)):
+        return float("nan")
+    return float((data * weights).sum())
 
 
 def grid_coverage(
@@ -295,8 +324,10 @@ def strip_edges(
     - ``"extended"`` (the far field, FR-1012): half the adjacent spacing
       further out, so ``n`` uniform stations at the centers of ``n`` equal
       strips tile exactly the extent the solver divided;
-    - ``"station"``: the end stations themselves, the rule of the integrated
-      sectional loads of the sections table.
+    - ``"station"``: the end stations themselves, so the strips stop at the
+      end stations and the span is shortened by half a spacing at each end;
+      the integrated sectional loads of the sections table use the
+      ``"extended"`` rule too, as the definitions page states.
 
     Parameters
     ----------
@@ -365,6 +396,11 @@ def azimuthal_harmonics(values: np.ndarray, *, psi: np.ndarray, m_max: int = 6) 
     delta_psi(psi)
     data = np.asarray(values)
     n = data.shape[-1]
+    if data.ndim < 1 or len(np.asarray(psi)) != n:
+        raise FarfieldInputError(
+            f"the field has {n} azimuth samples but psi has {len(np.asarray(psi))}; "
+            "the spectrum of mismatched grids is not defined"
+        )
     if isinstance(m_max, bool) or not isinstance(m_max, numbers.Integral) or m_max < 0:
         raise FarfieldInputError(
             f"m_max={m_max!r} is not an azimuthal order; give a non-negative integer"

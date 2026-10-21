@@ -1156,3 +1156,29 @@ class TestFfproofPlan:
             f"{2 * _FFPROOF_PLAN___POINTS} fluid plots (FR-1075)."
         ]
         assert text.count(_FFPROOF_PLAN___PLOT) == 2 * _FFPROOF_PLAN___POINTS
+
+
+@pytest.mark.requirement("FR-1004")
+def test_the_farfield_core_performs_no_file_or_environment_io():
+    """FR-1004: the core exchanges arrays; it opens no file and reads no environment."""
+    forbidden_modules = {"os", "io", "pathlib", "sys", "subprocess", "tempfile", "shutil", "glob"}
+    forbidden_calls = {"open", "getenv", "read_text", "write_text", "load", "save", "savetxt"}
+    found: list[str] = []
+    for source in sorted(Path(ff.__file__).parent.glob("*.py")):
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = {alias.name.split(".")[0] for alias in node.names}
+            elif isinstance(node, ast.ImportFrom):
+                names = {(node.module or "").split(".")[0]}
+            elif isinstance(node, ast.Call):
+                func = node.func
+                called = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+                if called in forbidden_calls:
+                    found.append(f"{source.name}:{node.lineno} calls {called}")
+                continue
+            else:
+                continue
+            for name in names & forbidden_modules:
+                found.append(f"{source.name}:{node.lineno} imports {name}")
+    assert not found, found

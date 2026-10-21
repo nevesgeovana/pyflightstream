@@ -166,8 +166,9 @@ class LatticeFields:
         Returns
         -------
         tuple
-            ``(points, fields)``: positions ``(n, 3)`` in simulation length
-            units and the flattened scalar fields.
+            ``(points, fields)``: positions ``(n, 3)`` in the length unit of
+            ``tip_radius`` (metres on the post product path) and the
+            flattened scalar fields.
         """
         tip = float(self.tip_radius)
         x, rr, pp = np.meshgrid(self.stations, self.ring_centers, self.psi, indexing="ij")
@@ -392,11 +393,20 @@ def hub_frame_velocities(
     Raises
     ------
     FarfieldInputError
-        If the axis is not a supported axis letter.
+        If the axis is not a finite non-zero vector, or ``points`` and
+        ``velocities`` are not matching ``(n, 3)`` arrays.
     """
     direction = np.asarray(axis, dtype=float)
     norm = float(np.linalg.norm(direction))
     if not np.isfinite(norm) or norm == 0.0:
         raise FarfieldInputError("the rotation axis must be a finite non-zero vector")
-    arm = np.asarray(points, dtype=float) - np.asarray(origin, dtype=float)
-    return np.asarray(velocities, dtype=float) + np.cross(omega * direction / norm, arm)
+    positions = np.asarray(points, dtype=float)
+    sampled = np.asarray(velocities, dtype=float)
+    if positions.ndim != 2 or positions.shape[1] != 3 or sampled.shape != positions.shape:
+        raise FarfieldInputError(
+            f"points and velocities must both be shaped (n, 3) and match; got "
+            f"{positions.shape} and {sampled.shape}, and a missing row would broadcast "
+            "into a plausible full velocity field"
+        )
+    arm = positions - np.asarray(origin, dtype=float)
+    return sampled + np.cross(omega * direction / norm, arm)

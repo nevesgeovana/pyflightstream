@@ -173,12 +173,26 @@ def _induced(
     silent = d_gamma == 0.0
     # A filament that sheds no circulation induces nothing, even where a point of
     # another sheet sits on it (0/0 otherwise); a nonzero one stays singular there.
+    if np.any((r2 == 0.0) & ~silent[None, :]):
+        raise FarfieldInputError(
+            "a trace point lies on a shed filament, where the induced velocity is singular; "
+            "place the strip edges away from the stations (the 'extended' rule does)"
+        )
     safe = np.where(silent[None, :] & (r2 == 0.0), 1.0, r2)
     with np.errstate(divide="ignore", invalid="ignore"):
         factor = np.where(silent[None, :], 0.0, -d_gamma[None, :] / (2.0 * math.pi * safe))
     v = (factor * -rz).sum(axis=1)
     w = (factor * ry).sum(axis=1)
     return v, w
+
+
+def _require_density(rho: float) -> None:
+    """Refuse a density that is not finite and positive."""
+    if not (math.isfinite(rho) and rho > 0.0):
+        raise FarfieldInputError(
+            f"the density must be finite and positive, got {rho!r}; a negative density "
+            "would reverse the sign of the induced drag"
+        )
 
 
 def trace_forces(
@@ -234,6 +248,7 @@ def trace_forces(
     FarfieldInputError
         If trace samples, density, symmetry or integration settings are invalid.
     """
+    _require_density(rho)
     y = np.asarray(y, dtype=float)
     z = np.asarray(z, dtype=float)
     gamma = np.asarray(gamma, dtype=float)
@@ -487,6 +502,7 @@ def _edge_trace(
     v_inf: float,
 ) -> TraceResult:
     """Integrate a wake sheet at its actual edges, preserving folded topology."""
+    _require_density(rho)
     if len(gamma) < 1:
         raise FarfieldInputError("the wake needs at least two crossings to bound a strip")
     y, z = 0.5 * (ey[:-1] + ey[1:]), 0.5 * (ez[:-1] + ez[1:])
@@ -555,6 +571,13 @@ def wake_crossings(lines: Sequence[np.ndarray], *, values: np.ndarray, x_t: floa
     values = np.asarray(values, dtype=float)
     if len(lines) != len(values):
         raise FarfieldInputError("the wake needs one value per line")
+    for k, line in enumerate(lines):
+        shape = np.asarray(line, dtype=float).shape
+        if len(shape) != 2 or shape[0] < 1 or shape[1] != 3:
+            raise FarfieldInputError(
+                f"wake line {k} must be a non-empty array of (x, y, z) nodes, shape (n, 3); "
+                f"got shape {shape}"
+            )
     starts = (
         np.array([np.asarray(line, dtype=float)[0] for line in lines])
         if lines
@@ -653,6 +676,7 @@ def plane_induced_drag(plane: PlaneFields, *, rho: float, v_inf: float) -> Plane
     PlaneDrag
         Fine and coarse induced drag in N, their difference and sample coverage.
     """
+    _require_density(rho)
     v, w = plane["v"], plane["w"]
     integrand = crossflow_integrand(rho, first=v, second=w, advecting=v_inf)
     coverage = grid_coverage(integrand, y=plane.y, z=plane.z)
@@ -691,13 +715,23 @@ def plane_vorticity_drag(plane: PlaneFields, *, rho: float, chunk: int = 512) ->
     rho : float
         Density in kg/m3.
     chunk : int
-        Number of source cells processed together to bound temporary memory.
+        Number of source cells processed together to bound temporary memory;
+        a positive integer.
 
     Returns
     -------
     float
         Induced drag in N from the plane vorticity.
+
+    Raises
+    ------
+    FarfieldInputError
+        If the density is not finite and positive, or ``chunk`` is not a
+        positive integer.
     """
+    _require_density(rho)
+    if isinstance(chunk, bool) or int(chunk) != chunk or chunk < 1:
+        raise FarfieldInputError(f"chunk must be a positive integer, got {chunk!r}")
     v, w = plane["v"], plane["w"]
     dy = float(plane.y[1] - plane.y[0])
     dz = float(plane.z[1] - plane.z[0])
@@ -748,6 +782,7 @@ def plane_lift(plane: PlaneFields, *, rho: float, v_inf: float) -> float:
     float
         Lift in N, positive along the plane's ``z``.
     """
+    _require_density(rho)
     v, w = plane["v"], plane["w"]
     dy = float(plane.y[1] - plane.y[0])
     dz = float(plane.z[1] - plane.z[0])
@@ -854,7 +889,11 @@ def rotor_channels(
     useful = thrust * v_inf
     denominator = useful + losses
     eta = float("nan") if v_inf == 0.0 or denominator == 0.0 else useful / denominator
-    coverage = float(sample_area_coverage(u[index], fields))
+    # Coverage is the area where EVERY channel the powers read is finite, not the axial one alone.
+    sampled = np.stack([u[index], fields["v"][index], fields["w"][index], fields["p_prime"][index]])
+    coverage = float(
+        sample_area_coverage(np.where(np.isfinite(sampled).all(axis=0), 1.0, np.nan), fields)
+    )
     return RotorChannels(
         station=float(station),
         p_axial=float(p_axial),

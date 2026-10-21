@@ -1016,16 +1016,15 @@ class TestFarfieldTrefftz:
             -1
         ] == pytest.approx(_FARFIELD_TREFFTZ__SPAN / 2.0)
         assert (station[-1] - station[0]) == pytest.approx(_FARFIELD_TREFFTZ__SPAN - spacing)
-        wrong = trace_forces(
-            y,
-            z=np.zeros_like(y),
-            gamma=_farfield_trefftz___elliptic(y),
-            rho=_FARFIELD_TREFFTZ__RHO,
-            v_inf=_FARFIELD_TREFFTZ__V,
-            ends="station",
-        )
-        e = _farfield_trefftz___efficiency(wrong.lift, wrong.induced_drag)
-        assert not abs(100.0 * (e - 1.0) - 1.05) <= 0.1
+        with pytest.raises(FarfieldInputError, match="shed filament"):
+            trace_forces(
+                y,
+                z=np.zeros_like(y),
+                gamma=_farfield_trefftz___elliptic(y),
+                rho=_FARFIELD_TREFFTZ__RHO,
+                v_inf=_FARFIELD_TREFFTZ__V,
+                ends="station",
+            )
 
     @staticmethod
     @pytest.mark.requirement("FR-451")
