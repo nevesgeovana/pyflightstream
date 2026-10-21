@@ -85,8 +85,7 @@ FlightStream versions.
 - The probe points reader refuses a table with more rows than declared and reports fewer as
   incomplete, a sectional loads export printed twice is refused, and the residual history
   table gains `velocity_overflowed` and `pressure_overflowed`.
-- A declined value is the NA token in every table: the sweep table and the fixed-width custom
-  polar write NA for NaN and infinity, and the custom polar reader reads NA back as missing.
+- A declined cell of the campaign sweep table is written as the NA token, not an empty field.
 - `show` lists the outcome first and the record last; `diff` names the input a changed script
   line comes from; a rebuild refusal names every changed line; `history` reports an unreadable
   zip as an error row; `trace` refuses provenance outside the workspace.
