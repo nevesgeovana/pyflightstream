@@ -580,3 +580,14 @@ def test_f2_0809_an_unreadable_plan_with_no_entries_is_still_listed(tmp_path):
         ("lonely", "unreadable")
     ]
     assert ledger.freshness(matrix="another") == []
+
+
+@pytest.mark.parametrize("word", ["converged", "SUCCESS", "FAILD*", "planed"])
+def test_f2_0809_a_status_word_no_status_takes_is_refused_with_the_accepted_words(workspace, word):
+    """F-1592, PFS-2130.060: a typo no longer reads as a workspace with no match."""
+    ledger = read_ledger(workspace)
+    for query in (ledger.status, ledger.points):
+        with pytest.raises(ValueError, match="CONVERGED") as caught:
+            query(statuses=[word])
+        assert repr(word) in str(caught.value)
+    assert ledger.status(statuses=["CONVERGED", "FAILED_*", PLANNED])

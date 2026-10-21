@@ -369,7 +369,8 @@ class Ledger:
             Only the polars of this matrix stem.
         statuses : sequence of str, optional
             Only the polars with a datapoint in one of these words; a word
-            ending in ``*`` matches every word it begins.
+            ending in ``*`` matches every word it begins. A word no status
+            takes raises :class:`ValueError`, listing the accepted words.
         failed : bool, optional
             Only the polars with at least one failed datapoint.
 
@@ -380,6 +381,7 @@ class Ledger:
             with a record), ``planned`` (datapoints the plan names, None when
             no plan names the simulation) and ``counts`` (word to count).
         """
+        check_status_words(statuses)
         rows = []
         for (stem, sim), entries in self._polars(sims=sims, matrix=matrix).items():
             words = [entry.word for entry in entries]
@@ -417,6 +419,7 @@ class Ledger:
             replaced; ``where`` is ``local``, the job label of a grouped run,
             or ``cluster``.
         """
+        check_status_words(statuses)
         rows = []
         for (stem, sim), entries in self._polars(sims=sims, matrix=matrix).items():
             for entry in entries:
@@ -603,6 +606,34 @@ class Ledger:
         if path is None:
             return "no matrix"
         return "current" if optional_file_sha256(path) == plan.matrix_sha256 else "stale"
+
+
+def check_status_words(statuses: Sequence[str]) -> None:
+    """Refuse a status word that no recorded or derived status takes.
+
+    Parameters
+    ----------
+    statuses : sequence of str
+        The words of a ``--status`` selection; a trailing ``*`` matches every
+        word it begins.
+
+    Raises
+    ------
+    ValueError
+        If a word is neither a :class:`RunStatus` value, nor :data:`PLANNED`, nor
+        a prefix ending in ``*`` of one of them. A misspelled or lower-case word
+        otherwise selects nothing, which reads like a workspace with no match.
+    """
+    known = [status.value for status in RunStatus] + [PLANNED]
+    for word in statuses:
+        stem = word[:-1] if word.endswith("*") else None
+        if (stem is None and word not in known) or (
+            stem is not None and not any(item.startswith(stem) for item in known)
+        ):
+            raise ValueError(
+                f"statuses names {word!r}, which no status takes; the words are "
+                f"{', '.join(known)}, and a trailing * matches every word it begins"
+            )
 
 
 def _wanted(words: Sequence[str], *, statuses: Sequence[str], failed: bool) -> bool:
