@@ -36,6 +36,11 @@ with RPT-027. The measured broken-operation refusal remains in place for 26.124.
 The high-level velocity-profile product remains refused pending measurement on
 26.125.
 
+Rotor motions and rotor-speed rows now run on 26.100. The build takes the
+angular velocity of an unmarked Euclidean motion in rev/min, and the package
+writes it that way with no rotor mark. A plan that was refused on 26.100 for
+its rotor speed in 0.40.0 now plans.
+
 ## 0.41.0
 
 ### Workspace input guide
@@ -169,8 +174,9 @@ A requested free-stream velocity is compared with the loads export at half a
 count of the last digit the export printed it with.
 
 A rotor row on build 26.100 (`unsteady_rotor`, `qsteady_rotor`, a rotor speed, a
-`rotary_motion` call) is refused at plan time: the unit of that build's angular
-velocity is not measured. Run rotor rows on a build with a measured rotor unit.
+`rotary_motion` call) was refused at plan time in this release, because the unit
+of that build's angular velocity was not yet measured. Release 0.42.0 lifted the
+refusal: see the section on build-specific script forms above.
 
 New capabilities, nothing to migrate: a pproc may state `[streamlines]`
 ([Streamlines from the pproc artifact](streamlines.md)); the `unsteady` row key

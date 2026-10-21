@@ -61,7 +61,7 @@ What each run type does on each registered build:
 |---|---|---|---|---|---|
 | `steady` | refused | runs | runs | runs | runs |
 | `unsteady` | refused | single march | single march | single march | actions where the row asks for them |
-| `unsteady_rotor` | refused | single march, Euclidean rotor (run on 26.000; 25.100 from its manual) | refused until the rotor speed unit is measured | single march | actions where the row asks for them |
+| `unsteady_rotor` | refused | single march, Euclidean rotor (run on 26.000; 25.100 from its manual) | single march, Euclidean rotor in rev/min with no rotor mark | single march | actions where the row asks for them |
 
 **A single march** is how an unsteady row runs on a build whose manual
 documents no unsteady solver action (`SET_NEW_UNSTEADY_SOLVER_ACTION`,
@@ -106,13 +106,13 @@ run.
 
 **On 26.100 the Euclidean rotor carries no rotor mark.** Its manual prints
 the mark and its solver answers it as an unrecognized command.
-The package refuses rotor motions and rotor-speed rows on this build during
-plan rehearsal until a rotation null test settles the angular-velocity unit
+The package writes rotor motions and rotor-speed rows on this build with the
+angular velocity in rev/min, the unit measured on it, and never tells the
+solver the motion is a rotor:
 
-- the unit is a maintainer decision, while that build's manual tutorial
- gives rad/s for the field and 26.000 measured rad/s;
-- the sense of rotation is not measured on that build;
-- the solver is never told the motion is a rotor.
+- that build's manual tutorial gives rad/s for the field and 26.000 measured
+ rad/s, so the unit is not the one the manual names;
+- the sense of rotation on that build is not separately measured.
 
 The 26.100 build-compare sector and blade cases agree with 26.124 in sign and within 4 to 5 percent in CT despite the rev/min input and absent rotor mark.
 
