@@ -1222,7 +1222,9 @@ def _complete_sweep(
     _write(workspace, completed)
     return CollectOutcome(
         run_id=record.run_id,
-        state="COLLECTED",
+        # A refused point or a disagreeing solver identity is a failed collection, not a
+        # collected one: the sweep must not let collect exit successfully over it.
+        state="FAILED" if refused or disagreements else "COLLECTED",
         detail=(
             f"{len(collected_all)} output(s) of {len(by_point)} point(s) collected, "
             f"recorded {worst}"

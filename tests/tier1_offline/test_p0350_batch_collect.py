@@ -607,3 +607,21 @@ def test_f6_0102_two_executions_of_one_job_folder_and_name_are_not_merged():
         "a",
         "c",
     }
+
+
+def test_a_sweep_with_a_refused_point_is_reported_failed_not_collected(tmp_path, monkeypatch):
+    """F-1560: a refused point of a sweep must not leave the sweep reading COLLECTED."""
+    from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
+    from tests.tier1_offline.test_collect_stage import _submitted_sweep
+
+    workspace, sim = _submitted_sweep(tmp_path)
+    (sim / "AL+000.txt").write_text("first point", encoding="utf-8")
+    (sim / "AL+020.txt").write_text("second point", encoding="utf-8")
+
+    def refuse(self, *args, **keywords):
+        raise WorkspaceError("refused for the test")
+
+    monkeypatch.setattr(CampaignWorkspace, "collect_outputs", refuse)
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=_converged)
+    assert not report.collected
+    assert [outcome.state for outcome in report.failed] == ["FAILED"]
