@@ -1257,3 +1257,19 @@ def test_f6_0102_two_different_points_with_one_run_id_are_both_refused():
     assert [item.run_id for item in assembled] == ["ws/sim_1/other"]
     assert set(refusals) == {"sims/sim_1/a/loads.txt", "sims/sim_1/b/loads.txt"}
     assert "one run id" in refusals["sims/sim_1/a/loads.txt"]
+
+
+def test_f6_0102_a_stale_surface_mesh_is_not_returned_as_the_fresh_export(tmp_path):
+    """F-602: a run that wrote no mesh fails even when an earlier export left one behind."""
+
+    class _Succeeds:
+        def run_script(self, script_path, working_dir, timeout_s=None) -> ExecutionResult:
+            return ExecutionResult(
+                return_code=0, wall_time_s=0.1, timed_out=False, log_text=None, stdout="", stderr=""
+            )
+
+    work = tmp_path / "pre"
+    work.mkdir()
+    (work / "surface_mesh.obj").write_text("v 0 0 0\n", encoding="utf-8")
+    with pytest.raises(SurfaceMeshExportError, match="was not written"):
+        export_surface_mesh(tmp_path / "case.fsm", work, version="26.120", executor=_Succeeds())

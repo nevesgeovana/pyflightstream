@@ -1680,6 +1680,15 @@ def export_surface_mesh(
     workdir = Path(workdir).resolve()
     workdir.mkdir(parents=True, exist_ok=True)
     mesh_path = workdir / f"surface_mesh.{file_type.lower()}"
+    # A MESH LEFT BY AN EARLIER EXPORT IS NOT THIS RUN'S: removed before the run, so
+    # the file's existence afterwards proves that this run wrote it.
+    try:
+        mesh_path.unlink(missing_ok=True)
+    except OSError as error:
+        raise SurfaceMeshExportError(
+            f"the mesh file {mesh_path.name} of an earlier export cannot be removed "
+            f"({error}), so a file found after the run could not be told from the stale one"
+        ) from error
 
     text = _surface_mesh_script(Path(fsm_path), mesh_path, version, file_type, surface)
     script_path = workdir / "export_surface_mesh.txt"
