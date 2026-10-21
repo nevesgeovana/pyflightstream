@@ -7831,3 +7831,14 @@ def test_p0430_f1315_the_rotorless_wake_refusal_names_the_steps_key():
         build_script(case, Script("26.123"))
     assert "wake_termination_steps" in str(refused.value)
     assert "no steps-spelled" not in str(refused.value)
+
+
+def test_p0430_fr1452_a_zero_rounded_export_window_names_the_run_length():
+    """C-SRS-S05-114: the refusal of a window that rounds to no step names the key and the run."""
+    with pytest.raises(CampaignConfigError) as refused:
+        build_script(
+            rotor_case(EXPORT_UNSTEADY_LAST_REV="1e-12", TIME_ITERATIONS="720"), Script("26.124")
+        )
+    text = str(refused.value)
+    assert "EXPORT_UNSTEADY_LAST_REV" in text and "no time step" in text
+    assert "720-step run" in text

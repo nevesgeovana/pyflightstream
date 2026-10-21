@@ -237,8 +237,9 @@ def resolve_first_step(
         if steps < 1:
             raise CampaignConfigError(
                 f"case {case.sim_id!r} states {key} as {number}, which rounds to no time "
-                "step of this run, so nothing would be exported. State at least one step "
-                f"('{EXPORT_UNSTEADY_LAST_ITER_VARIABLE}: 1' exports the last one)."
+                f"step of this {length}-step run, so nothing would be exported. State at "
+                f"least one step ('{EXPORT_UNSTEADY_LAST_ITER_VARIABLE}: 1' exports the "
+                "last one)."
             )
         if steps > length:
             raise CampaignConfigError(
