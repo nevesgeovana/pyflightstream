@@ -257,24 +257,28 @@ that very line in the licensed probes:
 
 | rate | positive is | emitted for +40 deg/s | the solver's answer to that line | measured by |
 |---|---|---|---|---|
-| `roll_rate` | right wing down | `ROTATION <frame> X -6.667` | the meshed left wing loses lift (-0.0998 in its lift coefficient) and the rolling moment opposes the roll: the damping of a positive roll rate | The roll-and-yaw-rate measurement |
-| `pitch_rate` | nose up | `ROTATION <frame> Y 6.667` | the airframe gains lift (+0.0227) and the pitching moment turns nose down (-0.0012): the damping of a positive pitch rate | The rotating-free-stream measurement |
-| `yaw_rate` | nose right | `ROTATION <frame> Z -6.667` | the meshed left wing, now advancing, gains lift (+0.0089): the response of a positive yaw rate | The roll-and-yaw-rate measurement |
+| `roll_rate` | right wing down | `ROTATION <frame> X -6.667` | the meshed left wing loses lift (-0.0998 in its lift coefficient) and the rolling moment opposes the roll: the damping of a positive roll rate | RPT-060, The roll-and-yaw-rate measurement |
+| `pitch_rate` | nose up | `ROTATION <frame> Y 6.667` | the airframe gains lift (+0.0227) and the pitching moment turns nose down (-0.0012): the damping of a positive pitch rate | RPT-052, The rotating-free-stream measurement |
+| `yaw_rate` | nose right | `ROTATION <frame> Z -6.667` | the meshed left wing, now advancing, gains lift (+0.0089): the response of a positive yaw rate | RPT-060, The roll-and-yaw-rate measurement |
 
 **What the solver does with a positive angular velocity is not documented by
 any edition of the manual**, so the sense was MEASURED on FlightStream 26.124,
 one axis at a time, on one half wing-body:
 
 - **Pitch**, three rates, reported in
-  The rotating-free-stream measurement: a
+  RPT-052, The rotating-free-stream measurement: a
   positive rotation about y came back with the nose-down moment increment that
   opposes a nose-up rotation.
 - **Roll and yaw**, the licensed probe T11 on build 8172026 of 26.124, seven
   converged solves, reported in
-  The roll-and-yaw-rate measurement: a
+  RPT-060, The roll-and-yaw-rate measurement: a
   positive rotation about x gave the left wing more lift and a positive rolling
   increment, the damping of a NEGATIVE roll rate, and a positive rotation about
   z gave the left wing less lift, the response of a NEGATIVE yaw rate.
+
+The retained [rate-response fixture](https://github.com/nevesgeovana/pyflightstream/blob/main/tests/tier1_offline/fixtures/rate_responses.yaml)
+records the emitted lines and lift increments with the original evidence filenames.
+These are historical measurements, not validation of another build or geometry.
 
 **Historical roll and yaw results need a sign check.** See the
 [upgrade guidance](upgrading.md#older-layouts) for affected releases. A script

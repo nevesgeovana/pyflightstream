@@ -50,6 +50,17 @@ def test_p0430_f7_04_rotation_prose_has_no_detached_punctuation():
     assert not [line for line in section.splitlines() if line.strip() in {".", ",", ":", ";"}]
 
 
+def test_p0430_f7_04_rate_measurements_have_evidence_locators():
+    """Each named measurement must identify the report behind its numbers."""
+    page = (REPO / "docs/flight-conditions.md").read_text(encoding="utf-8")
+    for title, report in (
+        ("The roll-and-yaw-rate measurement", "RPT-060"),
+        ("The rotating-free-stream measurement", "RPT-052"),
+    ):
+        citations = [line for line in page.splitlines() if title in line]
+        assert citations and all(report in line for line in citations)
+
+
 def historical_requirements():
     """Read the frozen migration population through the shared table parser."""
     from scripts._requirements_paths import requirement_rows
