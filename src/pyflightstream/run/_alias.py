@@ -332,7 +332,14 @@ def resolve_alias(
             f"{alias_of(sim, 1)} to {alias_of(sim, len(order))}. Nothing was done."
         )
     point = order[number - 1]
-    if strict and planned and (number > len(planned) or planned[number - 1] != point):
+    if strict and not planned:
+        raise AliasError(
+            f"alias {text!r} cannot be confirmed: the plan evidence for simulation {sim} is "
+            f"not there, so the records alone read it as {point!r}. Name the point instead "
+            "(sims (CLI: --sims) takes a simulation id; the point name is the end of its "
+            "run id). Nothing was done."
+        )
+    if strict and (number > len(planned) or planned[number - 1] != point):
         read_by_plan = planned[number - 1] if number <= len(planned) else "no point"
         raise AliasError(
             f"alias {text!r} is ambiguous: the records read it as {point!r} and the plan "

@@ -231,3 +231,15 @@ def test_p0420_a_selection_naming_part_of_a_simulation_is_refused_with_its_point
         assert "simulation 5002" in err and all(name in err for name in names), err
         assert "5002_1" in err and "Nothing was done" in err
     assert workspace.manifest_path.read_bytes() == before
+
+
+def test_f6_0102_strict_alias_without_plan_evidence_is_refused():
+    """F-1559: a destructive verb may not resolve an alias from the records alone."""
+    import pytest
+
+    from pyflightstream.run._alias import AliasError, resolve_alias
+
+    rows = [{"sim_id": "5002", "run_id": "warm/sim_5002/P1", "tag": "P1"}]
+    assert resolve_alias("5002_1", rows, {"5002": ["P1"]}, strict=True) == ("5002", "P1")
+    with pytest.raises(AliasError, match="plan evidence"):
+        resolve_alias("5002_1", rows, {"5002": []}, strict=True)
