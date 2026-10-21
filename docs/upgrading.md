@@ -25,6 +25,28 @@ Maintainers using `pyfs-manual register --write` must supply `--commands-dir` wi
 the editable command database directory. Dry-run installation discovery requires
 a real filesystem directory.
 
+### Results and behaviour that changed
+
+- Results of letter-path rotors with a non-default `blade1` datum change, because
+  the solver now honours that datum. Re-run such cases before comparing them with
+  earlier results.
+- On 26.100 the unmarked Euclidean rotor motion uses the measured rev/min.
+- Command emission validates enumerations, entity references and free labels before
+  a script is written. Numeric rotor axes 1, 2 and 3 resolve to X, Y and Z;
+  `SURFACE_MIRROR` accepts only the mirror planes 1, 2 and 3; surface deletion
+  renumbers the surviving boundary labels, so labels recorded before a deletion
+  no longer address the same surface.
+- Public parking rejects absolute, drive-relative and parent-traversal paths.
+- Undefined rotor coefficients raise `ProductError` and empty passage series raise
+  `MalformedOutputError`. Catch `CampaignConfigError` for row and artifact naming
+  refusals, and `SolverSetupError` or `PyflightstreamError` for unsupported setup
+  entries; `RuntimeError` handlers still work.
+- Reference lattice surveys require at least 14 azimuths for six stored harmonics.
+- Workbook creation no longer accepts `python`.
+- Positional calls of `airfoil_section_contour`, `solid_section_properties` and
+  `blade_properties_from_sections` after the primary input still work and warn; use
+  keyword arguments, because the positional form is removed in 0.43.0.
+
 ### Build-specific script forms
 
 For 26.124 wake imports, use `edge_type=` for the third argument. The previous
