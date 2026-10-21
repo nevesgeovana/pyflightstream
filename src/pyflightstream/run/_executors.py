@@ -508,7 +508,10 @@ def render_descriptor(profile, values: Mapping[str, object]) -> str:
         elif profile.descriptor_format == "toml":
             # A boolean and a single substitution of a number are bare, as in yaml.
             bare = _numeric_field(template, values)
-            lines.append(f"{key} = {text}" if bare else f'{key} = "{text}"')
+            # A quoted string escapes its quote, backslash and control characters (F-1458).
+            lines.append(
+                f"{key} = {text}" if bare else f"{key} = {json.dumps(text, ensure_ascii=False)}"
+            )
         else:
             # yaml. A number stays bare and everything else is quoted, which
             # is what the predecessor's own descriptor does.
@@ -519,7 +522,10 @@ def render_descriptor(profile, values: Mapping[str, object]) -> str:
             # is bare only when it is exactly one substitution AND the value
             # behind it was a number.
             bare = _numeric_field(template, values)
-            lines.append(f"{key}: {text}" if bare else f'{key}: "{text}"')
+            # A double-quoted yaml scalar escapes as json does (F-1459).
+            lines.append(
+                f"{key}: {text}" if bare else f"{key}: {json.dumps(text, ensure_ascii=False)}"
+            )
     return "\n".join(lines) + "\n"
 
 
@@ -1119,7 +1125,7 @@ def _run_until_the_analysis_ends(
             remaining = None if timeout_s is None else timeout_s - (time.perf_counter() - start)
             if remaining is not None and remaining <= 0:
                 process.kill()
-                process.wait()
+                _reap(process)
                 return None, True, ""
             try:
                 code = process.wait(timeout=2.0 if remaining is None else min(2.0, remaining))
@@ -1128,7 +1134,7 @@ def _run_until_the_analysis_ends(
                 pass
             if any(scan.finished() for scan in scans):
                 process.kill()
-                process.wait()
+                _reap(process)
                 note = (
                     f"{_utc_now()} pid={process.pid} stopped after the aeroelastic analysis "
                     "ended (its completion line printed); a steady coupled script never exits "
@@ -1153,7 +1159,7 @@ def _run_until_the_analysis_ends(
                     + "\n"
                 )
                 process.kill()
-                process.wait()
+                _reap(process)
                 try:
                     with _textio.open_text(working_dir / "pyfs-modal-error.log", "a") as log:
                         log.write(diagnostic)
@@ -1175,7 +1181,11 @@ def _run_until_the_analysis_ends(
             env=os.environ.copy(),
             creationflags=_NO_WINDOW,
         )
-        code, timed_out, note = wait_for_the_end(process)
+        try:
+            code, timed_out, note = wait_for_the_end(process)
+        except BaseException:
+            _kill_and_reap(process)
+            raise
     # The files are closed here, so they can be read whole and removed.
     return finish(code, timed_out, note)
 
@@ -1208,14 +1218,52 @@ def _run_with_progress(
         env=os.environ.copy(),
         creationflags=_NO_WINDOW,
     )
+    try:
+        return _progress_loop(process, start, working_dir, timeout_s, counter, total, every)
+    except BaseException:
+        # An interrupt must not leave the solver running, as subprocess.run kills its child.
+        _kill_and_reap(process)
+        raise
+
+
+_REAP_TIMEOUT_S = 10.0
+
+
+def _reap(process: subprocess.Popen[str]) -> None:
+    """Wait a killed ``process`` for a bounded time."""
+    try:
+        process.wait(timeout=_REAP_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def _kill_and_reap(process: subprocess.Popen[str]) -> tuple[str, str]:
+    """Kill ``process`` and collect what it wrote, never waiting for it without a limit."""
+    process.kill()
+    try:
+        out, err = process.communicate(timeout=_REAP_TIMEOUT_S)
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        return "", ""
+    return out or "", err or ""
+
+
+def _progress_loop(
+    process: subprocess.Popen[str],
+    start: float,
+    working_dir: Path,
+    timeout_s: float | None,
+    counter: Path,
+    total: int | None,
+    every: int,
+) -> tuple[int | None, str, str, bool]:
+    """Wait for ``process`` in slices, saying its progress; the caller kills it on any exit."""
     said = 0
     spared_said: set[str] = set()
     while True:
         remaining = None if timeout_s is None else timeout_s - (time.perf_counter() - start)
         if remaining is not None and remaining <= 0:
-            process.kill()
-            out, err = process.communicate()
-            return None, out or "", err or "", True
+            out, err = _kill_and_reap(process)
+            return None, out, err, True
         try:
             out, err = process.communicate(
                 timeout=2.0 if remaining is None else min(2.0, remaining)
@@ -1234,8 +1282,7 @@ def _run_with_progress(
                     + "\n\n".join(dialogs)
                     + "\n"
                 )
-                process.kill()
-                out, err = process.communicate()
+                out, err = _kill_and_reap(process)
                 # Guarded (GOAL-034 Q8 CXQ8R4-2): a log or stderr that cannot be
                 # written must not replace the failed-execution result it reports.
                 try:
@@ -1244,7 +1291,7 @@ def _run_with_progress(
                 except (OSError, ValueError) as log_error:
                     say_line(f"[solver] could not persist modal diagnostic: {log_error}")
                 say_line(diagnostic.rstrip())
-                return process.returncode or 1, out or "", (err or "") + "\n" + diagnostic, False
+                return process.returncode or 1, out, err + "\n" + diagnostic, False
             # A WINDOW THAT ASKS NOTHING IS SPARED AND SAID: the GUI's
             # startup splash of a HIDDEN 0 row. Written once per description
             # into the point's own folder; a failure to write it changes nothing.
@@ -1331,7 +1378,9 @@ class LocalExecutor:
         export_log: bool = True,
         progress_every: int = PROGRESS_EVERY_DEFAULT,
     ) -> None:
-        self.fs_exe = Path(fs_exe)
+        # Absolute now: the check below and the launch (in the point's folder) must name
+        # one file, which a relative path would not (F-1460).
+        self.fs_exe = Path(os.path.abspath(fs_exe))
         self.hidden = hidden
         self.forced_local = forced_local
         self.export_log = export_log
