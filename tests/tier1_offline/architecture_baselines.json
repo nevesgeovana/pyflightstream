@@ -515,9 +515,9 @@
    "positional": 0
   },
   "post/series.py:write_point_series": {
-   "complexity": 18,
-   "branches": 17,
-   "statements": 51,
+   "complexity": 14,
+   "branches": 13,
+   "statements": 48,
    "positional": 1
   },
   "post/superfile.py:superfile_row": {
@@ -551,9 +551,9 @@
    "positional": 1
   },
   "post/unsteady.py:phase_locked_rows": {
-   "complexity": 18,
+   "complexity": 14,
    "branches": 12,
-   "statements": 53,
+   "statements": 51,
    "positional": 2
   },
   "post/unsteady_polar.py:write_unsteady_polar": {

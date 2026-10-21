@@ -198,6 +198,23 @@ _STAMPED = re.compile(r"^(?P<stem>.+)_iteration=(?P<step>\d+)$")
 _AUXDATA = re.compile(r'^DATASETAUXDATA\s+(?P<name>\w+)\s*=\s*"(?P<value>[^"]*)"\s*$')
 
 
+def _stated_auxdata(path: Path) -> dict[str, str]:
+    """Return the DATASETAUXDATA records of a Tecplot header, read to its first row of numbers."""
+    stated: dict[str, str] = {}
+    try:
+        with path.open(encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                stripped = line.strip()
+                found = _AUXDATA.match(stripped)
+                if found is not None:
+                    stated[found.group("name")] = found.group("value")
+                elif stripped and stripped[0] in "0123456789+-.":
+                    break  # the first row of numbers ends the header, however long
+    except OSError:
+        return {}
+    return stated
+
+
 def translated_surface(record: RunRecord | AdditionalRecord, path: Path) -> dict[str, object]:
     """Say what a Tecplot surface the package wrote from a VTK is (G45).
 
@@ -235,18 +252,7 @@ def translated_surface(record: RunRecord | AdditionalRecord, path: Path) -> dict
             source = f"{vtk.stem}_iteration={stamped.group('step')}{vtk.suffix}"
         else:
             continue
-        stated: dict[str, str] = {}
-        try:
-            with path.open(encoding="utf-8", errors="replace") as handle:
-                for line in handle:
-                    stripped = line.strip()
-                    found = _AUXDATA.match(stripped)
-                    if found is not None:
-                        stated[found.group("name")] = found.group("value")
-                    elif stripped and stripped[0] in "0123456789+-.":
-                        break  # the first row of numbers ends the header, however long
-        except OSError:
-            stated = {}
+        stated = _stated_auxdata(path)
         metadata: dict[str, object] = {
             "translated_from": source,
             "source_sha256": stated.get("SOURCE_VTK_SHA256", NOT_APPLICABLE),
@@ -477,6 +483,37 @@ _ROWS: dict[str, Callable[..., tuple[tuple[str, ...], list[tuple[object, ...]]]]
 }
 
 
+def _surface_export_entries(
+    surface_exports: dict[str, dict[str, object]],
+    stamped: Mapping[tuple[str, str], Mapping[int, Path]],
+    steps: range,
+    record: RunRecord,
+    out: Path,
+    *,
+    skipped: dict[str, str] | None,
+) -> None:
+    """Fill the manifest entries of the native Tecplot, VTK and CSV files of the window."""
+    for kind, listed_suffix, extension in LISTED_KINDS:
+        if kind == "sections":
+            continue
+        for step, path in stamped.get((listed_suffix, extension), {}).items():
+            if step not in steps:
+                continue
+            relative = Path(os.path.relpath(path, out)).as_posix()
+            metadata = surface_export_metadata(record, step=step)
+            if "skipped" in metadata:
+                if skipped is not None:
+                    skipped[relative] = str(metadata["skipped"])
+                continue
+            surface_exports[relative] = {
+                "runs": [record.run_id],
+                "format": kind,
+                "step": step,
+                **metadata,
+                **(translated_surface(record, path) if kind == "tecplot" else {}),
+            }
+
+
 def write_point_series(
     root: Path,
     *,
@@ -586,25 +623,7 @@ def write_point_series(
     written: list[Path] = []
     names: dict[str, dict[str, object]] = {}
     if surface_exports is not None:
-        for kind, listed_suffix, extension in LISTED_KINDS:
-            if kind == "sections":
-                continue
-            for step, path in stamped.get((listed_suffix, extension), {}).items():
-                if step not in steps:
-                    continue
-                relative = Path(os.path.relpath(path, out)).as_posix()
-                metadata = surface_export_metadata(record, step=step)
-                if "skipped" in metadata:
-                    if skipped is not None:
-                        skipped[relative] = str(metadata["skipped"])
-                    continue
-                surface_exports[relative] = {
-                    "runs": [record.run_id],
-                    "format": kind,
-                    "step": step,
-                    **metadata,
-                    **(translated_surface(record, path) if kind == "tecplot" else {}),
-                }
+        _surface_export_entries(surface_exports, stamped, steps, record, out, skipped=skipped)
     refusals: list[PyflightstreamError] = []
     for kind, suffix in SERIES_KINDS:
         files = stamped.get((suffix or "", "txt"), {})
@@ -637,19 +656,16 @@ def write_point_series(
                     f"is in {looked}, so there is no row to table"
                 )
             continue
+        # ONE KIND THAT CANNOT BE TABLED DOES NOT TAKE THE OTHERS WITH IT (F-786): the
+        # tables already written stay in the manifest. A caller that receives the reasons
+        # gets this one under the table's name; one that does not gets the first refusal
+        # raised once every kind has been tried.
         try:
             columns, rows = _ROWS[kind](
                 files, steps, delta, step_deg, context, layout=record.sections_layout, rotors=rotors
             )
         except PyflightstreamError as error:
-            # ONE KIND THAT CANNOT BE TABLED DOES NOT TAKE THE OTHERS WITH IT (F-786): the
-            # tables already written stay in the manifest. A caller that receives the reasons
-            # gets this one under the table's name; one that does not gets the first refusal
-            # raised once every kind has been tried.
-            if skipped is None:
-                refusals.append(error)
-            else:
-                skipped[relative] = str(error)
+            refusals.append(error) if skipped is None else skipped.update({relative: str(error)})
             continue
         path = out / relative
         # An explicit target owns the archive and overwrite policy. Skip the

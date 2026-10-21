@@ -291,6 +291,22 @@ def _vtk_block(lines: Sequence[str], *, width: int, what: str) -> np.ndarray:
     return np.asarray(values, dtype=float).reshape(len(values), width)
 
 
+def _vtk_point_count(record: str) -> int:
+    """Return the count a VTK POINTS record states, refusing one that states none."""
+    try:
+        count = int(record.split()[1])
+    except (IndexError, ValueError) as error:
+        raise MalformedOutputError(
+            f"the frame's POINTS record {record[:80]!r} does not state a count of "
+            "points, so its table cannot be read"
+        ) from error
+    if count < 0:
+        raise MalformedOutputError(
+            f"the frame's POINTS record {record[:80]!r} states a negative count"
+        )
+    return count
+
+
 def _read_vtk_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float | None]:
     """Read one VTK legacy ASCII polydata frame."""
     lines = [line.strip() for line in text.splitlines()]
@@ -300,17 +316,7 @@ def _read_vtk_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float
         raise MalformedOutputError(
             "the frame carries no POINTS record, so it is not VTK legacy ASCII polydata"
         ) from error
-    try:
-        count = int(lines[start].split()[1])
-    except (IndexError, ValueError) as error:
-        raise MalformedOutputError(
-            f"the frame's POINTS record {lines[start][:80]!r} does not state a count of "
-            "points, so its table cannot be read"
-        ) from error
-    if count < 0:
-        raise MalformedOutputError(
-            f"the frame's POINTS record {lines[start][:80]!r} states a negative count"
-        )
+    count = _vtk_point_count(lines[start])
     rows = lines[start + 1 : start + 1 + count]
     # Check the declared count against the actual rows. Refuse an incomplete
     # point or field block instead of returning a short frame for reduction.
@@ -848,6 +854,16 @@ def revolution_drift_warnings(
     return clauses
 
 
+def _refuse_a_gap(average: FrameAverage, first: int, last: int) -> None:
+    """Refuse an average that holds fewer frames than the window it states has steps."""
+    if average.n_frames != last - first + 1:
+        raise ProductError(
+            f"the row states steps {first} to {last} ({last - first + 1} steps) and the history "
+            f"holds {average.n_frames} of them, so the columns would state a window the average "
+            "was not taken over; a window with a missing step is not averaged as a whole one"
+        )
+
+
 def _family_of(name: str, families: Sequence[str]) -> int | None:
     """Return the index of the family a column is named for, or None.
 
@@ -950,12 +966,7 @@ def per_blade_rows(
         raise ProductError(f"the window {window} names no step this history holds, which {held}")
     spanned = last - first
     average = blade_passage_average(series, window=(first, last))
-    if average.n_frames != spanned + 1:
-        raise ProductError(
-            f"the row states steps {first} to {last} ({spanned + 1} steps) and the history holds "
-            f"{average.n_frames} of them, so the columns would state a window the average was "
-            "not taken over; a window with a missing step is not averaged as a whole one"
-        )
+    _refuse_a_gap(average, first, last)
     spacing = 360.0 / blades
 
     rows: list[dict[str, object]] = []
@@ -1044,6 +1055,28 @@ def blade_one_azimuth(
             f"{steps_per_revolution!r} steps per revolution do not state a clock"
         )
     return turned
+
+
+def _note_read_steps(read_steps: set[int], steps: np.ndarray, moments: np.ndarray) -> None:
+    """Collect the plotted steps that carry a nonzero interpolation weight at ``moments``."""
+    for moment in moments:
+        upper = int(np.searchsorted(steps, moment, side="left"))
+        if upper == len(steps):
+            read_steps.add(int(steps[-1]))
+        elif upper == 0 or steps[upper] == moment:
+            read_steps.add(int(steps[upper]))
+        else:
+            # Strictly between these steps, both weights are nonzero.
+            read_steps.update((int(steps[upper - 1]), int(steps[upper])))
+
+
+def _refuse_a_clock(per_revolution: float, depth: float) -> None:
+    """Refuse a clock or depth that is NaN or infinite, which no step can be turned by."""
+    if not (math.isfinite(per_revolution) and math.isfinite(depth)):
+        raise ProductError(
+            f"steps_per_revolution={per_revolution!r} and revolutions={depth!r} must "
+            "both be finite numbers, or no step can be turned into an azimuth"
+        )
 
 
 def phase_locked_rows(
@@ -1146,11 +1179,7 @@ def phase_locked_rows(
     """
     per_revolution = float(steps_per_revolution)
     depth = float(revolutions)
-    if not (math.isfinite(per_revolution) and math.isfinite(depth)):
-        raise ProductError(
-            f"steps_per_revolution={steps_per_revolution!r} and revolutions={revolutions!r} must "
-            "both be finite numbers, or no step can be turned into an azimuth"
-        )
+    _refuse_a_clock(per_revolution, depth)
     if per_revolution <= 0:
         raise ProductError(
             f"steps_per_revolution is {steps_per_revolution}, so a step cannot be turned "
@@ -1229,15 +1258,7 @@ def phase_locked_rows(
                 continue
             history = np.asarray(values, dtype=float).reshape(len(steps), -1)[:, 0]
             if read_steps is not None:
-                for moment in moments:
-                    upper = int(np.searchsorted(steps, moment, side="left"))
-                    if upper == len(steps):
-                        read_steps.add(int(steps[-1]))
-                    elif upper == 0 or steps[upper] == moment:
-                        read_steps.add(int(steps[upper]))
-                    else:
-                        # Strictly between these steps, both weights are nonzero.
-                        read_steps.update((int(steps[upper - 1]), int(steps[upper])))
+                _note_read_steps(read_steps, steps, moments)
             row[name] = float(np.mean(np.interp(moments, steps, history)))
         rows.append(row)
     rows.sort(key=lambda row: float(row["AZIMUTH"]))  # type: ignore[arg-type]
