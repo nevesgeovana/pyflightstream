@@ -4259,6 +4259,26 @@ def test_x_f1090_an_unreadable_saved_mesh_raises_the_build_error(tmp_path, monke
         build._read_back(variant, fsm)
 
 
+def test_x_f0426_a_boundary_name_with_a_quote_is_written_as_readable_toml():
+    import tomllib
+
+    from pyflightstream.workspace._geometry_sidecar import sidecar_text
+
+    text, _ = sidecar_text(['wing "a"', "back\\slash"], "METER", None)
+    assert tomllib.loads(text)["boundaries"] == ['wing "a"', "back\\slash"]
+
+
+def test_x_f1095_an_unreadable_sidecar_is_refused_naming_it(tmp_path):
+    from pyflightstream.workspace._geometry_sidecar import UnreadableSidecarError, carried_tables
+
+    bad = tmp_path / "bad.boundaries.toml"
+    bad.write_text("boundaries = [", encoding="utf-8")
+    good = tmp_path / "good.boundaries.toml"
+    good.write_text('[wake_termination]\nkind = "x"\n', encoding="utf-8")
+    with pytest.raises(UnreadableSidecarError, match="bad.boundaries.toml"):
+        carried_tables([bad, good])
+
+
 def test_x_f1257_a_string_for_a_name_list_is_refused_not_split_into_letters(tmp_path):
     path = _geometry_instruction__write(
         tmp_path,
