@@ -246,3 +246,23 @@ def test_a_periodic_row_records_its_copy_count_on_the_translation():
     build_script(plain, script)
     assert script.periodic_copies is None
     assert "periodic_copies" not in script.surface_translations[0]
+
+
+def test_f7_0203_a_cached_translation_belongs_to_its_copy_count(tmp_path):
+    """F-584: a recorded translation is not accepted after periodic_copies changed."""
+    write_vtk_surface(tmp_path / "p.vtk", _vtk(), title="test")
+    _native(tmp_path / "p_native_tecplot.dat")
+    entry = {
+        "vtk": "p.vtk",
+        "dat": "p.dat",
+        "native_tecplot": "p_native_tecplot.dat",
+        "frame": {"frame": 1, "origin": [0.0, 0.0, 0.0], "axes": np.eye(3).tolist()},
+        "periodic_copies": COPIES,
+    }
+    [first] = translate_surface_exports(tmp_path, [entry])
+    assert first["written"] == ["p.dat"], first["problems"]
+    [again] = translate_surface_exports(tmp_path, [{**first, "periodic_copies": 1}])
+    assert again["written"] == []
+    assert "periodic copy" in again["problems"][0]
+    [same] = translate_surface_exports(tmp_path, [first])
+    assert same["written"] == ["p.dat"], same["problems"]

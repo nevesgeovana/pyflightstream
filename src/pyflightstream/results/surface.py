@@ -378,9 +378,15 @@ def _stated(path: Path, text: str, line: str, index: int) -> int:
 
 def _floats(tokens: list[str], what: str) -> np.ndarray:
     try:
-        return np.asarray(tokens, dtype=float)
+        values = np.asarray(tokens, dtype=float)
     except ValueError as error:
         raise MalformedOutputError(f"the VTK's {what} holds a value that is no number") from error
+    if not bool(np.all(np.isfinite(values))):
+        raise MalformedOutputError(
+            f"the VTK's {what} holds a value that is not finite (NaN, infinity or a "
+            "number too large to store); a surface carrying it would feed it to every product"
+        )
+    return values
 
 
 def _attributes(
@@ -517,6 +523,7 @@ def read_vtk_surface(source: str | Path) -> VtkSurface:
     point_data: dict[str, np.ndarray] = {}
     cell_data: dict[str, np.ndarray] = {}
     pending: str | None = None
+    sections: set[str] = set()
     while True:
         if pending is None:
             entry = next(lines, None)
@@ -547,6 +554,12 @@ def read_vtk_surface(source: str | Path) -> VtkSurface:
                     f"{path} declares POINT_DATA {declared} for "
                     f"{0 if points is None else len(points)} points"
                 )
+            if "POINT_DATA" in sections:
+                raise MalformedOutputError(
+                    f"{path} holds more than one POINT_DATA section; the later one would "
+                    "silently replace the scalars of the earlier"
+                )
+            sections.add("POINT_DATA")
             point_data, pending = _attributes(lines, len(points), "POINT_DATA")
         elif keyword == "CELL_DATA":
             declared = _stated(path, text, line, 1)
@@ -555,6 +568,12 @@ def read_vtk_surface(source: str | Path) -> VtkSurface:
                     f"{path} declares CELL_DATA {declared} for "
                     f"{0 if offsets is None else len(offsets) - 1} polygons"
                 )
+            if "CELL_DATA" in sections:
+                raise MalformedOutputError(
+                    f"{path} holds more than one CELL_DATA section; the later one would "
+                    "silently replace the scalars of the earlier"
+                )
+            sections.add("CELL_DATA")
             cell_data, pending = _attributes(lines, len(offsets) - 1, "CELL_DATA")
         else:
             raise MalformedOutputError(
@@ -1145,6 +1164,14 @@ def _preserved_native_surface(
         except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
             return f"{other} is preserved: content proof failed: {error}", None
     if isinstance(previous, Mapping):
+        recorded = previous.get("node_mapping")
+        recorded_copies = recorded.get("periodic_copies", 1) if isinstance(recorded, Mapping) else 1
+        if recorded_copies != (copies or 1):
+            return (
+                f"{other} is preserved: it was written for {recorded_copies} native zone(s) "
+                f"and the row now declares {copies or 1} periodic copy(ies)",
+                None,
+            )
         valid = (
             valid
             and previous.get("frame") == placed.record()
