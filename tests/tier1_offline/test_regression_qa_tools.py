@@ -2237,3 +2237,32 @@ class TestQaReviewProofs:
             if key.startswith(relative + ":")
         }
         assert _qa_review_proofs__am.function_findings(tree, lengths, limits) == []
+
+
+def test_f6_0102_the_length_probe_verifies_only_lines_of_the_set_length(tmp_path):
+    """F-798: rows alone no longer verify SET_OFF_BODY_STREAMLINE_LENGTH."""
+    from pyflightstream.qa import _spec_0400_gapkit as gapkit
+
+    fixture = (Path(__file__).parent / "fixtures" / "off_body_streamlines_26.123.txt").read_text(
+        encoding="utf-8"
+    )
+    artifacts = SimpleNamespace(workdir=tmp_path)
+    scale = 0.5 / 11.838180876788405
+
+    def scaled(factor):
+        lines = []
+        for line in fixture.splitlines():
+            cells = line.strip().rstrip(",").split(",")
+            if len(cells) == 10 and "E" in cells[0]:
+                for index in range(3):
+                    cells[index] = repr(float(cells[index]) * factor)
+                line = ",".join(cells) + ","
+            lines.append(line)
+        return "\n".join(lines)
+
+    judge = gapkit.streamline_lengths("offbody.txt", 0.5)
+    (tmp_path / "offbody.txt").write_text(scaled(scale), encoding="utf-8")
+    assert judge(artifacts) is True
+    (tmp_path / "offbody.txt").write_text(scaled(1.0), encoding="utf-8")
+    assert judge(artifacts) is None
+    assert judge(SimpleNamespace(workdir=tmp_path / "absent")) is None

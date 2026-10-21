@@ -251,6 +251,36 @@ def streamlines_directed(name: str, direction: int) -> Judge:
     return check
 
 
+def streamline_lengths(name: str, length: float, tolerance: float = 0.1) -> Judge:
+    """Judge a streamline length setting by the exported lines' own arc lengths.
+
+    Every exported line must exist (two points or more) and have an arc length
+    within ``tolerance`` (relative) of the set ``length``. Rows alone prove only
+    that a line was exported, so a setting that does nothing would pass; a
+    length that is not the one set reads unprobed, never verified.
+    """
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        path = artifacts.workdir / name
+        if not path.is_file():
+            return None
+        try:
+            report = parse_off_body_streamlines(path.read_text(encoding="utf-8"))
+        except ValueError:
+            return None
+        if report.count < 1:
+            return None
+        for line in report.streamlines:
+            if line.points < 2:
+                return None
+            arc = float(np.linalg.norm(np.diff(line.positions, axis=0), axis=1).sum())
+            if not math.isfinite(arc) or abs(arc - length) > tolerance * length:
+                return None
+        return True
+
+    return check
+
+
 def emptied(name: str) -> Judge:
     """Judge a delete by the export after it: no rows True, rows False, absent unprobed."""
 
