@@ -155,8 +155,8 @@ def test_show_outcome_evidence_identity_inputs_and_polar(workspace, capsys):
     """P0350-QUERY-SHOW FR-386: card order, alias, evidence and failed polar cards."""
     row = _rows(workspace, capsys, "show", "9101_1")[0]
     assert list(row) == [
-        "record",
         "outcome",
+        "record",
         "evidence",
         "activity",
         "post",
@@ -187,7 +187,7 @@ def test_show_outcome_evidence_identity_inputs_and_polar(workspace, capsys):
     polar = _rows(workspace, capsys, "show", "9101")[0]
     assert len(polar["points"]) == 1 and polar["failed"] == [row]
     code, out, _ = _query(workspace, capsys, "show", RUN)
-    assert code == 0 and out.index("outcome:") < out.index("identity:")
+    assert code == 0 and out.index("outcome:") < out.index("record:") < out.index("identity:")
     code, out, _ = _query(workspace, capsys, "show", "9101")
     assert code == 0 and any(
         "9101" in line and "A0" in line and "FAILED_MARKED" in line for line in out.splitlines()
@@ -320,6 +320,27 @@ def test_trace_product_identity_sidecar_and_provenance_tree(workspace, capsys):
     assert _rows(workspace, capsys, "trace", "--run", "9101_1") == [run]
     code, out, _ = _query(workspace, capsys, "trace", "--run", RUN)
     assert code == 0 and "entity:" in out and "d" * 64 in out
+
+
+def test_trace_reads_provenance_of_its_own_index_and_inside_the_workspace(workspace, capsys):
+    """PFS-2147 F-1201 F-745: a product never takes another index's provenance or a file outside."""
+    _write(
+        workspace / "post/aaa/products.json",
+        {"products": {"polars/x.csv": {"sim_id": "9101", "runs": [RUN]}}},
+    )
+    row = _rows(workspace, capsys, "trace", "post/aaa/polars/x.csv")[0]
+    assert row["runs"][0]["provenance"] is None and row["runs"][0]["state"] == "absent"
+    outside = workspace.parent / "outside_provenance.json"
+    outside.write_text(json.dumps({"entity": {"secret": 1}}), encoding="utf-8")
+    _write(
+        workspace / "post/evil/products.json",
+        {
+            "products": {"polars/y.csv": {"sim_id": "9101", "runs": [RUN]}},
+            "provenance": {RUN: "../../../outside_provenance.json"},
+        },
+    )
+    row = _rows(workspace, capsys, "trace", "post/evil/polars/y.csv")[0]
+    assert row["runs"][0]["provenance"] is None and row["runs"][0]["document"] is None
 
 
 def _batch(workspace):

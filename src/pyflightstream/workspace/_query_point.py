@@ -124,8 +124,8 @@ def _card(ledger: Ledger, run_id: str) -> dict[str, Any] | None:
     matrix = str(record.get("matrix_stem") or "products")
     point = str(record.get("point_name") or record["run_id"].rsplit("/", 1)[-1])
     result = {
-        "record": record,
         "outcome": outcome,
+        "record": record,
         "evidence": evidence,
         "activity": [row for row in _activity(ledger) if _mentions(row, run_id)],
         "post": [row for row in _post_rows(ledger, matrix) if _mentions(row, run_id)],
@@ -169,16 +169,25 @@ def _identity(ledger: Ledger, run_id: str) -> dict[str, Any]:
     return {"run_id": record["run_id"], **_take(record, _IDENTITY), **_inputs(record)}
 
 
-def _provenance(ledger: Ledger, run_id: str) -> tuple[str | None, dict[str, Any] | None]:
+def _provenance(
+    ledger: Ledger, run_id: str, owner: Path | None = None
+) -> tuple[str | None, dict[str, Any] | None]:
+    """Find a run's provenance document in ``owner`` (else in any index), inside the workspace."""
+    root = ledger.root.resolve()
     for index, document in _indexes(ledger):
+        if owner is not None and index != owner:
+            continue
         relative = document.get("provenance", {}).get(run_id)
         if relative:
-            path = index.parent / relative
-            return path.relative_to(ledger.root).as_posix(), _json(path)
+            path = index.parent / _relative_name(str(relative))
+            resolved = path.resolve()
+            if not resolved.is_relative_to(root):
+                continue
+            return resolved.relative_to(root).as_posix(), _json(resolved)
     return None, None
 
 
-def _trace_run(ledger: Ledger, run_id: str) -> dict[str, Any]:
+def _trace_run(ledger: Ledger, run_id: str, owner: Path | None = None) -> dict[str, Any]:
     """Trace one run id to its identity and its provenance document.
 
     Parameters
@@ -187,6 +196,9 @@ def _trace_run(ledger: Ledger, run_id: str) -> dict[str, Any]:
         The workspace ledger.
     run_id : str
         The run id to trace.
+    owner : pathlib.Path, optional
+        The products index the traced product belongs to; its provenance is read
+        from that index alone.
 
     Returns
     -------
@@ -194,7 +206,7 @@ def _trace_run(ledger: Ledger, run_id: str) -> dict[str, Any]:
         The identity, the provenance path, whether the document is present
         or absent, and the document itself.
     """
-    path, document = _provenance(ledger, run_id)
+    path, document = _provenance(ledger, run_id, owner)
     return {
         "identity": _identity(ledger, run_id),
         "provenance": path,
@@ -226,7 +238,7 @@ def _trace(ledger: Ledger, product: str) -> list[dict[str, Any]]:
                         (p.relative_to(ledger.root).as_posix() for p in sidecars if p.is_file()),
                         None,
                     ),
-                    "runs": [_trace_run(ledger, run_id) for run_id in entry.get("runs", [])],
+                    "runs": [_trace_run(ledger, run_id, index) for run_id in entry.get("runs", [])],
                 }
             )
     return rows
