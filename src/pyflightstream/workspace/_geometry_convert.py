@@ -14,6 +14,7 @@ named.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -89,10 +90,21 @@ def _locate(geometry: str | Path, root: Path) -> Path:
     """Return the geometry file a cell names, refusing one outside a folder of its own."""
     geometries = root / "inputs" / "geometries"
     path = Path(geometry)
-    if not path.is_absolute():
+    if not path.is_absolute() and len(path.parts) > 1:
+        # A path with folders names that file under inputs/geometries, never another
+        # geometry that merely shares its basename.
+        path = geometries / path
+    elif not path.is_absolute():
         candidates = [geometries / path.stem / path.name, geometries / path.name]
-        candidates += sorted(geometries.glob(f"*/{path.name}"))
-        path = next((c for c in candidates if c.is_file()), candidates[0])
+        found = [c for c in candidates if c.is_file()]
+        others = [c for c in sorted(geometries.glob(f"*/{path.name}")) if c not in found]
+        if not found and len(others) > 1:
+            folders = ", ".join(c.parent.name for c in others)
+            raise InputArtifactError(
+                f"{path.name} is in several geometry folders ({folders}); "
+                f"write the folder too, as <folder>/{path.name} ({_PAGE})."
+            )
+        path = next(iter(found + others), candidates[0])
     if not path.is_file():
         raise InputArtifactError(f"{geometry} is not a file of {geometries} ({_PAGE}).")
     if path.parent == geometries:
@@ -141,6 +153,11 @@ def _operations(sidecar: Mapping[str, Any]) -> tuple[list[dict[str, Any]], tuple
     return moved, staying
 
 
+def _quoted(text: str) -> str:
+    """Return ``text`` as a TOML basic string that reads back as exactly ``text``."""
+    return json.dumps(text, ensure_ascii=False)
+
+
 def _instruction_text(
     sidecar_name: str,
     name: str,
@@ -157,10 +174,10 @@ def _instruction_text(
     rows = [
         f"# Written by pyfs-workspace geometry from-sidecar from {sidecar_name}; check it, "
         "then build it.",
-        f'name = "{name}"',
+        f"name = {_quoted(name)}",
     ]
     if fs_build:
-        rows.append(f'fs_build = "{fs_build}"')
+        rows.append(f"fs_build = {_quoted(fs_build)}")
     rows += [f"boundaries = {_value(names)}", "", *_table(kind, table)]
     for op in operations:
         rows += ["", "[[operations]]", *(f"{key} = {_value(value)}" for key, value in op.items())]
@@ -207,6 +224,11 @@ def instruction_from_sidecar(
     """
     path = _locate(geometry, root)
     sidecar_path = inventory_sidecar(path)
+    if not sidecar_path.is_file() and path.suffix.lower() in (*CCS_FORMATS, *_CAD):
+        raise InputArtifactError(
+            f"{path.name}: its sidecar {sidecar_path.name} is missing; a CCS or CAD geometry "
+            f"states its import there, and defaults are never assumed ({_PAGE})."
+        )
     sidecar = load_toml(sidecar_path, "geometry sidecar") if sidecar_path.is_file() else {}
     fs_build, shedding, notes = _what_the_rows_say(root, path.name, build)
     source = _source_table(path, sidecar, shedding)
