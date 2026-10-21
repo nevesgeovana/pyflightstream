@@ -1207,9 +1207,9 @@
     },
     {
       "id": "FR-457",
-      "parent": "FR-3133",
-      "area": "OPER",
-      "hid": "OPER-3.7",
+      "parent": "FR-3148",
+      "area": "QFLX",
+      "hid": "QFLX-1.3",
       "status": "implemented"
     },
     {
@@ -2742,7 +2742,7 @@
       "id": "FR-2300",
       "parent": "FR-3133",
       "area": "OPER",
-      "hid": "OPER-3.8",
+      "hid": "OPER-3.7",
       "status": "implemented"
     },
     {

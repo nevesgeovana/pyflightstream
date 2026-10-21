@@ -68,7 +68,9 @@ with section_file.open("w", newline="", encoding="utf-8") as handle:
     writer = csv.writer(handle)
     writer.writerow(["station", "chordwise_m", "normal_m"])
     for index, (designation, chord) in enumerate(zip(designations, chords, strict=True)):
-        contour = airfoil_section_contour(naca4_contour(designation, 120), chord, 0.25)
+        contour = airfoil_section_contour(
+            naca4_contour(designation, 120), chord_m=chord, pitch_axis_chord_fraction=0.25
+        )
         for chordwise, normal in contour:
             writer.writerow([index, f"{chordwise:.9e}", f"{normal:.9e}"])
 
@@ -129,10 +131,10 @@ print(f"  source: {titanium.source.document}")
 
 blade = blade_properties_from_sections(
     radii,
-    sections,
-    chords,
-    pitches,
-    titanium,
+    sections_m=sections,
+    chord_m=chords,
+    geometric_pitch_deg=pitches,
+    material=titanium,
     geometry_source=(
         "synthetic NACA 24xx blade of docs/examples/_sources/fsi_solid_blade_properties.py"
     ),

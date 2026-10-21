@@ -611,8 +611,9 @@ class FsiConfig(BaseModel):
     >>> from pyflightstream.fsi.sections import blade_properties_from_sections
     >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
     >>> blade = blade_properties_from_sections(
-    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
-    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ...     [0.1, 0.3, 0.5], sections_m=[plate] * 3, chord_m=[0.04] * 3,
+    ...     geometric_pitch_deg=[10.0] * 3, material="ti-6al-4v-grade5-annealed",
+    ...     geometry_source="a flat 40 x 4 mm plate",
     ... )
     >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
     >>> cfg.blade_count, frame_embedding(cfg)
@@ -762,8 +763,9 @@ def load_config(path: str | Path) -> FsiConfig:
     >>> from pyflightstream.fsi.sections import blade_properties_from_sections
     >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
     >>> blade = blade_properties_from_sections(
-    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
-    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ...     [0.1, 0.3, 0.5], sections_m=[plate] * 3, chord_m=[0.04] * 3,
+    ...     geometric_pitch_deg=[10.0] * 3, material="ti-6al-4v-grade5-annealed",
+    ...     geometry_source="a flat 40 x 4 mm plate",
     ... )
     >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
     >>> import tempfile
@@ -795,8 +797,9 @@ def dump_config(cfg: FsiConfig, path: str | Path) -> None:
     >>> from pyflightstream.fsi.sections import blade_properties_from_sections
     >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
     >>> blade = blade_properties_from_sections(
-    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
-    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ...     [0.1, 0.3, 0.5], sections_m=[plate] * 3, chord_m=[0.04] * 3,
+    ...     geometric_pitch_deg=[10.0] * 3, material="ti-6al-4v-grade5-annealed",
+    ...     geometry_source="a flat 40 x 4 mm plate",
     ... )
     >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
     >>> import tempfile
@@ -848,8 +851,9 @@ def config_sha256(cfg: FsiConfig) -> str:
     >>> from pyflightstream.fsi.sections import blade_properties_from_sections
     >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
     >>> blade = blade_properties_from_sections(
-    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
-    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ...     [0.1, 0.3, 0.5], sections_m=[plate] * 3, chord_m=[0.04] * 3,
+    ...     geometric_pitch_deg=[10.0] * 3, material="ti-6al-4v-grade5-annealed",
+    ...     geometry_source="a flat 40 x 4 mm plate",
     ... )
     >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
     >>> digest = config_sha256(cfg)

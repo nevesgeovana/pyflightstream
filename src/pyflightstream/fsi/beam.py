@@ -154,8 +154,9 @@ def build_beam_model(cfg: FsiConfig) -> "FEModel3D":
     >>> from pyflightstream.fsi.sections import blade_properties_from_sections
     >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
     >>> blade = blade_properties_from_sections(
-    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
-    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ...     [0.1, 0.3, 0.5], sections_m=[plate] * 3, chord_m=[0.04] * 3,
+    ...     geometric_pitch_deg=[10.0] * 3, material="ti-6al-4v-grade5-annealed",
+    ...     geometry_source="a flat 40 x 4 mm plate",
     ... )
     >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
     >>> from pyflightstream.fsi import beam
@@ -230,8 +231,9 @@ def apply_station_loads(
     >>> from pyflightstream.fsi.sections import blade_properties_from_sections
     >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
     >>> blade = blade_properties_from_sections(
-    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
-    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ...     [0.1, 0.3, 0.5], sections_m=[plate] * 3, chord_m=[0.04] * 3,
+    ...     geometric_pitch_deg=[10.0] * 3, material="ti-6al-4v-grade5-annealed",
+    ...     geometry_source="a flat 40 x 4 mm plate",
     ... )
     >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
     >>> from pyflightstream.fsi import beam
@@ -288,8 +290,9 @@ def solve_static(model: "FEModel3D", p_delta: bool = False) -> None:
     >>> from pyflightstream.fsi.sections import blade_properties_from_sections
     >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
     >>> blade = blade_properties_from_sections(
-    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
-    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ...     [0.1, 0.3, 0.5], sections_m=[plate] * 3, chord_m=[0.04] * 3,
+    ...     geometric_pitch_deg=[10.0] * 3, material="ti-6al-4v-grade5-annealed",
+    ...     geometry_source="a flat 40 x 4 mm plate",
     ... )
     >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
     >>> from pyflightstream.fsi import beam
@@ -327,8 +330,9 @@ def extract_solution(model: "FEModel3D", cfg: FsiConfig) -> StaticBeamSolution:
     >>> from pyflightstream.fsi.sections import blade_properties_from_sections
     >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
     >>> blade = blade_properties_from_sections(
-    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
-    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ...     [0.1, 0.3, 0.5], sections_m=[plate] * 3, chord_m=[0.04] * 3,
+    ...     geometric_pitch_deg=[10.0] * 3, material="ti-6al-4v-grade5-annealed",
+    ...     geometry_source="a flat 40 x 4 mm plate",
     ... )
     >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
     >>> from pyflightstream.fsi import beam
@@ -418,8 +422,9 @@ def modal_frequencies(
     >>> from pyflightstream.fsi.sections import blade_properties_from_sections
     >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
     >>> blade = blade_properties_from_sections(
-    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
-    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ...     [0.1, 0.3, 0.5], sections_m=[plate] * 3, chord_m=[0.04] * 3,
+    ...     geometric_pitch_deg=[10.0] * 3, material="ti-6al-4v-grade5-annealed",
+    ...     geometry_source="a flat 40 x 4 mm plate",
     ... )
     >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
     >>> from pyflightstream.fsi import beam

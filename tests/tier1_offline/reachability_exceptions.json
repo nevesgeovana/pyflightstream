@@ -14,7 +14,7 @@
    "capability": "Natural frequencies, Campbell diagram and Southwell fit of the configured blade (the n Omega / omega_n check before a coupled run)",
    "reason": "routed later",
    "node": "PFS-2140.002",
-   "release": "0.42.0",
+   "release": "0.43.0",
    "names": [
     "pyflightstream.fsi.centrifugal.CampbellData",
     "pyflightstream.fsi.centrifugal.campbell_sweep",
@@ -26,7 +26,7 @@
    "capability": "Quasi-steady rotor loading noise (observer signals and Gutin harmonics)",
    "reason": "routed later",
    "node": "PFS-2140.004",
-   "release": "0.42.0",
+   "release": "0.43.0",
    "names": [
     "pyflightstream.exceptions.ContractNotImplementedError",
     "pyflightstream.post.qsteady_noise.SignalComparison",
@@ -40,7 +40,7 @@
    "capability": "Route-2 sector-offset calibration written from a recorded wheel point and sector point",
    "reason": "routed later",
    "node": "PFS-2140.004",
-   "release": "0.42.0",
+   "release": "0.43.0",
    "names": [
     "pyflightstream.post.corrections.bessel_y"
    ]
@@ -50,7 +50,7 @@
    "capability": "The Sweeper toolbox and its spreadsheet (a run type, or documented as outside the workspace)",
    "reason": "routed later",
    "node": "PFS-2140.005",
-   "release": "0.42.0",
+   "release": "0.43.0",
    "names": [
     "pyflightstream.results.SweepSpreadsheetReport",
     "pyflightstream.results.parse_sweep_spreadsheet",
@@ -62,7 +62,7 @@
    "capability": "Trailing-edge points file of a raw mesh's sidecar route 'file'",
    "reason": "routed later",
    "node": "PFS-2140.005",
-   "release": "0.42.0",
+   "release": "0.43.0",
    "names": [
     "pyflightstream.workspace.TrailingEdge",
     "pyflightstream.workspace.extract_trailing_edge",
@@ -74,7 +74,7 @@
    "capability": "Support level of a FlightStream build",
    "reason": "routed later",
    "node": "PFS-2140.005",
-   "release": "0.42.0",
+   "release": "0.43.0",
    "names": [
     "pyflightstream.support_level"
    ]
