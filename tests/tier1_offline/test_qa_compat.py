@@ -2315,3 +2315,16 @@ def test_f6_15_reanalysis_refuses_surviving_evidence_outside_the_repository(tmp_
     with pytest.raises(QaEvidenceError, match="outside"):
         apply_reanalysis(analysis, repo_root=tmp_path)
     assert outside.as_posix() not in (commands / "script_controls.yaml").read_text(encoding="utf-8")
+
+
+def test_a_printed_build_does_not_confirm_bytes_the_baseline_records_otherwise(tmp_path):
+    """X-F-0155: a recorded digest that differs is compared, not skipped."""
+    exe, _ = fake_executable(tmp_path)
+    answer = classify_executable(
+        exe,
+        version="26.123",
+        baseline={"26.123": {"sha256": "0" * 64}},
+        printed_build="8112026",
+    )
+    assert answer.verdict is ExecutableVerdict.UNKNOWN
+    assert "bytes differ" in answer.message

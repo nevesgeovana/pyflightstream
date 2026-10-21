@@ -763,7 +763,7 @@ def apply_compat(
                 incoming=Judgment(
                     command=name,
                     fs_version=canonical,
-                    outcome=body["outcome"],
+                    outcome=ProbeOutcome(body["outcome"]),
                     date=incoming_date,
                     report=citation,
                 ),
@@ -1575,7 +1575,7 @@ def classify_executable(
     ...     baseline=baseline,
     ... )
     >>> answer.verdict, answer.spends_a_seat              # doctest: +SKIP
-    (<ExecutableVerdict.TRANSFERS: 'transfers'>, False)
+    (<ExecutableVerdict.UNKNOWN: 'unknown'>, True)
     """
     resolved = resolve(version)
     digest = optional_file_sha256(fs_exe)
@@ -1664,6 +1664,24 @@ def classify_executable(
                 f"{resolved.build} for FlightStream {resolved.canonical}: it is a DIFFERENT "
                 "build, so none of that version's evidence describes it and no further "
                 f"licensed work starts on this identifier. {common}"
+            ),
+        )
+    if baseline_sha256 is not None and baseline_sha256 != digest:
+        # The printed build alone cannot confirm bytes the baseline records otherwise:
+        # a relicensed or hotfixed executable prints the same build.
+        return ExecutableIdentity(
+            verdict=ExecutableVerdict.UNKNOWN,
+            version=resolved.canonical,
+            fs_exe_name=name,
+            fs_exe_sha256=digest,
+            baseline_sha256=baseline_sha256,
+            printed_build=printed_build,
+            registry_build=resolved.build,
+            message=(
+                f"this binary prints build {printed_build}, the registry's number, but its "
+                f"bytes differ from the digest the baseline records for FlightStream "
+                f"{resolved.canonical}, so the printed build alone does not confirm that "
+                f"the evidence transfers. {common}"
             ),
         )
     return ExecutableIdentity(
