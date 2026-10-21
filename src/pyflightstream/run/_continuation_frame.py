@@ -334,7 +334,7 @@ def _marched_steps(sim_dir: Path, record: RunRecord) -> int | None:
     """Return the time steps a run's script marched (``SET_SOLVER_UNSTEADY``), or None."""
     try:
         lines = (sim_dir / str(record.script_path)).read_text(encoding="utf-8").splitlines()
-    except (OSError, TypeError):
+    except (OSError, TypeError, UnicodeError):
         return None
     for at, line in enumerate(lines[:-1]):
         words = lines[at + 1].split()

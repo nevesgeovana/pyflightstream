@@ -176,6 +176,18 @@ def resolve_continuation(
             "continuation reopens that file, so it cannot start without it; restore it, or "
             f"remove the {RESTART_VARIABLE} key to march the point from the start."
         )
+    recorded = previous.outputs_sha256.get(str(saved))
+    if (
+        recorded is not None
+        and file_sha256(workspace.sim_dir(case.sim_id) / str(saved)) != recorded
+    ):
+        raise CampaignConfigError(
+            f"run {previous.run_id!r} recorded the saved simulation {saved} under another "
+            "digest than the file now in "
+            f"{workspace.sim_dir(case.sim_id)}, so it is not the state that run saved; "
+            "restore the original file, or remove the "
+            f"{RESTART_VARIABLE} key to march the point from the start."
+        )
     _refuse_a_field_the_stopped_run_did_not_read(case, tag, previous)
     recovery: dict[str, object] = {}
     if (
@@ -226,7 +238,11 @@ def _continued_step_offset(workspace: CampaignWorkspace, previous: RunRecord) ->
         steps = stopped.get("step")
         if steps is None:
             steps = current.action_count
-        completed = current.status in {RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER}
+        completed = current.status in {
+            RunStatus.CONVERGED,
+            RunStatus.COMPLETED_MAX_ITER,
+            RunStatus.MAX_ITER_REACHED,
+        }
         if steps is None and completed:
             steps = _marched_steps(workspace.sim_dir(current.sim_id), current)
         if steps is None and completed and (current.continues is None or "step_offset" in window):
@@ -327,10 +343,11 @@ def _queued_record_of_point(
     of another campaign that names the same simulation and point.
     """
     for record in workspace.read_manifest():
-        if (
-            record.sim_id == sim_id
-            and record.run_id.endswith(f"/{name}")
-            and record.status is RunStatus.SUBMITTED
+        if record.sim_id != sim_id or record.status is not RunStatus.SUBMITTED:
+            continue
+        # A steady row is ONE job, recorded under the row's id, which lists its points.
+        if record.run_id.endswith(f"/{name}") or any(
+            isinstance(entry, Mapping) and entry.get("tag") == name for entry in record.points_ran
         ):
             return record
     return None
