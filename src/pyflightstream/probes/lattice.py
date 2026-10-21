@@ -117,6 +117,12 @@ class ProbeLattice(ProbeModel):
                 "lateral closure cylinder, and a non-positive value is a sign "
                 "error rather than a cylinder on the other side of the axis"
             )
+        if self.lateral_radius is not None and self.lateral_radius < self.ring_edges[-1]:
+            raise ProbeGeometryError(
+                "lateral_radius must not be smaller than the outer ring edge "
+                f"({self.ring_edges[-1]:g}): the closure cylinder would cut the annular "
+                "planes instead of enclosing them"
+            )
         if any(
             b <= a for a, b in zip(self.lateral_stations, self.lateral_stations[1:], strict=False)
         ):
@@ -300,7 +306,8 @@ def build_lattice(
         Uniform azimuth count, at least 14 for the six stored harmonics
         (DLV-006 Sec. 3.2); uniformity is structural.
     lateral_radius : float, optional
-        Lateral closure cylinder radius r/R; None disables it.
+        Lateral closure cylinder radius r/R, not smaller than ``r_outer`` so the
+        cylinder encloses the annular planes; None disables it.
     lateral_stations : tuple of float, optional
         Lateral ring positions x/R; defaults to ``stations`` when the
         cylinder is enabled.
@@ -315,7 +322,8 @@ def build_lattice(
     Raises
     ------
     ProbeGeometryError
-        If the survey has fewer than 14 azimuths for its six stored harmonics.
+        If the survey has fewer than 14 azimuths for its six stored harmonics, or
+        the lateral cylinder is smaller than the outer ring edge.
     """
     if n_psi < 14:
         raise ProbeGeometryError(

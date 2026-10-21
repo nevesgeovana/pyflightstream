@@ -269,14 +269,22 @@ class AxisSpec(ProbeModel):
             cells = self.count - 1
             index = np.arange(cells, dtype=float)
             if self.cluster == "start":
-                sizes = self.ratio**index
+                power = index
             elif self.cluster == "end":
-                sizes = self.ratio ** index[::-1]
+                power = index[::-1]
             else:
-                sizes = self.ratio ** np.minimum(index, cells - 1 - index)
+                power = np.minimum(index, cells - 1 - index)
+            # Sizes are formed relative to the largest, so a large ratio or count
+            # cannot overflow into inf and NaN coordinates.
+            sizes = np.exp((power - power.max()) * math.log(float(self.ratio)))
             s = np.concatenate([[0.0], np.cumsum(sizes)]) / float(np.sum(sizes))
         points = self.start + self.extent * s
         points[0], points[-1] = self.start, self.stop
+        if not np.all(np.diff(points) > 0.0):
+            raise ProbeGeometryError(
+                "the distribution gives coincident nodes: its smallest elements are "
+                "finer than the axis can resolve, so lower the ratio or the count"
+            )
         return points
 
 
@@ -479,6 +487,11 @@ class PlannedProbes:
             row is not finite, which no tolerance can judge.
         """
         positions = np.asarray(positions, dtype=float)
+        if not bool(np.all(np.isfinite(self.points))):
+            raise ProbeGeometryError(
+                "the plan holds non-finite probe positions, so an export cannot be "
+                "checked against it"
+            )
         if positions.shape != self.points.shape:
             raise ProbeGeometryError(
                 f"the export holds {len(positions)} probes but this plan placed "

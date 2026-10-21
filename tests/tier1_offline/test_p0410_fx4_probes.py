@@ -134,3 +134,51 @@ def test_p0410_fx4_nested_grid_nonfinite_names_field(field, value, route):
             PlanarProbeGrid.model_validate(data)
         else:
             PlanarProbeGrid.model_validate_json(json.dumps(data))
+
+
+def test_f7_0203_lattice_cylinder_must_enclose_the_annular_planes():
+    """F-218: a closure cylinder inside the outer ring edge is refused; outside it is allowed."""
+    from pyflightstream.probes.lattice import build_lattice
+
+    with pytest.raises(ProbeGeometryError, match="lateral_radius"):
+        build_lattice(tip_radius=1.0, r_outer=3.0, lateral_radius=2.5)
+    assert build_lattice(tip_radius=1.0, r_outer=2.0, lateral_radius=2.5).lateral_radius == 2.5
+
+
+@pytest.mark.parametrize("shape", [(2, 2, 3), (4, 2), (6,)])
+def test_f7_0203_points_csv_refuses_anything_but_coordinate_triples(shape):
+    """F-1418: a higher-dimensional or wrong-width array is not written as bracketed text."""
+    import io
+
+    import numpy as np
+
+    from pyflightstream.probes.layouts import write_points_csv
+
+    sink = io.StringIO()
+    with pytest.raises(ProbeGeometryError, match=r"\(n, 3\)"):
+        write_points_csv(np.zeros(shape), sink)
+    assert sink.getvalue() == ""
+
+
+def test_f7_0203_geometric_axis_neither_overflows_nor_coincides():
+    """F-219 F-220: a large ratio gives finite increasing points or a refusal, never NaN."""
+    import numpy as np
+
+    wide = AxisSpec(start=0.0, stop=1.0, count=200, distribution="geometric", ratio=1.0001)
+    points = wide.points()
+    assert np.all(np.isfinite(points)) and np.all(np.diff(points) > 0.0)
+    steep = AxisSpec(start=0.0, stop=1.0, count=3000, distribution="geometric", ratio=1.5)
+    with pytest.raises(ProbeGeometryError, match="coincident"):
+        steep.points()
+
+
+def test_f7_0203_a_nan_in_the_planned_positions_is_not_a_match():
+    """F-221: a NaN planned row cannot be compared, so the export is refused."""
+    import numpy as np
+
+    from pyflightstream.probes.planar import PlannedProbes
+
+    planned = np.array([[0.0, 0.0, 0.0], [np.nan, 1.0, 1.0]])
+    plan = PlannedProbes(grid=None, points=planned, report=None)  # type: ignore[arg-type]
+    with pytest.raises(ProbeGeometryError, match="non-finite"):
+        plan.verify_positions(np.array([[0.0, 0.0, 0.0], [5.0, 1.0, 1.0]]))

@@ -499,6 +499,11 @@ def write_points_csv(points: np.ndarray, path: str | Path | TextIO) -> int:
         If the point array is not a finite array of coordinate triples.
     """
     points = np.asarray(points, dtype=float)
+    if points.size and (points.ndim != 2 or points.shape[1] != 3):
+        raise ProbeGeometryError(
+            f"probe positions must be an (n, 3) array of coordinate triples; got shape "
+            f"{points.shape}. Nothing is written."
+        )
     # PFS-2038.07. The last boundary before a solver-facing file, and it
     # is checked here as well as at the frame because a point array
     # reaches this function from callers that never built a frame.
