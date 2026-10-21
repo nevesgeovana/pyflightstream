@@ -419,3 +419,33 @@ def test_p0430_f763_a_corrupt_clock_state_is_recorded(tmp_path):
     )
     state = json.loads((folder / WALLTIME_CLOCK_STATE).read_text(encoding="utf-8"))
     assert "reason" in state["state_unreadable"] and "unreadable" in done.stderr
+
+
+def test_p0430_f1319_the_probe_gate_states_what_the_database_records_per_command():
+    """F-1319: a command recorded broken or removed is not described as manual-only."""
+    from pyflightstream.cases import CampaignConfigError, SimCase, SweepAxis
+    from pyflightstream.cases.workflows._gap_evidence import (
+        PROBE_GATED_COMMANDS,
+        command_verified,
+        refuse_unprobed_commands,
+    )
+    from pyflightstream.script import Script
+
+    script = Script("26.124")
+    by_status: dict[str, str] = {}
+    for command in PROBE_GATED_COMMANDS:
+        if not command_verified(script, command):
+            record = script.registry.commands[command].status_in(script.version)
+            by_status.setdefault(record.status.value, command)
+    assert {"documented", "broken"} <= set(by_status)
+    case = SimCase(
+        sim_id="7001", aircraft="Wing", sweep=SweepAxis(type="alpha", values=[0.0]), recipe="steady"
+    )
+    for status, command in by_status.items():
+        with pytest.raises(CampaignConfigError) as refused:
+            refuse_unprobed_commands(case, script, [command], capability="[streamlines]")
+        text = str(refused.value)
+        # the manual-only wording belongs to a documented command alone
+        assert ("run by no probe" in text) == (status == "documented"), (status, text)
+        if status == "broken":
+            assert "broken" in text

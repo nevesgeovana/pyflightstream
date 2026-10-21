@@ -25,6 +25,7 @@ from pyflightstream.script import Script
 __all__ = [
     "PROBE_GATED_COMMANDS",
     "command_verified",
+    "evidence_state",
     "refuse_unprobed_commands",
 ]
 
@@ -112,10 +113,41 @@ def refuse_unprobed_commands(
     if not missing:
         return
     probes = sorted({PROBE_GATED_COMMANDS[command] for command in missing})
+    states = "; ".join(f"{command} is {evidence_state(script, command)}" for command in missing)
     raise CampaignConfigError(
-        f"case {case.sim_id!r}: {capability} emits {', '.join(missing)}, recorded on "
-        f"FlightStream {script.version.canonical} from the manual and run by no probe, so "
-        "the script would rest on a page rather than on a run. It is refused until "
+        f"case {case.sim_id!r}: {capability} emits {', '.join(missing)}, and on FlightStream "
+        f"{script.version.canonical} no probe has recorded it verified ({states}), so the "
+        "script would not rest on a run. It is refused until "
         f"{' and '.join(probes)} records the command verified on this build in the command "
         "database; nothing was run."
     )
+
+
+def evidence_state(script: Script, command: str) -> str:
+    """Say in words what the command database records for ``command`` on the script's build.
+
+    Parameters
+    ----------
+    script : Script
+        The script whose build and registry are read.
+    command : str
+        The command name.
+
+    Returns
+    -------
+    str
+        One phrase: recorded from the manual and run by no probe (``documented``),
+        recorded broken by a probe, recorded removed from the build, or absent
+        from the command database for the build.
+    """
+    entry = script.registry.commands.get(command)
+    record = None if entry is None else entry.status_in(script.version)
+    if record is None:
+        return "absent from the command database for this build"
+    if record.status is Status.DOCUMENTED:
+        return "recorded from the manual and run by no probe"
+    if record.status is Status.BROKEN:
+        return "recorded broken by a probe"
+    if record.status is Status.REMOVED:
+        return "recorded removed from this build"
+    return f"recorded {record.status.value}"
