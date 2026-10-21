@@ -107,7 +107,7 @@ the decisions and the package derives the rest.
   `wake_termination_thrust_n` where that is larger. A positive target always
   marches at least one step, even below the conversion's roundoff tolerance.
   On a row turning 1200
-  rev/min at 30 m/s, whose rotor block states `diameter_m = 3.6576` (R =
+  rev/min at 30 m/s, whose reference states the top-level `rotor_diameter_m = 3.6576` (R =
   1.8288 m), at `DELTA_THETA: 10` (Omega / dtheta = 720 per second),
 
  ```text
