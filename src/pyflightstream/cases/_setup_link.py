@@ -272,7 +272,9 @@ def moments_model_of(case: SimCase, *, rotor: bool) -> tuple[str | None, bool]:
             f"case {case.sim_id!r} turns a rotor and its setup states "
             f"vorticity_drag_families ({families}) and no moments_model, so its moments "
             f"model is {LINKED_MOMENTS_MODEL} too: on a rotor the two are linked, so the "
-            "thrust and the torque come from one integration (FR-318). The run record "
+            "thrust and the torque of the run's final integration come from one integration "
+            "(FR-318); a per-step export of an unsteady run is not covered by that promise. "
+            "The run record "
             "names the rule; state moments_model = VORTICITY to write it in the setup.",
             PyflightstreamWarning,
             stacklevel=3,
@@ -354,7 +356,7 @@ def _emit_26125_keys(solver: SolverSettings, script: Script) -> None:
     Each is None by default and writes nothing then, so a setup that names none
     of them is byte-identical. A build without the command refuses the key,
     through the emitter; the time average warns on a build where the command
-    is documented and not verified (its predecessor hung 26.124).
+    is documented and not verified.
     """
     if solver.solver_time_averaging is not None:
         first, last = solver.solver_time_averaging

@@ -27,9 +27,7 @@ from pyflightstream.cases.workflows import SWEEP_WORD
 #: THE UNITS RIDE THE KEYS rather than the values, which is why the
 #: names are not plain words: ``ALTFT`` is feet, ``dISA`` is Celsius and
 #: ``REmi`` is millions. A cell that said ``ALTITUDE:10000`` would be
-#: ambiguous between feet and metres in a repository that has already
-#: shipped a solver command whose metres argument three builds read as
-#: feet.
+#: ambiguous between feet and metres.
 FLIGHT_CONDITION_KEYS: dict[str, tuple[str, str]] = {
     "MACH": (
         "dimensionless",
