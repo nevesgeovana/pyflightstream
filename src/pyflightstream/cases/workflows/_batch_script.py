@@ -770,12 +770,18 @@ def _start_lines(point: JobPoint, block: str) -> list[str]:
     return kept[:first] + _lines(block) + kept[first:]
 
 
-def _point_lines(first: JobPoint, point: JobPoint, transition: Transition) -> list[str]:
-    """Rules 2 and 3: a later point's lines, its transition verb first."""
+def _point_lines(
+    first: JobPoint, held: JobPoint, point: JobPoint, transition: Transition
+) -> list[str]:
+    """Rules 2 and 3: a later point's lines, its transition verb first.
+
+    ``held`` is the point the instance holds, where the restate anchor is
+    found; ``first`` is the polar's first point, whose created sections stay.
+    """
     body, _ = _without_registrations("\n".join(_body(point)))
     if transition == "refresh":
         return [REFRESH_VERB, "", *body]
-    restated = body[_shifted(point, _anchor_index(first, point)) :]
+    restated = body[_shifted(point, _anchor_index(held, point)) :]
     return [REINIT_VERB, "", *_without_created_sections(first, restated)]
 
 
@@ -888,20 +894,26 @@ def _restated(part: list[str], point: JobPoint, loaded: _Loaded, version: str) -
 
 def _parts(
     polars: Sequence[JobPolar], block: str, version: str
-) -> list[tuple[JobPoint, Transition, list[str]]]:
-    """Return every point of the job with its transition and its lines, in job order."""
-    parts: list[tuple[JobPoint, Transition, list[str]]] = []
+) -> list[tuple[JobPoint, Transition, list[str], JobPoint]]:
+    """Return every point of the job with its transition, its lines and the point it follows.
+
+    A later point is compared with the point the instance holds when it starts,
+    the one before it in its polar, and never with the polar's first point: the
+    first point's text is not what the earlier points left loaded (F-022, F-023).
+    """
+    parts: list[tuple[JobPoint, Transition, list[str], JobPoint]] = []
     loaded = _Loaded()
     for number, polar in enumerate(polars):
         lead = polar.points[0]
         for order, point in enumerate(polar.points):
+            held = polar.points[max(order - 1, 0)]
             if number == 0 and order == 0:
-                parts.append((point, "start", _start_lines(point, block)))
+                parts.append((point, "start", _start_lines(point, block), held))
             else:
-                refresh = order == 0 or couples(point) or refreshes(lead, point)
+                refresh = order == 0 or couples(point) or refreshes(held, point)
                 transition: Transition = "refresh" if refresh else "reinit"
-                lines = _point_lines(lead, point, transition)
-                parts.append((point, transition, _restated(lines, point, loaded, version)))
+                lines = _point_lines(lead, held, point, transition)
+                parts.append((point, transition, _restated(lines, point, loaded, version), held))
             loaded = loaded.after(point)
     return parts
 
@@ -1116,13 +1128,12 @@ def assemble_job(
     lines: list[str] = []
     blocks: list[JobBlock] = []
     files: list[tuple[str, str]] = []
-    for order, (point, transition, part) in enumerate(_parts(polars, block, version), 1):
+    for order, (point, transition, part, held) in enumerate(_parts(polars, block, version), 1):
         refuse_a_second_initialization(point)
         part, copy = _post_copy(part, point, order, job_dir, version)
         files += [copy] if copy is not None else []
         part = _absolute_splice(part, point.datapoint_dir, job_dir, version)
-        lead = next(polar.points[0] for polar in polars if point in polar.points)
-        anchor = restate_anchor(lead, point) if transition == "reinit" else None
+        anchor = restate_anchor(held, point) if transition == "reinit" else None
         blocks.append(
             JobBlock(point.run_id, transition, anchor, len(lines) + 1, len(lines) + len(part))
         )

@@ -393,3 +393,27 @@ def test_p0350_script_drop_registrations_and_job_point():
     assert point.first_export_step is None and point.action_exports == ""
     assert point.outputs == ("loads_a+00.0.txt",)
     assert point.stop_text.rstrip("\n").endswith("CLOSE_FLIGHTSTREAM")
+
+
+def test_f5_0102_f023_a_later_point_restores_the_speed_the_instance_holds():
+    """F-023: C has the lead's speed but follows B's, so C restates the rotor speed.
+
+    Compared with the lead, C differs from it nowhere and was restated after the
+    speed line, leaving B's speed in the instance.
+    """
+    geometry = "/ws/sims/sim_9821/inputs/30_BLADE.fsm"
+    low = _point("p9821_j150.txt", sim="9821", folder="DP-j150", geometry=geometry)
+    high = _point("p9821_j190.txt", sim="9821", folder="DP-j190", geometry=geometry)
+    again = _point("p9821_j150.txt", sim="9821", folder="DP-j150b", geometry=geometry)
+    job = assemble_job(
+        [JobPolar("9821", (low, high, again))],
+        kind="batch",
+        version=BUILD,
+        job_log=None,
+        job_dir=ROOT,
+    )
+    assert [block.transition for block in job.blocks] == ["start", "reinit", "reinit"]
+    assert job.blocks[2].anchor == "SET_MOTION_ROTOR_RPM"
+    lines = job.text.splitlines()
+    third = lines[job.blocks[2].first_line - 1 : job.blocks[2].last_line]
+    assert any(line.startswith("SET_MOTION_ROTOR_RPM") for line in third)

@@ -644,3 +644,38 @@ def test_p0351_steady_fr403_a_plan_with_no_job_runs_nothing(tmp_path):
                 "preflight.txt",
                 "BATCH-7002-7004.txt",
             ]
+
+
+def test_f5_0102_f022_a_point_is_compared_with_the_point_the_instance_holds(tmp_path):
+    """F-022: C equals the lead A but follows B, whose frame differs before the anchor.
+
+    B reopens the geometry, so the instance holds B's frame; C compared with the
+    lead would restate from its anchor and keep B's frame. Compared with B it
+    reopens whole.
+    """
+    case = _with_pproc(steady_case(), _wb_geometry(tmp_path), None)
+    points = []
+    for tag in ("a", "b", "c"):
+        point_case = case.model_copy(update={"outputs": [f"P-{tag}.txt"]})
+        script = Script(BUILD)
+        build_script(point_case, script)
+        text = script.render()
+        if tag == "b":
+            moved = text.replace("ORIGIN_X 9.152", "ORIGIN_X 9.5", 1)
+            assert moved != text
+            text = moved
+        points.append(
+            job_point(
+                point_case,
+                run_id=f"m/sim_1/P-{tag}",
+                text=text,
+                datapoint_dir=tmp_path / "1" / f"P-{tag}",
+                version=BUILD,
+            )
+        )
+    job = assemble_job(
+        [JobPolar("1", tuple(points))], kind="batch", version=BUILD, job_log=None, job_dir=tmp_path
+    )
+    assert [block.transition for block in job.blocks] == ["start", "refresh", "refresh"]
+    lines = job.text.splitlines()
+    assert lines[job.blocks[2].first_line - 1] == "NEW_SIMULATION"
