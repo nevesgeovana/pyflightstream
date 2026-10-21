@@ -209,8 +209,11 @@ def write_unsteady_polar(
     whole column. Taking the names from the file removes that possibility
     entirely rather than guarding against it.
 
-    THE WINDOW IS THE ROW'S, the one `last_revs_avg` or `last_iters_avg` states,
-    and it is the same window `per_blade` and the time average use (item 16).
+    THE WINDOW IS THE ROW'S, the one `LAST_REVS_AVG` or `LAST_ITERS_AVG` states
+    (upper case, as the matrix spells its keys; a lower-case key is refused), the
+    one the time average uses (item 16). `per_blade` windows each rotor on that
+    rotor's own clock, so on a row whose rotors turn at different rates its windows
+    differ from this one.
 
     THE FILE SAYS IT IS AN AVERAGE, AND OVER WHAT. Each row opens with
     `FIRST_STEP, LAST_STEP, STEPS`, the three columns the reductions beside it
@@ -274,8 +277,9 @@ def write_unsteady_polar(
         The condition block of each point, in the order of ``points`` (the
         two must have the same length).
     reference : ReferenceValues or None
-        Reference lengths and moment point of the run; None writes no
-        reference columns and no axis block.
+        Reference lengths and moment point of the run; None keeps the
+        reference and moment-point columns in the header and writes them ``NA``,
+        and writes no axis block.
     left_out : list of str, optional
         Receives one reason for each point left out of the table.
     windows : mapping of str to tuple of int, optional

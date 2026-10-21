@@ -580,8 +580,9 @@ def _unsteady_harmonics(
     """Fit an ``unsteady_rotor`` point's harmonics over each rotor's last complete revolution.
 
     Read from the WRITTEN sections series; each rotor is cut on its own
-    ``steps_per_revolution`` from the record, counted from the series' first
-    step (:func:`pyflightstream.post.harmonics.last_complete_revolution`). A
+    ``steps_per_revolution`` from the record, counted from the first step of the
+    record's export window, which is where the series is written from
+    (:func:`pyflightstream.post.harmonics.last_complete_revolution`). A
     rotor with no stated clock or no complete revolution is named under the
     product's key. A point that cuts sections (its record states a sections
     layout) and has no sections series, no export window or no rotor to fit

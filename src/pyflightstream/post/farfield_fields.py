@@ -319,8 +319,12 @@ def unsteady_samples(
 def _tolerance(points: np.ndarray, digits: int | None) -> np.ndarray:
     """Return the per-component tolerance of exported coordinates near ``points`` (native).
 
-    One unit of the last printed significant digit of each coordinate where the
-    export printed them (``digits``), plus the native unit's fifth decimal.
+    The relative term is ``10**(1 - digits) * |x|``: between one and ten units of
+    the last printed significant digit of a coordinate (one at a coordinate whose
+    leading digit is 9, ten at one whose leading digit is 1), where the export
+    printed them (``digits``), plus the native unit's fifth decimal. The match is
+    therefore looser than one unit; the spacing check refuses a layout it would
+    make ambiguous.
     """
     if not digits:
         return np.full(np.shape(points), _PRINTED_ABSOLUTE)

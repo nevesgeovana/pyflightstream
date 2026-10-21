@@ -161,7 +161,8 @@ def sample_boundary_layer(
         cell whose chord along the cut it lies on.
     tolerance : float, optional
         The distance within which a cut point lies on a cell, in the simulation length unit; a
-        ten-millionth of the surface's extent when None.
+        ten-millionth of the surface's extent when None, never below an absolute floor of
+        ``1e-10`` (which only dominates for an extent below ``1e-3`` length units).
 
     Returns
     -------

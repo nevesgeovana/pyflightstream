@@ -177,8 +177,9 @@ module, which is stated rather than left to be discovered:
 WHAT THIS LAYER DOES NOT HAVE, said plainly because this docstring
 advertised it for three releases and a reader has no other way to find
 out. There is no ``ResultArray`` facade: no ``interp_along``, no
-``reparametrize``, no ``trim``. FR-20 carries that promise and is
-``pending``; AD-06 sends the interpolation half to the sister library.
+``reparametrize``, no ``trim``. The trim half is carried by FR-2302 and
+FR-2303, still ``pending``; AD-06 sends the interpolation half to the sister
+library.
 Sweep assembly is not here either, it is
 :mod:`pyflightstream.results.tables`.
 """

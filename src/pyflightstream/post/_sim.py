@@ -1202,7 +1202,10 @@ def _rotor_table_source(
     # window never holds an instant, so one entry describes every row.
     if plan.get("read_from") and ctx.window is not None:
         # `window` is the row's, on its clock rotor; `windows` each point's span
-        # of THIS rotor, counted in its own turns (PFS-2088.013).
+        # of THIS rotor, counted in its own turns (PFS-2088.013). Where no per-rotor
+        # span resolved (`windows` empty), the entry falls back to the windows of the
+        # row's CLOCK rotor, which are then the clock rotor's spans, not this rotor's own:
+        # a label, not a number, since no number of the table depends on it.
         own = plan.get("windows")
         spans = own if isinstance(own, Mapping) and own else ctx.point_windows
         return {

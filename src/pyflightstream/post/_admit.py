@@ -150,8 +150,9 @@ def _loads_of(
         )
         return None
     if not _in_coefficients(report):
-        # G09: a setup's load_units makes the solver print forces and
-        # moments under the columns every product reads as coefficients.
+        # G09: the export states its force and moment units (`report.force_units`,
+        # `report.moment_units`), and every product reads the loads as coefficients;
+        # this guard reads those stated units, not the column headers.
         skipped[f"runs/{record.run_id}"] = (
             f"{by_name[loads_name]} prints its loads in {report.force_units or 'no unit'} "
             f"and its moments in {report.moment_units or 'no unit'}, and every product "
@@ -247,7 +248,8 @@ def _warn_the_point_s_state(stem: str, report: LoadsReport, point: PolarPoint) -
                 else "the plots table, the reductions and the unsteady polar are rescaled "
                 "to the FREE STREAM. "
             )
-            + "Both are in every row, as VREF and VINF.",
+            + "Both are in every row of the tables that state a condition, as VREF and VINF; "
+            "the plots table states none.",
             PyflightstreamWarning,
             stacklevel=2,
         )

@@ -2449,6 +2449,33 @@ def test_f1829_f1830_x_f_1643_the_glossary_places_the_guides_in_the_pproc_folder
     assert "both beside this page" not in page
 
 
+def test_the_docstrings_of_the_post_layer_state_what_the_definitions_say():
+    """F-1822, F-1821, F-1841, F-1842, F-1826, X-F-0329, X-F-1642: no false claim remains."""
+    import pyflightstream.post as layer
+    from pyflightstream.post import _rotor_products, boundary_layer, farfield_fields
+    from pyflightstream.post.unsteady_polar import write_unsteady_polar
+
+    assert "FR-20 carries" not in (layer.__doc__ or "")
+    assert "FR-2302 and FR-2303" in " ".join((layer.__doc__ or "").split())
+    polar = write_unsteady_polar.__doc__ or ""
+    assert "same window `per_blade`" not in polar
+    assert "`LAST_REVS_AVG` or `LAST_ITERS_AVG`" in polar
+    assert "writes them ``NA``" in polar and "writes no\n        reference columns" not in polar
+    assert "1e-10" in (boundary_layer.sample_boundary_layer.__doc__ or "")
+    assert "export window" in (_rotor_products._unsteady_harmonics.__doc__ or "")
+    assert "between one and ten units" in (farfield_fields._tolerance.__doc__ or "")
+
+
+def test_f1412_the_reference_velocity_warning_does_not_promise_the_plots_table_a_condition():
+    """F-1412: the plots table states no condition, so VREF and VINF are not in its rows."""
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.post._admit import _warn_the_point_s_state
+
+    report = SimpleNamespace(freestream_velocity_m_s=50.0, reference_velocity_m_s=100.0)
+    with pytest.warns(PyflightstreamWarning, match="the plots table states none"):
+        _warn_the_point_s_state("P", cast(Any, report), cast(Any, SimpleNamespace(state=None)))
+
+
 def test_x_f_0327_an_infinite_clock_is_a_named_skip_not_an_overflow(tmp_path):
     """X-F-0327: inf passed `>= 0.5` and `int(round(inf))` aborted the point."""
     from pyflightstream.post._reduction_stage import _write_the_per_revolution_products
