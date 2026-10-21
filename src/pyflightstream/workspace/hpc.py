@@ -367,15 +367,21 @@ def _refuse_a_misplaced_key(target: Path, table: Mapping[str, object]) -> None:
                     f"a key that looks like it works: a limit written there is dropped and "
                     f"the profile loads with none. Move {owned} above the first table."
                 )
-        for nested, deeper in value.items():
-            if isinstance(deeper, Mapping):
-                for owned in sorted(HPC_LOG_KEYS):
-                    if owned in deeper:
-                        raise InputArtifactError(
-                            f"the HPC profile {target} states {owned} under "
-                            f"[{name}.{nested}], and this package reads it under [log]. "
-                            f"Move it there."
-                        )
+        _refuse_a_nested_log_key(target, str(name), value)
+
+
+def _refuse_a_nested_log_key(target: Path, name: str, table: Mapping[str, object]) -> None:
+    """Refuse a ``[log]`` key written one table deeper, under ``[<name>.<nested>]``."""
+    for nested, deeper in table.items():
+        if not isinstance(deeper, Mapping):
+            continue
+        for owned in sorted(HPC_LOG_KEYS):
+            if owned in deeper:
+                raise InputArtifactError(
+                    f"the HPC profile {target} states {owned} under "
+                    f"[{name}.{nested}], and this package reads it under [log]. "
+                    f"Move it there."
+                )
 
 
 def _read_log_table(

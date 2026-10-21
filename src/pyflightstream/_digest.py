@@ -150,9 +150,12 @@ CANONICAL_FORMS = {
         "reconstructed script digest uses its UTF-8 text without newline conversion."
     ),
     "workspace/excel_file.py": (
-        "the complete saved workbook ZIP bytes before preview and after apply, "
-        "without unpacking, XML normalization or metadata exclusion. This detects "
-        "any workbook-file change; its location is recorded outside the digest."
+        "the saved workbook before preview and after apply: every ZIP member's name "
+        "and uncompressed bytes in name order, each length-prefixed, with the "
+        "created, modified and TotalTime elements of the docProps members removed, "
+        "so the ZIP envelope and a save's clock stamps do not change it. A file that "
+        "is not a ZIP archive is hashed as it is. This detects any change of the "
+        "workbook's content; its location is recorded outside the digest."
     ),
     "workspace/excel_sync.py": (
         "the exact matrix-file bytes, or UTF-8 JSON of asdict(WorkbookSnapshot) "

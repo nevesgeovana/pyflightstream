@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from pydantic import BaseModel, ConfigDict
 
@@ -453,6 +453,11 @@ def check_reference_point_names(names: Sequence[str]) -> None:
             "reference point 'ERP0' numbers a propulsor from zero; rotor points are "
             "numbered from 1, as ERP1 through ERPn, because n is the propulsor count."
         )
+    _refuse_a_numbering_gap(numbered)
+
+
+def _refuse_a_numbering_gap(numbered: list[int]) -> None:
+    """Refuse numbered rotor points that do not run from 1 without a gap."""
     present = sorted(set(numbered))
     missing_count = present[-1] - len(present)
     if missing_count:
@@ -576,3 +581,55 @@ def write_plan_products(case: SimCase, folder: Path) -> list[Path]:
         Paths written by the registered callbacks.
     """
     return [path for writer in _WRITERS for path in writer(case, folder)]
+
+
+def with_wake_companions(produced: Sequence[str | Path]) -> list[str | Path]:
+    """Add each ``<stem>_wakes.vtk`` that sits beside a declared surface VTK.
+
+    The solver writes the wake beside the surface without a second export command, so it
+    joins the same containment and collision pre-scans as every declared output, before
+    either file is moved. An absent companion adds nothing: it is optional.
+    """
+    expanded = list(produced)
+    named = {Path(path).resolve() for path in expanded}
+    for path in produced:
+        surface = Path(path)
+        if surface.suffix.lower() != ".vtk" or surface.stem.lower().endswith("_wakes"):
+            continue
+        wake = surface.with_name(surface.stem + "_wakes.vtk")
+        if wake.is_file() and wake.resolve() not in named:
+            expanded.append(wake)
+            named.add(wake.resolve())
+    return expanded
+
+
+def datapoint_folder_inside(sim: Path, folder: str) -> Path:
+    """Return the resolved datapoint folder, refusing one that leaves its simulation (F-728).
+
+    A datapoint folder that is a link out of the simulation would make another simulation's
+    output count as this point's own evidence.
+    """
+    own = (sim / folder).resolve()
+    if not own.is_relative_to(sim.resolve()):
+        raise WorkspaceError(
+            f"the datapoint folder {sim / folder} resolves to {own}, outside this "
+            f"simulation's own folder {sim.resolve()}. Collecting there would file "
+            "or accept another folder's output as this simulation's evidence. "
+            "NOTHING HAS BEEN MOVED. Replace the link with a plain folder."
+        )
+    return own
+
+
+def check_script_name(name: str) -> None:
+    """Refuse a script name that is not a plain file name of the scripts folder (F-727)."""
+    if (
+        not name
+        or name in {".", ".."}
+        or Path(name).name != name
+        or PureWindowsPath(name).name != name
+        or PureWindowsPath(name).drive
+    ):
+        raise WorkspaceError(
+            f"script name {name!r} must be a plain file name: a path, an absolute "
+            "name or a parent segment would leave the simulation's scripts folder."
+        )

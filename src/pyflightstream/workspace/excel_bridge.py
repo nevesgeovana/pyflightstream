@@ -106,13 +106,7 @@ def read_request(path: Path) -> tuple[dict[str, str], WorkbookSnapshot]:
     dictionary = []
     baseline: dict[str, str] = {}
     cells: dict[tuple[int, int], Cell] = {}
-    # Split on the record terminators only: str.splitlines also breaks on U+2028, U+0085,
-    # VT and FF, which escape() does not encode, so a cell holding one split its record.
-    text = path.read_text(encoding="utf-8-sig")
-    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    if lines and lines[-1] == "":
-        lines.pop()
-    for number, raw in enumerate(lines, start=1):
+    for number, raw in enumerate(_record_lines(path), start=1):
         row = [unescape(value) for value in raw.split("\t")]
         width = _RECORD_WIDTHS.get(row[0], 0)
         if len(row) < width:
@@ -140,18 +134,38 @@ def read_request(path: Path) -> tuple[dict[str, str], WorkbookSnapshot]:
             raise ExcelSyncError(
                 f"unknown bridge record {row[0]!r}; recreate the workbook with this runtime."
             )
-    for (cell_row, cell_column), cell in sorted(cells.items()):
-        if cell_column >= len(headers) and (cell.value or cell.formula):
-            raise ExcelSyncError(
-                f"{path}: the cell at row {cell_row}, column {cell_column} lies beyond the "
-                f"{len(headers)} named headers and would be dropped from the snapshot; name its "
-                "column in Runs."
-            )
+    _refuse_cells_beyond_headers(path, cells, len(headers))
     count = 1 + max((position[0] for position in cells), default=-1)
     rows = [
         [cells.get((row, column), Cell()) for column in range(len(headers))] for row in range(count)
     ]
     return metadata, WorkbookSnapshot(headers, rows, dictionary, baseline)
+
+
+def _record_lines(path: Path) -> list[str]:
+    """Split a request on the record terminators only.
+
+    ``str.splitlines`` also breaks on U+2028, U+0085, VT and FF, which ``escape`` does not
+    encode, so a cell holding one would split its record.
+    """
+    text = path.read_text(encoding="utf-8-sig")
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return lines
+
+
+def _refuse_cells_beyond_headers(
+    path: Path, cells: dict[tuple[int, int], Cell], width: int
+) -> None:
+    """Refuse a filled cell right of the named headers: the snapshot would drop it."""
+    for (cell_row, cell_column), cell in sorted(cells.items()):
+        if cell_column >= width and (cell.value or cell.formula):
+            raise ExcelSyncError(
+                f"{path}: the cell at row {cell_row}, column {cell_column} lies beyond the "
+                f"{width} named headers and would be dropped from the snapshot; name its "
+                "column in Runs."
+            )
 
 
 def _bridge_cell_position(path: Path, number: int, row: list[str]) -> tuple[int, int]:
@@ -203,6 +217,141 @@ def preview_from_json(data: dict[str, Any]) -> SyncPreview:
         ) from error
 
 
+def _check_records(snapshot: WorkbookSnapshot) -> list[list[str]]:
+    """Validate the dictionary of the snapshot and say so."""
+    _check_snapshot(snapshot)
+    return [["OK", "Dictionary is valid; no cells or matrices were changed."]]
+
+
+def _selected_matrices(metadata: dict[str, str]) -> list[str]:
+    """Return the matrices the request names, in the order it names them."""
+    return [item.strip() for item in metadata.get("matrices", "").split(";") if item.strip()]
+
+
+def _clear_the_previous_batch(batch: Path) -> None:
+    """Invalidate an earlier preview, but never delete a file that is not one (F-733).
+
+    An earlier preview is single-use and is invalidated here; a file at the batch path that
+    is NOT a preview batch is the caller's own, so it is refused rather than deleted
+    without a backup.
+    """
+    if not batch.exists():
+        return
+    try:
+        preview_from_json(json.loads(batch.read_text(encoding="utf-8")))
+    except (ExcelSyncError, ValueError, OSError) as error:
+        raise ExcelSyncError(
+            f"{batch} exists and is not a preview batch, so Preview will not "
+            "overwrite it; name another batch path or move the file."
+        ) from error
+    batch.unlink()
+
+
+def _preview_records(
+    metadata: dict[str, str], snapshot: WorkbookSnapshot, batch: Path
+) -> list[list[str]]:
+    """Preview the sync, write the single-use batch and return the response records."""
+    stated_direction = metadata["direction"]
+    if stated_direction not in ("read", "write"):
+        raise ExcelSyncError("direction must be read or write")
+    _clear_the_previous_batch(batch)
+    direction: Literal["read", "write"] = "read" if stated_direction == "read" else "write"
+    selected = _selected_matrices(metadata)
+    preview = preview_sync(
+        metadata["workspace"], snapshot, direction=direction, matrices=selected or None
+    )
+    _textio.write_text(batch, json.dumps(asdict(preview), ensure_ascii=False, indent=2))
+    records = [
+        ["META", "workspace", preview.workspace],
+        ["META", "direction", preview.direction],
+        ["META", "token", preview.token],
+        ["META", "applicable", str(int(preview.applicable))],
+    ]
+    records.extend(["COUNT", key, str(value)] for key, value in preview.counts.items())
+    records.extend(
+        ["MAPPING", entry.ascii_name, entry.excel_header, entry.status]
+        for entry in preview.mappings
+    )
+    records.extend(
+        [
+            "CHANGE",
+            change.action,
+            change.matrix,
+            change.pol,
+            change.ascii_name,
+            change.excel_header,
+            change.before,
+            change.after,
+            str(change.row),
+            str(change.column),
+            change.detail,
+        ]
+        for change in preview.changes
+    )
+    return records
+
+
+def _refuse_a_changed_preview(
+    metadata: dict[str, str], snapshot: WorkbookSnapshot, preview: SyncPreview
+) -> None:
+    """Refuse an apply whose workspace, selection, workbook or matrices moved since Preview."""
+    if (
+        str(Path(metadata["workspace"]).resolve()) != preview.workspace
+        or metadata["direction"] != preview.direction
+    ):
+        raise ExcelSyncError(
+            "Workspace or direction changed after Preview; preview again before Apply."
+        )
+    if (_selected_matrices(metadata) or None) != preview.selection:
+        raise ExcelSyncError("matrix selection changed after Preview; preview again before Apply.")
+    # The batch is a file the user can edit: what Apply writes (file_outputs) is
+    # recomputed from the matrices and the snapshot, never trusted from it.
+    if snapshot.digest() != preview.workbook_digest:
+        raise ExcelSyncError(
+            "Runs, Dictionary or baseline changed after Preview; preview again before Apply."
+        )
+    fresh = preview_sync(
+        preview.workspace, snapshot, direction=preview.direction, matrices=preview.selection
+    )
+    fresh.token = preview.token
+    if asdict(fresh) != asdict(preview):
+        raise ExcelSyncError("Matrices or preview changed after Preview; preview again.")
+
+
+def _apply_records(
+    metadata: dict[str, str], snapshot: WorkbookSnapshot, batch: Path
+) -> list[list[str]]:
+    """Apply the previewed batch and return the response records."""
+    preview = preview_from_json(json.loads(batch.read_text(encoding="utf-8")))
+    _refuse_a_changed_preview(metadata, snapshot, preview)
+    result = apply_preview(preview, snapshot)
+    records: list[list[str]] = [["HEADER", header] for header in result.headers]
+    records.extend(
+        ["MAPPING", entry.ascii_name, entry.excel_header, entry.status] for entry in result.mappings
+    )
+    records.extend(
+        ["CELL", str(change.row), str(change.column), change.after] for change in result.changes
+    )
+    records.extend(["BASELINE", key, value] for key, value in result.baseline.items())
+    records.extend(
+        ["WRITTEN", filename, result.backups.get(filename, "new file, no previous version")]
+        for filename in result.written
+    )
+    if result.error:
+        records.append(["PARTIAL", result.error])
+    else:
+        records.append(
+            [
+                "OK",
+                "Apply complete. Workbook cells were returned to Excel; files written: "
+                + str(len(result.written)),
+            ]
+        )
+    # A preview is single-use even when a batch stops partway through.
+    batch.unlink()
+    return records
+
+
 def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
     """Execute only the explicitly selected action and write a reviewable response.
 
@@ -228,117 +377,12 @@ def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
     """
     try:
         metadata, snapshot = read_request(request)
-        records = []
         if action == "check":
-            _check_snapshot(snapshot)
-            records.append(["OK", "Dictionary is valid; no cells or matrices were changed."])
+            records = _check_records(snapshot)
         elif action == "preview":
-            stated_direction = metadata["direction"]
-            if stated_direction not in ("read", "write"):
-                raise ExcelSyncError("direction must be read or write")
-            # F-733: an earlier preview is single-use and is invalidated here, but a
-            # file at the batch path that is NOT a preview batch is the caller's own:
-            # it is refused, never deleted without a backup.
-            if batch.exists():
-                try:
-                    preview_from_json(json.loads(batch.read_text(encoding="utf-8")))
-                except (ExcelSyncError, ValueError, OSError) as error:
-                    raise ExcelSyncError(
-                        f"{batch} exists and is not a preview batch, so Preview will not "
-                        "overwrite it; name another batch path or move the file."
-                    ) from error
-                batch.unlink()
-            direction: Literal["read", "write"] = "read" if stated_direction == "read" else "write"
-            selected = [
-                item.strip() for item in metadata.get("matrices", "").split(";") if item.strip()
-            ]
-            preview = preview_sync(
-                metadata["workspace"], snapshot, direction=direction, matrices=selected or None
-            )
-            _textio.write_text(batch, json.dumps(asdict(preview), ensure_ascii=False, indent=2))
-            records += [
-                ["META", "workspace", preview.workspace],
-                ["META", "direction", preview.direction],
-                ["META", "token", preview.token],
-                ["META", "applicable", str(int(preview.applicable))],
-            ]
-            records.extend(["COUNT", key, str(value)] for key, value in preview.counts.items())
-            records.extend(
-                ["MAPPING", entry.ascii_name, entry.excel_header, entry.status]
-                for entry in preview.mappings
-            )
-            records.extend(
-                [
-                    "CHANGE",
-                    change.action,
-                    change.matrix,
-                    change.pol,
-                    change.ascii_name,
-                    change.excel_header,
-                    change.before,
-                    change.after,
-                    str(change.row),
-                    str(change.column),
-                    change.detail,
-                ]
-                for change in preview.changes
-            )
+            records = _preview_records(metadata, snapshot, batch)
         elif action == "apply":
-            preview = preview_from_json(json.loads(batch.read_text(encoding="utf-8")))
-            if (
-                str(Path(metadata["workspace"]).resolve()) != preview.workspace
-                or metadata["direction"] != preview.direction
-            ):
-                raise ExcelSyncError(
-                    "Workspace or direction changed after Preview; preview again before Apply."
-                )
-            selected = [
-                item.strip() for item in metadata.get("matrices", "").split(";") if item.strip()
-            ]
-            if (selected or None) != preview.selection:
-                raise ExcelSyncError(
-                    "matrix selection changed after Preview; preview again before Apply."
-                )
-            # The batch is a file the user can edit: what Apply writes (file_outputs) is
-            # recomputed from the matrices and the snapshot, never trusted from it.
-            if snapshot.digest() != preview.workbook_digest:
-                raise ExcelSyncError(
-                    "Runs, Dictionary or baseline changed after Preview; preview again before "
-                    "Apply."
-                )
-            fresh = preview_sync(
-                preview.workspace, snapshot, direction=preview.direction, matrices=preview.selection
-            )
-            fresh.token = preview.token
-            if asdict(fresh) != asdict(preview):
-                raise ExcelSyncError("Matrices or preview changed after Preview; preview again.")
-            result = apply_preview(preview, snapshot)
-            records.extend(["HEADER", header] for header in result.headers)
-            records.extend(
-                ["MAPPING", entry.ascii_name, entry.excel_header, entry.status]
-                for entry in result.mappings
-            )
-            records.extend(
-                ["CELL", str(change.row), str(change.column), change.after]
-                for change in result.changes
-            )
-            records.extend(["BASELINE", key, value] for key, value in result.baseline.items())
-            records.extend(
-                ["WRITTEN", filename, result.backups.get(filename, "new file, no previous version")]
-                for filename in result.written
-            )
-            if result.error:
-                records.append(["PARTIAL", result.error])
-            else:
-                records.append(
-                    [
-                        "OK",
-                        "Apply complete. Workbook cells were returned to Excel; files written: "
-                        + str(len(result.written)),
-                    ]
-                )
-            # A preview is single-use even when a batch stops partway through.
-            batch.unlink()
+            records = _apply_records(metadata, snapshot, batch)
         else:
             raise ExcelSyncError(f"unknown action {action!r}; accepted: preview, apply, check.")
         _write_response(response, records)

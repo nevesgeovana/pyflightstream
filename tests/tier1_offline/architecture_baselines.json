@@ -977,8 +977,8 @@
    "positional": 1
   },
   "workspace/__init__.py:CampaignWorkspace.collect_outputs": {
-   "complexity": 18,
-   "branches": 17,
+   "complexity": 15,
+   "branches": 14,
    "statements": 48,
    "positional": 2
   },
@@ -1013,13 +1013,13 @@
    "positional": 1
   },
   "workspace/excel_file.py:_patch_sheet": {
-   "complexity": 16,
-   "branches": 17,
+   "complexity": 15,
+   "branches": 16,
    "statements": 48,
    "positional": 2
   },
   "workspace/excel_file.py:apply_batch": {
-   "complexity": 13,
+   "complexity": 11,
    "branches": 12,
    "statements": 42,
    "positional": 1
@@ -1049,9 +1049,9 @@
    "positional": 1
   },
   "workspace/inputs.py:_split_reference_tables": {
-   "complexity": 23,
-   "branches": 22,
-   "statements": 60,
+   "complexity": 21,
+   "branches": 20,
+   "statements": 55,
    "positional": 2
   },
   "workspace/manifest.py:manifest_lock": {
@@ -1302,7 +1302,7 @@
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
   "script/__init__.py": 1624,
-  "workspace/__init__.py": 1908
+  "workspace/__init__.py": 1901
  },
  "facade_definitions": {
   "fsi/__init__.py": [

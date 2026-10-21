@@ -22,6 +22,7 @@ from pyflightstream.workspace.excel_sync import (
     Cell,
     DictionaryEntry,
     ExcelSyncError,
+    SyncPreview,
     WorkbookSnapshot,
     _check_snapshot,
     _require_token,
@@ -260,13 +261,7 @@ def check_file(path: Path) -> None:
 
 def _patch_sheet(raw: bytes, changes: dict[tuple[int, int], str]) -> bytes:
     """Replace only selected cell markup; retain all other worksheet bytes."""
-    try:
-        text = raw.decode("utf-8")
-    except UnicodeDecodeError as error:
-        raise ExcelSyncError(
-            f"Unsupported worksheet encoding ({error.reason}); the workbook parts must be UTF-8. "
-            "Originals are unchanged."
-        ) from error
+    text = _utf8_text(raw)
     _xml(raw)
     data = re.search(r"<sheetData\b[^>]*(?:/>|>.*?</sheetData>)", text, re.S)
     if data is None:
@@ -318,19 +313,34 @@ def _patch_sheet(raw: bytes, changes: dict[tuple[int, int], str]) -> bytes:
                     break
             body = body[:position] + row + body[position:]
     text = text[: data.start()] + body + text[data.end() :]
-    # Existing dimension is a cache; update it to include the added cells.
+    return _with_dimension(text).encode("utf-8")
+
+
+def _utf8_text(raw: bytes) -> str:
+    """Decode a worksheet part, refusing one that is not UTF-8 with the originals untouched."""
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ExcelSyncError(
+            f"Unsupported worksheet encoding ({error.reason}); the workbook parts must be UTF-8. "
+            "Originals are unchanged."
+        ) from error
+
+
+def _with_dimension(text: str) -> str:
+    """Update the dimension cache of a worksheet to include the added cells."""
     cells = list(_xml(text.encode()).iter(_NS + "c"))
     coordinates = [re.fullmatch(r"([A-Z]+)([0-9]+)", node.attrib["r"]) for node in cells]
-    if coordinates:
-        maximum_row = max(int(match[2]) for match in coordinates if match is not None)
-        maximum_col = max(_column(match[1]) for match in coordinates if match is not None)
-        text = re.sub(
-            r"<dimension\b[^>]*/>",
-            f'<dimension ref="A1:{_address(maximum_row, maximum_col)}"/>',
-            text,
-            count=1,
-        )
-    return text.encode("utf-8")
+    if not coordinates:
+        return text
+    maximum_row = max(int(match[2]) for match in coordinates if match is not None)
+    maximum_col = max(_column(match[1]) for match in coordinates if match is not None)
+    return re.sub(
+        r"<dimension\b[^>]*/>",
+        f'<dimension ref="A1:{_address(maximum_row, maximum_col)}"/>',
+        text,
+        count=1,
+    )
 
 
 def _patched(raw: bytes, changes: dict[str, dict[tuple[int, int], str]]) -> bytes:
@@ -498,6 +508,23 @@ def cancel_batch(path: Path) -> None:
     _replace(path, json.dumps(payload, ensure_ascii=False, indent=2).encode())
 
 
+def _refuse_a_stale_preview(preview: SyncPreview, snapshot: WorkbookSnapshot) -> None:
+    """Refuse a preview whose token, matrices or rows no longer allow an apply."""
+    if not re.fullmatch(r"[0-9a-f]{32}", str(preview.token)):
+        # The token names a recovery folder; only one this package wrote builds that path.
+        raise ExcelSyncError("The preview's token is not one this package wrote; preview again.")
+    fresh = preview_sync(
+        preview.workspace, snapshot, direction=preview.direction, matrices=preview.selection
+    )
+    fresh.token = preview.token
+    if asdict(fresh) != asdict(preview):
+        raise ExcelSyncError("Matrices or preview changed after Preview; preview again.")
+    if not preview.applicable:
+        raise ExcelSyncError(
+            "Preview contains INVALID or CONFLICT rows; correct and preview again."
+        )
+
+
 def apply_batch(path: Path) -> dict:
     """Apply one fresh preview, retaining exact originals and partial-write details.
 
@@ -526,19 +553,7 @@ def apply_batch(path: Path) -> dict:
         raise ExcelSyncError("Workbook changed after Preview; save and preview again.")
     snapshot = read_snapshot(workbook)
     preview = preview_from_json(payload["preview"])
-    if not re.fullmatch(r"[0-9a-f]{32}", str(preview.token)):
-        # The token names a recovery folder; only one this package wrote builds that path.
-        raise ExcelSyncError("The preview's token is not one this package wrote; preview again.")
-    fresh = preview_sync(
-        preview.workspace, snapshot, direction=preview.direction, matrices=preview.selection
-    )
-    fresh.token = preview.token
-    if asdict(fresh) != asdict(preview):
-        raise ExcelSyncError("Matrices or preview changed after Preview; preview again.")
-    if not preview.applicable:
-        raise ExcelSyncError(
-            "Preview contains INVALID or CONFLICT rows; correct and preview again."
-        )
+    _refuse_a_stale_preview(preview, snapshot)
     recovery = Path(preview.workspace) / ".excel-sync-recovery" / _require_token(preview.token)
     recovery.mkdir(parents=True, exist_ok=False)
     backup = recovery / "workbook-original.xlsx"

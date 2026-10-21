@@ -19,7 +19,7 @@ import shutil
 import stat
 import sys
 import zipfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 
@@ -166,3 +166,82 @@ def _remove_sim_tree(sim: Path) -> None:
                 _remove_link(here / name)
                 dirnames.remove(name)
     shutil.rmtree(sim)
+
+
+def _link_target(origins: Sequence[Path]) -> tuple[Path | None, bool]:
+    """Return the one folder every source sits in, and whether a source is a renamed link.
+
+    F-1499: a source that is a renamed symlink resolves into the library, but its own name is
+    no file of the folder a link would expose, so the staged path would not exist; the
+    target is then None and the sources are copied.
+    """
+    parents = {origin.resolve().parent for origin in origins}
+    target = parents.pop() if len(parents) == 1 else None
+    renamed = target is not None and any(not (target / o.name).is_file() for o in origins)
+    return (None if renamed else target), renamed
+
+
+def _why_not_a_link(target: Path | None, renamed: bool, library: Path) -> str | None:
+    """Say why the sources cannot be reached through a link, or None when they can."""
+    if renamed:
+        return (
+            "a source is a link whose own name is not a file of the folder it resolves "
+            "into, and a link to that folder would not hold the staged name"
+        )
+    if target is None or (target != library and target.parent != library):
+        return (
+            "the source is not in the workspace geometry library (inputs/geometries, "
+            "directly or in one geometry's folder), and a link would expose a "
+            "directory the workspace does not own"
+        )
+    return None
+
+
+def _place_link(
+    inputs: Path, target: Path, make_link: Callable[[Path, Path], None]
+) -> tuple[str, str | None]:
+    """Replace an empty ``inputs`` folder by a link to ``target``, or say why it stays."""
+    if _is_link(inputs):
+        return "link", None
+    if any(inputs.iterdir()):
+        return "copy", (
+            "the simulation's inputs folder already holds files staged by an "
+            "earlier release, and they are the evidence its records hash"
+        )
+    try:
+        inputs.rmdir()
+    except OSError as error:
+        return "copy", f"the empty inputs folder could not be replaced by a link: {error}"
+    try:
+        make_link(target, inputs)
+    except OSError as error:
+        inputs.mkdir(exist_ok=True)
+        return "copy", f"the filesystem refused the link: {error}"
+    return "link", None
+
+
+def _stage_link(
+    inputs: Path,
+    library: Path,
+    origins: Sequence[Path],
+    make_link: Callable[[Path, Path], None],
+) -> tuple[str, str | None]:
+    """Make ``inputs`` a link to the geometry library, or say why not.
+
+    The link's target is the one folder every source sits in: the library itself (the flat
+    layout) or one geometry's folder directly under it (PFS-2032.04). Anything else is
+    copied, with the reason.
+    """
+    if not origins:
+        return "copy", None
+    target, renamed = _link_target(origins)
+    if _is_link(inputs) and Path(os.path.realpath(inputs)) != target:
+        try:  # PFS-2095.062: removal and recreation belong to the copy fallback
+            _remove_link(inputs)
+            inputs.mkdir(exist_ok=True)
+        except OSError as error:
+            return "copy", f"the earlier link {inputs} could not be replaced: {error}"
+    reason = _why_not_a_link(target, renamed, library)
+    if reason is not None or target is None:
+        return "copy", reason
+    return _place_link(inputs, target, make_link)

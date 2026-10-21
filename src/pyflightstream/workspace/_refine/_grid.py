@@ -675,7 +675,7 @@ def _rows(
         first = first[at[0] :] + first[: at[0]]
     rows = [first]
     for k in range(1, len(layers)):
-        rows.append(_align(verts, layers[k], rows[-1], adj, k, te))
+        rows.append(_align(verts, layers[k], rows[-1], adj, k=k, te=te))
     return rows, pole
 
 
@@ -684,6 +684,7 @@ def _align(
     layer: list[int],
     prev: list[int],
     adj: Mapping[int, set[int]],
+    *,
     k: int,
     te: frozenset[int] = frozenset(),
 ) -> list[int]:

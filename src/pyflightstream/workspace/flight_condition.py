@@ -466,6 +466,18 @@ def _density_from_reynolds(
     return reynolds, reynolds * viscosity / (velocity * reference_length_m)
 
 
+def _refuse_a_bad_reference_length(reference_length_m: float | None, pol: str) -> None:
+    """Refuse a reference length that is not a positive, finite length (F-342)."""
+    if reference_length_m is None:
+        return
+    if not (math.isfinite(reference_length_m) and reference_length_m > 0.0):
+        raise FlightConditionError(
+            f"the flight condition of POL {pol} is resolved against the reference length "
+            f"{reference_length_m:g} m, and a reference length is a positive, finite length: "
+            "a Reynolds number divides by it. Correct the reference the row's REF cell names."
+        )
+
+
 def _refuse_signs(effective: Mapping[str, float], speed_key: str, pol: str) -> None:
     """Refuse a negative speed and a Reynolds number at or below zero, before any solve.
 
@@ -660,14 +672,7 @@ def resolve_flight_condition(
             "would solve a condition nobody asked for; state one and delete the "
             "other."
         )
-    if reference_length_m is not None and not (
-        math.isfinite(reference_length_m) and reference_length_m > 0.0
-    ):
-        raise FlightConditionError(
-            f"the flight condition of POL {pol} is resolved against the reference length "
-            f"{reference_length_m:g} m, and a reference length is a positive, finite length: "
-            "a Reynolds number divides by it. Correct the reference the row's REF cell names."
-        )
+    _refuse_a_bad_reference_length(reference_length_m, pol)
     _refuse_signs(effective, given_velocity[0], pol)
 
     altitude_ft = effective.get("ALTFT", 0.0)

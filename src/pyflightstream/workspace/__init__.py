@@ -142,7 +142,7 @@ import uuid as uuid
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 
 # Use typing.TypedDict directly: the supported Python floor is 3.12
 # (SPEC 0, PFS-2024.07), where pydantic can build its schema.
@@ -178,7 +178,13 @@ from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace import manifest as _manifest
 from pyflightstream.workspace import record_document
 from pyflightstream.workspace._degenerate import ThinBlade, derive_thin_blade, thin_blade_path
-from pyflightstream.workspace._layout import _EXECUTABLES_TEMPLATE, _GEOMETRIES_README
+from pyflightstream.workspace._layout import (
+    _EXECUTABLES_TEMPLATE,
+    _GEOMETRIES_README,
+    check_script_name,
+    datapoint_folder_inside,
+    with_wake_companions,
+)
 from pyflightstream.workspace._layout import MATRIX_FOLDERS as MATRIX_FOLDERS
 from pyflightstream.workspace._layout import REFERENCE_POINTS_FILE as REFERENCE_POINTS_FILE
 from pyflightstream.workspace._layout import STEM_REGISTERED_KINDS as STEM_REGISTERED_KINDS
@@ -195,10 +201,12 @@ from pyflightstream.workspace._layout import point_kind as point_kind
 from pyflightstream.workspace._links import (
     _copy_inputs_problem,
     _is_link,
-    _make_dir_link,
-    _remove_link,
     _remove_sim_tree,
+    _stage_link,
     _write_sim_archive,
+)
+from pyflightstream.workspace._links import (
+    _make_dir_link as _make_dir_link,
 )
 from pyflightstream.workspace._links import (
     _sim_files as _sim_files,
@@ -1185,57 +1193,9 @@ class CampaignWorkspace:
         return None
 
     def _link_inputs(self, inputs: Path, origins: Sequence[Path]) -> tuple[str, str | None]:
-        """Make ``inputs`` a link to the geometry library, or say why not.
-
-        The link's target is the one folder every source sits in: the
-        library itself (the flat layout) or one geometry's folder directly
-        under it (PFS-2032.04). Anything else is copied, with the reason.
-        """
+        """Make ``inputs`` a link to the geometry library, or say why not (``_links``)."""
         library = (self.inputs_dir / "geometries").resolve()
-        if not origins:
-            return "copy", None
-        parents = {origin.resolve().parent for origin in origins}
-        target = parents.pop() if len(parents) == 1 else None
-        # F-1499: a source that is a renamed symlink resolves into the library, but its
-        # own name is no file of the folder a link would expose, so the staged path
-        # would not exist; it is copied instead.
-        renamed = target is not None and any(not (target / o.name).is_file() for o in origins)
-        if renamed:
-            target = None
-        if _is_link(inputs) and Path(os.path.realpath(inputs)) != target:
-            try:  # PFS-2095.062: removal and recreation belong to the copy fallback
-                _remove_link(inputs)
-                inputs.mkdir(exist_ok=True)
-            except OSError as error:
-                return "copy", f"the earlier link {inputs} could not be replaced: {error}"
-        if renamed:
-            return "copy", (
-                "a source is a link whose own name is not a file of the folder it resolves "
-                "into, and a link to that folder would not hold the staged name"
-            )
-        if target is None or (target != library and target.parent != library):
-            return "copy", (
-                "the source is not in the workspace geometry library (inputs/geometries, "
-                "directly or in one geometry's folder), and a link would expose a "
-                "directory the workspace does not own"
-            )
-        if _is_link(inputs):
-            return "link", None
-        if any(inputs.iterdir()):
-            return "copy", (
-                "the simulation's inputs folder already holds files staged by an "
-                "earlier release, and they are the evidence its records hash"
-            )
-        try:
-            inputs.rmdir()
-        except OSError as error:
-            return "copy", f"the empty inputs folder could not be replaced by a link: {error}"
-        try:
-            _make_dir_link(target, inputs)
-        except OSError as error:
-            inputs.mkdir(exist_ok=True)
-            return "copy", f"the filesystem refused the link: {error}"
-        return "link", None
+        return _stage_link(inputs, library, origins, _make_dir_link)
 
     def staged_as(self, sim_id: str) -> tuple[str | None, str | None]:
         """Say how one simulation's inputs were staged: ``link`` or ``copy``, and why.
@@ -1339,17 +1299,7 @@ class CampaignWorkspace:
             sha256 of the written text, for
             :attr:`RunRecord.script_sha256`.
         """
-        if (
-            not name
-            or name in {".", ".."}
-            or Path(name).name != name
-            or PureWindowsPath(name).name != name
-            or PureWindowsPath(name).drive
-        ):
-            raise WorkspaceError(
-                f"script name {name!r} must be a plain file name: a path, an absolute "
-                "name or a parent segment would leave the simulation's scripts folder."
-            )
+        check_script_name(name)
         sim = self.create_sim(sim_id)
         target = sim / "scripts" / name
         _textio.write_text(target, text)
@@ -1560,20 +1510,8 @@ class CampaignWorkspace:
         # guard against.
         name = datapoint_dir_name(datapoint)
         folder = f"{SIM_DATAPOINTS_DIR}/{name}"
-        # The solver writes the wake beside the surface without a second
-        # export command. Include it in the same containment and collision
-        # pre-scans as every declared output, before moving either file.
-        expanded = list(produced)
-        named = {Path(path).resolve() for path in expanded}
-        for path in produced:
-            surface = Path(path)
-            if surface.suffix.lower() != ".vtk" or surface.stem.lower().endswith("_wakes"):
-                continue
-            wake = surface.with_name(surface.stem + "_wakes.vtk")
-            if wake.is_file() and wake.resolve() not in named:
-                expanded.append(wake)
-                named.add(wake.resolve())
-        produced = expanded
+        # The solver writes the wake beside the surface without a second export command.
+        produced = with_wake_companions(produced)
         # File all existing outputs before reporting missing ones. Run every
         # refusal below against existing outputs before moving any of them.
         missing = [str(path) for path in produced if not Path(path).is_file()]
@@ -1589,16 +1527,7 @@ class CampaignWorkspace:
         # DP-<tag>/out/ also belongs to this point and its output is moved up.
         # archive/ contains earlier evidence and remains forbidden, as do all other
         # managed folders.
-        own = (sim / folder).resolve()
-        if not own.is_relative_to(sim.resolve()):
-            # F-728: a datapoint folder that is a link out of this simulation would make
-            # another simulation's output count as this point's own evidence.
-            raise WorkspaceError(
-                f"the datapoint folder {sim / folder} resolves to {own}, outside this "
-                f"simulation's own folder {sim.resolve()}. Collecting there would file "
-                "or accept another folder's output as this simulation's evidence. "
-                "NOTHING HAS BEEN MOVED. Replace the link with a plain folder."
-            )
+        own = datapoint_folder_inside(sim, folder)
         kept: set[str] = set()
         beneath: set[str] = set()
         if ran_in_datapoint:

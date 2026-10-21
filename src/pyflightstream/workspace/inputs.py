@@ -1068,6 +1068,38 @@ def _refuse_a_kindless_block(name: str, value: dict[str, Any], path: Path) -> No
         )
 
 
+def _refuse_a_malformed_rotor(name: str, block: dict[str, Any], path: Path) -> None:
+    """Refuse a rotor block whose alias, name or family lists cannot be the rotor's own."""
+    stated = block.get("alias")
+    # Compare aliases without case, so pusher under [PUSHER] names one alias.
+    if stated is not None and str(stated).casefold() != name.casefold():
+        raise InputArtifactError(
+            f"the reference artifact {path} declares the rotor {name!r} and states "
+            f"alias = {stated!r} inside it. The block's name IS the alias, so the two "
+            "can only agree or disagree; make them equal, or drop the field, which "
+            "the reader then fills in from the name.",
+            kind="reference",
+        )
+    collision = next((part for part in ("_SMRP", "_RMRP") if part in name.upper()), None)
+    if collision is not None:
+        raise InputArtifactError(
+            f"the reference artifact {path} declares the rotor {name!r}, whose name "
+            f"carries {collision}. That is the radical this package gives a rotor's own "
+            f"frames, its static and rotating moment reference points ({name}_SMRP, "
+            f"{name}_RMRP and {name}_RMRP<k> per blade), so a rotor named after a "
+            "frame makes two different things spell the same. Choose another name.",
+            kind="reference",
+        )
+    for family_key in ("families_general", "families_blades"):
+        if family_key in block and not isinstance(block[family_key], list):
+            raise InputArtifactError(
+                f"the reference artifact {path} declares the rotor {name!r} with "
+                f"{family_key} = {block[family_key]!r}. A rotor's families are a list of "
+                f'names, for example {family_key} = ["Blade_1", "Blade_2"].',
+                kind="reference",
+            )
+
+
 def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     """Sort a reference file's top-level tables into the model's fields (FR-59, FR-60, FR-72).
 
@@ -1117,34 +1149,7 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
             points[name] = rest.pop(name)
             continue
         block = rest.pop(name)
-        stated = block.get("alias")
-        # Compare aliases without case, so pusher under [PUSHER] names one alias.
-        if stated is not None and str(stated).casefold() != name.casefold():
-            raise InputArtifactError(
-                f"the reference artifact {path} declares the rotor {name!r} and states "
-                f"alias = {stated!r} inside it. The block's name IS the alias, so the two "
-                "can only agree or disagree; make them equal, or drop the field, which "
-                "the reader then fills in from the name.",
-                kind="reference",
-            )
-        collision = next((part for part in ("_SMRP", "_RMRP") if part in name.upper()), None)
-        if collision is not None:
-            raise InputArtifactError(
-                f"the reference artifact {path} declares the rotor {name!r}, whose name "
-                f"carries {collision}. That is the radical this package gives a rotor's own "
-                f"frames, its static and rotating moment reference points ({name}_SMRP, "
-                f"{name}_RMRP and {name}_RMRP<k> per blade), so a rotor named after a "
-                "frame makes two different things spell the same. Choose another name.",
-                kind="reference",
-            )
-        for family_key in ("families_general", "families_blades"):
-            if family_key in block and not isinstance(block[family_key], list):
-                raise InputArtifactError(
-                    f"the reference artifact {path} declares the rotor {name!r} with "
-                    f"{family_key} = {block[family_key]!r}. A rotor's families are a list of "
-                    f'names, for example {family_key} = ["Blade_1", "Blade_2"].',
-                    kind="reference",
-                )
+        _refuse_a_malformed_rotor(name, block, path)
         block.setdefault("alias", name)
         rotors[name] = block
         members = [*block.get("families_general", []), *block.get("families_blades", [])]
