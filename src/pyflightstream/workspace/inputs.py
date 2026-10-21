@@ -1098,6 +1098,11 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
                     kind="reference",
                 )
             continue
+        if name == "moment_point":
+            # The moment reference is a fixed table of the model, and its own kind key
+            # (rotor or airframe) names what the point is: it is never rerouted to the
+            # named points, which would reset the moment reference to the origin.
+            continue
         if value.get("kind") == ACTUATOR_KIND:
             # G06: A DISC IS NEITHER A ROTOR NOR A POINT, and it is routed before
             # the branch below sends every kind that is not a rotor to the points.

@@ -311,7 +311,10 @@ def read_cost_file(path: str | Path) -> CostFile:
             _number(parallel, "fit_coefficient", "parallel", target),
             _number(parallel, "fit_exponent", "parallel", target),
         )
-    flags = {str(k): _number(raw["flags"], str(k), "flags", target) for k in raw.get("flags", {})}
+    flags = {
+        str(k): _number(raw["flags"], str(k), "flags", target, positive=True)
+        for k in raw.get("flags", {})
+    }
     mesh, steps = raw.get("mesh", {}), raw.get("steps", {})
     return CostFile(
         path=target,

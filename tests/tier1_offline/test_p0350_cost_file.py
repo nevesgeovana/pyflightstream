@@ -172,3 +172,15 @@ def test_the_guard_catches_a_planted_non_synthetic_file(tmp_path):
     (planted / "c001.toml").write_text(_FILE.replace("# synthetic test file\n", ""), "utf-8")
     (planted / "c002.toml").write_text(_FILE, "utf-8")
     assert [p.name for p in unmarked_cost_files(tmp_path)] == ["c001.toml"]
+
+
+@pytest.mark.parametrize("value", ["0.0", "-2.0"])
+def test_f_311_a_flag_multiplier_is_a_positive_number(tmp_path, value):
+    """F2-0203: F-311, a zero or negative multiplier gave a zero or negative wall time."""
+    inputs = _inputs(
+        tmp_path,
+        "c001",
+        text=_FILE.replace("viscous_coupling = 3.0", f"viscous_coupling = {value}"),
+    )
+    with pytest.raises(InputArtifactError, match="viscous_coupling to be a positive number"):
+        resolve_cost_file(inputs)

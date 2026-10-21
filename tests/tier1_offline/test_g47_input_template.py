@@ -934,3 +934,20 @@ def test_the_template_states_the_workbook_and_unsteady_outputs_the_package_suppo
     assert "is refused at plan, so this example plans on a steady row" not in text
     assert "Volume sampling supports both run types." in text
     assert "Unsteady section Cp describes the final instant, not a time average." in text
+
+
+def test_f_315_a_kind_key_on_the_moment_point_keeps_the_moment_point(tmp_path):
+    """F2-0203: F-315, [moment_point] with its own kind is the moment reference, not a named
+    point: the reference is not reset to the origin."""
+    from pyflightstream.workspace.inputs import resolve_reference
+
+    (tmp_path / "references").mkdir()
+    (tmp_path / "references" / "r001.toml").write_text(
+        'area_m2 = 1.0\nchord_m = 1.0\nspan_m = 2.0\n[moment_point]\nkind = "airframe"\n'
+        "x_m = 1.0\ny_m = 2.0\nz_m = 3.0\n",
+        encoding="utf-8",
+    )
+    reference = resolve_reference(tmp_path, "r001")
+    assert (reference.moment_point.x_m, reference.moment_point.y_m) == (1.0, 2.0)
+    assert reference.moment_point.z_m == 3.0 and reference.moment_point.kind == "airframe"
+    assert reference.points == {}
