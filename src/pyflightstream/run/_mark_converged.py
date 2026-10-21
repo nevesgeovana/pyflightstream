@@ -329,6 +329,8 @@ def keep_verdict(record: dict[str, Any], row: Mapping[str, Any] | None) -> dict[
             ],
         }
         record["status"] = _worst(record, floor=floor)
+        if record["status"] != RunStatus.MAX_ITER_REACHED.value:
+            record.pop("iterations_requested", None)
     if not row.get("marked"):
         return record
     note = (

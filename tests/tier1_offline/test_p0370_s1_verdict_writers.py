@@ -31,6 +31,21 @@ def _marked_job():
     }
 
 
+@pytest.mark.parametrize("remaining", ["CONVERGED", "MAX_ITER_REACHED"])
+def test_p0430_f842_restored_children_clear_only_obsolete_iteration_limit(remaining):
+    original = _marked_job()
+    computed = copy.deepcopy(original)
+    computed["status"] = "MAX_ITER_REACHED"
+    computed["iterations_requested"] = 100
+    computed["points_ran"][0].pop("marked")
+    computed["points_ran"][0]["status"] = "MAX_ITER_REACHED"
+    computed["points_ran"][1]["status"] = remaining
+    kept = keep_verdict(computed, original)
+    assert kept["status"] == remaining
+    assert ("iterations_requested" in kept) == (remaining == "MAX_ITER_REACHED")
+    assert computed["iterations_requested"] == 100
+
+
 def test_rebuild_keeps_each_steady_point_verdict(tmp_path):
     """P0370-S1-MARK-CONVERGED (FR-871): nested marks survive rebuild."""
     original = _marked_job()
