@@ -24,7 +24,7 @@ import tempfile
 import time
 import warnings
 from collections.abc import Callable, Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 import pyflightstream._textio as _textio
@@ -362,6 +362,10 @@ def _join_root(run_root: str, relative: Path) -> str:
     """Join a relative path onto the run's own root, in that root's separator style."""
     if run_root.startswith("/"):
         return run_root.rstrip("/") + "/" + relative.as_posix()
+    if re.match(r"^[A-Za-z]:|^\\\\", run_root):
+        # C-SRS-S07-076: a Windows root is joined with Windows rules on any host, so a
+        # POSIX host never writes a root of one style and a tail of the other.
+        return str(PureWindowsPath(run_root, *relative.parts))
     return str(Path(run_root) / relative)
 
 

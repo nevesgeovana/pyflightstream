@@ -897,3 +897,11 @@ def test_x_f_1294_a_lock_stops_the_apply_and_says_how_to_clear_it(tmp_path, monk
     with pytest.raises(records.RecordsError, match=r"runs\.json\.lock.*delete"):
         records.rebuild(workspace.root, apply=True)
     assert not workspace.manifest_path.exists()
+
+
+def test_c_srs_s07_076_a_windows_root_is_joined_with_windows_separators():
+    """C-SRS-S07-076: no mixed separators in a root of the Windows style, on any host."""
+    from pyflightstream.run._rebuild import _join_root
+
+    assert _join_root("C:\\camp", Path("sims/sim_1/x.fs")) == "C:\\camp\\sims\\sim_1\\x.fs"
+    assert _join_root("/work/camp/", Path("sims/sim_1/x.fs")) == "/work/camp/sims/sim_1/x.fs"
