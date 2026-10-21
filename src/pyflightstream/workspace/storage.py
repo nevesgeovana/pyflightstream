@@ -658,7 +658,16 @@ def _expand_archive(
     if folder.exists():
         raise StorageError(_both_refusal(folder, archive))
     temporary = folder.with_name(folder.name + f".{os.getpid()}.restoring")
+    if _is_link(temporary):
+        # A planted link would make the containment check below accept the folder it
+        # points at: it is unlinked, never followed.
+        _remove_link(temporary)
     shutil.rmtree(temporary, ignore_errors=True)
+    if temporary.exists() or temporary.is_symlink():
+        raise StorageError(
+            f"{temporary} is in the way of restoring {archive} and cannot be removed; "
+            "remove it by hand, then restore again"
+        )
     with zipfile.ZipFile(archive) as zf:
         meta = json.loads(zf.read(_COMPACT_META)) if _COMPACT_META in zf.namelist() else {}
         for info in zf.infolist():
@@ -991,11 +1000,13 @@ def _products_of(workspace: CampaignWorkspace, sim_ids: set[str], run_ids: set[s
                 continue
             runs = {str(run) for run in entry.get("runs", []) or []}
             if str(entry.get("sim_id")) in sim_ids:
+                _refuse_outside(folder, name, manifest)
                 own.append(name)
             elif runs & run_ids:
                 shared.append(name)
         for run_id, value in dict(document.get("provenance", {})).items():
             if run_id in run_ids and isinstance(value, str):
+                _refuse_outside(folder, value, manifest)
                 own.append(value)
         if own or shared:
             found[folder.relative_to(workspace.root).as_posix()] = {
@@ -1003,6 +1014,17 @@ def _products_of(workspace: CampaignWorkspace, sim_ids: set[str], run_ids: set[s
                 "shared": sorted(set(shared)),
             }
     return found
+
+
+def _refuse_outside(folder: Path, name: str, manifest: Path) -> None:
+    """Refuse a product path that leaves its post folder: delete-sims unlinks what it names."""
+    named = Path(name)
+    if named.is_absolute() or named.drive or ".." in named.parts:
+        raise StorageError(
+            f"{manifest} names the product {name!r}, which is not inside {folder}; "
+            "delete-sims removes only files of the post folder, so nothing is deleted. "
+            "Correct the entry (pyfs-matrix restore products) or rebuild it with a post."
+        )
 
 
 def _forget_products(
@@ -1153,6 +1175,9 @@ def _delete_sims_held(
     """Check and measure under the ``runs.json`` lease, and with ``apply`` delete."""
     # ONE ENTRY PER SIMULATION, in the order named (PFS-2103.041): a repeated
     # id wrote two tombstones with one run_id.
+    if isinstance(sim_ids, str):
+        # One bare id is one simulation, never its characters.
+        sim_ids = [sim_ids]
     ids = list(dict.fromkeys(str(sim).strip() for sim in sim_ids if str(sim).strip()))
     if not ids:
         raise StorageError("name at least one simulation id")

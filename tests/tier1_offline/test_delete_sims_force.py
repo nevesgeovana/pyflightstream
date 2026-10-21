@@ -152,3 +152,48 @@ def test_mutant_ignoring_force_turns_the_check_red(tmp_path):
         assert module_real["forced_submitted"] == ["6001"]
     finally:
         sys.modules.pop("storage_mutant_force", None)
+
+
+def test_f_1488_one_bare_simulation_id_is_one_simulation(tmp_path):
+    """F2-0203: F-1488, a string selector was split into characters and named other folders."""
+    workspace = _workspace(tmp_path)
+    storage_module.delete_sims(workspace.root, "6002", apply=True)
+    assert not workspace.sim_dir("6002").exists()
+    assert workspace.sim_dir("6001").exists()
+
+
+def test_f_743_a_product_path_outside_the_post_folder_deletes_nothing(tmp_path):
+    """F2-0203: F-743, a traversal key of products.json is refused before anything is removed."""
+    workspace = _workspace(tmp_path)
+    outside = workspace.root / "escape.txt"
+    outside.write_text("not a product", encoding="utf-8")
+    manifest = workspace.root / "post" / "matriz" / "products.json"
+    document = json.loads(manifest.read_text(encoding="utf-8"))
+    document["products"]["../../escape.txt"] = {"sim_id": "6002", "runs": []}
+    manifest.write_text(json.dumps(document), encoding="utf-8")
+    with pytest.raises(StorageError, match="not inside"):
+        storage_module.delete_sims(workspace.root, ["6002"], apply=True)
+    assert outside.read_text(encoding="utf-8") == "not a product"
+    assert workspace.sim_dir("6002").exists()
+
+
+def test_f_742_a_planted_staging_link_is_unlinked_and_never_extracted_through(tmp_path):
+    """F2-0203: F-742, the restore's staging folder is a link to an outside folder: the link
+    is removed, and the archive is extracted into a real folder."""
+    import os
+    import zipfile
+
+    from pyflightstream.workspace._links import _make_dir_link
+
+    workspace = _workspace(tmp_path)
+    folder = workspace.sim_dir("7001")
+    archive = folder.with_name(folder.name + ".zip")
+    with zipfile.ZipFile(archive, "w") as bundle:
+        bundle.writestr("x.txt", "restored")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    staging = folder.with_name(folder.name + f".{os.getpid()}.restoring")
+    _make_dir_link(outside, staging)
+    storage_module._expand_archive(workspace, folder, archive)
+    assert (folder / "x.txt").read_text(encoding="utf-8") == "restored"
+    assert list(outside.iterdir()) == []
