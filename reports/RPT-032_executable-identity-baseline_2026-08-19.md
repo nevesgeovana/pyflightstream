@@ -77,8 +77,8 @@ changed without breaking anything.
 
 ## The finding this makes concrete
 
-Nine builds, nine distinct digests, and six file names between them. Two
-of those names each cover several builds:
+Eleven builds, eleven distinct build numbers, and shared installer file
+names between them. Two of those names each cover several builds:
 
 * `Flightstream_2612.exe` is the installer's name for FOUR registered
   builds, 26.120, 26.121, 26.122 and 26.123;
@@ -121,7 +121,7 @@ may refuse is the separate question recorded against the version rows in
 `src/pyflightstream/commands/_meta.yaml` and in
 `reports/compat/README.md`.
 
-The nine rows are the executables in hand on the date in the title. The
+The eleven rows are the executables in hand on the date in the title. The
 replacement is not among them, and nothing here is a measurement of a
 build nobody has: no row describes a binary that has not been hashed.
 
