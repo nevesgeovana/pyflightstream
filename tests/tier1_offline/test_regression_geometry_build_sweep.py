@@ -3650,3 +3650,160 @@ class TestF2Wave1GeometryBuildContracts:
                 overwrite=True,
             )
         assert sidecar.read_text(encoding="utf-8") == "this is [not toml"
+
+
+class TestF2Package0405:
+    """Tier 1, 0.43.0, package F2-0405: workspace geometry and free-space contracts."""
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1120")
+    def test_p0430_f1215_a_malformed_record_refuses_the_whole_acceptance_batch(tmp_path):
+        """F-1215: a later malformed record stamps no record of the batch and refuses."""
+        geometries = tmp_path / "geometries"
+        good = geometries / "wing"
+        bad = geometries / "tail"
+        good.mkdir(parents=True)
+        bad.mkdir()
+        (good / "wing.build.json").write_text(json.dumps({"inspected": None}), encoding="utf-8")
+        (bad / "tail.build.json").write_text("[]", encoding="utf-8")
+        with pytest.raises(InputArtifactError, match="Nothing was written"):
+            build.accept_geometries(["wing", "tail"], geometries=geometries)
+        written = json.loads((good / "wing.build.json").read_text(encoding="utf-8"))
+        assert written == {"inspected": None}
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1103")
+    def test_p0430_f302_unreadable_trailing_edges_refuse_a_marking_build(tmp_path, monkeypatch):
+        """F-302 and X-F-0419: an unreadable edge readback is a refusal, not a skipped gate."""
+        root = _geometry_build__workspace(tmp_path)
+        folder = _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
+        plan = plan_geometry_build(folder, registry=_geometry_build__verified_registry())
+
+        def unreadable(path):
+            raise MeshReadError("no mesh block")
+
+        monkeypatch.setattr(build, "trailing_edge_midpoints", unreadable)
+        variant = plan.variants[0]
+        assert variant.instruction.marks_trailing_edges()
+        with pytest.raises(GeometryBuildError, match="cannot be read for them"):
+            build._read_back(variant, _GEOMETRY_BUILD__WING_FSM)
+
+    @staticmethod
+    @pytest.mark.requirement("FR-472")
+    def test_p0430_f1272_the_memory_floor_is_read_at_every_variant_start(monkeypatch):
+        """F-1272: a queued variant starts beside another run only while the floor is free."""
+        monkeypatch.setattr(build, "_room_for_a_second_run", lambda: False)
+        lock = threading.Lock()
+        state = {"active": 0, "peak": 0}
+
+        def run(variant):
+            with lock:
+                state["active"] += 1
+                state["peak"] = max(state["peak"], state["active"])
+            threading.Event().wait(0.05)
+            with lock:
+                state["active"] -= 1
+            return variant
+
+        assert build._built_two_at_a_time([1, 2, 3], run, 2) == (1, 2, 3)
+        assert state["peak"] == 1
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1111")
+    def test_p0430_f1216_a_reused_stamp_never_overwrites_the_backup(tmp_path):
+        """F-1216: the preserved original survives a second clean with the same stamp."""
+        from pyflightstream.workspace._geometry_clean import clean_saved_actions
+        from tests.tier1_offline.test_fsm_saved_actions import ACTIONS, _saved_simulation
+
+        path = _saved_simulation(tmp_path / "m.fsm", ACTIONS)
+        original = path.read_bytes()
+        clean_saved_actions(path, stamp="s")
+        backup = tmp_path / "m.fsm.bak-s"
+        assert backup.read_bytes() == original
+        _saved_simulation(path, ACTIONS[:1], names=("Other",))
+        with pytest.raises(InputArtifactError, match="already exists"):
+            clean_saved_actions(path, stamp="s")
+        assert backup.read_bytes() == original
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1135")
+    def test_p0430_f1503_a_quote_in_the_name_reads_back_unchanged():
+        """F-1503: the converter writes the name as a valid TOML string."""
+        import tomllib
+
+        from pyflightstream.workspace._geometry_convert import _instruction_text
+
+        source = ("mesh", {"file": "x.stl", "units": "METER"})
+        name = 'a"b\\c'
+        text = _instruction_text("s.toml", name, 'b"1', source, {"boundaries": ["Wing"]})
+        parsed = tomllib.loads(text)
+        assert parsed["name"] == name and parsed["fs_build"] == 'b"1'
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1135")
+    def test_p0430_f1504_a_missing_cad_sidecar_is_refused(tmp_path):
+        """F-1504: a CAD geometry with no sidecar is refused, never given defaults."""
+        from pyflightstream.workspace._geometry_convert import instruction_from_sidecar
+
+        root = _geometry_build__workspace(tmp_path)
+        folder = root / "inputs" / "geometries" / "wing"
+        folder.mkdir()
+        (folder / "wing.igs").write_text("iges\n", encoding="utf-8")
+        with pytest.raises(InputArtifactError, match="wing.boundaries.toml is missing"):
+            instruction_from_sidecar("wing.igs", root=root)
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1135")
+    def test_p0430_f1489_a_relative_path_names_its_own_folder(tmp_path):
+        """F-1489: folder/name converts that file, not another geometry of the same basename."""
+        from pyflightstream.workspace._geometry_convert import instruction_from_sidecar
+
+        root = _geometry_build__workspace(tmp_path)
+        for folder in ("a", "b"):
+            where = root / "inputs" / "geometries" / folder
+            where.mkdir()
+            (where / "wing.stl").write_text("solid x\n", encoding="utf-8")
+            (where / "wing.boundaries.toml").write_text(
+                'boundaries = ["Wing"]\n[import]\nunits = "METER"\n', encoding="utf-8"
+            )
+        assert instruction_from_sidecar("b/wing.stl", root=root).path.parent.name == "b"
+        with pytest.raises(InputArtifactError, match="several geometry folders"):
+            instruction_from_sidecar("wing.stl", root=root)
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1120")
+    def test_p0430_f1214_a_wrong_shaped_manifest_is_skipped_not_fatal(tmp_path):
+        """F-1214: apply never fails on a products.json after the exports were unlinked."""
+        from pyflightstream.workspace._free_space import _forget_pruned_listings
+
+        workspace = CampaignWorkspace(tmp_path / "camp")
+        workspace.init(workspace.root)
+        post = workspace.root / "post" / "p"
+        post.mkdir(parents=True)
+        gone = post / "x.vtk"
+        (post / "products.json").write_text(json.dumps({"products": ["x.vtk"]}), encoding="utf-8")
+        other = workspace.root / "post" / "q"
+        other.mkdir()
+        (other / "products.json").write_text("[]", encoding="utf-8")
+        assert _forget_pruned_listings(workspace, {gone.resolve()}) == {}
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1120")
+    def test_p0430_f1581_the_preview_lists_a_file_once_as_the_apply_does(tmp_path):
+        """F-1581: two extension steps naming one extension list the file in the first only."""
+        from pyflightstream.workspace import storage
+
+        workspace = CampaignWorkspace(tmp_path / "camp")
+        workspace.init(workspace.root)
+        junk = workspace.sim_dir("1301") / "datapoints" / "DP-1" / "junk.vtk"
+        junk.parent.mkdir(parents=True)
+        junk.write_text("junk", encoding="utf-8")
+        recipe = workspace.root / storage.MANAGEMENT_DIR / "m001.toml"
+        recipe.parent.mkdir(parents=True, exist_ok=True)
+        recipe.write_text(
+            '[[delete_extensions]]\nextensions = [".vtk"]\n'
+            '[[delete_extensions]]\nextensions = [".vtk"]\n',
+            encoding="utf-8",
+        )
+        entry = storage.free_space(workspace.root, "m001", apply=False)
+        assert [len(step["files"]) for step in entry["steps"]] == [1, 0]

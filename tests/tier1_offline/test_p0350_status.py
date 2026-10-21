@@ -70,7 +70,13 @@ def _rows() -> list[dict]:
             "sweep",
             RunStatus.FAILED_DIVERGED,
             points_ran=[
-                {"tag": "M144AL-040", "point": {"alpha": -4.0}, "status": "CONVERGED"},
+                {
+                    "tag": "M144AL-040",
+                    "point": {"alpha": -4.0},
+                    "status": "CONVERGED",
+                    "iterations": 120,
+                    "residual": 1.5e-06,
+                },
                 {"tag": "M144AL+000", "point": {"alpha": 0.0}, "status": "CONVERGED"},
                 {"tag": "M144AL+040", "point": {"alpha": 4.0}, "status": "FAILED_DIVERGED"},
             ],
@@ -281,6 +287,10 @@ def test_each_datapoint_is_counted_once_by_its_effective_record(workspace):
         "CONVERGED",
     ]
     assert points[("2006", "M144AL+040")]["status"] == "FAILED_DIVERGED"
+    # FR-739: each point carries its own iterations and residual, not the job's.
+    first = points[("2006", "M144AL-040")]
+    assert (first["iterations"], first["residual"]) == (120, 1.5e-06)
+    assert points[("2006", "M144AL+000")]["iterations"] is None
     # FR-740, FR-741, FR-743: the continued point is ONE datapoint, the continuation's, by name;
     # the refused continuation after it is a note and does not replace it.
     assert [key for key in points if key[0] == "2008"] == [("2008", "M144AL+000")]
