@@ -381,7 +381,9 @@ def _read_obj(source: Path, boundary: str | None) -> _Blade:
     name, faces = (boundary, groups[boundary]) if boundary else next(iter(groups.items()), ("", []))
     points = numpy.asarray(vertices, dtype=float).reshape(-1, 3)
     triangles = numpy.asarray(faces, dtype=numpy.int64).reshape(-1, 3)
-    if boundary is not None:
+    if len(triangles):
+        # The implicit single group is cut to its own vertices as a named one is, so the
+        # axis and the station range never see a vertex no face uses.
         points, triangles = _sub_mesh(points, triangles)
     return _Blade(
         points,
@@ -532,6 +534,13 @@ def _stations(source: Path, s: Points, root_offset: float) -> Points:
         )
     if structured:
         inner = [level for level in rings if level > root + 1e3 * tolerance]
+        if not inner:
+            raise _refuse(
+                source,
+                f"the root offset {root_offset!r} leaves no section beyond the root: every "
+                f"section lies within {root - low!r} of the blade's root; the offset is a "
+                "length shorter than the blade",
+            )
         return numpy.asarray([root, *inner])
     return numpy.linspace(root, top, SPAN_STATIONS)
 
@@ -596,9 +605,16 @@ def _section(local: Points, faces: Faces, station: float, tolerance: float) -> l
 
 def _ends(points: Points) -> tuple[int, int]:
     """Return the indices of the two loop points farthest apart (the chord's ends)."""
-    a = int(numpy.argmax(numpy.linalg.norm(points - points[0], axis=1)))
-    b = int(numpy.argmax(numpy.linalg.norm(points - points[a], axis=1)))
-    a = int(numpy.argmax(numpy.linalg.norm(points - points[b], axis=1)))
+    best, a, b = -1.0, 0, 0
+    for start in range(0, len(points), 512):
+        block = points[start : start + 512]
+        distance = numpy.linalg.norm(block[:, None, :] - points[None, :, :], axis=2)
+        row, column = numpy.unravel_index(int(numpy.argmax(distance)), distance.shape)
+        if float(distance[row, column]) > best:
+            best, a, b = float(distance[row, column]), start + int(row), int(column)
+    # The end farther from the first point comes first, as the chord has always been oriented.
+    if numpy.linalg.norm(points[b] - points[0]) > numpy.linalg.norm(points[a] - points[0]):
+        a, b = b, a
     return a, b
 
 
@@ -764,7 +780,9 @@ def _obj_text(source: Path, grid: Points, boundary: str, root_offset: float) -> 
         f"# Thin blade of {source.name}: the mean surface of its blade, the root moved",
         f"# outward along the span by {root_offset!r} (pyflightstream, FR-330).",
         f"o {boundary}",
-        *(f"v {x:.15g} {y:.15g} {z:.15g}" for x, y, z in grid.reshape(-1, 3).tolist()),
+        # repr is the shortest text that reads back as the same double, so distinct stations
+        # stay distinct at a large coordinate origin.
+        *(f"v {x!r} {y!r} {z!r}" for x, y, z in grid.reshape(-1, 3).tolist()),
         *(f"f {a} {b} {c}" for a, b, c in _triangles(stations, columns - 1)),
     ]
     return "\n".join(lines) + "\n"

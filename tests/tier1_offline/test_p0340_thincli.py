@@ -357,3 +357,76 @@ def test_p0430_swept_sections_keep_their_chord_direction(tmp_path):
     result = derive_thin_blade(source, root_offset=5.0)
     grid = _read_obj(result.mesh).reshape(result.stations, -1, 3)
     assert numpy.all(grid[:, -1, 0] - grid[:, 0, 0] > 0.0)
+
+
+def test_f_316_an_unused_vertex_of_the_implicit_group_does_not_move_the_blade(tmp_path):
+    """F2-0203 (FR-629, FR-636): F-316, the implicit single group is cut to the vertices its
+    faces use, as a named one is, so a stray vertex cannot skew the axis or the stations."""
+    vertices, faces = _blade()
+    clean = _write_obj(tmp_path / "clean.obj", vertices, faces)
+    stray = _write_obj(tmp_path / "stray.obj", vertices, faces)
+    with stray.open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write("v 4.0 -3.0 25.0\n")
+    expected = _read_obj(derive_thin_blade(clean, root_offset=0.05).mesh)
+    got = _read_obj(derive_thin_blade(stray, root_offset=0.05).mesh)
+    assert got.shape == expected.shape
+    assert numpy.allclose(got, expected, atol=1e-12)
+
+
+def test_f_317_an_offset_that_leaves_no_section_beyond_the_root_is_refused(tmp_path):
+    """F2-0203 (FR-633): F-317, an offset within a thousand tolerances of the last ring
+    would write a sheet with no faces; it is refused before any write."""
+    vertices, faces = _blade()
+    source = _write_obj(tmp_path / "blade.obj", vertices, faces)
+    length = float(vertices[:, 2].max() - vertices[:, 2].min())
+    near_tip = length - 100 * _degenerate.SPAN_TOLERANCE * length
+    with pytest.raises(InputArtifactError, match="root offset"):
+        derive_thin_blade(source, root_offset=near_tip)
+    assert [p.name for p in tmp_path.iterdir()] == ["blade.obj"]
+
+
+def test_f_318_the_chord_ends_are_the_farthest_pair_of_the_loop():
+    """F2-0203 (FR-629): F-318, three farthest-point sweeps can stop short of the pair."""
+    points = numpy.asarray(
+        [
+            [0.7834221408903144, 0.17032587978181613],
+            [-0.057380669636337256, 0.5465540192976328],
+            [-0.9393079846750576, 0.413930191311247],
+            [-0.2515123330430584, -0.8182945729914843],
+            [0.3210001348557896, 0.862927709482709],
+            [-0.5856176638379975, 0.26018039957068595],
+        ]
+    )
+    distance = numpy.linalg.norm(points[:, None] - points[None], axis=2)
+    a, b = _degenerate._ends(points)
+    assert distance[a, b] == pytest.approx(distance.max(), abs=1e-15)
+
+
+def test_f_319_distinct_stations_stay_distinct_in_the_obj_at_a_large_origin():
+    """F2-0203 (FR-629): F-319, the OBJ text reads back as the same doubles."""
+    base = 1234567.0
+    grid = numpy.asarray(
+        [[[base + 1e-9 * (i + 2 * j), 1.0, 2.0 + 1e-9 * i] for j in range(3)] for i in range(2)]
+    )
+    text = _degenerate._obj_text(Path("blade.obj"), grid, "Blade1", 0.1)
+    read = [
+        tuple(float(word) for word in line.split()[1:4])
+        for line in text.splitlines()
+        if line.startswith("v ")
+    ]
+    assert read == [tuple(row) for row in grid.reshape(-1, 3).tolist()]
+    assert len(set(read)) == 6
+
+
+def test_f_948_the_same_call_writes_the_same_bytes(tmp_path):
+    """F2-0203 (FR-948): identical arguments give byte-identical files."""
+    vertices, faces = _blade()
+    written = []
+    for name in ("one", "two"):
+        folder = tmp_path / name
+        folder.mkdir()
+        result = derive_thin_blade(
+            _write_obj(folder / "blade.obj", vertices, faces), root_offset=0.05
+        )
+        written.append((result.mesh.read_bytes(), result.sidecar.read_bytes()))
+    assert written[0] == written[1]
