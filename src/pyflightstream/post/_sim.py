@@ -38,7 +38,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._errors import (
+    ProductExistsError,
+    PyflightstreamError,
+    PyflightstreamWarning,
+    warn,
+)
 from pyflightstream._tokens import MESH_FACES_COLUMN
 from pyflightstream.cases import PprocSpec, select_group_members
 from pyflightstream.cases.workflows import CONFIGURATION_VARIABLE
@@ -331,9 +336,29 @@ def _sim_products(
         sweep_rows=sweep_rows,
         drafts=drafts,
     )
-    for step in _STEPS:
-        step(ctx)
+    _run_steps(ctx, _STEPS)
     return ctx.written, ctx.written_names, ctx.skipped
+
+
+def _run_steps(ctx: SimContext, steps: Sequence[Callable[[SimContext], None]]) -> None:
+    """Run the steps of one simulation's post, each costing only itself on a refusal."""
+    for step in steps:
+        # EACH STEP COSTS ONLY ITSELF: a refusal after step one must not orphan the products
+        # already written (their predecessors archived, their manifest entries lost) nor
+        # stop the steps that read other things. The step is named by its family and the
+        # simulation, as every other skip of a simulation is keyed.
+        try:
+            step(ctx)
+        except ProductExistsError:
+            raise
+        except PyflightstreamError as error:
+            family = step.__name__.lstrip("_")
+            ctx.skipped[f"{family}/{ctx.sim_id}"] = str(error)
+            warn(
+                f"simulation={ctx.sim_id} step={family}: {error}",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
 
 
 # ------------------------------------------------------------------ the context

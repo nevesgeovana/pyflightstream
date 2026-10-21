@@ -2017,3 +2017,43 @@ def test_f3_0203_pfs2117_018_the_boundary_layer_refusals_name_a_remedy():
             section_frames={},
         )
     assert "no proved placement" in str(unplaced.value)
+
+
+def test_f3_0203_pfs2119_030_a_refusing_step_costs_only_itself():
+    """PFS-2119.030: a ProductError after step one keeps its products and the later steps run."""
+    ran: list[str] = []
+
+    def first(ctx):
+        ctx.written.append("a.csv")
+        ran.append("first")
+
+    def second(ctx):
+        raise ProductError("the sections export is unusable")
+
+    def third(ctx):
+        ran.append("third")
+
+    ctx = SimpleNamespace(sim_id="3207", written=[], skipped={})
+    with pytest.warns(Warning, match="second"):
+        _sim._run_steps(ctx, (first, second, third))
+    assert ran == ["first", "third"] and ctx.written == ["a.csv"]
+    assert "unusable" in ctx.skipped["second/3207"]
+    with pytest.raises(ProductExistsError):
+        _sim._run_steps(
+            ctx, (lambda c: (_ for _ in ()).throw(ProductExistsError("already there")),)
+        )
+
+
+def test_f3_0203_pfs2119_030_a_refusing_product_of_a_point_costs_only_itself():
+    """PFS-2119.030: _contained names the refusal under its key and returns the empty result."""
+    from pyflightstream.post._rotor_products import _contained
+
+    skipped: dict[str, str] = {}
+
+    def refuse():
+        raise ProductError("no section")
+
+    with pytest.warns(Warning, match="no section"):
+        assert _contained(skipped, "section_distributions/run-1", refuse, ([], {})) == ([], {})
+    assert skipped == {"section_distributions/run-1": "no section"}
+    assert _contained(skipped, "k", lambda: (["x"], {}), ([], {})) == (["x"], {})

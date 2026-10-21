@@ -1000,6 +1000,22 @@ def _acoustic_only(
     )
 
 
+def _contained(skipped: dict[str, str], key: str, make, empty):
+    """Run one product of a point; a refusal costs only that product, named in ``skipped``.
+
+    The independent products of a point are not isolated from each other otherwise: a refusal
+    from one orphans what the others have written. An existing product still refuses.
+    """
+    try:
+        return make()
+    except ProductExistsError:
+        raise
+    except PyflightstreamError as error:
+        skipped[key] = str(error)
+        warn(f"{key} not written: {error}", PyflightstreamWarning, stacklevel=2)
+        return empty
+
+
 def _loads_report(loads_path: Path):
     """Read a point's loads table, or None where it cannot be read.
 
@@ -1107,30 +1123,39 @@ def _point_series(
         step=_last_time_step(record),
         pproc=pproc or recorded_pproc,
     )
-    split_files, split_names = write_section_distributions(
-        sim_dir=workspace.sim_dir(sim_id),
-        record=record,
-        stem=stem,
-        out=out,
-        target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
-        skipped=split_skips,
-        step=_last_time_step(record),
-        pproc=recorded_pproc,
-        current_pproc=pproc,
-        current_aliases=getattr(live, "aliases", None),
-        current_rotors=getattr(live, "rotors", None),
-        integration_error=pproc_error,
-        condition=condition,
-        reference=reference,
-        rotors=_section_rotors(live, aliases, record),
-        # R03 and R04: geometry names recorded directly or recovered through
-        # the recorded hash; hashed for every point
-        # except one whose record proves an EMPTY layout ([]). A legacy record
-        # (layout None) is hashed too, deliberately: its layout is recovered
-        # from its hashed script against these names
-        # (section_distributions._legacy_script_layout),
-        # so a truthiness test here would silently disable that recovery.
-        inventory=workspace.recorded_inventory(record) if record.sections_layout != [] else None,
+    split_files, split_names = _contained(
+        split_skips,
+        f"section_distributions/{record.run_id}",
+        lambda: write_section_distributions(
+            sim_dir=workspace.sim_dir(sim_id),
+            record=record,
+            stem=stem,
+            out=out,
+            target=lambda path: _refuse_an_existing_product(
+                path, archive=archive, stamp=archive_stamp
+            ),
+            skipped=split_skips,
+            step=_last_time_step(record),
+            pproc=recorded_pproc,
+            current_pproc=pproc,
+            current_aliases=getattr(live, "aliases", None),
+            current_rotors=getattr(live, "rotors", None),
+            integration_error=pproc_error,
+            condition=condition,
+            reference=reference,
+            rotors=_section_rotors(live, aliases, record),
+            # R03 and R04: geometry names recorded directly or recovered through
+            # the recorded hash; hashed for every point
+            # except one whose record proves an EMPTY layout ([]). A legacy record
+            # (layout None) is hashed too, deliberately: its layout is recovered
+            # from its hashed script against these names
+            # (section_distributions._legacy_script_layout),
+            # so a truthiness test here would silently disable that recovery.
+            inventory=workspace.recorded_inventory(record)
+            if record.sections_layout != []
+            else None,
+        ),
+        ([], {}),
     )
     try:
         written, names = write_point_series(
@@ -1206,17 +1231,24 @@ def _point_series(
     # G25: THE SURFACE AVERAGED OVER THE RECORD'S WINDOW, by the package, from the
     # per-step VTK exports; a VTK beside the Tecplot where the pproc asks for one.
     asked = recorded_pproc if recorded_pproc is not None else pproc
-    averaged, averaged_names = write_point_surface_average(
-        workspace.root,
-        sim_dir=workspace.sim_dir(sim_id),
-        record=record,
-        out=out,
-        target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
-        vtk=bool(asked is not None and asked.exports.get("vtk", False)),
-        skipped=split_skips,
-        judge=lambda product, bounds: _judge_average(
-            surface_freeze, list(bounds), point=record.run_id, product=product
+    averaged, averaged_names = _contained(
+        split_skips,
+        f"surface_average/{record.run_id}",
+        lambda: write_point_surface_average(
+            workspace.root,
+            sim_dir=workspace.sim_dir(sim_id),
+            record=record,
+            out=out,
+            target=lambda path: _refuse_an_existing_product(
+                path, archive=archive, stamp=archive_stamp
+            ),
+            vtk=bool(asked is not None and asked.exports.get("vtk", False)),
+            skipped=split_skips,
+            judge=lambda product, bounds: _judge_average(
+                surface_freeze, list(bounds), point=record.run_id, product=product
+            ),
         ),
+        ([], {}),
     )
     return [*split_files, *written, *averaged, *boundary_files], {
         **boundary_names,
