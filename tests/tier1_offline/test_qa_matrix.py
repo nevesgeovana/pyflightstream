@@ -40,9 +40,9 @@ SRC = Path(pyflightstream.__file__).resolve().parent
 def test_p0430_physics_reports_build_inapplicability_before_execution(
     stub_workspace, monkeypatch, supported
 ):
+    from pyflightstream._errors import PyflightstreamError
     from pyflightstream.commands import CommandRegistry
     from pyflightstream.qa import matrix as driver
-    from pyflightstream.qa.physics import PhysicsEnvironmentError
     from pyflightstream.workspace import CampaignWorkspace
     from tests.tier1_offline._no_evidence import registry_without
 
@@ -54,18 +54,17 @@ def test_p0430_physics_reports_build_inapplicability_before_execution(
         registry = registry_without("INITIALIZE_SOLVER", registry=registry)
     monkeypatch.setattr(CommandRegistry, "load", classmethod(lambda cls, *a, **kw: registry))
 
-    executions = []
-    monkeypatch.setattr(driver, "run_matrix", lambda *args, **kwargs: executions.append(1) or [])
+    workspace = CampaignWorkspace(stub_workspace)
     if supported:
-        assert driver.run_physics_matrix(CampaignWorkspace(stub_workspace), path) == []
-        assert executions == [1]
+        assert driver.run_physics_matrix(workspace, path)
+        assert workspace.read_manifest()
     else:
         error = None
         try:
-            driver.run_physics_matrix(CampaignWorkspace(stub_workspace), path)
-        except PhysicsEnvironmentError as caught:
+            driver.run_physics_matrix(workspace, path)
+        except PyflightstreamError as caught:
             error = str(caught)
-        assert not executions, "unsupported physics case reached execution"
+        assert not workspace.read_manifest(), "unsupported physics case recorded execution"
         assert error and "inapplicable" in error and "PHY-01" in error
         assert "INITIALIZE_SOLVER" in error
 
