@@ -1,8 +1,11 @@
 # pyflightstream.fsi: structural coupling for rotating blades
 
-Tutorial companion of the FSI subpackage. Each module has a section below
-(FSI-R16). For named structural inputs and matrix calibration, see the
-workspace FSI guide; this tutorial explains the existing coupling driver.
+Tutorial companion of the FSI subpackage. Each module of the rotating-blade
+coupling driver has a section below (FSI-R16); the fixed-wing route, the
+external structural program, direct morphing and calibration are not covered
+here. For those, for named structural inputs and for matrix calibration, see
+the workspace FSI guide (`docs/fsi-workspace.md`); this tutorial explains the
+coupling driver.
 
 ## The loop in one paragraph
 
@@ -20,8 +23,9 @@ Validity boundary, stated up front: the structure is solved
 quasi-statically at every step. The mean deformation is exact within
 the beam idealization; the azimuthal (1P) content is trustworthy only
 where the excitation stays well below resonance, roughly
-n Omega / omega_n at or below 0.3. This is a documented property of
-the tool, printed in the convergence log header.
+n Omega / omega_n at or below 0.3. The 0.3 figure is a design rule of
+thumb of the tool, printed in the convergence log header; no dated
+validation record backs it yet.
 
 ## config: one JSON, one sha256 (`config.py`)
 
@@ -199,7 +203,7 @@ uniform beam match the closed forms within 1 percent.
 
 ## centrifugal: what rotation adds (`centrifugal.py`)
 
-Two loads on top of the aerodynamic ones, recomputed analytically at
+Three loads on top of the aerodynamic ones, recomputed analytically at
 every coupling call:
 
 * Tension: the distributed axial force mu Omega^2 r makes N(r) emerge
@@ -211,10 +215,17 @@ every coupling call:
   times (`solve_rotating_static`) until the twist distribution
   stabilizes; the structural nonlinearity converges implicitly at
   millisecond cost, decoupled from the expensive aerodynamic loop.
+* In-plane flap softening (`in_plane_softening_coefficients`): the
+  flap degree of freedom lies along the section normal, which the
+  blade angle turns out of the rotor plane, so the centrifugal field
+  adds a restoring term mu Omega^2 sin^2(beta) w to the flap load and
+  lowers the flap stiffness the tension raises.
 
 The trapeze effect is not modeled, a declared limitation: omitting it
-overpredicts elastic twist, which is conservative for relevance
-conclusions.
+is expected to overpredict elastic twist, which would be the
+conservative direction for relevance conclusions. That sign is argued
+from the formulation; no dated evidence or bound backs it, and the
+source formulas are unchecked (see the note below).
 
 `campbell_sweep` plus `southwell_fit` deliver Gate 1: frequencies
 versus rotor speed, straight in the (Omega^2, omega_n^2) plane, with
