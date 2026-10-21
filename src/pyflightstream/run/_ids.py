@@ -269,7 +269,7 @@ def runs_as_one_job(campaign: Campaign, case: SimCase) -> bool:
     bool
         True when two or more pending points of the row run as one job.
     """
-    return _is_one_job(campaign, case)
+    return _is_one_job(campaign, case) and len(list(case.sweep.points())) >= 2
 
 
 def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
@@ -426,7 +426,10 @@ def _recorded_and_new(campaign: Campaign, manifest: Mapping[str, RunRecord]) -> 
         for point in case.sweep.points():
             if ran is not None:
                 # A steady row is one job: its points are recorded under the job's id.
-                is_recorded = point_name(case, point) in ran
+                # A point recorded on its own (before the row ran as one job) counts too.
+                is_recorded = (
+                    point_name(case, point) in ran or _run_id(campaign, case, point) in manifest
+                )
             else:
                 is_recorded = _run_id(campaign, case, point) in manifest
             recorded += is_recorded
