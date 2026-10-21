@@ -232,9 +232,16 @@ def fsi_workflow_refusal(workflow: str) -> str | None:
 #: and matched against the ID. The 26.124 evidence covers a census of
 #: 3825 saved simulations and a mapped-blade probe:
 #: an OBJ import numbers its boundaries from 2 (``2:Blade1;3:S;4:N``), an STL
-#: import from 1. The ID is the position plus this offset. A surface list
-#: holding the position of an OBJ blade points at a boundary that does not
-#: exist and maps 0 vertices, in silence.
+#: import from 1. The ID is the position AS THE IMPORT NUMBERED IT plus this
+#: offset. A surface list holding the position of an OBJ blade points at a
+#: boundary that does not exist and maps 0 vertices, in silence.
+#:
+#: AFTER ``DELETE_SURFACES`` THE SURVIVORS KEEP THEIR ID (26.124 and 26.125, OBJ
+#: and STL, licensed batch 10): nothing is renumbered, so the ID is NOT the
+#: tree position after the deletion plus the offset. It is the boundary's
+#: position in the inventory the geometry OPENED with (its saved mesh
+#: boundary head lines, by name) plus the offset, which is how
+#: :func:`aeroelastic_surface_ids` resolves it.
 IMPORT_BOUNDARY_ID_OFFSET: Mapping[str, int] = MappingProxyType({".obj": 1, ".stl": 0})
 
 
@@ -269,13 +276,10 @@ def aeroelastic_surface_ids(
     ------
     CampaignConfigError
         If the geometry is not a fresh import whose numbering was
-        measured, rather than guessing the ID.
+        measured, or the setup deletes surfaces and a cited boundary's name is
+        not one the opened inventory holds exactly once, rather than guessing
+        the ID.
     """
-    if case.solver.delete_surfaces:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: {context} refuses delete_surfaces because boundary IDs "
-            "after deletion are not measured; use an undeleted input geometry for FSI."
-        )
     suffix = PurePath(str(case.geometry)).suffix.lower() if case.geometry is not None else ""
     offset = IMPORT_BOUNDARY_ID_OFFSET.get(suffix)
     if offset is None:
@@ -285,7 +289,49 @@ def aeroelastic_surface_ids(
             f"(measured: {', '.join(IMPORT_BOUNDARY_ID_OFFSET)} imports). A wrong ID maps "
             "no surface, in silence, so it is not guessed."
         )
-    return [script.resolve_boundary(value, context=context) + offset for value in boundaries]
+    if not case.solver.delete_surfaces:
+        return [script.resolve_boundary(value, context=context) + offset for value in boundaries]
+    return _ids_after_a_deletion(case, script, boundaries, offset, context=context)
+
+
+def _ids_after_a_deletion(
+    case: SimCase,
+    script: Script,
+    boundaries: Sequence[int | str],
+    offset: int,
+    *,
+    context: str,
+) -> list[int]:
+    """Return the IDs of boundaries cited after ``delete_surfaces``, from the opened inventory.
+
+    The survivors of a deletion keep the ID the import gave them (batch 10, 26.124 and
+    26.125, OBJ and STL, renamed non-first blades included), so the ID of a boundary is its
+    position in the inventory the geometry OPENED with, by NAME, plus the import offset. Its
+    tree position after the deletion is not the ID. A citation by position is read against the
+    tree as the deletion left it, to find the name, and the name is then looked up in the
+    opened inventory, where it must stand exactly once.
+
+    The assign and morph step after a deletion was not part of that measurement: this maps
+    the IDs and claims nothing of what the solver then does with them.
+    """
+    from pyflightstream.cases.setup_surfaces import the_model_inventory
+
+    opened = the_model_inventory(script)
+    current = script.entities.labels("boundaries")
+    by_position = {position: name for name, position in current.items()}
+    ids: list[int] = []
+    for value in boundaries:
+        position = script.resolve_boundary(value, context=context)
+        name = by_position.get(position)
+        if name is None or opened.count(name) != 1:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: {context} cites boundary {value!r} after delete_surfaces, "
+                f"and the inventory the geometry opened with ({', '.join(opened) or 'none'}) does "
+                "not hold its name exactly once, so the ID the solver kept for it is not known. "
+                "Name each surface once in the geometry."
+            )
+        ids.append(opened.index(name) + 1 + offset)
+    return ids
 
 
 def structural_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
