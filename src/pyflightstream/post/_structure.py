@@ -12,6 +12,7 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
+from pyflightstream._tokens import CONTEXT_COLUMNS, POLAR_ID_COLUMN
 from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.kinematics import decode_station_translations
 from pyflightstream.fsi.nodes import (
@@ -21,6 +22,7 @@ from pyflightstream.fsi.nodes import (
     unflatten_translations,
 )
 from pyflightstream.fsi.state import load_state
+from pyflightstream.post._tables import context_row
 
 if TYPE_CHECKING:
     from pyflightstream.post._sim import SimContext
@@ -59,10 +61,22 @@ def structure_products(ctx: SimContext) -> None:
         for run_id in ctx.sources[point.name]:
             ctx.structure_tips[run_id] = tips
         target.parent.mkdir(parents=True, exist_ok=True)
+        # POL AND THE CONDITION LEAD EVERY TABLE THE POST WRITES (definitions page): a
+        # station row says which polar and which flight condition it deflects under.
+        context = context_row(ctx.condition(point), ctx.reference.as_lengths())
         with _textio.open_text(target, "w") as handle:
             writer = _textio.csv_writer(handle)
-            writer.writerow(("blade", "station_radius_m", "deflection_m", "twist_deg"))
-            writer.writerows(rows)
+            writer.writerow(
+                (
+                    POLAR_ID_COLUMN,
+                    *CONTEXT_COLUMNS,
+                    "blade",
+                    "station_radius_m",
+                    "deflection_m",
+                    "twist_deg",
+                )
+            )
+            writer.writerows((ctx.sim_id, *context, *row) for row in rows)
         ctx.add(
             target,
             {

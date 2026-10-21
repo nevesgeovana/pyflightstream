@@ -1468,3 +1468,67 @@ def test_f3_0203_f132_acoustic_harmonics_use_the_recorded_blade_count(tmp_path, 
     with (tmp_path / "post" / "acoustics" / "P1_acoustics_bpf.csv").open(encoding="utf-8") as h:
         rows = list(csv.DictReader(h))
     assert float(rows[0]["FREQUENCY_HZ"]) == pytest.approx(120.0)
+
+
+def _f3_0203_structure_ctx(tmp_path, monkeypatch, *, history: bytes | None = None):
+    """A coupled point whose recorded displacements decode to two stations, no solver needed."""
+    import pyflightstream.post._structure as structure
+
+    folder = tmp_path / "work"
+    folder.mkdir()
+    (folder / "src.txt").write_text("x", encoding="utf-8")
+    if history is not None:
+        (folder / "fsi_convergence_log.csv").write_bytes(history)
+    monkeypatch.setattr(structure, "file_sha256", lambda _p: "h")
+    monkeypatch.setattr(
+        structure,
+        "load_config",
+        lambda _p: SimpleNamespace(blade=SimpleNamespace(station_radii_m=[0.1, 0.2])),
+    )
+    monkeypatch.setattr(
+        structure,
+        "generate_node_layout",
+        lambda _c: SimpleNamespace(le_offset_m=[0.0, 0.0], te_offset_m=[0.0, 0.0]),
+    )
+    monkeypatch.setattr(
+        structure, "_recorded_displacements", lambda *_a: (folder / "src.txt", None)
+    )
+    monkeypatch.setattr(structure, "unflatten_translations", lambda *_a: ["t"])
+    monkeypatch.setattr(
+        structure,
+        "decode_station_translations",
+        lambda *_a: (np.array([0.001, 0.002]), np.array([0.0, 0.1])),
+    )
+    point = SimpleNamespace(name="P1")
+    record = SimpleNamespace(
+        inputs_sha256={"fsi-provenance.json": "p", "config.json": "h"}, cwd=str(folder)
+    )
+    added: list[tuple[Path, dict]] = []
+    ctx = SimpleNamespace(
+        points=[point],
+        record_of={"P1": record},
+        skipped={},
+        notes=[],
+        out=tmp_path / "out",
+        sources={"P1": ["run-1"]},
+        structure_tips={},
+        sim_id="3207",
+        target=lambda p: p,
+        add=lambda path, entry: added.append((path, entry)),
+        condition=lambda _p: {"alpha": 4.0, "mach": 0.1},
+        reference=SimpleNamespace(as_lengths=lambda: {}),
+    )
+    return structure, ctx, added
+
+
+def test_f3_0203_f133_the_station_table_leads_with_pol_and_the_condition(tmp_path, monkeypatch):
+    """F-133 (X-F-1630): the station CSV opens with POL and the condition block like every table."""
+    from pyflightstream._tokens import CONTEXT_COLUMNS
+
+    structure, ctx, _added = _f3_0203_structure_ctx(tmp_path, monkeypatch)
+    structure.structure_products(ctx)
+    with (tmp_path / "out" / "structure" / "P1_deflection.csv").open(encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert list(rows[0])[: 1 + len(CONTEXT_COLUMNS)] == ["POL", *CONTEXT_COLUMNS]
+    assert rows[0]["POL"] == "3207" and rows[0]["ALPHA"] == "4.0"
+    assert float(rows[1]["deflection_m"]) == pytest.approx(0.002)
