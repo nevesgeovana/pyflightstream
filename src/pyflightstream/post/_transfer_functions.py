@@ -44,6 +44,10 @@ def _phase(order: int, x: float) -> float:
         return float(shifted - turns * 2 * _PI)
 
 
+#: Below this reduced frequency Theodorsen's function is its two-term series.
+_TINY_K = 1e-150
+
+
 def _series(order: int, x: float) -> tuple[float, float]:
     """``(J_n(x), Y_n(x))`` for n in (0, 1) and x > 0, by the power series.
 
@@ -101,7 +105,9 @@ def _asymptotic(order: int, x: float) -> tuple[float, float]:
             break
         term = following
     chi = _phase(order, x)
-    scale = math.sqrt(2.0 / (math.pi * x))
+
+    # sqrt(2 / pi) / sqrt(x): pi * x would overflow for x near the float maximum.
+    scale = math.sqrt(2.0 / math.pi) / math.sqrt(x)
     return (
         scale * (p * math.cos(chi) - q * math.sin(chi)),
         scale * (p * math.sin(chi) + q * math.cos(chi)),
@@ -198,6 +204,10 @@ def theodorsen(k: float) -> complex:
         raise ProductError(f"a reduced frequency is a finite number >= 0; it is {k!r}")
     if k == 0.0:
         return complex(1.0, 0.0)
+    if k < _TINY_K:
+        # Y1 ~ -2 / (pi k) would overflow; C(k) = 1 + i k (ln(k / 2) + gamma) with a
+        # remainder far below the last bit at this argument.
+        return complex(1.0, k * (math.log(k) - math.log(2.0) + float(_GAMMA)))
     j0, y0 = _bessel(0, k)
     j1, y1 = _bessel(1, k)
     h0 = complex(j0, -y0)
