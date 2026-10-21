@@ -2404,6 +2404,33 @@ def test_staging_links_the_geometry_and_records_its_hash(tmp_path):
     assert CampaignWorkspace(workspace.root).staged_as("9001") == ("link", None)
 
 
+def test_p0430_f1499_a_renamed_symlink_source_is_copied_not_linked(tmp_path, monkeypatch):
+    """F-1499: a source whose own name is no file of the folder it resolves into is staged as
+    a copy, so the staged name exists. The link is simulated by mapping the source's resolution
+    to the library file (creating a symlink needs a privilege some machines lack)."""
+    from pyflightstream._digest import file_sha256
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    library = _library_geometry(workspace)
+    alias = tmp_path / "elsewhere" / "alias.fsm"
+    alias.parent.mkdir()
+    alias.write_bytes(library.read_bytes())
+    alias_resolved, library_resolved = alias.resolve(), library.resolve()
+    original = Path.resolve
+
+    def fake(self, *args, **kwargs):
+        result = original(self, *args, **kwargs)
+        return library_resolved if result == alias_resolved else result
+
+    monkeypatch.setattr(Path, "resolve", fake)
+    hashes = workspace.stage_inputs("9001", [alias])
+    inputs = workspace.sim_dir("9001") / "inputs"
+    assert hashes == {"alias.fsm": file_sha256(library)}
+    assert (inputs / "alias.fsm").is_file() and not _is_link(inputs)
+    mode, reason = workspace.staged_as("9001")
+    assert mode == "copy" and "own name" in reason
+
+
 def test_a_refused_link_falls_back_to_a_copy_that_the_record_names(tmp_path, monkeypatch):
     import pyflightstream.workspace as workspace_module
     from pyflightstream._digest import file_sha256
@@ -2529,6 +2556,20 @@ def test_a_folder_wins_over_a_flat_file_of_the_same_name(tmp_path):
     assert workspace.resolve_geometry("30_WB.fsm").read_bytes() == b"in the folder"
 
 
+def test_p0430_fr_55_a_bare_geometry_stem_is_refused_listing_the_candidate_files(tmp_path):
+    """FR-55: a geometry reference without its extension is refused, and the diagnostic lists the
+    staged files that carry the stem; the same name with its extension resolves."""
+    workspace = library(tmp_path)
+    geometries = workspace.inputs_dir / "geometries"
+    (geometries / "wing.fsm").write_bytes(b"fsm")
+    (geometries / "wing.obj").write_bytes(b"obj")
+    assert workspace.resolve_geometry("wing.fsm") == geometries / "wing.fsm"
+    with pytest.raises(InputArtifactError, match="bare stem") as caught:
+        workspace.resolve_geometry("wing")
+    assert "wing.fsm" in str(caught.value)
+    assert set(caught.value.available) >= {"wing.fsm"}
+
+
 # --- PFS-2029.11.02: a reference point declares its kind ------------------------------
 
 
@@ -2626,6 +2667,35 @@ def test_a_row_carrying_both_spellings_is_refused():
     row["waived_commands"] = [dict(WAIVER_ROW)]
     with pytest.raises(ValidationError, match="broken_commands"):
         RunRecord.model_validate(row)
+
+
+def test_p0430_pfs_2130_056_a_bad_manifest_row_names_manifest_row_run_and_field(
+    tmp_path, monkeypatch
+):
+    """PFS-2130.056: read_manifest refuses a row that does not validate with a WorkspaceError
+    naming the manifest, the row position, the run id and the field."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    good = json.loads(make_record().model_dump_json())
+    bad = json.loads(make_record(run_id="camp/sim_9002/a+04.0", sim_id="9002").model_dump_json())
+    bad["status"] = "NOT-A-STATUS"
+    monkeypatch.setattr(workspace, "read_raw_manifest", lambda: [good, bad])
+    with pytest.raises(WorkspaceError) as caught:
+        workspace.read_manifest()
+    text = str(caught.value)
+    assert str(workspace.manifest_path) in text and "row 2" in text
+    assert "camp/sim_9002/a+04.0" in text and "status" in text
+
+
+def test_p0430_pfs_2119_054_a_malformed_additional_register_names_its_file(tmp_path):
+    """PFS-2119.054: additional.json that is not JSON, or not a list, is a WorkspaceError naming
+    the file, on read and on append."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    workspace.additional_path.write_text("{not json", encoding="utf-8")
+    with pytest.raises(WorkspaceError, match="additional.json"):
+        workspace.read_additional()
+    workspace.additional_path.write_text("{}", encoding="utf-8")
+    with pytest.raises(WorkspaceError, match="list of extraction records"):
+        workspace.read_additional()
 
 
 # --- PFS-2012.04: the executor and the window are read off the run ---------

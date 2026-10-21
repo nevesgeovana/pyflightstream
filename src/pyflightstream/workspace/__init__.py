@@ -1158,7 +1158,11 @@ class CampaignWorkspace:
         library = (self.inputs_dir / "geometries").resolve()
         parents = {origin.resolve().parent for origin in origins}
         target = parents.pop() if len(parents) == 1 else None
-        linkable = target is not None and (target == library or target.parent == library)
+        linkable = (
+            target is not None
+            and (target == library or target.parent == library)
+            and all((target / origin.name).is_file() for origin in origins)
+        )
         if _is_link(inputs):
             current = Path(os.path.realpath(inputs))
             if linkable and current == target:
@@ -1188,12 +1192,23 @@ class CampaignWorkspace:
             return "copy", None
         parents = {origin.resolve().parent for origin in origins}
         target = parents.pop() if len(parents) == 1 else None
+        # F-1499: a source that is a renamed symlink resolves into the library, but its
+        # own name is no file of the folder a link would expose, so the staged path
+        # would not exist; it is copied instead.
+        renamed = target is not None and any(not (target / o.name).is_file() for o in origins)
+        if renamed:
+            target = None
         if _is_link(inputs) and Path(os.path.realpath(inputs)) != target:
             try:  # PFS-2095.062: removal and recreation belong to the copy fallback
                 _remove_link(inputs)
                 inputs.mkdir(exist_ok=True)
             except OSError as error:
                 return "copy", f"the earlier link {inputs} could not be replaced: {error}"
+        if renamed:
+            return "copy", (
+                "a source is a link whose own name is not a file of the folder it resolves "
+                "into, and a link to that folder would not hold the staged name"
+            )
         if target is None or (target != library and target.parent != library):
             return "copy", (
                 "the source is not in the workspace geometry library (inputs/geometries, "
@@ -1745,7 +1760,7 @@ class CampaignWorkspace:
             bounds or missing provenance, naming the run and invalid fields.
         """
         records = []
-        for entry in self.read_raw_manifest():
+        for position, entry in enumerate(self.read_raw_manifest(), start=1):
             # A NOTE, NOT A RECORD: `delete-sims` leaves one row per
             # deleted simulation saying its id belonged to one; the full
             # mention is in storage_management.json (workspace.storage).
@@ -1761,7 +1776,15 @@ class CampaignWorkspace:
                     and item["loc"][0] in ("surface_time_averaging", "surface_average_window")
                 ]
                 if not window_errors:
-                    raise
+                    fields_named = "; ".join(
+                        f"{'.'.join(map(str, item['loc']))}: {item['msg']} "
+                        f"(found {item.get('input')!r})"
+                        for item in error.errors()
+                    )
+                    raise WorkspaceError(
+                        f"the manifest {self.manifest_path} row {position} (run "
+                        f"{entry.get('run_id')!r}) does not validate: {fields_named}."
+                    ) from error
                 detail = "; ".join(
                     f"{'.'.join(map(str, item['loc']))}: {item['msg']}" for item in window_errors
                 )
@@ -2043,8 +2066,26 @@ class CampaignWorkspace:
         """
         if not self.additional_path.is_file():
             return []
-        entries = json.loads(self.additional_path.read_text(encoding="utf-8"))
-        return [AdditionalRecord.model_validate(entry) for entry in entries]
+        entries = self._additional_rows()
+        try:
+            return [AdditionalRecord.model_validate(entry) for entry in entries]
+        except ValidationError as error:
+            raise WorkspaceError(
+                f"{self.additional_path} holds a row that is no extraction record: {error}"
+            ) from error
+
+    def _additional_rows(self) -> list[Any]:
+        """Read ``additional.json`` as a list, refusing bad JSON by naming the file."""
+        try:
+            entries = json.loads(self.additional_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            raise WorkspaceError(
+                f"{self.additional_path} is not valid JSON ({error}); restore it from "
+                "the version control history or from the archive beside it."
+            ) from error
+        if not isinstance(entries, list):
+            raise WorkspaceError(f"{self.additional_path} must hold a list of extraction records.")
+        return entries
 
     def append_additional(self, record: AdditionalRecord) -> None:
         """Append one extraction record to ``additional.json``, atomically (G12).
@@ -2060,11 +2101,7 @@ class CampaignWorkspace:
             The extraction to record.
         """
         with self._manifest_lock(self.additional_path):
-            raw = (
-                list(json.loads(self.additional_path.read_text(encoding="utf-8")))
-                if self.additional_path.is_file()
-                else []
-            )
+            raw = list(self._additional_rows()) if self.additional_path.is_file() else []
             raw.append(record.model_dump(mode="json"))
             archive_previous(self.root, self.additional_path)
             temporary = self.additional_path.with_suffix(f".json.{os.getpid()}.tmp")

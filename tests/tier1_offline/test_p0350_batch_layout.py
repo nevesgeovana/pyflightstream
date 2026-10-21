@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.run._grouped import batch_receipt_error, read_receipt
-from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
 from pyflightstream.workspace._batches import (
     GroupedJob,
     GroupingReceipt,
@@ -94,8 +94,21 @@ def test_p0350_layout_fr365_receipt_round_trip() -> None:
     payload = receipt.to_json()
     assert payload["batch_count"] == 2
     assert GroupingReceipt.from_json(json.loads(json.dumps(payload))) == receipt
-    with pytest.raises(ValueError, match="pyfs-grouping/2"):
+    with pytest.raises(WorkspaceError, match="pyfs-grouping/2"):
         GroupingReceipt.from_json({**payload, "schema": "pyfs-grouping/2"})
+
+
+def test_p0430_pfs_2119_054_a_malformed_receipt_is_a_workspace_error() -> None:
+    """PFS-2119.054: a missing key, a wrong kind or an unknown job key is a WorkspaceError."""
+    payload = _receipt().to_json()
+    for broken, said in (
+        ({k: v for k, v in payload.items() if k != "mode"}, "mode"),
+        ({**payload, "warnings": 3}, "malformed"),
+        ({**payload, "batches": [{**payload["batches"][0], "surprise": 1}]}, "surprise"),
+        ({**payload, "batches": [{"name": "x"}]}, "lacks"),
+    ):
+        with pytest.raises(WorkspaceError, match=said):
+            GroupingReceipt.from_json(broken)
 
 
 def _planned(tmp_path: Path, receipt: GroupingReceipt | None) -> tuple[CampaignWorkspace, Path]:

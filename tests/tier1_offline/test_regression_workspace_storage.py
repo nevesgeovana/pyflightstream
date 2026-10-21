@@ -16,7 +16,6 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.run import cli as matrix_cli
@@ -434,8 +433,9 @@ class TestWorkspace1Manifest:
         rows = _read_record_rows(workspace.manifest_path)
         rows[0]["points_ran"] = [entry]
         workspace._replace_manifest(rows)
-        with pytest.raises(ValidationError, match=named):
+        with pytest.raises(WorkspaceError, match=named) as caught:
             workspace.read_manifest()
+        assert "row 1" in str(caught.value) and "points_ran" in str(caught.value)
 
     @staticmethod
     def test_p0400_wsmanifest_a_known_points_ran_entry_still_reads():

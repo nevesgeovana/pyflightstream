@@ -15,11 +15,12 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 from pyflightstream.cases.workflows import BATCH_DIR, BATCH_STEM_PREFIX
+from pyflightstream.workspace.manifest import WorkspaceError
 
 if TYPE_CHECKING:
     from pyflightstream.workspace import RunRecord
@@ -236,8 +237,18 @@ class GroupedJob:
     def from_json(cls, payload: Mapping[str, Any]) -> GroupedJob:
         """Rebuild a job from :meth:`to_json`'s mapping."""
         data = dict(payload)
-        for key in ("sims", "points", "fallback_points", "unestimated_points"):
-            data[key] = tuple(data[key])
+        known = {item.name for item in fields(cls)}
+        if unknown := sorted(set(data) - known):
+            raise WorkspaceError(f"the grouped job states unknown key(s): {', '.join(unknown)}")
+        if missing := sorted(known - set(data)):
+            raise WorkspaceError(f"the grouped job lacks key(s): {', '.join(missing)}")
+        try:
+            for key in ("sims", "points", "fallback_points", "unestimated_points"):
+                data[key] = tuple(data[key])
+        except TypeError as error:
+            raise WorkspaceError(
+                f"the grouped job holds a value that is no list: {error}"
+            ) from error
         return cls(**data)
 
 
@@ -312,26 +323,32 @@ class GroupingReceipt:
 
         Raises
         ------
-        ValueError
-            When the payload names another schema.
+        WorkspaceError
+            When the payload names another schema, lacks a key, or holds a value of
+            the wrong kind, or a job states a key the receipt does not define.
         """
         if payload.get("schema") != GROUPING_SCHEMA:
-            raise ValueError(
+            raise WorkspaceError(
                 f"the grouping block names schema {payload.get('schema')!r}, "
                 f"not {GROUPING_SCHEMA!r}"
             )
-        return cls(
-            schema=payload["schema"],
-            mode=payload["mode"],
-            requested=payload["requested"],
-            selection=dict(payload["selection"]),
-            jobs=tuple(GroupedJob.from_json(job) for job in payload["batches"]),
-            left_out=tuple(dict(item) for item in payload["left_out"]),
-            total_estimate_s=payload["total_estimate_s"],
-            longest_estimate_s=payload["longest_estimate_s"],
-            max_walltime_s=payload["max_walltime_s"],
-            warnings=tuple(payload["warnings"]),
-        )
+        try:
+            return cls(
+                schema=payload["schema"],
+                mode=payload["mode"],
+                requested=payload["requested"],
+                selection=dict(payload["selection"]),
+                jobs=tuple(GroupedJob.from_json(job) for job in payload["batches"]),
+                left_out=tuple(dict(item) for item in payload["left_out"]),
+                total_estimate_s=payload["total_estimate_s"],
+                longest_estimate_s=payload["longest_estimate_s"],
+                max_walltime_s=payload["max_walltime_s"],
+                warnings=tuple(payload["warnings"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise WorkspaceError(
+                f"the grouping block is malformed ({type(error).__name__}: {error})"
+            ) from error
 
 
 def read_grouping(path: Path) -> tuple[GroupingReceipt | None, str | None]:
@@ -344,9 +361,9 @@ def read_grouping(path: Path) -> tuple[GroupingReceipt | None, str | None]:
         if not isinstance(block, Mapping):
             raise TypeError(f"a {type(block).__name__}, not a table")
         return GroupingReceipt.from_json(block), None
-    except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, WorkspaceError) as error:
         return None, (
-            f"the plan holds no readable grouping ({type(error).__name__}: {error}): "
+            f"the plan {path} holds no readable grouping ({type(error).__name__}: {error}): "
             "plan it again with the same --batch or --polar-sweep."
         )
 
