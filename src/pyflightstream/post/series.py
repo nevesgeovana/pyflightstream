@@ -446,6 +446,15 @@ def _probes_rows(
             raise ProductError(f"{path} is not a probe points export: {error}") from error
         if not columns:
             columns = tuple(report.columns)
+        elif tuple(report.columns) != columns:
+            # The rows are written under the FIRST step's header, so a step printing
+            # other columns (another build, another probe export) would put its values
+            # under names that are not theirs.
+            raise ProductError(
+                f"{path} prints the probe columns {', '.join(report.columns)} and the first "
+                f"stamped step of the window prints {', '.join(columns)}; a series is one "
+                "column set over every step, so post the steps of one build together"
+            )
         # WHICH PROBE (RI-06). Twelve rows of one step were told apart by their
         # order, which is not a table.
         for number, values in enumerate(report.values.tolist(), start=1):
