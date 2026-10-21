@@ -389,7 +389,13 @@ def _read_log_table(
         )
     _refuse_unknown_keys(target, log, HPC_LOG_KEYS, "under [log]")
     export_log = _export_log(target, log)
-    native_log = str(log.get("native_log") or "").strip() or None
+    stated_native = log.get("native_log")
+    if stated_native is not None and not isinstance(stated_native, str):
+        raise InputArtifactError(
+            f"the HPC profile {target} states native_log = {stated_native!r} under [log]; "
+            'write one glob as a string, for example native_log = "FTS{sim}.l*".'
+        )
+    native_log = (stated_native or "").strip() or None
     if native_log is not None:
         _log_pattern(target, "native_log", native_log)
     if not export_log and native_log is None:

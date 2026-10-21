@@ -96,3 +96,11 @@ def test_f2_0809_a_top_level_key_under_a_table_is_refused(tmp_path, key):
     """F-1496: a limit appended under [submit] is refused, never dropped silently."""
     with pytest.raises(InputArtifactError, match=key):
         _read(tmp_path, _BASE_PROFILE + f'{key} = "48:00:00"\n')
+
+
+@pytest.mark.parametrize("value", ['["FTS{sim}.l*", "other"]', "5", "true"])
+def test_f2_0809_a_native_log_that_is_not_a_string_is_refused(tmp_path, value):
+    """F-1525: a TOML array is not coerced to the text of a different glob."""
+    text = 'application_id = "app"\n' + _BASE_PROFILE.split("\n", 1)[1]
+    with pytest.raises(InputArtifactError, match="native_log"):
+        _read(tmp_path, text + f"[log]\nnative_log = {value}\n")
