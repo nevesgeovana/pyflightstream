@@ -58,6 +58,7 @@ from pyflightstream.workspace._settings_file import (
     entry_acceptance_allowed,
     invocation_sources,
 )
+from pyflightstream.workspace.storage import ensure_sim_expanded
 
 if TYPE_CHECKING:
     from pyflightstream.workspace.matrix import ResolvedMatrix
@@ -258,11 +259,14 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
             "be found. Without that field, the run "
             "is not reconstructable from the manifest alone."
         )
+    # A simulation compacted by free-space is expanded in place before its script is read.
+    ensure_sim_expanded(workspace, record.sim_id, reason="reconstruct")
     script = sim / record.script_path
     if not script.is_file():
         raise WorkspaceError(
             f"the script of run {record.run_id!r} is not at {script}. The record "
-            "names it, so the simulation folder was archived, cleaned or edited; "
+            "names it, so the simulation folder was cleaned or edited, or its archive "
+            f"(sims/sim_{record.sim_id}.zip, or a copy under archive/) holds it; "
             "restore it before reconstructing."
         )
 
@@ -282,8 +286,10 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
     # input library also holds read "differs" against a file the run never read.
     work_dir = Path(record.cwd) if record.cwd else sim
     named = _paths_a_script_names(script_text, work_dir)
+    outputs = [sim / name for name in record.outputs_sha256]
     for name, digest in record.inputs_sha256.items():
-        verified[f"inputs/{name}"] = state(_where_the_run_read(name, sim, work_dir, named), digest)
+        where = _where_the_run_read(name, sim, work_dir, named, outputs)
+        verified[f"inputs/{name}"] = state(where, digest)
     for name, digest in record.outputs_sha256.items():
         verified[name] = state(sim / name, digest)
     if record.fs_exe and record.fs_exe_sha256:
@@ -325,7 +331,13 @@ def _paths_a_script_names(script_text: str, work_dir: Path) -> list[Path]:
     return named
 
 
-def _where_the_run_read(name: str, sim: Path, work_dir: Path, named: Sequence[Path]) -> Path:
+def _where_the_run_read(
+    name: str,
+    sim: Path,
+    work_dir: Path,
+    named: Sequence[Path],
+    outputs: Sequence[Path] = (),
+) -> Path:
     """Return where a run read one input its record hashes, for :func:`reconstruct`.
 
     In this order:
@@ -361,7 +373,15 @@ def _where_the_run_read(name: str, sim: Path, work_dir: Path, named: Sequence[Pa
         return staged
     if len(wanted) > 1 and (sim / name).is_file():
         return sim / name
-    return work_dir / name
+    beside = work_dir / name
+    if any(
+        os.path.normcase(os.path.abspath(path)) == os.path.normcase(os.path.abspath(beside))
+        for path in outputs
+    ):
+        # A file the run WROTE under this name is not the input it read (F-611): the
+        # input is missing, and reads missing in the staged inputs.
+        return staged
+    return beside
 
 
 @lru_cache(maxsize=1)
