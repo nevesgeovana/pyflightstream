@@ -188,9 +188,6 @@ _FIELD_COMMANDS: Mapping[tuple[str, str], str] = MappingProxyType(
         ("PortBoundary", "profile_variable"): "SET_INLET_CUSTOM_PROFILE",
         ("PortBoundary", "remesh"): "REMESH_INLET, REMESH_OUTLET",
         ("PprocSpec", "sections"): "NEW_SURFACE_SECTION_DISTRIBUTION",
-        ("PprocSpec", "volume_section"): (
-            "CREATE_NEW_RECTANGLE_VOLUME_SECTION, CREATE_NEW_CIRCLE_VOLUME_SECTION"
-        ),
         ("PprocSpec", "streamlines"): (
             "GENERATE_ALL_SURFACE_STREAMLINES, NEW_STREAMLINE_DISTRIBUTION, "
             "NEW_OFF_BODY_STREAMTUBE, GENERATE_ALL_OFF_BODY_STREAMLINES"
@@ -210,11 +207,6 @@ _FIELD_COMMANDS: Mapping[tuple[str, str], str] = MappingProxyType(
         # SS1: true adds the native Tecplot export the strength is read from.
         ("PprocSpec", "singularity_strength"): "EXPORT_SOLVER_ANALYSIS_TECPLOT",
         ("PprocSpec", "base_regions"): "DETECT_BASE_REGIONS_BY_SURFACE",
-        ("VolumeSectionSpec", "format"): (
-            "EXPORT_VOLUME_SECTION_VTK, EXPORT_VOLUME_SECTION_TECPLOT"
-        ),
-        ("ReferenceArtifact", "area_m2"): "SOLVER_SET_REF_AREA",
-        ("ReferenceArtifact", "chord_m"): "SOLVER_SET_REF_LENGTH",
         ("ReferenceArtifact", "frames"): "CREATE_NEW_COORDINATE_SYSTEM",
         ("ActuatorBlock", "axis"): "SET_ACTUATOR_AXIS",
         ("ActuatorBlock", "tip_radius_m"): "SET_ACTUATOR_RADIUS",
@@ -257,6 +249,22 @@ _FIELD_UNSCRIPTED: Mapping[tuple[str, str], str] = MappingProxyType(
         ("SolverSettings", "walltime_margin_s"): (
             "the wall-clock program the run writes beside the script reads it."
         ),
+        ("PprocSpec", "volume_section"): (
+            "the plane is sampled through probes the post reads back; no volume-section "
+            "command is emitted."
+        ),
+        ("VolumeSectionSpec", "format"): (
+            "the table declares no native volume-section export; the sampled fields are "
+            "written by the post. A legacy raw-line section is exported by its own line."
+        ),
+        ("ReferenceArtifact", "area_m2"): (
+            "the post stage divides the package's own products by it and checks it "
+            "against the saved project's, which the solver divides its coefficients by."
+        ),
+        ("ReferenceArtifact", "chord_m"): (
+            "the post stage divides the package's own products by it and checks it "
+            "against the saved project's, which the solver divides its coefficients by."
+        ),
     }
 )
 
@@ -281,9 +289,10 @@ _ARTIFACT_INTROS: Mapping[str, str] = MappingProxyType(
             "equation is in `WRITING-EQUATIONS.md`, both beside this page."
         ),
         "reference": (
-            "What a row's `REF` names: the reference lengths the coefficients are "
-            "divided by, the moment point, the frames, the aliases, and one block per "
-            "rotor, actuator disc and named point. Lengths are in metres."
+            "What a row's `REF` names: the reference lengths the package's own products are "
+            "divided by (the native coefficients use the saved project's values, which the "
+            "post checks against these), the moment point, the frames, the aliases, and one "
+            "block per rotor, actuator disc and named point. Lengths are in metres."
         ),
         "geometry": (
             "The file beside a geometry that names its boundaries and, for a raw mesh "
