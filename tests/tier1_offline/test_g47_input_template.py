@@ -1032,6 +1032,11 @@ def test_x_f1352_a_linked_job_file_at_the_top_of_a_batch_is_not_synced(tmp_path,
     assert plain in found and linked not in found
 
 
+def test_f1545_an_artifact_id_with_a_final_newline_is_not_valid():
+    from pyflightstream.workspace.inputs import is_valid_artifact_id
+
+    assert is_valid_artifact_id("wing_clean")
+    assert not is_valid_artifact_id("wing\n")
 
 
 def test_x_f1741_the_module_and_the_class_agree_on_the_pproc_tables():

@@ -286,7 +286,7 @@ INPUT_KINDS = (
     "management",
 )
 
-_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 #: The letter a coded artifact id begins with, so the id DECLARES its
 #: kind and a mistyped number cannot resolve to another artifact's file.
@@ -807,7 +807,7 @@ def is_valid_artifact_id(artifact_id: str) -> bool:
     >>> is_valid_artifact_id("_scratch")
     False
     """
-    return bool(_ID_PATTERN.match(artifact_id))
+    return _ID_PATTERN.fullmatch(artifact_id) is not None
 
 
 def _check_id(artifact_id: str, kind: str) -> None:
