@@ -21,6 +21,7 @@ unsteady polar) joins this module beside the writer it extends.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -605,7 +606,9 @@ def _the_axes_of_the_unsteady_rows(
         lacking = [
             key
             for key, value in (("RHO", rho), ("VINF", speed), ("ALPHA", alpha), ("BETA", beta))
-            if not isinstance(value, int | float) or isinstance(value, bool)
+            if not isinstance(value, int | float)
+            or isinstance(value, bool)
+            or not math.isfinite(value)
         ]
         if not lacking and not (float(rho) > 0.0 and float(speed) > 0.0):  # type: ignore[arg-type]
             lacking = ["a positive RHO and VINF"]

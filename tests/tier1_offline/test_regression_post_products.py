@@ -1577,3 +1577,19 @@ def test_f3_0203_f140_the_custom_polar_writes_na_for_a_value_that_is_not_a_numbe
     assert last.split() == ["1.00000", "NA", "NA", "NA"]
     table = read_custom_polar_format(path)
     assert table.rows[0]["A"] == 1.0 and math.isnan(table.rows[0]["B"])
+
+
+def test_f3_0203_f166_an_infinite_density_writes_no_coefficients_and_says_why():
+    """F-166: RHO = inf is a note, not a column of zero coefficients."""
+    from pyflightstream.post.products import ReferenceValues
+    from pyflightstream.post.unsteady_polar import _SIX_COMPONENTS, _the_axes_of_the_unsteady_rows
+
+    values = {f"{part}_MRP": 10.0 for part in _SIX_COMPONENTS}
+    condition = {"RHO": math.inf, "VINF": 30.0, "ALPHA": 2.0, "BETA": 0.0}
+    notes: list[str] = []
+    reference = ReferenceValues(sref_m2=1.0, cref_m=0.5, bref_m=2.0)
+    added = _the_axes_of_the_unsteady_rows(
+        [(condition, values, (0, 9), {})], reference, notes, ["MRP"]
+    )
+    assert added == [] and any("RHO" in note for note in notes)
+    assert len(values) == len(_SIX_COMPONENTS)
