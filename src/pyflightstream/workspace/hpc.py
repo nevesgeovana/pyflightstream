@@ -8,8 +8,9 @@ canonical build to the name this scheduler gives it. :func:`read_hpc_profile`
 reads one into an :class:`HpcProfile`, refusing an unknown or misplaced key
 by name, and :func:`resolve_hpc_profile` finds the one a run names.
 
-Every public name is re-exported, unchanged, by :mod:`pyflightstream.workspace.inputs`,
-its path (AD-11).
+Every public name but :func:`select_hpc_profile` is re-exported, unchanged, by
+:mod:`pyflightstream.workspace.inputs`, its path (AD-11); the selector is imported from
+this module.
 """
 
 from __future__ import annotations
