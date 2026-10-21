@@ -322,8 +322,16 @@ def _tolerance(points: np.ndarray, digits: int | None) -> np.ndarray:
     One unit of the last printed significant digit of each coordinate where the
     export printed them (``digits``), plus the native unit's fifth decimal.
     """
-    relative = 10.0 ** (1 - digits) if digits else 0.0
-    return relative * np.abs(points) + _PRINTED_ABSOLUTE
+    if not digits:
+        return np.full(np.shape(points), _PRINTED_ABSOLUTE)
+    magnitude = np.abs(np.asarray(points, dtype=float))
+    with np.errstate(divide="ignore"):
+        decade = np.floor(np.log10(np.where(magnitude > 0.0, magnitude, 1.0)))
+    # ONE UNIT OF THE LAST PRINTED DIGIT of each coordinate, a power of ten of its own
+    # decade, not a fraction of its magnitude: the fraction reached ten units for a
+    # coordinate just below the next power of ten, and a shifted set could pass.
+    unit = np.where(magnitude > 0.0, 10.0 ** (decade + 1 - digits), 0.0)
+    return unit + _PRINTED_ABSOLUTE
 
 
 def _spacing(expected: np.ndarray) -> float:
@@ -752,6 +760,11 @@ def plane_values(
     )
     shape = (len(laid.y), len(laid.z))
     points = samples.positions[block] / per_m
+    if points.shape[0] == 0:
+        raise PyflightstreamError(
+            "no probe is selected for the plane, so there is no plane to integrate; the "
+            "probes before the lattice are the plane the plan laid"
+        )
     offsets = (points - points[0]) @ laid.axes[0]
     if points.shape[0] != shape[0] * shape[1] or np.abs(offsets).max() > grid[2] * 1e-3:
         raise PyflightstreamError(
@@ -991,8 +1004,9 @@ def average_rows(
     ``rows`` holds one list of rows per time step, each step's rows in the same
     order. Every flux is computed on each step's field and then averaged here,
     never computed on an averaged field. A step's NaN makes the average NaN,
-    never a smaller number; a text cell keeps the first step's; ``STEP`` (the
-    second cell) reads ``AVERAGE``.
+    never a smaller number; a column that is text in some steps and a number in
+    others is ``NA``, never the first step's value; a text column keeps the first
+    step's; ``STEP`` (the second cell) reads ``AVERAGE``.
 
     Parameters
     ----------
@@ -1013,8 +1027,12 @@ def average_rows(
         tail: list[object] = []
         for column in range(first, len(cells[0])):
             values = [cell[column] for cell in cells]
-            if all(isinstance(v, int | float) and not isinstance(v, bool) for v in values):
+            numbers = [isinstance(v, int | float) and not isinstance(v, bool) for v in values]
+            if all(numbers):
                 tail.append(float(np.mean(np.asarray(values, dtype=float))))
+            elif any(numbers):
+                # A number mixed with a text cell: a step that could not state the value.
+                tail.append("NA")
             else:
                 tail.append(values[0])
         out.append((*head, *tail))

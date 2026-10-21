@@ -2535,3 +2535,40 @@ class TestRfixFTracedLift:
         """P0400-RFIXF-TRACEDLIFT (FR-1021): the wing traced alone, at its own CL, is silent."""
         rows, said = _rfixf_traced_lift___post(tmp_path, None)
         assert rows and not said
+
+
+def test_p0430_f3_an_empty_plane_selection_is_the_documented_refusal():
+    """F-1383: no selected probe raises PyflightstreamError, not IndexError."""
+    from pyflightstream._errors import PyflightstreamError
+    from pyflightstream.post.farfield_fields import ProbeSamples, plane_values
+
+    samples = ProbeSamples(np.zeros((4, 3)), np.zeros((4, 3)), np.zeros(4), ("REFERENCE",) * 4)
+    with pytest.raises(PyflightstreamError, match="no probe"):
+        plane_values(
+            samples,
+            slice(0, 0),
+            flow=(1.2, 30.0, 0.0, 0.0),
+            grid=(1.0, 1.0, 0.5),
+            per_m=1.0,
+            q_ref=100.0,
+        )
+
+
+def test_p0430_f3_the_matching_tolerance_is_one_unit_of_the_last_printed_digit():
+    """F-142: a coordinate just below a power of ten is not given ten units of slack."""
+    from pyflightstream.post.farfield_fields import _tolerance
+
+    tolerance = _tolerance(np.array([9.99, 10.01, 0.0]), 7)
+    assert tolerance[0] == pytest.approx(1e-6 + 1e-5)
+    assert tolerance[1] == pytest.approx(1e-5 + 1e-5)
+    assert tolerance[2] == pytest.approx(1e-5)
+
+
+def test_p0430_f3_a_number_mixed_with_na_averages_to_na():
+    """F-182: a step that could not state a value makes the average NA, not the first value."""
+    from pyflightstream.post.farfield_fields import average_rows
+
+    first = [("POL", "1", 2.0, "label")]
+    second = [("POL", "2", "NA", "label")]
+    (row,) = average_rows([first, second], 2)
+    assert row[:2] == ("POL", "AVERAGE") and row[2] == "NA" and row[3] == "label"
