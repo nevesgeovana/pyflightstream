@@ -157,10 +157,9 @@ def test_every_digest_the_package_computes_declares_its_canonical_form():
     what stays out of it. The algorithm was already stateable by reading
     the code; the canonical form was not, because a digest is a
     statement about a canonical form CHOSEN AT THE CALL SITE, and each
-    site chose privately. Nothing stopped a fourth site appearing whose
-    canonical form carried a wall-clock timestamp or an absolute path,
-    and two identical runs would then have disagreed with no test
-    noticing, which is the failure NFR-07 rests on not happening.
+    site chose privately. A new site must state which bytes it hashes,
+    including whether content is raw or normalized. Raw content may itself
+    carry timestamps or paths; the registry does not promise to filter them.
 
     So the rule is DATA. A module that computes a digest declares the
     canonical form it hashes; a module that appears with no declaration fails.
@@ -320,8 +319,7 @@ def _no_clock_is_read_at_all(folder: Path, module: Path | None = None) -> None:
     forbidden = sorted(_names_the_digest_owner_reaches_for(module) & _CLOCK_SOURCES)
     assert not forbidden, (
         f"the digest owner reads {forbidden}, so a digest can carry WHEN it was "
-        "taken. Elapsed and wall time are excluded from every digest this "
-        "package computes; a value that needs a clock is not a digest of the input."
+        "taken. The raw hash functions must not add a clock reading to their input."
     )
 
 
@@ -352,8 +350,7 @@ def _no_machine_or_user_is_read_at_all(folder: Path, module: Path | None = None)
     forbidden = sorted(_names_the_digest_owner_reaches_for(module) & _MACHINE_SOURCES)
     assert not forbidden, (
         f"the digest owner reads {forbidden}, so a digest can carry WHERE or by "
-        "WHOM it was taken. The environment, the user and the machine are "
-        "excluded from every digest this package computes."
+        "WHOM it was taken. The raw hash functions must not add process metadata."
     )
 
 

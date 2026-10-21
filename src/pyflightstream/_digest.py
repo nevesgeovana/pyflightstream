@@ -169,13 +169,13 @@ CANONICAL_FORMS = {
     "cases/_fsi_external.py": (
         "the raw bytes of the structural-nodes file, read whole and never decoded, "
         "compared with the digest the plan recorded; those same bytes are the ones "
-        "staged for the program. No path or clock enters it."
+        "staged for the program. No external path or clock reading is added."
     ),
     "fsi/external.py": (
         "the raw bytes of a file read whole and never decoded: the structural "
         "program, a staged input, the loads file of a call and each file the "
         "program produced. The digest is compared with the one recorded at setup "
-        "or written into the call's receipt; no path or clock enters it."
+        "or written into the call's receipt; no external path or clock reading is added."
     ),
     "workspace/sixdof_setup.py": (
         "the exact source 6DOF TOML bytes before decoding or model validation, "
