@@ -492,21 +492,29 @@ def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, floa
     if not {"PROBE", "X", "Y", "Z", "FRAME"}.issubset(columns) or not rows:
         raise ProductError(f"the probe positions file {target} has no complete positions table")
     for number, row in enumerate(rows, start=2):
+        problem = None
+        vertex = 0
         try:
             raw = float(row["PROBE"])
-            if not raw.is_integer():
-                raise ValueError("PROBE must be an integer")
-            vertex = int(raw)
-            if vertex in out:
-                raise ValueError(f"duplicate PROBE {vertex}")
             xyz = (float(row["X"]), float(row["Y"]), float(row["Z"]))
-            if not all(math.isfinite(value) for value in xyz):
-                raise ValueError("coordinates must be finite")
-            out[vertex] = (*xyz, str(row["FRAME"]))
+            frame = str(row["FRAME"])
         except (KeyError, TypeError, ValueError, OverflowError) as error:
             raise ProductError(
                 f"the probe positions file {target}, row {number}, cannot be read: {error}"
             ) from error
+        if not raw.is_integer():
+            problem = "PROBE must be an integer"
+        else:
+            vertex = int(raw)
+            if vertex in out:
+                problem = f"duplicate PROBE {vertex}"
+            elif not all(math.isfinite(value) for value in xyz):
+                problem = "coordinates must be finite"
+        if problem is not None:
+            raise ProductError(
+                f"the probe positions file {target}, row {number}, cannot be read: {problem}"
+            )
+        out[vertex] = (*xyz, frame)
     return out
 
 
