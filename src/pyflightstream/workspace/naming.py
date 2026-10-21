@@ -505,8 +505,31 @@ MATRIX_POINT_NAME = "{polar}"
 _UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\s\x00-\x1f]')
 
 
+#: The names Windows reserves for devices, with or without an extension (``NUL``, ``nul.txt``).
+_RESERVED_DEVICE_NAME = re.compile(r"(?i)(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?")
+
+
+def is_reserved_device_name(text: str) -> bool:
+    """Whether ``text`` is a name Windows reserves for a device, such as ``NUL`` or ``com1.txt``.
+
+    Parameters
+    ----------
+    text : str
+        The candidate file name or stem.
+
+    Returns
+    -------
+    bool
+        True when the part before the first dot is a reserved device name.
+    """
+    return _RESERVED_DEVICE_NAME.fullmatch(text) is not None
+
+
 def is_portable_name(text: str) -> bool:
     """Whether ``text`` is a plain file-name-safe token: no separators, no whitespace, not empty.
+
+    A name Windows reserves for a device (``NUL``, ``CON``, ``COM1``) is not a file name there
+    and is not portable either.
 
     Parameters
     ----------
@@ -516,9 +539,9 @@ def is_portable_name(text: str) -> bool:
     Returns
     -------
     bool
-        True when the text is not empty and holds no separator or whitespace.
+        True when the text is not empty and holds no separator, whitespace or reserved name.
     """
-    return bool(text) and _UNSAFE_CHARS.search(text) is None
+    return bool(text) and _UNSAFE_CHARS.search(text) is None and not is_reserved_device_name(text)
 
 
 class NamingTemplateError(PyflightstreamError, ValueError):

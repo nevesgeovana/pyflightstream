@@ -4383,3 +4383,21 @@ def test_f2_0809_a_control_character_is_not_portable_in_a_name(text):
     assert is_portable_name("a.b_c+d-1")
     with pytest.raises(NamingTemplateError):
         NamingTemplate().render_archive(sim=f"1{text}")
+
+
+@pytest.mark.parametrize("text", ["NUL", "nul", "CON", "aux.txt", "COM1", "lpt9.csv", "Prn"])
+def test_f2_0809_a_reserved_windows_device_name_is_not_portable(text):
+    """F-1535: the file-name-safe predicate refuses what Windows opens as a device."""
+    from pyflightstream.workspace.naming import is_portable_name
+
+    assert not is_portable_name(text)
+
+
+@pytest.mark.parametrize(
+    "text", ["nullable", "console", "aux1", "com10", "lpt", "sim_NUL", "a.nul"]
+)
+def test_f2_0809_a_name_that_only_contains_a_device_word_stays_portable(text):
+    """The control of F-1535: only the whole reserved word, before any dot, is refused."""
+    from pyflightstream.workspace.naming import is_portable_name
+
+    assert is_portable_name(text)
