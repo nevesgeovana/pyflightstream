@@ -51,3 +51,22 @@ def test_the_linter_targets_the_declared_floor():
     assert classifiers and min(map(Version, classifiers)) == floor, (
         f"the classifiers list {classifiers} and the floor is {floor}"
     )
+
+
+def test_the_installed_version_of_each_declared_dependency_is_inside_its_range():
+    """F-797, X-F-0001: the declared envelope of every dependency is measured on this tree.
+
+    A floor above the installed version, or a ceiling at or below it, is a declaration the
+    tree itself contradicts. (No CI leg installs the floors, so this is evidence about the
+    tree's own versions only.)
+    """
+    from importlib import metadata
+
+    from packaging.requirements import Requirement
+
+    for text in _pyproject()["project"]["dependencies"]:
+        requirement = Requirement(text)
+        installed = Version(metadata.version(requirement.name))
+        assert requirement.specifier.contains(installed, prereleases=True), (
+            f"{requirement.name} {installed} is outside the declared {requirement.specifier}"
+        )

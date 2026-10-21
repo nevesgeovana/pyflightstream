@@ -19,10 +19,10 @@ authors = [{name = "Geovana Neves"}]
 # (2025-06-05) are the oldest of theirs still inside it. Until then the
 # window was chosen (">=3.11" since the first release, no floor on the
 # numerical dependencies), and a user reading it could not know how it
-# would move. tests/tier1_offline/test_support_window.py re-derives the
-# floors from the release dates and the date above, so moving one is a
-# commit that moves the date with it. The CI matrices, the ruff target and
-# the classifiers below follow this line.
+# would move. The floors are derived by hand from the release dates and the
+# date above, and moving one is a commit that moves the date with it; no test
+# re-derives them from the release dates. tests/tier1_offline/test_support_window.py
+# holds the CI matrices, the ruff target and the classifiers below to this line.
 requires-python = ">=3.12"
 # PyPA well-known metadata (audit 2026-07-23). The SPDX license
 # expression form is deferred with the VCS-versioning item: it needs a
@@ -63,13 +63,14 @@ classifiers = [
 # BOTH ENDS ARE PINNED DELIBERATELY. The floor is the oldest release this
 # package has been exercised against, and the ceiling excludes the next
 # major, which is a boundary this repository has no evidence about; a new
-# install resolves 5.0.0 today. tests/tier1_offline/test_extras.py holds the installed
-# version inside the declared range, so the envelope is a measurement rather
-# than a hope.
+# install resolves 5.0.0 today. tests/tier1_offline/test_support_window.py holds
+# the installed version of each declared dependency inside its declared range,
+# so the envelope is a measurement rather than a hope.
 #
 # numpy and pandas carry the SPEC 0 floor computed on 2026-09-09 (see
 # requires-python above); neither is above the version this tree runs
-# with, which tests/tier1_offline/test_support_window.py measures. pydantic
+# with, which the same test measures. No CI leg installs the floors
+# themselves, so a floor is evidence about the tree's own version only. pydantic
 # is not a SPEC 0 project: its floor is the major whose API this package
 # is written against (field_validator, model_validator).
 dependencies = [
