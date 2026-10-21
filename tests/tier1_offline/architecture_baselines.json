@@ -280,12 +280,6 @@
    "statements": 50,
    "positional": 5
   },
-  "fsi/external.py:external_step": {
-   "complexity": 12,
-   "branches": 11,
-   "statements": 49,
-   "positional": 1
-  },
   "fsi/nodes.py:NodeOrderingMap._consistent": {
    "complexity": 12,
    "branches": 11,
@@ -995,9 +989,9 @@
    "positional": 1
   },
   "workspace/_free_space.py:_run_recipe": {
-   "complexity": 25,
-   "branches": 26,
-   "statements": 80,
+   "complexity": 24,
+   "branches": 24,
+   "statements": 76,
    "positional": 4
   },
   "workspace/_geometry_build.py:_refuse_existing": {
