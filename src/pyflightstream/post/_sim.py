@@ -793,10 +793,12 @@ def _retire_unwritten(ctx: SimContext, relative: str, target: Path, reason: str)
     product in place for the writer to overwrite. A writer that writes nothing
     (an export with no section, a history with no step) then left that file on
     disk, unnamed by the new manifest and read as current. Named in ``skipped``,
-    it is retired by the post's retirement, which removes it.
+    it is retired by the post's retirement, which removes it. The reason is named whether or
+    not a previous table exists: a product that was never written says why too.
     """
-    if target.exists():
-        ctx.skipped[relative] = f"{reason}; the previous table is retired"
+    ctx.skipped[relative] = (
+        f"{reason}; the previous table is retired" if target.exists() else reason
+    )
 
 
 def _sections_cut_products(ctx: SimContext, point: PolarPoint, done: Path) -> None:
@@ -1259,7 +1261,8 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
     tables rather than the raw export, so the reference-velocity scaling is
     performed in one place.
     """
-    if ctx.window is None:
+    # THE SWITCH THE STEADY ROUTE HONOURS (`_group_polars`): `polars = false` writes no polar.
+    if ctx.window is None or not ctx.pproc.products.polars:
         return
     left_out: list[str] = []
     notes: list[str] = []

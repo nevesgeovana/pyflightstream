@@ -1791,3 +1791,23 @@ def test_f3_0203_f790_an_unreadable_probe_export_is_a_skip_of_its_product(tmp_pa
     _f3_0203_unreadable(monkeypatch, export)
     _sim._probes_products(ctx, SimpleNamespace(name="P1"), export, False)
     assert "denied" in ctx.skipped["probes/P1_probes.csv"]
+
+
+def test_f3_0203_f1375_an_empty_product_is_named_even_where_no_old_table_exists(tmp_path):
+    """F-1375: the reason an export wrote nothing is recorded with or without a previous file."""
+    ctx = SimpleNamespace(skipped={})
+    _sim._retire_unwritten(ctx, "sections/P1_sections.csv", tmp_path / "none.csv", "no section")
+    assert ctx.skipped["sections/P1_sections.csv"] == "no section"
+    old = tmp_path / "old.csv"
+    old.write_text("x", encoding="utf-8")
+    _sim._retire_unwritten(ctx, "sections/P2_sections.csv", old, "no section")
+    assert ctx.skipped["sections/P2_sections.csv"].endswith("the previous table is retired")
+
+
+def test_f3_0203_f1376_polars_false_writes_no_unsteady_polar(tmp_path):
+    """F-1376: the polars switch is honoured by the unsteady polar writer, as by the steady one."""
+    ctx = SimpleNamespace(
+        window=(1, 10), pproc=SimpleNamespace(products=SimpleNamespace(polars=False))
+    )
+    # Any read of the rest of the context would raise: the switch returns first.
+    assert _sim._unsteady_polar_products(ctx) is None
