@@ -954,7 +954,8 @@ def _resolve_freestream(workspace: CampaignWorkspace, row: MatrixRow) -> str | N
     script names, never staged beside the mesh; the run hashes it into the
     record's ``inputs_sha256``.
 
-    The EXTENSION IS THE FORM, as the manual ties them: ``<stem>.txt`` is
+    The EXTENSION IS THE FORM, following the FSM-26.124 manual mapping
+    (build 8172026) recorded in ``FREESTREAM_FORMS``: ``<stem>.txt`` is
     STRUCTURED and ``<stem>.dat`` UNSTRUCTURED. So the folder must hold exactly
     one of the two, and both, or neither, is refused naming the folder and
     what it holds. A LEGACY row stating the key is refused: its script is its
