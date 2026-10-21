@@ -142,6 +142,40 @@ def test_collect_outputs_moves_declared_files_into_outputs(tmp_path):
     ).is_file()
 
 
+def test_f728_linked_datapoint_folder_cannot_claim_another_simulations_output(tmp_path):
+    """F-728: a datapoint folder linked into another simulation is refused, nothing moved."""
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    other = workspace.create_sim("9002") / "datapoints" / "DP-AL+000"
+    other.mkdir(parents=True)
+    (other / "loads.txt").write_text("other run", encoding="utf-8")
+    sim = workspace.create_sim("9001")
+    (sim / "datapoints").mkdir(exist_ok=True)
+    link = sim / "datapoints" / "DP-AL+000"
+    try:
+        os.symlink(other, link, target_is_directory=True)
+    except OSError:
+        if os.name != "nt":
+            pytest.skip("symbolic links are not permitted here")
+        import subprocess
+
+        made = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(link), str(other)],
+            capture_output=True,
+            creationflags=0x08000000,
+            check=False,
+        )
+        if made.returncode != 0:
+            pytest.skip("neither a symbolic link nor a junction can be made here")
+    with pytest.raises(WorkspaceError, match="outside this simulation"):
+        workspace.collect_outputs(
+            "9001",
+            [other / "loads.txt"],
+            datapoint=PointName("AL+000"),
+            ran_in_datapoint=True,
+        )
+    assert (other / "loads.txt").read_text(encoding="utf-8") == "other run"
+
+
 def test_collect_refuses_missing_declared_outputs(tmp_path):
     workspace = CampaignWorkspace(tmp_path)
     with pytest.raises(WorkspaceError, match="FAILED_INCOMPLETE_OUTPUT"):

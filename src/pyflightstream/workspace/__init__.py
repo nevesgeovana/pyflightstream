@@ -1584,6 +1584,15 @@ class CampaignWorkspace:
         # archive/ contains earlier evidence and remains forbidden, as do all other
         # managed folders.
         own = (sim / folder).resolve()
+        if not own.is_relative_to(sim.resolve()):
+            # F-728: a datapoint folder that is a link out of this simulation would make
+            # another simulation's output count as this point's own evidence.
+            raise WorkspaceError(
+                f"the datapoint folder {sim / folder} resolves to {own}, outside this "
+                f"simulation's own folder {sim.resolve()}. Collecting there would file "
+                "or accept another folder's output as this simulation's evidence. "
+                "NOTHING HAS BEEN MOVED. Replace the link with a plain folder."
+            )
         kept: set[str] = set()
         beneath: set[str] = set()
         if ran_in_datapoint:

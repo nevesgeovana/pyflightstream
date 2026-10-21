@@ -26,6 +26,7 @@ from pyflightstream.workspace import (
     CampaignWorkspace,
     RunRecord,
     RunStatus,
+    WorkspaceError,
 )
 from pyflightstream.workspace.naming import archive_previous
 from pyflightstream.workspace.storage import read_storage_calls, record_storage_call
@@ -47,6 +48,18 @@ def _extraction(name: str) -> AdditionalRecord:
         working_dir="w",
         status="EXTRACTED",
     )
+
+
+def test_f1500_object_shaped_additional_manifest_is_refused_not_rewritten(tmp_path):
+    """F-1500: an object-shaped additional.json is refused and left byte-identical."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    workspace.additional_path.write_text('{"e1": {"status": "EXTRACTED"}}', encoding="utf-8")
+    before = workspace.additional_path.read_bytes()
+    with pytest.raises(WorkspaceError, match="not the list"):
+        workspace.append_additional(_extraction("e2"))
+    with pytest.raises(WorkspaceError, match="not the list"):
+        workspace.read_additional()
+    assert workspace.additional_path.read_bytes() == before
 
 
 @pytest.mark.requirement("FR-291")
