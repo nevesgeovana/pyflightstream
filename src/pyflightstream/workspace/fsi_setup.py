@@ -532,9 +532,16 @@ def fsi_input_payloads(config: FsiConfig, provenance: Mapping[str, Any]) -> dict
     FsiSetupError
         The frozen displacement file changed since matrix resolution.
     """
+    # The staged file is hashed into the run record (FR-3090): the same input must digest alike
+    # on every machine, so the two absolute paths are staged as file names; the digests keep the
+    # identity, and the in-memory provenance keeps the paths the run re-reads.
+    staged = dict(provenance)
+    for key in ("source", "frozen_displacements_file"):
+        if staged.get(key):
+            staged[key] = Path(str(staged[key])).name
     payloads = {
         "config.json": config.model_dump_json(indent=2) + "\n",
-        "fsi-provenance.json": json.dumps(dict(provenance), indent=2) + "\n",
+        "fsi-provenance.json": json.dumps(staged, indent=2) + "\n",
     }
     if provenance.get("allow_configuration_change"):
         payloads["fsi_allow_config_change"] = ""

@@ -380,3 +380,16 @@ def test_x_f_1315_a_blank_factor_cell_is_a_placeholder_on_the_external_route_too
         resolve_row_fsi(tmp_path, {"FSI": "f002", "FSI_BENDING_STIFFNESS_N_M2_FACTOR": ""})
     except FsiSetupError as error:
         assert "row states" not in str(error)
+
+
+def test_x_f_0429_the_staged_provenance_digests_alike_in_two_folders(tmp_path: Path) -> None:
+    """FR-3090: the same FSI input staged from two folders carries no absolute path."""
+    receipts = []
+    for folder in ("one", "two"):
+        source = tmp_path / folder / "f001.toml"
+        source.parent.mkdir()
+        source.write_text(SUPPLIED)
+        _, receipt = stage_fsi_setup(resolve_fsi_setup(source), tmp_path / f"run-{folder}")
+        receipts.append(receipt.read_bytes())
+    assert receipts[0] == receipts[1]
+    assert json.loads(receipts[0])["source"] == "f001.toml"
