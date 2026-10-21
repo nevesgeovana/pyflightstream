@@ -176,6 +176,32 @@ def test_f728_linked_datapoint_folder_cannot_claim_another_simulations_output(tm
     assert (other / "loads.txt").read_text(encoding="utf-8") == "other run"
 
 
+def test_f1582_an_unreadable_same_name_working_directory_file_does_not_block_lookup(
+    tmp_path, monkeypatch
+):
+    """F-1582: the optional comparison against a same-named file never raises."""
+    from pyflightstream.workspace._matrix_homes import matrix_path
+
+    workspace = tmp_path / "ws"
+    home = workspace / "inputs" / "matrices"
+    home.mkdir(parents=True)
+    (home / "m.fs").write_bytes(b"POL | RUN\n1 | 1\n")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    local = elsewhere / "m.fs"
+    local.write_bytes(b"POL | RUN\n1 | 0\n")
+    monkeypatch.chdir(elsewhere)
+    real = Path.read_bytes
+
+    def unreadable(self):
+        if self.resolve() == local.resolve():
+            raise PermissionError(13, "Permission denied", str(self))
+        return real(self)
+
+    monkeypatch.setattr(Path, "read_bytes", unreadable)
+    assert matrix_path(workspace, "m.fs") == home / "m.fs"
+
+
 def test_collect_refuses_missing_declared_outputs(tmp_path):
     workspace = CampaignWorkspace(tmp_path)
     with pytest.raises(WorkspaceError, match="FAILED_INCOMPLETE_OUTPUT"):

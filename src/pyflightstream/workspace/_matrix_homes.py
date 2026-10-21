@@ -128,7 +128,17 @@ def matrix_path(root: str | Path, given: str | Path) -> Path:
     if found is None:
         return Path(given)
     local = Path(given)
-    if local.is_file() and not local.samefile(found) and local.read_bytes() != found.read_bytes():
+    try:
+        differs = (
+            local.is_file()
+            and not local.samefile(found)
+            and local.read_bytes() != found.read_bytes()
+        )
+    except OSError:
+        # F-1582: the comparison is only a courtesy warning. A same-named file this
+        # process cannot read must not block the lookup of the workspace's matrix.
+        differs = False
+    if differs:
         warnings.warn(
             f"the matrix read is the workspace's {found}; the file {local.resolve()} of the "
             "same name in the working directory holds other bytes and was not read. To read "
