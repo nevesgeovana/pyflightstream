@@ -541,8 +541,7 @@ def station_harmonics(
             if rotor.azimuth_is_blade_one
             else stated
         )
-        if psi is None:
-            continue
+        assert psi is not None  # blade_of returned a valid blade and stated is finite.
         samples.setdefault(rotor.alias, []).append((psi, block))
         planes.setdefault(rotor.alias, set()).add(first.get("PLANE", ""))
     for alias in rotors:

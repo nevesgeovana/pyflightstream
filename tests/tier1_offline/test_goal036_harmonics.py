@@ -96,11 +96,17 @@ def test_p0430_f148_same_blade_distributions_are_not_pooled():
 
 
 def test_p0430_f185_unknown_radius_does_not_hide_known_mismatch():
-    from pyflightstream.post.harmonics import StationHarmonics, _matched_stations
-
-    result = StationHarmonics()
-    assert _matched_stations(result, "PROP", [[None], [0.3], [0.6]], 0.9) == []
-    assert "#rotor=PROP#station=1" in result.skipped
+    columns, rows = _rows({(1, 2): 0.1})
+    rotor = HarmonicRotor(
+        "PROP",
+        ROTOR.blades,
+        2.0,
+        False,
+        section_frames={("Blade1", "XZ"): None, ("Blade2", "XZ"): "PROP_RMRP2"},
+    )
+    result = station_harmonics(columns, rows, {"PROP": rotor}, sample_column="CLOCKING")
+    assert "#rotor=PROP#station=2" in result.skipped
+    assert len(result.rows) == 2
 
 
 def test_p0430_f186_infinite_diameter_has_no_radius_ratio():
