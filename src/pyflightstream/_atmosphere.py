@@ -130,8 +130,15 @@ def feet_to_metres(altitude_ft: float) -> float:
     return altitude_ft * METRES_PER_FOOT
 
 
+def _require_finite(name: str, value: float) -> None:
+    """Refuse NaN and infinity, which every comparison below would let through."""
+    if not math.isfinite(value):
+        raise AtmosphereError(f"{name} {value} is not a finite number")
+
+
 def sutherland_viscosity(temperature_k: float) -> float:
     """Dynamic viscosity of air at ``temperature_k``, in Pa s."""
+    _require_finite("temperature", temperature_k)
     if temperature_k <= 0.0:
         raise AtmosphereError(
             f"temperature {temperature_k} K is not above absolute zero, so "
@@ -148,6 +155,7 @@ def sutherland_viscosity(temperature_k: float) -> float:
 
 def speed_of_sound(temperature_k: float) -> float:
     """Speed of sound in dry air at ``temperature_k``, in m/s."""
+    _require_finite("temperature", temperature_k)
     if temperature_k <= 0.0:
         raise AtmosphereError(
             f"temperature {temperature_k} K is not above absolute zero, so the "
@@ -158,6 +166,10 @@ def speed_of_sound(temperature_k: float) -> float:
 
 def density(pressure_pa: float, temperature_k: float) -> float:
     """Density of dry air from the ideal gas law, in kg/m3."""
+    _require_finite("pressure", pressure_pa)
+    _require_finite("temperature", temperature_k)
+    if pressure_pa <= 0.0:
+        raise AtmosphereError(f"pressure {pressure_pa} Pa is not above zero")
     if temperature_k <= 0.0:
         raise AtmosphereError(
             f"temperature {temperature_k} K is not above absolute zero, so the "
@@ -178,8 +190,8 @@ def standard_pressure(altitude_m: float) -> float:
             f"altitude {altitude_m} m is outside the range this atmosphere "
             f"models, {ISA.floor_altitude_m} m to {ISA.ceiling_altitude_m} m. "
             "ISO 2533 continues above that ceiling with layers this module [REF-01] "
-            "does not implement, and extrapolating past it would be wrong in "
-            "a way the caller could not see."
+            "does not implement, and extrapolating past either end of the range "
+            "would be wrong in a way the caller could not see."
         )
     exponent = ISA.gravity_m_per_s2 / (ISA.lapse_rate_k_per_m * ISA.gas_constant_j_per_kg_k)
     if altitude_m <= ISA.tropopause_altitude_m:
@@ -239,6 +251,7 @@ def isa(altitude_m: float = 0.0, *, delta_isa_c: float = 0.0) -> AtmosphereState
     >>> hot.density_kg_m3 < state.density_kg_m3
     True
     """
+    _require_finite("ISA deviation", delta_isa_c)
     pressure = standard_pressure(altitude_m)
     temperature = standard_temperature(altitude_m) + delta_isa_c
     if not math.isfinite(temperature):

@@ -402,3 +402,29 @@ def test_isa_refuses_a_non_finite_deviation_instead_of_an_all_nan_state(delta):
     """PFS-2130.016: a NaN or infinite ISA deviation is refused, never an all-NaN state."""
     with pytest.raises(AtmosphereError, match="deviation"):
         isa(1000.0, delta_isa_c=delta)
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_f_002_non_finite_inputs_are_refused_rather_than_returned_as_nan(bad):
+    """F-002 F-003 F-004 F-005 X-F-0271: NaN and infinity never become an atmosphere state."""
+    for function in (sutherland_viscosity, speed_of_sound):
+        with pytest.raises(AtmosphereError, match="finite"):
+            function(bad)
+    with pytest.raises(AtmosphereError, match="finite"):
+        density(101325.0, bad)
+    with pytest.raises(AtmosphereError, match="finite"):
+        density(bad, 288.15)
+    with pytest.raises(AtmosphereError, match="finite"):
+        isa(0.0, delta_isa_c=bad)
+    with pytest.raises(AtmosphereError):
+        isa(bad)
+
+
+def test_f_004_density_refuses_a_non_positive_pressure():
+    with pytest.raises(AtmosphereError, match="pressure"):
+        density(0.0, 288.15)
+
+
+def test_f_1279_range_message_names_both_ends():
+    with pytest.raises(AtmosphereError, match="either end"):
+        standard_pressure(ISA.floor_altitude_m - 1.0)
