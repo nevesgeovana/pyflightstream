@@ -22,7 +22,6 @@ from pathlib import Path
 import pytest
 
 from pyflightstream import options as _options
-from pyflightstream import versions as _versions
 from pyflightstream.cases import matrix as _matrix
 from pyflightstream.cases import workflows as _workflows
 from pyflightstream.commands import CommandRegistry
@@ -151,7 +150,8 @@ def _mutable_module_state() -> list[dict]:
         # Cached mutable objects: the cache keeps returning the same
         # dict, so an in-place mutation outlives the test that made it.
         CommandRegistry.load().commands,
-        _versions.manual_editions(),
+        # _versions.manual_editions() left this list in 0.43.0: it now returns a
+        # read-only mapping, so there is nothing an in-place mutation could leak.
     ]
 
 
