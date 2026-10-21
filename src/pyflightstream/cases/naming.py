@@ -14,6 +14,7 @@ package root that defines :class:`~pyflightstream.cases.SimCase` and
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
@@ -196,6 +197,10 @@ def name_field(key: str, value: float) -> str:
             f"{key!r} has no code in the point name, so a point declaring it cannot be "
             f"named; the codes are for {', '.join(POINT_NAME_FIELDS)}."
         )
+    if not math.isfinite(float(value)):
+        raise CampaignConfigError(
+            f"{key} is {value!r}, which a point name cannot carry; state a finite number."
+        )
     # A MAGNITUDE FIELD REFUSES A SIGN RATHER THAN ABSORBING ONE, and the
     # difference is a whole defect. Absorbing it is silent, and silence is what
     # this rule exists to end: a swept `RPM` over `600, -600` had its two points
@@ -218,7 +223,7 @@ def name_field(key: str, value: float) -> str:
     number = _rounded(float(value), field.scale)
     if field.signed:
         return f"{field.code}{number:+0{field.width}d}"
-    if number < 0:
+    if float(value) < 0.0:
         raise CampaignConfigError(
             f"{key} is {value!r}, and a point name writes {key} without a sign, so the "
             f"point name cannot carry a negative {key}. The flight condition itself can "

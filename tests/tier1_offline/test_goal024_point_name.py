@@ -385,3 +385,17 @@ def test_goal024_point_name_the_code_table_reads_the_same_in_all_three_homes():
     )
     for key, code in documented.items():
         assert POINT_NAME_FIELDS[key].code == code, (key, code, POINT_NAME_FIELDS[key].code)
+
+
+@pytest.mark.parametrize("value", [-0.0004, -1e-9])
+def test_p0430_f048_a_negative_near_zero_of_an_unsigned_field_is_refused(value):
+    """Rounding to zero must not hide the sign the refusal promises to catch."""
+    with pytest.raises(CampaignConfigError, match="MACH"):
+        name_field("MACH", value)
+
+
+@pytest.mark.parametrize("key", ["MACH", "ALPHA"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_p0430_f1306_a_non_finite_value_is_a_campaign_error_not_a_bare_one(key, value):
+    with pytest.raises(CampaignConfigError, match="finite"):
+        name_field(key, value)
