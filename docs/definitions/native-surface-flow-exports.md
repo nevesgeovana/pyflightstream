@@ -76,7 +76,7 @@ all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
   writes a point in a frame that mirrors the reference is not known. The measured
   cases are a turn about `z` and a translation (RPT-074, 26.124): a tilted frame is
   translated but stated unmeasured, and a loads frame that a motion moves in time
-  is refused by the surface time average, because its recorded placement is the
+  is averaged with a warning that it is not measured, because its recorded placement is the
   first step's only.
 - **The velocity components are written back the way the solver wrote them, as
   a point is, origin included.** On the measured recorded files the norm of `Vx`,

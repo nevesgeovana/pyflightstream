@@ -38,7 +38,7 @@ from typing import Any
 import numpy as np
 
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import ProductError, ProductExistsError
+from pyflightstream._errors import ProductError, ProductExistsError, PyflightstreamWarning, warn
 from pyflightstream.post.series import stamped_exports
 from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average
 from pyflightstream.results import (
@@ -353,16 +353,17 @@ def write_surface_average(
     return written
 
 
-def _moving_frame_refusal(record: RunRecord, frame_record: Mapping[str, object]) -> str | None:
-    """Say why a loads frame whose placement changes with time cannot undo a per-step VTK.
+def _moving_frame_note(record: RunRecord, frame_record: Mapping[str, object]) -> str | None:
+    """Say that a loads frame whose placement changes with time is not a measured case.
 
     The frame the translation undoes is placed ONCE, as the script left it. A motion
     attached to that frame turns or moves it between the steps of a per-step export, so
-    the placement recorded is the placement of the first step only, and the points of every
-    other step would be put back in the reference frame by a rotation they were not written
-    with. RPT-074 measured a frame fixed in time and no other; a licensed probe of a moving
-    frame's per-step exports is the evidence that would lift this. None for a fixed frame,
-    and for a record that carries no motion ledger.
+    the placement recorded is the placement of the first step, and whether the solver wrote
+    each step's points in the frame as placed at that step or at the start was not measured
+    (RPT-074 measured a frame fixed in time). The standard rotor workflows write their
+    per-step surface through such a frame, so the average is not refused: it is written
+    with this warning until a licensed probe of a moving frame's per-step exports settles
+    it (PFS-2119.047). None for a fixed frame, and for a record with no motion ledger.
     """
     index = frame_record.get("frame")
     ledger: Any = record.frame_motions or {}
@@ -374,24 +375,18 @@ def _moving_frame_refusal(record: RunRecord, frame_record: Mapping[str, object])
     if kind in (None, "fixed"):
         return None
     return (
-        f"the loads frame {index} has a {kind} trajectory, so its placement changes between "
-        "the steps of the per-step export and the one placement the record holds is the first "
-        "step's: only a frame fixed in time is measured (RPT-074). Average from a loads frame "
-        "that no motion moves, or the reference frame."
+        f"the loads frame {index} has a {kind} trajectory, so its placement changes between the "
+        "steps of the per-step export and the one placement the record holds is the first "
+        "step's; only a frame fixed in time is measured (RPT-074). The average is written "
+        "with the points put back by that one placement, NOT MEASURED for a moving frame."
     )
 
 
-def _fixed_frame(record: RunRecord, frame_record: Mapping[str, object]) -> SurfaceFrame:
-    """Return the loads frame of a per-step export, refusing one a motion moves.
-
-    Raises
-    ------
-    ProductError
-        If the record's motion ledger gives the frame a trajectory that is not fixed.
-    """
-    moving = _moving_frame_refusal(record, frame_record)
+def _loads_frame_of(record: RunRecord, frame_record: Mapping[str, object]) -> SurfaceFrame:
+    """Return the loads frame of a per-step export, warning when a motion moves it."""
+    moving = _moving_frame_note(record, frame_record)
     if moving is not None:
-        raise ProductError(moving)
+        warn(f"{record.run_id}: {moving}", PyflightstreamWarning, stacklevel=2)
     return SurfaceFrame.from_record(frame_record)
 
 
@@ -507,7 +502,7 @@ def write_point_surface_average(
     try:
         if not isinstance(frame_record, Mapping):
             raise ProductError("the record states no loads frame for the VTK")
-        frame = _fixed_frame(record, frame_record)
+        frame = _loads_frame_of(record, frame_record)
         average = average_surface_exports(
             files,
             window=(int(bounds[0]), int(bounds[1])),

@@ -37,6 +37,7 @@ import numpy as np
 import pytest
 
 from pyflightstream._digest import file_sha256
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import Campaign, CampaignConfigError, PprocSpec, ReferenceData
 from pyflightstream.cases.workflows import build_script, unsteady_export_threshold
 from pyflightstream.post.surfaces import write_point_surface_average
@@ -621,22 +622,21 @@ def _moving(kind):
     return {2: {"frame_index": 2, "trajectory": {"kind": kind}}}
 
 
-def test_p0420_the_average_refuses_a_loads_frame_a_motion_moves(tmp_path):
-    """PFS-2119.047: the recorded placement is the first step's, so per-step exports are refused."""
+def test_p0420_the_average_warns_that_a_loads_frame_a_motion_moves_is_not_measured(tmp_path):
+    """PFS-2119.047: the recorded placement is the first step's; the standard rotor path still
+    averages, and the warning says the moving frame is not a measured case."""
     sim = tmp_path / "sims" / "sim_7003"
     sim.mkdir(parents=True)
     _exports(sim, range(3, 7))
-    skipped: dict[str, str] = {}
-    files, names = write_point_surface_average(
-        tmp_path,
-        sim_dir=sim,
-        record=_averaged_record(frame_motions=_moving("constant_rotation")),
-        out=tmp_path / "post",
-        target=lambda path: path,
-        skipped=skipped,
-    )
-    assert files == [] and names == {}
-    assert "constant_rotation trajectory" in skipped["surfaces/p_time_average.dat"]
+    with pytest.warns(PyflightstreamWarning, match="constant_rotation trajectory.*NOT MEASURED"):
+        files, _names = write_point_surface_average(
+            tmp_path,
+            sim_dir=sim,
+            record=_averaged_record(frame_motions=_moving("constant_rotation")),
+            out=tmp_path / "post",
+            target=lambda path: path,
+        )
+    assert [path.name for path in files] == ["p_time_average.dat"]
 
 
 @pytest.mark.parametrize("ledger", [_moving("fixed"), None])
