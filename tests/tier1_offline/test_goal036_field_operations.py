@@ -9,12 +9,14 @@ Every number below is exact in binary, so each result is compared with ``==``.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pytest
 
 from pyflightstream._digest import file_sha256
 from pyflightstream.workspace import WorkspaceError
+from pyflightstream.workspace import fields as wfields
 from pyflightstream.workspace.cli import main as workspace_cli
 from pyflightstream.workspace.fields import (
     Field,
@@ -502,3 +504,69 @@ def test_an_airframe_only_unsteady_row_requests_per_step_probe_fields(tmp_path):
         (32.0, i + 2.0, -2.0) for i, *_ in script.probe_points
     ]
     assert isinstance(read_step_fields(steps)[0], StepField)
+
+
+def _steps(*steps: float) -> list[wfields.StepField]:
+    return [
+        wfields.StepField(
+            step, wfields.Field("UNSTRUCTURED", ((0.0, 0.0, 0.0, 1.0 + index, 0.0, 0.0),))
+        )
+        for index, step in enumerate(steps)
+    ]
+
+
+@pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf])
+def test_p0420_time_mean_refuses_a_step_that_is_not_finite(bad):
+    """PFS-2120.002: steps [1, 2, nan] and [1, 2, inf] were averaged as a span; now refused."""
+    with pytest.raises(WorkspaceError, match="not a finite number"):
+        wfields.time_mean_fields(_steps(1.0, 2.0, bad))
+
+
+@pytest.mark.parametrize("bad", [math.nan, math.inf])
+def test_p0420_the_fluctuation_report_refuses_a_step_that_is_not_finite(bad):
+    """PFS-2120.002: the same refusal ahead of the integer test that raised ValueError."""
+    with pytest.raises(WorkspaceError, match="not a finite number"):
+        wfields.fluctuation_report(_steps(1.0, 2.0, bad))
+
+
+def test_p0420_time_mean_of_finite_steps_still_reads():
+    """PFS-2120.002 control."""
+    assert wfields.time_mean_fields(_steps(1.0, 2.0, 3.0)).rows[0][3] == pytest.approx(2.0)
+
+
+def test_p0420_an_empty_fluctuation_report_is_a_workspace_error():
+    """PFS-2120.003: no probe is not a bare ValueError from max()."""
+    report = wfields.FluctuationReport(rows=(), steps=(1.0, 2.0), sources=())
+    with pytest.raises(WorkspaceError, match="holds no probe"):
+        wfields.fluctuation_extent(report)
+
+
+def test_p0420_vinf_without_a_fluctuation_is_refused(tmp_path, capsys):
+    """PFS-2124.052: --vinf was silently ignored when no fluctuation was asked for."""
+    for index in (1, 2):
+        (tmp_path / f"s_step_{index}.inflow.dat").write_text("")
+    code = workspace_cli(
+        [
+            "field",
+            "time-mean",
+            str(tmp_path / "s_step_*.inflow.dat"),
+            "--vinf",
+            "40",
+            "--out",
+            "m",
+            "--workspace",
+            str(tmp_path),
+        ]
+    )
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "--vinf" in err and "--fluctuation" in err
+
+
+def test_p0420_the_fluctuation_help_states_the_consecutive_step_rule(capsys):
+    """PFS-2124.052: the rule that differs from the mean's is in the help of the option."""
+    with pytest.raises(SystemExit):
+        workspace_cli(["field", "time-mean", "--help"])
+    text = " ".join(capsys.readouterr().out.split())
+    assert "CONSECUTIVE" in text
+    assert "needs --fluctuation or --fluctuation-only" in text

@@ -632,6 +632,21 @@ def read_step_fields(paths: Sequence[str | Path], *, last: int | None = None) ->
     return [StepField(step, read_field(stamped[step])) for step in steps]
 
 
+def _refuse_a_step_that_is_not_a_number(fields: Sequence[StepField]) -> None:
+    """Refuse a per-step field whose step is NaN or infinite, naming the file.
+
+    A NaN step sorts anywhere and compares unequal to itself, so it would pass the
+    duplicate and spacing checks of a time mean and be averaged as a step it is not.
+    """
+    for each in fields:
+        if not math.isfinite(each.step):
+            raise WorkspaceError(
+                f"{each.field.name} has the step {each.step!r}, which is not a finite number; "
+                "a time mean or a fluctuation is taken over named steps, so a step that "
+                "names no instant cannot be placed among them."
+            )
+
+
 def time_mean_fields(
     fields: Sequence[StepField], *, tolerance_m: float = POSITION_TOLERANCE_M
 ) -> Field:
@@ -657,13 +672,15 @@ def time_mean_fields(
     Raises
     ------
     WorkspaceError
-        If no step is given, two steps coincide, the spacing is not uniform
-        (naming the steps), or a step's points differ from the first step's
-        (naming the file and the row).
+        If no step is given, a step is NaN or infinite (naming the file), two
+        steps coincide, the spacing is not uniform (naming the steps), or a
+        step's points differ from the first step's (naming the file and the
+        row).
     """
     tolerance = _tolerance(tolerance_m)
     if not fields:
         raise WorkspaceError("a time mean needs at least one per-step field.")
+    _refuse_a_step_that_is_not_a_number(fields)
     ordered = sorted(fields, key=lambda each: each.step)
     steps = [each.step for each in ordered]
     if len(set(steps)) != len(steps):
@@ -741,8 +758,9 @@ def fluctuation_report(
     ------
     WorkspaceError
         If fewer than two steps are given (a steady field has no
-        fluctuation), the steps are not consecutive integers, or a step's
-        probes differ from the first step's (naming file and row).
+        fluctuation), a step is NaN or infinite, the steps are not
+        consecutive integers, or a step's probes differ from the first
+        step's (naming file and row).
 
     Examples
     --------
@@ -758,6 +776,7 @@ def fluctuation_report(
             "a steady field has no fluctuation: the report needs at least two per-step fields "
             "(give the last K steps of an unsteady run with last (CLI: --last))."
         )
+    _refuse_a_step_that_is_not_a_number(fields)
     ordered = sorted(fields, key=lambda each: each.step)
     steps = [each.step for each in ordered]
     if any(s != int(s) for s in steps) or any(
@@ -816,7 +835,18 @@ def fluctuation_extent(report: FluctuationReport) -> tuple[float, float]:
     -------
     tuple of (float, float)
         The largest ``std_mag`` and the root mean square of ``std_mag`` over the probes, in m/s.
+
+    Raises
+    ------
+    WorkspaceError
+        If the report holds no probe, so there is no fluctuation to summarise.
     """
+    if not report.rows:
+        raise WorkspaceError(
+            "the fluctuation report holds no probe, so it has no largest or rms fluctuation "
+            f"to state (steps {', '.join(f'{s:g}' for s in report.steps)}): the surveys it was "
+            "taken from hold no points."
+        )
     magnitudes = [row[6] for row in report.rows]
     return max(magnitudes), math.sqrt(math.fsum(m * m for m in magnitudes) / len(magnitudes))
 

@@ -342,7 +342,8 @@ def _add_field_commands(subparsers: argparse._SubParsersAction) -> None:
         "--fluctuation",
         action="store_true",
         help="also write <stem>.fluctuation.csv: the per-probe population standard deviation "
-        "of the averaged steps (needs at least two steps)",
+        "of the averaged steps (needs at least two steps, and CONSECUTIVE integer steps: "
+        "unlike the mean, an evenly spaced span with gaps is refused)",
     )
     mean.add_argument(
         "--fluctuation-only",
@@ -354,7 +355,8 @@ def _add_field_commands(subparsers: argparse._SubParsersAction) -> None:
         type=float,
         default=None,
         metavar="M_S",
-        help="the free-stream speed, in m/s, the fluctuation summary is also stated against",
+        help="the free-stream speed, in m/s, the fluctuation summary is also stated against "
+        "(needs --fluctuation or --fluctuation-only)",
     )
     _add_tolerance(mean)
     _add_output_options(mean)
@@ -975,6 +977,12 @@ def _cmd_field(args: argparse.Namespace) -> int:
                 f"{replaced} points replaced"
             )
         else:
+            if args.vinf is not None and not (args.fluctuation or args.fluctuation_only):
+                raise WorkspaceError(
+                    "--vinf states the fluctuation summary against the free-stream speed, and "
+                    "this run reports no fluctuation: add --fluctuation (with the field) or "
+                    "--fluctuation-only --last K, or drop --vinf."
+                )
             if args.fluctuation_only:
                 return _cmd_fluctuation_only(args)
             steps = _fields.read_step_fields(_expand(args.files), last=args.last)
