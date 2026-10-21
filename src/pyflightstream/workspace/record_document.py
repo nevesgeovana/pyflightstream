@@ -144,6 +144,10 @@ def _encode_row(document: dict, source: dict):
     row = copy.deepcopy(source)
     if "deleted_sim" in row:
         return {"deletion": row}
+    # JSON object keys are strings on disk. Normalize before recording absent
+    # frame fields and hashing definitions so both use the stored key order.
+    if isinstance(row.get("frame_motions"), dict):
+        row["frame_motions"] = {str(key): value for key, value in row["frame_motions"].items()}
     missing = _missing_fields(row)
     header = {key: row.pop(field, None) for key, field in _HEADER.items()}
     if missing:

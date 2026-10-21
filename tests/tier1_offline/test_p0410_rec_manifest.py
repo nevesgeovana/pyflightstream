@@ -74,6 +74,27 @@ def test_p0430_w007_deletion_metadata_preserved():
     assert decode_document(encode_rows([row])) == [row]
 
 
+@pytest.mark.parametrize("indices", [(2,), (2, 10)])
+@pytest.mark.parametrize("indexed", [False, True])
+def test_p0430_w007_integer_frame_keys_survive_json(indexed, indices):
+    """Two frame keys must keep one digest and absent indices across disk storage."""
+    from pyflightstream.workspace.record_document import decode_document, encode_rows
+
+    frames = {key: {"motion": "fixed"} for key in indices}
+    if indexed:
+        for key, frame in frames.items():
+            frame["frame_index"] = key
+    row = {"run_id": "run", "sim_id": "1", "status": "CONVERGED", "frame_motions": frames}
+    expected = json.loads(json.dumps(row))
+    doc = encode_rows([row])
+    try:
+        restored = decode_document(json.loads(json.dumps(doc)))
+    except WorkspaceError as error:
+        pytest.fail(f"encoder output cannot be decoded: {error}")
+    assert restored == [expected]
+    assert list(row["frame_motions"]) == list(indices)
+
+
 def test_p0410_rec_shared_definitions(tmp_path):
     ws = CampaignWorkspace(tmp_path)
     ws.append_record(_record())
