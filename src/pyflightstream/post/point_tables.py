@@ -134,6 +134,10 @@ def _altitude_ft(text: str) -> float | None:
 _ITERATION_UNSET = object()
 
 
+# Native layout evidence: RPT-005, "FSI dry run" (2026-07-21), item 6:
+# two families of 50 sections form consecutive blocks in creation order.
+# Header-clock evidence: RPT-053, "what an unsteady export states, and at which
+# step" (2026-09-19), section 1: header 2813 versus 144 actual time steps.
 def write_sections_table(
     path: str | Path,
     export_text: str,
@@ -372,8 +376,9 @@ def write_plots_table(
         vref = float(labeled_value(export_text, "Reference velocity (m/s)"))
     except (PyflightstreamError, ValueError) as error:
         raise ProductError(f"the plots export {path} has no readable reference velocity") from error
-    scale = (vref / vinf) ** 2 if vinf > 0.0 else math.nan
-    if vinf <= 0.0:
+    valid_speed = math.isfinite(vinf) and vinf > 0.0
+    scale = (vref / vinf) ** 2 if valid_speed else math.nan
+    if not valid_speed:
         # NO FREE STREAM TO BRING THEM TO (PFS-2105.015): the coefficients were
         # kept by VREF in silence while the definition and the post log said
         # they were the free stream's. They read NA, and the log says why.
@@ -855,8 +860,9 @@ def write_reduction_table(
     The average is :func:`pyflightstream.post.unsteady.blade_passage_average`,
     the only implementation of that average in the package, applied once
     per window; the time average is one window, the phase-locked reduction
-    one per passage, the per-blade reduction one per blade. Values are at
-    the table's five decimals.
+    one per passage, the per-blade reduction one per blade. Coefficients and
+    recognized physical quantities retain six significant digits where that
+    is closer than five decimals; other numeric columns use five decimals.
 
     Parameters
     ----------
