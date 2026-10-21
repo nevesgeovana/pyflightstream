@@ -33,11 +33,12 @@ for runnable workspace inputs and the matching
 
 Write it one of two ways.
 
-- **One rotation, held fixed across the aerodynamic sweep.** Put
-  `angle_deg: 5.0` in `VAR_NAMES_VALUES`. One value. The row keeps its alpha sweep and stays
-  one row.
+- **One rotation, held fixed across the aerodynamic sweep.** State it in the
+  row's `ROTATE` cell ([one row, one geometry, turned or moved](workflow-row-geometry-motion.md)),
+  for example `ROTATE: {ANGLE: 5 / AXIS: MRP-Y / ALIAS: airframe}`. One value. The row keeps
+  its alpha sweep and stays one row.
 - **A sweep of the geometry.** One row per angle, each with its own
-  `POL` and a single-valued `angle_deg`. Three angles across an eleven
+  `POL` and a single-valued `ROTATE` angle. Three angles across an eleven
   point alpha sweep are three rows of eleven runs, not one row of
   thirty three.
 

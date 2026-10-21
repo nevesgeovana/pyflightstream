@@ -21,8 +21,9 @@ version identifier. Install does not install or license FlightStream.
 
 ## Check the installation
 
-Run `pyfs-matrix --version` to check the command is available. Use
-`pyfs-matrix --help` to inspect the installed options before preparing a run.
+Run `pyfs-matrix --help` to check the command is available; it exits 0 and
+lists the installed subcommands. Use `pyfs-matrix <subcommand> --help` to
+inspect the options of one before preparing a run.
 
 ## Dependency licenses
 

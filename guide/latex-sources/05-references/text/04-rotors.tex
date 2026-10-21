@@ -67,9 +67,11 @@ because only one of them is allowed to say it.
         from). It locates the first family of \code{families\_blades} so
         a per-blade frame can be placed; it does not say which family is
         the first blade, only where that one sits.
-  \item A rotor block naming a blade family the opened geometry does not
-        carry, or one listing no \code{families\_blades} at all when a row
-        needs the count, is refused naming the block and what to add.
+  \item A blade family the opened geometry does not carry is skipped: it
+        gets no blade frame, and the family the geometry does carry keeps
+        its own. A rotor block listing no \code{families\_blades} at all
+        when a row needs the count is refused naming the block and what
+        to add.
 \end{itemize}
 \setupsources{\code{cases/\_\_init\_\_.py}, \code{RotorBlock};
   \code{cases/workflows.py}}

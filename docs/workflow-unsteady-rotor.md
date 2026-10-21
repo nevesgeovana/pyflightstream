@@ -431,8 +431,9 @@ threshold beyond the run is refused naming both numbers; the revolutions
 form on `unsteady` is refused naming the iterations form that would work,
 because a run that turns nothing has no revolution to count.
 
-`WINDOW_*` keys keep their one job, the averaging window of the
-reductions.
+`WINDOW_*` keys are retired and a row that states one is refused; the
+averaging window of the reductions is stated with `LAST_REVS_AVG` or
+`LAST_ITERS_AVG`.
 
 ### The last revolutions or the last steps of a run
 

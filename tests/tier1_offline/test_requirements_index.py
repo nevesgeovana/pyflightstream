@@ -1060,3 +1060,132 @@ def test_p0410_pa2_section_trefftz_names_a_sideslip_skip(sideslip):
     assert len(context.skipped) == 1
     reason = next(iter(context.skipped.values()))
     assert "sideslip" in reason and "variants B and C" in reason
+
+
+# ---------------------------------------------------------------------------
+# Documentation facts of package F7-05 (0.43.0): each page states what the
+# command line, the code and the command database do.
+# ---------------------------------------------------------------------------
+
+
+def _doc(relative: str) -> str:
+    return (REPO / relative).read_text(encoding="utf-8")
+
+
+def test_p0430_install_check_command_succeeds():
+    """The installation check documented on docs/install.md exits 0 (X-F-1271)."""
+    from pyflightstream.run.cli import main
+
+    section = _doc("docs/install.md").split("## Check the installation")[1].split("\n## ")[0]
+    flags = re.findall(r"`pyfs-matrix (--[a-z-]+)`", section)
+    assert flags, "the page documents no pyfs-matrix check command"
+    for flag in flags:
+        with pytest.raises(SystemExit) as stopped:
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                main([flag])
+        assert stopped.value.code == 0, flag
+
+
+def test_p0430_steady_page_states_the_rotation_the_package_applies():
+    """No page teaches `angle_deg` as a rotation: nothing reads it (X-F-1400)."""
+    text = _doc("docs/workflow-steady.md")
+    assert "angle_deg: 5.0" not in text
+    assert "`ROTATE: {ANGLE: 5 / AXIS: MRP-Y / ALIAS: airframe}`" in text
+
+
+def test_p0430_window_keys_are_described_as_retired():
+    """WINDOW_* keys are refused, and the rotor page says so (F-1730, X-F-1401)."""
+    text = _doc("docs/workflow-unsteady-rotor.md")
+    assert "keep their one job" not in text
+    assert "are retired and a row that states one is refused" in text
+
+
+def test_p0430_the_translation_unit_is_one_statement():
+    """A translation is in metres whatever the simulation unit (F-1729)."""
+    text = _doc("docs/workflow-row-geometry-motion.md")
+    assert "right only on a simulation whose" not in text
+    assert "so a translation is in metres whatever that unit is" in text
+
+
+def test_p0430_input_library_does_not_call_an_emitting_key_refused():
+    """The keys with emitters are not listed as refused; the admonition renders (F-1725, F-1726)."""
+    text = _doc("docs/workflow-input-library.md")
+    assert "Two other refused keys are" not in text
+    lines = text.splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.startswith('!!! warning "`axial_separation'))
+    body = []
+    for line in lines[start + 1 :]:
+        if not line.strip():
+            break
+        body.append(line)
+    assert body and all(line.startswith("    ") for line in body)
+    assert "no further and" not in " ".join(body)
+
+
+def _guide_numbers() -> dict[int, str]:
+    """Guide number to the folder that builds it, from each guide's own title macro."""
+    found = {}
+    for source in sorted((REPO / "guide/latex-sources").glob("0*/main.tex")):
+        found[int(source.parent.name[:2])] = source.parent.name
+    return found
+
+
+def test_p0430_guide_two_numbers_the_other_guides_as_the_folders_do():
+    """Guide 2 lists guides by the numbers they carry and never itself (F-1785, X-F-1473)."""
+    numbers = _guide_numbers()
+    text = (REPO / "guide/latex-sources/02-workspaces/main.tex").read_text(encoding="utf-8")
+    block = text.split(r"\begin{block}{The other guides}")[1].split(r"\end{block}")[0]
+    listed = [int(n) for n in re.findall(r"(?:\\item|\\quad)\s*(\d+):", block)]
+    assert listed and 2 not in listed
+    assert set(listed) <= set(numbers)
+    assert 9 in listed and "9: installing Python" in block
+
+
+def test_p0430_offline_guide_spells_the_wheel_folder_once():
+    """Every pfs-wheels path of Guide 9 names the folder the download wrote (F-1788, X-F-1490)."""
+    text = (REPO / "guide/latex-sources/09-python-environment-offline/main.tex").read_text(
+        encoding="utf-8"
+    )
+    bare = re.findall(r"pfs-wheels/(?:\(\*@\\envname@\*\)|\\envname)(?!-)", text)
+    assert not bare, bare
+
+
+def test_p0430_motion_start_time_status_matches_the_command_database():
+    """The user guide states the builds on which SET_MOTION_START_TIME is broken (F-1784)."""
+    import yaml
+
+    database = yaml.safe_load(_doc("src/pyflightstream/commands/motion_definitions.yaml"))
+    versions = database["SET_MOTION_START_TIME"]["versions"]
+    broken = sorted(build for build, entry in versions.items() if entry["status"] == "broken")
+    assert broken == ["26.101", "26.121"]
+    guide = _doc("guide/pyflightstream_user_guide.tex")
+    for sentence in re.findall(r"SET\\_MOTION\\_START\\_TIME is recorded.*?\.(?=\s)", guide):
+        assert "26.120 and 26.121" not in sentence, sentence
+        assert "26.101 and 26.121" in sentence
+
+
+def test_p0430_rebuild_archive_policy_is_one_statement():
+    """Guide text and figure agree: a rebuild overwrites, `post --archive` keeps (F-1789)."""
+    guide = _doc("guide/pyflightstream_user_guide.tex")
+    figure = _doc("guide/latex-sources/shared/tikz/guide-post-anatomy.tex")
+    assert "does not archive" not in guide
+    assert "pyfs-matrix post --archive" in guide
+    assert "post --archive keeps a copy" in figure
+    assert "archive it yourself" not in figure
+
+
+def test_p0430_cheat_sheet_uses_the_supported_sims_form():
+    """The cheat sheet shows `--sims`, not the deprecated positional selector (F-1555)."""
+    line = next(
+        ln
+        for ln in _doc("guide/pyflightstream_user_guide.tex").splitlines()
+        if ln.startswith("pyfs-matrix delete-sims")
+    )
+    assert "--sims 4001 2009" in line and "4001,2009" not in line
+
+
+def test_p0430_rotor_slide_says_a_missing_blade_family_is_skipped():
+    """A blade family the geometry lacks gets no frame; it is not refused (X-F-1474)."""
+    text = _doc("guide/latex-sources/05-references/text/04-rotors.tex")
+    assert "is skipped" in text
+    assert "naming a blade family the opened geometry does not" not in text

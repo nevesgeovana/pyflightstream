@@ -318,7 +318,7 @@ PUSHER = "Blade1"
 
 is accepted, and its polar tables are
 `polars/P0001-M150AL+000BE+000J+sweep_PUSHER.csv` and `..._wing.csv`. A group
-keyed by a NUMBER, as the example at the top of this section keys its four,
+keyed by a NUMBER (an older artifact keys its groups `"1"`, `"2"` and so on)
 still binds, and its files keep the numbered suffix: `"1"` writes `..._g01.csv`.
 That suffix survives only for a pproc that still numbers its groups, so the
 products of a workspace with numbered groups and the ones written beside them

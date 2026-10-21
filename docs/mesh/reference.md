@@ -91,7 +91,7 @@ SET_SIMULATION_LENGTH_UNITS METER
 
 Around the length unit come the operations and the trailing-edge marking the
 same sidecar declares (below), and the script goes on exactly as it does after
-opening a `.fsm`. The file's unit goes to `IMPORT` and nowhere else. The simulation's length unit defaults to metres; after import, the setup's `simulation_length_unit` replaces that default. See [simulation geometry controls](../simulation-geometry-controls.md).
+opening a `.fsm`. The file's unit goes to `IMPORT` and nowhere else. The simulation's length unit defaults to metres, and after import the setup's `simulation_length_unit` replaces that default; see [simulation geometry controls](../simulation-geometry-controls.md).
 the reference area, chord and span, a `TRANSLATE` distance, the frames the
 package places. The run record keeps the table as `mesh_import`, because the
 geometry's digest alone cannot tell a run in millimetres from the same file

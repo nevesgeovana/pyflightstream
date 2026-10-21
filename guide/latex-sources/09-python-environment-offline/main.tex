@@ -253,7 +253,7 @@ in. The platform files must carry the target's tag.
 \begin{lstlisting}[style=ftsbase]
 $FTS/python/bin/python3.12 -m venv --copies $FTS/py-venv/(*@\envname@*)
 source $FTS/py-venv/(*@\envname@*)/bin/activate
-ls $FTS/pfs-wheels/(*@\envname@*) | wc -l      # the folder pip will read
+ls $FTS/pfs-wheels/(*@\envname@*)-linux | wc -l      # the folder pip will read
 pip install --no-index --find-links $FTS/pfs-wheels/(*@\envname@*)-linux "pyflightstream[fsi]"
 python -c "import pyflightstream; print(pyflightstream.__version__)"
 pyfs-matrix --help
@@ -310,10 +310,10 @@ reproducible.\end{takeaway}
 
 \begin{frame}[fragile]{Two folders with the same name}
 \small \code{py-venv/\envname} is the environment, and \code{venv} creates it.
-\code{pfs-wheels/\envname} is the folder of wheels, and only the copy from the
+\code{pfs-wheels/\envname-linux} is the folder of wheels, and only the copy from the
 connected machine creates it. When the second is missing, \code{pip} answers:
 \begin{lstlisting}[style=ftsbase]
-WARNING: Location '.../pfs-wheels/(*@\envname@*)' is ignored: it is either
+WARNING: Location '.../pfs-wheels/(*@\envname@*)-linux' is ignored: it is either
 a non-existing path or lacks a specific scheme.
 ERROR: No matching distribution found for pyflightstream
 \end{lstlisting}

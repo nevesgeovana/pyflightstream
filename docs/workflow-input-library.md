@@ -142,10 +142,10 @@ knowing.
    selection, so it is a recipe's job; and `wake_layers` has no
    emitter in this package at all. `slipstream_wake_stabilization`
    is a setup toggle (see
-   [The slipstream wake stabilization](removing-surfaces.md#the-slipstream-wake-stabilization)). Two other refused keys are
+   [The slipstream wake stabilization](removing-surfaces.md#the-slipstream-wake-stabilization)). Two other keys are not refused:
    `symmetry_loads`, whose behavior is measured (a stated key reaches
    `SET_ANALYSIS_SYMMETRY_LOADS`; an absent one still emits nothing), and
-   `significant_digits`, which gained its emitter; `mesh_order_list` is
+   `significant_digits`, which gained its emitter. `mesh_order_list` is
    refused outright, since the boundary order belongs to the file
    (`pyfs-matrix inventory`).
 
@@ -261,12 +261,12 @@ The command database records that answer, so a row on 26.124
  the build.
 
 !!! warning "`axial_separation_families` runs on 26.100 and is refused above it"
- `SET_AXIAL_SEPARATION_BOUNDARIES` is documented to 26.100 and no further, and
- A row naming this key on a later build is refused **at plan
- time**, naming the build -- which costs an edit, where a line emitted into the
- script would cost a run. What the later builds want in its place is a
- judgement rather than a measurement: the solver's deprecation notice leaves
- its replacement field empty.
+    `SET_AXIAL_SEPARATION_BOUNDARIES` is documented to 26.100 and no further.
+    A row naming this key on a later build is refused **at plan
+    time**, naming the build -- which costs an edit, where a line emitted into the
+    script would cost a run. What the later builds want in its place is a
+    judgement rather than a measurement: the solver's deprecation notice leaves
+    its replacement field empty.
 
 `vorticity_drag_boundaries` (also spelled `set_vorticity_drag_boundaries`) is an
 accepted spelling of the first, and `set_solver_analysis_boundaries` of
