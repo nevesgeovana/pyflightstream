@@ -873,6 +873,12 @@ def _render(template: str, values: dict[str, object], role: str, check_name: boo
             "declares a Mach number, {polar} and {point} only when the point has a name, "
             "and {name} only inside an output name."
         ) from error
+    except (TypeError, ValueError) as error:
+        raise NamingTemplateError(
+            f"the {role} template {template!r} cannot be rendered: {error}. A placeholder "
+            "takes a format specification only where its value supports one, for example "
+            "{alpha:.1f} on a number."
+        ) from error
     for name, value in values.items():
         text = _FORMATTER.format_field(value, "")
         if f"{{{name}}}" in template and _UNSAFE_CHARS.search(text):

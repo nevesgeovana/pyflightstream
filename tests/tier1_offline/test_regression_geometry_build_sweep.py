@@ -4411,3 +4411,11 @@ def test_f2_0809_a_reserved_device_name_is_not_an_archive_stem(stem):
     with pytest.raises(NamingTemplateError, match="device"):
         NamingTemplate(archive_name=stem).render_archive(sim="1")
     assert NamingTemplate().render_archive(sim="1") == "sim_1"
+
+
+def test_f2_0809_an_invalid_format_specification_is_a_naming_error():
+    """F-1536: a specification the value cannot take is NamingTemplateError, not a ValueError."""
+    from pyflightstream.workspace.naming import NamingTemplate, NamingTemplateError
+
+    with pytest.raises(NamingTemplateError, match="cannot be rendered"):
+        NamingTemplate(archive_name="sim_{sim:z}").render_archive(sim="1")
