@@ -1380,3 +1380,13 @@ def test_x_f_1334_a_declared_name_cannot_leave_the_point_folder(tmp_path, name):
     payload["outputs"] = [name]
     with pytest.raises(ValueError, match="bare name"):
         ExternalStructure.model_validate(payload)
+
+
+def test_f6_0102_an_external_call_without_the_loads_file_fails(tmp_path):
+    """F-776: the loads file is the aerodynamic half of the exchange, so its absence fails."""
+    folder = _gaps_rt_fsiext___point(tmp_path)
+    (folder / LOADS_FILE).unlink()
+    assert external_step(folder) == 1
+    record = json.loads((folder / "fsi_archive" / "call_0001" / "call.json").read_text("utf-8"))
+    assert record["verdict"] == "failed" and "loads file" in record["reason"]
+    assert record["return_code"] is None

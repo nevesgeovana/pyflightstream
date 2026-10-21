@@ -254,6 +254,11 @@ def _verify_digests(directory: Path, structure: ExternalStructure) -> str | None
         return f"the structural node file {EXTERNAL_NODES_FILE} is missing"
     if _sha256(nodes) != structure.structural_nodes_sha256:
         return f"the structural node file {EXTERNAL_NODES_FILE} changed after the plan hashed it"
+    if not (directory / LOADS_FILE).is_file():
+        return (
+            f"the loads file {LOADS_FILE} is missing: the solver's sectional loads are the "
+            "aerodynamic half of the exchange, so a call without them would pass unchecked"
+        )
     executable = Path(structure.executable)
     if not executable.is_file():
         return f"the executable {executable} is missing"
