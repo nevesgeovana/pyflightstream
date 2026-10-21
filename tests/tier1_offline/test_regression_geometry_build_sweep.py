@@ -4015,3 +4015,30 @@ class TestF2Package0607Workspace:
         assert "line 9:" in text and "more changed" not in text
         assert text.count("plot type line") == 9
         assert "(plot type line, from inputs/pproc/p1.toml)" in text.split("; ")[8]
+
+    @staticmethod
+    def test_fr785_fr3079_a_diff_names_the_changed_input_a_line_comes_from(tmp_path):
+        """FR-785 FR-3079: the script difference of two runs names the input it originates in."""
+        import hashlib
+
+        from pyflightstream.workspace._ledger_history import _script_diff
+
+        rows = []
+        for sim, word in (("1", "old_plot"), ("2", "new_plot")):
+            folder = tmp_path / "sims" / f"sim_{sim}"
+            (folder / "scripts").mkdir(parents=True)
+            (folder / "inputs" / "pproc").mkdir(parents=True)
+            script = f"SET_PLOT_TYPE {word}\n"
+            (folder / "scripts" / "run.txt").write_text(script, encoding="utf-8")
+            (folder / "inputs" / "pproc" / "p1.toml").write_text(f"{word} = 1\n", encoding="utf-8")
+            record = {
+                "sim_id": sim,
+                "script_path": "scripts/run.txt",
+                "script_sha256": hashlib.sha256(script.encode()).hexdigest(),
+                "inputs_sha256": {"pproc/p1.toml": word},
+            }
+            rows.append({"record": record})
+        ledger = SimpleNamespace(root=tmp_path, sim_folders=lambda sim: [f"sims/sim_{sim}"])
+        (row,) = _script_diff(ledger, rows[0], rows[1])
+        assert "line 1" in row["detail"] and "a 'SET_PLOT_TYPE old_plot'" in row["detail"]
+        assert "(plot type line, from inputs/pproc/p1.toml)" in row["detail"]

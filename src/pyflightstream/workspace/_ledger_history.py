@@ -7,6 +7,7 @@ including compacted simulations; no file is extracted or rewritten (FR-383).
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -25,6 +26,9 @@ from pyflightstream.workspace._links import is_reparse
 from pyflightstream.workspace._script_comparison import (
     _changed_commands,
     _Comparison,
+    changed_words,
+    drift_class,
+    holders_of,
     normalise_line,
     slashes,
 )
@@ -315,6 +319,32 @@ def _normalised(script: str, root: str) -> list[str]:
     return [normalise_line(line, root) for line in script.splitlines()]
 
 
+def _changed_input_texts(
+    ledger: Ledger, left: Mapping[str, Any], right: Mapping[str, Any]
+) -> dict[str, str]:
+    """Return the text of each input whose recorded digest differs between two runs.
+
+    The text is read from the ``inputs/`` folder of the run's simulation, where the
+    run staged it; an input that is not there (a compacted simulation, a link) is
+    left out and cannot be named as the origin of a changed line.
+    """
+    a = left["record"].get("inputs_sha256") or {}
+    b = right["record"].get("inputs_sha256") or {}
+    texts: dict[str, str] = {}
+    for name in sorted(n for n in a.keys() | b.keys() if a.get(n) != b.get(n)):
+        found = []
+        for row in (left, right):
+            for folder in ledger.sim_folders(str(row["record"]["sim_id"])):
+                path = ledger.root / folder / "inputs" / name
+                if path.suffix != ".zip" and path.is_file() and not is_reparse(path):
+                    with contextlib.suppress(OSError, UnicodeDecodeError):
+                        found.append(path.read_text(encoding="utf-8"))
+                        break
+        if found:
+            texts[name] = "\n".join(found)
+    return texts
+
+
 def _script_diff(
     ledger: Ledger, left: Mapping[str, Any], right: Mapping[str, Any]
 ) -> list[dict[str, Any]]:
@@ -342,12 +372,22 @@ def _script_diff(
     compared.same = compared.rendered == compared.executed
     if compared.same:
         return []
-    detail = (
-        "; ".join(
-            f"line {line + 1}: a {first[:90] or '(nothing)'!r}, b {second[:90] or '(nothing)'!r}"
-            for line, first, second in _changed_commands(compared)
+    texts = _changed_input_texts(ledger, left, right)
+    described = []
+    for line, first, second in _changed_commands(compared):
+        verb, differing = changed_words(first, second)
+        holders = holders_of(differing, texts)
+        origin = (
+            f" ({drift_class(verb, holders)}, from inputs/{', inputs/'.join(holders)})"
+            if holders
+            else ""
         )
-        or f"a {len(compared.executed)} lines, b {len(compared.rendered)} lines"
+        described.append(
+            f"line {line + 1}: a {first[:90] or '(nothing)'!r}, "
+            f"b {second[:90] or '(nothing)'!r}{origin}"
+        )
+    detail = "; ".join(described) or (
+        f"a {len(compared.executed)} lines, b {len(compared.rendered)} lines"
     )
     return [
         {
