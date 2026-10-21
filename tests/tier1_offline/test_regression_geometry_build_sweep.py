@@ -4368,3 +4368,18 @@ def test_f2_0809_a_drive_qualified_manifest_name_is_refused_on_every_platform(
         with pytest.raises(RunsManifestError):
             resolve_manifest(tmp_path, name)
     assert resolve_manifest(tmp_path, "runs-rebuilt.json").name == "runs-rebuilt.json"
+
+
+@pytest.mark.parametrize("text", ["a\x00b", "\x00", "a\x1fb", "a\x01"])
+def test_f2_0809_a_control_character_is_not_portable_in_a_name(text):
+    """F-1534: a NUL fails only in file I/O unless the naming check refuses it early."""
+    from pyflightstream.workspace.naming import (
+        NamingTemplate,
+        NamingTemplateError,
+        is_portable_name,
+    )
+
+    assert not is_portable_name(text)
+    assert is_portable_name("a.b_c+d-1")
+    with pytest.raises(NamingTemplateError):
+        NamingTemplate().render_archive(sim=f"1{text}")

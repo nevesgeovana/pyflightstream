@@ -502,7 +502,7 @@ MATRIX_POINT_NAME = "{polar}"
 
 # Characters that break file names on at least one supported platform;
 # rendered names and substituted values must stay clear of them.
-_UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\s]')
+_UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\s\x00-\x1f]')
 
 
 def is_portable_name(text: str) -> bool:
