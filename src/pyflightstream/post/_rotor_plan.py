@@ -520,24 +520,15 @@ def _rotor_span_or_reason(
     row's ``LAST_REVS_AVG`` is counted on this rotor's ``steps_per_revolution``
     from the record's plan and ends at the row's last step, as the per-blade
     and per-revolution reductions cut each rotor (:func:`cases.windows.replan`).
-    A row that states no key takes the count the record's time average states
-    it was cut on, so a rebuild from a recorded window keeps each rotor's turns.
-    A count of iterations is the same steps for every rotor and keeps the row's
-    span. A count of turns with no clock of this rotor (a single rotor may use
-    the plan's own clock) is a reason, never a silent fallback to the row's span.
+    A row that states no window key keeps the row's window for every rotor,
+    and so does a count of iterations (the same steps for every rotor). A
+    count of turns with no clock of this rotor (a single rotor may use the
+    plan's own clock) also keeps the row's window, as the definition states.
     """
     span = (ctx.windows or {}).get(name, ctx.window)
     record = ctx.by_run.get((ctx.sources.get(name) or [""])[0])
     reductions = getattr(record, "reductions", None)
     variables = getattr(ctx.matrix_row, "variables", {}) or {}
-    if isinstance(reductions, Mapping) and not any(
-        key in variables for key in ("LAST_REVS_AVG", "LAST_ITERS_AVG")
-    ):
-        average = reductions.get("time_average")
-        note = average.get("window_from", "") if isinstance(average, Mapping) else ""
-        stated = re.search(r"LAST_REVS_AVG = ([+\-\d.eE]+) revolution", str(note))
-        if stated:
-            variables = {"LAST_REVS_AVG": stated.group(1)}
     if span is None or not isinstance(reductions, Mapping) or "LAST_REVS_AVG" not in variables:
         return span, None
     rotors = reductions.get("rotors")
@@ -553,7 +544,7 @@ def _rotor_span_or_reason(
     if clock is None and len(getattr(ctx, "rotors", {})) == 1:
         clock = reductions.get("steps_per_revolution")
     if isinstance(clock, bool) or not isinstance(clock, int | float) or clock <= 0:
-        return None, f"rotor {alias} states no clock for its averaging window"
+        return span, None
     try:
         return averaging_span(variables, last_step=span[1], per_revolution=float(clock)), None
     except (PyflightstreamError, ValueError) as error:

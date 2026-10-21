@@ -142,3 +142,36 @@ def test_names_equal_but_for_case_are_taken_as_able_to_collide():
 
     assert emits("mrp_{family}", "MRP_TOTAL")
     assert emits("Rotor_Prop", "ROTOR_PROP")
+
+
+def _span_ctx(variables, reductions, *, rotors=("R",), window=(1, 100)):
+    record = SimpleNamespace(reductions=reductions)
+    return SimpleNamespace(
+        windows={"p": window},
+        window=window,
+        by_run={"run": record},
+        sources={"p": ["run"]},
+        matrix_row=SimpleNamespace(variables=variables),
+        rotors={name: object() for name in rotors},
+    )
+
+
+def test_f130_a_row_with_no_window_key_keeps_the_row_window_for_every_rotor():
+    """F-130: the recorded prose of the time average does not replan the rotor's window."""
+    from pyflightstream.post._rotor_plan import _rotor_span_or_reason
+
+    reductions = {
+        "time_average": {"window_from": "LAST_REVS_AVG = 1 revolution of the clock rotor"},
+        "rotors": {"R": {"steps_per_revolution": 10}},
+    }
+    assert _rotor_span_or_reason(_span_ctx({}, reductions), "p", "R") == ((1, 100), None)
+
+
+def test_f131_a_rotor_with_no_clock_keeps_the_row_window():
+    """F-131: a count of turns with no clock of this rotor averages over the row's window."""
+    from pyflightstream.post._rotor_plan import _rotor_span_or_reason
+
+    reductions = {"rotors": {"R": {"steps_per_revolution": 10}, "S": {}}}
+    ctx = _span_ctx({"LAST_REVS_AVG": "2"}, reductions, rotors=("R", "S"))
+    assert _rotor_span_or_reason(ctx, "p", "S") == ((1, 100), None)
+    assert _rotor_span_or_reason(ctx, "p", "R") == ((81, 100), None)
