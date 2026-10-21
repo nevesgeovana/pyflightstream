@@ -1095,7 +1095,11 @@ def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
 
 
 def read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMarking:
-    """Read ``[trailing_edges]``: one route, file or detect, and the keys of that route."""
+    """Read ``[trailing_edges]``: one route, file or detect, and the keys of that route.
+
+    A ``file`` route that states no ``type`` marks its edges ``STANDARD``, the default of this
+    table; a wake-edge declaration of its own is a different table and states its own type.
+    """
     where = f"{path}: the [{TRAILING_EDGES_TABLE}] table"
     if "none" in table:
         if table != {"none": True} or table["none"] is not True:
