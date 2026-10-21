@@ -725,6 +725,11 @@ def _read_plan(path: Path) -> _Plan:
             run_id = str(point["run_id"])
             run_ids.append(run_id)
             values = point.get("point") or {}
+            if not isinstance(values, Mapping) or not all(
+                isinstance(value, int | float) and not isinstance(value, bool)
+                for value in values.values()
+            ):
+                raise ValueError(f"the point of {run_id} is not a mapping of names to numbers")
             points.setdefault(str(point["sim_id"]), {})[run_id.rsplit("/", 1)[-1]] = dict(values)
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
         return _Plan(stem, {}, (), None, f"{type(error).__name__}: {error}")

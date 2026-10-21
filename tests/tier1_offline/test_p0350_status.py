@@ -542,3 +542,16 @@ def test_f2_0809_a_plan_file_that_vanishes_after_it_is_read_is_not_a_crash(works
     monkeypatch.setattr(ledger_module, "_read_plan", read_then_remove)
     ledger = read_ledger(workspace)
     assert ledger.sources[f"post/{MATRIX}/plan.json"] == "unavailable"
+
+
+@pytest.mark.parametrize("bad", [{"alpha": [1.0, 2.0]}, [["alpha", 1.0]], {"alpha": "four"}])
+def test_f2_0809_a_plan_point_that_is_not_numbers_reads_as_unreadable(workspace, bad):
+    """F-1225: a list coordinate no longer reads as valid and fails later in aggregation."""
+    path = workspace / "post" / MATRIX / "plan.json"
+    plan = json.loads(path.read_text(encoding="utf-8"))
+    plan["points"][0]["point"] = bad
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    ledger = read_ledger(workspace)
+    freshness = {row["matrix"]: row for row in ledger.freshness()}
+    assert freshness[MATRIX]["plan"] == "unreadable"
+    assert ledger.status()
