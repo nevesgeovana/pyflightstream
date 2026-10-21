@@ -33,8 +33,9 @@ Everything here is anchored on the WP1 dry-run evidence
   rotation and matching the integrated Cx, and ``Fz`` is the in-plane
   component in the rotating blade frame. The mapping onto the
   chordwise/normal axes of :mod:`pyflightstream.fsi.config` therefore
-  involves the local blade angle; the deliberate elastic-axis offset
-  check of the soft-blade pilot is the planned sign confirmation.
+  involves the local blade angle; the rotor moment sign is
+  corroborated by the soft-blade pilot response (RPT-007), as
+  :func:`project_rotor_frame_loads` states.
 * Blade attribution follows the family-per-blade convention
   (RPT-005 finding 6): one geometry family per blade, one section
   distribution per blade boundary, and the flat export concatenates
@@ -631,7 +632,9 @@ def cross_check_totals(
             )
         scale = max(abs(total), abs(integrated), 1e-9)
         deltas[name] = abs(total - integrated) / scale
-        if deltas[name] > rel_tol:
+        # X-F-0316. `not <=` so a NaN delta (NaN density or total) refuses
+        # instead of passing `NaN > rel_tol`, which is False.
+        if not deltas[name] <= rel_tol:
             raise FsiInputError(
                 f"the sectional {name.upper()} of family {block.family!r} "
                 f"integrates to {total:.6g} N but the integrated export reports "
