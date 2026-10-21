@@ -298,6 +298,26 @@ def test_a_file_written_under_this_codebook_round_trips(tmp_path):
     assert rows[0]["codebook_version"] == CODEBOOK_VERSION
 
 
+def test_f1417_keys_with_the_same_names_in_another_order_are_accepted(tmp_path):
+    """F-1417: the contract is the same keys; the order of a mapping's insertion is not a key."""
+    table, _legend = write_settings_table(
+        tmp_path / "keyed.csv",
+        [snapshot(), snapshot()],
+        wide=True,
+        keys=[{"run": "a", "case": "x"}, {"case": "y", "run": "b"}],
+    )
+    with table.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [(row["run"], row["case"]) for row in rows] == [("a", "x"), ("b", "y")]
+    with pytest.raises(MalformedOutputError, match="all with the same keys"):
+        write_settings_table(
+            tmp_path / "other.csv",
+            [snapshot(), snapshot()],
+            wide=True,
+            keys=[{"run": "a"}, {"case": "y"}],
+        )
+
+
 def test_a_table_with_no_rows_says_so_rather_than_blaming_its_header(tmp_path):
     """Two different failures, two different messages.
 
