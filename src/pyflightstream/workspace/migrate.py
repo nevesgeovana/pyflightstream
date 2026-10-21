@@ -20,9 +20,23 @@ from pyflightstream.workspace.manifest import (
     WorkspaceError,
     manifest_lock,
 )
-from pyflightstream.workspace.record_document import decode_document, encode_rows
+from pyflightstream.workspace.record_document import SCHEMA_VERSION, decode_document, encode_rows
 
 __all__ = ["migrate_workspace"]
+
+
+def _other_version_sentence(path: Path, version: object) -> str:
+    """Say what to do with a document whose schema_version is not the current one."""
+    if isinstance(version, int) and not isinstance(version, bool) and version > SCHEMA_VERSION:
+        return (
+            f"{path}: schema_version {version} was written by a newer pyflightstream than this "
+            f"one, which reads {SCHEMA_VERSION}; upgrade pyflightstream rather than migrate."
+        )
+    return (
+        f"{path}: schema_version {version!r}, and this pyflightstream reads {SCHEMA_VERSION}; "
+        "migrate converts the list manifests of the 0.38.0 format only, so it cannot convert "
+        "this document. Open it with the release that wrote it, or restore it from its .bak."
+    )
 
 
 def migrate_workspace(root: str | Path, *, apply: bool = False) -> list[dict[str, Any]]:
@@ -89,6 +103,9 @@ def _candidates(root: Path):
                 ) from error
             continue
         if isinstance(data, dict) and "schema_version" in data and "runs" in data:
+            version = data["schema_version"]
+            if version != SCHEMA_VERSION:
+                raise WorkspaceError(_other_version_sentence(path, version))
             decode_document(data, source=path)
             continue
         legacy_rows = (

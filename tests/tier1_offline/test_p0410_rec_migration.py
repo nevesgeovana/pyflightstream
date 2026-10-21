@@ -189,3 +189,20 @@ def test_f738_linked_backup_is_refused(tmp_path, monkeypatch):
     with pytest.raises(WorkspaceError, match="linked backup"):
         migrate_workspace(tmp_path, apply=True)
     assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"), [(3, "cannot convert"), (9, "newer pyflightstream")]
+)
+def test_x_f_1317_a_document_of_another_schema_version_is_not_told_to_migrate(
+    tmp_path, version, expected
+):
+    """The refusal does not send the user to the command they just ran."""
+    from pyflightstream.workspace import WorkspaceError
+
+    (tmp_path / "runs.json").write_text(
+        json.dumps({"schema_version": version, "runs": []}), encoding="utf-8"
+    )
+    with pytest.raises(WorkspaceError, match=expected) as caught:
+        migrate_workspace(tmp_path)
+    assert "require `pyfs-workspace migrate`" not in str(caught.value)
