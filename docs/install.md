@@ -38,7 +38,6 @@ preserve those notices when redistributing them.
 | pandas | 3.0.3 | BSD-3-Clause |
 | pydantic | 2.13.4 | MIT |
 | PyYAML | 6.0.3 | MIT |
-| xarray | 2026.7.0 | Apache-2.0 |
 | trimesh | 4.12.2 and 5.0.0 | MIT |
 | PyNiteFEA (`fsi`) | 3.0.0 | MIT |
 | scipy (`geom`) | 1.18.0 | BSD-3-Clause |
