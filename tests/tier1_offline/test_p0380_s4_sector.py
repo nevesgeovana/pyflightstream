@@ -302,6 +302,23 @@ def test_a_level_whose_cuts_do_not_match_is_refused_before_writing():
         match_level(bad, mesh.families, cuts, SIX, source=mesh.verts, size=size, where="w")
 
 
+def test_p0430_f306_a_damaged_cut_is_not_hidden_by_a_matching_pair():
+    """F-306: a second sector whose cut node moved by more than half an edge is refused, not
+    dropped because the first sector's cuts match. Control: the undamaged pair of sectors."""
+    first, second = _wedge(), _wedge()
+    shifted = second.verts + numpy.array([0.0, 0.0, 2.0])
+    size = _size(numpy.vstack([first.verts, shifted]))
+    count = len(first.verts)
+    faces = first.families["W"] + [[v + count for v in f] for f in second.families["W"]]
+    whole = {"W": faces}
+    both = numpy.vstack([first.verts, shifted])
+    assert len(find_cuts(both, whole, SIX, size=size, where="w")) == 2
+    damaged = both.copy()
+    damaged[count + 2 * 7 + 6, 2] += 0.06  # more than half the shortest edge of the cut
+    with pytest.raises(InputArtifactError, match="do not map onto each other"):
+        find_cuts(damaged, whole, SIX, size=size, where="w")
+
+
 # ---- FR-944: without [periodic]
 
 

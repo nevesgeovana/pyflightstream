@@ -149,6 +149,11 @@ def boundary_chains(verts: Points, faces: Faces) -> list[list[int]]:
     return [c for c in chains if len(c) >= 2]
 
 
+#: F-306: two chains whose nodes pair one to one within this many shortest edges are a cut
+#: pair, matched or damaged; a chain pair farther apart is no candidate.
+_CANDIDATE_EDGES = 2.0
+
+
 def _min_edge(verts: Points, chain: Sequence[int]) -> float:
     return float(numpy.linalg.norm(numpy.diff(verts[list(chain)], axis=0), axis=1).min())
 
@@ -157,14 +162,17 @@ def _pair(verts: Points, a: list[int], b: list[int], periodic: Periodic) -> CutP
     """Return the two chains as a candidate pair, or None when no rotation maps one on the other.
 
     A candidate is a pair whose nodes correspond one to one unambiguously
-    (every distance below half the shortest edge), matched or not.
+    (every distance below :data:`_CANDIDATE_EDGES` of the shortest edge), matched or not.
+    A damaged cut, whose nodes moved by more than half an edge but still
+    correspond one to one, stays a candidate so the distance check refuses it
+    rather than another matching pair hiding it (F-306).
     """
     best: tuple[float, int] | None = None
     for sense in (1, -1):
         found = nearest_match(rotate(verts[a], periodic, sense), verts[b])
         if found is not None and (best is None or found[0] < best[0]):
             best = (found[0], sense)
-    if best is None or best[0] >= 0.5 * min(_min_edge(verts, a), _min_edge(verts, b)):
+    if best is None or best[0] >= _CANDIDATE_EDGES * min(_min_edge(verts, a), _min_edge(verts, b)):
         return None
     return CutPair(tuple(a), tuple(b), best[1], best[0], ((), ()))
 
