@@ -347,7 +347,9 @@ def _obj_statements(text: str) -> tuple[list[list[float]], dict[str, list[list[i
                     f"line {number} states a vertex of {len(words) - 1} coordinates, not three"
                 )
             vertices.append([float(word) for word in words[1:4]])
-        elif words[0] in ("o", "g") and len(words) > 1:
+        elif words[0] == "o" and len(words) > 1:
+            current = " ".join(words[1:])  # the name the writer gives, spaces kept
+        elif words[0] == "g" and len(words) > 1:
             current = words[1]
         elif words[0] == "f":
             face = _obj_face(words[1:], len(vertices), f"line {number}")

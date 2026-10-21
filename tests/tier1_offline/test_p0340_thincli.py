@@ -453,3 +453,9 @@ def test_f_948_the_same_call_writes_the_same_bytes(tmp_path):
 def test_f1502_an_oversized_root_offset_is_refused_as_an_input_artifact(tmp_path):
     with pytest.raises(InputArtifactError, match="not a number"):
         _degenerate._checked_offset(tmp_path / "blade.obj", 10**400)
+
+
+def test_x_f0421_an_obj_group_name_with_a_space_reads_back_whole():
+    text = "o my blade\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n"
+    _, groups = _degenerate._obj_statements(text)
+    assert list(groups) == ["my blade"]
