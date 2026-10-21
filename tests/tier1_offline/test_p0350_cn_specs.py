@@ -222,3 +222,14 @@ def test_prelude_abort_is_not_called_environment_drift(tmp_path):
     assert result.outcome == ProbeOutcome.UNPROBED
     assert "prelude" in result.detail
     assert "environment drifted" not in result.detail
+
+
+@pytest.mark.parametrize("command", ["CCS_WING_MESH_SUBDIVISIONS", "NEW_CCS_WING_CONTROL_SURFACE"])
+def test_reference_loft_is_exported_before_the_second_loft(tmp_path, command):
+    """F-530 (FR-401): the reference mesh is exported before the second loft exists."""
+    text = generate_probe_script(PROBE_SPECS[command], "26.124", tmp_path).render()
+    lines = text.splitlines()
+    lofts = [i for i, line in enumerate(lines) if line.startswith("CAD_CREATE_WING_MESH_FROM_CCS")]
+    exports = [i for i, line in enumerate(lines) if "reference.obj" in line]
+    assert len(lofts) == 2 and len(exports) == 1
+    assert lofts[0] < exports[0] < lofts[1]
