@@ -406,7 +406,9 @@ def _add_profile_commands(subparsers: argparse._SubParsersAction) -> None:
             "steps), 'uni' (F = c r) or 'bp' (Betz-Prandtl, --advance-ratio J). The disc is a "
             "reference's block (--ref, --disc) or stated (--tip-radius, --hub-radius, "
             "--blades). The ELLIPTICAL disc is native in the solver and needs no file: its row "
-            "states ACTUATOR_THRUST. A RELAXED disc ignores a custom profile (RPT-137). "
+            "states ACTUATOR_THRUST. A RELAXED disc ignores a custom profile (RPT-137); that "
+            "was measured on one case on build 26.124, and that a RIGID disc reads the "
+            "profile is the documented behaviour, with no measurement cited. "
             "Previews by default; --apply writes inputs/profiles/<stem>.csv and "
             "<stem>.provenance.json, and an existing file is replaced only with --overwrite."
         ),
@@ -842,7 +844,10 @@ def _cmd_init(args: argparse.Namespace) -> int:
     print("  inputs/input_template.md (generated: an example of every input file)")
     for name in ("sims", "post", "archive"):
         print(f"  {name}/")
-    print("init is idempotent: existing folders and files were kept untouched")
+    print(
+        "init is idempotent: existing folders and files were kept untouched, except the "
+        "generated guides above, which are rewritten only when their content differs"
+    )
     return 0
 
 
@@ -1190,7 +1195,7 @@ def _print_profile(
         print(
             f"  note: the disc {args.disc!r} is RELAXED; measured on 26.124 (RPT-137) a RELAXED "
             "disc ignored a custom profile, and the plan warns on a row that names one. A "
-            "RIGID disc reads the profile."
+            "RIGID disc is documented to read the profile; no measurement is cited."
         )
     if not written.applied:
         print(f"preview: would write {written.target} and {written.sidecar.name}")

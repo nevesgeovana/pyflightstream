@@ -226,3 +226,20 @@ class TestF1587OneFolderTwoSpellings:
             == 2
         )
         assert "named twice" in capsys.readouterr().err
+
+
+class TestF1Cli:
+    """F1-0910: two spellings of one campaign, and what init says it leaves untouched."""
+
+    @staticmethod
+    def test_x_f_1258_two_spellings_of_one_campaign_are_one_campaign(tmp_path):
+        target = tmp_path / "campaign"
+        spelled = target / ".." / "campaign"
+        assert workspace_cli(["init", str(spelled), "--workspace", str(target)]) == 0
+        assert (target / "inputs").is_dir()
+
+    @staticmethod
+    def test_x_f_1737_init_names_the_files_it_does_rewrite(tmp_path, capsys):
+        assert workspace_cli(["init", str(tmp_path / "campaign")]) == 0
+        said = " ".join(capsys.readouterr().out.split())
+        assert "except the generated guides above, which are rewritten only when" in said
