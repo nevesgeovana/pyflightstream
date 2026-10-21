@@ -343,7 +343,15 @@ def write_recorded_probe_fields(
     written = _write_recorded_probe_fields(
         table, record, directory, point_name, prepare=prepare, step_source=step_source
     )
-    return [path for path, _caveats in written]
+    paths = _WrittenFields(path for path, _caveats in written)
+    paths.caveats = {path: caveats for path, caveats in written}
+    return paths
+
+
+class _WrittenFields(list):
+    """The files a field export wrote (a plain list of paths) and each one's caveats."""
+
+    caveats: dict
 
 
 def _caveats_of(layout):
@@ -561,15 +569,16 @@ def point_field_products(table, record, out, point_name, *, prepare=None, step_s
         with ``proven`` False, and ``rotation_timing`` likewise where a rotating
         sampling frame's timing was. Such a point warns once, naming both builds.
     """
-    written = _write_recorded_probe_fields(
+    paths = write_recorded_probe_fields(
         table, record, Path(out) / "fields", point_name, prepare=prepare, step_source=step_source
     )
+    own_of = getattr(paths, "caveats", {})
     caveats: dict[str, dict[str, object]] = {}
-    for _path, own in written:
+    for own in own_of.values():
         caveats.update(own)
     if caveats:
         warn(_unproven_warning(point_name, caveats), PyflightstreamWarning, stacklevel=2)
-    return {path: {"kind": "probe-field", **own} for path, own in written}
+    return {path: {"kind": "probe-field", **own_of.get(path, {})} for path in paths}
 
 
 #: What a field's manifest entry records of a convention it borrowed (FR-153).
