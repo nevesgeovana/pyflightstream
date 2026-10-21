@@ -835,8 +835,9 @@ def _render(template: str, values: dict[str, object], role: str, check_name: boo
         raise NamingTemplateError(
             f"the {role} template {template!r} needs {{{missing}}}, but this point "
             f"provides only: {', '.join(sorted(values))}. A sweep axis placeholder "
-            "is only available when the sweep varies that axis, {mach} and {polar} only "
-            "when the case declares a Mach number, and {name} only inside an output name."
+            "is only available when the sweep varies that axis, {mach} only when the case "
+            "declares a Mach number, {polar} and {point} only when the point has a name, "
+            "and {name} only inside an output name."
         ) from error
     for name, value in values.items():
         text = _FORMATTER.format_field(value, "")
@@ -844,8 +845,8 @@ def _render(template: str, values: dict[str, object], role: str, check_name: boo
             raise NamingTemplateError(
                 f"the value of {{{name}}} ({text!r}) contains characters that are "
                 f"not portable in file names; rename it so the rendered {role} "
-                "stays a plain file name (letters, digits, dot, underscore, "
-                "plus, hyphen)."
+                "stays a plain file name (no whitespace and none of the characters "
+                '<>:"/\\|?*).'
             )
     if check_name and (_UNSAFE_CHARS.search(rendered) or not rendered):
         raise NamingTemplateError(

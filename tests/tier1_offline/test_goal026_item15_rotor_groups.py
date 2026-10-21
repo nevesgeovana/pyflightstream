@@ -232,3 +232,17 @@ def test_f1546_a_non_ascii_digit_group_is_a_name_not_a_crash():
 
     assert group_token("²") == "²"
     assert group_token("7") == "g07"
+
+
+def test_f1963_and_x_f1744_the_naming_refusals_state_the_real_prerequisites():
+    import pytest
+
+    from pyflightstream.workspace.naming import NamingTemplateError, _render
+
+    with pytest.raises(NamingTemplateError) as missing:
+        _render("{mach}", {"sim": "1"}, "file")
+    text = str(missing.value)
+    assert "{polar} and {point} only when the point has a name" in text
+    assert "{mach} only when the case declares a Mach number" in text
+    with pytest.raises(NamingTemplateError, match="no whitespace and none of the characters"):
+        _render("{x}", {"x": "a b"}, "file")
