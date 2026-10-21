@@ -502,6 +502,17 @@ _spec(
         "instrument cannot separate the two"
     ),
 )
+
+
+def _delete_actuator_effect(artifacts: ProbeArtifacts) -> bool | None:
+    """Judge deletion only after the same run demonstrated the named actuator."""
+    before = _read(artifacts.workdir, "state_before.fsm")
+    after = _read(artifacts.workdir, "state_after.fsm")
+    if not before or "PYFS_ACT_DOOMED" not in before or not after:
+        return None
+    return "PYFS_ACT_DOOMED" not in after
+
+
 _spec(
     command="DELETE_ACTUATOR",
     build_target=_emit("DELETE_ACTUATOR", 1),
@@ -510,9 +521,12 @@ _spec(
         _emit("CREATE_NEW_COORDINATE_SYSTEM"),
         _emit("CREATE_NEW_ACTUATOR", "PROPELLER", subtype="ELLIPTICAL", name="PYFS_ACT_DOOMED"),
     ),
-    epilogue=_saveas,
-    assert_effect=fsm_grep("PYFS_ACT_DOOMED", expect=False),
-    effect_note=("the deleted actuator's name is no longer readable in the saved simulation file"),
+    save_state=True,
+    assert_effect=_delete_actuator_effect,
+    effect_note=(
+        "the actuator name is present before deletion and absent afterwards; "
+        "a missing before-state control is inconclusive"
+    ),
 )
 
 

@@ -27,6 +27,27 @@ PILOT = ["PRINT", "STOP", "RUN_SCRIPT"]
 
 
 @pytest.mark.parametrize(
+    "before, after, expected",
+    [
+        (None, b"other", None),
+        (b"other", b"other", None),
+        (b"PYFS_ACT_DOOMED", b"PYFS_ACT_DOOMED", False),
+        (b"PYFS_ACT_DOOMED", b"other", True),
+    ],
+)
+def test_p0430_f6_04_actuator_deletion_needs_before_control(tmp_path, before, after, expected):
+    from types import SimpleNamespace
+
+    if before is not None:
+        (tmp_path / "state_before.fsm").write_bytes(before)
+    (tmp_path / "state_after.fsm").write_bytes(after)
+    (tmp_path / "saved.fsm").write_bytes(after)
+    assert (
+        PROBE_SPECS["DELETE_ACTUATOR"].assert_effect(SimpleNamespace(workdir=tmp_path)) is expected
+    )
+
+
+@pytest.mark.parametrize(
     "command",
     [
         "SET_CCS_TE_BLEND_LENGTH",
