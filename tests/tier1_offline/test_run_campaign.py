@@ -4101,3 +4101,18 @@ def test_g43_a_continuation_refused_before_it_was_built_is_numbered_and_counted(
     assert re.search(r"\| FAILED_SCRIPT +\| +1 \|", said), said
     assert re.search(r"\| CONVERGED +\| +1 \|", said), said
     assert re.search(r"\n  2 point\(s\) in \d+:\d\d:\d\d", said), said
+
+
+def test_f6_0102_naming_a_point_the_recorded_job_never_ran_does_not_redo_the_job(tmp_path):
+    """F-1454: an unrecorded point is refused; the recorded job is neither archived nor re-run."""
+    from pyflightstream.exceptions import WorkspaceError
+    from tests.tier1_offline.test_goal031_recorded_job_plan import SWEPT, _recorded_sweep, _run
+    from tests.tier1_offline.test_matrix_run import WRITES_EVERY_EXPORT, CountingStub
+
+    workspace, matrix = _recorded_sweep(tmp_path, SWEPT + ",4.0")
+    before = [record.run_id for record in workspace.read_manifest()]
+    stub = CountingStub(WRITES_EVERY_EXPORT)
+    with pytest.raises(WorkspaceError, match="no recorded point"):
+        _run(workspace, matrix, stub, force_rerun=["M100RE230AL+040BE+000"])
+    assert [record.run_id for record in workspace.read_manifest()] == before
+    assert not stub.invocations

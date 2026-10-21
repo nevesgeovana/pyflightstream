@@ -712,6 +712,26 @@ def _resolve_campaign_redo(state: _CampaignState) -> None:
     """Resolve campaign redo."""
     if state.already and state.force_rerun:
         asked = _points_asked_to_redo(state.campaign, state.case, state.force_rerun)
+        ran = _points_the_recorded_job_ran(state.campaign, state.case, state.manifest)
+        job_id = _job_run_id(state.campaign, state.case)
+        if ran is not None and job_id not in asked.named:
+            # A POINT THE RECORDED JOB NEVER RAN IS NOT RECORDED: naming it must
+            # not reach the job and archive and re-run what it did not name.
+            kept = [
+                point
+                for point in asked.points
+                if point_name(state.case, point) in ran
+                or _run_id(state.campaign, state.case, point) in state.manifest
+            ]
+            tokens = {
+                token
+                for point in kept
+                for token in (
+                    point_name(state.case, point),
+                    _run_id(state.campaign, state.case, point),
+                )
+            }
+            asked = _PointsAskedToRedo(points=kept, named=asked.named & tokens)
         state.unmatched -= asked.named
         if asked.points and state.continuing:
             warnings.warn(
