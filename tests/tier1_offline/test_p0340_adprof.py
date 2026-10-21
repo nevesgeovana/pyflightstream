@@ -585,3 +585,9 @@ def test_f1521_a_products_member_that_is_not_a_mapping_is_no_table(tmp_path, bod
     (folder / "products.json").write_text(body, encoding="utf-8")
     with pytest.raises(WorkspaceError, match="no sectional loads table"):
         find_pol_sections(tmp_path, "7")
+
+
+def test_f1586_two_stations_ask_for_an_interior_station_not_table_columns():
+    """F-1586: a Betz-Prandtl shape of two stations is refused for its stations."""
+    with pytest.raises(WorkspaceError, match="three or more stations"):
+        betz_prandtl_profile(DiscGeometry(1.0, 0.2, 4), advance_ratio=1.0, stations=2)

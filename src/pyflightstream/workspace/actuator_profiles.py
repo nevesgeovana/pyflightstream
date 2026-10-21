@@ -786,8 +786,14 @@ def betz_prandtl_profile(
     """
     _positive(advance_ratio, "the advance ratio")
     hub, tip, blades = disc.hub_radius_m, disc.tip_radius_m, disc.blades
+    radii = _radii(disc, stations)
+    if len(radii) < 3:
+        raise WorkspaceError(
+            f"stations = {stations}; a Betz-Prandtl shape is zero at the hub and at the tip, "
+            "so it needs three or more stations, one of them between the hub and the tip."
+        )
     rows = []
-    for r in _radii(disc, stations):
+    for r in radii:
         if r == 0.0:
             rows.append((r, 0.0))
             continue
