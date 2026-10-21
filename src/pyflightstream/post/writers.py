@@ -302,11 +302,20 @@ def write_output_pair(
     # THE RECORD IS RENDERED BEFORE THE DATA IS WRITTEN: a record that cannot be serialized
     # must leave no data file behind, or the pair-or-neither promise is broken.
     payload = _provenance_payload(provenance, destination)
-
     destination.parent.mkdir(parents=True, exist_ok=True)
     record.parent.mkdir(parents=True, exist_ok=True)
+    earlier = destination.read_bytes() if destination.exists() else None
     _textio.write_text(destination, text)
-    _textio.write_text(record, payload)
+    try:
+        _textio.write_text(record, payload)
+    except BaseException:
+        # The pair or neither: a data file without its record is the file this writer exists
+        # to prevent, so the first write is undone when the second fails.
+        if earlier is None:
+            destination.unlink(missing_ok=True)
+        else:
+            destination.write_bytes(earlier)
+        raise
     return destination, record
 
 
