@@ -162,6 +162,7 @@ from pyflightstream.results.exports import parse_off_body_streamlines
 from pyflightstream.script import Script
 from pyflightstream.script.helpers import (
     detect_every_boundary,
+    every_boundary_detection,
     initialize_solver,
 )
 
@@ -639,10 +640,11 @@ def _calls_read(artifacts: ProbeArtifacts) -> str:
         if listing.is_file()
         else "no listing"
     )
-    first = lines[0][:200] if lines else ""
+    first = lines[0] if lines else ""
     folder = artifacts.workdir.resolve()
     for spelling in (str(folder), folder.as_posix()):
         first = first.replace(spelling, "<probe folder>")
+    first = first[:200]
     return f"{len(lines)} calls; first: {first}; files at call 1: {seen}"
 
 
@@ -787,8 +789,9 @@ def _flow(*, steady: bool, velocity: float = 30.0, steps: int = 20, dt: float = 
 
 def _units_and_edges(script: Script, workdir: Path) -> None:
     script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
-    if script.version.canonical == "26.125":
-        # This prelude always imports one constructed wing boundary.
+    if every_boundary_detection(script, "trailing_edges")[0] == "DETECT_TRAILING_EDGES_BY_SURFACE":
+        # The build's grammar has the by-surface form only; this prelude always
+        # imports one constructed wing boundary.
         script.emit("DETECT_TRAILING_EDGES_BY_SURFACE", surfaces=1, surface_indices=[1])
     else:
         detect_every_boundary(script, "trailing_edges")
@@ -1470,7 +1473,7 @@ def _sphere_row_read(artifacts: ProbeArtifacts) -> bool | None:
         return None
     # A diverged solve still exports its table (the third batch printed a wing Cx
     # of 4.3e11): a reading is kept only from a table whose numbers are a solution.
-    if any(abs(value) > 10.0 for columns in surfaces.values() for value in columns.values()):
+    if any(not abs(value) <= 10.0 for columns in surfaces.values() for value in columns.values()):
         return None
     return True if any(name.lower().startswith("sphere") for name in surfaces) else None
 

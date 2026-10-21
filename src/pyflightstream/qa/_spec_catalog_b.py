@@ -18,6 +18,7 @@ from pyflightstream.qa.probes import (
     fsm_changed,
     fsm_gained,
 )
+from pyflightstream.results.exports import parse_sweep_spreadsheet
 from pyflightstream.script import Script
 
 #: The catalog exports its catalog and nothing else. Without this, every
@@ -658,7 +659,21 @@ def _sweep_pair_effect(artifacts: ProbeArtifacts) -> bool | None:
     sweep = _read(artifacts.workdir, "sweep.txt")
     if sweep is None:
         return None
-    return True if ("2.000" in sweep and "4.000" in sweep) else None
+    return True if _sweep_column_has(sweep, 0, (2.0, 4.0)) else None
+
+
+def _sweep_column_has(text: str, column: int, wanted: tuple[float, ...]) -> bool:
+    """Say whether the sweep table's own ``column`` holds every wanted value.
+
+    The table is parsed, so a value printed in the preamble or in another
+    column does not count as a point of the sweep. A file that does not parse
+    holds no reading.
+    """
+    try:
+        values = parse_sweep_spreadsheet(text).values[:, column]
+    except ValueError:
+        return False
+    return all(any(abs(float(value) - target) < 5e-4 for value in values) for target in wanted)
 
 
 def _sweep_epilogue(script: Script, workdir: Path) -> None:
@@ -689,8 +704,7 @@ _spec(
     assert_effect=lambda artifacts: (
         True
         if (sweep := _read(artifacts.workdir, "sweep.txt")) is not None
-        and "1.500" in sweep
-        and "3.500" in sweep
+        and _sweep_column_has(sweep, 1, (1.5, 3.5))
         else None
     ),
     effect_note="the sweep spreadsheet carries both requested side-slips 1.500 and 3.500",

@@ -1880,3 +1880,154 @@ def test_the_wake_edge_import_probe_is_unprobed_where_the_route_was_not_measured
 
     with pytest.raises(CommandArgumentError, match="at most 2 arguments"):
         generate_probe_script(PROBE_SPECS["IMPORT_WAKE_EDGES_FROM_FILE"], "26.123", tmp_path)
+
+
+# --- GOAL-056 package F6-15: judges that read more than they should ----------------
+
+
+def _sweep_text(rows):
+    """The observed 26.123 sweeper export with its three table rows replaced."""
+    path = Path(__file__).parent / "fixtures" / "sweeper_spreadsheet_26.123.txt"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    at = next(i for i, line in enumerate(lines) if line.strip().startswith("+.0000,"))
+    tail = "-.0125,+.0000,+.0000,+.0000,-.0125,+.0000,+.0000,-.0000,+.0000,"
+    for offset, row in enumerate(rows):
+        lines[at + offset] = f"     {row},{tail}"
+    return "\n".join(lines) + "\n"
+
+
+def _sweep_artifacts(tmp_path, text):
+    from types import SimpleNamespace
+
+    (tmp_path / "sweep.txt").write_text(text, encoding="utf-8")
+    return SimpleNamespace(workdir=tmp_path)
+
+
+def test_f6_15_the_angle_sweep_judge_reads_the_table_column_not_the_whole_file(tmp_path):
+    """F-233 / X-F-0164: 4.000 printed in the preamble is not a swept angle."""
+    judge = PROBE_SPECS["SWEEPER_SET_AOA_SWEEP"].assert_effect
+    zero = "+.0000,+.0000,+30.0000"
+    kept = _sweep_text([zero, "+2.0000,+.0000,+30.0000", "+4.0000,+.0000,+30.0000"])
+    assert judge(_sweep_artifacts(tmp_path, kept)) is True
+    lost = _sweep_text([zero, "+2.0000,+.0000,+30.0000", "+3.0000,+.0000,+30.0000"])
+    assert "4.000" in lost, "the preamble still prints 4.000"
+    assert judge(_sweep_artifacts(tmp_path, lost)) is None
+
+
+def test_f6_15_the_sideslip_sweep_judge_reads_the_beta_column(tmp_path):
+    """F-234: 1.500 and 3.500 in another column do not satisfy the side-slip judge."""
+    judge = PROBE_SPECS["SWEEPER_SET_BETA_SWEEP"].assert_effect
+    zero = "+.0000,+.0000,+30.0000"
+    kept = _sweep_text([zero, "+2.0000,+1.5000,+30.0000", "+4.0000,+3.5000,+30.0000"])
+    assert judge(_sweep_artifacts(tmp_path, kept)) is True
+    elsewhere = _sweep_text([zero, "+2.0000,+.0000,+1.5000", "+4.0000,+.0000,+3.5000"])
+    assert judge(_sweep_artifacts(tmp_path, elsewhere)) is None
+    assert judge(_sweep_artifacts(tmp_path, "AOA 1.500 3.500, not a spreadsheet")) is None
+
+
+def test_f6_15_the_call_log_is_cut_after_the_probe_folder_is_replaced(tmp_path):
+    """F-708: a long folder path in the first log line is replaced, then the line is cut."""
+    from types import SimpleNamespace
+
+    from pyflightstream.qa._spec_0400_gapkit import _STANDIN_LOG, _calls_read
+
+    folder = tmp_path.resolve()
+    (tmp_path / _STANDIN_LOG).write_text(
+        "x" * 150 + f" {folder} and the rest of the line\n", encoding="utf-8"
+    )
+    text = _calls_read(SimpleNamespace(workdir=tmp_path))
+    assert str(folder) not in text
+    assert folder.as_posix() not in text
+    assert "<probe folder>" in text
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_f6_15_a_non_finite_loads_table_is_not_a_sphere_reading(monkeypatch, bad):
+    """X-F-0374: abs(nan) > 10 is False, so nan passed the diverged-solution guard."""
+    from pyflightstream.qa import _spec_0400_gapkit as kit
+
+    monkeypatch.setattr(kit, "_surface_drag", lambda artifacts: {"Sphere": {"Cx": bad}})
+    assert kit._sphere_row_read(None) is None
+    monkeypatch.setattr(kit, "_surface_drag", lambda artifacts: {"Sphere": {"Cx": 0.5}})
+    assert kit._sphere_row_read(None) is True
+
+
+def test_f6_15_the_prelude_detects_edges_by_what_the_grammar_offers(tmp_path, monkeypatch):
+    """X-F-1069: the form follows the grammar, not the build name 26.125."""
+    from types import SimpleNamespace
+
+    from pyflightstream.qa import _spec_0400_gapkit as kit
+
+    emitted = []
+    script = SimpleNamespace(
+        version=SimpleNamespace(canonical="26.130"),
+        emit=lambda *args, **kwargs: emitted.append((args, kwargs)),
+    )
+    monkeypatch.setattr(
+        kit,
+        "every_boundary_detection",
+        lambda s, kind: ("DETECT_TRAILING_EDGES_BY_SURFACE", (-1,)),
+    )
+    kit._units_and_edges(script, tmp_path)
+    assert emitted[-1] == (
+        ("DETECT_TRAILING_EDGES_BY_SURFACE",),
+        {"surfaces": 1, "surface_indices": [1]},
+    )
+
+
+def test_f6_15_a_zero_byte_file_is_not_an_added_export(tmp_path):
+    """F-552: the lax judge ignores the name, not the content."""
+    from types import SimpleNamespace
+
+    from pyflightstream.qa._spec_ccs_noise import _a_file_was_added
+
+    artifacts = SimpleNamespace(workdir=tmp_path)
+    (tmp_path / "section.dat").write_bytes(b"")
+    assert _a_file_was_added(artifacts) is None
+    (tmp_path / "section.dat").write_bytes(b"data")
+    assert _a_file_was_added(artifacts) is True
+
+
+def test_f6_15_the_loft_digest_is_a_stable_function_of_the_geometry(tmp_path):
+    """X-F-0379 / F-235: the printed geometry digest is a SHA-256, not Python's hash()."""
+    import hashlib
+
+    from pyflightstream.qa._spec_ccs_noise import _mesh_signature
+
+    (tmp_path / "a.obj").write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
+    vertices, faces, digest = _mesh_signature(tmp_path, "a.obj")
+    assert (vertices, faces) == (3, 1)
+    origin, x_axis, y_axis = (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)
+    text = repr(((origin, y_axis, x_axis), ((origin, x_axis, y_axis),)))
+    expected = int.from_bytes(hashlib.sha256(text.encode("ascii")).digest()[:8], "big")
+    assert digest == expected
+
+
+def test_f6_15_the_revolve_export_note_does_not_name_a_form_the_grammar_may_not_use():
+    """F-1858: the note quoted into the compat report names no fixed argument count."""
+    note = PROBE_SPECS["EXPORT_REVOLVE_CCS_FILE"].effect_note
+    assert "six" not in note and "signature heading" not in note
+
+
+def test_f6_15_signals_with_non_finite_values_are_not_nonzero_pressures(tmp_path):
+    """X-F-0380: nan and inf rows are dropped; an absent file is None, not False (F-1859)."""
+    from types import SimpleNamespace
+
+    from pyflightstream.qa._spec_ccs_noise import _SIGNALS, _signal_blocks
+
+    artifacts = SimpleNamespace(workdir=tmp_path)
+    assert PROBE_SPECS["EXPORT_ACOUSTIC_SIGNALS"].assert_effect(artifacts) is None
+    (tmp_path / _SIGNALS).write_text(
+        "Observer: PYFS_OBS1\n0.0 nan\n0.1 inf\n0.2 -inf\n0.3 0.0\n", encoding="utf-8"
+    )
+    assert _signal_blocks(artifacts) == [("PYFS_OBS1", [[0.3, 0.0]])]
+    assert PROBE_SPECS["ACOUSTIC_SOURCES"].assert_effect(artifacts) is None
+
+
+def test_f6_15_the_loft_digest_treats_signed_zero_as_zero(tmp_path):
+    """The SHA-256 digest keeps the old hash() equality: -0.0 and 0.0 are the same coordinate."""
+    from pyflightstream.qa._spec_ccs_noise import _mesh_signature
+
+    (tmp_path / "a.obj").write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
+    (tmp_path / "b.obj").write_text("v -0.0 0 -0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
+    assert _mesh_signature(tmp_path, "a.obj") == _mesh_signature(tmp_path, "b.obj")

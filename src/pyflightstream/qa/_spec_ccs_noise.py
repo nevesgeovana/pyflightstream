@@ -17,6 +17,7 @@ dimension of any real geometry.
 
 from __future__ import annotations
 
+import hashlib
 import math
 import re
 from collections.abc import Callable
@@ -53,7 +54,12 @@ def _fmt(value: float) -> str:
 
 
 def _airfoil(count: int = 7) -> list[tuple[float, float]]:
-    """Return a closed symmetric section from a public thickness law."""
+    """Return a symmetric section from a public thickness law.
+
+    The law has no x^4 term, so the trailing edge is blunt: the upper and
+    lower branches end at different points. This is a synthetic probe shape,
+    not a closed production airfoil.
+    """
     xs = [0.5 * (1.0 - math.cos(math.pi * i / (count - 1))) for i in range(count)]
 
     def half(x: float) -> float:
@@ -207,7 +213,8 @@ def _mesh_signature(workdir: Path, filename: str) -> tuple[int, int, int] | None
         for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
             words = line.partition("#")[0].split()
             if words[:1] == ["v"]:
-                point = tuple(float(value) for value in words[1:])
+                # + 0.0 turns -0.0 into 0.0: equal coordinates must print equal.
+                point = tuple(float(value) + 0.0 for value in words[1:])
                 if len(point) != 3 or not all(math.isfinite(value) for value in point):
                     return None
                 vertices.append(point)
@@ -215,7 +222,11 @@ def _mesh_signature(workdir: Path, filename: str) -> tuple[int, int, int] | None
                 faces.append(_obj_face(words[1:], vertices))
     except (ValueError, IndexError):
         return None
-    return len(vertices), len(faces), hash((tuple(sorted(vertices)), tuple(sorted(faces))))
+    # A SHA-256 of the normalized geometry, not Python's hash(): the digest is printed
+    # into the committed compat reports, so it must not depend on the interpreter.
+    text = repr((tuple(sorted(vertices)), tuple(sorted(faces))))
+    digest = int.from_bytes(hashlib.sha256(text.encode("ascii")).digest()[:8], "big")
+    return len(vertices), len(faces), digest
 
 
 def _obj_face(words: list[str], vertices: list[tuple[float, ...]]) -> tuple[tuple[float, ...], ...]:
@@ -329,8 +340,13 @@ def _added_files(artifacts: ProbeArtifacts) -> list[str]:
 
 
 def _a_file_was_added(artifacts: ProbeArtifacts) -> bool | None:
-    """Judge whether the solver wrote a file in its folder (lax: the manual names no path)."""
-    return True if _added_files(artifacts) else None
+    """Judge whether the solver wrote a file in its folder (lax: the manual names no path).
+
+    Lax about the name, not about the content: a zero-byte file is a failed or
+    interrupted write and is not evidence that the export ran.
+    """
+    added = [artifacts.workdir / name for name in _added_files(artifacts)]
+    return True if any(path.is_dir() or path.stat().st_size > 0 for path in added) else None
 
 
 def _added_files_read(artifacts: ProbeArtifacts) -> str:
@@ -568,8 +584,8 @@ _spec(
     assert_effect=_export_file_effect("revolve_export.csv"),
     observe=_export_file_read("revolve_export.csv"),
     effect_note=(
-        "the CCS file the command names exists and is not empty, written from the six "
-        "arguments of the signature heading"
+        "the CCS file the command names exists and is not empty, written in the argument "
+        "form the build's grammar states"
     ),
 )
 
@@ -723,9 +739,11 @@ def _signal_blocks(artifacts: ProbeArtifacts) -> list[tuple[str, list[list[float
             blocks.append((text.split(":", 1)[1].strip(), []))
         elif blocks and re.match(r"^[-+0-9.]", text):
             try:
-                blocks[-1][1].append([float(token) for token in text.split()])
+                row = [float(token) for token in text.split()]
             except ValueError:
                 continue
+            if all(math.isfinite(value) for value in row):
+                blocks[-1][1].append(row)  # nan and inf are not pressures
     return blocks
 
 
@@ -779,9 +797,9 @@ def _compute_effect(artifacts: ProbeArtifacts) -> bool | None:
     return True if any(data for _, data in blocks) else None
 
 
-def _export_effect(artifacts: ProbeArtifacts) -> bool:
+def _export_effect(artifacts: ProbeArtifacts) -> bool | None:
     blocks = _signal_blocks(artifacts)
-    return bool(blocks)
+    return True if blocks else None
 
 
 def _section_effect(artifacts: ProbeArtifacts) -> bool | None:
