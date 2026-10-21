@@ -1233,6 +1233,7 @@ def _delete_applied(
     """Remove the checked simulations, their own products and their records; fill ``entry``."""
     ids = [str(item["sim_id"]) for item in entry["sims"]]
     stamp = _stamp()
+    entry["delete_stamp"] = stamp
     # THE FOLDERS GO FIRST, links undone before anything is removed: a
     # refusal there leaves the records, the products and the mesh as they were.
     links_undone: dict[str, list[str]] = {}
@@ -1263,9 +1264,12 @@ def _delete_applied(
                 "deleted_run_ids": item["run_ids"],
                 "note": (
                     "this simulation id belonged to a simulation deleted by pyfs-matrix "
-                    f"delete-sims; the full entry is call {index} of {STORAGE_FILE}"
+                    f"delete-sims; the full entry is call {index} of {STORAGE_FILE}, or the "
+                    f'call whose "delete_stamp" is {stamp} when another command recorded '
+                    "a call in between"
                 ),
                 "storage_entry": index,
+                "delete_stamp": stamp,
             }
         )
     _replace_rows(workspace, manifest, kept)

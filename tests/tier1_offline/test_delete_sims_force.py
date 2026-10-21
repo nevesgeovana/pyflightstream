@@ -303,3 +303,22 @@ def test_f747_a_planted_name_at_the_temporary_path_is_not_written_through(tmp_pa
     storage_module._atomic_copy(source, target, root=tmp_path)
     assert victim.read_text(encoding="utf-8") == "precious"
     assert target.read_text(encoding="utf-8") == "new"
+
+
+def test_f1234_a_tombstone_names_its_call_by_stamp_when_another_call_intervenes(
+    tmp_path, monkeypatch
+):
+    workspace = _workspace(tmp_path)
+    original = storage_module._replace_rows
+
+    def _with_a_concurrent_call(*args, **kwargs):
+        storage_module.record_storage_call(workspace.root, {"action": "other-command"})
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(storage_module, "_replace_rows", _with_a_concurrent_call)
+    storage_module.delete_sims(workspace.root, ["6002"], apply=True)
+    tombstone = next(row for row in _rows(workspace) if row.get("deleted_sim") == "6002")
+    calls = storage_module.read_storage_calls(workspace.root)
+    by_stamp = [c for c in calls if c.get("delete_stamp") == tombstone["delete_stamp"]]
+    assert by_stamp
+    assert by_stamp[-1]["action"] == "delete-sims" and by_stamp[-1]["applied"] is True
