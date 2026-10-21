@@ -63,6 +63,7 @@ def _registered_sources() -> set[str]:
     }
 
 
+@pytest.mark.requirement("FR-36")
 def test_render_html_covers_the_whole_database():
     page = render_html()
     assert page.startswith("<!DOCTYPE html>")
@@ -174,6 +175,7 @@ def test_compatibility_matrix_is_honest_about_missing_evidence():
     assert "[SET_SOLVER_STEADY](reference/solver_settings.md#set_solver_steady)" in page
 
 
+@pytest.mark.requirement("FR-36")
 def test_html_reference_carries_the_manual_coverage_section():
     page = render_html()
     assert "Manual coverage" in page
@@ -186,6 +188,7 @@ def test_html_reference_carries_the_manual_coverage_section():
     assert "not absent from the manual" in page
 
 
+@pytest.mark.requirement("FR-36")
 def test_markdown_index_carries_the_manual_coverage_section():
     pages = markdown_reference_pages()
     index = pages["index.md"]
@@ -213,6 +216,7 @@ def test_markdown_index_carries_the_manual_coverage_section():
         )
 
 
+@pytest.mark.requirement("FR-36")
 def test_coverage_gap_analysis_is_derived_not_guessed():
     from pyflightstream.reference import (
         _coverage_notes,

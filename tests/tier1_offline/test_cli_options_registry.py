@@ -934,3 +934,29 @@ def test_every_allowlisted_destination_covers_the_subcommands_it_says():
         "pyflightstream.options if it is a machine knob, or update this pin in the "
         "same commit if the spread is intended."
     )
+
+
+@pytest.mark.requirement("FR-40")
+@pytest.mark.parametrize("key", sorted({key for key, _probe in RESOLVED.values()}))
+def test_a_registered_option_states_its_type_default_and_domain(key):
+    """FR-40: a registered option carries a default its own domain accepts and a type it enforces.
+
+    The domain is the option's validator: the declared default passes it, and a value of another
+    type is refused, so the option is not a free-form string a flag could smuggle anything into.
+    """
+    from pyflightstream.options import (
+        OptionError,
+        describe_option,
+        get_option,
+        reset_option,
+        set_option,
+    )
+
+    reset_option(key)
+    default = get_option(key)
+    assert default is not None
+    assert "default" in describe_option(key)
+    set_option(key, default)
+    with pytest.raises(OptionError):
+        set_option(key, object())
+    reset_option(key)
