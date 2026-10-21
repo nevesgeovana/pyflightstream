@@ -510,3 +510,61 @@ def test_the_spline_equals_scipys_not_a_knot_where_scipy_is_installed():
         assert float(np.abs(not_a_knot(y, p) - spline(p)).max()) < 1e-12
         natural = interpolate.CubicSpline(np.arange(m + 1), y, axis=0, bc_type="natural")
         assert float(np.abs(not_a_knot(y, p) - natural(p)).max()) > 1e-6
+
+
+def test_f326_a_short_zipper_tube_is_recovered():
+    """F-326 (FR-424): a zipper tube of few cells, mostly triangles by count, is still a grid."""
+    for stations, nodes in ((2, 6), (3, 6), (2, 8)):
+        fx = build_grid(Fixture("short", True, stations, nodes, ("zipper", "zipper"), None))
+        grid = _recovered(fx)
+        assert grid.ids.shape == (stations, nodes)
+        assert grid.ends == ("zipper", "zipper")
+
+
+def test_f328_a_twisted_grid_keeps_its_trailing_edge_column():
+    """F-328 (FR-424): the alignment that keeps the trailing edge a column beats the shortest."""
+    stations, nodes = 4, 8
+    verts = np.array(
+        [
+            [
+                np.cos(2 * np.pi * (i - 0.9 * k) / nodes),
+                np.sin(2 * np.pi * (i - 0.9 * k) / nodes),
+                1.0 + 0.5 * k,
+            ]
+            for k in range(stations)
+            for i in range(nodes)
+        ]
+    )
+
+    def gid(k, i):
+        return k * nodes + i % nodes
+
+    faces = []
+    for k in range(stations - 1):
+        for i in range(nodes):
+            faces.append([gid(k, i), gid(k, i + 1), gid(k + 1, i + 1)])
+            faces.append([gid(k, i), gid(k + 1, i + 1), gid(k + 1, i)])
+    grid = recover_grid(verts, faces, {gid(k, 0) for k in range(stations)})
+    assert isinstance(grid, Grid), grid
+    assert [int(v) for v in grid.ids[:, 0]] == [gid(k, 0) for k in range(stations)]
+
+
+def test_f329_a_sweep_starting_inside_the_ring_is_read_across_the_seam():
+    """F-329 (FR-921): the sweep's direction does not rest on cells zero and one being adjacent."""
+    from pyflightstream.workspace._refine._grid import _source_sweep
+
+    grid = _recovered(tube_pole_quads())
+    k, n = grid.ids.shape
+    for start, step in ((1, 1), (n - 2, -1), (5, 1)):
+        cols = [(start + step * t) % n for t in range(n)]
+        faces = []
+        for row in range(k - 1):
+            for i in cols:
+                j = (i + 1) % n
+                ids = grid.ids
+                faces.append(
+                    [int(ids[row, i]), int(ids[row, j]), int(ids[row + 1, j]), int(ids[row + 1, i])]
+                )
+        sweep = _source_sweep(grid, faces)
+        assert sweep is not None, (start, step)
+        assert (sweep.i_dir, sweep.start_i) == (step, start)

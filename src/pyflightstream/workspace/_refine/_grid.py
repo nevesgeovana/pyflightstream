@@ -45,7 +45,8 @@ row of cells between an end station and the station next to it: that inner
 station's parameter stays the source's integer, so the row is refined
 chordwise only and the spanwise factor applies to the stations between the
 kept rows. The orchestrator asks for it on the end that meets another
-component, where the row's width sets how far the last wake filament shed by
+component, where the row's width sets (FR-950; stated as the reason for the option, no dated
+report measures the distance) how far the last wake filament shed by
 the trailing edge is from that component.
 
 Face order (FR-921): when the source's lateral faces form one sweep (each cell's
@@ -410,7 +411,7 @@ def _zipper_caps(faces: Faces) -> tuple[set[int], set[int]]:
     """
     tris = [k for k, f in enumerate(faces) if len(f) == 3]
     removed: set[int] = set()
-    if not tris or len(tris) >= len(faces) // 4:
+    if not tris or len(tris) == len(faces):
         return removed, set()
     emap, vface = edge_faces(faces), _vertex_faces(faces)
     for t in tris:
@@ -435,7 +436,9 @@ def _strip_from(
         cur = nxt[0]
         strip.append(cur)
         if len(faces[cur]) == 3:
-            return strip
+            # A cap holds a quadrilateral between its two triangles; two triangles side by
+            # side are the corner of a triangulated grid (F-326).
+            return strip if len(strip) > 2 else None
         found = _opposite_edge(faces[cur], entry)
         if found is None:
             return None
@@ -672,22 +675,34 @@ def _rows(
         first = first[at[0] :] + first[: at[0]]
     rows = [first]
     for k in range(1, len(layers)):
-        rows.append(_align(verts, layers[k], rows[-1], adj, k))
+        rows.append(_align(verts, layers[k], rows[-1], adj, k, te))
     return rows, pole
 
 
 def _align(
-    verts: Points, layer: list[int], prev: list[int], adj: Mapping[int, set[int]], k: int
+    verts: Points,
+    layer: list[int],
+    prev: list[int],
+    adj: Mapping[int, set[int]],
+    k: int,
+    te: frozenset[int] = frozenset(),
 ) -> list[int]:
-    """Order a station so each node neighbours the node of the previous station."""
+    """Order a station so each node neighbours the node of the previous station.
+
+    Of the alignments that hold, the one that puts a trailing-edge node under
+    every trailing-edge node of the previous station wins, and the shortest
+    among those: a twisted grid's shortest alignment can shift the trailing
+    edge off its column (F-328).
+    """
     cand, cyclic = _chain_order(layer, adj)
-    best, best_d = None, math.inf
+    best, best_d = None, (math.inf, math.inf)
     for seq in (cand, cand[::-1]):
         shifts = [s for s, v in enumerate(seq) if v in adj[prev[0]]] if cyclic else [0]
         for s in shifts:
             option = seq[s:] + seq[:s]
             if all(u in adj[w] for u, w in zip(option, prev, strict=True)):
-                d = float(numpy.linalg.norm(verts[option] - verts[prev], axis=1).sum())
+                off = sum((u in te) != (w in te) for u, w in zip(option, prev, strict=True))
+                d = (off, float(numpy.linalg.norm(verts[option] - verts[prev], axis=1).sum()))
                 if d < best_d:
                     best, best_d = option, d
     if best is None:
@@ -1218,25 +1233,29 @@ def _source_sweep(grid: Grid, faces: Faces) -> _Sweep | None:
     if not cells or any(ps != list(range(ps[0], ps[0] + len(ps))) for ps in cells.values()):
         return None
     pos = {c: ps[0] for c, ps in cells.items()}
-    p00 = pos.get((0, 0), 0)
-    # ONE ROW OR ONE COLUMN OF CELLS STATES NO STEP ACROSS IT (PFS-2099.018): the missing
-    # neighbour read as position 0 reversed that direction and turned a one-row sheet,
-    # refined spanwise, into columns from the far station. Such a source runs along its
-    # one direction, forward across the other.
-    one_row, one_column = (1, 0) not in pos, (0, 1) not in pos
-    if one_row or one_column:
-        k_major = one_row
-    else:
-        k_major = abs(pos[(1, 0)] - p00) > abs(pos[(0, 1)] - p00)
-    i_dir = 1 if one_column or pos[(0, 1)] > p00 else -1
-    k_dir = 1 if one_row or pos[(1, 0)] > p00 else -1
-    first_row = [c for c in cells if c[0] == (0 if k_dir == 1 else k - 2)]
-    if not first_row:
+    # THE SWEEP IS READ FROM ITS START CELL, NOT FROM CELLS ZERO AND ONE (F-329): across the
+    # ordering seam of a sweep that starts inside a ring those two cells are not neighbours
+    # in the file. The first cell in file order gives the start row and the start column,
+    # and the direction of the sweep is the combination whose order the source reproduces.
+    # ONE ROW OR ONE COLUMN OF CELLS STATES NO STEP ACROSS IT (PFS-2099.018): such a source
+    # runs along its one direction, forward across the other.
+    start_k, start_i = min(pos, key=pos.__getitem__)
+    if start_k not in (0, k - 2):
         return None
-    start_i = min(first_row, key=pos.__getitem__)[1]
+    k_dir = 1 if start_k == 0 else -1
+    one_column = (0, 1) not in pos and (1, 0) in pos
+    order = (False, True) if one_column else (True, False)
+    expected = sorted(cells, key=pos.__getitem__)
     ks = _sequence(k - 1, 0, k_dir, False)
-    cols = _sequence(grid.intervals[0], start_i, i_dir, grid.wrap)
-    if _cells_in_order(ks, cols, k_major) != sorted(cells, key=pos.__getitem__):
+    for k_major in order:
+        for i_dir in (1, -1):
+            cols = _sequence(grid.intervals[0], start_i, i_dir, grid.wrap)
+            if _cells_in_order(ks, cols, k_major) == expected:
+                break
+        else:
+            continue
+        break
+    else:
         return None
     templates = {
         c: _template(c, [faces[p] for p in ps], where, n, grid.wrap) for c, ps in cells.items()
