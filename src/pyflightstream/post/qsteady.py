@@ -230,7 +230,9 @@ def _number(text: object) -> float | None:
 def _read_table(path: Path) -> tuple[list[str], list[list[str]]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.reader(handle)
-        columns = next(reader)
+        columns = next(reader, None)
+        if not columns:
+            raise ProductError(f"{path.name}: empty sections table; export its header and rows")
         return columns, [row for row in reader]
 
 

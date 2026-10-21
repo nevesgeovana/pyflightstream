@@ -398,6 +398,22 @@ def _record(rpm: float) -> arithmetic.QsteadyRecord:
     )
 
 
+def test_p0430_empty_clocking_sections_is_named(tmp_path):
+    record = _record(1200)
+    table = tmp_path / "sections.csv"
+    table.write_text("FAMILY,PLANE,Offset\nBlade1,XZ,1\n", encoding="utf-8")
+    for position in record.positions[1:]:
+        (tmp_path / position.section_exports["sectional_loads"]).write_text("export")
+
+    def empty(path, text):
+        path.write_text("", encoding="utf-8")
+        return path
+
+    result = post_qsteady.add_clockings_to_sections(table, record, tmp_path, tabled=empty)
+    assert set(result.missing) == {1, 2}
+    assert all("empty" in reason for reason in result.missing.values())
+
+
 @pytest.mark.parametrize((), [pytest.param(id="P0430-F-785")])
 def test_p0430_missing_clocking_zero_keeps_surviving_exports(tmp_path, monkeypatch):
     from pyflightstream.post.section_distributions import write_section_distributions
