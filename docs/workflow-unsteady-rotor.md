@@ -218,7 +218,7 @@ for any key outside that vocabulary. For example, `FOO_BAR: 1` is refused
 because the workflow cannot emit it. The row
 
 ```text
-7007 | Wing | REFUSED | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r001 | s001 | p002 | 26.120 | 0 | 1 | steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / FOO_BAR: 1
+7007 | 0 | 1 | Wing | - | REFUSED | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | r001 | s001 | p002 | - | - | - | - | 26.120 | steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / FOO_BAR: 1
 ```
 
 is marked BLOCKED with the reason naming the row (`case '7007'`), the run
