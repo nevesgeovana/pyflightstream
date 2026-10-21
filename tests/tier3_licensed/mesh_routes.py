@@ -29,6 +29,7 @@ route answers it, either way.
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import subprocess
@@ -97,7 +98,13 @@ def committed_band(repo: Path = REPO) -> float | None:
 
 
 def relative_gap(value: float, control: float, floor: float = FLOOR) -> float:
-    """``|value - control|`` over the larger magnitude of the two, or ``floor`` if larger."""
+    """``|value - control|`` over the larger magnitude of the two, or ``floor`` if larger.
+
+    A coefficient that is not a finite number is an infinite gap: ``max`` drops a NaN gap and a
+    failed run would read as inside the band.
+    """
+    if not (math.isfinite(value) and math.isfinite(control)):
+        return math.inf
     return abs(value - control) / max(abs(value), abs(control), floor)
 
 

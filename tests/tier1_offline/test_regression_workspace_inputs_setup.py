@@ -1844,3 +1844,17 @@ def test_f343_a_pin_that_is_not_a_finite_number_is_refused_on_a_row_and_in_defau
         resolve_flight_condition({"MACH": 0.2, "TK": value}, pol="P1")
     with pytest.raises(FlightConditionError, match="positive, finite"):
         canonical_condition_defaults({"RHOkgm3": value}, "the defaults")
+
+
+def test_x_f_0439_a_nan_coefficient_is_an_infinite_gap_and_falls_outside_the_band():
+    """``max`` drops a NaN gap: the mesh-route band helper turns it into an infinite one."""
+    from tests.tier3_licensed import mesh_routes
+
+    nan = float("nan")
+    route = {"CL": nan, "CDi": 0.1, "CMy": 0.2}
+    control = {"CL": 0.5, "CDi": 0.1, "CMy": 0.2}
+    table = {"routes": {"p": {"banded": True, "gaps": mesh_routes.gaps(route, control)}}}
+    assert mesh_routes.relative_gap(nan, 0.5) == float("inf")
+    assert mesh_routes.relative_gap(0.5, float("inf")) == float("inf")
+    assert mesh_routes.relative_gap(0.5, 0.5) == 0.0
+    assert "p" in mesh_routes.outside(table, 0.01)
