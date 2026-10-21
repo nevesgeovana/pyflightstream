@@ -258,6 +258,12 @@ def export_window(
     """
     if time_iterations < 1:
         raise CampaignConfigError("an export window requires at least one solver time step")
+    if delta_theta_deg is not None and not delta_theta_deg > 0.0:
+        raise CampaignConfigError(
+            f"the export window is given an azimuthal step of {delta_theta_deg} degrees, and "
+            "a step advances the rotor by a positive angle; the window would otherwise be "
+            "recorded in negative degrees and revolutions."
+        )
     given = {
         name: value
         for name, value in (
@@ -1030,17 +1036,24 @@ def _flat_row_passages(
         blade_span: tuple[int, int] | None = (max(span[1] - wanted + 1, 1), span[1])
         window_from = f"the averaging window the row states, {wanted} steps, shared by every blade"
     else:
-        blade_span = per_blade_window(last_step=span[1], blades=blades, period_steps=period)
+        # THE LAST REVOLUTION IN WHOLE STEPS, rounded once: blades times a rounded
+        # blade passage is not a revolution (five blades of 7.2 steps made 35, not 36).
+        whole_revolution = int(round(per_revolution))
+        blade_span = (
+            (span[1] - whole_revolution + 1, span[1])
+            if whole_revolution >= 1 and span[1] - whole_revolution + 1 >= 1
+            else None
+        )
         window_from = (
-            f"the last revolution of the run, {blades} blades of {period} steps, "
-            "shared by every blade"
+            f"the last revolution of the run, {whole_revolution} steps over {blades} "
+            "blades, shared by every blade"
         )
     if blade_span is None:
         plan["per_blade"] = {
             "skipped": (
-                f"the run is {span[1]} steps and {blades} blades of {period} steps each "
-                f"need {blades * period}, so it holds no complete revolution to split "
-                "by blade"
+                f"the run is {span[1]} steps and one revolution of {blades} blades is "
+                f"{int(round(per_revolution))} steps, so it holds no complete revolution "
+                "to split by blade"
             )
         }
     else:

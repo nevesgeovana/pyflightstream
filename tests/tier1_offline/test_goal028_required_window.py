@@ -121,3 +121,37 @@ def test_a_non_finite_walltime_margin_is_refused(text):
 
     with pytest.raises(CampaignConfigError, match="finite"):
         walltime_margin_s(_case("unsteady", WALLTIME_MARGIN_S=text))
+
+
+# --- F5-1112: reductions (F-072, F-074) ------------------------------------------
+
+
+@pytest.mark.parametrize("theta", [0.0, -10.0])
+def test_f072_an_export_window_refuses_a_non_positive_azimuthal_step(theta):
+    from pyflightstream.cases.workflows import export_window
+
+    with pytest.raises(CampaignConfigError, match="positive angle"):
+        export_window(revolutions=1.0, rpm=1200.0, delta_theta_deg=theta, time_iterations=144)
+    window = export_window(
+        revolutions=1.0,
+        rpm=1200.0,
+        delta_time_s=10.0 / (6.0 * 1200.0),
+        delta_theta_deg=10.0,
+        time_iterations=144,
+    )
+    assert window.revolutions == pytest.approx(1.0) and window.degrees == pytest.approx(360.0)
+
+
+def test_f074_the_flat_blade_window_is_one_whole_revolution_not_blades_times_a_rounded_passage():
+    from pyflightstream.cases.workflows import reduction_windows
+
+    case = _case(
+        "unsteady_rotor",
+        RPM="1200",
+        DELTA_THETA="10",
+        REVOLUTIONS="4",
+        BLADES="5",
+        LAST_REVS_AVG="1",
+    )
+    plan = reduction_windows(case)
+    assert plan is not None and plan["per_blade"]["windows"] == [[109, 144]]
