@@ -125,9 +125,10 @@ class HpcProfile:
     #: unknown value is refused by name rather than silently taken as one of
     #: these two.
     walltime_arithmetic: str = "wall"
-    #: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG. Some machines abort at
-    #: ``EXPORT_LOG`` and write their own log beside the run instead, so the profile
-    #: says it rather than the package assuming one shape of machine.
+    #: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG. A profile switch: ``false`` leaves
+    #: ``EXPORT_LOG`` out of the script for a scheduler that writes its own log
+    #: beside the run, which ``native_log`` then names; the profile says it rather
+    #: than the package assuming one shape of machine.
     export_log: bool = True
     #: THE LOG THAT MACHINE WRITES ITSELF, as a glob relative to the run's
     #: working directory, for example ``FTS{sim}.l*``. `collect` copies the one
@@ -401,11 +402,11 @@ def _read_log_table(
     if not export_log and native_log is None:
         raise InputArtifactError(
             f"the HPC profile {target} states export_log = false and no native_log, which "
-            "asks for a run with no log at all. This package judges an unsteady run BY its "
-            "log -- the time loop always reaches its prescribed end, so without one every "
-            "such run is recorded COMPLETED_MAX_ITER whether it converged at every step or "
-            'at none. Name the log your scheduler writes, as native_log = "FTS{sim}.l*", '
-            "or leave export_log alone and let the script write it."
+            "asks for a run with no log at all. By the rule of this package an unsteady run is "
+            "judged BY its log: the time loop reaches its prescribed end, so without one "
+            "the run can only be recorded COMPLETED_MAX_ITER, converged or not. Name the "
+            'log your scheduler writes, as native_log = "FTS{sim}.l*", or leave '
+            "export_log alone and let the script write it."
         )
     return log, export_log, native_log
 
