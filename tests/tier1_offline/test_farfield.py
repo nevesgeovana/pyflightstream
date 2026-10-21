@@ -523,3 +523,21 @@ def test_lateral_flux_accepts_bounds_within_roundoff_like_the_annular_lookup():
     exact = lateral_flux(fields, rho=RHO, inlet=first, outlet=last)
     nudged = lateral_flux(fields, rho=RHO, inlet=first, outlet=last * (1 + 4e-16) + 1e-15)
     assert nudged == pytest.approx(exact, rel=1e-12)
+
+
+def test_mass_closure_states_a_zero_mean_instead_of_an_unlabelled_nan():
+    """PFS-2120.007: zero mean with zero spread differs from zero mean with nonzero spread."""
+    fields = uniform_fields()
+    fields["u"] = np.zeros(SHAPE)
+    closed = mass_closure(make_dataset(fields), RHO)
+    assert closed.status == "zero-mean-zero-spread"
+    assert closed.absolute_spread == 0.0
+    assert np.isnan(closed.relative_spread)
+
+    signs = np.array([1.0, -1.0, 1.0, -1.0])[:, None, None]
+    fields["u"] = np.full(SHAPE, V_INF) * signs
+    open_ = mass_closure(make_dataset(fields), RHO)
+    assert open_.status == "zero-mean-nonzero-spread"
+    assert open_.absolute_spread == pytest.approx(float(np.abs(open_.mdot).max()))
+    assert open_.absolute_spread > 0.0
+    assert mass_closure(make_dataset(uniform_fields()), RHO).status == "ok"

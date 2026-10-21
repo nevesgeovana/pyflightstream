@@ -10,6 +10,14 @@ Trefftz C calls too (FR-1003).
 Solver asymmetry, by design (DLV-006 Sec. 2.3): the FlightStream side runs the
 purely kinematic, reversible balances with the constant free-stream density;
 any cross-solver delta in a reversible channel is numerics, never physics.
+
+Units: the ledgers are in the units of the field samples times
+``tip_radius`` squared (forces and moments gain one further factor), with no
+unit conversion in the balances. They are SI only when ``tip_radius`` is given
+in metres and the fields are in SI; a radius held in the simulation's length
+unit must be converted by the caller first, which is the same unit discipline
+as the length unit stated when probe points are imported
+(:func:`~pyflightstream.probes.layouts.emit_probe_import`).
 """
 
 from __future__ import annotations
@@ -61,11 +69,21 @@ class MassClosure:
         Mass flow through each annular plane, kg/s.
     relative_spread : float
         ``max |mdot - mean| / |mean|`` over the stations; NaN where any
-        station is incomplete.
+        station is incomplete or where the mean is zero (see ``status``).
+    absolute_spread : float
+        ``max |mdot - mean|`` in kg/s; NaN where any station is incomplete.
+    status : str
+        ``"ok"`` when ``relative_spread`` is defined; ``"incomplete"`` where a
+        station has a missing sample; ``"zero-mean-zero-spread"`` for a zero
+        mean with every station equal (nothing flows anywhere); and
+        ``"zero-mean-nonzero-spread"`` for a zero mean with unequal stations,
+        where only ``absolute_spread`` carries the answer.
     """
 
     mdot: np.ndarray
     relative_spread: float
+    absolute_spread: float = float("nan")
+    status: str = "ok"
 
 
 @dataclass(frozen=True)
@@ -136,8 +154,19 @@ def mass_closure(fields: LatticeFields, rho: float) -> MassClosure:
     """
     mdot = mass_flux(fields, rho)
     mean = mdot.mean()
-    spread = float((np.abs(mdot - mean)).max() / np.abs(mean))
-    return MassClosure(mdot=mdot, relative_spread=spread)
+    absolute = float(np.abs(mdot - mean).max())
+    if not np.isfinite(absolute):
+        return MassClosure(
+            mdot=mdot, relative_spread=float("nan"), absolute_spread=absolute, status="incomplete"
+        )
+    if mean == 0.0:
+        status = "zero-mean-zero-spread" if absolute == 0.0 else "zero-mean-nonzero-spread"
+        return MassClosure(
+            mdot=mdot, relative_spread=float("nan"), absolute_spread=absolute, status=status
+        )
+    return MassClosure(
+        mdot=mdot, relative_spread=absolute / float(abs(mean)), absolute_spread=absolute
+    )
 
 
 def axial_flux(fields: LatticeFields, rho: float, v_inf: float) -> np.ndarray:
@@ -440,7 +469,10 @@ def in_plane_moment(
     Returns
     -------
     InPlaneMoment
-        Loading, moment-arm and total moment terms in N m.
+        Loading, moment-arm and total moment terms in N m. The total is
+        plane-only: unlike :func:`transverse_force` it has no lateral-cylinder
+        term, so it is valid where the lateral flux vanishes (zero incidence,
+        or a lateral cylinder at free stream).
 
     Raises
     ------
