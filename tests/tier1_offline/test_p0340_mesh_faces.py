@@ -508,3 +508,55 @@ def test_the_definitions_page_and_the_glossary_state_the_column_fr_348():
     assert "uns_avg" in section and "super file" in section, requirement
     assert "(the-mesh-face-count.md#the-mesh-face-count-since-0340)" in page, requirement
     assert {"mesh_faces", "boundary_faces", "mesh_sha256"} <= set(GEOMETRY_SIDECAR_KEYS)
+
+
+def test_f1211_names_read_before_a_replacement_get_no_new_digest_fr_704(tmp_path, monkeypatch):
+    """FR-704: a mesh replaced while its names are read is never paired with the new digest."""
+    from pyflightstream.workspace import sidecars
+
+    wing = _saved_simulation(tmp_path / "wing.fsm", ["Body", "Base"], [1, 1, 2])
+    other = _saved_simulation(tmp_path / "other.fsm", ["Side"], [1, 1])
+    real = sidecars.boundary_names
+
+    def replaced_after_reading(path):
+        names = real(path)
+        Path(path).write_bytes(other.read_bytes())
+        return names
+
+    monkeypatch.setattr(sidecars, "boundary_names", replaced_after_reading)
+    sidecars.write_inventory(wing)
+    stated = _sidecar(wing)
+    assert stated["boundaries"] == ["Body", "Base"]
+    assert "mesh_sha256" not in stated and "mesh_faces" not in stated
+
+
+def test_f1212_an_obj_changed_while_its_groups_are_read_is_refused_fr_704(tmp_path, monkeypatch):
+    """FR-704: an OBJ inventory never records earlier names beside a later digest."""
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace import sidecars
+
+    mesh = tmp_path / "rotor.obj"
+    face = "f 1 2 3\n"
+    corners = "v 0 0 0\nv 1 0 0\nv 0 1 0\n"
+    mesh.write_text(corners + "g Hub\n" + face, encoding="utf-8")
+    real = sidecars.obj_boundary_names
+
+    def replaced_after_reading(path):
+        names = real(path)
+        Path(path).write_text(corners + "g Tip\n" + face * 2, encoding="utf-8")
+        return names
+
+    monkeypatch.setattr(sidecars, "obj_boundary_names", replaced_after_reading)
+    with pytest.raises(InputArtifactError, match="changed while its groups were read"):
+        sidecars.ensure_inventory(mesh)
+    assert not mesh.with_name("rotor.boundaries.toml").exists()
+
+
+def test_f1231_a_bom_prefixed_inventory_states_its_faces_the_same_way(tmp_path):
+    """FR-704: the face count reader accepts the byte-order mark every other reader accepts."""
+    from pyflightstream.workspace.sidecars import stated_mesh_faces
+
+    sidecar = tmp_path / "wing.boundaries.toml"
+    text = 'boundaries = ["A"]\nmesh_faces = 3\nmesh_sha256 = "ab"\n'
+    sidecar.write_bytes(chr(0xFEFF).encode("utf-8") + text.encode("utf-8"))
+    assert stated_mesh_faces(sidecar) == (3, "ab")

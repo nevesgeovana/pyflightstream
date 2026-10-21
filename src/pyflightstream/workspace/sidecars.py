@@ -200,6 +200,9 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
             "from the mesh block, after checking that the file is the one the sidecar "
             "should describe."
         )
+    # Taken before the names are read, so a file replaced while they are read is never
+    # paired with the digest of its replacement (FR-704).
+    sealed = _sealed_digest(path)
     try:
         names = boundary_names(path)
     except MeshReadError as error:
@@ -221,7 +224,7 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
         "boundaries = [",
         *[f"    {_toml_string(name)}," for name in names],
         "]",
-        *face_count_lines(path, len(names), obj=False),
+        *face_count_lines(path, len(names), obj=False, sealed=sealed),
     ]
     _textio.write_text(sidecar, "\n".join(body) + "\n")
     return sidecar
@@ -404,10 +407,16 @@ def ensure_inventory(geometry: str | Path) -> Path:
     if sidecar.exists():
         _compare_with_the_groups(path, sidecar)
         return sidecar
+    sealed = _sealed_digest(path)
     names = obj_boundary_names(path)
+    if sealed is not None and _sealed_digest(path) != sealed:
+        raise InputArtifactError(
+            f"{path} changed while its groups were read, so no sidecar is written for it. "
+            "Run this again once the file is no longer being replaced."
+        )
     body = [
         f"# Written by pyflightstream from the groups of {path.name}, which had no sidecar;",
-        f"# the OBJ's sha256 was {file_sha256(path)}.",
+        f"# the OBJ's sha256 was {sealed or file_sha256(path)}.",
         "# One boundary per `o` or `g` group holding a face, named by the group, in the",
         "# order of the file: how the solver numbers an OBJ's surfaces on import",
         "# (RPT-078). The package never rewrites this file. Add the [import] table with",
@@ -416,7 +425,7 @@ def ensure_inventory(geometry: str | Path) -> Path:
         "boundaries = [",
         *[f"    {_toml_string(name)}," for name in names],
         "]",
-        *face_count_lines(path, len(names), obj=True),
+        *face_count_lines(path, len(names), obj=True, sealed=sealed),
     ]
     _textio.write_text(sidecar, "\n".join(body) + "\n")
     print(
@@ -528,8 +537,21 @@ def obj_face_counts(path: str | Path) -> tuple[int, ...]:
     return tuple(counts)
 
 
+def _sealed_digest(path: Path) -> str | None:
+    """Return the file's sha256 taken before its names are read, or None if unreadable."""
+    try:
+        return file_sha256(path)
+    except OSError:
+        return None
+
+
 def face_count_lines(
-    geometry: Path, boundaries: int, *, obj: bool, digest: Callable[[Path], str] = file_sha256
+    geometry: Path,
+    boundaries: int,
+    *,
+    obj: bool,
+    digest: Callable[[Path], str] = file_sha256,
+    sealed: str | None = None,
 ) -> list[str]:
     """Return the inventory lines stating a geometry's face count, or none (FR-348).
 
@@ -549,6 +571,10 @@ def face_count_lines(
     digest : callable, optional
         The sha256 of a file, read before and after the count (the file's own
         :func:`~pyflightstream._digest.file_sha256` unless another is given).
+    sealed : str, optional
+        The sha256 taken before the inventory's boundary names were read. The
+        lines are written only when it equals the digests taken around the count,
+        so the names, the count and the digest are of the same bytes.
 
     Returns
     -------
@@ -561,7 +587,7 @@ def face_count_lines(
         after = digest(geometry)
     except (MeshReadError, OSError, UnicodeDecodeError):
         return []
-    if counted is None or before != after:
+    if counted is None or before != after or (sealed is not None and sealed != before):
         return []
     total, per_boundary = counted
     lines = [
@@ -602,7 +628,8 @@ def stated_mesh_faces(sidecar: Path) -> tuple[int, str] | None:
         The face count and the sha256, or None.
     """
     try:
-        data = tomllib.loads(sidecar.read_text(encoding="utf-8"))
+        # utf-8-sig, as every other reader of the sidecar decodes it (a BOM is accepted).
+        data = tomllib.loads(sidecar.read_bytes().decode("utf-8-sig"))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
         return None
     count, digest = data.get(MESH_FACES_KEY), data.get(MESH_SHA256_KEY)
@@ -1092,6 +1119,7 @@ def read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMar
             "metres, within which an edge's mid-point counts as a point "
             "of the file, as a number such as 0.0001."
         )
+    tolerance = _as_float(where, "tolerance", tolerance)
     fields: dict[str, Any] = {}
     if "file" in table:
         written = table["file"]
@@ -1103,7 +1131,7 @@ def read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMar
         fields = {
             "route": "file",
             "edge_type": table.get("type", "STANDARD"),
-            "tolerance": float(tolerance),
+            "tolerance": tolerance,
             "points_file": str(path.parent / written.strip()),
         }
     else:
@@ -1148,8 +1176,19 @@ def _read_trailing_edge_detection(where: str, detect: object) -> dict[str, Any]:
             raise InputArtifactError(
                 f"{where}: detect states sweep_angle = {angle!r}; write it in degrees, as a number."
             )
-        fields["sweep_angle_deg"] = float(angle)
+        fields["sweep_angle_deg"] = _as_float(where, "detect sweep_angle", angle)
     return fields
+
+
+def _as_float(where: str, key: str, value: int | float) -> float:
+    """Return a sidecar number as a float, refusing an integer too large for one by name."""
+    try:
+        return float(value)
+    except OverflowError:
+        raise InputArtifactError(
+            f"{where} states {key} as a number too large to use; write a finite "
+            "number of ordinary size."
+        ) from None
 
 
 def _surface_names(where: str, surfaces: object, *, every: bool) -> tuple[str, ...]:

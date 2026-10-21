@@ -246,3 +246,34 @@ def test_p0430_f1517_an_obj_that_is_not_utf8_is_refused_not_merged_by_replacemen
     good = tmp_path / "good.obj"
     good.write_bytes(bad.read_bytes().replace(b"\xe9", "é".encode()))
     assert sorted(read_obj(good).families) == ["Wéa", "Wéb"]
+
+
+def test_fr_1620_the_workflow_reader_refuses_a_missing_or_unsupported_unit(tmp_path):
+    """FR-1620: no coordinate is used when the length-unit line is missing or unsupported."""
+    from pyflightstream.workspace.wake_edges import read_trailing_edge_points
+
+    for name, text in (
+        ("none", "2,0.5,0\n2,0.6,0\n"),
+        ("other", "OTHER\n2,0.5,0\n"),
+        ("word", "furlongs\n2,0.5,0\n"),
+    ):
+        path = tmp_path / f"{name}.te.txt"
+        path.write_text(text, encoding="utf-8")
+        with pytest.raises(InputArtifactError, match="unit"):
+            read_trailing_edge_points(path)
+
+
+@pytest.mark.parametrize(
+    "table,key",
+    [
+        ({"file": "a.te.txt", "tolerance": 10**400}, "tolerance"),
+        ({"detect": {"surfaces": ["Wing"], "sweep_angle": 10**400}}, "sweep_angle"),
+    ],
+)
+def test_f1541_f1542_an_oversized_integer_is_a_named_refusal(tmp_path, table, key):
+    """An integer too large for a float is the documented refusal, never an OverflowError."""
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace.sidecars import read_trailing_edges
+
+    with pytest.raises(InputArtifactError, match=key):
+        read_trailing_edges(tmp_path / "a.boundaries.toml", table)
