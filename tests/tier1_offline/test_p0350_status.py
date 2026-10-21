@@ -465,3 +465,34 @@ def test_a_planned_point_whose_record_cannot_be_read_is_not_called_planned(works
     assert _table(out)[1][3:] == ["0/2", MATRIX, "planned"]
     assert read_ledger(workspace).status(sims=["2007"])[0]["counts"] == {"planned": 1}
     assert f"(run {CAMPAIGN}/sim_2007/M144AL+040) cannot be read" in err
+
+
+@pytest.mark.parametrize("damage", ["reference", "artifact", "status", "not_object"])
+def test_p0430_query_keeps_readable_siblings_of_a_decode_failure(tmp_path, damage):
+    from pyflightstream.workspace import WorkspaceError
+
+    path = tmp_path / "runs.json"
+    rows = [_record(str(i), "point", RunStatus.CONVERGED) for i in range(3)]
+    document = encode_rows(rows)
+    bad = document["runs"][1]
+    if damage == "reference":
+        bad["frames_id"] = "missing"
+    elif damage == "artifact":
+        bad["artifact_indices"] = [-1]
+    elif damage == "status":
+        bad["status"] = "unknown"
+    else:
+        document["runs"][1] = None
+    path.write_text(json.dumps(document), encoding="utf-8")
+    before = path.read_bytes()
+    try:
+        ledger = read_ledger(tmp_path)
+    except WorkspaceError as error:
+        pytest.fail(f"one damaged row hid readable siblings: {error}")
+    assert {row["run_id"] for row in ledger.points()} == {rows[0]["run_id"], rows[2]["run_id"]}
+    assert len(ledger.unreadable) == 1
+    assert ledger.unreadable[0]["position"] == 2
+    assert ledger.unreadable[0]["run_id"] == (None if damage == "not_object" else rows[1]["run_id"])
+    assert path.read_bytes() == before
+    with pytest.raises(WorkspaceError):
+        CampaignWorkspace(tmp_path).read_raw_manifest()

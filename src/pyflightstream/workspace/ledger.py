@@ -673,8 +673,9 @@ def _read_records(path: Path) -> _Records:
     """Read the manifest's rows one by one, naming each row that cannot be read."""
     from pyflightstream.workspace.record_document import read_rows
 
+    unreadable: list[dict] = []
     try:
-        raw = read_rows(path)
+        raw = read_rows(path, unreadable=unreadable)
     except (OSError, ValueError) as error:
         raise WorkspaceError(
             f"runs (CLI: --runs): the manifest {path} cannot be read as JSON: {error}. "
@@ -682,7 +683,8 @@ def _read_records(path: Path) -> _Records:
         ) from error
     if not isinstance(raw, list):
         raise WorkspaceError(f"runs (CLI: --runs): the manifest {path} is not a list of rows")
-    out = _Records(records=[], raw=[], notes=[], unreadable=[])
+    out = _Records(records=[], raw=[], notes=[], unreadable=unreadable)
+    failed_positions = {item["position"] for item in unreadable}
     for position, row in enumerate(raw, start=1):
         if not isinstance(row, dict):
             out.unreadable.append({"position": position, "run_id": None, "error": "not a row"})
@@ -693,6 +695,8 @@ def _read_records(path: Path) -> _Records:
         # A row read or not still says which point it recorded: an unreadable
         # row is named, never counted as a point the plan has not reached.
         out.raw.append(row)
+        if position in failed_positions:
+            continue
         try:
             out.records.append(RunRecord.model_validate(row))
         except ValidationError as error:

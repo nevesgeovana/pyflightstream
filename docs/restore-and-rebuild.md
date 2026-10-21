@@ -274,5 +274,10 @@ manifest.
 
 The public `pyflightstream.workspace.record_document` module encodes resolved
 rows with `encode_rows`, validates and resolves documents with `decode_document`,
-and reads current manifests with `read_rows`. These functions preserve recorded
+and reads current manifests with `read_rows`. Query callers can pass an
+`unreadable` list to retain readable sibling rows and receive each damaged row's
+position, run identity and diagnostic. Damaged rows retain only their identity;
+these query results must not be used to replace a manifest. Writer reads omit
+the argument and refuse any damaged row. Invalid shared registries and document
+formats are refused in either mode. These functions preserve recorded
 evidence without consulting current workspace inputs.

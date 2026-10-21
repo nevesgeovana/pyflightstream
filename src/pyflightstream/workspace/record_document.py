@@ -176,7 +176,9 @@ def _encode_row(document: dict, source: dict):
     return header
 
 
-def decode_document(document: Any, *, source: str | Path = "runs.json") -> list[dict]:
+def decode_document(
+    document: Any, *, source: str | Path = "runs.json", unreadable: list[dict] | None = None
+) -> list[dict]:
     """Validate and resolve the current document without converting earlier formats.
 
     Parameters
@@ -185,6 +187,10 @@ def decode_document(document: Any, *, source: str | Path = "runs.json") -> list[
         Parsed JSON document in the current storage format.
     source : str or Path, optional
         Source filename used in a refusal.
+    unreadable : list of dict, optional
+        Query-only diagnostic sink. When supplied, row-local failures append
+        their one-based position, run identity and error. Failed rows retain only
+        their identity in the result. Omit this argument for strict writer reads.
 
     Returns
     -------
@@ -204,7 +210,18 @@ def decode_document(document: Any, *, source: str | Path = "runs.json") -> list[
     try:
         _validate_registries(document)
         ids: set[str] = set()
-        return [_decode_run(document, run, ids, source) for run in document["runs"]]
+        rows = []
+        for position, run in enumerate(document["runs"], start=1):
+            try:
+                rows.append(_decode_run(document, run, ids, source))
+            except (KeyError, TypeError, ValueError, AttributeError, WorkspaceError) as error:
+                if unreadable is None:
+                    raise
+                run_id = run.get("id") if isinstance(run, dict) else None
+                run_id = run_id if isinstance(run_id, str) else None
+                unreadable.append({"position": position, "run_id": run_id, "error": str(error)})
+                rows.append({"run_id": run_id})
+        return rows
     except (KeyError, TypeError, ValueError, AttributeError, WorkspaceError) as error:
         raise WorkspaceError(
             f"{source}: invalid schema_version={SCHEMA_VERSION} record: {error}"
@@ -318,13 +335,16 @@ def _decode_run(document: dict, run: dict, ids: set[str], source: str | Path):
     return row
 
 
-def read_rows(path: Path) -> list[dict]:
+def read_rows(path: Path, *, unreadable: list[dict] | None = None) -> list[dict]:
     """Read a current manifest; an absent file describes no executed runs.
 
     Parameters
     ----------
     path : Path
         Manifest file to read without taking a writer lock or changing the file.
+    unreadable : list of dict, optional
+        Query-only row diagnostics, as in :func:`decode_document`. Omit for strict
+        reads; malformed documents and shared registries are refused in both modes.
 
     Returns
     -------
@@ -342,4 +362,4 @@ def read_rows(path: Path) -> list[dict]:
         return []
     except (OSError, ValueError) as error:
         raise WorkspaceError(f"{path}: cannot read run records: {error}") from error
-    return decode_document(document, source=path)
+    return decode_document(document, source=path, unreadable=unreadable)
