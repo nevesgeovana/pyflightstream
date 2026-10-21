@@ -457,8 +457,8 @@ def write_tecplot_points(
         ``overwrite`` is False. Neither file is written when either is
         refused.
     ValueError
-        If ``points`` is not ``(n, 3)``, or a field's shape does not
-        match the probe count.
+        If ``points`` is not ``(n, 3)``, a field's shape does not
+        match the probe count, or two variables would carry the same name.
     """
     points, checked = _checked(points, fields)
     columns: list[tuple[str, np.ndarray]] = [
@@ -472,6 +472,14 @@ def write_tecplot_points(
         else:
             for axis, component in zip("xyz", array.T, strict=True):
                 columns.append((f"{name}_{axis}", component))
+    names = [name for name, _ in columns]
+    repeated = sorted({name for name in names if names.count(name) > 1})
+    if repeated:
+        # A reader keys the variables by name, so a repeated name silently drops a field.
+        raise ValueError(
+            f"the Tecplot variables {repeated} would be written more than once (a field named "
+            "like a coordinate, or a scalar named like a vector component): rename the field"
+        )
     lines = [
         f'TITLE = "{title}"',
         "VARIABLES = " + " ".join(f'"{name}"' for name, _ in columns),

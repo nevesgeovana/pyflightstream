@@ -1609,3 +1609,18 @@ def test_f3_0203_f1247_a_record_that_cannot_be_rendered_leaves_no_data_file(tmp_
         write_vtk_points(destination, np.zeros((2, 3)), provenance=bad)
     assert not destination.exists()
     assert not list(tmp_path.iterdir())
+
+
+def test_f3_0203_f167_duplicate_tecplot_variable_names_are_refused(tmp_path):
+    """F-167: a field named like a coordinate or a vector component is refused, nothing written."""
+    from pyflightstream.post.writers import write_tecplot_points
+    from tests.tier1_offline.test_post_writers import make_provenance
+
+    points = np.zeros((2, 3))
+    for fields in (
+        {"X": np.ones(2)},
+        {"vel": np.ones((2, 3)), "vel_x": np.ones(2)},
+    ):
+        with pytest.raises(ValueError, match="more than once"):
+            write_tecplot_points(tmp_path / "p.dat", points, fields, provenance=make_provenance())
+    assert not list(tmp_path.iterdir())
