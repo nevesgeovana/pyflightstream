@@ -19,13 +19,39 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 
+_UNTRACKED_DIRS = {".git", "_private", "site", ".venv", "__pycache__", "build", "dist"}
+
+
+def _tracked_names():
+    """Tracked paths from git, or every file of the tree where this is not a checkout."""
+    try:
+        listing = subprocess.check_output(
+            ["git", "-C", str(ROOT), "ls-files", "-z"], env=os.environ.copy()
+        )
+    except (OSError, subprocess.CalledProcessError):
+        for folder, dirnames, filenames in os.walk(ROOT):
+            dirnames[:] = [name for name in dirnames if name not in _UNTRACKED_DIRS]
+            for name in filenames:
+                yield (Path(folder) / name).relative_to(ROOT).as_posix()
+        return
+    yield from (name for name in listing.decode("utf-8").split("\0") if name)
+
+
 def tracked_texts():
-    paths = subprocess.check_output(
-        ["git", "-C", str(ROOT), "ls-files", "-z"], env=os.environ.copy()
-    )
-    for name in paths.decode("utf-8").split("\0"):
-        if name:
-            yield name, (ROOT / name).read_bytes().decode("utf-8", errors="replace")
+    for name in _tracked_names():
+        yield name, (ROOT / name).read_bytes().decode("utf-8", errors="replace")
+
+
+def test_p0420_sweeps_walk_the_tree_where_git_is_absent(monkeypatch):
+    """The sweeps run from an unpacked source archive, which carries no repository."""
+
+    def no_git(*args, **kwargs):
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(subprocess, "check_output", no_git)
+    names = set(_tracked_names())
+    assert "pyproject.toml" in names
+    assert not any(name.startswith(".git/") for name in names)
 
 
 def private_source_ids(sources):
