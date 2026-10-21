@@ -331,3 +331,108 @@ def test_dictionary_header_ambiguity_is_refused_before_preview(
     assert "Dictionary" in error and "headers" in error
     assert book.read_bytes() == original and not batch.exists()
     assert source.read_bytes() == original_matrix
+
+
+def _book(tmp_path: Path) -> Path:
+    matrix(tmp_path)
+    book = tmp_path / "runs.xlsx"
+    assert main(["create", str(book), "--workspace", str(tmp_path)]) == 0
+    return book
+
+
+def _runs_part(book: Path) -> str:
+    from pyflightstream.workspace.excel_file import _parts
+
+    with ZipFile(book) as archive:
+        return _parts(archive)["Runs"]
+
+
+def _rewrite_member(book: Path, member: str, transform) -> None:
+    with ZipFile(book) as source:
+        items = [(info, source.read(info)) for info in source.infolist()]
+    with ZipFile(book, "w") as target:
+        for info, data in items:
+            target.writestr(info, transform(data) if info.filename == member else data)
+
+
+def test_f1523_a_negative_cell_position_is_refused_not_an_endless_loop(tmp_path: Path) -> None:
+    from pyflightstream.workspace.excel_file import patch_cells
+    from pyflightstream.workspace.excel_sync import ExcelSyncError
+
+    book = _book(tmp_path)
+    original = book.read_bytes()
+    for position in ((2, -1), (0, 1), (2, 0)):
+        with pytest.raises(ExcelSyncError, match="not a worksheet position"):
+            patch_cells(book, {"Runs": {position: "x"}})
+    assert book.read_bytes() == original
+
+
+def test_f1222_a_negative_shared_string_index_is_a_damaged_workbook(tmp_path: Path) -> None:
+    from pyflightstream.workspace.excel_file import read_snapshot
+    from pyflightstream.workspace.excel_sync import ExcelSyncError
+
+    book = _book(tmp_path)
+    runs = _runs_part(book)
+    cell = b'<c r="A1" t="s"><v>-1</v></c>'
+    _rewrite_member(
+        book,
+        runs,
+        lambda data: data.replace(b"<sheetData>", b"<sheetData><row r='9'>" + cell + b"</row>", 1),
+    )
+    with pytest.raises(ExcelSyncError, match="negative"):
+        read_snapshot(book)
+
+
+def test_f1204_a_utf16_worksheet_is_an_excel_sync_error_not_a_decode_error(
+    tmp_path: Path,
+) -> None:
+    from pyflightstream.workspace.excel_file import patch_cells
+    from pyflightstream.workspace.excel_sync import ExcelSyncError
+
+    book = _book(tmp_path)
+    runs = _runs_part(book)
+    _rewrite_member(book, runs, lambda data: data.decode("utf-8").encode("utf-16"))
+    with pytest.raises(ExcelSyncError, match="encoding"):
+        patch_cells(book, {"Runs": {(2, 1): "x"}})
+
+
+def test_f1590_an_html_batch_name_is_refused_before_it_collides_with_its_preview(
+    tmp_path: Path,
+) -> None:
+    book = _book(tmp_path)
+    batch = tmp_path / "read.html"
+    assert (
+        main(
+            ["preview", str(book), "--workspace", str(tmp_path), "--direction", "read"]
+            + ["--batch", str(batch)]
+        )
+        == 2
+    )
+    assert not batch.exists()
+
+
+def test_f735_an_edited_preview_token_cannot_place_recovery_files_outside(
+    tmp_path: Path,
+) -> None:
+    import json
+
+    book = _book(tmp_path)
+    batch = tmp_path / "read.json"
+    args = ["--workspace", str(tmp_path), "--direction", "read", "--batch", str(batch)]
+    assert main(["preview", str(book), *args]) == 0
+    data = json.loads(batch.read_text(encoding="utf-8"))
+    data["preview"]["token"] = "../../escaped"
+    batch.write_text(json.dumps(data), encoding="utf-8")
+    assert main(["apply", str(batch)]) == 2
+    assert not (tmp_path / ".excel-sync-recovery").exists()
+    assert not (tmp_path.parent / "escaped").exists()
+
+
+def test_f1589_check_reports_a_runs_row_without_identity(tmp_path: Path) -> None:
+    from pyflightstream.workspace.excel_file import patch_cells, read_snapshot
+
+    book = _book(tmp_path)
+    assert main(["check", str(book)]) == 0
+    headers = read_snapshot(book).headers
+    patch_cells(book, {"Runs": {(2, headers.index("DESCRIPTION") + 1): "orphan row"}})
+    assert main(["check", str(book)]) == 2

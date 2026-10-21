@@ -375,3 +375,93 @@ def test_p0430_nl_wksp_7_a_workbook_digest_ignores_save_time_and_zip_envelope() 
     assert _workbook_digest(early) == _workbook_digest(late)
     changed = save("2", "2026-01-01T00:00:00Z", (2026, 1, 1, 0, 0, 0))
     assert _workbook_digest(changed) != _workbook_digest(early)
+
+
+def _bridge_write_request(tmp_path: Path, description: str = "edited") -> Path:
+    from pyflightstream.workspace.excel_bridge import escape
+
+    request = tmp_path / "request.tsv"
+    request.write_text(
+        "META\tworkspace\t" + escape(str(tmp_path)) + "\nMETA\tdirection\twrite\n"
+        "HEADER\tMATRIX\nHEADER\tPOL\nHEADER\tDESCRIPTION\n"
+        "DICTIONARY\tMATRIX\tMATRIX\tMAPPED\nDICTIONARY\tPOL\tPOL\tMAPPED\n"
+        "DICTIONARY\tDESCRIPTION\tDESCRIPTION\tMAPPED\n"
+        "CELL\t0\t0\tbatch.fs\t0\nCELL\t0\t1\t001\t0\n"
+        "CELL\t0\t2\t" + description + "\t0\n"
+        'BASELINE\t["batch.fs","001","DESCRIPTION"]\toriginal\n'
+    )
+    return request
+
+
+SEPARATORS = ["\u2028", "\u2029", "\x85", "\x0b", "\x0c", "\x1c"]
+
+
+@pytest.mark.parametrize("separator", SEPARATORS)
+def test_f1494_unicode_line_separators_are_invalid_not_written(
+    tmp_path: Path, separator: str
+) -> None:
+    path = matrix(tmp_path)
+    before = path.read_bytes()
+    snap = imported(tmp_path)
+    column = snap.headers.index("DESCRIPTION")
+    snap.rows[0][column] = Cell("a" + separator + "b")
+    preview = preview_sync(tmp_path, snap, direction="write")
+    assert [c.action for c in preview.changes if c.ascii_name == "DESCRIPTION"] == ["INVALID"]
+    with pytest.raises(ExcelSyncError, match="INVALID"):
+        apply_preview(preview, snap)
+    assert path.read_bytes() == before
+
+
+def test_f1522_bridge_cell_beyond_the_headers_is_refused_not_dropped(tmp_path: Path) -> None:
+    from pyflightstream.workspace.excel_bridge import bridge
+
+    matrix(tmp_path)
+    request = _bridge_write_request(tmp_path)
+    request.write_text(request.read_text() + "CELL\t0\t3\tstray\t0\n")
+    response = tmp_path / "response.tsv"
+    assert bridge("check", request, response, tmp_path / "preview.json") == 1
+    assert "beyond" in response.read_text()
+
+
+def test_f734_edited_file_outputs_of_a_bridge_batch_are_refused(tmp_path: Path) -> None:
+    import json
+
+    from pyflightstream.workspace.excel_bridge import bridge
+
+    path = matrix(tmp_path)
+    before = path.read_bytes()
+    request = _bridge_write_request(tmp_path)
+    response, batch = tmp_path / "response.tsv", tmp_path / "preview.json"
+    assert bridge("preview", request, response, batch) == 0
+    data = json.loads(batch.read_text(encoding="utf-8"))
+    data["file_outputs"]["batch.fs"] = "tampered"
+    batch.write_text(json.dumps(data), encoding="utf-8")
+    assert bridge("apply", request, response, batch) == 1
+    assert "changed after Preview" in response.read_text()
+    assert path.read_bytes() == before
+
+
+def test_f736_a_preview_token_that_is_a_path_is_refused_before_any_folder_exists(
+    tmp_path: Path,
+) -> None:
+    matrix(tmp_path)
+    snap = imported(tmp_path)
+    preview = preview_sync(tmp_path, snap, direction="write")
+    preview.token = "../../outside"
+    with pytest.raises(ExcelSyncError, match="token"):
+        apply_preview(preview, snap)
+    assert not (tmp_path / ".excel-sync-recovery").exists()
+    assert not (tmp_path.parent / "outside").exists()
+
+
+def test_f1589_check_snapshot_refuses_a_runs_row_without_identity(tmp_path: Path) -> None:
+    from pyflightstream.workspace.excel_sync import _check_snapshot
+
+    matrix(tmp_path)
+    snap = imported(tmp_path)
+    _check_snapshot(snap)
+    pol = snap.headers.index("POL")
+    snap.rows.append([Cell("x") for _ in snap.headers])
+    snap.rows[-1][pol] = Cell("")
+    with pytest.raises(ExcelSyncError, match="MATRIX and POL"):
+        _check_snapshot(snap)

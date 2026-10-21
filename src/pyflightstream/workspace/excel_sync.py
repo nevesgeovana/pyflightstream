@@ -134,6 +134,10 @@ class ApplyResult:
     error: str = ""
 
 
+#: The characters a matrix line cannot carry: the pipe and every break ``str.splitlines`` splits on.
+_SEPARATORS = ("|", "\r", "\n", "\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", " ", " ")
+
+
 def _digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -174,6 +178,31 @@ def _every_matrix_name(root: Path) -> list[str]:
         return sorted(path.name for path in every_matrix(root))
     except WorkspaceError as error:
         raise ExcelSyncError(str(error)) from error
+
+
+def _require_token(token: str) -> str:
+    """Return ``token`` when it is a preview token, else refuse it.
+
+    A token names the recovery folder of an apply, so a batch edited to carry a path is refused
+    before anything is created.
+    """
+    if not isinstance(token, str) or not re.fullmatch(r"[0-9a-f]{32}", token):
+        raise ExcelSyncError(
+            f"preview token {token!r} is not a 32-character hexadecimal token; the batch was "
+            "edited. Preview again."
+        )
+    return token
+
+
+def _check_snapshot(snapshot: WorkbookSnapshot) -> None:
+    """Validate the Dictionary and the identity of every Runs row.
+
+    Raises
+    ------
+    ExcelSyncError
+        If the Dictionary is invalid, or a Runs row has no MATRIX and POL text or repeats one.
+    """
+    _rows(snapshot, dictionary_mapping(snapshot))
 
 
 def dictionary_mapping(snapshot: WorkbookSnapshot) -> dict[str, str]:
@@ -564,9 +593,7 @@ def preview_sync(
                 )
                 if cell.formula:
                     action = "INVALID"
-                if direction == "write" and any(
-                    character in source for character in ("|", "\r", "\n")
-                ):
+                if direction == "write" and any(character in source for character in _SEPARATORS):
                     action = "INVALID"
                 change = Change(
                     action,
@@ -631,6 +658,7 @@ def apply_preview(preview: SyncPreview, snapshot: WorkbookSnapshot) -> ApplyResu
             "Runs, Dictionary or baseline changed after Preview; preview again before Apply."
         )
     root = Path(preview.workspace)
+    _require_token(preview.token)
     for filename, expected in preview.file_digests.items():
         path = _matrix_path(root, filename, preview.direction)
         actual = _digest(path.read_bytes()) if path.exists() else None

@@ -17,8 +17,8 @@ from pyflightstream.workspace.excel_sync import (
     ExcelSyncError,
     SyncPreview,
     WorkbookSnapshot,
+    _check_snapshot,
     apply_preview,
-    dictionary_mapping,
     preview_sync,
 )
 
@@ -134,6 +134,13 @@ def read_request(path: Path) -> tuple[dict[str, str], WorkbookSnapshot]:
             raise ExcelSyncError(
                 f"unknown bridge record {row[0]!r}; recreate the workbook with this runtime."
             )
+    for (cell_row, cell_column), cell in sorted(cells.items()):
+        if cell_column >= len(headers) and (cell.value or cell.formula):
+            raise ExcelSyncError(
+                f"{path}: the cell at row {cell_row}, column {cell_column} lies beyond the "
+                f"{len(headers)} named headers and would be dropped from the snapshot; name its "
+                "column in Runs."
+            )
     count = 1 + max((position[0] for position in cells), default=-1)
     rows = [
         [cells.get((row, column), Cell()) for column in range(len(headers))] for row in range(count)
@@ -216,7 +223,7 @@ def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
         metadata, snapshot = read_request(request)
         records = []
         if action == "check":
-            dictionary_mapping(snapshot)
+            _check_snapshot(snapshot)
             records.append(["OK", "Dictionary is valid; no cells or matrices were changed."])
         elif action == "preview":
             stated_direction = metadata["direction"]
@@ -285,6 +292,19 @@ def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
                 raise ExcelSyncError(
                     "matrix selection changed after Preview; preview again before Apply."
                 )
+            # The batch is a file the user can edit: what Apply writes (file_outputs) is
+            # recomputed from the matrices and the snapshot, never trusted from it.
+            if snapshot.digest() != preview.workbook_digest:
+                raise ExcelSyncError(
+                    "Runs, Dictionary or baseline changed after Preview; preview again before "
+                    "Apply."
+                )
+            fresh = preview_sync(
+                preview.workspace, snapshot, direction=preview.direction, matrices=preview.selection
+            )
+            fresh.token = preview.token
+            if asdict(fresh) != asdict(preview):
+                raise ExcelSyncError("Matrices or preview changed after Preview; preview again.")
             result = apply_preview(preview, snapshot)
             records.extend(["HEADER", header] for header in result.headers)
             records.extend(

@@ -23,8 +23,9 @@ from pyflightstream.workspace.excel_sync import (
     DictionaryEntry,
     ExcelSyncError,
     WorkbookSnapshot,
+    _check_snapshot,
+    _require_token,
     apply_preview,
-    dictionary_mapping,
     preview_sync,
 )
 
@@ -113,6 +114,11 @@ def _column(name: str) -> int:
 
 
 def _address(row: int, column: int) -> str:
+    if row < 1 or column < 1:
+        raise ExcelSyncError(
+            f"Cell (row {row}, column {column}) is not a worksheet position; rows and columns "
+            "count from 1."
+        )
     name = ""
     while column:
         column, remainder = divmod(column - 1, 26)
@@ -137,7 +143,13 @@ def _table(archive: ZipFile, path: str, strings: list[str]) -> dict[tuple[int, i
         if formula is not None:
             value = "=" + (formula.text or "")
         elif kind == "s":
-            value = strings[int(value)]
+            index = int(value)
+            if index < 0:
+                raise ExcelSyncError(
+                    f"Shared-string index {index} of cell {node.get('r')} in {path} is negative; "
+                    "the workbook is damaged, save it again from Excel."
+                )
+            value = strings[index]
         elif kind == "inlineStr":
             value = "".join(n.text or "" for n in node.iter(_NS + "t"))
         result[int(match[2]), _column(match[1])] = Cell(value, formula is not None)
@@ -236,12 +248,18 @@ def check_file(path: Path) -> None:
     path : Path
         The saved macro-free ``.xlsx`` workbook.
     """
-    dictionary_mapping(read_snapshot(path))
+    _check_snapshot(read_snapshot(path))
 
 
 def _patch_sheet(raw: bytes, changes: dict[tuple[int, int], str]) -> bytes:
     """Replace only selected cell markup; retain all other worksheet bytes."""
-    text = raw.decode("utf-8")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ExcelSyncError(
+            f"Unsupported worksheet encoding ({error.reason}); the workbook parts must be UTF-8. "
+            "Originals are unchanged."
+        ) from error
     _xml(raw)
     data = re.search(r"<sheetData\b[^>]*(?:/>|>.*?</sheetData>)", text, re.S)
     if data is None:
@@ -387,6 +405,11 @@ def preview_file(
     path, batch = path.resolve(), batch.resolve()
     if path.suffix.lower() != ".xlsx":
         raise ExcelSyncError("Use a macro-free .xlsx workbook.")
+    if batch.suffix.lower() == ".html":
+        raise ExcelSyncError(
+            f"Preview batch {batch.name!r} ends in .html, the name of its preview page; "
+            "name the batch with .json."
+        )
     if batch.exists() or batch.with_suffix(".html").exists():
         raise ExcelSyncError("Choose a new preview batch path; existing previews are preserved.")
     original = path.read_bytes()
@@ -493,7 +516,7 @@ def apply_batch(path: Path) -> dict:
         raise ExcelSyncError(
             "Preview contains INVALID or CONFLICT rows; correct and preview again."
         )
-    recovery = Path(preview.workspace) / ".excel-sync-recovery" / preview.token
+    recovery = Path(preview.workspace) / ".excel-sync-recovery" / _require_token(preview.token)
     recovery.mkdir(parents=True, exist_ok=False)
     backup = recovery / "workbook-original.xlsx"
     backup.write_bytes(original)
