@@ -33,6 +33,46 @@ import pytest
 
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
+
+@pytest.mark.parametrize((), [pytest.param(id="P0430-F-162")])
+def test_p0430_recorded_rotor_speed_precedes_current_matrix():
+    from types import SimpleNamespace
+
+    from pyflightstream.post.superfile import superfile_row
+
+    matrix = SimpleNamespace(
+        pol="1",
+        aircraft="wing",
+        description="",
+        ref_code="r",
+        set_code="s",
+        pproc_code="p",
+        fs_build="26.125",
+        hidden=False,
+        run=True,
+        workflow="steady",
+        script_code=None,
+        sweep=SimpleNamespace(values=[], type=None),
+        variables={"RPM": "999"},
+        motions=[],
+        rotations=[],
+        translations=[],
+        raw=[],
+        flight_condition={},
+    )
+    record = SimpleNamespace(reductions={"rpm": 1200.0, "rotors": {"PROP": {"rpm": 1200.0}}})
+    row = superfile_row(
+        polar_columns=[],
+        polar_values=[],
+        matrix_row=matrix,
+        record=record,
+        sweep_row=None,
+        plots_row=None,
+    )
+    assert float(row["RPM"]) == 1200.0
+    assert list(row).index("RPM") > list(row).index("VAR_NAMES_VALUES")
+
+
 # ---------------------------------------------------------------------------
 # The workspace, in the shape of the one that ran.
 

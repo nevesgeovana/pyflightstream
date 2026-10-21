@@ -445,6 +445,8 @@ def superfile_row(
         _take(row, key, value)
     for field in RECORD_SCALARS:
         _take(row, field, getattr(record, field, None))
+    # Historical rotor speeds precede the current matrix's declarations.
+    recorded_rotors = _rotor_columns(getattr(record, "reductions", None), own_speeds, rotors or {})
     # 3. EVERY INPUT OF THE MATRIX ROW, under the cell names the matrix
     #    itself carries, including DESCRIPTION and the two activity flags.
     if matrix_row is not None:
@@ -474,7 +476,7 @@ def superfile_row(
             " / ".join(f"{key}: {_free(value)}" for key, value in matrix_row.variables.items()),
         )
         for key, value in matrix_row.variables.items():
-            _take(row, key, value)
+            _take(row, key, _recorded_rotor_value(key, value, recorded_rotors))
         # Always include these six columns, leaving values empty where unstated.
         # The column set must not depend on what one row fills in: the superfile
         # is a superset of the workspace's defined simulation information.
@@ -488,13 +490,15 @@ def superfile_row(
         _take(row, "TRANSLATE", _records_cell(matrix_row.translations))
         _take(row, "RAW", _records_cell(matrix_row.raw))
         for key in matrix_row.flight_condition:
-            _take(row, key, matrix_row.flight_condition[key])
+            _take(
+                row,
+                key,
+                _recorded_rotor_value(key, matrix_row.flight_condition[key], recorded_rotors),
+            )
         for key, column in _AXIS_COLUMNS.items():
             _take(row, key, row.get(column, ""))
     # 4. RPM, by name, and per rotor its speed and its diameter.
-    for key, value in _rotor_columns(
-        getattr(record, "reductions", None), own_speeds, rotors or {}
-    ).items():
+    for key, value in recorded_rotors.items():
         _take(row, key, value)
     # 5. EVERYTHING THE CAMPAIGN SWEEP TABLE HOLDS: the run id, the status,
     #    the iterations, the residual, the wall time, the solver build and
@@ -512,6 +516,12 @@ def superfile_row(
     for key, value in (plots_row or {}).items():
         _take(row, key, value)
     return row
+
+
+def _recorded_rotor_value(key: str, fallback: object, columns: Mapping[str, object]) -> object:
+    """Use recorded speeds at the matrix's column position, with unstated fallback."""
+    value = columns.get(key) if key == RPM_COLUMN or key.startswith(f"{RPM_COLUMN}_") else None
+    return fallback if value is None else value
 
 
 def _condition_cell(row: MatrixRow) -> str:
