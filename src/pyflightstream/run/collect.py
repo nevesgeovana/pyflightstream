@@ -63,6 +63,7 @@ waited for forever nor failed as a job that ended without its log.
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import time
 import warnings
@@ -73,7 +74,7 @@ from pathlib import Path
 # Import exceptions from their defining modules. The public exception
 # catalog also imports post-processing modules above run in the layer order;
 # using it here would introduce an upward dependency.
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, TypeGuard
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._progress import tracked, workspace_activity
@@ -995,7 +996,7 @@ def _wall_time_update(
     except (OSError, ValueError):
         state = {}
     raw = state.get("elapsed_s") if isinstance(state, dict) else None
-    if isinstance(raw, (int, float)) and not isinstance(raw, bool) and raw >= 0:
+    if _is_a_wall_time(raw):
         elapsed = float(raw)
         basis = (
             f"the point's own clock file ({WALLTIME_CLOCK_STATE}): elapsed_s from the point's "
@@ -1003,7 +1004,7 @@ def _wall_time_update(
         )
     else:
         solver = stamped.get("solver_run_time_s")
-        if isinstance(solver, (int, float)) and not isinstance(solver, bool):
+        if _is_a_wall_time(solver):
             elapsed = float(solver)
             basis = "the solver run time printed in the point's sliced log (solver_run_time_s)"
     entry = job_of(record)
@@ -1022,6 +1023,20 @@ def _wall_time_update(
         }
         update["submission"] = submission
     return update
+
+
+#: The longest wall time a point can honestly record: ten years, in seconds (F-266).
+_MAX_WALL_TIME_S = 3.2e8
+
+
+def _is_a_wall_time(value: object) -> TypeGuard[float]:
+    """Whether ``value`` is a finite number of seconds, zero to ten years (F-266)."""
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and 0 <= value <= _MAX_WALL_TIME_S
+    )
 
 
 def _sweep_point_entry(
