@@ -160,9 +160,18 @@ def spatial_envelope(
         for p in points:
             v = [p[i] - center[i] for i in range(3)]
             along = sum(v[i] * axis[i] for i in range(3))
-            radius = math.sqrt(max(0.0, sum(x * x for x in v) - along * along))
+            # The radius from the cross product and each coordinate's reach from the
+            # other two axis components: the differences |v|^2 - along^2 and
+            # 1 - axis^2 cancel to nothing for a point far along a near-unit axis
+            # and left the swept region out (F-019).
+            cross = (
+                v[1] * axis[2] - v[2] * axis[1],
+                v[2] * axis[0] - v[0] * axis[2],
+                v[0] * axis[1] - v[1] * axis[0],
+            )
+            radius = math.hypot(*cross)
             mid = [center[i] + along * axis[i] for i in range(3)]
-            span = [radius * math.sqrt(max(0.0, 1 - axis[i] * axis[i])) for i in range(3)]
+            span = [radius * math.hypot(*(axis[j] for j in range(3) if j != i)) for i in range(3)]
             swept.extend(
                 _point(p)
                 for p in product(*[(mid[i] - span[i], mid[i] + span[i]) for i in range(3)])

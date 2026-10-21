@@ -142,3 +142,20 @@ def test_open_resets_predecessor_custom_field_coverage():
     script.emit("NEW_SIMULATION")
     assert script.custom_field_extent_m is None
     assert script.custom_field_coverage is None
+
+
+def test_f5_0102_f019_a_far_point_still_sweeps_its_radius():
+    """F-019: a point 1e9 m along the axis and 1 m off it sweeps a circle of radius 1."""
+    motion = {
+        "length_unit": "METER",
+        "motion_index": 1,
+        "attached_boundaries": [1],
+        "trajectory": {
+            "kind": "constant_rotation",
+            "center_native": [0, 0, 0],
+            "axis_reference": [1, 0, 0],
+            "emitted_rpm": 100,
+        },
+    }
+    bounds, _ = envelope([(1e9, 1.0, 0.0)], motions=[motion])
+    assert bounds == pytest.approx((-1, 1, -1, 1))
