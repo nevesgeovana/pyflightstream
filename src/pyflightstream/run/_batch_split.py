@@ -28,7 +28,6 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-from functools import cache
 
 __all__ = [
     "BEST_FACTOR",
@@ -144,13 +143,19 @@ class JobSplit:
     units: tuple[PolarUnit, ...]
 
 
-def _weight(unit: PolarUnit) -> float:
-    """Return the seconds a polar weighs in the partition: its estimates, its cell for a gap."""
+def _weight(unit: PolarUnit, overheads: Overheads = MEASURED_OVERHEADS) -> float:
+    """Return the seconds a polar weighs in the partition, as :func:`job_estimate` prices it.
+
+    Its estimates (its cell for a gap), plus the overheads it adds to any job that holds it:
+    one refresh and one re-initialisation per point after the first. The job's start cost is
+    the same in every job, so it leaves the optimal cut where it is (F-262).
+    """
     known = sum(t for t in unit.point_seconds if t is not None)
     gaps = sum(1 for t in unit.point_seconds if t is None)
     if gaps and unit.walltime_cell_s is not None:
         known += gaps * unit.walltime_cell_s
-    return known if known > 0 else float(len(unit.run_ids) or 1)
+    base = known if known > 0 else float(len(unit.run_ids) or 1)
+    return base + overheads.refresh_s + overheads.reinit_s * max(len(unit.run_ids) - 1, 0)
 
 
 def _partition(weights: Sequence[float], jobs: int) -> list[int]:
@@ -176,39 +181,50 @@ def _partition(weights: Sequence[float], jobs: int) -> list[int]:
     for weight in weights:
         prefix.append(prefix[-1] + weight)
 
-    @cache
-    def best(runs: int, upto: int) -> tuple[float, int]:
-        if runs == 1:
-            return prefix[upto], 0
-        choice = (math.inf, runs - 1)
-        for cut in range(runs - 1, upto):
-            longest = max(best(runs - 1, cut)[0], prefix[upto] - prefix[cut])
-            if longest < choice[0]:
-                choice = (longest, cut)
-        return choice
-
+    # Iterative, never recursive: a recursion one level per run raised RecursionError for a
+    # valid large batch count (F-1254). A run r only needs the prefixes that leave one polar
+    # for each run still to come.
+    longest_by: dict[int, dict[int, float]] = {1: {u: prefix[u] for u in range(1, count + 1)}}
+    cut_by: dict[int, dict[int, int]] = {}
+    for runs in range(2, jobs + 1):
+        longest_by[runs] = {}
+        cut_by[runs] = {}
+        for upto in range(runs, count - (jobs - runs) + 1):
+            choice = (math.inf, runs - 1)
+            for cut in range(runs - 1, upto):
+                longest = max(longest_by[runs - 1][cut], prefix[upto] - prefix[cut])
+                if longest < choice[0]:
+                    choice = (longest, cut)
+            longest_by[runs][upto], cut_by[runs][upto] = choice
+        del longest_by[runs - 1]
     cuts: list[int] = []
     upto = count
     for runs in range(jobs, 1, -1):
-        cut = best(runs, upto)[1]
+        cut = cut_by[runs][upto]
         cuts.append(cut)
         upto = cut
     return sorted(cuts)
 
 
-def _runs(units: Sequence[PolarUnit], jobs: int) -> list[tuple[PolarUnit, ...]]:
+def _runs(
+    units: Sequence[PolarUnit], jobs: int, overheads: Overheads = MEASURED_OVERHEADS
+) -> list[tuple[PolarUnit, ...]]:
     """Cut one group's polars into ``jobs`` contiguous runs."""
-    cuts = _partition([_weight(unit) for unit in units], jobs)
+    cuts = _partition([_weight(unit, overheads) for unit in units], jobs)
     edges = [0, *cuts, len(units)]
     return [tuple(units[a:b]) for a, b in zip(edges, edges[1:], strict=False)]
 
 
-def _longest(units: Sequence[PolarUnit], jobs: int) -> float:
+def _longest(units: Sequence[PolarUnit], jobs: int, overheads: Overheads) -> float:
     """Return the longest run's weight when the group is cut into ``jobs`` runs."""
-    return max(sum(_weight(unit) for unit in run) for run in _runs(units, jobs))
+    return max(
+        sum(_weight(unit, overheads) for unit in run) for run in _runs(units, jobs, overheads)
+    )
 
 
-def split_polars(units: Sequence[PolarUnit], n: int) -> tuple[list[JobSplit], list[str]]:
+def split_polars(
+    units: Sequence[PolarUnit], n: int, overheads: Overheads = MEASURED_OVERHEADS
+) -> tuple[list[JobSplit], list[str]]:
     """Cut the polars into about ``n`` batch jobs (FR-362).
 
     Groups by ``(ncpus, fs_build, steady, actions)`` in matrix order (FR-403: a job holds
@@ -225,6 +241,9 @@ def split_polars(units: Sequence[PolarUnit], n: int) -> tuple[list[JobSplit], li
         The polars, in matrix order.
     n : int
         The number of jobs asked for, at least 1.
+    overheads : Overheads, optional
+        The instance overheads the longest job is minimised under, those of
+        :func:`job_estimate`; the measured ones by default.
 
     Returns
     -------
@@ -265,12 +284,12 @@ def split_polars(units: Sequence[PolarUnit], n: int) -> tuple[list[JobSplit], li
         open_groups = [key for key, members in groups.items() if counts[key] < len(members)]
         if not open_groups:
             break
-        chosen = max(open_groups, key=lambda key: _longest(groups[key], counts[key]))
+        chosen = max(open_groups, key=lambda key: _longest(groups[key], counts[key], overheads))
         counts[chosen] += 1
     jobs = [
         JobSplit(units=run)
         for key, members in groups.items()
-        for run in _runs(members, counts[key])
+        for run in _runs(members, counts[key], overheads)
     ]
     jobs.sort(key=lambda job: job.units[0].order)
     return jobs, warnings
@@ -454,6 +473,15 @@ def _from_cells(
             "makes shorter jobs."
         )
         seconds = int(max_walltime_s)
+        # THE CAP IS COMPARED WITH THE ESTIMATE (F-263): the cells' sum above the limit does
+        # not say the job's estimated need does not fit under it.
+        if estimate_s is not None and any(
+            value is not None for unit in split.units for value in unit.point_seconds
+        ):
+            need = best_walltime_s(estimate_s, max(unit.margin_s for unit in split.units))
+            if need <= seconds:
+                return seconds, "max_walltime", True, None, warnings, None
+            return seconds, "max_walltime", False, float(need - seconds), warnings, None
         return seconds, "max_walltime", False, None, warnings, None
     if estimate_s is None or not any(
         value is not None for unit in split.units for value in unit.point_seconds

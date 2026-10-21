@@ -14,6 +14,7 @@ import pytest
 from pyflightstream.run._batch_split import (
     MEASURED_OVERHEADS,
     JobSplit,
+    Overheads,
     PolarUnit,
     best_walltime_s,
     job_estimate,
@@ -290,7 +291,37 @@ def test_p0350_split_fr364_matrix_walltime_sums_points_and_caps_at_maximum() -> 
     seconds, source, fits, shortfall, warnings, refusal = job_walltime(
         split, 5 * HOUR, max_walltime_s=10 * HOUR
     )
-    assert (seconds, source, fits, shortfall, refusal) == (36000, "max_walltime", False, None, None)
+    assert (seconds, source, fits, shortfall, refusal) == (36000, "max_walltime", True, None, None)
     assert walltime_text(seconds, split=split) == "600m"
     assert len(warnings) == 1
     assert "max_walltime" in warnings[0] and "larger --batch n" in warnings[0]
+    # F-263: the capped branch compares the estimate with the capped seconds, so a job whose
+    # estimate needs more than the limit is short by the difference and says so.
+    seconds, source, fits, shortfall, _warnings, refusal = job_walltime(
+        split, 12 * HOUR, max_walltime_s=10 * HOUR
+    )
+    assert (seconds, source, fits, refusal) == (36000, "max_walltime", False, None)
+    assert shortfall == best_walltime_s(12 * HOUR, 1200.0) - 36000
+
+
+def test_p0430_f262_the_partition_prices_the_overheads_the_estimate_charges() -> None:
+    """F-262: the longest job is minimised under job_estimate's own overheads."""
+    heavy = Overheads(start_s=0.0, reinit_s=5.0, refresh_s=0.0, basis="test")
+    units = [
+        _unit("2001", 1, 10 / HOUR, points=1),
+        _unit("2002", 2, 4 / HOUR, points=1),
+        _unit("2003", 3, 3 / HOUR, points=3),
+    ]
+    free = Overheads(start_s=0.0, reinit_s=0.0, refresh_s=0.0, basis="test")
+    assert _runs_of(split_polars(units, 2, free)[0]) == [["2001"], ["2002", "2003"]]
+    jobs, _ = split_polars(units, 2, heavy)
+    assert _runs_of(jobs) == [["2001", "2002"], ["2003"]]
+    estimates = [job_estimate(job, heavy)[0] for job in jobs]
+    assert max(estimates) == 14.0
+
+
+def test_p0430_f1254_a_large_batch_count_does_not_recurse() -> None:
+    """F-1254: 1050 runs over 1100 polars partition without RecursionError."""
+    from pyflightstream.run._batch_split import _partition
+
+    assert len(_partition([1.0] * 1100, 1050)) == 1049
