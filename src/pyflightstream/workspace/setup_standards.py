@@ -6,6 +6,7 @@ never promoted into a statement of aerodynamic accuracy or operational validatio
 
 from __future__ import annotations
 
+import copy
 import json
 from dataclasses import dataclass
 from functools import lru_cache
@@ -37,6 +38,12 @@ class SetupStandard:
     settings: dict[str, Any]
     baseline_code: str | None = None
     workflow: str = "steady"
+
+    def __post_init__(self) -> None:
+        """Copy the settings, so a preset owns its nested values."""
+        # Own the nested values: an edit of one returned preset must not reach the
+        # module table or a later generation.
+        object.__setattr__(self, "settings", copy.deepcopy(self.settings))
 
 
 # IDs are deliberately literal. Adding a study must not renumber an existing one.

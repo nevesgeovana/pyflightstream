@@ -143,3 +143,15 @@ def test_p0410_pc_generated_setup_header_preserves_family_selector_route(tmp_pat
             r"boundary lists.*(?:never|not) family selectors", header, flags=re.IGNORECASE
         )
         assert blanket_refusal is None or "_families" in header, (path.name, header)
+
+
+def test_f1540_presets_do_not_share_nested_settings():
+    from pyflightstream.workspace.setup_standards import setup_standards
+
+    first = {item.code: item for item in setup_standards()}
+    first["s945"].settings["stratford_bulk_separation"][0]["boundaries"].append("Edited")
+    first["s907"].settings["airfoil_separation"][0]["boundaries"].append("Edited")
+    second = {item.code: item for item in setup_standards()}
+    assert second["s945"].settings["stratford_bulk_separation"][0]["boundaries"] == ["Body"]
+    assert second["s907"].settings["airfoil_separation"][0]["boundaries"] == ["Wing"]
+    assert second["s948"].settings["valarezo_separation_boundaries"] == ["Wing"]
