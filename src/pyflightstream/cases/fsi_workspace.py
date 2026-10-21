@@ -454,6 +454,8 @@ def patch_structural_node_frame(saved: bytes, frame_index: int, *, node_count: i
         If the file has no single ``$AEROELASTIC$`` block, or the line
         where the node block sits does not have its shape or its count.
     """
+    if isinstance(frame_index, bool) or not isinstance(frame_index, int):
+        raise CampaignConfigError(f"a frame index is an integer; got {frame_index!r}.")
     if frame_index < 1:
         raise CampaignConfigError(f"a frame index is 1-based; got {frame_index}.")
     if saved.count(_AEROELASTIC_START) != 1:
@@ -462,9 +464,15 @@ def patch_structural_node_frame(saved: bytes, frame_index: int, *, node_count: i
             "blocks; the node frame is patched in exactly one."
         )
     position = saved.index(_AEROELASTIC_START)
-    for _ in range(_NODE_BLOCK_LINE):
-        position = saved.index(b"\n", position) + 1
-    end = saved.index(b"\n", position)
+    try:
+        for _ in range(_NODE_BLOCK_LINE):
+            position = saved.index(b"\n", position) + 1
+        end = saved.index(b"\n", position)
+    except ValueError:
+        raise CampaignConfigError(
+            "the saved simulation's aeroelastic block is truncated before its node block line; "
+            "nothing is patched."
+        ) from None
     line = saved[position:end].rstrip(b"\r")
     match = _NODE_BLOCK.fullmatch(line)
     if match is None or int(match.group(4)) != node_count:
@@ -619,7 +627,11 @@ def refuse_lines_after_steady_analysis(rendered: str) -> None:
         If ``EXECUTE_AEROELASTIC_ANALYSIS`` is absent, or any command
         follows it, naming the first.
     """
-    lines = [line.strip() for line in rendered.splitlines() if line.strip()]
+    lines = [
+        line.strip()
+        for line in rendered.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
     if "EXECUTE_AEROELASTIC_ANALYSIS" not in lines:
         raise CampaignConfigError("a steady coupled script must run EXECUTE_AEROELASTIC_ANALYSIS.")
     after = lines[lines.index("EXECUTE_AEROELASTIC_ANALYSIS") + 1 :]
@@ -1036,6 +1048,11 @@ def quasi_steady_fsi_config(case: SimCase, *, rpm: float, quiet: bool = False) -
     if cfg is None:
         raise CampaignConfigError(f"case {case.sim_id!r} states no FSI input.")
     omega = abs(float(rpm)) * math.pi / 30.0
+    if not math.isfinite(omega):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} couples a quasi-steady sector at a non-finite speed "
+            f"({rpm!r} rev/min); state the rotor's RPM as a finite number."
+        )
     if omega <= 0.0:
         raise CampaignConfigError(
             f"case {case.sim_id!r} couples a quasi-steady sector at 0 rev/min. The structural "

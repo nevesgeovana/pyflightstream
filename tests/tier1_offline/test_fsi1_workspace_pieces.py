@@ -305,3 +305,29 @@ def test_p0420_without_a_deletion_the_ids_are_the_position_rule_as_before(tmp_pa
     script = Script("26.124")
     script.declare_existing(boundaries={"Body": 1, "Blade1": 2, "Blade2": 3})
     assert ws.aeroelastic_surface_ids(case, script, ["Blade1", "Blade2"], context="FSI") == [3, 4]
+
+
+@pytest.mark.parametrize("frame", [2.5, 3.0, True, "2"])
+def test_p0430_f1301_the_frame_patch_refuses_a_non_integer_index(frame):
+    with pytest.raises(CampaignConfigError, match="an integer"):
+        ws.patch_structural_node_frame(_saved(), frame, node_count=3)
+
+
+def test_p0430_f1302_a_truncated_aeroelastic_block_is_a_campaign_error():
+    saved = _saved()
+    cut = saved[: saved.index(b"$AEROELASTIC_START$") + len(b"$AEROELASTIC_START$\r\n1,0,1")]
+    with pytest.raises(CampaignConfigError, match="truncated"):
+        ws.patch_structural_node_frame(cut, 5, node_count=3)
+
+
+def test_p0430_f1303_the_steady_order_check_ignores_comment_lines_as_the_detector_does():
+    text = "EXECUTE_AEROELASTIC_ANALYSIS\n# a trailing note\n"
+    assert ws.is_steady_aeroelastic_script(text)
+    ws.refuse_lines_after_steady_analysis(text)
+
+
+@pytest.mark.parametrize("rpm", [float("nan"), float("inf")])
+def test_p0430_f044_a_non_finite_row_speed_is_refused_for_the_sector_structure(tmp_path, rpm):
+    case = coupled_case(tmp_path)
+    with pytest.raises(CampaignConfigError, match="finite"):
+        ws.quasi_steady_fsi_config(case, rpm=rpm)
