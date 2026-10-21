@@ -19,9 +19,9 @@ reach it the same way. It holds the list and nothing else:
 # the OBJ's sha256 was <the sha256 of wing.obj>.
 # One boundary per `o` or `g` group holding a face, named by the group, in the
 # order of the file: how the solver numbers an OBJ's surfaces on import
-#. The package never rewrites this file. Add the [import] table with
+# (RPT-078). The package never rewrites this file. Add the [import] table with
 # the file's units, and the [trailing_edges] table, beneath the list
-# (docs/mesh/how-to.md).
+# (docs/mesh-inputs.md).
 boundaries = [
     "Wing",
     "Tail",
