@@ -197,7 +197,7 @@ _PPROC_EXAMPLE = """\
 # the solve, which files each point exports, and which products are written
 # after the run. Every table is optional. The columns the products write are
 # in pproc/VARIABLES.md, and how to write an equation in
-# pproc/WRITING-EQUATIONS.md, both beside pproc/INPUTS.md.
+# pproc/WRITING-EQUATIONS.md; the input glossary is inputs/INPUTS.md.
 
 # Top-level keys come before the first [table]; written under one, TOML files
 # them in that table.
@@ -450,7 +450,7 @@ profile_units = "NEWTONS"         # @PROFILE_UNITS@
 thrust_units = "NEWTONS"          # ACTUATOR_THRUST: NEWTONS, POUNDS or COEFFICIENT
 wake_type = "RIGID"               # explicit wake model; RELAXED is the other choice
 
-# A named point: a top-level table with any other kind (rotor or airframe). It is read and
+# A named point: a top-level table with a non-rotor kind, such as airframe. It is read and
 # kept; a row that names a point finds it in inputs/reference_points.toml.
 [ARP]
 kind = "airframe"

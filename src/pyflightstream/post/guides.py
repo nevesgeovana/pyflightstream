@@ -1,10 +1,10 @@
 """The generated input guides: the pproc guides, ``INPUTS.md`` and ``input_template.md``.
 
-The pproc guides are ``VARIABLES.md`` and ``WRITING-EQUATIONS.md``. Three pages
-are written INTO the pproc input folder of a workspace, where whoever is
-writing a pproc artifact is already standing: every variable a product states
-with its definition; how to write a custom equation, a glossary entry, the
-phase-locked table and a group rename; and (G08) every key an
+The pproc guides are ``VARIABLES.md`` and ``WRITING-EQUATIONS.md``. These two pages
+are written into the pproc input folder: every variable a product states with
+its definition; and how to write a custom equation, a glossary entry, the
+phase-locked table and a group rename. ``INPUTS.md`` is written at the root of
+the ``inputs`` folder and describes every key an
 INPUT artifact may state, the matrix row, the setup, the pproc, the reference
 and the geometry sidecar, with what it sets, its unit or values, the run types
 or builds that accept it and the solver command it reaches.
@@ -167,7 +167,8 @@ VARIABLE_DEFINITIONS: dict[str, str] = {
     "MU": "Pa s. The dynamic viscosity",
     "J": (
         "-. The advance ratio the row requested; NA on a row that turns no rotor, "
-        "and on one that states its speed as RPM"
+        "and on one that states its speed as RPM. In the two quasi-steady tables, "
+        "where the row requested none, J is the ratio the rotor ran at"
     ),
     "J_CLOCK": (
         "-. The advance ratio the CLOCK rotor RAN at, V/(n D) from this point's free "
@@ -188,7 +189,9 @@ VARIABLE_DEFINITIONS: dict[str, str] = {
     "FIRST_STEP": "-. The first solver step of the window a row was averaged over, 1-based",
     "LAST_STEP": "-. The last solver step of that window, inclusive",
     "STEPS": "-. How many solver steps the window holds",
-    "REDUCTION": "-. Which reduction a row is: time_average, phase_locked or per_blade",
+    "REDUCTION": (
+        "-. Which reduction a row is: time_average, phase_locked, per_blade or per_revolution"
+    ),
     "ROTOR": "-. The alias of the rotor a row is about; NA where it is about none",
     "AZIMUTH": "deg. Where blade one of that rotor is, 0 to 360, from its datum and its sense",
     "STEP": "-. The solver step a row states; in a phase-locked table, of the LAST revolution",
@@ -280,16 +283,16 @@ def _variables_page(glossary: Sequence[tuple[str, str]]) -> str:
         "`[equations]` expression may read any column the unsteady polar holds; see",
         f"`{PPROC_GUIDE_NAMES[1]}` beside this page.",
         "",
-        "## Every product carries these",
+        "## Product identity and flight condition",
         "",
         "The first column of every table is the polar, and no line precedes the",
         "header:",
         "",
         _defined(POLAR_ID_COLUMN),
         "",
-        "A file that does not state its flight condition cannot say what it is a",
-        "file of, which is why these are on every product and not on the polar",
-        "alone.",
+        "The condition block accompanies derived products, not only polars.",
+        "The raw history `probes/<point>_plots.csv` states no condition: after",
+        "`POL` it preserves the solver's plotted columns.",
         "",
     ]
     lines += [_defined(name) for name in CONTEXT_COLUMNS]

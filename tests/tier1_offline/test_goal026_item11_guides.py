@@ -21,6 +21,43 @@ from pyflightstream.post.guides import PPROC_GUIDE_NAMES, write_pproc_guides
 from pyflightstream.post.products import ROTOR_COEFFICIENT_COLUMNS
 
 
+def test_p0430_f1832_variables_state_quasi_steady_j_exception(tmp_path):
+    variables, _ = write_pproc_guides(tmp_path)
+    text = variables.read_text(encoding="utf-8")
+    assert "two quasi-steady tables" in text
+    assert "ratio the rotor ran at" in text
+
+
+def test_p0430_f1833_variables_include_per_revolution(tmp_path):
+    variables, _ = write_pproc_guides(tmp_path)
+    line = next(
+        line
+        for line in variables.read_text(encoding="utf-8").splitlines()
+        if "Which reduction a row is" in line
+    )
+    assert "per_revolution" in line
+
+
+def test_p0430_f1834_variables_name_raw_plots_exception(tmp_path):
+    variables, _ = write_pproc_guides(tmp_path)
+    text = variables.read_text(encoding="utf-8")
+    assert "`probes/<point>_plots.csv` states no condition" in text
+
+
+def test_p0430_f1835_template_points_to_inputs_root_glossary():
+    from pyflightstream.post.input_template import input_template_markdown
+
+    text = input_template_markdown()
+    assert "beside pproc/INPUTS.md" not in text
+    assert "inputs/INPUTS.md" in text
+
+
+def test_p0430_f1836_template_reserves_rotor_kind_for_rotor_blocks():
+    from pyflightstream.post.input_template import input_template_markdown
+
+    assert "any other kind (rotor or airframe)" not in input_template_markdown()
+
+
 def test_p0430_f1812_endpoint_strip_definition_is_extrapolated(tmp_path):
     paths = write_pproc_guides(tmp_path)
     assert "half strips" not in "".join(path.read_text(encoding="utf-8") for path in paths)
