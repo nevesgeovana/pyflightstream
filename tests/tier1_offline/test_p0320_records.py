@@ -905,3 +905,19 @@ def test_c_srs_s07_076_a_windows_root_is_joined_with_windows_separators():
 
     assert _join_root("C:\\camp", Path("sims/sim_1/x.fs")) == "C:\\camp\\sims\\sim_1\\x.fs"
     assert _join_root("/work/camp/", Path("sims/sim_1/x.fs")) == "/work/camp/sims/sim_1/x.fs"
+
+
+def test_f614_a_descriptor_in_a_batch_that_does_not_hold_the_scripts_is_not_this_runs(tmp_path):
+    """F-614: only the batch copy the scripts are in can say a point was submitted."""
+    from types import SimpleNamespace
+
+    base = tmp_path
+    stale = base / "sims" / "batch" / "m_b1" / "sim_7"
+    stale.mkdir(parents=True)
+    (stale.parent / "descriptor.yaml").write_text("stale", encoding="utf-8")
+    home = base / "sims" / "sim_7"
+    work = home / "datapoints" / "DP-AL+000"
+    work.mkdir(parents=True)
+    profile = SimpleNamespace(descriptor_name="descriptor.yaml")
+    assert evidence.descriptor_folder(base, home, work, profile) is None
+    assert evidence.descriptor_folder(base, stale, work, profile) == stale.parent

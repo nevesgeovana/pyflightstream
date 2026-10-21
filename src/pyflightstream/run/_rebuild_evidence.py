@@ -306,7 +306,12 @@ def descriptor_folder(base: Path, sim_dir: Path, work_dir: Path, profile: Any) -
     """
     if profile is None:
         return None
-    folders = [work_dir, *(p.parent for p in batch_sim_dirs(base).get(sim_dir.name[4:], []))]
+    # F-614: only the batch whose copy of the simulation holds the scripts being rebuilt;
+    # a descriptor left by another, stale batch must not relabel a standalone run.
+    folders = [
+        work_dir,
+        *(p.parent for p in batch_sim_dirs(base).get(sim_dir.name[4:], []) if p == sim_dir),
+    ]
     return next((f for f in folders if (f / profile.descriptor_name).is_file()), None)
 
 
