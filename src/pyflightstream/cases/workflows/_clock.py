@@ -460,7 +460,7 @@ def unsteady_export_threshold(
 #: The program the clock action runs, rendered with this row's deadline.
 #:
 #: IT KEEPS ITS OWN STATE because the solver hands an action nothing: not
-#: the step, not the time, not how far the run has come. The clock starts at
+#: the step, not the time, not how far the run has come (RPT-041 finding 4). The clock starts at
 #: the JOB START when the run wrote one into the state before launching the
 #: solver (:func:`job_start_state`, a local run), so geometry load,
 #: initialisation and the first step count against the walltime; otherwise

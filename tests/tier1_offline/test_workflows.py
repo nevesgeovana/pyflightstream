@@ -7842,3 +7842,63 @@ def test_p0430_fr1452_a_zero_rounded_export_window_names_the_run_length():
     text = str(refused.value)
     assert "EXPORT_UNSTEADY_LAST_REV" in text and "no time step" in text
     assert "720-step run" in text
+
+
+def _blade_axis_origin_x(case: SimCase) -> str:
+    script = Script("26.124")
+    build_script(case, script)
+    lines = script.render().splitlines()
+    at = lines.index("NAME BladeAxis1")
+    return lines[at + 1]
+
+
+def test_p0430_f029_a_declared_blade_family_gets_its_axis_frame_by_any_name(tmp_path):
+    """F-029: the default blade-name test does not discard the families a rotor declares."""
+    sector = _saved_simulation(tmp_path / "sector.fsm", ["Rot_A", "S", "N"])
+    block = FIXTURE_ROTOR.model_copy(update={"families_blades": ["Rot_A"]})
+    case = rotor_case(BLADES=None).model_copy(
+        update={"geometry": str(sector), "rotors": {block.alias: block}}
+    )
+    assert _blade_axis_origin_x(case).startswith("ORIGIN_X")
+
+
+def test_p0430_f065_a_row_without_a_block_centres_its_blade_axes_on_the_stated_hub(tmp_path):
+    """F-065: ROTOR_ORIGIN moves the hub frame and the blade axes with it."""
+    sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
+    case = rotor_case(ROTOR_ORIGIN="1.0,2.0,3.0").model_copy(
+        update={"geometry": str(sector), "rotors": {}}
+    )
+    assert _blade_axis_origin_x(case) == "ORIGIN_X 1.0"
+
+
+def test_p0430_f028_a_rotor_owns_its_blade_frames_and_not_a_name_that_shares_the_prefix():
+    """F-028: ROTOR_RMRP and ROTOR_RMRP<k> are the rotor's, ROTOR_RMRP_notes is not."""
+    from pyflightstream.cases.workflows._frames import _frames_the_alias_owns
+
+    frames = {
+        "ROTOR_SMRP": 1,
+        "ROTOR_RMRP": 2,
+        "ROTOR_RMRP1": 3,
+        "ROTOR_RMRP_notes": 4,
+        "ROTOR_RMRPX": 5,
+    }
+    owned = _frames_the_alias_owns(rotor_case(), {"ALIAS": "ROTOR"}, frames)
+    assert owned == ["ROTOR_SMRP", "ROTOR_RMRP", "ROTOR_RMRP1"]
+
+
+@pytest.mark.parametrize("angle", ["nan", "inf", "three"])
+def test_p0430_pfs2119003_a_rotation_angle_that_is_not_finite_is_refused_naming_it(tmp_path, angle):
+    """PFS-2119.003: ANGLE is read as DISTANCE is, not by a bare float."""
+    record = {"ANGLE": angle, "AXIS": "NAC-Y", "ALIAS": "Blade1"}
+    with pytest.raises(CampaignConfigError, match="not a finite number") as refused:
+        build_script(_pitched_rotor(tmp_path, rotations=[record]), Script("26.123"))
+    assert repr(angle) in str(refused.value)
+
+
+def test_p0430_f1318_the_unknown_frame_refusal_points_at_the_reference_table(tmp_path):
+    """F-1318: a setup preset refuses [[frames]], so the refusal does not send a user there."""
+    record = {"ANGLE": "3", "AXIS": "TAIL-Y", "ALIAS": "Blade1"}
+    with pytest.raises(CampaignConfigError) as refused:
+        build_script(_pitched_rotor(tmp_path, rotations=[record]), Script("26.123"))
+    text = str(refused.value)
+    assert "setup preset" not in text and "reference artifact" in text

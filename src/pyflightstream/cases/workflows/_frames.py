@@ -197,9 +197,9 @@ def _significant_digits(case: SimCase, script: Script) -> None:
     """Emit SET_SIGNIFICANT_DIGITS where the preset states it (PFS-2030.03.04).
 
     A setup-phase command, so it sits with the frames and before the
-    free stream; the solver's own default prints four decimals and the reference
-    presets ask for seven, which is the difference between the reference tables
-    and a table that cannot be compared with them.
+    free stream; the reference presets ask for seven, which is what lets a table be
+    compared with the reference tables. The command database records no default for
+    the command, so none is stated here.
     """
     digits = case.solver.significant_digits
     if digits is not None:
@@ -349,7 +349,7 @@ def _rotations(
                 f"{', '.join(missing)}; every rotation states ANGLE and AXIS, and names "
                 "what it turns."
             )
-        angle = float(record["ANGLE"])
+        angle = _finite_angle(case, record["ANGLE"])
         token = record["AXIS"]
         matched = _AXIS_TOKEN.match(token)
         if matched is None:
@@ -603,6 +603,25 @@ def _translations(
                 units="METER",
             )
     return _the_copies_kept(frames)
+
+
+def _finite_angle(case: SimCase, text: str) -> float:
+    """Read a rotation's ANGLE, refusing one that is not a finite number (PFS-2119.003).
+
+    The sibling of :func:`_finite_distance`: ``float`` reads ``nan`` and ``inf``
+    and raises a bare ``ValueError`` on text, and a case authored in Python
+    meets this sentence instead.
+    """
+    try:
+        value = float(text)
+    except (TypeError, ValueError):
+        value = math.nan
+    if not math.isfinite(value):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {ROTATE_VARIABLE} ANGLE {text!r}, which is not a "
+            "finite number; write the angle in degrees, as 15 or -2.5."
+        )
+    return value
 
 
 def _finite_distance(case: SimCase, text: str) -> float:
@@ -901,7 +920,8 @@ def _frames_the_alias_owns(
     # scan because `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>` share it. The prefix
     # scan includes the rotating hub itself as well as its blade frames.
     owned = [f"{radical}_SMRP"]
-    owned += sorted(name for name in frames if name.startswith(f"{radical}_RMRP"))
+    own = re.compile(rf"{re.escape(radical)}_RMRP[0-9]*")
+    owned += sorted(name for name in frames if own.fullmatch(name))
     return [name for name in owned if name in frames]
 
 
@@ -935,9 +955,9 @@ def _rotation_frame(
     raise CampaignConfigError(
         f"case {case.sim_id!r} states {variable} with {key} naming {name!r}, and "
         f"no frame of that name exists when the {noun} is emitted; the frames this case "
-        f"defines are {_frame_names(frames)}. A setup preset defines one in its [[frames]] "
-        "table; MRP is the package's own on every run type, and ROTOR_MRP on the rotor run "
-        "types."
+        f"defines are {_frame_names(frames)}. The reference artifact the row's REF names "
+        "defines one in its [[frames]] table; MRP is the package's own on every run type, "
+        "and ROTOR_MRP on the rotor run types."
     )
 
 
@@ -985,10 +1005,12 @@ def _blade_frames(case: SimCase, script: Script, rotor_frame: int) -> dict[str, 
     """
     pproc = case.pproc
     is_blade = pproc.is_blade if pproc is not None else _default_is_blade
-    blades = [name for name in _inventory(script) if is_blade(name)]
-    if not blades:
-        return {}
     block = _the_rotor_a_flat_row_turns(case)
+    # A DECLARED ROTOR NAMES ITS BLADE FAMILIES (F-029): the default predicate
+    # must not discard them before the block is read.
+    blades = [name for name in _inventory(script) if is_blade(name)]
+    if not blades and block is None:
+        return {}
     if block is not None:
         # A DECLARED ROTOR'S BLADES ARE PLACED BY THE ONE RULE (FR-62): at the
         # hub as this script placed it, on its basis, from the blade1 datum, by
@@ -1008,7 +1030,11 @@ def _blade_frames(case: SimCase, script: Script, rotor_frame: int) -> dict[str, 
         return {family: placed[family] for family in block.families_blades if family in placed}
     axis = str(_variable(case, ROTOR_AXIS_VARIABLE) or "X").upper()
     origin = (0.0, 0.0, 0.0)
-    if case.reference is not None and case.reference.rotor_position_m is not None:
+    placement = script.frame_placements.get(rotor_frame)
+    if placement is not None and placement.origin is not None:
+        # THE HUB AS THIS SCRIPT PLACED IT (F-065): ROTOR_ORIGIN overrides the reference's.
+        origin = placement.origin
+    elif case.reference is not None and case.reference.rotor_position_m is not None:
         origin = _point_from_metres(
             case, script, case.reference.rotor_position_m, "rotor_position_m"
         )
