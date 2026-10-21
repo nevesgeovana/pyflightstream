@@ -307,18 +307,20 @@ def test_p0420_l1_rows_follow_the_approved_feature_statements():
     )
     # 0.43.0 trim (instantiation-ledger-0.43.0.csv): 45 L1 merged into named survivors;
     # FR-3082, FR-3093, FR-3138 and FR-3149 parked on the roadmap; FR-3152 parked and
-    # restored by the instantiation review (R-INST-32) because its behaviour exists.
+    # restored by the instantiation review (R-INST-32) because its behaviour exists;
+    # FR-3021, FR-3023 to FR-3026 merged into the refinement features (R-INST-34).
     left = {3004, 3010, 3011, 3017, 3033, 3034, 3035, 3036, 3037, 3040, 3041, 3042, 3043, 3047}
+    left |= {3021, 3023, 3024, 3025, 3026}
     left |= {3056, 3081, 3082, 3090, 3093, 3098, 3100, 3101, 3103, 3104, 3105, 3106, 3107}
     left |= {3110, 3111, 3117, 3121, 3122, 3124, 3126, 3127, 3128, 3130, 3132, 3134, 3138}
     left |= {3140, 3147, 3149, 3151, 3156, 3159, 3162, 3163, 3166}
     expected = [f"FR-{n}" for n in range(3000, 3167) if n not in left]
     assert [r["uid"] for r in features] == expected
     # Trimmed L1 statements, numeric UID order, UTF-8 joined by LF (no trailing LF); nine
-    # rewordings of the 0.43.0 instantiation review (R-INST-17, R-INST-18) and the
-    # restored FR-3152 (R-INST-32).
+    # rewordings of the 0.43.0 instantiation review (R-INST-17, R-INST-18), the
+    # restored FR-3152 (R-INST-32) and the two widened refinement features (R-INST-34).
     assert hashlib.sha256("\n".join(r["statement"] for r in features).encode()).hexdigest() == (
-        "7e81a5c67f1aaad519043eb5be26e327c8acfaeb0c0b2e0e63bbccefb8b0dc25"
+        "89f061ab60ae68dbe0b41f9dd788193e63c2fb074ac075bd0c378d614e9b9344"
     )
     for feature in features:
         members = [
