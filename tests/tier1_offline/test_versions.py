@@ -26,6 +26,61 @@ from pyflightstream.versions import (
 )
 
 
+def test_p0430_fd02_manual_editions_cannot_poison_later_reads():
+    """Mutating manual_editions() must not change the process registry."""
+    editions = versions.manual_editions()
+    original = dict(editions)
+    try:
+        editions["26.125"] = "untrusted replacement"
+    except TypeError:
+        pass
+    try:
+        assert dict(versions.manual_editions()) == original
+    finally:
+        versions.manual_editions.cache_clear()
+
+
+@pytest.mark.parametrize("value", [26.124, 26.120, None, 26, True])
+def test_p0430_fd02_resolve_names_the_string_remedy(value):
+    """resolve(26.120) must explain the information lost by a float."""
+    with pytest.raises(UnknownVersionError) as caught:
+        resolve(value)
+    assert "pass the canonical identifier as a string" in str(caught.value)
+    assert "float cannot hold 26.120" in str(caught.value)
+    assert type(value).__name__ in str(caught.value)
+
+
+@pytest.mark.parametrize("value", [" 26.124 ", "\t26.124\n"])
+def test_p0430_fd02_resolve_strips_surrounding_whitespace(value):
+    assert resolve(value) is resolve("26.124")
+
+
+@pytest.mark.parametrize("value", ["26.121\n", "２６.１２１", "٢٦.١٢١"])
+def test_p0430_fd02_value_object_requires_complete_ascii_identifier(value):
+    with pytest.raises(UnknownVersionError, match="canonical YY.XXX"):
+        FsVersion(value, "26.12", 0, inherits_base=True)
+
+
+@pytest.mark.parametrize("section", ["versions", "manual_editions"])
+def test_p0430_fd02_yaml_identifiers_must_be_quoted(section, tmp_path, monkeypatch):
+    """An unquoted 26.120 must be refused before its zero is lost."""
+    text = (
+        "versions: [{canonical: 26.120, alias: '26.12'}]"
+        if section == "versions"
+        else "manual_editions: {26.120: 'manual'}"
+    )
+    (tmp_path / "_meta.yaml").write_text(text, encoding="utf-8")
+    reader = versions.known_versions if section == "versions" else versions.manual_editions
+    reader.cache_clear()
+    with monkeypatch.context() as patch:
+        patch.setattr(versions.resources, "files", lambda _: tmp_path)
+        try:
+            with pytest.raises(UnknownVersionError, match="quoted.*string"):
+                reader()
+        finally:
+            reader.cache_clear()
+
+
 def test_known_versions_ordered_by_list_position():
     """Release order, and the 25 series is at the FRONT.
 

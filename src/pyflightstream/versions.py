@@ -39,7 +39,7 @@ __all__ = [
     "resolve",
 ]
 
-_CANONICAL_PATTERN = re.compile(r"^\d{2}\.\d{3}$")
+_CANONICAL_PATTERN = re.compile(r"[0-9]{2}\.[0-9]{3}")
 
 #: Setup-reset neighbours measured on 26.124 (build 8172026), recorded in
 #: RPT-148, window 2 (the reset retained between two initializations).
@@ -217,8 +217,8 @@ class FsVersion:
     canonical : str
         Canonical identifier in the three-fractional-digit scheme, for
         example ``"26.120"``. The first two fractional digits carry the
-        official minor release, the last digit the vendor hotfix build
-        (0 means the official release).
+        minor release, the last digit the build's ordering position within
+        that series. The digit does not establish evidence inheritance.
     alias : str
         Vendor-facing release name, for example ``"26.12"``.
     index : int
@@ -228,19 +228,18 @@ class FsVersion:
     build : str or None
         Vendor build number this version's solver prints in its output
         footer, without the leading ``#``; ``None`` where no committed
-        report records one. It is the only thing that tells two builds
-        of one minor release apart at run time, because every build of
-        one release prints the same version string. Which builds those
-        are is computed by the generated build page from the registry.
+        report records one. Use it to distinguish builds whose printed
+        release names coincide. Printed names can also differ within one
+        alias family; the generated build page reads both from the registry.
         Registered from committed evidence, never guessed.
     prints : str or None
         Release name this version's solver PRINTS, which is not the
         same fact as :attr:`alias` and must not be derived from it.
         The alias is the name the vendor ships the build under; this is
         the name the binary states about itself, and the two differ
-        wherever the vendor has reused a release name, which the 26.12
-        family is: those builds ship under one alias and print one
-        release name, so neither string separates them. A reader holding an
+        wherever the vendor has reused a release name. The 26.12 family
+        shares an alias, but 26.125 prints ``2612`` while 26.120 through
+        26.124 print ``26.1``. A reader holding an
         install has only the printed name, so a table that offers them
         the alias to match on sends the 26.12 owner to a 26.1 row and
         hands them the wrong identifier, which is the exact failure the
@@ -277,7 +276,7 @@ class FsVersion:
         Script accepts FsVersion directly, so a hotfix must state its
         inheritance at construction.
         """
-        if not _CANONICAL_PATTERN.match(self.canonical):
+        if not _CANONICAL_PATTERN.fullmatch(self.canonical):
             raise UnknownVersionError(
                 f"{self.canonical!r} does not follow the canonical YY.XXX "
                 "scheme, the vendor major with exactly three fractional digits "
@@ -393,7 +392,12 @@ def _inherits_base(entry: Mapping[str, object]) -> bool:
     UnknownVersionError
         If a hotfix index states no flag.
     """
-    canonical = str(entry["canonical"])
+    canonical = entry["canonical"]
+    if not isinstance(canonical, str):
+        raise UnknownVersionError(
+            f"canonical identifier {canonical!r} in commands/_meta.yaml must be a "
+            'quoted string such as "26.120"; a YAML number loses trailing zeros.'
+        )
     if canonical.endswith("0"):
         return True
     stated = entry.get("inherits_base")
@@ -411,7 +415,7 @@ def _inherits_base(entry: Mapping[str, object]) -> bool:
 
 
 @lru_cache(maxsize=1)
-def manual_editions() -> dict[str, str]:
+def manual_editions() -> Mapping[str, str]:
     """Return the registered manual edition per canonical version.
 
     The mapping is read from ``commands/_meta.yaml`` and names the
@@ -422,8 +426,8 @@ def manual_editions() -> dict[str, str]:
 
     Returns
     -------
-    dict of str to str
-        Manual edition description keyed by canonical identifier.
+    Mapping of str to str
+        Read-only manual edition descriptions keyed by canonical identifier.
     """
     meta_text = (
         resources.files("pyflightstream.commands")
@@ -432,7 +436,13 @@ def manual_editions() -> dict[str, str]:
     )
     meta = yaml.safe_load(meta_text)
     editions = meta.get("manual_editions") or {}
-    return {str(key): str(value).strip() for key, value in editions.items()}
+    for key in editions:
+        if not isinstance(key, str) or not _CANONICAL_PATTERN.fullmatch(key):
+            raise UnknownVersionError(
+                f"manual edition identifier {key!r} in commands/_meta.yaml must be a "
+                'quoted canonical YY.XXX string such as "26.120".'
+            )
+    return MappingProxyType({key: str(value).strip() for key, value in editions.items()})
 
 
 def resolve(version: str | FsVersion) -> FsVersion:
@@ -443,8 +453,10 @@ def resolve(version: str | FsVersion) -> FsVersion:
     version : str or FsVersion
         Canonical identifier (``"26.120"``), a display alias that names
         exactly one registered build (``"26.0"``), or an already
-        resolved :class:`FsVersion`, returned unchanged. The alias ``"26.1"`` names two builds,
-        so it raises
+        resolved :class:`FsVersion`. A registered canonical is replaced by
+        the registry's object; an unregistered object passes through unchanged.
+        Surrounding whitespace is stripped from strings.
+        The alias ``"26.1"`` names two builds, so it raises
         :class:`AmbiguousVersionAliasError` like ``"26.12"`` does. An
         alias is unique only until the vendor ships the next build under
         the same release name, which is why the canonical identifier is
@@ -488,6 +500,15 @@ def resolve(version: str | FsVersion) -> FsVersion:
         # validation requires explicit descent but cannot verify a caller's
         # assertion about a vendor build.
         return _reconciled(version)
+    if not isinstance(version, str):
+        raise UnknownVersionError(
+            f"FlightStream version {version!r} has type {type(version).__name__}; "
+            'pass the canonical identifier as a string, "26.124"; '
+            "a float cannot hold 26.120.",
+            version=None,
+            known=tuple(entry.canonical for entry in known_versions()),
+        )
+    version = version.strip()
     registered = known_versions()
     for entry in registered:
         if version == entry.canonical:
