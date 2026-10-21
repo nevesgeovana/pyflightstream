@@ -489,3 +489,11 @@ def test_history_reports_an_unreadable_zip_as_a_row_and_still_answers(workspace,
     assert any("record" in row for row in rows)
     code, _, err = _query(workspace, capsys, "diff", RUN, RUN)
     assert code in (0, 2), err
+
+
+def test_f1583_a_huge_since_duration_is_a_workspace_error():
+    from pyflightstream.workspace import WorkspaceError
+    from pyflightstream.workspace import _query_logs as logs
+
+    with pytest.raises(WorkspaceError, match="too long"):
+        logs._since("9" * 400 + "d")

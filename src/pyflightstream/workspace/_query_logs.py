@@ -92,7 +92,12 @@ def _since(text: str | None) -> datetime | None:
     duration = re.fullmatch(r"(\d+(?:\.\d+)?)([smhdw])", text)
     if duration:
         units = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
-        return datetime.now(UTC) - timedelta(seconds=float(duration[1]) * units[duration[2]])
+        try:
+            return datetime.now(UTC) - timedelta(seconds=float(duration[1]) * units[duration[2]])
+        except OverflowError as error:
+            raise WorkspaceError(
+                f"since (CLI: --since) {text!r} is a duration too long to count back from now"
+            ) from error
     try:
         return _time(text)
     except ValueError as error:
