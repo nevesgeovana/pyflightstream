@@ -255,6 +255,16 @@ def test_f1497_unmappable_source_link_is_not_reported_as_linked(tmp_path):
     assert entry["inputs_links"]["sim_8020"].startswith("not linked")
 
 
+def test_f1271_a_recorded_windows_path_is_split_on_any_platform(tmp_path):
+    recorded = "D:\\old\\camp\\inputs\\geometries\\wing"
+    assert storage_module._recorded_parts(recorded)[-3:] == ("inputs", "geometries", "wing")
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.init(workspace.root)
+    _write(workspace.inputs_dir / "geometries" / "wing" / "wing.obj", "o w\n")
+    wanted = storage_module._library_target(workspace, recorded)
+    assert wanted == (workspace.inputs_dir / "geometries" / "wing").resolve()
+
+
 def test_f347_disk_estimate_ignores_empty_datapoint_folders(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.init(workspace.root)

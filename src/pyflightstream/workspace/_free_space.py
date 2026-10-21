@@ -21,7 +21,7 @@ import shutil
 import zipfile
 from collections.abc import Callable, Iterable, Iterator
 from importlib import metadata
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 import pyflightstream._textio as _textio
@@ -570,14 +570,14 @@ def _library_target(workspace: CampaignWorkspace, recorded: str) -> Path | None:
     no such folder.
     """
     library = (workspace.inputs_dir / "geometries").resolve()
-    parts = Path(recorded).parts
+    parts = PureWindowsPath(recorded).parts
     relative: Path | None = None
     for index in range(len(parts) - 1, 0, -1):
         if (parts[index - 1].lower(), parts[index].lower()) == ("inputs", "geometries"):
             relative = Path(*parts[index + 1 :]) if index + 1 < len(parts) else Path(".")
             break
     if relative is None:
-        name = Path(recorded).name
+        name = parts[-1] if parts else ""
         relative = Path(name) if name and (library / name).is_dir() else None
     if relative is not None:
         wanted = (library / relative).resolve()
