@@ -2664,3 +2664,25 @@ def test_rb5_the_page_names_the_function_that_states_the_area_coverage():
     start = text.index("`COVERAGE` states the fraction of the plane's area that was sampled")
     sentence = text[start : text.index(").", start)]
     assert "`pyflightstream.farfield.sample_area_coverage`" in sentence, sentence
+
+
+def test_f7_0203_a_zero_strength_filament_under_another_sheets_point_induces_nothing():
+    """F-097: a silent filament that coincides with a point of a second sheet is finite."""
+    y = np.array([-1.0, 0.0, 1.0, -0.5, 5.0])
+    result = trace_forces(
+        y, z=np.zeros(5), gamma=np.array([1.0, 1.0, 1.0, 0.5, 0.5]), rho=1.0, v_inf=1.0,
+        sheets=[0, 0, 0, 1, 1],
+    )  # fmt: skip
+    assert np.all(np.isfinite(result.normalwash))
+    assert math.isfinite(result.induced_drag)
+
+
+def test_f7_0203_a_wake_whose_strengths_do_not_close_is_refused():
+    """F-098: a dropped final strength is not replaced by a zero-closure assumption."""
+    edges = np.arange(-2.0, 3.0)
+    closed = np.array([-1.0, -1.0, 0.0, 1.0, 1.0])
+    WakeTrace(edges, np.zeros(5), closed, 0, None).forces(rho=1.0, v_inf=10.0)
+    open_wake = closed.copy()
+    open_wake[-1] = 0.5
+    with pytest.raises(FarfieldInputError, match="sum to zero"):
+        WakeTrace(edges, np.zeros(5), open_wake, 0, None).forces(rho=1.0, v_inf=10.0)

@@ -170,7 +170,12 @@ def _induced(
     ry = py[:, None] - fy[None, :]
     rz = pz[:, None] - fz[None, :]
     r2 = ry * ry + rz * rz
-    factor = -d_gamma[None, :] / (2.0 * math.pi * r2)
+    silent = d_gamma == 0.0
+    # A filament that sheds no circulation induces nothing, even where a point of
+    # another sheet sits on it (0/0 otherwise); a nonzero one stays singular there.
+    safe = np.where(silent[None, :] & (r2 == 0.0), 1.0, r2)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        factor = np.where(silent[None, :], 0.0, -d_gamma[None, :] / (2.0 * math.pi * safe))
     v = (factor * -rz).sum(axis=1)
     w = (factor * ry).sum(axis=1)
     return v, w
@@ -461,6 +466,12 @@ class WakeTrace:
             else:
                 original[: len(half_gamma) - 1] = True
         else:
+            closure = float(np.sum(values))
+            if abs(closure) > 1e-4 * float(np.sum(np.abs(values))):
+                raise FarfieldInputError(
+                    "the wake strengths of a full sheet must sum to zero; they sum to "
+                    f"{closure:g}, so a line is missing or a strength is malformed"
+                )
             gamma = -np.cumsum(values)[:-1]
             original = np.ones(len(gamma), dtype=bool)
         return _edge_trace(y, z, gamma, original, rho=rho, v_inf=v_inf)
