@@ -164,3 +164,28 @@ def test_p0410_rec_migrated_pipeline_preserves_released_product_bytes(tmp_path, 
         csv.writer(stream, lineterminator="\n").writerows(lines)
         actual[path] = stream.getvalue().encode().hex()
     assert actual == fixture["products"]
+
+
+def test_f1532_empty_named_manifest_is_migrated(tmp_path):
+    named = tmp_path / "runs-other.json"
+    named.write_text("[]", encoding="utf-8")
+    changes = migrate_workspace(tmp_path)
+    assert [item["file"] for item in changes] == ["runs-other.json"]
+    migrate_workspace(tmp_path, apply=True)
+    assert json.loads(named.read_text(encoding="utf-8"))["schema_version"] == 4
+    assert named.with_suffix(".json.bak").read_bytes() == b"[]"
+
+
+def test_f738_linked_backup_is_refused(tmp_path, monkeypatch):
+    from pyflightstream.workspace import WorkspaceError
+
+    path = tmp_path / "runs.json"
+    original = json.dumps([_historical_row("v0.40.0")]).encode()
+    path.write_bytes(original)
+    backup = path.with_suffix(".json.bak")
+    backup.write_bytes(original)  # what a link to runs.json reads as
+    real = Path.is_symlink
+    monkeypatch.setattr(Path, "is_symlink", lambda self: self.name.endswith(".bak") or real(self))
+    with pytest.raises(WorkspaceError, match="linked backup"):
+        migrate_workspace(tmp_path, apply=True)
+    assert path.read_bytes() == original

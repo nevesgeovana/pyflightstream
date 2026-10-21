@@ -91,14 +91,17 @@ def _candidates(root: Path):
         if isinstance(data, dict) and "schema_version" in data and "runs" in data:
             decode_document(data, source=path)
             continue
-        if path.name == "runs.json" or (
+        legacy_rows = (
             isinstance(data, list)
-            and data
+            and bool(data)
             and all(
                 isinstance(row, dict) and ("run_id" in row or "deleted_sim" in row) for row in data
             )
             and path.name != "additional.json"
-        ):
+        )
+        # An empty named manifest is a legacy record the reader refuses too.
+        empty_named = data == [] and path.name.startswith("runs")
+        if path.name == "runs.json" or legacy_rows or empty_named:
             candidates.append(path)
     return candidates
 
@@ -139,6 +142,8 @@ def _prepare_file(path: Path):
     decode_document(document, source=path)
     after = (json.dumps(document, indent=2) + "\n").encode("utf-8")
     backup = path.with_suffix(path.suffix + ".bak")
+    if backup.is_symlink():
+        raise WorkspaceError(f"{backup}: a linked backup is not a copy; remove it before migrating")
     if backup.exists() and backup.read_bytes() != before:
         raise WorkspaceError(
             f"{backup}: a different backup already exists; preserve it before migrating again"
