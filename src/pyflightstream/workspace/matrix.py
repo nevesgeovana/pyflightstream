@@ -20,20 +20,17 @@ Geometry is resolved alongside the reference, setup and post-processing inputs, 
 layer receives a complete bound case.
 
 This module binds the parsed matrix (OPS-2007.01, PFS-2009.05). It imports
-the cases and script layers downward, workspace siblings sideways and
-nothing from :mod:`pyflightstream.run`. Execution belongs to
-:mod:`pyflightstream.run.matrix`.
+the cases layer downward, workspace siblings sideways and nothing from
+:mod:`pyflightstream.run`. Execution belongs to :mod:`pyflightstream.run.matrix`.
 
-THE SCRIPT IMPORT IS THE NEWEST OF THOSE AND THE SENTENCE ABOVE IS AN
-ENUMERATION, so it is named rather than left to be inferred:
-:func:`pyflightstream.script.toggles.resolve_toggle` resolves a preset's
-ENABLE/DISABLE gate in the same vocabulary
-:class:`pyflightstream.cases.SolverSettings` validates its own toggles
-with. `script` is two rows below `workspace` in
-:data:`pyflightstream.overview._CORE_LAYERS`, so it is downward. This
-paragraph is a rendering source for the architecture overview (AD-02),
-which is why an enumeration that has drifted from the import block
-matters here more than it would in an ordinary comment.
+It imports no module of the script layer itself. A preset's ENABLE/DISABLE gate is resolved
+by :func:`pyflightstream.script.toggles.resolve_toggle`, in the same vocabulary
+:class:`pyflightstream.cases.SolverSettings` validates its own toggles with, and that call
+is made by the workspace's row-setup sibling; `script` is two rows below `workspace` in
+:data:`pyflightstream.overview._CORE_LAYERS`, so the dependency is downward. This
+paragraph is a rendering source for the architecture overview (AD-02), which is why an
+enumeration that has drifted from the import block matters here more than it would in an
+ordinary comment.
 """
 
 from __future__ import annotations

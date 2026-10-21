@@ -445,3 +445,21 @@ def test_p0430_f1580_explicit_dot_slash_matrix_is_not_redirected(tmp_path):
     assert names_its_folder("./m.fs")
     assert matrix_path(root, "./m.fs") == Path("./m.fs")
     assert matrix_path(root, "m.fs") == root / "inputs" / "matrices" / "m.fs"
+
+
+def test_x_f_1743_the_module_docstring_names_no_script_import_the_module_lacks():
+    """The docstring renders into the architecture overview, so it matches the import block."""
+    import ast
+    import inspect
+
+    from pyflightstream.workspace import matrix
+
+    tree = ast.parse(inspect.getsource(matrix))
+    imported = {
+        node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module
+    }
+    script_imports = {name for name in imported if name.startswith("pyflightstream.script")}
+    doc = " ".join((matrix.__doc__ or "").split())
+    if not script_imports:
+        assert "imports no module of the script layer" in doc
+        assert "THE SCRIPT IMPORT" not in doc
