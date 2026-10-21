@@ -360,10 +360,10 @@ DISABLE_ACTUATOR:
     Disables an actuator disc without deleting it, the counterpart of
     ENABLE_ACTUATOR.
 
-    DOCUMENTED BY THE FEBRUARY 2026 EDITION ALONE. No later edition
-    prints it anywhere, which is why the entry carries one version row
-    and cites FSM-26.100 rather than the flagship. It is the mirror image
-    of SET_WAKE_DECAY_CONSTANT, which exists in the newest edition only.
+    Documented from 25.000 through 26.100, with four direct version rows.
+    No later edition prints it. The entry cites FSM-26.100, the last
+    edition documenting it. SET_WAKE_DECAY_CONSTANT has a different
+    documented range, 26.121 through 26.125.
 
     Its page prints the heading with NO placeholder and a parameter
     table reading N/A, while the sample two lines below passes an

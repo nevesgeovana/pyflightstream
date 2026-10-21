@@ -187,9 +187,10 @@ EXPORT_SOLVER_ANALYSIS_CSV:
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.368, unchanged from FSM-26.124 p.359"}
   notes: >
     Exports the FEM CSV file. The path follows on the line after the
-    command name; FORMAT, UNITS, FRAME and SURFACES follow as KEY
-    VALUE lines, with the boundary indices one per line after
-    SURFACES when it is not -1.
+    command name; FORMAT, UNITS and SURFACES follow as KEY VALUE lines,
+    with the boundary indices one per line after SURFACES when it is
+    not -1. FRAME is also required from 25.100 onward; the 25.000
+    grammar has no FRAME field.
 
 EXPORT_SOLVER_ANALYSIS_PLOAD_BDF:
   layout: param_lines

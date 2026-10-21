@@ -49,6 +49,45 @@ def test_p0430_fd01_version_default_requires_value_and_citation(fields):
         VersionStatus(status="documented", **fields)
 
 
+@pytest.mark.parametrize(
+    "filename,obsolete",
+    [
+        ("_meta.yaml", "only a run of the build can make a row removed"),
+        ("actuators.yaml", "DOCUMENTED BY THE FEBRUARY 2026 EDITION ALONE"),
+        ("actuators.yaml", "which exists in the newest edition only"),
+        ("advanced_settings.yaml", "NEW IN THE 26.12 HOTFIX AND DOCUMENTED NOWHERE ELSE"),
+        ("base_regions.yaml", "states the index must be greater than zero and no all-form"),
+        ("base_regions.yaml", "IT TAKES A BASE REGION AND NOT AN OUTLET"),
+        ("boundary_conditions.yaml", "boundary per call and no all-form is stated"),
+        ("mesh_import_export.yaml", "a removal in this database is a manual STATING one"),
+        ("mesh_operations.yaml", "database promotes a command to removed when a manual STATES"),
+        ("mesh_operations.yaml", "cannot be denied per command"),
+        ("motion_definitions.yaml", "kg m2 is the only reading consistent with the mass"),
+        ("solver_export.yaml", "FORMAT, UNITS, FRAME and SURFACES follow"),
+        ("solver_initialization.yaml", "unlike this command nothing takes its place"),
+        ("solver_settings.yaml", "and its delete, are on every build"),
+        ("aeroelastic_coupling.yaml", "no entry is added here for it"),
+        ("base_regions.yaml", "26.122 stops working on the build issued after it"),
+        ("boundary_conditions.yaml", "first recorded instance of the index OVER-reporting"),
+        ("boundary_conditions.yaml", "VERIFIED ON 26.124 ONLY"),
+        ("cad.yaml", "a bare integer raises"),
+    ],
+)
+def test_p0430_fd01_notes_do_not_contradict_build_records(filename, obsolete):
+    text = " ".join((COMMANDS_DIR / filename).read_text(encoding="utf-8").split())
+    assert obsolete not in text
+
+
+def test_p0430_fd01_altitude_refusals_are_complete_and_public():
+    entry = CommandRegistry.load().commands["AIR_ALTITUDE"]
+    for build in ("26.100", "26.101", "26.120"):
+        note = entry.versions[build].note
+        assert "[...]" not in note
+        assert "GEO-" not in note and "PFS-" not in note
+        assert "1.056" in note and "0.736" in note
+    assert "erratum_2026-08-11.md" not in entry.versions["26.122"].note
+
+
 def test_p0420_p2_1a_separation_refusal_is_scoped_to_measured_build():
     """26.120 has direct refusal evidence, not an inherited February-build row."""
     data = yaml.safe_load((COMMANDS_DIR / "solver_settings.yaml").read_text(encoding="utf-8"))

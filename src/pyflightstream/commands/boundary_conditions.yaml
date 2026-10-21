@@ -296,12 +296,12 @@ AIR_ALTITUDE:
           unit: "ft"
     "25.100": {status: documented, note: "FSM-25.100 p.302, same grammar as 26.120"}
     "26.000": {status: documented, note: "FSM-26.000 p.301, same grammar as 26.120"}
-    "26.100": {status: broken, report: "reports/compat/CMP-26100_2026-10-16_pfs-2001-03-02-altitude.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...] Probe: Reanalysis of PFS-2003.10.01 execution f05d9ea4031a, run 2026-10-15T23:18:18+00:00; GEO-105 release 0.42.0 licensed receipt namespace [...] Probe: Reanalysis of PFS-2003.10.02 execution 14ae8220bc49, run 2026-10-15T23:19:22+00:00; GEO-105 release 0.42.0 licensed receipt namespace [...] Probe: Reanalysis of PFS-2001.03.02 execution 93117a8b6179, run 2026-10-15T23:18:18+00:00; GEO-105 release 0.42.0 licensed receipt namespace [...]"}
-    "26.101": {status: broken, report: "reports/compat/CMP-26101_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}
-    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}
+    "26.100": {status: broken, report: "reports/compat/CMP-26100_2026-10-16_pfs-2001-03-02-altitude.yaml", note: "At 5000 METERS the density was 1.056 kg/m^3 instead of the expected 0.736 kg/m^3. The 5000 FEET control also gave 1.056; the equal physical altitude in FEET gave 0.736. These controls show the units token was ignored."}
+    "26.101": {status: broken, report: "reports/compat/CMP-26101_2026-08-08_full.yaml", note: "The script continued past AIR_ALTITUDE, but the sweep reported 1.056 kg/m^3 at 5000 METERS instead of the expected 0.736 kg/m^3. The requested metre-altitude effect was not established; see the cited report."}
+    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "The script continued past AIR_ALTITUDE, but the sweep reported 1.056 kg/m^3 at 5000 METERS instead of the expected 0.736 kg/m^3. The requested metre-altitude effect was not established; see the cited report."}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml",
-      note: "Read that report with its erratum beside it, CMP-26122_2026-08-11_full_erratum_2026-08-11.md: the detail on this record carries the probe spec's static cross-build sentence, which is false on this build and which the record's own effect: true contradicts"}
+      note: "The cited report records outcome verified and effect true, but its detail also contains a conflicting cross-build sentence about the first sweep. Read those fields separately; that sentence does not establish a units failure on this build."}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.333, unchanged from FSM-26.122 p.333"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.333, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.340, unchanged from FSM-26.124 p.333"}
@@ -435,9 +435,9 @@ TRAILING_EDGES_IMPORT:
     wake detection and the wake-edge import, and prints this command
     nowhere. FSM-26.123 p.390, the Script Index, still lists it under the
     same chapter heading. So the chapter body and the index disagree,
-    and this is the first recorded instance of the index OVER-reporting;
-    the caution recorded until now ran the other way, that the index
-    under-reports, which is why the surface is read from the body. The
+    another instance of the index over-reporting, also recorded for
+    SET_JET_WAKE_FILAMENTS_GRID_INDUCTION in FSM-26.122. The index can
+    both over-report and under-report, so the surface is read from the body. The
     rule does not change and the body is still what is read.
 
     WHY THE ROW IS ABSENT RATHER THAN REMOVED. `removed` would be the
@@ -499,8 +499,9 @@ DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
           all_sentinel: -1
   notes: >
     Detects wake termination nodes on one boundary, where
-    AUTO_DETECT_WAKE_TERMINATION_NODES does the whole geometry. One
-    boundary per call and no all-form is stated.
+    AUTO_DETECT_WAKE_TERMINATION_NODES does the whole geometry. Through
+    26.124 the documented form selects one boundary. FSM-26.125 p.331
+    adds -1 for every boundary, accepted by the 26.125 grammar.
 
 MARK_WAKE_TERMINATION_NODES:
   layout: bare
@@ -708,7 +709,8 @@ IMPORT_WAKE_EDGES_FROM_FILE:
     path on its own line, and 26.122 and 26.123 keep the printed line
     and are refused by the marking helper as unmeasured.
 
-    VERIFIED ON 26.124 ONLY. The compat probe of 2026-09-24
+    Verified on 26.124 and 26.125, each with its own compat report.
+    The compat probe of 2026-09-24
     (CMP-26124_2026-09-24_wake-edge-import) imported the sixteen
     trailing-edge mid-points of the qa wing through the 26.124 grammar and
     the solver logged sixteen imported edges; the saved state after it

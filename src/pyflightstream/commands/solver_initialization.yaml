@@ -294,7 +294,8 @@ SOLVER_UNINITIALIZE:
 
     SOLVER_CLEAR is NOT the successor even though it leaves at the same
     edition, because it clears the SOLUTION rather than the
-    initialization, and unlike this command nothing takes its place.
+    initialization. CLEAR_SOLUTION documents that solution-clearing
+    operation from 25.100 onward; REMOVE_INITIALIZATION clears initialization.
   versions:
     "25.000":
       status: documented

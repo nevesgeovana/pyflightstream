@@ -446,10 +446,10 @@ manual_editions:
     AUTO_DETECT_BASE_REGIONS, AUTO_DETECT_TRAILING_EDGES,
     AUTO_DETECT_WAKE_TERMINATION_NODES and SOLVER_TIME_AVERAGING; their
     names appear nowhere in its text. SET_DIRECT_AEROELASTIC_MESH_MORPHING
-    has evidence under FR-341 and RPT-154. Each of the four answers ABSENT on
-    26.125 (no version row), the encoding for a dropped page
-    (PFS-2026.04): an edition dropping a page is a fact about
-    a document, and only a run of the build can make a row removed.
+    has evidence under FR-341 and RPT-154. A previously documented command
+    disappearing from an edition is a document withdrawal, recorded as
+    removed with an edition citation. That status must distinguish document
+    withdrawal from a solver refusal, which requires a run on that build.
 
     The release notes in the package are byte-identical to the 26.124
     package's and document none of the difference, as RPT-014 found for

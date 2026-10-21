@@ -95,9 +95,8 @@ CAD_BODY_ROTATE:
     than the sample a typo. Which letter each index denotes is written
     nowhere: 1, 2, 3 in frame order is the only sensible reading and it
     is unverified, so a script that means the Y axis is clearer written
-    Y. The index must be passed as the string "2"; the emitter matches
-    enum values as text and a bare integer raises
-    (PLN-20260806-1130).
+    Y. Either the string "2" or the integer 2 is accepted for a listed
+    digit; both emit the token 2.
 
 CAD_BODY_SCALE:
   layout: inline

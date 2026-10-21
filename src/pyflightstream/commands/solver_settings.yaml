@@ -905,8 +905,10 @@ SET_CROSSFLOW_SEPARATION_CP:
 
     Documented by the three pre-26.100 editions. The boundary selection
     commands beside it on the same page,
-    SET_CROSSFLOW_SEPARATION_BOUNDARIES and its delete, are on every
-    build; this one scalar is what stops being printed.
+    SET_CROSSFLOW_SEPARATION_BOUNDARIES and its delete, have direct
+    documented rows through 26.100. From 26.101 the named separation
+    models provide the selection route. This scalar stops being printed
+    at 26.100.
   versions:
     "25.000":
       status: documented

@@ -582,7 +582,8 @@ SET_MOTION_MASS_PROPERTIES:
     Mass and inertia tensor of a 6DOF body. MASS is in KILOGRAMS, which
     the manual states; the six inertia components are named as moments
     and products of inertia with NO unit given, so none is recorded
-    here even though kg m2 is the only reading consistent with the mass.
+    here. Kilograms alone do not determine the length unit used by the
+    inertia tensor; kg m2 would additionally require lengths in metres.
 
     The order is the three moments and then the three products, and the
     products are IXY, IYZ, IZX rather than the IXY, IXZ, IYZ a reader

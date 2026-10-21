@@ -479,11 +479,10 @@ SELECT_GEOMETRY_BY_ID:
     dropped because 26.100 is a registered build and a script written
     for it needs the name that edition documents.
 
-    Its status is documented and not removed, deliberately: this
-    database promotes a command to removed when a manual STATES the
-    removal, and no edition states one here. What happened is that the
-    name stopped appearing, which is a weaker fact and is recorded as
-    the absence of later version rows.
+    The recorded editions retain their documented status. Later version
+    rows are absent here; this does not establish runtime removal.
+    A removed row can record either a document withdrawal or a measured
+    refusal, with a note distinguishing those evidence routes.
 
 SURFACE_SELECT_BY_THRESHOLD:
   layout: keyword_block
@@ -788,9 +787,9 @@ SURFACE_DELETE:
     READ WHAT THAT DOES NOT ACHIEVE. 26.121 is a real hotfix of 26.120
     and inherits its records, so the emitter ACCEPTS this command for
     26.121 even with no row of its own. Inheritance is per version and
-    cannot be denied per command, so a database that knows the 26.121
-    manual dropped this one has no way to say so
-    (PLN-20260807-1010). Whether the solver still answers to it on that
+    can be overridden per command by a direct version row, including a
+    removed row recording document withdrawal. No such row is present
+    here for 26.121. Whether the solver still answers to it on that
     build is a probe question, and until it is asked the emitter is
     permissive here rather than wrong.
 

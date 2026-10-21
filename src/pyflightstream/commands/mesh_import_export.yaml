@@ -136,9 +136,10 @@ DELETE_SURFACES:
     page and not the heading's. New in the 26.121 manual edition, where
     it replaces the SURFACE_DELETE keyword block and SURFACE_CLEARALL
     of FSM-26.120 pp.312-313. Both are registered in mesh_operations.yaml, each carrying version rows for
-    the three editions that document it and none after; no removal is
-    recorded against either, because a removal in this database is a
-    manual STATING one and no edition states it.
+    the editions that document each. Their missing later rows do not
+    establish runtime removal. A removed row may record an explicit
+    withdrawal, an edition ceasing to print a command, or a measured
+    solver refusal; its note distinguishes those evidence routes.
     ARITY NOT DETERMINABLE FROM THE PAGE, and deliberately registered
     narrow: the parameter table declares one INDEX, while one sample
     passes three bare integers under a multiple-surface heading. Those

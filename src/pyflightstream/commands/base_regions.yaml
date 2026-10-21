@@ -212,9 +212,9 @@ DETECT_BASE_REGIONS_BY_SURFACE:
           all_sentinel: -1
   notes: >
     The same detection restricted to one mesh boundary, for a geometry
-    where the whole-model form marks more than intended. The manual
-    states the index must be greater than zero and no all-form, so -1 is
-    not accepted.
+    where the whole-model form marks more than intended. Through 26.124
+    the documented index is positive. FSM-26.125 p.327 adds -1 to select
+    every boundary, and the 26.125 grammar accepts that all-form.
 
 SET_BASE_REGION_TRAILING_EDGES:
   layout: inline
@@ -364,8 +364,9 @@ SET_OUTFLOW_TRAILING_EDGES:
     a separate entry rather than an alias field on this one: an alias
     would have to say which editions it holds for, and a per-name
     version block is what this database already has for saying that.
-    No transitional spelling is documented, so a script written for
-    26.122 stops working on the build issued after it.
+    No transitional spelling is documented. The library refuses the old
+    spelling on 26.123; this document withdrawal does not establish
+    whether that solver still accepts a script written for 26.122.
   versions:
     "26.122":
       status: documented
@@ -403,12 +404,10 @@ SET_OUTLET_TRAILING_EDGES:
     page, same single base region boundary index, same -1 for every
     base region, same printed sample.
 
-    IT TAKES A BASE REGION AND NOT AN OUTLET, which the name invites a
-    reader to get wrong. The argument is the index of a base region
-    boundary, exactly as its predecessor's was; the outlet perimeter
-    marking documented in the same edition's user-interface chapter is
-    a different feature with no command in the scripting reference at
-    all, and the two are not linked on any page.
+    FSM-26.123 p.331 and FSM-26.124 p.331 describe a base region boundary.
+    FSM-26.125 p.337 instead describes a positive outlet boundary index,
+    while its sample still passes -1. These are edition-specific descriptions;
+    no controlled probe settles the index interpretation on 26.125.
 
     Its parameter table carries the same formatting slip as its
     predecessor's, naming the row after the command rather than after

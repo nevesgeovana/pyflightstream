@@ -537,10 +537,9 @@ SET_WAKE_DECAY_CONSTANT:
   notes: >
     Rate at which wake vorticity decays with distance.
 
-    NEW IN THE 26.12 HOTFIX AND DOCUMENTED NOWHERE ELSE, so it carries
-    one version row and its manual_ref cites FSM-26.121 rather than the
-    flagship edition, which is the citation form for a command the
-    flagship does not document.
+    First documented in 26.121 and also documented in 26.122, 26.123,
+    26.124 and 26.125. Its manual_ref cites FSM-26.121, the first
+    edition documenting it; FSM-26.120 does not document the command.
 
     THE UNIT IS DERIVED AND NOT PRINTED. The manual gives the constant
     as 19.1 divided by a characteristic length L and states that L is
