@@ -33,6 +33,7 @@ import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -352,6 +353,34 @@ def write_surface_average(
     return written
 
 
+def _moving_frame_refusal(record: RunRecord, frame_record: Mapping[str, object]) -> str | None:
+    """Say why a loads frame whose placement changes with time cannot undo a per-step VTK.
+
+    The frame the translation undoes is placed ONCE, as the script left it. A motion
+    attached to that frame turns or moves it between the steps of a per-step export, so
+    the placement recorded is the placement of the first step only, and the points of every
+    other step would be put back in the reference frame by a rotation they were not written
+    with. RPT-074 measured a frame fixed in time and no other; a licensed probe of a moving
+    frame's per-step exports is the evidence that would lift this. None for a fixed frame,
+    and for a record that carries no motion ledger.
+    """
+    index = frame_record.get("frame")
+    ledger: Any = record.frame_motions or {}
+    motion = ledger.get(index) if index in ledger else ledger.get(str(index))
+    if not isinstance(motion, Mapping):
+        return None
+    trajectory = motion.get("trajectory")
+    kind = trajectory.get("kind") if isinstance(trajectory, Mapping) else None
+    if kind in (None, "fixed"):
+        return None
+    return (
+        f"the loads frame {index} has a {kind} trajectory, so its placement changes between "
+        "the steps of the per-step export and the one placement the record holds is the first "
+        "step's: only a frame fixed in time is measured (RPT-074). Average from a loads frame "
+        "that no motion moves, or the reference frame."
+    )
+
+
 def write_point_surface_average(
     root: Path,
     *,
@@ -464,6 +493,9 @@ def write_point_surface_average(
     try:
         if not isinstance(frame_record, Mapping):
             raise ProductError("the record states no loads frame for the VTK")
+        moving = _moving_frame_refusal(record, frame_record)
+        if moving is not None:
+            raise ProductError(moving)
         frame = SurfaceFrame.from_record(frame_record)
         average = average_surface_exports(
             files,

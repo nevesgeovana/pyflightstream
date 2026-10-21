@@ -71,7 +71,13 @@ all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
   itself set, as the script placed it: it emitted the frames and the
   loads-frame command, so it knows `R` and `o`. A loads frame the script did not
   place (one an opened project carries, or one a command moved in a way the
-  package does not follow) is refused at plan, naming the frame.
+  package does not follow) is refused at plan, naming the frame. A frame with
+  left-handed axes (`det R < 0`) is refused when it is built, since how the solver
+  writes a point in a frame that mirrors the reference is not known. The measured
+  cases are a turn about `z` and a translation (RPT-074, 26.124): a tilted frame is
+  translated but stated unmeasured, and a loads frame that a motion moves in time
+  is refused by the surface time average, because its recorded placement is the
+  first step's only.
 - **The velocity components are written back the way the solver wrote them, as
   a point is, origin included.** On the measured recorded files the norm of `Vx`,
   `Vy`, `Vz` equals the panel's own `Velocity` to 7e-15 at the median only once
@@ -112,7 +118,8 @@ all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
   VTK (`SOURCE_VTK`) and that file's sha256 (`SOURCE_VTK_SHA256`), say it is a
   translation, cell-centred, in the reference frame (`TRANSLATION`), name the
   frame undone (`SOURCE_FRAME`) and say `Singularity_strength` is not carried
-  (`NOT_CARRIED`). Its `products.json` entry states the same as
+  (`NOT_CARRIED`), and name the frame case with whether it was measured
+  (`FRAME_VERIFICATION`, and `frame_verification` in the record). Its `products.json` entry states the same as
   `translated_from`, `source_sha256`, `location` (`cell-centred`), `frame`
   (`reference`) and `not_carried`; the PROV document attributes it to the
   package and derives it from the VTK. The run record's `surface_translations`

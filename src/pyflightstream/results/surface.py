@@ -88,6 +88,11 @@ _COORDINATE_SCALARS: tuple[str, str, str] = ("X", "Y", "Z")
 #: What the solver's own Tecplot carries and the VTK does not (RPT-074).
 NOT_CARRIED_BY_THE_VTK: tuple[str, ...] = ("Singularity_strength",)
 
+#: The frame cases whose VTK translation is measured (RPT-074, 26.124): a turn about z and
+#: a translation. A tilted frame and a frame whose placement changes between the steps of a
+#: per-step export are not, and wait for a licensed probe.
+VERIFIED_FRAME_CASES = "a turn about z and a translation (RPT-074, 26.124)"
+
 #: How far from orthonormal a frame's axes may be before the translation is
 #: refused: the solver writes ``R (p - o)`` and only an orthonormal ``R`` is
 #: undone by its transpose. RPT-074 ran unit axes.
@@ -149,6 +154,13 @@ class SurfaceFrame:
                 "the transpose of an orthonormal R only, and how the solver writes a "
                 "point in any other frame was not measured (RPT-074 ran unit axes)"
             )
+        determinant = float(np.linalg.det(rotation))
+        if determinant < 0.0:
+            raise MalformedOutputError(
+                f"the axes of frame {self.index} are left-handed (det R = {determinant:.3g}); "
+                "RPT-074 measured right-handed frames, and how the solver writes a point in a "
+                "frame that mirrors the reference is not known, so the VTK is not translated"
+            )
 
     @property
     def rotation(self) -> np.ndarray:
@@ -159,6 +171,30 @@ class SurfaceFrame:
     def turns(self) -> bool:
         """Whether the frame's axes differ from the reference frame's."""
         return not np.array_equal(self.rotation, np.eye(3))
+
+    @property
+    def case(self) -> str:
+        """Which kind of placement this frame is, for the record of what was verified.
+
+        ``reference`` (no turn, no shift), ``translation`` (no turn), ``z-turn`` or
+        ``z-turn and translation`` (a turn about the z axis alone), or ``tilted``
+        (any turn that moves the z axis). RPT-074 measured the second to fourth and
+        none other.
+        """
+        shifted = any(float(value) != 0.0 for value in self.origin)
+        if not self.turns:
+            return "translation" if shifted else "reference"
+        about_z = np.allclose(
+            self.rotation[2], (0.0, 0.0, 1.0), atol=_ORTHONORMAL_TOLERANCE
+        ) and np.allclose(self.rotation[:, 2], (0.0, 0.0, 1.0), atol=_ORTHONORMAL_TOLERANCE)
+        if not about_z:
+            return "tilted"
+        return "z-turn and translation" if shifted else "z-turn"
+
+    @property
+    def verified(self) -> bool:
+        """Whether this frame's case is one RPT-074 measured (everything but ``tilted``)."""
+        return self.case != "tilted"
 
     def to_reference(self, points: np.ndarray) -> np.ndarray:
         """Return rows written in this frame as rows of the reference frame.
@@ -896,7 +932,8 @@ def translate_vtk_surface(
         If the native source named is not a file.
     MalformedOutputError
         If the VTK or the native source changed during translation, or the
-        native zones cannot be matched to the VTK.
+        native zones cannot be matched to the VTK. A frame with left-handed
+        axes is refused when it is built (``det R < 0``).
 
     Examples
     --------
@@ -970,6 +1007,11 @@ def translate_vtk_surface(
         "source": source.name,
         "source_sha256": digest,
         "frame": frame.record(),
+        "frame_verification": {
+            "case": frame.case,
+            "verified": frame.verified,
+            "verified_cases": VERIFIED_FRAME_CASES,
+        },
         "location": "cell-centred" if missing else "mixed nodal and cell-centred",
         "variables": list(translated.cell_data),
         "not_carried": missing,
@@ -987,6 +1029,15 @@ def translate_vtk_surface(
                 "in the reference frame"
             ),
             "SOURCE_FRAME": f"the analysis loads frame, {frame.describe()}",
+            "FRAME_VERIFICATION": (
+                f"{frame.case}; "
+                + (
+                    "measured"
+                    if frame.verified
+                    else "NOT MEASURED: the translation of a tilted frame is unverified"
+                )
+                + f"; verified cases are {VERIFIED_FRAME_CASES}"
+            ),
             "NOT_CARRIED": ", ".join(missing) or "none",
             **auxiliary,
         },
