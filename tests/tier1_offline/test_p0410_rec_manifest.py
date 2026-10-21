@@ -1,6 +1,7 @@
 """N2/N3: append a run, resolve its definitions, and refuse unmigrated files."""
 
 import json
+from contextlib import contextmanager
 
 import pytest
 
@@ -206,3 +207,24 @@ def test_p0410_rec_show_resolves_historical_definitions(tmp_path, capsys):
     assert document["record"]["solver_setup"] == record.solver_setup
     assert document["record"]["inventory"] == record.inventory
     assert document["record"]["fs_build"] == "1234"
+
+
+def test_p0430_supersede_archives_the_snapshot_under_lease(tmp_path, monkeypatch):
+    """A collector completes a submitted run just before supersede takes its lease."""
+    ws = CampaignWorkspace(tmp_path)
+    ws.append_record(_record(status=RunStatus.SUBMITTED))
+    original = ws._manifest_lock
+
+    @contextmanager
+    def completion_before_acquisition(manifest=None):
+        with original(manifest):
+            ws._replace_manifest([_record(status=RunStatus.CONVERGED).model_dump(mode="json")])
+            yield
+
+    monkeypatch.setattr(ws, "_manifest_lock", completion_before_acquisition)
+    archive = ws.supersede_records(["run-1"])
+    assert archive is not None
+    from pyflightstream.workspace.record_document import read_rows
+
+    assert read_rows(archive)[0]["status"] == "CONVERGED"
+    assert ws.read_raw_manifest() == []

@@ -1605,21 +1605,19 @@ def supersede_records(
         Where the manifest was copied, or None when there is no manifest
         to copy, which is a workspace nothing has run in yet.
     """
-    if not workspace.manifest_path.is_file():
-        return None
-    (workspace.root / ARCHIVE_DIR).mkdir(parents=True, exist_ok=True)
-    # The spelling has one home, which restore reads: archive/runs-<stamp>.json,
-    # numbered .2, .3 when two supersedes share one stamp window, so the older
-    # copy, the state before either change, is never overwritten.
-    target = free_root_archive(
-        workspace.root,
-        workspace.manifest_path.name,
-        (stamp or datetime.now()).strftime(ARCHIVE_STAMP),
-    )
-    shutil.copy2(workspace.manifest_path, target)
-
     superseded = set(run_ids)
     with workspace._manifest_lock():
+        if not workspace.manifest_path.is_file():
+            return None
+        (workspace.root / ARCHIVE_DIR).mkdir(parents=True, exist_ok=True)
+        # Name and copy the leased snapshot before removing any of its rows.
+        # Number collisions so earlier recoverable versions remain intact.
+        target = free_root_archive(
+            workspace.root,
+            workspace.manifest_path.name,
+            (stamp or datetime.now()).strftime(ARCHIVE_STAMP),
+        )
+        shutil.copy2(workspace.manifest_path, target)
         kept = [
             row
             for row in workspace.read_raw_manifest()
