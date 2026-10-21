@@ -169,6 +169,7 @@ def disc_map_rows(
     result = DiscMaps()
     quantities = load_quantities(columns)
     taken: dict[str, list[_Row]] = {}
+    planes: dict[str, set[str]] = {}
     for block in sample_blocks(rows, sample_column):
         first = block[0]
         rotor = rotors.get(first.get("ROTOR", ""))
@@ -188,6 +189,7 @@ def disc_map_rows(
         if psi is None:
             continue
         psi %= 360.0
+        planes.setdefault(rotor.alias, set()).add(first.get("PLANE", ""))
         result.samples[rotor.alias] = result.samples.get(rotor.alias, 0) + 1
         mine = taken.setdefault(rotor.alias, [])
         half = (
@@ -213,8 +215,17 @@ def disc_map_rows(
                         _number(row.get(quantity)),
                     )
                 )
+    for alias, names in planes.items():
+        if len(names) > 1:
+            # The harmonics refuse this rotor the same way: rows of two planes would interleave.
+            del taken[alias]
+            del result.samples[alias]
+            result.skipped[f"#rotor={alias}"] = (
+                f"rotor {alias!r} has blade samples in multiple planes "
+                f"{', '.join(sorted(names))}; their distributions cannot be pooled"
+            )
     for alias in rotors:
-        if alias not in taken:
+        if alias not in taken and f"#rotor={alias}" not in result.skipped:
             result.skipped[f"#rotor={alias}"] = (
                 f"no block of the table is one blade of rotor {alias!r} at a stated azimuth, "
                 "so the rotor has no disc map"
@@ -305,6 +316,15 @@ def write_disc_maps(
     )
 
 
+def _in_window(row: Mapping[str, str], windows: Mapping[str, tuple[int, int]]) -> bool:
+    window = windows.get(row.get("ROTOR", ""))
+    try:
+        step = int(float(row.get("STEP", "")))
+    except ValueError:
+        return False
+    return window is not None and window[0] <= step <= window[1]
+
+
 def write_disc_map(
     sections: str | Path,
     rotors: Mapping[str, HarmonicRotor],
@@ -312,8 +332,14 @@ def write_disc_map(
     sample_column: str,
     out_dir: str | Path | None = None,
     point: str | None = None,
+    windows: Mapping[str, tuple[int, int]] | None = None,
 ) -> tuple[Path, ...]:
     """Write the disc maps of a written sections table, one CSV per rotor and quantity.
+
+    A series (``sample_column="STEP"``) is mapped over ONE revolution of each
+    rotor, as the campaign does: ``windows`` gives, by rotor alias, the first and
+    last step of that revolution (:func:`pyflightstream.post.harmonics.last_complete_revolution`),
+    and rows of a rotor with no window, or outside it, are not mapped.
 
     Parameters
     ----------
@@ -330,6 +356,9 @@ def write_disc_map(
     point : str, optional
         The point's name in the file names; the table's stem, less a trailing
         ``_sections`` or ``_sections_series``, where not given.
+    windows : mapping of str to tuple of (int, int), optional
+        The steps of the revolution to map, by rotor alias; required for a
+        ``STEP`` series.
 
     Returns
     -------
@@ -339,9 +368,15 @@ def write_disc_map(
     Raises
     ------
     ProductError
-        The table cannot be read, or it holds no blade of any rotor at a
-        stated azimuth, so there is nothing to map.
+        The table cannot be read, a ``STEP`` series comes with no ``windows``
+        (it would be mapped over every revolution at once), or it holds no
+        blade of any rotor at a stated azimuth, so there is nothing to map.
     """
+    if sample_column == "STEP" and windows is None:
+        raise ProductError(
+            "a STEP series is mapped over one revolution of each rotor: pass windows= "
+            "(rotor alias -> first and last step, post.harmonics.last_complete_revolution)"
+        )
     table = Path(sections)
     try:
         with table.open(encoding="utf-8", newline="") as handle:
@@ -350,6 +385,8 @@ def write_disc_map(
             rows = [{key: value or "" for key, value in row.items()} for row in reader]
     except OSError as error:
         raise ProductError(f"the sections table {table.name} cannot be read: {error}") from error
+    if windows is not None:
+        rows = [row for row in rows if _in_window(row, windows)]
     result = disc_map_rows(columns, rows, rotors, sample_column=sample_column)
     if not result.maps:
         reasons = "; ".join(result.skipped.values()) or "the table holds no block"

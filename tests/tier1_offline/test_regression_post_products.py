@@ -2314,7 +2314,11 @@ def test_p0430_f3_disc_maps_of_aliases_sharing_a_file_name_are_refused(tmp_path)
     rotors = {alias: _f3_rotor(alias) for alias in ("A B", "A_B")}
     with pytest.raises(ProductError, match="'A B' and 'A_B'"):
         disc_maps.write_disc_map(
-            table, rotors, sample_column="STEP", out_dir=tmp_path / "o", windows={"A B": (1, 4)}
+            table,
+            rotors,
+            sample_column="STEP",
+            out_dir=tmp_path / "o",
+            windows={"A B": (1, 4), "A_B": (1, 4)},
         )
     assert not list((tmp_path / "o").glob("*")) if (tmp_path / "o").exists() else True
 
