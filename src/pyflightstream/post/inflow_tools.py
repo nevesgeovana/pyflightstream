@@ -47,6 +47,7 @@ from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
     warn,
 )
+from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import SimCase
 from pyflightstream.cases.qsteady import (
     AZIMUTH_SAMPLES,
@@ -184,14 +185,39 @@ def installed_frame_columns(
     return ColumnClassification(flipped, mapped)
 
 
+def _is_number(text: str) -> bool:
+    try:
+        float(text)
+    except ValueError:
+        return False
+    return True
+
+
+def _missing_cell(text: str) -> bool:
+    """Say whether a cell states no value: blank, the historical dash, or not finite."""
+    stripped = text.strip()
+    if stripped in ("", "-", NOT_APPLICABLE):
+        return True
+    try:
+        return not math.isfinite(float(stripped))
+    except ValueError:
+        return False
+
+
 def _mirrored_azimuth(text: str) -> str:
+    if _missing_cell(text):
+        return NOT_APPLICABLE
     try:
         value = float(text)
     except ValueError:
         return text
-    if not math.isfinite(value):
-        return text
-    return format(round((-value) % 360.0, 9), ".15g")
+    mirrored = round((-value) % 360.0, 9)
+    # Rounding a hair below a full turn lands on 360, which is 0 and not a second spelling.
+    return format(0.0 if mirrored >= 360.0 else mirrored, ".15g")
+
+
+def _negated_cell(text: str) -> str:
+    return NOT_APPLICABLE if _missing_cell(text) else negated_text(text)
 
 
 def to_installed_frame(
@@ -231,23 +257,38 @@ def to_installed_frame(
     Raises
     ------
     ProductError
-        If the table is empty or a name of ``flip`` is not a column.
+        If the table is empty or its first line is numeric (no header),
+        places no column under the mirror and ``flip`` names none (the copy would
+        equal the input), or a name of ``flip`` is not a column. A flipped or
+        mapped cell that is blank, a dash or not finite is written ``NA``.
     ProductExistsError
         If the target exists: this never overwrites.
     """
     source = Path(table)
     target = Path(out) if out is not None else source.with_name(f"{source.stem}_installed.csv")
-    lines = source.read_text(encoding="utf-8").splitlines()
+    # A byte order mark would hide the first header name from the classification.
+    lines = source.read_text(encoding="utf-8-sig").splitlines()
     alias: list[str] = []
-    # An alias line has no comma and a table follows it; a one-column table has no
-    # comma anywhere, and its header is a header.
+    # An alias line has no comma and a table follows it.
     if len(lines) > 1 and "," not in lines[0] and "," in lines[1]:
         alias, lines = lines[:1], lines[1:]
     rows = list(csv.reader(lines))
     if not rows:
         raise ProductError(f"refused: {source} holds no header line.")
     header, body = rows[0], rows[1:]
+    if all(_is_number(name) for name in header):
+        raise ProductError(
+            f"refused: {source} has no header line (its first "
+            f"line reads {lines[0]!r}); a profile with no header is mirrored by the post's "
+            "[products] installed_frame route, which names its columns."
+        )
     classes = installed_frame_columns(header, flip=flip)
+    if not classes.flipped and not classes.mapped:
+        raise ProductError(
+            f"refused: no column of {source} is negated or mapped by the mirror and flip= "
+            f"names none; the columns are {', '.join(header)}, so the copy would equal the "
+            "input."
+        )
     if target.exists():
         raise ProductExistsError(f"refused to overwrite {target}; nothing is overwritten.")
     negate = {i for i, c in enumerate(header) if c in classes.flipped}
@@ -257,7 +298,7 @@ def to_installed_frame(
     writer.writerow(header)
     for row in body:
         writer.writerow(
-            negated_text(cell) if i in negate else _mirrored_azimuth(cell) if i in mirror else cell
+            _negated_cell(cell) if i in negate else _mirrored_azimuth(cell) if i in mirror else cell
             for i, cell in enumerate(row)
         )
     text = "".join(f"{line}\n" for line in alias) + buffer.getvalue()
@@ -386,6 +427,11 @@ def blade_view_harmonics(
         found = harmonic_variance_shares(phi.tolist(), floor=floor)[:HARMONIC_SHARES]
         shares[: len(found)] = found
         chord = None if chords_m is None else float(chords_m[index])
+        if chord is not None and not (math.isfinite(chord) and chord >= 0.0):
+            raise ProductError(
+                f"refused: the chord at r = {radius:g} m is {chord!r}; a chord is finite and "
+                "not negative."
+            )
         k_1p = None
         if chord is not None:
             mean_relative = float(relative.mean())
@@ -511,7 +557,9 @@ def inflow_harmonics_map(
 
 
 def _cell(value: float | None) -> str:
-    return "" if value is None else format(value, ".9g")
+    if value is None or not math.isfinite(value):
+        return NOT_APPLICABLE
+    return format(value, ".9g")
 
 
 def write_inflow_harmonics(
@@ -522,7 +570,8 @@ def write_inflow_harmonics(
     The first carries ``J, r_over_R, c_over_R, dalpha_rms_deg,
     dalpha_half_ptp_deg, n95, k_1P, k_eff, share_n1 ... share_n8``, the second
     ``J, r_over_R, n95, k_1P, k_eff, dalpha_rms_deg``, one row per ``(J,
-    radius)`` in both (values ``%.9g``, a blank where the chord is unknown).
+    radius)`` in both (values ``%.9g``, ``NA`` where the chord is unknown or a
+    value is not finite).
 
     Parameters
     ----------

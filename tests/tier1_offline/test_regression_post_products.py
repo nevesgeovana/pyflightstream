@@ -2226,3 +2226,129 @@ def test_p0430_f3_custom_polar_repeated_header_name_is_refused(tmp_path):
     path = _f3_polar(tmp_path, columns=("ALPHA", "ALPHA"))
     with pytest.raises(ProductError, match="ALPHA more than once"):
         read_custom_polar_format(path)
+
+
+def _f3_installed(tmp_path, text, *, flip=()):
+    source = tmp_path / "t.csv"
+    source.write_text(text, encoding="utf-8")
+    return inflow_tools.to_installed_frame(source, flip=flip).read_text(encoding="utf-8")
+
+
+def test_p0430_f3_installed_copy_writes_na_for_dash_and_nonfinite(tmp_path):
+    """F-187: a flipped or mapped cell that is a dash, nan, inf or blank is written NA."""
+    text = "azimuth_deg,VY,CT" + chr(10) + "-,nan,0.1" + chr(10) + "inf,,0.2" + chr(10)
+    assert _f3_installed(tmp_path, text).splitlines()[1:] == ["NA,NA,0.1", "NA,NA,0.2"]
+
+
+def test_p0430_f3_installed_azimuth_never_writes_360(tmp_path):
+    """F-188: an azimuth a hair above zero rounds to 0, not 360, and two transforms recover it."""
+    text = "azimuth_deg,CT" + chr(10) + "1e-12,0.1" + chr(10)
+    assert _f3_installed(tmp_path, text).splitlines()[1] == "0,0.1"
+
+
+def test_p0430_f3_installed_reads_through_a_byte_order_mark(tmp_path):
+    """F-189: a BOM does not hide the first header, so that column is still mapped."""
+    text = chr(0xFEFF) + "azimuth_deg,CT" + chr(10) + "30,0.1" + chr(10)
+    assert _f3_installed(tmp_path, text).splitlines()[1] == "330,0.1"
+
+
+def test_p0430_f3_installed_refuses_a_headerless_or_single_column_table(tmp_path):
+    """PFS-2119.033: a numeric first line, or no mapped column and no flip is refused."""
+    with pytest.raises(ProductError, match="no header"):
+        _f3_installed(tmp_path, "1,2" + chr(10) + "3,4" + chr(10))
+    (tmp_path / "t_installed.csv").unlink(missing_ok=True)
+    with pytest.raises(ProductError, match="columns are Q"):
+        _f3_installed(tmp_path, "Q" + chr(10) + "1" + chr(10))
+    (tmp_path / "t_installed.csv").unlink(missing_ok=True)
+    with pytest.raises(ProductError, match="FX, FZ"):
+        _f3_installed(tmp_path, "FX,FZ" + chr(10) + "1,2" + chr(10))
+
+
+def test_p0430_f3_harmonics_refuse_a_negative_or_nonfinite_chord():
+    """F-190: a chord that is negative or not finite is refused before a reduced frequency."""
+    rows = [[0.0, 0.0, 0.0, 1.0, 0.0, 0.0]]
+    for chord in (-0.1, float("nan")):
+        with pytest.raises(ProductError, match="chord"):
+            inflow_tools.blade_view_harmonics(
+                rows, hub=(0, 0, 0), axis=(1, 0, 0), omega_rad_s=10.0, radii_m=[0.5],
+                chords_m=[chord],
+            )  # fmt: skip
+
+
+def test_p0430_f3_inflow_tables_write_na_for_missing_cells():
+    """F-191: the harmonics cell writer states a missing or non-finite value as NA."""
+    assert inflow_tools._cell(None) == "NA"
+    assert inflow_tools._cell(float("nan")) == "NA"
+    assert inflow_tools._cell(0.5) == "0.5"
+
+
+def _f3_disc_table(path, *, planes=("P1",), aliases=("PROP",), steps=(1, 2, 3, 4)):
+    from pyflightstream._tokens import CONTEXT_COLUMNS, POLAR_ID_COLUMN
+
+    head = [POLAR_ID_COLUMN, "ROTOR", "FAMILY", "PLANE", "AZIMUTH", "STEP", *CONTEXT_COLUMNS]
+    head += ["Offset", "Fz"]
+    lines = [",".join(head)]
+    for alias in aliases:
+        for plane in planes:
+            for step in steps:
+                cells = ["1", alias, "Blade1", plane, str(step * 90), str(step)]
+                cells += ["1"] * len(CONTEXT_COLUMNS) + ["0.5", str(step)]
+                lines.append(",".join(cells))
+    path.write_text(chr(10).join(lines) + chr(10), encoding="utf-8")
+    return path
+
+
+def _f3_rotor(alias):
+    from pyflightstream.post.harmonics import HarmonicRotor
+
+    return HarmonicRotor(
+        alias=alias, blades=(("Blade1",),), diameter_m=1.0, azimuth_is_blade_one=False
+    )
+
+
+def test_p0430_f3_disc_maps_of_aliases_sharing_a_file_name_are_refused(tmp_path):
+    """F-1368: two aliases that sanitize to one file name are refused, naming both."""
+    from pyflightstream.post import disc_maps
+
+    table = _f3_disc_table(tmp_path / "t.csv", aliases=("A B", "A_B"))
+    rotors = {alias: _f3_rotor(alias) for alias in ("A B", "A_B")}
+    with pytest.raises(ProductError, match="'A B' and 'A_B'"):
+        disc_maps.write_disc_map(
+            table, rotors, sample_column="STEP", out_dir=tmp_path / "o", windows={"A B": (1, 4)}
+        )
+    assert not list((tmp_path / "o").glob("*")) if (tmp_path / "o").exists() else True
+
+
+def test_p0430_f3_disc_map_of_a_series_needs_its_revolution(tmp_path):
+    """F-141: a STEP series is mapped over the window given, never over every revolution."""
+    from pyflightstream.post import disc_maps
+
+    table = _f3_disc_table(tmp_path / "t.csv", steps=range(1, 9))
+    with pytest.raises(ProductError, match="windows="):
+        disc_maps.write_disc_map(
+            table, {"PROP": _f3_rotor("PROP")}, sample_column="STEP", out_dir=tmp_path / "o"
+        )
+    (path,) = disc_maps.write_disc_map(
+        table,
+        {"PROP": _f3_rotor("PROP")},
+        sample_column="STEP",
+        out_dir=tmp_path / "o",
+        windows={"PROP": (5, 8)},
+    )
+    assert len(path.read_text(encoding="utf-8").splitlines()) == 1 + 4
+
+
+def test_p0430_f3_disc_maps_skip_a_rotor_in_two_planes(tmp_path):
+    """X-F-0320: blades from two planes are not pooled, as the harmonics refuse them."""
+    import csv as csv_module
+
+    from pyflightstream.post import disc_maps
+
+    table = _f3_disc_table(tmp_path / "t.csv", planes=("P1", "P2"))
+    with table.open(encoding="utf-8", newline="") as handle:
+        reader = csv_module.DictReader(handle)
+        columns, rows = list(reader.fieldnames or ()), list(reader)
+    result = disc_maps.disc_map_rows(
+        columns, rows, {"PROP": _f3_rotor("PROP")}, sample_column="STEP"
+    )
+    assert not result.maps and "multiple planes" in result.skipped["#rotor=PROP"]
