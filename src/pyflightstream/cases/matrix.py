@@ -728,12 +728,14 @@ def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]
             )
         _refuse_a_rotation_that_names_its_set_twice_or_not_at_all(record, pol)
         try:
-            float(record["ANGLE"])
+            angle_is_finite = math.isfinite(float(record["ANGLE"]))
         except ValueError:
+            angle_is_finite = False
+        if not angle_is_finite:
             raise MatrixError(
                 f"POL {pol}: {ROTATE_VARIABLE} ANGLE is {record['ANGLE']!r}, which is not a "
-                "number; write the angle in degrees, as 3 or -2.5."
-            ) from None
+                "finite number; write the angle in degrees, as 3 or -2.5."
+            )
         if not _ROTATION_AXIS.match(record["AXIS"]):
             raise MatrixError(
                 f"POL {pol}: {ROTATE_VARIABLE} AXIS is {record['AXIS']!r}, which is not of the "
@@ -960,7 +962,13 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
     >>> [(row.pol, row.run) for row in read_matrix(path)]
     [('9001', 1)]
     """
-    lines = Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError as error:
+        raise MatrixError(
+            f"{path} is not valid UTF-8 (byte {error.start}); a replaced character would alter "
+            "a declared input, so save the matrix as UTF-8."
+        ) from None
     content = [line for line in lines if line.strip() and not set(line.strip()) <= {"-"}]
     if not content:
         raise MatrixError(f"{path} holds no matrix content")
@@ -1264,6 +1272,11 @@ def renumber_pols(
             rebuilt.append(line)
             continue
         parts = body.split(b"|")
+        if header_seen and len(parts) != len(_COLUMNS):
+            raise MatrixError(
+                f"data row {row_number + 1} of {source} holds {len(parts)} cells against "
+                f"the {len(_COLUMNS)} verified columns; repair the row first."
+            )
         if not header_seen:
             header_seen = True
             if _header_names(parts) != _COLUMNS:
@@ -1315,7 +1328,15 @@ def _condition_reynolds(row: MatrixRow) -> float | None:
     what was asked for.
     """
     millions = row.flight_condition.get("REmi")
-    return None if millions is None else millions * 1e6
+    if millions is None:
+        return None
+    reynolds = millions * 1e6
+    if not math.isfinite(reynolds):
+        raise MatrixError(
+            f"POL {row.pol}: REmi {millions!r} million is not a finite Reynolds number; "
+            "state it as a finite number of millions."
+        )
+    return reynolds
 
 
 def _declared_outputs(row: MatrixRow, *, required: bool = True) -> list[str]:

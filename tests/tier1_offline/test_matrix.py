@@ -1611,3 +1611,25 @@ def test_f5_0304_rewrite_codes_refuses_a_malformed_replacement_id(tmp_path):
         with pytest.raises(MatrixError, match="replacement id"):
             rewrite_codes(target, {"REF": {"r003": bad}}, in_place=True)
     assert target.read_bytes() == before
+
+
+def test_p0430_f1305_the_reader_refuses_bytes_that_are_not_utf8(tmp_path):
+    """A replacement character would alter a declared input, so the file is refused."""
+    raw = FIXTURE.read_bytes().replace(b"MACH:0.1441", b"MACH:0.1441 \xff", 1)
+    bad = tmp_path / "matrix.fs"
+    bad.write_bytes(raw)
+    with pytest.raises(MatrixError, match="UTF-8"):
+        read_matrix(bad)
+
+
+def test_p0430_f046_an_overflowing_reynolds_number_is_refused_not_infinite():
+    from types import SimpleNamespace
+
+    from pyflightstream.cases.matrix import _condition_reynolds
+
+    row = SimpleNamespace(pol="9001", flight_condition={"REmi": 1e305})
+    with pytest.raises(MatrixError, match="finite"):
+        _condition_reynolds(row)
+    assert _condition_reynolds(SimpleNamespace(pol="9001", flight_condition={"REmi": 4.38})) == (
+        4.38 * 1e6
+    )

@@ -727,3 +727,12 @@ def test_goal022_emission_a_boundary_resolved_twice_moves_once(tmp_path, monkeyp
         tmp_path, translations=translations("{DISTANCE: 0.5 / AXIS: NAC-X / ALIAS: Wing}")
     )
     assert len(surface_moves(lines_of(case))) == 1, surface_moves(lines_of(case))
+
+
+@pytest.mark.parametrize("angle", ["nan", "inf", "-inf"])
+def test_p0430_f045_a_rotation_angle_must_be_finite(angle):
+    """A translation distance is checked finite; the angle of a rotation is held to the same."""
+    from pyflightstream.cases.matrix import MatrixError
+
+    with pytest.raises(MatrixError, match="finite"):
+        rotations("{ANGLE: " + angle + " / AXIS: NAC-Y / ALIAS: Wing}")

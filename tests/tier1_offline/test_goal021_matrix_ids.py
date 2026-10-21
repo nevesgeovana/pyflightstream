@@ -327,3 +327,13 @@ def test_goal021_matrix_ids_the_python_call_writes_nothing_unless_asked(tmp_path
     changes = renumber_repeated_pols(matrix, workspace)
     assert changes == [PolChange(row_number=2, old="8001", new="8002")], changes
     assert matrix.read_bytes() == before, "the default call rewrote the matrix"
+
+
+def test_p0430_f758_renumber_refuses_a_short_row_it_was_not_asked_to_change(tmp_path):
+    """The reader would reject the matrix, so renumbering must not write over it."""
+    short = row(8002).rsplit("|", 2)[0]
+    matrix = _matrix(tmp_path, "m.fs", [row(8001), short])
+    before = matrix.read_bytes()
+    with pytest.raises(MatrixError, match="data row 2"):
+        renumber_pols(matrix, {1: "9000"}, in_place=True)
+    assert matrix.read_bytes() == before
