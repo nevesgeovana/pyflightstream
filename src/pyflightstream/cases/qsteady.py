@@ -426,7 +426,7 @@ def reduced_frequencies(
             f"reduced_frequencies: {len(radii_m)} radii and {len(chords_m)} chords; the "
             "stations are one radius and one chord each, one or more of them"
         )
-    ordered = sorted(zip(radii_m, chords_m, strict=True))
+    ordered = sorted(zip(radii_m, chords_m, strict=True), key=lambda station: abs(station[0]))
     radii = tuple(abs(r) for r, _ in ordered)
     chords = tuple(c for _, c in ordered)
     values = tuple(

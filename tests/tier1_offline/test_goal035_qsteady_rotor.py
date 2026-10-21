@@ -66,6 +66,22 @@ def test_p0430_axisymmetry_refuses_nonfinite_components(bad):
     assert arithmetic.azimuthal_variation(rows, hub=(0, 0, 0), axis=(1, 0, 0)) is not None
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0430-F-051")])
+def test_p0430_signed_radii_are_sorted_by_distance():
+    result = arithmetic.reduced_frequencies(
+        [-3.0, -1.0, -2.0],
+        [0.3, 0.1, 0.2],
+        omega_rad_s=10.0,
+        velocity_m_per_s=5.0,
+        source="sections",
+    )
+    assert result.radii_m == (1.0, 2.0, 3.0)
+    assert result.chords_m == (0.1, 0.2, 0.3)
+    assert result.strips_m == (0.5, 1.0, 0.5)
+    expected = [10 * c / (2 * math.hypot(5, 10 * r)) for r, c in ((1, 0.1), (2, 0.2), (3, 0.3))]
+    assert result.k_mean == pytest.approx((expected[0] / 2 + expected[1] + expected[2] / 2) / 2)
+
+
 @pytest.mark.parametrize((), [pytest.param(id="P0430-F-054")])
 def test_p0430_duplicate_spoke_is_not_azimuthal_coverage():
     rows = [(0, 1, 0, 5, 0, 0)] * 3 + [(0, 2, 0, 5, 0, 0)] * 3
