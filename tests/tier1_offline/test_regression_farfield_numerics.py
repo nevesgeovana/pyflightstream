@@ -2250,9 +2250,11 @@ class TestRfixAEvidence:
         from tests.tier1_offline._docs_site import requirement_rows
 
         rows = requirement_rows(text)
-        assert "means of each step's nonlinear balance" in rows["FR-484"][4]
+        # 0.43.0 SRS: FR-484 says "the mean of each step's balance"; FR-38 returned from the
+        # roadmap as implemented, its code anchor and the lattice test present and passing.
+        assert "the mean of each step's balance" in rows["FR-484"][4]
         assert "full-spectrum Parseval" in rows["FR-481"][4]
-        assert rows["FR-38"][3] == "deferred"
+        assert rows["FR-38"][3] == "implemented"
 
     @staticmethod
     def test_p0400_rfixa_signed_shed_reconstructs_strips_and_agrees_through_post(tmp_path):
