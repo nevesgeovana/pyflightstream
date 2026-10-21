@@ -198,3 +198,56 @@ def test_p0350_actions_fr370_the_clock_stops_the_current_point(tmp_path):
     assert own[0]["steps"] == 3 and own[2]["steps"] == 3
     whole = _read(job / WALLTIME_CLOCK_STATE)
     assert whole["fired"] is True and whole["stopped_at"]["point"] == 2
+
+
+def _run_status(job: Path, program: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(job / program)],
+        cwd=job.parent,
+        env=ENV,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_f751_a_corrupt_count_checkpoint_stops_the_counter(tmp_path):
+    """F-751: a count file that cannot be read is not a fresh job; the counter refuses it."""
+    job = tmp_path / "job"
+    _stage(job, _job_points(job, (2, 2), (None, None)), deadline_s=None)
+    _run(job, UNSTEADY_ACTION_PROGRAM)
+    (job / UNSTEADY_ACTION_COUNT).write_text("{not json", encoding="utf-8")
+    done = _run_status(job, UNSTEADY_ACTION_PROGRAM)
+    assert done.returncode != 0 and "cannot be read" in done.stderr
+    assert (job / UNSTEADY_ACTION_COUNT).read_text(encoding="utf-8") == "{not json"
+
+
+def test_f759_a_foreign_schedule_schema_stops_the_counter(tmp_path):
+    """F-759: the counter checks the schedule's schema before it attributes a step."""
+    job = tmp_path / "job"
+    _stage(job, _job_points(job, (2,), (None,)), deadline_s=None)
+    schedule = _read(job / JOB_SCHEDULE)
+    schedule["schema"] = "somebody-else/9"
+    (job / JOB_SCHEDULE).write_text(json.dumps(schedule), encoding="utf-8")
+    done = _run_status(job, UNSTEADY_ACTION_PROGRAM)
+    assert done.returncode != 0 and "somebody-else/9" in done.stderr
+    assert not (job / UNSTEADY_ACTION_COUNT).exists()
+
+
+def test_fr355_the_first_step_checks_the_previous_points_counter_clock_and_stop_text(tmp_path):
+    """FR-355: a previous point's own count, clock state and a stop text left over are flagged."""
+    job = tmp_path / "job"
+    points = _job_points(job, (2, 2), (None, None))
+    _stage(job, points, deadline_s=None)
+    _run(job, UNSTEADY_ACTION_PROGRAM)
+    _run(job, UNSTEADY_ACTION_PROGRAM)
+    (points[0].datapoint_dir / "P1.fsm").write_bytes(b"saved")
+    (points[0].datapoint_dir / UNSTEADY_ACTION_COUNT).write_text('{"count": 1}', encoding="utf-8")
+    (points[0].datapoint_dir / WALLTIME_CLOCK_STATE).write_text('{"fired": true}', encoding="utf-8")
+    (job / WALLTIME_STOP_SCRIPT).write_text("CLOSE_FLIGHTSTREAM\n", encoding="utf-8")
+    _run(job, UNSTEADY_ACTION_PROGRAM)
+    found = _read(job / JOB_PROGRESS)["mismatches"]
+    kinds = sorted(next(key for key in item if key not in ("previous", "point")) for item in found)
+    assert kinds == ["clock_fired", "count", "stop_text"]
+    assert all((item["previous"], item["point"]) == (1, 2) for item in found)
+    assert (job / WALLTIME_STOP_SCRIPT).read_text(encoding="utf-8") == ""

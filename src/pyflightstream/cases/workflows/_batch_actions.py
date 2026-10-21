@@ -236,14 +236,21 @@ COUNT_FILE = JOB / <COUNT>
 EXPORTS_FILE = JOB / <EXPORTS>
 STOP_FILE = JOB / <STOP>
 POINT_COUNT = <COUNT>
+SCHEMA = <SCHEMA>
+POINT_STATE = <STATE>
 
 
-def read(path, default):
+def read(path, default, strict=False):
     if not path.is_file():
         return default
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except ValueError:
+    except ValueError as error:
+        if strict:
+            raise RuntimeError(
+                str(path) + " exists but cannot be read (" + str(error) + "); the job "
+                "count is not guessed, so no point is attributed from a fresh start"
+            ) from None
         return default
 
 
@@ -264,8 +271,14 @@ def locate(points, count):
 
 
 def start_point(points, index, now):
-    """The point's first step: record it, empty both scripts, check the previous save."""
+    """The point's first step: record it, empty both scripts, check the previous point.
+
+    The check is of what the previous point left: its saved simulation, its own
+    count, the stop text still in the stop script and its clock's state (FR-355).
+    Each departure is one entry of the returned list.
+    """
     point = points[index]
+    leftover = STOP_FILE.read_text(encoding="utf-8") if STOP_FILE.is_file() else ""
     write(EXPORTS_FILE, "")
     write(STOP_FILE, "")
     current = {
@@ -279,25 +292,39 @@ def start_point(points, index, now):
     }
     write(CURRENT, json.dumps(current, indent=2))
     if index == 0:
-        return None
-    saved = points[index - 1]["fsm"]
+        return []
+    found = []
+    where = {"previous": index, "point": index + 1}
+    before = points[index - 1]
+    saved = before["fsm"]
     if saved is not None and not Path(saved).is_file():
-        return {"previous": index, "point": index + 1, "missing": saved}
-    return None
+        found.append(dict(where, missing=saved))
+    counted = read(Path(before["datapoint_dir"]) / POINT_COUNT, {}).get("count")
+    if counted != int(before["time_steps"]):
+        found.append(dict(where, count=counted, expected=int(before["time_steps"])))
+    if leftover:
+        found.append(dict(where, stop_text=leftover))
+    if read(Path(before["datapoint_dir"]) / POINT_STATE, {}).get("fired"):
+        found.append(dict(where, clock_fired=True))
+    return found
 
 
 def main():
-    points = read(SCHEDULE, {})["points"]
-    count = int(read(COUNT_FILE, {"count": 0})["count"]) + 1
+    schedule = read(SCHEDULE, {}, strict=True)
+    if schedule.get("schema") != SCHEMA:
+        raise RuntimeError(
+            str(SCHEDULE) + " is of schema " + repr(schedule.get("schema"))
+            + ", not " + repr(SCHEMA)
+        )
+    points = schedule["points"]
+    count = int(read(COUNT_FILE, {"count": 0}, strict=True)["count"]) + 1
     write(COUNT_FILE, json.dumps({"count": count}))
     index, step = locate(points, count)
     point = points[index]
     progress = read(PROGRESS, {})
     mismatches = list(progress.get("mismatches", []))
     if step == 1:
-        found = start_point(points, index, time.time())
-        if found is not None:
-            mismatches.append(found)
+        mismatches.extend(start_point(points, index, time.time()))
     write(Path(point["datapoint_dir"]) / POINT_COUNT, json.dumps({"count": step}))
     first = point["first_export_step"]
     exporting = first is not None and step >= int(first)
@@ -438,6 +465,8 @@ def render_job_counter_program(*, total_steps: int, interpreter: str) -> str:
             "COUNT": UNSTEADY_ACTION_COUNT,
             "EXPORTS": UNSTEADY_ACTION_SCRIPT,
             "STOP": WALLTIME_STOP_SCRIPT,
+            "SCHEMA": SCHEDULE_SCHEMA,
+            "STATE": WALLTIME_CLOCK_STATE,
         },
     )
 
