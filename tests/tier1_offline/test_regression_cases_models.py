@@ -834,6 +834,14 @@ def test_pfs_2119_020_fluid_state_refuses_a_non_physical_value(field, value):
         FluidState(**stated)
 
 
+def test_f1310_aliases_differing_only_in_case_are_refused():
+    from pyflightstream.cases.selection import _check_aliases
+
+    _check_aliases({"Wing": ["W"], "Body": ["B"]})
+    with pytest.raises(ValueError, match="more than once"):
+        _check_aliases({"Wing": ["W1"], "wing": ["W2"]})
+
+
 def test_f059_body_rates_differing_only_in_case_are_refused():
     from pyflightstream.cases.settings import ReferenceData
 

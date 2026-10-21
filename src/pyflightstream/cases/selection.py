@@ -201,6 +201,14 @@ def _check_aliases(value: dict[str, list[str]]) -> dict[str, list[str]]:
 
     The type validates the shape at every model boundary that carries this value.
     """
+    folded = [name.strip().casefold() for name in value]
+    twice = sorted({name for name in folded if folded.count(name) > 1})
+    if twice:
+        raise ValueError(
+            f"the [aliases] table names {', '.join(twice)} more than once, differing only "
+            "in case or surrounding space, so which one a cited name selects would depend "
+            "on the order of the table. Give each alias one spelling"
+        )
     for name, members in value.items():
         if not name.strip():
             raise ValueError("an alias needs a name; the [aliases] table holds an empty one")
