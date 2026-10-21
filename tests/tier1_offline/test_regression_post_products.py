@@ -1913,3 +1913,32 @@ def test_f3_0203_f180_a_large_finite_axis_still_gives_a_rotation():
     assert np.allclose(turned, dcm((1.0, 1.0, 0.0), math.pi / 3))
     with pytest.raises(ProductError):
         dcm((math.nan, 0.0, 1.0), 0.1)
+
+
+def test_f3_0203_f781_aliases_that_differ_only_in_case_are_refused():
+    """F-781 (X-F-0318): Rotor and rotor are one file on a case-insensitive disk."""
+    from pyflightstream.cases.workflows import ROTORS_KEY
+    from pyflightstream.post._stage import _refuse_aliases_a_file_name_cannot_tell_apart
+
+    plans = {"p": {ROTORS_KEY: {"Rotor": {}, "rotor": {}}}}
+    with pytest.raises(ProductError, match="cannot tell apart"):
+        _refuse_aliases_a_file_name_cannot_tell_apart(plans, "3207")
+    _refuse_aliases_a_file_name_cannot_tell_apart({"p": {ROTORS_KEY: {"A": {}, "B": {}}}}, "3207")
+
+
+def test_f3_0203_f791_a_partial_post_keeps_the_skip_reason_of_a_retained_superfile(tmp_path):
+    """F-791: the limitation recorded for a super file travels with the file the post keeps."""
+    from pyflightstream.post._stage import _partial_post
+
+    name = "polars/SUPER-3207-wing_g01.csv"
+    reason = "the group has no coefficient columns"
+    workspace = SimpleNamespace(read_additional=lambda: [], sim_dir=lambda sim: tmp_path)
+    record = SimpleNamespace(sim_id="3207", run_id="run-1", as_points=lambda: [])
+    kept = _partial_post(
+        workspace,
+        [record],
+        frozenset({"3207"}),
+        {"products": {name: {"sim_id": "3207"}}, "skipped": {f"{name}#columns": reason}},
+        matrix_stem=None,
+    )
+    assert name in kept.products and kept.skipped[f"{name}#columns"] == reason

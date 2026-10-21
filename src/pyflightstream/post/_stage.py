@@ -281,14 +281,16 @@ def _refuse_aliases_a_file_name_cannot_tell_apart(
             continue
         for alias in rotors:
             spelling = str(alias)
-            held = by_safe.setdefault(_a_name_a_file_may_carry(spelling), [])
+            # COMPARED WITHOUT CASE: `Rotor` and `rotor` are one file on a case-insensitive disk.
+            held = by_safe.setdefault(_a_name_a_file_may_carry(spelling).casefold(), [])
             if spelling not in held:
                 held.append(spelling)
     collisions = {safe: names for safe, names in by_safe.items() if len(names) > 1}
     if not collisions:
         return
     detail = "; ".join(
-        f"{' and '.join(repr(name) for name in names)} both become {safe!r}"
+        f"{' and '.join(repr(name) for name in names)} both become the file name "
+        f"{_a_name_a_file_may_carry(names[0])!r} (names are compared without case)"
         for safe, names in sorted(collisions.items())
     )
     raise ProductError(
@@ -669,6 +671,7 @@ def _partial_post(
             key: reason
             for key, reason in (previous.get("skipped") or {}).items()
             if not _a_key_of_the_simulations(key, sims, ids, previous_products)
+            or key.split("#", 1)[0] in not_rebuilt
         },
         provenance={
             run_id: relative
