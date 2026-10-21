@@ -12,6 +12,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 from pyflightstream.workspace._batch_relocate import copy_point, move_sim, relink_inputs
 
 
@@ -138,3 +140,25 @@ def test_p0350_relocate_replaces_the_plans_empty_inputs_folder(tmp_path):
     with pytest.raises(WorkspaceError):
         relink_inputs(batch_sim2, sim2)
     assert (sim2 / "inputs" / "kept.txt").read_text(encoding="utf-8") == "mine"
+
+
+def test_p0430_failed_move_keeps_published_destination(tmp_path, monkeypatch):
+    """P0430-RELOCATE: an I/O failure cannot remove a previously published file."""
+    import shutil
+
+    source, target = tmp_path / "source", tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    (source / "evidence.txt").write_bytes(b"new")
+    (target / "evidence.txt").write_bytes(b"published")
+
+    def fail(*args, **kwargs):
+        raise OSError("injected publication failure")
+
+    monkeypatch.setattr(shutil, "move", fail)
+    monkeypatch.setattr(shutil, "copy2", fail)
+    with pytest.raises(OSError, match="injected"):
+        move_sim(source, target)
+    assert (target / "evidence.txt").is_file()
+    assert (target / "evidence.txt").read_bytes() == b"published"
+    assert (source / "evidence.txt").read_bytes() == b"new"

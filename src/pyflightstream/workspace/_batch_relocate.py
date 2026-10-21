@@ -27,6 +27,7 @@ left as it is.
 from __future__ import annotations
 
 import shutil
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -206,8 +207,15 @@ def _move_tree(source: Path, target: Path, root: Path, tally: _Tally) -> None:
         source.unlink()
         tally.kept.append(name)
     else:
-        target.unlink()
-        shutil.move(str(source), str(target))
+        # Stage on the destination filesystem before replacing the published copy.
+        with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as stream:
+            temporary = Path(stream.name)
+        try:
+            shutil.copy2(source, temporary)
+            temporary.replace(target)
+            source.unlink()
+        finally:
+            temporary.unlink(missing_ok=True)
         tally.replaced.append(name)
 
 
