@@ -28,6 +28,7 @@ writes whichever program the script's registration names.
 
 from __future__ import annotations
 
+import re
 import sys
 from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
@@ -47,6 +48,21 @@ from pyflightstream.cases.workflows import (
     unsteady_export_threshold,
 )
 from pyflightstream.script import Script
+
+_TOKEN = re.compile(r"<([A-Z_]+)>")
+
+
+def _fill(text: str, values: Mapping[str, object]) -> str:
+    """Return ``text`` with each ``<TOKEN>`` replaced by the repr of its value, in one pass.
+
+    One pass, so a value that itself holds ``<OTHER>`` (an interpreter path, an export
+    string) is never rewritten as a token (F-1456).
+    """
+    return _TOKEN.sub(
+        lambda found: repr(values[found.group(1)]) if found.group(1) in values else found.group(0),
+        text,
+    )
+
 
 #: The written program. The tokens in angle brackets are replaced by
 #: :func:`render_program`; nothing else in the text is touched.
@@ -177,9 +193,7 @@ def render_program(
         text = text.replace("EXPORTS = <EXPORTS>\n", "EXPORTS = <EXPORTS>\nCREATE = <CREATE>\n")
         text = text.replace(_PLAIN_REWRITE, _FIRST_STEP_CREATES)
         values["CREATE"] = creation
-    for token, value in values.items():
-        text = text.replace(f"<{token}>", repr(value))
-    return text
+    return _fill(text, values)
 
 
 #: The program of a row that asks no per-step export (FR-314): the count and
@@ -243,10 +257,7 @@ def render_count_program(time_iterations: int, *, interpreter: str) -> str:
         "INTERPRETER": interpreter,
         "COUNT_NAME": PurePosixPath(UNSTEADY_ACTION_COUNT).name,
     }
-    text = COUNT_ONLY_TEMPLATE
-    for token, value in values.items():
-        text = text.replace(f"<{token}>", repr(value))
-    return text
+    return _fill(COUNT_ONLY_TEMPLATE, values)
 
 
 def stage_counter(

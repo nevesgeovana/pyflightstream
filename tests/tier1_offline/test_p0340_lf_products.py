@@ -753,3 +753,15 @@ def test_the_lf_receipt_script_posts_a_campaign_and_writes_the_lines_the_goal_re
     verdict = "PASS" if fields["TREE_CLEAN"] == "yes" else "FAIL"
     assert lines[-1] == f"LF PRODUCTS: {verdict}"
     assert done.returncode == (0 if verdict == "PASS" else 1), done.stderr[-500:]
+
+
+def test_p0430_f1456_an_interpreter_path_with_a_token_shape_is_not_substituted() -> None:
+    """F-1456: a value holding another token's name stays literal in the rendered program."""
+    import ast
+
+    from pyflightstream.run._actions_counter import render_count_program
+
+    text = render_count_program(4, interpreter="C:/py<COUNT_NAME>/python.exe")
+    ast.parse(text)
+    assert "py<COUNT_NAME>" in text
+    assert "<COUNT_NAME>" not in text.replace("py<COUNT_NAME>", "")
