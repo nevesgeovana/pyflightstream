@@ -989,16 +989,10 @@ FLIGHT_CONDITION: TASmps:68.08, ALTFT:10000, dISA:5
 
 \begin{frame}[fragile,allowframebreaks]{Recipe 7 addendum: migrating a run matrix}
   \begin{itemize}
-    \item Coming from spreadsheet-driven run matrices (the pipe-delimited layout with a \code{SWEEP\_TYPE} column of \code{AL} and \code{BE} codes)? \textbf{First upgrade the file.} The layout has broken four times and a matrix written under any earlier one is recognised by its header and refused rather than misread. v0.9.0 replaced the \code{RE} and \code{MACH} columns with one mandatory \code{FLIGHT\_CONDITION} cell; v0.15.0 removed \code{SWEEP\_TYPE} itself, because that cell now says which variable varies by carrying the word \code{sweep} where its value would be, so \code{AL} becomes \code{ALPHA:sweep}. The one row the converter will not do for you is one that varies BOTH angles: that is one row per sideslip, each needing a \code{POL} of its own, and it is refused by name.
+    \item Coming from spreadsheet-driven run matrices (the pipe-delimited layout with a \code{SWEEP\_TYPE} column of \code{AL} and \code{BE} codes)? \textbf{First edit the file by hand to the current layout; no converter ships.} The layout has broken four times and a matrix written under any earlier one is recognised by its header and refused rather than misread. v0.9.0 replaced the \code{RE} and \code{MACH} columns with one mandatory \code{FLIGHT\_CONDITION} cell; v0.15.0 removed \code{SWEEP\_TYPE} itself, because that cell now says which variable varies by carrying the word \code{sweep} where its value would be, so \code{AL} becomes \code{ALPHA:sweep}. A row that varies BOTH angles cannot be written as one row: that is one row per sideslip, each needing a \code{POL} of its own, and it is refused by name.
   \end{itemize}
-\begin{lstlisting}
-pyfs-matrix upgrade matrix.fs --in-place
-# without --in-place it goes to standard output, so you
-# can diff before you overwrite. It needs no recipes, no
-# version and no executable.
-\end{lstlisting}
   \begin{itemize}
-    \item \textbf{The values move across verbatim; the RESULT may not.} Under v0.8.x the \code{RE} column was recorded metadata that reached no emitted line. From v0.9.0 \code{REmi} is a CONSTRAINT that solves for density, so an upgraded row emits an explicit fluid state it never emitted before and the numbers will differ. To keep the previous behaviour, state the condition without \code{REmi} and let the Reynolds number be derived.
+    \item \textbf{The values move across verbatim; the RESULT may not.} Under v0.8.x the \code{RE} column was recorded metadata that reached no emitted line. From v0.9.0 \code{REmi} is a CONSTRAINT that solves for density, so a migrated row emits an explicit fluid state it never emitted before and the numbers will differ. To keep the previous behaviour, state the condition without \code{REmi} and let the Reynolds number be derived.
     \item Then plan the matrix directly:
   \end{itemize}
 \begin{lstlisting}
@@ -1075,7 +1069,7 @@ report.current_iteration, report.requested_iterations
 report.fs_version_reported, report.fs_build   # solver identity
 \end{lstlisting}
   \begin{itemize}
-    \item Convergence check: \code{current\_iteration < requested\_iterations} means the residual threshold was met before iteration exhaustion.
+    \item Convergence check: an iteration count below the requested cap does not by itself establish convergence; use the recorded convergence assessment and status.
     \item The parser is strict about structure (a table without its closing Total row raises) and lax about version prefixes: the 26.120 build reports itself as "26.1", so the check records the reported string and build verbatim and warns on true mismatches.
   \end{itemize}
 \end{frame}

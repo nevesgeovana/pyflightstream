@@ -127,20 +127,17 @@ FLIGHT_CONDITION: TASmps:68.08, ALTFT:10000, dISA:5
 \end{frame}
 
 \begin{frame}[fragile]{A matrix from an older layout}
-\begin{lstlisting}[style=ftsbase]
-pyfs-matrix upgrade matriz.fs              # to standard output: read the diff
-pyfs-matrix upgrade matriz.fs --in-place   # then write it
-\end{lstlisting}
 \begin{itemize}\small
   \item A matrix written under an earlier layout is recognised by its header
-        and \textbf{refused rather than misread}; \code{upgrade} converts it.
-        It needs no recipe, no build and no executable.
-  \item A sweep code becomes the word \code{sweep} where the value would be:
+        and \textbf{refused rather than misread}. No converter ships: edit the
+        rows by hand to the current layout, then plan them with
+        \code{pyfs-matrix plan}.
+  \item When editing by hand, a sweep code becomes the word \code{sweep} where the value would be:
         \code{AL} becomes \code{ALPHA:sweep}. A row that varies both angles is
         refused by name: it is one row per sideslip, each with its own POL.
   \item \textbf{The values move across verbatim; the result may not.} A
         Reynolds number that was only recorded becomes a constraint that
-        solves for density, so the upgraded row emits a fluid state it never
+        solves for density, so the migrated row emits a fluid state it never
         emitted before. To keep the old behaviour, drop \code{REmi} and let the
         Reynolds number follow.
 \end{itemize}
