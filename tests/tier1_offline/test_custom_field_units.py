@@ -334,3 +334,44 @@ def test_p0420_the_measured_units_still_rotate_and_read(tmp_path, unit):
         omega_rad_s=10.0,
     )
     assert prepared.provenance["native_length_unit"] == unit
+
+
+@pytest.mark.parametrize("omega", [float("nan"), float("inf")])
+def test_p0430_f043_rotating_field_refuses_a_non_finite_rotation(tmp_path, omega):
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.freestream import prepare_rotating_field
+
+    with pytest.raises(CampaignConfigError, match="finite"):
+        prepare_rotating_field(
+            _field(tmp_path),
+            form="STRUCTURED",
+            source_units="SI",
+            native_unit="METER",
+            hub_m=(0.0, 0.0, 0.0),
+            axis=(0.0, 0.0, 1.0),
+            omega_rad_s=omega,
+        )
+
+
+def test_p0430_f1300_field_rows_refuse_an_unknown_unit_spelling(tmp_path):
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.freestream import field_rows_in_metres
+
+    with pytest.raises(CampaignConfigError, match="SI or NATIVE"):
+        field_rows_in_metres(
+            _field(tmp_path), form="STRUCTURED", source_units="si", native_unit="MILLIMETER"
+        )
+
+
+def test_p0430_f750_rotating_path_refuses_the_header_the_plain_path_refuses(tmp_path):
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.freestream import field_rows_in_metres
+
+    bad = tmp_path / "bad.txt"
+    bad.write_text("0 3\n0 0 0 1 2 3\n", encoding="utf-8")
+    with pytest.raises(CampaignConfigError, match="two positive grid counts"):
+        field_rows_in_metres(bad, form="STRUCTURED", source_units="SI", native_unit="METER")
+    short = tmp_path / "short.txt"
+    short.write_text("2 2\n0 0 0 1 2 3\n", encoding="utf-8")
+    with pytest.raises(CampaignConfigError, match="row count"):
+        field_rows_in_metres(short, form="STRUCTURED", source_units="SI", native_unit="METER")

@@ -156,9 +156,7 @@ def prepare_field(
         if not lines:
             raise CampaignConfigError(f"Custom field {path} has no header.")
         header = lines.pop(0).split()
-        if len(header) != 2 or any(not v.isdigit() or int(v) <= 0 for v in header):
-            raise CampaignConfigError(f"Custom field {path} requires two positive grid counts.")
-        expected = int(header[0]) * int(header[1])
+        expected = _grid_count(path, header)
         out.append(" ".join(header))
     elif form != "UNSTRUCTURED":
         raise CampaignConfigError(f"Unknown custom-field form {form!r}.")
@@ -184,6 +182,13 @@ def prepare_field(
         evidence="RPT-083: exact 26.124 build 8172026 METER/MILLIMETER custom-file controls",
     )
     return PreparedField(name, payload, provenance)
+
+
+def _grid_count(path: Path, header: list[str]) -> int:
+    """Return the point count a STRUCTURED header declares (two positive integers)."""
+    if len(header) != 2 or any(not v.isdigit() or int(v) <= 0 for v in header):
+        raise CampaignConfigError(f"Custom field {path} requires two positive grid counts.")
+    return int(header[0]) * int(header[1])
 
 
 def read_field_rows(path: Path, *, form: str) -> tuple[str | None, list[list[float]]]:
@@ -216,7 +221,11 @@ def read_field_rows(path: Path, *, form: str) -> tuple[str | None, list[list[flo
     if form == "STRUCTURED":
         if not lines:
             raise CampaignConfigError(f"Custom field {path} has no header.")
-        header = " ".join(lines.pop(0).split())
+        header_parts = lines.pop(0).split()
+        expected = _grid_count(path, header_parts)
+        header = " ".join(header_parts)
+        if not lines or len(lines) != expected:
+            raise CampaignConfigError(f"Custom field {path} has an invalid row count.")
     elif form != "UNSTRUCTURED":
         raise CampaignConfigError(f"Unknown custom-field form {form!r}.")
     rows = []
@@ -270,6 +279,8 @@ def field_rows_in_metres(
         If a NATIVE field's simulation unit is neither the metre nor the millimetre, an undeclared
         field sits on a simulation not in metres, or :func:`read_field_rows` refuses the file.
     """
+    if source_units not in {None, "SI", "NATIVE"}:
+        raise CampaignConfigError("FREESTREAM_UNITS must be SI or NATIVE, or omitted.")
     header, rows = read_field_rows(path, form=form)
     if source_units == "SI" and native_unit is not None:
         require_measured_unit(native_unit)
@@ -347,6 +358,11 @@ def prepare_rotating_field(
         If the simulation's unit names no scale, or the file is refused as
         :func:`field_rows_in_metres` refuses it.
     """
+    if not all(math.isfinite(v) for v in (omega_rad_s, *hub_m, *axis)):
+        raise CampaignConfigError(
+            "The rotating field needs a finite angular speed, hub point and axis; "
+            f"got omega {omega_rad_s!r}, hub {hub_m!r}, axis {axis!r}."
+        )
     header, rows = field_rows_in_metres(
         path, form=form, source_units=source_units, native_unit=native_unit
     )
