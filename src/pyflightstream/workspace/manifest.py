@@ -1321,6 +1321,14 @@ class _ManifestWorkspace(Protocol):
     def _refuse_a_waiver_this_version_may_not_write(self, record: RunRecord) -> None: ...
 
 
+def _validate_lock_timeout(timeout_s: float) -> None:
+    """Refuse a timeout that cannot bound manifest-lock acquisition."""
+    if not math.isfinite(timeout_s) or timeout_s < 0:
+        raise WorkspaceError(
+            f"timeout_s={timeout_s!r} is invalid; provide a finite nonnegative wait in seconds"
+        )
+
+
 @contextmanager
 def manifest_lock(
     manifest: Path,
@@ -1381,13 +1389,9 @@ def manifest_lock(
         If the timeout is invalid or another writer holds the manifest for the
         configured wait bound.
     """
-    if not math.isfinite(timeout_s) or timeout_s < 0:
-        raise WorkspaceError(
-            f"timeout_s={timeout_s!r} is invalid; provide a finite nonnegative wait in seconds"
-        )
+    _validate_lock_timeout(timeout_s)
     root.mkdir(parents=True, exist_ok=True)
-    guarded = manifest
-    lock = guarded.with_suffix(".json.lock")
+    lock = manifest.with_suffix(".json.lock")
     guard = lock.with_name(f".{lock.name}.guard")
     owner = {"pid": os.getpid(), "host": socket.gethostname(), "token": uuid.uuid4().hex}
 
@@ -1491,7 +1495,7 @@ def manifest_lock(
                 break
         if time.monotonic() > deadline:
             raise WorkspaceError(
-                f"the manifest {guarded} has been held by another writer "
+                f"the manifest {manifest} has been held by another writer "
                 f"for {timeout_s:.0f} s ({lock} exists), so this record "
                 "was NOT written. The lock is recovered only after its local owner "
                 "exits or its heartbeat expires; retry after the holder finishes."
