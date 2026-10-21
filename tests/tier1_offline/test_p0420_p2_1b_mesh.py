@@ -197,6 +197,19 @@ def test_p0430_x_f0435_the_remesh_target_ignores_the_fan_diagonal_of_a_quad():
     assert _targets(group, {"W": 2.0}) == pytest.approx(numpy.full(4, 0.5))
 
 
+# ---------------------------------------------------------------- F-1584
+
+
+def test_p0430_f1584_the_text_a_refusal_offers_for_a_value_is_valid_toml():
+    """F-1584: an inline table and a DEL character are offered in TOML, not JSON, syntax."""
+    import tomllib
+
+    from pyflightstream.workspace._refine._level import _toml
+
+    for value in ({"surfaces": ["W", "T"], "on": True}, ["a", 'b"c'], "x\x7fy", {}, 2.5):
+        assert tomllib.loads("v = " + _toml(value))["v"] == value
+
+
 # ---------------------------------------------------------------- F-1517
 
 

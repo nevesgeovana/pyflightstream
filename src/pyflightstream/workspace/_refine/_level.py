@@ -1149,6 +1149,24 @@ def _route_detected_te(work: _Work, stem: str) -> None:
     )
 
 
+def _toml(value: object) -> str:
+    """Return ``value`` as TOML text: strings, booleans, numbers, arrays and inline tables.
+
+    A JSON string is a TOML basic string except for DEL, which TOML refuses raw; a
+    JSON object is not an inline table, so the refusals that tell a user what to
+    write never offer text the parser rejects.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False).replace("\x7f", "\\u007f")
+    if isinstance(value, dict):
+        return "{ " + ", ".join(f"{_toml(str(k))} = {_toml(v)}" for k, v in value.items()) + " }"
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(_toml(v) for v in value) + "]"
+    return repr(value)
+
+
 def _replace_key(
     side: Path,
     text: str,
@@ -1177,7 +1195,7 @@ def _replace_key(
                 continue
             if value != old:
                 continue
-            replaced = f"{new_key} = {json.dumps(new, ensure_ascii=False)}"
+            replaced = f"{new_key} = {_toml(new)}"
             candidate = text[: match.start()] + replaced + text[end:]
             try:
                 if tomllib.loads(candidate) == wanted:
@@ -1188,7 +1206,7 @@ def _replace_key(
     raise _refuse(
         str(side),
         f"the trailing-edge route {key} cannot be rewritten to name the level's points file; "
-        f"state it as {key} = {json.dumps(old, ensure_ascii=False)} and run again",
+        f"state it as {key} = {_toml(old)} and run again",
     )
 
 
