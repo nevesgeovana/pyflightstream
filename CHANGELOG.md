@@ -7,6 +7,56 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- `pyfs-fsi` writes `fsi_convergence_verdicts.log` in the run folder, and the external step
+  record carries `loads_file_present`.
+
+### Changed
+
+- Altitude and compatibility reports state that they analyse retained evidence, not probe
+  harness output. The loft geometry digest printed in compatibility reports is now a SHA-256
+  prefix, so digests in reports written before this change are not comparable.
+- The `pyfs-matrix` install check is documented as `--help`, and the guide and documentation
+  pages state what the code does.
+- The QA `--timeout` option keeps its behaviour, and its help states that solved probes carry
+  their own 180 s limit.
+- FSI node and displacement inputs refuse what they would misread: non-finite values, a node
+  clearance that rounds away and a path-like external manifest name. NACA names are four
+  digits. The displacement reader accepts a byte-order mark and returns an empty `(0, 3)`
+  array for an empty file.
+- Probe controls capture the before state reliably and export each loft immediately before
+  removing it. Applied-twist convergence, revolution history validation and the provenance of
+  the actual external call are checked, and a failed UTF-8 call is archived.
+- The withheld executable identity names the build the binary printed.
+- Thin blade: unused vertices of the implicit group are ignored, an offset that leaves no
+  section is refused, the chord ends are the exact farthest pair and OBJ vertices keep full
+  precision. `torsion_constant` accepts numpy integers.
+- Simulation archives record a file link as `<name>.LINK.txt` and never store the bytes it
+  points at. A cloud-backed placeholder is not a link.
+- `history` reports one corrupt archive as one identified row and no longer hides the readable
+  records. Actuator profiles serialise the provenance record before the profile is written,
+  the last station is the tip and a product key with parent segments is not read. A cost file
+  flag multiplier must be positive.
+
+### Fixed
+
+- Build-all guide scripts exit 1 when the selector matches no guide.
+- Geometry build treats a failed final overlay replace as a build error, records the sidecars
+  it reads as inputs, honours the memory floor at each variant start and refuses an unreadable
+  trailing-edge readback. `geometry accept` refuses a malformed record without stamping any
+  and a partial folder name with a trailing separator. `geometry clean` never overwrites an
+  existing backup, and `geometry from-sidecar` resolves `folder/name`, refuses a missing CAD
+  or CCS sidecar and writes names that read back unchanged.
+- `free-space` no longer fails an apply after files were deleted when `products.json` has the
+  wrong shape, and its preview lists each file once.
+- `delete-sims` treats a single id given as a string as one simulation, refuses product paths
+  that leave the post folder, and restore never extracts through a planted staging link.
+- Reading compatibility evidence (`read_compat_reports`, `apply_reanalysis`,
+  `record_unprobed_build`, `cost_view`, `WingSpec`) refuses malformed input with
+  `QaEvidenceError` instead of `AttributeError` or `KeyError`, and `WingSpec` refuses nan and
+  inf lengths.
+
 ## [0.42.0] - 2026-10-16
 
 ### Added
