@@ -854,7 +854,7 @@ def add_reduced_frequency_to_sections(
     if CLOCKING_COLUMN in index:
         candidates = [at for at in candidates if rows[at][index[CLOCKING_COLUMN]] == "0"]
     if not candidates:
-        return None
+        return _all_unplaced_validity(path, columns, rows, notes)
     families = list(record.families_blades)
     present = {rows[at][index["FAMILY"]] for at in candidates} if "FAMILY" in index else set()
     first = next((family for family in families if family in present), None)
@@ -931,7 +931,7 @@ def add_reduced_frequency_to_sections(
             "TORQUE_PCT_K_GT_0_1": torque_share,
             "K_1P_SOURCE": "sections",
         },
-        notes=tuple(notes),
+        notes=tuple(dict.fromkeys(notes)),
     )
     tail = [_cell(value) for value in validity.cells()]
     _rewrite(
@@ -941,6 +941,29 @@ def add_reduced_frequency_to_sections(
             [*row, _cell(k) if k is not None else NOT_APPLICABLE, *tail]
             for row, k in zip(rows, k_of_row, strict=True)
         ],
+    )
+    return validity
+
+
+def _all_unplaced_validity(
+    path: Path, columns: Sequence[str], rows: Sequence[Sequence[str]], notes: Sequence[str]
+) -> PointValidity | None:
+    """Return the NA validity of a rotor none of whose stations is placed, or None without a note.
+
+    The post says why in its log instead of writing nothing (a product not
+    written is explained).
+    """
+    if not notes:
+        return None
+    validity = PointValidity(
+        {**dict.fromkeys(VALIDITY_COLUMNS), "K_1P_SOURCE": "sections"},
+        notes=tuple(dict.fromkeys(notes)),
+    )
+    tail = [_cell(value) for value in validity.cells()]
+    _rewrite(
+        path,
+        [*columns, STATION_COLUMN, *VALIDITY_COLUMNS],
+        [[*row, NOT_APPLICABLE, *tail] for row in rows],
     )
     return validity
 

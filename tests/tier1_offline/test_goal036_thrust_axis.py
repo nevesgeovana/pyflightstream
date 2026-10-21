@@ -158,7 +158,7 @@ def test_a_frame_or_plane_the_post_cannot_read_leaves_both_shares_na_and_says_wh
     forces = ((10.0, 1.0),) * 4
     record = _record(letter="X", axis=(1.0, 0.0, 0.0))
     cases = (
-        ("XZ", _layout("SETUP_FRAME"), "the axes of frame SETUP_FRAME are not known"),
+        ("XZ", _layout("SETUP_FRAME"), "axes of frame SETUP_FRAME, whose origin is unknown"),
         ("YZ", _layout("PROP_RMRP1", plane="YZ"), "a cut in plane YZ are not read"),
         ("XZ", _layout("PROP_RMRP1", plane="XY"), "names no one frame for block Blade1 XZ"),
     )
@@ -170,9 +170,10 @@ def test_a_frame_or_plane_the_post_cannot_read_leaves_both_shares_na_and_says_wh
         assert validity is not None
         assert validity.values["THRUST_PCT_K_GT_0_1"] is None
         assert validity.values["TORQUE_PCT_K_GT_0_1"] is None
-        assert validity.values["K_1P_MAX"] is not None
+        # F-153: a frame the post cannot place (a setup frame, or none named) leaves K_1P NA.
+        assert (validity.values["K_1P_MAX"] is None) == (at != 1)
         (note,) = validity.notes
-        assert said in note and "read NA" in note
+        assert said in note and " NA" in note
 
 
 def test_a_total_with_no_sign_is_na_and_said(tmp_path):
@@ -219,7 +220,7 @@ def test_the_post_says_a_share_it_cannot_take_in_its_log(tmp_path):
     assert validity["DP"].values["THRUST_PCT_K_GT_0_1"] is None
     lines = [str(warning.message) for warning in said]
     assert any(
-        line.startswith("point=DP product=sections: THRUST_PCT_K_GT_0_1 and TORQUE_PCT")
+        line.startswith("point=DP product=sections: K_1P of rotor PROP reads NA")
         and "SETUP_FRAME" in line
         for line in lines
     ), lines
