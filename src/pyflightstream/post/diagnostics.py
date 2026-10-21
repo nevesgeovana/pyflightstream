@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import json
 import sys
-from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from pyflightstream._cli import post_warning_policy
 from pyflightstream._errors import ProductArgumentError, ProductError
+from pyflightstream.workspace._query_files import _groups
 from pyflightstream.workspace.ledger import post_warning_category
 
 __all__ = [
@@ -55,13 +55,14 @@ def report_post_warnings(records: Sequence[Mapping[str, str | None]], log_path: 
     """
     if post_warning_policy() is not True:
         return
-    counts = Counter(
-        record.get("category") or "postprocessing"
-        for record in records
-        if record.get("severity", "warning") == "warning"
-    )
-    for category, count in sorted(counts.items()):
-        print(f"pproc warning [{category}]: {count}; details: {log_path}", file=sys.stderr)
+    # The grouping of ``log --post`` (FR-772): one implementation, so the totals here and
+    # the groups there are the same groups: category, family and message shape.
+    for group in _groups([r for r in records if r.get("severity", "warning") == "warning"]):
+        print(
+            f"pproc warning [{group['category']}]: {group['count']}; "
+            f"{group['family']}; details: {log_path}",
+            file=sys.stderr,
+        )
 
 
 def render_post_diagnostics(log_paths: Sequence[Path]) -> str:
