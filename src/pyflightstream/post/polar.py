@@ -752,6 +752,7 @@ def write_polar_table(
     reference: ReferenceValues,
     rows: Sequence[Sequence[float]],
     advance_ratios: Sequence[float | None] | None = None,
+    conditions: Sequence[Mapping[str, object]] | None = None,
     drag_columns: Sequence[tuple[str, str]] | None = None,
 ) -> Path:
     """Write one polar table: the reference block and the coefficients per point.
@@ -763,7 +764,10 @@ def write_polar_table(
     entirely, every row's cell reads `NA`, which is what a caller with no
     sweep point to offer should write.
 
-    Inapplicable values use ``NA`` so a missing quantity cannot be mistaken for a measured zero.
+    Pass ``conditions=[{"VINF": 23.0, "ALT": 150.0, "J": 0.4}]`` for a
+    single row's speed in m/s, altitude in m and advance ratio. For multiple
+    rows, supply one mapping per row. Inapplicable values use ``NA`` so a
+    missing quantity cannot be mistaken for a measured zero.
 
     Parameters
     ----------
@@ -782,6 +786,9 @@ def write_polar_table(
         them.
     advance_ratios : sequence of float or None, optional
         The advance ratio of each row; None entries read ``NA``.
+    conditions : sequence of mapping, optional
+        Per-row flight conditions, forwarded to :func:`polar_table_rows`.
+        Supply J here instead of passing advance_ratios at the same time.
     drag_columns : sequence of tuple of str, optional
         The product columns of each row's drag split (FR-423); None is
         ``CD0, CDI`` for every row.
@@ -804,6 +811,7 @@ def write_polar_table(
         reference=reference,
         rows=rows,
         advance_ratios=advance_ratios,
+        conditions=conditions,
         drag_columns=drag_columns,
     )
     return write_csv_table(path, polar_table_columns(drag_columns), full)

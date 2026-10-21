@@ -12,6 +12,7 @@ are neutral. The recorded 26.124 export is the committed ``rpt128/rigid.txt``.
 
 from __future__ import annotations
 
+import csv
 import warnings
 from pathlib import Path
 
@@ -48,6 +49,28 @@ from pyflightstream.versions import resolve
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 S10 = FIXTURES / "s10_26125"
 RECORDED_26124 = FIXTURES / "rpt128" / "rigid.txt"
+
+
+def test_p0430_public_polar_writer_forwards_row_conditions(tmp_path):
+    import inspect
+
+    assert "conditions" in inspect.signature(write_polar_table).parameters
+    reference = ReferenceValues.from_mapping(
+        {"SREF": 1, "CREF": 1, "BREF": 1, "XMOM": 0, "YMOM": 0, "ZMOM": 0}
+    )
+    path = write_polar_table(
+        tmp_path / "polar.csv",
+        polar=1,
+        description="sample",
+        group=1,
+        reference=reference,
+        rows=[(0.0,) * 24, (1.0,) * 24],
+        conditions=[{"VINF": 23.0, "ALT": 150.0, "J": 0.4}, {}],
+    )
+    with path.open(encoding="utf-8", newline="") as handle:
+        first, second = list(csv.DictReader(handle))
+    assert [float(first[key]) for key in ("VINF", "ALT", "J")] == [23.0, 150.0, 0.4]
+    assert [second[key] for key in ("VINF", "ALT", "J")] == ["NA", "NA", "NA"]
 
 
 def _text(name: str) -> str:
