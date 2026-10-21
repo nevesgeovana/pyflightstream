@@ -830,7 +830,7 @@ helpers.solver_settings(script, velocity=v_inf,
     \item START\_SOLVER, then analysis and export as usual; the loads spreadsheet reflects the final time step.
   \end{enumerate}
   \begin{alertblock}{Pitfalls}
-    On 25.100, 26.000 and 26.100 the motion is written as a Euclidean motion and \code{wake\_stabilization\_blades} is refused by name, so drop it there; on 26.100 the rotor carries no rotor mark and its speed is written in rev/min, unmeasured (the per-build table of the workflow page, RPT-051).
+    On 25.100, 26.000 and 26.100 the motion is written as a Euclidean motion and \code{wake\_stabilization\_blades} is refused by name, so drop it there; on 26.100 the rotor carries no rotor mark and its speed is written in rev/min, a unit measured on that build (the per-build table of the workflow page, RPT-051).
     SET\_MOTION\_START\_TIME is recorded {\color{statusred}broken} on 26.101 and 26.121, so the builder refuses it on those two builds and you must converge the steady base flow by other means there. But the abort was the PROBE's doing rather than the solver's. The family's shared probe prelude created a rotary motion, which is the one kind whose start time the solver declines to set (RPT-026). With a 6DOF prelude the command is {\color{statusblue}verified} on 26.120, 26.124 and 26.125 (RPT-166); on 26.122 and 26.123 it is documented and has not been run, and the older 26.101 and 26.121 records have not been re-probed, so their status stays until a run replaces it.
   \end{alertblock}
 \end{frame}
@@ -867,26 +867,14 @@ helpers.export_probes(script, "probes_out.txt", update=True)
 \subsection{Recipe 7: batch campaigns}
 
 \begin{frame}[fragile,allowframebreaks]{Recipe 7: campaigns (1/3), declare what to run}
-  \textbf{Concept:} a campaign is data (TOML), a recipe is code (a function), the loop welds them with full provenance.
+  \textbf{Concept:} a campaign is data (one matrix row per case), a recipe is code (a function), the loop welds them with full provenance.
 \begin{lstlisting}[style=txt]
-[campaign]
-name = "wing_steady_sweep"
-fs_version = "26.120"
-fs_exe = 'C:\FlightStream\26.12\FlightStream.exe'
-
-[[sim]]
-sim_id = "9001"
-aircraft = "TestWing"
-description = "steady polar"
-reynolds = 4.38e6
-mach = 0.1441
-sweep = {type = "alpha", values = [-4.0, 0.0, 4.0, 8.0]}
-recipe = "my_recipes:steady_point"
-outputs = ["loads_{point}.txt"]
+POL|HIDDEN|RUN|AIRCRAFT|CONFIGURATION|DESCRIPTION|FLIGHT_CONDITION|SWEEP_VALUES|GEOMETRY|REF|SET|PPROC|SYMMETRY|SYMMETRY_LOADS|NCPUS|WALLTIME|FS_BUILD|WORKFLOW|VAR_NAMES_VALUES
+9001|0|1|TestWing|-|steady polar|MACH:0.1441, REmi:4.38, ALPHA:sweep|-4,0,4,8|wing.obj|r001|s001|p001|NONE|-|-|-|26.120|steady|
 \end{lstlisting}
   \begin{itemize}
-    \item Sweep axes: any key of \code{FLIGHT\_CONDITION} since 0.21.0, which is the flow variables, the two angles, the advance ratio, \code{RPM} and the three body rates; the Python \code{SweepAxis} type also takes the paired \code{alpha\_beta} of the matrices written before 0.15.0.
-    \item Output names carry \code{\{point\}}: every point of a case runs in the same simulation folder, so a constant name would let each point overwrite the previous one's evidence. A multi-point case that declares a constant name is refused before anything runs.
+    \item The matrix is the sole campaign declaration: one row is one case, and the sweep is the word \code{sweep} where a \code{FLIGHT\_CONDITION} value would be, with its values in \code{SWEEP\_VALUES}. Sweep axes: any key of \code{FLIGHT\_CONDITION} since 0.21.0, which is the flow variables, the two angles, the advance ratio, \code{RPM} and the three body rates.
+    \item Output names carry \code{\{point\}}: every point of a case runs in the same simulation folder, so a constant name would let each point overwrite the previous one's evidence. The names come from the \code{[exports]} table of the row's pproc artifact, and a multi-point case that declares a constant name is refused before anything runs.
   \end{itemize}
 \end{frame}
 
