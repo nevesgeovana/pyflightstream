@@ -66,7 +66,7 @@ def _refuse_the_loads_selections_on_a_march(case: SimCase) -> None:
     stated = [
         key
         for key in (*LOADS_SELECTION_KEYS, "clear_vorticity_drag_boundaries")
-        if getattr(case.solver, key) is not None
+        if getattr(case.solver, key) not in (None, False)
     ]
     if not stated:
         return

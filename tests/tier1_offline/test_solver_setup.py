@@ -1895,3 +1895,26 @@ def test_f5_0102_f268_start_solver_warns_that_the_deferred_selection_lands_after
     doc = helpers.start_solver.__doc__ or ""
     assert "AFTER ``START_SOLVER``" in doc
     assert "emit_deferred_vorticity_before_solve" in doc
+
+
+# --- F5-1112: an explicit false loads flag is not a stated selection (F-1324) ---
+
+
+def test_an_explicit_false_loads_flag_does_not_refuse_an_unsteady_march():
+    from pyflightstream.cases.workflows._solver_settings import (
+        _refuse_the_loads_selections_on_a_march,
+    )
+
+    def case(**solver):
+        return SimCase(
+            sim_id="7001",
+            aircraft="RotorRig",
+            recipe="unsteady_rotor",
+            sweep=SweepAxis(type="alpha", values=[0.0]),
+            solver=SolverSettings(**solver),
+        )
+
+    _refuse_the_loads_selections_on_a_march(case(inviscid_loads=False))
+    # THE CONTROL: a stated True is still refused.
+    with pytest.raises(CampaignConfigError, match="inviscid_loads"):
+        _refuse_the_loads_selections_on_a_march(case(inviscid_loads=True))
