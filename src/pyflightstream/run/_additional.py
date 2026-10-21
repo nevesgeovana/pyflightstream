@@ -251,8 +251,9 @@ def discard_extraction_copy(
 def extraction_job_end(workspace, record, folder: Path) -> str | None:
     """Say how a submitted extraction's job is known to have ended, or None while it may run.
 
-    The HPC profile's ``job_end_files`` all matching (FR-311), or the log
-    the scheduler writes (``native_log``) being there, ends the job.
+    The HPC profile's ``job_end_files`` all matching (FR-311) ends the job. The
+    scheduler's live log (``native_log``) is written while the job runs, so its
+    existence says nothing about the end and is never taken as proof of it.
     """
     profile = resolve_hpc_profile(workspace.inputs_dir)
     point = record.point_name or ""
@@ -265,13 +266,6 @@ def extraction_job_end(workspace, record, folder: Path) -> str | None:
             found = []
             break
         found += [path for path in matched if path.is_file()]
-    native = getattr(profile, "native_log", None)
-    if not found and native:
-        found = [
-            path
-            for path in folder.glob(str(native).format(sim=record.sim_id, point=point))
-            if path.is_file()
-        ]
     if not found:
         return None
     return (

@@ -840,3 +840,14 @@ class TestRun2Marks:
         assert cost.time_iterations is None
         assert cost.seconds is None
         assert "step count is unknown" in cost.basis
+
+
+def test_f6_0102_a_live_native_log_is_not_the_end_of_an_extraction_job(tmp_path):
+    """F-599: the scheduler's native log exists while the job runs, so it ends nothing."""
+    from pyflightstream.run._additional import extraction_job_end
+    from tests.tier1_offline.test_goal024_profile_log import _write_profile
+
+    workspace, record, folder = _run_2_collect___submitted_extraction(tmp_path)
+    _write_profile(workspace, '\n[log]\nexport_log = false\nnative_log = "FTS{sim}.l*"\n')
+    (folder / f"FTS{record.sim_id}.l3714205").write_text("still running\n", encoding="utf-8")
+    assert extraction_job_end(workspace, record, folder) is None
