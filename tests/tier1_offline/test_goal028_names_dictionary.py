@@ -225,3 +225,23 @@ def test_the_dictionary_is_checked_when_an_azimuthal_reduction_loads_the_history
     # warning comes from the polar path, which predates this fix.
     assert said, "the dictionary was not reported at all"
     assert all("CL_HUB_GHOST" in message for message in said), said
+
+
+def test_f4_0506_this_module_collects_without_scipy():
+    """F-861: borrowing the helpers must not import a module that skips itself on no scipy."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    code = (
+        "import sys\n"
+        "sys.modules['scipy'] = None\n"
+        "sys.modules['scipy.spatial'] = None\n"
+        "sys.modules['scipy.spatial.transform'] = None\n"
+        "import tests.tier1_offline.test_goal028_names_dictionary\n"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", code], cwd=root, capture_output=True, text=True, check=False
+    )
+    assert done.returncode == 0, done.stderr[-400:]

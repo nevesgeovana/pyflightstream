@@ -28,7 +28,6 @@ from pyflightstream.post.products import (
     write_plots_table,
     write_unsteady_polar,
 )
-from tests.tier1_offline.test_goal028_polar_from_the_vector import _oracle
 from tests.tier1_offline.test_post_products import PLOTS_HEADER
 
 REFERENCE = ReferenceValues(sref_m2=50.0, cref_m=2.526, bref_m=20.0)
@@ -100,6 +99,10 @@ def _expected() -> dict[str, float]:
     force_unit = 0.5 * RHO * VINF**2 * REFERENCE.sref_m2
     force = [value / force_unit for value in MEAN[:3]]
     moment = [value / (force_unit * REFERENCE.cref_m) for value in MEAN[3:]]
+    # imported here: that module skips itself without scipy, and an import at the top
+    # would skip every scipy-free test of every module that borrows this one's helpers
+    from tests.tier1_offline.test_goal028_polar_from_the_vector import _oracle
+
     return _oracle(force, moment, 4.0, 6.0)
 
 

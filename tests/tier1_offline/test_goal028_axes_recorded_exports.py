@@ -195,6 +195,19 @@ def test_every_recorded_export_has_a_sha256_witness():
     )
 
 
+#: The witnesses, pinned as one digest of the sorted export-and-sha256 pairs. CI cannot
+#: reread the machine's exports, so a hex string that merely looks like a digest proves
+#: nothing; an edited row changes this pin, and the pin is changed on purpose, with a
+#: re-extraction, never by editing a row.
+_WITNESSES_SHA256 = "66b75c820889cb9be6cfc0dc1e1c78c133615d1fec42bd2e78a0cc4d248fcbaa"
+
+
+def test_the_recorded_witnesses_are_the_pinned_set():
+    pairs = sorted(f"{row['export']} {row['sha256']}" for row in ROWS)
+    digest = hashlib.sha256("\n".join(pairs).encode()).hexdigest()
+    assert digest == _WITNESSES_SHA256, "a recorded export row or its sha256 was edited"
+
+
 @pytest.mark.parametrize(
     "old,new",
     [(b"Original heading", b"Replaced heading"), (b"Angle of attack (Deg)", b"Unknown heading")],
