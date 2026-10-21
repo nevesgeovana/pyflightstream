@@ -86,7 +86,8 @@ class WingSpec:
         Chordwise panel count per surface side (upper and lower each).
     n_span : int
         Spanwise panel count over the full span; a half wing uses half
-        of them.
+        of them, rounded down, so an odd count gives the half wing wider
+        panels than the full wing has.
 
     Examples
     --------
