@@ -549,6 +549,18 @@ def test_p0320_g35_the_file_route_imports_the_staged_file_whole(tmp_path):
     assert _index(lines, "CCS_IMPORT") < _index(lines, "SET_SIMULATION_LENGTH_UNITS METER")
 
 
+def test_f5_0102_f1289_an_absolute_working_dir_parks_the_copy_by_its_relative_name(tmp_path):
+    """F-1289: the shedding copy is parked relative, and imported by its absolute path."""
+    case = _file_case(tmp_path, tail=" / CCS_SHEDDING: AZIMUTH")
+    script = Script(BUILD)
+    folder = tmp_path / "point"
+    script.working_dir = str(folder)
+    build_script(case, script)
+    imported = _ccs_import_file(script.render().splitlines())
+    assert Path(imported) == folder / "g35.ccs_shedding.csv"
+    assert list(script.pending_input_files) == ["g35.ccs_shedding.csv"]
+
+
 def test_p0320_g35_the_row_chooses_the_azimuth_direction_of_every_relaxed_line(tmp_path):
     """P0320-G35-SHEDDING: the run's own copy states the digit; the user's file is untouched."""
     case = _file_case(tmp_path, tail=" / CCS_SHEDDING: AZIMUTH")

@@ -333,7 +333,7 @@ def _emit_file_route(script: Script, case: SimCase, names: Sequence[str]) -> Non
         path = name if script.working_dir is None else str(PurePath(script.working_dir) / name)
         # THE RUN'S OWN COPY, written where the point runs and hashed into the
         # record like every parked input; the user's file is never edited.
-        script.park_input_file(path, restated.encode("utf-8"))
+        script.park_input_file(name, restated.encode("utf-8"))
     script.emit(
         "CCS_IMPORT",
         close_component_ends="DISABLE",
