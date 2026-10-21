@@ -366,3 +366,70 @@ def test_two_remeshes_of_one_source_are_identical():
     assert numpy.array_equal(first.points, second.points)
     assert first.families == second.families
     assert first.info == second.info
+
+
+# ---- the guards of a move: F-307, F-308, F-309
+
+
+def _small_patch(verts, faces, fixed=()):
+    from pyflightstream.workspace._refine._remesh import Remesher
+    from pyflightstream.workspace._refine._remesh_group import Patch
+
+    return Remesher(
+        Patch(
+            numpy.array(verts, dtype=float),
+            [list(f) for f in faces],
+            ["A"] * len(faces),
+            numpy.ones(len(verts)),
+            {},
+            fixed=set(fixed),
+        )
+    )
+
+
+def test_p0430_f307_smoothing_does_not_commit_a_move_that_turns_a_face_over(monkeypatch):
+    """F-307: a smoothing move that inverts a neighbouring triangle is put back."""
+    square = [[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0], [0, 0, 0]]
+    fan = [[4, 0, 1], [4, 1, 2], [4, 2, 3], [4, 3, 0]]
+    remesh = _small_patch(square, fan, fixed=(0, 1, 2, 3))
+    monkeypatch.setattr(remesh, "_tangent_move", lambda v: numpy.array([-1.5, 0.0, 0.0]))
+    monkeypatch.setattr(
+        remesh,
+        "_onto_surface",
+        lambda moves: [remesh.V.__setitem__(v, p) for v, p in moves.items()],
+    )
+    remesh.smooth_and_project()
+    assert numpy.allclose(remesh.V[4], [0.0, 0.0, 0.0])
+    # control: a move that keeps every face's direction is committed
+    monkeypatch.setattr(remesh, "_tangent_move", lambda v: numpy.array([0.2, 0.1, 0.0]))
+    remesh.smooth_and_project()
+    assert numpy.allclose(remesh.V[4], [0.2, 0.1, 0.0])
+
+
+def test_p0430_f308_interface_node_removal_never_folds_a_neighbouring_face():
+    """F-308: dropping a chain node onto a neighbour that would turn a face over is refused."""
+    nodes = [[0, 0, 0], [1, -0.5, 0], [2, 0, 0], [1, -0.3, 0]]
+    remesh = _small_patch(nodes, [[0, 1, 3], [1, 2, 3]])
+    assert remesh._drop(1, {(0, 1), (1, 2)}, set()) is False
+    assert sorted(remesh.F.values()) == [[0, 1, 3], [1, 2, 3]]
+    # control: with the apex above the chain the same drop is accepted
+    ok = _small_patch([[0, 0, 0], [1, -0.5, 0], [2, 0, 0], [1, 1, 0]], [[0, 1, 3], [1, 2, 3]])
+    assert ok._drop(1, {(0, 1), (1, 2)}, set()) is True
+
+
+def test_p0430_f309_a_concave_face_is_cut_into_triangles_that_all_turn_with_it():
+    """F-309: the fan of the first corner of a concave polygon overlaps; ear clipping does not."""
+    from pyflightstream.workspace._refine._remesh_group import _group
+
+    def turn(p):
+        return float(sum(numpy.cross(p[i], p[(i + 1) % len(p)])[2] for i in range(len(p))))
+
+    # an arrowhead whose first corner is its tip: the fan from it turns one triangle over
+    verts = numpy.array([[2, 1, 0], [0, 0, 0], [2, -1, 0], [1, 0, 0]], dtype=float)
+    group = _group(ObjMesh(verts, {"A": [[0, 1, 2, 3]]}), ["A"])
+    assert len(group.faces) == 2
+    assert all(turn(group.verts[t]) > 0.0 for t in group.faces)
+    assert sum(turn(group.verts[t]) for t in group.faces) == pytest.approx(turn(verts))
+    # control: a convex quadrilateral keeps its fan
+    square = numpy.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], dtype=float)
+    assert _group(ObjMesh(square, {"A": [[0, 1, 2, 3]]}), ["A"]).faces == [[0, 1, 2], [0, 2, 3]]

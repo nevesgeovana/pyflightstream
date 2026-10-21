@@ -98,6 +98,54 @@ class _Group:
     source: dict[str, Faces]
 
 
+def _newell(points: Points) -> Points:
+    """Return the (unnormalised) normal of a polygon given by its corner points, in order."""
+    return numpy.cross(points, numpy.roll(points, -1, axis=0)).sum(axis=0)
+
+
+def _triangulate(verts: Points, f: list[int]) -> Faces:
+    """Return a polygon's triangles: the fan of its first corner, else ear clipping (F-309).
+
+    The fan of a convex polygon is kept as it was. A concave polygon's fan can
+    overlap itself (a triangle turned against the polygon's normal), and those
+    triangles would define the projection surface; the polygon is then cut by
+    ear clipping, every triangle turned with the polygon.
+    """
+    if len(f) == 3:
+        return [list(f)]
+    normal = _newell(verts[f])
+    fan = [[f[0], f[k], f[k + 1]] for k in range(1, len(f) - 1)]
+    if all(float(numpy.dot(_newell(verts[t]), normal)) > 0.0 for t in fan):
+        return fan
+    rest, out = list(f), []
+    while len(rest) > 3:
+        for i in range(len(rest)):
+            a, b, c = rest[i - 1], rest[i], rest[(i + 1) % len(rest)]
+            tri = verts[[a, b, c]]
+            if float(numpy.dot(_newell(tri), normal)) <= 0.0:
+                continue
+            inside = False
+            for v in rest:
+                if v in (a, b, c):
+                    continue
+                p = verts[v]
+                signs = [
+                    float(numpy.dot(numpy.cross(tri[(k + 1) % 3] - tri[k], p - tri[k]), normal))
+                    for k in range(3)
+                ]
+                if all(s >= 0.0 for s in signs):
+                    inside = True
+                    break
+            if not inside:
+                out.append([a, b, c])
+                del rest[i]
+                break
+        else:
+            return fan  # no ear (a degenerate polygon): keep the fan rather than lose faces
+    out.append(rest)
+    return out
+
+
 def _group(mesh: ObjMesh, names: Sequence[str]) -> _Group:
     """Return the group's faces numbered locally, each polygon fanned into triangles."""
     ids = sorted({v for n in names for f in mesh.families[n] for v in f})
@@ -107,7 +155,7 @@ def _group(mesh: ObjMesh, names: Sequence[str]) -> _Group:
     labels: list[str] = []
     for n in names:
         for f in source[n]:
-            fan = [[f[0], f[k], f[k + 1]] for k in range(1, len(f) - 1)]
+            fan = _triangulate(mesh.verts[ids], f)
             faces += fan
             labels += [n] * len(fan)
     return _Group(ids, mesh.verts[ids], faces, labels, source)

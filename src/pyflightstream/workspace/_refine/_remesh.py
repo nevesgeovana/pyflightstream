@@ -519,9 +519,34 @@ class Remesher:
             p = self._curve_move(v) if v in self.vcurve else self._tangent_move(v)
             if p is not None:
                 moves[v] = p
+        before = {v: (self.V[v].copy(), self.h[v]) for v in moves}
         self._onto_surface(moves)
         for v in [v for v in moves if v in self.vcurve]:
             self.V[v] = self._onto_curve(v, moves[v])
+        self._undo_folding_moves(before)
+
+    def _undo_folding_moves(self, before: dict[int, tuple[Points, float]]) -> None:
+        """Put back the moved vertices of every face a move flattened or turned over (F-307).
+
+        A face whose normal keeps less than :data:`COLLAPSE_COSINE` of its direction
+        returns all its moved vertices to where they were, until no face is left.
+        """
+        moved = set(before)
+        for _ in range(len(before) + 1):
+            bad: set[int] = set()
+            for v in moved:
+                for i in self.VF[v]:
+                    face = self.F[i]
+                    old = numpy.array([before[x][0] if x in before else self.V[x] for x in face])
+                    new = numpy.array([self.V[x] for x in face])
+                    if not _keeps_direction(_unit_normal(old), _unit_normal(new), COLLAPSE_COSINE):
+                        bad.update(x for x in face if x in moved)
+            if not bad:
+                return
+            for x in bad:
+                self.V[x] = before[x][0]
+                self.h[x] = before[x][1]
+            moved -= bad
 
     # ---- the passes
 
@@ -585,7 +610,8 @@ class Remesher:
             ends, key=lambda x: (x not in keep, float(numpy.linalg.norm(self.V[x] - self.V[o])), x)
         )
         for b in order:
-            if not self._link_ok(o, b):
+            # F-308: the interface removal takes the fold guard every other collapse takes.
+            if not self._link_ok(o, b) or not self._no_fold(o, b):
                 continue
             self.collapse(o, b)
             renamed = {_ek(b if x == o else x, b if y == o else y) for x, y in chain}
