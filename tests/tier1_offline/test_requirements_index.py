@@ -23,6 +23,7 @@ WORKSPACE_STATEMENT = (
 )
 # The method table of 0.43.0: UID | Level | Statement | Rationale | Analogy | Verification | Source.
 METHOD_COLUMNS = 7
+FROZEN_COMMIT = "6bad1dac664ef7b0959e683749f4b1f437af6033"
 
 
 def test_p0430_f7_04_continuation_example_loads_from_checkout(monkeypatch):
@@ -95,17 +96,24 @@ def historical_requirements():
 
     historical = []
     for name in ("functional-requirements", "nonfunctional-requirements"):
-        text = subprocess.check_output(
-            [
-                "git",
-                "-C",
-                str(REPO),
-                "show",
-                f"6bad1dac664ef7b0959e683749f4b1f437af6033:docs/unpublished/requirements/{name}.md",
-            ],
-            encoding="utf-8",
-            env=os.environ.copy(),
-        )
+        try:
+            text = subprocess.check_output(
+                [
+                    "git",
+                    "-C",
+                    str(REPO),
+                    "show",
+                    f"{FROZEN_COMMIT}:docs/unpublished/requirements/{name}.md",
+                ],
+                encoding="utf-8",
+                env=os.environ.copy(),
+                stderr=subprocess.DEVNULL,
+            )
+        except (OSError, subprocess.CalledProcessError):
+            pytest.skip(
+                f"the frozen migration population is read from commit {FROZEN_COMMIT[:8]}, "
+                "which needs a checkout with its full git history"
+            )
         historical.extend(requirement_rows(text))
     return historical
 
