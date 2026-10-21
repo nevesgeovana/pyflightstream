@@ -30,7 +30,13 @@ from pyflightstream._digest import optional_file_sha256
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream._yamlflow import flow_mapping
 from pyflightstream.commands import CommandEntry, CommandRegistry, Status
-from pyflightstream.qa._reanalysis import _citation, _withdrawals, _write_reanalysis
+from pyflightstream.qa._reanalysis import (
+    _citation,
+    _rewrite_block_fields,
+    _version_row_end,
+    _withdrawals,
+    _write_reanalysis,
+)
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import ProbeOutcome, ProbeRun
 from pyflightstream.qa.reports import (
@@ -1811,44 +1817,6 @@ def licence_sensitive_candidates(
             )
         )
     return tuple(sorted(candidates, key=lambda candidate: (candidate.chapter, candidate.command)))
-
-
-def _version_row_end(lines: list[str], index: int, end: int) -> int:
-    for following in range(index + 1, end):
-        line = lines[following]
-        if (
-            line.strip()
-            and not line.lstrip().startswith("#")
-            and len(line) - len(line.lstrip()) <= 4
-        ):
-            return following
-    return end
-
-
-def _rewrite_block_fields(
-    lines: list[str],
-    index: int,
-    stop: int,
-    existing: dict,
-    updated: dict,
-) -> None:
-    """Replace changed evidence fields while retaining untouched grammar text."""
-    fields = [
-        (at, match.group(1))
-        for at in range(index + 1, stop)
-        if (match := re.match(r"^      ([a-z_]+):", lines[at])) is not None
-    ]
-    # Replace only owned values, from bottom to top; grammar, comments and
-    # multiline edition notes that did not change retain their exact text.
-    for position in range(len(fields) - 1, -1, -1):
-        at, key = fields[position]
-        if existing.get(key) == updated.get(key):
-            continue
-        finish = fields[position + 1][0] if position + 1 < len(fields) else stop
-        lines[at:finish] = ["      " + _flow_mapping({key: updated[key]})[1:-1]]
-    missing = {key: value for key, value in updated.items() if key not in existing}
-    for key, value in reversed(list(missing.items())):
-        lines.insert(index + 1, "      " + _flow_mapping({key: value})[1:-1])
 
 
 def write_reanalysis(

@@ -1616,7 +1616,17 @@ def test_this_module_defines_no_renderer_of_its_own():
         "qa.compat defines its own flow-mapping renderer again, so the package has two "
         "and they can disagree: " + ", ".join(defined)
     )
-    assert compat._flow_mapping is flow_mapping
+    shared = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and [target.id for target in node.targets if isinstance(target, ast.Name)]
+        == ["_flow_mapping"]
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "flow_mapping"
+    ]
+    assert shared, "qa.compat's _flow_mapping is no longer the shared renderer"
+    assert compat.flow_mapping is flow_mapping
 
 
 def test_the_primitive_refuses_an_empty_or_string_version_list(tmp_path):
@@ -2264,10 +2274,15 @@ def test_f6_15_reanalysis_of_an_unregistered_build_is_a_qa_evidence_error(tmp_pa
         apply_reanalysis(analysis, repo_root=tmp_path)
 
 
-def test_f6_15_reanalysis_refuses_surviving_evidence_outside_the_repository(tmp_path, monkeypatch):
-    """F-709: a survivor cited by absolute path is refused, as apply_compat refuses it."""
-    from pyflightstream.qa import compat
-    from pyflightstream.qa.compat import Judgment, apply_reanalysis, write_reanalysis
+def test_f6_15_reanalysis_refuses_surviving_evidence_outside_the_repository(tmp_path):
+    """F-709: a survivor cited by absolute path is refused, as apply_compat refuses it.
+
+    The survivor is a report reached through a link that leaves the repository,
+    the one way a real report is cited by an absolute path.
+    """
+    import os
+
+    from pyflightstream.qa.compat import apply_reanalysis, write_reanalysis
 
     commands = tmp_path / "src" / "pyflightstream" / "commands"
     commands.parent.mkdir(parents=True)
@@ -2289,17 +2304,14 @@ def test_f6_15_reanalysis_refuses_surviving_evidence_outside_the_repository(tmp_
         date="2026-10-16",
         label="judgment-review",
     )
-    outside = (tmp_path.parent / "elsewhere" / "CMP-26120_2026-09-02.yaml").as_posix()
-    survivor = Judgment(
-        command="PRINT",
-        fs_version="26.120",
-        outcome=ProbeOutcome.VERIFIED,
-        date="2026-09-02",
-        report=outside,
-    )
-    monkeypatch.setattr(
-        compat, "read_compat_reports", lambda *a, **k: {("PRINT", "26.120"): (survivor,)}
-    )
+    elsewhere = tmp_path.parent / f"{tmp_path.name}_elsewhere"
+    elsewhere.mkdir()
+    outside = elsewhere / "CMP-26120_2026-09-02.yaml"
+    outside.write_text(yaml.safe_dump({**document, "date": "2026-09-02"}), encoding="utf-8")
+    try:
+        os.symlink(outside, reports / outside.name)
+    except (OSError, NotImplementedError) as error:
+        pytest.skip(f"this host cannot make a link to a file: {error}")
     with pytest.raises(QaEvidenceError, match="outside"):
         apply_reanalysis(analysis, repo_root=tmp_path)
-    assert outside not in (commands / "script_controls.yaml").read_text(encoding="utf-8")
+    assert outside.as_posix() not in (commands / "script_controls.yaml").read_text(encoding="utf-8")
