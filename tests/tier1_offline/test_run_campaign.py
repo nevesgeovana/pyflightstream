@@ -4148,3 +4148,53 @@ def test_f1462_the_resume_count_sees_points_recorded_on_their_own(monkeypatch):
     monkeypatch.setattr(_ids, "point_name", lambda case, point: f"p{point['a']}")
     monkeypatch.setattr(_ids, "_run_id", lambda campaign, case, point: f"r{point['a']}")
     assert _ids._recorded_and_new(campaign, {"r1": object()}) == (2, 1)
+
+
+def _stub_point_job(tmp_path, *, stale):
+    """A minimal job for the pre-launch part of ``_run_point_solver``."""
+    from types import SimpleNamespace
+
+    from pyflightstream.cases.workflows import WALLTIME_CLOCK_ACTION, WALLTIME_CLOCK_STATE
+    from pyflightstream.run import _points
+
+    sim_dir = tmp_path / "sim"
+    work_dir = sim_dir / "datapoints" / "DP-AL+000"
+    work_dir.mkdir(parents=True)
+    state = work_dir / WALLTIME_CLOCK_STATE
+    state.parent.mkdir(parents=True, exist_ok=True)
+    state.write_text("earlier point", encoding="utf-8")
+    if stale:
+        (work_dir / "loads.txt").write_text("left over", encoding="utf-8")
+    job = SimpleNamespace(
+        case=None,
+        point_case=SimpleNamespace(outputs=["loads.txt"]),
+        work_dir=work_dir,
+        sim_dir=sim_dir,
+        base={
+            "run_id": "camp/sim_9001/AL+000",
+            "sim_id": "9001",
+            "point": {},
+            "matrix_stem": None,
+            "fs_version_requested": "26.120",
+            "package_version": "0.43.0",
+            "manifest_schema": MANIFEST_SCHEMA,
+            "script_sha256": "",
+            "raw_flag": False,
+        },
+        script=SimpleNamespace(unsteady_actions=[SimpleNamespace(name=WALLTIME_CLOCK_ACTION)]),
+        executor=object(),
+        progress=_points._PointProgress(),
+    )
+    return job, state
+
+
+def test_f604_a_refused_point_keeps_the_watchdog_state_as_evidence(tmp_path):
+    """F-604: an existing-output refusal launches nothing, so it deletes nothing."""
+    from pyflightstream.run import _points
+
+    job, state = _stub_point_job(tmp_path, stale=True)
+    record = _points._run_point_solver(job)
+    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    assert state.read_text(encoding="utf-8") == "earlier point"
+    _points.start_the_wall_clock(job)  # a point that does launch removes the earlier state
+    assert not state.exists()

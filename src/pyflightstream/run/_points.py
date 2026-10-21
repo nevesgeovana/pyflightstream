@@ -866,7 +866,6 @@ def _write_point_pending_files(job: _PointJob) -> RunRecord | None:
                 job.point_case, workflow_conventions_for(job.point_case), version=job.fs_version
             ),
         )
-        (job.work_dir / WALLTIME_CLOCK_STATE).unlink(missing_ok=True)
         job.base["inputs_sha256"] = {
             **job.base.get("inputs_sha256", job.inputs_sha256),
             WALLTIME_CLOCK_PROGRAM: file_sha256(clock),
@@ -905,6 +904,10 @@ def start_the_wall_clock(job: _PointJob) -> None:
     first-invocation origin, and its margin must also cover the time before
     the first step.
     """
+    if any(use.name == WALLTIME_CLOCK_ACTION for use in job.script.unsteady_actions):
+        # F-604: the state of an EARLIER point is removed only here, once the point
+        # is certain to launch, so a refusal that launches nothing leaves it as evidence.
+        (job.work_dir / WALLTIME_CLOCK_STATE).unlink(missing_ok=True)
     if isinstance(job.executor, LocalExecutor) and any(
         use.name == WALLTIME_CLOCK_ACTION for use in job.script.unsteady_actions
     ):
