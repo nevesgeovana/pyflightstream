@@ -6168,6 +6168,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.post.equations",
+      "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.post.farfield_fields",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -6900,6 +6905,11 @@
     {
       "source": "pyflightstream.post.qsteady",
       "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.qsteady",
+      "target": "pyflightstream.cases",
       "kind": "module"
     },
     {

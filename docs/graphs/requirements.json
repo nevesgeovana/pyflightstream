@@ -2645,7 +2645,7 @@
       "parent": "FR-3002",
       "area": "INST",
       "hid": "INST-3.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-1602",
@@ -2799,14 +2799,14 @@
       "parent": "FR-3153",
       "area": "DRED",
       "hid": "DRED-16.4",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2316",
       "parent": "FR-3120",
       "area": "TRST",
       "hid": "TRST-2.7",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2317",
@@ -2848,7 +2848,7 @@
       "parent": "FR-3241",
       "area": "DRED",
       "hid": "DRED-2.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2324",
@@ -2925,7 +2925,7 @@
       "parent": "",
       "area": "INST",
       "hid": "INST-3",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3003",
@@ -3506,7 +3506,7 @@
       "parent": "",
       "area": "TRST",
       "hid": "TRST-2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3123",

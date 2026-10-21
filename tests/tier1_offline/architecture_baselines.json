@@ -1061,9 +1061,9 @@
    "positional": 2
   },
   "workspace/manifest.py:manifest_lock": {
-   "complexity": 30,
+   "complexity": 29,
    "branches": 9,
-   "statements": 104,
+   "statements": 101,
    "positional": 1
   },
   "workspace/naming.py:_values": {
