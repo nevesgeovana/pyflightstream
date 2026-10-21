@@ -92,11 +92,30 @@ def test_the_notice_check_fires_on_a_file_without_it(tmp_path):
     assert _without_notice([bare, good], base=tmp_path) == ["bare.tex"]
 
 
+#: An em or en dash character, or the LaTeX ``---`` / ``--`` between words, in prose.
+_DASH = re.compile(r"[–—]|(?<=\w)---(?=\w)|\s---\s")
+
+
+def _dash_lines(text: str) -> list[int]:
+    """Line numbers of prose that carries a dash; ``%`` comment lines are not prose."""
+    return [
+        number
+        for number, line in enumerate(text.splitlines(), 1)
+        if not line.lstrip().startswith("%") and _DASH.search(line)
+    ]
+
+
+def test_the_dash_check_finds_a_dash_and_passes_a_hyphen():
+    assert _dash_lines("a — b\nc---d\ne--f\n% g --- h\nwell-known\n--flag\n") == [1, 2]
+
+
 def test_no_dash_and_no_private_name_in_the_guides():
     offenders = []
     for path in [*_text_files(), GUIDE / "pyflightstream_user_guide.tex"]:
         text = path.read_text(encoding="utf-8", errors="ignore")
         rel = path.relative_to(REPO).as_posix()
+        if path.suffix == ".tex":
+            offenders += [f"{rel}:{number}: carries a dash" for number in _dash_lines(text)]
         offenders += [
             f"{rel}: names a private word"
             for word in FORBIDDEN_WORDS
