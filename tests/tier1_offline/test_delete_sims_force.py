@@ -197,3 +197,25 @@ def test_f_742_a_planted_staging_link_is_unlinked_and_never_extracted_through(tm
     assert storage_module.ensure_sim_expanded(workspace, "7001", reason="the test")
     assert (folder / "x.txt").read_text(encoding="utf-8") == "restored"
     assert list(outside.iterdir()) == []
+
+
+def test_rb4_a_product_reached_through_a_linked_folder_deletes_nothing(tmp_path):
+    """RB4-01: F-743, a product key whose folder is a link leaves the post folder too.
+
+    The link is a junction (no privilege needed), so the test runs on every host.
+    """
+    from pyflightstream.workspace import _make_dir_link
+
+    workspace = _workspace(tmp_path)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "p.csv").write_text("another workspace's product", encoding="utf-8")
+    _make_dir_link(elsewhere, workspace.root / "post" / "matriz" / "shared")
+    manifest = workspace.root / "post" / "matriz" / "products.json"
+    document = json.loads(manifest.read_text(encoding="utf-8"))
+    document["products"]["shared/p.csv"] = {"sim_id": "6002", "runs": []}
+    manifest.write_text(json.dumps(document), encoding="utf-8")
+    with pytest.raises(StorageError, match="not inside"):
+        storage_module.delete_sims(workspace.root, ["6002"], apply=True)
+    assert (elsewhere / "p.csv").read_text(encoding="utf-8") == "another workspace's product"
+    assert workspace.sim_dir("6002").exists()

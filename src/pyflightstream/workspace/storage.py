@@ -963,9 +963,12 @@ def _products_of(workspace: CampaignWorkspace, sim_ids: set[str], run_ids: set[s
 
 
 def _refuse_outside(folder: Path, name: str, manifest: Path) -> None:
-    """Refuse a product path that leaves its post folder: delete-sims unlinks what it names."""
-    named = Path(name)
-    if named.is_absolute() or named.drive or ".." in named.parts:
+    """Refuse a product path that leaves its post folder: delete-sims unlinks what it names.
+
+    The folder it lands in is resolved: a linked folder leaves it as surely as ``..`` does.
+    """
+    named = folder / name
+    if ".." in Path(name).parts or not named.parent.resolve().is_relative_to(folder.resolve()):
         raise StorageError(
             f"{manifest} names the product {name!r}, which is not inside {folder}; "
             "delete-sims removes only files of the post folder, so nothing is deleted. "
