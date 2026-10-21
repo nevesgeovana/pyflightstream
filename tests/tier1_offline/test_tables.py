@@ -1779,3 +1779,29 @@ def test_p0420_the_residual_table_tells_an_unprintable_field_from_a_printed_nan(
     assert not frame["velocity_overflowed"].any()
     assert frame["pressure_overflowed"].dtype == bool
     assert frame["pressure_overflowed"].sum() == 1
+
+
+def test_f_1437_an_unknown_solver_flag_spelling_is_a_malformed_output():
+    text = _fixture("loads_steady_26.120.txt").replace(
+        "Force solver to run all iterations           F",
+        "Force solver to run all iterations           MAYBE",
+    )
+    with pytest.raises(MalformedOutputError, match="MAYBE"):
+        parse_loads(text)
+
+
+def test_f_811_a_zero_probe_count_over_a_table_with_rows_is_refused_not_an_empty_report():
+    text = _fixture("probe_points_zero_26.123.txt")
+    row = "     1.0, 2.0, 3.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 0.0"
+    marker = "     Force Units"
+    assert marker in text
+    with pytest.raises(MalformedOutputError, match="did not declare"):
+        parse_probe_points(text.replace(marker, row + chr(10) + marker, 1))
+    assert parse_probe_points(text).values.shape[0] == 0
+
+
+def test_f_826_a_file_of_separators_is_not_a_one_step_history():
+    from pyflightstream.results import parse_unsteady_plots
+
+    with pytest.raises(MalformedOutputError, match="names no column"):
+        parse_unsteady_plots("," + chr(10) + ",,," + chr(10))

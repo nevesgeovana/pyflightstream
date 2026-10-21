@@ -187,7 +187,7 @@ def _parse_solver_flag(token: str | None, label: str) -> bool | None:
         return True
     if normalized in _FALSE_TOKENS:
         return False
-    raise ValueError(
+    raise MalformedOutputError(
         f"{label} printed {token!r}, which is not one of the tokens the solver "
         f"uses for this flag ({', '.join(sorted(_TRUE_TOKENS | _FALSE_TOKENS))}). "
         "An unrecognised token cannot establish whether the flag is on or off; "
@@ -522,7 +522,24 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
     # a complete table of no rows, which the
     # walker below would read as a table with no closing line, since it
     # skips every dashed line after the header until a row appears.
-    rows = [] if declared == 0 else delimited_table(text, "X, Y, Z,")
+    if declared == 0:
+        # Zero declared is still a table to validate: a row between the header
+        # and the footer is a row the file did not declare, not an empty report.
+        after_header = text.split(header_line, 1)[1].splitlines()
+        undeclared = [
+            line.strip()
+            for line in after_header
+            if "," in line and ":" not in line and not DASHED_LINE.match(line.strip())
+        ]
+        if undeclared:
+            raise MalformedOutputError(
+                f"the export declares 0 probe points but the table holds at least "
+                f"{len(undeclared)} row(s): the file holds rows it did not declare, so it "
+                "is not one export of the solver"
+            )
+        rows: list[list[str]] = []
+    else:
+        rows = delimited_table(text, "X, Y, Z,")
     parsed_rows = []
     for row in rows:
         cells = [cell for cell in row if cell]
@@ -750,6 +767,11 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
             "command has been read yet"
         )
     columns = tuple(_unsteady_cells(lines[header_index]))
+    if not columns:
+        raise MalformedOutputError(
+            f"the unsteady plot header {lines[header_index].strip()!r} names no column, so "
+            "the file holds only separators and no plot could be attributed to its values"
+        )
     if columns and all(_is_printed_number(cell) for cell in columns):
         raise AnchorNotFoundError(
             f"the first line carrying a comma, {lines[header_index].strip()!r}, is all numbers: "
