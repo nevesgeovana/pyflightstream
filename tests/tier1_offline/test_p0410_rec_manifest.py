@@ -33,6 +33,47 @@ def _envelope(ws):
     return value
 
 
+@pytest.mark.parametrize("damage", ["geometry", "run_id", "status", "deletion"])
+def test_p0430_w007_decoded_headers_cannot_be_bypassed(damage):
+    """A digest-valid definition or omission must not invalidate a run header."""
+    import hashlib
+
+    from pyflightstream.workspace.record_document import decode_document, encode_rows
+
+    doc = encode_rows([_record().model_dump(mode="json")])
+    run = doc["runs"][0]
+    if damage == "geometry":
+        geometry = {"run_id": "forged", "status": "unknown"}
+        key = hashlib.sha256(
+            json.dumps(geometry, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        doc["geometries"] = {key: geometry}
+        run["geometry_id"] = key
+    elif damage == "deletion":
+        doc["runs"] = [{"deletion": None}]
+    else:
+        run.setdefault("unrecorded_fields", []).append([damage])
+    with pytest.raises(WorkspaceError):
+        decode_document(doc)
+
+
+@pytest.mark.parametrize("deletion", [None, [], "gone", {}, {"deleted_sim": None}])
+def test_p0430_w007_invalid_deletion_refused(deletion):
+    from pyflightstream.workspace.record_document import decode_document, encode_rows
+
+    doc = encode_rows([])
+    doc["runs"] = [{"deletion": deletion}]
+    with pytest.raises(WorkspaceError):
+        decode_document(doc)
+
+
+def test_p0430_w007_deletion_metadata_preserved():
+    from pyflightstream.workspace.record_document import decode_document, encode_rows
+
+    row = {"deleted_sim": "7", "deleted_run_ids": ["run-7"], "reason": "cleanup"}
+    assert decode_document(encode_rows([row])) == [row]
+
+
 def test_p0410_rec_shared_definitions(tmp_path):
     ws = CampaignWorkspace(tmp_path)
     ws.append_record(_record())

@@ -225,7 +225,16 @@ def _restore_definitions(document: dict, run: dict, row: dict):
     }
     row["solver_setup"] = blocks["solver_setup_id"]
     row["frame_motions"] = blocks["frames_id"]
-    row.update(blocks["geometry_id"])
+    geometry = blocks["geometry_id"]
+    if not isinstance(geometry, dict) or geometry.keys() - {
+        "inventory",
+        "mesh_import",
+        "inventory_source",
+    }:
+        raise WorkspaceError(
+            "geometry must contain only inventory, mesh_import and inventory_source"
+        )
+    row.update(geometry)
     setup = row["solver_setup"]
     if isinstance(setup, dict):
         for command, flag in setup.get("flags", {}).items():
@@ -268,6 +277,8 @@ def _remove_unrecorded(run: dict, row: dict):
             or not all(isinstance(part, str) for part in parts)
         ):
             raise WorkspaceError("unrecorded_fields must contain nonempty string paths")
+        if parts[0] in {"run_id", "status"}:
+            raise WorkspaceError(f"unrecorded_fields cannot remove required field {parts[0]!r}")
         target = row
         for key in parts[:-1]:
             target = target[key]
@@ -277,7 +288,10 @@ def _remove_unrecorded(run: dict, row: dict):
 def _decode_run(document: dict, run: dict, ids: set[str], source: str | Path):
     """Resolve and validate one run without changing its history."""
     if "deletion" in run:
-        return copy.deepcopy(run["deletion"])
+        deletion = run["deletion"]
+        if not isinstance(deletion, dict) or deletion.get("deleted_sim") is None:
+            raise WorkspaceError("deletion must be an object naming deleted_sim")
+        return copy.deepcopy(deletion)
     if not isinstance(run["id"], str) or run["id"] in ids:
         raise WorkspaceError(f"duplicate or invalid id {run['id']!r}")
     ids.add(run["id"])
