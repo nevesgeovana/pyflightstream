@@ -937,7 +937,7 @@
       "parent": "FR-3135",
       "area": "OPER",
       "hid": "OPER-4.3",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-330",
