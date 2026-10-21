@@ -591,3 +591,13 @@ def test_f1586_two_stations_ask_for_an_interior_station_not_table_columns():
     """F-1586: a Betz-Prandtl shape of two stations is refused for its stations."""
     with pytest.raises(WorkspaceError, match="three or more stations"):
         betz_prandtl_profile(DiscGeometry(1.0, 0.2, 4), advance_ratio=1.0, stations=2)
+
+
+def test_fr698_the_uniform_shape_is_scaled_to_the_requested_thrust():
+    """FR-698: the uniform profile times its factor carries B * integral(F dr) = the thrust."""
+    from pyflightstream.workspace.actuator_profiles import blade_thrust, scale_profile
+
+    disc = DiscGeometry(TIP, HUB, BLADES)
+    scaled, factor = scale_profile(uniform_profile(disc, stations=9), blades=BLADES, thrust_n=50.0)
+    assert math.isclose(blade_thrust(scaled, blades=BLADES), 50.0, rel_tol=1e-12)
+    assert factor > 0.0 and all(f == r * factor for r, f in scaled.rows[2:])
