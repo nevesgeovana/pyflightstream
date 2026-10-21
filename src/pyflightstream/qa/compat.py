@@ -314,7 +314,7 @@ def read_compat_report(path: str | Path) -> dict:
     return document
 
 
-def compare_compat_reports(report_a: str | Path, report_b: str | Path) -> dict[str, Any]:
+def _compare_compat_reports(report_a: str | Path, report_b: str | Path) -> dict[str, Any]:
     """Compare recorded command evidence while retaining each executable's identity.
 
     Equal build labels do not merge the two sides. This is a read-only comparison
@@ -342,7 +342,7 @@ def compare_compat_reports(report_a: str | Path, report_b: str | Path) -> dict[s
     --------
     Compare retained reports without running either executable:
 
-    >>> comparison = compare_compat_reports("baseline.yaml", "candidate.yaml")  # doctest: +SKIP
+    >>> comparison = _compare_compat_reports("baseline.yaml", "candidate.yaml")  # doctest: +SKIP
     >>> comparison["commands"]["PRINT"]["changed"]  # doctest: +SKIP
     False
     """
