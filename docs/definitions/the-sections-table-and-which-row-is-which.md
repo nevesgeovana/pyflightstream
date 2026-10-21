@@ -300,6 +300,12 @@ added columns, even when other blocks or steps in that file are valid. A
 `PyflightstreamWarning` names the point, output file, source step/block and
 reason. Other distribution files and Cp products continue normally.
 
+For a recorded mesh import whose units are not `METER`, the section export's
+length convention is unmeasured. Post keeps the raw columns and reports an
+integration skip instead of labeling an unconverted strip length in metres.
+Use a metre simulation for strip integration until the other export units
+have measured evidence.
+
 
 Long family selections use a compact distribution number and content digest
 in the filename. The complete selection remains in `products.json`; short

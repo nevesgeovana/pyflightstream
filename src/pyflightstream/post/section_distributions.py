@@ -1007,7 +1007,7 @@ def _integration_requests(
             )
     for owner in requested & disabled.keys():
         errors.setdefault(owner, disabled[owner])
-    return requested, errors
+    return _measured_integration(record, requested, errors), errors
 
 
 def _file_names(selections: Mapping[int, str | list[str]]) -> dict[int, str]:
@@ -1105,6 +1105,19 @@ def _end_distribution_export(sim_dir: Path, record: RunRecord, stem: str, kind: 
         (sim_dir / o for o in record.outputs if Path(o).name == f"{stem}_{kind}.txt"),
         sim_dir / f"{stem}_{kind}.txt",
     )
+
+
+def _measured_integration(record, integrate, errors):
+    """Keep raw data when recorded mesh units lack sectional export evidence."""
+    units = (record.mesh_import or {}).get("units")
+    if units is None or str(units).upper() == "METER":
+        return integrate
+    for owner in integrate:
+        errors[owner] = (
+            f"section length units for mesh import {units!r} are unmeasured; "
+            "use a metre simulation or retain raw sectional loads without integration"
+        )
+    return set()
 
 
 def write_section_distributions(

@@ -116,6 +116,15 @@ def _table(workspace):
     return path, *read_csv_table(path)
 
 
+def test_p0430_nonmetre_mesh_refuses_unmeasured_strip_integration(tmp_path, monkeypatch):
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    record.mesh_import = {"units": "MILLIMETER"}
+    with pytest.warns(PyflightstreamWarning, match="MILLIMETER"):
+        _, columns, rows = _table(workspace)
+    assert rows and not set(EXTRA) & set(columns)
+
+
 def test_opt_in_columns_and_glossary(tmp_path, monkeypatch):
     workspace = _case(tmp_path, monkeypatch)
     _, columns, rows = _table(workspace)
