@@ -173,7 +173,9 @@ def write_compat_report(
         # look like an older schema, and a reader cannot tell "nobody
         # measured it" from "this file predates the field".
         # The BUILD, never the digest (NFR-31): the report is committed.
-        "fs_exe_sha256": public_executable_identity(run.fs_exe_sha256, run.version),
+        "fs_exe_sha256": public_executable_identity(
+            run.fs_exe_sha256, run.version, run.solver_identity
+        ),
         "executor": describe_invocation(run.executor),
         "solver_identity": list(run.solver_identity),
         "summary": counts,
@@ -205,6 +207,7 @@ def write_compat_report(
 
 def _render_markdown(run: ProbeRun, date: str, counts: dict[str, int]) -> str:
     """Render the human-readable side of the report."""
+    identity = public_executable_identity(run.fs_exe_sha256, run.version, run.solver_identity)
     lines = [
         f"# Compat report: FlightStream {run.version} ({date})",
         "",
@@ -220,7 +223,7 @@ def _render_markdown(run: ProbeRun, date: str, counts: dict[str, int]) -> str:
         "| Item | Value |",
         "|---|---|",
         f"| Executable | {run.fs_exe_name} "
-        f"(sha256 {public_executable_identity(run.fs_exe_sha256, run.version) or 'not recorded'}, "
+        f"(sha256 {identity or 'not recorded'}, "
         "local, `_private/exe/`, never committed) |",
         f"| Executor | {describe_invocation(run.executor, markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",

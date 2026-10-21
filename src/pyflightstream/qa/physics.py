@@ -1311,7 +1311,9 @@ def write_physics_report(
         # Written even when it is None: see the compat writer, which
         # carries the same field for the same reason.
         # The BUILD, never the digest (NFR-31): the report is committed.
-        "fs_exe_sha256": public_executable_identity(run.fs_exe_sha256, run.version),
+        "fs_exe_sha256": public_executable_identity(
+            run.fs_exe_sha256, run.version, run.solver_identity
+        ),
         "executor": describe_invocation(run.executor),
         # Source matrix rows; None for a run built directly in Python.
         "source": run.source,
@@ -1353,6 +1355,7 @@ def write_physics_report(
 
 def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
     """Render the human-readable side of the physics report."""
+    identity = public_executable_identity(run.fs_exe_sha256, run.version, run.solver_identity)
     lines = [
         f"# Physics report: FlightStream {run.version} ({date})",
         "",
@@ -1371,7 +1374,7 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
         "|---|---|",
         f"| Source | {run.source or 'cases built in Python'} |",
         f"| Executable | {run.fs_exe_name} "
-        f"(sha256 {public_executable_identity(run.fs_exe_sha256, run.version) or 'not recorded'}, "
+        f"(sha256 {identity or 'not recorded'}, "
         "local, never committed) |",
         f"| Executor | {describe_invocation(run.executor, markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",

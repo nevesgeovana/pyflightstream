@@ -1775,7 +1775,7 @@ def test_two_runs_of_one_basename_are_told_apart_by_the_report_alone(tmp_path):
     """The acceptance sentence, as a measurement rather than a promise."""
     first = ProbeRun(
         version="26.122",
-        solver_identity=("FlightStream version 26.1 build #7012026",),
+        solver_identity=("FlightStream version 26.1 build #8092026",),
         fs_exe_name="Flightstream_2612.exe",
         fs_exe_sha256="1" * 64,
         package_version="0.0.1.dev0",
@@ -2185,3 +2185,16 @@ def test_p0420_reapplying_t1_probe_keeps_command_database_bytes(tmp_path):
     before = {p.name: p.read_bytes() for p in copied.glob("*.yaml")}
     apply_compat(report, repo_root=tmp_path, commands_dir=copied)
     assert {p.name: p.read_bytes() for p in copied.glob("*.yaml")} == before
+
+
+def test_f536_withheld_identity_names_the_build_the_binary_printed():
+    """F-536 the hashed binary's printed build wins over the requested version's registry build."""
+    from pyflightstream.qa.reports import public_executable_identity
+
+    registered = public_executable_identity("a" * 64, "26.120")
+    assert registered is not None and registered.startswith("withheld; build ")
+    printed = public_executable_identity(
+        "a" * 64, "26.120", ("FlightStream version 26.1 build #9992026",)
+    )
+    assert printed == "withheld; build 9992026"
+    assert public_executable_identity(None, "26.120", ("build #9992026",)) is None

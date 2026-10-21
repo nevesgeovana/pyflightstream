@@ -18,6 +18,7 @@ the compatibility-report tests check both representations.
 from __future__ import annotations
 
 import datetime
+import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -92,7 +93,12 @@ def _validated_date(date: str) -> str:
     return date
 
 
-def public_executable_identity(digest: str | None, version: object) -> str | None:
+_PRINTED_BUILD = re.compile(r"\bbuild\s*#\s*(\d+)", re.IGNORECASE)
+
+
+def public_executable_identity(
+    digest: str | None, version: object, solver_identity: Sequence[str] = ()
+) -> str | None:
     """Return what a committed report states for the executable a run hashed.
 
     A report is committed and the remote is public, so it names the
@@ -106,7 +112,12 @@ def public_executable_identity(digest: str | None, version: object) -> str | Non
     digest : str or None
         The run's own ``fs_exe_sha256``, or ``None`` when none was taken.
     version : str or FsVersion
-        The version the run used; its registered build is stated.
+        The version the run used; its registered build is stated unless
+        the hashed binary printed another.
+    solver_identity : sequence of str, optional
+        The identity lines the hashed binary printed. A ``build #<digits>``
+        among them names the binary that was hashed and wins over the
+        registered build of the requested version (F-536).
 
     Returns
     -------
@@ -120,7 +131,12 @@ def public_executable_identity(digest: str | None, version: object) -> str | Non
     """
     if not digest:
         return None
-    return f"withheld; build {resolve(str(version)).build or 'unregistered'}"
+    registered = resolve(str(version)).build or "unregistered"
+    for line in solver_identity:
+        printed = _PRINTED_BUILD.search(line)
+        if printed:
+            return f"withheld; build {printed.group(1)}"
+    return f"withheld; build {registered}"
 
 
 def _canonical(version: object) -> str:
