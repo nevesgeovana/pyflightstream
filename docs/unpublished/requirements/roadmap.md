@@ -5,7 +5,8 @@ Former requirements parked at the 0.43.0 trim because nothing implements them by
 release. A row returns to the SRS only as a new decision, under its own UID, with a planning node.
 The UIDs stay reserved and are never reused. The columns keep the register layout so the
 former row can be read back; Parent, Level and Status are the former values, and the
-Rationale says why the row was parked.
+Rationale says why the row was parked. Where a row speaks of a content hash, the digest is a
+sha256 of the canonical form that `pyflightstream._digest` defines for its kind.
 
 | UID | Parent | HID | Level | Status | Verification method | Statement | Rationale | Derives from | Code | Test |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
