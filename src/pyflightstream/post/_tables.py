@@ -22,6 +22,7 @@ from __future__ import annotations
 import csv
 import math
 import re
+import weakref
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -1246,6 +1247,13 @@ def _adds_no_step(run_id: str, continued: str, reached: int) -> str:
     )
 
 
+#: The marches :func:`_march_records` computed in the current post, by run id,
+#: for :func:`_march_plots_text` to take: each march is joined once per record.
+_MARCHES: weakref.WeakKeyDictionary[CampaignWorkspace, dict[str, _MarchHistory | None]] = (
+    weakref.WeakKeyDictionary()
+)
+
+
 def _march_records(workspace: CampaignWorkspace, records: Sequence[RunRecord]) -> list[RunRecord]:
     """Return ``records`` with each continuation's windows ending at its march's last step.
 
@@ -1259,6 +1267,8 @@ def _march_records(workspace: CampaignWorkspace, records: Sequence[RunRecord]) -
         return list(records)
     manifest = {record.run_id: record for record in workspace.read_manifest()}
     moved = []
+    held = _MARCHES.setdefault(workspace, {})
+    held.clear()  # a march is computed once per post: every post begins here
     for record in records:
         march = _march_history(workspace.sim_dir(record.sim_id), record, manifest)
         plan = march_end(record.reductions, last_step=march.last_step) if march else None
@@ -1274,8 +1284,12 @@ def _march_plots_text(workspace: CampaignWorkspace, record: RunRecord | None, pa
     put together and where the averaging window ends.
     """
     if record is not None and record.continues:
-        manifest = {entry.run_id: entry for entry in workspace.read_manifest()}
-        march = _march_history(workspace.sim_dir(record.sim_id), record, manifest)
+        held = _MARCHES.get(workspace, {})
+        if record.run_id in held:
+            march = held.pop(record.run_id)  # computed by _march_records, once for both
+        else:
+            manifest = {entry.run_id: entry for entry in workspace.read_manifest()}
+            march = _march_history(workspace.sim_dir(record.sim_id), record, manifest)
         if march is not None:
             warn(march.said, PyflightstreamWarning, stacklevel=2)
             for idle in march.idle:
