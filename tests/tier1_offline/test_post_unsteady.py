@@ -415,6 +415,45 @@ def test_x_f_0147_x_f_0148_a_nan_sample_or_mean_is_written_na_not_nan(tmp_path):
     assert "nan" not in reduction.read_text(encoding="utf-8").lower()
 
 
+def _uns_polar(tmp_path, condition=None, setup=None, notes=None):
+    from pyflightstream.post.products import read_csv_table, write_unsteady_polar
+    from tests.tier1_offline.test_goal028_uns_axes import CONDITION, REFERENCE, _plots, _Point
+
+    path = write_unsteady_polar(
+        tmp_path / "P0001_x_uns_avg.csv",
+        points=[_Point()],
+        plots={"P": _plots(tmp_path, ("MRP_TOTAL",))},
+        window=(2, 3),
+        conditions=[CONDITION if condition is None else condition],
+        reference=REFERENCE,
+        setup=setup,
+        notes=notes,
+        axes_groups=("MRP_TOTAL",),
+    )
+    assert path is not None
+    columns, rows = read_csv_table(path)
+    return list(columns), rows[0]
+
+
+def test_f1407_the_provenance_cells_state_the_average_when_no_setup_is_given(tmp_path):
+    """F-1407: the promised time_average and averaging_window identities need no super content."""
+    from pyflightstream.results import REDUCTION_COLUMN, REDUCTION_WINDOW_COLUMN
+
+    columns, row = _uns_polar(tmp_path)
+    assert row[REDUCTION_COLUMN] == "time_average", columns
+    assert row[REDUCTION_WINDOW_COLUMN] == "averaging_window"
+
+
+def test_f214_an_overflow_in_the_axis_normalisation_omits_the_block_not_the_polar(tmp_path):
+    """F-214: VINF squared overflowed and the OverflowError aborted the whole polar."""
+    from tests.tier1_offline.test_goal028_uns_axes import CONDITION
+
+    notes: list[str] = []
+    columns, _row = _uns_polar(tmp_path, condition={**CONDITION, "VINF": 1e200}, notes=notes)
+    assert not [name for name in columns if name.startswith("CLW_")]
+    assert any("the axis coefficients are not written" in note for note in notes), notes
+
+
 def test_a_reduction_refuses_an_existing_destination(tmp_path):
     """The overwrite rule of PFS-2011.02 reaches this writer too."""
     from pyflightstream.exceptions import OutputExistsError

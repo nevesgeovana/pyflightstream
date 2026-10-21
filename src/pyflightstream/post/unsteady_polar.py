@@ -91,8 +91,9 @@ _AVERAGED_ROW_PROVENANCE: dict[str, str] = {
 
 def _averaged(content: Mapping[str, object]) -> dict[str, object]:
     """Return a copy of a point's super content whose provenance cells name the average."""
-    stated = {key: token for key, token in _AVERAGED_ROW_PROVENANCE.items() if key in content}
-    return {**content, **stated}
+    # ALWAYS BOTH CELLS, also where the caller passed no super content: the file promises a
+    # `time_average` over an `averaging_window`, and a polar written without `setup` said nothing.
+    return {**content, **_AVERAGED_ROW_PROVENANCE}
 
 
 def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
@@ -631,6 +632,7 @@ def _the_axes_of_the_unsteady_rows(
         )
         return []
     added: list[str] = []
+    stored: list[tuple[dict[str, float], str]] = []
     for condition, values, _window, _content in rows:
         stated = {str(key).upper(): value for key, value in condition.items()}
         rho, speed = stated.get("RHO"), stated.get("VINF")
@@ -651,27 +653,39 @@ def _the_axes_of_the_unsteady_rows(
                 "coefficient without the dynamic pressure it is divided by"
             )
             continue
-        unit = 0.5 * float(rho) * float(speed) ** 2 * reference.sref_m2  # type: ignore[arg-type]
-        for group in groups:
-            six = [values.get(f"{part}_{group}") for part in _SIX_COMPONENTS]
-            if any(value is None for value in six):
-                continue
-            turned = polar_axis_coefficients(
-                [float(value) / unit for value in six[:3]],  # type: ignore[arg-type]
-                [float(value) / (unit * reference.cref_m) for value in six[3:]],  # type: ignore[arg-type]
-                float(alpha),  # type: ignore[arg-type]
-                float(beta),  # type: ignore[arg-type]
-                cref_m=reference.cref_m,
-                bref_m=reference.bref_m,
+        try:
+            unit = 0.5 * float(rho) * float(speed) ** 2 * reference.sref_m2  # type: ignore[arg-type]
+            for group in groups:
+                six = [values.get(f"{part}_{group}") for part in _SIX_COMPONENTS]
+                if any(value is None for value in six):
+                    continue
+                turned = polar_axis_coefficients(
+                    [float(value) / unit for value in six[:3]],  # type: ignore[arg-type]
+                    [float(value) / (unit * reference.cref_m) for value in six[3:]],  # type: ignore[arg-type]
+                    float(alpha),  # type: ignore[arg-type]
+                    float(beta),  # type: ignore[arg-type]
+                    cref_m=reference.cref_m,
+                    bref_m=reference.bref_m,
+                )
+                # ALWAYS the group's whole name, as every plotted column of this file
+                # carries it (`CL_MRP_TOTAL`, so `CLW_MRP_TOTAL`): a column that changed
+                # its name when the pproc gained a second group broke every reader keyed
+                # to it, and a shortened name let two groups write one column.
+                for column in UNSTEADY_AXIS_COLUMNS:
+                    at = _STEADY_AXIS_COLUMNS.index(column)
+                    name = f"{column}_{group}"
+                    values[name] = turned[at]
+                    stored.append((values, name))
+                    if name not in added:
+                        added.append(name)
+        except (OverflowError, ZeroDivisionError) as error:
+            # AN OVERFLOW IN THE NORMALISATION OMITS THE BLOCK, as every other reason
+            # does: it aborted the whole polar, and the point lost its row.
+            for stored_values, stored_name in stored:
+                del stored_values[stored_name]
+            notes.append(
+                f"the axis coefficients are not written: the normalisation of steps "
+                f"{_window[0]} to {_window[1]} failed ({error}), so no row carries the block"
             )
-            # ALWAYS the group's whole name, as every plotted column of this file
-            # carries it (`CL_MRP_TOTAL`, so `CLW_MRP_TOTAL`): a column that changed
-            # its name when the pproc gained a second group broke every reader keyed
-            # to it, and a shortened name let two groups write one column.
-            for column in UNSTEADY_AXIS_COLUMNS:
-                at = _STEADY_AXIS_COLUMNS.index(column)
-                name = f"{column}_{group}"
-                values[name] = turned[at]
-                if name not in added:
-                    added.append(name)
+            return []
     return added
