@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 import shutil
+import zipfile
 from collections.abc import Callable, Iterable, Iterator
 from importlib import metadata
 from pathlib import Path
@@ -27,7 +28,7 @@ import pyflightstream._textio as _textio
 import pyflightstream.workspace._batch_life as batch_life
 import pyflightstream.workspace._step_prune as step_prune
 from pyflightstream._progress import tracked
-from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from pyflightstream.workspace import CampaignWorkspace, RunStatus, WorkspaceError
 from pyflightstream.workspace._links import is_reparse
 from pyflightstream.workspace.naming import ARCHIVE_DIR
 
@@ -434,21 +435,46 @@ def _run_recipe(
             for stamp_dir in chosen:
                 if not _older_than(stamp_dir, spec.get("older_than_days")):
                     continue
-                size = sum(_size(p) for p in _walk_files(stamp_dir))
-                entry = {
-                    "path": stamp_dir.relative_to(workspace.root).as_posix(),
-                    "bytes": size,
-                }
-                if apply:
-                    if action == "compact":
-                        zipped = shutil.make_archive(str(stamp_dir), "zip", stamp_dir)
-                        entry["archive"] = Path(zipped).relative_to(workspace.root).as_posix()
-                        freed += size - _size(Path(zipped))
-                    else:
-                        freed += size
-                    shutil.rmtree(stamp_dir)
+                entry, released = _post_archive(stamp_dir, workspace.root, action, apply)
+                freed += released
                 step["archives"].append(entry)
     return freed
+
+
+def _post_archive(stamp: Path, root: Path, action: str, apply: bool) -> tuple[dict[str, Any], int]:
+    """Preview or remove one post stamp, preserving any existing compacted evidence."""
+    size = sum(_size(path) for path in _walk_files(stamp))
+    entry: dict[str, Any] = {"path": stamp.relative_to(root).as_posix(), "bytes": size}
+    archive = stamp.with_name(stamp.name + COMPACTED_SUFFIX)
+    refusal = (
+        f"Cannot compact {stamp}: {archive} already exists or is a link. "
+        "Move the existing archive aside before compacting this folder."
+    )
+    if action == "compact" and (archive.exists() or is_reparse(archive)):
+        raise WorkspaceError(refusal)
+    if not apply:
+        return entry, 0
+    if action == "compact":
+        try:
+            handle = archive.open("xb")
+        except FileExistsError as error:
+            raise WorkspaceError(refusal) from error
+        try:
+            with handle, zipfile.ZipFile(handle, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+                for folder, dirs, files in os.walk(stamp, followlinks=False):
+                    here = Path(folder)
+                    dirs[:] = [name for name in dirs if not is_reparse(here / name)]
+                    for name in sorted([*dirs, *files]):
+                        path = here / name
+                        if not is_reparse(path) and (path.is_dir() or path.is_file()):
+                            bundle.write(path, path.relative_to(stamp))
+        except BaseException:
+            archive.unlink(missing_ok=True)
+            raise
+        entry["archive"] = archive.relative_to(root).as_posix()
+        size -= _size(archive)
+    shutil.rmtree(stamp)
+    return entry, size
 
 
 def _check_step_values(path: Path, document: dict[str, Any], error: type[Exception]) -> None:

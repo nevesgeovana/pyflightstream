@@ -220,3 +220,30 @@ def test_p0430_copy_never_crosses_a_destination_link(tmp_path, location):
         pass
     assert _listing(outside) == before
     assert (outside / "probes.txt").read_bytes() == b"external"
+
+
+@pytest.mark.parametrize("linked", [False, True])
+def test_p0430_post_compaction_preserves_existing_archive(tmp_path, linked):
+    """P0430-STORAGE: compacting a post stamp cannot overwrite archived evidence."""
+    from pyflightstream.workspace.storage import free_space
+    from tests.tier1_offline.test_goal035_storage import _write_recipe, _ws
+
+    workspace = _ws(tmp_path)
+    stamp = workspace.root / "post" / "sample" / "archive" / "20261001-120000"
+    stamp.mkdir(parents=True)
+    (stamp / "polar.csv").write_bytes(b"new product")
+    archive = stamp.with_suffix(".zip")
+    if linked:
+        external = tmp_path / "external"
+        external.mkdir()
+        _make_link(external, archive)
+    else:
+        archive.write_bytes(b"archived evidence")
+    _write_recipe(workspace, "m001", '[[post_archives]]\naction = "compact"\n')
+    try:
+        free_space(workspace.root, "m001", apply=True)
+    except (WorkspaceError, OSError):
+        pass
+    assert (stamp / "polar.csv").is_file()
+    if not linked:
+        assert archive.read_bytes() == b"archived evidence"
