@@ -141,7 +141,9 @@ def emit_setup_surfaces(script: Script, case: SimCase) -> None:
             f"which removes every surface of the {len(inventory)} the geometry carries. A "
             "mesh with no surface cannot be solved; keep at least one."
         )
-    _OPENED[script] = tuple(ordered)
+    # THE FIRST INVENTORY ONLY: a second deletion sees the already reduced one,
+    # and keeping it would make the removed names unknown to the model.
+    _OPENED.setdefault(script, tuple(ordered))
     for index in sorted(doomed, reverse=True):
         script.emit(_DELETE, index)
     survivors = tuple(name for position, name in enumerate(inventory, 1) if position not in doomed)
