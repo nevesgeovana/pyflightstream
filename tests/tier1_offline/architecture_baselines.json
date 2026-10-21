@@ -515,8 +515,8 @@
    "positional": 0
   },
   "post/series.py:write_point_series": {
-   "complexity": 14,
-   "branches": 13,
+   "complexity": 12,
+   "branches": 11,
    "statements": 48,
    "positional": 1
   },

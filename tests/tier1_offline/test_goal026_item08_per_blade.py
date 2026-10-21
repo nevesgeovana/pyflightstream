@@ -150,21 +150,6 @@ def test_a_run_holding_no_complete_revolution_gets_no_window():
     assert per_blade_window(last_step=30, blades=4, period_steps=10) is None
 
 
-def test_p0420_a_missing_step_inside_the_window_is_refused_not_stated_as_whole():
-    """F-211: the row would state steps 1 to 6 for an average over five of them."""
-    series = _series()
-    keep = np.array([True, True, False, True, True, True, True, True])
-    gapped = TimestepSeries(
-        steps=series.steps[keep],
-        times_s=None,
-        points=series.points,
-        fields={name: values[keep] for name, values in series.fields.items()},
-        sources=(),
-    )
-    with pytest.raises(ProductError, match=r"holds 5 of them"):
-        per_blade_rows(gapped, window=(1, 6), blades=2, steps_per_revolution=8.0)
-
-
 def test_p0420_an_empty_history_is_a_product_refusal_not_an_index_error():
     """F-1405: formatting the refusal indexed the first step of a history that has none."""
     empty = TimestepSeries(

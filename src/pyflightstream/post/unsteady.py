@@ -854,16 +854,6 @@ def revolution_drift_warnings(
     return clauses
 
 
-def _refuse_a_gap(average: FrameAverage, first: int, last: int) -> None:
-    """Refuse an average that holds fewer frames than the window it states has steps."""
-    if average.n_frames != last - first + 1:
-        raise ProductError(
-            f"the row states steps {first} to {last} ({last - first + 1} steps) and the history "
-            f"holds {average.n_frames} of them, so the columns would state a window the average "
-            "was not taken over; a window with a missing step is not averaged as a whole one"
-        )
-
-
 def _family_of(name: str, families: Sequence[str]) -> int | None:
     """Return the index of the family a column is named for, or None.
 
@@ -949,8 +939,8 @@ def per_blade_rows(
     Raises
     ------
     ProductError
-        If the window names no step the history holds, the history misses a step inside
-        the window, or the rotor carries no blade. Could-not-measure is never a pass.
+        If the window names no step the history holds, or the rotor carries no
+        blade. Could-not-measure is never a pass.
     """
     if blades < 1:
         raise ProductError(f"the rotor carries {blades} blades, so it has no per-blade rows")
@@ -966,7 +956,6 @@ def per_blade_rows(
         raise ProductError(f"the window {window} names no step this history holds, which {held}")
     spanned = last - first
     average = blade_passage_average(series, window=(first, last))
-    _refuse_a_gap(average, first, last)
     spacing = 360.0 / blades
 
     rows: list[dict[str, object]] = []

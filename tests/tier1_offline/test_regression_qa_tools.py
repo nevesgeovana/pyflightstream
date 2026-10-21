@@ -25,7 +25,12 @@ import pyflightstream.probes.geometry as gate
 from pyflightstream._fsm import trailing_edge_midpoints
 from pyflightstream.cases._farfield_spec import LatticeShape, LedgersSpec
 from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
-from pyflightstream.farfield import lateral_flux, sample_coverage, transverse_flux, transverse_force
+from pyflightstream.farfield import (
+    lateral_flux,
+    sample_area_coverage,
+    transverse_flux,
+    transverse_force,
+)
 from pyflightstream.probes import (
     AxisSpec,
     FrameDefinition,
@@ -1807,18 +1812,18 @@ class TestReach2Routes:
     @staticmethod
     @pytest.mark.requirement("FR-38")
     def test_p0400_reach2_the_ledger_runs_transverse_force_and_sample_coverage(monkeypatch):
-        """P0400-REACH2 (PFS-2139.008): the ledger runs transverse_force and sample_coverage.
+        """P0400-REACH2 (PFS-2139.008): the ledger runs transverse_force and sample_area_coverage.
 
         The lateral columns are transverse_force's lateral term, the plane columns
         the quadrature flux difference (its plane term), and COVERAGE is
-        sample_coverage, each value the one the ledger wrote before.
+        sample_area_coverage, each value the one the ledger wrote before.
         """
         spec, fields = _reach2_routes___sheared_fields()
         forces = _reach2_routes___spy(
             monkeypatch, farfield_fields, "transverse_force", transverse_force
         )
         coverages = _reach2_routes___spy(
-            monkeypatch, farfield_fields, "sample_coverage", sample_coverage
+            monkeypatch, farfield_fields, "sample_area_coverage", sample_area_coverage
         )
         rows = farfield_fields.ledger_values(fields, spec, rho=1.2, speed=12.0, near=(3.0, 1.0))
         assert forces and coverages, (
