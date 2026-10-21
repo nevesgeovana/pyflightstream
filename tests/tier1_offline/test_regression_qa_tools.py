@@ -99,6 +99,7 @@ from pyflightstream.run import ExecutionResult
 from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.versions import known_versions, resolve
 from pyflightstream.workspace import RunRecord, RunStatus
+from tests.tier1_offline.test_qa_matrix import stub_workspace  # noqa: F401 -- the fixture
 from tests.tier1_offline.test_regression_farfield_interfaces import (
     _farfield_plan___case as _reach2_routes___case,
 )
@@ -2266,3 +2267,31 @@ def test_f6_0102_the_length_probe_verifies_only_lines_of_the_set_length(tmp_path
     (tmp_path / "offbody.txt").write_text(scaled(1.0), encoding="utf-8")
     assert judge(artifacts) is None
     assert judge(SimpleNamespace(workdir=tmp_path / "absent")) is None
+
+
+def test_f6_0102_fr_2316_the_applicable_physics_cases_run_and_the_rest_are_reported_inapplicable(
+    stub_workspace,  # noqa: F811 -- the fixture of test_qa_matrix
+    monkeypatch,
+):
+    """FR-2316: a build that cannot run one case runs the others and reports what it left out."""
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.exceptions import PyflightstreamWarning
+    from pyflightstream.qa import matrix as driver
+    from pyflightstream.workspace import CampaignWorkspace
+    from tests.tier1_offline._no_evidence import registry_without
+
+    path = stub_workspace / "matriz_physics.fs"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    unsteady = next(line for line in lines if line.startswith("5006"))
+    path.write_text("\n".join([*lines[:3], unsteady]) + "\n", encoding="utf-8")
+    registry = registry_without("SET_SOLVER_UNSTEADY", registry=CommandRegistry.load())
+    monkeypatch.setattr(CommandRegistry, "load", classmethod(lambda cls, *a, **kw: registry))
+
+    workspace = CampaignWorkspace(stub_workspace)
+    with pytest.warns(PyflightstreamWarning, match="left out as INAPPLICABLE"):
+        records = driver.run_physics_matrix(workspace, path)
+    assert {record.sim_id for record in records} == {"5001"}
+    run = driver.reduce_physics(workspace, path)
+    left_out = {case.case_id: case.error for case in run.results if case.error}
+    assert left_out.get("PHY-06", "").startswith("INAPPLICABLE to the selected build:"), left_out
+    assert "SET_SOLVER_UNSTEADY" in left_out["PHY-06"]

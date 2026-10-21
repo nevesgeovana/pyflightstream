@@ -52,14 +52,16 @@ from __future__ import annotations
 
 import re
 import shutil
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
 import pyflightstream
 import pyflightstream._textio as _textio
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases.matrix import MatrixRow, read_matrix
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.qa.drift import DriftRun, diff_runs
@@ -340,27 +342,27 @@ def run_physics_matrix(
     """
     campaign, name_from = _campaign_name(Path(workspace.root), name)
     recipes = workflow_registry()
-    plan = plan_matrix(
-        matrix,
-        workspace,
-        name=campaign,
-        name_from=name_from,
-        recipes={},
-        recipe_registry=recipes,
-        write_plan=False,
-    )
-    cases = {row.pol: case_of_row(row) for row in read_matrix(matrix)}
-    inapplicable = [
-        f"{cases.get(point.sim_id) or point.sim_id} ({point.run_id}): {point.error}"
-        for point in plan.blocked
-        if (point.error or "").startswith(
-            ("CommandNotInVersionError:", "BrokenCommandError:", "WorkflowCoverageError:")
-        )
-    ]
-    if inapplicable:
+    left_out = _inapplicable_rows(workspace, matrix, campaign, name_from, recipes)
+    rows = list(read_matrix(matrix))
+    applicable = [row.pol for row in rows if row.pol not in left_out]
+    if left_out and not applicable:
+        cases = {row.pol: case_of_row(row) for row in rows}
         raise PhysicsEnvironmentError(
             "physics cases inapplicable to the selected build; no execution was started: "
-            + "; ".join(inapplicable)
+            + "; ".join(
+                f"{cases.get(pol) or pol} ({reason})" for pol, reason in sorted(left_out.items())
+            )
+        )
+    if left_out:
+        # THE APPLICABLE CASES RUN and each one left out is reported INAPPLICABLE with
+        # its reason by the reduction (FR-2316); a physics run is not refused for the
+        # cases a build cannot run.
+        warnings.warn(
+            f"physics: {len(applicable)} row(s) run and {len(left_out)} are left out as "
+            "INAPPLICABLE to the selected build: "
+            + "; ".join(f"POL {pol}: {reason}" for pol, reason in sorted(left_out.items())),
+            PyflightstreamWarning,
+            stacklevel=2,
         )
     return run_matrix(
         matrix,
@@ -371,7 +373,34 @@ def run_physics_matrix(
         assess=LoadsAssessor(),
         recipe_registry=recipes,
         resume=resume,
+        sims=applicable if left_out else None,
     )
+
+
+def _inapplicable_rows(
+    workspace: CampaignWorkspace,
+    matrix: str | Path,
+    campaign: str,
+    name_from: str,
+    recipes: Any,
+) -> dict[str, str]:
+    """Return the matrix rows the selected build cannot run, by POL, each with its reason."""
+    plan = plan_matrix(
+        matrix,
+        workspace,
+        name=campaign,
+        name_from=name_from,
+        recipes={},
+        recipe_registry=recipes,
+        write_plan=False,
+    )
+    found: dict[str, str] = {}
+    for point in plan.blocked:
+        if (point.error or "").startswith(
+            ("CommandNotInVersionError:", "BrokenCommandError:", "WorkflowCoverageError:")
+        ):
+            found.setdefault(str(point.sim_id), f"{point.run_id}: {point.error}")
+    return found
 
 
 def point_result(workspace: CampaignWorkspace, record: RunRecord) -> PointResult:
@@ -654,6 +683,42 @@ def _require_one_build(records: list, path: Path) -> list[str]:
     return versions
 
 
+def _left_out_of_the_run(
+    workspace: CampaignWorkspace,
+    path: Path,
+    by_case: dict[str, list[MatrixRow]],
+    by_row: dict[str, list[RunRecord]],
+    *,
+    campaign: str,
+    name_from: str,
+) -> dict[str, str]:
+    """Return the rows the build could not run, by POL, when some row has no record; else {}.
+
+    A row the selected build cannot run was left out of the run (FR-2316). What cannot
+    be planned cannot be called inapplicable, so a workspace that is not a campaign
+    workspace, or a plan that refuses, leaves the missing record to be reported as such.
+    """
+    if all(row.pol in by_row for rows in by_case.values() for row in rows):
+        return {}
+    if not isinstance(workspace, CampaignWorkspace):
+        return {}
+    try:
+        return _inapplicable_rows(workspace, path, campaign, name_from, workflow_registry())
+    except (PyflightstreamError, OSError, ValueError):
+        return {}
+
+
+def _require_recorded_or_inapplicable(
+    case_rows: list[MatrixRow], by_row: dict[str, list[RunRecord]], left_out: dict[str, str]
+) -> None:
+    """Refuse a case whose unrecorded rows the build left out, as INAPPLICABLE with the reason."""
+    unrecorded = [row.pol for row in case_rows if row.pol not in by_row]
+    if unrecorded and all(pol in left_out for pol in unrecorded):
+        raise QaEvidenceError(
+            "INAPPLICABLE to the selected build: " + "; ".join(left_out[pol] for pol in unrecorded)
+        )
+
+
 def reduce_physics(
     workspace: CampaignWorkspace,
     matrix: str | Path,
@@ -705,7 +770,7 @@ def reduce_physics(
     """
     path = Path(matrix)
     by_case = physics_rows(path)
-    campaign, _ = _campaign_name(Path(workspace.root), name)
+    campaign, name_from = _campaign_name(Path(workspace.root), name)
     by_row = _records_by_row(workspace, path.stem, campaign)
     if not by_row:
         raise PhysicsEnvironmentError(
@@ -718,6 +783,9 @@ def reduce_physics(
     versions = _require_one_build(records, path)
     results: list[CaseResult] = []
     steady_rows = by_case.get("PHY-01", [])
+    left_out = _left_out_of_the_run(
+        workspace, path, by_case, by_row, campaign=campaign, name_from=name_from
+    )
     for case_id, case in PHYSICS_CASES.items():
         case_rows = by_case.get(case_id)
         if not case_rows:
@@ -726,6 +794,7 @@ def reduce_physics(
         # statement names both rows.
         geometry = _geometry_of(case_rows + (steady_rows if case_id == "PHY-06" else []), path)
         try:
+            _require_recorded_or_inapplicable(case_rows, by_row, left_out)
             _one_row_each(case_id, case_rows)
             points, metrics = _reduce_case(case_id, case_rows, workspace, by_row, steady_rows, path)
             reference = load_reference(case_id, references_dir, fs_version=versions[0])
