@@ -497,3 +497,15 @@ def test_f1583_a_huge_since_duration_is_a_workspace_error():
 
     with pytest.raises(WorkspaceError, match="too long"):
         logs._since("9" * 400 + "d")
+
+
+def test_x_f0582_a_non_iso_stamp_sorts_first_and_never_passes_a_since_cutoff():
+    from datetime import timedelta
+
+    from pyflightstream.workspace import _query_logs as logs
+
+    rows = [{"timestamp": "2026-01-02T00:00:00Z"}, {"timestamp": "yesterday-ish"}]
+    assert sorted(rows, key=logs._chronology)[0]["timestamp"] == "yesterday-ish"
+    cutoff = datetime(2026, 1, 1, tzinfo=UTC) - timedelta(days=1)
+    assert logs._at_or_after(rows[0], cutoff) is True
+    assert logs._at_or_after(rows[1], cutoff) is False

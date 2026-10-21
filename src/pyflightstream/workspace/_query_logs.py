@@ -70,7 +70,9 @@ def _stamp(row: dict[str, Any]) -> str:
 
 
 def _chronology(row: dict[str, Any]) -> datetime:
-    return _time(_stamp(row)) if _stamp(row) else datetime.min.replace(tzinfo=UTC)
+    """Order a row by its stamp; a row with none, or a stamp that is no ISO time, sorts first."""
+    parsed = _parsed(_stamp(row)) if _stamp(row) else None
+    return parsed if parsed is not None else datetime.min.replace(tzinfo=UTC)
 
 
 def _time(text: str) -> datetime:
@@ -84,6 +86,12 @@ def _parsed(text: str) -> datetime | None:
         return _time(text)
     except ValueError:
         return None
+
+
+def _at_or_after(row: dict[str, Any], cutoff: datetime) -> bool:
+    """Whether a row's stamp is a time at or after ``cutoff``; no stamp or a bad one is not."""
+    parsed = _parsed(_stamp(row)) if _stamp(row) else None
+    return parsed is not None and parsed >= cutoff
 
 
 def _since(text: str | None) -> datetime | None:
@@ -206,7 +214,7 @@ def _select_logs(
         and (run is None or _mentions(row, run))
         and (stage is None or row.get("stage", row.get("action", row.get("command"))) == stage)
         and (not problems or _problem(row))
-        and (cutoff is None or bool(_stamp(row)) and _time(_stamp(row)) >= cutoff)
+        and (cutoff is None or _at_or_after(row, cutoff))
     ]
 
 
