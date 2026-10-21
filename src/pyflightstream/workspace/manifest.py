@@ -1462,8 +1462,10 @@ def manifest_lock(
             os.kill(pid, 0)
         except ProcessLookupError:
             return True
-        except OSError:
-            pass  # Permission denied is not proof that the process is gone.
+        except (OSError, OverflowError):
+            # Permission denial or an unrepresentable PID is not proof of death.
+            # The stale-heartbeat fallback still applies to an unreadable owner.
+            pass
         return False
 
     deadline = time.monotonic() + timeout_s

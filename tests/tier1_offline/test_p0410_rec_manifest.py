@@ -248,3 +248,55 @@ def test_p0430_non_mapping_job_point_is_refused_at_validation(point):
 def test_p0430_mapping_and_unknown_job_points_still_expand(point):
     record = _record(points_ran=[{"tag": "a", "point": point}])
     assert record.as_points()[0].point == (point or {})
+
+
+@pytest.mark.parametrize("expired", [False, True])
+def test_p0430_oversized_pid_uses_lease_age(tmp_path, monkeypatch, expired):
+    """An overflowing POSIX PID probe must neither crash nor prove owner death."""
+    import os
+    import socket
+    import sys
+    from types import SimpleNamespace
+
+    import pyflightstream.workspace.manifest as manifest
+
+    lock = tmp_path / "runs.json.lock"
+    lock.write_text(
+        json.dumps({"pid": 1 << 128, "host": socket.gethostname(), "token": "old"}),
+        encoding="utf-8",
+    )
+    if expired:
+        os.utime(lock, (1, 1))
+
+    def overflowing_probe(pid, signal):
+        assert pid == 1 << 128
+        assert signal == 0
+        raise OverflowError("Python int too large to convert to C long")
+
+    # Exercise the POSIX PID failure on every host; arbitration is outside this unit test.
+    monkeypatch.setattr(manifest, "sys", SimpleNamespace(platform="linux"))
+    monkeypatch.setitem(
+        sys.modules,
+        "fcntl",
+        SimpleNamespace(flock=lambda *args: None, LOCK_EX=1, LOCK_NB=2, LOCK_UN=8),
+    )
+    monkeypatch.setattr(manifest.os, "kill", overflowing_probe)
+    acquired = False
+    error = None
+    try:
+        with manifest.manifest_lock(
+            tmp_path / "runs.json",
+            root=tmp_path,
+            timeout_s=0.01,
+            renew_s=60,
+            stale_s=300,
+            poll_s=0.001,
+        ):
+            acquired = True
+    except (OverflowError, WorkspaceError) as caught:
+        error = caught
+    assert not isinstance(error, OverflowError), "PID overflow escaped lease recovery"
+    assert acquired is expired
+    if not expired:
+        assert isinstance(error, WorkspaceError)
+        assert json.loads(lock.read_text(encoding="utf-8"))["token"] == "old"
