@@ -36,7 +36,6 @@ motivating case).
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
@@ -46,6 +45,8 @@ import yaml
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from pyflightstream.commands._schema import (
+    _MANUAL_REF_PATTERN,
+    _PROBE_REF_PATTERN,
     ArgSpec,
     ArgType,
     CommandDatabaseError,
@@ -55,6 +56,8 @@ from pyflightstream.commands._schema import (
     ListSeparator,
     Phase,
     Status,
+    VersionStatus,
+    _apply_build_default,
     _check_layout_rules,
     _override_citation,
 )
@@ -87,142 +90,7 @@ ListSeparator.__module__ = "pyflightstream.commands"
 CommandDatabaseError.__module__ = "pyflightstream.commands"
 CommandNotInVersionError.__module__ = "pyflightstream.commands"
 ArgSpec.__module__ = "pyflightstream.commands"
-
-_MANUAL_REF_PATTERN = re.compile(r"^FSM-(?:\d{2}\.\d{3}|TEST) pp?\.\d+")
-_PROBE_REF_PATTERN = re.compile(
-    r"^(?:GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/)?reports/[\w./-]+\.md$"
-)
-# A note claiming the solver was OBSERVED, in the wordings this database
-# uses for it. Deliberately a small closed list rather than a general
-# reading of the sentence: a pattern that guesses would refuse honest
-# notes, and the cost of missing one is that a row keeps the citation
-# rules it already had, while the cost of a false positive is a refused
-# load. Widen it when a new wording appears rather than loosening it.
-_MEASURED_CLAIM = re.compile(r"\b(measured|probed|observed|the solver (?:answers|refuses))\b", re.I)
-# Keep affirmative claim detection a closed vocabulary. Negation subtraction
-# can erase a real solver claim in a later clause, or reject a disclaimer
-# whose negator follows the claim word. Document counts say counted; solver
-# observations say measured. Extend the explicit wording list when needed.
-
-
-class VersionStatus(BaseModel):
-    """Evidence record of a command in one FlightStream version.
-
-    Attributes
-    ----------
-    status : Status
-        Evidence status; see :class:`Status`.
-    successor : str, optional
-        Replacement command name; only meaningful for ``removed``.
-    note : str, optional
-        Short paraphrased justification, with citation when needed.
-    report : str, optional
-        Repository-relative machine-readable compat report, required for
-        ``verified`` and ``broken`` (CONTRIBUTING.md invariant 3). Guards check
-        its outcome. A documented row may cite an unprobed report with a note
-        stating direct inconclusive evidence and the edition's page. That row
-        prevents inherited verification without asserting a measured effect.
-    probe_ref : str, optional
-        Repository-relative path of a committed NARRATIVE report
-        (``.md``) of a solver run, admissible for ``removed`` alone and
-        for no other status. The restriction is the whole point of the
-        field: ``verified`` and ``broken`` are the harness's to write
-        and stay cross-checkable against its own output, and a prose
-        citation is not checkable at all.
-
-        A measured removal is promoted by
-        ``pyfs-qa apply-compat`` and cites the compat yaml through
-        ``report`` like any other promoted status. This field survives
-        for the removals recorded before that, and for nothing else.
-        The retention reason stated when the outcome landed named a
-        second case, an edition that merely stopped printing a command,
-        and the database refutes it: such a row cites pages in its note
-        and no run at all, which is what the model requires of a
-        reading. So the surviving population is finite and closable, and
-        the field goes away when those rows are re-probed.
-    args : tuple of ArgSpec, optional
-        Per-version argument grammar override. Declared when this
-        version's manual documents a different signature than the
-        entry-level ``args``; the per-version view substitutes it, so
-        emission for this version binds and renders the overridden
-        grammar. Absent for a version whose grammar matches the
-        entry-level one, and meaningless for ``removed``.
-    layout : Layout, optional
-        Per-version line layout, validated with the effective argument
-        grammar. Absent means the entry-level layout; removed rows have none.
-    default : int, float, str, or tuple of int, optional
-        Documented default for this build, overriding the entry-level value.
-        It describes solver behavior; it does not insert an omitted argument.
-    default_ref : str, optional
-        Manual page supporting the per-build default. Value and citation
-        must be supplied together; absent means use the entry-level pair.
-    """
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    status: Status
-    successor: str | None = None
-    note: str | None = None
-    report: str | None = None
-    probe_ref: str | None = None
-    args: tuple[ArgSpec, ...] | None = None
-    layout: Layout | None = None
-    default: int | float | str | tuple[int, ...] | None = None
-    default_ref: str | None = None
-
-    @model_validator(mode="after")
-    def _default_override_is_cited(self) -> VersionStatus:
-        if (self.default is None) != (self.default_ref is None):
-            raise ValueError("default and default_ref must be supplied together")
-        if self.default_ref is not None and not _MANUAL_REF_PATTERN.match(self.default_ref):
-            raise ValueError("default_ref must cite a manual page, for example FSM-26.125 p.358")
-        if self.default is not None and self.status is Status.REMOVED:
-            raise ValueError("a removed version has no default to apply")
-        return self
-
-    @model_validator(mode="after")
-    def _statuses_follow_the_evidence_rules(self) -> VersionStatus:
-        if self.status in (Status.VERIFIED, Status.BROKEN) and not self.report:
-            raise ValueError(
-                f"status {self.status} requires a committed probe report; statuses are "
-                "promoted only through pyfs-qa apply-compat, never edited by hand"
-            )
-        if (self.args is not None or self.layout is not None) and self.status is Status.REMOVED:
-            raise ValueError(
-                "a removed version has no grammar to emit; args overrides are only "
-                "recorded for versions where the command exists"
-            )
-        if self.probe_ref is not None:
-            if self.status is not Status.REMOVED:
-                raise ValueError(
-                    f"probe_ref is admissible for removed alone and this row is "
-                    f"{self.status}; a narrative report is not checkable against the "
-                    "status it supports, so a status the harness can write cites the "
-                    "compat yaml through report instead"
-                )
-            if not _PROBE_REF_PATTERN.match(self.probe_ref):
-                raise ValueError(
-                    f"probe_ref {self.probe_ref!r} is not a repository-relative path to "
-                    "a committed .md report"
-                )
-        if self.status is Status.REMOVED:
-            if not self.note:
-                raise ValueError(
-                    "status removed requires a note saying which of the three ways it "
-                    "arrived: an edition states the withdrawal, an edition stops "
-                    "printing the command, or a probe measured the solver refusing "
-                    "it; the status alone cannot be read as any one of them"
-                )
-            if _MEASURED_CLAIM.search(self.note) and not (self.report or self.probe_ref):
-                raise ValueError(
-                    "this removed note claims a measurement and cites no run; an "
-                    "edition dropping a page is a fact about a document and only a run "
-                    "is a fact about the solver. Cite the compat yaml through report, "
-                    "or the narrative report of the run through probe_ref"
-                )
-        if self.successor is not None and self.status is not Status.REMOVED:
-            raise ValueError("successor is only recorded for removed commands")
-        return self
+VersionStatus.__module__ = "pyflightstream.commands"
 
 
 def _registry_says_it_inherits(version: FsVersion) -> bool:
@@ -752,10 +620,7 @@ class VersionView:
                 f"({reason}, {citation}).{inherited_note}"
                 f"{last_part} {successor}"
             )
-        if record.default is not None:
-            entry = entry.model_copy(
-                update={"default": record.default, "default_ref": record.default_ref}
-            )
+        entry = _apply_build_default(entry, record)
         if record.args is not None or record.layout is not None:
             # Per-version grammar override: the returned entry carries the
             # argument signature this version's manual documents, AND the

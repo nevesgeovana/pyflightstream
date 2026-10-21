@@ -1013,7 +1013,7 @@ def test_a_waiver_lets_the_command_emit_and_records_what_it_waived():
     assert use.version == "26.120"
     assert use.report == "reports/compat/CMP-26120_2026-08-08_full.yaml"
     assert use.reason == "re-probing the units defect"
-    assert use.note and "effect was not observed" in use.note
+    assert use.note and "1.056 kg/m^3" in use.note and "0.736 kg/m^3" in use.note
 
 
 def test_a_waiver_records_one_entry_however_often_the_command_is_emitted():

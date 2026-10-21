@@ -85,6 +85,10 @@ def test_p0430_fd01_altitude_refusals_are_complete_and_public():
         assert "[...]" not in note
         assert "GEO-" not in note and "PFS-" not in note
         assert "1.056" in note and "0.736" in note
+
+
+def test_p0430_fd01_altitude_note_cites_the_available_evidence():
+    entry = CommandRegistry.load().commands["AIR_ALTITUDE"]
     assert "erratum_2026-08-11.md" not in entry.versions["26.122"].note
 
 
