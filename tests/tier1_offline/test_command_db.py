@@ -517,6 +517,19 @@ def test_enum_default_must_be_a_documented_token():
     assert entry.default == "B"
 
 
+@pytest.mark.parametrize("override_args", [False, True])
+def test_p0430_rb1_build_default_obeys_effective_enum(override_args):
+    args = [{"name": "type", "type": "enum", "values": ["A", "B"]}]
+    row = {"status": "documented", "default": "C", "default_ref": "FSM-26.120 p.203"}
+    if override_args:
+        row["args"] = [{"name": "type", "type": "enum", "values": ["B", "D"]}]
+    with pytest.raises(ValidationError, match="not one of the documented tokens"):
+        make_entry(args=args, versions={"26.120": row})
+    row["default"] = "D" if override_args else "B"
+    entry = make_entry(args=args, versions={"26.120": row})
+    assert entry.versions["26.120"].default == row["default"]
+
+
 def test_seeded_defaults_carry_their_recorded_evidence():
     registry = CommandRegistry.load()
     minimum_cp = registry.commands["SOLVER_MINIMUM_CP"]

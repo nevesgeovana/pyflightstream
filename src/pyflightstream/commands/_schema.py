@@ -685,3 +685,30 @@ def _apply_build_default(entry: CommandEntry, record: VersionStatus) -> CommandE
     if record.default is None:
         return entry
     return entry.model_copy(update={"default": record.default, "default_ref": record.default_ref})
+
+
+def _check_version_overrides(entry: CommandEntry) -> None:
+    """Validate each build's layout and explicit default against its effective grammar."""
+    for canonical, record in entry.versions.items():
+        args = record.args if record.args is not None else entry.args
+        if record.args is not None or record.layout is not None:
+            _check_layout_rules(
+                f"{entry.name} ({canonical} args override)", record.layout or entry.layout, args
+            )
+        if record.default is not None:
+            _check_default_token(f"{entry.name} ({canonical})", args, record.default)
+
+
+def _check_default_token(name: str, args: tuple[ArgSpec, ...], default: object) -> None:
+    """Require an enum default to be one of the effective grammar's tokens."""
+    if (
+        isinstance(default, str)
+        and len(args) == 1
+        and args[0].type is ArgType.ENUM
+        and default not in (args[0].values or ())
+    ):
+        raise ValueError(
+            f"{name}: default {default!r} is not one of the documented "
+            f"tokens {', '.join(args[0].values or ())}; a default must be a value "
+            "the command itself could emit"
+        )

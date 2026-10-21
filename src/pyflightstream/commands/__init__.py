@@ -58,7 +58,9 @@ from pyflightstream.commands._schema import (
     Status,
     VersionStatus,
     _apply_build_default,
+    _check_default_token,
     _check_layout_rules,
+    _check_version_overrides,
     _override_citation,
 )
 from pyflightstream.versions import FsVersion, known_versions, resolve
@@ -420,29 +422,12 @@ class CommandEntry(BaseModel):
                 f"{self.name}: default_ref {self.default_ref!r} must cite a source and "
                 "page, for example 'FSM-26.120 p.221'"
             )
-        if (
-            isinstance(self.default, str)
-            and len(self.args) == 1
-            and self.args[0].type is ArgType.ENUM
-            and self.default not in (self.args[0].values or ())
-        ):
-            raise ValueError(
-                f"{self.name}: default {self.default!r} is not one of the documented "
-                f"tokens {', '.join(self.args[0].values)}; a default must be a value "
-                "the command itself could emit"
-            )
+        _check_default_token(self.name, self.args, self.default)
         return self
 
     @model_validator(mode="after")
     def _version_arg_overrides_obey_the_layout_rules(self) -> CommandEntry:
-        for canonical, record in self.versions.items():
-            if record.args is not None or record.layout is not None:
-                label = f"{self.name} ({canonical} args override)"
-                _check_layout_rules(
-                    label,
-                    record.layout or self.layout,
-                    record.args if record.args is not None else self.args,
-                )
+        _check_version_overrides(self)
         return self
 
     def evidence_in(self, version: FsVersion) -> Evidence | None:
