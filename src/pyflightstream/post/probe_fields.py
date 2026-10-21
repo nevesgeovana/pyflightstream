@@ -320,7 +320,7 @@ def write_recorded_probe_fields(
     for row in rows:
         raw_step = row.get("STEP", "NA")
         step = "NA"
-        if raw_step not in ("NA", "", None):
+        if raw_step not in ("NA", "-", "", None):
             value = float(raw_step)
             if not np.isfinite(value):
                 raise ProductError("probe field STEP must be finite")

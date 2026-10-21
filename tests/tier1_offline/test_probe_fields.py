@@ -14,6 +14,30 @@ from pyflightstream.post.probe_fields import point_field_products
 from pyflightstream.script import Script, helpers
 
 
+def test_p0430_historical_dash_step_is_an_unstamped_field(tmp_path):
+    from pyflightstream.post.probe_fields import write_recorded_probe_fields
+
+    source = tmp_path / "source.csv"
+    source.write_text("PROBE,STEP,X,Y,Z,FRAME,VX,VY,VZ\n1,-,0,1,2,REFERENCE,11,3,5\n")
+    record = SimpleNamespace(
+        run_id="control",
+        campaign=None,
+        probe_field_layout=[
+            dict(
+                entry=1,
+                probe_ids=[1],
+                frame="REFERENCE",
+                native_to_m=1,
+                formats=["vtk"],
+                reusable_inflow=False,
+            )
+        ],
+        solver_setup=helpers.solver_settings(Script("26.124"), velocity=30).model_dump(mode="json"),
+    )
+    paths = write_recorded_probe_fields(source, record, tmp_path / "fields", "point")
+    assert any(path.suffix == ".vtk" for path in paths)
+
+
 @pytest.mark.parametrize("format_name", ["vtk", "tecplot"])
 def test_probe_field_round_trip_and_provenance(tmp_path, format_name):
     # GOAL033:post:checks:vtk
