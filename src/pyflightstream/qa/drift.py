@@ -163,7 +163,9 @@ def diff_runs(run_a: PhysicsRun, run_b: PhysicsRun) -> DriftRun:
     Returns
     -------
     DriftRun
-        The comparison, one entry per case present in both runs.
+        The comparison: one entry per case present in both runs, then one
+        aborted entry (no metrics, an error naming the run that has it) per
+        case present in one run only.
     """
     cases_a = {result.case_id for result in run_a.results}
     cases_b = {result.case_id: result for result in run_b.results}

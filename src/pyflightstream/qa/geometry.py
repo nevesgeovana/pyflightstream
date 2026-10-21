@@ -24,6 +24,7 @@ caveat of FSM-26.120 p.386, paraphrased).
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -104,7 +105,12 @@ class WingSpec:
     def __post_init__(self) -> None:
         """Reject definitions outside the implemented 4-digit family."""
         _check_naca4(self.naca)
-        if self.chord_m <= 0 or self.span_m <= 0:
+        if not (
+            math.isfinite(self.chord_m)
+            and math.isfinite(self.span_m)
+            and self.chord_m > 0
+            and self.span_m > 0
+        ):
             raise QaEvidenceError("chord_m and span_m must be positive lengths in meters")
         if self.n_chord < 4 or self.n_span < 2:
             raise QaEvidenceError("mesh needs at least 4 chordwise and 2 spanwise panels")

@@ -271,3 +271,13 @@ def test_the_four_boolean_arguments_are_keyword_only():
         registered_cases(True)
     with pytest.raises(TypeError, match=positional):
         case_table(True)
+
+
+@pytest.mark.parametrize("field", ["chord_m", "span_m"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+def test_f6_15_a_non_finite_length_is_refused(field, value):
+    """F-238: nan fails <= 0 and inf passes it; neither may build a wing."""
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    with pytest.raises(QaEvidenceError, match="positive"):
+        WingSpec(**{field: value})

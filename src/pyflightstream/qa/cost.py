@@ -80,7 +80,7 @@ Examples
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import fmean
@@ -553,8 +553,16 @@ def _records(source: CostSource) -> list[RunRecord]:
         # iterating a campaign path yields characters rather than an
         # error.
         return CampaignWorkspace(source).read_manifest()
-    if isinstance(source, Sequence) or isinstance(source, Iterable):
-        return list(source)
+    if isinstance(source, Iterable):
+        records = list(source)
+        wrong = [type(item).__name__ for item in records if not isinstance(item, RunRecord)]
+        if wrong:
+            raise QaEvidenceError(
+                f"cost view source holds {wrong[0]} where a RunRecord is required "
+                f"({len(wrong)} of {len(records)} items); the cost view is built from run "
+                "manifests and from nothing else"
+            )
+        return records
     raise QaEvidenceError(
         f"cost view source {type(source).__name__} is neither a CampaignWorkspace, a "
         "campaign root path, nor a sequence of RunRecord; the cost view is built "

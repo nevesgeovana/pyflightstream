@@ -583,3 +583,9 @@ def test_the_cli_compares_two_builds_and_says_which_is_slower(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "1.50" in out, out
     assert "1 point(s) compared" in out, out
+
+
+def test_f6_15_a_list_of_non_records_is_refused_by_name_not_by_attribute_error():
+    """F-1429: an iterable of dicts reaches the named refusal, not record.fs_build."""
+    with pytest.raises(QaEvidenceError, match="RunRecord"):
+        cost_view([{"run_id": "r1"}])  # type: ignore[list-item]
