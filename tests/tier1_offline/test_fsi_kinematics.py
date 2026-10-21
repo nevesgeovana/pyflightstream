@@ -328,3 +328,28 @@ def test_read_fsidisp_refuses_an_interior_hole(tmp_path, line):
     path.write_text(line, encoding="utf-8")
     with pytest.raises(ValueError, match="empty field|holds 4 values"):
         nodes.read_fsidisp(path)
+
+
+def test_f1363_an_empty_fsidisp_file_reads_as_zero_rows_of_three(tmp_path):
+    """F-1363 the documented (n_rows, 3) shape holds for a file with no rows."""
+    path = tmp_path / "FSIDisp.txt"
+    path.write_text("", encoding="utf-8")
+    assert nodes.read_fsidisp(path).shape == (0, 3)
+
+
+def test_x_f_1289_a_byte_order_mark_does_not_break_the_first_field(tmp_path):
+    """X-F-1289 read_fsidisp accepts a BOM as load_node_map does."""
+    path = tmp_path / "FSIDisp.txt"
+    path.write_bytes(b"\xef\xbb\xbf1.0,2.0,3.0\n4.0,5.0,6.0\n")
+    assert nodes.read_fsidisp(path).tolist() == [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+
+
+def test_x_f_0317_a_nan_offset_does_not_validate():
+    """X-F-0317 NaN passes every ordering comparison, so the field must refuse it."""
+    from pydantic import ValidationError
+
+    layout = nodes.generate_node_layout(make_uniform_blade_config())
+    payload = layout.model_dump()
+    payload["le_offset_m"] = [float("nan")] * len(payload["le_offset_m"])
+    with pytest.raises(ValidationError):
+        nodes.NodeOrderingMap.model_validate(payload)

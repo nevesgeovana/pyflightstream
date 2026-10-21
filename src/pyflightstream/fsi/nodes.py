@@ -204,6 +204,8 @@ class NodeOrderingMap(BaseModel):
         not serialised.
     """
 
+    # X-F-0317. NaN passes every comparison below, so a NaN offset validated and
+    # only surfaced downstream; refuse NaN and infinity at the field instead.
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     blade_count: int = Field(ge=1)
@@ -1051,9 +1053,9 @@ def write_fsidisp(path: str | Path, translations: np.ndarray) -> None:
     # PYFS-013. The shape check was the only one, so a NaN or infinite
     # displacement was formatted straight to disk and handed to the
     # solver as a node position. Measured at HEAD: a row went out as
-    # "nan,0.0000000000000000e+00,inf". Downstream that is not a crash,
-    # it is a deformed blade the solver accepts, and the coupling loop
-    # then relaxes toward it and writes the next file from it.
+    # "nan,0.0000000000000000e+00,inf". How the solver treats such a row
+    # has not been measured (no dated solver evidence); a node position
+    # that is not a position is refused here whatever the solver does.
     #
     # The refusal names the ROWS rather than a count, because the
     # caller's next question is which node moved wrong, and the node
@@ -1101,8 +1103,10 @@ def read_fsidisp(path: str | Path, expected_rows: int | None = None) -> np.ndarr
         ``expected_rows`` is given and the row count differs.
     """
     rows = []
+    # X-F-1289. utf-8-sig, as load_node_map reads: a byte-order mark must not
+    # glue itself to the first field and turn a valid number into a refusal.
     try:
-        text = Path(path).read_text(encoding="utf-8")
+        text = Path(path).read_text(encoding="utf-8-sig")
     except UnicodeDecodeError as exc:
         raise FsiInputError(
             f"{path}: displacement rows must be UTF-8 text; save the file as UTF-8"
@@ -1155,4 +1159,6 @@ def read_fsidisp(path: str | Path, expected_rows: int | None = None) -> np.ndarr
             f"{expected_rows} nodes; the file does not belong to this layout "
             "(FSI-R14)"
         )
-    return np.asarray(rows, dtype=float)
+    # F-1363. An empty file is zero rows of the documented (n_rows, 3) shape,
+    # not the (0,) an empty list gives.
+    return np.asarray(rows, dtype=float).reshape(-1, 3)
