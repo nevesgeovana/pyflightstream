@@ -14,7 +14,9 @@ do by hand.
 
 MID-POINTS, BECAUSE THAT IS WHAT THE IMPORT MATCHES (RPT-061). The import
 marks an edge whose mid-point lies within its tolerance of a point in
-the file, and a list of the edges' end vertices marks nothing. So
+the file, and a list of the edges' end vertices marks only the edges shorter
+than twice the tolerance (an end vertex lies half an edge length from the
+mid-point), which on a mesh of ordinary edges is none. So
 :func:`trailing_edge_midpoints` finds the EDGES: the sections below give
 one aftmost vertex each, consecutive ones are joined by the shortest path
 along mesh edges that are the aft ridge of both their faces, and each
