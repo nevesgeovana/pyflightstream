@@ -779,6 +779,13 @@ LF_WHY = (
 TEXT_SUFFIXES = {".csv", ".json", ".log", ".txt", ".md", ".dat", ".vtk", ".toml", ".fs"}
 PLANTED_NAME = "__parity_control_name__"
 PLANTED_FLAG = "--parity-control-flag"
+
+
+def cli_refused(base: set[str], release: set[str]) -> list[str]:
+    """Return the command-line spellings the base accepts and the release no longer does."""
+    return sorted(base - release)
+
+
 #: The planted controls a run must catch: three api, one cli, one scripts, two post (a changed
 #: byte and a planted CR).
 CONTROLS = 7
@@ -1898,11 +1905,13 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
 
     base_spellings, release_spellings = set(cli_base["spellings"]), set(cli_release["spellings"])
     planted_flag = f"{MATRIX_CONSOLE} {PLANTED_FLAG}"
-    if planted_flag in (base_spellings | {planted_flag}) - release_spellings:
+    # The control goes through the same comparison the report uses, so a broken
+    # comparison cannot leave it true.
+    if planted_flag in cli_refused(base_spellings | {planted_flag}, release_spellings):
         controls.append("cli: a flag no parser has was reported refused")
     cli = {
         "checked": len(base_spellings),
-        "missing": sorted(base_spellings - release_spellings),
+        "missing": cli_refused(base_spellings, release_spellings),
         "added_at_release": len(release_spellings - base_spellings),
         "unavailable_at_base": cli_base["unavailable"],
         "unavailable_at_release": cli_release["unavailable"],

@@ -531,3 +531,14 @@ def test_capture_owed_exports_stale_partial_and_privacy(tmp_path, monkeypatch):
     assert manifest["executable"] == "FlightStream.exe"
     script_text = (out / "capture.fsm").read_text(encoding="utf-8")
     assert "EXPORT_SURFACE_SECTIONS" not in script_text
+
+
+def test_check_parity_cli_control_goes_through_the_report_comparison():
+    """X-F-0465: the planted-flag control and the report share one comparison that can fail."""
+    module = _f7_load_script("check_parity")
+    planted = f"{module.MATRIX_CONSOLE} {module.PLANTED_FLAG}"
+    assert module.cli_refused({"a", planted}, {"a"}) == [planted]
+    assert module.cli_refused({"a"}, {"a", planted}) == []
+    source = (Path(module.__file__)).read_text(encoding="utf-8")
+    assert "cli_refused(base_spellings | {planted_flag}, release_spellings)" in source
+    assert '"missing": cli_refused(base_spellings, release_spellings)' in source
