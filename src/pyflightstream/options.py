@@ -377,6 +377,7 @@ register_option(
     "qa.probe_timeout_s",
     default=120.0,
     doc="Per-probe wall-clock limit in seconds of the Tier 2 validity "
-    "sweep; probes are tiny scripts, so minutes mean a hung solver.",
+    "sweep; probes are tiny scripts, so minutes mean a hung solver. A probe "
+    "that solves carries its own 180 s limit, which this option does not change.",
     validator=positive_seconds,
 )

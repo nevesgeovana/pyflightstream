@@ -574,3 +574,13 @@ def test_apply_compat_says_what_to_do_when_nothing_is_promotable(tmp_path, capsy
         "the report records 'not probed in this run', so the remedy is a fuller run "
         "rather than a new probe specification"
     )
+
+
+def test_x_f_1208_timeout_help_states_the_solved_probe_limit(capsys):
+    """X-F-1208: the --timeout help says solved probes carry their own 180 s limit."""
+    with pytest.raises(SystemExit) as exit_info:
+        main(["probe", "--help"])
+    assert exit_info.value.code == 0
+    text = " ".join(capsys.readouterr().out.split())
+    assert "--timeout" in text
+    assert "solves carries its own 180 s limit" in text
