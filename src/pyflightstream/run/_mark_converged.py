@@ -10,7 +10,7 @@ previous ``runs.json`` copied to ``archive/`` first, each record keeping under
 
 What a verdict needs is the outputs it is about, so four points are refused,
 each named with its reason and the remedy, and nothing is written while any is
-named: a point still SUBMITTED, a point whose loads export is not on disk, a
+named: a point still SUBMITTED, a point whose loads export is missing or changed, a
 simulation deleted by ``delete-sims``, and a point marked failed. A point
 already CONVERGED is listed and left alone. Every other status, the failures
 included, takes the person's verdict.
@@ -29,6 +29,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import classify_outputs
 from pyflightstream.run._alias import listed_ids as _listed
@@ -39,7 +40,7 @@ from pyflightstream.run._record_files import _now_stamp, _relative, manifest_loc
 from pyflightstream.workspace import CampaignWorkspace, RunStatus, WorkspaceError
 from pyflightstream.workspace._verdicts import marked_units
 from pyflightstream.workspace.ledger import SIMS_IDS_HELP
-from pyflightstream.workspace.naming import ARCHIVE_DIR, DEFAULT_MANIFEST, RunsManifestError
+from pyflightstream.workspace.naming import DEFAULT_MANIFEST, RunsManifestError, free_root_archive
 
 __all__ = [
     "add_mark_converged_parser",
@@ -79,18 +80,26 @@ def _units(row: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
 
 
 def _loads_on_disk(workspace: CampaignWorkspace, row: Mapping[str, Any], unit: Mapping) -> bool:
-    """Say whether the point's loads export is in its simulation folder.
+    """Say whether the point's loads export exists and matches any recorded digest.
 
     A point of a steady job is judged by its own entry's outputs alone
     (PFS-2103.029): the job row's are every point's, so a point that
     collected nothing was accepted on another point's loads.
+    Historical records without a digest retain the existence check.
     """
     own = unit.get("outputs") if unit is not row else row.get("outputs")
     outputs = [str(name) for name in own or []]
     name = classify_outputs(outputs).get("loads")
     if not name:
         return False
-    return (workspace.sim_dir(str(row.get("sim_id"))) / name).is_file()
+    path = workspace.sim_dir(str(row.get("sim_id"))) / name
+    if not path.is_file():
+        return False
+    digest = (unit.get("outputs_sha256") or {}).get(name)
+    try:
+        return not digest or file_sha256(path) == digest
+    except OSError:
+        return False
 
 
 def _refusal(workspace: CampaignWorkspace, row: Mapping, unit: Mapping) -> str | None:
@@ -116,7 +125,8 @@ def _refusal(workspace: CampaignWorkspace, row: Mapping, unit: Mapping) -> str |
         )
     if not _loads_on_disk(workspace, row, unit):
         return (
-            "its loads export is not on disk, and a verdict is about the outputs it reads; "
+            "its loads export is not on disk or differs from its recorded digest, "
+            "and a verdict is about the outputs it reads; "
             "restore the simulation folder, or collect the point again"
         )
     return None
@@ -267,7 +277,7 @@ def mark_converged(
         )
         if not todo:
             return result
-        archived = base / ARCHIVE_DIR / f"{manifest.stem}-{_now_stamp()}.json"
+        archived = free_root_archive(base, manifest.name, _now_stamp())
         archived.parent.mkdir(exist_ok=True)
         shutil.copy2(manifest, archived)
         # A JOB'S OWN FAILURE, one no point of it carries, outlives a point's verdict

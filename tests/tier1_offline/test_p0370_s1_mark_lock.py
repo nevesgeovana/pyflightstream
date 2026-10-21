@@ -13,6 +13,66 @@ from pyflightstream.workspace.naming import RunsManifestError
 from pyflightstream.workspace.record_document import encode_rows
 
 
+def test_p0430_w012_mark_checks_recorded_loads_digest(tmp_path):
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.workspace import CampaignWorkspace
+
+    workspace = CampaignWorkspace(tmp_path)
+    sim = workspace.sim_dir("1")
+    sim.mkdir(parents=True)
+    path = sim / "A.txt"
+    path.write_text("original", encoding="utf-8")
+    row = dict(
+        sim_id="1",
+        run_id="campaign/sim_1/A",
+        status="RAN_MISSING_LOG",
+        outputs=["A.txt"],
+        outputs_sha256={"A.txt": file_sha256(path)},
+    )
+    manifest = tmp_path / "runs.json"
+    manifest.write_text(json.dumps(encode_rows([row])), encoding="utf-8")
+    assert not marking.mark_converged(tmp_path, ["1"], reason="reviewed")["refused"]
+    path.write_text("replaced", encoding="utf-8")
+    assert marking.mark_converged(tmp_path, ["1"], reason="reviewed")["refused"]
+    row.pop("outputs_sha256")
+    manifest.write_text(json.dumps(encode_rows([row])), encoding="utf-8")
+    assert not marking.mark_converged(tmp_path, ["1"], reason="reviewed")["refused"]
+
+
+def test_p0430_w012_same_second_marks_preserve_both_archives(tmp_path, monkeypatch):
+    import datetime
+
+    class FrozenDateTime(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 10, 21, 12, 0, 0, tzinfo=tz)
+
+    sim = tmp_path / "sims" / "sim_1"
+    sim.mkdir(parents=True)
+    rows = []
+    for name in ("A", "B"):
+        (sim / f"{name}.txt").write_text("loads", encoding="utf-8")
+        rows.append(
+            dict(
+                sim_id="1",
+                run_id=f"campaign/sim_1/{name}",
+                point_name=name,
+                status="RAN_MISSING_LOG",
+                outputs=[f"{name}.txt"],
+            )
+        )
+    manifest = tmp_path / "runs.json"
+    manifest.write_text(json.dumps(encode_rows(rows)), encoding="utf-8")
+    original = manifest.read_bytes()
+    monkeypatch.setattr(datetime, "datetime", FrozenDateTime)
+    first = marking.mark_converged(tmp_path, ["1"], points=["A"], reason="reviewed", apply=True)
+    intermediate = manifest.read_bytes()
+    second = marking.mark_converged(tmp_path, ["1"], points=["B"], reason="reviewed", apply=True)
+    assert first["runs_archived_as"] != second["runs_archived_as"]
+    assert (tmp_path / first["runs_archived_as"]).read_bytes() == original
+    assert (tmp_path / second["runs_archived_as"]).read_bytes() == intermediate
+
+
 @pytest.mark.parametrize("new_status", ["SUBMITTED", "FAILED_MARKED", "CONVERGED"])
 def test_apply_rechecks_the_locked_plan(tmp_path, new_status):
     """P0370-S1-MARK-CONVERGED (FR-868, FR-869): lock-time changes govern the write."""
