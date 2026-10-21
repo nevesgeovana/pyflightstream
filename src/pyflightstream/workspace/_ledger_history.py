@@ -57,7 +57,14 @@ def _stamp(name: str) -> str | None:
     return match.group() if match else None
 
 
-def _documents(ledger: Ledger) -> Iterator[tuple[str, str | None, bytes]]:
+class _Unreadable:
+    """The message of an archive that could not be read, carried in place of its bytes."""
+
+    def __init__(self, message: str) -> None:
+        self.message = message
+
+
+def _documents(ledger: Ledger) -> Iterator[tuple[str, str | None, bytes | _Unreadable]]:
     """Read archived manifests and JSON records inside datapoint archives."""
     for path in _files(ledger.root / "archive"):
         if path.suffix == ".json" and path.name.startswith(ledger.manifest.stem + "-"):
@@ -70,16 +77,15 @@ def _documents(ledger: Ledger) -> Iterator[tuple[str, str | None, bytes]]:
             yield from _zip_documents(path, name)
 
 
-def _zip_documents(path: Path, name: str) -> Iterator[tuple[str, str | None, bytes]]:
+def _zip_documents(path: Path, name: str) -> Iterator[tuple[str, str | None, bytes | _Unreadable]]:
     try:
         with zipfile.ZipFile(path) as archive:
             for member in sorted(archive.namelist()):
                 if "/archive/" in member and member.endswith(".json"):
                     yield f"{name}!{member}", _stamp(member), archive.read(member)
-    except (OSError, zipfile.BadZipFile) as error:
-        raise WorkspaceError(
-            f"target (CLI: history): cannot read archive {name}: {error}"
-        ) from error
+    except (OSError, zipfile.BadZipFile, KeyError, RuntimeError, EOFError) as error:
+        # One corrupt archive is one identified row; the other records still show.
+        yield name, None, _Unreadable(f"unreadable archive {name}: {error}")
 
 
 def _rows(payload: bytes, source: str) -> list[dict[str, Any]]:
@@ -141,6 +147,11 @@ def history_rows(ledger: Ledger, target: str) -> list[dict[str, Any]]:
     """Build history rows from a ledger and archived copies, with explicit diagnostics."""
     rows: list[dict[str, Any]] = []
     for source, stamp, payload in _documents(ledger):
+        if isinstance(payload, _Unreadable):
+            rows.append(
+                {"source": source, "position": None, "run_id": None, "error": payload.message}
+            )
+            continue
         for item in _rows(payload, source):
             if "record" not in item:
                 rows.append(item)

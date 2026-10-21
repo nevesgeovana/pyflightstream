@@ -496,3 +496,23 @@ def test_p0430_query_keeps_readable_siblings_of_a_decode_failure(tmp_path, damag
     assert path.read_bytes() == before
     with pytest.raises(WorkspaceError):
         CampaignWorkspace(tmp_path).read_raw_manifest()
+
+
+def test_f_1200_one_corrupt_archive_is_one_identified_row_and_history_writes_nothing(workspace):
+    """F2-0203 (FR-3076): FR-383, a corrupt ZIP among the archives does not hide the records.
+
+    The history of a simulation names the unreadable archive in its own row and
+    still returns the readable records, and the query leaves the tree as it was.
+    """
+    from pyflightstream.workspace.ledger import history
+
+    sims = workspace / "sims"
+    sims.mkdir(exist_ok=True)
+    (sims / "sim_9999.zip").write_bytes(b"this is not a zip archive")
+    rows: list[dict] = []
+
+    assert _leaves_the_tree_as_it_was(workspace, lambda: rows.extend(history(workspace, "2006")))
+    unreadable = [row for row in rows if "record" not in row]
+    assert [row["source"] for row in unreadable] == ["sims/sim_9999.zip"]
+    assert "unreadable archive sims/sim_9999.zip" in unreadable[0]["error"]
+    assert any((row.get("run_id") or "").startswith(f"{CAMPAIGN}/sim_2006/") for row in rows)
