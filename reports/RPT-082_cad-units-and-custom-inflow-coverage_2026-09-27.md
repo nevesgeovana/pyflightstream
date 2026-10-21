@@ -62,11 +62,7 @@ they do not replace the native geometric measurements above.
 
 ## Uniform, sheared, and millimetre custom fields
 
-Eight successful six-STEP controls used the same executable/build above and
-one solver thread. The fixed wing used dt=0.02 s; the rotating case reused the
-measured six-STEP rotor fixture with dt=0.00625 s and emitted -800 RPM.
-Both ran at 30 m/s. These short controls test behavior, not convergence or
-absolute aerodynamic accuracy.
+Eight successful six-STEP controls used the same executable/build above and one solver thread. The fixed wing used dt=0.02 s; the rotating case reused the measured six-STEP rotor fixture with dt=0.00625 s and emitted -800 RPM. Both ran at 30 m/s. These short controls test behavior, not convergence or absolute aerodynamic accuracy.
 
 | Comparison | Printed history values | Final load coefficient values | Result |
 | --- | ---: | ---: | --- |
@@ -87,31 +83,14 @@ sampled velocity difference is 29.970458 m/s. Outside its small numerical grid,
 samples can return the uniform fallback; a plausible value alone is not a
 coverage proof.
 
-Equality means equality of every printed value, with matching named columns,
-surfaces and actual STEP 1 through 6. It does not imply bitwise identity of the
-internal solution or transfer the unit contract to another executable.
+Equality means equality of every printed value, with matching named columns, surfaces and actual STEP 1 through 6. It does not imply bitwise identity of the internal solution or transfer the unit contract to another executable.
 Public evidence anchor: comparison receipt SHA-256
 `8e4903a3fd70bc64a572eb4ff58ddccfa951519a44d8577273ad8fec4efa2246`.
-The reader verifies execution receipts, script/output hashes and printed build.
-Two earlier MM scripts put the unit command inside an incomplete OPEN block;
-their syntax failures are preserved and excluded from physical acceptance.
+The reader verifies execution receipts, script/output hashes and printed build. Two earlier MM scripts put the unit command inside an incomplete OPEN block; their syntax failures are preserved and excluded from physical acceptance.
 
 ## Retained structured/unstructured comparison
 
-Evidence locator supplement, 2026-10-21: the earlier measurements are recorded
-in RPT-071, "a custom free stream sets the flow's direction" (2026-09-24),
-and RPT-077, "what RPT-071 left open about the custom free stream" (2026-09-25).
-This summary makes the form comparison available in this checkout; no new
-solver execution was performed for the supplement.
-
-On FlightStream 26.124, build 8172026, the structured control was a uniform
-30 m/s global-X field on a 9 by 11 YZ grid. The unstructured control used the
-same coordinate and velocity rows without the structured grid-count line.
-Both ran at zero stated incidence and sea level. The recorded final totals
-matched at printed precision: Cx 0.0066, Cz 0.0023, CL 0.0023, CDi 0.0000,
-CMx 0.0011, CMy -0.0014 and CMz 0.0000. They also matched the constant-flow
-control. This establishes the two input forms on that build for this field;
-it does not establish arbitrary interpolation accuracy or other builds.
+Evidence locator supplement, 2026-10-21: the earlier measurements are recorded in RPT-071, "a custom free stream sets the flow's direction" (2026-09-24), and RPT-077, "what RPT-071 left open about the custom free stream" (2026-09-25); no new solver execution was performed. On FlightStream 26.124, build 8172026, a uniform 30 m/s global-X field on a 9 by 11 YZ grid and the same rows without the structured grid-count line, both at zero stated incidence and sea level, gave matching recorded final totals at printed precision (Cx 0.0066, Cz 0.0023, CL 0.0023, CDi 0.0000, CMx 0.0011, CMy -0.0014, CMz 0.0000), equal to the constant-flow control. This establishes the two input forms on that build for this field; it does not establish arbitrary interpolation accuracy or other builds.
 
 ## Spatial bounds and offline coverage checks
 

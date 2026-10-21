@@ -146,9 +146,9 @@ def release_tag(version: str) -> str:
     """Return an unambiguous release tag from the three numeric version components.
 
     Historical compact tags are retained when major and patch each have one digit.
-    Otherwise hyphens separate all three components, so ``0.1.10`` is ``0-1-10``
-    and cannot overwrite the ``0110`` report of ``0.11.0``. Development suffixes
-    do not enter the tag.
+    Otherwise hyphens separate all three components, so a patch of 10 after
+    minor 1 (tag ``0-1-10``) cannot overwrite the compact ``0110`` report of
+    minor 11. Development suffixes do not enter the tag.
 
     Parameters
     ----------
