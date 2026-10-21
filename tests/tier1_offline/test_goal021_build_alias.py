@@ -288,3 +288,16 @@ def test_goal021_build_alias_a_later_row_naming_an_unmapped_build_is_refused_up_
             )
     assert _descriptors(workspace) == [], "a descriptor was written before the refusal"
     assert workspace.read_manifest() == [], "a point was recorded before the refusal"
+
+
+def test_f6_0102_a_relative_steady_coupled_script_is_read_from_the_working_directory(tmp_path):
+    """F-832: the steady coupled refusal reads the script where the job will, not the cwd."""
+    from pyflightstream.exceptions import CampaignConfigError
+
+    profile = _profile(tmp_path)
+    executor = SubmittingExecutor(profile, values={"fs_build": "26.123"}, submit=False)
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "point.txt").write_text("EXECUTE_AEROELASTIC_ANALYSIS\n", encoding="utf-8")
+    with pytest.raises(CampaignConfigError, match="steady coupled run"):
+        executor._prepared(Path("point.txt"), work)

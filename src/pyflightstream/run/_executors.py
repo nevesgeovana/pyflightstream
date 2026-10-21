@@ -963,7 +963,7 @@ class SubmittingExecutor:
         refusal = _unmapped_build_refusal(self.profile, [values.get("fs_build")])
         if refusal is not None:
             raise CampaignConfigError(refusal)
-        if _a_steady_coupled_script(Path(script_path)):
+        if _a_steady_coupled_script(Path(working_dir) / script_path):
             # FSI-G: a steady coupled script never exits by itself; only a local
             # run reads its completion line and stops it, and a submitted job
             # would hold its node until the wall clock.
