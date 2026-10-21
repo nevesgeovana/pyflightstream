@@ -277,9 +277,9 @@ def test_x_f_0316_a_nan_total_is_refused_not_passed():
     fx = float((blade.fx_n_per_m * loads.tributary_width_m).sum())
     fz = float((blade.fz_n_per_m * loads.tributary_width_m).sum())
     # The other component is exact, so only the NaN can make the guard raise.
-    with pytest.raises(ValueError, match="RPT-006"):
+    with pytest.raises(ValueError, match="needs finite totals"):
         cross_check_totals(blade, float("nan"), fz, rel_tol=0.05)
-    with pytest.raises(ValueError, match="RPT-006"):
+    with pytest.raises(ValueError, match="needs finite totals"):
         cross_check_totals(blade, fx, float("nan"), rel_tol=0.05)
 
 
