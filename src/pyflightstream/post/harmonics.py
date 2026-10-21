@@ -603,7 +603,8 @@ def _matched_stations(
         if off:
             result.skipped[f"#rotor={alias}#station={station + 1}"] = (
                 f"station {station + 1} of rotor {alias!r} is at r = {baseline:.6g} m in the "
-                f"first known sample and at {sorted(set(off))} m in {len(off)} other(s), more than "
+                f"first{(' known' if radius is None else '')} sample and at "
+                f"{sorted(set(off))} m in {len(off)} other(s), more than "
                 f"{STATION_MATCH_TOLERANCE:g} of the largest radius {largest:.6g} m apart"
             )
             continue
