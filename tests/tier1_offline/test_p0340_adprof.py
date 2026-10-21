@@ -565,3 +565,11 @@ def test_f332_a_ct_target_refuses_a_tip_radius_that_is_not_finite_and_positive(r
     """F-332: a CT worked out with a negative, zero or NaN tip radius is refused, not computed."""
     with pytest.raises(WorkspaceError, match="tip radius"):
         thrust_target(tip_radius_m=radius, ct=0.1, rho_kg_m3=1.2, rpm=3000.0)
+
+
+def test_f333_a_fractional_step_is_refused_not_truncated(tmp_path):
+    """F-333: STEP = 1.5 names no step; it is refused instead of becoming step 1."""
+    table = tmp_path / "sloads.csv"
+    table.write_text("POL,STEP,Offset,Fx\n7,1.5,0.2,1.0\n7,1.5,0.3,2.0\n", encoding="utf-8")
+    with pytest.raises(WorkspaceError, match="STEP"):
+        read_section_loads(table)

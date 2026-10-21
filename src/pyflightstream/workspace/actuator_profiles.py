@@ -615,7 +615,13 @@ def _step_groups(
     groups: dict[int | None, list[tuple[float, float]]] = {}
     for line, row in enumerate(rows, start=2):
         raw = (row.get("STEP") or "").strip()
-        step = None if raw in ("", "NA") else int(_number(raw, source, line, "STEP"))
+        number = None if raw in ("", "NA") else _number(raw, source, line, "STEP")
+        if number is not None and number != int(number):
+            raise WorkspaceError(
+                f"{source}, row {line}: STEP = {raw!r} is not a whole step number; the "
+                "steps are whole numbers, and a fraction would merge two distinct steps."
+            )
+        step = None if number is None else int(number)
         r = _number(row.get("Offset"), source, line, "Offset")
         value = sign * _number(row.get(column), source, line, column)
         groups.setdefault(step, []).append((r, value))
