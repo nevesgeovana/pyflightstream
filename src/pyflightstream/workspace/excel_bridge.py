@@ -106,7 +106,13 @@ def read_request(path: Path) -> tuple[dict[str, str], WorkbookSnapshot]:
     dictionary = []
     baseline: dict[str, str] = {}
     cells: dict[tuple[int, int], Cell] = {}
-    for number, raw in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), start=1):
+    # Split on the record terminators only: str.splitlines also breaks on U+2028, U+0085,
+    # VT and FF, which escape() does not encode, so a cell holding one split its record.
+    text = path.read_text(encoding="utf-8-sig")
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    for number, raw in enumerate(lines, start=1):
         row = [unescape(value) for value in raw.split("\t")]
         width = _RECORD_WIDTHS.get(row[0], 0)
         if len(row) < width:
@@ -216,8 +222,9 @@ def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
     int
         0 when the action ran; 1 when it was refused, the reason written to the response and
         nothing changed by the refused step, or when an apply stopped partway (its PARTIAL
-        record, and the cells and files it did write, are in the response), as
-        ``pyfs-excel apply`` returns 1 for the same batch.
+        record, and the cells and files it did write, are in the response). A refusal
+        is 1 here; ``python -m pyflightstream.workspace.excel`` returns 2 for a
+        refusal and 1 only for a partial apply.
     """
     try:
         metadata, snapshot = read_request(request)

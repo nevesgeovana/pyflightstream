@@ -436,3 +436,83 @@ def test_f1589_check_reports_a_runs_row_without_identity(tmp_path: Path) -> None
     headers = read_snapshot(book).headers
     patch_cells(book, {"Runs": {(2, headers.index("DESCRIPTION") + 1): "orphan row"}})
     assert main(["check", str(book)]) == 2
+
+
+def _sheet(tmp_path: Path, cells: str) -> ZipFile:
+    from zipfile import ZIP_DEFLATED
+
+    namespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    xml = f'<worksheet xmlns="{namespace}"><sheetData><row r="1">{cells}</row></sheetData>'
+    xml += "</worksheet>"
+    target = tmp_path / "sheet.zip"
+    with ZipFile(target, "w", ZIP_DEFLATED) as archive:
+        archive.writestr("xl/worksheets/sheet1.xml", xml)
+    return ZipFile(target)
+
+
+def test_x_f_0572_boolean_cells_read_as_their_words_and_error_cells_are_refused(
+    tmp_path: Path,
+) -> None:
+    from pyflightstream.workspace.excel_file import _table
+    from pyflightstream.workspace.excel_sync import ExcelSyncError
+
+    good = _sheet(tmp_path, '<c r="A1" t="b"><v>1</v></c><c r="B1" t="b"><v>0</v></c>')
+    cells = _table(good, "xl/worksheets/sheet1.xml", [])
+    assert [cells[1, 1].value, cells[1, 2].value] == ["TRUE", "FALSE"]
+    bad = _sheet(tmp_path, '<c r="C1" t="e"><v>#N/A</v></c>')
+    with pytest.raises(ExcelSyncError, match=r"C1.*#N/A"):
+        _table(bad, "xl/worksheets/sheet1.xml", [])
+
+
+def _previewed(tmp_path: Path, name: str) -> tuple[Path, Path]:
+    matrix(tmp_path)
+    book = tmp_path / f"{name}.xlsx"
+    main(["create", str(book), "--workspace", str(tmp_path)])
+    batch = tmp_path / f"{name}.json"
+    main(
+        [
+            "preview",
+            str(book),
+            "--workspace",
+            str(tmp_path),
+            "--direction",
+            "read",
+            "--batch",
+            str(batch),
+        ]
+    )
+    return book, batch
+
+
+def test_x_f_1314_a_repeated_cancel_says_so(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _, batch = _previewed(tmp_path, "twice")
+    assert main(["cancel", str(batch)]) == 0
+    capsys.readouterr()
+    assert main(["cancel", str(batch)]) == 2
+    assert "already cancelled" in capsys.readouterr().err
+
+
+def test_x_f_1358_a_token_that_is_not_a_package_token_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import json
+
+    _, batch = _previewed(tmp_path, "token")
+    payload = json.loads(batch.read_text(encoding="utf-8"))
+    payload["preview"]["token"] = "../../escape"
+    batch.write_text(json.dumps(payload), encoding="utf-8")
+    assert main(["apply", str(batch)]) == 2
+    assert "token" in capsys.readouterr().err
+    assert not (tmp_path / "escape").exists()
+
+
+def test_x_f_0586_a_line_separator_inside_a_cell_does_not_split_its_record(tmp_path: Path) -> None:
+    from pyflightstream.workspace.excel_bridge import read_request
+
+    request = tmp_path / "request.tsv"
+    value = "a" + chr(0x2028) + "b" + chr(0x0B) + "c" + chr(0x0C) + "d" + chr(0x85) + "e"
+    request.write_text("META" + chr(9) + "note" + chr(9) + value + chr(10), encoding="utf-8")
+    metadata, _ = read_request(request)
+    assert metadata["note"] == value

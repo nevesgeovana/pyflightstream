@@ -152,6 +152,13 @@ def _table(archive: ZipFile, path: str, strings: list[str]) -> dict[tuple[int, i
             value = strings[index]
         elif kind == "inlineStr":
             value = "".join(n.text or "" for n in node.iter(_NS + "t"))
+        elif kind == "b":
+            value = "TRUE" if value.strip() == "1" else "FALSE"
+        elif kind == "e":
+            raise ExcelSyncError(
+                f"Worksheet cell {node.get('r')} in {path} holds the error value {value}; "
+                "correct the cell and save the workbook again."
+            )
         result[int(match[2]), _column(match[1])] = Cell(value, formula is not None)
     return result
 
@@ -472,8 +479,21 @@ def cancel_batch(path: Path) -> None:
     ----------
     path : Path
         The preview batch file :func:`preview_file` wrote.
+
+    Raises
+    ------
+    ExcelSyncError
+        If the preview is not pending: already cancelled (said so), applied or invalid.
     """
-    payload = _load_batch(path)
+    try:
+        payload = _load_batch(path)
+    except ExcelSyncError:
+        if json.loads(path.read_text(encoding="utf-8")).get("status") == "cancelled":
+            raise ExcelSyncError(
+                "Preview is already cancelled; there is nothing to cancel. To synchronize "
+                "again, create a new preview."
+            ) from None
+        raise
     payload["status"] = "cancelled"
     _replace(path, json.dumps(payload, ensure_ascii=False, indent=2).encode())
 
@@ -506,6 +526,9 @@ def apply_batch(path: Path) -> dict:
         raise ExcelSyncError("Workbook changed after Preview; save and preview again.")
     snapshot = read_snapshot(workbook)
     preview = preview_from_json(payload["preview"])
+    if not re.fullmatch(r"[0-9a-f]{32}", str(preview.token)):
+        # The token names a recovery folder; only one this package wrote builds that path.
+        raise ExcelSyncError("The preview's token is not one this package wrote; preview again.")
     fresh = preview_sync(
         preview.workspace, snapshot, direction=preview.direction, matrices=preview.selection
     )
