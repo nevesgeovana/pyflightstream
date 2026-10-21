@@ -74,6 +74,7 @@ from pathlib import Path
 import numpy as np
 
 import pyflightstream._textio as _textio
+from pyflightstream._digest import file_sha256
 from pyflightstream._tokens import MESH_FACES_COLUMN, POLAR_ID_COLUMN
 from pyflightstream.cases import SUPERFILE_FORMATS
 from pyflightstream.cases.matrix import (
@@ -1002,6 +1003,28 @@ SECTIONS_REPORT_PREFIX = "sections-"
 _SECTION_COUNT_KEY = "NUM_SECTIONS"
 
 
+def _script_section_counts(script: Path) -> list[int]:
+    """Read one count per section command, never borrowing from a later block."""
+    lines = script.read_text(encoding="utf-8", errors="replace").splitlines()
+    counts: list[int] = []
+    for index, line in enumerate(lines):
+        if line.strip() != SECTION_DISTRIBUTION_COMMAND:
+            continue
+        count = -1
+        for follow in lines[index + 1 : index + 9]:
+            head, _, value = follow.strip().partition(" ")
+            if head == SECTION_DISTRIBUTION_COMMAND:
+                break
+            if head == _SECTION_COUNT_KEY:
+                try:
+                    count = int(value)
+                except ValueError:
+                    pass
+                break
+        counts.append(count)
+    return counts
+
+
 def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> list[dict]:
     """Count what each recorded point DECLARED against what its script emitted.
 
@@ -1018,7 +1041,8 @@ def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> lis
     is read independently from the script, so a missing, extra or wrong block
     remains a disagreement.
 
-    A point whose script is not on disk is left OUT rather than counted as zero:
+    A point whose script is missing, has no recorded digest, or differs from
+    that digest is left OUT rather than counted as zero:
     the arm refuses an empty set, and a missing script is a gap in the evidence
     rather than a measurement of nothing.
     """
@@ -1064,22 +1088,13 @@ def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> lis
         script = root / "sims" / f"sim_{sim_id}" / stated
         if not script.is_file():
             continue
+        recorded_hash = record.get("script_sha256")
+        if not recorded_hash or file_sha256(script) != recorded_hash:
+            continue
         # WHAT THE SCRIPT ASKED FOR: the `NUM_SECTIONS` of every emitted block.
         # Blocks that disagree with each other report -1 rather than one of
         # them, so a disagreement can never be read as a match.
-        lines = script.read_text(encoding="utf-8", errors="replace").splitlines()
-        asked: list[int] = []
-        for index, line in enumerate(lines):
-            if line.strip() != SECTION_DISTRIBUTION_COMMAND:
-                continue
-            for follow in lines[index + 1 : index + 9]:
-                head, _, value = follow.strip().partition(" ")
-                if head == _SECTION_COUNT_KEY:
-                    try:
-                        asked.append(int(value))
-                    except ValueError:
-                        asked.append(-1)
-                    break
+        asked = _script_section_counts(script)
         emitted = sorted(asked)
         blocks = len(asked)
         cases.append(

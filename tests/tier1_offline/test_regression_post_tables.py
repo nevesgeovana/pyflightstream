@@ -873,6 +873,8 @@ def _post_1_superfile___script(*counts: int) -> str:
 def _post_1_superfile___measured(
     tmp_path, *counts: int, layout=None, pproc=_POST_1_SUPERFILE___PPROC
 ) -> dict:
+    import hashlib
+
     (tmp_path / "inputs" / "pproc").mkdir(parents=True)
     (tmp_path / "inputs" / "pproc" / "p001.toml").write_text(pproc, encoding="utf-8")
     (tmp_path / "sims" / "sim_1").mkdir(parents=True)
@@ -880,10 +882,51 @@ def _post_1_superfile___measured(
         _post_1_superfile___script(*counts), encoding="utf-8"
     )
     record = {"sim_id": "1", "pproc": "p001", "run_id": "camp/sim_1/P1", "script_path": "P1.txt"}
+    record["script_sha256"] = hashlib.sha256(
+        (tmp_path / "sims" / "sim_1" / "P1.txt").read_bytes()
+    ).hexdigest()
     if layout is not None:
         record["sections_layout"] = layout
     (case,) = measure_sections(tmp_path, [record])
     return case
+
+
+@pytest.mark.parametrize(
+    "digest", ["0" * 64, ""], ids=["P0430-F-482-changed", "P0430-F-482-absent"]
+)
+def test_p0430_sections_measurement_rejects_changed_script(tmp_path, digest):
+    _post_1_superfile___measured(tmp_path, 10)
+    record = {
+        "sim_id": "1",
+        "run_id": "point",
+        "script_path": "P1.txt",
+        "sections_layout": [{"count": 10}],
+        "script_sha256": digest,
+    }
+    assert measure_sections(tmp_path, [record]) == []
+
+
+@pytest.mark.parametrize((), [pytest.param(id="P0430-F-787")])
+def test_p0430_sections_count_cannot_cross_a_block_boundary(tmp_path):
+    import hashlib
+
+    _post_1_superfile___measured(tmp_path, 10, 10)
+    path = tmp_path / "sims" / "sim_1" / "P1.txt"
+    path.write_text(
+        "NEW_SURFACE_SECTION_DISTRIBUTION\nFRAME 1\n"
+        "NEW_SURFACE_SECTION_DISTRIBUTION\nFRAME 2\nNUM_SECTIONS 10\n",
+        encoding="utf-8",
+    )
+    record = {
+        "sim_id": "1",
+        "run_id": "point",
+        "script_path": "P1.txt",
+        "sections_layout": [{"count": 10}, {"count": 10}],
+        "script_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+    (case,) = measure_sections(tmp_path, [record])
+    assert case["emitted"] != case["expected"]
+    assert case["blocks"] == 2
 
 
 @pytest.mark.parametrize(
