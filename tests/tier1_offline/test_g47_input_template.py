@@ -1030,3 +1030,22 @@ def test_x_f1352_a_linked_job_file_at_the_top_of_a_batch_is_not_synced(tmp_path,
     monkeypatch.setattr(_batch_life, "is_reparse", lambda p: p == linked or real(p))
     found = _batch_life.batch_files(root, 3, set())
     assert plain in found and linked not in found
+
+
+@pytest.mark.parametrize("name", ["", "..", "."])
+def test_x_f1363_a_declared_output_that_is_not_a_file_name_is_refused(tmp_path, name):
+    from pyflightstream.workspace.fsi_external_setup import (
+        FsiExternalSetupError,
+        resolve_external_fsi,
+    )
+    from tests.tier1_offline.test_regression_fsi_integration import (
+        _GAPS_RT_FSIEXT__INPUT,
+        _gaps_rt_fsiext___inputs,
+    )
+
+    path = _gaps_rt_fsiext___inputs(
+        tmp_path,
+        _GAPS_RT_FSIEXT__INPUT.replace('outputs = ["struct_log.txt"]', f'outputs = ["{name}"]'),
+    )
+    with pytest.raises(FsiExternalSetupError, match="bare file name"):
+        resolve_external_fsi(path)
