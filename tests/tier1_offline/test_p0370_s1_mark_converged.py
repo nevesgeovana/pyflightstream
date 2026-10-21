@@ -131,7 +131,7 @@ def test_p0370_s1_each_refusal_names_the_point_and_writes_nothing(make, workspac
     before = workspace.manifest_path.read_bytes()
     argv = ["mark-converged", "--sims", sim, "--reason", REASON]
     code, said = pyfs(argv, workspace.root, capsys)
-    assert code == 0, said
+    assert code == 2, said  # X-F-1300: a preview that holds refusals exits as --apply does
     assert f"refused: {who}: " in said and why in said, said
     code, said = pyfs([*argv, "--apply"], workspace.root, capsys)
     assert code == 2, said
