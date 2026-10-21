@@ -291,6 +291,7 @@ def test_f1236_sync_does_not_relink_a_submitted_record_only_simulation(tmp_path)
     main, other = _sync_pair(tmp_path, "submitted")
     _linked_sim(other, "8010")
     _write(main.inputs_dir / "geometries" / "wing" / "wing.obj", "o wing\n")
+    _write(main.sim_dir("8010") / "scripts" / "point.fs", "script")  # main holds the folder
     other.append_record(_storage_record("8010", "camp/sim_8010/AL+000", status=RunStatus.SUBMITTED))
     (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
     assert entry["runs"]["submitted_sims_record_only"] == ["8010"]
