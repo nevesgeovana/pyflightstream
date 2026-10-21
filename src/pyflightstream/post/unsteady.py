@@ -1236,7 +1236,7 @@ def phase_locked_rows(
     ]
     rows: list[dict[str, object]] = []
     for step in final_revolution:
-        held = int(len(samples(float(step))))
+        fewest = int(len(samples(float(step))))
         row: dict[str, object] = {
             "AZIMUTH": blade_one_azimuth(
                 step,
@@ -1245,14 +1245,14 @@ def phase_locked_rows(
                 steps_per_revolution=per_revolution,
             ),
             "STEP": step,
-            "REVOLUTIONS": held,
+            "REVOLUTIONS": fewest,
         }
         for name in columns:
             values = series.fields.get(name)
             if values is None:
                 continue
             moments = samples(step - offset_of(name))
-            row["REVOLUTIONS"] = held = min(held, len(moments))
+            row["REVOLUTIONS"] = fewest = min(fewest, len(moments))
             if not len(moments):
                 row[name] = None
                 continue
