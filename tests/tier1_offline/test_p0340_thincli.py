@@ -427,11 +427,12 @@ def test_f_318_the_chord_ends_are_the_farthest_pair_of_the_loop(tmp_path):
 
 def test_f_319_distinct_stations_stay_distinct_in_the_obj_at_a_large_origin(tmp_path):
     """F2-0203 (FR-629): F-319, the OBJ text reads back as the same doubles."""
+    # RB4-03: at 1e14 the stations differ below the 15th significant digit, so the
+    # former 15-digit text wrote fewer distinct vertices (124 of 451, measured).
     vertices, faces = _blade()
-    scale = 1e-6
-    far = vertices * scale + numpy.asarray([0.0, 0.0, 1234567.0])
+    far = vertices + numpy.asarray([0.0, 0.0, 1e14])
     source = _write_obj(tmp_path / "blade.obj", far, faces)
-    grid = _thin_grid(source, 0.05 * scale).reshape(-1, 3)
+    grid = _thin_grid(source, 0.05).reshape(-1, 3)
     assert len({tuple(row) for row in grid.tolist()}) == len(grid)
 
 
