@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-21T00:00:00+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [tests/tier1_offline/test_repository_guards.py]
+# authority: geoverse-goddess-control-plane
+# status: active
+# confidentiality: public
+# change_summary: Run the GOAL-056 lean repository guard on the Linux tier-1 leg.
+# revision_source: git
+# GEOVERSE_HEADER_END
 # Tier 1 CI: everything here runs without FlightStream (no license in the
 # cloud). Tier 2 (command validity probes) and Tier 3 (physics regression)
 # run on a licensed local machine and commit their evidence under reports/.
@@ -60,6 +71,9 @@ jobs:
         run: ruff format --check .
       - name: Tier 1 tests
         run: pytest -n auto
+      - name: Lean repository caps
+        if: runner.os == 'Linux'
+        run: pytest tests/tier1_offline/test_repository_guards.py::test_repository_lean_caps
       - name: Nested pytest runs, fully traced
         # FR-399. tests/tier1_offline/test_examples.py starts pytest inside
         # pytest, and on Windows that inner run once died in "ERROR

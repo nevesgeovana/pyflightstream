@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-21T00:00:00+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [git, pytest]
+# authority: geoverse-goddess-control-plane
+# status: active
+# confidentiality: public
+# change_summary: Enforce the fixed GOAL-056 tracked repository caps with controls.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
@@ -6,6 +17,8 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Iterable
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -20,6 +33,101 @@ SHIPPED_SURFACE_CONFIG = TOOLS / "shipped_surface.conf"
 
 
 TESTS_UNGUARDED_SPAWNS = 5
+
+
+LEAN_CAPS = {
+    "tracked_files": 2016,
+    "reports_files": 91,
+    "reports_lines": 138107,
+    "tests_files": 1147,
+    "tests_lines": 389553,
+}
+
+
+def _assert_lean_caps(files: Iterable[tuple[bytes, bytes]]) -> dict[str, int]:
+    """Count tracked paths and literal LF bytes, then report every exceeded cap."""
+    measured = dict.fromkeys(LEAN_CAPS, 0)
+    for path, blob in files:
+        measured["tracked_files"] += 1
+        for folder in ("reports", "tests"):
+            if path.startswith(folder.encode() + b"/"):
+                measured[f"{folder}_files"] += 1
+                measured[f"{folder}_lines"] += blob.count(b"\n")
+    exceeded = [
+        f"{key}: measured {measured[key]}, cap {cap}"
+        for key, cap in LEAN_CAPS.items()
+        if measured[key] > cap
+    ]
+    assert not exceeded, "Lean repository caps exceeded:\n" + "\n".join(exceeded)
+    return measured
+
+
+@pytest.mark.pkg_guards
+def test_repository_lean_caps() -> None:
+    """Keep the tracked index within the fixed GOAL-056 repository budgets."""
+    if not (REPO / ".git").exists():
+        pytest.skip("Lean repository caps require a git checkout, not an installed wheel")
+
+    def git(*args: str, data: bytes | None = None) -> bytes:
+        return subprocess.run(
+            ["git", "-C", str(REPO), *args],
+            input=data,
+            capture_output=True,
+            check=True,
+            env=os.environ.copy(),
+        ).stdout
+
+    paths = git("ls-files", "-z").split(b"\0")[:-1]
+    selected = [path for path in paths if path.startswith((b"reports/", b"tests/"))]
+    # NUL-delimited input handles even tracked names containing newlines.
+    blobs = BytesIO(
+        git("cat-file", "--batch", "-z", data=b"".join(b":" + p + b"\0" for p in selected))
+    )
+
+    def files() -> Iterable[tuple[bytes, bytes]]:
+        for path in paths:
+            blob = b""
+            if path.startswith((b"reports/", b"tests/")):
+                header = blobs.readline().split()
+                assert len(header) == 3 and header[1] == b"blob", header
+                size = int(header[2])
+                blob = blobs.read(size)
+                assert len(blob) == size and blobs.read(1) == b"\n", path
+            yield path, blob
+
+    _assert_lean_caps(files())
+
+
+@pytest.mark.pkg_guards
+def test_repository_lean_caps_control() -> None:
+    """Accept every exact boundary and reject each excess, including all at once."""
+
+    def listing(counts: dict[str, int]) -> list[tuple[bytes, bytes]]:
+        files = []
+        for folder in ("reports", "tests"):
+            for index in range(counts[f"{folder}_files"]):
+                # CR and an unterminated tail are not lines; binary LF bytes are.
+                blob = b"\x00\r\n" * counts[f"{folder}_lines"] if index == 0 else b""
+                files.append((f"{folder}/{index}".encode(), blob + b"tail\r"))
+        files.extend(
+            (f"src/{index}".encode(), b"ignored\n")
+            for index in range(counts["tracked_files"] - len(files))
+        )
+        return files
+
+    assert _assert_lean_caps(listing(LEAN_CAPS)) == LEAN_CAPS
+    for key, cap in LEAN_CAPS.items():
+        over = {**LEAN_CAPS, key: cap + 1}
+        with pytest.raises(AssertionError) as caught:
+            _assert_lean_caps(listing(over))
+        assert f"{key}: measured {cap + 1}, cap {cap}" in str(caught.value)
+        assert all(
+            f"{other}: measured" not in str(caught.value) for other in LEAN_CAPS if other != key
+        )
+    with pytest.raises(AssertionError) as caught:
+        _assert_lean_caps(listing({key: cap + 1 for key, cap in LEAN_CAPS.items()}))
+    for key, cap in LEAN_CAPS.items():
+        assert f"{key}: measured {cap + 1}, cap {cap}" in str(caught.value)
 
 
 def _run(*argv: str) -> subprocess.CompletedProcess[str]:
