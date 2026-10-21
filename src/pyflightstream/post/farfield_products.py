@@ -846,9 +846,20 @@ def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
 
 
 def _instant_values(
-    ctx: SimContext, point: PolarPoint, instant: _Instant, probe: _Probe, analyses: Sequence[str]
+    ctx: SimContext,
+    point: PolarPoint,
+    instant: _Instant,
+    probe: _Probe,
+    analyses: Sequence[str],
+    *,
+    final: bool = True,
 ) -> dict[str, Any]:
-    """Return the C values and the ledger rows of one instant, keyed by analysis."""
+    """Return the C values and the ledger rows of one instant, keyed by analysis.
+
+    The near-field force the spurious counts are stated against is the point's
+    final one; an instant that is not the final step has no near-field force
+    of its own here, so its counts are ``NA`` (never the final step's force).
+    """
     rho, speed, alpha, beta = _flow(point)
     q_ref = _q_ref(point, rho)
     layout = probe.layout
@@ -882,6 +893,8 @@ def _instant_values(
     if "ledgers" in analyses:
         near = (
             -float(point.loads.total.get(f"C{axis.lower()}", _NA)) * q_ref * ctx.reference.sref_m2
+            if final
+            else _NA
         )
         out["ledgers"] = ledger_values(
             fields, _ledgers(ctx), rho=rho, speed=speed, near=(near, ctx.reference.sref_m2)
@@ -955,7 +968,9 @@ def _probe_point(ctx: SimContext, point: PolarPoint, analyses: Sequence[str], ta
             if normal:
                 last = replace(last, step=_last_step(record))
         sets = [(last, _instant_values(ctx, point, last, probe, analyses))]
-        averaged = [(i, _instant_values(ctx, point, i, probe, analyses)) for i in chosen]
+        averaged = [
+            (i, _instant_values(ctx, point, i, probe, analyses, final=i is last)) for i in chosen
+        ]
     except PyflightstreamError as error:
         _skip(ctx, key, point.name, f"the far-field probes cannot be read: {error}")
         return
