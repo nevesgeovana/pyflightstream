@@ -725,7 +725,15 @@ def _recorded_rotor_rpm(record: RunRecord, alias: str, rotor_count: int) -> floa
     stated = reductions.get("rotors")
     rpm: float | None = None
     if isinstance(stated, Mapping):
-        block = stated.get(str(alias))
+        # The clock lookup of the window folds case; the speed lookup does the same.
+        block = next(
+            (
+                value
+                for key, value in stated.items()
+                if str(key).casefold() == str(alias).casefold()
+            ),
+            None,
+        )
         if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
             rpm = float(block["rpm"])
     flat = reductions.get(FLAT_RPM_KEY)
@@ -827,7 +835,12 @@ def _rotor_row_surfaces(
                 )
             )
             return None
-        ctx.sources_read[str(alias)] = str(read_from)
+        # A table of points read from different plot groups names every one of
+        # them, in the order met, instead of the last point's alone.
+        seen = [g for g in ctx.sources_read.get(str(alias), "").split(", ") if g]
+        if str(read_from) not in seen:
+            seen.append(str(read_from))
+        ctx.sources_read[str(alias)] = ", ".join(seen)
         families = list(getattr(rotor, "families_blades", None) or [])
         if averaged_surfaces and families:
             # ONE SYNTHETIC SURFACE CARRYING THE WHOLE GROUP, UNDER THE

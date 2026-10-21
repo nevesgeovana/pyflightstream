@@ -175,3 +175,41 @@ def test_f131_a_rotor_with_no_clock_keeps_the_row_window():
     ctx = _span_ctx({"LAST_REVS_AVG": "2"}, reductions, rotors=("R", "S"))
     assert _rotor_span_or_reason(ctx, "p", "S") == ((1, 100), None)
     assert _rotor_span_or_reason(ctx, "p", "R") == ((81, 100), None)
+
+
+def test_f489_a_mixed_source_rotor_table_names_every_history_group(monkeypatch):
+    """F-489: the second point's group does not erase the first point's from the manifest."""
+    from pyflightstream.post import _rotor_plan as module
+
+    groups = {"A": "HUB_ONE", "B": "HUB_TWO", "C": "HUB_ONE"}
+    newtons = {name: 1.0 for name in ("FX", "FY", "FZ", "MX", "MY", "MZ")}
+    monkeypatch.setattr(
+        module,
+        "_averaged_rotor_newtons",
+        lambda ctx, point, alias, carried: (newtons, "", groups[point.name]),
+    )
+    monkeypatch.setattr(
+        module, "_rotor_coefficients_from_newtons", lambda *args, **kwargs: {"S": {"CL": 1.0}}
+    )
+    ctx = SimpleNamespace(
+        sources_read={},
+        windows={},
+        window=(1, 2),
+        reference=None,
+        aliases={},
+    )
+    rotor = SimpleNamespace(families_blades=["Blade1"])
+    for name in ("A", "B", "C"):
+        point = SimpleNamespace(name=name, loads=None)
+        module._rotor_row_surfaces(
+            ctx, point, "HUB", rotor, density=1.2, speed=10.0, quasi=None, run_id="r", left_out=[]
+        )
+    assert ctx.sources_read == {"HUB": "HUB_ONE, HUB_TWO"}
+
+
+def test_f1372_the_recorded_rpm_lookup_folds_case_like_the_clock_lookup():
+    """F-1372: a block recorded as ``Hub`` serves the alias ``HUB``."""
+    from pyflightstream.post._rotor_plan import _recorded_rotor_rpm
+
+    record = SimpleNamespace(reductions={"rotors": {"Hub": {"rpm": 1200.0}}})
+    assert _recorded_rotor_rpm(record, "HUB", 1) == 1200.0
