@@ -414,6 +414,20 @@ def test_p0430_station_alignment_uses_each_block_scale(tmp_path):
     assert len(result.misaligned) == 2
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_p0430_nonfinite_clocking_thrust_is_unknown(value):
+    state = post_qsteady.rotor_state(
+        _record(1200),
+        [post_qsteady.Clocking(0, 0, (0,) * 6 + (value, 0))],
+        density_kg_m3=1.2,
+        velocity_m_s=10,
+        alpha_deg=0,
+        beta_deg=0,
+    )
+    assert all(value is None for value in state.values.values())
+    assert state.notes
+
+
 def test_p0430_empty_clocking_sections_is_named(tmp_path):
     record = _record(1200)
     table = tmp_path / "sections.csv"

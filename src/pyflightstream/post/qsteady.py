@@ -1348,7 +1348,7 @@ def load_columns(record: QsteadyRecord) -> tuple[str, ...]:
 
 
 def _mean(values: Sequence[float | None]) -> float | None:
-    known = [value for value in values if value is not None]
+    known = [value for value in values if value is not None and math.isfinite(value)]
     if len(known) != len(values) or not known:
         return None
     return sum(known) / len(known)
