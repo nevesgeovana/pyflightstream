@@ -649,9 +649,13 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
     if (
         EXPANDING_FRAMES.get(probes.frame.strip().upper()) is None
         and _ROTOR_FRAME_SPELLING.search(probes.frame.strip().upper()) is not None
-        # ONLY A FRAME OF A ROTOR THE REFERENCE DECLARES is left out; a rotor-shaped
-        # name no declared rotor owns is refused below by `_pproc_frame`.
-        and _the_rotor_whose_frame_this_is(case, probes.frame) is not None
+        # ONLY A FRAME OF A ROTOR THE REFERENCE DECLARES, or of the unnamed default
+        # rotor (ROTOR, ROTOR<k>), is left out; any other rotor-shaped name no
+        # declared rotor owns is refused below by `_pproc_frame`.
+        and (
+            _the_rotor_whose_frame_this_is(case, probes.frame) is not None
+            or _UNNAMED_ROTOR_FRAME.match(probes.frame.strip().upper()) is not None
+        )
         and frames.get(probes.frame) is None
     ):
         warn(
@@ -878,6 +882,9 @@ def _in_the_reference_frame(
 #: _the_rotor_whose_frame_this_is composing each rotor's names: a custom
 #: frame may share a rotor prefix without belonging to that rotor.
 _ROTOR_FRAME_SPELLING = re.compile(r"_(SMRP|RMRP\d*)$")
+
+#: The frames of the unnamed default rotor, which no reference declares.
+_UNNAMED_ROTOR_FRAME = re.compile(r"ROTOR\d*_(SMRP|RMRP\d*)$")
 
 
 def _the_probe_frame(case: SimCase, stated: str) -> str:
