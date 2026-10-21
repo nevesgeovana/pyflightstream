@@ -70,6 +70,25 @@ def test_p0430_f7_04_attitude_sweep_documents_cold_default():
     assert "one warm job it has always been" not in paragraph
 
 
+def test_p0430_f7_04_getting_started_declares_checkout_and_standalone_history(
+    monkeypatch, tmp_path
+):
+    """A wheel user can run the history example without repository fixtures."""
+    page = (REPO / "docs/getting-started.md").read_text(encoding="utf-8")
+    section = page.split("## Your first workspace, step by step", 1)[1]
+    preface = section.split("### The four kinds", 1)[0]
+    assert "not included in the wheel" in preface
+    assert "git clone" in preface and "cd pyflightstream" in preface
+    section = page.split("### Time-resolved history", 1)[1]
+    block = re.search(r"```python\n(.*?)```", section, re.S)
+    assert block is not None
+    monkeypatch.chdir(tmp_path)
+    namespace = {}
+    exec(compile(block[1], "getting-started.md", "exec"), namespace)
+    assert namespace["report"].steps == 4
+    assert namespace["report"].series("CL_G1")[-1] == 0.082
+
+
 def historical_requirements():
     """Read the frozen migration population through the shared table parser."""
     from scripts._requirements_paths import requirement_rows

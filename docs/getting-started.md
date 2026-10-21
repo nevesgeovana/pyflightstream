@@ -178,9 +178,19 @@ the one the vendor sells them under.
 
 ## Your first workspace, step by step
 
-This section assumes nothing. If you have never used this package, start
-here and copy the files it names; they are real files in this repository,
-not sketches, and every one of them is rendered by a test on every commit.
+This walkthrough uses repository examples that are not included in the wheel
+installed by `pip`. Obtain a checkout before following the `tests/` paths below:
+
+```text
+git clone https://github.com/nevesgeovana/pyflightstream.git
+cd pyflightstream
+```
+
+Select the release tag matching your installed package, such as `v0.42.0`
+for package version 0.42.0. Repository paths below are relative to that checkout
+root. The [solver-free first success](#first-success-without-a-solver) above
+works with just the installed package. For your own study, supply your own
+geometry and follow the input guidance created by workspace initialization.
 
 ### The four kinds of file, and why there are four
 
@@ -496,16 +506,21 @@ the run defined.
 ```python
 from pyflightstream.results import parse_unsteady_plots
 
-from pathlib import Path
-
-export = Path("tests/tier1_offline/fixtures/s10_26125/plots_26.125.txt").read_text(encoding="utf-8")
+# Synthetic data demonstrating the table format; no repository files are needed.
+export = """Time-step,CL_G1
+1,0.004
+2,0.054
+3,0.068
+4,0.082
+"""
 report = parse_unsteady_plots(export)
 assert report.steps == 4
 assert report.series("CL_G1")[-1] == 0.082
 ```
 
-The example reads the recorded export above. Its four rows are time steps,
-and `CL_G1` is the lift coefficient column named in its header.
+The synthetic example has four time steps, and `CL_G1` is the lift coefficient
+column named in its header. For a real run, pass the text read from your own
+unsteady plots export to `parse_unsteady_plots`.
 
 ## Where to go next
 
