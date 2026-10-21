@@ -965,10 +965,21 @@ def rebuild(
     matrix = None if matrix is None else matrix_path(base, matrix)
     target = _refuse_before_any_work(base, out, all_sims, sims, matrix, inputs_from)
     lock = base / (DEFAULT_MANIFEST + ".lock")
+    lock_note = None
     if lock.exists():
-        raise RecordsError(
-            f"rebuild: {lock.name} is present, so a run is writing runs.json; try again when "
-            "it ends. Nothing was read or written."
+        remedy = (
+            f"if no run is writing (a run that was killed leaves it behind), delete {lock} "
+            "and run the rebuild again"
+        )
+        if apply:
+            raise RecordsError(
+                f"rebuild: {lock.name} is present, so a run may be writing runs.json; try again "
+                f"when it ends, or {remedy}. Nothing was read or written."
+            )
+        # X-F-1294: a preview writes nothing, so a lock does not stop it; it is said.
+        lock_note = (
+            f"{lock.name} is present, so a run may be writing runs.json and this preview may "
+            f"read it half-written; applying is refused while it stays. To apply, {remedy}."
         )
     if not (base / "sims").is_dir():
         raise RecordsError(f"rebuild: {base} holds no sims/ folder; run it at the workspace root")
@@ -985,6 +996,8 @@ def rebuild(
     folders, zipped = _on_disk(base)
     out_come = _Outcome()
     notes = out_come.notes
+    if lock_note:
+        notes.append(lock_note)
     if all_sims:
         wanted = sorted((folders | zipped) - retired)
     elif sims:

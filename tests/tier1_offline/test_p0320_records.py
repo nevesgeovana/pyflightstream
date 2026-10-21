@@ -884,3 +884,16 @@ def test_f606_a_rebuilt_record_never_states_the_digest_of_the_executable_that_ra
     assert rebuilt["fs_exe_sha256"] is None
     said = " ".join(rebuilt["warnings"])
     assert "not recoverable" in said and "fs_exe_sha256" in said
+
+
+def test_x_f_1294_a_lock_stops_the_apply_and_says_how_to_clear_it(tmp_path, monkeypatch):
+    """X-F-1294: a preview writes nothing, so it goes on and says it; the apply names the remedy."""
+    workspace, _matrix_path, _original = _local_campaign(tmp_path, monkeypatch)
+    _lose_the_manifest(workspace)
+    (workspace.root / "runs.json.lock").write_text("", encoding="utf-8")
+    preview = records.rebuild(workspace.root)
+    assert preview["applied"] is False and preview["records"]
+    assert any("runs.json.lock" in note and "delete" in note for note in preview["notes"])
+    with pytest.raises(records.RecordsError, match=r"runs\.json\.lock.*delete"):
+        records.rebuild(workspace.root, apply=True)
+    assert not workspace.manifest_path.exists()
