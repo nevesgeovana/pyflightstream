@@ -193,3 +193,38 @@ def test_the_equation_guide_covers_renaming_and_says_it_archives_first(tmp_path)
     assert "Upgrading page" in text
     assert "rename_group_products" not in text
     assert "ARCHIVES" not in text
+
+
+def test_pfs_2116_009_template_equations_resolve_against_the_template_plot_columns():
+    """The example equation reads columns the example's own plotted group writes."""
+    import re
+    import tomllib
+
+    from pyflightstream.post.equations import resolve_symbol
+    from pyflightstream.post.input_template import input_template_markdown
+
+    block = re.search(
+        r'^```toml title="inputs/pproc/p001.toml"\n(?P<body>.*?)^```$',
+        input_template_markdown(),
+        re.MULTILINE | re.DOTALL,
+    )
+    assert block is not None
+    spec = tomllib.loads(block["body"])
+    plotted = [
+        f"{parameter}_{group['name']}"
+        for group in spec["plots"]["groups"]
+        for parameter in spec["plots"]["parameters"]
+    ]
+    columns = [*plotted, "RHO", "VINF", "SREF"]
+    for equation in spec["equations"].values():
+        symbols = re.findall(r"[A-Z][A-Z0-9_]*", equation["expression"])
+        for symbol in symbols:
+            assert (
+                resolve_symbol(
+                    symbol,
+                    alias=equation["meshes_alias"],
+                    frame=equation.get("frame"),
+                    columns=columns,
+                )
+                is not None
+            ), (symbol, columns)

@@ -340,6 +340,34 @@ def write_recorded_probe_fields(
         identity, unit conversion or frame is invalid, a native proof or frame
         trajectory is missing, or two outputs would share a name.
     """
+    written = _write_recorded_probe_fields(
+        table, record, directory, point_name, prepare=prepare, step_source=step_source
+    )
+    return [path for path, _caveats in written]
+
+
+def _caveats_of(layout):
+    """Return the conventions one field borrowed from another build, by name (FR-153)."""
+    caveats = {}
+    motion = layout.get("frame_motion")
+    timing = ((motion or {}).get("proof") or {}).get("timing") or {}
+    for name, proof in (
+        ("velocity_convention", layout.get("velocity_convention") or {}),
+        ("rotation_timing", timing),
+    ):
+        if proof.get("proven") is False:
+            caveats[name] = {key: proof[key] for key in _UNPROVEN_KEYS}
+    return caveats
+
+
+def _write_recorded_probe_fields(
+    table, record, directory, point_name, *, prepare=None, step_source=None
+):
+    """Write the fields of :func:`write_recorded_probe_fields`; return ``(path, caveats)`` pairs.
+
+    The caveats are the unproven conventions of the file's own layout, so the
+    manifest entry is built from what the writer resolved and no second lookup.
+    """
     import csv
 
     from pyflightstream.script.solver_setup import SolverSetup
@@ -490,8 +518,10 @@ def write_recorded_probe_fields(
     written = []
     Path(directory).mkdir(parents=True, exist_ok=True)
     for stem, points, velocity, layout, step in jobs:
+        caveats = _caveats_of(layout)
         written.extend(
-            write_probe_field(
+            (path, dict(caveats))
+            for path in write_probe_field(
                 stem,
                 points,
                 velocity,
@@ -531,28 +561,15 @@ def point_field_products(table, record, out, point_name, *, prepare=None, step_s
         with ``proven`` False, and ``rotation_timing`` likewise where a rotating
         sampling frame's timing was. Such a point warns once, naming both builds.
     """
-    paths = write_recorded_probe_fields(
+    written = _write_recorded_probe_fields(
         table, record, Path(out) / "fields", point_name, prepare=prepare, step_source=step_source
     )
     caveats: dict[str, dict[str, object]] = {}
-    identity = {key: getattr(record, key, None) for key in ("fs_exe_sha256", "fs_build")}
-    motions = getattr(record, "frame_motions", None) or {}
-    for layout in record.probe_field_layout:
-        reference = layout.get("coordinate_source") == "native-export-reference"
-        motion = motions.get(1 if reference else layout.get("frame_index"))
-        if layout.get("export_kind") and motion is not None:
-            velocity = native_velocity_proof(
-                motion, solver_identity=identity, export_kind=layout["export_kind"]
-            )
-            resolved = resolve_frame_motion(motion, solver_identity=identity)
-            timing = (resolved.get("proof") or {}).get("timing") or {}
-            for name, proof in (("velocity_convention", velocity), ("rotation_timing", timing)):
-                if proof.get("proven") is False:
-                    caveats[name] = {key: proof[key] for key in _UNPROVEN_KEYS}
-    if caveats and paths:
+    for _path, own in written:
+        caveats.update(own)
+    if caveats:
         warn(_unproven_warning(point_name, caveats), PyflightstreamWarning, stacklevel=2)
-    entry = {"kind": "probe-field", **caveats}
-    return {path: dict(entry) for path in paths}
+    return {path: {"kind": "probe-field", **own} for path, own in written}
 
 
 #: What a field's manifest entry records of a convention it borrowed (FR-153).

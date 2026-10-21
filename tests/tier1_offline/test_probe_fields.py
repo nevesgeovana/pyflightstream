@@ -1083,3 +1083,19 @@ def test_f4_0304_one_absent_point_set_keeps_the_other_analysis(monkeypatch):
         )
     assert out == {"plane": {"L": 1.0}}
     assert any("lattice" in why for why in ctx.skipped.values()), ctx.skipped
+
+
+def test_pfs_2124_031_each_file_carries_the_conventions_its_own_layout_borrowed():
+    """The writer states each file's unproven conventions; no second lookup rebuilds them."""
+    from pyflightstream.post.probe_fields import _caveats_of
+
+    unproven = {"proven": False, "measured_on_build": 1, "run_build": 2}
+    borrowed = {
+        "velocity_convention": unproven,
+        "frame_motion": {"proof": {"timing": {"proven": True}}},
+    }
+    assert _caveats_of(borrowed) == {"velocity_convention": unproven}
+    assert _caveats_of({"velocity_convention": {"proven": True}}) == {}
+    assert _caveats_of({}) == {}
+    timing = {"frame_motion": {"proof": {"timing": unproven}}}
+    assert _caveats_of(timing) == {"rotation_timing": unproven}

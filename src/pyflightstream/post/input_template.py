@@ -319,11 +319,10 @@ last_revolutions_avg = 2.0
 [equations.CX]
 expression = "FX / (0.5 * RHO * VINF**2 * SREF)"
 meshes_alias = "WING"
-frame = "MRP"
 
 # What your own symbols mean, listed in pproc/VARIABLES.md beside the package's.
 [glossary]
-CX = "-. The axial force coefficient of the wing, in the MRP frame"
+CX = "-. The axial force coefficient of the wing"
 
 # A plot column of the unsteady polar renamed for a downstream tool.
 [names]
@@ -1078,6 +1077,12 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                 "`[time_averaging]`": MappingProxyType(
                     {
                         "the table is left out, for the reason above": ("last_revs", "last_iters"),
+                    }
+                ),
+                "`[equations.<NAME>]`": MappingProxyType(
+                    {
+                        "a frame reads a column that names it, as the polar tables do; "
+                        "the plot columns of the example name none": ("frame",),
                     }
                 ),
                 "`[volume_section]`": MappingProxyType(
