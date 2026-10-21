@@ -204,8 +204,13 @@ def saved_action_warning(geometry: Path, shown: str, rows: Iterable[str] = ()) -
         f"the file: {listed}. A saved action keeps its name when the script creates one of "
         "the same name, and the solver runs the saved command (an interpreter path of "
         "another machine aborts the unsteady run when it fires). Remove them with: "
-        f"pyfs-matrix inventory {shown} --clean"
+        f"pyfs-matrix inventory {_quoted(shown)} --clean"
     )
+
+
+def _quoted(path: str) -> str:
+    """Quote a path that holds whitespace, so the copied command keeps it as one argument."""
+    return f'"{path}"' if any(ch.isspace() for ch in path) else path
 
 
 def warn_saved_actions_of_unsteady_rows(cases: Iterable[object], workflow_key: str) -> None:

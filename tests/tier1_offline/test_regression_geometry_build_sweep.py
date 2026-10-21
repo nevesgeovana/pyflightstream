@@ -4257,3 +4257,16 @@ def test_x_f1090_an_unreadable_saved_mesh_raises_the_build_error(tmp_path, monke
     monkeypatch.setattr(build, "mesh_face_counts", _boom)
     with pytest.raises(build.GeometryBuildError, match="face counts and unit"):
         build._read_back(variant, fsm)
+
+
+def test_f1594_the_cleanup_command_quotes_a_path_with_spaces(monkeypatch):
+    from pyflightstream.workspace import _geometry_clean
+
+    monkeypatch.setattr(
+        _geometry_clean, "saved_solver_actions", lambda path: [("act", "python x", "kind")]
+    )
+    shown = "C:\\my files\\wing.fsm"
+    text = _geometry_clean.saved_action_warning(Path(shown), shown, [])
+    assert f'pyfs-matrix inventory "{shown}" --clean' in text
+    plain = _geometry_clean.saved_action_warning(Path("wing.fsm"), "wing.fsm", [])
+    assert "pyfs-matrix inventory wing.fsm --clean" in plain
