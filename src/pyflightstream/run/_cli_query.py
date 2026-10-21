@@ -263,16 +263,17 @@ def _headings(columns: Sequence[str]) -> list[str]:
     return [_HEADINGS.get(column, column.upper()) for column in columns]
 
 
-def _cell(value: object) -> str:
+def _cell(value: object, *, exact: bool = False) -> str:
+    """Return one cell; a float shows six significant digits, a CSV cell keeps them all (F-264)."""
     if value is None:
         return ""
     if isinstance(value, float):
-        return f"{value:.6g}"
+        return repr(value) if exact else f"{value:.6g}"
     return str(value)
 
 
-def _cells(row: Mapping[str, object], columns: Sequence[str]) -> list[str]:
-    return [_cell(row.get(column)) for column in columns]
+def _cells(row: Mapping[str, object], columns: Sequence[str], *, exact: bool = False) -> list[str]:
+    return [_cell(row.get(column), exact=exact) for column in columns]
 
 
 def _csv_text(rows: Sequence[Mapping[str, object]], columns: Sequence[str]) -> str:
@@ -281,7 +282,7 @@ def _csv_text(rows: Sequence[Mapping[str, object]], columns: Sequence[str]) -> s
     writer = _textio.csv_writer(buffer)
     writer.writerow(columns)
     for row in rows:
-        writer.writerow(_cells(row, columns))
+        writer.writerow(_cells(row, columns, exact=True))
     return buffer.getvalue()
 
 

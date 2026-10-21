@@ -21,6 +21,7 @@ from pyflightstream.run._alias import alias_lines, planned_in_workspace
 
 # Re-exported through this public import path.
 from pyflightstream.run._alias import planned_from_plan_files as planned_from_plan_files
+from pyflightstream.run._ids import _add_sim_ids
 from pyflightstream.workspace.ledger import (
     Ledger,
     listed_sims,
@@ -54,7 +55,7 @@ def _add_parsers(subparsers: Any) -> None:
     source = log.add_mutually_exclusive_group()
     source.add_argument("--post", metavar="MATRIX", help="group a matrix's saved post warnings")
     source.add_argument("--storage", action="store_true", help="list the recorded storage calls")
-    log.add_argument("--sims", help="only these simulation ids, comma or blank separated")
+    _add_sim_ids(log, help="Only these simulation ids.")
     log.add_argument("--run", help="only events naming this run id or alias")
     log.add_argument("--stage", help="only this recorded stage (storage: command)")
     log.add_argument("--since", help="events since an ISO time or duration, e.g. 2h, 7d")

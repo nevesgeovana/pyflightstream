@@ -591,3 +591,19 @@ def test_f6_0102_rewriting_a_point_script_keeps_the_replaced_bytes(tmp_path):
     kept = list((first.parent / "archive").glob("p.*.txt"))
     assert [path.read_bytes() for path in kept] == [old_bytes]
     assert hashlib.sha256(old_bytes).hexdigest() == first_sha
+
+
+def test_f264_status_csv_keeps_every_digit_of_a_float():
+    # Verifies F-264: the CSV is data, only the printed table rounds to six digits.
+    from pyflightstream.run._cli_query import _csv_text
+
+    text = _csv_text([{"cl": 0.123456789012}], ["cl"])
+    assert text.splitlines() == ["cl", "0.123456789012"]
+
+
+def test_f1568_log_sims_takes_blank_separated_words():
+    # Verifies F-1568: log --sims 2006 2007 is the spelling its help promises.
+    from pyflightstream.run.cli import _build_parser
+
+    args = _build_parser().parse_args(["log", "--sims", "2006", "2007"])
+    assert args.sims == ["2006", "2007"]
