@@ -98,6 +98,31 @@ def test_p0430_duplicate_spoke_is_not_azimuthal_coverage():
     assert arithmetic.azimuthal_variation(rows, hub=(0, 0, 0), axis=(1, 0, 0)) is not None
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0430-F-056")])
+def test_p0430_negative_rotation_samples_in_its_own_sense():
+    rows = [
+        (0, math.sin(angle), math.cos(angle), 5 + math.sin(angle), 0, 0)
+        for angle in (2 * math.pi * i / 36 for i in range(36))
+    ]
+    positive, _ = arithmetic.blade_inflow_angles(
+        rows,
+        hub=(0, 0, 0),
+        axis=(1, 0, 0),
+        omega_rad_s=10,
+        radius_m=1,
+        samples=36,
+    )
+    negative, _ = arithmetic.blade_inflow_angles(
+        rows,
+        hub=(0, 0, 0),
+        axis=(1, 0, 0),
+        omega_rad_s=-10,
+        radius_m=1,
+        samples=36,
+    )
+    assert negative.tolist() == pytest.approx([positive[0], *positive[:0:-1]])
+
+
 @pytest.mark.parametrize("count", [0, -1, 1.5, True, "2"])
 def test_p0420_blade_stations_refuses_invalid_count(count):
     """The band count is an integer of at least one, before any geometry work."""

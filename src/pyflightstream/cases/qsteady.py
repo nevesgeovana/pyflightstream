@@ -1560,8 +1560,8 @@ def blade_inflow_angles(
     import numpy as np
 
     plane, velocities, (n, e1, e2) = _field_sampler(rows, hub=hub, axis=axis)
-    psi = 2.0 * np.pi * np.arange(samples) / samples
     sense = 1.0 if omega_rad_s >= 0.0 else -1.0
+    psi = sense * 2.0 * np.pi * np.arange(samples) / samples
     points = np.column_stack((radius_m * np.cos(psi), radius_m * np.sin(psi)))
     v = _sample_velocities(plane, velocities, points)
     e_r = np.outer(np.cos(psi), e1) + np.outer(np.sin(psi), e2)
