@@ -385,3 +385,13 @@ def test_f1408_a_vtk_field_name_with_whitespace_is_refused(tmp_path):
     assert not (tmp_path / "a.vtk").exists()
     write_vtk_points(tmp_path / "b.vtk", POINTS, {"cp_mean": FIELDS["cp"]}, provenance=provenance)
     assert "SCALARS cp_mean float 1" in (tmp_path / "b.vtk").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(("writer", "suffix"), WRITERS)
+def test_f_1411_an_empty_point_set_is_refused_by_the_writer_as_by_the_reader(
+    writer, suffix, tmp_path
+):
+    """The writer no longer accepts a file the reader would refuse."""
+    with pytest.raises(ValueError, match="no probe"):
+        writer(tmp_path / f"empty{suffix}", np.zeros((0, 3)), provenance=make_provenance())
+    assert not list(tmp_path.iterdir())

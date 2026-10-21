@@ -346,6 +346,9 @@ def _checked(points: np.ndarray, fields: Mapping[str, np.ndarray] | None):
     if points.ndim != 2 or points.shape[1] != 3:
         raise ValueError(f"points must have shape (n, 3), got {points.shape}")
     _refuse_non_finite("points", points)
+
+    if len(points) == 0:
+        raise ProductError("points holds no probe; the reader refuses a file with no point")
     checked: dict[str, np.ndarray] = {}
     for name, values in (fields or {}).items():
         _refuse_a_token("field name", str(name))
