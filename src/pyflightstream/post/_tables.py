@@ -495,7 +495,15 @@ def renamed_columns(
             "already carries a column of that name. Choose another name. No column was "
             "renamed."
         )
-    return tuple(names.get(name, name) for name in columns)
+    renamed = tuple(names.get(name, name) for name in columns)
+    doubled = sorted({name for name in renamed if renamed.count(name) > 1})
+    if doubled:
+        raise ProductError(
+            f"{where}: the pproc's [names] table gives two columns the name "
+            f"{', '.join(doubled)}, and a value would be lost on reading. Choose different "
+            "names. No column was renamed."
+        )
+    return renamed
 
 
 #: The rotor-table filename suffix and number of lines before its header.
