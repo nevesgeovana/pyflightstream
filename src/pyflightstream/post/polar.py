@@ -35,7 +35,7 @@ from typing import Literal
 from warnings import warn
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream._tokens import POLAR_ID_COLUMN
 from pyflightstream.cases import select_group_members
 from pyflightstream.post._condition import (
@@ -526,13 +526,18 @@ def polar_row(
         The values under the coefficient columns of the polar table: the two
         angles, Mach, Reynolds, the axis coefficients, then ``CD0`` and
         ``CDI``.
+
+    Raises
+    ------
+    ProductError
+        If either measured force or moment vector is absent.
     """
     g = coefficients
     if beta_deg is None:
         warn(
             "Omitting beta_deg from polar_row is deprecated; pass beta_deg explicitly. "
             "It will be required at the next breaking window; zero is used for now.",
-            DeprecationWarning,
+            PyflightstreamDeprecationWarning,
             stacklevel=2,
         )
         beta_deg = 0.0
