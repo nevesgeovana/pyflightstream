@@ -160,7 +160,7 @@ def test_a_frame_or_plane_the_post_cannot_read_leaves_both_shares_na_and_says_wh
     cases = (
         ("XZ", _layout("SETUP_FRAME"), "axes of frame SETUP_FRAME, whose origin is unknown"),
         ("YZ", _layout("PROP_RMRP1", plane="YZ"), "a cut in plane YZ are not read"),
-        ("XZ", _layout("PROP_RMRP1", plane="XY"), "names no one frame for block Blade1 XZ"),
+        ("XZ", _layout("PROP_RMRP1", plane="XY"), "axes of frame None, whose origin is unknown"),
     )
     for at, (plane, layout, said) in enumerate(cases):
         table = _table(tmp_path / f"s{at}.csv", forces, plane=plane)
