@@ -242,6 +242,11 @@ def resolve_manifest(root: str | Path, runs: str | None = None) -> Path:
     return candidate
 
 
+def _taken(path: Path) -> bool:
+    """Whether ``path`` is held: a file, or a link (even a dangling one a copy would follow)."""
+    return path.exists() or path.is_symlink()
+
+
 def free_root_archive(base: Path, name: str, stamp: str) -> Path:
     """Return the free archive path of a root file: ``archive/<stem>-<stamp>.json``.
 
@@ -267,7 +272,7 @@ def free_root_archive(base: Path, name: str, stamp: str) -> Path:
     folder = base / ARCHIVE_DIR
     target = folder / f"{stem}-{stamp}.json"
     index = 2
-    while target.exists():
+    while _taken(target):
         target = folder / f"{stem}-{stamp}.{index}.json"
         index += 1
     return target
@@ -296,7 +301,7 @@ def free_matrix_archive(base: Path, stem: str, name: str, stamp: str) -> Path:
     folder = base / "post" / stem / ARCHIVE_DIR
     target = folder / stamp / name
     index = 2
-    while target.exists():
+    while _taken(target):
         target = folder / f"{stamp}.{index}" / name
         index += 1
     return target

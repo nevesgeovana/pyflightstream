@@ -4419,3 +4419,21 @@ def test_f2_0809_an_invalid_format_specification_is_a_naming_error():
 
     with pytest.raises(NamingTemplateError, match="cannot be rendered"):
         NamingTemplate(archive_name="sim_{sim:z}").render_archive(sim="1")
+
+
+def test_f2_0809_a_dangling_link_is_not_a_free_archive_path(tmp_path, monkeypatch):
+    """F-739, F-740: a link whose target is gone is held; the copy must not follow it out."""
+    from pyflightstream.workspace.naming import free_matrix_archive, free_root_archive
+
+    real_symlink = Path.is_symlink
+
+    def is_symlink(self):
+        first_root = self.name == "x-20261021.json"
+        first_matrix = self.name == "m.txt" and self.parent.name == "20261021"
+        return first_root or first_matrix or real_symlink(self)
+
+    monkeypatch.setattr(Path, "is_symlink", is_symlink)
+    # Neither path exists as a file: only the (simulated) dangling link holds the first name.
+    assert free_root_archive(tmp_path, "x.json", "20261021").name == "x-20261021.2.json"
+    taken = free_matrix_archive(tmp_path, "mx", "m.txt", "20261021")
+    assert taken.parent.name == "20261021.2" and taken.name == "m.txt"
