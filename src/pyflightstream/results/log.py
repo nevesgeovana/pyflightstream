@@ -324,6 +324,17 @@ class UnjudgeableSolve(FrozenSolve):
         )
 
 
+def _residual_cell_is_readable(cell: str) -> bool:
+    """Whether a residual cell is a number or an overflowed field of asterisks."""
+    if re.fullmatch(r"\*+", cell):
+        return True
+    try:
+        parse_number(cell)
+    except MalformedOutputError:
+        return False
+    return True
+
+
 def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> FrozenSolve | None:
     """Detect a freeze from the printed residuals of an unsteady log.
 
@@ -372,7 +383,10 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
         is None (a ``ValueError``).
     """
     clean = log_text.replace("\x00", "")
-    markers = list(re.finditer(r"Solving unsteady time-step iteration \((\d+)/(\d+)\)", clean))
+    markers = list(
+        re.finditer(r"Solving unsteady time-step iteration \(\s*(\d+)\s*/\s*(\d+)\s*\)", clean)
+    )
+    log_has_pages = RESIDUAL_PAGE.search(clean) is not None
     # Compare the printed mantissa: a tiny nonzero value must not underflow to
     # zero, and neither an overflow field nor NaN is evidence of a freeze.
     zero = re.compile(r"[+-]?(?:0+(?:\.0*)?|\.0+)(?:[EeDd][+-]?\d+)?\Z")
@@ -409,11 +423,22 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
                     raise IncompleteOutputError(
                         f"time step {step} ends before its Iteration anchor; recollect the log"
                     )
+                if index + 1 < len(markers) and log_has_pages:
+                    raise IncompleteOutputError(
+                        f"time step {step} holds no Iteration page while the log prints them "
+                        "for other steps, so the step cannot be judged; recollect the log"
+                    )
             rows = [
                 row
                 for page in pages
                 for row in delimited_table("Iteration" + page, "Iteration", delimiter=None)
             ]
+            for row in rows:
+                if len(row) < 3 or not all(_residual_cell_is_readable(cell) for cell in row[1:3]):
+                    raise MalformedOutputError(
+                        f"time step {step} prints the residual row {row!r}, whose velocity and "
+                        "pressure cells are not numbers; the step cannot be judged"
+                    )
         except (IncompleteOutputError, MalformedOutputError):
             if unjudged is None:
                 raise

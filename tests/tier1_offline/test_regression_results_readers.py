@@ -615,3 +615,209 @@ class TestResultsWriters:
         assert target.read_bytes() == before
         assert to_csv(report, target, overwrite=True) == target
         assert write_table(to_table(report), target, overwrite=True) == target
+
+
+def _f7_0203_residual_page(header, rows):
+    rule = "-" * 60
+    body = "\n".join(f"{i}  {v}  {p}" for i, v, p in rows)
+    return f"{header}\n\n{rule}\n\n{body}\n\n{rule}\n\n"
+
+
+def test_f7_0203_an_indented_residual_header_still_opens_its_page():
+    """F-809: a page whose Iteration header is indented is read, not lost."""
+    from pyflightstream.results import parse_residual_history
+
+    text = _f7_0203_residual_page(
+        "Iteration  Res. Vel.  Res. Pres.", [(1, "+1.0E-3", "+1.0E-3"), (2, "+1.0E-4", "+1.0E-4")]
+    ) + _f7_0203_residual_page(
+        "   Iteration  Res. Vel.  Res. Pres.",
+        [(3, "+1.0E-5", "+1.0E-5"), (4, "+1.0E-6", "+1.0E-6")],
+    )
+    assert [sample.iteration for sample in parse_residual_history(text)] == [1, 2, 3, 4]
+
+
+_F7_0203_LOADS = (
+    "Angle of attack (Deg)  2.000\n"
+    "Side-slip angle (Deg)  .000\n"
+    "Freestream velocity (m/s)  30.000\n"
+    "Requested solver iterations  500\n"
+    "Solver convergence limit  1.000E-05\n"
+    "Force solver to run all iterations  F\n"
+    "Solver mode:  Steady\n"
+    "Current solver iteration number:  312\n"
+    "Surface, Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz\n"
+    "-----------------\n"
+    "Wing,+0.01,+0.0,+0.43,+0.43,+0.009,+0.006,+0.0,-0.09,+0.0\n"
+    "Total,+0.01,+0.0,+0.43,+0.43,+0.009,+0.006,+0.0,-0.09,+0.0\n"
+    "-----------------\n"
+    "Force Units: Coefficients\n"
+    "Moment Units: Coefficients\n"
+    "Software : Flightstream version 26.1, build #7012026\n"
+)
+
+
+def test_f7_0203_a_second_export_cut_before_its_footer_is_refused():
+    """F-810: the second export's solution block shows it, footer or no footer."""
+    from pyflightstream.results import parse_loads
+    from pyflightstream.results.core import MalformedOutputError
+
+    assert parse_loads(_F7_0203_LOADS).angle_of_attack_deg == 2.0
+    truncated = _F7_0203_LOADS + _F7_0203_LOADS.split("Surface,")[0].replace("2.000", "3.000")
+    with pytest.raises(MalformedOutputError, match="second export"):
+        parse_loads(truncated)
+
+
+def test_f7_0203_a_bare_numeric_table_is_not_an_unsteady_history():
+    """F-812: the first row of a numeric table is not a header, so the table is refused."""
+    from pyflightstream.results import parse_unsteady_plots
+    from pyflightstream.results.core import AnchorNotFoundError
+
+    with pytest.raises(AnchorNotFoundError, match="all numbers"):
+        parse_unsteady_plots("1.0,2.0\n3.0,4.0\n5.0,6.0\n")
+    assert parse_unsteady_plots("Time (sec), CL\n.000,1.0\n.004,2.0\n").steps == 2
+
+
+def test_f7_0203_a_second_table_after_the_closing_rule_is_refused():
+    """F-813: rows after the rule that closes the table are not dropped silently."""
+    from pyflightstream.results import parse_unsteady_plots
+    from pyflightstream.results.core import MalformedOutputError
+
+    first = "Time (sec), CL\n.000,1.0\n.004,2.0\n-----------\n"
+    assert parse_unsteady_plots(first + "Force Units: Coefficients\n").steps == 2
+    with pytest.raises(MalformedOutputError, match="second table"):
+        parse_unsteady_plots(first + "Time (sec), CL\n.008,3.0\n.012,4.0\n")
+
+
+def _f7_0203_step(marker, rows=None):
+    text = f"{marker}\n"
+    if rows is not None:
+        text += _f7_0203_residual_page("Iteration  Res. Vel.  Res. Pres.", rows)
+    return text
+
+
+_F7_0203_FROZEN = [(1, "+1.0E-3", "+1.0E-3"), (2, "+0.0E+0", "+0.0E+0")]
+
+
+def test_f7_0203_the_freeze_detector_reads_the_marker_as_the_timing_does():
+    """F-814: spaces inside the (k/N) marker do not hide a freeze."""
+    from pyflightstream.results.log import frozen_time_steps
+
+    for spelling in ("({k}/3)", "( {k} / 3 )"):
+        text = "".join(
+            _f7_0203_step(
+                f"Solving unsteady time-step iteration {spelling.format(k=k)}", _F7_0203_FROZEN
+            )
+            for k in (1, 2, 3)
+        )
+        found = frozen_time_steps(text)
+        assert found is not None and (found.first_step, found.count) == (1, 3)
+
+
+def test_f7_0203_an_unreadable_interior_step_is_unjudged_not_healthy():
+    """F-815: a middle marker with no page is reported, and breaks the streak."""
+    from pyflightstream.results.core import IncompleteOutputError
+    from pyflightstream.results.log import frozen_time_steps
+
+    text = (
+        _f7_0203_step("Solving unsteady time-step iteration (1/3)", _F7_0203_FROZEN)
+        + _f7_0203_step("Solving unsteady time-step iteration (2/3)")
+        + _f7_0203_step("Solving unsteady time-step iteration (3/3)", _F7_0203_FROZEN)
+    )
+    unjudged: list[int] = []
+    assert frozen_time_steps(text, unjudged=unjudged) is None
+    assert 2 in unjudged
+    with pytest.raises(IncompleteOutputError, match="time step 2"):
+        frozen_time_steps(text)
+
+
+def test_f7_0203_a_malformed_residual_cell_is_not_a_healthy_step():
+    """F-816: a cell that is neither a number nor an overflowed field is diagnosed."""
+    from pyflightstream.results.core import MalformedOutputError
+    from pyflightstream.results.log import frozen_time_steps
+
+    bad = [(1, "+1.0E-3", "+1.0E-3"), (2, "abc", "+0.0E+0")]
+    text = _f7_0203_step("Solving unsteady time-step iteration (1/2)", bad)
+    unjudged: list[int] = []
+    assert frozen_time_steps(text, unjudged=unjudged) is None
+    assert unjudged == [1]
+    with pytest.raises(MalformedOutputError, match="not numbers"):
+        frozen_time_steps(text)
+    overflow = [(1, "+1.0E-3", "+1.0E-3"), (2, "+1.0E-3", "*************")]
+    assert (
+        frozen_time_steps(_f7_0203_step("Solving unsteady time-step iteration (1/2)", overflow))
+        is None
+    )
+
+
+_F7_0203_VTK = (
+    "# vtk DataFile Version 3.0\nFlightStream vtk output\nASCII\nDATASET POLYDATA\n"
+    "POINTS 3 float\n0 0 0\n1 0 0\n0 1 0\nPOLYGONS 1 4\n3 0 1 2\n"
+    "CELL_DATA 1\nSCALARS Cp_reference FLOAT\nLOOKUP_TABLE default\n-0.5\n"
+)
+
+
+@pytest.mark.parametrize(
+    "damaged",
+    [
+        _F7_0203_VTK.replace("-0.5", "nan"),
+        _F7_0203_VTK.replace("-0.5", "inf"),
+        _F7_0203_VTK.replace("1 0 0\n0 1 0", "1e999 0 0\n0 1 0"),
+    ],
+    ids=["nan-scalar", "inf-scalar", "overflowing-point"],
+)
+def test_f7_0203_the_vtk_reader_refuses_values_that_are_not_finite(tmp_path, damaged):
+    """F-250: NaN, infinity and overflowing values are refused in points and scalars."""
+    from pyflightstream.results.core import MalformedOutputError
+    from pyflightstream.results.surface import read_vtk_surface
+
+    (tmp_path / "ok.vtk").write_text(_F7_0203_VTK, encoding="utf-8")
+    assert read_vtk_surface(tmp_path / "ok.vtk").n_cells == 1
+    (tmp_path / "bad.vtk").write_text(damaged, encoding="utf-8")
+    with pytest.raises(MalformedOutputError, match="not finite"):
+        read_vtk_surface(tmp_path / "bad.vtk")
+
+
+def test_f7_0203_a_repeated_cell_data_section_is_refused(tmp_path):
+    """F-818: a second CELL_DATA section does not replace the first one's scalars."""
+    from pyflightstream.results.core import MalformedOutputError
+    from pyflightstream.results.surface import read_vtk_surface
+
+    repeated = _F7_0203_VTK + "CELL_DATA 1\nSCALARS Other FLOAT\nLOOKUP_TABLE default\n1.0\n"
+    (tmp_path / "twice.vtk").write_text(repeated, encoding="utf-8")
+    with pytest.raises(MalformedOutputError, match="more than one CELL_DATA"):
+        read_vtk_surface(tmp_path / "twice.vtk")
+
+
+_F7_0203_WAKE = (
+    "# vtk DataFile Version 3.0\nwakes\nASCII\nDATASET POLYDATA\n"
+    "POINTS 3 float\n0 0 0\n1 0 0\n2 0 0\nLINES 2 6\n2 0 1\n2 1 2\n"
+    "CELL_DATA 2\nSCALARS Normalized_Vorticity float 1\nLOOKUP_TABLE default\n0.5\n0.5\n"
+)
+
+
+def test_f7_0203_the_wake_reader_refuses_what_it_used_to_accept():
+    """F-252 F-820 F-821: NaN strengths, a wrong component count and a repeated block."""
+    from pyflightstream.results.core import MalformedOutputError
+    from pyflightstream.results.wake import parse_wake_export
+
+    assert len(parse_wake_export(_F7_0203_WAKE).lines) == 1
+    with pytest.raises(MalformedOutputError, match="not finite"):
+        parse_wake_export(_F7_0203_WAKE.replace("0.5\n0.5\n", "nan\n0.5\n"))
+    with pytest.raises(MalformedOutputError, match="components"):
+        parse_wake_export(_F7_0203_WAKE.replace("float 1", "float 3"))
+    with pytest.raises(MalformedOutputError, match="second LINES"):
+        parse_wake_export(_F7_0203_WAKE.replace("CELL_DATA", "LINES 2 6\n2 0 1\n2 1 2\nCELL_DATA"))
+
+
+def test_f7_0203_single_segment_wake_lines_of_different_values_are_not_fused():
+    """F-253: coordinate stitching joins nodes only between segments of one value."""
+    from pyflightstream.results.wake import parse_wake_export
+
+    text = (
+        "# vtk DataFile Version 3.0\nwakes\nASCII\nDATASET POLYDATA\n"
+        "POINTS 4 float\n0 0 0\n1 0 0\n1 0 0\n2 0 0\nLINES 2 6\n2 0 1\n2 2 3\n"
+        "CELL_DATA 2\nSCALARS Normalized_Vorticity float 1\nLOOKUP_TABLE default\n0.5\n-0.5\n"
+    )
+    wake = parse_wake_export(text)
+    assert len(wake.lines) == 2
+    assert sorted(wake.values.tolist()) == [-0.5, 0.5]

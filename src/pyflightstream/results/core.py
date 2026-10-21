@@ -80,7 +80,7 @@ DASHED_LINE = re.compile(r"^-{4,}$")
 #: Repeated Iteration headers delimit residual pages. Page length varies:
 #: 26.123 steady logs use hundred-row pages, while unsteady logs page per
 #: time step. Split on the repeated header, never a fixed row count.
-RESIDUAL_PAGE = re.compile(r"^Iteration", re.MULTILINE)
+RESIDUAL_PAGE = re.compile(r"^[ \t]*Iteration", re.MULTILINE)
 #: The export footer naming the build. Two product names are read: the
 #: ``Flightstream version 26.1`` of every build up to 26.124 and the
 #: ``Simcenter Flightstream version 2612`` that 26.125 prints in every export
@@ -329,6 +329,14 @@ def reject_trailing_export(text: str, *, what: str) -> None:
     -----
     The function owns the footer rule and counts footers itself; callers supply no parser offset.
     """
+    solutions = re.findall(r"^[ \t]*Angle of attack \(Deg\)", text, re.MULTILINE)
+    if len(solutions) > 1 and len(SOFTWARE_LINE.findall(text)) <= 1:
+        raise MalformedOutputError(
+            f"the {what} prints its solution block {len(solutions)} times but one software "
+            "footer: a second export follows the first and was cut before its footer, so "
+            "which export this file is evidence of would be decided by position rather "
+            "than by anything the file says"
+        )
     if len(SOFTWARE_LINE.findall(text)) > 1:
         raise MalformedOutputError(
             f"the {what} holds more than one complete export: a second software "

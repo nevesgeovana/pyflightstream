@@ -286,7 +286,9 @@ def _validate_block_boundaries(blocks: list[SectionBlock]) -> None:
     block the offsets are strictly monotonic, and at a true family
     boundary the offset restarts or the chord jumps (RPT-005 finding
     6). A boundary where both offset and chord continue smoothly means
-    the family map disagrees with the creation order.
+    the family map disagrees with the creation order. The refusal is by
+    design: contiguous families of one chord and one march cannot be told
+    from a wrongly cut map, so the map is refused rather than trusted.
     """
     for block in blocks:
         steps = np.diff(block.offset_m)

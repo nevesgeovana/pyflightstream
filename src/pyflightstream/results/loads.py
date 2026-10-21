@@ -651,6 +651,14 @@ def _unsteady_cells(line: str) -> list[str]:
     return cells
 
 
+def _is_printed_number(cell: str) -> bool:
+    try:
+        parse_number(cell)
+    except MalformedOutputError:
+        return False
+    return True
+
+
 def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
     r"""Parse an unsteady plot export into per-column time series.
 
@@ -736,6 +744,12 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
             "command has been read yet"
         )
     columns = tuple(_unsteady_cells(lines[header_index]))
+    if columns and all(_is_printed_number(cell) for cell in columns):
+        raise AnchorNotFoundError(
+            f"the first line carrying a comma, {lines[header_index].strip()!r}, is all numbers: "
+            "an unsteady plot export names its plot columns on a header line, so this is a "
+            "bare numeric table whose first row would be read as the header and lost"
+        )
     if not all(columns):
         raise MalformedOutputError(
             f"the unsteady plot header {lines[header_index].strip()!r} leaves a column "
@@ -744,12 +758,15 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
     reject_duplicate_columns(columns, what="unsteady plot export")
 
     rows: list[list[float]] = []
-    for line in lines[header_index + 1 :]:
+    after_rule: list[str] = []
+    body = lines[header_index + 1 :]
+    for position, line in enumerate(body):
         stripped = line.strip()
         if not stripped:
             continue
         if DASHED_LINE.match(stripped):
             if rows:
+                after_rule = body[position + 1 :]
                 break
             continue
         cells = _unsteady_cells(stripped)
@@ -778,6 +795,14 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
                     "forms like '.000', '4380000.', or '1.000E-05'"
                 ) from error
         rows.append(values)
+    for line in after_rule:
+        cells = _unsteady_cells(line)
+        if len(cells) >= 2 and all(_is_printed_number(cell) for cell in cells):
+            raise MalformedOutputError(
+                f"the unsteady plot export holds a second table after the rule that closes "
+                f"the first (a row {line.strip()!r}); only the first would be read, so the "
+                "rows of the second would be dropped without a word"
+            )
     if not rows:
         raise IncompleteOutputError(
             f"the unsteady plot export names {len(columns)} plot column(s) and holds no "

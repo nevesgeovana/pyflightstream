@@ -167,7 +167,12 @@ def parse_wake_export(text: str) -> WakeExport:
     if head[2].upper() != "ASCII" or head[3].upper() != "DATASET POLYDATA":
         raise MalformedOutputError("the wake export is not ASCII POLYDATA")
     points, segments, values = _blocks(rows)
-    segments = _shared_nodes(points, segments)
+    if not bool(np.all(np.isfinite(values))) or not bool(np.all(np.isfinite(points))):
+        raise MalformedOutputError(
+            "the wake export holds a point or a value that is not finite (NaN or infinity); "
+            "a NaN strength would pass the constancy check and feed the far-field products"
+        )
+    segments = _shared_nodes(points, segments, values)
     scale = float(np.max(np.abs(values))) if values.size else 0.0
     lines: list[np.ndarray] = []
     line_values: list[float] = []
@@ -214,6 +219,11 @@ def _read_values(rows: Iterator[str], words: list[str], segments: np.ndarray | N
     if scalar[1] != WAKE_VALUE:
         raise MalformedOutputError(
             f"the wake export's cell scalar is {scalar[1]!r}, not {WAKE_VALUE!r}"
+        )
+    if len(scalar) > 3 and scalar[3] != "1":
+        raise MalformedOutputError(
+            f"the wake export's {WAKE_VALUE} scalar states {scalar[3]} components; a wake "
+            "line carries one value, so the block would be read at the wrong width"
         )
     table = next(rows, "").strip()
     tokens: list[str] = [] if table.upper().startswith("LOOKUP_TABLE") else table.split()
@@ -279,6 +289,15 @@ def _blocks(rows: Iterator[str]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         if not words:
             continue
         keyword = words[0].upper()
+        if (
+            (keyword == "POINTS" and points is not None)
+            or (keyword == "LINES" and segments is not None)
+            or (keyword == "CELL_DATA" and values is not None)
+        ):
+            raise MalformedOutputError(
+                f"the wake export holds a second {keyword} block; the later one would "
+                "silently replace the earlier and reassign its values to other geometry"
+            )
         if keyword == "POINTS":
             points = _read_points(rows, words)
         elif keyword == "LINES":
@@ -311,21 +330,22 @@ def _blocks(rows: Iterator[str]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return points, segments, values
 
 
-def _shared_nodes(points: np.ndarray, segments: np.ndarray) -> np.ndarray:
-    """Re-index segments so a node written twice at one position is one node."""
+def _shared_nodes(points: np.ndarray, segments: np.ndarray, values: np.ndarray) -> np.ndarray:
+    """Re-index segments so a node written twice at one position is one node.
+
+    Only nodes of segments that carry the same value are joined: a wake line
+    carries one value, so segments of different values are different lines.
+    """
     # Connected node indices are authoritative. Coalescing by position would
     # fuse the two root lines of a mirror export and erase collapsed segments.
     # The older disconnected-segment layout needs coordinate stitching only
     # when every node belongs to exactly one segment.
     if len(segments) and np.bincount(segments.ravel()).max() > 1:
         return segments
-    _, canonical = np.unique(points, axis=0, return_inverse=True)
-    canonical = np.asarray(canonical).reshape(-1)
-    first_of = np.full(int(canonical.max()) + 1 if len(canonical) else 0, -1, dtype=np.int64)
-    for index, label in enumerate(canonical.tolist()):
-        if first_of[label] < 0:
-            first_of[label] = index
-    shared = first_of[canonical[segments]]
+    flat = segments.ravel()
+    keyed = np.column_stack([points[flat], np.repeat(values, 2)])
+    _, first, canonical = np.unique(keyed, axis=0, return_index=True, return_inverse=True)
+    shared = flat[first][np.asarray(canonical).reshape(-1)].reshape(-1, 2)
     if np.any(shared[:, 0] == shared[:, 1]):
         raise MalformedOutputError("a wake segment joins a node to itself")
     return shared
