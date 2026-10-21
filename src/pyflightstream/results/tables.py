@@ -1027,7 +1027,15 @@ def _loads_frame(report: LoadsReport) -> pd.DataFrame:
 
 
 def _residual_history_frame(history: list[ResidualSample]) -> pd.DataFrame:
-    """Tabulate the residual history in iteration order, dimensionless."""
+    """Tabulate the residual history in iteration order, dimensionless.
+
+    The columns are ``iteration``, ``velocity_residual`` and ``pressure_residual``,
+    then ``velocity_overflowed`` and ``pressure_overflowed`` (bool): True where the
+    solver printed that field as asterisks, because the number did not fit its
+    format. The residual of such a row is NaN, as it is where the solver PRINTED
+    a NaN; the flag is the only thing that tells the two apart, and an
+    unprintable residual is not a diverged solve.
+    """
     import pandas as pd
 
     # ``none`` rather than ``unknown``, and the difference is not cosmetic.
@@ -1040,6 +1048,8 @@ def _residual_history_frame(history: list[ResidualSample]) -> pd.DataFrame:
                 "iteration": [sample.iteration for sample in history],
                 "velocity_residual": [sample.velocity_residual for sample in history],
                 "pressure_residual": [sample.pressure_residual for sample in history],
+                "velocity_overflowed": ["velocity" in sample.overflowed for sample in history],
+                "pressure_overflowed": ["pressure" in sample.overflowed for sample in history],
             }
         ),
         origin="raw",

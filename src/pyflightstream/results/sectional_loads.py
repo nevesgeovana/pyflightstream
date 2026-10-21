@@ -37,6 +37,7 @@ from pyflightstream._errors import FsiInputError, PyflightstreamError
 from pyflightstream.results.core import (
     AnchorNotFoundError,
     IncompleteOutputError,
+    MalformedOutputError,
     delimited_table,
     labeled_value,
     parse_count,
@@ -325,6 +326,26 @@ def _si_labeled_number(text: str, label: str) -> float:
         ) from error
 
 
+def _refuse_concatenated_exports(text: str) -> None:
+    """Refuse a file that prints a once-only label twice, which is two exports in one.
+
+    The loads and probe parsers refuse a second software footer; this export's
+    own once-only labels say the same thing without relying on a footer a
+    truncated copy might lack. The first export would otherwise be read and
+    the second ignored, and nothing says which one was meant.
+    """
+    lines = [line.strip() for line in text.splitlines()]
+    for label in ("Number of Surface Sections:", "Force Units:"):
+        count = sum(1 for line in lines if line.startswith(label))
+        if count > 1:
+            raise MalformedOutputError(
+                f"the sectional loads export prints {label!r} {count} times: the file holds "
+                "more than one export, two runs appended or an earlier export never "
+                "truncated, so which of them this file is evidence of would be decided by "
+                "position and not by anything the file says"
+            )
+
+
 def parse_sectional_loads(text: str) -> SectionalLoadsReport:
     """Parse one ``FS_SurfaceSection_Loads.txt`` export.
 
@@ -356,8 +377,11 @@ def parse_sectional_loads(text: str) -> SectionalLoadsReport:
         If the table columns are not the expected ones, or a row has the
         wrong width or an empty field.
     MalformedOutputError
-        If a printed number or count cannot be read.
+        If a printed number or count cannot be read, or the file prints
+        ``Number of Surface Sections:`` or ``Force Units:`` more than once
+        (two exports concatenated).
     """
+    _refuse_concatenated_exports(text)
     freestream = _si_labeled_number(text, "Freestream velocity (m/s)")
     reference_area = _si_labeled_number(text, "Reference area (m^2)")
     try:

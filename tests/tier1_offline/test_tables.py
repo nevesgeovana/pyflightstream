@@ -22,6 +22,7 @@ from pyflightstream.results import (
     REDUCTION_CODES,
     REDUCTION_WINDOW_CODES,
     AmbiguousLoadsError,
+    IncompleteOutputError,
     LoadsNotFoundError,
     MalformedOutputError,
     origin_code,
@@ -36,6 +37,7 @@ from pyflightstream.results import (
     to_table,
     write_table,
 )
+from pyflightstream.results import sectional_loads as results_sectional_loads
 from pyflightstream.results import tables as tables_module
 from pyflightstream.workspace import CampaignWorkspace, PointName, RunRecord, RunStatus
 
@@ -89,6 +91,8 @@ def test_residual_history_to_dataframe_keeps_iteration_order():
         "iteration",
         "velocity_residual",
         "pressure_residual",
+        "velocity_overflowed",
+        "pressure_overflowed",
         "data_origin",
         "reduction",
         "reduction_window",
@@ -1696,3 +1700,71 @@ def test_products_re_exports_every_public_name_of_the_private_tables_module():
         f"these are named in products.__all__ but post.products does not bind them, "
         f"so importing them from it raises: {unbound}"
     )
+
+
+def _fixture(name: str) -> str:
+    return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+def _rows_of(text: str) -> tuple[list[str], int, int]:
+    lines = text.splitlines(keepends=True)
+    start = next(i for i, line in enumerate(lines) if line.strip().startswith("X, Y, Z,"))
+    first = start + 2
+    last = next(i for i in range(first, len(lines)) if set(lines[i].strip()) == {"-"})
+    return lines, first, last
+
+
+def test_p0420_fewer_probe_rows_than_declared_is_an_incomplete_export():
+    """PFS-2110.156: the truncation sentence stays for the direction it is true in."""
+    lines, first, _last = _rows_of(_fixture("probe_points_26.120.txt"))
+    del lines[first + 3]
+    with pytest.raises(IncompleteOutputError, match="12 probe points but the table holds 11 rows"):
+        parse_probe_points("".join(lines))
+
+
+def test_p0420_more_probe_rows_than_declared_is_malformed_not_truncated():
+    """PFS-2110.156: extra rows are rows the file did not declare, not a truncation."""
+    lines, first, last = _rows_of(_fixture("probe_points_26.120.txt"))
+    lines.insert(last, lines[first])
+    with pytest.raises(MalformedOutputError, match="rows it did not declare") as refused:
+        parse_probe_points("".join(lines))
+    assert not isinstance(refused.value, IncompleteOutputError)
+    assert "mid-write" not in str(refused.value)
+
+
+def test_p0420_the_probe_reader_documents_both_directions():
+    """PFS-2110.156: the Raises section names each class for its own direction."""
+    doc = parse_probe_points.__doc__ or ""
+    incomplete = doc.index("IncompleteOutputError")
+    malformed = doc.index("MalformedOutputError")
+    assert "FEWER" in doc[incomplete:malformed]
+    assert "MORE" in doc[malformed:]
+
+
+@pytest.mark.parametrize("label", ["Number of Surface Sections:", "Force Units:"])
+def test_p0420_two_concatenated_sectional_exports_are_refused(label):
+    """PFS-2123.003: a once-only label printed twice is two exports in one file."""
+    text = _fixture("s10_26125/sloads_26.125.txt")
+    joined = text.replace("     Force Units: Newtons", f"     {label} 3\n     Force Units: Newtons")
+    with pytest.raises(MalformedOutputError, match=rf"{label!r} 2 times"):
+        results_sectional_loads.parse_sectional_loads(joined)
+
+
+def test_p0420_one_sectional_export_still_reads():
+    """PFS-2123.003 control."""
+    assert (
+        results_sectional_loads.parse_sectional_loads(_fixture("s10_26125/sloads_26.125.txt")).count
+        == 3
+    )
+
+
+def test_p0420_the_residual_table_tells_an_unprintable_field_from_a_printed_nan():
+    """PFS-2119.048: the overflow flag reaches the table beside the NaN it explains."""
+    frame = to_table(parse_residual_history(_fixture("log_residuals_overflow_26.123.txt")))
+    assert {"velocity_overflowed", "pressure_overflowed"} <= set(frame.columns)
+    flagged = frame[frame["pressure_overflowed"]]
+    assert flagged["iteration"].tolist() == [146]
+    assert math.isnan(float(flagged["pressure_residual"].iloc[0]))
+    assert not frame["velocity_overflowed"].any()
+    assert frame["pressure_overflowed"].dtype == bool
+    assert frame["pressure_overflowed"].sum() == 1

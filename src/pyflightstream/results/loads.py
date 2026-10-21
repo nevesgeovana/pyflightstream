@@ -470,10 +470,11 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
         If a printed label or the table header the parser anchors on is
         absent.
     IncompleteOutputError
-        If the software footer is missing, so the export ended early.
+        If the software footer is missing, or the table holds FEWER rows
+        than the file declares, so the export ended early.
     MalformedOutputError
-        If the declared point count differs from the rows parsed, or a row
-        does not match the header.
+        If the table holds MORE rows than the file declares (it holds rows
+        it did not declare), or a row does not match the header.
     """
     text = text.replace("\x00", "")
     software = SOFTWARE_LINE.search(text)
@@ -525,10 +526,16 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
                 f"{len(columns)} columns; the table layout changed"
             )
         parsed_rows.append([parse_number(cell) for cell in cells])
-    if len(parsed_rows) != declared:
+    if len(parsed_rows) < declared:
         raise IncompleteOutputError(
             f"the export declares {declared} probe points but the table holds "
             f"{len(parsed_rows)} rows; the solver stopped mid-write"
+        )
+    if len(parsed_rows) > declared:
+        raise MalformedOutputError(
+            f"the export declares {declared} probe points but the table holds "
+            f"{len(parsed_rows)} rows: the file holds rows it did not declare, so it is "
+            "not one export of the solver"
         )
     if requested_version is not None:
         cross_check_version(software.group("version"), requested_version, software.group("build"))
