@@ -994,7 +994,11 @@ def test_p0340_wake_length_the_lq5_analysis_recovers_a_known_convection_speed(tm
 
 @pytest.mark.parametrize("version", ["26.124", "26.125"])
 def test_p0400_bgtests2_jet_decay_default_is_specific_to_the_build(version):
-    """PFS-2103.036: the 26.125 snapshot does not claim the older 100-diameter default."""
+    """PFS-2103.036: the 26.125 snapshot does not claim the older 100-diameter default.
+
+    Since 0.43.0 a build row carries its own default, so 26.125 states the 10-diameter
+    default its manual prints, with that citation, where it stated none before.
+    """
     from pyflightstream.script import Script, helpers
 
     script = Script(version)
@@ -1002,7 +1006,11 @@ def test_p0400_bgtests2_jet_decay_default_is_specific_to_the_build(version):
     if version == "26.124":
         assert (record.provenance, record.value) == ("default", 100.0)
     else:
-        assert (record.provenance, record.value, record.evidence) == ("unknown", None, None)
+        assert (record.provenance, record.value, record.evidence) == (
+            "default",
+            10.0,
+            "FSM-26.125 p.358",
+        )
     assert not record.emitted
     explicit = helpers.solver_settings(script, jet_wake_decay_normalized_length=17.0).flags[
         "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH"

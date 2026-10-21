@@ -595,7 +595,7 @@ def obj_group_vertices(path: str | Path, *, metres_per_unit: float) -> dict[str,
             for token in parts[1:]:
                 index = int(token.split("/")[0])
                 if index == 0 or not -len(vertices) <= index <= len(vertices):
-                    raise ValueError(
+                    raise CampaignConfigError(
                         f"{path}: face index {index} is outside the {len(vertices)} vertices "
                         "defined so far; use nonzero indices that refer to existing vertices"
                     )
