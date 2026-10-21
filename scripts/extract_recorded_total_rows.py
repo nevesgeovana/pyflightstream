@@ -115,6 +115,13 @@ def rows() -> list[dict[str, str]]:
 def main() -> int:
     """Write the fixture and say how many rows it holds."""
     table = rows()
+    if not table:
+        # Missing exports must not overwrite the committed oracle with an empty table.
+        print(
+            f"refused: no recorded loads export with a Total row under {SIMS}; "
+            f"{FIXTURE.name} was left untouched"
+        )
+        return 1
     with FIXTURE.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=COLUMNS, lineterminator="\n")
         writer.writeheader()

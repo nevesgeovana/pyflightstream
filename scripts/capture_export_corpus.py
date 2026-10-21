@@ -377,6 +377,11 @@ def main() -> int:
         print("DRY: the script is rendered and nothing was run.")
         return 0
 
+    # A file left by an earlier run is not an export of this one: remove every
+    # expected target first, so what exists afterwards was written by this run.
+    for file_name in produced.values():
+        (out / file_name).unlink(missing_ok=True)
+
     executor = LocalExecutor(Path(args.exe))
     result = executor.run_script(script_path, out, timeout_s=args.timeout)
     print(
@@ -409,7 +414,8 @@ def main() -> int:
     )
     got = sum(1 for value in seen.values() if value)
     print(f"\n{got} of {len(produced)} exports produced a file.")
-    return 0 if got else 1
+    # Success means every requested export exists, not that one of them does.
+    return 0 if got == len(produced) else 1
 
 
 if __name__ == "__main__":

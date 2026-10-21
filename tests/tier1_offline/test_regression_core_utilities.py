@@ -419,3 +419,115 @@ class TestCoreSmallReviewQa:
             ("filename", True),
         ]
         assert entry.versions["26.125"].status is Status.DOCUMENTED
+
+
+def _f7_load_script(name: str):
+    path = Path(__file__).parents[2] / "scripts" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_extract_recorded_total_rows_refuses_to_truncate_the_fixture(tmp_path, monkeypatch):
+    """F-847: no recorded exports means a refusal and an untouched fixture, never success."""
+    module = _f7_load_script("extract_recorded_total_rows")
+    fixture = tmp_path / "recorded_total_rows.csv"
+    fixture.write_text("export\nkept\n", encoding="utf-8")
+    monkeypatch.setattr(module, "SIMS", tmp_path / "no_sims_here")
+    monkeypatch.setattr(module, "FIXTURE", fixture)
+    assert module.main() != 0
+    assert fixture.read_text(encoding="utf-8") == "export\nkept\n"
+
+
+def _f7_run_capture(module, tmp_path, monkeypatch, write):
+    """Run a capture script's main() against a fake solver that calls ``write(out)``."""
+
+    class _FakeExecutor:
+        def __init__(self, exe):
+            self.exe = exe
+
+        def run_script(self, script, out, timeout_s):
+            write(Path(out))
+            return types.SimpleNamespace(return_code=0, wall_time_s=0.1, timed_out=False)
+
+    monkeypatch.setattr(module, "LocalExecutor", _FakeExecutor)
+    out = tmp_path / "out"
+    solver = tmp_path / "private" / "FlightStream.exe"
+    monkeypatch.setattr(sys, "argv", ["capture", "--exe", str(solver), "--out", str(out)])
+    return module.main(), out
+
+
+def _f7_corpus_targets(module, tmp_path):
+    out = tmp_path / "out"
+    out.mkdir(parents=True, exist_ok=True)
+    stl = module.generate_wing_stl(module.COARSE, out / "wing.stl")
+    _script, produced = module.build_capture(stl, out)
+    return sorted(set(produced.values()))
+
+
+def test_capture_export_corpus_does_not_count_a_previous_runs_files(tmp_path, monkeypatch):
+    """F-625: files left by an earlier run are not this run's exports; no new file is a failure."""
+    module = _f7_load_script("capture_export_corpus")
+    names = _f7_corpus_targets(module, tmp_path)
+    for name in names:
+        (tmp_path / "out" / name).write_text("stale", encoding="utf-8")
+    code, out = _f7_run_capture(module, tmp_path, monkeypatch, lambda out: None)
+    assert code != 0
+    assert not any((out / name).exists() for name in names)
+
+
+def test_capture_export_corpus_succeeds_only_when_every_export_exists(tmp_path, monkeypatch):
+    """F-628: one export of many is a failure; all of them is success."""
+    module = _f7_load_script("capture_export_corpus")
+    names = _f7_corpus_targets(module, tmp_path)
+    assert len(names) > 1
+    code, _ = _f7_run_capture(
+        module,
+        tmp_path,
+        monkeypatch,
+        lambda out: (out / names[0]).write_text("x", encoding="utf-8"),
+    )
+    assert code != 0
+
+    def write_all(out):
+        for name in names:
+            (out / name).write_text("x", encoding="utf-8")
+
+    code, _ = _f7_run_capture(module, tmp_path, monkeypatch, write_all)
+    assert code == 0
+
+
+def test_capture_owed_exports_stale_partial_and_privacy(tmp_path, monkeypatch):
+    """F-626, F-629, F-721, X-F-0051: stale files do not count, partial fails, no path leaks."""
+    import json
+
+    module = _f7_load_script("capture_owed_exports")
+    expected = [c for c in module.OWED if c not in module.NOT_EMITTED]
+    assert "EXPORT_SURFACE_SECTIONS" in module.NOT_EMITTED
+    out = tmp_path / "out"
+    out.mkdir()
+    for command in expected:
+        (out / f"{command.lower()}.txt").write_text("stale", encoding="utf-8")
+    code, _ = _f7_run_capture(module, tmp_path, monkeypatch, lambda out: None)
+    assert code != 0
+
+    code, _ = _f7_run_capture(
+        module,
+        tmp_path,
+        monkeypatch,
+        lambda out: (out / f"{expected[0].lower()}.txt").write_text("x", encoding="utf-8"),
+    )
+    assert code != 0
+
+    def write_all(out):
+        for command in expected:
+            (out / f"{command.lower()}.txt").write_text("x", encoding="utf-8")
+
+    code, out = _f7_run_capture(module, tmp_path, monkeypatch, write_all)
+    assert code == 0
+    manifest = json.loads((out / "capture_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["executable"] == "FlightStream.exe"
+    script_text = (out / "capture.fsm").read_text(encoding="utf-8")
+    assert "EXPORT_SURFACE_SECTIONS" not in script_text

@@ -67,6 +67,12 @@ OWED = (
 
 VERSION = "26.120"
 
+#: Owed commands the script does not emit. `EXPORT_SURFACE_SECTIONS` declares an
+#: index alone while the real layout carries a path on its own line, so emitting
+#: it makes the solver consume the FOLLOWING command as its file name (the
+#: sibling `capture_export_corpus.py` records the same finding).
+NOT_EMITTED = ("EXPORT_SURFACE_SECTIONS",)
+
 #: `EXPORT_BL_VELOCITY_PROFILE` is NOT in the list above, and its absence
 #: is the run's first finding rather than an oversight. The emitter
 #: refused it against 26.120: its only recorded evidence is 26.122 and
@@ -138,6 +144,9 @@ def build_script(stl: Path, out: Path) -> Script:
     emitted: list[str] = []
     for command in OWED:
         target = out / f"{command.lower()}.txt"
+        if command in NOT_EMITTED:
+            print(f"  NOT EMITTED: {command} (declares an index only; see NOT_EMITTED)")
+            continue
         try:
             if command == "EXPORT_SOLVER_ANALYSIS_CSV":
                 # Five arguments the database names and the first attempt
@@ -146,10 +155,6 @@ def build_script(stl: Path, out: Path) -> Script:
                 script.emit(command, str(target), "CP-FREESTREAM", "PASCALS", 1, -1)
             elif command == "EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS":
                 script.emit(command, str(target), -1)
-            elif command == "EXPORT_SURFACE_SECTIONS":
-                # An INDEX, not a path: it exports one created section,
-                # and the file name is the solver's to choose.
-                script.emit(command, 1)
             else:
                 script.emit(command, str(target))
             emitted.append(command)
@@ -183,12 +188,17 @@ def main() -> int:
         print("DRY: the script is rendered and nothing was run.")
         return 0
 
+    expected = [command for command in OWED if command not in NOT_EMITTED]
+    # A file left by an earlier run is not an export of this one.
+    for command in expected:
+        (out / f"{command.lower()}.txt").unlink(missing_ok=True)
+
     executor = LocalExecutor(Path(args.exe))
     result = executor.run_script(script_path, out, timeout_s=900.0)
     print(f"solver exit: {result.return_code}, wall {result.wall_time_s:.1f}s")
 
     seen = {}
-    for command in OWED:
+    for command in expected:
         target = out / f"{command.lower()}.txt"
         seen[command] = target.stat().st_size if target.exists() else None
         state = "no file" if seen[command] is None else f"{seen[command]} bytes"
@@ -198,7 +208,7 @@ def main() -> int:
         json.dumps(
             {
                 "build": VERSION,
-                "executable": str(args.exe),
+                "executable": Path(args.exe).name,
                 "geometry": "generated NACA 0012, qa.geometry.generate_wing_stl",
                 "returncode": result.return_code,
                 "produced": seen,
@@ -208,8 +218,9 @@ def main() -> int:
         encoding="utf-8",
     )
     produced = sum(1 for value in seen.values() if value)
-    print(f"\n{produced} of {len(OWED)} owed exports produced a file.")
-    return 0 if produced else 1
+    print(f"\n{produced} of {len(expected)} owed exports produced a file.")
+    # Success means every emitted export exists, not that one of them does.
+    return 0 if produced == len(expected) else 1
 
 
 if __name__ == "__main__":
