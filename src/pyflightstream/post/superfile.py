@@ -143,10 +143,12 @@ _FARFIELD_COLUMN = re.compile(r"(CL_T|CDI_T|E_T)_[ABC]")
 
 
 def release_tag(version: str) -> str:
-    """Return the release tag of ``version`` by joining its three numeric components.
+    """Return an unambiguous release tag from the three numeric version components.
 
-    Each release tag concatenates the three version components without separators. Development
-    suffixes do not enter the tag.
+    Historical compact tags are retained when major and patch each have one digit.
+    Otherwise hyphens separate all three components, so ``0.1.10`` is ``0-1-10``
+    and cannot overwrite the ``0110`` report of ``0.11.0``. Development suffixes
+    do not enter the tag.
 
     Parameters
     ----------
@@ -156,7 +158,7 @@ def release_tag(version: str) -> str:
     Returns
     -------
     str
-        Its major, minor and patch numbers written one after another, and a
+        Its major, minor and patch numbers in compact or hyphen-separated form, and a
         pre-release's label after them (``0.40.0rc1`` is ``0400rc1``), so no
         pre-release takes the tag of a final release (PFS-2081.46).
 
@@ -191,7 +193,8 @@ def release_tag(version: str) -> str:
             "optionally followed by a pre-release label (a, b or rc and a number)"
         )
     numbers.append(str(int(patch.group(1))) + (patch.group(2) or ""))
-    return "".join(numbers)
+    separator = "-" if len(numbers[0]) > 1 or len(str(int(patch.group(1)))) > 1 else ""
+    return separator.join(numbers)
 
 
 def super_file_name(
@@ -296,6 +299,7 @@ def _free(value: object) -> str:
     else must not be rounded to it: measured on `pfs0160`, the residual of
     the rotor point is 5.381595e-06, and five decimals would write it
     `0.00001` and destroy the only digit a reader of a residual wants.
+    Non-finite floating values are missing, as NaN is, rather than numeric text.
     """
     if value is None:
         return ""
@@ -303,7 +307,7 @@ def _free(value: object) -> str:
         return str(value)
     if isinstance(value, float | np.floating):
         number = float(value)
-        return "" if math.isnan(number) else repr(number)
+        return "" if not math.isfinite(number) else repr(number)
     if isinstance(value, np.integer):
         return str(int(value))
     return str(value)
@@ -1024,6 +1028,17 @@ def _script_section_counts(script: Path) -> list[int]:
     return counts
 
 
+def _recorded_section_counts(entries, run_id):
+    """Read recorded counts without replacing an absent declaration with a guess."""
+    try:
+        return [int(entry["count"]) for entry in entries if isinstance(entry, Mapping)]
+    except (KeyError, TypeError, ValueError, OverflowError) as error:
+        raise ProductError(
+            f"{run_id}: recorded sections_layout has a missing or invalid count; "
+            "restore the complete recorded section layout before measuring sections"
+        ) from error
+
+
 def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> list[dict]:
     """Count what each recorded point DECLARED against what its script emitted.
 
@@ -1058,7 +1073,7 @@ def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> lis
         layout = record.get("sections_layout")
         if isinstance(layout, list):
             entries = layout
-            counts = [int(entry["count"]) for entry in entries if isinstance(entry, Mapping)]
+            counts = _recorded_section_counts(entries, run_id)
         else:
             if not artifact.is_file():
                 continue

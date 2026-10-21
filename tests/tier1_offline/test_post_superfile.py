@@ -34,6 +34,40 @@ import pytest
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 
+def test_p0430_w012_release_tags_are_unambiguous_and_keep_existing_names():
+    from pyflightstream.post.superfile import release_tag
+
+    versions = ["0.1.10", "0.11.0", "1.1.10", "1.11.0", "11.1.0", "1.11.0rc1"]
+    assert len({release_tag(version) for version in versions}) == len(versions)
+    assert release_tag("0.11.0") == "0110"
+    assert release_tag("0.40.0rc1") == "0400rc1"
+
+
+@pytest.mark.parametrize("value", [float("inf"), -float("inf"), float("nan")])
+def test_p0430_w012_nonfinite_superfile_values_are_missing(value):
+    from pyflightstream.post.superfile import superfile_row
+
+    row = superfile_row(
+        polar_columns=[],
+        polar_values=[],
+        matrix_row=None,
+        record=None,
+        sweep_row={"residual": value},
+        plots_row=None,
+    )
+    assert row["residual"] == ""
+
+
+def test_p0430_w012_missing_recorded_section_count_has_context(tmp_path):
+    from pyflightstream._errors import ProductError
+    from pyflightstream.post.superfile import measure_sections
+
+    with pytest.raises((ValueError, KeyError)) as caught:
+        measure_sections(tmp_path, [dict(sim_id="1", run_id="run/point", sections_layout=[{}])])
+    assert isinstance(caught.value, ProductError)
+    assert "run/point" in str(caught.value) and "count" in str(caught.value)
+
+
 def test_p0430_rb2_superfile_union_refuses_unreadable_history(tmp_path):
     from pyflightstream.post.superfile import union_the_workspace_knows
     from pyflightstream.workspace import WorkspaceError

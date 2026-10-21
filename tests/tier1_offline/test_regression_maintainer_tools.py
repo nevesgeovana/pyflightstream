@@ -122,7 +122,7 @@ class TestCoreSmallParity:
         assert "requirement" not in entry
 
     @staticmethod
-    @pytest.mark.parametrize("tag", ["080", "0390", "01000", "123456"])
+    @pytest.mark.parametrize("tag", ["080", "0390", "01000", "123456", "0-1-10", "11-1-0"])
     def test_p0400_paritytag_any_digit_count_is_the_version(tag: str) -> None:
         """P0400-PARITYTAG: a report tag of three, four, five or more digits is normalised."""
         out = _core_small_parity___load().normalize(

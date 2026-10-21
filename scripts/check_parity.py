@@ -753,11 +753,13 @@ POST_NORMALIZE: list[tuple[str, str, str, str]] = [
     ),
     (
         "*/products.json",
-        r'"(superfile|sections)_report": "reports/(superfile|sections)-\d+\.json"',
+        r'"(superfile|sections)_report": "reports/(superfile|sections)-'
+        r'\d+(?:-\d+-\d+)?(?:(?:a|b|rc)\d+)?\.json"',
         r'"\1_report": "reports/\2-<VERSION>.json"',
         "the package version the run was posted with, as the release tag in the report "
-        "names (post/superfile.py release_tag: the version numbers with no separator, so of "
-        "any length, 0.8.0 is 080 and 0.39.0 is 0390), which differs between any two "
+        "names (post/superfile.py release_tag: compact numbers when major and patch "
+        "each have one digit, otherwise hyphen-separated, with a pre-release label), "
+        "which differs between any two "
         "releases by construction (measured 2026-10-11, 0.38.0 against 0.39.0: the only "
         "post difference)",
     ),
