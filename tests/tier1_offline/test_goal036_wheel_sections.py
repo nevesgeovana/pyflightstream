@@ -450,6 +450,44 @@ def test_p0430_invalid_mean_target_speed_is_refused(tmp_path, speed):
     assert isinstance(result, str) and "speed" in result
 
 
+@pytest.mark.parametrize("stated, expected", [({}, -1200), ({"RPM_CLOCK": 90}, 90)])
+def test_p0430_w012_clock_rpm_survives_unknown_advance_ratio(tmp_path, stated, expected):
+    record = _record(-1200)
+    point = post_qsteady.WheelPoint(
+        "1",
+        stated,
+        record,
+        [post_qsteady.Clocking(0, 0, (1.0,) * len(post_qsteady.load_columns(record)))],
+        post_qsteady.PointValidity({}),
+    )
+    paths = post_qsteady.write_qsteady_tables(
+        tmp_path / "pos.csv", tmp_path / "avg.csv", [point], reference=None
+    )
+    for path in paths:
+        _, rows = read_csv_table(path)
+        assert float(rows[0]["RPM_CLOCK"]) == expected
+        assert rows[0]["J_CLOCK"] == "NA" and rows[0]["J"] == "NA"
+
+
+@pytest.mark.parametrize("component", post_qsteady.SURFACE_COMPONENTS)
+def test_p0430_w012_missing_clocking_component_is_not_zero(tmp_path, component):
+    record = _record(1200)
+    text = (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8")
+    lines = text.splitlines()
+    header = next(line for line in lines if line.strip().startswith("Surface,"))
+    index = [cell.strip() for cell in header.split(",")].index(component)
+    for number, line in enumerate(lines):
+        if line == header or line.strip().startswith(("Wing,", "Total,")):
+            cells = line.split(",")
+            del cells[index]
+            lines[number] = ",".join(cells)
+    for position in record.positions:
+        (tmp_path / position.loads).write_text("\n".join(lines), encoding="utf-8")
+    result = post_qsteady.mean_clocking_surfaces(record, tmp_path, speed_m_s=30)
+    assert isinstance(result, str)
+    assert component in result and "Wing" in result and "clocking 0" in result
+
+
 def test_p0430_empty_clocking_sections_is_named(tmp_path):
     record = _record(1200)
     table = tmp_path / "sections.csv"

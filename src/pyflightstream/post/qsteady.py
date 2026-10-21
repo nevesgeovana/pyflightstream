@@ -1209,6 +1209,20 @@ def _positive_finite_speed(speed: float) -> bool:
     return math.isfinite(speed) and speed > 0.0
 
 
+def _surface_components(surfaces):
+    """Read all measured components, naming a surface that lacks one."""
+    result = {}
+    for name, row in surfaces.items():
+        components = {}
+        for key in SURFACE_COMPONENTS:
+            try:
+                components[key] = float(row[key])
+            except (KeyError, TypeError, ValueError) as error:
+                raise ProductError(f"surface {name!r} has no numeric {key} component") from error
+        result[str(name)] = components
+    return result
+
+
 def mean_clocking_surfaces(
     record: QsteadyRecord, folder: Path, *, speed_m_s: float
 ) -> ClockingMean | str:
@@ -1231,7 +1245,8 @@ def mean_clocking_surfaces(
 
     A clocking whose export is not on disk or not readable, that states no
     reference velocity, is in another analysis frame than clocking 0's, or
-    lists other surfaces, is the reason returned: the point is not a row,
+    lists other surfaces or lacks a numeric surface component, is the reason
+    returned: the point is not a row,
     because a mean of the other clockings is not the point's mean.
 
     Parameters
@@ -1258,6 +1273,7 @@ def mean_clocking_surfaces(
             return f"the loads export of clocking {position.index}, {path.name}, is not on disk"
         try:
             report = parse_loads(path.read_text(encoding="utf-8", errors="replace"))
+            surfaces = _surface_components(report.surfaces)
         except Exception as error:  # noqa: BLE001 -- any unreadable export is named, not raised
             return f"the loads export of clocking {position.index}, {path.name}: {error}"
         stated = report.reference_velocity_m_s
@@ -1266,10 +1282,6 @@ def mean_clocking_surfaces(
                 f"the loads export of clocking {position.index}, {path.name}, states no "
                 "reference velocity, which is what its coefficients are normalised by"
             )
-        surfaces = {
-            str(name): {key: float(row.get(key, 0.0) or 0.0) for key in SURFACE_COMPONENTS}
-            for name, row in report.surfaces.items()
-        }
         read.append((position.index, surfaces, float(stated), getattr(report, "frame", None)))
     if not read or not _positive_finite_speed(speed_m_s):
         return (
@@ -1483,14 +1495,14 @@ def _condition_with_own_j(
     stream or the diameter is not stated.
     """
     merged = dict(condition)
+    stated = context_row(condition, columns=("J", "J_CLOCK", "RPM_CLOCK"))
+    if stated[2] is None:
+        merged["RPM_CLOCK"] = float(record.rpm)
     ran = rotor_advance_ratio(
         context_row(condition, columns=("VINF",))[0], record.rpm, record.diameter_m
     )
     if ran is None:
         return merged
-    stated = context_row(condition, columns=("J", "J_CLOCK", "RPM_CLOCK"))
-    if stated[2] is None:
-        merged["RPM_CLOCK"] = float(record.rpm)
     if stated[1] is None:
         merged["J_CLOCK"] = ran
     if stated[0] is None:
