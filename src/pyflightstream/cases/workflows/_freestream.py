@@ -737,7 +737,14 @@ def _finish_custom_field_coverage(case: SimCase, script: Script) -> None:
     if grid is None:
         return
     moved = _how_the_row_moves_the_body(case)
-    if not moved and not script.surface_operations and not _a_frame_may_move(script):
+    # A RAW COMMAND CAN MOVE THE BODY WHATEVER THE ROW STATES (F-400), so a
+    # stationary row that emitted one is not exempt from the check below.
+    if (
+        not moved
+        and not script.surface_operations
+        and not _a_frame_may_move(script)
+        and not script.raw_flag
+    ):
         return
     from ..field_coverage import spatial_envelope
 
@@ -1004,7 +1011,16 @@ def _length_steps(
                 "as wake_termination_steps."
             )
         omega, dtheta = 1.0, delta_time_s
-    capped = None if cap is None else max(1, math.floor(cap * 2.0 * math.pi / dtheta + 1e-9))
+    capped = None if cap is None else math.floor(cap * 2.0 * math.pi / dtheta + 1e-9)
+    if capped is not None and capped < 1:
+        # F-066: a cap shorter than one step was clamped UP to one step, which
+        # exceeds the cap the row states.
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states wake_termination_revolutions_cap = {cap:g}, which "
+            f"is less than one time step of this run ({dtheta / (2.0 * math.pi):g} "
+            "revolutions), so no whole number of steps stays within it. State a cap of at "
+            "least one step, or state the termination as wake_termination_steps."
+        )
     if v_ax <= 0.0:
         if capped is None:
             raise CampaignConfigError(

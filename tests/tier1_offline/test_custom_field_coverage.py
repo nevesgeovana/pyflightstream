@@ -104,6 +104,22 @@ def test_unknown_motion_reaches_the_workflow_coverage_check(monkeypatch):
     assert script.custom_field_coverage["state"] == "unknown"
 
 
+def test_p0430_f400_a_raw_command_on_a_stationary_row_invalidates_the_coverage(monkeypatch):
+    # F-400: the stationary early return used to skip the raw-command check.
+    from pyflightstream.cases.workflows import _freestream
+    from pyflightstream.script import Script
+    from tests.tier1_offline.test_workflows import steady_case
+
+    script = Script("26.124")
+    script.custom_field_extent_m = (-3, 3, -1, 1)
+    script.raw_flag = True
+    monkeypatch.setattr(_freestream, "_body_vertices_m", lambda case: ((0, -2, 0), (1, 2, 0)))
+    with pytest.warns(UserWarning, match="coverage is not checked"):
+        _freestream._finish_custom_field_coverage(steady_case(), script)
+    assert script.custom_field_coverage["state"] == "unknown"
+    assert "raw commands" in script.custom_field_coverage["reason"]
+
+
 def test_actual_emitted_translation_reaches_final_workflow_coverage(monkeypatch):
     # GOAL033:capability_ids:items:G50
     from pyflightstream.cases.workflows import _freestream

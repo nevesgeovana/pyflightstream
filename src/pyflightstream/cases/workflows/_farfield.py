@@ -93,8 +93,9 @@ __all__ = [
 ]
 
 #: The fluid-plot parameters an unsteady row samples at every far-field point:
-#: the velocity and the pressure coefficient on the reference velocity, which a
-#: rotor at rest still has (FR-1052).
+#: the velocity components and ``CP_REF``, a parameter the command database lists
+#: for ``UNSTEADY_SOLVER_NEW_FLUID_PLOT``; its normalization is not recorded there
+#: and none is claimed here (FR-1052 names the plots).
 FARFIELD_PLOT_PARAMETERS: tuple[str, ...] = ("VX", "VY", "VZ", "CP_REF")
 #: The reference frame of the far-field fluid plots (frame 1, the global frame).
 _PLOT_FRAME = 1
@@ -102,8 +103,10 @@ _SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
 _MESH_SUFFIXES = (".obj", ".stl")
 #: Two laid-out probe sets are one declaration when every coordinate agrees at
 #: the fifth decimal of the simulation's unit, the precision the script writes
-#: a probe position in (FR-1045, PFS-2081.56).
-_SAME_POSITION = 1.01e-5
+#: a probe position in (FR-1045, PFS-2081.56): after rounding to five decimals
+#: the values are equal, so the tolerance is float noise and never one step of
+#: 1e-5 (F-064).
+_SAME_POSITION = 1e-9
 
 
 def _spec(case: SimCase) -> FarfieldSpec | None:
@@ -642,10 +645,13 @@ def plan_record(case: SimCase, version: str, script: Script | None = None) -> di
         return {}
     try:
         view = CommandRegistry.load().for_version(version)
-    except PyflightstreamError:
-        return {}
+    except PyflightstreamError as error:
+        # F-1317: not an empty record, which reads as "no far field".
+        return {"unresolved": f"the command database for {version} could not be read: {error}"}
     shapes = _recorded_shapes(case, script)
-    resolution = _resolve(case, list(case.inventory or ()), view, shapes)
+    # THE INVENTORY THE SCRIPT EMITS FROM, as `farfield_resolution` reads it (F-765).
+    inventory = (_inventory(script) if script is not None else None) or list(case.inventory or ())
+    resolution = _resolve(case, inventory, view, shapes)
     if resolution is None:
         return {}
     record = resolution.as_record()
@@ -884,6 +890,11 @@ def _extent_m(
     return float((vertices @ direction).max())
 
 
+def _moves_the_body(case: SimCase) -> bool:
+    """Whether the row states a ROTATE or TRANSLATE, which moves the body off its mesh file."""
+    return bool(case.rotations or case.translations)
+
+
 def _inside(case: SimCase, native: np.ndarray) -> tuple[int, str]:
     """Return the count of ``native`` points inside the body and the first ones.
 
@@ -893,6 +904,13 @@ def _inside(case: SimCase, native: np.ndarray) -> tuple[int, str]:
     mesh = _mesh(case)
     if mesh is None:
         return -1, "the row's geometry is not a mesh file the check reads"
+    if _moves_the_body(case):
+        # F-026: the file holds the body where it was before ROTATE or TRANSLATE moved it.
+        return (
+            -1,
+            "the row rotates or translates the body before solving, so the mesh file "
+            "is not where it stands",
+        )
     from pyflightstream.probes.geometry import points_inside
 
     report = points_inside(native, mesh_path=mesh)
@@ -1143,6 +1161,15 @@ def planar_points(case: SimCase, probes: ProbesSpec, native_per_m: float) -> lis
     """Place declared grids and refuse added refinement nodes inside the body."""
     if not probes.grids:
         return []
+    if _moves_the_body(case):
+        # F-027: the nodes are gated against the mesh file, which a ROTATE or
+        # TRANSLATE row has moved, so a node could pass inside the moved body.
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: planar probe grids are placed and cleared against the "
+            "mesh as the file holds it, and this row states ROTATE or TRANSLATE, which move "
+            "the body before the solve, so a node could lie inside the moved body. Move the "
+            "body in the mesh file itself, or state the probe points in [[probes]]."
+        )
     source = Path(case.geometry) if case.geometry else None
     if source is not None and source.suffix.lower() == ".fsm":
         source = source.with_suffix(".surface.stl")

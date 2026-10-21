@@ -95,6 +95,17 @@ def test_profile_changed_after_binding_is_refused(tmp_path):
         _setup_ports(case, _port_script())
 
 
+def test_p0430_a_missing_inlet_profile_is_refused_naming_the_file_and_the_port(tmp_path):
+    """PFS-2119.021: the unreadable file is a refusal, not a raw OSError out of the setup."""
+    from pyflightstream.cases import CampaignConfigError
+
+    case, profile = _port_case(tmp_path)
+    profile.unlink()
+    with pytest.raises(CampaignConfigError) as refused:
+        _setup_ports(case, _port_script())
+    assert str(profile) in str(refused.value) and "'Inlet'" in str(refused.value)
+
+
 def test_inlet_profile_pending_writer_preserves_and_hashes_exact_bytes(tmp_path):
     from pyflightstream.run._pending import _write_pending_files
 

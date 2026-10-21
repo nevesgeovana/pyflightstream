@@ -16,6 +16,7 @@ from collections.abc import (
 from dataclasses import (
     dataclass,
 )
+from hashlib import sha256
 from pathlib import (
     Path,
     PurePath,
@@ -640,10 +641,15 @@ def _setup_ports(case: SimCase, script: Script) -> None:
         if port.profile is not None:
             if name != "inlets":
                 raise CampaignConfigError("an outlet profile has no documented native command")
-            from hashlib import sha256
-
             profile = Path(port.profile)
-            payload = profile.read_bytes()
+            try:
+                payload = profile.read_bytes()
+            except OSError as error:
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: the inlet profile {profile} of port "
+                    f"{port.boundary!r} cannot be read ({error.strerror or error}); "
+                    "restore the file the matrix row names, or drop the profile."
+                ) from error
             digest = sha256(payload).hexdigest()
             if port.profile_sha256 and digest != port.profile_sha256:
                 raise CampaignConfigError(f"inlet profile changed after binding: {profile}")

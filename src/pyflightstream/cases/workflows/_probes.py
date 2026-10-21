@@ -988,13 +988,6 @@ def _the_radius_the_probe_lines_are_in(case: SimCase, frame: str) -> float:
     return diameter
 
 
-#: The create command of each volume-section shape (G05).
-_VOLUME_SECTION_COMMANDS = {
-    "rectangle": "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
-    "circle": "CREATE_NEW_CIRCLE_VOLUME_SECTION",
-}
-
-
 def _pproc_sampled_volume(case, script, frames, vertex: int, *, unsteady: bool) -> None:
     """Sample a declared volume plane without using the FSM's section indices."""
     section = case.pproc.volume_section
