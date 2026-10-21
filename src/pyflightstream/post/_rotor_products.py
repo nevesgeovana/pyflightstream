@@ -776,9 +776,17 @@ def _qsteady_products(
         points_of = wheel.get(alias) or []
         if not points_of:
             continue
-        done = _qsteady.write_qsteady_tables(
-            target(positions), target(average), points_of, reference=reference
-        )
+        try:
+            done = _qsteady.write_qsteady_tables(
+                target(positions), target(average), points_of, reference=reference
+            )
+        except ProductError as error:
+            # A refusal of this rotor's tables is a skip of them, naming its points;
+            # the simulation's other products stay written (RB3-02).
+            key = positions.relative_to(out).as_posix()
+            said = f"the quasi-steady points {', '.join(runs[alias])} are not tabled: {error}"
+            skipped[key] = f"{skipped[key]}; {said}" if key in skipped else said
+            continue
         if done is None:
             continue
         for path, kind in zip(done, ("clockings", "average"), strict=True):

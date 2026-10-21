@@ -324,6 +324,69 @@ class TestPost2RotorProducts:
         assert list(skipped) == ["runs/rotor/1/a+00.0#qsteady_record"]
         assert "a+00.0" in skipped["runs/rotor/1/a+00.0#qsteady_record"]
 
+    @staticmethod
+    def test_p0430_rb3_inconsistent_load_columns_skip_only_the_rotor_tables(tmp_path, monkeypatch):
+        """RB3-02 (F-1370): the refusal is a named skip of the rotor's tables, never a lost sim.
+
+        At d1d08f51 write_qsteady_tables raised ProductError out of this stage, and the
+        campaign dropped every product of the simulation under one key naming no product.
+        """
+        from dataclasses import replace
+
+        from pyflightstream.post import _rotor_products
+        from pyflightstream.post import qsteady as post_qsteady
+        from tests.tier1_offline.test_goal036_wheel_sections import BLADES
+        from tests.tier1_offline.test_goal036_wheel_sections import _record as _wheel_record
+
+        first = _wheel_record(1200)
+        swapped = replace(first, families_blades=tuple(reversed(BLADES)))
+        points = [
+            SimpleNamespace(
+                name=name,
+                loads_path=tmp_path / name / "DP.txt",
+                state=None,
+                loads=SimpleNamespace(),
+            )
+            for name in ("a+00.0", "a+05.0")
+        ]
+        records = {str(points[0].loads_path): first, str(points[1].loads_path): swapped}
+        monkeypatch.setattr(_rotor_products, "read_qsteady_record", lambda path: records[str(path)])
+        monkeypatch.setattr(
+            post_qsteady,
+            "clockings_of",
+            lambda quasi, *a, **kw: [
+                post_qsteady.Clocking(0, 0.0, (1.0,) * len(post_qsteady.load_columns(quasi)))
+            ],
+        )
+        monkeypatch.setattr(
+            post_qsteady, "rotor_state", lambda *a, **kw: post_qsteady.RotorState({})
+        )
+        monkeypatch.setattr(
+            post_qsteady, "write_point_validity_file", lambda path, *a: path.with_suffix(".v")
+        )
+        skipped: dict[str, str] = {}
+        written = _qsteady_products(
+            "1",
+            points,
+            {
+                point.name: SimpleNamespace(
+                    recipe=QSTEADY_ROTOR, run_id=f"rotor/1/{point.name}", density_kg_m3=1.2
+                )
+                for point in points
+            },
+            reference=ReferenceValues(sref_m2=1.0, cref_m=1.0, bref_m=1.0),
+            out=tmp_path,
+            validity_of={},
+            condition_of=lambda _point: {},
+            target=lambda path: path,
+            skipped=skipped,
+        )
+        assert written == []
+        (key,) = skipped
+        assert key.endswith("_qs_positions.csv"), skipped
+        assert "inconsistent load columns" in skipped[key]
+        assert "rotor/1/a+00.0" in skipped[key] and "rotor/1/a+05.0" in skipped[key]
+
 
 class TestPost1Acoustics:
     """P0400-ACOUSTICPRECISION (PFS-2105.032): the acoustic tables round-trip their numbers.
