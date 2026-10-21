@@ -4285,3 +4285,21 @@ def test_x_f1094_an_unreadable_matrix_is_named_when_it_is_skipped(tmp_path, monk
     monkeypatch.setattr(convert, "read_matrix", _unreadable)
     with pytest.warns(PyflightstreamWarning, match="m001.txt could not be read"):
         assert convert._rows_naming(tmp_path, "wing") == []
+
+
+def test_x_f1256_rows_with_a_wrong_cell_count_are_named_and_a_superscript_pol_does_not_crash(
+    tmp_path,
+):
+    from pyflightstream.workspace import _geometry_convert as convert
+
+    matrix = tmp_path / "m001.txt"
+    matrix.write_text(
+        "POL | CONFIGURATION | GEOMETRY\n1 | a | b\n\u00b2 | c | d\n3 | too | many | cells\n",
+        encoding="utf-8",
+    )
+    with pytest.warns(PyflightstreamWarning, match="1 line"):
+        header, rows = convert._header_and_rows(matrix)
+    assert len(rows) == 2
+    with pytest.warns(PyflightstreamWarning):
+        added = convert.rows_for_built_geometries(matrix, "1", [(None, "g.fsm")])
+    assert added[0].startswith("2 | ")

@@ -282,11 +282,15 @@ def _header_and_rows(matrix: Path) -> tuple[list[str], list[list[str]]]:
     if header_at is None:
         raise InputArtifactError(f"{matrix} holds no header line beginning POL ({GEOMETRY_PAGE}).")
     header = _cells(lines[header_at])
-    rows = [
-        _cells(line)
-        for line in lines[header_at + 1 :]
-        if "|" in line and len(_cells(line)) == len(header)
-    ]
+    candidates = [_cells(line) for line in lines[header_at + 1 :] if "|" in line]
+    rows = [row for row in candidates if len(row) == len(header)]
+    if len(rows) != len(candidates):
+        warn(
+            f"{matrix}: {len(candidates) - len(rows)} line(s) with a '|' do not have the "
+            f"{len(header)} cells of the header and are left out of the rows read.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
     return header, rows
 
 
@@ -324,7 +328,7 @@ def rows_for_built_geometries(
     template = next((row for row in rows if row[0] == str(pol).strip()), None)
     if template is None:
         raise InputArtifactError(f"{path} holds no row POL {pol} to copy ({GEOMETRY_PAGE}).")
-    numbers = [int(row[0]) for row in rows if row[0].isdigit()]
+    numbers = [int(row[0]) for row in rows if row[0].isascii() and row[0].isdigit()]
     next_pol = max(numbers, default=0) + 1
     out = []
     for offset, (configuration, geometry) in enumerate(cells):
