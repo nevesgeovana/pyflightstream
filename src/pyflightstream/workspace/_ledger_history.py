@@ -286,7 +286,11 @@ def _run_root(ledger: Ledger, record: Mapping[str, Any]) -> str:
     A record without a working folder under ``sims/`` ran here, under this root.
     """
     cwd = slashes(str(record.get("cwd") or ""))
-    head, found, _ = cwd.partition("/sims/")
+    # The record's own simulation folder names the root, so a workspace that itself sits
+    # under a folder called sims/ is not cut at that outer folder.
+    head, found, _ = cwd.rpartition(f"/sims/sim_{record.get('sim_id')}")
+    if not found:
+        head, found, _ = cwd.rpartition("/sims/")
     return head if found and head else slashes(str(ledger.root))
 
 

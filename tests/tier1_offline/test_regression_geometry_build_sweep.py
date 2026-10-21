@@ -3950,3 +3950,14 @@ class TestF2Package0607Workspace:
             bundle.writestr(member, "[]")
         ((_, stamp, _),) = list(_zip_documents(path, "sims/sim_1.zip"))
         assert stamp == "20260202-020202"
+
+    @staticmethod
+    def test_f1218_the_run_root_is_cut_at_the_records_own_simulation_folder():
+        """F-1218: a workspace under a folder called sims/ keeps its whole root."""
+        from pyflightstream.workspace._ledger_history import _run_root
+
+        ledger = SimpleNamespace(root=Path("/elsewhere"))
+        record = {"sim_id": "9101", "cwd": "/home/u/sims/ws/sims/sim_9101/datapoints/DP-A"}
+        assert _run_root(ledger, record) == "/home/u/sims/ws"
+        assert _run_root(ledger, {"sim_id": "7", "cwd": "/home/u/ws/sims/sim_7"}) == "/home/u/ws"
+        assert _run_root(ledger, {"sim_id": "7", "cwd": ""}) == "/elsewhere"
