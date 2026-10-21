@@ -83,7 +83,7 @@ def blade_azimuth_deg(
     two published columns come to disagree about where a blade is.
 
     None where the clock is not stated: a step, a datum, a positive number of
-    steps per revolution or a non-zero ``rpm`` that is not a number. A caller
+    steps per revolution or a non-zero ``rpm`` that is not a finite number. A caller
     publishes that as not applicable, never as zero.
 
     Parameters

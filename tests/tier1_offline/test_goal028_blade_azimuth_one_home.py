@@ -51,6 +51,11 @@ def test_a_blade_turns_from_its_datum_in_the_sense_of_rpm(
         (10.0, 18, 72, None),
         (10.0, 18, 72, 0.0),
         (10.0, 18, 72, True),
+        # X-F-0335: a NaN is truthy and compares false, so it read as a reversed rotation.
+        (10.0, 18, 72, float("nan")),
+        (float("nan"), 18, 72, 2000.0),
+        (10.0, float("inf"), 72, 2000.0),
+        (10.0, 18, float("nan"), 2000.0),
     ],
 )
 def test_a_clock_that_is_not_stated_gives_no_azimuth_and_never_a_zero(
