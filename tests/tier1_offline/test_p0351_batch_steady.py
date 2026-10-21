@@ -682,3 +682,40 @@ def test_f5_0102_f022_a_point_is_compared_with_the_point_the_instance_holds(tmp_
     assert [block.transition for block in job.blocks] == ["start", "refresh", "refresh"]
     lines = job.text.splitlines()
     assert lines[job.blocks[2].first_line - 1] == "NEW_SIMULATION"
+
+
+def _sectioned_point(tmp_path: Path, tag: str, alpha: int, section: str) -> JobPoint:
+    text = f"SOLVER_SET_AOA\n{alpha}\nNEW_SURFACE_SECTION_DISTRIBUTION\n{section}\n\nSTART_SOLVER\n"
+    return JobPoint(f"m/s/{tag}", "s", tag, text, tmp_path / tag, (), "", None, "", 0, steady=True)
+
+
+def test_p0430_f063_a_changed_section_definition_is_refused_and_an_equal_one_is_dropped(tmp_path):
+    """F-063: a later section creation is dropped only when it repeats the first's definition."""
+    first = _sectioned_point(tmp_path, "a", 0, "NUM_SECTIONS 1")
+    same = _sectioned_point(tmp_path, "b", 2, "NUM_SECTIONS 1")
+    changed = _sectioned_point(tmp_path, "b", 2, "NUM_SECTIONS 3")
+    job = assemble_job(
+        [JobPolar("s", (first, same))], kind="batch", version=BUILD, job_log=None, job_dir=tmp_path
+    )
+    assert job.text.count("NEW_SURFACE_SECTION_DISTRIBUTION") == 1
+    with pytest.raises(CampaignConfigError, match="differs from") as refused:
+        assemble_job(
+            [JobPolar("s", (first, changed))],
+            kind="batch",
+            version=BUILD,
+            job_log=None,
+            job_dir=tmp_path,
+        )
+    assert "'m/s/b'" in str(refused.value) and "NUM_SECTIONS 3" in str(refused.value)
+
+
+def test_p0430_f1313_f1314_a_shell_line_quotes_a_spaced_path_and_keeps_flags(tmp_path):
+    """F-1313, F-1314: only the files of the point's folder are placed; a spaced path stays one."""
+    from pyflightstream.cases.workflows._batch_script import _absolute_splice
+
+    folder = tmp_path / "my point"
+    line = "python -u cb.py --steps 0.5"
+    lines = _absolute_splice(
+        ["SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND", line], folder, tmp_path, BUILD
+    )
+    assert lines[1] == f'python -u "{folder / "cb.py"}" --steps 0.5'

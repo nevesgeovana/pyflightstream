@@ -782,22 +782,60 @@ def _point_lines(
     if transition == "refresh":
         return [REFRESH_VERB, "", *body]
     restated = body[_shifted(point, _anchor_index(held, point)) :]
-    return [REINIT_VERB, "", *_without_created_sections(first, restated)]
+    return [REINIT_VERB, "", *_without_created_sections(first, restated, point)]
 
 
-def _without_created_sections(first: JobPoint, lines: list[str]) -> list[str]:
-    """Keep existing sections across reinitialisation, including their exports (FR-362)."""
-    creations = {SECTION_DISTRIBUTION_COMMAND, "CREATE_NEW_SURFACE_SECTION"}
-    emitted = {line.split()[0] for line in _lines(first.text) if line.split()} & creations
-    commands = CommandRegistry.load().commands
-    kept: list[str] = []
-    dropping = False
+def _command_blocks(lines: list[str], commands: Iterable[str]) -> list[list[str]]:
+    """Split lines into blocks, each a command line with the argument lines that follow it."""
+    known = set(commands)
+    blocks: list[list[str]] = []
     for line in lines:
         words = line.split()
-        if words and words[0] in commands:
-            dropping = words[0] in emitted
-        if not dropping:
-            kept.append(line)
+        if not blocks or (words and words[0] in known):
+            blocks.append([])
+        blocks[-1].append(line)
+    return blocks
+
+
+def _definition(block: list[str]) -> tuple[str, ...]:
+    """Return a block's lines without its trailing blank lines: what it defines."""
+    lines = list(block)
+    while len(lines) > 1 and not lines[-1].strip():
+        lines.pop()
+    return tuple(lines)
+
+
+def _without_created_sections(
+    first: JobPoint, lines: list[str], point: JobPoint | None = None
+) -> list[str]:
+    """Keep existing sections across reinitialisation, including their exports (FR-362).
+
+    A later point's creation is dropped only when its definition is the one the
+    polar's first point created; a different definition cannot be restated in
+    the same instance, and is refused naming the point and the command (F-063).
+    """
+    creations = {SECTION_DISTRIBUTION_COMMAND, "CREATE_NEW_SURFACE_SECTION"}
+    commands = CommandRegistry.load().commands
+    made = {
+        _definition(block)
+        for block in _command_blocks(_lines(first.text), commands)
+        if block[0].split()[:1] and block[0].split()[0] in creations
+    }
+    emitted = {definition[0].split()[0] for definition in made}
+    kept: list[str] = []
+    for block in _command_blocks(lines, commands):
+        words = block[0].split()
+        if words and words[0] in emitted:
+            if _definition(block) in made:
+                continue
+            raise CampaignConfigError(
+                f"point {(point or first).run_id!r} states a {words[0]} whose definition "
+                f"({' / '.join(item.strip() for item in block if item.strip())!r}) differs from "
+                f"the one {first.run_id!r} created: the sections stay loaded after "
+                "REMOVE_INITIALIZATION, so the changed section could not be restated and its "
+                "exports would read the first definition. Run this polar on its own."
+            )
+        kept.extend(block)
     return kept
 
 
@@ -940,8 +978,37 @@ def _post_copy(
     return out, (name, text)
 
 
-def _absolute_path_token(token: str, point_dir: PurePath, job_dir: PurePath) -> str:
-    """Resolve one quoted or bare path, preserving quotes and absolute spellings."""
+def _names_a_path(token: str, *, executable: bool) -> bool:
+    """Whether one token of a shell line names a file the job must place (F-1314).
+
+    A flag (``-u``, ``--steps``), a number and a bare executable name are the
+    command line's own words, not files of the point's folder. The executable,
+    the first token, is a path only when it carries a separator; any other token
+    is one when it carries a separator or an extension.
+    """
+    quoted = len(token) > 1 and token[:1] in ("'", '"') and token[-1:] == token[:1]
+    bare = token[1:-1] if quoted else token
+    if not bare or bare.startswith("-"):
+        return False
+    try:
+        float(bare)
+    except ValueError:
+        pass
+    else:
+        return False
+    if "/" in bare or "\\" in bare:
+        return True
+    return not executable and "." in bare
+
+
+def _absolute_path_token(
+    token: str, point_dir: PurePath, job_dir: PurePath, *, shell: bool = False
+) -> str:
+    """Resolve one quoted or bare path, preserving quotes and absolute spellings.
+
+    In a shell line a resolved path that holds a space is quoted, so it stays one
+    argument (F-1313).
+    """
     quote = token[:1] if token.startswith(('"', "'")) and token[-1:] == token[:1] else ""
     bare = token[1:-1] if quote else token
     portable = bare.replace("\\", "/")
@@ -950,7 +1017,10 @@ def _absolute_path_token(token: str, point_dir: PurePath, job_dir: PurePath) -> 
     if is_absolute_target(bare):
         return token
     root = job_dir if portable.startswith("actions/") else point_dir
-    return f"{quote}{root / portable}{quote}"
+    resolved = str(root / portable)
+    if shell and not quote and any(char.isspace() for char in resolved):
+        quote = '"'
+    return f"{quote}{resolved}{quote}"
 
 
 def _is_user_registration(words: Sequence[str]) -> bool:
@@ -1030,7 +1100,11 @@ def _absolute_splice(
         if shell:
             value = re.sub(
                 r'"[^"]*"|\'[^\']*\'|[^\s"\']+',
-                lambda match: _absolute_path_token(match[0], point_dir, job_dir),
+                lambda match: (
+                    _absolute_path_token(match[0], point_dir, job_dir, shell=True)
+                    if _names_a_path(match[0], executable=match.start() == 0)
+                    else match[0]
+                ),
                 value,
             )
         else:
