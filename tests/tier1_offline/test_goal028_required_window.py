@@ -151,7 +151,6 @@ def test_f074_the_flat_blade_window_is_one_whole_revolution_not_blades_times_a_r
         DELTA_THETA="10",
         REVOLUTIONS="4",
         BLADES="5",
-        LAST_REVS_AVG="1",
     )
     plan = reduction_windows(case)
     assert plan is not None and plan["per_blade"]["windows"] == [[109, 144]]
