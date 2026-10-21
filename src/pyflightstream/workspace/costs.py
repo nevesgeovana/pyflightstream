@@ -395,7 +395,7 @@ def estimate_seconds(
             "no estimate is offered rather than an extrapolation",
         )
     seconds *= ref_speed / point_speed
-    applied = sorted(name for name in flags if name in cost.flags)
+    applied = sorted({name for name in flags if name in cost.flags})
     for name in applied:
         seconds *= cost.flags[name]
     tail = f" ({'; '.join(notes)})" if notes else ""

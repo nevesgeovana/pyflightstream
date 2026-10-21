@@ -222,3 +222,12 @@ def test_an_undefined_size_gives_no_estimate(tmp_path, which, bad):
     est = estimate_seconds(cost, ncpus=4, **figures)
     assert est.seconds is None
     assert which in est.basis
+
+
+def test_a_repeated_flag_multiplies_once(tmp_path):
+    """F-339: naming one flag twice is still one flag."""
+    cost = _cost(tmp_path)
+    base = {"faces": 1000, "steps": 10, "ncpus": 4}
+    once = estimate_seconds(cost, **base, flags=["viscous_coupling"])
+    twice = estimate_seconds(cost, **base, flags=["viscous_coupling", "viscous_coupling"])
+    assert twice.seconds == once.seconds == 300.0
