@@ -974,6 +974,29 @@ class TestGapsRtFsiext:
         assert external_step(folder) == 1
 
 
+def test_p0430_f6_04_external_archives_actual_input_hash(tmp_path):
+    import hashlib
+
+    folder = _gaps_rt_fsiext___point(tmp_path)
+    changed = folder / "stand_in.py"
+    changed.write_bytes(changed.read_bytes() + b"# changed")
+    assert external_step(folder) == 1
+    record = json.loads((folder / "fsi_archive/call_0001/call.json").read_text())
+    assert record["read_sha256"]["stand_in.py"] == hashlib.sha256(changed.read_bytes()).hexdigest()
+
+
+def test_p0430_f6_04_external_does_not_archive_old_output(tmp_path):
+    folder = _gaps_rt_fsiext___point(tmp_path, "silent")
+    manifest_path = folder / EXTERNAL_MANIFEST
+    manifest = json.loads(manifest_path.read_text())
+    manifest["arguments"] = ["-c", "pass"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    (folder / "struct_log.txt").write_text("previous call", encoding="utf-8")
+    assert external_step(folder) == 1
+    record = json.loads((folder / "fsi_archive/call_0001/call.json").read_text())
+    assert "struct_log.txt" not in record["written_sha256"]
+
+
 def test_p0430_f6_04_external_archives_invalid_encoding(tmp_path):
     import hashlib
 

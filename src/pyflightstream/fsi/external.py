@@ -258,6 +258,10 @@ def _run_program(
     directory: Path, structure: ExternalStructure
 ) -> tuple[int | None, float, str | None]:
     """Run the program in ``directory``, no console window; return code, seconds, failure."""
+    for name in structure.outputs:
+        previous = directory / name
+        if previous.is_file():
+            previous.unlink()
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
     started = time.perf_counter()
     try:
@@ -304,6 +308,26 @@ def _judge_displacements(directory: Path, structure: ExternalStructure) -> tuple
     return len(rows), None
 
 
+def _input_digests(folder: Path, structure: ExternalStructure) -> dict[str, str]:
+    """Hash present staged inputs as observed, independently of their planned digests."""
+    return {
+        name: _sha256(folder / name)
+        for name in structure.inputs_sha256
+        if (folder / name).is_file()
+    }
+
+
+def _archive_outputs(folder: Path, archive: Path, names: Iterable[str]) -> dict[str, str]:
+    """Archive the products of an attempted call after its stale outputs were removed."""
+    written = {}
+    for name in names:
+        produced = folder / name
+        if produced.is_file():
+            shutil.copy2(produced, archive / name)
+            written[name] = _sha256(produced)
+    return written
+
+
 def external_step(directory: str | Path) -> int:
     """Run, archive and validate one call of the external structural program (FR-1092).
 
@@ -345,7 +369,7 @@ def external_step(directory: str | Path) -> int:
     archive = folder / _ARCHIVE_DIR / f"call_{call:04d}"
     archive.mkdir(parents=True, exist_ok=True)
     loads = folder / LOADS_FILE
-    read: dict[str, str] = {}
+    read = _input_digests(folder, structure)
     nodes = folder / EXTERNAL_NODES_FILE
     if nodes.is_file():
         read[nodes.name] = _sha256(nodes)
@@ -361,18 +385,18 @@ def external_step(directory: str | Path) -> int:
     code: int | None = None
     seconds = 0.0
     rows = 0
+    attempted = reason is None
     if reason is None:
         code, seconds, reason = _run_program(folder, structure)
         if reason is None and code != 0:
             reason = f"the program returned {code}"
         if reason is None:
             rows, reason = _judge_displacements(folder, structure)
-    written: dict[str, str] = {}
-    for name in (DISPLACEMENT_FILE, *structure.outputs):
-        produced = folder / name
-        if produced.is_file():
-            shutil.copy2(produced, archive / name)
-            written[name] = _sha256(produced)
+    written = (
+        _archive_outputs(folder, archive, (DISPLACEMENT_FILE, *structure.outputs))
+        if attempted
+        else {}
+    )
     verdict = "passed" if reason is None else "failed"
     record = {
         "call": call,
@@ -380,7 +404,7 @@ def external_step(directory: str | Path) -> int:
         "command": [structure.executable, *structure.arguments],
         "return_code": code,
         "wall_time_s": round(seconds, 6),
-        "read_sha256": {**read, **structure.inputs_sha256},
+        "read_sha256": read,
         "written_sha256": written,
         "node_count": structure.node_count,
         "rows_written": rows,
