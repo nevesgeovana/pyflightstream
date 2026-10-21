@@ -1177,6 +1177,11 @@ def naca4_contour(naca: str, n_chord: int) -> np.ndarray:
         leading edge and the upper surface back; first and last point
         are both the trailing edge, so the polygon is closed.
 
+    Raises
+    ------
+    FsiInputError
+        If ``naca`` is not exactly four ASCII digits.
+
     Examples
     --------
     >>> contour = naca4_contour("0012", 21)
