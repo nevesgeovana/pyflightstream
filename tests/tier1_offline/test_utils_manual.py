@@ -2689,3 +2689,22 @@ def test_propose_type_refuses_the_call_shapes_it_cannot_read():
         with pytest.raises(TypeError):
             call()
     assert issubclass(ManualCallError, TypeError), "a wrong call shape is a TypeError to a caller"
+
+
+def test_pfs_2124_023_writing_over_an_existing_draft_is_refused_unless_asked(tmp_path):
+    """PFS-2124.023: a reviewed draft or shipped chapter is not replaced silently."""
+    from pyflightstream.utils import render_chapter, write_chapter
+    from pyflightstream.utils.errors import ManualDraftError
+
+    target = tmp_path / "reviewed.yaml"
+    target.write_text("reviewed: true", encoding="utf-8")
+    body = render_chapter(
+        parse_signatures({316: INLINE_PAGE}).values(),
+        source="FSM-26.100",
+        versions={"26.100": "documented"},
+    )
+    with pytest.raises(ManualDraftError, match="reviewed.yaml"):
+        write_chapter(body, path=target, write=True)
+    assert target.read_text(encoding="utf-8") == "reviewed: true"
+    write_chapter(body, path=target, write=True, overwrite=True)
+    assert target.read_text(encoding="utf-8") == body

@@ -366,6 +366,11 @@ def _parser() -> argparse.ArgumentParser:
             "argument list and leaves the rest as '???'"
         ),
     )
+    draft.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="with --write, replace --out when it already exists; refused without it",
+    )
     return parser
 
 
@@ -844,7 +849,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     if not args.write:
         return _print_dry_run(args, body)
-    print(write_chapter(body, path=args.out, write=True))
+    try:
+        print(write_chapter(body, path=args.out, write=True, overwrite=args.overwrite))
+    except ManualDraftError as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 1
     return 0
 
 

@@ -2051,7 +2051,9 @@ def render_chapter(
     return header + "\n".join(render_entry(c, source=source, versions=versions) for c in ordered)
 
 
-def write_chapter(body: str, *, path: str | Path, write: bool = False) -> str:
+def write_chapter(
+    body: str, *, path: str | Path, write: bool = False, overwrite: bool = False
+) -> str:
     """Write a drafted chapter, but only when asked.
 
     The default is a dry run, and the reason is the measurement in this
@@ -2070,12 +2072,21 @@ def write_chapter(body: str, *, path: str | Path, write: bool = False) -> str:
         prevent exchanging the destination with the chapter body.
     write : bool, keyword-only
         False, the default, writes nothing. True writes ``body`` to
-        ``path``, replacing it.
+        ``path``.
+    overwrite : bool, keyword-only
+        False, the default, refuses a ``path`` that already exists, so a
+        reviewed draft or a shipped chapter is never replaced by accident.
+        True replaces it.
 
     Returns
     -------
     str
         A sentence saying what happened, for a caller to print.
+
+    Raises
+    ------
+    ManualDraftError
+        If ``write`` is True, ``path`` exists and ``overwrite`` is False.
     """
     from pathlib import Path as _Path
 
@@ -2086,6 +2097,13 @@ def write_chapter(body: str, *, path: str | Path, write: bool = False) -> str:
         return (
             f"dry run: {entries} entr(ies) drafted, {unanswered} unanswered field(s), "
             f"nothing written. Pass write=True to write {target}."
+        )
+    if target.exists() and not overwrite:
+        raise ManualDraftError(
+            f"{target} already exists, and a draft would replace it, which could be a "
+            "reviewed draft or a shipped chapter. Nothing was written. Pass "
+            "overwrite=True (--overwrite on the command line) to replace it, or choose "
+            "another destination"
         )
     target.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(target, body)
