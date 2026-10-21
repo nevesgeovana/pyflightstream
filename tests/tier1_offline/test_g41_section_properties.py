@@ -67,6 +67,14 @@ from pyflightstream.qa.geometry import naca4_contour
 EXACT = 1.0e-9
 
 
+@pytest.mark.parametrize("designation", ["23012", "", "241", "abcd"])
+def test_p0430_f6_04_naca_requires_four_digits(designation):
+    from pyflightstream.fsi.sections import naca4_contour
+
+    with pytest.raises(FsiInputError, match="four"):
+        naca4_contour(designation, 21)
+
+
 def test_p0430_f6_04_empty_contour_is_an_input_error():
     with pytest.raises(FsiInputError, match="vertices"):
         polygon_area_moments(np.empty((0, 2)))

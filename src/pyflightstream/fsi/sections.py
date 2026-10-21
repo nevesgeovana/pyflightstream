@@ -1181,6 +1181,10 @@ def naca4_contour(naca: str, n_chord: int) -> np.ndarray:
     >>> contour.shape, float(contour[0, 0])
     ((43, 2), 1.0)
     """
+    if len(naca) != 4 or not naca.isascii() or not naca.isdigit():
+        raise FsiInputError(
+            f"NACA designation {naca!r} must contain exactly four digits, for example '2412'"
+        )
     m = int(naca[0]) / 100.0
     p = int(naca[1]) / 10.0
     t = int(naca[2:]) / 100.0
