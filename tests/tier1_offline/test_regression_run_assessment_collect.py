@@ -861,9 +861,12 @@ def test_f6_0102_f258_an_explicit_nan_before_the_overflow_is_not_skipped(tmp_pat
     text = _log_with(OVERFLOW, LAST_PRESSURE)
     lines = text.splitlines(keepends=True)
     for index, line in enumerate(lines):
-        if line.startswith("1574"):
+        # An old row that is finite and within the limit, and a NaN printed after it: the
+        # old row must not stand in for the NaN.
+        if line.startswith("2 "):
+            lines[index] = line.replace("+3.1000000E-1", "+2.0000000E-9")
+        elif line.startswith("1574"):
             lines[index] = line.replace("+2.8300000E-8", "NaN")
-            break
     assessment = _assess_log(tmp_path, "".join(lines))
     assert assessment.status is RunStatus.FAILED_DIVERGED
     assert assessment.residual_note is None
