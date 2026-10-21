@@ -44,6 +44,10 @@ NAMES = (
 CREF, BREF = 2.526, 20.0
 
 
+def test_p0430_w012_group_polar_documents_caller_order():
+    assert "given order" in group_polar_rows.__doc__.split("\n\n")[0]
+
+
 def test_p0430_f151_absent_vectors_are_not_measured_zero():
     from pyflightstream._errors import ProductError
     from pyflightstream.post.polar import GroupCoefficients

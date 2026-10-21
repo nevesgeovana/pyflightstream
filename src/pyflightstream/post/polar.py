@@ -231,6 +231,9 @@ def polar_table_columns(drag_columns: Sequence[tuple[str, str]] | None = None) -
     return (*POLAR_COLUMNS[:-2], *(name for kind in kinds for name in kind))
 
 
+# Recorded-export source: RPT-063, "emitted coefficients are scored against the
+# solver's own recorded output" (2026-09-23), oracle inventory and .01.02.
+# It identifies the hashed Total-row fixture used for the comparisons below.
 @dataclass(frozen=True)
 class GroupCoefficients:
     """The coefficients of one group, summed over its families, as the solver reports them.
@@ -462,6 +465,8 @@ def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, .
     return tuple(name for name in names if name in listed and loads.surfaces[name]["CDi"] == 0.0)
 
 
+# The vector/integral comparison uses the same RPT-063 (2026-09-23) Total-row
+# evidence identified above GroupCoefficients, including its four sideslip rows.
 def polar_row(
     alpha_deg: float,
     mach: float,
@@ -843,7 +848,7 @@ def group_polar_rows(
     reference: ReferenceValues,
     aliases: Mapping[str, Sequence[str]] | None = None,
 ) -> list[tuple[float, ...]]:
-    """Return the coefficient rows of one group over the points of a polar, alpha ascending.
+    """Return the coefficient rows of one group over the points of a polar, in the given order.
 
     This is the ARTIFACT's path, so an empty member list is every family
     and the summer is asked for that reading.
