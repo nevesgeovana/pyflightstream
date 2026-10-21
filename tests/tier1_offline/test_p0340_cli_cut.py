@@ -161,3 +161,68 @@ def test_run_cli_keeps_the_names_0331_offered_ad_15(name):
     exec(f"from pyflightstream.run.cli import {name}", {})
     home = importlib.import_module(V0331_OFFERED[name])
     assert getattr(matrix_cli, name) is getattr(home, name), name
+
+
+def test_p0430_f1564_an_empty_only_is_refused_not_an_unrestricted_build(capsys, tmp_path):
+    """F-1564: --only with no tag exits 2 and names the fix, writing nothing."""
+    import argparse
+
+    from pyflightstream.run._cli_geometry import _cmd_build
+
+    args = argparse.Namespace(only=" , ", target=str(tmp_path), build=None, apply=True)
+    assert _cmd_build(args) == 2
+    assert "--only names no variant" in capsys.readouterr().err
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_p0430_f717_the_writability_probe_leaves_a_file_another_process_created(
+    tmp_path, monkeypatch
+):
+    """F-717: a file that appears between the existence check and the probe is never removed."""
+    import os
+
+    from pyflightstream.run import _cli_mesh
+
+    target = tmp_path / "audit.csv"
+    real_open = os.open
+
+    def racing_open(path, flags, *rest):
+        # Another process creates the file first; the exclusive create then reports it.
+        Path(path).write_text("theirs", encoding="utf-8")
+        return real_open(path, flags, *rest)
+
+    monkeypatch.setattr(_cli_mesh.os, "open", racing_open)
+    assert _cli_mesh._refused_csv(str(target)) is None
+    assert target.read_text(encoding="utf-8") == "theirs"
+
+
+def test_p0430_f713_a_surface_export_never_replaces_a_file_that_appeared_meanwhile(
+    tmp_path, monkeypatch, capsys
+):
+    """F-713: without --overwrite the promotion refuses over a file another export wrote."""
+    import argparse
+
+    from pyflightstream.run import _cli_geometry as geometry
+
+    source = tmp_path / "wing.fsm"
+    target = source.with_suffix(".surface.stl")
+
+    def exported(source_, work, **_kw):
+        target.write_text("theirs", encoding="utf-8")
+        mesh = work / "surface_mesh.stl"
+        mesh.write_text("mine", encoding="utf-8")
+        return mesh
+
+    monkeypatch.setattr(
+        geometry, "plan_surface_mesh_export", lambda *a: (source, tmp_path, "b", "v")
+    )
+    monkeypatch.setattr(geometry, "resolve_build", lambda *a: argparse.Namespace(fs_exe="x"))
+    monkeypatch.setattr(geometry, "export_surface_mesh", exported)
+    monkeypatch.setattr(geometry, "LocalExecutor", lambda exe: None)
+    monkeypatch.setattr(geometry, "_surface_mesh_script", lambda *a: "")
+    args = argparse.Namespace(
+        target=str(source), build=None, apply=True, overwrite=False, fs_exe=None
+    )
+    assert geometry._cmd_export_surface_mesh(args) == 2
+    assert "appeared while the export ran" in capsys.readouterr().err
+    assert target.read_text(encoding="utf-8") == "theirs"

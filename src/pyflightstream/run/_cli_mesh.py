@@ -143,16 +143,24 @@ def _refused_csv(csv: str | None, flag: str = "--out") -> str | None:
             f"{target}: {flag} names a folder, or a file in a folder that does not exist. "
             "Name a file in an existing folder and run again. Nothing was written."
         )
-    existed = target.exists()
+    # THE PROBE REMOVES ONLY A FILE IT CREATED ITSELF (F-717): an exclusive create tells the
+    # file this call made from one another process made in the meantime, which is left alone.
+    created = False
     try:
-        _textio.append_text(target, "")
+        if not target.exists():
+            os.close(os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL))
+            created = True
+        else:
+            _textio.append_text(target, "")
+    except FileExistsError:
+        pass
     except OSError as error:
         return (
             f"{target}: {flag} names a file that cannot be written ({_reason(error)}). "
             "Close it or make it writable, or name another file, and run again. "
             "Nothing was written."
         )
-    if not existed:
+    if created:
         target.unlink(missing_ok=True)
     return None
 

@@ -17,6 +17,7 @@ handler is the one ``pyfs-matrix`` runs.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -302,6 +303,12 @@ def _print_rows(plan: GeometryBuildPlan, args: argparse.Namespace) -> None:
 def _cmd_build(args: argparse.Namespace) -> int:
     only = tuple(tag.strip() for tag in (args.only or "").split(",") if tag.strip())
     try:
+        if args.only is not None and not only:
+            # AN EMPTY --only IS A REFUSAL (F-1564): it read as no restriction, a full build.
+            raise InputArtifactError(
+                "--only names no variant; give TAG[,TAG...] such as AIL+100, or leave --only out "
+                "to build every variant."
+            )
         plan = plan_geometry_build(args.target, build=args.build, only=only)
         _print_plan(plan)
         _print_rows(plan, args)
@@ -359,6 +366,32 @@ def _cmd_build(args: argparse.Namespace) -> int:
     return status
 
 
+def _promote_without_clobbering(exported: Path, target: Path, *, overwrite: bool) -> None:
+    """Move the exported mesh to ``target``, never over a file that appeared meanwhile (F-713).
+
+    The earlier existence check can be outrun by another export that finished first, so the
+    move itself refuses to replace: a hard link fails if the name is taken. Where links are not
+    supported the existence check is repeated at the move.
+    """
+    if overwrite:
+        exported.replace(target)
+        return
+    taken = (
+        f"{target} appeared while the export ran, so it was not replaced; use --overwrite to "
+        f"replace it. The export is kept as {exported}."
+    )
+    try:
+        os.link(exported, target)
+    except FileExistsError as error:
+        raise InputArtifactError(taken) from error
+    except OSError:
+        if target.exists():
+            raise InputArtifactError(taken) from None
+        exported.replace(target)
+        return
+    exported.unlink()
+
+
 def _cmd_export_surface_mesh(args: argparse.Namespace) -> int:
     try:
         source, root, build, version_id = plan_surface_mesh_export(args.target, args.build)
@@ -391,7 +424,7 @@ def _cmd_export_surface_mesh(args: argparse.Namespace) -> int:
             file_type="STL",
             timeout_s=_TIMEOUT_S,
         )
-        exported.replace(target)
+        _promote_without_clobbering(exported, target, overwrite=bool(args.overwrite))
         # Keep the script and log as evidence; the next export needs a fresh directory.
         print(f"wrote {target}; export script and logs kept in {work}")
         return 0

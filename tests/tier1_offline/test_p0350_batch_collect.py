@@ -638,3 +638,20 @@ def test_p0430_f838_an_undecodable_job_script_reads_as_none(tmp_path):
     workspace = SimpleNamespace(root=tmp_path)
     job = {"dir": "job", "script": "job/s.txt", "points": 2}
     assert _opening_orders(workspace, job) is None
+
+
+def test_p0430_fr727_end_evidence_takes_the_precedence_when_all_three_exist(tmp_path):
+    """FR-727: local end record, then settled log, then end files, with all present at once."""
+    from pyflightstream.workspace._batch_life import end_evidence
+
+    folder = tmp_path / "job"
+    folder.mkdir()
+    job = {"dir": "job", "script": "job/BATCH-1.txt", "values": {}}
+    globs = ["done.*"]
+    (folder / "done.1").write_text("x", encoding="utf-8")
+    assert "job_end_files" in end_evidence(tmp_path, job, globs)
+    (folder / "BATCH-1.job-log.txt").write_text("log", encoding="utf-8")
+    assert "job's log" in end_evidence(tmp_path, job, globs)
+    (folder / "BATCH-1.end.json").write_text("{}", encoding="utf-8")
+    assert "local end record" in end_evidence(tmp_path, job, globs)
+    assert "settled" not in end_evidence(tmp_path, job, globs)
