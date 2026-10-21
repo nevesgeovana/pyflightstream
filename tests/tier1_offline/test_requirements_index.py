@@ -25,6 +25,24 @@ WORKSPACE_STATEMENT = (
 METHOD_COLUMNS = 7
 
 
+def test_p0430_f7_04_continuation_example_loads_from_checkout(monkeypatch):
+    """The documented checkout loader must expose the real offline entrypoint."""
+    page = (REPO / "docs/continuation-recovery.md").read_text(encoding="utf-8")
+    block = re.search(r"```python\n(.*?)```", page, re.S)
+    assert block is not None
+    loader = block[1].split("main([", 1)[0]
+    monkeypatch.chdir(REPO)
+    namespace = {}
+    try:
+        exec(compile(loader, "continuation-recovery.md", "exec"), namespace)
+    except ImportError as error:
+        pytest.fail(f"The documented loader cannot import its example: {error}")
+    assert callable(namespace.get("main"))
+    with pytest.raises(SystemExit) as result:
+        namespace["main"](["--help"])
+    assert result.value.code == 0
+
+
 def historical_requirements():
     """Read the frozen migration population through the shared table parser."""
     from scripts._requirements_paths import requirement_rows

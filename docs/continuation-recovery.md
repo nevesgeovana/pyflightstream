@@ -31,11 +31,15 @@ accepts an existing workspace, a resolved SimCase JSON, a point and a build.
 It does not initialize a workspace or submit a solver. Save the resolved case
 with case.model_dump_json(); the JSON must retain its RESTART request.
 
-From the checkout, use Python to avoid shell-specific JSON quoting:
+From the checkout root, use Python to avoid shell-specific JSON quoting.
+The example source lives under `docs/examples/_sources/`; it is not an
+installed package module:
 
 <!-- skip: next -->
 ```python
-from examples.continuation_frame_recovery import main
+from runpy import run_path
+
+main = run_path("docs/examples/_sources/continuation_frame_recovery.py")["main"]
 
 main([
     "campaign", "resolved-case.json",
