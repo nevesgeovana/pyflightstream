@@ -184,3 +184,14 @@ def test_f_311_a_flag_multiplier_is_a_positive_number(tmp_path, value):
     )
     with pytest.raises(InputArtifactError, match="viscous_coupling to be a positive number"):
         resolve_cost_file(inputs)
+
+
+def test_flag_multipliers_come_only_from_the_cost_file_in_use(tmp_path):
+    """P0350-COST-FILE (FR-805): the same flag costs what each file says."""
+    base = {"faces": 1000, "steps": 10, "ncpus": 4, "flags": ["viscous_coupling"]}
+    five = _FILE.replace("viscous_coupling = 3.0", "viscous_coupling = 5.0")
+    none = _FILE.replace("[flags]\nviscous_coupling = 3.0\n", "")
+    for name, text, expected in (("a", five, 500.0), ("b", _FILE, 300.0), ("c", none, 100.0)):
+        cost = resolve_cost_file(_inputs(tmp_path / name, "c001", text=text))
+        assert cost is not None
+        assert estimate_seconds(cost, **base).seconds == pytest.approx(expected)
