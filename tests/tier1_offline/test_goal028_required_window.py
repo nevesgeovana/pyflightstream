@@ -81,3 +81,43 @@ def test_a_retired_window_cannot_satisfy_the_required_window(key):
     """A former accepted spelling must now fail with the key to write."""
     with pytest.raises(CampaignConfigError, match=key + ".*LAST_"):
         _require_the_averaging_window(_case("unsteady_rotor", **{key: "1"}), "unsteady_rotor")
+
+
+# --- F5-1112: clock refusals (F-083, F-767, F-1326, F-766) -----------------------
+
+
+def test_an_angular_clock_that_makes_no_whole_step_is_refused_like_the_explicit_form():
+    from pyflightstream.cases.workflows import rotor_time_stepping
+
+    case = _case("unsteady_rotor", RPM="1200", DELTA_THETA="20", REVOLUTIONS="0.01")
+    with pytest.raises(CampaignConfigError, match="at least one time step"):
+        rotor_time_stepping(case)
+    # THE CONTROL: a whole number of steps resolves.
+    ok = _case("unsteady_rotor", RPM="1200", DELTA_THETA="20", REVOLUTIONS="2")
+    assert rotor_time_stepping(ok).time_iterations == 36
+
+
+def test_a_refused_clock_reports_its_step_count_as_unknown():
+    from pyflightstream.cases.workflows import time_steps_of
+
+    case = _case("unsteady_rotor", RPM="1200", DELTA_THETA="20", REVOLUTIONS="0.01")
+    case.variables["TIME_ITERATIONS"] = "500"
+    assert time_steps_of(case) is None
+
+
+def test_the_rotorless_angular_refusal_does_not_recommend_a_refused_key():
+    from pyflightstream.cases.workflows import unsteady_time_stepping
+
+    case = _case("unsteady", DELTA_THETA="20", REVOLUTIONS="2")
+    with pytest.raises(CampaignConfigError) as refused:
+        unsteady_time_stepping(case)
+    assert "'RPM: <rev/min>'" not in str(refused.value)
+    assert "ADVANCE_RATIO" in str(refused.value)
+
+
+@pytest.mark.parametrize("text", ["nan", "inf", "-inf"])
+def test_a_non_finite_walltime_margin_is_refused(text):
+    from pyflightstream.cases.workflows import walltime_margin_s
+
+    with pytest.raises(CampaignConfigError, match="finite"):
+        walltime_margin_s(_case("unsteady", WALLTIME_MARGIN_S=text))

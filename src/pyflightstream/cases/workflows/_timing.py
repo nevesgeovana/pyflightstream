@@ -296,7 +296,9 @@ def time_steps_of(case: SimCase) -> int | None:
             stepping = unsteady_time_stepping(case)
         iterations = getattr(stepping, "time_iterations", None)
     except CampaignConfigError:
-        iterations = None
+        # A REFUSED CLOCK IS UNKNOWN: the builder refuses the row with its own
+        # message, and a report must not revive the raw cell as a step count.
+        return None
     if iterations is None:
         # THROUGH THE TEXT, and not through `int(raw)` directly: a variable
         # cell is a str, a float or an int, and only the digits check below
@@ -427,6 +429,12 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
     delta_time_s = theta / (6.0 * abs(resolved.rpm))
     exact_steps = revolutions * 360.0 / theta
     steps = int(round(exact_steps))
+    if steps < 1:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} asks for {revolutions} revolutions at {theta} degrees "
+            f"per step, which is {exact_steps:g} time steps, and a run marches at least one "
+            "time step. State more revolutions or a smaller azimuthal step."
+        )
     if abs(exact_steps - steps) > 1e-6:
         # WHOLE STEPS OR A REFUSAL. Rounding silently would move the run
         # length away from the revolutions the user asked for, and the
@@ -647,9 +655,9 @@ def unsteady_time_stepping(case: SimCase) -> TimeStepping:
                 f"case {case.sim_id!r} states {', '.join(sorted(angular))} and no rotor "
                 "speed, and this run type meshes nothing that turns: an azimuthal step "
                 "becomes seconds by dividing by a speed, and there is none here to "
-                f"divide by. State '{ADVANCE_RATIO_VARIABLE}: <J>' or "
-                f"'{RPM_VARIABLE}: <rev/min>' for the rotor whose azimuth the step "
-                f"measures, or state the clock directly as '{DELTA_TIME_VARIABLE}: <s>' "
+                f"divide by. State '{ADVANCE_RATIO_VARIABLE}: <J>' for the rotor "
+                f"whose azimuth the step measures ('{RPM_VARIABLE}' is refused on this "
+                f"run type), or state the clock directly as '{DELTA_TIME_VARIABLE}: <s>' "
                 f"and '{TIME_ITERATIONS_VARIABLE}: <steps>'."
             )
         return rotor_time_stepping(case, speed=speed)

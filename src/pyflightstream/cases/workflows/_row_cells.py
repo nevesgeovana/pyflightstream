@@ -122,6 +122,11 @@ def walltime_margin_s(case: SimCase) -> float:
             "number of seconds. It is how long before the wall clock the run stops to "
             "write its exports."
         ) from None
+    if not math.isfinite(value):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the walltime margin is {stated!r}, which is not a "
+            "finite number of seconds; NaN and infinity compare false against every bound."
+        )
     if value < 0:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: the walltime margin is {value}, and a margin is a "
