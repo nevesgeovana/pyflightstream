@@ -41,6 +41,38 @@ def test_p0430_rb2_supersede_refuses_unreadable_history(tmp_path):
         ws.supersede_records(["run-1"])
 
 
+@pytest.mark.parametrize("keys", [(2, "2"), ("2", 2)])
+def test_p0430_rb2_frame_key_collision_is_refused(keys):
+    from copy import deepcopy
+
+    from pyflightstream.workspace.record_document import encode_rows
+
+    row = {
+        "run_id": "run",
+        "sim_id": "1",
+        "status": "CONVERGED",
+        "frame_motions": {keys[0]: {"motion": "fixed"}, keys[1]: {"motion": "rotating"}},
+    }
+    before = deepcopy(row)
+    with pytest.raises(WorkspaceError, match="frame_motions.*same JSON key"):
+        encode_rows([row])
+    assert row == before
+
+
+def test_p0430_rb2_noncolliding_mixed_frame_keys_round_trip():
+    from pyflightstream.workspace.record_document import decode_document, encode_rows
+
+    row = {
+        "run_id": "run",
+        "sim_id": "1",
+        "status": "CONVERGED",
+        "frame_motions": {2: {"motion": "fixed"}, "10": {"motion": "rotating"}},
+    }
+    assert decode_document(json.loads(json.dumps(encode_rows([row])))) == [
+        json.loads(json.dumps(row))
+    ]
+
+
 @pytest.mark.parametrize("damage", ["geometry", "run_id", "status", "deletion"])
 def test_p0430_w007_decoded_headers_cannot_be_bypassed(damage):
     """A digest-valid definition or omission must not invalidate a run header."""
