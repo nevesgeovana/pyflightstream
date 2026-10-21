@@ -265,3 +265,24 @@ def test_closely_spaced_factors_give_distinct_selections_and_tags(tmp_path, pair
         texts.append(text)
         tags.append(tag)
     assert texts[0] != texts[1] and tags[0] != tags[1]
+
+
+def test_f323_pfs_2124_056_axis_origin_and_a_grid_ignored_mode_in_the_summary(tmp_path):
+    """F-323, PFS-2124.056 (FR-970): a body's axis and origin reach the hash, a grid's mode not."""
+    names = [ALPHA, BETA]
+    body = _config.FamilySpec(method="remesh", axial=2.0, circumferential=2.0, axis=(1.0, 0.0, 0.0))
+    other_axis = dataclasses.replace(body, axis=(0.0, 1.0, 0.0))
+    other_origin = dataclasses.replace(body, origin=(0.0, 0.0, 1.0))
+    texts = []
+    for spec in (body, other_axis, other_origin):
+        request = _two(tmp_path, 2.0)
+        request.specs[ALPHA] = spec
+        texts.append(_config.canonical_selection(request, names))
+    assert len(set(texts)) == 3
+    grid = _two(tmp_path, 2.0)
+    grid.specs[ALPHA] = _config.FamilySpec(factor=2.0, method="grid")
+    base = _config.canonical_selection(grid, names)
+    quad = dataclasses.replace(grid, elements={ALPHA: "quad-dominant"})
+    assert _config.canonical_selection(quad, names) == base
+    remeshed = dataclasses.replace(_two(tmp_path, 2.0), elements={ALPHA: "quad-dominant"})
+    assert "elements=quad-dominant" in _config.canonical_selection(remeshed, names)

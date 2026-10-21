@@ -1540,7 +1540,9 @@ class CampaignWorkspace:
         -----
         An existing ``<stem>_wakes.vtk`` beside a declared surface VTK is
         collected and recorded with it. This solver-created companion is
-        optional, so its absence never makes collection incomplete.
+        optional, so its absence never makes collection incomplete: the
+        default selection of the VTK export writes it and ``-1 DISABLE``
+        does not (``reports/RPT-074``, 2026-09-25).
 
         Collection MOVES rather than copies. Every refusal here exists
         because of that and a reader has had to infer it from the

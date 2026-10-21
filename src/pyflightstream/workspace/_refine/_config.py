@@ -370,12 +370,22 @@ def _periodic(path: Path, raw: Any) -> Periodic:
 
 
 def _family_tables(
-    source: Path, families: Mapping[str, Any], names: Sequence[str], mesh: str | Path | None
-) -> tuple[dict[str, FamilySpec], dict[str, str], list[str]]:
-    """Return the specs, the element modes and the kept families of ``[families.<name>]``."""
+    source: Path,
+    families: Mapping[str, Any],
+    names: Sequence[str],
+    mesh: str | Path | None,
+    read: Sequence[str] | None = None,
+) -> tuple[dict[str, FamilySpec], dict[str, str], list[str], list[str]]:
+    """Return the specs, element modes, kept families and unread tables of ``[families.<name>]``.
+
+    ``read`` names the families whose factors are read; a table of any other
+    family is checked for its name and its ``elements`` only (F-1516), and
+    ``None`` reads them all.
+    """
     specs: dict[str, FamilySpec] = {}
     elements: dict[str, str] = {}
     keep: list[str] = []
+    unread: list[str] = []
     for name, raw in families.items():
         where = f"{source} [families.{name}]"
         table = _table(
@@ -385,6 +395,15 @@ def _family_tables(
             raise _refuse(where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}")
         if "elements" in table:
             elements[name] = elements_mode(where, table["elements"])
+        if read is not None and name not in read:
+            if "elements" in table and table.get("method") == "grid":
+                raise _refuse(
+                    f"{where} elements",
+                    "elements applies to a remeshed family; a grid keeps its cells",
+                )
+            if set(table) != {"elements"}:
+                unread.append(name)
+            continue
         named = f"{mesh} family {name} keep_first_row ({where})" if mesh else where
         if _keep_flag(named, table):
             keep.append(name)
@@ -399,16 +418,21 @@ def _family_tables(
                         nonzero=True,
                     ),
                 )
-    return specs, elements, keep
+    return specs, elements, keep, unread
 
 
 def read_refine_file(
-    path: str | Path, names: Sequence[str], mesh: str | Path | None = None
+    path: str | Path,
+    names: Sequence[str],
+    mesh: str | Path | None = None,
+    read: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Read a refinement file against the mesh's family names, refusing what it cannot honour.
 
     ``keep`` lists the families whose table states ``keep_first_row = true``
     (FR-950); a refusal of that key names ``mesh``, the source, as well.
+    ``read`` names the families whose factors are read: the other tables are
+    not validated beyond their name and ``elements`` (F-1516).
     """
     source = Path(path)
     try:
@@ -426,7 +450,7 @@ def read_refine_file(
         data.get("families", {}),
         f"write one [families.<name>] table per family, with the keys {', '.join(FAMILY_KEYS)}",
     )
-    specs, elements, keep = _family_tables(source, families, names, mesh)
+    specs, elements, keep, unread = _family_tables(source, families, names, mesh, read)
     refine = _table(
         f"{source} [refine]",
         data.get("refine", {}),
@@ -456,6 +480,7 @@ def read_refine_file(
     return {
         "specs": specs,
         "keep": keep,
+        "unread": unread,
         "elements": elements,
         "default_elements": elements_mode(f"{source} [refine]", default),
         "tag": tag,
@@ -493,12 +518,19 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     file's tables give the factors.
     """
     file = refine_file_of(mesh, config)
+    from_file = factor is None and chordwise is None and spanwise is None
     stated = (
-        read_refine_file(file, names, mesh)
+        read_refine_file(
+            file,
+            names,
+            mesh,
+            [n for n in (names if families is None else families)] if from_file else [],
+        )
         if file
         else {
             "specs": {},
             "keep": [],
+            "unread": [],
             "elements": {},
             "default_elements": TRIANGLES,
             "tag": None,
@@ -523,7 +555,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     stated_specs: dict[str, FamilySpec] = stated["specs"]
     missing_tables: tuple[str, ...] = ()
     if factor is None and chordwise is None and spanwise is None:
-        if not stated_specs:
+        if not stated_specs and not stated["unread"]:
             raise _refuse(
                 str(mesh),
                 "no factor was given and no refinement file states one; give FACTOR "
@@ -547,7 +579,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
                 PyflightstreamWarning,
                 stacklevel=3,
             )
-        ignored = tuple(n for n in stated_specs if n not in specs)
+        ignored = tuple(n for n in (*stated_specs, *stated["unread"]) if n not in specs)
         asked = [n for n in stated["keep"] if n in specs]
     else:
         base = positive(f"{mesh} FACTOR", 1.0 if factor is None else factor)
@@ -560,7 +592,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             for n in chosen
         }
         reason = "FACTOR, --chordwise or --spanwise gives the factors (FR-916)"
-        ignored = tuple(stated_specs)
+        ignored = (*stated_specs, *stated["unread"])
         asked = []
     if ignored:
         tables = ", ".join(f"[families.{n}]" for n in ignored)
@@ -677,8 +709,12 @@ def canonical_selection(request: RefineRequest, picked: Sequence[str]) -> str:
                 options[key] = getattr(spec, key)
         if spec.method != "auto":
             options["method"] = spec.method
-        if request.elements_of(name) != TRIANGLES:
+        # The element mode reaches a remeshed family only: a grid keeps its cells.
+        if request.elements_of(name) != TRIANGLES and spec.method != "grid":
             options["elements"] = request.elements_of(name)
+        for key in ("axis", "origin"):
+            if getattr(spec, key) is not None:
+                options[key] = ",".join(_value(c) for c in getattr(spec, key))
         if spec.keep_first_row:
             options["keep_first_row"] = True
         pairs = " ".join(f"{k}={_value(options[k])}" for k in sorted(options))

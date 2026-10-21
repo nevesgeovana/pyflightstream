@@ -1443,6 +1443,13 @@ def _release(owned: Path, folder: Path) -> None:
             )
             return
     shutil.rmtree(owned, ignore_errors=True)
+    if owned.exists():
+        warnings.warn(
+            f"{owned}: the run's staging folder could not be removed and is left behind; "
+            "delete it.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _publish(staging: Path, folder: Path, previous: Path, overwrite: bool) -> None:

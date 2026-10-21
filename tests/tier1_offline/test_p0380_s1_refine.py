@@ -1340,3 +1340,42 @@ def test_a_remeshed_family_at_factor_1_is_copied_unchanged(tmp_path):
     assert other.report["T"]["method"] == "remesh"
     ov, of = read_mesh(other.obj)
     assert face_coordinates(ov, of["T"]) != face_coordinates(verts, fams["T"])
+
+
+def test_f1516_an_unselected_family_table_is_not_validated(tmp_path):
+    """F-1516 (FR-916): the tables of unselected families are not read, so a bad one is no refusal.
+
+    B's table states a factor that is not a number; with ``families=["A"]`` the
+    file's factors for B are never read and the level is written, B is
+    warned as not read. Control: selecting B refuses the same table.
+    """
+    toml = '[families.A]\nfactor = 2\n[families.B]\nfactor = "wide"\n'
+    src = _two_tubes(tmp_path, toml)
+    with pytest.warns(PyflightstreamWarning, match=r"\[families\.B\]"):
+        one = refine_mesh(src, families=["A"], out_dir=tmp_path / "one")
+    assert _json(one.files[2])["ignored_families_tables"] == ["B"]
+    with pytest.warns(PyflightstreamWarning, match=r"\[families\.B\]"):
+        called = refine_mesh(src, 2.0, families=["A"], out_dir=tmp_path / "called")
+    assert called.report["B"] == {"method": "copied"}
+    with pytest.raises(InputArtifactError, match=r"\[families\.B\]"):
+        refine_mesh(src, families=["B"], out_dir=tmp_path / "two")
+
+
+def test_pfs_2119_061_a_staging_folder_left_behind_is_warned(tmp_path, monkeypatch):
+    """PFS-2119.061 (FR-919): a staging folder that cannot be removed is named in one warning."""
+    from pyflightstream.workspace._refine import _level
+
+    owned = tmp_path / "tubes_R2.partial-x"
+    owned.mkdir()
+    folder = tmp_path / "tubes_R2"
+    monkeypatch.setattr(_level.shutil, "rmtree", lambda *a, **k: None)
+    with pytest.warns(PyflightstreamWarning, match="tubes_R2.partial-x") as seen:
+        _level._release(owned, folder)
+    assert len(seen) == 1
+    monkeypatch.undo()
+    import warnings
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _level._release(owned, folder)
+    assert not owned.exists() and not caught
