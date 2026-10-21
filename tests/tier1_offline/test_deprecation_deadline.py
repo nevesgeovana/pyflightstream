@@ -34,6 +34,20 @@ from pyflightstream._deprecations import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.mark.requirement("NFR-20")
+@pytest.mark.parametrize("entry", DEPRECATIONS, ids=lambda entry: f"P0430-NFR-20-{entry.subject}")
+def test_p0430_every_deprecation_names_replacement_and_removal(entry):
+    replacement = (
+        getattr(entry, "new", None)
+        or getattr(entry, "replacement", None)
+        or getattr(entry, "advice", "").removeprefix("use ")
+    )
+    assert replacement and replacement.strip()
+    message = entry.message()
+    assert replacement in message
+    assert f"removed in v{entry.removal_version}" in message
+
+
 def _subject(entry: Deprecation) -> str:
     return entry.subject
 
