@@ -12,6 +12,7 @@ import json
 import os
 import re
 import zipfile
+import zlib
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -53,6 +54,11 @@ def _linked(path: Path) -> bool:
 def _stamp(name: str) -> str | None:
     match = _STAMP.search(name)
     return match.group() if match else None
+
+
+#: What reading a ZIP member can raise: a truncated or corrupt archive, an unsupported
+#: compression, an encrypted member.
+_ZIP_ERRORS = (OSError, zipfile.BadZipFile, zlib.error, EOFError, NotImplementedError, RuntimeError)
 
 
 class _Unreadable:
@@ -195,8 +201,12 @@ def _archive_locations(ledger: Ledger, record: dict[str, Any]) -> list[dict[str,
 def _member_names(root: Path, folder: str) -> Iterator[str]:
     path = root / folder
     if path.suffix == ".zip":
-        with zipfile.ZipFile(path) as archive:
-            yield from (f"{folder}!{member}" for member in sorted(archive.namelist()))
+        try:
+            with zipfile.ZipFile(path) as archive:
+                names = sorted(archive.namelist())
+        except _ZIP_ERRORS:
+            return  # history reports the unreadable archive as a row of its own
+        yield from (f"{folder}!{member}" for member in names)
     else:
         yield from (file.relative_to(root).as_posix() for file in _files(path))
 
@@ -256,10 +266,16 @@ def _script_candidates(ledger: Ledger, row: Mapping[str, Any]) -> Iterator[tuple
     for folder in ledger.sim_folders(str(record["sim_id"])):
         path = ledger.root / folder
         if path.suffix == ".zip":
-            with zipfile.ZipFile(path) as archive:
-                for member in sorted(archive.namelist()):
-                    if member.rsplit("/", 1)[-1] == name:
-                        yield f"{folder}!{member}", archive.read(member)
+            try:
+                with zipfile.ZipFile(path) as archive:
+                    found = [
+                        (f"{folder}!{member}", archive.read(member))
+                        for member in sorted(archive.namelist())
+                        if member.rsplit("/", 1)[-1] == name
+                    ]
+            except _ZIP_ERRORS:
+                continue  # diff finds no script in an archive it cannot read
+            yield from found
         else:
             for candidate in _files(path):
                 if candidate.name == name:

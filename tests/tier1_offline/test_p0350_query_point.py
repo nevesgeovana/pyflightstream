@@ -468,3 +468,17 @@ def test_log_problems_tolerates_an_outcomes_list(workspace, capsys):
     log.write_text(log.read_text(encoding="utf-8") + json.dumps(odd) + "\n", encoding="utf-8")
     code, _, err = _query(workspace, capsys, "log", "--problems")
     assert code == 0, err
+
+
+def test_history_reports_an_unreadable_zip_as_a_row_and_still_answers(workspace, capsys):
+    """PFS-2124.005: a truncated zip under sims/ is an error row, not a refusal of the query."""
+    (workspace / "sims" / "sim_bad.zip").write_bytes(b"PK\x03\x04 not a zip")
+    code, out, err = _query(workspace, capsys, "history", "9101", "--json")
+    assert code == 0, err
+    rows = json.loads(out)["rows"]
+    errors = [row for row in rows if "error" in row]
+    assert len(errors) == 1 and errors[0]["source"].endswith("sim_bad.zip")
+    assert "history" in errors[0]["error"]
+    assert any("record" in row for row in rows)
+    code, _, err = _query(workspace, capsys, "diff", RUN, RUN)
+    assert code in (0, 2), err
