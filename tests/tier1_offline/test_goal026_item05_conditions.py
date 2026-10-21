@@ -147,25 +147,14 @@ def test_what_the_loads_export_reports_reaches_the_same_columns():
     row = dict(zip(CONTEXT_COLUMNS, context_row(reported), strict=True))
     assert row["ALPHA"] == 2.0 and row["BETA"] == -1.0, row
     assert row["VINF"] == 49.036 and row["ALT"] == 1000.0, row
-    assert row["RE"] == 4380000.0, row
+    assert row["RE"] is None, row
 
 
-def test_a_reynolds_in_millions_is_not_written_into_an_absolute_column():
-    """An alias may not carry a UNIT CONVERSION, so `REmi` stays out.
+def test_a_matrix_reynolds_key_requires_a_resolved_product_condition():
+    """The matrix key is not an alias; producers supply the resolved RE in millions.
 
-    THE REASON THIS DOCSTRING FIRST GAVE WAS FALSE, and it is corrected here
-    rather than quietly reworded. It said aliasing `REmi` "would write 4.38 into
-    a column where every other row writes 4380000". THE COLUMN IS MILLIONS --
-    `products.COEFFICIENT_COLUMNS` says so and the sections table writes
-    `_reynolds_millions` -- and a V&V round found that because this sentence was
-    wrong, the rotor table had been wired to write the absolute number, putting
-    4380000 and 4.38 under one column name in two files of one directory.
-
-    The behaviour is unchanged and right: every pair in the alias table differs
-    from its column only in SPELLING, and `REmi` differs by a factor of a
-    million. A point carrying only the cell key leaves `RE` as `NA`, which is
-    visibly absent rather than quietly wrong. The conversion happens in
-    `point_condition`, where a reader can see it.
+    Absolute export Reynolds numbers likewise need explicit conversion in
+    point_condition before entering the product condition.
     """
     from pyflightstream.post._tables import (
         CONTEXT_COLUMNS,

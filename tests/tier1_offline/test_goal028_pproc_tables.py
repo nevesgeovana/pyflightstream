@@ -46,6 +46,13 @@ DATUM = 30.0
 RPM = -1200.0
 
 
+def test_p0430_pfs2119_032_absolute_reynolds_is_not_a_millions_alias():
+    from pyflightstream.post.products import context_row
+
+    assert context_row({"reynolds": 4.38e6}, columns=("RE",)) == (None,)
+    assert context_row({"RE": 4.38}, columns=("RE",)) == (4.38,)
+
+
 @pytest.mark.parametrize("body", ["", "1,bad,0,0,MRP", "1.9,0,0,0,MRP", "1,0,0,0,MRP\n1,1,0,0,MRP"])
 def test_p0430_probe_positions_refuse_corrupt_rows(tmp_path, body):
     from pyflightstream._errors import ProductError

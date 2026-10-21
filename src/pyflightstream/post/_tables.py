@@ -58,8 +58,8 @@ from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 #: only, so cell keys with units and export-header labels need aliases.
 #: Every alias preserves units: ALTFT and ALT are feet, TASmps and VINF
 #: are m/s. Unit conversion belongs in point_condition, not an alias.
-#: REmi is deliberately absent: Reynolds values in product columns are
-#: in millions, while the export supplies an absolute Reynolds number.
+#: Absolute reynolds is deliberately absent: RE is in millions. Producers
+#: must convert absolute Reynolds numbers before passing the RE column.
 CONDITION_KEY_ALIASES: dict[str, str] = {
     # The sweep point and the matrix cell, which spell one quantity two ways.
     "advance_ratio": ADVANCE_RATIO_COLUMN,
@@ -73,7 +73,6 @@ CONDITION_KEY_ALIASES: dict[str, str] = {
     "sideslip_deg": "BETA",
     "freestream_velocity_m_s": "VINF",
     "altitude_ft": "ALT",
-    "reynolds": "RE",
     # The export's reference velocity, recorded air and directly pinned air
     # keys. Units agree in each pair: m/s, kg/m3, K and Pa s.
     "reference_velocity_m_s": "VREF",
