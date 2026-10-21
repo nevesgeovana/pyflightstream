@@ -1028,16 +1028,17 @@ def _judge_final_residuals(history: Sequence[ResidualSample], limit: float) -> _
     # unjudged. What was read, and from which iteration, is recorded.
     notes: list[str] = []
     for name in sorted(final.overflowed):
+        # The nearest earlier row that PRINTED this column decides: an explicit
+        # NaN or infinity there is a divergence, never skipped for an older finite row.
         earlier = next(
             (
                 (sample.iteration, getattr(sample, f"{name}_residual"))
                 for sample in reversed(history[:-1])
                 if name not in sample.overflowed
-                and math.isfinite(getattr(sample, f"{name}_residual"))
             ),
             None,
         )
-        if earlier is not None and earlier[1] <= limit:
+        if earlier is not None and math.isfinite(earlier[1]) and earlier[1] <= limit:
             components[name] = earlier[1]
             notes.append(
                 f"the {name} residual of iteration {final.iteration} did not fit its "
