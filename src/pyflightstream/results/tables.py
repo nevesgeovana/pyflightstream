@@ -726,6 +726,16 @@ def parse_run_loads(
     """
     _refuse_a_bare_root(workspace, "parse_run_loads")
     record = _as_record(workspace, record)
+    continued_by = superseded_by_a_continuation(workspace.read_manifest()).get(str(record.run_id))
+    if continued_by is not None:
+        # The continuation wrote into the same folder, and this record still names
+        # those files, so reading them would answer for this run with the
+        # continuation's later-step numbers.
+        raise LoadsNotFoundError(
+            f"run {record.run_id!r} was continued by run {continued_by!r}, which wrote into "
+            "the same folder, so the files this record names hold the continuation's "
+            f"numbers and not this run's. Read the loads of {continued_by!r} instead"
+        )
     sim_dir = workspace.sim_dir(record.sim_id)
     if not record.outputs:
         raise LoadsNotFoundError(

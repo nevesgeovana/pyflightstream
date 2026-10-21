@@ -445,6 +445,27 @@ class TestResultsAmbiguity:
             parse_run_loads(workspace, record, loads_file="loads.txt")
 
     @staticmethod
+    def test_f_819_a_continued_run_is_not_answered_with_its_continuations_numbers(tmp_path):
+        """F-819: the direct lookup agrees with sweep_table about a superseded run."""
+        from pyflightstream.results.tables import LoadsNotFoundError
+
+        workspace, record = _results_loads_support___one_run(
+            tmp_path, ("AL+020", "loads.txt", _RESULTS_LOADS_SUPPORT__STEADY)
+        )
+        later = _results_loads_support__make_record(
+            run_id="camp/sim_9001/AL+020#2",
+            point_name="AL+020",
+            sweep_name="AL+020",
+            point={"alpha": 2.0},
+            outputs=record.outputs,
+            continues=record.run_id,
+        )
+        workspace.append_record(later)
+        with pytest.raises(LoadsNotFoundError, match="continued by run"):
+            parse_run_loads(workspace, record)
+        assert parse_run_loads(workspace, later) is not None
+
+    @staticmethod
     def test_f_1445_the_sweep_table_docstring_points_at_the_guarded_writer():
         """F-1445: the one write path is write_table, not DataFrame.to_csv."""
         assert "DataFrame.to_csv" not in (sweep_table.__doc__ or "")
