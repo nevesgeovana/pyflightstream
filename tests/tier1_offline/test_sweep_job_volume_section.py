@@ -263,3 +263,35 @@ def test_a_user_file_where_the_probe_points_go_fails_the_job_before_the_solver(t
     assert stub.invocations == [], "the solver started although the job was refused"
     target = workspace.sim_dir("3207") / "profiles" / "3207_probe_points.csv"
     assert target.read_text(encoding="utf-8") == "my,own,survey\n"
+
+
+def test_f616_a_later_incomplete_point_does_not_overwrite_a_worse_sweep_verdict():
+    """F-616: the job's headline folds with worse_of; a diverged point stays diverged."""
+    from types import SimpleNamespace
+
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.run._sweep import _assess_sweep_points
+
+    case = SimCase(
+        sim_id="3208",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0, 2.0]),
+        recipe="steady",
+        outputs=["loads_{point}.txt"],
+    )
+    points = list(case.sweep.points())
+    job = SimpleNamespace(
+        case=case,
+        point_cases=[(point, "stem", case) for point in points],
+        failed_tags={"AL+020": "an output could not be filed"},
+        collected_by_tag={},
+        ran=[],
+        collected_all=[],
+        error_lines=[],
+        worst=RunStatus.FAILED_DIVERGED,
+    )
+    job.failed_tags["AL+000"] = "an output could not be filed"
+    _assess_sweep_points(job)
+    assert job.worst is RunStatus.FAILED_DIVERGED
+    assert len(job.ran) == 2

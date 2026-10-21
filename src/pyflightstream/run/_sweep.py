@@ -662,7 +662,8 @@ def _assess_sweep_points(job: _SweepJob) -> RunRecord | None:
                 entry["outputs"] = list(job.collected_by_tag[tag])
                 job.collected_all.extend(job.collected_by_tag[tag])
             job.ran.append(entry)
-            job.worst = RunStatus.FAILED_INCOMPLETE_OUTPUT
+            # F-616: folded, so a worse verdict of an earlier point stays the headline.
+            job.worst = worse_of(job.worst, RunStatus.FAILED_INCOMPLETE_OUTPUT)
             job.error_lines.append(f"{tag}: {job.failed_tags[tag]}")
             continue
         collected = job.collected_by_tag[tag]
