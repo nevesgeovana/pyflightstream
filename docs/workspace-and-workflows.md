@@ -150,11 +150,11 @@ worse than no page at all.
   type this package builds is a type it can also refuse before it runs,
   and that guarantee is exactly what a user-supplied entry would remove.
   Your own physics goes in a recipe, which is what recipes are for.
-- **A raw mesh's scale and names are stated, and neither is measured
-  yet.** A workflow imports an `.obj` or `.stl` in the unit its sidecar's
-  `[import]` table states into a simulation in metres, and whether
-  `IMPORT` converts the file's unit into the simulation's has been
-  measured on no build. Its boundary names are the sidecar's, written by
+- **A raw mesh's scale and names are stated, and the names are not checked.**
+  A workflow imports an `.obj` or `.stl` in the unit its sidecar's
+  `[import]` table states into a simulation in metres. `IMPORT` converting
+  an OBJ's unit into the simulation's has been measured on 26.124 and on
+  no other build ([mesh reference](mesh/reference.md)). Its boundary names are the sidecar's, written by
   hand, and nothing checks them against the file before the run
   ([mesh inputs](mesh/how-to.md)). The other mesh formats `IMPORT`
   documents are refused by a workflow; a recipe of your own imports them,
