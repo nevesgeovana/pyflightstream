@@ -196,8 +196,9 @@ and writes nothing outside \code{\$FTS}. Nothing is compiled.
 \section{The wheels}
 
 \begin{frame}[fragile]{Download on the connected machine}
-\small For a Linux target (one command; \code{\^{}} continues a line in the
-Windows shell, \code{\textbackslash} in a Linux one):
+\small For a Linux target (one command, written for the Windows command prompt,
+where \code{\^{}} continues a line; use \code{\textbackslash} in a Linux shell
+and a backtick in PowerShell):
 \begin{lstlisting}[style=ftsbase]
 python -m pip download "pyflightstream[fsi]==(*@\pkgversion@*)" -d (*@\envname@*)-linux ^
     --python-version 312 --only-binary=:all: ^
