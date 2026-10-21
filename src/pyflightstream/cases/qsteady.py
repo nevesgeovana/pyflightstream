@@ -51,7 +51,7 @@ from pathlib import Path, PurePath
 from typing import Any, ClassVar
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.cases import CampaignConfigError
+from pyflightstream.cases.reference_blocks import CampaignConfigError
 
 __all__ = [
     "AXISYMMETRY_RADIUS_TOLERANCE",

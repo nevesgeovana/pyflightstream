@@ -50,6 +50,20 @@ from pyflightstream.run._plan import _recorded_is_unsteady
 from pyflightstream.script import Script
 
 
+def test_p0430_f1241_qsteady_imports_exception_from_its_defining_module():
+    import ast
+    import inspect
+
+    tree = ast.parse(inspect.getsource(arithmetic))
+    owners = [
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        and any(alias.name == "CampaignConfigError" for alias in node.names)
+    ]
+    assert owners == ["pyflightstream.cases.reference_blocks"]
+
+
 def test_p0430_f320_velocity_documents_rotorcraft_ratio():
     from pyflightstream.workspace import _matrix_phases
 
