@@ -1105,6 +1105,9 @@ def write_per_blade_table(
         for name in row:
             if name not in lead and name not in names:
                 names.append(name)
+    # STEPS IS THE NUMBER OF FRAMES THAT ENTERED THE AVERAGE (owner decision, as `time_average`
+    # and `phase_locked` state it), not the span of the window: a history with a gap holds fewer.
+    frames = sum(1 for step in series.steps if first <= int(step) <= last)
     table = [
         (
             pol,
@@ -1114,7 +1117,7 @@ def write_per_blade_table(
             row.get("FAMILY"),
             first,
             last,
-            last - first + 1,
+            frames,
             row["AZIMUTH_START"],
             row["AZIMUTH_END"],
             *context,

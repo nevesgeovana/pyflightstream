@@ -2142,3 +2142,31 @@ def test_f3_0203_pfs2124_029_a_reference_checked_only_coarsely_says_how_coarsely
         _refuse_a_reference_the_solver_did_not_use("3207", points, reference)
     assert len([w for w in caught if "could only be checked" in str(w.message)]) == 1
     assert not any("CREF" in str(w.message) for w in caught)
+
+
+def test_f3_0203_x_f_0348_steps_is_the_number_of_frames_that_entered_the_average(tmp_path):
+    """X-F-0348 (owner decision): per_blade STEPS counts frames read, not the window's span."""
+    from pyflightstream.post.products import read_csv_table, write_per_blade_table
+    from tests.tier1_offline.test_goal028_per_blade import FIELDS, ROTOR
+
+    keep = np.array([True, True, True, True, True, False, True, True])
+    series = TimestepSeries(
+        steps=np.arange(1, 9)[keep],
+        times_s=None,
+        points=np.zeros((1, 3)),
+        fields={
+            name: np.asarray(v, dtype=float)[keep].reshape(-1, 1) for name, v in FIELDS.items()
+        },
+        sources=(),
+    )
+    path = write_per_blade_table(
+        tmp_path / "P_per_blade_PUSHER.csv",
+        series,
+        tuple(FIELDS),
+        window=(5, 8),
+        rotor="PUSHER",
+        blades=2,
+        facts=ROTOR,
+    )
+    _columns, rows = read_csv_table(path)
+    assert {(r["FIRST_STEP"], r["LAST_STEP"], r["STEPS"]) for r in rows} == {("5", "8", "3")}
