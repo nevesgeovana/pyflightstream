@@ -328,10 +328,24 @@ def _refuse_a_token(what: str, text: str, *, quotes: bool = True) -> None:
         )
 
 
+def _refuse_non_finite(what: str, values: np.ndarray) -> None:
+    """Refuse a NaN or infinity: neither file format has a token for an unavailable value."""
+    bad = ~np.isfinite(values)
+    if bad.any():
+        first = int(np.argwhere(bad)[0][0])
+        raise ValueError(
+            f"{what} holds a non-finite value (first at probe {first}); a VTK or Tecplot file "
+            "has no token for a value that is unavailable, so a NaN or infinity would be "
+            "written as the text 'nan' or 'inf' that readers take as a number or reject. "
+            "Drop the probe or the field before writing"
+        )
+
+
 def _checked(points: np.ndarray, fields: Mapping[str, np.ndarray] | None):
     points = np.asarray(points, dtype=float)
     if points.ndim != 2 or points.shape[1] != 3:
         raise ValueError(f"points must have shape (n, 3), got {points.shape}")
+    _refuse_non_finite("points", points)
     checked: dict[str, np.ndarray] = {}
     for name, values in (fields or {}).items():
         _refuse_a_token("field name", str(name))
@@ -341,6 +355,7 @@ def _checked(points: np.ndarray, fields: Mapping[str, np.ndarray] | None):
                 f"field {name!r} has shape {array.shape}; it must hold one scalar "
                 f"or one 3-vector per probe ({len(points)} probes)"
             )
+        _refuse_non_finite(f"field {name!r}", array)
         checked[name] = array
     return points, checked
 
@@ -396,8 +411,9 @@ def write_vtk_points(
         so an existing handler around the call catches what it always
         did. Neither file is written when either is refused.
     ValueError
-        If ``points`` is not ``(n, 3)``, or a field's shape does not
-        match the probe count.
+        If ``points`` is not ``(n, 3)``, a field's shape does not match the
+        probe count, or a coordinate or field value is NaN or infinite
+        (neither format has a token for an unavailable value).
 
     Examples
     --------
@@ -497,8 +513,9 @@ def write_tecplot_points(
         ``overwrite`` is False. Neither file is written when either is
         refused.
     ValueError
-        If ``points`` is not ``(n, 3)`` or a field's shape does not
-        match the probe count.
+        If ``points`` is not ``(n, 3)``, a field's shape does not match the
+        probe count, or a coordinate or field value is NaN or infinite
+        (neither format has a token for an unavailable value).
     ProductError
         If two variables would carry the same name. It is a ``ValueError`` too.
     """

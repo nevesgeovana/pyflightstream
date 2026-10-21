@@ -357,3 +357,19 @@ def test_p0430_f3_one_handler_catches_both_destination_exists_errors():
 
     assert issubclass(OutputExistsError, ProductExistsError)
     assert issubclass(OutputExistsError, FileExistsError)
+
+
+@pytest.mark.parametrize(("writer", "suffix"), WRITERS)
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+def test_f215_a_writer_refuses_a_non_finite_value_it_has_no_token_for(
+    writer, suffix, bad, tmp_path
+):
+    """F-215: a NaN or infinity is refused naming the field, never written as 'nan'."""
+    provenance = make_provenance()
+    fields = {"cp": np.array([1.0, bad])}
+    with pytest.raises(ValueError, match="field 'cp' holds a non-finite value"):
+        writer(tmp_path / f"bad{suffix}", POINTS, fields, provenance=provenance)
+    moved = np.array([[0.0, 0.0, 0.0], [bad, 0.0, 0.0]])
+    with pytest.raises(ValueError, match="points holds a non-finite value"):
+        writer(tmp_path / f"bad{suffix}", moved, provenance=provenance)
+    assert not (tmp_path / f"bad{suffix}").exists()
