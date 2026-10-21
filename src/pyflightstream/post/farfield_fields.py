@@ -23,7 +23,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -59,6 +59,9 @@ from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.lattice import ProbeLattice
 from pyflightstream.probes.layouts import farfield_plane, lattice_points
 from pyflightstream.results.loads import parse_probe_points
+
+if TYPE_CHECKING:
+    from pyflightstream.workspace import RunRecord
 
 __all__ = [
     "LEDGER_COLUMNS",
@@ -181,6 +184,32 @@ def native_per_m(sim_dir: Path, outputs: Sequence[str], version: str | None) -> 
         return None
     factor = scale("METER", unit) if unit is not None else None
     return None if factor is None else float(factor)
+
+
+def non_metre_refusal(sim_dir: Path, record: RunRecord, what: str) -> str | None:
+    """Say why a product that reads the sections export in metres is refused, or None.
+
+    The sections writer labels ``Offset``, ``Chord`` and the strip lengths built from them
+    as metres, and its own column note says the export's columns are in the export's own
+    units with no conversion. Which unit a sectional export states those lengths in has been
+    measured on a metre simulation only: no MILLIMETER sectional export is recorded
+    (PFS-2119.041, PFS-2119.036). A point whose saved simulation is in another length unit is
+    therefore refused the products that need the lengths in metres, naming the unit, until
+    that export is recorded. None where the saved simulation is in metres, or where no saved
+    simulation tells the unit (the legacy behaviour, unchanged).
+    """
+    per_m = native_per_m(
+        sim_dir, [str(output) for output in record.outputs or ()], record.package_version
+    )
+    if per_m is None or per_m == 1.0:
+        return None
+    return (
+        f"the saved simulation of this point is not in metres ({per_m:g} simulation length "
+        f"units per metre), and the length unit a sectional loads export states its Offset and "
+        f"Chord in has not been measured outside a metre simulation, so {what} would label "
+        "native lengths as metres. Record one MILLIMETER sectional export to settle it "
+        "(PFS-2119.041); the raw sections tables are written as before."
+    )
 
 
 def _column(columns: Sequence[str], name: str) -> int:

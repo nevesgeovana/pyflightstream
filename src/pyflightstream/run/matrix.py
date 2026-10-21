@@ -44,7 +44,7 @@ from typing import Any
 
 import pyflightstream
 from pyflightstream._deprecations import MATRIX_FS_VERSION
-from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha256
+from pyflightstream._digest import file_sha256, optional_file_sha256
 from pyflightstream._errors import (
     InputArtifactError,
     PyflightstreamDeprecationWarning,
@@ -74,7 +74,6 @@ from pyflightstream.cases.workflows import (
     WORKFLOW_KEY,
     additional_outputs,
     build_additional_script,
-    creates_surface_sections,
     frame_definitions,
     frames_of_the_run,
 )
@@ -105,6 +104,9 @@ from pyflightstream.run._additional import (
     _write_extraction_script,
     complete_extraction,
     discard_extraction_copy,
+    layout_of,
+    own_sections_layout,
+    sections_numbering_refusal,
 )
 from pyflightstream.run._additional import (
     record_additional_extraction as record_additional_extraction,
@@ -1365,64 +1367,6 @@ def _latest_extractions(records: list[AdditionalRecord]) -> dict[str, Additional
     return latest
 
 
-def _own_sections_layout(
-    workspace: CampaignWorkspace, point: RunRecord
-) -> list[dict[str, Any]] | None:
-    """Return the sections the run cut, or None where nothing states them.
-
-    The record's own layout where it has one. A record that predates the layout is
-    answered by its script, as the sections post answers it: a script that is on disk,
-    hashes as the record says and creates no surface section cut none, and the empty
-    list is the whole layout. Anything else is unknown, and is never guessed.
-    """
-    if point.sections_layout is not None:
-        return [dict(block) for block in point.sections_layout]
-    if point.continues is not None or not point.script_path or not point.script_sha256:
-        return None
-    try:
-        text = (workspace.sim_dir(point.sim_id) / point.script_path).read_bytes().decode("utf-8")
-    except (OSError, UnicodeDecodeError):
-        return None
-    if text_sha256(text) != point.script_sha256 or creates_surface_sections(text):
-        return None
-    return []
-
-
-def _layout_of(
-    point: RunRecord, script: Script, pproc: str, own: list[dict[str, Any]] | None = None
-) -> tuple[list[dict[str, object]], int]:
-    """Return the run's own section blocks, then the extraction's, numbered on after the run's.
-
-    RPT-062: a reopened export carries the distributions the run created first
-    and the new ones after them, identical to the ones a run would have cut.
-    ``own`` is the run's blocks as :func:`_own_sections_layout` read them.
-    """
-    if own is None:
-        own = [dict(block) for block in (point.sections_layout or [])]
-    leading = sum(
-        int(count)
-        for block in own
-        if isinstance(count := block.get("count"), int) and not isinstance(count, bool)
-    )
-    offset = max(
-        (
-            int(number)
-            for block in own
-            if isinstance(number := block.get("distribution"), int) and not isinstance(number, bool)
-        ),
-        default=0,
-    )
-    added = []
-    for block in script.section_blocks:
-        entry = dict(block)
-        number = entry.get("distribution")
-        if isinstance(number, int) and not isinstance(number, bool):
-            entry["distribution"] = offset + number
-        entry["pproc"] = pproc
-        added.append(entry)
-    return own + added, leading
-
-
 def plan_additional_post(
     matrix: str | Path,
     workspace: CampaignWorkspace,
@@ -1548,6 +1492,28 @@ def _plan_all(
     return resolved, plans
 
 
+def _executable_drift(
+    point: RunRecord, exe: Path, exe_digests: dict[Path, str | None]
+) -> str | None:
+    """Say how the executable the row resolves today differs from the one the point ran on.
+
+    By hash where the record holds one (read once per executable), by path otherwise.
+    None where they agree, or where nothing in the record says which ran.
+    """
+    if point.fs_exe_sha256:
+        if exe not in exe_digests:
+            exe_digests[exe] = optional_file_sha256(exe)
+        today = exe_digests[exe]
+        if today is not None and today != point.fs_exe_sha256:
+            return (
+                f"the executable the row resolves today, {exe}, is {today[:12]} and the point "
+                f"ran on one that hashed {point.fs_exe_sha256[:12]}"
+            )
+    elif point.fs_exe and PurePath(point.fs_exe) != PurePath(str(exe)):
+        return f"the point ran on {point.fs_exe} and its row resolves {exe} today"
+    return None
+
+
 def _plan_point(
     workspace: CampaignWorkspace,
     resolved: ResolvedMatrix,
@@ -1650,25 +1616,9 @@ def _plan_point(
             f"the point ran on FlightStream {point.fs_version_requested} and its row names "
             f"{version} today; a saved simulation is reopened on the build that saved it",
         )
-    if point.fs_exe_sha256:
-        if exe not in exe_digests:
-            exe_digests[exe] = optional_file_sha256(exe)
-        today = exe_digests[exe]
-        if today is not None and today != point.fs_exe_sha256:
-            return _skipped(
-                point,
-                pid,
-                AdditionalSkip.BUILD_CHANGED,
-                f"the executable the row resolves today, {exe}, is {today[:12]} and the point "
-                f"ran on one that hashed {point.fs_exe_sha256[:12]}",
-            )
-    elif point.fs_exe and PurePath(point.fs_exe) != PurePath(str(exe)):
-        return _skipped(
-            point,
-            pid,
-            AdditionalSkip.BUILD_CHANGED,
-            f"the point ran on {point.fs_exe} and its row resolves {exe} today",
-        )
+    drifted = _executable_drift(point, exe, exe_digests)
+    if drifted is not None:
+        return _skipped(point, pid, AdditionalSkip.BUILD_CHANGED, drifted)
     if point.surface_time_averaging is not None:
         return _skipped(
             point,
@@ -1712,30 +1662,11 @@ def _plan_point(
     build_additional_script(
         extraction, script, saved=str(folder / f"{stem}{REOPENED_SUFFIX}"), shadow=shadow
     )
-    own = _own_sections_layout(workspace, point)
-    if script.section_blocks and (
-        own is None
-        or any(
-            not isinstance(block.get("distribution"), int)
-            or isinstance(block.get("distribution"), bool)
-            for block in own
-        )
-    ):
-        return _skipped(
-            point,
-            pid,
-            AdditionalSkip.NO_SECTIONS_LAYOUT,
-            f"{pid} cuts sections, and the record of this point states "
-            + (
-                "no sections layout, and its script is not on disk as recorded to prove it cut none"
-                if own is None
-                else "a section block with no integer distribution number"
-            )
-            + ", so the extraction's distributions cannot be numbered after the run's own and "
-            "its sections product would be refused afterwards. Run the point again to record its "
-            "layout.",
-        )
-    layout, leading = _layout_of(point, script, pid, own)
+    own = own_sections_layout(workspace, point)
+    unnumbered = sections_numbering_refusal(own, script, pid)
+    if unnumbered is not None:
+        return _skipped(point, pid, AdditionalSkip.NO_SECTIONS_LAYOUT, unnumbered)
+    layout, leading = layout_of(point, script, pid, own)
     return AdditionalPointPlan(
         run_id=point.run_id,
         sim_id=point.sim_id,

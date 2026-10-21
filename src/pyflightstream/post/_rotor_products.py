@@ -64,11 +64,12 @@ from pyflightstream.post._tables import (
     ReferenceValues,
     read_csv_table,
 )
+from pyflightstream.post.farfield_fields import non_metre_refusal
 from pyflightstream.post.point_tables import write_sections_table
 from pyflightstream.post.polar import PolarPoint
 from pyflightstream.post.provenance import refuse_an_existing_product as _refuse_an_existing_product
 from pyflightstream.post.rotor_table import rotor_shaft_loads
-from pyflightstream.post.section_distributions import non_metre_refusal, write_section_distributions
+from pyflightstream.post.section_distributions import write_section_distributions
 from pyflightstream.post.series import write_point_series
 from pyflightstream.post.surfaces import write_point_surface_average
 from pyflightstream.results import FrozenSolve, parse_loads
@@ -81,12 +82,26 @@ if TYPE_CHECKING:
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
 
+def _refuse_a_non_metre_setup(sim_dir: Path | None, record: RunRecord | None, what: str) -> None:
+    """Raise the catalogued refusal when the point's saved simulation is not in metres.
+
+    The sectional products that read ``Offset`` and ``Chord`` in metres (the station radius,
+    R_OVER_R and K_1P) are refused off a metre setup until one MILLIMETER sectional export is
+    recorded (:func:`~pyflightstream.post.farfield_fields.non_metre_refusal`). Nothing
+    is refused where the setup is in metres, unreadable, or the caller names no folder.
+    """
+    reason = None if sim_dir is None or record is None else non_metre_refusal(sim_dir, record, what)
+    if reason is not None:
+        raise CampaignConfigError(reason)
+
+
 def _qsteady_sections(
     table: Path,
     point: PolarPoint,
     record: RunRecord | None,
     skipped: dict[str, str],
     tabled: Callable[[Path, str], Path | None],
+    *,
     sim_dir: Path | None = None,
 ) -> dict[str, _qsteady.PointValidity]:
     """Complete a quasi-steady wheel point's sections table: its clockings and its 1P frequency.
@@ -126,16 +141,8 @@ def _qsteady_sections(
             warn(
                 f"point={point.name} product=sections: {note}", PyflightstreamWarning, stacklevel=2
             )
-    refusal = (
-        None
-        if sim_dir is None or record is None
-        else non_metre_refusal(sim_dir, record, "the station radius, R_OVER_R and K_1P")
-    )
-    if refusal is not None:
-        skipped[f"{SECTIONS_DIR}/{point.name}_sections.csv#k_1p"] = refusal
-        warn(f"point={point.name} product=sections: {refusal}", PyflightstreamWarning, stacklevel=2)
-        return {}
     try:
+        _refuse_a_non_metre_setup(sim_dir, record, "the station radius, R_OVER_R and K_1P")
         # The frame each block was cut in, so each station's force is
         # projected on the rotor's axis rather than read in the export's axes.
         validity = _qsteady.add_reduced_frequency_to_sections(

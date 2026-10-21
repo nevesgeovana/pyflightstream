@@ -23,13 +23,10 @@ THE USAGE, as a reader meets it:
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
-from pyflightstream.post._tables import CONTEXT_COLUMNS, ProductError
+from pyflightstream.post._tables import CONTEXT_COLUMNS
 from pyflightstream.post.products import NOT_APPLICABLE, write_campaign_products
-from pyflightstream.post.series import _probes_rows
 from tests.tier1_offline.test_post_products import (
     LOADS,
     PROBES,
@@ -166,36 +163,3 @@ def test_a_kind_with_no_stamped_file_is_a_named_skip_and_never_a_header_only_tab
     assert "series/AL-020_probes_series.csv" not in manifest["products"]
     reason = manifest["skipped"]["series/AL-020_probes_series.csv"]
     assert "AL-020_probes_iteration=" in reason and "DP-AL-020" in reason, reason
-
-
-FIXTURES = Path(__file__).parent / "fixtures"
-
-
-class _Point:
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-
-def _probe_text() -> str:
-    return (FIXTURES / "probe_points_26.120.txt").read_text(encoding="utf-8")
-
-
-def test_p0420_a_probe_step_printing_other_columns_is_refused(tmp_path):
-    """PFS-2130.046: the rows go under the first step's header, so a different header is refused."""
-    first = tmp_path / "p_iteration=1.txt"
-    second = tmp_path / "p_iteration=2.txt"
-    first.write_text(_probe_text(), encoding="utf-8")
-    second.write_text(_probe_text().replace(" Cp_ref,", " Cp_other,", 1), encoding="utf-8")
-    with pytest.raises(ProductError, match=r"p_iteration=2\.txt prints the probe columns"):
-        _probes_rows({1: first, 2: second}, range(1, 3), None, None, ())
-
-
-def test_p0420_probe_steps_with_one_header_are_one_series(tmp_path):
-    """PFS-2130.046 control: equal headers still table, twelve probes per step."""
-    files = {}
-    for step in (1, 2):
-        files[step] = tmp_path / f"p_iteration={step}.txt"
-        files[step].write_text(_probe_text(), encoding="utf-8")
-    columns, rows = _probes_rows(files, range(1, 3), None, None, ())
-    assert len(rows) == 24
-    assert "Cp_ref" in columns

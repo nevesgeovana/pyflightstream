@@ -424,6 +424,42 @@ def _refuse_irregular_times(times: Sequence[float | None], paths: Sequence[Path]
             )
 
 
+def _refuse_a_bad_call(order: str | None, frequency: object) -> None:
+    """Refuse an ``order`` or a ``frequency`` the reader has no meaning for (ProductError)."""
+    if isinstance(frequency, bool) or not isinstance(frequency, (int, np.integer)) or frequency < 1:
+        raise ProductError(
+            f"frequency={frequency!r} is not a positive integer: it counts the solver "
+            "time steps between exported frames (the frequency keyword of "
+            "UNSTEADY_SOLVER_ANIMATION), so 1 is the smallest value that means anything"
+        )
+    if order not in (None, "given"):
+        raise ProductError(
+            f"order={order!r} is not a way this reader can establish an order. The two "
+            "it has are order='given', the caller declaring the sequence is already in "
+            "solver order, and the default, each frame's own solution time."
+        )
+
+
+def _refuse_moved_points(path: Path, points: np.ndarray, first_points: np.ndarray) -> None:
+    """Refuse a frame whose sample k sits elsewhere than in the first frame, naming it.
+
+    The tolerance is :data:`_POINT_RTOL` of the larger of the first frame's extent and its
+    largest coordinate. A frame is also refused (by the caller) when its sample count differs.
+    """
+    extent = float(np.ptp(first_points, axis=0).max()) if first_points.size else 0.0
+    tolerance = _POINT_RTOL * max(extent, float(np.abs(first_points).max(initial=0.0)), 1e-12)
+    moved = np.abs(points - first_points)
+    if moved.size and float(moved.max()) > tolerance:
+        worst = int(np.argmax(moved.max(axis=1)))
+        raise MalformedOutputError(
+            f"{path} places sample {worst} at {points[worst].tolist()} and the first frame "
+            f"at {first_points[worst].tolist()}, a move of {float(moved.max())!r} against a "
+            f"tolerance of {tolerance!r} (relative {_POINT_RTOL!r} of the first "
+            "frame's extent): a series averages one place over time, so these frames "
+            "are not one sampling"
+        )
+
+
 def read_timestep_series(
     frames: Sequence[str | Path],
     *,
@@ -501,18 +537,7 @@ def read_timestep_series(
     >>> series.fields["cp"][:, 0].tolist()
     [1.0, 2.0, 3.0]
     """
-    if isinstance(frequency, bool) or not isinstance(frequency, (int, np.integer)) or frequency < 1:
-        raise ProductError(
-            f"frequency={frequency!r} is not a positive integer: it counts the solver "
-            "time steps between exported frames (the frequency keyword of "
-            "UNSTEADY_SOLVER_ANIMATION), so 1 is the smallest value that means anything"
-        )
-    if order not in (None, "given"):
-        raise ProductError(
-            f"order={order!r} is not a way this reader can establish an order. The two "
-            "it has are order='given', the caller declaring the sequence is already in "
-            "solver order, and the default, each frame's own solution time."
-        )
+    _refuse_a_bad_call(order, frequency)
     paths = [Path(item) for item in frames]
     if not paths:
         raise MalformedOutputError(
@@ -536,8 +561,6 @@ def read_timestep_series(
     _refuse_irregular_times([entry[3] for entry in ordered], [entry[0] for entry in ordered])
     first_points = ordered[0][1]
     names = sorted(ordered[0][2])
-    extent = float(np.ptp(first_points, axis=0).max()) if first_points.size else 0.0
-    point_tolerance = _POINT_RTOL * max(extent, float(np.abs(first_points).max(initial=0.0)), 1e-12)
     stacked: dict[str, list[np.ndarray]] = {name: [] for name in names}
     for path, points, fields, _time in ordered:
         if sorted(fields) != names:
@@ -550,16 +573,7 @@ def read_timestep_series(
                 f"{path} holds {len(points)} samples and the first frame holds "
                 f"{len(first_points)}, so the frames are not one sampling of one run"
             )
-        moved = np.abs(points - first_points)
-        if moved.size and float(moved.max()) > point_tolerance:
-            worst = int(np.argmax(moved.max(axis=1)))
-            raise MalformedOutputError(
-                f"{path} places sample {worst} at {points[worst].tolist()} and the first frame "
-                f"at {first_points[worst].tolist()}, a move of {float(moved.max())!r} against a "
-                f"tolerance of {point_tolerance!r} (relative {_POINT_RTOL!r} of the first "
-                "frame's extent): a series averages one place over time, so these frames "
-                "are not one sampling"
-            )
+        _refuse_moved_points(path, points, first_points)
         for name in names:
             stacked[name].append(fields[name])
 

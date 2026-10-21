@@ -2725,3 +2725,35 @@ def test_goal023_the_settings_table_writes_na_and_reads_it_back(tmp_path):
     rows = read_settings_table(destination)
     assert rows, rows
     assert all(isinstance(row, dict) for row in rows)
+
+
+def _write(workspace, arguments, **extra):
+    from pyflightstream.post.series import write_point_series
+
+    skipped: dict[str, str] = {}
+    written, _names = write_point_series(
+        workspace.root, skipped=skipped, overwrite=True, **arguments, **extra
+    )
+    return written, skipped
+
+
+def test_p0420_a_probe_step_printing_other_columns_is_refused(tmp_path):
+    """PFS-2130.046: the rows go under the first step's header, so a different header is refused."""
+    workspace, arguments = _series_call(tmp_path)
+    sim = arguments["sim_dir"]
+    second = sim / "AL-020_probes_iteration=4.txt"
+    text = second.read_text(encoding="utf-8")
+    assert " Cp_ref," in text
+    second.write_text(text.replace(" Cp_ref,", " Cp_other,", 1), encoding="utf-8")
+    with pytest.raises(ProductError, match=r"AL-020_probes_iteration=4\.txt prints the probe"):
+        _write(workspace, arguments)
+
+
+def test_p0420_probe_steps_with_one_header_are_one_series(tmp_path):
+    """PFS-2130.046 control: equal headers still table, one row per probe and step."""
+    workspace, arguments = _series_call(tmp_path)
+    written, skipped = _write(workspace, arguments)
+    table = next(path for path in written if path.name == "AL-020_probes_series.csv")
+    columns, rows = read_csv_table(table)
+    assert "Cp_ref" in columns and rows
+    assert not [key for key in skipped if "probes_series" in key]

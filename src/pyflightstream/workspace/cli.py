@@ -892,6 +892,16 @@ def _fluctuation_words(report: _fields.FluctuationReport, v_inf: float | None) -
     return words
 
 
+def _refuse_a_stray_vinf(args: argparse.Namespace) -> None:
+    """Refuse ``--vinf`` where the run reports no fluctuation for it to be stated against."""
+    if args.vinf is not None and not (args.fluctuation or args.fluctuation_only):
+        raise WorkspaceError(
+            "--vinf states the fluctuation summary against the free-stream speed, and "
+            "this run reports no fluctuation: add --fluctuation (with the field) or "
+            "--fluctuation-only --last K, or drop --vinf."
+        )
+
+
 def _cmd_fluctuation_only(args: argparse.Namespace) -> int:
     """Report the fluctuation of the last K steps with no field; preview unless --apply."""
     if args.last is None:
@@ -977,12 +987,7 @@ def _cmd_field(args: argparse.Namespace) -> int:
                 f"{replaced} points replaced"
             )
         else:
-            if args.vinf is not None and not (args.fluctuation or args.fluctuation_only):
-                raise WorkspaceError(
-                    "--vinf states the fluctuation summary against the free-stream speed, and "
-                    "this run reports no fluctuation: add --fluctuation (with the field) or "
-                    "--fluctuation-only --last K, or drop --vinf."
-                )
+            _refuse_a_stray_vinf(args)
             if args.fluctuation_only:
                 return _cmd_fluctuation_only(args)
             steps = _fields.read_step_fields(_expand(args.files), last=args.last)

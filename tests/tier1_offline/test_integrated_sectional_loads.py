@@ -13,7 +13,8 @@ from pydantic import ValidationError
 from pyflightstream import _tokens
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import PprocSpec
-from pyflightstream.post import section_distributions as sd
+from pyflightstream.post import harmonics, qsteady
+from pyflightstream.post.farfield_fields import non_metre_refusal
 from pyflightstream.post.guides import VARIABLE_DEFINITIONS, write_pproc_guides
 from pyflightstream.post.products import read_csv_table
 from pyflightstream.workspace import CampaignWorkspace
@@ -296,32 +297,43 @@ def test_integration_match_uses_plane_frame_and_count(tmp_path, monkeypatch, dif
     assert f"{relative}#integration" not in manifest["skipped"]
 
 
-def _per_m(monkeypatch, value):
-    monkeypatch.setattr(sd, "native_per_m", lambda *_args, **_kwargs: value)
+METER = "$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n"
+MILLIMETER = "$GLOBAL_START$\n0.001\n2\n$GLOBAL_END$\n"
+PLACEHOLDER = "a placeholder with no global block\n"
 
 
-def test_p0420_the_refusal_names_the_unit_and_the_run_that_would_settle_it(tmp_path, monkeypatch):
+def _saved(workspace, text, name):
+    """Give the recorded point a saved simulation whose head is ``text``."""
+    record = workspace.read_manifest()[0]
+    (workspace.sim_dir(record.sim_id) / name).write_text(text, encoding="utf-8")
+    record.outputs.append(name)
+
+
+def test_p0420_the_refusal_names_the_unit_and_the_run_that_would_settle_it(tmp_path):
     """PFS-2119.041: the sentence says what is refused, why, and what lifts it."""
-    _per_m(monkeypatch, 1000.0)
+    (tmp_path / "a.fsm").write_text(MILLIMETER, encoding="utf-8")
     record = SimpleNamespace(outputs=["a.fsm"], package_version="0.42.0")
-    text = sd.non_metre_refusal(tmp_path, record, "the integrated columns")
+    text = non_metre_refusal(tmp_path, record, "the integrated columns")
     assert text is not None
     assert "1000 simulation length units per metre" in text
     assert "MILLIMETER sectional export" in text and "PFS-2119.041" in text
 
 
-@pytest.mark.parametrize("per_m", [1.0, None])
-def test_p0420_a_metre_setup_and_an_unreadable_one_are_not_refused(tmp_path, monkeypatch, per_m):
+@pytest.mark.parametrize("head", [METER, PLACEHOLDER, None])
+def test_p0420_a_metre_setup_and_an_unreadable_one_are_not_refused(tmp_path, head):
     """PFS-2119.041 control: the legacy behaviour is unchanged where no other unit is known."""
-    _per_m(monkeypatch, per_m)
-    record = SimpleNamespace(outputs=[], package_version=None)
-    assert sd.non_metre_refusal(tmp_path, record, "x") is None
+    outputs = []
+    if head is not None:
+        (tmp_path / "a.fsm").write_text(head, encoding="utf-8")
+        outputs = ["a.fsm"]
+    record = SimpleNamespace(outputs=outputs, package_version=None)
+    assert non_metre_refusal(tmp_path, record, "x") is None
 
 
-def test_p0420_the_integrated_columns_are_not_written_off_a_metre_setup(tmp_path, monkeypatch):
+def test_p0420_the_integrated_columns_are_not_written_off_a_millimetre_setup(tmp_path, monkeypatch):
     """PFS-2119.041: Strip_length would be labelled m and Fx_int N over native lengths."""
-    _per_m(monkeypatch, 1000.0)
     workspace = _case(tmp_path, monkeypatch)
+    _saved(workspace, MILLIMETER, "AL-020.fsm")
     with pytest.warns(PyflightstreamWarning, match="not in metres"):
         _, columns, _ = _table(workspace)
     assert "Strip_length" not in columns and "Fx_int" not in columns
@@ -330,36 +342,36 @@ def test_p0420_the_integrated_columns_are_not_written_off_a_metre_setup(tmp_path
 
 def test_p0420_the_integrated_columns_are_written_on_a_metre_setup(tmp_path, monkeypatch):
     """PFS-2119.041 control."""
-    _per_m(monkeypatch, 1.0)
-    _, columns, rows = _table(_case(tmp_path, monkeypatch))
+    workspace = _case(tmp_path, monkeypatch)
+    _saved(workspace, METER, "AL-020.fsm")
+    _, columns, rows = _table(workspace)
     assert "Strip_length" in columns and len(rows) == 4
 
 
 def test_p0420_a_millimetre_wheel_writes_no_harmonics_and_names_why(tmp_path, monkeypatch):
     """PFS-2119.036: STATION_R_M and R_OVER_R would treat Offset as metres."""
-    _per_m(monkeypatch, 1000.0)
     workspace = harmonics_tests._wheel(tmp_path, monkeypatch, blades=6, clockings=2, rpm=1200.0)
+    _saved(workspace, MILLIMETER, "DP.fsm")
     out, manifest, _ = harmonics_tests._post(workspace)
     assert not (out / "sections" / "DP_harmonics.csv").exists()
     reason = manifest["skipped"]["sections/DP_harmonics.csv"]
     assert "not in metres" in reason and "1000 simulation length units per metre" in reason
-    assert any(
-        "no disc map" in value for key, value in manifest["skipped"].items() if "disc" in key
-    )
+    disc = [value for key, value in manifest["skipped"].items() if "disc" in key]
+    assert disc and all("no disc map" in value for value in disc)
 
 
 def test_p0420_a_millimetre_wheel_writes_no_k_1p(tmp_path, monkeypatch):
     """PFS-2119.036: the validity columns that read Offset and Chord in metres are named skips."""
-    _per_m(monkeypatch, 1000.0)
     workspace = harmonics_tests._wheel(tmp_path, monkeypatch, blades=6, clockings=2, rpm=1200.0)
+    _saved(workspace, MILLIMETER, "DP.fsm")
     _out, manifest, _ = harmonics_tests._post(workspace)
     assert "not in metres" in manifest["skipped"]["sections/DP_sections.csv#k_1p"]
 
 
 def test_p0420_a_metre_wheel_still_writes_its_harmonics(tmp_path, monkeypatch):
     """PFS-2119.036 control."""
-    _per_m(monkeypatch, 1.0)
     workspace = harmonics_tests._wheel(tmp_path, monkeypatch, blades=6, clockings=2, rpm=1200.0)
+    _saved(workspace, METER, "DP.fsm")
     out, _manifest, _ = harmonics_tests._post(workspace)
     _, rows = read_csv_table(out / "sections" / "DP_harmonics.csv")
     assert rows
@@ -367,8 +379,8 @@ def test_p0420_a_metre_wheel_still_writes_its_harmonics(tmp_path, monkeypatch):
 
 def test_p0420_a_millimetre_unsteady_rotor_writes_no_harmonics(tmp_path, monkeypatch):
     """PFS-2119.036: the unsteady route is refused the same way."""
-    _per_m(monkeypatch, 1000.0)
     workspace = harmonics_tests._unsteady(tmp_path, monkeypatch, blades=3, rpm=1200.0)
+    _saved(workspace, MILLIMETER, "AL-020.fsm")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)
         out, manifest, _ = harmonics_tests._post(workspace)
@@ -378,6 +390,4 @@ def test_p0420_a_millimetre_unsteady_rotor_writes_no_harmonics(tmp_path, monkeyp
 
 def test_p0420_one_station_tolerance_serves_the_harmonics_and_the_quasi_steady_alignment():
     """PFS-2124.036: the two modules read one value, a thousandth of the largest radius."""
-    from pyflightstream.post import harmonics, qsteady
-
     assert harmonics.STATION_MATCH_TOLERANCE == qsteady.STATION_TOLERANCE == 1e-3

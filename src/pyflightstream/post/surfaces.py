@@ -381,6 +381,20 @@ def _moving_frame_refusal(record: RunRecord, frame_record: Mapping[str, object])
     )
 
 
+def _fixed_frame(record: RunRecord, frame_record: Mapping[str, object]) -> SurfaceFrame:
+    """Return the loads frame of a per-step export, refusing one a motion moves.
+
+    Raises
+    ------
+    ProductError
+        If the record's motion ledger gives the frame a trajectory that is not fixed.
+    """
+    moving = _moving_frame_refusal(record, frame_record)
+    if moving is not None:
+        raise ProductError(moving)
+    return SurfaceFrame.from_record(frame_record)
+
+
 def write_point_surface_average(
     root: Path,
     *,
@@ -493,10 +507,7 @@ def write_point_surface_average(
     try:
         if not isinstance(frame_record, Mapping):
             raise ProductError("the record states no loads frame for the VTK")
-        moving = _moving_frame_refusal(record, frame_record)
-        if moving is not None:
-            raise ProductError(moving)
-        frame = SurfaceFrame.from_record(frame_record)
+        frame = _fixed_frame(record, frame_record)
         average = average_surface_exports(
             files,
             window=(int(bounds[0]), int(bounds[1])),
