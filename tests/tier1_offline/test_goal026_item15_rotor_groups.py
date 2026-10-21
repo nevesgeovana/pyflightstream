@@ -285,3 +285,17 @@ def test_f2_0809_a_scalar_rotor_family_list_is_an_input_error(tmp_path, key, sca
     )
     with pytest.raises(InputArtifactError, match=key):
         resolve_reference(tmp_path, "r001")
+
+
+def test_f2_0809_two_folders_deriving_one_mesh_name_are_refused_by_name(tmp_path):
+    """F-1207: the later folder no longer wins silently; the cell naming the file is refused."""
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace.inputs import resolve_geometry
+
+    for folder in ("a", "a_b"):
+        (tmp_path / "geometries" / folder).mkdir(parents=True)
+        (tmp_path / "geometries" / folder / "a_b_thin_blade.obj").write_text("")
+    (tmp_path / "geometries" / "a" / "a.fsm").write_text("")
+    assert resolve_geometry(tmp_path, "a.fsm").name == "a.fsm"
+    with pytest.raises(InputArtifactError, match="more than one folder"):
+        resolve_geometry(tmp_path, "a_b_thin_blade.obj")

@@ -1542,7 +1542,8 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
             kind="geometry",
             artifact_id=name,
         )
-    found = _staged_geometries(directory)
+    clashes: dict[str, list[Path]] = {}
+    found = _staged_geometries(directory, clashes)
     staged = sorted(found)
     stem, suffix = PurePath(name).stem, PurePath(name).suffix
     if not suffix:
@@ -1581,10 +1582,21 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
             artifact_id=name,
             available=tuple(staged),
         )
+    if name in clashes:
+        raise InputArtifactError(
+            f"geometry {name!r} is derived by more than one folder under {directory}: "
+            f"{', '.join(str(path.relative_to(directory)) for path in clashes[name])}. A "
+            "cell names a file, and two folders offering the same file name leave it "
+            "ambiguous which one the row meant; rename or remove one of them.",
+            kind="geometry",
+            artifact_id=name,
+        )
     return found[name]
 
 
-def _staged_geometries(directory: Path) -> dict[str, Path]:
+def _staged_geometries(
+    directory: Path, clashes: dict[str, list[Path]] | None = None
+) -> dict[str, Path]:
     """Map every staged geometry file name to its path, both layouts read.
 
     A file directly under ``geometries/`` is the flat layout. A folder
@@ -1609,6 +1621,7 @@ def _staged_geometries(directory: Path) -> dict[str, Path]:
     if not directory.is_dir():
         return {}
     found: dict[str, Path] = {}
+    in_folder: dict[str, Path] = {}
     for entry in sorted(directory.iterdir()):
         if entry.is_file():
             if not is_sidecar(entry.name) and entry.name != GEOMETRIES_README:
@@ -1621,7 +1634,9 @@ def _staged_geometries(directory: Path) -> dict[str, Path]:
                     and path.stem.endswith("_thin_blade")
                 )
                 if path.is_file() and (path.stem == entry.name or derived):
-                    found[path.name] = path
+                    if path.name in in_folder and clashes is not None:
+                        clashes.setdefault(path.name, [in_folder[path.name]]).append(path)
+                    in_folder[path.name] = found[path.name] = path
     return found
 
 
