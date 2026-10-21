@@ -974,7 +974,7 @@ def _refuse_what_the_reader_refuses(field: Field) -> None:
 def _provenance_text(provenance: Mapping[str, object]) -> str:
     """Render a provenance record, refusing parameters JSON cannot hold."""
     try:
-        return json.dumps(provenance, indent=2) + "\n"
+        return json.dumps(provenance, indent=2, sort_keys=True) + "\n"
     except (TypeError, ValueError) as error:
         raise WorkspaceError(
             f"the provenance record cannot be written ({error}): the operation's parameters "
