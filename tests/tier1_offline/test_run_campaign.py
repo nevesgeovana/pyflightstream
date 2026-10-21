@@ -1451,6 +1451,52 @@ def test_a_recorded_run_reconstructs_from_the_manifest_alone(tmp_path):
     assert "datapoints/DP-AL+000/loads_AL+000.txt" in rebuilt.verified
 
 
+@pytest.mark.requirement("NFR-07")
+def test_p0430_reconstruction_retains_recorded_versions_and_setup(tmp_path):
+    """P0430-RECONSTRUCT: identity comes from the record, not today's defaults."""
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    record = workspace.read_manifest()[0].model_copy(
+        update={
+            "fs_version_reported": "26.1",
+            "fs_build": "8172026",
+            "package_version": "0.42.0",
+            "solver_setup": {"solver": {"iterations": 123}},
+        }
+    )
+    rebuilt = reconstruct(record, workspace=workspace)
+    for name in ("fs_version_requested", "fs_version_reported", "fs_build", "package_version"):
+        assert getattr(rebuilt, name, None) == getattr(record, name)
+    assert getattr(rebuilt, "solver_setup", None) == record.solver_setup
+    rebuilt.solver_setup["solver"]["iterations"] = 456
+    assert record.solver_setup["solver"]["iterations"] == 123
+
+
+@pytest.mark.requirement("NFR-07")
+@pytest.mark.parametrize("argv", [[], [""], [" "]])
+def test_p0430_reconstruction_refuses_missing_invocation(tmp_path, argv):
+    """P0430-RECONSTRUCT: matching files cannot supply an absent invocation."""
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    record = workspace.read_manifest()[0].model_copy(update={"argv": argv})
+    with pytest.raises(WorkspaceError, match="argv"):
+        reconstruct(record, workspace=workspace)
+
+
 def test_reconstruction_says_so_when_an_artifact_changed(tmp_path):
     """`faithful` is the point: a changed file must not pass unnoticed.
 

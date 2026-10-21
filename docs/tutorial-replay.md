@@ -84,11 +84,21 @@ print(rebuilt.argv)
 print(rebuilt.cwd)
 print(rebuilt.timeout_s)
 print(rebuilt.script_text)
+print(rebuilt.fs_version_requested, rebuilt.fs_version_reported, rebuilt.fs_build)
+print(rebuilt.package_version, rebuilt.package_commit, rebuilt.package_dirty)
+print(rebuilt.solver_setup)
 ```
 
 That is the invocation as it happened, read back rather than re-derived
 from today's executor code. Re-deriving is the failure this replaces:
 the executor may have gained a flag, or lost one, since the run.
+
+The version fields and solver-setup snapshot also come from the record.
+Unrecorded optional values remain `None`; reconstruction does not fill them
+from the current installation. The setup is an independent copy, so inspecting
+or editing it does not mutate the record. A record without an executable in
+`argv` raises `WorkspaceError`: matching files alone cannot identify the
+command that was run.
 
 ## Ask whether the evidence still matches
 

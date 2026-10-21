@@ -10,6 +10,7 @@ on whether each file still hashes to what the record says (NFR-07).
 
 from __future__ import annotations
 
+import copy
 import inspect
 import os
 import re
@@ -123,6 +124,16 @@ class Reconstruction:
         (the file cannot be read at all, so the evidence is gone and the
         answer is to restore it from ``archive/``). Those are different
         problems with different answers.
+    fs_version_requested, fs_version_reported, fs_build : str or None
+        Recorded target version, reported version and vendor build. Missing
+        historical values remain None; they are not resolved from today's registry.
+    package_version, package_commit : str or None
+        Recorded package version and source revision.
+    package_dirty : bool or None
+        Recorded source-tree state, unknown for a wheel installation.
+    solver_setup : dict or None
+        Independent copy of the recorded solver-setup snapshot, or None when
+        no snapshot was recorded. Mutating it does not change the manifest view.
     """
 
     argv: tuple[str, ...]
@@ -130,6 +141,13 @@ class Reconstruction:
     timeout_s: float | None
     script_text: str
     verified: dict[str, str]
+    fs_version_requested: str | None = None
+    fs_version_reported: str | None = None
+    fs_build: str | None = None
+    package_version: str | None = None
+    package_commit: str | None = None
+    package_dirty: bool | None = None
+    solver_setup: dict | None = None
 
     @property
     def faithful(self) -> bool:
@@ -147,6 +165,17 @@ def _record_by_id(workspace: CampaignWorkspace, run_id: str) -> RunRecord:
     raise WorkspaceError(
         f"no run {run_id!r} in the manifest of {workspace.root}. Recorded runs: {known}"
     )
+
+
+def _recorded_argv(record: RunRecord) -> tuple[str, ...]:
+    """Read a usable invocation without inferring an executable from artifacts."""
+    if not record.argv or not record.argv[0].strip():
+        raise WorkspaceError(
+            f"run {record.run_id!r} records argv={record.argv!r}; reconstruction "
+            "requires a command line with a nonempty executable. Restore a record "
+            "with the original invocation; matching artifact hashes cannot supply it."
+        )
+    return tuple(record.argv)
 
 
 def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Reconstruction:
@@ -188,7 +217,7 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
     WorkspaceError
         If no record carries the given ``run_id``, if the record was
         written under a manifest schema this version does not know, or
-        carries no script path, or the script is not where it says.
+        carries no usable argv or script path, or the script is not where it says.
         Refusing beats reconstructing something that is not the run.
     """
     record = run if isinstance(run, RunRecord) else _record_by_id(workspace, run)
@@ -221,6 +250,7 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
             "that never happened. Use the pyflightstream version that wrote the "
             "manifest."
         )
+    argv = _recorded_argv(record)
     sim = workspace.sim_dir(record.sim_id)
     if not record.script_path:
         raise WorkspaceError(
@@ -259,11 +289,18 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
     if record.fs_exe and record.fs_exe_sha256:
         verified[record.fs_exe] = state(record.fs_exe, record.fs_exe_sha256)
     return Reconstruction(
-        argv=tuple(record.argv),
+        argv=argv,
         cwd=record.cwd or str(sim),
         timeout_s=record.timeout_s,
         script_text=script_text,
         verified=verified,
+        fs_version_requested=record.fs_version_requested,
+        fs_version_reported=record.fs_version_reported,
+        fs_build=record.fs_build,
+        package_version=record.package_version,
+        package_commit=record.package_commit,
+        package_dirty=record.package_dirty,
+        solver_setup=copy.deepcopy(record.solver_setup),
     )
 
 
