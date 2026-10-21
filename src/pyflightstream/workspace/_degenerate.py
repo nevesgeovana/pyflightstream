@@ -920,8 +920,10 @@ def derive_thin_blade(
     frame = _span_frame(source, blade.vertices)
     stations = _stations(source, blade.vertices @ frame.span, offset)
     grid = _mean_surface(source, blade, frame, stations)
-    _textio.write_text(mesh, _obj_text(source, grid, blade.boundary, offset))
-    _textio.write_text(sidecar, _sidecar_text(source, mesh, blade, offset))
+    mesh_text = _obj_text(source, grid, blade.boundary, offset)
+    sidecar_text = _sidecar_text(source, mesh, blade, offset)
+    _textio.write_text(mesh, mesh_text)
+    _textio.write_text(sidecar, sidecar_text)
     return ThinBlade(
         mesh=mesh,
         sidecar=sidecar,

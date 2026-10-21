@@ -317,3 +317,32 @@ def test_the_cli_reference_and_the_cheatsheet_name_the_command_and_its_options()
         text = (sheets / name).read_text(encoding="utf-8")
         for word in ("degenerate", "--root-offset", "--boundary", "thin-blade"):
             assert word in text, (name, word)
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_p0430_sidecar_build_failure_preserves_published_mesh(tmp_path, monkeypatch, existing):
+    """P0430-THIN: derive_thin_blade must build both payloads before publishing either."""
+    import builtins
+
+    source = _write_obj(tmp_path / "blade.obj", *_blade())
+    mesh = thin_blade_path(source)
+    sidecar = mesh.with_suffix(".boundaries.toml")
+    if existing:
+        mesh.write_bytes(b"old mesh")
+        sidecar.write_bytes(b"old inventory")
+
+    original_open = builtins.open
+
+    def fail(path, mode="r", *args, **kwargs):
+        if Path(path) == source and mode == "rb":
+            raise OSError("injected inventory digest failure")
+        return original_open(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", fail)
+    with pytest.raises(OSError, match="injected"):
+        derive_thin_blade(source, root_offset=0.05, overwrite=existing)
+    assert mesh.exists() == existing
+    assert sidecar.exists() == existing
+    if existing:
+        assert mesh.read_bytes() == b"old mesh"
+        assert sidecar.read_bytes() == b"old inventory"
