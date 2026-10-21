@@ -3936,3 +3936,17 @@ class TestF2Package0607Workspace:
             assert is_reparse(target) is expected
             assert _is_link(target) is expected
             assert _ledger_history._linked(target) is expected
+
+    @staticmethod
+    def test_f1217_zip_history_takes_the_stamp_from_the_archive_part_of_the_member(tmp_path):
+        """F-1217: a timestamp earlier in the member path is not the archive stamp."""
+        import zipfile
+
+        from pyflightstream.workspace._ledger_history import _zip_documents
+
+        path = tmp_path / "sim_1.zip"
+        member = "20260101-101010_run/datapoints/DP-A/archive/20260202-020202/runs.json"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr(member, "[]")
+        ((_, stamp, _),) = list(_zip_documents(path, "sims/sim_1.zip"))
+        assert stamp == "20260202-020202"
