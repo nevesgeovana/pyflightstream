@@ -219,3 +219,19 @@ def test_rb4_a_product_reached_through_a_linked_folder_deletes_nothing(tmp_path)
         storage_module.delete_sims(workspace.root, ["6002"], apply=True)
     assert (elsewhere / "p.csv").read_text(encoding="utf-8") == "another workspace's product"
     assert workspace.sim_dir("6002").exists()
+
+
+@pytest.mark.parametrize(
+    "document",
+    [[], {"schema": "pyfs-storage/1", "calls": [None]}, {"schema": "pyfs-storage/1", "calls": [1]}],
+)
+def test_f1543_malformed_storage_register_raises_storage_error(tmp_path, document):
+    # A register that is no object, or whose calls are no objects, is the documented refusal.
+    workspace = _workspace(tmp_path)
+    (workspace.root / storage_module.STORAGE_FILE).write_text(
+        json.dumps(document), encoding="utf-8"
+    )
+    with pytest.raises(StorageError, match="is not a"):
+        storage_module.read_storage_calls(workspace.root)
+    with pytest.raises(StorageError, match="is not a"):
+        storage_module.record_storage_call(workspace.root, {"action": "x"})

@@ -298,7 +298,12 @@ def read_storage_calls(root: str | Path) -> list[dict[str, Any]]:
     if not path.is_file():
         return []
     document = json.loads(path.read_text(encoding="utf-8"))
-    if document.get("schema") != STORAGE_SCHEMA or not isinstance(document.get("calls"), list):
+    if (
+        not isinstance(document, dict)
+        or document.get("schema") != STORAGE_SCHEMA
+        or not isinstance(document.get("calls"), list)
+        or not all(isinstance(call, dict) for call in document["calls"])
+    ):
         raise StorageError(
             f"{path} is not a {STORAGE_SCHEMA} file; it is left untouched. Move it aside to "
             "start a new storage record."
