@@ -5,7 +5,6 @@ from __future__ import annotations
 import ast
 import builtins
 import shutil
-import warnings
 from importlib.util import resolve_name
 from pathlib import Path
 
@@ -557,9 +556,6 @@ _PRIVATE_IMPORT_RATCHET___SRC = Path(pyflightstream.__file__).parent
 
 
 _PRIVATE_IMPORT_RATCHET___FROZEN: tuple[tuple[str, str], ...] = (
-    ("cases.windows", "script._surface_averaging"),
-    ("cases.workflows._exports", "script._surface_averaging"),
-    ("cases.workflows._skeleton", "script._settings"),
     ("post.farfield_fields", "cases._farfield_spec"),
     ("post.farfield_products", "cases._farfield_spec"),
     ("qa.matrix", "workspace._matrix_homes"),
@@ -606,7 +602,6 @@ _PRIVATE_IMPORT_RATCHET___FROZEN: tuple[tuple[str, str], ...] = (
     ("run.collect", "workspace._missing_log"),
     ("run.matrix", "workspace._geometry_clean"),
     ("run.matrix", "workspace._matrix_homes"),
-    ("workspace", "script._surface_averaging"),
     ("workspace._geometry_build", "cases._geometry_emit"),
     ("workspace._geometry_build", "cases._geometry_instruction"),
     ("workspace._geometry_convert", "cases._ccs"),
@@ -616,7 +611,6 @@ _PRIVATE_IMPORT_RATCHET___FROZEN: tuple[tuple[str, str], ...] = (
     ("workspace._geometry_record", "cases._ccs"),
     ("workspace._geometry_record", "cases._geometry_instruction"),
     ("workspace._row_setup", "cases.workflows._freestream"),
-    ("workspace.manifest", "script._surface_averaging"),
     ("workspace.sidecars", "cases._ccs"),
     ("workspace.sidecars", "cases._geometry_instruction"),
     ("workspace.sidecars", "cases.workflows._vocabulary"),
@@ -722,12 +716,10 @@ class TestPrivateImportRatchet:
             "module); move the shared code to a public home or a module below both, do not add "
             f"to the list: {new}"
         )
-        if gone:
-            warnings.warn(
-                f"P0400-PRIVATEIMPORT: these listed imports no longer exist, remove them from "
-                f"_FROZEN so the freeze shrinks: {gone}",
-                stacklevel=1,
-            )
+        assert not gone, (
+            "P0400-PRIVATEIMPORT: these listed imports no longer exist, remove them from "
+            f"_FROZEN so the freeze shrinks: {gone}"
+        )
 
     @staticmethod
     def test_a_planted_new_private_import_is_refused_and_a_removed_one_asks_to_shrink(tmp_path):
