@@ -487,6 +487,19 @@ class SweepAxis(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def _a_sweep_has_values(self) -> SweepAxis:
+        """Refuse a sweep axis with no values, before planning or running anything.
+
+        An empty axis would otherwise build a campaign of zero points that looks valid.
+        """
+        if not self.values:
+            raise CampaignConfigError(
+                f"a {self.type} sweep has no values, so it would plan zero points. State at least "
+                "one value, or drop the sweep and state the value on the case."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _values_match_the_axis_type(self) -> SweepAxis:
         pairs = self.type == "alpha_beta"
         for value in self.values:

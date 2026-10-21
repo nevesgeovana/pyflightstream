@@ -734,3 +734,28 @@ class TestCasesReview:
         assert "averaging window" in reason and "LAST_" in reason
         assert "averaging window" in (root / "post.log").read_text(encoding="utf-8")
         assert not any(name.endswith("_time_average.csv") for name in result.get("products", {}))
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1610")
+    def test_p0430_pprocspec_groups_survive_a_dump_and_validate_round_trip():
+        """PFS-2124.012: a PprocSpec re-validates its own dump, in python and json mode."""
+        from pyflightstream.cases.pproc import PprocSpec
+
+        spec = PprocSpec(groups={"1": "wing", "2": "tail"})
+        for mode in ("python", "json"):
+            again = PprocSpec.model_validate(spec.model_dump(mode=mode))
+            assert again.groups == spec.groups
+        assert spec.model_dump()["groups"] == {"1": "wing", "2": "tail"}
+
+    @staticmethod
+    def test_p0430_a_probe_entry_that_draws_points_and_states_no_parameters_is_refused():
+        """PFS-2119.018: refused at load, not dropped; field formats add VX, VY and VZ."""
+        from pyflightstream.cases.pproc import ProbesSpec
+
+        line = {"start": [0, 0, 0], "end": [1, 0, 0]}
+        with pytest.raises(ValidationError, match="requires nonempty parameters"):
+            ProbesSpec.model_validate({"lines": [line]})
+        kept = ProbesSpec.model_validate({"lines": [line], "parameters": ["VX"]})
+        assert kept.parameters == ["VX"]
+        added = ProbesSpec.model_validate({"lines": [line], "field_formats": ["vtk"]})
+        assert added.parameters == ["VX", "VY", "VZ"]

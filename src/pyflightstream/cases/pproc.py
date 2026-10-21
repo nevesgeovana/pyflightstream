@@ -26,7 +26,15 @@ from collections.abc import Mapping, Sequence
 from pathlib import PurePath, PurePosixPath
 from typing import Annotated, Literal, get_args
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from pyflightstream._deprecations import ROW_EACH_BLADE, refusal_text
 from pyflightstream._errors import InputArtifactError
@@ -1994,6 +2002,16 @@ class PprocSpec(BaseModel):
     exports: dict[str, bool] = Field(default_factory=dict)
     time_averaging: SurfaceTimeAveragingSpec | None = None
     vtk_variables: list[str] | None = None
+
+    @field_serializer("groups")
+    def _groups_serialize_as_the_one_alias_they_were_stated_as(
+        self, groups: dict[str, list[int | str]]
+    ) -> dict[str, str | list[int | str]]:
+        """Write each group as its one alias string, so a dump re-validates."""
+        return {
+            name: members[0] if len(members) == 1 and isinstance(members[0], str) else members
+            for name, members in groups.items()
+        }
 
     @field_validator("vtk_variables")
     @classmethod
