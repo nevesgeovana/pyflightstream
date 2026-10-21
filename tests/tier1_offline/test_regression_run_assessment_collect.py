@@ -867,3 +867,15 @@ def test_f6_0102_f258_an_explicit_nan_before_the_overflow_is_not_skipped(tmp_pat
     assessment = _assess_log(tmp_path, "".join(lines))
     assert assessment.status is RunStatus.FAILED_DIVERGED
     assert assessment.residual_note is None
+
+
+def test_f6_0102_a_non_finite_clocking_export_does_not_leave_the_wheel_converged(tmp_path):
+    """F-259: a non-zero clocking's own loads export is held to the finiteness check too."""
+    case, sim = _run_1_assessment___clocked_wheel(tmp_path, (4.0e-6, 3.0e-6), (61, 61))
+    assert LoadsAssessor()(case, None, sim).status is RunStatus.CONVERGED
+    export = sim / "outputs" / "DP_qs01.txt"
+    text = export.read_text(encoding="utf-8")
+    export.write_text(text.replace("Total,+0.0000000", "Total,NaN", 1), encoding="utf-8")
+    assessment = LoadsAssessor()(case, None, sim)
+    assert assessment.status is RunStatus.FAILED_DIVERGED, assessment.error
+    assert "non-finite" in (assessment.error or "")

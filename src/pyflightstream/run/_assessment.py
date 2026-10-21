@@ -1250,6 +1250,12 @@ def _judge_the_clockings(
                     f"no readable loads export {exported.name} for this clocking, so its "
                     "solve's residual describes no exported coefficients"
                 )
+            elif own.diverged_columns():
+                status = RunStatus.FAILED_DIVERGED
+                error = (
+                    f"non-finite Total coefficients in {exported.name} of this clocking: "
+                    f"{', '.join(own.diverged_columns())}"
+                )
             elif own.current_iteration != history[-1].iteration:
                 status = RunStatus.FAILED_INCOMPLETE_OUTPUT
                 error = (
