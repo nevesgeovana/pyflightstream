@@ -36,6 +36,14 @@ from pyflightstream.fsi.state import (
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "fsi"
+
+
+@pytest.mark.parametrize("omega, dt", [(1e308, 1e308), (1e-300, 1e-300)])
+def test_p0430_f6_04_revolutions_must_be_representable(omega, dt):
+    with pytest.raises(FsiInputError, match="representable"):
+        driver.revolutions_per_step(omega, dt)
+
+
 CALL2 = (FIXTURES / "FS_SurfaceSection_Loads_call0002.txt").read_text(encoding="utf-8")
 # A second REAL export from the same run. Integrated over the printed
 # offsets, the raw Fz column gives 665.1 N against call0002's 801.7 N.

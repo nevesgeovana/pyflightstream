@@ -234,7 +234,8 @@ def revolutions_per_step(omega_rad_per_s: float, time_increment_s: float) -> flo
     Raises
     ------
     FsiInputError
-        If the angular speed or the time step is not positive and finite.
+        If the angular speed, time step or computed revolution increment
+        is not positive and finite.
     """
     # PFS-2086.004: `<= 0` is False for a NaN, so a NaN or an infinite dt
     # passed and came back as a NaN or infinite revolution count.
@@ -245,7 +246,13 @@ def revolutions_per_step(omega_rad_per_s: float, time_increment_s: float) -> flo
             "coupled unsteady driver schedules its phases in revolutions "
             "(DLV-007 Section 4.5)"
         )
-    return omega_rad_per_s * time_increment_s / (2.0 * math.pi)
+    revolutions = omega_rad_per_s * time_increment_s / (2.0 * math.pi)
+    if not 0.0 < revolutions < math.inf:
+        raise FsiInputError(
+            f"Omega {omega_rad_per_s} rad/s and dt {time_increment_s} s do not give a "
+            "positive finite representable revolution increment; rescale the inputs"
+        )
+    return revolutions
 
 
 def relax_displacements(
