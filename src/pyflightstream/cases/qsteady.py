@@ -570,7 +570,9 @@ def obj_group_vertices(path: str | Path, *, metres_per_unit: float) -> dict[str,
     OSError, UnicodeError
         The file cannot be read.
     ValueError
-        A vertex or a face index is not a number, or a face index is out of range.
+        A vertex or a face index is not a number.
+    CampaignConfigError
+        A face index is out of range; this is also a ValueError.
     """
     vertices: list[Vector] = []
     groups: dict[str, set[int]] = {}
