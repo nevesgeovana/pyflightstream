@@ -712,3 +712,14 @@ def test_p0420_section_positional_compatibility_warns_and_preserves_values():
         airfoil_section_contour(unit, 0.1, chord_m=0.2)
     with pytest.raises(TypeError, match="at most"):
         airfoil_section_contour(unit, 0.1, 0.2, 0.3)
+
+
+def test_x_f_1185_a_numpy_integer_grid_is_accepted_and_a_numpy_bool_is_not():
+    """X-F-1185 np.int64 is an integer; np.bool_ stays refused like bool."""
+    contour = _rectangle(0.04, 0.01)
+    assert (
+        torsion_constant(contour, grid_cells=np.int64(16)).torsion_constant_m4
+        == torsion_constant(contour, grid_cells=16).torsion_constant_m4
+    )
+    with pytest.raises(FsiInputError, match="integer of at least 8"):
+        torsion_constant(contour, grid_cells=np.bool_(True))

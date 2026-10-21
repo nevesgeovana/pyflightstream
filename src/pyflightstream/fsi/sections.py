@@ -461,11 +461,17 @@ def torsion_constant(
         If ``grid_cells`` is not an integer of at least 8, or the grid places no node inside the
         section.
     """
-    if isinstance(grid_cells, bool) or not isinstance(grid_cells, int) or grid_cells < 8:
+    # X-F-1185. A numpy integer is an integer: it is accepted, as an int.
+    if (
+        isinstance(grid_cells, (bool, np.bool_))
+        or not isinstance(grid_cells, (int, np.integer))
+        or grid_cells < 8
+    ):
         raise FsiInputError(
             "grid_cells is the number of cells across the shorter side of the "
             f"section and must be an integer of at least 8, got {grid_cells!r}"
         )
+    grid_cells = int(grid_cells)
     polygon = _as_polygon(contour_m)
     polygon = polygon - polygon.min(axis=0)
     extent = polygon.max(axis=0)
