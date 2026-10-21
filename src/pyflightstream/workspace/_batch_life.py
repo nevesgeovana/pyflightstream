@@ -554,4 +554,7 @@ def batch_files(ws: Path, rank: int, skip_sims: set[str]) -> set[Path]:
                 rank >= 3 or is_job_script(entry.name) or is_log_name(entry.name)
             ):
                 out.add(entry)
+            elif entry.is_dir() and rank >= 3 and not is_reparse(entry):
+                # The all level brings the rest of the job folder, subfolders included.
+                out.update(_files(entry))
     return out

@@ -247,3 +247,78 @@ def test_p0430_post_compaction_preserves_existing_archive(tmp_path, linked):
     assert (stamp / "polar.csv").is_file()
     if not linked:
         assert archive.read_bytes() == b"archived evidence"
+
+
+def test_f_1194_an_interrupted_replacement_leaves_the_published_copy_whole(tmp_path, monkeypatch):
+    """F2-0203: F-1194, a replacement is copied beside the published file and renamed over it."""
+    import pytest
+
+    from pyflightstream.workspace import _batch_relocate
+
+    _, batch_sim, sim = _batch(tmp_path)
+    copy_point(batch_sim, sim, "DP-AL+000")
+    published = sim / "datapoints" / "DP-AL+000" / "loads.txt"
+    (batch_sim / "datapoints" / "DP-AL+000" / "loads.txt").write_bytes(b"loads final")
+
+    def interrupted(source, destination):
+        Path(destination).write_bytes(b"trunc")
+        raise OSError("the copy was interrupted")
+
+    monkeypatch.setattr(_batch_relocate.shutil, "copy2", interrupted)
+    with pytest.raises(OSError, match="interrupted"):
+        copy_point(batch_sim, sim, "DP-AL+000")
+    assert published.read_bytes() == b"loads DP-AL+000"
+    assert not list(published.parent.glob("*.replacing"))
+
+
+def test_f_1213_the_all_level_brings_the_files_of_a_job_subfolder(tmp_path):
+    """F2-0203: F-1213, the rest of the job folder at ``all`` includes its subfolders."""
+    from pyflightstream.workspace._batch_life import batch_files
+
+    job = tmp_path / "sims" / "batch" / "mtx_b1"
+    (job / "sim_2006").mkdir(parents=True)
+    (job / "sim_2006" / "a.txt").write_text("a", encoding="utf-8")
+    (job / "descriptors").mkdir()
+    (job / "descriptors" / "end.json").write_text("{}", encoding="utf-8")
+    (job / "top.json").write_text("{}", encoding="utf-8")
+    everything = {p.relative_to(job).as_posix() for p in batch_files(tmp_path, 3, set())}
+    assert {"descriptors/end.json", "top.json"} <= everything
+    fewer = {p.relative_to(job).as_posix() for p in batch_files(tmp_path, 2, set())}
+    assert "descriptors/end.json" not in fewer
+
+
+def test_f_730_archiving_records_a_file_link_and_never_stores_its_target(tmp_path, monkeypatch):
+    """F2-0203: F-730, a file link in a simulation folder is noted in the archive, not followed
+    (the link test is replaced by a name, so the test needs no symlink privilege)."""
+    import zipfile
+
+    from pyflightstream.workspace import _links
+
+    sim = tmp_path / "sim_1"
+    sim.mkdir()
+    (sim / "kept.txt").write_text("evidence", encoding="utf-8")
+    (sim / "linked.txt").write_text("external bytes", encoding="utf-8")
+    real = _links._is_link
+    monkeypatch.setattr(_links, "_is_link", lambda p: p.name == "linked.txt" or real(p))
+    archive = tmp_path / "sim_1.zip"
+    _links._write_sim_archive(sim, archive)
+    with zipfile.ZipFile(archive) as bundle:
+        names = sorted(bundle.namelist())
+        assert names == ["kept.txt", "linked.txt.LINK.txt"]
+        assert b"external bytes" not in bundle.read("linked.txt.LINK.txt")
+
+
+def test_f_1490_a_reparse_point_that_is_not_a_link_is_an_ordinary_file(tmp_path, monkeypatch):
+    """F2-0203: F-1490, a cloud-backed placeholder carries the reparse bit and is not a link."""
+    import stat
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._links import is_reparse
+
+    path = tmp_path / "matrix.fs"
+    path.write_text("POL,SIM\n", encoding="utf-8")
+    placeholder = SimpleNamespace(
+        st_mode=stat.S_IFREG, st_file_attributes=0x400, st_reparse_tag=0x9000001A
+    )
+    monkeypatch.setattr(Path, "lstat", lambda self: placeholder)
+    assert not is_reparse(path)

@@ -48,6 +48,10 @@ def _write_sim_archive(sim: Path, temporary: Path) -> None:
     with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
         for path in _sim_files(sim):
             bundle.write(path, path.relative_to(sim))
+        for path in _sim_file_links(sim):
+            # A file link is recorded, never followed: its target is not simulation evidence.
+            note = path.relative_to(sim).as_posix() + ".LINK.txt"
+            bundle.writestr(note, os.path.realpath(path) + "\n")
         link = sim / "inputs"
         if _is_link(link):
             bundle.writestr("inputs/STAGED_AS_LINK.txt", os.path.realpath(link) + "\n")
@@ -55,11 +59,9 @@ def _write_sim_archive(sim: Path, temporary: Path) -> None:
 
 def is_reparse(path: Path) -> bool:
     """Say whether ``path`` is a symbolic link or a Windows junction (never followed)."""
-    try:
-        info = path.lstat()
-    except OSError:
-        return False
-    return stat.S_ISLNK(info.st_mode) or bool(getattr(info, "st_file_attributes", 0) & 0x400)
+    # Only a symbolic link or a mount-point junction: another reparse point (a cloud-backed
+    # placeholder, a deduplicated file) reads as the ordinary file it is.
+    return _is_link(path)
 
 
 def _is_link(path: Path) -> bool:
@@ -121,7 +123,17 @@ def _sim_files(sim: Path) -> list[Path]:
     for dirpath, dirnames, filenames in os.walk(sim):
         here = Path(dirpath)
         dirnames[:] = sorted(name for name in dirnames if not _is_link(here / name))
-        found.extend(here / name for name in sorted(filenames))
+        found.extend(here / name for name in sorted(filenames) if not _is_link(here / name))
+    return found
+
+
+def _sim_file_links(sim: Path) -> list[Path]:
+    """Every file link under a simulation folder (dangling ones too), never crossing a link."""
+    found: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(sim):
+        here = Path(dirpath)
+        dirnames[:] = sorted(name for name in dirnames if not _is_link(here / name))
+        found.extend(here / name for name in sorted(filenames) if _is_link(here / name))
     return found
 
 

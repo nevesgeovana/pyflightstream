@@ -26,6 +26,7 @@ left as it is.
 
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 from dataclasses import dataclass, field
@@ -138,7 +139,14 @@ def _copy_tree(source: Path, target: Path, root: Path, tally: _Tally) -> None:
     elif _same_bytes(source, target):
         tally.kept.append(name)
     else:
-        shutil.copy2(source, target)
+        # Beside the published file first, then renamed over it: an interruption leaves the
+        # old complete copy, never a truncated one.
+        staging = target.with_name(target.name + ".replacing")
+        try:
+            shutil.copy2(source, staging)
+            os.replace(staging, target)
+        finally:
+            staging.unlink(missing_ok=True)
         tally.replaced.append(name)
 
 
