@@ -356,3 +356,12 @@ def test_f1223_restaging_removes_an_optional_input_the_setup_no_longer_asks_for(
     assert config.is_file()
     assert not (run / "fsi_allow_config_change").exists()
     assert not (run / "fsi_frozen_displacements.txt").exists()
+
+
+def test_x_f_1259_a_frozen_file_the_reader_refuses_is_an_fsi_setup_error(tmp_path: Path) -> None:
+    """The documented Raises: a displacement file of the wrong size is an FsiSetupError."""
+    source = tmp_path / "f001.toml"
+    source.write_text('frozen_displacements_file = "frozen.txt"\n' + SUPPLIED)
+    (tmp_path / "frozen.txt").write_text("1 2 3\n")
+    with pytest.raises(FsiSetupError, match="frozen"):
+        resolve_fsi_setup(source)

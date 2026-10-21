@@ -333,7 +333,10 @@ def resolve_fsi_setup(
         # FsiInputError: the FSI package's own refusal, an unknown material or
         # a section contour the section builder refuses.
         raise FsiSetupError(f"{source}: invalid FSI input: {exc}") from exc
-    frozen_path, frozen_digest = _frozen_replay(spec, source, effective)
+    try:
+        frozen_path, frozen_digest = _frozen_replay(spec, source, effective)
+    except FsiInputError as exc:
+        raise FsiSetupError(f"{source}: invalid frozen displacements: {exc}") from exc
     return ResolvedFsiSetup(
         source,
         hashlib.sha256(raw).hexdigest(),
