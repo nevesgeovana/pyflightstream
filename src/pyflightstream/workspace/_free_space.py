@@ -560,6 +560,11 @@ def _relink_inputs(main: CampaignWorkspace, other: Path, sim_name: str) -> str |
     return f"linked to inputs/geometries/{relative.as_posix()}".rstrip("/.")
 
 
+def _recorded_parts(recorded: str) -> tuple[str, ...]:
+    """Split a recorded link path into components, whichever platform wrote it."""
+    return PureWindowsPath(recorded).parts
+
+
 def _library_target(workspace: CampaignWorkspace, recorded: str) -> Path | None:
     """Map a compacted simulation's recorded ``inputs`` link onto THIS workspace's library.
 
@@ -570,7 +575,7 @@ def _library_target(workspace: CampaignWorkspace, recorded: str) -> Path | None:
     no such folder.
     """
     library = (workspace.inputs_dir / "geometries").resolve()
-    parts = PureWindowsPath(recorded).parts
+    parts = _recorded_parts(recorded)
     relative: Path | None = None
     for index in range(len(parts) - 1, 0, -1):
         if (parts[index - 1].lower(), parts[index].lower()) == ("inputs", "geometries"):
