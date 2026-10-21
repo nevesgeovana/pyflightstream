@@ -300,4 +300,9 @@ added columns, even when other blocks or steps in that file are valid. A
 `PyflightstreamWarning` names the point, output file, source step/block and
 reason. Other distribution files and Cp products continue normally.
 
+
+Long family selections use a compact distribution number and content digest
+in the filename. The complete selection remains in `products.json`; short
+selection names keep their readable filenames.
+
 ---

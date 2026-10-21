@@ -1019,6 +1019,10 @@ def _file_names(selections: Mapping[int, str | list[str]]) -> dict[int, str]:
         or "distribution"
         for k, s in selections.items()
     }
+    names = {
+        k: name if len(name.encode("utf-8")) <= 96 else f"distribution_{k}_{text_sha256(name)[:16]}"
+        for k, name in names.items()
+    }
     while True:
         counts = Counter(name.casefold() for name in names.values())
         clashes = {k for k, name in names.items() if counts[name.casefold()] > 1}

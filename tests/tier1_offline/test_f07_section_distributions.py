@@ -20,6 +20,16 @@ from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+def test_p0430_long_distribution_names_write_with_distinct_bounded_names(tmp_path, monkeypatch):
+    selections = [["Blade" + str(i) for i in range(60)], ["Blade" + str(i) for i in range(61)]]
+    workspace, _ = _workspace(tmp_path, monkeypatch, names=selections)
+    out, _ = _post(workspace)
+    files = list((out / "sections").glob("*_sloads_*.csv"))
+    assert len(files) == 2
+    assert len({file.name for file in files}) == 2
+    assert all(len(file.name.encode("utf-8")) <= 255 for file in files)
+
+
 def _exports():
     # Keep the recorded format and numbers: two sectional rows, and two Cp
     # sections made from the first/last six stations of the recorded section.
