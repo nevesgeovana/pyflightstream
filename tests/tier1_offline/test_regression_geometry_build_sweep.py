@@ -3879,3 +3879,15 @@ class TestF2Package0607Geometry:
         path = _geometry_instruction__write(tmp_path, text, name="s")
         with pytest.raises(InputArtifactError, match=word):
             read_geometry_instruction(path)
+
+    @staticmethod
+    @pytest.mark.parametrize("text", ['say "hi"', "C:\\folder\\wing", "line\nbreak\ttab", "plain"])
+    def test_f1508_the_sidecar_serializer_round_trips_every_string(text):
+        """F-1508: quotes and backslashes are escaped, so a string reads back as written."""
+        import tomllib
+
+        from pyflightstream.workspace._geometry_sidecar import sidecar_text, toml_value
+
+        assert tomllib.loads(f"key = {toml_value(text)}")["key"] == text
+        body, _ = sidecar_text([text, "B"], "METER", None)
+        assert tomllib.loads(body)["boundaries"] == [text, "B"]

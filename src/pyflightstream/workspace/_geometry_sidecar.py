@@ -131,10 +131,10 @@ def sidecar_text(
     notes: list[str] = []
     rows = [
         "# Written by pyfs-workspace geometry build.",
-        "boundaries = [" + ", ".join(f'"{n}"' for n in names) + "]",
+        "boundaries = " + toml_value(list(names)),
     ]
     if units is not None:
-        rows += ["", "[import]", f'units = "{units}"']
+        rows += ["", "[import]", f"units = {toml_value(units)}"]
         for operation in carried.get("operations", []):
             rows += [
                 "",
@@ -155,7 +155,7 @@ def sidecar_text(
             "is kept beside the mesh)"
         )
     elif te_file is not None:
-        rows += ["", "[trailing_edges]", f'file = "{te_file}"']
+        rows += ["", "[trailing_edges]", f"file = {toml_value(te_file)}"]
     for table in _CARRIED_TABLES:
         if table in carried:
             rows += ["", *toml_table(table, carried[table])]
