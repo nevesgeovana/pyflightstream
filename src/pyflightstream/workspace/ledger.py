@@ -370,7 +370,7 @@ class Ledger:
         statuses : sequence of str, optional
             Only the polars with a datapoint in one of these words; a word
             ending in ``*`` matches every word it begins. A word no status
-            takes raises :class:`ValueError`, listing the accepted words.
+            takes raises :class:`WorkspaceError`, listing the accepted words.
         failed : bool, optional
             Only the polars with at least one failed datapoint.
 
@@ -381,7 +381,7 @@ class Ledger:
             with a record), ``planned`` (datapoints the plan names, None when
             no plan names the simulation) and ``counts`` (word to count).
         """
-        check_status_words(statuses)
+        _check_status_words(statuses)
         rows = []
         for (stem, sim), entries in self._polars(sims=sims, matrix=matrix).items():
             words = [entry.word for entry in entries]
@@ -419,7 +419,7 @@ class Ledger:
             replaced; ``where`` is ``local``, the job label of a grouped run,
             or ``cluster``.
         """
-        check_status_words(statuses)
+        _check_status_words(statuses)
         rows = []
         for (stem, sim), entries in self._polars(sims=sims, matrix=matrix).items():
             for entry in entries:
@@ -608,7 +608,7 @@ class Ledger:
         return "current" if optional_file_sha256(path) == plan.matrix_sha256 else "stale"
 
 
-def check_status_words(statuses: Sequence[str]) -> None:
+def _check_status_words(statuses: Sequence[str]) -> None:
     """Refuse a status word that no recorded or derived status takes.
 
     Parameters
@@ -619,7 +619,7 @@ def check_status_words(statuses: Sequence[str]) -> None:
 
     Raises
     ------
-    ValueError
+    WorkspaceError
         If a word is neither a :class:`RunStatus` value, nor :data:`PLANNED`, nor
         a prefix ending in ``*`` of one of them. A misspelled or lower-case word
         otherwise selects nothing, which reads like a workspace with no match.
@@ -630,7 +630,7 @@ def check_status_words(statuses: Sequence[str]) -> None:
         if (stem is None and word not in known) or (
             stem is not None and not any(item.startswith(stem) for item in known)
         ):
-            raise ValueError(
+            raise WorkspaceError(
                 f"statuses names {word!r}, which no status takes; the words are "
                 f"{', '.join(known)}, and a trailing * matches every word it begins"
             )
@@ -768,7 +768,13 @@ def _read_plan(path: Path) -> _Plan:
                 isinstance(value, int | float) and not isinstance(value, bool)
                 for value in values.values()
             ):
-                raise ValueError(f"the point of {run_id} is not a mapping of names to numbers")
+                return _Plan(
+                    stem,
+                    {},
+                    (),
+                    None,
+                    f"the point of {run_id} is not a mapping of names to numbers",
+                )
             points.setdefault(str(point["sim_id"]), {})[run_id.rsplit("/", 1)[-1]] = dict(values)
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
         return _Plan(stem, {}, (), None, f"{type(error).__name__}: {error}")

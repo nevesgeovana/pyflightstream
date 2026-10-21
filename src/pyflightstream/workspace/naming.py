@@ -514,7 +514,7 @@ _UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\s\x00-\x1f]')
 _RESERVED_DEVICE_NAME = re.compile(r"(?i)(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?")
 
 
-def is_reserved_device_name(text: str) -> bool:
+def _is_reserved_device_name(text: str) -> bool:
     """Whether ``text`` is a name Windows reserves for a device, such as ``NUL`` or ``com1.txt``.
 
     Parameters
@@ -546,7 +546,7 @@ def is_portable_name(text: str) -> bool:
     bool
         True when the text is not empty and holds no separator, whitespace or reserved name.
     """
-    return bool(text) and _UNSAFE_CHARS.search(text) is None and not is_reserved_device_name(text)
+    return bool(text) and _UNSAFE_CHARS.search(text) is None and not _is_reserved_device_name(text)
 
 
 class NamingTemplateError(PyflightstreamError, ValueError):
@@ -894,7 +894,7 @@ def _render(template: str, values: dict[str, object], role: str, check_name: boo
                 '<>:"/\\|?*).'
             )
     if check_name and (
-        _UNSAFE_CHARS.search(rendered) or not rendered or is_reserved_device_name(rendered)
+        _UNSAFE_CHARS.search(rendered) or not rendered or _is_reserved_device_name(rendered)
     ):
         raise NamingTemplateError(
             f"the rendered {role} {rendered!r} is not a portable file name; avoid "
