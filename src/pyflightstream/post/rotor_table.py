@@ -218,7 +218,8 @@ def rotor_shaft_loads(
         summed. The loads are NaN at rest and in a frame other than the
         geometry's.
     """
-    shaft = _unit(getattr(rotor, "axis_vector", (0.0, 0.0, 1.0)))
+    declared_axis = getattr(rotor, "axis_vector", (0.0, 0.0, 1.0))
+    shaft = _unit(declared_axis)
     # THROUGH THE PACKAGE'S ONE RESOLVER, not an exact-name match. A rotor's
     # `members` are FAMILIES -- the field is named `families_blades` -- and
     # `select_group_members` is the single rule for turning a member token into
@@ -282,7 +283,7 @@ def rotor_shaft_loads(
             families_used=tuple(used),
         )
     pressure = 0.5 * float(density_kg_m3) * float(speed_m_s) ** 2
-    if pressure <= 0.0:
+    if float(speed_m_s) < 0.0 or not pressure > 0.0 or not _names_a_direction(declared_axis):
         return RotorShaftLoads(
             thrust_n=math.nan,
             torque_nm=math.nan,
@@ -377,6 +378,12 @@ def _force_along_the_stream(
     stream = free_stream_in_export_frame(alpha_deg, beta_deg)
     sense = -1.0 if _unit(shaft)[0] < 0.0 else 1.0
     return sense * sum(float(a) * float(b) for a, b in zip(newtons, stream, strict=True))
+
+
+def _names_a_direction(vector: Sequence[float]) -> bool:
+    """Return whether ``vector`` is finite and not the zero vector."""
+    parts = [float(component) for component in vector]
+    return all(math.isfinite(part) for part in parts) and any(part != 0.0 for part in parts)
 
 
 def _unit(vector: Sequence[float]) -> tuple[float, float, float]:
@@ -514,6 +521,11 @@ def rotor_coefficients(
         # An infinite rate or diameter divides every coefficient to a finite zero
         # that would pass for a measurement.
         raise ProductError("rps and diameter_m must be finite to define rotor coefficients")
+
+    if not density_kg_m3 > 0:
+        raise ProductError(
+            f"density_kg_m3 must be positive to define rotor coefficients, got {density_kg_m3!r}"
+        )
     # rps carries the rotation sense. Its magnitude normalises J, CT and CQ.
     # Power is Q times omega: reversing both torque and rotation preserves
     # shaft power, so CP = 2 pi CQ * sign(n), with magnitude-rate normalisation
@@ -667,8 +679,11 @@ def _mach_cells(
             velocity_m_per_s=float(air[0]),
             sonic_velocity_m_per_s=float(air[1]),
         )
-        # FR-1201: the advancing tip, on the rotor's own axis and the
-        # row's attitude (an unstated angle is zero, as in the loads above).
+        # FR-1201: the advancing tip, on the rotor's own axis and the row's attitude.
+        # An unstated ALPHA or BETA is not level flight: MADV reads NA, as the shaft
+        # angle and the wind-axis force do.
+        if None in angles:
+            return machs, None
         madv = advancing_tip_mach_number(
             rpm=rpm,
             diameter_m=diameter,

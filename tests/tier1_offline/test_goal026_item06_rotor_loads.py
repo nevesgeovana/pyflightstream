@@ -960,3 +960,41 @@ def test_f160_an_infinite_rate_is_refused_not_read_as_zero_coefficients():
             density_kg_m3=1.2,
             speed_m_s=10.0,
         )
+
+
+def test_f4_0506_rotor_loads_refuse_what_they_cannot_define():
+    from types import SimpleNamespace
+
+    from pyflightstream.post import rotor_table as rt
+
+    common = dict(reference=_reference(), density_kg_m3=1.225)
+    surfaces = _surfaces(Blade1={"Cz": 0.5})
+    # F-1395: a negative speed has no dynamic pressure; it is NaN, not squared
+    loads = rotor_shaft_loads(surfaces, rotor=_rotor("Z"), speed_m_s=-40.0, **common)
+    assert math.isnan(loads.thrust_n) and math.isnan(loads.torque_nm)
+    # F-205: a zero shaft axis is no +Z; the loads read NaN, they are not invented
+    bare = SimpleNamespace(
+        axis_vector=(0.0, 0.0, 0.0), members=["Blade1"], x_m=0.0, y_m=0.0, z_m=0.0
+    )
+    loads = rotor_shaft_loads(surfaces, rotor=bare, speed_m_s=40.0, **common)
+    assert math.isnan(loads.thrust_n) and loads.families_used == ("Blade1",)
+    # F-1396: zero density is a ProductError, not a bare ZeroDivisionError
+    with pytest.raises(rt.ProductError, match="density"):
+        rt.rotor_coefficients(
+            thrust_n=1.0, torque_nm=1.0, rps=10.0, diameter_m=1.0, density_kg_m3=0.0, speed_m_s=5.0
+        )
+    # F-206: no stated ALPHA or BETA leaves MADV NA, not the level-flight number
+    air, shaft = (50.0, 340.0), (1.0, 0.0, 0.0)
+    _, level = rt._mach_cells(air, 3000.0, 2.0, (0.0, 0.0), shaft)
+    _, unstated = rt._mach_cells(air, 3000.0, 2.0, (None, None), shaft)
+    assert isinstance(level, float) and unstated is None
+
+
+@pytest.mark.parametrize("shaft", [(1.0, 0.0, 0.0), (-1.0, 0.0, 0.0)])
+def test_f4_0506_f_128_the_wind_force_follows_the_shafts_sense(shaft):
+    """ETAW equals ETA along the stream for either direction the shaft is declared."""
+    from pyflightstream.post import rotor_table as rt
+
+    newtons = (120.0, 7.0, -3.0)
+    thrust = sum(f * s for f, s in zip(newtons, shaft, strict=True))
+    assert rt._force_along_the_stream(newtons, shaft, 0.0, 0.0) == pytest.approx(thrust)
