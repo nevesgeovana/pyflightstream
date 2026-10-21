@@ -150,7 +150,9 @@ def write_reduction(
     ----------
     path : str or pathlib.Path
         Destination CSV file, holding one row per field and sample:
-        ``field,probe,mean``.
+        ``field,probe,mean,first_step,last_step,n_frames``. Bounds name the
+        actual source steps; manually constructed averages without source
+        bounds leave those cells blank.
     average : FrameAverage
         The reduction, from
         :func:`pyflightstream.post.unsteady.blade_passage_average`.
@@ -204,14 +206,16 @@ def write_reduction(
 
     with _textio.open_text(destination, "w") as handle:
         writer = _textio.csv_writer(handle)
-        writer.writerow(["field", "probe", "mean"])
+        writer.writerow(["field", "probe", "mean", "first_step", "last_step", "n_frames"])
+        bounds = average.source_window or (None, None)
+        metadata = [*bounds, average.n_frames]
         for name in sorted(average.fields):
             values = average.fields[name]
             if values.ndim == 1:
                 for probe, value in enumerate(values):
-                    writer.writerow([name, probe, float(value)])
+                    writer.writerow([name, probe, float(value), *metadata])
             else:
                 for probe, vector in enumerate(values):
                     for axis, letter in enumerate("xyz"):
-                        writer.writerow([f"{name}_{letter}", probe, float(vector[axis])])
+                        writer.writerow([f"{name}_{letter}", probe, float(vector[axis]), *metadata])
     return destination

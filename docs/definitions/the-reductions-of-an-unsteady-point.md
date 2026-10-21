@@ -1,5 +1,13 @@
 ## The reductions of an unsteady point
 
+For animation-frame reductions, `write_reduction` writes
+`field,probe,mean,first_step,last_step,n_frames`. The final three columns
+record the first and last source steps actually used and the number of
+frames averaged. For example, source steps 2, 4, 6 and 8 reduced over the
+declared window 3 through 7 record `first_step=4`, `last_step=6` and
+`n_frames=2`. The time series remains beside the reduction. A manually
+constructed `FrameAverage` without source bounds leaves those bounds blank.
+
 An unsteady point's plots table is its raw time history, one row per solver
 time step. The stage writes its reductions beside it, one file per
 reduction, each named in `products.json` with the reduction and the window

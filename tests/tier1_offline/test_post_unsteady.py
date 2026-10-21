@@ -355,6 +355,24 @@ def test_a_reduction_refuses_to_be_written_with_no_series_beside_it(tmp_path):
     assert not (tmp_path / "anim" / "mean.csv").exists()
 
 
+@pytest.mark.requirement("FR-2315")
+def test_p0430_reduction_round_trips_source_window_and_count(tmp_path):
+    import csv
+    from dataclasses import replace
+
+    frames = write_frames(tmp_path / "anim", [1.0, 2.0, 3.0, 4.0])
+    series = replace(read_timestep_series(frames, order="given"), steps=np.array([2, 4, 6, 8]))
+    average = blade_passage_average(series, window=(3, 7))
+    series_file = write_series(tmp_path / "series.csv", series)
+    reduction = write_reduction(tmp_path / "mean.csv", average, series_file=series_file)
+    with reduction.open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert rows and all(
+        (row.get("first_step"), row.get("last_step"), row.get("n_frames")) == ("4", "6", "2")
+        for row in rows
+    )
+
+
 def test_the_pair_a_caller_gets_when_the_rule_is_kept(tmp_path):
     """The ordinary case: series first, reduction beside it."""
     frames = write_frames(tmp_path / "anim", [1.0, 2.0, 3.0, 4.0])
@@ -371,7 +389,7 @@ def test_the_pair_a_caller_gets_when_the_rule_is_kept(tmp_path):
     assert len(rows) == 5, "the series file must hold one row per frame plus its header"
 
     mean_rows = reduction.read_text(encoding="utf-8").splitlines()
-    assert mean_rows[0] == "field,probe,mean"
+    assert mean_rows[0] == "field,probe,mean,first_step,last_step,n_frames"
     assert any(row.startswith("cp,0,2.5") for row in mean_rows)
 
 

@@ -153,6 +153,10 @@ class FrameAverage:
     sources : tuple of pathlib.Path
         The frame files behind the series, carried through so the
         writing seam can refuse to overwrite one of them.
+    source_window : tuple of int or None
+        First and last source steps actually averaged, which can lie inside
+        the declared window when exports are sparse. None for manually
+        constructed averages without that evidence.
     """
 
     window: tuple[int, int]
@@ -160,6 +164,7 @@ class FrameAverage:
     points: np.ndarray
     fields: dict[str, np.ndarray]
     sources: tuple[Path, ...]
+    source_window: tuple[int, int] | None = None
 
 
 #: Tecplot records that carry text, not data: the title and auxiliary
@@ -556,6 +561,7 @@ def blade_passage_average(
         points=series.points,
         fields={name: values[inside].mean(axis=0) for name, values in series.fields.items()},
         sources=series.sources,
+        source_window=(int(series.steps[inside].min()), int(series.steps[inside].max())),
     )
 
 
