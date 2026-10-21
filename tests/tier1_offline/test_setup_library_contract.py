@@ -186,3 +186,15 @@ def test_x_f_0594_an_interrupted_write_leaves_no_truncated_setup_file(tmp_path, 
     assert not list(folder.glob(".*.tmp"))
     again = write_setup_library(tmp_path, fs_version="26.124", guidelines=True)
     assert again == {"SETUP_GUIDELINES.md": "created"}
+
+
+def test_x_f_1745_a_guidelines_only_page_links_no_file_it_did_not_write(tmp_path):
+    """Guidelines alone name the standards without linking files that are not beside the page."""
+    write_setup_library(tmp_path, fs_version="26.124", guidelines=True)
+    page = (tmp_path / "inputs" / "setups" / "SETUP_GUIDELINES.md").read_text(encoding="utf-8")
+    assert "s900" in page
+    assert "(s900.toml)" not in page
+    both = tmp_path / "both"
+    write_setup_library(both, fs_version="26.124", guidelines=True, standards=True)
+    linked = (both / "inputs" / "setups" / "SETUP_GUIDELINES.md").read_text(encoding="utf-8")
+    assert "[s900](s900.toml)" in linked

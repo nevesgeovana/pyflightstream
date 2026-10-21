@@ -9,6 +9,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -969,7 +970,16 @@ def write_setup_library(
     destination = Path(workspace) / "inputs" / "setups"
     payloads: dict[str, str] = {}
     if guidelines:
-        payloads["SETUP_GUIDELINES.md"] = render_guidelines(fs_version)
+        page = render_guidelines(fs_version)
+        if not standards:
+            # Guidelines alone: a link to an sNNN.toml that is not beside the page would dangle.
+
+            def _link(match: re.Match[str]) -> str:
+                present = (destination / f"{match[1]}.toml").exists()
+                return match[0] if present else match[1]
+
+            page = re.sub(r"\[(s\d+)\]\(\1\.toml\)", _link, page)
+        payloads["SETUP_GUIDELINES.md"] = page
     if standards:
         payloads.update(
             {f"{item.code}.toml": render_standard(item, fs_version) for item in setup_standards()}
