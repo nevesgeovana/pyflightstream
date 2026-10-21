@@ -35,10 +35,15 @@ FIX = Path(__file__).resolve().parent / "fixtures" / "rpt128"
 
 
 def _front_matter(number: int) -> tuple[Path, dict[str, str]]:
-    """Return a report and the ``key: value`` fields of its front matter, or fail naming it."""
-    found = [FIX / "expected.txt"]
-    if not found:
-        pytest.fail(f"RPT-{number} is not in reports/: its licensed run owes it")
+    """Return the recorded extract and its ``key: value`` front matter, or fail naming it.
+
+    The report itself is not tracked here: the committed extract ``expected.txt`` is the single
+    source these tests read, so a missing extract fails by name rather than skipping.
+    """
+    extract = FIX / "expected.txt"
+    if not extract.is_file():
+        pytest.fail(f"RPT-{number}: the recorded extract {extract.name} is not in {FIX}")
+    found = [extract]
     lines = found[0].read_text(encoding="utf-8").splitlines()
     if not lines or lines[0].strip() != "---" or "---" not in lines[1:]:
         pytest.fail(f"{found[0].name} opens with no front matter between two '---' lines")
