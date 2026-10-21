@@ -225,3 +225,10 @@ def test_a_rotor_aliased_by_a_word_still_binds(tmp_path):
     """
     pproc = _bound_pproc(tmp_path, declared='[groups]\nWING = "Wing"\n', rotor_alias="PORT")
     assert "PORT" in pproc.groups, sorted(pproc.groups)
+
+
+def test_f1546_a_non_ascii_digit_group_is_a_name_not_a_crash():
+    from pyflightstream.workspace.naming import group_token
+
+    assert group_token("²") == "²"
+    assert group_token("7") == "g07"

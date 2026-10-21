@@ -460,7 +460,7 @@ def group_token(group: str | int) -> str:
     token = str(group).strip()
     if not token:
         raise ProductError("a polar group has no name, and the product file is named after it")
-    if token.isdigit():
+    if token.isascii() and token.isdigit():
         return f"g{int(token):02d}"
     if _NUMBERED_GROUP.match(token):
         raise ProductError(
