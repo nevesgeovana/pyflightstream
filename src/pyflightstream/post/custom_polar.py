@@ -15,11 +15,11 @@ from datetime import datetime
 from pathlib import Path
 
 import pyflightstream._textio as _textio
+from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.post._tables import (
     _DECIMALS,
     _REFERENCE_COLUMNS,
     COEFFICIENT_COLUMNS,
-    NOT_APPLICABLE,
     ProductError,
     ReferenceValues,
     _mach_code,
@@ -290,7 +290,8 @@ def write_custom_polar_format(
     configuration : str, optional
         The row's `CONFIGURATION` label (FR-94), appended to the title of
         line 1 after ` - `. Absent from the title when the row states
-        none, so a file written by a row without one is unchanged.
+        none (blank, a dash or ``NA``), so a file written by a row without
+        one is unchanged.
     group_number : int, optional
         The number line 4 states for a named group, its 1-based position in the ``[groups]`` table
         (:func:`group_number`).
@@ -309,8 +310,9 @@ def write_custom_polar_format(
     ------
     ProductError
         If a row has a different length from ``columns``, a value does not fit a
-        field with a blank before it even with no decimals, or a header name has
-        ten or more characters. A value that is not a number is written ``nan``
+        field with a blank before it even with no decimals, a header name has
+        ten or more characters, or a header line other than the title holds a
+        character outside ASCII. A value that is not a number is written ``nan``
         (the format writes every number ``%10.5f``) and
         :func:`read_custom_polar_format` reads ``nan``, ``NA`` and the
         historical ``-`` back as missing; a line break in the description or
@@ -323,7 +325,11 @@ def write_custom_polar_format(
     # and ` - ` is the separator the prefix itself already uses.
     # A line break in the description would add a tenth header line.
     title = f"{CUSTOM_TITLE_PREFIX}{' '.join(str(description).split())}"
-    if configuration and configuration.strip() and configuration.strip() != "-":
+    if (
+        configuration
+        and configuration.strip()
+        and configuration.strip() not in ("-", NOT_APPLICABLE)
+    ):
         title = f"{title} - {' '.join(configuration.split())}"
     lines = [
         _ascii_title(title),
@@ -336,6 +342,18 @@ def write_custom_polar_format(
         f"{len(columns):03d}",
         "".join(custom_field(name) for name in columns),
     ]
+    # EVERY HEADER LINE IS ASCII OR THE CALL IS REFUSED BY NAME. Only the title is
+    # transliterated, so a polar identifier, a verbatim date or a column name with
+    # a character outside ASCII reached the strict encoder as a UnicodeEncodeError
+    # instead of the documented ProductError.
+    for number, line in enumerate(lines, start=1):
+        outside = next((char for char in line if not char.isascii()), None)
+        if outside is not None:
+            raise ProductError(
+                f"line {number} of the custom polar header holds {outside!r}, which the "
+                "ASCII custom format cannot carry; rename the polar, date or column to "
+                "ASCII letters, digits and punctuation"
+            )
     for row in rows:
         if len(row) != len(columns):
             raise ProductError(f"a polar row has {len(row)} values, not {len(columns)}")

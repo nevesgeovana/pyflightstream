@@ -135,3 +135,39 @@ def test_p0390_parity_a_number_elsewhere_beside_the_version_stamp_still_differs(
     assert norm("m/products.json", p) != norm(
         "m/products.json", b'"superfile_report": "reports/superfile-0380.json.x"'
     )
+
+
+def _custom_title_and_error(tmp_path, **kwargs):
+    from pyflightstream.post._tables import COEFFICIENT_COLUMNS
+    from pyflightstream.post.custom_polar import write_custom_polar_format
+    from pyflightstream.post.products import ReferenceValues
+
+    reference = ReferenceValues.from_mapping(
+        {"SREF": 1.0, "CREF": 1.0, "BREF": 1.0, "XMOM": 0, "YMOM": 0, "ZMOM": 0}
+    )
+    given = {"polar": 1, "description": "d", "group": 1, "mach": 0.144, "reference": reference}
+    given.update(kwargs)
+    return write_custom_polar_format(
+        tmp_path / "t.dat", rows=[(1.0,) * len(COEFFICIENT_COLUMNS)], **given
+    )
+
+
+def test_x_f_1192_a_non_ascii_header_value_is_a_product_error_naming_the_line(tmp_path):
+    """X-F-1192: a polar id outside ASCII is a ProductError, not a UnicodeEncodeError."""
+    import pytest
+
+    from pyflightstream.post._tables import ProductError
+
+    with pytest.raises(ProductError, match="line 2 of the custom polar header holds"):
+        _custom_title_and_error(tmp_path, polar="p" + chr(0xE7))
+    assert not (tmp_path / "t.dat").exists()
+
+
+def test_x_f_1641_an_na_configuration_adds_nothing_to_the_title(tmp_path):
+    """X-F-1641: the NA token is a placeholder like the dash, never printed in the title."""
+    first = _custom_title_and_error(tmp_path, configuration="NA").read_text(encoding="ascii")
+    second = _custom_title_and_error(tmp_path, configuration="-").read_text(encoding="ascii")
+    assert first.splitlines()[0] == second.splitlines()[0]
+    assert "NA" not in first.splitlines()[0]
+    kept = _custom_title_and_error(tmp_path, configuration="flap 5").read_text(encoding="ascii")
+    assert kept.splitlines()[0].endswith(" - flap 5")
