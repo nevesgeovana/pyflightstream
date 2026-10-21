@@ -334,36 +334,28 @@ class TestPost2RotorProducts:
         from dataclasses import replace
 
         from pyflightstream.post import _rotor_products
-        from pyflightstream.post import qsteady as post_qsteady
-        from tests.tier1_offline.test_goal036_wheel_sections import BLADES
-        from tests.tier1_offline.test_goal036_wheel_sections import _record as _wheel_record
+        from tests.tier1_offline.test_goal035_qsteady_rotor import _clocked_point
 
-        first = _wheel_record(1200)
-        swapped = replace(first, families_blades=tuple(reversed(BLADES)))
-        points = [
-            SimpleNamespace(
-                name=name,
-                loads_path=tmp_path / name / "DP.txt",
-                state=None,
-                loads=SimpleNamespace(),
+        records = {}
+        points = []
+        for name in ("a+00.0", "a+05.0"):
+            folder = tmp_path / name
+            folder.mkdir()
+            record, _ = _clocked_point(folder)
+            records[str(folder / "DP.txt")] = record
+            points.append(
+                SimpleNamespace(
+                    name=name,
+                    loads_path=folder / "DP.txt",
+                    state=None,
+                    loads=SimpleNamespace(),
+                )
             )
-            for name in ("a+00.0", "a+05.0")
-        ]
-        records = {str(points[0].loads_path): first, str(points[1].loads_path): swapped}
+        second = records[str(points[1].loads_path)]
+        records[str(points[1].loads_path)] = replace(
+            second, families_blades=tuple(reversed(second.families_blades))
+        )
         monkeypatch.setattr(_rotor_products, "read_qsteady_record", lambda path: records[str(path)])
-        monkeypatch.setattr(
-            post_qsteady,
-            "clockings_of",
-            lambda quasi, *a, **kw: [
-                post_qsteady.Clocking(0, 0.0, (1.0,) * len(post_qsteady.load_columns(quasi)))
-            ],
-        )
-        monkeypatch.setattr(
-            post_qsteady, "rotor_state", lambda *a, **kw: post_qsteady.RotorState({})
-        )
-        monkeypatch.setattr(
-            post_qsteady, "write_point_validity_file", lambda path, *a: path.with_suffix(".v")
-        )
         skipped: dict[str, str] = {}
         written = _qsteady_products(
             "1",
