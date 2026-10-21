@@ -258,7 +258,7 @@ def test_p0430_oversized_pid_uses_lease_age(tmp_path, monkeypatch, expired):
     import sys
     from types import SimpleNamespace
 
-    import pyflightstream.workspace.manifest as manifest
+    from pyflightstream.workspace.manifest import manifest_lock
 
     lock = tmp_path / "runs.json.lock"
     lock.write_text(
@@ -274,27 +274,28 @@ def test_p0430_oversized_pid_uses_lease_age(tmp_path, monkeypatch, expired):
         raise OverflowError("Python int too large to convert to C long")
 
     # Exercise the POSIX PID failure on every host; arbitration is outside this unit test.
-    monkeypatch.setattr(manifest, "sys", SimpleNamespace(platform="linux"))
-    monkeypatch.setitem(
-        sys.modules,
-        "fcntl",
-        SimpleNamespace(flock=lambda *args: None, LOCK_EX=1, LOCK_NB=2, LOCK_UN=8),
-    )
-    monkeypatch.setattr(manifest.os, "kill", overflowing_probe)
     acquired = False
     error = None
-    try:
-        with manifest.manifest_lock(
-            tmp_path / "runs.json",
-            root=tmp_path,
-            timeout_s=0.01,
-            renew_s=60,
-            stale_s=300,
-            poll_s=0.001,
-        ):
-            acquired = True
-    except (OverflowError, WorkspaceError) as caught:
-        error = caught
+    with monkeypatch.context() as platform:
+        platform.setattr(sys, "platform", "linux")
+        platform.setitem(
+            sys.modules,
+            "fcntl",
+            SimpleNamespace(flock=lambda *args: None, LOCK_EX=1, LOCK_NB=2, LOCK_UN=8),
+        )
+        platform.setattr(os, "kill", overflowing_probe)
+        try:
+            with manifest_lock(
+                tmp_path / "runs.json",
+                root=tmp_path,
+                timeout_s=0.01,
+                renew_s=60,
+                stale_s=300,
+                poll_s=0.001,
+            ):
+                acquired = True
+        except (OverflowError, WorkspaceError) as caught:
+            error = caught
     assert not isinstance(error, OverflowError), "PID overflow escaped lease recovery"
     assert acquired is expired
     if not expired:
