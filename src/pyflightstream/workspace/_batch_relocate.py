@@ -85,6 +85,16 @@ def _same_bytes(left: Path, right: Path) -> bool:
     return file_sha256(left) == file_sha256(right)
 
 
+def _check_destination(path: Path) -> None:
+    """Refuse a destination reached through a link before writing beneath it."""
+    for candidate in (path.absolute(), *path.absolute().parents):
+        if _is_link(candidate):
+            raise WorkspaceError(
+                f"Cannot relocate into {path}: {candidate} is a link. "
+                "Choose an ordinary destination folder or remove the destination link."
+            )
+
+
 def _relink(source: Path, target: Path) -> None:
     """Make ``target`` a link to what the link ``source`` points at; refuse a real folder.
 
@@ -92,6 +102,7 @@ def _relink(source: Path, target: Path) -> None:
     ``sims/sim_<id>/inputs`` empty before any run, so a batched sim brought back
     always meets one. A folder holding anything is refused, never overwritten.
     """
+    _check_destination(target.parent)
     destination = source.resolve()
     if _is_link(target):
         if target.resolve() == destination:
@@ -114,6 +125,7 @@ def _copy_tree(source: Path, target: Path, root: Path, tally: _Tally) -> None:
     if _is_link(source):
         _relink(source, target)
         return
+    _check_destination(target)
     if source.is_dir():
         for entry in sorted(source.iterdir()):
             _copy_tree(entry, target / entry.name, root, tally)
@@ -138,6 +150,7 @@ def copy_point(batch_sim: Path, sim: Path, datapoint: str) -> RelocationReport:
     per-point scripts and the ``profiles/`` probe file among them). NOTHING
     under ``batch_sim`` is written, renamed or removed. The ``inputs`` link is
     not touched here; :func:`relink_inputs` re-makes it.
+    A destination reached through a link is refused.
 
     Parameters
     ----------
@@ -153,6 +166,7 @@ def copy_point(batch_sim: Path, sim: Path, datapoint: str) -> RelocationReport:
     RelocationReport
         The files copied, replaced and kept, relative to ``sim``.
     """
+    _check_destination(sim)
     tally = _Tally()
     sim.mkdir(parents=True, exist_ok=True)
     for entry in sorted(batch_sim.iterdir()):
@@ -179,8 +193,9 @@ def relink_inputs(batch_sim: Path, sim: Path) -> None:
     Raises
     ------
     WorkspaceError
-        When ``sim/inputs`` is a real folder rather than a link.
+        When ``sim/inputs`` is a nonempty real folder, or its parent is reached through a link.
     """
+    _check_destination(sim)
     source = batch_sim / INPUTS_LINK
     if _is_link(source):
         _relink(source, sim / INPUTS_LINK)
@@ -192,6 +207,7 @@ def _move_tree(source: Path, target: Path, root: Path, tally: _Tally) -> None:
         _relink(source, target)
         _remove_link(source)
         return
+    _check_destination(target)
     if source.is_dir():
         for entry in sorted(source.iterdir()):
             _move_tree(entry, target / entry.name, root, tally)
@@ -244,8 +260,9 @@ def move_sim(batch_sim: Path, sim: Path) -> RelocationReport:
     Raises
     ------
     WorkspaceError
-        If the source and destination resolve to overlapping folders.
+        If the folders overlap, or a destination is reached through a link.
     """
+    _check_destination(sim)
     source_root, target_root = batch_sim.resolve(), sim.resolve()
     if source_root.is_relative_to(target_root) or target_root.is_relative_to(source_root):
         raise WorkspaceError(

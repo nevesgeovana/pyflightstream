@@ -199,3 +199,24 @@ def test_p0430_cleanup_preserves_staged_input_names(tmp_path):
     free_space(workspace.root, "m001", apply=True)
     assert staged.is_file()
     assert staged.read_bytes() == b"recorded input"
+
+
+@pytest.mark.parametrize("location", ["root", "profiles", "datapoints"])
+def test_p0430_copy_never_crosses_a_destination_link(tmp_path, location):
+    """P0430-RELOCATE: copy_point refuses linked destination ancestors."""
+    _, source, target = _batch(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "probes.txt").write_bytes(b"external")
+    if location == "root":
+        _make_link(outside, target)
+    else:
+        target.mkdir()
+        _make_link(outside, target / location)
+    before = _listing(outside)
+    try:
+        copy_point(source, target, "DP-AL+000")
+    except WorkspaceError:
+        pass
+    assert _listing(outside) == before
+    assert (outside / "probes.txt").read_bytes() == b"external"
