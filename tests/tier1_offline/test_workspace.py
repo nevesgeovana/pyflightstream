@@ -3124,3 +3124,25 @@ def test_x_f_1309_a_truncated_query_record_names_its_file(query_workspace, capsy
     provenance.unlink()
     assert main(["trace", PRODUCT, "--workspace", str(query_workspace), "--json"]) == 0
     capsys.readouterr()
+
+
+def test_x_f_1368_the_sixdof_provenance_names_its_source_by_file_name(tmp_path):
+    """FR-3090: the hashed sixdof-provenance.json holds no absolute path."""
+    from pyflightstream.workspace.sixdof_setup import resolve_row_sixdof
+
+    text = (
+        'families = ["W", "B"]\nframe = "MRP"\n\n[mass]\nmass_kg = 4.2\n'
+        "inertia_kg_m2 = [0.05, 0.31, 0.33, 0.0, 0.0, 0.0]\n\n[gravity]\n"
+        "vector_reference_m_per_s2 = [0.0, 0.0, -9.80665]\n\n[initial]\n"
+        "velocity_body_m_per_s = [0.0, 0.0, 0.0]\n"
+        "angular_velocity_body_deg_per_s = [0.0, 0.0, 0.0]\n\n[free]\nq = true\n"
+    )
+    digests = set()
+    for folder in ("one", "two"):
+        (tmp_path / folder / "sixdof").mkdir(parents=True)
+        (tmp_path / folder / "sixdof" / "d001.toml").write_text(text, encoding="utf-8")
+        resolved = resolve_row_sixdof(tmp_path / folder, {"SIXDOF": "d001"}, workflow="unsteady")
+        assert resolved is not None
+        digests.add(json.dumps(resolved.provenance(), sort_keys=True))
+    assert len(digests) == 1
+    assert json.loads(digests.pop())["source"] == "d001.toml"

@@ -46,9 +46,13 @@ class ResolvedSixDof:
     files_sha256: dict[str, str] = field(default_factory=dict)
 
     def provenance(self) -> dict[str, Any]:
-        """Return what ``sixdof-provenance.json`` records."""
+        """Return what ``sixdof-provenance.json`` records.
+
+        The file is hashed into the run record (FR-3090), so the source is named by its file
+        name, not its absolute path, and ``source_sha256`` keeps the identity.
+        """
         return {
-            "source": str(self.source),
+            "source": self.source.name,
             "source_sha256": self.source_sha256,
             "files_sha256": dict(self.files_sha256),
             "spec": self.spec.model_dump(mode="json"),
