@@ -873,7 +873,8 @@ def _read_step_clock(cells: Sequence[object] | np.ndarray) -> np.ndarray:
 def _plotted_number(text: str | None) -> float:
     """Read one plots-table cell as a number, its `NA` or blank as NaN."""
     cell = (text or "").strip()
-    return math.nan if cell in ("", NOT_APPLICABLE) else float(cell)
+    # The historical dash is a reader's NA too (the token's own definition).
+    return math.nan if cell in ("", NOT_APPLICABLE, "-") else float(cell)
 
 
 def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSeries]:
@@ -920,6 +921,8 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     """
     header, rows = read_csv_table(path)
     columns = tuple(name for name in header if name != POLAR_ID_COLUMN)
+    if not rows:
+        raise ProductError(f"{path} holds a header and no rows; a plots table has a time step")
     # `NA` (or blank) READS BACK AS NaN. The table writes a NaN the export
     # carried as `NA`, and `float` refused the table's own token, so a table
     # holding one could not be read at all; the window's average decides
