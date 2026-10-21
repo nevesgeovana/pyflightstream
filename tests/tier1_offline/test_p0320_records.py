@@ -857,3 +857,13 @@ def test_f716_the_temporary_file_is_not_a_name_another_process_can_plant(tmp_pat
     assert target.read_bytes() == b"[]"
     assert planted.read_text(encoding="utf-8") == "victim"
     assert sorted(path.name for path in tmp_path.iterdir()) == sorted([planted.name, "runs.json"])
+
+
+def test_f605_scripts_joined_for_the_comparison_keep_their_boundaries():
+    """F-605: a line that moved between two point scripts is not the same pair of scripts."""
+    from pyflightstream.run._rebuild import _joined_scripts
+
+    one = _joined_scripts({"a.txt": "X\nY\n", "b.txt": "Z\n"})
+    moved = _joined_scripts({"a.txt": "X\n", "b.txt": "Y\nZ\n"})
+    assert one != moved
+    assert _joined_scripts({"b.txt": "Z\n", "a.txt": "X\nY\n"}) == one

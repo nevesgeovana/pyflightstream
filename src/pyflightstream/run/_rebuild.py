@@ -332,11 +332,25 @@ def _mint(
         reason = f"{bad[0].get('status')}: {bad[0].get('error')}" if bad else "no record came out"
         return f"the package could not mint this row's record again ({reason}); {MINT_REMEDY}"
     scripts = {str(row["script_path"]) for row in rows}
-    rendered = "\n".join(
-        (shadow / "sims" / f"sim_{sim}" / script).read_text(encoding="utf-8", errors="replace")
-        for script in sorted(scripts)
+    rendered = _joined_scripts(
+        {
+            script: (shadow / "sims" / f"sim_{sim}" / script).read_text(
+                encoding="utf-8", errors="replace"
+            )
+            for script in scripts
+        }
     )
     return rows, rendered
+
+
+def _joined_scripts(texts: Mapping[str, str]) -> str:
+    """Join the scripts of one simulation, each under a marker naming it (F-605).
+
+    Without the marker a line that moved from the end of one point's script to the
+    start of the next left the joined text unchanged, and the comparison passed a
+    run whose individual scripts had changed.
+    """
+    return "\n".join(f"# script {name}\n{texts[name]}" for name in sorted(texts))
 
 
 def _clear_shadow_run(shadow: Path, sim: str) -> None:
@@ -448,9 +462,11 @@ def _rebuild_one(
         out.refused[sim] = minted
         return
     rows, rendered, sim_dir = minted
-    executed = "\n".join(
-        (sim_dir / script).read_text(encoding="utf-8", errors="replace")
-        for script in sorted({str(row["script_path"]) for row in rows})
+    executed = _joined_scripts(
+        {
+            script: (sim_dir / script).read_text(encoding="utf-8", errors="replace")
+            for script in {str(row["script_path"]) for row in rows}
+        }
     )
     # FR-412: a batch point's script names its batch folder; read the rendering there.
     label = batch_label(executed, sim)
