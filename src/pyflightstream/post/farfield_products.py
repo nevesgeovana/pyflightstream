@@ -892,7 +892,9 @@ def _c_row(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: 
     if "plane" in values:
         plane = values["plane"]
         cdi = plane["D"] / qs
-        cl = _near_field(point)[0]
+        # The native CL stands on the reference velocity's dynamic pressure and
+        # CDI_T on the free stream's: put both on one basis before squaring.
+        cl = _near_field(point)[0] * _q_ref(point, rho) / (0.5 * rho * speed * speed)
         aspect = float(ctx.reference.bref_m) ** 2 / float(ctx.reference.sref_m2)
         e = cl * cl / (math.pi * aspect * cdi) if math.isfinite(cdi) and cdi else _NA
         cells = {
