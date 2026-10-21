@@ -688,6 +688,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.qa._reanalysis"><summary><code>pyflightstream.qa._reanalysis</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._yamlflow">pyflightstream._yamlflow</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.qa.compat">pyflightstream.qa.compat</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.qa.errors">pyflightstream.qa.errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.qa.reports">pyflightstream.qa.reports</a> (module)</li>
