@@ -446,34 +446,6 @@ class TestWorkspace1Manifest:
         assert [point.point_name for point in record.as_points()] == ["AL+000", None]
 
 
-def _workspace_1_rename_groups___workspace(tmp_path):
-    polars = tmp_path / "post" / "matriz" / "polars"
-    polars.mkdir(parents=True)
-    (polars / "P0001-M150_g01.csv").write_text("one\n", encoding="utf-8")
-    profile = tmp_path / "inputs" / "profiles" / "blade_g1.csv"
-    profile.parent.mkdir(parents=True)
-    profile.write_text("r,c\n", encoding="utf-8")
-    solver = tmp_path / "sims" / "sim_1" / "datapoints" / "DP-A" / "loads_g01.dat"
-    solver.parent.mkdir(parents=True)
-    solver.write_text("x\n", encoding="utf-8")
-    return polars, profile, solver
-
-
-class TestWorkspace1RenameGroups:
-    """P0400-WSRENAME: the numbered group product migration reads products only.
-
-    0.40.0 lane workspace-1.
-
-    Each test is the regression of one planning node and fails on the code before its fix.
-    """
-
-    pytestmark = pytest.mark.requirement("P0400-WSRENAME")
-
-    pass
-
-    pass
-
-
 _WORKSPACE_1_SIDECARS__NAMES = ["Wing\\tip", 'Say "hi"', "Plain"]
 
 
@@ -694,14 +666,6 @@ class TestWorkspace2Manifest:
         assert all("FAILED_MARKED" in reason for reason in skipped.values())
 
 
-class TestWorkspace2RenameGroups:
-    """P0400-RENAMEGROUPS: the group-rename migration skips only the workspace's own archive/."""
-
-    pass
-
-    pass
-
-
 _WORKSPACE_3_SIDECARS__CP1252_TOML = 'name = "référence"\n'.encode("cp1252")
 
 
@@ -734,8 +698,6 @@ class TestWorkspace3Sidecars:
             read_inventory(sidecar)
         message = str(raised.value)
         assert str(sidecar) in message and "UTF-8" in message, message
-
-    pass
 
 
 _Workspace3StorageStorageError = storage_module.StorageError
