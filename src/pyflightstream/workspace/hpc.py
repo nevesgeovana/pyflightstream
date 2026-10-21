@@ -313,6 +313,9 @@ HPC_PROFILE_KEYS: frozenset[str] = frozenset(
 )
 HPC_LOG_KEYS: frozenset[str] = frozenset({"export_log", "native_log", "job_end_files"})
 
+#: The top-level keys of a profile that are values, not tables; under a table they are not read.
+_TOP_LEVEL_SCALARS = frozenset({"max_walltime", "job_root", "walltime_arithmetic"})
+
 
 def _refuse_unknown_keys(
     target: Path, table: Mapping[str, object], allowed: frozenset[str], where: str
@@ -354,6 +357,14 @@ def _refuse_a_misplaced_key(target: Path, table: Mapping[str, object]) -> None:
                     f"looks like it works: appending a line to the end of the file puts "
                     f"it in the last table, not at the top level. Move {owned} under "
                     f"[log]."
+                )
+        for owned in sorted(_TOP_LEVEL_SCALARS):
+            if owned in value:
+                raise InputArtifactError(
+                    f"the HPC profile {target} states {owned} under [{name}], and this "
+                    f"package reads it at the top level of the file. A key nothing reads is "
+                    f"a key that looks like it works: a limit written there is dropped and "
+                    f"the profile loads with none. Move {owned} above the first table."
                 )
         for nested, deeper in value.items():
             if isinstance(deeper, Mapping):

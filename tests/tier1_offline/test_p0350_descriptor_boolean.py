@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
+from pyflightstream._errors import InputArtifactError
 from pyflightstream.run import render_descriptor
 
 VALUES = {"sim": "mtx_b1", "ncpus": 8, "fs_build": "26.124"}
@@ -67,3 +70,29 @@ def test_p0350_descriptor_a_boolean_survives_the_profile_loader(tmp_path):
     text = render_descriptor(profile, VALUES)
     assert "driveg: true\n" in text
     assert 'job_name: "FTSmtx_b1"' in text
+
+
+_BASE_PROFILE = (
+    'application_id = "app"\n'
+    "[descriptor]\n"
+    'format = "yaml"\n'
+    "[descriptor.fields]\n"
+    'job_name = "FTS{sim}"\n'
+    "[submit]\n"
+    'command = ["qsub", "{descriptor_path}"]\n'
+)
+
+
+def _read(tmp_path, text):
+    from pyflightstream.workspace.hpc import read_hpc_profile
+
+    path = tmp_path / "h003.toml"
+    path.write_text(text, encoding="utf-8")
+    return read_hpc_profile(path)
+
+
+@pytest.mark.parametrize("key", ["max_walltime", "job_root", "walltime_arithmetic"])
+def test_f2_0809_a_top_level_key_under_a_table_is_refused(tmp_path, key):
+    """F-1496: a limit appended under [submit] is refused, never dropped silently."""
+    with pytest.raises(InputArtifactError, match=key):
+        _read(tmp_path, _BASE_PROFILE + f'{key} = "48:00:00"\n')
