@@ -427,10 +427,19 @@ def _emit_operations(
 ) -> None:
     """Emit the ``[[operations]]`` in the order written, each surface cited by position."""
     current = list(names)
-    unit = instruction.mesh.units if instruction.mesh is not None else SIMULATION_UNIT
+    unit = _operation_unit(instruction)
     for position, operation in enumerate(instruction.operations, start=1):
         _emit_operation(script, operation, current, unit)
         operation.apply(current, position)
+
+
+def _operation_unit(instruction: GeometryInstruction) -> str:
+    """Return the length unit a copy vector is written in, the source's own (F-017)."""
+    if instruction.mesh is not None:
+        return instruction.mesh.units
+    if instruction.ccs is not None and instruction.ccs.units != "FILE":
+        return instruction.ccs.units
+    return SIMULATION_UNIT
 
 
 def _position(names: Sequence[str], surface: str | None) -> int:

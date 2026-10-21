@@ -437,3 +437,15 @@ def test_p0410_pc_unused_point_tag_is_absent_from_both_public_surfaces() -> None
 
     assert not hasattr(cases, "point_tag")
     assert not hasattr(naming, "point_tag")
+
+
+def test_f5_0102_f017_a_ccs_copy_vector_keeps_its_source_unit() -> None:
+    """A copy vector of a CCS source is written in the CCS unit, not in metres."""
+    from types import SimpleNamespace
+
+    from pyflightstream.cases._geometry_emit import _operation_unit
+
+    mm = SimpleNamespace(mesh=None, ccs=SimpleNamespace(units="MILLIMETER"))
+    assert _operation_unit(mm) == "MILLIMETER"  # type: ignore[arg-type]
+    file_units = SimpleNamespace(mesh=None, ccs=SimpleNamespace(units="FILE"))
+    assert _operation_unit(file_units) == "METER"  # type: ignore[arg-type]
