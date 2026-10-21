@@ -625,3 +625,16 @@ def test_a_sweep_with_a_refused_point_is_reported_failed_not_collected(tmp_path,
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=_converged)
     assert not report.collected
     assert [outcome.state for outcome in report.failed] == ["FAILED"]
+
+
+def test_p0430_f838_an_undecodable_job_script_reads_as_none(tmp_path):
+    """F-838: bytes that are not UTF-8 give None, as documented, never a UnicodeDecodeError."""
+    from types import SimpleNamespace
+
+    from pyflightstream.run._batch_collect import _opening_orders
+
+    (tmp_path / "job").mkdir()
+    (tmp_path / "job" / "s.txt").write_bytes(bytes([255, 254, 0, 98]))
+    workspace = SimpleNamespace(root=tmp_path)
+    job = {"dir": "job", "script": "job/s.txt", "points": 2}
+    assert _opening_orders(workspace, job) is None

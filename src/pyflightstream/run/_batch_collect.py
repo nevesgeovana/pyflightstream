@@ -310,7 +310,7 @@ def _opening_orders(workspace: CampaignWorkspace, job: JobEntry) -> tuple[int, .
     path = _job_dir(workspace, job) / PurePosixPath(job["script"]).name
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return None
     opening, order = [1], 1
     for line in lines:
