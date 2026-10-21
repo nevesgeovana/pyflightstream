@@ -1,7 +1,9 @@
 """The quasi-steady rotor's own arithmetic: clocking, validity and the inflow.
 
 The ``qsteady_rotor`` run type solves an isolated rotor with its blades held
-still and the rotation carried by the free stream. Three questions it asks are
+still and the rotation carried by the free stream (``SET_FREESTREAM ROTATION``;
+the command database's ``boundary_conditions.yaml`` entry cites FSM-26.124
+p.326 and the RPT-052 rotating-free-stream sense measurement). Three questions it asks are
 arithmetic and live here, below the builder that asks them:
 
 * where the wheel is clocked for each steady solve (:func:`clocking_angles`);
@@ -475,8 +477,8 @@ def blade_stations(
     chord is the section's largest width in that plane, measured over
     :data:`_WIDTH_DIRECTIONS` directions. A band holding fewer than two
     vertices gives no station. It is a GEOMETRIC ESTIMATE: the largest width
-    of a cambered, twisted section is its leading-edge to trailing-edge
-    distance for any section thinner than it is long, and the band's radial
+    of a cambered, twisted section approximates its leading-edge to trailing-edge
+    distance for a thin section; thickness and camber can change that width. The band's radial
     width adds nothing because it is removed by the projection.
 
     Parameters
@@ -1379,7 +1381,8 @@ def suggested_passage_positions(n_max: int, blades: int) -> int:
 
     The rotor total carries only the multiples of N of one blade's
     harmonics, and the clockings sample one blade passage, so ``k`` clockings
-    resolve the rotor-total harmonics up to about ``(k - 1) N``; the count
+    integrate the mean exactly through harmonic ``(k - 1) N``. This does not
+    resolve those harmonics' sine and cosine amplitudes; the count
     that reaches ``n_max`` is the smallest whole ``k >= n_max / N + 1``.
 
     Parameters
