@@ -197,6 +197,30 @@ def test_p0430_x_f0435_the_remesh_target_ignores_the_fan_diagonal_of_a_quad():
     assert _targets(group, {"W": 2.0}) == pytest.approx(numpy.full(4, 0.5))
 
 
+# ---------------------------------------------------------------- FR-936
+
+
+def test_p0430_fr936_the_level_keeps_the_identity_of_the_source_open_loop(tmp_path):
+    """FR-936: the level's one open loop is the source's outline, corners and edges, no hole."""
+    from pyflightstream.workspace._refine._geometry import boundary_loops
+
+    obj = _mesh(tmp_path / "loop", ["METER", "2,0.5,0"])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        level = refine_mesh(obj, 2)
+    mesh = read_obj(level.obj)
+    loops = boundary_loops([f for fs in mesh.families.values() for f in fs])
+    assert len(loops) == 1
+    pts = mesh.verts[loops[0]]
+    on_outline = (
+        numpy.isclose(pts[:, 0], 0) | numpy.isclose(pts[:, 0], 2)
+        | numpy.isclose(pts[:, 1], 0) | numpy.isclose(pts[:, 1], 1)
+    )  # fmt: skip
+    assert on_outline.all()
+    corners = {(0.0, 0.0), (2.0, 0.0), (2.0, 1.0), (0.0, 1.0)}
+    assert corners <= {(round(float(x), 9), round(float(y), 9)) for x, y, _ in pts}
+
+
 # ---------------------------------------------------------------- F-1584
 
 
