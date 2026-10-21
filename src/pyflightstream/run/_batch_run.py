@@ -503,6 +503,8 @@ def _say_job(job: GroupedJob, launch: JobLaunch, count: int, *, local: bool) -> 
         print(f"job {job.name} ({job.label}, {count} point(s)) NOT launched: {launch.refusal}")
         return
     verb = "ran on this machine" if local else "submitted"
+    if launch.result is not None and launch.result.failed:
+        verb = "FAILED on this machine (crashed or timed out)"
     print(f"job {job.name} ({job.label}, {count} point(s)) {verb}")
 
 
@@ -533,6 +535,11 @@ def _launch_all(
         done.update({record.run_id: record for record in ended})
         if launch.refusal is not None:
             refused.extend(ended)
+        elif launch.result is not None and launch.result.failed:
+            # A LOCAL JOB THAT CRASHED OR TIMED OUT (X-F-1291): its records stay SUBMITTED for
+            # the collect to judge from the end file, but the run is not reported as a success.
+            diagnosis = launch.result.diagnosis()
+            refused.extend(r.model_copy(update={"error": diagnosis}) for r in ended)
         _say_job(job, launch, len(mine), local=context.local)
     print("next: pyfs-matrix collect, then pyfs-matrix post")
     return [done.get(record.run_id, record) for record in records], refused

@@ -492,3 +492,22 @@ def test_p0350_run_job_root_is_recorded(tmp_path):
     records = _run(workspace, matrix, executor=_submitting(profile, submit=False))
     job_dir = workspace.root / "sims" / "batch" / f"{MATRIX}_b1"
     assert {r.submission["job"]["root"] for r in records} == {PurePath(job_dir).as_posix()}
+
+
+def test_p0430_x_f_1291_a_crashed_local_job_is_a_failure_of_the_run(tmp_path, capsys):
+    """X-F-1291: a local job that exits nonzero is not reported as ran with a success exit."""
+    from pyflightstream.run import CampaignErrors
+
+    workspace, _profile, _ = _workspace(tmp_path)
+    (workspace.inputs_dir / "hpc" / "h001.toml").unlink()
+    matrix = _matrix(tmp_path)
+    _plan(workspace, matrix, mode="batch", batch=1)
+    code = (
+        "import pathlib, sys; "
+        "sys.exit(0 if pathlib.Path(sys.argv[1]).name == 'preflight.txt' else 3)"
+    )
+    with pytest.raises(CampaignErrors) as raised:
+        _run(workspace, matrix, executor=StubSolver(code), local=True)
+    assert len(raised.value.failures) == 3
+    assert "ran on this machine" not in capsys.readouterr().out
+    assert {r.status for r in raised.value.records} == {RunStatus.SUBMITTED}
