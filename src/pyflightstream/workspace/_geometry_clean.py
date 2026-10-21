@@ -126,6 +126,11 @@ def clean_saved_actions(geometry: str | Path, *, stamp: str) -> CleanedGeometry:
     if reset.text == text:
         return CleanedGeometry(actions=(), backup=None, note=reset.note)
     backup = path.with_name(f"{path.name}.bak-{stamp}")
+    if backup.exists():
+        raise InputArtifactError(
+            f"{path.name}: the backup {backup.name} already exists and holds the preserved "
+            "original; it is never overwritten. Use another stamp, or move that backup away."
+        )
     temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     # A refused write is a refusal naming the file, and the temporary file never stays
     # beside the geometry (PFS-2099.012): a .fsm the solver holds open refuses the replace.
