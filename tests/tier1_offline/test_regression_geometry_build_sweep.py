@@ -32,6 +32,7 @@ from pyflightstream.cases._geometry_instruction import (
     source_names,
     variant_tag,
 )
+from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.mesh import MeshImport, MeshOperation, TrailingEdgeMarking
 from pyflightstream.cases.reference_blocks import CampaignConfigError
 from pyflightstream.cases.selection import resolve_alias, select_families, select_group_members
@@ -4042,3 +4043,131 @@ class TestF2Package0607Workspace:
         (row,) = _script_diff(ledger, rows[0], rows[1])
         assert "line 1" in row["detail"] and "a 'SET_PLOT_TYPE old_plot'" in row["detail"]
         assert "(plot type line, from inputs/pproc/p1.toml)" in row["detail"]
+
+
+class TestF2Package0607RowSetup:
+    """Tier 1, 0.43.0: the planning rules for a row's setup keys, tested past one key (FR-3007)."""
+
+    @staticmethod
+    def _resolve(tmp_path, *cells):
+        from tests.tier1_offline.test_solver_setup import (
+            _fr316_row_setup_keys___resolve as resolve,
+        )
+        from tests.tier1_offline.test_solver_setup import _fr316_row_setup_keys___row as row
+
+        return resolve(tmp_path, *(row(pol, cell) for pol, cell in cells))
+
+    @staticmethod
+    @pytest.mark.requirement("FR-551")
+    def test_fr551_every_row_with_setup_keys_is_warned_with_each_key_and_cell_text(tmp_path):
+        """FR-551: two rows, two keys in one: each warning names its row, every key and text."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            TestF2Package0607RowSetup._resolve(
+                tmp_path,
+                ("9421", "viscous_coupling: ENABLE / iterations: 800"),
+                ("9422", "viscous_coupling: DISABLE"),
+                ("9423", ""),
+            )
+        messages = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+        by_row = {
+            pol: [m for m in messages if f"POL {pol}:" in m] for pol in ("9421", "9422", "9423")
+        }
+        assert len(by_row["9421"]) == 1 and len(by_row["9422"]) == 1 and by_row["9423"] == []
+        assert "viscous_coupling = ENABLE" in by_row["9421"][0]
+        assert "iterations = 800" in by_row["9421"][0]
+        assert "viscous_coupling = DISABLE" in by_row["9422"][0]
+
+    @staticmethod
+    @pytest.mark.requirement("FR-552")
+    def test_fr552_every_absent_key_is_added_and_the_preset_keys_stay(tmp_path):
+        """FR-552: two keys the preset lacks are both added, and the preset's own stay."""
+        with pytest.warns(PyflightstreamWarning):
+            cases = TestF2Package0607RowSetup._resolve(
+                tmp_path, ("9424", "viscous_coupling: ENABLE / farfield_layers: 5")
+            )
+        case = cases["9424"]
+        assert case.solver.viscous_coupling is True and case.solver.farfield_layers == 5
+        assert case.setup_from_row == {"viscous_coupling": "ENABLE", "farfield_layers": "5"}
+        assert case.solver.iterations == 800
+
+    @staticmethod
+    @pytest.mark.requirement("FR-553")
+    def test_fr553_a_conflict_in_a_later_row_refuses_the_whole_plan_before_any_output(tmp_path):
+        """FR-553: the refusal names only the conflicting row and leaves no simulation folder."""
+        with pytest.raises(MatrixError) as refused:
+            TestF2Package0607RowSetup._resolve(
+                tmp_path, ("9431", "viscous_coupling: ENABLE"), ("9432", "iterations: 500")
+            )
+        said = str(refused.value)
+        assert "POL 9432" in said and "POL 9431" not in said
+        assert "iterations = 500" in said and "iterations = 800" in said
+        assert not list(tmp_path.rglob("sim_*"))
+
+    @staticmethod
+    @pytest.mark.requirement("FR-558")
+    @pytest.mark.parametrize(
+        ("cell", "word"),
+        [
+            ("NITER: 800 / iterations: 800", "twice"),
+            ("SYMMETRY_LOADS: DISABLE / symmetry_loads: ENABLE", "ambiguous"),
+            ("symmetry_loads: ENABLE / SYMMETRY_LOADS: ENABLE", "ambiguous"),
+        ],
+    )
+    def test_fr558_duplicate_spellings_and_cross_vocabulary_keys_are_refused(tmp_path, cell, word):
+        """FR-558: two spellings of one setting, and one key in both vocabularies, are refused."""
+        with pytest.raises(MatrixError, match=word):
+            TestF2Package0607RowSetup._resolve(tmp_path, ("9441", cell))
+
+    @staticmethod
+    @pytest.mark.requirement("FR-558")
+    def test_fr558_an_unknown_key_is_refused_before_a_script_is_written(tmp_path):
+        """FR-558: a key that is neither a run-type key nor a setup field names itself."""
+        from pyflightstream.cases import CampaignConfigError
+        from pyflightstream.cases.workflows import build_script
+        from pyflightstream.script import Script
+
+        cases = TestF2Package0607RowSetup._resolve(tmp_path, ("9442", "no_such_setting: 1"))
+        with pytest.raises(CampaignConfigError, match="no_such_setting"):
+            build_script(cases["9442"], Script(version="26.124"))
+
+    @staticmethod
+    @pytest.mark.requirement("FR-586")
+    @pytest.mark.parametrize(
+        "cell",
+        [
+            "wake_termination_length: 1.5 / wake_termination_steps: 20",
+            "wake_termination_steps: 20 / wake_termination_revolutions: 3",
+            "wake_termination_length: 1.5 / wake_termination_steps: 20 / "
+            "wake_termination_revolutions: 3",
+        ],
+    )
+    def test_fr586_two_or_three_termination_keys_are_refused_naming_key_value_and_origin(
+        tmp_path, cell
+    ):
+        """FR-586: the refusal names each key, its value and the column it came from."""
+        with pytest.raises(MatrixError) as refused:
+            TestF2Package0607RowSetup._resolve(tmp_path, ("9451", cell))
+        said = str(refused.value)
+        for pair in cell.split(" / "):
+            key, value = pair.split(": ")
+            assert f"{key} = {value}" in said
+        assert "VAR_NAMES_VALUES" in said and "POL 9451" in said
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1311")
+    @pytest.mark.parametrize(
+        "cell",
+        [
+            "iterations: 500",
+            "NITER: 800 / iterations: 800",
+            "SYMMETRY_LOADS: DISABLE / symmetry_loads: ENABLE",
+            "wake_termination_length: 1.5 / wake_termination_steps: 20",
+            "airfoil_separation: wing",
+            "farfield_layers: 9",
+        ],
+    )
+    def test_fr1311_each_kind_of_planned_case_conflict_is_reported_at_plan(tmp_path, cell):
+        """FR-1311: every kind of conflict of a row is raised while the matrix is resolved."""
+        with pytest.raises(MatrixError, match="POL 9461"):
+            TestF2Package0607RowSetup._resolve(tmp_path, ("9461", cell))
