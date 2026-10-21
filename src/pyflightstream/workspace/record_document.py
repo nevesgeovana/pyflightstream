@@ -334,10 +334,10 @@ def read_rows(path: Path) -> list[dict]:
     WorkspaceError
         The file is unreadable, invalid or requires explicit migration.
     """
-    if not path.is_file():
-        return []
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return []
     except (OSError, ValueError) as error:
         raise WorkspaceError(f"{path}: cannot read run records: {error}") from error
     return decode_document(document, source=path)

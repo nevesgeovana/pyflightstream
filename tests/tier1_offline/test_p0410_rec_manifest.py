@@ -95,6 +95,16 @@ def test_p0430_w007_integer_frame_keys_survive_json(indexed, indices):
     assert list(row["frame_motions"]) == list(indices)
 
 
+def test_p0430_w007_non_file_history_is_refused(tmp_path):
+    from pyflightstream.workspace.record_document import read_rows
+
+    path = tmp_path / "runs.json"
+    assert read_rows(path) == []
+    path.mkdir()
+    with pytest.raises(WorkspaceError):
+        read_rows(path)
+
+
 def test_p0410_rec_shared_definitions(tmp_path):
     ws = CampaignWorkspace(tmp_path)
     ws.append_record(_record())
