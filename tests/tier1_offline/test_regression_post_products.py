@@ -1426,3 +1426,45 @@ class TestPost1Surfaces:
         with pytest.raises(ProductExistsError):
             write_surface_average(tmp_path / "avg.dat", average, vtk=tmp_path / "avg.vtk")
         assert not (tmp_path / "avg.dat").exists()
+
+
+# ---------------------------------------------------------------------------
+# F3-0203 (pyflightstream 0.43.0): post products of the rotor, noise and structure stages
+# ---------------------------------------------------------------------------
+
+
+def _f3_0203_signal(frequency: float, observer: str = "o1"):
+    from pyflightstream.cases.acoustics import AcousticSignal
+
+    times = tuple(0.05 + n / 1000.0 for n in range(200))
+    pressure = tuple(math.cos(2 * math.pi * frequency * (t - 0.05)) for t in times)
+    return AcousticSignal(observer, 1.0, 0.0, 0.0, times, pressure)
+
+
+def test_f3_0203_f132_acoustic_harmonics_use_the_recorded_blade_count(tmp_path, monkeypatch):
+    """F-132: the blade-passing frequency uses the RECORDED blade count, not the sector's."""
+    from pyflightstream.post import _rotor_products
+    from pyflightstream.post import harmonics as _harmonics
+
+    monkeypatch.setattr(
+        _rotor_products._acoustics, "read_acoustic_signals", lambda _s: [_f3_0203_signal(120.0)]
+    )
+    record = SimpleNamespace(
+        run_id="r1",
+        outputs=["P1" + _rotor_products._acoustics.ACOUSTIC_SIGNALS_SUFFIX],
+        reductions={"rotors": {"main": {"blades": 6, "rpm": 1200.0}}},
+    )
+    rotor = _harmonics.HarmonicRotor("main", (("a",), ("b",)), None, False)
+    _rotor_products._acoustic_products(
+        record,
+        sim_dir=tmp_path,
+        stem="P1",
+        out=tmp_path / "post",
+        rotors={"main": (rotor, None)},
+        clocks={"main": {"rpm": 1200.0}},
+        target=lambda p: p,
+        skipped={},
+    )
+    with (tmp_path / "post" / "acoustics" / "P1_acoustics_bpf.csv").open(encoding="utf-8") as h:
+        rows = list(csv.DictReader(h))
+    assert float(rows[0]["FREQUENCY_HZ"]) == pytest.approx(120.0)

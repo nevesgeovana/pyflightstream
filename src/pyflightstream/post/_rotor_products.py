@@ -261,6 +261,24 @@ def _write_harmonics(
     }
 
 
+def _recorded_blade_count(record: RunRecord, alias: str, rotor_count: int) -> int | None:
+    """Return the blade count of a rotor as its record states it, else None.
+
+    The blade-passing harmonics of a rotor are multiples of the blades it HAS, not of
+    the blades the run modeled (a sector models fewer). The record's per-rotor entry
+    states it; a plan with one rotor states it at the row level.
+    """
+    plan = record.reductions if isinstance(getattr(record, "reductions", None), Mapping) else {}
+    stated = plan.get("rotors")
+    own = stated.get(alias) if isinstance(stated, Mapping) else None
+    if not isinstance(own, Mapping) and rotor_count == 1:
+        own = plan
+    count = own.get("blades") if isinstance(own, Mapping) else None
+    if isinstance(count, int | float) and not isinstance(count, bool) and count >= 1:
+        return int(count)
+    return None
+
+
 def _acoustic_products(
     record: RunRecord,
     *,
@@ -312,7 +330,7 @@ def _acoustic_products(
     for alias, (rotor, _) in rotors.items():
         rpm = clocks.get(alias, {}).get("rpm")
         speeds[alias] = (
-            len(rotor.blades) or None,
+            _recorded_blade_count(record, alias, len(rotors)) or len(rotor.blades) or None,
             float(rpm) if isinstance(rpm, int | float) and not isinstance(rpm, bool) else None,
         )
     try:
