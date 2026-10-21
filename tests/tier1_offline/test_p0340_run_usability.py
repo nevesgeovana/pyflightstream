@@ -333,3 +333,24 @@ def _words_of(line):
     split.restype = ctypes.POINTER(wintypes.LPWSTR)
     pieces = split(line, ctypes.byref(count))
     return [pieces[index] for index in range(count.value)]
+
+
+def test_f6_0102_x_f_1300_a_preview_holding_a_refusal_exits_two_a_clean_one_zero(monkeypatch):
+    """X-F-1300: mark-converged's preview exits as --apply does, 2 on a refusal, 0 when clean."""
+    import argparse
+
+    from pyflightstream.run import _mark_converged as module
+
+    def entry(refused):
+        return {
+            "applied": False,
+            "marked": [{"sim_id": "1", "run_id": "w/sim_1/a", "from": "RAN_MISSING_LOG"}],
+            "already": [],
+            "refused": refused,
+        }
+
+    args = argparse.Namespace(workspace=".", sims=["1"], reason="r", points=None, apply=False)
+    monkeypatch.setattr(module, "mark_converged", lambda *a, **k: entry({"w/sim_1/b": "why"}))
+    assert module.cmd_mark_converged(args) == 2
+    monkeypatch.setattr(module, "mark_converged", lambda *a, **k: entry({}))
+    assert module.cmd_mark_converged(args) == 0

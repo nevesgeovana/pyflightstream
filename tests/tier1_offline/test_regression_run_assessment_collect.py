@@ -319,7 +319,7 @@ class TestRun1MarkConverged:
             workspace.root,
             capsys,
         )
-        assert code == 0, said
+        assert code == 2, said
         assert "run again with --apply" not in said, said
         assert "resolve each refusal" in said, said
 
