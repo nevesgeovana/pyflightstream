@@ -885,7 +885,10 @@ def check_factors(
         if not (number and math.isfinite(value) and value > 0):
             reason = f"is {value!r}, not a finite number greater than zero"
         elif value * m < 1.0:
-            reason = f"is {value:g}, below 1/{m}: its {m} source intervals would leave none"
+            reason = (
+                f"is {value:g}, below 1/{m}: scaled by it, its {m} source intervals "
+                "come to fewer than one"
+            )
         else:
             continue
         raise InputArtifactError(

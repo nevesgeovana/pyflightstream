@@ -602,25 +602,36 @@ def test_r5_an_existing_level_is_refused_unless_overwrite(tmp_path, capsys):
     assert _left(tmp_path) == ["wing_R2"]
 
 
-def test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder(tmp_path, capsys):
+def test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder(
+    tmp_path, capsys, monkeypatch
+):
     """P0380-REFINE (FR-919): an error in the write step leaves no level and no ``.partial``.
 
-    The level's path is occupied by a file, so with ``overwrite`` the files
-    are written into the staging folder and replacing the level then fails:
-    the error comes from inside the write step. The staging folder is
-    removed and the occupying file is kept; the command exits 2 the same way.
-    Control: a ``.partial`` folder the run did not create, which the
-    observation sees, is kept by the next run that writes that level, whose
-    own staging folder is gone (IND-01).
+    The publish fails after the files were written into the staging folder (a
+    file occupying the level's path is refused before any work, X-F-0599, so the
+    failure is made at the publish): the staging folder is removed and the
+    existing level is kept; the command exits 2 the same way. Control: a
+    ``.partial`` folder the run did not create, which the observation sees, is
+    kept by the next run that writes that level, whose own staging folder is
+    gone (IND-01).
     """
+    from pyflightstream.workspace._refine import _level
+
     src = _source(tmp_path)
     occupied = tmp_path / "wing_R2"
-    occupied.write_bytes(b"occupied")
+    occupied.mkdir()
+    (occupied / "keep.txt").write_bytes(b"occupied")
+
+    def failing(*args, **kwargs):
+        raise OSError("the publish failed")
+
+    monkeypatch.setattr(_level, "_publish", failing)
     with pytest.raises(OSError):
         refine_mesh(src, 2.0, overwrite=True)
-    assert _left(tmp_path) == ["wing_R2"] and occupied.read_bytes() == b"occupied"
+    assert _left(tmp_path) == ["wing_R2"] and (occupied / "keep.txt").read_bytes() == b"occupied"
     code, _, err = _command(capsys, str(src), "2", "--overwrite")
     assert code == 2 and err.strip() and _left(tmp_path) == ["wing_R2"]
+    monkeypatch.undo()
     stale = tmp_path / "wing_R0p5.partial"
     stale.mkdir()
     (stale / "stale.txt").write_bytes(b"x")
@@ -1379,3 +1390,32 @@ def test_pfs_2119_061_a_staging_folder_left_behind_is_warned(tmp_path, monkeypat
         warnings.simplefilter("always")
         _level._release(owned, folder)
     assert not owned.exists() and not caught
+
+
+def test_f1514_f1515_an_oversized_integer_is_the_catalogued_refusal():
+    from pyflightstream.workspace._refine import _config
+
+    with pytest.raises(InputArtifactError, match="too large"):
+        _config.positive("[refine] factor", 10**400)
+    with pytest.raises(InputArtifactError, match="too large"):
+        _config._vector("[refine] axis", [1, 0, 10**400], nonzero=True)
+
+
+def test_x_f_0599_a_file_in_the_place_of_the_level_is_refused_before_any_work(tmp_path):
+    from pyflightstream.workspace._refine._level import _place
+
+    source = tmp_path / "src" / "wing.obj"
+    source.parent.mkdir()
+    source.write_text("", encoding="utf-8")
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "wing_R2").write_text("a file", encoding="utf-8")
+    for overwrite in (True, False):
+        with pytest.raises(InputArtifactError, match="held by a file"):
+            _place(source, "wing_R2", out, overwrite)
+
+
+def test_x_f_1266_a_factor_below_one_over_m_states_its_reason_exactly(tmp_path):
+    src = _source(tmp_path)
+    text = _refused(tmp_path, src, 0.05)
+    assert "below 1/18: scaled by it, its 18 source intervals come to fewer than one" in text

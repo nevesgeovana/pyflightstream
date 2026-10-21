@@ -170,7 +170,10 @@ def positive(where: str, value: Any) -> float:
     """Return a factor as a float, refusing anything but a finite number above zero (FR-915)."""
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise _refuse(where, f"the factor {value!r} is not a number; give a number above zero")
-    number = float(value)
+    try:
+        number = float(value)
+    except OverflowError:
+        raise _refuse(where, "the factor is too large a number; give a finite number") from None
     if not math.isfinite(number) or number <= 0.0:
         raise _refuse(where, f"the factor {number:g} is not above zero; give a number above zero")
     return number
@@ -179,7 +182,12 @@ def positive(where: str, value: Any) -> float:
 def _vector(where: str, value: Any, *, nonzero: bool) -> tuple[float, float, float]:
     ok = isinstance(value, list | tuple) and len(value) == 3
     ok = ok and all(isinstance(v, int | float) and not isinstance(v, bool) for v in value)
-    numbers = tuple(float(v) for v in value) if ok else ()
+    try:
+        numbers = tuple(float(v) for v in value) if ok else ()
+    except OverflowError:
+        raise _refuse(
+            where, "a component is too large a number; give three finite numbers"
+        ) from None
     if not ok or not all(math.isfinite(v) for v in numbers):
         raise _refuse(where, f"{value!r} is not three finite numbers")
     if nonzero and not any(numbers):

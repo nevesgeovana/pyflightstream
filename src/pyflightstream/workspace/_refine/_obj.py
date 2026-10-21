@@ -85,7 +85,10 @@ def read_obj(path: str | Path) -> ObjMesh:
     """Read an OBJ: ``v`` and ``f`` lines, ``g`` or ``o`` families, header comments.
 
     Texture and normal indices of a face (``f 1/2/3``) are dropped; a negative
-    index counts back from the last vertex read. A vertex coordinate that is
+    index counts back from the last vertex read. Every other statement
+    (``usemtl``, ``mtllib``, ``s``, ``vn``, ``vt``) is read past and not
+    carried: a mesh written from this one holds none of them, which the solver
+    does not need. A vertex coordinate that is
     not a finite number, a face index that is not an integer, and a face with
     fewer than three vertices or naming a vertex that does not exist, are
     refused naming the file and the line. A path that is not a file is

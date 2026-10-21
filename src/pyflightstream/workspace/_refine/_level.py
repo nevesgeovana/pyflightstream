@@ -1303,6 +1303,12 @@ def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool)
             "the level folder lies inside the source's folder; choose an out_dir "
             "(CLI: --out) outside the source's folder",
         )
+    if folder.exists() and not folder.is_dir():
+        raise _refuse(
+            str(folder),
+            "the level folder's name is held by a file, which is not a level to replace; "
+            "move the file or choose another tag or out_dir (CLI: --out)",
+        )
     if folder.exists() and not overwrite:
         raise _refuse(
             str(folder), "the level exists; give overwrite=True (--overwrite) to replace it"

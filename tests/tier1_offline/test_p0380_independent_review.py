@@ -96,20 +96,28 @@ def test_ind01_unrelated_reserved_folders_are_kept_and_the_run_leaves_none(tmp_p
     assert names == ["src", "wing_R2", "wing_R2.partial", "wing_R2.previous"]
 
 
-def test_ind01_a_failed_publish_removes_only_its_own_folder(tmp_path):
+def test_ind01_a_failed_publish_removes_only_its_own_folder(tmp_path, monkeypatch):
     """P0380-REFINE (FR-919, IND-01): a failed publish keeps every folder it did not make.
 
-    The level's path is occupied by a file, so the publish fails after the
-    level was written and audited. The occupying file and the unrelated
-    reserved folders are kept and the run's own staging folder is gone.
+    The publish fails after the level was written and audited (an occupying file
+    is refused before any work, X-F-0599, so the failure is made at the publish).
+    The existing level and the unrelated reserved folders are kept and the run's
+    own staging folder is gone.
     """
+    from pyflightstream.workspace._refine import _level
+
     src = _source(tmp_path / "src")
     partial = _sentinel(tmp_path / "wing_R2.partial")
     previous = _sentinel(tmp_path / "wing_R2.previous")
-    (tmp_path / "wing_R2").write_bytes(b"occupied")
+    level = _sentinel(tmp_path / "wing_R2")
+
+    def failing(*args, **kwargs):
+        raise OSError("the publish failed")
+
+    monkeypatch.setattr(_level, "_publish", failing)
     with pytest.raises(OSError):
         refine_mesh(src, 2.0, overwrite=True)
-    assert (tmp_path / "wing_R2").read_bytes() == b"occupied"
+    assert _tree(tmp_path / "wing_R2") == level
     assert _tree(tmp_path / "wing_R2.partial") == partial
     assert _tree(tmp_path / "wing_R2.previous") == previous
     names = sorted(p.name for p in tmp_path.iterdir())
