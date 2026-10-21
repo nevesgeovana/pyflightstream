@@ -106,3 +106,28 @@ def test_p0410_pb2_fft_guard_catches_new_or_unexercised_products(tmp_path, defec
         path.write_text("AMPLITUDE_PA\nNA\n", encoding="utf-8")
     with pytest.raises(AssertionError, match="FFT-derived product"):
         _assert_numeric_rows({name}, contracts, tmp_path)
+
+
+def _clean_signal(pressure) -> AcousticSignal:
+    time = np.arange(64) / 64.0
+    return AcousticSignal("OBS", 0.0, 1.0, 0.0, tuple(time), tuple(pressure))
+
+
+def test_x_f_0334_a_nan_sample_is_not_called_a_silent_record(tmp_path):
+    """X-F-0334: the NaN rms made the level None and the log said silent; say what it is."""
+    pressure = 1.0 + np.sin(2 * np.pi * 8 * np.arange(64) / 64.0)
+    pressure[5] = np.nan
+    notes = write_acoustic_products([_clean_signal(pressure)], tmp_path, stem="p").notes
+    assert any("non-finite pressure sample, OASPL is NA" in note for note in notes)
+    assert not any("silent record" in note for note in notes)
+    silent = write_acoustic_products([_clean_signal(np.ones(64))], tmp_path, stem="q").notes
+    assert any("silent record, OASPL is NA" in note for note in silent)
+
+
+def test_x_f_1190_a_nan_rpm_is_named_as_an_unusable_rotor_not_passed_on(tmp_path):
+    """X-F-1190: NaN is truthy, so it reached the harmonics and was only caught there."""
+    pressure = 1.0 + np.sin(2 * np.pi * 8 * np.arange(64) / 64.0)
+    notes = write_acoustic_products(
+        [_clean_signal(pressure)], tmp_path, stem="p", rotors={"R": (2, float("nan"))}
+    ).notes
+    assert any("rotor 'R' states blades=2 and rpm=nan" in note for note in notes)

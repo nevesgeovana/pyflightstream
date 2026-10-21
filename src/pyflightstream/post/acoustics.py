@@ -522,7 +522,10 @@ def write_acoustic_products(
         )
         level = oaspl_db(signal)
         if level is None:
-            result.notes.append(f"observer {signal.observer!r}: silent record, OASPL is NA")
+            # A NaN sample makes the rms NaN, which only LOOKS like a zero: say which it is.
+            finite = bool(np.all(np.isfinite(np.asarray(signal.pressure_pa, dtype=float))))
+            reason = "silent record" if finite else "the record holds a non-finite pressure sample"
+            result.notes.append(f"observer {signal.observer!r}: {reason}, OASPL is NA")
         rate = df = None
         spectrum: Spectrum | None = None
         try:
