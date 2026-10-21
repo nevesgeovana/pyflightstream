@@ -365,3 +365,18 @@ def test_x_f_1259_a_frozen_file_the_reader_refuses_is_an_fsi_setup_error(tmp_pat
     (tmp_path / "frozen.txt").write_text("1 2 3\n")
     with pytest.raises(FsiSetupError, match="frozen"):
         resolve_fsi_setup(source)
+
+
+def test_x_f_1315_a_blank_factor_cell_is_a_placeholder_on_the_external_route_too(
+    tmp_path: Path,
+) -> None:
+    """A blank FSI_ cell is no stated factor: the external route does not refuse the row."""
+    (tmp_path / "fsi").mkdir()
+    (tmp_path / "fsi" / "f002.toml").write_text('mode = "external"\n')
+    with pytest.raises(FsiSetupError) as stated:
+        resolve_row_fsi(tmp_path, {"FSI": "f002", "FSI_BENDING_STIFFNESS_N_M2_FACTOR": "2"})
+    assert "row states" in str(stated.value)
+    try:
+        resolve_row_fsi(tmp_path, {"FSI": "f002", "FSI_BENDING_STIFFNESS_N_M2_FACTOR": ""})
+    except FsiSetupError as error:
+        assert "row states" not in str(error)
