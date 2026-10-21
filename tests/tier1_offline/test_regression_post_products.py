@@ -2428,6 +2428,27 @@ def test_x_f_0338_a_section_load_in_a_disc_map_keeps_six_significant_digits(tmp_
     assert row["VALUE"] == "1.23457e-05"
 
 
+def test_x_f_1644_a_string_default_is_a_toml_string_that_reads_back_as_itself():
+    """X-F-1644: the regex default was shown as an invalid basic string, `"^Blade\\d+$"`."""
+    import tomllib
+
+    from pyflightstream.post.glossary import _toml
+
+    for text in ("^Blade\\d+$", 'say "hi"', "plain"):
+        assert tomllib.loads(f"x = {_toml(text)}")["x"] == text
+    assert _toml("plain") == '"plain"'
+
+
+def test_f1829_f1830_x_f_1643_the_glossary_places_the_guides_in_the_pproc_folder():
+    """The guides are written under inputs/pproc, the glossary in the inputs root."""
+    from pyflightstream.post.glossary import input_glossary_markdown
+
+    page = " ".join(input_glossary_markdown().split())
+    assert "both in the `pproc` folder beside this page" in page
+    assert "`VARIABLES.md`, in the `pproc` folder beside this page" in page
+    assert "both beside this page" not in page
+
+
 def test_x_f_0327_an_infinite_clock_is_a_named_skip_not_an_overflow(tmp_path):
     """X-F-0327: inf passed `>= 0.5` and `int(round(inf))` aborted the point."""
     from pyflightstream.post._reduction_stage import _write_the_per_revolution_products

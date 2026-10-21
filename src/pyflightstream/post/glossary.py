@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+import json
 import re
 import sys
 import textwrap
@@ -122,8 +123,9 @@ def write_if_different(path: Path, text: str) -> bool:
 
 # --- the input glossary, INPUTS.md (G08) ---------------------------
 
-#: The input glossary's file name. It is written beside ``VARIABLES.md``: the
-#: page of what the inputs mean next to the page of what the products mean.
+#: The input glossary's file name. It is written in the inputs root, one folder
+#: above ``pproc/`` where ``VARIABLES.md`` goes: the page of what the inputs mean
+#: next to the folder of the pages of what the products mean.
 INPUT_GLOSSARY_NAME = "INPUTS.md"
 
 #: The columns of every table of the input glossary, in order.
@@ -286,7 +288,8 @@ _ARTIFACT_INTROS: Mapping[str, str] = MappingProxyType(
             "What a row's `PPROC` names: the definitions the script emits before the "
             "solve, the exports a point leaves and the products written after it. The "
             "columns those products write are in `VARIABLES.md`, and how to write an "
-            "equation is in `WRITING-EQUATIONS.md`, both beside this page."
+            "equation is in `WRITING-EQUATIONS.md`, both in the `pproc` folder beside "
+            "this page."
         ),
         "reference": (
             "What a row's `REF` names: the reference lengths the package's own products are "
@@ -310,8 +313,8 @@ _PAGE_INTRO = (
     f'carries says so, "{_NO_SCRIPT_LINE}", and names what takes the value '
     "instead. A blank `Accepted by` means the code states no "
     "restriction of run type or build; a blank command means the key reaches no "
-    f"command of its own. What the products state is in `{PPROC_GUIDE_NAMES[0]}` "
-    "beside this page."
+    f"command of its own. What the products state is in `{PPROC_GUIDE_NAMES[0]}`, "
+    "in the `pproc` folder beside this page."
 )
 
 
@@ -522,7 +525,9 @@ def _toml(value: object) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, str):
-        return f'"{value}"'
+        # A TOML basic string reads a backslash as an escape, so `^Blade\d+$` copied inside
+        # unescaped double quotes is invalid; the JSON escapes of a string are TOML's.
+        return json.dumps(value, ensure_ascii=False)
     if isinstance(value, (list, tuple)):
         return "[" + ", ".join(_toml(item) for item in value) + "]"
     return str(value)
