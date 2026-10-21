@@ -466,6 +466,25 @@ def test_p0430_empty_clocking_sections_is_named(tmp_path):
     assert all("empty" in reason for reason in result.missing.values())
 
 
+def test_p0430_unread_chord_refuses_incomplete_blade_shares(tmp_path):
+    table = tmp_path / "sections.csv"
+    table.write_text(
+        "ROTOR,FAMILY,PLANE,Offset,Chord,Fx,Fz\n"
+        "PROP,Blade1,XZ,0.2,0.2,1,1\n"
+        "PROP,Blade1,XZ,0.5,NA,1,1\n"
+        "PROP,Blade1,XZ,0.8,0.2,1,1\n",
+        encoding="utf-8",
+    )
+    validity = post_qsteady.add_reduced_frequency_to_sections(
+        table,
+        _record(1200),
+        velocity_m_per_s=10,
+    )
+    assert validity.values["THRUST_PCT_K_GT_0_1"] is None
+    assert validity.values["TORQUE_PCT_K_GT_0_1"] is None
+    assert any("Chord" in note for note in validity.notes)
+
+
 @pytest.mark.parametrize((), [pytest.param(id="P0430-F-785")])
 def test_p0430_missing_clocking_zero_keeps_surviving_exports(tmp_path, monkeypatch):
     from pyflightstream.post.section_distributions import write_section_distributions

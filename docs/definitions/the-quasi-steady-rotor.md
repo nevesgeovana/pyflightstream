@@ -119,7 +119,7 @@ is `NA`**, and the post says why in a WARNING line of `post.log` naming the
 point, where a block was cut in a frame whose axes the post does not know (one
 a setup creates), in the YZ plane (not measured), or in a block the layout does
 not name; where a station of the blade the shares are taken over states its
-`Fx`, `Fz` or `Offset` as `NA` or as nothing readable (the line names the
+`Fx`, `Fz`, `Chord` or `Offset` as `NA` or as nothing readable (the line names the
 station; a gap is never read as a zero load); where the total is zero; and where
 stations of opposite sign put the share outside 0 to 100 per cent, the total
 then having no sign a share of it could be read against. Where the point has

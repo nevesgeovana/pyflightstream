@@ -764,7 +764,7 @@ def add_reduced_frequency_to_sections(
     whose axes are known, where the total is zero, or where stations of
     opposite sign put the share outside 0 to 100 per cent: the total then has
     no sign a share of it could be read against. A station of the blade the
-    shares are taken over whose ``Fx``, ``Fz`` or ``Offset`` is ``NA`` or
+    shares are taken over whose ``Fx``, ``Fz``, ``Chord`` or ``Offset`` is ``NA`` or
     unreadable makes BOTH shares ``NA``, with a note naming the station
     (invariant 8: an ``NA`` is never read as a zero load).
 
@@ -939,7 +939,7 @@ def _unread_stations(
     alias: str,
     family: str | None,
 ) -> list[str]:
-    """Name each station of the summarised blade whose ``Offset``, ``Fx`` or ``Fz`` is unread.
+    """Name each station whose offset, chord or sectional force is unread.
 
     The stations are the rotor's rows of clocking 0 (where the table holds
     every clocking) and of ``family`` (where one is named), the rows the
@@ -957,7 +957,7 @@ def _unread_stations(
             continue
         unread = [
             f"{column} {row[index[column]] or 'empty'}"
-            for column in ("Offset", "Fx", "Fz")
+            for column in ("Offset", "Chord", "Fx", "Fz")
             if _number(row[index[column]]) is None
         ]
         if unread:
