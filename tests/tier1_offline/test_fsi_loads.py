@@ -48,6 +48,15 @@ def test_p0430_f6_04_force_closure_requires_finite_values(field, value):
         cross_check_totals(block, fx, fz, rel_tol=tolerance)
 
 
+def test_p0430_f6_04_load_fields_document_the_projected_axes():
+    from pyflightstream.fsi.loads import ElasticAxisLoads
+
+    documentation = ElasticAxisLoads.__doc__
+    assert "projected" in documentation
+    assert "negated" in documentation
+    assert "export Fx column" not in documentation
+
+
 # The dry run's export concatenates two families of 50 sections
 # (RPT-005 finding 6): the meshed blade first, then a non-blade family,
 # which is zero-load in call0002 and loaded in call0018.
