@@ -306,6 +306,13 @@ integration skip instead of labeling an unconverted strip length in metres.
 Use a metre simulation for strip integration until the other export units
 have measured evidence.
 
+The same holds when the point's saved simulation states a length unit other than
+metres (N simulation units per metre): the integrated columns are not written, and
+the wheel and unsteady harmonics and `K_1P`, which read `Offset` as a radius in
+metres, are not written either. Each is a named skip in `products.json` and
+`post.log` giving the units per metre. A saved simulation in metres, or one that
+tells no unit, is unchanged, and the raw sections tables are written as before.
+
 
 Long family selections use a compact distribution number and content digest
 in the filename. The complete selection remains in `products.json`; short

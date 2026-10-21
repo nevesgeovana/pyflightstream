@@ -54,7 +54,7 @@ columns read it. For a rotor frame this is `|Offset|`; for an MRP cut it is
 the absolute value of Offset minus the hub coordinate along the cut normal. Where
 the hub is off the cut's radial line or the recorded frame is ambiguous,
 `STATION_R_M` and `R_OVER_R` read `NA` and `post.log` names the missing radius.
-Every sample with a known radius must hold its station within `1e-6` of the
+Every sample with a known radius must hold its station within a thousandth (`1e-3`) of the
 first sample's largest radius: a station where one does not is left out and
 named in `products.json` `skipped` under
 `sections/<point>_harmonics.csv#rotor=<ALIAS>#station=<j>`, and a rotor whose

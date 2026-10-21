@@ -820,6 +820,7 @@ def _sections_cut_products(ctx: SimContext, point: PolarPoint, done: Path) -> No
                 rotors=_section_rotors(ctx.live, ctx.aliases, record),
                 pol=ctx.sim_id,
             ),
+            sim_dir=ctx.workspace.sim_dir(ctx.sim_id),
         )
     )
     ctx.add(
@@ -847,6 +848,7 @@ def _sections_cut_products(ctx: SimContext, point: PolarPoint, done: Path) -> No
         runs=ctx.sources[point.name],
         skipped=ctx.skipped,
         disc_maps=wheel_maps,
+        sim_dir=ctx.workspace.sim_dir(ctx.sim_id),
     )
     if harmonics is not None:
         ctx.add(harmonics[0], harmonics[1])

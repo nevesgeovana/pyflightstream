@@ -40,6 +40,7 @@ from pyflightstream.post._tables import (
     section_identity,
     write_csv_table,
 )
+from pyflightstream.post.farfield_fields import native_per_m
 from pyflightstream.post.qsteady import (
     CLOCKING_COLUMN,
     clocking_section_export,
@@ -52,6 +53,32 @@ from pyflightstream.workspace import RunRecord
 from pyflightstream.workspace.storage import pruned_step_refusal
 
 __all__ = ["write_section_distributions"]
+
+
+def non_metre_refusal(sim_dir: Path, record: RunRecord, what: str) -> str | None:
+    """Say why a product that reads the sections export in metres is refused, or None.
+
+    The sections writer labels ``Offset``, ``Chord`` and the strip lengths built from them
+    as metres, and its own column note says the export's columns are in the export's own
+    units with no conversion. Which unit a sectional export states those lengths in has been
+    measured on a metre simulation only: no MILLIMETER sectional export is recorded
+    (PFS-2119.041, PFS-2119.036). A point whose saved simulation is in another length unit is
+    therefore refused the products that need the lengths in metres, naming the unit, until
+    that export is recorded. None where the saved simulation is in metres, or where no saved
+    simulation tells the unit (the legacy behaviour, unchanged).
+    """
+    per_m = native_per_m(
+        sim_dir, [str(output) for output in record.outputs or ()], record.package_version
+    )
+    if per_m is None or per_m == 1.0:
+        return None
+    return (
+        f"the saved simulation of this point is not in metres ({per_m:g} simulation length "
+        f"units per metre), and the length unit a sectional loads export states its Offset and "
+        f"Chord in has not been measured outside a metre simulation, so {what} would label "
+        "native lengths as metres. Record one MILLIMETER sectional export to settle it "
+        "(PFS-2119.041); the raw sections tables are written as before."
+    )
 
 
 def _integrated_strips(values: list[list[float]]) -> list[tuple[float, ...]]:
@@ -1272,6 +1299,10 @@ def write_section_distributions(
         _literal_frames(pproc, current_pproc),
         geometry=geometry,
     )
+    if integrate and integration_error is None:
+        integration_error = non_metre_refusal(
+            sim_dir, record, "the integrated columns (Strip_length in m, Fx_int in N)"
+        )
     if integration_error is not None:
         integrate = set()
         matching_errors = dict.fromkeys(selections, integration_error)

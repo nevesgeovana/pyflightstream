@@ -24,7 +24,7 @@
   {
    "point": "DP",
    "product": "sections/DP_harmonics.csv",
-   "message": "station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 1e-06 of the largest radius 0.2899 m apart",
+   "message": "station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 0.001 of the largest radius 0.2899 m apart",
    "remedy": null,
    "category": "section-layout",
    "severity": "warning"
@@ -48,7 +48,7 @@
   {
    "point": "sections/DP_harmonics.csv#rotor=PROP#station=1",
    "product": "sections/DP_harmonics.csv#rotor=PROP#station=1",
-   "message": "station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 1e-06 of the largest radius 0.2899 m apart",
+   "message": "station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 0.001 of the largest radius 0.2899 m apart",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "section-layout",
    "severity": "warning"
@@ -56,7 +56,7 @@
   {
    "point": "sections/DP_harmonics.csv",
    "product": "sections/DP_harmonics.csv",
-   "message": "no station of any rotor could be fitted: station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 1e-06 of the largest radius 0.2899 m apart",
+   "message": "no station of any rotor could be fitted: station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 0.001 of the largest radius 0.2899 m apart",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "section-layout",
    "severity": "warning"

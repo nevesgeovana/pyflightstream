@@ -68,7 +68,7 @@ from pyflightstream.post.point_tables import write_sections_table
 from pyflightstream.post.polar import PolarPoint
 from pyflightstream.post.provenance import refuse_an_existing_product as _refuse_an_existing_product
 from pyflightstream.post.rotor_table import rotor_shaft_loads
-from pyflightstream.post.section_distributions import write_section_distributions
+from pyflightstream.post.section_distributions import non_metre_refusal, write_section_distributions
 from pyflightstream.post.series import write_point_series
 from pyflightstream.post.surfaces import write_point_surface_average
 from pyflightstream.results import FrozenSolve, parse_loads
@@ -87,6 +87,7 @@ def _qsteady_sections(
     record: RunRecord | None,
     skipped: dict[str, str],
     tabled: Callable[[Path, str], Path | None],
+    sim_dir: Path | None = None,
 ) -> dict[str, _qsteady.PointValidity]:
     """Complete a quasi-steady wheel point's sections table: its clockings and its 1P frequency.
 
@@ -125,6 +126,15 @@ def _qsteady_sections(
             warn(
                 f"point={point.name} product=sections: {note}", PyflightstreamWarning, stacklevel=2
             )
+    refusal = (
+        None
+        if sim_dir is None or record is None
+        else non_metre_refusal(sim_dir, record, "the station radius, R_OVER_R and K_1P")
+    )
+    if refusal is not None:
+        skipped[f"{SECTIONS_DIR}/{point.name}_sections.csv#k_1p"] = refusal
+        warn(f"point={point.name} product=sections: {refusal}", PyflightstreamWarning, stacklevel=2)
+        return {}
     try:
         # The frame each block was cut in, so each station's force is
         # projected on the rotor's axis rather than read in the export's axes.
@@ -405,6 +415,7 @@ def _wheel_harmonics(
     runs: Sequence[str],
     skipped: dict[str, str],
     disc_maps: list[tuple[Path, dict[str, object]]] | None = None,
+    sim_dir: Path | None = None,
 ) -> tuple[Path, dict[str, object]] | None:
     """Fit a quasi-steady WHEEL point's harmonics over its blades and clockings.
 
@@ -418,6 +429,20 @@ def _wheel_harmonics(
     except QsteadyRecordError:
         return None
     if quasi.case != "wheel":
+        return None
+    relative = f"{SECTIONS_DIR}/{point.name}{_harmonics.HARMONICS_SUFFIX}"
+    refusal = (
+        None
+        if sim_dir is None
+        else non_metre_refusal(sim_dir, record, "the station radius and R_OVER_R of the harmonics")
+    )
+    if refusal is not None:
+        skipped[relative] = refusal
+        warn(
+            f"point={point.name} product={relative}: {refusal}", PyflightstreamWarning, stacklevel=2
+        )
+        if disc_maps is not None:
+            _skip_disc_maps(point.name, refusal, skipped)
         return None
     rotor = _harmonics.HarmonicRotor(
         alias=quasi.rotor_alias,
@@ -523,6 +548,7 @@ def _unsteady_harmonics(
     target: Callable[[Path], Path],
     skipped: dict[str, str],
     disc_maps: list[tuple[Path, dict[str, object]]] | None = None,
+    sim_dir: Path | None = None,
 ) -> tuple[Path, dict[str, object]] | None:
     """Fit an ``unsteady_rotor`` point's harmonics over each rotor's last complete revolution.
 
@@ -556,6 +582,16 @@ def _unsteady_harmonics(
         skipped[relative] = missing
         warn(f"point={stem} product={relative}: {missing}", PyflightstreamWarning, stacklevel=2)
         _skip_disc_maps(stem, missing, skipped)
+        return None
+    refusal = (
+        None
+        if sim_dir is None
+        else non_metre_refusal(sim_dir, record, "the station radius and R_OVER_R of the harmonics")
+    )
+    if refusal is not None:
+        skipped[relative] = refusal
+        warn(f"point={stem} product={relative}: {refusal}", PyflightstreamWarning, stacklevel=2)
+        _skip_disc_maps(stem, refusal, skipped)
         return None
     first = int(window["first_step"])
     # THE HISTORY ENDS AT THE LAST STEP THE SERIES HOLDS, not at the step the
@@ -1075,6 +1111,7 @@ def _point_series(
             ),
             skipped=split_skips,
             disc_maps=series_maps,
+            sim_dir=workspace.sim_dir(sim_id),
         )
         if harmonics is not None:
             written = [*written, harmonics[0]]

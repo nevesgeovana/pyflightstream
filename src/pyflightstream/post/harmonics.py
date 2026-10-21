@@ -50,6 +50,7 @@ from pyflightstream.post.axes import placed_blade_azimuth_deg
 from pyflightstream.post.qsteady import (
     CLOCKING_COLUMN,
     STATION_COLUMN,
+    STATION_TOLERANCE,
     VALIDITY_COLUMNS,
     radius_from_the_hub,
 )
@@ -110,9 +111,12 @@ AZIMUTH_TOLERANCE_DEG = 1e-6
 _LARGEST_GAP_DEG = 180.0
 #: How far a sample's station may sit from the first sample's, as a fraction
 #: of the largest radius of the first sample, before the station is refused.
-#: This relative matching tolerance allows export roundoff on repeated cuts;
-#: it does not merge stations or round their radii. A mismatch is a named skip.
-STATION_MATCH_TOLERANCE = 1e-6
+#: IT IS THE QUASI-STEADY ALIGNMENT TOLERANCE, ONE VALUE FOR BOTH MODULES AND THE
+#: PAGE: a thousandth of the largest offset, the resolution the sectional loads
+#: export prints its offsets to. A tolerance of 1e-6 asked a rotated clocking to
+#: reproduce a station to a thousand times finer than the file writes it, so
+#: print rounding alone refused stations that sit at one radius.
+STATION_MATCH_TOLERANCE = STATION_TOLERANCE
 #: The sections columns that locate a station rather than load it.
 _GEOMETRY_COLUMNS = frozenset({"Offset", "Chord", "X_QC", "Z_QC"})
 #: The columns the post adds after the export's own, which are not loads.

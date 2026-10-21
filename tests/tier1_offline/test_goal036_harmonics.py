@@ -605,9 +605,9 @@ ROTOR = HarmonicRotor(
 
 
 def test_a_station_off_its_radius_is_a_named_skip_and_the_others_are_fitted():
-    """Station 2 of blade two at clocking 1 sits 1e-5 m out (1e-5 of 0.9 m > 1e-6): named."""
+    """Station 2 of blade two at clocking 1 sits 5e-3 m out (5e-3 of 0.9 m > 1e-3): named."""
     # P0310-HARMONICS
-    columns, rows = _rows({(1, 2): 1e-5})
+    columns, rows = _rows({(1, 2): 5e-3})
     result = station_harmonics(columns, rows, {"PROP": ROTOR}, sample_column="CLOCKING")
     assert list(result.skipped) == ["#rotor=PROP#station=2"]
     assert "station 2" in result.skipped["#rotor=PROP#station=2"]
@@ -619,8 +619,9 @@ def test_a_station_off_its_radius_is_a_named_skip_and_the_others_are_fitted():
     assert (fit.samples, fit.distinct) == (6, 6)
     assert fit.h1_amp == pytest.approx(1.0, abs=1e-8)
     assert fit.h1_phase_deg == pytest.approx(45.0, abs=1e-6)
-    # WITHIN THE TOLERANCE, 1e-7 m on 0.9 m, the station is matched.
-    columns, rows = _rows({(1, 2): 1e-7})
+    # WITHIN THE TOLERANCE, 1e-4 m on 0.9 m, the station is matched (PFS-2124.036: one
+    # tolerance, the quasi-steady 1e-3 of the largest radius, for both modules and the page).
+    columns, rows = _rows({(1, 2): 1e-4})
     close = station_harmonics(columns, rows, {"PROP": ROTOR}, sample_column="CLOCKING")
     assert close.skipped == {} and len(close.rows) == 3
 
