@@ -205,3 +205,10 @@ def test_an_undigested_drift_pair_records_absence_rather_than_a_hash(tmp_path):
     document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
     assert document["fs_exe_sha256s"] == {"26.122": None, "26.123": None}
     assert md_path.read_text(encoding="utf-8").count("sha256 not recorded") == 2
+
+
+def test_an_all_aborted_drift_run_states_its_aborts():
+    """F-531, X-F-0538: aborted cases are counted beside the verdict counts."""
+    drift = diff_runs(physics_run("26.100", {}, error="a"), physics_run("26.120", {}, error="b"))
+    assert drift.verdict_counts()["fail"] == 0
+    assert drift.aborted_count() == 1

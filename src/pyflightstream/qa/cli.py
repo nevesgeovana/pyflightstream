@@ -651,10 +651,11 @@ def _cmd_physics(args: argparse.Namespace) -> int:
         return 2
     yaml_path, md_path = write_physics_report(run, args.report_dir, date=date, label=args.label)
     counts = run.verdict_counts()
+    aborted_cases = sum(1 for r in run.results if r.error is not None)
     print(
         f"FlightStream {run.version} ({run.fs_exe_name}): "
         f"{counts['pass']} pass, {counts['warn']} warn, {counts['fail']} fail, "
-        f"{counts['no_reference']} without reference"
+        f"{counts['no_reference']} without reference, {aborted_cases} aborted"
     )
     for result in run.results:
         if result.error is not None:
@@ -706,10 +707,11 @@ def _drift_versions(args: argparse.Namespace) -> tuple[list[str], dict[str, str]
 def _print_drift_summary(run, yaml_path, md_path) -> int:
     """Print the drift run's counts, aborts, identity and report paths; return the exit code."""
     counts = run.verdict_counts()
+    aborted_cases = sum(1 for r in run.results if r.error is not None)
     print(
         f"FlightStream {run.version_a} vs {run.version_b}: "
         f"{counts['pass']} pass, {counts['warn']} warn, {counts['fail']} fail, "
-        f"{counts['no_reference']} without declared bands"
+        f"{counts['no_reference']} without declared bands, {aborted_cases} aborted"
     )
     for result in run.results:
         if result.error is not None:

@@ -131,6 +131,10 @@ class DriftRun:
                 counts[metric.verdict.value] += 1
         return counts
 
+    def aborted_count(self) -> int:
+        """Count the cases that aborted: they carry no metric, so no verdict count holds them."""
+        return sum(1 for result in self.results if result.error is not None)
+
 
 def _one_sided_case(result: CaseResult, present: str, absent: str) -> DriftCaseResult:
     """Report a case only one run carries as an aborted comparison (PFS-2102.004)."""
@@ -456,7 +460,12 @@ def _render_markdown(run: DriftRun, date: str, counts: dict[str, int]) -> str:
         "## Summary",
         "",
         f"{counts['pass']} pass, {counts['warn']} warn, {counts['fail']} fail, "
-        f"{counts['no_reference']} without declared bands.",
+        f"{counts['no_reference']} without declared bands."
+        + (
+            f" {run.aborted_count()} case(s) aborted and are counted in no verdict."
+            if run.aborted_count()
+            else ""
+        ),
         "",
     ]
     for result in run.results:
