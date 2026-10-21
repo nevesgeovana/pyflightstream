@@ -1552,6 +1552,32 @@ class TestQaProbes:
         assert dump_gained("7.2531", strict=True)(missing) is None
 
     @staticmethod
+    def test_f534_a_token_already_in_the_before_dump_verifies_nothing():
+        """F-534 a token present before the target cannot show the target put it there."""
+        both = SimpleNamespace(dump_before=lambda: "x 7.2531 y", dump_after=lambda: "x 7.2531 y")
+        assert dump_gained("7.2531")(both) is None
+        assert dump_gained("7.2531", strict=True)(both) is None
+        gained = SimpleNamespace(dump_before=lambda: "x 1.0 y", dump_after=lambda: "x 7.2531 y")
+        assert dump_gained("7.2531")(gained) is True
+
+    @staticmethod
+    def test_f535_a_missing_end_sentinel_is_not_a_promotable_broken(tmp_path):
+        """F-535 the verdict follows its detail: grammar doubt means unprobed, never broken."""
+        spec = _QA_PROBES__PROBE_SPECS["DELETE_SURFACES"]
+        artifacts = _qa_probes___reached(tmp_path)
+        artifacts = ProbeArtifacts(
+            workdir=tmp_path,
+            log_before="PYFS_B",
+            log_after="no end marker here",
+            begin_marker="PYFS_B",
+            end_marker="PYFS_E",
+            execution=artifacts.execution,
+        )
+        result = _judge(spec, artifacts, DEFAULT_ERROR_PATTERNS, "sha", 60.0)
+        assert result.outcome is ProbeOutcome.UNPROBED, result.detail
+        assert "probe grammar" in result.detail
+
+    @staticmethod
     def test_p0400_probeharness_an_instrument_that_raises_leaves_the_target_unprobed(tmp_path):
         """P0400-PROBEHARNESS (PFS-2102.028) DELETE_SURFACES on a run whose SAVEAS wrote nothing."""
         spec = _QA_PROBES__PROBE_SPECS["DELETE_SURFACES"]

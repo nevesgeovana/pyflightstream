@@ -815,6 +815,12 @@ def dump_gained(token: str, strict: bool = False) -> Callable[[ProbeArtifacts], 
             # the target: `strict` governs an absent token only.
             return None
         if token in after:
+            # F-534. A token already present in the dump taken before the
+            # target proves nothing about the target: the command may have
+            # done nothing. Unobservable, never verified.
+            before = artifacts.dump_before()
+            if before is not None and token in before:
+                return None
             return True
         return False if strict else None
 
@@ -1631,7 +1637,9 @@ def _judge(
         )
     if not sentinel_before or not sentinel_after:
         return ProbeResult(
-            outcome=ProbeOutcome.BROKEN if sentinel_before else ProbeOutcome.UNPROBED,
+            # F-535. The detail blames the probe grammar, so the verdict is
+            # inconclusive; a promotable BROKEN contradicted its own detail.
+            outcome=ProbeOutcome.UNPROBED,
             detail=(
                 "the exported logs lack a printed BEGIN or END sentinel; the target "
                 "may have consumed an instrument line as an argument. Inspect the "
