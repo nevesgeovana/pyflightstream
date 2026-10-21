@@ -932,7 +932,7 @@ records = run_matrix("study/matrix.fs", workspace,
     \node[st,right=of p] (r) {recipe\\FAILED\_SCRIPT};
     \node[st,right=of r] (e) {execute\\FAILED\_EXECUTION};
     \node[st,right=of e] (c) {collect\\FAILED\_INCOMPLETE\_OUTPUT};
-    \node[st,right=of c] (a) {assess\\CONVERGED / MAX\_ITER / DIVERGED};
+    \node[st,right=of c] (a) {assess\\the recorded outcome};
     \draw[-{Stealth},thick,accentteal] (p) -- (r);
     \draw[-{Stealth},thick,accentteal] (r) -- (e);
     \draw[-{Stealth},thick,accentteal] (e) -- (c);
