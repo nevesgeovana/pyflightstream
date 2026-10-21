@@ -815,6 +815,14 @@ def _check_output_containment(name: str) -> None:
             "move a file from outside "
             "the run into the run's own evidence."
         )
+    windows = PureWindowsPath(name)
+    if windows.drive or windows.anchor or ":" in name:
+        raise NamingTemplateError(
+            f"the output name {name!r} starts from a drive or carries a ':'. A drive-relative "
+            "name such as C:relative.txt is relative to the current folder of ANOTHER drive "
+            "on Windows, so it leaves the simulation folder without being absolute. Declared "
+            "outputs are named relative to the simulation folder, with no drive."
+        )
     if any(part == ".." for part in candidate.parts):
         raise NamingTemplateError(
             f"the output name {name!r} climbs out of the simulation folder with "

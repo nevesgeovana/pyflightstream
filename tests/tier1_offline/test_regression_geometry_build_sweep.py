@@ -4334,3 +4334,14 @@ def test_x_f1256_rows_with_a_wrong_cell_count_are_named_and_a_superscript_pol_do
     with pytest.warns(PyflightstreamWarning):
         added = convert.rows_for_built_geometries(matrix, "1", [(None, "g.fsm")])
     assert added[0].startswith("2 | ")
+
+
+@pytest.mark.parametrize("name", ["C:relative.txt", "d:loads.csv", "sub/C:x.txt", "a:b.txt"])
+def test_f2_0809_a_drive_relative_output_name_is_refused(name):
+    """C-SRS-S10-001, F-741, PFS-2130.061: FR-33d also refuses a name from another drive."""
+    from pyflightstream.workspace.naming import NamingTemplate, NamingTemplateError
+
+    template = NamingTemplate()
+    with pytest.raises(NamingTemplateError, match="drive"):
+        template.render_output(name, campaign="camp", sim="1", point={"alpha": 0.0})
+    assert template.render_output("sub/ok.txt", campaign="camp", sim="1", point={"alpha": 0.0})
