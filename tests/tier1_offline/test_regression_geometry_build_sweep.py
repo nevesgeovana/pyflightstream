@@ -4171,3 +4171,55 @@ class TestF2Package0607RowSetup:
         """FR-1311: every kind of conflict of a row is raised while the matrix is resolved."""
         with pytest.raises(MatrixError, match="POL 9461"):
             TestF2Package0607RowSetup._resolve(tmp_path, ("9461", cell))
+
+
+class TestF2Package0607SweepOverlay:
+    """Tier 1, 0.43.0: the sweep overlay holds the swept surface's own faces only (FR-1118)."""
+
+    @staticmethod
+    def _variant(folder, ordinal, tag, offset):
+        fsm = folder / f"{tag}.fsm"
+        fsm.write_text("not a saved simulation", encoding="utf-8")
+        obj = folder / f"{tag}.obj"
+        obj.write_text(
+            f"v {offset} 0 0\nv {offset + 1} 0 0\nv {offset} 1 0\nv {offset} 0 1\n"
+            "g AIL\nf 1 2 3\nf 1 3 4\ng WING\nf 1 2 4\n",
+            encoding="utf-8",
+        )
+        return ordinal, tag, fsm, obj
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1118")
+    def test_fr1118_a_subset_sweep_overlays_only_the_swept_surface_with_original_ordinals(
+        tmp_path,
+    ):
+        """FR-1118: variants 1 and 3 of a sweep give 4 AIL polygons, no WING one, owners 1 and 3."""
+        from pyflightstream.workspace._geometry_vtk import write_sweep_vtk
+
+        variants = [
+            TestF2Package0607SweepOverlay._variant(tmp_path, 1, "a-10", 0),
+            TestF2Package0607SweepOverlay._variant(tmp_path, 3, "a+10", 10),
+        ]
+        target = write_sweep_vtk(tmp_path / "wing.sweep.vtk", variants, "AIL")
+        assert target is not None
+        text = target.read_text(encoding="utf-8")
+        polygons = int(text.split("POLYGONS ")[1].split()[0])
+        owners = text.split("LOOKUP_TABLE default\n")[1].split("\nFIELD")[0].split()
+        assert polygons == 4 and owners == ["1", "1", "3", "3"]
+        assert "tags 1 2 string\na-10\na+10" in text
+        # The AIL faces use four vertices of each variant, so eight points are written.
+        points = int(text.split("POINTS ")[1].split()[0])
+        assert points == 8
+        assert write_sweep_vtk(tmp_path / "none.sweep.vtk", [], "AIL") is None
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1118")
+    def test_fr1118_a_variant_without_the_surface_refuses_naming_the_variant(tmp_path):
+        """FR-1118: no overlay is written for a variant that has none of the swept surface."""
+        from pyflightstream._fsm import MeshReadError
+        from pyflightstream.workspace._geometry_vtk import write_sweep_vtk
+
+        variant = TestF2Package0607SweepOverlay._variant(tmp_path, 1, "a-10", 0)
+        with pytest.raises(MeshReadError, match="variant a-10: no faces of control surface FLAP"):
+            write_sweep_vtk(tmp_path / "wing.sweep.vtk", [variant], "FLAP")
+        assert not (tmp_path / "wing.sweep.vtk").exists()
