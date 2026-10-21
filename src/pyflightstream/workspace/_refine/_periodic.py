@@ -44,6 +44,7 @@ from pyflightstream.workspace._refine._geometry import (
     boundary_edges,
     boundary_loops,
     segment_distances,
+    weld_roots,
 )
 from pyflightstream.workspace._refine._obj import KIND
 
@@ -344,9 +345,8 @@ def _fixed_nodes(plan: _Plan, chain: Sequence[int], side: Sequence[str]) -> Poin
         else:
             parts.append(plan.verts[sorted({v for e in edges for v in e})])
     points = numpy.vstack(parts)
-    keys = numpy.round(points / max(DUPLICATE_FRACTION * plan.size, 1e-300)).astype(numpy.int64)
-    _, first = numpy.unique(keys, axis=0, return_index=True)
-    return points[numpy.sort(first)]
+    root = weld_roots(points, max(DUPLICATE_FRACTION * plan.size, 1e-300))
+    return points[root == numpy.arange(len(points))]
 
 
 def resample(points: Points, factor: float) -> Points:

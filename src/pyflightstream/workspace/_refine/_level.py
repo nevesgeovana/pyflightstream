@@ -1024,9 +1024,7 @@ def _weld(
     The nodes kept are numbered in their order of first use.
     """
     tolerance = max(_geometry.DUPLICATE_FRACTION * scale, 1e-300)
-    keys = numpy.round(verts / tolerance).astype(numpy.int64)
-    _, first, inverse = numpy.unique(keys, axis=0, return_index=True, return_inverse=True)
-    root = first[inverse.reshape(-1)]
+    root = _geometry.weld_roots(verts, tolerance)
     welded = {n: [[int(root[v]) for v in f] for f in fs] for n, fs in families.items()}
     return _obj.compact(verts, welded)
 

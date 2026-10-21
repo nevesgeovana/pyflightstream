@@ -10,6 +10,7 @@ from __future__ import annotations
 import warnings
 from pathlib import Path
 
+import numpy
 import pytest
 
 from pyflightstream._errors import InputArtifactError
@@ -136,6 +137,38 @@ def test_p0420_a_sheet_with_no_trailing_edge_is_refused_for_that_reason():
     assert "only a smooth tube is recovered without one" in said
     # the control: with its trailing edge the same sheet is a grid
     assert not isinstance(recover_grid(sheet.verts, sheet.faces, sheet.te), str)
+
+
+# ---------------------------------------------------------------- F-305 F-330
+
+_TOL = 1e-9  # DUPLICATE_FRACTION of a unit size
+
+
+def test_p0430_f305_weld_follows_the_tolerance_not_a_rounding_grid():
+    """F-305: nodes closer than the tolerance weld across a bin edge; farther ones stay apart."""
+    from pyflightstream.workspace._refine._level import _weld
+
+    near = numpy.array([[0.49 * _TOL, 0.0, 0.0], [0.51 * _TOL, 0.0, 0.0]])
+    verts, faces = _weld(near, {"W": [[0, 1, 1]]}, 1.0)
+    assert len(verts) == 1
+    far = numpy.array([[-0.49 * _TOL] * 3, [0.49 * _TOL] * 3])  # 1.7 tolerances apart
+    verts, faces = _weld(far, {"W": [[0, 1, 1]]}, 1.0)
+    assert len(verts) == 2
+
+
+def test_p0430_f330_fixed_side_nodes_follow_the_tolerance(monkeypatch):
+    """F-330: the fixed-side cut nodes keep distinct nodes and drop coincident ones by distance."""
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._refine import _periodic
+
+    def nodes(points):
+        plan = SimpleNamespace(grids={}, verts=numpy.array(points), size=1.0)
+        monkeypatch.setattr(_periodic, "_edges_of", lambda *_: [(0, 1)])
+        return _periodic._fixed_nodes(plan, [0, 1], ["W"])
+
+    assert len(nodes([[0.49 * _TOL, 0.0, 0.0], [0.51 * _TOL, 0.0, 0.0]])) == 1
+    assert len(nodes([[-0.49 * _TOL] * 3, [0.49 * _TOL] * 3])) == 2
 
 
 # ---------------------------------------------------------------- F-1517

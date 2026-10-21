@@ -258,6 +258,31 @@ def close_pairs(points: Points, tolerance: float) -> NDArray[numpy.int64]:
     return pairs[numpy.lexsort((pairs[:, 1], pairs[:, 0]))]
 
 
+def weld_roots(points: Points, tolerance: float) -> NDArray[numpy.int64]:
+    """Return for each point the lowest index of the points welded to it within ``tolerance``.
+
+    Two points within the tolerance share a root, however a rounding grid
+    would have cut them, and two points farther apart than the tolerance share
+    one only through a chain of points that are each within it.
+    """
+    pts = numpy.asarray(points, dtype=float).reshape(-1, 3)
+    root = numpy.arange(len(pts), dtype=numpy.int64)
+    parent: dict[int, int] = {}
+
+    def find(i: int) -> int:
+        while parent.get(i, i) != i:
+            i = parent[i]
+        return i
+
+    for a, b in close_pairs(pts, tolerance):
+        ra, rb = find(int(a)), find(int(b))
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+    for i in list(parent):
+        root[i] = find(i)
+    return root
+
+
 def segment_distances(points: Points, a: Points, b: Points) -> tuple[Points, NDArray[numpy.int64]]:
     """Return the distance from each point to the nearest segment a-b, and that segment's index.
 
