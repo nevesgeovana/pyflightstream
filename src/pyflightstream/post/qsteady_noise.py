@@ -1,6 +1,7 @@
 """The quasi-steady rotor noise model (QS-NOISE, work package F): EXPLORATORY.
 
-Pipeline role: a library beside the post row, NOT wired into the post stage.
+Pipeline role: a library beside the post row. The post stage calls only its
+report writer, :func:`write_qsteady_noise_report`; the model itself is not wired in.
 QS-NOISE is exploratory: it carries no threshold and no gate, and the package
 does not wait on it. The module holds the model of route A of the scope (GEO-066
 section 2.6 part 5): reconstruct a blade's load against azimuth from the loads
@@ -140,7 +141,7 @@ def _frame(axis: ArrayLike, reference: ArrayLike) -> tuple[Array, Array, Array]:
     """Return ``(e_a, e1, e2)``: the unit axis and the right-handed azimuth-zero pair."""
     e_a = _unit(_vector(axis, "axis"), "the rotor axis has no length")
     e_1 = _vector(reference, "reference")
-    e_1 = e_1 / max(float(np.max(np.abs(e_1))), 1e-300)
+    e_1 = _unit(e_1, "the azimuth reference has no length")
     e_1 = e_1 - float(e_1 @ e_a) * e_a
     reach = float(np.linalg.norm(e_1))
     if reach <= 1e-9:
@@ -228,8 +229,8 @@ def fit_azimuthal_series(
     samples = np.asarray(values, dtype=float).reshape(-1)
     if azimuths.size == 0 or azimuths.shape != samples.shape:
         raise ProductError("a series needs one value per azimuth and at least one sample")
-    if not np.all(np.isfinite(azimuths)):
-        raise ProductError("every azimuth must be a finite number; a NaN azimuth is refused")
+    if not (np.all(np.isfinite(azimuths)) and np.all(np.isfinite(samples))):
+        raise ProductError("a series needs finite azimuths and values, and one is not finite")
     distinct = _distinct(azimuths)
     most = (distinct - 1) // 2
     if orders is None:

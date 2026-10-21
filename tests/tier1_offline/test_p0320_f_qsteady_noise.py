@@ -527,3 +527,19 @@ def test_f4_0506_the_comparison_reports_the_mean_ratio_and_refuses_incompatible_
         qn.compare_signals(reference, np.ones(4))
     with pytest.raises(ProductError, match="two samples"):
         qn.compare_signals([1.0], [1.0])
+
+
+def test_a_small_perpendicular_reference_is_a_valid_azimuth_zero_f4_07():
+    """F-201: the reference is a direction, so its magnitude does not decide validity."""
+    e_a, e_1, e_2 = qn._frame([0.0, 0.0, 1.0], [1e-12, 0.0, 0.0])
+    assert tuple(e_1) == (1.0, 0.0, 0.0)
+    with pytest.raises(ProductError, match="along the rotor axis"):
+        qn._frame([0.0, 0.0, 1.0], [0.0, 0.0, 1e-3])
+
+
+def test_a_series_refuses_a_non_finite_azimuth_or_value_f4_07():
+    """X-F-0351: a NaN azimuth is refused, not dropped from the count of distinct azimuths."""
+    with pytest.raises(ProductError, match="finite"):
+        qn.fit_azimuthal_series([0.0, 120.0, float("nan")], [1.0, 2.0, 3.0])
+    with pytest.raises(ProductError, match="finite"):
+        qn.fit_azimuthal_series([0.0, 120.0, 240.0], [1.0, float("nan"), 3.0])
