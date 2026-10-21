@@ -963,6 +963,10 @@ def _probe_point(ctx: SimContext, point: PolarPoint, analyses: Sequence[str], ta
             window = ctx.point_windows.get(point.name)
             last = instants[-1]
             chosen = [i for i in instants if window and window[0] <= _step(i) <= window[1]]
+            # The average is of the whole window or it is not written: a window
+            # the recorded steps only partly cover would average fewer steps.
+            if window and not (_step(instants[0]) <= window[0] and _step(last) >= window[1]):
+                chosen = []
         else:
             last, chosen = instants[0], []
             if normal:
