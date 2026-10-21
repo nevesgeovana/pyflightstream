@@ -501,6 +501,7 @@ def _correct_wheel_point(
                 cells[harmonic_columns.index(column)] = None
             if index is not None:
                 fits[(quantity, index)] = _Station(h0, a1, phi1, None, None, None, False)
+            new_harmonics.append(cells)  # the row stays, NA, as the log says
             continue
         harmonic_record.cell(point.name, quantity, found, where=f"{radius}")
         offset, gain_0p, gain_1p, phase = found.coefficients
