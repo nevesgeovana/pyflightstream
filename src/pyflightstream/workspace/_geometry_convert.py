@@ -105,6 +105,11 @@ def _locate(geometry: str | Path, root: Path) -> Path:
                 f"write the folder too, as <folder>/{path.name} ({_PAGE})."
             )
         path = next(iter(found + others), candidates[0])
+    elif not path.resolve().is_relative_to(geometries.resolve()):
+        raise InputArtifactError(
+            f"{geometry} lies outside {geometries}; an instruction is written only beside a "
+            f"geometry of the workspace, in inputs/geometries/<name>/ ({_PAGE})."
+        )
     if not path.is_file():
         raise InputArtifactError(f"{geometry} is not a file of {geometries} ({_PAGE}).")
     if path.parent == geometries:

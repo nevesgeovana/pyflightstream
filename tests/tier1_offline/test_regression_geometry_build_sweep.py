@@ -3844,3 +3844,38 @@ class TestF2Package0405:
         )
         entry = storage.free_space(workspace.root, "m001", apply=False)
         assert [len(step["files"]) for step in entry["steps"]] == [1, 0]
+
+
+class TestF2Package0607Geometry:
+    """Tier 1, 0.43.0: the geometry converter and instruction reader (package F2-0607)."""
+
+    @staticmethod
+    def test_f744_converter_refuses_an_absolute_geometry_outside_the_workspace(tmp_path):
+        """F-744: an absolute path outside inputs/geometries is refused, nothing written."""
+        from pyflightstream.workspace._geometry_convert import instruction_from_sidecar
+
+        root = _geometry_build__workspace(tmp_path)
+        outside = tmp_path / "elsewhere" / "wing"
+        outside.mkdir(parents=True)
+        (outside / "wing.stl").write_text("solid x\n", encoding="utf-8")
+        with pytest.raises(InputArtifactError, match="outside"):
+            instruction_from_sidecar(outside / "wing.stl", root=root, apply=True)
+        assert list(outside.glob("*.geometry.toml")) == []
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("text", "word"),
+        [
+            ("[create]\nsections = 5\n", "sections"),
+            ('[create]\nsections = "abc"\n', "sections"),
+            ('outputs = 5\n[create]\n[[create.bodies]]\nshape = "sphere"\n', "outputs"),
+            ('outputs = "fsm"\n[create]\n[[create.bodies]]\nshape = "sphere"\n', "outputs"),
+            ('boundaries = 5\n[create]\n[[create.bodies]]\nshape = "sphere"\n', "boundaries"),
+            ('operations = 5\n[create]\n[[create.bodies]]\nshape = "sphere"\n', "operations"),
+        ],
+    )
+    def test_f1505_f1506_a_scalar_where_a_list_is_written_is_an_input_error(tmp_path, text, word):
+        """F-1505 F-1506: a scalar sections, outputs, boundaries or operations is refused."""
+        path = _geometry_instruction__write(tmp_path, text, name="s")
+        with pytest.raises(InputArtifactError, match=word):
+            read_geometry_instruction(path)

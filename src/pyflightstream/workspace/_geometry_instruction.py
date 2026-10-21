@@ -141,7 +141,14 @@ def _source_fields(path: Path, kind: str, table: object) -> dict[str, Any]:
     if kind == "mesh":
         table["file"] = _a_file_in_the_folder(path, kind, table.get("file"))
         return {"mesh": table}
-    for section in table.get("sections", []) or []:
+    sections = table.get("sections", []) or []
+    if not isinstance(sections, list):
+        raise _refuse(
+            path,
+            f"[create] sections is written as a {type(sections).__name__}; "
+            "write it as an array of tables, [[create.sections]]",
+        )
+    for section in sections:
         if isinstance(section, dict):
             section["file"] = _a_file_in_the_folder(path, "create.sections", section.get("file"))
     return {"create": table}
@@ -181,6 +188,14 @@ def read_geometry_instruction(path: str | Path) -> GeometryInstruction:
             f"the file does not read {', '.join(foreign)}; it reads {', '.join(sorted(_TOP_KEYS))}",
         )
     kind = _source_table(path, data)
+    for key in ("outputs", "boundaries", "operations"):
+        if key in data and not isinstance(data[key], list):
+            raise _refuse(
+                path,
+                f"{key} = {data[key]!r} is written as a {type(data[key]).__name__}; "
+                f"write {key} as a list"
+                + (", one [[operations]] table per operation" if key == "operations" else ""),
+            )
     fields: dict[str, Any] = {
         "name": data.get("name", instruction_stem(path)),
         "fs_build": data.get("fs_build"),
