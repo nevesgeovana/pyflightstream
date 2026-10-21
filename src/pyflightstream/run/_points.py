@@ -914,6 +914,23 @@ def start_the_wall_clock(job: _PointJob) -> None:
         _textio.write_text(job.work_dir / WALLTIME_CLOCK_STATE, job_start_state(time.time()))
 
 
+def _partial_outputs(job: _PointJob) -> dict[str, str]:
+    """Return the declared outputs a failed run left in its folder, with their digests.
+
+    Keyed by the name relative to the simulation folder, as a collected output is.
+    A file that cannot be read is left out: the failure record must still be written.
+    """
+    found: dict[str, str] = {}
+    for name in job.point_case.outputs:
+        path = job.work_dir / name
+        try:
+            if path.is_file():
+                found[path.relative_to(job.sim_dir).as_posix()] = file_sha256(path)
+        except (OSError, ValueError):
+            continue
+    return found
+
+
 def _run_point_solver(job: _PointJob) -> RunRecord | None:
     """Run point solver."""
     stale = [name for name in job.point_case.outputs if (job.work_dir / name).exists()]
@@ -1001,12 +1018,16 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
         # Use the shared diagnostic composer, including all captured channels on
         # timeout: standard output may hold pre-script evidence (INC-20260809-2230).
         error = job.result.diagnosis()
+        partial = _partial_outputs(job)
         return RunRecord(
             **job.base,
             status=RunStatus.FAILED_EXECUTION,
             wall_time_s=job.result.wall_time_s,
             error=error,
             submission=submitted,
+            # F-613, FR-19: what the solver left of its declared outputs is evidence too.
+            outputs=list(partial),
+            outputs_sha256=partial,
         )
 
     # FR-99. A SUBMITTED POINT HAS NO OUTPUTS YET, so nothing below runs.

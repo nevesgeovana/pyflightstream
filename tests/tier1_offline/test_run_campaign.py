@@ -4214,3 +4214,30 @@ def test_f612_a_prelaunch_oserror_is_not_reported_as_after_the_solver_ran(tmp_pa
     with pytest.raises(PermissionError):
         _points._run_point_solver(job)
     assert job.progress.solver_started is False
+
+
+WRITES_THEN_CRASHES = (
+    "import pathlib, sys; "
+    "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+    "[pathlib.Path(lines[i + 1]).write_text('PARTIAL') "
+    "for i, line in enumerate(lines) if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']; "
+    "sys.exit(2)"
+)
+
+
+def test_f613_a_failed_execution_inventories_the_partial_outputs(tmp_path):
+    """F-613 (FR-19): what a failed solver left of its declared outputs is recorded with digests."""
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(CampaignErrors, match="FAILED_EXECUTION"):
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_THEN_CRASHES),
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+        )
+    record = workspace.read_manifest()[0]
+    assert record.status is RunStatus.FAILED_EXECUTION
+    assert [Path(name).name for name in record.outputs] == ["loads_AL+000.txt"]
+    assert record.outputs_sha256 == {record.outputs[0]: hashlib.sha256(b"PARTIAL").hexdigest()}
