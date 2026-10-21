@@ -137,3 +137,18 @@ def test_submitted_is_documented_as_pending_and_not_a_workspace_attribute():
     assert "written and hashed" not in before_submitted
     assert "written and hashed" in source.split('EXTRACTED = "EXTRACTED"', 1)[0].splitlines()[-2]
     assert "Terminal status" not in (ExtractionStatus.__doc__ or "")
+
+
+def test_p0430_x_f_0548_a_placeholder_an_extraction_cannot_fill_is_a_refusal(tmp_path, monkeypatch):
+    """X-F-0548: a valid profile placeholder outside {sim} and {point} refuses, never a KeyError."""
+    import pytest
+
+    from pyflightstream.run import _additional
+    from pyflightstream.workspace import WorkspaceError
+
+    profile = SimpleNamespace(job_end_files=("{work_dir}/done.*",), native_log=None)
+    monkeypatch.setattr(_additional, "resolve_hpc_profile", lambda _inputs: profile)
+    workspace = SimpleNamespace(inputs_dir=tmp_path)
+    record = SimpleNamespace(point_name="p", sim_id="2001", submission={})
+    with pytest.raises(WorkspaceError, match="work_dir"):
+        _additional.extraction_job_end(workspace, record, tmp_path)

@@ -248,6 +248,17 @@ def discard_extraction_copy(
     return completed
 
 
+def _fill_end_pattern(pattern: str, sim: str, point: str) -> str:
+    """Fill the placeholders an extraction knows, or refuse naming the one it cannot fill."""
+    try:
+        return pattern.format(sim=sim, point=point)
+    except (KeyError, IndexError) as error:
+        raise WorkspaceError(
+            f"the HPC profile's log pattern {pattern!r} names {error}, which a submitted "
+            "extraction cannot fill; an extraction knows {sim} and {point} only"
+        ) from error
+
+
 def extraction_job_end(workspace, record, folder: Path) -> str | None:
     """Say how a submitted extraction's job is known to have ended, or None while it may run.
 
@@ -261,7 +272,7 @@ def extraction_job_end(workspace, record, folder: Path) -> str | None:
     patterns = tuple(getattr(profile, "job_end_files", ()) or ())
     found: list[Path] = []
     for pattern in patterns:
-        matched = [p for p in folder.glob(pattern.format(sim=record.sim_id, point=point))]
+        matched = [p for p in folder.glob(_fill_end_pattern(pattern, record.sim_id, point))]
         if not any(path.is_file() for path in matched):
             found = []
             break
