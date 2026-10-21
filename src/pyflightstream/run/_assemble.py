@@ -266,9 +266,25 @@ def _settle_points(
     assembled: list[RunRecord],
     refusals: dict[str, str],
 ) -> None:
-    """Keep the point with one export; refuse every export of a point with several."""
+    """Keep the point with one export; refuse every export of a point with several.
+
+    Two different points that would take one run id are refused by name too: a run id
+    names one point (FR-2001), so neither is kept.
+    """
+    exports_of_id: dict[str, list[str]] = {}
     for pairs in by_point.values():
         if len(pairs) == 1:
+            exports_of_id.setdefault(pairs[0][1].run_id, []).append(pairs[0][0])
+    for pairs in by_point.values():
+        if len(pairs) == 1:
+            colliding = exports_of_id[pairs[0][1].run_id]
+            if len(colliding) > 1:
+                refusals[pairs[0][0]] = (
+                    f"the run id {pairs[0][1].run_id}: {', '.join(colliding)} are different points "
+                    f"of row POL {pol}'s sweep that would take one run id, so none is kept; "
+                    "give each point its own DP-<name> folder"
+                )
+                continue
             assembled.append(pairs[0][1])
             continue
         # TWO EXPORTS AT ONE POINT COST BOTH, never a choice between them.

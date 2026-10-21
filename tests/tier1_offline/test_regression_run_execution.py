@@ -1235,3 +1235,25 @@ class TestRun1Review:
             mark_converged(workspace.root, ["7002"], reason=_RUN_1_REVIEW__REASON, apply=True)
         assert workspace.manifest_path.read_bytes() == before
         assert sorted((workspace.root / "archive").glob("runs-*.json")) == archives
+
+
+def test_f6_0102_two_different_points_with_one_run_id_are_both_refused():
+    """F-1453: a run id names one point, so a collision keeps neither point."""
+    from types import SimpleNamespace
+
+    from pyflightstream.run._assemble import _settle_points
+
+    def record(angle, run_id="ws/sim_1/loads"):
+        return SimpleNamespace(run_id=run_id, point={"alpha": angle})
+
+    by_point = {
+        "a": [("sims/sim_1/a/loads.txt", record(0.0))],
+        "b": [("sims/sim_1/b/loads.txt", record(2.0))],
+        "c": [("sims/sim_1/c/other.txt", record(4.0, "ws/sim_1/other"))],
+    }
+    assembled: list = []
+    refusals: dict[str, str] = {}
+    _settle_points(by_point, "1", assembled, refusals)
+    assert [item.run_id for item in assembled] == ["ws/sim_1/other"]
+    assert set(refusals) == {"sims/sim_1/a/loads.txt", "sims/sim_1/b/loads.txt"}
+    assert "one run id" in refusals["sims/sim_1/a/loads.txt"]
