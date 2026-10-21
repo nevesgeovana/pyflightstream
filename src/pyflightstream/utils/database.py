@@ -70,6 +70,11 @@ class Registration:
     already_recorded : tuple of str
         Unchanged commands whose entry already records this build. Not
         an error and not written again.
+    withheld : tuple of EditionDelta
+        Unchanged commands whose predecessor row is ``broken`` or a
+        MEASURED ``removed`` (the row cites a run). A reading of the new
+        edition cannot carry that measurement forward, so no row is
+        written for them; each needs a probe on the new build.
     undatabased : tuple of str
         Commands the new edition documents that the database does not
         record at all. Entering one is a different piece of work from
@@ -91,6 +96,7 @@ class Registration:
     already_recorded: tuple[str, ...]
     undatabased: tuple[str, ...]
     directory: Path
+    withheld: tuple[EditionDelta, ...] = ()
     written: int = 0
     chapters: tuple[Path, ...] = field(default_factory=tuple)
 
@@ -349,6 +355,7 @@ def register_edition(
     texts: dict[str, str] = {}
     already: list[str] = []
     writable: list[EditionDelta] = []
+    withheld: list[EditionDelta] = []
     for chapter, rows in sorted(by_chapter.items()):
         path = commands_dir / f"{chapter}.yaml"
         try:
@@ -366,8 +373,19 @@ def register_edition(
             # telling the operator to "fix the entry", which is an
             # invitation to hand-edit a database whose rows are not
             # hand-edited.
-            if target.label in (entry.get("versions") or {}):
+            versions = entry.get("versions") or {}
+            before = versions.get(previous.label) or {}
+            measured_removed = before.get("status") == "removed" and bool(
+                before.get("report") or before.get("probe_ref")
+            )
+            if target.label in versions:
                 already.append(delta.name)
+            elif before.get("status") == "broken" or measured_removed:
+                # A probe measured this command broken or refused on the
+                # predecessor build; an unchanged manual page says nothing
+                # about the solver, so it cannot carry that forward as
+                # "documented".
+                withheld.append(delta)
             else:
                 writable.append(delta)
 
@@ -380,6 +398,7 @@ def register_edition(
         already_recorded=tuple(sorted(already)),
         undatabased=undatabased,
         directory=commands_dir,
+        withheld=tuple(withheld),
     )
     if not write or not writable:
         return result

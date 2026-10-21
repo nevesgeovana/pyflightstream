@@ -662,3 +662,21 @@ def test_a_shared_release_name_names_the_manifest_rows_it_could_mean():
     assert "26.120" in message and "26.123" in message, message
     assert "release name" in message, message
     assert opened == [], "a manual was opened before the label was refused"
+
+
+@pytest.mark.requirement("FR-2304")
+def test_pfs_2119_025_a_measured_broken_predecessor_row_is_withheld_not_carried_forward(tree):
+    """PFS-2119.025: an unchanged page cannot turn a measured failure into 'documented'."""
+    chapters, _, _, _ = tree
+    path = chapters / "alpha.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["KEPT"]["versions"]["26.120"] = {"status": "broken", "report": "reports/x.json"}
+    path.write_bytes(yaml.safe_dump(data, sort_keys=False).encode("utf-8"))
+
+    result = _run(tree, write=True)
+
+    assert [d.name for d in result.withheld] == ["KEPT"]
+    assert {d.name for d in result.writable} == {"MOVED"}
+    assert result.written == 1
+    after = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert "26.123" not in after["KEPT"]["versions"]

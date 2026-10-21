@@ -736,6 +736,13 @@ def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         print("\n  newly documented by this edition, so each owes an entry of its own:")
         for delta in arrived:
             print(f"    {delta.name} ({target.source} p.{delta.page})")
+    if result.withheld:
+        print(f"\n  withheld, with no row written ({len(result.withheld)}):")
+        for delta in result.withheld:
+            print(
+                f"    {delta.name}: measured broken/removed on {previous.label}; "
+                f"needs a probe on {target.label}"
+            )
     if dropped:
         print("\n  dropped by this edition, so each owes a judgement of its own:")
         for delta in dropped:
