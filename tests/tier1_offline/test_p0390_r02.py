@@ -782,6 +782,9 @@ def test_one_reader_of_the_flag_treats_absent_and_blank_alike():
     assert ignores_missing_families(row(IGNORE_MISSING_FAMILIES="  ")) is True
     assert ignores_missing_families(row(IGNORE_MISSING_FAMILIES="false")) is False
     assert refuses_a_name_the_model_lacks(row(IGNORE_MISSING_FAMILIES="false")) is True
+    # F-1288: a Python False is a choice, never an absent key
+    assert ignores_missing_families(row(IGNORE_MISSING_FAMILIES=False)) is False
+    assert refuses_a_name_the_model_lacks(row(IGNORE_MISSING_FAMILIES=False)) is True
     from pyflightstream.cases.workflows import _names
 
     assert not hasattr(_names, "_ignore_missing_families")

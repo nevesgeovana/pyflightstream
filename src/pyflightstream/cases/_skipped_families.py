@@ -508,7 +508,8 @@ def ignores_missing_families(case: SimCase) -> bool:
         read_a_choice,
     )
 
-    stated = str(case.variables.get(IGNORE_MISSING_FAMILIES_VARIABLE) or "").strip()
+    raw = case.variables.get(IGNORE_MISSING_FAMILIES_VARIABLE)
+    stated = "" if raw is None else str(raw).strip()
     if not stated:
         return True
     try:
