@@ -261,6 +261,21 @@ class TestWorkspace2ExcelBridge:
         assert "\nPARTIAL\t" in text and "second.fs" in text, text
         assert code == 1
 
+    @staticmethod
+    def test_p0430_f733_a_refused_preview_keeps_the_callers_batch_file(tmp_path: Path):
+        """F-733: Preview never deletes a file at the batch path that is not a preview batch."""
+        _workspace_2_excel_bridge__matrix(tmp_path)
+        snap = _workspace_2_excel_bridge__imported(tmp_path)
+        response, batch = tmp_path / "response.tsv", tmp_path / "keep.json"
+        for direction in ("sideways", "write"):
+            request = _workspace_2_excel_bridge___request(
+                tmp_path / "request.tsv", tmp_path, direction, snap
+            )
+            batch.write_text("precious", encoding="utf-8")
+            assert bridge("preview", request, response, batch) == 1
+            assert response.read_text(encoding="utf-8").startswith("ERROR")
+            assert batch.read_text(encoding="utf-8") == "precious"
+
 
 _WORKSPACE_2_EXCEL_FILE___MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 

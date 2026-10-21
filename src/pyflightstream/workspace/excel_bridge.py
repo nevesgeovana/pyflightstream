@@ -219,10 +219,21 @@ def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
             dictionary_mapping(snapshot)
             records.append(["OK", "Dictionary is valid; no cells or matrices were changed."])
         elif action == "preview":
-            batch.unlink(missing_ok=True)
             stated_direction = metadata["direction"]
             if stated_direction not in ("read", "write"):
                 raise ExcelSyncError("direction must be read or write")
+            # F-733: an earlier preview is single-use and is invalidated here, but a
+            # file at the batch path that is NOT a preview batch is the caller's own:
+            # it is refused, never deleted without a backup.
+            if batch.exists():
+                try:
+                    preview_from_json(json.loads(batch.read_text(encoding="utf-8")))
+                except (ExcelSyncError, ValueError, OSError) as error:
+                    raise ExcelSyncError(
+                        f"{batch} exists and is not a preview batch, so Preview will not "
+                        "overwrite it; name another batch path or move the file."
+                    ) from error
+                batch.unlink()
             direction: Literal["read", "write"] = "read" if stated_direction == "read" else "write"
             selected = [
                 item.strip() for item in metadata.get("matrices", "").split(";") if item.strip()
