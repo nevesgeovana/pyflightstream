@@ -515,3 +515,15 @@ def test_f4_0506_a_subsonic_moving_rotor_is_accepted_f_157():
     for source in qn.rotor_point_forces(motion, load):
         assert source.max_speed_m_s == pytest.approx(math.hypot(100.0, 300.0))
         assert source.max_speed_m_s < 340.0
+
+
+@pytest.mark.requirement("FR-304")
+def test_f4_0506_the_comparison_reports_the_mean_ratio_and_refuses_incompatible_records():
+    reference = np.array([1.0, 2.0, 3.0, 2.0])
+    scaled = qn.compare_signals(reference, 3.0 * reference)
+    assert scaled.mean_ratio == pytest.approx(3.0)
+    assert qn.compare_signals(reference - reference.mean(), reference).mean_ratio is None
+    with pytest.raises(ProductError, match="not constant"):
+        qn.compare_signals(reference, np.ones(4))
+    with pytest.raises(ProductError, match="two samples"):
+        qn.compare_signals([1.0], [1.0])
