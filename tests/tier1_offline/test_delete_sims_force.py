@@ -239,8 +239,6 @@ def test_f1543_malformed_storage_register_raises_storage_error(tmp_path, documen
         storage_module.record_storage_call(workspace.root, {"action": "x"})
 
 
-
-
 def test_f347_disk_estimate_ignores_empty_datapoint_folders(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.init(workspace.root)
@@ -322,3 +320,32 @@ def test_f1234_a_tombstone_names_its_call_by_stamp_when_another_call_intervenes(
     by_stamp = [c for c in calls if c.get("delete_stamp") == tombstone["delete_stamp"]]
     assert by_stamp
     assert by_stamp[-1]["action"] == "delete-sims" and by_stamp[-1]["applied"] is True
+
+
+def _archive_with_hash_table(tmp_path, members):
+    import zipfile
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.init(workspace.root)
+    archive = workspace.root / "sims" / "sim_9001.zip"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("a.txt", "a")
+        if members is not None:
+            zf.writestr(storage_module._COMPACT_META, json.dumps({"members": members}))
+    return workspace, archive
+
+
+def test_x_f1369_a_member_missing_from_the_zip_is_a_storage_error_and_leaves_no_folder(tmp_path):
+    workspace, archive = _archive_with_hash_table(tmp_path, {"gone.txt": "0" * 64})
+    folder = workspace.sim_dir("9001")
+    with pytest.raises(StorageError, match="gone.txt"):
+        storage_module._expand_archive(workspace, folder, archive)
+    assert not list(folder.parent.glob("*.restoring"))
+    assert archive.is_file()
+
+
+def test_x_f1370_an_archive_without_a_hash_table_warns_that_nothing_is_verified(tmp_path):
+    workspace, archive = _archive_with_hash_table(tmp_path, None)
+    with pytest.warns(Warning, match="without a hash check"):
+        storage_module._expand_archive(workspace, workspace.sim_dir("9001"), archive)

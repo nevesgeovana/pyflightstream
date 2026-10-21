@@ -591,15 +591,30 @@ def _extract_verified(archive: Path, temporary: Path) -> dict[str, Any]:
     A member that leaves the folder, or whose hash differs from the recorded
     one, refuses the restore (the second after removing the extracted copy).
     """
-    with zipfile.ZipFile(archive) as zf:
-        meta = json.loads(zf.read(_COMPACT_META)) if _COMPACT_META in zf.namelist() else {}
-        for info in zf.infolist():
-            if info.filename == _COMPACT_META:
-                continue
-            target = (temporary / info.filename).resolve()
-            if temporary.resolve() not in target.parents:
-                raise StorageError(f"{archive}: member {info.filename} leaves the folder")
-            zf.extract(info, temporary)
+    try:
+        with zipfile.ZipFile(archive) as zf:
+            if _COMPACT_META in zf.namelist():
+                meta = json.loads(zf.read(_COMPACT_META))
+            else:
+                meta = {}
+                warn(
+                    f"{archive} carries no {_COMPACT_META}: its members are restored without "
+                    "a hash check (only the zip's own CRC is verified).",
+                    PyflightstreamWarning,
+                )
+            for info in zf.infolist():
+                if info.filename == _COMPACT_META:
+                    continue
+                target = (temporary / info.filename).resolve()
+                if temporary.resolve() not in target.parents:
+                    raise StorageError(f"{archive}: member {info.filename} leaves the folder")
+                zf.extract(info, temporary)
+        for name in dict(meta.get("members", {})):
+            if not (temporary / name).is_file():
+                raise StorageError(f"{archive}: {name} is listed in its hash table but absent")
+    except BaseException:
+        shutil.rmtree(temporary, ignore_errors=True)
+        raise
     for name, digest in dict(meta.get("members", {})).items():
         if _sha256(temporary / name) != digest:
             shutil.rmtree(temporary)
