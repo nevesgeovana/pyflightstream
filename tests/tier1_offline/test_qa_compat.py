@@ -2198,3 +2198,108 @@ def test_f536_withheld_identity_names_the_build_the_binary_printed():
     )
     assert printed == "withheld; build 9992026"
     assert public_executable_identity(None, "26.120", ("build #9992026",)) is None
+
+
+@pytest.mark.parametrize(
+    "commands", [["PRINT"], {"PRINT": "verified"}], ids=["list-body", "string-command-body"]
+)
+def test_f6_15_reading_a_directory_refuses_a_malformed_commands_body(tmp_path, commands):
+    """F-1425 / X-F-1211: a schema-marked report with a bad body is a QaEvidenceError."""
+    from pyflightstream.qa.compat import read_compat_reports
+
+    document = {"schema": COMPAT_SCHEMA, "fs_version": "26.120", "commands": commands}
+    (tmp_path / "bad.yaml").write_text(yaml.safe_dump(document), encoding="utf-8")
+    with pytest.raises(QaEvidenceError, match="commands"):
+        read_compat_reports(tmp_path, repo_root=tmp_path)
+
+
+def test_f6_15_manual_ref_accepts_the_plural_page_form_and_names_the_rejection(tmp_path):
+    """F-1427: pp. is a page citation the database accepts; a refusal names value and forms."""
+    from pyflightstream.qa.compat import record_unprobed_build
+
+    commands = tmp_path / "commands"
+    write_chapter_fixture(commands)
+    report = write_report(
+        tmp_path, {"PRINT": {"outcome": "unprobed", "detail": "no effect"}}, version="26.121"
+    )
+    with pytest.raises(QaEvidenceError) as raised:
+        record_unprobed_build(
+            report, "PRINT", manual_ref="FSM-26.121 290", repo_root=tmp_path, commands_dir=commands
+        )
+    assert "'FSM-26.121 290'" in str(raised.value)
+    assert "pp.<pages>" in str(raised.value)
+    record_unprobed_build(
+        report, "PRINT", manual_ref="FSM-26.121 pp.290", repo_root=tmp_path, commands_dir=commands
+    )
+    assert "FSM-26.121 pp.290" in (commands / "script_controls.yaml").read_text(encoding="utf-8")
+
+
+def test_f6_15_reanalysis_of_an_unregistered_build_is_a_qa_evidence_error(tmp_path):
+    """F-1428: apply_reanalysis checks the version against the registry like apply_compat."""
+    from pyflightstream.qa.compat import apply_reanalysis, write_reanalysis
+
+    commands = tmp_path / "src" / "pyflightstream" / "commands"
+    commands.parent.mkdir(parents=True)
+    write_chapter_fixture(commands)
+    # The tree's own registry lists 26.120 only; 26.121 is registered globally.
+    (commands / "_meta.yaml").write_text(META_FIXTURE.rsplit("  - canonical", 1)[0], "utf-8")
+    reports = tmp_path / "reports" / "compat"
+    reports.mkdir(parents=True)
+    original = reports / "CMP-26121_2026-09-01_control.yaml"
+    document = {
+        "schema": COMPAT_SCHEMA,
+        "fs_version": "26.121",
+        "date": "2026-09-01",
+        "commands": {"PRINT": {"outcome": "verified", "detail": "workflow completed"}},
+    }
+    original.write_text(yaml.safe_dump(document), encoding="utf-8")
+    analysis, _ = write_reanalysis(
+        original,
+        {"PRINT": "The workflow did not isolate this command's effect."},
+        repo_root=tmp_path,
+        date="2026-10-16",
+        label="judgment-review",
+    )
+    with pytest.raises(QaEvidenceError, match="does not list"):
+        apply_reanalysis(analysis, repo_root=tmp_path)
+
+
+def test_f6_15_reanalysis_refuses_surviving_evidence_outside_the_repository(tmp_path, monkeypatch):
+    """F-709: a survivor cited by absolute path is refused, as apply_compat refuses it."""
+    from pyflightstream.qa import compat
+    from pyflightstream.qa.compat import Judgment, apply_reanalysis, write_reanalysis
+
+    commands = tmp_path / "src" / "pyflightstream" / "commands"
+    commands.parent.mkdir(parents=True)
+    write_chapter_fixture(commands)
+    reports = tmp_path / "reports" / "compat"
+    reports.mkdir(parents=True)
+    original = reports / "CMP-26120_2026-09-01_control.yaml"
+    document = {
+        "schema": COMPAT_SCHEMA,
+        "fs_version": "26.120",
+        "date": "2026-09-01",
+        "commands": {"PRINT": {"outcome": "verified", "detail": "workflow completed"}},
+    }
+    original.write_text(yaml.safe_dump(document), encoding="utf-8")
+    analysis, _ = write_reanalysis(
+        original,
+        {"PRINT": "The workflow did not isolate this command's effect."},
+        repo_root=tmp_path,
+        date="2026-10-16",
+        label="judgment-review",
+    )
+    outside = (tmp_path.parent / "elsewhere" / "CMP-26120_2026-09-02.yaml").as_posix()
+    survivor = Judgment(
+        command="PRINT",
+        fs_version="26.120",
+        outcome=ProbeOutcome.VERIFIED,
+        date="2026-09-02",
+        report=outside,
+    )
+    monkeypatch.setattr(
+        compat, "read_compat_reports", lambda *a, **k: {("PRINT", "26.120"): (survivor,)}
+    )
+    with pytest.raises(QaEvidenceError, match="outside"):
+        apply_reanalysis(analysis, repo_root=tmp_path)
+    assert outside not in (commands / "script_controls.yaml").read_text(encoding="utf-8")

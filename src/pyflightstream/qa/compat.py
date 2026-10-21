@@ -477,7 +477,9 @@ def read_compat_reports(
     Raises
     ------
     QaEvidenceError
-        If ``reports_dir`` is given explicitly and is not a directory.
+        If ``reports_dir`` is given explicitly and is not a directory, or a
+        file carrying the compat schema has a ``commands`` body that is not
+        a mapping of command to mapping.
     """
     root = Path(repo_root).resolve()
     # Defaulting here rather than only in apply_compat: every caller of
@@ -519,6 +521,14 @@ def read_compat_reports(
         document = _load_yaml(path)
         if not isinstance(document, dict) or document.get("schema") != COMPAT_SCHEMA:
             continue
+        commands = document.get("commands") or {}
+        if not isinstance(commands, dict) or not all(
+            isinstance(body, dict) for body in commands.values()
+        ):
+            raise QaEvidenceError(
+                f"{path} carries the compat schema but its commands are not a mapping of "
+                "command to a mapping carrying an outcome; nothing was read"
+            )
         withdrawn.update(_withdrawals(document, root))
         try:
             citation = path.resolve().relative_to(root).as_posix()
@@ -684,9 +694,9 @@ def apply_compat(
         ``<repo_root>/reports/compat``. It is anchored on the
         repository rather than on the report's own folder so that
         applying a report written to a scratch directory is still
-        checked against the committed evidence. A directory that does
-        not exist yields an empty index, which is the first-report
-        case.
+        checked against the committed evidence. A default directory that
+        does not exist yields an empty index, which is the first-report
+        case; an explicitly given one that is not a directory is refused.
 
     Returns
     -------
@@ -722,14 +732,7 @@ def apply_compat(
         ) from None
     commands_dir = resolve_commands_dir(root, commands_dir)
     order = _release_order(commands_dir)
-    if canonical not in order:
-        raise QaEvidenceError(
-            f"the report names FlightStream version {canonical!r}, which the version "
-            f"registry beside {commands_dir} does not list. Register it in "
-            "commands/_meta.yaml first (the ordered list is the only ordering "
-            "authority); nothing was written. Registered: "
-            f"{', '.join(sorted(order, key=order.__getitem__))}"
-        )
+    _require_registered(canonical, order, commands_dir)
 
     targets = {
         name: body
@@ -860,8 +863,11 @@ def record_unprobed_build(
         raise QaEvidenceError("the unprobed report must be inside repo_root") from None
     if report["commands"].get(command, {}).get("outcome") != "unprobed":
         raise QaEvidenceError(f"{command}: the report must record unprobed")
-    if not manual_ref.startswith(f"FSM-{canonical} p."):
-        raise QaEvidenceError(f"{command}: cite a page of FSM-{canonical}")
+    if not re.match(rf"FSM-{re.escape(canonical)}\s+pp?\.", manual_ref):
+        raise QaEvidenceError(
+            f"{command}: cite a page of FSM-{canonical}; {manual_ref!r} is rejected. "
+            f"Accepted forms: 'FSM-{canonical} p.<page>' or 'FSM-{canonical} pp.<pages>'"
+        )
     if read_compat_reports(repo_root=root).get((command, canonical)):
         raise QaEvidenceError(f"{command}: explicit measured evidence requires reconciliation")
     directory = resolve_commands_dir(root, commands_dir)
@@ -977,6 +983,18 @@ def _one_line_note(detail: str) -> str:
     # still beats a hard cut without it.
     trimmed = head.rsplit(" ", 1)[0].rstrip(" ,;:") if " " in head else head
     return f"{trimmed}{_NOTE_CUT_MARKER}"
+
+
+def _require_registered(canonical: str, order: dict[str, int], commands_dir: Path) -> None:
+    """Refuse a report whose build the version registry beside ``commands_dir`` lacks."""
+    if canonical not in order:
+        raise QaEvidenceError(
+            f"the report names FlightStream version {canonical!r}, which the version "
+            f"registry beside {commands_dir} does not list. Register it in "
+            "commands/_meta.yaml first (the ordered list is the only ordering "
+            "authority); nothing was written. Registered: "
+            f"{', '.join(sorted(order, key=order.__getitem__))}"
+        )
 
 
 def _release_order(commands_dir: Path) -> dict[str, int]:
@@ -1916,6 +1934,7 @@ def apply_reanalysis(report_path: str | Path, *, repo_root: str | Path) -> list[
     directory = resolve_commands_dir(root)
     order = _release_order(directory)
     version = report["fs_version"]
+    _require_registered(version, order, directory)
     judgments = read_compat_reports(repo_root=root)
     pending = set(names)
     rewritten = []
@@ -1928,6 +1947,12 @@ def apply_reanalysis(report_path: str | Path, *, repo_root: str | Path) -> list[
         for name in selected:
             remaining = judgments.get((name, version), ())
             source = remaining[-1].report if remaining else citation
+            if Path(source).is_absolute():
+                raise QaEvidenceError(
+                    f"{name}: the surviving evidence {source} lies outside {root} (reached "
+                    "through a link), so the citation written into the database would not "
+                    "be a repository-relative path; nothing was written"
+                )
             body = (
                 read_compat_report(root / source)["commands"][name]
                 if remaining
