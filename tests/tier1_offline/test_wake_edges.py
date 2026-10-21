@@ -632,3 +632,12 @@ def test_f1237_f350_a_malformed_mesh_is_refused_as_an_input_artifact(vertices, f
     mesh = SimpleNamespace(vertices=numpy.asarray(vertices, float), faces=numpy.asarray(faces))
     with pytest.raises(InputArtifactError, match=words):
         _mesh_edge_midpoints(mesh)
+
+
+def test_a_byte_order_mark_before_the_unit_line_is_accepted(tmp_path):
+    """F-1547: an editor's BOM must not turn the unit line into an unknown unit."""
+    path = tmp_path / "bom.te.txt"
+    path.write_bytes(b"\xef\xbb\xbfMETER\n1.0,2.0,3.0\n")
+    read = read_trailing_edge_points(path)
+    assert read.unit == "METER"
+    assert read.points.shape == (1, 3)

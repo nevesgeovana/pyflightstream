@@ -618,7 +618,7 @@ def read_trailing_edge_points(path: str | Path) -> TrailingEdgePoints:
     """
     source = Path(path)
     try:
-        text = source.read_text(encoding="utf-8")
+        text = source.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeDecodeError) as error:
         raise InputArtifactError(
             f"the trailing-edge points file {source} cannot be read: {error}",
