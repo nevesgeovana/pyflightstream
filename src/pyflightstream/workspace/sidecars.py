@@ -1129,11 +1129,17 @@ def read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMar
                 f"{where} states file = {written!r}; write the name of the points file, "
                 'beside the sidecar, as file = "wing.te.txt".'
             )
+        named = Path(written.strip())
+        if named.is_absolute() or named.root or named.drive or ".." in named.parts:
+            raise InputArtifactError(
+                f"{where} states file = {written!r}, which is not beside the sidecar; write the "
+                'name of a points file in the sidecar\'s folder, as file = "wing.te.txt".'
+            )
         fields = {
             "route": "file",
             "edge_type": table.get("type", "STANDARD"),
             "tolerance": tolerance,
-            "points_file": str(path.parent / written.strip()),
+            "points_file": str(path.parent / named),
         }
     else:
         beside = sorted(key for key in ("type", "tolerance") if key in table)
