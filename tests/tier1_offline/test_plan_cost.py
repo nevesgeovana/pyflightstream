@@ -695,3 +695,19 @@ def test_a_plan_with_no_points_still_constructs(tmp_path):
     plan = CampaignPlan(campaign="camp", fs_version="26.123")
     assert plan.points == []
     assert plan.costs == []
+
+
+def test_f6_0102_the_run_length_line_labels_the_length_nominal_helical_travel():
+    """C-SRS-S02-008 (FR-908): the printed run length is nominal, never a measured wake length."""
+    from pyflightstream.run._plan import run_wake_length_line
+
+    line = run_wake_length_line(
+        {
+            "length_r": 4.0,
+            "time_iterations": 800,
+            "revolutions": 1.6,
+            "v_ax_m_s": 30.0,
+            "rule": "free_stream",
+        }
+    )
+    assert "nominal helical travel" in line and "not a measured wake length" in line

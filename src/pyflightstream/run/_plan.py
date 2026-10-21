@@ -874,7 +874,8 @@ def run_wake_length_line(run: Mapping[str, object]) -> str:
     return (
         f"run length RUN_WAKE_LENGTH_R = {run.get('length_r'):g} R: "
         f"{run.get('time_iterations')} steps, {run.get('revolutions'):.4g} revolution(s), "
-        f"V_ax {run.get('v_ax_m_s'):.4g} m/s ({run.get('rule')})"
+        f"V_ax {run.get('v_ax_m_s'):.4g} m/s ({run.get('rule')}); "
+        "nominal helical travel, not a measured wake length"
     )
 
 
