@@ -667,8 +667,11 @@ class TestScriptReview:
         if version == "26.124":
             assert (record.provenance, record.value) == ("default", 100.0)
         else:
-            # The accepted fallback until per-version defaults have a schema.
-            assert (record.provenance, record.value, record.evidence) == ("unknown", None, None)
+            assert (record.provenance, record.value, record.evidence) == (
+                "default",
+                10.0,
+                "FSM-26.125 p.358",
+            )
         assert not record.emitted
         setup = helpers.solver_settings(script, jet_wake_decay_normalized_length=17.0)
         explicit = setup.flags["SET_JET_WAKE_DECAY_NORMALIZED_LENGTH"]

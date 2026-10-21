@@ -11,6 +11,18 @@ from pyflightstream.run.cli import _build_parser
 from pyflightstream.script import Script
 
 
+@pytest.mark.parametrize(
+    "version,expected,citation",
+    [("26.124", "100.0", "FSM-26.120 p.346"), ("26.125", "10.0", "FSM-26.125 p.358")],
+)
+def test_p0430_rb1_setup_evidence_uses_build_default(version, expected, citation):
+    from pyflightstream.workspace.setup_standards import setup_entry_evidence
+
+    available, evidence = setup_entry_evidence("jet_wake_decay_normalized_length", version)
+    assert available
+    assert f"documented default: {expected} ({citation})" in evidence
+
+
 def test_plan_accepts_combinable_setup_generation_flags():
     try:
         args = _build_parser().parse_args(

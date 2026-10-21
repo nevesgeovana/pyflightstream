@@ -575,7 +575,10 @@ def _setup_entry_evidence(key: str, version: str) -> tuple[bool, str]:
     if command is None:
         return True, "Package/workflow setting; applicability depends on the selected row."
     entry = registry.commands[command]
-    available = command in registry.for_version(version)
+    view = registry.for_version(version)
+    available = command in view
+    if available:
+        entry = view[command]
     status = entry.versions.get(version)
     evidence = "no recorded evidence" if status is None else status.status.value
     citation = entry.manual_ref or entry.probe_ref

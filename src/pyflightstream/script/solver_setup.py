@@ -80,11 +80,6 @@ _EXPLICIT: Literal["explicit"] = "explicit"
 _DEFAULT: Literal["default"] = "default"
 _UNKNOWN: Literal["unknown"] = "unknown"
 
-# The 26.125 evidence row contradicts the entry-level default (FSM-26.125
-# p.358). Until version rows can carry structured defaults, suppress that
-# inherited value, including for builds inheriting this evidence row.
-_UNREPRESENTED_DEFAULTS = frozenset({("SET_JET_WAKE_DECAY_NORMALIZED_LENGTH", "26.125")})
-
 
 @dataclass(frozen=True)
 class FlagSpec:
@@ -1009,17 +1004,18 @@ def build_setup(
                 "three settings families, or the provenance record would silently lag "
                 "the command database)"
             )
-        evidence = entry.evidence_in(view.version)
-        default_known = evidence is None or (name, evidence.source) not in _UNREPRESENTED_DEFAULTS
+        available = name in view
         flags[name] = _family_record(
             spec,
-            entry,
+            view[name] if available else entry,
             passed,
-            available=name in view and default_known,
+            available=available,
             minimum_cp_default_emitted=minimum_cp_default_emitted,
         )
     flags[VORTICITY_COMMAND] = _vorticity_record(
-        registry.commands[VORTICITY_COMMAND],
+        view[VORTICITY_COMMAND]
+        if VORTICITY_COMMAND in view
+        else registry.commands[VORTICITY_COMMAND],
         passed,
         available=VORTICITY_COMMAND in view,
     )

@@ -56,6 +56,25 @@ from tests.tier1_offline.test_workflows import (
 from tests.tier1_offline.test_workflows import rotor_case as _fr317_fr318_moments_model__rotor_case
 
 
+@pytest.mark.parametrize(
+    "version,expected,citation",
+    [("26.124", 100.0, "FSM-26.120 p.346"), ("26.125", 10.0, "FSM-26.125 p.358")],
+)
+def test_p0430_rb1_snapshot_uses_build_default(version, expected, citation):
+    setup = solver_setup.build_setup(version=version, passed={}, minimum_cp_default_emitted=False)
+    flag = setup.flags["SET_JET_WAKE_DECAY_NORMALIZED_LENGTH"]
+    assert flag.value == expected
+    assert flag.evidence == citation
+    assert not flag.emitted
+    explicit = solver_setup.build_setup(
+        version=version,
+        passed={"jet_wake_decay_normalized_length": 37.0},
+        minimum_cp_default_emitted=False,
+    ).flags["SET_JET_WAKE_DECAY_NORMALIZED_LENGTH"]
+    assert explicit.value == 37.0
+    assert explicit.emitted and explicit.provenance == "explicit"
+
+
 def family_commands() -> set[str]:
     registry = CommandRegistry.load()
     return {name for name, entry in registry.commands.items() if entry.chapter in SNAPSHOT_FAMILIES}
@@ -211,41 +230,21 @@ def test_provenance_markers_and_default_evidence():
 
 
 def test_defaults_of_commands_absent_from_the_version_stay_unknown():
-    # 26.101 records no evidence for SOLVER_MINIMUM_CP or
-    # SOLVER_SET_FARFIELD_LAYERS, so the library default is not emitted
-    # and nothing is claimed. Naming the two commands rather than the
-    # advanced_settings family, which is no longer empty on that build:
-    # LAMINAR_SEPARATION is recorded there.
-    #
-    # This test named SET_BOUNDARY_LAYER_TYPE until 2026-08-07, when the
-    # review found the May edition documents that command (FSM-26.101 p.340)
-    # and the entry had no row for it. The command became emittable on
-    # 26.101 and the assertion turned green in the wrong direction: a
-    # default WAS now claimed there, correctly. The two named above are
-    # the ones the May manual genuinely does not carry.
-    registry = CommandRegistry.load()
-    witnesses = {
-        version: sorted(
-            name
-            for name, entry in registry.commands.items()
-            if entry.default is not None and name not in registry.for_version(version)
-        )
-        for version in ("26.100", "26.101")
-    }
-    if not any(witnesses.values()):
-        pytest.skip(
-            "no witness in the current database: every command carrying a library "
-            "default is now available on every registered build, after the 2026-08-08 "
-            "backfill of the early editions. The rule this test guards is still "
-            "implemented, and it has no live case to exercise, which is the state "
-            "PLN-20260808-1400 records rather than papers over"
-        )
-    version, absent = next((v, names) for v, names in witnesses.items() if names)
-    script = Script(version=version)
+    # Keep the witness inside the snapshot families and independent of manual backfills.
+    name = "SOLVER_SET_FARFIELD_LAYERS"
+    registry = registry_without(name)
+    assert registry.commands[name].chapter in SNAPSHOT_FAMILIES
+    assert registry.commands[name].default is not None
+    script = Script(version="26.101", registry=registry)
     setup = helpers.solver_settings(script, vorticity_drag_boundaries="all")
-    for name in absent:
-        assert name not in script.render()
-        assert setup.flags[name].provenance == "unknown"
+    assert name not in script.render()
+    flag = setup.flags[name]
+    assert (flag.provenance, flag.value, flag.evidence, flag.emitted) == (
+        "unknown",
+        None,
+        None,
+        False,
+    )
 
 
 # --- the optional vorticity selection ---------------------------------------
