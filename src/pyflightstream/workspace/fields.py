@@ -945,6 +945,12 @@ def _refuse_what_the_reader_refuses(field: Field) -> None:
     if not field.rows:
         raise WorkspaceError(f"{field.name}: the result holds no point.")
     _refuse_a_wrong_count(field)
+    for number, row in enumerate(field.rows, start=1):
+        if len(row) != 6 or not all(math.isfinite(value) for value in row):
+            raise WorkspaceError(
+                f"{field.name}, row {number}: a custom free-stream row states six finite "
+                f"numbers (x y z u v w); got {len(row)} value(s) {row!r}."
+            )
     xs = {row[0] for row in field.rows}
     if len(xs) != 1:
         raise WorkspaceError(
@@ -958,6 +964,17 @@ def _refuse_what_the_reader_refuses(field: Field) -> None:
                 f"the result states one {axis}; a custom free stream states at least two "
                 "distinct y and two distinct z."
             )
+
+
+def _provenance_text(provenance: Mapping[str, object]) -> str:
+    """Render a provenance record, refusing parameters JSON cannot hold."""
+    try:
+        return json.dumps(provenance, indent=2) + "\n"
+    except (TypeError, ValueError) as error:
+        raise WorkspaceError(
+            f"the provenance record cannot be written ({error}): the operation's parameters "
+            "must be plain JSON values (numbers, text, lists, mappings)."
+        ) from error
 
 
 def _check_stem(stem: str) -> str:
@@ -1054,6 +1071,17 @@ def write_freestream(
             "states the form, so one stem names one file. Choose another stem, or remove it."
         )
     extras = {folder / f"{name}{suffix_}": text for suffix_, text in (sidecars or {}).items()}
+    # F-1495: a sidecar suffix that names the field's own file, the provenance record
+    # or another sidecar (case-insensitively) would overwrite one with the other.
+    claimed = {target.name.casefold(), sidecar.name.casefold()}
+    for path in extras:
+        if path.name.casefold() in claimed:
+            raise WorkspaceError(
+                f"the sidecar {path.name!r} names a file this write already produces "
+                "(the field, its provenance record or another sidecar); choose a suffix "
+                "that names a file of its own."
+            )
+        claimed.add(path.name.casefold())
     existing = tuple(path for path in (target, sidecar, *extras) if path.exists())
     if existing and not overwrite:
         raise WorkspaceError(
@@ -1079,6 +1107,7 @@ def write_freestream(
             {"file": f"inputs/{FREESTREAM_DIR}/{path.name}", "sha256": text_sha256(extra)}
             for path, extra in extras.items()
         ]
+    record = _provenance_text(provenance)  # before any file: preview equals apply (F-1205)
     if apply:
         folder.mkdir(parents=True, exist_ok=True)
         # Through the LF route: the record's sha256 is of these exact bytes, and
@@ -1086,7 +1115,7 @@ def write_freestream(
         _textio.write_text(target, text)
         for path, extra in extras.items():
             _textio.write_text(path, extra)
-        _textio.write_text(sidecar, json.dumps(provenance, indent=2) + "\n")
+        _textio.write_text(sidecar, record)
     return FieldWrite(target, sidecar, field, provenance, apply, existing if apply else ())
 
 
@@ -1159,8 +1188,9 @@ def write_fluctuation(
         },
         "units": {"coordinates": "m", "velocity": "m/s", "frame": "global", "converted": False},
     }
+    record = _provenance_text(provenance)  # before any file: preview equals apply (F-1206)
     if apply:
         folder.mkdir(parents=True, exist_ok=True)
         _textio.write_text(target, text)
-        _textio.write_text(sidecar, json.dumps(provenance, indent=2) + "\n")
+        _textio.write_text(sidecar, record)
     return FluctuationWrite(target, sidecar, provenance, apply, existing if apply else ())

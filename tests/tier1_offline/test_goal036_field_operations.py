@@ -570,3 +570,64 @@ def test_p0420_the_fluctuation_help_states_the_consecutive_step_rule(capsys):
     text = " ".join(capsys.readouterr().out.split())
     assert "CONSECUTIVE" in text
     assert "needs --fluctuation or --fluctuation-only" in text
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        (2.0, 1.0, 0.5, float("nan"), 0.0, 0.0),
+        (2.0, 1.0, 0.5, 30.0, 0.0),
+        (2.0, math.inf, 0.5, 1.0, 0.0, 0.0),
+    ],
+)
+def test_p0430_f312_write_refuses_a_row_that_is_not_six_finite_numbers(tmp_path, row):
+    field = Field("UNSTRUCTURED", (row, SURVEY[1], SURVEY[2]))
+    with pytest.raises(WorkspaceError, match="six finite"):
+        wfields.write_freestream(
+            tmp_path, "bad", field, operation="move", parameters={}, inputs=[], apply=True
+        )
+    assert not (tmp_path / "inputs").exists()
+
+
+@pytest.mark.parametrize("sidecars", [{".dat": "x"}, {".provenance.json": "x"}, {".DAT": "x"}])
+def test_p0430_f1495_a_sidecar_suffix_may_not_collide_with_the_written_files(tmp_path, sidecars):
+    field = Field("UNSTRUCTURED", SURVEY)
+    with pytest.raises(WorkspaceError, match="sidecar"):
+        wfields.write_freestream(
+            tmp_path,
+            "s",
+            field,
+            operation="move",
+            parameters={},
+            inputs=[],
+            apply=True,
+            sidecars=sidecars,
+        )
+    assert not (tmp_path / "inputs").exists()
+
+
+def test_p0430_f1205_unserializable_parameters_fail_before_any_file_is_published(tmp_path):
+    field = Field("UNSTRUCTURED", SURVEY)
+    for apply in (False, True):
+        with pytest.raises(WorkspaceError, match="provenance"):
+            wfields.write_freestream(
+                tmp_path,
+                "p",
+                field,
+                operation="move",
+                parameters={"x": object()},
+                inputs=[],
+                apply=apply,
+            )
+    assert not (tmp_path / "inputs").exists()
+
+
+def test_p0430_f1206_fluctuation_unserializable_parameters_fail_before_publishing(tmp_path):
+    steps = [StepField(float(i), Field("UNSTRUCTURED", SURVEY)) for i in range(3)]
+    report = wfields.fluctuation_report(steps)
+    for apply in (False, True):
+        with pytest.raises(WorkspaceError, match="provenance"):
+            wfields.write_fluctuation(
+                tmp_path, "f", report, parameters={"x": object()}, inputs=[], apply=apply
+            )
+    assert not (tmp_path / "inputs").exists()
