@@ -3693,7 +3693,10 @@ class TestF2Package0405:
         plan = build.plan_geometry_build(
             "wing", cwd=folder.parent, registry=_geometry_build__verified_registry()
         )
-        monkeypatch.setattr(build, "_room_for_a_second_run", lambda: False)
+        # RB4-04: the floor is free when the sweep starts and taken afterwards, so only a
+        # reading at each variant start keeps the queued variants one at a time.
+        answers = iter([True])
+        monkeypatch.setattr(build, "_room_for_a_second_run", lambda: next(answers, False))
         lock = threading.Lock()
         state = {"active": 0, "peak": 0}
         stand_in = _geometry_complete___body_runner()
