@@ -304,7 +304,7 @@ def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> Har
             )
             break
         gap = _largest_gap_deg([order * float(value) for value in azimuths_deg])
-        if gap > _LARGEST_GAP_DEG:
+        if gap > _LARGEST_GAP_DEG + 8 * math.ulp(360.0):
             reason = (
                 f"the {order}P term and above are left out: the angles {order} psi of the "
                 f"samples leave a gap of {gap:.6g} deg around the circle, and a {order}P fit "
@@ -318,6 +318,7 @@ def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> Har
     matrix = np.column_stack(design)
     coefficients, *_ = np.linalg.lstsq(matrix, load, rcond=None)
     residual = load - matrix @ coefficients
+    residual_scale = float(np.max(np.abs(residual)))
     terms: list[float | None] = []
     for order in (1, 2):
         if order > orders:
@@ -333,7 +334,11 @@ def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> Har
         h1_phase_deg=terms[1],
         h2_amp=terms[2],
         h2_phase_deg=terms[3],
-        residual_rms=float(np.sqrt(np.mean(residual**2))),
+        residual_rms=(
+            residual_scale * float(np.sqrt(np.mean((residual / residual_scale) ** 2)))
+            if residual_scale
+            else 0.0
+        ),
         reason=reason,
     )
 
@@ -512,6 +517,7 @@ def station_harmonics(
     quantities = load_quantities(columns)
     samples: dict[str, list[tuple[float, list[Mapping[str, str]]]]] = {}
     planes: dict[str, set[str]] = {}
+    distributions: dict[tuple[str, int], set[str]] = {}
     for block in sample_blocks(rows, sample_column):
         first = block[0]
         rotor = rotors.get(first.get("ROTOR", ""))
@@ -521,7 +527,14 @@ def station_harmonics(
         families = [] if family in ("", NOT_APPLICABLE) else family.split("+")
         blade = blade_of(families, rotor)
         stated = _number(first.get("AZIMUTH"))
-        if blade is None or stated is None:
+        if blade is None:
+            continue
+        distributions.setdefault((rotor.alias, blade), set()).add(family)
+        if stated is None:
+            result.notes.append(
+                f"rotor {rotor.alias!r}: blade {blade} at {sample_column}="
+                f"{first.get(sample_column)!r} has no available azimuth; its block is omitted"
+            )
             continue
         psi = (
             placed_blade_azimuth_deg(stated, blade=blade, blades=len(rotor.blades))
@@ -543,6 +556,12 @@ def station_harmonics(
             result.skipped[f"#rotor={alias}"] = (
                 f"rotor {alias!r} has blade samples in multiple planes "
                 f"{', '.join(sorted(planes[alias]))}; their distributions cannot be pooled"
+            )
+            continue
+        if any(len(names) > 1 for (name, _), names in distributions.items() if name == alias):
+            result.skipped[f"#rotor={alias}"] = (
+                f"rotor {alias!r} has distinct distributions of one blade; "
+                "their samples cannot be pooled"
             )
             continue
         _fit_rotor(result, rotors[alias], taken, quantities)
@@ -574,22 +593,22 @@ def _matched_stations(
     reference = radii[0]
     fitted: list[tuple[int, float | None]] = []
     for station, radius in enumerate(reference):
-        if radius is None or any(block[station] is None for block in radii):
+        known = [value for block in radii if (value := block[station]) is not None]
+        if not known:
             fitted.append((station, None))
             continue
+        baseline = known[0]
         off = [
-            abs(float(block[station] or 0.0))
-            for block in radii
-            if abs(abs(float(block[station] or 0.0)) - radius) > STATION_MATCH_TOLERANCE * largest
+            value for value in known if abs(value - baseline) > STATION_MATCH_TOLERANCE * largest
         ]
         if off:
             result.skipped[f"#rotor={alias}#station={station + 1}"] = (
-                f"station {station + 1} of rotor {alias!r} is at r = {radius:.6g} m in the "
-                f"first sample and at {sorted(set(off))} m in {len(off)} other(s), more than "
+                f"station {station + 1} of rotor {alias!r} is at r = {baseline:.6g} m in the "
+                f"first known sample and at {sorted(set(off))} m in {len(off)} other(s), more than "
                 f"{STATION_MATCH_TOLERANCE:g} of the largest radius {largest:.6g} m apart"
             )
             continue
-        fitted.append((station, radius))
+        fitted.append((station, radius if len(known) == len(radii) else None))
     return fitted
 
 
@@ -661,7 +680,7 @@ def _fit_rotor(
     result.samples[alias] = len(taken)
     half = (
         0.5 * float(rotor.diameter_m)
-        if rotor.diameter_m is not None and rotor.diameter_m > 0
+        if rotor.diameter_m is not None and math.isfinite(rotor.diameter_m) and rotor.diameter_m > 0
         else None
     )
     short: dict[int, int] = {1: 0, 2: 0}
@@ -676,6 +695,9 @@ def _fit_rotor(
                 if (value := _number(block[station].get(quantity))) is not None
             ]
             if not pairs:
+                result.skipped[f"#rotor={alias}#station={station + 1}#quantity={quantity}"] = (
+                    f"quantity {quantity!r} has no finite sample at station {station + 1}"
+                )
                 continue
             fit = fit_harmonics([p for p, _ in pairs], [v for _, v in pairs])
             _count_short_fit(fit, short, narrow, fewest)

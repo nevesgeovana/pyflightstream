@@ -43,6 +43,10 @@ A sample is a BLOCK of one blade: the consecutive rows of one clocking or
 step whose `FAMILY` names families of one blade of the rotor, blade `n` being
 the `n`-th entry of its `families_blades` (expanded through the aliases). A
 block of several blades, or of a family no blade names, is not a sample.
+Distinct distributions of one blade are not pooled, even in the same plane;
+the rotor is skipped. A blade block with unavailable azimuth is omitted with
+a note naming its sample. A station quantity without any finite sample is
+registered as a skip with the rotor, station and quantity.
 
 **The stations.** Station `j` is the `j`-th row of every blade block of the
 rotor, at the radius from the hub of the first sample, as the validity

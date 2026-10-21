@@ -59,6 +59,58 @@ def test_p0420_fit_harmonics_names_nonfinite_sample(bad, field):
         fit_harmonics(angles, values)
 
 
+@pytest.mark.parametrize("scale", [1e200, 1e-200])
+def test_p0430_f184_residual_rms_preserves_finite_scale(scale):
+    fit = fit_harmonics([0.0, 0.0], [-scale, scale])
+    assert fit.residual_rms / scale == pytest.approx(1.0)
+
+
+def test_p0430_f183_coverage_accepts_roundoff_at_half_circle():
+    fit = fit_harmonics([0.1, 90.1, 180.1 - 3e-14], [1.0, 2.0, 3.0])
+    assert fit.h1_amp is not None
+
+
+def test_p0430_f1384_unavailable_quantity_is_reported():
+    columns, rows = _rows()
+    for row in rows:
+        row["Fx"] = "NA"
+    result = station_harmonics(columns, rows, {"PROP": ROTOR}, sample_column="CLOCKING")
+    assert result.skipped
+    assert all("Fx" in key for key in result.skipped)
+
+
+def test_p0430_f147_missing_azimuth_is_reported():
+    columns, rows = _rows()
+    rows[0]["AZIMUTH"] = "NA"
+    result = station_harmonics(columns, rows, {"PROP": ROTOR}, sample_column="CLOCKING")
+    assert any("azimuth" in note.lower() for note in result.notes)
+
+
+def test_p0430_f148_same_blade_distributions_are_not_pooled():
+    columns, rows = _rows()
+    rows.extend(dict(row, FAMILY="Blade1Tip") for row in rows[:3])
+    rotor = HarmonicRotor("PROP", (("Blade1", "Blade1Tip"), ("Blade2",)), 2.0, False)
+    result = station_harmonics(columns, rows, {"PROP": rotor}, sample_column="CLOCKING")
+    assert not result.rows
+    assert "distribution" in result.skipped["#rotor=PROP"]
+
+
+def test_p0430_f185_unknown_radius_does_not_hide_known_mismatch():
+    from pyflightstream.post.harmonics import StationHarmonics, _matched_stations
+
+    result = StationHarmonics()
+    assert _matched_stations(result, "PROP", [[None], [0.3], [0.6]], 0.9) == []
+    assert "#rotor=PROP#station=1" in result.skipped
+
+
+def test_p0430_f186_infinite_diameter_has_no_radius_ratio():
+    columns, rows = _rows()
+    rotor = HarmonicRotor("PROP", ROTOR.blades, math.inf, False)
+    result = station_harmonics(columns, rows, {"PROP": rotor}, sample_column="CLOCKING")
+    assert result.rows
+    assert all(row[3] is None for row in result.rows)
+
+
 FIXTURES = Path(__file__).parent / "fixtures"
 _HEAD = (FIXTURES / "fsi/FS_SurfaceSection_Loads_call0002.txt").read_text()
 #: The stations of every blade, in metres from the hub; the rotor's diameter is 2 m.
