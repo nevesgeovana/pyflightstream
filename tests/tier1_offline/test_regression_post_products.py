@@ -1441,6 +1441,7 @@ def _f3_0203_signal(frequency: float, observer: str = "o1"):
     return AcousticSignal(observer, 1.0, 0.0, 0.0, times, pressure)
 
 
+@pytest.mark.requirement("FR-263")
 def test_f3_0203_f132_acoustic_harmonics_use_the_recorded_blade_count(tmp_path, monkeypatch):
     """F-132: the blade-passing frequency uses the RECORDED blade count, not the sector's."""
     from pyflightstream.post import _rotor_products
@@ -1821,6 +1822,7 @@ def _f3_0203_signal_of(count: int, frequency: float, rate: float = 1000.0):
     return AcousticSignal("o1", 1.0, 0.0, 0.0, times, pressure)
 
 
+@pytest.mark.requirement("FR-263")
 def test_f3_0203_f137_an_odd_length_record_resolves_up_to_half_its_sample_rate():
     """F-137: the last bin of an odd count is below Nyquist; a harmonic above it is still read."""
     from pyflightstream.post import acoustics
@@ -1852,6 +1854,7 @@ def test_f3_0203_f178_f1365_a_rotor_without_a_usable_frequency_is_na_with_a_note
         assert (tmp_path / f"r{number}" / "P1_acoustics_summary.csv").is_file()
 
 
+@pytest.mark.requirement("FR-264")
 def test_f3_0203_f179_a_short_arc_of_observers_is_an_arc():
     """F-179: five observers over a twentieth of a degree lie on a circle: an arc."""
     from pyflightstream.cases.acoustics import AcousticSignal
@@ -1942,3 +1945,47 @@ def test_f3_0203_f791_a_partial_post_keeps_the_skip_reason_of_a_retained_superfi
         matrix_stem=None,
     )
     assert name in kept.products and kept.skipped[f"{name}#columns"] == reason
+
+
+@pytest.mark.requirement("FR-1613")
+@pytest.mark.parametrize(
+    ("x_axis", "y_axis"),
+    [
+        pytest.param((0.0, 0.0, 0.0), (0.0, 1.0, 0.0), id="zero-x"),
+        pytest.param((1.0, 0.0, 0.0), (0.0, 0.0, 0.0), id="zero-y"),
+        pytest.param((1.0, 0.0, 0.0), (2.0, 0.0, 0.0), id="parallel"),
+        pytest.param((1.0, 0.0, 0.0), (1.0, 1.0, 0.0), id="non-orthogonal"),
+    ],
+)
+def test_f3_0203_fr1613_a_frame_with_degenerate_axes_is_refused(x_axis, y_axis):
+    """FR-1613: zero, parallel or non-orthogonal defining axes are refused, naming the frame."""
+    from pydantic import ValidationError
+
+    from pyflightstream.cases import FrameSpec
+
+    with pytest.raises((ValueError, ValidationError), match="NAC"):
+        FrameSpec(name="NAC", origin=(0.0, 0.0, 0.0), x_axis=x_axis, y_axis=y_axis)
+
+
+@pytest.mark.requirement("FR-1613")
+def test_f3_0203_fr1613_an_orthonormal_frame_is_accepted():
+    """FR-1613 control: orthogonal axes of any length are a frame."""
+    from pyflightstream.cases import FrameSpec
+
+    frame = FrameSpec(name="NAC", origin=(0, 0, 0), x_axis=(3.0, 0, 0), y_axis=(0, 0.5, 0))
+    assert frame.name == "NAC"
+
+
+@pytest.mark.requirement("FR-262")
+def test_f3_0203_fr262_a_constant_or_non_finite_record_has_no_level():
+    """FR-262: a constant record is silent (NA), not a rounding residue read as a level."""
+    from pyflightstream.cases.acoustics import AcousticSignal
+    from pyflightstream.post import acoustics
+
+    times = tuple(float(n) for n in range(7))
+    constant = AcousticSignal("c", 0, 0, 0, times, (0.1,) * 7)
+    assert acoustics.oaspl_db(constant) is None
+    broken = AcousticSignal("n", 0, 0, 0, times, (1.0, math.nan, *(2.0,) * 5))
+    assert acoustics.oaspl_db(broken) is None
+    tone = AcousticSignal("t", 0, 0, 0, times, (1.0, -1.0) * 3 + (1.0,))
+    assert acoustics.oaspl_db(tone) is not None

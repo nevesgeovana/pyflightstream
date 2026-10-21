@@ -281,7 +281,9 @@ def oaspl_db(signal: AcousticSignal) -> float | None:
         The level in dB re 20 uPa, or None for a silent record.
     """
     pressure = np.asarray(signal.pressure_pa, dtype=float)
-    if pressure.size == 0:
+    # A CONSTANT RECORD IS SILENT, EXACTLY: the mean of identical floats can differ from them in
+    # the last place, and the rms about it was then a rounding residue read as a level.
+    if pressure.size == 0 or not np.isfinite(pressure).all() or np.ptp(pressure) == 0.0:
         return None
     return _level_db(float(np.sqrt(np.mean((pressure - pressure.mean()) ** 2))))
 
