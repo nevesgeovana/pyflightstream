@@ -50,6 +50,14 @@ from pyflightstream.run._plan import _recorded_is_unsteady
 from pyflightstream.script import Script
 
 
+def test_p0430_f320_velocity_documents_rotorcraft_ratio():
+    from pyflightstream.workspace import _matrix_phases
+
+    source = Path(_matrix_phases.__file__).read_text(encoding="utf-8")
+    assert "mu = J / pi" in source
+    assert "larger by pi/2" not in source
+
+
 @pytest.mark.parametrize((), [pytest.param(id="P0430-F-020")])
 def test_p0430_glauert_requires_a_small_equation_residual():
     ct = 0.01

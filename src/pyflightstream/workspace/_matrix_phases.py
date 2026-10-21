@@ -1051,7 +1051,8 @@ def _derived_velocity(
     THE RELATION IS THE PROPELLER ADVANCE RATIO, J = V / (n D) with n in
     revolutions per SECOND, which is why the rev/min are divided by sixty. The
     rotorcraft advance ratio, mu = V / (Omega R), is a different number for the
-    same inputs -- larger by pi/2 -- and is not what this package reads. It is
+    same inputs: mu = J / pi, since Omega = 2 pi n and R = D / 2. It is
+    not what this package reads, but is
     named here because the vocabulary of this package spans both.
 
     A cell stating a velocity as well is refused where the cell is read, so by
