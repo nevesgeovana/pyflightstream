@@ -5,7 +5,7 @@ What the post-processing artifact of a row holds, the products it derives, and a
 ## What the post-processing artifact holds
 
 `PPROC` names `inputs/pproc/p<id>.toml`, the post-processing artifact
-It carries fifteen optional tables; a file holding `[groups]`
+It carries about twenty optional tables and keys; a file holding `[groups]`
 alone is valid. `[volume_section]` has [its own paragraph below](#a-volume-section).
 `[names]` renames the unsteady polar's plot columns to the names a
 downstream tool reads, the whole dictionary or none of it, and is defined on
