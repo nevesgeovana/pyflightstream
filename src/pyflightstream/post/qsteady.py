@@ -1116,6 +1116,11 @@ class ClockingMean:
     clockings: int
 
 
+def _positive_finite_speed(speed: float) -> bool:
+    """Require a finite, strictly positive speed for coefficient normalization."""
+    return math.isfinite(speed) and speed > 0.0
+
+
 def mean_clocking_surfaces(
     record: QsteadyRecord, folder: Path, *, speed_m_s: float
 ) -> ClockingMean | str:
@@ -1178,8 +1183,11 @@ def mean_clocking_surfaces(
             for name, row in report.surfaces.items()
         }
         read.append((position.index, surfaces, float(stated), getattr(report, "frame", None)))
-    if not read:
-        return "the point's record names no clocking"
+    if not read or not _positive_finite_speed(speed_m_s):
+        return (
+            f"the point needs at least one clocking and a finite positive target speed; "
+            f"received {len(read)} clockings and speed {speed_m_s!r}"
+        )
     first_index, first, _speed, first_frame = read[0]
     for index, surfaces, _stated, frame in read[1:]:
         if frame != first_frame:
@@ -1193,9 +1201,7 @@ def mean_clocking_surfaces(
                 f"{first_index}'s"
             )
     point_speed = float(speed_m_s)
-    scale = [
-        (stated / point_speed) ** 2 if point_speed > 0.0 else 1.0 for _i, _s, stated, _f in read
-    ]
+    scale = [(stated / point_speed) ** 2 for _i, _s, stated, _f in read]
     meaned: dict[str, dict[str, float]] = {}
     for name in first:
         components: dict[str, float] = {}

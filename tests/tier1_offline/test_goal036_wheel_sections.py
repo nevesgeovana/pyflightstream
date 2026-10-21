@@ -441,6 +441,15 @@ def test_p0430_infinite_density_does_not_publish_zero_coefficients():
     assert state.values["CT_PROPELLER"] is None
 
 
+@pytest.mark.parametrize("speed", [0, -1, float("nan"), float("inf")])
+def test_p0430_invalid_mean_target_speed_is_refused(tmp_path, speed):
+    record = _record(1200)
+    for position in record.positions:
+        (tmp_path / position.loads).write_bytes((FIXTURES / "loads_steady_26.120.txt").read_bytes())
+    result = post_qsteady.mean_clocking_surfaces(record, tmp_path, speed_m_s=speed)
+    assert isinstance(result, str) and "speed" in result
+
+
 def test_p0430_empty_clocking_sections_is_named(tmp_path):
     record = _record(1200)
     table = tmp_path / "sections.csv"
