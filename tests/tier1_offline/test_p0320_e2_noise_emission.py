@@ -656,3 +656,24 @@ def test_p0320_noise_order_a_continuation_with_acoustic_keys_is_refused():
     )
     with pytest.raises(CampaignConfigError, match=r"continues a stopped run"):
         _lines(case)
+
+
+@pytest.mark.requirement("FR-266")
+@pytest.mark.parametrize("stem", ["../ring", "sub/ring", "sub\\ring", ".."])
+def test_p0430_f1299_an_observer_stem_with_path_parts_is_refused(tmp_path, stem):
+    (tmp_path / "acoustics").mkdir()
+    (tmp_path / "ring.csv").write_text(OBSERVER_FILE, encoding="utf-8")
+    with pytest.raises(InputArtifactError, match="not a bare file stem"):
+        acoustics.resolve_observers_file(
+            tmp_path, {"ACOUSTIC_OBSERVERS_FILE": stem}, pol="7", legacy=False
+        )
+
+
+def test_p0430_f1298_the_helper_declares_no_second_signals_file_the_emitter_never_writes(tmp_path):
+    source = tmp_path / "ring.csv"
+    source.write_text(OBSERVER_FILE, encoding="utf-8")
+    case = unsteady_case(
+        ACOUSTIC_SOURCES="ENABLE", ACOUSTIC_OBSERVERS_FILE="ring", ACOUSTIC_OBSERVER_TIME=TIME
+    ).model_copy(update={"acoustic_observers_file": str(source)})
+    declared = ["P.txt", "mine_acoustic_signals.txt"]
+    assert acoustics.with_acoustic_signals(declared, case, "P") == declared

@@ -587,7 +587,8 @@ def with_acoustic_signals(outputs: Sequence[str], case: SimCase, stem: str) -> l
     """
     name = acoustic_signals_output(case, stem)
     listed = list(outputs)
-    if name is not None and name not in listed:
+    already = any(str(item).lower().endswith(ACOUSTIC_SIGNALS_SUFFIX) for item in listed)
+    if name is not None and not already:
         listed.append(name)
     return listed
 
@@ -666,8 +667,10 @@ def emit_acoustic_setup(
         raise CampaignConfigError(
             f"case {case.sim_id!r}: {ACOUSTIC_SOURCES_VARIABLE} would follow "
             "INITIALIZE_SOLVER, and the manual has the sources switched on before the solver "
-            "initialises; after it the march runs and records no source, so the signals "
-            "would be computed from nothing. The acoustic setup belongs to the setup phase."
+            "initialises (the manual's ordering rule, which the probes of "
+            "reports/compat/CMP-26124_2026-09-30_acoustics.yaml followed; none enabled the "
+            "sources later, so what a late enabling records is not measured). The acoustic "
+            "setup belongs to the setup phase."
         )
     if request.sources is not None:
         script.emit("ACOUSTIC_SOURCES", request.sources)
@@ -924,6 +927,14 @@ def resolve_observers_file(
             f"{stem}. The acoustic observers are emitted by an unsteady run type, and a LEGACY "
             "row's script is its own recipe's; name a run type in the WORKFLOW column, or "
             "drop the key.",
+            kind="acoustics",
+            artifact_id=stem,
+        )
+    if stem in {".", ".."} or PurePath(stem).name != stem or "\\" in stem or "/" in stem:
+        raise InputArtifactError(
+            f"matrix row POL {pol}: {ACOUSTIC_OBSERVERS_FILE_VARIABLE} names {stem!r}, which is "
+            f"not a bare file stem. The cell names a file of the workspace's inputs/"
+            f"{ACOUSTICS_DIR}/ folder by its stem, without a folder part or an extension.",
             kind="acoustics",
             artifact_id=stem,
         )
