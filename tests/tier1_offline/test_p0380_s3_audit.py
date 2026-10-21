@@ -474,7 +474,8 @@ def test_the_command_exits_0_when_every_gate_and_check_passes_and_writes_the_csv
 
     # 0.40.0: the verb is an alias of `pyfs-workspace geometry audit` and says so, once.
     assert code == 0 and said == [alias_warning("audit-mesh")]
-    assert "every gate and check passed" in out and str(level.with_suffix(".audit.json")) in out
+    assert "every gate and check judged passed; " in out and " not judged yet" in out
+    assert str(level.with_suffix(".audit.json")) in out
     with table.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.reader(handle))
     figures = json.loads(level.with_name("wing_R2.audit.json").read_text(encoding="utf-8"))
@@ -671,3 +672,31 @@ def test_f324_two_loops_touching_at_a_node_both_hold_it():
     loops = boundary_loops([[0, 1, 2, 3], [2, 4, 5, 6]])
     assert sorted(sorted(loop) for loop in loops) == [[0, 1, 2, 3], [2, 4, 5, 6]]
     assert boundary_loops([[0, 1, 2, 3], [4, 5, 6, 7]]) == [[0, 1, 2, 3], [4, 5, 6, 7]]
+
+
+def test_f1595_a_standalone_audit_does_not_claim_every_gate_passed(tmp_path):
+    """The summary never says every gate and check passed while some are not judged yet."""
+    level, _ = _pair(tmp_path, Mesh())
+    audit, _said = _audit(level)
+    unjudged = [i for i in audit.gates + audit.checks if i.verdict == "not judged"]
+    assert unjudged, "a standalone audit leaves the relative gates not judged"
+    last = audit.summary()[-1]
+    assert last == f"every gate and check judged passed; {len(unjudged)} not judged yet"
+
+
+def test_x_f_0597_g4_names_a_missing_points_file(tmp_path):
+    """With no trailing-edge points file G4 passes on 0 < 0, and the line says why."""
+    level, _ = _pair(tmp_path, Mesh())
+    level.with_suffix(".te.txt").unlink()
+    audit, _said = _audit(level)
+    g4 = _item(audit, "G4")
+    assert g4.values["points"] == 0 and g4.values["points_file"] == "none found"
+    assert "points_file none found" in g4.line()
+
+
+def test_x_f_0596_an_unreadable_refinement_record_is_said(tmp_path):
+    """G4 and G6 are judged on less information, and the audit says so."""
+    level, _ = _pair(tmp_path, Mesh())
+    level.with_name(level.stem + ".refine.json").write_text("{not json", encoding="utf-8")
+    _audit_result, said = _audit(level)
+    assert any("not readable as a refinement record" in text for text in said), said

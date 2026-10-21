@@ -200,7 +200,13 @@ class MeshAudit:
             f"{counts[NOT_JUDGED]} not judged"
         )
         lines += [item.line() for item in self.checks if not item.passed]
-        lines.append("every gate and check passed" if self.passed else "the audit FAILED")
+        unjudged = sum(1 for item in (*self.gates, *self.checks) if item.verdict == NOT_JUDGED)
+        if not self.passed:
+            lines.append("the audit FAILED")
+        elif unjudged:
+            lines.append(f"every gate and check judged passed; {unjudged} not judged yet")
+        else:
+            lines.append("every gate and check passed")
         return lines
 
     @staticmethod
@@ -525,8 +531,16 @@ def _record_of(level: Path) -> dict[str, Any]:
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        record = None
+    if not isinstance(record, dict):
+        warnings.warn(
+            f"{path}: not readable as a refinement record, so G4 and G6 are judged "
+            "without what it records.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
         return {}
-    return record if isinstance(record, dict) else {}
+    return record
 
 
 def _components_of(record: Mapping[str, Any]) -> dict[str, list[str]]:
@@ -990,6 +1004,9 @@ def _g4(level: _Mesh, source: _Mesh | None) -> AuditItem:
         "points_sharing_an_edge": te.sharing,
         "chains": te.chains,
     }
+    if not te.present:
+        # 0 < 0 is false, so the gate passes; the line says why rather than leave it silent.
+        values["points_file"] = "none found"
     failed = te.on_edges < te.points or te.sharing > 0
     if source is not None:
         chains = source.trailing.chains if source.chains is None else source.chains
