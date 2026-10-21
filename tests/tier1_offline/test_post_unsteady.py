@@ -532,3 +532,38 @@ def test_p0420_coordinates_within_the_print_rounding_are_one_sampling(tmp_path):
     series = read_timestep_series(paths)
     assert series.points.tolist() == POINTS.tolist()
     assert "_POINT_RTOL" in (TimestepSeries.__doc__ or "")
+
+
+@pytest.mark.parametrize("token", ["nan", "inf", "-inf"])
+def test_p0420_a_solution_time_that_is_not_finite_is_refused(tmp_path, token):
+    """F-210, X-F-0361: NaN would be kept as a sort key and given an invented step position."""
+    frames = write_frames(tmp_path / "a", [1.0, 2.0], solution_times=[0.0, token])
+    with pytest.raises(MalformedOutputError, match="not a finite number"):
+        read_timestep_series(frames)
+
+
+def test_p0420_a_coordinate_that_is_not_finite_is_refused_naming_the_sample(tmp_path):
+    """X-F-0362: a sample with no place cannot be averaged at a place."""
+    frames = write_frames(tmp_path / "a", [1.0, 2.0])
+    text = frames[1].read_text(encoding="utf-8")
+    first_row = next(
+        line for line in text.splitlines() if line.strip() and line.strip()[0] in "0123456789+-."
+    )
+    frames[1].write_text(
+        text.replace(first_row, first_row.replace(first_row.split()[0], "nan", 1), 1),
+        encoding="utf-8",
+    )
+    with pytest.raises(MalformedOutputError, match="not a finite coordinate"):
+        read_timestep_series(frames, order="given")
+
+
+@pytest.mark.parametrize("record", ["POINTS", "POINTS abc float", "POINTS -3 float"])
+def test_p0420_a_vtk_points_record_without_a_count_is_malformed_output(tmp_path, record):
+    """X-F-1197: a bare ValueError or IndexError left the reader for a malformed count."""
+    frame = tmp_path / "bad.vtk"
+    frame.write_text(
+        "# vtk DataFile Version 3.0\ntitle\nASCII\nDATASET POLYDATA\n" + record + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(MalformedOutputError, match="POINTS record"):
+        read_timestep_series([frame], order="given")

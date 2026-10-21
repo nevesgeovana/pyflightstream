@@ -37,7 +37,11 @@ then the condition block and the moment point.
   family, so blade one's are `CL_MRP_Blade1`, `FX_LOCAL_Blade1`. The row carries
   them with the family removed, `CL_MRP`, `FX_LOCAL`, so two blades line up
   under one heading. A pproc gets them with `families = "each"` or
-  `frame = "LOCAL_AXIS"` over the rotor.
+  `frame = "LOCAL_AXIS"` over the rotor. Where two families end alike (`Blade_1`
+  and `1`) the longest family that fits owns the column.
+- **Every step of the window must be in the history.** The row states the window
+  it was averaged over, so a history that misses a step inside the window is
+  refused, naming how many of its steps it holds, and is never averaged as a whole one.
 - **The azimuths are where that blade IS at the window's first and last step**,
   by the formula of the sections table: blade one's datum, plus the blade's
   position times `360 / blades`, plus the rotor's sense times the step times

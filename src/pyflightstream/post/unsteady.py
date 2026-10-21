@@ -186,12 +186,19 @@ def _zone_keywords(upper: str) -> tuple[int | None, float | None]:
         return declared_points, None
     token = stated.group(1)
     try:
-        return declared_points, float(token)
+        value = float(token)
     except ValueError as error:
         raise MalformedOutputError(
             f"the zone record declares SOLUTIONTIME={token!r}, which is not a "
             "number, so the frame cannot say when it was written"
         ) from error
+    if not math.isfinite(value):
+        raise MalformedOutputError(
+            f"the zone record declares SOLUTIONTIME={token!r}, which is not a finite "
+            "number, so the frame cannot say when it was written and would be ordered "
+            "by a value that compares with nothing"
+        )
+    return declared_points, value
 
 
 def _read_tecplot_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float | None]:
@@ -293,7 +300,17 @@ def _read_vtk_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float
         raise MalformedOutputError(
             "the frame carries no POINTS record, so it is not VTK legacy ASCII polydata"
         ) from error
-    count = int(lines[start].split()[1])
+    try:
+        count = int(lines[start].split()[1])
+    except (IndexError, ValueError) as error:
+        raise MalformedOutputError(
+            f"the frame's POINTS record {lines[start][:80]!r} does not state a count of "
+            "points, so its table cannot be read"
+        ) from error
+    if count < 0:
+        raise MalformedOutputError(
+            f"the frame's POINTS record {lines[start][:80]!r} states a negative count"
+        )
     rows = lines[start + 1 : start + 1 + count]
     # Check the declared count against the actual rows. Refuse an incomplete
     # point or field block instead of returning a short frame for reduction.
@@ -440,6 +457,21 @@ def _refuse_a_bad_call(order: str | None, frequency: object) -> None:
         )
 
 
+def _refuse_non_finite_points(path: Path, points: np.ndarray) -> None:
+    """Refuse a frame whose sample coordinates are not all finite numbers.
+
+    A sample at a coordinate that is NaN or infinite has no place, so a mean over it is a
+    mean at a place that does not exist; the frames are compared to the first one's
+    coordinates and a NaN compares with nothing.
+    """
+    if not np.isfinite(points).all():
+        worst = int(np.argmax(~np.isfinite(points).all(axis=1)))
+        raise MalformedOutputError(
+            f"{path} places sample {worst} at {points[worst].tolist()}, which is not a finite "
+            "coordinate, so the frame has no place to average at"
+        )
+
+
 def _refuse_moved_points(path: Path, points: np.ndarray, first_points: np.ndarray) -> None:
     """Refuse a frame whose sample k sits elsewhere than in the first frame, naming it.
 
@@ -509,7 +541,9 @@ def read_timestep_series(
         is not uniform within a relative tolerance of
         ``_TIME_SPACING_RTOL``, because the step axis is frame index
         times frequency and a missing or repeated frame would shift
-        every later step without a word.
+        every later step without a word; or if a solution time or a sample
+        coordinate is NaN or infinite, because it has no place in an order or
+        in space, or a VTK POINTS record states no count.
 
     Examples
     --------
@@ -573,6 +607,7 @@ def read_timestep_series(
                 f"{path} holds {len(points)} samples and the first frame holds "
                 f"{len(first_points)}, so the frames are not one sampling of one run"
             )
+        _refuse_non_finite_points(path, points)
         _refuse_moved_points(path, points, first_points)
         for name in names:
             stacked[name].append(fields[name])
@@ -813,6 +848,21 @@ def revolution_drift_warnings(
     return clauses
 
 
+def _family_of(name: str, families: Sequence[str]) -> int | None:
+    """Return the index of the family a column is named for, or None.
+
+    A column of one blade ends in ``_<family>``. Where the ends of two families overlap
+    (``Blade_1`` and ``1``) the LONGEST family that fits owns the column, so a shorter
+    family never takes a longer one's columns (F-212, F-165).
+    """
+    best: int | None = None
+    for index, family in enumerate(families):
+        if name.endswith(f"_{family}") and len(name) > len(family) + 1:
+            if best is None or len(family) > len(families[best]):
+                best = index
+    return best
+
+
 def per_blade_rows(
     series: TimestepSeries,
     *,
@@ -883,8 +933,8 @@ def per_blade_rows(
     Raises
     ------
     ProductError
-        If the window names no step the history holds, or the rotor carries no
-        blade. Could-not-measure is never a pass.
+        If the window names no step the history holds, the history misses a step inside
+        the window, or the rotor carries no blade. Could-not-measure is never a pass.
     """
     if blades < 1:
         raise ProductError(f"the rotor carries {blades} blades, so it has no per-blade rows")
@@ -896,12 +946,16 @@ def per_blade_rows(
     first, last = int(window[0]), int(window[1])
     steps = np.asarray(series.steps, dtype=int)
     if not ((steps >= first) & (steps <= last)).any():
-        raise ProductError(
-            f"the window {window} names no step this history holds, which runs from "
-            f"{int(steps[0])} to {int(steps[-1])}"
-        )
+        held = f"runs from {int(steps[0])} to {int(steps[-1])}" if len(steps) else "holds no step"
+        raise ProductError(f"the window {window} names no step this history holds, which {held}")
     spanned = last - first
     average = blade_passage_average(series, window=(first, last))
+    if average.n_frames != spanned + 1:
+        raise ProductError(
+            f"the row states steps {first} to {last} ({spanned + 1} steps) and the history holds "
+            f"{average.n_frames} of them, so the columns would state a window the average was "
+            "not taken over; a window with a missing step is not averaged as a whole one"
+        )
     spacing = 360.0 / blades
 
     rows: list[dict[str, object]] = []
@@ -930,7 +984,7 @@ def per_blade_rows(
             row["FAMILY"] = families[index]
             suffix = f"_{families[index]}"
             for name, values in average.fields.items():
-                if name.endswith(suffix) and len(name) > len(suffix):
+                if _family_of(name, families) == index:
                     row[name[: -len(suffix)]] = float(values[0])
             rows.append(row)
             continue
@@ -1031,8 +1085,11 @@ def phase_locked_rows(
     only when that number divides by ``blades``. Where both hold every sample is
     a row of the history and nothing is interpolated.
 
-    ``REVOLUTIONS`` is how many samples entered the means of the row's
-    blade-one columns: ``revolutions`` exactly when that is a whole number.
+    ``REVOLUTIONS`` is the FEWEST samples that entered the mean of any column of the row.
+    The columns of blade one are sampled at the row's azimuth and those of the other blades
+    a fraction of a revolution earlier, so at a fractional depth a shifted blade can hold
+    one sample less than blade one; the row states the smaller count, never the larger.
+    It is ``revolutions`` exactly when that is a whole number.
 
     Parameters
     ----------
@@ -1089,6 +1146,11 @@ def phase_locked_rows(
     """
     per_revolution = float(steps_per_revolution)
     depth = float(revolutions)
+    if not (math.isfinite(per_revolution) and math.isfinite(depth)):
+        raise ProductError(
+            f"steps_per_revolution={steps_per_revolution!r} and revolutions={revolutions!r} must "
+            "both be finite numbers, or no step can be turned into an azimuth"
+        )
     if per_revolution <= 0:
         raise ProductError(
             f"steps_per_revolution is {steps_per_revolution}, so a step cannot be turned "
@@ -1117,9 +1179,9 @@ def phase_locked_rows(
 
     def offset_of(name: str) -> float:
         """How many steps BEFORE blade one a blade's column is sampled."""
-        for position, family in enumerate(families):
-            if position and name.endswith(f"_{family}") and len(name) > len(family) + 1:
-                return (turning * position * per_revolution / count) % per_revolution
+        position = _family_of(name, families)
+        if position:  # None (no family) and 0 (blade one) are sampled where blade one is
+            return (turning * position * per_revolution / count) % per_revolution
         return 0.0
 
     def samples(at: float) -> np.ndarray:
@@ -1145,6 +1207,7 @@ def phase_locked_rows(
     ]
     rows: list[dict[str, object]] = []
     for step in final_revolution:
+        held = int(len(samples(float(step))))
         row: dict[str, object] = {
             "AZIMUTH": blade_one_azimuth(
                 step,
@@ -1153,13 +1216,14 @@ def phase_locked_rows(
                 steps_per_revolution=per_revolution,
             ),
             "STEP": step,
-            "REVOLUTIONS": int(len(samples(float(step)))),
+            "REVOLUTIONS": held,
         }
         for name in columns:
             values = series.fields.get(name)
             if values is None:
                 continue
             moments = samples(step - offset_of(name))
+            row["REVOLUTIONS"] = held = min(held, len(moments))
             if not len(moments):
                 row[name] = None
                 continue

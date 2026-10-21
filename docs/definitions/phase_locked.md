@@ -44,9 +44,12 @@ the moment point, then the plotted columns under the names the export prints.
   aircraft's, is tabulated by blade one's azimuth.
 - **The suffix is the plot's own.** A plot is `<parameter>_<group>` and the pproc
   names the group, so `_{alias or blade_name}_{SMRP or MRP}` is what a group
-  named `PUSHER_SMRP` or cut per blade prints; the package renames nothing.
-- **`REVOLUTIONS` is how many samples entered the mean**, `last_revolutions_avg`
-  exactly when that is a whole number.
+  named `PUSHER_SMRP` or cut per blade prints; the package renames nothing. Where two
+  families end alike (`A_1` and `1`) the longest family that fits owns the column.
+- **`REVOLUTIONS` is the fewest samples that entered the mean of any column of the
+  row**: `last_revolutions_avg` exactly when that is a whole number. At a
+  fractional depth the columns of a shifted blade can hold one sample less than
+  blade one's, and the row states the smaller count.
 - **Between two steps the history is read linearly.** One revolution earlier is
   a whole number of steps earlier only when `steps_per_revolution` is whole, and
   a blade's offset only when it divides by the blade count. Where both hold,

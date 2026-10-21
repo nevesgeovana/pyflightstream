@@ -148,3 +148,49 @@ def test_a_run_holding_no_complete_revolution_gets_no_window():
     from pyflightstream.cases.workflows import per_blade_window
 
     assert per_blade_window(last_step=30, blades=4, period_steps=10) is None
+
+
+def test_p0420_a_missing_step_inside_the_window_is_refused_not_stated_as_whole():
+    """F-211: the row would state steps 1 to 6 for an average over five of them."""
+    series = _series()
+    keep = np.array([True, True, False, True, True, True, True, True])
+    gapped = TimestepSeries(
+        steps=series.steps[keep],
+        times_s=None,
+        points=series.points,
+        fields={name: values[keep] for name, values in series.fields.items()},
+        sources=(),
+    )
+    with pytest.raises(ProductError, match=r"holds 5 of them"):
+        per_blade_rows(gapped, window=(1, 6), blades=2, steps_per_revolution=8.0)
+
+
+def test_p0420_an_empty_history_is_a_product_refusal_not_an_index_error():
+    """F-1405: formatting the refusal indexed the first step of a history that has none."""
+    empty = TimestepSeries(
+        steps=np.array([], dtype=int), times_s=None, points=np.zeros((1, 3)), fields={}, sources=()
+    )
+    with pytest.raises(ProductError, match="holds no step"):
+        per_blade_rows(empty, window=(1, 4), blades=2, steps_per_revolution=8.0)
+
+
+def test_p0420_a_shorter_family_name_does_not_take_a_longer_familys_columns():
+    """F-212: a column ending _Blade_1 belongs to family Blade_1, not to family 1."""
+    steps = np.arange(1, 5)
+    series = TimestepSeries(
+        steps=steps,
+        times_s=None,
+        points=np.zeros((1, 3)),
+        fields={"CL_Blade_1": np.full((4, 1), 5.0), "CL_1": np.full((4, 1), 7.0)},
+        sources=(),
+    )
+    rows = per_blade_rows(
+        series,
+        window=(1, 4),
+        blades=2,
+        steps_per_revolution=8.0,
+        blade_families=["Blade_1", "1"],
+    )
+    first, second = rows
+    assert first["CL"] == 5.0 and "CL_Blade" not in first
+    assert second["CL"] == 7.0 and "CL_Blade" not in second
