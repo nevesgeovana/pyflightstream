@@ -199,6 +199,16 @@ class ReferenceBand:
         FAIL, with nothing saying why. Such a metric needs ``abs`` bands
         (see :class:`MetricSpec`).
         """
+        if self.kind not in ("rel", "abs"):
+            raise QaEvidenceError(
+                f"a stored band kind must be 'rel' or 'abs', got {self.kind!r}; any other "
+                "word would be judged as an absolute band"
+            )
+        if not 0.0 <= self.warn <= self.fail:
+            raise QaEvidenceError(
+                f"a stored band needs 0 <= warn <= fail, got warn {self.warn} and fail "
+                f"{self.fail}; an inverted width lets a deviation beyond FAIL judge PASS"
+            )
         if self.kind == "rel" and self.value == 0.0:
             raise QaEvidenceError(
                 "a relative band centred on a reference of exactly zero has zero width, "
@@ -340,6 +350,10 @@ class PhysicsRun:
             for verdict in result.verdicts.values():
                 counts[verdict.value] += 1
         return counts
+
+    def aborted_count(self) -> int:
+        """Count the cases that aborted: they carry no verdict, so no verdict count holds them."""
+        return sum(1 for result in self.results if result.error is not None)
 
 
 # --------------------------------------------------------------------------
@@ -1383,7 +1397,12 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
         "## Summary",
         "",
         f"{counts['pass']} pass, {counts['warn']} warn, {counts['fail']} fail, "
-        f"{counts['no_reference']} without reference.",
+        f"{counts['no_reference']} without reference."
+        + (
+            f" {run.aborted_count()} case(s) aborted and are counted in no verdict."
+            if run.aborted_count()
+            else ""
+        ),
         "",
     ]
     for result in run.results:

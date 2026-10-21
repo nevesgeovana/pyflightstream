@@ -564,3 +564,27 @@ def test_a_name_the_workspace_driver_replaced_says_where_it_went(name):
         importlib.import_module("pyflightstream.qa.physics").__getattr__(name)
     with pytest.raises(AttributeError, match=r"no attribute 'never_existed'"):
         _ = physics.never_existed
+
+
+@pytest.mark.parametrize(
+    ("warn", "fail", "kind"),
+    [(0.05, 0.02, "rel"), (0.01, 0.02, "percent"), (-0.01, 0.02, "abs")],
+)
+def test_a_malformed_stored_band_is_refused(warn, fail, kind):
+    """F-227, X-F-0375, F-228: inverted widths and unknown kinds never judge."""
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    with pytest.raises(QaEvidenceError):
+        ReferenceBand(value=1.0, warn=warn, fail=fail, kind=kind)
+
+
+def test_an_all_aborted_physics_run_states_its_aborts():
+    """F-801: aborted cases are counted beside the verdict counts."""
+    run = PhysicsRun(
+        version="26.120",
+        fs_exe_name="fs.exe",
+        package_version="0",
+        results=(CaseResult(case_id="PHY-01", title="t", geometry="g", error="no log"),),
+    )
+    assert run.verdict_counts()["fail"] == 0
+    assert run.aborted_count() == 1
