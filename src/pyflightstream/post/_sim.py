@@ -1381,16 +1381,26 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
                 "runs": sorted(
                     run
                     for name, names in ctx.sources.items()
-                    if not any(left.startswith(f"{name}:") for left in left_out)
+                    if _point_is_held(name, left_out)
                     for run in names
                 ),
                 "source": "the unsteady plots, time-averaged",
                 "window": list(ctx.window),
                 # PER POINT where the points do not share one, so the manifest
-                # never states one window for a file that holds two.
-                "windows": {name: list(span) for name, span in sorted(ctx.point_windows.items())},
+                # never states one window for a file that holds two, and none
+                # for a point the file left out (X-F-1637, the MT-03 rule).
+                "windows": {
+                    name: list(span)
+                    for name, span in sorted(ctx.point_windows.items())
+                    if _point_is_held(name, left_out)
+                },
             },
         )
+
+
+def _point_is_held(name: str, left_out: Sequence[str]) -> bool:
+    """Say whether a point is a row of the unsteady polar: no reason of ``left_out`` names it."""
+    return not any(left.startswith(f"{name}:") for left in left_out)
 
 
 def _say_what_the_unsteady_polar_left(

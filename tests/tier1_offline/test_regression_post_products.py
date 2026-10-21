@@ -2474,3 +2474,36 @@ def test_f168_a_large_reference_area_is_held_to_the_printed_precision(tmp_path):
         _refuse_a_reference_the_solver_did_not_use("1", [point(1000.0004)], reference)
     with pytest.warns(PyflightstreamWarning, match="loads export of P1 states a reference area"):
         _refuse_a_reference_the_solver_did_not_use("1", [point(1000.0008)], reference)
+
+
+def test_x_f_1637_the_unsteady_polar_states_no_window_for_a_point_it_left_out(tmp_path):
+    """X-F-1637: `runs` held only the points the file holds, `windows` still held them all."""
+    from pyflightstream.post.products import write_campaign_products
+    from pyflightstream.workspace import RunRecord
+    from tests.tier1_offline.test_goal028_explained_products import _windowed
+    from tests.tier1_offline.test_post_products import LOADS, _plots_export, _products_manifest
+
+    workspace = _windowed(tmp_path, pproc='[groups]\n"1" = "all"\n')
+    (record,) = workspace.read_manifest()
+    outputs = workspace.sim_dir("7001") / "outputs"
+    (outputs / "AL+020.txt").write_text(LOADS, encoding="utf-8")
+    (outputs / "AL+020_plots.txt").write_text(_plots_export(6), encoding="utf-8")  # stops at 6
+    short = record.model_copy(
+        update={
+            "run_id": "camp/sim_7001/AL+020",
+            "point_name": "AL+020",
+            "point": {"alpha": 2.0},
+            "outputs": ["outputs/AL+020.txt", "outputs/AL+020_plots.txt"],
+        }
+    )
+    workspace.append_record(RunRecord(**short.model_dump()))
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    (polar,) = [
+        key
+        for key in manifest["products"]
+        if key.startswith("polars/") and key.endswith("_uns_avg.csv")
+    ]
+    entry = manifest["products"][polar]
+    assert entry["runs"] == ["camp/sim_7001/AL-020"]
+    assert set(entry["windows"]) == {"AL-020"}, entry["windows"]
