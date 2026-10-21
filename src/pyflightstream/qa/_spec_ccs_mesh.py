@@ -106,11 +106,16 @@ def _restoration(first: object, modified: object, control: object, restored: obj
     FR-333 records equal or missing lofts as unprobed. False ("not
     restored") is returned only here, where a valid control differing from the
     reference proves the setup moved the mesh and the restored state still
-    equals that control.
+    equals that control. A third state, equal to neither the reference nor the
+    control, is inconclusive (None), never a refutation.
     """
     if first == modified or control != modified:
         return None
-    return restored == first and restored != control
+    if restored == first:
+        return True
+    if restored == control:
+        return False
+    return None
 
 
 def _set_chapter(family: _Family, command: str, build: Build, note: str) -> None:

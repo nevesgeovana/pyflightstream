@@ -2057,3 +2057,12 @@ def test_f6_15_the_loft_digest_treats_signed_zero_as_zero(tmp_path):
     )
     read = PROBE_SPECS["SET_CCS_TE_BLEND_LENGTH"].observe(SimpleNamespace(workdir=tmp_path))
     assert "variant geometry equals reference" in read
+
+
+def test_f6_0102_a_third_restored_state_is_inconclusive_not_refuted():
+    """FR-2189: a restored state equal to neither reference nor control is None."""
+    from pyflightstream.qa._spec_ccs_mesh import _restoration
+
+    assert _restoration("a", "b", "b", "a") is True
+    assert _restoration("a", "b", "b", "b") is False
+    assert _restoration("a", "b", "b", "c") is None
