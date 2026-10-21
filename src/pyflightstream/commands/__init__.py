@@ -556,7 +556,7 @@ class VersionView:
             recorded = ", ".join(reachable) if reachable else "none"
             raise CommandNotInVersionError(
                 f"{name} has no recorded evidence for FlightStream {self.version.canonical}. "
-                f"Recorded evidence: {recorded}."
+                f"Recorded evidence: {recorded}. Command contract: {entry.citation}."
             )
         record = evidence.record
         if record.status is Status.REMOVED:

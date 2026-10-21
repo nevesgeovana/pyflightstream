@@ -29,6 +29,19 @@ REPORTS_DIR = REPO_ROOT / "reports"
 COMMANDS_DIR = REPO_ROOT / "src" / "pyflightstream" / "commands"
 
 
+@pytest.mark.requirement("FR-04")
+def test_p0430_fd02_absent_build_refusal_cites_the_command_evidence():
+    """A refusal must let a caller locate the known command's contract."""
+    registry = CommandRegistry.load()
+    entry = registry.commands["ENABLE_SOLVER_TIME_AVERAGING"]
+    with pytest.raises(CommandNotInVersionError) as caught:
+        registry.for_version("26.124")[entry.name]
+    message = str(caught.value)
+    assert entry.name in message and "26.124" in message
+    assert entry.citation in message
+    assert "26.125" in message
+
+
 @pytest.mark.parametrize(
     "filename,obsolete,correction",
     [
