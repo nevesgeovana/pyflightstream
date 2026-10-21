@@ -1929,78 +1929,76 @@ def test_f6_15_the_call_log_is_cut_after_the_probe_folder_is_replaced(tmp_path):
     """F-708: a long folder path in the first log line is replaced, then the line is cut."""
     from types import SimpleNamespace
 
-    from pyflightstream.qa._spec_0400_gapkit import _STANDIN_LOG, _calls_read
-
     folder = tmp_path.resolve()
-    (tmp_path / _STANDIN_LOG).write_text(
+    (tmp_path / "fsi_standin_calls.log").write_text(
         "x" * 150 + f" {folder} and the rest of the line\n", encoding="utf-8"
     )
-    text = _calls_read(SimpleNamespace(workdir=tmp_path))
+    spec = PROBE_SPECS["SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND"]
+    text = spec.observe(SimpleNamespace(workdir=tmp_path))
     assert str(folder) not in text
     assert folder.as_posix() not in text
     assert "<probe folder>" in text
 
 
-@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
-def test_f6_15_a_non_finite_loads_table_is_not_a_sphere_reading(monkeypatch, bad):
+@pytest.mark.parametrize("bad", ["nan", "inf", "-inf"])
+def test_f6_15_a_non_finite_loads_table_is_not_a_sphere_reading(tmp_path, bad):
     """X-F-0374: abs(nan) > 10 is False, so nan passed the diverged-solution guard."""
-    from pyflightstream.qa import _spec_0400_gapkit as kit
-
-    monkeypatch.setattr(kit, "_surface_drag", lambda artifacts: {"Sphere": {"Cx": bad}})
-    assert kit._sphere_row_read(None) is None
-    monkeypatch.setattr(kit, "_surface_drag", lambda artifacts: {"Sphere": {"Cx": 0.5}})
-    assert kit._sphere_row_read(None) is True
-
-
-def test_f6_15_the_prelude_detects_edges_by_what_the_grammar_offers(tmp_path, monkeypatch):
-    """X-F-1069: the form follows the grammar, not the build name 26.125."""
     from types import SimpleNamespace
 
-    from pyflightstream.qa import _spec_0400_gapkit as kit
+    from pyflightstream.qa._spec_0400_gap import declined_surface_probes
 
-    emitted = []
-    script = SimpleNamespace(
-        version=SimpleNamespace(canonical="26.130"),
-        emit=lambda *args, **kwargs: emitted.append((args, kwargs)),
-    )
-    monkeypatch.setattr(
-        kit,
-        "every_boundary_detection",
-        lambda s, kind: ("DETECT_TRAILING_EDGES_BY_SURFACE", (-1,)),
-    )
-    kit._units_and_edges(script, tmp_path)
-    assert emitted[-1] == (
-        ("DETECT_TRAILING_EDGES_BY_SURFACE",),
-        {"surfaces": 1, "surface_indices": [1]},
-    )
+    judge = declined_surface_probes()[0].spec.assert_effect
+    fixture = Path(__file__).parent / "fixtures" / "loads_steady_26.120.txt"
+    text = fixture.read_text(encoding="utf-8")
+    artifacts = SimpleNamespace(workdir=tmp_path)
+    (tmp_path / "loads.txt").write_text(text.replace("Wing,+0.0102000", f"Sphere,{bad}"))
+    assert judge(artifacts) is None
+    (tmp_path / "loads.txt").write_text(text.replace("Wing,+0.0102000", "Sphere,+0.5000000"))
+    assert judge(artifacts) is True
+
+
+@pytest.mark.parametrize(
+    "build, expected",
+    [
+        ("26.124", "AUTO_DETECT_TRAILING_EDGES"),
+        ("26.125", "DETECT_TRAILING_EDGES_BY_SURFACE"),
+    ],
+)
+def test_f6_15_the_prelude_detects_edges_by_what_the_grammar_offers(tmp_path, build, expected):
+    """X-F-1069: the form follows the grammar of the build."""
+    from pyflightstream.qa._spec_0400_gap import declined_surface_probes
+
+    spec = declined_surface_probes()[0].spec
+    lines = generate_probe_script(spec, build, tmp_path).render().splitlines()
+    detected = [line for line in lines if "DETECT" in line and "TRAILING_EDGES" in line]
+    assert [line.split()[0] for line in detected] == [expected]
 
 
 def test_f6_15_a_zero_byte_file_is_not_an_added_export(tmp_path):
     """F-552: the lax judge ignores the name, not the content."""
     from types import SimpleNamespace
 
-    from pyflightstream.qa._spec_ccs_noise import _a_file_was_added
-
+    judge = PROBE_SPECS["EXPORT_SURFACE_SECTIONS"].assert_effect
     artifacts = SimpleNamespace(workdir=tmp_path)
     (tmp_path / "section.dat").write_bytes(b"")
-    assert _a_file_was_added(artifacts) is None
+    assert judge(artifacts) is None
     (tmp_path / "section.dat").write_bytes(b"data")
-    assert _a_file_was_added(artifacts) is True
+    assert judge(artifacts) is True
 
 
 def test_f6_15_the_loft_digest_is_a_stable_function_of_the_geometry(tmp_path):
     """X-F-0379 / F-235: the printed geometry digest is a SHA-256, not Python's hash()."""
     import hashlib
+    from types import SimpleNamespace
 
-    from pyflightstream.qa._spec_ccs_noise import _mesh_signature
-
-    (tmp_path / "a.obj").write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
-    vertices, faces, digest = _mesh_signature(tmp_path, "a.obj")
-    assert (vertices, faces) == (3, 1)
+    (tmp_path / "reference.obj").write_text(
+        "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8"
+    )
     origin, x_axis, y_axis = (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)
     text = repr(((origin, y_axis, x_axis), ((origin, x_axis, y_axis),)))
     expected = int.from_bytes(hashlib.sha256(text.encode("ascii")).digest()[:8], "big")
-    assert digest == expected
+    read = PROBE_SPECS["SET_CCS_TE_BLEND_LENGTH"].observe(SimpleNamespace(workdir=tmp_path))
+    assert f"reference 3 vertices 1 faces geometry digest {expected:016x}" in read
 
 
 def test_f6_15_the_revolve_export_note_does_not_name_a_form_the_grammar_may_not_use():
@@ -2013,21 +2011,25 @@ def test_f6_15_signals_with_non_finite_values_are_not_nonzero_pressures(tmp_path
     """X-F-0380: nan and inf rows are dropped; an absent file is None, not False (F-1859)."""
     from types import SimpleNamespace
 
-    from pyflightstream.qa._spec_ccs_noise import _SIGNALS, _signal_blocks
-
     artifacts = SimpleNamespace(workdir=tmp_path)
     assert PROBE_SPECS["EXPORT_ACOUSTIC_SIGNALS"].assert_effect(artifacts) is None
-    (tmp_path / _SIGNALS).write_text(
+    (tmp_path / "signals.txt").write_text(
         "Observer: PYFS_OBS1\n0.0 nan\n0.1 inf\n0.2 -inf\n0.3 0.0\n", encoding="utf-8"
     )
-    assert _signal_blocks(artifacts) == [("PYFS_OBS1", [[0.3, 0.0]])]
+    read = PROBE_SPECS["EXPORT_ACOUSTIC_SIGNALS"].observe(artifacts)
+    assert read == "1 observer blocks, rows per block [1], 0 nonzero pressure values"
     assert PROBE_SPECS["ACOUSTIC_SOURCES"].assert_effect(artifacts) is None
 
 
 def test_f6_15_the_loft_digest_treats_signed_zero_as_zero(tmp_path):
     """The SHA-256 digest keeps the old hash() equality: -0.0 and 0.0 are the same coordinate."""
-    from pyflightstream.qa._spec_ccs_noise import _mesh_signature
+    from types import SimpleNamespace
 
-    (tmp_path / "a.obj").write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
-    (tmp_path / "b.obj").write_text("v -0.0 0 -0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
-    assert _mesh_signature(tmp_path, "a.obj") == _mesh_signature(tmp_path, "b.obj")
+    (tmp_path / "reference.obj").write_text(
+        "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8"
+    )
+    (tmp_path / "variant.obj").write_text(
+        "v -0.0 0 -0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8"
+    )
+    read = PROBE_SPECS["SET_CCS_TE_BLEND_LENGTH"].observe(SimpleNamespace(workdir=tmp_path))
+    assert "variant geometry equals reference" in read

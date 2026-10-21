@@ -378,26 +378,30 @@ class TestProbesJudges:
 
 def test_f229_a_malformed_ccs_section_is_kept_unread_not_shifted(tmp_path):
     """F-229 a non-numeric token must not move the later triples of a section."""
-    from pyflightstream.qa import _spec_0400_gapbase as base
+    from types import SimpleNamespace
 
-    path = tmp_path / "w.ccs"
-    path.write_text(
+    (tmp_path / "curve.ccs").write_text(
         "CrossSection;1;2;3;4;5;6\nCrossSection;1;x;3;4;5;6\n",
         encoding="utf-8",
     )
-    sections = base._ccs_sections(path)
-    assert sections[0] == [(1.0, 2.0, 3.0), (4.0, 5.0, 6.0)]
-    assert sections[1] == []
+    probe = next(p for p in gap.gap_probes() if p.probe_id == "P2-14")
+    read = probe.spec.observe(SimpleNamespace(workdir=tmp_path))
+    assert "curve.ccs 2 sections [2pts x 1.000..4.000" in read
+    # The unread section stays empty: a shifted triple would add a one-point section.
+    assert read.count("pts") == 1
 
 
 def test_f802_and_x_f_0531_unreadable_is_not_empty_or_absent(tmp_path):
     """F-802, X-F-0531 the observation text keeps unreadable, empty and absent apart."""
+    from types import SimpleNamespace
+
     from pyflightstream.qa import _spec_0400_gapbase as base
 
-    bad = tmp_path / "bad.fsm"
-    bad.write_bytes(b"not a simulation")
-    assert "boundary list unreadable" in base._state(bad)
-    assert "0 boundaries" not in base._state(bad)
+    (tmp_path / "state_before.fsm").write_bytes(b"not a simulation")
+    probe = next(p for p in gap.gap_probes() if p.probe_id == "P2-01")
+    read = probe.spec.observe(SimpleNamespace(workdir=tmp_path))
+    assert "state_before.fsm boundary list unreadable" in read
+    assert "0 boundaries" not in read
     empty = tmp_path / "empty.obj"
     empty.write_text("# nothing\n", encoding="utf-8")
     assert base.obj_summary(empty) == "empty.obj present, no vertices"
@@ -407,8 +411,11 @@ def test_f802_and_x_f_0531_unreadable_is_not_empty_or_absent(tmp_path):
     assert base.obj_summary(broken) == "broken.obj present, unreadable"
 
 
-def test_f231_the_probe_section_has_a_closed_trailing_edge():
+def test_f231_the_probe_section_has_a_closed_trailing_edge(tmp_path):
     """F-231 the x^4 term closes the NACA 0012 trailing edge the comment names."""
-    points = kit._naca_points()
-    assert points[0][0] == pytest.approx(1.0)
-    assert abs(points[0][1]) < 1e-9
+    probe = next(p for p in gap.gap_probes() if p.probe_id == "P2-14")
+    generate_probe_script(probe.spec, "26.125", tmp_path)
+    first = (tmp_path / "naca0012.txt").read_text(encoding="utf-8").splitlines()[0]
+    x, z = (float(word) for word in first.split())
+    assert x == pytest.approx(1.0)
+    assert abs(z) < 1e-9
