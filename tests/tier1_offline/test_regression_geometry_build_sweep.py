@@ -4270,3 +4270,18 @@ def test_f1594_the_cleanup_command_quotes_a_path_with_spaces(monkeypatch):
     assert f'pyfs-matrix inventory "{shown}" --clean' in text
     plain = _geometry_clean.saved_action_warning(Path("wing.fsm"), "wing.fsm", [])
     assert "pyfs-matrix inventory wing.fsm --clean" in plain
+
+
+def test_x_f1094_an_unreadable_matrix_is_named_when_it_is_skipped(tmp_path, monkeypatch):
+    from pyflightstream.workspace import _geometry_convert as convert
+
+    matrix = tmp_path / "m001.txt"
+    matrix.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(convert, "matrix_files", lambda root: [matrix])
+
+    def _unreadable(path):
+        raise InputArtifactError("no header")
+
+    monkeypatch.setattr(convert, "read_matrix", _unreadable)
+    with pytest.warns(PyflightstreamWarning, match="m001.txt could not be read"):
+        assert convert._rows_naming(tmp_path, "wing") == []

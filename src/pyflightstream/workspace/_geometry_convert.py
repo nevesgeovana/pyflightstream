@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
 from pyflightstream.cases._ccs import CCS_FORMATS, CCS_SHEDDING_VARIABLE
 from pyflightstream.cases._geometry_instruction import GEOMETRY_PAGE, INSTRUCTION_SUFFIX
 from pyflightstream.cases.matrix import read_matrix
@@ -55,7 +55,13 @@ def _rows_naming(root: Path, name: str) -> list[Any]:
     for matrix in matrix_files(root):
         try:
             rows = read_matrix(matrix)
-        except (OSError, ValueError, InputArtifactError):
+        except (OSError, ValueError, InputArtifactError) as error:
+            warn(
+                f"{matrix} could not be read ({error}); its rows are left out of the "
+                "rows this conversion reads.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
             continue
         found += [row for row in rows if row.variables.get("GEOMETRY", "") == name]
     return found
