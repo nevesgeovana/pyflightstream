@@ -168,6 +168,9 @@ def _sign(outcome: str) -> None:
     except Exception:
         text = _signature.SEES_YOU
     stream = sys.stderr
+    if stream is None:
+        # print(file=None) would fall back to stdout and break its byte contract.
+        return
     try:
         try:
             print(text, file=stream)

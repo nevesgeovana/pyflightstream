@@ -146,6 +146,13 @@ def test_a_closed_stderr_prints_nothing_and_keeps_the_result_fr_315(monkeypatch)
     assert _cli.cli_entrypoint(lambda argv: 3)([]) == 3
 
 
+def test_an_absent_stderr_never_moves_the_signature_to_stdout_fr_315(monkeypatch, capsys):
+    """F-1548: with no stderr stream the signature is dropped, never printed on stdout."""
+    monkeypatch.setattr("sys.stderr", None)
+    assert _cli.cli_entrypoint(lambda argv: 4)([]) == 4
+    assert capsys.readouterr().out == ""
+
+
 def _mutant_cli():
     """Return the _cli module rebuilt from its source without the encoding fallback."""
     path = Path(_cli.__file__)
