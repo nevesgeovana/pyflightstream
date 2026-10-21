@@ -4259,6 +4259,17 @@ def test_x_f1090_an_unreadable_saved_mesh_raises_the_build_error(tmp_path, monke
         build._read_back(variant, fsm)
 
 
+def test_x_f1257_a_string_for_a_name_list_is_refused_not_split_into_letters(tmp_path):
+    path = _geometry_instruction__write(
+        tmp_path,
+        'boundaries = "Blade"\n' + _GEOMETRY_INSTRUCTION__MESH,
+        _GEOMETRY_INSTRUCTION__OBJ,
+        "m",
+    )
+    with pytest.raises(InputArtifactError, match="write boundaries as a list"):
+        read_geometry_instruction(path)
+
+
 def test_f1594_the_cleanup_command_quotes_a_path_with_spaces(monkeypatch):
     from pyflightstream.workspace import _geometry_clean
 
