@@ -1101,3 +1101,27 @@ def test_a_profile_built_in_python_names_its_descriptor_plainly(tmp_path, name):
             path=tmp_path / "made-in-python",
         )
     assert dataclasses.replace(profile, descriptor_name="job.sh").descriptor_name == "job.sh"
+
+
+def test_f715_a_steady_job_does_not_park_a_data_file_in_a_points_evidence_folder(tmp_path):
+    """F-715: in the simulation folder a data file belongs beside the job, not in the
+    scripts or datapoints folders where other points' records name their files."""
+    case = SimCase(
+        sim_id="9012",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="discs",
+        outputs=["loads_{point}.txt"],
+    )
+    sim_dir = tmp_path / "sims" / "sim_9012"
+    sim_dir.mkdir(parents=True)
+    for refused in ("datapoints/DP-AL+005/prop.txt", "scripts/prop.txt"):
+        script = Script("26.124")
+        script._pending_input_files[refused] = b"0.5,1.0\n1.0,0.0"
+        with pytest.raises(CampaignConfigError, match=r"scripts or datapoint folders"):
+            _write_pending_files(script, sim_dir, case=case, recorded={})
+    assert not (sim_dir / "datapoints").exists(), "a file was written before the refusal"
+    control = Script("26.124")
+    control._pending_input_files["prop.txt"] = b"0.5,1.0\n1.0,0.0"
+    assert set(_write_pending_files(control, sim_dir, case=case, recorded={})) == {"prop.txt"}

@@ -308,11 +308,20 @@ def _write_pending_files(
     root = one_file_key(work_dir)
     for parked in pending_inputs:
         here = one_file_key(placed(parked))
-        if here != root and not here.startswith(root + "/"):
+        # F-715: a steady job's folder holds every point's hashed scripts and its own
+        # datapoints/ evidence; a data file parked in either belongs to another point.
+        parts = here[len(root) + 1 :].split("/") if here.startswith(root + "/") else []
+        in_a_points_evidence = (
+            not in_datapoints
+            and len(parts) > 1
+            and parts[0] in ("scripts", SIM_DATAPOINTS_DIR.casefold())
+        )
+        if (here != root and not here.startswith(root + "/")) or in_a_points_evidence:
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: the run would write {placed(parked)} for the solver "
                 f"and record its digest, and it is outside {work_dir}, the folder the "
-                "point runs in. A data file the run writes is the point's own: another "
+                "point runs in, or in the scripts or datapoint folders of its simulation. "
+                "A data file the run writes is the point's own: another "
                 "point's run would rewrite a shared one before this point's solver read "
                 "it. Give it a path relative to the point's folder; the solver was not "
                 "started."
