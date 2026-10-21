@@ -321,3 +321,17 @@ def test_f1464_a_run_that_collects_later_is_no_longer_a_failure_of_the_watch(tmp
     total = collect_and_post(workspace, watch=True, watch_interval=0, sleep=lambda _s: None)
     assert [outcome.run_id for outcome in total.collected] == ["camp/sim_1/a"]
     assert total.failed == []
+
+
+@pytest.mark.parametrize("bad", [-1.0, float("nan"), float("inf")])
+def test_f1463_a_bad_interval_is_refused_before_anything_is_swept(tmp_path, bad):
+    """F-1463: a negative wait was recorded as a failed execution of a valid extraction."""
+    from pyflightstream.run.collect import collect_once
+    from pyflightstream.workspace import WorkspaceError
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.init(tmp_path / "camp")
+    with pytest.raises(WorkspaceError, match="interval"):
+        collect_once(workspace, interval=bad)
+    with pytest.raises(WorkspaceError, match="watch_interval"):
+        collect_and_post(workspace, watch=True, watch_interval=bad)

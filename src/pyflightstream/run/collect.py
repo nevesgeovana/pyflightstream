@@ -583,6 +583,18 @@ def _records_after_grouped_jobs(
     ]
 
 
+def _refuse_a_bad_interval(value: float, name: str) -> None:
+    """Refuse a wait that is negative or not a finite number, before anything is swept (F-1463).
+
+    A negative wait made ``time.sleep`` raise ValueError inside an extraction, which
+    was then recorded as a failed execution of a valid extraction.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise WorkspaceError(f"{name} must be a finite number of seconds, not {value!r}")
+    if value < 0:
+        raise WorkspaceError(f"{name} must be zero or more seconds, not {value!r}")
+
+
 @workspace_activity("collection")
 def collect_once(
     workspace: CampaignWorkspace,
@@ -628,6 +640,7 @@ def collect_once(
         If the manifest cannot be read, or ``sims`` names a simulation no record holds.
     """
     _refuse_a_string(sims)
+    _refuse_a_bad_interval(interval, "interval")
     report = CollectReport()
     try:
         recorded = workspace.read_manifest()
@@ -1498,6 +1511,8 @@ def collect_and_post(
         left waiting or could not wait for.
     """
     _refuse_a_string(sims)
+    _refuse_a_bad_interval(interval, "interval")
+    _refuse_a_bad_interval(watch_interval, "watch_interval")
     selected = None
     if sims is not None:
         # REFUSED BEFORE THE FIRST SWEEP, so a watch over a typo stops at once.
