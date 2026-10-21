@@ -351,7 +351,8 @@ def _cell(value: object) -> str:
         return NOT_APPLICABLE
     if isinstance(value, float | np.floating):
         number = float(value)
-        return NOT_APPLICABLE if math.isnan(number) else f"{number:.{_DECIMALS}f}"
+        # NaN and the infinities are values a table cannot state: the NA token.
+        return NOT_APPLICABLE if not math.isfinite(number) else f"{number:.{_DECIMALS}f}"
     text = str(value)
     return plain_cell(text) if text.strip() else NOT_APPLICABLE
 
