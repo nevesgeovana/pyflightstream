@@ -270,8 +270,9 @@ def obj_boundary_names(path: str | Path) -> tuple[str, ...]:
     InputArtifactError
         If the file cannot be read as text, holds no face under a measured
         group, or uses a variant that has not been measured (a group with no
-        name or several words after ``o``, a face before the first group, an
-        ``o`` after ``g``, or a name reopened where an ``o`` is involved). The
+        name or several words after ``o``, a face before the first ``o``, an
+        ``o`` after ``g``, or a name reopened where an ``o`` is involved). A
+        face before the first ``g`` is measured and read as ``Boundary-1``. The
         message points to writing the names by hand in the sidecar.
     """
     mesh = Path(path)
