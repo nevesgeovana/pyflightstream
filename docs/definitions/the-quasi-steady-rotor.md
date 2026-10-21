@@ -191,7 +191,7 @@ no rotor owns reads `NA`. The rule has one home,
 Every clocking is cut at the same stations (each distribution is created in
 its frame turned with the blades, so the blade spans one interval along every
 clocking's normal): the post compares each clocking's blocks, planes and
-`Offset` with clocking 0's, to a thousandth of the largest offset, and a
+`Offset` with clocking 0's, to a thousandth of each block's largest offset, and a
 clocking that differs is tabled as exported and warned in `post.log`. A
 clocking whose export the point's record does not name (a historical wheel record may name sections at clocking 0 only), or which is not on disk, is
 not in the table, and `products.json` names it under the table's key with

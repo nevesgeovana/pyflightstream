@@ -460,9 +460,14 @@ def _aligned(
 ) -> bool:
     if [station[:2] for station in first] != [station[:2] for station in other]:
         return False
-    largest = max((abs(station[2] or 0.0) for station in first), default=0.0)
+    largest: dict[tuple[str, str], float] = {}
+    for family, plane, offset in first:
+        key = (family, plane)
+        largest[key] = max(largest.get(key, 0.0), abs(offset or 0.0))
     return all(
-        a[2] is not None and b[2] is not None and abs(a[2] - b[2]) <= STATION_TOLERANCE * largest
+        a[2] is not None
+        and b[2] is not None
+        and abs(a[2] - b[2]) <= STATION_TOLERANCE * largest[a[:2]]
         for a, b in zip(first, other, strict=True)
     )
 

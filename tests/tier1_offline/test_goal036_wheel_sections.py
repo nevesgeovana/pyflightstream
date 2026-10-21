@@ -398,6 +398,22 @@ def _record(rpm: float) -> arithmetic.QsteadyRecord:
     )
 
 
+def test_p0430_station_alignment_uses_each_block_scale(tmp_path):
+    record = _record(1200)
+    table = tmp_path / "sections.csv"
+    header = "FAMILY,PLANE,Offset\n"
+    table.write_text(header + "small,XZ,1\nlarge,XZ,1000\n", encoding="utf-8")
+    for position in record.positions[1:]:
+        (tmp_path / position.section_exports["sectional_loads"]).write_text("export")
+
+    def shifted(path, text):
+        path.write_text(header + "small,XZ,1.1\nlarge,XZ,1000\n", encoding="utf-8")
+        return path
+
+    result = post_qsteady.add_clockings_to_sections(table, record, tmp_path, tabled=shifted)
+    assert len(result.misaligned) == 2
+
+
 def test_p0430_empty_clocking_sections_is_named(tmp_path):
     record = _record(1200)
     table = tmp_path / "sections.csv"
