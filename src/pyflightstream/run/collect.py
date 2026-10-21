@@ -1300,7 +1300,8 @@ def _log_verdicts(
     ]
     own = [
         (folder / SOLVER_OWN_LOG).read_text(encoding="utf-8", errors="replace")
-        for folder in dict.fromkeys([*ran_in, sim_dir])
+        # F-608: the simulation folder holds other points' logs; read only if no folder recorded
+        for folder in dict.fromkeys(ran_in or [sim_dir])
         if (folder / SOLVER_OWN_LOG).is_file()
     ]
     return with_wake_edge_verdict(

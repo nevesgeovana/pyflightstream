@@ -1125,3 +1125,31 @@ def test_f715_a_steady_job_does_not_park_a_data_file_in_a_points_evidence_folder
     control = Script("26.124")
     control._pending_input_files["prop.txt"] = b"0.5,1.0\n1.0,0.0"
     assert set(_write_pending_files(control, sim_dir, case=case, recorded={})) == {"prop.txt"}
+
+
+def test_f608_another_points_solver_log_in_the_simulation_folder_is_not_this_points(tmp_path):
+    """F-608: the point ran in its datapoint folder; the log in the simulation folder is
+    some other point's, and its refusal line must not fail a correctly collected point."""
+    from pyflightstream.run._wake_edge_verdict import ACTUATOR_PROFILE_REFUSALS
+    from pyflightstream.run.collect import _log_verdicts
+    from pyflightstream.workspace import RunRecord
+
+    sim_dir = tmp_path / "sims" / "sim_9013"
+    work = sim_dir / "datapoints" / "DP-AL+000"
+    work.mkdir(parents=True)
+    (work / "loads.txt").write_text("the loads", encoding="utf-8")
+    (work / "FlightStreamLog.txt").write_text("Solver finished\n", encoding="utf-8")
+    (sim_dir / "FlightStreamLog.txt").write_text(
+        ACTUATOR_PROFILE_REFUSALS[1] + "\nC:/w/prop.txt\n", encoding="utf-8"
+    )
+    record = RunRecord.model_construct(
+        run_id="camp/sim_9013/AL+000",
+        sim_id="9013",
+        submission={"working_dir": "datapoints/DP-AL+000"},
+        script_path=None,
+        cwd=str(work),
+    )
+    status, verdict = _log_verdicts(
+        record, sim_dir, ["datapoints/DP-AL+000/loads.txt"], None, RunStatus.CONVERGED, None
+    )
+    assert status is RunStatus.CONVERGED, (status, verdict)
