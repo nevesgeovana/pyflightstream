@@ -217,9 +217,14 @@ class SectionalLoadsReport:
 
         The map's counts partition the rows in creation order; the
         offset and chord discontinuities expected at every block
-        boundary are validated, so a map that disagrees with the
-        actual creation order fails loudly instead of silently
-        attributing sections to the wrong blade (RPT-005 finding 6).
+        boundary are validated, so a map that places a boundary where
+        the offsets and chords continue smoothly fails loudly instead of
+        silently attributing sections to the wrong blade (RPT-005
+        finding 6). The check reads the geometry only: two blades with
+        identical geometry (the same offsets and chords) cannot be told
+        apart by it, so a map that swaps them is NOT detected, and the
+        caller's creation order is the only authority for which blade is
+        which.
 
         Parameters
         ----------
@@ -293,7 +298,7 @@ def _validate_block_boundaries(blocks: list[SectionBlock]) -> None:
     for block in blocks:
         steps = np.diff(block.offset_m)
         if len(steps) and not (np.all(steps > 0.0) or np.all(steps < 0.0)):
-            raise ValueError(
+            raise FsiInputError(
                 f"the offsets of family {block.family!r} are not monotonic along "
                 "the span; a section distribution marches root to tip, so a "
                 "non-monotonic block means the family map splits the export at "
@@ -305,7 +310,7 @@ def _validate_block_boundaries(blocks: list[SectionBlock]) -> None:
         offset_smooth = _smooth_step(before.offset_m, offset_jump, directional=True)
         chord_smooth = _smooth_step(before.chord_m, chord_jump, directional=False)
         if offset_smooth and chord_smooth:
-            raise ValueError(
+            raise FsiInputError(
                 f"families {before.family!r} and {after.family!r} continue smoothly "
                 f"across their block boundary (offset jump {offset_jump:.4g} m, "
                 f"chord jump {chord_jump:.4g} m); a true family boundary shows an "

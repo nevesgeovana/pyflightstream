@@ -1287,7 +1287,7 @@ def _sectional_loads_frame(report: object) -> pd.DataFrame:
     printed = tuple(report.columns)  # type: ignore[attr-defined]
     expected = tuple(_SECTIONAL_COLUMN_UNITS)
     if printed != expected:
-        raise ValueError(
+        raise MalformedOutputError(
             f"the sectional loads report names columns {printed}, expected "
             f"{expected}; the unit-suffixed mapping (offset_m .. moment_qc_nm_per_m) "
             "is only valid for the layout the FSI parser asserts"
@@ -1342,7 +1342,7 @@ def _run_row(record: _ManifestRecord, loads: LoadsReport | None) -> dict[str, ob
     reserved.update(("frame", "force_units", "moment_units"))
     for axis, value in record.point.items():
         if axis in reserved:
-            raise ValueError(
+            raise MalformedOutputError(
                 f"sweep point axis {axis!r} of run {record.run_id!r} collides with a "
                 "fixed run table column; rename the axis so identity and conditions "
                 "stay distinguishable in the wide row"
@@ -1362,7 +1362,7 @@ def _run_row(record: _ManifestRecord, loads: LoadsReport | None) -> dict[str, ob
         row["moment_units"] = loads.moment_units
         for column, value in loads.total.items():
             if column in row:
-                raise ValueError(
+                raise MalformedOutputError(
                     f"coefficient column {column!r} of run {record.run_id!r} collides "
                     "with an identity or sweep point column of the wide row; rename "
                     "the sweep axis so the coefficient keeps its printed name"
@@ -1422,7 +1422,7 @@ def _as_record(workspace: _ManifestWorkspace, record: _ManifestRecord | str) -> 
         if candidate.run_id == record:
             return candidate
     known = ", ".join(candidate.run_id for candidate in records[:20]) or "none"
-    raise ValueError(
+    raise MalformedOutputError(
         f"run_id {record!r} is not in the manifest of {workspace.root}; the manifest "
         f"is the only run identity authority, and it records: {known}"
     )
@@ -1475,7 +1475,7 @@ def _check_point_printback(record: _ManifestRecord, report: LoadsReport, name: s
         requested.setdefault("velocity", record.velocity_requested_m_s)
     binding = bind_conditions(requested, reported=report)
     if binding.mismatches:
-        raise ValueError(
+        raise MalformedOutputError(
             f"the loads spreadsheet {name!r} of run {record.run_id!r} is evidence "
             f"of a different operating point than the manifest records: "
             f"{binding.describe()}; a later point of the same simulation "

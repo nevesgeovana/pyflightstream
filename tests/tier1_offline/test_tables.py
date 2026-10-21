@@ -1820,3 +1820,19 @@ def test_f_256_residual_columns_follow_the_header_names_not_their_position():
     one_named = text.replace("Res. Pres.", "Other     ")
     with pytest.raises(MalformedOutputError, match="only one"):
         parse_residual_history(one_named)
+
+
+def test_pfs_2117_002_results_refusals_sit_under_the_package_error_base():
+    from types import SimpleNamespace
+
+    from pyflightstream.exceptions import PyflightstreamError
+
+    workspace = SimpleNamespace(root="camp", read_manifest=lambda: [])
+    with pytest.raises(MalformedOutputError, match="not in the manifest") as unknown:
+        tables_module._as_record(workspace, "no-such-run")
+    layout = SimpleNamespace(columns=("a", "b"), values=np.zeros((1, 2)))
+    with pytest.raises(MalformedOutputError, match="expected") as wrong:
+        tables_module._sectional_loads_frame(layout)
+    for refused in (unknown.value, wrong.value):
+        assert isinstance(refused, PyflightstreamError)
+        assert isinstance(refused, ValueError)
