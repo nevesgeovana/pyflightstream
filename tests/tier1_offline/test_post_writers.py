@@ -408,3 +408,18 @@ def test_f_1409_a_vtk_field_name_with_whitespace_is_refused(name, tmp_path):
             provenance=make_provenance(),
         )
     assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize(
+    ("kind", "bad"),
+    [("field", 'p"q'), ("field", "a\nb"), ("title", 'a"b'), ("zone", "z\r")],
+)
+def test_f_1410_a_tecplot_name_that_would_end_its_quoted_record_is_refused(kind, bad, tmp_path):
+    """A quote or a line break in a name, title or zone corrupted the file the reader refuses."""
+    options = {"title": bad} if kind == "title" else {"zone": bad} if kind == "zone" else {}
+    fields = {bad: np.array([1.0, 2.0])} if kind == "field" else None
+    with pytest.raises(ValueError, match="cannot be written"):
+        write_tecplot_points(
+            tmp_path / "bad.dat", POINTS, fields, provenance=make_provenance(), **options
+        )
+    assert not list(tmp_path.iterdir())
