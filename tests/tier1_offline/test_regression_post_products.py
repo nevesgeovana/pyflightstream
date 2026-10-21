@@ -1532,3 +1532,21 @@ def test_f3_0203_f133_the_station_table_leads_with_pol_and_the_condition(tmp_pat
     assert list(rows[0])[: 1 + len(CONTEXT_COLUMNS)] == ["POL", *CONTEXT_COLUMNS]
     assert rows[0]["POL"] == "3207" and rows[0]["ALPHA"] == "4.0"
     assert float(rows[1]["deflection_m"]) == pytest.approx(0.002)
+
+
+def test_f3_0203_f1377_a_missing_coupling_history_is_a_named_skip(tmp_path, monkeypatch):
+    """F-1377: no convergence log in the working folder leaves a skip entry, not silence."""
+    structure, ctx, _added = _f3_0203_structure_ctx(tmp_path, monkeypatch)
+    structure.structure_products(ctx)
+    assert "fsi_convergence_log.csv" in ctx.skipped["structure/P1_history.csv"]
+    assert "structure/P1_deflection.csv" not in ctx.skipped
+
+
+def test_f3_0203_f782_an_unreadable_coupling_history_costs_only_itself(tmp_path, monkeypatch):
+    """F-782: a non-UTF-8 history is a skip; the deflection table and later points still write."""
+    structure, ctx, added = _f3_0203_structure_ctx(
+        tmp_path, monkeypatch, history=b"\xff\xfe\x00bad"
+    )
+    structure.structure_products(ctx)
+    assert "cannot be read" in ctx.skipped["structure/P1_history.csv"]
+    assert [entry["kind"] for _path, entry in added] == ["structure"]

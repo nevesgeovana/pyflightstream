@@ -86,17 +86,28 @@ def structure_products(ctx: SimContext) -> None:
             },
         )
         history = folder / "fsi_convergence_log.csv"
-        if history.is_file():
-            target = ctx.target(ctx.out / "structure" / f"{point.name}_history.csv")
-            _textio.write_text(target, history.read_text(encoding="utf-8"))
-            ctx.add(
-                target,
-                {
-                    "runs": ctx.sources[point.name],
-                    "kind": "structure_history",
-                    "source_sha256": file_sha256(history),
-                },
+        history_relative = f"structure/{point.name}_history.csv"
+        if not history.is_file():
+            ctx.skipped[history_relative] = (
+                f"structure: the coupled run's working folder holds no {history.name}"
             )
+            continue
+        try:
+            history_text = history.read_text(encoding="utf-8")
+        except (OSError, ValueError) as error:
+            # ValueError is UnicodeDecodeError: the history costs only itself.
+            ctx.skipped[history_relative] = f"structure: {history.name} cannot be read: {error}"
+            continue
+        target = ctx.target(ctx.out / history_relative)
+        _textio.write_text(target, history_text)
+        ctx.add(
+            target,
+            {
+                "runs": ctx.sources[point.name],
+                "kind": "structure_history",
+                "source_sha256": file_sha256(history),
+            },
+        )
 
 
 def append_tip_columns(ctx: SimContext, path: Path, runs: Sequence[str]) -> None:
