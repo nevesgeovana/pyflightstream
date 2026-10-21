@@ -192,8 +192,13 @@ def carry_marks(
     if not marks:
         return
     for entry in products_index.values():
-        runs = entry.get("runs")
-        held = {run: marks[run] for run in runs if run in marks} if isinstance(runs, list) else {}
+        # An additional product names its points under ``derives_from`` (its
+        # ``runs`` would read as run ids to the retirement), so the mark follows both.
+        runs = [
+            *(entry.get("runs") if isinstance(entry.get("runs"), list) else []),
+            *(entry.get("derives_from") if isinstance(entry.get("derives_from"), list) else []),
+        ]
+        held = {run: marks[run] for run in runs if run in marks}
         if held:
             entry["marked"] = held
 
@@ -434,4 +439,4 @@ def _retire_optional_products(
 
 
 #: The ``kind`` of the products a pproc key switches on and off (FR-419).
-_OPTIONAL_KINDS = (SETTINGS_KIND, INSTALLED_KIND)
+_OPTIONAL_KINDS = (SETTINGS_KIND, INSTALLED_KIND, "loading_noise")

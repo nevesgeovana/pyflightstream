@@ -2947,3 +2947,32 @@ def test_p0430_f123_the_wake_calibration_targets_the_reference_velocity_lift(tmp
     assert row["E_T"] != "NA", skipped
     ratio = (68.058 / 34.03) ** 2
     assert float(row["CL_T"]) == pytest.approx(0.3400367 * ratio, rel=1e-4)
+
+
+def test_f487_a_person_s_mark_follows_derives_from_for_an_additional_product():
+    """F-487 (FR-2210): an additional product names its points under ``derives_from``."""
+    from types import SimpleNamespace
+
+    from pyflightstream.post._products_campaign import carry_marks
+
+    mark = {"verdict": "CONVERGED", "reason": "judged"}
+    point = SimpleNamespace(run_id="r1", marked=mark)
+    index = {
+        "additional/x.csv": {"additional": True, "derives_from": ["r1"], "extraction": ["e1"]},
+        "polars/y.csv": {"runs": ["r1"]},
+        "polars/z.csv": {"runs": ["r2"]},
+    }
+    carry_marks(index, [point])
+    assert index["additional/x.csv"]["marked"] == {"r1": mark}
+    assert index["polars/y.csv"]["marked"] == {"r1": mark}
+    assert "marked" not in index["polars/z.csv"]
+
+
+def test_f475_a_stale_loading_noise_history_is_retired_with_the_other_optional_products():
+    """F-475: a pproc that stopped asking for noise leaves no history beside current products."""
+    from pyflightstream.post._products_campaign import _retire_optional_products
+
+    skipped: dict[str, str] = {}
+    previous = {"noise/history.csv": {"kind": "loading_noise"}, "polars/p.csv": {"kind": "polar"}}
+    _retire_optional_products(skipped, previous, {})
+    assert list(skipped) == ["noise/history.csv"]
