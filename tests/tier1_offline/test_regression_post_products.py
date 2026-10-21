@@ -2387,3 +2387,42 @@ def test_p0430_f3_the_equation_order_is_derived_when_none_is_given():
         "A": Equation(expression="CT * 2", meshes_alias="P", frame=None),
     }
     assert _dependency_order(equations) == ["A", "B"]
+
+
+def _disc_map_of(azimuth: str, value: str, tmp_path: Path) -> list[dict[str, str]]:
+    from pyflightstream._tokens import CONTEXT_COLUMNS
+    from pyflightstream.post import disc_maps
+    from pyflightstream.post.harmonics import HarmonicRotor
+
+    rotor = HarmonicRotor(
+        alias="PROP", blades=(("Blade1",),), diameter_m=2.0, azimuth_is_blade_one=False
+    )
+    columns = ["POL", "ROTOR", "FAMILY", "AZIMUTH", "Offset", "Fz"]
+    rows = [
+        {
+            "POL": "1",
+            "ROTOR": "PROP",
+            "FAMILY": "Blade1",
+            "AZIMUTH": azimuth,
+            "Offset": "0.2",
+            "Fz": value,
+            "CLOCKING": "0",
+        }
+    ]
+    mapped = disc_maps.disc_map_rows(columns, rows, {"PROP": rotor}, sample_column="CLOCKING")
+    (written,) = disc_maps.write_disc_maps(
+        mapped, point="P", pol="1", context=[None] * len(CONTEXT_COLUMNS), out_dir=tmp_path
+    )
+    return read_csv_table(written)[1]
+
+
+def test_x_f_0339_a_tiny_negative_azimuth_stays_inside_the_documented_range(tmp_path):
+    """X-F-0339: -1e-20 modulo 360 is 360.0 in Python; the map states [0, 360)."""
+    (row,) = _disc_map_of("-1e-20", "1", tmp_path)
+    assert float(row["AZIMUTH_DEG"]) == 0.0
+
+
+def test_x_f_0338_a_section_load_in_a_disc_map_keeps_six_significant_digits(tmp_path):
+    """X-F-0338: VALUE matched no significant-digit rule, so 1.23457e-05 was written 0.00001."""
+    (row,) = _disc_map_of("10", "0.0000123456789", tmp_path)
+    assert row["VALUE"] == "1.23457e-05"

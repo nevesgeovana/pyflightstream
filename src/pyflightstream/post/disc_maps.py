@@ -34,7 +34,7 @@ from pathlib import Path
 from pyflightstream._errors import ProductError
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.post._stage import _a_name_a_file_may_carry
-from pyflightstream.post._tables import write_csv_table
+from pyflightstream.post._tables import _significant_cell, write_csv_table
 from pyflightstream.post.axes import placed_blade_azimuth_deg
 from pyflightstream.post.harmonics import HarmonicRotor, blade_of, load_quantities, sample_blocks
 
@@ -188,8 +188,12 @@ def disc_map_rows(
         )
         if psi is None:
             continue
+        # [0, 360): a tiny negative azimuth makes Python's modulo return 360.0 itself.
         psi %= 360.0
         planes.setdefault(rotor.alias, set()).add(first.get("PLANE", ""))
+
+        if psi >= 360.0:
+            psi = 0.0
         result.samples[rotor.alias] = result.samples.get(rotor.alias, 0) + 1
         mine = taken.setdefault(rotor.alias, [])
         half = (
@@ -307,7 +311,9 @@ def write_disc_maps(
                     psi,
                     None if math.isnan(radius) else radius,
                     ratio,
-                    value,
+                    # VALUE is no column of the table writer's significant-digit rule,
+                    # so a section load is spelled here at six significant digits.
+                    _significant_cell(value),
                 )
                 for rotor, name, sample, blade, psi, radius, ratio, value in entries
             ],
