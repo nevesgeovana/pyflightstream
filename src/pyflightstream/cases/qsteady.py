@@ -568,7 +568,7 @@ def obj_group_vertices(path: str | Path, *, metres_per_unit: float) -> dict[str,
     OSError, UnicodeError
         The file cannot be read.
     ValueError
-        A vertex or a face index is not a number.
+        A vertex or a face index is not a number, or a face index is out of range.
     """
     vertices: list[Vector] = []
     groups: dict[str, set[int]] = {}
@@ -592,10 +592,14 @@ def obj_group_vertices(path: str | Path, *, metres_per_unit: float) -> dict[str,
         elif head == "f" and current is not None:
             for token in parts[1:]:
                 index = int(token.split("/")[0])
+                if index == 0 or not -len(vertices) <= index <= len(vertices):
+                    raise ValueError(
+                        f"{path}: face index {index} is outside the {len(vertices)} vertices "
+                        "defined so far; use nonzero indices that refer to existing vertices"
+                    )
                 groups[current].add(index - 1 if index > 0 else len(vertices) + index)
     return {
-        name: [vertices[index] for index in sorted(indices) if 0 <= index < len(vertices)]
-        for name, indices in groups.items()
+        name: [vertices[index] for index in sorted(indices)] for name, indices in groups.items()
     }
 
 

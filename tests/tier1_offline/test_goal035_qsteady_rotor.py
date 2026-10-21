@@ -82,6 +82,16 @@ def test_p0430_signed_radii_are_sorted_by_distance():
     assert result.k_mean == pytest.approx((expected[0] / 2 + expected[1] + expected[2] / 2) / 2)
 
 
+@pytest.mark.parametrize(
+    "index", [0, 4, -4], ids=["P0430-F-053-zero", "P0430-F-053-high", "P0430-F-053-low"]
+)
+def test_p0430_obj_refuses_out_of_range_face_indices(tmp_path, index):
+    path = tmp_path / "blade.obj"
+    path.write_text(f"v 0 0 0\nv 0 1 0\nv 0 0 1\ng blade\nf 1 2 {index}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="index"):
+        arithmetic.obj_group_vertices(path, metres_per_unit=1.0)
+
+
 @pytest.mark.parametrize((), [pytest.param(id="P0430-F-054")])
 def test_p0430_duplicate_spoke_is_not_azimuthal_coverage():
     rows = [(0, 1, 0, 5, 0, 0)] * 3 + [(0, 2, 0, 5, 0, 0)] * 3
