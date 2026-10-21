@@ -250,7 +250,11 @@ def _sim_order(sim: str) -> tuple[int, int, str]:
 
 
 def _mtime(path: Path) -> str:
-    return datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat(timespec="seconds")
+    """Return a file's modification time, or ``unavailable`` when it vanished after being read."""
+    try:
+        return datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat(timespec="seconds")
+    except OSError:
+        return "unavailable"
 
 
 def _validation_text(error: ValidationError) -> str:

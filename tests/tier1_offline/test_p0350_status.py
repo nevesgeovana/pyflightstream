@@ -526,3 +526,19 @@ def test_f_1200_one_corrupt_archive_is_one_identified_row_and_history_writes_not
     assert [row["source"] for row in unreadable] == ["sims/sim_9999.zip"]
     assert "unreadable archive sims/sim_9999.zip" in unreadable[0]["error"]
     assert any((row.get("run_id") or "").startswith(f"{CAMPAIGN}/sim_2006/") for row in rows)
+
+
+def test_f2_0809_a_plan_file_that_vanishes_after_it_is_read_is_not_a_crash(workspace, monkeypatch):
+    """F-1224: a plan removed between the read and the stat still gives a snapshot."""
+    from pyflightstream.workspace import ledger as ledger_module
+
+    real = ledger_module._read_plan
+
+    def read_then_remove(path: Path):
+        plan = real(path)
+        path.unlink()
+        return plan
+
+    monkeypatch.setattr(ledger_module, "_read_plan", read_then_remove)
+    ledger = read_ledger(workspace)
+    assert ledger.sources[f"post/{MATRIX}/plan.json"] == "unavailable"
