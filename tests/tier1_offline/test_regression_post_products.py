@@ -2128,3 +2128,17 @@ def test_f3_0203_pfs2126_017_every_alias_that_reaches_a_file_goes_through_one_sa
     with pytest.raises(ProductError, match="both write the disc map"):
         write_disc_maps(clash, point="P1", pol="3207", context=(), out_dir=tmp_path)
     assert not list(tmp_path.iterdir())
+
+
+def test_f3_0203_pfs2124_029_a_reference_checked_only_coarsely_says_how_coarsely():
+    """PFS-2124.029: on a small model the check is noted as only +-N% precise, once."""
+    from pyflightstream.post._condition import _refuse_a_reference_the_solver_did_not_use
+    from pyflightstream.post.products import ReferenceValues
+
+    reference = ReferenceValues(sref_m2=0.001, cref_m=2.0, bref_m=1.0)
+    loads = SimpleNamespace(reference_area=0.00102, reference_length=2.0)
+    points = [SimpleNamespace(name=f"P{n}", loads=loads) for n in range(2)]
+    with pytest.warns(Warning, match=r"SREF 0.001\) could only be checked to \+-50%") as caught:
+        _refuse_a_reference_the_solver_did_not_use("3207", points, reference)
+    assert len([w for w in caught if "could only be checked" in str(w.message)]) == 1
+    assert not any("CREF" in str(w.message) for w in caught)

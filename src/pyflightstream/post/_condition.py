@@ -532,6 +532,9 @@ _REFERENCE_PRINT_TOLERANCE = 5.0e-4
 
 
 _REFERENCE_RELATIVE_TOLERANCE = 1.0e-6
+#: A comparison band wider than this fraction of the stated value is too coarse to tell a wrong
+#: reference from the right one.
+_REFERENCE_UNCHECKABLE_FRACTION = 0.005
 
 
 def _refuse_a_reference_the_solver_did_not_use(
@@ -547,7 +550,11 @@ def _refuse_a_reference_the_solver_did_not_use(
     default; its explicit refusal mode retains the reference refusal.
 
     An export that prints neither line is not refused; there is nothing to compare.
+    Where the band of the comparison is wider than half a percent of the stated value (a
+    small model, whose printed digits are few), the agreement is noted as only that
+    precise, once per simulation.
     """
+    said: set[tuple[str, str]] = set()
     for point in points:
         loads = point.loads
         if loads is None:
@@ -575,6 +582,24 @@ def _refuse_a_reference_the_solver_did_not_use(
                     raise ProductError(reason)
                 warn(
                     f"point={point.name} product=simulation/{sim_id}: {reason}",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
+            elif (
+                allowed > _REFERENCE_UNCHECKABLE_FRACTION * abs(stated)
+                and (label, column) not in said
+            ):
+                # THE BAND IS WIDER THAN THE DIFFERENCE IT HAS TO CATCH: on a small model the
+                # printed digits cannot tell a wrong reference from the right one, and the
+                # agreement above proves less than it seems. Said once per simulation.
+                said.add((label, column))
+                band = f"+-{100.0 * allowed / abs(stated):.3g}%" if stated else "no relative band"
+                warn(
+                    f"point={point.name} product=simulation/{sim_id}: the reference {label} "
+                    f"({column} {stated:g}) could only be checked to {band}, because the export "
+                    f"prints {float(printed):g} to a fixed number of digits; a different "
+                    "reference of this size would pass the check. Compare the reference artifact "
+                    "with the project file the solver opened.",
                     PyflightstreamWarning,
                     stacklevel=2,
                 )
