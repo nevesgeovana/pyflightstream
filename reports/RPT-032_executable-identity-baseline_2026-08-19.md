@@ -95,13 +95,15 @@ under either of those names.
 Before ANY campaign, probe or physics run against a replacement
 executable:
 
-1. hash it and compare against this table, which
-   `pyflightstream.qa.compat.classify_executable` does and which starts
-   no process;
-2. if the digest is one of the nine above, it is the binary the evidence
-   was gathered on and every row of that version's evidence transfers
-   untouched, with both digests named. No seat is spent;
-3. if the digest is not here, nothing is known about the binary yet. The
+1. compare it against this table with
+   `pyflightstream.qa.compat.classify_executable`: a row whose digest is
+   withheld is compared by its build (the identity-only probe), and a
+   byte comparison against a local copy that keeps the digests starts no
+   process;
+2. if it matches one of the eleven rows above, it is the binary the
+   evidence was gathered on and every row of that version's evidence
+   transfers untouched, with both identities named. No seat is spent;
+3. if it matches no row, nothing is known about the binary yet. The
    ONLY licensed work authorised at that point is the identity-only
    probe, `pyfs-qa probe --fs-version <v> --fs-exe <path>
    --identity-only`, which judges no command and reads the solver's own
