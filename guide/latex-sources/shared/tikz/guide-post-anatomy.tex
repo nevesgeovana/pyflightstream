@@ -2,7 +2,8 @@
 %
 % shared/tikz/guide-post-anatomy.tex
 % post/<stem>/ opened up, with arrows from sims/ showing what each product was
-% built FROM. The five folders answer five different questions.
+% built FROM. The five folders answer five different questions; the optional
+% fields/ and additional/ folders appear when a pproc asks for them.
 % Shared fragment: no sectioning, no frame, no size command, no float. Wrapped by the caller.
 \begin{tikzpicture}[font=\scriptsize, node distance=2mm,
   src/.style={draw=CourseGray, thick, rounded corners, fill=CourseGray!8,
@@ -38,7 +39,10 @@
 \node[q, above=1mm of csv, text width=34mm] {what most people open};
 \node[q, above=1mm of pj, text width=40mm] {asked for, against produced:\\ says missing or wrong};
 
-\node[font=\tiny\itshape, text=CourseRed, below=5mm of prv, text width=76mm, align=center]
+\node[q, below=1mm of prv, text width=60mm] (opt)
+  {optional, when the pproc asks: \texttt{fields/}, \texttt{additional/}};
+
+\node[font=\tiny\itshape, text=CourseRed, below=5mm of opt, text width=76mm, align=center]
   {Rebuilt, never edited. A rebuild replaces the derived product in place; post --archive keeps a copy.};
 
 \end{tikzpicture}
