@@ -46,6 +46,7 @@ from pyflightstream.post._condition import (
     _last_time_step,
     _live_reference,
     _section_rotors,
+    classify_record_outputs,
     clock_rotor_facts,
     point_condition,
     point_state,
@@ -1052,9 +1053,7 @@ def _point_series(
     false keeps no copy. ``surface_freeze`` is the point's frozen solve, which
     the surface average (G25) is judged against before it is written.
     """
-    from pyflightstream.cases import classify_outputs
-
-    kinds = classify_outputs([Path(o).name for o in record.outputs])
+    kinds = classify_record_outputs(record)
     loads_name = kinds.get("loads")
     if loads_name is None:
         sectional = kinds.get("sectional_loads") or kinds.get("sections")

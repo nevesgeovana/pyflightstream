@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream.cases import PprocSpec
+from pyflightstream.cases import PprocSpec, classify_outputs
 from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
 from pyflightstream.cases.windows import averaging_span
 from pyflightstream.cases.workflows import BLADE_FAMILIES_KEY, QSTEADY_ROTOR
@@ -389,6 +389,19 @@ def _free_stream_and_sound(record: RunRecord) -> tuple[float, float] | None:
     if resolved is None:
         return None
     return resolved.velocity_m_per_s, resolved.sonic_velocity_m_per_s
+
+
+def classify_record_outputs(record: RunRecord) -> dict[str, str]:
+    """Return the export kinds of a record's outputs, read by the release that wrote them.
+
+    THE ONE CLASSIFICATION OF A RECORD'S OUTPUTS: a name means what the release that wrote it
+    meant (``P_vsec.vtk`` was a VTK export before 0.27.0), so every reader passes the record's
+    ``package_version`` and none classifies without it.
+    """
+    return classify_outputs(
+        [Path(str(output)).name for output in record.outputs],
+        package_version=record.package_version,
+    )
 
 
 def _resolve_point_cell(

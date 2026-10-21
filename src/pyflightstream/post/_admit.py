@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING
 
 import pyflightstream.post._stage as _stage
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream.cases import CampaignConfigError, PprocSpec, classify_outputs
+from pyflightstream.cases import CampaignConfigError, PprocSpec
 from pyflightstream.cases.windows import regate, replan
 from pyflightstream.post._condition import (
     _defaulted_window,
@@ -41,6 +41,7 @@ from pyflightstream.post._condition import (
     _recorded_window,
     _stated_window,
     _vorticity_selection,
+    classify_record_outputs,
     point_state,
 )
 from pyflightstream.post._stage import PROBES_DIR
@@ -127,7 +128,7 @@ def _loads_of(
             "product holds a row of it; collect it, or look at how it was submitted"
         )
         return None
-    kinds = classify_outputs([Path(o).name for o in record.outputs])
+    kinds = classify_record_outputs(record)
     by_name = {Path(o).name: sim_dir / o for o in record.outputs}
     loads_name = kinds.get("loads")
     if loads_name is None or not by_name[loads_name].is_file():

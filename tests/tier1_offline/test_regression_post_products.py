@@ -1734,7 +1734,9 @@ def test_f3_0203_f1373_an_acoustic_only_record_still_gets_its_acoustic_products(
         _rotor_products._acoustics, "read_acoustic_signals", lambda _s: [_f3_0203_signal(50.0)]
     )
     suffix = _rotor_products._acoustics.ACOUSTIC_SIGNALS_SUFFIX
-    record = SimpleNamespace(run_id="r1", outputs=[f"P1{suffix}"], reductions={})
+    record = SimpleNamespace(
+        run_id="r1", outputs=[f"P1{suffix}"], reductions={}, package_version="0.42.0"
+    )
     workspace = SimpleNamespace(sim_dir=lambda _sim: tmp_path)
     skipped: dict[str, str] = {}
     written, names = _rotor_products._point_series(
@@ -2098,3 +2100,17 @@ def test_f3_0203_pfs2119_031_the_state_and_the_speeds_come_from_one_resolver():
     speed, sound = _condition._free_stream_and_sound(record)
     assert state.mach == pytest.approx(0.2)
     assert speed / sound == pytest.approx(state.mach)
+
+
+def test_f3_0203_pfs2124_028_a_records_outputs_are_classified_by_its_own_release():
+    """PFS-2124.028: one helper classifies a record's outputs with the release that wrote them."""
+    from pyflightstream.cases import classify_outputs
+    from pyflightstream.post._condition import classify_record_outputs
+
+    old = SimpleNamespace(outputs=["sim/P_vsec.vtk"], package_version="0.26.0")
+    new = SimpleNamespace(outputs=["sim/P_vsec.vtk"], package_version="0.42.0")
+    assert classify_record_outputs(old) == {"vtk": "P_vsec.vtk"}
+    assert classify_record_outputs(new) == classify_outputs(
+        ["P_vsec.vtk"], package_version="0.42.0"
+    )
+    assert classify_record_outputs(old) != classify_record_outputs(new)
