@@ -181,3 +181,21 @@ def test_p0430_move_refuses_its_own_source(tmp_path, alias):
         pass
     assert (source / "evidence.txt").is_file()
     assert (source / "evidence.txt").read_bytes() == b"original"
+
+
+def test_p0430_cleanup_preserves_staged_input_names(tmp_path):
+    """P0430-STORAGE: digest names are relative to inputs, including after relocation."""
+    from pyflightstream.workspace.storage import free_space
+    from tests.tier1_offline.test_goal035_storage import _record, _write_recipe, _ws
+
+    workspace = _ws(tmp_path)
+    staged = workspace.sim_dir("2006") / "inputs" / "reference" / "r1.toml"
+    staged.parent.mkdir(parents=True)
+    staged.write_bytes(b"recorded input")
+    workspace.append_record(
+        _record("2006", "sample/sim_2006/A0", inputs_sha256={"reference/r1.toml": "a" * 64})
+    )
+    _write_recipe(workspace, "m001", '[[delete_extensions]]\nextensions = [".toml"]\n')
+    free_space(workspace.root, "m001", apply=True)
+    assert staged.is_file()
+    assert staged.read_bytes() == b"recorded input"

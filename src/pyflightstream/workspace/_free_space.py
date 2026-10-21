@@ -117,6 +117,8 @@ def _protected(workspace: CampaignWorkspace, sim_id: str, rows: list[dict[str, A
     for row in rows:
         names: list[str] = list(row.get("outputs") or [])
         names += list((row.get("inputs_sha256") or {}).keys())
+        # Staged input digests name files beneath inputs/, also after a run moves.
+        names += [str(Path("inputs") / name) for name in (row.get("inputs_sha256") or {})]
         names += list((row.get("output_digests") or row.get("outputs_sha256") or {}).keys())
         if row.get("script_path"):
             names.append(str(row["script_path"]))
