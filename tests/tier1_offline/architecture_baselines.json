@@ -1095,12 +1095,6 @@
    "branches": 10,
    "statements": 32,
    "positional": 1
-  },
-  "workspace/fsi_external_setup.py:resolve_external_fsi": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 33,
-   "positional": 1
   }
  },
  "baseline_sccs": [

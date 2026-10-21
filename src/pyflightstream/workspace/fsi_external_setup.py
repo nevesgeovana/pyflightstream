@@ -95,6 +95,30 @@ def _under(root: Path, stated: str, *, what: str, source: Path) -> Path:
     return path
 
 
+def _refuse_the_declared_names(source: Path, inputs: list[str], outputs: list[str]) -> None:
+    """Refuse a declared name the external record refuses, or one the archiving step owns.
+
+    A declared input or output is a bare file name of the point folder: no separator, no
+    drive colon and not dots only (X-F-1334), refused here as a setup error rather than
+    left to the record's validation.
+    """
+    for kind, names in (("input", inputs), ("output", outputs)):
+        for name in names:
+            if Path(name).name != name or not name.strip(". ") or any(c in name for c in "/\\:"):
+                raise FsiExternalSetupError(
+                    f"{source}: declared {kind} {name!r} is not a bare file name of the "
+                    "point folder."
+                )
+        taken = step_name_collisions(names)
+        if taken:
+            raise FsiExternalSetupError(
+                f"{source}: declared {kind} {', '.join(repr(name) for name in taken)}: a name "
+                "the archiving step owns in the point folder or in each call's archive "
+                f"({', '.join(sorted(STEP_NAMES))}); the step's file and the program's would "
+                "overwrite each other. Rename it."
+            )
+
+
 def _refuse_the_beam_keys(source: Path, data: dict[str, object]) -> None:
     """Refuse ``show_console`` and ``morphing`` by name (FR-1093)."""
     table = data.get("external")
@@ -130,7 +154,8 @@ def resolve_external_fsi(path: str | Path) -> ExternalStructure:
         ``show_console`` or ``morphing`` stated, a key the input does not define, a
         program, node file or declared input outside ``inputs/fsi/`` or absent, a
         node file with no node, more than one coupled family, or a declared input
-        or output named, without case, as a file the archiving step owns
+        or output that is not a bare file name or is named, without case, as a file the
+        archiving step owns
         (:data:`~pyflightstream.fsi.external.STEP_NAMES`, ``call.json`` among them).
     """
     source = Path(path).resolve()
@@ -168,20 +193,7 @@ def resolve_external_fsi(path: str | Path) -> ExternalStructure:
             )
         inputs[found.name] = str(found)
         digests[found.name] = _digest(found)
-    for name in spec.external.outputs:
-        if Path(name).name != name:
-            raise FsiExternalSetupError(
-                f"{source}: declared output {name!r} is not a bare file name of the point folder."
-            )
-    for kind, names in (("input", list(inputs)), ("output", spec.external.outputs)):
-        taken = step_name_collisions(names)
-        if taken:
-            raise FsiExternalSetupError(
-                f"{source}: declared {kind} {', '.join(repr(name) for name in taken)}: a name "
-                "the archiving step owns in the point folder or in each call's archive "
-                f"({', '.join(sorted(STEP_NAMES))}); the step's file and the program's would "
-                "overwrite each other. Rename it."
-            )
+    _refuse_the_declared_names(source, list(inputs), list(spec.external.outputs))
     return ExternalStructure(
         source=str(source),
         source_sha256=hashlib.sha256(raw).hexdigest(),

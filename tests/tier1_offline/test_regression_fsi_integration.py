@@ -1286,6 +1286,19 @@ class TestRfixR6Fsi:
 
     @staticmethod
     @pytest.mark.requirement("FR-462")
+    @pytest.mark.parametrize("name", ["...", " "])
+    def test_rb4_a_dots_only_output_is_a_setup_error(tmp_path, name):
+        """RB4-06: X-F-1334, a name the record refuses is a setup refusal, never pydantic's."""
+        path = _gaps_rt_fsiext___inputs(
+            tmp_path,
+            _GAPS_RT_FSIEXT__INPUT.replace('outputs = ["struct_log.txt"]', f'outputs = ["{name}"]'),
+        )
+        with pytest.raises(FsiExternalSetupError, match="not a bare file name") as raised:
+            resolve_external_fsi(path)
+        assert repr(name) in str(raised.value)
+
+    @staticmethod
+    @pytest.mark.requirement("FR-462")
     def test_p0400_rfixr6_a_step_name_as_input_is_refused_at_reading(tmp_path):
         """P0400-RFIXR6-FSI: an input staged as call.json is refused the same way."""
         path = _gaps_rt_fsiext___inputs(
