@@ -77,10 +77,10 @@ from pyflightstream.workspace._free_space import (
     _brought_sim_ids,
     _check_selections,
     _check_step_values,
+    _library_target,
     _now,
     _plan_points_without_record,
     _relink_inputs,
-    _restore_inputs_link,
     _run_recipe,
     _sha256,
     _sim_folder,
@@ -95,7 +95,7 @@ from pyflightstream.workspace._free_space import (
 from pyflightstream.workspace._free_space import COMPACTED_SUFFIX as COMPACTED_SUFFIX
 from pyflightstream.workspace._free_space import PRUNE_MODE as PRUNE_MODE
 from pyflightstream.workspace._free_space import human_bytes as human_bytes
-from pyflightstream.workspace._links import _is_link, _remove_link, is_reparse
+from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link, is_reparse
 from pyflightstream.workspace._verdicts import DELETED_SIM_KEY as DELETED_SIM_KEY
 from pyflightstream.workspace._verdicts import merge_runs as _merge_runs
 from pyflightstream.workspace.manifest import (
@@ -2052,3 +2052,27 @@ def disk_estimate(
         f"{human_bytes(free)} free on the workspace disk"
     )
     return line, fits
+
+
+def _restore_inputs_link(
+    workspace: CampaignWorkspace, folder: Path, meta: dict[str, Any]
+) -> dict[str, Any]:
+    """Link a restored simulation's ``inputs`` again, into this workspace's library."""
+    link = meta.get("inputs_link")
+    if link and not (folder / "inputs").exists():
+        wanted = _library_target(workspace, str(link))
+        try:
+            if wanted is None:
+                raise OSError(f"no folder of {workspace.inputs_dir / 'geometries'} matches it")
+            _make_dir_link(wanted, folder / "inputs")
+        except OSError as error:
+            (folder / "inputs").mkdir()
+            warn(
+                f"{folder}: the compacted simulation linked its inputs to {link}, and that "
+                f"link could not be made again in this workspace ({error}); inputs/ is an "
+                "empty folder. Stage the geometry under inputs/geometries and link it.",
+                PyflightstreamWarning,
+            )
+            return {"inputs_link_restored": False, "inputs_link_target": str(link)}
+        return {"inputs_link_restored": True, "inputs_link_target": str(wanted)}
+    return {}

@@ -27,7 +27,6 @@ from typing import Any
 import pyflightstream._textio as _textio
 import pyflightstream.workspace._batch_life as batch_life
 import pyflightstream.workspace._step_prune as step_prune
-from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._progress import tracked
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -600,30 +599,6 @@ def _library_target(workspace: CampaignWorkspace, recorded: str) -> Path | None:
     if own.is_dir() and workspace.root.resolve() in own.resolve().parents:
         return own
     return None
-
-
-def _restore_inputs_link(
-    workspace: CampaignWorkspace, folder: Path, meta: dict[str, Any]
-) -> dict[str, Any]:
-    """Link a restored simulation's ``inputs`` again, into this workspace's library."""
-    link = meta.get("inputs_link")
-    if link and not (folder / "inputs").exists():
-        wanted = _library_target(workspace, str(link))
-        try:
-            if wanted is None:
-                raise OSError(f"no folder of {workspace.inputs_dir / 'geometries'} matches it")
-            _make_dir_link(wanted, folder / "inputs")
-        except OSError as error:
-            (folder / "inputs").mkdir()
-            warn(
-                f"{folder}: the compacted simulation linked its inputs to {link}, and that "
-                f"link could not be made again in this workspace ({error}); inputs/ is an "
-                "empty folder. Stage the geometry under inputs/geometries and link it.",
-                PyflightstreamWarning,
-            )
-            return {"inputs_link_restored": False, "inputs_link_target": str(link)}
-        return {"inputs_link_restored": True, "inputs_link_target": str(wanted)}
-    return {}
 
 
 def _sim_ids(ws: Path) -> set[str]:

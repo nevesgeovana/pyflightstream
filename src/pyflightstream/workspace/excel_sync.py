@@ -135,7 +135,7 @@ class ApplyResult:
 
 
 #: The characters a matrix line cannot carry: the pipe and every break ``str.splitlines`` splits on.
-_SEPARATORS = ("|", "\r", "\n", "\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", " ", " ")
+_SEPARATORS = ("|", "\r", "\n", "\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029")
 
 
 def _digest(data: bytes) -> str:
@@ -180,7 +180,7 @@ def _every_matrix_name(root: Path) -> list[str]:
         raise ExcelSyncError(str(error)) from error
 
 
-def _require_token(token: str) -> str:
+def require_token(token: str) -> str:
     """Return ``token`` when it is a preview token, else refuse it.
 
     A token names the recovery folder of an apply, so a batch edited to carry a path is refused
@@ -194,7 +194,7 @@ def _require_token(token: str) -> str:
     return token
 
 
-def _check_snapshot(snapshot: WorkbookSnapshot) -> None:
+def check_snapshot(snapshot: WorkbookSnapshot) -> None:
     """Validate the Dictionary and the identity of every Runs row.
 
     Raises
@@ -658,7 +658,7 @@ def apply_preview(preview: SyncPreview, snapshot: WorkbookSnapshot) -> ApplyResu
             "Runs, Dictionary or baseline changed after Preview; preview again before Apply."
         )
     root = Path(preview.workspace)
-    _require_token(preview.token)
+    require_token(preview.token)
     for filename, expected in preview.file_digests.items():
         path = _matrix_path(root, filename, preview.direction)
         actual = _digest(path.read_bytes()) if path.exists() else None

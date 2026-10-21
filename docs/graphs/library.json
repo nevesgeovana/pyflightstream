@@ -11784,11 +11784,6 @@
     },
     {
       "source": "pyflightstream.workspace._free_space",
-      "target": "pyflightstream._errors",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._free_space",
       "target": "pyflightstream._progress",
       "kind": "module"
     },

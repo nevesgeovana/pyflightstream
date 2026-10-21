@@ -4008,8 +4008,8 @@ class TestF2Package0607Workspace:
             return f'LOAD "{root}/a.obj"\n'
 
         runs = [
-            ("9101", "/home/u/sims/ws/sims/sim_9101/datapoints/DP-A", load("/home/u/sims/ws"), {}),
-            ("7", "/home/u/ws/sims/sim_7", load("/home/u/ws"), {}),
+            ("9101", "/srv/u/sims/ws/sims/sim_9101/datapoints/DP-A", load("/srv/u/sims/ws"), {}),
+            ("7", "/srv/u/ws/sims/sim_7", load("/srv/u/ws"), {}),
             ("8", "", load(tmp_path.as_posix()), {}),
         ]
         root = TestF2Package0607Workspace._recorded_workspace(tmp_path, runs)
@@ -4032,8 +4032,8 @@ class TestF2Package0607Workspace:
 
         shadow = Path("C:\\ws")
         assert not compare_scripts('PRINT "a\\b"', 'PRINT "a/b"', shadow).same
-        paths = compare_scripts('IMPORT "C:\\ws\\a\\b.obj"', 'IMPORT "/home/r/ws/a/b.obj"', shadow)
-        assert paths.same and paths.run_root == "/home/r/ws"
+        paths = compare_scripts('IMPORT "C:\\ws\\a\\b.obj"', 'IMPORT "/srv/r/ws/a/b.obj"', shadow)
+        assert paths.same and paths.run_root == "/srv/r/ws"
 
     @staticmethod
     def test_f1520_the_run_root_is_found_past_a_first_line_that_does_not_match():

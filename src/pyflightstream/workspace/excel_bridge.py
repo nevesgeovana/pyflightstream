@@ -17,8 +17,8 @@ from pyflightstream.workspace.excel_sync import (
     ExcelSyncError,
     SyncPreview,
     WorkbookSnapshot,
-    _check_snapshot,
     apply_preview,
+    check_snapshot,
     preview_sync,
 )
 
@@ -219,7 +219,7 @@ def preview_from_json(data: dict[str, Any]) -> SyncPreview:
 
 def _check_records(snapshot: WorkbookSnapshot) -> list[list[str]]:
     """Validate the dictionary of the snapshot and say so."""
-    _check_snapshot(snapshot)
+    check_snapshot(snapshot)
     return [["OK", "Dictionary is valid; no cells or matrices were changed."]]
 
 

@@ -24,10 +24,10 @@ from pyflightstream.workspace.excel_sync import (
     ExcelSyncError,
     SyncPreview,
     WorkbookSnapshot,
-    _check_snapshot,
-    _require_token,
     apply_preview,
+    check_snapshot,
     preview_sync,
+    require_token,
 )
 
 __all__ = [
@@ -256,7 +256,7 @@ def check_file(path: Path) -> None:
     path : Path
         The saved macro-free ``.xlsx`` workbook.
     """
-    _check_snapshot(read_snapshot(path))
+    check_snapshot(read_snapshot(path))
 
 
 def _patch_sheet(raw: bytes, changes: dict[tuple[int, int], str]) -> bytes:
@@ -554,7 +554,7 @@ def apply_batch(path: Path) -> dict:
     snapshot = read_snapshot(workbook)
     preview = preview_from_json(payload["preview"])
     _refuse_a_stale_preview(preview, snapshot)
-    recovery = Path(preview.workspace) / ".excel-sync-recovery" / _require_token(preview.token)
+    recovery = Path(preview.workspace) / ".excel-sync-recovery" / require_token(preview.token)
     recovery.mkdir(parents=True, exist_ok=False)
     backup = recovery / "workbook-original.xlsx"
     backup.write_bytes(original)
