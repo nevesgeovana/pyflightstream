@@ -503,8 +503,16 @@ class Ledger:
             modification time; ``not_posted``, the recorded runs of the matrix
             the index does not name.
         """
-        stems = sorted({stem for stem, _ in self._polars(sims=None, matrix=matrix)} - {""})
-        return [self._freshness_of(stem) for stem in stems]
+        found = {stem for stem, _ in self._polars(sims=None, matrix=matrix)}
+        # A plan that cannot be read names no point, so no polar carries its stem; it is
+        # listed all the same, as `unreadable`, rather than vanishing from the footer.
+        wanted = None if matrix is None else matrix_stem(matrix)
+        found |= {
+            stem
+            for stem, plan in self._plans.items()
+            if plan.error is not None and (wanted is None or stem == wanted)
+        }
+        return [self._freshness_of(stem) for stem in sorted(found - {""})]
 
     def document(self, rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
         """Return the ``--json`` document of these rows (FR-759).

@@ -566,3 +566,17 @@ def test_f2_0809_a_product_index_with_non_mapping_provenance_reads_as_incomplete
     path.write_text(json.dumps({"complete": True, "provenance": provenance}), encoding="utf-8")
     freshness = {row["matrix"]: row for row in read_ledger(workspace).freshness()}
     assert freshness[MATRIX]["post"] == "incomplete"
+
+
+def test_f2_0809_an_unreadable_plan_with_no_entries_is_still_listed(tmp_path):
+    """F-1591: a plan that cannot be read and names no point reads as `unreadable`, not nothing."""
+    root = tmp_path / CAMPAIGN
+    CampaignWorkspace.init(root)
+    post = root / "post" / "lonely"
+    post.mkdir(parents=True)
+    (post / "plan.json").write_text("{not json", encoding="utf-8")
+    ledger = read_ledger(root)
+    assert [(row["matrix"], row["plan"]) for row in ledger.freshness()] == [
+        ("lonely", "unreadable")
+    ]
+    assert ledger.freshness(matrix="another") == []
