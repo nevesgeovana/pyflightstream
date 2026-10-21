@@ -508,3 +508,51 @@ def test_p0340_adprof_the_elliptical_disc_needs_no_file_and_the_pages_say_so(cap
         REPO / "guide" / "latex-sources" / "04-cheatsheet" / "text" / "02-by-stage.tex"
     ).read_text(encoding="utf-8")
     assert "pyfs-workspace profile} sections" in sheet
+
+
+@pytest.mark.parametrize(("tip", "hub", "stations"), [(0.3, 0.03, 2), (0.3, 0.1, 26)])
+def test_f_310_the_last_station_is_the_tip_itself_for_every_shape(tip, hub, stations):
+    """F2-0203: F-310, hub + (tip - hub) rounds above the tip for these discs, and the
+    Betz-Prandtl factor then took acos of a number above one."""
+    disc = DiscGeometry(tip, hub, BLADES)
+    assert hub + (tip - hub) * (stations - 1) / (stations - 1) > tip, "the rounding exists"
+    for profile in (
+        uniform_profile(disc, stations=stations),
+        betz_prandtl_profile(disc, advance_ratio=1.0, stations=stations),
+    ):
+        assert profile.rows[-1][0] == tip
+        assert all(r <= tip for r, _ in profile.rows)
+
+
+def test_f_1493_a_record_that_cannot_be_serialised_leaves_no_profile_behind(tmp_path):
+    """F2-0203: F-1493, the provenance is serialised before the profile is published."""
+    disc = DiscGeometry(TIP, HUB, BLADES)
+    root = tmp_path / "ws"
+    with pytest.raises(TypeError):
+        write_profile(
+            root,
+            "prop",
+            uniform_profile(disc, stations=5),
+            disc=disc,
+            target=thrust_target(tip_radius_m=TIP, thrust_n=50.0),
+            shape="UNI",
+            parameters={"stations": object()},
+            apply=True,
+        )
+    folder = root / "inputs" / "profiles"
+    assert not folder.exists() or not list(folder.iterdir())
+
+
+def test_f_732_a_product_key_with_parent_segments_is_not_a_table_of_the_post_folder(tmp_path):
+    """F2-0203: F-732, the automatic lookup reads only files inside the post folder."""
+    from pyflightstream.workspace.actuator_profiles import _recorded_tables
+
+    folder = tmp_path / "post" / "m"
+    (folder / "sections").mkdir(parents=True)
+    outside = tmp_path / "post" / "outside_sloads_Blade1.csv"
+    outside.write_text(TABLE, encoding="utf-8")
+    key = "sections/../../outside_sloads_Blade1.csv"
+    assert (folder / key).is_file(), "the escaping path exists"
+    record = {"products": {key: {"sim_id": "7", "families": ["Blade1"]}}}
+    (folder / "products.json").write_text(json.dumps(record), encoding="utf-8")
+    assert _recorded_tables(folder, "7", "Blade1") == []

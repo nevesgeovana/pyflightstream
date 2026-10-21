@@ -477,12 +477,21 @@ def _recorded_tables(folder: Path, pol: str, family: str) -> list[Path]:
         folder / key
         for key, entry in sorted(products.items())
         if key.startswith("sections/")
+        and _inside(folder, key)
         and "_sloads_" in key
         and isinstance(entry, Mapping)
         and str(entry.get("sim_id")) == pol
         and family in _families(entry.get("families"))
         and (folder / key).is_file()
     ]
+
+
+def _inside(folder: Path, key: str) -> bool:
+    """Whether a product-index key names a path inside the post folder (no parent segments)."""
+    named = Path(key)
+    if named.is_absolute() or ".." in named.parts or named.drive:
+        return False
+    return (folder / named).resolve().is_relative_to(folder.resolve())
 
 
 def _families(stated: object) -> list[str]:
@@ -679,7 +688,9 @@ def _radii(disc: DiscGeometry, stations: int) -> list[float]:
     if isinstance(stations, bool) or not isinstance(stations, int) or stations < 2:
         raise WorkspaceError(f"stations = {stations!r}; a shape is sampled at two or more.")
     hub, tip = disc.hub_radius_m, disc.tip_radius_m
-    return [hub + (tip - hub) * i / (stations - 1) for i in range(stations)]
+    radii = [hub + (tip - hub) * i / (stations - 1) for i in range(stations)]
+    radii[-1] = tip  # the last station is the tip itself, never a rounding above it
+    return radii
 
 
 def uniform_profile(disc: DiscGeometry, *, stations: int = DEFAULT_STATIONS) -> RadialProfile:
@@ -1018,10 +1029,12 @@ def write_profile(
         },
         "units": {"r": "m", "F": "N/m per blade", "profile_units": "NEWTONS"},
     }
+    # Serialised before anything is written: a record that cannot be serialised leaves no profile.
+    provenance_text = json.dumps(provenance, indent=2) + "\n"
     if apply:
         folder.mkdir(parents=True, exist_ok=True)
         # Through the LF route (NFR-32): the record's sha256 is of these exact
         # bytes, and the text holds no final newline (RPT-070).
         _textio.write_text(path, text)
-        _textio.write_text(sidecar, json.dumps(provenance, indent=2) + "\n")
+        _textio.write_text(sidecar, provenance_text)
     return ProfileWrite(path, sidecar, scaled, provenance, apply, existing if apply else ())
