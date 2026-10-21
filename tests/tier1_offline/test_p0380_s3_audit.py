@@ -566,16 +566,27 @@ def test_the_command_reaches_the_audit_only_through_the_public_function():
     assert [m for m, names in imported.items() if "pyflightstream.workspace.audit_mesh" in names]
 
 
-def test_a_check_whose_source_fails_its_practice_is_reported_not_judged(tmp_path):
-    """P0380-AUDIT (FR-939): a source that fails a practice is reported, not judged, so a
-    level equal to a graded source (growth beyond 2) is not failed on growth; the same graded
-    level against the even source is judged and fails (the control)."""
+def _graded_by(ratio: float) -> Mesh:
+    steps = ratio ** numpy.arange(NX)
+    return Mesh(xs=numpy.concatenate([[0.0], numpy.cumsum(steps) / steps.sum()]))
+
+
+def test_a_check_whose_source_is_beyond_its_floor_is_judged_against_the_source(tmp_path):
+    """P0380-AUDIT (FR-939, PFS-2117.003): the limit is the larger of the source's figure and the
+    floor, so a level equal to a graded source (growth beyond 2) passes on growth, a level well
+    beyond that source fails, and the same graded level against the even source fails (control)."""
     level, src = _pair(tmp_path / "same", _graded(), _graded())
     audit, said = _audit(level, src)
     growth = _item(audit, "growth", "A")
     assert growth.values["source_beyond_practice"] is True
-    assert growth.verdict == "not judged", growth.line()
+    assert growth.verdict == "pass", growth.line()
     assert not any("growth" in w and " A:" in w for w in said)
+    level, src = _pair(tmp_path / "beyond", _graded_by(9.0), _graded())
+    audit, said = _audit(level, src)
+    beyond = _item(audit, "growth", "A")
+    assert beyond.values["source_beyond_practice"] is True
+    assert beyond.values["limit"] == beyond.values["source_p95"] > 2.0
+    _assert_fails(audit, said, "growth", "A", "p95 ")
     level, src = _pair(tmp_path / "even", _graded())
     audit, said = _audit(level, src)
     _assert_fails(audit, said, "growth", "A", "p95 ")
@@ -612,3 +623,18 @@ def test_p0430_f304_g2_judges_a_closed_body_split_into_open_families(tmp_path):
         level, _ = _pair(tmp_path / verdict, m)
         audit, _said = _audit(level)
         assert _item(audit, "G2").verdict == verdict, _item(audit, "G2").line()
+
+
+def test_a_record_of_another_source_does_not_group_this_sources_components(tmp_path):
+    """P0380-AUDIT (PFS-2130.069, F-1202): components are read only from a record that names this
+    level and this source; a record of another refinement leaves the source's families alone."""
+    level, src = _pair(tmp_path, Mesh())
+    record = level.with_name(level.stem + ".refine.json")
+    named = {"level": level.stem, "source": "other.obj", "components": {"AB": ["A", "B"]}}
+    record.write_text(json.dumps(named), encoding="utf-8")
+    audit, _ = _audit(level, src)
+    assert _item(audit, "skewness", "A").verdict != "not judged"
+    named["source"] = src.name
+    record.write_text(json.dumps(named), encoding="utf-8")
+    audit, _ = _audit(level, src)
+    assert _item(audit, "skewness", "A").verdict == "not judged"

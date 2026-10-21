@@ -343,7 +343,9 @@ def audit_mesh(
     """
     level = _read(Path(mesh))
     record = _record_of(Path(mesh))
-    components = _components_of(record)
+    # PFS-2130.069: like the grids and the detected edges, the components are read only from a
+    # record that names this level and this source.
+    components = _components_of(record) if _names_this_level(record, Path(mesh), against) else {}
     detected = _recorded_detected(record, Path(mesh), against)
     source = None if against is None else _read(Path(against), components, detected)
     target = Path(mesh).with_name(Path(mesh).stem + AUDIT_SUFFIX)
@@ -1106,9 +1108,11 @@ def _check(check: str, family: str, value: Value, base: Value) -> AuditItem:
         values["source_beyond_practice"] = base is not None and float(base) > floor * (
             1.0 + CHECK_TOLERANCE
         )
-    if value is None or limit is None or values.get("source_beyond_practice"):
-        # FR-939: a source that fails a practice is reported, not judged.
+    if value is None or limit is None:
         return _reported("check", check, family, values)
+    # PFS-2117.003: a source beyond the floor is not an exemption. The limit is the larger of
+    # the source's figure and the floor, so a level is judged not to be worse than a source
+    # that already exceeds the practice; ``source_beyond_practice`` stays as information.
     failed = float(value) > limit + CHECK_TOLERANCE * abs(limit)
     return _item("check", check, family, values, failed)
 
