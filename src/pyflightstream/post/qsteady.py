@@ -1291,7 +1291,13 @@ def rotor_state(
             f"the rotor state of rotor {alias} reads NA: its thrust is not known at every clocking"
         )
         return RotorState(values, tuple(notes))
-    if density_kg_m3 is None or not density_kg_m3 > 0.0 or rate <= 0.0 or diameter <= 0.0:
+    if (
+        density_kg_m3 is None
+        or not math.isfinite(density_kg_m3)
+        or not density_kg_m3 > 0.0
+        or rate <= 0.0
+        or diameter <= 0.0
+    ):
         notes.append(
             f"the rotor state of rotor {alias} reads NA: the point states no density, "
             "or the rotor no speed or no diameter"

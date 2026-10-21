@@ -428,6 +428,19 @@ def test_p0430_nonfinite_clocking_thrust_is_unknown(value):
     assert state.notes
 
 
+def test_p0430_infinite_density_does_not_publish_zero_coefficients():
+    state = post_qsteady.rotor_state(
+        _record(1200),
+        [post_qsteady.Clocking(0, 0, (0,) * 6 + (10, 0))],
+        density_kg_m3=float("inf"),
+        velocity_m_s=10,
+        alpha_deg=0,
+        beta_deg=0,
+    )
+    assert state.values["CT_ROTOR"] is None
+    assert state.values["CT_PROPELLER"] is None
+
+
 def test_p0430_empty_clocking_sections_is_named(tmp_path):
     record = _record(1200)
     table = tmp_path / "sections.csv"
