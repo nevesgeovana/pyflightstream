@@ -1989,3 +1989,31 @@ def test_f3_0203_fr262_a_constant_or_non_finite_record_has_no_level():
     assert acoustics.oaspl_db(broken) is None
     tone = AcousticSignal("t", 0, 0, 0, times, (1.0, -1.0) * 3 + (1.0,))
     assert acoustics.oaspl_db(tone) is not None
+
+
+def test_f3_0203_pfs2117_018_the_boundary_layer_refusals_name_a_remedy():
+    """PFS-2117.018: each refusal spells out boundary-layer, never BL, and says what to do."""
+    from pyflightstream.post.boundary_layer import sample_boundary_layer
+    from pyflightstream.results.surface import REFERENCE_FRAME
+    from tests.tier1_offline.test_boundary_layer_products import _section, _surface
+
+    surface = _surface()
+    surface.cell_data.clear()
+    with pytest.raises(ProductError) as refusal:
+        sample_boundary_layer(
+            surface,
+            [_section([[0.5, 0.5, 0]])],
+            surface_frame=REFERENCE_FRAME,
+            section_frames={1: REFERENCE_FRAME},
+        )
+    message = str(refusal.value)
+    assert "boundary-layer" in message and "BL" not in message
+    assert "run the point again" in message
+    with pytest.raises(ProductError, match="run the point again") as unplaced:
+        sample_boundary_layer(
+            _surface(),
+            [_section([[0.5, 0.5, 0]])],
+            surface_frame=REFERENCE_FRAME,
+            section_frames={},
+        )
+    assert "no proved placement" in str(unplaced.value)

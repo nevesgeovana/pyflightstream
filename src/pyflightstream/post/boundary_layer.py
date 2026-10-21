@@ -179,13 +179,23 @@ def sample_boundary_layer(
     available = tuple(name for name in BL_FIELDS if name in surface.cell_data)
     missing = tuple(name for name in BL_FIELDS if name not in surface.cell_data)
     if not any(name in available for name in BL_FIELDS[:4]):
-        raise ProductError("VTK has no boundary-layer CELL_DATA; integral product unavailable")
+        raise ProductError(
+            "the VTK surface export has no boundary-layer CELL_DATA, so the boundary-layer "
+            "integral product is unavailable; request the boundary-layer integrals in the "
+            "pproc (which adds the VTK surface export) and run the point again"
+        )
     if surface.n_cells == 0 or surface.n_points == 0:
-        raise ProductError("VTK has no cells to associate with section samples")
+        raise ProductError(
+            "the VTK surface export has no cells to associate with the section samples; "
+            "export the surface again from the solver with its cells and run the point again"
+        )
     for name in available:
         values = np.asarray(surface.cell_data[name])
         if values.shape != (surface.n_cells,) or not np.all(np.isfinite(values)):
-            raise ProductError(f"VTK {name} does not provide one finite value per cell")
+            raise ProductError(
+                f"the VTK surface export {name} does not provide one finite value per cell; "
+                "export the surface again from a converged run"
+            )
     points = surface_frame.to_reference(surface.points)
     scale = float(np.linalg.norm(np.ptp(points, axis=0)))
     distance = max(1e-10, scale * 1e-7) if tolerance is None else float(tolerance)
@@ -201,7 +211,10 @@ def sample_boundary_layer(
     for section in sections:
         frame = section_frames.get(section.index)
         if frame is None:
-            raise ProductError(f"section {section.index} has no proved placement")
+            raise ProductError(
+                f"section {section.index} has no proved placement; run the point again so its "
+                "section frame is recorded"
+            )
         located = frame.to_reference(section.positions)
         normal_value = None if section_normals is None else section_normals.get(section.index)
         normal: np.ndarray | None = None
