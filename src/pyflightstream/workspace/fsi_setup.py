@@ -385,7 +385,9 @@ def _resolve_external_row(
         return None
     if data.get("mode") != "external":
         return None
-    stated = sorted(key for key, value in factor_cells.items() if str(value).strip() != "-")
+    stated = sorted(
+        key for key, value in factor_cells.items() if str(value).strip() not in ("", "-")
+    )
     if stated:
         raise FsiSetupError(
             f'FSI {code} is mode = "external" and the row states {", ".join(stated)}: '
@@ -473,6 +475,10 @@ def _stated_factors(factor_cells: Mapping[str, Any]) -> dict[str, float]:
     return factors
 
 
+#: The inputs a staging writes only when the setup asks for them (see :func:`fsi_input_payloads`).
+_OPTIONAL_STAGED_INPUTS = ("fsi_allow_config_change", "fsi_frozen_displacements.txt")
+
+
 def stage_fsi_setup(resolved: ResolvedFsiSetup, run_dir: str | Path) -> tuple[Path, Path]:
     """Stage the driver config and full provenance without running the solver.
 
@@ -495,6 +501,11 @@ def stage_fsi_setup(resolved: ResolvedFsiSetup, run_dir: str | Path) -> tuple[Pa
     payloads = fsi_input_payloads(resolved.effective, resolved.provenance())
     for name, content in payloads.items():
         _textio.write_text(directory / name, content)
+    # An optional input a previous staging wrote and this one no longer asks for would sit
+    # beside a config and a provenance that do not request it, and still be read (F-1223).
+    for optional in _OPTIONAL_STAGED_INPUTS:
+        if optional not in payloads:
+            (directory / optional).unlink(missing_ok=True)
     return config, receipt
 
 

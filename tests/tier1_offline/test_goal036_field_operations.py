@@ -699,3 +699,38 @@ def test_f737_a_sidecar_suffix_cannot_leave_the_freestream_folder(tmp_path, suff
         )
     assert not root.exists()
     assert not (tmp_path / "escape.txt").exists()
+
+
+def test_f1588_a_file_whose_name_has_brackets_is_a_file_not_a_pattern(tmp_path):
+    from pyflightstream.workspace.cli import _expand
+
+    literal = tmp_path / "step[1].dat"
+    literal.write_text("x", encoding="utf-8")
+    assert _expand([str(literal)]) == [str(literal)]
+    # A pattern that names no file is still a pattern, and still refused when it matches none.
+    with pytest.raises(WorkspaceError, match="no file matches"):
+        _expand([str(tmp_path / "step[2].dat")])
+    other = tmp_path / "step_a.dat"
+    other.write_text("x", encoding="utf-8")
+    assert _expand([str(tmp_path / "step_?.dat")]) == [str(other)]
+
+
+@pytest.mark.parametrize("vinf", ["nan", "inf", "-5", "0"])
+def test_f334_vinf_that_is_not_a_speed_is_refused_before_anything_is_read(tmp_path, capsys, vinf):
+    code = workspace_cli(
+        [
+            "field",
+            "time-mean",
+            str(tmp_path / "s_step_*.dat"),
+            "--fluctuation-only",
+            "--last",
+            "2",
+            f"--vinf={vinf}",
+            "--out",
+            "m",
+            "--workspace",
+            str(tmp_path),
+        ]
+    )
+    assert code == 2
+    assert "--vinf" in capsys.readouterr().err

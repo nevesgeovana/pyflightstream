@@ -327,3 +327,34 @@ def test_geometric_pitch_calibration_reaches_structural_nodes_once(tmp_path, tem
         assert positions[3 * station + 1] == pytest.approx(
             [-lead * math.sin(radians), -lead * math.cos(radians), radius], abs=1e-14
         )
+
+
+def test_f1524_a_blank_factor_cell_is_absent_for_an_external_row_as_for_the_others(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from pyflightstream.workspace import fsi_external_setup
+    from pyflightstream.workspace.fsi_setup import _resolve_external_row
+
+    path = tmp_path / "f001.toml"
+    path.write_text('mode = "external"\n', encoding="utf-8")
+    sentinel = object()
+    monkeypatch.setattr(fsi_external_setup, "resolve_external_fsi", lambda _path: sentinel)
+    blank = {"FSI_BENDING_STIFFNESS_N_M2_FACTOR": "", "FSI_TORSION_STIFFNESS_N_M2_FACTOR": "-"}
+    assert _resolve_external_row(path, "f001", blank) is sentinel
+    with pytest.raises(FsiSetupError, match="does not know the external model"):
+        _resolve_external_row(path, "f001", {"FSI_BENDING_STIFFNESS_N_M2_FACTOR": "2"})
+
+
+def test_f1223_restaging_removes_an_optional_input_the_setup_no_longer_asks_for(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "f001.toml"
+    path.write_text(SUPPLIED, encoding="utf-8")
+    run = tmp_path / "run"
+    run.mkdir()
+    for stale in ("fsi_allow_config_change", "fsi_frozen_displacements.txt"):
+        (run / stale).write_text("from an earlier staging", encoding="utf-8")
+    config, _ = stage_fsi_setup(resolve_fsi_setup(path), run)
+    assert config.is_file()
+    assert not (run / "fsi_allow_config_change").exists()
+    assert not (run / "fsi_frozen_displacements.txt").exists()

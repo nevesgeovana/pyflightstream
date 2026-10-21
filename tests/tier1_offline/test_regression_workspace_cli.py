@@ -202,3 +202,27 @@ class TestWorkspace2Cli:
         )
         _workspace_2_cli___exit(lambda: matrix_main(argv))
         assert "unrecognized arguments" not in capsys.readouterr().err
+
+
+class TestF1587OneFolderTwoSpellings:
+    """F-1587: --workspace and the positional root compare as folders, not as strings."""
+
+    @staticmethod
+    @pytest.mark.parametrize("spelling", ["{p}/", "{p}/.", "{p}/x/.."])
+    def test_one_campaign_in_two_spellings_is_one_campaign(tmp_path, spelling):
+        target = tmp_path / "campaign"
+        (target / "x").mkdir(parents=True)
+        root = spelling.format(p=str(target).replace("\\", "/"))
+        assert workspace_cli(["init", root, "--workspace", str(target)]) == 0
+        assert (target / "inputs").is_dir()
+
+    @staticmethod
+    def test_two_different_folders_are_still_refused(tmp_path, capsys):
+        (tmp_path / "a").mkdir()
+        assert (
+            workspace_cli(
+                ["init", str(tmp_path / "a" / ".." / "b"), "--workspace", str(tmp_path / "a")]
+            )
+            == 2
+        )
+        assert "named twice" in capsys.readouterr().err

@@ -70,6 +70,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import math
 import sys
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
@@ -812,7 +813,9 @@ def _campaign_root(args: argparse.Namespace) -> str:
     root = str(getattr(args, "root", None) or ".")
     if named is None:
         return root
-    if root not in (".", named):
+    # One folder in two spellings (a trailing separator, '.' segments, another case on
+    # Windows) is one campaign: compared as folders, not as strings (F-1587).
+    if root != "." and Path(root).resolve() != Path(named).resolve():
         raise WorkspaceError(
             f"the campaign is named twice: --workspace {named!r} and the positional root "
             f"{root!r}. Name it once."
@@ -869,7 +872,9 @@ def _expand(patterns: list[str]) -> list[str]:
     """Expand the glob patterns a shell left alone (a Windows console expands none)."""
     found: list[str] = []
     for pattern in patterns:
-        if glob.has_magic(pattern):
+        # A file that exists under exactly this name is a file, whatever characters it has:
+        # `step[1].dat` is a name before it is a pattern (F-1588).
+        if not Path(pattern).exists() and glob.has_magic(pattern):
             matches = sorted(glob.glob(pattern))
             if not matches:
                 raise WorkspaceError(f"no file matches {pattern}")
@@ -893,7 +898,12 @@ def _fluctuation_words(report: _fields.FluctuationReport, v_inf: float | None) -
 
 
 def _refuse_a_stray_vinf(args: argparse.Namespace) -> None:
-    """Refuse ``--vinf`` where the run reports no fluctuation for it to be stated against."""
+    """Refuse ``--vinf`` where the run reports no fluctuation, or a speed that is no speed."""
+    if args.vinf is not None and not (math.isfinite(args.vinf) and args.vinf > 0.0):
+        raise WorkspaceError(
+            f"--vinf {args.vinf:g} m/s is not a speed to state a fluctuation against: give a "
+            "positive, finite free-stream speed in m/s."
+        )
     if args.vinf is not None and not (args.fluctuation or args.fluctuation_only):
         raise WorkspaceError(
             "--vinf states the fluctuation summary against the free-stream speed, and "
@@ -909,6 +919,7 @@ def _cmd_fluctuation_only(args: argparse.Namespace) -> int:
             "--fluctuation-only refuses to run without --last K: a steady field, or a run whose "
             "steps are not chosen, has no fluctuation to report."
         )
+    _refuse_a_stray_vinf(args)
     steps = _fields.read_step_fields(_expand(args.files), last=args.last)
     report = _fields.fluctuation_report(steps, tolerance_m=args.tolerance)
     written = _fields.write_fluctuation(
