@@ -890,7 +890,14 @@ def compare_signals(
     ref_wave, new_wave = ref - ref.mean(), new - new.mean()
     ref_rms = float(np.sqrt(np.mean(ref_wave**2)))
     new_rms = float(np.sqrt(np.mean(new_wave**2)))
-    if ref_rms == 0.0 or new_rms == 0.0:
+
+    def constant(record: Array) -> bool:
+        # The mean of a constant record is round-off away from it, so the waves are
+        # judged by the spread of the record against its own size, not against zero.
+        spread = float(np.ptp(record))
+        return spread <= 8.0 * np.finfo(float).eps * float(np.max(np.abs(record)))
+
+    if constant(ref) or constant(new) or ref_rms == 0.0 or new_rms == 0.0:
         raise ProductError("a comparison needs two records that are not constant")
     ratio = new_rms / ref_rms
     return SignalComparison(
