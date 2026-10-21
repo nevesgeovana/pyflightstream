@@ -16,6 +16,7 @@ products keep their bytes (FR-1060).
 from __future__ import annotations
 
 import math
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -177,15 +178,33 @@ class _Tables:
     owners: dict[str, list[str]] = field(default_factory=dict)
     runs: dict[str, list[str]] = field(default_factory=dict)
     inputs: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    #: Per suffix and point, the averaging window and the sample count of a reduced file.
+    reduced: dict[str, dict[str, dict[str, object]]] = field(default_factory=dict)
 
-    def extend(self, suffix: str, point: str, runs: Sequence[str], rows: list) -> None:
+    def extend(
+        self,
+        suffix: str,
+        point: str,
+        exports: Sequence[str],
+        rows: list,
+        *,
+        runs: Sequence[str],
+        window: Sequence[float] | None = None,
+        samples: int | None = None,
+    ) -> None:
+        """Add a point's rows; ``exports`` names the input exports the rows were read from."""
         if not rows:
             return
         self.rows.setdefault(suffix, []).extend(rows)
         self.owners.setdefault(suffix, []).extend([point] * len(rows))
         held = self.runs.setdefault(suffix, [])
         held += [run for run in runs if run not in held]
-        self.inputs.setdefault(suffix, {}).setdefault(point, list(runs))
+        self.inputs.setdefault(suffix, {}).setdefault(point, list(exports))
+        if samples is not None:
+            self.reduced.setdefault(suffix, {})[point] = {
+                "window": None if window is None else [float(window[0]), float(window[1])],
+                "samples": int(samples),
+            }
 
     def super_rows(self) -> list[tuple[tuple[object, ...], str]]:
         """Return the rows the super file reads: steady, else each point's average or instant."""
@@ -219,6 +238,22 @@ def _skip(ctx: SimContext, key: str, point: str, reason: str) -> None:
     warn(f"point={point} product=farfield: {reason}", PyflightstreamWarning, stacklevel=3)
 
 
+def _named(ctx: SimContext, paths: Sequence[Path | str | None]) -> list[str]:
+    """Return the export files a product consumed, relative to the simulation folder."""
+    root = ctx.workspace.sim_dir(ctx.sim_id)
+    names: list[str] = []
+    for path in paths:
+        if path is None:
+            continue
+        try:
+            name = Path(os.path.relpath(path, root)).as_posix()
+        except ValueError:
+            name = Path(path).as_posix()
+        if name not in names:
+            names.append(name)
+    return names
+
+
 def _symmetry(ctx: SimContext) -> tuple[bool, bool]:
     """Return (mirror, half loads) from the row's SYMMETRY and SYMMETRY_LOADS."""
     variables: Mapping[str, object] = getattr(ctx.matrix_row, "variables", None) or {}
@@ -250,6 +285,21 @@ def _q_ref(point: PolarPoint, rho: float) -> float:
     loads = point.loads
     v_ref = loads.reference_velocity_m_s or loads.freestream_velocity_m_s
     return 0.5 * rho * float(v_ref) ** 2
+
+
+def _near_cl_on_vinf(point: PolarPoint) -> float:
+    """Return the solver's CL (on VREF) restated on the free-stream dynamic pressure.
+
+    The trace coefficients are taken on ``0.5 rho VINF^2``; the solver's CL on
+    ``0.5 rho VREF^2``, so the two meet only after the factor ``(VREF / VINF)^2``.
+    """
+    loads = point.loads
+    cl = _near_field(point)[0]
+    speed = float(loads.freestream_velocity_m_s)
+    v_ref = float(loads.reference_velocity_m_s or speed)
+    if not (math.isfinite(cl) and math.isfinite(speed) and speed > 0.0 and math.isfinite(v_ref)):
+        return cl
+    return cl * (v_ref / speed) ** 2
 
 
 def _near_field(point: PolarPoint) -> tuple[float, float, float]:
@@ -500,6 +550,15 @@ def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
     inventory = ctx.record_of[point.name].inventory or list(blocks)
     selected = _selected(spec.families, inventory, ctx.aliases, ctx.pproc.is_blade)
     chosen = [name for name in selected if name in blocks]
+    for name in (name for name in selected if name not in blocks):
+        _skip(
+            ctx,
+            f"{key}#family={name}",
+            point.name,
+            f"the selected family {name} has no distribution cut in planes XZ of a "
+            "reference-axes frame, so the trace leaves it out and its TOTAL row is of "
+            "the other families alone",
+        )
     if not chosen:
         _skip(
             ctx,
@@ -565,7 +624,7 @@ def _warn_traced_lift(
     """
     rho, speed, _alpha, _beta = _flow(point)
     cl_traced = lift / (0.5 * rho * speed * speed * float(ctx.reference.sref_m2))
-    cl_near = _near_field(point)[0]
+    cl_near = _near_cl_on_vinf(point)
     if not (math.isfinite(cl_traced) and math.isfinite(cl_near) and cl_near):
         return
     ratio = cl_traced / cl_near
@@ -867,8 +926,21 @@ def _instant_values(
     # A wing's Trefftz C reads the plane; a rotor's reads a lattice station.
     wants_plane = "trefftz:plane" in analyses and not probe.rotor
     wants_lattice = "ledgers" in analyses or ("trefftz:plane" in analyses and probe.rotor)
-    if (wants_plane and plane_at is None) or (wants_lattice and lattice_at is None):
-        raise PyflightstreamError(why or "the run laid no far-field probes these analyses read")
+    no_plane, no_lattice = wants_plane and plane_at is None, wants_lattice and lattice_at is None
+    if no_plane or no_lattice:
+        usable = (wants_plane and not no_plane) or (wants_lattice and not no_lattice)
+        reason = why or "the run laid no far-field probes these analyses read"
+        if not usable:
+            raise PyflightstreamError(reason)
+        # One point set is absent: what the other one holds is still written, and the
+        # absent one is named, not dropped with it.
+        left = "the Trefftz C plane" if no_plane else "the lattice analyses"
+        _skip(
+            ctx,
+            f"{FARFIELD_DIR}/probes#point={point.name}#absent={'plane' if no_plane else 'lattice'}",
+            point.name,
+            f"{left} cannot be read: {reason}",
+        )
     out: dict[str, Any] = {}
     if plane_at is not None and "trefftz:plane" in analyses:
         out["plane"] = plane_values(
@@ -886,7 +958,7 @@ def _instant_values(
     if probe.hub is not None:
         hub = (probe.hub[0], probe.hub[1], probe.hub[2])
     fields = lattice_samples(instant.samples, lattice_at, lattice, axis, q=q_ref, hub=hub)
-    if "trefftz:plane" in analyses and "plane" not in out:
+    if "trefftz:plane" in analyses and probe.rotor and "plane" not in out:
         station = _trefftz(ctx).station
         station = float(lattice.stations[-1]) if station is None else float(station)
         out["rotor"] = rotor_values(fields, rho=rho, speed=speed, station=station)
@@ -908,9 +980,7 @@ def _c_row(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: 
     if "plane" in values:
         plane = values["plane"]
         cdi = plane["D"] / qs
-        # The native CL stands on the reference velocity's dynamic pressure and
-        # CDI_T on the free stream's: put both on one basis before squaring.
-        cl = _near_field(point)[0] * _q_ref(point, rho) / (0.5 * rho * speed * speed)
+        cl = _near_cl_on_vinf(point)
         aspect = float(ctx.reference.bref_m) ** 2 / float(ctx.reference.sref_m2)
         e = cl * cl / (math.pi * aspect * cdi) if math.isfinite(cdi) and cdi else _NA
         cells = {
@@ -991,6 +1061,8 @@ def _probe_point(
     if "plane" in sets[0][1]:
         _flag_a_plane_short_of_the_lift(ctx, point, sets[0][1]["plane"])
     runs = ctx.sources[point.name]
+    _sloads, plots, probes = ctx.exports.get(point.name, (None, None, None))
+    taken = _named(ctx, [plots] if unsteady and not normal else [probes])
     for suffix, group in _suffixes(unsteady, sets, averaged, ctx, point, normal=normal):
         c_rows = [
             _c_row(ctx, point, values, inst.step)
@@ -1005,8 +1077,18 @@ def _probe_point(
         if suffix.endswith("average"):
             c_rows = average_rows([[row] for row in c_rows], 2 + len(CONTEXT_COLUMNS) + 2)
             l_rows = [average_rows(l_rows, 2 + len(CONTEXT_COLUMNS) + 1)] if l_rows else []
-        tables.extend(f"trefftz{suffix}", point.name, runs, c_rows)
-        tables.extend(f"ledgers{suffix}", point.name, runs, [r for rows in l_rows for r in rows])
+        reduced: dict[str, Any] = {}
+        if suffix.endswith("average"):
+            reduced = {"window": ctx.point_windows.get(point.name), "samples": len(averaged)}
+        tables.extend(f"trefftz{suffix}", point.name, taken, c_rows, runs=runs, **reduced)
+        tables.extend(
+            f"ledgers{suffix}",
+            point.name,
+            taken,
+            [r for rows in l_rows for r in rows],
+            runs=runs,
+            **reduced,
+        )
 
 
 def _step(instant: _Instant) -> float:
@@ -1042,7 +1124,7 @@ def _flag_a_plane_short_of_the_lift(
     """
     rho, speed, _alpha, _beta = _flow(point)
     qs = 0.5 * rho * speed * speed * float(ctx.reference.sref_m2)
-    cl_plane, cl_near = plane["L"] / qs, _near_field(point)[0]
+    cl_plane, cl_near = plane["L"] / qs, _near_cl_on_vinf(point)
     if not (math.isfinite(cl_plane) and math.isfinite(cl_near) and cl_near):
         return
     ratio = cl_plane / cl_near
@@ -1158,11 +1240,15 @@ def farfield_products(ctx: SimContext) -> None:
             )
         runs = ctx.sources[point.name]
         steady_rows = []
+        read: list[Path | None] = []
         if "trefftz:sections" in analyses:
             steady_rows += _variant_a(ctx, point)
+            read.append(ctx.exports.get(point.name, (None, None, None))[0])
         if "trefftz:wake" in analyses:
             steady_rows += _variant_b(ctx, point)
-        tables.extend("trefftz", point.name, runs, steady_rows)
+            vtk = _output(ctx, point, "vtk")
+            read.append(None if vtk is None else vtk.with_name(vtk.stem + "_wakes.vtk"))
+        tables.extend("trefftz", point.name, _named(ctx, read), steady_rows, runs=runs)
         if "trefftz:plane" in analyses or "ledgers" in analyses:
             _probe_point(ctx, point, analyses, tables, rotor=rotor)
     _write(ctx, spec, tables)
@@ -1195,6 +1281,9 @@ def _write(ctx: SimContext, spec, tables: _Tables) -> None:
         }
         if "_" in suffix:
             entry["reduction"] = suffix.split("_")[1]
+        if suffix in tables.reduced:
+            # The averaging window and the sample count each point's reduced rows hold.
+            entry["reduced_from"] = tables.reduced[suffix]
         if analysis == "trefftz" and "sections" in variants:
             entry["strip_rule"] = "extended"
         ctx.add(path, entry)

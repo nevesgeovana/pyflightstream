@@ -985,3 +985,101 @@ def test_p0410_pc_timing_only_warning_does_not_discredit_proven_velocity(
     diagnostic = warned[0].lower()
     assert "rotating-frame timing" in diagnostic, diagnostic
     assert "native velocity convention" not in diagnostic, diagnostic
+
+
+def _f4_0304_point(*, v_inf, v_ref, cl):
+    loads = SimpleNamespace(
+        freestream_velocity_m_s=v_inf,
+        reference_velocity_m_s=v_ref,
+        total={"CL": cl},
+        angle_of_attack_deg=0.0,
+        sideslip_deg=0.0,
+    )
+    return SimpleNamespace(
+        name="p", loads=loads, state=SimpleNamespace(density_kg_m3=1.0), vorticity_selection=False
+    )
+
+
+def test_f4_0304_free_stream_lift_is_compared_with_the_solver_cl_on_one_basis():
+    """F-143, F-146, X-F-0321: VINF-based traced lift meets the VREF-based CL on one q."""
+    from pyflightstream.post import farfield_products as ff
+
+    point = _f4_0304_point(v_inf=10.0, v_ref=20.0, cl=0.5)
+    ctx = SimpleNamespace(reference=SimpleNamespace(sref_m2=1.0))
+    assert ff._near_cl_on_vinf(point) == pytest.approx(2.0)
+    # lift = CL * 0.5 rho VREF^2 Sref = 100 N: the same lift the solver reports.
+    with collecting_warnings() as said:
+        ff._warn_traced_lift(ctx, point, 100.0, ["W"])
+        ff._flag_a_plane_short_of_the_lift(ctx, point, {"L": 100.0})
+    assert not said, said
+
+
+def test_f4_0304_a_missing_selected_family_is_a_named_skip(tmp_path, monkeypatch):
+    """F-476: a selected family without an XZ distribution is named, not dropped silently."""
+    import tests.tier1_offline.test_regression_farfield_products as wing
+    from pyflightstream.workspace import RunRecord
+
+    def record(**fields):
+        return RunRecord(**{**fields, "inventory": ["W", "H"]})
+
+    monkeypatch.setattr(wing, "_FarfieldProductsRunRecord", record)
+    workspace = wing._farfield_products___workspace(tmp_path, farfield=True)
+    wing._farfield_products___post(workspace)
+    products = wing._farfield_products___one(tmp_path, "products.json")
+    skipped = json.loads(products.read_text(encoding="utf-8")).get("skipped", {})
+    named = [why for key, why in skipped.items() if key.endswith("#family=H")]
+    assert named and "H" in named[0]
+
+
+def test_f4_0304_the_manifest_names_the_exports_a_far_field_file_consumed(tmp_path):
+    """F-502: inputs lists the consumed export files, not the run ids again."""
+    import tests.tier1_offline.test_regression_farfield_products as wing
+
+    workspace = wing._farfield_products___workspace(tmp_path, farfield=True)
+    wing._farfield_products___post(workspace)
+    manifest = json.loads(
+        wing._farfield_products___one(tmp_path, "products.json").read_text(encoding="utf-8")
+    )
+    (entry,) = [
+        value
+        for key, value in wing._farfield_products___items(manifest.get("products", manifest))
+        if key.endswith("_trefftz.csv")
+    ]
+    (consumed,) = entry["inputs"].values()
+    assert any(name.endswith("_sloads.txt") for name in consumed), consumed
+    assert any(name.endswith("_wakes.vtk") for name in consumed), consumed
+    assert entry["runs"] not in consumed
+
+
+def test_f4_0304_a_reduced_far_field_file_records_its_window_and_sample_count():
+    """F-504: the average of a far-field table states the window and the samples it holds."""
+    from pyflightstream.post.farfield_products import _Tables
+
+    tables = _Tables()
+    tables.extend(
+        "trefftz_average", "p", ["a_plots.txt"], [(1,)], runs=["r"], window=(5, 9), samples=4
+    )
+    assert tables.reduced["trefftz_average"]["p"] == {"window": [5.0, 9.0], "samples": 4}
+    assert tables.inputs["trefftz_average"]["p"] == ["a_plots.txt"]
+
+
+def test_f4_0304_one_absent_point_set_keeps_the_other_analysis(monkeypatch):
+    """F-1246: a missing lattice leaves the C plane written, and the absence is named."""
+    from pyflightstream.post import farfield_products as ff
+
+    monkeypatch.setattr(ff, "far_samples", lambda *_a, **_k: (None, object(), "no lattice"))
+    monkeypatch.setattr(ff, "plane_values", lambda *_a, **_k: {"L": 1.0})
+    ctx = SimpleNamespace(skipped={})
+    point = _f4_0304_point(v_inf=10.0, v_ref=10.0, cl=0.5)
+    probe = SimpleNamespace(
+        layout=SimpleNamespace(plane_grid=(1.0, 1.0, 0.1), lattice=None, axis="X"),
+        per_m=1.0,
+        rotor=False,
+        hub=None,
+    )
+    with collecting_warnings():
+        out = ff._instant_values(
+            ctx, point, SimpleNamespace(samples=None), probe, ["trefftz:plane", "ledgers"]
+        )
+    assert out == {"plane": {"L": 1.0}}
+    assert any("lattice" in why for why in ctx.skipped.values()), ctx.skipped
