@@ -26,7 +26,7 @@ in the point folder at every coupling iteration, and that step:
    call) and appends one row to `fsi_external_calls.csv`.
 
 A call that fails a check writes `pyfs_fsi_error.log` and returns a nonzero
-code, which stops the coupling rather than letting it continue rigid.
+code. How the solver responds to that code has not been measured.
 
 ## The file exchange
 

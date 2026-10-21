@@ -20,7 +20,7 @@
 \code{state.json} & the structural state, written atomically, so a killed call resumes \\
 \code{fsi\_convergence\_log.csv} & the validity boundary in its header, \code{config\_sha256} on every row \\
 \code{fsi\_archive/call\_NNNN/} & that call's loads and displacements, for offline replay \\
-\code{pyfs\_fsi\_calls.log}, \code{\_error.log} & a line per call; on failure the traceback, and a non-zero exit that stops the coupling rather than let it continue rigid \\
+\code{pyfs\_fsi\_calls.log}, \code{\_error.log} & a line per call; on failure the traceback, and a non-zero exit, whose effect on the solver has not been measured \\
 \bottomrule
 \end{tabularx}}
 \par\vspace{1mm}
