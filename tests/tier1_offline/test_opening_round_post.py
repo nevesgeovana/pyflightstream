@@ -96,6 +96,10 @@ def test_sparse_average_guards_follow_all_three_writers(tmp_path, asked):
     ]
     log = (workspace.products_dir("products") / "post.log").read_text().replace("\\", "/")
     for key in keys:
+        if key.endswith("_uns_avg.csv"):
+            # PFS-2130.047: a gap inside the declared window skips the polar, with a reason.
+            assert "gap" in manifest["skipped"][key], manifest["skipped"]
+            continue
         assert key in manifest["products"], manifest["skipped"]
         assert not any(key in line and "unread" in line for line in log.splitlines()), log
 
