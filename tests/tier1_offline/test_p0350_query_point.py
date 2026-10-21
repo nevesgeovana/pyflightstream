@@ -305,6 +305,17 @@ def test_log_storage_preserves_calls_and_filters(workspace, capsys):
     )
 
 
+def test_fr787_log_storage_leaves_the_register_bytes_unchanged(workspace, capsys):
+    """FR-787: reading storage calls through ``log --storage`` never writes the register."""
+    calls = [{"at": "2026-01-02T10:00:00Z", "action": "space-in-use", "sims": 2}]
+    register = workspace / "storage_management.json"
+    _write(register, {"schema": STORAGE_SCHEMA, "calls": calls})
+    before = register.read_bytes()
+    assert _rows(workspace, capsys, "log", "--storage") == calls
+    assert register.read_bytes() == before
+    assert sorted(path.name for path in workspace.glob("storage_management*")) == [register.name]
+
+
 def test_additional_register_is_printed_without_derived_fields(workspace, capsys):
     """P0350-QUERY-ADDITIONAL FR-393: status --additional returns each recorded field."""
     entries = [{"extraction_id": "x1", "run_id": RUN, "status": "COLLECTED", "future": [1, 2]}]
