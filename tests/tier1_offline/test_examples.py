@@ -539,6 +539,18 @@ def test_p0400_the_cleanliness_detector_can_actually_see_an_artifact(tmp_path):
 #: refuses a half-landed narrowing on purpose. The move is one line in each
 #: of six files plus this constant, in a single commit.
 PACKAGE_WARNING_PATH = "pyflightstream._errors.PyflightstreamWarning"
+
+
+def test_p0430_warning_import_example_uses_the_public_catalog():
+    """P0430-WARNING-DOC: teach the public import that callers can use."""
+    from pyflightstream.exceptions import PyflightstreamWarning as PublicWarning
+
+    assert PublicWarning is PyflightstreamWarning
+    assert "from pyflightstream.exceptions import PyflightstreamWarning" in (
+        PyflightstreamWarning.__doc__ or ""
+    )
+
+
 PACKAGE_WARNING_FILTER = f"error::{PACKAGE_WARNING_PATH}"
 PACKAGE_WARNING_HOME, PACKAGE_WARNING_NAME = PACKAGE_WARNING_PATH.rsplit(".", 1)
 

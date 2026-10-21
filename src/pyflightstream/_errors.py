@@ -258,20 +258,15 @@ class PyflightstreamWarning(UserWarning):
     caught. Calling it an ``Error`` would misname it for the reader of a
     traceback.
 
-    TWO THINGS ARE STILL OWED and are stated rather than implied, because
-    a warnings filter that stops matching does it silently. The category
-    is not yet re-exported by :mod:`pyflightstream.exceptions`, so it is
-    imported from here for now; and the package's own warning sites still
-    raise the categories they always did, held one by one in the ratchet
-    ``UNPROMOTED_WARNING_CATEGORIES`` in ``tests/tier1_offline/test_examples.py``.
-    Until that ratchet is empty, narrowing a ``-W error`` command onto
-    this category would stop catching them, so the two halves land
-    together, which is what OPS-2006.02.02 is for.
+    Import the category from :mod:`pyflightstream.exceptions`, the public
+    exception and warning catalog. The package's warning categories derive
+    from this class, so filtering it selects package warnings without
+    selecting unrelated dependency warnings.
 
     Examples
     --------
     >>> import warnings
-    >>> from pyflightstream._errors import PyflightstreamWarning
+    >>> from pyflightstream.exceptions import PyflightstreamWarning
     >>> with warnings.catch_warnings(record=True) as caught:
     ...     warnings.simplefilter("always")
     ...     warnings.warn("the campaign declares no outputs", PyflightstreamWarning)
