@@ -173,7 +173,8 @@ The reader folds case and strips spaces around it, so `SWEEP`, `Sweep` and
 the canonical spelling the package stores.
 
 **Every key of the cell can be swept**: the five that fix the
-state, the five pins, the two angles, the advance ratio and the rotor speed. A
+state, the five pins, the two angles, the advance ratio, the rotor speed and the three body rates
+(`roll_rate`, `pitch_rate`, `yaw_rate`). A
 key that does not define the condition is still refused naming the ones that
 do, rather than accepted and quietly run as a single point.
 
