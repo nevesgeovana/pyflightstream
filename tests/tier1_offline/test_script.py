@@ -30,6 +30,18 @@ from pyflightstream.versions import known_versions
 GOLDENS = Path(__file__).parent / "goldens"
 
 
+@pytest.mark.parametrize("total,index", [(2, 1.5), (2, True), (2.5, 1), (True, 1)])
+def test_p0430_f1471_renumber_requires_integer_inventory(total, index):
+    from pyflightstream.script.entities import EntityRegistry
+
+    registry = EntityRegistry()
+    registry.declare_boundaries({"blade": 2})
+    with pytest.raises(ScriptReferenceError, match="integer"):
+        registry.renumber_boundaries({"blade": index}, total)
+    assert registry.count("boundaries") == 2
+    assert registry.resolve("boundaries", "blade", context="test") == 2
+
+
 @pytest.mark.parametrize("version", ["26.124", "26.125"])
 def test_p0420_p2_1a_minimum_cp_can_follow_initialization(version):
     """Existing init-phase placement permits the measured late-before-start setting."""

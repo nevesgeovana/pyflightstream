@@ -373,12 +373,24 @@ class EntityRegistry:
         Raises
         ------
         ScriptReferenceError
-            If the inventory was never declared, or a label maps outside
-            the new total.
+            If the inventory was never declared, the total or indices are
+            not integers (booleans excluded), or a label maps outside the total.
         """
         if self._boundary_total is None:
             raise ScriptReferenceError(
                 "cannot renumber the boundary inventory: no inventory was declared"
+            )
+        if (
+            isinstance(total, bool)
+            or not isinstance(total, int)
+            or any(
+                isinstance(index, bool) or not isinstance(index, int) for index in labels.values()
+            )
+        ):
+            raise ScriptReferenceError(
+                f"renumbered boundaries require an integer total and integer indices "
+                f"(not booleans); got total={total!r}, labels={dict(labels)!r}. "
+                "Use a nonnegative count and 1-based integer indices within that count."
             )
         if total < 0 or any(not 1 <= index <= total for index in labels.values()):
             raise ScriptReferenceError(
