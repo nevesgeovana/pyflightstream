@@ -1346,7 +1346,25 @@ def _matrix_files(ws: Path) -> dict[str, Path]:
     return {stem: path.relative_to(ws) for stem, path in found.items()}
 
 
-def _atomic_copy(source: Path, target: Path, *, keep: Path | None = None) -> str:
+def _refuse_linked_folders(root: Path, target: Path) -> None:
+    """Refuse a destination whose folders under ``root`` include a link."""
+    try:
+        relative = target.parent.relative_to(root)
+    except ValueError:
+        return
+    folder = root
+    for part in relative.parts:
+        folder = folder / part
+        if folder.exists() and is_reparse(folder):
+            raise StorageError(
+                f"{folder} is a link; sync never writes through a link, so {target} was not "
+                "written. Replace the link by a folder or remove it."
+            )
+
+
+def _atomic_copy(
+    source: Path, target: Path, *, keep: Path | None = None, root: Path | None = None
+) -> str:
     """Copy ``source`` over ``target`` through a temporary name; return the digest.
 
     P0320-SYNC-ATOMIC. The bytes go to a temporary file in the target's own
@@ -1356,9 +1374,17 @@ def _atomic_copy(source: Path, target: Path, *, keep: Path | None = None) -> str
     its replacement is whole. ``keep``, when given and the target exists,
     receives a copy of the target first (the sync's ``archive/sync-<stamp>/``).
     A failure removes the temporary file and leaves the target as it was.
+    With ``root``, no folder between it and the target may be a link, and a
+    file already at the temporary name is removed (the link itself, not what
+    it points at) before the copy, so nothing outside the workspace is written.
     """
+    if root is not None:
+        _refuse_linked_folders(root, target)
+        if keep is not None:
+            _refuse_linked_folders(root, keep)
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(f".{target.name}.{os.getpid()}{_SYNC_TEMPORARY}")
+    temporary.unlink(missing_ok=True)
     try:
         shutil.copy2(source, temporary)
         digest = _sha256(temporary)
@@ -1426,7 +1452,7 @@ def _sync_matrices(
         if apply:
             for copy in copies:
                 keep = main.root / ARCHIVE_DIR / f"sync-{stamp}" / copy.relative_to(main.root)
-                _atomic_copy(source, copy, keep=keep)
+                _atomic_copy(source, copy, keep=keep, root=main.root)
         result["copied"].append(
             {
                 "matrix": stem,
@@ -1878,7 +1904,7 @@ def _sync_one(
                     keep = None
                     if kind == "overwrite":
                         keep = main.root / ARCHIVE_DIR / f"sync-{stamp}" / relative
-                    digest = _atomic_copy(source, target, keep=keep)
+                    digest = _atomic_copy(source, target, keep=keep, root=main.root)
                     size = _size(target)
                     item = {"path": relative.as_posix(), "bytes": size, "sha256": digest}
                     (overwritten if kind == "overwrite" else copied).append(item)

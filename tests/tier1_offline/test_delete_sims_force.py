@@ -259,3 +259,34 @@ def test_f1236_sync_does_not_relink_a_submitted_record_only_simulation(tmp_path)
     assert entry["runs"]["submitted_sims_record_only"] == ["8010"]
     assert "sim_8010" not in entry["inputs_links"]
     assert not (main.sim_dir("8010") / "inputs").exists()
+
+
+def test_f746_sync_refuses_to_write_through_a_destination_link(tmp_path):
+    main = CampaignWorkspace(tmp_path / "main")
+    main.init(main.root)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (main.root / "post").rmdir()
+    storage_module._make_dir_link(outside.resolve(), main.root / "post")
+    source = tmp_path / "src.csv"
+    source.write_text("data", encoding="utf-8")
+    target = main.root / "post" / "m" / "p.csv"
+    with pytest.raises(StorageError, match="is a link"):
+        storage_module._atomic_copy(source, target, root=main.root)
+    assert list(outside.iterdir()) == []
+
+
+def test_f747_a_planted_name_at_the_temporary_path_is_not_written_through(tmp_path):
+    victim = tmp_path / "victim.txt"
+    victim.write_text("precious", encoding="utf-8")
+    source = tmp_path / "src.txt"
+    source.write_text("new", encoding="utf-8")
+    target = tmp_path / "dest" / "t.txt"
+    target.parent.mkdir()
+    planted = target.with_name(
+        f".{target.name}.{storage_module.os.getpid()}{storage_module._SYNC_TEMPORARY}"
+    )
+    storage_module.os.link(victim, planted)  # same inode as the victim, as a link would be
+    storage_module._atomic_copy(source, target, root=tmp_path)
+    assert victim.read_text(encoding="utf-8") == "precious"
+    assert target.read_text(encoding="utf-8") == "new"
