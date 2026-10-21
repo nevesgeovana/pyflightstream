@@ -558,3 +558,10 @@ def test_f_732_a_product_key_with_parent_segments_is_not_a_table_of_the_post_fol
     (folder / "products.json").write_text(json.dumps(record), encoding="utf-8")
     with pytest.raises(WorkspaceError, match="no sectional loads table of POL 7"):
         find_pol_sections(tmp_path, "7")
+
+
+@pytest.mark.parametrize("radius", [-0.5, 0.0, float("nan")])
+def test_f332_a_ct_target_refuses_a_tip_radius_that_is_not_finite_and_positive(radius):
+    """F-332: a CT worked out with a negative, zero or NaN tip radius is refused, not computed."""
+    with pytest.raises(WorkspaceError, match="tip radius"):
+        thrust_target(tip_radius_m=radius, ct=0.1, rho_kg_m3=1.2, rpm=3000.0)

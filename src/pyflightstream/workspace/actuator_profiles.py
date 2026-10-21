@@ -391,7 +391,12 @@ def thrust_target(
             "(CLI: --ct)."
         )
     assert ct is not None  # the first refusal above: one of the two is stated
-    for value, what in ((ct, "the CT"), (rho_kg_m3, "the density"), (rpm, "the speed")):
+    for value, what in (
+        (ct, "the CT"),
+        (rho_kg_m3, "the density"),
+        (rpm, "the speed"),
+        (tip_radius_m, "the tip radius"),
+    ):
         _positive(value, what)
     n = rpm / 60.0
     diameter = 2.0 * tip_radius_m
