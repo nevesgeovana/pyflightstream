@@ -616,7 +616,14 @@ def _own_blade_azimuth(
     cut = [number for number, members in enumerate(blades, start=1) if set(families) <= members]
     if len(cut) != 1:
         return blade_one_deg
-    return placed_blade_azimuth_deg(blade_one_deg, blade=cut[0], blades=len(blades))
+    # `blades` is the ROTOR's count where the block states it (a periodic sector
+    # carrying two blades of four spaces them a quarter turn apart), the number
+    # of blade groups only where the rotor states none.
+    stated = rotor.get("blades")
+    count = (
+        stated if isinstance(stated, int) and not isinstance(stated, bool) and stated > 0 else None
+    )
+    return placed_blade_azimuth_deg(blade_one_deg, blade=cut[0], blades=count or len(blades))
 
 
 #: The twenty-four coefficient columns of a polar row, in the order: the
