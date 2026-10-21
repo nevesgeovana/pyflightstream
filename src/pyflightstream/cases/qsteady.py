@@ -1208,7 +1208,7 @@ def _parse_record(data: object) -> QsteadyRecord:
     )
 
 
-def read_qsteady_record(loads_path: Path) -> QsteadyRecord:
+def read_qsteady_record(loads_path: str | Path) -> QsteadyRecord:
     """Return the quasi-steady record the run wrote beside a point's loads export.
 
     The one reader of ``<point>_qsteady.json`` (:func:`record_file_name` of the
@@ -1217,7 +1217,7 @@ def read_qsteady_record(loads_path: Path) -> QsteadyRecord:
 
     Parameters
     ----------
-    loads_path : Path
+    loads_path : str or Path
         The point's own loads export; the record is read from beside it.
 
     Returns
@@ -1234,6 +1234,7 @@ def read_qsteady_record(loads_path: Path) -> QsteadyRecord:
         value of the wrong kind. One refusal for every case: the caller
         decides what the point loses.
     """
+    loads_path = Path(loads_path)
     path = loads_path.with_name(Path(record_file_name(loads_path.name)).name)
     if not path.is_file():
         raise QsteadyRecordError(f"the quasi-steady record {path} is not on disk")

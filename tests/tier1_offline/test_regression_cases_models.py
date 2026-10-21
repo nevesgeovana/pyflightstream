@@ -786,3 +786,11 @@ def test_f057_a_huge_finite_axis_normalizes_to_a_unit_vector():
     """F-057: the norm of (1e200, 1e200, 0) overflowed to infinity and the axis became zero."""
     axis = _f5_rotor(axis=[1e200, 1e200, 0.0], blade1={"azimuth_deg": 0.0, "zero": "Z"}).axis_vector
     assert axis == pytest.approx((math.sqrt(0.5), math.sqrt(0.5), 0.0))
+
+
+def test_pfs_2126_008_read_qsteady_record_takes_a_string_path(tmp_path):
+    """PFS-2126.008: a str path is refused as an absent record, not with an AttributeError."""
+    from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
+
+    with pytest.raises(QsteadyRecordError, match="not on disk"):
+        read_qsteady_record(str(tmp_path / "p1_loads.csv"))
