@@ -573,3 +573,15 @@ def test_f333_a_fractional_step_is_refused_not_truncated(tmp_path):
     table.write_text("POL,STEP,Offset,Fx\n7,1.5,0.2,1.0\n7,1.5,0.3,2.0\n", encoding="utf-8")
     with pytest.raises(WorkspaceError, match="STEP"):
         read_section_loads(table)
+
+
+@pytest.mark.parametrize("body", ['{"products": []}', '{"products": "x"}', '{"products": null}'])
+def test_f1521_a_products_member_that_is_not_a_mapping_is_no_table(tmp_path, body):
+    """F-1521: the lookup reports no recorded table, not AttributeError."""
+    from pyflightstream.workspace.actuator_profiles import find_pol_sections
+
+    folder = tmp_path / "post" / "m"
+    folder.mkdir(parents=True)
+    (folder / "products.json").write_text(body, encoding="utf-8")
+    with pytest.raises(WorkspaceError, match="no sectional loads table"):
+        find_pol_sections(tmp_path, "7")

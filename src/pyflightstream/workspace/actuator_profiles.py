@@ -478,6 +478,8 @@ def _recorded_tables(folder: Path, pol: str, family: str) -> list[Path]:
         products = json.loads(record.read_text(encoding="utf-8")).get("products", {})
     except (OSError, ValueError, AttributeError):
         return []
+    if not isinstance(products, Mapping):
+        return []
     return [
         folder / key
         for key, entry in sorted(products.items())
