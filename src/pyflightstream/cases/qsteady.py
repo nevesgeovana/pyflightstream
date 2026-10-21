@@ -577,7 +577,7 @@ def obj_group_vertices(path: str | Path, *, metres_per_unit: float) -> dict[str,
     vertices: list[Vector] = []
     groups: dict[str, set[int]] = {}
     current: str | None = None
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
+    for line in Path(path).read_text(encoding="utf-8-sig").splitlines():
         parts = line.split()
         if not parts:
             continue

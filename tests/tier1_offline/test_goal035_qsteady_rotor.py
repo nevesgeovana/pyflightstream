@@ -72,6 +72,14 @@ def test_p0430_f320_velocity_documents_rotorcraft_ratio():
     assert "larger by pi/2" not in source
 
 
+def test_p0430_xf0494_obj_bom_preserves_first_vertex(tmp_path):
+    obj = tmp_path / "blade.obj"
+    obj.write_text("v 1 0 0\nv 2 0 0\nv 3 0 0\ng Blade\nf 1 2\n", encoding="utf-8-sig")
+    assert arithmetic.obj_group_vertices(obj, metres_per_unit=0.1) == {
+        "Blade": [(0.1, 0.0, 0.0), (0.2, 0.0, 0.0)]
+    }
+
+
 @pytest.mark.parametrize((), [pytest.param(id="P0430-F-020")])
 def test_p0430_glauert_requires_a_small_equation_residual():
     ct = 0.01
