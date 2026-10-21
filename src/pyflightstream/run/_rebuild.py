@@ -683,6 +683,10 @@ def _finalise(
     work_dir: Path = facts["work_dir"]
     script = sim_dir / record["script_path"]
     record["script_sha256"] = file_sha256(script)
+    # F-606: the shadow run hashed the executable on THIS machine, now. A rebuilt
+    # record never states it for a run that happened earlier: the digest of the
+    # executable that ran is not recoverable from the files on disk.
+    record["fs_exe_sha256"] = None
     digests = {}
     for key, value in (record.get("inputs_sha256") or {}).items():
         for folder in (work_dir, sim_dir / "inputs", sim_dir):
@@ -753,7 +757,7 @@ def _finalise(
                 record["fs_version_reported"] = assessment.fs_version_reported
                 record["fs_build"] = assessment.fs_build
     stamp = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
-    lost = [] if facts["submitted_here"] else ["wall_time_s"]
+    lost = ["fs_exe_sha256"] + ([] if facts["submitted_here"] else ["wall_time_s"])
     note = (
         f"{REBUILT} on {stamp} from sims/sim_{sim} with pyflightstream {context.version}: not "
         "the record written when it ran. The setup fields come from the package running the "

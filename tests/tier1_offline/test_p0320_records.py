@@ -72,6 +72,7 @@ NATURAL = {
     "executor",
     "cwd",
     "submitted_by",
+    "fs_exe_sha256",
 }
 
 #: A submission profile with no log section: the script exports its own log.
@@ -867,3 +868,19 @@ def test_f605_scripts_joined_for_the_comparison_keep_their_boundaries():
     moved = _joined_scripts({"a.txt": "X\n", "b.txt": "Y\nZ\n"})
     assert one != moved
     assert _joined_scripts({"b.txt": "Z\n", "a.txt": "X\nY\n"}) == one
+
+
+def test_f606_a_rebuilt_record_never_states_the_digest_of_the_executable_that_ran(
+    tmp_path, monkeypatch
+):
+    """F-606: the shadow hashed the executable of THIS machine, now; it is not the one that ran."""
+    from pyflightstream.run import _points
+
+    workspace, _matrix_path, _original = _local_campaign(tmp_path, monkeypatch)
+    _lose_the_manifest(workspace)
+    # The executable of this machine, now: the shadow run hashes it; the rebuild must not keep it.
+    monkeypatch.setattr(_points, "_file_digest", lambda _path: "a" * 64)
+    (rebuilt,) = records.rebuild(workspace.root)["records"]
+    assert rebuilt["fs_exe_sha256"] is None
+    said = " ".join(rebuilt["warnings"])
+    assert "not recoverable" in said and "fs_exe_sha256" in said
