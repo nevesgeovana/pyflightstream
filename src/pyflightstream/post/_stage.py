@@ -114,7 +114,17 @@ def _window_the_reduction_reads(
     return read
 
 
-_POST_REFUSES: ContextVar[bool] = ContextVar("post_refuses", default=True)
+# THE CONTEXT VARIABLES OF A POST IN PROGRESS, all three, in one place. They are set by
+# ``write_campaign_products`` for the length of one post and reset when it ends, so a
+# writer reached directly, outside a post, sees the defaults below.
+#
+# * ``_POST_REFUSES``: whether a product whose steps the solver did not freeze is REFUSED
+#   (``check_frozen=True``) or written with a warning. The default is False, the policy the
+#   campaign documents: warn and write every computable product.
+# * ``_POST_VERDICTS``: the frozen-solve verdict of each (loads file, unsteady) pair read so
+#   far in this post, so a file is judged once. None outside a post.
+# * ``_POST_NOTES``: the INFO records of the post (FR-419). None outside a post.
+_POST_REFUSES: ContextVar[bool] = ContextVar("post_refuses", default=False)
 
 
 _POST_VERDICTS: ContextVar[dict[tuple[Path, bool], FrozenSolve | None] | None] = ContextVar(

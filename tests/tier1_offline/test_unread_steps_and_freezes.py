@@ -387,3 +387,10 @@ def test_a_trimmed_per_blade_span_with_no_frame_is_a_named_skip_not_an_abort(tmp
     assert key in manifest["skipped"], manifest
     assert "no frame" in manifest["skipped"][key] or "58" in manifest["skipped"][key]
     assert "probes/AL-020_plots.csv" in manifest["products"], "the post did not complete"
+
+
+def test_p0430_f3_a_writer_outside_a_post_warns_by_default():
+    """PFS-2126.016: the refusal switch defaults to the documented policy, warn and write."""
+    from pyflightstream.post._stage import _POST_REFUSES
+
+    assert _POST_REFUSES.get() is False
