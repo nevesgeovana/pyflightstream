@@ -55,6 +55,7 @@ from pyflightstream.farfield import (
     grid_integral,
     lattice_fields,
     plane_integral,
+    sample_area_coverage,
     sample_coverage,
     spurious_diagnostic,
     to_counts,
@@ -2585,8 +2586,8 @@ def test_p0420_a_hole_at_the_rim_costs_more_coverage_than_a_hole_at_the_hub():
     by_count_hub = float(sample_coverage(hub["u"])[0])
     by_count_rim = float(sample_coverage(rim["u"])[0])
     assert by_count_hub == pytest.approx(by_count_rim), "the count cannot tell them apart"
-    area_hub = float(sample_coverage(hub["u"], fields=hub)[0])
-    area_rim = float(sample_coverage(rim["u"], fields=rim)[0])
+    area_hub = float(sample_area_coverage(hub["u"], hub)[0])
+    area_rim = float(sample_area_coverage(rim["u"], rim)[0])
     assert area_rim < area_hub < 1.0
     weights = ring_sample_weights(ds)
     assert area_hub == pytest.approx(1.0 - weights[0] / weights.sum())
@@ -2597,7 +2598,7 @@ def test_p0420_the_area_coverage_is_the_share_of_the_integral_a_hole_removes():
     """PFS-2019.01: for a constant field the coverage and the integral lose the same share."""
     lattice, field, whole = _fields()
     rim = lattice_fields(lattice, fields={"u": _holed(field, lattice.n_r - 1)})
-    coverage = float(sample_coverage(rim["u"], fields=rim)[0])
+    coverage = float(sample_area_coverage(rim["u"], rim)[0])
     finite_integral = float(plane_integral(rim, np.nan_to_num(rim["u"], nan=0.0))[0])
     assert finite_integral / float(plane_integral(whole, whole["u"])[0]) == pytest.approx(coverage)
 
@@ -2605,7 +2606,7 @@ def test_p0420_the_area_coverage_is_the_share_of_the_integral_a_hole_removes():
 def test_p0420_a_complete_plane_has_coverage_one_both_ways():
     """PFS-2019.01 control."""
     _lattice, _field, ds = _fields()
-    assert float(sample_coverage(ds["u"], fields=ds)[0]) == pytest.approx(1.0)
+    assert float(sample_area_coverage(ds["u"], ds)[0]) == pytest.approx(1.0)
     assert float(sample_coverage(ds["u"])[0]) == 1.0
 
 
@@ -2613,7 +2614,7 @@ def test_p0420_a_lattice_of_another_ring_count_is_refused():
     """PFS-2019.01: the area each sample stands for is undefined for another lattice."""
     _lattice, _field, ds = _fields()
     with pytest.raises(FarfieldInputError, match="rings"):
-        sample_coverage(ds["u"][:, :-1, :], fields=ds)
+        sample_area_coverage(ds["u"][:, :-1, :], ds)
 
 
 def test_p0420_the_grid_coverage_weights_a_corner_by_its_quarter_cell():

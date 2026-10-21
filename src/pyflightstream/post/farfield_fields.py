@@ -48,7 +48,7 @@ from pyflightstream.farfield import (
     plane_lift,
     plane_vorticity_drag,
     rotor_channels,
-    sample_coverage,
+    sample_area_coverage,
     shaft_torque,
     spurious_diagnostic,
     symmetry_floor,
@@ -932,9 +932,9 @@ def ledger_values(
     torque = shaft_torque(fields, rho)
     closure = mass_closure(fields, rho)
     floor = symmetry_floor(fields["u"], psi=fields.psi, m_max=spec.m_max)
-    # sample_coverage is the finite fraction of each station's AREA, a missing sample
+    # sample_area_coverage is the finite fraction of each station's AREA, a missing sample
     # weighted by the annular cell it stands for (PFS-2139.008, PFS-2019.01).
-    coverage = sample_coverage(fields["u"], fields=fields)
+    coverage = sample_area_coverage(fields["u"], fields)
     far = float(flux[-1] - flux[0])
     spurious = spurious_diagnostic(near[0], far, rho_inf=rho, v_inf=speed, s_ref=near[1])
     rows = []

@@ -29,7 +29,7 @@ from pyflightstream.farfield.quadrature import (
     grid_integral,
     grid_weights,
     plane_integral,
-    sample_coverage,
+    sample_area_coverage,
     strip_edges,
 )
 
@@ -843,7 +843,7 @@ def rotor_channels(
     useful = thrust * v_inf
     denominator = useful + losses
     eta = float("nan") if v_inf == 0.0 or denominator == 0.0 else useful / denominator
-    coverage = float(sample_coverage(u[index], fields=fields))
+    coverage = float(sample_area_coverage(u[index], fields))
     return RotorChannels(
         station=float(station),
         p_axial=float(p_axial),

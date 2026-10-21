@@ -34,6 +34,7 @@ from pyflightstream.farfield import (
     plane_vorticity_drag,
     rotor_channels,
 )
+from pyflightstream.farfield.quadrature import grid_weights
 from pyflightstream.post import farfield_products
 from pyflightstream.probes import ProbeLattice
 from pyflightstream.script import Script
@@ -529,7 +530,9 @@ class TestFarfieldPlane:
         broken = plane_fields(plane.y, z=plane.z, fields=holed)
         drag = plane_induced_drag(broken, rho=_FARFIELD_PLANE__RHO, v_inf=_FARFIELD_PLANE__V)
         assert math.isnan(drag.induced_drag)
-        assert drag.coverage == pytest.approx(1.0 - 1.0 / holed["w"].size)
+        # PFS-2019.01: a fraction of AREA, the missing sample weighed by its trapezoid cell.
+        cells = grid_weights(plane.y, z=plane.z)
+        assert drag.coverage == pytest.approx(1.0 - cells[3, 4] / cells.sum())
         assert math.isnan(plane_vorticity_drag(broken, rho=_FARFIELD_PLANE__RHO))
         assert math.isnan(
             bernoulli_residual(broken, rho=_FARFIELD_PLANE__RHO, v_inf=_FARFIELD_PLANE__V)

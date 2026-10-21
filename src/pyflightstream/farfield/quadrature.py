@@ -25,6 +25,7 @@ __all__ = [
     "grid_weights",
     "plane_integral",
     "ring_sample_weights",
+    "sample_area_coverage",
     "sample_coverage",
     "strip_edges",
     "symmetry_floor",
@@ -131,34 +132,56 @@ def plane_integral(fields: LatticeFields, integrand: np.ndarray) -> np.ndarray:
     return (np.asarray(integrand) * weights).sum(axis=(-2, -1)) * scale
 
 
-def sample_coverage(integrand: np.ndarray, *, fields: LatticeFields | None = None) -> np.ndarray:
-    """Fraction of the plane's area that was sampled, per leading index.
+def sample_coverage(integrand: np.ndarray) -> np.ndarray:
+    """Fraction of ``(r, psi)`` samples that are finite, per leading index.
 
     The diagnostic half of PYFS-010: :func:`plane_integral` returns NaN when
     any sample is missing, which says THAT a plane is unusable and not how far
     off it is; this says how much of the plane was actually sampled.
 
-    THE FRACTION IS OF AREA, NOT OF SAMPLES, when ``fields`` is given: each
-    sample stands for the annular cell its quadrature weight
-    (:func:`ring_sample_weights`) integrates, so a missing sample at the rim,
-    which stands for far more of the disc than one at the hub, costs what the
-    integral loses by it. A count would report the same 0.99 for a hole at the
-    hub and for a hole at the rim whose cost in the integral is many times
-    larger. Without ``fields`` every sample is weighted equally, which is the
-    area fraction only for samples that stand for equal areas.
+    THIS IS A COUNT OF SAMPLES, every sample weighing the same. On an annular
+    lattice the samples stand for very different areas, so a missing sample at
+    the rim costs the integral far more than one at the hub and the count
+    reports them alike: use :func:`sample_area_coverage` for the fraction of
+    the plane that was sampled (PFS-2019.01).
 
     Parameters
     ----------
     integrand : numpy.ndarray
         Any array whose two trailing axes are ``(n_r, n_psi)``.
-    fields : LatticeFields, optional
+
+    Returns
+    -------
+    numpy.ndarray
+        Coverage in ``[0, 1]``; 1.0 means every sample is finite.
+    """
+    array = np.asarray(integrand)
+    total = array.shape[-2] * array.shape[-1]
+    return np.isfinite(array).sum(axis=(-2, -1)) / total
+
+
+def sample_area_coverage(integrand: np.ndarray, fields: LatticeFields) -> np.ndarray:
+    """Fraction of the plane's AREA that was sampled, per leading index.
+
+    Each sample stands for the annular cell its quadrature weight
+    (:func:`ring_sample_weights`) integrates, so a missing sample at the rim,
+    which stands for far more of the disc than one at the hub, costs what the
+    integral loses by it. A count (:func:`sample_coverage`) would report the same
+    0.99 for a hole at the hub and for a hole at the rim whose cost in the
+    integral is many times larger.
+
+    Parameters
+    ----------
+    integrand : numpy.ndarray
+        Any array whose two trailing axes are ``(n_r, n_psi)``.
+    fields : LatticeFields
         The survey whose ring edges give each ring's represented area. Its ring
         count must be the integrand's ``n_r``.
 
     Returns
     -------
     numpy.ndarray
-        Coverage in ``[0, 1]``; 1.0 means every sample is finite.
+        Area coverage in ``[0, 1]``; 1.0 means every sample is finite.
 
     Raises
     ------
@@ -166,18 +189,16 @@ def sample_coverage(integrand: np.ndarray, *, fields: LatticeFields | None = Non
         If ``fields`` has another number of rings than the integrand.
     """
     array = np.asarray(integrand)
-    finite = np.isfinite(array)
-    if fields is None:
-        total = array.shape[-2] * array.shape[-1]
-        return finite.sum(axis=(-2, -1)) / total
     weights = ring_sample_weights(fields)
     if len(weights) != array.shape[-2]:
         raise FarfieldInputError(
             f"the lattice has {len(weights)} rings and the integrand {array.shape[-2]}, so the "
             "area each sample stands for is not defined"
         )
-    represented = (finite * weights[:, None]).sum(axis=(-2, -1))
-    return represented / (float(weights.sum()) * array.shape[-1])
+    represented = (np.isfinite(array) * weights[:, None]).sum(axis=(-2, -1))
+    # A plane with no hole covers all of its area exactly, whatever the rounding of the sum.
+    complete = sample_coverage(array) == 1.0
+    return np.where(complete, 1.0, represented / (float(weights.sum()) * array.shape[-1]))
 
 
 def grid_weights(y: np.ndarray, *, z: np.ndarray) -> np.ndarray:
