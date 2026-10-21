@@ -395,3 +395,10 @@ def test_the_module_imports_nothing_from_the_package_but_the_base_exception():
         "module imports only the base exception, or it is a pipeline stage "
         "wearing a floor's name"
     )
+
+
+@pytest.mark.parametrize("delta", [math.nan, math.inf, -math.inf])
+def test_isa_refuses_a_non_finite_deviation_instead_of_an_all_nan_state(delta):
+    """PFS-2130.016: a NaN or infinite ISA deviation is refused, never an all-NaN state."""
+    with pytest.raises(AtmosphereError, match="deviation"):
+        isa(1000.0, delta_isa_c=delta)

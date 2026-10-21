@@ -241,6 +241,11 @@ def isa(altitude_m: float = 0.0, *, delta_isa_c: float = 0.0) -> AtmosphereState
     """
     pressure = standard_pressure(altitude_m)
     temperature = standard_temperature(altitude_m) + delta_isa_c
+    if not math.isfinite(temperature):
+        raise AtmosphereError(
+            f"an ISA deviation of {delta_isa_c} C at {altitude_m} m gives a non-finite "
+            f"temperature ({temperature}); the deviation must be a finite number"
+        )
     if temperature <= 0.0:
         raise AtmosphereError(
             f"an ISA deviation of {delta_isa_c} C at {altitude_m} m puts the "
