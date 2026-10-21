@@ -26,6 +26,12 @@ Each row opens with `POL`, then `PROBE`, `X`, `Y`, `Z`, `FRAME`, `STEP` and the
 condition block, then the export's own columns (steady, normal) or the sampled
 parameters (unsteady).
 
+On steady and normal-probe rows, exported `X`, `Y`, `Z` take precedence:
+they use the solver's native length unit and `FRAME` is `REFERENCE`.
+On unsteady history rows, coordinates are the recorded emitted positions in
+native length units, after any rotor-radius scaling, and `FRAME` is their
+recorded frame. The original entry's frame does not relabel exported coordinates.
+
 Solver numbers whose three-digit exponent omits `E`, such as `0.2964-322`,
 are read as `0.2964E-322`. These printed values remain in their own columns;
 their small magnitude alone neither drops the export nor substitutes a missing value.

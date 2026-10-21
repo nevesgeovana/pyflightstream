@@ -370,8 +370,8 @@ def write_plots_table(
         raise ProductError(f"the unsteady plots export {path} cannot be read: {error}") from error
     try:
         vref = float(labeled_value(export_text, "Reference velocity (m/s)"))
-    except (MalformedOutputError, ValueError):
-        vref = vinf
+    except (PyflightstreamError, ValueError) as error:
+        raise ProductError(f"the plots export {path} has no readable reference velocity") from error
     scale = (vref / vinf) ** 2 if vinf > 0.0 else math.nan
     if vinf <= 0.0:
         # NO FREE STREAM TO BRING THEM TO (PFS-2105.015): the coefficients were
@@ -418,11 +418,10 @@ def write_plots_table(
 #: could not derive rather than a column that does not apply -- the exception
 #: named beside :data:`NOT_APPLICABLE` and in the change log.
 #:
-#: THE COORDINATES ARE IN THE UNITS THE ARTIFACT WROTE THEM IN. A probe entry
-#: states its points either in the reference's length unit or, where it says
-#: `scale = "rotor_radius"`, in rotor radii, which the builder resolves before
-#: it emits; no export and no artifact states a unit name, so no column here
-#: invents one .
+#: Exported steady (and normal-probe) coordinates are in the solver's native
+#: length unit and REFERENCE frame. Unsteady history coordinates are the
+#: recorded emitted positions, with rotor-radius scaling already resolved,
+#: in native length units and their recorded frame.
 #: THE CONTEXT FOLLOWS THE SPINE AND PRECEDES THE FLUID COLUMNS, so the shape
 #: a reader learned -- where the point is, in which frame, at which
 #: step -- is still the first thing in the row, and the export's own columns
@@ -490,19 +489,24 @@ def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, floa
             "rest of the products now, move it aside: a point whose positions "
             "file is ABSENT still gets its table, without the position columns."
         ) from error
-    # NO SHAPE CHECK ON THE HEADER, and its absence is deliberate. One stood
-    # here and a mutant that deleted it changed no answer this module can
-    # produce: the per-row guard below already yields nothing for a table
-    # whose cells are not there, and the strict check additionally REFUSED a
-    # correctly named table whose columns are in another order, which is a
-    # worse answer than reading it. A check nothing can tell from its
-    # absence is an opinion wearing a guard's clothes.
-    for row in rows:
+    if not {"PROBE", "X", "Y", "Z", "FRAME"}.issubset(columns) or not rows:
+        raise ProductError(f"the probe positions file {target} has no complete positions table")
+    for number, row in enumerate(rows, start=2):
         try:
-            vertex = int(float(row["PROBE"]))
-            out[vertex] = (float(row["X"]), float(row["Y"]), float(row["Z"]), str(row["FRAME"]))
-        except (KeyError, TypeError, ValueError):
-            continue
+            raw = float(row["PROBE"])
+            if not raw.is_integer():
+                raise ValueError("PROBE must be an integer")
+            vertex = int(raw)
+            if vertex in out:
+                raise ValueError(f"duplicate PROBE {vertex}")
+            xyz = (float(row["X"]), float(row["Y"]), float(row["Z"]))
+            if not all(math.isfinite(value) for value in xyz):
+                raise ValueError("coordinates must be finite")
+            out[vertex] = (*xyz, str(row["FRAME"]))
+        except (KeyError, TypeError, ValueError, OverflowError) as error:
+            raise ProductError(
+                f"the probe positions file {target}, row {number}, cannot be read: {error}"
+            ) from error
     return out
 
 
@@ -520,8 +524,8 @@ def _probe_spine(
     ``stated`` is the position the EXPORT ITSELF carries, which a steady
     probe export does and an unsteady plots export does not. Where the
     export states one it wins, because it is the solver's own answer about
-    the point it sampled; the recorded position then supplies only the
-    frame NAME, which no export carries at all.
+    the point it sampled. These coordinates are in the REFERENCE frame and
+    native length units; a recorded entry's frame cannot relabel them.
 
     THE STEP OF A STEADY ROW IS ``NA`` AND WAS ``-`` in legacy releases. The rule is
     one sentence -- where a value does not apply, the token is always ``NA`` --
@@ -538,7 +542,7 @@ def _probe_spine(
         x, y, z = recorded[0], recorded[1], recorded[2]
     else:
         return (pol, vertex, "", "", "", "", step, *context)
-    frame = "" if recorded is None else recorded[3]
+    frame = "REFERENCE" if stated is not None else ("" if recorded is None else recorded[3])
     return (pol, vertex, x, y, z, frame, step, *context)
 
 
@@ -662,7 +666,7 @@ def _plotted_value(text: str | None) -> float | None:
     refused it, so one missing sample dropped the point's whole probes table.
     """
     cell = (text or "").strip()
-    return None if cell in ("", NOT_APPLICABLE) else float(cell)
+    return None if cell in ("", "-", NOT_APPLICABLE) else float(cell)
 
 
 def write_unsteady_probes_table(
@@ -753,8 +757,6 @@ def write_unsteady_probes_table(
     kept = [(vertex, names) for vertex, names in groups if any(n in present for n in names)]
     absent = [vertex for vertex, names in groups if not any(n in present for n in names)]
     groups = kept
-    if not groups or not rows:
-        return None
     if absent and notes is not None:
         notes.append(
             "no history for recorded probe position(s) "
@@ -763,6 +765,8 @@ def write_unsteady_probes_table(
             + ", ".join(parameters)
             + " for them, so they are not in this table; a new run is needed to sample them"
         )
+    if not groups or not rows:
+        return None
     # Use _read_step_clock, shared with reductions and series. The table's
     # Time-step column supplies STEP, including offset and sparse clocks;
     # only a table without that column falls back to row ordinals.
@@ -1203,7 +1207,13 @@ def write_phase_locked_table(
     """
     datum = facts.get("blade1_azimuth_deg")
     rpm = facts.get("rpm")
-    if not isinstance(datum, int | float) or not isinstance(rpm, int | float) or not rpm:
+    if (
+        not isinstance(datum, int | float)
+        or not isinstance(rpm, int | float)
+        or not math.isfinite(datum)
+        or not math.isfinite(rpm)
+        or not rpm
+    ):
         raise ProductError(
             f"the phase-locked table of rotor {rotor!r} is tabulated by azimuth, and nothing "
             f"states where its blade one is (blade1_azimuth_deg: {datum!r}) or which way it "
@@ -1219,6 +1229,7 @@ def write_phase_locked_table(
     )
     first, last = int(window[0]), int(window[1])
     names = [name for name in columns if name not in _PLOTS_CLOCK_COLUMNS]
+    read_steps: set[int] = set()
     try:
         rows = phase_locked_rows(
             series,
@@ -1230,9 +1241,12 @@ def write_phase_locked_table(
             sense=1.0 if float(rpm) > 0 else -1.0,
             blades=int(blades),
             blade_families=families,
+            read_steps=read_steps,
         )
     except ProductError as error:
         raise ProductError(f"the phase_locked reduction of rotor {rotor!r}: {error}") from error
+    first = min(read_steps) if read_steps else first
+    last = max(read_steps) if read_steps else last
     context = context_row(condition, None if reference is None else reference.as_lengths())
     moment = context_row(
         None if reference is None else reference.as_moment_point(),
@@ -1249,7 +1263,7 @@ def write_phase_locked_table(
             row["REVOLUTIONS"],
             first,
             last,
-            last - first + 1,
+            len(read_steps),
             *context,
             *moment,
             *(row.get(name) for name in names),
@@ -1395,9 +1409,15 @@ def revolution_drift_pct(current: float, previous: float) -> float | None:
     >>> revolution_drift_pct(1.0, 0.0) is None
     True
     """
-    if previous == 0.0 or math.isnan(previous) or math.isnan(current):
+    if previous == 0.0 or not math.isfinite(previous) or not math.isfinite(current):
         return None
-    return (current - previous) / abs(previous) * 100.0
+    difference = current - previous
+    ratio = (
+        difference / abs(previous)
+        if math.isfinite(difference)
+        else current / abs(previous) - math.copysign(1.0, previous)
+    )
+    return ratio * 100.0
 
 
 def export_tables(ctx: SimContext) -> None:

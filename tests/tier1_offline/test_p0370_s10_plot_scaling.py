@@ -10,6 +10,16 @@ from pyflightstream.post.point_tables import write_plots_table
 from pyflightstream.results import parse_unsteady_plots
 
 
+def test_p0430_f149_unreadable_reference_velocity_is_not_unit_scale(tmp_path):
+    from pyflightstream._errors import ProductError
+
+    source = Path(__file__).parent / "fixtures/s10_26125/plots_26.125.txt"
+    text = source.read_text(encoding="utf-8")
+    text = re.sub(r"(Reference velocity \(m/s\)\s+)\S+", r"\g<1>unreadable", text)
+    with pytest.raises(ProductError):
+        write_plots_table(tmp_path / "plots.csv", text)
+
+
 @pytest.mark.parametrize("split", [("CDP", "CDV"), ("CDI", "CDO")])
 def test_drag_plots_use_the_same_free_stream_scale_as_lift(tmp_path, split):
     """P0370-S10-DRAG-COLUMNS (FR-423): both drag pairs use (Vref / Vinf)^2."""

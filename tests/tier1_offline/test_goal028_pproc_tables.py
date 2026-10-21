@@ -44,6 +44,116 @@ STEPS = 12
 PER_REVOLUTION = 4.0
 DATUM = 30.0
 RPM = -1200.0
+
+
+@pytest.mark.parametrize("body", ["", "1,bad,0,0,MRP", "1.9,0,0,0,MRP", "1,0,0,0,MRP\n1,1,0,0,MRP"])
+def test_p0430_probe_positions_refuse_corrupt_rows(tmp_path, body):
+    from pyflightstream._errors import ProductError
+    from pyflightstream.post.point_tables import read_probe_positions
+
+    path = tmp_path / "positions.csv"
+    path.write_text("PROBE,X,Y,Z,FRAME\n" + body + "\n", encoding="utf-8")
+    with pytest.raises(ProductError):
+        read_probe_positions(path)
+
+
+def test_p0430_f1386_historical_dash_is_missing(tmp_path):
+    from pyflightstream.post.point_tables import write_unsteady_probes_table
+
+    source = tmp_path / "plots.csv"
+    source.write_text("Time-step,MACH1\n1,-\n", encoding="utf-8")
+    try:
+        target = write_unsteady_probes_table(
+            tmp_path / "probes.csv", source, positions={1: (0, 0, 0, "MRP")}, parameters=["MACH"]
+        )
+    except ValueError:
+        pytest.fail("historical missing token was refused")
+    _, rows = read_csv_table(target)
+    assert rows[0]["MACH"] == "NA"
+
+
+def test_p0430_f1387_every_missing_probe_history_is_named(tmp_path):
+    from pyflightstream.post.point_tables import write_unsteady_probes_table
+
+    source = tmp_path / "plots.csv"
+    source.write_text("Time-step,CL\n1,0.5\n", encoding="utf-8")
+    notes = []
+    result = write_unsteady_probes_table(
+        tmp_path / "probes.csv",
+        source,
+        positions={1: (0, 0, 0, "MRP")},
+        parameters=["MACH"],
+        notes=notes,
+    )
+    assert result is None
+    assert notes and "1" in notes[0]
+
+
+@pytest.mark.parametrize("rpm", [float("nan"), float("inf")])
+def test_p0430_f150_nonfinite_rotation_is_refused(tmp_path, rpm):
+    from pyflightstream._errors import ProductError
+    from pyflightstream.post.point_tables import write_phase_locked_table
+    from pyflightstream.post.unsteady import TimestepSeries
+
+    series = TimestepSeries(np.arange(1, 9), None, np.zeros((1, 3)), {"FX": np.ones((8, 1))}, ())
+    with pytest.raises(ProductError):
+        write_phase_locked_table(
+            tmp_path / "phase.csv",
+            series,
+            ["FX"],
+            window=(1, 8),
+            revolutions=1,
+            steps_per_revolution=4,
+            rotor="PROP",
+            blades=1,
+            facts={"rpm": rpm, "blade1_azimuth_deg": 0},
+        )
+
+
+def test_p0430_f1389_phase_metadata_names_actual_support(tmp_path):
+    from pyflightstream.post.point_tables import write_phase_locked_table
+    from pyflightstream.post.unsteady import TimestepSeries
+
+    series = TimestepSeries(np.arange(1, 9), None, np.zeros((1, 3)), {"FX": np.ones((8, 1))}, ())
+    target = write_phase_locked_table(
+        tmp_path / "phase.csv",
+        series,
+        ["FX"],
+        window=(1, 8),
+        revolutions=1,
+        steps_per_revolution=4,
+        rotor="PROP",
+        blades=1,
+        facts={"rpm": 1200, "blade1_azimuth_deg": 0},
+    )
+    _, rows = read_csv_table(target)
+    assert {(row["FIRST_STEP"], row["LAST_STEP"], row["STEPS"]) for row in rows} == {
+        ("5", "8", "4")
+    }
+
+
+@pytest.mark.parametrize("current,previous", [(float("inf"), 1), (1, float("inf"))])
+def test_p0430_f194_infinite_means_have_no_drift(current, previous):
+    from pyflightstream.post.point_tables import revolution_drift_pct
+
+    assert revolution_drift_pct(current, previous) is None
+
+
+def test_p0430_f195_representable_drift_does_not_overflow():
+    from pyflightstream.post.point_tables import revolution_drift_pct
+
+    assert revolution_drift_pct(1e308, -1e308) == pytest.approx(200)
+
+
+def test_p0430_probe_spine_export_coordinates_use_reference_frame(tmp_path):
+    from pyflightstream.post.point_tables import write_probes_table
+
+    export = (Path(__file__).parent / "fixtures/probe_points_26.120.txt").read_text()
+    target = write_probes_table(tmp_path / "probes.csv", export, positions={1: (1, 2, 3, "ROTOR")})
+    _, rows = read_csv_table(target)
+    assert rows[0]["FRAME"] == "REFERENCE"
+
+
 TOTAL = [3.0, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0, 5.0, 3.0, 5.0, 8.0]
 BLADE1 = [2.0, 7.0, 1.0, 8.0, 2.0, 8.0, 1.0, 8.0, 2.0, 8.0, 4.0, 5.0]
 BLADE2 = [1.0, 4.0, 1.0, 4.0, 2.0, 1.0, 3.0, 5.0, 6.0, 2.0, 3.0, 7.0]
