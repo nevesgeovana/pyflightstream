@@ -61,6 +61,7 @@ from pyflightstream.workspace.inputs import (
     LOCAL_EXECUTABLES_FILE,
     PROVENANCE_SUFFIX,
     PointXyz,
+    is_valid_artifact_id,
     read_hpc_profile,
     read_inventory,
     read_mesh_import,
@@ -1064,3 +1065,10 @@ def test_x_f1363_a_declared_output_that_is_not_a_file_name_is_refused(tmp_path, 
     )
     with pytest.raises(FsiExternalSetupError, match="bare file name"):
         resolve_external_fsi(path)
+
+
+@pytest.mark.parametrize("artifact_id", ["r001\n", "wing\n"])
+def test_an_id_with_a_trailing_newline_is_not_a_file_name_stem(artifact_id):
+    """X-F-1265: the stem grammar admits no newline, not even a final one."""
+    assert not is_valid_artifact_id(artifact_id)
+    assert is_valid_artifact_id(artifact_id.strip())
