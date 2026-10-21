@@ -127,7 +127,8 @@ VOLUME_SECTION_BOUNDARY_LAYER:
         Script Index does not carry it; no replacement documented
   notes: >
     Toggles boundary-layer induction on one volume section (index
-    greater than 0). Documented in 26.1 only (FSM-26.101 p.365); the
+    greater than 0). Documented from 25.000 through 26.101, with each
+    edition's citation on its version row (FSM-26.101 p.365); the
     command disappeared from the manual at 26.12 with no successor in
     the Volume Sections family.
 

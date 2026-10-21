@@ -59,7 +59,7 @@ SET_TRAILING_EDGE_TYPE:
     trailing edges such as wing-fuselage junctions (FSM-26.120 p.164).
 
     THE RELAXED TRAILING EDGE IS ALSO SPECIFIED OUTSIDE THE SCRIPT, AND
-    THE NEWEST EDITION ADDS A FIELD THERE. Paraphrasing FSM-26.123 p.85:
+    FSM-26.123 ADDS A FIELD THERE. Paraphrasing FSM-26.123 p.85:
     relaxed-Kutta trailing edges can also be declared as a COMPONENT
     parameter, written where a component is defined rather than in a
     script, taking semicolon-separated fields; that edition gives it a

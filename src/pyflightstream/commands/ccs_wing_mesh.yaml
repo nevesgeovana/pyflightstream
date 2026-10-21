@@ -375,9 +375,9 @@ NEW_CCS_WING_MORPHING_SURFACE:
     A morphing control surface, the GAPLESS alternative to
     NEW_CCS_WING_CONTROL_SURFACE above: the same seven leading arguments
     and no SLOT_GAP, because this surface deflects by deforming rather
-    than by opening a slot. It also gained no SPACE or AXIS at 26.120, so
-    its spanwise limits are parametric in every edition while its gapped
-    sibling's are not.
+    than by opening a slot. Its spanwise limits remain parametric through
+    26.124; 26.125 adds SPACE and AXIS, allowing REAL as well as PARAMETRIC
+    spans according to the selected space.
 
     U0 and U1 are chordwise depths from the TRAILING EDGE, bounded above
     0 and below 0.5. HINGE_HEIGHT is parametric from the upper surface

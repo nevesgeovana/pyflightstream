@@ -161,10 +161,10 @@ SET_VERTEX_MERGE_TOLERANCE:
     that the value is not negative.
 
     IT IS A LENGTH AND THE SIMULATION LENGTH UNIT DECIDES WHAT IT MEANS.
-    The manual's sample passes 1E-5, which is a reasonable tolerance in
-    metres and a very large one in microns, so the same number does
-    different things under SET_SIMULATION_LENGTH_UNITS. No edition
-    mentions the interaction.
+    The manual's sample passes 1E-5: in metres this is 10 microns,
+    while in microns it is 1e-11 metres, a million times smaller.
+    SET_SIMULATION_LENGTH_UNITS therefore changes the physical distance
+    represented by the same numeric tolerance.
 
 SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE:
   layout: inline

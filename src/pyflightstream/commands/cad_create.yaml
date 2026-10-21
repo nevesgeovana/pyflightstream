@@ -143,9 +143,8 @@ SET_CAD_CURVATURE_REFINEMENT:
     Subdivisions around a full circle, used as the reference for how
     finely a curved region is refined. It is the same quantity the
     NUM_CURVATURE argument of the CAD import carries (FSM-26.120 p.286),
-    and the two share the documented default of 80. That command is not
-    in this database yet, so the comparison is to the manual page rather
-    than to an entry.
+    and the two share the documented default of 80. See IMPORT_CAD for
+    the import grammar and its NUM_CURVATURE argument.
 
 # --- basic shapes ----------------------------------------------------------
 #
@@ -1121,16 +1120,16 @@ CAD_CREATE_AUTO_CROSS_SECTIONS:
     "26.125": {status: documented, note: "FSM-26.125 p.301, unchanged from FSM-26.124 p.296"}
   notes: >
     Sweeps a body along an axis and writes a series of cross-section
-    curves. EIGHT arguments, and the signature parser reports seven: the
-    heading WRAPS in every edition and CAD_MESH sits alone on the second
-    line. The sample passes eight tokens, which is what settles it.
+    curves. It takes seven arguments on 25.000, without CAD_MESH, and
+    eight in the later recorded editions. The later heading wraps with
+    CAD_MESH on the second line; their samples pass eight tokens.
 
     GROWTH_SCHEME is a numbered choice of four and the numbers are the
     tokens: 1 uniform, 2 successive, 3 dual-successive, 4
     reverse-successive (FSM-26.120 p.292). It is spelled as a closed set
     rather than as an integer because an out-of-range scheme would
-    silently change the mesh, and it must be passed as a string
-    (PLN-20260806-1130). GROWTH_RATE is the rate that scheme uses, and
+    silently change the mesh. The emitter accepts strings or integers
+    for these four numbered choices. GROWTH_RATE is the rate that scheme uses, and
     1.0 is the uniform spacing the manual names.
 
     SYMMETRY takes a plane to produce HALF sections, or NONE for full
@@ -1184,15 +1183,10 @@ CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS:
 # All three take LOFT_TYPE_U and LOFT_TYPE_V, the same C2 and C0 pair
 # SET_CAD_CREATE_SPLINE_LOFT sets as the pane default, per direction.
 #
-# ALL THREE DOCUMENT CLOSE_ENDS WITH THE OPEN AND CLOSED PAIR AND ALL
-# THREE OF THEIR SAMPLES PASS TRUE. Three printed calls against three
-# parameter tables, in every edition, which makes this the widest
-# instance in the chapter of the table-versus-sample disagreement that
-# utils.manual.sample_contradiction exists to catch. Three of the three
-# spellings are accepted here (TRUE from the calls, OPEN and CLOSED from
-# the tables), because refusing either side would refuse something the
-# manual states; only TRUE is evidenced by a printed call, and which the
-# solver takes is a probe question.
+# Earlier editions pair OPEN/CLOSED parameter tables with TRUE in the
+# three samples. The 26.125 samples instead pass CLOSED, OPEN and CLOSED.
+# The per-build argument rows retain each edition's recorded vocabulary;
+# printed examples establish grammar, not measured solver behavior.
 #
 # FALSE is absent: no table or sample carries it for CLOSE_ENDS in any
 # edition. MARK_TRAILING_EDGES has a different vocabulary; its tokens
@@ -1390,6 +1384,8 @@ SET_CCS_TE_BLEND_LENGTH:
       type: float
       unit: "percent of cross-section curve length"
   manual_ref: "FSM-26.125 p.298"
+  default: 10
+  default_ref: "FSM-26.125 p.298"
   versions:
     "26.125": {status: documented, note: "FSM-26.125 p.298, the first edition to document it"}
   notes: >

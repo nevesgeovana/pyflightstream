@@ -189,15 +189,11 @@ CAD_BODY_SELECT_BY_THRESHOLD:
     command does not state and this database therefore does not either
     (FSM-26.120 p.288).
 
-    A LIMIT of this package rather than of the solver, found while
-    writing the entry: FRAME can only be the reference frame here. This
-    command is phase geometry and CREATE_NEW_COORDINATE_SYSTEM is phase
-    setup, so the ordering check refuses a local frame created before
-    it, and a frame created after cannot be cited by a line already
-    emitted. Whether the SOLVER accepts a coordinate system defined
-    before a CAD operation is unmeasured, so the phase is left where the
-    rest of the CAD family sits rather than moved on a guess
-    (PLN-20260806-0900).
+    FRAME can name the reference frame or an existing local frame declared
+    to the script, for example with declare_existing(frames=2). This command
+    is phase geometry and CREATE_NEW_COORDINATE_SYSTEM is phase setup, so
+    creating a new local frame first would prevent a later geometry command.
+    Declaring an existing frame does not create one in the solver.
 
 IMPORT_CAD:
   layout: mixed_inline

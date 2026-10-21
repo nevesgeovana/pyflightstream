@@ -225,9 +225,9 @@ WRAPPER_DELETE_ALL_LOCAL_CONTROLS:
     "26.124": {status: documented, note: "FSM-26.124 p.318, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.324, unchanged from FSM-26.124 p.318"}
   notes: >
-    Deletes every local control. There is no command deleting one, so
-    correcting a single control means deleting all of them and building
-    the set again.
+    Deletes every local control. Use WRAPPER_EDIT_LOCAL_CONTROL to correct
+    one control without deleting the set. No individual deletion command
+    is recorded here.
 
 WRAPPER_NEW_VOLUME_CONTROL:
   layout: keyword_block

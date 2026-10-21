@@ -150,9 +150,8 @@ INITIALIZE_SOLVER:
     (SYMMETRY_COPIES). WALL_COLLISION_AVOIDANCE applies to solver
     models 1 to 3. The initialize_solver helper builds both extended
     forms from typed arguments. Initializing MIRROR symmetry with a
-    full (non-half) model diverges instantly (FSM-26.120 p.217); case
-    metadata declaring a full model triggers a build-time warning when
-    cases/ lands.
+    full (non-half) model diverges instantly (FSM-26.120 p.217).
+    Use a half model with MIRROR symmetry.
 
 SOLVER_PROXIMAL_BOUNDARIES:
   layout: payload_lines

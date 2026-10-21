@@ -29,6 +29,87 @@ REPORTS_DIR = REPO_ROOT / "reports"
 COMMANDS_DIR = REPO_ROOT / "src" / "pyflightstream" / "commands"
 
 
+@pytest.mark.parametrize(
+    "filename,obsolete,correction",
+    [
+        ("cad.yaml", "FRAME can only be the reference frame", "declare_existing(frames=2)"),
+        ("cad_create.yaml", "curves. EIGHT arguments", "seven arguments on 25.000"),
+        ("cad_create.yaml", "That command is not in this database yet", "IMPORT_CAD"),
+        ("cad_create.yaml", "must be passed as a string", "strings or integers"),
+        ("cad_create.yaml", "parameter tables, in every edition", "26.125 samples"),
+        ("ccs_wing_mesh.yaml", "parametric in every edition", "26.125 adds SPACE and AXIS"),
+        (
+            "mesh_wrapper.yaml",
+            "correcting a single control means deleting all",
+            "WRAPPER_EDIT_LOCAL_CONTROL",
+        ),
+        ("simulation_controls.yaml", "a very large one in microns", "1e-11 metres"),
+        ("solver_settings.yaml", "so one version row", "26.121 through 26.125"),
+        ("sweeper.yaml", "so one version row", "25.000 through 26.100"),
+        ("unsteady_solver.yaml", "prevented verification of the bounds", "7 to 12 inclusive"),
+        (
+            "unsteady_solver.yaml",
+            "another build and nothing has measured it",
+            "CMP-26125_2026-10-05_probe-campaign.yaml",
+        ),
+        ("volume_sections.yaml", "Documented in 26.1 only", "25.000 through 26.101"),
+        (
+            "boundary_conditions.yaml",
+            "THE NEWEST EDITION ADDS A FIELD THERE",
+            "FSM-26.123 ADDS A FIELD THERE",
+        ),
+        ("solver_initialization.yaml", "cases/ lands", "Use a half model with MIRROR symmetry"),
+    ],
+    ids=[
+        "P0430-F-1698",
+        "P0430-F-1684",
+        "P0430-X-F-1590",
+        "P0430-F-1703",
+        "P0430-F-1704",
+        "P0430-F-1685",
+        "P0430-F-1689",
+        "P0430-F-1690",
+        "P0430-F-1708",
+        "P0430-F-1710",
+        "P0430-F-433",
+        "P0430-F-434",
+        "P0430-F-1711",
+        "P0430-X-F-1605",
+        "P0430-X-F-1612",
+    ],
+)
+def test_p0430_fd02_notes_match_recorded_contracts(filename, obsolete, correction):
+    text = " ".join((COMMANDS_DIR / filename).read_text(encoding="utf-8").split())
+    assert obsolete not in text
+    assert correction in text
+
+
+def test_p0430_fd02_ccs_blend_default_is_queryable():
+    entry = CommandRegistry.load().for_version("26.125")["SET_CCS_TE_BLEND_LENGTH"]
+    assert entry.default == 10
+    assert entry.default_ref == "FSM-26.125 p.298"
+
+
+def test_p0430_fd02_tecplot_measurement_names_its_build_and_date():
+    note = CommandRegistry.load().commands["EXPORT_SOLVER_ANALYSIS_TECPLOT"].notes
+    assert "26.124" in note and "2026-09-25" in note and "RPT-074" in note
+
+
+@pytest.mark.parametrize(
+    "command,report,detail",
+    [
+        ("EXPORT_BL_VELOCITY_PROFILE", "CMP-26124_2026-09-25_bl-profile.yaml", "120 s"),
+        ("SOLVER_TIME_AVERAGING", "CMP-26124_2026-09-19_time-averaging.yaml", "without receipt"),
+    ],
+    ids=["P0430-X-F-0115", "P0430-X-F-0123"],
+)
+def test_p0430_fd02_broken_notes_preserve_the_reported_limit(command, report, detail):
+    row = CommandRegistry.load().commands[command].versions["26.124"]
+    assert row.report.endswith(report)
+    assert "[...]" not in row.note
+    assert detail in row.note
+
+
 def test_p0430_fd01_default_follows_the_target_edition():
     registry = CommandRegistry.load()
     name = "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH"
@@ -147,7 +228,7 @@ def test_p0420_inline_optional_cannot_precede_required():
 #: `^26\.\d{3}$` until 2026-08-09, when registering the 25 series made
 #: the major a variable, which is what the scheme always meant; the
 #: charter moved in the same change (CONTRIBUTING.md invariant 4).
-CANONICAL_PATTERN = re.compile(r"^\d{2}\.\d{3}$")
+CANONICAL_PATTERN = re.compile(r"[0-9]{2}\.[0-9]{3}")
 # A report is cited two ways in this database: as a repository-relative path
 # with a suffix, and as the bare id alone (motion_definitions.yaml cites
 # "reports/RPT-005", which is neither a real path nor a bare id). Resolving by
@@ -195,7 +276,7 @@ def test_meta_versions_are_canonical_and_aliased():
     versions = meta["versions"]
     assert versions, "_meta.yaml must list at least one version"
     for entry in versions:
-        assert CANONICAL_PATTERN.match(entry["canonical"]), entry
+        assert CANONICAL_PATTERN.fullmatch(entry["canonical"]), entry
         assert entry["alias"], entry
 
 

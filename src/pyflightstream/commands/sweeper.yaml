@@ -353,8 +353,8 @@ EXECUTE_SOLVER_SWEEPER:
     Configures and runs a whole parameter sweep in ONE command, where
     the SWEEPER_ family of later editions splits the same job across ten.
 
-    DOCUMENTED BY THE FEBRUARY 2026 EDITION ALONE, so one version row
-    and a citation of FSM-26.100. It is the largest such command in the
+    Documented from 25.000 through 26.100, with each edition's citation
+    on its version row. It is the largest such command in the
     database, twenty-one parameters, and it is the clearest evidence
     that the sweeper was redesigned between February and May rather than
     extended: nothing in the SWEEPER_ family has this shape.

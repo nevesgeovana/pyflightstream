@@ -404,11 +404,11 @@ SOLVER_TIME_AVERAGING:
     Averages the surface flow properties over a window of unsteady
     time iterations, given as the first and last iteration to
     include. First documented by the 26.122 edition.
-    UNVERIFIED: FSM-26.122 p.353 names each bound an unsteady time iteration
-    without explicitly distinguishing time steps from inner iterations.
-    The pproc conversion uses inclusive time steps; the C01 hang on
-    2026-09-19 prevented verification of the bounds. The export header
-    iteration counter counts inner iterations and is not used to derive them.
+    Measured on 26.122 by T21 on 2026-09-25 (RPT-079): ENABLE 7 12
+    averages time steps 7 to 12 inclusive. This does not establish the
+    same behavior on other builds; their outcomes are recorded below.
+    The export header iteration counter counts inner iterations and is
+    not used to derive the bounds.
 
     The window is in ITERATIONS and not in seconds, so it moves with
     the time-step size: halving the step doubles the iteration
@@ -429,7 +429,7 @@ SOLVER_TIME_AVERAGING:
         friction is not averaged (the last step's). Folded in by hand: the
         promotion cannot rewrite a block that carries a note.
     "26.123": {status: removed, report: "reports/compat/CMP-26123_2026-09-25_time-averaging.yaml", note: "FSM-26.123 p.353 documents the command; MEASURED REMOVED 2026-09-25 on FlightStream 26.123 (build 8112026) by the licensed probe T21 (RPT-079): the line SOLVER_TIME_AVERAGING ENABLE 7 12 was refused as an unrecognized command and the script stopped there, while the same line, byte for byte, ran on 26.122. The edition documents a command the build does not carry."}
-    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-19_time-averaging.yaml", note: "Measured 2026-09-19 on FlightStream 26.124: SOLVER_TIME_AVERAGING ENABLE hangs the solver both in INIT before INITIALIZE_SOLVER and [...]"}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-19_time-averaging.yaml", note: "Measured 2026-09-19 on FlightStream 26.124: SOLVER_TIME_AVERAGING ENABLE before INITIALIZE_SOLVER produced no outputs and was killed at 240.5 s. A prior run after INITIALIZE_SOLVER also hung, observed without receipt. Removing the command let the control write all seven outputs and its final log, exiting 0 in 133.0 s."}
 
 SET_NEW_UNSTEADY_SOLVER_ACTION:
   layout: mixed_inline
@@ -532,11 +532,9 @@ ENABLE_SOLVER_TIME_AVERAGING:
     SOLVER_TIME_AVERAGING held in FSM-26.124 (p.353): that command took the
     toggle and the window together, and FSM-26.125 no longer prints it.
 
-    WARNED WHERE NO RUN VERIFIED IT. Its predecessor hung 26.124 (C01,
-    recorded on that command's own 26.124 row). This is another command of
-    another build and nothing has measured it, so the setup key that reaches
-    it (solver_time_averaging) writes the line and warns on a build where it
-    is only documented.
+    The 26.125 row is verified by the committed probe campaign of 2026-10-05.
+    Its predecessor hung 26.124, as recorded on that command's own row;
+    that outcome does not apply to this replacement on another build.
 
 DISABLE_SOLVER_TIME_AVERAGING:
   layout: bare

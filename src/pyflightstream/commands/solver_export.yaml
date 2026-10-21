@@ -44,9 +44,11 @@ EXPORT_SOLVER_ANALYSIS_TECPLOT:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.358, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.367, unchanged from FSM-26.124 p.358"}
   notes: >
-    Exports the Tecplot .dat file for all initialized boundaries, one
-    FEPolygon zone in the reference frame with its values per node
-    (RPT-074). No campaign workflow emits it: the surface
+    Exports the Tecplot .dat file for all initialized boundaries. On
+    26.124, the measurement of 2026-09-25 found one FEPolygon zone in
+    the reference frame with its values per node (RPT-074). That
+    format measurement does not establish the format on other builds.
+    No campaign workflow emits it: the surface
     Tecplot of a point is written by the package from the VTK export,
     cell-centred, in the reference frame (G45). A hand-written script
     still reaches it through helpers.export_results.
@@ -308,7 +310,7 @@ EXPORT_BL_VELOCITY_PROFILE:
       status: documented
       note: "FSM-26.122 p.377, the first edition to document it"
     "26.123": {status: documented, note: "FSM-26.123 p.377, unchanged from FSM-26.122 p.377"}
-    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-25_bl-profile.yaml", note: "Measured 2026-09-25 on FlightStream 26.124: EXPORT_BL_VELOCITY_PROFILE 1 at a node of the solved surface, its file on the next line [...]"}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-25_bl-profile.yaml", note: "Measured 2026-09-25 on FlightStream 26.124: EXPORT_BL_VELOCITY_PROFILE 1 at a solved-surface node, its file on the next line before EXPORT_LOG, held the script until its 120 s timeout. The control finished in 9.4 s. Earlier exports were written, but neither the profile nor the following log appeared (RPT-075)."}
     "26.125": {status: documented, note: "FSM-26.125 p.383, unchanged from FSM-26.124 p.377; 26.124 recorded it broken (CMP-26124_2026-09-25_bl-profile), and 26.125 has not run it"}
 
 DELETE_BL_VELOCITY_PROFILE:

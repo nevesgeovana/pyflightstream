@@ -718,10 +718,9 @@ DISABLE_SOLVER_REF_VELOCITY:
     which is what the manual's sample comment states, rather than
     holding whatever SOLVER_SET_REF_VELOCITY last set.
 
-    DOCUMENTED BY THE 26.12 HOTFIX EDITION ALONE, so one version row, a
-    citation of FSM-26.121, and no probe. Both of those are worth weighing
-    before relying on it, since it reaches a public keyword of
-    solver_settings.
+    Documented from 26.121 through 26.125, with FSM-26.121 as the first
+    citation. These rows are documented, not measured, including when
+    reached through the public solver_settings helper.
 
     Why it exists at all is legible from the contour vocabulary rather
     than from this page: SET_SCENE_CONTOUR offers
