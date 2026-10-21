@@ -26,6 +26,20 @@ from tests.tier1_offline._no_evidence import registry_without_version
 PILOT = ["PRINT", "STOP", "RUN_SCRIPT"]
 
 
+def test_p0430_f6_04_registered_external_probe_uses_working_frame(tmp_path):
+    script = generate_probe_script(
+        PROBE_SPECS["SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND"], "26.125", tmp_path
+    )
+    text = script.render()
+    assert "NEW_SURFACE_SECTION_DISTRIBUTION" in text
+    # The section frame is the argument immediately following each creation command.
+    lines = text.splitlines()
+    frames = [
+        lines[i + 1] for i, line in enumerate(lines) if line == "NEW_SURFACE_SECTION_DISTRIBUTION"
+    ]
+    assert frames and all(frame == "FRAME 1" for frame in frames)
+
+
 def test_p0420_p2_1a_observer_header_without_samples_is_no_control(tmp_path):
     """A control name alone is not a nonempty observer signal."""
     from types import SimpleNamespace

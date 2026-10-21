@@ -1551,7 +1551,6 @@ def _p5_rest(standin: Path | None) -> list[GapProbe]:
             "PyNite beam reads: is it called, in which folder, with which files, and does the "
             "march continue on the zero displacements it answers",
             "P5-A0 (no coupling, no call)",
-            primary=True,
             solves=True,
             command="SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND",
             build_target=route_b,
@@ -1585,6 +1584,7 @@ def _p5_rest(standin: Path | None) -> list[GapProbe]:
             "march continue on the zero displacements it answers",
             "P5-3, the same coupling with its sections cut in frame 2, which stopped the "
             "script at the end of the section block (second batch, 26.124)",
+            primary=True,
             solves=True,
             command="SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND",
             build_target=route_b,
