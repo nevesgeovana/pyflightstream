@@ -41,6 +41,23 @@ class _Point:
         self.name = name
 
 
+def test_p0430_polar_refuses_a_gap_in_per_step_history(tmp_path):
+    source = tmp_path / "plots.csv"
+    source.write_text("Time-step,CL\n1,1\n3,3\n", encoding="utf-8")
+    notes = []
+    result = write_unsteady_polar(
+        tmp_path / "polar.csv",
+        points=[_Point("a")],
+        plots={"a": source},
+        window=(1, 3),
+        conditions=[{}],
+        reference=None,
+        left_out=notes,
+    )
+    assert result is None
+    assert any("gap" in note or "sample" in note for note in notes)
+
+
 def _plots_file(path: Path, *, rows: int, first: float) -> Path:
     """One written PLOTS TABLE whose `CL` rises by one each step.
 

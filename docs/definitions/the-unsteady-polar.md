@@ -19,6 +19,9 @@
   `reduction_window` is `averaging_window`, the window its `FIRST_STEP`,
   `LAST_STEP` and `STEPS` state. The sweep row and the super polar of the same
   point, read from the native export, say `last_step` over `last_time_step`.
+- A per-step history must supply every step inside the declared window.
+  A gap skips that point with a reason; `STEPS` remains the declared span
+  and equals the number of samples in every published row.
 - **The super file's content is ADDED to this table**, after the `[equations]` columns:
   the matrix row's cells, the record's scalars, each rotor's speed and diameter
   (`RPM_<alias>` and, right after it, `DIAMETER_<alias>`), the solver

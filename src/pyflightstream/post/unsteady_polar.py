@@ -325,15 +325,14 @@ def write_unsteady_polar(
             # writing". Two readers of one plots table with opposite rules, and
             # the PUBLISHED one was the permissive one. The QA lens found it.
             steps = np.asarray(series.steps, dtype=int)
-            if (
-                not len(steps)
-                or int(steps[0]) > point_window[0]
-                or int(steps[-1]) < point_window[1]
+            if not np.array_equal(
+                steps[(steps >= point_window[0]) & (steps <= point_window[1])],
+                np.arange(point_window[0], point_window[1] + 1),
             ):
                 held = f"steps {int(steps[0])} to {int(steps[-1])}" if len(steps) else "no step"
                 left_out.append(
                     f"{name}: the row states steps {point_window[0]} to {point_window[1]} and the "
-                    f"history holds {held}"
+                    f"history holds {held}, with a missing sample or gap in that window"
                 )
                 continue
             read_steps: set[int] = set()
