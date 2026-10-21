@@ -2129,3 +2129,50 @@ def test_every_new_parser_reads_the_line_ending_the_solver_actually_writes():
         crlf = text.replace("\n", "\r\n")
         assert crlf != text, f"{name} has no line breaks at all, so nothing was varied"
         _assert_same_report(parser(crlf), parser(text), parser.__name__, name)
+
+
+def _with_dangling_count(text: str, count_line: str) -> str:
+    """Insert one count line just before the table's closing separator."""
+    lines = text.splitlines()
+    last = max(i for i, line in enumerate(lines) if line.strip().startswith("-----"))
+    lines.insert(last, count_line)
+    return "\n".join(lines) + "\n"
+
+
+def test_a_streamline_count_with_no_block_after_it_is_incomplete_output():
+    """A file cut after a per-streamline count is not a complete export (FR-17)."""
+    from pyflightstream.results import parse_off_body_streamlines
+
+    text = _with_dangling_count(read_fixture("off_body_streamlines_26.123.txt"), "        31")
+    with pytest.raises(IncompleteOutputError, match="point count with no"):
+        parse_off_body_streamlines(text)
+
+
+def test_a_section_edge_count_with_no_block_after_it_is_incomplete_output():
+    from pyflightstream.results import parse_surface_sections
+
+    text = _with_dangling_count(read_fixture("all_surface_sections_26.123.txt"), "Edges=12")
+    with pytest.raises(IncompleteOutputError, match="'Edges=' count with no"):
+        parse_surface_sections(text)
+
+
+def test_an_unnamed_interior_header_column_is_refused_not_dropped():
+    """An empty cell in the middle of a pinned header is a moved column, not layout."""
+    from pyflightstream.results import parse_off_body_streamlines
+
+    text = read_fixture("off_body_streamlines_26.123.txt")
+    header = "Mach, Cp_ref"
+    assert text.count(header) == 1
+    with pytest.raises(MalformedOutputError, match="fixed by the solver"):
+        parse_off_body_streamlines(text.replace(header, "Mach, , Cp_ref"))
+
+
+def test_a_loads_header_with_no_coefficient_column_is_refused():
+    from pyflightstream.results import parse_loads
+
+    text = read_fixture("loads_unsteady_26.120.txt")
+    lines = text.splitlines()
+    head = next(i for i, line in enumerate(lines) if line.strip().startswith("Surface,"))
+    lines[head] = "     Surface,"
+    with pytest.raises(MalformedOutputError):
+        parse_loads("\n".join(lines) + "\n")

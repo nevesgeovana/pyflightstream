@@ -365,8 +365,11 @@ def _first_difference(printed: tuple[str, ...], layout: tuple[str, ...]) -> str:
 
 def _pinned_columns(header: str, *expected: tuple[str, ...], what: str) -> tuple[str, ...]:
     """Refuse a header that is not a pinned column layout of this export, naming each."""
-    printed = tuple(cell.strip() for cell in header.split(",") if cell.strip())
-    reject_duplicate_columns(printed, what=what)
+    cells = [cell.strip() for cell in header.split(",")]
+    while cells and not cells[-1]:
+        cells.pop()  # a trailing comma is layout; an empty INTERIOR cell is a column
+    printed = tuple(cells)
+    reject_duplicate_columns(tuple(cell for cell in printed if cell), what=what)
     if printed not in expected:
         layouts = " or ".join(str(list(layout)) for layout in expected)
         reads = "the layout" if len(expected) == 1 else f"one of {len(expected)} layouts,"
@@ -802,6 +805,11 @@ def parse_off_body_streamlines(
             counts="streamline points",
         )
     close()
+    if pending is not None:
+        raise IncompleteOutputError(
+            f"the {what} ends after a per-streamline point count with no 'Streamline N' "
+            "block after it, so the solver stopped mid-write and a streamline was lost"
+        )
 
     if len(streamlines) != declared:
         raise IncompleteOutputError(
@@ -1039,6 +1047,11 @@ def parse_surface_sections(
         ordinal += 1
         rows.append(_row_values(line, columns=columns, what=what, ordinal=ordinal))
     close()
+    if pending is not None:
+        raise IncompleteOutputError(
+            f"the {what} ends after an 'Edges=' count with no 'Surface cross-section N' "
+            "block after it, so the solver stopped mid-write and a section was lost"
+        )
 
     if len(sections) != declared:
         raise IncompleteOutputError(

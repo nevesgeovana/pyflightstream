@@ -223,9 +223,10 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
         If the software footer or the closing Total row is missing, so the
         solver stopped before finishing the export.
     MalformedOutputError
-        If a second export follows the first, a column or a surface name
-        repeats, there is more than one Total row, or a row holds a number
-        of values other than the header names.
+        If a second export follows the first, the header names no
+        coefficient column, a column or a surface name repeats, there is
+        more than one Total row, or a row holds a number of values other
+        than the header names.
 
     Examples
     --------
@@ -273,6 +274,11 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
     # Reject duplicate columns before constructing row dictionaries. A repeated
     # name would overwrite a value and mislabel coefficients (PYFS-009).
     reject_duplicate_columns(columns, what="loads")
+    if not columns:
+        raise MalformedOutputError(
+            "the loads header names no coefficient column after 'Surface', so every row "
+            "would parse to an empty total; the export layout changed or the header was cut"
+        )
     rows = delimited_table(text, "Surface,")
     surfaces: dict[str, dict[str, float]] = {}
     total: dict[str, float] | None = None
