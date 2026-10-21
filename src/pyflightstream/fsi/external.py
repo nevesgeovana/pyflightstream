@@ -28,7 +28,7 @@ import time
 from collections.abc import Iterable
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import one_file_key
@@ -144,6 +144,20 @@ class ExternalStructure(BaseModel):
     families: list[str] = Field(min_length=1, max_length=1)
     max_iterations: int | None = Field(default=None, ge=1)
     convergence_threshold: float | None = Field(default=None, gt=0.0)
+
+    @field_validator("inputs", "outputs")
+    @classmethod
+    def _names_stay_in_the_point_folder(
+        cls, value: dict[str, str] | list[str]
+    ) -> dict[str, str] | list[str]:
+        """Refuse a declared name that leaves the point folder (X-F-1334)."""
+        for name in value:
+            if any(separator in name for separator in ("/", "\\", ":")) or not name.strip(". "):
+                raise ValueError(
+                    f"{name!r} is not a file name inside the point folder: a declared "
+                    "input or output is a bare name, with no path separator, drive or '..'"
+                )
+        return value
 
     def provenance(self) -> dict[str, object]:
         """Return the record's ``fsi-provenance.json`` content (FR-1095)."""
@@ -341,7 +355,9 @@ def external_step(directory: str | Path) -> int:
     -------
     int
         0 when the call passed every check; 1 otherwise, with the reason in
-        ``pyfs_fsi_error.log``, which stops the coupling. A manifest declaring an
+        ``pyfs_fsi_error.log``. The solver's response to a nonzero exit has not
+        been measured, so this function does not guarantee that coupling
+        stops. A manifest declaring an
         input or output under a name of :data:`STEP_NAMES` returns 1 before the
         program runs and before anything is archived.
     """
@@ -408,6 +424,9 @@ def external_step(directory: str | Path) -> int:
         "written_sha256": written,
         "node_count": structure.node_count,
         "rows_written": rows,
+        # X-F-0518. Said outright: a call that found no loads file passes, and
+        # the record must not leave that to be inferred from a missing key.
+        "loads_file_present": loads.is_file(),
         "verdict": verdict,
         "reason": reason or "",
     }

@@ -1344,3 +1344,26 @@ class TestRfixR6Fsi:
             )
         first = folder / "fsi_archive" / "call_0001" / LOADS_FILE
         assert first.read_text(encoding="utf-8") == "loads of the call\n"
+
+
+def test_x_f_0518_a_call_without_loads_says_so_in_its_record(tmp_path):
+    """X-F-0518 the passed record states that no loads file was archived."""
+    from pyflightstream.fsi.external import external_step
+
+    folder = _gaps_rt_fsiext___point(tmp_path)
+    (folder / LOADS_FILE).unlink()
+    assert external_step(folder) == 0
+    record = json.loads((folder / "fsi_archive" / "call_0001" / "call.json").read_text())
+    assert record["verdict"] == "passed" and record["loads_file_present"] is False
+
+
+@pytest.mark.parametrize("name", ["../x.txt", "sub/x.txt", "C:x.txt", "..", ""])
+def test_x_f_1334_a_declared_name_cannot_leave_the_point_folder(tmp_path, name):
+    """X-F-1334 inputs and outputs are bare file names."""
+    from pyflightstream.fsi.external import EXTERNAL_MANIFEST, ExternalStructure
+
+    folder = _gaps_rt_fsiext___point(tmp_path)
+    payload = json.loads((folder / EXTERNAL_MANIFEST).read_text(encoding="utf-8"))
+    payload["outputs"] = [name]
+    with pytest.raises(ValueError, match="bare name"):
+        ExternalStructure.model_validate(payload)

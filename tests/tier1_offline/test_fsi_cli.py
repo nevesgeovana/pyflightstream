@@ -110,3 +110,13 @@ def test_coupled_failure_lands_in_the_error_log(tmp_path):
     error = (tmp_path / cli.ERROR_LOG).read_text(encoding="utf-8")
     assert "coupled step failed" in error
     assert "Traceback" in error
+
+
+def test_x_f_0516_a_dummy_config_without_node_count_lands_in_the_error_log(tmp_path):
+    """X-F-0516 hand-written JSON that does not read gives the error log, not a traceback."""
+    (tmp_path / cli.DUMMY_CONFIG).write_text(json.dumps({"nodes": 3}), encoding="utf-8")
+    assert cli.dummy_step(tmp_path) == 1
+    error = (tmp_path / cli.ERROR_LOG).read_text(encoding="utf-8")
+    assert "node_count" in error and "KeyError" in error
+    (tmp_path / cli.DUMMY_CONFIG).write_text("{not json", encoding="utf-8")
+    assert cli.dummy_step(tmp_path) == 1

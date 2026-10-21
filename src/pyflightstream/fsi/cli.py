@@ -207,7 +207,19 @@ def dummy_step(
         if echo_failure:
             _echo_failure(cwd, f"no {COUPLED_CONFIG} and no {DUMMY_CONFIG} in {cwd}")
         return 1
-    node_count = json.loads(config_path.read_text(encoding="utf-8"))["node_count"]
+    try:
+        node_count = int(json.loads(config_path.read_text(encoding="utf-8"))["node_count"])
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        # X-F-0516. A hand-written dummy config is trusted no further than it
+        # reads: a failure lands in the error log, as the other refusals do.
+        with _textio.open_text(cwd / ERROR_LOG, "a") as log:
+            log.write(
+                f"{stamp} pyfs-fsi cannot read node_count from {config_path} "
+                f"({argv_note}): {type(error).__name__}: {error}\n"
+            )
+        if echo_failure:
+            _echo_failure(cwd, f"cannot read node_count from {config_path}: {error}")
+        return 1
 
     state_path = cwd / STATE_FILE
     if state_path.is_file():
