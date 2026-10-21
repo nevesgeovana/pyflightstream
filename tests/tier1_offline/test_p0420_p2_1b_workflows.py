@@ -389,3 +389,33 @@ def test_f5_0102_f755_a_steady_sweep_refuses_a_free_body_like_a_single_point():
         build_script(case, Script("26.124"))
     with pytest.raises(CampaignConfigError, match="6DOF body runs on the unsteady run type"):
         build_steady_sweep([case], Script("26.124"))
+
+
+def test_p0430_f763_a_corrupt_clock_state_is_recorded(tmp_path):
+    """F-760, F-763: an unreadable state file restarts the clock AND says so in the state."""
+    folder = tmp_path / "bad"
+    program = folder / WALLTIME_CLOCK_PROGRAM
+    program.parent.mkdir(parents=True, exist_ok=True)
+    (folder / WALLTIME_CLOCK_STATE).parent.mkdir(parents=True, exist_ok=True)
+    (folder / WALLTIME_CLOCK_STATE).write_text("{broken", encoding="utf-8")
+    program.write_text(
+        WALLTIME_CLOCK_TEMPLATE.format(
+            sim="9001",
+            state_name=Path(WALLTIME_CLOCK_STATE).name,
+            stop_name=Path(WALLTIME_STOP_SCRIPT).name,
+            deadline=1e6,
+            stop_text="CLOSE_FLIGHTSTREAM",
+        ),
+        encoding="utf-8",
+    )
+    done = subprocess.run(
+        [sys.executable, str(program)],
+        cwd=folder,
+        check=True,
+        timeout=30,
+        env=dict(os.environ),
+        capture_output=True,
+        text=True,
+    )
+    state = json.loads((folder / WALLTIME_CLOCK_STATE).read_text(encoding="utf-8"))
+    assert "reason" in state["state_unreadable"] and "unreadable" in done.stderr

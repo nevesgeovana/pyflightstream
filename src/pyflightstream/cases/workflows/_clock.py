@@ -122,9 +122,9 @@ def _refuse_wake_termination_without_a_rotor(case: SimCase) -> None:
         f"case {case.sim_id!r} inherits a wake termination of {revolutions} revolutions "
         "from its solver preset and names a run type that turns nothing, so there is no "
         "revolution for it to be counted in. This run has a time loop, so the setting is "
-        "not meaningless in principle; it is unstateable in revolutions, and this package "
-        "records no steps-spelled preset key for it. Drop the key from the preset this "
-        "row names, or give the row a preset of its own."
+        "not meaningless in principle; it is unstateable in revolutions, and the "
+        "count is stated in steps instead. Drop the key from the preset this row names "
+        "and state wake_termination_steps, or give the row a preset of its own."
     )
 
 
@@ -481,6 +481,7 @@ WALLTIME_CLOCK_TEMPLATE = """\
 # been going.
 import json
 import pathlib
+import sys
 import time
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -492,9 +493,19 @@ STOP_TEXT = {stop_text!r}
 state = {{"started_at": None, "steps": 0, "fired": False}}
 if STATE.is_file():
     try:
-        state.update(json.loads(STATE.read_text(encoding="utf-8")))
-    except ValueError:
-        pass
+        loaded = json.loads(STATE.read_text(encoding="utf-8"))
+        if not isinstance(loaded, dict):
+            raise ValueError("the state is not a JSON object")
+        state.update(loaded)
+    except ValueError as error:
+        # F-760, F-763: the elapsed time before this call is lost, and the
+        # state says so instead of pretending the clock ran from here.
+        state["state_unreadable"] = {{"reason": str(error), "restarted_at": time.time()}}
+        print(
+            "pyflightstream wall clock: the state file is unreadable (" + str(error)
+            + "); the clock restarts at this call and the steps counted so far are lost.",
+            file=sys.stderr,
+        )
 
 now = time.time()
 if state["started_at"] is None:

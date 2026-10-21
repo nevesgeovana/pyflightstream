@@ -362,9 +362,11 @@ directory.
 """
 
 import json
+import sys
 import time
 from pathlib import Path
 
+SCHEMA = <SCHEMA>
 INTERPRETER = <INTERPRETER>
 
 HERE = Path(__file__).resolve().parent
@@ -377,12 +379,14 @@ STOP_FILE = JOB / <STOP>
 POINT_STATE = <STATE>
 
 
-def read(path, default):
+def read(path, default, problems=None):
     if not path.is_file():
         return default
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except ValueError:
+    except ValueError as error:
+        if problems is not None:
+            problems.append(path.name + " is unreadable: " + str(error))
         return default
 
 
@@ -392,12 +396,23 @@ def write(path, text):
 
 
 def main():
-    deadline = read(SCHEDULE, {}).get("deadline_s")
+    problems = []
+    schedule = read(SCHEDULE, {}, problems)
+    if not isinstance(schedule, dict) or schedule.get("schema") != SCHEMA:
+        problems.append(SCHEDULE.name + " does not carry the schema " + SCHEMA)
+        schedule = {}
+    deadline = schedule.get("deadline_s")
     current = read(CURRENT, None)
     step = int(read(PROGRESS, {}).get("step", 0))
     now = time.time()
     state = {"started_at": None, "steps": 0, "fired": False}
-    state.update(read(STATE, {}))
+    stored = read(STATE, {}, problems)
+    state.update(stored if isinstance(stored, dict) else {})
+    if problems:
+        # F-760, F-761: say so in the state and on stderr; a clock that cannot
+        # read its schedule or its own state must not pass for one that ran.
+        state["problems"] = problems
+        print("pyflightstream job clock: " + "; ".join(problems), file=sys.stderr)
     if state["started_at"] is None:
         state["started_at"] = now
     state["steps"] = int(state["steps"]) + 1
@@ -487,6 +502,7 @@ def render_job_clock_program(*, interpreter: str) -> str:
     return _filled(
         CLOCK_TEMPLATE,
         {
+            "SCHEMA": SCHEDULE_SCHEMA,
             "INTERPRETER": interpreter,
             "SCHEDULE": JOB_SCHEDULE,
             "CURRENT": JOB_CURRENT,

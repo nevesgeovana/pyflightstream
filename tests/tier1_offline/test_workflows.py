@@ -7819,3 +7819,15 @@ def test_f5_0304_fr578_missing_family_warnings_leave_the_plan_unchanged(tmp_path
     assert silent == []
     assert shape(plan_on) == shape(plan_off)
     assert all(point.status is PlanStatus.READY for point in plan_on.points)
+
+
+def test_p0430_f1315_the_rotorless_wake_refusal_names_the_steps_key():
+    """F-1315: a preset revolution count on a rotorless run points at wake_termination_steps."""
+    case = unsteady_case()
+    case = case.model_copy(
+        update={"solver": case.solver.model_copy(update={"wake_termination_revolutions": 2.0})}
+    )
+    with pytest.raises(CampaignConfigError) as refused:
+        build_script(case, Script("26.123"))
+    assert "wake_termination_steps" in str(refused.value)
+    assert "no steps-spelled" not in str(refused.value)

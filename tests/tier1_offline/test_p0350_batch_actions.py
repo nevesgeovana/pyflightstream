@@ -251,3 +251,19 @@ def test_fr355_the_first_step_checks_the_previous_points_counter_clock_and_stop_
     assert kinds == ["clock_fired", "count", "stop_text"]
     assert all((item["previous"], item["point"]) == (1, 2) for item in found)
     assert (job / WALLTIME_STOP_SCRIPT).read_text(encoding="utf-8") == ""
+
+
+def test_p0430_f760_f761_the_job_clock_names_an_unreadable_state_and_schedule(tmp_path):
+    """F-760, F-761: a corrupt state or a foreign schedule schema is recorded, not swallowed."""
+    job = tmp_path / "job"
+    points = _job_points(job, (2,), (None,))
+    _stage(job, points, deadline_s=1000.0)
+    _run(job, UNSTEADY_ACTION_PROGRAM)
+    (job / WALLTIME_CLOCK_STATE).write_text("{not json", encoding="utf-8")
+    _run(job, WALLTIME_CLOCK_PROGRAM)
+    assert any("unreadable" in p for p in _read(job / WALLTIME_CLOCK_STATE)["problems"])
+    schedule = _read(job / JOB_SCHEDULE)
+    schedule["schema"] = "pyfs-batch-schedule/99"
+    (job / JOB_SCHEDULE).write_text(json.dumps(schedule), encoding="utf-8")
+    _run(job, WALLTIME_CLOCK_PROGRAM)
+    assert any("schema" in p for p in _read(job / WALLTIME_CLOCK_STATE)["problems"])
