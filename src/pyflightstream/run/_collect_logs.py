@@ -34,6 +34,25 @@ __all__ = [
 LOG_SUFFIX = "_log.txt"
 
 
+def _tail_lines(path: Path, count: int) -> list[str]:
+    """Return the last ``count`` lines of ``path``, reading from its end (F-1255)."""
+    size = path.stat().st_size
+    chunk = 65536
+    with path.open("rb") as handle:
+        while True:
+            start = max(0, size - chunk)
+            handle.seek(start)
+            data = handle.read(size - start)
+            # A window cut mid-line holds one more line than it shows whole.
+            if start == 0 or data.count(b"\n") > count:
+                break
+            chunk *= 4
+    lines = data.decode("utf-8", errors="replace").splitlines()
+    if start > 0:
+        lines = lines[1:]
+    return lines[-count:]
+
+
 def _glob_values(record: RunRecord, point: str) -> dict[str, object]:
     """Return what a profile glob of this record is formatted with (PFS-2095.026).
 
@@ -44,7 +63,8 @@ def _glob_values(record: RunRecord, point: str) -> dict[str, object]:
     """
     job = job_of(record)
     values = job.get("values") if job is not None else None
-    return {**(values if isinstance(values, Mapping) else {}), "sim": record.sim_id, "point": point}
+    # FR-730: {sim} is the FIRST simulation of the job, so the job's own value is not overwritten.
+    return {"sim": record.sim_id, **(values if isinstance(values, Mapping) else {}), "point": point}
 
 
 def _profile_glob(key: str, pattern: str, values: Mapping[str, object]) -> tuple[str | None, str]:
@@ -201,9 +221,7 @@ def job_ended_without_log(
         matched += [path for path in found if path.is_file()]
     tails = [
         f"--- last {JOB_END_TAIL_LINES} lines of {path.name} ---\n"
-        + "\n".join(
-            path.read_bytes().decode("utf-8", errors="replace").splitlines()[-JOB_END_TAIL_LINES:]
-        )
+        + "\n".join(_tail_lines(path, JOB_END_TAIL_LINES))
         for path in matched
     ]
     error = (

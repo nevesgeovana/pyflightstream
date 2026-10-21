@@ -607,3 +607,27 @@ def test_f1568_log_sims_takes_blank_separated_words():
 
     args = _build_parser().parse_args(["log", "--sims", "2006", "2007"])
     assert args.sims == ["2006", "2007"]
+
+
+def test_f839_glob_sim_is_the_first_simulation_of_the_job(monkeypatch):
+    # Verifies F-839 / FR-730: {sim} is the job's first simulation, {point} the point.
+    from types import SimpleNamespace
+
+    from pyflightstream.run import _collect_logs
+
+    monkeypatch.setattr(_collect_logs, "job_of", lambda record: {"values": {"sim": "2006"}})
+    values = _collect_logs._glob_values(SimpleNamespace(sim_id="2007"), "p1")
+    assert values["sim"] == "2006"
+    assert values["point"] == "p1"
+
+
+def test_f1255_tail_reads_the_last_lines_of_a_large_file(tmp_path):
+    # Verifies F-1255: the tail of a file larger than one read window is exact.
+    from pyflightstream.run._collect_logs import _tail_lines
+
+    path = tmp_path / "x.o1"
+    path.write_text("".join(f"line {n}\n" for n in range(40000)), encoding="utf-8")
+    assert _tail_lines(path, 3) == ["line 39997", "line 39998", "line 39999"]
+    short = tmp_path / "y.o1"
+    short.write_text("a\nb\n", encoding="utf-8")
+    assert _tail_lines(short, 20) == ["a", "b"]
