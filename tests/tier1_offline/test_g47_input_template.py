@@ -971,6 +971,27 @@ def test_f_315_a_kind_key_on_the_moment_point_keeps_the_moment_point(tmp_path):
     assert reference.points == {}
 
 
+def test_x_f1255_a_dotted_hpc_profile_name_can_be_selected(tmp_path):
+    """The error lists the stem of a dotted profile name, so selecting that name must work."""
+    from pyflightstream.workspace.hpc import select_hpc_profile
+
+    inputs = tmp_path / "inputs"
+    (inputs / "hpc").mkdir(parents=True)
+    for name in ("h.a", "h.b"):
+        (inputs / "hpc" / f"{name}.toml").write_text(
+            f'application_id = "APP-{name}"\n[descriptor.fields]\nwalltime = "1"\n'
+            '[submit]\ncommand = ["sbatch", "{descriptor}"]\n',
+            encoding="utf-8",
+        )
+    try:
+        select_hpc_profile("h.b")
+        assert resolve_hpc_profile(inputs).application_id == "APP-h.b"
+        select_hpc_profile("h.a.toml")
+        assert resolve_hpc_profile(inputs).application_id == "APP-h.a"
+    finally:
+        select_hpc_profile(None)
+
+
 @pytest.mark.parametrize("pattern", ["/scratch/FTS*.o", "C:\\scratch\\FTS*.o", "\\\\srv\\share\\x"])
 def test_x_f0577_an_absolute_job_end_glob_is_refused_where_it_is_written(tmp_path, pattern):
     path = tmp_path / "h001.toml"
