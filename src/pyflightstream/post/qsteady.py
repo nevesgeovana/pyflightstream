@@ -1464,6 +1464,11 @@ def write_qsteady_tables(
     -------
     tuple of (Path, Path) or None
         The two tables written, or None where no point holds a clocking.
+
+    Raises
+    ------
+    ProductError
+        If usable points have inconsistent rotor or blade load columns.
     """
     usable = [point for point in points if point.clockings]
     if not usable:
