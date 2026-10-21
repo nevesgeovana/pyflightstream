@@ -1522,6 +1522,9 @@ def collect_and_post(
         total.discarded.extend(report.discarded)
         total.collected.extend(report.collected)
         failed.update((outcome.run_id, outcome) for outcome in report.failed)
+        # F-1464: a run that collects in a later sweep is no longer a failure of the watch.
+        for outcome in report.collected:
+            failed.pop(outcome.run_id, None)
         total.failed = list(failed.values())
         total.waiting = list(report.waiting)
         total.unknown = list(report.unknown)

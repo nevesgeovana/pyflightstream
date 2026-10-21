@@ -299,3 +299,25 @@ def test_f266_a_non_finite_or_huge_elapsed_time_is_not_a_wall_time(tmp_path, bad
     assert "wall_time_s" not in _wall_time_update(shell, tmp_path, {"solver_run_time_s": bad})
     clock.write_text(json.dumps({"elapsed_s": 12.5}), encoding="utf-8")
     assert _wall_time_update(shell, tmp_path, {})["wall_time_s"] == 12.5
+
+
+def test_f1464_a_run_that_collects_later_is_no_longer_a_failure_of_the_watch(tmp_path, monkeypatch):
+    """F-1464: the watch reported the failure of an earlier sweep after the run collected."""
+    from pyflightstream.run import collect as collect_module
+    from pyflightstream.run.collect import CollectOutcome, CollectReport
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.init(tmp_path / "camp")
+    sweeps = iter(
+        [
+            CollectReport(
+                failed=[CollectOutcome("camp/sim_1/a", "FAILED", "not yet")],
+                waiting=[CollectOutcome("camp/sim_1/b", "WAITING", "waiting")],
+            ),
+            CollectReport(collected=[CollectOutcome("camp/sim_1/a", "COLLECTED", "done")]),
+        ]
+    )
+    monkeypatch.setattr(collect_module, "collect_once", lambda *args, **keywords: next(sweeps))
+    total = collect_and_post(workspace, watch=True, watch_interval=0, sleep=lambda _s: None)
+    assert [outcome.run_id for outcome in total.collected] == ["camp/sim_1/a"]
+    assert total.failed == []
