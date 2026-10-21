@@ -272,3 +272,14 @@ def test_p0420_a_local_run_writes_the_job_start_before_launching_the_solver(tmp_
     _points.start_the_wall_clock(_job(tmp_path, LocalExecutor(sys.executable), clock=False))
     _points.start_the_wall_clock(_job(tmp_path, SimpleNamespace(submit=True), clock=True))
     assert not (tmp_path / WALLTIME_CLOCK_STATE).exists()
+
+
+def test_f5_0102_f030_a_stopped_rotor_on_an_explicit_clock_warns_instead_of_dividing_by_zero():
+    """F-030: the plan's wake warnings on a rotor at rest name the length they cannot say."""
+    from pyflightstream.cases.workflows._freestream import wake_termination_of, wake_warnings
+    from tests.tier1_offline.test_workflows import rotor_case
+
+    wake = wake_termination_of(rotor_case(RPM="0", VELOCITY="30.0"))
+    assert wake.dtheta_rad == 0.0
+    warnings_ = wake_warnings("row", wake)
+    assert any("zero speed" in line for line in warnings_), warnings_

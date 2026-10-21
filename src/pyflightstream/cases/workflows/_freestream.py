@@ -1195,6 +1195,13 @@ def _length_warnings(row: str, wake: WakeTermination) -> list[str]:
             "rotor_diameter_m on the reference), so the run keeps the solver's own "
             "termination and the plan cannot say what length it keeps (FR-600)."
         ]
+    if not wake.dtheta_rad:
+        # A rotor at rest on an explicit clock turns no step angle: there is no
+        # revolution to count and no length to say the steps keep (F-030).
+        return [
+            f"{row}: the wake termination asks L = {wake.length_r:g} R and the rotor turns at "
+            f"zero speed, so its {wake.steps} steps keep a length the plan cannot say (FR-600)."
+        ]
     per_revolution = 2.0 * math.pi / wake.dtheta_rad
     kept = wake.kept_r(min(wake.steps, wake.run_steps))
     one_revolution = wake.kept_r(per_revolution)
