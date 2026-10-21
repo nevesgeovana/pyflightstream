@@ -1017,7 +1017,13 @@ def _refuse_outside(folder: Path, name: str, manifest: Path) -> None:
 
 
 def _forget_products(
-    manifest: Path, item: dict[str, list[str]], run_ids: set[str], *, sims: list[str], stamp: str
+    manifest: Path,
+    item: dict[str, list[str]],
+    run_ids: set[str],
+    *,
+    sims: list[str],
+    stamp: str,
+    root: Path,
 ) -> None:
     """Take the deleted files out of ``products.json`` and say which products are stale.
 
@@ -1037,6 +1043,9 @@ def _forget_products(
     notes = list(document.get("deleted_by_storage", []))
     notes.append({"at": _now().isoformat(), "stamp": stamp, "sims": sims, "stale": item["shared"]})
     document["deleted_by_storage"] = notes
+    # Every writer of a restorable file archives the previous copy first, so `restore
+    # products` can bring back what this rewrite removes.
+    archive_previous(root, manifest, matrix=manifest.parent.name)
     temporary = manifest.with_name(f"{manifest.name}.{os.getpid()}.tmp")
     _textio.write_text(temporary, json.dumps(document, indent=2) + "\n")
     temporary.replace(manifest)
@@ -1285,7 +1294,9 @@ def _delete_applied(
             target = folder / name
             if target.is_file() and not is_reparse(target):
                 target.unlink()
-        _forget_products(folder / "products.json", item, run_ids, sims=ids, stamp=stamp)
+        _forget_products(
+            folder / "products.json", item, run_ids, sims=ids, stamp=stamp, root=workspace.root
+        )
     # The runs.json lease is already held by delete_sims for all of this.
     raw = _read_rows(manifest)
     archived_as = _archive_manifest(workspace, manifest, stamp) if manifest.is_file() else None

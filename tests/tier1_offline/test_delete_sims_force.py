@@ -400,3 +400,16 @@ def test_f2_0809_a_malformed_toml_of_the_storage_commands_names_the_file(tmp_pat
     for reader in (storage_module.read_sync_config, storage_module.read_matrix_owners):
         with pytest.raises(StorageError, match=config.name):
             reader(tmp_path)
+
+
+def test_f2_0809_delete_sims_archives_the_products_manifest_before_rewriting_it(tmp_path):
+    """PFS-2119.058: the previous products.json is in the archive `restore products` reads."""
+    workspace = _workspace(tmp_path)
+    manifests = sorted((workspace.root / "post").glob("*/products.json"))
+    assert manifests, "the fixture holds a products manifest"
+    before = {manifest: manifest.read_bytes() for manifest in manifests}
+    storage_module.delete_sims(workspace.root, ["6001"], force=True, apply=True)
+    for manifest, content in before.items():
+        archived = list((manifest.parent / ARCHIVE_DIR).rglob("products.json"))
+        assert archived, f"{manifest} was rewritten without archiving the previous copy"
+        assert content in {copy.read_bytes() for copy in archived}
