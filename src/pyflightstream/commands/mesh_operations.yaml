@@ -329,6 +329,11 @@ SURFACE_MIRROR:
     token, and passing XZ here is refused while passing 2 means it.
     Recorded because every neighbouring command spells a plane with
     letters.
+    The combine_flag and delete_source_flag arguments accept the strings
+    "TRUE" and "FALSE" only, not Python bool values True and False. For
+    example, Script(version="26.120").emit("SURFACE_MIRROR", 1, 2, 2,
+    "TRUE", "FALSE") mirrors surface 1 in the XZ plane of frame 2,
+    combines the result and retains the source.
 
     COMBINE_FLAG decides whether the mirrored geometry joins the source
     and DELETE_SOURCE_FLAG whether the source survives, so the two
