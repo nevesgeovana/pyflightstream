@@ -263,9 +263,12 @@ class TestBgRegressions:
         select_hpc_profile(None)
         select_cost_file(None)
         try:
-            main([*argv, "--hpc", "h002", "--cost-file", "c002"])
-            main(argv)
-            capsys.readouterr()
+            # Both calls fail on the absent matrix, AFTER the arguments were parsed and the
+            # flags applied; a return code other than 2 means the command stopped elsewhere
+            # (an unknown flag, a missing workspace) and the reset below proves nothing.
+            assert main([*argv, "--hpc", "h002", "--cost-file", "c002"]) == 2
+            assert main(argv) == 2
+            assert "matrix not planned" in capsys.readouterr().err
             with pytest.raises(InputArtifactError, match="nothing says which cluster"):
                 resolve_hpc_profile(inputs)
             with pytest.raises(InputArtifactError, match="nothing says which machine"):
