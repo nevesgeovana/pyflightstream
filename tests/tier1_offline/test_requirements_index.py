@@ -115,7 +115,8 @@ def test_p0420_stage_migration_preserves_historical_statements():
         assert lower <= int(number) <= upper, uid
         assert (uid in current or uid in roadmap) and uid in migration, uid
         assert uid not in historical_ids and uid not in identities["reserved_ids"], uid
-        assert allocation["lane"] in {"srs-apply-1", "srs-apply-2"}, uid
+        # srs-fix: the 0.43.0 instantiation-review follow-up lane (FR-3241, R-INST-35).
+        assert allocation["lane"] in {"srs-apply-1", "srs-apply-2", "srs-fix"}, uid
         assert all(
             re.fullmatch(r"(?:PFS-\d+(?:\.\d+)*|GOAL-033:G52)", node)
             for node in allocation["node"].split("; ")
@@ -314,13 +315,15 @@ def test_p0420_l1_rows_follow_the_approved_feature_statements():
     left |= {3056, 3081, 3082, 3090, 3093, 3098, 3100, 3101, 3103, 3104, 3105, 3106, 3107}
     left |= {3110, 3111, 3117, 3121, 3122, 3124, 3126, 3127, 3128, 3130, 3132, 3134, 3138}
     left |= {3140, 3147, 3149, 3151, 3156, 3159, 3162, 3163, 3166}
-    expected = [f"FR-{n}" for n in range(3000, 3167) if n not in left]
+    # FR-3241 (derived equation products and trimmed polars) split from FR-3094 (R-INST-35).
+    expected = [f"FR-{n}" for n in range(3000, 3167) if n not in left] + ["FR-3241"]
     assert [r["uid"] for r in features] == expected
     # Trimmed L1 statements, numeric UID order, UTF-8 joined by LF (no trailing LF); nine
     # rewordings of the 0.43.0 instantiation review (R-INST-17, R-INST-18), the
-    # restored FR-3152 (R-INST-32) and the two widened refinement features (R-INST-34).
+    # restored FR-3152 (R-INST-32), the two widened refinement features (R-INST-34)
+    # and FR-3241 (R-INST-35).
     assert hashlib.sha256("\n".join(r["statement"] for r in features).encode()).hexdigest() == (
-        "89f061ab60ae68dbe0b41f9dd788193e63c2fb074ac075bd0c378d614e9b9344"
+        "2739695a606e486095b74cbe1583b60eca658c570ddbf9b28b75a07b3a7347b0"
     )
     for feature in features:
         members = [
