@@ -102,6 +102,10 @@ class MaterialProvenance(BaseModel):
     database_version : str
         :data:`pyflightstream.fsi.materials.MATERIALS_DATABASE_VERSION`
         at generation time.
+    notes : str
+        The source material's suitability limitation (for example "not for
+        design"), copied unchanged. Serialised only when non-empty, so the
+        digest of every configuration without a note is unchanged.
     """
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -115,6 +119,15 @@ class MaterialProvenance(BaseModel):
     shear_modulus_basis: str
     source: str = Field(min_length=1)
     database_version: str
+    notes: str = ""
+
+    @model_serializer(mode="wrap")
+    def _notes_only_when_present(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        """Serialise ``notes`` only when non-empty, keeping existing digests."""
+        data: dict[str, object] = handler(self)
+        if not data.get("notes"):
+            data.pop("notes", None)
+        return data
 
 
 class BladePropertiesProvenance(BaseModel):

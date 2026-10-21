@@ -239,3 +239,30 @@ def test_f6_0102_reversed_major_and_minor_inertias_are_refused():
     with pytest.raises(ValidationError, match="major inertia is the larger"):
         BladeProperties(**kwargs)
     BladeProperties(**_uniform_blade_kwargs())
+
+
+def test_swapped_inertia_pair_is_refused_naming_the_station():
+    """PFS-2119.027: major below minor reads as swapped lists."""
+    with pytest.raises(ValidationError, match="major inertia is the larger"):
+        make_uniform_blade_config(inertia_major_kg_m=1.0e-4, inertia_minor_kg_m=2.0e-4)
+
+
+def test_material_note_is_kept_in_provenance_and_digest_unchanged_when_empty():
+    """PFS-2119.029: a suitability note is copied; an empty one is not serialised."""
+    from pyflightstream.fsi.config import MaterialProvenance
+
+    base = dict(
+        key="k",
+        name="n",
+        density_kg_per_m3=1.0,
+        youngs_modulus_pa=1.0,
+        shear_modulus_pa=1.0,
+        poisson_ratio=0.3,
+        shear_modulus_basis="derived",
+        source="s",
+        database_version="1",
+    )
+    assert "notes" not in MaterialProvenance(**base).model_dump()
+    assert (
+        MaterialProvenance(**base, notes="NOT FOR DESIGN").model_dump()["notes"] == "NOT FOR DESIGN"
+    )

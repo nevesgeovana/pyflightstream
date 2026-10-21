@@ -802,6 +802,7 @@ def blade_properties_from_sections(
             shear_modulus_basis=entry.shear_modulus_basis,
             source=entry.source.citation(),
             database_version=MATERIALS_DATABASE_VERSION,
+            notes=entry.notes,
         ),
         geometry_source=geometry_source,
         geometry_file_name=geometry_file_name,
