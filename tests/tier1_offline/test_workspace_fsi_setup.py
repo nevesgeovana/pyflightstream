@@ -393,3 +393,17 @@ def test_x_f_0429_the_staged_provenance_digests_alike_in_two_folders(tmp_path: P
         receipts.append(receipt.read_bytes())
     assert receipts[0] == receipts[1]
     assert json.loads(receipts[0])["source"] == "f001.toml"
+
+
+@pytest.mark.parametrize("named", ["../frozen.txt", "elsewhere/../../frozen.txt"])
+def test_x_f_1365_a_frozen_file_outside_the_input_folder_is_refused(
+    tmp_path: Path, named: str
+) -> None:
+    """The path is relative to the artifact: one that climbs out of its folder is refused."""
+    folder = tmp_path / "inputs"
+    folder.mkdir()
+    (tmp_path / "frozen.txt").write_text("1 2 3\n")
+    source = folder / "f001.toml"
+    source.write_text(f'frozen_displacements_file = "{named}"\n' + SUPPLIED)
+    with pytest.raises(FsiSetupError, match="leaves the folder"):
+        resolve_fsi_setup(source)
