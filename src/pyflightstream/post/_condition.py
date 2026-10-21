@@ -526,15 +526,19 @@ def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, i
 
 
 #: How far an export's printed reference may sit from the stated one and still be
-#: the same number: the export prints three decimals, so half of the last one, plus
-#: a relative part for a large area.
+#: the same number: the export prints three decimals, so half of the last one and
+#: nothing else. The definition warns "by more than the export's printed precision",
+#: and a part relative to the area widened that precision tenfold for a large one.
 _REFERENCE_PRINT_TOLERANCE = 5.0e-4
 
 
-_REFERENCE_RELATIVE_TOLERANCE = 1.0e-6
 #: A comparison band wider than this fraction of the stated value is too coarse to tell a wrong
 #: reference from the right one.
 _REFERENCE_UNCHECKABLE_FRACTION = 0.005
+
+#: Floating-point slack only: a stated 1.0005 beside a printed 1.001 is half a unit
+#: of the last printed digit, whatever the arithmetic of the subtraction says.
+_REFERENCE_ARITHMETIC_SLACK = 1.0e-9
 
 
 def _refuse_a_reference_the_solver_did_not_use(
@@ -565,7 +569,7 @@ def _refuse_a_reference_the_solver_did_not_use(
         ):
             if not isinstance(printed, int | float):
                 continue
-            allowed = _REFERENCE_PRINT_TOLERANCE + _REFERENCE_RELATIVE_TOLERANCE * abs(stated)
+            allowed = _REFERENCE_PRINT_TOLERANCE + _REFERENCE_ARITHMETIC_SLACK
             if abs(float(printed) - stated) > allowed:
                 reason = (
                     f"simulation {sim_id!r}: the loads export of {point.name} states a reference "
@@ -724,9 +728,11 @@ def _recorded_window(plan: object) -> tuple[int, int] | None:
     if not isinstance(first, Sequence) or len(first) != 2:
         return None
     try:
-        return int(first[0]), int(first[1])
+        window = int(first[0]), int(first[1])
     except (TypeError, ValueError):
         return None
+    # ORDER-CHECKED LIKE `_stated_window`: a window that runs backwards is no window.
+    return window if window[1] >= window[0] else None
 
 
 def _stated_window(record: object) -> tuple[int, int] | None:

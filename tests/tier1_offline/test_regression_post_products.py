@@ -2426,3 +2426,24 @@ def test_x_f_0338_a_section_load_in_a_disc_map_keeps_six_significant_digits(tmp_
     """X-F-0338: VALUE matched no significant-digit rule, so 1.23457e-05 was written 0.00001."""
     (row,) = _disc_map_of("10", "0.0000123456789", tmp_path)
     assert row["VALUE"] == "1.23457e-05"
+
+
+def test_f168_a_large_reference_area_is_held_to_the_printed_precision(tmp_path):
+    """F-168: a part relative to the area let 1.0e-3 pass at 1000 m2 where 5e-4 is the print."""
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.post._condition import _refuse_a_reference_the_solver_did_not_use
+    from pyflightstream.post.products import ReferenceValues
+
+    reference = ReferenceValues.from_mapping(
+        {"SREF": 1000.0, "CREF": 1.0, "BREF": 1.0, "XMOM": 0, "YMOM": 0, "ZMOM": 0}
+    )
+
+    def point(area: float) -> SimpleNamespace:
+        loads = SimpleNamespace(reference_area=area, reference_length=1.0)
+        return SimpleNamespace(name="P1", loads=loads)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        _refuse_a_reference_the_solver_did_not_use("1", [point(1000.0004)], reference)
+    with pytest.warns(PyflightstreamWarning, match="loads export of P1 states a reference area"):
+        _refuse_a_reference_the_solver_did_not_use("1", [point(1000.0008)], reference)

@@ -33,7 +33,7 @@ from __future__ import annotations
 import pytest
 
 from pyflightstream.cases import CampaignConfigError
-from pyflightstream.post._condition import _matrix_window, _stated_window
+from pyflightstream.post._condition import _defaulted_window, _matrix_window, _stated_window
 
 
 class _Row:
@@ -175,3 +175,13 @@ def test_a_malformed_record_costs_this_product_and_never_the_stage():
 def test_no_matrix_row_is_not_a_window():
     """A simulation the stage cannot tie to a row reduces as it was run."""
     assert _matrix_window(None, _ran()) is None
+
+
+def test_x_f_0326_a_defaulted_window_that_runs_backwards_is_no_window():
+    """X-F-0326: `_defaulted_window` order-checks the recorded window as `_stated_window` does."""
+    record = _ran(window=(900, 800), stated=False)
+    record.recipe = "unsteady_rotor"
+    assert _defaulted_window(record) is None
+    sound = _ran(window=(751, 1000), stated=False)
+    sound.recipe = "unsteady_rotor"
+    assert _defaulted_window(sound) == (751, 1000)
