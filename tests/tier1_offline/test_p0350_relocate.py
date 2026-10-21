@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream.workspace import WorkspaceError
 from pyflightstream.workspace._batch_relocate import copy_point, move_sim, relink_inputs
 
 
@@ -162,3 +163,21 @@ def test_p0430_failed_move_keeps_published_destination(tmp_path, monkeypatch):
     assert (target / "evidence.txt").is_file()
     assert (target / "evidence.txt").read_bytes() == b"published"
     assert (source / "evidence.txt").read_bytes() == b"new"
+
+
+@pytest.mark.parametrize("alias", [False, True])
+def test_p0430_move_refuses_its_own_source(tmp_path, alias):
+    """P0430-RELOCATE: move_sim(source, source) must preserve every source byte."""
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "evidence.txt").write_bytes(b"original")
+    target = source
+    if alias:
+        target = tmp_path / "alias"
+        _make_link(source, target)
+    try:
+        move_sim(source, target)
+    except WorkspaceError:
+        pass
+    assert (source / "evidence.txt").is_file()
+    assert (source / "evidence.txt").read_bytes() == b"original"

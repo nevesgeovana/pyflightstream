@@ -240,7 +240,18 @@ def move_sim(batch_sim: Path, sim: Path) -> RelocationReport:
     -------
     RelocationReport
         The files moved (``copied``), replaced and kept, relative to ``sim``.
+
+    Raises
+    ------
+    WorkspaceError
+        If the source and destination resolve to overlapping folders.
     """
+    source_root, target_root = batch_sim.resolve(), sim.resolve()
+    if source_root.is_relative_to(target_root) or target_root.is_relative_to(source_root):
+        raise WorkspaceError(
+            f"Cannot move {batch_sim} into {sim}: the folders overlap. "
+            "Choose a separate destination outside the batch simulation."
+        )
     tally = _Tally()
     sim.mkdir(parents=True, exist_ok=True)
     if batch_sim.is_dir():
