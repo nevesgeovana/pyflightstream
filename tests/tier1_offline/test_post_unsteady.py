@@ -29,6 +29,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from pyflightstream._errors import ProductError
 from pyflightstream.exceptions import (
     IncompleteOutputError,
     MalformedOutputError,
@@ -449,3 +450,85 @@ def test_the_layer_docstring_promises_only_what_it_has():
             "for it now finds silence, which reads as an oversight rather than a decision"
         )
     assert "blade_passage_average" in exposed
+
+
+def test_p0420_one_frame_removed_from_the_middle_is_refused_naming_the_gap(tmp_path):
+    """PFS-2119.007: times 0.0, 0.1, 0.3 (the 0.2 frame is gone) are not a uniform sampling."""
+    frames = write_frames(tmp_path / "a", [1.0, 2.0, 3.0, 4.0], solution_times=[0.0, 0.1, 0.3, 0.4])
+    with pytest.raises(MalformedOutputError, match=r"not uniformly spaced.*frame_001.*frame_002"):
+        read_timestep_series(frames)
+
+
+def test_p0420_a_duplicated_time_is_refused(tmp_path):
+    """PFS-2119.007: two frames with the same solution time are one frame written twice."""
+    frames = write_frames(tmp_path / "a", [1.0, 2.0, 3.0], solution_times=[0.0, 0.1, 0.1])
+    with pytest.raises(MalformedOutputError, match=r"both carry solution time 0\.1"):
+        read_timestep_series(frames)
+
+
+def test_p0420_uniform_times_in_any_handed_order_are_accepted(tmp_path):
+    """PFS-2119.007 control: the check does not refuse a regular, shuffled series."""
+    frames = write_frames(tmp_path / "a", [1.0, 2.0, 3.0, 4.0], solution_times=[0.3, 0.0, 0.2, 0.1])
+    series = read_timestep_series(frames)
+    assert series.times_s.tolist() == [0.0, 0.1, 0.2, 0.3]
+    assert series.fields["cp"][:, 0].tolist() == [2.0, 4.0, 3.0, 1.0]
+
+
+def test_p0420_declared_order_without_times_is_not_checked(tmp_path):
+    """PFS-2119.007 control: nothing to compare when no frame carries a time."""
+    frames = write_frames(tmp_path / "a", [1.0, 2.0, 3.0], tecplot=False)
+    assert read_timestep_series(frames, order="given").n_frames == 3
+
+
+@pytest.mark.parametrize("bad", [0, -3, 1.5, True, "2", None])
+def test_p0420_a_frequency_that_is_not_a_positive_integer_is_refused(tmp_path, bad):
+    """PFS-2130.007 (and the frequency half of PFS-2119.007)."""
+    frames = write_frames(tmp_path / "a", [1.0, 2.0], tecplot=False)
+    with pytest.raises(ProductError, match="not a positive integer"):
+        read_timestep_series(frames, order="given", frequency=bad)
+
+
+def test_p0420_numpy_integers_are_accepted_as_frequency(tmp_path):
+    """PFS-2130.007 control: a numpy integer is an integer."""
+    frames = write_frames(tmp_path / "a", [1.0, 2.0], tecplot=False)
+    series = read_timestep_series(frames, order="given", frequency=np.int64(4))
+    assert series.steps.tolist() == [0, 4]
+
+
+def test_p0420_an_unknown_order_is_an_argument_error_not_malformed_output(tmp_path):
+    """PFS-2130.007: a bad order argument is a catalogued ValueError, not solver output."""
+    frames = write_frames(tmp_path / "a", [1.0, 2.0], tecplot=False)
+    with pytest.raises(ProductError, match="order='sorted'") as refused:
+        read_timestep_series(frames, order="sorted")
+    assert isinstance(refused.value, ValueError)
+    assert not isinstance(refused.value, MalformedOutputError)
+
+
+def _points_frames(folder, shifts):
+    folder.mkdir()
+    paths = []
+    for index, shift in enumerate(shifts):
+        path, _ = write_tecplot_points(
+            folder / f"f{index}.dat",
+            POINTS + np.array([0.0, shift, 0.0]),
+            {"cp": np.array([1.0, 2.0])},
+            provenance=provenance(),
+            zone=f"probes SOLUTIONTIME={0.1 * index}",
+        )
+        paths.append(path)
+    return paths
+
+
+def test_p0420_a_frame_that_moves_a_sample_is_refused_naming_the_sample(tmp_path):
+    """PFS-2110.142: equal shape is not the same places; a displaced coordinate is refused."""
+    paths = _points_frames(tmp_path / "a", [0.0, 0.0, 0.1])
+    with pytest.raises(MalformedOutputError, match=r"f2\.dat places sample [01] at"):
+        read_timestep_series(paths)
+
+
+def test_p0420_coordinates_within_the_print_rounding_are_one_sampling(tmp_path):
+    """PFS-2110.142 control: a sub-tolerance difference is the same place."""
+    paths = _points_frames(tmp_path / "a", [0.0, 1e-9, -1e-9])
+    series = read_timestep_series(paths)
+    assert series.points.tolist() == POINTS.tolist()
+    assert "_POINT_RTOL" in (TimestepSeries.__doc__ or "")

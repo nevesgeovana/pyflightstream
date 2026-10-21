@@ -100,7 +100,11 @@ class TimestepSeries:
     points : numpy.ndarray
         Sample positions, shape ``(n_points, 3)``, in the reference
         frame of the export and in simulation length units. Taken from
-        the first frame; every later frame must agree.
+        the first frame. The reader checks that every later frame holds
+        the same NUMBER of samples and that sample k sits at the same
+        coordinate, within ``_POINT_RTOL`` of the extent of the first
+        frame, so a reduction over the series averages one place over
+        time. A frame that moves its points is refused, not averaged.
     fields : dict of str to numpy.ndarray
         One entry per exported quantity, shape ``(n_frames, n_points)``
         for a scalar and ``(n_frames, n_points, 3)`` for a vector. Units
@@ -378,6 +382,48 @@ def _read_frame(path: Path) -> tuple[np.ndarray, dict[str, np.ndarray], float | 
     )
 
 
+#: Relative departure of a gap between solution times from the median gap that the
+#: reader accepts. The times are printed by the solver with limited digits, so the
+#: tolerance is far above the print rounding and far below one missing frame (a
+#: factor of two).
+_TIME_SPACING_RTOL = 1e-3
+
+#: Largest move of a sample between frames, relative to the larger of the first frame's
+#: extent and its largest coordinate. The solver prints coordinates with limited digits,
+#: so the tolerance sits well above print rounding and far below any real move.
+_POINT_RTOL = 1e-5
+
+
+def _refuse_irregular_times(times: Sequence[float | None], paths: Sequence[Path]) -> None:
+    """Refuse duplicate or unevenly spaced solution times, naming the gap.
+
+    Only when every frame carries a time; a series ordered by declaration alone has
+    nothing to compare. The step axis of the series is frame index times frequency,
+    so a frame missing from the middle (or one written twice) would move every
+    later step by a whole frame while the times said otherwise.
+    """
+    if len(times) < 2 or any(value is None for value in times):
+        return
+    values = [float(value) for value in times if value is not None]
+    gaps = np.diff(values)
+    for index, gap in enumerate(gaps):
+        if gap == 0.0:
+            raise MalformedOutputError(
+                f"{paths[index + 1]} and {paths[index]} both carry solution time "
+                f"{values[index]!r}, so one frame is written twice or two runs are mixed"
+            )
+    median = float(np.median(gaps))
+    for index, gap in enumerate(gaps):
+        if abs(gap - median) > _TIME_SPACING_RTOL * abs(median):
+            raise MalformedOutputError(
+                f"the solution times are not uniformly spaced: from {paths[index]} "
+                f"(t = {values[index]!r} s) to {paths[index + 1]} (t = {values[index + 1]!r} s) "
+                f"the gap is {gap!r} s and the median gap is {median!r} s, so a frame is "
+                "missing or repeated and the step axis (frame index times frequency) "
+                "would shift every later step"
+            )
+
+
 def read_timestep_series(
     frames: Sequence[str | Path],
     *,
@@ -401,8 +447,9 @@ def read_timestep_series(
     frequency : int
         Solver time steps between exported frames, the ``frequency``
         keyword the run passed to ``UNSTEADY_SOLVER_ANIMATION``.
-        Dimensionless step count; the step axis is frame index times
-        this. Default 1, which yields frame indices.
+        Dimensionless step count, a positive integer (a bool, a float
+        or a value below 1 is refused); the step axis is frame index
+        times this. Default 1, which yields frame indices.
 
     Returns
     -------
@@ -411,11 +458,22 @@ def read_timestep_series(
 
     Raises
     ------
+    ProductError
+        If ``order`` is not ``"given"`` or None, or ``frequency`` is not
+        a positive integer. Both are mistakes of the call and not
+        malformed solver output.
     MalformedOutputError
         If no order can be established; if a frame is in neither
-        supported shape; or if a frame's variables or sample count
-        disagree with the first frame's, because a series is one
-        quantity over time or it is not a series.
+        supported shape; if a frame's variables or sample count
+        disagree with the first frame's, or a sample sits at another
+        coordinate (beyond ``_POINT_RTOL``), because a series is one
+        quantity over time at one set of places or it is not a series;
+        or if the frames
+        carry solution times and two of them are equal or the spacing
+        is not uniform within a relative tolerance of
+        ``_TIME_SPACING_RTOL``, because the step axis is frame index
+        times frequency and a missing or repeated frame would shift
+        every later step without a word.
 
     Examples
     --------
@@ -443,8 +501,14 @@ def read_timestep_series(
     >>> series.fields["cp"][:, 0].tolist()
     [1.0, 2.0, 3.0]
     """
+    if isinstance(frequency, bool) or not isinstance(frequency, (int, np.integer)) or frequency < 1:
+        raise ProductError(
+            f"frequency={frequency!r} is not a positive integer: it counts the solver "
+            "time steps between exported frames (the frequency keyword of "
+            "UNSTEADY_SOLVER_ANIMATION), so 1 is the smallest value that means anything"
+        )
     if order not in (None, "given"):
-        raise MalformedOutputError(
+        raise ProductError(
             f"order={order!r} is not a way this reader can establish an order. The two "
             "it has are order='given', the caller declaring the sequence is already in "
             "solver order, and the default, each frame's own solution time."
@@ -469,8 +533,11 @@ def read_timestep_series(
     else:
         raise MalformedOutputError(_NO_ORDER)
 
+    _refuse_irregular_times([entry[3] for entry in ordered], [entry[0] for entry in ordered])
     first_points = ordered[0][1]
     names = sorted(ordered[0][2])
+    extent = float(np.ptp(first_points, axis=0).max()) if first_points.size else 0.0
+    point_tolerance = _POINT_RTOL * max(extent, float(np.abs(first_points).max(initial=0.0)), 1e-12)
     stacked: dict[str, list[np.ndarray]] = {name: [] for name in names}
     for path, points, fields, _time in ordered:
         if sorted(fields) != names:
@@ -482,6 +549,16 @@ def read_timestep_series(
             raise MalformedOutputError(
                 f"{path} holds {len(points)} samples and the first frame holds "
                 f"{len(first_points)}, so the frames are not one sampling of one run"
+            )
+        moved = np.abs(points - first_points)
+        if moved.size and float(moved.max()) > point_tolerance:
+            worst = int(np.argmax(moved.max(axis=1)))
+            raise MalformedOutputError(
+                f"{path} places sample {worst} at {points[worst].tolist()} and the first frame "
+                f"at {first_points[worst].tolist()}, a move of {float(moved.max())!r} against a "
+                f"tolerance of {point_tolerance!r} (relative {_POINT_RTOL!r} of the first "
+                "frame's extent): a series averages one place over time, so these frames "
+                "are not one sampling"
             )
         for name in names:
             stacked[name].append(fields[name])
