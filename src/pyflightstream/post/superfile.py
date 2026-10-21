@@ -625,11 +625,10 @@ def plots_last_row(rows: Sequence[Mapping[str, str]]) -> Mapping[str, str] | Non
     WHY THE LAST STEP AND NOT AN AVERAGE, stated because it is the one
     judgement in this file. The superfile is written AFTER the unsteady
     post-process and carries one row per CONVERGED point, so the time
-    history has to become one value per parameter. The solver's own time
-    average of the FORCES is already in the file twice over, as the
-    coefficients of the polar table and of the campaign sweep table, both
-    of which come from the loads spreadsheet an unsteady run writes as
-    that average. What the plots export adds is what those cannot say:
+    history has to become one value per parameter. The package's time
+    average of the forces comes from the plots history over the declared
+    averaging window. The native loads spreadsheet states the last time
+    step, not a time average. What this final plots row adds is:
     the per-body and per-blade breakdown and the fluid samples. The last
     exported step is the state the converged run ENDED at, it exists for
     every unsteady point, and it needs no window: MEASURED on `pfs0160`,
