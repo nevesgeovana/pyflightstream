@@ -3,5 +3,6 @@ workspace=<ROOT>
 matrix=matriz
 time=<TIME>
 check_frozen=False (refuse instead of warn)
+WARNING point=campaign product=stage: the flight condition of POL 6002 solves RHOkgm3:0.632711 from its Reynolds number, pins TK:288.15 and pins PPA:101325, which disagree with p = rho R T (R = 287.05287 J/(kg K), rho R T = 52334.2 Pa) by a relative mismatch of 48.35%, above 0.5%. The pins are emitted as written; drop the pressure pin and let it be derived, or correct the one that is wrong.
 WARNING point=polars/6002 product=polars/6002: simulation 6002's group polars are read from the loads export of an unsteady run, its LAST TIME STEP, one instant of a cycle, because no averaging window resolves for it; the manifest marks them kind: instant.
 WARNING point=polars/6002#rotor_tables product=polars/6002#rotor_tables: reference 'r002' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r002'; available reference ids: r001 Remedy: restore the required data or correct the stated inputs and post again.
