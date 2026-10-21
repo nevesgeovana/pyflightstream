@@ -4030,7 +4030,7 @@ class TestF2Package0607Workspace:
             (folder / "scripts").mkdir(parents=True)
             (folder / "inputs" / "pproc").mkdir(parents=True)
             script = f"SET_PLOT_TYPE {word}\n"
-            (folder / "scripts" / "run.txt").write_text(script, encoding="utf-8")
+            (folder / "scripts" / "run.txt").write_bytes(script.encode())
             (folder / "inputs" / "pproc" / "p1.toml").write_text(f"{word} = 1\n", encoding="utf-8")
             record = {
                 "sim_id": sim,
