@@ -526,6 +526,27 @@ def test_p0430_other_blade_unplaced_does_not_disable_selected_shares(tmp_path):
     assert result.values["THRUST_PCT_K_GT_0_1"] == 100.0
 
 
+def test_p0430_clockings_refuse_no_selected_surface(tmp_path):
+    from types import SimpleNamespace
+
+    record = _record(1200)
+    for position in record.positions:
+        (tmp_path / position.loads).write_bytes((FIXTURES / "loads_steady_26.120.txt").read_bytes())
+    result = post_qsteady.clockings_of(
+        record,
+        tmp_path,
+        reference=None,
+        density_kg_m3=1.2,
+        shaft_loads=lambda *a, **kw: SimpleNamespace(
+            force_n=(0, 0, 0),
+            moment_hub_nm=(0, 0, 0),
+            thrust_n=0,
+            torque_nm=0,
+        ),
+    )
+    assert isinstance(result, str) and "surface" in result
+
+
 @pytest.mark.parametrize((), [pytest.param(id="P0430-F-785")])
 def test_p0430_missing_clocking_zero_keeps_surviving_exports(tmp_path, monkeypatch):
     from pyflightstream.post.section_distributions import write_section_distributions

@@ -67,6 +67,7 @@ from typing import Any, Literal
 import pyflightstream._textio as _textio
 from pyflightstream._errors import ProductError
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
+from pyflightstream.cases import select_group_members
 from pyflightstream.cases.qsteady import (
     POSITION_SUFFIX,
     REDUCED_FREQUENCY_LIMIT,
@@ -1077,6 +1078,11 @@ def clockings_of(
             report = parse_loads(path.read_text(encoding="utf-8", errors="replace"))
         except Exception as error:  # noqa: BLE001 -- any unreadable export is named, not raised
             return f"the loads export of clocking {position.index}, {path.name}: {error}"
+        if not select_group_members(members, list(report.surfaces), strict=False):
+            return (
+                f"the loads export of clocking {position.index}, {path.name}, has no surface "
+                f"selected by rotor {record.rotor_alias}; restore its recorded families"
+            )
         speed = report.reference_velocity_m_s
         if not isinstance(speed, int | float) or not math.isfinite(speed) or speed <= 0.0:
             # ITS LOADS ARE TAKEN AT ITS REFERENCE VELOCITY (the definition of
