@@ -2066,3 +2066,16 @@ def test_f6_0102_a_third_restored_state_is_inconclusive_not_refuted():
     assert _restoration("a", "b", "b", "a") is True
     assert _restoration("a", "b", "b", "b") is False
     assert _restoration("a", "b", "b", "c") is None
+
+
+def test_p0430_f538_remove_initialization_needs_an_initialized_before_state(tmp_path):
+    """F-538: an already uninitialized session must not verify REMOVE_INITIALIZATION."""
+    check = PROBE_SPECS["REMOVE_INITIALIZATION"].assert_effect
+    art = _state(tmp_path, None, None)
+    (tmp_path / "dump_after.txt").write_text("Solver: Not initialized\n", encoding="utf-8")
+    (tmp_path / "dump_before.txt").write_text("Solver: Not initialized\n", encoding="utf-8")
+    assert check(art) is None
+    (tmp_path / "dump_before.txt").write_text("Solver: Initialized\n", encoding="utf-8")
+    assert check(art) is True
+    (tmp_path / "dump_after.txt").write_text("Solver: Initialized\n", encoding="utf-8")
+    assert check(art) is False

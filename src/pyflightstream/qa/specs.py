@@ -685,12 +685,26 @@ _spec(
     assert_effect=fsm_changed(),
     effect_note=("the saved simulation carries the proximal-boundary marking"),
 )
+
+
+def _initialization_removed(artifacts: ProbeArtifacts) -> bool | None:
+    """Return True when the dump flips to 'Not initialized' from an initialized state.
+
+    A before-dump that already reads 'Not initialized' means the precondition did not hold, so the
+    command could not be judged (None); a missing before-dump is the instrument failing (None).
+    """
+    before = artifacts.dump_before()
+    if before is None or "Not initialized" in before:
+        return None
+    return dump_gained("Not initialized", strict=True)(artifacts)
+
+
 _spec(
     command="REMOVE_INITIALIZATION",
     build_target=_emit("REMOVE_INITIALIZATION"),
     requires=Requires.SOLVER,
     dump_state=True,
-    assert_effect=dump_gained("Not initialized", strict=True),
+    assert_effect=_initialization_removed,
     effect_note=("the settings dump flips from the initialized solver state to 'Not initialized'"),
 )
 _spec(
