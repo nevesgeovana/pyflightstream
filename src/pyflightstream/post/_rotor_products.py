@@ -269,7 +269,8 @@ def _recorded_blade_count(record: RunRecord, alias: str, rotor_count: int) -> in
     the blades the run modeled (a sector models fewer). The record's per-rotor entry
     states it; a plan with one rotor states it at the row level.
     """
-    plan = record.reductions if isinstance(getattr(record, "reductions", None), Mapping) else {}
+    reductions = getattr(record, "reductions", None)
+    plan: Mapping[str, object] = reductions if isinstance(reductions, Mapping) else {}
     stated = plan.get("rotors")
     own = stated.get(alias) if isinstance(stated, Mapping) else None
     if not isinstance(own, Mapping) and rotor_count == 1:

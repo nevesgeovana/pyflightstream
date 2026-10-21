@@ -406,7 +406,7 @@ def classify_record_outputs(record: RunRecord) -> dict[str, str]:
 
 def _resolve_point_cell(
     record: RunRecord,
-) -> tuple[dict[str, object], ResolvedCondition | None, PyflightstreamError | None]:
+) -> tuple[dict[str, float], ResolvedCondition | None, PyflightstreamError | None]:
     """Resolve the record's own cell (the swept value in place): the ONE resolver of a point.
 
     :func:`point_state` and :func:`_free_stream_and_sound` both read it, so the state a table

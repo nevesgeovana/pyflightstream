@@ -502,7 +502,7 @@ def write_acoustic_products(
     summary: list[Sequence[object]] = []
     bpf: list[Sequence[object]] = []
     stated = dict(rotors or {})
-    usable = {a: (b, abs(r)) for a, (b, r) in stated.items() if _states_a_frequency(b, r)}
+    usable = {a: (b, abs(r or 0.0)) for a, (b, r) in stated.items() if _states_a_frequency(b, r)}
     if not stated:
         result.notes.append(
             "the record states no rotor with blades and speed: the blade-passage harmonics are NA"
