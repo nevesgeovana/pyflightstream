@@ -412,8 +412,9 @@ def write_vtk_points(
         did. Neither file is written when either is refused.
     ValueError
         If ``points`` is not ``(n, 3)``, a field's shape does not match the
-        probe count, or a coordinate or field value is NaN or infinite
-        (neither format has a token for an unavailable value).
+        probe count, a coordinate or field value is NaN or infinite
+        (neither format has a token for an unavailable value), or a field
+        name is empty or holds whitespace (a VTK legacy name is one word).
 
     Examples
     --------

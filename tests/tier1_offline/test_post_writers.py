@@ -373,3 +373,15 @@ def test_f215_a_writer_refuses_a_non_finite_value_it_has_no_token_for(
     with pytest.raises(ValueError, match="points holds a non-finite value"):
         writer(tmp_path / f"bad{suffix}", moved, provenance=provenance)
     assert not (tmp_path / f"bad{suffix}").exists()
+
+
+def test_f1408_a_vtk_field_name_with_whitespace_is_refused(tmp_path):
+    """F-1408: a name with a space shifted the SCALARS declaration and was truncated on read."""
+    provenance = make_provenance()
+    with pytest.raises(ValueError, match="field name .* whitespace"):
+        write_vtk_points(
+            tmp_path / "a.vtk", POINTS, {"cp mean": FIELDS["cp"]}, provenance=provenance
+        )
+    assert not (tmp_path / "a.vtk").exists()
+    write_vtk_points(tmp_path / "b.vtk", POINTS, {"cp_mean": FIELDS["cp"]}, provenance=provenance)
+    assert "SCALARS cp_mean float 1" in (tmp_path / "b.vtk").read_text(encoding="utf-8")
