@@ -1987,39 +1987,6 @@ def test_a_record_waiving_nothing_may_still_be_appended_unstamped(tmp_path):
     assert record.manifest_schema is None and record.waived_commands == []
 
 
-# --- PFS-2009.03: the corpus migration, both halves in one call -------------
-#
-# The kind letter landed with PFS-2009.01, which made every library file
-# and every matrix cell written before v0.8.0 unreachable. Renaming the
-# files without rewriting the cells, or the other way round, leaves a
-# corpus that half-resolves, and half of it silently: that is the whole
-# reason the two halves are one call and refuse together.
-
-PFS200903_MATRIX_ROW = (
-    "9001 |    0   |  1  | TestWing | - | STEADY | MACH:0.0890, REmi:3.10, ALPHA:sweep "
-    "| 0.0 | - | 003  | 002  | 001    | - | - | - | - "
-    "| MANUAL   | LEGACY   | OUTPUTS: loads_{point}.txt / RECIPE: 003"
-)
-
-
-def _pre_letter_workspace(tmp_path):
-    """A library and a matrix as they stood before the kind letter."""
-    from pyflightstream.cases.matrix import _COLUMNS
-
-    workspace = CampaignWorkspace.init(tmp_path / "camp")
-    bodies = {
-        "references": ("003", "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n"),
-        "setups": ("002", "iterations = 800\nconvergence = 1e-6\n"),
-        "pproc": ("001", '[groups]\nwing = "wing_left"\n'),
-    }
-    for subdir, (stem, body) in bodies.items():
-        (workspace.inputs_dir / subdir / f"{stem}.toml").write_text(body, encoding="utf-8")
-    matrix = tmp_path / "pfs200903_matrix.fs"
-    header = " | ".join(_COLUMNS)
-    matrix.write_text("\n".join([header, PFS200903_MATRIX_ROW]) + "\n", encoding="utf-8")
-    return workspace, matrix
-
-
 # --- the build registry declares a version, PFS-2009.05 ---------------------
 #
 # A build entry may be a bare path string, which is what the registry has
@@ -3102,3 +3069,51 @@ def test_goal019_bandd_a_collection_that_would_have_worked_still_does(tmp_path):
         "datapoints/DP-AL+000/first.txt",
         "datapoints/DP-AL+000/second.txt",
     ]
+
+
+def test_f1498_a_sim_id_with_a_trailing_newline_names_no_folder(tmp_path):
+    from pyflightstream.workspace import WorkspaceError
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(WorkspaceError, match="cannot name a managed folder"):
+        workspace.sim_dir("sim_1\n")
+    assert workspace.sim_dir("sim_1").name == "sim_sim_1"
+
+
+def test_x_f_0575_0576_a_failed_replace_leaves_no_temporary(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    real = Path.replace
+
+    def failing(self, target):
+        if self.name.endswith(".tmp"):
+            raise OSError("replace refused")
+        return real(self, target)
+
+    monkeypatch.setattr(Path, "replace", failing)
+    with pytest.raises(OSError, match="replace refused"):
+        workspace._replace_manifest([])
+    with pytest.raises(OSError, match="replace refused"):
+        workspace.append_additional(SimpleNamespace(model_dump=lambda mode: {}))
+    assert not list((tmp_path / "camp").glob("*.tmp"))
+
+
+def test_x_f_1308_a_corrupt_additional_manifest_is_a_named_refusal(tmp_path):
+    from pyflightstream.workspace import WorkspaceError
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.root.mkdir(parents=True)
+    workspace.additional_path.write_text('[{"extraction_id": ', encoding="utf-8")
+    with pytest.raises(WorkspaceError, match=r"additional\.json.*cannot read"):
+        workspace.read_additional()
+
+
+def test_x_f_1309_a_truncated_query_record_names_its_file(tmp_path):
+    from pyflightstream.workspace._query_files import _json
+
+    path = tmp_path / "products.json"
+    path.write_text('{"a": ', encoding="utf-8")
+    with pytest.raises(ValueError, match="products.json"):
+        _json(path)
+    assert _json(tmp_path / "absent.json", 3) == 3

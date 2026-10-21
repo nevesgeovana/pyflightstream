@@ -18,13 +18,15 @@ The managed layout under a user-chosen campaign root, created by
 - ``inputs/``: the reusable input-artifact library
   (:mod:`pyflightstream.workspace.inputs`): ``geometries/``,
   ``references/``, ``setups/``, ``pproc/`` (``groups/`` in legacy releases),
-  ``profiles/``, plus the ``executables.toml`` build registry; artifacts
+  ``profiles/``, ``freestreams/``, ``calibrations/``, ``hpc/``, ``fsi/``,
+  ``matrices/`` and ``management/``, plus the ``executables.toml`` build registry; artifacts
   are declarative TOML resolved by stable id.
 - ``sims/sim_<sim_id>/``: per-simulation folder with ``inputs/``
   (staged copies with recorded sha256), ``scripts/`` (generated script
-  text per point), and ``outputs/`` (solver outputs as produced; the
-  folder was called ``raw/`` in legacy releases, FR-84, and a workspace that
-  holds one is still read). in legacy releases a fourth folder, ``parsed/``, was created here
+  text per point) and ``datapoints/`` (what each point collects). The
+  ``outputs/`` folder (solver outputs as produced; called ``raw/`` in
+  earlier releases, FR-84) is no longer created, and a workspace that holds
+  one is still read. In legacy releases a fourth folder, ``parsed/``, was created here
   and written by
   nothing (PFS-2032.01): the typed extracts it was named for are built
   at campaign level under ``post/``, so a workspace made by an earlier
@@ -392,7 +394,7 @@ def collection_name(declared: str | Path) -> str:
     return str(declared).replace("\\", "/").rsplit("/", 1)[-1]
 
 
-_SIM_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+_SIM_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
 
 #: The simulation subfolder a run collects its declared outputs into
 #: (FR-84). ``raw`` named HOW the data arrived; ``outputs`` names WHAT it
@@ -610,9 +612,10 @@ class CampaignWorkspace:
     def init(cls, root: str | Path, naming: NamingTemplate | None = None) -> CampaignWorkspace:
         """Create the full campaign tree under ``root``, idempotently.
 
-        Creates the input-artifact library skeleton
-        (``inputs/geometries``, ``inputs/references``,
-        ``inputs/setups``, ``inputs/groups``, ``inputs/profiles``),
+        Creates the input-artifact library skeleton (one ``inputs/<kind>``
+        folder for each of ``geometries``, ``references``, ``setups``,
+        ``pproc``, ``profiles``, ``freestreams``, ``calibrations``, ``hpc``,
+        ``fsi``, ``matrices`` and ``management``),
         ``sims/``, ``post/``, and ``archive/``; existing folders and
         files are kept untouched, so re-running init on a live
         campaign root is safe. When no build registry exists yet, a
@@ -1032,7 +1035,8 @@ class CampaignWorkspace:
             hyphen only, so the derived folder name is stable and
             portable (NFR-10).
         """
-        if not _SIM_ID_PATTERN.match(sim_id):
+        # fullmatch: a "$" anchor would accept a trailing newline in the folder name.
+        if not _SIM_ID_PATTERN.fullmatch(sim_id):
             raise WorkspaceError(
                 f"sim_id {sim_id!r} cannot name a managed folder: use letters, digits, "
                 "underscore, or hyphen. Folder names derive from sim_id and must stay "
@@ -2033,8 +2037,11 @@ class CampaignWorkspace:
         self.root.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(record_document.encode_rows(raw), indent=2)
         temporary = self.manifest_path.with_suffix(f".json.{os.getpid()}.tmp")
-        _textio.write_text(temporary, payload + "\n")
-        temporary.replace(self.manifest_path)
+        try:
+            _textio.write_text(temporary, payload + "\n")
+            temporary.replace(self.manifest_path)
+        finally:
+            temporary.unlink(missing_ok=True)
 
     def append_record(self, record: RunRecord) -> None:
         """Append one record to the manifest, atomically.
@@ -2116,8 +2123,11 @@ class CampaignWorkspace:
             raw.append(record.model_dump(mode="json"))
             archive_previous(self.root, self.additional_path)
             temporary = self.additional_path.with_suffix(f".json.{os.getpid()}.tmp")
-            _textio.write_text(temporary, json.dumps(raw, indent=2) + "\n")
-            temporary.replace(self.additional_path)
+            try:
+                _textio.write_text(temporary, json.dumps(raw, indent=2) + "\n")
+                temporary.replace(self.additional_path)
+            finally:
+                temporary.unlink(missing_ok=True)
 
     def changed_extraction_file(self, record: AdditionalRecord) -> str | None:
         """Say which file of one extraction is gone or changed, or None while all are (G12).

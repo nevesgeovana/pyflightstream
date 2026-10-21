@@ -37,7 +37,13 @@ def _json(path: Path, default: Any = None) -> Any:
     Any
         The parsed document, or ``default``.
     """
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
+    if not path.is_file():
+        return default
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as error:
+        # A ValueError still, as the decoder raised; now naming the damaged file.
+        raise ValueError(f"{path}: not readable JSON ({error})") from error
 
 
 def _files(ledger: Ledger, sim: str) -> dict[str, str]:
