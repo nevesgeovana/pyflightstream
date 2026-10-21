@@ -465,8 +465,20 @@ def points_inside(points: np.ndarray, *, mesh_path: str | Path) -> InsideReport:
     -------
     InsideReport
         The flags, or why there are none.
+
+    Raises
+    ------
+    ProbeGeometryError
+        If ``points`` is not an ``(n, 3)`` array (an empty array is accepted).
     """
-    array = np.asarray(points, dtype=float).reshape(-1, 3)
+    array = np.asarray(points, dtype=float)
+    if array.size == 0:
+        array = array.reshape(0, 3)
+    if array.ndim != 2 or array.shape[1] != 3:
+        raise ProbeGeometryError(
+            f"probe points must be shaped (n, 3); got {array.shape}, and reshaping would "
+            "turn a malformed array into different probes"
+        )
     unchecked = np.zeros(len(array), dtype=bool)
     try:
         mesh = load_surface_mesh(mesh_path, require_watertight=True)

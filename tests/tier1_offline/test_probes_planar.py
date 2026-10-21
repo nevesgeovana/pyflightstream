@@ -209,3 +209,39 @@ def test_goal019_bandd_write_points_csv_refuses_nan_and_writes_nothing(tmp_path)
     # The control, in the same place: finite positions still write.
     assert write_points_csv(np.asarray([[0.0, 1.0, 2.0]]), target) == 1
     assert target.read_text(encoding="utf-8").splitlines() == ["1", "0.0,1.0,2.0,1"]
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_nonfinite_axis_band_and_standoff_are_refused_as_probe_geometry_errors(bad):
+    from pyflightstream.probes.geometry import apply_geometry_gate
+    from pyflightstream.probes.planar import RefinementBand
+
+    with pytest.raises(ProbeGeometryError):
+        AxisSpec(start=bad, stop=1.0, spacing=0.1)
+    with pytest.raises(ProbeGeometryError):
+        AxisSpec(start=0.0, stop=1.0, spacing=bad)
+    with pytest.raises(ProbeGeometryError):
+        RefinementBand(distance=bad, factor=2)
+    grid = PlanarProbeGrid(
+        frame=yz_frame(),
+        u=AxisSpec(start=0.0, stop=1.0, count=2),
+        v=AxisSpec(start=0.0, stop=1.0, count=2),
+    )
+    with pytest.raises(ProbeGeometryError):
+        apply_geometry_gate(grid, standoff=bad, cull=False)
+
+
+def test_verify_positions_refuses_a_nan_tolerance():
+    from pyflightstream.probes.geometry import apply_geometry_gate
+
+    grid = PlanarProbeGrid(
+        frame=yz_frame(),
+        u=AxisSpec(start=0.0, stop=1.0, count=2),
+        v=AxisSpec(start=0.0, stop=1.0, count=2),
+    )
+    plan = apply_geometry_gate(grid, cull=False)
+    shifted = plan.points + 10.0
+    with pytest.raises(ProbeGeometryError, match="rtol"):
+        plan.verify_positions(shifted, rtol=float("nan"))
+    with pytest.raises(ProbeGeometryError):
+        plan.verify_positions(shifted)

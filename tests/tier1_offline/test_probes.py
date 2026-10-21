@@ -200,3 +200,90 @@ def test_a_physical_lattice_with_a_lateral_cylinder_still_builds():
     )
     assert lattice.n_r == 2
     assert lattice.lateral_radius == 1.2
+
+
+# ---- F7-0809 (0.43.0): refusals of malformed probe geometry ----
+
+
+def test_build_lattice_refuses_lateral_stations_without_a_radius():
+    from pyflightstream.probes import ProbeGeometryError, build_lattice
+
+    with pytest.raises(ProbeGeometryError, match="lateral_radius is None"):
+        build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None, lateral_stations=(0.5,))
+
+
+class _Rect:
+    origin = (0.0, 0.0, 0.0)
+    along_u = (1.0, 0.0, 0.0)
+    along_v = (2.0, 0.0, 0.0)
+    points_u = 3
+    points_v = 3
+
+
+class _Disc:
+    center = (0.0, 0.0, 0.0)
+    normal = (1.0, 0.0, 0.0)
+    radius = 0.0
+    points_radial = 3
+    points_azimuth = 8
+
+
+def test_a_collinear_rectangle_is_refused():
+    from pyflightstream.probes import ProbeGeometryError
+    from pyflightstream.probes.layouts import rectangle_points
+
+    with pytest.raises(ProbeGeometryError, match="collinear"):
+        rectangle_points(_Rect(), scale=1.0)
+
+
+@pytest.mark.parametrize("radius", [0.0, -1.0, float("nan"), float("inf")])
+def test_a_circle_without_a_finite_positive_radius_is_refused(radius):
+    from pyflightstream.probes import ProbeGeometryError
+    from pyflightstream.probes.layouts import circle_points
+
+    disc = _Disc()
+    disc.radius = radius
+    with pytest.raises(ProbeGeometryError, match="radius"):
+        circle_points(disc, scale=1.0)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"distance": float("nan")},
+        {"origin": (float("nan"), 0.0, 0.0)},
+        {"half_width": float("inf")},
+    ],
+)
+def test_a_farfield_plane_refuses_nonfinite_placement(kwargs):
+    from pyflightstream.probes import ProbeGeometryError
+    from pyflightstream.probes.layouts import farfield_plane
+
+    given = {
+        "direction": (1.0, 0.0, 0.0),
+        "origin": (0.0, 0.0, 0.0),
+        "distance": 2.0,
+        "half_width": 1.0,
+        "half_height": 1.0,
+        "spacing": 0.5,
+    }
+    given.update(kwargs)
+    with pytest.raises(ProbeGeometryError):
+        farfield_plane(**given)
+
+
+@pytest.mark.parametrize("points", [np.arange(7.0), np.zeros((4, 2)), np.zeros((2, 3, 3))])
+def test_points_inside_refuses_a_malformed_point_array(points):
+    from pyflightstream.probes import ProbeGeometryError
+    from pyflightstream.probes.geometry import points_inside
+
+    with pytest.raises(ProbeGeometryError, match=r"\(n, 3\)"):
+        points_inside(points, mesh_path="unused.obj")
+
+
+def test_write_points_csv_creates_missing_parent_directories(tmp_path):
+    from pyflightstream.probes.layouts import write_points_csv
+
+    target = tmp_path / "deep" / "er" / "probes.csv"
+    assert write_points_csv(np.zeros((2, 3)), target) == 2
+    assert target.read_text(encoding="utf-8").splitlines()[0] == "2"

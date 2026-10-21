@@ -484,8 +484,14 @@ class PlannedProbes:
             If the count differs or any row-aligned position deviates
             beyond ``rtol``: the export does not belong to this plan,
             or the solver reordered the probes. Also if any exported
-            row is not finite, which no tolerance can judge.
+            row is not finite, which no tolerance can judge. Also if ``rtol``
+            is negative or not finite.
         """
+        if not (np.isfinite(rtol) and rtol >= 0.0):
+            raise ProbeGeometryError(
+                f"rtol is {rtol!r}; use a finite nonnegative tolerance, since NaN would "
+                "disable the position check"
+            )
         positions = np.asarray(positions, dtype=float)
         if not bool(np.all(np.isfinite(self.points))):
             raise ProbeGeometryError(

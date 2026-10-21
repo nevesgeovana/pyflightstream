@@ -109,10 +109,27 @@ def rectangle_points(rectangle: _Rectangle, *, scale: float) -> list[list[float]
     -------
     list[list[float]]
         Probe coordinate triples in the output length unit.
+
+    Raises
+    ------
+    ProbeGeometryError
+        If the two edges from ``origin`` are collinear, zero or not finite.
     """
     origin = list(rectangle.origin)
     edge_u = [b - a for a, b in zip(rectangle.origin, rectangle.along_u, strict=True)]
     edge_v = [b - a for a, b in zip(rectangle.origin, rectangle.along_v, strict=True)]
+    cross = [
+        edge_u[1] * edge_v[2] - edge_u[2] * edge_v[1],
+        edge_u[2] * edge_v[0] - edge_u[0] * edge_v[2],
+        edge_u[0] * edge_v[1] - edge_u[1] * edge_v[0],
+    ]
+    area = math.sqrt(sum(value * value for value in cross))
+    reach = math.sqrt(sum(v * v for v in edge_u)) * math.sqrt(sum(v * v for v in edge_v))
+    if not (math.isfinite(area) and area > 1e-12 * reach):
+        raise ProbeGeometryError(
+            "the rectangle's two edges are collinear, zero length or not finite, so the "
+            "probe plane has no area; declare three corners that span a plane"
+        )
     out: list[list[float]] = []
     for index_u in range(rectangle.points_u):
         fraction_u = index_u / (rectangle.points_u - 1)
@@ -156,7 +173,17 @@ def circle_points(circle: _Circle, *, scale: float) -> list[list[float]]:
     -------
     list[list[float]]
         Probe coordinate triples in the output length unit.
+
+    Raises
+    ------
+    ProbeGeometryError
+        If the radius is not finite and positive.
     """
+    if not (math.isfinite(circle.radius) and circle.radius > 0.0):
+        raise ProbeGeometryError(
+            f"the circle radius is {circle.radius!r}; a probe circle needs a finite positive "
+            "radius, otherwise every ring collapses onto the centre"
+        )
     normal = list(circle.normal)
     length = math.sqrt(sum(value * value for value in normal))
     normal = [value / length for value in normal]
@@ -315,6 +342,14 @@ def farfield_plane(
         raise ProbeGeometryError("the free-stream direction of a far-field plane has no length")
     if not (spacing > 0.0 and half_width > 0.0 and half_height > 0.0):
         raise ProbeGeometryError("a far-field plane needs a positive extent and spacing")
+    if not (
+        np.isfinite(np.asarray(origin, dtype=float)).all()
+        and all(math.isfinite(v) for v in (distance, spacing, half_width, half_height))
+    ):
+        raise ProbeGeometryError(
+            "a far-field plane needs a finite origin, distance, extent and spacing; a "
+            "non-finite value would put NaN coordinates in the probe file"
+        )
     x_axis = d / norm
     up = np.array([0.0, 0.0, 1.0])
     y_axis = np.cross(up, x_axis)
@@ -486,7 +521,8 @@ def write_points_csv(points: np.ndarray, path: str | Path | TextIO) -> int:
     path : str or pathlib.Path or text stream
         Destination csv path, or an open text stream (for example an
         :class:`io.StringIO`) the csv text is written to, which is how
-        the workspace plan stages the far-field csv beside its script.
+        the workspace plan stages the far-field csv beside its script. Missing
+        parent directories of a path are created before the file is written.
 
     Returns
     -------
@@ -518,7 +554,9 @@ def write_points_csv(points: np.ndarray, path: str | Path | TextIO) -> int:
     lines += [f"{x},{y},{z},1" for x, y, z in points]
     text = "\n".join(lines) + "\n"
     if isinstance(path, str | PathLike):
-        _textio.write_text(Path(path), text)
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _textio.write_text(target, text)
     else:
         path.write(text)
     return len(points)

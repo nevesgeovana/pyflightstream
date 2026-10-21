@@ -322,14 +322,20 @@ def build_lattice(
     Raises
     ------
     ProbeGeometryError
-        If the survey has fewer than 14 azimuths for its six stored harmonics, or
-        the lateral cylinder is smaller than the outer ring edge.
+        If the survey has fewer than 14 azimuths for its six stored harmonics,
+        the lateral cylinder is smaller than the outer ring edge, or
+        ``lateral_stations`` are given with ``lateral_radius=None``.
     """
     if n_psi < 14:
         raise ProbeGeometryError(
             "build_lattice requires n_psi >= 14 for six stored harmonics (DLV-006 Sec. 3.2)"
         )
     lateral: tuple[float, ...] = ()
+    if lateral_radius is None and lateral_stations:
+        raise ProbeGeometryError(
+            "lateral_stations were given but lateral_radius is None: the lateral cylinder "
+            "needs both a radius and ring stations, so drop the stations or give the radius"
+        )
     if lateral_radius is not None:
         lateral = tuple(stations) if lateral_stations is None else tuple(lateral_stations)
     return ProbeLattice(
