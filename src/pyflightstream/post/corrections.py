@@ -202,8 +202,11 @@ def corrected_name(relative: str) -> str:
     >>> corrected_name("polars/P7001-PROP_rotor.csv")
     'polars/P7001-PROP_rotor_corrected.csv'
     """
-    stem, dot, suffix = relative.rpartition(".")
-    return f"{stem}{CORRECTED_SUFFIX}.{suffix}" if dot else f"{relative}{CORRECTED_SUFFIX}"
+    folder, slash, name = relative.rpartition("/")
+    stem, dot, suffix = name.rpartition(".")
+    if not dot:
+        return f"{relative}{CORRECTED_SUFFIX}"
+    return f"{folder}{slash}{stem}{CORRECTED_SUFFIX}.{suffix}"
 
 
 # ------------------------------------------------------------------ helpers
@@ -746,7 +749,8 @@ def write_qsteady_corrections(
     ``written_names`` is the simulation's manifest entries so far, keyed by the
     file's path relative to ``out``; the raw files are read back from ``out``
     and never rewritten. Returns each file written with its entry. What is not
-    written is named in ``skipped`` and warned; nothing raises.
+    written for a refused calibration or an unreadable input is named in ``skipped`` and
+    warned; a file-system failure while writing a table (an ``OSError``) is not caught.
 
     Parameters
     ----------
@@ -1125,7 +1129,8 @@ def sector_offset_calibration(
     of an ``unsteady_rotor`` point with a window is its window average, the
     wheel's the mean of its clockings), both at zero angle of attack and
     sideslip (axial), and at the same advance ratio ``J_<alias>`` within
-    ``j_tolerance`` (the tables print five decimals). The file,
+    ``j_tolerance`` (the tables print ``J`` at five decimals, or at six significant
+    digits where that states it more closely). The file,
     ``inputs/calibrations/<calibration_id>.toml``, states route
     ``sector_offset``, the two run ids, and one row per component ``THRUST``,
     ``TORQUE``, ``CT`` and ``CQ`` at the wheel's ``J`` with

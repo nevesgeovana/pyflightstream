@@ -637,14 +637,14 @@ def _row_refusal(
     density_kg_m3: float,
 ) -> str | None:
     """Why the table refuses this row, or None where it takes it."""
-    if rate <= 0.0:
+    if not rate > 0.0:
         return (
             f"{alias}: the row states no rotor speed, so every "
             "coefficient here would divide by zero"
         )
-    if diameter <= 0.0:
+    if not diameter > 0.0:
         return f"{alias}: the reference states no diameter for this rotor"
-    if density_kg_m3 <= 0.0:
+    if not density_kg_m3 > 0.0:
         return f"{alias}: the row states no air density"
     stated_frame = row.get("frame")
     if isinstance(stated_frame, str) and (

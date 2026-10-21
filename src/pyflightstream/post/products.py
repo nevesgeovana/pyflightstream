@@ -546,8 +546,9 @@ def write_campaign_products(
     Returns
     -------
     list of pathlib.Path
-        Every file the post wrote, the post log and ``products.json`` among
-        them.
+        Every product file the post wrote. The post log, ``products.json``
+        and the provenance documents are written beside them and are not in
+        the list.
 
     Raises
     ------

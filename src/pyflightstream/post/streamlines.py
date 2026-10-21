@@ -21,12 +21,13 @@ in ``post.log``, naming the solver file that stays in the record.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import ProductError, PyflightstreamError
 from pyflightstream.results import OffBodyStreamlinesReport, parse_off_body_streamlines
 
 __all__ = [
@@ -64,6 +65,8 @@ def render_streamlines_vtk(report: OffBodyStreamlinesReport, *, title: str) -> s
     columns = list(report.columns)
     rows = [row for line in report.streamlines for row in line.values]
     total = len(rows)
+    if not all(math.isfinite(float(cell)) for row in rows for cell in row):
+        raise ProductError("the export holds a value that is not finite (nan or inf)")
     lines = [
         "# vtk DataFile Version 3.0",
         " ".join(title.split())[:255],
@@ -163,16 +166,14 @@ def write_streamline_products(
                 report = parse_off_body_streamlines(
                     off_body.read_text(encoding="utf-8", errors="replace")
                 )
+                text = render_streamlines_vtk(report, title=f"{point} off-body streamlines")
             except (PyflightstreamError, ValueError, OSError) as error:
                 outcomes[name] = f"the off-body streamline export {off_body.name}: {error}"
             else:
                 path = out / STREAMLINES_DIR / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path = target(path) if target is not None else path
-                _textio.write_text(
-                    path,
-                    render_streamlines_vtk(report, title=f"{point} off-body streamlines"),
-                )
+                _textio.write_text(path, text)
                 outcomes[name] = path
     surface = exported.get("streamlines_surface")
     if surface is not None:

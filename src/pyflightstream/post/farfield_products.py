@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -439,7 +440,8 @@ def _spanwise(
                 _status(ctx, point),
             )
         )
-    path = ctx.target(ctx.out / f"sections/{point.name}_trefftz_{name}.csv")
+    safe = re.sub(r"[^A-Za-z0-9_.+-]", "_", name)
+    path = ctx.target(ctx.out / f"sections/{point.name}_trefftz_{safe}.csv")
     write_csv_table(path, SPANWISE_COLUMNS, rows)
     ctx.add(
         path, {"runs": list(ctx.sources[point.name]), "analysis": "trefftz", "variant": variant}
@@ -688,6 +690,9 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
         _skip(ctx, key, point.name, f"the wake export cannot be read: {error}")
         return []
     rho, speed, alpha, beta = _flow(point)
+    if not (math.isfinite(rho) and speed > 0.0):
+        _skip(ctx, key, point.name, "the point states no density or free-stream speed")
+        return []
     turn = farfield_axes(alpha, beta)
     lines = [(line / per_m) @ turn.T for line in wake.lines]
     x_t = max((float(line[0, 0]) for line in lines), default=0.0)
@@ -1256,7 +1261,10 @@ def farfield_products(ctx: SimContext) -> None:
 
 
 def _spins(ctx: SimContext, record: object) -> bool:
-    """Whether a steady row turns a rotor: an ``RPM`` on its point, its row or a motion."""
+    """Whether a steady row turns a rotor: an ``RPM`` on its point, its row or a motion.
+
+    Names only: a zero or empty ``RPM`` still counts, since the row states a rotor speed.
+    """
     stated = dict(getattr(ctx.matrix_row, "variables", None) or {})
     stated.update(getattr(record, "point", None) or {})
     return any(str(name).upper() in ("RPM", "MOTIONS") for name in stated)

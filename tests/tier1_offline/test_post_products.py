@@ -3060,3 +3060,104 @@ def test_f4_0506_runs_that_would_share_a_provenance_file_are_kept_apart_or_refus
         "provenance/camp_sim_1_x.prov.json",
         "provenance/camp_sim_2_y.prov.json",
     ]
+
+
+# --- F4-07: small defects of the post writers ---
+
+
+def test_the_corrected_name_reads_the_extension_of_the_file_not_of_the_folder_f4_07():
+    """F-1413: a dot in a folder is not an extension."""
+    from pyflightstream.post.corrections import corrected_name
+
+    assert corrected_name("run.v2/polar") == "run.v2/polar_corrected"
+    assert corrected_name("run.v2/polar.csv") == "run.v2/polar_corrected.csv"
+
+
+def test_far_field_columns_keep_six_significant_digits_f4_07(tmp_path):
+    """X-F-0342: small induced-drag quantities are not rounded to five decimals."""
+    from pyflightstream.post._tables import write_csv_table
+
+    names = ["BERNOULLI_RESIDUAL", "W_M_S", "GAMMA_M2_S", "DI_N_M", "ALPHA_I_DEG"]
+    path = write_csv_table(tmp_path / "t.csv", names, [[1.234567e-6] * 5])
+    cells = path.read_text(encoding="utf-8").splitlines()[1].split(",")
+    assert cells == ["1.23457e-06"] * 5
+
+
+def test_a_nan_in_a_rotor_row_is_refused_not_written_f4_07():
+    """X-F-0353: NaN passes a test written as less than or equal to zero."""
+    from pyflightstream.post.rotor_table import _row_refusal
+
+    nan = float("nan")
+    good = {"diameter": 1.0, "rate": 10.0, "density_kg_m3": 1.2}
+    assert _row_refusal({}, "R", **good) is None
+    for name in good:
+        assert _row_refusal({}, "R", **{**good, name: nan}) is not None
+
+
+def test_a_streamline_export_with_a_non_finite_value_writes_no_vtk_f4_07():
+    """X-F-0357: nan or inf is refused, never written into the legacy VTK file."""
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from pyflightstream.post.streamlines import render_streamlines_vtk
+    from pyflightstream.results import OFF_BODY_STREAMLINE_COLUMNS
+
+    values = np.ones((2, len(OFF_BODY_STREAMLINE_COLUMNS)))
+    report = SimpleNamespace(
+        columns=OFF_BODY_STREAMLINE_COLUMNS,
+        streamlines=[SimpleNamespace(values=values, points=2)],
+    )
+    assert render_streamlines_vtk(report, title="t").startswith("# vtk")
+    values[1, 3] = float("nan")
+    with pytest.raises(ProductError, match="not finite"):
+        render_streamlines_vtk(report, title="t")
+
+
+def test_trefftz_b_states_a_missing_density_as_its_reason_f4_07(tmp_path, monkeypatch):
+    """X-F-0526: variant B has variant A's guard, so the skip names the density."""
+    from types import SimpleNamespace
+
+    from pyflightstream.post import farfield_products as ff
+
+    wake_file = tmp_path / "P1_wakes.vtk"
+    wake_file.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(ff, "_trefftz", lambda ctx: SimpleNamespace(distance_bref=1.0))
+    monkeypatch.setattr(ff, "_output", lambda ctx, point, kind: tmp_path / "P1.vtk")
+    monkeypatch.setattr(ff, "_per_m", lambda ctx, point: 1.0)
+    monkeypatch.setattr(ff, "parse_wake_export", lambda text: SimpleNamespace(lines=[], values=[]))
+    loads = SimpleNamespace(freestream_velocity_m_s=30.0, angle_of_attack_deg=0.0, sideslip_deg=0.0)
+    point = SimpleNamespace(name="P1", state=None, loads=loads)
+    ctx = SimpleNamespace(skipped={})
+    with pytest.warns(UserWarning, match="no density or free-stream speed"):
+        assert ff._variant_b(ctx, point) == []
+    assert list(ctx.skipped.values()) == ["the point states no density or free-stream speed"]
+
+
+def test_a_family_name_is_made_safe_in_the_spanwise_file_name_f4_07(tmp_path, monkeypatch):
+    """X-F-0525: a slash in a family name does not leave the sections folder."""
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from pyflightstream.post import farfield_products as ff
+
+    monkeypatch.setattr(ff, "_status", lambda ctx, point: "ok")
+    one = np.array([1.0])
+    result = SimpleNamespace(
+        original=np.array([True]), downwash=one, gamma=one, y=one, z=one, dy=one
+    )
+    loads = SimpleNamespace(freestream_velocity_m_s=30.0, angle_of_attack_deg=0.0, sideslip_deg=0.0)
+    state = SimpleNamespace(density_kg_m3=1.2)
+    point = SimpleNamespace(name="P1", state=state, loads=loads)
+    added = []
+    ctx = SimpleNamespace(
+        sim_id="S",
+        sources={"P1": ["r"]},
+        out=tmp_path,
+        target=lambda path: path,
+        add=lambda path, entry: added.append(path),
+    )
+    ff._spanwise(ctx, point, variant="sections", name="a/b", result=result, chords=None)
+    assert [path.parent.name for path in added] == ["sections"]
+    assert added[0].name == "P1_trefftz_a_b.csv"

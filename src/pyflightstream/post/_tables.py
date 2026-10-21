@@ -144,13 +144,14 @@ def rotor_advance_ratio(speed_m_s: object, rpm: object, diameter_m: object) -> f
     THE ONE HOME of the ratio a rotor RAN at (P0320-QS-J): ``J_CLOCK`` of every
     table and the ``J`` of a quasi-steady point's tables read it here. ``n`` is
     in rev/s and its MAGNITUDE, because the hand of the rotation is the rotor's
-    and ``RPM_CLOCK`` carries it. None, and not a guess, where the speed, the
-    free stream or the diameter is missing, not a number or not positive.
+    and ``RPM_CLOCK`` carries it. None, and not a guess, where an input is
+    missing or not a finite number, or where the rotor speed is zero or the
+    diameter is not positive. A speed of zero gives ``J = 0``.
 
     Parameters
     ----------
     speed_m_s : object
-        The free-stream speed in m/s.
+        The free-stream speed in m/s; zero gives ``J = 0``.
     rpm : object
         The rotor's speed in rev/min; its sign is left out.
     diameter_m : object
@@ -159,7 +160,8 @@ def rotor_advance_ratio(speed_m_s: object, rpm: object, diameter_m: object) -> f
     Returns
     -------
     float or None
-        ``J``, or None where an input is missing, not a number or not positive.
+        ``J``, or None where an input is missing or not finite, the rotor
+        speed is zero or the diameter is not positive.
     """
     values = []
     for value in (speed_m_s, rpm, diameter_m):
@@ -260,6 +262,11 @@ _SIGNIFICANT_DIGIT_COLUMNS: frozenset[str] = frozenset(
         "THRUST",
         "TORQUE",
         "POWER",
+        "BERNOULLI_RESIDUAL",
+        "W_M_S",
+        "GAMMA_M2_S",
+        "DI_N_M",
+        "ALPHA_I_DEG",
         "FX",
         "FY",
         "FZ",
