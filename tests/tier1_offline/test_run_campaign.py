@@ -4198,3 +4198,19 @@ def test_f604_a_refused_point_keeps_the_watchdog_state_as_evidence(tmp_path):
     assert state.read_text(encoding="utf-8") == "earlier point"
     _points.start_the_wall_clock(job)  # a point that does launch removes the earlier state
     assert not state.exists()
+
+
+def test_f612_a_prelaunch_oserror_is_not_reported_as_after_the_solver_ran(tmp_path, monkeypatch):
+    """F-612: the solver counts as started only once nothing before the launch can fail."""
+    from pyflightstream.run import _points
+
+    job, _ = _stub_point_job(tmp_path, stale=False)
+    monkeypatch.setattr(_points, "bind_submission_values", lambda *args: None)
+
+    def refuse(_job):
+        raise PermissionError("read-only share")
+
+    monkeypatch.setattr(_points, "start_the_wall_clock", refuse)
+    with pytest.raises(PermissionError):
+        _points._run_point_solver(job)
+    assert job.progress.solver_started is False

@@ -949,9 +949,10 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
     # clock and its processor count, and those are the row's. A local
     # executor has no such method and is handed nothing.
     bind_submission_values(job.executor, job.case, job.point_case)
+    # F-612: a write that fails here fails BEFORE the solver is launched.
+    start_the_wall_clock(job)
     if job.progress is not None:
         job.progress.solver_started = True
-    start_the_wall_clock(job)
     try:
         job.result = job.executor.run_script(
             job.script_path, working_dir=job.work_dir, timeout_s=job.case.solver.timeout_s
