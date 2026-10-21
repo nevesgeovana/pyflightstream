@@ -32,7 +32,7 @@ so nothing has to be renamed again when the aircraft changes.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from pyflightstream._errors import PyflightstreamError
 
@@ -253,8 +253,13 @@ def retired_frame(name: str) -> RetiredName | None:
         writes it. Matched case folded, and with any trailing index
         stripped, because the positional forms carried one.
     """
-    token = name.strip().upper().rstrip("0123456789")
-    return RETIRED_FRAME_CITATIONS.get(token)
+    stripped = name.strip().upper()
+    token = stripped.rstrip("0123456789")
+    found = RETIRED_FRAME_CITATIONS.get(token)
+    if found is not None and token != stripped and found.why is not _A_NAME_THAT_WAS_AN_INDEX:
+        # A numbered form is the positional spelling, whose reason is the index one.
+        return replace(found, old=stripped, why=_A_NAME_THAT_WAS_AN_INDEX)
+    return found
 
 
 #: Every retirement, one entry each. Iterated by the input readers, which
@@ -290,6 +295,10 @@ _LEFT_FOR_ITACA = (
     "and no FlightStream output carries either, so this package provides no "
     "supported replacement."
 )
+_THE_ITACA_HOME = (
+    "ITACA, the evaluation home of these two functions, or in external Euler CFD "
+    "tools that provide total enthalpy and entropy"
+)
 RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     "pyflightstream.farfield.lattice_dataset": RetiredName(
         owner="pyflightstream.farfield",
@@ -324,7 +333,7 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     "pyflightstream.farfield.rothalpy": RetiredName(
         owner="pyflightstream.farfield",
         old="rothalpy",
-        new="external Euler CFD tools that provide total enthalpy and entropy",
+        new=_THE_ITACA_HOME,
         retired_in="0.40.0",
         why=_LEFT_FOR_ITACA,
         instead="Look in",
@@ -332,7 +341,7 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     "pyflightstream.farfield.irreversible_deficit": RetiredName(
         owner="pyflightstream.farfield",
         old="irreversible_deficit",
-        new="external Euler CFD tools that provide total enthalpy and entropy",
+        new=_THE_ITACA_HOME,
         retired_in="0.40.0",
         why=_LEFT_FOR_ITACA,
         instead="Look in",

@@ -231,3 +231,22 @@ def test_the_shipped_artifact_walk_sees_every_kind_of_retired_spelling():
     # The current spelling and the right key with another value are not retired.
     assert not _spellings_in({"PUSHER": {"kind": "wing"}}, _retired_entry('kind = "engine"'))
     assert not _spellings_in({"pproc": [{"frame": "PUSHER_SMRP"}]}, _retired_entry("PROP_MRP"))
+
+
+def test_f_1605_a_numbered_frame_citation_gets_the_index_reason():
+    """F-1605: PROP_MRP2 is the positional spelling, so its refusal says it was an index."""
+    numbered = retired_frame("PROP_MRP2")
+    assert numbered is not None
+    text = numbered.message("PROP_MRP2")
+    assert "INDEX" in text and "ONE rotor frame" not in text
+    plain = retired_frame("PROP_MRP")
+    assert plain is not None and "ONE rotor frame" in plain.message()
+
+
+def test_f_358_rothalpy_refusal_names_the_itaca_home():
+    """F-358 (FR-458): the refusal identifies ITACA as the evaluation home."""
+    from pyflightstream._retired_names import RETIRED_ATTRIBUTES
+
+    for key in ("pyflightstream.farfield.rothalpy", "pyflightstream.farfield.irreversible_deficit"):
+        message = RETIRED_ATTRIBUTES[key].message()
+        assert "ITACA" in message and "external Euler CFD tools" in message
