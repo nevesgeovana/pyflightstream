@@ -36,6 +36,33 @@ NEXT = "sample/sim_2006/r20261002-120000/A0"
 STAMP = "20261001-120000"
 
 
+@pytest.mark.parametrize("archived", [False, True])
+def test_p0430_trace_keeps_the_original_producer(workspace, archived):
+    """P0430-TRACE: trace_product keeps producer digests after a continuation."""
+    if archived:
+        _write(workspace / "runs.json", [_record(NEXT, continues=RUN)])
+    _write(
+        workspace / "post/sample/products.json",
+        {"products": {"polar.csv": {"runs": [RUN]}}, "provenance": {}},
+    )
+    identity = trace_product(workspace, "post/sample/polar.csv")[0]["runs"][0]["identity"]
+    assert identity["run_id"] == RUN
+    assert identity["package_version"] == "0.34.0"
+    assert identity["inputs_sha256"] == {"pproc/p1.toml": "a" * 64}
+
+
+def test_p0430_trace_never_substitutes_a_point_alias(workspace):
+    """P0430-TRACE: an unavailable producer cannot acquire a continuation's identity."""
+    missing = "missing/sim_2006/A0"
+    _write(
+        workspace / "post/sample/products.json",
+        {"products": {"polar.csv": {"runs": [missing]}}, "provenance": {}},
+    )
+    identity = trace_product(workspace, "post/sample/polar.csv")[0]["runs"][0]["identity"]
+    assert identity["run_id"] == missing
+    assert "state" in identity and "script_sha256" not in identity
+
+
 def _write(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if isinstance(value, dict) and "run_id" in value:

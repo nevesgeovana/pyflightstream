@@ -343,7 +343,7 @@ def post_log_groups(
 
 
 def trace_product(root: str | Path | Ledger, product: str) -> list[dict[str, Any]]:
-    """Return a product index entry and its effective run identities.
+    """Return a product index entry and its recorded producer identities.
 
     Parameters
     ----------

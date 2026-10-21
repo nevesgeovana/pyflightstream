@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pyflightstream.workspace._ledger_history import history_rows as _history_rows
 from pyflightstream.workspace._query_files import (
     _evidence,
     _files,
@@ -151,13 +152,18 @@ def _card(ledger: Ledger, run_id: str) -> dict[str, Any] | None:
 
 
 def _identity(ledger: Ledger, run_id: str) -> dict[str, Any]:
-    """Find the effective identity of a product's recorded point, including its continuation."""
+    """Find the indexed producer's identity without substituting a later continuation."""
     record: dict[str, Any] | None = ledger.card(run_id)
     if record is None:
-        parts = run_id.split("/")
-        sim = next((part[4:] for part in parts if part.startswith("sim_")), "")
-        matches = [row for row in ledger.points(sims=[sim]) if row["point"] == parts[-1]]
-        record = ledger.card(str(matches[0]["run_id"])) if matches else None
+        matches = [row for row in ledger.records() if row["run_id"] == run_id]
+        if not matches:
+            matches = [
+                row["record"]
+                for row in _history_rows(ledger, run_id)
+                if row.get("run_id") == run_id and "record" in row
+            ]
+        unique = {json.dumps(row, sort_keys=True): row for row in matches}
+        record = next(iter(unique.values())) if len(unique) == 1 else None
     if record is None:
         return {"run_id": run_id, "state": "no effective record"}
     return {"run_id": record["run_id"], **_take(record, _IDENTITY), **_inputs(record)}

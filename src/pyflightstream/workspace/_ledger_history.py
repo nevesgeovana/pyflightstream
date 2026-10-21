@@ -1,7 +1,7 @@
 """Archive-aware ledger queries, isolated from the present-state reader.
 
 Pipeline role: read historical records and compare their recorded identities.
-Only history and diff enter this module. Archives are inspected in place,
+History, diff and product tracing enter this module. Archives are inspected in place,
 including compacted simulations; no file is extracted or rewritten (FR-383).
 """
 
