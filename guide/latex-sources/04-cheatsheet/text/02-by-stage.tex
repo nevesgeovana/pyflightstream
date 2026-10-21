@@ -581,10 +581,10 @@ Collect reads the job's descriptor, log and end files in its folder and complete
 \end{multicols}
 
 % =====================================================================
-\stagepage{7}{Post and products}{The post builds the product tables from the records, with no solver and no seat: polars, sections, probe tables, per-step series and sampled fields, each with its provenance. A rebuild replaces derived products without archiving them.}
+\stagepage{7}{Post and products}{The post builds the product tables from the records, with no solver and no seat: polars, sections, probe tables, per-step series and sampled fields, each with its provenance. A rebuild overwrites derived products in place by default; add \fl{--archive} to keep a copy of what is replaced.}
 \begin{multicols}{3}
 \hd{What it is for}
-\cmd{pyfs-matrix run} and \cmd{pyfs-matrix collect} post on their own; \cmd{pyfs-matrix post} rebuilds by hand, from \file{runs.json}, under \file{post/<matrix>/}, the folder named after the matrix stem. Without a matrix it posts every matrix the manifest names. Nothing is refused and nothing lost: what is there moves to \file{archive/<stamp>/} first. Exit codes: 0 done; 2 refused, nothing written; 3 with \fl{--strict}, a product skipped by design.
+\cmd{pyfs-matrix run} and \cmd{pyfs-matrix collect} post on their own; \cmd{pyfs-matrix post} rebuilds by hand, from \file{runs.json}, under \file{post/<matrix>/}, the folder named after the matrix stem. Without a matrix it posts every matrix the manifest names. By default what is there is overwritten in place with no archive; with \fl{--archive} it moves to \file{post/<matrix>/archive/<stamp>/} first. Exit codes: 0 done; 2 refused, nothing written; 3 with \fl{--strict}, a product skipped by design.
 
 \hd{Figure: the products of one matrix}
 \begin{tikzpicture}
