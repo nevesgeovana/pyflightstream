@@ -22,9 +22,9 @@ from pyflightstream.workspace import RunRecord, WorkspaceError
 from pyflightstream.workspace._effective import _points_of
 from pyflightstream.workspace._links import is_reparse
 from pyflightstream.workspace._script_comparison import (
-    _INTERPRETER,
     _changed_commands,
     _Comparison,
+    normalise_line,
     slashes,
 )
 from pyflightstream.workspace.record_document import decode_document
@@ -296,10 +296,7 @@ def _run_root(ledger: Ledger, record: Mapping[str, Any]) -> str:
 
 def _normalised(script: str, root: str) -> list[str]:
     """Return a script's lines with its root and its interpreter each set to one token."""
-    return [
-        _INTERPRETER.sub('"<python>"', slashes(line).replace(root, "<workspace>"))
-        for line in script.splitlines()
-    ]
+    return [normalise_line(line, root) for line in script.splitlines()]
 
 
 def _script_diff(

@@ -3961,3 +3961,34 @@ class TestF2Package0607Workspace:
         assert _run_root(ledger, record) == "/home/u/sims/ws"
         assert _run_root(ledger, {"sim_id": "7", "cwd": "/home/u/ws/sims/sim_7"}) == "/home/u/ws"
         assert _run_root(ledger, {"sim_id": "7", "cwd": ""}) == "/elsewhere"
+
+    @staticmethod
+    def test_f682_a_root_is_set_aside_only_at_a_path_boundary():
+        """F-682: /a does not match inside /ab, so distinct external paths stay different."""
+        from pyflightstream.workspace._ledger_history import _normalised
+
+        assert _normalised('LOAD "C:/ab/x.obj"', "C:/a") == ['LOAD "C:/ab/x.obj"']
+        assert _normalised('LOAD "C:\\a\\x.obj"', "C:/a") == ['LOAD "<workspace>/x.obj"']
+
+    @staticmethod
+    def test_f1519_a_print_message_is_compared_as_written():
+        """F-1519: a backslash in a PRINT text is not a slash, while paths under the root are."""
+        from pyflightstream.workspace._script_comparison import compare_scripts
+
+        shadow = Path("C:\\ws")
+        assert not compare_scripts('PRINT "a\\b"', 'PRINT "a/b"', shadow).same
+        paths = compare_scripts('IMPORT "C:\\ws\\a\\b.obj"', 'IMPORT "/home/r/ws/a/b.obj"', shadow)
+        assert paths.same and paths.run_root == "/home/r/ws"
+
+    @staticmethod
+    def test_f1520_the_run_root_is_found_past_a_first_line_that_does_not_match():
+        """F-1520: a first root line with a real change, or two roots in a line, still finds it."""
+        from pyflightstream.workspace._script_comparison import compare_scripts
+
+        shadow = Path("C:/ws")
+        rendered = 'CHANGED "C:/ws/q"\nIMPORT "C:/ws/m.obj"\nCOPY "C:/ws/a" "C:/ws/b"'
+        executed = 'IMPORT "/r/ws/m.obj"\nCOPY "/r/ws/a" "/r/ws/b"'
+        found = compare_scripts(rendered, executed, shadow)
+        assert found.run_root == "/r/ws"
+        only_copy = compare_scripts('COPY "C:/ws/a" "C:/ws/b"', 'COPY "/r/ws/a" "/r/ws/b"', shadow)
+        assert only_copy.run_root == "/r/ws" and only_copy.same

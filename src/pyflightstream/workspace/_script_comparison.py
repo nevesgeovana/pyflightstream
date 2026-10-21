@@ -39,50 +39,92 @@ class _Comparison:
     executed: list[str]
 
 
+#: The characters that continue a file name; a root is set aside only at a path boundary.
+_NAME_CHAR = "A-Za-z0-9_.-"
+
+#: The token a workspace root is replaced by, and the one the interpreter path is.
+_ROOT_TOKEN = "<workspace>"
+
+_MESSAGE = re.compile(r"\s*PRINT(?:\s|$)")
+
+
+def _root_regex(root: str) -> str:
+    """Return a pattern for ``root`` that reads a backslash and a slash alike, at a boundary."""
+    separator = r"[\\/]+"
+    parts = [re.escape(part) for part in re.split(separator, root.strip()) if part]
+    lead = separator if root.strip()[:1] in ("/", "\\") else ""
+    return rf"(?<![{_NAME_CHAR}]){lead}{separator.join(parts)}(?![{_NAME_CHAR}])"
+
+
+def _set_root(line: str, root: str, token: str) -> str:
+    """Replace each path that starts at ``root`` with ``token`` and its tail with forward slashes.
+
+    Only a path under the root changes spelling; the rest of the line, a message
+    text above all, is left as written. A root is matched whole, so ``/ws`` does
+    not match inside ``/ws2``.
+    """
+    if not root.strip("\\/ "):
+        return line
+    pattern = re.compile(_root_regex(root) + r"(?P<tail>[^\"'\s]*)")
+    return pattern.sub(lambda found: token + slashes(found.group("tail")), line)
+
+
+def normalise_line(line: str, root: str | None) -> str:
+    """Return one script line with its root and its interpreter each set to one token.
+
+    The backslashes of a line become forward slashes (a rebuild on Windows
+    renders them, a cluster writes the others), except in a ``PRINT`` line,
+    whose message text is compared as written: only the paths under the root
+    and the interpreter path change there.
+    """
+    if root:
+        line = _set_root(line, root, _ROOT_TOKEN)
+    line = _INTERPRETER.sub('"<python>"', line)
+    return line if _MESSAGE.match(line) else slashes(line)
+
+
+def _find_run_root(
+    shadow: str, rendered: list[str], executed: list[str], raw: list[str]
+) -> str | None:
+    """Return the root the executed script spells where the rendered one names the shadow."""
+    pattern = re.compile(_root_regex(shadow))
+    for index, line in enumerate(rendered):
+        found = list(pattern.finditer(line))
+        if not found:
+            continue
+        regex, at = "", 0
+        for number, match in enumerate(found):
+            regex += re.escape(line[at : match.start()])
+            regex += "(?P<root>.+?)" if number == 0 else "(?P=root)"
+            at = match.end()
+        compiled = re.compile(regex + re.escape(line[at:]), re.DOTALL)
+        for number in ([index] if index < len(executed) else []) + list(range(len(executed))):
+            whole = compiled.fullmatch(executed[number])
+            if whole:
+                return raw[number][whole.start("root") : whole.end("root")]
+    return None
+
+
 def compare_scripts(rendered: str, executed: str, shadow: Path) -> _Comparison:
     """Ask whether the executed script is the rendered one, once the roots are set aside.
 
     A run on a cluster names a POSIX root with forward slashes; a rebuild on
-    Windows renders the shadow with backslashes (RST-5). Both sides are
-    compared with every backslash turned into a forward slash, the workspace
-    root on each side replaced by one token, and the interpreter path by
-    another. The run's root is returned AS THE EXECUTED SCRIPT SPELLS IT.
+    Windows renders the shadow with backslashes (RST-5). The workspace root on
+    each side is replaced by one token (the paths under it written with forward
+    slashes) and the interpreter path by another. The run's root is returned AS
+    THE EXECUTED SCRIPT SPELLS IT; it is looked for in every rendered line that
+    names the shadow until one of them matches an executed line.
     """
-    shadow_form = slashes(str(shadow))
-    rendered_lines = [slashes(line) for line in rendered.splitlines()]
-    executed_raw = executed.splitlines()
-    executed_lines = [slashes(line) for line in executed_raw]
-    run_root = None
-    for index, line in enumerate(rendered_lines):
-        if shadow_form not in line:
-            continue
-        head, tail = line.split(shadow_form, 1)
-        candidates = ([index] if index < len(executed_lines) else []) + list(
-            range(len(executed_lines))
-        )
-        for number in candidates:
-            other = executed_lines[number]
-            if (
-                other.startswith(head)
-                and other.endswith(tail)
-                and len(other) >= len(head) + len(tail)
-            ):
-                middle = other[len(head) : len(other) - len(tail)]
-                raw = executed_raw[number]
-                run_root = (
-                    raw[len(head) : len(head) + len(middle)] if len(raw) == len(other) else middle
-                )
-                break
-        break
-    token = "<workspace>"
-    left = [
-        _INTERPRETER.sub('"<python>"', line.replace(shadow_form, token)) for line in rendered_lines
-    ]
-    root_form = slashes(run_root) if run_root else None
-    right = [
-        _INTERPRETER.sub('"<python>"', line.replace(root_form, token) if root_form else line)
-        for line in executed_lines
-    ]
+    shadow_form = str(shadow)
+    rendered_raw, executed_raw = rendered.splitlines(), executed.splitlines()
+    run_root = _find_run_root(
+        shadow_form,
+        [slashes(line) for line in rendered_raw],
+        [slashes(line) for line in executed_raw],
+        executed_raw,
+    )
+    left = [normalise_line(line, shadow_form) for line in rendered_raw]
+    right = [normalise_line(line, run_root) for line in executed_raw]
     return _Comparison(left == right, run_root, left, right)
 
 
