@@ -3146,3 +3146,15 @@ def test_x_f_1368_the_sixdof_provenance_names_its_source_by_file_name(tmp_path):
         digests.add(json.dumps(resolved.provenance(), sort_keys=True))
     assert len(digests) == 1
     assert json.loads(digests.pop())["source"] == "d001.toml"
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+def test_x_f_0428_a_defaults_pin_that_is_not_finite_is_refused(bad):
+    """A direct caller passing NaN or inf reaches the same refusal as a zero or negative pin."""
+    from pyflightstream.workspace.flight_condition import (
+        FlightConditionError,
+        canonical_condition_defaults,
+    )
+
+    with pytest.raises(FlightConditionError, match="positive, finite"):
+        canonical_condition_defaults({"RHOkgm3": bad}, "setup 's001'")
