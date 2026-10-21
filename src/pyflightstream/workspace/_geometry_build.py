@@ -926,12 +926,19 @@ def _read_back(variant: GeometryVariant, fsm: Path) -> dict[str, Any]:
             f"the instruction marks trailing edges and the saved {fsm.name} carries none; a "
             "body without a marked trailing edge makes no wake, so nothing was promoted"
         )
-    counts = mesh_face_counts(fsm)
+    try:
+        counts = mesh_face_counts(fsm)
+        unit = saved_mesh_coordinate_unit(fsm) or "METER"
+    except MeshReadError as error:
+        raise GeometryBuildError(
+            f"the saved {fsm.name} could not be read back for its face counts and unit: "
+            f"{error}. Nothing was promoted"
+        ) from error
     return {
         "boundaries": list(names or ()),
         "midpoints": midpoints,
         "faces": None if counts is None else counts[0],
-        "unit": saved_mesh_coordinate_unit(fsm) or "METER",
+        "unit": unit,
     }
 
 

@@ -4223,3 +4223,23 @@ class TestF2Package0607SweepOverlay:
         with pytest.raises(MeshReadError, match="variant a-10: no faces of control surface FLAP"):
             write_sweep_vtk(tmp_path / "wing.sweep.vtk", [variant], "FLAP")
         assert not (tmp_path / "wing.sweep.vtk").exists()
+
+
+def test_x_f1090_an_unreadable_saved_mesh_raises_the_build_error(tmp_path, monkeypatch):
+    """mesh_face_counts failing on the saved file is a GeometryBuildError (exit 3), not a
+    MeshReadError that escapes the documented class."""
+    fsm = tmp_path / "w.fsm"
+    fsm.write_bytes(b"x")
+    variant = SimpleNamespace(
+        instruction=SimpleNamespace(marks_trailing_edges=lambda: False, boundaries=()),
+        folder=tmp_path,
+    )
+
+    def _boom(path):
+        raise MeshReadError("cannot be decoded")
+
+    monkeypatch.setattr(build, "boundary_names", lambda path: ())
+    monkeypatch.setattr(build, "trailing_edge_midpoints", lambda path: None)
+    monkeypatch.setattr(build, "mesh_face_counts", _boom)
+    with pytest.raises(build.GeometryBuildError, match="face counts and unit"):
+        build._read_back(variant, fsm)
