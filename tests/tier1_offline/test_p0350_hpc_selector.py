@@ -109,3 +109,12 @@ def test_p0430_f1567_f1563_a_windows_command_line_quotes_metacharacters(monkeypa
     text = _ids.command_line_text(["pyfs-matrix", "--workspace", "C:/a b/c&d", "x"])
     assert text == 'pyfs-matrix --workspace "C:/a b/c&d" x'
     assert _ids.command_line_text(["a&b"]) == '"a&b"'
+
+
+def test_p0430_f1893_the_post_local_help_does_not_call_the_submitting_post_unbuilt(capsys) -> None:
+    """F-1893: the submitted additional post is implemented, so its help must not say it is not."""
+    with pytest.raises(SystemExit):
+        main(["post", "--help"])
+    out = " ".join(capsys.readouterr().out.split())
+    assert "--local" in out
+    assert "is not built" not in out

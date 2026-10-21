@@ -869,8 +869,8 @@ def _add_post_parsers(subparsers: Any) -> None:
         post,
         "--local",
         "with --additional-pproc: reopen the saved simulations on THIS machine, as "
-        "`run --local` runs there; the submitting half of the additional post is not built, "
-        "so a workspace that submits from here is refused without it",
+        "`run --local` runs there; without it a workspace whose HPC profile submits sends "
+        "each extraction to its scheduler, and `collect` gathers the outputs",
     )
     post.add_argument(
         "--recipe",
