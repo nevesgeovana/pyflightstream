@@ -31,16 +31,24 @@ writers.
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import numpy as np
 
 import pyflightstream._textio as _textio
+from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.post.unsteady import FrameAverage, TimestepSeries
 from pyflightstream.post.writers import OutputExistsError
 from pyflightstream.workspace import WorkspaceError
 
 __all__ = ["write_reduction", "write_series"]
+
+
+def _number_or_na(value: object) -> float | str:
+    """Return a finite number as it stands and anything else as ``NA``, never ``nan``."""
+    number = float(value)  # type: ignore[arg-type]
+    return number if math.isfinite(number) else NOT_APPLICABLE
 
 
 def _refuse_existing(destination: Path, overwrite: bool) -> None:
@@ -140,7 +148,7 @@ def write_series(
             row: list[object] = [int(series.steps[index])]
             if series.times_s is not None:
                 row.append(float(series.times_s[index]))
-            row += [float(column[index]) for column in columns]
+            row += [_number_or_na(column[index]) for column in columns]
             writer.writerow(row)
     return destination
 
@@ -222,9 +230,11 @@ def write_reduction(
             values = average.fields[name]
             if values.ndim == 1:
                 for probe, value in enumerate(values):
-                    writer.writerow([name, probe, float(value), *metadata])
+                    writer.writerow([name, probe, _number_or_na(value), *metadata])
             else:
                 for probe, vector in enumerate(values):
                     for axis, letter in enumerate("xyz"):
-                        writer.writerow([f"{name}_{letter}", probe, float(vector[axis]), *metadata])
+                        writer.writerow(
+                            [f"{name}_{letter}", probe, _number_or_na(vector[axis]), *metadata]
+                        )
     return destination

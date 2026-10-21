@@ -394,6 +394,27 @@ def test_the_pair_a_caller_gets_when_the_rule_is_kept(tmp_path):
     assert any(row.startswith("cp,0,2.5") for row in mean_rows)
 
 
+def test_x_f_0147_x_f_0148_a_nan_sample_or_mean_is_written_na_not_nan(tmp_path):
+    """X-F-0147, X-F-0148: a NaN is written `NA`, the table token, never `nan`."""
+    from dataclasses import replace
+
+    frames = write_frames(tmp_path / "anim", [1.0, 2.0, 3.0, 4.0])
+    series = read_timestep_series(frames, order="given")
+    fields = {name: values.copy() for name, values in series.fields.items()}
+    fields["cp"][0, 0] = np.nan
+    series = replace(series, fields=fields)
+    average = blade_passage_average(series, window=(0, 3))
+
+    series_file = write_series(tmp_path / "out" / "series.csv", series)
+    reduction = write_reduction(tmp_path / "out" / "mean.csv", average, series_file=series_file)
+
+    written = series_file.read_text(encoding="utf-8").splitlines()[1].split(",")
+    assert "NA" in written and "nan" not in written
+    mean = {tuple(row.split(",")[:2]): row for row in reduction.read_text().splitlines()[1:]}
+    assert mean[("cp", "0")].split(",")[2] == "NA"
+    assert "nan" not in reduction.read_text(encoding="utf-8").lower()
+
+
 def test_a_reduction_refuses_an_existing_destination(tmp_path):
     """The overwrite rule of PFS-2011.02 reaches this writer too."""
     from pyflightstream.exceptions import OutputExistsError
