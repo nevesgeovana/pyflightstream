@@ -139,8 +139,8 @@ FlightStream versions.
 - The settings table reader and writer hold to the frozen codebook: keys may arrive in any
   insertion order, a non-finite number or a repeated header label is refused, and a table from
   another codebook version is named.
-- Post products name what they skip: a coupling history, an unreadable sectional or probe export,
-  a rotor in two planes, a non-finite clock or speed, and a simulation whose step cannot
+- Post products name what they skip: a coupling history, an unreadable loads, sectional or probe
+  export, a rotor in two planes, a non-finite clock or speed, and a simulation whose step cannot
   re-resolve each cost only themselves and are said once in `post.log`.
 - Noise, structure and boundary-layer tables open with POL and the condition block; noise
   products are per observer, harmonics use the recorded blade count, and a constant record has no
@@ -157,6 +157,7 @@ FlightStream versions.
 - Rotor tables and noise: false zeros are refused, a negative speed or zero shaft axis gives NA
   loads, zero density is a `ProductError`, subsonic moving rotors are accepted, comparisons
   stay finite at extreme scales, and the quasi-steady noise model refuses what it would drop.
+  MADV is computed for a row that states no ALPHA or BETA, the angle taken as 0.0 (FR-69).
 - Products: a wrong-shape `products.json` is refused with a remedy and a rebuild keeps the old
   inventory until replaced; provenance files are never shared between runs; the far-field
   columns BERNOULLI_RESIDUAL, W_M_S, GAMMA_M2_S, DI_N_M and ALPHA_I_DEG print six significant
@@ -165,9 +166,11 @@ FlightStream versions.
   rotation angle or free-stream speed, a negative rotor speed handed to a builder, a non-finite
   walltime margin and a rotor speed that differs from the row's are refused; a changed section
   definition in a grouped job is refused, shell paths with spaces are quoted, and the counter
-  program refuses a corrupt count checkpoint and a foreign schedule.
-- Matrix and setup files: a malformed matrix id is refused, GEOMETRY is a file stem everywhere
-  it is documented, direct `INITIALIZE_SOLVER` refuses periodic-copy mismatches and non-finite
+  program refuses a corrupt count checkpoint and a foreign schedule. A row's `RPM_SIGN` beside
+  a declared rotor block is accepted when it equals the block's hand and refused only when it
+  disagrees.
+- Matrix and setup files: a malformed matrix id is refused, GEOMETRY is a file name with its
+  extension everywhere it is documented, direct `INITIALIZE_SOLVER` refuses periodic-copy mismatches and non-finite
   wake terminations, selections accept ALL, `SET_FREESTREAM` refuses another form's arguments,
   a parked input may not be a folder or device name, and airfoil separation on 26.125 takes
   `leading_edge_type`.
