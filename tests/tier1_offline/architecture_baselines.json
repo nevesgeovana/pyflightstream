@@ -3,7 +3,7 @@
  "module_code_lines": {
   "post/input_template.py": 1421,
   "run/matrix.py": 1105,
-  "workspace/storage.py": 1385
+  "workspace/storage.py": 1384
  },
  "function_lines": {
   "post/section_distributions.py:_matching_distributions": 321,
@@ -191,8 +191,8 @@
    "positional": 7
   },
   "cases/workflows/_probes.py:_emit_one_probe_table": {
-   "complexity": 19,
-   "branches": 18,
+   "complexity": 17,
+   "branches": 16,
    "statements": 36,
    "positional": 5
   },
@@ -297,12 +297,6 @@
    "branches": 13,
    "statements": 44,
    "positional": 2
-  },
-  "post/_rotor_products.py:_point_series": {
-   "complexity": 11,
-   "branches": 12,
-   "statements": 55,
-   "positional": 4
   },
   "post/_rotor_products.py:_qsteady_products": {
    "complexity": 13,
@@ -473,7 +467,7 @@
    "positional": 0
   },
   "post/series.py:write_point_series": {
-   "complexity": 12,
+   "complexity": 11,
    "branches": 11,
    "statements": 48,
    "positional": 1
@@ -669,12 +663,6 @@
    "branches": 12,
    "statements": 47,
    "positional": 6
-  },
-  "run/_field_motion.py:continued_field_inputs": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 24,
-   "positional": 2
   },
   "run/_field_motion.py:continued_frame_motions": {
    "complexity": 11,
