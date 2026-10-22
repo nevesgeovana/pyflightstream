@@ -629,10 +629,33 @@ class SolverSetup(BaseModel):
                 "or give the flag the provenance the helper records when the keyword is "
                 "not passed."
             )
+        modes = [
+            name
+            for name, record in self.flags.items()
+            if record.provenance == _EXPLICIT
+            and _SPEC_BY_COMMAND.get(name) is not None
+            and _SPEC_BY_COMMAND[name].kind in ("mode_steady", "mode_unsteady")
+        ]
+        if len(modes) > 1:
+            # Two explicit mode records contradict each other; replaying the one
+            # the JSON lists last would be an answer the record never gave.
+            raise CommandArgumentError(
+                f"snapshot records two explicit solver modes ({', '.join(sorted(modes))}); "
+                "a script carries one. The snapshot was edited or written by hand: keep the "
+                "mode record the script ran with and remove the other."
+            )
         kwargs: dict[str, object] = {}
         for name, record in self.flags.items():
             if record.provenance != _EXPLICIT:
                 continue
+            if record.command != name:
+                # The key and the stored command are two statements of one fact;
+                # trusting the key would replay a different setting than recorded.
+                raise CommandArgumentError(
+                    f"snapshot flag keyed {name!r} stores the command {record.command!r}; "
+                    "the key and the command must name the same solver command. The "
+                    "snapshot was edited or written by hand: correct whichever is wrong."
+                )
             spec = _SPEC_BY_COMMAND.get(name)
             if spec is None:
                 raise CommandArgumentError(
@@ -648,7 +671,16 @@ class SolverSetup(BaseModel):
             elif spec.kind == "mode_steady":
                 kwargs["mode"] = "STEADY"
             elif spec.kind == "mode_unsteady":
-                value = dict(record.value)  # type: ignore[arg-type]
+                if not isinstance(record.value, Mapping) or any(
+                    record.value.get(key) is None for key in ("time_iterations", "delta_time")
+                ):
+                    raise CommandArgumentError(
+                        f"snapshot flag {name} is explicit but its value {record.value!r} "
+                        "does not state time_iterations and delta_time, which an unsteady "
+                        "run needs. The snapshot was edited or written by hand: restore both "
+                        "numbers the script carried."
+                    )
+                value = dict(record.value)
                 kwargs["mode"] = "UNSTEADY"
                 kwargs["time_iterations"] = value["time_iterations"]
                 kwargs["delta_time"] = value["delta_time"]

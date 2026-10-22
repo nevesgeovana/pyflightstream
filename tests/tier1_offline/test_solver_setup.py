@@ -1918,3 +1918,25 @@ def test_an_explicit_false_loads_flag_does_not_refuse_an_unsteady_march():
     # THE CONTROL: a stated True is still refused.
     with pytest.raises(CampaignConfigError, match="inviscid_loads"):
         _refuse_the_loads_selections_on_a_march(case(inviscid_loads=True))
+
+
+def test_p0430_f5_a_hand_edited_snapshot_is_refused_not_replayed_by_key_order():
+    """F-1475, F-1476, F-1477: contradictory or null mode and key records are refused."""
+    script = Script(version="26.120")
+    setup = helpers.solver_settings(script, mode="UNSTEADY", time_iterations=5, delta_time=0.1)
+    dumped = setup.model_dump(mode="json")
+    steady, unsteady = "SET_SOLVER_STEADY", "SET_SOLVER_UNSTEADY"
+    both = json.loads(json.dumps(dumped))
+    both["flags"][steady] = {**dumped["flags"][unsteady], "command": steady, "value": None}
+    with pytest.raises(CommandArgumentError, match="two explicit solver modes"):
+        SolverSetup.model_validate(both).explicit_kwargs()
+    swapped = json.loads(json.dumps(dumped))
+    swapped["flags"][unsteady]["command"] = steady
+    with pytest.raises(CommandArgumentError, match="key and the command"):
+        SolverSetup.model_validate(swapped).explicit_kwargs()
+    for bad in (None, {}, {"time_iterations": 5}):
+        broken = json.loads(json.dumps(dumped))
+        broken["flags"][unsteady]["value"] = bad
+        with pytest.raises(CommandArgumentError, match="time_iterations and delta_time"):
+            SolverSetup.model_validate(broken).explicit_kwargs()
+    assert setup.explicit_kwargs()["mode"] == "UNSTEADY"
