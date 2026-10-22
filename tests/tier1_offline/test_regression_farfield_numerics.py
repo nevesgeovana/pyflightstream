@@ -2655,3 +2655,12 @@ def test_p0420_the_units_are_stated_where_a_caller_reads_them():
     """PFS-2110.017: the facade, the container and the lattice all say what R's unit does."""
     assert "METRES" in (ff.__doc__ or "")
     assert "SI only when R is given in metres" in " ".join((ff.LatticeFields.__doc__ or "").split())
+
+
+def test_rb5_the_page_names_the_function_that_states_the_area_coverage():
+    """RB5: the annular COVERAGE sentence names sample_area_coverage, not the sample count."""
+    page = Path(__file__).resolve().parents[2] / "docs" / "definitions" / "the-far-field-family.md"
+    text = " ".join(page.read_text(encoding="utf-8").split())
+    start = text.index("`COVERAGE` states the fraction of the plane's area that was sampled")
+    sentence = text[start : text.index(").", start)]
+    assert "`pyflightstream.farfield.sample_area_coverage`" in sentence, sentence
