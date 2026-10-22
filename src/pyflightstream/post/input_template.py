@@ -706,9 +706,8 @@ _EXECUTABLES_EXAMPLE = """\
 
 _LOCAL_EXECUTABLES_EXAMPLE = """\
 # This machine's paths for the builds executables.toml declares, read over it; keep it
-# unversioned. A bare path keeps the declared version, a table replaces the fields it
-# states and, here only, may accept an installed build not registered. An undeclared
-# build is refused.
+# unversioned. A bare path keeps the declared version, a table replaces the fields it states;
+# a table, here only, may accept an installed build not registered. Undeclared builds are refused.
 "26.124" = "C:/path/to/this/machine/FlightStream.exe"
 "26.120" = { path = "C:/path/to/FlightStream.exe", accept_unregistered_build = true }
 """

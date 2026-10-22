@@ -233,13 +233,11 @@ def resolve_build(
                     "gives this machine's path for a build the committed registry "
                     "declares; declare the build there first, with a placeholder path."
                 )
-            if isinstance(local, str) and isinstance(committed, dict):
-                table[key] = {**committed, "path": local}
-            elif isinstance(local, dict) and isinstance(committed, dict):
-                # Key by key: a field the overlay does not state keeps the
-                # committed value (PFS-2124.006), as the string form keeps
-                # every field but the path.
-                table[key] = {**committed, **local}
+            if isinstance(local, (str, dict)) and isinstance(committed, dict):
+                # Key by key (PFS-2124.006): a field the overlay does not state
+                # keeps the committed value; a bare path states the path alone.
+                overlay = {"path": local} if isinstance(local, str) else local
+                table[key] = {**committed, **overlay}
             else:
                 table[key] = local
             source_of[key] = overlay_path
