@@ -4276,6 +4276,8 @@ def _with_default_outputs(case: SimCase, unsteady: bool) -> SimCase:
     return case.model_copy(update={"outputs": names})
 
 
+@pytest.mark.requirement("FR-51")
+@pytest.mark.requirement("FR-1405")
 @pytest.mark.parametrize(
     ("make", "unsteady"),
     [(steady_case, False), (unsteady_case, True), (rotor_case, True)],
