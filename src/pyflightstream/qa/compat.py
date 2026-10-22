@@ -1933,6 +1933,12 @@ def apply_reanalysis(report_path: str | Path, *, repo_root: str | Path) -> list[
         for name in selected:
             remaining = judgments.get((name, version), ())
             source = remaining[-1].report if remaining else citation
+            if not remaining and not isinstance(report["commands"][name].get("detail"), str):
+                raise QaEvidenceError(
+                    f"{citation}: commands.{name} carries no detail string, and the note "
+                    "of the status it leaves is built from it; state why the judgment "
+                    "is withdrawn"
+                )
             if Path(source).is_absolute():
                 raise QaEvidenceError(
                     f"{name}: the surviving evidence {source} lies outside {root} (reached "

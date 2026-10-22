@@ -2328,3 +2328,49 @@ def test_a_printed_build_does_not_confirm_bytes_the_baseline_records_otherwise(t
     )
     assert answer.verdict is ExecutableVerdict.UNKNOWN
     assert "bytes differ" in answer.message
+
+
+def test_last_a_withdrawal_report_without_detail_is_a_qa_error_not_a_key_error(tmp_path):
+    """X-F-1218: a hand-edited withdrawal lacking detail ended in a bare KeyError."""
+    from pyflightstream.qa.compat import apply_reanalysis, write_reanalysis
+
+    commands = tmp_path / "src" / "pyflightstream" / "commands"
+    commands.parent.mkdir(parents=True)
+    write_chapter_fixture(commands)
+    reports = tmp_path / "reports" / "compat"
+    reports.mkdir(parents=True)
+    original = reports / "CMP-26120_2026-09-01_control.yaml"
+    original.write_text(
+        yaml.safe_dump(
+            {
+                "schema": COMPAT_SCHEMA,
+                "fs_version": "26.120",
+                "date": "2026-09-01",
+                "package_version": "0.0.1.dev0",
+                "executor": "retained test executor",
+                "solver_identity": ["retained build"],
+                "commands": {
+                    "PRINT": {
+                        "outcome": "verified",
+                        "detail": "workflow completed; command effect unmeasured",
+                        "signals": {"effect": "workflow converged"},
+                        "script_sha256": "a" * 64,
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    apply_compat(original, repo_root=tmp_path)
+    analysis, _ = write_reanalysis(
+        original,
+        {"PRINT": "The workflow did not isolate this command's effect."},
+        repo_root=tmp_path,
+        date="2026-10-16",
+        label="judgment-review",
+    )
+    edited = read_compat_report(analysis)
+    del edited["commands"]["PRINT"]["detail"]
+    analysis.write_text(yaml.safe_dump(edited), encoding="utf-8")
+    with pytest.raises(QaEvidenceError, match="PRINT.*detail"):
+        apply_reanalysis(analysis, repo_root=tmp_path)
