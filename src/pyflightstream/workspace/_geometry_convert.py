@@ -100,6 +100,11 @@ def _locate(geometry: str | Path, root: Path) -> Path:
         # A path with folders names that file under inputs/geometries, never another
         # geometry that merely shares its basename.
         path = geometries / path
+        if ".." in path.relative_to(geometries).parts:
+            raise InputArtifactError(
+                f"{geometry} lies outside {geometries}; an instruction is written only beside "
+                f"a geometry of the workspace, in inputs/geometries/<name>/ ({_PAGE})."
+            )
     elif not path.is_absolute():
         candidates = [geometries / path.stem / path.name, geometries / path.name]
         found = [c for c in candidates if c.is_file()]
