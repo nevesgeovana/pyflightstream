@@ -146,6 +146,31 @@ def test_p0320_noise_post_blade_passage_harmonics_fr_263():
         acoustics.blade_passage_harmonics(spectrum, blades=0, rpm=100.0)
 
 
+@pytest.mark.requirement("FR-2326")
+@pytest.mark.parametrize("bad", [0, -2, 2.0, True, "3"])
+def test_p0430_a_harmonic_count_outside_the_positive_integers_is_refused(tmp_path, bad):
+    """A harmonic reduction refuses an order count it cannot table, beside valid controls."""
+    signal = _cosine("m", 50.0, 2.0)
+    spectrum = acoustics.spectrum_of(signal)
+    control = acoustics.blade_passage_harmonics(spectrum, blades=2, rpm=1500.0, harmonics=1)
+    assert [row[0] for row in control] == [1]
+    with pytest.raises(ProductError, match="not a positive integer"):
+        acoustics.blade_passage_harmonics(spectrum, blades=2, rpm=1500.0, harmonics=bad)
+    with pytest.raises(ProductError, match="not a positive integer"):
+        acoustics.write_acoustic_products(
+            [signal], tmp_path / "bad", stem="P1", rotors={"R": (2, 1500.0)}, harmonics=bad
+        )
+    assert not (tmp_path / "bad").exists()
+    # A rotor that states no frequency still refuses the count: the call is wrong either way.
+    with pytest.raises(ProductError, match="not a positive integer"):
+        acoustics.write_acoustic_products([signal], tmp_path / "bad", stem="P1", harmonics=bad)
+    written = acoustics.write_acoustic_products(
+        [signal], tmp_path / "ok", stem="P1", rotors={"R": (2, 1500.0)}, harmonics=2
+    )
+    bpf = [path for path in written.files if path.name.endswith("_acoustics_bpf.csv")]
+    assert len(_rows(bpf[0])) == 2
+
+
 def _arc(count: int, radius: float = 10.0, centre=(1.0, 2.0, 3.0)):
     return [
         _cosine(

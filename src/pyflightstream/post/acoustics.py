@@ -289,6 +289,20 @@ def oaspl_db(signal: AcousticSignal) -> float | None:
     return _level_db(float(np.sqrt(np.mean((pressure - pressure.mean()) ** 2))))
 
 
+def _refuse_a_harmonic_count(harmonics: object) -> None:
+    """Refuse a harmonic count that is not a positive integer (FR-2326).
+
+    Harmonic ``n`` is ``n`` times the blade-passage frequency for ``n`` from 1,
+    so a count below one tables nothing and reads as a reduction that ran.
+    """
+    if isinstance(harmonics, bool) or not isinstance(harmonics, (int, np.integer)) or harmonics < 1:
+        raise ProductError(
+            f"harmonics={harmonics!r} is not a positive integer: it counts the "
+            "blade-passage harmonics tabled from 1, so 1 is the smallest value that "
+            "means anything"
+        )
+
+
 def blade_passage_harmonics(
     spectrum: Spectrum, *, blades: int, rpm: float, harmonics: int = DEFAULT_HARMONICS
 ) -> list[_Harmonic]:
@@ -321,8 +335,10 @@ def blade_passage_harmonics(
     Raises
     ------
     ProductError
-        If ``blades`` and ``rpm`` state no blade-passage frequency.
+        If ``blades`` and ``rpm`` state no blade-passage frequency, or
+        ``harmonics`` is not a positive integer.
     """
+    _refuse_a_harmonic_count(harmonics)
     if blades < 1 or not math.isfinite(rpm) or not abs(rpm) > 0.0:
         raise ProductError(f"blades={blades} and rpm={rpm} state no blade-passage frequency")
     base = blades * abs(rpm) / 60.0
@@ -487,7 +503,13 @@ def write_acoustic_products(
     -------
     AcousticProducts
         The files written and the notes the post log owes.
+
+    Raises
+    ------
+    ProductError
+        If ``harmonics`` is not a positive integer; nothing is written then.
     """
+    _refuse_a_harmonic_count(harmonics)
     folder = Path(out_dir)
     result = AcousticProducts()
 

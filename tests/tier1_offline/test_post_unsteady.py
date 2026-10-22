@@ -540,6 +540,7 @@ def test_p0420_declared_order_without_times_is_not_checked(tmp_path):
     assert read_timestep_series(frames, order="given").n_frames == 3
 
 
+@pytest.mark.requirement("FR-2326")
 @pytest.mark.parametrize("bad", [0, -3, 1.5, True, "2", None])
 def test_p0420_a_frequency_that_is_not_a_positive_integer_is_refused(tmp_path, bad):
     """PFS-2130.007 (and the frequency half of PFS-2119.007)."""

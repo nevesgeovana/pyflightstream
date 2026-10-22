@@ -51,6 +51,26 @@ def test_p0420_gutin_refuses_undefined_inputs(argument, value):
         qn.gutin_harmonic_rms(2, **inputs)
 
 
+@pytest.mark.requirement("FR-2326")
+@pytest.mark.parametrize("harmonic", [0, -2, 2.0, True])
+def test_p0430_gutin_refuses_a_harmonic_outside_its_domain(harmonic):
+    """The closed form holds for shaft harmonics from 1; a valid harmonic is the control."""
+    inputs = dict(
+        blades=2,
+        omega_rad_s=100.0,
+        c0=340.0,
+        distance_m=10.0,
+        theta_rad=0.5,
+        axial_force_n=1.0,
+        tangential_force_n=1.0,
+        axial_radius_m=1.0,
+        inplane_radius_m=1.0,
+    )
+    assert qn.gutin_harmonic_rms(2, **inputs) > 0.0
+    with pytest.raises(ProductError, match="harmonic"):
+        qn.gutin_harmonic_rms(harmonic, **inputs)
+
+
 def _dft_rms(signal: np.ndarray, harmonic: int) -> float:
     """Return the rms amplitude of harmonic ``harmonic`` of one period sampled uniformly."""
     count = signal.size

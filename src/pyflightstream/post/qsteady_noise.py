@@ -824,7 +824,9 @@ def gutin_harmonic_rms(
     Raises
     ------
     ProductError
-        If blades is below one, or angular speed, sound speed or distance is not positive.
+        If ``harmonic`` is not a positive integer (the closed form holds for
+        shaft harmonics from 1), blades is below one, or angular speed, sound
+        speed or distance is not positive.
 
     Examples
     --------
@@ -833,6 +835,11 @@ def gutin_harmonic_rms(
     ...                    axial_radius_m=1.0, inplane_radius_m=1.0)
     0.0
     """
+    if isinstance(harmonic, bool) or not isinstance(harmonic, (int, np.integer)) or harmonic < 1:
+        raise ProductError(
+            f"harmonic={harmonic!r} is not a positive integer: the shaft harmonics of the "
+            "closed form count from 1"
+        )
     for name, value, minimum in (
         ("blades", blades, 1),
         ("omega_rad_s", omega_rad_s, 0),
