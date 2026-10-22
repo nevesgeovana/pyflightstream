@@ -231,6 +231,13 @@ def _refuse_cold_start_on_a_march(case: SimCase, run_type: str) -> None:
     stated = case.variables.get(COLD_START_VARIABLE)
     if stated is None or str(stated).strip() == "":
         return
+    if continuation_of(case) is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {COLD_START_VARIABLE} is a key of a steady sweep over the "
+            f"attitude, and this row continues a saved {run_type} march: it reopens the saved "
+            "solution and clears nothing, so the key would change nothing. Remove "
+            f"{COLD_START_VARIABLE} from the row."
+        )
     raise CampaignConfigError(
         f"case {case.sim_id!r}: {COLD_START_VARIABLE} is a key of a steady sweep over the "
         f"attitude, and this row runs {run_type}: every point of it is its own job and "

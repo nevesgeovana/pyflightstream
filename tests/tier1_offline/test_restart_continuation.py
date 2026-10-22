@@ -966,3 +966,20 @@ class TestFr96ConvergedContinuation:
         )
         assert list(series.steps) == [3, 4, 5, 6], (list(series.steps), said)
         assert "cannot be joined" in said[0], said
+
+
+def test_p0430_f1341_cold_start_on_a_continuation_is_explained_as_a_reopened_state():
+    """F-1341: a continuation does not start from no solution; it reopens a saved one."""
+    case = _continuing_case(
+        "{ADDITIONAL_ITERS=120}",
+        **{
+            RESTART_FROM_VARIABLE: SAVED,
+            RESTART_ITERATIONS_VARIABLE: "120",
+            "COLD_START": "true",
+        },
+    )
+    with pytest.raises(CampaignConfigError) as refused:
+        build_script(case, Script("26.123"))
+    message = str(refused.value)
+    assert "reopens the saved solution" in message, message
+    assert "starts from no solution" not in message, message

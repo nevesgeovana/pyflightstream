@@ -710,8 +710,13 @@ def _refuse_what_a_steady_coupled_run_cannot_export(case: SimCase) -> None:
     if pproc is not None and pproc.volume_section is not None:
         stated.append("the pproc's [volume_section]")
     if stated:
+        subject = (
+            "a quasi-steady rotor sector"
+            if select_workflow(case) == QSTEADY_ROTOR
+            else "a fixed wing on a steady row"
+        )
         raise CampaignConfigError(
-            f"case {case.sim_id!r} couples a fixed wing on a steady row (FSI-G), whose script "
+            f"case {case.sim_id!r} couples {subject} (FSI-G), whose script "
             "ends at EXECUTE_AEROELASTIC_ANALYSIS and exports from the aeroelastic "
             f"post-processing script, and it states {', '.join(stated)}. Those are emitted "
             "after START_SOLVER on a steady row, which this script never reaches, and the "
