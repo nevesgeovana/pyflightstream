@@ -43,7 +43,7 @@ FLIGHT_CONDITION_KEYS: dict[str, tuple[str, str]] = {
     # standard atmosphere would otherwise supply, so a row can state the
     # fluid the reference scripts pinned and the emitted FLUID_PROPERTIES
     # block carries those numbers and no others. The units ride the keys.
-    "RHOkgm3": ("kg/m^3", "density directly, overriding both the atmosphere and REmi"),
+    "RHOkgm3": ("kg/m^3", "density directly; a row stating it beside REmi is refused"),
     "MUPas": ("Pa s", "dynamic viscosity, which REmi then solves the density against"),
     "ASMPS": ("m/s", "sonic velocity, which MACH is then taken against"),
     "TK": ("kelvin", "temperature, stated rather than lapsed"),

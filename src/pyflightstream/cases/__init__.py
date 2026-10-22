@@ -741,13 +741,13 @@ class RawCommand(BaseModel):
 class FrameSpec(BaseModel):
     """One custom coordinate system the reference's ``[[frames]]`` defines (PFS-2034.01, FR-72).
 
-    (design/69): the row's rotation names an axis as ``<frame>-<X|Y|Z>``, and the frame
-    is one the setup defined here or one the package creates (``MRP``; ``ROTOR_MRP`` on
-    the rotor run types). The origin is in the geometry's own frame, the solver's
-    reference frame, in metres, and the two axes are direction vectors in that frame,
-    free in length, refused when zero, parallel or not orthogonal (cosine beyond 1e-8),
-    naming the frame and both vectors; the third axis is their right-handed cross product,
-    as :func:`pyflightstream.script.helpers.coordinate_frame` computes it.
+    The row's rotation names an axis as ``<frame>-<X|Y|Z>``, and the frame
+    is one the reference defines here or one the package creates (``MRP``). The origin
+    is in the geometry's own frame, the solver's reference frame, in metres, and the two
+    axes are direction vectors in that frame, free in length, refused when zero, parallel
+    or not orthogonal (cosine beyond 1e-8), naming the frame and both vectors; the third
+    axis is their right-handed cross product, as
+    :func:`pyflightstream.script.helpers.coordinate_frame` computes it.
 
     Attributes
     ----------
@@ -1009,9 +1009,10 @@ class SimCase(BaseModel):
     #: which emits the default export set and no sections, plots or probes.
     pproc: PprocSpec | None = None
     pproc_id: str | None = None
-    #: The custom coordinate systems the row's setup defines (PFS-2034.01),
-    #: created after the package's own frames in the order written; empty
-    #: for a setup that defines none, when the setup declares none.
+    #: The custom coordinate systems the reference defines (PFS-2034.01, FR-72;
+    #: a setup preset defines none and is refused if it tries), created after
+    #: the package's own frames in the order written; empty when the reference
+    #: declares none.
     frames: list[FrameSpec] = Field(default_factory=list)
     #: The solver commands the row's setup states verbatim (PFS-2033.01),
     #: each emitted before the phase it names, in the order written; empty
@@ -1241,7 +1242,7 @@ class Campaign(BaseModel):
     fs_exe : str
         Explicit path of the FlightStream executable; existence is
         checked by the executor at construction, not here, so a
-        campaign file can be authored away from the licensed machine.
+        campaign can be built away from the licensed machine.
     sims : list of SimCase
         The cases of the campaign.
     derived_from : DerivedFrom, optional

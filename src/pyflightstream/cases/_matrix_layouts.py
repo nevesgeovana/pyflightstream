@@ -108,7 +108,7 @@ COLUMN_MEANINGS: Mapping[str, InputKey] = {
     "WORKFLOW": InputKey(
         "The run type that builds the row's script, or LEGACY for a row a recipe of "
         "the user builds.",
-        "steady, unsteady, unsteady_rotor or LEGACY",
+        "steady, unsteady, unsteady_rotor, qsteady_rotor or LEGACY",
     ),
     "VAR_NAMES_VALUES": InputKey(
         "The row's own keys, the ones its run type reads; see the table of row keys.",
