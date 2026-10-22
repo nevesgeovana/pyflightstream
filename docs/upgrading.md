@@ -11,9 +11,10 @@ describe the older releases that supplied them.
 
 ### The documentation of the release a workspace uses
 
-The site shows the newest release. The documentation of 0.43.0 and of each later release is
-also a zip among the release's assets on GitHub; see
-[read the documentation offline](install.md#read-the-documentation-offline).
+The site serves each edition under `/<version>/` and lists them in its version selector; a
+bookmark of an earlier unversioned page opens the same page of the current edition. The
+documentation of 0.43.0 and of each later release is also a zip among the release's assets
+on GitHub; see [read the documentation offline](install.md#read-the-documentation-offline).
 
 ### Results that change
 

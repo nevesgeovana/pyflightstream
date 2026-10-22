@@ -56,6 +56,21 @@ jobs:
         run: |
           mkdir -p site/downloads
           cp build/guides/*.pdf build/guides/build-record.json build/guides/LICENSE-AND-AUTHORSHIP.md site/downloads/
+      # FR-2307: this build is served under /<version>/ (main for a dispatch) beside the
+      # documentation zip of every earlier GitHub Release, downloaded with this job's
+      # read-only token; a release without a zip is absent from the selector. Nothing is
+      # committed and nothing persists: every deploy lays the editions out again.
+      - name: Serve the earlier releases' editions beside this build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then CURRENT="${GITHUB_REF_NAME#v}"; else CURRENT=main; fi
+          mkdir -p build/editions
+          for tag in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName'); do
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern 'pyflightstream-docs-*.zip' --dir build/editions || echo "no documentation zip on $tag"
+          done
+          mv site build/current
+          python scripts/assemble_doc_editions.py --current build/current --version "$CURRENT" --zips build/editions --out site --base /pyflightstream/
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: guides

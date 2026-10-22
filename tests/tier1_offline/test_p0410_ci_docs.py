@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import subprocess
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -129,6 +130,97 @@ def test_p0430_each_release_carries_its_own_documentation_edition():
             granted = body.get("permissions", {})
             assert granted.get("contents") in (None, "read"), (name, job_name)
     assert _workflow("docs.yml")["jobs"]["deploy"]["needs"] == "build"
+
+
+def _built_site(folder: Path, label: str) -> Path:
+    """A built site as the docs build leaves it: pages with a body, at two depths."""
+    (folder / "guide").mkdir(parents=True)
+    for page in (folder / "index.html", folder / "guide" / "index.html"):
+        page.write_text(f'<html><body dir="ltr"><p>{label}</p></body></html>\n', encoding="utf-8")
+    return folder
+
+
+def _edition_zip(folder: Path, version: str, members: dict[str, str] | None = None) -> Path:
+    """A release's documentation zip as the release workflow writes it."""
+    archive = folder / f"pyflightstream-docs-{version}.zip"
+    top = f"pyflightstream-docs-{version}"
+    default = {
+        f"{top}/index.html": f"<html><body><p>edition {version}</p></body></html>",
+        f"{top}/guide.html": f"<html><body><p>guide {version}</p></body></html>",
+    }
+    with zipfile.ZipFile(archive, "w") as bundle:
+        for name, text in (members or default).items():
+            bundle.writestr(name, text)
+    return archive
+
+
+@pytest.mark.requirement("FR-2307")
+def test_p0430_the_deploy_serves_each_released_edition_beside_this_build(tmp_path):
+    """Two release zips and this build: each under its version, listed, labelled."""
+    module = _load_script("assemble_doc_editions")
+    zips = [_edition_zip(tmp_path, v) for v in ("0.43.0", "0.44.0", "0.45.0")]
+    current = _built_site(tmp_path / "current", "edition 0.45.0 as built")
+    out = tmp_path / "site"
+    base = "/pyflightstream/"
+    entries = module.assemble(current, "0.45.0", zips, out, base=base)
+    # This build's own zip is not unpacked over it; the selector lists newest first.
+    assert [entry["version"] for entry in entries] == ["0.45.0", "0.44.0", "0.43.0"]
+    assert json.loads((out / "versions.json").read_text(encoding="utf-8")) == entries
+    assert "as built" in (out / "0.45.0" / "guide" / "index.html").read_text(encoding="utf-8")
+    older = (out / "0.43.0" / "guide.html").read_text(encoding="utf-8")
+    assert "guide 0.43.0" in older and older.count(module.BANNER_ID) == 1
+    assert f'href="{base}0.45.0/"' in older
+    assert module.BANNER_ID not in (out / "0.45.0" / "index.html").read_text(encoding="utf-8")
+    assert f"url={base}0.45.0/" in (out / "index.html").read_text(encoding="utf-8")
+    missing = (out / "404.html").read_text(encoding="utf-8")
+    assert '["0.43.0", "0.44.0", "0.45.0"]' in missing
+    # A dispatch from main with no release zip is a site of one edition.
+    alone = module.assemble(current, "main", [], tmp_path / "main-site", base=base)
+    assert alone == [{"version": "main", "title": "main (unreleased)", "aliases": []}]
+
+
+@pytest.mark.requirement("FR-2307")
+@pytest.mark.parametrize(
+    ("version", "base", "member"),
+    [
+        ("v0.45.0", "/", None),
+        ("0.45.0", "pyflightstream", None),
+        ("0.45.0", "/", "../escape.html"),
+        ("0.45.0", "/", "pyflightstream-docs-0.43.0/../../escape.html"),
+    ],
+)
+def test_p0430_an_edition_it_cannot_serve_is_refused_before_anything_is_written(
+    tmp_path, version, base, member
+):
+    module = _load_script("assemble_doc_editions")
+    current = _built_site(tmp_path / "current", "edition")
+    members = None if member is None else {member: "<html><body></body></html>"}
+    zips = [_edition_zip(tmp_path, "0.43.0", members)]
+    with pytest.raises(ValueError):
+        module.assemble(current, version, zips, tmp_path / "site", base=base)
+    assert not (tmp_path / "site").exists()
+
+
+@pytest.mark.requirement("FR-2307")
+def test_p0430_the_docs_build_lays_out_the_editions_with_its_read_only_token():
+    workflow = _workflow("docs.yml")
+    build = workflow["jobs"]["build"]
+    assert build["permissions"] == {"contents": "read"}
+    step = next(s for s in build["steps"] if "assemble_doc_editions.py" in s.get("run", ""))
+    assert step["env"] == {"GH_TOKEN": "${{ github.token }}"}
+    assert "gh release download" in step["run"] and "git push" not in step["run"]
+    upload = next(s for s in build["steps"] if "upload-pages-artifact" in s.get("uses", ""))
+    order = [s.get("name") or s.get("uses") for s in build["steps"]]
+    assert order.index(step["name"]) < order.index(upload["uses"])
+    config = yaml.load((ROOT / "properdocs.yml").read_text("utf-8"), Loader=_ConfigLoader)
+    assert config["extra"]["version"] == {"provider": "mike"}
+
+
+class _ConfigLoader(yaml.SafeLoader):
+    pass
+
+
+_ConfigLoader.add_multi_constructor("", lambda loader, suffix, node: None)
 
 
 @pytest.mark.requirement("FR-2331")

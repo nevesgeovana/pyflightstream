@@ -14,7 +14,10 @@ FlightStream versions.
 - Each release has its own documentation edition, `pyflightstream-docs-<version>.zip`, built
   by the release workflow from the tag's sources to be read from a folder without a server:
   open its `index.html`. The requirements, code and execution views work there; search does
-  not, since it needs a server.
+  not, since it needs a server. The site serves each release that carries its zip under
+  `/<version>/` beside the current build, with the theme's version selector; an address of
+  the earlier unversioned site opens the same page of the current build, and a page of an
+  older edition says which edition it is.
 - `pyfs-workspace excel create|preview|apply|cancel|check` runs the matrix workbook
   commands, with `--workspace` defaulting to the current directory;
   `python -m pyflightstream.workspace.excel` is the same command.

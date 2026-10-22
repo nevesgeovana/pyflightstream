@@ -109,6 +109,13 @@ extra_javascript:
   - understanding/assets/vendor/d3.min.js
   - understanding/assets/vendor/d3-sankey.min.js
   - understanding/assets/understanding.js
+# FR-2307: the deployed site holds one folder per edition, this build and every
+# earlier release's documentation zip (scripts/assemble_doc_editions.py in the docs
+# workflow); the selector reads the versions.json at the site root. A build served
+# anywhere else (a local build, the CI check, an unzipped edition) shows none.
+extra:
+  version:
+    provider: mike
 nav:
   - Home: index.md
   - Start here:
