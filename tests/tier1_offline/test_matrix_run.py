@@ -6206,3 +6206,37 @@ def test_p0430_a_physics_matrix_path_outside_the_workspace_is_refused_x_f_1686(t
     with pytest.raises(PhysicsEnvironmentError, match="outside the workspace"):
         physics_matrix(workspace, "../elsewhere.fs")
     assert physics_matrix(workspace, "inputs/matrices/own.fs") == inside
+
+
+def test_p0430_the_additional_post_refuses_a_scheduler_before_writing_f_1455(tmp_path, monkeypatch):
+    import types
+
+    from pyflightstream.run import ExecutorConfigurationError
+    from pyflightstream.run import matrix as run_matrix_module
+
+    class _Scheduler:
+        def bind_point(self, values, *, replace=False):
+            raise AssertionError("must not be reached")
+
+        def submission_record(self):
+            return None
+
+    ready = types.SimpleNamespace(status="READY")
+    monkeypatch.setattr(
+        run_matrix_module,
+        "_plan_all",
+        lambda *args, **kwargs: (types.SimpleNamespace(fs_exe="x"), [ready]),
+    )
+    monkeypatch.setattr(
+        run_matrix_module,
+        "_campaign_executor",
+        lambda *args, **kwargs: (_Scheduler(), lambda exe: _Scheduler()),
+    )
+    monkeypatch.setattr(
+        run_matrix_module,
+        "_extract",
+        lambda *args, **kwargs: pytest.fail("an extraction was started"),
+    )
+    with pytest.raises(ExecutorConfigurationError, match="local=True"):
+        run_matrix_module.run_additional_post(tmp_path / "m.fs", CampaignWorkspace(tmp_path))
+    assert not (tmp_path / "additional.json").exists()

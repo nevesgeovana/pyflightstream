@@ -1843,6 +1843,13 @@ def run_additional_post(
     campaign, executor_for = _campaign_executor(
         workspace, resolved, matrix, executor=executor, local=local, hidden=hidden
     )
+    if isinstance(campaign, Submitting):
+        # The submitting half is not built: refuse by name before anything is written (F-1455).
+        raise ExecutorConfigurationError(
+            "the additional post runs the extraction on this machine, and the executor chosen "
+            "is a scheduler's, whose submitted extraction is not built; pass local=True "
+            "(CLI: --local), or give a local executor"
+        )
     executors: dict[Path, Executor] = {Path(resolved.fs_exe): campaign}
     stamp = datetime.now().strftime(ARCHIVE_STAMP)
     written: list[AdditionalRecord] = []
