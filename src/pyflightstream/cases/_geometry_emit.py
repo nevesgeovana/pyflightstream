@@ -96,6 +96,7 @@ EVIDENCE_GATED: frozenset[str] = frozenset(
         "CAD_CREATE_TRANSLATE_CURVES",
         "CAD_CREATE_CURVE_UNSELECT",
         "CAD_CREATE_CURVE_EXPORT_CCS",
+        "CAD_CREATE_AUTO_CROSS_SECTIONS",
     }
 )
 
@@ -531,11 +532,52 @@ def _emit_new_operation(
             if op == "extract_faces"
             else "DELETE_SELECTED_FACES"
         )
+    elif op == "remesh_from_sections":
+        _emit_remesh_from_sections(script, operation, names)
     else:
         assert operation.nodes is not None and operation.vector is not None
         for node in operation.nodes:
             script.emit("SELECT_MESH_NODE", node)
         script.emit("TRANSFORM_SELECTED_NODES", REFERENCE_FRAME, "TRANSLATION", *operation.vector)
+
+
+def _emit_remesh_from_sections(
+    script: Script, operation: GeometryOperation, names: Sequence[str]
+) -> None:
+    """Rebuild a body from its own cross-sections: the cutter, then the CCS loft (FR-1621).
+
+    ``CAD_CREATE_AUTO_CROSS_SECTIONS`` cuts the body, read as a mesh boundary
+    (``MESH``, the only spelling the manual prints) by its position at this
+    step, into ``count`` full sections (``NONE``) spaced uniformly (scheme
+    ``1`` at rate 1.0) along ``axis`` of the reference frame. Every curve is
+    selected and assigned to the loft's component where the build carries the
+    assignment, and the loft makes the surface ``name`` with the defaults of
+    the CCS route: a wing marks its sharp trailing edges and closes its tips,
+    C2 chordwise and C0 spanwise; a fuselage closes its ends, C2 both ways.
+    The cutter and the loft are evidence-gated: the build runs them only on a
+    build where a licensed probe verified them.
+    """
+    assert operation.axis is not None and operation.loft is not None
+    script.emit("CAD_CREATE_INITIALIZE")
+    script.emit(
+        "CAD_CREATE_AUTO_CROSS_SECTIONS",
+        REFERENCE_FRAME,
+        operation.axis,
+        operation.count,
+        _position(names, operation.surface),
+        "1",
+        1.0,
+        "NONE",
+        "MESH",
+    )
+    script.emit("CAD_CREATE_CURVE_SELECT", -1)
+    helpers.assign_selected_ccs_curves(script, operation.loft)
+    if operation.loft == "wing":
+        script.emit(
+            "CAD_CREATE_WING_MESH_FROM_CCS", operation.name, "TRUE", "SHARP", "TRUE", "C2", "C0"
+        )
+    else:
+        script.emit("CAD_CREATE_FUSELAGE_MESH_FROM_CCS", operation.name, "TRUE", "C2", "C2")
 
 
 def _emit_selection(script: Script, operation: GeometryOperation, names: Sequence[str]) -> None:

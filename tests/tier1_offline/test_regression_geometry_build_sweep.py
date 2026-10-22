@@ -1308,6 +1308,110 @@ class TestGeometryOperations:
         with pytest.raises(InputArtifactError, match=words):
             _geometry_operations___script(tmp_path, boundaries, "[[operations]]\n" + operation)
 
+    @staticmethod
+    @pytest.mark.requirement("FR-1621")
+    @pytest.mark.parametrize(
+        ("boundaries", "operation", "expected"),
+        [
+            (
+                '["Wing", "WingR"]',
+                'op = "remesh_from_sections"\nsurface = "Wing"\naxis = "Y"\ncount = 9\n'
+                'loft = "wing"\nname = "WingR"\n',
+                [
+                    "CAD_CREATE_INITIALIZE",
+                    "CAD_CREATE_AUTO_CROSS_SECTIONS 1 Y 9 1 1 1.0 NONE MESH",
+                    "CAD_CREATE_CURVE_SELECT -1",
+                    "ASSIGN_SELECTED_CURVES_TO_CCS_WING",
+                    "CAD_CREATE_WING_MESH_FROM_CCS WingR TRUE SHARP TRUE C2 C0",
+                ],
+            ),
+            (
+                '["Wing", "Hull", "HullR"]',
+                'op = "linear_copy"\nsurface = "Wing"\ncount = 2\nvector = [0.0, 1.0, 0.0]\n'
+                'names = ["Hull"]\n\n[[operations]]\n'
+                'op = "remesh_from_sections"\nsurface = "Hull"\naxis = "X"\ncount = 24\n'
+                'loft = "fuselage"\nname = "HullR"\n',
+                [
+                    "SURFACE_LINEAR_COPY_PASTE 1 2 1 METER 0.0 1.0 0.0",
+                    "CAD_CREATE_INITIALIZE",
+                    "CAD_CREATE_AUTO_CROSS_SECTIONS 1 X 24 2 1 1.0 NONE MESH",
+                    "CAD_CREATE_CURVE_SELECT -1",
+                    "ASSIGN_SELECTED_CURVES_TO_CCS_FUSELAGE",
+                    "CAD_CREATE_FUSELAGE_MESH_FROM_CCS HullR TRUE C2 C2",
+                ],
+            ),
+        ],
+        ids=["wing", "fuselage"],
+    )
+    def test_p0430_a_body_is_remeshed_from_its_own_cross_sections(
+        tmp_path, boundaries, operation, expected
+    ):
+        """PFS-2081.42: the cutter on the named body, its curves selected, then the loft.
+
+        The body is cut into ``count`` cross-sections along ``axis`` (uniform
+        spacing, full sections, the body read as a mesh boundary by its
+        position at that step), every curve is selected and assigned to the
+        loft's component, and the loft makes the surface ``name``, after the
+        source, which stays. The sequence is the one the licensed batch
+        queues; until it verifies the cutter the build refuses to run it.
+        """
+        from pyflightstream.workspace._geometry_build import plan_geometry_build
+
+        lines = _geometry_operations___script(tmp_path, boundaries, "[[operations]]\n" + operation)
+        assert _geometry_operations___between(lines) == expected
+        folder = tmp_path / "ws" / "inputs" / "geometries" / "rotor"
+        assert "CAD_CREATE_AUTO_CROSS_SECTIONS" in plan_geometry_build(folder).awaiting_evidence
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1621")
+    @pytest.mark.parametrize(
+        ("operation", "words"),
+        [
+            (
+                'op = "remesh_from_sections"\nsurface = "Wing"\naxis = "Y"\ncount = 9\n'
+                'loft = "revolution"\nname = "WingR"\n',
+                "loft: Input should be 'wing' or 'fuselage'",
+            ),
+            (
+                'op = "remesh_from_sections"\nsurface = "all"\naxis = "Y"\ncount = 9\n'
+                'loft = "wing"\nname = "WingR"\n',
+                'no "all" form',
+            ),
+            (
+                'op = "remesh_from_sections"\nsurface = "Wing"\naxis = "Y"\ncount = 9\n'
+                'loft = "wing"\nname = "WingR"\n\n[[operations]]\nop = "remesh_from_sections"\n'
+                'surface = "WingR"\naxis = "Y"\ncount = 9\nloft = "wing"\nname = "WingS"\n',
+                "one remesh_from_sections",
+            ),
+        ],
+        ids=["no revolution loft", "every surface", "twice"],
+    )
+    def test_p0430_a_remesh_from_sections_is_refused_before_any_solver_starts(
+        tmp_path, operation, words
+    ):
+        """PFS-2081.42: a loft the cross-sections cannot feed, no named body, or a second
+        remesh whose cutter would add its curves to the first one's selection.
+        """
+        with pytest.raises(InputArtifactError, match=words):
+            _geometry_operations___script(
+                tmp_path, '["Wing", "WingR", "WingS"]', "[[operations]]\n" + operation
+            )
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1621")
+    def test_p0430_a_remesh_from_sections_is_refused_beside_a_source_that_leaves_curves(
+        tmp_path,
+    ):
+        """PFS-2081.42: a section loft leaves its curves where the loft of the rebuilt body
+        reads them, so the cutter is read for a [mesh] or [cad] source only.
+        """
+        text = _GEOMETRY_CAD__SECTIONS.replace('["WING"]', '["WING", "WINGR"]') + (
+            '[[operations]]\nop = "remesh_from_sections"\nsurface = "WING"\naxis = "Y"\n'
+            'count = 9\nloft = "wing"\nname = "WINGR"\n'
+        )
+        with pytest.raises(InputArtifactError, match=r"\[create\] source leaves its own curves"):
+            _geometry_cad___lines(tmp_path, text, {"naca.txt": "1.0 0.0\n0.0 0.0\n1.0 0.0\n"})
+
 
 def _rfixg_record__legacy_record() -> dict:
     """The legacy record's field shape, with neutral paths and synthetic values."""

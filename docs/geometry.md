@@ -114,11 +114,39 @@ refused, as in the run.
 | `extract_faces` | `quantity` (`X`, `Y`, `Z`, `AREA`, `QUALITY`), `min` and/or `max`, optional `surface`, `name` | a new surface of the faces selected |
 | `delete_faces` | the selection keys of `extract_faces`, no `name` | the faces selected removed |
 | `transform_nodes` | `mesh_sha256`, `nodes`, `vector` | the nodes moved, on a `[mesh]` source |
+| `remesh_from_sections` | `surface`, `axis`, `count`, `loft` (`wing` or `fuselage`), `name` | a new surface lofted from the body's own cross-sections; the source stays |
 
 Every operation that creates a surface states its names; the build checks them
 against the saved file. A node operation is pinned to the sha256 of the source
 mesh, because a node number is a fact about one file: when the mesh changes,
 the build is refused, naming both digests.
+
+**Rebuilding a body from its own cross-sections.** `remesh_from_sections` cuts
+the body `surface` into `count` full cross-sections spaced evenly along `axis`
+of the reference frame, selects every section and lofts them with the CCS
+`loft`: a `wing` marks its sharp trailing edges and closes its tips (C2
+chordwise, C0 spanwise), a `fuselage` closes its ends (C2 both ways). The new
+surface `name` comes after the source, which stays, so the two can be compared
+in the saved body:
+
+```toml
+boundaries = ["Wing", "WingR"]
+
+[[operations]]
+op = "remesh_from_sections"
+surface = "Wing"
+axis = "Y"
+count = 9
+loft = "wing"
+name = "WingR"
+```
+
+The loft reads every selected curve, so an instruction states one
+`remesh_from_sections`, on a `[mesh]` or `[cad]` source; beside a `[ccs]` or
+`[create]` source, whose own curves would join the sections, it is refused. The
+cutter waits for a licensed probe on each build (see **Evidence on the build**
+below): until one verifies it, `--apply` refuses and the preview shows the
+script.
 
 ### Trailing edges
 

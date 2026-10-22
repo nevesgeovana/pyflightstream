@@ -84,6 +84,7 @@ _OPERATION_KEYS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "extract_faces": (("quantity", "name"), ("min", "max", "surface")),
     "delete_faces": (("quantity",), ("min", "max", "surface")),
     "transform_nodes": (("mesh_sha256", "nodes", "vector"), ()),
+    "remesh_from_sections": (("surface", "axis", "count", "loft", "name"), ()),
 }
 
 #: The every-surface word of a sidecar, which no surface-creating kind takes.
@@ -116,6 +117,12 @@ class GeometryOperation(BaseModel):
     sidecar's ``[[import.operations]]``; the kinds of FR-474 state the names
     of every surface they create. ``translate`` and ``rotate`` are refused:
     they stay in the run.
+
+    ``remesh_from_sections`` (FR-1621) rebuilds the mesh of an existing body
+    from its own cross-sections: the body ``surface`` is cut into ``count``
+    sections along ``axis`` and the sections are lofted by the CCS ``loft``
+    (``wing`` or ``fuselage``) into the new surface ``name``, created after
+    the source, which stays.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -137,6 +144,7 @@ class GeometryOperation(BaseModel):
     name: str | None = None
     mesh_sha256: str | None = None
     nodes: tuple[int, ...] | None = None
+    loft: Literal["wing", "fuselage"] | None = None
 
     @field_validator("op")
     @classmethod
@@ -189,7 +197,15 @@ class GeometryOperation(BaseModel):
             self._check_nodes()
 
     def _check_surfaces_and_names(self) -> None:
-        if self.op in ("rename", "mirror", "circular_copy", "linear_copy", "cut", "fill_holes"):
+        if self.op in (
+            "rename",
+            "mirror",
+            "circular_copy",
+            "linear_copy",
+            "cut",
+            "fill_holes",
+            "remesh_from_sections",
+        ):
             if self.surface == _EVERY:
                 raise ValueError(
                     f'a {self.op} names the one surface it acts on; it has no "{_EVERY}" form'
@@ -257,7 +273,7 @@ class GeometryOperation(BaseModel):
         elif self.op == "cut":
             index = _found(names, self.surface, where)
             names[index : index + 1] = list(self.names or ())
-        elif self.op == "extract_faces":
+        elif self.op in ("extract_faces", "remesh_from_sections"):
             if self.surface is not None:
                 _found(names, self.surface, where)
             assert self.name is not None
@@ -273,7 +289,7 @@ class GeometryOperation(BaseModel):
         if self.op == "rename":
             assert self.to is not None and self.surface is not None
             names[_found(names, self.to, where)] = self.surface
-        elif self.op in ("circular_copy", "linear_copy") or self.op == "extract_faces":
+        elif self.op in ("circular_copy", "linear_copy", "extract_faces", "remesh_from_sections"):
             created = list(self.names or ()) if self.name is None else [self.name]
             if names[len(names) - len(created) :] != created:
                 raise ValueError(
@@ -594,9 +610,32 @@ class GeometryInstruction(BaseModel):
             raise ValueError(
                 "transform_nodes moves nodes of a raw mesh; it is read for a [mesh] source only"
             )
+        self._check_remesh_from_sections()
         names = source_names(self)
         names_after(self, names)
         return self
+
+    def _check_remesh_from_sections(self) -> None:
+        """Refuse a cutter whose selection would also hold curves it did not cut (FR-1621).
+
+        The loft reads every selected curve. A ``[ccs]`` or ``[create]`` source
+        leaves its own curves in the CAD Create pane, and a second cutter adds
+        its sections to the first one's, so either would loft curves of
+        another body into the rebuilt one.
+        """
+        remeshes = [op for op in self.operations if op.op == "remesh_from_sections"]
+        if len(remeshes) > 1:
+            raise ValueError(
+                "an instruction states one remesh_from_sections: the loft reads every "
+                "selected curve, so a second cutter would loft the first body's sections "
+                "into its own; build each rebuilt body from its own instruction"
+            )
+        if remeshes and self.kind in ("ccs", "create"):
+            raise ValueError(
+                f"remesh_from_sections rebuilds a body from its own cross-sections, and a "
+                f"[{self.kind}] source leaves its own curves where the loft reads them; it "
+                "is read for a [mesh] or [cad] source"
+            )
 
     def _check_one_source(self) -> None:
         stated = [key for key in ("ccs", "cad", "create", "mesh") if getattr(self, key) is not None]

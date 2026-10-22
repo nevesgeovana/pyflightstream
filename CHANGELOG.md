@@ -9,6 +9,12 @@ FlightStream versions.
 
 ### Added
 
+- `op = "remesh_from_sections"` in the `[[operations]]` of a geometry instruction rebuilds a
+  body from its own cross-sections: the solver cuts the named surface into `count` sections
+  along `axis` and lofts them as a CCS `wing` or `fuselage` into the new surface `name`, beside
+  the source. The cutter is evidence-gated: `pyfs-workspace geometry build --apply` runs it only
+  on a build where a licensed probe verified it; the preview shows the script.
+
 - `pyfs-fsi` writes `fsi_convergence_verdicts.log` in the run folder, and the external step
   record carries `loads_file_present`. An external call that finds no loads file in the point
   folder fails before the program runs.
