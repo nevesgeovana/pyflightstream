@@ -172,18 +172,15 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "NamingTemplateError": ValueError,
         "OpenMeshError": ValueError,
         "OptionError": KeyError,
-        # ONE OF FOUR error rows whose standard-library base is not
-        # ValueError, RuntimeError, LookupError, KeyError or ImportError.
-        # `UnsupportedResultTypeError`, `ScriptDeclarationTypeError` and
-        # `ProductArgumentError` are the other three. This comment has now read "the one"
-        # and "one of two" in turn, each time going stale in the commit
-        # that added the next such class and each time unread by
-        # anything, so the population is pinned BY NAME in
+        # NOT one of the error rows whose standard-library base is outside
+        # ValueError, RuntimeError, LookupError, KeyError or ImportError:
+        # since PFS-2124.037 its first base is `ProductExistsError`, a
+        # ValueError, and FileExistsError is the second base, so
+        # `except ProductExistsError` and `except FileExistsError` both
+        # catch it. The population that IS outside the five is pinned BY
+        # NAME in
         # `test_the_unusual_standard_library_bases_are_the_ones_counted`
         # rather than counted here by hand.
-        # Warnings are excluded from that count on purpose: their bases
-        # sit outside the five as well, and folding them in would make
-        # the number say nothing about the rows this comment is beside.
         # `except FileExistsError` is the handler a caller writing a file
         # already has around the call, and PFS-2011.02 added the refusal
         # to two writers that had none.
@@ -294,7 +291,6 @@ _UNUSUAL_BASE_CLASSES = (
     # TypeError: a drafting function called with the wrong argument shape
     # (PFS-2022.05, 2026-09-09).
     "ManualCallError",
-    "OutputExistsError",
     # TypeError: a product writer called with arguments that contradict each
     # other (step= and iteration= together). The base stays TypeError so an
     # `except TypeError` catches what the bare raise it replaced caught (0.25.0).
