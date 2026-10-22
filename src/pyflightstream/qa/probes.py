@@ -1588,8 +1588,13 @@ def _judge(
         "return_code": execution.return_code,
         "script_sha256": script_sha256,
     }
-    if _licence_denied(execution, artifacts.begin_marker):
-        return ProbeResult(outcome=ProbeOutcome.UNPROBED, detail=_LICENCE_DENIED, **common)
+    refusal = _licence_refusal(execution, artifacts.begin_marker)
+    if refusal:
+        # FR-3223: unprobed, never broken, and the solver's refusal lines are
+        # the evidence kept with it; the baseline's evidence stays on the run.
+        return ProbeResult(
+            outcome=ProbeOutcome.UNPROBED, detail=_LICENCE_DENIED, log_errors=refusal, **common
+        )
     # Read BEFORE every branch below, INCLUDING the halting one, because
     # each of them would answer this case with a different wrong word. An
     # unrecognised command aborts the script exactly as any other abort
@@ -1801,21 +1806,53 @@ def _judge_halt(
 
 
 _LICENCE_DENIED = (
-    "licence-denied: every recorded checkout attempt before the probe marker lacked "
-    "Success!; restore licence access and rerun before judging the command"
+    "licence-denied: the solver refused its licence before the probe marker (every "
+    "recorded checkout attempt lacked Success!, or it raised its licence error dialog); "
+    "restore licence access and rerun before judging the command"
 )
 
+#: The title of the dialog the solver raises when it refuses its licence,
+#: and the text it carried, as measured on a build whose licence had
+#: expired (2026-10-21): the solver printed no checkout line, ran no
+#: script line, and the executor stopped it over the dialog and appended
+#: the dialog's lines to the standard error (return code 1).
+_LICENCE_DIALOG_TITLE = "FlightStream License Error"
+_LICENCE_DIALOG_TEXT = "License has expired"
 
-def _licence_denied(execution: ExecutionResult, marker: str) -> bool:
-    """Read checkout attempts only, retaining successful fallback as a control."""
+
+def _licence_refusal(execution: ExecutionResult, marker: str) -> tuple[str, ...]:
+    """Return the solver's licence refusal lines, verbatim, or nothing when it did not refuse.
+
+    Two measured forms, both read only before the probe marker: checkout
+    attempts that all lack ``Success!`` (a successful fallback is the
+    control that keeps this from firing), and the licence error dialog the
+    executor captured, whose block (title, button, text) is the refusal log.
+    """
     attempts: list[str] = []
+    dialog: list[str] = []
     for text in (execution.log_text, execution.stdout, execution.stderr):
+        in_dialog = False
         for line in (text or "").replace("\x00", "").splitlines():
             if printed_line(line, marker) or printed_line(line, "PYFS_LICENCE_PROBE_REACHED"):
                 break
             if re.match(r"\s*(Checking out .*|Attempting .* checkout)\.\.\.", line):
                 attempts.append(line)
-    return bool(attempts) and not any("Success!" in line for line in attempts)
+            if _LICENCE_DIALOG_TITLE in line or _LICENCE_DIALOG_TEXT in line:
+                in_dialog = True
+            elif not line.strip():
+                in_dialog = False
+            if in_dialog:
+                dialog.append(line.strip())
+    if dialog:
+        return tuple(dialog)
+    if attempts and not any("Success!" in line for line in attempts):
+        return tuple(line.strip() for line in attempts)
+    return ()
+
+
+def _licence_denied(execution: ExecutionResult, marker: str) -> bool:
+    """Whether the solver refused its licence before the marker (:func:`_licence_refusal`)."""
+    return bool(_licence_refusal(execution, marker))
 
 
 def _solver_errors_text(execution: ExecutionResult) -> str:

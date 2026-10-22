@@ -474,6 +474,61 @@ def test_p0420_p2_1a_broken_support_does_not_abort_campaign(tmp_path, tier):
     assert ("OPEN" if tier else "BROKEN_SUPPORT") in by_name["RUN_SCRIPT"].detail
 
 
+#: What the executor appends to stderr when it stops a solver over its
+#: licence error dialog, as measured on a build whose licence had expired
+#: (the L4 batch of 2026-10-21): the dialog title, its button, its text.
+#: No checkout line is printed and no script line runs; return code 1.
+_MEASURED_LICENCE_DIALOG = (
+    "\n2026-10-21T12:46:15+00:00 solver modal/error detected pid=17156; "
+    "terminating this owned solver process without clicking its dialog.\n"
+    "FlightStream License Error\n"
+    "OK\n"
+    "License has expired. Contact Altair for assistance.\n"
+)
+
+
+@pytest.mark.requirement("FR-3223")
+@pytest.mark.parametrize("baseline", [False, True])
+def test_p0430_a_licence_error_dialog_is_unprobed_licence_denied_with_its_log(tmp_path, baseline):
+    """The measured refusal of an expired licence is unprobed, never broken.
+
+    The solver raises a "FlightStream License Error" dialog before any
+    script line runs, so neither sentinel is printed and the return code
+    is 1, which the generic reading would call an abort. The probe records
+    it unprobed with reason licence-denied and keeps the dialog lines as
+    the refusal log; a refusal on the target keeps the baseline's evidence
+    (the solver identity it read), and a refusal on the baseline judges
+    nothing.
+    """
+
+    class Expired(FakeFlightStream):
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            if baseline or Path(working_dir).name == "PRINT":
+                return ExecutionResult(
+                    return_code=1,
+                    wall_time_s=2.1,
+                    timed_out=False,
+                    log_text=None,
+                    stdout="",
+                    stderr=_MEASURED_LICENCE_DIALOG,
+                )
+            return super().run_script(script_path, working_dir, timeout_s)
+
+    run = probe_version("26.124", workroot=tmp_path, executor=Expired(), commands=["PRINT"])
+    result = next(r for r in run.results if r.command == "PRINT")
+    assert result.outcome is ProbeOutcome.UNPROBED
+    assert result.detail.startswith("licence-denied")
+    if baseline:
+        assert run.solver_identity == ()
+    else:
+        assert "License has expired. Contact Altair for assistance." in result.log_errors
+        assert "FlightStream License Error" in result.log_errors
+        assert result.return_code == 1
+        assert any("build" in line for line in run.solver_identity), (
+            "a refusal on the target dropped the baseline's evidence"
+        )
+
+
 @pytest.mark.parametrize("baseline", [False, True])
 def test_p0420_p2_1a_licence_refusal_is_unprobed(tmp_path, baseline):
     """Refusal text is inferred from the checkout format, not observed.
