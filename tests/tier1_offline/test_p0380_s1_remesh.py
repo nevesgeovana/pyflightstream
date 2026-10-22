@@ -433,3 +433,27 @@ def test_p0430_f309_a_concave_face_is_cut_into_triangles_that_all_turn_with_it()
     square = numpy.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], dtype=float)
     ok = refine_group(ObjMesh(square, {"A": [[0, 1, 2, 3]]}), ["A"], (), 1.0)
     assert sum(turn(ok.points[f]) for f in ok.families["A"]) == pytest.approx(turn(square))
+
+
+def test_rb5_f309_the_group_gathers_its_nodes_once_not_once_per_polygon():
+    """F-309 (RB5): each polygon is triangulated on the group's nodes, gathered ONCE. Gathered
+    again for every polygon, a group cost time in faces times nodes (22 500 quads: 22 s, where
+    one gathering takes a fraction of a second). Control: the plate is still cut whole."""
+
+    class Counted(numpy.ndarray):
+        whole = 0
+
+        def __getitem__(self, key):
+            if isinstance(key, list) and len(key) == len(self) == 81:
+                type(self).whole += 1
+            return super().__getitem__(key)
+
+    quads = [
+        [j * 9 + i, j * 9 + i + 1, (j + 1) * 9 + i + 1, (j + 1) * 9 + i]
+        for j in range(8)
+        for i in range(8)
+    ]
+    mesh = ObjMesh(plate_nodes(8, 8).view(Counted), {"Q": quads})
+    result = refine_group(mesh, ["Q"], (), 1.0)
+    assert len(boundary_loops(result.families["Q"])) == 1
+    assert Counted.whole <= 4, Counted.whole
