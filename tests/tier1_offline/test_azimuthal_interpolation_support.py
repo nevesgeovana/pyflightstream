@@ -40,6 +40,16 @@ PRODUCT = "probes/AL-020_phase_locked_PUSHER.csv"
 def _azimuthal_campaign(tmp_path, steps_per_revolution: float, unread: int | None = None):
     """A rotor campaign whose phase-locked reduction is taken at each azimuth."""
     workspace = _post_workspace(tmp_path, 2411, (60, 61), rotor=True)
+    # THE PPROC STATES THE [phase_locked] TABLE the azimuthal record was planned under.
+    # The post reads that table again (regate): a record taken at each azimuth beside a
+    # pproc with no table is a table REMOVED, and since F-062 its rotor block goes back
+    # to the passages, which never read between steps, so nothing here would be tested.
+    pproc = workspace.inputs_dir / "pproc" / "p001.toml"
+    pproc.write_text(
+        pproc.read_text(encoding="utf-8")
+        + "\n[phase_locked]\nmin_revolutions = 1.0\nlast_revolutions_avg = 1.0\n",
+        encoding="utf-8",
+    )
     # THE REFERENCE MUST NAME THE TWO BLADES, or the reducer applies no blade
     # offset and the fractional sample this file is about never exists: the
     # inherited reference says `families_blades = ["B"]`, one family, and the
@@ -93,6 +103,9 @@ def test_a_clean_azimuthal_campaign_writes_its_product(tmp_path, steps_per_revol
     """
     manifest = _azimuthal_campaign(tmp_path / str(steps_per_revolution), steps_per_revolution)
     assert PRODUCT in manifest["products"], manifest["skipped"]
+    # STILL TAKEN AT EACH AZIMUTH: a reduction moved back to the passages reads no sample
+    # between steps, and the refusal below would then prove nothing (RB6-01).
+    assert manifest["products"][PRODUCT].get("shape") == AZIMUTHAL, manifest["products"][PRODUCT]
     assert "probes/AL-020_per_blade.csv" in manifest["products"], (
         "the reducer saw one blade family, so no sample is fractional here"
     )
