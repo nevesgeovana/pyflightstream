@@ -724,6 +724,26 @@ def test_f550_the_delete_probe_exports_the_survivor_by_its_new_index(tmp_path):
     assert len(after) == 1 and after[0].split()[1] == "1", after
 
 
+@pytest.mark.parametrize("name", ["CDo", "CDv"])
+def test_f563_the_inviscid_probe_reads_the_viscous_column_named_on_each_build(tmp_path, name):
+    """F-563 (L4, 26.124 CDo, 26.125 CDv): field 6 is the viscous drag once the header says so."""
+    from types import SimpleNamespace
+
+    def sheet(column, value):
+        fields = ["B", "+0.01", "+0.0", "+0.2", "+0.2", "+0.01", value, "0", "0", "0"]
+        return f"Surface, Cx, Cy, Cz, CL, CDi, {column}, CMx, CMy, CMz\n{','.join(fields)}\n"
+
+    spec = PROBE_SPECS["SET_INVISCID_LOADS"]
+    artifacts = SimpleNamespace(workdir=tmp_path)
+    path = tmp_path / "loads_inviscid.txt"
+    path.write_text(sheet(name, "+0.0000000"), encoding="utf-8")
+    assert spec.assert_effect(artifacts) is True
+    path.write_text(sheet(name, "+0.0321883"), encoding="utf-8")
+    assert spec.assert_effect(artifacts) is False
+    path.write_text(sheet("CMx", "+0.0000000"), encoding="utf-8")
+    assert spec.assert_effect(artifacts) is None, "field 6 is not a viscous drag column"
+
+
 def test_early_prelude_lands_between_open_and_setup(tmp_path):
     spec = PROBE_SPECS["SET_SOLVER_ANALYSIS_LOADS_FRAME"]
     # SOLVER AND NOT SOLUTION since 0.27.0 (B05): the loads frame is an init

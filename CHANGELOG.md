@@ -86,6 +86,9 @@ FlightStream versions.
 
 ### Fixed
 
+- The `SET_INVISCID_LOADS` probe of `pyfs-qa` judges the viscous drag column (field 6, named
+  `CDo` on 26.124 and `CDv` on 26.125) only once the sheet header names it, so a sheet whose
+  sixth column is another quantity is no longer verified or broken by it.
 - The `DELETE_VOLUME_SECTION` probe of `pyfs-qa` exports the survivor at its new index 1 and
   identifies it by its offset, where it exported index 2, which the solver refuses after a
   deletion and which aborted the probe script.

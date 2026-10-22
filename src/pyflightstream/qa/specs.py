@@ -752,13 +752,31 @@ _spec(
 # --- solver analysis (FSM-26.120 pp.350-351) ------------------------------
 
 
+#: The names the viscous drag column (field index 6) carries: CDo on 26.124, CDv on 26.125.
+_VISCOUS_DRAG_NAMES = ("CDo", "CDv")
+
+
 def _inviscid_effect(artifacts: ProbeArtifacts) -> bool | None:
+    """Judge the command by the viscous drag column of the sheet exported after it.
+
+    F-563 (L4, 26.124 and 26.125, namespace 63503b6a, F-563/analysis.json): the
+    column is field index 6 on both builds, named CDo on 26.124 and CDv on 26.125
+    (the pressure column is CDi and CDp), nonzero before the command (+0.0321883 and
+    +0.0360325) and exactly 0 after it. The column is therefore read by position and
+    only once the header names it, so a sheet whose field 6 is another column proves
+    nothing.
+    """
     loads = _read(artifacts.workdir, "loads_inviscid.txt")
     if loads is None:
         return None
+    named = False
     for line in loads.splitlines():
-        fields = line.strip().split(",")
+        fields = [field.strip() for field in line.split(",")]
+        if len(fields) == 10 and fields[0] == "Surface":
+            named = fields[6] in _VISCOUS_DRAG_NAMES
         if len(fields) == 10 and fields[0] == "B":
+            if not named:
+                return None
             try:
                 return abs(float(fields[6])) < 1e-6
             except ValueError:
@@ -851,8 +869,8 @@ _spec(
     ),
     assert_effect=_inviscid_effect,
     effect_note=(
-        "the loads exported after enabling inviscid-only report CDo exactly zero "
-        "(the viscous default on this run is nonzero)"
+        "the viscous drag column (field 6, CDo or CDv by build) of the loads exported "
+        "after enabling inviscid-only reads exactly zero (nonzero by default on this run)"
     ),
 )
 
