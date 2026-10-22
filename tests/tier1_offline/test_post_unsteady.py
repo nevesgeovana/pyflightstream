@@ -430,7 +430,7 @@ def test_p0430_a_reduction_round_trips_na_and_full_precision_values(tmp_path):
     fields["cp"][:, 1] = [np.nan, np.inf, 1.0, 2.0]
     times = np.asarray([0.0, 0.1 + 0.2, np.nan, 1e-12])
     series = replace(series, fields=fields, times_s=times)
-    average = blade_passage_average(series, window=(0, 3))
+    average = blade_passage_average(series, window=(1, 4))
     series_file = write_series(tmp_path / "out" / "series.csv", series)
     reduction = write_reduction(tmp_path / "out" / "mean.csv", average, series_file=series_file)
 

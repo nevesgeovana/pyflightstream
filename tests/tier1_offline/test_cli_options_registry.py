@@ -753,9 +753,13 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         frozenset(
             {
                 "accept",
+                "apply",
                 "archive",
                 "build",
                 "calibrate",
+                "cancel",
+                "check",
+                "create",
                 "export-surface-mesh",
                 "fill-interior",
                 "from-sidecar",
@@ -763,6 +767,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
                 "migrate",
                 "mirror",
                 "move",
+                "preview",
                 "profile",
                 "subtract",
                 "time-mean",
