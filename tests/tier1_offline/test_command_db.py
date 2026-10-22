@@ -97,6 +97,18 @@ def test_p0430_fd02_notes_match_recorded_contracts(filename, obsolete, correctio
     assert correction in text
 
 
+def test_p0430_f424_a_command_the_26123_edition_stops_printing_is_recorded_removed():
+    """F-424: an edition that stops printing a command records a removal citing the page.
+
+    TRAILING_EDGES_IMPORT had no 26.123 row, read as absent with a note explaining
+    why; the Status rule records a document withdrawal as ``removed`` with the page
+    and says it is a reading, not a measurement.
+    """
+    row = CommandRegistry.load().commands["TRAILING_EDGES_IMPORT"].versions.get("26.123")
+    assert row is not None and row.status == "removed"
+    assert "FSM-26.123 p.323" in row.note and "rather than a measurement" in row.note
+
+
 def test_p0430_fd02_ccs_blend_default_is_queryable():
     entry = CommandRegistry.load().for_version("26.125")["SET_CCS_TE_BLEND_LENGTH"]
     assert entry.default == 10
@@ -1999,14 +2011,11 @@ def test_the_trailing_edge_import_records_the_index_over_reporting_its_own_body(
     index over-reporting, and reading the body still gives the right
     answer.
 
-    NO 26.123 ROW IS WRITTEN, and that is a decision withheld rather
-    than one taken. `Status` has four members and none of them says
-    "the document stopped printing it and nothing measured the solver":
-    `removed` is the closest and the item forbids it, because absence
-    from a manual is not evidence that the solver stopped answering.
-    So the build answers ABSENT, which the committed enumeration already
-    records, and the reading lives in the entry's free text until the
-    author settles the encoding.
+    THE 26.123 ROW IS A DOCUMENT WITHDRAWAL (F-424). `removed` arrives
+    three ways and its note says which (the `Status` docstring); an
+    edition that stops printing a command is the weakest of them, and the
+    row says it is a reading of the document and not a measurement of the
+    solver. No run asked 26.123 and its licence expired on 2026-10-21.
     """
     from pyflightstream.versions import resolve
 
@@ -2014,16 +2023,11 @@ def test_the_trailing_edge_import_records_the_index_over_reporting_its_own_body(
     entry = registry.commands["TRAILING_EDGES_IMPORT"]
     target = resolve("26.123")
 
-    assert "26.123" not in entry.versions, (
-        "TRAILING_EDGES_IMPORT carries a 26.123 row. Which row it should carry is "
-        "an open question for the author: the chapter body stopped documenting the "
-        "command, the Script Index still lists it, and no run has asked the solver, "
-        "so `removed` would assert something no evidence supports"
-    )
-    assert entry.evidence_in(target) is None, (
-        "TRAILING_EDGES_IMPORT answers on 26.123 while no row was written for it, "
-        "so hotfix inheritance is back on for a build registered to inherit nothing"
-    )
+    row = entry.versions["26.123"]
+    assert row.status.value == "removed", row.status
+    assert "FSM-26.123 p.323" in row.note and "rather than a measurement" in row.note
+    evidence = entry.evidence_in(target)
+    assert evidence is not None and evidence.record is row and evidence.source == "26.123"
 
     notes = " ".join((entry.notes or "").split())
     assert "FSM-26.123 p.323" in notes, (

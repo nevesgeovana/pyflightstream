@@ -416,6 +416,18 @@ TRAILING_EDGES_IMPORT:
     "26.101": {status: documented, note: "FSM-26.101 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 p.322, same grammar as 26.120"}
+    "26.123":
+      status: removed
+      successor: IMPORT_WAKE_EDGES_FROM_FILE
+      note: >-
+        FSM-26.123 p.323, where the block used to open, no longer prints
+        this command; the Script Index of the same edition (p.390) still
+        lists it, and the body is what is read. That is a fact about the
+        document rather than a measurement of the solver, the weakest of
+        the three ways a removal is recorded here: no run asked 26.123
+        whether it still answers the name, and its licence expired on
+        2026-10-21, so none will (resolved from committed evidence on
+        2026-10-21)
     "26.124":
       status: removed
       successor: IMPORT_WAKE_EDGES_FROM_FILE
@@ -439,8 +451,8 @@ TRAILING_EDGES_IMPORT:
     the coordinates are read in the unit the file declares, not in the
     simulation's.
 
-    THE NEWEST EDITION CONTRADICTS ITSELF ABOUT THIS COMMAND AND NO ROW
-    IS WRITTEN FOR IT. FSM-26.123 p.323 is where the block used to open and
+    THE 26.123 EDITION CONTRADICTS ITSELF ABOUT THIS COMMAND. FSM-26.123
+    p.323 is where the block used to open and
     the whole block is gone: that page carries the surviving neighbours,
     trailing-edge auto detection, detection by surface, the leading-edge
     wake detection and the wake-edge import, and prints this command
@@ -451,29 +463,20 @@ TRAILING_EDGES_IMPORT:
     both over-report and under-report, so the surface is read from the body. The
     rule does not change and the body is still what is read.
 
-    WHY THE ROW IS ABSENT RATHER THAN REMOVED. `removed` would be the
-    nearest of the four statuses and it says more than the evidence
-    does: no run has asked this build whether it still answers to the
-    name, and an edition dropping a page is a fact about a document. So
-    26.123 answers ABSENT, which the committed enumeration
-    tests/tier1_offline/goldens/absent_on_26123.txt already records, and the reading
-    lives here.
-
-    The encoding (PFS-2026.04) is: no version row, plus this note and the
-    committed enumeration, and NO fifth member of the status set. A
-    fifth member would be more expressive and would touch every consumer
-    of the status, the census tables and the derived support levels
-    included, for one command; and the state it would name, a page the
-    vendor dropped, is a fact about a DOCUMENT rather than about the
-    solver, which the four statuses are all about. The absence carries
-    that distinction correctly and this paragraph carries the reason.
+    THE 26.123 ROW IS A DOCUMENT WITHDRAWAL. `removed` arrives three ways
+    and its note says which (the Status docstring): an edition that stops
+    printing a command is the weakest of them, a fact about the document
+    and not a measurement of the solver. The 26.123 row is that removal,
+    citing the page; no run asked 26.123 and its licence expired on
+    2026-10-21, so the row rests on the edition alone.
 
     26.124 WAS ASKED, AND ITS ROW IS REMOVED (RPT-061). Its edition is
     the FSM-26.123 file, so the document says what it says for 26.123; the
     run of 2026-09-23 is what differs, and the solver answered the name
     as an unrecognized command with a file present and absent. That is
     a fact about the solver, so the row is removed and cites the run.
-    26.123 stays absent, because no run has asked that build.
+    26.123 is removed on its edition's reading alone (its row), because no run
+    has asked that build.
 
 DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
   layout: inline

@@ -615,7 +615,8 @@ def test_two_points_on_one_edge_are_refused_before_the_run(tmp_path):
 def test_the_vertex_file_import_is_removed_on_26124_by_the_run_that_asked():
     """G02 (RPT-061). 26.124 answers TRAILING_EDGES_IMPORT as an unrecognized
     command, so its row is removed and the refusal cites the run and names the
-    route that marks from a file there; 26.123, which no run asked, stays absent."""
+    route that marks from a file there; 26.123, which no run asked, is removed on
+    its edition's reading, which its note says is not a measurement (F-424)."""
     from pyflightstream.commands import CommandNotInVersionError
 
     registry = CommandRegistry.load()
@@ -627,7 +628,8 @@ def test_the_vertex_file_import_is_removed_on_26124_by_the_run_that_asked():
     message = str(refused.value)
     assert "removed in FlightStream 26.124" in message
     assert "RPT-061" in message and "Use IMPORT_WAKE_EDGES_FROM_FILE instead" in message
-    assert "26.123" not in registry.commands["TRAILING_EDGES_IMPORT"].versions
+    reading = registry.commands["TRAILING_EDGES_IMPORT"].versions["26.123"]
+    assert reading.status.value == "removed" and reading.probe_ref is None
 
 
 @pytest.mark.parametrize(

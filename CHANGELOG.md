@@ -100,6 +100,9 @@ FlightStream versions.
   with the line `# pyflightstream probe positions`, and the run replaces only a file that
   starts with it: a file of your own with the same name and header is refused instead of
   overwritten. A file in the earlier layout (header first) is replaced once with a warning.
+- On build 26.123, `TRAILING_EDGES_IMPORT` is refused as removed, citing the page of the
+  26.123 edition that stops printing it, and names `IMPORT_WAKE_EDGES_FROM_FILE`, instead of
+  being refused as a command with no evidence.
 
 ### Fixed
 
