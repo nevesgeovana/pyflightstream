@@ -161,8 +161,6 @@ FlightStream versions.
   being refused as a command with no evidence.
 - On build 26.121, `SET_MOTION_START_TIME` is emitted as the edition documents it; it was
   refused as broken on a probe abort whose cause was the probe's own rotary motion.
-- `AUTO_DETECT_WAKE_TERMINATION_NODES` is verified on 26.125 from a licensed run: the build
-  accepts it and marks the termination node.
 - The `FRAME` column of the normal-probe table and the coordinates of a steady or normal probe
   export read `REFERENCE` (they read `MRP`); an unsteady history keeps the frame it recorded.
 - A sections table whose frame the post cannot place (a setup frame, or a layout that names
@@ -239,8 +237,8 @@ FlightStream versions.
   deletion and which aborted the probe script.
 - The wake-termination detection emits `AUTO_DETECT_WAKE_TERMINATION_NODES` on build 26.125 as
   on the other builds: both builds then give the same lift, where the by-surface `-1` form
-  marked no node and lowered the 26.125 lift by about 5 percent. The command database records
-  it as verified on 26.125.
+  marked no node and lowered the 26.125 lift by about 5 percent. The command database carries a
+  26.125 row for it.
 - `read_timestep_series` numbers its frames from solver step 1 (the step axis is 1 plus the
   frame index times the frequency), as the solver writes animation frames: the first frame is
   step 1, and a frequency of 2 writes steps 1, 3 and 5. Windows read against it move with it.
