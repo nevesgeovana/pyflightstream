@@ -385,46 +385,53 @@ def test_p0350_run_fr361_a_job_that_does_not_launch_fails_its_points(tmp_path):
     assert [r.status for r in on_disk] == [RunStatus.FAILED_EXECUTION] * 3
 
 
-def test_p0430_a_local_job_with_no_walltime_takes_the_case_solver_timeout(tmp_path, monkeypatch):
+def test_p0430_a_local_job_with_no_walltime_takes_the_case_solver_timeout(tmp_path):
     """X-F-0558: a local grouped job with no WALLTIME is limited by its cases' solver timeout.
 
     It ran with no limit at all. The limit is the largest solver ``timeout_s`` of its
     cases for each of its points; a job with a WALLTIME keeps it, and a submitted job
     passes no local limit.
     """
-    from dataclasses import replace
-    from types import SimpleNamespace
-
-    import pyflightstream.run._batch_run as batch_run
-    from pyflightstream.run._batch_run import JobLaunch
-
     seen: list[float | None] = []
 
-    def _launch(job, script, *, timeout_s, **_):
-        seen.append(timeout_s)
-        return JobLaunch(job.label, "x", None)
+    class Recording(StubSolver):
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            if Path(script_path).name != "preflight.txt":
+                seen.append(timeout_s)
+            return super().run_script(script_path, working_dir, timeout_s=timeout_s)
 
-    monkeypatch.setattr(batch_run, "_assemble", lambda *a: "script")
-    monkeypatch.setattr(batch_run, "launch_job", _launch)
-    job = replace(
-        _job("batch", ["7001", "7003"], ["a", "b", "c"]),
-        walltime_s=None,
-        walltime_written="",
-        walltime_source="none",
-    )
-    cases = {
-        "7001": SimpleNamespace(solver=SimpleNamespace(timeout_s=900.0)),
-        "7003": SimpleNamespace(solver=SimpleNamespace(timeout_s=None)),
-    }
-    context = SimpleNamespace(
-        staging=SimpleNamespace(root=tmp_path),
-        collector=SimpleNamespace(job_roots={job.label: "sims/batch/x"}, values={}),
-        cases=cases,
-        local=True,
-    )
-    batch_run._run_job(context, job, [], None)
-    batch_run._run_job(context, replace(job, walltime_s=600, walltime_written="10m"), [], None)
-    batch_run._run_job(SimpleNamespace(**{**vars(context), "local": False}), job, [], None)
+    class RecordingSubmit(SubmittingExecutor):
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            seen.append(timeout_s)
+            return super().run_script(script_path, working_dir, timeout_s=timeout_s)
+
+    def launch(name: str, *, walltime: bool, local: bool) -> None:
+        folder = tmp_path / name
+        folder.mkdir()
+        workspace, profile, _argv = _workspace(folder)
+        for setup in (workspace.inputs_dir / "setups").glob("*.toml"):
+            setup.write_text(
+                setup.read_text(encoding="utf-8") + "\ntimeout_s = 900.0\n", encoding="utf-8"
+            )
+        matrix = _matrix(folder)
+        _plan(workspace, matrix, mode="batch", batch=1)
+        if not walltime:
+            plan_file = workspace.plan_dir(MATRIX) / "plan.json"
+            payload = json.loads(plan_file.read_text(encoding="utf-8"))
+            for job in payload["grouping"]["batches"]:
+                job.update(walltime_s=None, walltime_written="", walltime_source="none")
+            plan_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        if local:
+            _run(workspace, matrix, executor=Recording("pass"), local=True)
+        else:
+            submitting = RecordingSubmit(
+                read_hpc_profile(profile), values={"fs_build": BUILD}, submit=True
+            )
+            _run(workspace, matrix, executor=submitting)
+
+    launch("no_walltime", walltime=False, local=True)
+    launch("walltime", walltime=True, local=True)
+    launch("submitted", walltime=False, local=False)
     assert seen == [2700.0, 600.0, None]
 
 

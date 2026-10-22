@@ -4267,11 +4267,27 @@ def test_f613_a_failed_execution_inventories_the_partial_outputs(tmp_path):
         ("Simcenter Flightstream 2612, build #10052026", "10052026"),
     ],
 )
-def test_the_build_line_matches_every_banner_the_builds_print(banner, build):
+def test_the_build_line_matches_every_banner_the_builds_print(banner, build, tmp_path):
     """X-F-0403 (L4, 26.120, 26.124, 26.125): 26.125 prints Simcenter Flightstream.
 
     The search is unanchored: no line matching ``build <digits>`` precedes the banner in any
     measured startup log, and anchoring it to ``FlightStream version`` would fail every 26.125 log.
     """
-    found = identity_module._BUILD_LINE.search(f"startup\nlicence ok\n{banner}\nready\n")
-    assert found is not None and found.group("build") == build
+
+    class Printing(LocalExecutor):
+        def __init__(self):
+            super().__init__(fs_exe=sys.executable, hidden=True, forced_local=True)
+            self.export_log = False
+
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            return run_module.ExecutionResult(
+                return_code=0,
+                wall_time_s=0.01,
+                timed_out=False,
+                log_text=None,
+                stdout=f"startup\nlicence ok\n{banner}\nready\n",
+                stderr="",
+            )
+
+    with pytest.raises(ExecutorConfigurationError, match=build):
+        run_module.check_solver_identity(Printing(), version_resolve("26.121"), tmp_path)
