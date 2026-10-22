@@ -338,6 +338,8 @@ FlightStream versions.
 - A CCS wing's sidecar declares morphing surfaces in `[[import.ccs.morphing_surfaces]]`, and
   a matrix row deflects one with `MORPHING` and `MORPHING_ANGLE`
   (`NEW_CCS_WING_MORPHING_SURFACE`), without regenerating the CCS file.
+- A point alias whose index is a digit-like Unicode character (a superscript two, for
+  example) is not an alias and no longer stops the command with a conversion error.
 
 ## [0.42.0] - 2026-10-16
 

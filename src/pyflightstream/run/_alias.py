@@ -75,9 +75,9 @@ def read_alias(text: str, sims: Collection[str]) -> tuple[str, int] | None:
     Returns
     -------
     tuple of (str, int) or None
-        None when ``text`` is not shaped ``<known sim>_<positive integer>``, and
-        None when ``text`` is itself a known simulation: a simulation id may hold an
-        underscore (``2006_1`` beside ``2006``), and a known id always wins.
+        None when ``text`` is not shaped ``<known sim>_<positive integer>`` (ASCII
+        digits only), and None when ``text`` is itself a known simulation: a simulation
+        id may hold an underscore (``2006_1`` beside ``2006``), and a known id always wins.
     """
     if text.strip() in sims:
         return None

@@ -429,6 +429,20 @@ class TestRun1Alias:
         assert split_typed_ids(["2006_1"], tmp_path, whole_only=True) == (["2006_1"], {})
 
     @staticmethod
+    def test_p0430_a_digit_like_unicode_suffix_is_not_an_alias():
+        # Verifies FR-395.
+        """F-1561: a suffix that ``str.isdigit`` accepts and ``int`` cannot read is no alias.
+
+        A superscript two passed the digit check and then raised ValueError in ``int``,
+        against the documented None return for a text that is not an alias.
+        """
+        from pyflightstream.run._alias import read_alias
+
+        assert read_alias("2006_²", {"2006"}) is None
+        assert read_alias("2006_١", {"2006"}) is None
+        assert read_alias("2006_2", {"2006"}) == ("2006", 2)
+
+    @staticmethod
     def test_p0400_the_failure_alias_is_the_one_every_reader_resolves(tmp_path):
         """P0400-ALIAS-ONE-READING (PFS-2094.004, PFS-2089.008): records out of sweep order.
 
