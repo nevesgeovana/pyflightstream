@@ -1188,6 +1188,21 @@ def test_rewrite_codes_changes_only_the_named_cells(tmp_path):
         )
 
 
+def test_rewrite_codes_edits_only_the_named_column_and_counts_real_changes(tmp_path):
+    """The upgrade edits only its named stage, and an id mapped to itself is no change (F-1334)."""
+    from pyflightstream.cases.matrix import rewrite_codes
+
+    target = tmp_path / "stage_only.fs"
+    target.write_bytes(FIXTURE.read_bytes())
+    before = target.read_bytes()
+    same, same_counts = rewrite_codes(target, {"REF": {"r003": "r003"}})
+    assert same == before and same_counts == {"REF": 0}, same_counts
+    only_set, counts = rewrite_codes(target, {"SET": {"s003": "t003"}, "REF": {"r003": "r003"}})
+    assert counts["REF"] == 0 and counts["SET"] > 0, counts
+    assert only_set.count(b"r003") == before.count(b"r003")
+    assert b"t003" in only_set
+
+
 def test_rewrite_codes_touches_the_inactive_rows_too(tmp_path):
     """A RUN = 0 row is a row somebody switches on tomorrow."""
     from pyflightstream.cases.matrix import rewrite_codes

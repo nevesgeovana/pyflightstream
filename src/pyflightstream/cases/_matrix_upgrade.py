@@ -85,7 +85,9 @@ def _retag_cell(cell: bytes, mapping: Mapping[str, str]) -> tuple[bytes, str | N
     """
     old = cell.strip().decode("utf-8", "replace")
     new = mapping.get(old)
-    if new is None:
+    if new is None or new == old:
+        # An id mapped to itself rebuilds the same cell: it is not a change,
+        # and the per-column count of changed cells must not include it.
         return cell, None
     leading = cell[: len(cell) - len(cell.lstrip(b" "))]
     trailing = cell[len(cell.rstrip(b" ")) :]
