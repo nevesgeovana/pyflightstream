@@ -27,6 +27,7 @@ product of a rotor) joins this module beside the products it resembles.
 
 from __future__ import annotations
 
+import math
 import os
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
@@ -613,6 +614,7 @@ def _unsteady_harmonics(
             isinstance(per_revolution, bool)
             or not isinstance(per_revolution, int | float)
             or not per_revolution >= 0.5
+            or not math.isfinite(per_revolution)
         ):
             reason = f"rotor {alias!r} states no steps per revolution in the point's record"
         else:

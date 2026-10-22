@@ -373,6 +373,11 @@ def last_complete_revolution(
     tuple of (int, int) or None
         The first and last step of that revolution, or None where no revolution is complete.
 
+    Raises
+    ------
+    ProductError
+        If ``steps_per_revolution`` is not a finite number.
+
     Examples
     --------
     >>> last_complete_revolution(3, 13, 4.0)
@@ -380,6 +385,10 @@ def last_complete_revolution(
     >>> last_complete_revolution(3, 5, 4.0) is None
     True
     """
+    if not math.isfinite(float(steps_per_revolution)):
+        raise ProductError(
+            f"steps per revolution must be a finite number, got {steps_per_revolution!r}"
+        )
     steps = int(round(float(steps_per_revolution)))
     if steps < 1 or last_step < first_step:
         return None

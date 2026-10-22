@@ -77,6 +77,9 @@ FlightStream versions.
   removing it. Applied-twist convergence, revolution history validation and the provenance of
   the actual external call are checked, and a failed UTF-8 call is archived.
 - The withheld executable identity names the build the binary printed.
+- A rotor whose recorded steps per revolution is infinite is a named skip of the harmonics
+  product instead of aborting the point, and `last_complete_revolution` refuses a clock that is
+  not finite with `ProductError`.
 - Thin blade: unused vertices of the implicit group are ignored, an offset that leaves no
   section is refused, the chord ends are the exact farthest pair and OBJ vertices keep full
   precision. `torsion_constant` accepts numpy integers.
