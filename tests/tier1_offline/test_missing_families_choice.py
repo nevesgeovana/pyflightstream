@@ -595,3 +595,12 @@ def test_p0420_setup_entity_lists_have_an_explicit_empty_verdict(tmp_path, key):
         with pytest.raises(InputArtifactError, match="chosen-setup.toml") as caught:
             refuse_empty_selections("setup", path, {key: []})
         assert key in str(caught.value)
+
+
+def test_p0430_a_surface_named_all_that_wins_over_the_selector_warns():
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.cases.selection import select_families
+
+    with pytest.warns(PyflightstreamWarning, match="NOT every surface"):
+        chosen = select_families("all", ["all", "Wing"], lambda name: False)
+    assert chosen == [["all"]]

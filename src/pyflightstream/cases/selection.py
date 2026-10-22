@@ -90,6 +90,17 @@ def _family_names(token: str, inventory: Sequence[str], *, strict: bool) -> list
     return _literal_names(token, inventory)
 
 
+def _warn_all_is_shadowed(names: Sequence[str]) -> None:
+    """Warn that a surface or family named ``all`` won over the every-surface selector."""
+    warn(
+        f'the families entry "{EVERY_FAMILY}" selected {list(names)}, a surface, family or '
+        "alias of that name, and NOT every surface of the geometry. Rename that surface, or "
+        f'name the members, if "{EVERY_FAMILY}" meant all of them.',
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+
+
 def select_families(
     selection: str | Sequence[str],
     inventory: Sequence[str],
@@ -98,7 +109,10 @@ def select_families(
     *,
     strict: bool = True,
 ) -> list[list[str]]:
-    """Expand one families entry over the geometry's inventory, in inventory order.
+    """Expand one families entry over the geometry's inventory.
+
+    The selectors and ``each`` give inventory order; a literal list or an alias keeps the order
+    in which its members were written.
 
     Returns a list of family lists, one per emitted entry: a single list
     for a selector or a literal list, one list per family for ``each``
@@ -148,6 +162,8 @@ def select_families(
         # selected the alias in a plot and the boundary in a [groups] entry.
         aliased = _resolve_token(selection, inventory, aliases, strict=strict, alone=True)
         if aliased is not None:
+            if aliased and selection == EVERY_FAMILY:
+                _warn_all_is_shadowed(aliased)
             return [aliased] if aliased else []
         if selection == "all":
             return [[]]
@@ -172,6 +188,8 @@ def select_families(
         resolved = _resolve_token(str(item), inventory, aliases, strict=strict, alone=alone)
         if resolved is not None:
             names = resolved
+            if names and item == EVERY_FAMILY:
+                _warn_all_is_shadowed(names)
         elif item in _SELECTORS_THAT_GUESS:
             warn_a_selector_that_guesses(item)
         elif item == EVERY_FAMILY:
@@ -238,7 +256,8 @@ def _check_aliases(value: dict[str, list[str]]) -> dict[str, list[str]]:
     return value
 
 
-#: The boundary aliases a setup preset defines,
+#: The boundary aliases the reference artifact defines (FR-59; a setup preset that
+#: declares aliases is refused, FR-1316),
 #: a name to the boundary names or families it stands for. The type carries
 #: the shape, so the setup artifact, the case and the run record hold one
 #: rule between them rather than one validator at the artifact's door.
