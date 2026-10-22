@@ -115,7 +115,8 @@ FlightStream versions.
   print alike.
 - A grouped job run with `--local` and no `WALLTIME` is limited by the solver `timeout_s` of
   its cases (the largest of them for each of its points) instead of running with no limit,
-  and the grouped plan states the limit of every job without a walltime.
+  and the grouped plan states the limit of every local job without a walltime. With no
+  `timeout_s` either, it takes the profile's `max_walltime`, or is refused before it starts.
 - `WorkflowConventions(animation_folder=...)` stays accepted and warns that it has no
   effect: no workflow writes animation frames into it.
 - The probe positions file a run writes (`sims/<sim>/profiles/<sim>_probe_points.csv`) starts

@@ -304,8 +304,10 @@ other rows' cell budgets. An unknown `BEST` point uses the profile's
 A job that runs on this machine is never unbounded. When none of its rows states a
 `WALLTIME` and none of its setups states `timeout_s`, the job takes the profile's
 `max_walltime` with a warning, and the plan refuses it, naming `WALLTIME` and
-`timeout_s`, when the profile has none. A `timeout_s` of the setup limits each
-local job process when the rows state no `WALLTIME`.
+`timeout_s`, when the profile has none. When the rows state no `WALLTIME`, the
+largest `timeout_s` of its setups times its point count limits the local job, and the
+plan states that limit. A job planned for the scheduler and run with `run --local`
+follows the same rule, and is refused before it starts when nothing limits it.
 
 ## The window, said once
 

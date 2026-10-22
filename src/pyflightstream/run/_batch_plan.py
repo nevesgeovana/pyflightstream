@@ -242,13 +242,28 @@ def _sims_text(sims: Sequence[str]) -> str:
     return ",".join(sims)
 
 
-def local_time_limit(job: GroupedJob, cases: Mapping[str, SimCase]) -> tuple[float | None, str]:
+#: X-F-0558: the refusal of a local grouped job that states no limit anywhere.
+LOCAL_LIMIT_REFUSAL = (
+    "a local grouped job needs a limit: state WALLTIME in its rows or timeout_s in "
+    "the setup, or give the HPC profile a max_walltime; it would otherwise run "
+    "unbounded"
+)
+
+
+def local_time_limit(
+    job: GroupedJob, cases: Mapping[str, SimCase], *, max_walltime_s: float | None = None
+) -> tuple[float | None, str]:
     """Return the time limit of a job run on this machine, and the sentence that states it.
 
-    The job's WALLTIME when it has one. Otherwise the solver ``timeout_s`` of its
-    cases stands for each point, so the job is limited to the largest of them times
-    its point count, which is never shorter than the points run one by one. A job
-    whose cases state no solver timeout either has no limit, and the sentence says so.
+    The one rule of a local grouped job (X-F-0558), which the plan and the executor
+    both read. The job's WALLTIME when it has one, or the HPC profile's
+    ``max_walltime`` the plan gave a job that states neither a WALLTIME nor a
+    ``timeout_s``. Otherwise the solver ``timeout_s`` of its cases stands for each
+    point, so the job is limited to the largest of them times its point count, which
+    is never shorter than the points run one by one. A job planned for a scheduler and
+    run with ``--local`` takes ``max_walltime_s`` when it states neither. A job with none
+    of these is refused (:data:`LOCAL_LIMIT_REFUSAL`): None is returned with that
+    refusal as its sentence.
 
     Parameters
     ----------
@@ -256,21 +271,34 @@ def local_time_limit(job: GroupedJob, cases: Mapping[str, SimCase]) -> tuple[flo
         The job of the grouping receipt.
     cases : mapping of str to SimCase
         The cases by simulation id; a simulation not in it states no timeout.
+    max_walltime_s : float or None
+        The HPC profile's ``max_walltime`` in seconds; None where it states none.
 
     Returns
     -------
     tuple of (float or None, str)
-        The limit in seconds (None for no limit) and the sentence for the plan.
+        The limit in seconds (None for a job the plan refuses) and the sentence for
+        the plan.
     """
     if job.walltime_s:
-        return float(job.walltime_s), f"{job.walltime_written} (its WALLTIME)"
+        whose = (
+            "the HPC profile's max_walltime"
+            if job.walltime_source == "max_walltime"
+            else "its WALLTIME"
+        )
+        return float(job.walltime_s), f"{job.walltime_written} ({whose})"
     limits = [
         cases[sim].solver.timeout_s
         for sim in job.sims
         if sim in cases and cases[sim].solver.timeout_s is not None
     ]
     if not limits:
-        return None, "no limit: no WALLTIME and no case of it states a solver timeout_s"
+        if max_walltime_s:
+            return float(max_walltime_s), (
+                f"{walltime_text(int(max_walltime_s))} (the HPC profile's max_walltime): "
+                "no WALLTIME and no case of it states a solver timeout_s"
+            )
+        return None, LOCAL_LIMIT_REFUSAL
     each = max(float(limit) for limit in limits if limit is not None)
     seconds = each * len(job.points)
     return seconds, (
@@ -425,11 +453,7 @@ def _job_of(
                 f"so the local job takes the profile's walltime of {walltime_text(walltime)}.",
             ]
         else:
-            refusal = (
-                "a local grouped job needs a limit: state WALLTIME in its rows or timeout_s in "
-                "the setup, or give the HPC profile a max_walltime; it would otherwise run "
-                "unbounded"
-            )
+            refusal = LOCAL_LIMIT_REFUSAL
     if mode == "batch" and batch_id is not None:
         label = batch_label(matrix_stem, batch_id)
         script_name = batch_script_name(sims[0], sims[-1])
@@ -679,6 +703,7 @@ def plan_grouped_matrix(
     *,
     mode: Literal["batch", "polar_sweep"],
     batch: int | None,
+    local: bool = False,
     **keywords: Any,
 ) -> CampaignPlan:
     """Plan a matrix and group its polars into jobs (FR-362 to FR-365, FR-378, FR-403).
@@ -700,6 +725,9 @@ def plan_grouped_matrix(
         Group into ``batch`` jobs, or one job per polar.
     batch : int or None
         The number of jobs of ``--batch N``; None for a polar sweep.
+    local : bool
+        Plan the jobs to run on this machine, as ``run --local`` runs them; without it a
+        workspace with an HPC profile plans for its scheduler on Linux (FR-99).
     **keywords
         The keywords of :func:`pyflightstream.run.matrix.plan_matrix`.
 
@@ -729,7 +757,7 @@ def plan_grouped_matrix(
         plan, resolved, workspace, keywords.get("recipe_registry")
     )
     profile = resolve_hpc_profile(workspace.inputs_dir)
-    local = bool(keywords.get("local")) or not (on_a_cluster() and profile is not None)
+    local = local or not (on_a_cluster() and profile is not None)
     splits, warnings = (
         split_polars(units, int(batch or 1))
         if mode == "batch"
@@ -739,6 +767,7 @@ def plan_grouped_matrix(
     first_id = next_batch_id(workspace.root, stem)
     costs = {cost.run_id: cost for cost in plan.costs}
     jobs: list[GroupedJob] = []
+    refused: set[str] = set()
     for index, split in enumerate(splits):
         batch_id = first_id + index if mode == "batch" else None
         job, notes, refusal = _job_of(
@@ -753,11 +782,13 @@ def plan_grouped_matrix(
         jobs.append(job)
         warnings.extend(notes)
         if refusal is not None:
+            refused.add(job.label)
             warnings.append(f"{job.label}: {refusal}")
             _block(plan, job.points, refusal)
     cases = {case.sim_id: case for case in resolved.campaign.sims}
     for job in jobs:
-        if not job.walltime_s:
+        # A refused job's line is its refusal; a submitted job is limited by its scheduler.
+        if local and not job.walltime_s and job.label not in refused:
             _limit, said = local_time_limit(job, cases)
             warnings.append(f"{job.label}: run on this machine (--local), its time limit is {said}")
     warnings.extend(reopened)
