@@ -439,7 +439,8 @@ def _script_init(
         # it fired here on a builder that has none by design, so a row the wall
         # clock stopped could not be continued once its artifact declared
         # sections. That the reopened state still exports its sections is the
-        # premise, and it is a solver behaviour a licensed run confirms.
+        # premise, and no committed report measures it: it is a solver behaviour
+        # a licensed run must confirm.
         pass
     elif case.pproc is not None and case.pproc.sections.distributions:
         raise CampaignConfigError(
