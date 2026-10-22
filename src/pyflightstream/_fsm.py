@@ -414,14 +414,20 @@ _ACTION_TAIL = re.compile(r"^\s*(\d+)\s*,\s*([01])\s*,\s*[TF]\s*$")
 SavedAction = tuple[str, str, str]
 
 
-def _saved_actions_in(lines: Sequence[str], where: str) -> tuple[int, tuple[SavedAction, ...]]:
+def _saved_actions_in(
+    lines: Sequence[str], where: str, encoding: str = "utf-8"
+) -> tuple[int, tuple[SavedAction, ...]]:
     """Return the index of the action count in a SOLVER block and the actions after it.
 
     THE SOLVER BLOCK ENDS WITH THE UNSTEADY SOLVER ACTIONS THE SIMULATION
     WAS SAVED WITH, walked backwards from its last line: a count, then
     per action three lines, its name, its command or script file padded
     with spaces, and :data:`_ACTION_TAIL`, whose first number is the
-    length of the command without its padding. In the measured corpus,
+    length of the command without its padding, counted in BYTES: a
+    command with a non-ASCII character is longer than its text (16
+    characters saved with the length 17 on 26.124, L4 F-008). ``encoding``
+    is the one the lines were decoded with, so the bytes are counted back
+    from it. In the measured corpus,
     the ten tier-3 geometries end the block with the count ``0``, and a
     26.1 save that carried a walltime clock and a stop script ends it
     with ``2`` and two such records. A count that disagrees with the
@@ -432,7 +438,7 @@ def _saved_actions_in(lines: Sequence[str], where: str) -> tuple[int, tuple[Save
     while index >= 2:
         tail = _ACTION_TAIL.match(lines[index])
         command = lines[index - 1].rstrip()
-        if tail is None or int(tail.group(1)) != len(command):
+        if tail is None or int(tail.group(1)) != len(command.encode(encoding, "replace")):
             break
         kind = "COMMAND_LINE" if tail.group(2) == "1" else "SCRIPT"
         entries.append((lines[index - 2].strip(), command, kind))
@@ -478,7 +484,7 @@ def without_saved_solver_actions(text: str, where: str) -> tuple[str, tuple[Save
         end = next(i for i in range(start, len(lines)) if lines[i].strip() == "$SOLVER_END$")
     except StopIteration:
         raise MeshReadError(f"{where}: carries no closed SOLVER block") from None
-    offset, actions = _saved_actions_in(lines[start + 1 : end], where)
+    offset, actions = _saved_actions_in(lines[start + 1 : end], where, "latin-1")
     if not actions:
         return text, actions
     count_line = start + 1 + offset

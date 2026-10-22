@@ -37,7 +37,7 @@ def _saved_simulation(path, actions, *, count=None, names=("Spinner", "Nacelle")
     body += ["$MESH_END$", "$SOLVER_START$", " F", "0", "0", "1,1, F"]
     body.append(str(len(actions) if count is None else count))
     for name, command, kind in actions:
-        body += [name.ljust(70), command.ljust(70), f"{len(command)},{kind}, F"]
+        body += [name.ljust(70), command.ljust(70), f"{len(command.encode('utf-8'))},{kind}, F"]
     body += ["$SOLVER_END$", "$POST_START$", "0", "$POST_END$"]
     path.write_text("\r\n".join(body) + "\r\n", encoding="utf-8", newline="")
     return path
@@ -50,6 +50,19 @@ def test_reader_names_each_saved_action_fr_308(tmp_path):
         ("pfs_walltime_clock", CLOCK, "COMMAND_LINE"),
         ("pfs_walltime_stop", STOP, "SCRIPT"),
     )
+
+
+def test_reader_counts_the_saved_length_in_bytes_fr_308(tmp_path):
+    # Verifies FR-308. L4 F-008 (26.124): a 16 character command with one
+    # non-ASCII character was saved with the length 17, the UTF-8 byte count.
+    command = "echo pyfs_é_mark"
+    assert len(command) == 16
+    geometry = _saved_simulation(tmp_path / "e.fsm", [("clock", command, 1)])
+    assert saved_solver_actions(geometry) == (("clock", command, "COMMAND_LINE"),)
+    text = geometry.read_bytes().decode("latin-1")
+    cleaned, actions = without_saved_solver_actions(text, "e.fsm")
+    assert [action[0] for action in actions] == ["clock"]
+    assert "clock" not in cleaned
 
 
 def test_reader_reads_no_action_and_no_block_fr_308(tmp_path):

@@ -86,6 +86,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Reading and cleaning the unsteady solver actions saved in a geometry counts a command's
+  length in bytes, as the solver saves it, so a saved action whose command holds a non-ASCII
+  character is read instead of refusing the geometry.
 - A probe drawn after an imported survey is numbered after the survey's points, as the solver
   numbers them (imported and drawn probes share one id space), and the survey's points are
   recorded under their ids.
