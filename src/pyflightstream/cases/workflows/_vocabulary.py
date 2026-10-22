@@ -56,8 +56,8 @@ WORKFLOW_KEY = "matrix_workflow"
 #: no registered workflow.
 _LEGACY = "LEGACY"
 
-#: The geometry's library id: the stem of a file staged under
-#: inputs/geometries, never a path or filename. Defined beside the cell
+#: The geometry's name: a file name with its extension, staged under
+#: inputs/geometries, never a path. Defined beside the cell
 #: keys so refusals can name the input. Re-exported from workspace.matrix,
 #: the published import path and home of its resolver.
 GEOMETRY_VARIABLE = "GEOMETRY"
@@ -999,7 +999,7 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         GEOMETRY_VARIABLE: InputKey(
             "The geometry the row opens, a file of inputs/geometries/; written in the "
             "GEOMETRY column.",
-            "a library id: the file's stem, with no extension",
+            "a file name with its extension",
             "OPEN, IMPORT",
         ),
         SYMMETRY_VARIABLE: InputKey(

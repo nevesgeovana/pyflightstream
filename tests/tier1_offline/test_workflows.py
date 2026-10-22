@@ -8001,10 +8001,14 @@ class TestVocabularyStatesTheCode:
     """F-1327, F-1328: the vocabulary's prose agrees with what the code does."""
 
     @staticmethod
-    def test_f1327_geometry_is_documented_as_a_stem_everywhere():
+    def test_f1327_geometry_is_documented_as_a_file_name_with_its_extension_everywhere():
+        from pyflightstream.cases import _matrix_layouts
+
         meaning = workflows_module.ROW_KEY_MEANINGS[workflows_module.GEOMETRY_VARIABLE]
-        assert "stem" in meaning.values, meaning
-        assert "extension" not in meaning.values.replace("no extension", ""), meaning
+        assert "a file name with its extension" in meaning.values, meaning
+        assert "stem" not in meaning.values and "no extension" not in meaning.values, meaning
+        layout = _matrix_layouts.COLUMN_MEANINGS["GEOMETRY"]
+        assert "a file name with its extension" in layout.values, layout
 
     @staticmethod
     def test_f1328_cold_is_the_one_documented_default_of_cold_start():
