@@ -61,6 +61,10 @@ FlightStream versions.
   naming the clocking and the reason when a clocking cannot be read, instead of returning the
   reason as a string in place of the result. Migration: catch `ProductError` where the code
   tested the result with `isinstance(result, str)`.
+- The per-point quasi-steady validity file is written only for a point whose loads export is
+  on disk, and a file already there is replaced only by a post called with `overwrite=True`
+  (which `pyfs-matrix post` passes, archiving the old file with `--archive`); otherwise it is
+  left in place and the point is named under `skipped`.
 
 ### Fixed
 

@@ -314,6 +314,8 @@ def write_point_validity_file(
     record: QsteadyRecord,
     validity: PointValidity,
     state: RotorState | None = None,
+    *,
+    prepare: Callable[[Path], Path] | None = None,
 ) -> Path:
     """Write a wheel point's validity after the run, beside its loads export.
 
@@ -339,6 +341,10 @@ def write_point_validity_file(
         The point's validity.
     state : RotorState, optional
         The point's rotor state; its values are null where not given.
+    prepare : callable, optional
+        Takes the destination and returns the path to write, refusing or
+        archiving a file already there (the post's replacement policy); the
+        destination is written as it stands when omitted.
 
     Returns
     -------
@@ -346,6 +352,8 @@ def write_point_validity_file(
         The file written.
     """
     path = loads_path.with_name(Path(validity_file_name(loads_path.name)).name)
+    if prepare is not None:
+        path = prepare(path)
     payload = {
         "schema_version": 1,
         "run_type": record.run_type,

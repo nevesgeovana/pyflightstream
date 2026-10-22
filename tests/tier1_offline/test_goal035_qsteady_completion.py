@@ -736,18 +736,15 @@ def test_the_point_validity_file_carries_the_shares_of_thrust_and_torque(tmp_pat
     assert written["run_record"] == "DP_qsteady.json"
 
 
-def test_the_post_stage_leaves_each_wheel_point_its_validity_and_the_super_file_carries_it(
-    tmp_path,
-):
-    """A recorded two-point wheel whose record carries the plan's k: after the post,
+def _wheel_campaign(tmp_path):
+    """The two-polar campaign of the super-file tests, its simulation 6001 a recorded wheel.
 
-    each point's datapoint folder holds ``<point>_qsteady_validity.json`` with
-    those values (shares null: no sectional export), the clockings tables' entry
-    names it, and the point's super-file row carries the validity columns.
+    Each point of 6001 carries the plan's k in its quasi-steady record; 6002 is
+    the unsteady rotor and writes no validity file. Returns the workspace and
+    the loads exports of 6001.
     """
-    # P0300-QS-VALIDITY-FILE
     from pyflightstream.workspace import RunRecord
-    from tests.tier1_offline.test_post_superfile import _post, _workspace
+    from tests.tier1_offline.test_post_superfile import _workspace
 
     workspace = _workspace(tmp_path)
     records = workspace.read_manifest()
@@ -787,6 +784,22 @@ def test_the_post_stage_leaves_each_wheel_point_its_validity_and_the_super_file_
             loads.with_name(loads.stem + "_qsteady.json").write_text(json.dumps(quasi))
             record = record.model_copy(update={"recipe": QSTEADY_ROTOR})
         workspace.append_record(RunRecord(**record.model_dump()))
+    return workspace, loads_of
+
+
+def test_the_post_stage_leaves_each_wheel_point_its_validity_and_the_super_file_carries_it(
+    tmp_path,
+):
+    """A recorded two-point wheel whose record carries the plan's k: after the post,
+
+    each point's datapoint folder holds ``<point>_qsteady_validity.json`` with
+    those values (shares null: no sectional export), the clockings tables' entry
+    names it, and the point's super-file row carries the validity columns.
+    """
+    # P0300-QS-VALIDITY-FILE
+    from tests.tier1_offline.test_post_superfile import _post
+
+    workspace, loads_of = _wheel_campaign(tmp_path)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         _post(workspace)
@@ -811,6 +824,42 @@ def test_the_post_stage_leaves_each_wheel_point_its_validity_and_the_super_file_
     cells = [row.split(",") for row in rows]
     assert all(line[heading.index("K_1P_MAX")] == "0.21000" for line in cells)
     assert all(line[heading.index("THRUST_PCT_K_GT_0_1")] == "NA" for line in cells)
+
+
+@pytest.mark.requirement("FR-2321")
+@pytest.mark.requirement("FR-2322")
+def test_p0430_validity_files_follow_the_selection_and_replace_only_on_request(tmp_path):
+    """Validity files: only for selected, written points; an occupied one only on overwrite."""
+    from pyflightstream.post.products import write_campaign_products
+
+    workspace, loads_of = _wheel_campaign(tmp_path)
+    first, second = (loads.with_name(loads.stem + "_qsteady_validity.json") for loads in loads_of)
+    products = workspace.products_dir("matriz") / "products.json"
+
+    def post(**options):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            write_campaign_products(workspace, matrix_stem="matriz", **options)
+        return json.loads(products.read_text(encoding="utf-8"))
+
+    # A post of the other simulation alone writes no validity file for 6001.
+    post(sims=["6002"])
+    assert not first.exists() and not second.exists()
+    # A point whose loads export is not on disk gets none; an occupied destination
+    # is left as it stands and named, without the request to replace it.
+    loads_of[1].unlink()
+    first.write_text('{"stale": true}\n', encoding="utf-8")
+    (workspace.products_dir("matriz") / "post.log").unlink()
+    (workspace.products_dir("matriz") / "post.log.json").unlink(missing_ok=True)
+    record = post(sims=["6001"])
+    assert json.loads(first.read_text(encoding="utf-8")) == {"stale": True}
+    assert not second.exists()
+    said = " ".join(str(reason) for reason in record["skipped"].values())
+    assert first.name in said and "not replaced" in said
+    # Asked to replace, the post writes it.
+    post(sims=["6001"], overwrite=True)
+    assert json.loads(first.read_text(encoding="utf-8"))["validity"]["K_1P_MAX"] == 0.21
+    assert not second.exists()
 
 
 def test_the_sections_validity_wins_the_plan_in_the_super_file_row(tmp_path):

@@ -733,19 +733,43 @@ def _write_wheel_validity(
     out: Path,
     skipped: dict[str, str],
     validity_files: dict[str, dict[str, str]],
+    target: Callable[[Path], Path],
+    replace: bool,
 ) -> None:
     """Write a wheel point's validity after the run, in its datapoint folder beside its record.
 
     The shares of thrust and torque from the stations above k = 0.1 are included,
     and so is its rotor state. A file that cannot be written is a skip, never a
-    traceback.
+    traceback. It is written only for a point whose loads export is on disk, and
+    a file already there is replaced only where the post was asked to replace
+    what it finds (``overwrite``), by the post's own archive rule (``target``);
+    otherwise it is left as it is and the point is named as a skip (FR-2321,
+    FR-2322).
     """
-    try:
-        written_file = _qsteady.write_point_validity_file(point.loads_path, quasi, validity, state)
-    except OSError as error:
-        skipped[f"runs/{record.run_id}#qsteady_validity"] = (
-            f"the per-point validity file of {point.name} could not be written: {error}"
+    key = f"runs/{record.run_id}#qsteady_validity"
+    if not point.loads_path.is_file():
+        skipped[key] = (
+            f"the per-point validity file of {point.name} is not written: its loads export "
+            f"{point.loads_path.name} is not on disk"
         )
+        return
+
+    def prepare(path: Path) -> Path:
+        if path.exists() and not replace:
+            raise ProductExistsError(
+                f"{path} already exists and the post was not asked to replace it; "
+                "pass overwrite=True to rebuild"
+            )
+        return target(path)
+
+    try:
+        written_file = _qsteady.write_point_validity_file(
+            point.loads_path, quasi, validity, state, prepare=prepare
+        )
+    except ProductExistsError as error:
+        skipped[key] = f"the per-point validity file of {point.name} is not replaced: {error}"
+    except OSError as error:
+        skipped[key] = f"the per-point validity file of {point.name} could not be written: {error}"
     else:
         validity_files.setdefault(quasi.rotor_alias, {})[point.name] = Path(
             os.path.relpath(written_file, out)
@@ -785,6 +809,7 @@ def _qsteady_products(
     condition_of: Callable[[PolarPoint], Mapping[str, object]],
     target: Callable[[Path], Path],
     skipped: dict[str, str],
+    replace: bool,
 ) -> list[tuple[Path, dict[str, object]]]:
     """Write a quasi-steady simulation's clockings table and average table.
 
@@ -848,6 +873,8 @@ def _qsteady_products(
                 out=out,
                 skipped=skipped,
                 validity_files=validity_files,
+                target=target,
+                replace=replace,
             )
         if density is None:
             left_out.setdefault(alias, []).append(f"{point.name}: the point states no density")

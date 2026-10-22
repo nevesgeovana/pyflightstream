@@ -240,6 +240,9 @@ class SimContext:
     #: FR-460: each point's streamline exports, by kind.
     streamlines: dict[str, dict[str, Path]] = field(default_factory=dict)
     structure_tips: dict[str, list[tuple[float, float]]] = field(default_factory=dict)
+    #: The post was asked to replace what it finds (``overwrite``): a product written
+    #: outside the products folder, the per-point validity file, is replaced only then.
+    overwrite: bool = False
 
     def target(self, path: Path) -> Path:
         """Archive what stands at ``path`` (or refuse it) and return the path to write."""
@@ -332,6 +335,7 @@ def _sim_products(
         first=first,
         pproc=(pproc_id, pproc),
         archive=(archive, archive_stamp),
+        overwrite=overwrite,
         matrix_row=matrix_row,
         sweep_rows=sweep_rows,
         drafts=drafts,
@@ -374,6 +378,7 @@ def _resolve(
     first: RunRecord,
     pproc: tuple[str | None, PprocSpec],
     archive: tuple[bool, datetime | None],
+    overwrite: bool = False,
     matrix_row: MatrixRow | None,
     sweep_rows: Mapping[str, Mapping[str, object]] | None,
     drafts: list[SuperfileDraft] | None,
@@ -435,6 +440,7 @@ def _resolve(
         out=out,
         archive=archive[0],
         archive_stamp=archive[1],
+        overwrite=overwrite,
         matrix_row=matrix_row,
         sweep_rows=sweep_rows,
         drafts=drafts,
@@ -1261,6 +1267,7 @@ def _qsteady_rotor_products(ctx: SimContext) -> None:
         condition_of=lambda point: ctx.condition(point, mach=_mach_of(point, ctx.mach)),
         target=ctx.target,
         skipped=ctx.skipped,
+        replace=ctx.overwrite,
     ):
         ctx.add(target_path, entry)
     # P0310-CAL: THE QUASI-STEADY WHEEL'S CORRECTION ROUTE AND ITS

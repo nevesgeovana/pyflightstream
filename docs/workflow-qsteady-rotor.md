@@ -140,6 +140,11 @@ torque from the stations above 0.1, and writes the point's values into
 hashed input of the run and is not rewritten); the sections, the clockings
 and average tables and the point's super-file row carry the same values
 ([the definitions](post-processing-definitions.md#the-quasi-steady-rotor)).
+The file is written only for the simulations the post covers and only for a
+point whose loads export is on disk. A validity file already there is replaced
+only by a post asked to replace what it finds (`overwrite=True`, which
+`pyfs-matrix post` passes; `--archive` keeps the old file); otherwise it is
+left as it stands and the post names the point under `skipped`.
 The record has one reader, `pyflightstream.cases.qsteady.read_qsteady_record`,
 which returns it as a `QsteadyRecord` and refuses a record that is missing,
 unreadable or of another schema with one error, `QsteadyRecordError`. The run
