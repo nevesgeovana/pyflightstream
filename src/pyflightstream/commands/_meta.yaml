@@ -24,8 +24,10 @@
 versions:
   # Register older builds in release order without dropping entries.
   # 25.000 and 25.100 support reproduction of published work; 26.000 maintains
-  # series continuity. RPT-023 measures one-dash -script on all seven tested
-  # builds; the two-dash form documented by FSM-26.120 fails on the 25 series.
+  # series continuity. RPT-023 (the script argument across seven builds,
+  # 2026-08-09) measures one-dash -script on 25.000, 25.100, 26.000, 26.100,
+  # 26.101, 26.120 and 26.121; the two-dash form documented by FSM-26.120 fails
+  # on the 25 series. Builds registered after it are not in that measurement.
   # An unrecognised argument can leave a licensed solver waiting without a
   # script; -hidden with redirected streams can produce severe(30) on CONOUT$
   # and a modal dialog. An empty log does not prove solver failure, and licence
