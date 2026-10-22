@@ -847,7 +847,7 @@ def test_x_f_0395_a_hostile_element_count_is_refused_before_it_sizes_anything(tm
 
     path = _native(tmp_path / "native.dat")
     path.write_text(path.read_text().replace("ELEMENTS=1", "ELEMENTS=900000000"), encoding="utf-8")
-    with pytest.raises(MalformedOutputError, match="elements"):
+    with pytest.raises(MalformedOutputError, match="(?i)elements"):
         read_native_tecplot_surface(path)
 
 

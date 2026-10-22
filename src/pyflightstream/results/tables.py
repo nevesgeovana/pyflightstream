@@ -482,7 +482,7 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = Fals
     # Created exclusively: a writer that appeared between the check above and
     # here must not be truncated by a call that promised not to replace a file.
     try:
-        with target.open("x", encoding="utf-8", newline="") as stream:
+        with _textio.open_text(target, "x") as stream:
             plain.to_csv(
                 stream, index=False, lineterminator=_textio.LINE_END, na_rep=NOT_APPLICABLE
             )

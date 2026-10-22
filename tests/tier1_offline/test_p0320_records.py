@@ -931,7 +931,9 @@ def test_f607_a_plan_that_lists_the_point_in_another_batch_is_not_attached(tmp_p
 
     run_id = "camp/sim_7/AL+000"
     job = SimpleNamespace(points=(run_id,), label="m_b1", dir="sims/batch/m_b1/", batch_id=1)
-    monkeypatch.setattr(grouped, "_receipt", lambda _base, _stem: SimpleNamespace(jobs=(job,)))
+    monkeypatch.setattr(
+        grouped, "_read_receipt", lambda _base, _stem: (SimpleNamespace(jobs=(job,)), None)
+    )
     monkeypatch.setattr(grouped, "_entry", lambda *_args, **_keywords: {"label": "m_b1"})
     home = tmp_path / "sims" / "sim_7"
 
