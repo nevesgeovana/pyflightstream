@@ -222,13 +222,14 @@ def test_f1311_a_second_deletion_keeps_the_first_inventory_for_the_model(tmp_pat
     assert the_model_inventory(script) == TWIN
 
 
-def test_p0430_an_empty_delete_list_is_not_every_name_skipped(monkeypatch):
-    from types import SimpleNamespace
+def test_p0430_an_empty_delete_list_is_not_every_name_skipped(tmp_path):
+    """An empty list removed nothing, so its key reached nothing; it is not read as skipped."""
+    from pyflightstream.cases import ReferenceData
+    from pyflightstream.cases.setup_surfaces import refuse_setup_keys_that_reached_nothing
 
-    from pyflightstream.cases import setup_surfaces
-
-    script = SimpleNamespace(entities=SimpleNamespace(labels=lambda kind: {"Body": 1}))
-    case = SimpleNamespace(solver=SimpleNamespace(delete_surfaces=[]))
-    monkeypatch.setattr(setup_surfaces, "study_vocabulary", lambda case: object())
-    monkeypatch.setattr(setup_surfaces, "names_a_row_can_cite", lambda case: set())
-    assert setup_surfaces._every_name_skipped(script, case) is False
+    reference = ReferenceData(area=1.0, length=1.0, study_surfaces=tuple(TWIN))
+    case = steady_case(geometry=_twin(tmp_path)).model_copy(update={"reference": reference})
+    script = Script("26.124")
+    script.declare_existing(boundaries={"Body": 1})
+    with pytest.raises(CampaignConfigError, match="opens no geometry"):
+        refuse_setup_keys_that_reached_nothing(script, _with(case, delete_surfaces=[]))

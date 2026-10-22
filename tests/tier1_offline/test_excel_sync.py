@@ -483,10 +483,12 @@ def test_x_f_0573_a_legal_matrix_name_with_a_non_ascii_letter_is_not_refused(
     tmp_path: Path,
 ) -> None:
     """The name check read ASCII only and blamed directories; it names the real cause now."""
-    from pyflightstream.workspace.excel_sync import _matrix_path
 
-    assert _matrix_path(tmp_path, "médio.fs", "write").name == "médio.fs"
+    def preview(name: str) -> SyncPreview:
+        return preview_sync(tmp_path, blank(), direction="write", matrices=[name])
+
+    assert "médio.fs" in preview("médio.fs").file_digests
     with pytest.raises(ExcelSyncError, match="'\\$'"):
-        _matrix_path(tmp_path, "a$b.fs", "write")
+        preview("a$b.fs")
     with pytest.raises(ExcelSyncError, match="without directories"):
-        _matrix_path(tmp_path, "../escape.fs", "write")
+        preview("../escape.fs")

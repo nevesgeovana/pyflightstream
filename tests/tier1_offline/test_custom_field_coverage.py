@@ -221,10 +221,19 @@ def test_f5_0102_f025_the_plane_extent_follows_the_emitted_translation(tmp_path)
 
 
 def test_p0430_a_near_unit_axis_is_normalised_before_it_rotates():
-    from pyflightstream.cases.field_coverage import _axis
-
-    axis = _axis([1.0 + 5e-10, 0.0, 0.0])
-    assert sum(v * v for v in axis) == pytest.approx(1.0, abs=1e-15)
+    motion = {
+        "length_unit": "METER",
+        "motion_index": 1,
+        "trajectory": {
+            "kind": "constant_rotation",
+            "center_native": [0, 0, 0],
+            "axis_reference": [1.0 + 5e-10, 0.0, 0.0],
+            "emitted_rpm": 800,
+        },
+    }
+    # An axis left at 1 + 5e-10 would widen the swept radius by 1e-9 of itself.
+    (y_min, y_max, z_min, z_max), _ = envelope([(0, 1, 0)], motions=[motion])
+    assert (y_min, y_max, z_min, z_max) == pytest.approx((-1, 1, -1, 1), abs=1e-12)
 
 
 def test_p0430_a_constant_rotation_without_a_motion_index_is_refused():

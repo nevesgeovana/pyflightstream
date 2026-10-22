@@ -1729,7 +1729,10 @@ def _gaps_rt_sixdof___verified(spec: SixDofSpec) -> CommandRegistry:
 
 
 def _gaps_rt_sixdof___script(
-    tmp_path: Path, resolved, registry: CommandRegistry | None = None
+    tmp_path: Path,
+    resolved,
+    registry: CommandRegistry | None = None,
+    length_unit: str | None = None,
 ) -> Script:
     from pyflightstream.cases.workflows import build_script
 
@@ -1747,6 +1750,9 @@ def _gaps_rt_sixdof___script(
         _GAPS_RT_SIXDOF__BUILD,
         registry if registry is not None else _gaps_rt_sixdof___verified(resolved.spec),
     )
+    if length_unit is not None:
+        solver = case.solver.model_copy(update={"simulation_length_unit": length_unit})
+        case = case.model_copy(update={"solver": solver})
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         build_script(case, script)
@@ -2366,14 +2372,9 @@ class TestSixdofRefusesNonMetreUnits:
     """FR-1087: a simulation in another length unit than the metre is refused at plan."""
 
     @staticmethod
-    def test_fr1087_a_millimetre_simulation_is_refused_and_a_metre_one_is_not():
-        from pyflightstream.cases.workflows._sixdof import _refuse_what_the_motion_cannot_place
-
-        case = _gaps_rt_sixdof___case_for("unsteady")
-        metres = Script(_GAPS_RT_SIXDOF__BUILD)
-        metres.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
-        _refuse_what_the_motion_cannot_place(case, metres)
-        millimetres = Script(_GAPS_RT_SIXDOF__BUILD)
-        millimetres.emit("SET_SIMULATION_LENGTH_UNITS", "MILLIMETER")
+    def test_fr1087_a_millimetre_simulation_is_refused_and_a_metre_one_is_not(tmp_path):
+        resolved = _gaps_rt_sixdof___resolved(tmp_path)
+        assert resolved is not None
+        _gaps_rt_sixdof___script(tmp_path, resolved, length_unit="METER")
         with pytest.raises(CampaignConfigError, match="metres"):
-            _refuse_what_the_motion_cannot_place(case, millimetres)
+            _gaps_rt_sixdof___script(tmp_path, resolved, length_unit="MILLIMETER")

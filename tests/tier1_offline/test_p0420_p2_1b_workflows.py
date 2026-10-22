@@ -287,8 +287,8 @@ def test_f5_0102_f030_a_stopped_rotor_on_an_explicit_clock_warns_instead_of_divi
 
 def test_f5_0102_f031_an_all_surface_distribution_counts_every_boundary():
     """F-031: duplicate-named boundaries are in the file's count, not in the label inventory."""
-    from pyflightstream.cases import PprocSpec
-    from pyflightstream.cases.workflows._pproc import _declared_sections
+    from pyflightstream.cases import PprocSpec, ReferenceData
+    from pyflightstream.cases.workflows import build_script
     from pyflightstream.script import Script
     from tests.tier1_offline.test_workflows import steady_case
 
@@ -300,12 +300,15 @@ def test_f5_0102_f031_an_all_surface_distribution_counts_every_boundary():
             }
         }
     )
-    case = steady_case().model_copy(update={"pproc": pproc})
+    reference = ReferenceData(area=1.0, length=1.0, moment_point_m=(0.0, 0.0, 0.0))
+    case = steady_case().model_copy(
+        update={"pproc": pproc, "pproc_id": "p001", "reference": reference}
+    )
     script = Script("26.124")
     # names A, D, D: the label inventory holds only A, the file holds three boundaries
-    script.declare_existing(boundaries={"A": 1}, frames=1)
+    script.declare_existing(boundaries={"A": 1})
     script.declare_existing(boundaries=2)
-    _declared_sections(case, script, {"MRP": 2})
+    build_script(case, script)
     lines = script.render().splitlines()
     at = lines.index("SURFACES 3")
     assert lines[at + 1] == "1 2 3"
@@ -314,13 +317,12 @@ def test_f5_0102_f031_an_all_surface_distribution_counts_every_boundary():
 def test_f5_0102_f752_a_hub_only_inventory_cuts_no_section_in_a_rotor_frame():
     """F-752: sections are emitted over blades only, so a hub family alone cuts none."""
     from pyflightstream.cases import PprocSpec
-    from pyflightstream.cases.workflows._pproc import _cuts_a_section
+    from pyflightstream.cases.workflows import row_outputs
     from tests.tier1_offline.test_workflows import FIXTURE_ROTOR, rotor_case
 
     rotor = FIXTURE_ROTOR.model_copy(
         update={"families_general": ["Hub"], "families_blades": ["Blade1"]}
     )
-    case = rotor_case().model_copy(update={"rotors": {rotor.alias: rotor}})
     pproc = PprocSpec.model_validate(
         {
             "sections": {
@@ -329,8 +331,12 @@ def test_f5_0102_f752_a_hub_only_inventory_cuts_no_section_in_a_rotor_frame():
             }
         }
     )
-    assert _cuts_a_section(case, pproc, ["Hub", "Fuselage"]) is False
-    assert _cuts_a_section(case, pproc, ["Hub", "Blade1"]) is True
+    case = rotor_case().model_copy(update={"rotors": {rotor.alias: rotor}, "pproc": pproc})
+    plot = "{name}_plot_cp_sections.txt"
+    hub_only = row_outputs(case.model_copy(update={"inventory": ("Hub", "Fuselage")}), "unsteady")
+    with_blade = row_outputs(case.model_copy(update={"inventory": ("Hub", "Blade1")}), "unsteady")
+    assert plot not in hub_only
+    assert plot in with_blade
 
 
 def test_f5_0102_f034_duplicate_named_boundaries_are_surfaces_the_rotor_does_not_own():

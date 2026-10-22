@@ -711,11 +711,13 @@ def test_p0430_f063_a_changed_section_definition_is_refused_and_an_equal_one_is_
 
 def test_p0430_f1313_f1314_a_shell_line_quotes_a_spaced_path_and_keeps_flags(tmp_path):
     """F-1313, F-1314: only the files of the point's folder are placed; a spaced path stays one."""
-    from pyflightstream.cases.workflows._batch_script import _absolute_splice
-
     folder = tmp_path / "my point"
-    line = "python -u cb.py --steps 0.5"
-    lines = _absolute_splice(
-        ["SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND", line], folder, tmp_path, BUILD
+    command = "SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND"
+    text = f"{command}\npython -u cb.py --steps 0.5\nSTART_SOLVER\n"
+    point = JobPoint("m/s/a", "s", "a", text, folder, (), "", None, "", 0, steady=True)
+    job = assemble_job(
+        [JobPolar("s", (point,))], kind="batch", version=BUILD, job_log=None, job_dir=tmp_path
     )
-    assert lines[1] == f'python -u "{folder / "cb.py"}" --steps 0.5'
+    lines = job.text.splitlines()
+    placed = lines[lines.index(command) + 1]
+    assert placed == f'python -u "{folder / "cb.py"}" --steps 0.5'

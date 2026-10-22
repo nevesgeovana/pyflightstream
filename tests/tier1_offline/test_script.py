@@ -4583,16 +4583,18 @@ class TestDirectInitializationAndScriptGuards:
 
     @staticmethod
     def test_f271_f272_a_set_selection_is_written_in_a_fixed_order():
-        from pyflightstream.script._settings import _in_a_fixed_order
+        def written(selection) -> list[str]:
+            script = Script("26.124")
+            script.declare_existing(boundaries={"root": 1, "tip": 2, "mid": 3, "aft": 4})
+            helpers.solver_settings(script, vorticity_drag_boundaries=selection)
+            helpers.start_solver(script)
+            return script.render().splitlines()
 
-        assert _in_a_fixed_order({3, 1, 2}) == [1, 2, 3]
-        assert _in_a_fixed_order(frozenset({"tip", "root", 4})) == [4, "root", "tip"]
-        assert _in_a_fixed_order((3, 1, 2)) == [3, 1, 2]
-        script = Script("26.124")
-        script.declare_existing(boundaries=3)
-        helpers.solver_settings(script, vorticity_drag_boundaries={3, 1, 2})
-        helpers.start_solver(script)
-        assert "1,2,3" in script.render().splitlines()
+        assert "1,2,3" in written({3, 1, 2})
+        # Indices first, ascending, then labels alphabetically: 4, then root (1), then tip (2).
+        assert "4,1,2" in written(frozenset({"tip", "root", 4}))
+        # A sequence keeps the order the caller wrote.
+        assert "3,1,2" in written((3, 1, 2))
 
     @staticmethod
     def test_f845_the_settings_preflight_refuses_incidence_under_periodic_symmetry():

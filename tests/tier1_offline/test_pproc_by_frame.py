@@ -661,27 +661,24 @@ def test_her_own_artifact_validates():
 
 def test_two_plot_groups_writing_one_name_are_refused_not_overwritten():
     """Two groups that format to one name write one plot file twice (F5-1718)."""
-    from types import SimpleNamespace
-
-    from pyflightstream.cases import CampaignConfigError, PprocSpec
-    from pyflightstream.cases.workflows import _pproc
+    from pyflightstream.cases import CampaignConfigError, PprocSpec, ReferenceData
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+    from tests.tier1_offline.test_workflows import rotor_case
 
     entry = {"name": "TWICE", "frame": "MRP", "families": "all"}
-    pproc = PprocSpec.model_validate(
-        {"plots": {"parameters": ["CL"], "groups": [entry, dict(entry)]}}
-    )
-    case = expanding_case(pproc=pproc)
-    script = SimpleNamespace(
-        plot_groups=[],
-        emit=lambda *a, **k: None,
-        resolve_boundary=lambda name, context="": 1,
-        entities=SimpleNamespace(labels=lambda kind: {n: i for i, n in enumerate(INVENTORY)}),
-    )
+    reference = ReferenceData(area=1.0, length=1.0, moment_point_m=(0.0, 0.0, 0.0))
+
+    def build(groups) -> Script:
+        pproc = PprocSpec.model_validate({"plots": {"parameters": ["CL"], "groups": groups}})
+        case = rotor_case().model_copy(
+            update={"pproc": pproc, "pproc_id": "p001", "reference": reference}
+        )
+        script = Script("26.124")
+        build_script(case, script)
+        return script
+
     with pytest.raises(CampaignConfigError, match="another plot group"):
-        _pproc._pproc_plots(case, script, {"MRP": 1})
-    distinct = {"plots": {"parameters": ["CL"], "groups": [entry, {**entry, "name": "ONCE"}]}}
-    script.plot_groups.clear()
-    _pproc._pproc_plots(
-        expanding_case(pproc=PprocSpec.model_validate(distinct)), script, {"MRP": 1}
-    )
+        build([entry, dict(entry)])
+    script = build([entry, {**entry, "name": "ONCE"}])
     assert [g["name"] for g in script.plot_groups][:2] == ["TWICE", "ONCE"]

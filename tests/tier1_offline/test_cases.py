@@ -440,16 +440,45 @@ def test_p0410_pc_unused_point_tag_is_absent_from_both_public_surfaces() -> None
     assert not hasattr(naming, "point_tag")
 
 
-def test_f5_0102_f017_a_ccs_copy_vector_keeps_its_source_unit() -> None:
+def test_f5_0102_f017_a_ccs_copy_vector_keeps_its_source_unit(tmp_path) -> None:
     """A copy vector of a CCS source is written in the CCS unit, not in metres."""
-    from types import SimpleNamespace
+    from pyflightstream.cases._geometry_emit import render_geometry_script
+    from pyflightstream.cases._geometry_instruction import GeometryInstruction
+    from tests.tier1_offline.test_regression_geometry_build_sweep import (
+        _geometry_instruction__ccs_text as ccs_text,
+    )
 
-    from pyflightstream.cases._geometry_emit import _operation_unit
+    (tmp_path / "w.csv").write_text(ccs_text(), encoding="utf-8")
 
-    mm = SimpleNamespace(mesh=None, ccs=SimpleNamespace(units="MILLIMETER"))
-    assert _operation_unit(mm) == "MILLIMETER"  # type: ignore[arg-type]
-    file_units = SimpleNamespace(mesh=None, ccs=SimpleNamespace(units="FILE"))
-    assert _operation_unit(file_units) == "METER"  # type: ignore[arg-type]
+    def copy_line(units: str, kind: str) -> str:
+        options = {"kind": kind, **({"component": 1} if kind == "wing" else {})}
+        instruction = GeometryInstruction.model_validate(
+            {
+                "name": "wing",
+                "outputs": ["fsm", "obj"],
+                "boundaries": ["CCS_WING", "W2"],
+                "kind": "ccs",
+                "ccs": {"file": "w.csv", "units": units, "options": options},
+                "operations": [
+                    {
+                        "op": "linear_copy",
+                        "surface": "CCS_WING",
+                        "count": 2,
+                        "vector": [0, 1, 0],
+                        "names": ["W2"],
+                    }
+                ],
+            }
+        )
+        script = render_geometry_script(
+            instruction, folder=tmp_path, work=tmp_path / "partial", version="26.125"
+        )
+        return next(
+            line for line in script.text.splitlines() if "SURFACE_LINEAR_COPY_PASTE" in line
+        )
+
+    assert " MILLIMETER " in copy_line("MILLIMETER", "wing")
+    assert " METER " in copy_line("FILE", "file")
 
 
 # --- F5-0304: the sweep refuses what the matrix grammar refuses ---------------

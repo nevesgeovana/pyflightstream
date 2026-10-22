@@ -1153,11 +1153,26 @@ def test_a_bad_blade_count_is_refused_before_the_rotary_motion_is_emitted():
     assert script.render() != before
 
 
-def test_a_motion_turns_only_the_blade_frames_of_its_own_rotor_alias():
-    from pyflightstream.cases.workflows._rotor import _frames_a_motion_turns
-
-    frames = {"A_RMRP1": 5, "A_RMRP2": 6, "A_RMRPX_RMRP1": 7}
-    assert _frames_a_motion_turns(4, "A", frames) == [4, 5, 6]
+def test_a_motion_turns_only_the_blade_frames_of_its_own_rotor_alias(tmp_path):
+    # A second rotor whose alias begins with the first one's blade-frame stem.
+    other = PUSHER.model_copy(update={"alias": "LIFT_L1_RMRPX"})
+    case = two_rotor_case(tmp_path).model_copy(
+        update={
+            "rotors": {"LIFT_L1": LIFTER, "LIFT_L1_RMRPX": other},
+            "aliases": {
+                "LIFT_L1": [*LIFTER.families_general, *LIFTER.families_blades],
+                "LIFT_L1_RMRPX": [*other.families_general, *other.families_blades],
+            },
+            "motions": [
+                {"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"},
+                {"MOVING_BC_ALIAS": "LIFT_L1_RMRPX", "ADVANCE_RATIO": "0.85"},
+            ],
+        }
+    )
+    lines = rendered(case).splitlines()
+    first = next(i for i, line in enumerate(lines) if line.startswith("SET_MOTION_MOVING_FRAMES 1"))
+    # The moving frame, then the four blade frames of LIFT_L1 and none of the other rotor's.
+    assert lines[first + 1] == "3,4,5,6,7"
 
 
 def test_a_handed_rotor_speed_that_the_row_does_not_state_is_refused():
