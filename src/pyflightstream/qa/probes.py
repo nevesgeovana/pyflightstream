@@ -1487,7 +1487,7 @@ def _run_baseline(
             f"{execution.diagnosis()}"
         )
     identity = tuple(
-        line.strip()
+        _in_probe_folder(line.strip(), workdir)
         for line in log_text.splitlines()
         if ("version" in line.lower() or "build" in line.lower()) and _BASELINE_MARKER not in line
     )[:5]
@@ -1508,7 +1508,12 @@ def _run_probe(
     workdir = _fresh_dir(workroot / spec.command)
     try:
         script = generate_probe_script(spec, version, workdir, registry=registry, fsm=fsm)
-    except (CommandNotInVersionError, CommandArgumentError, BrokenCommandError) as unbuildable:
+    except (
+        CommandNotInVersionError,
+        CommandArgumentError,
+        BrokenCommandError,
+        QaEvidenceError,
+    ) as unbuildable:
         # A probe can fail to build because a support command has no row for
         # the edition or because the edition's grammar refuses a spec value.
         # For example, the February 2026 build calls ROTARY motion EUCLIDEAN.
@@ -1647,7 +1652,10 @@ def _judge(
             ),
             **common,
         )
-    matches = _scan_errors(artifacts.target_region(), error_patterns)
+    matches = [
+        _in_probe_folder(line, artifacts.workdir)
+        for line in _scan_errors(artifacts.target_region(), error_patterns)
+    ]
     if matches:
         return ProbeResult(
             outcome=ProbeOutcome.BROKEN,
@@ -1859,7 +1867,10 @@ def unattended_profile_spec(point: tuple[float, float, float]) -> ProbeSpec:
 
     def target(script: Script, workdir: Path) -> None:
         if script.version.canonical != "26.125":
-            raise QaEvidenceError("the G52 unattended-profile receipt is scoped to build 26.125")
+            raise QaEvidenceError(
+                "the unattended boundary-layer velocity-profile receipt is scoped to build "
+                f"26.125, not {script.version.canonical}"
+            )
         script.emit("EXPORT_BL_VELOCITY_PROFILE", 1, *point, workdir / "profile.txt")
 
     def observe(artifacts: ProbeArtifacts) -> str:

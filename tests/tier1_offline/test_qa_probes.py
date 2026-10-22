@@ -2079,3 +2079,71 @@ def test_p0430_f538_remove_initialization_needs_an_initialized_before_state(tmp_
     assert check(art) is True
     (tmp_path / "dump_after.txt").write_text("Solver: Initialized\n", encoding="utf-8")
     assert check(art) is False
+
+
+# --- F6-1718: machine paths and scope refusals in probe evidence -------------
+
+
+class _PathLog(list):
+    """A log whose lines carry the probe folder, as a solver that quotes paths does."""
+
+    def __init__(self, items, where):
+        super().__init__(items)
+        self.where = where
+
+    def append(self, item):
+        if "unable to comply" in item:
+            item = f"ERROR: unable to open {self.where}/state.fsm"
+        super().append(item)
+
+
+class PathQuotingFake(FakeFlightStream):
+    """Quotes the probe folder in its identity line and in its error lines."""
+
+    def run_script(self, script_path, working_dir, timeout_s=None):
+        self.where = str(working_dir)
+        return super().run_script(script_path, working_dir, timeout_s)
+
+    def _process_file(self, path):
+        if not isinstance(self.log, _PathLog):
+            self.log = _PathLog(self.log, self.where)
+            self.log[0] = f"FlightStream version 26.1 build #0000000 from {self.where}"
+        return super()._process_file(path)
+
+
+def test_f_707_f_711_a_path_the_solver_quotes_never_reaches_the_evidence(tmp_path):
+    """F-707, F-711, X-F-1336: the committed report carries no machine path,
+    in the target-region error lines nor in the identity lines."""
+    fake = PathQuotingFake(error_after_message="PYFS_EFFECT_PRINT")
+    results, run = run_pilot(tmp_path, fake, commands=["PRINT"])
+    result = results["PRINT"]
+    assert result.outcome is ProbeOutcome.BROKEN
+    folder = str(tmp_path)
+    assert result.log_errors and "<probe folder>" in result.log_errors[0]
+    assert folder not in " ".join(result.log_errors) and folder not in result.detail
+    assert run.solver_identity and "<probe folder>" in run.solver_identity[0]
+    assert all(folder not in line for line in run.solver_identity)
+
+
+def test_f_806_x_f_1216_a_scope_refusal_of_one_spec_leaves_the_other_evidence(tmp_path):
+    """F-806, X-F-1216: a spec whose target refuses the build is UNPROBED with
+    its reason, and the run still returns every other command's evidence."""
+    import dataclasses
+
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    def refuse(script, workdir):
+        raise QaEvidenceError("this receipt is scoped to another build")
+
+    refusing = dataclasses.replace(PROBE_SPECS["PRINT"], build_target=refuse)
+    run = probe_version(
+        "26.120",
+        workroot=tmp_path / "probes",
+        executor=FakeFlightStream(),
+        commands=["PRINT", "STOP"],
+        specs={"PRINT": refusing, "STOP": PROBE_SPECS["STOP"]},
+    )
+    results = {result.command: result for result in run.results}
+    assert results["PRINT"].outcome is ProbeOutcome.UNPROBED
+    assert "scoped to another build" in results["PRINT"].detail
+    assert results["STOP"].outcome is ProbeOutcome.VERIFIED
