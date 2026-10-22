@@ -14,8 +14,10 @@ down. ``C2`` and ``C3`` are that matrix about y and about z.
 
 THREE FRAMES, in the order a force travels through them:
 
-1. THE EXPORT FRAME is the geometry's: x AFT, y RIGHT, z UP. Measured on the
-   recorded licensed exports rather than assumed: the drag an export states is
+1. THE EXPORT FRAME is the geometry's: x AFT, y RIGHT, z UP. Scored on the
+   recorded licensed exports rather than assumed (RPT-063, "emitted coefficients
+   are scored against recorded solver output", 2026-09-23: 48 recorded Total rows
+   of forces and lift, four at non-zero sideslip): the drag an export states is
    the projection of its own ``(Cx, Cy, Cz)`` on ``(ca cb, -ca sb, sa)``.
 2. THE BODY FRAME, forward-right-down, is half a turn about y away:
    ``v_b = C2(pi) v_G``, which is ``diag(-1, 1, -1)`` and a proper rotation.
@@ -23,8 +25,10 @@ THREE FRAMES, in the order a force travels through them:
    then wind axes by ``C3(beta_w)``. ``x_w`` lies along the velocity and
    ``z_w`` stays in the aircraft's plane of symmetry.
 
-THE ANGLES ARE GEOMETRIC, NOT THE WRITTEN ONES. The solver turns sideslip about
-the body z axis FIRST and incidence second, so it flies
+THE ANGLES ARE GEOMETRIC, NOT THE WRITTEN ONES. The solver is taken to turn
+sideslip about the body z axis FIRST and incidence second (the order that
+reproduces the drag of the four sideslip rows of RPT-063, 2026-09-23; no
+committed report isolates the order itself), so it flies
 ``V (ca cb, ca sb, sa)``, which is not the ``V (ca cb, sb, sa cb)`` the
 Stevens and Lewis angles describe. The two agree when either angle is zero and
 differ at second order otherwise. The axes are a property of the velocity
@@ -488,8 +492,9 @@ def polar_axis_coefficients(
     force_in_export_frame : sequence of float
         ``(Cx, Cy, Cz)`` as the loads export states them: x aft, y right, z up.
     moment_in_export_frame : sequence of float
-        ``(CMx, CMy, CMz)`` in that frame, ALL THREE normalised by the reference
-        chord, which is how the export states them.
+        ``(CMx, CMy, CMz)`` in that frame, ALL THREE taken as normalised by the
+        reference chord, which is how the package reads the export (no committed
+        report scores the moment normalisation: RPT-063 records no moments).
     alpha_deg, beta_deg : float
         The angles the point flew, as written; the axes are turned by the
         geometric angles of :func:`wind_angles`.
