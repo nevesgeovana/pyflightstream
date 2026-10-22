@@ -597,6 +597,26 @@ def test_p0420_setup_entity_lists_have_an_explicit_empty_verdict(tmp_path, key):
         assert key in str(caught.value)
 
 
+@pytest.mark.requirement("FR-1607")
+def test_p0430_a_refused_plain_pproc_key_stated_empty_is_refused(tmp_path, monkeypatch):
+    """PFS-2119.059: the walker visits every plain pproc key, as it does the setup
+    keys, so an empty post selection a rule refuses is refused before any product
+    file is read or written; the admitted ``base_regions = []`` stays admitted."""
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace import selections
+
+    path = tmp_path / "chosen-pproc.toml"
+    selections.refuse_empty_selections("pproc", path, {"base_regions": []})
+    refused = selections.EntitySelection(
+        "pproc", "probe_families", "a probe product", False, "None selects nothing."
+    )
+    monkeypatch.setattr(selections, "ENTITY_SELECTIONS", (*selections.ENTITY_SELECTIONS, refused))
+    with pytest.raises(InputArtifactError, match="chosen-pproc.toml") as caught:
+        selections.refuse_empty_selections("pproc", path, {"probe_families": []})
+    assert "probe_families = []" in str(caught.value)
+    assert not list(tmp_path.iterdir()), "nothing is written before the refusal"
+
+
 def test_p0430_a_surface_named_all_that_wins_over_the_selector_warns():
     from pyflightstream._errors import PyflightstreamWarning
     from pyflightstream.cases.selection import select_families

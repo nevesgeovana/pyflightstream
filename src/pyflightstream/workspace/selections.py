@@ -267,21 +267,28 @@ ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
 _SELECTION_BY_KEY = {(rule.kind, rule.key): rule for rule in ENTITY_SELECTIONS}
 
 
+def _is_plain(key: str) -> bool:
+    """Return whether a rule key names one top-level key of the file."""
+    return not any(mark in key for mark in (".", "[", "<"))
+
+
 def _stated_empty_selections(
     kind: str, data: Mapping[str, Any]
 ) -> list[tuple[str, EntitySelection]]:
     """Return every entity-selecting key the file states as an empty list.
 
-    Walks the shapes the table names: a plain key of a setup, the
+    Walks the shapes the table names: a plain key of either kind, the
     ``[groups]`` table of a pproc artifact, and the ``families`` of its
     plot groups and section distributions. Returns the key as the file
     spells it beside the table entry that judges it.
     """
     found: list[tuple[str, EntitySelection]] = []
+    # A plain key (no table placeholder) is walked for both kinds, so a
+    # pproc rule such as ``base_regions`` is judged as a setup key is.
+    for rule in ENTITY_SELECTIONS:
+        if rule.kind == kind and _is_plain(rule.key) and data.get(rule.key) == []:
+            found.append((rule.key, rule))
     if kind == "setup":
-        for rule in ENTITY_SELECTIONS:
-            if rule.kind == kind and data.get(rule.key) == []:
-                found.append((rule.key, rule))
         aliases = data.get(ALIASES_TABLE)
         if isinstance(aliases, Mapping):
             rule = _SELECTION_BY_KEY[("setup", "aliases.<name>")]
