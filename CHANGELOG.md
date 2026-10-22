@@ -33,6 +33,8 @@ FlightStream versions.
 - `pyfs-qa physics` runs the physics cases the selected build supports and reports each case it
   cannot run as INAPPLICABLE with its reason; the Markdown report summary states how many cases
   ran and how many were left out (`PhysicsRun.ran_count`, `PhysicsRun.inapplicable_count`).
+- An unsteady averaging window longer than the run is still cut to the whole run, and the
+  window record now carries the span the row asked for (`ExportWindow.clipped_from_steps`).
 - A `ROTOR_AXIS` cell that disagrees with the axis of the single rotor block, and a `VELOCITY`
   cell that contradicts the velocity the row already resolves, are refused before any script is
   written, naming the cell and the resolved value. The `VELOCITY` case was a warning.

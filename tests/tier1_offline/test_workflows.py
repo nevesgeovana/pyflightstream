@@ -1012,6 +1012,15 @@ def test_the_window_comes_off_the_row():
     assert window.steps == 125
 
 
+def test_p0430_a_window_longer_than_the_run_says_it_was_cut_x_f_0303():
+    """X-F-0303: the record of a window cut to the run carries the span the row asked for."""
+    cut = ExportWindow.from_case(rotor_case(LAST_REVS_AVG="10"))
+    assert cut.steps == 720
+    assert cut.clipped_from_steps is not None and cut.clipped_from_steps > 720
+    assert cut.record()["clipped_from_steps"] == cut.clipped_from_steps
+    assert "clipped_from_steps" not in ExportWindow.from_case(rotor_case()).record()
+
+
 def test_a_row_stating_two_window_forms_is_refused():
     with pytest.raises(CampaignConfigError):
         ExportWindow.from_case(rotor_case(WINDOW_STEPS="200"))

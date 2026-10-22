@@ -82,6 +82,11 @@ class ExportWindow:
         Solver physical time step in s.
     time_iterations : int
         Physical time steps in the whole run; the window ends here.
+    delta_theta_deg : float or None
+        The azimuthal step the clock was stated with, where it was.
+    clipped_from_steps : int or None
+        The span the row asked for, in solver steps, when it was longer than
+        the run and was cut to the whole run; None when nothing was cut.
     """
 
     stated_form: str
@@ -95,6 +100,9 @@ class ExportWindow:
     #: revolution is counted from the ANGLE rather than from the emitted
     #: step, which is rounded to the reference precision.
     delta_theta_deg: float | None = None
+    #: The span the row asked for, in solver steps, when it was longer than the
+    #: run and was cut to it (X-F-0303); None where nothing was cut.
+    clipped_from_steps: int | None = None
 
     @property
     def steps_per_revolution(self) -> float | None:
@@ -154,9 +162,11 @@ class ExportWindow:
             ``degrees`` and ``revolutions`` are derived, and the last two
             are None where no rotor speed was declared, because a step
             window with no rotor speed cannot state its own degrees and
-            inventing one is worse than reporting none.
+            inventing one is worse than reporting none. ``clipped_from_steps``
+            appears only when the stated window was longer than the run and
+            was cut to it.
         """
-        return {
+        record: dict[str, object] = {
             "form": self.stated_form,
             "stated": self.stated_value,
             "steps": self.steps,
@@ -164,6 +174,11 @@ class ExportWindow:
             "revolutions": self.revolutions,
             "window_steps": self.window_steps(),
         }
+        if self.clipped_from_steps is not None:
+            # THE CUT IS IN THE RECORD: a window that reads as stated over a run
+            # shorter than it is a sentence a reader takes at its word.
+            record["clipped_from_steps"] = self.clipped_from_steps
+        return record
 
     @classmethod
     def from_case(cls, case: SimCase) -> ExportWindow:
@@ -319,6 +334,7 @@ def export_window(
             f"an export window of {value} {form} works out at {span} solver steps, "
             "which is not a window. Widen it, or export more often."
         )
+    clipped_from = span if span > time_iterations else None
     span = min(span, time_iterations)
     return ExportWindow(
         stated_form=form,
@@ -328,6 +344,7 @@ def export_window(
         delta_time_s=delta_time_s,
         delta_theta_deg=delta_theta_deg,
         time_iterations=int(time_iterations),
+        clipped_from_steps=clipped_from,
     )
 
 
