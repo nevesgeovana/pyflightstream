@@ -115,6 +115,20 @@ def _write_probe_points(
     return relative
 
 
+def _in_a_points_evidence(root: str, here: str, in_datapoints: bool) -> bool:
+    """Whether a parked file lies in the scripts or datapoints folder of the job's folder.
+
+    F-715: a steady job's folder holds every point's hashed scripts and its own
+    datapoints/ evidence; a data file parked in either belongs to another point.
+    """
+    parts = here[len(root) + 1 :].split("/") if here.startswith(root + "/") else []
+    return (
+        not in_datapoints
+        and len(parts) > 1
+        and parts[0] in ("scripts", SIM_DATAPOINTS_DIR.casefold())
+    )
+
+
 def _write_pending_files(
     script: Script,
     work_dir: Path,
@@ -308,15 +322,9 @@ def _write_pending_files(
     root = one_file_key(work_dir)
     for parked in pending_inputs:
         here = one_file_key(placed(parked))
-        # F-715: a steady job's folder holds every point's hashed scripts and its own
-        # datapoints/ evidence; a data file parked in either belongs to another point.
-        parts = here[len(root) + 1 :].split("/") if here.startswith(root + "/") else []
-        in_a_points_evidence = (
-            not in_datapoints
-            and len(parts) > 1
-            and parts[0] in ("scripts", SIM_DATAPOINTS_DIR.casefold())
-        )
-        if (here != root and not here.startswith(root + "/")) or in_a_points_evidence:
+        if (here != root and not here.startswith(root + "/")) or _in_a_points_evidence(
+            root, here, in_datapoints
+        ):
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: the run would write {placed(parked)} for the solver "
                 f"and record its digest, and it is outside {work_dir}, the folder the "
