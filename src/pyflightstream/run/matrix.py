@@ -98,13 +98,14 @@ from pyflightstream.run import (
 )
 from pyflightstream.run._additional import (
     _LOG_SUFFIX,
-    _archive_extraction_folder,
     _launch_extraction,
     _the_extraction_s_log,
     _write_extraction_script,
+    archive_extraction_folder,
     complete_extraction,
     discard_extraction_copy,
     layout_of,
+    local_executor_only,
     own_sections_layout,
     sections_numbering_refusal,
 )
@@ -1845,14 +1846,7 @@ def run_additional_post(
     campaign, executor_for = _campaign_executor(
         workspace, resolved, matrix, executor=executor, local=local, hidden=hidden
     )
-    if isinstance(campaign, Submitting):
-        # The submitting half is not built: refuse by name before anything is written (F-1455).
-        raise ExecutorConfigurationError(
-            "the additional post runs the extraction on this machine, and the executor chosen "
-            "is a scheduler's, whose submitted extraction is not built; pass local=True "
-            "(CLI: --local), or give a local executor"
-        )
-    executors: dict[Path, Executor] = {Path(resolved.fs_exe): campaign}
+    executors: dict[Path, Executor] = {Path(resolved.fs_exe): local_executor_only(campaign)}
     stamp = datetime.now().strftime(ARCHIVE_STAMP)
     written: list[AdditionalRecord] = []
     for plan in ready:
@@ -1871,10 +1865,7 @@ def _extract(
     pending = _latest_extractions(workspace.read_additional()).get(str(context["extraction_id"]))
     if pending is not None and pending.status is ExtractionStatus.SUBMITTED:
         return pending
-    point = context["point"]
-    record = context["record"]
-    case = context["case"]
-    folder = context["folder"]
+    point, record, case, folder = (context[key] for key in ("point", "record", "case", "folder"))
     assert isinstance(point, RunRecord) and isinstance(record, RunRecord)
     assert isinstance(case, SimCase) and isinstance(folder, Path)
     assert plan.fsm is not None and plan.pproc is not None and plan.script_text is not None
@@ -1883,7 +1874,7 @@ def _extract(
     recorded = str(context["fsm_sha256"])
     # WHATEVER AN EARLIER PASS LEFT MOVES ASIDE, the archive_datapoint rule: a
     # declared output already in the folder would be collected as this launch's.
-    _archive_extraction_folder(folder, stamp)
+    archive_extraction_folder(folder, stamp)
     copy = folder / f"{context['stem']}{REOPENED_SUFFIX}"
     shutil.copy2(original, copy)
     script_path, script_sha = _write_extraction_script(
