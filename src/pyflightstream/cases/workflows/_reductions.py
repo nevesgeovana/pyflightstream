@@ -768,9 +768,15 @@ def _the_passages_of_one_rotor(
     # carries the azimuth it actually swept.
     if rotor_steps is not None:
         rotor_span = (max(span[1] - rotor_steps + 1, 1), span[1])
+        cut = (
+            f", cut to the whole run because the run is {span[1]} step(s) and the window "
+            f"{rotor_steps}"
+            if span[1] - rotor_steps + 1 < 1
+            else ""
+        )
         window_from = (
             f"the averaging window the row states, {rotor_steps} steps of {alias}, "
-            "shared by every blade"
+            f"shared by every blade{cut}"
         )
     else:
         # Without a stated revolution count, use this rotor's own last complete

@@ -203,7 +203,8 @@ ADVANCE_RATIO_VARIABLE = "ADVANCE_RATIO"
 RPM_SIGN_VARIABLE = "RPM_SIGN"
 #: Degrees of rotor rotation per physical time step. With the rotor
 #: speed this IS the time step: one revolution lasts ``60 / rpm`` s, so
-#: a degree lasts ``1 / (6 rpm)`` s and ``DELTA_TIME = theta / (6 rpm)``.
+#: a degree lasts ``1 / (6 |rpm|)`` s and ``DELTA_TIME = theta / (6 |rpm|)``, the
+#: magnitude of a signed speed, so a step is never negative.
 #:
 #: A rotor run is designed in degrees of azimuth, never in seconds. The
 #: azimuthal resolution is the modelling decision -- how finely a blade
@@ -379,7 +380,8 @@ RESTART_VARIABLE = "RESTART"
 ACTUATOR_VARIABLE = "ACTUATOR"
 #: The disc's speed in rev/min, a MAGNITUDE: the hand is the block's ``rpm_sign``.
 ACTUATOR_RPM_VARIABLE = "ACTUATOR_RPM"
-#: The disc's net thrust in N, which selects the ELLIPTICAL model.
+#: The disc's net thrust, in the unit its block declares (``thrust_units``:
+#: newtons by default, pounds or a coefficient), which selects the ELLIPTICAL model.
 ACTUATOR_THRUST_VARIABLE = "ACTUATOR_THRUST"
 #: The stem of a file of ``inputs/profiles/``, which selects the CUSTOM model;
 #: the workspace resolves it to the absolute path on
@@ -903,6 +905,8 @@ _STEADY_KEYS: tuple[str, ...] = (
     # Steady's alone, and it stays in the free cell because it is
     # conditional: warm start is a property of a SWEEP over a condition,
     # and an unsteady point marches in time from its own initial state.
+    # `_UNSTEADY_KEYS` inherits it only so the row-key guard reaches the unsteady
+    # builders, which refuse it by name (`_refuse_cold_start_on_a_march`).
     COLD_START_VARIABLE,
 )
 _UNSTEADY_KEYS: tuple[str, ...] = (
@@ -1131,7 +1135,8 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         ),
         ACTUATOR_VARIABLE: InputKey(
             "The actuator disc the row loads: the name of a block of the row's REF that "
-            'declares kind = "actuator"; one disc per row.',
+            'declares kind = "actuator"; a flat selection names one disc, and brace records '
+            "name several discs in order.",
             "a block name",
             "CREATE_NEW_ACTUATOR",
         ),
@@ -1306,12 +1311,13 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         ),
         ROTOR_AXIS_VARIABLE: InputKey(
             "The axis the rotor of a flat row turns about; a rotor block of the reference "
-            "states its own.",
+            "states its own, and a row naming its rotor by MOVING_BC_ALIAS refuses this key.",
             "X, Y or Z",
             "SET_MOTION_ROTOR_AXIS",
         ),
         ROTOR_ORIGIN_VARIABLE: InputKey(
-            "The hub of the rotor of a flat row; a rotor block of the reference states its own.",
+            "The hub of the rotor of a flat row; a rotor block of the reference states its own, "
+            "and a row naming its rotor by MOVING_BC_ALIAS refuses this key.",
             "three coordinates, comma separated, or a rotor point of inputs/reference_points.toml",
             "CREATE_NEW_COORDINATE_SYSTEM",
         ),
@@ -1333,7 +1339,7 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         ),
         MOVING_BOUNDARIES_VARIABLE: InputKey(
             "The boundaries a flat rotor row turns; a MOTIONS record names its rotor by "
-            "MOVING_BC_ALIAS instead.",
+            "MOVING_BC_ALIAS instead, and a row stating an alias refuses this key.",
             "family names, or an alias",
             "SET_MOTION_BOUNDARIES",
         ),

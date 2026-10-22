@@ -1292,6 +1292,11 @@ def qsteady_inflow_map_inputs(case: SimCase) -> dict[str, object] | None:
     assert custom is not None
     rotor = _the_isolated_rotor(case)
     rpm = float(_qsteady_speed(case, rotor).rpm)
+    if rpm == 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: a stopped rotor (RPM 0) has no advance ratio, so its "
+            "inflow map has no speed to be built at. State a nonzero RPM."
+        )
     speed = _velocity(case)
     _, rows = field_rows_in_metres(
         Path(custom.path),
