@@ -70,8 +70,8 @@ class NameField:
     ``code`` then the value times ``scale``, rounded, zero-padded to
     ``width`` characters; a signed field counts its sign in the width.
 
-    ``magnitude`` writes the field WITHOUT its sign whatever sign the value
-    carries. It lives here, beside ``signed``, because it is the same kind of
+    ``magnitude`` writes the field WITHOUT a sign and refuses a negative value
+    rather than dropping its sign. It lives here, beside ``signed``, because it is the same kind of
     fact about the same field, and a reader adding a variable reads this
     dataclass and the table below. Held in a second table keyed by the same
     keys, it had to be remembered at each call site and was remembered at one of
@@ -182,7 +182,8 @@ def name_field(key: str, value: float) -> str:
     Raises
     ------
     CampaignConfigError
-        If the key has no code, or an unsigned variable is negative.
+        If the key has no code, the value is not finite, a magnitude variable is negative, or
+        an unsigned variable is negative.
 
     Examples
     --------
@@ -199,7 +200,8 @@ def name_field(key: str, value: float) -> str:
         )
     if not math.isfinite(float(value)):
         raise CampaignConfigError(
-            f"{key} is {value!r}, which a point name cannot carry; state a finite number."
+            f"{key} is {value!r}, which is not a finite number, so a point name cannot be "
+            "written from it."
         )
     # A MAGNITUDE FIELD REFUSES A SIGN RATHER THAN ABSORBING ONE, and the
     # difference is a whole defect. Absorbing it is silent, and silence is what

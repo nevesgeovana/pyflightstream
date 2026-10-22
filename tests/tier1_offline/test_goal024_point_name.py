@@ -399,3 +399,11 @@ def test_p0430_f048_a_negative_near_zero_of_an_unsigned_field_is_refused(value):
 def test_p0430_f1306_a_non_finite_value_is_a_campaign_error_not_a_bare_one(key, value):
     with pytest.raises(CampaignConfigError, match="finite"):
         name_field(key, value)
+
+
+def test_p0430_a_non_finite_value_is_refused_by_the_point_name_not_by_round():
+    from pyflightstream.cases.naming import name_field
+
+    for value in (float("nan"), float("inf")):
+        with pytest.raises(CampaignConfigError, match="not a finite number"):
+            name_field("MACH", value)
