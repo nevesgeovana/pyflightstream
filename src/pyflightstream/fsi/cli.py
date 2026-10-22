@@ -234,7 +234,9 @@ def dummy_step(
     try:
         node_count = json.loads(config_path.read_text(encoding="utf-8"))["node_count"]
         if isinstance(node_count, bool) or not isinstance(node_count, int) or node_count < 1:
-            raise ValueError(f"node_count {node_count!r} must be an integer of at least 1")
+            from pyflightstream._errors import FsiInputError
+
+            raise FsiInputError(f"node_count {node_count!r} must be an integer of at least 1")
     except (OSError, ValueError, KeyError, TypeError) as error:
         # X-F-0516, F-1360, F-1361. A hand-written dummy config is trusted no
         # further than it reads: a failure lands in the error log, as the
