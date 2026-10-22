@@ -230,7 +230,8 @@ def action_export_lines(
     THE THREE UPDATE COMMANDS COME FIRST whenever a sections,
     sectional-loads or probe export is among them, which is the rule
     :func:`_export_block` follows for the same reason: an export of
-    sections nobody updated is an export of the previous state.
+    sections nobody updated is taken to be an export of the previous state
+    (assumed; no committed report measures a stale sections export).
 
     ``whole_run`` KEEPS THE KINDS A PER-STEP ACTION MUST DROP: the
     simulation file, the plots table, the log and the force
@@ -471,7 +472,8 @@ def unsteady_export_threshold(
 #: reads the start back and asks one question.
 #:
 #: WHEN IT FIRES it writes the row's exports and the stop into the script
-#: file the solver re-reads on the next step, and records WHERE it stopped
+#: file the solver re-reads on the next step (RPT-041, "a SCRIPT action re-reads
+#: its file on every time step", 2026-09-08, on 26.123), and records WHERE it stopped
 #: so a RESTART has something to subtract from. It fires ONCE: the state
 #: carries a flag, because a second firing would append a second copy of
 #: every export line.
