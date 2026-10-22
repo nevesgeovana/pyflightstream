@@ -781,21 +781,15 @@ def test_goal019_plan_a_plan_from_before_the_pin_is_refused(tmp_path, capsys):
     assert "does not say which matrix" in capsys.readouterr().err
 
 
-def test_f1572_the_additional_post_abort_does_not_say_that_nothing_ran(monkeypatch, capsys):
+def test_f1572_the_additional_post_abort_does_not_say_that_nothing_ran(tmp_path, capsys):
     """F-1572: an abort after earlier extractions completed says their records are kept."""
-    from types import SimpleNamespace
+    from tests.tier1_offline.test_additional_post import a_recorded_campaign
 
-    from pyflightstream.run import cli
-    from pyflightstream.run import matrix as matrix_module
-
-    def stops(*args, **keywords):
-        raise ValueError("the third extraction could not be planned")
-
-    monkeypatch.setattr(matrix_module, "run_additional_post", stops)
-    args = SimpleNamespace(matrix="m.toml", fs_version="26.124", recipe=[], fs_exe=None, local=True)
-    assert cli._additional_post(args, None) is None
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    argv = ["post", str(matrix), "--workspace", str(workspace.root), "--additional-pproc"]
+    assert main([*argv, "--recipe", "003"]) == 2
     said = capsys.readouterr().err
-    assert "the third extraction could not be planned" in said
+    assert "--recipe expects CODE=module:function" in said
     assert "not run" not in said
     assert "finished before the stop keeps its record" in said
 
@@ -824,14 +818,34 @@ def test_f_1898_x_f_1704_the_help_states_what_run_and_plan_each_take(capsys):
     assert "--local,--resumeand--force-rerunbelongto`run`alone" in plan_text
 
 
-def test_x_f_0402_status_csv_keeps_every_digit_the_table_rounds():
+def test_x_f_0402_status_csv_keeps_every_digit_the_table_rounds(tmp_path, capsys):
     """status --csv carries the same precision as --json; the printed table shows six."""
-    from pyflightstream.run._cli_query import _cell, _csv_text
+    import csv
+    import io
+    import json
 
+    from pyflightstream.workspace.record_document import encode_rows
+    from tests.tier1_offline.test_p0350_status import _record, _status
+
+    root = tmp_path / "camp"
+    CampaignWorkspace.init(root)
     value = 1.2345678901234e-5
-    assert _cell(value) == "1.23457e-05"
-    csv_row = _csv_text([{"residual": value, "wall_s": 12.3456789}], ["residual", "wall_s"])
-    assert csv_row.splitlines()[1] == f"{value!r},12.3456789"
+    row = _record(
+        "2006",
+        "M144AL+000",
+        RunStatus.CONVERGED,
+        point={"alpha": 0.0},
+        residual=value,
+        wall_time_s=12.3456789,
+    )
+    (root / "runs.json").write_text(json.dumps(encode_rows([row])) + "\n", encoding="utf-8")
+    code, out, _ = _status(root, capsys, "--points", "--csv")
+    assert code == 0
+    header, line = list(csv.reader(io.StringIO(out)))
+    cells = dict(zip(header, line, strict=True))
+    assert (cells["residual"], cells["wall_s"]) == (repr(value), "12.3456789")
+    code, table, _ = _status(root, capsys, "--points")
+    assert code == 0 and "1.23457e-05" in table and repr(value) not in table
 
 
 @pytest.mark.parametrize("content", ["[1, 2]", '"text"', '{"matrix_sha256": 5}'])
@@ -854,11 +868,18 @@ def test_x_f_1232_a_plan_file_of_another_shape_is_the_plan_again_refusal(tmp_pat
 
 
 @pytest.mark.parametrize("item", ["003= ", " =a:b", "003=", "=", "003"])
-def test_last_a_recipe_option_with_a_blank_side_is_refused(item):
+def test_last_a_recipe_option_with_a_blank_side_is_refused(tmp_path, capsys, item):
     """F-1466: emptiness was tested before strip, so '003= ' kept an empty reference."""
-    with pytest.raises(ValueError, match="--recipe expects CODE=module:function"):
-        cli_module._parse_recipes([item])
-    assert cli_module._parse_recipes([" 003 = a:b "]) == {"003": "a:b"}
+    workspace = make_workspace(tmp_path)
+    assert main(plan_args(workspace, FIXTURE, "--recipe", item)) == 2
+    assert "--recipe expects CODE=module:function" in capsys.readouterr().err
+
+
+def test_last_a_recipe_option_is_read_stripped_of_the_spaces_around_each_side(tmp_path, capsys):
+    """F-1466: ' 003 = a:b ' is the recipe a:b of the code 003, not a refused spelling."""
+    workspace = make_workspace(tmp_path)
+    main(plan_args(workspace, FIXTURE, "--recipe", " 003 = a:b "))
+    assert "--recipe expects CODE=module:function" not in capsys.readouterr().err
 
 
 def test_last_force_overwrite_and_archive_cannot_be_combined(tmp_path, capsys):

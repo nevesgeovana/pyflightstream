@@ -271,16 +271,13 @@ def test_help_explains_default_mode_rerun(capsys):
 
 def test_f609_discard_walltime_leaves_a_superseded_predecessor_alone(tmp_path):
     """F-609: a record a later run continues is not current, so the discard does not take it."""
-    from pyflightstream.run.collect import _discard_walltime
-
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.init(tmp_path / "camp")
     workspace.append_record(record("camp/sim_2006/AL+000"))
     workspace.append_record(
         record("camp/sim_2006/r1/AL+000").model_copy(update={"continues": "camp/sim_2006/AL+000"})
     )
-    (discarded,) = _discard_walltime(workspace, None)
-    assert discarded.run_id == "camp/sim_2006/r1/AL+000"
+    collect_and_post(workspace, discard_walltime=True, interval=0, post=lambda _workspace: None)
     by_id = {entry.run_id: entry.status for entry in workspace.read_manifest()}
     assert by_id["camp/sim_2006/AL+000"] is RunStatus.WALLTIME_REACHED
     assert by_id["camp/sim_2006/r1/AL+000"] is RunStatus.FAILED_MARKED
@@ -290,37 +287,42 @@ def test_f609_discard_walltime_leaves_a_superseded_predecessor_alone(tmp_path):
 def test_f266_a_non_finite_or_huge_elapsed_time_is_not_a_wall_time(tmp_path, bad):
     """F-266: such a value entered the wall time, or raised OverflowError after files moved."""
     from pyflightstream.cases.workflows import WALLTIME_CLOCK_STATE
-    from pyflightstream.run.collect import _wall_time_update
+    from pyflightstream.run.collect import collect_once
+    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
 
-    clock = tmp_path / WALLTIME_CLOCK_STATE
-    clock.parent.mkdir(parents=True, exist_ok=True)
-    clock.write_text(json.dumps({"elapsed_s": bad}), encoding="utf-8")
-    shell = RunRecord.model_construct(run_id="camp/sim_1/a", submission={})
-    assert "wall_time_s" not in _wall_time_update(shell, tmp_path, {})
-    assert "wall_time_s" not in _wall_time_update(shell, tmp_path, {"solver_run_time_s": bad})
-    clock.write_text(json.dumps({"elapsed_s": 12.5}), encoding="utf-8")
-    assert _wall_time_update(shell, tmp_path, {})["wall_time_s"] == 12.5
+    def wall_time(elapsed, folder):
+        workspace, sim = _submitted_workspace(tmp_path / folder)
+        (sim / "loads.txt").write_text("numbers", encoding="utf-8")
+        (sim / "run_log.txt").write_text("log", encoding="utf-8")
+        clock = sim / WALLTIME_CLOCK_STATE
+        clock.parent.mkdir(parents=True, exist_ok=True)
+        clock.write_text(json.dumps({"elapsed_s": elapsed}), encoding="utf-8")
+        report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
+        assert report.collected, report.lines()
+        return workspace.read_manifest()[0].wall_time_s
+
+    assert wall_time(bad, "bad") is None
+    assert wall_time(12.5, "good") == 12.5
 
 
-def test_f1464_a_run_that_collects_later_is_no_longer_a_failure_of_the_watch(tmp_path, monkeypatch):
+def test_f1464_a_run_that_collects_later_is_no_longer_a_failure_of_the_watch(tmp_path):
     """F-1464: the watch reported the failure of an earlier sweep after the run collected."""
-    from pyflightstream.run import collect as collect_module
-    from pyflightstream.run.collect import CollectOutcome, CollectReport
+    from tests.tier1_offline.test_collect_stage import _two_submitted_sims
 
-    workspace = CampaignWorkspace(tmp_path / "camp")
-    workspace.init(tmp_path / "camp")
-    sweeps = iter(
-        [
-            CollectReport(
-                failed=[CollectOutcome("camp/sim_1/a", "FAILED", "not yet")],
-                waiting=[CollectOutcome("camp/sim_1/b", "WAITING", "waiting")],
-            ),
-            CollectReport(collected=[CollectOutcome("camp/sim_1/a", "COLLECTED", "done")]),
-        ]
-    )
-    monkeypatch.setattr(collect_module, "collect_once", lambda *args, **keywords: next(sweeps))
-    total = collect_and_post(workspace, watch=True, watch_interval=0, sleep=lambda _s: None)
-    assert [outcome.run_id for outcome in total.collected] == ["camp/sim_1/a"]
+    workspace, first = _two_submitted_sims(tmp_path)
+    (first / "loads.txt").write_text("numbers", encoding="utf-8")
+    (first / "run_log.txt").write_text("log", encoding="utf-8")
+    # An archive beside the expanded folder refuses the expansion of sim 9001 until it is gone,
+    # so the first sweep fails that run and leaves the other waiting.
+    busy = workspace.root / "sims" / "sim_9001.zip"
+    busy.write_bytes(b"an archive that is also expanded")
+
+    def sleep(_seconds):
+        busy.unlink(missing_ok=True)
+
+    total = collect_and_post(workspace, watch=True, rounds=2, watch_interval=0, sleep=sleep)
+    assert not busy.exists(), "the first sweep must have found sim 9001 refused"
+    assert [outcome.run_id for outcome in total.collected] == ["camp/sim_9001/AL+000"]
     assert total.failed == []
 
 

@@ -139,31 +139,31 @@ def test_submitted_is_documented_as_pending_and_not_a_workspace_attribute():
     assert "Terminal status" not in (ExtractionStatus.__doc__ or "")
 
 
-def test_p0430_x_f_0548_a_placeholder_an_extraction_cannot_fill_is_a_refusal(tmp_path, monkeypatch):
+def test_p0430_x_f_0548_a_placeholder_an_extraction_cannot_fill_is_a_refusal(tmp_path):
     """X-F-0548: a valid profile placeholder outside {sim} and {point} refuses, never a KeyError."""
     import pytest
 
-    from pyflightstream.run import _additional
-    from pyflightstream.workspace import WorkspaceError
+    from pyflightstream.run._additional import extraction_job_end
+    from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
+    from tests.tier1_offline.test_goal024_profile_log import _write_profile
 
-    profile = SimpleNamespace(job_end_files=("{work_dir}/done.*",), native_log=None)
-    monkeypatch.setattr(_additional, "resolve_hpc_profile", lambda _inputs: profile)
-    workspace = SimpleNamespace(inputs_dir=tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "ws")
+    _write_profile(workspace, '\n[log]\njob_end_files = ["{work_dir}/done.*"]\n')
     record = SimpleNamespace(point_name="p", sim_id="2001", submission={})
     with pytest.raises(WorkspaceError, match="work_dir"):
-        _additional.extraction_job_end(workspace, record, tmp_path)
+        extraction_job_end(workspace, record, tmp_path)
 
 
 def test_x_f_0556_a_retry_in_the_same_second_keeps_the_earlier_extraction_archive(tmp_path):
     """The folder archive never overwrites files of an archive with the same stamp."""
-    from pyflightstream.run._additional import ARCHIVE_DIR, _archive_extraction_folder
+    from pyflightstream.run._additional import ARCHIVE_DIR, archive_extraction_folder
 
     folder = tmp_path / "extraction"
     folder.mkdir()
     (folder / "forces.csv").write_text("first", encoding="utf-8")
-    _archive_extraction_folder(folder, "r20261021-120000")
+    archive_extraction_folder(folder, "r20261021-120000")
     (folder / "forces.csv").write_text("second", encoding="utf-8")
-    _archive_extraction_folder(folder, "r20261021-120000")
+    archive_extraction_folder(folder, "r20261021-120000")
     archive = folder / ARCHIVE_DIR
     assert (archive / "r20261021-120000" / "forces.csv").read_text(encoding="utf-8") == "first"
     assert (archive / "r20261021-120000.2" / "forces.csv").read_text(encoding="utf-8") == "second"
@@ -172,8 +172,6 @@ def test_x_f_0556_a_retry_in_the_same_second_keeps_the_earlier_extraction_archiv
 
 def test_last_a_file_error_while_completing_an_extraction_is_retried(tmp_path, monkeypatch):
     """X-F-0569: a transient OSError recorded a final FAILED_EXECUTION that no sweep revisits."""
-    from pyflightstream.run import collect as collect_module
-
     workspace, matrix = a_recorded_campaign(tmp_path, values="0.0")
     scheduler = Scheduler()
     _, records = extract(workspace, matrix, scheduler)
@@ -182,16 +180,16 @@ def test_last_a_file_error_while_completing_an_extraction_is_retried(tmp_path, m
     a_stub(tmp_path).run_script(
         workspace.sim_dir(record.sim_id) / record.script_path, working_dir=folder
     )
-    real = collect_module.finish_extraction
+    real = workspace.append_additional
     calls = []
 
-    def locked(*args, **kwargs):
+    def locked(entry):
         calls.append(1)
         if len(calls) == 1:
             raise OSError("the output is held open by another process")
-        return real(*args, **kwargs)
+        return real(entry)
 
-    monkeypatch.setattr(collect_module, "finish_extraction", locked)
+    monkeypatch.setattr(workspace, "append_additional", locked)
     first = collect_once(workspace, interval=0, sleep=lambda _: None)
     assert not first.failed and not first.collected
     assert len(first.waiting) == 1 and "file error" in first.waiting[0].detail

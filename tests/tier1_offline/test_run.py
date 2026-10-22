@@ -581,24 +581,58 @@ def test_f6_0102_rewriting_a_point_script_keeps_the_replaced_bytes(tmp_path):
     """FR-3060: a rerun that changes a script keeps the old bytes under their digest."""
     import hashlib
 
-    from pyflightstream.run._points import _write_script_keeping_replaced
+    from pyflightstream.run import run_campaign
     from pyflightstream.workspace import CampaignWorkspace
+    from tests.tier1_offline.test_run_campaign import (
+        WRITES_LOADS,
+        StubSolver,
+        converged,
+        make_campaign,
+        steady_recipe,
+    )
 
-    workspace = CampaignWorkspace(tmp_path / "ws")
-    first, first_sha = _write_script_keeping_replaced(workspace, "S1", "p.txt", "one\n")
-    old_bytes = first.read_bytes()
-    _write_script_keeping_replaced(workspace, "S1", "p.txt", "two\n")
-    kept = list((first.parent / "archive").glob("p.*.txt"))
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run = {"assess": converged, "recipes": {"steady": steady_recipe}, "quiet": True}
+    (first,) = run_campaign(campaign, StubSolver(WRITES_LOADS), workspace, **run)
+    script = workspace.sim_dir("9001") / first.script_path
+    old_bytes = script.read_bytes()
+    faster = campaign.sims[0].model_copy(update={"velocity": 31.0})
+    run_campaign(
+        campaign.model_copy(update={"sims": [faster]}),
+        StubSolver(WRITES_LOADS),
+        workspace,
+        force_rerun=["AL+000"],
+        **run,
+    )
+    assert script.read_bytes() != old_bytes
+    kept = list((script.parent / "archive").glob("AL+000.*.txt"))
     assert [path.read_bytes() for path in kept] == [old_bytes]
-    assert hashlib.sha256(old_bytes).hexdigest() == first_sha
+    assert hashlib.sha256(old_bytes).hexdigest() == first.script_sha256
 
 
-def test_f264_status_csv_keeps_every_digit_of_a_float():
+def test_f264_status_csv_keeps_every_digit_of_a_float(tmp_path, capsys):
     # Verifies F-264: the CSV is data, only the printed table rounds to six digits.
-    from pyflightstream.run._cli_query import _csv_text
+    import csv
+    import io
+    import json
 
-    text = _csv_text([{"cl": 0.123456789012}], ["cl"])
-    assert text.splitlines() == ["cl", "0.123456789012"]
+    from pyflightstream.workspace import CampaignWorkspace
+    from pyflightstream.workspace.record_document import encode_rows
+    from tests.tier1_offline.test_p0350_status import _record, _status
+
+    root = tmp_path / "camp"
+    CampaignWorkspace.init(root)
+    row = _record(
+        "2006", "M144AL+000", RunStatus.CONVERGED, point={"alpha": 0.0}, residual=0.123456789012
+    )
+    (root / "runs.json").write_text(json.dumps(encode_rows([row])) + "\n", encoding="utf-8")
+    code, out, _ = _status(root, capsys, "--points", "--csv")
+    assert code == 0
+    header, line = list(csv.reader(io.StringIO(out)))
+    assert dict(zip(header, line, strict=True))["residual"] == "0.123456789012"
+    code, table, _ = _status(root, capsys, "--points")
+    assert code == 0 and "0.123457" in table and "0.123456789012" not in table
 
 
 def test_f1568_log_sims_takes_blank_separated_words():
@@ -609,42 +643,56 @@ def test_f1568_log_sims_takes_blank_separated_words():
     assert args.sims == ["2006", "2007"]
 
 
-def test_f839_glob_sim_is_the_first_simulation_of_the_job(monkeypatch):
+def test_f839_glob_sim_is_the_first_simulation_of_the_job(tmp_path):
     # Verifies F-839 / FR-730: {sim} is the job's first simulation, {point} the point.
-    from types import SimpleNamespace
+    from pyflightstream.run._collect_logs import native_log
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
-    from pyflightstream.run import _collect_logs
-
-    monkeypatch.setattr(_collect_logs, "job_of", lambda record: {"values": {"sim": "2006"}})
-    values = _collect_logs._glob_values(SimpleNamespace(sim_id="2007"), "p1")
-    assert values["sim"] == "2006"
-    assert values["point"] == "p1"
+    workspace = CampaignWorkspace(tmp_path / "ws")
+    _fr311_collect_job_ended___write_profile(workspace, _FR311_COLLECT_JOB_ENDED__LOG_TABLE)
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "FTS2006.l1").write_text("the job's log", encoding="utf-8")
+    (work / "FTS2007.l1").write_text("another job's log", encoding="utf-8")
+    record = RunRecord.model_construct(
+        sim_id="2007", submission={"job": {"values": {"sim": "2006"}}}
+    )
+    found = native_log(workspace, record, ["p1_log.txt"], work, point="p1")
+    assert found.refusal is None
+    assert found.source == work / "FTS2006.l1"
 
 
 def test_f1255_tail_reads_the_last_lines_of_a_large_file(tmp_path):
     # Verifies F-1255: the tail of a file larger than one read window is exact.
-    from pyflightstream.run._collect_logs import _tail_lines
+    workspace, work = _fr311_collect_job_ended___workspace(tmp_path)
+    (work / "FTS9001.o3714205").write_text("job summary\n", encoding="utf-8")
+    # Forty lines of ten thousand bytes: the last twenty span three read windows.
+    (work / "FTS9001.e3714205").write_text(
+        "".join(f"LINE{n:02d} " + "x" * 10000 + "\n" for n in range(40)), encoding="utf-8"
+    )
+    collect_once(workspace, interval=0.0, sleep=_fr311_collect_job_ended___no_sleep)
+    error = workspace.read_manifest()[0].error or ""
+    assert "LINE20 " in error and "LINE39 " in error and "LINE19 " not in error
 
-    path = tmp_path / "x.o1"
-    path.write_text("".join(f"line {n}\n" for n in range(40000)), encoding="utf-8")
-    assert _tail_lines(path, 3) == ["line 39997", "line 39998", "line 39999"]
-    short = tmp_path / "y.o1"
-    short.write_text("a\nb\n", encoding="utf-8")
-    assert _tail_lines(short, 20) == ["a", "b"]
 
-
-def test_fr2329_an_unknown_status_word_is_refused_with_the_vocabulary():
+def test_fr2329_an_unknown_status_word_is_refused_with_the_vocabulary(tmp_path, capsys):
     # Verifies FR-2329: a status-filter typo fails, and a valid word or prefix is accepted.
-    import pytest
+    from pyflightstream.run.cli import main
+    from pyflightstream.workspace import CampaignWorkspace
 
-    from pyflightstream.run._cli_query import _status_words
+    root = tmp_path / "camp"
+    CampaignWorkspace.init(root)
 
-    assert _status_words(["CONVERGED", "FAILED*"]) == ["CONVERGED", "FAILED*"]
-    with pytest.raises(ValueError, match="CONVERGED") as caught:
-        _status_words(["CONVERGD"])
-    assert "'CONVERGD'" in str(caught.value)
-    with pytest.raises(ValueError, match="ZZ"):
-        _status_words(["ZZ*"])
+    def status(*words):
+        argv = ["status", "--workspace", str(root)]
+        code = main([*argv, *(item for word in words for item in ("--status", word))])
+        return code, capsys.readouterr().err
+
+    assert status("CONVERGED", "FAILED*")[0] == 0
+    code, err = status("CONVERGD")
+    assert code == 2 and "CONVERGED" in err and "'CONVERGD'" in err
+    code, err = status("ZZ*")
+    assert code == 2 and "ZZ" in err
 
 
 def test_f1458_f1459_descriptor_strings_escape_quote_and_backslash():

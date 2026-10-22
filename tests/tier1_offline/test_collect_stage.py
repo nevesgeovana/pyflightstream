@@ -657,35 +657,22 @@ def test_last_a_simulation_that_cannot_be_expanded_does_not_end_the_sweep(tmp_pa
     assert _status_of(workspace, "camp/sim_9001/AL+000") == "SUBMITTED"
 
 
-def test_last_a_point_failed_once_and_collected_later_leaves_the_failed_total(
-    tmp_path, monkeypatch
-):
+def test_last_a_point_failed_once_and_collected_later_leaves_the_failed_total(tmp_path):
     """X-F-0570: the watch's failed total only grew, so the command returned 1 for a full set."""
-    from pyflightstream.run import collect as collect_module
-
     workspace, first = _two_submitted_sims(tmp_path)
     (first / "loads.txt").write_text("numbers", encoding="utf-8")
     (first / "run_log.txt").write_text("log", encoding="utf-8")
-    real = collect_module.ensure_sim_expanded
-    refused = []
+    # An archive beside the expanded folder refuses the expansion of sim 9001 until it is gone.
+    busy = workspace.root / "sims" / "sim_9001.zip"
+    busy.write_bytes(b"an archive that is also expanded")
 
-    def once(workspace_, sim_id, *, reason):
-        if sim_id == "9001" and not refused:
-            refused.append(sim_id)
-            raise WorkspaceError("the archive is busy")
-        return real(workspace_, sim_id, reason=reason)
+    def sleep(_seconds):
+        busy.unlink(missing_ok=True)
 
-    real_once = collect_module.collect_once
-    writes = collect_module.CollectWrites(ensure_sim_expanded=once)
-    monkeypatch.setattr(
-        collect_module,
-        "collect_once",
-        lambda *args, **keywords: real_once(*args, writes=writes, **keywords),
-    )
     report = collect_and_post(
-        workspace, watch=True, rounds=2, interval=0.0, watch_interval=0.0, sleep=_no_sleep
+        workspace, watch=True, rounds=2, interval=0.0, watch_interval=0.0, sleep=sleep
     )
-    assert refused == ["9001"], "the first sweep must have refused sim 9001"
+    assert not busy.exists(), "the first sweep must have found sim 9001 refused"
     assert [outcome.run_id for outcome in report.collected] == ["camp/sim_9001/AL+000"]
     assert report.failed == []
     assert _status_of(workspace, "camp/sim_9001/AL+000") != "SUBMITTED"
