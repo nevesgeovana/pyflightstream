@@ -13,7 +13,7 @@
       ],
       "parameters": "path: str | Path, *, active_only: bool=True",
       "returns": "list[MatrixRow]",
-      "source_sha256": "df17935227faf20d52229c33d8254ecab81c849292548613defd1665fa6f5cc7"
+      "source_sha256": "31b4e63bf745908735869995b49a9132add832937e070ef88740d9681c1f701a"
     },
     {
       "id": "resolve",
@@ -30,7 +30,7 @@
       ],
       "parameters": "path: str | Path, workspace: CampaignWorkspace, *, name: str, fs_version: str | None, recipes: Mapping[str, str], fs_exe: str | Path | None=None, ignore_missing_families: bool=True, rows: list[MatrixRow] | None=None",
       "returns": "ResolvedMatrix",
-      "source_sha256": "5dac5697d7a2969742786e099baa33b0f7f93c68fff53e5dfd8b96caeacda515"
+      "source_sha256": "49fa12998b4d131abb0da4019c1f8befa0d62402eb69309cfae6322d44bac846"
     },
     {
       "id": "plan",
@@ -45,7 +45,7 @@
       ],
       "parameters": "campaign: Campaign, workspace: CampaignWorkspace, *, recipes: dict[str, ScriptRecipe] | None=None, write_plan: bool=True, name_from: str | None=None, builds: Mapping[str, SolverBuild] | None=None, versions: Mapping[str, str] | None=None, matrix_path: str | Path | None=None, accept_unregistered_build: bool=False, setup_inspections: Sequence[dict[str, object]] | None=None, inflow_fft: bool=False, accepted_builds: Collection[str]=(), planned_order: Mapping[str, Sequence[str]] | None=None",
       "returns": "CampaignPlan",
-      "source_sha256": "c5e179e73ce6d43b5946e5c8031cc3ffaec2ec0cd526ed4876fd65d5b6e89f5c"
+      "source_sha256": "c59cf8de9d56a89d03afe710cca2581f31d2fdf148162bd5483124f0c2582c29"
     },
     {
       "id": "run",
@@ -62,7 +62,7 @@
       ],
       "parameters": "campaign: Campaign, executor: Executor, workspace: CampaignWorkspace, *, assess: OutcomeAssessor, recipes: dict[str, ScriptRecipe] | None=None, resume: bool=False, force_rerun: Sequence[str] | None=None, preflight: bool=True, builds: Mapping[str, SolverBuild] | None=None, name_from: str | None=None, quiet: bool=False, accept_unregistered_build: bool=False, sweep_csv: str | Path | None=None, accepted_builds: Collection[str]=()",
       "returns": "list[RunRecord]",
-      "source_sha256": "b6da2c8b1063ed6b340264f8c349c63a7bbe557f72b506066959aa48e16541df"
+      "source_sha256": "530a7b9d81e73397e4d63d4cdafd38f17c65c082c2ef4cc9088ce32b1b908aa6"
     },
     {
       "id": "collect",
@@ -77,7 +77,7 @@
       ],
       "parameters": "workspace: CampaignWorkspace, *, interval: float=DEFAULT_SETTLE_INTERVAL_S, sleep: Callable[[float], None]=time.sleep, observer: Callable[[Iterable[Path]], dict[str, Stamp | None]]=observe, assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None=None, sims: Collection[str] | None=None, writes: CollectWrites | None=None",
       "returns": "CollectReport",
-      "source_sha256": "2df2675cf6aacaf88869c62891febdd16154bec8a116293f5e20794f1fb9d414"
+      "source_sha256": "bfb5936fdc35e74ce72dcf7c90cccb071b40c1631640588b780d072037d1b9f3"
     },
     {
       "id": "post",
@@ -93,7 +93,7 @@
       ],
       "parameters": "workspace: CampaignWorkspace, *, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None",
       "returns": "list[Path]",
-      "source_sha256": "da62405e3588953e97ee75da9e04be346fb18c078a3a64a33105d88b8d0d2c50"
+      "source_sha256": "1763b0ddea9000e408497584eab813fe593175123484f052d0c300df27ecc377"
     },
     {
       "id": "refine",
@@ -108,7 +108,7 @@
       ],
       "parameters": "mesh: str | os.PathLike[str], factor: float | None=None, *, families: Sequence[str] | None=None, chordwise: float | None=None, spanwise: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None",
       "returns": "RefinedMesh",
-      "source_sha256": "380a7d66b26666b4a4e79fb2fd7d06e2f9dd97854cbd1e2f0ee713636d5e3898"
+      "source_sha256": "8319e109089434986d7b4424611929fd52edc281c203951d28fa99b62e69c6f9"
     }
   ],
   "cases": [

@@ -52,6 +52,27 @@ def test_p0420_doc_charts_ship_pinned_local_libraries():
     assert not (ROOT / "properdocs.D.yml").exists()
 
 
+def test_p0430_the_data_flow_digest_is_the_source_text_not_an_interpreter_rendering():
+    """RB8-08: a stage's source_sha256 is the digest of its source text.
+
+    It was the digest of ast.unparse, whose rendering of an f-string with a quoted
+    replacement field differs between 3.12 patch releases, so a graph generated on 3.12.0
+    drifted on CI's 3.12.15 with no source change.
+    """
+    import ast
+
+    data = json.loads((ROOT / "docs/graphs/data-flow.json").read_text(encoding="utf-8"))
+    for stage in data["stages"]:
+        text = (ROOT / "src/pyflightstream" / stage["source"]).read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(text).body
+            if isinstance(node, ast.FunctionDef) and node.name == stage["symbol"]
+        )
+        source = ast.get_source_segment(text, function) or ""
+        assert stage["source_sha256"] == hashlib.sha256(source.encode()).hexdigest(), stage["id"]
+
+
 def test_p0420_doc_understanding_reads_approved_stages():
     """PFS-2143: the view consumes phase-S areas, parents and trace anchors."""
     import yaml

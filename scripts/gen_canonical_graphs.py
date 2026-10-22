@@ -32,7 +32,8 @@ def flow_data(root: Path) -> dict:
         raise ValueError("duplicate pipeline stage")
     for stage in stages.values():
         path = root / "src/pyflightstream" / stage["source"]
-        tree = ast.parse(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+        tree = ast.parse(text)
         function = next(
             (n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == stage["symbol"]),
             None,
@@ -41,7 +42,11 @@ def flow_data(root: Path) -> dict:
             raise ValueError(f"missing pipeline callable: {stage['source']}:{stage['symbol']}")
         stage["parameters"] = ast.unparse(function.args)
         stage["returns"] = ast.unparse(function.returns) if function.returns else "unspecified"
-        stage["source_sha256"] = hashlib.sha256(ast.unparse(function).encode()).hexdigest()
+        # THE SOURCE TEXT, not ast.unparse: unparse renders some f-strings differently
+        # from one 3.12 patch release to another (3.12.0 reuses the outer quote inside
+        # a replacement field), so the committed digest failed CI on 3.12.15 (RB8-08).
+        source = ast.get_source_segment(text, function) or ""
+        stage["source_sha256"] = hashlib.sha256(source.encode()).hexdigest()
     data["edges"] = [
         {"source": left["id"], "target": right["id"], "artifact": artifact}
         for left in stages.values()
