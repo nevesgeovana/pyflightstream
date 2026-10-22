@@ -385,6 +385,49 @@ def test_p0350_run_fr361_a_job_that_does_not_launch_fails_its_points(tmp_path):
     assert [r.status for r in on_disk] == [RunStatus.FAILED_EXECUTION] * 3
 
 
+def test_p0430_a_local_job_with_no_walltime_takes_the_case_solver_timeout(tmp_path, monkeypatch):
+    """X-F-0558: a local grouped job with no WALLTIME is limited by its cases' solver timeout.
+
+    It ran with no limit at all. The limit is the largest solver ``timeout_s`` of its
+    cases for each of its points; a job with a WALLTIME keeps it, and a submitted job
+    passes no local limit.
+    """
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    import pyflightstream.run._batch_run as batch_run
+    from pyflightstream.run._batch_run import JobLaunch
+
+    seen: list[float | None] = []
+
+    def _launch(job, script, *, timeout_s, **_):
+        seen.append(timeout_s)
+        return JobLaunch(job.label, "x", None)
+
+    monkeypatch.setattr(batch_run, "_assemble", lambda *a: "script")
+    monkeypatch.setattr(batch_run, "launch_job", _launch)
+    job = replace(
+        _job("batch", ["7001", "7003"], ["a", "b", "c"]),
+        walltime_s=None,
+        walltime_written="",
+        walltime_source="none",
+    )
+    cases = {
+        "7001": SimpleNamespace(solver=SimpleNamespace(timeout_s=900.0)),
+        "7003": SimpleNamespace(solver=SimpleNamespace(timeout_s=None)),
+    }
+    context = SimpleNamespace(
+        staging=SimpleNamespace(root=tmp_path),
+        collector=SimpleNamespace(job_roots={job.label: "sims/batch/x"}, values={}),
+        cases=cases,
+        local=True,
+    )
+    batch_run._run_job(context, job, [], None)
+    batch_run._run_job(context, replace(job, walltime_s=600, walltime_written="10m"), [], None)
+    batch_run._run_job(SimpleNamespace(**{**vars(context), "local": False}), job, [], None)
+    assert seen == [2700.0, 600.0, None]
+
+
 def test_p0350_run_fr372_driveg_is_one_submit_entry(tmp_path):
     """P0350-BATCH-SUBMIT (FR-372): ``--driveg`` reaches the submit; the descriptor names a job."""
     workspace, profile, argv_file = _workspace(tmp_path)

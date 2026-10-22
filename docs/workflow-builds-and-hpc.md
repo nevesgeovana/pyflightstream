@@ -261,6 +261,11 @@ refused naming the key, and a profile without the key states no limit. The
 sum rule for the walltime of a job, and the value `BEST`, are in
 [Planning a campaign and what it costs](workflow-plan-and-cost.md).
 
+A grouped job run with `--local` stops at its walltime. A job with no walltime
+is limited by the solver `timeout_s` of its cases instead: the largest of them
+for each of its points. The plan prints that limit for every job without a
+walltime, or says the job has none when no case states a solver timeout.
+
 ## Naming the build to a cluster's scheduler
 
 A row's `FS_BUILD` names ONE build, `26.123`. A scheduler often knows only an

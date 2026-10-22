@@ -144,6 +144,23 @@ def test_p0350_plan_fr365_the_receipt_holds_every_field(tmp_path):
     assert plan.grouping is not None and not plan.blocked
 
 
+def test_p0430_the_plan_states_the_local_limit_of_a_job_with_no_walltime(tmp_path):
+    """X-F-0558: a job with no WALLTIME carries a plan line stating its local time limit.
+
+    With no recorded run there is no estimate, so the jobs have no WALLTIME; the
+    fixture's cases state no solver timeout, so the plan says the job has no limit.
+    """
+    workspace, matrix = _fixture(tmp_path)
+    plan = _plan(workspace, matrix, batch=1)
+    job = plan.grouping.jobs[0]
+    assert job.walltime_s is None
+    lines = [w for w in plan.grouping.warnings if w.startswith(f"{job.label}: run on this")]
+    assert lines == [
+        f"{job.label}: run on this machine (--local), its time limit is no limit: no WALLTIME "
+        "and no case of it states a solver timeout_s"
+    ]
+
+
 def test_p0350_plan_fr362_failed_points_are_pending_again(tmp_path):
     """P0350-BATCH-SPLIT (FR-362): a FAILED point is pending again for a grouped plan."""
     workspace, matrix = _fixture(tmp_path, walltimes=("1h", "1h"))

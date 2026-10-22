@@ -88,6 +88,9 @@ FlightStream versions.
 - The `--cost` table of `pyfs-matrix plan` never shortens a run id: its point column widens
   to the longest id, so two points whose ids differ only in the simulation part no longer
   print alike.
+- A grouped job run with `--local` and no `WALLTIME` is limited by the solver `timeout_s` of
+  its cases (the largest of them for each of its points) instead of running with no limit,
+  and the grouped plan states the limit of every job without a walltime.
 
 ### Fixed
 

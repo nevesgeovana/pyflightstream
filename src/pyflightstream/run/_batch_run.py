@@ -55,6 +55,7 @@ from pyflightstream.run._batch_exec import (
     GroupingExecutor,
     JobCollector,
 )
+from pyflightstream.run._batch_plan import local_time_limit
 from pyflightstream.run._campaign import (
     _CampaignState,
     _resolve_campaign_schedule,
@@ -489,7 +490,7 @@ def _run_job(
             inner=inner,
             root=root,
             values=context.collector.values.get(job.label, {}),
-            timeout_s=float(job.walltime_s) if context.local and job.walltime_s else None,
+            timeout_s=local_time_limit(job, context.cases)[0] if context.local else None,
             job_root=job_root,
         )
     if launch.refusal is None:

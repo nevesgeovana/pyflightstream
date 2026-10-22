@@ -241,6 +241,43 @@ def _sims_text(sims: Sequence[str]) -> str:
     return ",".join(sims)
 
 
+def local_time_limit(job: GroupedJob, cases: Mapping[str, SimCase]) -> tuple[float | None, str]:
+    """Return the time limit of a job run on this machine, and the sentence that states it.
+
+    The job's WALLTIME when it has one. Otherwise the solver ``timeout_s`` of its
+    cases stands for each point, so the job is limited to the largest of them times
+    its point count, which is never shorter than the points run one by one. A job
+    whose cases state no solver timeout either has no limit, and the sentence says so.
+
+    Parameters
+    ----------
+    job : GroupedJob
+        The job of the grouping receipt.
+    cases : mapping of str to SimCase
+        The cases by simulation id; a simulation not in it states no timeout.
+
+    Returns
+    -------
+    tuple of (float or None, str)
+        The limit in seconds (None for no limit) and the sentence for the plan.
+    """
+    if job.walltime_s:
+        return float(job.walltime_s), f"{job.walltime_written} (its WALLTIME)"
+    limits = [
+        cases[sim].solver.timeout_s
+        for sim in job.sims
+        if sim in cases and cases[sim].solver.timeout_s is not None
+    ]
+    if not limits:
+        return None, "no limit: no WALLTIME and no case of it states a solver timeout_s"
+    each = max(float(limit) for limit in limits if limit is not None)
+    seconds = each * len(job.points)
+    return seconds, (
+        f"{seconds:g} s: no WALLTIME, so the solver timeout_s of its cases ({each:g} s) "
+        f"for each of its {len(job.points)} point(s)"
+    )
+
+
 def grouping_table_lines(receipt: GroupingReceipt) -> list[str]:
     """Return the table of a grouped plan: a row per job, a total line, warnings, left-out polars.
 
@@ -692,6 +729,11 @@ def plan_grouped_matrix(
         if refusal is not None:
             warnings.append(f"{job.label}: {refusal}")
             _block(plan, job.points, refusal)
+    cases = {case.sim_id: case for case in resolved.campaign.sims}
+    for job in jobs:
+        if not job.walltime_s:
+            _limit, said = local_time_limit(job, cases)
+            warnings.append(f"{job.label}: run on this machine (--local), its time limit is {said}")
     warnings.extend(reopened)
     warnings.extend(_profile_warnings(profile))
     known = [job.estimate_s for job in jobs if job.estimate_s is not None]
