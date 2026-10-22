@@ -680,3 +680,43 @@ def test_pfs_2119_025_a_measured_broken_predecessor_row_is_withheld_not_carried_
     assert result.written == 1
     after = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert "26.123" not in after["KEPT"]["versions"]
+
+
+def test_last_a_chapter_that_is_not_yaml_is_a_manual_draft_error_and_nothing_is_written(tree):
+    """F-1486: yaml.YAMLError escaped as itself where ManualDraftError is documented."""
+    chapters, _, _, _ = tree
+    (chapters / "beta.yaml").write_text("MOVED: [unclosed\n", encoding="utf-8")
+    before = {path: path.read_bytes() for path in chapters.glob("*.yaml")}
+
+    with pytest.raises(ManualDraftError, match="not valid YAML"):
+        _run(tree, write=True)
+
+    assert {path: path.read_bytes() for path in chapters.glob("*.yaml")} == before
+
+
+def test_last_a_failed_restore_after_a_failed_replace_is_said_not_raised_raw(tree, monkeypatch):
+    """F-1267: the restore loop had no try, so a second OSError escaped raw."""
+    import os
+
+    from pyflightstream.utils import database
+
+    chapters, _, _, _ = tree
+    real_replace = os.replace
+
+    def beta_replace_fails(source, target):
+        if pathlib.Path(target).name == "beta.yaml":
+            raise OSError("the volume went away")
+        return real_replace(source, target)
+
+    real_write = database._textio.write_text
+
+    def restore_fails(path, text):
+        if pathlib.Path(path).name == "alpha.yaml":
+            raise OSError("the file is locked")
+        return real_write(path, text)
+
+    monkeypatch.setattr(database.os, "replace", beta_replace_fails)
+    monkeypatch.setattr(database._textio, "write_text", restore_fails)
+
+    with pytest.raises(ManualDraftError, match="could not put back alpha.yaml"):
+        _run(tree, write=True)

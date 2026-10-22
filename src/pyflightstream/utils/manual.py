@@ -789,8 +789,8 @@ def surface_changes(surfaces: Mapping[str, Iterable[str]]) -> tuple[SurfaceChang
         Command names per edition label, in release order. Python
         mappings preserve insertion order and this relies on it, so a
         caller that sorts the labels as strings gets the wrong
-        neighbours: "26.100" sorts before "26.101" by luck and "26.12"
-        would sort before both.
+        neighbours: "26.100" sorts before "26.101" by luck, and "26.12" sorts
+        after both as a string.
 
     Returns
     -------
@@ -1398,8 +1398,14 @@ def read_edition_manifest(path: str | Path) -> tuple[Edition, ...]:
           chapter: 284-379
           index: 380-386
     """
-    text = Path(path).read_text(encoding="utf-8")
-    rows = yaml.safe_load(text)
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+        rows = yaml.safe_load(text)
+    except (yaml.YAMLError, UnicodeDecodeError) as error:
+        raise ManualDraftError(
+            f"{path} is not a readable edition manifest ({error}); it is a UTF-8 YAML "
+            "list of edition mappings"
+        ) from error
     if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
         raise ManualDraftError(
             f"{path} must hold a list of edition mappings, not {type(rows).__name__}"
@@ -1463,21 +1469,34 @@ def read_pdf_pages(path: str | Path, *, first: int, last: int) -> dict[int, str]
             "manual", package="pypdf", purpose="reading a FlightStream manual pdf"
         ) from error
 
-    reader = pypdf.PdfReader(path)
-    if last > len(reader.pages):
+    try:
+        reader = pypdf.PdfReader(path)
+        page_count = len(reader.pages)
+    except pypdf.errors.PyPdfError as error:
+        raise ManualDraftError(
+            f"{path} could not be read as a pdf ({error}). Name the manual's own pdf file "
+            "(a truncated download or another kind of file is not one)."
+        ) from error
+    if last > page_count:
         raise ManualDraftError(
             f"page range {first}-{last} reaches past the end of {path}, which has "
-            f"{len(reader.pages)} pages. Truncating would answer from a short read, and "
+            f"{page_count} pages. Truncating would answer from a short read, and "
             "the page count is also the cheapest sign that this is the wrong edition: "
-            "the registered manuals run between roughly 350 and 415 pages."
+            "compare it with the page count of the edition you meant to read."
         )
     # Use layout extraction to preserve visual lines. Flowing extraction can
     # join a sample block and the next signature heading, hiding both from
     # line-oriented parsing.
-    return {
-        i + 1: (reader.pages[i].extract_text(extraction_mode="layout") or "")
-        for i in range(first - 1, last)
-    }
+    try:
+        return {
+            i + 1: (reader.pages[i].extract_text(extraction_mode="layout") or "")
+            for i in range(first - 1, last)
+        }
+    except TypeError as error:
+        raise ManualDraftError(
+            f"the installed pypdf does not accept extraction_mode='layout' ({error}); "
+            "upgrade pypdf (pip install -U pypdf) and read the manual again"
+        ) from error
 
 
 # --- drafting -------------------------------------------------------------
@@ -2412,6 +2431,11 @@ def insert_version_row(
             raise ManualDraftError(f"{command} already records {canonical}")
 
     row = flow_mapping({"status": status, "note": note})
+    if not re.fullmatch(r"[0-9A-Za-z._-]+", canonical):
+        raise ManualDraftError(
+            f"{command}: the build key {canonical!r} is written between quotes in a "
+            "chapter file, so it holds letters, digits, dots, dashes and underscores only"
+        )
     # The new row takes the terminator of the line it follows; a last line
     # with none gains the file's own before it.
     original_end = ends[last_content]

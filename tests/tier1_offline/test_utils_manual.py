@@ -2708,3 +2708,82 @@ def test_pfs_2124_023_writing_over_an_existing_draft_is_refused_unless_asked(tmp
     assert target.read_text(encoding="utf-8") == "reviewed: true"
     write_chapter(body, path=target, write=True, overwrite=True)
     assert target.read_text(encoding="utf-8") == body
+
+
+def test_last_a_manifest_that_is_not_yaml_or_not_utf8_is_a_manual_draft_error(tmp_path):
+    """X-F-1305: neither a YAML error nor a decode error escaped as itself any more."""
+    broken = tmp_path / "broken.yaml"
+    broken.write_text('- label: "a\n  manual: [', encoding="utf-8")
+    with pytest.raises(ManualDraftError, match="not a readable edition manifest"):
+        read_edition_manifest(broken)
+    binary = tmp_path / "binary.yaml"
+    binary.write_bytes(b"\xff\xfe\x00- label: a\n")
+    with pytest.raises(ManualDraftError, match="not a readable edition manifest"):
+        read_edition_manifest(binary)
+
+
+def test_last_a_file_that_is_not_a_pdf_is_a_manual_draft_error(tmp_path):
+    """F-1579: a pypdf error reached pyfs-manual as a traceback."""
+    pytest.importorskip("pypdf")
+    target = tmp_path / "manual.pdf"
+    target.write_bytes(b"this is not a pdf at all")
+    with pytest.raises(ManualDraftError, match="could not be read as a pdf"):
+        read_pdf_pages(target, first=1, last=1)
+
+
+def test_last_a_pypdf_without_layout_extraction_says_to_upgrade(tmp_path, monkeypatch):
+    """X-F-1089: an old pypdf raised TypeError on extraction_mode."""
+    pypdf = pytest.importorskip("pypdf")
+
+    class Page:
+        def extract_text(self, **kwargs):
+            if kwargs:
+                raise TypeError("extract_text() got an unexpected keyword 'extraction_mode'")
+            return ""
+
+    class Reader:
+        def __init__(self, _path):
+            self.pages = [Page()]
+
+    monkeypatch.setattr(pypdf, "PdfReader", Reader)
+    with pytest.raises(ManualDraftError, match="upgrade pypdf"):
+        read_pdf_pages(tmp_path / "manual.pdf", first=1, last=1)
+
+
+def test_last_the_short_manual_hint_does_not_state_a_page_range_of_its_own(tmp_path, monkeypatch):
+    """F-675: the range in the hint excluded registered manuals (342 and 425 pages)."""
+    pypdf = pytest.importorskip("pypdf")
+
+    class Reader:
+        def __init__(self, _path):
+            self.pages = [object()] * 3
+
+    monkeypatch.setattr(pypdf, "PdfReader", Reader)
+    with pytest.raises(ManualDraftError, match="reaches past the end") as raised:
+        read_pdf_pages(tmp_path / "manual.pdf", first=1, last=9)
+    assert "roughly 350" not in str(raised.value)
+    assert "3 pages" in str(raised.value)
+
+
+@pytest.mark.parametrize("spec", ["²-3", "1-³", "١-٣"])
+def test_last_a_page_range_takes_ascii_digits_only(spec, capsys):
+    """X-F-1304: str.isdigit accepts characters int() refuses, ending in a traceback."""
+    import argparse
+
+    from pyflightstream.utils import cli as utils_cli
+
+    parser = argparse.ArgumentParser()
+    with pytest.raises(SystemExit) as raised:
+        utils_cli._pages(parser, "--chapter", spec)
+    assert raised.value.code == 2
+    assert "FIRST-LAST" in capsys.readouterr().err
+    assert utils_cli._pages(parser, "--chapter", "273-370") == (273, 370)
+
+
+@pytest.mark.parametrize("canonical", ['26.1"2', "26.12\n", "a b", "../x"])
+def test_last_insert_version_row_refuses_a_build_key_it_would_not_quote_safely(canonical):
+    """X-F-1348: the key was written between quotes without any check."""
+    with pytest.raises(ManualDraftError, match="build key"):
+        insert_version_row(
+            CHAPTER, command="FIRST", canonical=canonical, status="documented", note="n"
+        )

@@ -32,9 +32,11 @@ class ManualDraftError(PyflightstreamError, ValueError):
 class ManualCallError(PyflightstreamError, TypeError):
     """A drafting function was called with the wrong argument shape.
 
-    Raised by ``propose_type`` when its two strings arrive twice, or
-    positionally with a count other than two, or not at all: the keyword
-    form is the one that says which string is which (PFS-2022.05).
+    The library raises nothing of this class today. ``propose_type`` takes its
+    two strings as keywords only (PFS-2022.05), so a call with the strings
+    positional, twice or missing raises Python's own ``TypeError``, which is
+    what the signature itself refuses with. The class stays in the catalogue
+    for callers that name it.
 
     ``TypeError`` as the second base, because that is what a wrong call
     shape raised before the catalogue held a class for it, and what a

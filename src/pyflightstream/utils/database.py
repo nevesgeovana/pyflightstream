@@ -181,10 +181,20 @@ def _write_all_or_none(edited: Mapping[Path, str], originals: Mapping[Path, str]
             replaced.append(path)
     except OSError as error:
         failed_path = path
-        for path in replaced:
-            _textio.write_text(path, originals[path])
+        not_put_back: list[str] = []
+        for restored in replaced:
+            try:
+                _textio.write_text(restored, originals[restored])
+            except OSError:
+                not_put_back.append(restored.name)
         for temporary in pending.values():
             temporary.unlink(missing_ok=True)
+        if not_put_back:
+            raise ManualDraftError(
+                f"could not replace {failed_path.name} ({error}), and could not put back "
+                f"{', '.join(not_put_back)} either: those chapters hold their new text, "
+                "and every other chapter is as it was"
+            ) from error
         raise ManualDraftError(
             f"could not replace {failed_path.name} ({error}); the chapters already replaced "
             f"({', '.join(p.name for p in replaced) or 'none'}) were put back, so no "
@@ -364,7 +374,12 @@ def register_edition(
             raise ManualDraftError(
                 f"cannot read {path}: {error}. NOTHING HAS BEEN WRITTEN"
             ) from None
-        recorded = yaml.safe_load(texts[chapter]) or {}
+        try:
+            recorded = yaml.safe_load(texts[chapter]) or {}
+        except yaml.YAMLError as error:
+            raise ManualDraftError(
+                f"{path} is not valid YAML ({error}). NOTHING HAS BEEN WRITTEN"
+            ) from None
         for delta in rows:
             entry = recorded.get(delta.name) or {}
             # ALREADY RECORDED IS NOT AN ERROR. A second --write is a

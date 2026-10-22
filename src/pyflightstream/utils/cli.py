@@ -383,7 +383,9 @@ def _pages(parser: argparse.ArgumentParser, flag: str, spec: str) -> tuple[int, 
     and surfaced as a raw traceback before.
     """
     first, _, last = spec.partition("-")
-    if not last or not first.isdigit() or not last.isdigit():
+    # ASCII digits only: str.isdigit also accepts characters such as a
+    # superscript two, which int() refuses.
+    if not (last and first.isascii() and first.isdigit() and last.isascii() and last.isdigit()):
         parser.error(f"{flag} takes FIRST-LAST in one-based page numbers, for example 273-370")
     return int(first), int(last)
 
