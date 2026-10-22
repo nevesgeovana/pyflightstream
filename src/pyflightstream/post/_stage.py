@@ -373,8 +373,8 @@ def _read_freeze_of_log(log_path: Path, *, steady: bool = False) -> FrozenSolve 
             detail=f"{log_path} holds no unsteady residual evidence",
         )
     # THE BLOCKS THE SOLVER DID FINISH ARE STILL EVIDENCE, and on a real log they
-    # are nearly all of it: the one measured here carries 144 step blocks of which
-    # exactly ONE cannot be read, a header the walltime guard stopped under. A
+    # are nearly all of it: a log the walltime guard stopped can end in a header
+    # that cannot be read (no committed report measures such a log). A
     # freeze found in the readable blocks wins, because it is evidence; otherwise
     # the unreadable steps are named and only the windows containing them lose
     # their averages.
