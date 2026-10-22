@@ -233,7 +233,8 @@ def _build_coupled_inputs(root: Path) -> None:
     (geometry / "coupled_wing.obj").write_text(obj, encoding="utf-8")
     (geometry / "coupled_wing.boundaries.toml").write_text(
         'boundaries = ["Wing"]\n[import]\nunits = "METER"\n'
-        '[trailing_edges]\nfile = "coupled_wing.te.txt"\n[wake_termination]\ndetect = "auto"\n',
+        '[trailing_edges]\nfile = "coupled_wing.te.txt"\ntype = "STANDARD"\n'
+        '[wake_termination]\ndetect = "auto"\n',
         encoding="utf-8",
     )
     (geometry / "coupled_wing.te.txt").write_text(_trailing_edge_points(), encoding="utf-8")

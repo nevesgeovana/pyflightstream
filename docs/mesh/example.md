@@ -45,6 +45,7 @@ to = "Wing"
 
 [trailing_edges]
 file = "wing.te.txt"
+type = "STANDARD"
 ```
 
 **The points file.** The trailing edge is the line x = 1000 mm, z = 0, and

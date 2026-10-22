@@ -31,7 +31,6 @@ from pyflightstream.commands import CommandRegistry
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz
 from pyflightstream.workspace.wake_edges import (
     _METRES_PER_UNIT,
-    DEFAULT_EDGE_TYPE,
     DEFAULT_TOLERANCE,
     LENGTH_UNIT_COMMAND,
     TRAILING_EDGE_DETECTION_COMMAND,
@@ -50,7 +49,7 @@ from pyflightstream.workspace.wake_edges import (
 ONE_NODE = (PointXyz(x_m=1.0, y_m=0.0, z_m=0.0),)
 
 
-def test_the_two_inputs_default_to_what_the_manual_page_prints():
+def test_the_tolerance_defaults_to_what_the_manual_page_prints():
     """Both defaults are the vendor's own, not this package's taste.
 
     The page prints a sample call passing VORTEX_SHEDDING and 0.0001 and
@@ -59,9 +58,16 @@ def test_the_two_inputs_default_to_what_the_manual_page_prints():
     is the whole defence of these two numbers, and it is the reason the
     item asked for a default with a source rather than a default.
     """
-    settings = WakeEdgeImport(nodes=ONE_NODE)
-    assert settings.edge_type == DEFAULT_EDGE_TYPE == "VORTEX_SHEDDING"
+    settings = WakeEdgeImport(nodes=ONE_NODE, edge_type="VORTEX_SHEDDING")
     assert settings.tolerance == DEFAULT_TOLERANCE == 0.0001
+
+
+def test_pfs_2124_055_the_import_requires_its_edge_type():
+    """No default: a declaration without a type is refused naming both common types."""
+    with pytest.raises(InputArtifactError) as refusal:
+        WakeEdgeImport(nodes=ONE_NODE)
+    message = str(refusal.value)
+    assert "VORTEX_SHEDDING" in message and "STANDARD" in message
 
 
 def test_the_edge_types_come_from_the_command_record_and_not_from_a_copy():
@@ -75,7 +81,7 @@ def test_the_edge_types_come_from_the_command_record_and_not_from_a_copy():
     entry = CommandRegistry.load().commands[WAKE_EDGE_IMPORT_COMMAND]
     (declared,) = [arg for arg in entry.args if arg.name == "type"]
     assert edge_types() == declared.values
-    assert DEFAULT_EDGE_TYPE in edge_types()
+    assert "VORTEX_SHEDDING" in edge_types()
 
 
 def test_the_tolerance_unit_is_read_from_the_record_and_not_copied_here():
@@ -103,7 +109,7 @@ def test_a_case_with_nothing_to_mark_is_refused_and_the_count_is_in_the_message(
     there.
     """
     with pytest.raises(InputArtifactError) as refusal:
-        WakeEdgeImport(nodes=())
+        WakeEdgeImport(nodes=(), edge_type="STANDARD")
     message = str(refusal.value)
     assert "0" in message, "the refusal does not state how many nodes were supplied"
     assert WAKE_EDGE_IMPORT_COMMAND in message, (
@@ -122,7 +128,7 @@ def test_a_tolerance_that_can_match_nothing_is_refused_with_its_own_value(tolera
     the caller checking the wrong field.
     """
     with pytest.raises(InputArtifactError) as refusal:
-        WakeEdgeImport(nodes=ONE_NODE, tolerance=tolerance)
+        WakeEdgeImport(nodes=ONE_NODE, edge_type="STANDARD", tolerance=tolerance)
     message = str(refusal.value)
     assert repr(tolerance) in message or str(tolerance) in message, (
         f"the refusal does not name the value it refused ({tolerance!r})"
@@ -192,7 +198,7 @@ def test_the_evidence_behind_the_default_route_is_stated_with_both_commands():
         assert "weaker evidence" not in later, f"{build} is verified and still called weaker"
     assert "verified on 26.124, 26.125 and not on 26.123" in notice, notice
     assert "weaker evidence" in notice, notice
-    assert WakeEdgeImport(nodes=ONE_NODE).evidence_notice("26.123") == notice
+    assert WakeEdgeImport(nodes=ONE_NODE, edge_type="STANDARD").evidence_notice("26.123") == notice
 
 
 # --- PFS-2025.16.02: the package writes the node file ------------------------

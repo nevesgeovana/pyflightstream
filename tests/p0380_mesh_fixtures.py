@@ -455,7 +455,7 @@ def write_source(
         names = ", ".join(f'"{n}"' for n in mesh.families)
         text = f"boundaries = [{names}]\n"
         if len(mesh.te):
-            text += f'\n[trailing_edges]\nfile = "{stem}.te.txt"\n'
+            text += f'\n[trailing_edges]\nfile = "{stem}.te.txt"\ntype = "STANDARD"\n'
         (folder / f"{stem}.boundaries.toml").write_bytes(text.encode("utf-8"))
     if refine_toml is not None:
         (folder / f"{stem}.refine.toml").write_bytes(refine_toml.encode("utf-8"))

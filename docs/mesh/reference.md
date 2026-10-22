@@ -274,7 +274,7 @@ units = "METER"
 
 [trailing_edges]
 file = "wing.te.txt"   # the points file, beside the sidecar
-type = "STANDARD"      # optional: STANDARD (the default), RELAXED, JET_OUTFLOW, VORTEX_SHEDDING
+type = "STANDARD"      # required with file: STANDARD, RELAXED, JET_OUTFLOW or VORTEX_SHEDDING
 tolerance = 0.0001     # optional: in the simulation's metres
 ```
 
@@ -289,9 +289,10 @@ IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER
 
 The points name edges of the mesh as the FILE holds it, so the route is
 refused beside an `[[import.operations]]` that scales, mirrors, translates or
-rotates the body; a rename is accepted. `type` is STANDARD unless written, the
-type the solver's detection gives the edges it marks, so one mesh marked by
-file and by detection carries one type.
+rotates the body; a rename is accepted. `type` has no default and a
+table with `file` and no `type` is refused: STANDARD is the type the solver's
+detection gives the edges it marks, so one mesh marked by file and by detection
+carries one type when you write it.
 
 **Detection, the second route, applies only when written.** It is never a
 default:

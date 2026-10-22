@@ -155,7 +155,7 @@ def sidecar_text(
             "is kept beside the mesh)"
         )
     elif te_file is not None:
-        rows += ["", "[trailing_edges]", f"file = {toml_value(te_file)}"]
+        rows += ["", "[trailing_edges]", f"file = {toml_value(te_file)}", 'type = "STANDARD"']
     for table in _CARRIED_TABLES:
         if table in carried:
             rows += ["", *toml_table(table, carried[table])]

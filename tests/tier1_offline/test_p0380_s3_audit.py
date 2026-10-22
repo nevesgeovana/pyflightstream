@@ -282,11 +282,15 @@ def test_g4_reads_the_points_file_the_sidecar_names_and_refuses_a_missing_one(tm
     level, src = _pair(tmp_path, Mesh())
     level.with_suffix(".te.txt").rename(level.with_name("edge.te.txt"))
     sidecar = level.with_name("wing_R2.boundaries.toml")
-    sidecar.write_text('[trailing_edges]\nfile = "edge.te.txt"\n', encoding="utf-8")
+    sidecar.write_text(
+        '[trailing_edges]\nfile = "edge.te.txt"\ntype = "STANDARD"\n', encoding="utf-8"
+    )
     audit, _ = _audit(level, src)
     assert _item(audit, "G4").values["points_on_edges"] == NY and audit.passed
     audit.path.unlink()
-    sidecar.write_text('[trailing_edges]\nfile = "gone.te.txt"\n', encoding="utf-8")
+    sidecar.write_text(
+        '[trailing_edges]\nfile = "gone.te.txt"\ntype = "STANDARD"\n', encoding="utf-8"
+    )
     with pytest.raises(InputArtifactError, match=r"gone\.te\.txt.*Nothing was written\."):
         audit_mesh(level, against=src)
     assert not audit.path.exists()

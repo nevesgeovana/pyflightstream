@@ -662,7 +662,7 @@ def _resampled_while(call) -> list[str]:
     ("sidecar", "said"),
     [
         (
-            'boundaries = ["G"]\n[trailing_edges]\nfile = "missing.te.txt"\n',
+            'boundaries = ["G"]\n[trailing_edges]\nfile = "missing.te.txt"\ntype = "STANDARD"\n',
             "names the trailing-edge file missing.te.txt, which does not exist",
         ),
         ('boundaries = ["G"\n', "not TOML"),
@@ -748,17 +748,28 @@ def test_r5_an_audit_that_raises_publishes_nothing_and_keeps_the_old_level(tmp_p
 
 #: The same boundaries file spelled in six legal TOML ways (the fixture's own form first).
 SIDECARS = {
-    "double-quoted": 'boundaries = ["G", "T"]\n\n[trailing_edges]\nfile = "wing.te.txt"\n',
-    "literal-strings": "boundaries = ['G', 'T']\n[trailing_edges]\nfile = 'wing.te.txt'\n",
+    "double-quoted": (
+        'boundaries = ["G", "T"]\n\n[trailing_edges]\nfile = "wing.te.txt"\ntype = "STANDARD"\n'
+    ),
+    "literal-strings": (
+        "boundaries = ['G', 'T']\n[trailing_edges]\nfile = 'wing.te.txt'\ntype = 'STANDARD'\n"
+    ),
     "multi-line-commented": (
         '# the boundaries\nboundaries = [\n  "G", # the grid\n  "T",\n] # end\n'
-        '[trailing_edges]\nfile = "wing.te.txt" # the points\n'
+        '[trailing_edges]\nfile = "wing.te.txt" # the points\ntype = "STANDARD"\n'
     ),
     "inline-table-escapes": (
-        'boundaries = ["\\u0047", "T"]\ntrailing_edges = { file = "wing\\u002ete.txt" }\n'
+        'boundaries = ["\\u0047", "T"]\n'
+        'trailing_edges = { file = "wing\\u002ete.txt", type = "STANDARD" }\n'
     ),
-    "dotted-key": "boundaries = ['G', 'T']\ntrailing_edges.file = 'wing.te.txt'\n",
-    "quoted-keys": '"boundaries" = ["G", "T"]\n"trailing_edges"."file" = "wing.te.txt"\n',
+    "dotted-key": (
+        "boundaries = ['G', 'T']\ntrailing_edges.file = 'wing.te.txt'\n"
+        "trailing_edges.type = 'STANDARD'\n"
+    ),
+    "quoted-keys": (
+        '"boundaries" = ["G", "T"]\n"trailing_edges"."file" = "wing.te.txt"\n'
+        '"trailing_edges"."type" = "STANDARD"\n'
+    ),
 }
 
 
@@ -823,7 +834,10 @@ def test_r4_the_boundaries_file_is_rewritten_by_its_toml_values(tmp_path, spelli
 
     values = tomllib.loads(written)
     assert values["boundaries"] == ["Wing"] == list(read_mesh(level.obj)[1])
-    assert values["trailing_edges"] == {"file": "wing_R1.te.txt"} and level.files[1].is_file()
+    assert (
+        values["trailing_edges"] == {"file": "wing_R1.te.txt", "type": "STANDARD"}
+        and level.files[1].is_file()
+    )
     assert values["import"] == {"units": "METER"} and "# stated, never assumed" in written
     if spelling == "multi-line-commented":
         assert "# the points" in written and written.startswith("# the boundaries\n")

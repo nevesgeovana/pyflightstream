@@ -17,6 +17,9 @@ FlightStream versions.
 
 ### Changed
 
+- The wake-edge type has no default: a `[trailing_edges]` table with `file` and no `type`, and
+  a `WakeEdgeImport` without `edge_type`, are refused naming VORTEX_SHEDDING and STANDARD.
+  Sidecars written by the geometry converter now carry `type = "STANDARD"`.
 - The refusal of an artifact id with a space, a bracket or another character outside letters,
   digits, `.`, `_` and `-` names the character and suggests the renamed id.
 - `pyfs-matrix mark-converged` without `--apply` exits 2 when its preview holds a refused

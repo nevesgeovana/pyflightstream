@@ -85,7 +85,8 @@ print(f"{mesh.name}: {len(vertices)} vertices, {len(faces)} triangles, in millim
     'units = "MILLIMETER"\n'
     "\n"
     "[trailing_edges]\n"
-    'file = "wing.te.txt"\n',
+    'file = "wing.te.txt"\n'
+    'type = "STANDARD"\n',
     encoding="utf-8",
 )
 aftmost = vertices[np.isclose(vertices[:, 0], vertices[:, 0].max())]

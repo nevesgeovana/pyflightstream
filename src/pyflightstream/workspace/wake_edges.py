@@ -66,7 +66,6 @@ from pyflightstream.script.helpers import render_wake_edge_node_file
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz
 
 __all__ = [
-    "DEFAULT_EDGE_TYPE",
     "DEFAULT_TOLERANCE",
     "LENGTH_UNIT_COMMAND",
     "TRAILING_EDGE_DETECTION_COMMAND",
@@ -90,9 +89,6 @@ WAKE_EDGE_IMPORT_COMMAND = "IMPORT_WAKE_EDGES_FROM_FILE"
 #: What the import replaces: the angle criterion that marks trailing
 #: edges without being told where they are.
 TRAILING_EDGE_DETECTION_COMMAND = "AUTO_DETECT_TRAILING_EDGES"
-
-#: The edge type the manual's own printed sample call passes.
-DEFAULT_EDGE_TYPE = "VORTEX_SHEDDING"
 
 #: The tolerance the manual's parameter table states as the default and
 #: the printed sample call passes (FSM-26.122 p.324, FSM-26.123 p.323). It is
@@ -285,8 +281,8 @@ class WakeEdgeImport(BaseModel):
         nothing and the solver says nothing about it.
     edge_type : str
         Edge type applied to every edge the import matches, one of
-        :func:`edge_types`. Defaults to ``"VORTEX_SHEDDING"``, the value
-        the manual's own printed sample passes.
+        :func:`edge_types`. Required, with no default: ``VORTEX_SHEDDING``
+        and ``STANDARD`` mark different edges, so the caller says which.
     tolerance : float
         Maximum distance between the mid-point of a mesh edge and an
         imported node coordinate for the two to be treated as the same
@@ -298,7 +294,9 @@ class WakeEdgeImport(BaseModel):
     --------
     >>> from pyflightstream.workspace.inputs import PointXyz
     >>> from pyflightstream.workspace.wake_edges import WakeEdgeImport
-    >>> settings = WakeEdgeImport(nodes=(PointXyz(x_m=1.0, y_m=0.0, z_m=0.0),))
+    >>> settings = WakeEdgeImport(
+    ...     nodes=(PointXyz(x_m=1.0, y_m=0.0, z_m=0.0),), edge_type="VORTEX_SHEDDING"
+    ... )
     >>> settings.edge_type, settings.tolerance
     ('VORTEX_SHEDDING', 0.0001)
     """
@@ -306,8 +304,20 @@ class WakeEdgeImport(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     nodes: tuple[PointXyz, ...] = ()
-    edge_type: str = DEFAULT_EDGE_TYPE
+    edge_type: str
     tolerance: float = DEFAULT_TOLERANCE
+
+    @model_validator(mode="before")
+    @classmethod
+    def _the_edge_type_is_stated(cls, data: object) -> object:
+        if isinstance(data, Mapping) and "edge_type" not in data:
+            raise InputArtifactError(
+                f"{WAKE_EDGE_IMPORT_COMMAND} was given no edge type, and it has no "
+                "default: VORTEX_SHEDDING and STANDARD mark different edges. State one of "
+                f"{', '.join(edge_types())}",
+                kind="wake_edges",
+            )
+        return data
 
     @model_validator(mode="after")
     def _the_inputs_can_mark_something(self) -> WakeEdgeImport:

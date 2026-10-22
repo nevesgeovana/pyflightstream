@@ -321,7 +321,9 @@ def test_disabled_trailing_edge_definition_does_not_read_an_unused_points_file(t
 
     geometry = tmp_path / "duct.obj"
     geometry.write_text("unused")
-    geometry.with_suffix(".boundaries.toml").write_text('[trailing_edges]\nfile="missing.te.txt"\n')
+    geometry.with_suffix(".boundaries.toml").write_text(
+        '[trailing_edges]\nfile="missing.te.txt"\ntype = "STANDARD"\n'
+    )
     conditions = _raw_mesh_conditions_of(
         geometry,
         "9011",

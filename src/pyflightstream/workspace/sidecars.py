@@ -995,7 +995,7 @@ def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
 
         [trailing_edges]
         file = "wing.te.txt"      # the default route: a points file
-        type = "STANDARD"         # optional, the edge type of every point
+        type = "STANDARD"         # required with file, the edge type of every point
         tolerance = 0.0001        # optional, in metres
 
         # or detection, only when written:
@@ -1110,9 +1110,15 @@ def _trailing_edge_file_fields(
             f"{where} states file = {written!r}, which is not beside the sidecar; write the "
             'name of a points file in the sidecar\'s folder, as file = "wing.te.txt".'
         )
+    if "type" not in table:
+        raise InputArtifactError(
+            f"{where} states file = {written!r} and no type, and the edge type has no "
+            "default: VORTEX_SHEDDING and STANDARD mark different edges. Add "
+            'type = "VORTEX_SHEDDING" or type = "STANDARD" beside file.'
+        )
     return {
         "route": "file",
-        "edge_type": table.get("type", "STANDARD"),
+        "edge_type": table["type"],
         "tolerance": tolerance,
         "points_file": str(path.parent / named),
     }
@@ -1121,8 +1127,8 @@ def _trailing_edge_file_fields(
 def read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMarking:
     """Read ``[trailing_edges]``: one route, file or detect, and the keys of that route.
 
-    A ``file`` route that states no ``type`` marks its edges ``STANDARD``, the default of this
-    table; a wake-edge declaration of its own is a different table and states its own type.
+    A ``file`` route states its ``type`` (PFS-2124.055): ``VORTEX_SHEDDING`` and ``STANDARD``
+    mark different edges, so the type has no default and a file route without one is refused.
     """
     where = f"{path}: the [{TRAILING_EDGES_TABLE}] table"
     if "none" in table:

@@ -81,7 +81,7 @@ ROW = (
 WITH_LOG = "loads_{point}.txt,run_{point}_log.txt"
 WITHOUT_LOG = "loads_{point}.txt"
 
-FILE_ROUTE = '[trailing_edges]\nfile = "wing.te.txt"\n'
+FILE_ROUTE = '[trailing_edges]\nfile = "wing.te.txt"\ntype = "STANDARD"\n'
 DETECT_AUTO = '[trailing_edges]\ndetect = "auto"\n'
 DETECT_BY_SURFACE_WITH_WAKE_AND_BASE = (
     '[trailing_edges]\ndetect = { surfaces = ["Wing"], sweep_angle = 60 }\n\n'
@@ -293,6 +293,7 @@ def test_a_file_route_row_that_exports_no_solver_log_is_refused_at_plan(tmp_path
             FILE_ROUTE + '\n[base_regions]\ndetect = { surfaces = ["Wing"] }\n',
             ("base_regions", "auto"),
         ),
+        ('[trailing_edges]\nfile = "wing.te.txt"\n', ("no type", "VORTEX_SHEDDING", "STANDARD")),
     ],
     ids=[
         "file-and-detect",
@@ -304,6 +305,7 @@ def test_a_file_route_row_that_exports_no_solver_log_is_refused_at_plan(tmp_path
         "a-zero-tolerance",
         "a-wake-termination-word",
         "base-regions-by-surface",
+        "pfs-2124-055-a-file-without-a-type",
     ],
 )
 def test_a_table_that_does_not_hold_its_shape_is_refused_at_binding(tmp_path, tables, needles):
@@ -854,7 +856,7 @@ def test_a_points_file_named_like_the_node_file_is_left_as_its_author_wrote_it(t
     """G02. The sidecar may name its points file ``wing.wake_nodes.txt``, the name
     the run gives its node file. The points file is the author's, with its unit
     line, and a run writes nothing into the library that holds it."""
-    table = '[trailing_edges]\nfile = "wing.wake_nodes.txt"\n'
+    table = '[trailing_edges]\nfile = "wing.wake_nodes.txt"\ntype = "STANDARD"\n'
     workspace = _library(tmp_path, table)
     authored = workspace.inputs_dir / "geometries" / "wing.wake_nodes.txt"
     authored.write_text(_points_text(), encoding="utf-8")
@@ -891,7 +893,7 @@ def test_reconstruct_verifies_the_node_file_where_the_run_wrote_it(tmp_path, swe
     points file of the same name, which the staged inputs lead to."""
     from pyflightstream.run import reconstruct
 
-    workspace = _library(tmp_path, f'[trailing_edges]\nfile = "{points_file}"\n')
+    workspace = _library(tmp_path, f'[trailing_edges]\nfile = "{points_file}"\ntype = "STANDARD"\n')
     (workspace.inputs_dir / "geometries" / points_file).write_text(_points_text(), encoding="utf-8")
     stub = tmp_path / "stub_solver.py"
     stub.write_text(STUB, encoding="utf-8")
