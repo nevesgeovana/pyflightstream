@@ -84,6 +84,30 @@ def test_g44_sims_narrows_the_run_to_those_simulations(tmp_path):
     assert after["warm/sim_5001/sweep"] == kept, "a simulation --sims did not name was touched"
 
 
+@pytest.mark.requirement("FR-131")
+def test_p0430_every_selected_recorded_point_is_archived_and_no_other_fr_131(tmp_path):
+    """FR-131: the evidence of each selected recorded point is archived before it reruns."""
+    workspace, matrix = _two_simulations(tmp_path)
+    selected = sorted((workspace.sim_dir("5002") / "datapoints").glob("DP-*"))
+    other = sorted((workspace.sim_dir("5001") / "datapoints").glob("DP-*"))
+    assert selected and other
+    before = {
+        folder.name: {p.name: p.read_bytes() for p in folder.iterdir() if p.is_file()}
+        for folder in selected
+    }
+    _run(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT), force_rerun_all=True, sims=["5002"])
+    for folder in selected:
+        stamps = sorted((folder / "archive").iterdir())
+        assert len(stamps) == 1, f"{folder.name} was not archived exactly once"
+        kept = {p.name: p.read_bytes() for p in stamps[0].iterdir() if p.is_file()}
+        assert kept and kept.items() <= before[folder.name].items(), (
+            f"{folder.name}: the archive does not hold the evidence that was replaced"
+        )
+    assert not [folder for folder in other if (folder / "archive").exists()], (
+        "a point of a simulation --sims did not name was archived"
+    )
+
+
 @pytest.mark.parametrize(
     "extra, said",
     [
