@@ -44,6 +44,7 @@ import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases.workflows._vocabulary import RAW_MESH_FORMATS
 from pyflightstream.workspace import MeshAudit, audit_mesh, derive_thin_blade, refine_mesh
+from pyflightstream.workspace.cli import add_console_arguments
 
 #: The exit status of an audit that passed, of one that failed, of a refusal (FR-937).
 EXIT_PASSED, EXIT_FAILED, EXIT_REFUSED = 0, 1, 2
@@ -58,6 +59,12 @@ _AUDIT_DESCRIPTION = (
     "warning, and the audit is still written. Exits 0 when every gate and check passes, 1 when "
     "one fails, 2 when the input is refused or when the --out CSV cannot be written after the "
     "audit was (the error names the audit written). Needs no executable."
+)
+
+
+_VERBOSE_HELP = (
+    "print every warning in Python's full format (file, line and source); "
+    "logs/activity.log holds the full detail either way"
 )
 
 
@@ -95,6 +102,7 @@ def add_mesh_parsers(subparsers: Any) -> None:
         metavar="FILE",
         help="deprecated alias of --out, with the identical result",
     )
+    add_console_arguments(audit, _VERBOSE_HELP)
     audit.set_defaults(mesh_command=run_audit_mesh)
 
 
@@ -338,6 +346,7 @@ def _add_refine_parser(subparsers: Any) -> None:
         help="deprecated alias of --out, with the identical result",
     )
     refine.add_argument("--overwrite", action="store_true", help="replace an existing level folder")
+    add_console_arguments(refine, _VERBOSE_HELP)
     refine.set_defaults(mesh_command=run_refine)
 
 
@@ -415,6 +424,7 @@ def add_inventory_parser(subparsers: Any) -> None:
         ),
     )
 
+    add_console_arguments(inventory, _VERBOSE_HELP)
     inventory.set_defaults(mesh_command=run_inventory)
 
 
@@ -470,6 +480,7 @@ def add_degenerate_parser(subparsers: Any) -> None:
         "existing one is refused",
     )
 
+    add_console_arguments(degenerate, _VERBOSE_HELP)
     degenerate.set_defaults(mesh_command=run_degenerate)
 
 

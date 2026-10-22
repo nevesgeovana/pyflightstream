@@ -26,7 +26,8 @@ FlightStream versions.
   computes one estimate.
 - `pyfs-workspace` commands take `--log-level` and `--verbose`, as `pyfs-matrix` does; a level
   typed there wins over the `[log] console` of `pyfs.local.toml` and `pyfs.toml`. The geometry
-  verbs that mirror a `pyfs-matrix` command keep exactly its options.
+  verbs `refine`, `audit`, `inventory` and `degenerate` take them too, and so do their
+  `pyfs-matrix` twins, whose options they keep exactly.
 
 ### Changed
 

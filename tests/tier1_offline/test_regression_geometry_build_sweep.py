@@ -2513,6 +2513,28 @@ class TestGeometryGroup:
             assert matrix_main(["inventory", str(mesh)]) == 0
         assert (tmp_path / "wing.boundaries.toml").read_text(encoding="utf-8") == ours
 
+    @staticmethod
+    @pytest.mark.requirement("FR-477")
+    @pytest.mark.parametrize("name", sorted(_cli_geometry.PYFS_MATRIX_ALIASES))
+    def test_p0430_the_geometry_verbs_take_log_level_like_pyfs_matrix_pfs_2119_070(name, capsys):
+        """PFS-2119.070: refine, audit, inventory and degenerate name --log-level and --verbose."""
+        with pytest.raises(SystemExit) as stop:
+            workspace_cli.main(["geometry", name, "--help"])
+        assert stop.value.code == 0
+        text = capsys.readouterr().out
+        assert "--log-level" in text and "--verbose" in text
+
+    @staticmethod
+    @pytest.mark.requirement("FR-477")
+    def test_p0430_a_typed_log_level_runs_a_geometry_verb_pfs_2119_070(tmp_path, monkeypatch):
+        """PFS-2119.070: the typed level is taken, and a level outside the three is refused."""
+        mesh = _geometry_build__wing_obj(tmp_path / "wing.obj")
+        monkeypatch.chdir(tmp_path)
+        assert workspace_cli.main(["geometry", "inventory", str(mesh), "--log-level", "quiet"]) == 0
+        with pytest.raises(SystemExit) as stop:
+            workspace_cli.main(["geometry", "inventory", str(mesh), "--log-level", "loud"])
+        assert stop.value.code == 2
+
 
 def _geometry_migration___warnings(geometry, mesh_import=None) -> list[str]:
     with warnings.catch_warnings(record=True) as caught:

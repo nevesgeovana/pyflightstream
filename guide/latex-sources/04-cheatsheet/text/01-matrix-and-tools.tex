@@ -25,6 +25,7 @@
 \begin{flags}
 \item \fl{--overwrite} rewrite an existing .fsm sidecar (an OBJ sidecar is never rewritten)
 \item \fl{--clean} remove the saved solver actions; copy kept as \texttt{<file>.bak-<stamp>}
+\item \fl{--verbose}, \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
 \end{flags}
 \sub{degenerate <geometry>}{derive a degenerate geometry, the thin blade first, from a blade mesh (.fsm or OBJ) and write \texttt{<stem>\_thin\_blade.obj} and its \texttt{.boundaries.toml} beside it; no executable needed}
 \begin{flags}
@@ -32,11 +33,13 @@
 \item \fl{--kind thin-blade} the one kind (the default)
 \item \fl{--boundary NAME} the blade's boundary, for a file that also holds a spinner or a nacelle
 \item \fl{--overwrite} rewrite an existing output
+\item \fl{--verbose}, \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
 \end{flags}
 \sub{audit-mesh <OBJ>}{audit a panel mesh (topology, trailing edge, panel quality) and write \texttt{<stem>.audit.json} beside it; exits 0 pass, 1 a gate or check failed, 2 refused}
 \begin{flags}
 \item \fl{--against SOURCE} judge against the mesh it was made from (alone: G1, G2, G4 only)
 \item \fl{--out FILE} also write the figures as CSV, one row per family and figure; never a file the audit reads; \fl{--csv FILE} is its deprecated alias
+\item \fl{--verbose}, \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
 \end{flags}
 \sub{refine <MESH> [FACTOR]}{refine or coarsen a panel mesh from its OBJ into a new geometry folder \texttt{<stem>\_<tag>/} (OBJ, trailing-edge points, boundaries, \texttt{refine.json}, audit); FACTOR multiplies every selected family, else the factors come from the refinement file; the source is never modified}
 \begin{flags}
@@ -46,6 +49,7 @@
 \item \fl{--keep-first-row FAM[,FAM...]} these grid families keep their row at another component (or the \texttt{keep\_first\_row} key)
 \item \fl{--out DIR} where the level folder goes (default: the parent of the source's folder); \fl{--out-dir DIR} is its deprecated alias
 \item \fl{--overwrite} replace an existing level folder
+\item \fl{--verbose}, \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
 \end{flags}
 \sub{support [BUILD]}{print registered build support and its evidence; no solver is launched}
 See the website's Upgrading page for supported workspace conversion.
@@ -284,18 +288,20 @@ See the website's Upgrading page for supported workspace conversion.
 \begin{flags}
 \item \fl{--families A,B} \quad \fl{--chordwise F} \quad \fl{--spanwise F} \quad \fl{--config FILE}
 \item \fl{--keep-first-row A,B} \quad \fl{--out DIR} (\fl{--out-dir} is its deprecated alias) \quad \fl{--overwrite}
+\item \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}
 \sub{geometry audit <OBJ>}{as \cmd{audit-mesh} of \texttt{pyfs-matrix}, whose home this group is}
 \begin{flags}
 \item \fl{--against SOURCE} \quad \fl{--out FILE} the figures as CSV (\fl{--csv} is its deprecated alias)
+\item \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}
 \sub{geometry inventory <geometry>}{as \cmd{inventory} of \texttt{pyfs-matrix}, whose home this group is}
 \begin{flags}
-\item \fl{--overwrite} \quad \fl{--clean}
+\item \fl{--overwrite} \quad \fl{--clean} \quad \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}
 \sub{geometry degenerate <geometry>}{as \cmd{degenerate} of \texttt{pyfs-matrix}, whose home this group is}
 \begin{flags}
-\item \fl{--root-offset LENGTH} required \quad \fl{--kind thin-blade} \quad \fl{--boundary NAME} \quad \fl{--overwrite}
+\item \fl{--root-offset LENGTH} required \quad \fl{--kind thin-blade} \quad \fl{--boundary NAME} \quad \fl{--overwrite} \quad \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}
 \sub{field}{build a custom free-stream file of \texttt{inputs/freestreams/} from other fields. Every operation below previews until \fl{--apply}, writes the file \texttt{<STEM>} (\texttt{.txt} STRUCTURED, \texttt{.dat} UNSTRUCTURED, the form decides) and its provenance record, and takes \fl{--out STEM} (required), \fl{--workspace DIR}, \fl{--apply}, \fl{--overwrite} (replace an existing \texttt{<STEM>} file and its record)}
 \sub{field mirror <field>}{mirror a field through the plane x = 0, y = 0 or z = 0}
