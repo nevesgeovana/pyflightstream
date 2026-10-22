@@ -632,7 +632,7 @@ def test_p0320_runs_name_the_cli_passes_the_name_to_sync_and_storage(tmp_path, m
     base = ["--workspace", str(tmp_path), "--runs", "runs-alt.json"]
     assert matrix_cli.main(["sync", "runs", *base]) == 0
     assert matrix_cli.main(["free-space", "m001", *base]) == 0
-    assert matrix_cli.main(["delete-sims", "1", *base]) == 0
+    assert matrix_cli.main(["delete-sims", "--sims", "1", *base]) == 0
     assert seen == {
         "sync_workspaces": "runs-alt.json",
         "free_space": "runs-alt.json",

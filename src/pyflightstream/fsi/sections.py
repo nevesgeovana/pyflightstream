@@ -51,61 +51,23 @@ beam that consumes its output needs the ``[fsi]`` extra.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
-from functools import wraps
 from pathlib import Path
-from typing import Any, ParamSpec, TypeVar
+from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from pyflightstream._deprecations import FSI_SECTION_POSITIONAL
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import PyflightstreamDeprecationWarning, warn
 from pyflightstream.fsi.config import (
     BladeProperties,
     BladePropertiesProvenance,
     MaterialProvenance,
 )
-from pyflightstream.fsi.errors import FsiArgumentError, FsiInputError
+from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.materials import MATERIALS_DATABASE_VERSION, Material
 from pyflightstream.fsi.materials import material as material_entry
-
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
-
-
-def _section_keywords(*names: str) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
-    """Accept deprecated positional calls while publishing the keyword signature."""
-
-    def decorate(function: Callable[_P, _R]) -> Callable[_P, _R]:
-        @wraps(function)
-        def compatible(*args: Any, **kwargs: Any) -> _R:
-            if len(args) > 1:
-                if len(args) > len(names) + 1:
-                    raise FsiArgumentError(
-                        f"{function.__name__} accepts at most {len(names) + 1} positional arguments"
-                    )
-                for name, value in zip(names, args[1:], strict=False):
-                    if name in kwargs:
-                        raise FsiArgumentError(
-                            f"{function.__name__} got multiple values for {name!r}"
-                        )
-                    kwargs[name] = value
-                promise = next(
-                    entry
-                    for entry in FSI_SECTION_POSITIONAL
-                    if entry.owner.endswith(function.__name__)
-                )
-                warn(promise.message(), PyflightstreamDeprecationWarning, stacklevel=2)
-                args = args[:1]
-            return function(*args, **kwargs)
-
-        return compatible
-
-    return decorate
-
 
 __all__ = [
     "BENDING_STIFFNESS_RULE",
@@ -294,7 +256,6 @@ class SolidSectionProperties:
     thin_section_torsion_m4: float
 
 
-@_section_keywords("chord_m", "pitch_axis_chord_fraction")
 def airfoil_section_contour(
     unit_contour: ArrayLike, *, chord_m: float, pitch_axis_chord_fraction: float = 0.25
 ) -> NDArray[np.float64]:
@@ -628,7 +589,6 @@ def thin_section_torsion_estimate(contour_m: ArrayLike, samples: int = 4096) -> 
     return total * step / 3.0
 
 
-@_section_keywords("grid_cells")
 def solid_section_properties(
     contour_m: ArrayLike, *, grid_cells: int = DEFAULT_TORSION_GRID_CELLS
 ) -> SolidSectionProperties:
@@ -662,7 +622,6 @@ def solid_section_properties(
     )
 
 
-@_section_keywords("sections_m", "chord_m", "geometric_pitch_deg", "material")
 def blade_properties_from_sections(
     station_radii_m: Sequence[float],
     *,

@@ -60,8 +60,8 @@ def test_p0420_p1_1d_all_sim_selectors_share_the_grammar(command, words, monkeyp
     assert caught.value.code == 0
 
 
-def test_p0420_p1_1d_delete_positional_alias_warns_and_preserves_selection(tmp_path, capsys):
-    from pyflightstream._errors import PyflightstreamDeprecationWarning
+def test_p0430_delete_sims_takes_only_the_sims_option(tmp_path, capsys):
+    """PFS-2124.004: the positional ids, deprecated in 0.42.0, are refused from 0.43.0."""
     from pyflightstream.workspace import RunStatus
     from tests.tier1_offline.test_mark_failed import _record
 
@@ -71,11 +71,14 @@ def test_p0420_p1_1d_delete_positional_alias_warns_and_preserves_selection(tmp_p
         workspace.append_record(_record(sim, f"camp/sim_{sim}/AL+000", RunStatus.FAILED_MARKED))
     assert main(["delete-sims", "--workspace", str(tmp_path), "--sims", "2006", "2007"]) == 0
     modern = capsys.readouterr().out
-    with pytest.warns(PyflightstreamDeprecationWarning, match="0.43.0"):
-        assert main(["delete-sims", "[2006,2007]", "--workspace", str(tmp_path)]) == 0
-    assert capsys.readouterr().out == modern
     assert "2006" in modern and "2007" in modern
-    assert main(["delete-sims", "2006", "--sims", "2007", "--workspace", str(tmp_path)]) == 2
+    with pytest.raises(SystemExit) as refused:
+        main(["delete-sims", "[2006,2007]", "--workspace", str(tmp_path)])
+    assert refused.value.code == 2
+    assert "--sims" in capsys.readouterr().err
+    with pytest.raises(SystemExit) as refused:
+        main(["delete-sims", "2006", "--sims", "2007", "--workspace", str(tmp_path)])
+    assert refused.value.code == 2
 
 
 REGISTRY_FIXTURE = FIXTURES / "matrix_registry.fs"

@@ -700,34 +700,7 @@ MATRIX_GEOMETRY_ALIASES = (
 )
 
 
-DELETE_SIMS_POSITIONAL = DeprecatedFlag(
-    command="pyfs-matrix delete-sims",
-    old="positional ids",
-    new="--sims ID [ID ...]",
-    deprecated_since="0.42.0",
-    removal_version="0.43.0",
-)
-
-
-FSI_SECTION_POSITIONAL = tuple(
-    DeprecatedParameter(
-        owner=f"pyflightstream.fsi.sections.{name}",
-        old="positional arguments after the primary input",
-        new="keyword arguments after the primary input",
-        deprecated_since="0.42.0",
-        removal_version="0.43.0",
-    )
-    for name in (
-        "airfoil_section_contour",
-        "solid_section_properties",
-        "blade_properties_from_sections",
-    )
-)
-
-
 DEPRECATIONS: tuple[Deprecation, ...] = (
-    *FSI_SECTION_POSITIONAL,
-    DELETE_SIMS_POSITIONAL,
     *DEPRECATED_MODULES,
     ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES,
     PLAN_MATRIX_FS_VERSION,

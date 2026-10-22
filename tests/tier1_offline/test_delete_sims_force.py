@@ -147,7 +147,7 @@ def test_without_force_the_call_records_force_false(tmp_path):
 def test_cli_force_flag_reaches_the_library(tmp_path):
     # Verifies FR-306.
     workspace = _workspace(tmp_path)
-    args = ["delete-sims", "6001", "--workspace", str(workspace.root)]
+    args = ["delete-sims", "--sims", "6001", "--workspace", str(workspace.root)]
     assert matrix_cli.main([*args, "--apply"]) != 0
     assert workspace.sim_dir("6001").exists()
     assert matrix_cli.main([*args, "--force", "--apply"]) == 0

@@ -128,6 +128,15 @@ FlightStream versions.
 - On build 26.121, `SET_MOTION_START_TIME` is emitted as the edition documents it; it was
   refused as broken on a probe abort whose cause was the probe's own rotary motion.
 
+### Removed
+
+- Positional arguments after the primary input of `airfoil_section_contour`,
+  `solid_section_properties` and `blade_properties_from_sections`, deprecated in 0.42.0;
+  pass them as keyword arguments. `FsiArgumentError`, which only that positional form
+  raised, goes with it; a positional call raises `TypeError`, its base.
+- The positional ids of `pyfs-matrix delete-sims`, deprecated in 0.42.0; `--sims ID [ID ...]`
+  is now required.
+
 ### Fixed
 
 - An export found for a row that states no `BETA` (or no `ALPHA`) is its point only at 0.0,

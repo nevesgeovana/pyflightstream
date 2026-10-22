@@ -4919,17 +4919,7 @@
     },
     {
       "source": "pyflightstream.fsi.sections",
-      "target": "pyflightstream._deprecations",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.fsi.sections",
       "target": "pyflightstream._digest",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.fsi.sections",
-      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -9486,16 +9476,6 @@
       "source": "pyflightstream.run._cli_parsers",
       "target": "pyflightstream._cli",
       "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._cli_parsers",
-      "target": "pyflightstream._deprecations",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.run._cli_parsers",
-      "target": "pyflightstream._errors",
-      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run._cli_parsers",

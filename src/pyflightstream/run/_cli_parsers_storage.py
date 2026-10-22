@@ -87,10 +87,7 @@ def add_storage_parsers(subparsers: Any) -> None:
             "leaves it, recorded stale; regenerate reruns that matrix's post without them."
         ),
     )
-    delete.add_argument(
-        "legacy_sims", nargs="?", help="deprecated positional alias; use --sims ID [ID ...]"
-    )
-    _add_sim_ids(delete)
+    _add_sim_ids(delete, required=True)
     delete.add_argument("--workspace", default=".", help=workspace_help)
     delete.add_argument(
         "--matrix-products",

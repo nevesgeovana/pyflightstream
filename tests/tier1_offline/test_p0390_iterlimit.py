@@ -597,14 +597,14 @@ def test_p0390_iterlimit_delete_sims_reads_an_ended_run(tmp_path, capsys):
     Control: the same simulation SUBMITTED is refused without --force.
     """
     workspace = _limit_workspace(tmp_path)
-    code, said = pyfs(["delete-sims", "7002"], workspace.root, capsys)
+    code, said = pyfs(["delete-sims", "--sims", "7002"], workspace.root, capsys)
     assert code == 0, said
     rows = _rows(workspace.root)
     for row in rows:
         row["status"] = "SUBMITTED"
         row.pop("iterations_requested", None)
     workspace._replace_manifest(rows)
-    code, said = pyfs(["delete-sims", "7002"], workspace.root, capsys)
+    code, said = pyfs(["delete-sims", "--sims", "7002"], workspace.root, capsys)
     assert code != 0 and "SUBMITTED" in said, said
 
 

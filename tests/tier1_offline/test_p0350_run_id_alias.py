@@ -182,9 +182,9 @@ def test_fr395_delete_sims_refuses_an_alias_and_names_the_simulation(tmp_path, m
     assert cli.main(_argv("plan", workspace, matrix)) == 0
     _record_points(workspace, "5002", names)
     capsys.readouterr()
-    assert cli.main(["delete-sims", "5002_2", "--workspace", str(workspace.root)]) == 2
+    assert cli.main(["delete-sims", "--sims", "5002_2", "--workspace", str(workspace.root)]) == 2
     assert "5002" in capsys.readouterr().err
-    assert cli.main(["delete-sims", "5002", "--workspace", str(workspace.root)]) == 0
+    assert cli.main(["delete-sims", "--sims", "5002", "--workspace", str(workspace.root)]) == 0
 
 
 def test_p0420_delete_sims_and_rebuild_read_every_alias_of_a_simulation_as_that_simulation(
@@ -205,7 +205,7 @@ def test_p0420_delete_sims_and_rebuild_read_every_alias_of_a_simulation_as_that_
     assert split_typed_ids(every, workspace.root, whole_only=True) == (["5002"], {})
     assert split_typed_ids(["5002", every[0]], workspace.root, whole_only=True) == (["5002"], {})
     capsys.readouterr()
-    code = cli.main(["delete-sims", ",".join(every), "--workspace", str(workspace.root)])
+    code = cli.main(["delete-sims", "--sims", ",".join(every), "--workspace", str(workspace.root)])
     said = capsys.readouterr()
     assert code == 0 and "5002" in said.out and "5001" not in said.out
 
@@ -221,7 +221,6 @@ def test_p0420_a_selection_naming_part_of_a_simulation_is_refused_with_its_point
     _record_points(workspace, "5002", names)
     before = workspace.manifest_path.read_bytes()
     for argv in (
-        ["delete-sims", "5002_1", "--workspace", str(workspace.root), "--apply"],
         ["delete-sims", "--sims", "5002_1", "--workspace", str(workspace.root), "--apply"],
         ["rebuild", "--sims", "5002_1", "--workspace", str(workspace.root), "--apply"],
     ):

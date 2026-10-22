@@ -170,7 +170,7 @@ def _one_builder_per_code(recipes: dict[str, str], workflows: dict[str, str]) ->
 def _listed_sims(text: str | list[str]) -> list[str]:
     """Read simulation ids as ``delete-sims`` spells them: ``4001,2009`` or ``[4001,2009]``.
 
-    Read by the positional ids of ``delete-sims`` and by ``--sims`` of ``rebuild``,
+    Read by ``--sims`` of ``delete-sims``, ``rebuild``,
     ``mark-failed``, ``post``, ``collect`` and ``status`` (FR-307); ``mark-converged``
     reads its ``--sims`` words through the same reader. The form's one home is
     :func:`pyflightstream.workspace.ledger.listed_sims`.
@@ -380,11 +380,13 @@ def _storage_flag_form(argv: list[str] | None) -> list[str] | None:
         rest = tokens[:index] + tokens[index + 1 :]
         if name == "--space-in-use":
             return [name[2:], *rest]
+        # delete-sims names its simulations with --sims only (positional ids removed in 0.43.0).
+        selector = ["--sims"] if name == "--delete-sims" else []
         if inline:
-            return [name[2:], inline, *rest]
+            return [name[2:], *selector, inline, *rest]
         if index + 1 < len(tokens):
             value = tokens[index + 1]
-            return [name[2:], value, *tokens[:index], *tokens[index + 2 :]]
+            return [name[2:], *selector, value, *tokens[:index], *tokens[index + 2 :]]
         return [name[2:], *rest]
     return argv
 

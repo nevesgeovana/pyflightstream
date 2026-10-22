@@ -221,7 +221,7 @@ See the website's Upgrading page for supported workspace conversion.
 \end{flags}
 \sub{delete-sims <ids>}{delete simulations, their products and records, e.g. \texttt{4001,2009}; a note row remains}
 \begin{flags}
-\item \fl{--sims ID [ID ...]} the simulations to delete (the positional list is deprecated), e.g. \texttt{--sims 4001 2009}
+\item \fl{--sims ID [ID ...]} the simulations to delete (required), e.g. \texttt{--sims 4001 2009}
 \item \fl{--apply} (default: preview) \quad \fl{--runs NAME} \quad \fl{--workspace}
 \item \fl{--force} also a simulation whose run is still SUBMITTED (refused without it)
 \item \fl{--matrix-products \{points-only|regenerate\}} for a matrix product that also holds the deleted points: leave it (marked stale) or rerun its post without them
