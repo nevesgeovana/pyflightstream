@@ -311,6 +311,9 @@ FlightStream versions.
   (`instrument`) and the SHA-256 of every geometry file a row opens (`inputs_sha256`);
   `pyfs-matrix run` refuses a plan whose executable or geometry changed since, or a
   `--fs-exe` other than the planned one.
+- A CCS wing's sidecar declares morphing surfaces in `[[import.ccs.morphing_surfaces]]`, and
+  a matrix row deflects one with `MORPHING` and `MORPHING_ANGLE`
+  (`NEW_CCS_WING_MORPHING_SURFACE`), without regenerating the CCS file.
 
 ## [0.42.0] - 2026-10-16
 

@@ -583,6 +583,9 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
         "`[[import.ccs.control_surfaces]]`": [
             e for f in data for e in f.get("import", {}).get("ccs", {}).get("control_surfaces", [])
         ],
+        "`[[import.ccs.morphing_surfaces]]`": [
+            e for f in data for e in f.get("import", {}).get("ccs", {}).get("morphing_surfaces", [])
+        ],
         "`[[import.operations]]`": [
             e for f in data for e in f.get("import", {}).get("operations", [])
         ],

@@ -1269,15 +1269,15 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                 "`[import]`": MappingProxyType(
                     {"beside a CCS file only, shown on the CCS geometry page": ("ccs",)}
                 ),
-                "`[import.ccs]`": MappingProxyType(
-                    {"the table is left out, for the reason above": ()}
-                ),
-                "`[import.ccs.subdivisions]`": MappingProxyType(
-                    {"the table is left out, for the reason above": ()}
-                ),
-                "`[[import.ccs.control_surfaces]]`": MappingProxyType(
-                    {"the table is left out, for the reason above": ()}
-                ),
+                **{
+                    table: MappingProxyType({"the table is left out, for the reason above": ()})
+                    for table in (
+                        "`[import.ccs]`",
+                        "`[import.ccs.subdivisions]`",
+                        "`[[import.ccs.control_surfaces]]`",
+                        "`[[import.ccs.morphing_surfaces]]`",
+                    )
+                },
             }
         ),
         pages=(

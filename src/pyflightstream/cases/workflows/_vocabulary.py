@@ -35,6 +35,8 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases._ccs import (
     CCS_SHEDDING_VARIABLE,
+    MORPHING_ANGLE_VARIABLE,
+    MORPHING_VARIABLE,
 )
 from pyflightstream.cases.sixdof import SIXDOF_VARIABLE
 from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
@@ -887,6 +889,10 @@ _STEADY_KEYS: tuple[str, ...] = (
     # lines, on every run type because every run type opens its geometry
     # through `_open_geometry`.
     CCS_SHEDDING_VARIABLE,
+    # FR-1600: the morphing surface of a CCS wing a row deflects, and by how
+    # much, on every run type for the same reason.
+    MORPHING_VARIABLE,
+    MORPHING_ANGLE_VARIABLE,
     # G12: the additional post's pproc, on every run type because every run
     # type saves its final .fsm (G11). No builder reads it: it is registered
     # so the row can state it, and `pyfs-matrix post --additional-pproc` is
@@ -1163,6 +1169,20 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
                 "the run's own copy of the CCS file, each Relaxed_TE line restated in "
                 "this direction, which CCS_IMPORT reads in place of the user's file."
             ),
+        ),
+        MORPHING_VARIABLE: InputKey(
+            "The morphing surface of the CCS wing the row's GEOMETRY names that "
+            "MORPHING_ANGLE deflects, one of the [[import.ccs.morphing_surfaces]] of its "
+            "sidecar. The solver deforms the lofted mesh, so the CCS file is not regenerated. "
+            "Refused on a row whose geometry is not a CCS wing loft.",
+            "the name of a declared morphing surface",
+            "NEW_CCS_WING_MORPHING_SURFACE",
+        ),
+        MORPHING_ANGLE_VARIABLE: InputKey(
+            "The deflection of the morphing surface MORPHING names, in degrees; without it "
+            "the surface takes the angle_deg of its sidecar entry.",
+            "a finite number of degrees",
+            "NEW_CCS_WING_MORPHING_SURFACE",
         ),
         FREESTREAM_VARIABLE: InputKey(
             "A custom free stream in place of the uniform one: a velocity field over the YZ "

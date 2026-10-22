@@ -515,6 +515,63 @@ def test_p0320_ccs2_a_wing_with_control_surfaces_may_name_the_boundaries_they_ad
     assert script.entities.labels("boundaries") == {"WING": 1, "AIL": 2}
 
 
+# --- FR-1600: the row deflects a morphing surface of a CCS wing ----------------------------
+
+MORPHING = (
+    '[[import.ccs.morphing_surfaces]]\nname = "FLAP"\nv0 = 0.1\nv1 = 0.4\nu0 = 0.25\n'
+    "u1 = 0.25\nhinge_height = 0.5\n"
+)
+
+
+@pytest.mark.requirement("FR-1600")
+@pytest.mark.parametrize(
+    ("build", "grammar"), [("26.125", " 7.5 PARAMETRIC Y"), ("26.123", " 7.5")]
+)
+def test_a_row_stating_a_morphing_family_emits_its_commands(tmp_path, build, grammar):
+    """PFS-2008.03: the row names the morphing surface and its deflection; the run type
+    emits the surface's morphing line in the build's grammar before the loft, and the
+    CCS file the mesh is lofted from is not rewritten."""
+    ccs = 'kind = "wing"\ncomponent = 1\n' + MORPHING
+    tail = " / MORPHING: FLAP / MORPHING_ANGLE: 7.5"
+    case = _row_case(tmp_path, "wing", ccs, ["WING"], tail=tail)
+    source = Path(str(case.geometry)).read_bytes()
+    script = Script(build)
+    build_script(case, script)
+    lines = script.render().splitlines()
+    surface = _index(lines, "NEW_CCS_WING_MORPHING_SURFACE FLAP 0.1 0.4 0.25 0.25 0.5" + grammar)
+    loft = _index(lines, "CAD_CREATE_WING_MESH_FROM_CCS WING TRUE SHARP TRUE C2 C0")
+    assert surface < loft
+    assert Path(str(case.geometry)).read_bytes() == source
+
+
+@pytest.mark.requirement("FR-1600")
+@pytest.mark.parametrize(
+    ("tail", "needle"),
+    [
+        (" / MORPHING: SLAT", "declares MORPHING as 'SLAT'"),
+        (" / MORPHING_ANGLE: 3", "no MORPHING"),
+        (" / MORPHING: FLAP / MORPHING_ANGLE: nan", "finite number of degrees"),
+    ],
+)
+def test_p0430_a_morphing_row_that_names_no_declared_surface_is_refused(tmp_path, tail, needle):
+    """FR-1600: an undeclared family, an angle without a family and a non-finite angle are
+    refused before the script is built."""
+    ccs = 'kind = "wing"\ncomponent = 1\n' + MORPHING
+    case = _row_case(tmp_path, "wing", ccs, ["WING"], tail=tail)
+    with pytest.raises(CampaignConfigError, match=needle):
+        build_script(case, Script("26.125"))
+
+
+@pytest.mark.requirement("FR-1600")
+def test_p0430_a_morphing_key_off_a_ccs_wing_is_refused(tmp_path):
+    """FR-1600: a fuselage loft carries no morphing surface, so the row's key is refused."""
+    case = _row_case(
+        tmp_path, "fus", 'kind = "fuselage"\ncomponent = 2\n', ["FUS"], tail=" / MORPHING: FLAP"
+    )
+    with pytest.raises(CampaignConfigError, match="CCS wing the solver lofts"):
+        build_script(case, Script("26.125"))
+
+
 # --- G35: the row chooses the direction of a Relaxed_TE shedding line --------------------
 
 RELAXED_FUSELAGE = ccs_file(_fuselage("CCS_FUS", ("Relaxed_TE;0.5;0.2;0.8",)))

@@ -226,6 +226,35 @@ def _ccs_shedding(tmp: Path, direction: str) -> SimCase:
     )
 
 
+_CCS_WING = (
+    "Aircraft;T\nUnits;Meter\n\nComponent;WING\nLiftingSurface;true\n"
+    "CrossSection;1.0;0.0;0.0;0.0;0.0;0.05;1.0;0.0;0.0\n"
+    "CrossSection;1.0;4.0;0.0;0.0;4.0;0.05;1.0;4.0;0.0\n"
+)
+
+
+def _morphing(tmp: Path, family: str, angle: str) -> SimCase:
+    """MORPHING and MORPHING_ANGLE as the plan binds them (FR-1600): a CCS wing loft
+    whose sidecar declares two morphing surfaces, one of them deflected by the row."""
+    path = tmp / "wing.csv"
+    path.write_text(_CCS_WING, encoding="utf-8")
+    surfaces = [
+        {"name": name, "v0": v0, "v1": v1, "u0": 0.25, "u1": 0.25, "hinge_height": 0.5}
+        for name, v0, v1 in (("FLAP", 0.1, 0.4), ("AIL", 0.5, 0.9))
+    ]
+    return steady_case(MORPHING=family, MORPHING_ANGLE=angle).model_copy(
+        update={
+            "geometry": str(path),
+            "mesh_import": MeshImport(
+                units="METER",
+                ccs={"kind": "wing", "component": 1, "morphing_surfaces": surfaces},
+            ),
+            "inventory": ("WING",),
+            "inventory_source": "sidecar",
+        }
+    )
+
+
 def _raw(line: str) -> SimCase:
     """RAW reaches the case as its raw commands; the reader takes it out of the cell."""
     return steady_case().model_copy(
@@ -475,6 +504,12 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     ),
     "CCS_SHEDDING": Variation(
         lambda tmp: _ccs_shedding(tmp, "AXIAL"), lambda tmp: _ccs_shedding(tmp, "AZIMUTH")
+    ),
+    "MORPHING": Variation(
+        lambda tmp: _morphing(tmp, "FLAP", "5"), lambda tmp: _morphing(tmp, "AIL", "5")
+    ),
+    "MORPHING_ANGLE": Variation(
+        lambda tmp: _morphing(tmp, "FLAP", "5"), lambda tmp: _morphing(tmp, "FLAP", "10")
     ),
     "FREESTREAM": Variation(
         lambda tmp: _freestream(tmp, "fs_a", 30.0), lambda tmp: _freestream(tmp, "fs_b", 32.0)

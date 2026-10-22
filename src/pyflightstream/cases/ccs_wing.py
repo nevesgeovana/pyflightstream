@@ -45,6 +45,7 @@ geometry, so the geometric effect of the digit is not measured there.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING
@@ -56,6 +57,8 @@ from pyflightstream.cases._ccs import (
     CCS_LOFT_KINDS,
     CCS_SHEDDING_COPY_SUFFIX,
     CCS_SHEDDING_VARIABLE,
+    MORPHING_ANGLE_VARIABLE,
+    MORPHING_VARIABLE,
     CcsImportOptions,
     ccs_component_names,
     restate_relaxed_trailing_edges,
@@ -267,6 +270,7 @@ def emit_ccs_wing(script: Script, case: SimCase) -> None:
             surface.space,
             surface.axis,
         )
+    _emit_morphing_surfaces(script, case, spec)
     loft_u, loft_v = spec.lofts
     script.emit(
         "CAD_CREATE_WING_MESH_FROM_CCS",
@@ -277,6 +281,71 @@ def emit_ccs_wing(script: Script, case: SimCase) -> None:
         loft_u,
         loft_v,
     )
+
+
+def _morphing_angles(case: SimCase, spec: CcsImportOptions) -> dict[str, float]:
+    """Return the deflection of each morphing surface on this row, in degrees (FR-1600).
+
+    The row's ``MORPHING`` names the surface (the family) its
+    ``MORPHING_ANGLE`` deflects; every other surface keeps its sidecar
+    ``angle_deg``.
+    """
+    angles = {surface.name: surface.angle_deg for surface in spec.morphing_surfaces}
+    family = case.variables.get(MORPHING_VARIABLE)
+    stated = case.variables.get(MORPHING_ANGLE_VARIABLE)
+    if family is None:
+        if stated is not None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {MORPHING_ANGLE_VARIABLE} and no "
+                f"{MORPHING_VARIABLE}; name the morphing surface the angle deflects."
+            )
+        return angles
+    name = str(family).strip()
+    if name not in angles:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {MORPHING_VARIABLE} as {name!r}, and the sidecar "
+            "of its CCS file declares "
+            f"{', '.join(sorted(angles)) or 'no morphing surface'} in "
+            f"[[import.ccs.morphing_surfaces]]; declare it there or name one of those ({_PAGE})."
+        )
+    if stated is not None:
+        try:
+            value = float(stated)
+        except (TypeError, ValueError):
+            value = math.nan
+        if not math.isfinite(value):
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} declares {MORPHING_ANGLE_VARIABLE} as {stated!r}, and "
+                "the deflection of a morphing surface is a finite number of degrees."
+            )
+        angles[name] = value
+    return angles
+
+
+def _emit_morphing_surfaces(script: Script, case: SimCase, spec: CcsImportOptions) -> None:
+    """Emit one NEW_CCS_WING_MORPHING_SURFACE line per declared morphing surface (FR-1600).
+
+    The line carries the arguments the build's grammar takes: seven up to
+    26.124, and SPACE and AXIS after them where the database adds them
+    (26.125), always the PARAMETRIC space the limits are written in.
+    """
+    angles = _morphing_angles(case, spec)
+    if not spec.morphing_surfaces:
+        return
+    taken = len(script.entry("NEW_CCS_WING_MORPHING_SURFACE").args)
+    for surface in spec.morphing_surfaces:
+        line = (
+            surface.name,
+            surface.v0,
+            surface.v1,
+            surface.u0,
+            surface.u1,
+            surface.hinge_height,
+            angles[surface.name],
+            "PARAMETRIC",
+            "Y",
+        )
+        script.emit("NEW_CCS_WING_MORPHING_SURFACE", *line[:taken])
 
 
 def _shedding(case: SimCase) -> str | None:
@@ -461,9 +530,20 @@ def refuse_ccs_options_off_a_ccs_file(case: SimCase, suffix: str) -> None:
     ------
     CampaignConfigError
         Where the table would be read by nothing: beside a raw mesh, a CAD
-        file or a saved simulation.
+        file or a saved simulation; and where a row states ``MORPHING`` or
+        ``MORPHING_ANGLE`` and its geometry is not a CCS wing loft, which
+        alone carries morphing surfaces (FR-1600).
     """
     spec = case.mesh_import
+    stated = [key for key in (MORPHING_VARIABLE, MORPHING_ANGLE_VARIABLE) if key in case.variables]
+    lofted = spec is not None and spec.ccs is not None and spec.ccs.kind == "wing"
+    if stated and not (lofted and suffix in CCS_FORMATS):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {' and '.join(stated)}, and a morphing surface "
+            "deflects a CCS wing the solver lofts: name a CCS file in GEOMETRY whose sidecar "
+            'states kind = "wing" in [import.ccs] and declares the surface in '
+            f"[[import.ccs.morphing_surfaces]] ({_PAGE})."
+        )
     if spec is None or spec.ccs is None or suffix in CCS_FORMATS:
         return
     raise CampaignConfigError(

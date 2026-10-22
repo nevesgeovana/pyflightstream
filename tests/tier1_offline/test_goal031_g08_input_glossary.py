@@ -64,7 +64,12 @@ from pyflightstream.cases import (
     SurfaceTimeAveragingSpec,
     VolumeSectionSpec,
 )
-from pyflightstream.cases._ccs import CcsControlSurface, CcsImportOptions, CcsSubdivisions
+from pyflightstream.cases._ccs import (
+    CcsControlSurface,
+    CcsImportOptions,
+    CcsMorphingSurface,
+    CcsSubdivisions,
+)
 from pyflightstream.cases._farfield_spec import (
     FarfieldSpec,
     LatticeShape,
@@ -243,6 +248,8 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("geometry", "`[import.ccs]`"): _fields(CcsImportOptions),
         ("geometry", "`[import.ccs.subdivisions]`"): _fields(CcsSubdivisions),
         ("geometry", "`[[import.ccs.control_surfaces]]`"): _fields(CcsControlSurface),
+        # 0.43.0 (FR-1600): the morphing surfaces a row deflects.
+        ("geometry", "`[[import.ccs.morphing_surfaces]]`"): _fields(CcsMorphingSurface),
         ("geometry", "`[[import.operations]]`"): _fields(MeshOperation),
         ("geometry", "`[trailing_edges]`"): set(_TRAILING_EDGE_KEYS),
         ("geometry", "`detect = { ... }` of `[trailing_edges]`"): set(_DETECT_KEYS),

@@ -176,6 +176,8 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     """
     _configuration_comment(case, script)
     if case.geometry is None:
+        # FR-1600: a MORPHING key on a row that opens no geometry deflects nothing.
+        refuse_ccs_options_off_a_ccs_file(case, "")
         _geometry_simulation_controls(case, script)
         return
     suffix = PurePath(case.geometry).suffix

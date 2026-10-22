@@ -66,6 +66,7 @@ file's `Component` lines, and the boundary it makes takes the first name of
 | `loft_v` | wing, fuselage, revolution | `C2` or `C0` | `C0` on a wing, `C2` otherwise |
 | `subdivisions` | wing | `{ chord = <n>, span = <n> }` | the solver's own |
 | `control_surfaces` | wing | an array of tables, below | none |
+| `morphing_surfaces` | wing | an array of tables, below | none |
 | `axis` | revolution | `X`, `Y` or `Z` of the reference frame | `X` |
 | `start_angle_deg`, `end_angle_deg` | revolution | degrees | `0.0` and `360.0` |
 
@@ -116,6 +117,42 @@ build measured it, so the plan refuses it on every build; write the limits as
 fractions of the span and leave `space` at `PARAMETRIC`. The round observed the
 PARAMETRIC aileron adding two boundaries after the wing's (`PYFS_AIL` and
 `PYFS_AIL_side` for a control surface named `PYFS_AIL`).
+
+## Morphing surfaces of a CCS wing
+
+A morphing surface deflects by deforming the lofted mesh instead of opening a
+slot, so the CCS file is never regenerated to deflect it. A wing declares each
+one as `[[import.ccs.morphing_surfaces]]`, with the limits, depths and hinge of
+a control surface and no slot gap:
+
+```toml
+[[import.ccs.morphing_surfaces]]
+name = "FLAP"
+v0 = 0.1
+v1 = 0.4
+u0 = 0.25
+u1 = 0.25
+hinge_height = 0.5
+angle_deg = 0.0
+```
+
+A matrix row names the surface it deflects with `MORPHING` and the deflection,
+in degrees, with `MORPHING_ANGLE`:
+
+```text
+... | VAR_NAMES_VALUES: GEOMETRY: wing.csv / MORPHING: FLAP / MORPHING_ANGLE: 7.5
+```
+
+Every declared surface becomes one `NEW_CCS_WING_MORPHING_SURFACE` line before
+the loft, at the row's angle for the surface it names and at its own
+`angle_deg` for the others. The line carries the arguments the build's grammar
+takes: seven up to 26.124, and `PARAMETRIC Y` after them on 26.125, where the
+manual adds the space and the axis. The limits are always parametric. A
+`MORPHING` that names no declared surface, a `MORPHING_ANGLE` without a
+`MORPHING`, an angle that is not a finite number, and either key on a row whose
+geometry is not a CCS wing loft are refused when the row is planned. A build
+whose command database records the command as broken (26.124) refuses the row
+as any other broken command.
 
 ## The shedding direction of a relaxed trailing edge
 

@@ -53,8 +53,11 @@ __all__ = [
     "CCS_LOFT_KINDS",
     "CCS_SHEDDING_COPY_SUFFIX",
     "CCS_SHEDDING_VARIABLE",
+    "MORPHING_ANGLE_VARIABLE",
+    "MORPHING_VARIABLE",
     "CcsControlSurface",
     "CcsImportOptions",
+    "CcsMorphingSurface",
     "CcsSubdivisions",
     "ccs_component_names",
     "restate_relaxed_trailing_edges",
@@ -74,6 +77,12 @@ CCS_KINDS: tuple[str, ...] = (*CCS_LOFT_KINDS, "file")
 #: of a CCS file imported by the file route, ``AXIAL`` (0) or ``AZIMUTH`` (1).
 CCS_SHEDDING_VARIABLE = "CCS_SHEDDING"
 
+#: FR-1600: the row keys selecting one morphing surface of a CCS wing's sidecar
+#: (the family) and its deflection in degrees, emitted as that surface's
+#: NEW_CCS_WING_MORPHING_SURFACE line, so the CCS file is never regenerated.
+MORPHING_VARIABLE = "MORPHING"
+MORPHING_ANGLE_VARIABLE = "MORPHING_ANGLE"
+
 #: What the run's own copy of a CCS file restated in the row's direction is
 #: called, after the stem of the user's file: ``g35.csv`` is imported as
 #: ``g35.ccs_shedding.csv`` from the folder the script runs in.
@@ -91,6 +100,7 @@ _KIND_KEYS: dict[str, frozenset[str]] = {
             "loft_v",
             "subdivisions",
             "control_surfaces",
+            "morphing_surfaces",
             "te_blend_length_pct",
         }
     ),
@@ -198,6 +208,63 @@ class CcsControlSurface(BaseModel):
         return self
 
 
+class CcsMorphingSurface(BaseModel):
+    """One morphing surface of a CCS wing, ``[[import.ccs.morphing_surfaces]]`` (FR-1600).
+
+    The gapless control surface of ``NEW_CCS_WING_MORPHING_SURFACE``
+    (FSM-26.124 p.303): it deflects by deforming the wing's mesh rather than
+    by opening a slot, so the CCS file is not changed to deflect it. The
+    surface is the family a matrix row selects with ``MORPHING`` and
+    deflects with ``MORPHING_ANGLE``; ``angle_deg`` is the deflection of a
+    row that states no angle. The limits and depths read as on a control
+    surface, in PARAMETRIC space only.
+
+    Attributes
+    ----------
+    name : str
+        The morphing surface's name, one word.
+    v0, v1 : float
+        Inner and outer spanwise limits, fractions of the span between 0 and 1.
+    u0, u1 : float
+        Chordwise depths at the inner and outer limits, from the trailing edge.
+    hinge_height : float
+        Hinge height from the upper surface downward, 0.5 at mid thickness.
+    angle_deg : float
+        Deflection angle in degrees when the row states none; 0 by default.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+
+    #: The morphing surface's name, one word.
+    name: str
+    #: Inner spanwise limit, a fraction of the span.
+    v0: float = Field(ge=0.0, le=1.0)
+    #: Outer spanwise limit, above the inner one.
+    v1: float = Field(ge=0.0, le=1.0)
+    #: Chordwise depth at the inner limit, from the trailing edge, in (0, 0.5).
+    u0: float = Field(gt=0.0, lt=0.5)
+    #: Chordwise depth at the outer limit, from the trailing edge, in (0, 0.5).
+    u1: float = Field(gt=0.0, lt=0.5)
+    #: Hinge height from the upper surface downward, 0 to 1.
+    hinge_height: float = Field(ge=0.0, le=1.0)
+    #: Deflection angle in degrees for a row that states no MORPHING_ANGLE.
+    angle_deg: float = 0.0
+
+    @field_validator("name")
+    @classmethod
+    def _name_is_one_word(cls, value: str) -> str:
+        return _one_token(value, "the morphing surface name")
+
+    @model_validator(mode="after")
+    def _spanwise_limits_hold(self) -> CcsMorphingSurface:
+        if self.v1 <= self.v0:
+            raise ValueError(
+                f"v1 ({self.v1}) is not above v0 ({self.v0}); the outer spanwise limit "
+                "of a morphing surface lies beyond the inner one (FSM-26.124 p.303)"
+            )
+        return self
+
+
 class CcsSubdivisions(BaseModel):
     """The node counts of a CCS wing mesh, ``subdivisions = { chord = 30, span = 12 }``.
 
@@ -248,6 +315,9 @@ class CcsImportOptions(BaseModel):
         The wing mesh's node counts (a wing only).
     control_surfaces : tuple of CcsControlSurface
         The wing's gapped control surfaces (a wing only).
+    morphing_surfaces : tuple of CcsMorphingSurface
+        The wing's morphing surfaces, the families a row deflects with
+        ``MORPHING`` and ``MORPHING_ANGLE`` (a wing only, FR-1600).
     te_blend_length_pct : float or None
         The length a blended trailing edge is blended over, in per cent of
         the cross-section curve's length (a wing only, FR-423); None writes
@@ -281,6 +351,8 @@ class CcsImportOptions(BaseModel):
     subdivisions: CcsSubdivisions | None = None
     #: The wing's gapped control surfaces, each a NEW_CCS_WING_CONTROL_SURFACE line.
     control_surfaces: tuple[CcsControlSurface, ...] = ()
+    #: The wing's morphing surfaces, each a NEW_CCS_WING_MORPHING_SURFACE line (FR-1600).
+    morphing_surfaces: tuple[CcsMorphingSurface, ...] = ()
     #: The trailing-edge blend length in per cent, a SET_CCS_TE_BLEND_LENGTH line (26.125).
     te_blend_length_pct: float | None = Field(default=None, gt=0.0, le=100.0)
 
