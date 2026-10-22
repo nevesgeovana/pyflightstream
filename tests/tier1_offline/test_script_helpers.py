@@ -1839,3 +1839,38 @@ def test_p0420_actuator_wake_vocabulary_is_case_insensitive():
         wake_type="rigid",
     )
     assert "SET_ACTUATOR_WAKE_TYPE 1 RIGID" in script.render()
+
+
+def _untouched(call):
+    """Run ``call`` on a fresh script; it must refuse and leave no line behind."""
+    script = Script("26.125")
+    with pytest.raises(CommandArgumentError):
+        call(script)
+    assert script.render().strip() == ""
+
+
+def test_p0430_f5_helpers_refuse_a_bad_argument_before_emitting_any_line():
+    """F-1472, F-1473, F-1474, F-273: a refusal leaves the script untouched."""
+    _untouched(
+        lambda s: helpers.rotary_motion(s, boundaries="all", frame=1, axis="Z", rpm="abc")  # type: ignore[arg-type]
+    )
+    _untouched(lambda s: helpers.probe_points(s, [(0.0, 0.0, 0.0), (1.0, "a", 2.0)]))  # type: ignore[list-item]
+    _untouched(lambda s: helpers.probe_points(s, [(0.0, 0.0, 0.0), (1.0, 2.0)]))  # type: ignore[list-item]
+    _untouched(
+        lambda s: helpers.coordinate_frame(
+            s, name="f", origin=(0.0, 0.0), x_axis=(1.0, 0.0, 0.0), y_axis=(0.0, 1.0, 0.0)
+        )
+    )
+    _untouched(
+        lambda s: helpers.coordinate_frame(
+            s,
+            name="f",
+            origin=(0.0, 0.0, "a"),
+            x_axis=(1.0, 0.0, 0.0),
+            y_axis=(0.0, 1.0, 0.0),  # type: ignore[arg-type]
+        )
+    )
+    _untouched(
+        lambda s: helpers.probe_line(s, points=3, start=(0.0, 0.0, 0.0, 9.0), end=(1.0, 1.0, 1.0))
+    )
+    _untouched(lambda s: helpers.probe_line(s, points=3, start=(0.0, 0.0, 0.0), end=(1.0, 1.0)))

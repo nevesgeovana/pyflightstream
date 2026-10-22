@@ -82,6 +82,7 @@ from pyflightstream.script._build_forms import (  # noqa: F401  (this module is 
     _check_actuator_creation,
     _check_blade_labels,
     _check_motion_creation,
+    _checked_helper_value,
     assign_selected_ccs_curves,
     detect_every_boundary,
     every_boundary_detection,
@@ -502,6 +503,10 @@ def rotary_motion(
         moving_frames=moving_frames,
         label=label,
     )
+    if not euclidean:
+        # The rpm is checked before CREATE_NEW_MOTION, so a bad value leaves
+        # the caller's script untouched (F-1472).
+        _checked_helper_value(script, "SET_MOTION_ROTOR_RPM", "rpm", rpm)
     script.emit("CREATE_NEW_MOTION", "EUCLIDEAN" if euclidean else "ROTARY", label=label)
     motion_id = script.num_motions
     _emit_motion_selections(script, motion_id, boundaries, moving_frames)
@@ -1426,6 +1431,18 @@ def _emit_vtk_variables(
         )
 
 
+def _triple(helper: str, name: str, value: Sequence[float]) -> tuple[float, float, float]:
+    """Return ``value`` as an (x, y, z) triple, or refuse a vector of another length."""
+    values = tuple(value)
+    if len(values) != 3:
+        raise CommandArgumentError(
+            f"{helper}: {name} must hold exactly three numbers (x, y, z); got {len(values)} "
+            f"({values!r}). A shorter or longer vector would shift the coordinates that follow "
+            "it into a different valid point"
+        )
+    return values  # type: ignore[return-value]
+
+
 def probe_points(
     script: Script,
     points: Sequence[tuple[float, float, float]],
@@ -1444,7 +1461,12 @@ def probe_points(
     kind : str
         ``VOLUME`` or ``SURFACE`` probes.
     """
-    for x, y, z in points:
+    triples = [_triple("probe_points", f"points[{i}]", point) for i, point in enumerate(points)]
+    for triple in triples:
+        # Every point is checked before the first is emitted (F-1473).
+        for axis_name, value in zip("xyz", triple, strict=True):
+            _checked_helper_value(script, "NEW_PROBE_POINT", axis_name, value)
+    for x, y, z in triples:
         script.emit("NEW_PROBE_POINT", kind, x, y, z)
         script.probe_points.append(
             (len(script.probe_points) + 1, float(x), float(y), float(z), "REFERENCE")
@@ -1469,6 +1491,8 @@ def probe_line(
     start, end : (x, y, z) triples
         Line ends in the reference frame, simulation length units.
     """
+    start = _triple("probe_line", "start", start)
+    end = _triple("probe_line", "end", end)
     script.emit("NEW_PROBE_LINE", points, *start, *end)
     for index in range(points):
         fraction = index / max(1, points - 1)
@@ -1612,6 +1636,16 @@ def coordinate_frame(
         frame and the vectors; nothing is emitted. The axes are written as
         given, never normalised: their lengths are directions' lengths.
     """
+    # Shape and values are checked before CREATE_NEW_COORDINATE_SYSTEM, so a
+    # malformed origin or axis leaves the script untouched (F-1474).
+    origin = _triple("coordinate_frame", "origin", origin)
+    x_axis = _triple("coordinate_frame", "x_axis", x_axis)
+    y_axis = _triple("coordinate_frame", "y_axis", y_axis)
+    if z_axis is not None:
+        z_axis = _triple("coordinate_frame", "z_axis", z_axis)
+    for prefix, vector in (("origin", origin), ("vector_x", x_axis), ("vector_y", y_axis)):
+        for letter, value in zip("xyz", vector, strict=True):
+            _checked_helper_value(script, "EDIT_COORDINATE_SYSTEM", f"{prefix}_{letter}", value)
     problem = frame_axes_problem(x_axis, y_axis, z_axis)
     if problem is not None:
         raise CommandArgumentError(
