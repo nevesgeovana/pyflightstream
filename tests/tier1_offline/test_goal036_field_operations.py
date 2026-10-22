@@ -752,3 +752,21 @@ def test_p0430_a_stem_that_windows_reads_as_another_file_is_refused(tmp_path, st
     report = wfields.FluctuationReport(rows=(), steps=(1.0, 2.0), sources=())
     with pytest.raises(WorkspaceError, match="output stem"):
         wfields.write_fluctuation(tmp_path, stem, report, parameters={}, inputs=())
+
+
+def test_x_f_1362_fluctuation_products_are_published_by_replacement(tmp_path, monkeypatch):
+    """X-F-1362 (FR-3204): the CSV and its record are published by replacement."""
+    from pyflightstream import _textio
+
+    seen = []
+    real = _textio.atomic_text
+
+    def spy(path, **kw):
+        seen.append(Path(path).name)
+        return real(path, **kw)
+
+    monkeypatch.setattr(_textio, "atomic_text", spy)
+    report = wfields.FluctuationReport(rows=(), steps=(1.0, 2.0), sources=())
+    wfields.write_fluctuation(tmp_path, "fl", report, parameters={}, inputs=(), apply=True)
+    assert any(n.endswith(".csv") for n in seen)
+    assert any(n.endswith(".provenance.json") for n in seen)
