@@ -121,7 +121,7 @@ the decisions and the package derives the rest.
     revolutions and V_ax:
 
  ```text
-    <run id>: run length RUN_WAKE_LENGTH_R = 4 R: 176 steps, 4.889 revolution(s), V_ax 30 m/s (free_stream)
+    <run id>: run length RUN_WAKE_LENGTH_R = 4 R: 176 steps, 4.889 revolution(s), V_ax 30 m/s (free_stream); nominal helical travel, not a measured wake length
  ```
 
  and the run record's solver-flag snapshot carries `run_wake_length`,
