@@ -251,7 +251,9 @@ runs that own them.
 
 When a workspace holds more than one profile in `inputs/hpc/`, `--hpc NAME` on
 `plan`, `run` and `collect` selects `inputs/hpc/<NAME>.toml`; a workspace with
-one profile needs no option. The top-level key `max_walltime`, written
+one profile needs no option. A `[defaults]` block in a profile was removed in 0.43.0
+and had no effect: a profile that still carries it loads, with a warning, and the block
+is ignored. The top-level key `max_walltime`, written
 `HH:MM:SS` (hours may exceed 24), states the longest walltime the queue
 accepts. A grouped plan caps the walltime of every job at it, with a warning
 that suggests a larger number of batches, and refuses a row whose own

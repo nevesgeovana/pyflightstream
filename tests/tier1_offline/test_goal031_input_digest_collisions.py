@@ -1097,7 +1097,6 @@ def test_a_profile_built_in_python_names_its_descriptor_plainly(tmp_path, name):
             descriptor_name=name,
             fields={"ApplicationId": "{application_id}"},
             submit=("esub", "{descriptor_path}"),
-            defaults={},
             path=tmp_path / "made-in-python",
         )
     assert dataclasses.replace(profile, descriptor_name="job.sh").descriptor_name == "job.sh"

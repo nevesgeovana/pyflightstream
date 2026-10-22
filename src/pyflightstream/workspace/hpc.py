@@ -17,13 +17,14 @@ from __future__ import annotations
 
 import re
 import string
+import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PureWindowsPath
 
 from pyflightstream._cli import _SELECTED_HPC
 from pyflightstream._digest import aliased_name_fault
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
 from pyflightstream.workspace.sidecars import load_toml
 
@@ -89,10 +90,6 @@ class HpcProfile:
     submit : tuple of str
         The command, argument by argument, never one string through a
         shell: a path with a space in it is then not a second argument.
-    defaults : dict of str to object
-        The floor for a resource a row may state. `ncpus` is deliberately
-        not among them: there is one processor count and it lives in the
-        matrix row.
     path : Path
         Where this was read from, for a refusal that has to name it.
     builds : dict of str to str
@@ -113,7 +110,6 @@ class HpcProfile:
     descriptor_name: str
     fields: dict
     submit: tuple
-    defaults: dict
     path: Path
     builds: dict = field(default_factory=dict)
     #: WHAT THE DESCRIPTOR'S WALLTIME FIELD CARRIES. ``wall`` is the row's
@@ -438,7 +434,7 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         not write, names a descriptor that is not a plain file name, lists no
         descriptor fields or no submit command, states a key this package
         does not read (or one it owns under the wrong table), states
-        descriptor, submit, defaults or log as something other than a table,
+        descriptor, submit or log as something other than a table,
         or states export_log as anything but true or false.
     """
     target = Path(path)
@@ -451,6 +447,14 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
                 "workspace can supply, which is why it is the only mandatory one."
             )
     _refuse_a_value_for_a_table(target, table)
+    if "defaults" in table:
+        # PFS-2117.026: the block was read and never used; it is ignored, said once.
+        warnings.warn(
+            f"the HPC profile {target} carries a defaults block, which was removed in 0.43.0 "
+            "and had no effect; it is ignored. Delete it.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
     descriptor = table.get("descriptor") or {}
     fmt = str(descriptor.get("format") or "yaml").strip().lower()
     if fmt not in HPC_FORMATS:
@@ -512,14 +516,13 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         # A TOML boolean stays a boolean, so the descriptor writes it bare.
         fields={str(k): v if isinstance(v, bool) else str(v) for k, v in fields.items()},
         submit=tuple(str(part) for part in submit),
-        defaults=dict(table.get("defaults") or {}),
         path=target,
     )
 
 
 def _refuse_a_value_for_a_table(target: Path, table: Mapping) -> None:
-    """Refuse descriptor, submit or defaults stated as a value, before their keys are read."""
-    for name in ("descriptor", "submit", "defaults", "log"):
+    """Refuse descriptor, submit or log stated as a value, before their keys are read."""
+    for name in ("descriptor", "submit", "log"):
         if name in table and not isinstance(table[name], Mapping):
             raise InputArtifactError(
                 f"the HPC profile {target} has a {name} entry that is not a table. Write it "

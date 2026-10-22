@@ -118,3 +118,24 @@ def test_p0430_f1893_the_post_local_help_does_not_call_the_submitting_post_unbui
     out = " ".join(capsys.readouterr().out.split())
     assert "--local" in out
     assert "is not built" not in out
+
+
+_DEFAULTS_BLOCK = """
+[defaults]
+memory = 4
+"""
+
+
+def test_pfs_2117_026_a_profile_with_a_defaults_block_loads_and_warns(tmp_path):
+    """HpcProfile.defaults is gone; a profile that still carries the block loads with a WARNING."""
+    import dataclasses
+
+    from pyflightstream._errors import PyflightstreamWarning
+
+    inputs = _inputs(tmp_path, "h001")
+    path = inputs / "hpc" / "h001.toml"
+    path.write_text(path.read_text(encoding="utf-8") + _DEFAULTS_BLOCK, encoding="utf-8")
+    with pytest.warns(PyflightstreamWarning, match="defaults block, which was removed in 0.43.0"):
+        profile = resolve_hpc_profile(inputs)
+    assert profile is not None
+    assert "defaults" not in {f.name for f in dataclasses.fields(profile)}

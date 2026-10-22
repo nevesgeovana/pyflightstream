@@ -1096,7 +1096,6 @@ def _workspace_render(matrix: Path, ws: Path, flags: list[str]) -> dict[str, Any
         descriptor_name="submit.json",
         fields={},
         submit=(),
-        defaults={},
         path=ws / "inputs" / "hpc" / "parity.toml",
     )
     executor = SubmittingExecutor(profile, values={}, submit=False)

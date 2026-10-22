@@ -16,6 +16,8 @@ FlightStream versions.
 
 ### Changed
 
+- `HpcProfile.defaults` is removed. A profile that still carries a `[defaults]` block loads with
+  a warning that the block is ignored.
 - Only `c<digits>.toml` is a cost file: any other `c*.toml` in `inputs/costs/` is refused,
   naming the file and the pattern. A name given to `select_cost_file` loses only a final `.toml`.
 - The wake-edge type has no default: a `[trailing_edges]` table with `file` and no `type`, and

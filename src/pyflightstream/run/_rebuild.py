@@ -214,7 +214,6 @@ def _stub_profile() -> Any:
         descriptor_name="pyfs_rebuild_no_submission.txt",
         fields={"script": "{script_path}"},
         submit=("true",),
-        defaults={},
         path=Path("pyfs-rebuild-no-submission.toml"),
     )
 
