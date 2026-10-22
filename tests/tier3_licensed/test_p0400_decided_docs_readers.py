@@ -69,3 +69,17 @@ def test_p0400_detection_reader_counts_every_marking(prefix, monkeypatch):
             check(runs, "4103", "Wing", 16)
     else:
         check(runs, "4103", "Wing", 16)
+
+
+def test_x_f_0439_a_nan_coefficient_is_an_infinite_gap_and_falls_outside_the_band():
+    """``max`` drops a NaN gap: the mesh-route band helper turns it into an infinite one."""
+    from tests.tier3_licensed import mesh_routes
+
+    nan = float("nan")
+    route = {"CL": nan, "CDi": 0.1, "CMy": 0.2}
+    control = {"CL": 0.5, "CDi": 0.1, "CMy": 0.2}
+    table = {"routes": {"p": {"banded": True, "gaps": mesh_routes.gaps(route, control)}}}
+    assert mesh_routes.relative_gap(nan, 0.5) == float("inf")
+    assert mesh_routes.relative_gap(0.5, float("inf")) == float("inf")
+    assert mesh_routes.relative_gap(0.5, 0.5) == 0.0
+    assert "p" in mesh_routes.outside(table, 0.01)

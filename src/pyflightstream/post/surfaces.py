@@ -40,9 +40,9 @@ import numpy as np
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import ProductError, ProductExistsError, PyflightstreamWarning, warn
+from pyflightstream.post._tables import _refuse_a_token
 from pyflightstream.post.series import stamped_exports
 from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average
-from pyflightstream.post.writers import _refuse_a_token
 from pyflightstream.results import (
     NOT_CARRIED_BY_THE_VTK,
     IncompleteOutputError,

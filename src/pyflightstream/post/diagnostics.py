@@ -14,8 +14,7 @@ from pathlib import Path
 
 from pyflightstream._cli import post_warning_policy
 from pyflightstream._errors import ProductArgumentError, ProductError
-from pyflightstream.workspace._query_files import _groups
-from pyflightstream.workspace.ledger import post_warning_category
+from pyflightstream.workspace.ledger import post_warning_category, post_warning_groups
 
 __all__ = [
     "render_post_diagnostics",
@@ -57,7 +56,9 @@ def report_post_warnings(records: Sequence[Mapping[str, str | None]], log_path: 
         return
     # The grouping of ``log --post`` (FR-772): one implementation, so the totals here and
     # the groups there are the same groups: category, family and message shape.
-    for group in _groups([r for r in records if r.get("severity", "warning") == "warning"]):
+    for group in post_warning_groups(
+        [r for r in records if r.get("severity", "warning") == "warning"]
+    ):
         print(
             f"pproc warning [{group['category']}]: {group['count']}; "
             f"{group['family']}; details: {log_path}",

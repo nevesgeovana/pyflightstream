@@ -223,6 +223,19 @@ def _category(product: str, message: str) -> str:
 
 
 def _groups(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Group post-log warning records by category, family and message shape.
+
+    Parameters
+    ----------
+    records : sequence of mapping
+        Post-log records; each may carry ``product``, ``message``, ``category`` and ``family``.
+
+    Returns
+    -------
+    list of dict
+        One group per category, family and shape (numbers and paths folded), sorted, each with
+        its ``count`` and one ``example`` record.
+    """
     grouped: dict[tuple[str, str, str], dict[str, Any]] = {}
     for record in records:
         product, message = str(record.get("product") or "stage"), str(record.get("message") or "")

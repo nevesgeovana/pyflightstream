@@ -37,7 +37,6 @@ from __future__ import annotations
 
 import json
 import math
-import re
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -47,6 +46,7 @@ from pydantic import BaseModel, ConfigDict
 import pyflightstream._textio as _textio
 from pyflightstream._deprecations import removed_names_hook as _removed_names_hook
 from pyflightstream._errors import ProductError, ProductExistsError
+from pyflightstream.post._tables import _refuse_a_token
 from pyflightstream.script.solver_setup import FLAG_SPECS, FlagRecord, SolverSetup
 
 __getattr__ = _removed_names_hook(__name__)
@@ -321,20 +321,6 @@ def write_output_pair(
 
 def _fmt(value: float) -> str:
     return f"{value:.9e}"
-
-
-_TOKEN_REFUSED = re.compile(r'[\s"]')
-
-
-def _refuse_a_token(what: str, text: str, *, quotes: bool = True) -> None:
-    """Refuse a name or title the VTK and Tecplot grammars cannot carry as written."""
-    refused = _TOKEN_REFUSED if quotes else re.compile(r"[\r\n]")
-    if not text or refused.search(text):
-        raise ProductError(
-            f"{what} {text!r} cannot be written: a name is not empty and holds no "
-            "whitespace or double quote, which the format would read as the end of the "
-            "token"
-        )
 
 
 def _refuse_non_finite(what: str, values: np.ndarray) -> None:

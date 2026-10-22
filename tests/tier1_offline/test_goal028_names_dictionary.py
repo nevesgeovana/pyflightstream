@@ -229,6 +229,7 @@ def test_the_dictionary_is_checked_when_an_azimuthal_reduction_loads_the_history
 
 def test_f4_0506_this_module_collects_without_scipy():
     """F-861: borrowing the helpers must not import a module that skips itself on no scipy."""
+    import os
     import subprocess
     import sys
     from pathlib import Path
@@ -242,6 +243,11 @@ def test_f4_0506_this_module_collects_without_scipy():
         "import tests.tier1_offline.test_goal028_names_dictionary\n"
     )
     done = subprocess.run(
-        [sys.executable, "-c", code], cwd=root, capture_output=True, text=True, check=False
+        [sys.executable, "-c", code],
+        cwd=root,
+        env=dict(os.environ),
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert done.returncode == 0, done.stderr[-400:]

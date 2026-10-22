@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from pyflightstream.workspace import WorkspaceError
 from pyflightstream.workspace._ledger_history import diff_rows, history_rows
-from pyflightstream.workspace._query_files import _category, _json
+from pyflightstream.workspace._query_files import _category, _groups, _json
 from pyflightstream.workspace._query_logs import (
     _activity,
     _additional,
@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 #: The query helpers the command layer reads, under public names (the private
 #: implementations stay in ``_query_files``, ``_query_logs`` and ``_query_point``).
 post_warning_category = _category
+post_warning_groups = _groups
 read_json_file = _json
 select_logs = _select_logs
 storage_rows = _storage

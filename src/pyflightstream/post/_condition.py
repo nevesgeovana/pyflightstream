@@ -395,8 +395,8 @@ def classify_record_outputs(record: RunRecord) -> dict[str, str]:
     """Return the export kinds of a record's outputs, read by the release that wrote them.
 
     THE ONE CLASSIFICATION OF A RECORD'S OUTPUTS: a name means what the release that wrote it
-    meant (``P_vsec.vtk`` was a VTK export before 0.27.0), so every reader passes the record's
-    ``package_version`` and none classifies without it.
+    meant (one file name can denote different exports in different releases), so every reader
+    passes the record's ``package_version`` and none classifies without it.
     """
     return classify_outputs(
         [Path(str(output)).name for output in record.outputs],

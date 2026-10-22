@@ -377,6 +377,20 @@ def _significant_cell(value: object) -> str:
     return decimal
 
 
+_TOKEN_REFUSED = re.compile(r'[\s"]')
+
+
+def _refuse_a_token(what: str, text: str, *, quotes: bool = True) -> None:
+    """Refuse a name or title the VTK and Tecplot grammars cannot carry as written."""
+    refused = _TOKEN_REFUSED if quotes else re.compile(r"[\r\n]")
+    if not text or refused.search(text):
+        raise ProductError(
+            f"{what} {text!r} cannot be written: a name is not empty and holds no "
+            "whitespace or double quote, which the format would read as the end of the "
+            "token"
+        )
+
+
 def write_csv_table(
     path: str | Path, columns: Sequence[str], rows: Sequence[Sequence[object]]
 ) -> Path:
