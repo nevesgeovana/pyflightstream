@@ -7,7 +7,6 @@ import inspect
 import json
 import math
 import warnings
-from pathlib import Path
 from typing import NoReturn, get_type_hints
 
 import pytest
@@ -264,19 +263,6 @@ class TestCasesMatrix:
         )
         case = to_campaign(path, **_CASES_MATRIX__CAMPAIGN).sims[0]
         assert case.motions and case.rotations and case.translations and case.raw_commands
-
-
-_CASES_MATRIX_UPGRADE__FIXTURES = Path(__file__).parent / "fixtures"
-
-
-class TestCasesMatrixUpgrade:
-    """Tier 1: the matrix upgrade edits only what its stage names and counts data rows (0.40.0)."""
-
-    pass
-
-    pass
-
-    pass
 
 
 class TestCasesNaming:
