@@ -432,7 +432,8 @@ ADDITIONAL_PPROC_VARIABLE = "ADDITIONAL_PPROC"
 ADDITIONAL_POST_BUILDS: tuple[str, ...] = ("26.124",)
 
 #: THE BUILDS NORMAL PROBES OF AN UNSTEADY RUN ARE ADMITTED ON (FR-417). Each
-#: was measured with a licence: the probes created after the march represent
+#: was measured with a licence (RPT-153, "normal probes after an unsteady march on
+#: 26.124", 2026-10-05, on 26.124 and 26.125): the probes created after the march represent
 #: the marched solution and need the update action the script emits. A named
 #: set, not a range: a build between or after them is refused until measured.
 NORMAL_PROBE_BUILDS: tuple[str, ...] = ("26.124", "26.125")
