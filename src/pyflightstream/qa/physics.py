@@ -925,7 +925,18 @@ def build_smi_script(
     -------
     Script
         The validated script, ready to render.
+
+    Raises
+    ------
+    QaEvidenceError
+        When ``fsm_path`` is not absolute: the solver would resolve a relative path
+        inside its scratch directory and fail to open the file.
     """
+    if not Path(fsm_path).is_absolute():
+        raise QaEvidenceError(
+            f"fsm_path {str(fsm_path)!r} is not absolute; the solver runs inside the case "
+            "scratch directory, so give the full path of the local simulation file"
+        )
     script = Script(version=version)
     script.comment(
         f"SMI drift point, alpha {SMI_ALPHA_DEG:+.1f} deg, unit references "

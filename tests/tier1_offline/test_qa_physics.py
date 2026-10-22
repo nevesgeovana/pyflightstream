@@ -691,3 +691,10 @@ def test_p0430_a_misnamed_reference_file_is_refused_f_804(tmp_path):
     (refs / "PHY-01.yaml").rename(refs / "PHY-02.yaml")
     with pytest.raises(QaEvidenceError, match="reference of case 'PHY-01', not 'PHY-02'"):
         load_reference("PHY-02", refs)
+
+
+def test_p0430_the_smi_script_refuses_a_relative_file_f_1431():
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    with pytest.raises(QaEvidenceError, match="not absolute"):
+        build_smi_script("26.120", "28_B.fsm", "loads.txt", "log.txt")
