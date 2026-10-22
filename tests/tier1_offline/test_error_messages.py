@@ -126,7 +126,8 @@ def test_path_like_artifact_id_teaches_the_id_model(tmp_path):
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     with pytest.raises(
         InputArtifactError,
-        match=r"not a valid artifact id: ids are file name stems.*never a path",
+        match=r"not a valid artifact id: the character '/' makes it a path.*Ids are file "
+        r"name stems.*never a path.*Rename the file to 'outside'",
     ):
         workspace.resolve_reference("../outside")
 
