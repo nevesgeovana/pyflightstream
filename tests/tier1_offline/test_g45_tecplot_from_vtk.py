@@ -530,16 +530,48 @@ def test_g45_a_loads_frame_the_script_did_not_place_is_refused_before_the_run():
         refuse_an_untranslatable_surface(steady_case(), script)
 
 
-def test_g45_some_of_the_velocity_components_are_refused_where_the_frame_moves():
+def test_g45_some_of_the_velocity_components_are_refused_where_the_frame_turns():
+    from pyflightstream.cases.workflows import refuse_an_untranslatable_surface
+
     case = steady_case().model_copy(
-        update={
-            "reference": REFERENCE,
-            "outputs": ["p.txt", "p.dat"],
-            "pproc": PprocSpec(vtk_variables=["X", "VX"]),
+        update={"outputs": ["p.txt", "p.dat"], "pproc": PprocSpec(vtk_variables=["X", "VX"])}
+    )
+    script = Script("26.124")
+    script.surface_translations.append(
+        {
+            "vtk": "p.vtk",
+            "dat": "p.dat",
+            "frame": {
+                "frame": 2,
+                "origin": [9.152, 0.0, 0.0],
+                "axes": [[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
+            },
         }
     )
     with pytest.raises(CampaignConfigError, match="VX of the three velocity components"):
-        build_script(case, Script("26.124"))
+        refuse_an_untranslatable_surface(case, script)
+
+
+def test_p0430_f077_a_pure_origin_translation_lets_one_velocity_component_through():
+    """F-077: a translation leaves each component as written, so one alone is written back."""
+    from pyflightstream.cases.workflows import refuse_an_untranslatable_surface
+
+    case = steady_case().model_copy(
+        update={"outputs": ["p.txt", "p.dat"], "pproc": PprocSpec(vtk_variables=["X", "VX"])}
+    )
+    script = Script("26.124")
+    script.surface_translations.append(
+        {
+            "vtk": "p.vtk",
+            "dat": "p.dat",
+            "frame": {
+                "frame": 2,
+                "origin": [9.152, 0.0, 0.0],
+                "axes": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            },
+        }
+    )
+    refuse_an_untranslatable_surface(case, script)
     # Where the loads frame is the reference frame, a component alone is as the VTK holds it.
     plain = steady_case().model_copy(
         update={"outputs": ["p.txt", "p.dat"], "pproc": PprocSpec(vtk_variables=["X", "VX"])}

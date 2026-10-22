@@ -468,8 +468,9 @@ def refuse_an_untranslatable_surface(case: SimCase, script: Script) -> None:
                 "the loads frame with the reference's frames, or set tecplot = false under "
                 "the pproc's [exports]."
             ) from error
-        moved = frame.turns or any(float(value) != 0.0 for value in frame.origin)
-        if moved and velocity and len(velocity) != 3:
+        # ONLY A TURN MIXES THE COMPONENTS: a pure translation of the origin leaves
+        # each velocity component as the solver wrote it, so one alone can be written back.
+        if frame.turns and velocity and len(velocity) != 3:
             raise CampaignConfigError(
                 f"{where}, frame {frame.index} is not the reference frame, and the pproc's "
                 f"vtk_variables names {', '.join(velocity)} of the three velocity components: "
