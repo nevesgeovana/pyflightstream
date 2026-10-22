@@ -1961,7 +1961,17 @@ def test_last_rotary_motion_refuses_a_wake_stabilization_count_below_one(blades)
 
 @pytest.mark.parametrize(
     ("steps", "dt"),
-    [(0, 0.01), (-5, 0.01), (10, 0.0), (10, -0.01), (10, math.inf), (10, math.nan), (True, 0.01)],
+    [
+        (0, 0.01),
+        (-5, 0.01),
+        (math.inf, 0.01),
+        (math.nan, 0.01),
+        (10, 0.0),
+        (10, -0.01),
+        (10, math.inf),
+        (10, math.nan),
+        (True, 0.01),
+    ],
 )
 def test_last_unsteady_regime_needs_a_step_and_a_positive_time_step(steps, dt):
     """X-F-1248: both routes refuse a regime that cannot advance in time."""

@@ -119,7 +119,12 @@ class TestDecidedDocs2Review:
     def test_p0400_operational_gate_cannot_pass_without_replaying_evidence(
         gate, missing, tmp_path, monkeypatch
     ):
-        """PFS-2135.003: neither gate may substitute a comment tag for a passing replay."""
+        """PFS-2135.003: neither gate may substitute a comment tag for a passing replay.
+
+        Build support replays its proved commands in a case of their own since F-863
+        (366811fe), so the partition is not reported skipped when only a receipt is
+        absent; that replay case is the one a failed or missing replay must reach.
+        """
         from tests.tier1_offline import test_fsi_native_interface_evidence as native
         from tests.tier1_offline import test_goal033_release_receipts as release
         from tests.tier1_offline import test_goal034_setup_operational_commands as setup
@@ -134,7 +139,7 @@ class TestDecidedDocs2Review:
         message = "unproven" if missing else "P0400 replay assertion failed"
         with pytest.raises(expected, match=message):
             if gate == "build_support":
-                setup.test_every_in_scope_setup_command_is_in_the_26124_database_and_the_rest_refused()
+                setup.test_every_command_proved_elsewhere_replays_where_the_evidence_is_present()
             else:
                 release.test_setup_bc_is_complete_every_in_scope_command_operational_the_rest_refused(
                     tmp_path

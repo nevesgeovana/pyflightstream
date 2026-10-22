@@ -81,10 +81,14 @@ def test_goal026_force_rerun_redoes_the_named_point(tmp_path):
     assert before, "the fixture recorded nothing"
     target = str(before[0].run_id)
 
+    # The rerun's stub carries a marker in its own command line, which the record
+    # keeps in argv. The start time cannot tell the two runs apart: a record's clock
+    # is to the second (ISO 8601, REF-03), and both runs often start in one second.
+    marker = "# the force_rerun run"
     again = run_matrix(
         REGISTRY_FIXTURE,
         workspace,
-        executor=StubSolver(WRITES_LOADS),
+        executor=StubSolver(f"{WRITES_LOADS}  {marker}"),
         force_rerun=[target],
         **KEYWORDS,
     )
@@ -93,10 +97,10 @@ def test_goal026_force_rerun_redoes_the_named_point(tmp_path):
     after = {str(r.run_id): r for r in workspace.read_manifest()}
     assert target in after, sorted(after)
     # The id was already recorded before the rerun, so its presence proves nothing: the
-    # record must be the NEW run, which the solver process start time tells apart.
-    assert before[0].started_at, "the first run recorded no start time"
+    # record must be the NEW run, which the marker in its command line tells apart.
+    assert not any(marker in part for part in before[0].argv), "the fixture carries the marker"
+    assert any(marker in part for part in after[target].argv), "the record is the old run's"
     assert after[target].started_at, "the rerun recorded no start time"
-    assert after[target].started_at != before[0].started_at, "the record is the old run's"
 
 
 def test_goal026_force_rerun_leaves_the_points_it_was_not_given(tmp_path):

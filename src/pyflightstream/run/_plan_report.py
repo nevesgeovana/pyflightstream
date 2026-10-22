@@ -17,17 +17,15 @@ from pyflightstream.cases.qsteady import (
     summarise_inflow_harmonics,
 )
 from pyflightstream.cases.workflows import (
+    WakeTermination,
+    angles_not_stated,
+    planned_run_wake,
+    planned_wake,
     qsteady_validity,
     rotor_machs,
     streamline_count,
 )
-from pyflightstream.cases.workflows._farfield import plan_record as farfield_plan_record
-from pyflightstream.cases.workflows._freestream import (
-    WakeTermination,
-    planned_run_wake,
-    planned_wake,
-)
-from pyflightstream.cases.workflows._rows import angles_not_stated
+from pyflightstream.cases.workflows import plan_record as farfield_plan_record
 
 PointPlan = Any  # the PointPlan of run._plan, which imports this module
 

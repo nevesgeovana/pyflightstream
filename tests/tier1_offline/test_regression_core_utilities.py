@@ -505,7 +505,9 @@ def test_capture_owed_exports_stale_partial_and_privacy(tmp_path, monkeypatch):
 
     module = _f7_load_script("capture_owed_exports")
     expected = [c for c in module.OWED if c not in module.NOT_EMITTED]
-    assert "EXPORT_SURFACE_SECTIONS" in module.NOT_EMITTED
+    # F7-0607-EXPORT: the database states the index-then-file-name grammar, so the
+    # single-section export is captured, never dropped for the old one-argument form.
+    assert "EXPORT_SURFACE_SECTIONS" in expected
     out = tmp_path / "out"
     out.mkdir()
     for command in expected:
@@ -529,8 +531,11 @@ def test_capture_owed_exports_stale_partial_and_privacy(tmp_path, monkeypatch):
     assert code == 0
     manifest = json.loads((out / "capture_manifest.json").read_text(encoding="utf-8"))
     assert manifest["executable"] == "FlightStream.exe"
-    script_text = (out / "capture.fsm").read_text(encoding="utf-8")
-    assert "EXPORT_SURFACE_SECTIONS" not in script_text
+    lines = (out / "capture.fsm").read_text(encoding="utf-8").splitlines()
+    at = [i for i, line in enumerate(lines) if line.startswith("EXPORT_SURFACE_SECTIONS")]
+    assert len(at) == 1, at
+    assert lines[at[0]].split() == ["EXPORT_SURFACE_SECTIONS", "1"], lines[at[0]]
+    assert lines[at[0] + 1].endswith("export_surface_sections.txt"), lines[at[0] + 1]
 
 
 def test_check_parity_cli_control_goes_through_the_report_comparison():

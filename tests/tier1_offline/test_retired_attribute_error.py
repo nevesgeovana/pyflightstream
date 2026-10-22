@@ -79,7 +79,10 @@ def test_the_package_base_is_named_first_as_every_sibling_names_it():
 
     It is asserted against the SIBLINGS rather than against a literal, so a
     later class that changes the house shape has to change it here too
-    rather than finding a copy of the old shape frozen in a test.
+    rather than finding a copy of the old shape frozen in a test. Since 0.43.0
+    (PFS-2124.037) `OutputExistsError` names `ProductExistsError` first, a class
+    of the package's own family: the shape is the package side first, the builtin
+    second, so a sibling's first base is the package base or one of its classes.
     """
     from pyflightstream._errors import InputArtifactError, PyflightstreamError
     from pyflightstream.cases.matrix import MatrixError
@@ -88,7 +91,7 @@ def test_the_package_base_is_named_first_as_every_sibling_names_it():
 
     siblings = (MatrixError, ManualCallError, OutputExistsError, InputArtifactError)
     for sibling in siblings:
-        assert sibling.__bases__[0] is PyflightstreamError, (
+        assert issubclass(sibling.__bases__[0], PyflightstreamError), (
             f"{sibling.__name__} no longer names the package base first, so the "
             "house shape this case measures against has moved"
         )

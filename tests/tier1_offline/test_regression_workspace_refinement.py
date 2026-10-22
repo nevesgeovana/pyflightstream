@@ -174,7 +174,8 @@ class TestReviews2RefineTe:
         points = level.obj.with_suffix(".te.txt")
         side = level.obj.with_suffix(".boundaries.toml")
         table = tomllib.loads(side.read_text("utf-8"))["trailing_edges"]
-        assert table == {"file": points.name}
+        # PFS-2124.055: the file route states its type, the one detection gave the edge.
+        assert table == {"file": points.name, "type": "STANDARD"}
         marking = read_raw_mesh_conditions(side).trailing_edges
         assert marking.route == "file"
         assert marking.points_file == str(points)

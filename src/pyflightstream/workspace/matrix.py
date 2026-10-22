@@ -119,6 +119,7 @@ from pyflightstream.workspace import WorkspaceError as WorkspaceError
 from pyflightstream.workspace import matrix_by_stem as matrix_by_stem
 from pyflightstream.workspace import wake_edges as wake_edges
 from pyflightstream.workspace._batches import batch_sim_dirs
+from pyflightstream.workspace._batches import job_of as job_of
 from pyflightstream.workspace._matrix_binding import (
     _FLIGHT_CONDITION_TABLE as _FLIGHT_CONDITION_TABLE,
 )
@@ -161,6 +162,7 @@ from pyflightstream.workspace._matrix_binding import (
 from pyflightstream.workspace._matrix_binding import (
     condition_defaults_origin as condition_defaults_origin,
 )
+from pyflightstream.workspace._matrix_homes import matrix_stem as matrix_stem
 from pyflightstream.workspace._matrix_phases import (
     ADVANCE_RATIO_KEY as ADVANCE_RATIO_KEY,
 )

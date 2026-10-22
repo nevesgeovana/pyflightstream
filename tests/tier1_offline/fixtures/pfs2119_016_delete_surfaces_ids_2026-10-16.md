@@ -22,4 +22,9 @@ Limits: the assign and morph step after a deletion was not part of this probe, s
 nothing here says what the solver then does with the IDs. One body and two blades per
 import type were measured.
 
-Source: GEO-105 release 0.42.0 licensed EVIDENCE-5, batch 10, probe PFS-2119.016-B.
+Source: GEO-105 release records 0.42.0, `licensed/EVIDENCE-5.md`, Batch 10 (namespace
+3891a52dfe79a1f18685c33f342f386ec3ddbe72-a993925ac8bc46d5bc5f3af868dc8526, source
+3891a52d), probe PFS-2119.016-B, answered on 2026-10-16. The numbers above are read
+from the saved simulations that entry cites: `125Oa/before.fsm` lines 21, 24 and 27
+and `125Sa` (before the deletion), `125Ob/after.fsm` lines 21 and 24 and
+`125Sb/after.fsm` (after it), and the `*c` arms for the renamed blades.

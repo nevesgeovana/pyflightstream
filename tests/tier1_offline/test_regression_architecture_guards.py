@@ -598,7 +598,6 @@ _PRIVATE_IMPORT_RATCHET___FROZEN: tuple[tuple[str, str], ...] = (
     ("run._sweep", "cases._skipped_families"),
     ("run._wake_edge_verdict", "workspace._missing_log"),
     ("run.cli", "workspace._matrix_homes"),
-    ("run.collect", "workspace._batches"),
     ("run.collect", "workspace._missing_log"),
     ("run.matrix", "workspace._geometry_clean"),
     ("run.matrix", "workspace._matrix_homes"),

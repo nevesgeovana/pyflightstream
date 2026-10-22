@@ -46,7 +46,6 @@ it is a row of a private workspace, which is the next release's work.
 
 from __future__ import annotations
 
-import dis
 import enum
 import math
 import sys
@@ -60,6 +59,7 @@ import yaml
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream._retired_names import imported_by_from
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.geometry import WingSpec
@@ -416,15 +416,6 @@ REMOVED_IN_0_13_0: frozenset[str] = frozenset(
 )
 
 
-def _imported_by_from(depth: int) -> bool:
-    """Whether the frame ``depth`` levels up is executing ``from module import name``."""
-    try:
-        frame = sys._getframe(depth)
-        return dis.opname[frame.f_code.co_code[frame.f_lasti]] == "IMPORT_FROM"
-    except (ValueError, IndexError):  # no such frame or no instruction to read
-        return False
-
-
 def __getattr__(name: str) -> object:
     if name in REMOVED_IN_0_13_0:
         message = (
@@ -437,7 +428,7 @@ def __getattr__(name: str) -> object:
         # A module attribute that is absent raises AttributeError, so that
         # hasattr answers False; the import statement turns that into a bare
         # "cannot import name", so it keeps the message as an ImportError.
-        if _imported_by_from(2):
+        if imported_by_from(2):
             raise ImportError(message, name=name)
         raise AttributeError(message, name=name, obj=sys.modules[__name__])
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

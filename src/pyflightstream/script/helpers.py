@@ -1705,15 +1705,17 @@ def coordinate_frame(
     y_axis = _triple("coordinate_frame", "y_axis", y_axis)
     if z_axis is not None:
         z_axis = _triple("coordinate_frame", "z_axis", z_axis)
-    for prefix, vector in (("origin", origin), ("vector_x", x_axis), ("vector_y", y_axis)):
-        for letter, value in zip("xyz", vector, strict=True):
-            _checked_helper_value(script, "EDIT_COORDINATE_SYSTEM", f"{prefix}_{letter}", value)
+    # The axes are judged first, so a degenerate or non-finite pair is refused naming
+    # the frame (PFS-2130.053); the value checks then cover the origin.
     problem = frame_axes_problem(x_axis, y_axis, z_axis)
     if problem is not None:
         raise CommandArgumentError(
             f"coordinate_frame {name!r}: {problem}; x_axis = {tuple(x_axis)}, "
             f"y_axis = {tuple(y_axis)}. Give two non-zero, orthogonal directions."
         )
+    for prefix, vector in (("origin", origin), ("vector_x", x_axis), ("vector_y", y_axis)):
+        for letter, value in zip("xyz", vector, strict=True):
+            _checked_helper_value(script, "EDIT_COORDINATE_SYSTEM", f"{prefix}_{letter}", value)
     if len(origin) != 3:
         raise CommandArgumentError(
             f"coordinate_frame {name!r}: origin holds {len(origin)} values, and an origin "

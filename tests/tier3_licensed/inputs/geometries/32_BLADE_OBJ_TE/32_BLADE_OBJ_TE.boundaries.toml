@@ -20,6 +20,9 @@ to = "Blade1"
 # pyflightstream.workspace.trailing_edge_midpoints finds the same twelve on
 # the blade's surface (about X, hub at the origin, 12 sections).
 file = "32_BLADE_OBJ_TE.te.txt"
+# The edge type has no default (PFS-2124.055); STANDARD is the type the goldens
+# emit (IMPORT_WAKE_EDGES_FROM_FILE STANDARD), the former default.
+type = "STANDARD"
 
 # The saved simulation was prepared with its wake termination nodes detected
 # after its trailing edges (recipes.prepare_geometry), so the import is too.

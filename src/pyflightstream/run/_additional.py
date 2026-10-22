@@ -25,8 +25,6 @@ from pyflightstream.cases import EXPORT_KINDS
 from pyflightstream.cases.workflows import creates_surface_sections
 from pyflightstream.results import translate_surface_exports
 from pyflightstream.run._executors import (
-    Executor,
-    ExecutorConfigurationError,
     Submitting,
     bind_submission_values,
 )
@@ -42,21 +40,6 @@ from pyflightstream.workspace.naming import ARCHIVE_DIR
 if TYPE_CHECKING:
     from pyflightstream.script import Script
     from pyflightstream.workspace import RunRecord
-
-
-def local_executor_only(executor: Executor) -> Executor:
-    """Return ``executor`` if it runs here, else refuse by name before anything is written.
-
-    The submitting half is not built (F-1455): an additional post runs its
-    extraction on this machine.
-    """
-    if isinstance(executor, Submitting):
-        raise ExecutorConfigurationError(
-            "the additional post runs the extraction on this machine, and the executor chosen "
-            "is a scheduler's, whose submitted extraction is not built; pass local=True "
-            "(CLI: --local), or give a local executor"
-        )
-    return executor
 
 
 def complete_extraction(

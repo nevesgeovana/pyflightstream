@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.windows import surface_averaging_window
+from pyflightstream.exceptions import PyflightstreamWarning
 from pyflightstream.post._stage import _surface_export_skip
 from pyflightstream.post.series import surface_export_metadata
 from pyflightstream.results import frozen_time_steps
@@ -75,9 +76,14 @@ def test_continuation_preserves_recorded_surface_window(tmp_path, monkeypatch):
     assert original_read(workspace)[-1].surface_time_averaging == WINDOW
     metadata = surface_export_metadata(successor)
     assert metadata == {"kind": "average", "window": WINDOW}
-    assert "step 60" in _surface_export_skip(
-        metadata, frozen_time_steps(_log(2413)), point="AL-020", product="surface"
-    )
+    # The recorded window reaches the freeze, so the average is named as affected. Under
+    # the documented default policy (warn, PFS-2126.016) the product is kept and the
+    # reason is the warning; the refusal is the post's opt-in, not the default.
+    with pytest.warns(PyflightstreamWarning, match="first frozen time step 60"):
+        skipped = _surface_export_skip(
+            metadata, frozen_time_steps(_log(2413)), point="AL-020", product="surface"
+        )
+    assert skipped is None
 
 
 def test_manifest_refuses_malformed_window_with_run_and_remedy(tmp_path, monkeypatch):

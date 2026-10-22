@@ -31,6 +31,8 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
     # `accept_unregistered_build` of each build (FR-998, False unless a file accepts it).
     # P0410 adds exactly two optional pproc defaults: noise=None and
     # products.polar_axes=None. The fixture amendment states those defaults;
-    # it does not recapture the implementation's output.
+    # it does not recapture the implementation's output. F-1290 (0.43.0) changes one
+    # serialization and nothing else: a pproc group dumps as the one alias string it
+    # was written as, since the member-list form is refused on reading.
     expected = json.loads((FIXTURES / "p0360_w9c.json").read_text(encoding="utf-8"))
     assert actual == expected[fixture]

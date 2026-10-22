@@ -1360,14 +1360,18 @@ class TestRfixR6Fsi:
 
 
 def test_x_f_0518_a_call_without_loads_says_so_in_its_record(tmp_path):
-    """X-F-0518 the passed record states that no loads file was archived."""
+    """X-F-0518, F-776: the record states that no loads file was found, and the call failed.
+
+    The exchange of docs/fsi-external.md has the solver write the loads file
+    before each call, so a call without it is a broken exchange, not a pass.
+    """
     from pyflightstream.fsi.external import external_step
 
     folder = _gaps_rt_fsiext___point(tmp_path)
     (folder / LOADS_FILE).unlink()
-    assert external_step(folder) == 0
+    assert external_step(folder) == 1
     record = json.loads((folder / "fsi_archive" / "call_0001" / "call.json").read_text())
-    assert record["verdict"] == "passed" and record["loads_file_present"] is False
+    assert record["verdict"] == "failed" and record["loads_file_present"] is False
 
 
 @pytest.mark.parametrize("name", ["../x.txt", "sub/x.txt", "C:x.txt", "..", ""])

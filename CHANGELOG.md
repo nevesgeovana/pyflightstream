@@ -10,7 +10,8 @@ FlightStream versions.
 ### Added
 
 - `pyfs-fsi` writes `fsi_convergence_verdicts.log` in the run folder, and the external step
-  record carries `loads_file_present`.
+  record carries `loads_file_present`. An external call that finds no loads file in the point
+  folder fails before the program runs.
 - A row that states no `ALPHA` or `BETA` flies that angle at 0.0 and says so: the plan summary
   shows `ALPHA = 0.0 (default)`, and the run record lists the angles in `angles_not_stated`.
 - `[products] trimmed_polar = true` on a pproc artifact writes, beside every polar table,
@@ -50,6 +51,9 @@ FlightStream versions.
   prefix, so digests in reports written before this change are not comparable.
 - The `pyfs-matrix` install check is documented as `--help`, and the guide and documentation
   pages state what the code does.
+- `pyflightstream.testing.assert_records_close` counts a NaN on either side, both sides
+  included, as a violation, as its rule `|a - e| <= atol + rtol * |e|` reads: a golden that
+  holds NaN no longer passes.
 - The QA `--timeout` option keeps its behaviour, and its help states the limit each solved
   probe keeps: 180 s for a solving probe of the gap catalog, 240 s for a solving probe that
   carries it, and 60 s for the hang guards of build 26.125.
@@ -285,7 +289,8 @@ FlightStream versions.
   trace point on a nonzero shed filament, coincident trace points and a wake whose strengths
   do not sum to zero; `symmetry_floor` refuses `m_max=0`; rotor coverage counts v, w and
   p_prime; the atmosphere refuses non-finite inputs; the far-field functions refuse
-  malformed shapes, non-finite samples and invalid densities by name.
+  malformed shapes, non-finite samples and invalid densities by name; `lateral_flux` refuses an
+  outlet upstream of its inlet instead of returning 0.0.
 - Probes: a lateral cylinder inside the outer ring edge, a non-(n, 3) points array, a probe
   layout count that divides by zero, an infinite extent and a lateral station list without a
   radius are refused; a geometric axis can neither overflow nor coincide; frames keep huge

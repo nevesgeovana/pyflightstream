@@ -953,6 +953,13 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
             b"ROTATE_COORDINATE_SYSTEM also carry both",
         )
     )
+    # F-1898 (0.43.0): the run help says who posts a submitted point. One line of the
+    # v0.38.0 console changes; the capture itself stays as v0.38.0 printed it.
+    captured["run.console"] = captured["run.console"].replace(
+        b"write the sweep table\n",
+        b"write the sweep table (a point\n"
+        b"           submitted to a scheduler is posted by `collect` once its outputs land)\n",
+    )
     # FR-395 now records the full matrix's stable alias order (PFS-2094.034).
     captured[plan_name] = captured[plan_name].replace(
         b'  "matrix_sha256":',

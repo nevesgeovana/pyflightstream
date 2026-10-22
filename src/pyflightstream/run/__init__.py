@@ -108,9 +108,9 @@ function per family of subcommands
 
 from __future__ import annotations
 
-import dis
 import sys
 
+from pyflightstream._retired_names import imported_by_from
 from pyflightstream.run._assessment import (
     Assessment,
     LoadsAssessor,
@@ -226,12 +226,7 @@ def __getattr__(name: str) -> object:
             "assess_unsteady_from_plots was removed in 0.26.0; use LoadsAssessor for "
             "campaign assessment; history settling is the user's own analysis."
         )
-        try:
-            frame = sys._getframe(1)
-            from_import = dis.opname[frame.f_code.co_code[frame.f_lasti]] == "IMPORT_FROM"
-        except (ValueError, IndexError):  # no caller frame to read
-            from_import = False
-        if from_import:
+        if imported_by_from(2):
             raise ImportError(message, name=name)
         raise AttributeError(message, name=name, obj=sys.modules[__name__])
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -429,8 +429,8 @@ def external_step(directory: str | Path) -> int:
         "written_sha256": written,
         "node_count": structure.node_count,
         "rows_written": rows,
-        # X-F-0518. Said outright: a call that found no loads file passes, and
-        # the record must not leave that to be inferred from a missing key.
+        # X-F-0518. Said outright, never inferred from a missing key: a call
+        # that found no loads file fails (F-776) and its record says why.
         "loads_file_present": loads.is_file(),
         "verdict": verdict,
         "reason": reason or "",

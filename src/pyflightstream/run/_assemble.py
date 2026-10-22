@@ -42,13 +42,13 @@ from pyflightstream.workspace import (
     find_matrix,
 )
 from pyflightstream.workspace._batch_life import is_job_script
-from pyflightstream.workspace._matrix_homes import matrix_stem as matrix_name_of
 from pyflightstream.workspace.flight_condition import (
     canonical_condition_defaults,
     resolve_flight_condition,
 )
 from pyflightstream.workspace.inputs import ReferenceArtifact
 from pyflightstream.workspace.matrix import condition_defaults_origin
+from pyflightstream.workspace.matrix import matrix_stem as matrix_name_of
 from pyflightstream.workspace.naming import (
     PointName,
     RunsManifestError,

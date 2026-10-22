@@ -194,7 +194,11 @@ def test_a_detect_shape_the_workflow_refuses_is_refused_by_the_refinement(tmp_pa
     src = write_source(tmp_path / "src", "wing", sheet_with_strips(GT), refine_toml=FACTOR_2)
     sidecar = src.with_name("wing.boundaries.toml")
     text = sidecar.read_text(encoding="utf-8")
-    sidecar.write_text(text.replace('file = "wing.te.txt"', detect), encoding="utf-8")
+    # The fixture's file route states its edge type (PFS-2124.055); detection reads
+    # neither, so routing to detection replaces both lines.
+    routed = 'file = "wing.te.txt"\ntype = "STANDARD"'
+    assert routed in text
+    sidecar.write_text(text.replace(routed, detect), encoding="utf-8")
     with pytest.raises(InputArtifactError) as workflow:
         read_raw_mesh_conditions(sidecar)
     out = tmp_path / "out"
@@ -202,5 +206,5 @@ def test_a_detect_shape_the_workflow_refuses_is_refused_by_the_refinement(tmp_pa
         refine_mesh(src, out_dir=out)
     assert str(refused.value) == f"{workflow.value} Nothing was written."
     assert not out.exists()
-    sidecar.write_text(text.replace('file = "wing.te.txt"', 'detect = "auto"'), encoding="utf-8")
+    sidecar.write_text(text.replace(routed, 'detect = "auto"'), encoding="utf-8")
     assert refine_mesh(src, out_dir=out).obj.is_file()

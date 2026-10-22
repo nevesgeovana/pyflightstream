@@ -75,8 +75,10 @@ def test_p0420_docs_diag_manual_build_and_failure_artifact():
 # A version tag deploys. A manual dispatch is the pre-tag Linux build and deploys only
 # from main with deploy=true (owner decision of 2026-10-15: the 0.41.0 site is published
 # from main). A branch push never deploys.
+# F-702 (0.43.0): the tag arm requires a push event, so a dispatch started on a v* tag
+# deploys only through the dispatch arm, with inputs.deploy.
 DEPLOY_IF = (
-    "startsWith(github.ref, 'refs/tags/v') || "
+    "(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || "
     "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy)"
 )
 

@@ -51,7 +51,6 @@ from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
 from pyflightstream.run._ids import _add_sim_ids, command_line_text
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
-from pyflightstream.workspace._matrix_homes import matrix_stem
 from pyflightstream.workspace.cli import add_console_arguments, take_settings, withhold_defaults
 
 # Re-exported through this public import path.
@@ -60,6 +59,7 @@ from pyflightstream.workspace.costs import select_cost_file as select_cost_file
 # Re-exported through this public import path.
 from pyflightstream.workspace.hpc import select_hpc_profile as select_hpc_profile
 from pyflightstream.workspace.ledger import SIMS_IDS_HELP, listed_sims
+from pyflightstream.workspace.matrix import matrix_stem
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME
 
 

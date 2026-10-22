@@ -9,7 +9,6 @@ path above reuses those helpers.
 
 from __future__ import annotations
 
-import hashlib
 import time
 import warnings
 from collections.abc import Mapping, Sequence
@@ -51,6 +50,7 @@ from pyflightstream.cases.workflows import (
     WALLTIME_CLOCK_PROGRAM,
     WALLTIME_CLOCK_STATE,
     WALLTIME_STOP_SCRIPT,
+    angles_not_stated,
     creates_surface_sections,
     job_start_state,
     reduction_windows,
@@ -59,7 +59,6 @@ from pyflightstream.cases.workflows import (
     walltime_clock_program,
     walltime_margin_s,
 )
-from pyflightstream.cases.workflows._rows import angles_not_stated
 from pyflightstream.results import (
     translate_surface_exports,
 )
@@ -751,9 +750,12 @@ def _write_script_keeping_replaced(
     """
     target = workspace.sim_dir(sim_id) / "scripts" / name
     previous = target.read_bytes() if target.is_file() else None
+    # The manifest checksum of the replaced file (the raw bytes, _digest.file_sha256),
+    # so the archived name is the digest a manifest row recorded for it.
+    previous_digest = file_sha256(target) if previous is not None else ""
     written = workspace.write_script(sim_id, name, text)
     if previous is not None and previous != written[0].read_bytes():
-        digest = hashlib.sha256(previous).hexdigest()
+        digest = previous_digest
         kept = target.parent / "archive" / f"{target.stem}.{digest[:16]}{target.suffix}"
         if not kept.exists():
             kept.parent.mkdir(parents=True, exist_ok=True)

@@ -136,6 +136,18 @@ from ._exports import (
 from ._exports import (
     native_tecplot_source as native_tecplot_source,
 )
+from ._farfield import (
+    plan_record as plan_record,
+)
+from ._freestream import (
+    WakeTermination as WakeTermination,
+)
+from ._freestream import (
+    planned_run_wake as planned_run_wake,
+)
+from ._freestream import (
+    planned_wake as planned_wake,
+)
 from ._geometry import (
     accepted_symmetry,
 )
@@ -205,6 +217,9 @@ from ._rows import (
 )
 from ._rows import (
     RestartRequest as RestartRequest,
+)
+from ._rows import (
+    angles_not_stated as angles_not_stated,
 )
 from ._rows import (
     continuation_of as continuation_of,

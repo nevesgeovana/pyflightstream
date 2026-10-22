@@ -14,6 +14,7 @@ functions. This checks retained numerical behavior, not the removal contract.
 
 import dataclasses
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -510,16 +511,16 @@ def _shape_of(lattice):
     return (len(lattice.stations), lattice.n_r, lattice.n_psi)
 
 
-def test_lateral_flux_reversed_bounds_are_the_negated_forward_flux():
-    """F-100: swapping inlet and outlet negates the lateral flux; it is never a silent 0."""
-    from pyflightstream.farfield import lateral_flux
+def test_lateral_flux_reversed_bounds_are_refused_never_a_silent_value():
+    """F-100, X-F-0307: a swapped inlet and outlet is refused, neither 0 nor a guessed sign."""
+    from pyflightstream.farfield import FarfieldInputError, lateral_flux
 
     fields = _lateral_fixture()
     first, last = float(fields.lateral_stations[0]), float(fields.lateral_stations[-1])
     forward = lateral_flux(fields, rho=RHO, inlet=first, outlet=last)
-    backward = lateral_flux(fields, rho=RHO, inlet=last, outlet=first)
     assert forward != 0.0
-    assert backward == pytest.approx(-forward, rel=1e-12)
+    with pytest.raises(FarfieldInputError, match="upstream of the inlet"):
+        lateral_flux(fields, rho=RHO, inlet=last, outlet=first)
     assert lateral_flux(fields, rho=RHO, inlet=first, outlet=first) == 0.0
 
 
@@ -550,6 +551,28 @@ def test_mass_closure_states_a_zero_mean_instead_of_an_unlabelled_nan():
     assert open_.absolute_spread == pytest.approx(float(np.abs(open_.mdot).max()))
     assert open_.absolute_spread > 0.0
     assert mass_closure(make_dataset(uniform_fields()), RHO).status == "ok"
+    # X-F-0306: the zero mean is stated, quietly: no numpy warning rides on the NaN.
+    fields["u"] = np.zeros(SHAPE)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert np.isnan(mass_closure(make_dataset(fields), RHO).relative_spread)
+
+
+def test_x_f_1615_hub_frame_velocities_refuse_a_zero_or_non_finite_axis():
+    """X-F-1615: the refusal its Raises entry states, a zero or non-finite axis vector."""
+    from pyflightstream.farfield import FarfieldInputError, hub_frame_velocities
+
+    doc = " ".join((hub_frame_velocities.__doc__ or "").split())
+    assert "finite non-zero vector" in doc
+    for axis in (np.zeros(3), np.array([np.nan, 0.0, 1.0])):
+        with pytest.raises(FarfieldInputError, match="finite non-zero vector"):
+            hub_frame_velocities(
+                np.zeros((1, 3)),
+                velocities=np.zeros((1, 3)),
+                omega=1.0,
+                axis=axis,
+                origin=np.zeros(3),
+            )
 
 
 # ---- F7-0809 (0.43.0): shape, finiteness and density checks of the far-field core ----
@@ -614,11 +637,14 @@ def test_f103_an_invalid_density_is_refused(rho):
         trace_forces(y, z=z, gamma=gamma, rho=rho, v_inf=30.0)
 
 
-def test_f099_a_nonpositive_chunk_is_refused():
+@pytest.mark.parametrize("chunk", [-1, 0, 2.5, math.inf, math.nan, "a", True])
+def test_f099_a_nonpositive_chunk_is_refused(chunk):
+    """F-099, RB7-38: every chunk that is not a positive integer is the documented refusal."""
     axis = np.linspace(0.0, 1.0, 5)
     plane = plane_fields(axis, z=axis, fields={"v": np.ones((5, 5)), "w": np.ones((5, 5))})
     with pytest.raises(FarfieldInputError, match="chunk"):
-        plane_vorticity_drag(plane, rho=1.2, chunk=-1)
+        plane_vorticity_drag(plane, rho=1.2, chunk=chunk)
+    assert math.isfinite(plane_vorticity_drag(plane, rho=1.2, chunk=np.int64(2)))
 
 
 def test_f104_rotor_coverage_counts_every_channel():

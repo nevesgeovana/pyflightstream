@@ -72,7 +72,9 @@ def _resolved_mach_case(**updates):
         fluid=fluid,
         solver=SolverSettings(freestream_input="mach"),
     )
-    return case.model_copy(update=updates)
+    # The Mach route resolves the velocity from the flight condition, so the row
+    # states no VELOCITY cell: one beside it is refused as a contradiction (X-F-1157).
+    return case.model_copy(update={"variables": {}, **updates})
 
 
 def test_mach_route_uses_the_same_resolved_condition_without_velocity_setter():

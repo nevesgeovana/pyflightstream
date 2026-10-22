@@ -299,7 +299,12 @@ def test_p0430_f1584_the_text_a_refusal_offers_for_a_value_is_valid_toml(
     """F-1584: a table, a quote, a DEL character and a float are offered in TOML."""
     import tomllib
 
-    from tests.tier1_offline.test_p0390_firstrow import Composite, _tube_source, write_source
+    from tests.tier1_offline.test_p0390_firstrow import (
+        FILE_ROUTE,
+        Composite,
+        _tube_source,
+        write_source,
+    )
 
     lens = _tube_source(sharp_le=True)
     ring = 6 * 48 + 48
@@ -313,7 +318,7 @@ def test_p0430_f1584_the_text_a_refusal_offers_for_a_value_is_valid_toml(
     side = src.with_name("wing.boundaries.toml")
     # the detect route spelled as a table header: no `detect =` text a rewrite could replace
     side.write_text(
-        side.read_text(encoding="utf-8").replace('file = "wing.te.txt"', "").rstrip()
+        side.read_text(encoding="utf-8").replace(FILE_ROUTE, "").rstrip()
         + f'\n[trailing_edges.detect]\n{detect_line}\n[import]\nunits = "METER"\n',
         encoding="utf-8",
     )

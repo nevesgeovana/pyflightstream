@@ -1136,8 +1136,10 @@ def test_x_f_1367_a_points_file_not_beside_the_sidecar_is_refused(tmp_path, name
     from pyflightstream.workspace.sidecars import read_trailing_edges
 
     sidecar = tmp_path / "a.boundaries.toml"
+    # The edge type is stated: it has no default (PFS-2124.055), and this case is
+    # about where the points file may be.
     with pytest.raises(InputArtifactError, match="not beside the sidecar"):
-        read_trailing_edges(sidecar, {"file": named})
-    assert read_trailing_edges(sidecar, {"file": "wing.te.txt"}).points_file == str(
-        tmp_path / "wing.te.txt"
-    )
+        read_trailing_edges(sidecar, {"file": named, "type": "STANDARD"})
+    assert read_trailing_edges(
+        sidecar, {"file": "wing.te.txt", "type": "STANDARD"}
+    ).points_file == str(tmp_path / "wing.te.txt")

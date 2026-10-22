@@ -1103,7 +1103,9 @@ def _route_detected_te(work: _Work, stem: str) -> None:
     trailing edge by the workflow's own rule and never read the audited line
     (PFS-2088.018). When every family the ``detect`` route selects is one
     whose line the refinement detected, the level's boundaries file states
-    ``file = "<stem>.te.txt"`` in place of ``detect``: the run then marks
+    ``file = "<stem>.te.txt"`` and ``type = "STANDARD"`` in place of ``detect``
+    (a file route states its type, PFS-2124.055, and STANDARD is the type
+    detection gives every edge it marks): the run then marks
     exactly the line the refinement kept and the audit checked. A ``file``
     and a ``detect`` cannot both be stated, so when the route also selects a
     family the refinement did not detect on, ``detect`` stays (that family
@@ -1139,15 +1141,15 @@ def _route_detected_te(work: _Work, stem: str) -> None:
     wanted = copy.deepcopy(data)
     del wanted[_obj.TRAILING_EDGES_TABLE]["detect"]
     wanted[_obj.TRAILING_EDGES_TABLE]["file"] = target
-    work.sidecar = _replace_key(
-        work.source,
-        work.sidecar,
-        "detect",
-        table["detect"],
-        new_key="file",
-        new=target,
-        wanted=wanted,
-    )
+    wanted[_obj.TRAILING_EDGES_TABLE]["type"] = DETECTED_EDGE_TYPE
+    typed = tuple(f'{sep}type = "{DETECTED_EDGE_TYPE}"' for sep in ("\n", ", "))
+    rewrite: dict[str, Any] = {"new_key": "file", "new": target, "wanted": wanted, "tails": typed}
+    work.sidecar = _replace_key(work.source, work.sidecar, "detect", table["detect"], **rewrite)
+
+
+#: The edge type detection gives every edge it marks, stated when a detect route
+#: becomes the level's points file (PFS-2124.055: a file route states its type).
+DETECTED_EDGE_TYPE = "STANDARD"
 
 
 def _toml(value: object) -> str:
@@ -1177,12 +1179,15 @@ def _replace_key(
     new_key: str,
     new: str,
     wanted: dict[str, Any],
+    tails: tuple[str, ...] = ("",),
 ) -> str:
     """Return ``text`` with ``key = old`` replaced by ``new_key = new``, parsing to ``wanted``.
 
     The same search as :func:`._obj.rewrite_value`: every spelling of the key, the
     shortest value text that parses to ``old``, and the first replacement
-    whose whole file parses to ``wanted``.
+    whose whole file parses to ``wanted``. Each of ``tails`` is tried after the
+    new value (another key of the same table, on its own line or, in an inline
+    table, after a comma).
     """
     spelled = rf"(?<![\w\-\"'])(?:{key}|\"{key}\"|'{key}')\s*=[ \t]*"
     for match in re.finditer(spelled, text):
@@ -1196,13 +1201,13 @@ def _replace_key(
                 continue
             if value != old:
                 continue
-            replaced = f"{new_key} = {_toml(new)}"
-            candidate = text[: match.start()] + replaced + text[end:]
-            try:
-                if tomllib.loads(candidate) == wanted:
-                    return candidate
-            except tomllib.TOMLDecodeError:
-                pass
+            for tail in tails:
+                candidate = text[: match.start()] + f"{new_key} = {_toml(new)}{tail}" + text[end:]
+                try:
+                    if tomllib.loads(candidate) == wanted:
+                        return candidate
+                except tomllib.TOMLDecodeError:
+                    pass
             break
     raise _refuse(
         str(side),

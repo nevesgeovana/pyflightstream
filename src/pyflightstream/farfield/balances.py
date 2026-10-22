@@ -305,14 +305,17 @@ def lateral_flux(
     ``v``): the azimuthal rectangle rule around each lateral ring and the
     trapezoid rule along x over the lateral stations from ``inlet`` to
     ``outlet``. NaN where a ring sample is missing. Stations match within
-    ``1e-12`` as the annular planes do; reversed bounds give the negated flux.
+    ``1e-12`` as the annular planes do. The far-field family definition states
+    the balance from the inlet station downstream and no convention for a
+    reversed pair, so an ``outlet`` upstream of ``inlet`` is refused rather
+    than given a sign; equal stations bound no cylinder and give ``0.0``.
 
     Raises
     ------
     FarfieldInputError
         If the lattice has no lateral cylinder, its samples carry no ``v_r``,
-        ``p_prime`` or component, or ``inlet`` or ``outlet`` is not a lateral
-        station.
+        ``p_prime`` or component, ``inlet`` or ``outlet`` is not a lateral
+        station, or ``outlet`` lies upstream of ``inlet``.
 
     Parameters
     ----------
@@ -350,8 +353,10 @@ def lateral_flux(
         )
     i0, i1 = int(start[0]), int(stop[0])
     if i1 < i0:
-        # Reversed bounds give the oriented (negated) flux, as axial_force does.
-        return -lateral_flux(fields, rho=rho, inlet=outlet, outlet=inlet, component=component)
+        raise FarfieldInputError(
+            f"the outlet x/R = {outlet!r} lies upstream of the inlet x/R = {inlet!r}; "
+            "the lateral term is defined from the inlet downstream, so give the inlet first"
+        )
     normal = np.cos(fields.psi) if component == "w" else np.sin(fields.psi)
     integrand = rho * lateral["v_r"] * lateral[component] + lateral["p_prime"] * normal
     tip = float(fields.tip_radius)

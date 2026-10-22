@@ -22,7 +22,7 @@ from pyflightstream.run._step_exports import untranslated_surfaces
 
 from ..cases.workflows import WALLTIME_CLOCK_STATE
 from ..workspace import MissingOutputsError, RunRecord, RunStatus
-from ..workspace._batches import job_of
+from ..workspace.matrix import job_of
 from ..workspace.naming import datapoint_name_of
 
 

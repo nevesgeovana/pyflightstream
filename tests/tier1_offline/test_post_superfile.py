@@ -749,6 +749,10 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         # options, not about the simulation, as `argv` is. Absent where no file
         # gave anything.
         "settings_sources",
+        # 0.43.0, FR-69. WHICH ANGLES THE ROW DID NOT STATE: a list of names, not a
+        # scalar a row could hold. The owner decision places it in the plan and the
+        # run record; the angle's value, 0.0, is the ALPHA or BETA a row carries.
+        "angles_not_stated",
     }
     carried_by_the_campaign_sweep_table = {
         # FR-95, 0.17.0, and both for the same reason: a job's identity is

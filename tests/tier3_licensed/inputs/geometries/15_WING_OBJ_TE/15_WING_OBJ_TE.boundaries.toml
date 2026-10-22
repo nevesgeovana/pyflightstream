@@ -19,6 +19,9 @@ to = "Wing"
 [trailing_edges]
 # The 16 edges the saved 10_WING.fsm flags as trailing, by their mid-points.
 file = "15_WING_OBJ_TE.te.txt"
+# The edge type has no default (PFS-2124.055); STANDARD is the type the goldens
+# emit (IMPORT_WAKE_EDGES_FROM_FILE STANDARD), the former default.
+type = "STANDARD"
 
 # The saved simulation was prepared with its wake termination nodes detected
 # after its trailing edges (recipes.prepare_geometry), so the import is too.

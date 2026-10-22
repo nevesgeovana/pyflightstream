@@ -2594,6 +2594,16 @@
     },
     {
       "source": "pyflightstream.cases.workflows",
+      "target": "pyflightstream.cases.workflows._farfield",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows",
+      "target": "pyflightstream.cases.workflows._freestream",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows",
       "target": "pyflightstream.cases.workflows._geometry",
       "kind": "module"
     },
@@ -8259,6 +8269,11 @@
     },
     {
       "source": "pyflightstream.qa.physics",
+      "target": "pyflightstream._retired_names",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa.physics",
       "target": "pyflightstream._textio",
       "kind": "module"
     },
@@ -8644,6 +8659,11 @@
     },
     {
       "source": "pyflightstream.run",
+      "target": "pyflightstream._retired_names",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run",
       "target": "pyflightstream.run._assessment",
       "kind": "module"
     },
@@ -8850,11 +8870,6 @@
     {
       "source": "pyflightstream.run._assemble",
       "target": "pyflightstream.workspace._batch_life",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._assemble",
-      "target": "pyflightstream.workspace._matrix_homes",
       "kind": "module"
     },
     {
@@ -9509,11 +9524,6 @@
     },
     {
       "source": "pyflightstream.run._cli_parsers",
-      "target": "pyflightstream.workspace._matrix_homes",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._cli_parsers",
       "target": "pyflightstream.workspace.cli",
       "kind": "module"
     },
@@ -9530,6 +9540,11 @@
     {
       "source": "pyflightstream.run._cli_parsers",
       "target": "pyflightstream.workspace.ledger",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_parsers",
+      "target": "pyflightstream.workspace.matrix",
       "kind": "module"
     },
     {
@@ -9724,7 +9739,7 @@
     },
     {
       "source": "pyflightstream.run._collect_notes",
-      "target": "pyflightstream.workspace._batches",
+      "target": "pyflightstream.workspace.matrix",
       "kind": "module"
     },
     {
@@ -10388,21 +10403,6 @@
       "kind": "module"
     },
     {
-      "source": "pyflightstream.run._plan_report",
-      "target": "pyflightstream.cases.workflows._farfield",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._plan_report",
-      "target": "pyflightstream.cases.workflows._freestream",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._plan_report",
-      "target": "pyflightstream.cases.workflows._rows",
-      "kind": "module"
-    },
-    {
       "source": "pyflightstream.run._points",
       "target": "pyflightstream",
       "kind": "module"
@@ -10440,11 +10440,6 @@
     {
       "source": "pyflightstream.run._points",
       "target": "pyflightstream.cases.workflows",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._points",
-      "target": "pyflightstream.cases.workflows._rows",
       "kind": "module"
     },
     {
@@ -10755,11 +10750,6 @@
     {
       "source": "pyflightstream.run._sweep",
       "target": "pyflightstream.cases.workflows",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._sweep",
-      "target": "pyflightstream.cases.workflows._rows",
       "kind": "module"
     },
     {
@@ -13395,6 +13385,11 @@
     {
       "source": "pyflightstream.workspace.matrix",
       "target": "pyflightstream.workspace._matrix_binding",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.matrix",
+      "target": "pyflightstream.workspace._matrix_homes",
       "kind": "module"
     },
     {

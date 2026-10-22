@@ -822,8 +822,10 @@ def _check_id(artifact_id: str, kind: str) -> None:
     if not is_valid_artifact_id(artifact_id):
         bad = next((c for c in artifact_id if not re.fullmatch(r"[A-Za-z0-9._-]", c)), None)
         renamed = re.sub(r"[^A-Za-z0-9._-]+", "_", artifact_id).strip("._-")
-        if bad is not None:
-            cause = f"the character {bad!r} (a space or a bracket, for example) is not allowed"
+        if bad is not None and bad in "/\\":
+            cause = f"the character {bad!r} makes it a path, and an id is never a path"
+        elif bad is not None:
+            cause = f"the character {bad!r} is not allowed"
         else:
             cause = f"it begins with {artifact_id[:1]!r}"
         advice = f" Rename the file to {renamed!r} and the cell with it." if renamed else ""

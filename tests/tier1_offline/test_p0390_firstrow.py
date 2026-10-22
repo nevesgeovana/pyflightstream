@@ -208,6 +208,12 @@ def _l_source() -> Composite:
     return Composite(sheet.verts, {"L": sheet.faces}, te, {})
 
 
+#: The fixture's file route (tests/p0380_mesh_fixtures.py): the points file and the edge
+#: type the owner made required (PFS-2124.055). Detection reads neither, so a test that
+#: routes the table to detection replaces both lines.
+FILE_ROUTE = 'file = "wing.te.txt"\ntype = "STANDARD"'
+
+
 def _tube_source(*, te: bool = False, sharp_le: bool = False) -> Composite:
     """Return the wing tube ``Wing`` with a sharp trailing edge and ``Body`` at its root ring.
 
@@ -517,7 +523,7 @@ def test_a_sharp_leading_edge_is_not_taken_for_the_trailing_edge(tmp_path):
     sidecar = src.with_name("wing.boundaries.toml")
     text = sidecar.read_text(encoding="utf-8")
     sidecar.write_text(
-        text.replace('file = "wing.te.txt"', 'detect = { surfaces = ["Wing"] }')
+        text.replace(FILE_ROUTE, 'detect = { surfaces = ["Wing"] }')
         + '\n[import]\nunits = "METER"\n',
         encoding="utf-8",
     )
@@ -555,7 +561,7 @@ def _joined_level(tmp_path: Path, units: str | None):
     src = write_source(tmp_path / "joined", "wing", mesh, refine_toml=toml)
     sidecar = src.with_name("wing.boundaries.toml")
     text = sidecar.read_text(encoding="utf-8")
-    text = text.replace('file = "wing.te.txt"', 'detect = { surfaces = ["Wing"] }')
+    text = text.replace(FILE_ROUTE, 'detect = { surfaces = ["Wing"] }')
     if units is not None:
         text += f'\n[import]\nunits = "{units}"\n'
         rows = ["METER"] + [",".join(f"{c / 1000.0:.12f}" for c in p) for p in body]
