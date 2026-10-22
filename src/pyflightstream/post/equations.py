@@ -197,9 +197,10 @@ def apply_equations(
     Raises
     ------
     ProductError
-        If a symbol is no equation and no column, or a derived column would take
-        the name of one the table already has. Nothing is evaluated then: the
-        block is whole or absent.
+        If a symbol is no equation and no column, a symbol names an equation
+        that ``order`` does not evaluate before the one reading it (itself
+        included), or a derived column would take the name of one the table
+        already has. Nothing is evaluated then: the block is whole or absent.
 
     Examples
     --------
@@ -231,6 +232,14 @@ def apply_equations(
         reads[name] = {}
         for symbol in expression_symbols(str(getattr(spec, "expression", ""))):
             if symbol in equations:
+                if symbol not in reads or symbol == name:
+                    raise ProductError(
+                        f"[equations.{name}] reads the equation {symbol!r}, which is not "
+                        f"evaluated before it in the order given ({', '.join(order)}). No "
+                        "derived column is written. Evaluate the equations in the order "
+                        "PprocSpec.equation_order() derives, and remove any equation that "
+                        "reads itself or one that reads it back."
+                    )
                 reads[name][symbol] = derived_column(
                     symbol, str(getattr(equations[symbol], "meshes_alias", ""))
                 )

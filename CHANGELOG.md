@@ -250,6 +250,9 @@ FlightStream versions.
 - Maintainer scripts and the manual register: `pyfs-manual` withholds measured-broken rows,
   `draft` accepts `--overwrite`, the corpus capture scripts exit non-zero when an export is
   missing or stale, and `build_living_physics` writes into a missing folder.
+- An `[equations]` block evaluated in an order that reads an equation before it is evaluated,
+  or holding an equation that reads itself, is refused before any derived column is written,
+  instead of writing `NA` in the dependent column.
 
 ## [0.42.0] - 2026-10-16
 

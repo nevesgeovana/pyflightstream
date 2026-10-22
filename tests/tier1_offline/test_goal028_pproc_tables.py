@@ -194,6 +194,45 @@ def test_p0430_equations_read_asymmetric_vector_in_each_declared_frame():
     assert values == [{"MRP_WING": 8, "LOCAL_WING": 1}]
 
 
+@pytest.mark.requirement("FR-2327")
+def test_p0430_an_equation_read_before_it_is_evaluated_refuses_the_whole_set():
+    from types import SimpleNamespace
+
+    from pyflightstream._errors import ProductError
+    from pyflightstream.cases import PprocSpec
+    from pyflightstream.post.equations import apply_equations
+
+    row = {"RHO": 1.25, "FX_PUSHER": -30.0}
+    equations = {
+        "T2": SimpleNamespace(expression="T * 2 / RHO", meshes_alias="PUSHER", frame=None),
+        "T": SimpleNamespace(expression="-FX", meshes_alias="PUSHER", frame=None),
+    }
+    # Resolvable once ordered: T first, then T2, whatever the declaration order.
+    order = PprocSpec.model_validate(
+        {
+            "equations": {
+                name: {"expression": spec.expression, "meshes_alias": "PUSHER"}
+                for name, spec in equations.items()
+            }
+        }
+    ).equation_order()
+    assert order == ["T", "T2"]
+    added, values = apply_equations([row], equations, order, columns=list(row), where="p")
+    assert added == ["T_PUSHER", "T2_PUSHER"]
+    assert values == [{"T_PUSHER": 30.0, "T2_PUSHER": 48.0}]
+    # The declaration order reads T before it exists: refused before any value.
+    with pytest.raises(ProductError, match=r"equations\.T2.*'T'.*equation_order"):
+        apply_equations([row], equations, ["T2", "T"], columns=list(row), where="p")
+    # An equation that reads itself has no evaluation order at all.
+    loop = {"T": SimpleNamespace(expression="T + 1", meshes_alias="PUSHER", frame=None)}
+    with pytest.raises(ProductError, match="reads the equation 'T'"):
+        apply_equations([row], loop, ["T"], columns=list(row), where="p")
+    # A symbol that is no equation and no column is refused as before.
+    stray = {"T": SimpleNamespace(expression="-FZ", meshes_alias="PUSHER", frame=None)}
+    with pytest.raises(ProductError, match="no column of p"):
+        apply_equations([row], stray, ["T"], columns=list(row), where="p")
+
+
 def test_p0430_equation_manifest_records_symbol_columns(tmp_path):
     workspace = _workspace(tmp_path, EQUATIONS)
     assert _post(workspace) == 0
