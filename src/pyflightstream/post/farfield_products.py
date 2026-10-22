@@ -749,8 +749,10 @@ def _wake_sheet(
     starts = np.array([line[0, 1] for line in lines])
     keep = np.ones(len(lines), dtype=bool)
     if mirror:
-        # Both halves, including two coincident root lines, are exported.
-        # Select by upstream nodes, before roll-up moves the crossings.
+        # A mirrored model is taken to export both halves, including two coincident
+        # root lines (no committed report measures this layout; a one-sided export
+        # is also handled below). Select by upstream nodes, before roll-up moves
+        # the crossings.
         keep &= starts < -1e-9 if np.any(starts < -1e-9) else starts > 1e-9
     collapsed = np.array([np.ptp(line[:, 0]) == 0.0 for line in lines], dtype=bool)
     omitted = collapsed & (values == 0.0)
