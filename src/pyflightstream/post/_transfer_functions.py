@@ -75,6 +75,11 @@ def _phase(order: int, x: float) -> float:
 
 #: Below this reduced frequency Theodorsen's function is its two-term series.
 _TINY_K = 1e-150
+#: From this reduced frequency Theodorsen's function is its closed asymptotic form
+#: ``1/2 - i / (8 k)``: the next terms, ``1 / (16 k^2)`` and ``O(k^-3)``, are below the
+#: last bit of a double here, while the ratio of the oscillating J and Y loses the
+#: sign of the small imaginary part to their rounding (positive at k = 1e17).
+_CLOSED_K = 1e8
 
 
 def _series(order: int, x: float) -> tuple[float, float]:
@@ -232,6 +237,8 @@ def theodorsen(k: float) -> complex:
         # Y1 ~ -2 / (pi k) would overflow; C(k) = 1 + i k (ln(k / 2) + gamma) with a
         # remainder far below the last bit at this argument.
         return complex(1.0, k * (math.log(k) - math.log(2.0) + float(_GAMMA)))
+    if k >= _CLOSED_K:
+        return complex(0.5, -1.0 / (8.0 * k))
     j0, y0 = _bessel(0, k)
     j1, y1 = _bessel(1, k)
     h0 = complex(j0, -y0)

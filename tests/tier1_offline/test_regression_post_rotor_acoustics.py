@@ -896,6 +896,21 @@ def test_f4_0304_transfer_functions_survive_the_float_extremes():
         assert math.isfinite(abs(sears(k)))
 
 
+def test_rb6_large_k_theodorsen_keeps_its_lag():
+    """C(k) = 1/2 - i / (8 k) + O(k^-2): the phase stays a lag however large k is.
+
+    The ratio of the oscillating J and Y gave a positive imaginary part at k = 1e17,
+    1e20 and 1e100 (rounding of order 1e-16), so C_PHASE_DEG changed sign.
+    """
+    from pyflightstream.post._transfer_functions import theodorsen
+
+    for k in (1e3, 1e8, 1e17, 1e20, 1e100, 1e300):
+        value = theodorsen(k)
+        assert value.imag < 0.0, (k, value)
+        assert value.imag == pytest.approx(-1.0 / (8.0 * k), rel=1e-6), (k, value)
+        assert value.real == pytest.approx(0.5, abs=1e-6), (k, value)
+
+
 def test_f4_0304_a_harmonic_product_without_a_phase_column_is_a_named_skip(tmp_path):
     """F-1380: a missing H1_PHASE_DEG column is a nonblocking skip, not a ValueError."""
     folder = tmp_path / "sections"
