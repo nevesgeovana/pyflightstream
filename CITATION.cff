@@ -10,10 +10,16 @@ authors:
 license: MIT
 # Version and date describe this release; development versions have no release date.
 # Version-specific archive identifiers are added after publication.
-version: 0.42.0
-date-released: 2026-10-16
+version: 0.43.0
+date-released: 2026-10-22
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23426413
+    description: "Zenodo archive of release v0.42.0"
+  - type: doi
+    value: 10.5281/zenodo.23397114
+    description: "Zenodo archive of release v0.41.0"
   - type: doi
     value: 10.5281/zenodo.23375158
     description: "Zenodo archive of release v0.40.0"
