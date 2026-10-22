@@ -44,6 +44,7 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._progress import say_line
 from pyflightstream.cases.workflows._vocabulary import RAW_MESH_FORMATS
 from pyflightstream.workspace import MeshAudit, audit_mesh, derive_thin_blade, refine_mesh
 from pyflightstream.workspace.cli import add_console_arguments
@@ -353,16 +354,16 @@ def _add_refine_parser(subparsers: Any) -> None:
 
 
 def _progress_printer() -> Callable[[str], None]:
-    """Return a printer of refinement progress, with clock time and elapsed seconds, to stderr."""
+    """Return a printer of refinement progress, with clock time and elapsed seconds.
+
+    Each line goes through :func:`pyflightstream._progress.say_line`: to stderr as the
+    console's own chatter, held by a quiet console, and dropped when stderr is closed.
+    """
     start = time.monotonic()
 
     def say(line: str) -> None:
         stamp = time.strftime("%H:%M:%S")
-        print(
-            f"[refine {stamp} +{time.monotonic() - start:.1f} s] {line}",
-            file=sys.stderr,
-            flush=True,
-        )
+        say_line(f"[refine {stamp} +{time.monotonic() - start:.1f} s] {line}")
 
     return say
 
@@ -388,7 +389,7 @@ def run_refine(args: argparse.Namespace) -> int:
             out_dir=out_dir,
             overwrite=args.overwrite,
             keep_first_row=_names(args.keep_first_row),
-            progress=None if getattr(args, "log_level", None) == "quiet" else _progress_printer(),
+            progress=_progress_printer(),
         )
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)

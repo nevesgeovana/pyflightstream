@@ -457,6 +457,12 @@ def test_a_patch_side_a_factor_cannot_coarsen_is_kept_and_reported(tmp_path, cap
             for lo, c, hi in zip(k["bbox_min"], k["centroid"], k["bbox_max"], strict=True)
         )
     assert any(k["source_intervals"] == 4 for k in kept)
+    # The written level, not the report's own formula: each kept side's patch holds
+    # that many intervals along the side (a column side spans the patch's rows).
+    blocks = entry["blocks"]
+    for k in kept:
+        along = "rows" if k["side"].endswith("column") else "columns"
+        assert blocks[k["patch"] - 1][along] == [k["source_intervals"], k["intervals"]], blocks
     assert all(g.passed for g in level.audit.gates), {g.name: g.verdict for g in level.audit.gates}
     capsys.readouterr()
     assert cli.main(["refine", str(src), str(factor), "--out", str(tmp_path / "b")]) == 0
@@ -467,3 +473,32 @@ def test_a_patch_side_a_factor_cannot_coarsen_is_kept_and_reported(tmp_path, cap
     level = refine_mesh(src, 0.25, out_dir=tmp_path / "c")
     assert level.report["M"]["kept_sides"] == []
     assert min(min(b["rows"][1], b["columns"][1]) for b in level.report["M"]["blocks"]) == 1
+
+
+def test_refine_progress_names_each_stage_and_quiet_hides_it(tmp_path, capsys):
+    """P0380-BLOCKS (FR-424): refine_mesh reports its stages to ``progress``, in order.
+
+    Called with a callback it receives one line per stage and family, read,
+    family, grid, writing and auditing in that order; without one it says
+    nothing. The command prints the lines as ``[refine HH:MM:SS +N.N s] ...`` on
+    stderr, and ``--log-level quiet`` hides them while the level is written.
+    """
+    from pyflightstream.run import cli
+
+    sheet = l_sheet()
+    mesh = Composite(sheet.verts, {"M": sheet.faces}, np.zeros((0, 3)), {})
+    src = write_source(tmp_path / "src", "plate", mesh)
+    lines: list[str] = []
+    refine_mesh(src, 0.5, out_dir=tmp_path / "a", progress=lines.append)
+    stages = ["read plate.obj", "family 1 of 1: M", "grid 1 of 1: M", "writing", "auditing"]
+    found = [next(i for i, line in enumerate(lines) if line.startswith(s)) for s in stages]
+    assert found == sorted(found), lines
+    capsys.readouterr()
+    refine_mesh(src, 0.5, out_dir=tmp_path / "b")
+    assert "[refine " not in capsys.readouterr().err
+    assert (
+        cli.main(["refine", str(src), "0.5", "--log-level", "quiet", "--out", str(tmp_path / "q")])
+        == 0
+    )
+    assert "[refine " not in capsys.readouterr().err
+    assert (tmp_path / "q" / "plate_R0p5" / "plate_R0p5.obj").is_file()
