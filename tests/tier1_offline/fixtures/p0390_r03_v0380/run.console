@@ -3,7 +3,8 @@ exit 0
 sweep table: <ROOT>/post/polars/campaign_sweep.csv
 --- stderr
 pyfs-matrix run
-  purpose: run every active point of the matrix and write the sweep table
+  purpose: run every active point of the matrix and write the sweep table (a point
+           submitted to a scheduler is posted by `collect` once its outputs land)
   workspace: <ROOT>
 
 [run] started: <ROOT>
