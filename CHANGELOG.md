@@ -110,8 +110,6 @@ FlightStream versions.
   does: coefficients are taken back to loads with the reference dynamic pressure
   `rho VREF^2 / 2`, so a static point with a positive `VREF` has `CT`, `CQ` and `CP`, and
   only a zero or unstated `VREF` reads `NA`; `VREF` also sets the Reynolds number in hover.
-- `pyfs-manual draft --write` refuses an `--out` file that already exists unless `--force`
-  is given; the refusal comes before the manual is read and leaves the file unchanged.
 - The `--cost` table of `pyfs-matrix plan` never shortens a run id: its point column widens
   to the longest id, so two points whose ids differ only in the simulation part no longer
   print alike.
@@ -371,7 +369,8 @@ FlightStream versions.
 - `isa()` refuses a NaN or infinite `delta_isa_c`, and the inflow J map refuses a
   non-finite diameter, free-stream speed or advance ratio, each naming the value.
 - `write_chapter` and `pyfs-manual draft --write` refuse an existing destination unless
-  `overwrite=True` (`--overwrite`). A compacted simulation whose archive records another
+  `overwrite=True` (`--overwrite`); the command refuses before the manual is read and
+  leaves the file unchanged. A compacted simulation whose archive records another
   simulation or holds a file its table does not list is not restored, a compacted post
   archive is read back before its folder is deleted, and a file met at a refinement level's
   path during the run is refused as before the run.
