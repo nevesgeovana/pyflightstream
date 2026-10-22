@@ -253,9 +253,11 @@ def _every_name_skipped(script: Script, case: SimCase) -> bool:
         return False
     ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
     names = names_a_row_can_cite(case)
-    return all(
-        selects_nothing(token, ordered, names) for token in case.solver.delete_surfaces or ()
-    )
+    tokens = case.solver.delete_surfaces or ()
+    if not tokens:
+        # An empty list skipped nothing: all() of nothing is True and would read as skipped.
+        return False
+    return all(selects_nothing(token, ordered, names) for token in tokens)
 
 
 def the_model_inventory(script: Script) -> list[str]:

@@ -220,3 +220,15 @@ def test_f1311_a_second_deletion_keeps_the_first_inventory_for_the_model(tmp_pat
     emit_setup_surfaces(script, _with(first, delete_surfaces=["Blade2"]))
     assert script.boundary_inventory == ("Body", "Base")
     assert the_model_inventory(script) == TWIN
+
+
+def test_p0430_an_empty_delete_list_is_not_every_name_skipped(monkeypatch):
+    from types import SimpleNamespace
+
+    from pyflightstream.cases import setup_surfaces
+
+    script = SimpleNamespace(entities=SimpleNamespace(labels=lambda kind: {"Body": 1}))
+    case = SimpleNamespace(solver=SimpleNamespace(delete_surfaces=[]))
+    monkeypatch.setattr(setup_surfaces, "study_vocabulary", lambda case: object())
+    monkeypatch.setattr(setup_surfaces, "names_a_row_can_cite", lambda case: set())
+    assert setup_surfaces._every_name_skipped(script, case) is False
