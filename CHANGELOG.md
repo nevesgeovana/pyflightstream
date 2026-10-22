@@ -291,6 +291,8 @@ FlightStream versions.
 - `write_series` writes a solution time that is not finite as `NA`, as it already wrote a
   sample, and both reduction writers state their precision: finite values at full precision
   (the shortest decimal that reads back to the same number), unavailable values as `NA`.
+- `probe_version` refuses a specification mapping that registers a probe under a name other
+  than its own command, so two definitions never claim one probe; nothing is started.
 
 ## [0.42.0] - 2026-10-16
 

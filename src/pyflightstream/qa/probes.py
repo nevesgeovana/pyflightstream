@@ -1155,7 +1155,10 @@ def probe_version(
         Exhausted checkouts produce unprobed results with licence-denied detail.
     QaEvidenceError
         When ``commands`` names a command outside the version's view
-        (a ``ValueError``).
+        (a ``ValueError``), or when ``specs`` registers a specification
+        under a name other than its own command, so that two
+        definitions would claim one probe; refused before the solver
+        is started.
     """
     if timeout_s is None:
         timeout_s = float(get_option("qa.probe_timeout_s"))
@@ -1167,6 +1170,7 @@ def probe_version(
         active_specs: Mapping[str, ProbeSpec] = spec_catalog.PROBE_SPECS
     else:
         active_specs = specs
+    _refuse_conflicting_specs(active_specs)
     if executor is None:
         if fs_exe is None:
             raise ProbeEnvironmentError(
@@ -1256,6 +1260,24 @@ def probe_version(
         fs_exe_sha256=fs_exe_sha256,
         executor=invocation,
     )
+
+
+def _refuse_conflicting_specs(specs: Mapping[str, ProbeSpec]) -> None:
+    """Refuse a specification registered under a name other than its command.
+
+    The catalog's own registry refuses a second specification of one
+    command; a mapping handed to :func:`probe_version` is checked here, so
+    a probe identity never carries a definition of another command and two
+    definitions never claim one command. Runs before the baseline, so a
+    refusal starts no solver.
+    """
+    for name, spec in specs.items():
+        if spec.command != name:
+            raise QaEvidenceError(
+                f"the probe registered as {name} defines the effect of {spec.command}; "
+                "one command keeps one probe specification, under its own name. "
+                f"Register it as {spec.command}, or remove one of the two definitions."
+            )
 
 
 def _unprobed_or_spec(

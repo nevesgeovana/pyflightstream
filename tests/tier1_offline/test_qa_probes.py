@@ -373,6 +373,33 @@ def test_p0420_p2_1a_probe_catalog_is_read_only():
         PROBE_SPECS["PRINT"] = PROBE_SPECS["PRINT"]
 
 
+@pytest.mark.requirement("FR-1602")
+def test_p0430_conflicting_probe_definitions_are_refused_before_the_solver_starts(tmp_path):
+    """FR-1602: two definitions claiming one probe (a specification registered under a
+    name that is not its command) are refused before the campaign starts the solver."""
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    executor = FakeFlightStream()
+    started = []
+    solve = executor.run_script
+
+    def record(*args, **kwargs):
+        started.append(args)
+        return solve(*args, **kwargs)
+
+    executor.run_script = record
+    with pytest.raises(QaEvidenceError, match=r"registered as STOP defines the effect of PRINT"):
+        probe_version(
+            "26.120",
+            workroot=tmp_path / "probes",
+            executor=executor,
+            commands=["PRINT", "STOP"],
+            specs={"PRINT": PROBE_SPECS["PRINT"], "STOP": PROBE_SPECS["PRINT"]},
+        )
+    assert started == [], "no solver invocation before the refusal"
+    assert not (tmp_path / "probes").exists()
+
+
 @pytest.mark.parametrize(
     "before,after,expected",
     [
