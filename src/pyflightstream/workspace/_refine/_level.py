@@ -1142,16 +1142,9 @@ def _route_detected_te(work: _Work, stem: str) -> None:
     del wanted[_obj.TRAILING_EDGES_TABLE]["detect"]
     wanted[_obj.TRAILING_EDGES_TABLE]["file"] = target
     wanted[_obj.TRAILING_EDGES_TABLE]["type"] = DETECTED_EDGE_TYPE
-    work.sidecar = _replace_key(
-        work.source,
-        work.sidecar,
-        "detect",
-        table["detect"],
-        new_key="file",
-        new=target,
-        wanted=wanted,
-        also=(("type", DETECTED_EDGE_TYPE),),
-    )
+    typed = tuple(f'{sep}type = "{DETECTED_EDGE_TYPE}"' for sep in ("\n", ", "))
+    rewrite: dict[str, Any] = {"new_key": "file", "new": target, "wanted": wanted, "tails": typed}
+    work.sidecar = _replace_key(work.source, work.sidecar, "detect", table["detect"], **rewrite)
 
 
 #: The edge type detection gives every edge it marks, stated when a detect route
@@ -1186,14 +1179,15 @@ def _replace_key(
     new_key: str,
     new: str,
     wanted: dict[str, Any],
-    also: tuple[tuple[str, str], ...] = (),
+    tails: tuple[str, ...] = ("",),
 ) -> str:
     """Return ``text`` with ``key = old`` replaced by ``new_key = new``, parsing to ``wanted``.
 
     The same search as :func:`._obj.rewrite_value`: every spelling of the key, the
     shortest value text that parses to ``old``, and the first replacement
-    whose whole file parses to ``wanted``. The keys of ``also`` follow the new
-    key in the same table, on their own lines or, in an inline table, after a comma.
+    whose whole file parses to ``wanted``. Each of ``tails`` is tried after the
+    new value (another key of the same table, on its own line or, in an inline
+    table, after a comma).
     """
     spelled = rf"(?<![\w\-\"'])(?:{key}|\"{key}\"|'{key}')\s*=[ \t]*"
     for match in re.finditer(spelled, text):
@@ -1207,10 +1201,8 @@ def _replace_key(
                 continue
             if value != old:
                 continue
-            for sep in ("\n", ", ") if also else ("",):
-                extra = "".join(f"{sep}{name} = {_toml(value)}" for name, value in also)
-                replaced = f"{new_key} = {_toml(new)}{extra}"
-                candidate = text[: match.start()] + replaced + text[end:]
+            for tail in tails:
+                candidate = text[: match.start()] + f"{new_key} = {_toml(new)}{tail}" + text[end:]
                 try:
                     if tomllib.loads(candidate) == wanted:
                         return candidate
