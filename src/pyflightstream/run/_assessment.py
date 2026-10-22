@@ -1159,6 +1159,39 @@ def _wheel_clockings(
     return record.solve_order(), None
 
 
+def _own_export_verdict(
+    report_path: Path,
+    loads: str,
+    history: Sequence[Any],
+    status: RunStatus,
+    error: str | None,
+) -> tuple[RunStatus, str | None]:
+    """Hold an earlier clocking's loads export to its own solve, as the point's is to the last.
+
+    EACH CLOCKING'S LOADS EXPORT IS OF ITS OWN SOLVE: where collected it must
+    be readable, finite and written at the iteration its solve ended at.
+    """
+    exported = report_path.with_name(Path(loads).name)
+    own = _read_loads(exported, None)[0] if exported.is_file() else None
+    if own is None:
+        return RunStatus.FAILED_INCOMPLETE_OUTPUT, (
+            f"no readable loads export {exported.name} for this clocking, so its "
+            "solve's residual describes no exported coefficients"
+        )
+    if own.diverged_columns():
+        return RunStatus.FAILED_DIVERGED, (
+            f"non-finite Total coefficients in {exported.name} of this clocking: "
+            f"{', '.join(own.diverged_columns())}"
+        )
+    if own.current_iteration != history[-1].iteration:
+        return RunStatus.FAILED_INCOMPLETE_OUTPUT, (
+            f"its solve ends at iteration {history[-1].iteration} and its loads "
+            f"export {exported.name} was written at iteration "
+            f"{own.current_iteration}, so the residual is not that export's"
+        )
+    return status, error
+
+
 def _judge_the_clockings(
     log_text: str,
     log_path: Path,
@@ -1241,29 +1274,7 @@ def _judge_the_clockings(
         error = judged.error
         loads = clocking.loads
         if index != 0:
-            # EACH CLOCKING'S LOADS EXPORT IS OF ITS OWN SOLVE, held to it as
-            # the point's own export is held to the last one.
-            exported = report_path.with_name(Path(loads).name)
-            own = _read_loads(exported, None)[0] if exported.is_file() else None
-            if own is None:
-                status = RunStatus.FAILED_INCOMPLETE_OUTPUT
-                error = (
-                    f"no readable loads export {exported.name} for this clocking, so its "
-                    "solve's residual describes no exported coefficients"
-                )
-            elif own.diverged_columns():
-                status = RunStatus.FAILED_DIVERGED
-                error = (
-                    f"non-finite Total coefficients in {exported.name} of this clocking: "
-                    f"{', '.join(own.diverged_columns())}"
-                )
-            elif own.current_iteration != history[-1].iteration:
-                status = RunStatus.FAILED_INCOMPLETE_OUTPUT
-                error = (
-                    f"its solve ends at iteration {history[-1].iteration} and its loads "
-                    f"export {exported.name} was written at iteration "
-                    f"{own.current_iteration}, so the residual is not that export's"
-                )
+            status, error = _own_export_verdict(report_path, loads, history, status, error)
         verdict: dict[str, object] = {
             "index": index,
             "clocking_deg": clocking.clocking_deg,
