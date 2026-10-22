@@ -80,6 +80,27 @@ def test_steady_both_forms_keep_the_probe_points_route(tmp_path):
     assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in text
 
 
+def test_steady_drawn_probes_are_numbered_after_the_imported_survey(tmp_path):
+    """F-067 (L4 F-067, 26.124 and 26.125): imported and drawn probes share one id space.
+
+    The measured export holds the survey's rows first, so a probe drawn after a
+    two point survey is the solver's row 3, not row 1.
+    """
+    script = Script("26.124")
+    case = _case(tmp_path, steady=True)
+    drawn, surveyed = case.pproc.probes
+    reference = {"frame": "REFERENCE"}
+    case.pproc.probes[:] = [
+        surveyed.model_copy(update=reference),
+        drawn.model_copy(update=reference),
+    ]
+    build_script(case, script)
+    assert script.render().count("PROBE_POINTS_IMPORT\n") == 1
+    # The survey's two rows hold ids 1 and 2; the two drawn points follow as 3 and 4.
+    assert [point[0] for point in script.probe_points] == [1, 2, 3, 4]
+    assert [point[1:4] for point in script.probe_points[:2]] == [(2.0, 3.0, 4.0), (5.0, 6.0, 7.0)]
+
+
 def test_unsteady_default_outputs_do_not_require_an_instant_export():
     assert "{name}_probes.txt" not in default_outputs(True)
     assert "{name}_plots.txt" in default_outputs(True)

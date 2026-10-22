@@ -630,6 +630,21 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                 probes.resolved_points_file,
                 units=script.simulation_length_unit or SIMULATION_LENGTH_UNIT,
             )
+            # L4 (F-067, 26.124 and 26.125, namespace 63503b6a, F-067/analysis.json):
+            # imported and drawn probes share ONE id space, the import rows first.
+            # The survey's points advance the counter, so a probe drawn after it
+            # is numbered after them and its recorded id is the solver's row.
+            try:
+                imported = _read_probe_profile(probes.resolved_points_file)
+            except CampaignConfigError:
+                # A survey not readable where the script is built (it is staged to the
+                # solver machine) has no count to advance by; the import itself stands.
+                imported = []
+            for point in imported:
+                vertex += 1
+                script.probe_points.append(
+                    (vertex, float(point[0]), float(point[1]), float(point[2]), "REFERENCE")
+                )
             return vertex
     if not (
         probes.points_file

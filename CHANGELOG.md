@@ -86,6 +86,9 @@ FlightStream versions.
 
 ### Fixed
 
+- A probe drawn after an imported survey is numbered after the survey's points, as the solver
+  numbers them (imported and drawn probes share one id space), and the survey's points are
+  recorded under their ids.
 - Build-all guide scripts exit 1 when the selector matches no guide.
 - Geometry build treats a failed final overlay replace as a build error, records the sidecars
   it reads as inputs, honours the memory floor at each variant start and refuses an unreadable
