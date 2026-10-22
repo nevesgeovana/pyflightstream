@@ -7,6 +7,13 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- `refine` no longer refuses a multiblock family when a patch side has too few intervals for its
+  factor (the message said the side "would be left with none", while the resampling keeps at least
+  one). Such a side is kept with `max(1, round(f m))` intervals, the rest of the family is resampled,
+  and a warning and `kept_sides` in `refine.json` name each kept side and where its patch lies.
+
 ## [0.43.0] - 2026-10-22
 
 ### Added

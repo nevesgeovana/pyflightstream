@@ -234,7 +234,14 @@ number of patches and each patch's rows and columns. Because a multiblock
 family has no single chordwise or spanwise direction, `--chordwise` and
 `--spanwise` are refused on it, naming it; give it `FACTOR` or a `factor` in
 its table. Across a patch side the level is continuous but not smooth: no
-spline crosses it. A family with a triangle, one patch, or a patch that is not
+spline crosses it.
+
+A patch side of m intervals that a factor below 1/m cannot coarsen (a strip
+one face wide, say, at any factor below 1) is kept, with `max(1, round(f m))`
+intervals, and the rest of the family is resampled as asked. One warning names
+the family and, for each kept side, its patch, which side, both counts and
+where the patch lies (centroid and bounding box in the mesh's units), and
+`refine.json` lists the same under `kept_sides`. A family with a triangle, one patch, or a patch that is not
 four-sided or wraps onto itself is not a multiblock and is remeshed under
 `method = "auto"`, as before.
 

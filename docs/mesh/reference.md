@@ -816,8 +816,10 @@ Its `families` entry holds, per family:
   spline, with the seam at the lowest source node index of its first end
   station and no trailing-edge points; a multiblock family reports `layout`
   `"multiblock"`, `patches` (their number), `blocks` (each patch's `rows` and
-  `columns` before and after), `arcs` (the patch sides) and `order`
-  (`"nearest"`); `--chordwise` and `--spanwise` are refused on it, and across a
+  `columns` before and after), `arcs` (the patch sides), `order`
+  (`"nearest"`) and `kept_sides` (each patch side a factor below 1/m kept:
+  `patch`, `side`, `source_intervals`, `intervals`, `centroid`, `bbox_min`,
+  `bbox_max`; empty when none); `--chordwise` and `--spanwise` are refused on it, and across a
   patch side the level is continuous, not smooth;
 - a remeshed family: `method` (`"remesh"`), `reason` (why no grid was taken),
   `elements`, `quads`, `triangles` and `quad_share` (the element mode and its
