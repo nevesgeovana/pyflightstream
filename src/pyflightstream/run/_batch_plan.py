@@ -61,6 +61,7 @@ from pyflightstream.run._batch_split import (
     split_polars,
     walltime_text,
 )
+from pyflightstream.run._executors import on_a_cluster
 from pyflightstream.run._grouped import grouped_case
 from pyflightstream.run._ids import _is_cold_start, _point_names, narrow_to_selection
 from pyflightstream.run._plan import (
@@ -355,6 +356,7 @@ def _unit_of(
         actions=user_actions_of(case),
         steady=str(case.variables.get(WORKFLOW_KEY, "")).strip() in STEADY_RUN_TYPES,
         acoustic=acoustic_request(case) is not None,
+        timeout_s=case.solver.timeout_s,
     )
 
 
@@ -401,6 +403,7 @@ def _job_of(
     batch_id: int | None,
     costs: Mapping[str, PlannedPointCost],
     profile: HpcProfile | None,
+    local: bool = False,
 ) -> tuple[GroupedJob, list[str], str | None]:
     """Estimate one job, price its wall clock and name it; returns the job, warnings, refusal."""
     units = split.units
@@ -411,6 +414,22 @@ def _job_of(
     walltime, source, fits, short, warnings, refusal = job_walltime(
         split, estimate, max_walltime_s=maximum
     )
+    if local and walltime is None and not any(unit.timeout_s for unit in units):
+        # A LOCAL JOB IS NEVER UNBOUNDED (X-F-0558): with no WALLTIME and no timeout_s it takes
+        # the profile's walltime, and where the profile states none the plan refuses.
+        if maximum:
+            walltime, source = int(maximum), "max_walltime"
+            warnings = [
+                *warnings,
+                f"POL {', '.join(unit.sim_id for unit in units)}: no WALLTIME and no timeout_s, "
+                f"so the local job takes the profile's walltime of {walltime_text(walltime)}.",
+            ]
+        else:
+            refusal = (
+                "a local grouped job needs a limit: state WALLTIME in its rows or timeout_s in "
+                "the setup, or give the HPC profile a max_walltime; it would otherwise run "
+                "unbounded"
+            )
     if mode == "batch" and batch_id is not None:
         label = batch_label(matrix_stem, batch_id)
         script_name = batch_script_name(sims[0], sims[-1])
@@ -710,6 +729,7 @@ def plan_grouped_matrix(
         plan, resolved, workspace, keywords.get("recipe_registry")
     )
     profile = resolve_hpc_profile(workspace.inputs_dir)
+    local = bool(keywords.get("local")) or not (on_a_cluster() and profile is not None)
     splits, warnings = (
         split_polars(units, int(batch or 1))
         if mode == "batch"
@@ -722,7 +742,13 @@ def plan_grouped_matrix(
     for index, split in enumerate(splits):
         batch_id = first_id + index if mode == "batch" else None
         job, notes, refusal = _job_of(
-            split, mode=mode, matrix_stem=stem, batch_id=batch_id, costs=costs, profile=profile
+            split,
+            mode=mode,
+            matrix_stem=stem,
+            batch_id=batch_id,
+            costs=costs,
+            profile=profile,
+            local=local,
         )
         jobs.append(job)
         warnings.extend(notes)

@@ -304,6 +304,28 @@ def test_p0350_plan_fr364_best_refused_in_the_default_mode(tmp_path):
     assert [str(entry.status) for entry in control.points] == ["READY"]
 
 
+def test_p0430_x_f_0558_a_local_job_with_no_limit_takes_the_profile_walltime_or_is_refused(
+    tmp_path,
+):
+    """X-F-0558: no WALLTIME and no timeout_s is never unbounded on this machine."""
+    workspace, matrix = _fixture(tmp_path, walltimes=("",), sweep="0.0")
+    refused = _plan(workspace, matrix, batch=1)
+    assert refused.blocked
+    error = str(refused.blocked[0].error)
+    assert "WALLTIME" in error and "timeout_s" in error
+    profile = workspace.inputs_dir / "hpc" / "h001.toml"
+    profile.parent.mkdir(parents=True, exist_ok=True)
+    profile.write_text(
+        'application_id = "FS"\nmax_walltime = "02:00:00"\n[submit]\ncommand = ["echo"]\n'
+        '[descriptor.fields]\nncpus = "{ncpus}"\n',
+        encoding="utf-8",
+    )
+    plan = _plan(workspace, matrix, batch=1)
+    (job,) = plan.grouping.jobs
+    assert not plan.blocked
+    assert job.walltime_s == 7200 and job.walltime_source == "max_walltime"
+
+
 def test_p0350_plan_fr364_best_is_priced_in_the_grouped_mode(tmp_path):
     """P0350-BATCH-WALLTIME (FR-364, FR-377):
     BEST rows plan READY grouped, priced from the fit and the profile."""

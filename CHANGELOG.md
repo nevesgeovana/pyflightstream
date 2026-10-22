@@ -34,6 +34,9 @@ FlightStream versions.
 - `pyfs-qa physics` runs the physics cases the selected build supports and reports each case it
   cannot run as INAPPLICABLE with its reason; the Markdown report summary states how many cases
   ran and how many were left out (`PhysicsRun.ran_count`, `PhysicsRun.inapplicable_count`).
+- A grouped job that runs on this machine and states no `WALLTIME` and no `timeout_s` takes the
+  HPC profile's `max_walltime` with a warning; the plan refuses it, naming `WALLTIME` and
+  `timeout_s`, when the profile has none. It is never unbounded.
 - An unsteady averaging window longer than the run is still cut to the whole run, and the
   window record now carries the span the row asked for (`ExportWindow.clipped_from_steps`).
 - A `ROTOR_AXIS` cell that disagrees with the axis of the single rotor block, and a `VELOCITY`

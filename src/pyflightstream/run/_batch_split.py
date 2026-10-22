@@ -79,6 +79,9 @@ class PolarUnit:
         Whether the polar is of a steady run type (FR-403); a job holds one kind.
     acoustic : bool
         Whether the polar must run alone in its job (FR-406).
+    timeout_s : float or None
+        The setup's ``timeout_s``, the limit of one local solver process; None where it
+        states none.
     """
 
     sim_id: str
@@ -94,6 +97,7 @@ class PolarUnit:
     actions: tuple[tuple[str, str, str], ...] = ()
     steady: bool = False
     acoustic: bool = False
+    timeout_s: float | None = None
 
 
 @dataclass(frozen=True)
