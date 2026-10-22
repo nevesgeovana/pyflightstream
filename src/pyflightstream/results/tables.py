@@ -391,7 +391,7 @@ def to_table(result: object) -> pd.DataFrame:
         "(parse_surface_sections), SweepSpreadsheetReport "
         "(parse_sweep_spreadsheet), SolverAnalysisCsvReport "
         "(parse_solver_analysis_csv), and SectionalLoadsReport "
-        "(pyflightstream.fsi.loads, optional [fsi] extra)"
+        "(parse_sectional_loads)"
     )
 
 
@@ -779,7 +779,11 @@ def parse_run_loads(
         # with that reason rather than skipped as "not a loads file".
         # A file not on disk falls through to _read_output, which says so.
         path = Path(sim_dir) / name
-        if path.is_file() and not _heads_a_loads_spreadsheet(path):
+        if (
+            path.resolve().is_relative_to(Path(sim_dir).resolve())
+            and path.is_file()
+            and not _heads_a_loads_spreadsheet(path)
+        ):
             continue  # a solver log, a probe export, a surface, ...
         report = parse_loads(
             _read_output(sim_dir, name, record),
@@ -1465,6 +1469,11 @@ def _as_record(workspace: _ManifestWorkspace, record: _ManifestRecord | str) -> 
 def _read_output(sim_dir: Path, name: str, record: _ManifestRecord) -> str:
     """Read one collected output of a run, refusing evidence gaps."""
     path = Path(sim_dir) / name
+    if not path.resolve().is_relative_to(Path(sim_dir).resolve()):
+        raise MalformedOutputError(
+            f"the collected output {name!r} of run {record.run_id!r} names a path outside "
+            f"{sim_dir}; the manifest lists file names inside the simulation folder only"
+        )
     if not path.is_file():
         raise FileNotFoundError(
             f"the collected output {name!r} of run {record.run_id!r} is not on disk "

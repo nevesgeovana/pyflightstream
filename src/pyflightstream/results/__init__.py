@@ -44,13 +44,13 @@ asked what it meant.
 the database as parsed, excluded, not-an-export or owed (PFS-2014.02),
 and the tier 1 suite compares its keys against the live census, so a new
 export command fails until somebody says which of the four it is. Ten of
-the eighteen are parsed here; one is owed, and its entry says why the
+the twenty-five are parsed here; five are owed, and each entry says why the
 solver rather than this package is what stands in the way.
 
 THE COLUMN LAYOUTS OF THE FIVE NEWEST FORMATS ARE PINNED
 (:data:`FORCE_DISTRIBUTION_COLUMNS` and its four siblings) rather than
 read from the file the way the probe export's are. A probe export's
-columns are chosen by the run; these are fixed by the solver, so a
+columns are the export's own header, read as data; these are fixed by the solver, so a
 header that has moved means a build reordered the numbers, and a table
 read by position would publish one physical quantity under another
 one's label.

@@ -1864,3 +1864,36 @@ def test_fr_16_values_are_found_by_their_anchors_not_by_line_offsets():
     shifted = (chr(10) * 7) + "a preface line the solver may add" + chr(10) + text
     assert parse_loads(shifted).total == parse_loads(text).total
     assert parse_loads(shifted).surfaces == parse_loads(text).surfaces
+
+
+def test_f_1452_the_unsupported_result_message_does_not_send_users_to_an_extra():
+    with pytest.raises(TypeError) as caught:
+        to_table(object())
+    message = str(caught.value)
+    assert "SectionalLoadsReport (parse_sectional_loads)" in message
+    assert "[fsi]" not in message
+
+
+def test_x_f_1225_a_moved_sectional_column_is_a_malformed_output_error():
+    from types import SimpleNamespace
+
+    from pyflightstream.results import MalformedOutputError
+
+    report = SimpleNamespace(columns=("offset_m", "moved"), values=np.zeros((1, 2)))
+    with pytest.raises(MalformedOutputError, match="expected"):
+        tables_module._sectional_loads_frame(report)
+
+
+def test_x_f_1339_a_manifest_output_name_cannot_leave_the_simulation_folder(tmp_path):
+    from types import SimpleNamespace
+
+    from pyflightstream.results import MalformedOutputError
+
+    sim = tmp_path / "sim"
+    sim.mkdir()
+    (tmp_path / "outside.txt").write_text("secret", encoding="utf-8")
+    record = SimpleNamespace(run_id="r1")
+    with pytest.raises(MalformedOutputError, match="outside"):
+        tables_module._read_output(sim, "../outside.txt", record)
+    (sim / "inside.txt").write_text("fine", encoding="utf-8")
+    assert tables_module._read_output(sim, "inside.txt", record) == "fine"

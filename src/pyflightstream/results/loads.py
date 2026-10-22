@@ -4,7 +4,7 @@
 :func:`parse_probe_points` a probe-points export into a
 :class:`ProbePointsReport`, and :func:`parse_unsteady_plots` the unsteady
 solver's plot file into an :class:`UnsteadyPlotsReport`. A probe export's
-columns are chosen by the run, so they are read from the file's header rather
+columns are the export's own header, so they are read from the file rather
 than pinned.
 
 Every public name is re-exported, unchanged, by :mod:`pyflightstream.results`,
@@ -14,6 +14,7 @@ its path (AD-11).
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
@@ -360,7 +361,12 @@ def _half_count(token: str) -> float:
     and ``6.8058E+01`` is ``5e-4``: the digits after the point, shifted by the
     printed exponent.
     """
-    mantissa, _, exponent = token.strip().upper().partition("E")
+    text = token.strip().upper()
+    omitted = re.fullmatch(r"([+-]?\d+\.?\d*|[+-]?\.\d+)([+-]\d+)", text)
+    if omitted is not None:
+        # The solver prints a three-digit exponent without its E: 0.2964-322.
+        text = f"{omitted.group(1)}E{omitted.group(2)}"
+    mantissa, _, exponent = text.partition("E")
     fraction = mantissa.partition(".")[2]
     decimals = len(fraction) - len(fraction.lstrip("0123456789"))
     shift = int(exponent) if exponent.lstrip("+-").isdigit() else 0
@@ -503,7 +509,16 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
             "the probe table header 'X, Y, Z,' was not found; the file is not an "
             "EXPORT_PROBE_POINTS output or its format changed"
         )
-    columns = tuple(cell.strip() for cell in header_line.split(",") if cell.strip())
+    header_cells = [cell.strip() for cell in header_line.split(",")]
+    while header_cells and not header_cells[-1]:
+        header_cells.pop()
+    if not all(header_cells):
+        raise MalformedOutputError(
+            "the probe export header holds an empty column name between two names "
+            f"({header_cells}); dropping it would label the values of the columns after it "
+            "with the wrong names"
+        )
+    columns = tuple(header_cells)
     # REV010-003. The loads parser has refused a repeated column since
     # PYFS-009 and this one never did, although the consequence here is
     # worse: field() returns the FIRST tuple index of a name and fields()
@@ -542,7 +557,14 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
         rows = delimited_table(text, "X, Y, Z,")
     parsed_rows = []
     for row in rows:
-        cells = [cell for cell in row if cell]
+        cells = list(row)
+        while cells and not cells[-1]:
+            cells.pop()
+        if not all(cells):
+            raise MalformedOutputError(
+                "a probe row holds an empty cell between two values; dropping it would "
+                "carry every value after it under the name of the previous column"
+            )
         if len(cells) != len(columns):
             raise MalformedOutputError(
                 f"a probe row holds {len(cells)} values but the header names "

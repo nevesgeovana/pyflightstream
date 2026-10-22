@@ -2176,3 +2176,84 @@ def test_a_loads_header_with_no_coefficient_column_is_refused():
     lines[head] = "     Surface,"
     with pytest.raises(MalformedOutputError):
         parse_loads("\n".join(lines) + "\n")
+
+
+def test_f_1436_a_non_finite_boundary_index_is_a_malformed_output_error():
+    """F-1436 X-F-0392: nan and inf are refused as MalformedOutputError, not leaked."""
+    from pyflightstream.results import parse_force_distributions
+
+    text = read_fixture("force_distributions_26.123.txt")
+    row = text.splitlines()[29]
+    for bad in ("nan,", "inf,", "-inf,"):
+        with pytest.raises(MalformedOutputError):
+            parse_force_distributions(text.replace(row, row.replace("1,", bad, 1)))
+
+
+def test_x_f_0545_more_rows_than_declared_edges_is_named_as_such():
+    from pyflightstream.results import parse_surface_sections
+
+    text = read_fixture("all_surface_sections_26.123.txt")
+    assert text.count("Edges=12") == 1
+    with pytest.raises(IncompleteOutputError, match="more rows than it declares"):
+        parse_surface_sections(text.replace("Edges=12", "Edges=11"))
+
+
+def test_f_1451_the_csv_report_attribute_is_scalar_field():
+    from pyflightstream.results.exports import SolverAnalysisCsvReport
+
+    assert "scalar_field :" in SolverAnalysisCsvReport.__doc__
+    assert "\n    field :" not in SolverAnalysisCsvReport.__doc__
+
+
+def test_the_export_census_wording_matches_the_conversion_table():
+    """X-F-1695 F-1892: the facade's counts are the table's counts."""
+    from collections import Counter
+
+    import pyflightstream.results as results
+    from pyflightstream.results.core import EXPORT_CONVERSIONS
+
+    counts = Counter(entry.verdict for entry in EXPORT_CONVERSIONS.values())
+    words = {10: "ten", 25: "twenty-five", 5: "five"}
+    doc = " ".join(results.__doc__.split())
+    assert f"{words[counts['parsed']].capitalize()} of the {words[len(EXPORT_CONVERSIONS)]}" in doc
+    assert f"{words[counts['owed']]} are owed" in doc
+
+
+def test_f_825_an_interior_empty_probe_cell_is_refused_not_dropped():
+    """Dropping an empty cell would shift every later value under the wrong name."""
+    from pyflightstream.results import parse_probe_points
+
+    text = _probe()
+    assert text.count("0.8606E-01,") == 1
+    with pytest.raises(MalformedOutputError, match="empty cell"):
+        parse_probe_points(text.replace("0.8606E-01,", ","))
+    header = "X, Y, Z, Mach,"
+    assert text.count(header) == 1
+    with pytest.raises(MalformedOutputError, match="empty column name"):
+        parse_probe_points(text.replace(header, "X, Y, Z, , Mach,"))
+
+
+def test_f_255_the_print_tolerance_reads_an_omitted_e_exponent():
+    from pyflightstream.results.loads import _half_count
+
+    assert _half_count("0.2964-322") == _half_count("0.2964E-322") == 0.0
+    assert _half_count("0.2964-5") == pytest.approx(0.5e-9)
+    assert _half_count("68.058") == pytest.approx(5e-4)
+    assert _half_count("-5") == 0.5
+
+
+def test_x_f_1223_a_family_split_that_disagrees_with_the_geometry_is_an_fsi_input_error():
+    from pyflightstream._errors import FsiInputError
+    from pyflightstream.results.sectional_loads import SectionBlock, _validate_block_boundaries
+
+    def block(family, offsets):
+        n = len(offsets)
+        zeros = np.zeros(n)
+        return SectionBlock(
+            family, np.array(offsets), np.ones(n), zeros, zeros, zeros, zeros, zeros
+        )
+
+    with pytest.raises(FsiInputError, match="not monotonic"):
+        _validate_block_boundaries([block("a", [0.0, 2.0, 1.0])])
+    with pytest.raises(FsiInputError, match="continue smoothly"):
+        _validate_block_boundaries([block("a", [0.0, 1.0, 2.0]), block("b", [3.0, 4.0, 5.0])])

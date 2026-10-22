@@ -3,7 +3,7 @@
 THE COLUMN LAYOUTS OF THE FIVE NEWEST FORMATS ARE PINNED
 (:data:`FORCE_DISTRIBUTION_COLUMNS` and its four siblings) rather than read
 from the file the way the probe export's are. A probe export's columns are
-chosen by the run; these are fixed by the solver, so a header that has moved
+the export's own header, read as data; these are fixed by the solver, so a header that has moved
 means a build reordered the numbers, and a table read by position would
 publish one physical quantity under another one's label.
 
@@ -78,8 +78,8 @@ __all__ = [
 # itself; the skeleton is the four helpers that follow.
 #
 # THE COLUMNS ARE PINNED rather than read, which is the opposite of what the
-# probe parser does and is deliberate. A probe export's columns are chosen by
-# the run, so they are data; these five carry a fixed layout the solver
+# probe parser does and is deliberate. A probe export's columns are the
+# export's own header, so they are data; these five carry a fixed layout the solver
 # writes, so a header that has moved is a build that reordered the numbers,
 # and reading it by position would shift a column of values under a label
 # that still looks right. Each parser refuses a header that is not its pinned
@@ -235,8 +235,8 @@ class ExportSolution:
         Version string printed in the footer, verbatim.
     reported_build : str
         Build number printed in the footer, verbatim. The precise
-        discriminator, because every registered 26.1x prints the same
-        version string (FR-18).
+        discriminator, because every registered 26.1x up to 26.124 prints the
+        same version string and 26.125 spells it differently (FR-18).
     """
 
     angle_of_attack_deg: float
@@ -576,7 +576,7 @@ def parse_force_distributions(
     for ordinal, line in enumerate(body, start=1):
         values = _row_values(line, columns=columns, what=what, ordinal=ordinal)
         boundary = values[0]
-        if boundary != int(boundary) or boundary < 1:
+        if not np.isfinite(boundary) or boundary != int(boundary) or boundary < 1:
             raise MalformedOutputError(
                 f"row {ordinal} of the {what} names boundary {line.split(',')[0].strip()!r}, "
                 "which is not a whole boundary index of at least one. The column indexes the "
@@ -994,11 +994,16 @@ def parse_surface_sections(
         if index is None:
             return
         if len(rows) != edges:
+            cause = (
+                "more rows than it declares, so the declared count or the rows were altered "
+                "after the solver wrote them"
+                if len(rows) > edges
+                else "fewer rows than it declares, so the solver stopped mid-write"
+            )
             raise IncompleteOutputError(
                 f"section {index} of the {what} declares {edges} edge(s) and holds "
-                f"{len(rows)} row(s). The two are equal in every observed export, so a "
-                "difference means the solver stopped mid-write and the cut this file "
-                "describes is not the cut it declares"
+                f"{len(rows)} row(s). The two are equal in every observed export; this file "
+                f"holds {cause}, and the cut it describes is not the cut it declares"
             )
         sections.append(
             SurfaceSection(index=index, edges=edges, values=_as_table(rows, len(columns)))
@@ -1219,7 +1224,7 @@ class SolverAnalysisCsvReport:
         PACKAGE'S, not the solver's: the export prints no header.
     values : numpy.ndarray
         The full table, shape ``(count, 4)``, in printed order.
-    field : str
+    scalar_field : str
         What the fourth column is, as the caller declared it from the
         FORMAT argument of the export call, upper cased; or
         :data:`SOLVER_ANALYSIS_CSV_FIELD_UNSTATED` when the caller said
