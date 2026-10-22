@@ -269,7 +269,11 @@ def test_the_time_averaged_surface_is_refused_by_step_and_the_instants_leave_the
     made = average.read_bytes()
     listed = json.loads((out / "products.json").read_text(encoding="utf-8"))["products"]
     assert "../../sims/sim_7003/p_iteration=3.vtk" in listed
+    previous = (out / "products.json").read_bytes()
     entry = free_space(workspace.root, _recipe(workspace), apply=True)
+    # RB5 (PFS-2119.058, FR-2318): the prune archives the index before it rewrites it.
+    archived = [copy.read_bytes() for copy in (out / "archive").rglob("products.json")]
+    assert previous in archived, "the prune rewrote products.json without archiving it"
     assert sorted(path.name for path in sim.glob("*_iteration=*")) == [
         "p_iteration=6.dat",
         "p_iteration=6.vtk",

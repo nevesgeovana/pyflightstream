@@ -36,7 +36,7 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace._links import _is_link, _make_dir_link, is_reparse
 from pyflightstream.workspace._verdicts import DELETED_SIM_KEY
-from pyflightstream.workspace.naming import ARCHIVE_DIR
+from pyflightstream.workspace.naming import ARCHIVE_DIR, archive_previous
 
 COMPACTED_SUFFIX = ".zip"
 _PROTECTED_SUFFIXES = (".fsm",)
@@ -277,6 +277,8 @@ def _forget_pruned_listings(workspace: CampaignWorkspace, deleted: set[Path]) ->
         notes = list(document.get("pruned_by_storage", []))
         notes.append({"at": _now().isoformat(), "mode": PRUNE_MODE, "listings_removed": gone})
         document["pruned_by_storage"] = notes
+        # Every writer of a restorable file archives the previous copy first (FR-2318).
+        archive_previous(workspace.root, manifest, matrix=manifest.parent.name)
         temporary = manifest.with_name(f"{manifest.name}.{os.getpid()}.tmp")
         _textio.write_text(temporary, json.dumps(document, indent=1) + "\n")
         temporary.replace(manifest)
