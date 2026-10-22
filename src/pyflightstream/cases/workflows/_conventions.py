@@ -20,7 +20,6 @@ before its entries.
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import (
     Callable,
 )
@@ -31,6 +30,7 @@ from dataclasses import (
 from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
+    warn,
 )
 from pyflightstream.cases import (
     CampaignConfigError,
@@ -111,7 +111,7 @@ class WorkflowConventions:
     def __post_init__(self) -> None:
         """Warn that a stated ``animation_folder`` changes nothing."""
         if self.animation_folder != "frames":
-            warnings.warn(
+            warn(
                 f"WorkflowConventions(animation_folder={self.animation_folder!r}) has no "
                 "effect: no workflow writes animation frames into it, so the value is "
                 "accepted and ignored.",
