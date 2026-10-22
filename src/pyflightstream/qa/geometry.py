@@ -388,6 +388,18 @@ class BladeSpec:
     def __post_init__(self) -> None:
         """Reject definitions the loft cannot mesh sensibly."""
         _check_naca4(self.naca)
+        # A NaN or an infinity passes every ordering test below, so a blade STL with
+        # non-finite vertices was written without refusal (F-240): finiteness first.
+        for label, value in (
+            ("r_tip_m", self.r_tip_m),
+            ("hub_ratio", self.hub_ratio),
+            ("chord_root_ratio", self.chord_root_ratio),
+            ("chord_tip_ratio", self.chord_tip_ratio),
+            ("advance_ratio_design", self.advance_ratio_design),
+            ("beta_75_deg", self.beta_75_deg),
+        ):
+            if not math.isfinite(value):
+                raise QaEvidenceError(f"{label} must be a finite number, not {value!r}")
         if self.r_tip_m <= 0 or not 0.0 < self.hub_ratio < 1.0:
             raise QaEvidenceError("r_tip_m must be positive and hub_ratio inside (0, 1)")
         if self.chord_root_ratio <= 0 or self.chord_tip_ratio <= 0:

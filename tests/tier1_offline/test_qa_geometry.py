@@ -308,3 +308,15 @@ def test_p0430_the_cambered_blade_and_wing_end_caps_wind_outward_f_239():
     assert signed_volume(wing) > 0.0
     census = edge_census(wing)
     assert all((b, a) in census for (a, b) in census)
+
+
+@pytest.mark.parametrize(
+    "field", ["r_tip_m", "chord_root_ratio", "advance_ratio_design", "beta_75_deg"]
+)
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_p0430_a_non_finite_blade_definition_is_refused_f_240(field, bad):
+    from pyflightstream.qa.errors import QaEvidenceError
+    from pyflightstream.qa.geometry import BladeSpec
+
+    with pytest.raises(QaEvidenceError, match=field):
+        BladeSpec(**{field: bad})
