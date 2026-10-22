@@ -588,3 +588,13 @@ def test_an_all_aborted_physics_run_states_its_aborts():
     )
     assert run.verdict_counts()["fail"] == 0
     assert run.aborted_count() == 1
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_p0430_a_non_finite_reference_band_is_refused_f_246(bad):
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    with pytest.raises(QaEvidenceError, match="finite"):
+        ReferenceBand(value=bad, warn=0.01, fail=0.05, kind="abs")
+    with pytest.raises(QaEvidenceError, match="finite"):
+        ReferenceBand(value=1.0, warn=bad, fail=0.05, kind="abs")

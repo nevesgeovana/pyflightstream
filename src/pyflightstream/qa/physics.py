@@ -47,6 +47,7 @@ it is a row of a private workspace, which is the next release's work.
 from __future__ import annotations
 
 import enum
+import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from importlib import resources
@@ -199,6 +200,13 @@ class ReferenceBand:
         FAIL, with nothing saying why. Such a metric needs ``abs`` bands
         (see :class:`MetricSpec`).
         """
+        # NaN and infinity pass the comparisons below and then make every later judge FAIL
+        # (F-246), so a reference value or band that is not finite is refused here.
+        for label, number in (("value", self.value), ("warn", self.warn), ("fail", self.fail)):
+            if not math.isfinite(number):
+                raise QaEvidenceError(
+                    f"a reference band's {label} must be a finite number, not {number!r}"
+                )
         if self.kind not in ("rel", "abs"):
             raise QaEvidenceError(
                 f"a stored band kind must be 'rel' or 'abs', got {self.kind!r}; any other "
