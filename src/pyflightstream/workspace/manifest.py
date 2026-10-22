@@ -658,9 +658,10 @@ class RunRecord(BaseModel):
     #: that names its folder and the status it ended in.
     #:
     #: THE ORDER IS RECORDED BECAUSE IT IS PART OF THE RESULT. A warm sweep
-    #: begins each point from the previous point's converged solution, so
-    #: the same three alphas run in another order are not the same three
-    #: numbers. Empty on
+    #: begins each point from the previous point's solution (RPT-073, "every
+    #: changed tier-3 row on 26.124 against its recorded run", 2026-09-24, row
+    #: 1003 warm and cold), so the same three alphas run in another order are
+    #: not the same three numbers. Empty on
     #: a record that is one point.
     points_ran: list[dict] = Field(default_factory=list)
     #: The pproc artifact id the row named (PFS-2029.16); None on a
