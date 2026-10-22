@@ -289,7 +289,11 @@ def build_steady_sweep(
             # chosen by the name: SOLVER_CLEAR is documented by the 25.000
             # edition alone and no later one prints it, so it does not
             # exist on the build this study runs. CLEAR_SOLUTION is
-            # verified on 26.120 through 26.123, takes no argument, and
+            # verified on 26.120 through 26.124 (CMP-26120_2026-08-08_full,
+            # CMP-26121_2026-08-08_full, CMP-26122_2026-08-11_full,
+            # CMP-26123_2026-08-17_full-sim, CMP-26124_2026-09-14_full-sim;
+            # the settings sheet reports the iteration counter back at 0),
+            # takes no argument, and
             # sits in the exec phase, which is where a point begins. It
             # clears the SOLUTION and leaves the initialisation standing,
             # which is exactly what a cold point inside an initialised

@@ -100,8 +100,9 @@ def _pproc_surface_probes(case: SimCase, script: Script, frames: Frames) -> None
     if invalid:
         raise CampaignConfigError(
             f"surface_probes {', '.join(invalid)} refused: native 26.124 build 8172026 "
-            "returned CP_FREE for these BL requests; see RPT-083. "
-            "No verified surface-history route exists for these parameters."
+            "returned CP_FREE for these BL requests (RPT-083). That is the only build "
+            "measured, and no verified surface-history route is recorded for these "
+            "parameters on any build."
         )
     scale = _from_metres(case, script, "surface probe coordinates")
     script.surface_probe_layout.clear()

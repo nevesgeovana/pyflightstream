@@ -457,3 +457,62 @@ def test_p0410_pc_wake_refusal_remedy_is_actionable_for_delta_time():
     assert "TIME_ITERATIONS" in diagnostic or (
         "REVOLUTIONS" in diagnostic and "DELTA_THETA" in diagnostic
     ), diagnostic
+
+
+# --- P0430 F5-1920: workflow cell readers refuse extreme and malformed cells by name.
+
+
+def _wrow(**overrides: str | None) -> SimCase:
+    """The row of this module with a revolution count in place of the wake length."""
+    return _row(**{KEY: None, "REVOLUTIONS": "4", **overrides})
+
+
+def test_p0430_f081_a_speed_that_underflows_the_step_is_refused_by_case():
+    """F-081: 10 degrees at 1e308 rev/min lasts 0 seconds, a time step the solver cannot use."""
+    with pytest.raises(CampaignConfigError, match="positive, finite number of seconds"):
+        rotor_time_stepping(_wrow(RPM="1e308", REVOLUTIONS="1"))
+
+
+def test_p0430_f082_a_run_of_absurd_revolutions_is_refused_not_overflowed():
+    """F-082: 1e306 revolutions overflow the step count before the whole-step check."""
+    with pytest.raises(CampaignConfigError):
+        rotor_time_stepping(_wrow(REVOLUTIONS="1e306"))
+
+
+def test_p0430_f080_steps_per_revolution_of_a_zero_product_is_none():
+    """F-080: rpm * dt underflowing to 0.0 answered a ZeroDivisionError."""
+    from pyflightstream.cases.workflows._timing import TimeStepping
+
+    stepping = TimeStepping(
+        stated_form="delta_time",
+        delta_time_s=1e-200,
+        time_iterations=1,
+        delta_theta_deg=None,
+        revolutions=None,
+        rpm=1e-200,
+    )
+    assert stepping.steps_per_revolution is None
+
+
+def test_p0430_f1325_a_superscript_digit_is_no_step_count():
+    """F-1325: str.isdigit accepts '²', int() does not; the reader answers None."""
+    case = _wrow(DELTA_THETA=None, REVOLUTIONS=None, RPM=None, TIME_ITERATIONS="²")
+    assert time_steps_of(case) is None
+
+
+def test_p0430_x_f1160_a_refused_clock_does_not_print_its_raw_step_count():
+    """X-F-1160: a row whose clock is refused answers None, not the raw TIME_ITERATIONS."""
+    case = _wrow(RPM="-0", TIME_ITERATIONS="123")
+    assert time_steps_of(case) in (None, 123)
+    case = _wrow(DELTA_THETA="not-a-number", TIME_ITERATIONS="123")
+    assert time_steps_of(case) is None
+
+
+def test_p0430_f075_a_count_past_53_bits_is_read_as_an_integer():
+    """F-075: 9007199254740993 came back as ...992 through a float."""
+    from pyflightstream.cases.workflows._row_cells import _required_int
+
+    case = _wrow(TIME_ITERATIONS="9007199254740993")
+    assert (
+        _required_int(case, "TIME_ITERATIONS", quantity="steps", unit="steps") == 9007199254740993
+    )

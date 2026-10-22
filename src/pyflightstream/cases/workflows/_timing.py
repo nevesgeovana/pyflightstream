@@ -8,6 +8,7 @@ action counter or in one command, reading the restart and wall-time cells.
 
 from __future__ import annotations
 
+import math
 from dataclasses import (
     dataclass,
     replace,
@@ -128,7 +129,7 @@ def march_strategy(
         return None
     wanted: list[tuple[str, str]] = []
     for key in EXPORT_THRESHOLD_VARIABLES:
-        if case.variables.get(key) not in (None, ""):
+        if _variable(case, key) is not None:
             wanted.append(
                 (
                     f"per-step snapshot exports ({key})",
@@ -233,7 +234,11 @@ class TimeStepping:
         # here turned that advice into a bare ZeroDivisionError.
         if not self.rpm or self.delta_time_s <= 0.0:
             return None
-        return 60.0 / (abs(self.rpm) * self.delta_time_s)
+        # A product that underflows to zero is no revolution either.
+        revolution_s = abs(self.rpm) * self.delta_time_s
+        if revolution_s <= 0.0:
+            return None
+        return 60.0 / revolution_s
 
     def record(self) -> dict[str, object]:
         """Return the stated form and every form derived from it.
@@ -305,7 +310,7 @@ def time_steps_of(case: SimCase) -> int | None:
         # tells the three apart safely. `int(3.7)` would silently truncate a
         # clock nobody stated that way.
         raw = str(case.variables.get(TIME_ITERATIONS_VARIABLE) or "").strip()
-        iterations = int(raw) if raw.isdigit() else None
+        iterations = int(raw) if raw.isascii() and raw.isdigit() else None
     return iterations
 
 
@@ -426,8 +431,14 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
     # form of 0.0035223250952. Rounding the emitted step would end the run at
     # an unstated azimuth; any tolerance for a rounded reference file belongs
     # in the comparison.
-    delta_time_s = theta / (6.0 * abs(resolved.rpm))
+    delta_time_s = _angular_step_seconds(case, theta, resolved.rpm)
     exact_steps = revolutions * 360.0 / theta
+    if not math.isfinite(exact_steps):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} asks for {revolutions} revolutions at {theta} degrees per "
+            "step, which is more time steps than a number can hold. State a run length "
+            "the solver could march."
+        )
     steps = int(round(exact_steps))
     if steps < 1:
         raise CampaignConfigError(
@@ -457,6 +468,23 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
         revolutions=revolutions,
         rpm=resolved.rpm,
     )
+
+
+def _angular_step_seconds(case: SimCase, theta: float, rpm: float) -> float:
+    """Return the seconds one azimuthal step of ``theta`` degrees lasts at ``rpm``.
+
+    One revolution lasts 60/rpm seconds, so one degree lasts 1/(6 rpm) seconds.
+    A speed so large that the step underflows to zero is refused by case and
+    key, where it used to reach the solver as a zero time step.
+    """
+    seconds = theta / (6.0 * abs(rpm))
+    if not math.isfinite(seconds) or seconds <= 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: a step of {theta} degrees at {rpm} rev/min lasts "
+            f"{seconds:g} seconds, and a time step is a positive, finite number of seconds. "
+            "State a speed or a step the solver could use."
+        )
+    return seconds
 
 
 def _explicit_clock(case: SimCase) -> tuple[float, int]:
@@ -560,7 +588,7 @@ def _run_wake_step(case: SimCase, rpm: float) -> tuple[float, float | None]:
             case, DELTA_THETA_VARIABLE, quantity="azimuthal step", unit="degrees"
         )
         _refuse_an_azimuthal_step_outside_one_turn(case, theta)
-        return theta / (6.0 * abs(rpm)), theta
+        return _angular_step_seconds(case, theta, rpm), theta
     delta_time_s = _required_float(
         case, DELTA_TIME_VARIABLE, quantity="solver physical time step", unit="s"
     )

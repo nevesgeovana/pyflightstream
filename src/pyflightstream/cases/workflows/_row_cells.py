@@ -98,6 +98,14 @@ def _required_int(
             f"case {case.sim_id!r} declares {key} as {value!r}, and the {quantity} is a "
             f"count in {unit}, which has no fractional part."
         )
+    # A count written as plain digits is read as an integer, not through a float,
+    # which holds only 53 bits: 9007199254740993 came back as ...992.
+    stated = text if text is not None else _variable(case, key)
+    if stated is not None:
+        try:
+            return int(stated)
+        except ValueError:
+            pass
     return int(value)
 
 

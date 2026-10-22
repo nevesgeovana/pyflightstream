@@ -407,10 +407,13 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
     Raises
     ------
     CampaignConfigError
-        If the row states both forms or neither; if a ratio is stated
-        with no rotor diameter on the reference, naming the artifact
-        field to add; or if the ratio, the velocity or the diameter is
-        not a positive number.
+        If the row states both forms or neither, except the static-rig
+        form, where the row's own cell states ``RPM`` and ``ADVANCE_RATIO``
+        and no velocity: the speed is taken and the ratio has already
+        fixed the run's velocity. Also if a ratio is stated with no rotor
+        diameter on the reference, naming the artifact field to add; or
+        if the ratio, the velocity or the diameter is not a positive
+        number.
     """
     # THE POINT IS A HOME FOR THIS VALUE TOO, and a swept row's only one.
     # `_stated_advance_ratio` falls back to it when the variables state neither
@@ -1126,7 +1129,7 @@ def row_symmetry_loads(case: SimCase, from_setup: bool | None) -> bool | None:
     Whether the solver reports the loads of the
     meshed SECTOR or of the whole wheel is a per-row choice, because one
     preset serves a sector row and a full-wheel row. A row stating it
-    OVERRIDES the preset and warns naming both files and the value used;
+    OVERRIDES the preset and warns naming the case, both values and the one used;
     a row stating nothing inherits silently.
 
     The first decision that hour was to refuse both stating it, as the rotor
