@@ -100,8 +100,9 @@ excel = ["XlsxWriter>=3.2.9,<4"]
 # Reading a vendor manual pdf, for pyflightstream.utils.manual. A
 # MAINTAINER extra: no run path imports it, and the manual it reads is
 # licensed material that never enters Git. pypdf is BSD-3-Clause,
-# MIT-compatible (NFR-02).
-manual = ["pypdf"]
+# MIT-compatible (NFR-02). The floor is 4.0.0, the first release whose extract_text takes
+# extraction_mode="layout"; 3.17.4, the last 3.x, does not.
+manual = ["pypdf>=4.0.0"]
 dev = [
     # Licence evidence for every distribution in this block:
     # reports/RPT-033_development-tool-licences_2026-08-19.md, one card
