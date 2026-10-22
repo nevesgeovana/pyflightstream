@@ -228,6 +228,14 @@ def test_a_reported_release_is_matched_on_the_registry_rows_prints():
         cross_check_version("2611", "26.125", None)
 
 
+def test_f_1435_an_alias_prefix_does_not_stand_in_for_the_printed_release():
+    """F-1435 X-F-0171: 26.125 prints 2612, so the shorter 26.12 is a mismatch."""
+    with pytest.warns(VersionMismatchWarning, match="wrong executable"):
+        cross_check_version("26.12", "26.125", None)
+    with pytest.warns(VersionMismatchWarning, match="wrong executable"):
+        cross_check_version("26.1", "26.125", None)
+
+
 class _BannerSolver:
     """Executor stub whose exported pre-flight log is the real 26.125 banner."""
 

@@ -1054,7 +1054,8 @@ def cross_check_version(
 
     Two checks, and the BUILD one is the load-bearing half. The version
     string a solver prints does not identify a build: every registered
-    26.1x prints "26.1", so comparing it cannot tell 26.120 from 26.121,
+    26.1x up to 26.124 prints "26.1" (26.125 prints "2612"), so comparing it
+    cannot tell 26.120 from 26.121,
     and those two are recorded differently: AIR_ALTITUDE is broken on
     26.120 and verified on 26.121 (RPT-014, which declines to attribute
     the change to the build, because the harness and the session file
@@ -1114,12 +1115,10 @@ def cross_check_version(
     # 26.125 prints its release as ``2612``, which no prefix of its alias
     # ``26.12`` matches, so a build that states ``prints`` is matched on it
     # exactly; the alias prefix stays the reading for a row that states none.
-    consistent = (
-        (version.prints is not None and reported == version.prints)
-        or alias == reported
-        or alias.startswith(reported)
-        or reported.startswith(alias)
-    )
+    if version.prints is not None:
+        consistent = reported == version.prints
+    else:
+        consistent = alias == reported or alias.startswith(reported) or reported.startswith(alias)
     if not consistent:
         warn(
             f"the output reports FlightStream {reported!r} but the run requested "
