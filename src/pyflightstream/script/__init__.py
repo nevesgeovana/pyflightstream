@@ -114,6 +114,7 @@ from pyflightstream.script._ledger_tables import (
     UnsteadyActionUse,
     _placed_by_origin,
     _reference_kind,
+    _ScriptRendering,
 )
 from pyflightstream.script._ledger_tables import (
     _FOLLOWED_FRAME_COMMANDS as _FOLLOWED_FRAME_COMMANDS,
@@ -124,7 +125,6 @@ from pyflightstream.script._ledger_tables import (
 from pyflightstream.script._ledger_tables import (
     _UNCOUNTED_CREATIONS as _UNCOUNTED_CREATIONS,
 )
-from pyflightstream.script._script_render import _ScriptRendering
 from pyflightstream.script._surface_averaging import (
     SurfaceAverageWindow,
     SurfaceAveragingWindow,

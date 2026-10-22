@@ -114,10 +114,8 @@ from pydantic import (
 
 from pyflightstream._digest import text_sha256
 from pyflightstream._retired_names import retired_frame
-from pyflightstream.cases._raw_inputs import FLAG_PHASES as FLAG_PHASES
-from pyflightstream.cases._raw_inputs import RAW_PHASES as RAW_PHASES
-from pyflightstream.cases._raw_inputs import CustomFlag as CustomFlag
-from pyflightstream.cases._raw_inputs import RawCommand as RawCommand
+from pyflightstream.cases._setup_keys import FLAG_PHASES as FLAG_PHASES
+from pyflightstream.cases._setup_keys import RAW_PHASES as RAW_PHASES
 
 # The setup keys' command table and the tables FR-319 added; its module imports
 # only pydantic and the command database, so the package may import it while it loads.
@@ -125,6 +123,8 @@ from pyflightstream.cases._setup_keys import SOLVER_SETTING_COMMANDS
 from pyflightstream.cases._setup_keys import (
     TEMPLATE_SETTINGS_LEFT_OUT as TEMPLATE_SETTINGS_LEFT_OUT,
 )
+from pyflightstream.cases._setup_keys import CustomFlag as CustomFlag
+from pyflightstream.cases._setup_keys import RawCommand as RawCommand
 from pyflightstream.cases.mesh import (
     EVERY_SURFACE,
     BaseRegionOperation,

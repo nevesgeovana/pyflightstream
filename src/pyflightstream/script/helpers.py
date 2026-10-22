@@ -79,11 +79,18 @@ from pyflightstream.script import (
     UnsteadyActionUse,
 )
 from pyflightstream.script._arg_checks import _is_all
-from pyflightstream.script._build_forms import (  # noqa: F401  (this module is the public path)
+from pyflightstream.script._build_forms import (  # noqa: F401  (this module is the public path)  # noqa: F401  (this module is the public path)
+    _COMPONENT_INDEX,
+    ROTATION_COMMANDS,
     _check_actuator_creation,
     _check_blade_labels,
     _check_motion_creation,
     _checked_helper_value,
+    _component_of,
+    _refuse_options_without_equivalent,
+    _rotation_command,
+    _rotation_emission,
+    _surface_selection,
     assign_selected_ccs_curves,
     detect_every_boundary,
     every_boundary_detection,
@@ -101,15 +108,6 @@ from pyflightstream.script._relaxed_te import (  # noqa: F401  (this module is t
     RelaxedTrailingEdge,
     parse_relaxed_trailing_edge,
     resolve_shedding_direction,
-)
-from pyflightstream.script._rotate_selection import (  # noqa: F401  (this module is the public path)
-    _COMPONENT_INDEX,
-    ROTATION_COMMANDS,
-    _component_of,
-    _refuse_options_without_equivalent,
-    _rotation_command,
-    _rotation_emission,
-    _surface_selection,
 )
 from pyflightstream.script._settings import (  # noqa: F401  (this module is the public path)
     _flush_pending_vorticity,

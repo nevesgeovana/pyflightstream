@@ -42,7 +42,7 @@ from pyflightstream.farfield import (
     wake_crossings,
 )
 from pyflightstream.post._condition import _last_time_step
-from pyflightstream.post._farfield_geometry import _NA, _flow, _hub, _layout, _Probe
+from pyflightstream.post._reduction_stage import _NA, _flow, _hub, _layout, _Probe
 from pyflightstream.post._tables import CONTEXT_COLUMNS, _cell, context_row, write_csv_table
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (

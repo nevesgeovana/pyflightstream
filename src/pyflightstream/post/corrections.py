@@ -75,8 +75,13 @@ from pyflightstream.cases.corrections import (
     parse_calibration,
     read_calibration,
 )
-from pyflightstream.post._sector_rows import _loads_of, _number, _rotor_row, _whole_rotor_gap
-from pyflightstream.post._stage import PRODUCTS_MANIFEST
+from pyflightstream.post._stage import (
+    PRODUCTS_MANIFEST,
+    _loads_of,
+    _number,
+    _rotor_row,
+    _whole_rotor_gap,
+)
 from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX, read_csv_table, write_csv_table
 from pyflightstream.post._transfer_functions import bessel_j, bessel_y, sears, theodorsen
 from pyflightstream.post.harmonics import HARMONICS_SUFFIX
