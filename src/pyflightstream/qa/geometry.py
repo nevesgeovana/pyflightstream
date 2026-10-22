@@ -55,7 +55,9 @@ def _check_naca4(naca: str) -> None:
     camber line is m / p**2 ahead of p, which needs p > 0
     whenever m > 0.
     """
-    if len(naca) != 4 or not naca.isdigit():
+    # ASCII digits only: str.isdigit is also true for superscript digits that int() rejects
+    # (X-F-1212), which would fail later outside the QaEvidenceError contract.
+    if len(naca) != 4 or not (naca.isascii() and naca.isdigit()):
         raise QaEvidenceError(
             f"NACA designation {naca!r} is not four digits; the generator "
             "implements the 4-digit family only"

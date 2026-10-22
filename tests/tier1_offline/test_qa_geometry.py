@@ -320,3 +320,10 @@ def test_p0430_a_non_finite_blade_definition_is_refused_f_240(field, bad):
 
     with pytest.raises(QaEvidenceError, match=field):
         BladeSpec(**{field: bad})
+
+
+def test_p0430_a_superscript_digit_designation_is_a_qa_error_x_f_1212():
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    with pytest.raises(QaEvidenceError, match="not four digits"):
+        WingSpec(naca="00" + chr(178) * 2)
