@@ -556,3 +556,45 @@ def test_a_case_the_build_has_no_evidence_for_is_refused_before_anything_runs(
     assert code == 2
     assert "PHY-01" in error and "no evidence" in error, error
     assert not list(tmp_path.glob("PHY-*"))
+
+
+def test_p0430_a_matrix_naming_no_case_is_refused_before_any_run_x_f_0540(
+    stub_workspace, tmp_path, capsys
+):
+    matrix = stub_workspace / "matriz_physics.fs"
+    matrix.write_text(matrix.read_text(encoding="utf-8").replace("PHY-", "OWN-"), encoding="utf-8")
+    code = _cli(["physics", "--workspace", str(stub_workspace), "--report-dir", str(tmp_path)])
+    assert code == 2
+    assert "would judge nothing" in capsys.readouterr().err
+    from pyflightstream.workspace import CampaignWorkspace
+
+    assert CampaignWorkspace(stub_workspace).read_manifest() == []
+
+
+def test_p0430_drift_refuses_an_empty_build_before_any_side_runs_f_557(stub_workspace, tmp_path):
+    from pyflightstream.qa.matrix import drift_from_workspace
+    from pyflightstream.qa.physics import PhysicsEnvironmentError
+
+    matrix = stub_workspace / "matriz_physics.fs"
+    text = matrix.read_text(encoding="utf-8")
+    matrix.write_text(text.replace("| 26.120   |", "|          |", 1), encoding="utf-8")
+    with pytest.raises(PhysicsEnvironmentError, match="leave FS_BUILD empty"):
+        drift_from_workspace(
+            stub_workspace, "26.120", "26.123", fs_exes={}, workroot=tmp_path / "work"
+        )
+    assert not (tmp_path / "work").exists()
+
+
+def test_p0430_a_declared_version_the_registry_does_not_resolve_is_a_physics_refusal_f_1430(
+    stub_workspace,
+):
+    from pyflightstream.qa.matrix import physics_build
+    from pyflightstream.qa.physics import PhysicsEnvironmentError
+
+    registry = stub_workspace / "inputs" / "executables.toml"
+    registry.write_text(
+        '"26.120" = { path = "x.exe", version = "99.999" }' + chr(10), encoding="utf-8"
+    )
+    with pytest.raises(PhysicsEnvironmentError, match="executables.toml") as caught:
+        physics_build(stub_workspace / "matriz_physics.fs")
+    assert "99.999" in str(caught.value)

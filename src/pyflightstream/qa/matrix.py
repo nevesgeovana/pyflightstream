@@ -211,6 +211,28 @@ def _inputs_of(matrix: Path) -> Path:
     return folder / "inputs"
 
 
+def _refuse_silent_builds(rows: list[MatrixRow], matrix: Path) -> None:
+    """Refuse an active row that leaves FS_BUILD empty, before any seat is spent (F-557)."""
+    silent = [row.pol for row in rows if not row.fs_build.strip()]
+    if silent:
+        raise PhysicsEnvironmentError(
+            f"row(s) {', '.join(silent)} of {matrix.name} leave FS_BUILD empty. A "
+            "physics report is evidence of the build it names, so every active row "
+            "fills FS_BUILD with a build id of inputs/executables.toml; there is no "
+            "default version on this command."
+        )
+
+
+def _require_cases(by_case: dict[str, list[MatrixRow]], matrix: Path) -> None:
+    """Refuse a matrix with no row naming a case: it would run and judge nothing (X-F-0540)."""
+    if not by_case:
+        raise PhysicsEnvironmentError(
+            f"no active row of {matrix.name} names a physics case at the head of its "
+            f"DESCRIPTION ({', '.join(PHYSICS_CASES)}), so the run would judge nothing; "
+            "nothing was started."
+        )
+
+
 def physics_build(matrix: str | Path) -> str:
     """Return the one canonical version the build every active row names declares.
 
@@ -236,19 +258,13 @@ def physics_build(matrix: str | Path) -> str:
     ------
     PhysicsEnvironmentError
         When an active row leaves FS_BUILD empty, the rows name more
-        than one build, or the build's registry entry cannot be read or
-        declares no version. The convention of a workspace matrix is that
-        every row names its build (PFS-2029.01), so no default is offered.
+        than one build, or the build's registry entry cannot be read,
+        declares no version, or declares one this package does not
+        resolve (the message names ``executables.toml``). The convention of a
+        workspace matrix is that every row names its build (PFS-2029.01), so no default is offered.
     """
     rows = read_matrix(matrix)
-    silent = [row.pol for row in rows if not row.fs_build.strip()]
-    if silent:
-        raise PhysicsEnvironmentError(
-            f"row(s) {', '.join(silent)} of {Path(matrix).name} leave FS_BUILD empty. A "
-            "physics report is evidence of the build it names, so every active row "
-            "fills FS_BUILD with a build id of inputs/executables.toml; there is no "
-            "default version on this command."
-        )
+    _refuse_silent_builds(rows, Path(matrix))
     builds = sorted({row.fs_build.strip() for row in rows})
     if len(builds) != 1:
         raise PhysicsEnvironmentError(
@@ -919,6 +935,7 @@ def physics_from_workspace(
     """
     path = physics_matrix(root, matrix)
     build = physics_build(path)
+    _require_cases(physics_rows(path), path)
     unsupported = [
         case_id for case_id in physics_rows(path) if not PHYSICS_CASES[case_id].supports(build)
     ]
@@ -1019,7 +1036,8 @@ def drift_from_workspace(
         that already exists.
     """
     path = physics_matrix(root, matrix)
-    physics_rows(path)
+    _require_cases(physics_rows(path), path)
+    _refuse_silent_builds(read_matrix(path), path)
     canonical_a = resolve(version_a).canonical
     canonical_b = resolve(version_b).canonical
     builds = sorted({row.fs_build.strip() for row in read_matrix(path) if row.fs_build.strip()})
