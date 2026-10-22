@@ -32,6 +32,8 @@ so nothing has to be renamed again when the aircraft changes.
 
 from __future__ import annotations
 
+import dis
+import sys
 from dataclasses import dataclass, replace
 
 from pyflightstream._errors import PyflightstreamError
@@ -380,6 +382,36 @@ def retired_key(key: str) -> RetiredName | None:
     return next((entry for entry in RETIRED if entry.old in wanted), None)
 
 
+def imported_by_from(depth: int) -> bool:
+    """Whether the frame ``depth`` levels up is executing ``from module import name``.
+
+    A module ``__getattr__`` that refuses a removed name raises
+    ``AttributeError``, so that ``hasattr`` answers False; the ``from ...
+    import`` statement turns that into a bare "cannot import name", so for that
+    spelling the refusal keeps its message as an ``ImportError``. CPython's
+    ``IMPORT_FROM`` instruction is the one that calls the module ``__getattr__``
+    from the importing frame. Frame 1 is this function's caller, so a module
+    ``__getattr__`` asks with ``depth=2``. Without such a frame, or an
+    instruction to read there, the answer is False and the refusal stays an
+    ``AttributeError``.
+
+    Parameters
+    ----------
+    depth : int
+        How many frames above this function to read.
+
+    Returns
+    -------
+    bool
+        True when that frame's last instruction is ``IMPORT_FROM``.
+    """
+    try:
+        frame = sys._getframe(depth)
+        return dis.opname[frame.f_code.co_code[frame.f_lasti]] == "IMPORT_FROM"
+    except (ValueError, IndexError):  # no such frame or no instruction to read
+        return False
+
+
 __all__ = [
     "BLOCK_KIND_ENGINE",
     "POINT_KIND_ENGINE",
@@ -392,6 +424,7 @@ __all__ = [
     "RetiredAttributeError",
     "RetiredName",
     "WORKSPACE_ENGINE_POINT",
+    "imported_by_from",
     "retired_attribute",
     "retired_frame",
     "retired_key",
