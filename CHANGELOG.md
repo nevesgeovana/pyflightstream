@@ -10,7 +10,8 @@ FlightStream versions.
 ### Added
 
 - `pyfs-fsi` writes `fsi_convergence_verdicts.log` in the run folder, and the external step
-  record carries `loads_file_present`.
+  record carries `loads_file_present`. An external call that finds no loads file in the point
+  folder fails before the program runs.
 - A row that states no `ALPHA` or `BETA` flies that angle at 0.0 and says so: the plan summary
   shows `ALPHA = 0.0 (default)`, and the run record lists the angles in `angles_not_stated`.
 

@@ -16,7 +16,8 @@ The solver's aeroelastic coupling calls the package's step `pyfs-fsi external`
 in the point folder at every coupling iteration, and that step:
 
 1. verifies that your program and its declared inputs are the files the plan
-   hashed;
+   hashed, and that the solver wrote the loads file (a call without it fails,
+   and its record says `loads_file_present: false`);
 2. runs your program in the point folder, with no console window and the
    input's timeout;
 3. checks what it wrote: a return code of 0, a displacement file with one row
