@@ -533,3 +533,17 @@ def test_p0430_f5_a_swept_point_without_its_state_is_refused_not_run_at_the_rows
         case_at_point(case, {"mach": 0.3})
     # The control: a case that carries no states resolves once, as before.
     assert case_at_point(_p0430_case(), {"alpha": 1.0}).point == {"alpha": 1.0}
+
+
+def test_p0430_f5_a_sim_id_is_one_folder_name_and_case_does_not_make_two():
+    """X-F-1332, X-F-0483: sim_<id> is one Windows folder."""
+    for bad in ("a/b", "..\\x", "a:b", "x.", " y", ""):
+        with pytest.raises(ValidationError, match="cannot name the folder"):
+            _p0430_case(bad)
+    with pytest.raises(ValidationError, match="more than one case with sim_id"):
+        Campaign(
+            name="camp",
+            fs_version="26.120",
+            fs_exe="x",
+            sims=[_p0430_case("Ab"), _p0430_case("aB")],
+        )

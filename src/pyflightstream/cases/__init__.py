@@ -1070,6 +1070,19 @@ class SimCase(BaseModel):
     #: cell (FR-316); :attr:`solver` already carries their effective values.
     setup_from_row: dict[str, str] = Field(default_factory=dict)
 
+    @field_validator("sim_id")
+    @classmethod
+    def _sim_id_names_one_folder(cls, value: str) -> str:
+        """Refuse an id that is not one folder name: ``sims/sim_<id>`` is made from it."""
+        bad = sorted({c for c in value if c in '<>:"/\\|?*' or ord(c) < 32})
+        if not value or bad or value != value.strip() or value.endswith("."):
+            raise ValueError(
+                f"sim_id {value!r} cannot name the folder sims/sim_<id>: it is empty, has "
+                f"leading or trailing space, ends in a dot or holds {bad!r}. Use letters, "
+                "digits, '-' and '_'."
+            )
+        return value
+
     @model_validator(mode="after")
     def _one_sweep_per_case(self) -> SimCase:
         """Refuse a case asking for an aerodynamic AND a geometric sweep.
@@ -1326,9 +1339,10 @@ class Campaign(BaseModel):
         seen: set[str] = set()
         duplicated: set[str] = set()
         for case in self.sims:
-            if case.sim_id in seen:
+            # sim_<id> is a Windows folder, and Windows folders ignore case.
+            if case.sim_id.casefold() in seen:
                 duplicated.add(case.sim_id)
-            seen.add(case.sim_id)
+            seen.add(case.sim_id.casefold())
         if duplicated:
             raise CampaignConfigError(
                 f"campaign {self.name!r} declares more than one case with sim_id "
