@@ -46,7 +46,7 @@
    "id": "RX-17",
    "capability": "The Sweeper toolbox and its spreadsheet (a run type, or documented as outside the workspace)",
    "reason": "Python-only by design",
-   "decision": "PFS-2140.005 closed at 0.41.0 with the sweeper decided: a sweep is declared as matrix rows, the workspace's route; the Sweeper toolbox helper and its spreadsheet reader stay script-level Python for a hand-written script; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
+   "decision": "PFS-2140.005 closed at 0.41.0 with the sweeper decided: a sweep is declared as matrix rows, the workspace's route; the Sweeper toolbox helper and its spreadsheet reader stay script-level Python for a hand-written script, documented as outside the workspace in docs/gui-to-pyfs.md (the Sweeper toolbox row); classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
    "names": [
     "pyflightstream.results.SweepSpreadsheetReport",
     "pyflightstream.results.parse_sweep_spreadsheet",
