@@ -33,7 +33,7 @@ from __future__ import annotations
 import pytest
 
 from pyflightstream.cases import CampaignConfigError
-from pyflightstream.post._condition import _defaulted_window, _matrix_window, _stated_window
+from pyflightstream.post._condition import _matrix_window, _stated_window
 
 
 class _Row:
@@ -177,11 +177,33 @@ def test_no_matrix_row_is_not_a_window():
     assert _matrix_window(None, _ran()) is None
 
 
-def test_x_f_0326_a_defaulted_window_that_runs_backwards_is_no_window():
-    """X-F-0326: `_defaulted_window` order-checks the recorded window as `_stated_window` does."""
-    record = _ran(window=(900, 800), stated=False)
-    record.recipe = "unsteady_rotor"
-    assert _defaulted_window(record) is None
-    sound = _ran(window=(751, 1000), stated=False)
-    sound.recipe = "unsteady_rotor"
-    assert _defaulted_window(sound) == (751, 1000)
+def test_x_f_0326_a_defaulted_window_that_runs_backwards_is_no_window(tmp_path):
+    """X-F-0326: the defaulted window is order-checked as the stated one is.
+
+    A record that states no window is averaged over the one its run recorded and the post
+    says so; a recorded window that runs backwards is no window, so it says nothing.
+    """
+    import warnings
+
+    from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_post_products import _unsteady_workspace
+
+    def said(window: tuple[int, int]) -> list[str]:
+        plan = {
+            "window_stated": False,
+            "time_iterations": 8,
+            "steps_per_revolution": None,
+            "blades": None,
+            "time_average": {"windows": [list(window)], "window_from": "last_revs_avg"},
+        }
+        workspace = _unsteady_workspace(
+            tmp_path / f"w{window[0]}", reductions=plan, recipe="unsteady_rotor"
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            write_campaign_products(workspace)
+        return [str(w.message) for w in caught if "states no LAST_REVS_AVG" in str(w.message)]
+
+    assert said((900, 800)) == []
+    (message,) = said((5, 8))
+    assert "steps 5 to 8" in message

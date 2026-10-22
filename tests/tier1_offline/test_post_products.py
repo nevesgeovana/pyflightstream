@@ -2851,31 +2851,30 @@ def test_p0430_f145_a_normal_probe_row_carries_the_recorded_stop(tmp_path):
     assert {row["STEP"] for row in now} == {"6"}
 
 
-def test_p0430_f144_a_steady_row_that_spins_is_a_rotor_for_the_probe_point(tmp_path, monkeypatch):
-    """F-144: the probe stage is told the row is a rotor, as the product stage decided."""
+def test_p0430_f144_a_steady_row_that_spins_is_a_rotor_for_the_probe_point(tmp_path):
+    """F-144: the probe stage is told the row is a rotor, as the product stage decided.
+
+    The wing's probes are one plane. A spinning row reads a rotor lattice instead, so
+    the plane is not read as a Trefftz plane: the point is skipped with the reason
+    and no Trefftz table is written. The control, the same row without a speed, writes
+    the plane's table.
+    """
     helpers = _ff_helpers()
-    from pyflightstream.post import farfield_products as module
 
-    seen = []
-    original = module._locate
+    def posted(root, point):
+        workspace = helpers._farfield_products___workspace(root, farfield=True)
+        helpers._ffproof_post___set_record(workspace, point=point)
+        helpers._farfield_products___post(workspace)
+        products = helpers._ffproof_post___manifest(Path(workspace.root))
+        tables = sorted(Path(workspace.root).rglob("farfield/*_trefftz.csv"))
+        return tables, products.get("skipped", {})
 
-    def spy(ctx, point, spec, rotor):
-        seen.append(rotor)
-        return original(ctx, point, spec, rotor)
-
-    monkeypatch.setattr(module, "_locate", spy)
-    workspace = helpers._ffproof_post___campaign(
-        tmp_path,
-        pproc=helpers._FFPROOF_POST___LEDGERS,
-        files={
-            f"{helpers._FFPROOF_POST___STEM}_probes.txt": helpers._ffproof_post___probe_export(
-                helpers._FFPROOF_POST___POINTS_M, 20.0
-            )
-        },
-    )
-    helpers._ffproof_post___set_record(workspace, point={"alpha": -2.0, "RPM": 1200.0})
-    helpers._ffproof_post___post(workspace)
-    assert seen == [True]
+    tables, _skipped = posted(tmp_path / "wing", {"alpha": 4.0})
+    assert tables
+    tables, skipped = posted(tmp_path / "rotor", {"alpha": 4.0, "RPM": 1200.0})
+    assert not tables
+    (why,) = [v for k, v in skipped.items() if k.startswith("farfield/probes#point=")]
+    assert "the run laid no far-field probes these analyses read" in why
 
 
 def test_p0430_f1811_the_spanwise_table_carries_the_condition_and_reference_block(tmp_path):
