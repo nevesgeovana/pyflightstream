@@ -324,7 +324,13 @@ def _archive_extraction_folder(folder: Path, stamp: str) -> None:
     if folder.is_dir():
         movable = [child for child in folder.iterdir() if child.name != ARCHIVE_DIR]
         if movable:
+            # As the script archive does: an archive with this stamp already
+            # there (a same-second retry) is never written over.
             target = folder / ARCHIVE_DIR / stamp
+            index = 2
+            while target.exists():
+                target = folder / ARCHIVE_DIR / f"{stamp}.{index}"
+                index += 1
             target.mkdir(parents=True, exist_ok=True)
             for child in movable:
                 child.replace(target / child.name)

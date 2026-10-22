@@ -47,9 +47,8 @@ folder. A cluster route shares the executor interface:
 :class:`SubmittingExecutor` hands the script to a scheduler and returns
 once the record is written SUBMITTED, and the collect stage of
 :mod:`pyflightstream.run.collect` completes that record when the
-declared outputs have landed (FR-99). FR-15, the HPC executor
-requirement, stays pending until the submitting half is measured on a
-cluster.
+declared outputs have landed (FR-99). FR-15, the cluster submission
+requirement, is implemented through that executor interface.
 
 On Windows, :mod:`pyflightstream.run._solver_windows` inspects only the
 launched solver PID. A visible standard dialog, a modal window whose owned
@@ -108,6 +107,9 @@ function per family of subcommands
 """
 
 from __future__ import annotations
+
+import dis
+import sys
 
 from pyflightstream.run._assessment import (
     Assessment,
@@ -212,12 +214,26 @@ from pyflightstream.workspace import ExecutorRecord
 
 
 def __getattr__(name: str) -> object:
-    """Refuse the removed plot assessor with its migration instruction."""
+    """Refuse the removed plot assessor with its migration instruction.
+
+    An absent module attribute raises ``AttributeError``, so ``hasattr`` answers
+    False. The ``from ... import`` statement would turn that into a bare
+    "cannot import name", so that spelling keeps the instruction as an
+    ``ImportError``.
+    """
     if name == "assess_unsteady_from_plots":
-        raise ImportError(
+        message = (
             "assess_unsteady_from_plots was removed in 0.26.0; use LoadsAssessor for "
             "campaign assessment; history settling is the user's own analysis."
         )
+        try:
+            frame = sys._getframe(1)
+            from_import = dis.opname[frame.f_code.co_code[frame.f_lasti]] == "IMPORT_FROM"
+        except (ValueError, IndexError):  # no caller frame to read
+            from_import = False
+        if from_import:
+            raise ImportError(message, name=name)
+        raise AttributeError(message, name=name, obj=sys.modules[__name__])
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

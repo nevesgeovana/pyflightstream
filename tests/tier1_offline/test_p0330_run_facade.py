@@ -172,8 +172,13 @@ def test_the_facade_binds_nothing_it_did_not_import():
     assert defined == [] and assigned == []
 
 
-def test_an_unknown_name_is_an_attribute_error_and_the_removed_one_an_import_error():
+def test_an_unknown_name_is_an_attribute_error_and_the_removed_one_says_where_it_went():
     assert not hasattr(run, "no_such_name_in_the_run_facade")
     assert getattr(run, "no_such_name_in_the_run_facade", None) is None
-    with pytest.raises(ImportError, match="LoadsAssessor"):
+    # X-F-1228: the removed name is absent too, so hasattr answers False, and
+    # the attribute error still carries the migration instruction.
+    assert hasattr(run, "assess_unsteady_from_plots") is False
+    with pytest.raises(AttributeError, match="LoadsAssessor"):
         run.assess_unsteady_from_plots  # noqa: B018 - the access is the behaviour under test
+    with pytest.raises(ImportError, match="LoadsAssessor"):
+        exec("from pyflightstream.run import assess_unsteady_from_plots", {})

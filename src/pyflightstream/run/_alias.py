@@ -82,7 +82,12 @@ def read_alias(text: str, sims: Collection[str]) -> tuple[str, int] | None:
     if text.strip() in sims:
         return None
     sim, joiner, number = text.strip().rpartition(ALIAS_JOINER)
-    if not joiner or not number.isdigit() or int(number) < 1 or sim not in sims:
+    if (
+        not joiner
+        or not (number.isascii() and number.isdigit())
+        or int(number) < 1
+        or sim not in sims
+    ):
         return None
     return sim, int(number)
 

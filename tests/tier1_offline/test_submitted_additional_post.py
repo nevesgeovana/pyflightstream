@@ -152,3 +152,19 @@ def test_p0430_x_f_0548_a_placeholder_an_extraction_cannot_fill_is_a_refusal(tmp
     record = SimpleNamespace(point_name="p", sim_id="2001", submission={})
     with pytest.raises(WorkspaceError, match="work_dir"):
         _additional.extraction_job_end(workspace, record, tmp_path)
+
+
+def test_x_f_0556_a_retry_in_the_same_second_keeps_the_earlier_extraction_archive(tmp_path):
+    """The folder archive never overwrites files of an archive with the same stamp."""
+    from pyflightstream.run._additional import ARCHIVE_DIR, _archive_extraction_folder
+
+    folder = tmp_path / "extraction"
+    folder.mkdir()
+    (folder / "forces.csv").write_text("first", encoding="utf-8")
+    _archive_extraction_folder(folder, "r20261021-120000")
+    (folder / "forces.csv").write_text("second", encoding="utf-8")
+    _archive_extraction_folder(folder, "r20261021-120000")
+    archive = folder / ARCHIVE_DIR
+    assert (archive / "r20261021-120000" / "forces.csv").read_text(encoding="utf-8") == "first"
+    assert (archive / "r20261021-120000.2" / "forces.csv").read_text(encoding="utf-8") == "second"
+    assert [child.name for child in folder.iterdir()] == [ARCHIVE_DIR]

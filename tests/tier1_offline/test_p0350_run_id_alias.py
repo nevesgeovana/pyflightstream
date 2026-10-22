@@ -243,3 +243,12 @@ def test_f6_0102_strict_alias_without_plan_evidence_is_refused():
     assert resolve_alias("5002_1", rows, {"5002": ["P1"]}, strict=True) == ("5002", "P1")
     with pytest.raises(AliasError, match="plan evidence"):
         resolve_alias("5002_1", rows, {"5002": []}, strict=True)
+
+
+def test_x_f_1229_a_digit_that_int_rejects_is_not_an_alias():
+    """str.isdigit is true of a superscript two, which int() rejects: the answer is None."""
+    from pyflightstream.run._alias import read_alias
+
+    assert read_alias("2006_²", {"2006"}) is None
+    assert read_alias("2006_٣", {"2006"}) is None  # Arabic-Indic three, not ASCII
+    assert read_alias("2006_3", {"2006"}) == ("2006", 3)
