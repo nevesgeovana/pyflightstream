@@ -201,9 +201,9 @@ def saved_action_warning(geometry: Path, shown: str, rows: Iterable[str] = ()) -
     listed = "; ".join(f"{name} [{kind}] {command.strip()}" for name, command, kind in actions)
     return (
         f"{whose}{geometry.name} carries {len(actions)} unsteady solver action(s) saved in "
-        f"the file: {listed}. A saved action keeps its name when the script creates one of "
-        "the same name, and the solver runs the saved command (an interpreter path of "
-        "another machine aborts the unsteady run when it fires). Remove them with: "
+        f"the file: {listed}. The solver may run a saved command, also when the script "
+        "creates an action of the same name (which one it keeps is not measured), and an "
+        "interpreter path of another machine may stop the unsteady run. Remove them with: "
         f"pyfs-matrix inventory {_quoted(shown)} --clean"
     )
 

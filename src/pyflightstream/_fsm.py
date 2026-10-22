@@ -450,11 +450,11 @@ def _saved_actions_in(lines: Sequence[str], where: str) -> tuple[int, tuple[Save
 def saved_solver_actions(path: str | Path) -> tuple[SavedAction, ...] | None:
     """Return the unsteady solver actions a saved simulation carries (FR-308).
 
-    An action saved in the geometry keeps its name when a script creates
-    one of the same name, and the solver runs the SAVED command: a
-    geometry saved on a workstation with the walltime clock of an earlier
-    run carries that workstation's interpreter path, and every unsteady
-    run of it on a cluster aborts when the clock fires. None when the file
+    The solver may run an action saved in the geometry, also when a script
+    creates one of the same name (which one it keeps is not measured in a
+    committed report): a geometry saved on a workstation with the walltime
+    clock of an earlier run carries that workstation's interpreter path,
+    which another machine may fail to run when the clock fires. None when the file
     has no SOLVER block; ``()`` when it carries no action.
     """
     lines = _block(path, "SOLVER")
