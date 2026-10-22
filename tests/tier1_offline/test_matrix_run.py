@@ -2966,7 +2966,7 @@ def test_a_raw_mesh_row_is_refused_by_the_pre_flight_before_anything_is_staged(t
     """
     workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
     stage_geometry(workspace, "raw_blade.stl")
-    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: raw_blade.stl")
+    matrix = geometry_matrix(tmp_path, " / GEOMETRY: raw_blade.stl")
 
     with pytest.raises(MatrixError) as caught:
         run_matrix(
@@ -3012,7 +3012,7 @@ def test_the_whole_chain_the_row_the_staged_copy_and_the_opened_path(tmp_path):
     library = stage_geometry(workspace, "wing_clean.fsm")
     matrix = geometry_matrix(
         tmp_path,
-        " / VELOCITY: 30.0 / GEOMETRY: wing_clean.fsm / SYMMETRY: PERIODIC / PERIODIC_COPIES: 4",
+        " / GEOMETRY: wing_clean.fsm / SYMMETRY: PERIODIC / PERIODIC_COPIES: 4",
     )
     records = run_matrix(
         matrix,
@@ -3105,7 +3105,7 @@ def test_an_obj_row_imports_the_staged_copy_in_the_unit_its_sidecar_declares(
         f'boundaries = ["Wing"]\n\n[import]\nunits = "{units}"\n\n' + _DETECTED, encoding="utf-8"
     )
     try:
-        tail = f" / VELOCITY: 30.0 / GEOMETRY: wing{suffix}"
+        tail = f" / GEOMETRY: wing{suffix}"
         records = _run_geometry_row(tmp_path, workspace, tail)
     except MatrixError as refused:
         pytest.fail(f"the declared unit never reached a script: {refused}")
@@ -3144,7 +3144,7 @@ def test_an_obj_row_with_no_unit_is_refused_by_the_plan_naming_the_key(tmp_path,
     if sidecar is not None:
         library.with_name("wing.boundaries.toml").write_text(sidecar, encoding="utf-8")
     with pytest.raises(MatrixError) as caught:
-        _run_geometry_row(tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj")
+        _run_geometry_row(tmp_path, workspace, " / GEOMETRY: wing.obj")
     message = str(caught.value)
     needles = ("[import]", "units", "wing.boundaries.toml", "MILLIMETER", "docs/mesh-inputs.md")
     for needle in needles:
@@ -3165,7 +3165,7 @@ def test_an_import_table_without_units_is_refused_naming_the_sidecar(tmp_path):
         'boundaries = ["Wing"]\n\n[import]\n', encoding="utf-8"
     )
     with pytest.raises(InputArtifactError, match=r"\[import\].*units") as caught:
-        resolve_geometry_row(tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj")
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing.obj")
     assert "wing.boundaries.toml" in str(caught.value)
 
 
@@ -3199,9 +3199,7 @@ def _stage_with_operations(workspace, operations):
 
 def _bound_row(tmp_path, workspace, tail=""):
     try:
-        return resolve_geometry_row(
-            tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj" + tail
-        )
+        return resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing.obj" + tail)
     except InputArtifactError as refused:
         pytest.fail(f"the sidecar's operations never reached a case: {refused}")
 
@@ -3312,7 +3310,7 @@ def test_an_import_operation_that_does_not_hold_its_shape_is_refused_at_binding(
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     _stage_with_operations(workspace, _SCALE + "[[import.operations]]\n" + operation)
     with pytest.raises(InputArtifactError) as caught:
-        resolve_geometry_row(tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj")
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing.obj")
     message = str(caught.value)
     assert "wing.boundaries.toml" in message and "operation 2" in message, message
     assert needle in message, message
@@ -3377,7 +3375,7 @@ def test_a_campaign_runs_under_the_relative_root_the_cli_defaults_to(tmp_path, m
     """
     workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
     stage_geometry(workspace, "wing_clean.fsm")
-    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: wing_clean.fsm")
+    matrix = geometry_matrix(tmp_path, " / GEOMETRY: wing_clean.fsm")
 
     monkeypatch.chdir(tmp_path)
     argument = Path("camp")
@@ -3957,7 +3955,7 @@ def test_an_agreeing_sidecar_is_recorded_as_the_inventory_source(tmp_path):
     library = _saved_simulation_with(workspace.inputs_dir / "geometries" / "wb.fsm", ["W", "B"])
     sidecar = write_inventory(library)
     assert sidecar == library.with_name("wb.boundaries.toml")
-    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: wb.fsm")
+    matrix = geometry_matrix(tmp_path, " / GEOMETRY: wb.fsm")
     records = run_matrix(
         matrix,
         workspace,
@@ -3979,7 +3977,7 @@ def test_an_agreeing_sidecar_is_recorded_as_the_inventory_source(tmp_path):
     stage_geometry(workspace, "placeholder.fsm")
     for name, source in (("plain.fsm", "mesh_block"), ("placeholder.fsm", None)):
         resolved = resolve_matrix(
-            geometry_matrix(tmp_path, f" / VELOCITY: 30.0 / GEOMETRY: {name}"),
+            geometry_matrix(tmp_path, f" / GEOMETRY: {name}"),
             workspace,
             name="matrix",
             fs_version="26.120",
@@ -3994,7 +3992,7 @@ def test_a_disagreeing_sidecar_is_refused_before_the_solver_naming_both_lists(tm
     library.with_name("wb.boundaries.toml").write_text(
         'boundaries = ["B", "W"]\n', encoding="utf-8"
     )
-    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: wb.fsm")
+    matrix = geometry_matrix(tmp_path, " / GEOMETRY: wb.fsm")
     # The pre-flight renders every script before any seat is spent, so the
     # disagreement blocks the campaign there: nothing staged, nothing recorded.
     with pytest.raises(MatrixError) as caught:
@@ -4027,7 +4025,7 @@ def test_a_row_naming_a_folded_geometry_runs_on_that_folder_alone(tmp_path):
     library = _saved_simulation_with(folder / "wb.fsm", ["W", "B"])
     assert write_inventory(library) == folder / "wb.boundaries.toml"
     stage_geometry(workspace, "neighbour.fsm")
-    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: wb.fsm")
+    matrix = geometry_matrix(tmp_path, " / GEOMETRY: wb.fsm")
     records = run_matrix(
         matrix,
         workspace,
@@ -4063,7 +4061,7 @@ def test_a_motion_record_binds_its_engine_point_and_reaches_the_record(tmp_path)
         " / ROTOR_ORIGIN: ERP1},"
         " {MOVING_BOUNDARIES: 2 / RPM: 500 / RPM_SIGN: -1 / ROTOR_AXIS: X / ROTOR_ORIGIN: 0,0,1}"
     )
-    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: wb.fsm" + motions)
+    matrix = geometry_matrix(tmp_path, " / GEOMETRY: wb.fsm" + motions)
     resolved = resolve_matrix(
         matrix, workspace, name="matrix", fs_version="26.120", recipes=RECIPES
     )
@@ -4084,7 +4082,7 @@ def test_a_motion_record_binds_its_engine_point_and_reaches_the_record(tmp_path)
     # A record naming the airframe point is refused naming the point and its kind.
     airframe = geometry_matrix(
         tmp_path,
-        " / VELOCITY: 30.0 / GEOMETRY: wb.fsm / MOTIONS: {MOVING_BOUNDARIES: 1 / RPM: 1000 / "
+        " / GEOMETRY: wb.fsm / MOTIONS: {MOVING_BOUNDARIES: 1 / RPM: 1000 / "
         "RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: ARP}",
         stem="airframe.fs",
     )

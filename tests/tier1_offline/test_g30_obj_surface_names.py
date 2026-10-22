@@ -65,7 +65,7 @@ O_EMPTY = "o ZETA\n" + TRIANGLE + FACE + "o EMPTY\no ALPHA\n" + FACE + "o MID\n"
 THREE = ("ZETA", "ALPHA", "MID")
 
 #: The row names the mesh and nothing else a raw mesh needs.
-OBJ_ROW = " / VELOCITY: 30.0 / GEOMETRY: wing.obj"
+OBJ_ROW = " / GEOMETRY: wing.obj"
 
 #: What the user adds beneath the written list: the unit and the trailing edge,
 #: by the route every build carries.
@@ -289,7 +289,7 @@ def test_g30_an_stl_gets_no_sidecar_and_keeps_its_refusals(tmp_path, capsys):
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     mesh = stage_geometry(workspace, "wing.stl", _STL_WING)
     sidecar = mesh.with_name("wing.boundaries.toml")
-    plan = _plan(tmp_path, workspace, tail=" / VELOCITY: 30.0 / GEOMETRY: wing.stl")
+    plan = _plan(tmp_path, workspace, tail=" / GEOMETRY: wing.stl")
     assert not sidecar.exists(), "the plan wrote a sidecar beside an STL"
     [point] = plan.points
     assert point.status is PlanStatus.BLOCKED and "[import]" in point.error, point.error

@@ -314,7 +314,9 @@ spelling one of those is not read by the package; it is replaced.
 
 A rotor row states its motion flat, `RPM`, `RPM_SIGN`, `ROTOR_AXIS`,
 `ROTOR_ORIGIN` and `MOVING_BOUNDARIES` as keys of the cell, and that is one
-rotor. A row may state several: `MOTIONS: {...},
+rotor. When the reference declares exactly one rotor block, the block owns the axis: a
+`ROTOR_AXIS` cell naming another axis is refused before any script is written, with the
+cell and the block's axis in the message. A row may state several: `MOTIONS: {...},
 {...}`, each pair of braces one rotor holding those same keys, the pairs
 inside separated by `/` as in the flat cell and the records by commas. The
 builder then creates, per record, a fixed frame at the record's hub

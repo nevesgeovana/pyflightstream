@@ -220,7 +220,16 @@ def emit_rotor_motion(
         )
     rotor = _the_rotor_a_flat_row_turns(case)
     if rotor is not None:
-        axis = _rotor_frame_axis(rotor)
+        frame_axis = _rotor_frame_axis(rotor)
+        # X-F-1147: the block owns the axis, so a cell that disagrees is refused, not replaced.
+        if isinstance(rotor.axis, str) and axis.upper() not in {rotor.axis.upper(), frame_axis}:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {ROTOR_AXIS_VARIABLE} = {axis!r}, and its "
+                f"reference declares one rotor block, {rotor.alias}, whose axis is "
+                f"{rotor.axis!r}. The reference owns the axis, so the two cannot differ: "
+                f"write {ROTOR_AXIS_VARIABLE}: {rotor.axis} or delete the cell."
+            )
+        axis = frame_axis
     boundaries: Sequence[int | str] | str = "all"
     declared = _variable(case, MOVING_BOUNDARIES_VARIABLE)
     if declared is not None:

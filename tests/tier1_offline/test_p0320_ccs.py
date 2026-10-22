@@ -55,7 +55,7 @@ def test_p0420_revolution_angles_accept_full_and_partial_turns(start, end):
 #: One steady row naming a CCS file; ``{tail}`` appends row keys.
 ROW = (
     "7001 | TestCcs | CCS | 3.10 | 0.0890 | AL | 0.0 | r003 | s002 | e001 "
-    "| 003 | {build} |  0 | 1 | OUTPUTS: loads_{{point}}.txt / VELOCITY: 30.0 "
+    "| 003 | {build} |  0 | 1 | OUTPUTS: loads_{{point}}.txt "
     "/ GEOMETRY: {geometry}{tail}"
 )
 

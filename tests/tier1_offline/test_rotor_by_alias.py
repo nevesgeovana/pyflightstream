@@ -1215,3 +1215,40 @@ def test_p0430_a_scaled_shaft_gives_the_same_frame_basis():
 
     unit = frame_basis_for_shaft((0.0, 0.0, 1.0), (1.0, 0.0, 0.0))
     assert frame_basis_for_shaft((0.0, 0.0, 3.0), (1.0, 0.0, 0.0)) == unit
+
+
+def _flat_pusher(tmp_path, axis: str) -> SimCase:
+    case = two_rotor_case(tmp_path)
+    return case.model_copy(
+        update={
+            "motions": [],
+            "rotors": {"PUSHER": PUSHER},
+            "aliases": {"PUSHER": case.aliases["PUSHER"]},
+            "variables": {
+                **{k: v for k, v in case.variables.items() if k != "CLOCK_MOTION"},
+                "RPM": "2200",
+                "ROTOR_AXIS": axis,
+            },
+        }
+    )
+
+
+def test_x_f_1147_a_rotor_axis_cell_that_differs_from_the_single_block_is_refused(tmp_path):
+    """The block owns the axis: a ROTOR_AXIS cell naming another one is refused, not replaced."""
+    agrees = _flat_pusher(tmp_path, str(PUSHER.axis))
+    assert "ROTARY" in rendered(agrees) or "MOTION" in rendered(agrees)
+    other = "Y" if str(PUSHER.axis).upper() != "Y" else "Z"
+    with pytest.raises(PyflightstreamError) as refused:
+        rendered(_flat_pusher(tmp_path, other))
+    message = str(refused.value)
+    assert f"ROTOR_AXIS = '{other}'" in message and repr(PUSHER.axis) in message, message
+
+
+def test_x_f_1157_a_velocity_cell_beside_a_resolved_velocity_is_refused(tmp_path):
+    """A VELOCITY cell is refused where the row already resolves its velocity."""
+    case = two_rotor_case(tmp_path)
+    resolved = case.model_copy(update={"velocity": 25.0, "flight_condition": {"TASmps": 25.0}})
+    with pytest.raises(PyflightstreamError) as refused:
+        rendered(resolved)
+    message = str(refused.value)
+    assert "VELOCITY cell (30.0) contradicts" in message and "25 m/s" in message, message

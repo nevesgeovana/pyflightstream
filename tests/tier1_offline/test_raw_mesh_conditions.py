@@ -76,7 +76,7 @@ _SIXTEEN_ON_WING = "16 trailing edges imported for boundary Wing"
 #: One steady row naming the wing, its loads table and its solver log.
 ROW = (
     "7001 | TestWing | RAW_MESH | 3.10 | 0.0890 | AL | 0.0 | r003 | s002 | e001 "
-    "| 003 | {build} |  0 | 1 | OUTPUTS: {outputs} / VELOCITY: 30.0 / GEOMETRY: {geometry}{tail}"
+    "| 003 | {build} |  0 | 1 | OUTPUTS: {outputs} / GEOMETRY: {geometry}{tail}"
 )
 WITH_LOG = "loads_{point}.txt,run_{point}_log.txt"
 WITHOUT_LOG = "loads_{point}.txt"

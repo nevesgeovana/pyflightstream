@@ -16,6 +16,9 @@ FlightStream versions.
 
 ### Changed
 
+- A `ROTOR_AXIS` cell that disagrees with the axis of the single rotor block, and a `VELOCITY`
+  cell that contradicts the velocity the row already resolves, are refused before any script is
+  written, naming the cell and the resolved value. The `VELOCITY` case was a warning.
 - A `--matrix` value loses only its final extension: `wing.v2.fs` and `wing.v2.toml` name the
   matrix `wing.v2`, and a bare `wing.v2` is no longer cut to `wing`.
 - `HpcProfile.defaults` is removed. A profile that still carries a `[defaults]` block loads with

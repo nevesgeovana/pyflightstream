@@ -2868,7 +2868,7 @@ def test_the_rotor_builder_emits_nothing_when_there_is_no_fluid_state():
 
 def ratio_case(**overrides) -> SimCase:
     """A rotor case stating its speed as a ratio, with a diameter to divide by."""
-    variables: dict[str, object] = {"RPM": None, ADVANCE_RATIO_VARIABLE: "1.7"}
+    variables: dict[str, object] = {"RPM": None, "VELOCITY": None, ADVANCE_RATIO_VARIABLE: "1.7"}
     variables.update(overrides)
     case = rotor_case(**variables)
     return case.model_copy(
@@ -7420,8 +7420,7 @@ def _fr320_skipped_families_warn__sections(families: list[str]) -> str:
 #: The columns that make a row unsteady, which is where force plots are emitted.
 _FR320_SKIPPED_FAMILIES_WARN__UNSTEADY = {
     "WORKFLOW": "unsteady",
-    "VAR_NAMES_VALUES": "VELOCITY: 30.0 / DELTA_TIME: 0.001 / TIME_ITERATIONS: 3 "
-    "/ LAST_ITERS_AVG: 3",
+    "VAR_NAMES_VALUES": "DELTA_TIME: 0.001 / TIME_ITERATIONS: 3 / LAST_ITERS_AVG: 3",
 }
 
 

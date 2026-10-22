@@ -1021,17 +1021,24 @@ def angles_not_stated(case: SimCase) -> tuple[str, ...]:
     )
 
 
+def _same_number(text: str, number: float) -> bool:
+    """Whether the cell text reads as the number (an unreadable cell is not the same)."""
+    try:
+        return math.isclose(float(text), float(number), rel_tol=1e-9)
+    except ValueError:
+        return False
+
+
 def _velocity(case: SimCase) -> float:
     if case.velocity is not None:
         stated = _variable(case, VELOCITY_VARIABLE)
-        if stated is not None and case.flight_condition:
-            warn(
-                f"case {case.sim_id!r}: VELOCITY = {stated} is ignored because "
-                "FLIGHT_CONDITION already resolves the velocity through TASmps/MACH "
-                "or its resolved flow state. Remove VELOCITY from VAR_NAMES_VALUES "
-                "and state the velocity in FLIGHT_CONDITION.",
-                PyflightstreamWarning,
-                stacklevel=2,
+        if stated is not None and not _same_number(stated, case.velocity):
+            # X-F-1157: two different speeds are refused, not resolved by precedence.
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the VELOCITY cell ({stated}) contradicts the velocity "
+                f"the row already resolves, {case.velocity:g} m/s, through FLIGHT_CONDITION "
+                "(TASmps or MACH) or its resolved flow state. Remove VELOCITY from "
+                "VAR_NAMES_VALUES and state the velocity in FLIGHT_CONDITION."
             )
         return float(case.velocity)
     return _required_float(case, VELOCITY_VARIABLE, quantity="free-stream velocity", unit="m/s")

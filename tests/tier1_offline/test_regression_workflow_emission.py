@@ -1524,8 +1524,8 @@ class TestCasesWorkflowsVelocity:
     """A resolved flight condition cannot silently ignore a VELOCITY cell."""
 
     @staticmethod
-    def test_p0400_cw_velocity_a_matrix_row_warns_about_its_ignored_cell(tmp_path):
-        """P0400-CW-VELOCITY (PFS-2093.001): TASmps/MACH supplies the planned velocity."""
+    def test_p0400_cw_velocity_a_matrix_row_refuses_a_contradicting_cell(tmp_path):
+        """X-F-1157: a VELOCITY cell that contradicts the resolved velocity blocks the point."""
         requirement = "P0400-CW-VELOCITY"
         workspace, matrix = _cases_workflows_velocity___matrix(
             tmp_path,
@@ -1533,9 +1533,10 @@ class TestCasesWorkflowsVelocity:
             values="0.0",
             cell="VELOCITY: 30.0",
         )
-        with pytest.warns(UserWarning, match="VELOCITY.*TASmps/MACH"):
-            plan = _cases_workflows_velocity___plan(workspace, matrix)
-        assert not plan.blocked, (requirement, plan.summary())
+        plan = _cases_workflows_velocity___plan(workspace, matrix)
+        assert plan.blocked, (requirement, plan.summary())
+        assert "VELOCITY cell (30.0) contradicts" in plan.summary()
+        assert "50 m/s" in plan.summary()
 
 
 def _cases_workflows_windows___fractional_row():

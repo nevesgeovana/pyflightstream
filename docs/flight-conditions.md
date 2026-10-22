@@ -218,6 +218,9 @@ They are one relation, V = J x (RPM/60) x D, with D the diameter of the rotor
   states what the rotor does and the free stream follows. A row in this form
   naming no `CLOCK_MOTION` rotor with a diameter is refused by name, because
   there is no D to measure against.
+* A `VELOCITY` cell that contradicts the velocity `FLIGHT_CONDITION` resolves is refused
+  before any script is written, naming the cell and the resolved velocity; state the
+  speed in `FLIGHT_CONDITION` only.
 * All three: refused by name. The three over-state the point and nothing here
   can know which two were meant.
 
