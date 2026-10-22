@@ -25,6 +25,16 @@ from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import ArgSpec, ArgType, CommandEntry
 
 
+def periodic_incidence_message(what: str) -> str:
+    """Return the refusal of incidence under PERIODIC symmetry, for the command or pair ``what``."""
+    return (
+        f"SYMMETRY PERIODIC refuses {what}: incidence is incompatible with rotational "
+        "periodicity. The solver does not refuse it: on 26.124 and 26.125 an angle of attack "
+        "is accepted and solved, and a sideslip is silently reset to 0 with no warning "
+        "(L4 X-F-0179, SYMMETRY PERIODIC 6)"
+    )
+
+
 class CommandArgumentError(PyflightstreamError, ValueError):
     """An emitted argument does not satisfy the database specification.
 

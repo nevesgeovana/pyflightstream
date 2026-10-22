@@ -92,6 +92,7 @@ from pyflightstream.script._arg_checks import (
     _check_list,
     _check_one_line_each,
     _check_scalar,
+    periodic_incidence_message,
 )
 from pyflightstream.script._ledger_tables import (
     _COUNT_ARG_NAMES,
@@ -902,21 +903,11 @@ class Script(_ScriptRendering):
             )
             if periodic and any(self._incidence.values()):
                 raise CommandArgumentError(
-                    "SYMMETRY PERIODIC refuses nonzero angle of attack or sideslip: "
-                    "incidence is incompatible with rotational periodicity. The solver "
-                    "does not refuse it: on 26.124 and 26.125 an angle of attack is "
-                    "accepted and solved, and a sideslip is silently reset to 0 with no "
-                    "warning (L4 X-F-0179, SYMMETRY PERIODIC 6)"
+                    periodic_incidence_message("nonzero angle of attack or sideslip")
                 )
         elif entry.name in {"SOLVER_SET_AOA", "SOLVER_SET_SIDESLIP"}:
             if self._periodic_symmetry and float(bound["angle"]) != 0:  # type: ignore[arg-type]
-                raise CommandArgumentError(
-                    f"SYMMETRY PERIODIC refuses nonzero {entry.name}: incidence is "
-                    "incompatible with rotational periodicity. The solver does not refuse "
-                    "it: on 26.124 and 26.125 an angle of attack is accepted and solved, "
-                    "and a sideslip is silently reset to 0 with no warning (L4 X-F-0179, "
-                    "SYMMETRY PERIODIC 6)"
-                )
+                raise CommandArgumentError(periodic_incidence_message(f"nonzero {entry.name}"))
 
     def _check_not_a_model_replacement(self, entry: CommandEntry) -> None:
         """Refuse a command that discards a model this script already tracks."""
