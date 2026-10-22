@@ -32,6 +32,8 @@ revolution, not a blade.
 with `POL`, `REDUCTION`, `ROTOR`, `AZIMUTH`, `STEP`, `REVOLUTIONS`, the steps the
 revolutions span (`FIRST_STEP`, `LAST_STEP`, `STEPS`), the condition block and
 the moment point, then the plotted columns under the names the export prints.
+`FIRST_STEP` and `LAST_STEP` are the first and last steps read, and `STEPS` is the
+number of frames that entered the average, every step read once.
 
 - **The rows are the azimuthal positions of the rotor's LAST revolution**, one
   per solver step of it, sorted from 0 towards 360. `AZIMUTH` is where BLADE ONE

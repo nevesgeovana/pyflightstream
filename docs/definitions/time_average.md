@@ -7,7 +7,9 @@ unsteady point is built from.
 
 `probes/<point>_time_average.csv` opens with `POL`, `REDUCTION`, `ROTOR`,
 `WINDOW`, `FIRST_STEP`, `LAST_STEP`, `STEPS`, then the condition block and the
-moment point, then the plotted columns averaged over the window. The passage
+moment point, then the plotted columns averaged over the window. `FIRST_STEP` and
+`LAST_STEP` are the window as stated, and `STEPS` is the number of frames that
+entered the average: the steps of the window that the history holds. The passage
 series a pproc without `[phase_locked]` gets under the phase-locked name has the
 same columns.
 
