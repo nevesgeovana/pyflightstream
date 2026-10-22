@@ -15,6 +15,9 @@ from pyflightstream.workspace.excel_sync import ExcelSyncError
 __all__ = [
     "create_workbook",
     "main",
+    "EXCEL_ACTION",
+    "add_excel_actions",
+    "run_excel_action",
 ]
 
 

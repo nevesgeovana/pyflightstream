@@ -428,7 +428,7 @@ def test_p0430_an_existing_destination_is_refused_unless_overwrite(tmp_path):
         source="FSM-26.100",
         versions={"26.100": "documented"},
     )
-    with pytest.raises(ManualDraftError, match="reviewed.yaml exists"):
+    with pytest.raises(ManualDraftError, match="reviewed.yaml already exists"):
         write_chapter(body, path=target, write=True)
     assert target.read_text(encoding="utf-8") == "reviewed\n"
     write_chapter(body, path=target, write=True, overwrite=True)
