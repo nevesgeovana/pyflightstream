@@ -223,7 +223,6 @@ The method admits no aspirational requirement: a central requirement stays in th
 | UID | Owed |
 | --- | --- |
 | `NL-INST-5` | a test that a superseded compatibility verdict keeps the reference to the prior report. |
-| `NL-EXEC-1` | refusal of a run whose instrument build or input digests differ from the plan. |
 | `NL-EXEC-5` | the executed procedure archived before a rerun replaces the procedure file. |
 | `NL-RECS-2` | an unemitted documented default reported as a default, never as an effective value. |
 | `NL-RECS-3` | regeneration of the executed procedure from the record, compared with the executed one by digest. |
