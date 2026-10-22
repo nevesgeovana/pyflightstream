@@ -695,8 +695,9 @@ def _wake_termination_detection(
 ) -> list[tuple[str, tuple[int, ...]]]:
     """Return the ``[wake_termination]`` detection a raw mesh's sidecar writes (G02).
 
-    ``AUTO_DETECT_WAKE_TERMINATION_NODES`` for ``detect = "auto"`` (its -1
-    by-surface form on 26.125, FR-423), or one
+    ``AUTO_DETECT_WAKE_TERMINATION_NODES`` for ``detect = "auto"`` on every
+    build (26.125 accepts it and then gives the same lift as 26.124; its -1
+    by-surface form marked no node, L4 PFS-2131.001), or one
     ``DETECT_WAKE_TERMINATION_NODES_BY_SURFACE`` per surface named, cited
     by the sidecar's names exactly; nothing when the table is not written.
     Each command comes with its arguments. WHERE it is emitted is the

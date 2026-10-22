@@ -132,7 +132,9 @@ EMITTABLE = {
     # FSM-26.125 p.388 row.
     # FELL by three on 2026-10-12, the same three measured removals as 26.124,
     # printed by 26.125 on its standard output (CMP-26125_2026-10-12_gap-probes).
-    "26.125": 377,
+    # ROSE by one: AUTO_DETECT_WAKE_TERMINATION_NODES is entered on 26.125, which
+    # accepted it in the L4 licensed run (PFS-2131.001).
+    "26.125": 378,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned

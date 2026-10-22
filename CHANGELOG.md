@@ -86,6 +86,10 @@ FlightStream versions.
 
 ### Fixed
 
+- The wake-termination detection emits `AUTO_DETECT_WAKE_TERMINATION_NODES` on build 26.125 as
+  on the other builds: both builds then give the same lift, where the by-surface `-1` form
+  marked no node and lowered the 26.125 lift by about 5 percent. The command database carries a
+  26.125 row for it.
 - `read_timestep_series` numbers its frames from solver step 1 (the step axis is 1 plus the
   frame index times the frequency), as the solver writes animation frames: the first frame is
   step 1, and a frequency of 2 writes steps 1, 3 and 5. Windows read against it move with it.

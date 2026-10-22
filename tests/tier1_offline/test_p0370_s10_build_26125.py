@@ -88,11 +88,12 @@ def test_p0420_g52_profile_effect_requires_nonempty_output(tmp_path):
     assert "not yet accepted" in spec.observe(artifacts)
 
 
-#: The four commands FSM-26.125 stops printing, absent on 26.125.
+#: The commands FSM-26.125 stops printing, absent on 26.125. The wake-termination
+#: detection is no longer one of them: the L4 licensed run (PFS-2131.001) had 26.125
+#: accept it, so its row is entered.
 DROPPED_BY_26125 = (
     "AUTO_DETECT_BASE_REGIONS",
     "AUTO_DETECT_TRAILING_EDGES",
-    "AUTO_DETECT_WAKE_TERMINATION_NODES",
     "SOLVER_TIME_AVERAGING",
 )
 
@@ -153,14 +154,14 @@ def test_every_command_carries_a_26125_row_or_a_documented_absence():
     # second gap-probes round of 2026-10-12 (RPT-166, CMP-26125_2026-10-12_gap-probes) moved
     # 44 more to verified, 3 more to broken and 3 more to removed (the FSI executable and
     # structural-nodes motion commands and the off-body streamline length).
-    assert len(rows) == 381
+    assert len(rows) == 382
     counts = {status: 0 for status in Status}
     for row in rows.values():
         counts[row.status] += 1
     # CMP-26125_2026-10-16_free-surface-precondition-reanalysis withdraws one
     # broken judgement: the aborted probe did not establish its precondition.
     assert (counts[Status.VERIFIED], counts[Status.BROKEN], counts[Status.REMOVED]) == (185, 4, 4)
-    assert counts[Status.DOCUMENTED] == 188
+    assert counts[Status.DOCUMENTED] == 189
     assert rows["SET_DIRECT_AEROELASTIC_MESH_MORPHING"].status is Status.DOCUMENTED
     assert rows["SET_OUTFLOW_TRAILING_EDGES"].status is Status.REMOVED
     edition = manual_editions()["26.125"]
@@ -194,7 +195,9 @@ def test_every_boundary_detection_takes_the_form_each_build_documents():
 
     Trailing edges on 26.125 list the declared boundaries (a count beside their indices): the
     solver marked zero edges with ``SURFACES -1`` (sweep-1), so an undeclared inventory is
-    refused and the other two kinds keep their -1 form.
+    refused and the base regions keep their -1 form. The wake-termination nodes take the
+    same automatic command on both builds (PFS-2131.001: 26.125 accepts it, and both builds
+    then give the same lift; the -1 form marked no node).
     """
     old, new = Script("26.124"), Script("26.125")
     with pytest.raises(CommandArgumentError, match="declared boundary inventory"):
@@ -203,6 +206,7 @@ def test_every_boundary_detection_takes_the_form_each_build_documents():
     for kind in ("trailing_edges", "base_regions", "wake_termination_nodes"):
         helpers.detect_every_boundary(old, kind)
         helpers.detect_every_boundary(new, kind)
+    # PFS-2131.001 (L4): both builds emit the same wake-termination command.
     assert old.render().splitlines() == [
         "AUTO_DETECT_TRAILING_EDGES",
         "AUTO_DETECT_BASE_REGIONS",
@@ -214,7 +218,7 @@ def test_every_boundary_detection_takes_the_form_each_build_documents():
         "1,2",
         "",
         "DETECT_BASE_REGIONS_BY_SURFACE -1",
-        "DETECT_WAKE_TERMINATION_NODES_BY_SURFACE -1",
+        "AUTO_DETECT_WAKE_TERMINATION_NODES",
     ]
 
 
@@ -224,9 +228,11 @@ def test_a_raw_mesh_asking_for_automatic_detection_builds_on_both_builds(tmp_pat
     case = _raw_mesh_auto(tmp_path)
     old, new = _lines(case, "26.124"), _lines(case, "26.125")
     assert "AUTO_DETECT_TRAILING_EDGES" in old and "AUTO_DETECT_BASE_REGIONS" in old
-    assert not any(line.startswith("AUTO_DETECT") for line in new)
+    assert [line for line in new if line.startswith("AUTO_DETECT")] == [
+        "AUTO_DETECT_WAKE_TERMINATION_NODES"
+    ]
     assert "DETECT_BASE_REGIONS_BY_SURFACE -1" in new
-    assert "DETECT_WAKE_TERMINATION_NODES_BY_SURFACE -1" in new
+    assert "DETECT_WAKE_TERMINATION_NODES_BY_SURFACE -1" not in new
     at = new.index("DETECT_TRAILING_EDGES_BY_SURFACE")
     # The sidecar's mesh declares its two boundaries, so the count and indices are written.
     assert new[at + 1 : at + 3] == ["SURFACES 2", "1,2"]
@@ -395,9 +401,10 @@ def test_every_probe_specification_builds_its_script_on_26125(tmp_path):
         workdir = tmp_path / name
         workdir.mkdir()
         text = generate_probe_script(spec, "26.125", workdir, fsm=fsm).render()
-        assert "AUTO_DETECT" not in text, name
+        # The wake-termination detection is accepted by 26.125 (PFS-2131.001).
+        assert "AUTO_DETECT" not in text.replace("AUTO_DETECT_WAKE_TERMINATION_NODES", ""), name
         built += 1
     # RPT-166 leaves three removed names outside this build's view. The
     # SET_VORTICITY_LIFT_MODEL name probe adds one documented spelling without
     # claiming a measured effect or restoring any removed command.
-    assert built == 228
+    assert built == 229

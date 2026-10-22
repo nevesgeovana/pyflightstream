@@ -59,8 +59,9 @@ __all__ = [
 ]
 
 #: Every-boundary detection, by what it detects: the automatic command of the
-#: builds up to 26.124, and the by-surface command whose -1 form FSM-26.125
-#: documents in its place.
+#: builds that carry it, and the by-surface command whose -1 form FSM-26.125
+#: documents in its place. The wake-termination nodes keep the automatic command
+#: on 26.125 too, which accepts it (L4 PFS-2131.001).
 _DETECTIONS: dict[str, tuple[str, str]] = {
     "trailing_edges": ("AUTO_DETECT_TRAILING_EDGES", "DETECT_TRAILING_EDGES_BY_SURFACE"),
     "base_regions": ("AUTO_DETECT_BASE_REGIONS", "DETECT_BASE_REGIONS_BY_SURFACE"),
