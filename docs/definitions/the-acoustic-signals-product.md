@@ -34,13 +34,18 @@ made safe for a file name.
   width of the spectrum) and `OASPL_DB`; the sampling rate and the bin width are
   `NA` where the step is not constant.
 - **Blade-passage harmonics**, `<point>_acoustics_bpf.csv`, with the columns
-  `ROTOR`, `OBSERVER`, `HARMONIC`, `FREQUENCY_HZ`, `BIN_HZ`, `AMPLITUDE_PA` and
-  `LEVEL_DB`, one row per observer, rotor and harmonic: for each rotor of the
+  `ROTOR`, `OBSERVER`, `HARMONIC`, `FREQUENCY_HZ`, `BIN_HZ`, `AMPLITUDE_PA`,
+  `LEVEL_DB` and `BIN_OFFSET_BINS`, one row per observer, rotor and harmonic: for each rotor of the
   record with its blade count `B` and speed `rpm`, harmonic `n` (1 to 4) is at
   `n B |rpm| / 60` hertz (the sign of the speed only states the sense of rotation), read at the nearest bin of the observer's spectrum, with
   the bin frequency, the amplitude and the level. `NA` when the record states no
   blades or speed, above the Nyquist frequency, or below one bin width; each `NA`
-  has a line in `post.log`.
+  has a line in `post.log`. `BIN_OFFSET_BINS` is the bin read minus the
+  harmonic's frequency, divided by the bin width: zero when the harmonic falls on
+  a bin, `NA` where either frequency is `NA`. The amplitude is the nearest bin's
+  and is not corrected, and every nonzero offset has a line in `post.log`
+  saying that an unwindowed tone off the bin can be underestimated by about
+  3.9 dB.
 - **Directivity**, `<point>_acoustics_directivity.csv`, written only when at
   least four observers are coplanar and lie on one circle (each within 1e-3 of the
   radius): per observer the angle about the circle's centre, measured from the

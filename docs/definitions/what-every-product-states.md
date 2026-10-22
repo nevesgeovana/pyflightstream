@@ -15,7 +15,15 @@ carries `POLAR`.
 Every other column keeps its name and its order after them. The solver's own
 files under `datapoints/DP-<point>/` are never rewritten, and the fixed-width
 custom polar (`.dat`) keeps the title lines its format specifies; a super file
-written in the fixed-width `legacy_polar` format opens with `POL` too.
+written in the fixed-width `legacy_polar` format opens with `POL` too. Two
+families of tables open without `POL`: the acoustic tables under `acoustics/`
+(each observer's `_pressure.csv` and `_spectrum.csv`, and the point's
+`_acoustics_summary.csv`, `_acoustics_bpf.csv` and `_acoustics_directivity.csv`),
+which are tables of one point's observers and open with their own columns, as
+[the acoustic signals product](the-acoustic-signals-product.md#the-acoustic-signals-product)
+lists them; and `structure/<point>_history.csv`, a copy, byte for byte, of the
+coupled run's convergence log. The structure's `_deflection.csv` opens with
+`POL` and the condition block.
 
 **No cell holds a comma or a double quote, and no cell is quoted**, so a reader that splits each line on `,`, as `numpy.genfromtxt` does,
 reads the header and every row to the same count. A text cell that would hold a
@@ -94,8 +102,9 @@ plotted quantity.
 `settings/<matrix>_settings.csv` is the solver settings of every recorded point as one
 numeric table, written by default and switched off by `[products] settings_codebook = false`. It
 opens with `POL` and `RUN_ID`, the key of its row, and then holds the WIDE form of the
-[settings codebook](../settings-codebook.md): `codebook_version`, `run_index`, and `f<id>_value` and
-`f<id>_prov` for every flag, each a number or `NA`; the legend of the codes is the codebook beside
+[settings codebook](../settings-codebook.md): `codebook_version`, `run_index`, and `f<id>_value`,
+`f<id>_prov` and `f<id>_kind` for every flag, each a number or `NA`, the kind being the value kind
+code that tells a list's length from an enumeration code where both read 1; the legend of the codes is the codebook beside
 it, `settings/<matrix>_settings.codebook.json`. A point whose record holds no solver-setup snapshot
 has no row, and `post.log` names it in one INFO line; it is not a recorded skip. With no snapshot
 anywhere neither file is written. The table spans the whole matrix, so a post limited to some simulations
