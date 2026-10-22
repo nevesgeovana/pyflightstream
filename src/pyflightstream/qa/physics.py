@@ -1342,7 +1342,10 @@ def write_physics_report(
 
     Same evidence discipline as the compat reports: the stem is
     ``PHY-<version digits>_<date>`` plus the optional label, and an
-    existing report is never overwritten.
+    existing report is never overwritten. The YAML key ``fs_exe_sha256``
+    keeps its name and never holds a digest: it carries the sentence
+    ``withheld; build <build>`` when the run recorded one, or the words
+    ``not recorded`` when none was taken (FR-1153).
 
     Parameters
     ----------
