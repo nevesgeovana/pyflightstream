@@ -62,7 +62,6 @@ waited for forever nor failed as a job that ended without its log.
 
 from __future__ import annotations
 
-import json
 import math
 import shutil
 import time
@@ -74,7 +73,7 @@ from pathlib import Path
 # Import exceptions from their defining modules. The public exception
 # catalog also imports post-processing modules above run in the layer order;
 # using it here would introduce an upward dependency.
-from typing import TYPE_CHECKING, Any, Protocol, TypeGuard
+from typing import TYPE_CHECKING, Any, Protocol
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._progress import tracked, workspace_activity
@@ -97,6 +96,7 @@ from pyflightstream.run._collect_notes import (
     _datapoint_of,
     _declared_outputs,
     _RecordAsCase,
+    _wall_time_update,
     is_a_sweep_job,
     job_log_note,
     limit_for_its_word,
@@ -105,7 +105,6 @@ from pyflightstream.run._collect_notes import (
     refused_entry,
 )
 from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
-from pyflightstream.workspace._batches import job_of
 from pyflightstream.workspace._missing_log import (
     declared_log_names,
     missing_log_fields,
@@ -116,7 +115,6 @@ from pyflightstream.workspace.storage import ensure_sim_expanded
 
 from ..cases import CampaignConfigError
 from ..cases.acoustics import acoustic_section_outputs
-from ..cases.workflows import WALLTIME_CLOCK_STATE
 from ..results import translate_surface_exports
 from ..workspace import (
     SIM_DATAPOINTS_DIR,
@@ -718,107 +716,149 @@ def collect_once(
     )
 
     for record in tracked("collect: points", submitted, label=_run_label):
-        names = _declared_outputs(record)
-        if not names:
-            report.unknown.append(
-                CollectOutcome(
-                    run_id=record.run_id,
-                    state="UNKNOWN",
-                    detail=(
-                        "the record names no declared outputs, so nothing here knows what to "
-                        "wait for. A point without that list must be completed by hand."
-                    ),
-                )
-            )
-            continue
-        try:
-            writes.ensure_sim_expanded(workspace, record.sim_id, reason="collect")
-        except (OSError, WorkspaceError) as error:
-            # ONE SIMULATION THAT CANNOT BE EXPANDED fails its own points and
-            # does not end the sweep over the others (X-F-0554).
-            report.failed.append(
-                CollectOutcome(
-                    run_id=record.run_id,
-                    state="FAILED",
-                    detail=f"simulation {record.sim_id} could not be expanded: {error}",
-                )
-            )
-            continue
-        sim_dir = _sim_dir(workspace, record)
-        try:
-            work_dir = _working_dir(workspace, record)
-        except WorkspaceError as error:
-            report.failed.append(
-                CollectOutcome(run_id=record.run_id, state="FAILED", detail=str(error))
-            )
-            continue
-        # A STEADY JOB OF SEVERAL POINTS ON A MACHINE THAT EXPORTS NO LOG
-        #: its scheduler writes ONE log, the job's, and no point's log
-        # ever arrives. The job is waited for by its points' other outputs and
-        # by that one log, filed once under the job's name where the job ran;
-        # waiting for a log per point was waiting forever.
-        job_log = _job_log_name(workspace, record, names)
-        if job_log is not None:
-            names = [name for name in names if not name.endswith(LOG_SUFFIX)] + [job_log]
-        # THE SCHEDULER'S OWN LOG IS PUT WHERE THE ROW SAID, before anything
-        # waits on it: on a machine that aborts at EXPORT_LOG the declared log
-        # is the one file that never arrives, and the sweep would wait forever.
-        # FR-311: and A JOB THAT ENDED WITHOUT ITS LOG is failed, not waited for forever.
-        # FR-413: AN ABSENT LOG BESIDE PRESENT OUTPUTS is not waited for: the
-        # settled outputs decide, and the point is completed RAN_MISSING_LOG.
-        native, stopped, absent = _native_log_or_job_end(workspace, record, names, work_dir)
-        if stopped is not None:
-            report.failed.append(stopped)
-            continue
-        names = [name for name in names if name not in absent]
-        waited, paths = observed_paths(record, names, work_dir, native)
-        first = observer(paths)
-        sleep(interval)
-        second = observer(paths)
-        if not settled(first, second):
-            missing = [
-                str(native.target) if native.source is not None and n == str(native.source) else n
-                for n, stamp in second.items()
-                if stamp is None
-            ]
-            if missing:
-                # Name missing files so the user need not infer them from counts.
-                detail = (
-                    f"{len(missing)} of {len(waited)} declared output(s) not there yet: "
-                    + ", ".join(Path(n).name for n in missing)
-                )
-            else:
-                detail = "every declared output is present and at least one is still changing"
-            report.waiting.append(
-                CollectOutcome(run_id=record.run_id, state="WAITING", detail=detail)
-            )
-            continue
-        # SETTLED, so this is the log of a job that has stopped writing it.
-        writes.copy_native_log(native)
-        # G45: each Tecplot from its VTK, where the job wrote them, before the
-        # outputs are collected; the record keeps what was written and why not.
-        if record.surface_translations:
-            record = record.model_copy(
-                update={
-                    "surface_translations": writes.translate_surface_exports(
-                        work_dir, record.surface_translations
-                    )
-                }
-            )
-        outcome = _complete(
+        _collect_point(
             workspace,
             record,
-            names,
-            sim_dir,
-            assessor,
-            job_log=None if job_log is None else work_dir / job_log,
-            missing_logs=absent,
+            report,
+            interval=interval,
+            sleep=sleep,
+            observer=observer,
+            assessor=assessor,
+            writes=writes,
         )
-        if outcome.state == "COLLECTED":
-            report.collected.append(outcome)
-        else:
-            report.failed.append(outcome)
     return report
+
+
+def _ready_to_wait(
+    workspace: CampaignWorkspace, record: RunRecord, report: CollectReport, writes: CollectWrites
+) -> tuple[list[str], Path, Path] | None:
+    """Return a submitted point's outputs and folders, or file why it cannot be waited for."""
+    names = _declared_outputs(record)
+    if not names:
+        report.unknown.append(
+            CollectOutcome(
+                run_id=record.run_id,
+                state="UNKNOWN",
+                detail=(
+                    "the record names no declared outputs, so nothing here knows what to "
+                    "wait for. A point without that list must be completed by hand."
+                ),
+            )
+        )
+        return None
+    try:
+        writes.ensure_sim_expanded(workspace, record.sim_id, reason="collect")
+    except (OSError, WorkspaceError) as error:
+        # ONE SIMULATION THAT CANNOT BE EXPANDED fails its own points and
+        # does not end the sweep over the others (X-F-0554).
+        report.failed.append(
+            CollectOutcome(
+                run_id=record.run_id,
+                state="FAILED",
+                detail=f"simulation {record.sim_id} could not be expanded: {error}",
+            )
+        )
+        return None
+    sim_dir = _sim_dir(workspace, record)
+    try:
+        work_dir = _working_dir(workspace, record)
+    except WorkspaceError as error:
+        report.failed.append(
+            CollectOutcome(run_id=record.run_id, state="FAILED", detail=str(error))
+        )
+        return None
+    return names, sim_dir, work_dir
+
+
+def _still_waiting(
+    record: RunRecord,
+    native: NativeLog,
+    waited: Sequence[str],
+    second: Mapping[str, Stamp | None],
+) -> CollectOutcome:
+    """Return the WAITING outcome of a point whose outputs have not settled."""
+    missing = [
+        str(native.target) if native.source is not None and n == str(native.source) else n
+        for n, stamp in second.items()
+        if stamp is None
+    ]
+    if missing:
+        # Name missing files so the user need not infer them from counts.
+        detail = f"{len(missing)} of {len(waited)} declared output(s) not there yet: " + ", ".join(
+            Path(n).name for n in missing
+        )
+    else:
+        detail = "every declared output is present and at least one is still changing"
+    return CollectOutcome(run_id=record.run_id, state="WAITING", detail=detail)
+
+
+def _collect_point(
+    workspace: CampaignWorkspace,
+    record: RunRecord,
+    report: CollectReport,
+    *,
+    interval: float,
+    sleep: Callable[[float], None],
+    observer: Callable[[Iterable[Path]], dict[str, Stamp | None]],
+    assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None,
+    writes: CollectWrites,
+) -> None:
+    """Collect one submitted point if its outputs settled, else file why not in ``report``."""
+    ready = _ready_to_wait(workspace, record, report, writes)
+    if ready is None:
+        return
+    names, sim_dir, work_dir = ready
+    # A STEADY JOB OF SEVERAL POINTS ON A MACHINE THAT EXPORTS NO LOG
+    #: its scheduler writes ONE log, the job's, and no point's log
+    # ever arrives. The job is waited for by its points' other outputs and
+    # by that one log, filed once under the job's name where the job ran;
+    # waiting for a log per point was waiting forever.
+    job_log = _job_log_name(workspace, record, names)
+    if job_log is not None:
+        names = [name for name in names if not name.endswith(LOG_SUFFIX)] + [job_log]
+    # THE SCHEDULER'S OWN LOG IS PUT WHERE THE ROW SAID, before anything
+    # waits on it: on a machine that aborts at EXPORT_LOG the declared log
+    # is the one file that never arrives, and the sweep would wait forever.
+    # FR-311: and A JOB THAT ENDED WITHOUT ITS LOG is failed, not waited for forever.
+    # FR-413: AN ABSENT LOG BESIDE PRESENT OUTPUTS is not waited for: the
+    # settled outputs decide, and the point is completed RAN_MISSING_LOG.
+    native, stopped, absent = _native_log_or_job_end(workspace, record, names, work_dir)
+    if stopped is not None:
+        report.failed.append(stopped)
+        return
+    names = [name for name in names if name not in absent]
+    waited, paths = observed_paths(record, names, work_dir, native)
+    first = observer(paths)
+    sleep(interval)
+    second = observer(paths)
+    if not settled(first, second):
+        report.waiting.append(_still_waiting(record, native, waited, second))
+        return
+    # SETTLED, so this is the log of a job that has stopped writing it.
+    writes.copy_native_log(native)
+    # G45: each Tecplot from its VTK, where the job wrote them, before the
+    # outputs are collected; the record keeps what was written and why not.
+    if record.surface_translations:
+        record = record.model_copy(
+            update={
+                "surface_translations": writes.translate_surface_exports(
+                    work_dir, record.surface_translations
+                )
+            }
+        )
+    outcome = _complete(
+        workspace,
+        record,
+        names,
+        sim_dir,
+        assessor,
+        job_log=None if job_log is None else work_dir / job_log,
+        missing_logs=absent,
+    )
+    if outcome.state == "COLLECTED":
+        report.collected.append(outcome)
+    else:
+        report.failed.append(outcome)
 
 
 def _refused(workspace: CampaignWorkspace, record: RunRecord, error: Exception) -> CollectOutcome:
@@ -1052,72 +1092,6 @@ def _action_counter(workspace: CampaignWorkspace, record: RunRecord) -> int | No
     except (OSError, ValueError, KeyError, TypeError):
         counter = None
     return record.action_count if counter is None else counter
-
-
-def _wall_time_update(
-    record: RunRecord, work_dir: Path, stamped: Mapping[str, object]
-) -> dict[str, object]:
-    """Return the wall time a collected point is recorded with, and how it was measured (FR-366).
-
-    A point run alone records its wall time from the process clock. A point
-    collected from a job has no process of its own, so the time is read from
-    what the job measured for it: the point's own clock file (the elapsed
-    seconds from the point's start to its last step callback), else the
-    solver run time its sliced log prints. A point with neither records no
-    time AND says why, in ``submission.job.wall_time_basis`` for a grouped
-    point, so a null is never silent. A point submitted alone has no job
-    entry; it records the clock file's time when one was written and is
-    otherwise left as it was.
-    """
-    elapsed: float | None = None
-    basis: str | None = None
-    state_path = work_dir / WALLTIME_CLOCK_STATE
-    try:
-        state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
-    except (OSError, ValueError):
-        state = {}
-    raw = state.get("elapsed_s") if isinstance(state, dict) else None
-    if _is_a_wall_time(raw):
-        elapsed = float(raw)
-        basis = (
-            f"the point's own clock file ({WALLTIME_CLOCK_STATE}): elapsed_s from the point's "
-            "start to its last step callback, measured inside the solver run"
-        )
-    else:
-        solver = stamped.get("solver_run_time_s")
-        if _is_a_wall_time(solver):
-            elapsed = float(solver)
-            basis = "the solver run time printed in the point's sliced log (solver_run_time_s)"
-    entry = job_of(record)
-    update: dict[str, object] = {}
-    if elapsed is not None:
-        update["wall_time_s"] = elapsed
-    if entry is not None:
-        submission = dict(record.submission or {})
-        submission["job"] = {
-            **entry,
-            "wall_time_basis": basis
-            or (
-                "not measured: the point wrote no clock file and its log prints no solver run "
-                "time, so the job has no time of its own for it"
-            ),
-        }
-        update["submission"] = submission
-    return update
-
-
-#: The longest wall time a point can honestly record: ten years, in seconds (F-266).
-_MAX_WALL_TIME_S = 3.2e8
-
-
-def _is_a_wall_time(value: object) -> TypeGuard[float]:
-    """Whether ``value`` is a finite number of seconds, zero to ten years (F-266)."""
-    return (
-        isinstance(value, (int, float))
-        and not isinstance(value, bool)
-        and math.isfinite(value)
-        and 0 <= value <= _MAX_WALL_TIME_S
-    )
 
 
 def _sweep_point_entry(

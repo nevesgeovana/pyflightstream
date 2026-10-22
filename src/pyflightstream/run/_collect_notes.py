@@ -10,15 +10,19 @@ both to :class:`~pyflightstream.run.LoadsAssessor`.
 
 from __future__ import annotations
 
+import json
+import math
 import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.run._step_exports import untranslated_surfaces
 
+from ..cases.workflows import WALLTIME_CLOCK_STATE
 from ..workspace import MissingOutputsError, RunRecord, RunStatus
+from ..workspace._batches import job_of
 from ..workspace.naming import datapoint_name_of
 
 
@@ -199,3 +203,69 @@ class _RecordAsCase:
         # The run type the record states, which the assessor reads to
         # know a quasi-steady point (its record is judged per clocking).
         self.recipe = record.recipe
+
+
+def _wall_time_update(
+    record: RunRecord, work_dir: Path, stamped: Mapping[str, object]
+) -> dict[str, object]:
+    """Return the wall time a collected point is recorded with, and how it was measured (FR-366).
+
+    A point run alone records its wall time from the process clock. A point
+    collected from a job has no process of its own, so the time is read from
+    what the job measured for it: the point's own clock file (the elapsed
+    seconds from the point's start to its last step callback), else the
+    solver run time its sliced log prints. A point with neither records no
+    time AND says why, in ``submission.job.wall_time_basis`` for a grouped
+    point, so a null is never silent. A point submitted alone has no job
+    entry; it records the clock file's time when one was written and is
+    otherwise left as it was.
+    """
+    elapsed: float | None = None
+    basis: str | None = None
+    state_path = work_dir / WALLTIME_CLOCK_STATE
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
+    except (OSError, ValueError):
+        state = {}
+    raw = state.get("elapsed_s") if isinstance(state, dict) else None
+    if _is_a_wall_time(raw):
+        elapsed = float(raw)
+        basis = (
+            f"the point's own clock file ({WALLTIME_CLOCK_STATE}): elapsed_s from the point's "
+            "start to its last step callback, measured inside the solver run"
+        )
+    else:
+        solver = stamped.get("solver_run_time_s")
+        if _is_a_wall_time(solver):
+            elapsed = float(solver)
+            basis = "the solver run time printed in the point's sliced log (solver_run_time_s)"
+    entry = job_of(record)
+    update: dict[str, object] = {}
+    if elapsed is not None:
+        update["wall_time_s"] = elapsed
+    if entry is not None:
+        submission = dict(record.submission or {})
+        submission["job"] = {
+            **entry,
+            "wall_time_basis": basis
+            or (
+                "not measured: the point wrote no clock file and its log prints no solver run "
+                "time, so the job has no time of its own for it"
+            ),
+        }
+        update["submission"] = submission
+    return update
+
+
+#: The longest wall time a point can honestly record: ten years, in seconds (F-266).
+_MAX_WALL_TIME_S = 3.2e8
+
+
+def _is_a_wall_time(value: object) -> TypeGuard[float]:
+    """Whether ``value`` is a finite number of seconds, zero to ten years (F-266)."""
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and 0 <= value <= _MAX_WALL_TIME_S
+    )
