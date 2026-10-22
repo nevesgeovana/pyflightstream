@@ -2888,55 +2888,61 @@ def test_p0430_f1811_the_spanwise_table_carries_the_condition_and_reference_bloc
     assert columns[-1] == "STATUS"
 
 
-def _ff_ctx_point(v_inf, v_ref):
-    from dataclasses import replace
-    from types import SimpleNamespace
+def at_twice_the_free_stream(workspace):
+    """Restate the loads fixture of a far-field workspace on a reference velocity of 2 VINF.
 
-    loads = replace(
-        parse_loads(LOADS),
-        freestream_velocity_m_s=v_inf,
-        reference_velocity_m_s=v_ref,
-        angle_of_attack_deg=4.0,
+    The physical forces stay: the coefficients, taken on ``0.5 rho VREF^2``, fall to a
+    quarter, so ``CL_native * 4`` is again the fixture's CL on the free-stream basis.
+    """
+    import re
+
+    path = next(Path(workspace.root).rglob("POLAR-3207_M20AL-020BE+000.txt"))
+    text = path.read_text(encoding="utf-8").replace(
+        "Reference velocity (m/s)                    68.058",
+        "Reference velocity (m/s)                    136.116",
     )
-    loads.total["CL"] = 0.5
-    point = SimpleNamespace(
-        name="point",
-        loads=loads,
-        state=SimpleNamespace(density_kg_m3=1.2),
-        vorticity_selection=None,
-    )
-    ctx = SimpleNamespace(
-        sim_id="1",
-        reference=ReferenceValues(10.0, 1.0, 4.0),
-        record_of={"point": SimpleNamespace(status=None)},
-        condition=lambda point: {},
-    )
-    return ctx, point
+
+    def quarter(match):
+        cells = match.group(0).split(",")
+        return ",".join([cells[0], *(f"{float(cell) / 4.0:+.7f}" for cell in cells[1:])])
+
+    path.write_text(re.sub(r"^     (?:W|B|Total),.*$", quarter, text, flags=re.M), encoding="utf-8")
 
 
-def test_p0430_f125_e_t_puts_the_native_cl_on_the_free_stream_dynamic_pressure():
+def test_p0430_f125_e_t_puts_the_native_cl_on_the_free_stream_dynamic_pressure(tmp_path):
     """F-125: with VREF = 2 VINF, CL_native * 4 is the CL on the CDI_T basis."""
     import math
 
-    from pyflightstream.post import farfield_products as module
-
-    ctx, point = _ff_ctx_point(30.0, 60.0)
-    qs = 0.5 * 1.2 * 30.0**2 * 10.0
-    plane = {
-        "D": 0.02 * qs,
-        "L": 0.5 * qs,
-        "N": 10,
-        "X_T_M": 1.0,
-        "COVERAGE": 1.0,
-        "D_QERR": 0.0,
-        "D_VORT": 0.0,
-        "RESIDUAL": 0.0,
-    }
-    row = module._c_row(ctx, point, {"plane": plane}, 1)
-    cells = dict(zip(("POL", "STEP", *CONTEXT_COLUMNS, *module.TREFFTZ_COLUMNS), row, strict=False))
-    aspect = 4.0**2 / 10.0
-    expected = (0.5 * 4.0) ** 2 / (math.pi * aspect * 0.02)
-    assert cells["E_T"] == pytest.approx(expected, rel=1e-9)
+    helpers = _ff_helpers()
+    workspace = helpers._ffproof_post___campaign(
+        tmp_path,
+        pproc=helpers._RFIXF_PLANE_LIFT___TABLE,
+        files={
+            f"{helpers._FFPROOF_POST___STEM}_probes.txt": helpers._rfixf_layout___export(
+                helpers._RFIXF_PLANE_LIFT___PLANE.points, helpers._rfixf_plane_lift___crossflow(1.0)
+            )
+        },
+    )
+    helpers._ffproof_post___set_record(
+        workspace, farfield_layout=helpers._RFIXF_PLANE_LIFT___LAYOUT
+    )
+    at_twice_the_free_stream(workspace)
+    helpers._ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    (row,) = [
+        r
+        for r in helpers._rfixf_layout___rows(root, "farfield/*_trefftz.csv")
+        if r["VARIANT"] == "C"
+    ]
+    # the native CL is a quarter of the fixture's; on the CDI_T basis it is the fixture's again
+    expected = helpers._RFIXF_PLANE_LIFT___CL**2 / (
+        math.pi * float(row["AR"]) * float(row["CDI_T"])
+    )
+    assert float(row["E_T"]) == pytest.approx(expected, rel=1e-3)
+    said = [
+        w for w in helpers._ffproof_post___warnings_of(root) if "carries a lift of its own" in w
+    ]
+    assert not said, said
 
 
 def test_p0430_f123_the_wake_calibration_targets_the_reference_velocity_lift(tmp_path):
@@ -3181,52 +3187,36 @@ def test_a_streamline_export_with_a_non_finite_value_writes_no_vtk_f4_07():
         render_streamlines_vtk(report, title="t")
 
 
-def test_trefftz_b_states_a_missing_density_as_its_reason_f4_07(tmp_path, monkeypatch):
+def test_trefftz_b_states_a_missing_density_as_its_reason_f4_07(tmp_path):
     """X-F-0526: variant B has variant A's guard, so the skip names the density."""
-    from types import SimpleNamespace
+    import json
 
-    from pyflightstream.post import farfield_products as ff
-
-    wake_file = tmp_path / "P1_wakes.vtk"
-    wake_file.write_text("x", encoding="utf-8")
-    monkeypatch.setattr(ff, "_trefftz", lambda ctx: SimpleNamespace(distance_bref=1.0))
-    monkeypatch.setattr(ff, "_output", lambda ctx, point, kind: tmp_path / "P1.vtk")
-    monkeypatch.setattr(ff, "_per_m", lambda ctx, point: 1.0)
-    monkeypatch.setattr(ff, "parse_wake_export", lambda text: SimpleNamespace(lines=[], values=[]))
-    loads = SimpleNamespace(freestream_velocity_m_s=30.0, angle_of_attack_deg=0.0, sideslip_deg=0.0)
-    point = SimpleNamespace(name="P1", state=None, loads=loads)
-    ctx = SimpleNamespace(skipped={})
-    with pytest.warns(UserWarning, match="no density or free-stream speed"):
-        assert ff._variant_b(ctx, point) == []
-    assert list(ctx.skipped.values()) == ["the point states no density or free-stream speed"]
+    helpers = _ff_helpers()
+    workspace = helpers._farfield_products___workspace(tmp_path, farfield=True)
+    helpers._ffproof_post___set_record(workspace, density_kg_m3=None)
+    said = helpers._farfield_products___post(workspace)
+    assert any("no density or free-stream speed" in message for message in said)
+    products = helpers._ffproof_post___one(Path(workspace.root), "products.json")
+    skipped = json.loads(products.read_text(encoding="utf-8"))["skipped"]
+    (why,) = [v for k, v in skipped.items() if k.endswith("#variant=wake")]
+    assert why == "the point states no density or free-stream speed"
 
 
-def test_a_family_name_is_made_safe_in_the_spanwise_file_name_f4_07(tmp_path, monkeypatch):
+def test_a_family_name_is_made_safe_in_the_spanwise_file_name_f4_07(tmp_path):
     """X-F-0525: a slash in a family name does not leave the sections folder."""
-    from types import SimpleNamespace
-
-    import numpy as np
-
-    from pyflightstream.post import farfield_products as ff
-
-    monkeypatch.setattr(ff, "_status", lambda ctx, point: "ok")
-    one = np.array([1.0])
-    result = SimpleNamespace(
-        original=np.array([True]), downwash=one, gamma=one, y=one, z=one, dy=one
-    )
-    loads = SimpleNamespace(freestream_velocity_m_s=30.0, angle_of_attack_deg=0.0, sideslip_deg=0.0)
-    state = SimpleNamespace(density_kg_m3=1.2)
-    point = SimpleNamespace(name="P1", state=state, loads=loads)
-    added = []
-    ctx = SimpleNamespace(
-        sim_id="S",
-        sources={"P1": ["r"]},
-        out=tmp_path,
-        target=lambda path: path,
-        add=lambda path, entry: added.append(path),
-        condition=lambda _p: {"alpha": 0.0},
-        reference=SimpleNamespace(as_lengths=lambda: {}),
-    )
-    ff._spanwise(ctx, point, variant="sections", name="a/b", result=result, chords=None)
-    assert [path.parent.name for path in added] == ["sections"]
-    assert added[0].name == "P1_trefftz_a_b.csv"
+    helpers = _ff_helpers()
+    workspace = helpers._farfield_products___workspace(tmp_path, farfield=True)
+    layout = {
+        "distribution": 1,
+        "distribution_families": ["a/b"],
+        "families": ["a/b"],
+        "plane": "XZ",
+        "frame": "MRP",
+        "count": 160,
+    }
+    helpers._ffproof_post___set_record(workspace, sections_layout=[layout])
+    helpers._farfield_products___post(workspace)
+    root = Path(workspace.root)
+    named = sorted(root.rglob("*_trefftz_a_b.csv"))
+    assert [path.parent.name for path in named] == ["sections"]
+    assert not list(root.rglob("a"))

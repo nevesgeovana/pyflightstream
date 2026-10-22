@@ -1000,18 +1000,18 @@ def _f4_0304_point(*, v_inf, v_ref, cl):
     )
 
 
-def test_f4_0304_free_stream_lift_is_compared_with_the_solver_cl_on_one_basis():
+def test_f4_0304_free_stream_lift_is_compared_with_the_solver_cl_on_one_basis(tmp_path):
     """F-143, F-146, X-F-0321: VINF-based traced lift meets the VREF-based CL on one q."""
-    from pyflightstream.post import farfield_products as ff
+    import tests.tier1_offline.test_regression_farfield_products as wing
+    from tests.tier1_offline.test_post_products import at_twice_the_free_stream
 
-    point = _f4_0304_point(v_inf=10.0, v_ref=20.0, cl=0.5)
-    ctx = SimpleNamespace(reference=SimpleNamespace(sref_m2=1.0))
-    assert ff._near_cl_on_vinf(point) == pytest.approx(2.0)
-    # lift = CL * 0.5 rho VREF^2 Sref = 100 N: the same lift the solver reports.
-    with collecting_warnings() as said:
-        ff._warn_traced_lift(ctx, point, 100.0, ["W"])
-        ff._flag_a_plane_short_of_the_lift(ctx, point, {"L": 100.0})
-    assert not said, said
+    # The reference velocity is twice the free stream's and the native CL a quarter of the
+    # traced one: on one basis they are the same lift, so Trefftz A states no shortfall.
+    workspace = wing._farfield_products___workspace(tmp_path, farfield=True)
+    at_twice_the_free_stream(workspace)
+    said = wing._farfield_products___post(workspace)
+    traced = [message for message in said if "Trefftz A traces" in message]
+    assert not traced, traced
 
 
 def test_f4_0304_a_missing_selected_family_is_a_named_skip(tmp_path, monkeypatch):
@@ -1051,38 +1051,57 @@ def test_f4_0304_the_manifest_names_the_exports_a_far_field_file_consumed(tmp_pa
     assert entry["runs"] not in consumed
 
 
-def test_f4_0304_a_reduced_far_field_file_records_its_window_and_sample_count():
+def test_f4_0304_a_reduced_far_field_file_records_its_window_and_sample_count(tmp_path):
     """F-504: the average of a far-field table states the window and the samples it holds."""
-    from pyflightstream.post.farfield_products import _Tables
+    from pathlib import Path
 
-    tables = _Tables()
-    tables.extend(
-        "trefftz_average", "p", ["a_plots.txt"], [(1,)], runs=["r"], window=(5, 9), samples=4
+    import tests.tier1_offline.test_regression_farfield_products as wing
+
+    stem = wing._FFPROOF_POST___STEM
+    workspace = wing._ffproof_post___campaign(
+        tmp_path,
+        pproc=wing._FFPROOF_POST___LEDGERS,
+        files={
+            f"{stem}_plots.txt": wing._ffproof_post___plots_export(
+                len(wing._FFPROOF_POST___POINTS_M), 8
+            )
+        },
+        recipe="unsteady",
+        reductions=wing._FFPROOF_POST___WINDOW,
+        positions=True,
     )
-    assert tables.reduced["trefftz_average"]["p"] == {"window": [5.0, 9.0], "samples": 4}
-    assert tables.inputs["trefftz_average"]["p"] == ["a_plots.txt"]
+    wing._ffproof_post___post(workspace)
+    manifest = wing._ffproof_post___manifest(Path(workspace.root))
+    average = wing._ffproof_post___entry(manifest, "_ledgers_average.csv")
+    assert average["reduced_from"] == {stem: {"window": [5.0, 8.0], "samples": 4}}
+    assert average["inputs"] == {stem: [f"outputs/{stem}_plots.txt"]}
+    assert "reduced_from" not in wing._ffproof_post___entry(manifest, "_ledgers_instant.csv")
 
 
-def test_f4_0304_one_absent_point_set_keeps_the_other_analysis(monkeypatch):
+def test_f4_0304_one_absent_point_set_keeps_the_other_analysis(tmp_path):
     """F-1246: a missing lattice leaves the C plane written, and the absence is named."""
-    from pyflightstream.post import farfield_products as ff
+    from pathlib import Path
 
-    monkeypatch.setattr(ff, "far_samples", lambda *_a, **_k: (None, object(), "no lattice"))
-    monkeypatch.setattr(ff, "plane_values", lambda *_a, **_k: {"L": 1.0})
-    ctx = SimpleNamespace(skipped={})
-    point = _f4_0304_point(v_inf=10.0, v_ref=10.0, cl=0.5)
-    probe = SimpleNamespace(
-        layout=SimpleNamespace(plane_grid=(1.0, 1.0, 0.1), lattice=None, axis="X"),
-        per_m=1.0,
-        rotor=False,
-        hub=None,
+    import tests.tier1_offline.test_regression_farfield_products as wing
+
+    workspace = wing._farfield_products___workspace(tmp_path, farfield=True)
+    pproc = Path(workspace.inputs_dir) / "pproc" / "p001.toml"
+    ledgers = (
+        '[farfield.ledgers]\nframe = "MRP"\ntip_radius_m = 1.0\n'
+        "stations = [-1.0, 1.0]\nn_r = 2\nn_psi = 16\nm_max = 2\n"
     )
-    with collecting_warnings():
-        out = ff._instant_values(
-            ctx, point, SimpleNamespace(samples=None), probe, ["trefftz:plane", "ledgers"]
-        )
-    assert out == {"plane": {"L": 1.0}}
-    assert any("lattice" in why for why in ctx.skipped.values()), ctx.skipped
+    pproc.write_text(pproc.read_text(encoding="utf-8") + ledgers, encoding="utf-8")
+    wing._farfield_products___post(workspace)
+    root = Path(workspace.root)
+    skipped = json.loads(wing._farfield_products___one(root, "products.json").read_text("utf-8"))[
+        "skipped"
+    ]
+    assert any(key.endswith("#absent=lattice") for key in skipped), skipped
+    rows = wing._farfield_products___table(
+        wing._farfield_products___one(root, "farfield/*_trefftz.csv")
+    )
+    assert [row["VARIANT"] for row in rows if row["VARIANT"] == "C"] == ["C"]
+    assert not list(root.rglob("farfield/*_ledgers*.csv"))
 
 
 def test_pfs_2124_031_each_file_carries_the_conventions_its_own_layout_borrowed(tmp_path):
