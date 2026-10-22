@@ -321,3 +321,15 @@ def test_f1292_a_rotor_shaped_probe_frame_no_declared_rotor_owns_is_refused(tmp_
     case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=spec)
     with pytest.raises(CampaignConfigError, match="GHOST_SMRP"):
         build_script(case, Script("26.124"))
+
+
+def test_p0430_a_stray_blank_line_in_a_survey_file_is_named_as_one(tmp_path):
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows._probes import _read_probe_profile
+
+    path = tmp_path / "survey.txt"
+    path.write_text(
+        "2" + chr(10) + "0,0,0,1" + chr(10) + chr(10) + "1,0,0,1" + chr(10), encoding="utf-8"
+    )
+    with pytest.raises(CampaignConfigError, match="blank lines"):
+        _read_probe_profile(str(path))

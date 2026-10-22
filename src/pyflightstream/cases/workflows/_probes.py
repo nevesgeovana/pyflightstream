@@ -556,7 +556,9 @@ def _read_probe_profile(path: str, *, volume_only: bool = False) -> list[list[fl
             raise ValueError("the first line must contain the point count")
         count = int(rows[0][0])
         if count < 0 or len(rows) - 1 != count:
-            raise ValueError(f"declares {count} points but contains {len(rows) - 1} rows")
+            blank = sum(1 for row in rows[1:] if not row)
+            note = f" ({blank} of them blank lines; remove them)" if blank else ""
+            raise ValueError(f"declares {count} points but contains {len(rows) - 1} rows{note}")
         points = []
         for number, row in enumerate(rows[1:], start=1):
             if len(row) != 4 or row[3].strip() not in ("0", "1"):
