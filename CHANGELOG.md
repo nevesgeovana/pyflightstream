@@ -7,6 +7,13 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- `refine` reports its progress while it runs: one line per stage and per family (read, layout,
+  grid, remesh, write, audit) on stderr, as `[refine HH:MM:SS +N.N s] <stage>`, so a long refinement
+  shows it is moving; `--log-level quiet` hides them. In Python, `refine_mesh(..., progress=callable)`
+  receives the same lines and stays silent without one.
+
 ### Fixed
 
 - `refine` no longer refuses a multiblock family when a patch side has too few intervals for its

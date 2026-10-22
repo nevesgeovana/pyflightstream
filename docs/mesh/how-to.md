@@ -129,7 +129,10 @@ inputs/geometries/W1_R2/
     W1_R2.audit.json        the audit of the level against its source
 ```
 
-The console names each family with the method it took (`Wing: grid`), prints
+While it runs, `refine` prints timed progress lines to stderr, one per stage and
+family (`[refine 14:02:11 +3.2 s] grid 1 of 2: Wing (...)`), so a long
+refinement shows it is moving; `--log-level quiet` hides them. At the end the
+console names each family with the method it took (`Wing: grid`), prints
 the audit's summary and then every file written. The level is a geometry of its
 own, so a row names it as it names any geometry, `W1_R2.obj` in its `GEOMETRY`
 column, and the sidecar written beside it is the one the run reads.
