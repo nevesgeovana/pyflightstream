@@ -76,7 +76,11 @@ shared condition block, then the export's columns. Sectional loads retain
 `Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment`. Cp carries `SECTION`, the export's
 1-based cross-section index, followed by its twenty printed columns:
 `Section_direction_value, X, Y, Z, nx, ny, nz, L, Cp, Mach, vx, vy, vz, vtot,
-Cp_ref, Theta, CF, Delta*, Delta, H`. There is one row per step, section and
+Cp_ref, Theta, CF, Delta*, Delta, H`. `X, Y, Z` are the point in the reference
+coordinates whatever the analysis loads frame is (measured on 26.124 with a loads
+frame translated and turned about z: the points lay on the turned cut plane in
+reference coordinates); only the plane of the cut follows the section's frame.
+There is one row per step, section and
 chordwise station, in the export's station order. Unknown time or identity
 values read `NA`.
 
