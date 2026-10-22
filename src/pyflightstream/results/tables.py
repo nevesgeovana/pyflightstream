@@ -31,8 +31,9 @@ EVERY TABLE SAYS WHAT PRODUCED ITS NUMBERS (PFS-2014.05). Each frame these funct
 write one that does not. They are constant columns for a single parsed
 result and genuinely PER ROW in the sweep table, which is the one file
 here that mixes provenances: a steady point's coefficients are a direct
-integration and an unsteady point's are the last time step, one instant
-of a cycle, printed under the same names. The vocabulary and its integer codes live
+integration and an unsteady point's are the last time step (RPT-053, "what an unsteady
+export states, and at which step", 2026-09-19), one instant of a cycle, printed under the same
+names. The vocabulary and its integer codes live
 in :mod:`pyflightstream.results`, one layer below the writers that
 publish them.
 
@@ -1485,7 +1486,8 @@ def _read_output(sim_dir: Path, name: str, record: _ManifestRecord) -> str:
 
 #: How much of a collected output is read to tell a loads spreadsheet from
 #: any other export: its ``Surface,`` header stands within the first thirty
-#: lines of every committed loads export.
+#: lines of every committed loads export (an observation of the committed
+#: fixtures; no measured bound on other exports).
 _LOADS_HEAD_BYTES = 8192
 
 
