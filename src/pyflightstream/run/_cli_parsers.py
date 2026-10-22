@@ -28,7 +28,6 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._cli import _SELECTED_COST_FILE, _SELECTED_HPC, for_this_invocation
-from pyflightstream._console import CONSOLE_LEVELS
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.workflows import (
     read_a_choice,
@@ -53,7 +52,7 @@ from pyflightstream.run._ids import _add_sim_ids, command_line_text
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
 from pyflightstream.workspace._matrix_homes import matrix_stem
-from pyflightstream.workspace.cli import take_settings, withhold_defaults
+from pyflightstream.workspace.cli import add_console_arguments, take_settings, withhold_defaults
 
 # Re-exported through this public import path.
 from pyflightstream.workspace.costs import select_cost_file as select_cost_file
@@ -263,22 +262,6 @@ def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
         help="the same choice as --ignore-missing-families false, written as "
         "a flag: a family the opened mesh does not carry REFUSES the point "
         "instead of being left out. Stating both is refused",
-    )
-
-
-def _add_console_arguments(parser: argparse.ArgumentParser, verbose_help: str) -> None:
-    """Add ``--verbose`` and ``--log-level`` (FR-997), one choice of the console level."""
-    console = parser.add_mutually_exclusive_group()
-    console.add_argument("--verbose", action="store_true", help=verbose_help)
-    console.add_argument(
-        "--log-level",
-        dest="log_level",
-        choices=CONSOLE_LEVELS,
-        default=None,
-        help="how much the console says: quiet (the errors, the final summary line and the "
-        "signature), normal (the default) or verbose (as --verbose); logs/activity.log keeps "
-        "the full detail at every level. Default: [log] console of pyfs.local.toml or "
-        "pyfs.toml, else normal",
     )
 
 
@@ -619,7 +602,7 @@ def _add_plan_parsers(subparsers: Any) -> None:
     _add_switch(plan, "--accept-unregistered-build", _ACCEPT_HELP, no_help=_NO_ACCEPT_HELP)
     _add_selection_arguments(plan)
     _add_grouping_arguments(plan)
-    _add_console_arguments(
+    add_console_arguments(
         plan,
         "print every warning in Python's full format (file, line and source) and the "
         "started and finished lines of the stages printed only on request, such as "
@@ -946,7 +929,7 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
     run, collect = subparsers.choices["run"], subparsers.choices["collect"]
     for command_parser in (run, post, collect):
         _add_switch(command_parser, "--pproc-warnings", "print grouped post-processing warnings")
-        _add_console_arguments(
+        add_console_arguments(
             command_parser,
             "print every warning in Python's full format (file, line and source) and "
             "one line per item where a repeated warning is otherwise counted in one line, "

@@ -84,7 +84,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._cli import cli_entrypoint
-from pyflightstream._console import command_help
+from pyflightstream._console import CONSOLE_LEVELS, command_help
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._progress import command_console, say_summary
@@ -111,6 +111,7 @@ from pyflightstream.workspace._settings_file import (
 
 __all__ = [
     "WITHHELD",
+    "add_console_arguments",
     "fill_from_settings",
     "main",
     "register_command_group",
@@ -221,7 +222,54 @@ def _build_parser() -> argparse.ArgumentParser:
     _excel.add_excel_actions(excel)
     for _, add, _ in _COMMAND_GROUPS:
         add(subparsers)
+    for leaf in _leaf_parsers(parser):
+        # A geometry verb that copies a pyfs-matrix parser (it carries that parser's
+        # mesh_command) keeps exactly the pyfs-matrix options (FR-477).
+        mirrors = "mesh_command" in leaf._defaults
+        if not mirrors and not any(action.dest == "log_level" for action in leaf._actions):
+            add_console_arguments(
+                leaf, "print every value taken from the settings files and more detail"
+            )
     return parser
+
+
+def _leaf_parsers(parser: argparse.ArgumentParser) -> list[argparse.ArgumentParser]:
+    """Return every parser that runs a command (one without subcommands), each once."""
+    groups = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+    if not groups:
+        return [parser]
+    leaves: list[argparse.ArgumentParser] = []
+    for group in groups:
+        for sub in dict.fromkeys(group.choices.values()):
+            leaves.extend(leaf for leaf in _leaf_parsers(sub) if leaf not in leaves)
+    return leaves
+
+
+def add_console_arguments(parser: argparse.ArgumentParser, verbose_help: str) -> None:
+    """Add ``--verbose`` and ``--log-level`` (FR-997), one choice of the console level.
+
+    Shared by ``pyfs-matrix`` and ``pyfs-workspace``: a level typed on the command
+    line wins over the ``[log] console`` of ``pyfs.local.toml`` and ``pyfs.toml``.
+
+    Parameters
+    ----------
+    parser : argparse.ArgumentParser
+        The parser of one command.
+    verbose_help : str
+        The help of ``--verbose`` for that command.
+    """
+    console = parser.add_mutually_exclusive_group()
+    console.add_argument("--verbose", action="store_true", help=verbose_help)
+    console.add_argument(
+        "--log-level",
+        dest="log_level",
+        choices=CONSOLE_LEVELS,
+        default=None,
+        help="how much the console says: quiet (the errors, the final summary line and the "
+        "signature), normal (the default) or verbose (as --verbose); logs/activity.log keeps "
+        "the full detail at every level. Default: [log] console of pyfs.local.toml or "
+        "pyfs.toml, else normal",
+    )
 
 
 def _add_output_options(sub: argparse.ArgumentParser) -> None:
@@ -552,10 +600,15 @@ def _take_the_console_level(args: argparse.Namespace) -> None:
 
     The files are read and refused as every ``pyfs-matrix`` command reads
     them, before anything is written; no key of ``[defaults]`` reaches a
-    command of this program.
+    command of this program. A level typed with ``--log-level`` or
+    ``--verbose`` wins over the files' ``[log] console``.
     """
     root = getattr(args, "workspace", None) or getattr(args, "root", None) or "."
-    taken = console_only(_settings_or_refusal(root))
+    settings = _settings_or_refusal(root)
+    typed = getattr(args, "log_level", None) or (
+        "verbose" if getattr(args, "verbose", False) else None
+    )
+    taken = TakenDefaults(console=typed) if typed else console_only(settings)
     declare_invocation(taken, verbose=taken.console == "verbose")
 
 

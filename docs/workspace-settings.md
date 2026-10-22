@@ -154,4 +154,7 @@ command line its run executes.
 
 `pyfs-workspace` reads the same two files under the same refusals and takes
 from them the console level of `[log]` only; no key of `[defaults]` reaches any
-of its commands.
+of its commands. Its commands take `--log-level` and `--verbose` as
+`pyfs-matrix` does, and a level typed there wins over `[log] console`. The
+geometry verbs `refine`, `audit`, `inventory` and `degenerate` keep exactly the
+options of their `pyfs-matrix` names and take the level from the files only.

@@ -23,6 +23,9 @@ FlightStream versions.
   with the observed order, the Richardson extrapolation, the grid convergence index and the
   numerical uncertainty of every coefficient of every point. `pyflightstream.post.polar.grid_convergence`
   computes one estimate.
+- `pyfs-workspace` commands take `--log-level` and `--verbose`, as `pyfs-matrix` does; a level
+  typed there wins over the `[log] console` of `pyfs.local.toml` and `pyfs.toml`. The geometry
+  verbs that mirror a `pyfs-matrix` command keep exactly its options.
 
 ### Changed
 

@@ -138,6 +138,10 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "tolerance"): FIELD_OPERATION,
     ("pyfs-workspace", "out"): OUTPUT,
     ("pyfs-workspace", "apply"): SWITCH,
+    # 0.43.0 (PFS-2119.070): the console level of every pyfs-workspace command, as
+    # pyfs-matrix takes it; a typed level wins over the files' [log] console.
+    ("pyfs-workspace", "verbose"): SWITCH,
+    ("pyfs-workspace", "log_level"): SWITCH,
     ("pyfs-workspace", "overwrite"): SWITCH,
     # 0.32.0 (package D, FR-250 and FR-253): `field time-mean --fluctuation` and
     # `--fluctuation-only` choose what one invocation writes; `--r-body` is the
@@ -744,6 +748,28 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-qa", "workroot"): frozenset({"drift", "probe"}),
     ("pyfs-qa", "workspace"): frozenset({"drift", "physics"}),
     ("pyfs-workspace", "root"): frozenset({"archive", "init", "migrate"}),
+    **dict.fromkeys(
+        (("pyfs-workspace", "verbose"), ("pyfs-workspace", "log_level")),
+        frozenset(
+            {
+                "accept",
+                "archive",
+                "build",
+                "calibrate",
+                "export-surface-mesh",
+                "fill-interior",
+                "from-sidecar",
+                "init",
+                "migrate",
+                "mirror",
+                "move",
+                "profile",
+                "subtract",
+                "time-mean",
+                "trailing-edge",
+            }
+        ),
+    ),
     ("pyfs-workspace", "workspace"): frozenset(
         {
             "calibrate",

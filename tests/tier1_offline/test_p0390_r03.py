@@ -599,6 +599,28 @@ def test_p0390_r03_pyfs_workspace_takes_the_console_level_only(tmp_path, capsys)
     assert "pyfs-workspace init" not in err and SIGNATURE in err
 
 
+def test_p0430_pyfs_workspace_takes_a_typed_console_level_over_the_files(tmp_path, capsys):
+    """PFS-2119.070 (FR-997, FR-1000): --log-level and --verbose override [log] console.
+
+    pyfs-workspace took the files' console level with no command-line override; every
+    command now takes ``--log-level`` and ``--verbose`` as pyfs-matrix does, and a typed
+    level wins over ``[log] console``.
+    """
+    root = make_workspace(tmp_path)
+    (root / "pyfs.toml").write_text('[log]\nconsole = "quiet"\n', encoding="utf-8")
+    code, _out, err = call(capsys, workspace_main, ["init", str(root), "--log-level", "normal"])
+    assert code == 0
+    assert "pyfs-workspace init" in err
+    (root / "pyfs.toml").write_text('[log]\nconsole = "normal"\n', encoding="utf-8")
+    code, out, err = call(capsys, workspace_main, ["init", str(root), "--log-level", "quiet"])
+    assert code == 0
+    assert out == f"campaign workspace ready at {root}\n"
+    assert "pyfs-workspace init" not in err
+    code, _out, err = call(capsys, workspace_main, ["init", str(root), "--verbose"])
+    assert code == 0
+    assert "pyfs-workspace init" in err
+
+
 # --- FR-1001: no file, no change -------------------------------------------------------
 
 #: The products whose bytes 0.40.0 changes on purpose (PFS-2105.020): the settings
