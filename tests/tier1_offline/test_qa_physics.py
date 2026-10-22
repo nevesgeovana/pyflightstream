@@ -613,3 +613,36 @@ def test_p0430_the_default_reference_directory_inside_site_packages_is_not_writt
     with pytest.raises(QaEvidenceError, match="inside an installed package"):
         update_reference("PHY-01", yaml_path, "seed", date="2026-07-24", repo_root=tmp_path)
     assert not installed.exists()
+
+
+def test_p0430_an_unconverged_smi_report_does_not_seed_a_reference_f_533(tmp_path):
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    refs = tmp_path / "refs"
+    point = PointResult(
+        alpha_deg=2.0,
+        total={"CL": 0.1, "CDi": 0.01, "CDo": 0.02, "CMy": -0.3},
+        iterations=900,
+        converged=False,
+    )
+    metrics = smi_metrics(point)
+    run = PhysicsRun(
+        version="26.120",
+        fs_exe_name="Flightstream_2612.exe",
+        package_version="0.0.1.dev0",
+        results=(
+            CaseResult(
+                case_id="SMI-01",
+                title="smi",
+                geometry="g",
+                points=(point,),
+                metrics=metrics,
+                verdicts=compare_metrics(metrics, None),
+            ),
+        ),
+    )
+    yaml_path, _ = write_physics_report(run, tmp_path, date="2026-07-23")
+    with pytest.raises(QaEvidenceError, match="unconverged steady point for SMI-01"):
+        update_reference(
+            "SMI-01", yaml_path, "seed", references_dir=refs, date="2026-07-23", repo_root=tmp_path
+        )

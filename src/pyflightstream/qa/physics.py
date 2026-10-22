@@ -1490,7 +1490,9 @@ def _refuse_unconverged_reference(case_id: str, case_body: dict, report_path: st
     # PHY-06 stores its paired polars as steady points followed by
     # unsteady points (_reduce_case); only the steady half must converge.
     points = case_body.get("points", [])
-    steady_points = points if case_id in {"PHY-01", "PHY-02"} else []
+    # The SMI cases are steady too (one converged solve at the comparison point, F-533), so
+    # an unconverged SMI report cannot seed a reference either (X-F-0383).
+    steady_points = points if case_id in {"PHY-01", "PHY-02"} or case_id in SMI_CASES else []
     if case_id == "PHY-06":
         if len(points) % 2:
             raise QaEvidenceError(
