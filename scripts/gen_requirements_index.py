@@ -750,7 +750,21 @@ def main() -> int:
     pages_dir = OUT.parent / "requirements"
     source_index = authored_index(REPO)
     generated_names = {"index.md", *(area.lower() + ".md" for area in AREAS)}
+    # The pages folder holds generated pages only: a page no area produces any
+    # more (an area renamed or removed) is an orphan the check reports and a
+    # write removes.
+    orphans = (
+        sorted(p.name for p in pages_dir.glob("*.md") if p.name not in generated_names)
+        if pages_dir.is_dir()
+        else []
+    )
     if args.check:
+        if orphans:
+            print(
+                f"generated requirement page(s) no area produces: {', '.join(orphans)}",
+                file=sys.stderr,
+            )
+            return 1
         if (
             not (SRS / "index.md").exists()
             or (SRS / "index.md").read_text(encoding="utf-8") != source_index
@@ -785,6 +799,8 @@ def main() -> int:
             path.write_text(pages[name], encoding="utf-8", newline="\n")
         elif path.exists():
             path.unlink()
+    for name in orphans:
+        (pages_dir / name).unlink()
     trace = cast(dict[str, object], data["traceability"])
     print(
         f"wrote {OUT.relative_to(REPO)}: {len(requirements)} requirements, "

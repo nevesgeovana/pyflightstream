@@ -1087,6 +1087,30 @@ def test_p0410_srs_main_writes_and_checks_the_generated_pages(tmp_path, monkeypa
     assert generator.main() == 1
 
 
+def test_p0430_srs_check_reports_an_orphan_generated_page(tmp_path, monkeypatch, capsys):
+    """F-849: a page in the generated folder that no area produces fails --check.
+
+    The check compared only the pages the areas produce, so a page left by a renamed
+    or removed area stayed published undetected; a write removes it.
+    """
+    code, err, out = _run_on(GOOD_BOX, monkeypatch, tmp_path)
+    assert code == 0, err
+    generator = _generator()
+    monkeypatch.setattr(generator, "SRS", tmp_path / "srs")
+    monkeypatch.setattr(generator, "OUT", out)
+    monkeypatch.setattr(generator, "TESTS", tmp_path / "tests")
+    monkeypatch.setattr(generator, "REPO", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["gen_requirements_index.py", "--check"])
+    assert generator.main() == 0, capsys.readouterr().err
+    orphan = out.parent / "requirements" / "retired-area.md"
+    orphan.write_text("# a page no area produces\n", encoding="utf-8")
+    assert generator.main() == 1
+    assert "retired-area.md" in capsys.readouterr().err
+    monkeypatch.setattr(sys, "argv", ["gen_requirements_index.py"])
+    assert generator.main() == 0
+    assert not orphan.exists()
+
+
 def test_p0410_pa2_unreadable_saved_actions_warn_with_the_file(tmp_path):
     """P0410-PA2 (FR-538): an unreadable file is named without raising."""
     from pyflightstream.workspace._geometry_clean import saved_action_warning
