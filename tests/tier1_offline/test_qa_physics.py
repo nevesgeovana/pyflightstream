@@ -646,3 +646,25 @@ def test_p0430_an_unconverged_smi_report_does_not_seed_a_reference_f_533(tmp_pat
         update_reference(
             "SMI-01", yaml_path, "seed", references_dir=refs, date="2026-07-23", repo_root=tmp_path
         )
+
+
+def test_p0430_numpy_scalars_in_a_point_still_dump_f_805(tmp_path):
+    import dataclasses
+
+    import numpy as np
+
+    run = make_run(tmp_path)
+    case = run.results[0]
+    point = PointResult(
+        alpha_deg=np.float64(4.0),
+        total={"CL": 0.35, "CDi": 0.01},
+        iterations=np.int64(300),
+        converged=np.bool_(True),
+        minimum_cp=np.float64(-3.0),
+    )
+    run = dataclasses.replace(run, results=(dataclasses.replace(case, points=(point,)),))
+    yaml_path, _ = write_physics_report(run, tmp_path, date="2026-07-22")
+    stored = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    written = stored["cases"]["PHY-01"]["points"][0]
+    assert written["alpha_deg"] == 4.0 and written["iterations"] == 300
+    assert written["converged"] is True and written["minimum_cp"] == -3.0

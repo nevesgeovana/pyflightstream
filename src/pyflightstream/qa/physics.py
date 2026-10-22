@@ -1350,10 +1350,10 @@ def write_physics_report(
                 "points": [
                     {
                         "label": point.label or f"a{point.alpha_deg:g}",
-                        "alpha_deg": point.alpha_deg,
-                        "iterations": point.iterations,
-                        "converged": point.converged,
-                        "minimum_cp": point.minimum_cp,
+                        "alpha_deg": float(point.alpha_deg),
+                        "iterations": int(point.iterations),
+                        "converged": bool(point.converged),
+                        "minimum_cp": None if point.minimum_cp is None else float(point.minimum_cp),
                         "total": {key: float(value) for key, value in point.total.items()},
                     }
                     for point in result.points
