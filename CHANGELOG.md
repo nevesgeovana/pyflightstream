@@ -267,6 +267,9 @@ FlightStream versions.
 - An `[equations]` block evaluated in an order that reads an equation before it is evaluated,
   or holding an equation that reads itself, is refused before any derived column is written,
   instead of writing `NA` in the dependent column.
+- `blade_passage_harmonics` and `write_acoustic_products` refuse a `harmonics` count that is
+  not a positive integer, and `gutin_harmonic_rms` refuses a harmonic below 1, instead of
+  tabling nothing or returning zero.
 
 ## [0.42.0] - 2026-10-16
 
