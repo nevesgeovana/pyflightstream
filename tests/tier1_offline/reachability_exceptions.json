@@ -364,7 +364,6 @@
    "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.run.Reconstruction",
-    "pyflightstream.run.collect.assess_collected",
     "pyflightstream.run.describe_invocation",
     "pyflightstream.run.matrix.plan_additional_post",
     "pyflightstream.run.reconstruct"

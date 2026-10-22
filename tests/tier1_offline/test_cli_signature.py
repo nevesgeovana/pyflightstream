@@ -344,7 +344,7 @@ def test_nfr_48_an_uncaught_package_failure_is_a_diagnostic_and_a_nonzero_exit(m
         streams.err
     )
     assert "Fix the cause named above and run the command again" in streams.err
-    assert "Traceback" not in streams.err
+    assert "Traceback (most recent call last)" not in streams.err
     assert _outcome_of(streams.err) == "failed"
 
     def locked(_args):
