@@ -91,6 +91,8 @@ FlightStream versions.
 - A grouped job run with `--local` and no `WALLTIME` is limited by the solver `timeout_s` of
   its cases (the largest of them for each of its points) instead of running with no limit,
   and the grouped plan states the limit of every job without a walltime.
+- `WorkflowConventions(animation_folder=...)` stays accepted and warns that it has no
+  effect: no workflow writes animation frames into it.
 
 ### Fixed
 

@@ -20,6 +20,7 @@ before its entries.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import (
     Callable,
 )
@@ -29,6 +30,7 @@ from dataclasses import (
 
 from pyflightstream._errors import (
     PyflightstreamError,
+    PyflightstreamWarning,
 )
 from pyflightstream.cases import (
     CampaignConfigError,
@@ -98,12 +100,24 @@ class WorkflowConventions:
         workflow exports these and never a literal, which is what keeps
         two points of one case from overwriting each other.
     animation_folder : str
-        Folder, relative to the execution directory, that the unsteady
-        animation writes its per-timestep frames into.
+        Accepted and has no effect: no workflow writes animation frames into
+        it. A value other than the default ``"frames"`` warns that it is
+        ignored.
     """
 
     outputs: tuple[str, ...] = ()
     animation_folder: str = "frames"
+
+    def __post_init__(self) -> None:
+        """Warn that a stated ``animation_folder`` changes nothing."""
+        if self.animation_folder != "frames":
+            warnings.warn(
+                f"WorkflowConventions(animation_folder={self.animation_folder!r}) has no "
+                "effect: no workflow writes animation frames into it, so the value is "
+                "accepted and ignored.",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
 
     @classmethod
     def for_case(cls, case: SimCase) -> WorkflowConventions:

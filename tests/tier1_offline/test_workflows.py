@@ -267,6 +267,21 @@ def rotor_case(**overrides) -> SimCase:
     )
 
 
+def test_p0430_a_stated_animation_folder_warns_that_it_has_no_effect():
+    """X-F-1049: ``animation_folder`` is accepted, changes nothing, and says so.
+
+    No workflow reads it, so a value other than the default warns that it is
+    ignored; the default and the plain conventions stay silent.
+    """
+    with pytest.warns(PyflightstreamWarning, match="has no effect"):
+        stated = WorkflowConventions(animation_folder="anim")
+    assert stated.animation_folder == "anim"
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PyflightstreamWarning)
+        WorkflowConventions(outputs=("loads.txt",))
+        WorkflowConventions(animation_folder="frames")
+
+
 def test_the_reader_and_the_registry_agree_on_the_types():
     """FR-96, a row may ask to continue a run the wall clock stopped, is among
     the keys a run type registers.
