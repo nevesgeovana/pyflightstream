@@ -388,12 +388,20 @@ def _the_flag_a_row_states(case: SimCase, flag: CustomFlag) -> str | None:
     one layer down with a message about arity rather than about the row.
     """
     wanted = flag.name.strip().casefold()
+    found: tuple[str, str | None] | None = None
     for key, value in case.variables.items():
         if key.strip().casefold() != wanted:
             continue
-        text = str(value).strip()
-        return text or None
-    return None
+        text = str(value).strip() or None
+        if found is not None and found[1] != text:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states the flag {flag.name!r} twice with different "
+                f"values ({found[0]!r}: {found[1]!r}, {key!r}: {text!r}); keys are read case "
+                "folded, so the two cells name one flag. State it once."
+            )
+        if found is None:
+            found = (key, text)
+    return None if found is None else found[1]
 
 
 def _custom_flags(case: SimCase, script: Script, phase: str) -> None:

@@ -320,3 +320,13 @@ def test_a_word_no_flag_declares_is_still_refused():
 
     with pytest.raises(CampaignConfigError, match="FOO_BAR"):
         rendered(case(flags=[flag()], variables={"FOO_BAR": "1"}))
+
+
+def test_p0430_x_f0503_two_cells_naming_one_flag_with_different_values_are_refused():
+    """X-F-0503: the first case-folded match used to win and the second was ignored."""
+    from pyflightstream.cases import CampaignConfigError
+
+    with pytest.raises(CampaignConfigError, match="twice with different values"):
+        rendered(case(flags=[flag()], variables={"digits": "6", "DIGITS": "7"}))
+    lines = rendered(case(flags=[flag()], variables={"digits": "6", "DIGITS": "6"}))
+    assert f"{SETUP_COMMAND} 6" in lines, lines
