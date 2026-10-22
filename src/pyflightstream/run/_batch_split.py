@@ -398,6 +398,84 @@ def _cells_of(split: JobSplit) -> list[PolarUnit]:
     return [unit for unit in split.units if unit.walltime_cell_s is not None]
 
 
+def _unstated_walltime(
+    split: JobSplit, cells: list[PolarUnit], max_walltime_s: float | None
+) -> tuple[int | None, str, bool | None, float | None, list[str], str | None] | None:
+    """Return the judgment of a job holding a row with no WALLTIME that is not BEST, else None.
+
+    A ROW THAT STATES NO WALL CLOCK AND IS NOT BEST adds nothing to the sum, so
+    the sum would bound its points at zero seconds (PFS-2094.006): the job asks
+    the profile's limit, said, or is refused where there is none.
+    """
+    unstated = [
+        unit.sim_id for unit in split.units if unit.walltime_cell_s is None and not unit.best
+    ]
+    if not unstated:
+        return None
+    names = ", ".join(unstated)
+    if max_walltime_s is None:
+        return (
+            None,
+            "none",
+            None,
+            None,
+            [],
+            f"rows {names} state no WALLTIME and are not BEST, and share a job with rows "
+            f"that state one ({', '.join(unit.sim_id for unit in cells)}), so the job's "
+            "walltime cannot budget their points and the profile states no max_walltime "
+            "to ask for; write a wall clock with its unit or BEST in those rows.",
+        )
+    # The points no estimate prices are named too (PFS-2094.007).
+    unpriced = _unestimated(split)
+    warning = (
+        f"rows {names} state no WALLTIME and are not BEST, so the cells of the job do not "
+        "budget their points; the job asks the profile's max_walltime."
+        + (f" No estimate for {', '.join(unpriced)}." if unpriced else "")
+    )
+    return int(max_walltime_s), "max_walltime", None, None, [warning], None
+
+
+def _need_of(split: JobSplit, estimate_s: float | None) -> int | None:
+    """Return the walltime the job's estimate needs, or None where no point is priced."""
+    if estimate_s is None or not any(
+        value is not None for unit in split.units for value in unit.point_seconds
+    ):
+        return None
+    return best_walltime_s(estimate_s, max(unit.margin_s for unit in split.units))
+
+
+def _priced_seconds(split: JobSplit, cells: list[PolarUnit]) -> int | None:
+    """Return the sum of the cells' budgets with every row priced, or None where one cannot be.
+
+    EVERY UNIT IS PRICED (PFS-2094.007): a row that states no WALLTIME shares
+    the job and added 0 s, as BEST does by its estimate. None where such a row
+    has a point no estimate prices.
+    """
+    seconds = int(sum((unit.walltime_cell_s or 0.0) * max(len(unit.run_ids), 1) for unit in cells))
+    for unit in split.units:
+        if unit.walltime_cell_s is None:
+            if any(value is None for value in unit.point_seconds):
+                return None
+            seconds += best_walltime_s(
+                sum(value for value in unit.point_seconds if value is not None), unit.margin_s
+            )
+    return seconds
+
+
+def _cell_above_the_limit(cells: list[PolarUnit], max_walltime_s: float | None) -> str | None:
+    """Return the refusal of the first row whose own WALLTIME cell is above the limit, else None."""
+    if max_walltime_s is None:
+        return None
+    for unit in cells:
+        if (unit.walltime_cell_s or 0.0) > max_walltime_s:
+            return (
+                f"the WALLTIME {unit.walltime_cell_text} of row {unit.sim_id} is above the "
+                f"cluster's max_walltime of {_minutes(max_walltime_s)}; write a cell the cluster "
+                "grants, or BEST."
+            )
+    return None
+
+
 def _from_cells(
     split: JobSplit, estimate_s: float | None, max_walltime_s: float | None
 ) -> tuple[int | None, str, bool | None, float | None, list[str], str | None]:
@@ -411,61 +489,16 @@ def _from_cells(
     """
     cells = _cells_of(split)
     warnings: list[str] = []
-    too_long = [
-        unit
-        for unit in cells
-        if max_walltime_s is not None and (unit.walltime_cell_s or 0.0) > max_walltime_s
-    ]
-    if too_long and max_walltime_s is not None:
-        unit = too_long[0]
-        return (
-            None,
-            "matrix",
-            None,
-            None,
-            warnings,
-            f"the WALLTIME {unit.walltime_cell_text} of row {unit.sim_id} is above the "
-            f"cluster's max_walltime of {_minutes(max_walltime_s)}; write a cell the cluster "
-            "grants, or BEST.",
-        )
-    # A ROW THAT STATES NO WALL CLOCK AND IS NOT BEST adds nothing to the sum, so
-    # the sum would bound its points at zero seconds (PFS-2094.006): the job asks
-    # the profile's limit, said, or is refused where there is none.
-    unstated = [
-        unit.sim_id for unit in split.units if unit.walltime_cell_s is None and not unit.best
-    ]
-    if unstated:
-        names = ", ".join(unstated)
-        if max_walltime_s is None:
-            return (
-                None,
-                "none",
-                None,
-                None,
-                warnings,
-                f"rows {names} state no WALLTIME and are not BEST, and share a job with rows "
-                f"that state one ({', '.join(unit.sim_id for unit in cells)}), so the job's "
-                "walltime cannot budget their points and the profile states no max_walltime "
-                "to ask for; write a wall clock with its unit or BEST in those rows.",
-            )
-        # The points no estimate prices are named too (PFS-2094.007).
-        unpriced = _unestimated(split)
-        warnings.append(
-            f"rows {names} state no WALLTIME and are not BEST, so the cells of the job do not "
-            "budget their points; the job asks the profile's max_walltime."
-            + (f" No estimate for {', '.join(unpriced)}." if unpriced else "")
-        )
-        return int(max_walltime_s), "max_walltime", None, None, warnings, None
-    seconds = int(sum((unit.walltime_cell_s or 0.0) * max(len(unit.run_ids), 1) for unit in cells))
-    for unit in split.units:
-        # EVERY UNIT IS PRICED (PFS-2094.007): a row that states no WALLTIME
-        # shares the job and added 0 s, as BEST does by its estimate.
-        if unit.walltime_cell_s is None:
-            if any(value is None for value in unit.point_seconds):
-                return _from_estimate(split, None, max_walltime_s)
-            seconds += best_walltime_s(
-                sum(value for value in unit.point_seconds if value is not None), unit.margin_s
-            )
+    refusal = _cell_above_the_limit(cells, max_walltime_s)
+    if refusal is not None:
+        return None, "matrix", None, None, warnings, refusal
+    unstated = _unstated_walltime(split, cells, max_walltime_s)
+    if unstated is not None:
+        return unstated
+    priced = _priced_seconds(split, cells)
+    if priced is None:
+        return _from_estimate(split, None, max_walltime_s)
+    seconds = priced
     if max_walltime_s is not None and seconds > max_walltime_s:
         warnings.append(
             f"the job's points ask {_minutes(seconds)} together, above the cluster's max_walltime "
@@ -475,19 +508,15 @@ def _from_cells(
         seconds = int(max_walltime_s)
         # THE CAP IS COMPARED WITH THE ESTIMATE (F-263): the cells' sum above the limit does
         # not say the job's estimated need does not fit under it.
-        if estimate_s is not None and any(
-            value is not None for unit in split.units for value in unit.point_seconds
-        ):
-            need = best_walltime_s(estimate_s, max(unit.margin_s for unit in split.units))
-            if need <= seconds:
-                return seconds, "max_walltime", True, None, warnings, None
-            return seconds, "max_walltime", False, float(need - seconds), warnings, None
-        return seconds, "max_walltime", False, None, warnings, None
-    if estimate_s is None or not any(
-        value is not None for unit in split.units for value in unit.point_seconds
-    ):
+        need = _need_of(split, estimate_s)
+        if need is None:
+            return seconds, "max_walltime", False, None, warnings, None
+        if need <= seconds:
+            return seconds, "max_walltime", True, None, warnings, None
+        return seconds, "max_walltime", False, float(need - seconds), warnings, None
+    need = _need_of(split, estimate_s)
+    if need is None or estimate_s is None:
         return seconds, "matrix", None, None, warnings, None
-    need = best_walltime_s(estimate_s, max(unit.margin_s for unit in split.units))
     if need <= seconds:
         return seconds, "matrix", True, None, warnings, None
     short = float(need - seconds)
