@@ -16,7 +16,13 @@ import pyflightstream.post.corrections as corrections
 from pyflightstream._digest import text_sha256
 from pyflightstream._errors import ProductError
 from pyflightstream.cases.acoustics import AcousticSignal
-from pyflightstream.cases.corrections import CalibrationError, calibration_path
+from pyflightstream.cases.corrections import (
+    CalibrationError,
+    CalibrationRow,
+    QsteadyCorrectionSpec,
+    calibration_path,
+    calibration_text,
+)
 from pyflightstream.cases.qsteady import reduced_frequency
 from pyflightstream.cases.workflows import QSTEADY_ROTOR
 from pyflightstream.post import _rotor_plan
@@ -939,21 +945,28 @@ def test_f4_0304_transfer_functions_survive_the_float_extremes():
 
 def test_f4_0304_a_harmonic_product_without_a_phase_column_is_a_named_skip(tmp_path):
     """F-1380: a missing H1_PHASE_DEG column is a nonblocking skip, not a ValueError."""
-    (tmp_path / "s.csv").write_text("ROTOR,Offset\nP,0.5\n", encoding="utf-8")
-    (tmp_path / "h.csv").write_text("ROTOR,QUANTITY,H0,H1_AMP\nP,CT,1,1\n", encoding="utf-8")
+    folder = tmp_path / "sections"
+    folder.mkdir()
+    (folder / "p_sections.csv").write_text("ROTOR,Offset\nP,0.5\n", encoding="utf-8")
+    (folder / "p_harmonics.csv").write_text(
+        "ROTOR,QUANTITY,H0,H1_AMP\nP,CT,1,1\n", encoding="utf-8"
+    )
     component = corrections.SECTION_COMPONENTS[0]
+    rows = [CalibrationRow(component, 0.6, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0)]
+    path = calibration_path(tmp_path, "c001")
+    path.parent.mkdir(parents=True)
+    path.write_text(calibration_text("sector_offset", rows, source_run_id="r"), encoding="utf-8")
     skipped: dict[str, str] = {}
     with pytest.warns(Warning, match="H1_PHASE_DEG"):
-        written = corrections._correct_wheel_point(
-            corrections.WheelPointRef("p", "r", "P"),
-            calibration=cast(Any, SimpleNamespace(grids={component: None})),
-            coordinates={},
-            sections_rel="s.csv",
-            harmonics_rel="h.csv",
-            out=tmp_path,
-            target=lambda path: path,
-            written_names={},
+        written = corrections.write_qsteady_corrections(
+            QsteadyCorrectionSpec(route="sector_offset", file="c001"),
+            sim_id="1",
             inputs_dir=tmp_path,
+            out=tmp_path,
+            wheel_points=[corrections.WheelPointRef("p", "r", "P")],
+            written_names={"sections/p_sections.csv": {}, "sections/p_harmonics.csv": {}},
+            known_runs=None,
+            target=lambda path: path,
             skipped=skipped,
         )
     assert written == [] and any("H1_PHASE_DEG" in why for why in skipped.values())

@@ -430,16 +430,16 @@ def test_x_f_0529_a_failing_record_write_leaves_no_data_file_without_its_record(
     writer, suffix, tmp_path, monkeypatch
 ):
     """The pair or neither: when the record cannot be written the data file is withdrawn."""
-    from pyflightstream.post import writers as module
+    from pyflightstream import _textio
 
-    real = module._textio.write_text
+    real = _textio.write_text
 
     def fail_for_record(path, text, **kwargs):
         if str(path).endswith(".provenance.json"):
             raise OSError("disk full")
         return real(path, text, **kwargs)
 
-    monkeypatch.setattr(module._textio, "write_text", fail_for_record)
+    monkeypatch.setattr(_textio, "write_text", fail_for_record)
     with pytest.raises(OSError, match="disk full"):
         writer(tmp_path / f"probes{suffix}", POINTS, FIELDS, provenance=make_provenance())
     assert not list(tmp_path.iterdir())

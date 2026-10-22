@@ -1085,17 +1085,28 @@ def test_f4_0304_one_absent_point_set_keeps_the_other_analysis(monkeypatch):
     assert any("lattice" in why for why in ctx.skipped.values()), ctx.skipped
 
 
-def test_pfs_2124_031_each_file_carries_the_conventions_its_own_layout_borrowed():
+def test_pfs_2124_031_each_file_carries_the_conventions_its_own_layout_borrowed(tmp_path):
     """The writer states each file's unproven conventions; no second lookup rebuilds them."""
-    from pyflightstream.post.probe_fields import _caveats_of
-
-    unproven = {"proven": False, "measured_on_build": 1, "run_build": 2}
-    borrowed = {
-        "velocity_convention": unproven,
-        "frame_motion": {"proof": {"timing": {"proven": True}}},
+    unproven = {
+        "measured_on_build": _FR153_FIELD_BUILD_WARNING__MEASURED,
+        "run_build": _FR153_FIELD_BUILD_WARNING__OTHER,
+        "proven": False,
     }
-    assert _caveats_of(borrowed) == {"velocity_convention": unproven}
-    assert _caveats_of({"velocity_convention": {"proven": True}}) == {}
-    assert _caveats_of({}) == {}
-    timing = {"frame_motion": {"proof": {"timing": unproven}}}
-    assert _caveats_of(timing) == {"rotation_timing": unproven}
+
+    def named(case, **keywords):
+        entries, _warned = _fr153_field_build_warning___point(tmp_path / case, **keywords)
+        assert entries
+        return {key for entry in entries.values() for key in entry if key != "kind"}, [
+            entry for entry in entries.values()
+        ]
+
+    # nothing borrowed: a measured build states no convention
+    assert named("measured", rotating=True)[0] == set()
+    # the velocity convention alone: a fixed frame of another build
+    keys, entries = named("fixed", build=_FR153_FIELD_BUILD_WARNING__OTHER)
+    assert keys == {"velocity_convention"}
+    assert all(entry["velocity_convention"] == unproven for entry in entries)
+    # both: a rotating frame of another build borrows the velocity convention and the timing
+    keys, entries = named("rotating", build=_FR153_FIELD_BUILD_WARNING__OTHER, rotating=True)
+    assert keys == {"velocity_convention", "rotation_timing"}
+    assert all(entry["rotation_timing"] == unproven for entry in entries)

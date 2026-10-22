@@ -2968,14 +2968,44 @@ def test_f487_a_person_s_mark_follows_derives_from_for_an_additional_product():
     assert "marked" not in index["polars/z.csv"]
 
 
-def test_f475_a_stale_loading_noise_history_is_retired_with_the_other_optional_products():
+def test_f475_a_stale_loading_noise_history_is_retired_with_the_other_optional_products(tmp_path):
     """F-475: a pproc that stopped asking for noise leaves no history beside current products."""
-    from pyflightstream.post._products_campaign import _retire_optional_products
+    import json
+    import warnings
 
-    skipped: dict[str, str] = {}
-    previous = {"noise/history.csv": {"kind": "loading_noise"}, "polars/p.csv": {"kind": "polar"}}
-    _retire_optional_products(skipped, previous, {})
-    assert list(skipped) == ["noise/history.csv"]
+    from tests.tier1_offline.test_goal036_qsteady_corrections import _post_recorded, _recorded_wheel
+    from tests.tier1_offline.test_post_superfile import _post
+
+    workspace = _recorded_wheel(
+        tmp_path,
+        pproc_extra="""
+[noise]
+exploratory = true
+observers_m = [[10.0, 2.0, 2.0]]
+hub_velocity_m_s = [0.0, 0.0, 0.0]
+sound_speed_m_s = 340.0
+samples_per_revolution = 64
+orders = 0
+axial_radius_m = 0.7
+inplane_radius_m = 0.7
+""",
+    )
+    manifest, folder, _log = _post_recorded(workspace)
+    written = sorted(p.relative_to(folder).as_posix() for p in folder.glob("noise/*.csv"))
+    assert written and all(
+        manifest["products"][name]["kind"] == "loading_noise" for name in written
+    )
+    for pproc in ("p001", "p002"):
+        path = workspace.inputs_dir / "pproc" / f"{pproc}.toml"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text[: text.index("[noise]")], encoding="utf-8")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        _post(workspace)
+    (live,) = [p for p in workspace.root.rglob("products.json") if "archive" not in p.parts]
+    again = json.loads(live.read_text(encoding="utf-8"))
+    assert not [name for name in again["products"] if name.startswith("noise/")]
+    assert all("this post no longer writes it" in again["skipped"][name] for name in written)
 
 
 @pytest.mark.requirement("FR-2325")
@@ -3083,15 +3113,53 @@ def test_far_field_columns_keep_six_significant_digits_f4_07(tmp_path):
     assert cells == ["1.23457e-06"] * 5
 
 
-def test_a_nan_in_a_rotor_row_is_refused_not_written_f4_07():
+def test_a_nan_in_a_rotor_row_is_refused_not_written_f4_07(tmp_path):
     """X-F-0353: NaN passes a test written as less than or equal to zero."""
-    from pyflightstream.post.rotor_table import _row_refusal
+    from types import SimpleNamespace
+
+    from pyflightstream.post.products import ReferenceValues
+    from pyflightstream.post.rotor_table import write_rotor_table
 
     nan = float("nan")
-    good = {"diameter": 1.0, "rate": 10.0, "density_kg_m3": 1.2}
-    assert _row_refusal({}, "R", **good) is None
-    for name in good:
-        assert _row_refusal({}, "R", **{**good, name: nan}) is not None
+    good = {"diameter": 1.0, "rpm": 600.0, "density": 1.2}
+
+    def table(case, **stated):
+        values = {**good, **stated}
+        rotor = SimpleNamespace(
+            alias="R",
+            axis_vector=(0.0, 0.0, 1.0),
+            diameter_m=values["diameter"],
+            members=["Blade1"],
+            x_m=0.0,
+            y_m=0.0,
+            z_m=0.0,
+        )
+        row = {
+            "run_id": "r",
+            "surfaces": {"Blade1": dict.fromkeys(("Cx", "Cy", "Cz", "CMx", "CMy", "CMz"), 0.1)},
+            "condition": {"ALPHA": 0.0, "BETA": 0.0},
+            "rpm": values["rpm"],
+            "density": values["density"],
+            "speed": 10.0,
+        }
+        left_out: list[tuple[str, str]] = []
+        reference = ReferenceValues.from_mapping(
+            {"SREF": 1.0, "CREF": 1.0, "BREF": 1.0, "XMOM": 0.0, "YMOM": 0.0, "ZMOM": 0.0}
+        )
+        written = write_rotor_table(
+            tmp_path / f"{case}.csv",
+            rotor=rotor,
+            rows=[row],
+            reference=reference,
+            left_out=left_out,
+        )
+        return written, left_out
+
+    written, said = table("good")
+    assert written is not None and not said
+    for case, name in (("d", "diameter"), ("n", "rpm"), ("rho", "density")):
+        written, said = table(case, **{name: nan})
+        assert written is None and said and said[0][0] == "r"
 
 
 def test_a_streamline_export_with_a_non_finite_value_writes_no_vtk_f4_07():

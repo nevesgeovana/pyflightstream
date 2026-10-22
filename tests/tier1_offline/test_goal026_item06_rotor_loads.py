@@ -962,10 +962,11 @@ def test_f160_an_infinite_rate_is_refused_not_read_as_zero_coefficients():
         )
 
 
-def test_f4_0506_rotor_loads_refuse_what_they_cannot_define():
+def test_f4_0506_rotor_loads_refuse_what_they_cannot_define(tmp_path):
     from types import SimpleNamespace
 
     from pyflightstream.post import rotor_table as rt
+    from pyflightstream.post.products import read_csv_table, write_rotor_table
 
     common = dict(reference=_reference(), density_kg_m3=1.225)
     surfaces = _surfaces(Blade1={"Cz": 0.5})
@@ -983,18 +984,43 @@ def test_f4_0506_rotor_loads_refuse_what_they_cannot_define():
         rt.rotor_coefficients(
             thrust_n=1.0, torque_nm=1.0, rps=10.0, diameter_m=1.0, density_kg_m3=0.0, speed_m_s=5.0
         )
+
     # F-206: no stated ALPHA or BETA leaves MADV NA, not the level-flight number
-    air, shaft = (50.0, 340.0), (1.0, 0.0, 0.0)
-    _, level = rt._mach_cells(air, 3000.0, 2.0, (0.0, 0.0), shaft)
-    _, unstated = rt._mach_cells(air, 3000.0, 2.0, (None, None), shaft)
-    assert isinstance(level, float) and unstated is None
+    def advancing(condition):
+        row = {
+            "run_id": "camp/sim_1/P1",
+            "surfaces": _surfaces(Blade1={"Cz": 0.5}),
+            "condition": condition,
+            "rpm": 3000.0,
+            "density": 1.225,
+            "speed": 50.0,
+            "free_stream": 50.0,
+            "air": (50.0, 340.0),
+        }
+        written = write_rotor_table(
+            tmp_path / f"{len(condition)}_rotor.csv",
+            rotor=_rotor("X"),
+            rows=[row],
+            reference=_reference(),
+        )
+        return read_csv_table(written)[1][0]["MADV_PUSHER"]
+
+    assert advancing({"ALPHA": 0.0, "BETA": 0.0}) != "NA"
+    assert advancing({}) == "NA"
 
 
 @pytest.mark.parametrize("shaft", [(1.0, 0.0, 0.0), (-1.0, 0.0, 0.0)])
 def test_f4_0506_f_128_the_wind_force_follows_the_shafts_sense(shaft):
     """ETAW equals ETA along the stream for either direction the shaft is declared."""
-    from pyflightstream.post import rotor_table as rt
+    from types import SimpleNamespace
 
+    # q * Sref = 0.5 * 1.25 * 40**2 * 10 = 10000, so the coefficients are the newtons / 10000
     newtons = (120.0, 7.0, -3.0)
     thrust = sum(f * s for f, s in zip(newtons, shaft, strict=True))
-    assert rt._force_along_the_stream(newtons, shaft, 0.0, 0.0) == pytest.approx(thrust)
+    surfaces = _surfaces(Blade1={"Cx": 0.012, "Cy": 0.0007, "Cz": -0.0003})
+    rotor = SimpleNamespace(axis_vector=shaft, members=["Blade1"], x_m=0.0, y_m=0.0, z_m=0.0)
+    loads = rotor_shaft_loads(
+        surfaces, rotor=rotor, reference=_reference(), density_kg_m3=1.25, speed_m_s=40.0
+    )
+    assert loads.thrust_n == pytest.approx(thrust)
+    assert loads.wind_force_n == pytest.approx(thrust)

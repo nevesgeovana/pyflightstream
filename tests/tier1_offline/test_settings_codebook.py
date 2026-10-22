@@ -381,10 +381,16 @@ def test_p0430_f3_the_reader_takes_the_historical_dash_as_missing(tmp_path):
 
 def test_p0430_f3_integers_keep_every_digit_through_the_table(tmp_path):
     """F-207 F-208: an integer above 2**53 is written and read back exactly."""
-    from pyflightstream.post.settings_table import _encode
+    from pyflightstream.post.settings_table import FLAG_IDS, settings_table
 
     big = 2**60 + 1
-    assert _encode("SOLVER_SET_ITERATIONS", big)[1] == big
+    setup = snapshot(iterations=500)
+    flag = setup.flags["SOLVER_SET_ITERATIONS"]
+    setup.flags["SOLVER_SET_ITERATIONS"] = flag.model_copy(update={"value": big})
+    (row,) = [
+        r for r in settings_table([setup]) if r["flag_id"] == FLAG_IDS["SOLVER_SET_ITERATIONS"]
+    ]
+    assert row["value_num"] == big
     path = _hand_table(tmp_path, ("codebook_version", "value_num"), "1", str(big))
     assert read_settings_table(path)[0]["value_num"] == big
 

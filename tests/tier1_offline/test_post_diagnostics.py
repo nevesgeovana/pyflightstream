@@ -179,20 +179,28 @@ def test_cli_diagnostics_does_not_invoke_stages(tmp_path, monkeypatch, capsys):
     assert before == after
 
 
-def test_fr_772_the_warning_totals_use_the_groups_of_log_post(monkeypatch, tmp_path, capsys):
+def test_fr_772_the_warning_totals_use_the_groups_of_log_post(tmp_path, capsys):
     """C-SRS-S07-034 (FR-772): category, family and shape, as ``log --post`` groups them."""
+    from pyflightstream._cli import cli_entrypoint
     from pyflightstream.post import diagnostics
     from pyflightstream.workspace.ledger import post_log_groups
 
-    monkeypatch.setattr(diagnostics, "post_warning_policy", lambda: True)
     records = [
         {"category": "missing-data", "product": "probes/a", "message": "point 1 has no data"},
         {"category": "missing-data", "product": "probes/a", "message": "point 22 has no data"},
         {"category": "missing-data", "product": "polars/b", "message": "point 3 has no data"},
         {"category": "missing-data", "product": "polars/b", "message": "x", "severity": "info"},
     ]
-    diagnostics.report_post_warnings(records, tmp_path / "post.log.json")
-    lines = capsys.readouterr().err.splitlines()
+
+    @cli_entrypoint
+    def command(argv=None):
+        diagnostics.report_post_warnings(records, tmp_path / "post.log.json")
+        return 0
+
+    command(["--pproc-warnings"])
+    lines = [
+        line for line in capsys.readouterr().err.splitlines() if line.startswith("pproc warning")
+    ]
     assert len(lines) == 2, lines
     assert "[missing-data]: 1; polars; details" in lines[0]
     assert "[missing-data]: 2; probes; details" in lines[1]

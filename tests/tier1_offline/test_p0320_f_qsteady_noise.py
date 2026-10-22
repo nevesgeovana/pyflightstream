@@ -483,14 +483,20 @@ def test_f4_0506_numbers_are_refused_or_exact_not_silently_wrong():
             (0.0, 1.0, 0.0), float("nan"), axis=(1.0, 0.0, 0.0), reference=(0.0, 0.0, 1.0)
         )
     # F-200: an axis of large finite magnitude is still an axis
-    e_a, _, _ = qn._frame((1e200, 0.0, 0.0), (0.0, 1.0, 0.0))
-    assert e_a.tolist() == [1.0, 0.0, 0.0]
+    huge = qn.azimuth_from_moment(
+        (0.0, 0.0, 1.0), 1.0, axis=(1e200, 0.0, 0.0), reference=(0.0, 1.0, 0.0)
+    )
+    unit = qn.azimuth_from_moment(
+        (0.0, 0.0, 1.0), 1.0, axis=(1.0, 0.0, 0.0), reference=(0.0, 1.0, 0.0)
+    )
+    assert huge == unit
     # F-202: a NaN azimuth is refused, not dropped from the order
     with pytest.raises(ProductError, match="finite"):
         qn.fit_azimuthal_series([0.0, 90.0, float("nan"), 180.0, 270.0], [1, 2, 3, 4, 5])
     # F-203: harmonic 2048 of a zero argument is zero, J_n(0) = 0
-    assert qn._bessel_j(2048, 0.0) == pytest.approx(0.0, abs=1e-12)
-    assert qn._bessel_j(0, 0.0) == pytest.approx(1.0)
+    assert qn.gutin_harmonic_rms(
+        2048, tangential_force_n=1.0, inplane_radius_m=1.0, **{**gutin, "theta_rad": 0.0}
+    ) == pytest.approx(0.0, abs=1e-12)
     # F-204: scale cannot turn a record into a constant or an infinity
     t = np.linspace(0.0, 1.0, 20)
     wave = np.sin(2 * np.pi * t)
@@ -531,10 +537,15 @@ def test_f4_0506_the_comparison_reports_the_mean_ratio_and_refuses_incompatible_
 
 def test_a_small_perpendicular_reference_is_a_valid_azimuth_zero_f4_07():
     """F-201: the reference is a direction, so its magnitude does not decide validity."""
-    e_a, e_1, e_2 = qn._frame([0.0, 0.0, 1.0], [1e-12, 0.0, 0.0])
-    assert tuple(e_1) == (1.0, 0.0, 0.0)
+    # azimuth zero is the reference direction: a moment along -x puts the blade at 270 deg
+    azimuth = qn.azimuth_from_moment(
+        [-1.0, 0.0, 0.0], 1.0, axis=[0.0, 0.0, 1.0], reference=[1e-12, 0.0, 0.0]
+    )
+    assert azimuth == pytest.approx(270.0)
     with pytest.raises(ProductError, match="along the rotor axis"):
-        qn._frame([0.0, 0.0, 1.0], [0.0, 0.0, 1e-3])
+        qn.azimuth_from_moment(
+            [-1.0, 0.0, 0.0], 1.0, axis=[0.0, 0.0, 1.0], reference=[0.0, 0.0, 1e-3]
+        )
 
 
 def test_a_series_refuses_a_non_finite_azimuth_or_value_f4_07():

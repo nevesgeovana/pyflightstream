@@ -1441,18 +1441,25 @@ def _f3_0203_signal(frequency: float, observer: str = "o1"):
     return AcousticSignal(observer, 1.0, 0.0, 0.0, times, pressure)
 
 
+def _f3_0203_write_signal(path: Path, frequency: float) -> Path:
+    """Write the one-observer acoustic export the solver prints, as the reader parses it."""
+    signal = _f3_0203_signal(frequency)
+    lines = ["Observer: o1", "Position: 1.0,0.0,0.0", "Columns: Observer time (sec), PO (Pa)"]
+    lines += [f"{t:.16E} {p:.16E}" for t, p in zip(signal.time_s, signal.pressure_pa, strict=True)]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
 @pytest.mark.requirement("FR-263")
-def test_f3_0203_f132_acoustic_harmonics_use_the_recorded_blade_count(tmp_path, monkeypatch):
+def test_f3_0203_f132_acoustic_harmonics_use_the_recorded_blade_count(tmp_path):
     """F-132: the blade-passing frequency uses the RECORDED blade count, not the sector's."""
     from pyflightstream.post import _rotor_products
     from pyflightstream.post import harmonics as _harmonics
 
-    monkeypatch.setattr(
-        _rotor_products._acoustics, "read_acoustic_signals", lambda _s: [_f3_0203_signal(120.0)]
-    )
+    _f3_0203_write_signal(tmp_path / "P1_acoustic_signals.txt", 120.0)
     record = SimpleNamespace(
         run_id="r1",
-        outputs=["P1" + _rotor_products._acoustics.ACOUSTIC_SIGNALS_SUFFIX],
+        outputs=["P1_acoustic_signals.txt"],
         reductions={"rotors": {"main": {"blades": 6, "rpm": 1200.0}}},
     )
     rotor = _harmonics.HarmonicRotor("main", (("a",), ("b",)), None, False)
@@ -1471,86 +1478,88 @@ def test_f3_0203_f132_acoustic_harmonics_use_the_recorded_blade_count(tmp_path, 
     assert float(rows[0]["FREQUENCY_HZ"]) == pytest.approx(120.0)
 
 
-def _f3_0203_structure_ctx(tmp_path, monkeypatch, *, history: bytes | None = None):
-    """A coupled point whose recorded displacements decode to two stations, no solver needed."""
-    import pyflightstream.post._structure as structure
+def _f3_0203_coupled_workspace(tmp_path, *, history: bytes | None = None):
+    """A real coupled point: a recorded config and FSIDisp.txt decoded by the real stage."""
+    import shutil
 
-    folder = tmp_path / "work"
-    folder.mkdir()
-    (folder / "src.txt").write_text("x", encoding="utf-8")
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.fsi.nodes import (
+        flatten_blade_translations,
+        generate_node_layout,
+        write_fsidisp,
+    )
+    from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
+    from tests.tier1_offline.test_post_products import _steady_workspace_with_provenance
+
+    recorded = _steady_workspace_with_provenance(tmp_path / "fixture")
+    original = recorded.read_manifest()[0]
+    workspace = CampaignWorkspace.init(tmp_path / "posted")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text('[groups]\n"1"="all"\n')
+    for relative in original.outputs:
+        target = workspace.sim_dir(original.sim_id) / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(recorded.sim_dir(original.sim_id) / relative, target)
+    work = workspace.sim_dir(original.sim_id) / "structural"
+    work.mkdir()
+    config = steady_wing_case(tmp_path).fsi
+    (work / "config.json").write_text(config.model_dump_json())
+    layout = generate_node_layout(config)
+    local = np.zeros((9, 3, 3))
+    for index in range(9):
+        local[index, :, 1] = index * 0.001
+    write_fsidisp(work / "FSIDisp.txt", flatten_blade_translations(layout, [local]))
     if history is not None:
-        (folder / "fsi_convergence_log.csv").write_bytes(history)
-    monkeypatch.setattr(structure, "file_sha256", lambda _p: "h")
-    monkeypatch.setattr(
-        structure,
-        "load_config",
-        lambda _p: SimpleNamespace(blade=SimpleNamespace(station_radii_m=[0.1, 0.2])),
+        (work / "fsi_convergence_log.csv").write_bytes(history)
+    workspace.append_record(
+        original.model_copy(
+            update={
+                "cwd": str(work),
+                "inputs_sha256": {
+                    "config.json": file_sha256(work / "config.json"),
+                    "fsi-provenance.json": "0" * 64,
+                },
+            }
+        )
     )
-    monkeypatch.setattr(
-        structure,
-        "generate_node_layout",
-        lambda _c: SimpleNamespace(le_offset_m=[0.0, 0.0], te_offset_m=[0.0, 0.0]),
+    write_campaign_products(workspace)
+    manifest = json.loads(
+        (workspace.root / "post" / "products" / "products.json").read_text(encoding="utf-8")
     )
-    monkeypatch.setattr(
-        structure, "_recorded_displacements", lambda *_a: (folder / "src.txt", None)
-    )
-    monkeypatch.setattr(structure, "unflatten_translations", lambda *_a: ["t"])
-    monkeypatch.setattr(
-        structure,
-        "decode_station_translations",
-        lambda *_a: (np.array([0.001, 0.002]), np.array([0.0, 0.1])),
-    )
-    point = SimpleNamespace(name="P1")
-    record = SimpleNamespace(
-        inputs_sha256={"fsi-provenance.json": "p", "config.json": "h"}, cwd=str(folder)
-    )
-    added: list[tuple[Path, dict]] = []
-    ctx = SimpleNamespace(
-        points=[point],
-        record_of={"P1": record},
-        skipped={},
-        notes=[],
-        out=tmp_path / "out",
-        sources={"P1": ["run-1"]},
-        structure_tips={},
-        sim_id="3207",
-        target=lambda p: p,
-        add=lambda path, entry: added.append((path, entry)),
-        condition=lambda _p: {"alpha": 4.0, "mach": 0.1},
-        reference=SimpleNamespace(as_lengths=lambda: {}),
-    )
-    return structure, ctx, added
+    structure_skipped = {k: v for k, v in manifest["skipped"].items() if k.startswith("structure/")}
+    structure_kinds = [
+        entry["kind"] for key, entry in manifest["products"].items() if key.startswith("structure/")
+    ]
+    return workspace, structure_skipped, structure_kinds
 
 
-def test_f3_0203_f133_the_station_table_leads_with_pol_and_the_condition(tmp_path, monkeypatch):
+def test_f3_0203_f133_the_station_table_leads_with_pol_and_the_condition(tmp_path):
     """F-133 (X-F-1630): the station CSV opens with POL and the condition block like every table."""
     from pyflightstream._tokens import CONTEXT_COLUMNS
 
-    structure, ctx, _added = _f3_0203_structure_ctx(tmp_path, monkeypatch)
-    structure.structure_products(ctx)
-    with (tmp_path / "out" / "structure" / "P1_deflection.csv").open(encoding="utf-8") as handle:
+    workspace, _skipped, _kinds = _f3_0203_coupled_workspace(tmp_path)
+    (table,) = workspace.root.glob("post/**/structure/*_deflection.csv")
+    with table.open(encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     assert list(rows[0])[: 1 + len(CONTEXT_COLUMNS)] == ["POL", *CONTEXT_COLUMNS]
-    assert rows[0]["POL"] == "3207" and float(rows[0]["ALPHA"]) == 4.0
-    assert float(rows[1]["deflection_m"]) == pytest.approx(0.002)
+    assert rows[0]["POL"] == "3207" and float(rows[0]["ALPHA"]) == -2.0
+    assert float(rows[1]["deflection_m"]) == pytest.approx(0.001)
 
 
-def test_f3_0203_f1377_a_missing_coupling_history_is_a_named_skip(tmp_path, monkeypatch):
+def test_f3_0203_f1377_a_missing_coupling_history_is_a_named_skip(tmp_path):
     """F-1377: no convergence log in the working folder leaves a skip entry, not silence."""
-    structure, ctx, _added = _f3_0203_structure_ctx(tmp_path, monkeypatch)
-    structure.structure_products(ctx)
-    assert "fsi_convergence_log.csv" in ctx.skipped["structure/P1_history.csv"]
-    assert "structure/P1_deflection.csv" not in ctx.skipped
+    _workspace, skipped, kinds = _f3_0203_coupled_workspace(tmp_path)
+    (why,) = [v for k, v in skipped.items() if k.endswith("_history.csv")]
+    assert "fsi_convergence_log.csv" in why
+    assert not [k for k in skipped if k.endswith("_deflection.csv")]
+    assert kinds == ["structure"]
 
 
-def test_f3_0203_f782_an_unreadable_coupling_history_costs_only_itself(tmp_path, monkeypatch):
+def test_f3_0203_f782_an_unreadable_coupling_history_costs_only_itself(tmp_path):
     """F-782: a non-UTF-8 history is a skip; the deflection table and later points still write."""
-    structure, ctx, added = _f3_0203_structure_ctx(
-        tmp_path, monkeypatch, history=b"\xff\xfe\x00bad"
-    )
-    structure.structure_products(ctx)
-    assert "cannot be read" in ctx.skipped["structure/P1_history.csv"]
-    assert [entry["kind"] for _path, entry in added] == ["structure"]
+    _workspace, skipped, kinds = _f3_0203_coupled_workspace(tmp_path, history=b"\xff\xfe\x00bad")
+    (why,) = [v for k, v in skipped.items() if k.endswith("_history.csv")]
+    assert "cannot be read" in why
+    assert kinds == ["structure"]
 
 
 def test_f3_0203_f140_the_custom_polar_writes_na_for_a_value_that_is_not_a_number(tmp_path):
@@ -1582,10 +1591,11 @@ def test_f3_0203_f140_the_custom_polar_writes_na_for_a_value_that_is_not_a_numbe
 
 def test_f3_0203_f166_an_infinite_density_writes_no_coefficients_and_says_why():
     """F-166: RHO = inf is a note, not a column of zero coefficients."""
+    from pyflightstream.cases import AXES_PLOT_COMPONENTS
     from pyflightstream.post.products import ReferenceValues
-    from pyflightstream.post.unsteady_polar import _SIX_COMPONENTS, _the_axes_of_the_unsteady_rows
+    from pyflightstream.post.unsteady_polar import _the_axes_of_the_unsteady_rows
 
-    values = {f"{part}_MRP": 10.0 for part in _SIX_COMPONENTS}
+    values = {f"{part}_MRP": 10.0 for part in AXES_PLOT_COMPONENTS}
     condition = {"RHO": math.inf, "VINF": 30.0, "ALPHA": 2.0, "BETA": 0.0}
     notes: list[str] = []
     reference = ReferenceValues(sref_m2=1.0, cref_m=0.5, bref_m=2.0)
@@ -1593,7 +1603,7 @@ def test_f3_0203_f166_an_infinite_density_writes_no_coefficients_and_says_why():
         [(condition, values, (0, 9), {})], reference, notes, ["MRP"]
     )
     assert added == [] and any("RHO" in note for note in notes)
-    assert len(values) == len(_SIX_COMPONENTS)
+    assert len(values) == len(AXES_PLOT_COMPONENTS)
 
 
 def test_f3_0203_f1247_a_record_that_cannot_be_rendered_leaves_no_data_file(tmp_path):
@@ -1627,76 +1637,47 @@ def test_f3_0203_f167_duplicate_tecplot_variable_names_are_refused(tmp_path):
     assert not list(tmp_path.iterdir())
 
 
-def _f3_0203_noise_ctx(tmp_path, monkeypatch):
-    """A recorded wheel point with three observers, the middle one unusable."""
-    import pyflightstream.post._noise_products as noise
+def _f3_0203_noise_run(tmp_path):
+    """A recorded wheel posted with three observers, the middle one on a load source."""
+    from tests.tier1_offline.test_goal036_qsteady_corrections import _post_recorded, _recorded_wheel
 
-    quasi = SimpleNamespace(
-        case="wheel",
-        axis_vector=(1, 0, 0),
-        rpm=1200.0,
-        blades=2,
-        blade1_azimuth_deg=0.0,
-        hub_m=(0, 0, 0),
+    workspace = _recorded_wheel(
+        tmp_path,
+        pproc_extra="""
+[noise]
+exploratory = true
+observers_m = [[10.0, 2.0, 2.0], [0.0, 0.0, 0.7], [20.0, 2.0, 2.0]]
+hub_velocity_m_s = [0.0, 0.0, 0.0]
+sound_speed_m_s = 340.0
+samples_per_revolution = 64
+orders = 0
+axial_radius_m = 0.7
+inplane_radius_m = 0.7
+""",
     )
-    monkeypatch.setattr(noise, "read_qsteady_record", lambda _p: quasi)
-    monkeypatch.setattr(noise, "_recorded_density", lambda *_a: 1.2)
-    monkeypatch.setattr(noise, "clockings_of", lambda *_a, **_k: [])
-    monkeypatch.setattr(noise, "_blade_load_samples", lambda *_a: ([], [], []))
-    monkeypatch.setattr(noise, "reconstruct_blade_load", lambda *_a, **_k: None)
-    monkeypatch.setattr(noise, "RotorMotion", lambda **_k: None)
-
-    def fake(times, observer, *_a, **_k):
-        if observer == (0.0, 0.0, 0.0):
-            raise ValueError("the observer sits on the rotor hub")
-        return np.full(len(times), observer[0])
-
-    monkeypatch.setattr(noise, "rotor_loading_noise", fake)
-    spec = SimpleNamespace(
-        orders=3,
-        axial_radius_m=0.5,
-        inplane_radius_m=0.5,
-        hub_velocity_m_s=(0, 0, 0),
-        samples_per_revolution=4,
-        observers_m=[(1.0, 0.0, 0.0), (0.0, 0.0, 0.0), (2.0, 0.0, 0.0)],
-        sound_speed_m_s=340.0,
-        observer_velocity_m_s=(0, 0, 0),
-    )
-    added: list[tuple[Path, dict]] = []
-    ctx = SimpleNamespace(
-        pproc=SimpleNamespace(noise=spec),
-        points=[SimpleNamespace(name="P1", loads_path=tmp_path / "P1_loads.txt")],
-        record_of={"P1": SimpleNamespace(recipe="qsteady_rotor")},
-        skipped={},
-        out=tmp_path / "out",
-        sources={"P1": ["run-1"]},
-        sim_id="3207",
-        reference=SimpleNamespace(as_lengths=lambda: {}),
-        condition=lambda _p: {"alpha": 4.0},
-        target=lambda p: p,
-        add=lambda path, entry: added.append((path, entry)),
-    )
-    return noise, ctx, added
+    manifest, folder, _log = _post_recorded(workspace)
+    return manifest, folder
 
 
-def test_f3_0203_f788_one_unusable_observer_costs_only_its_own_file(tmp_path, monkeypatch):
+def test_f3_0203_f788_one_unusable_observer_costs_only_its_own_file(tmp_path):
     """F-788: the other observers of the point are still written; the bad one is a named skip."""
-    noise, ctx, added = _f3_0203_noise_ctx(tmp_path, monkeypatch)
-    noise.noise_products(ctx)
-    assert sorted(p.name for p, _e in added) == ["P1_observer_1.csv", "P1_observer_3.csv"]
-    assert "hub" in ctx.skipped["noise/P1_observer_2.csv"] and "noise/P1" not in ctx.skipped
+    manifest, folder = _f3_0203_noise_run(tmp_path)
+    written = sorted(p.name.rsplit("_observer_", 1)[1] for p in folder.glob("noise/*.csv"))
+    assert sorted(set(written)) == ["1.csv", "3.csv"] and len(written) == 4
+    reasons = [v for k, v in manifest["skipped"].items() if k.endswith("_observer_2.csv")]
+    assert len(reasons) == 2 and all("not finite" in reason for reason in reasons)
 
 
-def test_f3_0203_f486_the_noise_table_leads_with_pol_and_the_condition(tmp_path, monkeypatch):
+def test_f3_0203_f486_the_noise_table_leads_with_pol_and_the_condition(tmp_path):
     """F-486 (X-F-1629): a noise CSV opens with POL and the condition block."""
     from pyflightstream._tokens import CONTEXT_COLUMNS
 
-    noise, ctx, added = _f3_0203_noise_ctx(tmp_path, monkeypatch)
-    noise.noise_products(ctx)
-    with added[0][0].open(encoding="utf-8") as handle:
+    _manifest, folder = _f3_0203_noise_run(tmp_path)
+    first = sorted(folder.glob("noise/*.csv"))[0]
+    with first.open(encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     assert list(rows[0]) == ["POL", *CONTEXT_COLUMNS, "time_s", "pressure_pa"]
-    assert rows[0]["POL"] == "3207" and float(rows[0]["ALPHA"]) == 4.0
+    assert rows[0]["POL"] == "6001"
 
 
 def test_f3_0203_f169_an_infinite_step_cell_states_no_step():
@@ -1724,26 +1705,31 @@ def test_f3_0203_f1374_an_unreadable_loads_file_costs_only_the_condition(tmp_pat
     assert _rotor_products._loads_report(loads) is None
 
 
-def test_f3_0203_f1373_an_acoustic_only_record_still_gets_its_acoustic_products(
-    tmp_path, monkeypatch
-):
+def test_f3_0203_f1373_an_acoustic_only_record_still_gets_its_acoustic_products(tmp_path):
     """F-1373: a record listing no loads or sections table still writes its acoustics."""
-    from pyflightstream.post import _rotor_products
+    from tests.tier1_offline.test_post_products import _steady_workspace_with_provenance
 
-    monkeypatch.setattr(
-        _rotor_products._acoustics, "read_acoustic_signals", lambda _s: [_f3_0203_signal(50.0)]
+    recorded = _steady_workspace_with_provenance(tmp_path / "fixture")
+    original = recorded.read_manifest()[0]
+    workspace = CampaignWorkspace.init(tmp_path / "posted")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text('[groups]\n"1"="all"\n')
+    outputs = workspace.sim_dir(original.sim_id) / "outputs"
+    outputs.mkdir(parents=True)
+    _f3_0203_write_signal(outputs / "P1_acoustic_signals.txt", 50.0)
+    workspace.append_record(
+        original.model_copy(
+            update={
+                "run_id": "camp/sim_3207/P1",
+                "point_name": "P1",
+                "outputs": ["outputs/P1_acoustic_signals.txt"],
+                "package_version": "0.42.0",
+            }
+        )
     )
-    suffix = _rotor_products._acoustics.ACOUSTIC_SIGNALS_SUFFIX
-    record = SimpleNamespace(
-        run_id="r1", outputs=[f"P1{suffix}"], reductions={}, package_version="0.42.0"
-    )
-    workspace = SimpleNamespace(sim_dir=lambda _sim: tmp_path)
-    skipped: dict[str, str] = {}
-    written, names = _rotor_products._point_series(
-        workspace, "3207", record, tmp_path / "post", overwrite=True, skipped=skipped
-    )
-    assert any(path.name == "P1_acoustics_summary.csv" for path in written)
-    assert "acoustics/P1_acoustics_summary.csv" in names
+    with pytest.warns(Warning):
+        write_campaign_products(workspace)
+    summaries = sorted(p.name for p in workspace.root.glob("post/**/acoustics/*_summary.csv"))
+    assert summaries == ["P1_acoustics_summary.csv"]
 
 
 def _f3_0203_unreadable(monkeypatch, path):
@@ -2080,10 +2066,12 @@ def _f3_0203_swept_record(run_id: str, mach: float):
 
 def test_f3_0203_pfs2119_031_a_swept_cell_that_cannot_resolve_is_warned_once_per_point():
     """PFS-2119.031: the silent fall back to the first-point state is said, once per point."""
+    import uuid
+
     from pyflightstream.post import _condition
 
-    record = _f3_0203_swept_record("f3-0203-pfs2119031", -1.0)
-    _condition._UNRESOLVED_WARNED.discard(record.run_id)
+    # A run id of its own: the warning is said once per point, so a repeated run id stays quiet.
+    record = _f3_0203_swept_record(f"f3-0203-pfs2119031-{uuid.uuid4().hex}", -1.0)
     with pytest.warns(Warning, match="cannot be re-resolved") as caught:
         first = _condition.point_state(record)
         again = _condition.point_state(record)
@@ -2118,28 +2106,47 @@ def test_f3_0203_pfs2124_028_a_records_outputs_are_classified_by_its_own_release
 
 def test_f3_0203_pfs2126_017_every_alias_that_reaches_a_file_goes_through_one_sanitiser(tmp_path):
     """PFS-2126.017: disc map names and observer slugs share one sanitiser; clashes refuse."""
-    from pyflightstream.post.acoustics import _slug
+    from pyflightstream.cases.acoustics import AcousticSignal
+    from pyflightstream.post.acoustics import write_acoustic_products
     from pyflightstream.post.disc_maps import DiscMaps, disc_map_name, write_disc_maps
 
     assert disc_map_name("P1", "..Rotor.", "Fz") == "P1_disc_Rotor_Fz.csv"
     assert disc_map_name("P1", "", "Fz") == "P1_disc_rotor_Fz.csv"
-    assert _slug("obs/1:a") == "obs_1_a" and _slug("///") == "observer"
+    times = tuple(i / 100.0 for i in range(8))
+    pressure = (0.0, 1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0)
+    signals = [AcousticSignal(name, 0.0, 0.0, 0.0, times, pressure) for name in ("obs/1:a", "///")]
+    made = write_acoustic_products(signals, tmp_path / "acoustics", stem="P")
+    names = {path.name for path in made.files}
+    assert "P_01_obs_1_a_pressure.csv" in names and "P_02_observer_pressure.csv" in names
     clash = DiscMaps(maps={("A/B", "Fz"): [], ("A:B", "Fz"): []})
     with pytest.raises(ProductError, match="both write the disc map"):
         write_disc_maps(clash, point="P1", pol="3207", context=(), out_dir=tmp_path)
-    assert not list(tmp_path.iterdir())
+    assert not [path for path in tmp_path.iterdir() if path.name != "acoustics"]
 
 
-def test_f3_0203_pfs2124_029_a_reference_checked_only_coarsely_says_how_coarsely():
+def test_f3_0203_pfs2124_029_a_reference_checked_only_coarsely_says_how_coarsely(tmp_path):
     """PFS-2124.029: on a small model the check is noted as only +-N% precise, once."""
-    from pyflightstream.post._condition import _refuse_a_reference_the_solver_did_not_use
-    from pyflightstream.post.products import ReferenceValues
+    from pyflightstream.post.polar import write_recorded_polar
+    from tests.tier1_offline.test_post_products import LOADS
 
-    reference = ReferenceValues(sref_m2=0.001, cref_m=2.0, bref_m=1.0)
-    loads = SimpleNamespace(reference_area=0.00102, reference_length=2.0)
-    points = [SimpleNamespace(name=f"P{n}", loads=loads) for n in range(2)]
+    polar = tmp_path / "POLAR-3207"
+    for name in ("P0", "P1"):
+        point = polar / name
+        point.mkdir(parents=True)
+        text = LOADS.replace(
+            "Reference area (m^2)                        50.000",
+            "Reference area (m^2)                        .001",
+        )
+        (point / f"{name}.txt").write_text(text, encoding="utf-8")
     with pytest.warns(Warning, match=r"SREF 0.001\) could only be checked to \+-50%") as caught:
-        _refuse_a_reference_the_solver_did_not_use("3207", points, reference)
+        write_recorded_polar(
+            polar,
+            tmp_path / "out",
+            groups={"1": ["W"]},
+            reference={"SREF": 0.001, "CREF": 2.526, "BREF": 1.0, "XMOM": 0.0},
+            description="d",
+            mach=0.2,
+        )
     assert len([w for w in caught if "could only be checked" in str(w.message)]) == 1
     assert not any("CREF" in str(w.message) for w in caught)
 
@@ -2275,11 +2282,27 @@ def test_p0430_f3_harmonics_refuse_a_negative_or_nonfinite_chord():
             )  # fmt: skip
 
 
-def test_p0430_f3_inflow_tables_write_na_for_missing_cells():
+def test_p0430_f3_inflow_tables_write_na_for_missing_cells(tmp_path):
     """F-191: the harmonics cell writer states a missing or non-finite value as NA."""
-    assert inflow_tools._cell(None) == "NA"
-    assert inflow_tools._cell(float("nan")) == "NA"
-    assert inflow_tools._cell(0.5) == "0.5"
+    station = inflow_tools.InflowStationHarmonics(
+        radius_m=0.5,
+        chord_m=None,
+        dalpha_rms_deg=1.0,
+        dalpha_half_ptp_deg=2.0,
+        n95=2,
+        shares=(),
+        k_1p=float("nan"),
+        k_eff=0.5,
+    )
+    built = inflow_tools.HarmonicsMap(
+        stations=((0.5, station),), diameter_m=1.0, v_inf_m_s=10.0, blades=2
+    )
+    full, _short = inflow_tools.write_inflow_harmonics(tmp_path, built)
+    head, row = full.read_text(encoding="utf-8").splitlines()
+    cells = dict(zip(head.split(","), row.split(","), strict=True))
+    assert cells["c_over_R"] == "NA"
+    assert cells["k_1P"] == "NA"
+    assert cells["k_eff"] == "0.5"
 
 
 def _f3_disc_table(path, *, planes=("P1",), aliases=("PROP",), steps=(1, 2, 3, 4)):
@@ -2433,11 +2456,12 @@ def test_x_f_1644_a_string_default_is_a_toml_string_that_reads_back_as_itself():
     """X-F-1644: the regex default was shown as an invalid basic string, `"^Blade\\d+$"`."""
     import tomllib
 
-    from pyflightstream.post.glossary import _toml
+    from pyflightstream.post.glossary import input_glossary_markdown
 
-    for text in ("^Blade\\d+$", 'say "hi"', "plain"):
-        assert tomllib.loads(f"x = {_toml(text)}")["x"] == text
-    assert _toml("plain") == '"plain"'
+    lines = input_glossary_markdown().splitlines()
+    row = next(line for line in lines if line.startswith("| `blade_pattern`"))
+    shown = row.split("default `")[1].split("` |")[0]
+    assert tomllib.loads(f"x = {shown}")["x"] == "^Blade\\d+$"
 
 
 def test_f1829_f1830_x_f_1643_the_glossary_places_the_guides_in_the_pproc_folder():
@@ -2464,62 +2488,38 @@ def test_the_docstrings_of_the_post_layer_state_what_the_definitions_say():
     assert "writes them ``NA``" in polar and "writes no\n        reference columns" not in polar
     assert "1e-10" in (boundary_layer.sample_boundary_layer.__doc__ or "")
     assert "export window" in (_rotor_products._unsteady_harmonics.__doc__ or "")
-    assert "between one and ten units" in (farfield_fields._tolerance.__doc__ or "")
+    assert "between one and ten units" in (farfield_fields.coordinate_tolerance.__doc__ or "")
 
 
-def test_f1412_the_reference_velocity_warning_does_not_promise_the_plots_table_a_condition():
+def test_f1412_the_reference_velocity_warning_does_not_promise_the_plots_table_a_condition(
+    tmp_path,
+):
     """F-1412: the plots table states no condition, so VREF and VINF are not in its rows."""
     from pyflightstream._errors import PyflightstreamWarning
-    from pyflightstream.post._admit import _warn_the_point_s_state
+    from tests.tier1_offline.test_post_products import (
+        LOADS,
+        _steady_workspace_with_provenance,
+    )
 
-    report = SimpleNamespace(freestream_velocity_m_s=50.0, reference_velocity_m_s=100.0)
+    workspace = _steady_workspace_with_provenance(tmp_path)
+    export = workspace.sim_dir("3207") / "outputs" / "POLAR-3207_M20AL-020BE+000.txt"
+    export.write_text(
+        LOADS.replace(
+            "Reference velocity (m/s)                    68.058",
+            "Reference velocity (m/s)                    100.000",
+        ),
+        encoding="utf-8",
+    )
     with pytest.warns(PyflightstreamWarning, match="the plots table states none"):
-        _warn_the_point_s_state("P", cast(Any, report), cast(Any, SimpleNamespace(state=None)))
+        write_campaign_products(workspace)
 
 
-def test_x_f_0523_an_unreadable_fsi_history_is_a_named_skip_not_a_stage_abort(
-    tmp_path, monkeypatch
-):
+def test_x_f_0523_an_unreadable_fsi_history_is_a_named_skip_not_a_stage_abort(tmp_path):
     """X-F-0523: a damaged history log aborted the stage; it is a named skip now."""
-    import pyflightstream.post._structure as structure
-
-    folder = tmp_path / "run"
-    folder.mkdir()
-    (folder / "fsi_convergence_log.csv").write_bytes(b"\xff\xfe\x00bad")
-    monkeypatch.setattr(structure, "file_sha256", lambda path: "h")
-    monkeypatch.setattr(
-        structure,
-        "load_config",
-        lambda path: SimpleNamespace(blade=SimpleNamespace(station_radii_m=[1.0])),
-    )
-    monkeypatch.setattr(
-        structure,
-        "generate_node_layout",
-        lambda config: SimpleNamespace(le_offset_m=[0.0], te_offset_m=[0.0]),
-    )
-    monkeypatch.setattr(structure, "_recorded_displacements", lambda *a: (folder / "src", None))
-    monkeypatch.setattr(structure, "unflatten_translations", lambda layout, flat: [None])
-    monkeypatch.setattr(
-        structure, "decode_station_translations", lambda *a: (np.array([0.0]), np.array([0.0]))
-    )
-    record = SimpleNamespace(
-        inputs_sha256={"fsi-provenance.json": "h", "config.json": "h"}, cwd=str(folder)
-    )
-    ctx = SimpleNamespace(
-        points=[SimpleNamespace(name="P")],
-        record_of={"P": record},
-        skipped={},
-        out=tmp_path / "out",
-        sources={"P": ["run/P"]},
-        structure_tips={},
-        target=lambda path: path,
-        add=lambda path, entry: None,
-        sim_id="3207",
-        condition=lambda _p: {"alpha": 0.0},
-        reference=SimpleNamespace(as_lengths=lambda: {}),
-    )
-    structure.structure_products(cast(Any, ctx))
-    assert list(ctx.skipped) == ["structure/P_history.csv"], ctx.skipped
+    _workspace, skipped, _kinds = _f3_0203_coupled_workspace(tmp_path, history=b"\xff\xfe\x00bad")
+    assert [key.rsplit("/", 1)[-1] for key in skipped] == [
+        "POLAR-3207_M20AL-020BE+000_history.csv"
+    ], skipped
 
 
 def test_f1414_x_f_1193_the_inflow_harmonics_table_is_rectangular_and_refuses_a_nan_axis(tmp_path):
@@ -2541,64 +2541,77 @@ def test_f1414_x_f_1193_the_inflow_harmonics_table_is_rectangular_and_refuses_a_
     rows = full.read_text(encoding="utf-8").splitlines()
     assert {len(row.split(",")) for row in rows} == {len(rows[0].split(","))}
     with pytest.raises(ProductError, match="rotor axis"):
-        inflow_tools._refuse_a_wrong_axis((float("nan"), 0.0, 0.0))
+        inflow_tools.blade_view_harmonics(
+            [[0.0, 0.0, 0.0, 1.0, 0.0, 0.0]],
+            hub=(0, 0, 0),
+            axis=(float("nan"), 0.0, 0.0),
+            omega_rad_s=10.0,
+            radii_m=[0.5],
+        )
 
 
 def test_x_f_0327_an_infinite_clock_is_a_named_skip_not_an_overflow(tmp_path):
     """X-F-0327: inf passed `>= 0.5` and `int(round(inf))` aborted the point."""
-    from pyflightstream.post._reduction_stage import _write_the_per_revolution_products
-
-    skipped: dict[str, str] = {}
-    _write_the_per_revolution_products(
-        cast(Any, None),
-        [],
-        {"rotors": {"R": {"steps_per_revolution": float("inf")}}},
-        tmp_path,
-        stem="P",
-        runs=[],
-        target=lambda path: path,
-        written=[],
-        written_names={},
-        skipped=skipped,
-        condition=None,
-        reference=None,
-        names=None,
-        frozen=None,
-        pol=None,
-        drift_limit_pct=5.0,
+    from tests.tier1_offline.test_post_products import (
+        _products_manifest,
+        _unsteady_workspace,
     )
-    assert list(skipped) == ["probes/P_per_revolution_R.csv"]
-    assert "states no steps per revolution" in skipped["probes/P_per_revolution_R.csv"]
+
+    plan = {
+        "window_stated": True,
+        "time_iterations": 8,
+        "steps_per_revolution": None,
+        "blades": None,
+        "rotors": {"R": {"steps_per_revolution": float("inf")}},
+        "time_average": {"windows": [[5, 8]], "window_from": "LAST_ITERS_AVG = 4"},
+    }
+    workspace = _unsteady_workspace(tmp_path, reductions=plan, recipe="unsteady_rotor")
+    write_campaign_products(workspace)
+    skipped = {
+        key: why
+        for key, why in _products_manifest(workspace)["skipped"].items()
+        if "per_revolution" in key
+    }
+    assert list(skipped) == ["probes/AL-020_per_revolution_R.csv"]
+    assert "states no steps per revolution" in skipped["probes/AL-020_per_revolution_R.csv"]
 
 
 def test_f168_a_large_reference_area_is_held_to_the_printed_precision(tmp_path):
     """F-168: a part relative to the area let 1.0e-3 pass at 1000 m2 where 5e-4 is the print."""
-    from pyflightstream._errors import collecting_warnings
-    from pyflightstream.post._condition import _refuse_a_reference_the_solver_did_not_use
-    from pyflightstream.post._stage import _POST_REFUSES
-    from pyflightstream.post.products import ReferenceValues
-
-    reference = ReferenceValues.from_mapping(
-        {"SREF": 1000.0, "CREF": 1.0, "BREF": 1.0, "XMOM": 0, "YMOM": 0, "ZMOM": 0}
+    from tests.tier1_offline.test_post_products import (
+        LOADS,
+        _products_manifest,
+        _steady_workspace_with_provenance,
     )
 
-    def point(area: float) -> SimpleNamespace:
-        loads = SimpleNamespace(reference_area=area, reference_length=1.0)
-        return SimpleNamespace(name="P1", loads=loads)
+    def posted(printed: str, *, refuse: bool) -> dict[str, str]:
+        recorded = _steady_workspace_with_provenance(tmp_path / f"fixture-{printed}-{refuse}")
+        original = recorded.read_manifest()[0]
+        workspace = CampaignWorkspace.init(tmp_path / f"posted-{printed}-{refuse}")
+        (workspace.inputs_dir / "pproc" / "p001.toml").write_text('[groups]\n"1"="all"\n')
+        (loads,) = original.outputs
+        target = workspace.sim_dir(original.sim_id) / loads
+        target.parent.mkdir(parents=True)
+        target.write_text(
+            LOADS.replace(
+                "Reference area (m^2)                        50.000",
+                f"Reference area (m^2)                        {printed}",
+            ),
+            encoding="utf-8",
+        )
+        reference = {"SREF": 1000.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152}
+        workspace.append_record(original.model_copy(update={"reference": reference}))
+        write_campaign_products(workspace, check_frozen=refuse)
+        return _products_manifest(workspace)["skipped"]
 
-    token = _POST_REFUSES.set(True)
-    try:
-        # half a unit of the last printed digit is the same number ...
-        _refuse_a_reference_the_solver_did_not_use("1", [point(1000.0004)], reference)
-        # ... and 8e-4 is not, however large the area (the relative part allowed 1.5e-3).
-        with pytest.raises(ProductError, match="loads export of P1 states a reference area"):
-            _refuse_a_reference_the_solver_did_not_use("1", [point(1000.0008)], reference)
-        _POST_REFUSES.set(False)
-        with collecting_warnings() as sink:
-            _refuse_a_reference_the_solver_did_not_use("1", [point(1000.0008)], reference)
-        assert len(sink) == 1
-    finally:
-        _POST_REFUSES.reset(token)
+    # the printed 1000.000 is the stated area to the last digit it prints ...
+    assert "3207" not in posted("1000.000", refuse=True)
+    # ... and one unit of that digit is not, however large the area (the relative part
+    # allowed 1.5e-3 here): the refusing mode skips the simulation naming it, the default
+    # mode says it and goes on.
+    assert "states a reference area" in posted("1000.001", refuse=True)["3207"]
+    with pytest.warns(Warning, match="states a reference area"):
+        assert "3207" not in posted("1000.001", refuse=False)
 
 
 def test_x_f_1637_the_unsteady_polar_states_no_window_for_a_point_it_left_out(tmp_path):

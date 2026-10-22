@@ -15,6 +15,7 @@ import pytest
 import pyflightstream.post.section_distributions as distributions
 from pyflightstream import _textio
 from pyflightstream._errors import ProductError, PyflightstreamWarning, warn
+from pyflightstream.cases import AXES_PLOT_COMPONENTS
 from pyflightstream.post import OutputProvenance
 from pyflightstream.post._tables import (
     COEFFICIENT_COLUMNS,
@@ -42,7 +43,7 @@ from pyflightstream.post.products import write_campaign_products
 from pyflightstream.post.section_distributions import _integrated_strips
 from pyflightstream.post.settings_table import FLAG_IDS, settings_table
 from pyflightstream.post.superfile import _write_legacy_polar, measure_sections
-from pyflightstream.post.unsteady_polar import _SIX_COMPONENTS, _the_axes_of_the_unsteady_rows
+from pyflightstream.post.unsteady_polar import _the_axes_of_the_unsteady_rows
 from pyflightstream.post.writers import OutputExistsError
 from pyflightstream.script import Script, helpers
 from tests.tier1_offline.test_f07_section_distributions import _post as _post_1_series___post
@@ -550,7 +551,7 @@ class TestPost2Superfile:
 
 
 def _post2_unsteady_polar___rows():
-    values = {f"{part}_MRP": 1.0 for part in _SIX_COMPONENTS}
+    values = {f"{part}_MRP": 1.0 for part in AXES_PLOT_COMPONENTS}
     condition = {"RHO": 1.225, "VINF": 30.0, "ALPHA": 2.0, "BETA": 0.0}
     return [(condition, values, (0, 9), {})]
 

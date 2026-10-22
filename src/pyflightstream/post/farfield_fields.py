@@ -68,6 +68,7 @@ __all__ = [
     "FarLayout",
     "ProbeSamples",
     "average_rows",
+    "coordinate_tolerance",
     "derived_layout",
     "far_samples",
     "frame_lattice",
@@ -316,7 +317,7 @@ def unsteady_samples(
     return ProbeSamples(xyz, velocity.reshape(-1, 3), cp, frames)
 
 
-def _tolerance(points: np.ndarray, digits: int | None) -> np.ndarray:
+def coordinate_tolerance(points: np.ndarray, digits: int | None) -> np.ndarray:
     """Return the per-component tolerance of exported coordinates near ``points`` (native).
 
     The relative term is ``10**(1 - digits) * |x|``: between one and ten units of
@@ -325,6 +326,18 @@ def _tolerance(points: np.ndarray, digits: int | None) -> np.ndarray:
     printed them (``digits``), plus the native unit's fifth decimal. The match is
     therefore looser than one unit; the spacing check refuses a layout it would
     make ambiguous.
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        The coordinates, in native units, whose export tolerance is wanted.
+    digits : int or None
+        The significant digits the export printed; ``None`` or zero when unknown.
+
+    Returns
+    -------
+    numpy.ndarray
+        The tolerance of each component, of the shape of ``points``.
     """
     if not digits:
         return np.full(np.shape(points), _PRINTED_ABSOLUTE)
@@ -355,7 +368,7 @@ def _starts(
     ``by_shape`` matches the offsets from the run's first point (a layout whose
     placement the record does not hold); otherwise the positions themselves.
     Each component is compared within the printed precision of the export
-    (:func:`_tolerance`), which depends on that coordinate alone, never on the
+    (:func:`coordinate_tolerance`), which depends on that coordinate alone, never on the
     distance of another point from the origin (PFS-2081.103).
     """
     count, total = len(expected), len(positions)
@@ -364,13 +377,15 @@ def _starts(
     if by_shape:
         expected = expected - expected[0]
         spans = positions[count - 1 :] - positions[: total - count + 1]
-        slack = _tolerance(positions[count - 1 :], digits) + _tolerance(
+        slack = coordinate_tolerance(positions[count - 1 :], digits) + coordinate_tolerance(
             positions[: total - count + 1], digits
         )
         starts = np.flatnonzero(np.all(np.abs(spans - expected[-1]) <= slack, axis=1))
     else:
         starts = np.flatnonzero(
-            np.all(np.abs(positions - expected[0]) <= _tolerance(expected[0], digits), axis=1)
+            np.all(
+                np.abs(positions - expected[0]) <= coordinate_tolerance(expected[0], digits), axis=1
+            )
         )
     found = []
     for start in starts.tolist():
@@ -378,10 +393,10 @@ def _starts(
         if len(window) != count:
             continue
         if by_shape:
-            slack = _tolerance(window, digits) + _tolerance(window[0], digits)
+            slack = coordinate_tolerance(window, digits) + coordinate_tolerance(window[0], digits)
             window = window - window[0]
         else:
-            slack = _tolerance(expected, digits)
+            slack = coordinate_tolerance(expected, digits)
         if np.all(np.abs(window - expected) <= slack):
             found.append(int(start))
     return found
@@ -585,7 +600,10 @@ def _locate_one(
         + ([] if by_shape else [float(np.abs(expected).max(initial=0.0))])
         + [0.0]
     )
-    if 2.0 * float(_tolerance(np.array([reach]), samples.digits)[0]) > _SPACING_FRACTION * spacing:
+    if (
+        2.0 * float(coordinate_tolerance(np.array([reach]), samples.digits)[0])
+        > _SPACING_FRACTION * spacing
+    ):
         return None, (
             f"the {what} the run laid has points {spacing:.3g} native units apart, closer than "
             "the printed precision of the export can tell apart at its coordinates"

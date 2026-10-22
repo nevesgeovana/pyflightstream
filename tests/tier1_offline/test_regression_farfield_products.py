@@ -2562,9 +2562,9 @@ def test_p0430_f3_an_empty_plane_selection_is_the_documented_refusal():
 
 def test_p0430_f3_the_matching_tolerance_is_one_unit_of_the_last_printed_digit():
     """F-142: a coordinate just below a power of ten is not given ten units of slack."""
-    from pyflightstream.post.farfield_fields import _tolerance
+    from pyflightstream.post.farfield_fields import coordinate_tolerance
 
-    tolerance = _tolerance(np.array([9.99, 10.01, 0.0]), 7)
+    tolerance = coordinate_tolerance(np.array([9.99, 10.01, 0.0]), 7)
     assert tolerance[0] == pytest.approx(1e-6 + 1e-5)
     assert tolerance[1] == pytest.approx(1e-5 + 1e-5)
     assert tolerance[2] == pytest.approx(1e-5)

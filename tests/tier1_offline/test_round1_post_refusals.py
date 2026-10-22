@@ -178,13 +178,11 @@ def test_unresolved_layout_repost_retires_previous_split(tmp_path, monkeypatch, 
 def test_f4_0506_a_wrong_shape_manifest_is_refused_and_a_rebuild_keeps_the_old_one(
     tmp_path, monkeypatch
 ):
-    from pyflightstream.post.products import _retire_previous_manifest
-
     workspace, _ = _workspace(tmp_path, monkeypatch)
     write_campaign_products(workspace)
     manifest = workspace.products_dir(None) / "products.json"
-    # F-784: retiring without an archive no longer unlinks the inventory
-    _retire_previous_manifest(workspace.root, manifest, matrix="products", archive=False)
+    # F-784: a rebuild without an archive no longer unlinks the inventory first
+    write_campaign_products(workspace, overwrite=True, archive=False)
     assert manifest.is_file()
     # F-1392: valid JSON of the wrong shape is a ProductError, not an AttributeError
     manifest.write_text("[1, 2]", encoding="utf-8")
