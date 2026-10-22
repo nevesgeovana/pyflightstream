@@ -937,9 +937,11 @@ def per_blade_rows(
     Returns
     -------
     list of dict
-        One mapping per blade: ``BLADE``, ``FIRST_STEP``, ``LAST_STEP``,
-        ``AZIMUTH_START``, ``AZIMUTH_END``, and that blade's own averaged
-        columns with the blade prefix removed.
+        One mapping per blade: ``BLADE``, ``FIRST_STEP`` and ``LAST_STEP`` (the
+        first and last step of the history inside the window, which is the
+        span averaged), ``STEPS`` (how many steps of the history entered the
+        average), ``AZIMUTH_START`` and ``AZIMUTH_END`` at those two steps, and
+        that blade's own averaged columns with the blade prefix removed.
 
     Raises
     ------
@@ -959,7 +961,11 @@ def per_blade_rows(
     if not ((steps >= first) & (steps <= last)).any():
         held = f"runs from {int(steps[0])} to {int(steps[-1])}" if len(steps) else "holds no step"
         raise ProductError(f"the window {window} names no step this history holds, which {held}")
-    spanned = last - first
+    # THE SPAN THAT WAS AVERAGED, not the one asked for: a history missing the
+    # ends of the window averages the steps it holds inside it, and the row
+    # says which; STEPS counts those steps (the frames that entered the average).
+    averaged = steps[(steps >= first) & (steps <= last)]
+    opened, closed = int(averaged.min()), int(averaged.max())
     average = blade_passage_average(series, window=(first, last))
     spacing = 360.0 / blades
 
@@ -971,14 +977,18 @@ def per_blade_rows(
         start: float | None = None
         end: float | None = None
         if blade1_azimuth_deg is not None and steps_per_revolution is not None:
-            start = (blade1_azimuth_deg + index * spacing) % 360.0 + 0.0
+            datum = (blade1_azimuth_deg + index * spacing) % 360.0 + 0.0
+            start = blade_azimuth_deg(
+                datum, step=opened - first, steps_per_revolution=steps_per_revolution, rpm=turning
+            )
             end = blade_azimuth_deg(
-                start, step=spanned, steps_per_revolution=steps_per_revolution, rpm=turning
+                datum, step=closed - first, steps_per_revolution=steps_per_revolution, rpm=turning
             )
         row: dict[str, object] = {
             "BLADE": number,
-            "FIRST_STEP": first,
-            "LAST_STEP": last,
+            "FIRST_STEP": opened,
+            "LAST_STEP": closed,
+            "STEPS": int(averaged.size),
             "AZIMUTH_START": start,
             "AZIMUTH_END": end,
         }

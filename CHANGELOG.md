@@ -362,6 +362,10 @@ FlightStream versions.
   it early or late.
 - An unsteady or rotor row that continues a stopped run (`RESTART`) refuses a key its run type
   does not register, as a row that starts from a mesh does, instead of ignoring it.
+- A per-blade row whose run history holds only part of the averaging window states the span
+  it averaged: `FIRST_STEP` and `LAST_STEP` are the first and last step held inside the
+  window, `STEPS` counts the steps that entered the average, and the azimuths are at those
+  steps.
 
 ### Deprecated
 

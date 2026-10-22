@@ -80,6 +80,37 @@ def test_every_blade_is_averaged_over_the_same_window():
     assert {row["LAST_STEP"] for row in rows} == {6}, rows
 
 
+def test_p0430_a_row_states_the_span_it_averaged_and_not_the_one_asked_for():
+    """F-211: a history that holds only part of the window says which part was averaged.
+
+    The rows stated the requested first and last step although the history held
+    steps 2, 3 and 5 of the window 1 to 7; they now state 2 and 5, the three steps
+    that entered the average, and the azimuths at those two steps.
+    """
+    steps = np.array([2, 3, 5, 9])
+    series = TimestepSeries(
+        steps=steps,
+        times_s=None,
+        points=np.zeros((1, 3)),
+        fields={
+            "Blade1_CMx": np.array([[1.0], [2.0], [3.0], [100.0]]),
+            "Blade2_CMx": np.array([[4.0], [5.0], [6.0], [100.0]]),
+        },
+        sources=(),
+    )
+    rows = per_blade_rows(
+        series, window=(1, 7), blades=2, steps_per_revolution=8.0, blade1_azimuth_deg=0.0
+    )
+    assert [(row["FIRST_STEP"], row["LAST_STEP"]) for row in rows] == [(2, 5), (2, 5)], rows
+    assert [row.get("STEPS") for row in rows] == [3, 3], rows
+    # Blade one is at 0 degrees at step 1, so at 45 at step 2 and at 180 at step 5.
+    assert [(row["AZIMUTH_START"], row["AZIMUTH_END"]) for row in rows] == [
+        (45.0, 180.0),
+        (225.0, 0.0),
+    ], rows
+    assert [row["CMx"] for row in rows] == [2.0, 5.0], rows
+
+
 def test_the_azimuth_of_each_blade_is_written_at_both_ends_of_that_window():
     """The fact she asked to be recorded rather than averaged away."""
     rows = per_blade_rows(

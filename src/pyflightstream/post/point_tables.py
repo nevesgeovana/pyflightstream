@@ -1105,15 +1105,12 @@ def write_per_blade_table(
         None,
         columns=_MOMENT_POINT_COLUMNS,
     )
-    lead = {"BLADE", "FAMILY", "FIRST_STEP", "LAST_STEP", "AZIMUTH_START", "AZIMUTH_END"}
+    lead = {"BLADE", "FAMILY", "FIRST_STEP", "LAST_STEP", "STEPS", "AZIMUTH_START", "AZIMUTH_END"}
     names: list[str] = []
     for row in blade_rows:
         for name in row:
             if name not in lead and name not in names:
                 names.append(name)
-    # STEPS IS THE NUMBER OF FRAMES THAT ENTERED THE AVERAGE (X-F-0348, as `time_average`
-    # and `phase_locked` state it), not the span of the window: a history with a gap holds fewer.
-    frames = sum(1 for step in series.steps if first <= int(step) <= last)
     table = [
         (
             pol,
@@ -1121,9 +1118,9 @@ def write_per_blade_table(
             rotor,
             row["BLADE"],
             row.get("FAMILY"),
-            first,
-            last,
-            frames,
+            row["FIRST_STEP"],
+            row["LAST_STEP"],
+            row["STEPS"],
             row["AZIMUTH_START"],
             row["AZIMUTH_END"],
             *context,
