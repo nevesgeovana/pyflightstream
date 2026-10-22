@@ -638,12 +638,13 @@ class PhysicsCase:
         evidenced on every registered version; otherwise the case
         supports that build and every build after it.
 
-        AFTER is read from the ordering authority's list position and
-        NOT from the identifier, because the identifier does not encode
-        release order: 26.100 is the February 2026 build and 26.101 the
-        May one, which string comparison happens to get right, and the
-        25 series was registered later and belongs at the FRONT, which it
-        does not.
+        "After" is read from the position in the registry's ordered list
+        of builds, never from the identifier, because the identifier does
+        not encode release order. The 25 series was registered after the
+        26 series but is older, so the list holds it at the front, before
+        26.100; comparing the identifiers as strings gives the same
+        answer for those two, and a build whose identifier does not
+        sort in release order would still be placed by the list.
         """
         if self.minimum_version is None:
             return True
