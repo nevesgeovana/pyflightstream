@@ -221,8 +221,12 @@ def test_rebuild_reads_a_batch_point_as_submitted_never_as_run_locally(tmp_path)
     sim = workspace.sim_dir(job.sim_id)
     descriptor = next(sim.rglob("submit.yaml"))
     folder = workspace.root / "sims" / "batch" / LABEL
-    (folder / f"sim_{job.sim_id}").mkdir(parents=True)
+    folder.mkdir(parents=True)
     shutil.move(descriptor, folder / "submit.yaml")
+    # A batch not yet moved home: the batch's copy of the simulation holds the scripts
+    # being rebuilt. Only that batch can say the point was submitted (F-614, FR-859); a
+    # descriptor beside an empty copy is a stale batch's and is not this run's.
+    shutil.move(sim, folder / f"sim_{job.sim_id}")
     moved = records.rebuild(workspace.root, all_sims=True, out="runs-batch.json")["records"]
     assert moved[0]["submission"] is not None, "a batch point was read as run locally"
     assert moved[0]["submission"]["submitted"] is True
