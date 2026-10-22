@@ -41,7 +41,7 @@ def flow_data(root: Path) -> dict:
             raise ValueError(f"missing pipeline callable: {stage['source']}:{stage['symbol']}")
         stage["parameters"] = ast.unparse(function.args)
         stage["returns"] = ast.unparse(function.returns) if function.returns else "unspecified"
-        stage["source_sha256"] = hashlib.sha256(ast.dump(function).encode()).hexdigest()
+        stage["source_sha256"] = hashlib.sha256(ast.unparse(function).encode()).hexdigest()
     data["edges"] = [
         {"source": left["id"], "target": right["id"], "artifact": artifact}
         for left in stages.values()

@@ -126,13 +126,13 @@ with mkdocs_gen_files.open("contributing.md", "w") as page:
         "show the requirements hierarchy and library structure.\n"
     )
 
-# The public route map is generated from the reachability exception register.
+# The public route map lists the routes written here; no register is read.
 # This release publishes routes only; exceptions remain an internal register.
 with mkdocs_gen_files.open("workspace-route-map.md", "w") as page:
     page.write(
         "# Workspace route map\n\n"
         "This page lists Python capabilities and their corresponding workspace "
-        "routes. It is generated from the reachability register.\n\n"
+        "routes. The reachability exceptions stay an internal register.\n\n"
         "| Capability | Workspace route |\n|---|---|\n"
         "| Run planning | `pyfs-matrix plan` and the run matrix |\n"
         "| Solver execution | `pyfs-matrix run` |\n"
