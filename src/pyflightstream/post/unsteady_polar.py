@@ -5,7 +5,8 @@ package WP5), written by the post stage of
 :mod:`pyflightstream.post.products`, which re-exports every name here.
 
 An unsteady simulation's polar comes from its plots and not from its loads
-export: that export states the LAST TIME STEP, one instant of a cycle, so a
+export: that export states the LAST TIME STEP (RPT-133, "vorticity drag list and
+the step exports on 26.124", 2026-10-02), one instant of a cycle, so a
 polar read from it is a polar of an instant. :func:`write_unsteady_polar`
 reads the plots tables the stage has already written, so the free-stream
 scaling is performed once, and averages each point over the window its row
