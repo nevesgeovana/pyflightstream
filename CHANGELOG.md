@@ -295,6 +295,8 @@ FlightStream versions.
   than its own command, so two definitions never claim one probe; nothing is started.
 - A table entry of `inputs/executables.local.toml` replaces only the fields it states: a
   committed `version` the overlay does not repeat is kept.
+- The geometry clean refuses a saved simulation whose block markers nest or close a block
+  that is not open, naming the block and the line, and writes nothing.
 
 ## [0.42.0] - 2026-10-16
 

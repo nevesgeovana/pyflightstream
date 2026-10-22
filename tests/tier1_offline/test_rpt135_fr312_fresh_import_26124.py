@@ -124,3 +124,24 @@ def test_p0420_p2_1a_released_package_resets_recorded_26124_save_fr_312():
     before, after = block_lines(dirty), block_lines(result.text)
     assert all(after[name] == body for name, body in _table().items())
     assert all(after[name] == body for name, body in before.items() if name not in _table())
+
+
+@pytest.mark.requirement("NFR-49")
+@pytest.mark.parametrize(
+    ("body", "said"),
+    [
+        (["$A_START$", "1", "$B_START$", "2", "$B_END$", "$A_END$"], "B opens on line 5 inside"),
+        (["$A_START$", "1", "$A_END$", "$B_END$"], "B closes on line 6 without opening"),
+        (["$A_START$", "1", "$B_END$", "$A_END$"], "the open block is A"),
+    ],
+)
+def test_p0430_a_malformed_block_marker_is_refused_and_nothing_is_reset(body, said):
+    """PFS-2116.002 PFS-2116.003: a block that opens inside another, or a close that is not
+    the open block's, is refused, by block_lines and by the reset, before any line moves."""
+    from pyflightstream._fsm_fresh import FreshResetError
+
+    text = "\r\n".join(["1,0", BUILD124, *body]) + "\r\n"
+    with pytest.raises(FreshResetError, match=said):
+        block_lines(text)
+    with pytest.raises(FreshResetError, match=rf"^D: .*{said}"):
+        reset_to_fresh_import(text, UNIT, "D")

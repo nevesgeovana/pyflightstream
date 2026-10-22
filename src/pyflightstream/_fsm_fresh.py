@@ -462,16 +462,16 @@ def saved_build(text: str) -> str | None:
     return build if build.isdigit() else None
 
 
-def block_lines(text: str) -> dict[str, tuple[str, ...]]:
-    """Return every top-level block of a saved simulation, by name, as its lines.
+def _block_spans(lines: Sequence[str]) -> dict[str, tuple[int, int]]:
+    """Return each block's marker lines, by name, as (start line, end line) indices.
 
     Raises
     ------
     FreshResetError
-        When a block opens twice, closes without opening, or never closes.
+        When a block opens while another is open, closes without being the
+        open block, appears twice, or never closes.
     """
-    _, lines = _lines(text)
-    found: dict[str, tuple[str, ...]] = {}
+    found: dict[str, tuple[int, int]] = {}
     open_name: str | None = None
     start = 0
     for index, line in enumerate(lines):
@@ -479,16 +479,41 @@ def block_lines(text: str) -> dict[str, tuple[str, ...]]:
         if marker is None:
             continue
         name, side = marker.groups()
-        if side == "START" and open_name is None:
+        if side == "START":
+            if open_name is not None:
+                raise FreshResetError(
+                    f"the block {name} opens on line {index + 1} inside the open block "
+                    f"{open_name}; blocks of a saved simulation never nest"
+                )
             open_name, start = name, index
-        elif side == "END" and open_name is not None and name == open_name:
-            if name in found:
-                raise FreshResetError(f"the block {name} appears twice")
-            found[name] = tuple(lines[start + 1 : index])
-            open_name = None
+            continue
+        if open_name != name:
+            inside = f"the open block is {open_name}" if open_name else "no block is open"
+            raise FreshResetError(
+                f"the block {name} closes on line {index + 1} without opening ({inside})"
+            )
+        if name in found:
+            raise FreshResetError(f"the block {name} appears twice")
+        found[name] = (start, index)
+        open_name = None
     if open_name is not None:
         raise FreshResetError(f"the block {open_name} opens and never closes")
     return found
+
+
+def block_lines(text: str) -> dict[str, tuple[str, ...]]:
+    """Return every block of a saved simulation, by name, as its lines.
+
+    Raises
+    ------
+    FreshResetError
+        When a block opens inside another, closes without opening, appears
+        twice, or never closes.
+    """
+    _, lines = _lines(text)
+    return {
+        name: tuple(lines[start + 1 : end]) for name, (start, end) in _block_spans(lines).items()
+    }
 
 
 def common_blocks(texts: Sequence[str]) -> dict[str, tuple[str, ...]]:
@@ -546,16 +571,24 @@ def reset_to_fresh_import(text: str, unit: str | None, where: str) -> FreshReset
             "saved solver actions is kept as it is (FR-531)",
         )
     eol, lines = _lines(text)
-    held = block_lines(text)
-    reset: list[str] = []
-    for name, fresh in table.items():
-        if name not in held:
-            raise FreshResetError(f"{where}: build {build} and carries no {name} block")
-        if held[name] == fresh:
-            continue
-        start = next(i for i, line in enumerate(lines) if line.strip() == f"${name}_START$")
-        end = next(i for i in range(start, len(lines)) if lines[i].strip() == f"${name}_END$")
-        lines[start + 1 : end] = list(fresh)
-        reset.append(name)
-    order = list(held)
-    return FreshReset(eol.join(lines), tuple(sorted(reset, key=order.index)))
+    try:
+        spans = _block_spans(lines)
+    except FreshResetError as error:
+        raise FreshResetError(f"{where}: {error}") from error
+    missing = [name for name in table if name not in spans]
+    if missing:
+        raise FreshResetError(
+            f"{where}: build {build} has a measured fresh import, and the file carries no "
+            f"{', '.join(missing)} block"
+        )
+    reset = [
+        name
+        for name, fresh in table.items()
+        if tuple(lines[spans[name][0] + 1 : spans[name][1]]) != fresh
+    ]
+    # Each block replaced from the last to the first, so the spans read before
+    # any replacement still locate the blocks not yet replaced.
+    for name in sorted(reset, key=lambda block: spans[block][0], reverse=True):
+        start, end = spans[name]
+        lines[start + 1 : end] = list(table[name])
+    return FreshReset(eol.join(lines), tuple(sorted(reset, key=lambda block: spans[block][0])))
