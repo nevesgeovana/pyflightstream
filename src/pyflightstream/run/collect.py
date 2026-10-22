@@ -501,7 +501,20 @@ def _collect_additional(
                 )
                 continue
             completed = finish_extraction(workspace, record, context)
-        except (OSError, ValueError, WorkspaceError, CampaignConfigError) as error:
+        except OSError as error:
+            # A FILE ERROR IS RETRIED, not recorded as a final failure: the
+            # extraction stays SUBMITTED, so the next sweep completes it once
+            # the file is readable again (X-F-0569).
+            report.waiting.append(
+                CollectOutcome(
+                    run_id=record.extraction_id,
+                    state="WAITING",
+                    record=record,
+                    detail=f"extraction collection hit a file error and stays submitted: {error}",
+                )
+            )
+            continue
+        except (ValueError, WorkspaceError, CampaignConfigError) as error:
             completed = record.model_copy(
                 update={
                     "status": ExtractionStatus.FAILED_EXECUTION,
@@ -718,7 +731,19 @@ def collect_once(
                 )
             )
             continue
-        writes.ensure_sim_expanded(workspace, record.sim_id, reason="collect")
+        try:
+            writes.ensure_sim_expanded(workspace, record.sim_id, reason="collect")
+        except (OSError, WorkspaceError) as error:
+            # ONE SIMULATION THAT CANNOT BE EXPANDED fails its own points and
+            # does not end the sweep over the others (X-F-0554).
+            report.failed.append(
+                CollectOutcome(
+                    run_id=record.run_id,
+                    state="FAILED",
+                    detail=f"simulation {record.sim_id} could not be expanded: {error}",
+                )
+            )
+            continue
         sim_dir = _sim_dir(workspace, record)
         try:
             work_dir = _working_dir(workspace, record)
@@ -1584,6 +1609,8 @@ def collect_and_post(
         total.collected.extend(report.collected)
         failed.update((outcome.run_id, outcome) for outcome in report.failed)
         # F-1464: a run that collects in a later sweep is no longer a failure of the watch.
+        # A POINT COLLECTED IN A LATER SWEEP IS NO LONGER FAILED (X-F-0570): the
+        # watch's total, and the status the command returns, follow the last word.
         for outcome in report.collected:
             failed.pop(outcome.run_id, None)
         total.failed = list(failed.values())

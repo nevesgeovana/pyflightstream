@@ -618,3 +618,74 @@ def test_pfs_2110_038_the_package_assessor_passed_by_name_is_the_default(tmp_pat
     monkeypatch.setattr(collect_module, "assessment_of_collected", watching)
     collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=collect_module.assess_collected)
     assert seen == ["camp/sim_9001/AL+000"], "the named package assessor was treated as a caller's"
+
+
+def _two_submitted_sims(tmp_path):
+    """The one submitted point of sim 9001 and a copy of it in sim 9002, outputs absent."""
+    workspace, first = _submitted_workspace(tmp_path)
+    record = workspace.read_manifest()[0]
+    second = workspace.sim_dir("9002")
+    second.mkdir(parents=True, exist_ok=True)
+    workspace.append_record(
+        record.model_copy(update={"run_id": "camp/sim_9002/AL+000", "sim_id": "9002"})
+    )
+    return workspace, first
+
+
+def test_last_a_simulation_that_cannot_be_expanded_does_not_end_the_sweep(tmp_path, monkeypatch):
+    """X-F-0554: the expansion ran outside any try, so one bad archive aborted the sweep."""
+    from pyflightstream.run import collect as collect_module
+
+    workspace, _first = _two_submitted_sims(tmp_path)
+    real = collect_module.ensure_sim_expanded
+
+    def broken(workspace_, sim_id, *, reason):
+        if sim_id == "9001":
+            raise WorkspaceError("the archive is busy")
+        return real(workspace_, sim_id, reason=reason)
+
+    report = collect_once(
+        workspace,
+        interval=0.0,
+        sleep=_no_sleep,
+        writes=collect_module.CollectWrites(ensure_sim_expanded=broken),
+    )
+    assert [outcome.run_id for outcome in report.failed] == ["camp/sim_9001/AL+000"]
+    assert "could not be expanded" in report.failed[0].detail
+    assert "the archive is busy" in report.failed[0].detail
+    assert [outcome.run_id for outcome in report.waiting] == ["camp/sim_9002/AL+000"]
+    assert _status_of(workspace, "camp/sim_9001/AL+000") == "SUBMITTED"
+
+
+def test_last_a_point_failed_once_and_collected_later_leaves_the_failed_total(
+    tmp_path, monkeypatch
+):
+    """X-F-0570: the watch's failed total only grew, so the command returned 1 for a full set."""
+    from pyflightstream.run import collect as collect_module
+
+    workspace, first = _two_submitted_sims(tmp_path)
+    (first / "loads.txt").write_text("numbers", encoding="utf-8")
+    (first / "run_log.txt").write_text("log", encoding="utf-8")
+    real = collect_module.ensure_sim_expanded
+    refused = []
+
+    def once(workspace_, sim_id, *, reason):
+        if sim_id == "9001" and not refused:
+            refused.append(sim_id)
+            raise WorkspaceError("the archive is busy")
+        return real(workspace_, sim_id, reason=reason)
+
+    real_once = collect_module.collect_once
+    writes = collect_module.CollectWrites(ensure_sim_expanded=once)
+    monkeypatch.setattr(
+        collect_module,
+        "collect_once",
+        lambda *args, **keywords: real_once(*args, writes=writes, **keywords),
+    )
+    report = collect_and_post(
+        workspace, watch=True, rounds=2, interval=0.0, watch_interval=0.0, sleep=_no_sleep
+    )
+    assert refused == ["9001"], "the first sweep must have refused sim 9001"
+    assert [outcome.run_id for outcome in report.collected] == ["camp/sim_9001/AL+000"]
+    assert report.failed == []
+    assert _status_of(workspace, "camp/sim_9001/AL+000") != "SUBMITTED"

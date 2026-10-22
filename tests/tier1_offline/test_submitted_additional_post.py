@@ -168,3 +168,34 @@ def test_x_f_0556_a_retry_in_the_same_second_keeps_the_earlier_extraction_archiv
     assert (archive / "r20261021-120000" / "forces.csv").read_text(encoding="utf-8") == "first"
     assert (archive / "r20261021-120000.2" / "forces.csv").read_text(encoding="utf-8") == "second"
     assert [child.name for child in folder.iterdir()] == [ARCHIVE_DIR]
+
+
+def test_last_a_file_error_while_completing_an_extraction_is_retried(tmp_path, monkeypatch):
+    """X-F-0569: a transient OSError recorded a final FAILED_EXECUTION that no sweep revisits."""
+    from pyflightstream.run import collect as collect_module
+
+    workspace, matrix = a_recorded_campaign(tmp_path, values="0.0")
+    scheduler = Scheduler()
+    _, records = extract(workspace, matrix, scheduler)
+    record = records[0]
+    folder = workspace.sim_dir(record.sim_id) / record.working_dir
+    a_stub(tmp_path).run_script(
+        workspace.sim_dir(record.sim_id) / record.script_path, working_dir=folder
+    )
+    real = collect_module.finish_extraction
+    calls = []
+
+    def locked(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise OSError("the output is held open by another process")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(collect_module, "finish_extraction", locked)
+    first = collect_once(workspace, interval=0, sleep=lambda _: None)
+    assert not first.failed and not first.collected
+    assert len(first.waiting) == 1 and "file error" in first.waiting[0].detail
+    assert workspace.read_additional()[-1].status == "SUBMITTED"
+    second = collect_once(workspace, interval=0, sleep=lambda _: None)
+    assert len(second.collected) == 1 and not second.failed
+    assert workspace.read_additional()[-1].status == "EXTRACTED"
