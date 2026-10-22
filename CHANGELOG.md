@@ -103,6 +103,8 @@ FlightStream versions.
 - On build 26.123, `TRAILING_EDGES_IMPORT` is refused as removed, citing the page of the
   26.123 edition that stops printing it, and names `IMPORT_WAKE_EDGES_FROM_FILE`, instead of
   being refused as a command with no evidence.
+- On build 26.121, `SET_MOTION_START_TIME` is emitted as the edition documents it; it was
+  refused as broken on a probe abort whose cause was the probe's own rotary motion.
 
 ### Fixed
 

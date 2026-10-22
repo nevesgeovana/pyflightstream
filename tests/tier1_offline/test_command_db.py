@@ -109,6 +109,19 @@ def test_p0430_f424_a_command_the_26123_edition_stops_printing_is_recorded_remov
     assert "FSM-26.123 p.323" in row.note and "rather than a measurement" in row.note
 
 
+def test_p0430_xf0095_the_26121_start_time_row_rests_on_its_own_runs():
+    """X-F-0095: the 26.121 broken row was the probe prelude's abort, read again.
+
+    The abort of 2026-08-08 had the cause the 26.120 row records (the prelude's
+    ROTARY motion), and the 2026-08-11 run passed the command; the row is the
+    edition's, with both reports named and no new measurement claimed.
+    """
+    row = CommandRegistry.load().commands["SET_MOTION_START_TIME"].versions["26.121"]
+    assert row.status == "documented", row.status
+    assert "CMP-26121_2026-08-11_starttime.yaml" in row.note and "RPT-026" in row.note
+    assert "licence expired on 2026-10-21" in row.note
+
+
 def test_p0430_fd02_ccs_blend_default_is_queryable():
     entry = CommandRegistry.load().for_version("26.125")["SET_CCS_TE_BLEND_LENGTH"]
     assert entry.default == 10
