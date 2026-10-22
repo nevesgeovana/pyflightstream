@@ -16,8 +16,10 @@ import pytest
 from tests.tier1_offline._docs_site import requirement_rows, requirements_text
 
 REPO = Path(__file__).resolve().parents[2]
-#: Measured on 2026-10-03, opening 0.36.0 development from v0.35.1.
-MYPY_EXEMPT_MODULE_LIMIT = 16
+#: Measured on 2026-10-21 at the 0.43.0 train's base: 13 exempt modules. The
+#: limit equals the count, so a new exemption fails here (it was 16, measured
+#: on 2026-10-03, which let three modules in unseen).
+MYPY_EXEMPT_MODULE_LIMIT = 13
 
 
 def test_mypy_exempt_module_count_cannot_grow() -> None:
