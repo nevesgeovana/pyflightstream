@@ -73,6 +73,9 @@ NATURAL = {
     "cwd",
     "submitted_by",
     "fs_exe_sha256",
+    # NL-RECS-6: the machine a run used is a run-time fact; a rebuild mints its
+    # record through a submitting executor and states no machine (None).
+    "machine",
 }
 
 #: A submission profile with no log section: the script exports its own log.
