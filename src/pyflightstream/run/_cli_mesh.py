@@ -37,6 +37,8 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -350,6 +352,21 @@ def _add_refine_parser(subparsers: Any) -> None:
     refine.set_defaults(mesh_command=run_refine)
 
 
+def _progress_printer() -> Callable[[str], None]:
+    """Return a printer of refinement progress, with clock time and elapsed seconds, to stderr."""
+    start = time.monotonic()
+
+    def say(line: str) -> None:
+        stamp = time.strftime("%H:%M:%S")
+        print(
+            f"[refine {stamp} +{time.monotonic() - start:.1f} s] {line}",
+            file=sys.stderr,
+            flush=True,
+        )
+
+    return say
+
+
 def run_refine(args: argparse.Namespace) -> int:
     """Refine one OBJ into a level folder and print what was written (FR-424).
 
@@ -371,6 +388,7 @@ def run_refine(args: argparse.Namespace) -> int:
             out_dir=out_dir,
             overwrite=args.overwrite,
             keep_first_row=_names(args.keep_first_row),
+            progress=None if getattr(args, "log_level", None) == "quiet" else _progress_printer(),
         )
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)

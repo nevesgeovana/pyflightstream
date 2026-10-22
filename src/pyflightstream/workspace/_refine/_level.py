@@ -40,11 +40,9 @@ import dataclasses
 import json
 import os
 import re
-import shutil
 import tempfile
 import tomllib
-import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -60,6 +58,13 @@ from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import FamilySpec, RefineRequest
 from pyflightstream.workspace._refine._geometry import NearestIndex, Stretch, order_like
 from pyflightstream.workspace._refine._obj import Faces, ObjMesh
+from pyflightstream.workspace._refine._staging import (
+    PREVIOUS_SUFFIX,
+    STAGING_SUFFIX,
+    _place,
+    _publish,
+    _release,
+)
 
 Points = NDArray[numpy.float64]
 
@@ -67,13 +72,6 @@ Points = NDArray[numpy.float64]
 BAND_SUFFIX = "~band"
 #: The trailing-edge points file of a mesh, when its boundaries file names none.
 TE_SUFFIX = _obj.TE_SUFFIX
-#: The prefix of the folder a level is written into before it is renamed to its own name
-#: (FR-919); a unique name the run creates and alone removes, ``<level>.partial-<random>``.
-STAGING_SUFFIX = ".partial"
-#: The name, inside the run's own staging folder, an existing level is moved to while
-#: ``overwrite`` replaces it, until the new level is in place (FR-919): an error before
-#: then puts it back.
-PREVIOUS_SUFFIX = ".previous"
 #: Version 2 names native-unit target lengths explicitly when mesh units are absent.
 REFINE_SCHEMA_VERSION = 2
 
@@ -129,6 +127,10 @@ class _Work:
     shared: dict[str, list[tuple[set[int], Points]]] = field(default_factory=dict)
     # FR-431: the unchanged neighbours a band would have covered whole, and their record
     rebuilt: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # FR-915: per multiblock family, the patch sides its factor cannot coarsen, kept and reported
+    kept: dict[str, list[dict[str, object]]] = field(default_factory=dict)
+    # the progress line callback of refine_mesh; silent by default
+    say: Callable[[str], None] = field(default=lambda _line: None)
     bands: dict[str, str] = field(default_factory=dict)
     cuts: list[_periodic.CutPair] = field(default_factory=list)
     periodic: dict[str, Any] | None = None
@@ -207,7 +209,9 @@ def _decide(work: _Work) -> None:
 
     (FR-923, FR-924).
     """
-    for name in [n for n in work.names if n in work.specs]:
+    names = [n for n in work.names if n in work.specs]
+    for i, name in enumerate(names, 1):
+        work.say(f"family {i} of {len(names)}: {name}, recovering its layout")
         _decide_family(work, name)
     _grid_after_grid(work)
     for name in work.keep_rows:
@@ -290,6 +294,8 @@ def _decide_family(work: _Work, name: str) -> None:
                 "is a multiblock grid",
             )
         _blocks.check_factor(found, name, spec)
+        where = f"{work.source} family {name}"
+        work.kept[name] = _blocks.keep_short_sides(found, work.mesh.verts, spec.factor, where)
     else:
         chordwise, spanwise = spec.directions
         keep = _first_rows(work, name, found) if spec.keep_first_row else (False, False)
@@ -655,8 +661,9 @@ def _no_stretched_cut(work: _Work) -> None:
 
 def _refine_grids(work: _Work) -> None:
     """Refine every grid family and record what its neighbours must take (FR-933, FR-934)."""
-    for name, grid in work.grids.items():
+    for i, (name, grid) in enumerate(work.grids.items(), 1):
         chordwise, spanwise = work.specs[name].directions
+        work.say(f"grid {i} of {len(work.grids)}: {name} ({grid.describe()})")
         if isinstance(grid, _blocks.Blocks):
             level = _blocks.refine_blocks(
                 work.mesh.verts, work.mesh.families[name], grid, factor=chordwise
@@ -672,6 +679,8 @@ def _refine_grids(work: _Work) -> None:
                 keep=work.keep_rows.get(name, (False, False)),
             )
         info: dict[str, Any] = dict(level.report, method="grid", reason=grid.describe())
+        if isinstance(grid, _blocks.Blocks):
+            info["kept_sides"] = work.kept.get(name, [])
         if name in work.te_source:
             info["trailing_edge"] = work.te_source[name]
         if name in work.te_detected:
@@ -858,8 +867,12 @@ def _remesh_groups(work: _Work) -> None:
         hit = [g for g in groups if any(_together(work, name, m) for m in g)]
         merged = [name] + [m for g in hit for m in g]
         groups = [g for g in groups if g not in hit] + [merged]
-    for group in groups:
+    for i, group in enumerate(groups, 1):
         ordered = [n for n in work.names if n in group]
+        work.say(
+            f"remesh {i} of {len(groups)}: {', '.join(ordered)} "
+            f"({sum(len(work.original.get(n, ())) for n in ordered)} source faces)"
+        )
         te = set().union(*(work.te_of[n] for n in ordered))
         factors = {n: work.specs[n].factor for n in ordered}
         conform = [c for n in ordered for c in work.conform.get(n, [])]
@@ -1271,56 +1284,6 @@ def _write(
     return written
 
 
-def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool) -> Path:
-    """Return the level folder, refusing an existing one unless ``overwrite`` (FR-919).
-
-    The level folder is a folder directly inside ``out_dir``, whatever gave
-    its name, and never the source's folder, one holding it, or one inside
-    it, so neither ``overwrite`` nor the write reaches anything else.
-    """
-    # Resolved first: a bare file name's parent is ".", whose parent is "." again.
-    root = Path(out_dir) if out_dir is not None else source.resolve().parent.parent
-    folder = root / stem
-    level = folder.resolve()
-    # F-731: a source that is itself a symlink has two homes, the folder the link sits
-    # in and the folder of the file it points at; the guard covers both.
-    homes = {source.parent.resolve(), source.resolve().parent}
-    if Path(stem).name != stem or level.parent != root.resolve():
-        raise _refuse(
-            str(folder),
-            f"the level folder is not a folder directly inside out_dir {root}; give the level "
-            'one folder name as [refine] tag = "fine" in the refinement file '
-            "config (CLI: --config)",
-        )
-    if level in homes:
-        raise _refuse(
-            str(folder),
-            "the level folder is the source's folder; choose another out_dir (CLI: --out)",
-        )
-    if any(home.is_relative_to(level) for home in homes):
-        raise _refuse(
-            str(folder),
-            "the level folder holds the source's folder; choose another out_dir (CLI: --out)",
-        )
-    if any(level.is_relative_to(home) for home in homes):
-        raise _refuse(
-            str(folder),
-            "the level folder lies inside the source's folder; choose an out_dir "
-            "(CLI: --out) outside the source's folder",
-        )
-    if folder.exists() and not folder.is_dir():
-        raise _refuse(
-            str(folder),
-            "the level folder's name is held by a file, which is not a level to replace; "
-            "move the file or choose another tag or out_dir (CLI: --out)",
-        )
-    if folder.exists() and not overwrite:
-        raise _refuse(
-            str(folder), "the level exists; give overwrite=True (--overwrite) to replace it"
-        )
-    return folder
-
-
 # ---------------------------------------------------------------------- entry
 
 
@@ -1335,6 +1298,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     out_dir: str | Path | None = None,
     overwrite: bool = False,
     keep_first_row: Sequence[str] | None = None,
+    progress: Callable[[str], None] | None = None,
 ) -> RefinedMesh:
     """Refine or coarsen a panel mesh from its OBJ into a new geometry folder (FR-424, FR-425).
 
@@ -1361,6 +1325,10 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         refining it chordwise only (FR-430); None or empty asks nothing.
         Added to the families whose ``[families.<name>]`` table states
         ``keep_first_row = true`` when that file gives the factors.
+    progress : callable, optional
+        Called with one line per stage and per family as the work goes (read,
+        decide, grid, remesh, write, audit), so a long refinement shows it is
+        moving; the command prints them. None says nothing.
 
     Returns
     -------
@@ -1398,6 +1366,12 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     stem = f"{source.stem}_{_config.level_tag(request, list(obj.families), str(source))}"
     folder = _place(source, stem, out_dir, overwrite)
     work = _start(source, request, obj)
+    if progress is not None:
+        work.say = progress
+    work.say(
+        f"read {source.name}: {len(obj.families)} families, "
+        f"{sum(len(f) for f in obj.families.values())} faces; level {stem}"
+    )
     work.tag_selection = _config.tag_selection(request, list(obj.families))
     work.sidecar = _boundaries_text(work, stem)
     where = f"{source} [periodic]"
@@ -1405,11 +1379,14 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         obj.verts, obj.families, request.periodic, size=work.scale, where=where
     )
     _decide(work)
+    work.say(f"decided: {len(work.grids)} grid, {len(work.remesh)} remeshed")
     _route_detected_te(work, stem)
     _refine_grids(work)
+    work.say("bands and shared curves")
     _bands(work)
     _conform_cuts(work)
     _remesh_groups(work)
+    work.say("assembling the level")
     verts, faces, te = _assemble(work)
     verts, work.periodic = _periodic.match_level(
         verts, faces, work.cuts, request.periodic, source=obj.verts, size=work.scale, where=where
@@ -1423,7 +1400,9 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     try:
         staging = owned / folder.name
         staging.mkdir()
+        work.say(f"writing {len(verts)} nodes, {sum(len(f) for f in faces.values())} faces")
         written = _write(work, staging, verts, faces, te)
+        work.say("auditing the level against its source")
         audit = audit_mesh(written[0], against=source, unchanged_grids=unchanged)
         _publish(staging, folder, owned / f"{folder.name}{PREVIOUS_SUFFIX}", overwrite)
     finally:
@@ -1449,61 +1428,3 @@ def _unchanged_grids(work: _Work, families: list[str]) -> list[str]:
         if (n in components and all(m in ones for m in components[n]))
         or (n not in components and n in ones)
     ]
-
-
-def _release(owned: Path, folder: Path) -> None:
-    """Remove the run's own folder, never with an old level still inside it (FR-919).
-
-    When a publish failed and the old level is still set aside in the run's
-    folder, it is put back first; when that also fails, the run's folder is
-    kept, holding the old level, and a warning names it.
-    """
-    previous = owned / f"{folder.name}{PREVIOUS_SUFFIX}"
-    if previous.exists() and not folder.exists():
-        try:
-            previous.rename(folder)
-        except OSError:
-            warnings.warn(
-                f"{folder}: the level was not replaced and the previous level could not be "
-                f"put back; it is kept in {previous}. Move it back to {folder}.",
-                PyflightstreamWarning,
-                stacklevel=3,
-            )
-            return
-    shutil.rmtree(owned, ignore_errors=True)
-    if owned.exists():
-        warnings.warn(
-            f"{owned}: the run's staging folder could not be removed and is left behind; "
-            "delete it.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-
-
-def _publish(staging: Path, folder: Path, previous: Path, overwrite: bool) -> None:
-    """Rename the complete, audited staging folder to the level (FR-919).
-
-    An existing level is moved aside to ``previous``, a path inside the run's
-    own staging folder that the caller removes once the new level is in
-    place; if the rename fails, the old level is put back. A path that is not
-    a folder is never replaced. Without ``overwrite``, a level that appeared
-    after :func:`_place` checked is refused as there, and the caller removes
-    only the run's own folder.
-    """
-    if not overwrite and (folder.exists() or folder.is_symlink()):
-        raise _refuse(
-            str(folder),
-            "the level appeared while the run wrote it, and was kept; give overwrite=True "
-            "(--overwrite) to replace it",
-        )
-    if folder.exists() and not folder.is_dir():
-        # The race only: _place refuses a file at the level path before any work.
-        raise _refuse(str(folder), "a file took the level folder's name while the run wrote it")
-    if folder.exists():
-        folder.rename(previous)
-    try:
-        staging.rename(folder)
-    except BaseException:
-        if previous.exists() and not folder.exists():
-            previous.rename(folder)
-        raise

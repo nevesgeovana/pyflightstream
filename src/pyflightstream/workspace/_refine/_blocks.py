@@ -50,7 +50,7 @@ from dataclasses import dataclass
 import numpy
 from numpy.typing import NDArray
 
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
 from pyflightstream.workspace._refine._config import FamilySpec
 from pyflightstream.workspace._refine._geometry import (
     RIDGE_DEGREES,
@@ -366,11 +366,12 @@ def _arcs(
 
 
 def check_factor(blocks: Blocks, family: str, spec: FamilySpec) -> None:
-    """Refuse chordwise or spanwise on a multiblock family, and a factor leaving no interval.
+    """Refuse chordwise or spanwise on a multiblock family.
 
-    A factor below 1/m for the m source intervals of any patch side would
-    leave that side no interval (FR-915), so it is refused naming the
-    family, the patch side and the value rather than rounded up to one.
+    A factor below 1/m for the m source intervals of a patch side is not
+    refused: that side keeps ``max(1, round(f m))`` intervals (:func:`_count`),
+    its source count for a one-interval side, and :func:`kept_sides` names it
+    (FR-915).
 
     Parameters
     ----------
@@ -384,7 +385,7 @@ def check_factor(blocks: Blocks, family: str, spec: FamilySpec) -> None:
     Raises
     ------
     InputArtifactError
-        Naming the family (and the patch side); nothing was written.
+        Naming the family; nothing was written.
     """
     if spec.chordwise is not None or spec.spanwise is not None:
         raise InputArtifactError(
@@ -393,20 +394,81 @@ def check_factor(blocks: Blocks, family: str, spec: FamilySpec) -> None:
             "Nothing was written.",
             kind=KIND,
         )
-    factor = spec.factor
-    shortest = min(
-        (len(blocks.arcs[arc]) - 1, p, side)
-        for p, sides in enumerate(blocks.sides)
-        for side, (arc, _) in zip(SIDES, sides, strict=True)
-    )
-    m, patch, side = shortest
-    if factor * m < 1.0:
-        raise InputArtifactError(
-            f"family {family}: the factor {factor:g} is below 1/{m}: the {side} of patch "
-            f"{patch + 1} has {m} source intervals and would be left with none. Give a factor "
-            f"of at least 1/{m} and run again. Nothing was written.",
-            kind=KIND,
+
+
+def kept_sides(
+    blocks: Blocks, verts: NDArray[numpy.float64], factor: float
+) -> list[dict[str, object]]:
+    """Return the patch sides a factor below 1/m cannot coarsen, with where they lie.
+
+    A side of m source intervals with ``factor * m < 1`` keeps
+    ``max(1, round(factor * m))`` intervals rather than refusing the family,
+    so the rest of the family is resampled as asked (FR-915). Each entry names
+    the patch (1-based, as the layout numbers it), the side, both counts, and
+    the patch's centroid and bounding box in the mesh's units (three
+    significant figures), so the side can be found in a viewer.
+
+    Parameters
+    ----------
+    blocks : Blocks
+        The family's recovered multiblock grid.
+    verts : numpy.ndarray
+        The source vertices, shape (n, 3).
+    factor : float
+        The family's factor.
+
+    Returns
+    -------
+    list of dict
+        One entry per kept side, in patch then :data:`SIDES` order; empty when none.
+    """
+
+    def _sig(values: NDArray[numpy.float64]) -> list[float]:
+        return [float(f"{v:.3g}") for v in values]
+
+    kept: list[dict[str, object]] = []
+    for p, sides in enumerate(blocks.sides):
+        pts = verts[blocks.patches[p].ravel()]
+        for side, (arc, _) in zip(SIDES, sides, strict=True):
+            m = len(blocks.arcs[arc]) - 1
+            if factor * m < 1.0:
+                kept.append(
+                    {
+                        "patch": p + 1,
+                        "side": side,
+                        "source_intervals": m,
+                        "intervals": _count(m, factor),
+                        "centroid": _sig(pts.mean(axis=0)),
+                        "bbox_min": _sig(pts.min(axis=0)),
+                        "bbox_max": _sig(pts.max(axis=0)),
+                    }
+                )
+    return kept
+
+
+def keep_short_sides(
+    blocks: Blocks, verts: NDArray[numpy.float64], factor: float, where: str
+) -> list[dict[str, object]]:
+    """Return :func:`kept_sides` and warn once naming each kept side and where it lies (FR-915).
+
+    ``where`` is the source and family, for the message.
+    """
+    kept = kept_sides(blocks, verts, factor)
+    if kept:
+        lines = "; ".join(
+            f"patch {k['patch']} {k['side']}: {k['source_intervals']} source interval(s), "
+            f"{k['intervals']} written, centroid {k['centroid']}, "
+            f"box {k['bbox_min']} to {k['bbox_max']}"
+            for k in kept
         )
+        warn(
+            f"{where}: the factor {factor:g} cannot coarsen {len(kept)} patch side(s) of "
+            f"{blocks.describe()}; they are kept and the rest of the family is resampled: "
+            f"{lines}",
+            PyflightstreamWarning,
+            stacklevel=5,  # past _decide_family, _decide and refine_mesh, the user
+        )
+    return kept
 
 
 def _count(m: int, factor: float) -> int:

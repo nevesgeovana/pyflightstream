@@ -21,7 +21,7 @@ from collections import Counter
 import numpy as np
 import pytest
 
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace import refine_mesh
 from pyflightstream.workspace._refine._blocks import Blocks, recover_family, refine_blocks
 from pyflightstream.workspace._refine._grid import (
@@ -421,33 +421,49 @@ def test_refine_mesh_reports_a_multiblock_grid_and_its_audit_passes(tmp_path, na
     assert "family M: chordwise and spanwise are not defined" in str(caught.value)
 
 
-@pytest.mark.parametrize("factor", [0.01, 0.24])
-def test_a_factor_that_leaves_a_patch_side_no_interval_is_refused(tmp_path, capsys, factor):
-    """P0380-BLOCKS (FR-915, FR-925, FR-930): a factor below 1/m of a patch side is refused.
+@pytest.mark.parametrize("factor", [0.01, 0.2, 0.24])
+def test_a_patch_side_a_factor_cannot_coarsen_is_kept_and_reported(tmp_path, capsys, factor):
+    """P0380-BLOCKS (FR-915, FR-925, FR-930): a factor below 1/m of a patch side keeps that side.
 
     The L-shaped sheet's shortest patch side holds 4 source intervals, so a
-    factor below 1/4 would leave it none; it is refused by the function and
-    the command alike, naming the family, the patch side and the value, before
-    any folder is written (not clamped to one interval). Control: exactly 1/4
-    is accepted and leaves that side one interval.
-
-    Release review of 0.38.0: proves the fix of RV-08.
+    factor below 1/4 cannot coarsen it. Owner decision of 2026-10-22 (it
+    replaces the refusal RV-08 of the 0.38.0 release review): the family is
+    not refused; such a side keeps max(1, round(f m)) intervals, the rest of
+    the family is resampled, the level is written and its audit gates pass,
+    the warning names the family, each patch and side and where it lies, and
+    refine.json lists the same under ``kept_sides``. The command exits 0.
+    Control: exactly 1/4 keeps no side, and the report says so.
     """
     from pyflightstream.run import cli
 
     sheet = l_sheet()
     mesh = Composite(sheet.verts, {"M": sheet.faces}, np.zeros((0, 3)), {})
     src = write_source(tmp_path / "src", "plate", mesh)
-    with pytest.raises(InputArtifactError) as caught:
-        refine_mesh(src, factor)
-    text = str(caught.value)
-    assert text.startswith(f"family M: the factor {factor:g} is below 1/4: ")
-    assert "patch" in text and "has 4 source intervals" in text, text
-    assert text.endswith("Nothing was written.")
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
+    with pytest.warns(PyflightstreamWarning) as caught:
+        level = refine_mesh(src, factor, out_dir=tmp_path / "a")
+    text = " ".join(str(w.message) for w in caught)
+    assert f"family M: the factor {factor:g} cannot coarsen" in text, text
+    entry = level.report["M"]
+    assert entry["layout"] == "multiblock"
+    kept = entry["kept_sides"]
+    assert kept, entry
+    for k in kept:
+        m = k["source_intervals"]
+        assert factor * m < 1.0
+        assert k["intervals"] == max(1, round(m * factor)) >= 1
+        assert f"patch {k['patch']} {k['side']}" in text
+        assert all(
+            lo <= c <= hi
+            for lo, c, hi in zip(k["bbox_min"], k["centroid"], k["bbox_max"], strict=True)
+        )
+    assert any(k["source_intervals"] == 4 for k in kept)
+    assert all(g.passed for g in level.audit.gates), {g.name: g.verdict for g in level.audit.gates}
     capsys.readouterr()
-    assert cli.main(["refine", str(src), str(factor)]) == 2
-    assert text in capsys.readouterr().err
-    level = refine_mesh(src, 0.25)
-    assert level.report["M"]["layout"] == "multiblock"
+    assert cli.main(["refine", str(src), str(factor), "--out", str(tmp_path / "b")]) == 0
+    err = capsys.readouterr().err
+    for stage in ("read plate.obj", "family 1 of 1: M", "grid 1 of 1: M", "writing", "auditing"):
+        assert f"] {stage}" in err, err
+    assert any(line.startswith("[refine ") for line in err.splitlines())
+    level = refine_mesh(src, 0.25, out_dir=tmp_path / "c")
+    assert level.report["M"]["kept_sides"] == []
     assert min(min(b["rows"][1], b["columns"][1]) for b in level.report["M"]["blocks"]) == 1
