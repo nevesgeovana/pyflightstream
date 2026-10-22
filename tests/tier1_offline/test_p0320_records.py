@@ -950,3 +950,20 @@ def test_f607_a_plan_that_lists_the_point_in_another_batch_is_not_attached(tmp_p
     assert point("m_b1").entry == {"label": "m_b1"}
     elsewhere = point("m_b2")
     assert elsewhere.entry is None and elsewhere.label == "m_b2"
+
+
+@pytest.mark.requirement("FR-293")
+def test_p0430_a_restored_products_record_archives_the_displaced_one_first_fr_293(tmp_path):
+    """FR-293: the products record the restore replaces is kept, byte for byte, in the archive."""
+    live = "post/matrix-lnx/products.json"
+    current = _write(tmp_path / live, '{"products": {"now": 1}}' + chr(10))
+    displaced = current.read_bytes()
+    source = _write(
+        tmp_path / "post/matrix-lnx/archive/20200101-120000/products.json",
+        '{"products": {"then": 1}}' + chr(10),
+    )
+    done = records.restore(tmp_path, "products", apply=True, matrix="matrix-lnx")
+    kept = tmp_path / done["archived_as"]
+    assert kept.read_bytes() == displaced, "the displaced products record was not archived"
+    assert kept.parent.parent.name == "archive" and kept != source
+    assert current.read_bytes() == source.read_bytes()
