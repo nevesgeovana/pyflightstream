@@ -323,7 +323,8 @@ none = true
 
 `none = true` must be the only key in this table. It records an intentional
 absence of trailing edges; it is not automatic detection and does not make
-omission of the table equivalent to this declaration.
+omission of the table equivalent to this declaration. A `<stem>.te.txt` left
+beside the mesh is then not read.
 
 **Two options, each only when written.**
 
@@ -922,7 +923,7 @@ FIGURE is reported and never judged.
 | G1 | an edge is shared by more than two faces, two nodes sit at one position (within 1e-9 of the size, the diagonal of the bounding box), or a face has zero area |
 | G2 | two neighbouring faces have opposite orientation, or a closed family does not enclose a positive volume |
 | G3 | the open boundary loops of the mesh are not the source's in number and in the opening each closes: a level loop matches one source loop, one to one, when every node of each lies within a quarter of the source loop's extent (its bounding-box diagonal) from the other's polyline |
-| G4 | a trailing-edge point lies on no mesh edge, the trailing-edge chains are not the source's in number, or a chain of the source ends where no chain of the level ends (a shortened line); the lines' total lengths are reported, not judged |
+| G4 | a trailing-edge point lies on no mesh edge, two points lie on one mesh edge (`points_sharing_an_edge`), the trailing-edge chains are not the source's in number, or a chain of the source ends where no chain of the level ends (a shortened line); the lines' total lengths are reported, not judged |
 | G5 | two families that shared nodes in the source share none |
 | G6 | a grid family written at factor 1 no longer has the source's faces in coordinates and order |
 
