@@ -220,7 +220,9 @@ VERIFIED = {
     # -1 the same day: EXPORT_SURFACE_SECTIONS back to documented, its earlier
     # probe having read the END sentinel as the filename (RPT-036b finding 1): 184.
     # +1 the same day: EXPORT_6DOF_TRAJECTORY, verified after the march (RPT-167): 185.
-    "26.125": 185,
+    # +1 on 2026-10-22: AUTO_DETECT_WAKE_TERMINATION_NODES, from the licensed L4 run
+    # (CMP-26125_2026-10-22_wake-termination-route): 186.
+    "26.125": 186,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the

@@ -1,0 +1,29 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.125'
+date: '2026-10-22'
+package_version: 0.42.0
+fs_exe: Flightstream_26125.exe
+fs_exe_sha256: withheld; build 10052026
+executor: kit invocation, -hidden -script (licensed kit, serial launches; mechanism FSM-26.120 pp.279-280)
+solver_identity:
+- 'Simcenter Flightstream 2612, build #10052026'
+summary: {verified: 1, broken: 0, removed: 0, unprobed: 0}
+commands:
+  AUTO_DETECT_WAKE_TERMINATION_NODES:
+    outcome: verified
+    detail: 'GEO-105 release 0.43.0 licensed receipt namespace 56c681b8cc27218a38b80d4a184f681e4acfc918-63503b6a211c4733b4ca067cf44ca9bd,
+      arms PFS-2131.001-C 26.125/auto and 26.125/by-surface (one steady wing point whose wake edges are imported from a file,
+      the same case on both arms but for the wake-termination line). With AUTO_DETECT_WAKE_TERMINATION_NODES the script ran
+      to its end with no error, the log marked one strand proximal to termination nodes, and the totals were CL 0.7240657,
+      CDp 0.0191716, CMy -0.0168007; with DETECT_WAKE_TERMINATION_NODES_BY_SURFACE -1 none was marked and CL was 0.6863511
+      (-5.21 percent). The same two arms on 26.124 gave the same CL to seven digits. On the probe wing with no marked
+      trailing edge (F-423) the command was accepted and changed nothing, as a geometry with no termination node to mark
+      allows. FSM-26.125 p.331 prints the by-surface form only.'
+    expected: the wake-termination nodes of the geometry are marked and the loads move with them
+    observation: one strand marked; CL 0.7240657 against 0.6863511 with the by-surface form
+    signals: {sentinel_before: true, sentinel_after: true, effect: true, log_errors: []}
+    wall_time_s: 45.16
+    return_code: 0
+    script_sha256: 2f8b8275a0700f8a102097f76a7601a7d082c904e1236e99bb8b25998cd29862
+analysis_only: false
+execution_date: '2026-10-22'

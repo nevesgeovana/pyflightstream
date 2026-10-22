@@ -132,16 +132,15 @@ AUTO_DETECT_WAKE_TERMINATION_NODES:
         INITIALIZE_SOLVER clears the first initialisation and initialises
         again with the node it marked
     "26.125":
-      status: documented
+      report: "reports/compat/CMP-26125_2026-10-22_wake-termination-route.yaml"
+      status: verified
       note: >-
         FSM-26.125 p.331 prints the by-surface form only. The 26.125 solver
-        accepted this name in the L4 licensed run (namespace
-        56c681b8cc27218a38b80d4a184f681e4acfc918-63503b6a211c4733b4ca067cf44ca9bd,
-        file PFS-2131.001-C/reports/compat/CMP-26124-26125_L4_PFS-2131.001-C.yaml
-        under GeoverseArtifacts/pyflightstream/GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS, licensed/receipts):
-        it marked one strand proximal to termination nodes, as on 26.124, and
-        the run gave the same lift as 26.124 to seven digits, where the
-        by-surface form with -1 marked none and lowered the lift by 5.2 percent
+        accepts this name (the cited report): on a wing whose wake edges are
+        imported from a file it marked one strand proximal to termination
+        nodes, as on 26.124, and the run gave the same lift as 26.124 to seven
+        digits, where the by-surface form with -1 marked none and lowered the
+        lift by 5.2 percent
   notes: >
     Finds and marks all wake termination nodes in the geometry.
 
