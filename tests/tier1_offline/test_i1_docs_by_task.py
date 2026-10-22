@@ -100,6 +100,23 @@ def test_every_hand_written_page_is_in_the_nav():
     assert not missing, missing
 
 
+#: Pages the docs build writes (scripts/gen_docs_pages.py, gen_api_reference.py): a link to
+#: them cannot resolve against the hand-written set, so they are named, not skipped.
+BUILD_GENERATED_PREFIXES = ("examples/", "reference/", "api/", "cli/")
+BUILD_GENERATED_PAGES = frozenset(
+    {
+        "builds.md",
+        "compatibility.md",
+        "contributing.md",
+        "exceptions.md",
+        "inputs.md",
+        "fsi-tutorial.md",
+        "architecture.md",
+        "workspace-route-map.md",
+    }
+)
+
+
 def test_every_link_between_pages_resolves_to_a_page_and_an_anchor():
     """The split moved sections; a link that still names the old page is broken."""
     pages = site_pages(DOCS)
@@ -137,6 +154,15 @@ def test_every_link_between_pages_resolves_to_a_page_and_an_anchor():
             )
             if key in pages and anchor and anchor not in anchors[key]:
                 broken.append(f"{rel} -> {key}#{anchor}")
+            if (
+                key not in pages
+                and key.endswith(".md")
+                and not key.startswith(BUILD_GENERATED_PREFIXES)
+                and key not in BUILD_GENERATED_PAGES
+            ):
+                # A page link to a file that is neither hand-written nor generated at
+                # build time used to be skipped silently (F-867).
+                broken.append(f"{rel} -> {key} (no such page)")
     assert not broken, broken[:20]
 
 
