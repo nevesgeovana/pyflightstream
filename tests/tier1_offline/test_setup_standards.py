@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from pyflightstream.cases import SimCase, SolverSettings, SweepAxis
 from pyflightstream.cases.workflows._solver_settings import _settings
 from pyflightstream.run.cli import _build_parser
-from pyflightstream.script import Script
+from pyflightstream.script import CommandArgumentError, Script
 
 
 @pytest.mark.parametrize(
@@ -47,7 +47,7 @@ def test_typed_airfoil_assignment_reaches_curated_emitter():
     try:
         solver = SolverSettings(
             airfoil_separation=[
-                {"name": "Wing stall", "valarezo_criterion": True, "boundaries": "all"}
+                {"name": "Wing_stall", "valarezo_criterion": True, "boundaries": "all"}
             ]
         )
     except ValidationError:
@@ -68,6 +68,11 @@ def test_typed_airfoil_assignment_reaches_curated_emitter():
     assert "CREATE_AIRFOIL_SEPARATION" in script.render()
     record = script.solver_setup.flags["CREATE_AIRFOIL_SEPARATION"]
     assert record.emitted and record.provenance == "explicit"
+    # The name shares its line with the boundary count and the criterion
+    # (FSM-26.120 p.341), so a name with a space is refused naming the argument.
+    spaced = SolverSettings(airfoil_separation=[{"name": "Wing stall", "valarezo_criterion": True}])
+    with pytest.raises(CommandArgumentError, match="argument 'name'"):
+        _settings(case.model_copy(update={"solver": spaced}), Script("26.123"))
 
 
 @pytest.mark.parametrize("field", ["surface_roughness", "valarezo_criterion"])

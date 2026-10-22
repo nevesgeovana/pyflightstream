@@ -838,7 +838,12 @@ def test_cli_delete_sims_accepts_the_owners_bracketed_id_list(tmp_path):
     workspace.append_record(_record("2101", "camp/sim_2101/AL+000"))
     workspace.sim_dir("2102").mkdir(parents=True, exist_ok=True)
     workspace.append_record(_record("2102", "camp/sim_2102/AL+000"))
-    assert matrix_cli.main(["delete-sims", "[2101,2102]", "--workspace", str(workspace.root)]) == 0
+    assert (
+        matrix_cli.main(
+            ["delete-sims", "--sims", "[2101,2102]", "--workspace", str(workspace.root)]
+        )
+        == 0
+    )
     entry = storage_module.read_storage_calls(workspace.root)[-1]
     assert entry["action"] == "delete-sims"
     assert entry["applied"] is False

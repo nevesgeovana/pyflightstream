@@ -1093,7 +1093,13 @@ class TestReachGuard:
         problems = _reach_guard__coverage_problems(verdict, stale)
         assert any("read_matrix is now reached" in p for p in problems)
         assert any("no_such_name is no longer public" in p for p in problems)
-        routed = next(row for row in register["rows"] if row["reason"] == "routed later")
+        # Planted: the register may hold no routed-later row once every node is due and closed.
+        routed = {
+            **register["rows"][0],
+            "reason": "routed later",
+            "node": "PFS-2140.002",
+            "release": "0.43.0",
+        }
         due = _reach_guard__row_problems({"rows": [routed]}, routed["release"])
         assert len(due) == 1 and routed["node"] in due[0]
         assert _reach_guard__row_problems({"rows": [routed]}, "0.0.1") == []

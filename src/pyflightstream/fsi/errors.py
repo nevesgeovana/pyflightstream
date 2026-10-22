@@ -16,10 +16,6 @@ from __future__ import annotations
 
 # Defined below both FSI and results (AD-10), since the sectional-loads
 # parser also raises it. Re-export here for the public FSI import path.
-from pyflightstream._errors import FsiInputError, PyflightstreamError
+from pyflightstream._errors import FsiInputError
 
-__all__ = ["FsiArgumentError", "FsiInputError"]
-
-
-class FsiArgumentError(PyflightstreamError, TypeError):
-    """A structural helper received duplicate or excess positional arguments."""
+__all__ = ["FsiInputError"]

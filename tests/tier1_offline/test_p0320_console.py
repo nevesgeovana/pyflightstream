@@ -398,11 +398,11 @@ def test_free_space_and_delete_sims_show_their_stages(tmp_path, monkeypatch):
     root = str(workspace.root)
     freed = _merged(matrix_cli.main, ["free-space", "m001", "--workspace", root])
     assert "[free-space: delete_extensions] done: 2/2" in freed, freed
-    deleted = _merged(matrix_cli.main, ["delete-sims", "1310", "--workspace", root])
+    deleted = _merged(matrix_cli.main, ["delete-sims", "--sims", "1310", "--workspace", root])
     assert "[delete-sims: measure] done: 1/1" in deleted, deleted
     removed = _merged(
         matrix_cli.main,
-        ["delete-sims", "1311", "--workspace", root, "--apply"],
+        ["delete-sims", "--sims", "1311", "--workspace", root, "--apply"],
     )
     assert "[delete-sims: remove] done: 1/1" in removed, removed
 
@@ -415,7 +415,7 @@ def test_delete_sims_removal_shows_bytes_over_the_total_it_measured(tmp_path, mo
     for sim, size in (("1320", 1500), ("1321", 2500)):
         _write(workspace.sim_dir(sim) / "datapoints" / "DP-1" / "loads.vtk", "x" * size)
         workspace.append_record(_record(sim, f"camp/sim_{sim}/AL+000"))
-    argv = ["delete-sims", "1320,1321", "--workspace", str(workspace.root), "--apply"]
+    argv = ["delete-sims", "--sims", "1320,1321", "--workspace", str(workspace.root), "--apply"]
     removed = _merged(matrix_cli.main, argv)
     assert "[delete-sims: remove] done: 2/2, 4.0 kB/4.0 kB" in removed, removed
 

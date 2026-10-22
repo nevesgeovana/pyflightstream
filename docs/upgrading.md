@@ -124,6 +124,16 @@ Calling `pyflightstream.post.polar.polar_row` without `beta_deg` still uses zero
 sideslip and warns; from 0.45.0 the argument is required. Pass each point's
 sideslip explicitly.
 
+### Removed
+
+- `airfoil_section_contour`, `solid_section_properties` and
+  `blade_properties_from_sections` accept only keyword arguments after the primary
+  input; a positional call raises `TypeError`. Name each argument, for example
+  `airfoil_section_contour(unit, chord_m=0.1)`. `FsiArgumentError` is removed with
+  that form; catch `TypeError` instead.
+- `pyfs-matrix delete-sims` takes its simulations with `--sims ID [ID ...]` only;
+  the positional ids are refused. Write `delete-sims --sims 4001 2009`.
+
 ## 0.42.0
 
 ### Script validation and manual registration

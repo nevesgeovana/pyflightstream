@@ -120,6 +120,7 @@ class _Context:
     cases: Mapping[str, SimCase]
     exports_log: bool
     local: bool
+    max_walltime_s: float | None = None
 
 
 def _target_folder(target: str, *, job_root: PurePath, job_dir: Path) -> Path:
@@ -479,7 +480,15 @@ def _run_job(
     """Assemble, check and launch one job; complete its records FAILED when it did not launch."""
     root = context.staging.root
     job_root = PurePath(context.collector.job_roots[job.label])
+    # X-F-0558: a local job is never unbounded; the plan's rule, read once more here.
+    limit, said = (
+        local_time_limit(job, context.cases, max_walltime_s=context.max_walltime_s)
+        if context.local
+        else (None, "")
+    )
     try:
+        if context.local and limit is None:
+            raise CampaignConfigError(said)
         script = _assemble(context, job, records, job_root)
     except (CampaignConfigError, OSError) as error:
         launch = JobLaunch(job.label, None, f"{type(error).__name__}: {error}")
@@ -490,7 +499,7 @@ def _run_job(
             inner=inner,
             root=root,
             values=context.collector.values.get(job.label, {}),
-            timeout_s=local_time_limit(job, context.cases)[0] if context.local else None,
+            timeout_s=limit,
             job_root=job_root,
         )
     if launch.refusal is None:
@@ -699,6 +708,7 @@ def _run_receipt(
         cases={case.sim_id: case for case in campaign.sims},
         exports_log=_exports_log(grouping),
         local=not submits,
+        max_walltime_s=profile.max_walltime_s if profile is not None else None,
     )
     inners = {job.label: _inner_of(job, context.cases, builds, grouping) for job in receipt.jobs}
     accepted = entry_accepted_builds(resolved, workspace, _default_version(kw), kw.get("fs_exe"))

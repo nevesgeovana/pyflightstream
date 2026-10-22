@@ -33,6 +33,8 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
     # products.polar_axes=None. The fixture amendment states those defaults;
     # it does not recapture the implementation's output. F-1290 (0.43.0) changes one
     # serialization and nothing else: a pproc group dumps as the one alias string it
-    # was written as, since the member-list form is refused on reading.
+    # was written as, since the member-list form is refused on reading. Two more optional
+    # pproc defaults of 0.43.0, nothing else moved: refinement=None (NL-TRST-7) and
+    # products.trimmed_polar=False (FR-2302).
     expected = json.loads((FIXTURES / "p0360_w9c.json").read_text(encoding="utf-8"))
     assert actual == expected[fixture]

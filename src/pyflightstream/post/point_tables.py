@@ -59,8 +59,7 @@ from pyflightstream._errors import (
 )
 from pyflightstream._tokens import POLAR_ID_COLUMN, REDUCTION_COLUMNS, ROTOR_ID_COLUMN
 from pyflightstream.cases import FORCE_PLOT_PARAMETERS
-from pyflightstream.cases.workflows import PROBE_POSITION_COLUMNS
-from pyflightstream.cases.workflows._probes import PROBE_POSITIONS_MARKER
+from pyflightstream.cases.workflows import PROBE_POSITION_COLUMNS, PROBE_POSITIONS_MARKER
 from pyflightstream.post._condition import _stated_iteration
 from pyflightstream.post._stage import (
     _MOMENT_POINT_COLUMNS,

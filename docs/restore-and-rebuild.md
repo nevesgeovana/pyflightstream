@@ -233,7 +233,7 @@ read as `mark-failed` reads it and refused, and the refusal names the
 `--sims` and `--points` that select its point (`--sims 2006 --points AL+020`).
 
 `mark-failed` and `rebuild` take simulation ids with `--sims IDS` as one token.
-`delete-sims` takes them with `--sims ID [ID ...]`; its positional form is deprecated.
+`delete-sims` takes them with `--sims ID [ID ...]` only.
 Its list may be comma-separated, bracketed or blank-separated, quoted or not.
 
 Each marked record becomes `CONVERGED` and keeps under `marked` the status it had

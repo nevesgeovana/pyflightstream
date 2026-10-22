@@ -132,7 +132,7 @@ def test_a_quoted_sims_value_is_two_ids_in_mark_failed_and_rebuild(
 def test_every_form_accepted_before_still_reads_the_same_ids(value, tmp_path, capsys):
     """P0390-REV37 (NFR-45, NFR-45-04): the comma and bracket forms of 0.38.0 keep their result."""
     workspace = grouped_workspace(tmp_path / "ws", mode="alone", logs=False, sims=SIMS)
-    code, said = pyfs(["delete-sims", value], workspace.root, capsys)
+    code, said = pyfs(["delete-sims", "--sims", value], workspace.root, capsys)
     assert code == 0, said
     assert _named(_body((code, said))[1]) == ["7001", "7002"], said
 
@@ -140,8 +140,8 @@ def test_every_form_accepted_before_still_reads_the_same_ids(value, tmp_path, ca
 def test_delete_sims_reads_a_quoted_value_as_two_ids(tmp_path, capsys):
     """P0390-REV37 (NFR-45, NFR-45-04): ``delete-sims "7001 7002"`` previews both, not 70017002."""
     workspace = grouped_workspace(tmp_path / "ws", mode="alone", logs=False, sims=SIMS)
-    want = pyfs(["delete-sims", "7001,7002"], workspace.root, capsys)
-    got = pyfs(["delete-sims", "7001 7002"], workspace.root, capsys)
+    want = pyfs(["delete-sims", "--sims", "7001,7002"], workspace.root, capsys)
+    got = pyfs(["delete-sims", "--sims", "7001 7002"], workspace.root, capsys)
     assert want[0] == 0 and _body(got) == _body(want), (want, got)
     assert "70017002" not in got[1] and _named(_body(got)[1]) == ["7001", "7002"], got
 

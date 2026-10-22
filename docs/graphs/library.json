@@ -4919,17 +4919,7 @@
     },
     {
       "source": "pyflightstream.fsi.sections",
-      "target": "pyflightstream._deprecations",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.fsi.sections",
       "target": "pyflightstream._digest",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.fsi.sections",
-      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -6680,11 +6670,6 @@
     {
       "source": "pyflightstream.post.point_tables",
       "target": "pyflightstream.cases.workflows",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post.point_tables",
-      "target": "pyflightstream.cases.workflows._probes",
       "kind": "module"
     },
     {
@@ -9489,16 +9474,6 @@
     },
     {
       "source": "pyflightstream.run._cli_parsers",
-      "target": "pyflightstream._deprecations",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.run._cli_parsers",
-      "target": "pyflightstream._errors",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.run._cli_parsers",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -9944,7 +9919,7 @@
     },
     {
       "source": "pyflightstream.run._field_motion",
-      "target": "pyflightstream.cases.workflows._probes",
+      "target": "pyflightstream.cases.workflows",
       "kind": "module"
     },
     {
@@ -10231,11 +10206,6 @@
       "source": "pyflightstream.run._pending",
       "target": "pyflightstream.cases.workflows",
       "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._pending",
-      "target": "pyflightstream.cases.workflows._probes",
-      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run._pending",

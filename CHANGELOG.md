@@ -171,7 +171,8 @@ FlightStream versions.
   print alike.
 - A grouped job run with `--local` and no `WALLTIME` is limited by the solver `timeout_s` of
   its cases (the largest of them for each of its points) instead of running with no limit,
-  and the grouped plan states the limit of every job without a walltime.
+  and the grouped plan states the limit of every local job without a walltime. With no
+  `timeout_s` either, it takes the profile's `max_walltime`, or is refused before it starts.
 - `WorkflowConventions(animation_folder=...)` stays accepted and warns that it has no
   effect: no workflow writes animation frames into it.
 - The probe positions file a run writes (`sims/<sim>/profiles/<sim>_probe_points.csv`) starts
@@ -240,6 +241,15 @@ FlightStream versions.
   of every point table (the frames that entered the average), the clock the reductions read,
   the tables that open without `POL`, `BIN_OFFSET_BINS` and the settings table's kind columns;
   a sheet's need for a trailing edge is in the mesh guide.
+
+### Removed
+
+- Positional arguments after the primary input of `airfoil_section_contour`,
+  `solid_section_properties` and `blade_properties_from_sections`, deprecated in 0.42.0;
+  pass them as keyword arguments. `FsiArgumentError`, which only that positional form
+  raised, goes with it; a positional call raises `TypeError`, its base.
+- The positional ids of `pyfs-matrix delete-sims`, deprecated in 0.42.0; `--sims ID [ID ...]`
+  is now required.
 
 ### Fixed
 

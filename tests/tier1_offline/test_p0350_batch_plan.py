@@ -147,17 +147,28 @@ def test_p0350_plan_fr365_the_receipt_holds_every_field(tmp_path):
 def test_p0430_the_plan_states_the_local_limit_of_a_job_with_no_walltime(tmp_path):
     """X-F-0558: a job with no WALLTIME carries a plan line stating its local time limit.
 
-    With no recorded run there is no estimate, so the jobs have no WALLTIME; the
-    fixture's cases state no solver timeout, so the plan says the job has no limit.
+    The row states no WALLTIME, so the setups' solver timeout_s stands for each point.
+    Control: without it, and with no profile walltime, the job is refused and no line
+    claims a limit it does not have.
     """
-    workspace, matrix = _fixture(tmp_path)
-    plan = _plan(workspace, matrix, batch=1)
+    workspace, matrix = _fixture(tmp_path, walltimes=("",))
+    control = _plan(workspace, matrix, batch=1, local=True)
+    job = control.grouping.jobs[0]
+    assert control.blocked and job.walltime_s is None
+    assert not [w for w in control.grouping.warnings if "run on this" in w]
+    for setup in (workspace.inputs_dir / "setups").glob("*.toml"):
+        setup.write_text(
+            setup.read_text(encoding="utf-8") + "\ntimeout_s = 900.0\n", encoding="utf-8"
+        )
+    plan = _plan(workspace, matrix, batch=1, local=True)
     job = plan.grouping.jobs[0]
-    assert job.walltime_s is None
+    assert not plan.blocked and job.walltime_s is None
     lines = [w for w in plan.grouping.warnings if w.startswith(f"{job.label}: run on this")]
+    count = len(job.points)
     assert lines == [
-        f"{job.label}: run on this machine (--local), its time limit is no limit: no WALLTIME "
-        "and no case of it states a solver timeout_s"
+        f"{job.label}: run on this machine (--local), its time limit is {900.0 * count:g} s: "
+        f"no WALLTIME, so the solver timeout_s of its cases (900 s) for each of its {count} "
+        "point(s)"
     ]
 
 
@@ -307,9 +318,13 @@ def test_p0350_plan_fr364_best_refused_in_the_default_mode(tmp_path):
 def test_p0430_x_f_0558_a_local_job_with_no_limit_takes_the_profile_walltime_or_is_refused(
     tmp_path,
 ):
-    """X-F-0558: no WALLTIME and no timeout_s is never unbounded on this machine."""
+    """X-F-0558: no WALLTIME and no timeout_s is never unbounded on this machine.
+
+    ``local=True`` pins the machine: on Linux a workspace with an HPC profile plans a
+    submitted job by default, which its scheduler limits.
+    """
     workspace, matrix = _fixture(tmp_path, walltimes=("",), sweep="0.0")
-    refused = _plan(workspace, matrix, batch=1)
+    refused = _plan(workspace, matrix, batch=1, local=True)
     assert refused.blocked
     error = str(refused.blocked[0].error)
     assert "WALLTIME" in error and "timeout_s" in error
@@ -320,10 +335,18 @@ def test_p0430_x_f_0558_a_local_job_with_no_limit_takes_the_profile_walltime_or_
         '[descriptor.fields]\nncpus = "{ncpus}"\n',
         encoding="utf-8",
     )
-    plan = _plan(workspace, matrix, batch=1)
+    plan = _plan(workspace, matrix, batch=1, local=True)
     (job,) = plan.grouping.jobs
     assert not plan.blocked
     assert job.walltime_s == 7200 and job.walltime_source == "max_walltime"
+    assert f"{job.label}: run on this" not in " ".join(plan.grouping.warnings)
+    # The executor reads the same rule for a job planned for a scheduler and run --local.
+    from pyflightstream.run._batch_plan import LOCAL_LIMIT_REFUSAL, local_time_limit
+
+    bare = dataclasses.replace(job, walltime_s=None, walltime_source="none")
+    assert local_time_limit(bare, {}, max_walltime_s=3600.0)[0] == 3600.0
+    assert local_time_limit(bare, {}) == (None, LOCAL_LIMIT_REFUSAL)
+    assert local_time_limit(job, {})[1].endswith("(the HPC profile's max_walltime)")
 
 
 def test_p0350_plan_fr364_best_is_priced_in_the_grouped_mode(tmp_path):

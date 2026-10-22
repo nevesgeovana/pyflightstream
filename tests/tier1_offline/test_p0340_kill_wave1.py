@@ -162,6 +162,10 @@ _REMOVED = {
         "output|-o,--output",
         "recipe|--recipe",
     )
+} | {
+    # PFS-2124.004: the positional ids of delete-sims, deprecated in 0.42.0, removed in
+    # 0.43.0; the simulations are named with --sims only.
+    ("pyfs-matrix", "delete-sims|sims|"),
 }
 
 # Deliberate changes a later release made to a 0.33.1 action, each by its planning id:
@@ -194,11 +198,6 @@ _ADMITTED = {
 # pyfs-fsi output folder is --out, and --dir stays as a deprecated alias that parses to its own
 # destination (``legacy_dir``) with no default, so the option itself is kept and still accepted.
 _MOVED = {
-    # PFS-2124.004: positional deletion remains a deprecated optional alias.
-    ("pyfs-matrix", "delete-sims|sims|"): (
-        "delete-sims|legacy_sims|",
-        {"dest": ("sims", "legacy_sims"), "nargs": (None, "?"), "required": (True, False)},
-    ),
     ("pyfs-fsi", "init-dummy|dir|--dir"): (
         "init-dummy|legacy_dir|--dir",
         {"dest": ("dir", "legacy_dir"), "default": ("<CWD>", None)},
@@ -252,9 +251,9 @@ def test_the_matrix_parser_parses_the_choices_and_defaults_the_pass_named():
     # P0340-KILL-P2/P4/P5: the surface the golden pins, parsed end to end.
     parser = _capture_parser("pyflightstream.run.cli")
     assert parser.parse_args(["sync", "fsm"]).level == "fsm"
-    deleted = parser.parse_args(["delete-sims", "1", "--matrix-products", "regenerate"])
+    deleted = parser.parse_args(["delete-sims", "--sims", "1", "--matrix-products", "regenerate"])
     assert deleted.matrix_products == "regenerate"
-    assert parser.parse_args(["delete-sims", "1"]).matrix_products is None
+    assert parser.parse_args(["delete-sims", "--sims", "1"]).matrix_products is None
     assert parser.parse_args(["space-in-use"]).top == 15
 
 

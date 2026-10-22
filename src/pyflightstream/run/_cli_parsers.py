@@ -70,15 +70,7 @@ def _whole_sims(args: argparse.Namespace) -> list[str]:
     selection naming part of one is refused (PFS-2124.004).
     """
     manifest = getattr(args, "runs", None) or "runs.json"
-    legacy = getattr(args, "legacy_sims", None)
-    if legacy is not None:
-        from pyflightstream._deprecations import DELETE_SIMS_POSITIONAL
-        from pyflightstream._errors import PyflightstreamDeprecationWarning, warn
-
-        if args.sims is not None:
-            raise ValueError("choose --sims or the deprecated positional selector, not both")
-        warn(DELETE_SIMS_POSITIONAL.message(), PyflightstreamDeprecationWarning, stacklevel=2)
-    selected = args.sims if args.sims is not None else legacy
+    selected = args.sims
     if not selected:
         raise ValueError("delete-sims requires --sims ID [ID ...]")
     return split_typed_ids(

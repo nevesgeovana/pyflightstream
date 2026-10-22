@@ -197,7 +197,7 @@ def test_an_elliptic_polygon_has_its_closed_form_moments_and_tends_to_the_ellips
 
 
 def test_orientation_and_a_repeated_closing_point_change_nothing():
-    contour = airfoil_section_contour(naca4_contour("2412", 60), 0.1)
+    contour = airfoil_section_contour(naca4_contour("2412", 60), chord_m=0.1)
     forward = solid_section_properties(contour, grid_cells=16)
     backward = solid_section_properties(contour[::-1], grid_cells=16)
     closed = solid_section_properties(np.vstack((contour, contour[:1])), grid_cells=16)
@@ -279,13 +279,13 @@ def test_the_thin_section_estimate_is_a_cross_check_and_not_the_value():
         2.0, rel=1e-3
     )
 
-    contour = airfoil_section_contour(naca4_contour("0012", 80), 0.05)
+    contour = airfoil_section_contour(naca4_contour("0012", 80), chord_m=0.05)
     blade = blade_properties_from_sections(
         [0.1, 0.2],
-        [contour, contour],
-        [0.05, 0.05],
-        [0.0, 0.0],
-        "al-7075-t6",
+        sections_m=[contour, contour],
+        chord_m=[0.05, 0.05],
+        geometric_pitch_deg=[0.0, 0.0],
+        material="al-7075-t6",
         geometry_source="NACA 0012, 50 mm chord",
         torsion_grid_cells=24,
     )
@@ -320,8 +320,10 @@ def _naca_symmetric_area(thickness: float) -> float:
 def test_a_naca_0012_section_area_converges_to_the_closed_form():
     chord = 0.08
     exact = _naca_symmetric_area(0.12) * chord**2
-    coarse = polygon_area_moments(airfoil_section_contour(naca4_contour("0012", 100), chord))
-    fine = polygon_area_moments(airfoil_section_contour(naca4_contour("0012", 200), chord))
+    coarse = polygon_area_moments(
+        airfoil_section_contour(naca4_contour("0012", 100), chord_m=chord)
+    )
+    fine = polygon_area_moments(airfoil_section_contour(naca4_contour("0012", 200), chord_m=chord))
     assert _relative(fine.area_m2, exact) < _relative(coarse.area_m2, exact)
     assert _relative(fine.area_m2, exact) < 1e-4
     # The same integral as a figure: 0.681 t c^2 with the closed trailing
@@ -336,7 +338,7 @@ def test_the_airfoil_contour_lands_in_the_section_frame():
     """Chordwise toward the LEADING edge, normal toward the suction side, pitch axis at 0."""
     chord, fraction = 0.1, 0.25
     unit = naca4_contour("2412", 40)
-    contour = airfoil_section_contour(unit, chord, fraction)
+    contour = airfoil_section_contour(unit, chord_m=chord, pitch_axis_chord_fraction=fraction)
     leading = int(np.argmin(unit[:, 0]))
     trailing = int(np.argmax(unit[:, 0]))
     assert contour[leading, 0] == pytest.approx(fraction * chord)
@@ -390,7 +392,7 @@ def _synthetic_blade(**overrides) -> BladeProperties:
     radii = [0.1, 0.25, 0.4]
     chords = [0.06, 0.05, 0.04]
     sections = [
-        airfoil_section_contour(naca4_contour(name, 60), chord)
+        airfoil_section_contour(naca4_contour(name, 60), chord_m=chord)
         for name, chord in zip(("2415", "2412", "2409"), chords, strict=True)
     ]
     arguments = {
@@ -399,7 +401,12 @@ def _synthetic_blade(**overrides) -> BladeProperties:
     }
     arguments.update(overrides)
     return blade_properties_from_sections(
-        radii, sections, chords, [30.0, 20.0, 10.0], "ti-6al-4v-grade5-annealed", **arguments
+        radii,
+        sections_m=sections,
+        chord_m=chords,
+        geometric_pitch_deg=[30.0, 20.0, 10.0],
+        material="ti-6al-4v-grade5-annealed",
+        **arguments,
     )
 
 
@@ -432,7 +439,7 @@ def test_the_generated_distributions_are_the_material_times_the_sections():
     # GOAL033:fsi:checks:solid_homogeneous
     blade = _synthetic_blade()
     titanium = material("ti-6al-4v-grade5-annealed")
-    contour = airfoil_section_contour(naca4_contour("2412", 60), 0.05)
+    contour = airfoil_section_contour(naca4_contour("2412", 60), chord_m=0.05)
     section = solid_section_properties(contour, grid_cells=16)
     moments = section.moments
     assert blade.mass_per_length_kg_per_m[1] == pytest.approx(
@@ -528,9 +535,9 @@ def test_a_refined_sharp_trailing_edge_is_a_section(code, points_per_side):
     convergence.
     """
     refined = polygon_area_moments(
-        airfoil_section_contour(naca4_contour(code, points_per_side), 0.1)
+        airfoil_section_contour(naca4_contour(code, points_per_side), chord_m=0.1)
     )
-    coarse = polygon_area_moments(airfoil_section_contour(naca4_contour(code, 400), 0.1))
+    coarse = polygon_area_moments(airfoil_section_contour(naca4_contour(code, 400), chord_m=0.1))
     assert refined.area_m2 == pytest.approx(coarse.area_m2, rel=2e-3)
 
 
@@ -569,7 +576,12 @@ def test_a_station_without_its_section_is_refused():
     contour = _rectangle(0.04, 0.004, -0.02, -0.002)
     with pytest.raises(FsiInputError, match="sections_m has 1 entries for 2"):
         blade_properties_from_sections(
-            [0.1, 0.2], [contour], [0.04, 0.04], [0.0, 0.0], "al-7075-t6", geometry_source="plate"
+            [0.1, 0.2],
+            sections_m=[contour],
+            chord_m=[0.04, 0.04],
+            geometric_pitch_deg=[0.0, 0.0],
+            material="al-7075-t6",
+            geometry_source="plate",
         )
 
 
@@ -639,10 +651,10 @@ def test_the_beam_bends_and_twists_as_the_generated_stiffness_says():
     radii = [0.1 + length * i / (stations - 1) for i in range(stations)]
     blade = blade_properties_from_sections(
         radii,
-        [strip] * stations,
-        [width] * stations,
-        [0.0] * stations,
-        "al-7075-t6",
+        sections_m=[strip] * stations,
+        chord_m=[width] * stations,
+        geometric_pitch_deg=[0.0] * stations,
+        material="al-7075-t6",
         geometry_source="a 40 x 4 mm aluminium strip",
     )
     aluminium = MATERIALS["al-7075-t6"]
@@ -678,40 +690,24 @@ def test_p0420_section_inputs_publish_keyword_only_signatures(name):
     assert all(p.kind is inspect.Parameter.KEYWORD_ONLY for p in parameters[1:])
 
 
-def test_p0420_section_positional_compatibility_warns_and_preserves_values():
-    from pyflightstream._errors import PyflightstreamDeprecationWarning
-
+def test_p0430_section_positional_arguments_are_removed():
+    """PFS-2126.015: the positional form, deprecated in 0.42.0, is a TypeError from 0.43.0."""
     unit = [(0.0, 0.0), (0.5, 0.1), (1.0, 0.0), (0.5, -0.1)]
-    with pytest.warns(PyflightstreamDeprecationWarning, match="removed in v0.43.0"):
-        old = airfoil_section_contour(unit, 0.1, 0.3)
     current = airfoil_section_contour(unit, chord_m=0.1, pitch_axis_chord_fraction=0.3)
-    np.testing.assert_array_equal(old, current)
-    with pytest.warns(PyflightstreamDeprecationWarning, match="removed in v0.43.0"):
-        old_section = solid_section_properties(old, 8)
-    assert old_section == solid_section_properties(current, grid_cells=8)
-    with pytest.warns(PyflightstreamDeprecationWarning, match="removed in v0.43.0"):
-        old_blade = blade_properties_from_sections(
+    with pytest.raises(TypeError):
+        airfoil_section_contour(unit, 0.1, 0.3)
+    with pytest.raises(TypeError):
+        solid_section_properties(current, 8)
+    with pytest.raises(TypeError):
+        blade_properties_from_sections(
             [0.1, 0.2],
-            [old, old],
+            [current, current],
             [0.1, 0.1],
             [0.0, 0.0],
             "al-7075-t6",
             geometry_source="test section",
             torsion_grid_cells=8,
         )
-    assert old_blade == blade_properties_from_sections(
-        [0.1, 0.2],
-        sections_m=[current, current],
-        chord_m=[0.1, 0.1],
-        geometric_pitch_deg=[0.0, 0.0],
-        material="al-7075-t6",
-        geometry_source="test section",
-        torsion_grid_cells=8,
-    )
-    with pytest.raises(TypeError, match="multiple values"):
-        airfoil_section_contour(unit, 0.1, chord_m=0.2)
-    with pytest.raises(TypeError, match="at most"):
-        airfoil_section_contour(unit, 0.1, 0.2, 0.3)
 
 
 def test_x_f_1185_a_numpy_integer_grid_is_accepted_and_a_numpy_bool_is_not():

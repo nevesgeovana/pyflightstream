@@ -36,10 +36,18 @@ PITCH_AXIS = 0.25
 
 def _blade(sections=None):
     sections = sections or [
-        airfoil_section_contour(naca4_contour("4412", 80), c, PITCH_AXIS) for c in CHORDS
+        airfoil_section_contour(
+            naca4_contour("4412", 80), chord_m=c, pitch_axis_chord_fraction=PITCH_AXIS
+        )
+        for c in CHORDS
     ]
     return blade_properties_from_sections(
-        RADII, sections, CHORDS, PITCH, "ti-6al-4v-grade5-annealed", geometry_source="NACA 4412"
+        RADII,
+        sections_m=sections,
+        chord_m=CHORDS,
+        geometric_pitch_deg=PITCH,
+        material="ti-6al-4v-grade5-annealed",
+        geometry_source="NACA 4412",
     )
 
 
@@ -117,13 +125,17 @@ def test_p0430_f6_04_clearance_checks_the_serialized_nodes():
 @pytest.mark.parametrize("chord", [0.05, 0.5])
 def test_p0420_p1_1d_clearance_scales_with_section(chord):
     """A 50 mm NACA 0012 and its scaled copy both admit the trailing node."""
-    contours = [airfoil_section_contour(naca4_contour("0012", 100), chord, 0.25)] * 3
+    contours = [
+        airfoil_section_contour(
+            naca4_contour("0012", 100), chord_m=chord, pitch_axis_chord_fraction=0.25
+        )
+    ] * 3
     blade = blade_properties_from_sections(
         RADII,
-        contours,
-        [chord] * 3,
-        [0.0] * 3,
-        "ti-6al-4v-grade5-annealed",
+        sections_m=contours,
+        chord_m=[chord] * 3,
+        geometric_pitch_deg=[0.0] * 3,
+        material="ti-6al-4v-grade5-annealed",
         geometry_source="synthetic NACA 0012",
     )
     try:

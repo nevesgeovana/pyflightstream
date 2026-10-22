@@ -5,7 +5,7 @@ from copy import deepcopy
 from math import isclose
 from pathlib import Path
 
-from pyflightstream.cases.workflows._probes import PROBE_POSITIONS_MARKER
+from pyflightstream.cases.workflows import PROBE_POSITIONS_MARKER
 
 
 def continued_frame_motions(previous, script):

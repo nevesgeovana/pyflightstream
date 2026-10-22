@@ -12,9 +12,8 @@
   {
    "id": "RX-08",
    "capability": "Natural frequencies, Campbell diagram and Southwell fit of the configured blade (the n Omega / omega_n check before a coupled run)",
-   "reason": "routed later",
-   "node": "PFS-2140.002",
-   "release": "0.43.0",
+   "reason": "Python-only by design",
+   "decision": "PFS-2140.002 closed at 0.41.0: pyfs-matrix plan on an FSI row prints the natural frequencies at the row's speed with the n Omega / omega_n warning; the speed sweep (Campbell diagram) and the Southwell fit are design-study analysis of the configured blade in Python; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
    "names": [
     "pyflightstream.fsi.centrifugal.CampbellData",
     "pyflightstream.fsi.centrifugal.campbell_sweep",
@@ -24,9 +23,8 @@
   {
    "id": "RX-11",
    "capability": "Quasi-steady rotor loading noise (observer signals and Gutin harmonics)",
-   "reason": "routed later",
-   "node": "PFS-2140.004",
-   "release": "0.43.0",
+   "reason": "maintainer or developer API",
+   "decision": "PFS-2140.004 closed at 0.41.0: the gated quasi-steady noise is a pproc product; the signal comparison, the analytic Gutin harmonic, the azimuth helper and the not-implemented contract error are verification and building-block API behind it; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
    "names": [
     "pyflightstream.exceptions.ContractNotImplementedError",
     "pyflightstream.post.qsteady_noise.SignalComparison",
@@ -38,9 +36,8 @@
   {
    "id": "RX-13",
    "capability": "Route-2 sector-offset calibration written from a recorded wheel point and sector point",
-   "reason": "routed later",
-   "node": "PFS-2140.004",
-   "release": "0.43.0",
+   "reason": "Python-only by design",
+   "decision": "PFS-2140.004 closed at 0.41.0: the route-2 sector calibration is written by the calibrate verb (sector_offset_calibration is reached); bessel_y is the special function re-exported beside the corrections for a Python caller; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
    "names": [
     "pyflightstream.post.corrections.bessel_y"
    ]
@@ -48,9 +45,8 @@
   {
    "id": "RX-17",
    "capability": "The Sweeper toolbox and its spreadsheet (a run type, or documented as outside the workspace)",
-   "reason": "routed later",
-   "node": "PFS-2140.005",
-   "release": "0.43.0",
+   "reason": "Python-only by design",
+   "decision": "PFS-2140.005 closed at 0.41.0 with the sweeper decided: a sweep is declared as matrix rows, the workspace's route; the Sweeper toolbox helper and its spreadsheet reader stay script-level Python for a hand-written script; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
    "names": [
     "pyflightstream.results.SweepSpreadsheetReport",
     "pyflightstream.results.parse_sweep_spreadsheet",
@@ -60,9 +56,8 @@
   {
    "id": "RX-18",
    "capability": "Trailing-edge points file of a raw mesh's sidecar route 'file'",
-   "reason": "routed later",
-   "node": "PFS-2140.005",
-   "release": "0.43.0",
+   "reason": "Python-only by design",
+   "decision": "PFS-2140.005 closed at 0.41.0: the workspace writes the trailing-edge points file by detection in the refinement route, or reads the one a sidecar lists (route 'file'); extract_trailing_edge and its node-file writer are the documented Python way to prepare that file from a blade mesh (docs/mesh/how-to.md); classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
    "names": [
     "pyflightstream.workspace.TrailingEdge",
     "pyflightstream.workspace.extract_trailing_edge",
@@ -72,9 +67,8 @@
   {
    "id": "RX-21",
    "capability": "Support level of a FlightStream build",
-   "reason": "routed later",
-   "node": "PFS-2140.005",
-   "release": "0.43.0",
+   "reason": "Python-only by design",
+   "decision": "PFS-2140.005 closed at 0.41.0: pyfs-matrix support prints the support level of each build through version_support and support_table; support_level is the Python shorthand for that one value; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
    "names": [
     "pyflightstream.support_level"
    ]
@@ -281,9 +275,8 @@
   {
    "id": "RX-29",
    "capability": "Moving structural-node frame of the unsteady_rotor FSI route, which is refused",
-   "reason": "routed later",
-   "node": "PFS-2140.007",
-   "release": "0.43.0",
+   "reason": "maintainer or developer API",
+   "decision": "PFS-2140.007 closed at 0.41.0 on licensed observations: attaching the moving structural-node frame to the body stays refused at the workspace (space-attached force projection is the supported route); the byte patch remains a developer API of the measured probe workspaces; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
    "names": [
     "pyflightstream.cases.fsi_workspace.patch_structural_node_frame"
    ]
