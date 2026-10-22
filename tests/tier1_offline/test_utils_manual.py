@@ -2733,7 +2733,7 @@ def test_last_a_file_that_is_not_a_pdf_is_a_manual_draft_error(tmp_path):
 
 def test_last_a_pypdf_without_layout_extraction_says_to_upgrade(tmp_path, monkeypatch):
     """X-F-1089: an old pypdf raised TypeError on extraction_mode."""
-    pypdf = pytest.importorskip("pypdf")
+    pypdf_module = pytest.importorskip("pypdf")
 
     class Page:
         def extract_text(self, **kwargs):
@@ -2745,20 +2745,20 @@ def test_last_a_pypdf_without_layout_extraction_says_to_upgrade(tmp_path, monkey
         def __init__(self, _path):
             self.pages = [Page()]
 
-    monkeypatch.setattr(pypdf, "PdfReader", Reader)
+    monkeypatch.setattr(pypdf_module, "PdfReader", Reader)
     with pytest.raises(ManualDraftError, match="upgrade pypdf"):
         read_pdf_pages(tmp_path / "manual.pdf", first=1, last=1)
 
 
 def test_last_the_short_manual_hint_does_not_state_a_page_range_of_its_own(tmp_path, monkeypatch):
     """F-675: the range in the hint excluded registered manuals (342 and 425 pages)."""
-    pypdf = pytest.importorskip("pypdf")
+    pypdf_module = pytest.importorskip("pypdf")
 
     class Reader:
         def __init__(self, _path):
             self.pages = [object()] * 3
 
-    monkeypatch.setattr(pypdf, "PdfReader", Reader)
+    monkeypatch.setattr(pypdf_module, "PdfReader", Reader)
     with pytest.raises(ManualDraftError, match="reaches past the end") as raised:
         read_pdf_pages(tmp_path / "manual.pdf", first=1, last=9)
     assert "roughly 350" not in str(raised.value)
