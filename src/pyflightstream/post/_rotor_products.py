@@ -1038,15 +1038,21 @@ def _contained(skipped: dict[str, str], key: str, make, empty):
     """Run one product of a point; a refusal costs only that product, named in ``skipped``.
 
     The independent products of a point are not isolated from each other otherwise: a refusal
-    from one orphans what the others have written. An existing product still refuses.
+    from one orphans what the others have written. An existing product still refuses. An
+    unexpected failure costs the product too, named with its type (FR-2313).
     """
     try:
         return make()
-    except ProductExistsError:
+    except (ProductExistsError, Warning):
         raise
-    except PyflightstreamError as error:
-        skipped[key] = str(error)
-        warn(f"{key} not written: {error}", PyflightstreamWarning, stacklevel=2)
+    except Exception as error:  # noqa: BLE001 -- every failure is named, never fatal here
+        said = (
+            str(error)
+            if isinstance(error, PyflightstreamError)
+            else f"{type(error).__name__}: {error} (an unexpected failure of this product)"
+        )
+        skipped[key] = said
+        warn(f"{key} not written: {said}", PyflightstreamWarning, stacklevel=2)
         return empty
 
 

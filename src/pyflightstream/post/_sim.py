@@ -345,24 +345,35 @@ def _sim_products(
 
 
 def _run_steps(ctx: SimContext, steps: Sequence[Callable[[SimContext], None]]) -> None:
-    """Run the steps of one simulation's post, each costing only itself on a refusal."""
+    """Run the steps of one simulation's post, each costing only itself on a failure."""
     for step in steps:
         # EACH STEP COSTS ONLY ITSELF: a refusal after step one must not orphan the products
         # already written (their predecessors archived, their manifest entries lost) nor
         # stop the steps that read other things. The step is named by its family and the
         # simulation, as every other skip of a simulation is keyed.
+        # AN UNEXPECTED FAILURE COSTS THE STEP TOO (FR-2313): a defect in one product
+        # must not take the independent products of the post with it; it is named with
+        # its type, so it reads as the defect it is and not as a refusal.
         try:
             step(ctx)
-        except ProductExistsError:
+        except (ProductExistsError, Warning):
+            # An existing product refuses the post; a warning raised as an error is
+            # the caller's filter, and it stays the caller's.
             raise
-        except PyflightstreamError as error:
+        except Exception as error:  # noqa: BLE001 -- every failure is named, never fatal here
             family = step.__name__.lstrip("_")
-            ctx.skipped[f"{family}/{ctx.sim_id}"] = str(error)
+            said = str(error) if isinstance(error, PyflightstreamError) else _unexpected(error)
+            ctx.skipped[f"{family}/{ctx.sim_id}"] = said
             warn(
-                f"simulation={ctx.sim_id} step={family}: {error}",
+                f"simulation={ctx.sim_id} step={family}: {said}",
                 PyflightstreamWarning,
                 stacklevel=2,
             )
+
+
+def _unexpected(error: Exception) -> str:
+    """Name an unexpected failure of one product by its type and message."""
+    return f"{type(error).__name__}: {error} (an unexpected failure of this product)"
 
 
 # ------------------------------------------------------------------ the context

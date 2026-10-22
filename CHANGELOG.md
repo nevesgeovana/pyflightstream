@@ -65,6 +65,10 @@ FlightStream versions.
   on disk, and a file already there is replaced only by a post called with `overwrite=True`
   (which `pyfs-matrix post` passes, archiving the old file with `--archive`); otherwise it is
   left in place and the point is named under `skipped`.
+- An unexpected failure in one post product (an error that is not a package refusal) costs
+  only that product: it is named under `skipped` with its type and message, and the
+  independent products of the simulation and of its points are still written and indexed,
+  instead of the failure ending the whole post.
 
 ### Fixed
 

@@ -2087,6 +2087,41 @@ def test_f3_0203_pfs2119_030_a_refusing_product_of_a_point_costs_only_itself():
     assert _contained(skipped, "k", lambda: (["x"], {}), ([], {})) == (["x"], {})
 
 
+@pytest.mark.requirement("FR-2312")
+@pytest.mark.requirement("FR-2313")
+@pytest.mark.parametrize(
+    "failure", [ProductError("the polar is refused"), ZeroDivisionError("division by zero")]
+)
+def test_p0430_a_failed_coefficient_product_leaves_the_independent_ones_and_their_records(
+    tmp_path, monkeypatch, failure
+):
+    """A coefficient product that fails is named; the products beside it are written and indexed."""
+    workspace = _post_1_products___workspace(tmp_path)
+
+    def failing_polars(ctx):
+        raise failure
+
+    steps = tuple(failing_polars if step is _sim._group_polars else step for step in _sim._STEPS)
+    monkeypatch.setattr(_sim, "_STEPS", steps)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    out = workspace.products_dir("matriz")
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    # The failed product is named under its family and simulation, with its reason.
+    for sim_id in ("6001", "6002"):
+        assert str(failure) in manifest["skipped"][f"failing_polars/{sim_id}"]
+    assert not list(out.glob("polars/P6001-*"))
+    # The independent products are on disk, each with its record in the manifest.
+    independent = {
+        "probes/POLAR-6002_M14AL+000BE+000J+170_plots.csv",
+        "probes/POLAR-6002_M14AL+000BE+000J+170_per_revolution_PUSHER.csv",
+        "settings/matriz_settings.csv",
+    }
+    assert independent <= set(manifest["products"])
+    assert all((out / name).is_file() for name in independent)
+
+
 def _f3_0203_swept_record(run_id: str, mach: float):
     return SimpleNamespace(
         run_id=run_id,
