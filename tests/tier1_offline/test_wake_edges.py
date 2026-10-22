@@ -124,7 +124,9 @@ def test_every_spelling_of_a_small_tolerance_is_accepted(tolerance):
     The solver reads all three spellings of one number, so none is refused and
     the declared value is kept exactly.
     """
-    assert WakeEdgeImport(nodes=ONE_NODE, tolerance=tolerance).tolerance == 1e-05
+    assert (
+        WakeEdgeImport(nodes=ONE_NODE, edge_type="STANDARD", tolerance=tolerance).tolerance == 1e-05
+    )
 
 
 @pytest.mark.parametrize("tolerance", [0.0, -1e-6, math.inf, math.nan])

@@ -83,6 +83,9 @@ _ORIGINAL_ALL = [
     "revolution_drift_pct",
     "is_force_or_moment_column",
     "rotor_advance_ratio",
+    # 0.43.0 (FR-2302): the trimmed polar, appended after the original inventory.
+    "trimmed_polar_row",
+    "write_trimmed_polar",
 ]
 
 
@@ -101,6 +104,19 @@ _PRODUCTS_PRIVATE_ALIASES = {
     "prov_document": "_prov_document",
     "refuse_an_existing_product": "_refuse_an_existing_product",
     "run_provenance": "_run_provenance",
+}
+
+
+# 0.43.0 (FR-2302, NL-TRST-7): public names of post.polar that post.products does not re-export,
+# because the trimmed polar and the refinement study were added without widening the legacy
+# products surface (its inventory above only gains the two product writers).
+_KEPT_OFF_PRODUCTS = {
+    "GCI_SAFETY_FACTOR",
+    "GridConvergence",
+    "TRIM_ANGLE_COLUMN",
+    "TRIM_MOMENT_COLUMN",
+    "TRIM_SUFFIX",
+    "grid_convergence",
 }
 
 
@@ -214,6 +230,14 @@ def test_extracted_product_modules_preserve_the_public_surface():
                 "swept_polar_file_name",
                 "write_polar_table",
                 "write_recorded_polar",
+                "GCI_SAFETY_FACTOR",
+                "GridConvergence",
+                "TRIM_ANGLE_COLUMN",
+                "TRIM_MOMENT_COLUMN",
+                "TRIM_SUFFIX",
+                "grid_convergence",
+                "trimmed_polar_row",
+                "write_trimmed_polar",
             },
         ),
         # 0.33.0 (AD-13, WP5): a product family cut out of post.products.
@@ -274,7 +298,7 @@ def test_product_module_export_inventory(module_name, expected):
     namespace = {}
     exec(f"from {qualified} import *", namespace)
     assert namespace.keys() - {"__builtins__"} == expected
-    for name in expected:
+    for name in expected - _KEPT_OFF_PRODUCTS:
         product_name = _PRODUCTS_PRIVATE_ALIASES.get(name, name)
         assert namespace[name] is getattr(products, product_name), (
             f"post.products.{product_name} must preserve the same exported object"
