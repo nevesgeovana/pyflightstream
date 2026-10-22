@@ -106,14 +106,16 @@ carrying its base release's evidence, a command the base records answers
 for the hotfix too, which is right for a hotfix that did not touch it.
 Where it is recorded as carrying NOTHING, every command answers absent
 until somebody reads a page of that build's own manual or runs a probe
-against it, and the emitter refuses each one as it is reached:
+against it, and the emitter refuses each one as it is reached. The same
+refusal meets any single command that has no row for a build yet, as on
+the newest build here:
 
 ```python
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.script import Script
 
 try:
-    Script(version="26.123").emit("TRAILING_EDGES_IMPORT")
+    Script(version="26.125").emit("AUTO_DETECT_BASE_REGIONS")
 except CommandNotInVersionError as error:
     assert "no recorded evidence" in str(error)
 else:  # pragma: no cover - the refusal is the point of the example
