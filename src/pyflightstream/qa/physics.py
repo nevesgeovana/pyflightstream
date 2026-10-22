@@ -46,8 +46,10 @@ it is a row of a private workspace, which is the next release's work.
 
 from __future__ import annotations
 
+import dis
 import enum
 import math
+import sys
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from importlib import resources
@@ -414,16 +416,30 @@ REMOVED_IN_0_13_0: frozenset[str] = frozenset(
 )
 
 
+def _imported_by_from(depth: int) -> bool:
+    """Whether the frame ``depth`` levels up is executing ``from module import name``."""
+    try:
+        frame = sys._getframe(depth)
+        return dis.opname[frame.f_code.co_code[frame.f_lasti]] == "IMPORT_FROM"
+    except (ValueError, IndexError):  # no such frame or no instruction to read
+        return False
+
+
 def __getattr__(name: str) -> object:
     if name in REMOVED_IN_0_13_0:
-        raise ImportError(
+        message = (
             f"{__name__}.{name} was removed in 0.13.0 (PFS-2031.17): the physics cases "
             "are rows of a campaign workspace now. Call "
             "pyflightstream.qa.matrix.physics_from_workspace(root) or "
             "drift_from_workspace(root, ...), with root the workspace (CLI: --workspace) "
-            "of pyfs-qa physics and pyfs-qa drift.",
-            name=name,
+            "of pyfs-qa physics and pyfs-qa drift."
         )
+        # A module attribute that is absent raises AttributeError, so that
+        # hasattr answers False; the import statement turns that into a bare
+        # "cannot import name", so it keeps the message as an ImportError.
+        if _imported_by_from(2):
+            raise ImportError(message, name=name)
+        raise AttributeError(message, name=name, obj=sys.modules[__name__])
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -1516,6 +1532,11 @@ def read_physics_report(path: str | Path) -> dict:
         raise QaEvidenceError(
             f"{path} is not a physics report (expected schema {PHYSICS_SCHEMA!r}); "
             "references are seeded only from committed physics evidence"
+        )
+    if not isinstance(document.get("fs_version"), str) or not document["fs_version"]:
+        raise QaEvidenceError(
+            f"{path} states no fs_version, so the build the evidence was measured on is "
+            "unknown; references are seeded only from physics evidence that names its build"
         )
     return document
 

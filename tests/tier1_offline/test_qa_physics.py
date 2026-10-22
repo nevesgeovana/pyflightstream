@@ -25,6 +25,7 @@ from pyflightstream.qa.physics import (
     phy01_metrics,
     phy02_metrics,
     physics_report_paths,
+    read_physics_report,
     registered_cases,
     smi_metrics,
     update_reference,
@@ -551,17 +552,21 @@ def test_a_name_the_workspace_driver_replaced_says_where_it_went(name):
     carried shims. They could not: each name ran a recipe path the workspace
     replaced. What a caller gets instead is the release and the replacement,
     from both spellings of the import."""
-    import importlib
-
     import pyflightstream.qa.physics as physics
 
+    # X-F-1213: an absent module attribute raises AttributeError, so hasattr
+    # answers False; the message still names the release and the replacement.
+    assert hasattr(physics, name) is False
     with pytest.raises(
-        ImportError, match=r"removed in 0\.13\.0 .*physics_from_workspace\(root\).*--workspace"
+        AttributeError, match=r"removed in 0\.13\.0 .*physics_from_workspace\(root\).*--workspace"
     ) as caught:
         getattr(physics, name)
     assert caught.value.name == name
-    with pytest.raises(ImportError, match=r"physics_from_workspace"):
-        importlib.import_module("pyflightstream.qa.physics").__getattr__(name)
+    # The import statement would hide an AttributeError behind a bare
+    # "cannot import name", so that spelling keeps the ImportError and the message.
+    with pytest.raises(ImportError, match=r"physics_from_workspace") as imported:
+        exec(f"from pyflightstream.qa.physics import {name}", {})
+    assert imported.value.name == name
     with pytest.raises(AttributeError, match=r"no attribute 'never_existed'"):
         _ = physics.never_existed
 
@@ -709,3 +714,16 @@ def test_p0430_a_repeated_angle_is_refused_not_mixed_f_241():
         phy01_metrics(points)
     with pytest.raises(QaEvidenceError, match="repeating an angle"):
         phy06_metrics(points, make_points())
+
+
+def test_a_report_without_a_build_is_refused_as_evidence(tmp_path):
+    """X-F-1214: the schema alone is not enough; a report that names no build
+    is refused as QaEvidenceError, never a bare KeyError further on."""
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    yaml_path, _ = write_physics_report(make_run(tmp_path), tmp_path, date="2026-08-19")
+    document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    del document["fs_version"]
+    yaml_path.write_text(yaml.safe_dump(document), encoding="utf-8")
+    with pytest.raises(QaEvidenceError, match="no fs_version"):
+        read_physics_report(yaml_path)
