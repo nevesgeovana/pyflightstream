@@ -1,7 +1,10 @@
 """Generate the Understanding preview from this checkout without importing product code.
 
 Usage: python scripts/gen_understanding_data.py
-Use --check to detect stale JSON without writing. The execution seed is an
+Use --check to detect stale JSON and stale generated regions without writing,
+and --data-only to write the JSON payloads while leaving the committed generated
+regions of the documentation as they are: CI writes with --data-only and then
+runs --check, so a stale committed region fails. The execution seed is an
 editorial static trace; AST locations and example metadata are refreshed.
 """
 
@@ -496,6 +499,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--revision", help="Full commit SHA for immutable source links")
+    parser.add_argument(
+        "--data-only",
+        action="store_true",
+        help="write the JSON payloads only; leave the committed generated regions as they are",
+    )
     args = parser.parse_args()
     payloads = generate(args.revision)
     OUT.mkdir(parents=True, exist_ok=True)
@@ -529,7 +537,7 @@ def main():
         if before != after:
             if args.check:
                 stale.append(path.relative_to(ROOT).as_posix())
-            else:
+            elif not args.data_only:
                 path.write_text(after, encoding="utf-8", newline="\n")
     if stale:
         raise SystemExit("Stale Understanding data: " + ", ".join(stale))

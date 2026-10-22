@@ -73,6 +73,43 @@ def test_p0420_doc_understanding_reads_approved_stages():
     assert all(r["stage"] in {*areas["stages"], "nfr"} for r in rows)
 
 
+def test_p0430_understanding_check_can_fail_after_the_ci_write(tmp_path, monkeypatch):
+    """X-F-0468: CI writes the Understanding data, then checks; the check must be able to fail.
+
+    The workflows ran the generator, which rewrote the committed generated regions, and then
+    --check, which therefore could not fail. They now write with --data-only, which leaves
+    the committed regions as they are, so a stale region is caught by the check after it.
+    """
+    for workflow in (".github/workflows/docs.yml", ".github/workflows/ci.yml"):
+        calls = [
+            line
+            for line in (ROOT / workflow).read_text(encoding="utf-8").splitlines()
+            if "gen_understanding_data.py" in line
+        ]
+        assert calls, workflow
+        assert all("--check" in line or "--data-only" in line for line in calls), workflow
+        assert any("--check" in line for line in calls), workflow
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    import gen_understanding_data as understanding
+
+    payloads = understanding.generate("0" * 40)
+    for relative in ("docs/workspace-files.md", "docs/understanding/execution.md"):
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        target.write_text(text.replace("<!-- END ", "stale row\n<!-- END ", 1), encoding="utf-8")
+    stale = (tmp_path / "docs/workspace-files.md").read_text(encoding="utf-8")
+    monkeypatch.setattr(understanding, "ROOT", tmp_path)
+    monkeypatch.setattr(understanding, "OUT", tmp_path / "docs/understanding/data")
+    monkeypatch.setattr(understanding, "generate", lambda revision: payloads)
+    monkeypatch.setattr(sys, "argv", ["gen_understanding_data.py", "--data-only"])
+    understanding.main()
+    assert (tmp_path / "docs/workspace-files.md").read_text(encoding="utf-8") == stale
+    monkeypatch.setattr(sys, "argv", ["gen_understanding_data.py", "--check"])
+    with pytest.raises(SystemExit, match="Stale Understanding data: docs/workspace-files.md"):
+        understanding.main()
+
+
 def generator():
     path = ROOT / "scripts/gen_canonical_graphs.py"
     assert path.is_file(), "canonical graph generator must exist"
