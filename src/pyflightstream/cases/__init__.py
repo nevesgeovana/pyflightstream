@@ -802,6 +802,13 @@ def case_at_point(case: SimCase, point: Mapping[str, float], **update: object) -
     """
     fields: dict[str, object] = {"point": dict(point), **update}
     state = case.point_states.get(point_state_key(point))
+    if state is None and case.point_states:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the row swept a flow variable, and point {dict(point)!r} "
+            "has no resolved state among those it holds; running it would emit the row's own "
+            "Mach, velocity or Reynolds number under that point's name. Resolve every point "
+            "of the sweep before running."
+        )
     if state is not None:
         for name in ("mach", "velocity", "reynolds", "fluid"):
             fields[name] = getattr(state, name)

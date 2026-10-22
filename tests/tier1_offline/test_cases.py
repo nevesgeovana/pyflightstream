@@ -507,3 +507,29 @@ def test_p0430_fr1616_a_sweep_axis_with_no_values_is_refused_at_construction(axi
 
     with pytest.raises((CampaignConfigError, ValidationError), match="no values"):
         SweepAxis(type=axis, values=[])
+
+
+def _p0430_case(sim_id="1", **update):
+    return SimCase(
+        sim_id=sim_id,
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="pkg.mod:build",
+        outputs=["loads_{point}.txt"],
+        **update,
+    )
+
+
+def test_p0430_f5_a_swept_point_without_its_state_is_refused_not_run_at_the_rows_state():
+    """F-016: a flow-variable sweep that lost one point's state must not run on the row's."""
+    from pyflightstream.cases import CampaignConfigError, case_at_point
+    from pyflightstream.cases.settings import PointState, point_state_key
+
+    known = {"mach": 0.2}
+    case = _p0430_case(point_states={point_state_key(known): PointState(mach=0.2)})
+    assert case_at_point(case, known).mach == 0.2
+    with pytest.raises(CampaignConfigError, match="no resolved state"):
+        case_at_point(case, {"mach": 0.3})
+    # The control: a case that carries no states resolves once, as before.
+    assert case_at_point(_p0430_case(), {"alpha": 1.0}).point == {"alpha": 1.0}
