@@ -67,3 +67,48 @@ def test_p0420_a_workflow_row_naming_no_geometry_is_warned_at_plan_not_refused(t
     assert len(said) == 1 and repr(case.sim_id) in said[0] and "GEOMETRY" in said[0]
     declared = case.model_copy(update={"variables": {**case.variables, "GEOMETRY": ""}})
     assert _plan(tmp_path / "b", declared) == []
+
+
+@pytest.mark.requirement("FR-1611")
+def test_p0430_only_the_row_naming_no_geometry_is_warned_and_both_rows_plan(tmp_path):
+    """FR-1611: plan one row with a geometry and one without; the warning names the
+    row without one by its identity, and both rows stay in the plan."""
+    import sys
+    import warnings
+
+    from pyflightstream.cases import Campaign
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.exceptions import PyflightstreamWarning
+    from pyflightstream.run import PlanStatus, plan_campaign
+    from pyflightstream.workspace import CampaignWorkspace
+    from tests.tier1_offline.test_surface_exports import _case
+
+    bare = _case(rotor=True).model_copy(update={"sim_id": "7101"})
+    wing = tmp_path / "wing.fsm"
+    wing.write_bytes(b"fsm")
+    named = bare.model_copy(
+        update={
+            "sim_id": "7102",
+            "geometry": str(wing),
+            "outputs": [name.replace("p.", "q.") for name in bare.outputs],
+        }
+    )
+    campaign = Campaign(name="c", fs_version="26.124", fs_exe=sys.executable, sims=[bare, named])
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        plan = plan_campaign(
+            campaign,
+            CampaignWorkspace(tmp_path / "c"),
+            recipes={bare.recipe: build_script},
+            write_plan=False,
+        )
+    said = [
+        str(w.message)
+        for w in seen
+        if issubclass(w.category, PyflightstreamWarning) and "opens no geometry" in str(w.message)
+    ]
+    assert len(said) == 1 and "row '7101'" in said[0] and "7102" not in said[0]
+    assert [(p.sim_id, p.status) for p in plan.points] == [
+        ("7101", PlanStatus.READY),
+        ("7102", PlanStatus.READY),
+    ], [p.error for p in plan.points]
