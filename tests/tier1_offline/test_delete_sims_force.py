@@ -334,6 +334,21 @@ def test_f746_sync_refuses_to_write_through_a_destination_link(tmp_path):
     assert list(outside.iterdir()) == []
 
 
+def test_f746_sync_makes_no_inputs_link_inside_a_linked_simulation_folder(tmp_path):
+    # Main's simulation folder is a link to a folder outside the workspace: sync must not
+    # create the inputs link there, the way it refuses to copy a file through a link.
+    main, other = _sync_pair(tmp_path, "linkedsim")
+    _linked_sim(other, "8040")
+    _write(main.inputs_dir / "geometries" / "wing" / "wing.obj", "o wing\n")
+    outside = tmp_path / "outside_sim"
+    _write(outside / "scripts" / "point.fs", "script")  # identical: nothing is copied
+    _link(outside.resolve(), main.sim_dir("8040"))
+    other.append_record(_storage_record("8040", "camp/sim_8040/AL+000"))
+    (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
+    assert not (outside / "inputs").exists()
+    assert entry["inputs_links"]["sim_8040"].startswith("not linked")
+
+
 def test_f747_a_planted_name_at_the_temporary_path_is_not_written_through(tmp_path):
     main, other = _sync_pair(tmp_path, "planted")
     victim = tmp_path / "victim.txt"
