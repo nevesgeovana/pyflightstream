@@ -253,10 +253,8 @@ def main(argv: list[str] | None = None) -> int:
                 refused := _refuse_runs_manifest(args) or resolve_matrix_arguments(args)
             ) is not None:
                 return refused
-            if args.subcommand in _RECORDS_COMMANDS:
-                return _cmd_records(args)
-            if args.subcommand in _STORAGE_COMMANDS:
-                return _cmd_storage(args)
+            if (code := _records_or_storage(args)) is not None:
+                return code
             # Before the recipe parsing below, deliberately: upgrading a file
             # needs no recipes, no version and no executable, and requiring them
             # would refuse the one user this subcommand exists for.
@@ -284,6 +282,15 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_plan(args, recipes)
         except (PyflightstreamError, OSError) as error:
             return _failed(args.subcommand, error)
+
+
+def _records_or_storage(args: argparse.Namespace) -> int | None:
+    """Run the records or the storage command the arguments name, else return None."""
+    if args.subcommand in _RECORDS_COMMANDS:
+        return _cmd_records(args)
+    if args.subcommand in _STORAGE_COMMANDS:
+        return _cmd_storage(args)
+    return None
 
 
 def _failed(subcommand: str, error: Exception) -> int:
