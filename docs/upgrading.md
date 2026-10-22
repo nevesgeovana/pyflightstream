@@ -9,6 +9,108 @@ describe the older releases that supplied them.
 
 ## 0.43.0
 
+### Results that change
+
+Archive the products of a workspace and post again before comparing them with
+products of 0.42.0. These change with no change of input:
+
+- On 26.125 a script that imports its wake edges now carries
+  `AUTO_DETECT_WAKE_TERMINATION_NODES` instead of
+  `DETECT_WAKE_TERMINATION_NODES_BY_SURFACE -1`. The lift of such a case rises by about 5
+  percent and equals the 26.124 lift; re-run those 26.125 cases before comparing builds.
+- `read_timestep_series` numbers its frames from solver step 1, so a window written against
+  0-based steps moves by one step.
+- An unstated `ALPHA` or `BETA` is 0.0 wherever a product reads the angle: the rotor table's
+  shaft angle, `ETAW` and `MADV`, and the axis coefficients of the unsteady polar.
+- `STEPS` of a `per_blade` row counts the frames that entered the average, and `FIRST_STEP`
+  and `LAST_STEP` are the steps the history holds inside the window; a history with a gap
+  gives a smaller `STEPS` than before.
+- An unsteady polar whose window holds a gap or a repeated step is a named skip instead of a
+  row.
+- The normal-probe table's `FRAME` and the coordinates of a steady or normal probe export
+  read `REFERENCE`, where they read `MRP`.
+- A sections table whose frame the post cannot place writes `K_1P` and the load shares as
+  `NA`.
+- Far-field coverage in the ledger and the Trefftz plane is a fraction of area
+  (`sample_area_coverage`); `sample_coverage` still counts samples.
+- Signed radii are ordered by distance before strip weighting, which changes the affected
+  reduced-frequency means, and inflow samples at a negative speed advance in the negative
+  rotation sense.
+- A historical super file's `RPM` is the recorded rotor speed.
+
+### Tables and records whose columns move
+
+A reader that indexes these tables by position reads the wrong column; read them by column
+name.
+
+- The noise, structure deflection and boundary-layer tables, and the retabled surface and
+  force CSV exports, open with `POL` and the condition block.
+- The spanwise far-field tables carry the condition and reference block after `POL`.
+- The probe positions file starts with the line `# pyflightstream probe positions`. A run
+  replaces a file in the earlier layout once, with a warning, and refuses a file of your own
+  with the same name.
+- A run record omits the fields it never recorded (`probe_field_layout`,
+  `surface_probe_layout`, `frame_motions`, `custom_field_coverage`, `freestream_units`)
+  instead of writing `null`; a tool that read `null` reads a missing key.
+- The `--cost` table's point column widens to the longest run id.
+
+### Inputs to change
+
+- A `[trailing_edges]` table with `file` states `type`, and a `WakeEdgeImport` states
+  `edge_type`: `VORTEX_SHEDDING` or `STANDARD`. Neither has a default.
+- Rename a cost file to `c<digits>.toml`; any other `c*.toml` in `inputs/costs/` is refused.
+- Rename an artifact id or a simulation id holding a character other than letters, digits,
+  `.`, `_` and `-`, an edge blank, a trailing dot, or a case-only difference from another.
+- Remove a `ROTOR_AXIS` cell that disagrees with the single rotor block's axis, and a
+  `VELOCITY` cell that contradicts the velocity the row resolves; both are refused.
+- `--matrix wing.v2` now names the matrix `wing.v2`; only the final extension is removed.
+- Remove the `[defaults]` block of an HPC profile: it is ignored with a warning.
+- A grouped job run with `--local` and no `WALLTIME` stops at its cases' solver
+  `timeout_s`, or, where no case states one, at the HPC profile's `max_walltime`; the plan
+  refuses it when the profile has none. State `WALLTIME` for another limit.
+- State `RE` in millions where a caller handed `context_row` an absolute Reynolds number.
+- Matrix files are read as UTF-8 and refused otherwise; OBJ files are refused when they are
+  not UTF-8.
+- `refine` writes a new level folder name for a body with `axis` or `origin` and for a grid
+  with an `elements` key, because the automatic tag changes. A sheet with no trailing-edge
+  vertex is remeshed under `method = "auto"` and refused under `method = "grid"`; give it its
+  trailing edge to keep it a grid ([which families stay grids](mesh/how-to.md#which-families-stay-grids)).
+- A mesh audit that passed may now fail: warp and growth are judged against the larger of the
+  source's value and the floor, G4 fails when two trailing-edge points share a mesh edge, G5
+  fails a family that vanished, and G2 judges a closed shell split over several families.
+
+### Commands and exit codes
+
+- `pyfs-matrix mark-converged` without `--apply` exits 2 when its preview holds a refused
+  point.
+- `pyfs-qa physics` runs the applicable cases and reports the others `INAPPLICABLE`, instead
+  of refusing the whole run.
+- `pyfs-manual draft --write` refuses an existing `--out` unless `--overwrite` is given.
+- `collect` reports a sweep job holding a refused point as `FAILED`, and
+  `collect --watch-interval` refuses zero, negative and non-finite values with exit 2.
+- `pyfs-matrix run` refuses a plan whose executable or geometry changed since it was made;
+  plan again.
+
+### Python API
+
+- `pyflightstream.post.qsteady.clockings_of` and `mean_clocking_surfaces` raise
+  `ProductError` where they returned the reason as a string; catch it instead of testing
+  `isinstance(result, str)`.
+- Caller errors of `pyflightstream.post.unsteady` and of the settings table raise
+  `ProductError` instead of `MalformedOutputError`; `write_disc_map` needs `windows=` for
+  `sample_column = "STEP"`.
+- The public writers of `pyflightstream.post` take `overwrite` (default `True`);
+  `overwrite=False` refuses an existing file with `ProductExistsError`. `write_table` raises
+  `ProductExistsError` (still a `ValueError`) for an existing file.
+- `read_manifest`, `GroupingReceipt.from_json`, a corrupt `additional.json` and
+  `Ledger.status` or `Ledger.points` with an unknown status word raise `WorkspaceError`.
+- The far-field and probe-geometry functions raise `FarfieldInputError` and
+  `ProbeGeometryError` where they returned NaN.
+- `pyflightstream.testing.assert_records_close` counts a NaN on either side as a violation.
+- `hasattr` answers `False` for the names removed in 0.13.0; importing one still gives the
+  migration instruction.
+- `manual_editions()` returns a read-only mapping; copy it to change it.
+
 ### Deprecations
 
 Calling `pyflightstream.post.polar.polar_row` without `beta_deg` still uses zero
