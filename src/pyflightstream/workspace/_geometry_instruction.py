@@ -106,6 +106,8 @@ def _a_file_in_the_folder(path: Path, kind: str, written: object, key: str = "fi
         )
     suffix = PurePath(name).suffix.lower()
     if suffix in _STEP:
+        # The empty-geometry controls: RPT-082 (CAD units and custom-inflow
+        # coverage, 2026-09-27), two STEP forms on 26.124 build 8172026.
         raise _refuse(
             path,
             f"[{kind}] names the STEP file {name}, and STEP is refused: native STEP controls "
