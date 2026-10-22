@@ -1054,7 +1054,8 @@ def load_reference(
     Raises
     ------
     QaEvidenceError
-        If the file exists and does not carry the physics reference schema.
+        If the file exists and does not carry the physics reference schema, or
+        carries the reference of another case than ``case_id``.
     """
     directory = Path(references_dir) if references_dir else _references_dir()
     if fs_version == "26.125":
@@ -1066,6 +1067,12 @@ def load_reference(
     if not isinstance(document, dict) or document.get("schema") != REFERENCE_SCHEMA:
         raise QaEvidenceError(
             f"{path} is not a physics reference (expected schema {REFERENCE_SCHEMA!r})"
+        )
+    # A misnamed file would judge one case against another's bands (F-804).
+    if document.get("case") != case_id:
+        raise QaEvidenceError(
+            f"{path} holds the reference of case {document.get('case')!r}, not {case_id!r}; "
+            "rename or replace the file"
         )
     # PFS-2102.010. A hand-edited reference missing a key raised a bare
     # KeyError or TypeError.

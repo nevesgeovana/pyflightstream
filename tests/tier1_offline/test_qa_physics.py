@@ -677,3 +677,17 @@ def test_p0430_a_bad_date_leaves_no_folder_f_1432(tmp_path):
     with pytest.raises(QaEvidenceError):
         write_physics_report(make_run(tmp_path), target, date="not-a-date")
     assert not target.exists()
+
+
+def test_p0430_a_misnamed_reference_file_is_refused_f_804(tmp_path):
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    refs = tmp_path / "refs"
+    run = make_run(tmp_path)
+    yaml_path, _ = write_physics_report(run, tmp_path, date="2026-07-21")
+    update_reference(
+        "PHY-01", yaml_path, "seed", references_dir=refs, date="2026-07-21", repo_root=tmp_path
+    )
+    (refs / "PHY-01.yaml").rename(refs / "PHY-02.yaml")
+    with pytest.raises(QaEvidenceError, match="reference of case 'PHY-01', not 'PHY-02'"):
+        load_reference("PHY-02", refs)
