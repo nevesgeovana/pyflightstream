@@ -505,12 +505,13 @@ def test_g05_a_millimetre_simulation_takes_the_section_in_millimetres():
 
 
 def test_g05_a_saved_simulation_whose_unit_is_not_read_is_refused_naming_the_keys(tmp_path):
-    """The section is refused on a save whose global block the package has not read in metres."""
+    """A save whose global block is not read in metres is refused before any section."""
     head = _saved_block("GLOBAL")
     other = _saved_copy(tmp_path / "wing_other.fsm", "GLOBAL", [head[0], "1", *head[2:]])
     case = _steady(_pproc(**CIRCLE)).model_copy(update={"geometry": str(other)})
-    # G34 now rejects the earlier physical moment point before section emission.
-    with pytest.raises(CampaignConfigError, match=r"moment_point_m.*in metres"):
+    # The unread unit is refused by the runtime-velocity gate, which runs before the moment
+    # point and the section, so this is the refusal the user meets (F-856).
+    with pytest.raises(CampaignConfigError, match=r"not a measured unit head"):
         _lines(case)
     # THE CONTROL: the committed geometry, saved in metres, cuts the numbers as written.
     control = _lines(_steady(_pproc(**CIRCLE)).model_copy(update={"geometry": str(WING_PHY)}))
