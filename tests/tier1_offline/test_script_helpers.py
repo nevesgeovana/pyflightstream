@@ -2006,7 +2006,7 @@ def test_last_probe_line_refuses_a_point_count_below_one(points):
 def test_last_coordinate_frame_checks_the_origin_before_it_creates_the_frame():
     """X-F-1252: an origin of two entries left an undefined frame behind."""
     script = Script("26.120")
-    with pytest.raises(CommandArgumentError, match="origin holds 2 values"):
+    with pytest.raises(CommandArgumentError, match="origin must hold exactly three numbers"):
         helpers.coordinate_frame(
             script, name="bad", origin=(0.0, 1.0), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
         )
