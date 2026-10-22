@@ -235,3 +235,17 @@ def test_the_checks_find_attributes_imports_and_classes(tmp_path, monkeypatch):
         ("pyflightstream.cases", "SimCase"),
     ]
     assert guide_class_names() == {"CampaignWorkspace", "RunRecord"}
+
+
+def test_the_checks_actually_find_the_samples():
+    """Non-vacuity floors (F-865): an extractor that finds nothing proves nothing.
+
+    Measured on the committed guide: 12, 36 and 27 attribute hits for ``case``,
+    ``helpers`` and ``script``, 16 import claims and 13 class names. The floors sit a
+    little below, so an edited guide may shrink but a broken pattern cannot pass.
+    """
+    floors = {"case": 10, "helpers": 30, "script": 20}
+    found = {name: len(guide_attribute_hits(name)) for name in floors}
+    assert all(found[name] >= floor for name, floor in floors.items()), found
+    assert len(guide_imports()) >= 14
+    assert len(guide_class_names()) >= 11
