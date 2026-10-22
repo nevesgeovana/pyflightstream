@@ -161,8 +161,9 @@ def _refuse_fsi_on_a_quasi_steady_rotor(case: SimCase, kind: str) -> None:
 
     A sector is one steady solve of one blade in a free stream turning at the
     rotor's speed, which is the route the licensed test 2 of the FSI study
-    coupled (the blade static, the rotation in the free stream, the
-    structure's centrifugal load at that speed): it is wired by
+    coupled (RPT-093, "aeroelastic coupling on 26.124", 2026-09-29; the blade
+    static, the rotation in the free stream, the structure's centrifugal load
+    at that speed): it is wired by
     :func:`_wire_the_quasi_steady_sector`. A wheel is several clockings
     averaged, and one deformed blade per clocking is not a structure's state.
     """
@@ -405,10 +406,10 @@ def _qsteady_free_stream(
 
     WITHOUT A CUSTOM INFLOW, ``SET_FREESTREAM ROTATION`` in the rotor's hub
     frame, about its shaft, at its speed signed by its hand: the frame, the axis
-    and the rate a rotary motion of the same rotor states (the FSI study's
-    test 2 measured this form on 26.124 against the turning blade, to 0.35 per
-    cent in axial force). An angle of attack is the solver setting it always
-    is (measured beside the rotating free stream in the same study).
+    and the rate a rotary motion of the same rotor states (RPT-089, "the quasi-steady
+    rotor against the unsteady rotor", 2026-09-29, on 26.124: axial force -404.78 N
+    against -403.38 N for the turning blade, 0.35 per cent apart). An angle of attack
+    is the solver setting it always is (assumed; no committed report isolates it).
 
     WITH ONE, the file holds the TOTAL velocity of the air at the disc, in the
     global frame, and the package composes from it the RELATIVE free stream the
