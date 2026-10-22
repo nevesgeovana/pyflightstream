@@ -600,10 +600,12 @@ def _record_probe_line_frame(script: Script, points: list[list[float]], frame: s
         )
 
 
-def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady: bool) -> int:
-    """Emit one `[[probes]]` entry, returning the vertex count after it."""
-    if not probes.parameters:
-        return vertex
+def _emit_surveyed_probes(case, script, probes, vertex: int, *, unsteady: bool) -> int | None:
+    """Emit the import of a cited survey, returning the vertex count after it.
+
+    None where the entry is not one the solver imports whole, so the caller places
+    its points itself.
+    """
     if probes.points_file:
         from pyflightstream.probes import emit_probe_import
 
@@ -651,6 +653,16 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                     (vertex, float(point[0]), float(point[1]), float(point[2]), "REFERENCE")
                 )
             return vertex
+    return None
+
+
+def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady: bool) -> int:
+    """Emit one `[[probes]]` entry, returning the vertex count after it."""
+    if not probes.parameters:
+        return vertex
+    imported_count = _emit_surveyed_probes(case, script, probes, vertex, unsteady=unsteady)
+    if imported_count is not None:
+        return imported_count
     if not (
         probes.points_file
         or probes.lines
