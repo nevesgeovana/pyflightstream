@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import sys
 import warnings
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.workspace import (
@@ -45,6 +45,7 @@ __all__ = [
     "MATRIX_SUFFIX",
     "every_matrix",
     "matrix_path",
+    "matrix_stem",
     "matrix_to_write",
     "names_its_folder",
     "resolve_matrix_arguments",
@@ -86,6 +87,40 @@ def names_its_folder(given: str | Path) -> bool:
     if isinstance(given, str) and ("/" in given or "\\" in given):
         return True
     return path.is_absolute() or path.parent != Path(".")
+
+
+#: The extensions a matrix name may carry; only a FINAL one of these is removed (F-1565).
+_MATRIX_EXTENSIONS = (MATRIX_SUFFIX, ".toml")
+
+
+def matrix_stem(text: str | Path) -> str:
+    """Return the matrix name a ``--matrix`` value stands for, removing only a final extension.
+
+    ``wing.v2.fs`` and ``wing.v2.toml`` are the matrix ``wing.v2``, and the bare
+    ``wing.v2`` is itself: a dot inside the name is part of the name.
+
+    Parameters
+    ----------
+    text : str or Path
+        A matrix path, a file name or a stem.
+
+    Returns
+    -------
+    str
+        The name, without folder and without a final ``.fs`` or ``.toml``.
+
+    Examples
+    --------
+    >>> matrix_stem("inputs/matrices/wing.v2.fs")
+    'wing.v2'
+    >>> matrix_stem("wing.v2")
+    'wing.v2'
+    """
+    name = PurePath(str(text).replace("\\", "/")).name
+    for extension in _MATRIX_EXTENSIONS:
+        if name.lower().endswith(extension) and len(name) > len(extension):
+            return name[: -len(extension)]
+    return name
 
 
 def _stem_of(name: str) -> str:

@@ -42,6 +42,7 @@ from pyflightstream.workspace import (
     find_matrix,
 )
 from pyflightstream.workspace._batch_life import is_job_script
+from pyflightstream.workspace._matrix_homes import matrix_stem as matrix_name_of
 from pyflightstream.workspace.flight_condition import (
     canonical_condition_defaults,
     resolve_flight_condition,
@@ -414,7 +415,7 @@ def _the_matrix(root: Path, matrix_stem: str) -> Path:
     The rule is :func:`pyflightstream.workspace.find_matrix`'s, which refuses a
     stem in both homes with different bytes; only the absence is named here.
     """
-    stem = Path(matrix_stem).stem
+    stem = matrix_name_of(matrix_stem)
     found = find_matrix(root, stem)
     if found is None:
         raise WorkspaceError(

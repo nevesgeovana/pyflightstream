@@ -329,3 +329,13 @@ def test_p0370_s1_the_rebuild_reads_the_matrix_its_workspace_holds(tmp_path, cap
     assert workspace.manifest_path.read_bytes() == before
     rows = decode_document(json.loads(before))
     assert {row["submission"]["batch"] for row in rows} == {BATCH}
+
+
+def test_f_1565_only_a_final_extension_is_removed_from_a_matrix_name():
+    """wing.v2.fs and wing.v2.toml are the matrix wing.v2; a bare wing.v2 stays itself."""
+    from pyflightstream.run._cli_parsers import _matrix_stem
+    from pyflightstream.workspace._matrix_homes import matrix_stem
+
+    for given in ("wing.v2.fs", "wing.v2.toml", "wing.v2", "inputs/matrices/wing.v2.fs"):
+        assert matrix_stem(given) == "wing.v2", given
+        assert _matrix_stem(given) == "wing.v2", given

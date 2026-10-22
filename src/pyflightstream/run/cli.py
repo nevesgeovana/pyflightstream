@@ -119,7 +119,7 @@ from pyflightstream.workspace import (
 from pyflightstream.workspace import (
     derive_thin_blade as derive_thin_blade,
 )
-from pyflightstream.workspace._matrix_homes import resolve_matrix_arguments
+from pyflightstream.workspace._matrix_homes import matrix_stem, resolve_matrix_arguments
 from pyflightstream.workspace.ledger import listed_sims
 from pyflightstream.workspace.matrix import renumber_repeated_pols
 from pyflightstream.workspace.naming import (
@@ -550,7 +550,7 @@ def _records_workspace(args: argparse.Namespace) -> CampaignWorkspace | None:
         if not from_sims:
             return run_records.manifest_workspace(args.workspace, runs)
         workspace = run_records.from_sims_workspace(
-            args.workspace, Path(args.matrix).stem, steps_per_revolution=clock
+            args.workspace, matrix_stem(args.matrix), steps_per_revolution=clock
         )
     except PyflightstreamError as error:
         print(str(error), file=sys.stderr)
@@ -750,7 +750,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
             return 2
         named = list(dict.fromkeys(record.matrix_stem for record in records))
         if args.matrix is not None:
-            stem = Path(args.matrix).stem
+            stem = matrix_stem(args.matrix)
             if stem not in named:
                 stems = ", ".join(sorted(m for m in named if m)) or "none"
                 print(
@@ -1136,7 +1136,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     # the warning and the confirmation, and this command does not release
     # without one. The stem is the matrix's own, which is how the plan
     # folder is named.
-    stale = plan_receipt_error(workspace, args.matrix, Path(args.matrix).stem)
+    stale = plan_receipt_error(workspace, args.matrix, matrix_stem(args.matrix))
     if stale is not None:
         print(stale, file=sys.stderr)
         return 2
@@ -1215,7 +1215,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
 
     # The matrix's own folder, so several matrices of one workspace keep
     # their own table (PFS-2031.04); the table holds this matrix's records.
-    stem = Path(args.matrix).stem
+    stem = matrix_stem(args.matrix)
     # FR-90: use run.SWEEP_TABLE_NAME, the same campaign_sweep.csv path the
     # library writes. Rewriting that path is deliberate: both writes derive
     # from the manifest, and this gives a library-side write failure another

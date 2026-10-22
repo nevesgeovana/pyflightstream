@@ -52,6 +52,7 @@ from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
 from pyflightstream.run._ids import _add_sim_ids, command_line_text
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
+from pyflightstream.workspace._matrix_homes import matrix_stem
 from pyflightstream.workspace.cli import take_settings, withhold_defaults
 
 # Re-exported through this public import path.
@@ -173,7 +174,7 @@ def _rounds(text: str) -> int:
 
 def _matrix_stem(text: str) -> str:
     """Read ``restore --matrix`` as rebuild and post read it: a matrix path or its stem."""
-    return Path(text).stem
+    return matrix_stem(text)
 
 
 def _add_grouping_arguments(parser: argparse.ArgumentParser) -> None:

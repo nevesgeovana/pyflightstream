@@ -189,7 +189,9 @@ see [Upgrading](upgrading.md#older-layouts).
 ## Several matrices in one workspace
 
 One workspace may hold several matrices, each a study of its own over the
-same input library: a tour, a setup study, a time-convergence study. The
+same input library: a tour, a setup study, a time-convergence study. A `--matrix`
+value loses only its final extension (`wing.v2.fs` is the matrix `wing.v2`, and a
+bare `wing.v2` is itself), so a dot inside the name stays in the name. The
 rule that keeps them apart is one folder per matrix: `plan`
 writes `post/<stem>/plan.json`, `run` writes
 `post/<stem>/campaign_sweep.csv` ONCE, and the products of that matrix's points

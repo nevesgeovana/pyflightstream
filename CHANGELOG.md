@@ -16,6 +16,8 @@ FlightStream versions.
 
 ### Changed
 
+- A `--matrix` value loses only its final extension: `wing.v2.fs` and `wing.v2.toml` name the
+  matrix `wing.v2`, and a bare `wing.v2` is no longer cut to `wing`.
 - `HpcProfile.defaults` is removed. A profile that still carries a `[defaults]` block loads with
   a warning that the block is ignored.
 - Only `c<digits>.toml` is a cost file: any other `c*.toml` in `inputs/costs/` is refused,
