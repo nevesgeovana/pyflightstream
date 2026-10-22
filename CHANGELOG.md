@@ -96,6 +96,10 @@ FlightStream versions.
   and the grouped plan states the limit of every job without a walltime.
 - `WorkflowConventions(animation_folder=...)` stays accepted and warns that it has no
   effect: no workflow writes animation frames into it.
+- The probe positions file a run writes (`sims/<sim>/profiles/<sim>_probe_points.csv`) starts
+  with the line `# pyflightstream probe positions`, and the run replaces only a file that
+  starts with it: a file of your own with the same name and header is refused instead of
+  overwritten. A file in the earlier layout (header first) is replaced once with a warning.
 
 ### Fixed
 

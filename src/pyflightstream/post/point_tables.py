@@ -60,6 +60,7 @@ from pyflightstream._errors import (
 from pyflightstream._tokens import POLAR_ID_COLUMN, REDUCTION_COLUMNS, ROTOR_ID_COLUMN
 from pyflightstream.cases import FORCE_PLOT_PARAMETERS
 from pyflightstream.cases.workflows import PROBE_POSITION_COLUMNS
+from pyflightstream.cases.workflows._probes import PROBE_POSITIONS_MARKER
 from pyflightstream.post._condition import _stated_iteration
 from pyflightstream.post._stage import (
     _MOMENT_POINT_COLUMNS,
@@ -481,7 +482,11 @@ def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, floa
         return {}
     out: dict[int, tuple[float, float, float, str]] = {}
     try:
-        columns, rows = read_csv_table(target)
+        # The writer's marker line sits above the header; a file written before
+        # the marker existed starts with the header.
+        with target.open("r", encoding="utf-8", errors="replace") as handle:
+            marked = handle.readline().strip() == PROBE_POSITIONS_MARKER
+        columns, rows = read_csv_table(target, skip=1 if marked else 0)
     except Exception as error:
         # An empty existing positions file is unreadable evidence, distinct
         # from an absent file. Name the empty-file failure instead of silently

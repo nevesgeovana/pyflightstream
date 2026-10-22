@@ -523,9 +523,12 @@ in, so it could not be placed either without knowing the artifact.
 The package records the vertex, the coordinates and the entry's frame
 while it emits each point, writes them to
 `sims/<sim>/profiles/<sim>_probe_points.csv`, and joins them here. That
-file is the package's own record: it replaces only a file carrying its own
-header, so a points file of your own that happened to carry the same name is
-named in a refusal rather than replaced. When a run record names no such file, its `FRAME` cells read `NA` and its steady
+file is the package's own record: its first line, `# pyflightstream probe
+positions`, sits above the header, and the package replaces only a file that
+starts with it, so a points file of your own that happened to carry the same
+name is named in a refusal rather than replaced. A file that starts with the
+header alone is the layout written before that line existed: it is replaced
+once, with a warning. When a run record names no such file, its `FRAME` cells read `NA` and its steady
 coordinates still come from the export; the table is written either way.
 `STEP` carries `NA` on a steady row, which has one step.
 

@@ -10,6 +10,7 @@ observed walltime stop. The point and the sweep paths both call them.
 from __future__ import annotations
 
 import json
+import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from pyflightstream._digest import (
 )
 from pyflightstream._errors import (
     PyflightstreamError,
+    PyflightstreamWarning,
 )
 from pyflightstream.cases import (
     CampaignConfigError,
@@ -81,6 +83,7 @@ def _write_probe_points(
     files in the folder and say the layout depends on the angle of attack.
     """
     from pyflightstream.cases.workflows import PROBE_POSITION_COLUMNS, PROBE_PROFILE_DIR
+    from pyflightstream.cases.workflows._probes import PROBE_POSITIONS_MARKER
 
     if not points:
         return None
@@ -91,17 +94,28 @@ def _write_probe_points(
     # have placed another file in the simulation's profiles/ folder.
     if target.is_file():
         existing = target.read_text(encoding="utf-8", errors="replace").splitlines()
-        header = existing[0].strip() if existing else ""
-        # Only a file carrying this writer's own header may be replaced.
-        # An empty file or a blank first line does not establish ownership.
-        if header != ",".join(PROBE_POSITION_COLUMNS):
+        first = existing[0].strip() if existing else ""
+        header = ",".join(PROBE_POSITION_COLUMNS)
+        # Only a file carrying this writer's marker line is replaced in silence.
+        # A file that starts with the bare header is the layout the writer used
+        # before the marker: replaced once, with a warning, after which it carries
+        # the marker. Anything else, an empty file included, is refused.
+        if first == header:
+            warnings.warn(
+                f"{target} starts with the probe positions header and no "
+                f"{PROBE_POSITIONS_MARKER!r} line: it is taken as this writer's earlier "
+                "layout and replaced. If it is a file of your own, restore it from "
+                f"a copy under another name, or rename simulation {sim_id!r}.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+        elif first != PROBE_POSITIONS_MARKER:
             raise PyflightstreamError(
                 f"{target} already exists and is not a probe positions file "
-                f"(its first line reads {header!r}, empty if the file is, and "
-                f"this writer's is "
-                f"{','.join(PROBE_POSITION_COLUMNS)!r}). This is where the package "
-                "records where it put this simulation's probe points, and it will "
-                "not overwrite a file it did not write. Rename the points file "
+                f"(its first line reads {first!r}, empty if the file is, and "
+                f"this writer's is {PROBE_POSITIONS_MARKER!r}). This is where the "
+                "package records where it put this simulation's probe points, and it "
+                "will not overwrite a file it did not write. Rename the points file "
                 f"your artifact cites, or rename simulation {sim_id!r}."
             )
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -110,6 +124,7 @@ def _write_probe_points(
     # the probe table then showed empty coordinates with nothing recorded.
     with _textio.open_text(target, "w") as handle:
         writer = _textio.csv_writer(handle)
+        writer.writerow([PROBE_POSITIONS_MARKER])
         writer.writerow(PROBE_POSITION_COLUMNS)
         writer.writerows(points)
     return relative

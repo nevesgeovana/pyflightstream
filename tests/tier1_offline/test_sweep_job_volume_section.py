@@ -186,9 +186,11 @@ def test_a_steady_job_records_its_probe_points_and_the_build_that_ran(tmp_path):
     )
     written = workspace.sim_dir("3207") / record.probe_points_file
     assert written.is_file(), written
-    with written.open(encoding="utf-8", newline="") as stream:
-        rows = list(csv.DictReader(stream))
-    assert [row["FRAME"] for row in rows] == ["REFERENCE"] * 4, rows
+    # Read through the package's reader: the file starts with the writer's marker line.
+    from pyflightstream.post.point_tables import read_probe_positions
+
+    rows = read_probe_positions(written)
+    assert [frame for *_, frame in rows.values()] == ["REFERENCE"] * 4, rows
 
     # The build and version every point read, on the job and on each point.
     assert (record.fs_build, record.fs_version_reported) == (BUILD, VERSION), (

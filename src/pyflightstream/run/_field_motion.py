@@ -5,6 +5,8 @@ from copy import deepcopy
 from math import isclose
 from pathlib import Path
 
+from pyflightstream.cases.workflows._probes import PROBE_POSITIONS_MARKER
+
 
 def continued_frame_motions(previous, script):
     """Copy inherited motion facts; refuse to assert them after unproved changes."""
@@ -60,6 +62,9 @@ def continued_field_inputs(previous, sim_dir):
     if not source.is_relative_to(root):
         raise ValueError("continued sample-position evidence escapes the simulation folder")
     with source.open(encoding="utf-8-sig", newline="") as stream:
+        # The writer's marker line sits above the header of every file it creates.
+        if stream.readline().strip() != PROBE_POSITIONS_MARKER:
+            stream.seek(0)
         reader = csv.DictReader(stream)
         if reader.fieldnames != ["PROBE", "X", "Y", "Z", "FRAME"]:
             raise ValueError("continued sample-position file has an unrecognized header")

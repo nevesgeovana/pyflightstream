@@ -536,6 +536,11 @@ PROBE_PROFILE_DIR = "profiles"
 #: post reader. cases is the deepest layer both readers import.
 PROBE_POSITION_COLUMNS: tuple[str, ...] = ("PROBE", "X", "Y", "Z", "FRAME")
 
+#: The first line of every probe positions file the run writer creates, above the
+#: header: what tells the writer's own file from a user's file that carries the same
+#: header. The readers skip it, and a file written before it existed has none.
+PROBE_POSITIONS_MARKER = "# pyflightstream probe positions"
+
 
 def _read_probe_profile(path: str, *, volume_only: bool = False) -> list[list[float]]:
     """Read the counted X,Y,Z,TYPE profile defined by PROBE_POINTS_IMPORT.

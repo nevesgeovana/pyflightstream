@@ -804,6 +804,38 @@ def test_the_writer_replaces_its_own_file(tmp_path):
     assert read_probe_positions(sim_dir / again) == {1: (0.0, 1.0, 2.0, "MRP")}
 
 
+def test_p0430_the_writer_marks_its_file_and_takes_the_earlier_layout_once(tmp_path):
+    """F-714: a marker line tells the writer's file from a user's file with the same header.
+
+    The guard accepted any file whose first line was the positions header, so a user's
+    file carrying it was rewritten in silence. Every file the writer creates now starts
+    with its marker line; a file starting with the bare header is the earlier layout,
+    replaced once with a warning, and the next write is silent.
+    """
+    import warnings
+
+    from pyflightstream._errors import PyflightstreamWarning
+
+    marker = "# pyflightstream probe positions"
+    sim_dir = tmp_path / "sim_1"
+    target = sim_dir / "profiles" / "1_probe_points.csv"
+    target.parent.mkdir(parents=True)
+    target.write_text("PROBE,X,Y,Z,FRAME\n9,9.0,9.0,9.0,MINE\n", encoding="utf-8")
+    with pytest.warns(PyflightstreamWarning, match="earlier layout"):
+        _write_probe_points(sim_dir, "1", [(1, 0.0, 1.0, 2.0, "MRP")])
+    lines = target.read_text(encoding="utf-8").splitlines()
+    assert lines[:2] == [marker, "PROBE,X,Y,Z,FRAME"]
+    assert read_probe_positions(target) == {1: (0.0, 1.0, 2.0, "MRP")}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PyflightstreamWarning)
+        _write_probe_points(sim_dir, "1", [(1, 0.0, 1.0, 2.0, "MRP")])
+    target.write_text("# my own notes\nPROBE,X,Y,Z,FRAME\n", encoding="utf-8")
+    from pyflightstream._errors import PyflightstreamError
+
+    with pytest.raises(PyflightstreamError, match="will not overwrite"):
+        _write_probe_points(sim_dir, "1", [(1, 0.0, 1.0, 2.0, "MRP")])
+
+
 def test_a_step_the_table_states_oddly_is_carried_and_never_invented(tmp_path):
     """The `Time-step` reader's three awkward inputs, pinned.
 
