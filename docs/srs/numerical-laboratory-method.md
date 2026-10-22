@@ -223,7 +223,6 @@ The method admits no aspirational requirement: a central requirement stays in th
 | UID | Owed |
 | --- | --- |
 | `NL-RECS-3` | regeneration of the executed procedure from the record, compared with the executed one by digest. |
-| `NL-OPER-2` | a test of the observation operations with the network disabled. |
 
 ## Sources
 

@@ -463,6 +463,57 @@ def test_queries_read_compacted_logs_and_write_no_bytes(workspace, capsys):
     assert _tree(workspace) != before
 
 
+@pytest.mark.requirement("FR-753")
+def test_p0430_the_observation_operations_run_with_the_network_disabled(
+    workspace, capsys, monkeypatch
+):
+    """NL-OPER-2: a query reads the workspace and nothing else, with no network at all.
+
+    Every way out of the process a query could take is replaced by a call that
+    records the attempt and fails: opening or resolving a socket and starting a
+    process (a scheduler query is one). The queries answer, the workspace bytes
+    are unchanged, and nothing was attempted. The control proves the trap
+    fires.
+    """
+    import socket
+    import subprocess
+
+    attempts: list[str] = []
+
+    def refuse(name):
+        def _refused(*args, **kwargs):
+            attempts.append(name)
+            raise OSError(f"network disabled by the test: {name}")
+
+        return _refused
+
+    home, batch = _batch(workspace)
+    (workspace / "control.bin").write_bytes(b"unchanged\x00\xff")
+    before = _tree(workspace)
+    for name in ("connect", "connect_ex", "sendto"):
+        monkeypatch.setattr(socket.socket, name, refuse(f"socket.{name}"))
+    for name in ("create_connection", "getaddrinfo", "gethostbyname"):
+        monkeypatch.setattr(socket, name, refuse(f"socket.{name}"))
+    monkeypatch.setattr(subprocess, "Popen", refuse("subprocess.Popen"))
+
+    card = _rows(workspace, capsys, "show", RUN)[0]
+    assert card["evidence"]
+    for args in [
+        ("log", "--stage", "solver"),
+        ("trace", PRODUCT),
+        ("log", "--post", "demo"),
+        ("log", "--storage"),
+        ("status", "--additional"),
+    ]:
+        _rows(workspace, capsys, *args)
+    assert attempts == []
+    assert _tree(workspace) == before
+    # THE CONTROL: the trap records and refuses a real attempt.
+    with pytest.raises(OSError, match="network disabled"):
+        socket.create_connection(("127.0.0.1", 9))
+    assert attempts == ["socket.create_connection"]
+
+
 def test_query_errors_and_machine_csv(workspace, capsys):
     """FR-386 FR-387 FR-389: missing subjects are named; CSV preserves nested fields."""
     for args, code, word in [
