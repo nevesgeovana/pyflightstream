@@ -1874,3 +1874,18 @@ def test_p0430_f5_helpers_refuse_a_bad_argument_before_emitting_any_line():
         lambda s: helpers.probe_line(s, points=3, start=(0.0, 0.0, 0.0, 9.0), end=(1.0, 1.0, 1.0))
     )
     _untouched(lambda s: helpers.probe_line(s, points=3, start=(0.0, 0.0, 0.0), end=(1.0, 1.0)))
+
+
+def test_p0430_f5_every_export_helper_shares_one_register_and_frames_must_be_orthogonal():
+    """PFS-2119.052: one register keyed by one_file_key; PFS-2130.053: orthogonality refused."""
+    script = Script("26.125")
+    helpers.export_results(script, spreadsheet="C:/out/L.txt")
+    with pytest.raises(CommandArgumentError, match="already exports"):
+        helpers.export_probes(script, "c:/OUT/./l.txt")
+    with pytest.raises(CommandArgumentError, match="already exports"):
+        helpers.export_results(script, tecplot="C:/OUT/l.txt")
+    _untouched(
+        lambda s: helpers.coordinate_frame(
+            s, name="f", origin=(0.0, 0.0, 0.0), x_axis=(1.0, 0.0, 0.0), y_axis=(1.0, 1.0, 0.0)
+        )
+    )
