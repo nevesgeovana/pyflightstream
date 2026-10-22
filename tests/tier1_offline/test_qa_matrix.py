@@ -598,3 +598,9 @@ def test_p0430_a_declared_version_the_registry_does_not_resolve_is_a_physics_ref
     with pytest.raises(PhysicsEnvironmentError, match="executables.toml") as caught:
         physics_build(stub_workspace / "matriz_physics.fs")
     assert "99.999" in str(caught.value)
+
+
+def test_p0430_a_reduction_error_is_a_case_error_not_a_post_run_abort_x_f_0539():
+    from pyflightstream.qa import matrix as driver
+
+    assert ValueError in driver._CASE_FAILURES and ArithmeticError in driver._CASE_FAILURES

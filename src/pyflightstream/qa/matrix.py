@@ -125,6 +125,8 @@ _CASE_FAILURES = (
     OSError,
     KeyError,
     StopIteration,
+    ValueError,
+    ArithmeticError,
     np.linalg.LinAlgError,
 )
 
