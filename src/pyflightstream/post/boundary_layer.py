@@ -478,8 +478,11 @@ def write_boundary_layer_products(
                     "the sections in one of those planes and run the point again"
                 )
             for section in sections.sections[cursor : cursor + _section_count(block)]:
-                # Native XYZ columns are REFERENCE coordinates; only the cut normal
-                # uses the configured section frame (measured on 26.124).
+                # Native XYZ columns are REFERENCE coordinates whatever the loads frame
+                # (a section cut in a frame translated and turned about Z exported points
+                # on the turned plane in reference coordinates, 26.124, L4 F-500,
+                # namespace 63503b6a); only the cut normal uses the configured section
+                # frame.
                 frames[section.index] = REFERENCE_FRAME
                 normals[section.index] = frame.axes[axis]
             cursor += _section_count(block)

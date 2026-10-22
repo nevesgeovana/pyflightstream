@@ -132,7 +132,8 @@ OFF_BODY_STREAMLINE_COLUMNS: tuple[str, ...] = (
 #: (every section) write this layout: the two committed fixtures are one of
 #: each, on two different builds, and their headers agree character for
 #: character. ``Section_direction_value`` is the station along the section's
-#: own direction and X, Y, Z the point, in simulation length units; nx, ny, nz
+#: own direction and X, Y, Z the point, in simulation length units and in REFERENCE
+#: coordinates whatever the analysis loads frame is (26.124, L4 F-500); nx, ny, nz
 #: is the unit surface normal there; ``L`` is the normalized position along the
 #: cut; Cp, Cp_ref and Mach are dimensionless; vx, vy, vz and vtot are in m/s;
 #: ``Theta``, ``CF``, ``Delta*``, ``Delta`` and ``H`` are the boundary-layer
