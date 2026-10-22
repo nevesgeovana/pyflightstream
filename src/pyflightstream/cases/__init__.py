@@ -95,6 +95,7 @@ module.
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Callable, Iterator, Mapping
 from importlib import import_module
@@ -527,6 +528,13 @@ class SweepAxis(BaseModel):
         """
         seen: dict[str, dict[str, float]] = {}
         for point in self.points():
+            for axis, value in point.items():
+                if axis in POINT_AXIS_KEYS and not math.isfinite(value):
+                    raise CampaignConfigError(
+                        f"sweep point {point!r} gives {axis} the value {value!r}, which is not "
+                        "a finite number; a point name cannot write it. Give every swept "
+                        "value as a finite number."
+                    )
             tag = "".join(
                 name_field(POINT_AXIS_KEYS[axis], point[axis])
                 for axis in POINT_AXIS_KEYS
@@ -536,9 +544,10 @@ class SweepAxis(BaseModel):
                 raise CampaignConfigError(
                     f"sweep points {seen[tag]!r} and {point!r} both write {tag!r} in their "
                     "names, so they would share one run_id, one datapoint folder and one set "
-                    "of file names. A name writes an angle to a tenth of a degree and an "
-                    "advance ratio to a hundredth; separate the values by that much, or split "
-                    "them across simulations."
+                    "of file names. A name writes each swept variable at the precision of its "
+                    "code (an angle to a tenth of a degree, an advance ratio to a hundredth, "
+                    "and the other variables at their own); separate the values by at least "
+                    "that much, or split them across simulations."
                 )
             seen[tag] = point
         return self

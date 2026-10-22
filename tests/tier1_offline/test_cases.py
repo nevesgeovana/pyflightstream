@@ -547,3 +547,10 @@ def test_p0430_f5_a_sim_id_is_one_folder_name_and_case_does_not_make_two():
             fs_exe="x",
             sims=[_p0430_case("Ab"), _p0430_case("aB")],
         )
+
+
+def test_p0430_f5_a_sweep_value_that_is_not_finite_is_a_campaign_error():
+    """X-F-0482: NaN and infinity are named, not a bare ValueError or OverflowError."""
+    for value in (float("nan"), float("inf")):
+        with pytest.raises(ValidationError, match="not a finite number"):
+            SweepAxis(type="alpha", values=[0.0, value])
