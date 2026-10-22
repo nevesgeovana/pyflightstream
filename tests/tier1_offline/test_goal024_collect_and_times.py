@@ -166,3 +166,24 @@ def test_goal024_collect_and_times_a_cut_log_is_unusable_evidence_and_not_an_exc
     assessment = _assess_log(tmp_path, text)
     assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, assessment
     assert "Iteration anchor" in (assessment.error or "")
+
+
+def test_f_827_an_unreadable_latest_timing_line_does_not_fall_back_to_an_earlier_run():
+    from pyflightstream.results import parse_log_times
+
+    text = "Solver run time: 2.0 minutes\nSolver initialized in 3.0 seconds\n"
+    assert parse_log_times(text).solver_run_time_s == 120.0
+    broken = text + "Solver run time: -- minutes\nSolver initialized in n/a seconds\n"
+    times = parse_log_times(broken)
+    assert times.solver_run_time_s is None
+    assert times.solver_initialization_s is None
+
+
+def test_f_1253_a_long_log_is_split_in_linear_time():
+    from pyflightstream.results.log import RESTART_MARKER, split_job_log
+
+    body = "\n".join(f"line {i}" for i in range(50))
+    text = "\n".join([body, RESTART_MARKER] * 400)
+    segments = split_job_log(text)
+    assert len(segments) == 401
+    assert segments[0].first_line == 0

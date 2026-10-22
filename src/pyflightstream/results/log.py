@@ -87,15 +87,17 @@ def _residual_cell(token: str) -> float:
         146    +2.1313669E-6    *************
         147    +2.0894156E-6    +7.5856726E-9
 
-    The neighbours are tiny, so the asterisks are a field too NARROW rather
-    than a magnitude too large, and reading them as infinity would be a
-    claim the file does not make. Raising would be worse: the convergence
-    verdict is the LAST row, and one unprintable cell in the middle would
-    throw a whole run's history away.
+    The neighbours are tiny, so the asterisks most plausibly mark a field too
+    NARROW rather than a magnitude too large; the file does not state the
+    cause, and reading them as infinity would be a claim it does not make.
+    Raising would be worse: the convergence verdict is the LAST row, and one
+    unprintable cell in the middle would throw a whole run's history away.
 
-    NaN is also the conservative direction. Every comparison against it is
-    False, so a threshold test can never read an unknown residual as
-    converged, which is the error that matters.
+    NaN is also the conservative direction for a test written as
+    ``residual < tolerance``: that comparison is False for NaN, so an unknown
+    residual is not read as converged. A test written as the negation of
+    ``residual > tolerance`` would read it as converged, so a consumer
+    checks finiteness explicitly rather than relying on the comparison.
     """
     if _OVERFLOWED_FIELD.match(token.strip()):
         return float("nan")
@@ -548,10 +550,24 @@ class LogTimes:
     solver_mode: str | None = None
 
 
-_RUN_TIME_LINE = re.compile(
-    r"^\s*(Unsteady solver|Solver) run time:\s*([0-9.Ee+-]+)\s*minutes", re.M
-)
-_INITIALIZED_LINE = re.compile(r"^\s*Solver initialized in\s*([0-9.Ee+-]+)\s*seconds", re.M)
+_RUN_TIME_LINE = re.compile(r"^\s*(Unsteady solver|Solver) run time:\s*(\S+?)\s*minutes", re.M)
+_INITIALIZED_LINE = re.compile(r"^\s*Solver initialized in\s*(\S+?)\s*seconds", re.M)
+
+
+def _latest_seconds(token: str | None, scale: float) -> float | None:
+    """Return the latest timing line's value, or None when that line holds no number.
+
+    An earlier run's value is never returned in place of a latest line that
+    cannot be read.
+    """
+    if token is None:
+        return None
+    try:
+        return parse_number(token) * scale
+    except MalformedOutputError:
+        return None
+
+
 _TIME_STEP_LINE = re.compile(r"Solving unsteady time-step iteration \(\s*\d+\s*/\s*(\d+)\s*\)")
 
 
@@ -574,8 +590,8 @@ def parse_log_times(text: str) -> LogTimes:
     initialized = _INITIALIZED_LINE.findall(clean)
     steps = _TIME_STEP_LINE.findall(clean)
     return LogTimes(
-        solver_run_time_s=parse_number(run_times[-1][1]) * 60.0 if run_times else None,
-        solver_initialization_s=parse_number(initialized[-1]) if initialized else None,
+        solver_run_time_s=_latest_seconds(run_times[-1][1] if run_times else None, 60.0),
+        solver_initialization_s=_latest_seconds(initialized[-1] if initialized else None, 1.0),
         time_steps=int(steps[-1]) if steps else None,
         solver_mode=(
             "unsteady"
@@ -704,8 +720,8 @@ def _initialization_reset(lines: list[str], at: int) -> bool:
     The splitter carries no build identity, so it uses the newest listed
     build's vocabulary, also the fallback for a build without an entry.
     """
-    before = next((line for line in reversed(lines[:at]) if line.strip()), "")
-    after = next((line for line in lines[at + 1 :] if line.strip()), "")
+    before = next((lines[i] for i in range(at - 1, -1, -1) if lines[i].strip()), "")
+    after = next((lines[i] for i in range(at + 1, len(lines)) if lines[i].strip()), "")
     newest = max(versions.SETUP_RESET_LOG_PREFIXES, key=versions.resolve)
     mode, symmetry = versions.SETUP_RESET_LOG_PREFIXES[newest]
     return before.strip().startswith(mode) and after.strip().startswith(symmetry)
