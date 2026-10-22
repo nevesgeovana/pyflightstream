@@ -2814,3 +2814,44 @@ class TestF7WakeReader:
     def test_a_constant_line_beside_a_strong_one_is_still_read():
         wake = parse_wake_export(_f7_wake_text("0.001", "0.001", "10000.0"))
         assert wake.values.tolist() == [0.001, 10000.0]
+
+
+def test_last_symmetry_floor_needs_an_order_above_zero():
+    """X-F-1617: m_max=0 left an empty slice and numpy's bare ValueError."""
+    from pyflightstream.farfield.quadrature import symmetry_floor
+
+    psi = np.linspace(0.0, 2.0 * math.pi, 16, endpoint=False)
+    values = np.cos(psi)
+    with pytest.raises(FarfieldInputError, match="m_max=0 keeps no harmonic above order zero"):
+        symmetry_floor(values, psi=psi, m_max=0)
+    assert symmetry_floor(values, psi=psi, m_max=2) == pytest.approx(0.5)
+
+
+def test_last_probe_layout_helpers_refuse_counts_that_divide_by_zero():
+    """X-F-1205, X-F-1206, X-F-1207: a direct caller got ZeroDivisionError, not a refusal."""
+    from pyflightstream.probes.errors import ProbeGeometryError
+
+    with pytest.raises(ProbeGeometryError, match="at least two points"):
+        line_points((0.0, 0.0, 0.0), end=(1.0, 0.0, 0.0), points=1, scale=1.0)
+    rectangle = SimpleNamespace(
+        origin=(0.0, 0.0, 0.0),
+        along_u=(1.0, 0.0, 0.0),
+        along_v=(0.0, 1.0, 0.0),
+        points_u=1,
+        points_v=3,
+    )
+    with pytest.raises(ProbeGeometryError, match="at least two points along each direction"):
+        rectangle_points(rectangle, scale=1.0)
+    circle = SimpleNamespace(
+        center=(0.0, 0.0, 0.0),
+        normal=(0.0, 0.0, 0.0),
+        radius=1.0,
+        points_radial=3,
+        points_azimuth=4,
+    )
+    with pytest.raises(ProbeGeometryError, match="zero vector"):
+        circle_points(circle, scale=1.0)
+    circle.normal = (1.0, 0.0, 0.0)
+    circle.points_radial = 1
+    with pytest.raises(ProbeGeometryError, match="at least two radial stations"):
+        circle_points(circle, scale=1.0)

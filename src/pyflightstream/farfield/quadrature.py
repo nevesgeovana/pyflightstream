@@ -441,7 +441,17 @@ def symmetry_floor(values: np.ndarray, *, psi: np.ndarray, m_max: int = 6) -> fl
     psi : np.ndarray
         Uniform full-turn azimuth coordinates in radians.
     m_max : int
-        Highest azimuthal harmonic order to retain.
+        Highest azimuthal harmonic order to retain, at least 1.
+
+    Raises
+    ------
+    FarfieldInputError
+        If the azimuth grid or the order is invalid, or ``m_max`` is below 1.
     """
     harmonics = azimuthal_harmonics(values, psi=psi, m_max=m_max)
+    if harmonics.shape[-1] < 2:
+        raise FarfieldInputError(
+            f"m_max={m_max} keeps no harmonic above order zero, so there is no floor to "
+            "measure; give m_max of at least 1"
+        )
     return float(np.abs(harmonics[..., 1:]).max())

@@ -80,7 +80,16 @@ def line_points(
     -------
     list of list of float
         ``points`` rows ``[x, y, z]``, rounded to five decimals.
+
+    Raises
+    ------
+    ProbeGeometryError
+        If ``points`` is below two, since a line with both ends has no spacing otherwise.
     """
+    if points < 2:
+        raise ProbeGeometryError(
+            f"a probe line has at least two points, both ends included; got points={points}"
+        )
     out: list[list[float]] = []
     for step in range(points):
         fraction = step / (points - 1)
@@ -113,8 +122,14 @@ def rectangle_points(rectangle: _Rectangle, *, scale: float) -> list[list[float]
     Raises
     ------
     ProbeGeometryError
-        If the two edges from ``origin`` are collinear, zero or not finite.
+        If the two edges from ``origin`` are collinear, zero or not finite, or either
+        direction has fewer than two points.
     """
+    if rectangle.points_u < 2 or rectangle.points_v < 2:
+        raise ProbeGeometryError(
+            "a probe rectangle has at least two points along each direction, both ends "
+            f"included; got points_u={rectangle.points_u} and points_v={rectangle.points_v}"
+        )
     origin = list(rectangle.origin)
     edge_u = [b - a for a, b in zip(rectangle.origin, rectangle.along_u, strict=True)]
     edge_v = [b - a for a, b in zip(rectangle.origin, rectangle.along_v, strict=True)]
@@ -177,7 +192,8 @@ def circle_points(circle: _Circle, *, scale: float) -> list[list[float]]:
     Raises
     ------
     ProbeGeometryError
-        If the radius is not finite and positive.
+        If the radius is not finite and positive, the normal has zero length, there are
+        fewer than two radial stations or there is no azimuth point.
     """
     if not (math.isfinite(circle.radius) and circle.radius > 0.0):
         raise ProbeGeometryError(
@@ -186,6 +202,16 @@ def circle_points(circle: _Circle, *, scale: float) -> list[list[float]]:
         )
     normal = list(circle.normal)
     length = math.sqrt(sum(value * value for value in normal))
+    if length == 0.0:
+        raise ProbeGeometryError(
+            "a probe circle needs a normal with a direction; got a zero vector"
+        )
+    if circle.points_radial < 2 or circle.points_azimuth < 1:
+        raise ProbeGeometryError(
+            "a probe circle has at least two radial stations (centre and rim) and one "
+            f"azimuth point; got points_radial={circle.points_radial} and "
+            f"points_azimuth={circle.points_azimuth}"
+        )
     normal = [value / length for value in normal]
     least = min(range(3), key=lambda axis: abs(normal[axis]))
     seed = [1.0 if axis == least else 0.0 for axis in range(3)]
