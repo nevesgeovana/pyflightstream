@@ -103,7 +103,7 @@ def rewrite_codes(
     *,
     in_place: bool = False,
 ) -> tuple[bytes, dict[str, int]]:
-    """Rewrite the REF, SET and ENTRY cells of a matrix, byte for byte.
+    """Rewrite the REF, SET and PPROC cells of a matrix, byte for byte.
 
     Every other cell, separator, comment rule and line ending survives
     unchanged, and EVERY data row is rewritten, active or not: a row
