@@ -38,6 +38,9 @@ FlightStream versions.
   prefix, so digests in reports written before this change are not comparable.
 - The `pyfs-matrix` install check is documented as `--help`, and the guide and documentation
   pages state what the code does.
+- `pyflightstream.testing.assert_records_close` counts a NaN on either side, both sides
+  included, as a violation, as its rule `|a - e| <= atol + rtol * |e|` reads: a golden that
+  holds NaN no longer passes.
 - The QA `--timeout` option keeps its behaviour, and its help states the limit each solved
   probe keeps: 180 s for a solving probe of the gap catalog, 240 s for a solving probe that
   carries it, and 60 s for the hang guards of build 26.125.
