@@ -66,6 +66,7 @@ EXTRA_ROUTES: dict[str, str] = {
     "FLUID_PROPERTIES": "column: FLIGHT_CONDITION",
     "DETECT_TRAILING_EDGES_BY_SURFACE": "sidecar: trailing_edges.detect",
     "DETECT_WAKE_TERMINATION_NODES_BY_SURFACE": "sidecar: wake_termination.detect",
+    "AUTO_DETECT_WAKE_TERMINATION_NODES": "sidecar: wake_termination.detect",
     "IMPORT_WAKE_EDGES_FROM_FILE": "sidecar: trailing_edges.file",
     "SET_TRAILING_EDGE_SWEEP_ANGLE": "sidecar: trailing_edges.detect.sweep_angle",
     "DETECT_BASE_REGIONS_BY_SURFACE": "row: BASE_REGIONS",

@@ -612,10 +612,10 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     "RPM": _rows(rotor_case, "RPM", "1200", "1500"),
     "RPM_SIGN": Variation(
         lambda _: rotor_case(RPM=None, ADVANCE_RATIO="0.5", RPM_SIGN="1").model_copy(
-            update={"reference": REFERENCE}
+            update={"reference": REFERENCE, "rotors": {}}
         ),
         lambda _: rotor_case(RPM=None, ADVANCE_RATIO="0.5", RPM_SIGN="-1").model_copy(
-            update={"reference": REFERENCE}
+            update={"reference": REFERENCE, "rotors": {}}
         ),
     ),
     # A declared rotor owns its shaft and datum; the flat key configures the
@@ -705,8 +705,11 @@ def _mach_resolved(_: Path) -> SimCase:
         heat_capacity_ratio=1.4,
         source="synthetic",
     )
-    return steady_case_resolved().model_copy(
-        update={"mach": 0.1, "velocity": 0.1 * sound, "fluid": fluid}
+    case = steady_case_resolved()
+    # The velocity is the row's resolved one: a VELOCITY cell beside it is refused (X-F-1157).
+    variables = {name: value for name, value in case.variables.items() if name != "VELOCITY"}
+    return case.model_copy(
+        update={"mach": 0.1, "velocity": 0.1 * sound, "fluid": fluid, "variables": variables}
     )
 
 
