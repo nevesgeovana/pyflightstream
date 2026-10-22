@@ -62,8 +62,13 @@ place of the thrust.
    force nondimensionalised exactly as the thrust is, entering the same
    efficiency where `CT` enters. It stays **dimensionless**.
 
-**It reduces to `ETA` when the shaft lies along the stream**, which is what makes
-the column readable beside `ETA`. A caller that states no wind-axis force gets
+**It reduces to `ETA` when the shaft lies along the stream**, whichever way the
+reference points the rotor's axis, which is what makes the column readable
+beside `ETA`. `Fx_W` is counted in the sense of the shaft, as the thrust is:
+an axis whose x component is negative counts it against the stream's X, and
+any other axis, one square to the body's `+x` included, counts it along it. The
+sense is fixed once per rotor, against the body's `+x`, so a lift rotor's `ETAW`
+does not change sign between two incidences where its thrust and `CP` do not. A caller that states no wind-axis force gets
 `NA`, never the old cosine: publishing the superseded number under the corrected
 name would leave a reader unable to tell which of the two they hold.
 
