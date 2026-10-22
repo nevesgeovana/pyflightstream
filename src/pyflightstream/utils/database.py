@@ -23,7 +23,7 @@ import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 import yaml
 
@@ -242,6 +242,67 @@ def _refuse_unlabelled_build(build: str, labels: Sequence[str]) -> NoReturn:
     )
 
 
+def _registered_position(editions: Sequence[Edition], build: str) -> int:
+    """Return the manifest position of ``build``, refusing a label that cannot be registered."""
+    labels = [edition.label for edition in editions]
+    if build not in labels:
+        _refuse_unlabelled_build(build, labels)
+    position = labels.index(build)
+    if position == 0:
+        raise ManualDraftError(
+            f"{build} is the first row of the manifest, so it has no predecessor to "
+            "compare against. This subcommand carries documentation FORWARD; a first "
+            "edition is drafted, not registered"
+        )
+    # Check the manifest and registry before opening either manual.
+    try:
+        known = resolve(build)
+    except (UnknownVersionError, AmbiguousVersionAliasError) as error:
+        raise ManualDraftError(
+            f"{build} is a manifest label and is not a registered build ({error}). A "
+            "documented row is keyed by the canonical identifier, so registering "
+            "against an unregistered one writes rows the registry cannot answer for. "
+            "Register the build first; the ordered list in commands/_meta.yaml is the "
+            "only ordering authority, and it currently carries "
+            + ", ".join(str(known) for known in known_versions())
+        ) from None
+
+    # AND IT MUST BE THE CANONICAL, not merely something that RESOLVES.
+    # `resolve` accepts a display alias that names exactly one build, and
+    # three do today (25.0, 25.1, 26.0), so a manifest row labelled that
+    # way cleared the gate, both manuals were read, and rows keyed to the
+    # ALIAS were built. The refusal then arrived from the command schema,
+    # about an unregistered version, phrased as a complaint about an
+    # entry rather than about the label that caused it.
+    if known.canonical != build:
+        raise ManualDraftError(
+            f"{build} is a vendor display name for {known.canonical}, not a canonical "
+            "identifier. A documented row is keyed by the canonical identifier, so a "
+            "row written under an alias is one the registry cannot answer for. Label "
+            f"the manifest row {known.canonical} and re-run."
+        )
+    return position
+
+
+def _read_chapter(path: Path) -> tuple[str, Mapping[str, Any]]:
+    """Return a chapter file decoded from bytes, and the YAML it holds.
+
+    DECODED FROM BYTES, so the line endings survive the round trip.
+    ``read_text`` translates CRLF to LF before anything can preserve it.
+    """
+    try:
+        text = path.read_bytes().decode("utf-8")
+    except OSError as error:
+        raise ManualDraftError(f"cannot read {path}: {error}. NOTHING HAS BEEN WRITTEN") from None
+    try:
+        recorded = yaml.safe_load(text) or {}
+    except yaml.YAMLError as error:
+        raise ManualDraftError(
+            f"{path} is not valid YAML ({error}). NOTHING HAS BEEN WRITTEN"
+        ) from None
+    return text, recorded
+
+
 def register_edition(
     editions: Sequence[Edition],
     build: str,
@@ -287,44 +348,7 @@ def register_edition(
         chapter file that cannot be read raises it too. In every case
         nothing has been written.
     """
-    labels = [edition.label for edition in editions]
-    if build not in labels:
-        _refuse_unlabelled_build(build, labels)
-    position = labels.index(build)
-    if position == 0:
-        raise ManualDraftError(
-            f"{build} is the first row of the manifest, so it has no predecessor to "
-            "compare against. This subcommand carries documentation FORWARD; a first "
-            "edition is drafted, not registered"
-        )
-    # Check the manifest and registry before opening either manual.
-    try:
-        known = resolve(build)
-    except (UnknownVersionError, AmbiguousVersionAliasError) as error:
-        raise ManualDraftError(
-            f"{build} is a manifest label and is not a registered build ({error}). A "
-            "documented row is keyed by the canonical identifier, so registering "
-            "against an unregistered one writes rows the registry cannot answer for. "
-            "Register the build first; the ordered list in commands/_meta.yaml is the "
-            "only ordering authority, and it currently carries "
-            + ", ".join(str(known) for known in known_versions())
-        ) from None
-
-    # AND IT MUST BE THE CANONICAL, not merely something that RESOLVES.
-    # `resolve` accepts a display alias that names exactly one build, and
-    # three do today (25.0, 25.1, 26.0), so a manifest row labelled that
-    # way cleared the gate, both manuals were read, and rows keyed to the
-    # ALIAS were built. The refusal then arrived from the command schema,
-    # about an unregistered version, phrased as a complaint about an
-    # entry rather than about the label that caused it.
-    if known.canonical != build:
-        raise ManualDraftError(
-            f"{build} is a vendor display name for {known.canonical}, not a canonical "
-            "identifier. A documented row is keyed by the canonical identifier, so a "
-            "row written under an alias is one the registry cannot answer for. Label "
-            f"the manifest row {known.canonical} and re-run."
-        )
-
+    position = _registered_position(editions, build)
     target = editions[position]
     previous = editions[position - 1]
     for edition in (target, previous):
@@ -367,19 +391,7 @@ def register_edition(
     writable: list[EditionDelta] = []
     withheld: list[EditionDelta] = []
     for chapter, rows in sorted(by_chapter.items()):
-        path = commands_dir / f"{chapter}.yaml"
-        try:
-            texts[chapter] = path.read_bytes().decode("utf-8")
-        except OSError as error:
-            raise ManualDraftError(
-                f"cannot read {path}: {error}. NOTHING HAS BEEN WRITTEN"
-            ) from None
-        try:
-            recorded = yaml.safe_load(texts[chapter]) or {}
-        except yaml.YAMLError as error:
-            raise ManualDraftError(
-                f"{path} is not valid YAML ({error}). NOTHING HAS BEEN WRITTEN"
-            ) from None
+        texts[chapter], recorded = _read_chapter(commands_dir / f"{chapter}.yaml")
         for delta in rows:
             entry = recorded.get(delta.name) or {}
             # ALREADY RECORDED IS NOT AN ERROR. A second --write is a

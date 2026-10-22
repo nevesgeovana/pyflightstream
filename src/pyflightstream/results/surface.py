@@ -475,6 +475,31 @@ def _polygons(
     return offsets, raw[keep]
 
 
+def _open_attribute_section(
+    where: tuple[Path, str, str], sections: set[str], keyword: str, held: int | None
+) -> int:
+    """Validate a POINT_DATA or CELL_DATA line against the ``held`` count and return that count.
+
+    ``where`` is the file path, its text and the keyword line; ``held`` is the
+    number of points or polygons read so far, None when none were. A section is
+    recorded in ``sections`` so that a second one of the same kind is refused.
+    """
+    path, text, line = where
+    declared = _stated(path, text, line, 1)
+    if held is None or declared != held:
+        noun = "points" if keyword == "POINT_DATA" else "polygons"
+        raise MalformedOutputError(
+            f"{path} declares {keyword} {declared} for {0 if held is None else held} {noun}"
+        )
+    if keyword in sections:
+        raise MalformedOutputError(
+            f"{path} holds more than one {keyword} section; the later one would "
+            "silently replace the scalars of the earlier"
+        )
+    sections.add(keyword)
+    return held
+
+
 def read_vtk_surface(source: str | Path) -> VtkSurface:
     r"""Read a surface solution the solver exported as VTK legacy ASCII polydata.
 
@@ -557,33 +582,18 @@ def read_vtk_surface(source: str | Path) -> VtkSurface:
                 "wake file, which carries no polygon, is not a surface (RPT-074)"
             )
         elif keyword == "POINT_DATA":
-            declared = _stated(path, text, line, 1)
-            if points is None or declared != len(points):
-                raise MalformedOutputError(
-                    f"{path} declares POINT_DATA {declared} for "
-                    f"{0 if points is None else len(points)} points"
-                )
-            if "POINT_DATA" in sections:
-                raise MalformedOutputError(
-                    f"{path} holds more than one POINT_DATA section; the later one would "
-                    "silently replace the scalars of the earlier"
-                )
-            sections.add("POINT_DATA")
-            point_data, pending = _attributes(lines, len(points), "POINT_DATA")
+            held = _open_attribute_section(
+                (path, text, line), sections, "POINT_DATA", None if points is None else len(points)
+            )
+            point_data, pending = _attributes(lines, held, "POINT_DATA")
         elif keyword == "CELL_DATA":
-            declared = _stated(path, text, line, 1)
-            if offsets is None or declared != len(offsets) - 1:
-                raise MalformedOutputError(
-                    f"{path} declares CELL_DATA {declared} for "
-                    f"{0 if offsets is None else len(offsets) - 1} polygons"
-                )
-            if "CELL_DATA" in sections:
-                raise MalformedOutputError(
-                    f"{path} holds more than one CELL_DATA section; the later one would "
-                    "silently replace the scalars of the earlier"
-                )
-            sections.add("CELL_DATA")
-            cell_data, pending = _attributes(lines, len(offsets) - 1, "CELL_DATA")
+            held = _open_attribute_section(
+                (path, text, line),
+                sections,
+                "CELL_DATA",
+                None if offsets is None else len(offsets) - 1,
+            )
+            cell_data, pending = _attributes(lines, held, "CELL_DATA")
         else:
             raise MalformedOutputError(
                 f"{path} carries {words[0]!r}, which no surface export writes"
@@ -765,8 +775,16 @@ def write_tecplot_surface(
         lines += _block(values)
     for values in surface.cell_data.values():
         lines += _block(values)
+    lines += _polygon_face_lines(surface, faces)
+    _textio.write_text(destination, "\n".join(lines) + "\n")
+    return destination
+
+
+def _polygon_face_lines(surface: VtkSurface, faces: int) -> list[str]:
+    """Return the FEPolygon face records: nodes of each face, left polygons, right polygons."""
     # THE FACES: every polygon's edges, in its own order, closing on its first
     # node, the polygon on the left and nothing on the right. 1-based.
+    lines: list[str] = []
     left: list[str] = []
     for cell in range(surface.n_cells):
         ring = surface.connectivity[surface.offsets[cell] : surface.offsets[cell + 1]] + 1
@@ -776,8 +794,7 @@ def write_tecplot_surface(
     lines += [" ".join(left[at : at + 20]) for at in range(0, len(left), 20)]
     right = ["0"] * faces
     lines += [" ".join(right[at : at + 20]) for at in range(0, len(right), 20)]
-    _textio.write_text(destination, "\n".join(lines) + "\n")
-    return destination
+    return lines
 
 
 def write_vtk_surface(

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -453,6 +453,68 @@ class ProbePointsReport:
         return {name: self.field(name) for name in self.columns[3:]}
 
 
+def _probe_header(text: str) -> tuple[str, tuple[str, ...]]:
+    """Return the probe table's header line and its column names."""
+    header_line = next(
+        (line.strip() for line in text.splitlines() if line.strip().startswith("X, Y, Z,")),
+        None,
+    )
+    if header_line is None:
+        raise AnchorNotFoundError(
+            "the probe table header 'X, Y, Z,' was not found; the file is not an "
+            "EXPORT_PROBE_POINTS output or its format changed"
+        )
+    header_cells = [cell.strip() for cell in header_line.split(",")]
+    while header_cells and not header_cells[-1]:
+        header_cells.pop()
+    if not all(header_cells):
+        raise MalformedOutputError(
+            "the probe export header holds an empty column name between two names "
+            f"({header_cells}); dropping it would label the values of the columns after it "
+            "with the wrong names"
+        )
+    return header_line, tuple(header_cells)
+
+
+def _probe_table_rows(text: str, header_line: str, declared: int) -> list[list[str]]:
+    """Return the probe table's text rows, refusing undeclared rows in a zero-point table."""
+    if declared != 0:
+        return delimited_table(text, "X, Y, Z,")
+    # Zero declared is still a table to validate: a row between the header
+    # and the footer is a row the file did not declare, not an empty report.
+    after_header = text.split(header_line, 1)[1].splitlines()
+    undeclared = [
+        line.strip()
+        for line in after_header
+        if "," in line and ":" not in line and not DASHED_LINE.match(line.strip())
+    ]
+    if undeclared:
+        raise MalformedOutputError(
+            f"the export declares 0 probe points but the table holds at least "
+            f"{len(undeclared)} row(s): the file holds rows it did not declare, so it "
+            "is not one export of the solver"
+        )
+    return []
+
+
+def _parse_probe_row(row: Sequence[str], columns: tuple[str, ...]) -> list[float]:
+    """Return one probe row as numbers, refusing an empty cell or a row of the wrong width."""
+    cells = list(row)
+    while cells and not cells[-1]:
+        cells.pop()
+    if not all(cells):
+        raise MalformedOutputError(
+            "a probe row holds an empty cell between two values; dropping it would "
+            "carry every value after it under the name of the previous column"
+        )
+    if len(cells) != len(columns):
+        raise MalformedOutputError(
+            f"a probe row holds {len(cells)} values but the header names "
+            f"{len(columns)} columns; the table layout changed"
+        )
+    return [parse_number(cell) for cell in cells]
+
+
 def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
     """Parse an EXPORT_PROBE_POINTS file into a typed report.
 
@@ -501,25 +563,7 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
         label="Number of Probe Points",
         counts="probe points",
     )
-    header_line = next(
-        (line.strip() for line in text.splitlines() if line.strip().startswith("X, Y, Z,")),
-        None,
-    )
-    if header_line is None:
-        raise AnchorNotFoundError(
-            "the probe table header 'X, Y, Z,' was not found; the file is not an "
-            "EXPORT_PROBE_POINTS output or its format changed"
-        )
-    header_cells = [cell.strip() for cell in header_line.split(",")]
-    while header_cells and not header_cells[-1]:
-        header_cells.pop()
-    if not all(header_cells):
-        raise MalformedOutputError(
-            "the probe export header holds an empty column name between two names "
-            f"({header_cells}); dropping it would label the values of the columns after it "
-            "with the wrong names"
-        )
-    columns = tuple(header_cells)
+    header_line, columns = _probe_header(text)
     # REV010-003. The loads parser has refused a repeated column since
     # PYFS-009 and this one never did, although the consequence here is
     # worse: field() returns the FIRST tuple index of a name and fields()
@@ -538,40 +582,8 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
     # a complete table of no rows, which the
     # walker below would read as a table with no closing line, since it
     # skips every dashed line after the header until a row appears.
-    if declared == 0:
-        # Zero declared is still a table to validate: a row between the header
-        # and the footer is a row the file did not declare, not an empty report.
-        after_header = text.split(header_line, 1)[1].splitlines()
-        undeclared = [
-            line.strip()
-            for line in after_header
-            if "," in line and ":" not in line and not DASHED_LINE.match(line.strip())
-        ]
-        if undeclared:
-            raise MalformedOutputError(
-                f"the export declares 0 probe points but the table holds at least "
-                f"{len(undeclared)} row(s): the file holds rows it did not declare, so it "
-                "is not one export of the solver"
-            )
-        rows: list[list[str]] = []
-    else:
-        rows = delimited_table(text, "X, Y, Z,")
-    parsed_rows = []
-    for row in rows:
-        cells = list(row)
-        while cells and not cells[-1]:
-            cells.pop()
-        if not all(cells):
-            raise MalformedOutputError(
-                "a probe row holds an empty cell between two values; dropping it would "
-                "carry every value after it under the name of the previous column"
-            )
-        if len(cells) != len(columns):
-            raise MalformedOutputError(
-                f"a probe row holds {len(cells)} values but the header names "
-                f"{len(columns)} columns; the table layout changed"
-            )
-        parsed_rows.append([parse_number(cell) for cell in cells])
+    rows = _probe_table_rows(text, header_line, declared)
+    parsed_rows = [_parse_probe_row(row, columns) for row in rows]
     if len(parsed_rows) < declared:
         raise IncompleteOutputError(
             f"the export declares {declared} probe points but the table holds "
@@ -705,6 +717,65 @@ def _is_printed_number(cell: str) -> bool:
     return True
 
 
+def _unsteady_header(lines: list[str]) -> tuple[int, tuple[str, ...]]:
+    """Return the index of the unsteady plot header line and its column names."""
+    header_index = next((index for index, line in enumerate(lines) if "," in line), None)
+    if header_index is None:
+        raise AnchorNotFoundError(
+            "no unsteady plot table header was found: no line in this file carries the "
+            "comma separating one plot column from the next. Either the file is not an "
+            "UNSTEADY_SOLVER_EXPORT_PLOTS output, or the export writes a separator this "
+            "parser has never seen, which is possible because no real export of this "
+            "command has been read yet"
+        )
+    columns = tuple(_unsteady_cells(lines[header_index]))
+    if not columns:
+        raise MalformedOutputError(
+            f"the unsteady plot header {lines[header_index].strip()!r} names no column, so "
+            "the file holds only separators and no plot could be attributed to its values"
+        )
+    if columns and all(_is_printed_number(cell) for cell in columns):
+        raise AnchorNotFoundError(
+            f"the first line carrying a comma, {lines[header_index].strip()!r}, is all numbers: "
+            "an unsteady plot export names its plot columns on a header line, so this is a "
+            "bare numeric table whose first row would be read as the header and lost"
+        )
+    if not all(columns):
+        raise MalformedOutputError(
+            f"the unsteady plot header {lines[header_index].strip()!r} leaves a column "
+            "unnamed, so the values under it could not be attributed to a plot"
+        )
+    return header_index, columns
+
+
+def _unsteady_row(cells: list[str], columns: tuple[str, ...], step: int) -> list[float]:
+    """Return one time step's values, refusing a short or long row and a non-number."""
+    if len(cells) < len(columns):
+        raise IncompleteOutputError(
+            f"time step {step} of the unsteady plot export holds {len(cells)} values "
+            f"but the header names {len(columns)} columns; the file ends part way "
+            "through a row, so the solver stopped mid-write and the missing plots "
+            "are not zeros"
+        )
+    if len(cells) > len(columns):
+        raise MalformedOutputError(
+            f"time step {step} of the unsteady plot export holds {len(cells)} values "
+            f"but the header names {len(columns)} columns; the table layout changed, "
+            "so reading it by position would attribute a value to the wrong plot"
+        )
+    values = []
+    for column, cell in zip(columns, cells, strict=True):
+        try:
+            values.append(parse_number(cell))
+        except MalformedOutputError as error:
+            raise MalformedOutputError(
+                f"time step {step} of the unsteady plot export holds {cell!r} in "
+                f"column {column!r}, which is not a solver-printed number; expected "
+                "forms like '.000', '4380000.', or '1.000E-05'"
+            ) from error
+    return values
+
+
 def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
     r"""Parse an unsteady plot export into per-column time series.
 
@@ -780,32 +851,7 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
             "table as a time history, and every row index would be misread as an instant"
         )
     lines = text.splitlines()
-    header_index = next((index for index, line in enumerate(lines) if "," in line), None)
-    if header_index is None:
-        raise AnchorNotFoundError(
-            "no unsteady plot table header was found: no line in this file carries the "
-            "comma separating one plot column from the next. Either the file is not an "
-            "UNSTEADY_SOLVER_EXPORT_PLOTS output, or the export writes a separator this "
-            "parser has never seen, which is possible because no real export of this "
-            "command has been read yet"
-        )
-    columns = tuple(_unsteady_cells(lines[header_index]))
-    if not columns:
-        raise MalformedOutputError(
-            f"the unsteady plot header {lines[header_index].strip()!r} names no column, so "
-            "the file holds only separators and no plot could be attributed to its values"
-        )
-    if columns and all(_is_printed_number(cell) for cell in columns):
-        raise AnchorNotFoundError(
-            f"the first line carrying a comma, {lines[header_index].strip()!r}, is all numbers: "
-            "an unsteady plot export names its plot columns on a header line, so this is a "
-            "bare numeric table whose first row would be read as the header and lost"
-        )
-    if not all(columns):
-        raise MalformedOutputError(
-            f"the unsteady plot header {lines[header_index].strip()!r} leaves a column "
-            "unnamed, so the values under it could not be attributed to a plot"
-        )
+    header_index, columns = _unsteady_header(lines)
     reject_duplicate_columns(columns, what="unsteady plot export")
 
     rows: list[list[float]] = []
@@ -820,32 +866,7 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
                 after_rule = body[position + 1 :]
                 break
             continue
-        cells = _unsteady_cells(stripped)
-        step = len(rows) + 1
-        if len(cells) < len(columns):
-            raise IncompleteOutputError(
-                f"time step {step} of the unsteady plot export holds {len(cells)} values "
-                f"but the header names {len(columns)} columns; the file ends part way "
-                "through a row, so the solver stopped mid-write and the missing plots "
-                "are not zeros"
-            )
-        if len(cells) > len(columns):
-            raise MalformedOutputError(
-                f"time step {step} of the unsteady plot export holds {len(cells)} values "
-                f"but the header names {len(columns)} columns; the table layout changed, "
-                "so reading it by position would attribute a value to the wrong plot"
-            )
-        values = []
-        for column, cell in zip(columns, cells, strict=True):
-            try:
-                values.append(parse_number(cell))
-            except MalformedOutputError as error:
-                raise MalformedOutputError(
-                    f"time step {step} of the unsteady plot export holds {cell!r} in "
-                    f"column {column!r}, which is not a solver-printed number; expected "
-                    "forms like '.000', '4380000.', or '1.000E-05'"
-                ) from error
-        rows.append(values)
+        rows.append(_unsteady_row(_unsteady_cells(stripped), columns, len(rows) + 1))
     for line in after_rule:
         cells = _unsteady_cells(line)
         if len(cells) >= 2 and all(_is_printed_number(cell) for cell in cells):

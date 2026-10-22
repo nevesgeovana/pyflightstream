@@ -416,6 +416,25 @@ class BladeProperties(BaseModel):
             )
         return values
 
+    def _section_contours_problem(self, n: int) -> str | None:
+        """Return why the section contours do not match the ``n`` stations or are no polygons."""
+        if self.section_contours_m is None:
+            return None
+        if len(self.section_contours_m) != n:
+            return (
+                f"section_contours_m has {len(self.section_contours_m)} sections but "
+                f"there are {n} radial stations; the nodes of a station are placed "
+                "in that station's own section"
+            )
+        for index, contour in enumerate(self.section_contours_m):
+            if len(contour) < 3 or any(len(point) != 2 for point in contour):
+                return (
+                    f"section_contours_m[{index}] is not a polygon of (chordwise, "
+                    "normal) points: it needs three points or more, two coordinates "
+                    "each"
+                )
+        return None
+
     @model_validator(mode="after")
     def _consistent_station_count(self) -> "BladeProperties":
         """Every distribution must be sampled at every station."""
@@ -441,20 +460,9 @@ class BladeProperties(BaseModel):
                 f"index {reversed_at[0]}; the major inertia is the larger one, and "
                 "swapped values flip the sign of the centrifugal pitch moment"
             )
-        if self.section_contours_m is not None:
-            if len(self.section_contours_m) != n:
-                raise ValueError(
-                    f"section_contours_m has {len(self.section_contours_m)} sections but "
-                    f"there are {n} radial stations; the nodes of a station are placed "
-                    "in that station's own section"
-                )
-            for index, contour in enumerate(self.section_contours_m):
-                if len(contour) < 3 or any(len(point) != 2 for point in contour):
-                    raise ValueError(
-                        f"section_contours_m[{index}] is not a polygon of (chordwise, "
-                        "normal) points: it needs three points or more, two coordinates "
-                        "each"
-                    )
+        problem = self._section_contours_problem(n)
+        if problem is not None:
+            raise ValueError(problem)
         if self.provenance is not None:
             for name in ("torsion_grid_cells", "thin_section_torsion_ratio"):
                 m = len(getattr(self.provenance, name))

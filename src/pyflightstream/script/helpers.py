@@ -166,6 +166,35 @@ from pyflightstream.script.toggles import (  # noqa: F401  (resolve_toggle: the 
 from pyflightstream.versions import known_versions
 
 
+def _check_disc_swirl_and_radii(swirl: float | None, r_hub: float, r_tip: float) -> None:
+    """Refuse a swirl fraction outside [0, 1] and radii that enclose no annulus."""
+    if swirl is not None and (isinstance(swirl, bool) or not 0.0 <= swirl <= 1.0):
+        raise CommandArgumentError(
+            f"actuator_disc swirl must lie between 0 and 1, got {swirl}: it is the "
+            "fraction of the swirl velocity kept downstream (FSM-26.120 p.186)"
+        )
+    if not 0.0 <= r_hub < r_tip:
+        raise CommandArgumentError(
+            f"actuator_disc radii must satisfy 0 <= r_hub < r_tip, got r_hub={r_hub} and "
+            f"r_tip={r_tip}: the disc is the annulus between the hub and the tip, and a "
+            "hub at or beyond the tip, or a negative radius, encloses no area"
+        )
+
+
+def _checked_disc_wake_type(script: Script, wake_type: str | None) -> str | None:
+    """Return the upper-cased wake type after checking it against the build's vocabulary."""
+    if wake_type is None:
+        return None
+    wake_type = wake_type.upper()
+    entry = script.entry("SET_ACTUATOR_WAKE_TYPE")
+    allowed = next(arg.values for arg in entry.args if arg.name == "type") or ()
+    if wake_type not in allowed:
+        raise CommandArgumentError(
+            f"actuator_disc wake_type {wake_type!r} is not one of {tuple(allowed)}"
+        )
+    return wake_type
+
+
 def actuator_disc(
     script: Script,
     name: str,
@@ -325,25 +354,8 @@ def actuator_disc(
         _refuse_a_parked_file_of_the_other_kind(
             script, path, writing="input file", helper="actuator_disc"
         )
-    if swirl is not None and (isinstance(swirl, bool) or not 0.0 <= swirl <= 1.0):
-        raise CommandArgumentError(
-            f"actuator_disc swirl must lie between 0 and 1, got {swirl}: it is the "
-            "fraction of the swirl velocity kept downstream (FSM-26.120 p.186)"
-        )
-    if not 0.0 <= r_hub < r_tip:
-        raise CommandArgumentError(
-            f"actuator_disc radii must satisfy 0 <= r_hub < r_tip, got r_hub={r_hub} and "
-            f"r_tip={r_tip}: the disc is the annulus between the hub and the tip, and a "
-            "hub at or beyond the tip, or a negative radius, encloses no area"
-        )
-    if wake_type is not None:
-        wake_type = wake_type.upper()
-        entry = script.entry("SET_ACTUATOR_WAKE_TYPE")
-        allowed = next(arg.values for arg in entry.args if arg.name == "type") or ()
-        if wake_type not in allowed:
-            raise CommandArgumentError(
-                f"actuator_disc wake_type {wake_type!r} is not one of {tuple(allowed)}"
-            )
+    _check_disc_swirl_and_radii(swirl, r_hub, r_tip)
+    wake_type = _checked_disc_wake_type(script, wake_type)
     _check_actuator_creation(
         script,
         frame=frame,
@@ -385,6 +397,16 @@ def _listed_selection(
     listed = list(value)
     _refuse_empty("rotary_motion", argument, listed, every="'all'")
     return listed
+
+
+def _check_wake_stabilization_blades(blades: int | None) -> None:
+    """Refuse a wake stabilization blade count that is a boolean or below 1."""
+    if blades is not None and (isinstance(blades, bool) or blades < 1):
+        raise CommandArgumentError(
+            f"rotary_motion: wake_stabilization_blades is {blades!r}, "
+            "and it is a blade count per rotor, so at least 1. Drop the argument to "
+            "leave the slipstream wake stabilization off"
+        )
 
 
 def rotary_motion(
@@ -485,14 +507,7 @@ def rotary_motion(
         If a cited frame or boundary does not exist, or the motion label is
         already used. These checks precede entity creation.
     """
-    if wake_stabilization_blades is not None and (
-        isinstance(wake_stabilization_blades, bool) or wake_stabilization_blades < 1
-    ):
-        raise CommandArgumentError(
-            f"rotary_motion: wake_stabilization_blades is {wake_stabilization_blades!r}, "
-            "and it is a blade count per rotor, so at least 1. Drop the argument to "
-            "leave the slipstream wake stabilization off"
-        )
+    _check_wake_stabilization_blades(wake_stabilization_blades)
     _reject_bare_label("rotary_motion", "boundaries", boundaries, allows_all=True)
     _reject_bare_label("rotary_motion", "moving_frames", moving_frames, allows_all=True)
     boundaries = _listed_selection("boundaries", boundaries)

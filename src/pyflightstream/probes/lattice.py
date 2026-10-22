@@ -107,6 +107,11 @@ class ProbeLattice(ProbeModel):
                 "up to order 1 without aliasing, plus margin for the distortion "
                 "content downstream surfaces see"
             )
+        self._lateral_geometry_is_physical()
+        return self
+
+    def _lateral_geometry_is_physical(self) -> None:
+        """Check the lateral closure cylinder against the rings and its own stations."""
         # REV010-005. The lateral cylinder had no domain check at all, so a
         # negative closure radius validated: r/R < 0 is not a cylinder on
         # the other side, it is a sign error that the quadrature integrates
@@ -133,7 +138,6 @@ class ProbeLattice(ProbeModel):
                 "cylinder closes the control volume on the side, so it needs both "
                 "a radius and ring stations (or neither)"
             )
-        return self
 
     @property
     def n_r(self) -> int:

@@ -666,8 +666,7 @@ def manual_editions(
             else {}
         )
         parsed = parse_signatures(
-            read(edition.manual, first=edition.chapter[0], last=edition.chapter[1]),
-            sections=labels,
+            read(edition.manual, first=edition.chapter[0], last=edition.chapter[1]), sections=labels
         )
         for name, command in parsed.items():
             if name in known:
@@ -718,9 +717,7 @@ class SurfaceChange:
 
 
 def edition_surfaces(
-    editions: Iterable[Edition],
-    *,
-    reader: Callable[..., Mapping[int, str]] | None = None,
+    editions: Iterable[Edition], *, reader: Callable[..., Mapping[int, str]] | None = None
 ) -> dict[str, tuple[str, ...]]:
     """Read each edition and return the command names it documents.
 
@@ -1242,11 +1239,7 @@ def stale_citations(
             if expected and source != expected:
                 stale.append(
                     StaleCitation(
-                        command=name,
-                        edition=label,
-                        cited=first,
-                        found=None,
-                        reason="wrong source",
+                        command=name, edition=label, cited=first, found=None, reason="wrong source"
                     )
                 )
                 continue
@@ -1339,13 +1332,7 @@ def _edition_from_row(row: dict, where: str, known: str) -> Edition:
             "relative to the working directory and name licensed material this "
             "repository never carries, so a fresh clone has to point them at its own copy"
         )
-    return Edition(
-        label=label,
-        manual=manual,
-        chapter=chapter,
-        index=index,
-        source=source,
-    )
+    return Edition(label=label, manual=manual, chapter=chapter, index=index, source=source)
 
 
 def read_edition_manifest(path: str | Path) -> tuple[Edition, ...]:
@@ -1746,11 +1733,7 @@ def _tokens_in(span: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(_ENUM_TOKEN.findall(span)))
 
 
-def propose_type(
-    *,
-    placeholder: str,
-    description: str,
-) -> tuple[str | None, tuple[str, ...], str]:
+def propose_type(*, placeholder: str, description: str) -> tuple[str | None, tuple[str, ...], str]:
     """Suggest an argument type from the manual's parameter table.
 
     Both strings are keyword-only (PFS-2022.05). A positional Python
@@ -1808,11 +1791,7 @@ def propose_type(
 
 
 def sample_contradiction(
-    command: ManualCommand,
-    *,
-    index: int,
-    proposed: str | None,
-    values: tuple[str, ...] = (),
+    command: ManualCommand, *, index: int, proposed: str | None, values: tuple[str, ...] = ()
 ) -> str | None:
     """Report the sample token a proposed type would refuse.
 
@@ -1924,11 +1903,7 @@ def sample_contradiction(
 
 
 def render_entry(
-    command: ManualCommand,
-    *,
-    source: str,
-    versions: Mapping[str, str],
-    phase: str | None = None,
+    command: ManualCommand, *, source: str, versions: Mapping[str, str], phase: str | None = None
 ) -> str:
     """Render one command as a database entry, for a person to review.
 
@@ -1973,11 +1948,7 @@ def render_entry(
 
     layout, why = propose_layout(command)
     resolved = phase or _PHASE_BY_SECTION.get(command.section or "", "???")
-    lines = [
-        f"{command.name}:",
-        f"  layout: {layout}",
-        f"  phase: {resolved}",
-    ]
+    lines = [f"{command.name}:", f"  layout: {layout}", f"  phase: {resolved}"]
     typed, unanswered = 0, 0
     contradicted: list[str] = []
     if command.inline_args:
@@ -2039,10 +2010,7 @@ def render_entry(
 
 
 def render_chapter(
-    commands: Iterable[ManualCommand],
-    *,
-    source: str,
-    versions: Mapping[str, str],
+    commands: Iterable[ManualCommand], *, source: str, versions: Mapping[str, str]
 ) -> str:
     """Render several entries as one chapter file body, sorted by name.
 
@@ -2212,9 +2180,7 @@ class EditionDelta:
 
 
 def read_edition(
-    edition: Edition,
-    *,
-    reader: Callable[..., Mapping[int, str]] | None = None,
+    edition: Edition, *, reader: Callable[..., Mapping[int, str]] | None = None
 ) -> dict[str, ManualCommand]:
     """Parse one edition's scripting reference, sections included.
 
@@ -2320,14 +2286,7 @@ def documentation_delta(
     return tuple(deltas)
 
 
-def insert_version_row(
-    text: str,
-    *,
-    command: str,
-    canonical: str,
-    status: str,
-    note: str,
-) -> str:
+def insert_version_row(text: str, *, command: str, canonical: str, status: str, note: str) -> str:
     """Insert one single-line version row into a chapter file's text.
 
     The function renders its row through :func:`pyflightstream._yamlflow.flow_mapping`. It accepts

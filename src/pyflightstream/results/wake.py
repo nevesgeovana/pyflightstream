@@ -324,6 +324,13 @@ def _blocks(rows: Iterator[str]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
             raise MalformedOutputError(
                 f"the wake export carries {words[0]!r}, which no wake export writes"
             )
+    return _complete_blocks(points, segments, values)
+
+
+def _complete_blocks(
+    points: np.ndarray | None, segments: np.ndarray | None, values: np.ndarray | None
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return the three blocks once all were read and the segments name only known nodes."""
     if points is None or segments is None or values is None:
         missing = [
             name

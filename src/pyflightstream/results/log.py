@@ -384,6 +384,37 @@ def _residual_cell_is_readable(cell: str) -> bool:
     return True
 
 
+def _block_residual_rows(
+    pages: list[str], *, step: int, next_step: int | None, log_has_pages: bool, pages_seen: bool
+) -> list[list[str]] | None:
+    """Return the residual rows of one time-step block, or None for a repeated marker.
+
+    ``next_step`` is the step number of the following marker, None for the
+    last block. Raises when the block is cut or a row is not readable.
+    """
+    if not pages:
+        if next_step is not None and next_step == step:
+            # Per-step export actions repeat the marker before its table.
+            return None
+        if next_step is None and pages_seen:
+            raise IncompleteOutputError(
+                f"time step {step} ends before its Iteration anchor; recollect the log"
+            )
+        if next_step is not None and log_has_pages:
+            raise IncompleteOutputError(
+                f"time step {step} holds no Iteration page while the log prints them "
+                "for other steps, so the step cannot be judged; recollect the log"
+            )
+    rows = [row for page in pages for row in _page_rows(page)]
+    for row in rows:
+        if len(row) < 3 or not all(_residual_cell_is_readable(cell) for cell in row[1:3]):
+            raise MalformedOutputError(
+                f"time step {step} prints the residual row {row!r}, whose velocity and "
+                "pressure cells are not numbers; the step cannot be judged"
+            )
+    return rows
+
+
 def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> FrozenSolve | None:
     """Detect a freeze from the printed residuals of an unsteady log.
 
@@ -461,30 +492,18 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
         step = int(marker[1])
         end = markers[index + 1].start() if index + 1 < len(markers) else len(clean)
         block = clean[marker.end() : end]
+        pages = RESIDUAL_PAGE.split(block)[1:]
+        if pages:
+            pages_seen = True
+        next_step = int(markers[index + 1][1]) if index + 1 < len(markers) else None
         try:
-            pages = RESIDUAL_PAGE.split(block)[1:]
-            if pages:
-                pages_seen = True
-            if not pages:
-                if index + 1 < len(markers) and int(markers[index + 1][1]) == step:
-                    # Per-step export actions repeat the marker before its table.
-                    continue
-                if index + 1 == len(markers) and pages_seen:
-                    raise IncompleteOutputError(
-                        f"time step {step} ends before its Iteration anchor; recollect the log"
-                    )
-                if index + 1 < len(markers) and log_has_pages:
-                    raise IncompleteOutputError(
-                        f"time step {step} holds no Iteration page while the log prints them "
-                        "for other steps, so the step cannot be judged; recollect the log"
-                    )
-            rows = [row for page in pages for row in _page_rows(page)]
-            for row in rows:
-                if len(row) < 3 or not all(_residual_cell_is_readable(cell) for cell in row[1:3]):
-                    raise MalformedOutputError(
-                        f"time step {step} prints the residual row {row!r}, whose velocity and "
-                        "pressure cells are not numbers; the step cannot be judged"
-                    )
+            rows = _block_residual_rows(
+                pages,
+                step=step,
+                next_step=next_step,
+                log_has_pages=log_has_pages,
+                pages_seen=pages_seen,
+            )
         except (IncompleteOutputError, MalformedOutputError):
             if unjudged is None:
                 raise
@@ -497,6 +516,8 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
             unread = step
             streak = 0
             previous = step
+            continue
+        if rows is None:
             continue
         frozen = (
             bool(rows)

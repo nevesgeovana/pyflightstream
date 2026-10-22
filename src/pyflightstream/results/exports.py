@@ -672,6 +672,24 @@ class OffBodyStreamlinesReport:
         return sum(line.points for line in self.streamlines)
 
 
+def _check_streamlines_complete(
+    pending: int | None, held: int, declared: int, *, what: str
+) -> None:
+    """Refuse a file ending on a dangling point count or holding fewer streamlines than declared."""
+    if pending is not None:
+        raise IncompleteOutputError(
+            f"the {what} ends after a per-streamline point count with no 'Streamline N' "
+            "block after it, so the solver stopped mid-write and a streamline was lost"
+        )
+
+    if held != declared:
+        raise IncompleteOutputError(
+            f"the {what} declares {declared} streamline(s) and holds {held}; the "
+            "solver stopped mid-write, so the flow field this file describes is not the one "
+            "the run generated"
+        )
+
+
 def parse_off_body_streamlines(
     text: str, *, requested_version: str | FsVersion | None = None
 ) -> OffBodyStreamlinesReport:
@@ -806,18 +824,7 @@ def parse_off_body_streamlines(
             counts="streamline points",
         )
     close()
-    if pending is not None:
-        raise IncompleteOutputError(
-            f"the {what} ends after a per-streamline point count with no 'Streamline N' "
-            "block after it, so the solver stopped mid-write and a streamline was lost"
-        )
-
-    if len(streamlines) != declared:
-        raise IncompleteOutputError(
-            f"the {what} declares {declared} streamline(s) and holds {len(streamlines)}; the "
-            "solver stopped mid-write, so the flow field this file describes is not the one "
-            "the run generated"
-        )
+    _check_streamlines_complete(pending, len(streamlines), declared, what=what)
     if requested_version is not None:
         cross_check_version(software.group("version"), requested_version, software.group("build"))
     return OffBodyStreamlinesReport(
@@ -915,6 +922,22 @@ class SurfaceSectionsReport:
     def points(self) -> int:
         """Total number of cut points over every section."""
         return sum(section.count for section in self.sections)
+
+
+def _check_sections_complete(pending: int | None, held: int, declared: int, *, what: str) -> None:
+    """Refuse a file that ends on a dangling edge count or holds fewer sections than declared."""
+    if pending is not None:
+        raise IncompleteOutputError(
+            f"the {what} ends after an 'Edges=' count with no 'Surface cross-section N' "
+            "block after it, so the solver stopped mid-write and a section was lost"
+        )
+
+    if held != declared:
+        raise IncompleteOutputError(
+            f"the {what} declares {declared} surface section(s) and holds {held}; "
+            "the solver stopped mid-write, so the geometry this file describes is not the "
+            "one the run cut"
+        )
 
 
 def parse_surface_sections(
@@ -1053,18 +1076,7 @@ def parse_surface_sections(
         ordinal += 1
         rows.append(_row_values(line, columns=columns, what=what, ordinal=ordinal))
     close()
-    if pending is not None:
-        raise IncompleteOutputError(
-            f"the {what} ends after an 'Edges=' count with no 'Surface cross-section N' "
-            "block after it, so the solver stopped mid-write and a section was lost"
-        )
-
-    if len(sections) != declared:
-        raise IncompleteOutputError(
-            f"the {what} declares {declared} surface section(s) and holds {len(sections)}; "
-            "the solver stopped mid-write, so the geometry this file describes is not the "
-            "one the run cut"
-        )
+    _check_sections_complete(pending, len(sections), declared, what=what)
     if requested_version is not None:
         cross_check_version(software.group("version"), requested_version, software.group("build"))
     return SurfaceSectionsReport(

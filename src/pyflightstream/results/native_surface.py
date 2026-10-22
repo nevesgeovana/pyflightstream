@@ -187,8 +187,8 @@ def _cell_centered_variables(zone: str, variable_count: int) -> set[int]:
     return cell_variables
 
 
-def _read_zone(zone: str, names: list[str], tokens: _Tokens, size: int) -> VtkSurface:
-    """Read and validate one zone's payload, whose header line is ``zone``."""
+def _check_zone_layout(zone: str) -> None:
+    """Refuse a zone that is not the measured BLOCK FEPolygon layout or has boundary connections."""
     if not re.search(r"\bDATAPACKING\s*=\s*BLOCK\b", zone, re.I) or not re.search(
         r"\bZONETYPE\s*=\s*FEPOLYGON\b", zone, re.I
     ):
@@ -197,6 +197,21 @@ def _read_zone(zone: str, names: list[str], tokens: _Tokens, size: int) -> VtkSu
         zone, "TotalNumBoundaryConnections", allow_zero=True
     ):
         raise MalformedOutputError("Native Tecplot connected boundary faces are unsupported")
+
+
+def _next_zone_header(lines: Iterator[str]) -> tuple[list[str], str]:
+    """Consume ``lines`` up to the next ZONE line; return the lines before it and that line."""
+    header: list[str] = []
+    for line in lines:
+        if line.lstrip().upper().startswith("ZONE "):
+            return header, line.strip()
+        header.append(line)
+    return header, ""
+
+
+def _read_zone(zone: str, names: list[str], tokens: _Tokens, size: int) -> VtkSurface:
+    """Read and validate one zone's payload, whose header line is ``zone``."""
+    _check_zone_layout(zone)
     nodes, elements, faces = (_count(zone, key) for key in ("NODES", "ELEMENTS", "FACES"))
     if nodes * len(names) + 4 * faces > size:
         raise IncompleteOutputError(
@@ -291,13 +306,7 @@ def read_native_tecplot_zones(source: str | Path, *, zones: int = 1) -> list[Vtk
         lines = iter(stream)
         tokens = _Tokens(lines)
         while len(surfaces) < zones:
-            header: list[str] = []
-            zone = ""
-            for line in lines:
-                if line.lstrip().upper().startswith("ZONE "):
-                    zone = line.strip()
-                    break
-                header.append(line)
+            header, zone = _next_zone_header(lines)
             if not zone:
                 if not surfaces:
                     raise IncompleteOutputError("Native Tecplot ends before its ZONE")
@@ -479,13 +488,7 @@ def native_printed_digits(source: str | Path) -> int | None:
     """
     try:
         with Path(source).open(encoding="utf-8-sig") as stream:
-            header: list[str] = []
-            zone = ""
-            for line in stream:
-                if line.lstrip().upper().startswith("ZONE "):
-                    zone = line.strip()
-                    break
-                header.append(line)
+            header, zone = _next_zone_header(stream)
             if not zone or "VARIABLES" not in "".join(header).upper():
                 return None
             names = _variable_names("".join(header))

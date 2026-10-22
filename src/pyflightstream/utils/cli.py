@@ -674,6 +674,73 @@ def _register_destination(parser: argparse.ArgumentParser, args: argparse.Namesp
     return directory
 
 
+def _print_edition_report(result) -> None:
+    """Print the verdict counts and the named deltas of a registered edition."""
+    target, previous = result.target, result.previous
+    changed = result.by_verdict(EditionVerdict.CHANGED)
+    dropped = result.by_verdict(EditionVerdict.DROPPED)
+    arrived = result.by_verdict(EditionVerdict.ARRIVED)
+    never = result.by_verdict(EditionVerdict.ABSENT)
+    unchanged = result.by_verdict(EditionVerdict.UNCHANGED)
+
+    print(f"{target.label} ({target.source}) against {previous.label} ({previous.source})")
+    print(f"  {len(unchanged)} unchanged, so a row can be written from the reading")
+    print(f"  {len(result.already_recorded)} of those already record {target.label}")
+    print(f"  {len(changed)} described differently, reported and NOT written")
+    print(f"  {len(arrived)} newly documented by this edition, which owes an entry")
+    # THE LOSSES ARE NAMED, NOT COUNTED, and the two kinds are separated.
+    # A command the predecessor documented and this edition does not is a
+    # vendor removal or a rename and is the thing that breaks a user's
+    # script silently; a command NEITHER edition documents is ordinary
+    # and says nothing about this build. Collapsing both into one count
+    # is what hid the two changes the vendor made to this edition.
+    print(f"  {len(dropped)} DROPPED by this edition, which its predecessor documented")
+    print(f"  {len(never)} recorded here and printed by neither edition")
+    print(f"  {len(result.undatabased)} documented and not in the database")
+
+    moved = [d for d in unchanged if d.repaginated]
+    _print_section(
+        f"\n  repaginated without changing ({len(moved)}), which a page rule would drop:",
+        [f"    {d.name}: p.{d.previous_page} -> p.{d.page}" for d in moved],
+    )
+    _print_section(
+        "\n  a reading is owed on each of these:",
+        [
+            f"    {d.name}: p.{d.previous_page} -> p.{d.page}  differs in {', '.join(d.differs_in)}"
+            for d in changed
+        ],
+    )
+    _print_section(
+        "\n  newly documented by this edition, so each owes an entry of its own:",
+        [f"    {d.name} ({target.source} p.{d.page})" for d in arrived],
+    )
+    _print_section(
+        f"\n  withheld, with no row written ({len(result.withheld)}):",
+        [
+            f"    {d.name}: measured broken/removed on {previous.label}; "
+            f"needs a probe on {target.label}"
+            for d in result.withheld
+        ],
+    )
+    _print_section(
+        "\n  dropped by this edition, so each owes a judgement of its own:",
+        [f"    {d.name} (was {previous.source} p.{d.previous_page})" for d in dropped],
+    )
+    _print_section(
+        "\n  documented by this edition and absent from the database:",
+        [f"    {name}" for name in result.undatabased],
+    )
+
+
+def _print_section(heading: str, rows: list[str]) -> None:
+    """Print a heading and its rows, or nothing when there are no rows."""
+    if not rows:
+        return
+    print(heading)
+    for row in rows:
+        print(row)
+
+
 def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     """Write documented rows for the commands a new edition did not change.
 
@@ -707,57 +774,7 @@ def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         print(f"refused: {error}", file=sys.stderr)
         return 1
 
-    target, previous = result.target, result.previous
-    changed = result.by_verdict(EditionVerdict.CHANGED)
-    dropped = result.by_verdict(EditionVerdict.DROPPED)
-    arrived = result.by_verdict(EditionVerdict.ARRIVED)
-    never = result.by_verdict(EditionVerdict.ABSENT)
-    unchanged = result.by_verdict(EditionVerdict.UNCHANGED)
-
-    print(f"{target.label} ({target.source}) against {previous.label} ({previous.source})")
-    print(f"  {len(unchanged)} unchanged, so a row can be written from the reading")
-    print(f"  {len(result.already_recorded)} of those already record {target.label}")
-    print(f"  {len(changed)} described differently, reported and NOT written")
-    print(f"  {len(arrived)} newly documented by this edition, which owes an entry")
-    # THE LOSSES ARE NAMED, NOT COUNTED, and the two kinds are separated.
-    # A command the predecessor documented and this edition does not is a
-    # vendor removal or a rename and is the thing that breaks a user's
-    # script silently; a command NEITHER edition documents is ordinary
-    # and says nothing about this build. Collapsing both into one count
-    # is what hid the two changes the vendor made to this edition.
-    print(f"  {len(dropped)} DROPPED by this edition, which its predecessor documented")
-    print(f"  {len(never)} recorded here and printed by neither edition")
-    print(f"  {len(result.undatabased)} documented and not in the database")
-
-    moved = [d for d in unchanged if d.repaginated]
-    if moved:
-        print(f"\n  repaginated without changing ({len(moved)}), which a page rule would drop:")
-        for delta in moved:
-            print(f"    {delta.name}: p.{delta.previous_page} -> p.{delta.page}")
-    if changed:
-        print("\n  a reading is owed on each of these:")
-        for delta in changed:
-            where = f"p.{delta.previous_page} -> p.{delta.page}"
-            print(f"    {delta.name}: {where}  differs in {', '.join(delta.differs_in)}")
-    if arrived:
-        print("\n  newly documented by this edition, so each owes an entry of its own:")
-        for delta in arrived:
-            print(f"    {delta.name} ({target.source} p.{delta.page})")
-    if result.withheld:
-        print(f"\n  withheld, with no row written ({len(result.withheld)}):")
-        for delta in result.withheld:
-            print(
-                f"    {delta.name}: measured broken/removed on {previous.label}; "
-                f"needs a probe on {target.label}"
-            )
-    if dropped:
-        print("\n  dropped by this edition, so each owes a judgement of its own:")
-        for delta in dropped:
-            print(f"    {delta.name} (was {previous.source} p.{delta.previous_page})")
-    if result.undatabased:
-        print("\n  documented by this edition and absent from the database:")
-        for name in result.undatabased:
-            print(f"    {name}")
+    _print_edition_report(result)
 
     if not args.write:
         print(
@@ -766,7 +783,10 @@ def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         )
         return 0
     if not result.written:
-        print(f"\n{target.label} is already recorded for every unchanged command; nothing to do.")
+        print(
+            f"\n{result.target.label} is already recorded for every unchanged command; "
+            "nothing to do."
+        )
         return 0
     print(
         f"\nwrote {result.written} row(s) across {len(result.chapters)} chapter file(s) "
@@ -837,6 +857,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "coverage":
         return _print_coverage(args, report)
 
+    return _draft(args, report)
+
+
+def _draft(args: argparse.Namespace, report) -> int:
+    """Draft the absent commands the arguments select; write them only on ``--write``."""
     wanted = [
         command
         for name, command in report.details.items()

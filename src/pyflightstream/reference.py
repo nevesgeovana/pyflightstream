@@ -1243,6 +1243,16 @@ def markdown_build_table() -> str:
     return "\n".join(lines)
 
 
+def _drop_leading_docstring(lines: list[str]) -> None:
+    """Remove, in place, the triple-quoted docstring that opens ``lines``."""
+    first = lines.pop(0).strip()
+    if not (first.endswith('"""') and len(first) > 3):
+        while lines and '"""' not in lines[0]:
+            lines.pop(0)
+        if lines:
+            lines.pop(0)
+
+
 def percent_script_markdown(source: str) -> str:
     """Render a percent-format example script as one markdown page.
 
@@ -1278,12 +1288,7 @@ def percent_script_markdown(source: str) -> str:
         if not is_markdown and lines:
             code_cells_seen += 1
         if module_cell and lines[0].startswith('"""'):
-            first = lines.pop(0).strip()
-            if not (first.endswith('"""') and len(first) > 3):
-                while lines and '"""' not in lines[0]:
-                    lines.pop(0)
-                if lines:
-                    lines.pop(0)
+            _drop_leading_docstring(lines)
         body = "\n".join(lines).strip("\n")
         if not body:
             return

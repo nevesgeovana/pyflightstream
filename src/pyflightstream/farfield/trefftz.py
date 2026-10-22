@@ -541,6 +541,39 @@ def _edge_trace(
     )
 
 
+def _check_wake_line_shapes(lines: Sequence[np.ndarray]) -> None:
+    """Raise :class:`FarfieldInputError` for a wake line that is not an ``(n, 3)`` node chain."""
+    for k, line in enumerate(lines):
+        shape = np.asarray(line, dtype=float).shape
+        if len(shape) != 2 or shape[0] < 1 or shape[1] != 3:
+            raise FarfieldInputError(
+                f"wake line {k} must be a non-empty array of (x, y, z) nodes, shape (n, 3); "
+                f"got shape {shape}"
+            )
+
+
+def _first_crossings(lines: Sequence[np.ndarray], x_t: float) -> tuple[np.ndarray, int, int]:
+    """Return each first crossing of ``x = x_t``, the short count, the count starting downstream."""
+    crossings = np.full((len(lines), 3), np.nan)
+    short = 0
+    downstream = 0
+    for k, line in enumerate(lines):
+        nodes = np.asarray(line, dtype=float)
+        side = nodes[:, 0] - x_t
+        hit = np.flatnonzero((side[:-1] <= 0.0) & (side[1:] >= 0.0) & (side[:-1] != side[1:]))
+        if side[0] == 0.0:
+            crossings[k] = nodes[0]
+            continue
+        if hit.size == 0:
+            downstream += int(side[0] > 0.0)
+            short += 1
+            continue
+        j = int(hit[0])
+        t = (x_t - nodes[j, 0]) / (nodes[j + 1, 0] - nodes[j, 0])
+        crossings[k] = nodes[j] + t * (nodes[j + 1] - nodes[j])
+    return crossings, short, downstream
+
+
 def wake_crossings(lines: Sequence[np.ndarray], *, values: np.ndarray, x_t: float) -> WakeTrace:
     """Cut each wake line at its first crossing of the plane ``x = x_t`` (FR-452).
 
@@ -575,35 +608,13 @@ def wake_crossings(lines: Sequence[np.ndarray], *, values: np.ndarray, x_t: floa
     values = np.asarray(values, dtype=float)
     if len(lines) != len(values):
         raise FarfieldInputError("the wake needs one value per line")
-    for k, line in enumerate(lines):
-        shape = np.asarray(line, dtype=float).shape
-        if len(shape) != 2 or shape[0] < 1 or shape[1] != 3:
-            raise FarfieldInputError(
-                f"wake line {k} must be a non-empty array of (x, y, z) nodes, shape (n, 3); "
-                f"got shape {shape}"
-            )
+    _check_wake_line_shapes(lines)
     starts = (
         np.array([np.asarray(line, dtype=float)[0] for line in lines])
         if lines
         else np.empty((0, 3))
     )
-    crossings = np.full((len(lines), 3), np.nan)
-    short = 0
-    downstream = 0
-    for k, line in enumerate(lines):
-        nodes = np.asarray(line, dtype=float)
-        side = nodes[:, 0] - x_t
-        hit = np.flatnonzero((side[:-1] <= 0.0) & (side[1:] >= 0.0) & (side[:-1] != side[1:]))
-        if side[0] == 0.0:
-            crossings[k] = nodes[0]
-            continue
-        if hit.size == 0:
-            downstream += int(side[0] > 0.0)
-            short += 1
-            continue
-        j = int(hit[0])
-        t = (x_t - nodes[j, 0]) / (nodes[j + 1, 0] - nodes[j, 0])
-        crossings[k] = nodes[j] + t * (nodes[j + 1] - nodes[j])
+    crossings, short, downstream = _first_crossings(lines, x_t)
     empty = np.empty(0)
     if short:
         text = f"{short} of {len(lines)} wake lines end before the plane"

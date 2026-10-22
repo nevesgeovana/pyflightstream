@@ -19,6 +19,7 @@ import enum
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import partial
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -1587,18 +1588,21 @@ def classify_executable(
     name = Path(fs_exe).name
     recorded = baseline.get(resolved.canonical)
     baseline_sha256 = (recorded or {}).get("sha256") or None
+    identity = partial(
+        ExecutableIdentity,
+        version=resolved.canonical,
+        fs_exe_name=name,
+        fs_exe_sha256=digest,
+        baseline_sha256=baseline_sha256,
+    )
     common = (
         f"executable {name} sha256 {digest}; baseline for {resolved.canonical} "
         f"{baseline_sha256 or 'not recorded'}"
     )
     if printed_build is None:
         if baseline_sha256 == digest:
-            return ExecutableIdentity(
+            return identity(
                 verdict=ExecutableVerdict.TRANSFERS,
-                version=resolved.canonical,
-                fs_exe_name=name,
-                fs_exe_sha256=digest,
-                baseline_sha256=baseline_sha256,
                 printed_build=None,
                 registry_build=resolved.build,
                 message=(
@@ -1607,12 +1611,8 @@ def classify_executable(
                     f"it transfers untouched and no seat is spent. {common}"
                 ),
             )
-        return ExecutableIdentity(
+        return identity(
             verdict=ExecutableVerdict.UNKNOWN,
-            version=resolved.canonical,
-            fs_exe_name=name,
-            fs_exe_sha256=digest,
-            baseline_sha256=baseline_sha256,
             printed_build=None,
             registry_build=resolved.build,
             message=(
@@ -1633,12 +1633,8 @@ def classify_executable(
     if resolved.build is None:
         # PFS-2102.003. A registry with no build recorded has no number to
         # match, so CONFIRMED named a match that did not exist.
-        return ExecutableIdentity(
+        return identity(
             verdict=ExecutableVerdict.UNKNOWN,
-            version=resolved.canonical,
-            fs_exe_name=name,
-            fs_exe_sha256=digest,
-            baseline_sha256=baseline_sha256,
             printed_build=printed_build,
             registry_build=None,
             message=(
@@ -1651,12 +1647,8 @@ def classify_executable(
             ),
         )
     if printed_build != resolved.build:
-        return ExecutableIdentity(
+        return identity(
             verdict=ExecutableVerdict.MISMATCH,
-            version=resolved.canonical,
-            fs_exe_name=name,
-            fs_exe_sha256=digest,
-            baseline_sha256=baseline_sha256,
             printed_build=printed_build,
             registry_build=resolved.build,
             message=(
@@ -1669,12 +1661,8 @@ def classify_executable(
     if baseline_sha256 is not None and baseline_sha256 != digest:
         # The printed build alone cannot confirm bytes the baseline records otherwise:
         # a relicensed or hotfixed executable prints the same build.
-        return ExecutableIdentity(
+        return identity(
             verdict=ExecutableVerdict.UNKNOWN,
-            version=resolved.canonical,
-            fs_exe_name=name,
-            fs_exe_sha256=digest,
-            baseline_sha256=baseline_sha256,
             printed_build=printed_build,
             registry_build=resolved.build,
             message=(
@@ -1684,12 +1672,8 @@ def classify_executable(
                 f"the evidence transfers. {common}"
             ),
         )
-    return ExecutableIdentity(
+    return identity(
         verdict=ExecutableVerdict.CONFIRMED,
-        version=resolved.canonical,
-        fs_exe_name=name,
-        fs_exe_sha256=digest,
-        baseline_sha256=baseline_sha256,
         printed_build=printed_build,
         registry_build=resolved.build,
         message=(
