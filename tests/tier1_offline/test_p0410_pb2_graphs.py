@@ -172,3 +172,26 @@ def test_p0410_flow_edges_follow_declared_inputs_outputs(tmp_path):
         source.read_text().replace("active_only: bool = True", "active_only: bool = False")
     )
     assert gen.flow_data(tmp_path) != after
+
+
+def test_p0430_a_repeated_data_flow_case_id_is_refused(tmp_path):
+    """F-848: two data-flow cases with one id would write one SVG over the other."""
+    import shutil
+
+    gen = generator()
+    declaration = json.loads((ROOT / "scripts/pipeline_graph.json").read_text())
+    (tmp_path / "scripts").mkdir()
+    for stage in declaration["stages"]:
+        relative = "src/pyflightstream/" + stage["source"]
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / relative, target)
+    for case in declaration["cases"]:
+        for route in ("workspace", "api"):
+            target = tmp_path / case[route]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / case[route], target)
+    declaration["cases"].append(dict(declaration["cases"][0]))
+    (tmp_path / "scripts/pipeline_graph.json").write_text(json.dumps(declaration))
+    with pytest.raises(ValueError, match="duplicate data-flow case id"):
+        gen.flow_data(tmp_path)

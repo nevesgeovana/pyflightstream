@@ -50,6 +50,10 @@ def flow_data(root: Path) -> dict:
         for artifact in left["outputs"]
         if artifact in right["inputs"]
     ]
+    case_ids = [case["id"] for case in data["cases"]]
+    repeated = sorted({case_id for case_id in case_ids if case_ids.count(case_id) > 1})
+    if repeated:
+        raise ValueError(f"duplicate data-flow case id(s): {', '.join(repeated)}")
     for case in data["cases"]:
         if not set(case["stages"]) <= stages.keys():
             raise ValueError(f"unknown stage in {case['id']}")
