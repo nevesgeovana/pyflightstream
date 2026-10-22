@@ -179,12 +179,11 @@ What the stage can claim is bounded, and the bound is part of the method. Verifi
 
 ### WKSP Keep the laboratory
 
-A facility's archive files every test under one number so that plan, log, raw data and report are retrievable together. The workspace stage keeps the governing state in reviewable plain text, references bulk outputs by content hash, publishes files whole or not at all, accounts for every storage operation, keeps machine-local settings out of shared files, and derives identities that are stable across machines.
+A facility's archive files every test under one number so that plan, log, raw data and report are retrievable together. The workspace stage keeps the governing state in reviewable plain text, publishes files whole or not at all, accounts for every storage operation, keeps machine-local settings out of shared files, and derives identities that are stable across machines.
 
 | UID | Level | Statement | Rationale | Analogy | Verification | Source |
 | --- | --- | --- | --- | --- | --- | --- |
 | NL-WKSP-1 | L1 | The system shall keep the governing state of an experiment, the protocol, the configuration and the records, in plain-text files that a version control system can compare and merge. | Changes to the protocol and the records remain reviewable under version control; textual mergeability does not guarantee semantic validity after a merge, which the planning refusals cover. | The test file is paper and ink, not a proprietary cartridge: anyone can read a page, compare two revisions and see what changed. | inspection: the complete governing-artifact inventory is inspected; review and conflict resolution depend on no opaque local state. | FAIR4RS [REF-78]; NASA-STD-7009B 4.1.1 [REF-25] |
-| NL-WKSP-2 | L1 | The system shall reference each retained bulk instrument output from the records by a content hash recorded with the experiment identity, preserving the bytes while the output remains retained. | Content identity and semantic equivalence are different relations; the hash is the identity and the bytes behind the hash are evidence until a recorded deletion ends retention. | Raw data tapes are catalogued by an identifier in the test file and stored read-only; the catalogue is the record, the tape is the evidence. | test: retained output references resolve to byte-exact hashes across collection, synchronization and storage maintenance, replaced paths and archived versions included. | W3C PROV [REF-80]; FAIR4RS [REF-78]; VIM 2.41 [REF-60] |
 | NL-WKSP-4 | L1 | The system shall publish every file of the laboratory whole or not at all, so that an interrupted write leaves the previous complete version in place. | Single-file replacement and multi-file transaction recovery are separate acceptance scopes of one guarantee: a reader never sees a half-written governing file. | A data sheet is filed only when complete; a sheet interrupted mid-entry is not put in the test file. | test: interrupting every inventoried publication boundary leaves complete recoverable file versions. | NASA-STD-7009B 4.1.1 [REF-25]; ISO/IEC 25010 3.5 (recoverability) [REF-77] |
 | NL-WKSP-5 | L1 | The system shall record the authorized selection, the applied policy and the actual changes of each storage operation, previewing by default any operation that deletes or prunes retained evidence. | Deletion, pruning, synchronization and accounting refine one storage-operation contract; evidence in flight is never deleted, and every applied call leaves a record. | Archive disposal needs a signed disposal list, reviewed before the shredder runs, and the list stays in the archive. | test: preview and applied operation records match filesystem changes, protected files and explicit manifest selection. | NASA-STD-7009B 4.1.1 [REF-25]; FAIR4RS [REF-78] |
 | NL-WKSP-6 | L1 | The system shall keep machine-local execution settings, storage paths and machine identity out of the shared experiment configuration and published artifacts. | Portability requires explicit local configuration, not a claim that original paths never matter; what is shared or published carries no machine identity. | The test file describes the test, not the desk it was written on; moving the archive to another building changes nothing in the file. | test: the same shared experiment moved between distinct machine profiles shows the expected precedence and published artifacts free of local paths. | FAIR4RS [REF-78]; NASA-STD-7009B 4.1.1 [REF-25]; ISO/IEC 25010 3.6 [REF-77] |
@@ -213,7 +212,8 @@ A retired UID keeps its place in the numbering and is never reused. Each one nam
 | --- | --- |
 | `NL-PHYS-5` | NL-RECS-2 (evidence classes carry the origin and limitation of every resolved model value) |
 | `NL-TRST-4` | NL-SPCM-5 (the quality and provenance checks of a specimen are one acceptance gate) |
-| `NL-WKSP-3` | NL-WKSP-2 (identity and preservation of a retained output are one obligation) |
+| `NL-WKSP-2` | NL-WKSP-4 and NL-WKSP-5 (a retained output is kept whole and every storage operation on it is recorded; the content-hash reference from the records rested on a feature parked at the 0.43.0 trim) |
+| `NL-WKSP-3` | NL-WKSP-4 and NL-WKSP-5 (identity and preservation of a retained output are one obligation, carried as NL-WKSP-2 was) |
 | `NL-OPER-4` | the quality requirements (dependency, maturity and retirement contracts are a compatibility and maintainability constraint, not a stage of the experiment) |
 
 ## Verification owed
@@ -230,7 +230,6 @@ The method admits no aspirational requirement: a central requirement stays in th
 | `NL-RECS-6` | the processor count and the machine description in every run record, beside the wall time already recorded. |
 | `NL-TRST-1` | a failing-residual control behind the convergence verdict. |
 | `NL-TRST-5` | a restoration control that accepts every valid restored state. |
-| `NL-WKSP-2` | content-hash references from the records to every retained bulk output. |
 | `NL-WKSP-7` | workbook digests free of embedded timestamps. |
 | `NL-OPER-2` | a test of the observation operations with the network disabled. |
 
