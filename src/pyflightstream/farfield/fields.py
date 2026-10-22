@@ -363,8 +363,9 @@ def hub_frame_velocities(
     """Convert velocities sampled in a frame turning with a rotor to its hub frame.
 
     A quasi-steady rotor holds its blades still and carries the rotation in the
-    free stream, so a probe there reads the velocity relative to a frame that
-    turns at ``omega`` about ``axis``. The hub-frame velocity adds back the
+    free stream, so a probe there is taken to read the velocity relative to a frame that
+    turns at ``omega`` about ``axis`` (FR-1037; not measured in a committed report).
+    The hub-frame velocity adds back the
     frame velocity at the probe, ``v_hub = v + Omega x (x - x_hub)`` with
     ``Omega = omega axis`` (FR-1037). The positions are not moved: the
     balances of one solve read the field at one instant, where the two frames
