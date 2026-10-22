@@ -1504,6 +1504,54 @@ class PerRevolutionSpec(BaseModel):
     drift_limit_pct: float = Field(default=DEFAULT_DRIFT_LIMIT_PCT, gt=0.0, allow_inf_nan=False)
 
 
+class RefinementStudySpec(BaseModel):
+    """The ``[refinement]`` table: a declared refinement study (NL-TRST-7).
+
+    ``levels`` names the three simulations of one study, FINEST FIRST: the same
+    polar solved on three discretizations, three mesh levels in space or three
+    time steps in time. ``spacings`` states each level's representative size in
+    the same order (a cell size, or the time step), positive and increasing;
+    omitted, it is read from each level's polar, ``h = MESH_FACES^(-1/2)`` for
+    the surface mesh, which only a mesh study has. ``safety_factor`` is the
+    ``Fs`` of the grid convergence index, 1.25 for three levels.
+
+    The post writes, beside the finest level's polars, the observed order, the
+    extrapolated value and the uncertainty band of every coefficient of every
+    point (:func:`pyflightstream.post.polar.grid_convergence`).
+
+    Examples
+    --------
+    >>> RefinementStudySpec(levels=["7001", "7002", "7003"], spacings=[1.0, 2.0, 4.0]).levels
+    ['7001', '7002', '7003']
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The three simulations of the study, finest first.
+    levels: list[str]
+    #: Each level's representative size, finest first; from the mesh when omitted.
+    spacings: list[float] | None = None
+    #: The safety factor of the grid convergence index.
+    safety_factor: float = Field(default=1.25, ge=1.0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def _three_distinct_levels_finest_first(self) -> RefinementStudySpec:
+        if len(self.levels) != 3 or len(set(self.levels)) != 3:
+            raise ValueError(
+                f"refinement levels {self.levels} are not three distinct simulations; a "
+                "grid convergence index is estimated from exactly three levels, finest first"
+            )
+        spacings = self.spacings
+        if spacings is not None and (
+            len(spacings) != 3 or not 0.0 < spacings[0] < spacings[1] < spacings[2]
+        ):
+            raise ValueError(
+                f"refinement spacings {spacings} are not three positive sizes increasing "
+                "from the finest level"
+            )
+        return self
+
+
 class PhaseLockedSpec(BaseModel):
     """The ``[phase_locked]`` table: when the reduction exists, and over how much.
 
@@ -2025,6 +2073,10 @@ class PprocSpec(BaseModel):
     #: them, and the diagnostic it writes; absent, no route and no diagnostic.
     #: No route is validated (:mod:`pyflightstream.cases.corrections`).
     qsteady_correction: QsteadyCorrectionSpec | None = None
+    #: ``[refinement]``, OPTIONAL: a refinement study over simulations, from which
+    #: the post estimates the numerical uncertainty of each coefficient of their
+    #: polars (NL-TRST-7); absent, no estimate is written.
+    refinement: RefinementStudySpec | None = None
     #: ``[equations]``, keyed by the derived coefficient's own name; the value
     #: says what it is and which alias it is about. The post stage evaluates
     #: them, in :meth:`equation_order`, into the unsteady polar.

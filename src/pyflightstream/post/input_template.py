@@ -342,6 +342,9 @@ settings_codebook = true
 installed_frame = []  # "probes" and/or "inflow": copies mirrored through y = 0
 """
 
+#: The reason a key of a left-out table is left out: its table is, for the reason above.
+_ABOVE = "the table is left out, for the reason above"
+
 _SURFACE_PROBE_EXAMPLE = """\
 # Select this artifact only for an unsteady row. Coordinates are local metres.
 # This native surface history is separate from off-body fluid probes.
@@ -1049,6 +1052,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                         "an unsteady row's surface average, which a steady row refuses; "
                         "INPUTS.md names the builds": ("time_averaging",),
                         "exploratory loading noise requires an explicit opt-in": ("noise",),
+                        "a study names the simulations of its levels": ("refinement",),
                         "an unsteady rotor's drift limit, 1 per cent where the table is absent": (
                             "per_revolution",
                         ),
@@ -1058,17 +1062,14 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                         ),
                     }
                 ),
+                "`[refinement]`": MappingProxyType(
+                    {_ABOVE: ("levels", "spacings", "safety_factor")}
+                ),
                 "`[per_revolution]`": MappingProxyType(
                     {"the table is left out, for the reason above": ("drift_limit_pct",)}
                 ),
                 "`[qsteady_correction]`": MappingProxyType(
-                    {
-                        "the table is left out, for the reason above": (
-                            "route",
-                            "file",
-                            "diagnostic",
-                        ),
-                    }
+                    {_ABOVE: ("route", "file", "diagnostic")}
                 ),
                 "`[time_averaging]`": MappingProxyType(
                     {

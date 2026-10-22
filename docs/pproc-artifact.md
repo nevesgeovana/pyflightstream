@@ -658,6 +658,35 @@ fewer than two points, gets no trimmed polar, and the post names it under
 `pyflightstream.post.write_trimmed_polar` writes the same file from any polar
 table.
 
+### Numerical uncertainty from a refinement study
+
+A `[refinement]` table declares a refinement study: three simulations that
+solve the same polar on three discretizations, finest first, three mesh levels
+in space or three time steps in time.
+
+```toml
+[refinement]
+levels = ["7001", "7002", "7003"] # simulations, finest first
+spacings = [1.0, 2.0, 4.0] # each level's size, finest first; omitted: MESH_FACES^(-1/2)
+safety_factor = 1.25 # Fs of the grid convergence index
+```
+
+`spacings` is each level's representative size, a cell size or the time step,
+positive and increasing; without it the size is read from each level's polar,
+`MESH_FACES` faces giving `h = MESH_FACES^(-1/2)`, which only a mesh study has.
+For every group the three levels' polars share, the post writes
+`polars/GCI-P<finest>_g<group>.csv` beside the polars: per point and per
+coefficient the three values `F1, F2, F3`, the three sizes `H1, H2, H3`, the
+observed order of convergence `ORDER`, the Richardson extrapolation
+`EXTRAPOLATED`, the fine-level grid convergence index `GCI_FINE` (relative to
+`F1`) and `U_NUM`, the same band in the coefficient's own units: the numerical
+uncertainty of the finest result. A coefficient whose changes between levels
+alternate in sign, stall or grow with refinement estimates no order; its cells
+read `NA` and `NOTE` says why. A study whose levels were not all posted, or whose
+polars do not hold the same points, is named under `skipped`.
+`pyflightstream.post.polar.grid_convergence` computes one estimate from three
+values and three sizes.
+
 ### A run's provenance, in an interchange format
 
 Beside the tables, the stage writes one provenance document per recorded

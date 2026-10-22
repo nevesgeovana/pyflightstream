@@ -523,6 +523,7 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
         "`[phase_locked]`": [f.get("phase_locked", {}) for f in data],
         # 0.31.0: the per-revolution drift limit and the wheel's correction route.
         "`[per_revolution]`": [f.get("per_revolution", {}) for f in data],
+        "`[refinement]`": [f.get("refinement", {}) for f in data],
         "`[qsteady_correction]`": [f.get("qsteady_correction", {}) for f in data],
         "`[equations.<NAME>]`": [e for f in data for e in f.get("equations", {}).values()],
         "`[exports]`": [f.get("exports", {}) for f in data],

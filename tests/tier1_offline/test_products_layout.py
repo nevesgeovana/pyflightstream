@@ -580,3 +580,107 @@ def test_p0430_the_pproc_asks_for_the_trimmed_polar_beside_each_polar(tmp_path):
     refused = manifest["skipped"]["polars/P6001-M200RE1177AL+sweepBE+000_g01_trim.csv"]
     assert "never crosses zero" in refused
     assert not (out / "polars/P6001-M200RE1177AL+sweepBE+000_g01_trim.csv").exists()
+
+
+@pytest.mark.requirement("NL-TRST-7")
+@pytest.mark.parametrize("spacings", [(1.0, 2.0, 4.0), (1.0, 1.5, 3.0)])
+def test_p0430_a_manufactured_refinement_study_yields_its_order_and_a_band_holding_the_error(
+    spacings,
+):
+    """f(h) = 0.3 + 0.02 h^2: the observed order is 2 and the band contains the exact error."""
+    from pyflightstream.post.polar import grid_convergence
+
+    exact = 0.3
+    values = [exact + 0.02 * h * h for h in spacings]
+    study = grid_convergence(values, spacings)
+    assert study.order == pytest.approx(2.0, abs=1e-9)
+    assert study.extrapolated == pytest.approx(exact, abs=1e-12)
+    assert abs(values[0] - exact) <= study.uncertainty
+    assert study.gci_fine == pytest.approx(study.uncertainty / values[0])
+
+
+@pytest.mark.requirement("NL-TRST-7")
+@pytest.mark.parametrize(
+    ("values", "spacings", "said"),
+    [
+        ([1.0, 1.2, 1.1], [1.0, 2.0, 4.0], "not of one sign"),
+        ([1.0, 1.0, 1.1], [1.0, 2.0, 4.0], "not of one sign"),
+        ([1.0, 1.4, 1.5], [1.0, 2.0, 4.0], "move away"),
+        ([1.0, 1.1, 1.3], [2.0, 1.0, 4.0], "increasing"),
+        ([1.0, 1.1], [1.0, 2.0], "three finite values"),
+    ],
+)
+def test_p0430_a_refinement_study_with_no_observed_order_is_refused(values, spacings, said):
+    """Oscillatory, stalled or diverging levels, or a malformed study, estimate nothing."""
+    from pyflightstream.post.polar import grid_convergence
+    from pyflightstream.post.products import ProductError
+
+    with pytest.raises(ProductError, match=said):
+        grid_convergence(values, spacings)
+
+
+def _three_levels(tmp_path):
+    """The two-polar campaign with simulation 6001 solved on three levels (6001, 6003, 6004).
+
+    Every coefficient of a level is the finest's scaled by ``1 + 0.01 h^2`` with
+    h = 1, 2, 4, so each converges at order 2 to the unscaled value.
+    """
+    import re
+
+    from tests.tier1_offline.test_post_superfile import _workspace as _two_polars
+
+    workspace = _two_polars(tmp_path)
+    pproc = workspace.inputs_dir / "pproc" / "p001.toml"
+    pproc.write_text(
+        pproc.read_text(encoding="utf-8")
+        + '[refinement]\nlevels = ["6001", "6003", "6004"]\nspacings = [1.0, 2.0, 4.0]\n',
+        encoding="utf-8",
+    )
+    number = re.compile(r"[+-]\d+\.\d{7}")
+    records = [record for record in workspace.read_manifest() if record.sim_id == "6001"]
+    originals = {
+        record.run_id: (workspace.sim_dir("6001") / record.outputs[0]).read_text(encoding="utf-8")
+        for record in records
+    }
+    for level, h in (("6001", 1.0), ("6003", 2.0), ("6004", 4.0)):
+        factor = 1.0 + 0.01 * h * h
+        folder = workspace.sim_dir(level) / "outputs"
+        folder.mkdir(parents=True, exist_ok=True)
+        for record in records:
+            name = Path(record.outputs[0]).name.replace("6001", level)
+            lines = [
+                number.sub(lambda found, k=factor: f"{float(found.group()) * k:+.7f}", line)
+                if line.strip().startswith(("W,", "B,", "Total,"))
+                else line
+                for line in originals[record.run_id].splitlines()
+            ]
+            (folder / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+            if level != "6001":
+                update = {"run_id": record.run_id.replace("6001", level), "sim_id": level}
+                workspace.append_record(
+                    RunRecord(**{**record.model_dump(), **update, "outputs": [f"outputs/{name}"]})
+                )
+    return workspace
+
+
+@pytest.mark.requirement("NL-TRST-7")
+def test_p0430_a_declared_refinement_study_writes_the_uncertainty_beside_the_polars(tmp_path):
+    """[refinement]: order 2, the extrapolated value, and a band holding the known error."""
+    import warnings
+
+    workspace = _three_levels(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    out = workspace.products_dir("matriz")
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    name = "polars/GCI-P6001_g02.csv"
+    assert manifest["products"][name]["levels"] == ["6001", "6003", "6004"]
+    _, rows = read_csv_table(out / name)
+    lift = [row for row in rows if row["COEFFICIENT"] == "CLB"]
+    assert len(lift) == 2, "one row per point of the polar"
+    for row in lift:
+        finest, exact = float(row["F1"]), float(row["F1"]) / 1.01
+        assert float(row["ORDER"]) == pytest.approx(2.0, abs=0.05)
+        assert float(row["EXTRAPOLATED"]) == pytest.approx(exact, abs=2e-4)
+        assert abs(finest - exact) <= float(row["U_NUM"])

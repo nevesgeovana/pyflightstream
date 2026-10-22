@@ -134,6 +134,7 @@ from pyflightstream.post._products_campaign import (
     _retire_campaign_products,
     _warn_unreadable_matrix,
     carry_marks,
+    write_refinement_studies,
     write_settings_product,
 )
 from pyflightstream.post._products_campaign import (
@@ -1069,6 +1070,7 @@ def _write_simulation_products(ctx: _CampaignProducts) -> None:
 def _write_campaign_superfiles(ctx: _CampaignProducts) -> None:
     """Write the campaign's cross-simulation products: the settings table, the super files."""
     write_settings_product(ctx)
+    write_refinement_studies(ctx)
     if ctx.partial is not None:
         # FR-307: A PARTIAL VERSION OF A CROSS-SIMULATION PRODUCT IS NEVER
         # WRITTEN. The drafts of the named simulations alone would give a

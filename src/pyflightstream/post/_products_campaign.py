@@ -7,6 +7,7 @@ phases preserve record order and do not import the facade or launch a solver.
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -15,13 +16,21 @@ from typing import TYPE_CHECKING, Any
 
 import pyflightstream.post._stage as _stage
 from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream._tokens import MESH_FACES_COLUMN
 from pyflightstream.cases import classify_outputs
 from pyflightstream.post._condition import warn_pinned_states
 from pyflightstream.post._installed_copies import INSTALLED_KIND as INSTALLED_KIND
 from pyflightstream.post._settings_product import SETTINGS_KIND as SETTINGS_KIND
 from pyflightstream.post._settings_product import write_settings_product as write_settings_product
 from pyflightstream.post._stage import _PartialPost, _surface_export_skip
-from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX
+from pyflightstream.post._tables import (
+    COEFFICIENT_COLUMNS,
+    ROTOR_TABLE_SUFFIX,
+    ProductError,
+    read_csv_table,
+    write_csv_table,
+)
+from pyflightstream.post.polar import grid_convergence
 from pyflightstream.post.provenance import refuse_an_existing_product
 from pyflightstream.post.series import surface_export_metadata, translated_surface
 from pyflightstream.results import FrozenSolve, UnjudgeableSolve
@@ -439,4 +448,129 @@ def _retire_optional_products(
 
 
 #: The ``kind`` of the products a pproc key switches on and off (FR-419).
-_OPTIONAL_KINDS = (SETTINGS_KIND, INSTALLED_KIND, "loading_noise")
+_OPTIONAL_KINDS = (SETTINGS_KIND, INSTALLED_KIND, "loading_noise", "refinement_study")
+
+
+#: NL-TRST-7: the ``kind`` of a refinement study's uncertainty table in ``products.json``.
+REFINEMENT_KIND = "refinement_study"
+#: Its columns: the point, the coefficient, the three levels and the estimate.
+REFINEMENT_COLUMNS = (
+    *("POL", "GROUP", "ALPHA", "BETA", "COEFFICIENT", "F1", "F2", "F3", "H1", "H2", "H3"),
+    *("ORDER", "EXTRAPOLATED", "GCI_FINE", "U_NUM", "NOTE"),
+)
+_POLAR_NAME = re.compile(r"^polars/P(?P<sim>[^/-]+)-[^/]*_g(?P<group>[^/]+)\.csv$")
+
+
+def write_refinement_studies(ctx: _CampaignProducts) -> None:
+    """Write the numerical uncertainty of every refinement study a pproc declares (NL-TRST-7).
+
+    One ``polars/GCI-P<finest>_g<group>.csv`` per group the three levels' polars
+    share: per point and coefficient the three values, the three sizes and
+    :func:`pyflightstream.post.polar.grid_convergence` of them. A study whose
+    levels were not all posted now, or whose polars do not hold the same points,
+    is named under ``skipped``; a coefficient the procedure refuses reads ``NA``
+    with the reason in ``NOTE``.
+    """
+    studies = {
+        tuple(spec.refinement.levels): spec.refinement
+        for spec in ctx.pprocs.values()
+        if spec is not None and spec.refinement is not None
+    }
+    polars: dict[str, dict[str, Path]] = {}
+    for name, entry in ctx.products_index.items():
+        found = None if name.endswith("_trim.csv") else _POLAR_NAME.match(name)
+        if found and entry.get("sim_id") == found["sim"]:
+            polars.setdefault(found["sim"], {})[found["group"]] = ctx.out / name
+    for levels, study in studies.items():
+        missing = [level for level in levels if level not in polars]
+        if missing:
+            ctx.skipped[f"{_stage.POLARS_DIR}/GCI-P{levels[0]}"] = (
+                f"the refinement study {list(levels)} has no polar of simulation(s) "
+                f"{', '.join(missing)} in this post, so no uncertainty is estimated"
+            )
+            continue
+        groups = set.intersection(*(set(polars[level]) for level in levels))
+        for group in sorted(groups):
+            _write_refinement_study(ctx, study, [polars[level][group] for level in levels], group)
+
+
+def _write_refinement_study(
+    ctx: _CampaignProducts, study: Any, tables: Sequence[Path], group: str
+) -> None:
+    """Write one group's uncertainty table of a refinement study, or name why there is none."""
+    name = f"{_stage.POLARS_DIR}/GCI-P{study.levels[0]}_g{group}.csv"
+    read = [read_csv_table(table) for table in tables]
+    rows = [table_rows for _, table_rows in read]
+    try:
+        spacings = study.spacings or [_mesh_spacing(table_rows) for table_rows in rows]
+        points = _matched_points(rows)
+    except ProductError as error:
+        ctx.skipped[name] = f"the refinement study is not estimated: {error}"
+        return
+    shared = [
+        column
+        for column in COEFFICIENT_COLUMNS[4:]
+        if all(column in columns for columns, _ in read)
+    ]
+    table = [
+        _refinement_row(study, group, point, column, spacings)
+        for point in points
+        for column in shared
+    ]
+    target = refuse_an_existing_product(
+        ctx.out / name, archive=ctx.archive, stamp=ctx.archive_stamp
+    )
+    ctx.written.append(write_csv_table(target, REFINEMENT_COLUMNS, table))
+    ctx.products_index[name] = {
+        "sim_id": study.levels[0],
+        "kind": REFINEMENT_KIND,
+        "levels": list(study.levels),
+        "spacings": list(spacings),
+        "polars": [table.relative_to(ctx.out).as_posix() for table in tables],
+    }
+
+
+def _mesh_spacing(rows: Sequence[Mapping[str, str]]) -> float:
+    """Return a level's representative size from its polar's face count, ``N^(-1/2)``."""
+    counts = sorted({str(row.get(MESH_FACES_COLUMN)) for row in rows})
+    if len(counts) != 1 or not counts[0].isdigit() or int(counts[0]) < 1:
+        raise ProductError(
+            f"a level's polar states no single {MESH_FACES_COLUMN} ({', '.join(counts)}); "
+            "state the spacings of the study in [refinement] spacings"
+        )
+    return float(int(counts[0])) ** -0.5
+
+
+def _matched_points(rows: Sequence[Sequence[Mapping[str, str]]]) -> list[list[Mapping[str, str]]]:
+    """Pair the rows of the three levels point by point, refusing polars of other points."""
+    if len({len(level) for level in rows}) != 1:
+        raise ProductError(
+            f"the levels' polars hold {[len(level) for level in rows]} points, not the same points"
+        )
+    points = [list(point) for point in zip(*rows, strict=True)]
+    for point in points:
+        if len({(row.get("ALPHA"), row.get("BETA")) for row in point}) != 1:
+            raise ProductError(
+                "the levels' polars hold other angles at one row: "
+                f"{[(row.get('ALPHA'), row.get('BETA')) for row in point]}"
+            )
+    return points
+
+
+def _refinement_row(
+    study: Any,
+    group: str,
+    point: Sequence[Mapping[str, str]],
+    column: str,
+    spacings: Sequence[float],
+) -> list[object]:
+    """One point's estimate for one coefficient; ``NA`` with the reason where it is refused."""
+    head = [study.levels[0], group, point[0].get("ALPHA"), point[0].get("BETA"), column]
+    try:
+        values = [float(row[column]) for row in point]
+        estimate = grid_convergence(values, spacings, safety_factor=study.safety_factor)
+    except (ProductError, ValueError) as error:
+        cells = [row.get(column) for row in point]
+        return [*head, *cells, *spacings, None, None, None, None, str(error)]
+    found = [estimate.order, estimate.extrapolated, estimate.gci_fine, estimate.uncertainty]
+    return [*head, *values, *spacings, *found, ""]

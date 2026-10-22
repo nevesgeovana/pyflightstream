@@ -75,6 +75,7 @@ from pyflightstream.cases.corrections import QsteadyCorrectionSpec
 from pyflightstream.cases.matrix import _COLUMNS, ATTITUDE_KEYS, FLIGHT_CONDITION_KEYS
 from pyflightstream.cases.pproc import (
     TABLE_DECLARED_KINDS,
+    RefinementStudySpec,
     StreamlineLine,
     StreamlinesSpec,
     StreamlineTube,
@@ -176,6 +177,8 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("pproc", "`[exports]`"): exports,
         ("pproc", "`[phase_locked]`"): _fields(PhaseLockedSpec),
         ("pproc", "`[per_revolution]`"): _fields(PerRevolutionSpec),
+        # 0.43.0 (NL-TRST-7): the refinement study the uncertainty is estimated from.
+        ("pproc", "`[refinement]`"): _fields(RefinementStudySpec),
         # 0.31.0 (P0310-CAL-SCHEMA): the quasi-steady wheel's correction route.
         ("pproc", "`[qsteady_correction]`"): _fields(QsteadyCorrectionSpec),
         ("pproc", "`[equations.<NAME>]`"): _fields(EquationSpec),

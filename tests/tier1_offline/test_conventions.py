@@ -54,6 +54,11 @@ _DIMENSIONLESS_OR_DEBT = {
     "wake_numerical_relaxation",  # SolverSettings, SET_WAKE_NUMERICAL_RELAXATION
     "jet_wake_decay_normalized_length",  # SolverSettings, in jet wake diameters
     "end",  # ProbeLine.end (start is below): in the unit ProbesSpec.scale names (PFS-2029.07)
+    # NL-TRST-7: RefinementStudySpec. The spacings are a cell size or a time step, in
+    # whatever unit the study states (only their ratios enter the estimate); the
+    # safety factor of the grid convergence index is a pure number.
+    "spacings",
+    "safety_factor",
     # FR-79, and the same reason as ProbeLine.end above: a probe shape is
     # stated in the unit its entry's `scale` names, metres OR rotor radii, so
     # a `_m` suffix would be a LIE on the rotor-radius path. The unit rides

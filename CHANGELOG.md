@@ -18,6 +18,11 @@ FlightStream versions.
   between the two points that bracket it and never extrapolated. A polar whose sampled
   moments do not change sign, or change sign more than once, is named under `skipped`.
   `pyflightstream.post.write_trimmed_polar` writes the same file from any polar table.
+- A `[refinement]` table on a pproc artifact declares a three-level refinement study (mesh
+  levels or time steps, finest first); the post writes `polars/GCI-P<finest>_g<group>.csv`
+  with the observed order, the Richardson extrapolation, the grid convergence index and the
+  numerical uncertainty of every coefficient of every point. `pyflightstream.post.polar.grid_convergence`
+  computes one estimate.
 
 ### Changed
 

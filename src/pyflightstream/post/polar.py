@@ -85,6 +85,9 @@ __all__ = [
     "swept_polar_file_name",
     "write_polar_table",
     "write_recorded_polar",
+    "GCI_SAFETY_FACTOR",
+    "GridConvergence",
+    "grid_convergence",
     "TRIM_ANGLE_COLUMN",
     "TRIM_MOMENT_COLUMN",
     "TRIM_SUFFIX",
@@ -1283,3 +1286,122 @@ def write_trimmed_polar(
     except ProductError as error:
         raise ProductError(f"{source.name}: {error}") from error
     return write_csv_table(target, columns, [[row[name] for name in columns]])
+
+
+#: NL-TRST-7: the safety factor of the grid convergence index of a three-level study.
+GCI_SAFETY_FACTOR = 1.25
+
+
+@dataclass(frozen=True)
+class GridConvergence:
+    """The numerical uncertainty of one result from a three-level refinement study (NL-TRST-7).
+
+    The levels are ordered finest first: ``f1`` on the smallest representative
+    size ``h1``. ``order`` is the observed order of convergence ``p``;
+    ``extrapolated`` the Richardson extrapolation ``(r21^p f1 - f2) / (r21^p - 1)``;
+    ``gci_fine`` the fine-level grid convergence index ``Fs e21 / (r21^p - 1)``,
+    relative to ``f1`` (None where ``f1`` is zero); ``uncertainty`` the same band
+    in the result's own units, ``Fs |f1 - f2| / (r21^p - 1)``, the numerical
+    uncertainty ``u_num`` reported beside ``f1``. Three equal values give no order
+    (None) and a zero band.
+    """
+
+    order: float | None
+    extrapolated: float
+    gci_fine: float | None
+    uncertainty: float
+
+
+def _observed_order(ratio: float, r21: float, r32: float) -> float:
+    """Solve the observed order by fixed point, for any refinement ratios (Celik and others)."""
+    order = math.log(ratio) / math.log(r21)
+    for _ in range(200):
+        shift = math.log((r21**order - 1.0) / (r32**order - 1.0)) if order > 0.0 else 0.0
+        updated = (math.log(ratio) + shift) / math.log(r21)
+        if abs(updated - order) <= 1e-12 * max(1.0, abs(updated)):
+            return updated
+        order = updated
+    raise ProductError(
+        f"the observed order does not settle (last {order:.6g}); the three levels are not in "
+        "the asymptotic range"
+    )
+
+
+def grid_convergence(
+    values: Sequence[float],
+    spacings: Sequence[float],
+    *,
+    safety_factor: float = GCI_SAFETY_FACTOR,
+) -> GridConvergence:
+    """Estimate the discretization uncertainty of a result from three refinement levels.
+
+    The procedure of the grid convergence index (Roache; Celik and others):
+    the changes ``e21 = f2 - f1`` and ``e32 = f3 - f2`` between the levels and
+    the ratios ``r21 = h2 / h1`` and ``r32 = h3 / h2`` give the observed order
+    ``p``, solved by fixed point where the ratios differ; the result is
+    extrapolated to ``h = 0`` and its fine-level band is the GCI. The same
+    procedure serves a time-step study, the time steps as ``spacings``.
+
+    Parameters
+    ----------
+    values : sequence of float
+        ``f1, f2, f3``, the result on each level, finest first.
+    spacings : sequence of float
+        ``h1, h2, h3``, each level's representative size (a cell size or a
+        time step), positive and increasing.
+    safety_factor : float, optional
+        ``Fs``, 1.25 for three levels; at least 1.
+
+    Returns
+    -------
+    GridConvergence
+        The observed order, the extrapolated value and the uncertainty band.
+
+    Raises
+    ------
+    ProductError
+        If there are not three finite values and three positive increasing
+        spacings, if the changes alternate in sign or one of them is zero
+        (oscillatory or stalled convergence, from which no order is
+        estimated), or if the values move away with refinement.
+
+    Examples
+    --------
+    >>> study = grid_convergence([1.5, 3.0, 9.0], [1.0, 2.0, 4.0])
+    >>> study.order, study.extrapolated, study.uncertainty
+    (2.0, 1.0, 0.625)
+    """
+    f = [float(value) for value in values]
+    h = [float(spacing) for spacing in spacings]
+    if len(f) != 3 or len(h) != 3 or not all(map(math.isfinite, [*f, *h])):
+        raise ProductError(
+            f"a refinement study needs three finite values and three finite spacings, finest "
+            f"first; got values {list(values)} and spacings {list(spacings)}"
+        )
+    if not 0.0 < h[0] < h[1] < h[2] or not safety_factor >= 1.0:
+        raise ProductError(
+            f"the spacings {h} are not positive and increasing (finest first), or the safety "
+            f"factor {safety_factor!r} is below 1"
+        )
+    e21, e32 = f[1] - f[0], f[2] - f[1]
+    if e21 == 0.0 and e32 == 0.0:
+        return GridConvergence(None, f[0], 0.0, 0.0)
+    if e21 == 0.0 or e32 / e21 <= 0.0:
+        raise ProductError(
+            f"the changes between levels, {e21:.6g} then {e32:.6g}, are not of one sign: the "
+            "convergence is oscillatory or stalled and no observed order is estimated from it"
+        )
+    order = _observed_order(e32 / e21, h[1] / h[0], h[2] / h[1])
+    if not order > 0.0:
+        raise ProductError(
+            f"the values move away from each other as the levels are refined (observed order "
+            f"{order:.6g}); the study does not converge"
+        )
+    growth = (h[1] / h[0]) ** order - 1.0
+    band = safety_factor * abs(e21) / growth
+    return GridConvergence(
+        order=order,
+        extrapolated=f[0] - e21 / growth,
+        gci_fine=band / abs(f[0]) if f[0] != 0.0 else None,
+        uncertainty=band,
+    )
