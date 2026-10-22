@@ -44,6 +44,9 @@ products of 0.42.0. These change with no change of input:
   reduced-frequency means, and inflow samples at a negative speed advance in the negative
   rotation sense.
 - A historical super file's `RPM` is the recorded rotor speed.
+- In the super file, a solver flag whose documented default the script never emitted reads
+  `<value> (default)`, as `TRANSITIONAL (default)`; a reader that takes the cell as a value
+  removes the suffix.
 
 ### Tables and records whose columns move
 
