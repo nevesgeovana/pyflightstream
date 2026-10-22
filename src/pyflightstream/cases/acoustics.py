@@ -379,8 +379,9 @@ def _time(case: SimCase, text: str) -> ObserverTime:
     tokens = text.split()
     if len(tokens) != 3:
         raise CampaignConfigError(
-            f"case {case.sim_id!r} states {key}: {text}; it is T0 T1 N, the first and last "
-            "time of the observers' window in seconds and its number of samples: "
+            f"case {case.sim_id!r} states {key}: {text}; it is T0 T1 N, the first time and the end "
+            "time of the observers' window in seconds (the samples stop one step before T1) "
+            "and its number of samples: "
             f"'{key}: 0.05 0.2 16'."
         )
     initial = _float(case, key, tokens[0], "the initial time")
@@ -769,8 +770,9 @@ def emit_acoustic_signals(
     Raises
     ------
     CampaignConfigError
-        The run is steady, or the script has not started the solver: the three
-        commands read the sources an unsteady march recorded, and there is none;
+        The request computes signals and the run is steady, or the script has not started
+        the solver: the three commands read the sources an unsteady march recorded, and
+        there is none;
         the point declares no acoustic export for its point or file observers.
     """
     request = acoustic_request(case)
@@ -860,7 +862,10 @@ def read_observers_file(path: str | Path) -> tuple[tuple[float, float, float], .
         raise CampaignConfigError(
             f"the acoustic observer file {where} cannot be read ({error})."
         ) from None
-    rows = [line for line in lines if line]
+    # Each row keeps its physical line number, blank lines included, so a refusal names the
+    # line the user sees in the editor.
+    numbered = [(number, line) for number, line in enumerate(lines, start=1) if line]
+    rows = [line for _, line in numbered]
     if not rows or not re.fullmatch(r"\d+", rows[0]) or int(rows[0]) < 1:
         raise CampaignConfigError(
             f"the acoustic observer file {where} does not open with a count of observers: its "
@@ -868,7 +873,7 @@ def read_observers_file(path: str | Path) -> tuple[tuple[float, float, float], .
         )
     count = int(rows[0])
     points: list[tuple[float, float, float]] = []
-    for number, row in enumerate(rows[1:], start=2):
+    for number, row in numbered[1:]:
         cells = [cell.strip() for cell in row.split(",")]
         try:
             x, y, z = (float(cell) for cell in cells)

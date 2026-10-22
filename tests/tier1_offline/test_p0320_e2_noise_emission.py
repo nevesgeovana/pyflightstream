@@ -677,3 +677,10 @@ def test_p0430_f1298_the_helper_declares_no_second_signals_file_the_emitter_neve
     ).model_copy(update={"acoustic_observers_file": str(source)})
     declared = ["P.txt", "mine_acoustic_signals.txt"]
     assert acoustics.with_acoustic_signals(declared, case, "P") == declared
+
+
+def test_p0430_observers_file_refusal_names_the_physical_line_after_a_blank_line(tmp_path):
+    path = tmp_path / "ring.csv"
+    path.write_text("2\n\n0,0,1\nnot,a,row\n", encoding="utf-8")
+    with pytest.raises(CampaignConfigError, match="line 4, reads 'not,a,row'"):
+        acoustics.read_observers_file(path)
