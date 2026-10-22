@@ -101,7 +101,11 @@ def every_boundary_detection(script: Script, kind: str) -> tuple[str, tuple[int,
     -------
     tuple of (str, tuple of int)
         The automatic command with no argument where the build carries it,
-        else the by-surface command with the every-boundary index.
+        else the by-surface command with the every-boundary index. For
+        ``"trailing_edges"`` on 26.125 that index is the -1 form the manual
+        documents, which the solver answers with zero edges marked; use
+        :func:`detect_every_boundary`, which lists the declared boundaries
+        instead, to emit that detection.
 
     Raises
     ------
