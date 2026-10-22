@@ -132,7 +132,7 @@ def march_strategy(
             wanted.append(
                 (
                     f"per-step snapshot exports ({key})",
-                    f"remove {key}, and the plots table still records every time step",
+                    f"remove {key}, and the plots table is expected to record every time step",
                 )
             )
     if row_walltime_s(case) is not None:
