@@ -95,7 +95,9 @@ file or record is replaced only with `--overwrite`, and a stem the folder
 already holds in the other form is refused, since one stem names one file.
 `--workspace` names the campaign workspace (the current directory by
 default), as every command that names a workspace spells it. A refusal is
-printed on stderr with exit status 2 and writes nothing.
+printed on stderr with exit status 2 and writes nothing. `--log-level` (or
+`--verbose`) sets how much the console says, over the `[log] console` of the
+workspace settings files.
 
 ## Per-step fields of an unsteady row
 

@@ -242,20 +242,27 @@ See the website's Upgrading page for supported workspace conversion.
 
 \tool{pyfs-workspace}{campaign trees, free-stream fields and disc profiles}
 \sub{init [root]}{create or complete the campaign tree: \texttt{inputs/} with its library folders, \texttt{sims/}, \texttt{post/}, \texttt{archive/}; writes an \texttt{inputs/executables.toml} template when none exists. Default root: the current folder}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--workspace DIR} names the root; the positional form is deprecated.
 \sub{archive <root> <sim\_id>}{zip one recorded simulation under \texttt{archive/} and remove its folder \texttt{sims/sim\_<sim\_id>/}; a simulation the manifest does not record is refused}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--workspace DIR} names the root; the positional form is deprecated.
 \sub{migrate [root]}{preview conversion of a workspace from the 0.38.0 format; see Upgrading for the format boundary}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \begin{flags}
 \item \fl{--workspace DIR} the workspace root \quad \fl{--apply} apply the previewed conversion with backups
 \end{flags}
 \sub{calibrate <id>}{derive an unvalidated sector-offset calibration from recorded wheel and sector points}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--workspace DIR}, \fl{--wheel-run ID}, \fl{--sector-run ID}, \fl{--rotor NAME}, \fl{--matrix NAME}, \fl{--overwrite}.
 \sub{geometry export-surface-mesh <FSM>}{preview the surface export of a saved workspace body; \fl{--apply} runs the licensed solver and writes \texttt{<stem>.surface.stl} beside it for probe planning; \fl{--build ID} selects the build, \fl{--fs-exe PATH} overrides its executable, and \fl{--overwrite} replaces an existing mesh only after a successful export}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \sub{geometry trailing-edge <mesh> <output>}{write mesh trailing-edge midpoint nodes}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--axis X Y Z}, \fl{--hub X Y Z}, \fl{--unit UNIT}, \fl{--sections N}, \fl{--overwrite}.
 \sub{geometry}{build and accept bodies outside the run matrix; includes the mesh tools of page 1}
 \sub{geometry build [TARGET]}{read \texttt{<name>.geometry.toml} (of the current folder, or of the folder or file TARGET) and print the script, the boundaries after each step and what would be written; with \fl{--apply} run the solver once with no solve, save the body, read it back and audit it}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \begin{flags}
 \item \fl{--apply} run the solver and write the geometry \quad \fl{--overwrite} replace the outputs of an earlier build
 \item \fl{--build ID} the build id, over the instruction's \texttt{fs\_build} \quad \fl{--fs-exe PATH} the executable, over the registry
@@ -264,10 +271,12 @@ See the website's Upgrading page for supported workspace conversion.
 \item \fl{--rows} print, per built geometry, the row POL of \fl{--matrix} with its CONFIGURATION, GEOMETRY and POL cells set; nothing is written into the matrix \quad \fl{--matrix FILE} the run matrix \fl{--rows} copies from
 \end{flags}
 \sub{geometry accept <names>}{record who inspected each named geometry folder and when, in its \texttt{<name>.build.json}}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \begin{flags}
 \item \fl{--workspace DIR} the workspace root (default: the current folder)
 \end{flags}
 \sub{geometry from-sidecar <geometry>}{print the instruction file that builds the same body as the sidecar of a CCS, IGES or raw-mesh geometry; the sidecar and the matrices are never edited}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \begin{flags}
 \item \fl{--apply} write \texttt{<stem>.geometry.toml} \quad \fl{--build ID} the build id (else the rows' newest) \quad \fl{--workspace DIR}
 \end{flags}
@@ -290,23 +299,27 @@ See the website's Upgrading page for supported workspace conversion.
 \end{flags}
 \sub{field}{build a custom free-stream file of \texttt{inputs/freestreams/} from other fields. Every operation below previews until \fl{--apply}, writes the file \texttt{<STEM>} (\texttt{.txt} STRUCTURED, \texttt{.dat} UNSTRUCTURED, the form decides) and its provenance record, and takes \fl{--out STEM} (required), \fl{--workspace DIR}, \fl{--apply}, \fl{--overwrite} (replace an existing \texttt{<STEM>} file and its record)}
 \sub{field mirror <field>}{mirror a field through the plane x = 0, y = 0 or z = 0}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \begin{flags}
 \item \fl{--plane \{x,y,z\}} \textbf{required}: the coordinate whose sign changes
 \item \fl{--out STEM} \quad \fl{--workspace} \quad \fl{--apply} \quad \fl{--overwrite}
 \end{flags}
 \sub{field move <field>}{translate a field so a source point lands on a target point}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \begin{flags}
 \item \fl{--source-point X Y Z} \textbf{required}: the source point (a hub), m, global frame
 \item \fl{--target-point X Y Z} \textbf{required}: where it lands, m, global frame
 \item \fl{--out STEM} \quad \fl{--workspace} \quad \fl{--apply} \quad \fl{--overwrite}
 \end{flags}
 \sub{field subtract <total> <other>}{total minus (other minus reference), point by point on one grid}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \begin{flags}
 \item \fl{--reference VX VY VZ} \textbf{required}: the free stream OTHER was solved in, m/s (0 0 0 only where OTHER is already induced only)
 \item \fl{--tolerance M} two positions closer than this, per axis, are one point (default 1e-06)
 \item \fl{--out STEM} \quad \fl{--workspace} \quad \fl{--apply} \quad \fl{--overwrite}
 \end{flags}
 \sub{field time-mean <files>}{the time mean of an unsteady run's per-step fields (files or glob patterns)}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \begin{flags}
 \item \fl{--last K} average only the last K steps given (default: every step)
 \item \fl{--fluctuation} also write \texttt{<stem>.fluctuation.csv}, the per-probe standard deviation (two steps or more)
@@ -316,11 +329,13 @@ See the website's Upgrading page for supported workspace conversion.
 \item \fl{--out STEM} \quad \fl{--workspace} \quad \fl{--apply} \quad \fl{--overwrite}
 \end{flags}
 \sub{field fill-interior <field>}{fill the probes inside the body from the ray outside it}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \begin{flags}
 \item \fl{--r-body M} body radius about the x axis, m (default 0.38)
 \item \fl{--out STEM} \quad \fl{--workspace} \quad \fl{--apply} \quad \fl{--overwrite}
 \end{flags}
 \sub{profile <shape> [table]}{the actuator-disc profile a row's \texttt{PROFILE} names, \texttt{inputs/profiles/<STEM>.csv}, scaled to \fl{--thrust} or \fl{--ct} \fl{--rho} \fl{--rpm}; ELLIPTICAL needs none. sections: \fl{--pol} \fl{--family} \fl{--component} \fl{--sign} \fl{--last}; bp: \fl{--advance-ratio}; uni, bp: \fl{--stations}; disc: \fl{--ref} \fl{--disc}, or \fl{--tip-radius} \fl{--hub-radius} \fl{--blades}; \fl{--out} \fl{--workspace} \fl{--apply} \fl{--overwrite}}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 
 \tool{pyfs-fsi}{the coupling executable the solver's aeroelastic toolbox calls once per time step. With no arguments it runs one coupling step in the current folder: coupled when \texttt{config.json} is there, the dummy (zero displacements) otherwise}
 \sub{init-dummy}{write the dummy configuration into a run folder}
