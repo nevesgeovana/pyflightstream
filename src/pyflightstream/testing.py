@@ -59,7 +59,8 @@ def assert_records_close(
     ------
     AssertionError
         Key sets differ, or any value violates
-        ``|actual - expected| <= atol + rtol * |expected|``. The
+        ``|actual - expected| <= atol + rtol * |expected|``; a NaN on either
+        side violates it, because the rule is false for NaN. The
         message reports the compared count, the violating count with
         keys, and the worst offender with both values and its
         deviation.
@@ -92,9 +93,10 @@ def assert_records_close(
     for key in expected:
         a, e = float(actual[key]), float(expected[key])
         deviation = abs(a - e)
+        # The rule |a - e| <= atol + rtol * |e| is False for a NaN on either side,
+        # so a NaN pair violates too: a golden holding NaN would pass otherwise.
         if math.isnan(a) or math.isnan(e):
-            if math.isnan(a) != math.isnan(e):
-                violations.append((key, a, e, math.inf))
+            violations.append((key, a, e, math.inf))
             continue
         # An infinite value has no tolerance band: rtol * inf is inf (or
         # nan when rtol is 0) and inf > inf is False, so only the same

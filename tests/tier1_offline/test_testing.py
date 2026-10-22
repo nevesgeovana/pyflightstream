@@ -50,10 +50,14 @@ def test_records_close_atol_floor_covers_zero_crossings():
         assert_records_close({"CMy": 1.0e-6}, {"CMy": 0.0}, atol=1.0e-9)
 
 
-def test_records_close_treats_nan_pairs_as_agreeing_and_mixed_as_violating():
-    assert_records_close({"x": math.nan}, {"x": math.nan})
+def test_records_close_treats_a_nan_on_either_side_as_a_violation():
+    """F-013: the documented rule is False for NaN, so a NaN golden does not pass."""
+    with pytest.raises(AssertionError, match="1 of 1"):
+        assert_records_close({"x": math.nan}, {"x": math.nan})
     with pytest.raises(AssertionError, match="1 of 1"):
         assert_records_close({"x": math.nan}, {"x": 1.0})
+    with pytest.raises(AssertionError, match="1 of 1"):
+        assert_records_close({"x": 1.0}, {"x": math.nan})
 
 
 def test_f_001_a_nan_tolerance_is_refused_instead_of_passing_every_finite_pair():
