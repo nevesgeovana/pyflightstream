@@ -92,9 +92,9 @@ def _zip_documents(path: Path, name: str) -> Iterator[tuple[str, str | None, byt
                 if "/archive/" in member and member.endswith(".json"):
                     stamp = _stamp(member.split("/archive/", 1)[1])
                     yield f"{name}!{member}", stamp, archive.read(member)
-    except (OSError, zipfile.BadZipFile, KeyError, RuntimeError, EOFError) as error:
+    except (*_ZIP_ERRORS, KeyError) as error:
         # One corrupt archive is one identified row; the other records still show.
-        yield name, None, _Unreadable(f"unreadable archive {name}: {error}")
+        yield name, None, _Unreadable(f"history: unreadable archive {name}: {error}")
 
 
 def _rows(payload: bytes, source: str) -> list[dict[str, Any]]:
