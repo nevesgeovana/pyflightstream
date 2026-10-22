@@ -961,6 +961,12 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         b"(no default citation). Source: FSM-26.120 p.342. "
         b"reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml",
     )
+    # FR-69: the record lists the angles its row does not state; the scenario states no BETA.
+    captured["tree/runs.json"] = captured["tree/runs.json"].replace(
+        b'    "flight_condition_defaults_from": "",\n',
+        b'    "flight_condition_defaults_from": "",\n'
+        b'    "angles_not_stated": [\n      "BETA"\n    ],\n',
+    )
     # F-251: a declined cell of the sweep table is the NA token, no longer an empty field.
     sweep_name = "tree/post/polars/campaign_sweep.csv"
     captured[sweep_name] = b"".join(

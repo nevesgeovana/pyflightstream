@@ -211,8 +211,9 @@ class PointPlan:
         out of ``plan.json``.
     angles_not_stated : tuple of str
         The flow angles (``ALPHA``, ``BETA``) the point neither sweeps nor
-        the row states, which take the default 0.0 degrees (FR-69). Empty,
-        and left out of ``plan.json``, where both are stated.
+        the row states, which take the default 0.0 degrees (FR-69). Empty
+        where both are stated. Shown by :meth:`CampaignPlan.summary`, not
+        written to ``plan.json``.
     streamlines : int
         The off-body streamlines the point's pproc traces (FR-1079):
         every seed line's count and every tube's ``radial * circular``. 0, and
@@ -1462,8 +1463,8 @@ def _point_record(entry: PointPlan) -> dict[str, Any]:
         del record["run_wake_length"]
     if not entry.streamlines:
         del record["streamlines"]
-    if not entry.angles_not_stated:
-        del record["angles_not_stated"]
+    # FR-69: the summary and the run record state the default angles; plan.json keeps its layout.
+    del record["angles_not_stated"]
     # FR-1047: the far-field resolution, on a row with [farfield] only.
     if not entry.farfield:
         del record["farfield"]

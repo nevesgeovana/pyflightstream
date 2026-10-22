@@ -188,9 +188,9 @@ Set `COLD_START: false` explicitly to opt into warm steady starts.
 
 **An angle the row does not state is 0.0 degrees, and the plan says so.** A row that
 neither sweeps nor holds `ALPHA` (or `BETA`) flies that angle at 0.0. The plan summary
-carries `<run_id>: ALPHA = 0.0 (default); the row states no such angle`, `plan.json`
-lists the names under `angles_not_stated` on that point, and the run record written
-for the point carries the same list, so a zero is never read as a choice.
+carries `<run_id>: ALPHA = 0.0 (default); the row states no such angle`, and the run record
+written for the point lists the names under `angles_not_stated`, so a zero is never read
+as a choice.
 
 **An angle the row HOLDS still names the point.** `ALPHA:sweep, BETA:0.0`
 over `-4,0,4` plans three runs named `AL-040BE+000`, `AL+000BE+000` and
