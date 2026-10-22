@@ -144,6 +144,16 @@ def test_p0420_a_sheet_with_no_trailing_edge_is_refused_for_that_reason():
 _TOL = 1e-9  # DUPLICATE_FRACTION of a unit size
 
 
+def _across_a_bin_edge(value: float, tolerance: float) -> float:
+    """Return the offset, in tolerances, that puts ``value`` 0.02 tolerances past the nearest
+    edge of a rounding grid of that pitch: two nodes a rounding weld splits, a distance weld joins.
+    """
+    edge = (numpy.floor(value / tolerance + 0.5) + 0.5) * tolerance
+    if edge - value > 0.9 * tolerance:
+        edge -= tolerance
+    return (edge - value) / tolerance + (0.02 if edge >= value else -0.02)
+
+
 def test_p0430_f305_weld_follows_the_tolerance_not_a_rounding_grid(tmp_path):
     """F-305: nodes closer than the tolerance weld across a bin edge; farther ones stay apart."""
     size = float(numpy.hypot(3.0, 1.0))  # the diagonal of the two families' bounding box
@@ -166,6 +176,9 @@ def test_p0430_f305_weld_follows_the_tolerance_not_a_rounding_grid(tmp_path):
     welded = level_nodes("near", [0.02, 0.0, 0.0])  # 0.02 tolerances apart
     apart = level_nodes("far", [0.98] * 3)  # 1.7 tolerances apart
     assert apart == welded + 1
+    # RB5: the same pair placed across an edge of a rounding grid still welds (a rounding weld,
+    # the defect, splits it; the two cases above cannot tell the two welds apart)
+    assert level_nodes("edge", [_across_a_bin_edge(2.0, size * _TOL), 0.0, 0.0]) == welded
 
 
 def test_p0430_f330_fixed_side_nodes_follow_the_tolerance():
@@ -194,6 +207,14 @@ def test_p0430_f330_fixed_side_nodes_follow_the_tolerance():
 
     assert slave_nodes(0.02) == 2  # coincident within the tolerance: one node
     assert slave_nodes(1.7) == 3  # farther apart than the tolerance: two nodes
+    # RB5: within the tolerance across an edge of a rounding grid of the plan's own pitch (the
+    # bounding box grows with the gap, so the pitch is found with it): still one node
+    for fraction in numpy.linspace(0.05, 0.95, 19):
+        eps = fraction * _TOL * float(numpy.hypot(3.0, 2.0))
+        pitch = _TOL * float(numpy.linalg.norm([(2.0 + eps) + 1.0, 2.0 + eps, 0.0]))
+        if eps < 0.95 * pitch and numpy.round(2.0 / pitch) != numpy.round((2.0 + eps) / pitch):
+            break
+    assert slave_nodes(eps / (_TOL * size)) == 2
 
 
 # ---------------------------------------------------------------- F-331 X-F-0435
