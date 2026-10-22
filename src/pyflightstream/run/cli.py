@@ -1143,7 +1143,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     # the warning and the confirmation, and this command does not release
     # without one. The stem is the matrix's own, which is how the plan
     # folder is named.
-    stale = plan_receipt_error(workspace, args.matrix, matrix_stem(args.matrix))
+    stale = plan_receipt_error(workspace, args.matrix, matrix_stem(args.matrix), fs_exe=args.fs_exe)
     if stale is not None:
         print(stale, file=sys.stderr)
         return 2

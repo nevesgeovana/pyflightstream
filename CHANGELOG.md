@@ -307,6 +307,10 @@ FlightStream versions.
 - `pyfs-workspace excel create|preview|apply|cancel|check` runs the matrix workbook
   commands, with `--workspace` defaulting to the current directory;
   `python -m pyflightstream.workspace.excel` is the same command.
+- `plan.json` records each solver executable a matrix plan measured with its SHA-256
+  (`instrument`) and the SHA-256 of every geometry file a row opens (`inputs_sha256`);
+  `pyfs-matrix run` refuses a plan whose executable or geometry changed since, or a
+  `--fs-exe` other than the planned one.
 
 ## [0.42.0] - 2026-10-16
 

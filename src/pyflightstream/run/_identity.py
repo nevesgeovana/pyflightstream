@@ -22,11 +22,12 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pyflightstream
 import pyflightstream._textio as _textio
 from pyflightstream._digest import (
+    file_sha256,
     optional_file_sha256,
     text_sha256,
 )
@@ -49,6 +50,7 @@ from pyflightstream.versions import FsVersion, resolve
 from pyflightstream.workspace import (
     KNOWN_MANIFEST_SCHEMAS,
     CampaignWorkspace,
+    InputArtifactError,
     RunRecord,
     WorkspaceError,
     resolve_build,
@@ -805,6 +807,79 @@ def _build_groups(campaign: Campaign) -> dict[str, list[str]]:
 def _build_label(key: str) -> str:
     """Name one grouping key the way a message should say it."""
     return f"build {key!r}" if key else "the campaign's own installation"
+
+
+def _plan_bindings(
+    campaign: Campaign, workspace: CampaignWorkspace, matrix_path: str | Path | None
+) -> dict[str, dict[str, Any]]:
+    """Return the instrument and the inputs a matrix plan measured (NL-EXEC-1, FR-1556).
+
+    ``instrument`` holds, per build of :func:`_build_groups` (the empty key
+    for the campaign's own), the executable and its SHA-256; the plan
+    launches no solver, so the file is the build it can observe, and a
+    digest of None says the file was not there to read. A row build the
+    registry does not resolve is left out, as the plan refuses that row.
+    ``inputs_sha256`` holds the SHA-256 of every geometry file a case opens.
+    A campaign authored in Python has no plan receipt and records neither.
+    """
+    if not matrix_path:
+        return {}
+    executables: dict[str, str | Path] = {"": campaign.fs_exe}
+    for key in _build_groups(campaign):
+        try:
+            executables[key] = (
+                executables.get(key) or resolve_build(workspace.inputs_dir, key).fs_exe
+            )
+        except (InputArtifactError, OSError):
+            continue
+    inputs = {
+        case.geometry: file_sha256(case.geometry)
+        for case in campaign.sims
+        if case.geometry and Path(case.geometry).is_file()
+    }
+    return {
+        "instrument": {
+            key: {"fs_exe": str(path), "fs_exe_sha256": _file_digest(path)}
+            for key, path in executables.items()
+        },
+        "inputs_sha256": inputs,
+    }
+
+
+def _instrument_or_inputs_changed(
+    payload: Mapping[str, Any], plan_file: Path, fs_exe: str | Path | None
+) -> str | None:
+    """Return why the instrument or an input differs from what the plan measured, or None.
+
+    NL-EXEC-1, FR-1556. A plan written before the plan recorded them carries
+    neither table and constrains nothing here; an executable the plan found
+    absent (digest None) is not compared.
+    """
+    instrument = payload.get("instrument") or {}
+    own = instrument.get("") or {}
+    if fs_exe is not None and own.get("fs_exe"):
+        if Path(own["fs_exe"]).resolve() != Path(fs_exe).resolve():
+            return (
+                f"the run names the executable {fs_exe} and the plan at {plan_file} measured "
+                f"{own['fs_exe']}; a plan of one instrument is not a plan for another. Plan "
+                "it again with the same executable."
+            )
+    for key, observed in instrument.items():
+        planned, current = observed.get("fs_exe_sha256"), _file_digest(observed["fs_exe"])
+        if planned is not None and planned != current:
+            return (
+                f"the executable of {_build_label(key)}, {observed['fs_exe']}, changed since it "
+                f"was planned: the plan at {plan_file} measured {planned[:12]} and it is "
+                f"{str(current)[:12]} now. Plan it again on the installed build."
+            )
+    for path, planned in (payload.get("inputs_sha256") or {}).items():
+        if planned != (current := _file_digest(path)):
+            return (
+                f"the input {path} changed since it was planned: the plan at {plan_file} "
+                f"measured {planned[:12]} and it is {str(current)[:12]} now. Plan it again; "
+                "a plan of other inputs is not a plan for these."
+            )
+    return None
 
 
 def _check_scheduled_builds(

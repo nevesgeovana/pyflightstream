@@ -77,6 +77,8 @@ from pyflightstream.run._identity import (
     _build_label,
     _case_build,
     _file_digest,
+    _instrument_or_inputs_changed,
+    _plan_bindings,
 )
 from pyflightstream.run._ids import (
     _point_names,
@@ -845,11 +847,15 @@ PLAN_REQUIRED_MESSAGE = (
 
 
 def plan_receipt_error(
-    workspace: CampaignWorkspace, matrix_path: str | Path | None, matrix_stem: str | None
+    workspace: CampaignWorkspace,
+    matrix_path: str | Path | None,
+    matrix_stem: str | None,
+    *,
+    fs_exe: str | Path | None = None,
 ) -> str | None:
     """Return why this run may not proceed on the plan it has, or None.
 
-    THREE ANSWERS, and the third is the one the pin exists for:
+    FOUR ANSWERS, and the last two are the ones the pins exist for:
 
     * no matrix: a campaign authored in Python is not planned through a
       file and this gate does not apply to it.
@@ -858,6 +864,10 @@ def plan_receipt_error(
       because the plan measured a different study. A plan that predates
       the pin carries None and is refused the same way, which is right:
       it cannot say what it read.
+    * an instrument or an input that changed after planning (NL-EXEC-1,
+      FR-1556): refused when ``fs_exe`` is not the executable the plan
+      measured, when an executable the plan read now has another
+      SHA-256, or when a geometry file the plan read does.
 
     Parameters
     ----------
@@ -869,6 +879,9 @@ def plan_receipt_error(
     matrix_stem : str, optional
         The matrix file name without extension, which names the plan
         folder under ``post/``.
+    fs_exe : str or Path, optional
+        The executable the run names for the campaign's own installation,
+        when it names one; None leaves the comparison to the digests.
 
     Returns
     -------
@@ -909,7 +922,7 @@ def plan_receipt_error(
             "Plan it again; a plan that measured another study is not a plan for this "
             "one."
         )
-    return None
+    return _instrument_or_inputs_changed(payload, plan_file, fs_exe)
 
 
 @noting_the_families_rows_lack()  # FR-320: each family a row lacks, said once
@@ -1134,6 +1147,8 @@ def plan_campaign(
             # Python and has no matrix to pin to; `run` asks for a plan
             # only where a matrix exists.
             "matrix_sha256": matrix_digest,
+            # NL-EXEC-1, FR-1556: the instrument and the inputs a matrix plan measured.
+            **_plan_bindings(campaign, workspace, matrix_path),
             # Plan launches no solver, so the flag changes no check here;
             # it is recorded so the plan rehearses the command line run executes.
             "accept_unregistered_build": accept_unregistered_build,

@@ -1039,6 +1039,16 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     captured["tree/runs.json"] = captured["tree/runs.json"].replace(
         old_prose, b"physics reference check: 30 of 30 metrics bit-identical"
     )
+    # NL-EXEC-1, FR-1556: the receipt records the instrument and the inputs it measured,
+    # after the matrix digest; every other byte of the receipt stays pinned.
+    pinned = b'  "matrix_sha256": "<SHA:polars.fs>",\n'
+    assert captured[plan_name].count(pinned) == 1
+    captured[plan_name] = captured[plan_name].replace(
+        pinned,
+        pinned
+        + b'  "instrument": {\n    "": {\n      "fs_exe": "<PYTHON>",\n'
+        + b'      "fs_exe_sha256": "<EXE-SHA>"\n    }\n  },\n  "inputs_sha256": {},\n',
+    )
     assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
         if name == "tree/runs.json":

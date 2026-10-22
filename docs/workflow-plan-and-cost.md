@@ -72,6 +72,14 @@ What each block says:
 - `Files written` is the plan receipt `run` asks for and each guide the plan
  wrote.
 
+The receipt records what the plan measured: the matrix's SHA-256, each solver
+executable the rows run on with its SHA-256 (`instrument`), and the SHA-256 of
+every geometry file a row opens (`inputs_sha256`). `run` compares them before
+it starts any point and refuses, naming the file, when the matrix, an
+executable or a geometry file changed after planning, or when `--fs-exe` names
+another executable than the one planned. Plan again to run on the changed
+files.
+
 The warnings go to stderr and everything else to stdout; the exit code is 1
 when a point is blocked and 0 otherwise. The `[continuation] started` and
 `finished` lines of each point print only with `--verbose`, which also prints

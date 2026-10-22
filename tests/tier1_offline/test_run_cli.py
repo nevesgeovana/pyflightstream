@@ -902,3 +902,64 @@ def test_last_a_corrupt_products_manifest_is_named_not_a_traceback(tmp_path, cap
     manifest.write_text("{not json", encoding="utf-8")
     assert cli_module._report_skips(workspace, [None]) == 0
     assert "could not read the skipped list" in capsys.readouterr().err
+
+
+@pytest.mark.requirement("FR-1556")
+def test_p0430_a_run_whose_executable_changed_after_the_plan_is_refused(tmp_path, capsys):
+    """NL-EXEC-1, FR-1556: the plan records the executable it measured and its digest, and
+    a run on an executable that changed after planning is refused before any point."""
+    import json
+
+    workspace = make_workspace(tmp_path)
+    solver = tmp_path / "FlightStream.exe"
+    solver.write_bytes(b"build one")
+    registry = workspace.inputs_dir / "executables.toml"
+    registry.write_text(
+        registry.read_text(encoding="utf-8").replace(
+            Path(sys.executable).as_posix(), solver.as_posix()
+        ),
+        encoding="utf-8",
+    )
+    assert main(plan_args(workspace, FIXTURE)) in (0, 1)
+    plan = json.loads((workspace.plan_dir(FIXTURE.stem) / "plan.json").read_text("utf-8"))
+    assert plan["instrument"][""]["fs_exe_sha256"] == hashlib.sha256(b"build one").hexdigest()
+    assert Path(plan["instrument"][""]["fs_exe"]) == solver
+    solver.write_bytes(b"build two")
+    assert main(run_args(workspace, FIXTURE)) == 2
+    message = capsys.readouterr().err
+    assert "FlightStream.exe, changed since it was planned" in message, message
+    assert not workspace.read_manifest(), "a run on another instrument reached the solver"
+
+
+@pytest.mark.requirement("FR-1556")
+def test_p0430_a_run_whose_input_or_named_executable_differs_from_the_plan_is_refused(tmp_path):
+    """NL-EXEC-1: an input file whose digest moved after planning, or a run naming another
+    executable than the one planned, is refused naming what changed."""
+    import json
+
+    from pyflightstream.run import plan_receipt_error
+    from pyflightstream.workspace import CampaignWorkspace
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    matrix = tmp_path / "m.fs"
+    matrix.write_text("x", encoding="utf-8")
+    geometry = tmp_path / "wing.fsm"
+    geometry.write_bytes(b"one")
+    plan_file = workspace.plan_dir("m") / "plan.json"
+    plan_file.parent.mkdir(parents=True, exist_ok=True)
+    plan_file.write_text(
+        json.dumps(
+            {
+                "matrix_sha256": hashlib.sha256(b"x").hexdigest(),
+                "instrument": {"": {"fs_exe": str(tmp_path / "a.exe"), "fs_exe_sha256": None}},
+                "inputs_sha256": {str(geometry): hashlib.sha256(b"one").hexdigest()},
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert plan_receipt_error(workspace, matrix, "m") is None
+    named = plan_receipt_error(workspace, matrix, "m", fs_exe=tmp_path / "b.exe")
+    assert named is not None and "b.exe" in named and "a.exe" in named
+    geometry.write_bytes(b"two")
+    changed = plan_receipt_error(workspace, matrix, "m")
+    assert changed is not None and f"the input {geometry} changed" in changed
