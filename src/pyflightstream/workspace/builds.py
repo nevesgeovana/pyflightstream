@@ -39,7 +39,8 @@ EXECUTABLES_FILE = "executables.toml"
 #: because where a solver is installed is machine configuration; the
 #: overlay beside it, gitignored, supplies the real path of a build id. A
 #: bare path keeps the committed entry's declared version, a table replaces
-#: the entry, and a build id the overlay is silent on reads as committed.
+#: only the fields it states, and a build id the overlay is silent on reads as
+#: committed.
 LOCAL_EXECUTABLES_FILE = "executables.local.toml"
 
 #: Every key a TABLE-valued entry of the build registry carries, and the
@@ -234,6 +235,11 @@ def resolve_build(
                 )
             if isinstance(local, str) and isinstance(committed, dict):
                 table[key] = {**committed, "path": local}
+            elif isinstance(local, dict) and isinstance(committed, dict):
+                # Key by key: a field the overlay does not state keeps the
+                # committed value (PFS-2124.006), as the string form keeps
+                # every field but the path.
+                table[key] = {**committed, **local}
             else:
                 table[key] = local
             source_of[key] = overlay_path

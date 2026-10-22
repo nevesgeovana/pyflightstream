@@ -1150,6 +1150,24 @@ class TestWorkspace2Builds:
         assert "'99.999'" in message, message
         assert "executables.local.toml declares" in message, message
 
+    @staticmethod
+    @pytest.mark.requirement("FR-2320")
+    def test_p0430_a_table_overlay_keeps_the_fields_it_does_not_state(tmp_path):
+        """FR-2320 (PFS-2124.006): an overlay table stating only the path and the acceptance
+        keeps the committed entry's version, and replaces the fields it states."""
+        (tmp_path / "executables.toml").write_text(
+            '"26.123" = { path = "C:/placeholder/FlightStream.exe", version = "26.123" }\n',
+            encoding="utf-8",
+        )
+        (tmp_path / "executables.local.toml").write_text(
+            '"26.123" = { path = "C:/fs/FlightStream.exe", accept_unregistered_build = true }\n',
+            encoding="utf-8",
+        )
+        build = resolve_build(tmp_path, "26.123")
+        assert build.fs_version == "26.123"
+        assert build.fs_exe == Path("C:/fs/FlightStream.exe")
+        assert build.accept_unregistered_build is True
+
 
 class TestWorkspace2Costs:
     """P0400-COSTFILE: a cost file's reference values and curve entries are checked when it is read."""  # noqa: E501

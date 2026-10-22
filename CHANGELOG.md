@@ -293,6 +293,8 @@ FlightStream versions.
   (the shortest decimal that reads back to the same number), unavailable values as `NA`.
 - `probe_version` refuses a specification mapping that registers a probe under a name other
   than its own command, so two definitions never claim one probe; nothing is started.
+- A table entry of `inputs/executables.local.toml` replaces only the fields it states: a
+  committed `version` the overlay does not repeat is kept.
 
 ## [0.42.0] - 2026-10-16
 

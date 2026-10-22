@@ -4166,7 +4166,7 @@ def test_a_local_registry_overlay_supplies_this_machines_paths(tmp_path):
     because an installation path is machine configuration; the gitignored
     inputs/executables.local.toml beside it supplies this machine's paths for the
     same build ids. A bare local path keeps the committed entry's version; a local
-    table replaces the entry."""
+    table over a bare committed path replaces the entry."""
     from pyflightstream.workspace.inputs import resolve_build
 
     workspace = make_library(tmp_path)
