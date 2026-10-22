@@ -128,7 +128,9 @@ class LoadsReport:
         Coordinate frame of the analysis.
     surfaces : dict of str to dict of str to float
         Per-surface coefficients, keyed surface name then column name
-        (Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz).
+        (Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz). The three moment
+        coefficients are normalised by the reference chord, about the
+        moment reference point, on every build (26.124 and 26.125).
     total : dict of str to float
         The Total row, same columns.
     force_units, moment_units : str

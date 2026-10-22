@@ -342,7 +342,8 @@ def group_coefficients(
     group none of whose families is in the table sums to zero, which is
     what the reference products carry for the rotor groups of a wing-body
     polar. The rolling and yawing moments are the solver's ``CMx`` and
-    ``CMz``, scaled from the reference chord to the span and negated,
+    ``CMz``, which the solver normalises by the reference chord on every
+    build (26.124 and 26.125), scaled to the span and negated,
     the standard convention.
 
     ``empty_is_every`` is what an EMPTY member list means, and it is

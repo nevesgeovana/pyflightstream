@@ -492,9 +492,10 @@ def polar_axis_coefficients(
     force_in_export_frame : sequence of float
         ``(Cx, Cy, Cz)`` as the loads export states them: x aft, y right, z up.
     moment_in_export_frame : sequence of float
-        ``(CMx, CMy, CMz)`` in that frame, ALL THREE taken as normalised by the
-        reference chord, which is how the package reads the export (no committed
-        report scores the moment normalisation: RPT-063 records no moments).
+        ``(CMx, CMy, CMz)`` in that frame, ALL THREE normalised by the reference
+        chord, which is how the export states them (26.124 and 26.125: changing
+        only the reference length halved all three, and the solver has no span
+        input; L4 F-498).
     alpha_deg, beta_deg : float
         The angles the point flew, as written; the axes are turned by the
         geometric angles of :func:`wind_angles`.
