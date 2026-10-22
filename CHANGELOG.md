@@ -14,6 +14,8 @@ FlightStream versions.
 
 ### Changed
 
+- `pyfs-matrix mark-converged` without `--apply` exits 2 when its preview holds a refused
+  point, as `--apply` does; a preview without refusals still exits 0.
 - Altitude and compatibility reports state that they analyse retained evidence, not probe
   harness output. The loft geometry digest printed in compatibility reports is now a SHA-256
   prefix, so digests in reports written before this change are not comparable.
