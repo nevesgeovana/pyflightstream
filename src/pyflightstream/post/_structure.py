@@ -6,7 +6,7 @@ import csv
 import math
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -28,6 +28,29 @@ if TYPE_CHECKING:
     from pyflightstream.post._sim import SimContext
 
 
+def _decoded_structure(record: Any):
+    """Return the folder, source, station rows and tips of a coupled record, or raise."""
+    if not record.cwd:
+        raise ValueError("the coupled record has no working folder")
+    folder = Path(record.cwd)
+    config_path = folder / "config.json"
+    if file_sha256(config_path) != record.inputs_sha256.get("config.json"):
+        raise ValueError("config.json differs from the coupled run's recorded input")
+    config = load_config(config_path)
+    layout = generate_node_layout(config)
+    source, flat = _recorded_displacements(folder, config, layout)
+    rows = []
+    tips = []
+    for blade, translations in enumerate(unflatten_translations(layout, flat), start=1):
+        deflection, twist = decode_station_translations(
+            translations, np.asarray(layout.le_offset_m), np.asarray(layout.te_offset_m)
+        )
+        for station, radius in enumerate(config.blade.station_radii_m):
+            rows.append((blade, radius, deflection[station], math.degrees(twist[station])))
+        tips.append((float(deflection[-1]), math.degrees(float(twist[-1]))))
+    return folder, source, rows, tips
+
+
 def structure_products(ctx: SimContext) -> None:
     """Write deflection and twist, retaining recorded history without re-solving."""
     for point in ctx.points:
@@ -36,24 +59,7 @@ def structure_products(ctx: SimContext) -> None:
             continue
         relative = f"structure/{point.name}_deflection.csv"
         try:
-            if not record.cwd:
-                raise ValueError("the coupled record has no working folder")
-            folder = Path(record.cwd)
-            config_path = folder / "config.json"
-            if file_sha256(config_path) != record.inputs_sha256.get("config.json"):
-                raise ValueError("config.json differs from the coupled run's recorded input")
-            config = load_config(config_path)
-            layout = generate_node_layout(config)
-            source, flat = _recorded_displacements(folder, config, layout)
-            rows = []
-            tips = []
-            for blade, translations in enumerate(unflatten_translations(layout, flat), start=1):
-                deflection, twist = decode_station_translations(
-                    translations, np.asarray(layout.le_offset_m), np.asarray(layout.te_offset_m)
-                )
-                for station, radius in enumerate(config.blade.station_radii_m):
-                    rows.append((blade, radius, deflection[station], math.degrees(twist[station])))
-                tips.append((float(deflection[-1]), math.degrees(float(twist[-1]))))
+            folder, source, rows, tips = _decoded_structure(record)
         except (OSError, ValueError) as error:
             ctx.skipped[relative] = f"structure: {error}"
             continue

@@ -790,13 +790,7 @@ _SETUP_TABLES_LEFT_OUT: Mapping[str, Mapping[str, tuple[str, ...]]] = {
         }
     ),
     "`[[unsteady_solver_actions]]`": MappingProxyType(
-        {
-            "optional, a marching row's per-step actions": (
-                "type",
-                "name",
-                "filename",
-            )
-        }
+        {"optional, a marching row's per-step actions": ("type", "name", "filename")}
     ),
 }
 

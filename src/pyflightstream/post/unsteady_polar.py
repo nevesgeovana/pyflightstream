@@ -590,6 +590,39 @@ UNSTEADY_AXIS_COLUMNS: tuple[str, ...] = (
 _SIX_COMPONENTS = AXES_PLOT_COMPONENTS
 
 
+def _store_turned(
+    values: dict[str, float],
+    group: str,
+    turned: Sequence[float],
+    stored: list[tuple[dict[str, float], str]],
+    added: list[str],
+) -> None:
+    """Write a group's turned axis coefficients into a row, noting each column once."""
+    for column in UNSTEADY_AXIS_COLUMNS:
+        name = f"{column}_{group}"
+        values[name] = turned[_STEADY_AXIS_COLUMNS.index(column)]
+        stored.append((values, name))
+        if name not in added:
+            added.append(name)
+
+
+def _positive_reference(reference: ReferenceValues) -> bool:
+    """Whether the reference area, chord and span are all positive."""
+    return reference.sref_m2 > 0.0 and reference.cref_m > 0.0 and reference.bref_m > 0.0
+
+
+def _lacking_condition(rho: object, speed: object, alpha: object, beta: object) -> list[str]:
+    """Return what a row's condition lacks to divide a force by its dynamic pressure."""
+    lacking = [
+        key
+        for key, value in (("RHO", rho), ("VINF", speed), ("ALPHA", alpha), ("BETA", beta))
+        if not isinstance(value, int | float) or isinstance(value, bool) or not math.isfinite(value)
+    ]
+    if not lacking and not (float(rho) > 0.0 and float(speed) > 0.0):  # type: ignore[arg-type]
+        lacking = ["a positive RHO and VINF"]
+    return lacking
+
+
 def _the_axes_of_the_unsteady_rows(
     rows: Sequence[
         tuple[Mapping[str, object], dict[str, float], tuple[int, int], dict[str, object]]
@@ -624,12 +657,7 @@ def _the_axes_of_the_unsteady_rows(
         return []
     # The span too: the roll and yaw moments are made dimensionless by it, and a
     # zero BREF was a bare ZeroDivisionError out of the whole polar.
-    if (
-        reference is None
-        or reference.sref_m2 <= 0.0
-        or reference.cref_m <= 0.0
-        or reference.bref_m <= 0.0
-    ):
+    if reference is None or not _positive_reference(reference):
         notes.append(
             "the axis coefficients are not written: no positive reference area, chord "
             "and span (the roll and yaw moments need a span)"
@@ -641,15 +669,7 @@ def _the_axes_of_the_unsteady_rows(
         stated = {str(key).upper(): value for key, value in condition.items()}
         rho, speed = stated.get("RHO"), stated.get("VINF")
         alpha, beta = stated.get("ALPHA"), stated.get("BETA")
-        lacking = [
-            key
-            for key, value in (("RHO", rho), ("VINF", speed), ("ALPHA", alpha), ("BETA", beta))
-            if not isinstance(value, int | float)
-            or isinstance(value, bool)
-            or not math.isfinite(value)
-        ]
-        if not lacking and not (float(rho) > 0.0 and float(speed) > 0.0):  # type: ignore[arg-type]
-            lacking = ["a positive RHO and VINF"]
+        lacking = _lacking_condition(rho, speed, alpha, beta)
         if lacking:
             notes.append(
                 f"the axis coefficients of steps {_window[0]} to {_window[1]} are not written: "
@@ -675,13 +695,7 @@ def _the_axes_of_the_unsteady_rows(
                 # carries it (`CL_MRP_TOTAL`, so `CLW_MRP_TOTAL`): a column that changed
                 # its name when the pproc gained a second group broke every reader keyed
                 # to it, and a shortened name let two groups write one column.
-                for column in UNSTEADY_AXIS_COLUMNS:
-                    at = _STEADY_AXIS_COLUMNS.index(column)
-                    name = f"{column}_{group}"
-                    values[name] = turned[at]
-                    stored.append((values, name))
-                    if name not in added:
-                        added.append(name)
+                _store_turned(values, group, turned, stored, added)
         except (OverflowError, ZeroDivisionError) as error:
             # AN OVERFLOW IN THE NORMALISATION OMITS THE BLOCK, as every other reason
             # does: it aborted the whole polar, and the point lost its row.

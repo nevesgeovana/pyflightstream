@@ -980,6 +980,7 @@ def _acoustic_only(
     sim_id: str,
     record: RunRecord,
     out: Path,
+    *,
     skipped: dict[str, str] | None,
     archive: bool,
     archive_stamp: datetime | None,
@@ -1062,7 +1063,15 @@ def _point_series(
         if sectional is None:
             # A RECORD THAT LISTS ONLY AN ACOUSTIC EXPORT still gets its acoustic products:
             # they read nothing of the loads, so the missing loads cost them nothing.
-            return _acoustic_only(workspace, sim_id, record, out, skipped, archive, archive_stamp)
+            return _acoustic_only(
+                workspace,
+                sim_id,
+                record,
+                out,
+                skipped=skipped,
+                archive=archive,
+                archive_stamp=archive_stamp,
+            )
         stem = sectional.rsplit("_", 1)[0]
         loads_name = f"{stem}.txt"
     else:

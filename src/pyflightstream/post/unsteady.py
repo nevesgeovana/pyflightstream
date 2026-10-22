@@ -1169,8 +1169,7 @@ def phase_locked_rows(
     >>> [(row["AZIMUTH"], row["CL"]) for row in rows]
     [(0.0, 4.0), (90.0, 2.0), (180.0, 4.0), (270.0, 2.0)]
     """
-    per_revolution = float(steps_per_revolution)
-    depth = float(revolutions)
+    per_revolution, depth = float(steps_per_revolution), float(revolutions)
     _refuse_a_clock(per_revolution, depth)
     if per_revolution <= 0:
         raise ProductError(

@@ -41,23 +41,19 @@ from pyflightstream.farfield import (
     trace_forces,
     wake_crossings,
 )
-from pyflightstream.post._condition import _last_time_step, _recorded_speeds, row_rotor_speeds
+from pyflightstream.post._condition import _last_time_step
+from pyflightstream.post._farfield_geometry import _NA, _flow, _hub, _layout, _Probe
 from pyflightstream.post._tables import CONTEXT_COLUMNS, _cell, context_row, write_csv_table
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
-    FarLayout,
     ProbeSamples,
     average_rows,
-    derived_layout,
     far_samples,
-    frame_lattice,
     lattice_samples,
     ledger_values,
     native_per_m,
     plane_values,
-    recorded_layout,
-    rotor_lattice,
     rotor_values,
     steady_samples,
     unsteady_samples,
@@ -129,7 +125,6 @@ SPANWISE_COLUMNS: tuple[str, ...] = (
     "CDI_LOCAL",
     "STATUS",
 )
-_NA = float("nan")
 _VARIANT_NAMES = {"sections": "A", "wake": "B", "plane": "C"}
 #: Above this Mach number the C row is written with a WARNING that the
 #: incompressible relations of the definitions page are used (FR-1036).
@@ -145,7 +140,6 @@ _PLANE_LIFT_TOLERANCE = 0.10
 #: traced alone agreed to 0.15 percent (RPT-171's wing); a wing traced without
 #: its body departed by 6.6 and 7 percent.
 _TRACED_LIFT_TOLERANCE = 0.05
-_AXES = {"X": np.array([1.0, 0.0, 0.0]), "Y": np.array([0.0, 1.0, 0.0]), "Z": np.array([0, 0, 1.0])}
 
 
 def farfield_axes(alpha_deg: float, beta_deg: float) -> np.ndarray:
@@ -274,14 +268,6 @@ def _selected(
 
     groups = select_families(spec_families, families, is_blade, aliases, strict=False)
     return list(dict.fromkeys(name for group in groups for name in (group or families)))
-
-
-def _flow(point: PolarPoint) -> tuple[float, float, float, float]:
-    """Return the density, the free-stream speed, alpha and beta (deg) of a point."""
-    state = point.state
-    rho = float(state.density_kg_m3) if state and state.density_kg_m3 else _NA
-    loads = point.loads
-    return rho, float(loads.freestream_velocity_m_s), loads.angle_of_attack_deg, loads.sideslip_deg
 
 
 def _q_ref(point: PolarPoint, rho: float) -> float:
@@ -810,97 +796,6 @@ def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[
     return out, "" if out else "the fluid plots hold no time step"
 
 
-def _lattice_of(ctx: SimContext, spec) -> tuple[Any, np.ndarray | None, str] | None:
-    if spec.ledgers is None:
-        return None
-    if spec.ledgers.rotor is None:
-        return frame_lattice(spec.ledgers)
-    rotor = (getattr(ctx.live, "rotors", None) or {}).get(spec.ledgers.rotor)
-    if rotor is None:
-        raise PyflightstreamError(
-            f"the reference names no rotor {spec.ledgers.rotor!r} to place the lattice on"
-        )
-    return rotor_lattice(spec.ledgers, rotor)
-
-
-def _plane_grid(ctx: SimContext, spec) -> tuple[float, float, float]:
-    half_width, half_height, spacing = spec.trefftz.plane_bref()
-    bref = float(ctx.reference.bref_m)
-    return half_width * bref, half_height * bref, spacing * bref
-
-
-@dataclass(frozen=True)
-class _Probe:
-    """Where a point's far-field probes are and how to read them."""
-
-    per_m: float
-    layout: FarLayout
-    hub: tuple[float, np.ndarray, np.ndarray] | None
-    rotor: bool = False
-
-
-def _layout(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> FarLayout:
-    """Return the far-field probes of a point: as its run recorded them, else from the table.
-
-    PFS-2081.58: the record's layout is what the plan laid or reused, so post
-    integrates exactly those probes with their own grid, whatever the table
-    states today. A record written before the layout was recorded is matched
-    to the table as it stands, the plane and a frame's lattice by shape.
-    """
-    record = ctx.record_of[point.name]
-    shapes = (getattr(record, "farfield_layout", None) or {}).get("shapes")
-    if shapes:
-        return recorded_layout(shapes)
-    plane = spec.trefftz is not None and "plane" in spec.trefftz.variant and not rotor
-    _rho, _speed, alpha, beta = _flow(point)
-    a, b = math.radians(alpha), math.radians(beta)
-    direction = (math.cos(a) * math.cos(b), -math.cos(a) * math.sin(b), math.sin(a))
-    return derived_layout(
-        plane_grid=_plane_grid(ctx, spec) if plane else None,
-        direction=direction,
-        lattice=_lattice_of(ctx, spec),
-    )
-
-
-def _hub(
-    ctx: SimContext, point: PolarPoint, spec, layout: FarLayout
-) -> tuple[float, np.ndarray, np.ndarray] | None:
-    """Return the frame speed (rad/s, signed), axis and origin of a quasi-steady rotor's probes.
-
-    PFS-2081.93: the speed is read as every other product of the point reads
-    it, the record's plan where it states one and otherwise the row's own
-    speed from the quasi-steady record beside the loads export
-    (:func:`~pyflightstream.post._condition.row_rotor_speeds`), which a
-    ``qsteady_rotor`` run always writes and never plans. That speed is SIGNED
-    by the rotor's hand (``rpm_sign`` times the row's magnitude), so the frame
-    turns about the axis by the sign of the speed alone; the hand is not
-    applied a second time. The axis and the hub are the lattice's as the run
-    recorded it, or the reference's rotor block for a record without a layout.
-    """
-    record = ctx.record_of[point.name]
-    if str(record.recipe or "") != "qsteady_rotor" or spec.ledgers is None:
-        return None
-    alias = spec.ledgers.rotor
-    own = row_rotor_speeds(record, getattr(point, "loads_path", None))
-    rpm = _recorded_speeds(record.reductions, own).get(str(alias))
-    rotor: Any = (getattr(ctx.live, "rotors", None) or {}).get(alias)
-    if rpm is None:
-        raise PyflightstreamError(
-            f"the quasi-steady rotor {alias!r} states no speed in the point's record nor in "
-            "its quasi-steady record, so its probes cannot be converted to the hub frame"
-        )
-    if layout.lattice_origin_m is not None:
-        letter, origin = layout.axis, np.asarray(layout.lattice_origin_m, dtype=np.float64)
-    elif rotor is not None:
-        letter = str(rotor.axis)
-        origin = np.asarray([rotor.x_m, rotor.y_m, rotor.z_m], dtype=np.float64)
-    else:
-        raise PyflightstreamError(
-            f"the reference names no rotor {alias!r}, so the hub its probes turn about is unknown"
-        )
-    return 2.0 * math.pi * float(rpm) / 60.0, _AXES[letter.strip().upper()], origin
-
-
 def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
     per_m = _per_m(ctx, point)
     if per_m is None:
@@ -1021,6 +916,25 @@ def _ledger_rows(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], 
     return rows
 
 
+def _last_and_window(
+    ctx: SimContext, point: PolarPoint, instants: list[_Instant], windowed: bool, normal: bool
+):
+    """Return the last instant and the window's instants (none when it is partly covered)."""
+    if windowed:
+        window = ctx.point_windows.get(point.name)
+        last = instants[-1]
+        chosen = [i for i in instants if window and window[0] <= _step(i) <= window[1]]
+        # The average is of the whole window or it is not written: a window
+        # the recorded steps only partly cover would average fewer steps.
+        if window and not (_step(instants[0]) <= window[0] and _step(last) >= window[1]):
+            chosen = []
+        return last, chosen
+    last = instants[0]
+    if normal:
+        last = replace(last, step=_last_step(ctx.record_of[point.name]))
+    return last, []
+
+
 def _probe_point(
     ctx: SimContext,
     point: PolarPoint,
@@ -1045,18 +959,7 @@ def _probe_point(
         instants, why = _instants(ctx, point, unsteady and not normal)
         if why:
             raise PyflightstreamError(why)
-        if unsteady and not normal:
-            window = ctx.point_windows.get(point.name)
-            last = instants[-1]
-            chosen = [i for i in instants if window and window[0] <= _step(i) <= window[1]]
-            # The average is of the whole window or it is not written: a window
-            # the recorded steps only partly cover would average fewer steps.
-            if window and not (_step(instants[0]) <= window[0] and _step(last) >= window[1]):
-                chosen = []
-        else:
-            last, chosen = instants[0], []
-            if normal:
-                last = replace(last, step=_last_step(record))
+        last, chosen = _last_and_window(ctx, point, instants, unsteady and not normal, normal)
         sets = [(last, _instant_values(ctx, point, last, probe, analyses))]
         averaged = [
             (i, _instant_values(ctx, point, i, probe, analyses, final=i is last)) for i in chosen

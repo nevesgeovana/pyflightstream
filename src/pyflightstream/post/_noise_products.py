@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -26,6 +26,78 @@ if TYPE_CHECKING:
     from pyflightstream.post._sim import SimContext
 
 
+def _point_signals(ctx: SimContext, spec: Any, point: PolarPoint, key: str):
+    """Return the sample times and observer signals of one point, or raise its refusal."""
+    record = ctx.record_of[point.name]
+    if record.recipe != "qsteady_rotor":
+        raise ValueError("exploratory loading noise requires a recorded quasi-steady wheel")
+    quasi = read_qsteady_record(point.loads_path)
+    if quasi.case != "wheel" or not np.allclose(quasi.axis_vector, (1, 0, 0)):
+        raise ValueError("loading-noise reconstruction currently requires a wheel about +X")
+    density = _recorded_density(point, record)
+    clockings = clockings_of(
+        quasi,
+        point.loads_path.parent,
+        reference=ctx.reference,
+        density_kg_m3=float(density),
+        shaft_loads=rotor_shaft_loads,
+    )
+    if isinstance(clockings, str):
+        raise ValueError(clockings)
+    azimuths, forces, moments = _blade_load_samples(quasi, clockings)
+    load = reconstruct_blade_load(
+        azimuths,
+        forces,
+        moments,
+        axis=quasi.axis_vector,
+        reference=(0, 0, 1),
+        orders=spec.orders,
+        axial_radius_m=spec.axial_radius_m,
+        inplane_radius_m=spec.inplane_radius_m,
+    )
+    omega = quasi.rpm * 2 * math.pi / 60
+    if omega == 0:
+        raise ValueError("loading noise requires nonzero rotor speed")
+    motion = RotorMotion(
+        blades=quasi.blades,
+        omega_rad_s=omega,
+        azimuth0_deg=quasi.blade1_azimuth_deg,
+        axis=quasi.axis_vector,
+        reference=(0, 0, 1),
+        hub_m=quasi.hub_m,
+        hub_velocity_m_s=spec.hub_velocity_m_s,
+    )
+    times = (
+        np.arange(spec.samples_per_revolution)
+        * (2 * math.pi / abs(omega))
+        / spec.samples_per_revolution
+    )
+    return times, _observer_signals(ctx, spec, key, times=times, motion=motion, load=load)
+
+
+def _observer_signals(ctx: SimContext, spec: Any, key: str, *, times, motion, load):
+    """Return the signal of each observer; an unusable observer costs only its own file."""
+    signals: list[tuple[int, np.ndarray]] = []
+    for index, observer in enumerate(spec.observers_m, start=1):
+        # ONE UNUSABLE OBSERVER COSTS ONLY ITS OWN FILE: the others are independent.
+        try:
+            signal = rotor_loading_noise(
+                times,
+                observer,
+                motion,
+                load,
+                c0=spec.sound_speed_m_s,
+                observer_velocity_m_s=spec.observer_velocity_m_s,
+            )
+            if not np.isfinite(signal).all():
+                raise ValueError("loading-noise pressure is not finite at the requested observer")
+        except (ValueError, PyflightstreamError) as error:
+            ctx.skipped[f"{key}_observer_{index}.csv"] = str(error)
+            continue
+        signals.append((index, signal))
+    return signals
+
+
 def noise_products(ctx: SimContext) -> None:
     """Write requested pressure histories, never claiming licensed validation."""
     spec = ctx.pproc.noise
@@ -33,71 +105,8 @@ def noise_products(ctx: SimContext) -> None:
         return
     for point in ctx.points:
         key = f"noise/{point.name}"
-        record = ctx.record_of[point.name]
         try:
-            if record.recipe != "qsteady_rotor":
-                raise ValueError("exploratory loading noise requires a recorded quasi-steady wheel")
-            quasi = read_qsteady_record(point.loads_path)
-            if quasi.case != "wheel" or not np.allclose(quasi.axis_vector, (1, 0, 0)):
-                raise ValueError("loading-noise reconstruction currently requires a wheel about +X")
-            density = _recorded_density(point, record)
-            clockings = clockings_of(
-                quasi,
-                point.loads_path.parent,
-                reference=ctx.reference,
-                density_kg_m3=float(density),
-                shaft_loads=rotor_shaft_loads,
-            )
-            if isinstance(clockings, str):
-                raise ValueError(clockings)
-            azimuths, forces, moments = _blade_load_samples(quasi, clockings)
-            load = reconstruct_blade_load(
-                azimuths,
-                forces,
-                moments,
-                axis=quasi.axis_vector,
-                reference=(0, 0, 1),
-                orders=spec.orders,
-                axial_radius_m=spec.axial_radius_m,
-                inplane_radius_m=spec.inplane_radius_m,
-            )
-            omega = quasi.rpm * 2 * math.pi / 60
-            if omega == 0:
-                raise ValueError("loading noise requires nonzero rotor speed")
-            motion = RotorMotion(
-                blades=quasi.blades,
-                omega_rad_s=omega,
-                azimuth0_deg=quasi.blade1_azimuth_deg,
-                axis=quasi.axis_vector,
-                reference=(0, 0, 1),
-                hub_m=quasi.hub_m,
-                hub_velocity_m_s=spec.hub_velocity_m_s,
-            )
-            times = (
-                np.arange(spec.samples_per_revolution)
-                * (2 * math.pi / abs(omega))
-                / spec.samples_per_revolution
-            )
-            signals: list[tuple[int, np.ndarray]] = []
-            for index, observer in enumerate(spec.observers_m, start=1):
-                # ONE UNUSABLE OBSERVER COSTS ONLY ITS OWN FILE: the others are independent.
-                try:
-                    signal = rotor_loading_noise(
-                        times,
-                        observer,
-                        motion,
-                        load,
-                        c0=spec.sound_speed_m_s,
-                        observer_velocity_m_s=spec.observer_velocity_m_s,
-                    )
-                    if not np.isfinite(signal).all():
-                        raise ValueError(
-                            "loading-noise pressure is not finite at the requested observer"
-                        )
-                except (ValueError, PyflightstreamError) as error:
-                    ctx.skipped[f"{key}_observer_{index}.csv"] = str(error)
-                    continue
-                signals.append((index, signal))
+            times, signals = _point_signals(ctx, spec, point, key)
         except (OSError, ValueError, PyflightstreamError) as error:
             ctx.skipped[key] = str(error)
             continue
