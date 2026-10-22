@@ -69,8 +69,8 @@ classifiers = [
 #
 # numpy and pandas carry the SPEC 0 floor computed on 2026-09-09 (see
 # requires-python above); neither is above the version this tree runs
-# with, which the same test measures. No CI leg installs the floors
-# themselves, so a floor is evidence about the tree's own version only. pydantic
+# with, which the same test measures. The CI leg `test-floors` installs the
+# numpy and pandas floors themselves and runs tier 1 on them. pydantic
 # is not a SPEC 0 project: its floor is the major whose API this package
 # is written against (field_validator, model_validator).
 dependencies = [

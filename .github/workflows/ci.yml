@@ -178,6 +178,33 @@ jobs:
       - name: Mark a trailing edge end to end, with no extras present
         run: pytest tests/tier1_offline/test_trailing_edges.py
 
+  test-floors:
+    # The leg that installs the FLOORS of the two scientific dependencies
+    # instead of whatever pip resolves today (F-796, F-797, X-F-0001).
+    # pyproject.toml declares numpy>=2.2 and pandas>=2.3; every other leg
+    # runs on the newest release, so a call that exists only in a newer
+    # numpy or pandas would pass everywhere and break for a user who sits
+    # on the floor. The pins below are the floors written out; the test
+    # tests/tier1_offline/test_support_window.py reads the same
+    # declaration and fails when the installed pair leaves its range, so
+    # this leg cannot drift from pyproject.toml without going red.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          fetch-depth: 0  # the clean-room walk, as in the test job
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+      - name: Install package with dev extras
+        run: pip install -e .[dev,fsi,geom,excel]
+      - name: Pin numpy and pandas to their declared floors
+        run: pip install "numpy==2.2.0" "pandas==2.3.0"
+      - name: Say which versions run
+        run: python -c "import numpy, pandas; print('numpy', numpy.__version__, 'pandas', pandas.__version__)"
+      - name: Tier 1 on the floors
+        run: pytest -n auto
+
   types:
     # One leg, like the coverage floor and for the same reason: the answer
     # is a property of the source, not of the platform. The exemption list

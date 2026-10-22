@@ -57,8 +57,8 @@ def test_the_installed_version_of_each_declared_dependency_is_inside_its_range()
     """F-797, X-F-0001: the declared envelope of every dependency is measured on this tree.
 
     A floor above the installed version, or a ceiling at or below it, is a declaration the
-    tree itself contradicts. (No CI leg installs the floors, so this is evidence about the
-    tree's own versions only.)
+    tree itself contradicts. (The CI leg test-floors runs this on the numpy and pandas floors,
+    and every other leg runs it on the newest release.)
     """
     from importlib import metadata
 
