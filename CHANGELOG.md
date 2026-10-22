@@ -124,6 +124,60 @@ FlightStream versions.
   empty named manifest and refuses a symbolic-link backup; the Excel workbook reader reads
   boolean cells as TRUE and FALSE and refuses an error cell by address; a workbook digest
   ignores save time stamps.
+- A declined value is stated as NA in more tables: the custom polar, series, reduction, inflow
+  and installed-frame tables write NA, the readers take NA (and the historical dash) back as
+  missing, and the custom polar header refuses a character outside ASCII by naming its line.
+- The VTK and Tecplot probe writers refuse NaN and infinite values, an empty point set, repeated
+  variable names and names, titles or zones that hold a blank, quote or line break (all
+  `ProductError`, still a `ValueError`); they create their destination folder, write portable
+  JSON for a non-finite sampling value, and `write_output_pair` withdraws the data file when its
+  record cannot be written. An existing destination is one class for every writer.
+- The settings table reader and writer hold to the frozen codebook: keys may arrive in any
+  insertion order, a non-finite number or a repeated header label is refused, and a table from
+  another codebook version is named.
+- Post products name what they skip: a coupling history, an unreadable sectional or probe export,
+  a rotor in two planes, a non-finite clock or speed, and a simulation whose step cannot
+  re-resolve each cost only themselves and are said once in `post.log`.
+- Noise, structure and boundary-layer tables open with POL and the condition block; noise
+  products are per observer, harmonics use the recorded blade count, and a constant record has no
+  level.
+- Disc maps refuse two rotors that share a file name, keep six significant digits for VALUE and
+  keep a tiny negative azimuth below 360; per_blade STEPS counts the frames that entered the
+  average.
+- The reference check holds to the export's printed precision and says how coarsely a small
+  model could be checked; a backwards recorded window is no window.
+- Far-field tables: the wake calibration and E_T use the lift on one dynamic pressure basis,
+  spanwise tables carry the condition and reference block, a plane refuses an empty selection,
+  the window average needs the whole window, and the continuation join keeps an exact seam and
+  the march end. Bessel and Theodorsen functions hold at the float extremes.
+- Rotor tables and noise: false zeros are refused, a negative speed or zero shaft axis gives NA
+  loads, zero density is a `ProductError`, subsonic moving rotors are accepted, comparisons
+  stay finite at extreme scales, and the quasi-steady noise model refuses what it would drop.
+- Products: a wrong-shape `products.json` is refused with a remedy and a rebuild keeps the old
+  inventory until replaced; provenance files are never shared between runs; the far-field
+  columns BERNOULLI_RESIDUAL, W_M_S, GAMMA_M2_S, DI_N_M and ALPHA_I_DEG print six significant
+  digits; the spanwise file name is made safe.
+- Cases and workflows: an empty sweep axis, a held angle on an alpha_beta sweep, a non-finite
+  rotation angle or free-stream speed, a negative rotor speed handed to a builder, a non-finite
+  walltime margin and a rotor speed that differs from the row's are refused; a changed section
+  definition in a grouped job is refused, shell paths with spaces are quoted, and the counter
+  program refuses a corrupt count checkpoint and a foreign schedule.
+- Matrix and setup files: a malformed matrix id is refused, GEOMETRY is a file stem everywhere
+  it is documented, direct `INITIALIZE_SOLVER` refuses periodic-copy mismatches and non-finite
+  wake terminations, selections accept ALL, `SET_FREESTREAM` refuses another form's arguments,
+  a parked input may not be a folder or device name, and airfoil separation on 26.125 takes
+  `leading_edge_type`.
+- Workspace files: a field stem Windows reads as another file, a trailing-edge points file that
+  is not beside its sidecar, a frozen displacement file outside the FSI folder and a superscript
+  digit POL are refused or named; `migrate` publishes its backup whole and no longer asks a user
+  with another schema version to run itself.
+- Field, motion and pproc inputs: a near-unit rotation axis is normalised, a constant rotation
+  without a motion index is refused, a custom field file that is not UTF-8 is refused by name
+  (a byte order mark is read), the field hash describes the bytes the rows came from, two plot
+  groups writing one name are refused, and a pproc dump of groups and circle volume sections
+  reads back.
+- The input glossary states no solver command the package never emits, and its guides and
+  defaults are placed and quoted as TOML.
 
 ## [0.42.0] - 2026-10-16
 
