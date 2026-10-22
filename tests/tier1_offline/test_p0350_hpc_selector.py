@@ -84,22 +84,25 @@ def test_one_profile_without_selection_is_unchanged(tmp_path):
     assert resolve_hpc_profile(tmp_path / "nowhere") is None
 
 
-def test_p0430_f1566_a_dotted_cost_file_name_keeps_its_dots(tmp_path) -> None:
-    """F-1566: only a final .toml is a suffix of --cost-file."""
-    import argparse
-
-    from pyflightstream.run._cli_parsers import _select_for_this_invocation
+def test_p0430_f1566_a_dotted_cost_file_name_keeps_its_dots(tmp_path, monkeypatch) -> None:
+    """F-1566: only a final .toml is a suffix of --cost-file, so c1.2 is not the file c1."""
     from pyflightstream.workspace.costs import resolve_cost_file, select_cost_file
+    from tests.tier1_offline.test_p0350_cost_file import _FILE
 
-    (tmp_path / "costs").mkdir()
+    costs = tmp_path / "inputs" / "costs"
+    costs.mkdir(parents=True)
+    for name in ("c1.toml", "c001.toml"):
+        (costs / name).write_text(_FILE, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    parser = _build_parser()
     try:
-        # The refusal of a selection that names no file quotes the selected stem.
-        _select_for_this_invocation(argparse.Namespace(hpc=None, cost_file="c1.2"))
-        with pytest.raises(InputArtifactError, match=r"named 'c1\.2'"):
-            resolve_cost_file(tmp_path)
-        _select_for_this_invocation(argparse.Namespace(hpc=None, cost_file="c001.toml"))
-        with pytest.raises(InputArtifactError, match=r"named 'c001'"):
-            resolve_cost_file(tmp_path)
+        select_cost_file(None)
+        parsed(parser, ["plan", "m.fs", "--cost-file", "c001.toml"])
+        assert resolve_cost_file(tmp_path / "inputs").path.name == "c001.toml"
+        select_cost_file(None)
+        parsed(parser, ["plan", "m.fs", "--cost-file", "c1.2"])
+        with pytest.raises(InputArtifactError, match="no cost file named 'c1.2'"):
+            resolve_cost_file(tmp_path / "inputs")
     finally:
         select_cost_file(None)
 

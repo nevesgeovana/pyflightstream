@@ -8,6 +8,7 @@ cost fit has a sample.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import warnings
 from pathlib import Path
@@ -346,35 +347,48 @@ def test_p0350_plan_fr362_the_command_line_prints_the_table(tmp_path, capsys):
     assert grouping["batch_count"] == 2
 
 
-def test_p0430_f1562_a_job_of_separate_sims_lists_each_instead_of_a_range():
+def test_p0430_f1562_a_job_of_separate_sims_lists_each_instead_of_a_range(tmp_path):
     """F-1562: 2006 and 2008 are not 2006-2008; a consecutive run keeps the short form."""
-    from pyflightstream.run._batch_plan import _sims_text
+    workspace, matrix = _fixture(tmp_path, walltimes=("2h", "2h", "2h"), sweep="0.0")
+    grouping = _plan(workspace, matrix, batch=1).grouping
+    (job,) = grouping.jobs
 
-    assert _sims_text(["2006", "2008"]) == "2006,2008"
-    assert _sims_text(["2006", "2007", "2008"]) == "2006-2008"
-    assert _sims_text(["2006"]) == "2006"
+    def sims_column(sims):
+        held = dataclasses.replace(grouping, jobs=(dataclasses.replace(job, sims=sims),))
+        return grouping_table_lines(held)[1]
+
+    assert "2006,2008" in sims_column(("2006", "2008"))
+    assert "2006-2008" not in sims_column(("2006", "2008"))
+    assert "2006-2008" in sims_column(("2006", "2007", "2008"))
+    assert "2006-2008" not in sims_column(("2006",))
 
 
-def test_plan_receipt_f603_digest_is_taken_before_the_dry_builds(tmp_path, monkeypatch):
+def test_plan_receipt_f603_digest_is_taken_before_the_dry_builds(tmp_path):
     """F-603: a matrix edited while the plan builds is pinned as it was read, not as it ended."""
     import hashlib
 
-    from pyflightstream.run import _plan
-    from pyflightstream.run.cli import main
+    from pyflightstream.run._plan import plan_receipt_error
 
     workspace, matrix = _fixture(tmp_path)
     before = hashlib.sha256(matrix.read_bytes()).hexdigest()
-    real = _plan._warn_on_short_wakes
+    edited = []
 
-    def edit_then_warn(points):
-        matrix.write_bytes(matrix.read_bytes() + b"\n# edited during the dry builds\n")
-        return real(points)
+    def edits_the_matrix(build):
+        def build_then(case, script):
+            if not edited:
+                edited.append(matrix.write_bytes(matrix.read_bytes() + b"\n# edited during\n"))
+            return build(case, script)
 
-    monkeypatch.setattr(_plan, "_warn_on_short_wakes", edit_then_warn)
-    main(["plan", str(matrix), "--workspace", str(workspace.root)])
+        return build_then
+
+    registry = {name: edits_the_matrix(build) for name, build in workflow_registry().items()}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        plan_matrix(matrix, workspace, name="rotor", recipes={}, recipe_registry=registry)
+    assert edited
     plan = json.loads((workspace.plan_dir("rotor") / "plan.json").read_text("utf-8"))
     assert plan["matrix_sha256"] == before
-    assert _plan.plan_receipt_error(workspace, matrix, "rotor")  # now stale: refused
+    assert plan_receipt_error(workspace, matrix, "rotor")  # now stale: refused
 
 
 @pytest.mark.parametrize(
@@ -383,40 +397,55 @@ def test_plan_receipt_f603_digest_is_taken_before_the_dry_builds(tmp_path, monke
 )
 def test_plan_receipt_f1570_f1571_malformed_receipts_are_refused(tmp_path, body, needle):
     """F-1570, F-1571 (X-F-0564): a non-object receipt and a non-text digest are refused."""
-    from pyflightstream.run import _plan
+    from pyflightstream.run._plan import plan_receipt_error
 
     workspace, matrix = _fixture(tmp_path)
     plan_file = workspace.plan_dir("rotor") / "plan.json"
     plan_file.parent.mkdir(parents=True, exist_ok=True)
     plan_file.write_text(body, encoding="utf-8")
-    message = _plan.plan_receipt_error(workspace, matrix, "rotor")
+    message = plan_receipt_error(workspace, matrix, "rotor")
     assert message is not None and needle in message
 
 
-def _job_with_actions(*actions):
-    from types import SimpleNamespace
+def _grouping_warnings(tmp_path, *actions):
+    """Plan one polar whose setup states ``actions`` (type, name, filename); return its warnings."""
+    workspace, matrix = _fixture(tmp_path, walltimes=("2h",), sweep="0.0")
+    setup = workspace.inputs_dir / "setups" / "s002.toml"
+    stated = "".join(
+        f'\n[[unsteady_solver_actions]]\ntype = "{kind}"\nname = "{name}"\n'
+        f"filename = {json.dumps(filename)}\n"
+        for kind, name, filename in actions
+    )
+    setup.write_text(setup.read_text(encoding="utf-8") + stated, encoding="utf-8")
+    return [
+        text
+        for text in _plan(workspace, matrix, batch=1).grouping.warnings
+        if "unsteady_solver_actions" in text
+    ]
 
-    return SimpleNamespace(units=[SimpleNamespace(actions=tuple(actions), sim_id="2001")])
 
-
-def test_f_1573_a_job_with_only_absolute_script_actions_earns_no_warning():
+def test_f_1573_a_job_with_only_absolute_script_actions_earns_no_warning(tmp_path):
     """FR-1598: absolute SCRIPT files resolve anywhere, so nothing is said about them."""
-    from pyflightstream.run._batch_plan import _user_action_warnings
-
-    absolute = _job_with_actions(("SCRIPT", "", "/opt/shared/post.py"))
-    assert _user_action_warnings(absolute, "job_1") == []
-    mixed = _job_with_actions(("SCRIPT", "", "/opt/shared/post.py"), ("SCRIPT", "", "local.py"))
-    (message,) = _user_action_warnings(mixed, "job_1")
+    assert _grouping_warnings(tmp_path / "a", ("SCRIPT", "post", "/opt/shared/post.py")) == []
+    (message,) = _grouping_warnings(
+        tmp_path / "m", ("SCRIPT", "post", "/opt/shared/post.py"), ("SCRIPT", "local", "local.py")
+    )
     assert "local.py" in message
-    command = _job_with_actions(("COMMAND_LINE", "run.sh", ""))
-    assert len(_user_action_warnings(command, "job_1")) == 1
+    assert len(_grouping_warnings(tmp_path / "c", ("COMMAND_LINE", "run", "run.sh"))) == 1
 
 
-def test_f_1895_the_clock_warning_is_about_the_cluster_not_a_local_launch():
-    from types import SimpleNamespace
+def test_f_1895_the_clock_warning_is_about_the_cluster_not_a_local_launch(tmp_path):
+    from tests.tier1_offline.test_goal024_profile_log import LOG_TABLE, _write_profile
 
-    from pyflightstream.run._batch_plan import _profile_warnings
+    def warnings_of(table, folder):
+        workspace, matrix = _fixture(tmp_path / folder, walltimes=("2h",), sweep="0.0")
+        _write_profile(workspace, table)
+        return [
+            text
+            for text in _plan(workspace, matrix, batch=1).grouping.warnings
+            if "job_end_files" in text
+        ]
 
-    profile = SimpleNamespace(export_log=False, job_end_files=())
-    (message,) = _profile_warnings(profile)
+    (message,) = warnings_of(LOG_TABLE, "bare")
     assert "cluster" in message and "local launch writes its own end record" in message
+    assert warnings_of(LOG_TABLE + 'job_end_files = ["FTS{sim}.o*"]\n', "ended") == []

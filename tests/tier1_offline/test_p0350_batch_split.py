@@ -321,7 +321,21 @@ def test_p0430_f262_the_partition_prices_the_overheads_the_estimate_charges() ->
 
 
 def test_p0430_f1254_a_large_batch_count_does_not_recurse() -> None:
-    """F-1254: 1050 runs over 1100 polars partition without RecursionError."""
-    from pyflightstream.run._batch_split import _partition
+    """F-1254: a batch count of one polar per job splits without a recursion one level per run.
 
-    assert len(_partition([1.0] * 1100, 1050)) == 1049
+    A recursion one level per run raised RecursionError at about a thousand jobs; the
+    same cost shows at 60 jobs when the interpreter's limit leaves only 40 levels.
+    """
+    import sys
+
+    units = [_unit(str(2000 + index), index, 1 / HOUR) for index in range(70)]
+    depth, frame = 0, sys._getframe()
+    while frame is not None:
+        depth, frame = depth + 1, frame.f_back
+    saved = sys.getrecursionlimit()
+    sys.setrecursionlimit(depth + 40)
+    try:
+        jobs, _ = split_polars(units, 60)
+    finally:
+        sys.setrecursionlimit(saved)
+    assert len(jobs) == 60

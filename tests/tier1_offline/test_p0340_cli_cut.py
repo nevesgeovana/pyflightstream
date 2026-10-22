@@ -20,6 +20,8 @@ import pytest
 
 from pyflightstream.run import _cli_parsers, _cli_print
 from pyflightstream.run import cli as matrix_cli
+from tests.tier1_offline.test_p0410_fx7_surface_export import _call, _saved
+from tests.tier1_offline.test_p0410_fx7_surface_export import solver as solver
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
@@ -167,10 +169,12 @@ def test_p0430_f1564_an_empty_only_is_refused_not_an_unrestricted_build(capsys, 
     """F-1564: --only with no tag exits 2 and names the fix, writing nothing."""
     import argparse
 
-    from pyflightstream.run._cli_geometry import _cmd_build
+    from pyflightstream.run._cli_geometry import run_geometry
 
-    args = argparse.Namespace(only=" , ", target=str(tmp_path), build=None, apply=True)
-    assert _cmd_build(args) == 2
+    args = argparse.Namespace(
+        geometry_command="build", only=" , ", target=str(tmp_path), build=None, apply=True
+    )
+    assert run_geometry(args) == 2
     assert "--only names no variant" in capsys.readouterr().err
     assert list(tmp_path.iterdir()) == []
 
@@ -179,50 +183,50 @@ def test_p0430_f717_the_writability_probe_leaves_a_file_another_process_created(
     tmp_path, monkeypatch
 ):
     """F-717: a file that appears between the existence check and the probe is never removed."""
+    import argparse
     import os
 
-    from pyflightstream.run import _cli_mesh
+    from pyflightstream.run._cli_mesh import run_audit_mesh
 
     target = tmp_path / "audit.csv"
     real_open = os.open
 
     def racing_open(path, flags, *rest):
         # Another process creates the file first; the exclusive create then reports it.
-        Path(path).write_text("theirs", encoding="utf-8")
+        if Path(path) == target:
+            Path(path).write_text("theirs", encoding="utf-8")
         return real_open(path, flags, *rest)
 
-    monkeypatch.setattr(_cli_mesh.os, "open", racing_open)
-    assert _cli_mesh._refused_csv(str(target)) is None
+    monkeypatch.setattr(os, "open", racing_open)
+    args = argparse.Namespace(
+        mesh=str(tmp_path / "missing.obj"), against=None, out=str(target), csv_file=None
+    )
+    assert run_audit_mesh(args) == 2  # the audit itself is refused: no mesh, so no CSV follows
     assert target.read_text(encoding="utf-8") == "theirs"
 
 
 def test_p0430_f713_a_surface_export_never_replaces_a_file_that_appeared_meanwhile(
-    tmp_path, monkeypatch, capsys
+    tmp_path,
+    monkeypatch,
+    capsys,
+    solver,  # noqa: F811
 ):
     """F-713: without --overwrite the promotion refuses over a file another export wrote."""
-    import argparse
+    from pyflightstream.run import ExecutionResult
 
-    from pyflightstream.run import _cli_geometry as geometry
-
-    source = tmp_path / "wing.fsm"
+    source = _saved(tmp_path, monkeypatch)
     target = source.with_suffix(".surface.stl")
 
-    def exported(source_, work, **_kw):
+    def run(script_path, working_dir):
         target.write_text("theirs", encoding="utf-8")
-        mesh = work / "surface_mesh.stl"
+        lines = script_path.read_text(encoding="utf-8").splitlines()
+        mesh = Path(lines[lines.index("EXPORT_SURFACE_MESH STL -1") + 1])
         mesh.write_text("mine", encoding="utf-8")
-        return mesh
+        return ExecutionResult(
+            return_code=0, wall_time_s=0.1, timed_out=False, log_text="", stdout="", stderr=""
+        )
 
-    monkeypatch.setattr(
-        geometry, "plan_surface_mesh_export", lambda *a: (source, tmp_path, "b", "v")
-    )
-    monkeypatch.setattr(geometry, "resolve_build", lambda *a: argparse.Namespace(fs_exe="x"))
-    monkeypatch.setattr(geometry, "export_surface_mesh", exported)
-    monkeypatch.setattr(geometry, "LocalExecutor", lambda exe: None)
-    monkeypatch.setattr(geometry, "_surface_mesh_script", lambda *a: "")
-    args = argparse.Namespace(
-        target=str(source), build=None, apply=True, overwrite=False, fs_exe=None
-    )
-    assert geometry._cmd_export_surface_mesh(args) == 2
+    solver.run = run
+    assert _call(source, "--apply", "--fs-exe", sys.executable) == 2
     assert "appeared while the export ran" in capsys.readouterr().err
     assert target.read_text(encoding="utf-8") == "theirs"

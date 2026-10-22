@@ -593,7 +593,7 @@ def test_p0350_batch_records_fr366_the_logged_solver_time_is_the_wall_time_witho
 
 def test_f6_0102_two_executions_of_one_job_folder_and_name_are_not_merged():
     """F-260: points of different executions (receipts) are never collected as one job."""
-    from pyflightstream.run._batch_collect import _jobs_of
+    from pyflightstream.run._batch_collect import jobs_of
     from pyflightstream.workspace import RunRecord
 
     def record(run_id, receipt):
@@ -601,7 +601,7 @@ def test_f6_0102_two_executions_of_one_job_folder_and_name_are_not_merged():
         return RunRecord.model_construct(run_id=run_id, submission={"job": job})
 
     one, two, three = record("a", "1" * 64), record("b", "2" * 64), record("c", "1" * 64)
-    jobs = _jobs_of([one, two, three])
+    jobs = jobs_of([one, two, three])
     assert sorted(len(members) for members in jobs.values()) == [1, 2]
     assert {r.run_id for members in jobs.values() for r in members if len(members) == 2} == {
         "a",
@@ -628,16 +628,13 @@ def test_a_sweep_with_a_refused_point_is_reported_failed_not_collected(tmp_path,
 
 
 def test_p0430_f838_an_undecodable_job_script_reads_as_none(tmp_path):
-    """F-838: bytes that are not UTF-8 give None, as documented, never a UnicodeDecodeError."""
-    from types import SimpleNamespace
-
-    from pyflightstream.run._batch_collect import _opening_orders
-
-    (tmp_path / "job").mkdir()
-    (tmp_path / "job" / "s.txt").write_bytes(bytes([255, 254, 0, 98]))
-    workspace = SimpleNamespace(root=tmp_path)
-    job = {"dir": "job", "script": "job/s.txt", "points": 2}
-    assert _opening_orders(workspace, job) is None
+    """F-838: bytes that are not UTF-8 give no opening orders, never a UnicodeDecodeError."""
+    workspace, job_dir, _ = _workspace(tmp_path, "batch")
+    (job_dir / "BATCH-2006-2006.txt").write_bytes(bytes([255, 254, 0, 98]))
+    report = collect_once(
+        workspace, interval=0.0, sleep=_no_sleep, observer=_growing("AL+020"), assessor=_converged
+    )
+    assert [o.run_id for o in report.collected] == ["camp/sim_2006/AL+000"], report.lines()
 
 
 def test_p0430_fr727_end_evidence_takes_the_precedence_when_all_three_exist(tmp_path):
