@@ -389,7 +389,8 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
 
     A time step is frozen when every inner iteration after its first prints
     exactly zero velocity residual and its last iteration prints both residuals
-    exactly zero. A solve is
+    exactly zero (the package's own criterion; no committed report measures it
+    against the solver). A solve is
     frozen only when at least two consecutive time steps meet this rule; the
     result names the first step of the first such stretch and counts the frozen
     steps in qualifying stretches. Step numbers come from the solver's 1-based
@@ -671,7 +672,8 @@ def imported_trailing_edges(log_text: str) -> dict[str, int]:
 
 
 #: The line the solver prints when one instance clears a solution to run the
-#: next point (FR-368). On 26.124 build 8172026, printed by REMOVE_INITIALIZATION
+#: next point (FR-368; RPT-141, "several points and polars in one instance on
+#: 26.124", 2026-10-02). On 26.124 build 8172026, printed by REMOVE_INITIALIZATION
 #: and by NEW_SIMULATION, so in the cumulative log of a job it opens every
 #: point but the first.
 RESTART_MARKER = "Solution cleared. Initialization removed."
