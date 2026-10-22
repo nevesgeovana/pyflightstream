@@ -249,3 +249,51 @@ def test_pfs_2126_033_mark_runs_failed_refuses_an_unknown_run_id_naming_it(tmp_p
     with pytest.raises(RecordsError, match=r"camp/sim_nope/AL\+000"):
         mark_runs_failed(workspace, [known, "camp/sim_nope/AL+000"])
     assert workspace.manifest_path.read_bytes() == before
+
+
+def test_p0430_apply_rereads_and_archives_under_the_records_lock_fr_514(tmp_path):
+    # Verifies FR-514: a competing writer holding the records lock keeps the mark waiting,
+    # and the archive taken afterwards holds the row that writer added.
+    import threading
+    import time
+
+    from pyflightstream.run._record_files import manifest_lock
+
+    workspace = _workspace(tmp_path)
+    outcome: dict = {}
+
+    def mark() -> None:
+        outcome["entry"] = mark_failed(workspace.root, ["2006"], apply=True)
+
+    with manifest_lock(workspace.root):
+        rows = _rows(workspace)
+        added = dict(next(row for row in rows if row["sim_id"] == "2008"))
+        added.update(sim_id="2010", run_id="camp/sim_2010/AL+000")
+        worker = threading.Thread(target=mark)
+        worker.start()
+        time.sleep(0.6)
+        assert worker.is_alive() and "entry" not in outcome
+        workspace._replace_manifest([*rows, added])
+    worker.join(timeout=60)
+    assert not worker.is_alive()
+    archived = _read_record_rows(workspace.root / outcome["entry"]["runs_archived_as"])
+    assert "camp/sim_2010/AL+000" in {row["run_id"] for row in archived}
+    final = _rows(workspace)
+    assert "camp/sim_2010/AL+000" in {row["run_id"] for row in final}
+    assert {row["status"] for row in final if row["sim_id"] == "2006"} == {"FAILED_MARKED"}
+
+
+def test_p0430_the_mark_keeps_prior_status_reason_and_an_iso_time_fr_3154(tmp_path):
+    # Verifies FR-3154.
+    import datetime as dt
+
+    workspace = _workspace(tmp_path)
+    mark_failed(workspace.root, ["2007"], reason="mesh swapped", apply=True)
+    row = next(row for row in _rows(workspace) if row["sim_id"] == "2007")
+    assert row["status"] == "FAILED_MARKED"
+    assert row["marked"]["from"] == "SUBMITTED" and row["marked"]["reason"] == "mesh swapped"
+    stamp = dt.datetime.fromisoformat(row["marked"]["at"])
+    assert stamp.tzinfo is not None
+    mark_failed(workspace.root, ["2007"], reason="again", apply=True)
+    again = next(row for row in _rows(workspace) if row["sim_id"] == "2007")
+    assert again["marked"] == row["marked"]
