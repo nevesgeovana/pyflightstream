@@ -512,8 +512,8 @@ def polar_row(
 
     ``CD0`` and ``CDI`` stay the solver's own profile and induced drag.
 
-    Omitting ``beta_deg`` is deprecated since 0.43.0 and warns while retaining zero
-    sideslip. It is required from 0.45.0; pass the point's sideslip explicitly.
+    Omitting ``beta_deg`` is deprecated and warns while retaining zero sideslip; the
+    warning names the release that requires it. Pass the point's sideslip explicitly.
     Both measured vectors must be supplied; absent vectors are never measured zeros.
 
     AN INDUCED DRAG THE SOLVER DECLINED (PFS-2006.03) is ``CDI`` NaN, and so is
