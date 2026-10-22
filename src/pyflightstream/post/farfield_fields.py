@@ -118,7 +118,8 @@ LEDGER_COLUMNS: tuple[str, ...] = (
 _CYCLIC = {"X": (0, 1, 2), "Y": (1, 2, 0), "Z": (2, 0, 1)}
 #: How far an exported coordinate may stand from the laid one, per component: one
 #: unit of the last significant digit the export printed it with (read from the
-#: export; the solver's default is seven), plus the five decimals of the native
+#: export; seven is only the fallback when none can be read, the solver's default
+#: not being established by a committed report), plus the five decimals of the native
 #: unit the script writes a probe in. Never scaled by another point's coordinate,
 #: and a layout whose points this cannot tell apart is refused (PFS-2081.103).
 _DEFAULT_DIGITS = 7
