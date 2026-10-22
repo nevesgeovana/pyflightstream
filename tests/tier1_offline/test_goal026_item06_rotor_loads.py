@@ -985,7 +985,7 @@ def test_f4_0506_rotor_loads_refuse_what_they_cannot_define(tmp_path):
             thrust_n=1.0, torque_nm=1.0, rps=10.0, diameter_m=1.0, density_kg_m3=0.0, speed_m_s=5.0
         )
 
-    # F-206: no stated ALPHA or BETA leaves MADV NA, not the level-flight number
+    # F-206 under FR-69: an unstated ALPHA or BETA is 0.0, so MADV is computed, not NA
     def advancing(condition):
         row = {
             "run_id": "camp/sim_1/P1",
@@ -1005,8 +1005,9 @@ def test_f4_0506_rotor_loads_refuse_what_they_cannot_define(tmp_path):
         )
         return read_csv_table(written)[1][0]["MADV_PUSHER"]
 
-    assert advancing({"ALPHA": 0.0, "BETA": 0.0}) != "NA"
-    assert advancing({}) == "NA"
+    stated = advancing({"ALPHA": 0.0, "BETA": 0.0})
+    assert stated != "NA"
+    assert advancing({}) == stated
 
 
 @pytest.mark.parametrize("shaft", [(1.0, 0.0, 0.0), (-1.0, 0.0, 0.0)])
