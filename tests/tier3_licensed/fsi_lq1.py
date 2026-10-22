@@ -84,6 +84,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -416,15 +417,23 @@ def xz_ratios(folder: Path) -> dict[str, float]:
         "solver_moment_nm": solver_moment,
         "cut_force_n": cut_force,
         "solver_force_n": solver_force,
-        "xz_moment_ratio": cut_moment / solver_moment,
-        "xz_force_ratio": cut_force / solver_force,
+        # A solver total of zero (an empty export) has no ratio; NaN says so, and
+        # xz_verdict reads it as undetermined instead of dividing by zero.
+        "xz_moment_ratio": cut_moment / solver_moment if solver_moment else math.nan,
+        "xz_force_ratio": cut_force / solver_force if solver_force else math.nan,
         "rho_kg_m3": rho,
         "q_pa": q,
     }
 
 
 def xz_verdict(moment_ratio: float, force_ratio: float) -> str:
-    """FR-340: confirmed when the moment ratio is at least as close to 1 as the force ratio."""
+    """FR-340: confirmed when the moment ratio is at least as close to 1 as the force ratio.
+
+    A ratio that is not a finite number (an empty export has no solver total to
+    divide by) is ``undetermined``, never ``refuted``.
+    """
+    if not (math.isfinite(moment_ratio) and math.isfinite(force_ratio)):
+        return "undetermined"
     return "confirmed" if abs(moment_ratio - 1.0) <= abs(force_ratio - 1.0) else "refuted"
 
 

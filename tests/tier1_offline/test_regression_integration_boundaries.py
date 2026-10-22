@@ -522,7 +522,21 @@ class TestBgRegressions:
     def test_p0400_bg_detection_regression_imports_no_licensed_modules(monkeypatch):
         """REL14-001: executing the offline check must respect NFR-41 at runtime."""
         import builtins
+        import sys
 
+        def licensed_modules():
+            return [
+                name
+                for name in sys.modules
+                if name == "tests.tier3_licensed" or name.startswith("tests.tier3_licensed.")
+            ]
+
+        # A module already cached would not be imported again, so the hook below
+        # could not see it. Drop the cached licensed modules for this run (the
+        # monkeypatch puts them back), so any import of one happens inside it,
+        # and read sys.modules afterwards as well as the hook.
+        for cached in licensed_modules():
+            monkeypatch.delitem(sys.modules, cached)
         original_import = builtins.__import__
         licensed_imports = []
 
@@ -534,6 +548,7 @@ class TestBgRegressions:
         monkeypatch.setattr(builtins, "__import__", observed_import)
         TestBgRegressions.test_p0400_bg_the_detection_route_check_counts_every_marked_line()
         assert licensed_imports == [], licensed_imports
+        assert licensed_modules() == [], licensed_modules()
 
 
 class TestRfixBParity:
