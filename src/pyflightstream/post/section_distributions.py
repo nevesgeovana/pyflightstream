@@ -36,6 +36,7 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
     ProductError,
+    _guarded_target,
     context_row,
     section_identity,
     write_csv_table,
@@ -1161,6 +1162,7 @@ def write_section_distributions(
     reference: Mapping[str, object] | None = None,
     rotors: Mapping[str, Mapping[str, object]] | None = None,
     inventory: Sequence[str] | None = None,
+    overwrite: bool = True,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write both distribution products from all stamps, or the end-of-run exports.
 
@@ -1251,12 +1253,16 @@ def write_section_distributions(
         See
         `Integrated sectional loads
         <../definitions/the-sections-table-and-which-row-is-which.md#integrated-sectional-loads-since-0260>`_.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
     tuple[list[Path], dict[str, dict[str, object]]]
         Written paths and their product-manifest entries.
     """
+    target = _guarded_target(target, overwrite)
     geometry = list(inventory) if inventory is not None else record.inventory
     record = _with_the_layout_its_script_proves(sim_dir, record, pproc, geometry)
     folders = [sim_dir / Path(output).parent for output in record.outputs]

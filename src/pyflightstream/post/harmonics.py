@@ -728,7 +728,12 @@ def _fit_rotor(
 
 
 def write_harmonics_table(
-    path: Path, *, pol: str, context: Sequence[object], result: StationHarmonics
+    path: Path,
+    *,
+    pol: str,
+    context: Sequence[object],
+    result: StationHarmonics,
+    overwrite: bool = True,
 ) -> Path:
     """Write the harmonic product: ``POL``, the condition, then :data:`HARMONIC_COLUMNS`.
 
@@ -742,6 +747,9 @@ def write_harmonics_table(
         The point's condition values, written after ``POL``.
     result : StationHarmonics
         The fits of :func:`station_harmonics`.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -770,4 +778,5 @@ def write_harmonics_table(
             )
             for alias, quantity, radius, ratio, fit in result.rows
         ],
+        overwrite=overwrite,
     )

@@ -79,7 +79,7 @@ from pyflightstream.cases import (
     PhaseLockedSpec,
     PprocSpec,
 )
-from pyflightstream.post._tables import CONTEXT_COLUMNS
+from pyflightstream.post._tables import CONTEXT_COLUMNS, _refuse_existing_product
 from pyflightstream.post.glossary import (
     ARTIFACT_HEADINGS,
     DOCS_URL_LABEL,
@@ -514,6 +514,7 @@ def write_pproc_guides(
     *,
     glossary: Mapping[str, str] | Sequence[tuple[str, str]] | None = None,
     changed: list[Path] | None = None,
+    overwrite: bool = True,
 ) -> list[Path]:
     """Write the variable reference and the equation guide into a pproc input folder.
 
@@ -533,6 +534,9 @@ def write_pproc_guides(
     changed : list, optional
         Receives the pages this call actually wrote, which is none on a second
         call.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -558,13 +562,15 @@ def write_pproc_guides(
         (target / PPROC_GUIDE_NAMES[0], _variables_page(pairs)),
         (target / PPROC_GUIDE_NAMES[1], _equations_page()),
     )
+    for path, _text in pages:
+        _refuse_existing_product(path, overwrite)
     for path, text in pages:
         if write_if_different(path, text) and changed is not None:
             changed.append(path)
     return [path for path, _text in pages]
 
 
-def write_workspace_pproc_guides(inputs_dir: str | Path) -> list[Path]:
+def write_workspace_pproc_guides(inputs_dir: str | Path, *, overwrite: bool = True) -> list[Path]:
     """Write the two guides into ``<inputs_dir>/pproc``; return the pages that CHANGED.
 
     The input-guide writer this package registers with
@@ -580,6 +586,9 @@ def write_workspace_pproc_guides(inputs_dir: str | Path) -> list[Path]:
     inputs_dir : str or pathlib.Path
         The workspace's ``inputs`` root; the guides go into its ``pproc``
         folder, created if absent.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -600,5 +609,5 @@ def write_workspace_pproc_guides(inputs_dir: str | Path) -> list[Path]:
                     for name, text in sorted(stated.items())
                 ]
     changed: list[Path] = []
-    write_pproc_guides(folder, glossary=pairs, changed=changed)
+    write_pproc_guides(folder, glossary=pairs, changed=changed, overwrite=overwrite)
     return changed

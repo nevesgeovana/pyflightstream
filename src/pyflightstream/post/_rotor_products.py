@@ -728,7 +728,7 @@ def _write_wheel_validity(
     key = f"runs/{record.run_id}#qsteady_validity"
     try:
         written_file = _qsteady.write_point_validity_file(
-            point.loads_path, quasi, validity, state, prepare=target, replace=replace
+            point.loads_path, quasi, validity, state, prepare=target, overwrite=replace
         )
     except (ProductError, OSError) as error:
         skipped[key] = f"the per-point validity file of {point.name} is not written: {error}"

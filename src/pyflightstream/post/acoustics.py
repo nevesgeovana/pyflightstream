@@ -53,7 +53,7 @@ from pyflightstream.cases.acoustics import (
     AcousticSignal,
 )
 from pyflightstream.post._stage import _a_name_a_file_may_carry
-from pyflightstream.post._tables import write_csv_table
+from pyflightstream.post._tables import _guarded_target, write_csv_table
 
 __all__ = [
     "ACOUSTICS_DIR",
@@ -465,6 +465,7 @@ def write_acoustic_products(
     rotors: Mapping[str, tuple[int | None, float | None]] | None = None,
     harmonics: int = DEFAULT_HARMONICS,
     target: Callable[[Path], Path] | None = None,
+    overwrite: bool = True,
 ) -> AcousticProducts:
     """Write a point's acoustic products under ``out_dir`` and return them (FR-261 to FR-264).
 
@@ -498,6 +499,9 @@ def write_acoustic_products(
     target : callable, optional
         Maps a path to the path to write (the archive-or-refuse rule of the
         other products).
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -510,6 +514,7 @@ def write_acoustic_products(
         If ``harmonics`` is not a positive integer; nothing is written then.
     """
     _refuse_a_harmonic_count(harmonics)
+    target = _guarded_target(target, overwrite)
     folder = Path(out_dir)
     result = AcousticProducts()
 
@@ -519,7 +524,7 @@ def write_acoustic_products(
         # 30 kHz clock and wrote a 4e-6 Pa harmonic as 0.00000.
         exact = [[_round_trip(cell) for cell in row] for row in rows]
         path = folder / name
-        result.files.append(write_csv_table(target(path) if target else path, columns, exact))
+        result.files.append(write_csv_table(target(path), columns, exact))
 
     summary: list[Sequence[object]] = []
     bpf: list[Sequence[object]] = []

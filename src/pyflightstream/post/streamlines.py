@@ -30,6 +30,7 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import ProductError, PyflightstreamError
+from pyflightstream.post._tables import _guarded_target
 from pyflightstream.results import OffBodyStreamlinesReport, parse_off_body_streamlines
 
 __all__ = [
@@ -136,6 +137,7 @@ def write_streamline_products(
     *,
     vtk: bool = True,
     target: Callable[[Path], Path] | None = None,
+    overwrite: bool = True,
 ) -> dict[str, Path | str]:
     """Write one point's streamline products; say why each one not written is not.
 
@@ -153,6 +155,9 @@ def write_streamline_products(
     target : callable, optional
         Archives or refuses what stands at a product's path and returns the path to
         write (the post's own rule); the path itself where None.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -160,6 +165,7 @@ def write_streamline_products(
         Per product name relative to ``streamlines/``: the path written, or the
         reason it was not, one line.
     """
+    target = _guarded_target(target, overwrite)
     outcomes: dict[str, Path | str] = {}
     if not vtk:
         return outcomes
@@ -179,7 +185,7 @@ def write_streamline_products(
             else:
                 path = out / STREAMLINES_DIR / name
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path = target(path) if target is not None else path
+                path = target(path)
                 _textio.write_text(path, text)
                 outcomes[name] = path
     surface = exported.get("streamlines_surface")

@@ -87,6 +87,8 @@ from pyflightstream.cases.workflows import SECTION_DISTRIBUTION_COMMAND
 from pyflightstream.post._tables import (
     ROTOR_TABLE_SUFFIX,
     ProductError,
+    _guarded_target,
+    _refuse_existing_product,
     write_csv_table,
 )
 from pyflightstream.post._tables import _cell as _fixed_cell
@@ -701,6 +703,7 @@ def write_superfiles(
     *,
     target: Callable[[Path], Path],
     fmt: str = "csv",
+    overwrite: bool = True,
 ) -> tuple[list[Path], dict[Path, dict[str, object]], tuple[str, ...]]:
     """Write every superfile of a campaign under ONE column set, its union.
 
@@ -720,6 +723,9 @@ def write_superfiles(
         Called with each file's path before it is written; the file goes to the path it returns.
     fmt : str, optional
         The format, one of :data:`SUPERFILE_FORMATS`.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -731,6 +737,7 @@ def write_superfiles(
     ProductError
         If the format is not one this package writes.
     """
+    target = _guarded_target(target, overwrite)
     _validate_superfile_formats(drafts, fmt)
     columns: list[str] = []
     seen: set[str] = set()
@@ -956,6 +963,7 @@ def write_superfile_report(
     version: str,
     files: Iterable[tuple[Path, Sequence[str], int]],
     known: Iterable[str],
+    overwrite: bool = True,
 ) -> Path:
     """Write the measurement of the superfiles: what was written, and what was known.
 
@@ -974,6 +982,9 @@ def write_superfile_report(
         Each superfile written, with its columns and its row count.
     known : iterable of str
         The union of what the workspace knows.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -988,6 +999,7 @@ def write_superfile_report(
         "known": sorted(known),
     }
     target = root / REPORTS_DIR / f"{SUPERFILE_REPORT_PREFIX}{release_tag(version)}.json"
+    _refuse_existing_product(target, overwrite)
     target.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(target, json.dumps(payload, indent=1) + "\n")
     return target

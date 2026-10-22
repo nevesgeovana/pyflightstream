@@ -17,7 +17,7 @@ import numpy as np
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._tokens import CONTEXT_COLUMNS, POLAR_ID_COLUMN
-from pyflightstream.post._tables import ProductError, context_row, write_csv_table
+from pyflightstream.post._tables import ProductError, _guarded_target, context_row, write_csv_table
 from pyflightstream.results import SurfaceSection, parse_surface_sections
 from pyflightstream.results.surface import (
     REFERENCE_FRAME,
@@ -269,6 +269,7 @@ def write_boundary_layer_table(
     *,
     pol: str,
     context: Sequence[object] | None = None,
+    overwrite: bool = True,
 ) -> Path:
     """Write raw cell values with round-trip float precision and explicit NA fields.
 
@@ -288,6 +289,9 @@ def write_boundary_layer_table(
     context : sequence of object, optional
         The point's condition values, in the order of the condition columns;
         ``NA`` for every one where not given.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -313,6 +317,7 @@ def write_boundary_layer_table(
             )
             for row in samples.rows
         ],
+        overwrite=overwrite,
     )
 
 
@@ -384,6 +389,7 @@ def write_boundary_layer_products(
     pproc: PprocSpec | None,
     condition: Mapping[str, object] | None = None,
     reference: Mapping[str, object] | None = None,
+    overwrite: bool = True,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write a final-state point product from its exact VTK and section exports.
 
@@ -413,6 +419,9 @@ def write_boundary_layer_products(
     condition, reference : mapping, optional
         The point's condition and reference values, written in the condition block
         after ``POL``; ``NA`` where not given.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -420,6 +429,7 @@ def write_boundary_layer_products(
         The written path and its product-manifest entry; both empty when the product is not
         written, the reason then named in ``skipped``.
     """
+    target = _guarded_target(target, overwrite)
     if pproc is None or not pproc.products.boundary_layer_integrals:
         return [], {}
     relative = f"sections/{stem}_boundary_layer.csv"

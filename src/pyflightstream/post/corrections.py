@@ -82,7 +82,12 @@ from pyflightstream.post._stage import (
     _rotor_row,
     _whole_rotor_gap,
 )
-from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX, read_csv_table, write_csv_table
+from pyflightstream.post._tables import (
+    ROTOR_TABLE_SUFFIX,
+    _guarded_target,
+    read_csv_table,
+    write_csv_table,
+)
 from pyflightstream.post._transfer_functions import bessel_j, bessel_y, sears, theodorsen
 from pyflightstream.post.harmonics import HARMONICS_SUFFIX
 from pyflightstream.post.qsteady import AVERAGE_SUFFIX, STATION_COLUMN, STATION_TOLERANCE
@@ -739,6 +744,7 @@ def write_qsteady_corrections(
     target: Callable[[Path], Path],
     skipped: dict[str, str],
     sections_dir: str = "sections",
+    overwrite: bool = True,
 ) -> list[tuple[Path, dict[str, object]]]:
     """Write the corrected products and the diagnostic of one simulation's wheel points.
 
@@ -771,12 +777,16 @@ def write_qsteady_corrections(
         Mutable mapping of product names to skip reasons.
     sections_dir : str, optional
         The folder under ``out`` that holds the sections tables.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
     list of tuple of (Path, dict)
         Each file written with its manifest entry.
     """
+    target = _guarded_target(target, overwrite)
     written: list[tuple[Path, dict[str, object]]] = []
     if not wheel_points or (spec.route == "none" and spec.diagnostic == "none"):
         return written

@@ -268,6 +268,12 @@ no archive and asks for confirmation; it cannot be combined with `--archive`.
 This table is how you reclaim the space those superseded copies hold once
 you no longer need them.
 
+The public Python writers of `pyflightstream.post` share one policy: each takes
+`overwrite`, `True` by default, which replaces a file that already exists as
+the writers always did. `overwrite=False` refuses an existing file, naming it,
+with `ProductExistsError`. The campaign writer is unchanged: it replaces or
+archives as above.
+
 ## What is protected, and why
 
 A recipe touches `sims/` and the post's archived folders only. It never

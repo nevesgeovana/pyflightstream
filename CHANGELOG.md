@@ -39,6 +39,9 @@ FlightStream versions.
   `timeout_s`, when the profile has none. It is never unbounded.
 - An unsteady averaging window longer than the run is still cut to the whole run, and the
   window record now carries the span the row asked for (`ExportWindow.clipped_from_steps`).
+- The public writers of `pyflightstream.post` that lacked it take `overwrite` (`True` by default,
+  as they always replaced a file); `overwrite=False` refuses an existing file with
+  `ProductExistsError`. The campaign writer is unchanged.
 - A `ROTOR_AXIS` cell that disagrees with the axis of the single rotor block, and a `VELOCITY`
   cell that contradicts the velocity the row already resolves, are refused before any script is
   written, naming the cell and the resolved value. The `VELOCITY` case was a warning.

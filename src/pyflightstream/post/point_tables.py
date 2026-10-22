@@ -154,6 +154,7 @@ def write_sections_table(
     layout: Sequence[Mapping[str, object]] | None = None,
     rotors: Mapping[str, Mapping[str, object]] | None = None,
     pol: str | int | None = None,
+    overwrite: bool = True,
 ) -> Path | None:
     """Write one sections table from a sectional loads export.
 
@@ -249,6 +250,9 @@ def write_sections_table(
         ``blade1_azimuth_deg`` and signed ``rpm``.
     pol : str or int, optional
         The polar the point belongs to, written first in every row.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -319,11 +323,11 @@ def write_sections_table(
         (pol, step, *identity[at], *context, *(float(v) for v in row[:7]))
         for at, row in enumerate(table)
     ]
-    return write_csv_table(path, SECTION_COLUMNS, rows)
+    return write_csv_table(path, SECTION_COLUMNS, rows, overwrite=overwrite)
 
 
 def write_plots_table(
-    path: str | Path, export_text: str, *, pol: str | int | None = None
+    path: str | Path, export_text: str, *, pol: str | int | None = None, overwrite: bool = True
 ) -> Path | None:
     """Write one plots table from an unsteady plots export.
 
@@ -347,6 +351,9 @@ def write_plots_table(
         Complete text of the unsteady plots export.
     pol : str or int, optional
         The polar the point belongs to, written first in every row.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -400,6 +407,7 @@ def write_plots_table(
         path,
         (POLAR_ID_COLUMN, *report.columns),
         [(pol, *(float(v) for v in row)) for row in scaled],
+        overwrite=overwrite,
     )
 
 
@@ -573,6 +581,7 @@ def write_probes_table(
     reference: ReferenceValues | None = None,
     pol: str | int | None = None,
     step: int | None = None,
+    overwrite: bool = True,
 ) -> Path | None:
     """Write one probe-points table from an EXPORT_PROBE_POINTS export (FR-87, FR-91).
 
@@ -626,6 +635,9 @@ def write_probes_table(
         The time step the export holds, written in every row's ``STEP``: the
         last time step of an unsteady run whose probes are normal (FR-417
         FR-887). ``NA`` where the caller states none, as on a steady point.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -674,7 +686,7 @@ def write_probes_table(
                 *(float(row[columns.index(name)]) for name in rest),
             )
         )
-    return write_csv_table(path, (*PROBE_SPINE, *rest), rows)
+    return write_csv_table(path, (*PROBE_SPINE, *rest), rows, overwrite=overwrite)
 
 
 def _plotted_value(text: str | None) -> float | None:
@@ -697,6 +709,7 @@ def write_unsteady_probes_table(
     reference: ReferenceValues | None = None,
     notes: list[str] | None = None,
     pol: str | int | None = None,
+    overwrite: bool = True,
 ) -> Path | None:
     """Write the probe table of an UNSTEADY row, from its plots table (FR-91).
 
@@ -750,6 +763,9 @@ def write_unsteady_probes_table(
         Receives the recorded vertices the table has no history for.
     pol : str or int, optional
         The polar the point belongs to, written first in every row.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -807,7 +823,7 @@ def write_unsteady_probes_table(
                     *(_plotted_value(row[name]) if name in present else None for name in names),
                 )
             )
-    return write_csv_table(path, (*PROBE_SPINE, *tuple(parameters)), out)
+    return write_csv_table(path, (*PROBE_SPINE, *tuple(parameters)), out, overwrite=overwrite)
 
 
 #: WHERE X, Y AND Z SIT IN A PROBE SPINE, read off the spine itself.
@@ -846,6 +862,7 @@ def write_reduction_table(
     reference: ReferenceValues | None = None,
     rotor: str | None = None,
     pol: str | int | None = None,
+    overwrite: bool = True,
 ) -> Path:
     """Write one reduction of a plots table: one row per window, the table's columns averaged.
 
@@ -892,6 +909,9 @@ def write_reduction_table(
         The alias the reduction is cut for; ``NA`` for the time average.
     pol : str or int, optional
         The polar the point belongs to, written first in every row.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -954,7 +974,7 @@ def write_reduction_table(
         printed=columns,
         where=_names_location(PROBES_DIR, path),
     )
-    return write_csv_table(path, heading, rows)
+    return write_csv_table(path, heading, rows, overwrite=overwrite)
 
 
 #: What a per-blade row states before the condition: the polar first (G16),
@@ -990,6 +1010,7 @@ def write_per_blade_table(
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
     pol: str | int | None = None,
+    overwrite: bool = True,
 ) -> Path:
     """Write the per-blade reduction: ONE ROW PER BLADE over the one shared window.
 
@@ -1034,6 +1055,9 @@ def write_per_blade_table(
         Reference lengths and moment point written beside each row.
     pol : str or int, optional
         The polar the point belongs to, written first in every row.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -1130,7 +1154,7 @@ def write_per_blade_table(
         for row in blade_rows
         if row.get("FAMILY") in held
     ]
-    return write_csv_table(path, (*PER_BLADE_COLUMNS, *names), table)
+    return write_csv_table(path, (*PER_BLADE_COLUMNS, *names), table, overwrite=overwrite)
 
 
 #: What a row of the azimuthal phase-locked table states before the condition:
@@ -1169,6 +1193,7 @@ def write_phase_locked_table(
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
     pol: str | int | None = None,
+    overwrite: bool = True,
 ) -> Path:
     """Write the phase-locked reduction a ``[phase_locked]`` table asks for: ONE ROW PER AZIMUTH.
 
@@ -1213,6 +1238,9 @@ def write_phase_locked_table(
         Reference lengths and moment point written beside each row.
     pol : str or int, optional
         The polar the point belongs to, written first in every row.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -1290,7 +1318,7 @@ def write_phase_locked_table(
         )
         for row in rows
     ]
-    return write_csv_table(path, (*PHASE_LOCKED_COLUMNS, *names), table)
+    return write_csv_table(path, (*PHASE_LOCKED_COLUMNS, *names), table, overwrite=overwrite)
 
 
 # The drift limit of a pproc that declares no `[per_revolution]` table, in per

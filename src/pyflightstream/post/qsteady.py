@@ -81,7 +81,13 @@ from pyflightstream.cases.qsteady import (
     strip_lengths,
     validity_file_name,
 )
-from pyflightstream.post._tables import _cell, context_row, rotor_advance_ratio, write_csv_table
+from pyflightstream.post._tables import (
+    _cell,
+    _refuse_existing_product,
+    context_row,
+    rotor_advance_ratio,
+    write_csv_table,
+)
 from pyflightstream.post.axes import (
     clocked_blade_azimuth_deg,
     free_stream_on_rotor_axis,
@@ -316,7 +322,7 @@ def write_point_validity_file(
     state: RotorState | None = None,
     *,
     prepare: Callable[[Path], Path] | None = None,
-    replace: bool = True,
+    overwrite: bool = True,
 ) -> Path:
     """Write a wheel point's validity after the run, beside its loads export.
 
@@ -346,9 +352,10 @@ def write_point_validity_file(
         Takes the destination and returns the path to write, archiving a file
         already there (the post's archive rule); the destination is written as
         it stands when omitted.
-    replace : bool, optional
-        Replace a validity file already there. True by default; the post
-        passes its own ``overwrite`` (FR-2322).
+    overwrite : bool, optional
+        Replace a validity file already there, as the writer always did (the
+        default); False refuses it, naming it, before anything is written. The
+        post passes its own ``overwrite`` (FR-2322).
 
     Returns
     -------
@@ -358,10 +365,10 @@ def write_point_validity_file(
     Raises
     ------
     ProductExistsError
-        If a validity file is already there and ``replace`` is false.
+        If a validity file is already there and ``overwrite`` is false.
     """
     path = loads_path.with_name(Path(validity_file_name(loads_path.name)).name)
-    if path.exists() and not replace:
+    if path.exists() and not overwrite:
         raise ProductExistsError(
             f"{path} already exists and the post was not asked to replace it; "
             "pass overwrite=True to rebuild"
@@ -1567,6 +1574,7 @@ def write_qsteady_tables(
     points: Sequence[WheelPoint],
     *,
     reference: Any,
+    overwrite: bool = True,
 ) -> tuple[Path, Path] | None:
     """Write the clockings table and the average table of one rotor of one simulation.
 
@@ -1583,6 +1591,9 @@ def write_qsteady_tables(
     reference : object
         The point's reference block, its lengths and moment point; None where the run recorded
         none.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -1641,14 +1652,20 @@ def write_qsteady_tables(
                 ),
             )
         )
+    _refuse_existing_product(positions_path, overwrite)
+    _refuse_existing_product(average_path, overwrite)
     return (
         write_csv_table(
-            positions_path, (*POSITION_SPINE, *VALIDITY_COLUMNS, *columns), position_rows
+            positions_path,
+            (*POSITION_SPINE, *VALIDITY_COLUMNS, *columns),
+            position_rows,
+            overwrite=overwrite,
         ),
         write_csv_table(
             average_path,
             (*AVERAGE_SPINE, *VALIDITY_COLUMNS, *STATE_COLUMNS, *columns),
             average_rows,
+            overwrite=overwrite,
         ),
     )
 

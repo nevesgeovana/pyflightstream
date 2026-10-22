@@ -769,6 +769,7 @@ def write_polar_table(
     advance_ratios: Sequence[float | None] | None = None,
     conditions: Sequence[Mapping[str, object]] | None = None,
     drag_columns: Sequence[tuple[str, str]] | None = None,
+    overwrite: bool = True,
 ) -> Path:
     """Write one polar table: the reference block and the coefficients per point.
 
@@ -807,6 +808,9 @@ def write_polar_table(
     drag_columns : sequence of tuple of str, optional
         The product columns of each row's drag split (FR-423); None is
         ``CD0, CDI`` for every row.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -829,7 +833,7 @@ def write_polar_table(
         conditions=conditions,
         drag_columns=drag_columns,
     )
-    return write_csv_table(path, polar_table_columns(drag_columns), full)
+    return write_csv_table(path, polar_table_columns(drag_columns), full, overwrite=overwrite)
 
 
 def _polar_points(polar_dir: Path, *, loads_suffix: str = ".txt") -> list[PolarPoint]:
@@ -937,6 +941,7 @@ def write_recorded_polar(
     sections: bool = True,
     plots: bool = False,
     aliases: Mapping[str, Sequence[str]] | None = None,
+    overwrite: bool = True,
 ) -> list[Path]:
     """Write every product of one recorded polar from its point folders.
 
@@ -974,6 +979,9 @@ def write_recorded_polar(
         Whether to write a plots table for each point that has a plots export.
     aliases : mapping of str to sequence of str, optional
         The boundary aliases a group member may name.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -1012,6 +1020,7 @@ def write_recorded_polar(
                     points, list(families), mach=mach, reference=ref, aliases=aliases
                 ),
                 drag_columns=[drag_columns_of(point.loads) for point in points],
+                overwrite=overwrite,
             )
         )
     for point in points:
@@ -1032,6 +1041,7 @@ def write_recorded_polar(
                 # beside it.
                 reference=ref,
                 pol=polar,
+                overwrite=overwrite,
             )
             if target is not None:
                 written.append(target)
@@ -1041,6 +1051,7 @@ def write_recorded_polar(
                 out / PROBES_DIR / f"{point.name}_plots.csv",
                 plots_export.read_text(encoding="utf-8", errors="replace"),
                 pol=polar,
+                overwrite=overwrite,
             )
             if target is not None:
                 written.append(target)

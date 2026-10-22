@@ -709,6 +709,7 @@ def write_rotor_table(
     left_out: list[tuple[str, str]] | None = None,
     written_runs: list[str] | None = None,
     pol: str | int | None = None,
+    overwrite: bool = True,
 ) -> Path | None:
     """Write one rotor's coefficient table from the admitted rows.
 
@@ -761,6 +762,9 @@ def write_rotor_table(
     pol : str or int, optional
         The polar the rows come from, written first in every row; ``NA`` where
         None.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -961,4 +965,4 @@ def write_rotor_table(
     # reads `NA` like every other product rather than by a rule of its own.
     # Writing the rows here with `csv.writer` would be a fifth family spelling
     # its own absences, which is the drift item 5 repaired.
-    return write_csv_table(target, columns, written)
+    return write_csv_table(target, columns, written, overwrite=overwrite)

@@ -23,7 +23,7 @@ import csv
 import math
 import re
 import weakref
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -382,6 +382,37 @@ def _significant_cell(value: object) -> str:
 _TOKEN_REFUSED = re.compile(r'[\s"]')
 
 
+def _refuse_existing_product(destination: str | Path, overwrite: bool) -> None:
+    """Refuse a destination that exists when ``overwrite`` is false (NFR-49).
+
+    The one overwrite policy of the public post writers: ``overwrite=True``, the default,
+    replaces a file as the writers always did, and ``overwrite=False`` refuses an existing
+    file before it is replaced, naming it.
+    """
+    if not overwrite and Path(destination).exists():
+        raise ProductExistsError(
+            f"{destination} already exists; pass overwrite=True to replace it, or write "
+            "under another name."
+        )
+
+
+def _guarded_target(
+    target: Callable[[Path], Path] | None, overwrite: bool
+) -> Callable[[Path], Path]:
+    """Return the target hook of a writer, refusing an existing file first when not overwriting.
+
+    ``target`` maps each path to the one written (the products stage passes its archiver); the
+    stage never passes ``overwrite=False``, so its replacement policy is unchanged. A direct
+    call with ``overwrite=False`` refuses a file that exists before the hook sees it.
+    """
+
+    def guarded(path: Path) -> Path:
+        _refuse_existing_product(path, overwrite)
+        return target(path) if target is not None else path
+
+    return guarded
+
+
 def _refuse_a_token(what: str, text: str, *, quotes: bool = True) -> None:
     """Refuse a name or title the VTK and Tecplot grammars cannot carry as written."""
     refused = _TOKEN_REFUSED if quotes else re.compile(r"[\r\n]")
@@ -394,7 +425,11 @@ def _refuse_a_token(what: str, text: str, *, quotes: bool = True) -> None:
 
 
 def write_csv_table(
-    path: str | Path, columns: Sequence[str], rows: Sequence[Sequence[object]]
+    path: str | Path,
+    columns: Sequence[str],
+    rows: Sequence[Sequence[object]],
+    *,
+    overwrite: bool = True,
 ) -> Path:
     """Write one CSV table, retaining six significant figures in coefficient columns.
 
@@ -423,6 +458,9 @@ def write_csv_table(
         The header names.
     rows : sequence of sequence of object
         The rows, one value per column; None is written as ``NA``.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -435,6 +473,7 @@ def write_csv_table(
         If a row's width differs from the header's.
     """
     target = Path(path)
+    _refuse_existing_product(target, overwrite)
     target.parent.mkdir(parents=True, exist_ok=True)
     with _textio.atomic_text(target) as handle:
         writer = _textio.csv_writer(handle)

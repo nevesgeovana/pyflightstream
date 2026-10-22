@@ -23,6 +23,7 @@ from pyflightstream.post._tables import (
     ProductError,
     ReferenceValues,
     _mach_code,
+    _refuse_existing_product,
     polar_file_name,
 )
 
@@ -226,6 +227,7 @@ def write_custom_polar_format(
     configuration: str | None = None,
     group_number: int | None = None,
     columns: Sequence[str] = COEFFICIENT_COLUMNS,
+    overwrite: bool = True,
 ) -> Path:
     """Write one polar of one group in the fixed-width text format the reference tooling opens.
 
@@ -305,6 +307,9 @@ def write_custom_polar_format(
         A polar of 26.125 names its drag split ``CDV, CDP`` in the last two, and a
         polar holding rows of both builds carries both pairs (FR-423,
         :func:`pyflightstream.post.polar.drag_columned_rows`).
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -365,6 +370,7 @@ def write_custom_polar_format(
         lines.append("".join(_bounded_field(float(value), _DECIMALS) for value in row))
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
+    _refuse_existing_product(target, overwrite)
     _textio.write_text(target, "\n".join(lines) + "\n", encoding="ascii")
     return target
 

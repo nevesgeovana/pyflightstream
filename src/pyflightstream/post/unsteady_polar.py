@@ -176,6 +176,7 @@ def write_unsteady_polar(
     frozen: Mapping[str, FrozenSolve] | None = None,
     contributor_path: Callable[[Sequence[str]], Path] | None = None,
     pol: str | int | None = None,
+    overwrite: bool = True,
 ) -> Path | None:
     """Write the POLAR of one unsteady simulation from the PLOTS history (item 17).
 
@@ -310,6 +311,9 @@ def write_unsteady_polar(
         Chooses the destination from the names of the points that yield rows.
     pol : str or int, optional
         The simulation's polar, written first in every row; ``NA`` where None.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -501,6 +505,7 @@ def write_unsteady_polar(
             (*cells[:at], *(values.get(name) for name in derived_columns), *cells[at:])
             for cells, values in zip(table, derived, strict=True)
         ],
+        overwrite=overwrite,
     )
 
 

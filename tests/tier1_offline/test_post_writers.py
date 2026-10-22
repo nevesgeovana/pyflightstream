@@ -443,3 +443,84 @@ def test_x_f_0529_a_failing_record_write_leaves_no_data_file_without_its_record(
     with pytest.raises(OSError, match="disk full"):
         writer(tmp_path / f"probes{suffix}", POINTS, FIELDS, provenance=make_provenance())
     assert not list(tmp_path.iterdir())
+
+
+# --- NFR-49: one overwrite policy over the public post writers ----------------------------
+
+_OVERWRITE_WRITERS = (
+    ("_tables", "write_csv_table"),
+    ("custom_polar", "write_custom_polar_format"),
+    ("point_tables", "write_sections_table"),
+    ("point_tables", "write_plots_table"),
+    ("point_tables", "write_probes_table"),
+    ("point_tables", "write_unsteady_probes_table"),
+    ("point_tables", "write_reduction_table"),
+    ("point_tables", "write_per_blade_table"),
+    ("point_tables", "write_phase_locked_table"),
+    ("polar", "write_polar_table"),
+    ("polar", "write_recorded_polar"),
+    ("harmonics", "write_harmonics_table"),
+    ("rotor_table", "write_rotor_table"),
+    ("unsteady_polar", "write_unsteady_polar"),
+    ("boundary_layer", "write_boundary_layer_table"),
+    ("boundary_layer", "write_boundary_layer_products"),
+    ("qsteady", "write_qsteady_tables"),
+    ("qsteady", "write_point_validity_file"),
+    ("disc_maps", "write_disc_maps"),
+    ("disc_maps", "write_disc_map"),
+    ("acoustics", "write_acoustic_products"),
+    ("corrections", "write_qsteady_corrections"),
+    ("section_distributions", "write_section_distributions"),
+    ("surfaces", "write_point_surface_average"),
+    ("streamlines", "write_streamline_products"),
+    ("superfile", "write_superfiles"),
+    ("superfile", "write_superfile_report"),
+    ("qsteady_noise", "write_qsteady_noise_report"),
+    ("glossary", "write_input_glossary"),
+    ("glossary", "write_workspace_input_glossary"),
+    ("guides", "write_pproc_guides"),
+    ("guides", "write_workspace_pproc_guides"),
+    ("input_template", "write_input_template"),
+    ("input_template", "write_workspace_input_template"),
+)
+
+
+@pytest.mark.parametrize(("module", "name"), _OVERWRITE_WRITERS)
+def test_p0430_every_public_post_writer_takes_overwrite_defaulting_to_true_nfr_49(module, name):
+    """NFR-49: the keyword exists on each writer and the default keeps today's behaviour."""
+    import importlib
+    import inspect
+
+    writer = getattr(importlib.import_module(f"pyflightstream.post.{module}"), name)
+    parameter = inspect.signature(writer).parameters.get("overwrite")
+    assert parameter is not None, f"{module}.{name} has no overwrite keyword"
+    assert parameter.default is True
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+
+
+def test_p0430_the_csv_funnel_refuses_an_existing_table_only_when_asked_nfr_49(tmp_path):
+    """NFR-49: overwrite=False refuses the file by name and leaves it; the default replaces it."""
+    from pyflightstream._errors import ProductExistsError
+    from pyflightstream.post._tables import write_csv_table
+
+    table = tmp_path / "t.csv"
+    write_csv_table(table, ["A"], [[1.0]])
+    before = table.read_text(encoding="utf-8")
+    with pytest.raises(ProductExistsError, match="t.csv"):
+        write_csv_table(table, ["A"], [[2.0]], overwrite=False)
+    assert table.read_text(encoding="utf-8") == before
+    write_csv_table(table, ["A"], [[2.0]])
+    assert table.read_text(encoding="utf-8") != before
+
+
+def test_p0430_the_report_writer_refuses_an_existing_file_when_not_overwriting_nfr_49(tmp_path):
+    """NFR-49: the report writer shares the policy of the csv funnel."""
+    from pyflightstream._errors import ProductExistsError
+    from pyflightstream.post.superfile import write_superfile_report
+
+    first = write_superfile_report(tmp_path, version="0.43.0", files=[], known=["A"])
+    with pytest.raises(ProductExistsError, match="already exists"):
+        write_superfile_report(tmp_path, version="0.43.0", files=[], known=["B"], overwrite=False)
+    assert '"A"' in first.read_text(encoding="utf-8")
+    write_superfile_report(tmp_path, version="0.43.0", files=[], known=["B"])
+    assert '"B"' in first.read_text(encoding="utf-8")

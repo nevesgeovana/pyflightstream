@@ -87,6 +87,7 @@ from numpy.typing import ArrayLike, NDArray
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import ProductError
+from pyflightstream.post._tables import _refuse_existing_product
 from pyflightstream.workspace import CampaignWorkspace
 
 __all__ = [
@@ -947,7 +948,7 @@ def compare_signals(
 
 
 def write_qsteady_noise_report(
-    root: str | Path | CampaignWorkspace, *, matrix: str | None = None
+    root: str | Path | CampaignWorkspace, *, matrix: str | None = None, overwrite: bool = True
 ) -> Path:
     """Index the exploratory loading signals in the current product manifest.
 
@@ -957,6 +958,9 @@ def write_qsteady_noise_report(
         The workspace root, or its view when posting an alternate manifest.
     matrix : str, optional
         The matrix stem whose points are compared.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -984,6 +988,7 @@ def write_qsteady_noise_report(
             "No loading-noise products; post a pproc with exploratory noise enabled."
         )
     target = folder / "noise_report.json"
+    _refuse_existing_product(target, overwrite)
     _textio.write_text(
         target,
         json.dumps({"validation": "exploratory, not validated", "products": products}, indent=2)

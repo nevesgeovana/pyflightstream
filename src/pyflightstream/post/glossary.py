@@ -68,6 +68,7 @@ from pyflightstream.cases.workflows import (
     command_accepted_on,
 )
 from pyflightstream.commands import CommandRegistry
+from pyflightstream.post._tables import _refuse_existing_product
 from pyflightstream.script.helpers import ROTATION_COMMANDS
 from pyflightstream.versions import known_versions
 from pyflightstream.workspace.flight_condition import PINNED_KEYS
@@ -1062,7 +1063,9 @@ def input_glossary_markdown() -> str:
     return "\n".join(lines)
 
 
-def write_input_glossary(folder: str | Path, *, changed: list[Path] | None = None) -> Path:
+def write_input_glossary(
+    folder: str | Path, *, changed: list[Path] | None = None, overwrite: bool = True
+) -> Path:
     """Write the input glossary, ``INPUTS.md``, into ``folder``; return its path.
 
     Only the marked generated block is refreshed. Existing unmarked content
@@ -1075,6 +1078,9 @@ def write_input_glossary(folder: str | Path, *, changed: list[Path] | None = Non
         Where to write it: the workspace's ``inputs`` root. Created if absent.
     changed : list, optional
         Receives the page when this call actually wrote it.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -1111,6 +1117,7 @@ def write_input_glossary(folder: str | Path, *, changed: list[Path] | None = Non
             "\nCompatibility note: [pproc/INPUTS.md](pproc/INPUTS.md) is preserved "
             "unchanged as legacy content. This file is the generated input glossary.\n"
         )
+    _refuse_existing_product(page, overwrite)
     before = page.read_bytes() if page.is_file() else b""
     # THE PAGE'S OWN LINE ENDINGS: a checkout that turned the page CRLF held
     # an LF block that never compared equal, so every plan and post rewrote
@@ -1137,7 +1144,7 @@ def write_input_glossary(folder: str | Path, *, changed: list[Path] | None = Non
     return page
 
 
-def write_workspace_input_glossary(inputs_dir: str | Path) -> list[Path]:
+def write_workspace_input_glossary(inputs_dir: str | Path, *, overwrite: bool = True) -> list[Path]:
     """Write ``INPUTS.md`` into ``inputs_dir``; return it if it CHANGED.
 
     The input-guide writer this package registers with
@@ -1149,6 +1156,9 @@ def write_workspace_input_glossary(inputs_dir: str | Path) -> list[Path]:
     ----------
     inputs_dir : str or pathlib.Path
         The workspace's ``inputs`` root; created if absent.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -1156,7 +1166,7 @@ def write_workspace_input_glossary(inputs_dir: str | Path) -> list[Path]:
         The page when this call wrote it, otherwise an empty list.
     """
     changed: list[Path] = []
-    write_input_glossary(Path(inputs_dir), changed=changed)
+    write_input_glossary(Path(inputs_dir), changed=changed, overwrite=overwrite)
     return changed
 
 

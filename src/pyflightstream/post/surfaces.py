@@ -40,7 +40,7 @@ import numpy as np
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import ProductError, ProductExistsError, PyflightstreamWarning, warn
-from pyflightstream.post._tables import _refuse_a_token
+from pyflightstream.post._tables import _guarded_target, _refuse_a_token
 from pyflightstream.post.series import stamped_exports
 from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average
 from pyflightstream.results import (
@@ -415,6 +415,7 @@ def write_point_surface_average(
     vtk: bool = False,
     skipped: dict[str, str] | None = None,
     judge: Callable[[str, tuple[int, int]], str | None] | None = None,
+    overwrite: bool = True,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write the time-averaged surface of one point from its per-step exports (G25).
 
@@ -446,6 +447,9 @@ def write_point_surface_average(
         step BEFORE anything is written; a reason it returns refuses the
         average, which is then neither written nor listed. The products stage
         passes the frozen-solve rule every other average answers to.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -453,6 +457,7 @@ def write_point_surface_average(
         The files written and their ``products.json`` entries, keyed by the
         path each was written to, relative to ``out``.
     """
+    target = _guarded_target(target, overwrite)
     stated = record.surface_average_window
     if stated is None:
         return [], {}

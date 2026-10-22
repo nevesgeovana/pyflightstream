@@ -34,7 +34,7 @@ from pathlib import Path
 from pyflightstream._errors import ProductError
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.post._stage import _a_name_a_file_may_carry
-from pyflightstream.post._tables import _significant_cell, write_csv_table
+from pyflightstream.post._tables import _guarded_target, _significant_cell, write_csv_table
 from pyflightstream.post.axes import placed_blade_azimuth_deg
 from pyflightstream.post.harmonics import HarmonicRotor, blade_of, load_quantities, sample_blocks
 
@@ -279,6 +279,7 @@ def write_disc_maps(
     context: Sequence[object],
     out_dir: str | Path,
     target: Callable[[Path], Path] | None = None,
+    overwrite: bool = True,
 ) -> tuple[Path, ...]:
     """Write one CSV per rotor and quantity of ``rows_of`` in ``out_dir``, and return the paths.
 
@@ -300,6 +301,9 @@ def write_disc_maps(
         The folder the maps are written into.
     target : callable, optional
         Maps each path to the one written.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -311,8 +315,9 @@ def write_disc_maps(
     ProductError
         If two rotors' maps would be written to one file name.
     """
+    target = _guarded_target(target, overwrite)
     folder = Path(out_dir)
-    place = target if target is not None else (lambda path: path)
+    place = target
     # EVERY ALIAS SET THAT REACHES A FILE NAME IS CHECKED BEFORE ANY WRITE: two rotors
     # whose names sanitise to one file would write the second over the first.
     named: dict[str, tuple[str, str]] = {}
@@ -368,6 +373,7 @@ def write_disc_map(
     out_dir: str | Path | None = None,
     point: str | None = None,
     windows: Mapping[str, tuple[int, int]] | None = None,
+    overwrite: bool = True,
 ) -> tuple[Path, ...]:
     """Write the disc maps of a written sections table, one CSV per rotor and quantity.
 
@@ -394,6 +400,9 @@ def write_disc_map(
     windows : mapping of str to tuple of (int, int), optional
         The steps of the revolution to map, by rotor alias; required for a
         ``STEP`` series.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -434,4 +443,5 @@ def write_disc_map(
         pol=lead.get(POLAR_ID_COLUMN, ""),
         context=tuple(lead.get(name) for name in CONTEXT_COLUMNS),
         out_dir=out_dir if out_dir is not None else table.parent,
+        overwrite=overwrite,
     )

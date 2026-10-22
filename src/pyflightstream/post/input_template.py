@@ -33,6 +33,7 @@ from pyflightstream.cases.corrections import CALIBRATIONS_DIR
 from pyflightstream.cases.workflows import FREESTREAM_DIR, FREESTREAM_FORMS
 from pyflightstream.post._field_inputs import field_example, field_left_out
 from pyflightstream.post._matrix_template import _matrix_after, _matrix_example
+from pyflightstream.post._tables import _refuse_existing_product
 from pyflightstream.post.glossary import (
     ARTIFACT_HEADINGS,
     GENERATED_BANNER,
@@ -1568,7 +1569,9 @@ def input_template_markdown() -> str:
     return "\n".join(lines)
 
 
-def write_input_template(folder: str | Path, *, changed: list[Path] | None = None) -> Path:
+def write_input_template(
+    folder: str | Path, *, changed: list[Path] | None = None, overwrite: bool = True
+) -> Path:
     """Write the input template, ``input_template.md``, into ``folder``; return its path.
 
     Rewritten only when its content would change, so the call is idempotent
@@ -1581,6 +1584,9 @@ def write_input_template(folder: str | Path, *, changed: list[Path] | None = Non
         is not there.
     changed : list, optional
         Receives the page when this call actually wrote it.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -1602,12 +1608,13 @@ def write_input_template(folder: str | Path, *, changed: list[Path] | None = Non
     target = Path(folder)
     target.mkdir(parents=True, exist_ok=True)
     page = target / INPUT_TEMPLATE_NAME
+    _refuse_existing_product(page, overwrite)
     if write_if_different(page, input_template_markdown()) and changed is not None:
         changed.append(page)
     return page
 
 
-def write_workspace_input_template(inputs_dir: str | Path) -> list[Path]:
+def write_workspace_input_template(inputs_dir: str | Path, *, overwrite: bool = True) -> list[Path]:
     """Write ``input_template.md`` at the root of ``inputs_dir``; return it if it CHANGED.
 
     The input-guide writer this package registers with
@@ -1619,6 +1626,9 @@ def write_workspace_input_template(inputs_dir: str | Path) -> list[Path]:
     ----------
     inputs_dir : str or pathlib.Path
         The workspace's ``inputs`` root; created if absent.
+    overwrite : bool, optional
+        Replace a file that already exists, as the writer always did (the default).
+        False refuses an existing file, naming it, before it is replaced.
 
     Returns
     -------
@@ -1626,5 +1636,5 @@ def write_workspace_input_template(inputs_dir: str | Path) -> list[Path]:
         The page when this call wrote it, otherwise an empty list.
     """
     changed: list[Path] = []
-    write_input_template(inputs_dir, changed=changed)
+    write_input_template(inputs_dir, changed=changed, overwrite=overwrite)
     return changed
