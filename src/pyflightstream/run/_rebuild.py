@@ -777,7 +777,15 @@ def _finalise(
     )
     if deferred:
         note += f" Left SUBMITTED: {deferred}"
-    extra = list(dict.fromkeys(notes))
+    extra = _with_the_drift_note(list(dict.fromkeys(notes)), context, facts)
+    record["warnings"] = [*list(record.get("warnings") or []), note, *extra]
+    return record
+
+
+def _with_the_drift_note(
+    extra: list[str], context: _Context, facts: Mapping[str, Any]
+) -> list[str]:
+    """Append the note naming the inputs taken from another origin whose bytes differ, if any."""
     used = set(facts.get("inputs_used") or [])
     taken = [name for name in context.origin_differs if name in used] or (
         list(context.origin_differs) if context.origin_differs and not used else []
@@ -789,8 +797,7 @@ def _finalise(
             + f" taken from {context.origin}, whose bytes differ from the workspace's; the "
             "workspace's own files were not changed"
         )
-    record["warnings"] = [*list(record.get("warnings") or []), note, *extra]
-    return record
+    return extra
 
 
 # ---------------------------------------------------------------------------
@@ -877,6 +884,27 @@ def _refused_before_minting(
     else:
         return False
     return True
+
+
+def _lock_note(base: Path, apply: bool) -> str | None:
+    """Refuse an apply while a run holds ``runs.json.lock``, else say it on a preview."""
+    lock = base / (DEFAULT_MANIFEST + ".lock")
+    if not lock.exists():
+        return None
+    remedy = (
+        f"if no run is writing (a run that was killed leaves it behind), delete {lock} "
+        "and run the rebuild again"
+    )
+    if apply:
+        raise RecordsError(
+            f"rebuild: {lock.name} is present, so a run may be writing runs.json; try again "
+            f"when it ends, or {remedy}. Nothing was read or written."
+        )
+    # X-F-1294: a preview writes nothing, so a lock does not stop it; it is said.
+    return (
+        f"{lock.name} is present, so a run may be writing runs.json and this preview may "
+        f"read it half-written; applying is refused while it stays. To apply, {remedy}."
+    )
 
 
 def rebuild(
@@ -972,23 +1000,7 @@ def rebuild(
     # FR-411: a bare name is the workspace's matrix, whatever the working directory holds.
     matrix = None if matrix is None else matrix_path(base, matrix)
     target = _refuse_before_any_work(base, out, all_sims, sims, matrix, inputs_from)
-    lock = base / (DEFAULT_MANIFEST + ".lock")
-    lock_note = None
-    if lock.exists():
-        remedy = (
-            f"if no run is writing (a run that was killed leaves it behind), delete {lock} "
-            "and run the rebuild again"
-        )
-        if apply:
-            raise RecordsError(
-                f"rebuild: {lock.name} is present, so a run may be writing runs.json; try again "
-                f"when it ends, or {remedy}. Nothing was read or written."
-            )
-        # X-F-1294: a preview writes nothing, so a lock does not stop it; it is said.
-        lock_note = (
-            f"{lock.name} is present, so a run may be writing runs.json and this preview may "
-            f"read it half-written; applying is refused while it stays. To apply, {remedy}."
-        )
+    lock_note = _lock_note(base, apply)
     if not (base / "sims").is_dir():
         raise RecordsError(f"rebuild: {base} holds no sims/ folder; run it at the workspace root")
     manifest = base / DEFAULT_MANIFEST
