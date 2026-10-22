@@ -1894,11 +1894,6 @@
     },
     {
       "source": "pyflightstream.cases",
-      "target": "pyflightstream.commands",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases",
       "target": "pyflightstream.fsi.config",
       "kind": "module"
     },
@@ -3059,8 +3054,18 @@
     },
     {
       "source": "pyflightstream.cases.workflows._farfield",
+      "target": "pyflightstream.cases.field_coverage",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._farfield",
       "target": "pyflightstream.cases.workflows._frames",
       "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._farfield",
+      "target": "pyflightstream.cases.workflows._motion",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.cases.workflows._farfield",
@@ -3070,6 +3075,11 @@
     {
       "source": "pyflightstream.cases.workflows._farfield",
       "target": "pyflightstream.cases.workflows._rows",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._farfield",
+      "target": "pyflightstream.cases.workflows._vocabulary",
       "kind": "module"
     },
     {
@@ -5274,6 +5284,11 @@
     },
     {
       "source": "pyflightstream.post._noise_products",
+      "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._noise_products",
       "target": "pyflightstream.cases.qsteady",
       "kind": "module"
     },
@@ -5424,6 +5439,16 @@
     },
     {
       "source": "pyflightstream.post._reduction_stage",
+      "target": "pyflightstream.post._condition",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._reduction_stage",
+      "target": "pyflightstream.post._sim",
+      "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.post._reduction_stage",
       "target": "pyflightstream.post._stage",
       "kind": "module"
     },
@@ -5434,8 +5459,18 @@
     },
     {
       "source": "pyflightstream.post._reduction_stage",
+      "target": "pyflightstream.post.farfield_fields",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._reduction_stage",
       "target": "pyflightstream.post.point_tables",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._reduction_stage",
+      "target": "pyflightstream.post.polar",
+      "kind": "typing"
     },
     {
       "source": "pyflightstream.post._reduction_stage",
@@ -5536,11 +5571,6 @@
       "source": "pyflightstream.post._rotor_products",
       "target": "pyflightstream._errors",
       "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._rotor_products",
-      "target": "pyflightstream.cases",
-      "kind": "deferred"
     },
     {
       "source": "pyflightstream.post._rotor_products",
@@ -5854,7 +5884,17 @@
     },
     {
       "source": "pyflightstream.post._stage",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._stage",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._stage",
+      "target": "pyflightstream.cases.corrections",
       "kind": "module"
     },
     {
@@ -5914,6 +5954,11 @@
     },
     {
       "source": "pyflightstream.post._structure",
+      "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._structure",
       "target": "pyflightstream.fsi.config",
       "kind": "module"
     },
@@ -5936,6 +5981,11 @@
       "source": "pyflightstream.post._structure",
       "target": "pyflightstream.post._sim",
       "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.post._structure",
+      "target": "pyflightstream.post._tables",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.post._tables",
@@ -6004,6 +6054,11 @@
     },
     {
       "source": "pyflightstream.post.acoustics",
+      "target": "pyflightstream.post._stage",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.acoustics",
       "target": "pyflightstream.post._tables",
       "kind": "module"
     },
@@ -6024,7 +6079,7 @@
     },
     {
       "source": "pyflightstream.post.boundary_layer",
-      "target": "pyflightstream._textio",
+      "target": "pyflightstream._tokens",
       "kind": "module"
     },
     {
@@ -6056,11 +6111,6 @@
       "source": "pyflightstream.post.boundary_layer",
       "target": "pyflightstream.workspace",
       "kind": "typing"
-    },
-    {
-      "source": "pyflightstream.post.corrections",
-      "target": "pyflightstream._digest",
-      "kind": "module"
     },
     {
       "source": "pyflightstream.post.corrections",
@@ -6124,6 +6174,11 @@
     },
     {
       "source": "pyflightstream.post.custom_polar",
+      "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.custom_polar",
       "target": "pyflightstream.post._tables",
       "kind": "module"
     },
@@ -6150,6 +6205,11 @@
     {
       "source": "pyflightstream.post.disc_maps",
       "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.disc_maps",
+      "target": "pyflightstream.post._stage",
       "kind": "module"
     },
     {
@@ -6270,6 +6330,11 @@
     {
       "source": "pyflightstream.post.farfield_products",
       "target": "pyflightstream.post._condition",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_products",
+      "target": "pyflightstream.post._reduction_stage",
       "kind": "module"
     },
     {
@@ -6475,6 +6540,11 @@
     {
       "source": "pyflightstream.post.inflow_tools",
       "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.inflow_tools",
+      "target": "pyflightstream._tokens",
       "kind": "module"
     },
     {
@@ -6879,6 +6949,11 @@
     },
     {
       "source": "pyflightstream.post.provenance",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.provenance",
       "target": "pyflightstream._textio",
       "kind": "module"
     },
@@ -6965,6 +7040,11 @@
     {
       "source": "pyflightstream.post.reductions",
       "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.reductions",
+      "target": "pyflightstream._tokens",
       "kind": "module"
     },
     {
@@ -7129,6 +7209,11 @@
     },
     {
       "source": "pyflightstream.post.settings_table",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.settings_table",
       "target": "pyflightstream._textio",
       "kind": "module"
     },
@@ -7225,6 +7310,11 @@
     {
       "source": "pyflightstream.post.surfaces",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.surfaces",
+      "target": "pyflightstream.post._tables",
       "kind": "module"
     },
     {
@@ -7340,6 +7430,11 @@
     {
       "source": "pyflightstream.post.writers",
       "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.writers",
+      "target": "pyflightstream.post._tables",
       "kind": "module"
     },
     {
@@ -11243,6 +11338,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.script._build_forms",
+      "target": "pyflightstream.script._settings",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.script._ledger_tables",
       "target": "pyflightstream._lengths",
       "kind": "deferred"
@@ -11251,6 +11351,16 @@
       "source": "pyflightstream.script._ledger_tables",
       "target": "pyflightstream.commands",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script._ledger_tables",
+      "target": "pyflightstream.script._arg_checks",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script._ledger_tables",
+      "target": "pyflightstream.script._build_forms",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.script._relaxed_te",
@@ -11270,6 +11380,11 @@
     {
       "source": "pyflightstream.script._settings",
       "target": "pyflightstream.script",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script._settings",
+      "target": "pyflightstream.script._arg_checks",
       "kind": "module"
     },
     {
@@ -11335,6 +11450,11 @@
     {
       "source": "pyflightstream.script.helpers",
       "target": "pyflightstream.script",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script.helpers",
+      "target": "pyflightstream.script._arg_checks",
       "kind": "module"
     },
     {

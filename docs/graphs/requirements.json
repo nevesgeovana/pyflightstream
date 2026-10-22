@@ -258,7 +258,7 @@
       "parent": "FR-3048",
       "area": "PROC",
       "hid": "PROC-4.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-52",
@@ -1084,7 +1084,7 @@
       "parent": "FR-3051",
       "area": "PROC",
       "hid": "PROC-7.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-401",
@@ -1798,7 +1798,7 @@
       "parent": "FR-3051",
       "area": "PROC",
       "hid": "PROC-7.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-800",
@@ -2029,7 +2029,7 @@
       "parent": "FR-3054",
       "area": "PROC",
       "hid": "PROC-10.3",
-      "status": "deferred"
+      "status": "implemented"
     },
     {
       "id": "FR-892",
@@ -2694,7 +2694,7 @@
       "parent": "FR-3009",
       "area": "DEXP",
       "hid": "DEXP-5.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-1611",
@@ -2708,14 +2708,14 @@
       "parent": "FR-3012",
       "area": "SPCM",
       "hid": "SPCM-1.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-1616",
       "parent": "FR-3005",
       "area": "DEXP",
       "hid": "DEXP-1.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-1620",
@@ -2862,7 +2862,7 @@
       "parent": "FR-3158",
       "area": "DRED",
       "hid": "DRED-17.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2326",
@@ -2883,7 +2883,7 @@
       "parent": "FR-3099",
       "area": "DRED",
       "hid": "DRED-6.4",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2329",
@@ -2939,7 +2939,7 @@
       "parent": "",
       "area": "DEXP",
       "hid": "DEXP-1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3006",
@@ -2974,7 +2974,7 @@
       "parent": "",
       "area": "SPCM",
       "hid": "SPCM-1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3013",
@@ -3114,7 +3114,7 @@
       "parent": "",
       "area": "PROC",
       "hid": "PROC-4",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3049",
@@ -3135,7 +3135,7 @@
       "parent": "",
       "area": "PROC",
       "hid": "PROC-7",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3052",
@@ -3156,7 +3156,7 @@
       "parent": "",
       "area": "PROC",
       "hid": "PROC-10",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3055",
@@ -3429,7 +3429,7 @@
       "parent": "",
       "area": "DRED",
       "hid": "DRED-6",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3102",
@@ -3667,7 +3667,7 @@
       "parent": "",
       "area": "DRED",
       "hid": "DRED-17",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3160",

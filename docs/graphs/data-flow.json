@@ -13,7 +13,7 @@
       ],
       "parameters": "path: str | Path, *, active_only: bool=True",
       "returns": "list[MatrixRow]",
-      "source_sha256": "366f779c4c2ee0f0898002d6de02c4fa222ff2ef119426c01ae70383263063d6"
+      "source_sha256": "36a5c907d70ddb1363d4f521b1e3bdc49a7bd9f06e85fc844475ff16cfd35f24"
     },
     {
       "id": "resolve",
@@ -93,7 +93,7 @@
       ],
       "parameters": "workspace: CampaignWorkspace, *, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None",
       "returns": "list[Path]",
-      "source_sha256": "2ed4b32a282653ffa0d30033e5585d82283ed30cf911f871421b363bfd061b21"
+      "source_sha256": "ecabb72deaec5715092221b98a048ee73e99aec18741c4a132160ddeca0618e3"
     },
     {
       "id": "refine",
