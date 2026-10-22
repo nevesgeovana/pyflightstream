@@ -336,19 +336,63 @@ def test_p0420_the_measured_units_still_rotate_and_read(tmp_path, unit):
     assert prepared.provenance["native_length_unit"] == unit
 
 
-@pytest.mark.parametrize("omega", [float("nan"), float("inf")])
-def test_p0430_f043_rotating_field_refuses_a_non_finite_rotation(tmp_path, omega):
+def test_p0430_the_rotating_field_hash_describes_the_bytes_the_rows_came_from(
+    tmp_path, monkeypatch
+):
+    from pathlib import Path
+
+    from pyflightstream.cases.freestream import prepare_rotating_field
+
+    source = _field(tmp_path)
+    original = source.read_bytes()
+    real_bytes = Path.read_bytes
+    reads = []
+
+    def change_after_first(self, *args, **kwargs):
+        reads.append(self)
+        data = real_bytes(self)
+        if len(reads) == 1:
+            self.write_bytes(b"1 1\n9 9 9 9 9 9\n")
+        return data
+
+    monkeypatch.setattr(Path, "read_bytes", change_after_first)
+    monkeypatch.setattr(
+        Path, "read_text", lambda self, *a, **k: change_after_first(self).decode("utf-8")
+    )
+    prepared = prepare_rotating_field(
+        source,
+        form="STRUCTURED",
+        source_units="SI",
+        native_unit="METER",
+        hub_m=(0.0, 0.0, 0.0),
+        axis=(0.0, 0.0, 1.0),
+        omega_rad_s=0.0,
+    )
+    assert prepared.provenance["source_sha256"] == sha256(original).hexdigest()
+
+
+@pytest.mark.parametrize(
+    "omega,hub,axis,message",
+    [
+        (float("nan"), (0.0, 0.0, 0.0), (0.0, 0.0, 1.0), "finite"),
+        (1.0, (float("inf"), 0.0, 0.0), (0.0, 0.0, 1.0), "finite"),
+        (1.0, (0.0, 0.0, 0.0), (0.0, 0.0, 2.0), "unit vector"),
+    ],
+)
+def test_p0430_the_rotating_field_refuses_a_non_finite_or_non_unit_rotation(
+    tmp_path, omega, hub, axis, message
+):
     from pyflightstream.cases import CampaignConfigError
     from pyflightstream.cases.freestream import prepare_rotating_field
 
-    with pytest.raises(CampaignConfigError, match="finite"):
+    with pytest.raises(CampaignConfigError, match=message):
         prepare_rotating_field(
             _field(tmp_path),
             form="STRUCTURED",
             source_units="SI",
             native_unit="METER",
-            hub_m=(0.0, 0.0, 0.0),
-            axis=(0.0, 0.0, 1.0),
+            hub_m=hub,
+            axis=axis,
             omega_rad_s=omega,
         )
 
@@ -375,3 +419,33 @@ def test_p0430_f750_rotating_path_refuses_the_header_the_plain_path_refuses(tmp_
     short.write_text("2 2\n0 0 0 1 2 3\n", encoding="utf-8")
     with pytest.raises(CampaignConfigError, match="row count"):
         field_rows_in_metres(short, form="STRUCTURED", source_units="SI", native_unit="METER")
+
+
+def test_p0430_a_field_file_that_is_not_utf8_is_refused_by_name_and_a_bom_is_read(tmp_path):
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.freestream import read_field_rows
+
+    bad = tmp_path / "bad.txt"
+    bad.write_bytes(b"1 1\n0 0 0 1 2 \xff\n")
+    with pytest.raises(CampaignConfigError, match="not UTF-8 text"):
+        read_field_rows(bad, form="STRUCTURED")
+    marked = tmp_path / "marked.txt"
+    marked.write_bytes(b"\xef\xbb\xbf1 1\n0 0 0 1 2 3\n")
+    assert read_field_rows(marked, form="STRUCTURED")[1] == [[0.0, 0.0, 0.0, 1.0, 2.0, 3.0]]
+
+
+@pytest.mark.parametrize("omega", [float("nan"), float("inf")])
+def test_p0430_f043_rotating_field_refuses_a_non_finite_rotation(tmp_path, omega):
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.freestream import prepare_rotating_field
+
+    with pytest.raises(CampaignConfigError, match="finite"):
+        prepare_rotating_field(
+            _field(tmp_path),
+            form="STRUCTURED",
+            source_units="SI",
+            native_unit="METER",
+            hub_m=(0.0, 0.0, 0.0),
+            axis=(0.0, 0.0, 1.0),
+            omega_rad_s=omega,
+        )

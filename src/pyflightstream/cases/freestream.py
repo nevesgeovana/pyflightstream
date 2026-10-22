@@ -149,7 +149,7 @@ def prepare_field(
     native_unit = require_measured_unit(native_unit)
     factor = scale("METER", native_unit)
     assert factor is not None  # The measured-unit whitelist above guarantees this.
-    lines = [line.strip() for line in original.decode("utf-8").splitlines() if line.strip()]
+    lines = [line.strip() for line in _field_text(path, original).splitlines() if line.strip()]
     out = []
     expected = None
     if form == "STRUCTURED":
@@ -191,7 +191,20 @@ def _grid_count(path: Path, header: list[str]) -> int:
     return int(header[0]) * int(header[1])
 
 
-def read_field_rows(path: Path, *, form: str) -> tuple[str | None, list[list[float]]]:
+def _field_text(path: Path, data: bytes) -> str:
+    """Decode a custom field's bytes: UTF-8, with or without a byte order mark."""
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError as error:
+        raise CampaignConfigError(
+            f"Custom field {path} is not UTF-8 text ({error.reason} at byte {error.start}); "
+            "save it as plain UTF-8."
+        ) from None
+
+
+def read_field_rows(
+    path: Path, *, form: str, data: bytes | None = None
+) -> tuple[str | None, list[list[float]]]:
     """Return a custom field's header line (STRUCTURED) and its rows of six numbers.
 
     The form was checked by the builder's reader before this is asked; this
@@ -203,6 +216,9 @@ def read_field_rows(path: Path, *, form: str) -> tuple[str | None, list[list[flo
         The custom field file.
     form : str
         The field's form, ``STRUCTURED`` (a header line, then the rows) or ``UNSTRUCTURED``.
+    data : bytes, optional
+        The file's bytes where the caller already holds them, so one read serves both the rows
+        and a hash of them; read from ``path`` where omitted.
 
     Returns
     -------
@@ -213,10 +229,11 @@ def read_field_rows(path: Path, *, form: str) -> tuple[str | None, list[list[flo
     Raises
     ------
     CampaignConfigError
-        If the form is unknown, a structured field has no header, the file holds no row, a value is
-        not numeric, or a row is not six finite columns.
+        If the form is unknown, the file is not UTF-8 text, a structured field has no header, the
+        file holds no row, a value is not numeric, or a row is not six finite columns.
     """
-    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    text = _field_text(path, path.read_bytes() if data is None else data)
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
     header = None
     if form == "STRUCTURED":
         if not lines:
@@ -243,7 +260,12 @@ def read_field_rows(path: Path, *, form: str) -> tuple[str | None, list[list[flo
 
 
 def field_rows_in_metres(
-    path: Path, *, form: str, source_units: str | None, native_unit: str | None
+    path: Path,
+    *,
+    form: str,
+    source_units: str | None,
+    native_unit: str | None,
+    data: bytes | None = None,
 ) -> tuple[str | None, list[list[float]]]:
     """Return a custom field's rows in metres and metres per second (qsteady_rotor).
 
@@ -266,6 +288,8 @@ def field_rows_in_metres(
         it.
     native_unit : str or None
         The simulation's measured length unit, ``METER`` or ``MILLIMETER``.
+    data : bytes, optional
+        The file's bytes where the caller already holds them; see :func:`read_field_rows`.
 
     Returns
     -------
@@ -281,7 +305,7 @@ def field_rows_in_metres(
     """
     if source_units not in {None, "SI", "NATIVE"}:
         raise CampaignConfigError("FREESTREAM_UNITS must be SI or NATIVE, or omitted.")
-    header, rows = read_field_rows(path, form=form)
+    header, rows = read_field_rows(path, form=form, data=data)
     if source_units == "SI" and native_unit is not None:
         require_measured_unit(native_unit)
     if source_units == "NATIVE":
@@ -355,7 +379,8 @@ def prepare_rotating_field(
     Raises
     ------
     CampaignConfigError
-        If the simulation's unit names no scale, or the file is refused as
+        If ``omega_rad_s``, ``hub_m`` or ``axis`` is not finite, ``axis`` is not a unit
+        vector, the simulation's unit names no scale, or the file is refused as
         :func:`field_rows_in_metres` refuses it.
     """
     if not all(math.isfinite(v) for v in (omega_rad_s, *hub_m, *axis)):
@@ -363,8 +388,13 @@ def prepare_rotating_field(
             "The rotating field needs a finite angular speed, hub point and axis; "
             f"got omega {omega_rad_s!r}, hub {hub_m!r}, axis {axis!r}."
         )
+    if not math.isclose(math.sqrt(sum(v * v for v in axis)), 1.0, abs_tol=1e-6):
+        raise CampaignConfigError(
+            f"The rotating field's shaft axis {tuple(axis)} is not a unit vector."
+        )
+    original = path.read_bytes()  # One read: the rows and the source hash describe the same bytes.
     header, rows = field_rows_in_metres(
-        path, form=form, source_units=source_units, native_unit=native_unit
+        path, form=form, source_units=source_units, native_unit=native_unit, data=original
     )
     factor = 1.0 if native_unit is None else scale("METER", require_measured_unit(native_unit))
     assert factor is not None  # The measured-unit whitelist above guarantees this.
@@ -379,7 +409,6 @@ def prepare_rotating_field(
         )
         values = (x, y, z, vx - swept[0], vy - swept[1], vz - swept[2])
         out.append(" ".join(format(value * factor, ".17g") for value in values))
-    original = path.read_bytes()
     payload = ("\n".join(out) + "\n").encode("utf-8")
     effective_hash = hashlib.sha256(payload).hexdigest()
     name = f"pfs-field-{effective_hash[:24]}{path.suffix.lower()}"
