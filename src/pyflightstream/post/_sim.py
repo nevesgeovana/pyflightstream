@@ -110,6 +110,9 @@ from pyflightstream.post.point_tables import (
 )
 from pyflightstream.post.polar import POLAR_COLUMNS as POLAR_COLUMNS
 from pyflightstream.post.polar import (
+    TRIM_ANGLE_COLUMN,
+    TRIM_MOMENT_COLUMN,
+    TRIM_SUFFIX,
     PolarPoint,
     drag_columned_rows,
     drag_columns_of,
@@ -119,6 +122,7 @@ from pyflightstream.post.polar import (
     selected_axes,
     swept_axes,
     swept_polar_file_name,
+    write_trimmed_polar,
 )
 from pyflightstream.post.provenance import refuse_an_existing_product as _refuse_an_existing_product
 from pyflightstream.post.rotor_table import write_rotor_table
@@ -720,6 +724,8 @@ def _group_polar(
         )
     entry: dict[str, object] = {"runs": group_runs, **({"kind": "instant"} if instant else {})}
     ctx.add(target, dict(entry))
+    if ctx.pproc.products.trimmed_polar:
+        _trimmed_polar(ctx, target, entry)
     if ctx.pproc.products.custom_polar_format:
         # PFS-2014.01.01: the same rows, a second time, in the
         # format the existing tooling opens, beside the table.
@@ -752,6 +758,29 @@ def _group_polar(
             ),
         )
         ctx.add(target, dict(entry))
+
+
+def _trimmed_polar(ctx: SimContext, polar: Path, entry: Mapping[str, object]) -> None:
+    """Write a polar table's trimmed polar beside it (FR-2302), or name why there is none.
+
+    A polar whose sampled pitching moments do not bracket zero, or cross it
+    more than once, has no trimmed polar: it is a skip under the file it would
+    have been (FR-2303), and the polar itself stays written.
+    """
+    trim = polar.with_name(f"{polar.stem}{TRIM_SUFFIX}.csv")
+    relative = trim.relative_to(ctx.out).as_posix()
+    # The destination is prepared first, by the post's archive rule; a refusal then
+    # writes nothing and is named, and the retirement removes a stale file left there.
+    target = ctx.target(trim)
+    try:
+        write_trimmed_polar(polar, target, overwrite=True)
+    except ProductError as error:
+        ctx.skipped[relative] = f"the trimmed polar is not written: {error}"
+        return
+    ctx.add(
+        target,
+        {**entry, "trimmed": {"moment": TRIM_MOMENT_COLUMN, "angle": TRIM_ANGLE_COLUMN}},
+    )
 
 
 # ------------------------------------------------------------------ step 2: each point's tables

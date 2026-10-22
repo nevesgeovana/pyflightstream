@@ -262,8 +262,10 @@ from pyflightstream.post.polar import (
     polar_row,
     swept_axes,
     swept_polar_file_name,
+    trimmed_polar_row,
     write_polar_table,
     write_recorded_polar,
+    write_trimmed_polar,
 )
 from pyflightstream.post.polar import declined_induced_drag as declined_induced_drag
 from pyflightstream.post.polar import drag_columned_rows as drag_columned_rows
@@ -437,6 +439,9 @@ __all__ = [
     "revolution_drift_pct",
     "is_force_or_moment_column",
     "rotor_advance_ratio",
+    # FR-2302: the trimmed polar, appended so the inventory before it keeps its order.
+    "trimmed_polar_row",
+    "write_trimmed_polar",
 ]
 
 

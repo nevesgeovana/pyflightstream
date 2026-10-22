@@ -333,6 +333,7 @@ polars = true
 sections = true
 plots = true
 custom_polar_format = false
+trimmed_polar = false  # beside each polar table, its row at zero pitching moment
 # Raw native integrals at declared cuts; the distinct velocity profile is refused where unavailable.
 boundary_layer_integrals = false
 boundary_layer_velocity_profile = false

@@ -78,6 +78,7 @@ polars = true # one polar table per group, per simulation
 sections = true # one table per point from its sectional loads export
 plots = true # one table per unsteady point from its plots export
 custom_polar_format = false # beside each polar table, the text file the reference tooling opens
+trimmed_polar = false # beside each polar table, its row at zero pitching moment
 settings_codebook = true # per matrix, the numeric settings table of every point and its codebook
 installed_frame = [] # "probes" and/or "inflow": copies mirrored through y = 0
 
@@ -640,6 +641,22 @@ by line, and `read_custom_polar_format` reads the file back (the retired prefix 
 feeds the fixture's rows through the writer and requires the fixture's
 bytes, and writes, reads and writes again what the stage produced,
 requiring equal bytes.
+
+### Trimmed polar
+
+`[products] trimmed_polar = true` writes, beside every polar table, the
+polar's row at zero pitching moment: `<polar stem>_trim.csv`
+(`P0001-M150AL+000BE+000J+sweep_g01_trim.csv` beside `..._g01.csv`), with
+the polar's own columns and one row. The rows are ordered by `ALPHA`; the two
+neighbouring points whose `CMB25` changes sign bracket the trim, and every
+numeric column is interpolated linearly between them so that `CMB25` reads
+exactly zero (a point whose `CMB25` is zero is the trim itself). A text column
+keeps its value where both points agree. Nothing is extrapolated: a polar whose
+sampled moments do not change sign, or change sign more than once, or that has
+fewer than two points, gets no trimmed polar, and the post names it under
+`skipped` in `products.json` with the moment range it read. Off by default.
+`pyflightstream.post.write_trimmed_polar` writes the same file from any polar
+table.
 
 ### A run's provenance, in an interchange format
 

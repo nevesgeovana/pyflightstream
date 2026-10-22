@@ -177,8 +177,9 @@ module, which is stated rather than left to be discovered:
 WHAT THIS LAYER DOES NOT HAVE, said plainly because this docstring
 advertised it for three releases and a reader has no other way to find
 out. There is no ``ResultArray`` facade: no ``interp_along``, no
-``reparametrize``, no ``trim``. The trim half is carried by FR-2302 and
-FR-2303, still ``pending``; AD-06 sends the interpolation half to the sister
+``reparametrize``, no ``trim`` method. The trimmed polar is a product of its
+own, :func:`write_trimmed_polar` (FR-2302, FR-2303), asked for by the pproc's
+``[products] trimmed_polar``; AD-06 sends the interpolation half to the sister
 library.
 Sweep assembly is not here either, it is
 :mod:`pyflightstream.results.tables`.
@@ -218,6 +219,7 @@ from pyflightstream.post.products import (
     write_polar_table,
     write_recorded_polar,
     write_sections_table,
+    write_trimmed_polar,
 )
 from pyflightstream.post.reductions import write_reduction, write_series
 from pyflightstream.post.series import write_point_series
@@ -279,6 +281,7 @@ __all__ = [
     "write_series",
     "write_tecplot_points",
     "write_vtk_points",
+    "write_trimmed_polar",
 ]
 
 # The products are the post stage a campaign leaves after collection

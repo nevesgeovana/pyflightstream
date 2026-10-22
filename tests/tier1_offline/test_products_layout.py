@@ -27,6 +27,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from pyflightstream.post.products import (
     COEFFICIENT_COLUMNS,
     read_csv_table,
@@ -497,3 +499,84 @@ def test_the_products_manifest_names_the_samples_under_probes(tmp_path):
     assert not any(key.startswith("plots/") for key in manifest["skipped"]), (
         "a skip is recorded under a folder that no longer exists"
     )
+
+
+def _synthetic_polar(alphas, moment):
+    """A polar of known trim: CL = 0.1 alpha, and the pitching moment the caller gives."""
+    columns = ("POL", "GROUP", "ALPHA", "CLB", "CMB25")
+    rows = [
+        {"POL": "7001", "GROUP": "1", "ALPHA": repr(a), "CLB": repr(0.1 * a), "CMB25": repr(m)}
+        for a, m in zip(alphas, (moment(a) for a in alphas), strict=True)
+    ]
+    return columns, rows
+
+
+@pytest.mark.requirement("FR-2302")
+def test_p0430_the_trimmed_polar_is_the_row_at_zero_pitching_moment():
+    """CM = 0.1 - 0.05 alpha is zero at alpha = 2 exactly, where CL = 0.2."""
+    from pyflightstream.post.products import trimmed_polar_row
+
+    columns, rows = _synthetic_polar([6.0, -2.0, 0.0, 3.0], lambda a: 0.1 - 0.05 * a)
+    row = trimmed_polar_row(columns, rows)
+    assert row["ALPHA"] == pytest.approx(2.0, abs=1e-12)
+    assert row["CLB"] == pytest.approx(0.2, abs=1e-12)
+    assert row["CMB25"] == 0.0
+    assert (row["POL"], row["GROUP"]) == ("7001", "1")
+    # A sampled zero is the trim itself.
+    columns, rows = _synthetic_polar([0.0, 2.0, 4.0], lambda a: 0.1 - 0.05 * a)
+    assert float(trimmed_polar_row(columns, rows)["ALPHA"]) == 2.0
+
+
+@pytest.mark.requirement("FR-2303")
+@pytest.mark.parametrize(
+    ("alphas", "moment", "said"),
+    [
+        ([-2.0, 0.0, 1.0], lambda a: 0.1 - 0.05 * a, "never crosses zero"),
+        ([3.0, 4.0, 6.0], lambda a: 0.1 - 0.05 * a, "never crosses zero"),
+        ([-3.0, 0.0, 3.0], lambda a: a * a - 1.0, "more than one trim"),
+        ([1.0], lambda a: 0.0, "at least two rows"),
+    ],
+)
+def test_p0430_a_polar_that_does_not_bracket_the_trim_is_refused(alphas, moment, said):
+    """Nothing is extrapolated: no bracket, two brackets or one row is a refusal."""
+    from pyflightstream.post.products import ProductError, trimmed_polar_row
+
+    columns, rows = _synthetic_polar(alphas, moment)
+    with pytest.raises(ProductError, match=said):
+        trimmed_polar_row(columns, rows)
+
+
+@pytest.mark.requirement("FR-2302")
+@pytest.mark.requirement("FR-2303")
+def test_p0430_the_pproc_asks_for_the_trimmed_polar_beside_each_polar(tmp_path):
+    """[products] trimmed_polar: written where the moments bracket zero, named where not."""
+    import warnings
+
+    from tests.tier1_offline.test_post_superfile import _workspace as _two_polars
+
+    workspace = _two_polars(tmp_path)
+    for pproc in ("p001", "p002"):
+        path = workspace.inputs_dir / "pproc" / f"{pproc}.toml"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text + "[products]\ntrimmed_polar = true\n", encoding="utf-8")
+    # Group 2 is the surface W alone: its pitching moment changes sign between the
+    # two points of 6001, so its polar brackets the trim at ALPHA -1; group 1 sums
+    # every surface and stays negative.
+    export = workspace.sim_dir("6001") / "outputs" / "POLAR-6001_M20AL+000BE+000.txt"
+    text = export.read_text(encoding="utf-8")
+    export.write_text(text.replace("-0.0077298", "+0.0077298"), encoding="utf-8")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    out = workspace.products_dir("matriz")
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    trimmed = "polars/P6001-M200RE1177AL+sweepBE+000_g02_trim.csv"
+    assert trimmed in manifest["products"]
+    polar_columns, _ = read_csv_table(out / "polars/P6001-M200RE1177AL+sweepBE+000_g02.csv")
+    columns, (row,) = read_csv_table(out / trimmed)
+    assert columns == polar_columns
+    assert float(row["ALPHA"]) == pytest.approx(-1.0, abs=1e-5)
+    assert float(row["CMB25"]) == 0.0
+    refused = manifest["skipped"]["polars/P6001-M200RE1177AL+sweepBE+000_g01_trim.csv"]
+    assert "never crosses zero" in refused
+    assert not (out / "polars/P6001-M200RE1177AL+sweepBE+000_g01_trim.csv").exists()

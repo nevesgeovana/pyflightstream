@@ -13,6 +13,11 @@ FlightStream versions.
   record carries `loads_file_present`.
 - A row that states no `ALPHA` or `BETA` flies that angle at 0.0 and says so: the plan summary
   shows `ALPHA = 0.0 (default)`, and the run record lists the angles in `angles_not_stated`.
+- `[products] trimmed_polar = true` on a pproc artifact writes, beside every polar table,
+  `<polar stem>_trim.csv`: the polar's row at zero pitching moment (`CMB25`), interpolated
+  between the two points that bracket it and never extrapolated. A polar whose sampled
+  moments do not change sign, or change sign more than once, is named under `skipped`.
+  `pyflightstream.post.write_trimmed_polar` writes the same file from any polar table.
 
 ### Changed
 

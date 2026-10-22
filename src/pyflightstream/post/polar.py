@@ -19,9 +19,12 @@ An induced drag the solver declined to compute is named by
 :func:`write_recorded_polar` regenerates the polar, sections and plots
 tables of a recorded point from its exports alone.
 
-The polar of the backlog's further kinds (a Richardson-extrapolated polar
-over a mesh family, a trimmed polar) joins this module beside the table it
-extends.
+The TRIMMED POLAR (FR-2302, FR-2303) is the polar's row at zero pitching
+moment, interpolated inside the sampled angles and never extrapolated:
+:func:`trimmed_polar_row` finds it and :func:`write_trimmed_polar` writes it
+beside its polar table (``[products] trimmed_polar``). A further kind of the
+backlog (a Richardson-extrapolated polar over a mesh family) joins this
+module beside the table it extends.
 """
 
 from __future__ import annotations
@@ -36,7 +39,7 @@ from warnings import warn
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
-from pyflightstream._tokens import POLAR_ID_COLUMN
+from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases import select_group_members
 from pyflightstream.post._condition import (
     PointState,
@@ -51,9 +54,11 @@ from pyflightstream.post._tables import (
     COEFFICIENT_COLUMNS,
     FLIGHT_CONDITION_COLUMNS,
     ProductError,
+    ProductExistsError,
     ReferenceValues,
     context_row,
     polar_file_name,
+    read_csv_table,
     write_csv_table,
 )
 from pyflightstream.post.axes import polar_axis_coefficients
@@ -80,6 +85,11 @@ __all__ = [
     "swept_polar_file_name",
     "write_polar_table",
     "write_recorded_polar",
+    "TRIM_ANGLE_COLUMN",
+    "TRIM_MOMENT_COLUMN",
+    "TRIM_SUFFIX",
+    "trimmed_polar_row",
+    "write_trimmed_polar",
 ]
 
 #: WHY THE ADVANCE RATIO HAS A COLUMN AT ALL (FR-85), kept here beside its one
@@ -1074,3 +1084,202 @@ def selected_axes(path: Path, axes: Literal["wind", "stability"] | None) -> None
         writer = _textio.csv_dict_writer(handle, fieldnames=[*columns, *added])
         writer.writeheader()
         writer.writerows(rows)
+
+
+#: FR-2302: what a trimmed polar zeroes and what it moves. The pitching moment of
+#: the polar's body axes about the reference point (``CMB25``; the stability axes'
+#: ``CMS25`` is the same moment, both turn about ``y``) and the angle of attack.
+TRIM_MOMENT_COLUMN = "CMB25"
+TRIM_ANGLE_COLUMN = "ALPHA"
+#: The suffix a trimmed polar adds to the stem of the polar table it is read from.
+TRIM_SUFFIX = "_trim"
+
+
+def _trim_number(text: object) -> float | None:
+    """Return a cell as a finite number, or None (``NA``, text, blank, NaN)."""
+    try:
+        number = float(str(text).strip())
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def trimmed_polar_row(
+    columns: Sequence[str],
+    rows: Sequence[Mapping[str, object]],
+    *,
+    moment: str = TRIM_MOMENT_COLUMN,
+    angle: str = TRIM_ANGLE_COLUMN,
+) -> dict[str, object]:
+    """Return a polar's row at zero pitching moment, interpolated inside its sampled range.
+
+    The rows are ordered by ``angle``; the pair of neighbouring rows whose
+    ``moment`` changes sign brackets the trim, and every numeric column is
+    interpolated linearly between them at the fraction ``m0 / (m0 - m1)`` of
+    the way, so ``moment`` reads exactly zero (FR-2302). A row that states the
+    zero itself is the trim. A text column keeps its value where both rows
+    agree and reads ``NA`` where they do not; so does a numeric cell either
+    row lacks. Nothing is extrapolated: a polar whose sampled moments do not
+    change sign is refused (FR-2303), and so is one that changes sign more
+    than once, because it has more than one trim and the table would have to
+    choose.
+
+    Parameters
+    ----------
+    columns : sequence of str
+        The polar table's columns.
+    rows : sequence of mapping
+        The polar table's rows, by column (the text :func:`read_csv_table` reads).
+    moment : str, optional
+        The pitching-moment column, :data:`TRIM_MOMENT_COLUMN` by default.
+    angle : str, optional
+        The angle the trim moves, :data:`TRIM_ANGLE_COLUMN` by default.
+
+    Returns
+    -------
+    dict of str to object
+        The trimmed row by column; None where a cell is not available.
+
+    Raises
+    ------
+    ProductError
+        If ``moment`` or ``angle`` is not a column, fewer than two rows state
+        both, the sampled moments do not bracket zero, or they cross it more
+        than once.
+
+    Examples
+    --------
+    >>> rows = [{"ALPHA": "0.0", "CMB25": "0.1", "CLB": "0.2"},
+    ...         {"ALPHA": "4.0", "CMB25": "-0.1", "CLB": "0.6"}]
+    >>> trimmed_polar_row(["ALPHA", "CMB25", "CLB"], rows)
+    {'ALPHA': 2.0, 'CMB25': 0.0, 'CLB': 0.4}
+    """
+    for name in (moment, angle):
+        if name not in columns:
+            raise ProductError(
+                f"the polar has no column {name!r}, which a trimmed polar reads; its "
+                f"columns are {', '.join(columns)}"
+            )
+    stated = sorted(
+        (
+            (a, m, row)
+            for row in rows
+            if (a := _trim_number(row.get(angle))) is not None
+            and (m := _trim_number(row.get(moment))) is not None
+        ),
+        key=lambda item: item[0],
+    )
+    if len(stated) < 2:
+        raise ProductError(
+            f"a trimmed polar needs at least two rows that state {angle} and {moment}; "
+            f"this polar has {len(stated)}"
+        )
+    bracket = _the_trim_bracket(stated, moment=moment, angle=angle)
+    if len(bracket) == 1:
+        point = bracket[0][2]
+        return {name: _trim_cell(point.get(name), point.get(name), 0.0) for name in columns}
+    (_, m0, first), (_, m1, second) = bracket
+    fraction = m0 / (m0 - m1)
+    trimmed = {name: _trim_cell(first.get(name), second.get(name), fraction) for name in columns}
+    trimmed[moment] = 0.0
+    return trimmed
+
+
+_Stated = tuple[float, float, Mapping[str, object]]
+
+
+def _the_trim_bracket(stated: Sequence[_Stated], *, moment: str, angle: str) -> tuple[_Stated, ...]:
+    """Return the one pair of rows whose moment changes sign, or the one row stating zero.
+
+    ``stated`` is ``(angle, moment, row)`` ordered by angle. No change of sign, or
+    more than one, is refused (FR-2303): nothing is extrapolated and no trim is chosen.
+    """
+    brackets: list[tuple[_Stated, ...]] = []
+    for low, high in zip(stated, stated[1:], strict=False):
+        if low[1] == 0.0:
+            brackets.append((low,))
+        elif low[1] * high[1] < 0.0:
+            brackets.append((low, high))
+    if stated[-1][1] == 0.0:
+        brackets.append((stated[-1],))
+    if not brackets:
+        moments = [item[1] for item in stated]
+        raise ProductError(
+            f"the sampled {moment} runs from {min(moments):.6g} to {max(moments):.6g} over "
+            f"{angle} {stated[0][0]:.6g} to {stated[-1][0]:.6g} and never crosses zero, so "
+            "the polar does not bracket the trim; extend the sweep past the angle where "
+            "the pitching moment changes sign (a trimmed polar is never extrapolated)"
+        )
+    if len(brackets) > 1:
+        where = ", ".join(f"{pair[0][0]:.6g}" for pair in brackets)
+        raise ProductError(
+            f"the sampled {moment} crosses zero {len(brackets)} times, at or after {angle} "
+            f"{where}, so the polar has more than one trim and none is chosen; narrow the "
+            "sweep to the range of the trim you mean"
+        )
+    return brackets[0]
+
+
+def _trim_cell(first: object, second: object, fraction: float) -> object:
+    """One cell of the trimmed row: equal cells as written, numbers interpolated, else None.
+
+    Kept as written first, so an identifier such as ``POL`` or ``GROUP`` and a
+    condition the sweep holds constant read exactly as in the polar.
+    """
+    if first == second and str(first).strip() not in ("", NOT_APPLICABLE):
+        return first
+    low, high = _trim_number(first), _trim_number(second)
+    if low is not None and high is not None:
+        return low + fraction * (high - low)
+    return None
+
+
+def write_trimmed_polar(
+    polar: str | Path,
+    out: str | Path | None = None,
+    *,
+    moment: str = TRIM_MOMENT_COLUMN,
+    angle: str = TRIM_ANGLE_COLUMN,
+    overwrite: bool = False,
+) -> Path:
+    """Write a polar table's trimmed polar: its row at zero pitching moment (FR-2302).
+
+    The table is read back as written, :func:`trimmed_polar_row` finds the row,
+    and the file has the polar's own columns and that one row, by default
+    beside the polar as ``<polar stem>_trim.csv``. The pproc artifact asks for
+    it beside every polar table with ``[products] trimmed_polar = true``.
+
+    Parameters
+    ----------
+    polar : str or Path
+        A polar table.
+    out : str or Path, optional
+        Where the trimmed polar is written; ``<polar stem>_trim.csv`` beside it
+        by default.
+    moment, angle : str, optional
+        As :func:`trimmed_polar_row`.
+    overwrite : bool, optional
+        Replace a file already at ``out``.
+
+    Returns
+    -------
+    Path
+        The file written.
+
+    Raises
+    ------
+    ProductError
+        As :func:`trimmed_polar_row`, naming the polar.
+    ProductExistsError
+        If ``out`` exists and ``overwrite`` is not set.
+    """
+    source = Path(polar)
+    target = Path(out) if out is not None else source.with_name(f"{source.stem}{TRIM_SUFFIX}.csv")
+    if target.exists() and not overwrite:
+        raise ProductExistsError(f"{target} already exists; pass overwrite=True to replace it")
+    columns, rows = read_csv_table(source)
+    try:
+        row = trimmed_polar_row(columns, rows, moment=moment, angle=angle)
+    except ProductError as error:
+        raise ProductError(f"{source.name}: {error}") from error
+    return write_csv_table(target, columns, [[row[name] for name in columns]])

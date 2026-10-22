@@ -1365,6 +1365,12 @@ class ProductsSpec(BaseModel):
     custom_polar_format : bool
         Writes, beside every polar table, the same rows in the fixed-width
         custom polar format.
+    trimmed_polar : bool
+        Writes, beside every polar table, ``<polar>_trim.csv``: the polar's
+        row at zero pitching moment, interpolated inside the sampled angles
+        (:func:`pyflightstream.post.polar.write_trimmed_polar`). A polar
+        whose sampled moments do not bracket zero is named under the post's
+        skipped products. Off by default.
     superfile_format : str
         The format the super file is written in.
     settings_codebook : bool
@@ -1381,6 +1387,8 @@ class ProductsSpec(BaseModel):
     sections: bool = True
     plots: bool = True
     custom_polar_format: bool = False
+    #: FR-2302: beside every polar table, its row at zero pitching moment.
+    trimmed_polar: bool = False
     #: Raw VTK boundary-layer integral quantities and markers at recorded section cuts.
     #: Retains original cell association; this does not request a velocity profile.
     boundary_layer_integrals: bool = False
