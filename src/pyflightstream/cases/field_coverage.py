@@ -65,7 +65,9 @@ def _axis(value: Any) -> Point:
     norm = math.sqrt(sum(v * v for v in axis))
     if not math.isclose(norm, 1.0, abs_tol=1e-9):
         raise CampaignConfigError("rotation axis is not a proved unit vector")
-    return axis
+    # Within the tolerance, yet not exactly unit: normalise so the rotation formulas, which
+    # assume a unit axis, do not carry the residual into the envelope.
+    return _point([v / norm for v in axis])
 
 
 def spatial_envelope(
@@ -86,10 +88,11 @@ def spatial_envelope(
         The body's points before any operation, (x, y, z) in metres.
     operations : sequence of mapping
         The emitted surface transforms, in order, each with its ``command``, ``arguments``,
-        ``frame`` and, where stated, ``length_unit`` and ``boundary_count``.
+        ``frame``, ``length_unit`` (METER or MILLIMETER; a missing or other unit is refused for
+        every transform) and, where stated, ``boundary_count``.
     motions : sequence of mapping
         The moving-frame records, each with its ``motion_index``, ``trajectory``, ``reason`` and
-        ``length_unit``.
+        ``length_unit`` (METER or MILLIMETER; a missing or other unit is refused).
 
     Returns
     -------
@@ -100,7 +103,8 @@ def spatial_envelope(
     ------
     CampaignConfigError
         If a transform is not one the rule knows, has no frame, a rotation is not finite, or a
-        moving frame's trajectory is unknown, has no proved rule or moves its centre.
+        moving frame's trajectory is unknown, has no proved rule or moves its centre, or a
+        constant-rotation record carries no motion index.
     """
     points, notes = operated_corners(points_m, operations)
     seen = set()
@@ -113,8 +117,10 @@ def spatial_envelope(
         # index reported the unmoved body's envelope as covered.
         if trajectory.get("kind") not in {"fixed", "constant_rotation"}:
             raise CampaignConfigError("unsupported or unknown moving-frame trajectory")
-        if motion is None or motion in seen or trajectory.get("kind") == "fixed":
+        if trajectory.get("kind") == "fixed" or motion in seen:
             continue
+        if motion is None:
+            raise CampaignConfigError("a constant-rotation record carries no motion index")
         seen.add(motion)
         reason = str(record.get("reason", "")).lower()
         if "center moves" in reason:

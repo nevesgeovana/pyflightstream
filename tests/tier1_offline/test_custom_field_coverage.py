@@ -218,3 +218,32 @@ def test_f5_0102_f025_the_plane_extent_follows_the_emitted_translation(tmp_path)
     assert _extent_m(case, direction, 1.0, placed) == pytest.approx(6.0)
     unknown = SimpleNamespace(surface_operations=[{**move, "command": "SOMETHING_ELSE"}])
     assert _extent_m(case, direction, 1.0, unknown) is None
+
+
+def test_p0430_a_near_unit_axis_is_normalised_before_it_rotates():
+    from pyflightstream.cases.field_coverage import _axis
+
+    axis = _axis([1.0 + 5e-10, 0.0, 0.0])
+    assert sum(v * v for v in axis) == pytest.approx(1.0, abs=1e-15)
+
+
+def test_p0430_a_constant_rotation_without_a_motion_index_is_refused():
+    motion = {
+        "length_unit": "METER",
+        "motion_index": None,
+        "trajectory": {
+            "kind": "constant_rotation",
+            "center_native": [4.5, 0, 0],
+            "axis_reference": [1, 0, 0],
+            "emitted_rpm": -800,
+        },
+    }
+    with pytest.raises(ValueError, match="no motion index"):
+        envelope([(4.5, -2, 0), (4.5, 2, 0)], motions=[motion])
+
+
+def test_p0430_a_transform_without_a_length_unit_is_refused():
+    op = operation("TRANSLATE_SURFACE_IN_FRAME", surface=1, x=0, y=1, z=0, units="METER")
+    del op["length_unit"]
+    with pytest.raises(ValueError, match="unmeasured length unit"):
+        envelope([(0, -1, -1), (1, 1, 1)], [op])
