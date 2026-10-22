@@ -178,7 +178,7 @@ WHAT THIS LAYER DOES NOT HAVE, said plainly because this docstring
 advertised it for three releases and a reader has no other way to find
 out. There is no ``ResultArray`` facade: no ``interp_along``, no
 ``reparametrize``, no ``trim`` method. The trimmed polar is a product of its
-own, :func:`write_trimmed_polar` (FR-2302, FR-2303), asked for by the pproc's
+own, :func:`write_trimmed_polar`, carried by FR-2302 and FR-2303 and asked for by the pproc's
 ``[products] trimmed_polar``; AD-06 sends the interpolation half to the sister
 library.
 Sweep assembly is not here either, it is
