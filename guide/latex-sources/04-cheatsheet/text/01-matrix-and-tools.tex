@@ -459,11 +459,11 @@ See the website's Upgrading page for supported workspace conversion.
 \tool{python -m pyflightstream.workspace.excel}{the optional macro-free workbook, the \texttt{[excel]} extra; save and close it first}
 \sub{create <output>}{create a new workbook}
 \begin{flags}
-\item \fl{--workspace DIR} \textbf{required}
+\item \fl{--workspace DIR} the workspace root (default: the current folder)
 \end{flags}
 \sub{preview <workbook>}{inspect changes without applying them (a batch JSON and its HTML)}
 \begin{flags}
-\item \fl{--workspace DIR} \textbf{required} \quad \fl{--batch FILE} \textbf{required}
+\item \fl{--workspace DIR} (default: the current folder) \quad \fl{--batch FILE} \textbf{required}
 \item \fl{--direction \{read,write\}} \textbf{required}: read imports matrices, write exports
 \item \fl{--matrix FILE} select a subset (repeatable)
 \end{flags}
