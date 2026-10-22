@@ -23,7 +23,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import ProductError, PyflightstreamWarning
 from pyflightstream.cases import (
     BladeDatum,
     CampaignConfigError,
@@ -585,13 +585,23 @@ def test_the_clockings_table_holds_each_clocking_and_the_average_their_mean(tmp_
     assert len(positions) == 3 and "AZIMUTH" in positions[0].split(",")
 
 
+@pytest.mark.requirement("FR-2324")
 def test_a_missing_clocking_export_is_named(tmp_path):
+    """A refused clocking read is a ProductError naming the export, never a returned value."""
     record, folder = _clocked_point(tmp_path)
-    (folder / "DP_qs01.txt").unlink()
-    said = post_qsteady.clockings_of(
+    read = post_qsteady.clockings_of(
         record, folder, reference=REFERENCE, density_kg_m3=1.2, shaft_loads=rotor_shaft_loads
     )
-    assert isinstance(said, str) and "DP_qs01.txt" in said
+    assert [type(clocking) for clocking in read] == [post_qsteady.Clocking] * 2
+    meaned = post_qsteady.mean_clocking_surfaces(record, folder, speed_m_s=30.0)
+    assert isinstance(meaned, post_qsteady.ClockingMean) and meaned.clockings == 2
+    (folder / "DP_qs01.txt").unlink()
+    with pytest.raises(ProductError, match="DP_qs01.txt"):
+        post_qsteady.clockings_of(
+            record, folder, reference=REFERENCE, density_kg_m3=1.2, shaft_loads=rotor_shaft_loads
+        )
+    with pytest.raises(ProductError, match="DP_qs01.txt"):
+        post_qsteady.mean_clocking_surfaces(record, folder, speed_m_s=30.0)
 
 
 def test_a_clocking_with_one_unread_load_leaves_the_average_blank(tmp_path):

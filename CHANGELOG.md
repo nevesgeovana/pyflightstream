@@ -57,6 +57,10 @@ FlightStream versions.
   records. Actuator profiles serialise the provenance record before the profile is written,
   the last station is the tip and a product key with parent segments is not read. A cost file
   flag multiplier must be positive.
+- `pyflightstream.post.qsteady.clockings_of` and `mean_clocking_surfaces` raise `ProductError`
+  naming the clocking and the reason when a clocking cannot be read, instead of returning the
+  reason as a string in place of the result. Migration: catch `ProductError` where the code
+  tested the result with `isinstance(result, str)`.
 
 ### Fixed
 

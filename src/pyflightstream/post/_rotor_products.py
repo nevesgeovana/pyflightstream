@@ -823,17 +823,20 @@ def _qsteady_products(
             if own is not None and own.density_kg_m3 is not None
             else record.density_kg_m3
         )
-        clockings = (
-            _qsteady.clockings_of(
-                quasi,
-                point.loads_path.parent,
-                reference=reference,
-                density_kg_m3=float(density),
-                shaft_loads=rotor_shaft_loads,
-            )
-            if density is not None
-            else None
-        )
+        # A CLOCKING THAT CANNOT BE READ is the refusal clockings_of raises,
+        # kept as the reason that leaves the point out, named, below.
+        clockings: list[_qsteady.Clocking] | str | None = None
+        if density is not None:
+            try:
+                clockings = _qsteady.clockings_of(
+                    quasi,
+                    point.loads_path.parent,
+                    reference=reference,
+                    density_kg_m3=float(density),
+                    shaft_loads=rotor_shaft_loads,
+                )
+            except ProductError as refused:
+                clockings = str(refused)
         state = _wheel_rotor_state(sim_id, point, quasi, clockings, density)
         if quasi.case == "wheel":
             _write_wheel_validity(

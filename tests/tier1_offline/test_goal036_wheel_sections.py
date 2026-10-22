@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import ProductError, PyflightstreamWarning
 from pyflightstream.cases import PprocSpec, SimCase
 from pyflightstream.cases import qsteady as arithmetic
 from pyflightstream.post import qsteady as post_qsteady
@@ -446,8 +446,8 @@ def test_p0430_invalid_mean_target_speed_is_refused(tmp_path, speed):
     record = _record(1200)
     for position in record.positions:
         (tmp_path / position.loads).write_bytes((FIXTURES / "loads_steady_26.120.txt").read_bytes())
-    result = post_qsteady.mean_clocking_surfaces(record, tmp_path, speed_m_s=speed)
-    assert isinstance(result, str) and "speed" in result
+    with pytest.raises(ProductError, match="speed"):
+        post_qsteady.mean_clocking_surfaces(record, tmp_path, speed_m_s=speed)
 
 
 @pytest.mark.parametrize("stated, expected", [({}, -1200), ({"RPM_CLOCK": 90}, 90)])
@@ -483,9 +483,10 @@ def test_p0430_w012_missing_clocking_component_is_not_zero(tmp_path, component):
             lines[number] = ",".join(cells)
     for position in record.positions:
         (tmp_path / position.loads).write_text("\n".join(lines), encoding="utf-8")
-    result = post_qsteady.mean_clocking_surfaces(record, tmp_path, speed_m_s=30)
-    assert isinstance(result, str)
-    assert component in result and "Wing" in result and "clocking 0" in result
+    with pytest.raises(ProductError) as refused:
+        post_qsteady.mean_clocking_surfaces(record, tmp_path, speed_m_s=30)
+    said = str(refused.value)
+    assert component in said and "Wing" in said and "clocking 0" in said
 
 
 def test_p0430_empty_clocking_sections_is_named(tmp_path):
@@ -596,19 +597,19 @@ def test_p0430_clockings_refuse_no_selected_surface(tmp_path):
     record = _record(1200)
     for position in record.positions:
         (tmp_path / position.loads).write_bytes((FIXTURES / "loads_steady_26.120.txt").read_bytes())
-    result = post_qsteady.clockings_of(
-        record,
-        tmp_path,
-        reference=None,
-        density_kg_m3=1.2,
-        shaft_loads=lambda *a, **kw: SimpleNamespace(
-            force_n=(0, 0, 0),
-            moment_hub_nm=(0, 0, 0),
-            thrust_n=0,
-            torque_nm=0,
-        ),
-    )
-    assert isinstance(result, str) and "surface" in result
+    with pytest.raises(ProductError, match="surface"):
+        post_qsteady.clockings_of(
+            record,
+            tmp_path,
+            reference=None,
+            density_kg_m3=1.2,
+            shaft_loads=lambda *a, **kw: SimpleNamespace(
+                force_n=(0, 0, 0),
+                moment_hub_nm=(0, 0, 0),
+                thrust_n=0,
+                torque_nm=0,
+            ),
+        )
 
 
 def test_p0430_clocking_headers_reject_inconsistent_blade_order(tmp_path):

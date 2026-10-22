@@ -42,8 +42,6 @@ def _point_signals(ctx: SimContext, spec: Any, point: PolarPoint, key: str):
         density_kg_m3=float(density),
         shaft_loads=rotor_shaft_loads,
     )
-    if isinstance(clockings, str):
-        raise ValueError(clockings)
     azimuths, forces, moments = _blade_load_samples(quasi, clockings)
     load = reconstruct_blade_load(
         azimuths,

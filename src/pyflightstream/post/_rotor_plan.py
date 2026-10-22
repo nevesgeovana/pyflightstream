@@ -862,14 +862,15 @@ def _rotor_row_surfaces(
     # the point its row, named: a mean of the rest is not its mean.
     clockings: int | None = None
     if quasi is not None and quasi.case == "wheel":
-        meaned = _qsteady.mean_clocking_surfaces(
-            quasi, point.loads_path.parent, speed_m_s=float(speed)
-        )
-        if isinstance(meaned, str):
+        try:
+            meaned = _qsteady.mean_clocking_surfaces(
+                quasi, point.loads_path.parent, speed_m_s=float(speed)
+            )
+        except PyflightstreamError as refused:
             left_out.append(
                 (
                     run_id,
-                    f"{point.name}: {meaned}; the row of a wheel is the mean of all "
+                    f"{point.name}: {refused}; the row of a wheel is the mean of all "
                     "its clockings, never of the others",
                 )
             )

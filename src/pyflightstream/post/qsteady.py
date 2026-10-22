@@ -1095,8 +1095,8 @@ def clockings_of(
     reference: Any,
     density_kg_m3: float,
     shaft_loads: ShaftLoads,
-) -> list[Clocking] | str:
-    """Return the loads of every clocking of one point, or why they cannot be read.
+) -> list[Clocking]:
+    """Return the loads of every clocking of one point, or refuse naming why they cannot be read.
 
     Each clocking's loads export is read where the point's own sits, and the
     rotor's and each blade's loads taken by ``shaft_loads``
@@ -1125,9 +1125,14 @@ def clockings_of(
 
     Returns
     -------
-    list of Clocking or str
-        The clockings' loads, by clocking index; or the reason, naming the clocking, when one
-        cannot be read.
+    list of Clocking
+        The clockings' loads, by clocking index.
+
+    Raises
+    ------
+    ProductError
+        When a clocking's loads cannot be read, the message naming the clocking and
+        the reason; a refusal is never returned as a value.
     """
     families = list(record.families_blades)
     members = [*record.families_general, *families]
@@ -1135,13 +1140,17 @@ def clockings_of(
     for position in record.positions:
         path = folder / Path(position.loads).name
         if not path.is_file():
-            return f"the loads export of clocking {position.index}, {path.name}, is not on disk"
+            raise ProductError(
+                f"the loads export of clocking {position.index}, {path.name}, is not on disk"
+            )
         try:
             report = parse_loads(path.read_text(encoding="utf-8", errors="replace"))
-        except Exception as error:  # noqa: BLE001 -- any unreadable export is named, not raised
-            return f"the loads export of clocking {position.index}, {path.name}: {error}"
+        except Exception as error:  # noqa: BLE001 -- any unreadable export is named in the refusal
+            raise ProductError(
+                f"the loads export of clocking {position.index}, {path.name}: {error}"
+            ) from error
         if not select_group_members(members, list(report.surfaces), strict=False):
-            return (
+            raise ProductError(
                 f"the loads export of clocking {position.index}, {path.name}, has no surface "
                 f"selected by rotor {record.rotor_alias}; restore its recorded families"
             )
@@ -1150,7 +1159,7 @@ def clockings_of(
             # ITS LOADS ARE TAKEN AT ITS REFERENCE VELOCITY (the definition of
             # the quasi-steady rotor), so a clocking that states none is named,
             # as mean_clocking_surfaces names it, never read at the free stream.
-            return (
+            raise ProductError(
                 f"the loads export of clocking {position.index}, {path.name}, states no "
                 "reference velocity, which is what its coefficients are normalised by"
             )
@@ -1226,8 +1235,8 @@ def _surface_components(surfaces):
 
 def mean_clocking_surfaces(
     record: QsteadyRecord, folder: Path, *, speed_m_s: float
-) -> ClockingMean | str:
-    """Return a wheel point's loads averaged over its clockings, or why they cannot be.
+) -> ClockingMean:
+    """Return a wheel point's loads averaged over its clockings, or refuse naming why not.
 
     The rotor table of a quasi-steady WHEEL point is the mean over its k
     clockings (P0310-ROTOR-MEAN), never clocking 0 alone.
@@ -1247,7 +1256,7 @@ def mean_clocking_surfaces(
     A clocking whose export is not on disk or not readable, that states no
     reference velocity, is in another analysis frame than clocking 0's, or
     lists other surfaces or lacks a numeric surface component, is the reason
-    returned: the point is not a row,
+    the call refuses with: the point is not a row,
     because a mean of the other clockings is not the point's mean.
 
     Parameters
@@ -1262,42 +1271,51 @@ def mean_clocking_surfaces(
 
     Returns
     -------
-    ClockingMean or str
-        The surfaces' loads averaged over the clockings and the number of clockings; or the reason
-        the point is not a row.
+    ClockingMean
+        The surfaces' loads averaged over the clockings and the number of clockings.
+
+    Raises
+    ------
+    ProductError
+        When the point is not a row, the message naming the clocking and the reason;
+        a refusal is never returned as a value.
     """
     positions = sorted(record.positions, key=lambda entry: entry.index)
     read: list[tuple[int, dict[str, dict[str, float]], float, object]] = []
     for position in positions:
         path = folder / Path(position.loads).name
         if not path.is_file():
-            return f"the loads export of clocking {position.index}, {path.name}, is not on disk"
+            raise ProductError(
+                f"the loads export of clocking {position.index}, {path.name}, is not on disk"
+            )
         try:
             report = parse_loads(path.read_text(encoding="utf-8", errors="replace"))
             surfaces = _surface_components(report.surfaces)
-        except Exception as error:  # noqa: BLE001 -- any unreadable export is named, not raised
-            return f"the loads export of clocking {position.index}, {path.name}: {error}"
+        except Exception as error:  # noqa: BLE001 -- any unreadable export is named in the refusal
+            raise ProductError(
+                f"the loads export of clocking {position.index}, {path.name}: {error}"
+            ) from error
         stated = report.reference_velocity_m_s
         if not isinstance(stated, int | float) or not math.isfinite(stated) or stated <= 0.0:
-            return (
+            raise ProductError(
                 f"the loads export of clocking {position.index}, {path.name}, states no "
                 "reference velocity, which is what its coefficients are normalised by"
             )
         read.append((position.index, surfaces, float(stated), getattr(report, "frame", None)))
     if not read or not _positive_finite_speed(speed_m_s):
-        return (
+        raise ProductError(
             f"the point needs at least one clocking and a finite positive target speed; "
             f"received {len(read)} clockings and speed {speed_m_s!r}"
         )
     first_index, first, _speed, first_frame = read[0]
     for index, surfaces, _stated, frame in read[1:]:
         if frame != first_frame:
-            return (
+            raise ProductError(
                 f"the loads export of clocking {index} states the analysis frame {frame!r} "
                 f"and clocking {first_index}'s states {first_frame!r}"
             )
         if list(surfaces) != list(first):
-            return (
+            raise ProductError(
                 f"the loads export of clocking {index} lists other surfaces than clocking "
                 f"{first_index}'s"
             )
