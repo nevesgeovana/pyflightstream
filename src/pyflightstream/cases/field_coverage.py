@@ -168,6 +168,19 @@ def operated_corners(
     The bounding box is conservative (it may exceed the body) and a partial selection
     unions the moved and the unmoved body. The points are in metres.
 
+    Parameters
+    ----------
+    points_m : iterable of sequence of float
+        The body's points before any operation, (x, y, z) in metres.
+    operations : sequence of mapping
+        The emitted surface transforms, in order, as :func:`spatial_envelope` takes them.
+
+    Returns
+    -------
+    tuple of (list of tuple, list of str)
+        The corners of the bounding box after the operations, and the notes that
+        say what the envelope is.
+
     Raises
     ------
     CampaignConfigError

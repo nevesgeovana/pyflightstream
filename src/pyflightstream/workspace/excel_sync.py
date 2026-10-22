@@ -31,8 +31,10 @@ __all__ = [
     "SyncPreview",
     "WorkbookSnapshot",
     "apply_preview",
+    "check_snapshot",
     "dictionary_mapping",
     "preview_sync",
+    "require_token",
     "three_way_action",
 ]
 
@@ -194,6 +196,21 @@ def require_token(token: str) -> str:
 
     A token names the recovery folder of an apply, so a batch edited to carry a path is refused
     before anything is created.
+
+    Parameters
+    ----------
+    token : str
+        The preview token a batch carries.
+
+    Returns
+    -------
+    str
+        The token, unchanged.
+
+    Raises
+    ------
+    ExcelSyncError
+        If the token is not 32 lowercase hexadecimal characters.
     """
     if not isinstance(token, str) or not re.fullmatch(r"[0-9a-f]{32}", token):
         raise ExcelSyncError(
@@ -205,6 +222,11 @@ def require_token(token: str) -> str:
 
 def check_snapshot(snapshot: WorkbookSnapshot) -> None:
     """Validate the Dictionary and the identity of every Runs row.
+
+    Parameters
+    ----------
+    snapshot : WorkbookSnapshot
+        The workbook as read.
 
     Raises
     ------

@@ -43,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     samples = sample_boundary_layer(
         surface, [section], surface_frame=REFERENCE_FRAME, section_frames={1: REFERENCE_FRAME}
     )
-    write_boundary_layer_table(args.output, samples)
+    write_boundary_layer_table(args.output, samples, pol="1")
     print(args.output)
     return 0
 

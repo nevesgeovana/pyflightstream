@@ -304,7 +304,7 @@ def _row(**update):
     row = {
         "run_id": "camp/sim_1/P1",
         "surfaces": _surfaces(Blade1={"Cz": 0.5}),
-        "condition": {"MACH": 0.15, "ALPHA": 0.0, "VINF": 50.0},
+        "condition": {"MACH": 0.15, "ALPHA": 0.0, "BETA": 0.0, "VINF": 50.0},
         "rpm": 3000.0,
         "density": 1.225,
         "speed": 50.0,

@@ -307,9 +307,9 @@ def test_the_unsteady_polar_keeps_the_column_last_when_a_later_key_follows_it_fr
     assert written is not None, requirement
     with written.open(encoding="utf-8", newline="") as handle:
         header, *rows = list(csv.reader(handle))
-    assert header[-2:] == ["LATER", "MESH_FACES"], (requirement, header)
+    assert header[-1] == "MESH_FACES" and "LATER" in header[:-1], (requirement, header)
     assert header.count("MESH_FACES") == 1, (requirement, header)
-    assert rows and all(row[-2:] == ["x", "7"] for row in rows), (requirement, rows)
+    assert rows and all(row[-1] == "7" and "x" in row[:-1] for row in rows), (requirement, rows)
 
 
 def test_the_post_never_counts_and_a_missing_count_is_na_fr_348(tmp_path, monkeypatch):

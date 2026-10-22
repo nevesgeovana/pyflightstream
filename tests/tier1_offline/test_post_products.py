@@ -3157,6 +3157,8 @@ def test_a_family_name_is_made_safe_in_the_spanwise_file_name_f4_07(tmp_path, mo
         out=tmp_path,
         target=lambda path: path,
         add=lambda path, entry: added.append(path),
+        condition=lambda _p: {"alpha": 0.0},
+        reference=SimpleNamespace(as_lengths=lambda: {}),
     )
     ff._spanwise(ctx, point, variant="sections", name="a/b", result=result, chords=None)
     assert [path.parent.name for path in added] == ["sections"]

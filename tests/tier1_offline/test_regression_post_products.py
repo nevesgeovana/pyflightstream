@@ -2514,6 +2514,9 @@ def test_x_f_0523_an_unreadable_fsi_history_is_a_named_skip_not_a_stage_abort(
         structure_tips={},
         target=lambda path: path,
         add=lambda path, entry: None,
+        sim_id="3207",
+        condition=lambda _p: {"alpha": 0.0},
+        reference=SimpleNamespace(as_lengths=lambda: {}),
     )
     structure.structure_products(cast(Any, ctx))
     assert list(ctx.skipped) == ["structure/P_history.csv"], ctx.skipped

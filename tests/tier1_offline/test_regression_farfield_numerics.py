@@ -1847,7 +1847,7 @@ class TestLitBCirculation:
     @pytest.mark.requirement("FR-452")
     def test_p0400_litb_shed_circulation_agrees_with_the_recorded_sections(tmp_path):
         row, messages, skipped = _litb_circulation__post_wake(
-            tmp_path, "p0400_litB_wake_26125_fine.vtk.xz"
+            tmp_path, "p0400_litB_wake_26125_fine.vtk.xz", vref=34.03
         )
         assert not skipped, messages
         # Recorded L5, 4 deg: raw CL / near CL = 1.0169, A efficiency = 0.992.

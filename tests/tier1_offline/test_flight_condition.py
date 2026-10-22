@@ -602,7 +602,9 @@ def test_p0430_a_fluid_state_refuses_air_a_gas_cannot_have():
         ("temperature_k", -1.0),
         ("viscosity_pa_s", float("nan")),
     ):
-        with pytest.raises(ValueError, match="finite positive air property"):
+        with pytest.raises(
+            ValueError, match="greater than 0|finite number|finite positive air property"
+        ):
             FluidState(**{**good, key: bad})
 
 

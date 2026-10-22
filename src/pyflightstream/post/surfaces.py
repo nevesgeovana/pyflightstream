@@ -306,6 +306,9 @@ def write_surface_average(
 
     Raises
     ------
+    ProductError
+        If a field name holds a blank or a quote, or the two destinations are
+        one file; nothing is written then.
     ProductExistsError
         If either destination exists and ``overwrite`` is false; both are
         tested first, so nothing is written then.

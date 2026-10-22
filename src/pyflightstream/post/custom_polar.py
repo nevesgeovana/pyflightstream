@@ -127,6 +127,11 @@ def custom_field(value: object) -> str:
     -------
     str
         The value as text, right-aligned to the format's width.
+
+    Raises
+    ------
+    ProductError
+        If the text does not fit the width with a blank before it.
     """
     text = f"{value!s}"
     if len(text) >= CUSTOM_WIDTH:

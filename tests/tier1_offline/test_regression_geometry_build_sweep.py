@@ -1108,7 +1108,7 @@ class TestGeometryInstruction:
         with pytest.raises(InputArtifactError, match="FILE"):
             read_geometry_instruction(_geometry_instruction__write(tmp_path, file_unit, files, "f"))
         trailing = _GEOMETRY_INSTRUCTION__CCS_WING + '[trailing_edges]\ndetect = "auto"\n'
-        with pytest.raises(InputArtifactError, match="mark\\s+their own"):
+        with pytest.raises(InputArtifactError, match="their own\\s+mark_trailing_edges option"):
             read_geometry_instruction(_geometry_instruction__write(tmp_path, trailing, files, "t"))
 
     @staticmethod
@@ -2022,7 +2022,8 @@ class TestSweep1Contracts:
             sim_id="1",
         )
         _rotor_plan._averaged_rotor_newtons(ctx, SimpleNamespace(name="P1"), "fast", ["B"])
-        assert seen == [(3, 4)]
+        # A row that states no window key keeps the row window for every rotor (definition).
+        assert seen == ([(3, 4)] if live else [(1, 4)])
 
     @staticmethod
     def test_p0400_zero_wake_reaches_post_log(tmp_path, monkeypatch):

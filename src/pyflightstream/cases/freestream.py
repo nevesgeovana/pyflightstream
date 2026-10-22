@@ -242,7 +242,11 @@ def read_field_rows(
         expected = _grid_count(path, header_parts)
         header = " ".join(header_parts)
         if not lines or len(lines) != expected:
-            raise CampaignConfigError(f"Custom field {path} has an invalid row count.")
+            raise CampaignConfigError(
+                f"Custom field {path} has an invalid row count: its header asks for "
+                f"{expected} rows "
+                f"and the field holds {len(lines)}."
+            )
     elif form != "UNSTRUCTURED":
         raise CampaignConfigError(f"Unknown custom-field form {form!r}.")
     rows = []

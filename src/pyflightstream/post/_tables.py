@@ -933,6 +933,11 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     -------
     tuple
         The table's plotted columns, in its order, and the series.
+
+    Raises
+    ------
+    ProductError
+        If the table holds a header and no rows.
     """
     header, rows = read_csv_table(path)
     columns = tuple(name for name in header if name != POLAR_ID_COLUMN)

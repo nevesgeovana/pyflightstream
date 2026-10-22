@@ -61,6 +61,11 @@ def render_streamlines_vtk(report: OffBodyStreamlinesReport, *, title: str) -> s
     -------
     str
         The VTK text, LF line ends.
+
+    Raises
+    ------
+    ProductError
+        If a value of the export is not finite.
     """
     columns = list(report.columns)
     rows = [row for line in report.streamlines for row in line.values]

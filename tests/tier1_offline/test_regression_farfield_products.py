@@ -929,7 +929,7 @@ class TestFfproofPost:
 _LITB_POST__FIXTURES = Path(__file__).parent / "fixtures"
 
 
-def _litb_post__post_wake(root, fixture, *, cl=0.3400367):
+def _litb_post__post_wake(root, fixture, *, cl=0.3400367, vref=None):
     root.mkdir(exist_ok=True)
     if fixture.endswith(
         ".xz"
@@ -941,8 +941,12 @@ def _litb_post__post_wake(root, fixture, *, cl=0.3400367):
         shutil.copyfile(_LITB_POST__FIXTURES / fixture, root / "point_wakes.vtk")
     (root / "point.fsm").write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n", "utf-8")
     loads = replace(
-        parse_loads(_LITB_POST__LOADS), freestream_velocity_m_s=34.03, angle_of_attack_deg=4.0
+        parse_loads(_LITB_POST__LOADS),
+        freestream_velocity_m_s=34.03,
+        angle_of_attack_deg=4.0,
     )
+    if vref is not None:
+        loads = replace(loads, reference_velocity_m_s=vref)
     loads.total["CL"] = cl
     point = SimpleNamespace(
         name="point",
