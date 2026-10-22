@@ -209,6 +209,18 @@ def _read_zone(zone: str, names: list[str], tokens: _Tokens, size: int) -> VtkSu
             "counts contradict each other"
         )
     cell_variables = _cell_centered_variables(zone, len(names))
+    payload = (
+        nodes * (len(names) - len(cell_variables)) + elements * len(cell_variables) + 4 * faces
+    )
+    if elements > 2 * faces:
+        raise MalformedOutputError(
+            f"Native Tecplot declares {elements} elements but only {faces} faces; "
+            "every face borders at most two elements, so the counts cannot describe one surface"
+        )
+    if payload > size:
+        raise IncompleteOutputError(
+            "Native Tecplot ends before the payload required by its declared counts"
+        )
     for key in ("X", "Y", "Z", _STRENGTH):
         if names.index(key) + 1 in cell_variables:
             raise MalformedOutputError(f"Native Tecplot {key} must be nodal")

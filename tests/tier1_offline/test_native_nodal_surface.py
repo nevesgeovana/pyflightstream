@@ -840,3 +840,26 @@ def test_f7_0203_the_printing_allowance_is_half_a_unit_of_the_last_printed_digit
     limits = native_match_tolerance(points, printed_digits=5)
     eps32 = float(np.finfo(np.float32).eps)
     assert limits[0] == pytest.approx(0.5 + 0.5 * eps32 * 99500.0, rel=1e-6)
+
+
+def test_x_f_0395_a_hostile_element_count_is_refused_before_it_sizes_anything(tmp_path):
+    from pyflightstream.results.native_surface import read_native_tecplot_surface
+
+    path = _native(tmp_path / "native.dat")
+    path.write_text(path.read_text().replace("ELEMENTS=1", "ELEMENTS=900000000"), encoding="utf-8")
+    with pytest.raises(MalformedOutputError, match="elements"):
+        read_native_tecplot_surface(path)
+
+
+def test_x_f_1338_translating_a_vtk_onto_itself_is_refused(tmp_path):
+    from pyflightstream._errors import ProductError
+    from pyflightstream.results.surface import SurfaceFrame
+
+    vtk = write_vtk_surface(tmp_path / "a.vtk", _vtk(), title="demo")
+    frame = SurfaceFrame(
+        origin=(0.0, 0.0, 0.0), axes=((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+    )
+    before = vtk.read_bytes()
+    with pytest.raises(ProductError, match="different files"):
+        translate_vtk_surface(vtk, vtk, frame=frame, overwrite=True)
+    assert vtk.read_bytes() == before

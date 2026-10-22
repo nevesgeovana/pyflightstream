@@ -999,6 +999,8 @@ def translate_vtk_surface(
     (True, ['Cp'], ['Singularity_strength'])
     """
     source = Path(vtk)
+    if source.resolve() == Path(dat).resolve():
+        raise ProductError("the VTK source and the translated destination must be different files")
     digest = file_sha256(source)
     surface = read_vtk_surface(source)
     translated = surface_in_reference(surface, frame)
