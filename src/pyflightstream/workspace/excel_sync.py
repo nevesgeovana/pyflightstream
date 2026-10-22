@@ -200,17 +200,17 @@ def require_token(token: str) -> str:
     Parameters
     ----------
     token : str
-        The preview token a batch carries.
+        The token a preview gave.
 
     Returns
     -------
     str
-        The token, unchanged.
+        ``token`` unchanged.
 
     Raises
     ------
     ExcelSyncError
-        If the token is not 32 lowercase hexadecimal characters.
+        If ``token`` is not 32 lowercase hexadecimal characters.
     """
     if not isinstance(token, str) or not re.fullmatch(r"[0-9a-f]{32}", token):
         raise ExcelSyncError(
@@ -226,7 +226,7 @@ def check_snapshot(snapshot: WorkbookSnapshot) -> None:
     Parameters
     ----------
     snapshot : WorkbookSnapshot
-        The workbook as read.
+        The workbook snapshot.
 
     Raises
     ------

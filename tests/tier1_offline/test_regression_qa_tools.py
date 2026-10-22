@@ -1840,7 +1840,8 @@ class TestReach2Routes:
         )
         assert finite.min() < 1.0, "the fixture misses a sample"
         for index, row in enumerate(rows):
-            assert row["COVERAGE"] == float(finite[index])
+            # Same fraction, summed in another order: equal to rounding, not bit for bit.
+            assert row["COVERAGE"] == pytest.approx(float(finite[index]), rel=1e-12)
             if index:
                 # The duplicate's arithmetic, bit for bit (NaN where a sample is missing).
                 np.testing.assert_array_equal(
