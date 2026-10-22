@@ -10,7 +10,8 @@ style), so it is checked by tooling and never read as a page.
 
 Run ``python scripts/srs_levels.py`` for a table against the targets, or ``--json`` for one
 JSON object on stdout. The exit status is 0 only when every ceiling holds AND the L3
-traceability holds (every L3 row resolves to an existing test under a live L2, and every L2
+traceability holds (every L3 row resolves to an existing code symbol and an existing test
+under a live L2, and every L2
 has an L3 row or a direct test anchor). Standard library and the repository's own scripts
 only; no network, no solver.
 """
@@ -33,7 +34,7 @@ from _requirements_paths import (  # noqa: E402
     read_requirements,
     roadmap_uids,
 )
-from gen_requirements_index import anchor_names_a_test  # noqa: E402
+from gen_requirements_index import anchor_names_a_symbol, anchor_names_a_test  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 METHOD_PAGE = Path("docs/srs/numerical-laboratory-method.md")
@@ -154,7 +155,11 @@ def measure(root: Path = REPO, release: bool = False) -> dict[str, object]:
     )
     l2_rows = {r["uid"]: r for r in live if r["level"] == "L2"}
     l3_parents = {r["parent"] for r in l3}
-    missing = [r for r in l3 if not anchor_names_a_test(root, r["test"])]
+    missing = [
+        r
+        for r in l3
+        if not anchor_names_a_test(root, r["test"]) or not anchor_names_a_symbol(root, r["code"])
+    ]
     owed_l3 = sorted((r["uid"] for r in missing if r.get("status") == "pending"), key=_key)
     unresolved = sorted((r["uid"] for r in missing if r.get("status") != "pending"), key=_key)
     orphans = sorted((r["uid"] for r in l3 if r["parent"] not in l2_rows), key=_key)

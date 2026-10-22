@@ -59,6 +59,7 @@ def _tree(
     l3_test: str = "tests/test_x.py::test_one",
     uncovered: str = "",
     l3_status: str = "implemented",
+    l3_code: str = "pyflightstream:Thing",
 ) -> Path:
     req = tmp_path / "docs/unpublished/requirements"
     req.mkdir(parents=True)
@@ -74,9 +75,14 @@ def _tree(
     (tmp_path / "docs/srs/numerical-laboratory-method.md").write_text(METHOD, encoding="utf-8")
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests/test_x.py").write_text(TEST_FILE, encoding="utf-8")
+    (tmp_path / "src/pyflightstream").mkdir(parents=True)
+    (tmp_path / "src/pyflightstream/__init__.py").write_text(
+        "class Thing:\n    pass\n", encoding="utf-8"
+    )
     (tmp_path / "tests/requirements_l3.csv").write_text(
         "uid,parent,status,statement,code,test,node,rationale\n"
-        f"FR-900,FR-11,{l3_status},pyflightstream shall name the key.,,{l3_test},PFS-1.1,\n",
+        f"FR-900,FR-11,{l3_status},pyflightstream shall name the key.,{l3_code},{l3_test},"
+        "PFS-1.1,\n",
         encoding="utf-8",
     )
     return tmp_path
@@ -172,10 +178,14 @@ def test_p0430_levels_control_tree_is_ok(tmp_path):
     assert result["counts"]["inst_L1"] == 1 and result["counts"]["inst_L2"] == 3
 
 
-@pytest.mark.parametrize("defect", ["missing-test", "uncovered-l2", "ten-children"])
+@pytest.mark.parametrize("defect", ["missing-test", "missing-code", "uncovered-l2", "ten-children"])
 def test_p0430_levels_planted_defects_flip_ok(tmp_path, defect):
     if defect == "missing-test":
         root = _tree(tmp_path, l3_test="tests/test_x.py::test_absent")
+        key = "l3_resolved"
+    elif defect == "missing-code":
+        # NFR-13: an L3 row binds an existing code symbol as well as an existing test.
+        root = _tree(tmp_path, l3_code="pyflightstream:Absent")
         key = "l3_resolved"
     elif defect == "uncovered-l2":
         # FR-11 is the only L2 with an L3 row; without its direct test it stays covered,

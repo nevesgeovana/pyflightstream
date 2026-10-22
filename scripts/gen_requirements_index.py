@@ -564,6 +564,18 @@ def anchor_names_a_test(repo: Path, anchor: str) -> bool:
     )
 
 
+def anchor_names_a_symbol(repo: Path, anchor: str) -> bool:
+    """Return whether ``module:symbol`` names a symbol under ``src/`` or the repository root."""
+    module, _, symbol = anchor.partition(":")
+    paths = [
+        base / Path(*module.split(".")).with_suffix(".py")
+        for base in (repo / "src", repo)
+        if module
+    ]
+    paths += [path.with_suffix("") / "__init__.py" for path in paths]
+    return bool(symbol) and any(symbol in names(path) for path in paths)
+
+
 def _check_anchors(entries: list[dict[str, str]], repo: Path) -> None:
     """Resolve compact-row links without importing product or test modules."""
     problems = []
@@ -573,16 +585,7 @@ def _check_anchors(entries: list[dict[str, str]], repo: Path) -> None:
         pending_plan = row["status"] == "pending" and re.search(
             r"\b(?:PFS|OPS)-\d+(?:\.\d+)*\b", row.get("rationale", "")
         )
-        module, _, symbol = row["code"].partition(":")
-        paths = [
-            base / Path(*module.split(".")).with_suffix(".py")
-            for base in (repo / "src", repo)
-            if module
-        ]
-        paths += [path.with_suffix("") / "__init__.py" for path in paths]
-        if not (not row["code"] and pending_plan) and not any(
-            symbol in names(path) for path in paths
-        ):
+        if not (not row["code"] and pending_plan) and not anchor_names_a_symbol(repo, row["code"]):
             problems.append(f"{row['id']}: missing code anchor {row['code']}")
         if not (not row["test"] and pending_plan) and not anchor_names_a_test(repo, row["test"]):
             problems.append(f"{row['id']}: missing test anchor {row['test']}")

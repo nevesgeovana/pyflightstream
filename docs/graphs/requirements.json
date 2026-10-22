@@ -202,7 +202,7 @@
       "parent": "FR-3135",
       "area": "OPER",
       "hid": "OPER-4.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-42",
@@ -2729,7 +2729,7 @@
       "parent": "FR-3031",
       "area": "SPCM",
       "hid": "SPCM-14.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2300",
@@ -2757,7 +2757,7 @@
       "parent": "FR-3135",
       "area": "OPER",
       "hid": "OPER-4.6",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2308",
@@ -2820,7 +2820,7 @@
       "parent": "FR-3077",
       "area": "RECS",
       "hid": "RECS-7.5",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2319",
@@ -2904,7 +2904,7 @@
       "parent": "FR-3135",
       "area": "OPER",
       "hid": "OPER-4.7",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3000",
@@ -3065,7 +3065,7 @@
       "parent": "",
       "area": "SPCM",
       "hid": "SPCM-14",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3032",
@@ -3310,7 +3310,7 @@
       "parent": "",
       "area": "RECS",
       "hid": "RECS-7",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3078",
@@ -3548,7 +3548,7 @@
       "parent": "",
       "area": "OPER",
       "hid": "OPER-4",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3136",
@@ -3576,7 +3576,7 @@
       "parent": "",
       "area": "QUSA",
       "hid": "QUSA-1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3142",
@@ -3590,7 +3590,7 @@
       "parent": "",
       "area": "QREL",
       "hid": "QREL-1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3144",
@@ -3604,7 +3604,7 @@
       "parent": "",
       "area": "QMNT",
       "hid": "QMNT-1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3146",
@@ -3761,6 +3761,34 @@
       "status": "implemented"
     },
     {
+      "id": "FR-3242",
+      "parent": "",
+      "area": "TRST",
+      "hid": "TRST-7",
+      "status": "implemented"
+    },
+    {
+      "id": "FR-3243",
+      "parent": "FR-3242",
+      "area": "TRST",
+      "hid": "TRST-7.1",
+      "status": "implemented"
+    },
+    {
+      "id": "FR-3244",
+      "parent": "FR-3242",
+      "area": "TRST",
+      "hid": "TRST-7.2",
+      "status": "implemented"
+    },
+    {
+      "id": "FR-3245",
+      "parent": "FR-3242",
+      "area": "TRST",
+      "hid": "TRST-7.3",
+      "status": "implemented"
+    },
+    {
       "id": "NFR-02",
       "parent": "FR-3146",
       "area": "QMNT",
@@ -3807,7 +3835,7 @@
       "parent": "FR-3145",
       "area": "QMNT",
       "hid": "QMNT-1.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "NFR-14",
@@ -3933,14 +3961,14 @@
       "parent": "FR-3141",
       "area": "QUSA",
       "hid": "QUSA-1.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "NFR-49",
       "parent": "FR-3143",
       "area": "QREL",
       "hid": "QREL-1.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "NFR-52",
