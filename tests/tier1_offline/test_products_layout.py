@@ -582,7 +582,7 @@ def test_p0430_the_pproc_asks_for_the_trimmed_polar_beside_each_polar(tmp_path):
     assert not (out / "polars/P6001-M200RE1177AL+sweepBE+000_g01_trim.csv").exists()
 
 
-# NL-TRST-7 (a method-layer identifier; the SRS publishes no FR row for it yet, so no marker)
+@pytest.mark.requirement("FR-3243")
 @pytest.mark.parametrize("spacings", [(1.0, 2.0, 4.0), (1.0, 1.5, 3.0)])
 def test_p0430_a_manufactured_refinement_study_yields_its_order_and_a_band_holding_the_error(
     spacings,
@@ -599,7 +599,7 @@ def test_p0430_a_manufactured_refinement_study_yields_its_order_and_a_band_holdi
     assert study.gci_fine == pytest.approx(study.uncertainty / values[0])
 
 
-# NL-TRST-7 (a method-layer identifier; the SRS publishes no FR row for it yet, so no marker)
+@pytest.mark.requirement("FR-3244")
 @pytest.mark.parametrize(
     ("values", "spacings", "said"),
     [
@@ -663,7 +663,7 @@ def _three_levels(tmp_path):
     return workspace
 
 
-# NL-TRST-7 (a method-layer identifier; the SRS publishes no FR row for it yet, so no marker)
+@pytest.mark.requirement("FR-3245")
 def test_p0430_a_declared_refinement_study_writes_the_uncertainty_beside_the_polars(tmp_path):
     """[refinement]: order 2, the extrapolated value, and a band holding the known error."""
     import warnings

@@ -345,6 +345,22 @@
     "FR-3241": {
       "lane": "srs-fix",
       "node": "PFS-2013.03.02; PFS-2124.035; PFS-2130.040"
+    },
+    "FR-3242": {
+      "lane": "srs-close",
+      "node": "PFS-2147.110"
+    },
+    "FR-3243": {
+      "lane": "srs-close",
+      "node": "PFS-2147.110"
+    },
+    "FR-3244": {
+      "lane": "srs-close",
+      "node": "PFS-2147.110"
+    },
+    "FR-3245": {
+      "lane": "srs-close",
+      "node": "PFS-2147.110"
     }
   }
 }

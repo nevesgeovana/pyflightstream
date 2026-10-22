@@ -230,7 +230,6 @@ The method admits no aspirational requirement: a central requirement stays in th
 | `NL-RECS-6` | the processor count and the machine description in every run record, beside the wall time already recorded. |
 | `NL-TRST-1` | a failing-residual control behind the convergence verdict. |
 | `NL-TRST-5` | a restoration control that accepts every valid restored state. |
-| `NL-TRST-7` | the numerical uncertainty estimate from a declared refinement study, on which the spatial and temporal calibration studies rest. |
 | `NL-WKSP-2` | content-hash references from the records to every retained bulk output. |
 | `NL-WKSP-7` | workbook digests free of embedded timestamps. |
 | `NL-OPER-2` | a test of the observation operations with the network disabled. |
