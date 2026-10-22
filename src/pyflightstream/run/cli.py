@@ -245,38 +245,58 @@ def main(argv: list[str] | None = None) -> int:
         header=args.subcommand == "plan",
         hold=args.subcommand != "plan",
     ):
-        # FR-310: every matrix argument over the two homes, before any command reads it.
-        if (refused := _refuse_runs_manifest(args) or resolve_matrix_arguments(args)) is not None:
-            return refused
-        if args.subcommand in _RECORDS_COMMANDS:
-            return _cmd_records(args)
-        if args.subcommand in _STORAGE_COMMANDS:
-            return _cmd_storage(args)
-        # Before the recipe parsing below, deliberately: upgrading a file
-        # needs no recipes, no version and no executable, and requiring them
-        # would refuse the one user this subcommand exists for.
-        if args.subcommand == "post":
-            note_post_ran()
-            return _cmd_post(args)
-        if args.subcommand == "collect":
-            return _cmd_collect(args)
-        if args.subcommand in GEOMETRY_COMMANDS:
-            # FR-1136: the identical result, and one warning naming the home.
-            from pyflightstream.run._cli_geometry import alias_warning
-
-            warnings.warn(alias_warning(args.subcommand), PyflightstreamWarning, stacklevel=2)
-            return cmd_geometry(args)
         try:
-            recipes = _parse_recipes(args.recipe)
-            if args.subcommand in ("run", "plan", "inspect-setups"):
-                # Plan rehearses run without solver time, including workflow matrices.
-                recipes = _one_builder_per_code(recipes, _parse_workflows(args.workflow))
-        except (ValueError, CampaignConfigError) as error:
-            print(str(error), file=sys.stderr)
-            return 2
-        if args.subcommand == "run":
-            return _cmd_run(args, recipes)
-        return _cmd_plan(args, recipes)
+            # FR-310: every matrix argument over the two homes, before any command reads it.
+            if (
+                refused := _refuse_runs_manifest(args) or resolve_matrix_arguments(args)
+            ) is not None:
+                return refused
+            if args.subcommand in _RECORDS_COMMANDS:
+                return _cmd_records(args)
+            if args.subcommand in _STORAGE_COMMANDS:
+                return _cmd_storage(args)
+            # Before the recipe parsing below, deliberately: upgrading a file
+            # needs no recipes, no version and no executable, and requiring them
+            # would refuse the one user this subcommand exists for.
+            if args.subcommand == "post":
+                note_post_ran()
+                return _cmd_post(args)
+            if args.subcommand == "collect":
+                return _cmd_collect(args)
+            if args.subcommand in GEOMETRY_COMMANDS:
+                # FR-1136: the identical result, and one warning naming the home.
+                from pyflightstream.run._cli_geometry import alias_warning
+
+                warnings.warn(alias_warning(args.subcommand), PyflightstreamWarning, stacklevel=2)
+                return cmd_geometry(args)
+            try:
+                recipes = _parse_recipes(args.recipe)
+                if args.subcommand in ("run", "plan", "inspect-setups"):
+                    # Plan rehearses run without solver time, including workflow matrices.
+                    recipes = _one_builder_per_code(recipes, _parse_workflows(args.workflow))
+            except (ValueError, CampaignConfigError) as error:
+                print(str(error), file=sys.stderr)
+                return 2
+            if args.subcommand == "run":
+                return _cmd_run(args, recipes)
+            return _cmd_plan(args, recipes)
+        except (PyflightstreamError, OSError) as error:
+            return _failed(args.subcommand, error)
+
+
+def _failed(subcommand: str, error: Exception) -> int:
+    """Say why a command failed and what to do, and return the failure exit code (NFR-48).
+
+    A failure no command caught reaches the console as one diagnostic naming the cause
+    and the remedy, never as an exception traceback.
+    """
+    print(
+        f"pyfs-matrix {subcommand} failed: {type(error).__name__}: {error}\n"
+        "Fix the cause named above and run the command again; "
+        f"pyfs-matrix {subcommand} --help lists the options.",
+        file=sys.stderr,
+    )
+    return 1
 
 
 #: Print this layout-specific warning on both upgrade routes, where the user

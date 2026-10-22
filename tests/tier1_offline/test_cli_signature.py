@@ -327,3 +327,29 @@ def test_the_signature_module_imports_nothing_from_the_package():
             assert node.level == 0 and not (node.module or "").startswith("pyflightstream")
         if isinstance(node, ast.Import):
             assert not any(a.name.startswith("pyflightstream") for a in node.names)
+
+
+def test_nfr_48_an_uncaught_package_failure_is_a_diagnostic_and_a_nonzero_exit(monkeypatch, capsys):
+    """NFR-48: the cause and the remedy are said, the exit is nonzero, and no traceback prints."""
+    from pyflightstream.run import cli
+    from pyflightstream.workspace import WorkspaceError
+
+    def broken(_args):
+        raise WorkspaceError("runs.json is not a list of records")
+
+    monkeypatch.setattr(cli, "_cmd_post", broken)
+    assert cli.main(["post"]) == 1
+    streams = capsys.readouterr()
+    assert "pyfs-matrix post failed: WorkspaceError: runs.json is not a list of records" in (
+        streams.err
+    )
+    assert "Fix the cause named above and run the command again" in streams.err
+    assert "Traceback" not in streams.err
+    assert _outcome_of(streams.err) == "failed"
+
+    def locked(_args):
+        raise PermissionError("runs.json is locked by another program")
+
+    monkeypatch.setattr(cli, "_cmd_post", locked)
+    assert cli.main(["post"]) == 1
+    assert "PermissionError: runs.json is locked" in capsys.readouterr().err
