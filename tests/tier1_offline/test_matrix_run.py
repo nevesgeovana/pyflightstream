@@ -6191,3 +6191,18 @@ def test_f1569_an_effective_frequency_warning_names_the_effective_frequency():
     _sort_the_validity("POL 1 point p", None, validity, (above, unknown, too_few, effective))
     assert not above and len(effective) == 1
     assert "k_eff" in effective[0]
+
+
+def test_p0430_a_physics_matrix_path_outside_the_workspace_is_refused_x_f_1686(tmp_path):
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    outside = tmp_path / "elsewhere.fs"
+    outside.write_text("POL | RUN" + chr(10), encoding="utf-8")
+    inside = workspace / "inputs" / "matrices" / "own.fs"
+    inside.parent.mkdir(parents=True)
+    inside.write_text("POL | RUN" + chr(10), encoding="utf-8")
+    with pytest.raises(PhysicsEnvironmentError, match="outside the workspace"):
+        physics_matrix(workspace, str(outside))
+    with pytest.raises(PhysicsEnvironmentError, match="outside the workspace"):
+        physics_matrix(workspace, "../elsewhere.fs")
+    assert physics_matrix(workspace, "inputs/matrices/own.fs") == inside

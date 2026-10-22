@@ -148,8 +148,9 @@ def physics_matrix(root: str | Path, matrix: str = DEFAULT_MATRIX) -> Path:
         the root and under ``inputs/matrices/`` by the workspace's one lookup
         (FR-310); a name in both homes with different bytes is refused. A
         name and not a path, deliberately: the command reads one workspace,
-        so a path elsewhere would name rows that the workspace's manifest
-        cannot record; a path is read relative to the root, as before.
+        so a path outside it would name rows that the workspace's manifest
+        cannot record and is refused; a path inside the workspace is read
+        relative to the root, as before.
 
     Returns
     -------
@@ -159,7 +160,8 @@ def physics_matrix(root: str | Path, matrix: str = DEFAULT_MATRIX) -> Path:
     Raises
     ------
     PhysicsEnvironmentError
-        When neither home holds a matrix of that name, or both hold it with
+        When ``matrix`` is a path outside the workspace, when neither home
+        holds a matrix of that name, or both hold it with
         different bytes; the message lists the matrices it does hold, and the
         parameter that picks another.
     """
@@ -169,6 +171,14 @@ def physics_matrix(root: str | Path, matrix: str = DEFAULT_MATRIX) -> Path:
         raise PhysicsEnvironmentError(str(error)) from error
     if path == Path(matrix):
         path = Path(root) / matrix
+    if names_its_folder(matrix) and not path.resolve().is_relative_to(Path(root).resolve()):
+        # X-F-1686: a matrix is a name in THIS workspace; a path that leaves it names rows the
+        # workspace's manifest cannot record.
+        raise PhysicsEnvironmentError(
+            f"the matrix {str(matrix)!r} lies outside the workspace {Path(root)}; name a matrix "
+            "the workspace holds (a file name, or a path inside it), or point at the "
+            "workspace that holds the matrix."
+        )
     if path.is_file():
         return path
     held = sorted({candidate.name for candidate in matrix_files(root)})
