@@ -1689,6 +1689,23 @@ def test_f3_0203_f1374_an_unreadable_loads_file_costs_only_the_condition(tmp_pat
     assert _rotor_products._loads_report(loads) is None
 
 
+def test_f3_0203_f1374_a_real_post_route_names_an_unreadable_loads_table(tmp_path, monkeypatch):
+    """F-1374 at the route: the admission reads the loads table first, so an unreadable one
+    is named in the skipped record instead of aborting the post with a PermissionError."""
+    from tests.tier1_offline.test_post_products import _steady_workspace_with_provenance
+
+    workspace = _steady_workspace_with_provenance(tmp_path / "fixture")
+    loads = next(workspace.sim_dir("3207").glob("outputs/POLAR-*.txt"))
+    _f3_0203_unreadable(monkeypatch, loads)
+    with pytest.warns(Warning):
+        write_campaign_products(workspace)
+    logs = [p for p in workspace.root.rglob("post*.log")] + [
+        p for p in workspace.root.rglob("post*.json")
+    ]
+    text = " ".join(p.read_text(encoding="utf-8") for p in logs)
+    assert "not readable" in text and loads.name in text, text
+
+
 def test_f3_0203_f1373_an_acoustic_only_record_still_gets_its_acoustic_products(tmp_path):
     """F-1373: a record listing no loads or sections table still writes its acoustics."""
     from tests.tier1_offline.test_post_products import _steady_workspace_with_provenance

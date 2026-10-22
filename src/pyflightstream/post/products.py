@@ -1182,8 +1182,8 @@ def _validate_simulation_references(
                 reference_report = parse_loads(
                     loads_path.read_text(encoding="utf-8", errors="replace")
                 )
-            except PyflightstreamError:
-                continue  # The individual writers explain malformed exports.
+            except (PyflightstreamError, OSError):
+                continue  # The individual writers explain malformed or unreadable exports.
             for reference_block in (simulation_metadata.reference, record.reference):
                 if reference_block is None:
                     continue
