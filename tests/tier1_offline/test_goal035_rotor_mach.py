@@ -750,3 +750,19 @@ def test_a_point_exactly_at_a_helical_mach_of_one_is_named_and_one_just_below_is
     text = " ".join(str(w.message) for w in caught)
     assert "point AT," in text
     assert "BELOW" not in text
+
+
+@pytest.mark.requirement("FR-69")
+def test_the_plan_shows_an_angle_the_row_does_not_state_as_zero_by_default(tmp_path):
+    """FR-69: an unstated ALPHA or BETA is 0.0 and the plan says it is a default."""
+    workspace, matrix = _rotor_matrix(
+        tmp_path,
+        condition="MACH:0.144, REmi:4.38, ALPHA:0.0, RPM:sweep",
+        values="3000,6000",
+        cell=READY_ROTOR_CELL,
+    )
+    plan, _said = _plan(workspace, matrix)
+    assert all(entry.angles_not_stated == ("BETA",) for entry in plan.points)
+    summary = plan.summary()
+    assert "BETA = 0.0 (default)" in summary
+    assert "ALPHA = 0.0 (default)" not in summary

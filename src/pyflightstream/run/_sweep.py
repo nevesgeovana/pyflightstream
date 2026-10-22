@@ -39,6 +39,7 @@ from pyflightstream.cases.workflows import (
     build_steady_sweep,
     rotor_machs,
 )
+from pyflightstream.cases.workflows._rows import angles_not_stated
 from pyflightstream.results import (
     translate_surface_exports,
 )
@@ -286,6 +287,7 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
         "flight_condition": dict(job.case.flight_condition),
         "flight_condition_defaults": dict(job.case.flight_condition_defaults),
         "flight_condition_defaults_from": job.case.flight_condition_defaults_from,
+        "angles_not_stated": list(angles_not_stated(job.case)),
         "density_kg_m3": None if job.case.fluid is None else job.case.fluid.density_kg_m3,
         "temperature_k": None if job.case.fluid is None else job.case.fluid.temperature_k,
         "viscosity_pa_s": None if job.case.fluid is None else job.case.fluid.viscosity_pa_s,

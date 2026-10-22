@@ -450,6 +450,10 @@ class RunRecord(BaseModel):
         Which setup supplied those pins, id and path, for example
         ``setup 's001' (inputs/setups/s001.toml)``. Empty when the row
         inherited nothing, which includes every record written in legacy releases.
+    angles_not_stated : list of str
+        The flow angles (``ALPHA``, ``BETA``) the point neither swept nor
+        the row stated, so it ran at the 0.0 degrees default (FR-69). Empty
+        where both were stated and on every record written in earlier releases.
     matrix_stem : str, optional
         The stem of the run matrix the point came from, when the campaign
         was converted from one (PFS-2031.04). A workspace may hold several
@@ -562,6 +566,7 @@ class RunRecord(BaseModel):
     flight_condition: dict[str, float] = Field(default_factory=dict)
     flight_condition_defaults: dict[str, float] = Field(default_factory=dict)
     flight_condition_defaults_from: str = ""
+    angles_not_stated: list[str] = Field(default_factory=list)
     matrix_stem: str | None = None
 
     @model_validator(mode="before")

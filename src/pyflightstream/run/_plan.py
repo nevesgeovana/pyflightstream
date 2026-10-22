@@ -70,6 +70,7 @@ from pyflightstream.cases.workflows._freestream import (
     planned_wake,
     wake_warnings,
 )
+from pyflightstream.cases.workflows._rows import angles_not_stated
 from pyflightstream.run._alias import PLANNED_ORDER_KEY
 from pyflightstream.run._continuation import (
     _refuse_an_import_count_nothing_logs,
@@ -208,6 +209,10 @@ class PointPlan:
         in rotor radii, the rule and V_ax, the resulting ``time_iterations`` and
         the revolutions they turn. Empty on every other point, and then left
         out of ``plan.json``.
+    angles_not_stated : tuple of str
+        The flow angles (``ALPHA``, ``BETA``) the point neither sweeps nor
+        the row states, which take the default 0.0 degrees (FR-69). Empty,
+        and left out of ``plan.json``, where both are stated.
     streamlines : int
         The off-body streamlines the point's pproc traces (FR-1079):
         every seed line's count and every tube's ``radial * circular``. 0, and
@@ -232,6 +237,7 @@ class PointPlan:
     farfield: dict[str, object] = field(default_factory=dict)
     fsi: dict[str, object] = field(default_factory=dict)
     inflow_harmonics: list[str] = field(default_factory=list)
+    angles_not_stated: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -838,6 +844,10 @@ def _point_lines(points: Sequence[PointPlan]) -> list[str]:
     for entry in points:
         if entry.run_wake_length:
             lines.append(f"  {entry.run_id}: {run_wake_length_line(entry.run_wake_length)}")
+    for entry in points:
+        if entry.angles_not_stated:
+            shown = ", ".join(f"{name} = 0.0 (default)" for name in entry.angles_not_stated)
+            lines.append(f"  {entry.run_id}: {shown}; the row states no such angle")
     return lines + _streamline_lines(points) + _farfield_lines(points)
 
 
@@ -1452,6 +1462,8 @@ def _point_record(entry: PointPlan) -> dict[str, Any]:
         del record["run_wake_length"]
     if not entry.streamlines:
         del record["streamlines"]
+    if not entry.angles_not_stated:
+        del record["angles_not_stated"]
     # FR-1047: the far-field resolution, on a row with [farfield] only.
     if not entry.farfield:
         del record["farfield"]
@@ -1479,6 +1491,7 @@ def _point_facts(
         "run_wake_length": {} if run is None else run.record(),
         "streamlines": streamline_count(point_case),
         "farfield": {} if fs_version is None else farfield_plan_record(point_case, fs_version),
+        "angles_not_stated": angles_not_stated(point_case),
     }
 
 

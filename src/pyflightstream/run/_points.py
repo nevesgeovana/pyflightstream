@@ -59,6 +59,7 @@ from pyflightstream.cases.workflows import (
     walltime_clock_program,
     walltime_margin_s,
 )
+from pyflightstream.cases.workflows._rows import angles_not_stated
 from pyflightstream.results import (
     translate_surface_exports,
 )
@@ -540,6 +541,7 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
         "flight_condition": dict(at_point.flight_condition),
         "flight_condition_defaults": dict(at_point.flight_condition_defaults),
         "flight_condition_defaults_from": at_point.flight_condition_defaults_from,
+        "angles_not_stated": list(angles_not_stated(at_point)),
         "density_kg_m3": None if at_point.fluid is None else at_point.fluid.density_kg_m3,
         "temperature_k": None if at_point.fluid is None else at_point.fluid.temperature_k,
         "viscosity_pa_s": None if at_point.fluid is None else at_point.fluid.viscosity_pa_s,

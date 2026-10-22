@@ -11,6 +11,9 @@ FlightStream versions.
 
 - `pyfs-fsi` writes `fsi_convergence_verdicts.log` in the run folder, and the external step
   record carries `loads_file_present`.
+- A row that states no `ALPHA` or `BETA` flies that angle at 0.0 and says so: the plan summary
+  shows `ALPHA = 0.0 (default)`, `plan.json` lists `angles_not_stated` on the point, and the
+  run record carries the same list.
 
 ### Changed
 

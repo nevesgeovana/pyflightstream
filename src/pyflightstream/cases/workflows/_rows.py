@@ -995,6 +995,32 @@ def _angle(case: SimCase, axis: str) -> float:
     return _required_float(case, key, quantity="flow angle", unit="degrees", text=stated)
 
 
+def angles_not_stated(case: SimCase) -> tuple[str, ...]:
+    """Return the flow angles a point takes at their 0.0 default (FR-69).
+
+    An angle is stated when the point sweeps it or the row writes it; the
+    other is the default, 0.0 degrees, and the plan and the run record say
+    so instead of leaving the zero to be read as a choice.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case at one point.
+
+    Returns
+    -------
+    tuple of str
+        ``"ALPHA"`` and/or ``"BETA"``, in that order; empty when both are stated.
+    """
+    return tuple(
+        key
+        for axis, key in (("alpha", ALPHA_VARIABLE), ("beta", BETA_VARIABLE))
+        if axis not in case.point
+        and case.sweep.type not in (axis, "alpha_beta")
+        and _variable(case, key) is None
+    )
+
+
 def _velocity(case: SimCase) -> float:
     if case.velocity is not None:
         stated = _variable(case, VELOCITY_VARIABLE)
