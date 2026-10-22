@@ -524,16 +524,18 @@ def test_p0420_p1_1d_completion_reads_appended_bytes_once(tmp_path, monkeypatch)
         def __init__(self, *args, **kwargs):
             self.stream = kwargs["stdout"]
             self.chunks = iter(["x" * 1_000_000] * 50 + [marker[:12], marker[12:]])
+            self.killed = False
 
         def wait(self, timeout=None):
-            if timeout is None:
+            # A killed process ends: the executor reaps it with a bounded wait (F-834).
+            if timeout is None or self.killed:
                 return 0
             self.stream.write(next(self.chunks))
             self.stream.flush()
             raise subprocess.TimeoutExpired("fake", timeout)
 
         def kill(self):
-            pass
+            self.killed = True
 
     monkeypatch.setattr(_executors.subprocess, "Popen", Process)
     monkeypatch.setattr(_executors, "_owned_solver_dialogs", lambda pid: ())
