@@ -702,10 +702,11 @@ def write_unsteady_probes_table(
 
     The export that an unsteady row produces for its probes is the plots
     table, and it carries one NUMBERED GROUP per probe point:
-    ``MACH7, VELOCITY7, VX7, VY7, VZ7, STATIC_PRESSURE_RATIO7``. It never
-    says where vertex 7 is, which is the whole of the requirement: an
-    unsteady export never states where its probes are, so the positions
-    file is what makes a sample placeable. This un-pivots those groups
+    ``MACH7, VELOCITY7, VX7, VY7, VZ7, STATIC_PRESSURE_RATIO7``. It is taken
+    not to say where vertex 7 is, which is the whole of the requirement: the
+    positions file is what makes a sample placeable. (The group names are those
+    the package's own builder emits; no committed report records the
+    plots-table header, nor that it states no position.) This un-pivots those groups
     into one row per point and step and puts the recorded position in front
     of them.
 
