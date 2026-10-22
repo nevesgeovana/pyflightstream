@@ -481,8 +481,9 @@ def _row_values(row: Sequence[str], width: int) -> list[float]:
     load.
 
     Exactly ONE trailing empty cell is dropped, and that is the file format
-    rather than a concession: the solver terminates every data row with the
-    separator (fixture FS_SurfaceSection_Loads_call0002.txt). Interior blanks
+    rather than a concession: the solver is taken to terminate every data row
+    with the separator, as the committed fixture FS_SurfaceSection_Loads_call0002.txt
+    shows (no dated report states it for a build). Interior blanks
     are holes and are refused. Split out of :func:`parse_sectional_loads`
     unchanged, when the parser moved here (AD-10).
     """
