@@ -82,8 +82,9 @@ class BladeDatum(BaseModel):
     """Where blade one sits, and the axis its azimuth is measured from (FR-60).
 
     An azimuth needs a declared zero axis. The datum states both: ``{ azimuth_deg = 45.0, zero =
-    "X" }``. The zero is an axis letter with an optional sign and is refused when parallel to
-    the rotor axis, because an angle from that axis locates no radial direction.
+    "X" }``. The zero is an axis letter with an optional sign and is refused when it lies within
+    about 5 degrees of the rotor axis (the refusal states the angle), because an angle from
+    that axis locates no radial direction.
 
     Attributes
     ----------
@@ -271,6 +272,26 @@ class RotorBlock(BaseModel):
             )
         return value
 
+    @field_validator("alias")
+    @classmethod
+    def _an_alias_no_frame_can_be_mistaken_for(cls, value: str) -> str:
+        if not value.strip() or value != value.strip() or any(c.isspace() for c in value):
+            raise ValueError(f"alias = {value!r} must be one word, with no blank or space in it")
+        if value.upper().endswith(("_SMRP", "_RMRP")):
+            raise ValueError(
+                f"alias = {value!r} ends in _SMRP or _RMRP, the radical of the frames the "
+                "package builds from a rotor's name, so a rotor and a frame would spell the "
+                "same; choose another name"
+            )
+        return value
+
+    @field_validator("families_blades")
+    @classmethod
+    def _a_blade_is_named(cls, value: list[str]) -> list[str]:
+        if any(not name.strip() for name in value):
+            raise ValueError("families_blades holds a blank name; name one mesh family per blade")
+        return value
+
     @model_validator(mode="after")
     def _a_rotor_with_blades_and_a_usable_datum(self) -> RotorBlock:
         if not self.families_blades:
@@ -425,8 +446,13 @@ def frame_basis_for_shaft(
     define. On an untilted rotor the projection changes nothing.
 
     The caller is responsible for the datum not lying along the shaft;
-    `RotorBlock` refuses that by ANGLE before anything reaches here.
+    `RotorBlock` refuses that by ANGLE before anything reaches here. A shaft that is not
+    a unit vector is normalised first, so a scaled shaft gives the same frame.
     """
+    shaft_length = math.sqrt(sum(component * component for component in shaft))
+    if shaft_length <= _AXIS_TOLERANCE:
+        raise CampaignConfigError(f"the shaft {shaft} has no direction")
+    shaft = (shaft[0] / shaft_length, shaft[1] / shaft_length, shaft[2] / shaft_length)
     along = sum(a * b for a, b in zip(shaft, datum, strict=True))
     projected = tuple(d - along * s for s, d in zip(shaft, datum, strict=True))
     length = math.sqrt(sum(component * component for component in projected))

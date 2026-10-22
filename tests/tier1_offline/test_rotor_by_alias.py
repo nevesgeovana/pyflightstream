@@ -1187,3 +1187,16 @@ def test_a_negative_free_stream_speed_is_refused_by_the_mach_numbers():
         advancing_tip_mach_number(
             rpm=3000.0, diameter_m=2.0, velocity_m_per_s=-100.0, sonic_velocity_m_per_s=340.0
         )
+
+
+def test_p0430_a_rotor_alias_a_frame_could_be_mistaken_for_is_refused():
+    for alias in ("LIFT_RMRP", "lift_smrp", "two words", " "):
+        with pytest.raises(ValueError, match="alias"):
+            RotorBlock(**{**LIFTER.model_dump(), "alias": alias})
+
+
+def test_p0430_a_scaled_shaft_gives_the_same_frame_basis():
+    from pyflightstream.cases.reference_blocks import frame_basis_for_shaft
+
+    unit = frame_basis_for_shaft((0.0, 0.0, 1.0), (1.0, 0.0, 0.0))
+    assert frame_basis_for_shaft((0.0, 0.0, 3.0), (1.0, 0.0, 0.0)) == unit
