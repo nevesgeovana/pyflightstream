@@ -263,8 +263,19 @@ def test_p0430_fr936_the_level_keeps_the_identity_of_the_source_open_loop(tmp_pa
 # ---------------------------------------------------------------- F-1584
 
 
-def test_p0430_f1584_the_text_a_refusal_offers_for_a_value_is_valid_toml(tmp_path):
-    """F-1584: an inline table is offered in TOML, not JSON, syntax, and parses to the value."""
+@pytest.mark.parametrize(
+    ("detect_line", "expected"),
+    [
+        ('surfaces = ["Wing"]', {"surfaces": ["Wing"]}),
+        ('surfaces = ["Wing"]\nsweep_angle = 2.5', {"surfaces": ["Wing"], "sweep_angle": 2.5}),
+        (r'surfaces = ["Wing", "a\"b"]', {"surfaces": ["Wing", 'a"b']}),
+        (r'surfaces = ["Wing", "x\u007fy"]', {"surfaces": ["Wing", "x\x7fy"]}),
+    ],
+)
+def test_p0430_f1584_the_text_a_refusal_offers_for_a_value_is_valid_toml(
+    tmp_path, detect_line, expected
+):
+    """F-1584: a table, a quote, a DEL character and a float are offered in TOML."""
     import tomllib
 
     from tests.tier1_offline.test_p0390_firstrow import Composite, _tube_source, write_source
@@ -282,7 +293,7 @@ def test_p0430_f1584_the_text_a_refusal_offers_for_a_value_is_valid_toml(tmp_pat
     # the detect route spelled as a table header: no `detect =` text a rewrite could replace
     side.write_text(
         side.read_text(encoding="utf-8").replace('file = "wing.te.txt"', "").rstrip()
-        + '\n[trailing_edges.detect]\nsurfaces = ["Wing"]\n[import]\nunits = "METER"\n',
+        + f'\n[trailing_edges.detect]\n{detect_line}\n[import]\nunits = "METER"\n',
         encoding="utf-8",
     )
     with warnings.catch_warnings():
@@ -290,7 +301,7 @@ def test_p0430_f1584_the_text_a_refusal_offers_for_a_value_is_valid_toml(tmp_pat
         with pytest.raises(InputArtifactError, match="cannot be rewritten") as caught:
             refine_mesh(src, out_dir=tmp_path / "out")
     offered = str(caught.value).split("state it as ", 1)[1].split(" and run again", 1)[0]
-    assert tomllib.loads(offered)["detect"] == {"surfaces": ["Wing"]}
+    assert tomllib.loads(offered)["detect"] == expected
 
 
 # ---------------------------------------------------------------- F-1517

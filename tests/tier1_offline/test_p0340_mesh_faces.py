@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import csv
 import importlib.util
+import io
 import tomllib
 import warnings
 from pathlib import Path
@@ -510,24 +511,20 @@ def test_the_definitions_page_and_the_glossary_state_the_column_fr_348():
     assert {"mesh_faces", "boundary_faces", "mesh_sha256"} <= set(GEOMETRY_SIDECAR_KEYS)
 
 
-def test_f1211_names_read_before_a_replacement_get_no_new_digest_fr_704(tmp_path, monkeypatch):
-    """FR-704: a mesh replaced while its names are read is never paired with the new digest."""
+def test_f1211_names_read_before_a_replacement_get_no_new_digest_fr_704(tmp_path):
+    """FR-704: a mesh replaced after its names were read is never paired with the new digest."""
     from pyflightstream.workspace import sidecars
 
     wing = _saved_simulation(tmp_path / "wing.fsm", ["Body", "Base"], [1, 1, 2])
     other = _saved_simulation(tmp_path / "other.fsm", ["Side"], [1, 1])
-    real = sidecars.boundary_names
-
-    def replaced_after_reading(path):
-        names = real(path)
-        Path(path).write_bytes(other.read_bytes())
-        return names
-
-    monkeypatch.setattr(sidecars, "boundary_names", replaced_after_reading)
-    sidecars.write_inventory(wing)
-    stated = _sidecar(wing)
-    assert stated["boundaries"] == ["Body", "Base"]
-    assert "mesh_sha256" not in stated and "mesh_faces" not in stated
+    sealed = file_sha256(wing)
+    # The control: the file is still the one the digest was sealed on, so the count is stated.
+    stated = sidecars.face_count_lines(wing, 2, obj=False, sealed=sealed)
+    assert f'mesh_sha256 = "{sealed}"' in stated
+    wing.write_bytes(other.read_bytes())
+    assert sidecars.face_count_lines(wing, 1, obj=False, sealed=sealed) == []
+    # Without the sealed digest the replacement would be stated beside the earlier names.
+    assert sidecars.face_count_lines(wing, 1, obj=False)
 
 
 def test_f1212_an_obj_changed_while_its_groups_are_read_is_refused_fr_704(tmp_path, monkeypatch):
@@ -539,16 +536,22 @@ def test_f1212_an_obj_changed_while_its_groups_are_read_is_refused_fr_704(tmp_pa
     face = "f 1 2 3\n"
     corners = "v 0 0 0\nv 1 0 0\nv 0 1 0\n"
     mesh.write_text(corners + "g Hub\n" + face, encoding="utf-8")
-    real = sidecars.obj_boundary_names
+    real_open = Path.open
 
-    def replaced_after_reading(path):
-        names = real(path)
-        Path(path).write_text(corners + "g Tip\n" + face * 2, encoding="utf-8")
-        return names
+    def open_then_replace(self, *args, **kwargs):
+        """Hand back the text as it was, and replace the file on disk once it is read."""
+        handle = real_open(self, *args, **kwargs)
+        if self != mesh or "encoding" not in kwargs:
+            return handle
+        with handle:
+            text = handle.read()
+        mesh.write_bytes((corners + "g Tip\n" + face * 2).encode("utf-8"))
+        return io.StringIO(text)
 
-    monkeypatch.setattr(sidecars, "obj_boundary_names", replaced_after_reading)
-    with pytest.raises(InputArtifactError, match="changed while its groups were read"):
-        sidecars.ensure_inventory(mesh)
+    with monkeypatch.context() as patched:
+        patched.setattr(Path, "open", open_then_replace)
+        with pytest.raises(InputArtifactError, match="changed while its groups were read"):
+            sidecars.ensure_inventory(mesh)
     assert not mesh.with_name("rotor.boundaries.toml").exists()
 
 
