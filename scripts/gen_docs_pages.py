@@ -92,7 +92,8 @@ with mkdocs_gen_files.open("inputs.md", "w") as page:
     page.write(input_glossary_markdown())
 
 for script_name in EXAMPLES:
-    source = (Path("docs/examples/_sources") / script_name).read_text(encoding="utf-8")
+    examples = Path(__file__).resolve().parents[1] / "docs/examples/_sources"
+    source = (examples / script_name).read_text(encoding="utf-8")
     stem = script_name.removesuffix(".py")
     with mkdocs_gen_files.open(f"examples/{stem}.md", "w") as page:
         page.write(percent_script_markdown(source))
@@ -120,7 +121,8 @@ with mkdocs_gen_files.open("exceptions.md", "w") as page:
 # Contributor instructions are published as a direct mirror of the repository
 # guide so the site cannot silently omit required contribution practices.
 with mkdocs_gen_files.open("contributing.md", "w") as page:
-    page.write(Path("CONTRIBUTING.md").read_text(encoding="utf-8"))
+    contributing = Path(__file__).resolve().parents[1] / "CONTRIBUTING.md"
+    page.write(contributing.read_text(encoding="utf-8"))
     page.write(
         "\n\n## Canonical graphs\n\n[Contributor graphs](graphs/index.md) "
         "show the requirements hierarchy and library structure.\n"

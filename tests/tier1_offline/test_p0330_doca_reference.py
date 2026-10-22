@@ -541,6 +541,35 @@ def test_the_exceptions_catalog_lists_every_catalogued_exception():
     assert first not in set(_CATALOG_ROW.findall(cut))
 
 
+def test_p0430_the_page_generator_runs_from_any_working_directory(tmp_path, monkeypatch):
+    """F-1906: gen_docs_pages.py reads its sources from the repository, not the cwd.
+
+    The generator read ``docs/examples/_sources`` and ``CONTRIBUTING.md`` relative to
+    the working directory and raised FileNotFoundError when run from elsewhere. It is
+    run here from an empty directory with a recording stand-in for mkdocs_gen_files.
+    """
+    import contextlib
+    import io
+    import runpy
+    import types
+
+    written: dict[str, str] = {}
+
+    @contextlib.contextmanager
+    def _open(name, mode="w"):
+        buffer = io.StringIO()
+        yield buffer
+        written[name] = buffer.getvalue()
+
+    monkeypatch.setitem(sys.modules, "mkdocs_gen_files", types.SimpleNamespace(open=_open))
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.chdir(tmp_path)
+    runpy.run_path(str(SCRIPTS / "gen_docs_pages.py"))
+    contributing = (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    assert written["contributing.md"].startswith(contributing)
+    assert any(name.startswith("examples/") for name in written)
+
+
 # -------------------------------------------------------------------- the nav
 
 
