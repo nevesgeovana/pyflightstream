@@ -136,7 +136,8 @@ def test_invalid_effective_principal_inertia_rejected(tmp_path: Path) -> None:
     # GOAL033:fsi:checks:physical_admissibility
     path = tmp_path / "f001.toml"
     path.write_text(SUPPLIED)
-    with pytest.raises(FsiSetupError, match="major is smaller"):
+    # F-108 (5386c254): the FSI input model refuses swapped inertias first, in its words.
+    with pytest.raises(FsiSetupError, match="inertia_major_kg_m is smaller than inertia_minor"):
         resolve_fsi_setup(path, matrix_calibration={"inertia_minor_kg_m": 20})
 
 
