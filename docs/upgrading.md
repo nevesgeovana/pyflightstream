@@ -7,6 +7,14 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.43.0
+
+### Deprecations
+
+Calling `pyflightstream.post.polar.polar_row` without `beta_deg` still uses zero
+sideslip and warns; from 0.45.0 the argument is required. Pass each point's
+sideslip explicitly.
+
 ## 0.42.0
 
 ### Script validation and manual registration

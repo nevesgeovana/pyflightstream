@@ -123,6 +123,38 @@ def test_a_polar_row_carries_her_numbers():
     assert [f"{v:.5f}" for v in row] == HER_ROW
 
 
+def test_p0430_an_omitted_beta_warns_from_its_ledger_entry_with_a_removal_version():
+    # Verifies NFR-11.
+    """RB3-05: the omitted-``beta_deg`` warning of ``polar_row`` is a ledger promise.
+
+    Every deprecation the package emits has a ``_deprecations`` entry with a removal
+    version, so the deadline guard can enforce it; the warning names that version.
+    """
+    import warnings
+
+    from pyflightstream._deprecations import DEPRECATIONS
+
+    entries = [e for e in DEPRECATIONS if "polar_row" in e.subject]
+    assert len(entries) == 1
+    assert entries[0].removal_version == "0.45.0"
+    loads = _loads()
+    coefficients = group_coefficients(loads, ["W", "B"], bref_m=20.0)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        row = polar_row(
+            loads.angle_of_attack_deg,
+            0.2,
+            loads.reynolds / 1e6,
+            coefficients,
+            cref_m=2.526,
+            bref_m=20.0,
+        )
+    messages = [str(w.message) for w in caught if w.category is PyflightstreamDeprecationWarning]
+    assert messages == [entries[0].message()]
+    assert "removed in v0.45.0" in messages[0]
+    assert row[1] == 0.0
+
+
 def test_a_group_the_table_carries_none_of_sums_to_zero():
     coefficients = group_coefficients(_loads(), ["Blade1", "S"], bref_m=20.0)
     assert coefficients.families_used == ()

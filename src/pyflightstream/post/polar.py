@@ -38,6 +38,7 @@ from typing import Literal
 from warnings import warn
 
 import pyflightstream._textio as _textio
+from pyflightstream._deprecations import POLAR_ROW_OMITTED_BETA
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases import select_group_members
@@ -511,8 +512,8 @@ def polar_row(
 
     ``CD0`` and ``CDI`` stay the solver's own profile and induced drag.
 
-    Omitting ``beta_deg`` is deprecated and warns while retaining zero sideslip.
-    It will be required at the next breaking window; pass the point's sideslip explicitly.
+    Omitting ``beta_deg`` is deprecated since 0.43.0 and warns while retaining zero
+    sideslip. It is required from 0.45.0; pass the point's sideslip explicitly.
     Both measured vectors must be supplied; absent vectors are never measured zeros.
 
     AN INDUCED DRAG THE SOLVER DECLINED (PFS-2006.03) is ``CDI`` NaN, and so is
@@ -553,12 +554,7 @@ def polar_row(
     """
     g = coefficients
     if beta_deg is None:
-        warn(
-            "Omitting beta_deg from polar_row is deprecated; pass beta_deg explicitly. "
-            "It will be required at the next breaking window; zero is used for now.",
-            PyflightstreamDeprecationWarning,
-            stacklevel=2,
-        )
+        warn(POLAR_ROW_OMITTED_BETA.message(), PyflightstreamDeprecationWarning, stacklevel=2)
         beta_deg = 0.0
     if g.force is None or g.moment is None:
         raise ProductError("polar_row needs measured force and moment vectors; supply both")

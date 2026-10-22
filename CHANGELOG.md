@@ -341,6 +341,11 @@ FlightStream versions.
 - A point alias whose index is a digit-like Unicode character (a superscript two, for
   example) is not an alias and no longer stops the command with a conversion error.
 
+### Deprecated
+
+- Calling `polar_row` without `beta_deg` is deprecated with a removal version: it keeps
+  zero sideslip and warns until 0.45.0, which requires the argument.
+
 ## [0.42.0] - 2026-10-16
 
 ### Added
