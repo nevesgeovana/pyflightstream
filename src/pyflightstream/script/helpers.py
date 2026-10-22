@@ -1707,7 +1707,11 @@ def coordinate_frame(
         z_axis = _triple("coordinate_frame", "z_axis", z_axis)
     for prefix, vector in (("origin", origin), ("vector_x", x_axis), ("vector_y", y_axis)):
         for letter, value in zip("xyz", vector, strict=True):
-            _checked_helper_value(script, "EDIT_COORDINATE_SYSTEM", f"{prefix}_{letter}", value)
+            try:
+                _checked_helper_value(script, "EDIT_COORDINATE_SYSTEM", f"{prefix}_{letter}", value)
+            except CommandArgumentError as refusal:
+                # Every refusal of this helper names the frame (PFS-2130.053).
+                raise CommandArgumentError(f"coordinate_frame {name!r}: {refusal}") from refusal
     problem = frame_axes_problem(x_axis, y_axis, z_axis)
     if problem is not None:
         raise CommandArgumentError(
