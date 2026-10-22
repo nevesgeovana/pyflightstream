@@ -292,6 +292,10 @@ class PointResult:
     minimum_cp: float | None = None
 
 
+#: The opening words of the error of a case the selected build left out (FR-2316).
+_INAPPLICABLE_PREFIX = "INAPPLICABLE to the selected build:"
+
+
 @dataclass(frozen=True)
 class CaseResult:
     """Everything one physics case produced in one run.
@@ -364,6 +368,18 @@ class PhysicsRun:
     def aborted_count(self) -> int:
         """Count the cases that aborted: they carry no verdict, so no verdict count holds them."""
         return sum(1 for result in self.results if result.error is not None)
+
+    def inapplicable_count(self) -> int:
+        """Count the cases the selected build left out, reported as INAPPLICABLE with a reason."""
+        return sum(
+            1
+            for result in self.results
+            if result.error is not None and result.error.startswith(_INAPPLICABLE_PREFIX)
+        )
+
+    def ran_count(self) -> int:
+        """Count the cases the run covers that were not left out as INAPPLICABLE."""
+        return len(self.results) - self.inapplicable_count()
 
 
 # --------------------------------------------------------------------------
@@ -1452,6 +1468,12 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
         + (
             f" {run.aborted_count()} case(s) aborted and are counted in no verdict."
             if run.aborted_count()
+            else ""
+        )
+        + (
+            f" {run.ran_count()} case(s) ran and {run.inapplicable_count()} were left out as "
+            "INAPPLICABLE to the selected build."
+            if run.inapplicable_count()
             else ""
         ),
         "",

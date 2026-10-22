@@ -595,6 +595,25 @@ def test_an_all_aborted_physics_run_states_its_aborts():
     assert run.aborted_count() == 1
 
 
+def test_p0430_the_verdict_states_how_many_cases_ran_and_how_many_were_left_out_fr_2316(tmp_path):
+    """FR-2316: the run counts the cases left out as INAPPLICABLE and the report says so."""
+    from pyflightstream.qa.physics import write_physics_report
+
+    left = "INAPPLICABLE to the selected build: 5006/a+00.0: CommandNotInVersionError: X"
+    run = PhysicsRun(
+        version="26.120",
+        fs_exe_name="fs.exe",
+        package_version="0",
+        results=(
+            CaseResult(case_id="PHY-01", title="t", geometry="g"),
+            CaseResult(case_id="PHY-06", title="u", geometry="g", error=left),
+        ),
+    )
+    assert (run.ran_count(), run.inapplicable_count()) == (1, 1)
+    _yaml, md = write_physics_report(run, tmp_path, date="2026-10-22")
+    assert "1 case(s) ran and 1 were left out as INAPPLICABLE" in md.read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize("bad", [float("nan"), float("inf")])
 def test_p0430_a_non_finite_reference_band_is_refused_f_246(bad):
     from pyflightstream.qa.errors import QaEvidenceError
