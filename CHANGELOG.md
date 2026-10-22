@@ -85,7 +85,8 @@ FlightStream versions.
 - The probe points reader refuses a table with more rows than declared and reports fewer as
   incomplete, a sectional loads export printed twice is refused, and the residual history
   table gains `velocity_overflowed` and `pressure_overflowed`.
-- A declined cell of the campaign sweep table is written as the NA token, not an empty field.
+- A missing cell of every table `write_table` and `to_csv` write, the campaign sweep table
+  included, is written as the NA token, not an empty field.
 - `show` lists the outcome first and the record last; `diff` names the input a changed script
   line comes from; a rebuild refusal names every changed line; `history` reports an unreadable
   zip as an error row; `trace` refuses provenance outside the workspace.

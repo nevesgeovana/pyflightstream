@@ -580,3 +580,12 @@ def test_f251_a_declined_cell_of_the_sweep_table_writes_as_na(tmp_path):
     cells = dict(zip(header.split(","), row.split(","), strict=True))
     assert cells["CDI"] == "NA", row
     assert cells["CL"] == "0.4", row
+
+
+def test_rb5_write_table_states_the_na_token_it_writes_for_every_table():
+    """RB5: F-251 changed every table write_table and to_csv write, and the docstring says so."""
+    from pyflightstream.results.tables import write_table
+
+    stated = " ".join((write_table.__doc__ or "").split())
+    assert "is written as the ``NA`` token, never as an empty field" in stated, stated
+    assert ":func:`to_csv` included" in stated, stated
