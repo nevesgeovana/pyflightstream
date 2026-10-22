@@ -779,3 +779,22 @@ def test_goal019_plan_a_plan_from_before_the_pin_is_refused(tmp_path, capsys):
 
     assert main(run_args(workspace, FIXTURE)) == 2
     assert "does not say which matrix" in capsys.readouterr().err
+
+
+def test_f1572_the_additional_post_abort_does_not_say_that_nothing_ran(monkeypatch, capsys):
+    """F-1572: an abort after earlier extractions completed says their records are kept."""
+    from types import SimpleNamespace
+
+    from pyflightstream.run import cli
+    from pyflightstream.run import matrix as matrix_module
+
+    def stops(*args, **keywords):
+        raise ValueError("the third extraction could not be planned")
+
+    monkeypatch.setattr(matrix_module, "run_additional_post", stops)
+    args = SimpleNamespace(matrix="m.toml", fs_version="26.124", recipe=[], fs_exe=None, local=True)
+    assert cli._additional_post(args, None) is None
+    said = capsys.readouterr().err
+    assert "the third extraction could not be planned" in said
+    assert "not run" not in said
+    assert "finished before the stop keeps its record" in said

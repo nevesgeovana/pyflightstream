@@ -883,7 +883,11 @@ def _additional_post(
         OSError,
         ValueError,
     ) as error:
-        print(f"additional post not run: {error}", file=sys.stderr)
+        print(
+            f"additional post stopped: {error}. Any extraction that finished before the stop keeps "
+            "its record (additional.json); the ones not reached were not started.",
+            file=sys.stderr,
+        )
         return None
     by_run = {record.run_id: record for record in records}
     asks_nothing = {
