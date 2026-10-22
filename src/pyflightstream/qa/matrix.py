@@ -50,11 +50,12 @@ reduction of what the manifest holds.
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import warnings
 from collections.abc import Mapping
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 import numpy as np
@@ -809,6 +810,7 @@ def reduce_physics(
         )
     records = [record for points in by_row.values() for record in points]
     versions = _require_one_build(records, path)
+    _require_one_invocation(records, path)
     results: list[CaseResult] = []
     steady_rows = by_case.get("PHY-01", [])
     left_out = _left_out_of_the_run(
@@ -863,7 +865,7 @@ def reduce_physics(
         line = f"Flightstream version {record.fs_version_reported}, build {record.fs_build}"
         if line not in identity:
             identity.append(line)
-    executables = sorted({Path(record.fs_exe).name for record in records if record.fs_exe})
+    executables = sorted({_exe_file_name(record.fs_exe) for record in records if record.fs_exe})
     digests = sorted({record.fs_exe_sha256 for record in records if record.fs_exe_sha256})
     return PhysicsRun(
         version=versions[0],
@@ -877,6 +879,46 @@ def reduce_physics(
         executor=next((record.executor for record in records if record.executor), None),
         source=source or f"{path.name} in workspace {Path(workspace.root).name}",
     )
+
+
+def _exe_file_name(recorded: str | Path) -> str:
+    """Return the bare file name of a recorded executable path, whichever system recorded it.
+
+    PureWindowsPath reads both separators, so a Windows-recorded path reduced on POSIX still
+    gives a file name and never a directory in a committed report (X-F-1335).
+    """
+    return PureWindowsPath(recorded).name
+
+
+def _require_one_invocation(records: list[RunRecord], path: Path) -> None:
+    """Refuse records whose points were solved under different solver invocations (F-556).
+
+    The report states one invocation, read off the first record that carries it; points
+    resumed under other settings would read as that one.
+    """
+    # What identifies an invocation is the executor class, the local switch and the flags it
+    # passed; the script and the other path tokens differ from one point to the next.
+    kinds = sorted(
+        {
+            (
+                record.executor["class_name"],
+                bool(record.executor.get("forced_local")),
+                " ".join(token for token in record.executor["argv"][1:] if token.startswith("-")),
+            )
+            for record in records
+            if record.executor
+        }
+    )
+    if len(kinds) > 1:
+        shown = "; ".join(
+            f"{name}{' (forced local)' if forced else ''} with {flags or 'no flags'}"
+            for name, forced, flags in kinds
+        )
+        raise PhysicsEnvironmentError(
+            f"the records of {path.name} were solved under {len(kinds)} different solver "
+            f"invocations ({shown}), and a physics report states one; rerun the points "
+            "under the same settings."
+        )
 
 
 def _check_executable_records(records: list[RunRecord], path: Path, version: str) -> None:
@@ -986,8 +1028,16 @@ def _reduce_after_the_run(
         ) from error
 
 
+def _toml_string(value: str) -> str:
+    """Return ``value`` as a TOML basic string, quotes and backslashes escaped (F-710)."""
+    return json.dumps(value, ensure_ascii=False)
+
+
 def _overlay_line(build_id: str, fs_exe: str | Path, version: str) -> str:
-    return f'"{build_id}" = {{ path = "{Path(fs_exe).as_posix()}", version = "{version}" }}\n'
+    return (
+        f"{_toml_string(build_id)} = {{ path = {_toml_string(Path(fs_exe).as_posix())}, "
+        f"version = {_toml_string(version)} }}" + chr(10)
+    )
 
 
 def drift_from_workspace(

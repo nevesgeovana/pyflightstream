@@ -604,3 +604,43 @@ def test_p0430_a_reduction_error_is_a_case_error_not_a_post_run_abort_x_f_0539()
     from pyflightstream.qa import matrix as driver
 
     assert ValueError in driver._CASE_FAILURES and ArithmeticError in driver._CASE_FAILURES
+
+
+def test_p0430_the_overlay_line_escapes_quotes_and_backslashes_f_710():
+    import tomllib
+
+    from pyflightstream.qa.matrix import _overlay_line, _toml_string
+
+    build = 'b"ad'
+    exe = '/opt/fs"q/exe'
+    parsed = tomllib.loads(_overlay_line(build, exe, "26.124"))
+    assert parsed == {build: {"path": exe, "version": "26.124"}}
+    # A backslash is escaped too, which a POSIX path may carry and as_posix leaves alone.
+    awkward = "a" + chr(92) + "b" + chr(34) + "c"
+    assert tomllib.loads("k = " + _toml_string(awkward))["k"] == awkward
+
+
+def test_p0430_records_under_two_invocations_are_not_reported_as_one_f_556():
+    import types
+    from pathlib import Path
+
+    from pyflightstream.qa.matrix import _require_one_invocation
+    from pyflightstream.qa.physics import PhysicsEnvironmentError
+
+    def record(flag, script):
+        argv = ["fs.exe", *([flag] if flag else []), script]
+        return types.SimpleNamespace(executor={"class_name": "LocalExecutor", "argv": argv})
+
+    # The script differs from point to point and is not part of the invocation.
+    _require_one_invocation([record("-hidden", "a.py"), record("-hidden", "b.py")], Path("m.fs"))
+    with pytest.raises(PhysicsEnvironmentError, match="2 different solver invocations"):
+        _require_one_invocation([record("-hidden", "a.py"), record(None, "b.py")], Path("m.fs"))
+
+
+def test_p0430_a_windows_recorded_executable_path_reduces_to_its_file_name_x_f_1335():
+    from pyflightstream.qa.matrix import _exe_file_name
+
+    backslash = chr(92)
+    windows = "D:" + backslash + "fs" + backslash + "Flightstream.exe"
+    assert _exe_file_name(windows) == "Flightstream.exe"
+    assert _exe_file_name("/opt/fs/Flightstream.exe") == "Flightstream.exe"
