@@ -542,6 +542,10 @@ def _relink_inputs(main: CampaignWorkspace, other: Path, sim_name: str) -> str |
         return None
     if target_inputs.is_dir() and any(target_inputs.iterdir()):
         return None
+    for folder in (main.root / "sims", target_inputs.parent):
+        if is_reparse(folder):
+            # F-746: sync never writes through a link, the inputs link included.
+            return f"not linked: {folder.name} is a link, and sync never writes through a link"
     source_inputs = other / "sims" / sim_name / "inputs"
     if not is_reparse(source_inputs):
         return (
