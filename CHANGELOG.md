@@ -74,6 +74,10 @@ FlightStream versions.
   only that product: it is named under `skipped` with its type and message, and the
   independent products of the simulation and of its points are still written and indexed,
   instead of the failure ending the whole post.
+- The rotor-coefficients definition of a static point now states what the rotor table
+  does: coefficients are taken back to loads with the reference dynamic pressure
+  `rho VREF^2 / 2`, so a static point with a positive `VREF` has `CT`, `CQ` and `CP`, and
+  only a zero or unstated `VREF` reads `NA`; `VREF` also sets the Reynolds number in hover.
 
 ### Fixed
 

@@ -104,8 +104,9 @@ CMS = MS / (rho n^2 D^5)
 - The sense of rotation does not enter them: none is a power.
 - **An axis along the up direction has no normal and no side axis.** The four
   read `NA` on every row, and the post says so once for the table, in its log.
-  They also read `NA` wherever `CT` does (a static point, a loads frame that
-  is not the geometry's), because they come from the same force.
+  They also read `NA` wherever `CT` does (a zero or unstated reference speed,
+  a loads frame that is not the geometry's), because they come from the same
+  force.
 - On an unsteady point they are the window's average, as every other column
   of the row is. On a quasi-steady wheel they are of the mean loads over its
   clockings, as every other column of the row is, and on a
@@ -114,9 +115,24 @@ CMS = MS / (rho n^2 D^5)
 
 ### A static point
 
-Every rotor coefficient reads `NA` on a static point except `J`, which is a real
-`0.00000`. The export states coefficients normalised by the run's own dynamic
-pressure; at `V = 0` that pressure is zero and the rotor's real thrust has been
-divided away before the package sees it. **No rotor coefficient is recoverable
-from a static point whatever the package does**, which is also why a hover figure
-of merit cannot be offered: it needs a force the run does not state.
+**A zero free stream and a zero reference speed are two different things.** A
+static point has a zero free stream: `J` is a real `0.00000`, and `ETA` and
+`ETAW`, which divide by the free-stream speed, read `NA`. The export states its
+coefficients normalised by the reference dynamic pressure
+
+```text
+qref = rho VREF^2 / 2
+```
+
+where `VREF` is the run's reference velocity, and the rotor table takes them
+back to newtons and newton-metres with that `qref`. So a static point with a
+positive `VREF` has its forces and moments, and `CT`, `CQ`, `CP` and the
+in-plane coefficients are written from them. A point whose `VREF` is zero or
+not stated has a zero `qref`: no load is recoverable from coefficients divided
+by it, and every rotor coefficient reads `NA` except `J`.
+
+`VREF` is not a pure scale factor in hover. The reference speed also sets the
+Reynolds number of the solve, so two hover runs that differ only in `VREF` can
+differ in their solution and not only in their normalisation; the measured
+hover arms behind this definition are in the hover normalisation report under
+`reports/`. A hover figure of merit is not a column of the table.

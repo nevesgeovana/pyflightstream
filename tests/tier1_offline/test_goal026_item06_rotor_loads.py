@@ -313,6 +313,45 @@ def test_p0420_hover_with_positive_vref_pins_current_reconstruction(tmp_path):
     assert rows[0]["ETA_PUSHER"] == rows[0]["ETAW_PUSHER"] == NOT_APPLICABLE
 
 
+@pytest.mark.requirement("FR-3217")
+@pytest.mark.parametrize("vref", [40.0, 0.0])
+def test_p0430_a_static_point_follows_its_definition_of_the_reference_speed(tmp_path, vref):
+    """The definition of record and the table agree: VREF > 0 recovers, VREF = 0 cannot."""
+    from pathlib import Path
+
+    from pyflightstream.post.products import NOT_APPLICABLE, read_csv_table, write_rotor_table
+
+    page = (
+        Path(__file__).resolve().parents[2] / "docs" / "definitions" / "rotor-coefficients.md"
+    ).read_text(encoding="utf-8")
+    static = page.split("### A static point", 1)[1].split("\n### ", 1)[0]
+    assert "qref = rho VREF^2 / 2" in static
+    assert "Reynolds number" in static and "reports/" in static
+    assert "No rotor coefficient is recoverable" not in page
+    path = write_rotor_table(
+        tmp_path / "hover.csv",
+        rotor=_rotor("Z"),
+        rows=[
+            {
+                "surfaces": _surfaces(Blade1={"Cz": 0.5, "CMz": 0.25}),
+                "condition": {"MACH": 0.0, "VREF": vref},
+                "rpm": 3000.0,
+                "density": 1.225,
+                "speed": vref,
+                "free_stream": 0.0,
+            }
+        ],
+        reference=_reference(),
+    )
+    _, rows = read_csv_table(path)
+    assert float(rows[0]["J_PUSHER"]) == 0.0
+    assert rows[0]["ETA_PUSHER"] == NOT_APPLICABLE
+    if vref > 0.0:
+        assert float(rows[0]["CT_PUSHER"]) == pytest.approx(0.1)
+    else:
+        assert rows[0]["CT_PUSHER"] == rows[0]["CQ_PUSHER"] == NOT_APPLICABLE
+
+
 def test_a_rotor_that_is_not_turning_writes_no_table(tmp_path):
     """Every coefficient divides by the speed, so there is no table to write."""
     from pyflightstream.post.products import write_rotor_table
