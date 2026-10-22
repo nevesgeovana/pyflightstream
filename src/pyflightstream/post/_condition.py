@@ -526,9 +526,11 @@ def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, i
 
 
 #: How far an export's printed reference may sit from the stated one and still be
-#: the same number: the export prints three decimals, so half of the last one and
-#: nothing else. The definition warns "by more than the export's printed precision",
-#: and a part relative to the area widened that precision tenfold for a large one.
+#: the same number: the recorded loads exports under tests/ print three decimals, so
+#: half of the last one and nothing else (no committed report states the print width;
+#: it is read from those recorded files). The definition warns "by more than the
+#: export's printed precision", and a part relative to the area widened that precision
+#: tenfold for a large one.
 _REFERENCE_PRINT_TOLERANCE = 5.0e-4
 
 
