@@ -1,4 +1,4 @@
-"""Tier 1: the six 0.21.0 behaviours that shipped with no test (GOAL-024, CLOSE-0210).
+"""Tier 1: the 0.21.0 behaviours that shipped with no test (GOAL-024, CLOSE-0210).
 
 The qa lens of the closing round grepped `tests/` for the operative content of
 six new refusals and next-step messages and found nothing for any of them. Each
@@ -15,9 +15,10 @@ and a reader looking for what CLOSE-0210 established should find it in one place
 * `EXPORT_LOG` refusing a word it does not know, rather than reading it as the
   permissive side;
 * a non-numeric `FLIGHT_CONDITION` value raising the `CampaignConfigError` its
-  caller's Raises section promises;
-* the rehearsal of `rename` reporting the manifest archive and the plan rewrite;
-* every arm of `rename` ending with the next step.
+  caller's Raises section promises.
+
+The rehearsal of `rename` and its next-step report are not covered here (the
+module once promised them and never held them); the `pyfs-run` tests own that CLI.
 """
 
 from __future__ import annotations
@@ -265,6 +266,3 @@ def test_goal024_closing_round_the_same_workspace_fully_collected_posts_that_sim
 
     names = [path.name for path in written]
     assert any("6001" in name for name in names), names
-
-
-# ------------------------------------------------------- the command says what next
