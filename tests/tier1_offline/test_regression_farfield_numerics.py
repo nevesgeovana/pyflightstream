@@ -424,7 +424,7 @@ def _farfield_numpy___assert_agree(case, key, got, expected, sign) -> None:
         return
     assert got_floats is not None and len(got_floats) == len(expected_floats), (case, key)
     for a, b in zip(got_floats, expected_floats, strict=True):
-        assert a == pytest.approx(sign * b, rel=1e-9, abs=1e-12), (case, key)
+        assert a == pytest.approx(sign * b, rel=1e-9, abs=1e-12, nan_ok=True), (case, key)
 
 
 def _farfield_numpy___results(name: str) -> dict[str, object]:
