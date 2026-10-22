@@ -150,6 +150,17 @@ def test_an_ordinary_blade_is_still_accepted():
     assert len(blade.station_radii_m) == 4
 
 
+@pytest.mark.requirement("NFR-120")
+def test_p0430_finite_distributions_keep_every_value_exactly():
+    """NFR-120, the finite-input control of NFR-47: the non-finite guard changes no
+    finite value of any distribution, to the last bit."""
+    kwargs = _uniform_blade_kwargs()
+    kwargs["chord_m"] = [0.1, 0.1 + 1e-15, 0.0999999999999, 0.12]
+    blade = BladeProperties(**kwargs)
+    for name, values in kwargs.items():
+        assert [float(v) for v in getattr(blade, name)] == values, name
+
+
 def test_the_ordinary_physical_refusals_still_fire():
     """The other control.
 

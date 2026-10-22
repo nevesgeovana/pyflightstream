@@ -540,11 +540,15 @@ def inflow_harmonics_map(
     Raises
     ------
     ProductError
-        For a non-positive ``J``, diameter, speed or blade count, a ``sense``
-        other than +-1, or what :func:`blade_view_harmonics` refuses.
+        For a non-positive or non-finite ``J``, diameter or speed, a
+        non-positive blade count, a ``sense`` other than +-1, or what
+        :func:`blade_view_harmonics` refuses.
     """
     if sense not in (1, -1):
         raise ProductError(f"refused: sense is +1 or -1; got {sense!r}.")
+    for name, value in (("diameter_m", diameter_m), ("v_inf_m_s", v_inf_m_s)):
+        if not math.isfinite(value):
+            raise ProductError(f"refused: {name} is a finite number; got {value!r}.")
     if diameter_m <= 0.0 or v_inf_m_s <= 0.0 or blades < 1 or not advance_ratios:
         raise ProductError(
             "refused: a J map needs a positive diameter and free-stream speed, at least one "
@@ -552,8 +556,8 @@ def inflow_harmonics_map(
         )
     stations: list[tuple[float, InflowStationHarmonics]] = []
     for j in advance_ratios:
-        if j <= 0.0:
-            raise ProductError(f"refused: an advance ratio is positive; got {j!r}.")
+        if not math.isfinite(j) or j <= 0.0:
+            raise ProductError(f"refused: an advance ratio is a positive finite number; got {j!r}.")
         omega = sense * 2.0 * math.pi * v_inf_m_s / (j * diameter_m)
         for station in blade_view_harmonics(
             rows, hub=hub, axis=axis, omega_rad_s=omega, radii_m=radii_m, chords_m=chords_m

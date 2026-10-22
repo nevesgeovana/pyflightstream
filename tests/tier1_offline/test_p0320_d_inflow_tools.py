@@ -337,6 +337,24 @@ def test_p0320_inflow_harmonics_j_map_writes_the_two_tables(tmp_path):
     assert len(full.read_text().splitlines()) == 1 + 4
 
 
+@pytest.mark.requirement("NFR-47")
+@pytest.mark.parametrize("field", ["diameter_m", "v_inf_m_s", "advance_ratios"])
+@pytest.mark.parametrize("bad", [math.nan, math.inf])
+def test_p0430_inflow_harmonics_j_map_refuses_a_value_that_is_not_finite(field, bad):
+    """PFS-2130.043: a NaN or infinite J, diameter or speed is refused naming it."""
+    inputs = {"diameter_m": 1.0, "v_inf_m_s": 30.0, "advance_ratios": [0.8]}
+    inputs[field] = [bad] if field == "advance_ratios" else bad
+    with pytest.raises(ValueError, match="refused: .*(finite|advance ratio)"):
+        inflow_tools.inflow_harmonics_map(
+            _uniform_at_aoa(5.0),
+            hub=(0.0, 0.0, 0.0),
+            axis=(1.0, 0.0, 0.0),
+            radii_m=[0.25],
+            blades=6,
+            **inputs,
+        )
+
+
 # ------------------------------------------------ P0320-FILL-INTERIOR
 
 

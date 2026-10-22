@@ -234,6 +234,13 @@ def isa(altitude_m: float = 0.0, *, delta_isa_c: float = 0.0) -> AtmosphereState
         as a DELTA. Defaults to 0. Pressure is unaffected by it; see the
         module docstring.
 
+    Raises
+    ------
+    AtmosphereError
+        For an altitude outside the modelled range, a deviation that is
+        NaN or infinite, or a deviation that puts the temperature at or
+        below absolute zero.
+
     Examples
     --------
     >>> state = isa()
@@ -251,7 +258,7 @@ def isa(altitude_m: float = 0.0, *, delta_isa_c: float = 0.0) -> AtmosphereState
     >>> hot.density_kg_m3 < state.density_kg_m3
     True
     """
-    _require_finite("ISA deviation", delta_isa_c)
+    _require_finite("delta_isa_c (the ISA deviation, degrees C)", delta_isa_c)
     pressure = standard_pressure(altitude_m)
     temperature = standard_temperature(altitude_m) + delta_isa_c
     if not math.isfinite(temperature):

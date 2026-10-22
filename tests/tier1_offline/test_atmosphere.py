@@ -163,6 +163,14 @@ def test_a_deviation_in_celsius_needs_no_kelvin_conversion():
         )
 
 
+@pytest.mark.requirement("NFR-47")
+@pytest.mark.parametrize("deviation", [math.nan, math.inf, -math.inf])
+def test_p0430_a_deviation_that_is_not_a_number_is_refused_naming_it(deviation):
+    """PFS-2130.016: a NaN or infinite ISA deviation is refused, never an all-NaN state."""
+    with pytest.raises(AtmosphereError, match="delta_isa_c"):
+        isa(0.0, delta_isa_c=deviation)
+
+
 def test_zero_deviation_is_the_default_and_is_the_standard_atmosphere():
     """The default that makes a short constraint set resolvable at all."""
     assert isa(5000.0) == isa(5000.0, delta_isa_c=0.0)

@@ -297,6 +297,8 @@ FlightStream versions.
   committed `version` the overlay does not repeat is kept.
 - The geometry clean refuses a saved simulation whose block markers nest or close a block
   that is not open, naming the block and the line, and writes nothing.
+- `isa()` refuses a NaN or infinite `delta_isa_c`, and the inflow J map refuses a
+  non-finite diameter, free-stream speed or advance ratio, each naming the value.
 
 ## [0.42.0] - 2026-10-16
 
