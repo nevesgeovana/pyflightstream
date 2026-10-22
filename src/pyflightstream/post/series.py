@@ -95,9 +95,10 @@ LISTED_KINDS: tuple[tuple[str, str, str], ...] = (
     ("csv", "", "csv"),
 )
 
-#: The columns of one loads spreadsheet row, in the solver's order, as every
-#: build up to 26.124 prints them. 26.125 prints its drag split ``CDp, CDv`` in
-#: the places of ``CDi, CDo`` (FR-423), and a series carries the names its
+#: The columns of one loads spreadsheet row, in the solver's order, as the recorded
+#: 26.123 and 26.124 print them. 26.125 prints its drag split ``CDp, CDv`` in
+#: the places of ``CDi, CDo`` (FR-423; RPT-160, "FlightStream 26.125 registered from
+#: its manual and its outputs", 2026-10-05), and a series carries the names its
 #: steps printed (:func:`_printed_loads_columns`).
 LOADS_COLUMNS: tuple[str, ...] = ("Cx", "Cy", "Cz", "CL", "CDi", "CDo", "CMx", "CMy", "CMz")
 
