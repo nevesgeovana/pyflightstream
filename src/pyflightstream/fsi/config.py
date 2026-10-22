@@ -688,6 +688,8 @@ class FsiConfig(BaseModel):
 
         ``direct_deflected`` is not a value of the route; it is read before the
         route's type so the refusal explains it rather than listing the values.
+        The measurement is RPT-155 (direct aeroelastic morphing on 26.125,
+        2026-10-05: arm Q3 DEFLECTED did not close the exact two-cycle check).
         """
         if isinstance(data, dict) and data.get("morphing") == DIRECT_MORPHING_DEFLECTED:
             raise ValueError(
