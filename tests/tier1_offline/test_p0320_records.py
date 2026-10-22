@@ -821,65 +821,97 @@ def test_rebuild_refuses_another_version_even_when_its_script_matches(tmp_path, 
     assert "0.29.0" in reason and "campaign_sweep.csv" in reason, reason
 
 
-def test_pfs_2126_032_the_read_only_collect_is_a_write_policy_not_a_patch(tmp_path, monkeypatch):
+def test_pfs_2126_032_the_read_only_collect_is_a_write_policy_not_a_patch(tmp_path):
     """PFS-2126.032: collect_once gets the refusals as ``writes``; the module is left as it is."""
+    import types
+
     from pyflightstream.run import collect as collect_module
 
     workspace, _matrix_path, _job = _submitted_campaign(tmp_path)
     sim = workspace.root / "sims"
     _quiet(sim)
-    names = ("_copy_native_log", "translate_surface_exports", "ensure_sim_expanded")
-    originals = {name: getattr(collect_module, name) for name in names}
-    real = collect_module.collect_once
-    given: list[object] = []
+    assigned: list[str] = []
 
-    def spy(*args, **keywords):
-        given.append(keywords.get("writes"))
-        for name in names:
-            assert getattr(collect_module, name) is originals[name], f"{name} was patched"
-        return real(*args, **keywords)
+    class Recording(types.ModuleType):
+        """The collect module, noting every attribute anything sets on it."""
 
-    monkeypatch.setattr(collect_module, "collect_once", spy)
+        def __setattr__(self, name, value):
+            assigned.append(name)
+            super().__setattr__(name, value)
+
     before = _tree(workspace.root)
-    records.rebuild(workspace.root, all_sims=True, out="runs-all.json")
+    collect_module.__class__ = Recording
+    try:
+        records.rebuild(workspace.root, all_sims=True, out="runs-all.json")
+    finally:
+        collect_module.__class__ = types.ModuleType
     after = _tree(workspace.root)
-    (writes,) = given
-    assert isinstance(writes, collect_module.CollectWrites)
-    assert writes.copy_native_log is not originals["_copy_native_log"]
+    patched = [name for name in assigned if name != "__class__"]
+    assert patched == [], f"the rebuild set {patched} on the collect module"
     assert {key: after[key] for key in before} == before, "the rebuild changed a path"
 
 
 def test_f716_the_temporary_file_is_not_a_name_another_process_can_plant(tmp_path):
     """F-716: a file at the predictable PID name is left alone, never written through."""
-    target = tmp_path / "runs.json"
-    planted = tmp_path / f"runs.json.{os.getpid()}.tmp"
+    live = _write(tmp_path / "post/matrix-lnx/products.json", '{"products": {"now": 1}}\n')
+    source = _write(
+        tmp_path / "post/matrix-lnx/archive/20200101-120000/products.json",
+        '{"products": {"then": 1}}\n',
+    )
+    planted = live.parent / f"products.json.{os.getpid()}.tmp"
     planted.write_text("victim", encoding="utf-8")
-    record_files._replace_bytes(target, b"[]")
-    assert target.read_bytes() == b"[]"
+    records.restore(tmp_path, "products", apply=True, matrix="matrix-lnx")
+    assert live.read_bytes() == source.read_bytes()
     assert planted.read_text(encoding="utf-8") == "victim"
-    assert sorted(path.name for path in tmp_path.iterdir()) == sorted([planted.name, "runs.json"])
 
 
-def test_f605_scripts_joined_for_the_comparison_keep_their_boundaries():
-    """F-605: a line that moved between two point scripts is not the same pair of scripts."""
-    from pyflightstream.run._rebuild import _joined_scripts
+def test_f605_scripts_joined_for_the_comparison_keep_their_boundaries(tmp_path):
+    """F-605: a newline that moved between two point scripts is not the same pair of scripts."""
+    from tests.support_helpers import ROTOR_BUILD, grouped_plan_fixture
+    from tests.tier1_offline.test_matrix_run import WRITES_EVERY_EXPORT, CountingStub, converged
 
-    one = _joined_scripts({"a.txt": "X\nY\n", "b.txt": "Z\n"})
-    moved = _joined_scripts({"a.txt": "X\n", "b.txt": "Y\nZ\n"})
-    assert one != moved
-    assert _joined_scripts({"b.txt": "Z\n", "a.txt": "X\nY\n"}) == one
+    workspace, matrix = grouped_plan_fixture(tmp_path, walltimes=("2h",), sweep="0.0,2.0")
+    run_matrix(
+        matrix,
+        workspace,
+        name="rotor",
+        default_fs_version=ROTOR_BUILD,
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=CountingStub(WRITES_EVERY_EXPORT),
+    )
+    ran = workspace.read_manifest()
+    sim = workspace.sim_dir(ran[0].sim_id)
+    first, second = sorted(sim / str(record.script_path) for record in ran)
+    shutil.move(matrix, workspace.root / matrix.name)
+    _lose_the_manifest(workspace)
+    assert len(records.rebuild(workspace.root)["records"]) == 2
+    # The closing newline of the first script moves to the start of the second: the two
+    # scripts read one after the other are the same text, and neither is the script that ran.
+    text = first.read_text(encoding="utf-8")
+    first.write_text(text[:-1], encoding="utf-8")
+    second.write_text("\n" + second.read_text(encoding="utf-8"), encoding="utf-8")
+    moved = records.rebuild(workspace.root)
+    assert moved["records"] == []
+    assert "not the script" in moved["refused"][ran[0].sim_id]
 
 
 def test_f606_a_rebuilt_record_never_states_the_digest_of_the_executable_that_ran(
     tmp_path, monkeypatch
 ):
     """F-606: the shadow hashed the executable of THIS machine, now; it is not the one that ran."""
-    from pyflightstream.run import _points
-
-    workspace, _matrix_path, _original = _local_campaign(tmp_path, monkeypatch)
+    workspace, _matrix_path, original = _local_campaign(tmp_path, monkeypatch)
     _lose_the_manifest(workspace)
     # The executable of this machine, now: the shadow run hashes it; the rebuild must not keep it.
-    monkeypatch.setattr(_points, "_file_digest", lambda _path: "a" * 64)
+    here = tmp_path / "FlightStream.exe"
+    here.write_bytes(b"the executable that is here now")
+    registry = workspace.inputs_dir / "executables.toml"
+    registry.write_text(
+        registry.read_text(encoding="utf-8").replace("C:/fs/FS.exe", here.as_posix()),
+        encoding="utf-8",
+    )
+    assert original["fs_exe_sha256"] is None  # the run itself had no executable to hash here
     (rebuilt,) = records.rebuild(workspace.root)["records"]
     assert rebuilt["fs_exe_sha256"] is None
     said = " ".join(rebuilt["warnings"])
@@ -923,18 +955,50 @@ def test_f614_a_descriptor_in_a_batch_that_does_not_hold_the_scripts_is_not_this
     assert evidence.descriptor_folder(base, stale, work, profile) == stale.parent
 
 
-def test_f607_a_plan_that_lists_the_point_in_another_batch_is_not_attached(tmp_path, monkeypatch):
+def test_f607_a_plan_that_lists_the_point_in_another_batch_is_not_attached(tmp_path):
     """F-607: the plan's job is attached only if it is the batch the executed script names."""
-    from types import SimpleNamespace
-
     from pyflightstream.run import _rebuild_grouped as grouped
+    from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt
 
     run_id = "camp/sim_7/AL+000"
-    job = SimpleNamespace(points=(run_id,), label="m_b1", dir="sims/batch/m_b1/", batch_id=1)
-    monkeypatch.setattr(
-        grouped, "_read_receipt", lambda _base, _stem: (SimpleNamespace(jobs=(job,)), None)
+    job = GroupedJob(
+        name="BATCH-7-7",
+        batch_id=1,
+        label="m_b1",
+        dir="sims/batch/m_b1/",
+        script="sims/batch/m_b1/BATCH-7-7.txt",
+        sims=("7",),
+        points=(run_id,),
+        fs_build="26.124",
+        ncpus=1,
+        estimate_s=None,
+        estimate_basis="",
+        fallback_points=(),
+        unestimated_points=(),
+        overheads_s={},
+        factor=1.25,
+        margin_s=0.0,
+        walltime_s=None,
+        walltime_written="",
+        walltime_source="none",
+        fits=None,
+        shortfall_s=None,
     )
-    monkeypatch.setattr(grouped, "_entry", lambda *_args, **_keywords: {"label": "m_b1"})
+    receipt = GroupingReceipt(
+        schema="pyfs-grouping/1",
+        mode="batch",
+        requested=1,
+        selection={"sims": None, "points": None},
+        jobs=(job,),
+        left_out=(),
+        total_estimate_s=None,
+        longest_estimate_s=None,
+        max_walltime_s=None,
+        warnings=(),
+    )
+    plan = tmp_path / "post" / "m" / "plan.json"
+    plan.parent.mkdir(parents=True)
+    plan.write_text(json.dumps({"grouping": receipt.to_json()}), encoding="utf-8")
     home = tmp_path / "sims" / "sim_7"
 
     def point(batch):
@@ -949,7 +1013,8 @@ def test_f607_a_plan_that_lists_the_point_in_another_batch_is_not_attached(tmp_p
             descriptor_name=None,
         )
 
-    assert point("m_b1").entry == {"label": "m_b1"}
+    attached = point("m_b1").entry
+    assert attached is not None and attached["label"] == "m_b1"
     elsewhere = point("m_b2")
     assert elsewhere.entry is None and elsewhere.label == "m_b2"
 
@@ -971,20 +1036,20 @@ def test_p0430_a_restored_products_record_archives_the_displaced_one_first_fr_29
     assert current.read_bytes() == source.read_bytes()
 
 
-def test_x_f_0565_reactivation_reads_run_as_the_matrix_reader_does(tmp_path):
+@pytest.mark.parametrize("off", ["00", "+0"])
+def test_x_f_0565_reactivation_reads_run_as_the_matrix_reader_does(tmp_path, monkeypatch, off):
     """RUN is an integer to the matrix reader, so 00 and +0 switch on like 0."""
-    from pyflightstream.run._rebuild_evidence import _reactivate
-
-    matrix = tmp_path / "m.txt"
-    matrix.write_text(
-        "| POL | RUN |\n| 5001 | 00 |\n| 5002 | 0 |\n| 5003 | +0 |\n| 5004 | 1 |\n",
-        encoding="utf-8",
-    )
-    assert _reactivate(matrix, {"5001", "5002", "5003", "5004"}) == ["5001", "5002", "5003"]
-    runs = [
-        line.split("|")[2].strip() for line in matrix.read_text(encoding="utf-8").splitlines()[1:]
-    ]
-    assert runs == ["1", "1", "1", "1"]
+    workspace, matrix, original = _local_campaign(tmp_path, monkeypatch)
+    header, rule, row = matrix.read_text(encoding="utf-8").splitlines()
+    cells = row.split(" | ")
+    cells[header.split(" | ").index("RUN")] = off
+    matrix.write_text("\n".join((header, rule, " | ".join(cells))) + "\n", encoding="utf-8")
+    sha = _sha(matrix)
+    _lose_the_manifest(workspace)
+    (rebuilt,) = records.rebuild(workspace.root)["records"]
+    assert rebuilt["run_id"] == original["run_id"]
+    assert any("shadow copy" in line for line in rebuilt["warnings"])
+    assert _sha(matrix) == sha, "the user's matrix was edited"
 
 
 def test_x_f_0565_a_simulation_the_matrix_does_not_name_is_a_refusal_not_stop_iteration(

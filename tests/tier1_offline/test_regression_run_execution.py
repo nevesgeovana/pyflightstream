@@ -319,14 +319,21 @@ class TestLast6Continuation:
     @staticmethod
     def test_f1457_an_undecodable_script_is_the_conservative_fallback(tmp_path):
         # Verifies F-1457: UnicodeDecodeError ends in None, as a missing script does.
-        from pyflightstream.run._continuation_frame import _marched_steps
+        from pyflightstream.cases.workflows._rows import RestartRequest
+        from pyflightstream.run._continuation_frame import recorded_requests
         from tests.tier1_offline.test_restart_continuation import _stopped_record
 
-        record = _stopped_record()
-        script = tmp_path / str(record.script_path)
+        earlier = _stopped_record()
+        latest = earlier.model_copy(
+            update={"run_id": "camp/sim_9001/r2/AL+000", "continues": earlier.run_id}
+        )
+        workspace = CampaignWorkspace.init(tmp_path / "camp")
+        script = workspace.sim_dir("9001") / str(latest.script_path)
         script.parent.mkdir(parents=True)
         script.write_bytes(b"\xff\xfe\x00 not utf-8")
-        assert _marched_steps(tmp_path, record) is None
+        answered = recorded_requests(workspace, [earlier, latest])
+        # A script that cannot be read answers the request, so it is not continued again.
+        assert answered(latest, RestartRequest(form="FINISH_PENDING", value=None)) is True
 
     @staticmethod
     def test_f840_a_max_iter_reached_run_recovers_its_step_counter(tmp_path):
@@ -1298,26 +1305,24 @@ class TestRun1Review:
         assert sorted((workspace.root / "archive").glob("runs-*.json")) == archives
 
 
-def test_f6_0102_two_different_points_with_one_run_id_are_both_refused():
+def test_f6_0102_two_different_points_with_one_run_id_are_both_refused(tmp_path):
     """F-1453: a run id names one point, so a collision keeps neither point."""
-    from types import SimpleNamespace
+    import shutil
 
-    from pyflightstream.run._assemble import _settle_points
+    from tests.tier1_offline.test_post_superfile import _loads
 
-    def record(angle, run_id="ws/sim_1/loads"):
-        return SimpleNamespace(run_id=run_id, point={"alpha": angle})
-
-    by_point = {
-        "a": [("sims/sim_1/a/loads.txt", record(0.0))],
-        "b": [("sims/sim_1/b/loads.txt", record(2.0))],
-        "c": [("sims/sim_1/c/other.txt", record(4.0, "ws/sim_1/other"))],
-    }
-    assembled: list = []
-    refusals: dict[str, str] = {}
-    _settle_points(by_point, "1", assembled, refusals)
-    assert [item.run_id for item in assembled] == ["ws/sim_1/other"]
-    assert set(refusals) == {"sims/sim_1/a/loads.txt", "sims/sim_1/b/loads.txt"}
-    assert "one run id" in refusals["sims/sim_1/a/loads.txt"]
+    workspace = _run_1_assemble___from_sims_workspace(tmp_path)
+    sim = workspace.sim_dir("6001")
+    shutil.rmtree(sim / "outputs")
+    # Two exports of one name, in folders that are not datapoint folders: one run id, two points.
+    for folder, alpha in (("a", -2.0), ("b", 0.0)):
+        (sim / folder).mkdir()
+        (sim / folder / "loads.txt").write_text(_loads(alpha), encoding="utf-8")
+    assembled, refusals = records.assemble_records(workspace.root, "matriz")
+    assert [item.run_id for item in assembled if item.sim_id == "6001"] == []
+    refused = {name: why for name, why in refusals.items() if name.startswith("sims/sim_6001/")}
+    assert set(refused) == {"sims/sim_6001/a/loads.txt", "sims/sim_6001/b/loads.txt"}
+    assert all("one run id" in why for why in refused.values())
 
 
 def test_f6_0102_a_stale_surface_mesh_is_not_returned_as_the_fresh_export(tmp_path):
@@ -1336,56 +1341,100 @@ def test_f6_0102_a_stale_surface_mesh_is_not_returned_as_the_fresh_export(tmp_pa
         export_surface_mesh(tmp_path / "case.fsm", work, version="26.120", executor=_Succeeds())
 
 
-def test_p0430_f261_an_assembled_record_keeps_the_residual_note(tmp_path, monkeypatch):
+def test_p0430_f261_an_assembled_record_keeps_the_residual_note(tmp_path):
     """F-261: the judged residual_note travels with the recovered residual into the record."""
-    import dataclasses
+    from tests.tier1_offline.test_goal028_hpc_log_completeness import _log
 
-    import pyflightstream.run as run_package
-
-    real = run_package.LoadsAssessor
-
-    class Noted:
-        def __call__(self, *args, **kwargs):
-            return dataclasses.replace(real()(*args, **kwargs), residual_note="CAVEAT-F261")
-
-    monkeypatch.setattr(run_package, "LoadsAssessor", Noted)
     workspace = _run_1_assemble___from_sims_workspace(tmp_path)
+    outputs = workspace.sim_dir("6001") / "outputs"
+    export = outputs / "POLAR-6001_M20AL+000BE+000.txt"
+    counter = "Current solver iteration number:            "
+    export.write_text(
+        export.read_text(encoding="utf-8").replace(f"{counter}198", f"{counter}500"),
+        encoding="utf-8",
+    )
+    # A log ending at the requested limit with the residual unsettled: MAX_ITER_REACHED.
+    (outputs / "POLAR-6001_M20AL+000BE+000_log.txt").write_text(
+        _log(ends_at=500, final_velocity="+9.6000000E-2"), encoding="utf-8"
+    )
     assembled, _refusals = records.assemble_records(workspace.root, "matriz")
-    assert assembled
-    assert {record.residual_note for record in assembled} == {"CAVEAT-F261"}
+    note = {item.point_name: item.residual_note for item in assembled if item.sim_id == "6001"}
+    assert "iteration limit" in str(note["POLAR-6001_M20AL+000BE+000"])
+    assert note["POLAR-6001_M20AL-020BE+000"] is None
 
 
 def test_f611_an_output_of_the_same_name_does_not_stand_in_for_a_missing_input(tmp_path):
     # Verifies F-611: a file the run wrote is not the input it read.
-    from pyflightstream.run._identity import _where_the_run_read
+    from pyflightstream.run import reconstruct
+    from pyflightstream.workspace import KNOWN_MANIFEST_SCHEMAS
+    from tests.tier1_offline.test_restart_continuation import _stopped_record
 
-    sim = tmp_path / "sim_9001"
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    sim = workspace.sim_dir("9001")
     work = sim / "datapoints" / "DP-1"
     work.mkdir(parents=True)
     (work / "probes.csv").write_text("written by the run", encoding="utf-8")
-    outputs = [sim / "datapoints" / "DP-1" / "probes.csv"]
-    where = _where_the_run_read("probes.csv", sim, work, [], outputs)
-    assert not where.is_file()
+    (sim / "scripts").mkdir()
+    (sim / "scripts" / "point.fs").write_text("CLOSE_FLIGHTSTREAM\n", encoding="utf-8")
+    digest = sha256(b"written by the run").hexdigest()
+
+    def read_input(outputs):
+        record = _stopped_record().model_copy(
+            update={
+                "argv": ["solver.exe", "-script", "x"],
+                "manifest_schema": sorted(KNOWN_MANIFEST_SCHEMAS)[-1],
+                "cwd": str(work),
+                "inputs_sha256": {"probes.csv": digest},
+                "outputs_sha256": outputs,
+            }
+        )
+        return reconstruct(record, workspace=workspace).verified["inputs/probes.csv"]
+
+    # The run recorded that name among its outputs: the file beside the script is its own.
+    assert read_input({"datapoints/DP-1/probes.csv": digest}) == "missing"
     # Without that output recorded, the file beside the script is the input, as before.
-    assert _where_the_run_read("probes.csv", sim, work, [], []) == work / "probes.csv"
+    assert read_input({}) == "match"
 
 
 def test_f831_a_queued_steady_job_is_seen_by_the_point_collision_guard(tmp_path):
     # Verifies F-831: a SUBMITTED job record lists its points, and the guard reads that list.
-    from pyflightstream.run._continuation import _queued_record_of_point
+    from pyflightstream.run import CampaignErrors, run_campaign
     from tests.tier1_offline.test_restart_continuation import _stopped_record
-
-    workspace = CampaignWorkspace.init(tmp_path / "camp")
-    job = _stopped_record().model_copy(
-        update={
-            "run_id": "camp/sim_9001/sweep",
-            "status": RunStatus.SUBMITTED,
-            "points_ran": [{"tag": "AL+000", "point": {"alpha": 0.0}, "status": "SUBMITTED"}],
-        }
+    from tests.tier1_offline.test_run_campaign import (
+        WRITES_LOADS,
+        StubSolver,
+        converged,
+        make_campaign,
+        steady_recipe,
     )
-    workspace.append_record(job)
-    assert _queued_record_of_point(workspace, "9001", "AL+000").run_id == job.run_id
-    assert _queued_record_of_point(workspace, "9001", "AL+005") is None
+
+    solver = {"assess": converged, "recipes": {"steady": steady_recipe}, "quiet": True}
+
+    def run(folder, queued_tag):
+        workspace = CampaignWorkspace.init(tmp_path / folder / "camp")
+        # Another point of the row first, so its geometry is staged and staging again
+        # changes nothing the queued job opens.
+        staged = make_campaign(tmp_path / folder, alphas=(5.0,))
+        run_campaign(staged, StubSolver(WRITES_LOADS), workspace, **solver)
+        job = _stopped_record().model_copy(
+            update={
+                "run_id": "camp/sim_9001/sweep",
+                "status": RunStatus.SUBMITTED,
+                "points_ran": [{"tag": queued_tag, "point": {}, "status": "SUBMITTED"}],
+            }
+        )
+        workspace.append_record(job)
+        campaign = make_campaign(tmp_path / folder, alphas=(0.0,))
+        try:
+            run_campaign(campaign, StubSolver(WRITES_LOADS), workspace, **solver)
+        except CampaignErrors:
+            pass
+        return {r.run_id: r for r in workspace.read_manifest()}["camp/sim_9001/AL+000"]
+
+    refused = run("queued", "AL+000")
+    assert refused.status is RunStatus.FAILED_SCRIPT
+    assert "scheduler's queue as 'camp/sim_9001/sweep'" in str(refused.error)
+    assert run("other", "AL+005").status is RunStatus.CONVERGED
 
 
 def test_pfs_2130_071_reconstruct_expands_a_compacted_simulation(tmp_path):

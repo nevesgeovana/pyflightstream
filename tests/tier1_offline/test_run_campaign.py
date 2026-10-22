@@ -4118,102 +4118,119 @@ def test_f6_0102_naming_a_point_the_recorded_job_never_ran_does_not_redo_the_job
     assert not stub.invocations
 
 
-def test_f1461_a_one_point_row_does_not_run_as_one_job(monkeypatch):
+def test_f1461_a_one_point_row_does_not_run_as_one_job(tmp_path):
     # Verifies F-1461: runs_as_one_job states its documented two-or-more point condition.
-    from types import SimpleNamespace
+    from pyflightstream.workspace.matrix import resolve_matrix
+    from tests.tier1_offline.test_goal031_recorded_job_plan import SWEPT, _recorded_sweep
+    from tests.tier1_offline.test_matrix_run import RECIPES
 
-    from pyflightstream.run import _ids
+    def runs_as_a_job(sweep, folder):
+        workspace, matrix = _recorded_sweep(tmp_path / folder, sweep)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PyflightstreamWarning)
+            campaign = resolve_matrix(
+                matrix, workspace, name="warm", fs_version="26.120", recipes=RECIPES
+            ).campaign
+        return run_module.runs_as_one_job(campaign, campaign.sims[0])
 
-    monkeypatch.setattr(_ids, "_is_one_job", lambda campaign, case: True)
-
-    def case(count):
-        return SimpleNamespace(
-            sweep=SimpleNamespace(points=lambda: [{"a": n} for n in range(count)])
-        )
-
-    assert _ids.runs_as_one_job(None, case(2)) is True
-    assert _ids.runs_as_one_job(None, case(1)) is False
+    assert runs_as_a_job(SWEPT, "two-or-more") is True
+    assert runs_as_a_job("2.0", "one") is False
 
 
-def test_f1462_the_resume_count_sees_points_recorded_on_their_own(monkeypatch):
+def test_f1462_the_resume_count_sees_points_recorded_on_their_own(tmp_path):
     # Verifies F-1462: a point recorded individually counts beside the points of a job record.
-    from types import SimpleNamespace
+    from tests.tier1_offline.test_goal031_recorded_job_plan import SWEPT, _recorded_sweep, _run
+    from tests.tier1_offline.test_matrix_run import WRITES_EVERY_EXPORT, CountingStub
 
-    from pyflightstream.run import _ids
+    workspace, matrix = _recorded_sweep(tmp_path, SWEPT + ",4.0")
+    _run(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT), resume=True)
+    # The job holds three points; the fourth was recorded on its own; a fifth is new.
+    text = matrix.read_text(encoding="utf-8")
+    matrix.write_text(text.replace(SWEPT + ",4.0", SWEPT + ",4.0,6.0"), encoding="utf-8")
+    with pytest.raises(
+        WorkspaceError, match=r"4 point\(s\) of this run are recorded and 1 would run"
+    ):
+        _run(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT))
 
-    points = [{"a": 0}, {"a": 1}, {"a": 2}]
-    case = SimpleNamespace(sweep=SimpleNamespace(points=lambda: points))
-    campaign = SimpleNamespace(sims=[case])
-    monkeypatch.setattr(_ids, "_points_the_recorded_job_ran", lambda *args: ("p0",))
-    monkeypatch.setattr(_ids, "point_name", lambda case, point: f"p{point['a']}")
-    monkeypatch.setattr(_ids, "_run_id", lambda campaign, case, point: f"r{point['a']}")
-    assert _ids._recorded_and_new(campaign, {"r1": object()}) == (2, 1)
 
-
-def _stub_point_job(tmp_path, *, stale):
-    """A minimal job for the pre-launch part of ``_run_point_solver``."""
-    from types import SimpleNamespace
-
-    from pyflightstream.cases.workflows import WALLTIME_CLOCK_ACTION, WALLTIME_CLOCK_STATE
-    from pyflightstream.run import _points
-
-    sim_dir = tmp_path / "sim"
-    work_dir = sim_dir / "datapoints" / "DP-AL+000"
-    work_dir.mkdir(parents=True)
-    state = work_dir / WALLTIME_CLOCK_STATE
-    state.parent.mkdir(parents=True, exist_ok=True)
-    state.write_text("earlier point", encoding="utf-8")
-    if stale:
-        (work_dir / "loads.txt").write_text("left over", encoding="utf-8")
-    job = SimpleNamespace(
-        case=None,
-        point_case=SimpleNamespace(outputs=["loads.txt"]),
-        work_dir=work_dir,
-        sim_dir=sim_dir,
-        base={
-            "run_id": "camp/sim_9001/AL+000",
-            "sim_id": "9001",
-            "point": {},
-            "matrix_stem": None,
-            "fs_version_requested": "26.120",
-            "package_version": "0.43.0",
-            "manifest_schema": MANIFEST_SCHEMA,
-            "script_sha256": "",
-            "raw_flag": False,
-        },
-        script=SimpleNamespace(unsteady_actions=[SimpleNamespace(name=WALLTIME_CLOCK_ACTION)]),
-        executor=object(),
-        progress=_points._PointProgress(),
+def _unsteady_point(tmp_path):
+    """A workspace and a runner of its one unsteady point, which carries a wall clock."""
+    from tests.support_helpers import ROTOR_BUILD, grouped_plan_fixture
+    from tests.tier1_offline.test_matrix_run import (
+        RECIPES,
+        WRITES_EVERY_EXPORT,
+        CountingStub,
     )
-    return job, state
+    from tests.tier1_offline.test_matrix_run import converged as matrix_converged
+
+    workspace, matrix = grouped_plan_fixture(tmp_path, walltimes=("2h",), sweep="0.0")
+
+    def run():
+        """Run the point again from nothing recorded; return its record."""
+        workspace.manifest_path.unlink(missing_ok=True)
+        from pyflightstream.cases.workflows import workflow_registry
+        from pyflightstream.run.matrix import run_matrix
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PyflightstreamWarning)
+            try:
+                run_matrix(
+                    matrix,
+                    workspace,
+                    name="rotor",
+                    default_fs_version=ROTOR_BUILD,
+                    recipes=RECIPES,
+                    recipe_registry=workflow_registry(),
+                    assess=matrix_converged,
+                    executor=CountingStub(WRITES_EVERY_EXPORT),
+                )
+            except CampaignErrors:
+                pass
+        (record,) = workspace.read_manifest()
+        return record
+
+    return workspace, run
 
 
 def test_f604_a_refused_point_keeps_the_watchdog_state_as_evidence(tmp_path):
     """F-604: an existing-output refusal launches nothing, so it deletes nothing."""
-    from pyflightstream.run import _points
+    from pyflightstream.cases.workflows import WALLTIME_CLOCK_STATE
 
-    job, state = _stub_point_job(tmp_path, stale=True)
-    record = _points._run_point_solver(job)
-    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    workspace, run = _unsteady_point(tmp_path)
+    first = run()
+    assert first.status is RunStatus.CONVERGED
+    folder = workspace.sim_dir(first.sim_id) / "datapoints" / f"DP-{first.run_id.rsplit('/', 1)[1]}"
+    state = folder / WALLTIME_CLOCK_STATE
+    state.write_text("earlier point", encoding="utf-8")
+    # The outputs of the first run are still there: the point is refused before it launches.
+    refused = run()
+    assert refused.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    assert "already exist" in str(refused.error)
     assert state.read_text(encoding="utf-8") == "earlier point"
-    _points.start_the_wall_clock(job)  # a point that does launch removes the earlier state
-    assert not state.exists()
+    # A point that does launch removes the earlier state.
+    for leftover in folder.iterdir():
+        if leftover.is_file():
+            leftover.unlink()
+    assert run().status is RunStatus.CONVERGED
+    assert state.read_text(encoding="utf-8") != "earlier point"
 
 
-def test_f612_a_prelaunch_oserror_is_not_reported_as_after_the_solver_ran(tmp_path, monkeypatch):
+def test_f612_a_prelaunch_oserror_is_not_reported_as_after_the_solver_ran(tmp_path):
     """F-612: the solver counts as started only once nothing before the launch can fail."""
-    from pyflightstream.run import _points
+    from pyflightstream.cases.workflows import WALLTIME_CLOCK_STATE
 
-    job, _ = _stub_point_job(tmp_path, stale=False)
-    monkeypatch.setattr(_points, "bind_submission_values", lambda *args: None)
-
-    def refuse(_job):
-        raise PermissionError("read-only share")
-
-    monkeypatch.setattr(_points, "start_the_wall_clock", refuse)
-    with pytest.raises(PermissionError):
-        _points._run_point_solver(job)
-    assert job.progress.solver_started is False
+    workspace, run = _unsteady_point(tmp_path)
+    first = run()
+    folder = workspace.sim_dir(first.sim_id) / "datapoints" / f"DP-{first.run_id.rsplit('/', 1)[1]}"
+    for leftover in folder.iterdir():
+        if leftover.is_file():
+            leftover.unlink()
+    # A folder where the clock's state file belongs cannot be removed before the launch.
+    (folder / WALLTIME_CLOCK_STATE).unlink()
+    (folder / WALLTIME_CLOCK_STATE).mkdir()
+    failed = run()
+    assert failed.status is RunStatus.FAILED_SCRIPT
+    assert "before the solver started" in str(failed.error)
 
 
 WRITES_THEN_CRASHES = (

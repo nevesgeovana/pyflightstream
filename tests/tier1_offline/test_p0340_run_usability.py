@@ -355,7 +355,7 @@ def test_x_f_0404_a_tip_mach_that_is_not_a_number_is_unknown_not_supersonic():
     """NaN fails every comparison; it is named as not known, with a reason, never as M_adv >= 1."""
     from types import SimpleNamespace
 
-    from pyflightstream.run._matrix_warnings import _warn_when_a_helical_mach_may_reach_one
+    from pyflightstream.run.matrix import _warn_when_a_helical_mach_may_reach_one
 
     entry = SimpleNamespace(
         sim_id="2001",

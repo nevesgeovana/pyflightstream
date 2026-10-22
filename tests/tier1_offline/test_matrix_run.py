@@ -6171,9 +6171,11 @@ class TestFr310MatrixHomesAll:
 
 def test_f1569_an_effective_frequency_warning_names_the_effective_frequency():
     # Verifies F-1569: a point flagged by k_eff is not blamed on the 1P frequency.
-    from pyflightstream.run._matrix_warnings import _sort_the_validity
+    from types import SimpleNamespace
 
-    above, unknown, too_few, effective = [], [], [], []
+    from pyflightstream.exceptions import PyflightstreamWarning
+    from pyflightstream.run.matrix import _warn_when_a_quasi_steady_point_leaves_its_assumption
+
     validity = {
         "inflow_fft": {
             "n_max": 4,
@@ -6186,9 +6188,19 @@ def test_f1569_an_effective_frequency_warning_names_the_effective_frequency():
         },
         "span_pct_k_gt_0_1": 0.0,
     }
-    _sort_the_validity("POL 1 point p", None, validity, (above, unknown, too_few, effective))
-    assert not above and len(effective) == 1
-    assert "k_eff" in effective[0]
+    plan = SimpleNamespace(
+        points=[
+            SimpleNamespace(sim_id="1", run_id="c/sim_1/p", point={}, qsteady_validity=validity)
+        ]
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _warn_when_a_quasi_steady_point_leaves_its_assumption(
+            SimpleNamespace(campaign=SimpleNamespace(sims=[])), plan
+        )
+    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    assert len(said) == 1 and "k_eff" in said[0], said
+    assert "the 1P reduced frequency" not in said[0]
 
 
 def test_p0430_a_physics_matrix_path_outside_the_workspace_is_refused_x_f_1686(tmp_path):
@@ -6206,38 +6218,26 @@ def test_p0430_a_physics_matrix_path_outside_the_workspace_is_refused_x_f_1686(t
     assert physics_matrix(workspace, "inputs/matrices/own.fs") == inside
 
 
-def test_p0430_the_additional_post_refuses_a_scheduler_before_writing_f_1455(tmp_path, monkeypatch):
-    import types
-
+def test_p0430_the_additional_post_refuses_a_scheduler_before_writing_f_1455(tmp_path):
     from pyflightstream.run import ExecutorConfigurationError
-    from pyflightstream.run import matrix as run_matrix_module
+    from tests.tier1_offline.test_additional_post import a_recorded_campaign, extract
 
-    class _Scheduler:
+    class _Scheduler(CountingStub):
+        def __init__(self):
+            super().__init__("pass")
+
         def bind_point(self, values, *, replace=False):
             raise AssertionError("must not be reached")
 
         def submission_record(self):
             return None
 
-    ready = types.SimpleNamespace(status="READY")
-    monkeypatch.setattr(
-        run_matrix_module,
-        "_plan_all",
-        lambda *args, **kwargs: (types.SimpleNamespace(fs_exe="x"), [ready]),
-    )
-    monkeypatch.setattr(
-        run_matrix_module,
-        "_campaign_executor",
-        lambda *args, **kwargs: (_Scheduler(), lambda exe: _Scheduler()),
-    )
-    monkeypatch.setattr(
-        run_matrix_module,
-        "_extract",
-        lambda *args, **kwargs: pytest.fail("an extraction was started"),
-    )
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    scheduler = _Scheduler()
     with pytest.raises(ExecutorConfigurationError, match="local=True"):
-        run_matrix_module.run_additional_post(tmp_path / "m.fs", CampaignWorkspace(tmp_path))
-    assert not (tmp_path / "additional.json").exists()
+        extract(workspace, matrix, scheduler)
+    assert not scheduler.invocations, "an extraction was started"
+    assert workspace.read_additional() == []
 
 
 def test_x_f_1316_a_geometry_id_with_a_space_or_bracket_is_refused_naming_the_character(tmp_path):

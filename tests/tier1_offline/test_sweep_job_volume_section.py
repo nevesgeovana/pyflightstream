@@ -265,33 +265,43 @@ def test_a_user_file_where_the_probe_points_go_fails_the_job_before_the_solver(t
     assert target.read_text(encoding="utf-8") == "my,own,survey\n"
 
 
-def test_f616_a_later_incomplete_point_does_not_overwrite_a_worse_sweep_verdict():
+def test_f616_a_later_incomplete_point_does_not_overwrite_a_worse_sweep_verdict(tmp_path):
     """F-616: the job's headline folds with worse_of; a diverged point stays diverged."""
-    from types import SimpleNamespace
-
-    from pyflightstream.cases import SimCase, SweepAxis
-    from pyflightstream.run._sweep import _assess_sweep_points
-
-    case = SimCase(
-        sim_id="3208",
-        aircraft="TestWing",
-        velocity=30.0,
-        sweep=SweepAxis(type="alpha", values=[0.0, 2.0]),
-        recipe="steady",
-        outputs=["loads_{point}.txt"],
+    from tests.tier1_offline.test_matrix_run import (
+        WRITES_EVERY_EXPORT,
+        _steady_sweep_matrix,
     )
-    points = list(case.sweep.points())
-    job = SimpleNamespace(
-        case=case,
-        point_cases=[(point, "stem", case) for point in points],
-        failed_tags={"AL+020": "an output could not be filed"},
-        collected_by_tag={},
-        ran=[],
-        collected_all=[],
-        error_lines=[],
-        worst=RunStatus.FAILED_DIVERGED,
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    # The solver writes every export except those of the last point: it is incomplete.
+    stub = CountingStub(
+        WRITES_EVERY_EXPORT.replace(
+            "and i + 1 < len(lines)]", "and i + 1 < len(lines) and 'AL+020' not in lines[i + 1]]"
+        )
     )
-    job.failed_tags["AL+000"] = "an output could not be filed"
-    _assess_sweep_points(job)
-    assert job.worst is RunStatus.FAILED_DIVERGED
-    assert len(job.ran) == 2
+
+    def assess(case, execution, sim_dir):
+        if case.point["alpha"] < -1.0:
+            return Assessment(status=RunStatus.FAILED_DIVERGED, error="residual grew")
+        return Assessment(status=RunStatus.CONVERGED, iterations=10, residual=1e-6)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        with pytest.raises(CampaignErrors, match="FAILED_DIVERGED"):
+            run_matrix(
+                matrix,
+                workspace,
+                name="warm",
+                default_fs_version="26.120",
+                recipes=RECIPES,
+                recipe_registry=workflow_registry(),
+                assess=assess,
+                executor=stub,
+            )
+    (record,) = workspace.read_manifest()
+    assert record.status is RunStatus.FAILED_DIVERGED
+    assert [entry["status"] for entry in record.points_ran] == [
+        "FAILED_DIVERGED",
+        "CONVERGED",
+        "FAILED_INCOMPLETE_OUTPUT",
+    ]
