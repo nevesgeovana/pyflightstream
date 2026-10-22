@@ -32,10 +32,11 @@ and a committed probe report recording how the frames are named.
 
 FREQUENCY IS COUNTED IN SOLVER STEPS, which is what the command's
 ``frequency`` keyword means, so the step axis of a series read in a
-declared order is frame index times frequency. It is not read out of the
-file and is not guessed: a caller that passes the frequency it asked the
-solver for gets solver steps, and one that does not gets frame indices,
-which the series says of itself.
+declared order is one plus the frame index times frequency (the first
+frame is solver step 1). It is not read out of the file and is not guessed:
+a caller that passes the frequency it asked the solver for gets solver
+steps, and one that does not gets frame numbers, which the series says of
+itself.
 
 THE TWO FRAME FORMATS are the two the command's own entry lists as data
 filetypes, ``TECPLOT_DATA`` and ``PARAVIEW_VTK``. They are read here in
@@ -91,9 +92,10 @@ class TimestepSeries:
     ----------
     steps : numpy.ndarray
         Solver step index of each frame, shape ``(n_frames,)``,
-        dimensionless. Frame index times the ``frequency`` the caller
-        passed, because the export's frequency is counted in solver
-        steps.
+        dimensionless. One plus the frame index times the ``frequency`` the
+        caller passed: the export's frequency is counted in solver steps
+        and the first frame is solver step 1 (26.124 wrote frames 1, 3, 5
+        at frequency 2; L4 X-F-0363).
     times_s : numpy.ndarray or None
         Solution time of each frame in seconds, when the frames carried
         one; None when the order came from the caller instead.
@@ -421,7 +423,7 @@ def _refuse_irregular_times(times: Sequence[float | None], paths: Sequence[Path]
     """Refuse duplicate or unevenly spaced solution times, naming the gap.
 
     Only when every frame carries a time; a series ordered by declaration alone has
-    nothing to compare. The step axis of the series is frame index times frequency,
+    nothing to compare. The step axis of the series is one plus the frame index times frequency,
     so a frame missing from the middle (or one written twice) would move every
     later step by a whole frame while the times said otherwise.
     """
@@ -442,7 +444,7 @@ def _refuse_irregular_times(times: Sequence[float | None], paths: Sequence[Path]
                 f"the solution times are not uniformly spaced: from {paths[index]} "
                 f"(t = {values[index]!r} s) to {paths[index + 1]} (t = {values[index + 1]!r} s) "
                 f"the gap is {gap!r} s and the median gap is {median!r} s, so a frame is "
-                "missing or repeated and the step axis (frame index times frequency) "
+                "missing or repeated and the step axis (one plus the frame index times frequency) "
                 "would shift every later step"
             )
 
@@ -522,8 +524,9 @@ def read_timestep_series(
         Solver time steps between exported frames, the ``frequency``
         keyword the run passed to ``UNSTEADY_SOLVER_ANIMATION``.
         Dimensionless step count, a positive integer (a bool, a float
-        or a value below 1 is refused); the step axis is frame index
-        times this. Default 1, which yields frame indices.
+        or a value below 1 is refused); the step axis is 1 plus the frame
+        index times this, because the first frame is solver step 1. Default
+        1, which yields steps 1, 2, 3 and so on.
 
     Returns
     -------
@@ -573,7 +576,7 @@ def read_timestep_series(
     ... ]
     >>> series = read_timestep_series(written, order="given", frequency=10)
     >>> series.steps.tolist()
-    [0, 10, 20]
+    [1, 11, 21]
     >>> series.fields["cp"][:, 0].tolist()
     [1.0, 2.0, 3.0]
     """
@@ -619,7 +622,7 @@ def read_timestep_series(
             stacked[name].append(fields[name])
 
     return TimestepSeries(
-        steps=np.arange(len(ordered), dtype=int) * int(frequency),
+        steps=1 + np.arange(len(ordered), dtype=int) * int(frequency),
         times_s=times_s,
         points=first_points,
         fields={name: np.asarray(values) for name, values in stacked.items()},

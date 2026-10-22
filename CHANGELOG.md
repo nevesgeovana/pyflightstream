@@ -86,6 +86,9 @@ FlightStream versions.
 
 ### Fixed
 
+- `read_timestep_series` numbers its frames from solver step 1 (the step axis is 1 plus the
+  frame index times the frequency), as the solver writes animation frames: the first frame is
+  step 1, and a frequency of 2 writes steps 1, 3 and 5. Windows read against it move with it.
 - Reading and cleaning the unsteady solver actions saved in a geometry counts a command's
   length in bytes, as the solver saves it, so a saved action whose command holds a non-ASCII
   character is read instead of refusing the geometry.

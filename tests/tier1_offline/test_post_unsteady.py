@@ -111,14 +111,15 @@ def test_the_reader_takes_the_order_the_caller_declares(tmp_path):
     """A declared order is evidence; a filename pattern is not.
 
     ``frequency`` is counted in solver steps (FSM-26.120 pp.347-348), so
-    the step axis is frame index times frequency and the reader never
-    reads a step out of a file name.
+    the step axis is one plus frame index times frequency (the first frame is
+    solver step 1, L4 X-F-0363) and the reader never reads a step out of a
+    file name.
     """
     frames = write_frames(tmp_path / "anim", [1.0, 2.0, 3.0, 4.0])
     series = read_timestep_series(frames, order="given", frequency=5)
 
     assert series.n_frames == 4
-    assert series.steps.tolist() == [0, 5, 10, 15]
+    assert series.steps.tolist() == [1, 6, 11, 16]
     assert series.order_evidence == "given"
     assert series.fields["cp"].shape == (4, 2)
     assert series.fields["cp"][:, 0].tolist() == [1.0, 2.0, 3.0, 4.0]
@@ -230,16 +231,16 @@ def test_a_truncated_frame_is_refused_rather_than_returned_short(
 def test_the_blade_passage_average_averages_the_declared_window(tmp_path):
     """A window in solver steps, inclusive at both ends.
 
-    Frames 1 to 3 hold cp = 2, 3, 4 at the first probe, so the mean is
+    Steps 2 to 4 hold cp = 2, 3, 4 at the first probe, so the mean is
     3, and the frame outside the window must not reach it.
     """
     frames = write_frames(tmp_path / "anim", [1.0, 2.0, 3.0, 4.0])
     series = read_timestep_series(frames, order="given", frequency=1)
 
-    average = blade_passage_average(series, window=(1, 3))
+    average = blade_passage_average(series, window=(2, 4))
 
     assert average.n_frames == 3
-    assert average.window == (1, 3)
+    assert average.window == (2, 4)
     assert average.fields["cp"][0] == pytest.approx(3.0)
     assert average.fields["cp"][1] == pytest.approx(3.5)
 
@@ -264,7 +265,7 @@ def test_passage_windows_are_the_only_route_to_a_phase_locked_reduction(tmp_path
     series = read_timestep_series(frames, order="given")
 
     windows = passage_windows(series, period_steps=2)
-    assert windows == [(0, 1), (2, 3), (4, 5)]
+    assert windows == [(1, 2), (3, 4), (5, 6)]
 
     means = [blade_passage_average(series, window=w).fields["cp"][0] for w in windows]
     assert means == pytest.approx([1.5, 3.5, 5.5])
@@ -327,7 +328,7 @@ def test_a_reduction_never_overwrites_a_file_it_read(tmp_path):
     """
     frames = write_frames(tmp_path / "anim", [1.0, 2.0])
     series = read_timestep_series(frames, order="given")
-    average = blade_passage_average(series, window=(0, 1))
+    average = blade_passage_average(series, window=(1, 2))
     series_file = write_series(tmp_path / "anim" / "series.csv", series)
 
     with pytest.raises(WorkspaceError, match="READ from"):
@@ -345,7 +346,7 @@ def test_a_reduction_refuses_to_be_written_with_no_series_beside_it(tmp_path):
     """
     frames = write_frames(tmp_path / "anim", [1.0, 2.0])
     series = read_timestep_series(frames, order="given")
-    average = blade_passage_average(series, window=(0, 1))
+    average = blade_passage_average(series, window=(1, 2))
     elsewhere = write_series(tmp_path / "other" / "series.csv", series)
 
     with pytest.raises(WorkspaceError, match="beside"):
@@ -378,7 +379,7 @@ def test_the_pair_a_caller_gets_when_the_rule_is_kept(tmp_path):
     """The ordinary case: series first, reduction beside it."""
     frames = write_frames(tmp_path / "anim", [1.0, 2.0, 3.0, 4.0])
     series = read_timestep_series(frames, order="given")
-    average = blade_passage_average(series, window=(0, 3))
+    average = blade_passage_average(series, window=(1, 4))
 
     series_file = write_series(tmp_path / "out" / "series.csv", series)
     reduction = write_reduction(
@@ -403,7 +404,7 @@ def test_x_f_0147_x_f_0148_a_nan_sample_or_mean_is_written_na_not_nan(tmp_path):
     fields = {name: values.copy() for name, values in series.fields.items()}
     fields["cp"][0, 0] = np.nan
     series = replace(series, fields=fields)
-    average = blade_passage_average(series, window=(0, 3))
+    average = blade_passage_average(series, window=(1, 4))
 
     series_file = write_series(tmp_path / "out" / "series.csv", series)
     reduction = write_reduction(tmp_path / "out" / "mean.csv", average, series_file=series_file)
@@ -490,7 +491,7 @@ def test_a_reduction_refuses_an_existing_destination(tmp_path):
 
     frames = write_frames(tmp_path / "anim", [1.0, 2.0])
     series = read_timestep_series(frames, order="given")
-    average = blade_passage_average(series, window=(0, 1))
+    average = blade_passage_average(series, window=(1, 2))
     series_file = write_series(tmp_path / "out" / "series.csv", series)
     write_reduction(tmp_path / "out" / "mean.csv", average, series_file=series_file)
 
@@ -583,7 +584,7 @@ def test_p0420_numpy_integers_are_accepted_as_frequency(tmp_path):
     """PFS-2130.007 control: a numpy integer is an integer."""
     frames = write_frames(tmp_path / "a", [1.0, 2.0], tecplot=False)
     series = read_timestep_series(frames, order="given", frequency=np.int64(4))
-    assert series.steps.tolist() == [0, 4]
+    assert series.steps.tolist() == [1, 5]
 
 
 def test_p0420_an_unknown_order_is_an_argument_error_not_malformed_output(tmp_path):
@@ -682,7 +683,7 @@ def test_p0430_f3_a_hard_link_alias_of_a_source_is_refused(tmp_path):
 
     frames = write_frames(tmp_path / "anim", [1.0, 2.0])
     series = read_timestep_series(frames, order="given")
-    average = blade_passage_average(series, window=(0, 1))
+    average = blade_passage_average(series, window=(1, 2))
     series_file = write_series(tmp_path / "anim" / "series.csv", series)
     alias = tmp_path / "anim" / "alias.csv"
     try:
