@@ -698,3 +698,14 @@ def test_p0430_the_smi_script_refuses_a_relative_file_f_1431():
 
     with pytest.raises(QaEvidenceError, match="not absolute"):
         build_smi_script("26.120", "28_B.fsm", "loads.txt", "log.txt")
+
+
+def test_p0430_a_repeated_angle_is_refused_not_mixed_f_241():
+    from pyflightstream.qa.errors import QaEvidenceError
+    from pyflightstream.qa.physics import phy06_metrics
+
+    points = [*make_points(), make_points()[2]]
+    with pytest.raises(QaEvidenceError, match="repeats 4 deg"):
+        phy01_metrics(points)
+    with pytest.raises(QaEvidenceError, match="repeating an angle"):
+        phy06_metrics(points, make_points())

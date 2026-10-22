@@ -454,6 +454,14 @@ def phy01_metrics(points: list[PointResult]) -> dict[str, float]:
     # sweep without 4 deg raised a bare StopIteration past the per-case
     # error handling.
     angles = sorted({point.alpha_deg for point in points})
+    # A repeated angle would give the drag metric the first point, CL_a<tag> the last and the
+    # fit both, mixing points silently (F-241, X-F-0382).
+    if len(angles) != len(points):
+        repeated = sorted({a for a in angles if sum(p.alpha_deg == a for p in points) > 1})
+        raise QaEvidenceError(
+            "PHY-01 reads one point per angle of attack, and the sweep repeats "
+            f"{', '.join(f'{a:g}' for a in repeated)} deg"
+        )
     if len(angles) < 2:
         raise QaEvidenceError(
             f"PHY-01 fits its lift slope over at least two angles of attack, and the sweep "
@@ -559,6 +567,13 @@ def phy06_metrics(steady: list[PointResult], unsteady: list[PointResult]) -> dic
         When the two polars do not solve the same angles. A ``ValueError``
         by base, per FR-39, so a caller's ``except ValueError`` catches it.
     """
+    for name, polar in (("steady", steady), ("unsteady", unsteady)):
+        angles = [point.alpha_deg for point in polar]
+        if len(set(angles)) != len(angles):
+            raise QaEvidenceError(
+                f"PHY-06 pairs one {name} point per angle of attack, and the {name} polar "
+                f"solved {sorted(angles)} deg, repeating an angle"
+            )
     by_alpha_steady = {point.alpha_deg: point for point in steady}
     by_alpha_unsteady = {point.alpha_deg: point for point in unsteady}
     if set(by_alpha_steady) != set(by_alpha_unsteady):
