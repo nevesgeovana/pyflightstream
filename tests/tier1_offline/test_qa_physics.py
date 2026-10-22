@@ -668,3 +668,12 @@ def test_p0430_numpy_scalars_in_a_point_still_dump_f_805(tmp_path):
     written = stored["cases"]["PHY-01"]["points"][0]
     assert written["alpha_deg"] == 4.0 and written["iterations"] == 300
     assert written["converged"] is True and written["minimum_cp"] == -3.0
+
+
+def test_p0430_a_bad_date_leaves_no_folder_f_1432(tmp_path):
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    target = tmp_path / "reports" / "physics"
+    with pytest.raises(QaEvidenceError):
+        write_physics_report(make_run(tmp_path), target, date="not-a-date")
+    assert not target.exists()

@@ -1319,10 +1319,11 @@ def write_physics_report(
         ``pyfs-qa`` resolves first and never meets them.
     """
     out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
     date = resolve_report_date(date)
     yaml_path, md_path = physics_report_paths(out_dir, version=run.version, date=date, label=label)
     refuse_existing_report(yaml_path, md_path)
+    # Made after the date and the stem are accepted, so a refusal leaves no empty folder (F-1432).
+    out_dir.mkdir(parents=True, exist_ok=True)
     counts = run.verdict_counts()
     document = {
         "schema": PHYSICS_SCHEMA,
