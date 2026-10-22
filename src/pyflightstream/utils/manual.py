@@ -2088,9 +2088,8 @@ def write_chapter(
     if target.exists() and not overwrite:
         raise ManualDraftError(
             f"{target} already exists, and a draft would replace it, which could be a "
-            "reviewed draft or a shipped chapter. Nothing was written. Pass "
-            "overwrite=True (--overwrite on the command line) to replace it, or choose "
-            "another destination"
+            "reviewed draft or a shipped chapter. Nothing was written. To replace it, "
+            "pass overwrite=True (CLI: --overwrite), or choose another destination"
         )
     target.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(target, body)
