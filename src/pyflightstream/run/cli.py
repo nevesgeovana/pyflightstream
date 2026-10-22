@@ -135,12 +135,13 @@ def _parse_recipes(pairs: list[str]) -> dict[str, str]:
     recipes: dict[str, str] = {}
     for item in pairs:
         code, separator, reference = item.partition("=")
+        code, reference = code.strip(), reference.strip()
         if not separator or not code or not reference:
             raise ValueError(
                 f"--recipe expects CODE=module:function (the FS_SCRIPT code and the "
                 f"recipe it maps to), got {item!r}"
             )
-        recipes[code.strip()] = reference.strip()
+        recipes[code] = reference
     return recipes
 
 
@@ -960,7 +961,15 @@ def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> i
         label = matrix or "the matrix-less records"
         # Keyed by the simulation refused whole, or by the reduction file the
         # row could not window (PFS-2015.04); the key says which.
-        entries = json.loads(manifest.read_text(encoding="utf-8")).get("skipped", {})
+        try:
+            entries = json.loads(manifest.read_text(encoding="utf-8")).get("skipped", {})
+        except (OSError, ValueError, AttributeError) as error:
+            print(
+                f"could not read the skipped list of {label} from {manifest}: {error}. "
+                "Rebuild the products of that matrix to write the manifest again.",
+                file=sys.stderr,
+            )
+            continue
         for key, reason in entries.items():
             what = key if "/" in key else f"simulation {key}"
             if detail:

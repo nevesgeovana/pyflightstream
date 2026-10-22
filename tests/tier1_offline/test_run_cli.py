@@ -851,3 +851,33 @@ def test_x_f_1232_a_plan_file_of_another_shape_is_the_plan_again_refusal(tmp_pat
     refusal = plan_receipt_error(workspace, matrix, "wing")
     assert refusal is not None and ("is not a plan receipt" in refusal or "not text" in refusal)
     assert PLAN_REQUIRED_MESSAGE in refusal
+
+
+@pytest.mark.parametrize("item", ["003= ", " =a:b", "003=", "=", "003"])
+def test_last_a_recipe_option_with_a_blank_side_is_refused(item):
+    """F-1466: emptiness was tested before strip, so '003= ' kept an empty reference."""
+    with pytest.raises(ValueError, match="--recipe expects CODE=module:function"):
+        cli_module._parse_recipes([item])
+    assert cli_module._parse_recipes([" 003 = a:b "]) == {"003": "a:b"}
+
+
+def test_last_force_overwrite_and_archive_cannot_be_combined(tmp_path, capsys):
+    """F-1576: the two options exclude each other, so 'without an archive' is true."""
+    from tests.tier1_offline.test_post_superfile import _workspace
+
+    workspace = _workspace(tmp_path)
+    argv = ["post", "--workspace", str(workspace.root), "--force-overwrite", "--archive"]
+    with pytest.raises(SystemExit) as raised:
+        main(argv)
+    assert raised.value.code == 2
+    assert "not allowed with argument" in capsys.readouterr().err
+
+
+def test_last_a_corrupt_products_manifest_is_named_not_a_traceback(tmp_path, capsys):
+    """X-F-0567: the skipped list of an unreadable manifest is reported, not raised."""
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    manifest = workspace.products_dir(None) / "products.json"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text("{not json", encoding="utf-8")
+    assert cli_module._report_skips(workspace, [None]) == 0
+    assert "could not read the skipped list" in capsys.readouterr().err
