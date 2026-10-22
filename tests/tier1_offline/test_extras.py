@@ -16,6 +16,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import re
+import shlex
 import sys
 import tomllib
 from pathlib import Path
@@ -81,13 +82,18 @@ def test_the_refusal_carries_the_exact_install_command(extra):
 
     This is the assertion PYFS-025 owes, parametrized per extra as it
     asks. The remedy is built rather than written, so it cannot drift
-    from the name that makes it work.
+    from the name that makes it work. The requirement is QUOTED: a shell
+    that expands brackets (zsh) reads an unquoted ``pyflightstream[x]`` as
+    a glob and refuses the command, so the remedy carries double quotes,
+    which bash, zsh, cmd and PowerShell all remove before pip sees the
+    argument.
     """
     error = missing_extra(extra, package="somepkg", purpose="the thing")
     assert isinstance(error, MissingExtraError)
     assert isinstance(error, ImportError)
     assert error.extra == extra
-    assert error.remedy == f"pip install pyflightstream[{extra}]"
+    assert error.remedy == f'pip install "pyflightstream[{extra}]"'
+    assert shlex.split(error.remedy) == ["pip", "install", f"pyflightstream[{extra}]"]
     assert error.remedy in str(error)
     assert "somepkg" in str(error)
     assert "the thing" in str(error)
@@ -168,7 +174,7 @@ def test_the_converters_pypdf_accessor_refuses_in_the_shared_shape(monkeypatch):
         module._pypdf()
     assert caught.value.extra == "manual"
     assert caught.value.package == "pypdf"
-    assert "pip install pyflightstream[manual]" in str(caught.value)
+    assert 'pip install "pyflightstream[manual]"' in str(caught.value)
 
 
 def _remedies_in_raises(source: str) -> list[int]:
@@ -184,7 +190,7 @@ def _remedies_in_raises(source: str) -> list[int]:
             continue
         for inner in ast.walk(node):
             if isinstance(inner, ast.Constant) and isinstance(inner.value, str):
-                if "pip install pyflightstream[" in inner.value:
+                if re.search(r"pip install [\"']?pyflightstream\[", inner.value):
                     found.append(node.lineno)
     return sorted(set(found))
 
@@ -203,6 +209,8 @@ def test_every_gated_path_raises_the_shared_type():
     # the shape a negative assertion always has.
     hand_written = 'raise ImportError("needs it: pip install pyflightstream[fsi]")'
     assert _remedies_in_raises(hand_written) == [1], "the scan cannot find a remedy"
+    quoted = 'raise ImportError("needs it: pip install \\"pyflightstream[fsi]\\"")'
+    assert _remedies_in_raises(quoted) == [1], "the scan misses the quoted remedy"
     # And it does NOT fire on the same string in a docstring, which is the
     # case an earlier line-based version got wrong.
     in_prose = '"""Install with pip install pyflightstream[geom]."""\nx = 1\n'
@@ -294,7 +302,7 @@ def test_a_missing_spatial_index_names_the_index_and_not_the_reader(monkeypatch)
             "after the promotion the missing thing is the spatial index, and naming "
             "the reader sends a reader to reinstall what they already have"
         )
-        assert "pip install pyflightstream[geom]" in str(caught.value), arm
+        assert 'pip install "pyflightstream[geom]"' in str(caught.value), arm
         assert isinstance(caught.value.__cause__, ImportError), (
             f"the {arm} refusal discarded the original ImportError, so a failure "
             "that is not a missing distribution is no longer diagnosable"
@@ -405,7 +413,7 @@ def test_workbook_creation_uses_the_shared_missing_extra(tmp_path, monkeypatch):
         create_workbook(target, workspace=tmp_path)
     assert caught.value.extra == "excel"
     assert caught.value.package == "XlsxWriter"
-    assert caught.value.remedy == "pip install pyflightstream[excel]"
+    assert caught.value.remedy == 'pip install "pyflightstream[excel]"'
     assert isinstance(caught.value.__cause__, ImportError)
     assert not target.parent.exists()
 

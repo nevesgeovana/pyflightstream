@@ -33,6 +33,8 @@ FlightStream versions.
 
 - A run matrix whose header holds a column the layout does not know is refused naming that
   column and the closest known column.
+- The install command a missing optional extra names is quoted,
+  `pip install "pyflightstream[<extra>]"`, so a shell that expands brackets runs it as typed.
 
 - An unstated `ALPHA` or `BETA` is 0.0 in every product that reads the angle: the rotor table's
   shaft angle and `ETAW` and the axis coefficients of the unsteady polar are computed at it, and a

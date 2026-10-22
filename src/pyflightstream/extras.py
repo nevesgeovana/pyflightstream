@@ -55,7 +55,9 @@ class MissingExtraError(PyflightstreamError, ImportError):
         The distribution or module that was actually missing.
     remedy : str
         The exact install command, composed from ``extra`` rather than
-        written out, so it cannot name an extra that does not exist.
+        written out, so it cannot name an extra that does not exist, and
+        quoted (``pip install "pyflightstream[<extra>]"``) so a shell that
+        expands brackets runs it as typed.
     """
 
     def __init__(self, *, extra: str, package: str, purpose: str) -> None:
@@ -68,7 +70,10 @@ class MissingExtraError(PyflightstreamError, ImportError):
         self.extra = extra
         self.package = package
         self.purpose = purpose
-        self.remedy = f"pip install pyflightstream[{extra}]"
+        # Quoted (NFR-25): a shell that expands brackets reads an unquoted
+        # pyflightstream[x] as a glob and refuses the command as typed.
+        # Double quotes are removed by bash, zsh, cmd and PowerShell alike.
+        self.remedy = f'pip install "pyflightstream[{extra}]"'
         super().__init__(
             f"{purpose} needs {package}, which ships with the optional "
             f"[{extra}] extra and is not installed in this environment. "

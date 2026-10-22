@@ -71,7 +71,8 @@ Optional extras, each gating one subsystem:
 | `[excel]` | Optional macro-free matrix workbook |
 
 Reach one without installing it and you get a single typed refusal
-carrying the exact install command:
+carrying the exact install command, quoted so that a shell which expands
+brackets runs it as typed (`pip install "pyflightstream[geom]"`):
 
 ```python
 >>> from pyflightstream.exceptions import MissingExtraError

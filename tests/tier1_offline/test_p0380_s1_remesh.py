@@ -316,7 +316,7 @@ def test_a_remesh_without_the_extra_is_refused_before_any_work(monkeypatch):
     with pytest.raises(MissingExtraError) as caught:
         refine_group(sphere(), ["S"], (), 2.0)
     text = str(caught.value)
-    assert "family S" in text and "pip install pyflightstream[geom]" in text
+    assert "family S" in text and 'pip install "pyflightstream[geom]"' in text
     assert text.endswith("Nothing was written.")
     with pytest.raises(MissingExtraError, match="Wing, Hub"):
         refine_group(sphere(), ["Wing", "Hub"], (), 2.0)

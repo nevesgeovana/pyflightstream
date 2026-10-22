@@ -1060,7 +1060,7 @@ def test_r10_without_scipy_and_rtree_a_grid_refines_and_a_remesh_is_refused(
     """P0380-REFINE (FR-924, FR-925): scipy and rtree unimportable (``sys.modules`` None).
 
     The grid-only refinement writes its level. The one that must remesh T is
-    refused by both routes naming T and ``pip install pyflightstream[geom]``,
+    refused by both routes naming T and ``pip install "pyflightstream[geom]"``,
     before any file. Control: with the extra importable again the same
     refinement writes the level, T remeshed.
     """
@@ -1073,7 +1073,7 @@ def test_r10_without_scipy_and_rtree_a_grid_refines_and_a_remesh_is_refused(
         level = refine_mesh(alone, 2.0)
         assert level.report["G"]["method"] == "grid" and len(level.files) == 5
         text = _refused(root, src, 2.0, error=MissingExtraError)
-        assert "family T" in text and "pip install pyflightstream[geom]" in text
+        assert "family T" in text and 'pip install "pyflightstream[geom]"' in text
         code, _, err = _command(capsys, str(src), "2")
         assert code == 2 and text in err and _left(root) == []
     level = refine_mesh(src, 2.0)
