@@ -7,9 +7,11 @@ through :func:`~pyflightstream.farfield.quadrature.plane_integral`; the
 crossflow kinetic energy has one integrand, :func:`crossflow_integrand`, which
 Trefftz C calls too (FR-1003).
 
-Solver asymmetry, by design (DLV-006 Sec. 2.3): the FlightStream side runs the
-purely kinematic, reversible balances with the constant free-stream density;
-any cross-solver delta in a reversible channel is numerics, never physics.
+Solver asymmetry, by design (design note DLV-006 Sec. 2.3, not a dated report):
+the FlightStream side is taken to run the purely kinematic, reversible balances
+with the constant free-stream density; any cross-solver delta in a reversible
+channel is then attributed to numerics, an assumption no comparison report
+measures.
 
 Units: the ledgers are in the units of the field samples times
 ``tip_radius`` squared (forces and moments gain one further factor), with no
@@ -646,8 +648,9 @@ def spurious_diagnostic(
     """Near-field minus far-field load, in counts (gate G4).
 
     The residual between the integrated near-field load and the far-field
-    balance is numerical, not physical; reported in counts so runs are
-    comparable across cases and solvers (DLV-006 Sec. 3.5).
+    balance is treated as numerical, not physical (design note DLV-006
+    Sec. 3.5; no dated report measures it); reported in counts so runs are
+    comparable across cases and solvers.
 
     Parameters
     ----------
