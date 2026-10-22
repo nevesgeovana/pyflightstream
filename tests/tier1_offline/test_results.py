@@ -2243,17 +2243,40 @@ def test_f_255_the_print_tolerance_reads_an_omitted_e_exponent():
 
 
 def test_x_f_1223_a_family_split_that_disagrees_with_the_geometry_is_an_fsi_input_error():
-    from pyflightstream._errors import FsiInputError
-    from pyflightstream.results.sectional_loads import SectionBlock, _validate_block_boundaries
+    from types import SimpleNamespace
 
-    def block(family, offsets):
-        n = len(offsets)
-        zeros = np.zeros(n)
-        return SectionBlock(
-            family, np.array(offsets), np.ones(n), zeros, zeros, zeros, zeros, zeros
+    from pyflightstream._errors import FsiInputError
+    from pyflightstream.results.sectional_loads import SectionalLoadsReport
+
+    def split(*families):
+        """Split a table whose offsets march 0, 1, 2 then restart as ``families`` say."""
+        offsets = [offset for _name, rows in families for offset in rows]
+        values = np.zeros((len(offsets), 7))
+        values[:, 0] = offsets
+        values[:, 1] = 1.0
+        report = SectionalLoadsReport(
+            0.0,
+            0.0,
+            30.0,
+            None,
+            "Steady",
+            1,
+            None,
+            None,
+            None,
+            len(offsets),
+            "N",
+            "N-m",
+            ("Offset", "Chord", "X_QC", "Z_QC", "Fx", "Fz", "Moment"),
+            values,
         )
+        family_map = SimpleNamespace(
+            families=[SimpleNamespace(name=n, count=len(r)) for n, r in families],
+            total_sections=len(offsets),
+        )
+        return report.split(family_map)
 
     with pytest.raises(FsiInputError, match="not monotonic"):
-        _validate_block_boundaries([block("a", [0.0, 2.0, 1.0])])
+        split(("a", [0.0, 2.0, 1.0]))
     with pytest.raises(FsiInputError, match="continue smoothly"):
-        _validate_block_boundaries([block("a", [0.0, 1.0, 2.0]), block("b", [3.0, 4.0, 5.0])])
+        split(("a", [0.0, 1.0, 2.0]), ("b", [3.0, 4.0, 5.0]))

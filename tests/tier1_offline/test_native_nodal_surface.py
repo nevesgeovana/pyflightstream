@@ -264,13 +264,15 @@ def test_f_1440_names_that_collide_once_normalized_are_refused_by_the_tecplot_wr
 
 
 def test_f_1442_stamped_exports_in_a_subdirectory_are_found_beside_their_vtk(tmp_path):
-    from pyflightstream.results.surface import _surface_pairs
-
     (tmp_path / "sub").mkdir()
     for name in ("P1.vtk", "P1_iteration=3.vtk"):
-        (tmp_path / "sub" / name).write_text("x", encoding="utf-8")
-    pairs = _surface_pairs(tmp_path, "sub/P1.vtk", "sub/P1.dat")
-    assert pairs[1] == ("sub/P1_iteration=3.vtk", "sub/P1_iteration=3.dat")
+        write_vtk_surface(tmp_path / "sub" / name, _vtk(), title="step")
+    records = translate_surface_exports(
+        tmp_path,
+        [{"vtk": "sub/P1.vtk", "dat": "sub/P1.dat", "frame": REFERENCE_FRAME.record()}],
+    )
+    assert records[0]["written"] == ["sub/P1.dat", "sub/P1_iteration=3.dat"]
+    assert (tmp_path / "sub" / "P1_iteration=3.dat").is_file()
 
 
 def test_f_817_an_unparseable_varlocation_is_refused_not_read_as_absent(tmp_path):

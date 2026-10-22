@@ -666,13 +666,12 @@ def test_plane_induced_drag_is_the_crossflow_energy_integral():
 
 @pytest.mark.requirement("FR-1028")
 def test_the_edge_trace_of_a_flat_wake_matches_the_strip_trace_to_roundoff():
+    from pyflightstream.farfield import WakeTrace
     from pyflightstream.farfield.quadrature import strip_edges
-    from pyflightstream.farfield.trefftz import _edge_trace
 
     y, z, gamma = _trace()
     strips = trace_forces(y, z=z, gamma=gamma, rho=1.2, v_inf=30.0)
-    edges = _edge_trace(
-        strip_edges(y), strip_edges(z), gamma, np.ones(len(y), dtype=bool), rho=1.2, v_inf=30.0
-    )
+    shed = -np.diff(np.concatenate([[0.0], gamma, [0.0]]))
+    edges = WakeTrace(strip_edges(y), strip_edges(z), shed, 0, None).forces(rho=1.2, v_inf=30.0)
     assert edges.lift == pytest.approx(strips.lift, rel=1e-12)
     assert edges.induced_drag == pytest.approx(strips.induced_drag, rel=1e-12)

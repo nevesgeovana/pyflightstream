@@ -2766,18 +2766,23 @@ def test_last_the_short_manual_hint_does_not_state_a_page_range_of_its_own(tmp_p
 
 
 @pytest.mark.parametrize("spec", ["²-3", "1-³", "١-٣"])
-def test_last_a_page_range_takes_ascii_digits_only(spec, capsys):
+def test_last_a_page_range_takes_ascii_digits_only(spec, capsys, monkeypatch, tmp_path):
     """X-F-1304: str.isdigit accepts characters int() refuses, ending in a traceback."""
-    import argparse
-
     from pyflightstream.utils import cli as utils_cli
 
-    parser = argparse.ArgumentParser()
-    with pytest.raises(SystemExit) as raised:
-        utils_cli._pages(parser, "--chapter", spec)
-    assert raised.value.code == 2
-    assert "FIRST-LAST" in capsys.readouterr().err
-    assert utils_cli._pages(parser, "--chapter", "273-370") == (273, 370)
+    monkeypatch.setattr("pyflightstream.utils.cli._manual_extra_error", lambda: None)
+    manual = str(tmp_path / "absent.pdf")
+
+    def run(pages):
+        argv = ["coverage", "--manual", manual, "--source", "FSM-26.121", "--chapter-pages", pages]
+        with pytest.raises(SystemExit) as raised:
+            utils_cli.main(argv)
+        assert raised.value.code == 2
+        return capsys.readouterr().err
+
+    assert "FIRST-LAST" in run(spec)
+    # A well-formed range passes the page check and meets the next refusal, the absent manual.
+    assert "is not a file" in run("273-370")
 
 
 @pytest.mark.parametrize("canonical", ['26.1"2', "26.12\n", "a b", "../x"])

@@ -1842,17 +1842,25 @@ def test_f_256_residual_columns_follow_the_header_names_not_their_position():
         parse_residual_history(one_named)
 
 
-def test_pfs_2117_002_results_refusals_sit_under_the_package_error_base():
-    from types import SimpleNamespace
+def _sectional_report(columns):
+    """A sectional loads report naming ``columns``, one row of zeros under them."""
+    from pyflightstream.results.sectional_loads import SectionalLoadsReport
 
+    return SectionalLoadsReport(
+        0.0, 0.0, 30.0, None, "Steady", 1, None, None, None, 1, "N", "N-m", columns,
+        np.zeros((1, len(columns))),
+    )  # fmt: skip
+
+
+def test_pfs_2117_002_results_refusals_sit_under_the_package_error_base(tmp_path):
     from pyflightstream.exceptions import PyflightstreamError
+    from pyflightstream.workspace import CampaignWorkspace
 
-    workspace = SimpleNamespace(root="camp", read_manifest=lambda: [])
+    workspace = CampaignWorkspace(tmp_path)
     with pytest.raises(MalformedOutputError, match="not in the manifest") as unknown:
-        tables_module._as_record(workspace, "no-such-run")
-    layout = SimpleNamespace(columns=("a", "b"), values=np.zeros((1, 2)))
+        parse_run_loads(workspace, "no-such-run")
     with pytest.raises(MalformedOutputError, match="expected") as wrong:
-        tables_module._sectional_loads_frame(layout)
+        to_table(_sectional_report(("a", "b")))
     for refused in (unknown.value, wrong.value):
         assert isinstance(refused, PyflightstreamError)
         assert isinstance(refused, ValueError)
@@ -1875,13 +1883,10 @@ def test_f_1452_the_unsupported_result_message_does_not_send_users_to_an_extra()
 
 
 def test_x_f_1225_a_moved_sectional_column_is_a_malformed_output_error():
-    from types import SimpleNamespace
-
     from pyflightstream.results import MalformedOutputError
 
-    report = SimpleNamespace(columns=("offset_m", "moved"), values=np.zeros((1, 2)))
     with pytest.raises(MalformedOutputError, match="expected"):
-        tables_module._sectional_loads_frame(report)
+        to_table(_sectional_report(("offset_m", "moved")))
 
 
 def test_x_f_1339_a_manifest_output_name_cannot_leave_the_simulation_folder(tmp_path):

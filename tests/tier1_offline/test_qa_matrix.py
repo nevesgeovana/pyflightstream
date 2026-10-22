@@ -600,47 +600,101 @@ def test_p0430_a_declared_version_the_registry_does_not_resolve_is_a_physics_ref
     assert "99.999" in str(caught.value)
 
 
-def test_p0430_a_reduction_error_is_a_case_error_not_a_post_run_abort_x_f_0539():
+def _reduced_records(tmp_path, records):
+    """Reduce ``records`` of the tier-3 physics matrix through the public reduction."""
+    from pyflightstream.qa.matrix import reduce_physics
+    from tests.tier1_offline.test_regression_qa_tools import (
+        _qa_matrix___fake_workspace,
+        _qa_matrix___workspace,
+    )
+
+    root = _qa_matrix___workspace(tmp_path)
+    return reduce_physics(_qa_matrix___fake_workspace(root, records), root / "matriz_physics.fs")
+
+
+@pytest.mark.parametrize("failure", [ValueError("garbled"), ArithmeticError("degenerate fit")])
+def test_p0430_a_reduction_error_is_a_case_error_not_a_post_run_abort_x_f_0539(
+    tmp_path, monkeypatch, failure
+):
     from pyflightstream.qa import matrix as driver
+    from tests.tier1_offline.test_regression_qa_tools import _qa_matrix___record
 
-    assert ValueError in driver._CASE_FAILURES and ArithmeticError in driver._CASE_FAILURES
+    def broken(workspace, record):
+        raise failure
+
+    monkeypatch.setattr(driver, "parse_run_loads", broken)
+    run = _reduced_records(tmp_path, [_qa_matrix___record("ws/sim_5005/AL+000", alpha=0.0)])
+    errors = {result.case_id: result.error for result in run.results}
+    assert f"{type(failure).__name__}: {failure}" in errors["PHY-05"], errors
 
 
-def test_p0430_the_overlay_line_escapes_quotes_and_backslashes_f_710():
+def test_p0430_the_overlay_line_escapes_quotes_and_backslashes_f_710(tmp_path, monkeypatch):
+    import sys
     import tomllib
 
-    from pyflightstream.qa.matrix import _overlay_line, _toml_string
-
-    build = 'b"ad'
-    exe = '/opt/fs"q/exe'
-    parsed = tomllib.loads(_overlay_line(build, exe, "26.124"))
-    assert parsed == {build: {"path": exe, "version": "26.124"}}
-    # A backslash is escaped too, which a POSIX path may carry and as_posix leaves alone.
-    awkward = "a" + chr(92) + "b" + chr(34) + "c"
-    assert tomllib.loads("k = " + _toml_string(awkward))["k"] == awkward
-
-
-def test_p0430_records_under_two_invocations_are_not_reported_as_one_f_556():
-    import types
-    from pathlib import Path
-
-    from pyflightstream.qa.matrix import _require_one_invocation
+    from pyflightstream.qa import matrix as driver
     from pyflightstream.qa.physics import PhysicsEnvironmentError
+    from tests.tier1_offline.test_regression_qa_tools import _qa_matrix___workspace
 
-    def record(flag, script):
+    # A build id with a quote and a backslash: both must be escaped in the overlay it is keyed by.
+    build = "a" + chr(92) + "b" + chr(34) + "c"
+    entry = '"main" = "FlightStream.exe"\n'
+    root = _qa_matrix___workspace(tmp_path, build=build, entry=entry)
+    overlays = []
+
+    def run(workspace, matrix, **kwargs):
+        (overlay,) = (Path(workspace.root) / "inputs").glob("*.local.toml")
+        overlays.append(overlay.read_text(encoding="utf-8"))
+        return []
+
+    def stop(*args, **kwargs):
+        raise PhysicsEnvironmentError("stop after the first side")
+
+    monkeypatch.setattr(driver, "run_physics_matrix", run)
+    monkeypatch.setattr(driver, "reduce_physics", stop)
+    with pytest.raises(PhysicsEnvironmentError, match="stop after"):
+        driver.drift_from_workspace(
+            root,
+            "26.120",
+            "26.123",
+            fs_exes={"26.120": sys.executable, "26.123": sys.executable},
+            workroot=tmp_path / "drift",
+        )
+    (text,) = overlays
+    assert tomllib.loads(text) == {
+        build: {"path": Path(sys.executable).as_posix(), "version": "26.120"}
+    }
+
+
+def test_p0430_records_under_two_invocations_are_not_reported_as_one_f_556(tmp_path):
+    from pyflightstream.qa.physics import PhysicsEnvironmentError
+    from tests.tier1_offline.test_regression_qa_tools import _qa_matrix___record
+
+    def record(run_id, flag, script):
         argv = ["fs.exe", *([flag] if flag else []), script]
-        return types.SimpleNamespace(executor={"class_name": "LocalExecutor", "argv": argv})
+        executor = {"class_name": "LocalExecutor", "argv": argv}
+        return _qa_matrix___record(run_id).model_copy(update={"executor": executor})
 
     # The script differs from point to point and is not part of the invocation.
-    _require_one_invocation([record("-hidden", "a.py"), record("-hidden", "b.py")], Path("m.fs"))
+    same = [
+        record("ws/sim_5002/AL+004", "-hidden", "a.py"),
+        record("ws/sim_5002/AL+008", "-hidden", "b.py"),
+    ]
+    assert _reduced_records(tmp_path / "same", same).executor["argv"][1] == "-hidden"
+    other = [
+        record("ws/sim_5002/AL+004", "-hidden", "a.py"),
+        record("ws/sim_5002/AL+008", None, "b.py"),
+    ]
     with pytest.raises(PhysicsEnvironmentError, match="2 different solver invocations"):
-        _require_one_invocation([record("-hidden", "a.py"), record(None, "b.py")], Path("m.fs"))
+        _reduced_records(tmp_path / "other", other)
 
 
-def test_p0430_a_windows_recorded_executable_path_reduces_to_its_file_name_x_f_1335():
-    from pyflightstream.qa.matrix import _exe_file_name
+def test_p0430_a_windows_recorded_executable_path_reduces_to_its_file_name_x_f_1335(tmp_path):
+    from tests.tier1_offline.test_regression_qa_tools import _qa_matrix___record
 
     backslash = chr(92)
     windows = "D:" + backslash + "fs" + backslash + "Flightstream.exe"
-    assert _exe_file_name(windows) == "Flightstream.exe"
-    assert _exe_file_name("/opt/fs/Flightstream.exe") == "Flightstream.exe"
+    for recorded in (windows, "/opt/fs/Flightstream.exe"):
+        record = _qa_matrix___record("ws/sim_5002/AL+004").model_copy(update={"fs_exe": recorded})
+        run = _reduced_records(tmp_path / str(abs(hash(recorded))), [record])
+        assert run.fs_exe_name == "Flightstream.exe"

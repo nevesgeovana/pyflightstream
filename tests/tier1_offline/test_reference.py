@@ -764,9 +764,9 @@ def test_only_a_removed_row_shows_its_report_in_the_version_cell():
 
 def test_f_1611_f_1612_the_legend_names_the_errors_it_really_raises():
     """Removed and empty cell share CommandNotInVersionError; the legend says so."""
-    from pyflightstream.reference import _status_legend_html, _status_legend_markdown
+    from pyflightstream.reference import markdown_compatibility_matrix, render_html
 
-    for text in (_status_legend_markdown(), _status_legend_html()):
+    for text in (markdown_compatibility_matrix(), render_html()):
         assert "different error" not in text
         assert "BrokenCommandError" in text
         assert "CommandNotInVersionError" in text

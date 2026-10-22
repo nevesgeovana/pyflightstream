@@ -988,22 +988,19 @@ def test_x_f_0565_reactivation_reads_run_as_the_matrix_reader_does(tmp_path):
 
 
 def test_x_f_0565_a_simulation_the_matrix_does_not_name_is_a_refusal_not_stop_iteration(
-    tmp_path, monkeypatch
+    tmp_path,
 ):
     from types import SimpleNamespace
 
     from pyflightstream.run._rebuild import _mint
 
-    monkeypatch.setattr(
-        "pyflightstream.workspace.matrix.resolve_matrix",
-        lambda *args, **kwargs: SimpleNamespace(
-            campaign=SimpleNamespace(sims=[SimpleNamespace(sim_id="5002")]), row_builds=()
-        ),
-    )
-    said = _mint(
-        SimpleNamespace(shadow=tmp_path), tmp_path / "m.toml", "5001", "T", "n", None, None, []
-    )  # type: ignore[arg-type]
-    assert isinstance(said, str) and "holds no row for simulation 5001" in said
+    # The tier-3 physics matrix names 5001 to 5006 and no simulation 5999.
+    tier3 = Path(__file__).resolve().parents[1] / "tier3_licensed"
+    shutil.copytree(tier3 / "inputs", tmp_path / "inputs")
+    matrix = tmp_path / "matriz_physics.fs"
+    shutil.copy(tier3 / "matriz_physics.fs", matrix)
+    said = _mint(SimpleNamespace(shadow=tmp_path), matrix, "5999", "T", "n", None, None, [])  # type: ignore[arg-type]
+    assert isinstance(said, str) and "holds no row for simulation 5999" in said
 
 
 def test_x_f_1710_a_waiting_simulation_is_listed_once_and_not_as_unrecoverable():

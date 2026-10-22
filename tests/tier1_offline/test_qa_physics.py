@@ -614,7 +614,7 @@ def test_p0430_the_default_reference_directory_inside_site_packages_is_not_writt
     run = make_run(tmp_path)
     yaml_path, _ = write_physics_report(run, tmp_path, date="2026-07-24")
     installed = tmp_path / "venv" / "site-packages" / "pyflightstream" / "qa" / "references"
-    monkeypatch.setattr(physics_module, "_references_dir", lambda: installed)
+    monkeypatch.setattr(physics_module.resources, "files", lambda package: installed.parent)
     with pytest.raises(QaEvidenceError, match="inside an installed package"):
         update_reference("PHY-01", yaml_path, "seed", date="2026-07-24", repo_root=tmp_path)
     assert not installed.exists()

@@ -2059,13 +2059,29 @@ def test_f6_15_the_loft_digest_treats_signed_zero_as_zero(tmp_path):
     assert "variant geometry equals reference" in read
 
 
-def test_f6_0102_a_third_restored_state_is_inconclusive_not_refuted():
+def test_f6_0102_a_third_restored_state_is_inconclusive_not_refuted(tmp_path):
     """FR-2189: a restored state equal to neither reference nor control is None."""
-    from pyflightstream.qa._spec_ccs_mesh import _restoration
+    from types import SimpleNamespace
 
-    assert _restoration("a", "b", "b", "a") is True
-    assert _restoration("a", "b", "b", "b") is False
-    assert _restoration("a", "b", "b", "c") is None
+    check = PROBE_SPECS["DELETE_CCS_WING_REFINEMENT_ZONES"].assert_effect
+    states = {
+        "a": "v 0 0 0\nv 1 0 0\nv 0 1 0\n",
+        "b": "v 0 0 0\nv 2 0 0\nv 0 1 0\n",
+        "c": "v 0 0 0\nv 3 0 0\nv 0 1 0\n",
+    }
+
+    def judge(directory: Path, restored: str) -> bool | None:
+        """Judge four lofts: a reference, a setting that moved it, the control, the restored."""
+        directory.mkdir()
+        for name, state in zip(
+            ("reference", "variant", "control", "restored"), ("a", "b", "b", restored), strict=True
+        ):
+            (directory / f"{name}.obj").write_text(states[state] + "f 1 2 3\n", encoding="utf-8")
+        return check(SimpleNamespace(workdir=directory))
+
+    assert judge(tmp_path / "back", "a") is True
+    assert judge(tmp_path / "stuck", "b") is False
+    assert judge(tmp_path / "third", "c") is None
 
 
 def test_p0430_f538_remove_initialization_needs_an_initialized_before_state(tmp_path):

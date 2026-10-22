@@ -144,14 +144,11 @@ def test_dummy_archive_keeps_the_node_list(tmp_path):
     assert (tmp_path / cli.ARCHIVE_DIR / "call_0001" / "FSInodes.txt").is_file()
 
 
-def test_archive_failure_after_a_solve_logs_and_fails(tmp_path, monkeypatch):
+def test_archive_failure_after_a_solve_logs_and_fails(tmp_path):
     """F-777, X-F-0515: a failed archive is an error-logged failure, not a traceback."""
     stage_run(tmp_path)
     write_loads(tmp_path, 100)
-
-    def broken(cwd, archive):
-        raise OSError("disk full")
-
-    monkeypatch.setattr(cli, "_archive_call_files", broken)
+    # A file where the archive folder belongs: the solve succeeds and the archive cannot be made.
+    (tmp_path / cli.ARCHIVE_DIR).write_text("not a folder", encoding="utf-8")
     assert cli.main(["step", "--out", str(tmp_path)]) == 1
     assert "call archive" in (tmp_path / cli.ERROR_LOG).read_text(encoding="utf-8")
