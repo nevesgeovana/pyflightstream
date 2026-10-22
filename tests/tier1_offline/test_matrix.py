@@ -21,6 +21,7 @@ yet fails on its ASSERTION rather than on the import.
 
 import importlib
 import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -674,6 +675,10 @@ def test_every_committed_fixture_is_pinned_against_line_ending_conversion():
         "passes this assertion for the wrong reason"
     )
 
+    if shutil.which("git") is None or not (Path(__file__).parents[2] / ".git").exists():
+        # An unpacked sdist or a source tree without history has no attributes to read
+        # (F-868); the pinning is a property of the checkout and is measured in one.
+        pytest.skip("not a git checkout, so there is no .gitattributes to read")
     probe = subprocess.run(
         ["git", "check-attr", "binary", "text", "eol", "--", *[str(path) for path in files]],
         capture_output=True,
