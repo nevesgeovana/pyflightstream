@@ -105,6 +105,9 @@ layout and sidecar conventions. A second `init` preserves an existing page.
 
 The package looks in `geometries/<stem>/` first and at
 `geometries/<file>` second. Both layouts resolve the same `GEOMETRY` cell.
+A geometry file name, without its extension, uses letters, digits, `.`, `_` and `-`
+and begins with a letter or a digit; a name with a space or a bracket is refused with
+the character named and a renamed id suggested (`my wing (v2)` becomes `my_wing_v2`).
 A geometry instruction requires a folder of its own, containing the geometry
 and its sidecars. A point staged from that folder exposes only that geometry's
 files through its input link. See [Upgrading](upgrading.md) for older formats.

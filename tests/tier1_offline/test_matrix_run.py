@@ -6240,3 +6240,13 @@ def test_p0430_the_additional_post_refuses_a_scheduler_before_writing_f_1455(tmp
     with pytest.raises(ExecutorConfigurationError, match="local=True"):
         run_matrix_module.run_additional_post(tmp_path / "m.fs", CampaignWorkspace(tmp_path))
     assert not (tmp_path / "additional.json").exists()
+
+
+def test_x_f_1316_a_geometry_id_with_a_space_or_bracket_is_refused_naming_the_character(tmp_path):
+    """The refusal stays, and it names the character and offers the renamed id."""
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: my wing (v2).fsm")
+    message = str(caught.value)
+    assert "the character ' '" in message, message
+    assert "'my_wing_v2'" in message, "the renamed id is not suggested"

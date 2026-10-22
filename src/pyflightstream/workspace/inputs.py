@@ -820,11 +820,18 @@ def _check_id(artifact_id: str, kind: str) -> None:
     refused instead of resolving to another artifact's file.
     """
     if not is_valid_artifact_id(artifact_id):
+        bad = next((c for c in artifact_id if not re.fullmatch(r"[A-Za-z0-9._-]", c)), None)
+        renamed = re.sub(r"[^A-Za-z0-9._-]+", "_", artifact_id).strip("._-")
+        if bad is not None:
+            cause = f"the character {bad!r} (a space or a bracket, for example) is not allowed"
+        else:
+            cause = f"it begins with {artifact_id[:1]!r}"
+        advice = f" Rename the file to {renamed!r} and the cell with it." if renamed else ""
         raise InputArtifactError(
-            f"{kind} id {artifact_id!r} is not a valid artifact id: ids are file "
+            f"{kind} id {artifact_id!r} is not a valid artifact id: {cause}. Ids are file "
             "name stems of letters, digits, dot, underscore or hyphen, beginning "
             "with a letter or a digit. The id selects a file inside the library; it "
-            "is never a path.",
+            f"is never a path.{advice}",
             kind=kind,
             artifact_id=artifact_id,
         )

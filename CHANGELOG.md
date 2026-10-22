@@ -17,6 +17,8 @@ FlightStream versions.
 
 ### Changed
 
+- The refusal of an artifact id with a space, a bracket or another character outside letters,
+  digits, `.`, `_` and `-` names the character and suggests the renamed id.
 - `pyfs-matrix mark-converged` without `--apply` exits 2 when its preview holds a refused
   point, as `--apply` does; a preview without refusals still exits 0.
 - Altitude and compatibility reports state that they analyse retained evidence, not probe
