@@ -13,7 +13,7 @@
       ],
       "parameters": "path: str | Path, *, active_only: bool=True",
       "returns": "list[MatrixRow]",
-      "source_sha256": "31b4e63bf745908735869995b49a9132add832937e070ef88740d9681c1f701a"
+      "source_sha256": "aec65bbbac7ed3acdfa5e8ed5ebc6681f01666acf9db970c1c8f4109ff2ff189"
     },
     {
       "id": "resolve",
