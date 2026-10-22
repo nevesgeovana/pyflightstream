@@ -187,7 +187,12 @@ whose faces form a structured grid, read from the connectivity alone, is
 resampled along its two index directions by a cubic spline through its nodes:
 quadrilaterals, or quadrilaterals each split into two triangles, laid out as a
 sheet, or as a tube whose ends are open, closed by a fan of triangles around one
-pole node, or closed by a zipper of triangles. The trailing edge, the leading
+pole node, or closed by a zipper of triangles. A sheet is a grid only with a
+trailing edge: its trailing edge is the grid line that fixes which edge is
+chordwise index 0, so a sheet whose family has no trailing-edge vertex is
+remeshed under `method = "auto"` and refused under `method = "grid"`, both
+naming that reason. Only a smooth tube is recovered without one, its seam
+standing in. The trailing edge, the leading
 edge and the end stations are knots of the spline, so the clustering is kept
 and they do not move, and the level is written in the source's face order.
 
