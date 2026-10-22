@@ -599,15 +599,35 @@ def _angle_of(attitude: Mapping[object, object], key: str) -> float | None:
     return None
 
 
+def _states(attitude: Mapping[object, object], key: str) -> bool:
+    """Whether the row's condition names ``key`` at all, read case-folded."""
+    return any(str(name).casefold() == key.casefold() for name in attitude)
+
+
 def _say_the_na_rows(
-    product: str, alias: str, *, unangled: Sequence[str], at_rest: Sequence[str]
+    product: str,
+    alias: str,
+    *,
+    unangled: Sequence[str],
+    at_rest: Sequence[str],
+    defaulted: Sequence[tuple[str, tuple[str, ...]]] = (),
 ) -> None:
-    """Warn once per table for the rows written with NA cells, naming them and why."""
+    """Warn once per table for the rows written with NA cells or default angles, naming them."""
+    if defaulted:
+        runs = ", ".join(run or "NA" for run, _names in defaulted)
+        warn(
+            f"point={defaulted[0][0] or 'NA'} product={product}: {len(defaulted)} row(s) of "
+            f"rotor {alias} state no ALPHA or BETA ({runs}); an unstated angle is 0.0 degrees "
+            f"(FR-69), so the shaft angle and ETAW_{alias} are computed at that attitude there.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     if unangled:
         warn(
             f"point={unangled[0] or 'NA'} product={product}: {len(unangled)} row(s) of rotor "
-            f"{alias} state no ALPHA or BETA ({', '.join(r or 'NA' for r in unangled)}), so "
-            f"the shaft angle and ETAW_{alias} read NA there; nothing is taken as level flight.",
+            f"{alias} state an ALPHA or BETA that is not a finite number "
+            f"({', '.join(r or 'NA' for r in unangled)}), so the shaft angle and "
+            f"ETAW_{alias} read NA there.",
             PyflightstreamWarning,
             stacklevel=3,
         )
@@ -808,6 +828,7 @@ def write_rotor_table(
     refused = [] if left_out is None else left_out
     emitted = [] if written_runs is None else written_runs
     unangled: list[str] = []
+    defaulted: list[tuple[str, tuple[str, ...]]] = []
     at_rest: list[str] = []
     for row in rows:
         stated = row.get("run_id")
@@ -846,7 +867,15 @@ def write_rotor_table(
         if reason is not None:
             refused.append((run_id, reason))
             continue
-        angles = (_angle_of(attitude, "ALPHA"), _angle_of(attitude, "BETA"))
+        # AN UNSTATED ANGLE IS 0.0, STATED AS THE DEFAULT (FR-69): the shaft angle and the
+        # wind-axis force read the angle as MADV does, and the table says it was taken.
+        absent = tuple(key for key in ("ALPHA", "BETA") if not _states(attitude, key))
+        angles = (
+            0.0 if "ALPHA" in absent else _angle_of(attitude, "ALPHA"),
+            0.0 if "BETA" in absent else _angle_of(attitude, "BETA"),
+        )
+        if absent:
+            defaulted.append((run_id, absent))
         loads = rotor_shaft_loads(
             surfaces if isinstance(surfaces := row.get("surfaces"), Mapping) else {},
             rotor=rotor,
@@ -885,8 +914,8 @@ def write_rotor_table(
             )
             continue
         if None in angles:
-            # NO ATTITUDE IS NOT LEVEL FLIGHT (PFS-2105.018): the shaft angle and
-            # the wind-axis force need the row's ALPHA and BETA, and read NA.
+            # AN ANGLE THAT IS NOT A NUMBER IS NOT LEVEL FLIGHT (PFS-2105.018): the shaft
+            # angle and the wind-axis force need a readable ALPHA and BETA, and read NA.
             loads = replace(loads, shaft_angle_deg=math.nan, wind_force_n=math.nan)
             unangled.append(run_id)
         if 0.5 * density_kg_m3 * speed_m_s**2 <= 0.0:
@@ -957,7 +986,9 @@ def write_rotor_table(
 
     if not written:
         return None
-    _say_the_na_rows(Path(path).name, alias, unangled=unangled, at_rest=at_rest)
+    _say_the_na_rows(
+        Path(path).name, alias, unangled=unangled, at_rest=at_rest, defaulted=defaulted
+    )
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     # THROUGH `write_csv_table`, which is THE funnel: every cell of every

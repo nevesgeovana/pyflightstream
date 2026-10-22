@@ -675,6 +675,11 @@ def _the_axes_of_the_unsteady_rows(
         stated = {str(key).upper(): value for key, value in condition.items()}
         rho, speed = stated.get("RHO"), stated.get("VINF")
         alpha, beta = stated.get("ALPHA"), stated.get("BETA")
+        # AN UNSTATED ANGLE IS 0.0, STATED AS THE DEFAULT (FR-69), as every product that
+        # reads the angle takes it; a value that is not a number still lacks the condition.
+        defaulted = [name for name, value in (("ALPHA", alpha), ("BETA", beta)) if value is None]
+        alpha = 0.0 if alpha is None else alpha
+        beta = 0.0 if beta is None else beta
         lacking = _lacking_condition(rho, speed, alpha, beta)
         if lacking:
             notes.append(
@@ -683,6 +688,12 @@ def _the_axes_of_the_unsteady_rows(
                 "coefficient without the dynamic pressure it is divided by"
             )
             continue
+        if defaulted:
+            notes.append(
+                f"the axis coefficients of steps {_window[0]} to {_window[1]} take "
+                f"{', '.join(f'{name} = 0.0 (default)' for name in defaulted)}: the row states "
+                "no angle there"
+            )
         try:
             unit = 0.5 * float(rho) * float(speed) ** 2 * reference.sref_m2  # type: ignore[arg-type]
             for group in groups:

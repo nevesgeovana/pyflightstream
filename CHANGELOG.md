@@ -31,6 +31,10 @@ FlightStream versions.
 
 ### Changed
 
+- An unstated `ALPHA` or `BETA` is 0.0 in every product that reads the angle: the rotor table's
+  shaft angle and `ETAW` and the axis coefficients of the unsteady polar are computed at it, and a
+  warning or a note names the rows that took the default. Only an angle that is stated and is
+  not a number reads `NA`.
 - `pyfs-qa physics` runs the physics cases the selected build supports and reports each case it
   cannot run as INAPPLICABLE with its reason; the Markdown report summary states how many cases
   ran and how many were left out (`PhysicsRun.ran_count`, `PhysicsRun.inapplicable_count`).

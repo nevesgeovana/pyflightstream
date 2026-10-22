@@ -218,6 +218,31 @@ def test_a_row_stating_no_density_gets_no_axes_and_says_so(tmp_path):
     assert any("RHO" in note for note in notes), notes
 
 
+def test_p0430_rb6_07_a_row_stating_no_angle_takes_zero_and_says_so(tmp_path):
+    """RB6-07 (FR-69): the axes of a row with no ALPHA or BETA are those at 0.0, stated."""
+    notes: list[str] = []
+    bare = {key: value for key, value in CONDITION.items() if key not in ("ALPHA", "BETA")}
+    zero = {**bare, "ALPHA": 0.0, "BETA": 0.0}
+    columns = {}
+    for name, condition in (("bare", bare), ("zero", zero)):
+        folder = tmp_path / name
+        folder.mkdir()
+        path = write_unsteady_polar(
+            folder / "P0001_x_uns_avg.csv",
+            points=[_Point()],
+            plots={"P": _plots(folder, ("MRP_TOTAL",))},
+            window=(2, 3),
+            conditions=[condition],
+            reference=REFERENCE,
+            notes=notes if name == "bare" else None,
+            axes_groups=("MRP_TOTAL",),
+        )
+        names, rows = read_csv_table(path)
+        columns[name] = {key: rows[0][key] for key in names if key.startswith("CLW")}
+    assert columns["bare"] and columns["bare"] == columns["zero"]
+    assert any("ALPHA = 0.0 (default)" in note and "BETA = 0.0 (default)" in note for note in notes)
+
+
 def test_the_stage_records_why_an_unsteady_polar_carries_no_axes(tmp_path):
     """The recorded campaign plots no six components in the global frame, and says so."""
     import json

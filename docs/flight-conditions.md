@@ -190,7 +190,10 @@ Set `COLD_START: false` explicitly to opt into warm steady starts.
 neither sweeps nor holds `ALPHA` (or `BETA`) flies that angle at 0.0. The plan summary
 carries `<run_id>: ALPHA = 0.0 (default); the row states no such angle`, and the run record
 written for the point lists the names under `angles_not_stated`, so a zero is never read
-as a choice.
+as a choice. Every product that reads the angle takes the same default: the rotor table's
+shaft angle, `ETAW` and `MADV`, and the axis coefficients of the unsteady polar are
+computed at 0.0, and a warning or a note names the rows that took it. An angle that is
+stated but is not a number still reads `NA`.
 
 **An angle the row HOLDS still names the point.** `ALPHA:sweep, BETA:0.0`
 over `-4,0,4` plans three runs named `AL-040BE+000`, `AL+000BE+000` and
