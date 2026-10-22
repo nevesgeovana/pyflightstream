@@ -6459,6 +6459,11 @@
     },
     {
       "source": "pyflightstream.post.glossary",
+      "target": "pyflightstream.post._tables",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.glossary",
       "target": "pyflightstream.script.helpers",
       "kind": "module"
     },
@@ -7069,6 +7074,11 @@
     },
     {
       "source": "pyflightstream.post.qsteady_noise",
+      "target": "pyflightstream.post._tables",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.qsteady_noise",
       "target": "pyflightstream.workspace",
       "kind": "module"
     },
@@ -7280,6 +7290,11 @@
     {
       "source": "pyflightstream.post.streamlines",
       "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.streamlines",
+      "target": "pyflightstream.post._tables",
       "kind": "module"
     },
     {
@@ -9099,6 +9114,11 @@
     },
     {
       "source": "pyflightstream.run._batch_plan",
+      "target": "pyflightstream.run._executors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._batch_plan",
       "target": "pyflightstream.run._grouped",
       "kind": "module"
     },
@@ -9451,6 +9471,11 @@
       "source": "pyflightstream.run._cli_mesh",
       "target": "pyflightstream.workspace._geometry_clean",
       "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_mesh",
+      "target": "pyflightstream.workspace.cli",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.run._cli_mesh",
