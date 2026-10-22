@@ -1282,6 +1282,11 @@ def qsteady_inflow_map_inputs(case: SimCase) -> dict[str, object] | None:
     -------
     dict[str, object] or None
         Map inputs at the point's speed, or None without a sampled inflow.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the rotor is stopped (RPM 0): a map has no advance ratio to be built at.
     """
     from ..freestream import field_rows_in_metres
 
