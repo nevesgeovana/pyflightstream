@@ -179,6 +179,7 @@ units = "METER"
 
 [trailing_edges]
 file = "{GEOMETRY}.te.txt"
+type = "STANDARD"
 
 [wake_termination]
 detect = "auto"
