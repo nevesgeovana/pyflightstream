@@ -263,6 +263,21 @@ def wing_triangles(
     return np.array(triangles) + np.asarray(translation_m, dtype=float)
 
 
+def _mid_camber_point(section: np.ndarray) -> np.ndarray:
+    """Return the mid-chord point of the camber line of a lower-then-upper contour.
+
+    The contour holds the lower surface from trailing to leading edge, then the
+    upper surface back, at the same chord stations, so vertex ``k`` and vertex
+    ``n - 1 - k`` face each other across the section. Their midpoint at mid-chord
+    lies on the camber line, inside the section, where a fan from it cannot wind
+    back on itself (F-239: the chord-line midpoint left the section of a cambered
+    code such as 4409).
+    """
+    last = section.shape[0] - 1
+    k = section.shape[0] // 4
+    return 0.5 * (section[k] + section[last - k])
+
+
 def _tip_cap(section: np.ndarray, outward_positive_y: bool) -> list[np.ndarray]:
     """Triangulate one tip section as a fan from a mid-camber point.
 
@@ -272,7 +287,7 @@ def _tip_cap(section: np.ndarray, outward_positive_y: bool) -> list[np.ndarray]:
     therefore winds +Y outward as built; the -Y cap flips each fan
     triangle.
     """
-    hub = 0.5 * (section[0] + section[section.shape[0] // 2])
+    hub = _mid_camber_point(section)
     hub[1] = section[0, 1]
     fan = []
     for i in range(section.shape[0] - 1):

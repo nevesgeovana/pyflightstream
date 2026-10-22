@@ -293,3 +293,18 @@ def test_every_blade_end_cap_triangle_faces_outward():
     tip = np.all(np.isclose(z, z.max()), axis=1)
     root = np.all(np.isclose(z, z.min()), axis=1)
     assert np.all(normals[tip, 2] > 0.0) and np.all(normals[root, 2] < 0.0)
+
+
+def test_p0430_the_cambered_blade_and_wing_end_caps_wind_outward_f_239():
+    from pyflightstream.qa.geometry import BladeSpec, blade_triangles
+
+    blade = blade_triangles(BladeSpec(naca="4409", n_chord=25, n_span=6))
+    top = blade[:, :, 2].max()
+    tip = blade[np.all(np.isclose(blade[:, :, 2], top), axis=1)]
+    assert len(tip) == 50
+    normals_z = [np.cross(t[1] - t[0], t[2] - t[0])[2] for t in tip]
+    assert min(normals_z) > 0.0, "a tip-cap triangle winds inward"
+    wing = wing_triangles(WingSpec(naca="4409", n_chord=25, n_span=4))
+    assert signed_volume(wing) > 0.0
+    census = edge_census(wing)
+    assert all((b, a) in census for (a, b) in census)
