@@ -973,10 +973,11 @@ def write_recorded_polar(
     Raises
     ------
     ProductError
-        If a point's loads table cannot be read, the folder holds no point,
+        If a point's loads table cannot be read, the folder holds no point, or
         a point's loads are in a frame other than the geometry's axes or state
-        no Reynolds number, or the reference differs from the one the solver
-        used.
+        no Reynolds number. A reference that differs from the one the export
+        printed is not refused here: it is warned, naming both numbers, and the
+        products are written, as the default warning policy states.
     """
     polar_dir = Path(polar_dir)
     out = Path(out_dir)

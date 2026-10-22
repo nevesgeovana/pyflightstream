@@ -126,10 +126,15 @@ def test_a_family_template_that_could_emit_the_automatic_name_is_never_read_as_i
     assert automatic not in actual, f"an ambiguous {automatic} was read as a source"
 
 
-def test_recorded_polar_refuses_an_area_the_export_did_not_use(tmp_path):
+def test_recorded_polar_warns_of_an_area_the_export_did_not_use(tmp_path):
+    """Outside a post the writer follows the documented default: warn, name SREF, write.
+
+    The export divided by 50 m2 and the reference states 40: the warning names both,
+    and the table states the reference's SREF (what-every-product-states.md).
+    """
     polar = _recorded(tmp_path, LOADS)
-    with pytest.raises(ProductError, match="SREF"):
-        write_recorded_polar(
+    with pytest.warns(Warning, match=r"states a reference area of 50.*SREF 40"):
+        written = write_recorded_polar(
             polar,
             tmp_path / "out",
             groups={"1": ["W", "B"]},
@@ -137,6 +142,9 @@ def test_recorded_polar_refuses_an_area_the_export_did_not_use(tmp_path):
             description="test",
             mach=0.2,
         )
+    assert written, "the default policy writes every computable product"
+    rows = read_csv_table(written[0])[1]
+    assert rows and float(rows[0]["SREF"]) == 40.0
 
 
 def test_recorded_polar_refuses_vectors_in_a_rotated_analysis_frame(tmp_path):
