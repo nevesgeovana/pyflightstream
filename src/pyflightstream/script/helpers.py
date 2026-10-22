@@ -263,7 +263,8 @@ def actuator_disc(
     CommandArgumentError
         If not exactly one thrust specification is given, a profile file lacks ``n_blades`` or is
         refused on the script's build, ``profile_text`` comes without ``profile`` or names a path
-        the script already writes differently, ``swirl`` is outside [0, 1], or an axis,
+        the script already writes differently, ``swirl`` is outside [0, 1] (a boolean is
+        refused too), the radii do not satisfy ``0 <= r_hub < r_tip``, or an axis,
         thrust unit, profile unit or wake type is outside the build's accepted vocabulary.
     ScriptReferenceError, ScriptLabelError
         If the frame does not exist or the creation label is already used.
@@ -479,6 +480,7 @@ def rotary_motion(
         or a wake stabilization blade count is asked for, neither of which
         that vocabulary can state, or if a rotary axis is outside its build's
         accepted vocabulary.
+        A wake stabilization blade count below 1 is refused as well.
     ScriptReferenceError, ScriptLabelError
         If a cited frame or boundary does not exist, or the motion label is
         already used. These checks precede entity creation.
@@ -1384,8 +1386,9 @@ def export_results(
     Raises
     ------
     CommandArgumentError
-        If ``vtk_wake`` is True without ``vtk_variables``, or a boundary or
-        variable selection is a bare label the command cannot take.
+        If ``vtk_wake`` is True without ``vtk_variables``, a boundary or
+        variable selection is a bare label the command cannot take, or the
+        boundary selection is an empty sequence.
     """
     _reject_bare_label("export_results", "vtk_boundaries", vtk_boundaries, allows_all=True)
     _reject_bare_label("export_results", "vtk_variables", vtk_variables, allows_all=True)
@@ -1520,6 +1523,11 @@ def probe_line(
         Number of probe vertices between start and end.
     start, end : (x, y, z) triples
         Line ends in the reference frame, simulation length units.
+
+    Raises
+    ------
+    CommandArgumentError
+        If ``points`` is not a whole number of at least one.
     """
     start = _triple("probe_line", "start", start)
     end = _triple("probe_line", "end", end)
@@ -1669,7 +1677,8 @@ def coordinate_frame(
     CommandArgumentError
         If the axes define no coordinate system, because an axis has zero
         length, the two are parallel or not orthogonal
-        (:func:`frame_axes_problem`), or a ``z_axis`` is given that does not
+        (:func:`frame_axes_problem`), the origin is not three coordinates, or a
+        ``z_axis`` is given that does not
         point along their right-handed cross product. The message names the
         frame and the vectors; nothing is emitted. The axes are written as
         given, never normalised: their lengths are directions' lengths.

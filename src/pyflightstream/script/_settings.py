@@ -900,6 +900,12 @@ def unsteady_solver(script: Script, *, time_iterations: int, delta_time: float) 
     delta_time : float
         Physical time step in s.
 
+    Raises
+    ------
+    CommandArgumentError
+        If ``time_iterations`` is not a whole number of at least one, or
+        ``delta_time`` is not a positive, finite number.
+
     Notes
     -----
     The solver-setup snapshot records this emission (PFS-2103.037): an
