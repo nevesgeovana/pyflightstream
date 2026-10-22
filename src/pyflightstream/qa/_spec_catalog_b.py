@@ -633,7 +633,10 @@ _spec(
     prelude=_SIXDOF_PRELUDE,
     save_state=True,
     assert_effect=fsm_changed(),
-    effect_note="the saved simulation changes across the motion start time",
+    effect_note=(
+        "the saved simulation changes across the motion start time (the line also "
+        "survives reopening the saved file, 26.124, L4 X-F-0163)"
+    ),
 )
 _motion_setter(
     "SET_MOTION_ROTOR_AXIS",

@@ -136,6 +136,17 @@ def test_p0420_direct_unprobed_hotfix_does_not_inherit_verified():
     assert not evidence.inherited
 
 
+def test_x_f_0163_the_motion_start_time_entry_cites_its_storage_and_read_back():
+    """X-F-0163 (L4, 26.124): the start time is stored and survives reopening, with its evidence."""
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.versions import resolve
+
+    entry = CommandRegistry.load().commands["SET_MOTION_START_TIME"]
+    note = entry.evidence_in(resolve("26.124")).record.note
+    assert note is not None
+    assert "X-F-0163/analysis.json" in note and "survives NEW_SIMULATION, OPEN and SAVEAS" in note
+
+
 def test_p0420_record_unprobed_build_keeps_manual_evidence_and_report(tmp_path):
     """P0420-P1-1b, FR-03: direct inconclusive evidence supersedes inherited verification."""
     import shutil

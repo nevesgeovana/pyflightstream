@@ -179,7 +179,7 @@ SET_MOTION_START_TIME:
     "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.122": {status: documented, note: "FSM-26.122 p.337, same grammar as 26.120; not run on 26.122: the licensed seat refused the build on 2026-10-12 (licence expired), so neither the abort of 2026-08-08 nor the verified 26.120 run answers for it"}
     "26.123": {status: documented, note: "FSM-26.123 p.337, unchanged from FSM-26.122 p.337"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml", note: "FSM-26.124 p.337; measured 2026-10-12 on a 6DOF motion (RPT-166): the saved simulation changes across the command"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml", note: "FSM-26.124 p.337; measured 2026-10-12 on a 6DOF motion (RPT-166): the saved simulation changes across the command. L4 run, namespace 56c681b8cc27218a38b80d4a184f681e4acfc918-426bbcf8c68b4963beb5dc26bb5c23ce, file X-F-0163/analysis.json: SET_MOTION_START_TIME 1 0.05 changes one motion-record line (0.0 to 5.00000000000000028E-02) and that line survives NEW_SIMULATION, OPEN and SAVEAS, so the start time is stored and read back"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml", note: "FSM-26.125 p.344; measured 2026-10-12 on a 6DOF motion (RPT-166): the saved simulation changes across the command"}
   notes: >
     Start of the motion within the solver physical time; enables
