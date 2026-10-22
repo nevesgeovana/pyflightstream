@@ -228,3 +228,10 @@ def test_editing_the_window_in_the_matrix_moves_the_reductions_with_no_re_run(tm
         "the matrix states six iterations and the reduction still averages the four "
         "the RUN recorded: a post-processing choice needed a solver re-run"
     )
+
+
+def test_p0430_a_non_positive_last_step_is_not_blamed_on_the_clock():
+    with pytest.raises(CampaignConfigError, match="positive last step"):
+        windows.surface_averaging_window(
+            last_step=0, last_revs=None, last_iters=10, per_revolution=None
+        )

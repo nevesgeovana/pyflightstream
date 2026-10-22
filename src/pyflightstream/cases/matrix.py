@@ -1196,11 +1196,10 @@ def refuse_silent_rows_without_default(
     Raises
     ------
     MatrixError
-        When the default is absent, whether or not any row is silent.
-        The two cases produce different text: with silent rows it names
-        every one of them by row number and POL, and without them it
-        names the option alone, so a blank default is never reported by
-        the version registry as an unregistered version.
+        When the default is absent and at least one active row names no
+        build in its FS_BUILD cell; the message names every such row by row
+        number and POL. When every active row names its build, nothing is
+        raised and the function returns, because no default is then needed.
     """
     if default is not None and default.strip():
         return

@@ -142,7 +142,9 @@ def averaging_steps(variables: Mapping[str, object], *, per_revolution: float | 
     Raises
     ------
     CampaignConfigError
-        If the stated averaging window is nonnumeric, nonfinite or outside the run.
+        If the stated averaging window is nonnumeric, nonfinite or shorter than one step. The
+        run length is unknown here, so a window longer than the run is clipped to it later, by
+        :func:`averaging_span`, and never refused.
     """
     stated = stated_key(variables)
     if stated is None:
@@ -251,6 +253,10 @@ def surface_averaging_window(
     value = last_revs if last_revs is not None else last_iters
     span = averaging_span({key: value}, last_step=last_step, per_revolution=per_revolution)
     if span is None:
+        if last_step <= 0:
+            raise CampaignConfigError(
+                f"surface time averaging needs a positive last step, and the run's is {last_step}"
+            )
         raise CampaignConfigError(
             "surface time averaging requires a run clock; last_revs requires a rotor clock"
         )
@@ -690,7 +696,9 @@ def phase_locked_plan(
     -------
     dict
         The plan entry: ``windows`` with their provenance, or ``skipped`` with
-        the reason.
+        the reason. Its ``period_steps`` is the float period the passages were cut with; the
+        per-blade window is cut with the same period rounded to a whole number of steps, which
+        is the integer it records.
     """
     if gate is not None:
         return phase_locked_entry(gate, last_step=last_step, per_revolution=per_revolution, who=who)
