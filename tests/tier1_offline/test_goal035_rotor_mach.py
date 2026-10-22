@@ -162,7 +162,7 @@ def test_a_plan_with_every_point_below_one_says_nothing_about_it(tmp_path):
         cell=READY_ROTOR_CELL,
     )
     _plan_result, said = _plan(workspace, matrix)
-    assert not [line for line in said if line.startswith("helical Mach")], said
+    assert not [line for line in said if line.startswith("advancing-tip Mach M_adv >= 1")], said
 
 
 def test_a_row_whose_rotor_has_no_radius_is_named_and_never_guessed(tmp_path):
