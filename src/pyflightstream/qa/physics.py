@@ -1322,12 +1322,13 @@ def write_physics_report(
         "date": date,
         "package_version": run.package_version,
         "fs_exe": run.fs_exe_name,
-        # Written even when it is None: see the compat writer, which
-        # carries the same field for the same reason.
-        # The BUILD, never the digest (NFR-31): the report is committed.
+        # The BUILD, never the digest (NFR-31): the report is committed. A run that
+        # took no digest says so in words, as FR-1153 states and the Markdown
+        # already does (F-561).
         "fs_exe_sha256": public_executable_identity(
             run.fs_exe_sha256, run.version, run.solver_identity
-        ),
+        )
+        or "not recorded",
         "executor": describe_invocation(run.executor),
         # Source matrix rows; None for a run built directly in Python.
         "source": run.source,

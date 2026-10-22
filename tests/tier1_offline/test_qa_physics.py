@@ -531,7 +531,7 @@ def test_a_physics_run_carrying_a_digest_writes_its_build_to_both_faces(tmp_path
 def test_a_physics_run_without_a_digest_says_so(tmp_path):
     yaml_path, md_path = write_physics_report(make_run(tmp_path), tmp_path, date="2026-08-19")
     document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
-    assert document["fs_exe_sha256"] is None
+    assert document["fs_exe_sha256"] == "not recorded"  # F-561 / FR-1153: words, not null
     assert "sha256 not recorded" in md_path.read_text(encoding="utf-8")
 
 
