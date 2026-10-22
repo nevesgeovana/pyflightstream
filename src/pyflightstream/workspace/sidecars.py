@@ -1094,6 +1094,30 @@ def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
         raise InputArtifactError(f"{path}: invalid mesh boundary conditions: {exc}") from exc
 
 
+def _trailing_edge_file_fields(
+    path: Path, where: str, table: Mapping[str, Any], tolerance: float
+) -> dict[str, Any]:
+    """Read the ``file`` route of ``[trailing_edges]``: a points file beside the sidecar."""
+    written = table["file"]
+    if not isinstance(written, str) or not written.strip():
+        raise InputArtifactError(
+            f"{where} states file = {written!r}; write the name of the points file, "
+            'beside the sidecar, as file = "wing.te.txt".'
+        )
+    named = Path(written.strip())
+    if named.is_absolute() or named.root or named.drive or ".." in named.parts:
+        raise InputArtifactError(
+            f"{where} states file = {written!r}, which is not beside the sidecar; write the "
+            'name of a points file in the sidecar\'s folder, as file = "wing.te.txt".'
+        )
+    return {
+        "route": "file",
+        "edge_type": table.get("type", "STANDARD"),
+        "tolerance": tolerance,
+        "points_file": str(path.parent / named),
+    }
+
+
 def read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMarking:
     """Read ``[trailing_edges]``: one route, file or detect, and the keys of that route.
 
@@ -1127,24 +1151,7 @@ def read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMar
     tolerance = _as_float(where, "tolerance", tolerance)
     fields: dict[str, Any] = {}
     if "file" in table:
-        written = table["file"]
-        if not isinstance(written, str) or not written.strip():
-            raise InputArtifactError(
-                f"{where} states file = {written!r}; write the name of the points file, "
-                'beside the sidecar, as file = "wing.te.txt".'
-            )
-        named = Path(written.strip())
-        if named.is_absolute() or named.root or named.drive or ".." in named.parts:
-            raise InputArtifactError(
-                f"{where} states file = {written!r}, which is not beside the sidecar; write the "
-                'name of a points file in the sidecar\'s folder, as file = "wing.te.txt".'
-            )
-        fields = {
-            "route": "file",
-            "edge_type": table.get("type", "STANDARD"),
-            "tolerance": tolerance,
-            "points_file": str(path.parent / named),
-        }
+        fields = _trailing_edge_file_fields(path, where, table, tolerance)
     else:
         beside = sorted(key for key in ("type", "tolerance") if key in table)
         if beside:

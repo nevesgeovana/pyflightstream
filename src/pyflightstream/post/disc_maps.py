@@ -131,6 +131,62 @@ def _place(entry: _Row) -> tuple[float, float]:
     return entry[4], math.inf if math.isnan(entry[5]) else entry[5]
 
 
+def _blade_psi(first: Mapping[str, str], rotor: HarmonicRotor) -> tuple[int, float] | None:
+    """Return the blade and azimuth in ``[0, 360)`` of one block, or ``None`` when it has none."""
+    family = first.get("FAMILY", "")
+    families = [] if family in ("", NOT_APPLICABLE) else family.split("+")
+    blade = blade_of(families, rotor)
+    stated = _number(first.get("AZIMUTH"))
+    if blade is None or stated is None:
+        return None
+    psi = (
+        placed_blade_azimuth_deg(stated, blade=blade, blades=len(rotor.blades))
+        if rotor.azimuth_is_blade_one
+        else stated
+    )
+    if psi is None:
+        return None
+    # [0, 360): a tiny negative azimuth makes Python's modulo return 360.0 itself.
+    psi %= 360.0
+    return blade, (0.0 if psi >= 360.0 else psi)
+
+
+def _block_entries(
+    block: Sequence[Mapping[str, str]],
+    rotor: HarmonicRotor,
+    *,
+    blade: int,
+    psi: float,
+    quantities: Sequence[str],
+    sample_column: str,
+) -> list[_Row]:
+    """Return the station entries of one blade block, one per row and load quantity."""
+    half = (
+        0.5 * float(rotor.diameter_m)
+        if rotor.diameter_m is not None and rotor.diameter_m > 0
+        else None
+    )
+    entries: list[_Row] = []
+    for row in block:
+        offset = _number(row.get("Offset"))
+        radius = math.nan if offset is None else abs(offset)
+        ratio = None if math.isnan(radius) or half is None else radius / half
+        for quantity in quantities:
+            entries.append(
+                (
+                    rotor.alias,
+                    quantity,
+                    row.get(sample_column, ""),
+                    blade,
+                    psi,
+                    radius,
+                    ratio,
+                    _number(row.get(quantity)),
+                )
+            )
+    return entries
+
+
 def disc_map_rows(
     columns: Sequence[str],
     rows: Sequence[Mapping[str, str]],
@@ -175,50 +231,23 @@ def disc_map_rows(
         rotor = rotors.get(first.get("ROTOR", ""))
         if rotor is None:
             continue
-        family = first.get("FAMILY", "")
-        families = [] if family in ("", NOT_APPLICABLE) else family.split("+")
-        blade = blade_of(families, rotor)
-        stated = _number(first.get("AZIMUTH"))
-        if blade is None or stated is None:
+        placed = _blade_psi(first, rotor)
+        if placed is None:
             continue
-        psi = (
-            placed_blade_azimuth_deg(stated, blade=blade, blades=len(rotor.blades))
-            if rotor.azimuth_is_blade_one
-            else stated
-        )
-        if psi is None:
-            continue
-        # [0, 360): a tiny negative azimuth makes Python's modulo return 360.0 itself.
-        psi %= 360.0
+        blade, psi = placed
         planes.setdefault(rotor.alias, set()).add(first.get("PLANE", ""))
 
-        if psi >= 360.0:
-            psi = 0.0
         result.samples[rotor.alias] = result.samples.get(rotor.alias, 0) + 1
-        mine = taken.setdefault(rotor.alias, [])
-        half = (
-            0.5 * float(rotor.diameter_m)
-            if rotor.diameter_m is not None and rotor.diameter_m > 0
-            else None
+        taken.setdefault(rotor.alias, []).extend(
+            _block_entries(
+                block,
+                rotor,
+                blade=blade,
+                psi=psi,
+                quantities=quantities,
+                sample_column=sample_column,
+            )
         )
-        for row in block:
-            offset = _number(row.get("Offset"))
-            radius = math.nan if offset is None else abs(offset)
-            ratio = None if math.isnan(radius) or half is None else radius / half
-            for quantity in quantities:
-                sample = row.get(sample_column, "")
-                mine.append(
-                    (
-                        rotor.alias,
-                        quantity,
-                        sample,
-                        blade,
-                        psi,
-                        radius,
-                        ratio,
-                        _number(row.get(quantity)),
-                    )
-                )
     for alias, names in planes.items():
         if len(names) > 1:
             # The harmonics refuse this rotor the same way: rows of two planes would interleave.

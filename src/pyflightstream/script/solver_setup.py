@@ -663,45 +663,7 @@ class SolverSetup(BaseModel):
                     "snapshot model and the helper must cover the same flag set "
                     "(see FLAG_SPECS in pyflightstream.script.solver_setup)"
                 )
-            if spec.kind == "bare_request":
-                # The command carries no value, so the record's own
-                # existence as explicit IS the value; reconstructing it
-                # means asking for it again.
-                kwargs[spec.param] = True
-            elif spec.kind == "mode_steady":
-                kwargs["mode"] = "STEADY"
-            elif spec.kind == "mode_unsteady":
-                if not isinstance(record.value, Mapping) or any(
-                    record.value.get(key) is None for key in ("time_iterations", "delta_time")
-                ):
-                    raise CommandArgumentError(
-                        f"snapshot flag {name} is explicit but its value {record.value!r} "
-                        "does not state time_iterations and delta_time, which an unsteady "
-                        "run needs. The snapshot was edited or written by hand: restore both "
-                        "numbers the script carried."
-                    )
-                value = dict(record.value)
-                kwargs["mode"] = "UNSTEADY"
-                kwargs["time_iterations"] = value["time_iterations"]
-                kwargs["delta_time"] = value["delta_time"]
-            elif spec.kind == "bulk_separation":
-                kwargs[spec.param] = BulkSeparation.model_validate(record.value)
-            elif spec.kind == "separation_models":
-                model = SEPARATION_MODELS[spec.param]
-                kwargs[spec.param] = [
-                    model.model_validate(item)
-                    for item in record.value  # type: ignore[union-attr]
-                ]
-            elif spec.kind in ("boundary_list_clear", "separation_boundaries_clear"):
-                # The clearing half of a SET/DELETE pair. The two halves
-                # are explicit on disjoint values, so at most one of them
-                # reaches this loop for a given keyword; the empty
-                # sequence is written as a literal rather than read back
-                # from the record because it is the only value this kind
-                # is ever explicit for.
-                kwargs[spec.param] = []
-            else:
-                kwargs[spec.param] = record.value
+            _replay_explicit_flag(kwargs, name, record, spec)
         return kwargs
 
     def provenance_counts(self) -> dict[str, int]:
@@ -710,6 +672,51 @@ class SolverSetup(BaseModel):
         for record in self.flags.values():
             counts[record.provenance] += 1
         return counts
+
+
+def _replay_explicit_flag(
+    kwargs: dict[str, object], name: str, record: FlagRecord, spec: FlagSpec
+) -> None:
+    """Add to ``kwargs`` the helper keywords that reproduce one explicit flag record."""
+    if spec.kind == "bare_request":
+        # The command carries no value, so the record's own
+        # existence as explicit IS the value; reconstructing it
+        # means asking for it again.
+        kwargs[spec.param] = True
+    elif spec.kind == "mode_steady":
+        kwargs["mode"] = "STEADY"
+    elif spec.kind == "mode_unsteady":
+        if not isinstance(record.value, Mapping) or any(
+            record.value.get(key) is None for key in ("time_iterations", "delta_time")
+        ):
+            raise CommandArgumentError(
+                f"snapshot flag {name} is explicit but its value {record.value!r} "
+                "does not state time_iterations and delta_time, which an unsteady "
+                "run needs. The snapshot was edited or written by hand: restore both "
+                "numbers the script carried."
+            )
+        value = dict(record.value)
+        kwargs["mode"] = "UNSTEADY"
+        kwargs["time_iterations"] = value["time_iterations"]
+        kwargs["delta_time"] = value["delta_time"]
+    elif spec.kind == "bulk_separation":
+        kwargs[spec.param] = BulkSeparation.model_validate(record.value)
+    elif spec.kind == "separation_models":
+        model = SEPARATION_MODELS[spec.param]
+        kwargs[spec.param] = [
+            model.model_validate(item)
+            for item in record.value  # type: ignore[union-attr]
+        ]
+    elif spec.kind in ("boundary_list_clear", "separation_boundaries_clear"):
+        # The clearing half of a SET/DELETE pair. The two halves
+        # are explicit on disjoint values, so at most one of them
+        # reaches this loop for a given keyword; the empty
+        # sequence is written as a literal rather than read back
+        # from the record because it is the only value this kind
+        # is ever explicit for.
+        kwargs[spec.param] = []
+    else:
+        kwargs[spec.param] = record.value
 
 
 def _normalize(value: object) -> JsonValue:

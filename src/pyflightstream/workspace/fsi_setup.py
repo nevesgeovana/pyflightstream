@@ -227,6 +227,25 @@ def _read_input(source: Path) -> bytes:
         raise FsiSetupError(f"{source}: the FSI input cannot be read: {exc}") from exc
 
 
+def _refuse_double_calibration(source: Path, factors: Mapping[str, float]) -> None:
+    """Refuse a factor on a property together with one on a property derived from it."""
+    dependencies = {
+        "density_kg_per_m3": (
+            "mass_per_length_kg_per_m",
+            "inertia_major_kg_m",
+            "inertia_minor_kg_m",
+        ),
+        "youngs_modulus_pa": ("bending_stiffness_n_m2",),
+        "shear_modulus_pa": ("torsion_stiffness_n_m2",),
+    }
+    for parent, children in dependencies.items():
+        if factors[parent] != 1 and any(factors[key] != 1 for key in children):
+            raise FsiSetupError(
+                f"{source}: calibrating {parent} and its derived {', '.join(children)} "
+                "would scale the same property twice; choose one calibration level."
+            )
+
+
 def resolve_fsi_setup(
     path: str | Path, *, matrix_calibration: Mapping[str, float] | None = None
 ) -> ResolvedFsiSetup:
@@ -293,21 +312,7 @@ def resolve_fsi_setup(
                 raise FsiSetupError(
                     "calculated mode derives config.blade; remove the supplied blade table."
                 )
-            dependencies = {
-                "density_kg_per_m3": (
-                    "mass_per_length_kg_per_m",
-                    "inertia_major_kg_m",
-                    "inertia_minor_kg_m",
-                ),
-                "youngs_modulus_pa": ("bending_stiffness_n_m2",),
-                "shear_modulus_pa": ("torsion_stiffness_n_m2",),
-            }
-            for parent, children in dependencies.items():
-                if factors[parent] != 1 and any(factors[key] != 1 for key in children):
-                    raise FsiSetupError(
-                        f"{source}: calibrating {parent} and its derived {', '.join(children)} "
-                        "would scale the same property twice; choose one calibration level."
-                    )
+            _refuse_double_calibration(source, factors)
             substance = _material(spec.material)
             material_base = asdict(substance)
             changed = {key: getattr(substance, key) * factors[key] for key in MATERIAL_FACTORS}

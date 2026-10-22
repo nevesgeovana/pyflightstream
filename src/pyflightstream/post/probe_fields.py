@@ -368,22 +368,10 @@ def _caveats_of(layout):
     return caveats
 
 
-def _write_recorded_probe_fields(
-    table, record, directory, point_name, *, prepare=None, step_source=None
-):
-    """Write the fields of :func:`write_recorded_probe_fields`; return ``(path, caveats)`` pairs.
-
-    The caveats are the unproven conventions of the file's own layout, so the
-    manifest entry is built from what the writer resolved and no second lookup.
-    """
+def _read_probe_rows(table):
+    """Read the probe table; return its path, upper-cased rows and their file row numbers."""
     import csv
 
-    from pyflightstream.script.solver_setup import SolverSetup
-
-    if not record.probe_field_layout:
-        return []
-    if record.solver_setup is None:
-        raise ProductError("probe fields need the run's recorded solver setup")
     source = Path(table)
     with source.open(encoding="utf-8-sig", newline="") as stream:
         rows = [{str(k).upper(): v for k, v in row.items()} for row in csv.DictReader(stream)]
@@ -391,124 +379,130 @@ def _write_recorded_probe_fields(
     if not rows or not required <= rows[0].keys():
         raise ProductError("probe field table lacks sample identity, XYZ or VX/VY/VZ")
     row_numbers = {id(row): index for index, row in enumerate(rows, start=2)}
+    return source, rows, row_numbers
 
-    groups = _sample_groups(source, rows, row_numbers)
-    step_evidence = None
-    if step_source is not None:
-        with Path(step_source).open(encoding="utf-8-sig", newline="") as stream:
-            native_rows = list(csv.DictReader(stream))
-        if not native_rows or _PLOTS_STEP_COLUMN not in native_rows[0]:
-            raise ProductError(
-                "field products require the native Time-step column; no ordinal STEP"
-            )
-        # READ BY THE ONE READER OF THAT CLOCK (`_read_step_clock`), and refused
-        # where it would fall back to the ordinal: a field is placed in time by
-        # its step, so it takes the clock every other product reads or none.
-        cells = [row[_PLOTS_STEP_COLUMN] for row in native_rows]
-        native_steps = [float(step) for step in _read_step_clock(cells)]
-        if [_float_or_nan(cell) for cell in cells] != native_steps:
-            raise ProductError(
-                "native STEP values must be finite, whole and strictly increasing, the "
-                "clock the reductions and the probe table read"
-            )
-        if set(groups) != {format(value, ".17g") for value in native_steps}:
-            raise ProductError("field STEP values differ from the recorded native history")
-        step_evidence = {"path": str(step_source), "sha256": file_sha256(Path(step_source))}
-    provenance = OutputProvenance(
-        run_id=record.run_id,
-        campaign=getattr(record, "campaign", None),
-        setup=SolverSetup.model_validate(record.solver_setup),
+
+def _step_evidence_of(step_source, groups):
+    """Check the table's STEP values against the native clock; return the evidence record."""
+    import csv
+
+    with Path(step_source).open(encoding="utf-8-sig", newline="") as stream:
+        native_rows = list(csv.DictReader(stream))
+    if not native_rows or _PLOTS_STEP_COLUMN not in native_rows[0]:
+        raise ProductError("field products require the native Time-step column; no ordinal STEP")
+    # READ BY THE ONE READER OF THAT CLOCK (`_read_step_clock`), and refused
+    # where it would fall back to the ordinal: a field is placed in time by
+    # its step, so it takes the clock every other product reads or none.
+    cells = [row[_PLOTS_STEP_COLUMN] for row in native_rows]
+    native_steps = [float(step) for step in _read_step_clock(cells)]
+    if [_float_or_nan(cell) for cell in cells] != native_steps:
+        raise ProductError(
+            "native STEP values must be finite, whole and strictly increasing, the "
+            "clock the reductions and the probe table read"
+        )
+    if set(groups) != {format(value, ".17g") for value in native_steps}:
+        raise ProductError("field STEP values differ from the recorded native history")
+    return {"path": str(step_source), "sha256": file_sha256(Path(step_source))}
+
+
+def _step_suffix(step):
+    """Return the file-name suffix of one actual STEP (empty when there is none)."""
+    if step in ("NA", "", None):
+        return ""
+    value = float(step)
+    if not np.isfinite(value):
+        raise ProductError("probe field STEP must be finite")
+    return f"_step_{value:.17g}"
+
+
+def _frame_index_of(layout):
+    """Return the recorded frame index a sampled field's coordinates are expressed in."""
+    coordinate_source = layout.get("coordinate_source")
+    if coordinate_source == "native-export-reference":
+        if layout["export_kind"] != "steady-probe" or layout.get("coordinate_frame_index") != 1:
+            raise ProductError("native reference coordinates require a steady-probe contract")
+        return 1
+    if coordinate_source == "emitted-local":
+        return layout.get("frame_index")
+    raise ProductError("sampled field coordinates lack a proved source contract")
+
+
+def _field_to_reference(record, layout, points, velocity, *, step, factor, metadata):
+    """Move a sampled field into the reference frame; return ``(points_m, velocity)``."""
+    motions = getattr(record, "frame_motions", None) or {}
+    motion = motions.get(_frame_index_of(layout))
+    if motion is None:
+        raise ProductError("sampled field has no recorded final frame trajectory")
+    identity = {key: getattr(record, key, None) for key in ("fs_exe_sha256", "fs_build")}
+    motion = resolve_frame_motion(motion, solver_identity=identity)
+    proof = native_velocity_proof(
+        motion, solver_identity=identity, export_kind=layout["export_kind"]
     )
-    jobs = []
-    for layout in record.probe_field_layout:
-        ids = layout["probe_ids"]
-        factor = float(layout["native_to_m"])
-        if not np.isfinite(factor) or factor <= 0 or len(set(ids)) != len(ids):
-            raise ProductError("invalid recorded probe unit conversion or sample IDs")
-        for step, group in groups.items():
-            if not set(ids) <= group.keys():
-                raise ProductError(f"probe field at step {step} is missing recorded samples")
-            selected = [group[i] for i in ids]
-            if any(row.get("FRAME", layout["frame"]) != layout["frame"] for row in selected):
-                raise ProductError("probe table FRAME differs from its recorded sampling frame")
-            samples = np.array(
-                [
-                    [
-                        _sample_number(source, row, a, row_numbers[id(row)])
-                        for a in ("X", "Y", "Z", "VX", "VY", "VZ")
-                    ]
-                    for row in selected
-                ]
-            )
-            points, velocity = samples[:, :3], samples[:, 3:]
-            suffix = ""
-            if step not in ("NA", "", None):
-                value = float(step)
-                if not np.isfinite(value):
-                    raise ProductError("probe field STEP must be finite")
-                suffix = f"_step_{value:.17g}"
-            family = (
-                "vsec"
-                if layout.get("kind") == "volume-section"
-                else (f"field_{int(layout['entry']):02d}")
-            )
-            stem = Path(directory) / f"{point_name}_{family}{suffix}"
-            metadata = dict(layout)
-            if step_evidence is not None:
-                metadata["step_source"] = step_evidence
-            points_m = points * factor
-            if layout.get("export_kind"):
-                coordinate_source = layout.get("coordinate_source")
-                if coordinate_source == "native-export-reference":
-                    if (
-                        layout["export_kind"] != "steady-probe"
-                        or layout.get("coordinate_frame_index") != 1
-                    ):
-                        raise ProductError(
-                            "native reference coordinates require a steady-probe contract"
-                        )
-                    frame_index = 1
-                elif coordinate_source == "emitted-local":
-                    frame_index = layout.get("frame_index")
-                else:
-                    raise ProductError("sampled field coordinates lack a proved source contract")
-                motions = getattr(record, "frame_motions", None) or {}
-                motion = motions.get(frame_index)
-                if motion is None:
-                    raise ProductError("sampled field has no recorded final frame trajectory")
-                identity = {
-                    key: getattr(record, key, None) for key in ("fs_exe_sha256", "fs_build")
-                }
-                motion = resolve_frame_motion(motion, solver_identity=identity)
-                proof = native_velocity_proof(
-                    motion, solver_identity=identity, export_kind=layout["export_kind"]
-                )
-                original = layout.get("points_native")
-                if (
-                    coordinate_source == "emitted-local"
-                    and original is not None
-                    and not np.array_equal(points, np.asarray(original))
-                ):
-                    raise ProductError(
-                        "probe table coordinates differ from the emitted local samples"
-                    )
-                points_m, velocity = field_in_reference(
-                    points,
-                    velocity,
-                    motion,
-                    step=None if step == "NA" else float(step),
-                    native_to_m=factor,
-                    velocity_proof=proof,
-                    solver_identity=identity,
-                    export_kind=layout["export_kind"],
-                )
-                metadata.update(
-                    declared_frame=layout.get("declared_frame", layout["frame"]),
-                    frame="REFERENCE",
-                    frame_motion=motion,
-                    velocity_convention=proof,
-                )
-            jobs.append((stem, points_m, velocity, metadata, step))
+    original = layout.get("points_native")
+    if (
+        layout.get("coordinate_source") == "emitted-local"
+        and original is not None
+        and not np.array_equal(points, np.asarray(original))
+    ):
+        raise ProductError("probe table coordinates differ from the emitted local samples")
+    points_m, velocity = field_in_reference(
+        points,
+        velocity,
+        motion,
+        step=None if step == "NA" else float(step),
+        native_to_m=factor,
+        velocity_proof=proof,
+        solver_identity=identity,
+        export_kind=layout["export_kind"],
+    )
+    metadata.update(
+        declared_frame=layout.get("declared_frame", layout["frame"]),
+        frame="REFERENCE",
+        frame_motion=motion,
+        velocity_convention=proof,
+    )
+    return points_m, velocity
+
+
+def _field_job(record, layout, step, group, context):
+    """Build one ``(stem, points_m, velocity, metadata, step)`` export job."""
+    source, row_numbers, directory, point_name, step_evidence = context
+    ids = layout["probe_ids"]
+    factor = float(layout["native_to_m"])
+    if not set(ids) <= group.keys():
+        raise ProductError(f"probe field at step {step} is missing recorded samples")
+    selected = [group[i] for i in ids]
+    if any(row.get("FRAME", layout["frame"]) != layout["frame"] for row in selected):
+        raise ProductError("probe table FRAME differs from its recorded sampling frame")
+    samples = np.array(
+        [
+            [
+                _sample_number(source, row, a, row_numbers[id(row)])
+                for a in ("X", "Y", "Z", "VX", "VY", "VZ")
+            ]
+            for row in selected
+        ]
+    )
+    points, velocity = samples[:, :3], samples[:, 3:]
+    suffix = _step_suffix(step)
+    if layout.get("kind") == "volume-section":
+        family = "vsec"
+    else:
+        family = f"field_{int(layout['entry']):02d}"
+    stem = Path(directory) / f"{point_name}_{family}{suffix}"
+    metadata = dict(layout)
+    if step_evidence is not None:
+        metadata["step_source"] = step_evidence
+    points_m = points * factor
+    if layout.get("export_kind"):
+        points_m, velocity = _field_to_reference(
+            record, layout, points, velocity, step=step, factor=factor, metadata=metadata
+        )
+    return (stem, points_m, velocity, metadata, step)
+
+
+def _check_jobs(jobs):
+    """Validate every job's field and refuse two outputs that share a name."""
     destinations = set()
     for stem, points, velocity, layout, _step in jobs:
         _validate_field(
@@ -522,6 +516,42 @@ def _write_recorded_probe_fields(
         if key in destinations:
             raise ProductError("recorded probe fields produce colliding output names")
         destinations.add(key)
+
+
+def _write_recorded_probe_fields(
+    table, record, directory, point_name, *, prepare=None, step_source=None
+):
+    """Write the fields of :func:`write_recorded_probe_fields`; return ``(path, caveats)`` pairs.
+
+    The caveats are the unproven conventions of the file's own layout, so the
+    manifest entry is built from what the writer resolved and no second lookup.
+    """
+    from pyflightstream.script.solver_setup import SolverSetup
+
+    if not record.probe_field_layout:
+        return []
+    if record.solver_setup is None:
+        raise ProductError("probe fields need the run's recorded solver setup")
+    source, rows, row_numbers = _read_probe_rows(table)
+    groups = _sample_groups(source, rows, row_numbers)
+    step_evidence = None
+    if step_source is not None:
+        step_evidence = _step_evidence_of(step_source, groups)
+    provenance = OutputProvenance(
+        run_id=record.run_id,
+        campaign=getattr(record, "campaign", None),
+        setup=SolverSetup.model_validate(record.solver_setup),
+    )
+    context = (source, row_numbers, directory, point_name, step_evidence)
+    jobs = []
+    for layout in record.probe_field_layout:
+        ids = layout["probe_ids"]
+        factor = float(layout["native_to_m"])
+        if not np.isfinite(factor) or factor <= 0 or len(set(ids)) != len(ids):
+            raise ProductError("invalid recorded probe unit conversion or sample IDs")
+        for step, group in groups.items():
+            jobs.append(_field_job(record, layout, step, group, context))
+    _check_jobs(jobs)
     _ready_every_destination(jobs, prepare)
     written = []
     Path(directory).mkdir(parents=True, exist_ok=True)
