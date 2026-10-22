@@ -860,11 +860,13 @@ def _smi_metric_specs(kind: str) -> tuple[MetricSpec, ...]:
     """Build the four aggregated-coefficient specs of one SMI case.
 
     Band kind is a per-case calibration decided from the first 26.120
-    measurement (PHY-26120_2026-07-21_smi): the isolated body's
-    coefficients sit near zero, where only absolute half widths make
-    sense, while the full configuration's unit-reference coefficients
-    are O(1..100), where the same absolute width would be absurdly
-    tight and relative bands say what the research means by drift.
+    measurement (PHY-26120_2026-07-21_smi): the isolated body takes
+    absolute half widths, sized to its coefficients (CL and CDi sit near
+    zero, where a relative band is meaningless; CDo and CMy do not, and
+    the same absolute widths are a calibration choice for them), while
+    the full configuration's unit-reference coefficients are O(1..100),
+    where the same absolute width would be absurdly tight and relative
+    bands say what the research means by drift.
     """
     if kind == "abs":
         bands = {
