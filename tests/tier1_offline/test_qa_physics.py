@@ -598,3 +598,18 @@ def test_p0430_a_non_finite_reference_band_is_refused_f_246(bad):
         ReferenceBand(value=bad, warn=0.01, fail=0.05, kind="abs")
     with pytest.raises(QaEvidenceError, match="finite"):
         ReferenceBand(value=1.0, warn=bad, fail=0.05, kind="abs")
+
+
+def test_p0430_the_default_reference_directory_inside_site_packages_is_not_written_f_1072(
+    tmp_path, monkeypatch
+):
+    from pyflightstream.qa import physics as physics_module
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    run = make_run(tmp_path)
+    yaml_path, _ = write_physics_report(run, tmp_path, date="2026-07-24")
+    installed = tmp_path / "venv" / "site-packages" / "pyflightstream" / "qa" / "references"
+    monkeypatch.setattr(physics_module, "_references_dir", lambda: installed)
+    with pytest.raises(QaEvidenceError, match="inside an installed package"):
+        update_reference("PHY-01", yaml_path, "seed", date="2026-07-24", repo_root=tmp_path)
+    assert not installed.exists()

@@ -1640,6 +1640,14 @@ def update_reference(
         band = ReferenceBand(value=float(value), warn=warn, fail=fail, kind=kind)
         metrics[name] = {"value": band.value, "warn": warn, "fail": fail, "kind": kind}
     directory = Path(references_dir) if references_dir else _references_dir()
+    if references_dir is None and "site-packages" in directory.parts:
+        # A non-editable install would write the reference into the installed package (F-1072);
+        # references are curated in the repository checkout.
+        raise QaEvidenceError(
+            f"the packaged reference directory {directory} is inside an installed package; "
+            "update references from a repository checkout, or name a directory with "
+            "references_dir (CLI: --references-dir)"
+        )
     if str(report["fs_version"]) == "26.125":
         directory = directory / "pressure-drag"
     directory.mkdir(parents=True, exist_ok=True)
