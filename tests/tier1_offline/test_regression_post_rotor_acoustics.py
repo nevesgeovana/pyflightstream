@@ -874,26 +874,21 @@ def test_f175_the_theodorsen_function_is_right_where_float_phases_coincide():
     """F-175: C(k) tends to 1/2; a float phase gave 0.5 - 0.5j at k = 1e17."""
     from pyflightstream.post.corrections import theodorsen
 
-    for k in (1e8, 1e12, 1e17, 1e30):
+    for k in (1e8, 1e12, 1e17, 1e30, 1e41, 1e308):
         assert abs(theodorsen(k) - 0.5) < 1e-8, k
-    with pytest.raises(ProductError, match="beyond"):
-        theodorsen(1e41)
 
 
 def test_f4_0304_transfer_functions_survive_the_float_extremes():
     """F-176, F-177: a huge argument keeps its Bessel scale; a subnormal one the limit."""
     from pyflightstream.post._transfer_functions import bessel_j, sears, theodorsen
 
-    # The phase of the expansion cannot be held beyond 1e40 (F-175): the largest arguments are
-    # refused by name instead of answered with a wrong finite number, and the largest held one
-    # keeps its Bessel scale (F-176: the amplitude does not overflow through pi * x).
-    for x in (1e40,):
+    # C(k) tends to 1/2 for very large k, up to the float maximum (F-175, the definitions
+    # page); the phase is reduced with pi at the digits the exponent needs, and the Bessel
+    # scale does not overflow through pi * x (F-176).
+    for x in (1e40, 1e308, 1.7e308):
         assert math.isfinite(bessel_j(0, x))
         assert theodorsen(x) == pytest.approx(complex(0.5, 0.0), abs=1e-8)
         assert math.isfinite(abs(sears(x)))
-    for x in (1e308, 1.7e308):
-        with pytest.raises(ProductError, match="beyond"):
-            bessel_j(0, x)
     for k in (5e-324, 1e-310, 1e-200):
         value = theodorsen(k)
         assert value.real == 1.0

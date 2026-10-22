@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 from decimal import ROUND_FLOOR, Decimal, localcontext
+from functools import lru_cache
 
 from pyflightstream._errors import ProductError
 
@@ -26,22 +27,50 @@ _GAMMA = Decimal(
 )
 #: Above this argument the functions are Hankel's asymptotic expansions.
 _ASYMPTOTIC_FROM = 30.0
-#: Above this argument the phase of the expansion cannot be held to the digits of
-#: the constant of pi that is kept, and the functions are refused.
-_PHASE_LIMIT = 1e40
+#: Digits kept beyond the decimal exponent of ``x`` when its phase is reduced.
+_PHASE_GUARD_DIGITS = 60
+
+
+def _arctan_inverse(n: int, digits: int) -> Decimal:
+    """Return ``arctan(1 / n)`` by its Taylor series at ``digits`` decimal digits."""
+    with localcontext() as context:
+        context.prec = digits + 10
+        power = Decimal(1) / n
+        square = n * n
+        total = power
+        k = 1
+        while True:
+            power /= square
+            term = power / (2 * k + 1)
+            if term < Decimal(10) ** -(digits + 5):
+                return total
+            total += -term if k % 2 else term
+            k += 1
+
+
+@lru_cache(maxsize=8)
+def _pi_to(digits: int) -> Decimal:
+    """Return pi at ``digits`` decimal digits (Machin: 16 arctan(1/5) - 4 arctan(1/239))."""
+    with localcontext() as context:
+        context.prec = digits + 10
+        return 16 * _arctan_inverse(5, digits + 5) - 4 * _arctan_inverse(239, digits + 5)
 
 
 def _phase(order: int, x: float) -> float:
     """Return ``x - (n / 2 + 1/4) pi`` reduced to one turn, summed in decimal arithmetic.
 
     In floats, ``x`` swallows the constant once its spacing passes it, so the phases
-    of J0 and J1 coincide and the Theodorsen ratio is a wrong finite number.
+    of J0 and J1 coincide and the Theodorsen ratio is a wrong finite number. The
+    constant of pi is taken at as many digits as the exponent of ``x`` needs, so the
+    phase holds up to the float maximum.
     """
+    digits = max(160, Decimal(x).adjusted() + _PHASE_GUARD_DIGITS)
     with localcontext() as context:
-        context.prec = 160
-        shifted = Decimal(x) - (Decimal(order) / 2 + Decimal("0.25")) * _PI
-        turns = (shifted / (2 * _PI)).to_integral_value(rounding=ROUND_FLOOR)
-        return float(shifted - turns * 2 * _PI)
+        context.prec = digits
+        pi = _pi_to(digits)
+        shifted = Decimal(x) - (Decimal(order) / 2 + Decimal("0.25")) * pi
+        turns = (shifted / (2 * pi)).to_integral_value(rounding=ROUND_FLOOR)
+        return float(shifted - turns * 2 * pi)
 
 
 #: Below this reduced frequency Theodorsen's function is its two-term series.
@@ -119,11 +148,6 @@ def _bessel(order: int, x: float) -> tuple[float, float]:
         raise ProductError(f"only the orders 0 and 1 are implemented; asked {order}")
     if not math.isfinite(x) or x <= 0.0:
         raise ProductError(f"the argument must be a positive finite number; it is {x!r}")
-    if x > _PHASE_LIMIT:
-        raise ProductError(
-            f"the argument {x!r} is beyond {_PHASE_LIMIT:g}, where the phase of the "
-            "functions cannot be held to the constant of pi this module keeps"
-        )
     return _series(order, x) if x <= _ASYMPTOTIC_FROM else _asymptotic(order, x)
 
 
