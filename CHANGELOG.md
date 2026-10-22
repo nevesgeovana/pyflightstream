@@ -19,8 +19,9 @@ FlightStream versions.
   prefix, so digests in reports written before this change are not comparable.
 - The `pyfs-matrix` install check is documented as `--help`, and the guide and documentation
   pages state what the code does.
-- The QA `--timeout` option keeps its behaviour, and its help states that solved probes carry
-  their own 180 s limit.
+- The QA `--timeout` option keeps its behaviour, and its help states the limit each solved
+  probe keeps: 180 s for a solving probe of the gap catalog, 240 s for a solving probe that
+  carries it, and 60 s for the hang guards of build 26.125.
 - FSI node and displacement inputs refuse what they would misread: non-finite values, a node
   clearance that rounds away and a path-like external manifest name. NACA names are four
   digits. The displacement reader accepts a byte-order mark and returns an empty `(0, 3)`
