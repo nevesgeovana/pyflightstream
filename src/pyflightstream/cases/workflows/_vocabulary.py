@@ -625,7 +625,9 @@ IGNORE_MISSING_FAMILIES_VARIABLE = "IGNORE_MISSING_FAMILIES"
 #: so a run on any other machine renders byte for byte what it rendered before.
 EXPORT_LOG_VARIABLE = "EXPORT_LOG"
 
-#: The words meaning yes and no, shared by command-line and row readers.
+#: The words meaning yes and no, read by the command-line and row readers that
+#: call read_a_choice. COLD_START is read by run._ids._is_cold_start with its own
+#: set, these words plus ENABLE and DISABLE, so no documented value is refused.
 CHOICE_WORDS: Mapping[str, bool] = MappingProxyType(
     {"true": True, "yes": True, "1": True, "false": False, "no": False, "0": False}
 )
