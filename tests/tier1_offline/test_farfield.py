@@ -493,7 +493,7 @@ def test_mass_closure_sees_one_dead_station_among_live_ones():
 def _lateral_fixture():
     from pyflightstream.farfield import lateral_flux  # noqa: F401  (import check)
 
-    lattice = build_lattice(tip_radius=1.0, stations=(-2.0, 0.5, 1.0, 2.0), lateral_radius=1.2)
+    lattice = build_lattice(tip_radius=1.0, stations=(-2.0, 0.5, 1.0, 2.0), lateral_radius=2.6)
     n_lat = len(lattice.lateral_stations)
     shape = (n_lat, lattice.n_psi)
     lateral = {
@@ -598,8 +598,13 @@ def test_f101_infinite_samples_give_nan_integrals():
 
 def test_f102_a_station_end_rule_refuses_instead_of_returning_nan():
     y, z, gamma = _trace()
+    # A trace that sheds nothing at its ends induces nothing there: a finite answer.
+    assert math.isfinite(
+        trace_forces(y, z=z, gamma=gamma, rho=1.2, v_inf=30.0, ends="station").lift
+    )
+    # Circulation that does not vanish at the end puts a nonzero filament under a trace point.
     with pytest.raises(FarfieldInputError, match="shed filament"):
-        trace_forces(y, z=z, gamma=gamma, rho=1.2, v_inf=30.0, ends="station")
+        trace_forces(y, z=z, gamma=gamma + 0.5, rho=1.2, v_inf=30.0, ends="station")
 
 
 @pytest.mark.parametrize("rho", [-1.2, 0.0, float("nan")])
