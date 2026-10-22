@@ -36,10 +36,10 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases._skipped_families import collecting_the_study_skips
 from pyflightstream.cases.workflows import (
+    angles_not_stated,
     build_steady_sweep,
     rotor_machs,
 )
-from pyflightstream.cases.workflows._rows import angles_not_stated
 from pyflightstream.results import (
     translate_surface_exports,
 )

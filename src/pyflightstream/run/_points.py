@@ -51,6 +51,7 @@ from pyflightstream.cases.workflows import (
     WALLTIME_CLOCK_PROGRAM,
     WALLTIME_CLOCK_STATE,
     WALLTIME_STOP_SCRIPT,
+    angles_not_stated,
     creates_surface_sections,
     job_start_state,
     reduction_windows,
@@ -59,7 +60,6 @@ from pyflightstream.cases.workflows import (
     walltime_clock_program,
     walltime_margin_s,
 )
-from pyflightstream.cases.workflows._rows import angles_not_stated
 from pyflightstream.results import (
     translate_surface_exports,
 )
