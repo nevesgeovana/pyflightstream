@@ -510,9 +510,7 @@ def test_p0430_x_f1160_a_refused_clock_does_not_print_its_raw_step_count():
 
 def test_p0430_f075_a_count_past_53_bits_is_read_as_an_integer():
     """F-075: 9007199254740993 came back as ...992 through a float."""
-    from pyflightstream.cases.workflows._row_cells import _required_int
-
-    case = _wrow(TIME_ITERATIONS="9007199254740993")
-    assert (
-        _required_int(case, "TIME_ITERATIONS", quantity="steps", unit="steps") == 9007199254740993
+    case = _wrow(
+        DELTA_THETA=None, REVOLUTIONS=None, DELTA_TIME="0.001", TIME_ITERATIONS="9007199254740993"
     )
+    assert rotor_time_stepping(case).time_iterations == 9007199254740993

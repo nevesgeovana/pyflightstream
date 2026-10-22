@@ -2061,10 +2061,17 @@ def test_p0430_f1483_a_huge_integer_point_is_refused_naming_the_point():
 
 
 def test_p0430_f1484_a_trailing_dot_alias_is_explained_as_an_alias():
-    text = helpers._where_parked("wake/edges.txt.", "wake/edges.txt")
-    assert "trailing dot or space" in text
-    assert "parent folder" not in text
-    assert "parent folder" in helpers._where_parked("a/../x.txt", "x.txt")
+    """F-1484: the refusal names a trailing-dot alias as one, not as a parent-folder path."""
+    moved = [(x + 0.25, y, z) for x, y, z in _TWO_MIDPOINTS]
+    script = Script("26.124")
+    _mark(script, node_file="C:/w/edges.txt.")
+    with pytest.raises(CommandArgumentError, match="trailing dot or space") as caught:
+        _mark(script, node_file="C:/w/edges.txt", midpoints=moved)
+    assert "parent folder" not in str(caught.value)
+    script = Script("26.124")
+    _mark(script, node_file="C:/w/a/../x.txt")
+    with pytest.raises(CommandArgumentError, match="parent folder"):
+        _mark(script, node_file="C:/w/x.txt", midpoints=moved)
 
 
 @pytest.mark.parametrize("field", ["0.5\n9", "0.5\r9", "0.5\u20289"])
