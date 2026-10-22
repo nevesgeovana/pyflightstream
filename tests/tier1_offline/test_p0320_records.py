@@ -933,10 +933,10 @@ def test_x_f_1294_a_lock_stops_the_apply_and_says_how_to_clear_it(tmp_path, monk
 
 def test_c_srs_s07_076_a_windows_root_is_joined_with_windows_separators():
     """C-SRS-S07-076: no mixed separators in a root of the Windows style, on any host."""
-    from pyflightstream.run._rebuild import _join_root
+    from pyflightstream.run._rebuild import join_root
 
-    assert _join_root("C:\\camp", Path("sims/sim_1/x.fs")) == "C:\\camp\\sims\\sim_1\\x.fs"
-    assert _join_root("/work/camp/", Path("sims/sim_1/x.fs")) == "/work/camp/sims/sim_1/x.fs"
+    assert join_root("C:\\camp", Path("sims/sim_1/x.fs")) == "C:\\camp\\sims\\sim_1\\x.fs"
+    assert join_root("/work/camp/", Path("sims/sim_1/x.fs")) == "/work/camp/sims/sim_1/x.fs"
 
 
 def test_f614_a_descriptor_in_a_batch_that_does_not_hold_the_scripts_is_not_this_runs(tmp_path):
@@ -1057,14 +1057,14 @@ def test_x_f_0565_a_simulation_the_matrix_does_not_name_is_a_refusal_not_stop_it
 ):
     from types import SimpleNamespace
 
-    from pyflightstream.run._rebuild import _mint
+    from pyflightstream.run._rebuild import mint_record
 
     # The tier-3 physics matrix names 5001 to 5006 and no simulation 5999.
     tier3 = Path(__file__).resolve().parents[1] / "tier3_licensed"
     shutil.copytree(tier3 / "inputs", tmp_path / "inputs")
     matrix = tmp_path / "matriz_physics.fs"
     shutil.copy(tier3 / "matriz_physics.fs", matrix)
-    said = _mint(SimpleNamespace(shadow=tmp_path), matrix, "5999", "T", "n", None, None, [])  # type: ignore[arg-type]
+    said = mint_record(SimpleNamespace(shadow=tmp_path), matrix, "5999", "T", "n", None, None, [])  # type: ignore[arg-type]
     assert isinstance(said, str) and "holds no row for simulation 5999" in said
 
 

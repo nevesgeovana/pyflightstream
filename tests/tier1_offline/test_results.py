@@ -2234,12 +2234,20 @@ def test_f_825_an_interior_empty_probe_cell_is_refused_not_dropped():
 
 
 def test_f_255_the_print_tolerance_reads_an_omitted_e_exponent():
-    from pyflightstream.results.loads import _half_count
+    from pyflightstream.results import parse_loads
+    from tests.tier1_offline.test_regression_cases_conditions import (
+        _integfix_conditions___export as export,
+    )
 
-    assert _half_count("0.2964-322") == _half_count("0.2964E-322") == 0.0
-    assert _half_count("0.2964-5") == pytest.approx(0.5e-9)
-    assert _half_count("68.058") == pytest.approx(5e-4)
-    assert _half_count("-5") == 0.5
+    def tolerance(token):
+        return parse_loads(export(token)).print_tolerances["freestream_velocity_m_s"]
+
+    assert tolerance("0.2964-322") == tolerance("0.2964E-322") == 0.0
+    assert tolerance("68.058") == pytest.approx(5e-4)
+    assert tolerance("68") == 0.5
+    # An omitted exponent of fewer than three digits is not a solver-printed number.
+    with pytest.raises(MalformedOutputError):
+        parse_loads(export("0.2964-5"))
 
 
 def test_x_f_1223_a_family_split_that_disagrees_with_the_geometry_is_an_fsi_input_error():

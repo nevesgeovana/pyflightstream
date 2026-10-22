@@ -1463,7 +1463,7 @@ def test_pfs_2130_071_reconstruct_expands_a_compacted_simulation(tmp_path):
 
 def test_x_f_0399_an_export_at_another_sideslip_is_not_assembled_with_the_row_beta():
     """The angle a sweep holds fixed is compared with the value the row states for it."""
-    from pyflightstream.run._assemble import _the_point
+    from pyflightstream.run._assemble import point_of_export
     from pyflightstream.workspace import WorkspaceError
 
     sweep = SimpleNamespace(
@@ -1472,11 +1472,11 @@ def test_x_f_0399_an_export_at_another_sideslip_is_not_assembled_with_the_row_be
         points=lambda: [{"alpha": 0.0}, {"alpha": 2.0}, {"alpha": 4.0}],
     )
     stated = SimpleNamespace(pol="6001", flight_condition={"BETA": 0.0}, sweep=sweep)
-    assert _the_point(stated, "export", 2.0, 0.0) == {"alpha": 2.0}
+    assert point_of_export(stated, "export", 2.0, 0.0) == {"alpha": 2.0}
     with pytest.raises(WorkspaceError, match="no point of row POL 6001"):
-        _the_point(stated, "export", 2.0, 3.0)
+        point_of_export(stated, "export", 2.0, 3.0)
     unstated = SimpleNamespace(pol="6001", flight_condition={}, sweep=sweep)
-    assert _the_point(unstated, "export", 2.0, 3.0) == {"alpha": 2.0}
+    assert point_of_export(unstated, "export", 2.0, 3.0) == {"alpha": 2.0}
 
 
 def test_x_f_1293_plan_resolves_a_continuation_without_expanding_a_compacted_simulation(

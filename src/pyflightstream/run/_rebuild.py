@@ -236,7 +236,7 @@ class _Context:
         self.verdicts = person_verdicts(self.base / DEFAULT_MANIFEST)
 
 
-def _mint(
+def mint_record(
     context: _Context,
     matrix: Path,
     sim: str,
@@ -362,7 +362,7 @@ def _clear_shadow_run(shadow: Path, sim: str) -> None:
     shutil.rmtree(shadow / "sims" / f"sim_{sim}", ignore_errors=True)
 
 
-def _join_root(run_root: str, relative: Path) -> str:
+def join_root(run_root: str, relative: Path) -> str:
     """Join a relative path onto the run's own root, in that root's separator style."""
     if run_root.startswith("/"):
         return run_root.rstrip("/") + "/" + relative.as_posix()
@@ -419,7 +419,7 @@ def _mint_one(
     )
     for template in templates:
         try:
-            attempt = _mint(context, matrix, sim, template, name, name_from, out, notes)
+            attempt = mint_record(context, matrix, sim, template, name, name_from, out, notes)
         except Exception as error:  # noqa: BLE001 - every refusal of the package is this sim's reason
             _clear_shadow_run(shadow, sim)
             return (
@@ -727,9 +727,9 @@ def _finalise(
             record["submission"] = None
         own_root = facts.get("run_root") is not None
         record["cwd"] = (
-            _join_root(run_root, work_dir.relative_to(base)) if own_root else str(work_dir)
+            join_root(run_root, work_dir.relative_to(base)) if own_root else str(work_dir)
         )
-        script_at_run = _join_root(run_root, script.relative_to(base)) if own_root else str(script)
+        script_at_run = join_root(run_root, script.relative_to(base)) if own_root else str(script)
         # ONE RECONSTRUCTION (PFS-2103.004), whether or not the executable is on
         # this machine: the command line LocalExecutor writes, with the window
         # the matrix's HIDDEN column gave the run (as `pyfs-matrix run` reads it).

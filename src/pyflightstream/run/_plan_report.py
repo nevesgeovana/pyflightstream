@@ -9,7 +9,7 @@ wheel, wake, streamlines, far field and default angles from its case; the
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from pyflightstream.cases import SimCase
 from pyflightstream.cases.qsteady import summarise as summarise_validity
@@ -29,8 +29,7 @@ from pyflightstream.cases.workflows._freestream import (
 )
 from pyflightstream.cases.workflows._rows import angles_not_stated
 
-if TYPE_CHECKING:
-    from pyflightstream.run._plan import PointPlan
+PointPlan = Any  # the PointPlan of run._plan, which imports this module
 
 
 def _point_lines(points: Sequence[PointPlan]) -> list[str]:

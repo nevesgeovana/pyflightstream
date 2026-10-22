@@ -2,7 +2,7 @@
  "about": "Baselines of the architecture guards G1 to G8 (AD-08, work package WP0 of 0.33.0), measured on 2026-09-30 by scripts/arch_metrics.py on the tree of rel/0-33 at 692fee7a and lowered on 2026-10-01 on the tree of rel/0-33 at f888d704 with WP4, WP5 and WP6 merged, and on 2026-10-01 on the tree of rel/0-34 with the wave 1 packages of 0.34.0 merged (RPT-123), and on 2026-10-02 on the tree of rel/0-34 with the wave 2 packages merged (RPT-124). Sizes are code lines without docstrings (the review lens). Every entry only moves down, by hand, in the commit that earns it; a stale entry fails until it is deleted. function_lines and function_limits are at-most ratchets (AD-08 G2: 'at most the recorded value'); module_code_lines, fan_out, fan_out_deferred and facade_lines click: an entry may not grow and a fall fails until the entry is lowered; baseline_sccs, same_row_cross_imports, private_test_names, monkeypatch_targets, monkeypatch_targets_by_module and one_home_allowlist are exact; facade_lines lists every package root holding anything beyond its docstring, imports, __all__ and a lazy __getattr__, and a root absent from it holds none (AD-08 G8); facade_definitions only shrinks; package_order is declared by the packages AD-12 and AD-14 order. metrics is the committed table of the numbers of the architecture metrics record that may only improve (G7). 'python scripts/arch_metrics.py check' runs the guards; 'tables' prints what the tree measures today. Release 0.40.0 final-lane recount on 2026-10-13: recorded counts refreshed on the docsR base 1c1f23f3. Per-module growth, originating lanes and remaining rule failures are recorded in the release architecture report RPT-168. Rule thresholds, import restrictions, modules_at_freeze, SCC membership, literal and facade-definition allowlists remain unchanged. Integration lane integC at 266e255a records rfixAPI, rfixR5 and rfixR6 growth in RPT-173; precise safety-check growth and coupling are re-pinned, with all thresholds and mutation witnesses retained.",
  "module_code_lines": {
   "post/input_template.py": 1421,
-  "run/matrix.py": 1107,
+  "run/matrix.py": 1105,
   "workspace/storage.py": 1385
  },
  "function_lines": {
@@ -526,12 +526,6 @@
    "statements": 39,
    "positional": 2
   },
-  "probes/lattice.py:ProbeLattice._geometry_is_physical": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 20,
-   "positional": 0
-  },
   "qa/compat.py:_rewrite_version_line": {
    "complexity": 12,
    "branches": 11,
@@ -574,32 +568,20 @@
    "statements": 37,
    "positional": 0
   },
-  "reference.py:percent_script_markdown": {
-   "complexity": 11,
-   "branches": 4,
-   "statements": 28,
-   "positional": 1
-  },
   "results/exports.py:parse_off_body_streamlines": {
-   "complexity": 12,
+   "complexity": 11,
    "branches": 8,
    "statements": 43,
    "positional": 1
   },
   "results/exports.py:parse_surface_sections": {
-   "complexity": 12,
+   "complexity": 11,
    "branches": 8,
    "statements": 44,
    "positional": 1
   },
-  "results/loads.py:parse_unsteady_plots": {
-   "complexity": 13,
-   "branches": 12,
-   "statements": 34,
-   "positional": 1
-  },
   "results/log.py:frozen_time_steps": {
-   "complexity": 13,
+   "complexity": 11,
    "branches": 12,
    "statements": 45,
    "positional": 1
@@ -617,15 +599,15 @@
    "positional": 2
   },
   "results/native_surface.py:read_native_tecplot_zones": {
-   "complexity": 15,
-   "branches": 14,
+   "complexity": 14,
+   "branches": 13,
    "statements": 41,
    "positional": 1
   },
   "results/surface.py:read_vtk_surface": {
-   "complexity": 17,
-   "branches": 18,
-   "statements": 53,
+   "complexity": 15,
+   "branches": 16,
+   "statements": 50,
    "positional": 1
   },
   "results/tables.py:to_table": {
@@ -634,15 +616,9 @@
    "statements": 21,
    "positional": 1
   },
-  "results/wake.py:_blocks": {
-   "complexity": 11,
-   "branches": 11,
-   "statements": 26,
-   "positional": 1
-  },
   "run/_assessment.py:_judge_the_clockings": {
-   "complexity": 14,
-   "branches": 14,
+   "complexity": 12,
+   "branches": 12,
    "statements": 50,
    "positional": 6
   },
@@ -683,13 +659,13 @@
    "positional": 7
   },
   "run/_executors.py:_run_until_the_analysis_ends": {
-   "complexity": 16,
+   "complexity": 14,
    "branches": 0,
-   "statements": 54,
+   "statements": 45,
    "positional": 3
   },
   "run/_executors.py:_run_with_progress": {
-   "complexity": 13,
+   "complexity": 2,
    "branches": 12,
    "statements": 47,
    "positional": 6
@@ -733,14 +709,8 @@
   "run/_rebuild.py:_finalise": {
    "complexity": 10,
    "branches": 12,
-   "statements": 68,
+   "statements": 65,
    "positional": 6
-  },
-  "run/_rebuild.py:_mint": {
-   "complexity": 7,
-   "branches": 6,
-   "statements": 43,
-   "positional": 8
   },
   "run/_rebuild.py:_rebuild_all": {
    "complexity": 14,
@@ -765,12 +735,6 @@
    "branches": 18,
    "statements": 76,
    "positional": 1
-  },
-  "run/_rebuild_evidence.py:_collect_read_only": {
-   "complexity": 11,
-   "branches": 3,
-   "statements": 23,
-   "positional": 0
   },
   "run/_rebuild_evidence.py:collect_without_writing": {
    "complexity": 13,
@@ -820,12 +784,6 @@
    "statements": 13,
    "positional": 6
   },
-  "run/collect.py:collect_once": {
-   "complexity": 11,
-   "branches": 12,
-   "statements": 50,
-   "positional": 1
-  },
   "run/matrix.py:_plan_point": {
    "complexity": 14,
    "branches": 13,
@@ -851,8 +809,8 @@
    "positional": 6
   },
   "script/helpers.py:actuator_disc": {
-   "complexity": 17,
-   "branches": 17,
+   "complexity": 14,
+   "branches": 14,
    "statements": 46,
    "positional": 2
   },
@@ -886,22 +844,10 @@
    "statements": 32,
    "positional": 3
   },
-  "utils/cli.py:_register": {
-   "complexity": 15,
-   "branches": 14,
-   "statements": 48,
-   "positional": 2
-  },
-  "utils/cli.py:main": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 24,
-   "positional": 1
-  },
   "utils/database.py:register_edition": {
-   "complexity": 16,
-   "branches": 16,
-   "statements": 54,
+   "complexity": 12,
+   "branches": 12,
+   "statements": 44,
    "positional": 2
   },
   "utils/manual.py:_parameters_after": {
@@ -1035,6 +981,12 @@
    "branches": 10,
    "statements": 32,
    "positional": 1
+  },
+  "run/_rebuild.py:mint_record": {
+   "complexity": 7,
+   "branches": 6,
+   "statements": 43,
+   "positional": 8
   }
  },
  "baseline_sccs": [
@@ -1478,6 +1430,7 @@
     "_points",
     "_pending",
     "_plan",
+    "_plan_report",
     "_continuation",
     "_identity",
     "_assessment",

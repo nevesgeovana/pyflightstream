@@ -498,7 +498,7 @@ def _swept_name(row: MatrixRow) -> str:
     return "".join(codes)
 
 
-def _the_point(row: MatrixRow, export: str, alpha: float, beta: float) -> dict[str, float]:
+def point_of_export(row: MatrixRow, export: str, alpha: float, beta: float) -> dict[str, float]:
     """Return the point of the row's sweep an export reports, or refuse naming why."""
     points = [dict(point) for point in row.sweep.points()]
     reported = {"alpha": alpha, "beta": beta}
@@ -575,7 +575,7 @@ def _assembled_record(
         raise WorkspaceError(
             f"the loads export: {export} cannot be read as one ({error})"
         ) from error
-    point = _the_point(row, export, report.angle_of_attack_deg, report.sideslip_deg)
+    point = point_of_export(row, export, report.angle_of_attack_deg, report.sideslip_deg)
     stem = datapoint_name_of(loads.parent.name)
     name = stem if stem is not None else PointName(loads.stem)
     cell = dict(row.flight_condition)
