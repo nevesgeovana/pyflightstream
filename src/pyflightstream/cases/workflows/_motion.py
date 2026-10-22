@@ -33,7 +33,7 @@ from ._rows import (
     UNNAMED_ROTOR_RADICAL,
     RotorMach,
     RotorSpeed,
-    _refuse_a_row_restating_the_hand,
+    _admit_a_row_hand,
     _rotor_frame_axis,
     _rotor_of,
     _stated_advance_ratio,
@@ -433,11 +433,10 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         variables[BLADES_VARIABLE] = str(rotor.blade_count)
         # The reference owns the rotor's hand for every speed form. The row
         # states a magnitude; the reference states axis, origin, blade count and
-        # hand. Refuse a row-level hand even when it agrees, so a later reference
-        # correction cannot leave a second, conflicting declaration.
+        # hand. A row-level hand is refused only when it disagrees with the block.
         stated_hand = _variable(case, RPM_SIGN_VARIABLE)
         if stated_hand is not None:
-            _refuse_a_row_restating_the_hand(case, rotor, stated_hand)
+            _admit_a_row_hand(case, rotor, stated_hand)
         # The view carries the rotor alias, not a copied sign. A view has no
         # motions and reads as a flat row; copying the sign into its variables
         # would make _rpm_sign unable to distinguish package-resolved hand from
