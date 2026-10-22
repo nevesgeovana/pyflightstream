@@ -443,6 +443,9 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = Fals
         When either provenance column is absent, when a cell is empty or
         is not a published token, or when a row says its numbers are
         ``reduced`` and names no reduction.
+    ProductExistsError
+        When ``path`` exists and ``overwrite`` is False, or another writer
+        creates it while this one writes; nothing is written over it.
 
     Examples
     --------

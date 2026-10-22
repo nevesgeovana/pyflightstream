@@ -822,6 +822,9 @@ def write_vtk_surface(
     ------
     ProductExistsError
         If the file exists and ``overwrite`` is False.
+    ProductError
+        If a point or cell field name is empty or holds whitespace, which the
+        VTK ``SCALARS`` line cannot carry; nothing is written.
     """
     destination = Path(path)
     _refuse_existing(destination, overwrite)
