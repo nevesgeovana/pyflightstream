@@ -241,6 +241,9 @@ def _skip(ctx: SimContext, key: str, point: str, reason: str) -> None:
 
 def _named(ctx: SimContext, paths: Sequence[Path | str | None]) -> list[str]:
     """Return the export files a product consumed, relative to the simulation folder."""
+    present = [path for path in paths if path is not None]
+    if not present:
+        return []
     root = ctx.workspace.sim_dir(ctx.sim_id)
     names: list[str] = []
     for path in paths:
