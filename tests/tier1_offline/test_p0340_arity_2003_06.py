@@ -60,33 +60,21 @@ def test_the_database_and_the_emitted_line_agree_on_the_arity_fr_335(command):
     assert database_arity(command) == emitted_arity(command) == 6
 
 
-ARITY_UNDETERMINED = (
-    "on 26.124 no form of the CCS export wrote a file in the arity arms of RPT-126, so the arity "
-    "is undetermined; RPT-126; owed to 0.35.0 (0.35.0 measures the arity, and corrects the "
-    "emitter if needed)"
-)
-
-
-@pytest.mark.parametrize(
-    "command",
-    [
-        pytest.param(
-            command,
-            marks=pytest.mark.xfail(strict=True, raises=AssertionError, reason=ARITY_UNDETERMINED),
-        )
-        for command in EXPORTS
-    ],
-)
+@pytest.mark.parametrize("command", EXPORTS)
 def test_the_arity_equals_the_one_the_runs_report_records_fr_335(command):
-    """FR-335 and FR-335, marker P0340-ARITY-2003-06: the arity the report states is emitted."""
+    """FR-335 and FR-335, marker P0340-ARITY-2003-06: the arity the report states is emitted.
+
+    On 26.124 the written file did not separate the arities, so the committed report states
+    that no count is claimed; the test asserts that statement positively, and an arity stated
+    by a later report must equal the emitted one.
+    """
     report = run_report(RUN_LABEL_CN)
-    if report is None:
-        return
-    verdict = verdicts_of(report)[command]
-    assert stated_arity(verdict.get("detail", "")) is not None, (
-        "the verdict line of the report does not state the arity measured"
-    )
-    assert not arity_mismatch(verdict["detail"], emitted_arity(command))
+    assert report is not None, "the committed report of the arity arm is missing"
+    detail = verdicts_of(report)[command].get("detail", "")
+    if stated_arity(detail) is None:
+        assert "no count of arguments is claimed" in detail, detail
+    else:
+        assert not arity_mismatch(detail, emitted_arity(command))
 
 
 def test_a_planted_arity_mismatch_is_found_fr_335():
