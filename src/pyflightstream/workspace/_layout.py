@@ -66,8 +66,10 @@ def matrix_files(root: str | Path) -> list[Path]:
     THE ONE DEFINITION of where a workspace's matrices are (P0310-POL-CENSUS).
     ``sync``, the storage layer and the repeated-POL census of the plan all
     read this list, so they cannot disagree about which matrices exist. A file
-    that is a link or junction is never followed and is not listed; each
-    folder is listed in name order, the root first.
+    that is a link or junction is never followed and is not listed: the link
+    test reads the entry itself before anything stats its target. A
+    cloud-backed regular file, whose reparse tag designates no link, is
+    listed. Each folder is listed in name order, the root first.
 
     Parameters
     ----------
@@ -86,7 +88,7 @@ def matrix_files(root: str | Path) -> list[Path]:
         if not folder.is_dir():
             continue
         found.extend(
-            path for path in sorted(folder.glob("*.fs")) if path.is_file() and not is_reparse(path)
+            path for path in sorted(folder.glob("*.fs")) if not is_reparse(path) and path.is_file()
         )
     return found
 

@@ -77,3 +77,39 @@ def test_goal036_pol_census_storage_and_census_return_the_same_list(tmp_path):
     shared = matrix_files(workspace.root)
     assert [p.name for p in shared] == ["a.fs", "b.fs"]
     assert [workspace.root / rel for rel in _matrix_files(workspace.root).values()] == shared
+
+
+@pytest.mark.requirement("FR-2309")
+def test_p0430_discovery_lists_a_cloud_backed_matrix_and_never_follows_a_link(
+    tmp_path, monkeypatch
+):
+    """FR-2309: a regular file whose reparse tag is a cloud-file tag is discovered; a
+    symbolic-link tag is skipped without its target ever being read (no stat)."""
+    import stat
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    workspace = _workspace(tmp_path)
+    for name in ("cloud.fs", "link.fs", "plain.fs"):
+        (workspace.root / name).write_text("", encoding="utf-8")
+    tags = {"cloud.fs": 0x9000701A, "link.fs": 0xA000000C}
+    real_lstat, real_stat = Path.lstat, Path.stat
+    followed: list[str] = []
+
+    def lstat(self):
+        if self.name in tags:
+            return SimpleNamespace(
+                st_mode=stat.S_IFREG, st_file_attributes=0x400, st_reparse_tag=tags[self.name]
+            )
+        return real_lstat(self)
+
+    def stat_(self, *args, **kwargs):
+        followed.append(self.name)
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "lstat", lstat)
+    monkeypatch.setattr(Path, "stat", stat_)
+    found = [p.name for p in matrix_files(workspace.root)]
+    monkeypatch.undo()
+    assert found == ["cloud.fs", "plain.fs"]
+    assert "link.fs" not in followed, "the link's target is never read"
