@@ -6218,9 +6218,16 @@ def test_p0430_a_physics_matrix_path_outside_the_workspace_is_refused_x_f_1686(t
     assert physics_matrix(workspace, "inputs/matrices/own.fs") == inside
 
 
-def test_p0430_the_additional_post_refuses_a_scheduler_before_writing_f_1455(tmp_path):
+def test_p0430_the_additional_post_refuses_only_what_its_docstring_states_f_1455(tmp_path):
+    """F-1455: the Raises entry is the refusal the code makes, and only that one.
+
+    ``local=True`` beside a submitting executor is refused before anything is
+    written; a scheduler executor alone is the submitted extraction the
+    docstring promises (tests/tier1_offline/test_submitted_additional_post.py).
+    """
     from pyflightstream.run import ExecutorConfigurationError
-    from tests.tier1_offline.test_additional_post import a_recorded_campaign, extract
+    from pyflightstream.run import matrix as run_matrix_module
+    from tests.tier1_offline.test_additional_post import BUILD, a_recorded_campaign
 
     class _Scheduler(CountingStub):
         def __init__(self):
@@ -6232,10 +6239,15 @@ def test_p0430_the_additional_post_refuses_a_scheduler_before_writing_f_1455(tmp
         def submission_record(self):
             return None
 
+    raises = (run_matrix_module.run_additional_post.__doc__ or "").split("Raises")[-1]
+    assert "``local=True`` is given beside an executor that submits" in " ".join(raises.split())
+    assert "submits the extraction" in " ".join(raises.split())
     workspace, matrix = a_recorded_campaign(tmp_path)
     scheduler = _Scheduler()
-    with pytest.raises(ExecutorConfigurationError, match="local=True"):
-        extract(workspace, matrix, scheduler)
+    with pytest.raises(ExecutorConfigurationError, match="drop one of the two"):
+        run_matrix_module.run_additional_post(
+            matrix, workspace, default_fs_version=BUILD, executor=scheduler, local=True
+        )
     assert not scheduler.invocations, "an extraction was started"
     assert workspace.read_additional() == []
 

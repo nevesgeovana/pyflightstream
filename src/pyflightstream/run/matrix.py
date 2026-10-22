@@ -105,7 +105,6 @@ from pyflightstream.run._additional import (
     complete_extraction,
     discard_extraction_copy,
     layout_of,
-    local_executor_only,
     own_sections_layout,
     sections_numbering_refusal,
 )
@@ -1846,7 +1845,7 @@ def run_additional_post(
     campaign, executor_for = _campaign_executor(
         workspace, resolved, matrix, executor=executor, local=local, hidden=hidden
     )
-    executors: dict[Path, Executor] = {Path(resolved.fs_exe): local_executor_only(campaign)}
+    executors: dict[Path, Executor] = {Path(resolved.fs_exe): campaign}
     stamp = datetime.now().strftime(ARCHIVE_STAMP)
     written: list[AdditionalRecord] = []
     for plan in ready:
