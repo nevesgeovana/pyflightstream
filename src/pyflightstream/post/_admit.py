@@ -140,7 +140,16 @@ def _loads_of(
             f"({missing}), so no product holds a row of it"
         )
         return None
-    text = by_name[loads_name].read_text(encoding="utf-8", errors="replace")
+    try:
+        text = by_name[loads_name].read_text(encoding="utf-8", errors="replace")
+    except OSError as error:
+        # An unreadable table (a permission, a vanished share) is no table: it is named
+        # and costs this point's loads rows, never the whole post (F-1374).
+        skipped[f"runs/{record.run_id}"] = (
+            f"{by_name[loads_name]} is not readable ({error}), so no product holds a row of it. "
+            "Restore access to the loads export or run this point again."
+        )
+        return None
     try:
         report = parse_loads(text)
     except PyflightstreamError as error:

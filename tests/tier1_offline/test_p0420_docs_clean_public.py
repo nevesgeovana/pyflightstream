@@ -502,7 +502,9 @@ SOURCE_HISTORY = re.compile(
     r"\b(?:measured|verified)(?:\s+against the solver)?(?:\s+on)?[, ]+20\d{2}-\d{2}-\d{2}\b|"
     r"\b(?:used to|previously)\s+(?:accept|carry|return|write|read|raise|emit|"
     r"name|report|compare|hardcode|overwrite|replace|drop|sit|live|say)\b|"
-    r"\b(?:first version|first repair)\b|\bcorrection of\s+20\d{2}\b",
+    r"\b(?:first version|first repair)\b|\bcorrection of\s+20\d{2}\b|"
+    # Provenance of a rule rather than the rule: cite the item, not who decided it.
+    r"\bthe owner's\b|\(owner decision\b",
     re.IGNORECASE,
 )
 
@@ -558,6 +560,8 @@ def test_p0420_sweeps_source_history_narration():
         "measured against the solver on 2026-08-08",
         "verified 2026-10-12",
         "The first version used to accept a path",
+        "the default (the owner's FR-69 decision)",
+        "frames that entered (owner decision, as stated)",
     ],
 )
 def test_p0420_sweeps_source_history_planted_control(monkeypatch, phrase):

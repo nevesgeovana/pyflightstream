@@ -835,11 +835,11 @@ def test_p0340_wake_length_an_exact_quotient_is_not_one_step_more():
     assert _terminations(lines) == [f"{TERMINATION} 15875"], (requirement, lines)
 
 
-def test_p0340_wake_length_a_negative_free_stream_speed_converts_as_its_magnitude():
-    """P0340-WAKE-LENGTH, FR-581: V = -30 m/s convects the wake at |V| = 30 m/s, so
-    L = 4.1 R is the 2500 steps of +30 m/s, not a zero-speed refusal."""
+def test_p0340_wake_length_a_non_negative_speed_is_the_wake_convection_speed():
+    """P0340-WAKE-LENGTH, FR-581: V = 30 m/s convects the wake at V_ax = 30 m/s, so
+    L = 4.1 R is 2500 steps; a FluidState never carries a negative speed (F5-0708)."""
     requirement = "FR-321"
-    lines, script = _built(_rotor("-30.0", wake_termination_length=4.1))
+    lines, script = _built(_rotor("30.0", wake_termination_length=4.1))
     assert _terminations(lines) == [f"{TERMINATION} 2500"], (requirement, lines)
     assert script.solver_setup is not None
     derived = script.solver_setup.derived

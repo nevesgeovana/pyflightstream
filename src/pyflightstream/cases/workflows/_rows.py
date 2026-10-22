@@ -25,7 +25,6 @@ from pathlib import (
     PurePath,
 )
 from typing import (
-    NoReturn,
     cast,
 )
 
@@ -171,34 +170,34 @@ class RotorSpeed:
         }
 
 
-def _refuse_a_row_restating_the_hand(case: SimCase, rotor: RotorBlock, stated: str) -> NoReturn:
-    """Refuse a row that writes `RPM_SIGN` beside a rotor the reference declares.
+def _admit_a_row_hand(case: SimCase, rotor: RotorBlock, stated: str) -> None:
+    """Admit a row's `RPM_SIGN` beside a declared rotor when it equals the rotor's hand.
 
-    ONE HOME FOR THE REFUSAL, because there are two places a row can name its
-    rotor and the sentence must not drift between them: the record path fills
-    the view in `_motion_view`, and the row path resolves the block in
-    `_rpm_sign`. The rule they both enforce is the same one.
-
-    AND IT REFUSES WHETHER OR NOT IT AGREES. A row that agrees today says
-    nothing when the REFERENCE is corrected tomorrow: the block flips, the row
-    keeps the old hand, and the two disagree with nobody to notice -- which is
-    the shape of the defect this rule exists to close. So the refusal is about
-    where the key goes rather than about its value, and it says which of the two
-    cases the reader is in, because "it already agrees" is the objection a user
-    will otherwise raise.
+    The hand of a rotation is the rotor's, declared once beside its axis and its
+    origin; a row that states the SAME value says nothing the block does not, so it
+    passes. A row that states a DIFFERENT value is a second opinion and is refused
+    (the rule of X-F-1147 and X-F-1157: only the disagreement is refused).
+    One home for the sentence, because the record path (`_motion_view`) and the
+    row path (`_rpm_sign`) enforce the same rule.
     """
-    agreement = (
-        "which agrees with it today and would not survive the reference being corrected"
-        if str(stated).strip() == str(rotor.rpm_sign)
-        else "which disagrees with it"
-    )
+    if _hand_of(stated) == rotor.rpm_sign:
+        return
     raise CampaignConfigError(
         f"case {case.sim_id!r} states {RPM_SIGN_VARIABLE} as {stated!r} and the rotor "
-        f"{rotor.alias!r} declares {rotor.rpm_sign} in the reference, {agreement}. The "
-        "hand of a rotation is the rotor's, declared once beside its axis and its "
-        f"origin. Remove {RPM_SIGN_VARIABLE} from the row; to turn it the other way, "
-        f"set 'rpm_sign' on the {rotor.alias!r} block of the reference artifact."
+        f"{rotor.alias!r} declares {rotor.rpm_sign} in the reference, which disagrees "
+        "with it. The hand of a rotation is the rotor's, declared once beside its axis "
+        f"and its origin. Remove {RPM_SIGN_VARIABLE} from the row, or state the rotor's "
+        f"own value; to turn it the other way, set 'rpm_sign' on the {rotor.alias!r} "
+        "block of the reference artifact."
     )
+
+
+def _hand_of(text: object) -> int | None:
+    """Return the integer a row's `RPM_SIGN` text states, or None when it is not one."""
+    try:
+        return int(str(text).strip())
+    except ValueError:
+        return None
 
 
 def _rotor_the_row_names(case: SimCase) -> RotorBlock | None:
@@ -295,7 +294,7 @@ def _rpm_sign(case: SimCase) -> int:
     block = _rotor_the_row_names(case)
     if block is not None:
         if text is not None:
-            _refuse_a_row_restating_the_hand(case, block, text)
+            _admit_a_row_hand(case, block, text)
         return block.rpm_sign
     if text is None:
         return 1

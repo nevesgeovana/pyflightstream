@@ -38,6 +38,9 @@ What each analysis needs and is not declared, the plan adds and says so; see
   Every component below is in these axes, turned from the export's frame in the
   post step before any integral (the far-field core never turns a vector).
 - `SREF` and `BREF` from the reference artifact; `AR = BREF^2 / SREF`.
+- `CL_near` the solver's `CL` of the point restated on `q`: the export divides by
+  the dynamic pressure of its reference velocity `VREF`, so
+  `CL_near = CL (VREF / V)^2`, the solver's `CL` itself where `VREF` is `V`.
 - Coefficients: `CL_T = L / (q SREF)`, `CDI_T = D_i / (q SREF)`,
   `CY_T = Y / (q SREF)`, and
 
@@ -195,11 +198,11 @@ crossings are never re-sorted after roll-up.
 
 **The scale, calibrated from the near field.** The scale of the exported value
 is not documented by the solver. `k` is the factor that makes the trace's lift
-equal the solver's own `CL` of the point:
+equal the solver's own lift of the point:
 
     k = CL_near q SREF / (rho V sum_i Gamma_raw_i dy_i)
 
-so `CL_T` of variant B equals the solver's `CL` by construction and carries no
+so `CL_T` of variant B equals `CL_near` by construction and carries no
 information of its own; `CDI_T`, which scales with `k^2`, and `E_T`, which does
 not depend on `k`, are what B adds. The factor is written as `GAMMA_SCALE`. A
 point without a near-field `CL`, or with a zero one, writes `E_T` only.
@@ -279,10 +282,10 @@ drag.
 the Kutta-Joukowski lift of the trailing vorticity the plane holds (for a flat sheet
 of strip circulation `Gamma` it is `rho V integral Gamma dy`, and roll-up does not
 change it), written as `CL_T` of the C row. A plane that holds the wake the loads
-shed carries the solver's lift; where `CL_T` departs from the solver's `CL` by more
+shed carries the solver's lift; where `CL_T` departs from `CL_near` by more
 than 10 percent, the probe field does not hold that circulation and its crossflow
 energy is not the loads' induced drag: the row is written and post writes a
-WARNING with both values. `E_T` of the C row is formed with the solver's `CL`.
+WARNING with both values. `E_T` of the C row is formed with `CL_near`.
 
 **Rotor channels** at a lattice station, `u' = u - V`, `v_theta_0` the azimuthal
 mean of the swirl:

@@ -2879,6 +2879,12 @@ def ratio_case(**overrides) -> SimCase:
     )
 
 
+def _turning(case: SimCase, hand: int) -> SimCase:
+    """``case`` whose sole declared rotor turns with ``hand``, so a row may restate it."""
+    block = FIXTURE_ROTOR.model_copy(update={"rpm_sign": hand})
+    return case.model_copy(update={"rotors": {block.alias: block}})
+
+
 def test_an_advance_ratio_resolves_the_rotor_speed_the_study_was_designed_at():
     """J = V/(nD) inverted, against the campaign's own measured numbers.
 
@@ -2904,10 +2910,9 @@ def test_an_explicit_rpm_is_carried_through_unconverted():
 def test_the_sign_is_applied_to_a_derived_speed_and_never_invented():
     """A ratio is a magnitude, so the hand of the rotation is its own key."""
     assert rotor_speed(ratio_case()).rpm > 0.0
-    assert rotor_speed(ratio_case(**{RPM_SIGN_VARIABLE: "-1"})).rpm < 0.0
-    assert rotor_speed(ratio_case(**{RPM_SIGN_VARIABLE: "-1"})).rpm == pytest.approx(
-        -rotor_speed(ratio_case()).rpm
-    )
+    turned = rotor_speed(_turning(ratio_case(**{RPM_SIGN_VARIABLE: "-1"}), -1))
+    assert turned.rpm < 0.0
+    assert turned.rpm == pytest.approx(-rotor_speed(ratio_case()).rpm)
 
 
 def test_a_stated_rpm_takes_the_rotors_hand(quiet_case=None):
@@ -2925,7 +2930,7 @@ def test_a_stated_rpm_takes_the_rotors_hand(quiet_case=None):
     where the row says how fast and the block says which way and neither states
     what the other does.
     """
-    turned = rotor_speed(rotor_case(**{RPM_SIGN_VARIABLE: "-1"}))
+    turned = rotor_speed(_turning(rotor_case(**{RPM_SIGN_VARIABLE: "-1"}), -1))
 
     assert turned.rpm < 0.0, turned
     assert turned.stated_value > 0.0, "the row's own value stays the magnitude it stated"
@@ -3001,42 +3006,30 @@ def test_a_row_naming_its_rotor_in_its_own_cell_takes_that_blocks_hand(hand):
 
 
 @pytest.mark.parametrize("hand", [1, -1])
-def test_a_row_naming_its_rotor_by_alias_may_not_restate_the_blocks_hand(hand):
-    """BOTH ARMS, because the agreeing one is the argument the rule rests on.
+def test_a_row_naming_its_rotor_by_alias_may_restate_the_blocks_own_hand(hand):
+    """A row stating the SAME hand as its block says nothing the block does not, so it
+    passes (the owner's X-F-1147 / X-F-1157 rule: refuse only the disagreement)."""
+    speed = rotor_speed(_row_naming_its_rotor_by_alias(hand, RPM_SIGN=str(hand)))
 
-    A row that agrees with its block today says nothing when the REFERENCE is
-    corrected tomorrow: the block flips, the row keeps the old hand, and the two
-    disagree with nobody to notice. So the refusal is about where the key goes,
-    and it names which of the two cases the reader is in -- "it already agrees"
-    being the objection a user would otherwise raise.
-
-    The agreeing arm is asserted by its own distinguishing phrase rather than by
-    the key name: the key name alone is satisfied by a NEIGHBOURING refusal that
-    also mentions it, which is how the first writing of this test passed without
-    ever reaching the branch (the architect lens, FIX-0220).
-    """
-    with pytest.raises(CampaignConfigError) as raised:
-        rotor_speed(_row_naming_its_rotor_by_alias(hand, RPM_SIGN=str(hand)))
-
-    message = str(raised.value)
-    assert "agrees with it today" in message, message
-    assert "rpm_sign" in message, "the refusal names the block's key in the block's spelling"
-    assert FIXTURE_ROTOR.alias in message, message
+    assert speed.rpm == pytest.approx(hand * 800.0), speed
 
 
 def test_a_row_naming_its_rotor_by_alias_is_refused_for_a_disagreeing_hand():
-    """THE OTHER ARM, and the two must not print the same sentence."""
+    """A row stating the OTHER hand is a second opinion and is refused by name."""
     with pytest.raises(CampaignConfigError) as raised:
         rotor_speed(_row_naming_its_rotor_by_alias(-1, RPM_SIGN="1"))
 
     message = str(raised.value)
     assert "disagrees with it" in message, message
-    assert "agrees with it today" not in message, "both arms printed one sentence"
+    assert "rpm_sign" in message, "the refusal names the block's key in the block's spelling"
+    assert FIXTURE_ROTOR.alias in message, message
 
 
 def test_a_ratio_with_no_diameter_on_the_reference_is_refused_naming_the_field():
     """The refusal has to name the artifact field, or the author cannot act."""
-    case = ratio_case().model_copy(update={"reference": ReferenceData(area=50.0, length=2.526)})
+    case = ratio_case().model_copy(
+        update={"reference": ReferenceData(area=50.0, length=2.526), "rotors": {}}
+    )
     with pytest.raises(CampaignConfigError) as raised:
         rotor_speed(case)
     message = str(raised.value)
@@ -8007,10 +8000,14 @@ class TestVocabularyStatesTheCode:
     """F-1327, F-1328: the vocabulary's prose agrees with what the code does."""
 
     @staticmethod
-    def test_f1327_geometry_is_documented_as_a_stem_everywhere():
+    def test_f1327_geometry_is_documented_as_a_file_name_with_its_extension_everywhere():
+        from pyflightstream.cases import _matrix_layouts
+
         meaning = workflows_module.ROW_KEY_MEANINGS[workflows_module.GEOMETRY_VARIABLE]
-        assert "stem" in meaning.values, meaning
-        assert "extension" not in meaning.values.replace("no extension", ""), meaning
+        assert "a file name with its extension" in meaning.values, meaning
+        assert "stem" not in meaning.values and "no extension" not in meaning.values, meaning
+        layout = _matrix_layouts.COLUMN_MEANINGS["GEOMETRY"]
+        assert "a file name with its extension" in layout.values, layout
 
     @staticmethod
     def test_f1328_cold_is_the_one_documented_default_of_cold_start():
