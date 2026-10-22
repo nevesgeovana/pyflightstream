@@ -155,9 +155,11 @@ def rotor_plot_source(
     integrates on a steady run.
 
     A GROUP IN A ROTOR'S OWN FRAME IS NEVER A SOURCE. Its force is stated in axes
-    that turn with the rotor and its moment is already about the hub, while the
-    rotor table turns a geometry-frame force and transfers the moment from the
-    moment point. An expanding frame names its emissions by ``{family}``, which is
+    that turn with the rotor and its moment is already about the hub (the package
+    takes a group in a frame to state its loads in that frame; no committed report
+    measures the rotor-frame group of an export), while the rotor table turns a
+    geometry-frame force and transfers the moment from the moment point. An
+    expanding frame names its emissions by ``{family}``, which is
     the one way a bare ``FX_<alias>`` arises, so that spelling is refused when the
     artifact declares it there.
 
