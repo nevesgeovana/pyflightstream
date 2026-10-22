@@ -90,6 +90,7 @@ from ._vocabulary import (
     PERIODIC_COPIES_VARIABLE,
     QSTEADY_ROTOR,
     RATE_VARIABLES,
+    RESERVED_CONTINUATION_VARIABLES,
     RESTART_ADDITIONAL_ITERS,
     RESTART_ADDITIONAL_REVS,
     RESTART_FINISH_PENDING,
@@ -1764,11 +1765,15 @@ def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
         for variable in (port.velocity_variable, port.profile_variable):
             if variable is not None:
                 declared.add(variable.casefold())
+    # The continuation facts (RESTART_FROM, RESTART_ITERATIONS and the step
+    # offset) are set on the point case by the run layer from the stopped
+    # record, never by the row, so they are not the row's keys either.
     stated = sorted(
         key
         for key in case.variables
         if not key.startswith(CONVERTER_PREFIX)
         and key != ROTOR_ORIGIN_POINT_KEY
+        and key not in RESERVED_CONTINUATION_VARIABLES
         and key not in workflow.keys
         and key.strip().casefold() not in declared
     )

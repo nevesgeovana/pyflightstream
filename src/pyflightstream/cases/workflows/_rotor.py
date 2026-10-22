@@ -555,6 +555,8 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     # mesh, and a continuation starts from the state a stopped run saved.
     continuation = continuation_of(case)
     if continuation is not None:
+        # A mistyped key is refused on a continuation too, before any emission.
+        _refuse_unregistered_keys(case, "unsteady_rotor")
         _build_continuation(
             case,
             script,

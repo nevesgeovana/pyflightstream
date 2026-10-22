@@ -360,6 +360,8 @@ FlightStream versions.
 - The `WALLTIME` watchdog of an unsteady row measures elapsed time with the monotonic clock
   between solver steps, so a system clock set forward or back during a run no longer stops
   it early or late.
+- An unsteady or rotor row that continues a stopped run (`RESTART`) refuses a key its run type
+  does not register, as a row that starts from a mesh does, instead of ignoring it.
 
 ### Deprecated
 

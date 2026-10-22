@@ -260,6 +260,8 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
             "this package has measured a reopened simulation to restore (FR-1087)."
         )
     if continuation is not None:
+        # A mistyped key is refused on a continuation too, before any emission.
+        _refuse_unregistered_keys(case, "unsteady")
         _build_continuation(
             case,
             script,

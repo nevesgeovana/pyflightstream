@@ -154,6 +154,23 @@ def test_goal020_restart_opens_the_saved_simulation_with_the_state_loaded():
     assert "ENABLE" in open_block, "a continuation that does not load the stored state is not one"
 
 
+@pytest.mark.parametrize("workflow", ["unsteady", "unsteady_rotor"])
+def test_p0430_a_continuation_refuses_a_key_its_run_type_does_not_register(workflow):
+    """X-F-0505: a mistyped key on a continuation row is refused, not ignored.
+
+    The continuation branch returned before the unregistered-key guard, so a key
+    nothing reads passed silently; the run layer's own continuation facts
+    (RESTART_FROM, RESTART_ITERATIONS) are not the row's keys and pass.
+    """
+    case = _continuing_case(
+        "{ADDITIONAL_ITERS=120}",
+        **{RESTART_FROM_VARIABLE: SAVED, RESTART_ITERATIONS_VARIABLE: "120"},
+        **{WORKFLOW_KEY: workflow, "TIME_ITERATON": "400"},
+    ).model_copy(update={"recipe": workflow})
+    with pytest.raises(CampaignConfigError, match="TIME_ITERATON"):
+        build_script(case, Script("26.123"))
+
+
 def test_goal020_restart_marches_the_remainder_and_not_the_rows_original_count():
     """The row asks for 400; the continuation owes 120, and the script says 120."""
     case = _continuing_case(
