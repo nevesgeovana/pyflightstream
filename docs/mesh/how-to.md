@@ -200,7 +200,7 @@ Any other family is remeshed: refined towards the source's local edge length
 divided by its factor, into triangles whose nodes lie on the source surface.
 Open boundaries, the trailing edge and every edge whose dihedral exceeds 40
 degrees are curves the nodes move along and never leave. Remeshing needs the geometry extra,
-`pip install pyflightstream[geom]`; a mesh whose families are all grids refines
+`pip install "pyflightstream[geom]"`; a mesh whose families are all grids refines
 without it. `W1_R2.refine.json` names, per family, the method taken and the
 reason a grid was or was not recovered.
 

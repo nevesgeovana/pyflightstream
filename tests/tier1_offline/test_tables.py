@@ -146,7 +146,7 @@ def test_sectional_loads_to_dataframe_carries_unit_suffixed_columns():
 def test_sectional_dispatch_without_the_extra_raises_didactically(monkeypatch):
     report = parse_sectional_loads(read_fixture("fsi/FS_SurfaceSection_Loads_call0002.txt"))
     monkeypatch.setattr(tables_module, "_sectional_loads_type", lambda: None)
-    with pytest.raises(ImportError, match=r"pip install pyflightstream\[fsi\]"):
+    with pytest.raises(ImportError, match=r'pip install "pyflightstream\[fsi\]"'):
         to_table(report)
 
 
