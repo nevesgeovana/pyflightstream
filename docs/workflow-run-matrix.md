@@ -59,7 +59,10 @@ a cluster, the scheduler's request. `WALLTIME` is the wall clock, written
 WITH ITS UNIT (`240m`, `4h`, `90s`, `1d`; a bare number is
 refused by name), which on an unsteady row also arms the watchdog. What the
 scheduler's own field is given is the HPC profile's to say
-(`walltime_arithmetic`), and it never moves the watchdog's deadline.
+(`walltime_arithmetic`), and it never moves the watchdog's deadline. The
+watchdog measures elapsed time with the machine's monotonic clock between
+solver steps, so setting the system clock during a run neither stops it early
+nor late; after a restart of the machine it counts the calendar time instead.
 
 **A COLUMN SAYS NOTHING WITH `-`.** One character rather than an empty
 cell, so a reader can tell "states nothing" from "the line is truncated".
