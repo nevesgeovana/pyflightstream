@@ -598,7 +598,7 @@ def test_p0420_setup_entity_lists_have_an_explicit_empty_verdict(tmp_path, key):
 
 
 @pytest.mark.requirement("FR-1607")
-def test_p0430_a_refused_plain_pproc_key_stated_empty_is_refused(tmp_path, monkeypatch):
+def test_p0430_a_refused_plain_pproc_key_stated_empty_is_refused(tmp_path):
     """PFS-2119.059: the walker visits every plain pproc key, as it does the setup
     keys, so an empty post selection a rule refuses is refused before any product
     file is read or written; the admitted ``base_regions = []`` stays admitted."""
@@ -610,9 +610,9 @@ def test_p0430_a_refused_plain_pproc_key_stated_empty_is_refused(tmp_path, monke
     refused = selections.EntitySelection(
         "pproc", "probe_families", "a probe product", False, "None selects nothing."
     )
-    monkeypatch.setattr(selections, "ENTITY_SELECTIONS", (*selections.ENTITY_SELECTIONS, refused))
+    rules = (*selections.ENTITY_SELECTIONS, refused)
     with pytest.raises(InputArtifactError, match="chosen-pproc.toml") as caught:
-        selections.refuse_empty_selections("pproc", path, {"probe_families": []})
+        selections.refuse_empty_selections("pproc", path, {"probe_families": []}, rules=rules)
     assert "probe_families = []" in str(caught.value)
     assert not list(tmp_path.iterdir()), "nothing is written before the refusal"
 

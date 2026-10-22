@@ -18,7 +18,7 @@ its path (AD-11).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -273,19 +273,19 @@ def _is_plain(key: str) -> bool:
 
 
 def _stated_empty_selections(
-    kind: str, data: Mapping[str, Any]
+    kind: str, data: Mapping[str, Any], rules: Sequence[EntitySelection]
 ) -> list[tuple[str, EntitySelection]]:
     """Return every entity-selecting key the file states as an empty list.
 
-    Walks the shapes the table names: a plain key of either kind, the
-    ``[groups]`` table of a pproc artifact, and the ``families`` of its
-    plot groups and section distributions. Returns the key as the file
-    spells it beside the table entry that judges it.
+    Walks the shapes the table names: a plain key of either kind among
+    ``rules``, the ``[groups]`` table of a pproc artifact, and the
+    ``families`` of its plot groups and section distributions. Returns the
+    key as the file spells it beside the table entry that judges it.
     """
     found: list[tuple[str, EntitySelection]] = []
     # A plain key (no table placeholder) is walked for both kinds, so a
     # pproc rule such as ``base_regions`` is judged as a setup key is.
-    for rule in ENTITY_SELECTIONS:
+    for rule in rules:
         if rule.kind == kind and _is_plain(rule.key) and data.get(rule.key) == []:
             found.append((rule.key, rule))
     if kind == "setup":
@@ -319,7 +319,13 @@ def _stated_empty_selections(
     return found
 
 
-def refuse_empty_selections(kind: str, path: Path, data: Mapping[str, Any]) -> None:
+def refuse_empty_selections(
+    kind: str,
+    path: Path,
+    data: Mapping[str, Any],
+    *,
+    rules: Sequence[EntitySelection] = ENTITY_SELECTIONS,
+) -> None:
     """Refuse an artifact stating an empty list for an entity-selecting key.
 
     PFS-2005.02. Called by the readers before the model validates, so the
@@ -336,13 +342,16 @@ def refuse_empty_selections(kind: str, path: Path, data: Mapping[str, Any]) -> N
         The artifact file, for the message.
     data : mapping
         The file's TOML table as loaded.
+    rules : sequence of EntitySelection, keyword-only
+        The verdicts the plain keys are judged by, :data:`ENTITY_SELECTIONS`
+        by default; the table-shaped keys keep their own entries.
 
     Raises
     ------
     InputArtifactError
         The first key stated empty whose verdict is not "admitted".
     """
-    for key, rule in _stated_empty_selections(kind, data):
+    for key, rule in _stated_empty_selections(kind, data, rules):
         if rule.empty_admitted:
             continue
         if rule.empty_admitted is None:
