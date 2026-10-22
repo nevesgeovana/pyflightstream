@@ -56,6 +56,7 @@ __all__ = [
     "JobEndVerdict",
     "clock_stop_update",
     "job_ended",
+    "jobs_of",
     "prepare_grouped_points",
 ]
 
@@ -498,7 +499,7 @@ def _sweep_job(workspace: CampaignWorkspace, job: _Job, submitted: list[RunRecor
             _sweep_point(workspace, point, job, ended=verdict.ended)
 
 
-def _jobs_of(records: list[RunRecord]) -> dict[tuple[str, str, str], list[RunRecord]]:
+def jobs_of(records: list[RunRecord]) -> dict[tuple[str, str, str], list[RunRecord]]:
     """Every record that carries a job entry, by its execution (folder, name and receipt)."""
     jobs: dict[tuple[str, str, str], list[RunRecord]] = {}
     for record in records:
@@ -539,7 +540,7 @@ def prepare_grouped_points(
         The manifest after the step, its notes and its failures.
     """
     watch = _Watch(observer, settled, sleep, interval)
-    jobs = _jobs_of([r for r in records if sims is None or r.sim_id in sims])
+    jobs = jobs_of([r for r in records if sims is None or r.sim_id in sims])
     pending = {
         key: [
             r
