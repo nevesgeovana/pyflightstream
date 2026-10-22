@@ -305,6 +305,56 @@ def test_post_archives_compact_zips_and_removes_the_folder(tmp_path):
     assert (archive_root / "20260101-000000.zip").is_file()
 
 
+@pytest.mark.requirement("NFR-49")
+def test_p0430_a_post_archive_that_misses_a_file_keeps_the_folder(tmp_path, monkeypatch):
+    """PFS-2120.005: the written zip is read back against the folder before the folder is
+    deleted; a zip that misses a file is refused, removed, and the folder is kept."""
+    from pyflightstream.workspace import WorkspaceError
+
+    workspace = _ws(tmp_path)
+    archive_root = workspace.root / "post" / "matriz" / ARCHIVE_DIR
+    stamp_dir = archive_root / "20260101-000000"
+    _write(stamp_dir / "a.csv", "a")
+    _write(stamp_dir / "b.csv", "b")
+    real = zipfile.ZipFile.write
+
+    def dropping(self, filename, arcname=None, *args, **kwargs):
+        if Path(filename).name != "b.csv":
+            real(self, filename, arcname, *args, **kwargs)
+
+    monkeypatch.setattr(zipfile.ZipFile, "write", dropping)
+    _write_recipe(workspace, "m001", '[[post_archives]]\naction = "compact"\nkeep_latest = 0\n')
+    with pytest.raises(WorkspaceError, match="b.csv"):
+        storage_module.free_space(workspace.root, "m001", apply=True)
+    assert (stamp_dir / "b.csv").read_text(encoding="utf-8") == "b"
+    assert not (archive_root / "20260101-000000.zip").exists()
+
+
+@pytest.mark.requirement("NFR-49")
+@pytest.mark.parametrize("fault", ["renamed", "unlisted"])
+def test_p0430_a_compacted_simulation_of_another_archive_is_not_restored(tmp_path, fault):
+    """PFS-2120.004: an archive compacted for one simulation and renamed to another, or one
+    carrying a member its table does not list, is refused; the zip stays and no folder is
+    promoted."""
+    import hashlib
+
+    workspace = _ws(tmp_path)
+    archive = workspace.root / "sims" / "sim_1201.zip"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    members = {"a.txt": hashlib.sha256(b"a").hexdigest()}
+    with zipfile.ZipFile(archive, "w") as bundle:
+        bundle.writestr("a.txt", "a")
+        if fault == "unlisted":
+            bundle.writestr("extra.txt", "x")
+        sim_id = "9999" if fault == "renamed" else "1201"
+        bundle.writestr("_pyfs_compacted.json", json.dumps({"sim_id": sim_id, "members": members}))
+    with pytest.raises(storage_module.StorageError, match="9999|extra.txt"):
+        storage_module.ensure_sim_expanded(workspace, "1201", reason="the test")
+    assert archive.is_file()
+    assert not workspace.sim_dir("1201").exists()
+    assert not list(archive.parent.glob("*.restoring"))
+
+
 def test_post_archives_skips_an_archive_nested_inside_another_archive(tmp_path):
     workspace = _ws(tmp_path)
     archive_root = workspace.root / "post" / "matriz" / ARCHIVE_DIR

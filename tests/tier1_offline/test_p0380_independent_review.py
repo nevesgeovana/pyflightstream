@@ -774,6 +774,28 @@ def test_ind2_03_a_level_that_appears_during_the_run_is_not_replaced(tmp_path, m
     assert sorted(p.name for p in tmp_path.iterdir()) == ["src", "wing_R2"]
 
 
+@pytest.mark.requirement("NFR-49")
+def test_p0430_a_file_that_takes_the_level_name_during_the_run_is_a_refusal(tmp_path, monkeypatch):
+    """PFS-2130.011: with overwrite, a FILE that appears at the level path while the run
+    writes is refused as _place refuses one up front (InputArtifactError naming the path),
+    never a bare FileExistsError; the file is kept."""
+    src = _source(tmp_path / "src")
+    folder = tmp_path / "wing_R2"
+    real = tempfile.mkdtemp
+
+    def mkdtemp(*args, **kwargs):
+        made = real(*args, **kwargs)
+        if Path(made).name.startswith(f"{folder.name}.partial-"):
+            folder.write_text("not a level", encoding="utf-8")
+        return made
+
+    monkeypatch.setattr(tempfile, "mkdtemp", mkdtemp)
+    with pytest.raises(InputArtifactError) as caught:
+        refine_mesh(src, 2.0, overwrite=True)
+    assert str(caught.value).startswith(f"{folder}: a file took the level folder's name")
+    assert folder.read_text(encoding="utf-8") == "not a level"
+
+
 # ------------------------------------- IND-11 the audit JSON is never an input
 
 

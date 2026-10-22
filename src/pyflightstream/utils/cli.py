@@ -846,8 +846,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Validate arguments before opening the manual or rendering a draft.
     chapter_first, chapter_last = _pages(parser, "--chapter-pages", args.chapter_pages)
     index_range = _pages(parser, "--index-pages", args.index_pages) if args.index_pages else None
-    if args.command == "draft" and args.write and not args.out:
-        parser.error("--write needs --out; refusing to guess where to put a draft")
+    if (problem := _draft_destination_problem(args)) is not None:
+        parser.error(problem)
     if not Path(args.manual).is_file():
         parser.error(f"--manual {args.manual} is not a file; give the path of the manual pdf")
 
@@ -882,6 +882,20 @@ def _draft(args: argparse.Namespace, report) -> int:
         print(f"refused: {error}", file=sys.stderr)
         return 1
     return 0
+
+
+def _draft_destination_problem(args: argparse.Namespace) -> str | None:
+    """Refuse a draft's destination before the manual is read: none, or one kept (PFS-2124.023)."""
+    if args.command != "draft" or not args.write:
+        return None
+    if not args.out:
+        return "--write needs --out; refusing to guess where to put a draft"
+    if Path(args.out).exists() and not args.overwrite:
+        return (
+            f"--out {args.out} exists; a draft never replaces a file unless --overwrite is "
+            "given, so the file was kept"
+        )
+    return None
 
 
 def _read_manual(

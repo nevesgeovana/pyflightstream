@@ -299,6 +299,11 @@ FlightStream versions.
   that is not open, naming the block and the line, and writes nothing.
 - `isa()` refuses a NaN or infinite `delta_isa_c`, and the inflow J map refuses a
   non-finite diameter, free-stream speed or advance ratio, each naming the value.
+- `write_chapter` and `pyfs-manual draft --write` refuse an existing destination unless
+  `overwrite=True` (`--overwrite`). A compacted simulation whose archive records another
+  simulation or holds a file its table does not list is not restored, a compacted post
+  archive is read back before its folder is deleted, and a file met at a refinement level's
+  path during the run is refused as before the run.
 
 ## [0.42.0] - 2026-10-16
 

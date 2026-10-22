@@ -112,6 +112,32 @@ def _both_refusal(folder: Path, archive: Path) -> str:
     )
 
 
+def _check_extracted(
+    archive: Path, meta: dict[str, Any], copy: Path, sim_folder: str, error: type[Exception]
+) -> None:
+    """Refuse an extracted copy that is not the archive's own simulation as compacted.
+
+    PFS-2120.004, before the copy is promoted: a table recording another
+    simulation than ``sim_folder``, a member it lists that is absent, and a
+    file it does not list. An archive with no table is the caller's warning.
+    """
+    recorded, listed = meta.get("sim_id"), dict(meta.get("members", {}))
+    if recorded is not None and f"sim_{recorded}" != sim_folder:
+        raise error(
+            f"{archive}: its table records simulation {recorded} and the archive stands for "
+            f"{sim_folder}; it was compacted from another simulation and is not restored"
+        )
+    for name in listed:
+        if not (copy / name).is_file():
+            raise error(f"{archive}: {name} is listed in its hash table but absent")
+    found = sorted(path.relative_to(copy).as_posix() for path in _walk_files(copy))
+    if "members" in meta and (extra := [name for name in found if name not in listed]):
+        raise error(
+            f"{archive}: {', '.join(extra)} is not in its hash table, so it is not the archive "
+            "that was compacted; not restored"
+        )
+
+
 def _protected(workspace: CampaignWorkspace, sim_id: str, rows: list[dict[str, Any]]) -> set[Path]:
     """Return the files of one simulation a recipe may never remove.
 
@@ -484,6 +510,7 @@ def _post_archive(stamp: Path, root: Path, action: str, apply: bool) -> tuple[di
                         path = here / name
                         if not is_reparse(path) and (path.is_dir() or path.is_file()):
                             bundle.write(path, path.relative_to(stamp))
+            _verify_zip(stamp, archive)
         except BaseException:
             archive.unlink(missing_ok=True)
             raise
@@ -491,6 +518,30 @@ def _post_archive(stamp: Path, root: Path, action: str, apply: bool) -> tuple[di
         size -= _size(archive)
     shutil.rmtree(stamp)
     return entry, size
+
+
+def _verify_zip(stamp: Path, archive: Path) -> None:
+    """Refuse a post archive that does not hold every file of its folder (PFS-2120.005).
+
+    Read back before the folder is deleted: each file of the stamp folder
+    must be a member with the same SHA-256. The caller removes the archive.
+    """
+    wanted = {path.relative_to(stamp).as_posix(): _sha256(path) for path in _walk_files(stamp)}
+    with zipfile.ZipFile(archive) as bundle:
+        held = {info.filename for info in bundle.infolist() if not info.is_dir()}
+        wrong = sorted(name for name in wanted if name not in held)
+        for name in sorted(set(wanted) & held):
+            digest = hashlib.sha256()
+            with bundle.open(name) as member:
+                for chunk in iter(lambda: member.read(1 << 20), b""):
+                    digest.update(chunk)
+            if digest.hexdigest() != wanted[name]:
+                wrong.append(name)
+    if wrong:
+        raise WorkspaceError(
+            f"Cannot compact {stamp}: {archive.name} does not hold {', '.join(wrong)} as the "
+            "folder does, so the folder was kept and the archive removed."
+        )
 
 
 def _check_step_values(path: Path, document: dict[str, Any], error: type[Exception]) -> None:

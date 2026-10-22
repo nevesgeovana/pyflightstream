@@ -75,6 +75,7 @@ from pyflightstream.workspace._free_space import (
     _PROTECTED_SUFFIXES,
     _both_refusal,
     _brought_sim_ids,
+    _check_extracted,
     _check_selections,
     _check_step_values,
     _library_target,
@@ -608,11 +609,14 @@ def ensure_sim_expanded(workspace: CampaignWorkspace, sim_id: str, *, reason: st
     return True
 
 
-def _extract_verified(archive: Path, temporary: Path) -> dict[str, Any]:
+def _extract_verified(archive: Path, temporary: Path, sim_folder: str) -> dict[str, Any]:
     """Extract a compacted simulation into ``temporary`` and return its recorded meta.
 
     A member that leaves the folder, or whose hash differs from the recorded
     one, refuses the restore (the second after removing the extracted copy).
+    So does (PFS-2120.004) a table naming another simulation than the
+    archive's own folder ``sim_folder``, a listed member that is absent and
+    a member the table does not list, before anything is promoted.
     """
     try:
         with zipfile.ZipFile(archive) as zf:
@@ -632,9 +636,7 @@ def _extract_verified(archive: Path, temporary: Path) -> dict[str, Any]:
                 if temporary.resolve() not in target.parents:
                     raise StorageError(f"{archive}: member {info.filename} leaves the folder")
                 zf.extract(info, temporary)
-        for name in dict(meta.get("members", {})):
-            if not (temporary / name).is_file():
-                raise StorageError(f"{archive}: {name} is listed in its hash table but absent")
+        _check_extracted(archive, meta, temporary, sim_folder, StorageError)
     except BaseException:
         shutil.rmtree(temporary, ignore_errors=True)
         raise
@@ -669,7 +671,7 @@ def _expand_archive(
             f"{temporary} is in the way of restoring {archive} and cannot be removed; "
             "remove it by hand, then restore again"
         )
-    meta = _extract_verified(archive, temporary)
+    meta = _extract_verified(archive, temporary, folder.name)
     try:
         temporary.replace(folder)
     except OSError:

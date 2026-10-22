@@ -9,6 +9,7 @@ is a real ``tmp_path`` tree.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -278,7 +279,14 @@ def test_f1271_a_recorded_windows_path_is_split_on_any_platform(tmp_path):
         bundle.writestr("a.txt", "a")
         bundle.writestr(
             "_pyfs_compacted.json",
-            json.dumps({"sim_id": "9101", "inputs_link": recorded, "members": {}}),
+            json.dumps(
+                {
+                    "sim_id": "9101",
+                    "inputs_link": recorded,
+                    # PFS-2120.004: a restored archive lists every member it holds.
+                    "members": {"a.txt": hashlib.sha256(b"a").hexdigest()},
+                }
+            ),
         )
     assert storage_module.ensure_sim_expanded(workspace, "9101", reason="the test")
     call = storage_module.read_storage_calls(workspace.root)[-1]

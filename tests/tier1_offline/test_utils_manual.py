@@ -414,6 +414,27 @@ def test_writing_is_possible_and_says_what_it_left_unanswered(tmp_path):
     assert "wrote" in message and "review" in message
 
 
+@pytest.mark.requirement("NFR-49")
+def test_p0430_an_existing_destination_is_refused_unless_overwrite(tmp_path):
+    """PFS-2124.023: a reviewed draft or a shipped chapter at the destination is kept,
+    named in the refusal, and replaced only with overwrite=True."""
+    from pyflightstream.utils import render_chapter, write_chapter
+    from pyflightstream.utils.errors import ManualDraftError
+
+    target = tmp_path / "reviewed.yaml"
+    target.write_text("reviewed\n", encoding="utf-8")
+    body = render_chapter(
+        parse_signatures({316: INLINE_PAGE}).values(),
+        source="FSM-26.100",
+        versions={"26.100": "documented"},
+    )
+    with pytest.raises(ManualDraftError, match="reviewed.yaml exists"):
+        write_chapter(body, path=target, write=True)
+    assert target.read_text(encoding="utf-8") == "reviewed\n"
+    write_chapter(body, path=target, write=True, overwrite=True)
+    assert target.read_text(encoding="utf-8") == body
+
+
 def test_the_chapter_header_says_nothing_was_reviewed():
     from pyflightstream.utils import render_chapter
 

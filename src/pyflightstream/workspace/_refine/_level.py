@@ -1492,7 +1492,8 @@ def _publish(staging: Path, folder: Path, previous: Path, overwrite: bool) -> No
             "(--overwrite) to replace it",
         )
     if folder.exists() and not folder.is_dir():
-        raise FileExistsError(f"{folder} exists and is not a level folder; it was not replaced")
+        # The race only: _place refuses a file at the level path before any work.
+        raise _refuse(str(folder), "a file took the level folder's name while the run wrote it")
     if folder.exists():
         folder.rename(previous)
     try:
