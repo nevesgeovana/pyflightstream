@@ -151,14 +151,15 @@ def _group(mesh: ObjMesh, names: Sequence[str]) -> _Group:
     ids = sorted({v for n in names for f in mesh.families[n] for v in f})
     local = {v: i for i, v in enumerate(ids)}
     source = {n: [[local[v] for v in f] for f in mesh.families[n]] for n in names}
+    verts = mesh.verts[ids]  # gathered once: per polygon it cost faces times nodes (RB5)
     faces: Faces = []
     labels: list[str] = []
     for n in names:
         for f in source[n]:
-            fan = _triangulate(mesh.verts[ids], f)
+            fan = _triangulate(verts, f)
             faces += fan
             labels += [n] * len(fan)
-    return _Group(ids, mesh.verts[ids], faces, labels, source)
+    return _Group(ids, verts, faces, labels, source)
 
 
 def _targets(group: _Group, factors: Mapping[str, float]) -> Points:
