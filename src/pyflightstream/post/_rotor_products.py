@@ -30,6 +30,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -50,7 +51,11 @@ from pyflightstream.post._condition import (
     clock_rotor_facts,
     point_condition,
     point_state,
+    recorded_blade_count,
     row_rotor_speeds,
+)
+from pyflightstream.post._condition import (
+    step_of as _step_of,
 )
 from pyflightstream.post._stage import (
     POLARS_DIR,
@@ -263,25 +268,6 @@ def _write_harmonics(
     }
 
 
-def _recorded_blade_count(record: RunRecord, alias: str, rotor_count: int) -> int | None:
-    """Return the blade count of a rotor as its record states it, else None.
-
-    The blade-passing harmonics of a rotor are multiples of the blades it HAS, not of
-    the blades the run modeled (a sector models fewer). The record's per-rotor entry
-    states it; a plan with one rotor states it at the row level.
-    """
-    reductions = getattr(record, "reductions", None)
-    plan: Mapping[str, object] = reductions if isinstance(reductions, Mapping) else {}
-    stated = plan.get("rotors")
-    own = stated.get(alias) if isinstance(stated, Mapping) else None
-    if not isinstance(own, Mapping) and rotor_count == 1:
-        own = plan
-    count = own.get("blades") if isinstance(own, Mapping) else None
-    if isinstance(count, int | float) and not isinstance(count, bool) and count >= 1:
-        return int(count)
-    return None
-
-
 def _acoustic_products(
     record: RunRecord,
     *,
@@ -333,7 +319,7 @@ def _acoustic_products(
     for alias, (rotor, _) in rotors.items():
         rpm = clocks.get(alias, {}).get("rpm")
         speeds[alias] = (
-            _recorded_blade_count(record, alias, len(rotors)) or len(rotor.blades) or None,
+            recorded_blade_count(record, alias, len(rotors)) or len(rotor.blades) or None,
             float(rpm) if isinstance(rpm, int | float) and not isinstance(rpm, bool) else None,
         )
     try:
@@ -423,14 +409,6 @@ def _write_disc_maps(
         )
         for path, (alias, quantity) in zip(paths, sorted(mapped.maps), strict=True)
     ]
-
-
-def _step_of(cell: object) -> int | None:
-    """Return a table's ``STEP`` cell as a whole step, or None where it states none."""
-    try:
-        return int(float(str(cell)))
-    except (ValueError, OverflowError):
-        return None
 
 
 def _wheel_harmonics(
@@ -1030,6 +1008,70 @@ def _loads_report(loads_path: Path):
         return None
 
 
+def _loaded_point(
+    workspace: CampaignWorkspace,
+    sim_id: str,
+    record: RunRecord,
+    loads_name: str,
+    stem: str,
+) -> tuple[PolarPoint | None, Mapping[str, object] | None]:
+    """Return the point's polar point and flight-condition cell, or ``(None, None)``.
+
+    A loads table that is not on disk leaves the point unbuilt.
+    """
+    loads_path = workspace.sim_dir(sim_id) / next(
+        (o for o in record.outputs if Path(o).name == loads_name), loads_name
+    )
+    report = _loads_report(loads_path) if loads_path.is_file() else None
+    if report is None:
+        return None, None
+    cell = record.flight_condition if isinstance(record.flight_condition, Mapping) else None
+    point = PolarPoint(
+        name=stem,
+        loads=report,
+        loads_path=loads_path,
+        point=dict(record.point),
+        state=point_state(record),
+    )
+    return point, cell
+
+
+def _series_not_written(skipped: dict[str, str], record: RunRecord, reason: str) -> None:
+    """Record and warn that the series of ``record`` was not (fully) written."""
+    skipped[f"series/{record.run_id}"] = reason
+    warn(
+        f"series of {record.run_id} not written: {reason}",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+
+
+def _with_unsteady_harmonics(
+    record: RunRecord,
+    sim_dir: Path,
+    *,
+    out: Path,
+    written: list[Path],
+    names: dict[str, dict[str, object]],
+    **harmonic_arguments: Any,
+) -> tuple[list[Path], dict[str, dict[str, object]]]:
+    """Append the per-station harmonics and disc maps of an unsteady point."""
+    series_maps: list[tuple[Path, dict[str, object]]] = []
+    harmonics = _unsteady_harmonics(
+        record,
+        out=out,
+        series=written,
+        disc_maps=series_maps,
+        sim_dir=sim_dir,
+        **harmonic_arguments,
+    )
+    for path, entry in ([harmonics] if harmonics is not None else []) + series_maps:
+        written = [*written, path]
+        key = path.relative_to(out) if path.is_relative_to(out) else path
+        names = {**names, key.as_posix(): entry}
+    return written, names
+
+
 def _point_series(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -1078,24 +1120,7 @@ def _point_series(
     # leaves the cells `NA`; the series rest on the stamped files and are still
     # written.
     condition: Mapping[str, object] | None = None
-    # BOUND BEFORE THE BRANCH THAT FILLS THEM: a loads table that is not on disk
-    # leaves the point unbuilt, and the clock block below reads both.
-    point: PolarPoint | None = None
-    cell: Mapping[str, object] | None = None
-    loads_path = workspace.sim_dir(sim_id) / next(
-        (o for o in record.outputs if Path(o).name == loads_name), loads_name
-    )
-    if loads_path.is_file():
-        report = _loads_report(loads_path)
-        if report is not None:
-            point = PolarPoint(
-                name=stem,
-                loads=report,
-                loads_path=loads_path,
-                point=dict(record.point),
-                state=point_state(record),
-            )
-            cell = record.flight_condition if isinstance(record.flight_condition, Mapping) else None
+    point, cell = _loaded_point(workspace, sim_id, record, loads_name, stem)
     reference = (
         ReferenceValues.from_mapping(record.reference).as_lengths() if record.reference else None
     )
@@ -1118,6 +1143,7 @@ def _point_series(
     aliases = live_aliases if live_aliases is not None else record.aliases
     surface_exports: dict[str, dict[str, object]] = {}
     split_skips = skipped if skipped is not None else {}
+    target = partial(_refuse_an_existing_product, archive=archive, stamp=archive_stamp)
     from pyflightstream.post.boundary_layer import write_boundary_layer_products
 
     boundary_files, boundary_names = write_boundary_layer_products(
@@ -1125,7 +1151,7 @@ def _point_series(
         record=record,
         stem=stem,
         out=out,
-        target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
+        target=target,
         skipped=split_skips,
         step=_last_time_step(record),
         pproc=pproc or recorded_pproc,
@@ -1140,9 +1166,7 @@ def _point_series(
             record=record,
             stem=stem,
             out=out,
-            target=lambda path: _refuse_an_existing_product(
-                path, archive=archive, stamp=archive_stamp
-            ),
+            target=target,
             skipped=split_skips,
             step=_last_time_step(record),
             pproc=recorded_pproc,
@@ -1182,59 +1206,33 @@ def _point_series(
             surface_exports=surface_exports,
             # Pass the archive policy through so rebuilding a series preserves the
             # previous product when archiving is requested.
-            target=lambda path: _refuse_an_existing_product(
-                path, archive=archive, stamp=archive_stamp
-            ),
+            target=target,
             failed=failed,
         )
     except ProductExistsError:
         raise
     except ProductError as error:
-        split_skips[f"series/{record.run_id}"] = str(error)
-        warn(
-            f"series of {record.run_id} not written: {error}",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )
+        _series_not_written(split_skips, record, str(error))
         written, names = [], {}
     if failed:
         # A kind whose stamped files cannot be read costs that kind; the kinds
         # read from other files are written and keep their entries.
         reasons = "; ".join(f"{table}: {reason}" for table, reason in failed.items())
-        split_skips[f"series/{record.run_id}"] = reasons
-        warn(
-            f"series of {record.run_id} not written: {reasons}",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )
+        _series_not_written(split_skips, record, reasons)
     # P0310-HARMONICS: AN UNSTEADY ROTOR POINT'S PER-STATION HARMONICS,
     # fitted over its last complete revolution of the sections series just written.
     if record.recipe == "unsteady_rotor":
-        series_maps: list[tuple[Path, dict[str, object]]] = []
-        harmonics = _unsteady_harmonics(
+        written, names = _with_unsteady_harmonics(
             record,
-            stem=stem,
+            workspace.sim_dir(sim_id),
             out=out,
-            series=written,
+            written=written,
+            names=names,
+            stem=stem,
             rotors=_harmonic_rotors(live, aliases, record),
-            target=lambda path: _refuse_an_existing_product(
-                path, archive=archive, stamp=archive_stamp
-            ),
+            target=target,
             skipped=split_skips,
-            disc_maps=series_maps,
-            sim_dir=workspace.sim_dir(sim_id),
         )
-        if harmonics is not None:
-            written = [*written, harmonics[0]]
-            done = harmonics[0]
-            key = done.relative_to(out) if done.is_relative_to(out) else done
-            names = {**names, key.as_posix(): harmonics[1]}
-        for mapped_path, mapped_entry in series_maps:
-            written = [*written, mapped_path]
-            mapped_key = (
-                mapped_path.relative_to(out) if mapped_path.is_relative_to(out) else mapped_path
-            )
-            names = {**names, mapped_key.as_posix(): mapped_entry}
     # P0320-NOISE-POST: the acoustic signals the record lists, read into
     # the per-observer products, whatever the recipe was.
     acoustic_files, acoustic_names = _acoustic_products(
@@ -1244,7 +1242,7 @@ def _point_series(
         out=out,
         rotors=_harmonic_rotors(live, aliases, record),
         clocks=_section_rotors(live, aliases, record),
-        target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
+        target=target,
         skipped=split_skips,
     )
     written = [*written, *acoustic_files]
@@ -1260,9 +1258,7 @@ def _point_series(
             sim_dir=workspace.sim_dir(sim_id),
             record=record,
             out=out,
-            target=lambda path: _refuse_an_existing_product(
-                path, archive=archive, stamp=archive_stamp
-            ),
+            target=target,
             vtk=bool(asked is not None and asked.exports.get("vtk", False)),
             skipped=split_skips,
             judge=lambda product, bounds: _judge_average(

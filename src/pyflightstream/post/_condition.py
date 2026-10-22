@@ -912,3 +912,30 @@ def declined_profile_drag_125(loads: LoadsReport, selection: object) -> tuple[st
     return tuple(
         name for name in names if name in listed and loads.surfaces[name].get("CDp") == 0.0
     )
+
+
+def recorded_blade_count(record: RunRecord, alias: str, rotor_count: int) -> int | None:
+    """Return the blade count of a rotor as its record states it, else None.
+
+    The blade-passing harmonics of a rotor are multiples of the blades it HAS, not of
+    the blades the run modeled (a sector models fewer). The record's per-rotor entry
+    states it; a plan with one rotor states it at the row level.
+    """
+    reductions = getattr(record, "reductions", None)
+    plan: Mapping[str, object] = reductions if isinstance(reductions, Mapping) else {}
+    stated = plan.get("rotors")
+    own = stated.get(alias) if isinstance(stated, Mapping) else None
+    if not isinstance(own, Mapping) and rotor_count == 1:
+        own = plan
+    count = own.get("blades") if isinstance(own, Mapping) else None
+    if isinstance(count, int | float) and not isinstance(count, bool) and count >= 1:
+        return int(count)
+    return None
+
+
+def step_of(cell: object) -> int | None:
+    """Return a table's ``STEP`` cell as a whole step, or None where it states none."""
+    try:
+        return int(float(str(cell)))
+    except (ValueError, OverflowError):
+        return None
