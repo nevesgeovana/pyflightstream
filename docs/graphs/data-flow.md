@@ -64,7 +64,7 @@ run_campaign(campaign: Campaign, executor: Executor, workspace: CampaignWorkspac
 ### Collect submitted work
 
 ```text
-collect_once(workspace: CampaignWorkspace, *, interval: float=DEFAULT_SETTLE_INTERVAL_S, sleep: Callable[[float], None]=time.sleep, observer: Callable[[Iterable[Path]], dict[str, Stamp | None]]=observe, assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None=None, sims: Collection[str] | None=None) -> CollectReport
+collect_once(workspace: CampaignWorkspace, *, interval: float=DEFAULT_SETTLE_INTERVAL_S, sleep: Callable[[float], None]=time.sleep, observer: Callable[[Iterable[Path]], dict[str, Stamp | None]]=observe, assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None=None, sims: Collection[str] | None=None, writes: CollectWrites | None=None) -> CollectReport
 ```
 
 ### Build engineering products

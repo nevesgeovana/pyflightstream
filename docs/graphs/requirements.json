@@ -867,14 +867,14 @@
       "parent": "FR-3016",
       "area": "SPCM",
       "hid": "SPCM-5.3",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-313",
       "parent": "FR-3058",
       "area": "EXEC",
       "hid": "EXEC-3.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-314",
@@ -930,7 +930,7 @@
       "parent": "FR-3062",
       "area": "EXEC",
       "hid": "EXEC-7.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-328",
@@ -1406,7 +1406,7 @@
       "parent": "FR-3058",
       "area": "EXEC",
       "hid": "EXEC-3.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-539",
@@ -2624,7 +2624,7 @@
       "parent": "FR-3062",
       "area": "EXEC",
       "hid": "EXEC-7.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-1557",
@@ -2666,14 +2666,14 @@
       "parent": "FR-3160",
       "area": "PHYS",
       "hid": "PHYS-4.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-1606",
       "parent": "FR-3160",
       "area": "PHYS",
       "hid": "PHYS-4.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-1607",
@@ -2792,7 +2792,7 @@
       "parent": "FR-3095",
       "area": "DRED",
       "hid": "DRED-3.9",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2315",
@@ -2813,7 +2813,7 @@
       "parent": "FR-3097",
       "area": "DRED",
       "hid": "DRED-5.4",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2318",
@@ -2827,7 +2827,7 @@
       "parent": "FR-3119",
       "area": "TRST",
       "hid": "TRST-1.7",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2320",
@@ -2890,7 +2890,7 @@
       "parent": "FR-3131",
       "area": "OPER",
       "hid": "OPER-2.9",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2330",
@@ -3002,7 +3002,7 @@
       "parent": "",
       "area": "SPCM",
       "hid": "SPCM-5",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3018",
@@ -3177,7 +3177,7 @@
       "parent": "",
       "area": "EXEC",
       "hid": "EXEC-3",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3059",
@@ -3205,7 +3205,7 @@
       "parent": "",
       "area": "EXEC",
       "hid": "EXEC-7",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3063",
@@ -3499,7 +3499,7 @@
       "parent": "",
       "area": "TRST",
       "hid": "TRST-1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3120",
@@ -3534,7 +3534,7 @@
       "parent": "",
       "area": "OPER",
       "hid": "OPER-2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3133",
@@ -3674,7 +3674,7 @@
       "parent": "",
       "area": "PHYS",
       "hid": "PHYS-4",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3161",

@@ -13,7 +13,7 @@
       ],
       "parameters": "path: str | Path, *, active_only: bool=True",
       "returns": "list[MatrixRow]",
-      "source_sha256": "36a5c907d70ddb1363d4f521b1e3bdc49a7bd9f06e85fc844475ff16cfd35f24"
+      "source_sha256": "df17935227faf20d52229c33d8254ecab81c849292548613defd1665fa6f5cc7"
     },
     {
       "id": "resolve",
@@ -30,7 +30,7 @@
       ],
       "parameters": "path: str | Path, workspace: CampaignWorkspace, *, name: str, fs_version: str | None, recipes: Mapping[str, str], fs_exe: str | Path | None=None, ignore_missing_families: bool=True, rows: list[MatrixRow] | None=None",
       "returns": "ResolvedMatrix",
-      "source_sha256": "65d2c01a231bbc7f82245d0a69e3a2a24d90565c44ef1d105d6bedda234aade1"
+      "source_sha256": "5dac5697d7a2969742786e099baa33b0f7f93c68fff53e5dfd8b96caeacda515"
     },
     {
       "id": "plan",
@@ -45,7 +45,7 @@
       ],
       "parameters": "campaign: Campaign, workspace: CampaignWorkspace, *, recipes: dict[str, ScriptRecipe] | None=None, write_plan: bool=True, name_from: str | None=None, builds: Mapping[str, SolverBuild] | None=None, versions: Mapping[str, str] | None=None, matrix_path: str | Path | None=None, accept_unregistered_build: bool=False, setup_inspections: Sequence[dict[str, object]] | None=None, inflow_fft: bool=False, accepted_builds: Collection[str]=(), planned_order: Mapping[str, Sequence[str]] | None=None",
       "returns": "CampaignPlan",
-      "source_sha256": "2fb59a18f6893b8670256019841cc1a9a9e776c45f79422c15e9545f1b965c7b"
+      "source_sha256": "98f9f72a4fb3955273582e78fd09cbebc04d118887ef3aaf0f7c13c9df22c141"
     },
     {
       "id": "run",
@@ -62,7 +62,7 @@
       ],
       "parameters": "campaign: Campaign, executor: Executor, workspace: CampaignWorkspace, *, assess: OutcomeAssessor, recipes: dict[str, ScriptRecipe] | None=None, resume: bool=False, force_rerun: Sequence[str] | None=None, preflight: bool=True, builds: Mapping[str, SolverBuild] | None=None, name_from: str | None=None, quiet: bool=False, accept_unregistered_build: bool=False, sweep_csv: str | Path | None=None, accepted_builds: Collection[str]=()",
       "returns": "list[RunRecord]",
-      "source_sha256": "f057b3ac6b3bed85bc8d7187291bfb6b2ed91d3ce2d6e3cf78a1db1c623000ae"
+      "source_sha256": "b6da2c8b1063ed6b340264f8c349c63a7bbe557f72b506066959aa48e16541df"
     },
     {
       "id": "collect",
@@ -75,9 +75,9 @@
       "outputs": [
         "collected run records"
       ],
-      "parameters": "workspace: CampaignWorkspace, *, interval: float=DEFAULT_SETTLE_INTERVAL_S, sleep: Callable[[float], None]=time.sleep, observer: Callable[[Iterable[Path]], dict[str, Stamp | None]]=observe, assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None=None, sims: Collection[str] | None=None",
+      "parameters": "workspace: CampaignWorkspace, *, interval: float=DEFAULT_SETTLE_INTERVAL_S, sleep: Callable[[float], None]=time.sleep, observer: Callable[[Iterable[Path]], dict[str, Stamp | None]]=observe, assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None=None, sims: Collection[str] | None=None, writes: CollectWrites | None=None",
       "returns": "CollectReport",
-      "source_sha256": "6bd1c00c17d1d1ea7330ccebb0d12ff22da5402f5c9d7d6f7eba4510a4278e21"
+      "source_sha256": "2df2675cf6aacaf88869c62891febdd16154bec8a116293f5e20794f1fb9d414"
     },
     {
       "id": "post",
@@ -93,7 +93,7 @@
       ],
       "parameters": "workspace: CampaignWorkspace, *, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None",
       "returns": "list[Path]",
-      "source_sha256": "ecabb72deaec5715092221b98a048ee73e99aec18741c4a132160ddeca0618e3"
+      "source_sha256": "da62405e3588953e97ee75da9e04be346fb18c078a3a64a33105d88b8d0d2c50"
     },
     {
       "id": "refine",
@@ -108,7 +108,7 @@
       ],
       "parameters": "mesh: str | os.PathLike[str], factor: float | None=None, *, families: Sequence[str] | None=None, chordwise: float | None=None, spanwise: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None",
       "returns": "RefinedMesh",
-      "source_sha256": "30151bf63bbbd125ebd9fedd4dc02c93754efa314184876e548ca4e527e49127"
+      "source_sha256": "380a7d66b26666b4a4e79fb2fd7d06e2f9dd97854cbd1e2f0ee713636d5e3898"
     }
   ],
   "cases": [
