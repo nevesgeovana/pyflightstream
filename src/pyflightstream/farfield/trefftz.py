@@ -748,7 +748,11 @@ def plane_vorticity_drag(plane: PlaneFields, *, rho: float, chunk: int = 512) ->
         positive integer.
     """
     _require_density(rho)
-    if isinstance(chunk, bool) or int(chunk) != chunk or chunk < 1:
+    try:
+        whole = float(chunk).is_integer() and chunk >= 1
+    except (TypeError, ValueError):
+        whole = False
+    if isinstance(chunk, bool) or not whole:
         raise FarfieldInputError(f"chunk must be a positive integer, got {chunk!r}")
     v, w = plane["v"], plane["w"]
     dy = float(plane.y[1] - plane.y[0])

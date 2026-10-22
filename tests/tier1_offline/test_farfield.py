@@ -614,11 +614,14 @@ def test_f103_an_invalid_density_is_refused(rho):
         trace_forces(y, z=z, gamma=gamma, rho=rho, v_inf=30.0)
 
 
-def test_f099_a_nonpositive_chunk_is_refused():
+@pytest.mark.parametrize("chunk", [-1, 0, 2.5, math.inf, math.nan, "a", True])
+def test_f099_a_nonpositive_chunk_is_refused(chunk):
+    """F-099, RB7-38: every chunk that is not a positive integer is the documented refusal."""
     axis = np.linspace(0.0, 1.0, 5)
     plane = plane_fields(axis, z=axis, fields={"v": np.ones((5, 5)), "w": np.ones((5, 5))})
     with pytest.raises(FarfieldInputError, match="chunk"):
-        plane_vorticity_drag(plane, rho=1.2, chunk=-1)
+        plane_vorticity_drag(plane, rho=1.2, chunk=chunk)
+    assert math.isfinite(plane_vorticity_drag(plane, rho=1.2, chunk=np.int64(2)))
 
 
 def test_f104_rotor_coverage_counts_every_channel():
