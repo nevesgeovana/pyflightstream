@@ -868,7 +868,7 @@ def _check_unsteady_regime(time_iterations: object, delta_time: object) -> None:
             f"unsteady regime: time_iterations is {time_iterations!r}, and it is the "
             "number of physical time steps, a whole number"
         )
-    if time_iterations < 1 or time_iterations != int(time_iterations):
+    if not math.isfinite(time_iterations) or time_iterations < 1 or time_iterations % 1:
         raise CommandArgumentError(
             f"unsteady regime: time_iterations is {time_iterations!r}, and a run takes at "
             "least one whole physical time step"
