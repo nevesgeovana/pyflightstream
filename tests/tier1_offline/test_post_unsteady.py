@@ -580,6 +580,7 @@ def _points_frames(folder, shifts):
     return paths
 
 
+@pytest.mark.requirement("FR-2306")
 def test_p0420_a_frame_that_moves_a_sample_is_refused_naming_the_sample(tmp_path):
     """PFS-2110.142: equal shape is not the same places; a displaced coordinate is refused."""
     paths = _points_frames(tmp_path / "a", [0.0, 0.0, 0.1])
@@ -587,6 +588,7 @@ def test_p0420_a_frame_that_moves_a_sample_is_refused_naming_the_sample(tmp_path
         read_timestep_series(paths)
 
 
+@pytest.mark.requirement("FR-2306")
 def test_p0420_coordinates_within_the_print_rounding_are_one_sampling(tmp_path):
     """PFS-2110.142 control: a sub-tolerance difference is the same place."""
     paths = _points_frames(tmp_path / "a", [0.0, 1e-9, -1e-9])
