@@ -502,6 +502,29 @@ def test_history_reports_an_unreadable_zip_as_a_row_and_still_answers(workspace,
     assert code in (0, 2), err
 
 
+def test_history_reports_a_zip_with_a_corrupt_member_stream_as_a_row(workspace, capsys):
+    """PFS-2124.005: a member whose compressed bytes are damaged is an error row naming the verb."""
+    import zipfile
+
+    path = workspace / "sims" / "sim_bad.zip"
+    member = "sim_bad/datapoints/DP-A/archive/20260202-020202/runs.json"
+    with ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+        bundle.writestr(member, "[" + ",".join(['{"a": 1}'] * 400) + "]")
+    data = bytearray(path.read_bytes())
+    header = data.find(b"PK\x03\x04")
+    body = header + 30 + int.from_bytes(data[header + 26 : header + 28], "little")
+    body += int.from_bytes(data[header + 28 : header + 30], "little")
+    data[body : body + 6] = b"\xff" * 6
+    path.write_bytes(bytes(data))
+    code, out, err = _query(workspace, capsys, "history", "9101", "--json")
+    assert code == 0, err
+    rows = json.loads(out)["rows"]
+    errors = [row for row in rows if "error" in row]
+    assert len(errors) == 1 and errors[0]["source"].endswith("sim_bad.zip")
+    assert errors[0]["error"].startswith("history: ")
+    assert any("record" in row for row in rows)
+
+
 def test_f1583_a_huge_since_duration_is_a_workspace_error(workspace, capsys):
     code, _, err = _query(workspace, capsys, "log", "--since", "9" * 400 + "d")
     assert code != 0
