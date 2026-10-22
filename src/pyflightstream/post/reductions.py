@@ -97,6 +97,12 @@ def write_series(
     each field. The history is what makes an average auditable, so it
     gets a file rather than a section of one.
 
+    A finite value is written at full precision, the shortest decimal that
+    reads back to the same double, never rounded to the five decimals of the
+    product tables, because the series is the evidence an average is checked
+    against. A value that is not available (NaN or infinite, a sample or a
+    time) is written ``NA``, never ``nan`` (FR-2310).
+
     Parameters
     ----------
     path : str or pathlib.Path
@@ -147,7 +153,7 @@ def write_series(
         for index in range(series.n_frames):
             row: list[object] = [int(series.steps[index])]
             if series.times_s is not None:
-                row.append(float(series.times_s[index]))
+                row.append(_number_or_na(series.times_s[index]))
             row += [_number_or_na(column[index]) for column in columns]
             writer.writerow(row)
     return destination
@@ -169,7 +175,9 @@ def write_reduction(
         Destination CSV file, holding one row per field and sample:
         ``field,probe,mean,first_step,last_step,n_frames``. Bounds name the
         actual source steps; manually constructed averages without source
-        bounds leave those cells blank.
+        bounds leave those cells blank. A finite mean is written at full
+        precision (the shortest decimal that reads back to the same double)
+        and a mean that is not available (NaN or infinite) as ``NA`` (FR-2310).
     average : FrameAverage
         The reduction, from
         :func:`pyflightstream.post.unsteady.blade_passage_average`.

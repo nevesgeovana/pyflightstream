@@ -415,6 +415,36 @@ def test_x_f_0147_x_f_0148_a_nan_sample_or_mean_is_written_na_not_nan(tmp_path):
     assert "nan" not in reduction.read_text(encoding="utf-8").lower()
 
 
+@pytest.mark.requirement("FR-2310")
+def test_p0430_a_reduction_round_trips_na_and_full_precision_values(tmp_path):
+    """Unavailable values (a sample, a time, a mean) read back NA; finite ones read back exact."""
+    import csv
+    from dataclasses import replace
+
+    frames = write_frames(tmp_path / "anim", [1.0, 2.0, 3.0, 4.0])
+    series = read_timestep_series(frames, order="given")
+    boundary = [0.1 + 0.2, 1.0 / 3.0, -1.2345678901234567e-7, 123456.78901234567]
+    fields = {name: values.copy() for name, values in series.fields.items()}
+    fields["cp"][:, 0] = boundary
+    fields["cp"][:, 1] = [np.nan, np.inf, 1.0, 2.0]
+    times = np.asarray([0.0, 0.1 + 0.2, np.nan, 1e-12])
+    series = replace(series, fields=fields, times_s=times)
+    average = blade_passage_average(series, window=(0, 3))
+    series_file = write_series(tmp_path / "out" / "series.csv", series)
+    reduction = write_reduction(tmp_path / "out" / "mean.csv", average, series_file=series_file)
+
+    with series_file.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [float(row["cp_0"]) for row in rows] == boundary
+    assert [row["cp_1"] for row in rows[:2]] == ["NA", "NA"]
+    assert [row["time_s"] for row in rows] == ["0.0", repr(0.1 + 0.2), "NA", "1e-12"]
+    with reduction.open(encoding="utf-8", newline="") as handle:
+        means = {(row["field"], row["probe"]): row["mean"] for row in csv.DictReader(handle)}
+    assert float(means[("cp", "0")]) == float(np.mean(boundary))
+    assert means[("cp", "1")] == "NA"
+    assert "nan" not in series_file.read_text(encoding="utf-8").lower()
+
+
 def _uns_polar(tmp_path, condition=None, setup=None, notes=None):
     from pyflightstream.post.products import read_csv_table, write_unsteady_polar
     from tests.tier1_offline.test_goal028_uns_axes import CONDITION, REFERENCE, _plots, _Point

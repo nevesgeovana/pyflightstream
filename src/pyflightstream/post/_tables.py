@@ -333,8 +333,10 @@ def _cell(value: object) -> str:
     `reductions.write_series` and `reductions.write_reduction` render their own
     rows with a bare `csv.writer`, and the probe-positions file in the run stage
     does the same. No `None` reaches any of the three, so none of them writes a
-    blank today -- but a NaN would print as `nan` rather than `NA`, and that is
-    a gap rather than a decision. The claim here is about the products, not
+    blank today. The two reduction writers keep full precision on purpose (the
+    series is the evidence an average is checked against) and write a NaN or an
+    infinite value as `NA` through their own `_number_or_na` (FR-2310), as their
+    docstrings state. The claim here is about the products, not
     about every line of CSV the package emits: an earlier writing of this
     docstring said "every CSV product", and a lens measured the settings table
     doing the exact opposite one module away.
