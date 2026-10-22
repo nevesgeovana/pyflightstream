@@ -1293,7 +1293,9 @@ class TestWorkspace2Hpc:
         assert profile is not None and profile.path.name == "h002.toml"
 
     @staticmethod
-    @pytest.mark.parametrize("table", ["descriptor", "submit", "defaults", "log"])
+    # `defaults` is not a table of the profile since 0.43.0 (PFS-2117.026, owner
+    # decision): a profile that still carries it loads, the block ignored with a warning.
+    @pytest.mark.parametrize("table", ["descriptor", "submit", "log"])
     @pytest.mark.parametrize("value", ['""', "false", "[]", "0"])
     def test_p0400_hpcprofile_an_empty_value_is_still_not_a_table(tmp_path, table, value):
         """P0400-HPCPROFILE (PFS-2095.032): falsey values cannot stand in for tables."""
