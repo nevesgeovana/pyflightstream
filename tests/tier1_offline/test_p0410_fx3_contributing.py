@@ -37,7 +37,11 @@ def test_p0410_fx3_contributing_mirror_and_navigation(monkeypatch):
     monkeypatch.chdir(ROOT)
     exec(
         compile(ast.Module(body=writers, type_ignores=[]), str(generator), "exec"),
-        {"Path": Path, "mkdocs_gen_files": SimpleNamespace(open=open_page)},
+        {
+            "Path": Path,
+            "__file__": str(generator),
+            "mkdocs_gen_files": SimpleNamespace(open=open_page),
+        },
     )
     rendered = pages["contributing.md"]
     assert rendered.startswith(source)

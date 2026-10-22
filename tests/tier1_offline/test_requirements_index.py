@@ -1254,11 +1254,11 @@ def test_p0430_motion_start_time_status_matches_the_command_database():
     database = yaml.safe_load(_doc("src/pyflightstream/commands/motion_definitions.yaml"))
     versions = database["SET_MOTION_START_TIME"]["versions"]
     broken = sorted(build for build, entry in versions.items() if entry["status"] == "broken")
-    assert broken == ["26.101", "26.121"]
+    assert broken == ["26.101"]  # 26.121 reanalysed 2026-10-21 (X-F-0095): documented
     guide = _doc("guide/pyflightstream_user_guide.tex")
     for sentence in re.findall(r"SET\\_MOTION\\_START\\_TIME is recorded.*?\.(?=\s)", guide):
         assert "26.120 and 26.121" not in sentence, sentence
-        assert "26.101 and 26.121" in sentence
+        assert "on 26.101," in sentence
 
 
 def test_p0430_rebuild_archive_policy_is_one_statement():
