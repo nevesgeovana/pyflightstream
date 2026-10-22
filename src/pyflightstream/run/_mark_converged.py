@@ -520,6 +520,6 @@ def cmd_mark_converged(args: argparse.Namespace) -> int:
         )
     elif entry["marked"]:
         print("preview: nothing was written; run again with --apply")
-    # A PREVIEW THAT HOLDS A REFUSAL EXITS 2, as --apply does (owner decision of
-    # 2026-10-21); a clean preview exits 0.
+    # A PREVIEW THAT HOLDS A REFUSAL EXITS 2, as --apply does (X-F-1300); a clean
+    # preview exits 0.
     return 2 if entry["refused"] else 0
