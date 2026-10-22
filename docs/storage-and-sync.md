@@ -271,8 +271,9 @@ you no longer need them.
 The public Python writers of `pyflightstream.post` share one policy: each takes
 `overwrite`, `True` by default, which replaces a file that already exists as
 the writers always did. `overwrite=False` refuses an existing file, naming it,
-with `ProductExistsError`. The campaign writer is unchanged: it replaces or
-archives as above.
+with `ProductExistsError`; a writer of several files that meets one already
+there leaves none of the files of that call. The campaign writer is
+unchanged: it replaces or archives as above.
 
 ## What is protected, and why
 

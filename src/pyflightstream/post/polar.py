@@ -57,6 +57,7 @@ from pyflightstream.post._tables import (
     ProductError,
     ProductExistsError,
     ReferenceValues,
+    _guarded_target,
     context_row,
     polar_file_name,
     read_csv_table,
@@ -1007,11 +1008,13 @@ def write_recorded_polar(
     polar = polar_dir.name.split("-")[-1] if polar_dir.name.startswith("POLAR-") else polar_dir.name
     points = _polar_points(polar_dir)
     _refuse_a_reference_the_solver_did_not_use(polar, points, ref)
+    # One refusal for the call (NFR-49): a table already there removes those written before it.
+    target = _guarded_target(None, overwrite)
     written: list[Path] = []
     for group, families in groups.items():
         written.append(
             write_polar_table(
-                out / polar_file_name(polar, mach, group),
+                target(out / polar_file_name(polar, mach, group)),
                 polar=polar,
                 description=description,
                 group=group,
@@ -1020,15 +1023,14 @@ def write_recorded_polar(
                     points, list(families), mach=mach, reference=ref, aliases=aliases
                 ),
                 drag_columns=[drag_columns_of(point.loads) for point in points],
-                overwrite=overwrite,
             )
         )
     for point in points:
         folder = point.loads_path.parent
         sloads = folder / f"{point.name}_sloads.txt"
         if sections and sloads.is_file():
-            target = write_sections_table(
-                out / SECTIONS_DIR / f"{point.name}_sections.csv",
+            table = write_sections_table(
+                target(out / SECTIONS_DIR / f"{point.name}_sections.csv"),
                 sloads.read_text(encoding="utf-8", errors="replace"),
                 # The filename identifies the polar. Read iteration and azimuth from
                 # the export where stated, otherwise write NA, including steady
@@ -1041,20 +1043,18 @@ def write_recorded_polar(
                 # beside it.
                 reference=ref,
                 pol=polar,
-                overwrite=overwrite,
             )
-            if target is not None:
-                written.append(target)
+            if table is not None:
+                written.append(table)
         plots_export = folder / f"{point.name}_plots.txt"
         if plots and plots_export.is_file():
-            target = write_plots_table(
-                out / PROBES_DIR / f"{point.name}_plots.csv",
+            table = write_plots_table(
+                target(out / PROBES_DIR / f"{point.name}_plots.csv"),
                 plots_export.read_text(encoding="utf-8", errors="replace"),
                 pol=polar,
-                overwrite=overwrite,
             )
-            if target is not None:
-                written.append(target)
+            if table is not None:
+                written.append(table)
     return written
 
 

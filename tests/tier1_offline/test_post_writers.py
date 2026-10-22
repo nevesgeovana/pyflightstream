@@ -524,3 +524,28 @@ def test_p0430_the_report_writer_refuses_an_existing_file_when_not_overwriting_n
     assert '"A"' in first.read_text(encoding="utf-8")
     write_superfile_report(tmp_path, version="0.43.0", files=[], known=["B"])
     assert '"B"' in first.read_text(encoding="utf-8")
+
+
+def test_p0430_a_refused_writer_of_several_files_leaves_none_of_them_nfr_49(tmp_path):
+    """RB8 (TAIL2-PARTIAL): overwrite=False refuses the call, and no file of it stays written.
+
+    The acoustic writer writes each observer's tables before the summary, through its
+    target hook; a summary already there is refused after those tables were written,
+    and the refusal leaves the folder as the call found it.
+    """
+    import math
+
+    from pyflightstream._errors import ProductExistsError
+    from pyflightstream.post.acoustics import AcousticSignal, write_acoustic_products
+
+    times = tuple(i * 1e-3 for i in range(64))
+    signal = AcousticSignal("o", 0.0, 0.0, 0.0, times, tuple(math.sin(400.0 * t) for t in times))
+    out = tmp_path / "out"
+    out.mkdir()
+    kept = out / "P1_acoustics_summary.csv"
+    kept.write_text("kept\n", encoding="utf-8")
+    with pytest.raises(ProductExistsError, match="P1_acoustics_summary.csv"):
+        write_acoustic_products([signal], out, stem="P1", overwrite=False)
+    assert sorted(path.name for path in out.iterdir()) == [kept.name]
+    assert kept.read_text(encoding="utf-8") == "kept\n"
+    assert len(write_acoustic_products([signal], out, stem="P1").files) > 1

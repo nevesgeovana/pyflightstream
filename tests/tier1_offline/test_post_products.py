@@ -3286,3 +3286,33 @@ def test_a_family_name_is_made_safe_in_the_spanwise_file_name_f4_07(tmp_path):
     named = sorted(root.rglob("*_trefftz_a_b.csv"))
     assert [path.parent.name for path in named] == ["sections"]
     assert not list(root.rglob("a"))
+
+
+def test_rb8_a_refused_recorded_polar_leaves_none_of_its_tables(tmp_path):
+    """NFR-49 (RB8, TAIL2-PARTIAL): overwrite=False refuses the call before any table stays.
+
+    The group tables are written in order, so the third one already there was met after the
+    first two were written; the refusal leaves the folder as the call found it.
+    """
+    from pyflightstream._errors import ProductExistsError
+
+    polar = tmp_path / "POLAR-3207"
+    point = polar / "POLAR-3207_M20AL-020BE+000"
+    point.mkdir(parents=True)
+    (point / "POLAR-3207_M20AL-020BE+000.txt").write_text(LOADS, encoding="utf-8")
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "3207_M20_g05.csv").write_text("kept\n", encoding="utf-8")
+    reference = {"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152, "YMOM": 0.0, "ZMOM": 0.0}
+    with pytest.raises(ProductExistsError, match="3207_M20_g05.csv"):
+        write_recorded_polar(
+            polar,
+            out,
+            groups={"1": ["W", "B"], "3": ["W"], "5": ["Blade1"]},
+            reference=reference,
+            description="STEADY_WB",
+            mach=0.2,
+            overwrite=False,
+        )
+    assert sorted(path.name for path in out.iterdir()) == ["3207_M20_g05.csv"]
+    assert (out / "3207_M20_g05.csv").read_text(encoding="utf-8") == "kept\n"

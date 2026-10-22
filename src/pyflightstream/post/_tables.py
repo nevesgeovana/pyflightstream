@@ -404,11 +404,25 @@ def _guarded_target(
     ``target`` maps each path to the one written (the products stage passes its archiver); the
     stage never passes ``overwrite=False``, so its replacement policy is unchanged. A direct
     call with ``overwrite=False`` refuses a file that exists before the hook sees it.
+
+    ONE REFUSAL FOR THE CALL (NFR-49): a writer of several files asks the hook once per
+    file, so a file already there can be met after others were written. Under
+    ``overwrite=False`` every file the hook let through was absent when it was asked, so
+    the refusal first removes them and the call leaves the folder as it found it.
     """
+    let_through: list[Path] = []
 
     def guarded(path: Path) -> Path:
-        _refuse_existing_product(path, overwrite)
-        return target(path) if target is not None else path
+        mine = overwrite or Path(path) in let_through
+        if not mine and Path(path).exists():
+            for written in let_through:
+                if written.is_file():
+                    written.unlink()
+        _refuse_existing_product(path, mine)
+        chosen = target(path) if target is not None else path
+        if not overwrite:
+            let_through.extend({Path(path), Path(chosen)})
+        return chosen
 
     return guarded
 
