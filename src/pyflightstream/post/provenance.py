@@ -343,9 +343,12 @@ def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     needs and lacked a shape another tool reads without reading this
     package's docs. ENTITIES are each staged input (``inputs_sha256``), the
     script (``script_sha256``) and each collected output, every one with
-    its sha256 under ``pyfs:sha256``; an output's hash is computed from
-    the file when it is still there and taken from the record otherwise,
-    and ``pyfs:sha256_from`` says which.
+    its sha256 under ``pyfs:sha256``; ``pyfs:sha256_from`` says where an
+    output's hash came from. ``record`` is the digest the run recorded,
+    used when the file is gone or its bytes differ. ``file`` is computed
+    from the file on disk: it equals the recorded digest, or the run
+    recorded none (an older record), in which case the file's digest is
+    the only one there is and the label is what says so.
 
     WHERE THE FILE'S BYTES ARE NOT THE RECORDED ONES the output entity
     keeps the RECORDED digest and the generation claim, because that

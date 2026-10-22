@@ -697,10 +697,12 @@ run id's separators replaced by underscores (`camp/sim_3207/a-02.0` is
 each under `provenance` keyed by run id. The run record already carried
 every fact; the document is the shape another tool reads without reading
 this page. Its entities are every staged input, the script and every
-collected output, each with its sha256 under `pyfs:sha256` (an output's
-computed from the file when it is still there, `pyfs:sha256_from` says
-`file` or `record`); its one activity is the solver run, with
-`prov:startTime` and `prov:endTime` as the executor read its clock,
+collected output, each with its sha256 under `pyfs:sha256`, and for an
+output `pyfs:sha256_from` says where the digest came from: `record` is the
+digest the run recorded, used when the file is gone or its bytes differ;
+`file` is computed from the file on disk, which either equals the recorded
+digest or stands alone because an older record states none. Its one
+activity is the solver run, with `prov:startTime` and `prov:endTime` as the executor read its clock,
 the wall time, the status and the executor's argv; its agents are the
 package at its version and commit and the solver build at its executable
 identity. The activity `used` the inputs and the script, every output
