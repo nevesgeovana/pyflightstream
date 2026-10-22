@@ -171,6 +171,7 @@ from ._pproc import (
 )
 from ._probes import (
     PROBE_POSITION_COLUMNS,
+    PROBE_POSITIONS_MARKER,
     PROBE_PROFILE_DIR,
 )
 from ._qsteady_rotor import (
@@ -513,6 +514,7 @@ __all__ = [
     "ROTATE_VARIABLE",
     "PERIODIC_COPIES_VARIABLE",
     "PROBE_POSITION_COLUMNS",
+    "PROBE_POSITIONS_MARKER",
     "PROBE_PROFILE_DIR",
     "RAW_BEFORE_KEY",
     "RAW_COMMAND_KEY",

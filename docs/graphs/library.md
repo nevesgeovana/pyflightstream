@@ -486,7 +486,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._tokens">pyflightstream._tokens</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.cases.workflows._probes">pyflightstream.cases.workflows._probes</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._condition">pyflightstream.post._condition</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._sim">pyflightstream.post._sim</a> (typing)</li>
 <li>&rarr; <a href="#pyflightstream.post._stage">pyflightstream.post._stage</a> (module)</li>
@@ -1276,7 +1275,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.run._field_motion"><summary><code>pyflightstream.run._field_motion</code></summary><ul>
-<li>&rarr; <a href="#pyflightstream.cases.workflows._probes">pyflightstream.cases.workflows._probes</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.run._grouped"><summary><code>pyflightstream.run._grouped</code></summary><ul>
@@ -1352,7 +1351,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.cases.workflows._probes">pyflightstream.cases.workflows._probes</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.run._executors">pyflightstream.run._executors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._wake_edge_verdict">pyflightstream.run._wake_edge_verdict</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script">pyflightstream.script</a> (module)</li>

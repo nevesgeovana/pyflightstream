@@ -82,8 +82,11 @@ def _write_probe_points(
     The alternative -- one file per point -- would put a hundred identical
     files in the folder and say the layout depends on the angle of attack.
     """
-    from pyflightstream.cases.workflows import PROBE_POSITION_COLUMNS, PROBE_PROFILE_DIR
-    from pyflightstream.cases.workflows._probes import PROBE_POSITIONS_MARKER
+    from pyflightstream.cases.workflows import (
+        PROBE_POSITION_COLUMNS,
+        PROBE_POSITIONS_MARKER,
+        PROBE_PROFILE_DIR,
+    )
 
     if not points:
         return None
