@@ -180,11 +180,11 @@ def pproc_emissions(
             # FR-75 LEAVES IT OUT OF A SECTION DISTRIBUTION, and only of that.
             # This emission is the one that cuts "the rotor as a whole", and a
             # cut of a rotor crosses its blades at different azimuths, so the
-            # station it reports is a station of nothing. A licensed probe measured
-            # the counts on the template's row 1003: a `LOCAL_AXIS` entry over
-            # PUSHER emitted FOUR distributions, three in the blade frames and
-            # a fourth in the rotor's own. The force plot keeps all four,
-            # because a rotor's total force IS a quantity.
+            # station it reports is a station of nothing. The count came from a
+            # licensed probe on the template's row 1003 that no committed report
+            # records: a `LOCAL_AXIS` entry over PUSHER emitted FOUR distributions,
+            # three in the blade frames and a fourth in the rotor's own. The force plot
+            # keeps all four, because a rotor's total force IS a quantity.
             emissions.append((f"{alias}_RMRP", general, alias))
     # A ROW THAT DOES NOT TURN THE ROTOR PLACES NONE OF ITS FRAMES, and one
     # artifact serves a steady row and a rotor row: that is the whole point
