@@ -1269,10 +1269,8 @@ def physics_report_paths(
     'PHY-26123_2026-08-17_example.yaml'
     >>> refuse_existing_report(yaml_path, md_path)
 
-    Nothing is written by either call. The label matters here: this
-    example first used ``label="full"``, which is a report this
-    repository has actually committed, so the refusal fired inside the
-    example and the doctest was red. That is the function working.
+    Nothing is written by either call. The refusal fires only for a stem that
+    already exists, so a label that names an existing report is refused.
     """
     date = resolve_report_date(date)
     return report_paths(out_dir, series="PHY", versions=[version], date=date, label=label)
