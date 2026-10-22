@@ -86,6 +86,9 @@ FlightStream versions.
 
 ### Fixed
 
+- The `DELETE_VOLUME_SECTION` probe of `pyfs-qa` exports the survivor at its new index 1 and
+  identifies it by its offset, where it exported index 2, which the solver refuses after a
+  deletion and which aborted the probe script.
 - The wake-termination detection emits `AUTO_DETECT_WAKE_TERMINATION_NODES` on build 26.125 as
   on the other builds: both builds then give the same lift, where the by-surface `-1` form
   marked no node and lowered the 26.125 lift by about 5 percent. The command database carries a

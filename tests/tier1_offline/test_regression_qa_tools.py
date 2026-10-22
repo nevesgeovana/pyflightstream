@@ -1607,12 +1607,16 @@ class TestQaProbes:
         check = _QA_PROBES__PROBE_SPECS["DELETE_VOLUME_SECTION"].assert_effect
         artifacts = SimpleNamespace(workdir=tmp_path)
         assert check(artifacts) is None, "no export at all is an instrument that proved nothing"
-        (tmp_path / "vsection_2.vtk").write_text("vtk", encoding="utf-8")
-        assert check(artifacts) is True, "the survivor kept index 2"
-        (tmp_path / "vsection.vtk").write_text("vtk", encoding="utf-8")
-        assert check(artifacts) is False, "both sections export: nothing was deleted"
-        (tmp_path / "vsection_2.vtk").unlink()
-        assert check(artifacts) is True, "the survivor renumbered to 1"
+        vtk = (
+            "# vtk DataFile Version 3.0\nFlightStream vtk output\nASCII\n"
+            "DATASET POLYDATA\nPOINTS 2 float\n-1 {y} -1\n1 {y} 1\n"
+        )
+        (tmp_path / "vsection.vtk").write_text(vtk.format(y=0.0), encoding="utf-8")
+        assert check(artifacts) is False, "index 1 still holds the first section: not deleted"
+        (tmp_path / "vsection.vtk").write_text(vtk.format(y=0.5), encoding="utf-8")
+        assert check(artifacts) is True, "F-550: the survivor is renumbered to 1"
+        (tmp_path / "vsection.vtk").write_text(vtk.format(y=0.9), encoding="utf-8")
+        assert check(artifacts) is None, "a section at neither offset proves nothing"
 
         observers = _QA_PROBES__PROBE_SPECS["DELETE_ALL_ACOUSTIC_OBSERVERS"].assert_effect
         path = tmp_path / _spec_ccs_noise._SIGNALS

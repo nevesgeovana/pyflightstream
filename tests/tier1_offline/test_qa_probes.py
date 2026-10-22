@@ -700,6 +700,19 @@ def test_after_log_is_exported_before_the_epilogue(tmp_path):
     assert after_at < epilogue_at < final_at
 
 
+def test_f550_the_delete_probe_exports_the_survivor_by_its_new_index(tmp_path):
+    """F-550 (L4, 26.124): after a delete the survivor is index 1; exporting index 2 aborts."""
+    spec = PROBE_SPECS["DELETE_VOLUME_SECTION"]
+    lines = (
+        generate_probe_script(spec, "26.124", tmp_path, fsm=tmp_path / "dummy.fsm")
+        .render()
+        .splitlines()
+    )
+    target_at = lines.index("DELETE_VOLUME_SECTION 1")
+    after = [line for line in lines[target_at:] if line.startswith("EXPORT_VOLUME_SECTION_VTK")]
+    assert len(after) == 1 and after[0].split()[1] == "1", after
+
+
 def test_early_prelude_lands_between_open_and_setup(tmp_path):
     spec = PROBE_SPECS["SET_SOLVER_ANALYSIS_LOADS_FRAME"]
     # SOLVER AND NOT SOLUTION since 0.27.0 (B05): the loads frame is an init

@@ -318,32 +318,47 @@ _CREATE_SECOND_VSECTION = _emit(
 )
 
 
-def _delete_vsection_epilogue(script: Script, workdir: Path) -> None:
-    """Export both section indices after the deletion of section 1.
+#: The offsets of the two sections the delete probe creates (the plane is XZ, so a
+#: section's points sit at y equal to its offset): the first is deleted, the second
+#: is the survivor.
+_DELETED_VSECTION_OFFSET = 0.0
+_SURVIVING_VSECTION_OFFSET = 0.5
 
-    PFS-2102.001. Absence alone was read as the deletion, so an export
-    that failed or aborted on a build verified the target. Two sections
-    exist before the deletion; after it, exactly one of the two exports
-    can produce a file whether the build renumbers the survivor to 1 or
-    keeps it at 2. Two files mean nothing was deleted, and none means
-    the export instrument proved nothing in this run.
-    """
-    # This probe tests whether deletion happened at all. Its instrument must
-    # still address both pre-target candidate positions instead of accepting
-    # the emitter ledger's assumed deletion as the solver's measured result.
-    script.declare_existing(volume_sections=max(0, 2 - script.volume_sections))
-    _vsection_export_epilogue(script, workdir)
-    script.emit("EXPORT_VOLUME_SECTION_VTK", 2, workdir / "vsection_2.vtk")
+
+def _vsection_offset(path: Path) -> float | None:
+    """Return the mean y of the POINTS of a legacy ASCII VTK section export, or None."""
+    if not path.is_file():
+        return None
+    tokens = path.read_text(encoding="utf-8", errors="replace").split()
+    try:
+        at = tokens.index("POINTS")
+        count = int(tokens[at + 1])
+        values = [float(token) for token in tokens[at + 3 : at + 3 + 3 * count]]
+    except (ValueError, IndexError):
+        return None
+    if count <= 0 or len(values) != 3 * count:
+        return None
+    return sum(values[1::3]) / count
 
 
 def _delete_vsection_effect(artifacts: ProbeArtifacts) -> bool | None:
-    paths = [artifacts.workdir / name for name in ("vsection.vtk", "vsection_2.vtk")]
-    if any(path.is_file() and path.stat().st_size == 0 for path in paths):
-        return None  # an empty export is not a surviving section control
-    written = sum(path.is_file() for path in paths)
-    if written == 0:
-        return None  # no positive control: the export instrument proved nothing
-    return written == 1
+    """Identify the section index 1 holds after the deletion by its offset.
+
+    F-550 (L4, 26.124, namespace 63503b6a, F-550/analysis.json): the survivor
+    is renumbered to index 1, and exporting index 2 afterwards raises
+    "Invalid volume section index 2" and ABORTS the script, so the probe
+    exports index 1 only and reads which section it holds. A section at the
+    deleted offset means nothing was deleted; at the other offset, the
+    survivor is there; anything else, or no readable export, proves nothing.
+    """
+    offset = _vsection_offset(artifacts.workdir / "vsection.vtk")
+    if offset is None:
+        return None
+    if abs(offset - _SURVIVING_VSECTION_OFFSET) < 1e-3:
+        return True
+    if abs(offset - _DELETED_VSECTION_OFFSET) < 1e-3:
+        return False
+    return None
 
 
 _spec(
@@ -411,11 +426,11 @@ _spec(
     build_target=_emit("DELETE_VOLUME_SECTION", 1),
     requires=Requires.SOLUTION,
     prelude=_seq(_CREATE_RECT_VSECTION, _CREATE_SECOND_VSECTION),
-    epilogue=_delete_vsection_epilogue,
+    epilogue=_vsection_export_epilogue,
     assert_effect=_delete_vsection_effect,
     effect_note=(
-        "of two sections, exporting indices 1 and 2 after deleting section 1 writes "
-        "exactly one file: the survivor is the positive control, whichever index it holds"
+        "of two sections, exporting index 1 after deleting section 1 holds the section at "
+        "the second offset: the survivor is renumbered to 1 (exporting index 2 aborts)"
     ),
 )
 
