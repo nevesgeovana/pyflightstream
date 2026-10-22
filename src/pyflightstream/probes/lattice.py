@@ -290,7 +290,8 @@ def build_lattice(
     Defaults follow DLV-006 Sec. 2: inlet plane at -2 R, disk-adjacent
     planes at +-0.2 R, wake planes to 2 R, 40 rings from 0.05 R
     clustered near hub and tip, 72 uniform azimuths (5 degree step,
-    harmonics to order 36 without aliasing), lateral cylinder at 2.5 R.
+    harmonics to order 35 without aliasing; order 36 is the Nyquist order and
+    is refused), lateral cylinder at 2.5 R.
     If solver cost forces a reduction, cut ``n_r`` before ``n_psi`` and
     record the change (DLV-006 Sec. 2.2).
 

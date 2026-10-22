@@ -182,3 +182,59 @@ def test_f7_0203_a_nan_in_the_planned_positions_is_not_a_match():
     plan = PlannedProbes(grid=None, points=planned, report=None)  # type: ignore[arg-type]
     with pytest.raises(ProbeGeometryError, match="non-finite"):
         plan.verify_positions(np.array([[0.0, 0.0, 0.0], [5.0, 1.0, 1.0]]))
+
+
+class TestF7ProbeGeometry:
+    """F7-1617: layouts and frames refuse what they cannot define."""
+
+    @staticmethod
+    def test_x_f_1203_an_infinite_extent_is_a_probe_geometry_error():
+        from pyflightstream.probes.layouts import farfield_plane
+
+        with pytest.raises(ProbeGeometryError, match="finite plane|positive extent"):
+            farfield_plane(
+                (0.0, 0.0, 0.0),
+                direction=(1.0, 0.0, 0.0),
+                distance=2.0,
+                half_width=float("inf"),
+                half_height=1.0,
+                spacing=0.1,
+            )
+
+    @staticmethod
+    def test_x_f_1204_a_non_triple_array_is_a_probe_geometry_error(tmp_path):
+        import numpy as np
+
+        from pyflightstream.probes.layouts import write_points_csv
+
+        with pytest.raises(ProbeGeometryError, match="n, 3"):
+            write_points_csv(np.zeros((4, 2)), tmp_path / "p.csv")
+
+    @staticmethod
+    @pytest.mark.parametrize("big", [1e200, 1e300])
+    def test_f_224_f_225_a_huge_axis_keeps_its_direction(big):
+        frame = FrameDefinition(x_axis=(big, 0.0, 0.0), y_axis=(0.0, big, 0.0))
+        assert frame.x_axis == (1.0, 0.0, 0.0)
+        assert frame.y_axis == (0.0, 1.0, 0.0)
+
+    @staticmethod
+    def test_x_f_1067_a_stored_frame_survives_the_json_round_trip_exactly():
+        frame = FrameDefinition(x_axis=(1.0, 2.0, 3.0), y_axis=(-2.0, 1.0, 0.5))
+        again = FrameDefinition.model_validate_json(frame.model_dump_json())
+        assert again.x_axis == frame.x_axis
+        assert again.y_axis == frame.y_axis
+
+    @staticmethod
+    def test_f_222_the_documented_reference_lattice_order_is_the_largest_unaliased_one():
+        import numpy as np
+
+        from pyflightstream.farfield import FarfieldInputError, azimuthal_harmonics
+        from pyflightstream.probes import lattice as lattice_module
+
+        doc = " ".join(lattice_module.build_lattice.__doc__.split())
+        assert "order 35 without aliasing" in doc
+        psi = np.arange(72) * 2.0 * np.pi / 72
+        field = np.cos(3 * psi)
+        assert azimuthal_harmonics(field, psi=psi, m_max=35).shape[-1] == 36
+        with pytest.raises(FarfieldInputError):
+            azimuthal_harmonics(field, psi=psi, m_max=36)

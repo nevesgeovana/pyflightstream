@@ -340,7 +340,14 @@ def farfield_plane(
     norm = float(np.linalg.norm(d))
     if not (np.isfinite(norm) and norm > 0.0):
         raise ProbeGeometryError("the free-stream direction of a far-field plane has no length")
-    if not (spacing > 0.0 and half_width > 0.0 and half_height > 0.0):
+    if not (
+        math.isfinite(spacing)
+        and math.isfinite(half_width)
+        and math.isfinite(half_height)
+        and spacing > 0.0
+        and half_width > 0.0
+        and half_height > 0.0
+    ):
         raise ProbeGeometryError("a far-field plane needs a positive extent and spacing")
     if not (
         np.isfinite(np.asarray(origin, dtype=float)).all()

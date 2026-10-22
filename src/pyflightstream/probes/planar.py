@@ -43,6 +43,7 @@ __all__ = [
 ]
 
 _DEGENERATE = 1e-10
+_UNIT_TOLERANCE = 8 * float(np.finfo(float).eps)
 
 
 def _finite(vector, name: str) -> np.ndarray:
@@ -68,13 +69,19 @@ def _finite(vector, name: str) -> np.ndarray:
 
 def _unit(vector: tuple[float, float, float], name: str) -> np.ndarray:
     array = _finite(vector, name)
-    norm = float(np.linalg.norm(array))
+    scale = float(np.max(np.abs(array)))
+    # Scaling by the largest component keeps the norm of a huge axis from
+    # overflowing to inf, which would store a zero direction as valid.
+    scaled = array / scale if scale > 1.0 else array
+    norm = float(np.linalg.norm(scaled))
     if norm < _DEGENERATE:
         raise ValueError(
             f"{name} has near-zero length; a frame axis must be a direction, "
             "and a zero vector defines none"
         )
-    return array / norm
+    if scale <= 1.0 and abs(norm - 1.0) <= _UNIT_TOLERANCE:
+        return array
+    return scaled / norm
 
 
 class FrameDefinition(ProbeModel):
@@ -115,13 +122,24 @@ class FrameDefinition(ProbeModel):
             _finite(tuple(data["origin"]), "origin")
         x = _unit(tuple(data["x_axis"]), "x_axis")
         y_raw = _finite(tuple(data["y_axis"]), "y_axis")
+        y_scale = float(np.max(np.abs(y_raw)))
+        if y_scale > 1.0:
+            y_raw = y_raw / y_scale
         y_perp = y_raw - np.dot(y_raw, x) * x
         if float(np.linalg.norm(y_perp)) < _DEGENERATE:
             raise ProbeGeometryError(
                 "y_axis is parallel to x_axis; two independent in-plane "
                 "directions are needed to define a plane"
             )
-        y = y_perp / float(np.linalg.norm(y_perp))
+        if (
+            abs(float(np.dot(y_raw, x))) <= _UNIT_TOLERANCE
+            and abs(float(np.linalg.norm(y_raw)) - 1.0) <= _UNIT_TOLERANCE
+        ):
+            # A stored frame is already orthonormal: re-normalising it would
+            # move it by an ulp on every JSON round trip.
+            y = y_raw
+        else:
+            y = y_perp / float(np.linalg.norm(y_perp))
         data = dict(data)
         data["x_axis"] = tuple(float(c) for c in x)
         data["y_axis"] = tuple(float(c) for c in y)
@@ -412,8 +430,10 @@ class GeometryGateReport(ProbeModel):
     standoff : float, optional
         Standoff margin used; None when no margin was requested.
     mesh_path : str, optional
-        Surface mesh file the gate tested against; None when the gate
-        ran without a mesh (no culling, no refinement).
+        Surface mesh file the gate tested against; None when no path was
+        given: either the gate ran without a mesh (no culling, no
+        refinement) or it was handed a mesh object, which still culls and
+        refines.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
