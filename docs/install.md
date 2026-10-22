@@ -25,6 +25,14 @@ Run `pyfs-matrix --help` to check the command is available; it exits 0 and
 lists the installed subcommands. Use `pyfs-matrix <subcommand> --help` to
 inspect the options of one before preparing a run.
 
+## Read the documentation offline
+
+Each release has its documentation edition, `pyflightstream-docs-<version>.zip`,
+among the release's assets on GitHub, built from that release's own sources. Unzip it and
+open its `index.html` in a browser: the pages and the requirements, code and execution
+views work from the folder with no network connection. Search does not work
+offline, since it needs a server; use the navigation or the browser's find in page.
+
 ## Dependency licenses
 
 The package uses these third-party libraries. The versions below identify the

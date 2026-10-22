@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-10-22
+
 ### Added
 
 - `op = "remesh_from_sections"` in the `[[operations]]` of a geometry instruction rebuilds a
@@ -14,7 +16,38 @@ FlightStream versions.
   along `axis` and lofts them as a CCS `wing` or `fuselage` into the new surface `name`, beside
   the source. The cutter is evidence-gated: `pyfs-workspace geometry build --apply` runs it only
   on a build where a licensed probe verified it; the preview shows the script.
-
+- Each release has its own documentation edition, `pyflightstream-docs-<version>.zip`, built
+  by the release workflow from the tag's sources to be read from a folder without a server:
+  open its `index.html`. The requirements, code and execution views work there; search does
+  not, since it needs a server. The site serves each release that carries its zip under
+  `/<version>/` beside the current build, with the theme's version selector; an address of
+  the earlier unversioned site opens the same page of the current build, and a page of an
+  older edition says which edition it is.
+- `pyfs-workspace excel create|preview|apply|cancel|check` runs the matrix workbook
+  commands, with `--workspace` defaulting to the current directory;
+  `python -m pyflightstream.workspace.excel` is the same command.
+- `plan.json` records each solver executable a matrix plan measured with its SHA-256
+  (`instrument`) and the SHA-256 of every geometry file a row opens (`inputs_sha256`);
+  `pyfs-matrix run` refuses a plan whose executable or geometry changed since, or a
+  `--fs-exe` other than the planned one.
+- A CCS wing's sidecar declares morphing surfaces in `[[import.ccs.morphing_surfaces]]`, and
+  a matrix row deflects one with `MORPHING` and `MORPHING_ANGLE`
+  (`NEW_CCS_WING_MORPHING_SURFACE`), without regenerating the CCS file.
+- `write_polar_table` takes optional keyword-only `conditions`, which add `VINF`, `ALT` and
+  `J` per row; a call without them writes the same bytes as before.
+- `products.json` lists each polar's resolved equations under `polars/<file>#equations`, with
+  `resolved_columns`.
+- A reduction states the steps it averaged and how many: `FrameAverage.source_window`, and
+  the bounds and sample count in the written reductions. A `FrameAverage` built by hand
+  without them leaves the bounds blank.
+- `mass_closure` reports `absolute_spread` and `status`; `MissingExtraError` carries
+  `purpose`; `refuse_empty_selections` takes `rules=`; query rows of a continuation carry
+  `run_id_alias`; ledger queries return the readable rows beside a corrupt one, with a
+  diagnostic per row.
+- The command database states the documented default of `SET_AEROELASTIC_CONVERGENCE_THRESHOLD`,
+  0.001, and the 26.125 default of `SET_JET_WAKE_DECAY_NORMALIZED_LENGTH`, 10 jet diameters
+  where the earlier editions document 100, each with its manual page. A default describes the
+  solver; it never inserts an omitted argument.
 - `pyfs-fsi` writes `fsi_convergence_verdicts.log` in the run folder, and the external step
   record carries `loads_file_present`. An external call that finds no loads file in the point
   folder fails before the program runs.
@@ -150,6 +183,63 @@ FlightStream versions.
   being refused as a command with no evidence.
 - On build 26.121, `SET_MOTION_START_TIME` is emitted as the edition documents it; it was
   refused as broken on a probe abort whose cause was the probe's own rotary motion.
+- The `FRAME` column of the normal-probe table and the coordinates of a steady or normal probe
+  export read `REFERENCE` (they read `MRP`); an unsteady history keeps the frame it recorded.
+- A sections table whose frame the post cannot place (a setup frame, or a layout that names
+  none) writes `K_1P` and the load shares as `NA`, with one warning in `post.log` per distinct
+  reason, instead of a `K_1P` computed from `Offset`.
+- An unsteady polar whose averaging window holds a gap or a repeated step is not written: it is
+  a named skip, and `STEPS` of the unsteady polar keeps the declared span.
+- The retabled surface and force CSV exports open with `POL` and the condition and reference
+  columns; the native numeric cells are unchanged. A pproc with `polars = false` no longer
+  writes the unsteady polar. The unsteady polar always writes its `reduction` and
+  `reduction_window` cells, and the inflow harmonics table is always as wide as its shares.
+- Equations whose frame is stated no longer fall back to an unqualified column, and the
+  native setup coefficient fallback is removed.
+- `context_row` no longer copies an absolute Reynolds number into `RE`: state `RE` in
+  millions.
+- A historical super file's `RPM` is the recorded rotor speed, ahead of the current matrix
+  declaration; an exact rotor alias wins over a case-folded diameter match; signed radii are
+  ordered by distance before strip weighting, which changes the affected reduced-frequency
+  means; inflow samples at a negative speed advance in the negative rotation sense.
+- A long joined distribution name uses a bounded index and a digest; the full selection stays
+  in the manifest, and short names do not change.
+- Fields a run record never recorded (`probe_field_layout`, `surface_probe_layout`,
+  `frame_motions`, `custom_field_coverage`, `freestream_units`) are omitted from the record
+  instead of written as `null`.
+- `refine` no longer validates the factors of a `[families.<name>]` table the selection does
+  not reach. The automatic level tag of a body with `axis` or `origin`, and of a grid with an
+  `elements` key, changes, so such a level is written under a new folder name.
+- A sheet is recovered as a grid only with a trailing edge, the grid line that fixes chordwise
+  index 0: under `method = "auto"` a sheet with no trailing-edge vertex is remeshed, and under
+  `method = "grid"` it is refused naming the reason. The audit's G4 fails when two
+  trailing-edge points lie on one mesh edge (`points_sharing_an_edge`), `refine` and
+  `audit-mesh` refuse a missing or non-file mesh in the same words, a trailing-edge points
+  file whose first row is not a length unit is refused before any point is read, a boundaries
+  file with `[trailing_edges] none = true` keeps a stale `<stem>.te.txt` from being read, and
+  `MeshAudit.write_csv` refuses to write over a file the audit read.
+- The plan's run-length line says that it is the nominal helical travel, not a measured wake
+  length, and the quasi-steady plan warns separately when `k_eff` is exceeded.
+- `pproc warning` totals on the terminal are one line per category, family and shape; the
+  manifest's far-field entry names its inputs by export file and gains `reduced_from`.
+- `collect` reports a sweep job holding a refused point as `FAILED`, `classify_executable`
+  returns `UNKNOWN` when the printed build matches and the bytes differ from the recorded
+  digest, and `cross_check_version` warns for 26.12 against 26.125.
+- `manual_editions()` returns a read-only mapping, `resolve()` strips surrounding blanks, and
+  a version identifier with a Unicode digit or a trailing newline is refused.
+- Caller errors of `pyflightstream.post.unsteady` and of the settings table raise
+  `ProductError` instead of `MalformedOutputError`, and `write_disc_map` needs `windows=` for
+  `sample_column = "STEP"`.
+- Disc map file names lose the leading and trailing dots and underscores of a rotor alias, and
+  an acoustic observer's file name keeps its dots.
+- The super file's release tag separates the three version numbers with hyphens when the
+  major or the patch has more than one digit; an infinite cell of the super file is empty, as
+  a NaN is. The quasi-steady `RPM_CLOCK` is stated where `J` is unknown, and a missing surface
+  component of a quasi-steady point is a named refusal instead of 0.0.
+- The definitions pages define the trimmed polar, the refinement-study uncertainty, the `STEPS`
+  of every point table (the frames that entered the average), the clock the reductions read,
+  the tables that open without `POL`, `BIN_OFFSET_BINS` and the settings table's kind columns;
+  a sheet's need for a trailing edge is in the mesh guide.
 
 ### Fixed
 
@@ -264,9 +354,11 @@ FlightStream versions.
   empty named manifest and refuses a symbolic-link backup; the Excel workbook reader reads
   boolean cells as TRUE and FALSE and refuses an error cell by address; a workbook digest
   ignores save time stamps.
-- A declined value is stated as NA in more tables: the custom polar, series, reduction, inflow
-  and installed-frame tables write NA, the readers take NA (and the historical dash) back as
-  missing, and the custom polar header refuses a character outside ASCII by naming its line.
+- A declined value is stated as NA in more tables: the series, reduction, inflow and
+  installed-frame tables write NA, the fixed-width custom polar writes an infinite value as NA
+  and keeps `nan` for a declined one, the readers take NA (and the historical dash) back as
+  missing, and the custom polar refuses a header line holding a character outside ASCII,
+  naming its line, and a column name of ten or more characters.
 - The VTK and Tecplot probe writers refuse NaN and infinite values, an empty point set, repeated
   variable names and names, titles or zones that hold a blank, quote or line break (all
   `ProductError`, still a `ValueError`); they create their destination folder, write portable
@@ -377,12 +469,6 @@ FlightStream versions.
 - `blade_passage_harmonics` and `write_acoustic_products` refuse a `harmonics` count that is
   not a positive integer, and `gutin_harmonic_rms` refuses a harmonic below 1, instead of
   tabling nothing or returning zero.
-- An `[equations]` block evaluated in an order that reads an equation before it is evaluated,
-  or holding an equation that reads itself, is refused before any derived column is written,
-  instead of writing `NA` in the dependent column.
-- `blade_passage_harmonics` and `write_acoustic_products` refuse a `harmonics` count that is
-  not a positive integer, and `gutin_harmonic_rms` refuses a harmonic below 1, instead of
-  tabling nothing or returning zero.
 - `write_series` writes a solution time that is not finite as `NA`, as it already wrote a
   sample, and both reduction writers state their precision: finite values at full precision
   (the shortest decimal that reads back to the same number), unavailable values as `NA`.
@@ -400,16 +486,6 @@ FlightStream versions.
   simulation or holds a file its table does not list is not restored, a compacted post
   archive is read back before its folder is deleted, and a file met at a refinement level's
   path during the run is refused as before the run.
-- `pyfs-workspace excel create|preview|apply|cancel|check` runs the matrix workbook
-  commands, with `--workspace` defaulting to the current directory;
-  `python -m pyflightstream.workspace.excel` is the same command.
-- `plan.json` records each solver executable a matrix plan measured with its SHA-256
-  (`instrument`) and the SHA-256 of every geometry file a row opens (`inputs_sha256`);
-  `pyfs-matrix run` refuses a plan whose executable or geometry changed since, or a
-  `--fs-exe` other than the planned one.
-- A CCS wing's sidecar declares morphing surfaces in `[[import.ccs.morphing_surfaces]]`, and
-  a matrix row deflects one with `MORPHING` and `MORPHING_ANGLE`
-  (`NEW_CCS_WING_MORPHING_SURFACE`), without regenerating the CCS file.
 - A point alias whose index is a digit-like Unicode character (a superscript two, for
   example) is not an alias and no longer stops the command with a conversion error.
 - The `WALLTIME` watchdog of an unsteady row measures elapsed time with the monotonic clock
@@ -427,6 +503,55 @@ FlightStream versions.
 - A continuation (`RESTART`) whose point is refused before the solver starts moves the
   stopped run's archived outputs back into the datapoint folder, so the stopped record
   still names files that exist.
+- Matrix rows and files refuse what they would misread: a matrix file that is not valid UTF-8,
+  a point name whose unsigned field holds a tiny negative such as `MACH -0.0004`, a
+  `FREESTREAM_UNITS` other than `SI` or `NATIVE`, an observer stem with a folder part, a
+  `points_file` with a colon, alias or `body_axes` names that differ only in case, a pproc
+  with an infinite `min_revolutions`, `last_revolutions_avg` or `drift_limit_pct`, a planar
+  grid on a row that states `ROTATE` or `TRANSLATE`, a revolution cap below one step, a
+  simulation id with a reserved character, an edge blank, a trailing dot or a case-only
+  difference from another, a flow-variable sweep point whose state is not resolved, a
+  hand-edited solver snapshot with two modes or a mismatched key, `IGNORE_MISSING_FAMILIES`
+  false with a missing family, and a row-level `RPM_SIGN` against a sole rotor block's hand.
+  `GeometryInstruction` needs exactly one source table of its kind, and the custom field's
+  structured header and row count are checked on the rotating-field path too.
+- Run commands refuse a destructive verb on an alias whose plan evidence is gone, a
+  force-rerun of a point the recorded job never ran, two assembled points that would share a
+  run id, a continuation of a saved simulation whose bytes differ from its digest, and
+  `parse_run_loads` refuses a continued run. A rebuilt converged job drops an
+  `iterations_requested` left by an earlier maximum-iteration outcome.
+- Workspace records: a malformed `points_ran` value fails the run record's validation naming
+  the entry, a non-finite or negative lock timeout and a `runs.json` that is not a file raise
+  `WorkspaceError`, an empty or blank executable argument list for a reconstruction is
+  refused, `write_json` refuses a non-finite number before it touches the destination, a live
+  manifest writer keeps its exclusivity after its heartbeat expires, and an abandoned lease is
+  recoverable after its process exits. `--workspace` beside a positional root that names the
+  same folder in another spelling is accepted.
+- Geometry inputs: `geometry from-sidecar` refuses a bare name found in several geometry
+  folders (write `folder/name`), an OBJ face index outside the defined vertices raises
+  `ValueError` instead of truncating the geometry, an OBJ that starts with a byte order mark
+  keeps its first vertex, `renumber_boundaries` refuses a boolean or non-integer count or
+  index with `ScriptReferenceError`, and FSI boundary ids given after `delete_surfaces` are
+  resolved by name from the opened inventory. An empty or `..` FSI output name is refused at
+  setup.
+- Post inputs: `field time-mean` refuses a non-finite step, an empty fluctuation report and a
+  stray `--vinf`; a probe series refuses a step that prints other columns than the first; a
+  VTK translation states `FRAME_VERIFICATION`, refuses a left-handed loads frame and averages
+  a loads frame a motion moves with a warning; a translated Tecplot file reads its source hash
+  after a header longer than 16 lines; an existing corrupt probe positions file is refused
+  with its row; inconsistent per-record load columns are refused before anything is written;
+  an empty clocking table is a named missing clocking; normalisation refuses a plot reference
+  velocity it cannot read and a target speed that is not finite and positive; no selected
+  surface is a named refusal instead of zero rotor loads; and every draft format is validated
+  before any file is written. The completeness audit resolves matrices as the run does,
+  `inputs/matrices` included.
+- Far-field and ITACA-backed functions: the far-field functions and the probe geometry raise
+  `FarfieldInputError` and `ProbeGeometryError` where they returned NaN or reshaped silently,
+  `trace_forces(ends="station")` is refused, a wake export with a non-finite value or a weak
+  line that changes sign is refused, an interior empty cell of a probe export is refused, and
+  the rothalpy and irreversible-deficit refusals name ITACA.
+- The export-surface-mesh preview prints its line, the rebuild summary labels a job waiting
+  for the matrix that ran, and the help of `run`, `plan` and `collect` states what they do.
 
 ### Deprecated
 
@@ -1521,7 +1646,9 @@ archives remain available for recovery. (no requirement: preserve records during
   seven public names of `pyflightstream.workspace`; `pyflightstream.workspace._degenerate`
   stays importable.
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.41.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.43.0...HEAD
+[0.43.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.42.0...v0.43.0
+[0.42.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.38.0...v0.39.0

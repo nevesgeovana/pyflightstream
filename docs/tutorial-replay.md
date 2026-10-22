@@ -172,10 +172,15 @@ this package that knew fields this one does not, or meant them
 differently. Install the version that wrote the manifest; a
 reconstruction that guessed would rebuild a run that never happened.
 
-**The script is gone.** The simulation folder was archived or cleaned.
-Archiving is deliberately safe here (it refuses to overwrite an
-existing archive, and refuses to touch a simulation the manifest does
-not record), so the zip under `archive/` is where to look.
+**The script is gone.** The simulation folder was cleaned or edited, or
+its copy lies in an archive. Archiving is deliberately safe here (it
+refuses to overwrite an existing archive, and refuses to touch a
+simulation the manifest does not record), so the zip under `archive/` is
+where to look, and the refusal names both `sims/sim_<id>.zip` and
+`archive/`. A simulation that `pyfs-matrix free-space` compacted into
+`sims/sim_<id>.zip` is not refused: `reconstruct` expands it in place
+first, as `post` and `collect` do, and reads it as if it had never been
+compacted.
 
 ## What a record cannot give you
 

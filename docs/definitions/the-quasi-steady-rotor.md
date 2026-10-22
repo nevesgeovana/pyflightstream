@@ -210,8 +210,14 @@ the post into the wheel point's datapoint folder, beside the run's
 `<point>_qsteady.json`: every value of the validity columns (the thrust and
 torque shares included, `null` where not known), `K_1P_SOURCE`, the rotor state (`rotor_state`), and the
 plan's record as the run kept it. The run's record is a hashed input of the
-run and is never rewritten; this file is the post's and every post rewrites
-it. `products.json` names each point's file under the clockings and average
+run and is never rewritten; this file is the post's. It is written only for a
+point the post reads, whose loads export is on disk, so a post limited to some
+simulations leaves the other points' files as they are. A file already there is
+replaced only by a post asked to replace what it finds: `pyfs-matrix post` always
+is, by the post's archive rule, and a Python call of
+`write_campaign_products(overwrite=False)` leaves the file as it is and names the
+point under `skipped` as `runs/<run>#qsteady_validity`. The file lies outside
+the products folder, in the datapoint folder. `products.json` names each point's file under the clockings and average
 tables' entries (`validity_files`, relative to the products folder).
 
 The steady polar table and the rotor table of a quasi-steady point do not

@@ -566,8 +566,8 @@ def _compact_sim(workspace: CampaignWorkspace, sim_id: str) -> dict[str, Any]:
 def ensure_sim_expanded(workspace: CampaignWorkspace, sim_id: str, *, reason: str) -> bool:
     """Restore ``sims/sim_<id>.zip`` in place when its folder is absent.
 
-    Called by ``post``, ``collect`` and a continuation before they read a
-    simulation, so a compacted simulation is read as if it had never been
+    Called by ``post``, ``collect``, ``reconstruct`` and a continuation before
+    they read a simulation, so a compacted simulation is read as if it had never been
     compacted. Returns True when a restore happened; the restore is recorded
     in ``storage_management.json`` and the folder stays expanded.
 

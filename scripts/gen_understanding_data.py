@@ -2,7 +2,8 @@
 
 Usage: python scripts/gen_understanding_data.py
 Use --check to detect stale JSON and stale generated regions without writing,
-and --data-only to write the JSON payloads while leaving the committed generated
+and --data-only to write the JSON payloads (each with its classic-script twin, which
+the views read offline) while leaving the committed generated
 regions of the documentation as they are: CI writes with --data-only and then
 runs --check, so a stale committed region fails. The execution seed is an
 editorial static trace; AST locations and example metadata are refreshed.
@@ -28,6 +29,21 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs/understanding/data"
+#: FR-2331: the global each payload's script twin registers itself on.
+SCRIPT_GLOBAL = "pyfsUnderstandingData"
+
+
+def script_twin(name, text):
+    """Return the file name and text of a payload's classic-script twin (FR-2331).
+
+    A page opened from a folder without a server may load a script where the
+    browser refuses it ``fetch()``, so the views read each payload from
+    ``<stem>.js``, which registers the same JSON on ``window``.
+    """
+    stem = name.removesuffix(".json")
+    registry = f"window.{SCRIPT_GLOBAL}"
+    body = f"({registry} = {registry} || {{}})[{json.dumps(stem)}] = {text.rstrip()};\n"
+    return f"{stem}.js", body
 
 
 def area_definitions():
@@ -510,12 +526,13 @@ def main():
     stale = []
     for name, data in payloads.items():
         text = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
-        path = OUT / name
-        if args.check:
-            if not path.exists() or path.read_text(encoding="utf-8") != text:
-                stale.append(name)
-        else:
-            path.write_text(text, encoding="utf-8", newline="\n")
+        for written, body in ((name, text), script_twin(name, text)):
+            path = OUT / written
+            if args.check:
+                if not path.exists() or path.read_text(encoding="utf-8") != body:
+                    stale.append(written)
+            else:
+                path.write_text(body, encoding="utf-8", newline="\n")
     documents = {
         ROOT / "docs/workspace-files.md": (
             "workspace-files",

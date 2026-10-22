@@ -48,6 +48,14 @@ solver inputs must change; recomputing a reduction alone does not require one.
 
 [The drag split of 26.125, `CDV` and `CDP`](definitions/the-axes-of-a-steady-polar.md#the-drag-split-of-26125).
 
+<a id="the-trimmed-polar"></a>
+
+[The trimmed polar](definitions/the-axes-of-a-steady-polar.md#the-trimmed-polar).
+
+<a id="the-refinement-study-uncertainty"></a>
+
+[The refinement-study uncertainty](definitions/the-axes-of-a-steady-polar.md#the-refinement-study-uncertainty).
+
 <a id="the-sections-table-and-which-row-is-which"></a>
 
 [The sections table, and which row is which](definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which).

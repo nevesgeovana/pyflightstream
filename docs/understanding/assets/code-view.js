@@ -1,4 +1,6 @@
-export function renderLayers(host, nodes, edges, selectPackage, selectEdge) {
+// A classic script, not a module: a browser refuses to import a module from a page opened
+// from a folder without a server, and the offline edition is read that way (FR-2331).
+(window.pyfsUnderstanding = window.pyfsUnderstanding || {}).renderLayers = function renderLayers(host, nodes, edges, selectPackage, selectEdge) {
   const ns = 'http://www.w3.org/2000/svg';
   const make = (tag, attrs, parent, text) => {
     const el = document.createElementNS(ns, tag);
@@ -64,4 +66,4 @@ export function renderLayers(host, nodes, edges, selectPackage, selectEdge) {
     group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectPackage(n.id);}});
     renderedNodes.push({el:group,n});
   });
-}
+};

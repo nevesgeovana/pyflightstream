@@ -1,4 +1,6 @@
-export function createRequirementsTree({req, mission, colors, select, chart}) {
+// A classic script, not a module: a browser refuses to import a module from a page opened
+// from a folder without a server, and the offline edition is read that way (FR-2331).
+(window.pyfsUnderstanding = window.pyfsUnderstanding || {}).createRequirementsTree = function createRequirementsTree({req, mission, colors, select, chart}) {
   const el = id => document.getElementById(id);
   const byId = new Map(req.nodes.map(n => [n.id, n]));
   const expanded = new Set(['mission']);
@@ -96,7 +98,7 @@ export function createRequirementsTree({req, mission, colors, select, chart}) {
   cy.on('tap','node',e=>{
     const node = e.target.data();
     if(node.requirementId) select(node.requirementId);
-    else if(node.kind === 'Module') location.href = new URL('../code/', location.href).href + '#module=' + encodeURIComponent(node.moduleId);
+    else if(node.kind === 'Module') location.href = new URL(/\.html$/.test(location.pathname) ? 'code.html' : '../code/', location.href).href + '#module=' + encodeURIComponent(node.moduleId);
     else if(node.kind === 'Test') detail.textContent = 'Test path: ' + (node.path || 'No path recorded') + (node.anchor ? ' | ' + node.anchor : '');
   });
   function fitNeighborhood() {
@@ -151,4 +153,4 @@ export function createRequirementsTree({req, mission, colors, select, chart}) {
     cy.userZoomingEnabled(false);cy.userPanningEnabled(false);
   }
   return {update, neighborhood, reset(){expanded.clear();expanded.add('mission');lastFilter='';}};
-}
+};

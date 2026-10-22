@@ -30,7 +30,10 @@ Averaging from step one mixes the transient with the answer.
 
 **The rows.** Each row leads with `POL`, `REDUCTION`, `ROTOR`, `BLADE`, `FAMILY`, the
 window (`FIRST_STEP`, `LAST_STEP`, `STEPS`), `AZIMUTH_START`, `AZIMUTH_END`,
-then the condition block and the moment point.
+then the condition block and the moment point. `FIRST_STEP` and `LAST_STEP` are
+the first and last steps of the window that the history holds, and `STEPS` is the
+number of frames that entered the average, which is fewer than
+`LAST_STEP - FIRST_STEP + 1` where the history has a gap.
 
 - **A blade's columns are the plots named for its family.** A plot is
   `<parameter>_<group>` and a group cut per blade is named for the blade's

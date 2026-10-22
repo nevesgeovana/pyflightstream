@@ -42,6 +42,22 @@ frozen full suite: the GeoverseArtifacts release tools run `make_receipts`
 `pyproject.toml` under `[tool.coverage.report]`; no coverage job belongs in
 the Release workflow. Docs deploy on version tags.
 
+Each release's documentation is one zip, `pyflightstream-docs-<version>.zip`, which the
+Release workflow builds from the tag and keeps as the run artifact `docs-edition`. The
+workflow holds no write permission, so attaching it to the tag's GitHub Release is a
+publication step taken with the releaser's own credentials, after the Release run is
+green:
+
+```text
+gh run download <release run id> --name docs-edition
+gh release upload v<version> pyflightstream-docs-<version>.zip
+```
+
+Every docs deploy serves the site it built under `/<version>/` beside the zip of each
+earlier release that carries one, with the version selector listing them; a release
+whose zip was never attached is absent from the selector until it is, and the next
+deploy picks it up.
+
 ## Regenerate the Understanding views
 
 From a checkout of the release tag, with the development extras installed, run:
@@ -54,7 +70,8 @@ properdocs build --strict
 
 The generator reads the approved SRS stages and requirement registers, static
 Python imports and symbol locations, the example matrix and the curated execution
-scenario. It writes six JSON files under docs/understanding/data and updates the
+scenario. It writes six JSON files under docs/understanding/data, each with a
+classic-script twin that the views read from a folder opened without a server, and updates the
 marked tables in Workspace files and Execution. Do not edit generated regions.
 The docs CI job runs generation and its byte comparison before the strict build.
 CI passes --revision with its checked-out commit SHA, so source links stay bound

@@ -5,20 +5,42 @@
   const colors = {implemented: "#238b65", pending: "#c58b20", deferred: "#936bc9", retired: "#808b96"};
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const $ = id => document.getElementById(id);
-  const link = (page, kind, id, label) => '<a href="' + new URL(page + "/", base).href + "#" + kind + "=" + encodeURIComponent(id) + '">' + esc(label || id) + "</a>";
+  // FR-2331: a site built with directory URLs links page/; the offline edition, built for a
+  // folder opened without a server (--no-directory-urls), links page.html.
+  const pretty = !/\.html$/.test(location.pathname);
+  const page = name => new URL(name + (pretty ? "/" : ".html"), base).href;
+  const link = (name, kind, id, label) => '<a href="' + page(name) + "#" + kind + "=" + encodeURIComponent(id) + '">' + esc(label || id) + "</a>";
   const source = a => a.path ? '<a href="https://github.com/nevesgeovana/pyflightstream/blob/' + sourceRevision + '/' + a.path.split("/").map(encodeURIComponent).join("/") + (a.line ? "#L" + a.line : "") + '">' + esc(a.anchor || a.path + (a.line ? ":" + a.line : "")) + "</a>" : esc(a.anchor);
   const list = values => values.length ? "<ul>" + values.map(v => "<li>" + v + "</li>").join("") + "</ul>" : "<p>None recorded in this scenario or registry.</p>";
-  const workspaceFiles = step => step.workspace_files?.length ? "<h4>Workspace files</h4>" + list(step.workspace_files.map(row => '<a href="' + new URL("../workspace-files/", base).href + "#" + encodeURIComponent(row.id) + '"><code>' + esc(row.path) + "</code></a>")) : "";
+  const workspaceFiles = step => step.workspace_files?.length ? "<h4>Workspace files</h4>" + list(step.workspace_files.map(row => '<a href="' + page("../workspace-files") + "#" + encodeURIComponent(row.id) + '"><code>' + esc(row.path) + "</code></a>")) : "";
   const option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + "</option>";
   let cleanup = () => {};
   let cache;
   let sourceRevision;
+  // FR-2331: classic scripts, which a page opened from a folder without a server may load
+  // where the browser refuses it a request for a file; each data script registers its
+  // payload on window.
+  function script(url) {
+    return new Promise((resolve, reject) => {
+      const tag = document.createElement("script");
+      tag.src = url;
+      tag.onload = resolve;
+      tag.onerror = () => reject(new Error(url + ": not loaded"));
+      document.head.appendChild(tag);
+    });
+  }
+  async function payload(name) {
+    if (!(window.pyfsUnderstandingData || {})[name]) await script(new URL("data/" + name + ".js", base).href);
+    const value = (window.pyfsUnderstandingData || {})[name];
+    if (!value) throw new Error(name + ": no data");
+    return value;
+  }
+  async function view(name, member) {
+    if (!(window.pyfsUnderstanding || {})[member]) await script(new URL(name, asset).href);
+    return window.pyfsUnderstanding[member];
+  }
   async function data() {
-    if (!cache) cache = Promise.all(["requirements", "mission", "code", "execution"].map(async name => {
-      const response = await fetch(new URL("data/" + name + ".json", base));
-      if (!response.ok) throw new Error(name + ": HTTP " + response.status);
-      return response.json();
-    })).catch(error => { cache = null; throw error; });
+    if (!cache) cache = Promise.all(["requirements", "mission", "code", "execution"].map(payload)).catch(error => { cache = null; throw error; });
     return cache;
   }
   function setHash(kind, id) { history.replaceState(null, "", "#" + kind + "=" + encodeURIComponent(id)); }
@@ -97,7 +119,7 @@
         $("ug-area").innerHTML=option("","All areas")+Object.entries(mission.areas).map(([a,n])=>option(a,a+": "+n)).join("");
         $("ug-status-filter").innerHTML=option("live","All live statuses")+Object.keys(colors).map(s=>option(s,s)).join("")+option("all","Including retired");
         $("ug-legend").innerHTML=Object.entries(colors).map(([s,c])=>'<span><i class="ug-dot" style="background:'+c+'"></i>'+esc(s)+"</span>").join("");
-        const {createRequirementsTree} = await import(new URL("requirements-tree.js", asset));
+        const createRequirementsTree = await view("requirements-tree.js", "createRequirementsTree");
         if (disposed) return;
         requirementsTree = createRequirementsTree({req, mission, colors, select:reqCard, chart});
         let matched=[],limit=60;
@@ -128,7 +150,7 @@
         render();hashHandler();
       }
       if(host.dataset.understanding === "code") {
-        const {renderLayers} = await import(new URL("code-view.js", asset));
+        const renderLayers = await view("code-view.js", "renderLayers");
         if (disposed) return;
         let moduleGraph;
         const packageColors=d3.scaleOrdinal(d3.schemeTableau10).domain(code.nodes.map(n=>n.id));

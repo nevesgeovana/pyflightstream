@@ -40,7 +40,12 @@ because it becomes required at the next breaking window.
 Drag opposes +x and lift opposes +z of each system; the side force keeps its
 sign. The moment turns as ONE vector in one length and only then is
 normalised: `CR` and `CN` by the span, `CM` by the chord. Under sideslip that
-is what moves pitch into roll by the ratio of chord to span.
+is what moves pitch into roll by the ratio of chord to span. The one length is
+the reference chord: the export states all three of its moment coefficients,
+`CMx`, `CMy` and `CMz`, normalised by the reference chord (measured on 26.124
+and 26.125, where changing the reference length alone halved all three; the
+solver takes no span), and the roll and yaw columns are rescaled from the chord
+to the span.
 
 **The angles that turn the axes are read off the velocity the solver flies.**
 The solver turns sideslip about the body z axis first and incidence second,
@@ -115,5 +120,81 @@ beside it on 27 of the 28 lifting recorded exports (lift above 0.05) in
 The cause is not known. The polar states the vector's, so that every column of a row
 comes from one source and `CDB`, `CLB` agree with the `Cx`, `Cz` of the
 export. See [the steady-polar migration](../upgrading.md#older-layouts) for the correction to historical `CLS` and `CLW`.
+
+<a id="the-trimmed-polar"></a>
+
+### The trimmed polar
+
+**The trimmed polar is the polar's row at zero pitching moment, interpolated
+inside the sampled angles and never extrapolated.** A pproc with `[products]
+trimmed_polar = true` (off by default) writes, beside every polar table,
+`<polar stem>_trim.csv`: the polar's own columns and one row.
+
+1. Read the rows that state a finite `ALPHA` and a finite `CMB25`, ordered by
+   `ALPHA`. Fewer than two such rows is refused.
+2. Find where `CMB25` crosses zero: a row whose `CMB25` is exactly zero is the
+   trim as written; otherwise two neighbouring rows whose `CMB25` changes sign
+   bracket it.
+3. Interpolate every numeric column linearly between the two rows at the
+   fraction `m0 / (m0 - m1)` of the way, `m0` and `m1` their `CMB25`, and write
+   `CMB25` as `0.0`. A cell that both rows state alike is kept as written (`POL`,
+   `GROUP` and a condition the sweep holds); a text cell that differs, and a
+   numeric cell either row lacks, read `NA`.
+
+A polar whose sampled `CMB25` never changes sign does not bracket the trim, and
+one that crosses zero more than once has more than one trim; both are refused,
+nothing is chosen or extrapolated. The post names the refusal under `skipped`,
+keyed by the trim file it would have been, and the polar itself stays written.
+`products.json` lists the trimmed polar with its polar's entry and `trimmed`,
+the moment and the angle it was read on. `pyflightstream.post.write_trimmed_polar`
+writes the same file from any polar table; it refuses a file already there
+unless `overwrite=True`.
+
+<a id="the-refinement-study-uncertainty"></a>
+
+### The refinement-study uncertainty
+
+**A `[refinement]` table declares a three-level study, and the post writes the
+numerical uncertainty of every coefficient of every point from it, by the grid
+convergence index.** `levels` names the three simulations, finest first: one
+polar solved on three discretisations, three mesh levels or three time steps.
+`spacings` states each level's representative size, finest first, positive and
+increasing; omitted, each is read from the level's polar as
+`h = MESH_FACES^(-1/2)`, which a polar stating no single `MESH_FACES` cannot
+give. `safety_factor`, `Fs`, is 1.25 by default and at least 1.
+
+For one coefficient of one point, with `f1, f2, f3` its values finest first and
+`h1, h2, h3` the sizes:
+
+```text
+e21 = f2 - f1        e32 = f3 - f2
+r21 = h2 / h1        r32 = h3 / h2
+p   = [ ln(e32 / e21) + ln((r21^p - 1) / (r32^p - 1)) ] / ln(r21)
+f_ext    = f1 - e21 / (r21^p - 1)
+U_NUM    = Fs |e21| / (r21^p - 1)
+GCI_FINE = U_NUM / |f1|
+```
+
+The observed order `p` is solved by fixed point from `ln(e32 / e21) / ln(r21)`,
+and the second term vanishes where the two ratios are equal. Three equal values
+give no order (`NA`), `f1` as the extrapolated value and a zero band. A change
+that alternates in sign or is zero (oscillatory or stalled convergence), an
+order that is not positive (the values move apart as the levels are refined)
+and an order that does not settle give no estimate: the coefficient's row
+reads `NA` in the four estimate columns and the reason in `NOTE`. `GCI_FINE`
+is `NA` where `f1` is zero.
+
+The table is `polars/GCI-P<finest>_g<group>.csv`, one per group the three
+levels' polars share. A row is one point and one coefficient, the points paired
+row by row in the polars' order: `POL` (the finest level's), `GROUP`, `ALPHA`,
+`BETA`, `COEFFICIENT`, `F1`, `F2`, `F3`, `H1`, `H2`, `H3`, `ORDER`,
+`EXTRAPOLATED`, `GCI_FINE`, `U_NUM` and `NOTE`, for every coefficient of the
+steady polar after `ALPHA`, `BETA`, `MACH` and `RE` that all three polars carry.
+A study one of whose levels has no polar among this post's products, one whose
+spacings cannot be read, and one whose polars hold
+a different number of points or other angles at one row, is named under
+`skipped` and writes no table. `products.json` lists the table with kind
+`refinement_study`, its `levels`, its `spacings` and the `polars` it read.
+`pyflightstream.post.polar.grid_convergence` computes one estimate.
 
 ---
