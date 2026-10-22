@@ -1080,7 +1080,7 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
         data = changed
     # F-1492: a detection selector (``detect = { surfaces = [...] }``) names families too,
     # and a grouped level no longer holds the members it names.
-    for table_name in (_obj.TRAILING_EDGES_TABLE, "base_regions"):
+    for table_name in (_obj.TRAILING_EDGES_TABLE, "wake_termination", "base_regions"):
         table = data.get(table_name)
         detect = table.get("detect") if isinstance(table, dict) else None
         surfaces = detect.get("surfaces") if isinstance(detect, dict) else None

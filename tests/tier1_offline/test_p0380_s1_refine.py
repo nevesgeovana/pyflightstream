@@ -779,6 +779,27 @@ def test_p0430_f1492_detection_selectors_follow_the_component_grouping(tmp_path)
     assert written["trailing_edges"]["detect"] == {"surfaces": ["Wing"], "sweep_angle": 20}
 
 
+def test_rb5_f1492_the_wake_termination_selector_follows_the_component_grouping(tmp_path):
+    """F-1492 (RB5): ``[wake_termination] detect = { surfaces = [...] }`` is the other table whose
+    selector names families; a grouped level names the component there too, never a member the
+    level no longer holds. Control: the trailing-edge selector is rewritten beside it."""
+    import tomllib
+
+    src = _source(tmp_path, WITH_T, refine_toml='[components]\nWing = ["G", "T"]\n')
+    text = (
+        'boundaries = ["G", "T"]\n'
+        "[trailing_edges]\n"
+        'detect = { surfaces = ["G", "T"], sweep_angle = 20 }\n'
+        "[wake_termination]\n"
+        'detect = { surfaces = ["T", "G"] }\n'
+    )
+    src.with_name("wing.boundaries.toml").write_text(text, encoding="utf-8")
+    level = refine_mesh(src, 1.0)
+    written = tomllib.loads(level.files[2].read_text(encoding="utf-8"))
+    assert written["trailing_edges"]["detect"]["surfaces"] == ["Wing"]
+    assert written["wake_termination"]["detect"] == {"surfaces": ["Wing"]}
+
+
 @pytest.mark.parametrize("spelling", list(SIDECARS))
 def test_r4_the_boundaries_file_is_rewritten_by_its_toml_values(tmp_path, spelling):
     """P0380-REFINE (FR-918; FR-935): the level's boundaries file is the source's, rewritten.
