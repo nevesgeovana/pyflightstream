@@ -1694,14 +1694,7 @@ def test_f3_0203_f1374_an_unreadable_loads_file_costs_only_the_condition(tmp_pat
 
     loads = tmp_path / "P1.txt"
     loads.write_text("x", encoding="utf-8")
-    original = Path.read_text
-
-    def refuse(self, *args, **kwargs):
-        if self == loads:
-            raise PermissionError("denied")
-        return original(self, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "read_text", refuse)
+    _f3_0203_unreadable(monkeypatch, loads)
     assert _rotor_products._loads_report(loads) is None
 
 
@@ -1744,62 +1737,99 @@ def _f3_0203_unreadable(monkeypatch, path):
     monkeypatch.setattr(Path, "read_text", refuse)
 
 
-def _f3_0203_sim_ctx(tmp_path, **products):
-    return SimpleNamespace(
-        pproc=SimpleNamespace(
-            products=SimpleNamespace(sections=True, polars=True, **products),
-            probes=[],
-            samples_normal_probes=lambda: False,
-        ),
-        record_of={"P1": SimpleNamespace(recipe="steady", package_version="0.42.0")},
-        out=tmp_path / "out",
-        target=lambda p: p,
-        skipped={},
-        sim_id="3207",
-        probe_positions={},
+def _f3_0203_exports_workspace(tmp_path, extra: dict[str, str], **record_fields):
+    """One converged steady point whose record lists the extra exports (suffix to text)."""
+    from tests.tier1_offline.test_post_products import (
+        LOADS,
+        _steady_workspace_with_provenance,
     )
+
+    recorded = _steady_workspace_with_provenance(tmp_path / "fixture")
+    original = recorded.read_manifest()[0]
+    workspace = CampaignWorkspace.init(tmp_path / "posted")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text('[groups]\n"1"="all"\n')
+    outputs = workspace.sim_dir(original.sim_id) / "outputs"
+    outputs.mkdir(parents=True)
+    (loads,) = original.outputs
+    (workspace.sim_dir(original.sim_id) / loads).write_text(LOADS, encoding="utf-8")
+    listed = list(original.outputs)
+    for suffix, text in extra.items():
+        name = f"POLAR-3207_M20AL-020BE+000{suffix}"
+        (outputs / name).write_text(text, encoding="utf-8")
+        listed.append(f"outputs/{name}")
+    workspace.append_record(original.model_copy(update={"outputs": listed, **record_fields}))
+    return workspace, outputs
 
 
 def test_f3_0203_f789_an_unreadable_sectional_export_is_a_skip_of_its_product(
     tmp_path, monkeypatch
 ):
     """F-789: an OSError reading the sectional export names the product, never raises."""
-    ctx = _f3_0203_sim_ctx(tmp_path)
-    export = tmp_path / "P1_sectional.txt"
-    export.write_text("x", encoding="utf-8")
-    _f3_0203_unreadable(monkeypatch, export)
-    _sim._sections_products(ctx, SimpleNamespace(name="P1"), export)
-    assert "denied" in ctx.skipped["sections/P1_sections.csv"]
+    from tests.tier1_offline.test_post_products import SLOADS, _products_manifest
+
+    workspace, outputs = _f3_0203_exports_workspace(tmp_path, {"_sloads.txt": SLOADS})
+    _f3_0203_unreadable(monkeypatch, outputs / "POLAR-3207_M20AL-020BE+000_sloads.txt")
+    write_campaign_products(workspace)
+    skipped = _products_manifest(workspace)["skipped"]
+    assert "denied" in skipped["sections/POLAR-3207_M20AL-020BE+000_sections.csv"]
 
 
 def test_f3_0203_f790_an_unreadable_probe_export_is_a_skip_of_its_product(tmp_path, monkeypatch):
     """F-790: an OSError reading the probe-points export names the product, never raises."""
-    ctx = _f3_0203_sim_ctx(tmp_path)
-    export = tmp_path / "P1_probes.txt"
-    export.write_text("x", encoding="utf-8")
-    _f3_0203_unreadable(monkeypatch, export)
-    _sim._probes_products(ctx, SimpleNamespace(name="P1"), export, False)
-    assert "denied" in ctx.skipped["probes/P1_probes.csv"]
+    from tests.tier1_offline.test_post_products import _products_manifest
+
+    workspace, outputs = _f3_0203_exports_workspace(tmp_path, {"_probes.txt": "x"})
+    _f3_0203_unreadable(monkeypatch, outputs / "POLAR-3207_M20AL-020BE+000_probes.txt")
+    write_campaign_products(workspace)
+    skipped = _products_manifest(workspace)["skipped"]
+    assert "denied" in skipped["probes/POLAR-3207_M20AL-020BE+000_probes.csv"]
 
 
 def test_f3_0203_f1375_an_empty_product_is_named_even_where_no_old_table_exists(tmp_path):
     """F-1375: the reason an export wrote nothing is recorded with or without a previous file."""
-    ctx = SimpleNamespace(skipped={})
-    _sim._retire_unwritten(ctx, "sections/P1_sections.csv", tmp_path / "none.csv", "no section")
-    assert ctx.skipped["sections/P1_sections.csv"] == "no section"
-    old = tmp_path / "old.csv"
-    old.write_text("x", encoding="utf-8")
-    _sim._retire_unwritten(ctx, "sections/P2_sections.csv", old, "no section")
-    assert ctx.skipped["sections/P2_sections.csv"].endswith("the previous table is retired")
+    import re
+
+    from tests.tier1_offline.test_post_products import SLOADS, _products_manifest
+
+    relative = "sections/POLAR-3207_M20AL-020BE+000_sections.csv"
+    empty = re.sub(r"(Number of Surface Sections:\s*)2", r"\g<1>0", SLOADS)
+    assert empty != SLOADS
+    reason = "the sectional loads export declares no section, so no sections table is written"
+    workspace, outputs = _f3_0203_exports_workspace(tmp_path / "never", {"_sloads.txt": empty})
+    write_campaign_products(workspace)
+    assert _products_manifest(workspace)["skipped"][relative] == reason
+    # the same export after a post that wrote a table: the previous table is retired
+    workspace, outputs = _f3_0203_exports_workspace(tmp_path / "once", {"_sloads.txt": SLOADS})
+    write_campaign_products(workspace)
+    assert any(workspace.root.glob(f"post/**/{relative}"))
+    (outputs / "POLAR-3207_M20AL-020BE+000_sloads.txt").write_text(empty, encoding="utf-8")
+    write_campaign_products(workspace, overwrite=True)
+    assert _products_manifest(workspace)["skipped"][relative] == (
+        f"{reason}; the previous table is retired"
+    )
 
 
 def test_f3_0203_f1376_polars_false_writes_no_unsteady_polar(tmp_path):
     """F-1376: the polars switch is honoured by the unsteady polar writer, as by the steady one."""
-    ctx = SimpleNamespace(
-        window=(1, 10), pproc=SimpleNamespace(products=SimpleNamespace(polars=False))
-    )
-    # Any read of the rest of the context would raise: the switch returns first.
-    assert _sim._unsteady_polar_products(ctx) is None
+    from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
+
+    plan = {
+        "window_stated": True,
+        "time_iterations": 8,
+        "steps_per_revolution": None,
+        "blades": None,
+        "time_average": {"windows": [[5, 8]], "window_from": "LAST_ITERS_AVG = 4"},
+    }
+    for polars, expected in (("true", 1), ("false", 0)):
+        workspace = _unsteady_workspace(tmp_path / polars, reductions=plan, recipe="unsteady")
+        (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+            f'[groups]\n"1" = "all"\n\n[products]\npolars = {polars}\n', encoding="utf-8"
+        )
+        write_campaign_products(workspace)
+        manifest = _products_manifest(workspace)
+        written = [key for key in manifest["products"] if key.endswith("_uns_avg.csv")]
+        assert len(written) == expected, (polars, manifest["products"].keys())
+        assert not [key for key in manifest["skipped"] if key.endswith("_uns_avg.csv")]
 
 
 def _f3_0203_signal_of(count: int, frequency: float, rate: float = 1000.0):
@@ -1919,20 +1949,22 @@ def test_f3_0203_f781_aliases_that_differ_only_in_case_are_refused():
 
 def test_f3_0203_f791_a_partial_post_keeps_the_skip_reason_of_a_retained_superfile(tmp_path):
     """F-791: the limitation recorded for a super file travels with the file the post keeps."""
-    from pyflightstream.post._stage import _partial_post
-
-    name = "polars/SUPER-3207-wing_g01.csv"
-    reason = "the group has no coefficient columns"
-    workspace = SimpleNamespace(read_additional=lambda: [], sim_dir=lambda sim: tmp_path)
-    record = SimpleNamespace(sim_id="3207", run_id="run-1", as_points=lambda: [])
-    kept = _partial_post(
-        workspace,
-        [record],
-        frozenset({"3207"}),
-        {"products": {name: {"sim_id": "3207"}}, "skipped": {f"{name}#columns": reason}},
-        matrix_stem=None,
+    from tests.tier1_offline.test_post_products import (
+        _products_manifest,
+        _steady_workspace_with_provenance,
     )
-    assert name in kept.products and kept.skipped[f"{name}#columns"] == reason
+
+    workspace = _steady_workspace_with_provenance(tmp_path)
+    write_campaign_products(workspace)
+    path = workspace.root / "post" / "products" / "products.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    (name,) = [key for key in manifest["products"] if "SUPER-3207" in key]
+    reason = "the group has no coefficient columns"
+    manifest["skipped"][f"{name}#columns"] = reason
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    write_campaign_products(workspace, overwrite=True, sims=["3207"])
+    kept = _products_manifest(workspace)
+    assert name in kept["products"] and kept["skipped"][f"{name}#columns"] == reason
 
 
 @pytest.mark.requirement("FR-1613")

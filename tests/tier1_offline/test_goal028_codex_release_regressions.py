@@ -40,16 +40,16 @@ def test_surface_section_export_with_angles_is_skipped(tmp_path, monkeypatch):
     script = Path(__file__).parents[2] / "scripts" / "extract_recorded_total_rows.py"
     spec = importlib.util.spec_from_file_location("extract_recorded_total_rows", script)
     assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    script_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script_module)
     path = tmp_path / "sim_1001" / "raw" / "POLAR-1001_M10AL+000BE+000_cp.txt"
     path.parent.mkdir(parents=True)
     path.write_text(
         "Angle of attack (Deg) 0\nSide-slip angle (Deg) 0\nX, Y, Z, Cp\n0, 0, 0, -1\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr(module, "SIMS", tmp_path)
-    assert module.rows() == [], "a surface-section export is not a loads export"
+    monkeypatch.setattr(script_module, "SIMS", tmp_path)
+    assert script_module.rows() == [], "a surface-section export is not a loads export"
 
 
 # --- AN AMBIGUOUS NAME IS NEVER READ AS GLOBAL (the third review before the tag) ------
@@ -207,9 +207,49 @@ def test_f489_a_mixed_source_rotor_table_names_every_history_group(monkeypatch):
     assert ctx.sources_read == {"HUB": "HUB_ONE, HUB_TWO"}
 
 
-def test_f1372_the_recorded_rpm_lookup_folds_case_like_the_clock_lookup():
-    """F-1372: a block recorded as ``Hub`` serves the alias ``HUB``."""
-    from pyflightstream.post._rotor_plan import _recorded_rotor_rpm
+def test_f1372_the_recorded_rpm_lookup_folds_case_like_the_clock_lookup(tmp_path):
+    """F-1372: a block recorded as ``Pusher`` serves the alias ``PUSHER``."""
+    from pyflightstream.post.products import read_csv_table
+    from tests.tier1_offline.test_post_superfile import _post, _workspace
 
-    record = SimpleNamespace(reductions={"rotors": {"Hub": {"rpm": 1200.0}}})
-    assert _recorded_rotor_rpm(record, "HUB", 1) == 1200.0
+    def thrust_coefficient(root: Path, key: str) -> str:
+        workspace = _workspace(root)
+        (workspace.inputs_dir / "references" / "r002.toml").write_text(
+            "\n".join(
+                [
+                    "area_m2 = 50.0",
+                    "chord_m = 2.526",
+                    "span_m = 20.0",
+                    "",
+                    "[rotors.PUSHER]",
+                    'alias = "PUSHER"',
+                    "x_m = 0.0",
+                    "y_m = 0.0",
+                    "z_m = 0.0",
+                    'axis = "X"',
+                    "rpm_sign = 1",
+                    "diameter_m = 1.2",
+                    'families_blades = ["B"]',
+                    'blade1 = { azimuth_deg = 0.0, zero = "Y" }',
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        if key != "PUSHER":
+            records = workspace.read_manifest()
+            (workspace.root / "runs.json").unlink()
+            for record in records:
+                plan = record.reductions
+                if record.sim_id == "6002" and isinstance(plan, dict):
+                    rotors = {key: plan["rotors"]["PUSHER"]}
+                    record = record.model_copy(update={"reductions": {**plan, "rotors": rotors}})
+                workspace.append_record(record)
+        written = _post(workspace)
+        (table,) = [Path(p) for p in written if str(p).endswith("_rotor.csv")]
+        return read_csv_table(table)[1][0]["CT_PUSHER"]
+
+    exact = thrust_coefficient(tmp_path / "exact", "PUSHER")
+    folded = thrust_coefficient(tmp_path / "folded", "Pusher")
+    assert exact != "NA" and float(exact) != 0.0
+    assert folded == exact

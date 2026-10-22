@@ -389,8 +389,23 @@ def test_a_trimmed_per_blade_span_with_no_frame_is_a_named_skip_not_an_abort(tmp
     assert "probes/AL-020_plots.csv" in manifest["products"], "the post did not complete"
 
 
-def test_p0430_f3_a_writer_outside_a_post_warns_by_default():
+def test_p0430_f3_a_writer_outside_a_post_warns_by_default(tmp_path):
     """PFS-2126.016: the refusal switch defaults to the documented policy, warn and write."""
-    from pyflightstream.post._stage import _POST_REFUSES
+    from pyflightstream.post.polar import write_recorded_polar
+    from tests.tier1_offline.test_post_products import LOADS
 
-    assert _POST_REFUSES.get() is False
+    point = tmp_path / "POLAR-3207" / "P0"
+    point.mkdir(parents=True)
+    (point / "P0.txt").write_text(LOADS, encoding="utf-8")
+    # The export prints a reference area of 50; the reference states 60: the campaign post
+    # refuses that under check_frozen, a writer called on its own warns and writes.
+    with pytest.warns(Warning, match="states a reference area"):
+        written = write_recorded_polar(
+            tmp_path / "POLAR-3207",
+            tmp_path / "out",
+            groups={"1": ["W"]},
+            reference={"SREF": 60.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152},
+            description="d",
+            mach=0.2,
+        )
+    assert written

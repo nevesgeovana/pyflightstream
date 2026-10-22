@@ -30,20 +30,31 @@ def test_a_legacy_clock_labels_the_end_export_without_a_reduction_plan(tmp_path,
 
 
 def test_an_unrecorded_time_step_is_not_replaced_by_inner_iterations(tmp_path):
-    from pyflightstream.post._sim import _sim_products
+    from pyflightstream.post.products import write_campaign_products
+    from pyflightstream.workspace import CampaignWorkspace
     from tests.tier1_offline.test_post_products import SLOADS, _unsteady_workspace
 
-    workspace = _unsteady_workspace(tmp_path, reductions=None)
-    record = workspace.read_manifest()[0]
-    # Amend only the in-memory record; the run manifest is left as written.
-    record = record.model_copy(
-        update={
-            "outputs": [*record.outputs, "outputs/AL-020_sloads.txt"],
-            "export_window": None,
-        }
+    recorded = _unsteady_workspace(tmp_path / "recorded", reductions=None)
+    record = recorded.read_manifest()[0]
+    workspace = CampaignWorkspace.init(tmp_path / "posted")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text('[groups]\n"1" = "all"\n')
+    outputs = workspace.sim_dir("7001") / "outputs"
+    outputs.mkdir(parents=True)
+    for name in ("AL-020.txt", "AL-020_plots.txt"):
+        (outputs / name).write_text(
+            (recorded.sim_dir("7001") / "outputs" / name).read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+    (outputs / "AL-020_sloads.txt").write_text(SLOADS)
+    workspace.append_record(
+        record.model_copy(
+            update={
+                "outputs": [*record.outputs, "outputs/AL-020_sloads.txt"],
+                "export_window": None,
+            }
+        )
     )
-    (workspace.sim_dir("7001") / "outputs/AL-020_sloads.txt").write_text(SLOADS)
-    out = workspace.root / "post/review"
-    _sim_products(workspace, "7001", [record], out, overwrite=True, archive=False)
-    _, rows = read_csv_table(out / "sections/AL-020_sections.csv")
+    write_campaign_products(workspace)
+    (table,) = workspace.root.glob("post/**/sections/AL-020_sections.csv")
+    _, rows = read_csv_table(table)
     assert {row["STEP"] for row in rows} == {"NA"}
