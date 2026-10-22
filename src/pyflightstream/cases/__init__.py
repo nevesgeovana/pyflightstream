@@ -1134,6 +1134,9 @@ class SimCase(BaseModel):
 #: variable spelled the same way cannot be mistaken for the marker and
 #: cannot hide an edit made anywhere else in the file.
 _CONTENT_DIGEST_KEY = "content_sha256"
+#: The marker's own digest line: the key, then ``=``. A line that only starts
+#: with the key's letters (``content_sha256_note = ...``) is content.
+_CONTENT_DIGEST_LINE = re.compile(rf"^\s*{_CONTENT_DIGEST_KEY}\s*=")
 
 
 class DerivedFrom(BaseModel):
@@ -1215,11 +1218,7 @@ def derived_body_sha256(text: str) -> str:
     ... )
     True
     """
-    lines = [
-        line.rstrip()
-        for line in text.splitlines()
-        if not line.strip().startswith(_CONTENT_DIGEST_KEY)
-    ]
+    lines = [line.rstrip() for line in text.splitlines() if not _CONTENT_DIGEST_LINE.match(line)]
     while lines and not lines[-1]:
         lines.pop()
     return text_sha256("\n".join(lines))

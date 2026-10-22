@@ -554,3 +554,14 @@ def test_p0430_f5_a_sweep_value_that_is_not_finite_is_a_campaign_error():
     for value in (float("nan"), float("inf")):
         with pytest.raises(ValidationError, match="not a finite number"):
             SweepAxis(type="alpha", values=[0.0, value])
+
+
+def test_p0430_f5_the_digest_drops_only_the_markers_own_line():
+    """X-F-1041, F-1332: a content line that starts with the key's letters is content."""
+    from pyflightstream.cases import derived_body_sha256
+
+    marker = 'content_sha256 = "abc"\n'
+    body = "[campaign]\nname = 'a'\n"
+    assert derived_body_sha256(marker + body) == derived_body_sha256(body)
+    note = "content_sha256_note = 'kept'\n"
+    assert derived_body_sha256(note + body) != derived_body_sha256(body)
