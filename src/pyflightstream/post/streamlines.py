@@ -8,9 +8,11 @@ VTK polydata file holding one polyline per streamline, in integration order,
 with the export's per-point variables as point data (``Mach``, ``Cp_ref``,
 ``vtot``, ``Cp`` as scalars and ``velocity`` as the vector ``vx, vy, vz``).
 
-THE POSITIONS ARE THE EXPORT'S, in the simulation length unit and in the
-analysis frame the export names, the same convention as the solver's surface
-VTK the reader opens beside it; velocities are in m/s, the coefficients
+THE POSITIONS ARE THE EXPORT'S, written as the export prints them with no
+conversion; the unit and the frame of the off-body streamline export are not
+measured in a committed report, and are assumed to follow the analysis frame the
+export names, as the solver's surface VTK does (RPT-074, "the VTK surface export ...
+in the loads frame", 2026-09-25); velocities are taken as m/s, the coefficients
 dimensionless (:data:`pyflightstream.results.OFF_BODY_STREAMLINE_COLUMNS`).
 
 THE SURFACE FRICTION LINES GET NO VTK YET: their export has never been read by
