@@ -540,6 +540,48 @@ def test_one_superfile_per_polar_and_group_named_with_sweep_and_the_group(tmp_pa
     ], "one file per polar and per group, the swept variable written literally as sweep"
 
 
+def test_p0430_an_unemitted_documented_default_is_written_as_a_default(tmp_path, monkeypatch):
+    """NL-RECS-2: a flag the script never set is the solver's default, not a measured value.
+
+    The snapshot already tells the classes apart (explicit, default emitted or
+    not, unknown); the superfile cell keeps the class: a documented default the
+    script did not emit reads ``<value> (default)``, an explicit or emitted value
+    reads as the value, and an unknown flag has none (NA).
+    """
+    flags = _SOLVER_SETUP["flags"]
+    assert isinstance(flags, dict)
+    monkeypatch.setitem(
+        flags,
+        "SET_WAKE_ON_WAKE_INDUCTION",
+        {
+            "command": "SET_WAKE_ON_WAKE_INDUCTION",
+            "family": "advanced_settings",
+            "provenance": "default",
+            "value": True,
+            "emitted": False,
+            "evidence": "FSM-26.123 p.1 (synthetic citation)",
+        },
+    )
+    monkeypatch.setitem(
+        flags,
+        "SET_WAKE_TERMINATION_TIME_STEPS",
+        {
+            "command": "SET_WAKE_TERMINATION_TIME_STEPS",
+            "family": "advanced_settings",
+            "provenance": "unknown",
+            "value": None,
+            "emitted": False,
+            "evidence": None,
+        },
+    )
+    workspace = _workspace(tmp_path)
+    _post(workspace)
+    _, rows = _superfiles(workspace)["SUPER-6001-M200RE1177AL+sweepBE+000_g01.csv"]
+    assert {row["SET_WAKE_ON_WAKE_INDUCTION"] for row in rows} == {"True (default)"}
+    assert {row["SET_WAKE_TERMINATION_TIME_STEPS"] for row in rows} == {"NA"}
+    assert {row["SET_SOLVER_CONVERGENCE_ITERATIONS"] for row in rows} == {"20"}
+
+
 def test_a_point_whose_record_is_missing_borrows_no_other_points_values(tmp_path):
     """A row states what is known about ITS point, and is EMPTY about the rest.
 

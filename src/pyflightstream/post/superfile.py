@@ -517,12 +517,28 @@ def superfile_row(
     setup = getattr(record, "solver_setup", None) or {}
     flags = setup.get("flags") if isinstance(setup, Mapping) else None
     for command, flag in (flags or {}).items():
-        _take(row, command, flag.get("value") if isinstance(flag, Mapping) else flag)
+        _take(row, command, _flag_cell(flag))
     # 7. EVERY PARAMETER THE UNSTEADY PLOTS PRODUCE, forces and fluids
     #    alike, AT THE LAST TIME STEP. See `plots_last_row`.
     for key, value in (plots_row or {}).items():
         _take(row, key, value)
     return row
+
+
+def _flag_cell(flag: object) -> object:
+    """Return one solver flag's superfile cell, keeping the class of its value (NL-RECS-2).
+
+    A documented default the script did not emit is the solver's own
+    behaviour, read from the manual, not a value the run set: the cell says
+    ``<value> (default)``, the form the plan uses for an unstated angle. An
+    explicit or emitted value is the value; an unknown flag has none.
+    """
+    if not isinstance(flag, Mapping):
+        return flag
+    value = flag.get("value")
+    if flag.get("provenance") == "default" and not flag.get("emitted") and value is not None:
+        return f"{value} (default)"
+    return value
 
 
 def _recorded_rotor_value(key: str, fallback: object, columns: Mapping[str, object]) -> object:

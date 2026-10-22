@@ -47,6 +47,8 @@ FlightStream versions.
 - `pyfs-qa apply-compat` keeps, in the note of a command database row whose
   status a newer report changes, the outcome and the report it replaced
   (`This verdict supersedes <status> (<report>).`).
+- In the super file, a solver flag whose documented default the script never emitted reads
+  `<value> (default)` in its column, never as a value the run set.
 
 - An unstated `ALPHA` or `BETA` is 0.0 in every product that reads the angle: the rotor table's
   shaft angle and `ETAW` and the axis coefficients of the unsteady polar are computed at it, and a

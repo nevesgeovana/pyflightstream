@@ -52,7 +52,10 @@ function; the hash says which version of it.
 `outputs_sha256` keyed by the same relative name; then `status`,
 `iterations`, `residual`, `wall_time_s`, plus `solver_setup`, the
 snapshot of every solver flag with its provenance: explicit, a
-documented default with its manual citation, or honestly unknown.
+documented default with its manual citation, or honestly unknown. The
+super file of the post keeps that class in each flag's column: a
+documented default the script never emitted reads `<value> (default)`,
+never as a value the run set, and an unknown flag reads `NA`.
 
 One combination in that snapshot is a record no run writes: a boundary
 selection marked `explicit` whose value is the empty list, since the
