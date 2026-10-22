@@ -20,6 +20,7 @@ re-export.
 from __future__ import annotations
 
 import csv
+import functools
 import math
 import re
 import weakref
@@ -27,6 +28,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 
@@ -427,6 +429,23 @@ def _guarded_target(
     return guarded
 
 
+def _one_refusal[**P, R](writer: Callable[P, R]) -> Callable[P, R]:
+    """Give a writer's ``target`` hook the overwrite policy of NFR-49, one refusal per call.
+
+    The writers of several files take ``target`` and ``overwrite`` as keywords. Each call
+    gets its own :func:`_guarded_target`, so under ``overwrite=False`` a file already there
+    is refused after the files of that call it let through are removed.
+    """
+
+    @functools.wraps(writer)
+    def run(*args: P.args, **kwargs: P.kwargs) -> R:
+        hook = cast("Callable[[Path], Path] | None", kwargs.get("target"))
+        kwargs["target"] = _guarded_target(hook, bool(kwargs.get("overwrite", True)))
+        return writer(*args, **kwargs)
+
+    return run
+
+
 def _refuse_a_token(what: str, text: str, *, quotes: bool = True) -> None:
     """Refuse a name or title the VTK and Tecplot grammars cannot carry as written."""
     refused = _TOKEN_REFUSED if quotes else re.compile(r"[\r\n]")
@@ -589,6 +608,37 @@ def renamed_columns(
 #: line before the header can be read by dropping that line.
 ROTOR_TABLE_SUFFIX = "_rotor.csv"
 ROTOR_TABLE_LEAD_LINES = 0
+
+
+def _integrated_strips(values: list[list[float]]) -> list[tuple[float, ...]]:
+    """Integrate one instant/block in its export axes about each quarter chord.
+
+    Strip edges are the midpoints between stations and, at each end, half a
+    spacing beyond the end station (the extended rule, PFS-2081.40): the
+    export places its end stations at strip centers, so edges AT them left half
+    a strip out at each end. One block at a time, never across a boundary.
+    Forces are N/m and Moment is N m/m; the added columns are m, N, N, N m.
+    """
+    if len(values) < 2:
+        raise ProductError("integration needs at least two stations in each block")
+    if not all(math.isfinite(value) for row in values for value in row):
+        raise ProductError("integration needs finite sectional values (NaN or infinity found)")
+    gaps = [b[0] - a[0] for a, b in zip(values[:-1], values[1:], strict=True)]
+    if not (all(gap > 0 for gap in gaps) or all(gap < 0 for gap in gaps)):
+        raise ProductError("integration needs strictly monotonic Offset in each block")
+    halves = [abs(gap) / 2 for gap in gaps]
+    lengths = [
+        2 * halves[0],
+        *(a + b for a, b in zip(halves[:-1], halves[1:], strict=True)),
+        2 * halves[-1],
+    ]
+    result = [
+        (length, *(row[i] * length for i in (4, 5, 6)))
+        for row, length in zip(values, lengths, strict=True)
+    ]
+    if not all(math.isfinite(value) for row in result for value in row):
+        raise ProductError("integration produced a non-finite length or load")
+    return result
 
 
 def section_identity(

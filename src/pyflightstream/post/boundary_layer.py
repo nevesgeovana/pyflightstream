@@ -17,7 +17,7 @@ import numpy as np
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._tokens import CONTEXT_COLUMNS, POLAR_ID_COLUMN
-from pyflightstream.post._tables import ProductError, _guarded_target, context_row, write_csv_table
+from pyflightstream.post._tables import ProductError, _one_refusal, context_row, write_csv_table
 from pyflightstream.results import SurfaceSection, parse_surface_sections
 from pyflightstream.results.surface import (
     REFERENCE_FRAME,
@@ -377,6 +377,7 @@ _EXPORT_REMEDY = {
 }
 
 
+@_one_refusal
 def write_boundary_layer_products(
     *,
     sim_dir: Path,
@@ -429,7 +430,6 @@ def write_boundary_layer_products(
         The written path and its product-manifest entry; both empty when the product is not
         written, the reason then named in ``skipped``.
     """
-    target = _guarded_target(target, overwrite)
     if pproc is None or not pproc.products.boundary_layer_integrals:
         return [], {}
     relative = f"sections/{stem}_boundary_layer.csv"

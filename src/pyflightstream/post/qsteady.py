@@ -65,7 +65,7 @@ from types import SimpleNamespace
 from typing import Any, Literal
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import ProductError, ProductExistsError
+from pyflightstream._errors import ProductError
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases import select_group_members
 from pyflightstream.cases.qsteady import (
@@ -368,11 +368,7 @@ def write_point_validity_file(
         If a validity file is already there and ``overwrite`` is false.
     """
     path = loads_path.with_name(Path(validity_file_name(loads_path.name)).name)
-    if path.exists() and not overwrite:
-        raise ProductExistsError(
-            f"{path} already exists and the post was not asked to replace it; "
-            "pass overwrite=True to rebuild"
-        )
+    _refuse_existing_product(path, overwrite)
     if prepare is not None:
         path = prepare(path)
     payload = {

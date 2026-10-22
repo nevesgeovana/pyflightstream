@@ -40,7 +40,7 @@ import numpy as np
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import ProductError, ProductExistsError, PyflightstreamWarning, warn
-from pyflightstream.post._tables import _guarded_target, _refuse_a_token
+from pyflightstream.post._tables import _one_refusal, _refuse_a_token
 from pyflightstream.post.series import stamped_exports
 from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average
 from pyflightstream.results import (
@@ -405,6 +405,7 @@ def _loads_frame_of(record: RunRecord, frame_record: Mapping[str, object]) -> Su
     return SurfaceFrame.from_record(frame_record)
 
 
+@_one_refusal
 def write_point_surface_average(
     root: Path,
     *,
@@ -457,7 +458,6 @@ def write_point_surface_average(
         The files written and their ``products.json`` entries, keyed by the
         path each was written to, relative to ``out``.
     """
-    target = _guarded_target(target, overwrite)
     stated = record.surface_average_window
     if stated is None:
         return [], {}

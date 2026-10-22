@@ -30,7 +30,7 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import ProductError, PyflightstreamError
-from pyflightstream.post._tables import _guarded_target
+from pyflightstream.post._tables import _one_refusal
 from pyflightstream.results import OffBodyStreamlinesReport, parse_off_body_streamlines
 
 __all__ = [
@@ -130,6 +130,7 @@ def write_point_streamlines(ctx: Any, point: str) -> None:
             ctx.skipped[f"{STREAMLINES_DIR}/{relative}"] = outcome
 
 
+@_one_refusal
 def write_streamline_products(
     exported: Mapping[str, Path],
     out: Path,
@@ -165,7 +166,6 @@ def write_streamline_products(
         Per product name relative to ``streamlines/``: the path written, or the
         reason it was not, one line.
     """
-    target = _guarded_target(target, overwrite)
     outcomes: dict[str, Path | str] = {}
     if not vtk:
         return outcomes
@@ -185,7 +185,7 @@ def write_streamline_products(
             else:
                 path = out / STREAMLINES_DIR / name
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path = target(path)
+                path = target(path) if target is not None else path
                 _textio.write_text(path, text)
                 outcomes[name] = path
     surface = exported.get("streamlines_surface")

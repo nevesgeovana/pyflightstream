@@ -53,7 +53,7 @@ from pyflightstream.cases.acoustics import (
     AcousticSignal,
 )
 from pyflightstream.post._stage import _a_name_a_file_may_carry
-from pyflightstream.post._tables import _guarded_target, write_csv_table
+from pyflightstream.post._tables import _one_refusal, write_csv_table
 
 __all__ = [
     "ACOUSTICS_DIR",
@@ -457,6 +457,7 @@ def _states_a_frequency(blades: object, rpm: object) -> bool:
     )
 
 
+@_one_refusal
 def write_acoustic_products(
     signals: Sequence[AcousticSignal],
     out_dir: str | Path,
@@ -514,7 +515,6 @@ def write_acoustic_products(
         If ``harmonics`` is not a positive integer; nothing is written then.
     """
     _refuse_a_harmonic_count(harmonics)
-    target = _guarded_target(target, overwrite)
     folder = Path(out_dir)
     result = AcousticProducts()
 
@@ -524,7 +524,7 @@ def write_acoustic_products(
         # 30 kHz clock and wrote a 4e-6 Pa harmonic as 0.00000.
         exact = [[_round_trip(cell) for cell in row] for row in rows]
         path = folder / name
-        result.files.append(write_csv_table(target(path), columns, exact))
+        result.files.append(write_csv_table(target(path) if target else path, columns, exact))
 
     summary: list[Sequence[object]] = []
     bpf: list[Sequence[object]] = []

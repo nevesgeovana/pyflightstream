@@ -87,7 +87,7 @@ from pyflightstream.cases.workflows import SECTION_DISTRIBUTION_COMMAND
 from pyflightstream.post._tables import (
     ROTOR_TABLE_SUFFIX,
     ProductError,
-    _guarded_target,
+    _one_refusal,
     _refuse_existing_product,
     write_csv_table,
 )
@@ -698,6 +698,7 @@ def _validate_superfile_formats(drafts: Sequence[SuperfileDraft], fmt: str) -> N
             )
 
 
+@_one_refusal
 def write_superfiles(
     drafts: Sequence[SuperfileDraft],
     *,
@@ -737,7 +738,6 @@ def write_superfiles(
     ProductError
         If the format is not one this package writes.
     """
-    target = _guarded_target(target, overwrite)
     _validate_superfile_formats(drafts, fmt)
     columns: list[str] = []
     seen: set[str] = set()

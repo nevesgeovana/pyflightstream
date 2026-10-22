@@ -33,7 +33,6 @@ from pyflightstream.cases.corrections import CALIBRATIONS_DIR
 from pyflightstream.cases.workflows import FREESTREAM_DIR, FREESTREAM_FORMS
 from pyflightstream.post._field_inputs import field_example, field_left_out
 from pyflightstream.post._matrix_template import _matrix_after, _matrix_example
-from pyflightstream.post._tables import _refuse_existing_product
 from pyflightstream.post.glossary import (
     ARTIFACT_HEADINGS,
     GENERATED_BANNER,
@@ -113,7 +112,7 @@ class TemplateSection:
         key of the table. It is written on the page, and the template's test
         holds that every key of every table is shown or named here.
     pages : tuple of (str, str)
-        The documentation pages the section links, as (name, title).
+        The documentation pages the section links, as (name, title): ``docs/<name>.md``.
     """
 
     heading: str
@@ -736,11 +735,6 @@ def _filled(text: str) -> str:
 _IN_THE_COMMENT = "the other form, shown in the comment above its table"
 
 
-def _page(name: str, title: str) -> tuple[str, str]:
-    """Return a documentation page the template links: ``docs/<name>.md`` and its title."""
-    return (name, title)
-
-
 #: The setup tables the input template's example leaves out, each with the
 #: reason and its keys: the separation models, whose assignment is
 #: scenario-specific, and the per-step actions of FR-319.
@@ -822,7 +816,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             "section-load setup remain explicit. No new section or coupled-physics "
             "validation is implied. See docs/fsi-workspace.md."
         ),
-        pages=(_page("fsi-workspace", "FSI workspace inputs"),),
+        pages=(("fsi-workspace", "FSI workspace inputs"),),
     ),
     TemplateSection(
         heading="Optional matrix folder, `inputs/matrices/<name>.fs`",
@@ -846,7 +840,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             "Read and Write each require Preview followed by Apply or Cancel; neither "
             "runs a solver. See docs/excel-matrices.md."
         ),
-        pages=(_page("excel-matrices", "Optional Excel matrix workbook"),),
+        pages=(("excel-matrices", "Optional Excel matrix workbook"),),
     ),
     TemplateSection(
         heading="Storage recipe, `inputs/management/m<id>.toml`",
@@ -888,7 +882,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             "`post/<matrix>/archive/<stamp>/` folders a superseded product left, keeping the "
             "newest `keep_latest` of each matrix regardless of age. See docs/storage-and-sync.md."
         ),
-        pages=(_page("storage-and-sync", "Storage and sync"),),
+        pages=(("storage-and-sync", "Storage and sync"),),
     ),
     TemplateSection(
         heading=ARTIFACT_HEADINGS["matrix"],
@@ -912,8 +906,8 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             }
         ),
         pages=(
-            _page("workspace-and-workflows", "The workspace and the workflow"),
-            _page("flight-conditions", "Flight conditions"),
+            ("workspace-and-workflows", "The workspace and the workflow"),
+            ("flight-conditions", "Flight conditions"),
         ),
     ),
     TemplateSection(
@@ -1018,8 +1012,8 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             }
         ),
         pages=(
-            _page("settings-codebook", "The settings codebook"),
-            _page("flight-conditions", "Flight conditions"),
+            ("settings-codebook", "The settings codebook"),
+            ("flight-conditions", "Flight conditions"),
         ),
     ),
     TemplateSection(
@@ -1147,8 +1141,8 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             }
         ),
         pages=(
-            _page("post-processing-definitions", "The post-processing definitions"),
-            _page("workspace-and-workflows", "The workspace and the workflow"),
+            ("post-processing-definitions", "The post-processing definitions"),
+            ("workspace-and-workflows", "The workspace and the workflow"),
         ),
     ),
     TemplateSection(
@@ -1177,8 +1171,8 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             }
         ),
         pages=(
-            _page("workspace-and-workflows", "The workspace and the workflow"),
-            _page("mesh-inputs", "Mesh inputs"),
+            ("workspace-and-workflows", "The workspace and the workflow"),
+            ("mesh-inputs", "Mesh inputs"),
         ),
     ),
     TemplateSection(
@@ -1195,7 +1189,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             "turn only about a rotor point. Every key a point takes is in the "
             f"example; {_GLOSSARY_LINK} lists the keys of the files a row cites."
         ),
-        pages=(_page("workspace-and-workflows", "The workspace and the workflow"),),
+        pages=(("workspace-and-workflows", "The workspace and the workflow"),),
     ),
     TemplateSection(
         heading=ARTIFACT_HEADINGS["geometry"],
@@ -1282,9 +1276,9 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             }
         ),
         pages=(
-            _page("mesh-inputs", "Mesh inputs"),
-            _page("ccs-geometry", "CCS geometry"),
-            _page("workspace-and-workflows", "The workspace and the workflow"),
+            ("mesh-inputs", "Mesh inputs"),
+            ("ccs-geometry", "CCS geometry"),
+            ("workspace-and-workflows", "The workspace and the workflow"),
         ),
     ),
     TemplateSection(
@@ -1311,7 +1305,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             "`pyflightstream.workspace.wake_edges.write_trailing_edge_points` "
             "writes one from a list of points."
         ),
-        pages=(_page("mesh-inputs", "Mesh inputs"),),
+        pages=(("mesh-inputs", "Mesh inputs"),),
     ),
     TemplateSection(
         heading="The provenance record, `<stem>.provenance.toml` beside a geometry",
@@ -1329,7 +1323,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             ),
         ),
         after=f"No key of it is read, so none is in {_GLOSSARY_LINK}.",
-        pages=(_page("workspace-and-workflows", "The workspace and the workflow"),),
+        pages=(("workspace-and-workflows", "The workspace and the workflow"),),
     ),
     TemplateSection(
         heading="The actuator radial thrust profile, `inputs/profiles/<stem>.<ext>`",
@@ -1353,7 +1347,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             f"point runs. The disc's keys are in {_GLOSSARY_LINK}, under the "
             "reference's actuator block, and the row's under the row keys."
         ),
-        pages=(_page("workspace-and-workflows", "The workspace and the workflow"),),
+        pages=(("workspace-and-workflows", "The workspace and the workflow"),),
     ),
     TemplateSection(
         heading="The probe survey, `inputs/profiles/<name>`",
@@ -1375,7 +1369,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             f"`scale`. The entry's keys are in {_GLOSSARY_LINK}, under "
             "`[[probes]]`."
         ),
-        pages=(_page("workspace-and-workflows", "The workspace and the workflow"),),
+        pages=(("workspace-and-workflows", "The workspace and the workflow"),),
     ),
     TemplateSection(
         heading=f"The custom free stream, `inputs/{FREESTREAM_DIR}/<stem>.txt`",
@@ -1414,7 +1408,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             "the unstructured rows read as the structured field). "
             f"The row key is in {_GLOSSARY_LINK}, under the row keys."
         ),
-        pages=(_page("gui-to-pyfs", "From the GUI to pyfs"),),
+        pages=(("gui-to-pyfs", "From the GUI to pyfs"),),
     ),
     TemplateSection(
         heading=f"The quasi-steady wheel calibration, `inputs/{CALIBRATIONS_DIR}/<id>.toml`",
@@ -1440,7 +1434,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             "naming the line; the post reads it again, so a route is chosen or "
             "changed with no new run."
         ),
-        pages=(_page("qsteady-corrections", "Quasi-steady wheel corrections"),),
+        pages=(("qsteady-corrections", "Quasi-steady wheel corrections"),),
     ),
     TemplateSection(
         heading=f"The HPC profile, `inputs/{HPC_DIR}/<name>.toml`",
@@ -1456,7 +1450,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             f"Every key a profile takes is in the example; {_GLOSSARY_LINK} lists "
             "the keys of the files a row cites."
         ),
-        pages=(_page("workspace-and-workflows", "The workspace and the workflow"),),
+        pages=(("workspace-and-workflows", "The workspace and the workflow"),),
     ),
     TemplateSection(
         heading=f"The build registry, `inputs/{EXECUTABLES_FILE}`",
@@ -1473,7 +1467,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             f"is in the example; {_GLOSSARY_LINK} lists the keys of the files a "
             "row cites."
         ),
-        pages=(_page("workspace-and-workflows", "The workspace and the workflow"),),
+        pages=(("workspace-and-workflows", "The workspace and the workflow"),),
     ),
     TemplateSection(
         heading=f"This machine's paths, `inputs/{LOCAL_EXECUTABLES_FILE}`",
@@ -1489,7 +1483,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             f"Its entries take the registry's shapes; {_GLOSSARY_LINK} lists the "
             "keys of the files a row cites."
         ),
-        pages=(_page("workspace-and-workflows", "The workspace and the workflow"),),
+        pages=(("workspace-and-workflows", "The workspace and the workflow"),),
     ),
 )
 
@@ -1605,11 +1599,9 @@ def write_input_template(
     >>> len(first), len(again)
     (1, 0)
     """
-    target = Path(folder)
-    target.mkdir(parents=True, exist_ok=True)
-    page = target / INPUT_TEMPLATE_NAME
-    _refuse_existing_product(page, overwrite)
-    if write_if_different(page, input_template_markdown()) and changed is not None:
+    page = Path(folder) / INPUT_TEMPLATE_NAME
+    page.parent.mkdir(parents=True, exist_ok=True)
+    if write_if_different(page, input_template_markdown(), overwrite) and changed is not None:
         changed.append(page)
     return page
 

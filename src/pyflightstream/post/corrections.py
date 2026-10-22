@@ -84,7 +84,7 @@ from pyflightstream.post._stage import (
 )
 from pyflightstream.post._tables import (
     ROTOR_TABLE_SUFFIX,
-    _guarded_target,
+    _one_refusal,
     read_csv_table,
     write_csv_table,
 )
@@ -732,6 +732,7 @@ def _theodorsen_file(
 # ------------------------------------------------------------------- driver
 
 
+@_one_refusal
 def write_qsteady_corrections(
     spec: QsteadyCorrectionSpec,
     *,
@@ -786,7 +787,6 @@ def write_qsteady_corrections(
     list of tuple of (Path, dict)
         Each file written with its manifest entry.
     """
-    target = _guarded_target(target, overwrite)
     written: list[tuple[Path, dict[str, object]]] = []
     if not wheel_points or (spec.route == "none" and spec.diagnostic == "none"):
         return written

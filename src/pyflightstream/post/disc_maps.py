@@ -34,7 +34,7 @@ from pathlib import Path
 from pyflightstream._errors import ProductError
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.post._stage import _a_name_a_file_may_carry
-from pyflightstream.post._tables import _guarded_target, _significant_cell, write_csv_table
+from pyflightstream.post._tables import _one_refusal, _significant_cell, write_csv_table
 from pyflightstream.post.axes import placed_blade_azimuth_deg
 from pyflightstream.post.harmonics import HarmonicRotor, blade_of, load_quantities, sample_blocks
 
@@ -271,6 +271,7 @@ def disc_map_rows(
     return result
 
 
+@_one_refusal
 def write_disc_maps(
     rows_of: DiscMaps,
     *,
@@ -315,9 +316,8 @@ def write_disc_maps(
     ProductError
         If two rotors' maps would be written to one file name.
     """
-    target = _guarded_target(target, overwrite)
     folder = Path(out_dir)
-    place = target
+    place = target if target is not None else (lambda path: path)
     # EVERY ALIAS SET THAT REACHES A FILE NAME IS CHECKED BEFORE ANY WRITE: two rotors
     # whose names sanitise to one file would write the second over the first.
     named: dict[str, tuple[str, str]] = {}

@@ -604,6 +604,23 @@ def _states(attitude: Mapping[object, object], key: str) -> bool:
     return any(str(name).casefold() == key.casefold() for name in attitude)
 
 
+def _row_angles(
+    attitude: Mapping[object, object],
+    run_id: str,
+    defaulted: list[tuple[str, tuple[str, ...]]],
+) -> tuple[float | None, float | None]:
+    """Return the row's ALPHA and BETA, an unstated one 0.0 (FR-69), noting the defaulted.
+
+    AN UNSTATED ANGLE IS 0.0, STATED AS THE DEFAULT: the shaft angle and the wind-axis
+    force read the angle as MADV does, and the table says it was taken.
+    """
+    absent = tuple(key for key in ("ALPHA", "BETA") if not _states(attitude, key))
+    if absent:
+        defaulted.append((run_id, absent))
+    alpha, beta = (0.0 if key in absent else _angle_of(attitude, key) for key in ("ALPHA", "BETA"))
+    return alpha, beta
+
+
 def _say_the_na_rows(
     product: str,
     alias: str,
@@ -867,15 +884,7 @@ def write_rotor_table(
         if reason is not None:
             refused.append((run_id, reason))
             continue
-        # AN UNSTATED ANGLE IS 0.0, STATED AS THE DEFAULT (FR-69): the shaft angle and the
-        # wind-axis force read the angle as MADV does, and the table says it was taken.
-        absent = tuple(key for key in ("ALPHA", "BETA") if not _states(attitude, key))
-        angles = (
-            0.0 if "ALPHA" in absent else _angle_of(attitude, "ALPHA"),
-            0.0 if "BETA" in absent else _angle_of(attitude, "BETA"),
-        )
-        if absent:
-            defaulted.append((run_id, absent))
+        angles = _row_angles(attitude, run_id, defaulted)
         loads = rotor_shaft_loads(
             surfaces if isinstance(surfaces := row.get("surfaces"), Mapping) else {},
             rotor=rotor,
@@ -965,8 +974,7 @@ def write_rotor_table(
                 PyflightstreamWarning,
                 stacklevel=2,
             )
-        stated_condition = row.get("condition")
-        condition = dict(stated_condition) if isinstance(stated_condition, Mapping) else {}
+        condition = dict(attitude)
         # M1: `NA` where the point's air did not resolve, never a guess.
         machs, madv = _mach_cells(row.get("air"), rpm, diameter, angles, shaft)
         written.append(
@@ -989,11 +997,10 @@ def write_rotor_table(
     _say_the_na_rows(
         Path(path).name, alias, unangled=unangled, at_rest=at_rest, defaulted=defaulted
     )
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     # THROUGH `write_csv_table`, which is THE funnel: every cell of every
     # product is rendered by `_cell` there, so a value this table cannot fill
     # reads `NA` like every other product rather than by a rule of its own.
     # Writing the rows here with `csv.writer` would be a fifth family spelling
     # its own absences, which is the drift item 5 repaired.
-    return write_csv_table(target, columns, written, overwrite=overwrite)
+    return write_csv_table(path, columns, written, overwrite=overwrite)

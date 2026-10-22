@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import re
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
@@ -36,7 +35,8 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
     ProductError,
-    _guarded_target,
+    _integrated_strips,
+    _one_refusal,
     context_row,
     section_identity,
     write_csv_table,
@@ -54,37 +54,6 @@ from pyflightstream.workspace import RunRecord
 from pyflightstream.workspace.storage import pruned_step_refusal
 
 __all__ = ["write_section_distributions"]
-
-
-def _integrated_strips(values: list[list[float]]) -> list[tuple[float, ...]]:
-    """Integrate one instant/block in its export axes about each quarter chord.
-
-    Strip edges are the midpoints between stations and, at each end, half a
-    spacing beyond the end station (the extended rule, PFS-2081.40): the
-    export places its end stations at strip centers, so edges AT them left half
-    a strip out at each end. One block at a time, never across a boundary.
-    Forces are N/m and Moment is N m/m; the added columns are m, N, N, N m.
-    """
-    if len(values) < 2:
-        raise ProductError("integration needs at least two stations in each block")
-    if not all(math.isfinite(value) for row in values for value in row):
-        raise ProductError("integration needs finite sectional values (NaN or infinity found)")
-    gaps = [b[0] - a[0] for a, b in zip(values[:-1], values[1:], strict=True)]
-    if not (all(gap > 0 for gap in gaps) or all(gap < 0 for gap in gaps)):
-        raise ProductError("integration needs strictly monotonic Offset in each block")
-    halves = [abs(gap) / 2 for gap in gaps]
-    lengths = [
-        2 * halves[0],
-        *(a + b for a, b in zip(halves[:-1], halves[1:], strict=True)),
-        2 * halves[-1],
-    ]
-    result = [
-        (length, *(row[i] * length for i in (4, 5, 6)))
-        for row, length in zip(values, lengths, strict=True)
-    ]
-    if not all(math.isfinite(value) for row in result for value in row):
-        raise ProductError("integration produced a non-finite length or load")
-    return result
 
 
 def _distributions(
@@ -1144,6 +1113,7 @@ def _measured_integration(record, integrate, errors):
     return set()
 
 
+@_one_refusal
 def write_section_distributions(
     *,
     sim_dir: Path,
@@ -1262,7 +1232,6 @@ def write_section_distributions(
     tuple[list[Path], dict[str, dict[str, object]]]
         Written paths and their product-manifest entries.
     """
-    target = _guarded_target(target, overwrite)
     geometry = list(inventory) if inventory is not None else record.inventory
     record = _with_the_layout_its_script_proves(sim_dir, record, pproc, geometry)
     folders = [sim_dir / Path(output).parent for output in record.outputs]

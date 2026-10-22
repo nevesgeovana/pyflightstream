@@ -432,6 +432,19 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
     # an unstated azimuth; any tolerance for a rounded reference file belongs
     # in the comparison.
     delta_time_s = _angular_step_seconds(case, theta, resolved.rpm)
+    steps = _whole_steps(case, revolutions, theta)
+    return TimeStepping(
+        stated_form="angular",
+        delta_time_s=delta_time_s,
+        time_iterations=steps,
+        delta_theta_deg=theta,
+        revolutions=revolutions,
+        rpm=resolved.rpm,
+    )
+
+
+def _whole_steps(case: SimCase, revolutions: float, theta: float) -> int:
+    """Return the whole time steps of ``revolutions`` at ``theta`` degrees a step, or refuse."""
     exact_steps = revolutions * 360.0 / theta
     if not math.isfinite(exact_steps):
         raise CampaignConfigError(
@@ -460,14 +473,7 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
             f"size; a step size that divides {revolutions} revolutions exactly is the "
             "other way to close it."
         )
-    return TimeStepping(
-        stated_form="angular",
-        delta_time_s=delta_time_s,
-        time_iterations=steps,
-        delta_theta_deg=theta,
-        revolutions=revolutions,
-        rpm=resolved.rpm,
-    )
+    return steps
 
 
 def _angular_step_seconds(case: SimCase, theta: float, rpm: float) -> float:

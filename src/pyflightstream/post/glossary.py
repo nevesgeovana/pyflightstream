@@ -111,8 +111,12 @@ PPROC_GUIDE_NAMES: tuple[str, ...] = ("VARIABLES.md", "WRITING-EQUATIONS.md")
 GENERATED_BANNER = "GENERATED FROM THE CODE by pyflightstream. Do not edit: it is rewritten."
 
 
-def write_if_different(path: Path, text: str) -> bool:
-    """Write ``text`` to ``path`` unless it already holds exactly that; say whether it wrote."""
+def write_if_different(path: Path, text: str, overwrite: bool = True) -> bool:
+    """Write ``text`` to ``path`` unless it already holds exactly that; say whether it wrote.
+
+    ``overwrite=False`` refuses a ``path`` that exists, as every post writer does (NFR-49).
+    """
+    _refuse_existing_product(path, overwrite)
     try:
         if path.is_file() and path.read_text(encoding="utf-8") == text:
             return False
