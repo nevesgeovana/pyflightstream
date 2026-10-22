@@ -469,8 +469,9 @@ class ForceDistributionReport:
     """Parsed EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS output.
 
     One row per panel of every exported boundary: the panel's position
-    and its pressure and viscous force coefficients, which integrate to
-    the coefficients the loads spreadsheet prints as a total.
+    and its pressure and viscous force coefficients, which are meant to
+    integrate to the coefficients the loads spreadsheet prints as a total
+    (that equality is assumed here, not measured in a committed report).
 
     Attributes
     ----------
