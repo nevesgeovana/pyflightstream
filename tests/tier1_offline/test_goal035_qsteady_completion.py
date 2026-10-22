@@ -816,54 +816,78 @@ def test_the_post_stage_leaves_each_wheel_point_its_validity_and_the_super_file_
 def test_the_sections_validity_wins_the_plan_in_the_super_file_row(tmp_path):
     """After the run, a wheel point's row takes the sections' values, shares included."""
     # P0300-QS-VALIDITY-SHARE
-    from types import SimpleNamespace
-
-    from pyflightstream.post import qsteady as post_qsteady
-    from pyflightstream.post._rotor_products import _qsteady_super_cells
-
-    loads = tmp_path / "DP.txt"
-    # 0.31.0: the record on disk is the whole record the builder writes, which
-    # its one reader refuses to take in part; the plan's values are unchanged.
-    quasi = {
-        "schema_version": 1,
-        "run_type": QSTEADY_ROTOR,
-        "case": "wheel",
-        "rotor": "PROP",
-        "blades": 2,
-        "rpm": 1200.0,
-        "shaft_frame_axis": "X",
-        "hub_m": [0.0, 0.0, 0.0],
-        "axis_vector": [1.0, 0.0, 0.0],
-        "diameter_m": 2.0,
-        "families_general": [],
-        "families_blades": ["W", "B"],
-        "blade1_azimuth_deg": 0.0,
-        "positions": [{"index": 0, "clocking_deg": 0.0, "rotated_deg": 0.0, "loads": "DP.txt"}],
-        "validity": {
-            "k_min": 0.01,
-            "k_max": 0.02,
-            "k_mean": 0.015,
-            "span_pct_k_gt_0_05": 0.0,
-            "span_pct_k_gt_0_1": 0.0,
-            "note": None,
-        },
-    }
-    (tmp_path / "DP_qsteady.json").write_text(json.dumps(quasi))
-    point = SimpleNamespace(name="P", loads_path=loads)
-    record = SimpleNamespace(recipe=QSTEADY_ROTOR)
-    after = post_qsteady.PointValidity(
-        {
-            "K_1P_MAX": 0.3,
-            "THRUST_PCT_K_GT_0_1": 42.0,
-            "TORQUE_PCT_K_GT_0_1": 40.0,
-            "K_1P_SOURCE": "sections",
-        }
+    from pyflightstream.workspace import RunRecord
+    from tests.tier1_offline.test_goal036_harmonics import _layout, _sloads
+    from tests.tier1_offline.test_goal036_qsteady_corrections import (
+        _post_recorded,
+        _recorded_wheel,
     )
-    cells = _qsteady_super_cells(point, record, {"P": after})
-    assert cells["THRUST_PCT_K_GT_0_1"] == "42.00000" and cells["K_1P_SOURCE"] == "sections"
-    plan_only = _qsteady_super_cells(point, record, {})
+
+    sections = (
+        "\n[sections]\ncount = 3\n"
+        + '\n[[sections.distributions]]\nfamilies = ["Blade1"]\nframe = "LOCAL_AXIS"\n'
+        + 'planes = ["XZ"]\n'
+        + '\n[[sections.distributions]]\nfamilies = ["Blade2"]\nframe = "LOCAL_AXIS"\n'
+        + 'planes = ["XZ"]\n'
+    )
+    plan = {
+        "k_min": 0.01,
+        "k_max": 0.02,
+        "k_mean": 0.015,
+        "span_pct_k_gt_0_05": 0.0,
+        "span_pct_k_gt_0_1": 0.0,
+        "note": None,
+    }
+
+    def super_rows(root: Path, *, with_sections: bool) -> tuple[dict[str, str], dict[str, str]]:
+        workspace = _recorded_wheel(root, pproc_extra=sections if with_sections else "")
+        records = workspace.read_manifest()
+        (workspace.root / "runs.json").unlink()
+        for record in records:
+            if record.sim_id == "6001":
+                loads = workspace.sim_dir("6001") / record.outputs[0]
+                quasi_path = loads.with_name(loads.stem + "_qsteady.json")
+                quasi = json.loads(quasi_path.read_text(encoding="utf-8"))
+                quasi["validity"] = plan
+                if with_sections:
+                    name = loads.stem + "_sloads.txt"
+                    (loads.parent / name).write_text(
+                        _sloads([(0.0, 1.0), (180.0, 1.0)]), newline="\n"
+                    )
+                    for position in quasi["positions"]:
+                        position["section_exports"] = {"sectional_loads": name}
+                    quasi["families_blades"] = ["Blade1", "Blade2"]
+                    record = record.model_copy(
+                        update={
+                            "outputs": [*record.outputs, f"outputs/{name}"],
+                            "sections_layout": _layout(2),
+                        }
+                    )
+                quasi_path.write_text(json.dumps(quasi), encoding="utf-8")
+            workspace.append_record(RunRecord(**record.model_dump()))
+        _manifest, folder, _log = _post_recorded(workspace)
+
+        def first_row(sim: str) -> dict[str, str]:
+            supers = sorted(folder.rglob(f"SUPER-{sim}*"))
+            assert supers, sorted(p.name for p in folder.rglob("*"))
+            head, *rows = supers[0].read_text(encoding="utf-8").splitlines()
+            heading = head.split(",")
+            cells = rows[0].split(",")
+            return {
+                name: cells[heading.index(name)]
+                for name in ("K_1P_MAX", "THRUST_PCT_K_GT_0_1", "K_1P_SOURCE")
+            }
+
+        return first_row("6001"), first_row("6002")
+
+    (won, steady) = super_rows(tmp_path / "sections", with_sections=True)
+    assert won["K_1P_SOURCE"] == "sections"
+    assert won["K_1P_MAX"] not in ("0.02000", "NA") and won["THRUST_PCT_K_GT_0_1"] != "NA"
+    # a steady point carries no validity of a wheel: its cells read NA
+    assert set(steady.values()) == {"NA"}
+    plan_only, _steady = super_rows(tmp_path / "plan", with_sections=False)
     assert plan_only["K_1P_MAX"] == "0.02000" and plan_only["THRUST_PCT_K_GT_0_1"] == "NA"
-    assert _qsteady_super_cells(point, SimpleNamespace(recipe="steady"), {"P": after}) == {}
+    assert plan_only["K_1P_SOURCE"] == "mesh"
 
 
 # ------------------------------------------------------------- E: the docs --

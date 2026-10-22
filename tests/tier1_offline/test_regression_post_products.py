@@ -1190,47 +1190,38 @@ class TestPost1Review:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "hub, radius",
-        [((0.0, 0.5, 0.0), "1.00000"), ((0.0, 0.5, 0.3), "NA")],
+        "hub, radii",
+        [((0.0, 0.5, 0.0), (0.1, 0.2, 0.4)), ((0.0, 0.5, 0.3), None)],
         ids=["P0400-REVIEW-HARMONIC-HUB", "P0400-REVIEW-HARMONIC-NA"],
     )
     def test_p0400_wheel_harmonic_radii_are_measured_from_the_hub(
-        tmp_path, monkeypatch, hub, radius
+        tmp_path, monkeypatch, hub, radii
     ):
-        from pyflightstream.post import _rotor_products
+        from pyflightstream.workspace import CampaignWorkspace
+        from tests.tier1_offline.test_goal036_harmonics import _post, _wheel
 
-        table = tmp_path / "sections.csv"
-        table.write_text(
-            "CLOCKING,ROTOR,FAMILY,PLANE,AZIMUTH,Offset,Fx\n"
-            + "".join(f"{i},PROP,B,XZ,{i * 60},1.5,10\n" for i in range(6))
+        workspace = _wheel(tmp_path, monkeypatch, blades=6, clockings=2, rpm=1200.0)
+        record = workspace.sim_dir("7001") / "DP_qsteady.json"
+        stated = json.loads(record.read_text(encoding="utf-8"))
+        stated["hub_m"] = list(hub)
+        record.write_text(json.dumps(stated), encoding="utf-8")
+        # the sections are cut in the analysis frame, where the hub is not the origin
+        (recorded,) = workspace.read_manifest()
+        layout = [{**block, "frame": "MRP"} for block in recorded.sections_layout or []]
+        monkeypatch.setattr(
+            CampaignWorkspace,
+            "read_manifest",
+            lambda self: [recorded.model_copy(update={"sections_layout": layout})],
         )
-        quasi = SimpleNamespace(
-            case="wheel",
-            rotor_alias="PROP",
-            families_blades=["B"],
-            diameter_m=4.0,
-            positions=list(range(6)),
-            hub_m=hub,
-            axis_vector=(1.0, 0.0, 0.0),
-        )
-        monkeypatch.setattr(_rotor_products, "read_qsteady_record", lambda _: quasi)
-        record = SimpleNamespace(
-            recipe="qsteady_rotor",
-            sim_id="1",
-            sections_layout=[{"families": ["B"], "plane": "XZ", "frame": "MRP"}],
-        )
-        point = SimpleNamespace(name="p", loads_path=tmp_path / "p.txt")
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            result = _rotor_products._wheel_harmonics(
-                table, point, record, out=tmp_path, target=lambda p: p, runs=["r1"], skipped={}
-            )
-        assert result is not None
-        _, rows = read_csv_table(result[0])
-        assert {row["STATION_R_M"] for row in rows} == {radius}
-        assert {row["R_OVER_R"] for row in rows} == {"0.50000" if radius != "NA" else "NA"}
-        if radius == "NA":
-            assert any("radius" in str(w.message) for w in caught)
+        out, _manifest, log = _post(workspace)
+        _, rows = read_csv_table(out / "sections" / "DP_harmonics.csv")
+        if radii is None:
+            assert {row["STATION_R_M"] for row in rows} == {"NA"}
+            assert {row["R_OVER_R"] for row in rows} == {"NA"}
+            assert any("radius" in line for line in log), log
+        else:
+            assert sorted({float(row["STATION_R_M"]) for row in rows}) == pytest.approx(radii)
+            assert sorted({float(row["R_OVER_R"]) for row in rows}) == pytest.approx(radii)
 
 
 def _post_1_sim___without_a_window(

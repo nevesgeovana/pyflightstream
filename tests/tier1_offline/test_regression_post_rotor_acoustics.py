@@ -24,10 +24,8 @@ from pyflightstream.cases.corrections import (
     calibration_text,
 )
 from pyflightstream.cases.qsteady import reduced_frequency
-from pyflightstream.cases.workflows import QSTEADY_ROTOR
 from pyflightstream.post import _rotor_plan
-from pyflightstream.post._rotor_products import _acoustic_products, _qsteady_products
-from pyflightstream.post._tables import ReferenceValues
+from pyflightstream.post._rotor_products import _acoustic_products
 from pyflightstream.post.acoustics import write_acoustic_products
 from pyflightstream.post.harmonics import fit_harmonics
 from pyflightstream.post.inflow_tools import blade_view_harmonics
@@ -310,80 +308,40 @@ class TestPost2RotorProducts:
     @staticmethod
     def test_p0400_qsrecord_an_unreadable_record_is_keyed_under_the_run(tmp_path):
         """P0400-QSRECORD: the skip names runs/<run id>#qsteady_record and no rotor file."""
-        point = SimpleNamespace(
-            name="a+00.0", loads_path=tmp_path / "absent" / "DP.txt", state=None
-        )
-        record = SimpleNamespace(recipe=QSTEADY_ROTOR, run_id="rotor/1/a+00.0")
-        skipped: dict[str, str] = {}
-        written = _qsteady_products(
-            "1",
-            [point],
-            {point.name: record},
-            reference=ReferenceValues(sref_m2=1.0, cref_m=1.0, bref_m=1.0),
-            out=tmp_path,
-            validity_of={},
-            condition_of=lambda _point: {},
-            target=lambda path: path,
-            skipped=skipped,
-        )
-        assert written == []
-        assert list(skipped) == ["runs/rotor/1/a+00.0#qsteady_record"]
-        assert "a+00.0" in skipped["runs/rotor/1/a+00.0#qsteady_record"]
+        workspace = _post_1_qsteady___recorded_wheel(tmp_path)
+        (record,) = [
+            r for r in workspace.read_manifest() if r.sim_id == "6001" and "AL+000" in r.run_id
+        ]
+        broken = workspace.sim_dir("6001") / "outputs" / "POLAR-6001_M20AL+000BE+000_qsteady.json"
+        broken.write_text("{broken", encoding="utf-8")
+        manifest, _folder, _log = _post_1_qsteady___post_recorded(workspace)
+        key = f"runs/{record.run_id}#qsteady_record"
+        assert key in manifest["skipped"]
+        assert "POLAR-6001_M20AL+000BE+000" in manifest["skipped"][key]
+        assert not [name for name in manifest["skipped"] if "?" in name]
+        assert not [name for name in manifest["products"] if "?" in name]
 
     @staticmethod
-    def test_p0430_rb3_inconsistent_load_columns_skip_only_the_rotor_tables(tmp_path, monkeypatch):
+    def test_p0430_rb3_inconsistent_load_columns_skip_only_the_rotor_tables(tmp_path):
         """RB3-02 (F-1370): the refusal is a named skip of the rotor's tables, never a lost sim.
 
         At d1d08f51 write_qsteady_tables raised ProductError out of this stage, and the
         campaign dropped every product of the simulation under one key naming no product.
         """
-        from dataclasses import replace
-
-        from pyflightstream.post import _rotor_products
-        from tests.tier1_offline.test_goal035_qsteady_rotor import _clocked_point
-
-        records = {}
-        points = []
-        for name in ("a+00.0", "a+05.0"):
-            folder = tmp_path / name
-            folder.mkdir()
-            record, _ = _clocked_point(folder)
-            records[str(folder / "DP.txt")] = record
-            points.append(
-                SimpleNamespace(
-                    name=name,
-                    loads_path=folder / "DP.txt",
-                    state=None,
-                    loads=SimpleNamespace(),
-                )
-            )
-        second = records[str(points[1].loads_path)]
-        records[str(points[1].loads_path)] = replace(
-            second, families_blades=tuple(reversed(second.families_blades))
+        workspace = _post_1_qsteady___recorded_wheel(tmp_path)
+        records = [r for r in workspace.read_manifest() if r.sim_id == "6001"]
+        second = workspace.sim_dir("6001") / "outputs" / "POLAR-6001_M20AL-020BE+000_qsteady.json"
+        data = json.loads(second.read_text(encoding="utf-8"))
+        data["families_blades"] = list(reversed(data["families_blades"]))
+        second.write_text(json.dumps(data), encoding="utf-8")
+        manifest, _folder, _log = _post_1_qsteady___post_recorded(workspace)
+        (key,) = [name for name in manifest["skipped"] if name.endswith("_qs_positions.csv")]
+        assert "inconsistent load columns" in manifest["skipped"][key]
+        assert all(record.run_id in manifest["skipped"][key] for record in records)
+        assert not [name for name in manifest["products"] if name.endswith("_qs_positions.csv")]
+        assert any(name.endswith("_rotor.csv") for name in manifest["products"]), (
+            "the rotor table of the simulation is still written"
         )
-        monkeypatch.setattr(_rotor_products, "read_qsteady_record", lambda path: records[str(path)])
-        skipped: dict[str, str] = {}
-        written = _qsteady_products(
-            "1",
-            points,
-            {
-                point.name: SimpleNamespace(
-                    recipe=QSTEADY_ROTOR, run_id=f"rotor/1/{point.name}", density_kg_m3=1.2
-                )
-                for point in points
-            },
-            reference=ReferenceValues(sref_m2=1.0, cref_m=1.0, bref_m=1.0),
-            out=tmp_path,
-            validity_of={},
-            condition_of=lambda _point: {},
-            target=lambda path: path,
-            skipped=skipped,
-        )
-        assert written == []
-        (key,) = skipped
-        assert key.endswith("_qs_positions.csv"), skipped
-        assert "inconsistent load columns" in skipped[key]
-        assert "rotor/1/a+00.0" in skipped[key] and "rotor/1/a+05.0" in skipped[key]
 
 
 class TestPost1Acoustics:

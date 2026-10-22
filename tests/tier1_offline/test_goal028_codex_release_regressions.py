@@ -158,52 +158,83 @@ def _span_ctx(variables, reductions, *, rotors=("R",), window=(1, 100)):
 
 def test_f130_a_row_with_no_window_key_keeps_the_row_window_for_every_rotor():
     """F-130: the recorded prose of the time average does not replan the rotor's window."""
-    from pyflightstream.post._rotor_plan import _rotor_span_or_reason
+    from pyflightstream.post._rotor_plan import _rotor_windows
 
     reductions = {
         "time_average": {"window_from": "LAST_REVS_AVG = 1 revolution of the clock rotor"},
         "rotors": {"R": {"steps_per_revolution": 10}},
     }
-    assert _rotor_span_or_reason(_span_ctx({}, reductions), "p", "R") == ((1, 100), None)
+    assert _rotor_windows(_span_ctx({}, reductions), "R") == {"p": (1, 100)}
 
 
 def test_f131_a_rotor_with_no_clock_keeps_the_row_window():
     """F-131: a count of turns with no clock of this rotor averages over the row's window."""
-    from pyflightstream.post._rotor_plan import _rotor_span_or_reason
+    from pyflightstream.post._rotor_plan import _rotor_windows
 
     reductions = {"rotors": {"R": {"steps_per_revolution": 10}, "S": {}}}
     ctx = _span_ctx({"LAST_REVS_AVG": "2"}, reductions, rotors=("R", "S"))
-    assert _rotor_span_or_reason(ctx, "p", "S") == ((1, 100), None)
-    assert _rotor_span_or_reason(ctx, "p", "R") == ((81, 100), None)
+    assert _rotor_windows(ctx, "S") == {"p": (1, 100)}
+    assert _rotor_windows(ctx, "R") == {"p": (81, 100)}
 
 
-def test_f489_a_mixed_source_rotor_table_names_every_history_group(monkeypatch):
+def test_f489_a_mixed_source_rotor_table_names_every_history_group(tmp_path):
     """F-489: the second point's group does not erase the first point's from the manifest."""
     from pyflightstream.post import _rotor_plan as module
+    from pyflightstream.post.products import ReferenceValues
 
+    parts = ("FX", "FY", "FZ", "MX", "MY", "MZ")
     groups = {"A": "HUB_ONE", "B": "HUB_TWO", "C": "HUB_ONE"}
-    newtons = {name: 1.0 for name in ("FX", "FY", "FZ", "MX", "MY", "MZ")}
-    monkeypatch.setattr(
-        module,
-        "_averaged_rotor_newtons",
-        lambda ctx, point, alias, carried: (newtons, "", groups[point.name]),
-    )
-    monkeypatch.setattr(
-        module, "_rotor_coefficients_from_newtons", lambda *args, **kwargs: {"S": {"CL": 1.0}}
-    )
+    plots, by_run, sources = {}, {}, {}
+    for name, group in groups.items():
+        table = tmp_path / f"{name}_plots.csv"
+        lines = ["POL,Time-step," + ",".join(f"{part}_{group}" for part in parts)]
+        lines += [f"1,{step}," + ",".join("1.0" for _ in parts) for step in (1, 2)]
+        table.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        plots[name] = table
+        sources[name] = [f"run/{name}"]
+        by_run[f"run/{name}"] = SimpleNamespace(
+            reductions={
+                "plot_groups": [
+                    {
+                        "name": group,
+                        "families": ["Blade1"],
+                        "frame": "MRP",
+                        "parameters": list(parts),
+                    }
+                ]
+            }
+        )
     ctx = SimpleNamespace(
         sources_read={},
-        windows={},
+        windows={name: (1, 2) for name in groups},
         window=(1, 2),
-        reference=None,
+        reference=ReferenceValues(sref_m2=1.0, cref_m=1.0, bref_m=1.0),
         aliases={},
+        pproc=SimpleNamespace(plots=SimpleNamespace(parameters=list(parts), groups=[])),
+        plots=plots,
+        sources=sources,
+        by_run=by_run,
+        matrix_row=SimpleNamespace(variables={}),
+        frozen={},
+        sim_id="1",
+        rotors={"HUB": object()},
     )
     rotor = SimpleNamespace(families_blades=["Blade1"])
-    for name in ("A", "B", "C"):
-        point = SimpleNamespace(name=name, loads=None)
-        module._rotor_row_surfaces(
-            ctx, point, "HUB", rotor, density=1.2, speed=10.0, quasi=None, run_id="r", left_out=[]
+    for name in groups:
+        point = SimpleNamespace(name=name, loads=SimpleNamespace(surfaces={"Blade1": {}}))
+        left_out: list[tuple[str, str]] = []
+        selected = module._rotor_row_surfaces(
+            ctx,
+            point,
+            "HUB",
+            rotor,
+            density=1.2,
+            speed=10.0,
+            quasi=None,
+            run_id=f"run/{name}",
+            left_out=left_out,
         )
+        assert selected is not None and not left_out, left_out
     assert ctx.sources_read == {"HUB": "HUB_ONE, HUB_TWO"}
 
 

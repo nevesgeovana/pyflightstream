@@ -17,11 +17,9 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
-from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import qsteady as arithmetic
 from pyflightstream.post import qsteady as post_qsteady
 from pyflightstream.post.axes import section_station_shaft_loads
@@ -200,30 +198,31 @@ def test_a_total_with_no_sign_is_na_and_said(tmp_path):
     assert "TORQUE_PCT_K_GT_0_1 reads NA" in torque_note and "is zero" in torque_note
 
 
-def test_the_post_says_a_share_it_cannot_take_in_its_log(tmp_path):
+def test_the_post_says_a_share_it_cannot_take_in_its_log(tmp_path, monkeypatch):
     """The product stage turns each note into a WARNING line naming the point (post.log)."""
     # P0310-THRUST-AXIS
-    from pyflightstream.post._rotor_products import _qsteady_sections
+    import json
 
-    record = _record(letter="X", axis=(1.0, 0.0, 0.0))
-    (tmp_path / "DP_qsteady.json").write_text(record.to_text(), encoding="utf-8")
-    table = _table(tmp_path / "DP_sections.csv", ((10.0, 1.0),) * 4)
-    point = SimpleNamespace(
-        name="DP",
-        loads_path=tmp_path / "DP.txt",
-        loads=SimpleNamespace(freestream_velocity_m_s=30.0),
+    from pyflightstream.workspace import CampaignWorkspace
+    from tests.tier1_offline.test_goal036_harmonics import _post, _wheel
+
+    workspace = _wheel(tmp_path, monkeypatch, blades=2, clockings=2, rpm=1200.0)
+    (recorded,) = workspace.read_manifest()
+    layout = [{**block, "frame": "SETUP_FRAME"} for block in recorded.sections_layout or []]
+    monkeypatch.setattr(
+        CampaignWorkspace,
+        "read_manifest",
+        lambda self: [recorded.model_copy(update={"sections_layout": layout})],
     )
-    run = SimpleNamespace(recipe="qsteady_rotor", sections_layout=_layout("SETUP_FRAME"))
-    skipped: dict[str, str] = {}
-    with pytest.warns(PyflightstreamWarning) as said:
-        validity = _qsteady_sections(table, point, run, skipped, lambda path, text: None)
-    assert validity["DP"].values["THRUST_PCT_K_GT_0_1"] is None
-    lines = [str(warning.message) for warning in said]
+    _out, _manifest, log = _post(workspace)
+    written = json.loads(
+        (workspace.sim_dir("7001") / "DP_qsteady_validity.json").read_text(encoding="utf-8")
+    )
+    assert written["validity"]["THRUST_PCT_K_GT_0_1"] is None
     assert any(
-        line.startswith("point=DP product=sections: K_1P of rotor PROP reads NA")
-        and "SETUP_FRAME" in line
-        for line in lines
-    ), lines
+        "point=DP product=sections: K_1P of rotor PROP reads NA" in line and "SETUP_FRAME" in line
+        for line in log
+    ), log
 
 
 def test_a_station_whose_force_or_offset_is_na_leaves_both_shares_na_naming_it(tmp_path):

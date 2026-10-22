@@ -1981,6 +1981,7 @@ class TestSweep1Contracts:
         """P0400-SWEEP-ROTOR-CLOCK: the second rotor's two-step turn is its own window."""
         from types import SimpleNamespace
 
+        from pyflightstream.cases import AXES_PLOT_COMPONENTS
         from pyflightstream.post import _rotor_plan
 
         table = tmp_path / "plots.txt"
@@ -1996,9 +1997,7 @@ class TestSweep1Contracts:
             "blade_passage_average",
             lambda series, *, window, read_steps: (
                 seen.append(window)
-                or SimpleNamespace(
-                    fields={f"{part}_B": [1.0] for part in _rotor_plan._PLOT_COMPONENTS}
-                )
+                or SimpleNamespace(fields={f"{part}_B": [1.0] for part in AXES_PLOT_COMPONENTS})
             ),
         )
         monkeypatch.setattr(_rotor_plan, "_judge_average", lambda *args, **kwargs: None)
