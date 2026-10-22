@@ -67,11 +67,13 @@ OWED = (
 
 VERSION = "26.120"
 
-#: Owed commands the script does not emit. `EXPORT_SURFACE_SECTIONS` declares an
-#: index alone while the real layout carries a path on its own line, so emitting
-#: it makes the solver consume the FOLLOWING command as its file name (the
-#: sibling `capture_export_corpus.py` records the same finding).
-NOT_EMITTED = ("EXPORT_SURFACE_SECTIONS",)
+#: Owed commands the script does not emit: none. `EXPORT_SURFACE_SECTIONS` once
+#: was, because the run of 2026-08-20 emitted its index alone and the solver took
+#: the FOLLOWING command as its file name (RPT-036b, finding 1). The command
+#: database now states the manual's grammar, the index inline and the file name on
+#: its own line (FSM-26.120 p.365), and notes that grammar is not yet verified by a
+#: licensed run: this capture is the run that verifies it, so it emits it.
+NOT_EMITTED: tuple[str, ...] = ()
 
 #: `EXPORT_BL_VELOCITY_PROFILE` is NOT in the list above, and its absence
 #: is the run's first finding rather than an oversight. The emitter
@@ -155,6 +157,9 @@ def build_script(stl: Path, out: Path) -> Script:
                 script.emit(command, str(target), "CP-FREESTREAM", "PASCALS", 1, -1)
             elif command == "EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS":
                 script.emit(command, str(target), -1)
+            elif command == "EXPORT_SURFACE_SECTIONS":
+                # The section created above, then the file name on its own line.
+                script.emit(command, 1, str(target))
             else:
                 script.emit(command, str(target))
             emitted.append(command)
