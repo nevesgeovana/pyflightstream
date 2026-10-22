@@ -2295,3 +2295,15 @@ def test_f6_0102_fr_2316_the_applicable_physics_cases_run_and_the_rest_are_repor
     left_out = {case.case_id: case.error for case in run.results if case.error}
     assert left_out.get("PHY-06", "").startswith("INAPPLICABLE to the selected build:"), left_out
     assert "SET_SOLVER_UNSTEADY" in left_out["PHY-06"]
+
+    @staticmethod
+    def test_p0430_the_function_ratchet_filter_matches_the_baseline_key_format_f_882():
+        # The filter above is a key prefix: were the baseline keys spelled differently, every
+        # table would come out empty and the ratchet would judge against defaults silently.
+        keys = _QA_REVIEW_PROOFS__BASELINES["function_limits"]
+        assert any(key.startswith("qa/matrix.py:") for key in keys)
+        source = "def long_one(a, b, c, d, e, f, g, h):\n" + "    pass\n" * 3
+        tree = _qa_review_proofs__am.Tree({"qa/matrix.py": source})
+        assert _qa_review_proofs__am.function_findings(tree, {}, {}), (
+            "a function over the positional limit passed with empty tables"
+        )
