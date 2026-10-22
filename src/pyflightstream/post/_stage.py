@@ -41,7 +41,12 @@ from typing import TYPE_CHECKING, Any
 
 from pyflightstream._cli import post_warning_policy
 from pyflightstream._digest import text_sha256
-from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream._errors import (
+    ProductExistsError,
+    PyflightstreamError,
+    PyflightstreamWarning,
+    warn,
+)
 from pyflightstream.cases.corrections import CalibrationError
 from pyflightstream.cases.windows import AZIMUTHAL
 from pyflightstream.cases.workflows import ROTORS_KEY
@@ -53,6 +58,34 @@ from pyflightstream.workspace.naming import SUPER_FILE_PREFIX
 
 if TYPE_CHECKING:
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
+
+
+def failure_reason(error: Exception) -> str:
+    """Name one product's failure: a refusal as it reads, anything else with its type (FR-2313).
+
+    An unexpected failure costs its own product, never the post, so it is named
+    in a way that reads as the defect it is and not as a refusal.
+    """
+    if isinstance(error, PyflightstreamError):
+        return str(error)
+    return f"{type(error).__name__}: {error} (an unexpected failure of this product)"
+
+
+def _contained(skipped: dict[str, str], key: str, make, empty):
+    """Run one product of a point; a refusal costs only that product, named in ``skipped``.
+
+    The independent products of a point are not isolated from each other otherwise: a refusal
+    from one orphans what the others have written. An existing product still refuses. An
+    unexpected failure costs the product too, named with its type (FR-2313).
+    """
+    try:
+        return make()
+    except (ProductExistsError, Warning):
+        raise
+    except Exception as error:  # noqa: BLE001 -- every failure is named, never fatal here
+        skipped[key] = said = failure_reason(error)
+        warn(f"{key} not written: {said}", PyflightstreamWarning, stacklevel=2)
+        return empty
 
 
 def _surface_export_skip(

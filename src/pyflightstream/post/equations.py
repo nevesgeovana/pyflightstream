@@ -141,6 +141,23 @@ class _Known:
         return number
 
 
+def _require_evaluated_before(
+    name: str, symbol: str, *, evaluated: Mapping[str, object], order: Sequence[str]
+) -> None:
+    """Refuse an equation that reads one not evaluated before it in ``order`` (FR-2327).
+
+    ``evaluated`` holds the equations resolved so far, ``name`` included, so an
+    equation that reads itself is refused too: it has no evaluation order at all.
+    """
+    if symbol not in evaluated or symbol == name:
+        raise ProductError(
+            f"[equations.{name}] reads the equation {symbol!r}, which is not evaluated "
+            f"before it in the order given ({', '.join(order)}). No derived column is "
+            "written. Evaluate the equations in the order PprocSpec.equation_order() "
+            "derives, and remove any equation that reads itself or one that reads it back."
+        )
+
+
 def _record_columns(
     target: dict[str, dict[str, str]] | None, reads: dict[str, dict[str, str]]
 ) -> None:
@@ -232,14 +249,7 @@ def apply_equations(
         reads[name] = {}
         for symbol in expression_symbols(str(getattr(spec, "expression", ""))):
             if symbol in equations:
-                if symbol not in reads or symbol == name:
-                    raise ProductError(
-                        f"[equations.{name}] reads the equation {symbol!r}, which is not "
-                        f"evaluated before it in the order given ({', '.join(order)}). No "
-                        "derived column is written. Evaluate the equations in the order "
-                        "PprocSpec.equation_order() derives, and remove any equation that "
-                        "reads itself or one that reads it back."
-                    )
+                _require_evaluated_before(name, symbol, evaluated=reads, order=order)
                 reads[name][symbol] = derived_column(
                     symbol, str(getattr(equations[symbol], "meshes_alias", ""))
                 )

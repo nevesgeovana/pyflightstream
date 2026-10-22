@@ -2093,33 +2093,41 @@ def test_f3_0203_pfs2119_030_a_refusing_product_of_a_point_costs_only_itself():
     "failure", [ProductError("the polar is refused"), ZeroDivisionError("division by zero")]
 )
 def test_p0430_a_failed_coefficient_product_leaves_the_independent_ones_and_their_records(
-    tmp_path, monkeypatch, failure
+    tmp_path, failure
 ):
-    """A coefficient product that fails is named; the products beside it are written and indexed."""
-    workspace = _post_1_products___workspace(tmp_path)
+    """A coefficient product that fails is named; the products beside it are written and recorded.
 
-    def failing_polars(ctx):
+    Both levels: the steps of one simulation's post (the polar step failing beside
+    the probes step) and the products of one point.
+    """
+    from pyflightstream.post._rotor_products import _contained
+
+    probes = tmp_path / "probes" / "P1_probes.csv"
+
+    def coefficient_polar(ctx):
         raise failure
 
-    steps = tuple(failing_polars if step is _sim._group_polars else step for step in _sim._STEPS)
-    monkeypatch.setattr(_sim, "_STEPS", steps)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
-    out = workspace.products_dir("matriz")
-    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
-    # The failed product is named under its family and simulation, with its reason.
-    for sim_id in ("6001", "6002"):
-        assert str(failure) in manifest["skipped"][f"failing_polars/{sim_id}"]
-    assert not list(out.glob("polars/P6001-*"))
-    # The independent products are on disk, each with its record in the manifest.
-    independent = {
-        "probes/POLAR-6002_M14AL+000BE+000J+170_plots.csv",
-        "probes/POLAR-6002_M14AL+000BE+000J+170_per_revolution_PUSHER.csv",
-        "settings/matriz_settings.csv",
-    }
-    assert independent <= set(manifest["products"])
-    assert all((out / name).is_file() for name in independent)
+    def point_probes(ctx):
+        probes.parent.mkdir(parents=True, exist_ok=True)
+        probes.write_text("POL,X\n3207,1.0\n", encoding="utf-8")
+        ctx.written.append(probes)
+        ctx.written_names["probes/P1_probes.csv"] = {"runs": ["camp/sim_3207/P1"]}
+
+    ctx = SimpleNamespace(sim_id="3207", written=[], written_names={}, skipped={})
+    with pytest.warns(Warning, match="coefficient_polar"):
+        _sim._run_steps(ctx, (coefficient_polar, point_probes))
+    assert str(failure) in ctx.skipped["coefficient_polar/3207"]
+    assert ctx.written == [probes] and probes.is_file()
+    assert ctx.written_names == {"probes/P1_probes.csv": {"runs": ["camp/sim_3207/P1"]}}
+
+    def fails():
+        raise failure
+
+    skipped: dict[str, str] = {}
+    with pytest.warns(Warning, match="rotor_table/run-1"):
+        assert _contained(skipped, "rotor_table/run-1", fails, ([], {})) == ([], {})
+    assert str(failure) in skipped["rotor_table/run-1"]
+    assert _contained(skipped, "probes/run-1", lambda: (["x"], {}), ([], {})) == (["x"], {})
 
 
 def _f3_0203_swept_record(run_id: str, mach: float):

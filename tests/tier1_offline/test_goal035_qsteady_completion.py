@@ -855,7 +855,7 @@ def test_p0430_validity_files_follow_the_selection_and_replace_only_on_request(t
     assert json.loads(first.read_text(encoding="utf-8")) == {"stale": True}
     assert not second.exists()
     said = " ".join(str(reason) for reason in record["skipped"].values())
-    assert first.name in said and "not replaced" in said
+    assert first.name in said and "already exists" in said
     # Asked to replace, the post writes it.
     post(sims=["6001"], overwrite=True)
     assert json.loads(first.read_text(encoding="utf-8"))["validity"]["K_1P_MAX"] == 0.21

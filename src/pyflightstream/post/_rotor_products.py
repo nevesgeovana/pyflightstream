@@ -56,6 +56,7 @@ from pyflightstream.post._stage import (
     POLARS_DIR,
     SECTIONS_DIR,
     _a_name_a_file_may_carry,
+    _contained,
     _judge_average,
 )
 from pyflightstream.post._tables import (
@@ -747,29 +748,12 @@ def _write_wheel_validity(
     FR-2322).
     """
     key = f"runs/{record.run_id}#qsteady_validity"
-    if not point.loads_path.is_file():
-        skipped[key] = (
-            f"the per-point validity file of {point.name} is not written: its loads export "
-            f"{point.loads_path.name} is not on disk"
-        )
-        return
-
-    def prepare(path: Path) -> Path:
-        if path.exists() and not replace:
-            raise ProductExistsError(
-                f"{path} already exists and the post was not asked to replace it; "
-                "pass overwrite=True to rebuild"
-            )
-        return target(path)
-
     try:
         written_file = _qsteady.write_point_validity_file(
-            point.loads_path, quasi, validity, state, prepare=prepare
+            point.loads_path, quasi, validity, state, prepare=target, replace=replace
         )
-    except ProductExistsError as error:
-        skipped[key] = f"the per-point validity file of {point.name} is not replaced: {error}"
-    except OSError as error:
-        skipped[key] = f"the per-point validity file of {point.name} could not be written: {error}"
+    except (ProductError, OSError) as error:
+        skipped[key] = f"the per-point validity file of {point.name} is not written: {error}"
     else:
         validity_files.setdefault(quasi.rotor_alias, {})[point.name] = Path(
             os.path.relpath(written_file, out)
@@ -850,18 +834,17 @@ def _qsteady_products(
         )
         # A CLOCKING THAT CANNOT BE READ is the refusal clockings_of raises,
         # kept as the reason that leaves the point out, named, below.
-        clockings: list[_qsteady.Clocking] | str | None = None
-        if density is not None:
-            try:
-                clockings = _qsteady.clockings_of(
-                    quasi,
-                    point.loads_path.parent,
-                    reference=reference,
-                    density_kg_m3=float(density),
-                    shaft_loads=rotor_shaft_loads,
-                )
-            except ProductError as refused:
-                clockings = str(refused)
+        clockings = (
+            _qsteady._clockings_or_reason(
+                quasi,
+                point.loads_path.parent,
+                reference=reference,
+                density_kg_m3=float(density),
+                shaft_loads=rotor_shaft_loads,
+            )
+            if density is not None
+            else None
+        )
         state = _wheel_rotor_state(sim_id, point, quasi, clockings, density)
         if quasi.case == "wheel":
             _write_wheel_validity(
@@ -1032,28 +1015,6 @@ def _acoustic_only(
         target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
         skipped=skipped if skipped is not None else {},
     )
-
-
-def _contained(skipped: dict[str, str], key: str, make, empty):
-    """Run one product of a point; a refusal costs only that product, named in ``skipped``.
-
-    The independent products of a point are not isolated from each other otherwise: a refusal
-    from one orphans what the others have written. An existing product still refuses. An
-    unexpected failure costs the product too, named with its type (FR-2313).
-    """
-    try:
-        return make()
-    except (ProductExistsError, Warning):
-        raise
-    except Exception as error:  # noqa: BLE001 -- every failure is named, never fatal here
-        said = (
-            str(error)
-            if isinstance(error, PyflightstreamError)
-            else f"{type(error).__name__}: {error} (an unexpected failure of this product)"
-        )
-        skipped[key] = said
-        warn(f"{key} not written: {said}", PyflightstreamWarning, stacklevel=2)
-        return empty
 
 
 def _loads_report(loads_path: Path):

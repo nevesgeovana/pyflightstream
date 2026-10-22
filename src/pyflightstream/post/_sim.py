@@ -89,6 +89,7 @@ from pyflightstream.post._stage import (
     PROBES_DIR,
     SECTIONS_DIR,
     _refuse_aliases_a_file_name_cannot_tell_apart,
+    failure_reason,
 )
 from pyflightstream.post._structure import append_tip_columns, structure_products
 from pyflightstream.post._tables import (
@@ -362,18 +363,13 @@ def _run_steps(ctx: SimContext, steps: Sequence[Callable[[SimContext], None]]) -
             raise
         except Exception as error:  # noqa: BLE001 -- every failure is named, never fatal here
             family = step.__name__.lstrip("_")
-            said = str(error) if isinstance(error, PyflightstreamError) else _unexpected(error)
+            said = failure_reason(error)
             ctx.skipped[f"{family}/{ctx.sim_id}"] = said
             warn(
                 f"simulation={ctx.sim_id} step={family}: {said}",
                 PyflightstreamWarning,
                 stacklevel=2,
             )
-
-
-def _unexpected(error: Exception) -> str:
-    """Name an unexpected failure of one product by its type and message."""
-    return f"{type(error).__name__}: {error} (an unexpected failure of this product)"
 
 
 # ------------------------------------------------------------------ the context

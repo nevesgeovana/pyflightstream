@@ -65,7 +65,7 @@ from types import SimpleNamespace
 from typing import Any, Literal
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import ProductError
+from pyflightstream._errors import ProductError, ProductExistsError
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases import select_group_members
 from pyflightstream.cases.qsteady import (
@@ -316,6 +316,7 @@ def write_point_validity_file(
     state: RotorState | None = None,
     *,
     prepare: Callable[[Path], Path] | None = None,
+    replace: bool = True,
 ) -> Path:
     """Write a wheel point's validity after the run, beside its loads export.
 
@@ -342,16 +343,29 @@ def write_point_validity_file(
     state : RotorState, optional
         The point's rotor state; its values are null where not given.
     prepare : callable, optional
-        Takes the destination and returns the path to write, refusing or
-        archiving a file already there (the post's replacement policy); the
-        destination is written as it stands when omitted.
+        Takes the destination and returns the path to write, archiving a file
+        already there (the post's archive rule); the destination is written as
+        it stands when omitted.
+    replace : bool, optional
+        Replace a validity file already there. True by default; the post
+        passes its own ``overwrite`` (FR-2322).
 
     Returns
     -------
     Path
         The file written.
+
+    Raises
+    ------
+    ProductExistsError
+        If a validity file is already there and ``replace`` is false.
     """
     path = loads_path.with_name(Path(validity_file_name(loads_path.name)).name)
+    if path.exists() and not replace:
+        raise ProductExistsError(
+            f"{path} already exists and the post was not asked to replace it; "
+            "pass overwrite=True to rebuild"
+        )
     if prepare is not None:
         path = prepare(path)
     payload = {
@@ -1201,6 +1215,16 @@ def clockings_of(
             )
         )
     return sorted(found, key=lambda clocking: clocking.index)
+
+
+def _clockings_or_reason(
+    record: QsteadyRecord, folder: Path, **arguments: Any
+) -> list[Clocking] | str:
+    """:func:`clockings_of` for the post's own tables: a refusal is why a point is left out."""
+    try:
+        return clockings_of(record, folder, **arguments)
+    except ProductError as refused:
+        return str(refused)
 
 
 #: The six components of a surface of a loads export, the ones a clocking mean
