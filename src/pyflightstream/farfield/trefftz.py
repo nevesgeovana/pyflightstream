@@ -271,6 +271,10 @@ def trace_forces(
         ey = strip_edges(sy, ends=ends)
         ez = strip_edges(sz, ends=ends)
         dy, dz = np.diff(ey), np.diff(ez)
+        if np.any(np.hypot(np.diff(sy), np.diff(sz)) == 0.0):
+            raise FarfieldInputError(
+                f"sheet {label} has coincident trace points, so a strip has zero length"
+            )
         d_gamma = np.diff(np.concatenate([[0.0], sg, [0.0]]))
         parts.append((label, sy, sz, sg, original, ey, ez, dy, dz, d_gamma))
 
@@ -585,6 +589,7 @@ def wake_crossings(lines: Sequence[np.ndarray], *, values: np.ndarray, x_t: floa
     )
     crossings = np.full((len(lines), 3), np.nan)
     short = 0
+    downstream = 0
     for k, line in enumerate(lines):
         nodes = np.asarray(line, dtype=float)
         side = nodes[:, 0] - x_t
@@ -593,6 +598,7 @@ def wake_crossings(lines: Sequence[np.ndarray], *, values: np.ndarray, x_t: floa
             crossings[k] = nodes[0]
             continue
         if hit.size == 0:
+            downstream += int(side[0] > 0.0)
             short += 1
             continue
         j = int(hit[0])
@@ -600,9 +606,10 @@ def wake_crossings(lines: Sequence[np.ndarray], *, values: np.ndarray, x_t: floa
         crossings[k] = nodes[j] + t * (nodes[j + 1] - nodes[j])
     empty = np.empty(0)
     if short:
-        return WakeTrace(
-            empty, empty, empty, short, f"{short} of {len(lines)} wake lines end before the plane"
-        )
+        text = f"{short} of {len(lines)} wake lines end before the plane"
+        if downstream:
+            text += f" ({downstream} of them start downstream of it)"
+        return WakeTrace(empty, empty, empty, short, text)
     if len(lines) < 2:
         return WakeTrace(empty, empty, empty, 0, "the wake export holds fewer than two lines")
     order = np.argsort(starts[:, 1], kind="stable")

@@ -85,11 +85,16 @@ def _required_line(rows: Iterator[str], what: str) -> str:
 
 def _numbers(tokens: list[str], what: str, dtype: type) -> np.ndarray:
     try:
-        return np.asarray(tokens, dtype=dtype)
-    except ValueError as error:
+        array: np.ndarray = np.asarray(tokens, dtype=dtype)
+    except (ValueError, OverflowError) as error:
         raise MalformedOutputError(
             f"the wake export's {what} holds a value that is no number"
         ) from error
+    if array.dtype.kind == "f" and not bool(np.all(np.isfinite(array))):
+        raise MalformedOutputError(
+            f"the wake export's {what} holds a value that is not finite (nan or inf)"
+        )
+    return array
 
 
 def _chains(segments: np.ndarray, n_points: int) -> list[list[int]]:
@@ -173,11 +178,13 @@ def parse_wake_export(text: str) -> WakeExport:
             "a NaN strength would pass the constancy check and feed the far-field products"
         )
     segments = _shared_nodes(points, segments, values)
-    scale = float(np.max(np.abs(values))) if values.size else 0.0
     lines: list[np.ndarray] = []
     line_values: list[float] = []
     for chain in _chains(segments, len(points)):
         chain_values = values[chain]
+        # The tolerance is the line's own: a file-wide scale would let a weak
+        # line change sign beside a strong one and report its first value.
+        scale = float(np.max(np.abs(chain_values)))
         if np.any(np.abs(chain_values - chain_values[0]) > _CONSTANT_RTOL * scale):
             raise MalformedOutputError(
                 f"the wake value changes along one line (from {chain_values.min()!r} to "

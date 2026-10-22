@@ -2723,3 +2723,94 @@ def test_f7_0203_a_wake_whose_strengths_do_not_close_is_refused():
     open_wake[-1] = 0.5
     with pytest.raises(FarfieldInputError, match="sum to zero"):
         WakeTrace(edges, np.zeros(5), open_wake, 0, None).forces(rho=1.0, v_inf=10.0)
+
+
+class TestF7TrefftzDiagnostics:
+    """F7-1617: the Trefftz trace and wake refusals name their cause."""
+
+    @staticmethod
+    def test_x_f_0308_coincident_trace_points_are_refused_by_name():
+        y = np.array([0.0, 0.5, 0.5, 1.0])
+        with pytest.raises(FarfieldInputError, match="coincident trace points"):
+            trace_forces(
+                y,
+                z=np.zeros_like(y),
+                gamma=np.ones_like(y),
+                rho=1.2,
+                v_inf=30.0,
+                ends="station",
+            )
+
+    @staticmethod
+    def test_x_f_1181_an_empty_wake_line_is_a_farfield_input_error():
+        good = np.array([[0.0, 1.0, 0.0], [5.0, 1.0, 0.0]])
+        with pytest.raises(FarfieldInputError, match="wake line 1"):
+            wake_crossings([good, np.empty((0, 3))], values=np.array([1.0, 1.0]), x_t=3.0)
+        with pytest.raises(FarfieldInputError, match="wake line 0"):
+            wake_crossings([np.zeros((4, 2)), good], values=np.array([1.0, 1.0]), x_t=3.0)
+
+    @staticmethod
+    def test_x_f_1182_a_line_starting_downstream_is_named_as_such():
+        late = np.array([[4.0, 1.0, 0.0], [6.0, 1.0, 0.0]])
+        long = np.array([[0.0, 2.0, 0.0], [5.0, 2.0, 0.0]])
+        trace = wake_crossings([late, long], values=np.array([1.0, 1.0]), x_t=3.0)
+        assert trace.short == 1
+        assert "start downstream" in trace.problem
+
+    @staticmethod
+    def test_x_f_0311_rotor_coverage_counts_a_missing_crossflow_sample():
+        from pyflightstream.farfield.trefftz import rotor_channels
+        from tests.tier1_offline.test_regression_farfield_interfaces import (
+            _farfield_plane___slipstream,
+        )
+
+        _, fields = _farfield_plane___slipstream(30.0, omega=6.0, jump=4.0)
+        full = rotor_channels(fields, rho=1.2, v_inf=30.0, station=2.0)
+        assert full.coverage == pytest.approx(1.0)
+        fields["v"][2, 0, 0] = np.nan
+        broken = rotor_channels(fields, rho=1.2, v_inf=30.0, station=2.0)
+        assert broken.coverage < 1.0
+
+
+def _f7_wake_text(first: str, second: str, big: str = "9.0") -> str:
+    """Two wake lines of two segments each, three points apiece, values per segment."""
+    return (
+        "# vtk DataFile Version 3.0\nwakes\nASCII\nDATASET POLYDATA\n"
+        "POINTS 6 float\n0 0 0\n1 0 0\n2 0 0\n0 1 0\n1 1 0\n2 1 0\n"
+        "LINES 4 12\n2 0 1\n2 1 2\n2 3 4\n2 4 5\n"
+        "CELL_DATA 4\nSCALARS Normalized_Vorticity float 1\nLOOKUP_TABLE default\n"
+        f"{first}\n{second}\n{big}\n{big}\n"
+    )
+
+
+class TestF7WakeReader:
+    """F7-1617: the wake reader refuses what it would otherwise average away."""
+
+    @staticmethod
+    def test_f_257_a_weak_line_that_changes_sign_is_refused():
+        from pyflightstream.results import MalformedOutputError
+
+        text = _f7_wake_text("0.001", "-0.001", "10000.0")
+        with pytest.raises(MalformedOutputError, match="changes along one line"):
+            parse_wake_export(text)
+
+    @staticmethod
+    @pytest.mark.parametrize("bad", ["nan", "inf"])
+    def test_x_f_0389_a_non_finite_wake_value_is_refused(bad):
+        from pyflightstream.results import MalformedOutputError
+
+        with pytest.raises(MalformedOutputError, match="not finite"):
+            parse_wake_export(_f7_wake_text(bad, bad))
+
+    @staticmethod
+    def test_x_f_1226_an_integer_beyond_int64_is_malformed_output():
+        from pyflightstream.results import MalformedOutputError
+
+        text = _f7_wake_text("1.0", "1.0").replace("2 0 1\n", "2 0 99999999999999999999\n")
+        with pytest.raises(MalformedOutputError, match="no number"):
+            parse_wake_export(text)
+
+    @staticmethod
+    def test_a_constant_line_beside_a_strong_one_is_still_read():
+        wake = parse_wake_export(_f7_wake_text("0.001", "0.001", "10000.0"))
+        assert wake.values.tolist() == [0.001, 10000.0]
