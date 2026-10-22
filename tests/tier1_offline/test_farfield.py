@@ -14,6 +14,7 @@ functions. This checks retained numerical behavior, not the removal contract.
 
 import dataclasses
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -550,6 +551,28 @@ def test_mass_closure_states_a_zero_mean_instead_of_an_unlabelled_nan():
     assert open_.absolute_spread == pytest.approx(float(np.abs(open_.mdot).max()))
     assert open_.absolute_spread > 0.0
     assert mass_closure(make_dataset(uniform_fields()), RHO).status == "ok"
+    # X-F-0306: the zero mean is stated, quietly: no numpy warning rides on the NaN.
+    fields["u"] = np.zeros(SHAPE)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert np.isnan(mass_closure(make_dataset(fields), RHO).relative_spread)
+
+
+def test_x_f_1615_hub_frame_velocities_refuse_a_zero_or_non_finite_axis():
+    """X-F-1615: the refusal its Raises entry states, a zero or non-finite axis vector."""
+    from pyflightstream.farfield import FarfieldInputError, hub_frame_velocities
+
+    doc = " ".join((hub_frame_velocities.__doc__ or "").split())
+    assert "finite non-zero vector" in doc
+    for axis in (np.zeros(3), np.array([np.nan, 0.0, 1.0])):
+        with pytest.raises(FarfieldInputError, match="finite non-zero vector"):
+            hub_frame_velocities(
+                np.zeros((1, 3)),
+                velocities=np.zeros((1, 3)),
+                omega=1.0,
+                axis=axis,
+                origin=np.zeros(3),
+            )
 
 
 # ---- F7-0809 (0.43.0): shape, finiteness and density checks of the far-field core ----
