@@ -4258,3 +4258,20 @@ def test_f613_a_failed_execution_inventories_the_partial_outputs(tmp_path):
     assert record.status is RunStatus.FAILED_EXECUTION
     assert [Path(name).name for name in record.outputs] == ["loads_AL+000.txt"]
     assert record.outputs_sha256 == {record.outputs[0]: hashlib.sha256(b"PARTIAL").hexdigest()}
+
+
+@pytest.mark.parametrize(
+    ("banner", "build"),
+    [
+        ("FlightStream version 26.1, build #8172026", "8172026"),
+        ("Simcenter Flightstream 2612, build #10052026", "10052026"),
+    ],
+)
+def test_the_build_line_matches_every_banner_the_builds_print(banner, build):
+    """X-F-0403 (L4, 26.120, 26.124, 26.125): 26.125 prints Simcenter Flightstream.
+
+    The search is unanchored: no line matching ``build <digits>`` precedes the banner in any
+    measured startup log, and anchoring it to ``FlightStream version`` would fail every 26.125 log.
+    """
+    found = identity_module._BUILD_LINE.search(f"startup\nlicence ok\n{banner}\nready\n")
+    assert found is not None and found.group("build") == build

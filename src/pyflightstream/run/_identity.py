@@ -452,6 +452,9 @@ def package_vcs_state() -> tuple[str | None, bool | None]:
 _IDENTITY_MARKER = "PYFS_PREFLIGHT"
 
 
+# UNANCHORED ON PURPOSE: 26.125 prints "Simcenter Flightstream 2612, build #10052026", not
+# "FlightStream version"; no line matching "build <digits>" precedes the banner in any startup
+# log of 26.120, 26.124 or 26.125 (L4, X-F-0403, namespace 63503b6a, X-F-0403/analysis.json).
 _BUILD_LINE = re.compile(r"build\s*#?\s*(?P<build>\d+)", re.IGNORECASE)
 
 
