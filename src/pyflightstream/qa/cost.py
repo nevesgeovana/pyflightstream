@@ -667,8 +667,10 @@ def cost_rows(source: CostSource) -> list[dict[str, object]]:
     list of dict
         One dict per run, in manifest order, which is the order the
         campaign recorded them in and therefore the evidence order.
-        Keys are :data:`COST_ROW_COLUMNS`; ``wall_time_s`` is seconds
-        or ``None``, never zero.
+        Keys are :data:`COST_ROW_COLUMNS`; ``wall_time_s`` is the seconds
+        the record holds or ``None`` where the run recorded none. A solver run
+        records no zero; a hand-built record that holds one is passed through
+        unchanged.
     """
     return [
         {

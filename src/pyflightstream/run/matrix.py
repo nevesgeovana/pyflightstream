@@ -1824,9 +1824,11 @@ def run_additional_post(
     Raises
     ------
     pyflightstream.run.ExecutorConfigurationError
-        Where the executor chosen is a scheduler: the submitting half is not
-        built, so the extraction is refused before anything is
-        written; pass ``local=True``.
+        Where ``local=True`` is given beside an executor that submits to a
+        scheduler: the extraction cannot both stay on this machine and be
+        submitted, so it is refused before anything is written. A scheduler
+        executor without ``local=True`` submits the extraction, and
+        :func:`~pyflightstream.run.collect.collect_once` completes it.
     pyflightstream.cases.CampaignConfigError
         As :func:`plan_additional_post`.
     """
