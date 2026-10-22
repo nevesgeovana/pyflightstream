@@ -11,7 +11,6 @@ import pytest
 
 from pyflightstream.cases import CampaignConfigError, SolverSettings
 from pyflightstream.cases import fsi_workspace as ws
-from pyflightstream.cases.setup_surfaces import emit_setup_surfaces
 from pyflightstream.cases.workflows import build_script
 from pyflightstream.script import Script
 from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
@@ -108,6 +107,16 @@ def test_ids_follow_the_tree_position_of_every_boundary(tmp_path):
     script = _declared(["Hub", "Blade1", "Blade2"])
     ids = ws.aeroelastic_surface_ids(case, script, ["Blade1", "Blade2", 1], context="FSI")
     assert ids == [3, 4, 2]
+
+
+def test_p0420_p1_1d_fsi_refuses_ids_after_surface_deletion(tmp_path):
+    """RB5-17: boundary IDs after delete_surfaces have no committed report, so FSI refuses."""
+    case = coupled_case(tmp_path)
+    case = case.model_copy(
+        update={"solver": case.solver.model_copy(update={"delete_surfaces": ["Hub"]})}
+    )
+    with pytest.raises(CampaignConfigError, match="delete_surfaces.*not measured"):
+        ws.aeroelastic_surface_ids(case, _declared(["Blade1", "Blade2"]), ["Blade1"], context="FSI")
 
 
 def test_an_unmeasured_numbering_is_refused_not_guessed(tmp_path):
@@ -234,69 +243,6 @@ def test_the_steady_wait_reads_the_completion_line():
     )
     assert not ws.steady_aeroelastic_finished(running)
     assert ws.steady_aeroelastic_finished(running + "Aeroelastic solver run time: .02 minutes.\n")
-
-
-ARMS = {
-    "OBJ b (Body, Blade1, Blade2)": (
-        ".obj",
-        [(2, "Body"), (3, "Blade1"), (4, "Blade2")],
-        [(3, "Blade1"), (4, "Blade2")],
-    ),
-    "OBJ c (Spinner, Rotor_A, Zeta)": (
-        ".obj",
-        [(2, "Spinner"), (3, "Rotor_A"), (4, "Zeta")],
-        [(3, "Rotor_A"), (4, "Zeta")],
-    ),
-    "STL b (Body, Blade1, Blade2)": (
-        ".stl",
-        [(1, "Body"), (2, "Blade1"), (3, "Blade2")],
-        [(2, "Blade1"), (3, "Blade2")],
-    ),
-    "STL c (Spinner, Rotor_A, Zeta)": (
-        ".stl",
-        [(1, "Spinner"), (2, "Rotor_A"), (3, "Zeta")],
-        [(2, "Rotor_A"), (3, "Zeta")],
-    ),
-}
-
-
-def _deleted_case(tmp_path, suffix, first):
-    case = coupled_case(tmp_path).model_copy(update={"fsi": None, "geometry": f"mesh{suffix}"})
-    solver = case.solver.model_copy(update={"delete_surfaces": [first]})
-    return case.model_copy(update={"solver": solver})
-
-
-def _script_after_the_deletion(case, names):
-    script = Script("26.124")
-    script.declare_existing(boundaries={name: i for i, name in enumerate(names, start=1)})
-    script.boundary_inventory = tuple(names)
-    emit_setup_surfaces(script, case)
-    return script
-
-
-@pytest.mark.parametrize("arm", sorted(ARMS))
-def test_p0420_the_survivors_get_the_id_the_saved_mesh_keeps(tmp_path, arm):
-    """PFS-2119.016: the ID of each survivor, cited by name or by its tree position now."""
-    suffix, before, after = ARMS[arm]
-    names = [name for _, name in before]
-    case = _deleted_case(tmp_path, suffix, names[0])
-    script = _script_after_the_deletion(case, names)
-    survivors = [name for _, name in after]
-    kept = [identity for identity, _ in after]
-    assert ws.aeroelastic_surface_ids(case, script, survivors, context="FSI") == kept
-    # Cited by position in the tree the deletion left (1 is the first survivor), the same IDs.
-    assert ws.aeroelastic_surface_ids(case, script, [1, 2], context="FSI") == kept
-
-
-def test_p0420_the_tree_position_plus_the_offset_is_not_the_id_after_a_deletion(tmp_path):
-    """PFS-2119.016: the old rule gave Blade1 the ID 2 where the mesh keeps 3 (OBJ)."""
-    suffix, before, after = ARMS["OBJ b (Body, Blade1, Blade2)"]
-    names = [name for _, name in before]
-    case = _deleted_case(tmp_path, suffix, names[0])
-    script = _script_after_the_deletion(case, names)
-    position = script.resolve_boundary("Blade1")
-    assert position + ws.IMPORT_BOUNDARY_ID_OFFSET[suffix] == 2
-    assert ws.aeroelastic_surface_ids(case, script, ["Blade1"], context="FSI") == [3]
 
 
 def test_p0420_without_a_deletion_the_ids_are_the_position_rule_as_before(tmp_path):

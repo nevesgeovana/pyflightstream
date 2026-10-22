@@ -100,7 +100,8 @@ CALLBACK_FILE = "fsi_callback.py"
 #:
 #: ``unsteady_rotor``: refused. On 26.124 the morph of a mapped rotating
 #: blade is applied to the blade at its imported azimuth and replaces the
-#: rotation instead of composing with it; reported to the vendor.
+#: rotation instead of composing with it (RPT-093, "aeroelastic coupling on
+#: 26.124", 2026-09-29, section 3; the same on 26.125 in RPT-155).
 #:
 #: ``qsteady_rotor``: ACCEPTED on a periodic SECTOR, the route of the FSI
 #: study's test 2 (the blade static, the rotation in the free stream, the
@@ -134,7 +135,9 @@ FIXED_WING_WORKFLOWS: tuple[str, ...] = ("steady", "unsteady")
 #: the blade's surface vertices in the frame the command names and morphs each
 #: by the displacement written for it. RIGID lists the undeformed vertices at
 #: every call, and on build 26.125 two coupling cycles moved the surface by
-#: exactly the totals written; DEFLECTED did not keep them, and is refused
+#: exactly the totals written, one case measured (RPT-155, "direct aeroelastic
+#: morphing on 26.125", 2026-10-05: arm Q4, maximum error 5e-16 m); DEFLECTED did
+#: not keep them (arm Q3, exact two-cycle check did not close), and is refused
 #: where the configuration is read (:class:`~pyflightstream.fsi.config.FsiConfig`).
 DIRECT_MORPHING_COMMAND = "SET_DIRECT_AEROELASTIC_MESH_MORPHING"
 DIRECT_MORPHING_NODES = "RIGID"
@@ -229,19 +232,19 @@ def fsi_workflow_refusal(workflow: str) -> str | None:
 #: Aeroelastic toolbox's surface list hold. A script cites a boundary by its
 #: position in the geometry tree; ``SET_MOTION_BOUNDARIES`` is converted to
 #: the ID by the solver, ``ASSIGN_AEROELASTIC_SURFACES`` is stored as written
-#: and matched against the ID. The 26.124 evidence covers a census of
-#: 3825 saved simulations and a mapped-blade probe:
+#: and matched against the ID. The committed 26.124 evidence is a mapped-blade
+#: probe (RPT-093, "aeroelastic coupling on 26.124", 2026-09-29, section 2: every
+#: OBJ case measured numbers its first boundary 2, an STL import 1; the earlier
+#: census of 3825 saved simulations is not in a committed report):
 #: an OBJ import numbers its boundaries from 2 (``2:Blade1;3:S;4:N``), an STL
 #: import from 1. The ID is the position AS THE IMPORT NUMBERED IT plus this
 #: offset. A surface list holding the position of an OBJ blade points at a
 #: boundary that does not exist and maps 0 vertices, in silence.
 #:
-#: AFTER ``DELETE_SURFACES`` THE SURVIVORS KEEP THEIR ID (26.124 and 26.125, OBJ
-#: and STL, licensed batch 10): nothing is renumbered, so the ID is NOT the
-#: tree position after the deletion plus the offset. It is the boundary's
-#: position in the inventory the geometry OPENED with (its saved mesh
-#: boundary head lines, by name) plus the offset, which is how
-#: :func:`aeroelastic_surface_ids` resolves it.
+#: AFTER ``DELETE_SURFACES`` the position rule does not give the ID: the tree
+#: position of a survivor moves, and what ID the solver keeps for it is not
+#: measured in a committed report, so :func:`aeroelastic_surface_ids` refuses a
+#: setup that deletes surfaces rather than guess the ID.
 IMPORT_BOUNDARY_ID_OFFSET: Mapping[str, int] = MappingProxyType({".obj": 1, ".stl": 0})
 
 
@@ -276,10 +279,14 @@ def aeroelastic_surface_ids(
     ------
     CampaignConfigError
         If the geometry is not a fresh import whose numbering was
-        measured, or the setup deletes surfaces and a cited boundary's name is
-        not one the opened inventory holds exactly once, rather than guessing
-        the ID.
+        measured, or the setup deletes surfaces, rather than guessing the ID.
     """
+    if case.solver.delete_surfaces:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {context} refuses delete_surfaces because boundary IDs "
+            "after deletion are not measured in a committed report; use an undeleted input "
+            "geometry for FSI."
+        )
     suffix = PurePath(str(case.geometry)).suffix.lower() if case.geometry is not None else ""
     offset = IMPORT_BOUNDARY_ID_OFFSET.get(suffix)
     if offset is None:
@@ -289,49 +296,7 @@ def aeroelastic_surface_ids(
             f"(measured: {', '.join(IMPORT_BOUNDARY_ID_OFFSET)} imports). A wrong ID maps "
             "no surface, in silence, so it is not guessed."
         )
-    if not case.solver.delete_surfaces:
-        return [script.resolve_boundary(value, context=context) + offset for value in boundaries]
-    return _ids_after_a_deletion(case, script, boundaries, offset, context=context)
-
-
-def _ids_after_a_deletion(
-    case: SimCase,
-    script: Script,
-    boundaries: Sequence[int | str],
-    offset: int,
-    *,
-    context: str,
-) -> list[int]:
-    """Return the IDs of boundaries cited after ``delete_surfaces``, from the opened inventory.
-
-    The survivors of a deletion keep the ID the import gave them (batch 10, 26.124 and
-    26.125, OBJ and STL, renamed non-first blades included), so the ID of a boundary is its
-    position in the inventory the geometry OPENED with, by NAME, plus the import offset. Its
-    tree position after the deletion is not the ID. A citation by position is read against the
-    tree as the deletion left it, to find the name, and the name is then looked up in the
-    opened inventory, where it must stand exactly once.
-
-    The assign and morph step after a deletion was not part of that measurement: this maps
-    the IDs and claims nothing of what the solver then does with them.
-    """
-    from pyflightstream.cases.setup_surfaces import the_model_inventory
-
-    opened = the_model_inventory(script)
-    current = script.entities.labels("boundaries")
-    by_position = {position: name for name, position in current.items()}
-    ids: list[int] = []
-    for value in boundaries:
-        position = script.resolve_boundary(value, context=context)
-        name = by_position.get(position)
-        if name is None or opened.count(name) != 1:
-            raise CampaignConfigError(
-                f"case {case.sim_id!r}: {context} cites boundary {value!r} after delete_surfaces, "
-                f"and the inventory the geometry opened with ({', '.join(opened) or 'none'}) does "
-                "not hold its name exactly once, so the ID the solver kept for it is not known. "
-                "Name each surface once in the geometry."
-            )
-        ids.append(opened.index(name) + 1 + offset)
-    return ids
+    return [script.resolve_boundary(value, context=context) + offset for value in boundaries]
 
 
 def structural_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
@@ -370,12 +335,13 @@ def structural_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
 
 
 #: THE MORPHING KERNEL OF A BEAM LINE (FSI-1). The package's structural nodes
-#: are a beam line: three nodes per station along the span. On 26.124,
-#: against an imposed bend of a wing driven through one beam line,
-#: MULTI_QUADRATIC delivered the bend to 0.003 m at the leading edge (tip
-#: 0.4007 for 0.4); WENDLAND_C2 delivered 64 % of it at the leading edge and
-#: 1.4 % at the trailing edge, a nose-up shear of up to 14 deg, and the
-#: coupled run diverged from its third step in the licensed probe.
+#: are a beam line: three nodes per station along the span. On 26.124 (RPT-093,
+#: "aeroelastic coupling on 26.124", 2026-09-29, section 7), against an imposed
+#: bend of a wing driven through one beam line, MULTI_QUADRATIC delivered the
+#: bend to within 0.0029 m at the leading edge (tip 0.4007 to 0.4066 for 0.4);
+#: WENDLAND_C2 delivered 64 % of it at the leading edge and 1.4 % at the
+#: trailing edge, a nose-up shear of up to 14 deg, and the coupled run diverged
+#: within about three steps. One beam-line layout was measured.
 BEAM_LINE_RBF_TYPE = "MULTI_QUADRATIC"
 
 
@@ -412,12 +378,14 @@ def emit_aeroelastic_rbf_type(case: SimCase, script: Script) -> None:
 
 
 #: THE NODE-BLOCK FRAME FIELD (FSI-1). ``IMPORT_AEROELASTIC_STRUCTURAL_NODES``
-#: ignores its frame argument on 26.124: every scripted order, index, toggle
-#: and frame stored 1 (Reference) in field 1 of the node-block line of the
-#: saved ``$AEROELASTIC$`` block, the line after the working directory and
-#: the execution command (``1,0,0,<nodes>,1``). A one-field patch of the
-#: saved text is kept through OPEN, initialisation and the run in the
-#: licensed probe.
+#: ignores its frame argument on 26.124 (RPT-093, "aeroelastic coupling on
+#: 26.124", 2026-09-29, section 1): eight scripted variants (order, index,
+#: toggle, frame) all stored 1 (Reference) in the structural coordinate-system
+#: field of the node block of the saved ``$AEROELASTIC$`` block, the line after
+#: the working directory and the execution command (``1,0,0,<nodes>,1``). That
+#: report shows a GUI-chosen frame surviving a scripted OPEN; a one-field patch
+#: of the saved text kept through OPEN, initialisation and the run was a
+#: licensed probe whose report is not committed.
 _AEROELASTIC_START = b"$AEROELASTIC_START$"
 _NODE_BLOCK_LINE = 5  # lines after the start marker: header, flags, directory, command
 _NODE_BLOCK = re.compile(rb"(\d+),(\d+),(\d+),(\d+),(\d+)")
@@ -488,8 +456,9 @@ def patch_structural_node_frame(saved: bytes, frame_index: int, *, node_count: i
 #: ``EXECUTE_AEROELASTIC_ANALYSIS`` returns at once: a line after it runs at
 #: solver iteration 0 while the analysis goes on, a ``CLOSE_FLIGHTSTREAM``
 #: after it ends the analysis, and with neither the process never exits by
-#: itself. The analysis prints this line when it ends in the 26.124 probe;
-#: the recorded steady replay of GOAL-033 ends the same way.
+#: itself. The analysis prints this line when it ends (RPT-093, "aeroelastic
+#: coupling on 26.124", 2026-09-29, section 8: the run is complete once the
+#: console prints it); the recorded steady replay of GOAL-033 ends the same way.
 #: The executor recognizes this marker on either stdout or stderr and retains
 #: those channels separately in its execution result.
 STEADY_AEROELASTIC_COMPLETION = "Aeroelastic solver run time"
@@ -525,10 +494,11 @@ def aeroelastic_post(
     updates : callable, optional
         Emits the updates the row's exports read beyond the sections and
         their loads (the probe points), after those two and before the first
-        export: every update is an analysis command, which the phase order
-        refuses after an export (the L1 runs, where a coupled row
-        with the default exports updated the sections a second time after
-        this script's loads export and did not build).
+        export: every update is an analysis command, which the library's
+        phase order refuses after an export (a library rule, not a measured
+        solver fact; in the L1 runs a coupled row with the default exports
+        updated the sections a second time after this script's loads export
+        and did not build).
 
     Returns
     -------
@@ -928,7 +898,7 @@ def wire_workspace_fsi(
 
 #: The cap on a steady coupled run's coupling iterations (FSI-G). The solver
 #: stops the loop itself once its displacement residual falls below the
-#: convergence it was given (26.124 probe: 2 of 20 for a fixed displacement);
+#: convergence it was given (RPT-093, 26.124: 2 of 20 for a fixed displacement);
 #: a relaxed update closes (1 - lambda) of the
 #: remaining gap per call at the configured relaxation, so the cap leaves
 #: room for the default 0.4 to settle.
