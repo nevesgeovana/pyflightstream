@@ -218,11 +218,9 @@ A retired UID keeps its place in the numbering and is never reused. Each one nam
 
 ## Verification owed
 
-The method admits no aspirational requirement: a central requirement stays in the method only while the evidence that verifies it exists or is being produced. The rows below name what is still owed to the requirement; a goal holds only when nothing is owed to any of its central requirements.
+The method admits no aspirational requirement: a central requirement stays in the method only while the evidence that verifies it exists or is being produced. This section names what is still owed to a requirement; a goal holds only when nothing is owed to any of its central requirements.
 
-| UID | Owed |
-| --- | --- |
-| `NL-RECS-3` | regeneration of the executed procedure from the record, compared with the executed one by digest. |
+Nothing is owed: every central requirement has the evidence that verifies it.
 
 ## Sources
 

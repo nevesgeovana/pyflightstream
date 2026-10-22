@@ -350,6 +350,23 @@ def test_rebuild_from_sims_gives_the_record_back_and_writes_nothing_until_asked(
     assert written["status"] == "CONVERGED"
 
 
+def test_p0430_rebuild_states_the_executed_script_digest_of_the_original_record(
+    tmp_path, monkeypatch
+):
+    """NL-RECS-3: the procedure regenerated from the records is the one that ran, by digest.
+
+    The rebuild renders the script again from the matrix and refuses any byte that differs
+    from the executed one; the rebuilt record then states the same ``script_sha256`` as the
+    lost record, which is the digest of the executed script file.
+    """
+    workspace, _matrix_path, original = _local_campaign(tmp_path, monkeypatch)
+    executed = _sha(_script(workspace, original))
+    _lose_the_manifest(workspace)
+    (rebuilt,) = records.rebuild(workspace.root)["records"]
+    assert original["script_sha256"] == executed
+    assert rebuilt["script_sha256"] == original["script_sha256"] == executed
+
+
 def test_rebuild_refuses_an_edited_script_naming_the_version(tmp_path, monkeypatch):
     """P0320-REBUILD-SIMS: an executed script this version does not render is refused."""
     workspace, _matrix_path, original = _local_campaign(tmp_path, monkeypatch)
