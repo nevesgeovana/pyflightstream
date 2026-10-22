@@ -85,8 +85,7 @@ FlightStream versions.
 - Every run record states `processor_count`, the processors the solver was given (the row's
   `NCPUS`, else the setup's thread count), and `machine`, a description of the machine it ran
   on without its name (`pyflightstream.workspace.naming.machine_description`); a submitted run
-  records no machine.
-
+  and a rebuilt record state no machine.
 - An unstated `ALPHA` or `BETA` is 0.0 in every product that reads the angle: the rotor table's
   shaft angle and `ETAW` and the axis coefficients of the unsteady polar are computed at it, and a
   warning or a note names the rows that took the default. Only an angle that is stated and is
