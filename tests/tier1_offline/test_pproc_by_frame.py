@@ -657,3 +657,31 @@ def test_her_own_artifact_validates():
     if not (inputs / "pproc" / "p010.toml").is_file():
         pytest.skip("the use case workspace is not on this machine")
     resolve_pproc(inputs, "p010")
+
+
+def test_two_plot_groups_writing_one_name_are_refused_not_overwritten():
+    """Two groups that format to one name write one plot file twice (F5-1718)."""
+    from types import SimpleNamespace
+
+    from pyflightstream.cases import CampaignConfigError, PprocSpec
+    from pyflightstream.cases.workflows import _pproc
+
+    entry = {"name": "TWICE", "frame": "MRP", "families": "all"}
+    pproc = PprocSpec.model_validate(
+        {"plots": {"parameters": ["CL"], "groups": [entry, dict(entry)]}}
+    )
+    case = expanding_case(pproc=pproc)
+    script = SimpleNamespace(
+        plot_groups=[],
+        emit=lambda *a, **k: None,
+        resolve_boundary=lambda name, context="": 1,
+        entities=SimpleNamespace(labels=lambda kind: {n: i for i, n in enumerate(INVENTORY)}),
+    )
+    with pytest.raises(CampaignConfigError, match="another plot group"):
+        _pproc._pproc_plots(case, script, {"MRP": 1})
+    distinct = {"plots": {"parameters": ["CL"], "groups": [entry, {**entry, "name": "ONCE"}]}}
+    script.plot_groups.clear()
+    _pproc._pproc_plots(
+        expanding_case(pproc=PprocSpec.model_validate(distinct)), script, {"MRP": 1}
+    )
+    assert [g["name"] for g in script.plot_groups][:2] == ["TWICE", "ONCE"]

@@ -1148,7 +1148,8 @@ class ProbesSpec(_LocatedSpec):
 
     An entry drawing or citing points must state nonempty ``parameters``;
     otherwise loading refuses it. ``field_formats`` and ``reusable_inflow``
-    supply VX, VY and VZ automatically. On steady and normal entries the
+    supply VX, VY and VZ automatically: the validator appends them to
+    ``parameters`` when either is set. On steady and normal entries the
     parameters enable the fixed native probe export rather than filtering it.
 
     Attributes
@@ -1157,7 +1158,8 @@ class ProbesSpec(_LocatedSpec):
         The frame the lines and planes are laid out in; empty, the rotor's own
         hub frame.
     parameters : list of str
-        The fluid parameters sampled at every point.
+        The fluid parameters sampled at every point; VX, VY and VZ are appended when
+        ``field_formats`` or ``reusable_inflow`` is set.
     points : int
         The vertices each line is sampled at, both ends included.
     scale : {'m', 'rotor_radius'}
@@ -1278,7 +1280,9 @@ class ProbesSpec(_LocatedSpec):
                 "in agreement. State the shapes, or cite the file and delete them."
             )
         if self.points_file and (
-            "/" in self.points_file.replace("\\", "/") or ":" in self.points_file
+            "/" in self.points_file.replace("\\", "/")
+            or ":" in self.points_file
+            or self.points_file in {".", ".."}
         ):
             raise ValueError(
                 f"`points_file = {self.points_file!r}` names a path. It is the NAME of "
@@ -1893,8 +1897,8 @@ class PprocSpec(BaseModel):
     home of post-processing and is renamed pproc. Twelve tables. ``groups``
     is exactly what the groups file held, a number to the families it
     aggregates, and the polar tables are written per group of it; a
-    member is resolved by :func:`select_group_members`, and an empty
-    group is every family; ``exports`` says which of
+    member is resolved by :func:`select_group_members`, and a group names ONE
+    alias as a string (a list, an empty one included, is refused); ``exports`` says which of
     the export kinds a point writes, with VTK and CSV opt-in and the
     existing kinds enabled unless set to false (the per-panel
     ``force_distributions`` is opt-in too, and a steady point
@@ -2339,9 +2343,9 @@ class PprocSpec(BaseModel):
     def outputs(self, unsteady: bool) -> list[str]:
         """Return the output names a row naming this artifact declares.
 
-        The volume section's file joins a STEADY row's set when the artifact
-        declares one (G05); an unsteady row declares none, and its builder
-        refuses the artifact.
+        A volume section adds no file of its own: it adds only the sampling
+        source the probes or plots export already writes (``{name}_probes.txt``,
+        or ``{name}_plots.txt`` on an unsteady row).
         """
         normal = unsteady and self.samples_normal_probes()
         names = default_outputs(

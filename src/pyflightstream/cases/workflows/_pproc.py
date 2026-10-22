@@ -247,7 +247,8 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
         script.emit("UNSTEADY_SOLVER_DELETE_ALL_PLOTS")
     inventory = _inventory(script)
     emitted: set[str] = set()
-    for group in pproc.plots.groups:
+    owners: dict[str, int] = {}
+    for position, group in enumerate(pproc.plots.groups):
         what = f"plot group {group.name!r}"
         for frame_name, families, label in pproc_emissions(
             case, group.frame, group.families, inventory, pproc.is_blade, what, frames
@@ -263,6 +264,14 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                 name = f"{name}{ORIGINAL_FRAME_SUFFIX}"
             indices = [script.resolve_boundary(f, context="pproc plot") for f in families]
             if pproc.plots.parameters:
+                # Two groups formatting to one name write one file twice: the second plot
+                # would overwrite the first and the study would lose the half it asked for.
+                if owners.setdefault(name, position) != position:
+                    raise CampaignConfigError(
+                        f"case {case.sim_id!r}: plot group {group.name!r} of "
+                        f"{_artifact_of(case)} writes the name {name!r}, which another plot "
+                        "group of it already writes; give each group a name of its own."
+                    )
                 script.plot_groups.append(
                     {
                         "name": name,
@@ -369,7 +378,9 @@ def _plot_each_rotors_own_history(
             continue
         own = [
             family
-            for chosen in select_families(block.members, inventory, pproc.is_blade, case.aliases)
+            for chosen in select_families(
+                block.members, inventory, pproc.is_blade, _the_names_a_rotor_answers_to(case)
+            )
             for family in chosen
         ]
         if not own:
@@ -379,7 +390,9 @@ def _plot_each_rotors_own_history(
             if group.frame.strip().upper() != _GLOBAL_FRAME or "{family}" in group.name:
                 continue
             try:
-                resolved = select_families(group.families, inventory, pproc.is_blade, case.aliases)
+                resolved = select_families(
+                    group.families, inventory, pproc.is_blade, _the_names_a_rotor_answers_to(case)
+                )
             except CampaignConfigError:
                 continue
             if plotted and any(set(families) == set(own) for families in resolved):
@@ -403,7 +416,9 @@ def _plot_each_rotors_own_history(
                 f"{ROTOR_PLOT_GROUP_PREFIX}{alias} ({', '.join(taken)}), which the rotor "
                 f"table of rotor {alias!r} reads from the automatic group over its "
                 "families in the global frame. The run keeps the pproc's group and "
-                "writes no automatic one, so the post will not write that rotor table. "
+                f"writes no automatic one under {', '.join(taken)}; the other components of the "
+                "automatic group are still written, but the post needs all six, so it will "
+                "not write that rotor table. "
                 "Rename the pproc's group (for example SHAFT_{family}) to keep both.",
                 PyflightstreamWarning,
                 stacklevel=2,
