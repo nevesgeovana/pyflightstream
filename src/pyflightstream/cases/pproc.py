@@ -525,7 +525,7 @@ def _the_radius_is_a_rotors(value: object) -> object:
 def validated_family_selection(value: object) -> str | list[str]:
     """Accept one word, or a list of words; what a word IS is judged at build time.
 
-    A bare word is one of the five selectors, an alias of the row's setup
+    A bare word is a selector word, an alias of the row's setup
     or a family name (for example, ``families =
     "Lifters"``), and :func:`select_families` reads it against the row's
     inventory and aliases; a word resolving to nothing is an entry the

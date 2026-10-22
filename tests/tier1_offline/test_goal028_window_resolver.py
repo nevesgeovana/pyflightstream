@@ -235,3 +235,9 @@ def test_p0430_a_non_positive_last_step_is_not_blamed_on_the_clock():
         windows.surface_averaging_window(
             last_step=0, last_revs=None, last_iters=10, per_revolution=None
         )
+
+
+@pytest.mark.parametrize(("steps", "expected"), [(2.5, 2), (3.5, 4), (2.4, 2), (2.6, 3)])
+def test_last_a_fractional_window_rounds_to_the_nearest_step_halves_to_even(steps, expected):
+    """X-F-0293: the rounding of a fractional step count is stated and kept."""
+    assert windows.averaging_steps({"LAST_ITERS_AVG": steps}, per_revolution=None) == expected

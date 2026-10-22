@@ -157,11 +157,12 @@ def select_families(
     adds every surface of the inventory. A cited word is read as a
     ``[groups]`` member is: an exact boundary name of the inventory first,
     then an ALIAS of the row's setup,
-    then a family, and only then as one of the five selector words, as the
-    bare string and as a list member. So an exact boundary wins over an
-    alias of the same spelling, and ``airframe`` and ``blades`` are the
-    setup's own where it defines them and refused as selectors where it
-    does not.
+    then a family, and only then as a selector word (``all``, ``each`` and
+    ``each_blade``, which this function expands, and the retired ``airframe``
+    and ``blades``), as the bare string and as a list member. So an exact
+    boundary wins over an alias of the same spelling, and ``airframe`` and
+    ``blades`` are the setup's own where it defines them and refused as
+    selectors where it does not.
 
     Parameters
     ----------

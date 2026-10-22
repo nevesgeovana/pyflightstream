@@ -136,8 +136,10 @@ def averaging_steps(variables: Mapping[str, object], *, per_revolution: float | 
     -------
     int or None
         The window's length in steps, at least 1, or None where the row states
-        no key or a count of revolutions meets no clock. Invalid values and
-        windows shorter than one step raise CampaignConfigError.
+        no key or a count of revolutions meets no clock. A fractional number of
+        steps is rounded to the nearest whole step, halves to the even one (2.5
+        steps is 2, 3.5 is 4). Invalid values and windows shorter than one step
+        raise CampaignConfigError.
 
     Raises
     ------
