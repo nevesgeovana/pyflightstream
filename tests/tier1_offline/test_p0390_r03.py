@@ -645,8 +645,10 @@ def settings_spelling_admitted(new: str, captured: str) -> bool:
     """Whether a settings table differs from its 0.38.0 capture by the PFS-2105.020 spelling only.
 
     Line by line and cell by cell: a cell is admitted where it is equal, or where it
-    reads as a number whose five-decimal spelling is the captured cell. A row, a
-    column or any other cell that differs is not admitted.
+    reads as a number whose five-decimal spelling is the captured cell, or where it is
+    the captured cell marked ``<value> (default)``: NL-RECS-2's super-file spelling of a
+    documented default the script never emitted, which leaves the value unchanged. A
+    row, a column or any other cell that differs is not admitted.
     """
     new_lines, old_lines = new.split("\n"), captured.split("\n")
     if len(new_lines) != len(old_lines):
@@ -656,7 +658,7 @@ def settings_spelling_admitted(new: str, captured: str) -> bool:
         if len(new_cells) != len(old_cells):
             return False
         for cell, old in zip(new_cells, old_cells, strict=True):
-            if cell == old:
+            if cell in (old, f"{old} (default)"):
                 continue
             try:
                 number = float(cell)
@@ -1105,7 +1107,13 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
                 ):
                     if field in row and row[field] is None:
                         del row[field]
-            assert json.loads(resolved.replace(": <S>", ': "<S>"')) == expected, name
+            actual = json.loads(resolved.replace(": <S>", ': "<S>"'))
+            # NL-RECS-6 (0.43.0) adds the processor count and the machine description to
+            # every record; the 0.38.0 capture predates both fields.
+            for row in actual:
+                row.pop("processor_count", None)
+                row.pop("machine", None)
+            assert actual == expected, name
             continue
         if name.endswith(SETTINGS_TABLE_SUFFIX) or (
             name.startswith("tree/post/") and name.endswith(".csv")
