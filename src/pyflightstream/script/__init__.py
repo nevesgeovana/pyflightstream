@@ -903,13 +903,19 @@ class Script(_ScriptRendering):
             if periodic and any(self._incidence.values()):
                 raise CommandArgumentError(
                     "SYMMETRY PERIODIC refuses nonzero angle of attack or sideslip: "
-                    "incidence is incompatible with rotational periodicity"
+                    "incidence is incompatible with rotational periodicity. The solver "
+                    "does not refuse it: on 26.124 and 26.125 an angle of attack is "
+                    "accepted and solved, and a sideslip is silently reset to 0 with no "
+                    "warning (L4 X-F-0179, SYMMETRY PERIODIC 6)"
                 )
         elif entry.name in {"SOLVER_SET_AOA", "SOLVER_SET_SIDESLIP"}:
             if self._periodic_symmetry and float(bound["angle"]) != 0:  # type: ignore[arg-type]
                 raise CommandArgumentError(
                     f"SYMMETRY PERIODIC refuses nonzero {entry.name}: incidence is "
-                    "incompatible with rotational periodicity"
+                    "incompatible with rotational periodicity. The solver does not refuse "
+                    "it: on 26.124 and 26.125 an angle of attack is accepted and solved, "
+                    "and a sideslip is silently reset to 0 with no warning (L4 X-F-0179, "
+                    "SYMMETRY PERIODIC 6)"
                 )
 
     def _check_not_a_model_replacement(self, entry: CommandEntry) -> None:

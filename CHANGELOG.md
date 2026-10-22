@@ -86,6 +86,9 @@ FlightStream versions.
 
 ### Fixed
 
+- The refusal of an angle of attack or sideslip under `SYMMETRY PERIODIC` stays and states why:
+  on 26.124 and 26.125 the solver solves an angle of attack there and silently resets a
+  sideslip to 0.
 - The `DELETE_ACOUSTIC_OBSERVER` probe of `pyfs-qa` requires the second observer to be the one
   left after deleting index 1, so deleting the wrong observer no longer reads as a deletion.
 - The `SET_INVISCID_LOADS` probe of `pyfs-qa` judges the viscous drag column (field 6, named

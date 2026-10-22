@@ -4605,6 +4605,17 @@ class TestDirectInitializationAndScriptGuards:
             helpers.solver_settings(script, mode="STEADY", aoa=5.0)
         assert script.render() == before
 
+    @staticmethod
+    def test_x_f_0179_the_periodic_refusal_cites_what_the_solver_does_with_incidence():
+        """X-F-0179 (L4, 26.124 and 26.125): the refusal stays and states the measurement."""
+        script = Script("26.124")
+        helpers.initialize_solver(script, symmetry="PERIODIC", periodic_copies=3)
+        with pytest.raises(CommandArgumentError) as refusal:
+            helpers.solver_settings(script, mode="STEADY", aoa=5.0)
+        message = str(refusal.value)
+        assert "sideslip is silently reset to 0" in message
+        assert "angle of attack is accepted" in message
+
 
 class TestSelectionTokensAndExportRegister:
     """F5-1314: PFS-2130.052 and PFS-2130.054."""
