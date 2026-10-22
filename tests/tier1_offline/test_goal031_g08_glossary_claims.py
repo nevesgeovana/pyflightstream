@@ -117,12 +117,19 @@ class Variation:
     every build refuses ``second``, in these words wherever ``first`` builds
     (:func:`test_a_key_refused_in_this_release_is_refused_on_every_build`).
     Two values of such a key would both be refused and measure nothing.
+
+    ``one_sided`` is for a key whose whole effect is that ONE of its values is
+    refused: a build that refuses one value with a reason holding these words
+    and renders the other has measured the key. Anywhere else a build that
+    refuses one value and renders the other measured a refusal, not a value
+    reaching the script, and counts as refused (F-862).
     """
 
     first: Make
     second: Make
     sweep: bool = False
     refusal: str = ""
+    one_sided: str = ""
 
 
 # --- the shapes the variations stand on --------------------------------------
@@ -394,6 +401,14 @@ def _sixdof(tmp: Path, mass_kg: float) -> SimCase:
     )
 
 
+def _counted_blades(blades: str) -> SimCase:
+    """A rotor row citing no block, stating BLADES, with the wake stabilization on."""
+    case = rotor_case(BLADES=blades).model_copy(update={"rotors": {}})
+    return case.model_copy(
+        update={"solver": case.solver.model_copy(update={"slipstream_wake_stabilization": True})}
+    )
+
+
 def _rows(
     make: Callable[..., SimCase], key: str, first: str, second: str, **context: str | None
 ) -> Variation:
@@ -422,9 +437,11 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     ),
     "BETA": _rows(steady_case, "BETA", "0.0", "4.0"),
     # A section distribution naming a family the wing lacks: skipped or refused.
+    # Its effect IS the refusal: true leaves the missing family out, false refuses.
     "IGNORE_MISSING_FAMILIES": Variation(
         lambda tmp: _on_wing(tmp, steady_case(IGNORE_MISSING_FAMILIES="true"), pproc=TWO_FAMILIES),
         lambda tmp: _on_wing(tmp, steady_case(IGNORE_MISSING_FAMILIES="false"), pproc=TWO_FAMILIES),
+        one_sided="names nothing this geometry carries",
     ),
     "EXPORT_LOG": Variation(
         lambda _: _stated(unsteady_case_full(), EXPORT_LOG="true"),
@@ -541,7 +558,13 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
         lambda tmp: _azimuthal_clock(tmp), lambda tmp: _azimuthal_clock(tmp, REVOLUTIONS="3")
     ),
     "LAST_ITERS_AVG": _rows(unsteady_case, "LAST_ITERS_AVG", "100", "200"),
-    "BLADES": _rows(rotor_case, "BLADES", "4", "6"),
+    # A declared rotor block is the count (FR-68), so the flat key is read where
+    # the row cites no block; the script carries it in the slipstream wake
+    # stabilization, which takes the count per propeller.
+    "BLADES": Variation(
+        lambda _: _counted_blades("4"),
+        lambda _: _counted_blades("6"),
+    ),
     "EXPORT_UNSTEADY_AFTER_ITER": _rows(unsteady_case, "EXPORT_UNSTEADY_AFTER_ITER", "10", "20"),
     "EXPORT_UNSTEADY_LAST_ITER": _rows(unsteady_case, "EXPORT_UNSTEADY_LAST_ITER", "10", "20"),
     "RESTART": Variation(
@@ -665,6 +688,28 @@ def _plain(_: Path) -> SimCase:
     return steady_case()
 
 
+def _mach_resolved(_: Path) -> SimCase:
+    """A steady case whose Mach, velocity and fluid state are one physical condition.
+
+    What ``freestream_input = "mach"`` needs to be emitted at all: the resolved Mach
+    and the fluid it is the Mach of, consistent with the velocity.
+    """
+    sound = (1.4 * 101325.0 / 1.2) ** 0.5
+    fluid = FluidState(
+        velocity_m_per_s=0.1 * sound,
+        density_kg_m3=1.2,
+        pressure_pa=101325,
+        temperature_k=101325 / (1.2 * 287.05287),
+        viscosity_pa_s=1.8e-5,
+        sonic_velocity_m_per_s=sound,
+        heat_capacity_ratio=1.4,
+        source="synthetic",
+    )
+    return steady_case_resolved().model_copy(
+        update={"mach": 0.1, "velocity": 0.1 * sound, "fluid": fluid}
+    )
+
+
 def _over_wing(tmp: Path) -> SimCase:
     """The saved wing, whose boundaries Wing, Body and Base a selection names."""
     return _on_wing(tmp, steady_case())
@@ -777,7 +822,7 @@ SETTING_VARIATIONS: dict[str, Variation] = {
     "convergence_iterations": _setting("convergence_iterations", 5, 10),
     "minimum_cp": _setting("minimum_cp", -3.0, -5.0),
     "farfield_layers": _setting("farfield_layers", 3, 5),
-    "aeroelastic_rbf_type": _setting("aeroelastic_rbf_type", "GAUSSIAN", "LINEAR"),
+    "aeroelastic_rbf_type": _setting("aeroelastic_rbf_type", "GAUSSIAN", "WENDLAND_C2"),
     "wake_termination_revolutions": _setting("wake_termination_revolutions", 1.0, 2.0, rotor_case),
     "wake_termination_steps": _setting("wake_termination_steps", 10, 20, rotor_case),
     # FR-321 and FR-323 (0.34.0): the length the rotor builder converts, the
@@ -865,11 +910,22 @@ SETTING_VARIATIONS: dict[str, Variation] = {
         _over_wing, "clear_vorticity_drag_boundaries", None, True
     ),
     # Separation models and their legacy criteria, stated before initialisation.
-    "bulk_separation": _setting_on(
+    # Absent against stated: no build takes the stated form
+    # (test_p0400_bulk_model_has_no_supported_workflow_build).
+    "bulk_separation": Variation(
         _plain,
-        "bulk_separation",
-        None,
-        {"name": "GEAR", "separation_type": "CYLINDRICAL", "diameter": 0.2},
+        lambda _: steady_case().model_copy(
+            update={
+                "solver": SolverSettings(
+                    bulk_separation={
+                        "name": "GEAR",
+                        "separation_type": "CYLINDRICAL",
+                        "diameter": 0.2,
+                    }
+                )
+            }
+        ),
+        one_sided="bulk_separation",
     ),
     "airfoil_separation": _setting_on(
         _plain,
@@ -923,9 +979,7 @@ SETTING_VARIATIONS: dict[str, Variation] = {
         _plain, "physics_auto_wake_nodes", True, False, physics_auto_trailing_edges=True
     ),
     # Normalisation and the free-stream input, on a case whose fluid is resolved.
-    "freestream_input": _setting_on(
-        lambda _: steady_case_resolved(), "freestream_input", "velocity", "mach"
-    ),
+    "freestream_input": _setting_on(_mach_resolved, "freestream_input", "velocity", "mach"),
     "reference_mach": _setting_on(_plain, "reference_mach", 0.1, 0.2),
     "disable_reference_velocity": _setting_on(_plain, "disable_reference_velocity", None, True),
     "remove_initialization": _setting_on(_plain, "remove_initialization", None, True),
@@ -1005,13 +1059,22 @@ def _measure(variation: Variation, tmp: Path) -> Outcome:
     first, second = variation.first(tmp), variation.second(tmp)
     differs, rendered, refused = [], [], ""
     for build in covered_builds(WORKFLOWS[select_workflow(first)]):
-        (one, why_one), (two, _) = (
+        (one, why_one), (two, why_two) = (
             _render(first, build, variation.sweep),
             _render(second, build, variation.sweep),
         )
-        if one is None and two is None:
-            refused = refused or why_one
-            continue
+        # A build that refuses one value and renders the other measured a
+        # refusal, not a value reaching the script (F-862). Only a key refused
+        # whatever its value states absent against stated, and its difference
+        # is that refusal, which test_a_key_refused_in_this_release... holds.
+        if one is None or two is None:
+            why = why_one or why_two
+            measured = variation.refusal or (
+                variation.one_sided and variation.one_sided.casefold() in why.casefold()
+            )
+            if (one is None and two is None) or not measured:
+                refused = refused or why
+                continue
         rendered.append(build)
         if one != two:
             differs.append(build)
