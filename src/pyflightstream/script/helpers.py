@@ -324,10 +324,16 @@ def actuator_disc(
         _refuse_a_parked_file_of_the_other_kind(
             script, path, writing="input file", helper="actuator_disc"
         )
-    if swirl is not None and not 0.0 <= swirl <= 1.0:
+    if swirl is not None and (isinstance(swirl, bool) or not 0.0 <= swirl <= 1.0):
         raise CommandArgumentError(
             f"actuator_disc swirl must lie between 0 and 1, got {swirl}: it is the "
             "fraction of the swirl velocity kept downstream (FSM-26.120 p.186)"
+        )
+    if not 0.0 <= r_hub < r_tip:
+        raise CommandArgumentError(
+            f"actuator_disc radii must satisfy 0 <= r_hub < r_tip, got r_hub={r_hub} and "
+            f"r_tip={r_tip}: the disc is the annulus between the hub and the tip, and a "
+            "hub at or beyond the tip, or a negative radius, encloses no area"
         )
     if wake_type is not None:
         wake_type = wake_type.upper()
@@ -477,6 +483,14 @@ def rotary_motion(
         If a cited frame or boundary does not exist, or the motion label is
         already used. These checks precede entity creation.
     """
+    if wake_stabilization_blades is not None and (
+        isinstance(wake_stabilization_blades, bool) or wake_stabilization_blades < 1
+    ):
+        raise CommandArgumentError(
+            f"rotary_motion: wake_stabilization_blades is {wake_stabilization_blades!r}, "
+            "and it is a blade count per rotor, so at least 1. Drop the argument to "
+            "leave the slipstream wake stabilization off"
+        )
     _reject_bare_label("rotary_motion", "boundaries", boundaries, allows_all=True)
     _reject_bare_label("rotary_motion", "moving_frames", moving_frames, allows_all=True)
     boundaries = _listed_selection("boundaries", boundaries)
@@ -1376,6 +1390,9 @@ def export_results(
     _reject_bare_label("export_results", "vtk_boundaries", vtk_boundaries, allows_all=True)
     _reject_bare_label("export_results", "vtk_variables", vtk_variables, allows_all=True)
     vtk_wake = _read("export_results", "vtk_wake", vtk_wake)
+    vtk_all = isinstance(vtk_boundaries, str) and vtk_boundaries == "all"
+    if vtk is not None and not vtk_all:
+        _refuse_empty("export_results", "vtk_boundaries", list(vtk_boundaries), every="'all'")
     if vtk_wake and vtk_variables is None:
         raise CommandArgumentError(
             "export_results: vtk_wake=True includes the wake in the VTK variable "
@@ -1506,6 +1523,12 @@ def probe_line(
     """
     start = _triple("probe_line", "start", start)
     end = _triple("probe_line", "end", end)
+
+    if isinstance(points, bool) or not isinstance(points, int) or points < 1:
+        raise CommandArgumentError(
+            f"probe_line: points is {points!r}, and a survey line has at least one probe "
+            "vertex, a whole number of them"
+        )
     script.emit("NEW_PROBE_LINE", points, *start, *end)
     for index in range(points):
         fraction = index / max(1, points - 1)
@@ -1667,6 +1690,11 @@ def coordinate_frame(
             f"coordinate_frame {name!r}: {problem}; x_axis = {tuple(x_axis)}, "
             f"y_axis = {tuple(y_axis)}. Give two non-zero, orthogonal directions."
         )
+    if len(origin) != 3:
+        raise CommandArgumentError(
+            f"coordinate_frame {name!r}: origin holds {len(origin)} values, and an origin "
+            f"is three coordinates, x, y and z; origin = {tuple(origin)}. Nothing is emitted."
+        )
     if z_axis is None:
         ax, ay, az = x_axis
         bx, by, bz = y_axis
@@ -1755,7 +1783,9 @@ def _clean(value: float) -> float:
     return round(value, _AXIS_DECIMALS) + 0.0
 
 
-def azimuth_basis(rotor_axis: str) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+def azimuth_basis(
+    rotor_axis: str, *, caller: str = "azimuth_basis"
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
     """Return the in-plane datum and quadrature vectors of a rotor axis.
 
     The single reader of :data:`AZIMUTH_BASIS`, so the convention has one
@@ -1766,6 +1796,9 @@ def azimuth_basis(rotor_axis: str) -> tuple[tuple[float, float, float], tuple[fl
     rotor_axis : str
         Rotation axis of the rotor in the reference frame: ``X``, ``Y``
         or ``Z`` (any case).
+    caller : str
+        Name of the public helper to put in the refusal; a direct call
+        leaves it as ``azimuth_basis``.
 
     Returns
     -------
@@ -1789,7 +1822,7 @@ def azimuth_basis(rotor_axis: str) -> tuple[tuple[float, float, float], tuple[fl
         return AZIMUTH_BASIS[key]
     except (KeyError, TypeError) as error:
         raise CommandArgumentError(
-            f"blade_frames: rotor_axis is {rotor_axis!r}, and a rotor axis is one of "
+            f"{caller}: rotor_axis is {rotor_axis!r}, and a rotor axis is one of "
             f"{', '.join(sorted(AZIMUTH_BASIS))}. The axis is what fixes the plane the "
             "blades are placed in, so there is no default to fall back on"
         ) from error
@@ -1907,7 +1940,7 @@ def blade_frames(
     ...     script, frame=frames[0], axis="Z", rpm=2400.0, moving_frames=frames
     ... )
     """
-    datum, quadrature = azimuth_basis(rotor_axis)
+    datum, quadrature = azimuth_basis(rotor_axis, caller="blade_frames")
     if not isinstance(n_blades, int) or isinstance(n_blades, bool) or n_blades < 1:
         raise CommandArgumentError(
             f"blade_frames: n_blades is {n_blades!r}, and a rotor with {n_blades} blades "

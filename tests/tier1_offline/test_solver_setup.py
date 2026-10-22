@@ -1940,3 +1940,16 @@ def test_p0430_f5_a_hand_edited_snapshot_is_refused_not_replayed_by_key_order():
         with pytest.raises(CommandArgumentError, match="time_iterations and delta_time"):
             SolverSetup.model_validate(broken).explicit_kwargs()
     assert setup.explicit_kwargs()["mode"] == "UNSTEADY"
+
+
+@pytest.mark.parametrize("diameter", [0.0, -0.2])
+def test_last_a_separation_model_refuses_a_diameter_that_is_not_positive(diameter):
+    """X-F-0417: zero or negative diameters were accepted by the three models."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="greater than 0"):
+        CylindricalBulkSeparation(name="G", diameter=diameter)
+    with pytest.raises(ValidationError, match="greater than 0"):
+        AxialVortexSeparation(name="F", diameter=diameter, frame=1, body_axis="X")
+    with pytest.raises(ValidationError, match="greater than 0"):
+        BulkSeparation(name="B", separation_type="CYLINDRICAL", diameter=diameter)

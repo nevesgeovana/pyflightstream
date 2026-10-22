@@ -76,6 +76,12 @@ def render_wake_edge_node_file(midpoints: Sequence[Sequence[float]]) -> str:
     lines = [str(len(rows)), WAKE_EDGE_NODE_PLACEHOLDER]
     for position, row in enumerate(rows, start=1):
         where = f"point {position} of {len(rows)}"
+        if isinstance(row, (str, bytes)):
+            raise CommandArgumentError(
+                f"{WAKE_EDGE_IMPORT_ROUTE} node file: {where} is {row!r}, a text and not "
+                "three coordinates. Give each point as a sequence of three numbers, x, y "
+                "and z, so that a string is never read character by character"
+            )
         try:
             values = [float(value) for value in row]
         except (TypeError, ValueError) as error:

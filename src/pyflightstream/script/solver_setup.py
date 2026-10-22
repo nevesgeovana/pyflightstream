@@ -354,7 +354,7 @@ class BulkSeparation(BaseModel):
 
     name: str
     separation_type: Literal["CYLINDRICAL", "FLAT_PLATE"]
-    diameter: float
+    diameter: float = Field(gt=0)
     boundaries: list[int | str] | Literal["all"] = "all"
 
 
@@ -431,7 +431,7 @@ class AxialVortexSeparation(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
-    diameter: float
+    diameter: float = Field(gt=0)
     # int OR str: `frame` is a recorded entity reference, declared by the
     # argument's own `cites` and resolved by script._reference_kind, so
     # the emitter resolves a declared coordinate-system LABEL here
@@ -466,7 +466,7 @@ class CylindricalBulkSeparation(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
-    diameter: float
+    diameter: float = Field(gt=0)
     boundaries: list[int | str] | Literal["all"] = "all"
 
 
@@ -1083,10 +1083,10 @@ def script_from_setup(script: Script, setup: SolverSetup) -> SolverSetup:
     declarations (:meth:`~pyflightstream.script.Script.declare_existing`)
     on the target script.
 
-    Replay onto a fresh script: the induced-drag selection is the one
-    flag with per-script rather than per-call lifetime, so a target
-    script that already carries a selection keeps it, and the returned
-    snapshot then records that selection instead of the stored one.
+    Replay onto a fresh script: the induced-drag selection and the minimum
+    Cp already emitted have per-script rather than per-call lifetime, so a
+    target script that already carries either keeps it, and the returned
+    snapshot then records that value instead of the stored one.
     The campaign loop builds one script per point, which is the shape
     this function is written for.
 

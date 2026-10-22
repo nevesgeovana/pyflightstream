@@ -1889,3 +1889,126 @@ def test_p0430_f5_every_export_helper_shares_one_register_and_frames_must_be_ort
             s, name="f", origin=(0.0, 0.0, 0.0), x_axis=(1.0, 0.0, 0.0), y_axis=(1.0, 1.0, 0.0)
         )
     )
+
+
+def test_last_a_string_row_is_not_read_as_three_coordinates():
+    """X-F-1244: '123' is a text, never the coordinates 1, 2 and 3."""
+    with pytest.raises(CommandArgumentError, match="not three coordinates"):
+        helpers.render_wake_edge_node_file(["123"])
+
+
+def test_last_azimuth_basis_names_the_helper_the_caller_called():
+    """F-1485: a direct caller is not pointed at blade_frames."""
+    with pytest.raises(CommandArgumentError, match=r"^azimuth_basis: rotor_axis is 'Q'"):
+        helpers.azimuth_basis("Q")
+    script = Script("26.120")
+    with pytest.raises(CommandArgumentError, match=r"^blade_frames: rotor_axis is 'Q'"):
+        helpers.blade_frames(
+            script,
+            hub_origin=(0, 0, 0),
+            rotor_axis="Q",
+            n_blades=2,
+            blade1_azimuth_deg=0.0,
+            rotation="clockwise",
+        )
+
+
+_DISC = dict(frame=2, axis="X", offset=0.0, r_tip=0.9, r_hub=0.1, rpm=2000.0, thrust=500.0)
+
+
+@pytest.mark.parametrize(
+    "radii",
+    [
+        {"r_hub": 1.0, "r_tip": 0.9},
+        {"r_hub": 0.9, "r_tip": 0.9},
+        {"r_hub": -0.1, "r_tip": 0.9},
+        {"r_hub": 0.0, "r_tip": 0.0},
+    ],
+)
+def test_last_actuator_disc_refuses_radii_that_enclose_no_area(radii):
+    """X-F-0413: the hub lies inside the tip and neither is negative."""
+    script = Script("26.120")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    before = script.render()
+    with pytest.raises(CommandArgumentError, match="r_hub < r_tip"):
+        helpers.actuator_disc(script, "disc", **{**_DISC, **radii})
+    assert script.render() == before
+
+
+@pytest.mark.parametrize("swirl", [True, False])
+def test_last_actuator_disc_swirl_is_a_fraction_not_a_boolean(swirl):
+    """X-F-1245: swirl=True passed the range test and left a bare actuator."""
+    script = Script("26.120")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    before = script.render()
+    with pytest.raises(CommandArgumentError, match="swirl must lie between 0 and 1"):
+        helpers.actuator_disc(script, "disc", swirl=swirl, **_DISC)
+    assert script.render() == before
+
+
+@pytest.mark.parametrize("blades", [0, -2, True])
+def test_last_rotary_motion_refuses_a_wake_stabilization_count_below_one(blades):
+    """X-F-1247: a count of zero or below was emitted with ENABLE."""
+    script = Script("26.120")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    before = script.render()
+    with pytest.raises(CommandArgumentError, match="wake_stabilization_blades"):
+        helpers.rotary_motion(
+            script, frame=2, axis="X", rpm=100.0, wake_stabilization_blades=blades
+        )
+    assert script.render() == before
+
+
+@pytest.mark.parametrize(
+    ("steps", "dt"),
+    [(0, 0.01), (-5, 0.01), (10, 0.0), (10, -0.01), (10, math.inf), (10, math.nan), (True, 0.01)],
+)
+def test_last_unsteady_regime_needs_a_step_and_a_positive_time_step(steps, dt):
+    """X-F-1248: both routes refuse a regime that cannot advance in time."""
+    script = Script("26.120")
+    with pytest.raises(CommandArgumentError, match="unsteady regime"):
+        helpers.unsteady_solver(script, time_iterations=steps, delta_time=dt)
+    assert "SET_SOLVER_UNSTEADY" not in script.render()
+    with pytest.raises(CommandArgumentError, match="unsteady regime"):
+        helpers.solver_settings(script, mode="UNSTEADY", time_iterations=steps, delta_time=dt)
+    assert "SET_SOLVER_UNSTEADY" not in script.render()
+
+
+def test_last_export_results_refuses_an_empty_vtk_boundary_selection():
+    """X-F-1250: an empty list wrote a count of zero, as no sibling helper does."""
+    script = Script("26.120")
+    with pytest.raises(CommandArgumentError, match="vtk_boundaries is an empty sequence"):
+        helpers.export_results(script, vtk="out.vtk", vtk_boundaries=[])
+    assert "EXPORT_SOLVER_ANALYSIS_VTK" not in script.render()
+
+
+def test_last_an_array_is_judged_as_a_selection_not_compared_with_all():
+    """X-F-1246: an ndarray compared with 'all' gave an ambiguous truth value."""
+    np = pytest.importorskip("numpy")
+    script = Script("26.120")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    with pytest.raises(CommandArgumentError, match="expects a sequence of integers"):
+        helpers.export_results(script, vtk="out.vtk", vtk_boundaries=np.array([1, 2]))
+    with pytest.raises(CommandArgumentError, match="boundary_indices|expects"):
+        helpers.rotary_motion(script, frame=2, axis="X", rpm=100.0, boundaries=np.array([1, 2]))
+
+
+@pytest.mark.parametrize("points", [0, -3, 2.5, True])
+def test_last_probe_line_refuses_a_point_count_below_one(points):
+    """X-F-1251: a zero or negative count was emitted unchecked."""
+    script = Script("26.120")
+    with pytest.raises(CommandArgumentError, match="probe_line: points"):
+        helpers.probe_line(script, points=points, start=(0, 0, 0), end=(1, 0, 0))
+    assert "NEW_PROBE_LINE" not in script.render()
+    assert script.probe_points == []
+
+
+def test_last_coordinate_frame_checks_the_origin_before_it_creates_the_frame():
+    """X-F-1252: an origin of two entries left an undefined frame behind."""
+    script = Script("26.120")
+    with pytest.raises(CommandArgumentError, match="origin holds 2 values"):
+        helpers.coordinate_frame(
+            script, name="bad", origin=(0.0, 1.0), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+        )
+    assert "CREATE_NEW_COORDINATE_SYSTEM" not in script.render()
+    assert script.num_local_frames == 0

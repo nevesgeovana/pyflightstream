@@ -861,6 +861,29 @@ def atmosphere(
 # --- The solver settings (FSM-26.120 pp.339-346).
 
 
+def _check_unsteady_regime(time_iterations: object, delta_time: object) -> None:
+    """Refuse a step count below one or a step size that is not positive and finite."""
+    if isinstance(time_iterations, bool) or not isinstance(time_iterations, int | float):
+        raise CommandArgumentError(
+            f"unsteady regime: time_iterations is {time_iterations!r}, and it is the "
+            "number of physical time steps, a whole number"
+        )
+    if time_iterations < 1 or time_iterations != int(time_iterations):
+        raise CommandArgumentError(
+            f"unsteady regime: time_iterations is {time_iterations!r}, and a run takes at "
+            "least one whole physical time step"
+        )
+    if (
+        isinstance(delta_time, bool)
+        or not isinstance(delta_time, int | float)
+        or not 0.0 < delta_time < float("inf")
+    ):
+        raise CommandArgumentError(
+            f"unsteady regime: delta_time is {delta_time!r}, and the physical time step "
+            "is a positive, finite number of seconds"
+        )
+
+
 def unsteady_solver(script: Script, *, time_iterations: int, delta_time: float) -> None:
     """Select unsteady physical time stepping (FSM-26.120 p.341).
 
@@ -885,6 +908,7 @@ def unsteady_solver(script: Script, *, time_iterations: int, delta_time: float) 
     no ``mode`` records it too, so an unsteady run no longer reports its
     regime as unknown and not emitted.
     """
+    _check_unsteady_regime(time_iterations, delta_time)
     script.emit("SET_SOLVER_UNSTEADY", time_iterations, delta_time)
     script._unsteady_regime = (time_iterations, delta_time)
     if script.solver_setup is not None:
@@ -1240,6 +1264,8 @@ def _read_time_regime(values: dict[str, Any]) -> None:
             "time regime is one of the two (FSM-26.120 p.341)"
         )
     time_iterations, delta_time = values["time_iterations"], values["delta_time"]
+    if upper_mode == "UNSTEADY" and time_iterations is not None and delta_time is not None:
+        _check_unsteady_regime(time_iterations, delta_time)
     if upper_mode == "UNSTEADY" and (time_iterations is None or delta_time is None):
         raise CommandArgumentError(
             "solver_settings mode='UNSTEADY' needs both time_iterations and delta_time: "
