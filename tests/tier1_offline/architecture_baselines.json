@@ -52,12 +52,6 @@
    "statements": 29,
    "positional": 5
   },
-  "cases/_matrix_upgrade.py:rewrite_codes": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 35,
-   "positional": 2
-  },
   "cases/corrections.py:_row": {
    "complexity": 11,
    "branches": 8,
@@ -70,24 +64,6 @@
    "statements": 37,
    "positional": 1
   },
-  "cases/field_coverage.py:spatial_envelope": {
-   "complexity": 13,
-   "branches": 13,
-   "statements": 56,
-   "positional": 3
-  },
-  "cases/freestream.py:prepare_field": {
-   "complexity": 11,
-   "branches": 11,
-   "statements": 37,
-   "positional": 1
-  },
-  "cases/fsi_workspace.py:validate_workspace_fsi": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 21,
-   "positional": 2
-  },
   "cases/fsi_workspace.py:wire_workspace_fsi": {
    "complexity": 14,
    "branches": 13,
@@ -99,12 +75,6 @@
    "branches": 14,
    "statements": 24,
    "positional": 0
-  },
-  "cases/selection.py:select_families": {
-   "complexity": 11,
-   "branches": 11,
-   "statements": 22,
-   "positional": 4
   },
   "cases/workflows/_actuator.py:_actuator_disc": {
    "complexity": 17,
@@ -185,8 +155,8 @@
    "positional": 2
   },
   "cases/workflows/_geometry.py:_setup_ports": {
-   "complexity": 17,
-   "branches": 16,
+   "complexity": 14,
+   "branches": 13,
    "statements": 43,
    "positional": 2
   },
@@ -209,8 +179,8 @@
    "positional": 5
   },
   "cases/workflows/_pproc.py:_pproc_plots": {
-   "complexity": 14,
-   "branches": 14,
+   "complexity": 13,
+   "branches": 12,
    "statements": 33,
    "positional": 3
   },
@@ -227,8 +197,8 @@
    "positional": 5
   },
   "cases/workflows/_qsteady_rotor.py:_blade_stations_from_the_mesh": {
-   "complexity": 15,
-   "branches": 16,
+   "complexity": 13,
+   "branches": 12,
    "statements": 38,
    "positional": 2
   },
@@ -329,9 +299,9 @@
    "positional": 2
   },
   "post/_rotor_products.py:_point_series": {
-   "complexity": 12,
+   "complexity": 11,
    "branches": 12,
-   "statements": 59,
+   "statements": 55,
    "positional": 4
   },
   "post/_rotor_products.py:_qsteady_products": {
@@ -377,9 +347,9 @@
    "positional": 0
   },
   "post/corrections.py:_correct_wheel_point": {
-   "complexity": 19,
-   "branches": 19,
-   "statements": 88,
+   "complexity": 17,
+   "branches": 16,
+   "statements": 80,
    "positional": 1
   },
   "post/corrections.py:write_qsteady_corrections": {
@@ -387,12 +357,6 @@
    "branches": 20,
    "statements": 60,
    "positional": 1
-  },
-  "post/disc_maps.py:disc_map_rows": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 29,
-   "positional": 3
   },
   "post/equations.py:apply_equations": {
    "complexity": 15,
@@ -411,12 +375,6 @@
    "branches": 12,
    "statements": 44,
    "positional": 1
-  },
-  "post/probe_fields.py:write_recorded_probe_fields": {
-   "complexity": 25,
-   "branches": 25,
-   "statements": 85,
-   "positional": 4
   },
   "post/products.py:_write_the_products": {
    "complexity": 1,
@@ -904,12 +862,6 @@
    "statements": 33,
    "positional": 1
   },
-  "script/helpers.py:rotate_surfaces": {
-   "complexity": 11,
-   "branches": 13,
-   "statements": 37,
-   "positional": 1
-  },
   "script/motion.py:MotionLedger.follow": {
    "complexity": 17,
    "branches": 16,
@@ -927,12 +879,6 @@
    "branches": 10,
    "statements": 23,
    "positional": 1
-  },
-  "script/solver_setup.py:SolverSetup.explicit_kwargs": {
-   "complexity": 11,
-   "branches": 11,
-   "statements": 26,
-   "positional": 0
   },
   "script/solver_setup.py:_family_record": {
    "complexity": 19,
@@ -1041,12 +987,6 @@
    "branches": 28,
    "statements": 74,
    "positional": 2
-  },
-  "workspace/fsi_setup.py:resolve_fsi_setup": {
-   "complexity": 11,
-   "branches": 11,
-   "statements": 43,
-   "positional": 1
   },
   "workspace/inputs.py:_split_reference_tables": {
    "complexity": 21,
@@ -1297,11 +1237,11 @@
  "one_home_allowlist": [],
  "facade_lines": {
   "__init__.py": 9,
-  "cases/__init__.py": 1032,
+  "cases/__init__.py": 954,
   "commands/__init__.py": 626,
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
-  "script/__init__.py": 1624,
+  "script/__init__.py": 1541,
   "workspace/__init__.py": 1901
  },
  "facade_definitions": {
