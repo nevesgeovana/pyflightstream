@@ -1063,6 +1063,10 @@ def test_every_in_scope_setup_command_is_in_the_26124_database_and_the_rest_refu
             continue
         admitted.append(command)
     assert not admitted, f"{BUILD} admits a command recorded absent: {admitted}"
+
+
+def test_every_command_proved_elsewhere_replays_where_the_evidence_is_present():
+    """The replays, apart from the partition: absent evidence skips only this case (F-863)."""
     for path, commands in PROVED_ELSEWHERE.items():
         _prove_elsewhere(path, commands)
 
