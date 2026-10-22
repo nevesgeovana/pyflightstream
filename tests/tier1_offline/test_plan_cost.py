@@ -674,23 +674,27 @@ def test_point_costs_gives_no_row_to_a_point_whose_simulation_it_was_not_given(t
 # --------------------------------------------------------------------------
 
 
-def test_a_run_id_is_never_rendered_wider_than_the_column(tmp_path):
-    """`_elide` returned a string LONGER than its width for a width of three.
+def test_p0430_a_run_id_is_never_shortened_and_the_column_widens(tmp_path):
+    """F-1575: the cost table prints every run id whole; the point column widens.
 
-    `text[-(width - 3):]` slices from zero or from the right when the width is
-    at or below the marker, so the marker was prepended to the whole id:
-    measured at 47 characters for a width of 3. The table fixes the width at
-    38 so nothing reaches it today, and a bound nothing enforces is the half
-    that gets reached later.
+    The table kept the last 35 characters of an id longer than 38, so two points
+    whose ids differ only in the simulation part, with one long point name, printed
+    identically. The point column is now as wide as the longest id, and every column
+    after it stays aligned under its heading.
     """
-    from pyflightstream.run._plan import _elide
-
-    long_id = "pfs0160/sim_6002/a+00.0_b+00.0_j+01.7"
-    for width in range(0, 45):
-        assert len(_elide(long_id, width)) <= width, (width, _elide(long_id, width))
-    # And the half the elision is FOR: the end survives, which is the point.
-    assert _elide(long_id, 20).endswith("j+01.7")
-    assert _elide(long_id, 60) == long_id
+    wb = saved_simulation(tmp_path / "wb.fsm", ["W", "B", "N"])
+    point = "M144RE438AL+000J+170_with_a_long_point_name"
+    ids = [f"pfs0160/sim_6001/{point}", f"pfs0160/sim_6002/{point}"]
+    table = format_cost_table(
+        [estimate_point_cost(steady_case(wb), run_id=run_id, recorded=[]) for run_id in ids]
+    ).splitlines()
+    header, rule, first, second = table[:4]
+    assert first.startswith(ids[0] + " ") and second.startswith(ids[1] + " ")
+    assert first != second
+    assert header.index("mesh") + len("mesh") == len(ids[0]) + 1 + 8
+    assert len(rule) == len(header)
+    short = format_cost_table([estimate_point_cost(steady_case(wb), run_id="run/a", recorded=[])])
+    assert short.splitlines()[0].index("mesh") == 38 + 1 + 8 - len("mesh")
 
 
 def test_a_plan_with_no_points_still_constructs(tmp_path):

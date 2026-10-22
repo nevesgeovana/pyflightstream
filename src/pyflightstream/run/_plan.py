@@ -663,25 +663,13 @@ def point_costs(
     )
 
 
-#: What `_elide` puts in place of the characters it drops.
+#: The truncation marker the cost table once put in a shortened run id. The
+#: table no longer shortens any id (its point column widens to the longest),
+#: and the name stays importable from ``pyflightstream.run``.
 MARKER = "..."
 
-
-def _elide(text: str, width: int) -> str:
-    """Shorten a run id to `width`, keeping its END and marking the cut.
-
-    FROM THE LEFT, because the left of a run id is the campaign and the
-    simulation, which every row of one table shares, and the right is the
-    point, which distinguishes rows. Preserve that suffix and mark truncation
-    so long campaign names cannot make distinct points appear identical.
-    """
-    if len(text) <= width:
-        return text
-    # Keep the result within the requested width, including widths too small
-    # for both the truncation marker and a suffix.
-    if width <= len(MARKER):
-        return text[-width:] if width > 0 else ""
-    return MARKER + text[-(width - len(MARKER)) :]
+#: The narrowest point column of the cost table.
+_POINT_COLUMN = 38
 
 
 def format_cost_table(costs: list[PlannedPointCost]) -> str:
@@ -697,16 +685,19 @@ def format_cost_table(costs: list[PlannedPointCost]) -> str:
     str
         The fixed-width table, one line per point, followed by one basis
         line per distinct run type; an empty list gives the header alone.
+        The point column is as wide as the longest run id (38 at least), so
+        no run id is shortened and distinct points never print alike.
     """
+    width = max([_POINT_COLUMN, *(len(cost.run_id) for cost in costs)])
     header = (
-        f"{'point':38} {'mesh':>8} {'TEs':>5} {'layers':>7} {'visc':>5} "
+        f"{'point':{width}} {'mesh':>8} {'TEs':>5} {'layers':>7} {'visc':>5} "
         f"{'type':>9} {'steps':>7} {'procs':>6} {'expected':>10} {'samples':>8}"
     )
     rows = [header, "-" * len(header)]
     for cost in costs:
         expected = "unknown" if cost.seconds is None else f"{cost.seconds:.1f}s"
         rows.append(
-            f"{_elide(cost.run_id, 38):38} "
+            f"{cost.run_id:{width}} "
             f"{NOT_APPLICABLE if cost.panels is None else cost.panels:>8} "
             f"{NOT_APPLICABLE if cost.trailing_edges is None else cost.trailing_edges:>5} "
             f"{NOT_APPLICABLE if cost.farfield_layers is None else cost.farfield_layers:>7} "

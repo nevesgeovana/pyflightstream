@@ -108,7 +108,9 @@ EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT:
 ```
 
 The flag spends no solver time: every figure comes from the workspace, the
-mesh and the runs already recorded.
+mesh and the runs already recorded. The `point` column shows each run id
+whole: it widens to the longest id of the table, so two points never print
+alike.
 
 **EVERY COLUMN BUT `expected` IS A READING**, and each is read from the thing
 that owns it. `mesh` is the element count the geometry's mesh block states, AS THE FILE
