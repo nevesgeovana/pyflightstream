@@ -1075,7 +1075,7 @@
   "pyflightstream.cases.workflows._exports": 1,
   "pyflightstream.cases.workflows._farfield": 1,
   "pyflightstream.cases.workflows._frames": 9,
-  "pyflightstream.cases.workflows._freestream": 9,
+  "pyflightstream.cases.workflows._freestream": 8,
   "pyflightstream.cases.workflows._geometry": 5,
   "pyflightstream.cases.workflows._motion": 3,
   "pyflightstream.cases.workflows._names": 1,
@@ -1167,7 +1167,7 @@
   "pyflightstream.workspace.storage": 6,
   "pyflightstream.workspace.wake_edges": 1
  },
- "monkeypatch_targets": 147,
+ "monkeypatch_targets": 146,
  "monkeypatch_targets_by_module": {
   "pyflightstream._cli": 1,
   "pyflightstream._digest": 1,
@@ -1185,7 +1185,6 @@
   "pyflightstream.fsi.driver": 1,
   "pyflightstream.post._additional": 3,
   "pyflightstream.post._rotor_plan": 6,
-  "pyflightstream.post._rotor_products": 1,
   "pyflightstream.post._sim": 6,
   "pyflightstream.post._stage": 1,
   "pyflightstream.post.corrections": 3,
