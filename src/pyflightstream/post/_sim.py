@@ -539,8 +539,10 @@ def _group_polars(ctx: SimContext) -> None:
             )
     # ITEM 17: AN UNSTEADY SIMULATION'S POLAR COMES FROM THE PLOTS, and the
     # group polars below are NOT written for it: the native coefficient export
-    # states the LAST TIME STEP, which on an oscillating rotor is one instant of
-    # a cycle, so a polar read from it is a polar of an instant. The unsteady
+    # states the LAST TIME STEP (RPT-133, "vorticity drag list and the step exports
+    # on 26.124", 2026-10-02: the last step export equals the final export), which
+    # on an oscillating rotor is one instant of a cycle, so a polar read from it
+    # is a polar of an instant. The unsteady
     # polar (step 5) reads the plots history and averages it over time, from the
     # plots tables step 2 has put on disk, so the scaling `write_plots_table`
     # applies is not performed a second time: two implementations of one
@@ -911,8 +913,9 @@ def _probes_products(
     """Write a point's probe-points table; name the profiles an older unsteady point lacks.
 
     A steady point's, and an unsteady point's whose probes are NORMAL (FR-417
-    FR-887): its probe-points export holds the last time step, which the table's
-    `STEP` states.
+    FR-887): its probe-points export holds the state at the end of the march
+    (RPT-153, "normal probes after an unsteady march on 26.124", 2026-10-05; not the
+    same sample as the last fluid-plot step), which the table's `STEP` states.
     """
     record = ctx.record_of[point.name]
     unsteady = record.recipe in ("unsteady", "unsteady_rotor")
@@ -1214,7 +1217,8 @@ def _rotor_table_source(
             "windows": {name: list(span) for name, span in sorted(spans.items())},
         }
     # AN UNSTEADY RUN READ FROM ITS LOADS EXPORT HOLDS AN INSTANT, and
-    # says so: that export states the LAST TIME STEP. A record that
+    # says so: that export states the LAST TIME STEP (RPT-133, 2026-10-02, 26.124).
+    # A record that
     # states no window reaches here, and the entry called it a steady
     # run, with no `kind`, as a sections table's entry has.
     if any(str(r.recipe or "").startswith("unsteady") for r in ctx.records):
