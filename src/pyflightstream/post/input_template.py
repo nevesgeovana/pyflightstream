@@ -1407,8 +1407,8 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             "reaches outside a conservative transformed-body and rotary-sweep envelope. "
             "Grid-bounds containment alone does not certify interior interpolation. "
             "Source/effective hashes bind an explicitly converted copy. "
-            "Both forms were run on FlightStream 26.124 (RPT-082, 2026-09-27, "
-            "structured/unstructured comparison). "
+            "Both forms were run on FlightStream 26.124 (RPT-077, 2026-09-25, "
+            "the unstructured rows read as the structured field). "
             f"The row key is in {_GLOSSARY_LINK}, under the row keys."
         ),
         pages=(_page("gui-to-pyfs", "From the GUI to pyfs"),),
