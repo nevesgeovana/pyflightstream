@@ -1137,37 +1137,15 @@ def _run_until_the_analysis_ends(
             if any(scan.finished() for scan in scans):
                 process.kill()
                 _reap(process)
-                note = (
-                    f"{_utc_now()} pid={process.pid} stopped after the aeroelastic analysis "
-                    "ended (its completion line printed); a steady coupled script never exits "
-                    "by itself.\n"
-                )
-                try:
-                    with _textio.open_text(working_dir / STEADY_COUPLED_STOP_LOG, "a") as log:
-                        log.write(note)
-                except (OSError, ValueError):
-                    pass
+                _note_the_planned_stop(working_dir, process.pid)
                 return 0, False, ""
             pid = getattr(process, "pid", 0)
-            try:
-                dialogs = _owned_solver_dialogs(pid)
-            except OSError as error:
-                dialogs = (f"Solver window monitoring failed: {error}",)
+            dialogs = _modal_dialogs(pid)
             if dialogs:
-                diagnostic = (
-                    f"{_utc_now()} solver modal/error detected pid={pid}; "
-                    "terminating this owned solver process without clicking its dialog.\n"
-                    + "\n\n".join(dialogs)
-                    + "\n"
-                )
+                diagnostic = _modal_diagnostic(pid, dialogs)
                 process.kill()
                 _reap(process)
-                try:
-                    with _textio.open_text(working_dir / "pyfs-modal-error.log", "a") as log:
-                        log.write(diagnostic)
-                except (OSError, ValueError) as log_error:
-                    say_line(f"[solver] could not persist modal diagnostic: {log_error}")
-                say_line(diagnostic.rstrip())
+                _persist_modal_diagnostic(working_dir, diagnostic)
                 return process.returncode or 1, False, "\n" + diagnostic
 
     with (
@@ -1221,7 +1199,15 @@ def _run_with_progress(
         creationflags=_NO_WINDOW,
     )
     try:
-        return _progress_loop(process, start, working_dir, timeout_s, counter, total, every)
+        return _progress_loop(
+            process,
+            start,
+            working_dir=working_dir,
+            timeout_s=timeout_s,
+            counter=counter,
+            total=total,
+            every=every,
+        )
     except BaseException:
         # An interrupt must not leave the solver running, as subprocess.run kills its child.
         _kill_and_reap(process)
@@ -1252,6 +1238,7 @@ def _kill_and_reap(process: subprocess.Popen[str]) -> tuple[str, str]:
 def _progress_loop(
     process: subprocess.Popen[str],
     start: float,
+    *,
     working_dir: Path,
     timeout_s: float | None,
     counter: Path,
@@ -1273,53 +1260,95 @@ def _progress_loop(
             return process.returncode, out or "", err or "", False
         except subprocess.TimeoutExpired:
             pid = getattr(process, "pid", 0)
-            try:
-                dialogs = _owned_solver_dialogs(pid)
-            except OSError as error:
-                dialogs = (f"Solver window monitoring failed: {error}",)
+            dialogs = _modal_dialogs(pid)
             if dialogs:
-                diagnostic = (
-                    f"{_utc_now()} solver modal/error detected pid={pid}; "
-                    "terminating this owned solver process without clicking its dialog.\n"
-                    + "\n\n".join(dialogs)
-                    + "\n"
-                )
+                diagnostic = _modal_diagnostic(pid, dialogs)
                 out, err = _kill_and_reap(process)
-                # Guarded (GOAL-034 Q8 CXQ8R4-2): a log or stderr that cannot be
-                # written must not replace the failed-execution result it reports.
-                try:
-                    with _textio.open_text(working_dir / "pyfs-modal-error.log", "a") as log:
-                        log.write(diagnostic)
-                except (OSError, ValueError) as log_error:
-                    say_line(f"[solver] could not persist modal diagnostic: {log_error}")
-                say_line(diagnostic.rstrip())
+                _persist_modal_diagnostic(working_dir, diagnostic)
                 return process.returncode or 1, out, err + "\n" + diagnostic, False
-            # A WINDOW THAT ASKS NOTHING IS SPARED AND SAID: the GUI's
-            # startup splash of a HIDDEN 0 row. Written once per description
-            # into the point's own folder; a failure to write it changes nothing.
-            try:
-                spared = [s for s in _spared_solver_windows(pid) if s not in spared_said]
-            except OSError:
-                spared = []
-            for description in spared:
-                spared_said.add(description)
-                try:
-                    with _textio.open_text(working_dir / "pyfs-solver-windows.log", "a") as log:
-                        log.write(
-                            f"{_utc_now()} pid={pid} spared a window that asks nothing: "
-                            f"{description}\n"
-                        )
-                except (OSError, ValueError):
-                    pass
+            _say_the_spared_windows(pid, working_dir, spared_said)
             if total is None or every <= 0:
                 continue
-            try:
-                step = action_count(counter)
-            except (OSError, ValueError, KeyError, TypeError):
-                step = None
+            step = _counter_step(counter)
             if step is not None and step >= said + every:
                 said = step - step % every
                 _say(_progress_line(step, total, time.perf_counter() - start))
+
+
+def _modal_dialogs(pid: int) -> Sequence[str]:
+    """Return the modal dialogs a solver process owns, or the one line saying the check failed."""
+    try:
+        return _owned_solver_dialogs(pid)
+    except OSError as error:
+        return (f"Solver window monitoring failed: {error}",)
+
+
+def _modal_diagnostic(pid: int, dialogs: Sequence[str]) -> str:
+    """Return the diagnostic written when an owned solver process is stopped over a dialog."""
+    return (
+        f"{_utc_now()} solver modal/error detected pid={pid}; "
+        "terminating this owned solver process without clicking its dialog.\n"
+        + "\n\n".join(dialogs)
+        + "\n"
+    )
+
+
+def _persist_modal_diagnostic(working_dir: Path, diagnostic: str) -> None:
+    """Write and say the modal diagnostic.
+
+    Guarded (GOAL-034 Q8 CXQ8R4-2): a log or stderr that cannot be written must
+    not replace the failed-execution result it reports.
+    """
+    try:
+        with _textio.open_text(working_dir / "pyfs-modal-error.log", "a") as log:
+            log.write(diagnostic)
+    except (OSError, ValueError) as log_error:
+        say_line(f"[solver] could not persist modal diagnostic: {log_error}")
+    say_line(diagnostic.rstrip())
+
+
+def _note_the_planned_stop(working_dir: Path, pid: int) -> None:
+    """Leave the note of a steady coupled run's planned stop beside its outputs."""
+    note = (
+        f"{_utc_now()} pid={pid} stopped after the aeroelastic analysis "
+        "ended (its completion line printed); a steady coupled script never exits "
+        "by itself.\n"
+    )
+    try:
+        with _textio.open_text(working_dir / STEADY_COUPLED_STOP_LOG, "a") as log:
+            log.write(note)
+    except (OSError, ValueError):
+        pass
+
+
+def _say_the_spared_windows(pid: int, working_dir: Path, spared_said: set[str]) -> None:
+    """Write each spared window once, as a line in the point's own folder.
+
+    A WINDOW THAT ASKS NOTHING IS SPARED AND SAID: the GUI's startup splash of
+    a HIDDEN 0 row. Written once per description; a failure to write it
+    changes nothing.
+    """
+    try:
+        spared = [s for s in _spared_solver_windows(pid) if s not in spared_said]
+    except OSError:
+        spared = []
+    for description in spared:
+        spared_said.add(description)
+        try:
+            with _textio.open_text(working_dir / "pyfs-solver-windows.log", "a") as log:
+                log.write(
+                    f"{_utc_now()} pid={pid} spared a window that asks nothing: {description}\n"
+                )
+        except (OSError, ValueError):
+            pass
+
+
+def _counter_step(counter: Path) -> int | None:
+    """Return the run's step counter, or None where it cannot be read now."""
+    try:
+        return action_count(counter)
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
 
 
 class LocalExecutor:
