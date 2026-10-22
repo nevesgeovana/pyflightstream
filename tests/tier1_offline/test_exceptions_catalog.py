@@ -719,15 +719,14 @@ def test_no_exempted_definition_grew_a_second_bare_raise_of_the_same_type() -> N
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 11 entries in two tranches, over 14 raise sites: it
-#: is keyed on (definition, exception type) since 2026-08-18, and THREE
-#: definitions raise the same type twice: `_run_row`, `_checked` and
-#: `_validate_block_boundaries`. Eleven pairs plus those three second
-#: raises is fourteen. NO pair raises ``TypeError`` any more; ONE raises
+#: The set holds 5 entries in two tranches, over 6 raise sites: it
+#: is keyed on (definition, exception type) since 2026-08-18, and ONE
+#: definition raises the same type twice: `_checked`. Five pairs plus
+#: that second raise is six. NO pair raises ``TypeError`` any more; ONE raises
 #: ``FileExistsError`` and is the evidence-overwrite refusal, added on
 #: 2026-08-17 when the walk was widened to see that name at all and
 #: reduced from three to one the same day when the three writers were
-#: given one home; the other 10 are the reachability tranche and are
+#: given one home; the other 4 are the reachability tranche and are
 #: almost all ``ValueError``.
 #:
 #: THE TYPEERROR TRANCHE WAS THREE RAISES AND IS NONE
@@ -813,7 +812,6 @@ _RATCHET = {
     # RE-KEYED in 0.33.0 (AD-10, P0330-WP2), not re-decided: the parser moved
     # from `fsi.loads` to `results.sectional_loads` and the exemption followed
     # the site. The debt is unchanged and still owed.
-    "pyflightstream.results.sectional_loads._validate_block_boundaries -> ValueError",
     "pyflightstream.overview._module_doc -> RuntimeError",
     "pyflightstream.post.writers._checked -> ValueError",
     "pyflightstream.probes.planar._unit -> ValueError",
@@ -828,11 +826,6 @@ _RATCHET = {
     # that module for the sibling refusal three lines away.
     # `_parse_solver_flag` moved with `parse_loads` from the results root to
     # `results.loads` in 0.33.0 (AD-11); the entry followed it, count unchanged.
-    "pyflightstream.results.loads._parse_solver_flag -> ValueError",
-    "pyflightstream.results.tables._as_record -> ValueError",
-    "pyflightstream.results.tables._check_point_printback -> ValueError",
-    "pyflightstream.results.tables._run_row -> ValueError",
-    "pyflightstream.results.tables._sectional_loads_frame -> ValueError",
 }
 
 #: HOW MANY RAISES EACH EXEMPTED PAIR COVERS, measured 2026-08-18. The
@@ -840,8 +833,8 @@ _RATCHET = {
 #: `_exported_bare_raises` states, and this is what replaces the property
 #: the line number was carrying: a SECOND bare raise of the same type
 #: appearing inside an already-exempted definition would otherwise
-#: inherit the exemption in silence. Three definitions raise twice; the
-#: rest raise once: 11 pairs, 14 raises, re-measured 2026-08-19 as the
+#: inherit the exemption in silence. One definition raises twice; the
+#: rest raise once: 5 pairs, 6 raises, re-measured 2026-08-19 as the
 #: TypeError tranche emptied, `to_table` leaving with two raises and
 #: `EntityRegistry` with one.
 #:
@@ -855,15 +848,9 @@ _RATCHET = {
 _RATCHET_COUNTS = {
     "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError": 1,
     "pyflightstream.run.cli._parse_recipes -> ValueError": 1,
-    "pyflightstream.results.sectional_loads._validate_block_boundaries -> ValueError": 2,
     "pyflightstream.overview._module_doc -> RuntimeError": 1,
     "pyflightstream.post.writers._checked -> ValueError": 2,
     "pyflightstream.probes.planar._unit -> ValueError": 1,
-    "pyflightstream.results.loads._parse_solver_flag -> ValueError": 1,
-    "pyflightstream.results.tables._as_record -> ValueError": 1,
-    "pyflightstream.results.tables._check_point_printback -> ValueError": 1,
-    "pyflightstream.results.tables._run_row -> ValueError": 2,
-    "pyflightstream.results.tables._sectional_loads_frame -> ValueError": 1,
 }
 
 
