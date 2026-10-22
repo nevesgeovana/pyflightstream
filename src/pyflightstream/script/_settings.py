@@ -303,7 +303,7 @@ def _reject_bare_label(helper: str, argument: str, value: object, *, allows_all:
         return
     accepted = "a sequence of indices or labels"
     if allows_all:
-        accepted += " or the string 'all'"
+        accepted += " or the string 'all', in any case"
     raise CommandArgumentError(
         f"{helper}: {argument} takes {accepted}; a single entity label goes in a "
         f"list, for example [{value!r}]"
@@ -503,10 +503,15 @@ def _wake_termination_token(value: object) -> str:
             number = float(token)
         except ValueError:
             number = math.nan
-        if math.isfinite(number):
+        # float() also reads '1_0' and non-ASCII digits, which the solver does not.
+        if math.isfinite(number) and token.isascii() and "_" not in token:
             return token
     elif not isinstance(value, bool) and isinstance(value, (int, float)):
-        if math.isfinite(value):
+        try:
+            finite = math.isfinite(value)
+        except OverflowError:
+            finite = False
+        if finite:
             return plain_decimal(float(value))
     raise CommandArgumentError(
         f"initialize_solver: wake_termination_x is {value!r}, and it takes DEFAULT, "
@@ -731,8 +736,8 @@ def atmosphere(
         that take a units token. THE 25.000 BUILD TAKES NONE AND READS
         THE BARE NUMBER IN FEET, which its page states on the parameter
         row itself (FSM-25.000 p.286); the token arrives with the second
-        argument at 25.100. So the same call is metres on seven builds
-        and feet on one, a factor of 3.28 apart, and on that build this
+        argument at 25.100. So the same call is metres on every build
+        that takes the token and feet on 25.000, a factor of 3.28 apart, and on that build this
         helper REQUIRES ``FEET`` rather than assuming it: a caller who
         says nothing is refused, so the boundary cannot be crossed
         silently. The default is None rather than ``METERS`` so an
@@ -807,7 +812,7 @@ def atmosphere(
                     "(FSM-25.000 p.286), while every later build takes a units token "
                     "and this helper defaults that to METERS. Pass "
                     "altitude_units='FEET' to say you meant feet; the same call "
-                    "without it means metres on the other seven builds, which is "
+                    "without it means metres on every build that takes the token, which is "
                     "the same altitude times 3.28"
                 )
             if spelled != "FEET":

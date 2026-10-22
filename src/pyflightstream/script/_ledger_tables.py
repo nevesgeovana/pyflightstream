@@ -495,6 +495,9 @@ class _ScriptRendering:
             if spec.is_list:
                 tail_lines.extend(self._list_lines(spec, value))  # type: ignore[arg-type]
             else:
+                from pyflightstream.script._build_forms import _check_inline_token
+
+                _check_inline_token(entry, spec, value)
                 inline_parts.append(self._format_scalar(value))
         return [" ".join(inline_parts), *tail_lines], True
 

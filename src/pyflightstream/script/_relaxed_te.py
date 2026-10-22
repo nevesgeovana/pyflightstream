@@ -217,7 +217,7 @@ class RelaxedTrailingEdge:
         unwritable = [
             position
             for position, field in enumerate(self.fields, start=1)
-            if not field or _SEPARATOR in field or len(field.splitlines()) > 1
+            if not field or _SEPARATOR in field or field != "".join(field.splitlines())
         ]
         if unwritable:
             raise CommandArgumentError(

@@ -2022,3 +2022,52 @@ def test_last_coordinate_frame_checks_the_origin_before_it_creates_the_frame():
         )
     assert "CREATE_NEW_COORDINATE_SYSTEM" not in script.render()
     assert script.num_local_frames == 0
+
+
+# --- P0430 F5-1920: refusals that escaped as raw exceptions or misdescribed their cause.
+
+
+@pytest.mark.parametrize("value", [10**400, "1_0", "１２"])
+def test_p0430_f1481_wake_termination_x_refuses_with_the_package_error(value):
+    """An int past the double range and a token float() reads but the solver does not."""
+    script = Script("26.125")
+    with pytest.raises(CommandArgumentError, match="wake_termination_x"):
+        helpers.initialize_solver(script, wake_termination_x=value)
+
+
+@pytest.mark.parametrize("surfaces", ["wing", "al"])
+def test_p0430_f1482_a_bare_string_for_surfaces_is_refused_by_name(surfaces):
+    """Any string but 'all' (in any case, F5-1314) used to fail unpacking with a raw ValueError."""
+    script = Script("26.125")
+    with pytest.raises(CommandArgumentError, match="surfaces is .*; it takes 'all'"):
+        helpers.initialize_solver(script, surfaces=surfaces)
+
+
+@pytest.mark.parametrize("window", [(), (5,), (1, 2, 3)])
+def test_p0430_f1480_a_time_averaging_window_of_the_wrong_length_is_refused(window):
+    script = Script("26.125")
+    with pytest.raises(CommandArgumentError, match="exactly two"):
+        helpers.solver_time_averaging(script, window)  # type: ignore[arg-type]
+
+
+def test_p0430_x_f0410_a_non_ascii_digit_row_is_not_a_profile_row():
+    with pytest.raises(CommandArgumentError):
+        helpers.render_actuator_profile("0.5,１２\n0.9,3")
+
+
+def test_p0430_f1483_a_huge_integer_point_is_refused_naming_the_point():
+    with pytest.raises(CommandArgumentError, match="point 1 of 1"):
+        helpers.render_wake_edge_node_file([(10**400, 0, 0)])
+
+
+def test_p0430_f1484_a_trailing_dot_alias_is_explained_as_an_alias():
+    text = helpers._where_parked("wake/edges.txt.", "wake/edges.txt")
+    assert "trailing dot or space" in text
+    assert "parent folder" not in text
+    assert "parent folder" in helpers._where_parked("a/../x.txt", "x.txt")
+
+
+@pytest.mark.parametrize("field", ["0.5\n9", "0.5\r9", "0.5\u20289"])
+def test_p0430_x_f1241_a_relaxed_trailing_edge_field_with_a_line_break_is_refused(field):
+    with pytest.raises(CommandArgumentError, match="line break"):
+        helpers.RelaxedTrailingEdge(fields=(field, "0.1", "0.9"))

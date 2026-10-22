@@ -271,6 +271,11 @@ def solver_time_averaging(script: Script, window: tuple[int, int]) -> None:
     CommandArgumentError
         If the window is not two positive integers in order.
     """
+    if len(window) != 2:
+        raise CommandArgumentError(
+            f"solver_time_averaging = {tuple(window)!r} is not a window: state exactly two "
+            "numbers, the first and the last time iteration of the average"
+        )
     first, last = window
     if not (0 < first <= last):
         raise CommandArgumentError(
@@ -556,7 +561,7 @@ def _parked_file(script: Script, path: str) -> tuple[str, str] | None:
 #: decimal, optionally signed, with an optional exponent. A word, a NaN and an
 #: infinity are not one; an exponent too large for a float is refused as not
 #: finite.
-_PROFILE_NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
+_PROFILE_NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?", re.ASCII)
 
 #: The form a radial thrust profile takes, quoted by every refusal of one.
 _PROFILE_FORM = (

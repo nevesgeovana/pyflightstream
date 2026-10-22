@@ -172,7 +172,7 @@ def test_a_bare_label_string_is_rejected_with_the_fix():
     script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match=r"\['wing'\]"):
         helpers.analysis_setup(script, boundaries="wing")
-    with pytest.raises(CommandArgumentError, match="the string 'all'"):
+    with pytest.raises(CommandArgumentError, match="string 'all'"):
         helpers.export_results(script, vtk="C:/out/a.vtk", vtk_boundaries="wing")
 
 

@@ -104,7 +104,8 @@ def _reject_line_break(entry: CommandEntry, spec: ArgSpec, value: str) -> None:
         consequence = f"the text after the break would become the next command ({injected!r})"
     else:
         consequence = (
-            "the value ends with a line break, so the next command would be appended to this line"
+            "the value ends with a line break, so the script would carry an empty line "
+            "after this command that nobody wrote"
         )
     raise ScriptLineBreakError(
         f"{entry.name}: argument {spec.name!r} contains a line terminator, so it "
@@ -216,6 +217,21 @@ def _line_token(spec: ArgSpec, token: str, *, element: bool) -> object:
     return token
 
 
+def _as_float(entry: CommandEntry, spec: ArgSpec, value: int | float) -> float:
+    """Convert an int or a float to ``float``; an int beyond the double range is a refusal.
+
+    ``float(10**400)`` raises ``OverflowError``, which no caller handles, and the
+    value is an accepted FLOAT type, so the refusal is the package's own.
+    """
+    try:
+        return float(value)
+    except OverflowError:
+        raise CommandArgumentError(
+            f"{entry.name}: argument {spec.name!r} expects a real number within the range "
+            f"of a double, got an integer of {len(str(abs(value)))} digits ({entry.citation})"
+        ) from None
+
+
 def _check_number(entry: CommandEntry, spec: ArgSpec, value: object) -> object:
     """Check an INT or a FLOAT argument; a bool is neither, and a float must be finite."""
     if spec.type is ArgType.INT:
@@ -224,7 +240,7 @@ def _check_number(entry: CommandEntry, spec: ArgSpec, value: object) -> object:
         return value
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         _type_error(entry, spec, "a real number", value)
-    _reject_non_finite(entry, spec, float(value))
+    _reject_non_finite(entry, spec, _as_float(entry, spec, value))
     return value
 
 
@@ -298,7 +314,7 @@ def _check_list(entry: CommandEntry, spec: ArgSpec, value: object) -> list:
                 _type_error(entry, spec, "a sequence of real numbers", value)
             # Per element, not per sequence: one NaN among finite neighbours
             # is the case that reads as ordinary in the emitted line.
-            _reject_non_finite(entry, spec, float(item))
+            _reject_non_finite(entry, spec, _as_float(entry, spec, item))
         return items
     if spec.type is ArgType.STR_LIST:
         _check_text_items(entry, spec, items, value)

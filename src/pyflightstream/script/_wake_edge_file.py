@@ -84,7 +84,7 @@ def render_wake_edge_node_file(midpoints: Sequence[Sequence[float]]) -> str:
             )
         try:
             values = [float(value) for value in row]
-        except (TypeError, ValueError) as error:
+        except (TypeError, ValueError, OverflowError) as error:
             raise CommandArgumentError(
                 f"{WAKE_EDGE_IMPORT_ROUTE} node file: {where} is {row!r}, which is not "
                 f"three coordinates ({error})"
@@ -169,5 +169,10 @@ def _where_parked(parked: str, path: str) -> str:
         return (
             f"{parked!r}, which differs from {path!r} only in case: a case-insensitive "
             "file system reads the two as one file"
+        )
+    if parked.rstrip(". ").casefold() == path.rstrip(". ").casefold():
+        return (
+            f"{parked!r}, which differs from {path!r} only in a trailing dot or space: "
+            "Windows reads the two names as one file"
         )
     return f"{parked!r}, which is the file {path!r} names through a parent folder: one file"

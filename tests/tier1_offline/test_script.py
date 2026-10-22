@@ -4704,3 +4704,36 @@ def test_fr2308_a_second_input_to_one_destination_with_other_bytes_is_refused():
     with pytest.raises(CommandArgumentError, match="collides"):
         script.park_input_file("data/a.txt", "two")
     assert list(script.pending_input_files.values()) == ["one"]
+
+
+# --- P0430 F5-1920: refusals that escaped as raw exceptions or misdescribed their cause.
+
+
+def test_p0430_f1478_an_int_past_the_double_range_is_refused_not_overflowed():
+    """``float(10**400)`` raised OverflowError; an int is an accepted FLOAT value."""
+    script = Script("26.124")
+    with pytest.raises(CommandArgumentError, match="range of a double"):
+        script.emit("SOLVER_SET_CONVERGENCE", 10**400)
+
+
+def test_p0430_f1479_a_float_list_element_past_the_double_range_is_refused():
+    script = Script("26.124")
+    with pytest.raises(CommandArgumentError, match="range of a double"):
+        script.emit("SWEEPER_SET_AOA_SWEEP", "CUSTOM", [1.0, 10**400], "aoa.txt")
+
+
+def test_p0430_f1904_a_trailing_break_is_described_as_an_empty_line():
+    """render joins with a newline: the break adds a blank line, nothing merges."""
+    script = Script("26.120")
+    with pytest.raises(ScriptLineBreakError) as caught:
+        script.emit("IMPORT", "METER", "STL", "wing.stl\n")
+    message = str(caught.value)
+    assert "empty line" in message, message
+    assert "appended to this line" not in message, message
+
+
+def test_p0430_x_f1236_a_payload_lines_string_scalar_must_be_one_token():
+    """A name with a space shifted the solver's token slots on a payload-lines command."""
+    script = Script("26.124")
+    with pytest.raises(CommandArgumentError, match="one nonempty token"):
+        script.emit("CREATE_STRATFORD_BULK_SEPARATION", "a b", 1, [1])
