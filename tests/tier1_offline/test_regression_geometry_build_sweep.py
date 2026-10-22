@@ -3864,6 +3864,23 @@ class TestF2Package0607Geometry:
         assert list(outside.glob("*.geometry.toml")) == []
 
     @staticmethod
+    def test_f744_converter_refuses_a_relative_geometry_that_climbs_out(tmp_path):
+        """F-744: a relative path whose parent steps leave inputs/geometries is refused too."""
+        import os
+
+        from pyflightstream.workspace._geometry_convert import instruction_from_sidecar
+
+        root = _geometry_build__workspace(tmp_path)
+        outside = tmp_path / "elsewhere" / "wing"
+        outside.mkdir(parents=True)
+        (outside / "wing.stl").write_text("solid x\n", encoding="utf-8")
+        climbing = os.path.relpath(outside / "wing.stl", root / "inputs" / "geometries")
+        assert climbing.startswith("..")
+        with pytest.raises(InputArtifactError, match="outside"):
+            instruction_from_sidecar(climbing, root=root, apply=True)
+        assert list(outside.glob("*.geometry.toml")) == []
+
+    @staticmethod
     @pytest.mark.parametrize(
         ("text", "word"),
         [
