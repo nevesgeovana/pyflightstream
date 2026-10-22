@@ -222,7 +222,6 @@ The method admits no aspirational requirement: a central requirement stays in th
 
 | UID | Owed |
 | --- | --- |
-| `NL-INST-5` | a test that a superseded compatibility verdict keeps the reference to the prior report. |
 | `NL-RECS-2` | an unemitted documented default reported as a default, never as an effective value. |
 | `NL-RECS-3` | regeneration of the executed procedure from the record, compared with the executed one by digest. |
 | `NL-RECS-6` | the processor count and the machine description in every run record, beside the wall time already recorded. |

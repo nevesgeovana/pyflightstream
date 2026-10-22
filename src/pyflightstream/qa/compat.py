@@ -678,10 +678,12 @@ def apply_compat(
     ``unprobed`` commands are untouched. A command that already records the version is rewritten
     in place; one that does not gains the line at its release position,
     which is what the first probe run of a newly registered version
-    needs. The edit is line-level on the flow-mapping version lines, so
-    chapter comments and layout survive; a command whose version block
-    holds no single-line entry to pattern on is refused loudly rather
-    than mangled.
+    needs. A row whose status the report changes keeps, in its note, the
+    outcome and the report it replaced ("This verdict supersedes ..."), so a
+    superseded verdict still names its evidence. The edit is line-level
+    on the flow-mapping version lines, so chapter comments and layout
+    survive; a command whose version block holds no single-line entry to
+    pattern on is refused loudly rather than mangled.
 
     Parameters
     ----------
@@ -1178,6 +1180,15 @@ def _rewritten_flow_entry(
         # because the status alone cannot say which of the three ways it
         # arrived; the probe detail says it was measured.
         pairs["note"] = _promoted_note(existing.get("note"), body.get("detail", ""), status)
+        owned.add("note")
+    # NL-INST-5: a verdict a newer report moves keeps the reference to the
+    # report it replaced, so the observation behind the superseded verdict
+    # stays one hop from the row; the prior report itself is never touched.
+    prior_status, prior_report = existing.get("status"), existing.get("report")
+    if prior_report and prior_report != citation and prior_status != status:
+        reference = f"This verdict supersedes {prior_status} ({prior_report})."
+        note = str(pairs.get("note", existing.get("note")) or "").strip()
+        pairs["note"] = note if reference in note else f"{note} {reference}".strip()
         owned.add("note")
     pairs.update({key: value for key, value in existing.items() if key not in owned})
     return f'{indent}"{canonical}": {_flow_mapping(pairs)}'

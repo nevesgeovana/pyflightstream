@@ -44,6 +44,9 @@ FlightStream versions.
 - `pyfs-qa probe` records a command `unprobed` with reason `licence-denied` when the solver
   raises its licence error dialog, and keeps the dialog's lines in the result's `log_errors`;
   before, that refusal stopped the probe at the baseline or read as a prelude failure.
+- `pyfs-qa apply-compat` keeps, in the note of a command database row whose
+  status a newer report changes, the outcome and the report it replaced
+  (`This verdict supersedes <status> (<report>).`).
 
 - An unstated `ALPHA` or `BETA` is 0.0 in every product that reads the angle: the rotor table's
   shaft angle and `ETAW` and the axis coefficients of the unsteady polar are computed at it, and a

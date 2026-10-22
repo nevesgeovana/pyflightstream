@@ -928,6 +928,37 @@ def test_re_applying_a_superseded_report_is_refused(tmp_path):
     )
 
 
+def test_p0430_a_superseded_verdict_keeps_the_reference_to_the_prior_report(tmp_path):
+    """NL-INST-5: a newer report moves the verdict; the row still names the report it replaced.
+
+    The verdict table points at the newer report, and the prior report stays on
+    disk byte for byte; the row's note names the prior outcome and its report,
+    so the observation that justified the superseded verdict is still one hop
+    from the row.
+    """
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    older = write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "broken", "detail": "no effect"}}, date="2026-07-21"
+    )
+    apply_compat(older, repo_root=tmp_path, commands_dir=commands_dir)
+    older_bytes = older.read_bytes()
+    newer = write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "verified", "detail": "effect observed"}}, date="2026-07-23"
+    )
+    apply_compat(newer, repo_root=tmp_path, commands_dir=commands_dir)
+
+    text = (commands_dir / "script_controls.yaml").read_text(encoding="utf-8")
+    row = yaml.safe_load(text)["PRINT"]["versions"]["26.120"]
+    assert row["status"] == "verified"
+    assert row["report"] == "reports/compat/CMP-26120_2026-07-23.yaml"
+    assert "supersedes broken (reports/compat/CMP-26120_2026-07-21.yaml)" in row["note"]
+    assert older.read_bytes() == older_bytes
+    # Re-applying the newer report changes nothing: the reference is not stacked.
+    apply_compat(newer, repo_root=tmp_path, commands_dir=commands_dir)
+    assert (commands_dir / "script_controls.yaml").read_text(encoding="utf-8") == text
+
+
 def test_a_newer_report_that_agrees_does_not_block_the_older_one(tmp_path):
     """Agreement never supersedes, and this shape is real, not invented.
 
