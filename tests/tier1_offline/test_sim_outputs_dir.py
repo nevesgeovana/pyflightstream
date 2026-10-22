@@ -296,9 +296,17 @@ def test_the_older_of_the_two_legacy_folders_does_not_join_the_newer(tmp_path):
     from pyflightstream.cases import SimCase, SweepAxis
 
     sim = tmp_path / "sim_9001"
-    for folder in ("outputs", "raw"):
+    # The two folders hold DIFFERENT exports, so a read order that prefers
+    # raw/ over outputs/ is seen in the angle the verdict reports (X-F-0613).
+    for folder, alpha in (("outputs", "2.000"), ("raw", "7.000")):
         (sim / folder).mkdir(parents=True)
-        (sim / folder / f"{folder}_loads.txt").write_text(_loads_text(), encoding="utf-8")
+        (sim / folder / f"{folder}_loads.txt").write_text(
+            _loads_text().replace(
+                "Angle of attack (Deg)                       2.000",
+                f"Angle of attack (Deg)                       {alpha}",
+            ),
+            encoding="utf-8",
+        )
 
     case = SimCase(
         sim_id="9001",
@@ -312,4 +320,9 @@ def test_the_older_of_the_two_legacy_folders_does_not_join_the_newer(tmp_path):
     assert verdict.status is RunStatus.CONVERGED, (
         "the two legacy folders were read together, so two files parsed as loads "
         f"tables and the point was refused: {verdict.error}"
+    )
+    printed = {entry.get("axis"): entry.get("reported") for entry in (verdict.conditions or [])}
+    assert printed.get("alpha") == 2.0, (
+        f"the point was judged on an export printing {printed.get('alpha')}, so raw/ "
+        "was read before outputs/"
     )
