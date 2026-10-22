@@ -760,3 +760,34 @@ def test_only_a_removed_row_shows_its_report_in_the_version_cell():
     rendered = _format_versions_html(entry)
     assert "26.120: verified" in rendered
     assert "CMP-26120_2026-08-11_full.yaml" not in rendered, rendered
+
+
+def test_f_1611_f_1612_the_legend_names_the_errors_it_really_raises():
+    """Removed and empty cell share CommandNotInVersionError; the legend says so."""
+    from pyflightstream.reference import _status_legend_html, _status_legend_markdown
+
+    for text in (_status_legend_markdown(), _status_legend_html()):
+        assert "different error" not in text
+        assert "BrokenCommandError" in text
+        assert "CommandNotInVersionError" in text
+
+
+def test_f_1613_only_the_first_code_cell_loses_its_docstring():
+    source = (
+        '"""Module docstring."""\n'
+        "# %%\n"
+        "import os\n"
+        "# %%\n"
+        '"""a string statement that belongs to the example"""\n'
+        "print(1)\n"
+    )
+    page = percent_script_markdown(source)
+    assert "Module docstring" not in page
+    assert "a string statement that belongs to the example" in page
+
+
+def test_f_360_the_convention_does_not_cite_fr39_for_the_walk_reach():
+    from pyflightstream.reference import conventions_markdown
+
+    text = conventions_markdown()
+    assert "stated in SRS FR-39" not in text

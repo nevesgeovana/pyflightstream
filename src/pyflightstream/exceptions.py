@@ -17,8 +17,9 @@ Catalogued is the operative word and the
 requirement says so in bold: a residual of bare standard-library raises
 survives outside this catalog. Every site the guard's walk REACHES is
 named in the ratchet in ``tests/tier1_offline/test_exceptions_catalog.py``, which is
-the single home of that list; the walk's own reach is stated in SRS
-FR-39, and at least one site sits outside it.
+the single home of that list; the walk's own reach is stated in that
+same module (SRS FR-39 states only the one base), and at least one
+site sits outside it.
 Until the residual is empty, the standard-library bases are what covers it,
 and the plural matters: the residual is mostly ``ValueError`` and also
 holds ``TypeError`` and ``RuntimeError`` sites, so being exhaustive

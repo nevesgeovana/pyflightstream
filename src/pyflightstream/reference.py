@@ -164,8 +164,9 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "residual of bare standard-library raises survives outside the "
         "catalog. Every site the guard's walk REACHES is named in the "
         "ratchet in tests/tier1_offline/test_exceptions_catalog.py, which is the "
-        "single home of that list; the walk's own reach is stated in "
-        "SRS FR-39, and at least one site sits outside it. Until the "
+        "single home of that list; the walk's own reach is stated in that "
+        "same module (SRS FR-39 states only the one base), and at least one "
+        "site sits outside it. Until the "
         "residual is empty the standard-library bases are what covers "
         "it, and the plural matters: it is mostly ValueError and also "
         "holds TypeError and RuntimeError sites, so being exhaustive "
@@ -658,7 +659,8 @@ def _status_legend_markdown() -> str:
         f"The {_spelled(len(_STATUS_LEGEND))} states are EVIDENCE states, not "
         f"quality judgements, and {_spelled(refusing)} of them make the script "
         "builder REFUSE the "
-        "command, each with a different error. That second column is the one a "
+        "command: `broken` with BrokenCommandError, `removed` and `empty cell` "
+        "with CommandNotInVersionError. That second column is the one a "
         "reader planning a run needs, and it is the one no status name carries."
         "\n\n"
         "| Cell | What it rests on | What `Script.emit` does |\n"
@@ -680,7 +682,8 @@ def _status_legend_html() -> str:
         f"<p>The {_spelled(len(_STATUS_LEGEND))} states are evidence states, not "
         f"quality judgements, and {_spelled(refusing)} of them make the script "
         "builder refuse the "
-        "command, each with a different error.</p>\n"
+        "command: broken with BrokenCommandError, removed and empty cell "
+        "with CommandNotInVersionError.</p>\n"
         "<table>\n<tr><th>Cell</th><th>What it rests on</th>"
         "<th>What Script.emit does</th></tr>\n"
         f"{rows}\n</table>"
@@ -1263,12 +1266,18 @@ def percent_script_markdown(source: str) -> str:
     blocks: list[str] = []
     cell_lines: list[str] = []
     is_markdown = False
+    code_cells_seen = 0
 
     def flush() -> None:
+        nonlocal code_cells_seen
         lines = list(cell_lines)
         while lines and not lines[0].strip():
             lines.pop(0)
-        if not is_markdown and lines and lines[0].startswith('"""'):
+        # Only the first code cell can hold the module docstring.
+        module_cell = not is_markdown and bool(lines) and code_cells_seen == 0
+        if not is_markdown and lines:
+            code_cells_seen += 1
+        if module_cell and lines[0].startswith('"""'):
             first = lines.pop(0).strip()
             if not (first.endswith('"""') and len(first) > 3):
                 while lines and '"""' not in lines[0]:
