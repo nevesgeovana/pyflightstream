@@ -121,7 +121,6 @@ def build_capture(stl: Path, out: Path) -> tuple[Script, dict[str, str]]:
         surfaces=-1,
         wake_termination_x="DEFAULT",
         symmetry="NONE",
-        symmetry_copies=1,
         wall_collision_avoidance="DISABLE",
     )
     script.emit("SOLVER_SET_VELOCITY", 30.0)
@@ -297,7 +296,6 @@ def build_sweeper(stl: Path, out: Path) -> tuple[Script, dict[str, str]]:
         surfaces=-1,
         wake_termination_x="DEFAULT",
         symmetry="NONE",
-        symmetry_copies=1,
         wall_collision_avoidance="DISABLE",
     )
     script.emit("SOLVER_SET_VELOCITY", 30.0)
