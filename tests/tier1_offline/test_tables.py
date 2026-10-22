@@ -102,6 +102,17 @@ def test_residual_history_to_dataframe_keeps_iteration_order():
     assert frame["velocity_residual"].iloc[-1] == pytest.approx(9.6e-8)
 
 
+def test_rb5_to_table_documents_every_column_of_the_residual_history():
+    """RB5: the residual bullet of to_table names the overflow flags the frame carries."""
+    frame = to_table(parse_residual_history(read_fixture("log_residuals_26.120.txt")))
+    stated = " ".join((to_table.__doc__ or "").split())
+    bullet = stated[stated.index(":func:`parse_residual_history`") :]
+    bullet = bullet[: bullet.index(" - :class:")]
+    for column in frame.columns:
+        if column not in ("data_origin", "reduction", "reduction_window"):
+            assert f"``{column}``" in bullet, (column, bullet)
+
+
 def test_probe_points_to_dataframe_uses_the_printed_columns():
     report = parse_probe_points(read_fixture("probe_points_26.120.txt"))
     frame = to_table(report)

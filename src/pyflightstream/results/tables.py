@@ -256,7 +256,9 @@ def to_table(result: object) -> pd.DataFrame:
       analysis frame named by the report.
     - list of :class:`ResidualSample`
       (:func:`parse_residual_history`): columns ``iteration``,
-      ``velocity_residual``, ``pressure_residual`` (dimensionless).
+      ``velocity_residual``, ``pressure_residual`` (dimensionless),
+      ``velocity_overflowed`` and ``pressure_overflowed`` (bool, True
+      where the solver printed that residual as asterisks).
     - :class:`ProbePointsReport` (:func:`parse_probe_points`): the
       printed columns, starting with X, Y, Z in simulation length
       units in the analysis reference frame.
