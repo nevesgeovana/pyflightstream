@@ -1117,9 +1117,12 @@ class TestRfixAProducts:
                 },
             },
         )
+        # The row's VELOCITY cell follows the velocity it resolves: two different speeds
+        # are refused (X-F-1157).
         case = case.model_copy(
             update={
                 "velocity": 10.0,
+                "variables": {**case.variables, "VELOCITY": "10.0"},
                 "reference": case.reference.model_copy(update={"velocity": 20.0}),
             }
         )
