@@ -471,6 +471,14 @@ def unsteady_export_threshold(
 #: ``first_invocation_offset_s`` from it. Every invocation after the first
 #: reads the start back and asks one question.
 #:
+#: ELAPSED TIME ADDS THE MONOTONIC CLOCK between invocations, because the
+#: calendar clock can be set back or forward under a running job. Each
+#: invocation records ``mono`` and ``wall``; the next adds ``time.monotonic()``
+#: minus ``mono``, which every process of one boot shares. Where that is
+#: negative (the machine restarted between invocations) it adds the calendar
+#: difference instead. The first interval, from a job start, is the calendar
+#: difference, since the run that wrote the start ran in another process.
+#:
 #: WHEN IT FIRES it writes the row's exports and the stop into the script
 #: file the solver re-reads on the next step (RPT-041, "a SCRIPT action re-reads
 #: its file on every time step", 2026-09-08, on 26.123), and records WHERE it stopped
@@ -510,6 +518,7 @@ if STATE.is_file():
         )
 
 now = time.time()
+mono = time.monotonic()
 if state["started_at"] is None:
     state["started_at"] = now
     state["origin"] = "first-invocation"
@@ -517,7 +526,15 @@ elif "origin" not in state:
     state["origin"] = "job-start"
     state["first_invocation_offset_s"] = now - float(state["started_at"])
 state["steps"] = int(state["steps"]) + 1
-elapsed = now - float(state["started_at"])
+if "mono" in state and "wall" in state:
+    step = mono - float(state["mono"])
+    if step < 0:
+        step = max(0.0, now - float(state["wall"]))
+    elapsed = float(state.get("elapsed_s", 0.0)) + step
+else:
+    elapsed = now - float(state["started_at"])
+state["mono"] = mono
+state["wall"] = now
 state["elapsed_s"] = elapsed
 
 if not state["fired"] and elapsed >= DEADLINE_S:

@@ -105,6 +105,36 @@ def test_p0420_the_origin_survives_the_next_invocations(tmp_path):
     assert second["first_invocation_offset_s"] == first["first_invocation_offset_s"]
 
 
+def test_p0430_a_calendar_jump_between_steps_does_not_stop_the_run(tmp_path):
+    """F-764: elapsed time adds the monotonic clock between invocations, not calendar time.
+
+    The last invocation ran 10 s into the job; the calendar was then set ten hours
+    forward. The clock read ten hours elapsed and stopped a run with an hour to go;
+    it now adds the monotonic interval. Where the monotonic clock went back (a
+    restart between invocations) the calendar interval stands in.
+    """
+    now = time.time()
+    last = {
+        "started_at": now - 36000.0,
+        "steps": 3,
+        "fired": False,
+        "origin": "job-start",
+        "first_invocation_offset_s": 1.0,
+        "elapsed_s": 10.0,
+        "mono": time.monotonic(),
+        "wall": now - 36000.0,
+    }
+    jumped = _run_the_clock(tmp_path / "jumped", state=last, deadline=3600.0)
+    assert not jumped["fired"] and 10.0 <= jumped["elapsed_s"] < 60.0, jumped
+    assert jumped["steps"] == 4 and jumped["started_at"] == last["started_at"]
+    rebooted = _run_the_clock(
+        tmp_path / "rebooted",
+        state={**last, "mono": time.monotonic() + 1e9, "wall": now - 20.0},
+        deadline=3600.0,
+    )
+    assert not rebooted["fired"] and 30.0 <= rebooted["elapsed_s"] < 90.0, rebooted
+
+
 # ---------------------------------------------------------------- PFS-2130.030
 
 

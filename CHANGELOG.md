@@ -357,6 +357,9 @@ FlightStream versions.
   (`NEW_CCS_WING_MORPHING_SURFACE`), without regenerating the CCS file.
 - A point alias whose index is a digit-like Unicode character (a superscript two, for
   example) is not an alias and no longer stops the command with a conversion error.
+- The `WALLTIME` watchdog of an unsteady row measures elapsed time with the monotonic clock
+  between solver steps, so a system clock set forward or back during a run no longer stops
+  it early or late.
 
 ### Deprecated
 
