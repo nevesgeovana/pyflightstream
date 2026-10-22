@@ -41,8 +41,11 @@ minimum-Cp default when the caller does not choose one, and attaches a
 every effective flag value to the script (``script.solver_setup``) for
 the run manifest. The induced-drag selection itself is an
 analysis-phase command, so when it is passed its emission is deferred
-and lands right after the solver starts: :func:`start_solver` (or the
-first analysis or export helper call) flushes it.
+and a steady or quasi-steady script lands it right after the solver
+starts: :func:`start_solver` (or the first analysis or export helper
+call) flushes it. On an unsteady march the selection must precede
+START_SOLVER to reach the step exports (FR-568); the workflow emitter
+places it there with ``Script.emit_deferred_vorticity_before_solve``.
 
 ONE PAIR HERE EMITS NOTHING, and it is stated in the module docstring
 rather than only beside itself, because the sentence above says every
@@ -1178,6 +1181,11 @@ def analysis_setup(
     mixing the two groups fits neither position: before the start it
     reaches the analysis phase and the phase guard then refuses
     START_SOLVER; after the start the guard refuses the init setting.
+    The deprecated ``vorticity_drag_boundaries`` argument is an analysis
+    selection and is emitted where this call is made; on an unsteady march
+    the step exports read it only when it precedes START_SOLVER (FR-568), so
+    use ``solver_settings(vorticity_drag_boundaries=...)`` and the workflow
+    emitter, which places it there.
 
     Parameters
     ----------
@@ -1596,9 +1604,11 @@ def coordinate_frame(
     EDIT_COORDINATE_SYSTEM with the origin and the three axis vectors
     in the reference frame (coordinate_systems chapter). Use it when
     the solver should carry the same plane a probe grid was
-    prescribed on; probe positions themselves are always imported in
-    the reference frame (frame 1), so this helper is presentation,
-    not placement.
+    prescribed on; probe positions written by :func:`probe_points` and
+    :func:`probe_line` are in the reference frame (frame 1), so this
+    helper is presentation, not placement for them. A lattice imported
+    with :func:`probes_from_file` is read in the frame its ``frame``
+    argument cites, which may be a frame created here.
 
     Parameters
     ----------
@@ -2195,7 +2205,9 @@ def unsteady_action(
     were created.
 
     THE EVIDENCE IS STATED ONCE, HERE. The command is documented on the
-    two newest builds and probed on none, so the returned record carries
+    two newest builds, and the database promotes no status for it from a
+    probe on either (the script-action re-read probe of RPT-041 ran on
+    26.123 only), so the returned record carries
     the status the database holds for this script's build and whether it
     was inherited. A build that does not document the command at all is
     refused by the emitter, naming the command and the build, rather
