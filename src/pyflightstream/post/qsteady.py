@@ -156,7 +156,8 @@ STATION_COLUMN = "K_1P"
 CLOCKING_COLUMN = "CLOCKING"
 #: How far a station of a later clocking may sit from clocking 0's before the
 #: post says the stations are not aligned: a thousandth of the block's largest
-#: offset, the resolution the sectional loads export prints its offsets to.
+#: offset, the resolution of the four significant digits the sectional loads export
+#: prints (RPT-047, "the rotation null test, on 26.123", 2026-09-13).
 STATION_TOLERANCE = 1e-3
 #: The six loads and the two shaft components, per rotor and per blade.
 LOAD_NAMES: tuple[str, ...] = ("FX", "FY", "FZ", "MX", "MY", "MZ", "THRUST", "TORQUE")
