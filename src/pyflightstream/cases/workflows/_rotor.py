@@ -542,9 +542,10 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
 
     The open is FIRST and only where the case names a geometry
     (:func:`_open_geometry`). It has to precede the coordinate system
-    rather than merely appear somewhere: ``OPEN`` replaces the whole
-    simulation state, so a frame created before it would be discarded
-    with nothing said, and the rotary motion would then turn about a
+    rather than merely appear somewhere: ``OPEN`` is taken to replace the whole
+    simulation state (RPT-141 shows it loads the saved actions; replacement of
+    the rest is assumed, not measured in a committed report), so a frame created
+    before it would be discarded with nothing said, and the rotary motion would then turn about a
     frame that no longer exists.
     """
     _refuse_the_loads_selections_on_a_march(case)
