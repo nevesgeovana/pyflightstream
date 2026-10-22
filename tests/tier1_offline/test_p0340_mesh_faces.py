@@ -527,6 +527,37 @@ def test_f1211_names_read_before_a_replacement_get_no_new_digest_fr_704(tmp_path
     assert sidecars.face_count_lines(wing, 1, obj=False)
 
 
+def test_f1211_write_inventory_states_no_digest_of_a_mesh_replaced_after_its_names(
+    tmp_path, monkeypatch
+):
+    """FR-704: write_inventory never pairs the names it read with a replacement's digest."""
+    from pyflightstream.workspace import sidecars
+
+    wing = _saved_simulation(tmp_path / "wing.fsm", ["Body", "Base"], [1, 1, 2])
+    other = _saved_simulation(tmp_path / "other.fsm", ["Side"], [1, 1])
+    real_open = Path.open
+    replaced: list[bool] = []
+
+    def open_then_replace(self, *args, **kwargs):
+        """Hand the names reader the file as it was, and replace it on disk once read."""
+        handle = real_open(self, *args, **kwargs)
+        if self != wing or "encoding" not in kwargs or replaced:
+            return handle
+        with handle:
+            text = handle.read()
+        wing.write_bytes(other.read_bytes())
+        replaced.append(True)
+        return io.StringIO(text)
+
+    with monkeypatch.context() as patched:
+        patched.setattr(Path, "open", open_then_replace)
+        sidecars.write_inventory(wing)
+    assert replaced
+    stated = _sidecar(wing)
+    assert stated["boundaries"] == ["Body", "Base"]
+    assert "mesh_sha256" not in stated and "mesh_faces" not in stated
+
+
 def test_f1212_an_obj_changed_while_its_groups_are_read_is_refused_fr_704(tmp_path, monkeypatch):
     """FR-704: an OBJ inventory never records earlier names beside a later digest."""
     from pyflightstream._errors import InputArtifactError
