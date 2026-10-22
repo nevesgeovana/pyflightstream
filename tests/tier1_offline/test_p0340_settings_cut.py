@@ -602,3 +602,18 @@ def test_p0420_toggle_typing_rejects_misspelled_word(tmp_path):
     assert result.returncode == 1, result.stdout + result.stderr
     assert "Incompatible types in assignment" in result.stdout
     assert "toggle_usage.py:3" in result.stdout
+
+
+def test_p0430_x_f1237_a_boundary_index_out_of_range_leaves_the_script_untouched():
+    """X-F-1237: the preflight ran the binding but not the reference range checks, so an
+    index no boundary holds was refused at emission with the earlier lines already written."""
+    script = Script(version="26.124")
+    script.declare_existing(boundaries={"wing": 1, "body": 2, "tail": 3})
+    untouched = script.render()
+    with pytest.raises((CommandArgumentError, ScriptReferenceError)):
+        helpers.solver_settings(
+            script,
+            mode="STEADY",
+            cylindrical_bulk_separation=[{"name": "c1", "diameter": 0.3, "boundaries": [99]}],
+        )
+    assert script.render() == untouched, "a refusal left lines in the script"

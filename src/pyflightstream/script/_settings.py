@@ -1097,6 +1097,10 @@ def _preflight_settings(script: Script, values: Mapping[str, Any], prepared: _Pr
         bound = script._bind(entry, args, kwargs)
         script._refuse_periodic_incidence(entry, bound)
 
+        # The reference range checks too: the emit runs them, and a refusal
+        # there would leave the script holding the lines before it.
+        script._check_references(entry, bound)
+
     if values["mode"] == "STEADY":
         check("SET_SOLVER_STEADY")
     elif values["mode"] == "UNSTEADY":
