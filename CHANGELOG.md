@@ -130,6 +130,9 @@ FlightStream versions.
 
 ### Fixed
 
+- An export found for a row that states no `BETA` (or no `ALPHA`) is its point only at 0.0,
+  the angle the row is flown at: an export at another sideslip is refused when it is
+  collected, as it already was for a row that states the angle.
 - The refusal of an angle of attack or sideslip under `SYMMETRY PERIODIC` stays and states why:
   on 26.124 and 26.125 the solver solves an angle of attack there and silently resets a
   sideslip to 0.

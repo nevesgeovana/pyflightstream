@@ -503,12 +503,9 @@ def point_of_export(row: MatrixRow, export: str, alpha: float, beta: float) -> d
     points = [dict(point) for point in row.sweep.points()]
     reported = {"alpha": alpha, "beta": beta}
     # An angle the sweep holds fixed is compared with the value the row states
-    # for it, so an export at another sideslip is not assembled with the row's.
-    held = {
-        axis: float(row.flight_condition[axis.upper()])
-        for axis in _REPORTED_ANGLES
-        if axis.upper() in row.flight_condition
-    }
+    # for it, so an export at another sideslip is not assembled with the row's;
+    # an angle the row does not state is flown at 0.0 (FR-69).
+    held = {axis: float(row.flight_condition.get(axis.upper(), 0.0)) for axis in _REPORTED_ANGLES}
     fitting = [
         point
         for point in points
