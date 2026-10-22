@@ -736,3 +736,14 @@ def test_p0430_f045_a_rotation_angle_must_be_finite(angle):
 
     with pytest.raises(MatrixError, match="finite"):
         rotations("{ANGLE: " + angle + " / AXIS: NAC-Y / ALIAS: Wing}")
+
+
+def test_p0430_a_rotation_angle_that_is_not_a_finite_number_is_refused():
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows._frames import _finite_angle
+
+    case = steady_case()
+    for text in ("nan", "inf", "ninety"):
+        with pytest.raises(CampaignConfigError, match="not a finite number"):
+            _finite_angle(case, text)
+    assert _finite_angle(case, "-12.5") == -12.5

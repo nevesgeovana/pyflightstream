@@ -605,21 +605,21 @@ def _translations(
     return _the_copies_kept(frames)
 
 
-def _finite_angle(case: SimCase, text: str) -> float:
-    """Read a rotation's ANGLE, refusing one that is not a finite number (PFS-2119.003).
+def _finite_angle(case: SimCase, text: object) -> float:
+    """Read a rotation's ANGLE, refusing one that is not a finite number.
 
-    The sibling of :func:`_finite_distance`: ``float`` reads ``nan`` and ``inf``
-    and raises a bare ``ValueError`` on text, and a case authored in Python
-    meets this sentence instead.
+    ``float`` reads ``nan`` and ``inf`` without complaint and raises a bare ``ValueError`` on
+    text; either would otherwise reach the solver or the traceback, as a translation's
+    DISTANCE never does.
     """
     try:
-        value = float(text)
+        value = float(text)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         value = math.nan
     if not math.isfinite(value):
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {ROTATE_VARIABLE} ANGLE {text!r}, which is not a "
-            "finite number; write the angle in degrees, as 15 or -2.5."
+            "finite number; write the angle in degrees, as 90 or -12.5."
         )
     return value
 
