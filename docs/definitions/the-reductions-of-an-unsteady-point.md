@@ -34,9 +34,13 @@ start and end azimuth in columns, as [its definition](per_blade.md#per_blade) as
 `phase_locked` that page defines is written where the pproc declares
 `[phase_locked]`.
 
-Every window is counted in solver steps, inclusive, 1-based, and row `k` of
-the plots table is step `k`; the table's own time column is not averaged and
-is not read as the clock. The average is the one
+Every window is counted in solver steps, inclusive, 1-based. The clock is the
+plots table's own `Time-step` column where it states one as a strictly
+increasing column of whole numbers, so a table whose clock does not begin at
+one is windowed on the steps it states; otherwise (no such column, a cell that
+is not a finite whole number, or a repeated or decreasing step) row `k` of the
+table is step `k` for the whole table, never a mix of the two. The table's time
+column is not averaged. The average is the one
 implementation of blade-passage averaging the package holds
 (`pyflightstream.post.blade_passage_average`), applied once per window, and
 it is taken over the WRITTEN plots table, so a reduction can be recomputed
