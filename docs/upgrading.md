@@ -9,11 +9,11 @@ describe the older releases that supplied them.
 
 ## 0.43.0
 
-### The documentation site
+### The documentation of the release a workspace uses
 
-The site is published per release, under `/<version>/`, with `/latest/` for the newest. A
-bookmark of an earlier page opens the same page of the latest edition; bookmark an edition's
-own address to keep reading the release a workspace uses.
+The site shows the newest release. The documentation of 0.43.0 and of each later release is
+also a zip among the release's assets on GitHub; see
+[read the documentation offline](install.md#read-the-documentation-offline).
 
 ### Results that change
 

@@ -104,108 +104,40 @@ def _load_script(name: str):
     return module
 
 
-def _built_site(folder: Path, label: str) -> Path:
-    """A built site as the docs build leaves it: pages with a body, at two depths."""
-    (folder / "guide").mkdir(parents=True)
-    for page in (folder / "index.html", folder / "guide" / "index.html"):
-        page.write_text(
-            f'<!doctype html><html><body dir="ltr"><p>{label}</p></body></html>\n',
-            encoding="utf-8",
-        )
-    return folder
+def _workflow(name: str) -> dict:
+    return yaml.safe_load((ROOT / ".github/workflows" / name).read_text("utf-8"))
 
 
 @pytest.mark.requirement("FR-2307")
-def test_p0430_two_editions_stay_published_with_a_selector_and_a_warning(tmp_path):
-    """Two releases and main published in turn: each is addressable, listed and labelled."""
-    module = _load_script("publish_doc_editions")
-    editions = tmp_path / "editions"
-    base = "/pyflightstream/"
-    for version, aliases in (("0.42.0", ["latest"]), ("0.43.0", ["latest"]), ("main", [])):
-        site = _built_site(tmp_path / f"site-{version}", f"edition {version}")
-        module.assemble_edition(site, editions, version, aliases=aliases, base=base)
-    listed = json.loads((editions / "versions.json").read_text(encoding="utf-8"))
-    assert [entry["version"] for entry in listed] == ["main", "0.43.0", "0.42.0"]
-    assert [entry["aliases"] for entry in listed] == [[], ["latest"], []]
-
-    def page(*parts: str) -> str:
-        return (editions.joinpath(*parts)).read_text(encoding="utf-8")
-
-    # Every edition answers at its own address, and latest is the newest release.
-    assert "edition 0.42.0" in page("0.42.0", "guide", "index.html")
-    assert "edition 0.43.0" in page("latest", "guide", "index.html")
-    # The default edition carries no banner; every other one does, on every page, once.
-    for folder in ("0.43.0", "latest"):
-        assert module.BANNER_ID not in page(folder, "guide", "index.html")
-    for folder, words in (("0.42.0", "pyflightstream 0.42.0"), ("main", "unreleased main")):
-        text = page(folder, "guide", "index.html")
-        assert text.count(module.BANNER_ID) == 1 and words in text
-        assert f'href="{base}latest/"' in text
-    # A reader without an edition goes to latest, and an unversioned path to its page there.
-    assert f"url={base}latest/" in page("index.html")
-    missing = page("404.html")
-    assert '["0.42.0", "0.43.0", "latest", "main"]' in missing and '"latest"' in missing
-    # Publishing an edition again replaces it and never stacks a second banner.
-    site = _built_site(tmp_path / "again", "edition 0.42.0 rebuilt")
-    module.assemble_edition(site, editions, "0.42.0", base=base)
-    assert page("0.42.0", "index.html").count(module.BANNER_ID) == 1
-    assert "rebuilt" in page("0.42.0", "index.html")
-
-
-@pytest.mark.requirement("FR-2307")
-@pytest.mark.parametrize(
-    ("version", "aliases", "base"),
-    [("v0.43.0", [], "/"), ("0.43.0", ["0.42.0"], "/"), ("0.43.0", [], "pyflightstream")],
-)
-def test_p0430_an_edition_it_cannot_publish_is_refused_before_anything_is_written(
-    tmp_path, version, aliases, base
-):
-    module = _load_script("publish_doc_editions")
-    site = _built_site(tmp_path / "site", "edition")
-    with pytest.raises(ValueError):
-        module.assemble_edition(site, tmp_path / "editions", version, aliases=aliases, base=base)
-    assert not (tmp_path / "editions").exists()
-
-
-@pytest.mark.requirement("FR-2307")
-def test_p0430_a_tag_publishes_its_edition_through_the_editions_branch():
-    workflow = yaml.safe_load((ROOT / ".github/workflows/docs.yml").read_text("utf-8"))
-    jobs = workflow["jobs"]
-    editions = jobs["editions"]
-    assert editions["if"] == DEPLOY_IF and editions["needs"] == "build"
-    assert editions["permissions"] == {"contents": "write"}
-    assert jobs["deploy"]["needs"] == "editions"
-    for name, job in jobs.items():
-        if name != "editions":
-            assert job.get("permissions", {}).get("contents") in (None, "read"), name
-    script = "\n".join(step.get("run", "") for step in editions["steps"])
-    assert "publish_doc_editions.py" in script and "--alias latest" in script
-    assert "HEAD:docs-editions" in script
-    assert any(
-        step.get("uses", "").startswith("actions/upload-pages-artifact@")
-        and step["with"]["path"] == "editions"
-        for step in editions["steps"]
-    )
-    config = _properdocs_config()
-    assert config["extra"]["version"] == {"provider": "mike", "default": "latest"}
-
-
-def _properdocs_config() -> dict:
-    class _Loader(yaml.SafeLoader):
-        pass
-
-    _Loader.add_multi_constructor("", lambda loader, suffix, node: None)
-    return yaml.load((ROOT / "properdocs.yml").read_text(encoding="utf-8"), Loader=_Loader)
+def test_p0430_each_release_carries_its_own_documentation_edition():
+    """The release workflow builds the tag's documentation as one zip, granting nothing new."""
+    release = _workflow("release.yml")
+    job = release["jobs"]["docs-edition"]
+    assert "permissions" not in job and release["permissions"] == {"contents": "read"}
+    steps = "\n".join(step.get("run", "") for step in job["steps"])
+    assert 'EDITION="pyflightstream-docs-$VERSION"' in steps
+    assert 'zip -qr "$EDITION.zip" "$EDITION"' in steps
+    uploads = [step for step in job["steps"] if step.get("uses", "").startswith("actions/upload")]
+    assert [step["with"]["path"] for step in uploads] == ["build/${{ env.EDITION }}.zip"]
+    # Publishing does not wait on the documentation.
+    assert "docs-edition" not in release["jobs"]["publish"]["needs"]
+    # No workflow job may write the repository: the editions live in release assets.
+    for name in ("docs.yml", "release.yml", "ci.yml"):
+        workflow = _workflow(name)
+        assert workflow.get("permissions", {}).get("contents") in (None, "read"), name
+        for job_name, body in workflow["jobs"].items():
+            granted = body.get("permissions", {})
+            assert granted.get("contents") in (None, "read"), (name, job_name)
+    assert _workflow("docs.yml")["jobs"]["deploy"]["needs"] == "build"
 
 
 @pytest.mark.requirement("FR-2331")
 def test_p0430_the_offline_edition_reads_its_views_without_a_server(monkeypatch):
     """Built with page.html links, its views load data and code as classic scripts."""
     monkeypatch.syspath_prepend(str(ROOT / "scripts"))
-    workflow = yaml.safe_load((ROOT / ".github/workflows/docs.yml").read_text("utf-8"))
-    build = "\n".join(step.get("run", "") for step in workflow["jobs"]["build"]["steps"])
-    assert "properdocs build --strict --no-directory-urls" in build
-    assert "site/downloads/pyflightstream-docs-offline.zip" in build
+    job = _workflow("release.yml")["jobs"]["docs-edition"]
+    build = "\n".join(step.get("run", "") for step in job["steps"])
+    assert 'properdocs build --strict --no-directory-urls --site-dir "build/$EDITION"' in build
     assert 'gen_understanding_data.py --data-only --revision "$GITHUB_SHA"' in build
     assets = ROOT / "docs/understanding/assets"
     for name in ("understanding.js", "requirements-tree.js", "code-view.js"):
