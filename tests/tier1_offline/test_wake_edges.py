@@ -117,6 +117,16 @@ def test_a_case_with_nothing_to_mark_is_refused_and_the_count_is_in_the_message(
     )
 
 
+@pytest.mark.parametrize("tolerance", [0.00001, 1e-05, 1e-5, 1.0e-5])
+def test_every_spelling_of_a_small_tolerance_is_accepted(tolerance):
+    """X-F-0416 (L4, 26.124): 0.00001, 1e-05 and 1E-5 each imported 16 edges with no error.
+
+    The solver reads all three spellings of one number, so none is refused and
+    the declared value is kept exactly.
+    """
+    assert WakeEdgeImport(nodes=ONE_NODE, tolerance=tolerance).tolerance == 1e-05
+
+
 @pytest.mark.parametrize("tolerance", [0.0, -1e-6, math.inf, math.nan])
 def test_a_tolerance_that_can_match_nothing_is_refused_with_its_own_value(tolerance):
     """Positive and finite, and the message carries the number given.
