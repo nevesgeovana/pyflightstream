@@ -304,6 +304,9 @@ FlightStream versions.
   simulation or holds a file its table does not list is not restored, a compacted post
   archive is read back before its folder is deleted, and a file met at a refinement level's
   path during the run is refused as before the run.
+- `pyfs-workspace excel create|preview|apply|cancel|check` runs the matrix workbook
+  commands, with `--workspace` defaulting to the current directory;
+  `python -m pyflightstream.workspace.excel` is the same command.
 
 ## [0.42.0] - 2026-10-16
 

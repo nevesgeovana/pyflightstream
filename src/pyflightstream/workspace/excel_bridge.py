@@ -372,7 +372,7 @@ def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
         0 when the action ran; 1 when it was refused, the reason written to the response and
         nothing changed by the refused step, or when an apply stopped partway (its PARTIAL
         record, and the cells and files it did write, are in the response). A refusal
-        is 1 here; ``python -m pyflightstream.workspace.excel`` returns 2 for a
+        is 1 here; ``pyfs-workspace excel`` returns 2 for a
         refusal and 1 only for a partial apply.
     """
     try:

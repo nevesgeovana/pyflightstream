@@ -13,7 +13,7 @@ def test_p0420_workbook_controls_only_offer_effective_inputs(tmp_path):
         text = " ".join(root.itertext())
     assert "Matrices (optional" not in text
     assert "Python executable" not in text
-    assert "python -m pyflightstream.workspace.excel preview" in text
+    assert "pyfs-workspace excel preview" in text
     assert "python" not in inspect.signature(create_workbook).parameters
 
 

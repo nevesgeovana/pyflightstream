@@ -56,6 +56,13 @@ FIELD_OPERATION = (
 
 #: (console script, destination) -> why it is not a registry knob.
 ALLOWLIST: dict[tuple[str, str], str] = {
+    # 0.43.0 (FR-44): `pyfs-workspace excel create|preview|apply|cancel|check`. The
+    # workbook, the batch and the matrices name what the call works on; the
+    # direction is a mode of one preview.
+    ("pyfs-workspace", "workbook"): SUBJECT,
+    ("pyfs-workspace", "batch"): SUBJECT,
+    ("pyfs-workspace", "matrices"): SUBJECT,
+    ("pyfs-workspace", "direction"): SWITCH,
     ("pyfs-workspace", "calibration_id"): SUBJECT,
     ("pyfs-workspace", "wheel_run"): SUBJECT,
     ("pyfs-workspace", "sector_run"): SUBJECT,
@@ -518,7 +525,11 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "wheel_run"): frozenset({"calibrate"}),
     ("pyfs-workspace", "sector_run"): frozenset({"calibrate"}),
     ("pyfs-workspace", "rotor_name"): frozenset({"calibrate"}),
-    ("pyfs-workspace", "output"): frozenset({"trailing-edge"}),
+    ("pyfs-workspace", "output"): frozenset({"trailing-edge", "create"}),
+    ("pyfs-workspace", "workbook"): frozenset({"check", "preview"}),
+    ("pyfs-workspace", "batch"): frozenset({"apply", "cancel", "preview"}),
+    ("pyfs-workspace", "matrices"): frozenset({"preview"}),
+    ("pyfs-workspace", "direction"): frozenset({"preview"}),
     ("pyfs-workspace", "axis"): frozenset({"trailing-edge"}),
     ("pyfs-workspace", "hub"): frozenset({"trailing-edge"}),
     ("pyfs-workspace", "unit"): frozenset({"trailing-edge"}),
@@ -738,12 +749,14 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "calibrate",
             "accept",
             "archive",
+            "create",
             "fill-interior",
             "from-sidecar",
             "init",
             "migrate",
             "mirror",
             "move",
+            "preview",
             "profile",
             "subtract",
             "time-mean",

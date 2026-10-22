@@ -518,3 +518,19 @@ def test_x_f_0586_a_line_separator_inside_a_cell_does_not_split_its_record(tmp_p
     request.write_text("META" + chr(9) + "note" + chr(9) + value + chr(10), encoding="utf-8")
     metadata, _ = read_request(request)
     assert metadata["note"] == value
+
+
+@pytest.mark.requirement("FR-44")
+def test_p0430_pyfs_workspace_excel_runs_the_workbook_actions_in_the_current_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FR-44 (PFS-2124.007): the workbook is a pyfs-workspace command, --workspace defaults
+    to the current directory as in its siblings, and the module form stays its alias."""
+    from pyflightstream.workspace.cli import main as workspace_main
+
+    matrix(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    assert workspace_main(["excel", "create", "book.xlsx"]) == 0
+    assert (tmp_path / "book.xlsx").is_file()
+    assert workspace_main(["excel", "check", "book.xlsx"]) == 0
+    assert main(["create", "alias.xlsx"]) == 0, "the module form is the same command"

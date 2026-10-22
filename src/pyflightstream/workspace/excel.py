@@ -72,7 +72,7 @@ def create_workbook(path: str | Path, *, workspace: str | Path) -> Path:
             (
                 11,
                 "Usage",
-                "Save and close Excel. Run python -m pyflightstream.workspace.excel preview "
+                "Save and close Excel. Run pyfs-workspace excel preview "
                 '"workbook.xlsx" '
                 '--workspace "workspace" --direction read --batch "preview.json". '
                 "Review the HTML preview, then explicitly apply or cancel.",
@@ -130,36 +130,31 @@ def create_workbook(path: str | Path, *, workspace: str | Path) -> Path:
         raise
 
 
-@cli_entrypoint
-def main(argv: list[str] | None = None) -> int:
-    """Create or explicitly synchronize a saved macro-free workbook.
+#: The destination of the action a workbook command names, shared by both entry points.
+EXCEL_ACTION = "excel_command"
+
+
+def add_excel_actions(parser: argparse.ArgumentParser) -> None:
+    """Add the workbook actions to ``parser``: create, preview, apply, cancel and check.
+
+    The one definition of the workbook command line, read by
+    ``pyfs-workspace excel`` and by ``python -m pyflightstream.workspace.excel``,
+    its alias. ``--workspace`` defaults to the current directory, as in every
+    other workspace command.
 
     Parameters
     ----------
-    argv : list of str, optional
-        The command-line arguments, ``sys.argv[1:]`` by default.
-
-    Returns
-    -------
-    int
-        0 on success, 1 when an apply reports a partial write, 2 when the command was not
-        completed.
+    parser : argparse.ArgumentParser
+        The parser that receives the actions as its subcommands.
     """
-    from pyflightstream.workspace.excel_file import (
-        apply_batch,
-        cancel_batch,
-        check_file,
-        preview_file,
-    )
-
-    parser = argparse.ArgumentParser(description=__doc__)
-    commands = parser.add_subparsers(dest="action", required=True)
+    commands = parser.add_subparsers(dest=EXCEL_ACTION, required=True)
+    workspace_help = "Workspace root directory (default: the current directory)"
     create = commands.add_parser("create", help="Create a new macro-free workbook")
     create.add_argument("output", type=Path, help="New .xlsx path; existing files are refused")
-    create.add_argument("--workspace", type=Path, required=True, help="Workspace root directory")
+    create.add_argument("--workspace", type=Path, default=Path("."), help=workspace_help)
     preview = commands.add_parser("preview", help="Inspect changes without applying them")
     preview.add_argument("workbook", type=Path, help="Saved .xlsx workbook to synchronize")
-    preview.add_argument("--workspace", type=Path, required=True, help="Workspace root directory")
+    preview.add_argument("--workspace", type=Path, default=Path("."), help=workspace_help)
     preview.add_argument(
         "--direction",
         choices=("read", "write"),
@@ -179,11 +174,34 @@ def main(argv: list[str] | None = None) -> int:
     cancel.add_argument("batch", type=Path, help="Preview batch file to cancel")
     check = commands.add_parser("check", help="Validate Runs and Dictionary")
     check.add_argument("workbook", type=Path, help="Saved .xlsx workbook to validate")
-    args = parser.parse_args(argv)
+
+
+def run_excel_action(args: argparse.Namespace) -> int:
+    """Run the workbook action a parser of :func:`add_excel_actions` read.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        The parsed command line.
+
+    Returns
+    -------
+    int
+        0 on success, 1 when an apply reports a partial write, 2 when the command was not
+        completed.
+    """
+    from pyflightstream.workspace.excel_file import (
+        apply_batch,
+        cancel_batch,
+        check_file,
+        preview_file,
+    )
+
+    action = getattr(args, EXCEL_ACTION)
     try:
-        if args.action == "create":
+        if action == "create":
             print(create_workbook(args.output, workspace=args.workspace))
-        elif args.action == "preview":
+        elif action == "preview":
             print(
                 preview_file(
                     args.workbook,
@@ -193,11 +211,11 @@ def main(argv: list[str] | None = None) -> int:
                     matrices=args.matrices,
                 )
             )
-        elif args.action == "apply":
+        elif action == "apply":
             result = apply_batch(args.batch)
             print(result)
             return 1 if result.get("error") else 0
-        elif args.action == "cancel":
+        elif action == "cancel":
             cancel_batch(args.batch)
             print("Preview cancelled; workbook and matrices unchanged.")
         else:
@@ -207,6 +225,28 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Excel command not completed: {error}", file=sys.stderr)
         return 2
     return 0
+
+
+@cli_entrypoint
+def main(argv: list[str] | None = None) -> int:
+    """Create or explicitly synchronize a saved macro-free workbook.
+
+    The module form, kept as the alias of ``pyfs-workspace excel``.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        The command-line arguments, ``sys.argv[1:]`` by default.
+
+    Returns
+    -------
+    int
+        0 on success, 1 when an apply reports a partial write, 2 when the command was not
+        completed.
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_excel_actions(parser)
+    return run_excel_action(parser.parse_args(argv))
 
 
 if __name__ == "__main__":

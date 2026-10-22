@@ -7,8 +7,12 @@ to change. Install the authoring extra, then create a new file:
 
 ~~~console
 python -m pip install "pyflightstream[excel]"
-python -m pyflightstream.workspace.excel create C:/cases/matrices.xlsx --workspace C:/cases/Campaign
+pyfs-workspace excel create C:/cases/matrices.xlsx --workspace C:/cases/Campaign
 ~~~
+
+`--workspace` defaults to the current directory, as in every `pyfs-workspace`
+command. `python -m pyflightstream.workspace.excel` is the same command and
+takes the same actions.
 
 ## Preview, apply or cancel
 
@@ -17,16 +21,16 @@ visible to a file operation. A read imports matrices into Runs; a write exports
 Runs to matrices. Both require an explicit preview followed by Apply:
 
 ~~~console
-python -m pyflightstream.workspace.excel preview C:/cases/matrices.xlsx --workspace C:/cases/Campaign --direction read --batch C:/cases/read-preview.json
-python -m pyflightstream.workspace.excel apply C:/cases/read-preview.json
-python -m pyflightstream.workspace.excel check C:/cases/matrices.xlsx
+pyfs-workspace excel preview C:/cases/matrices.xlsx --workspace C:/cases/Campaign --direction read --batch C:/cases/read-preview.json
+pyfs-workspace excel apply C:/cases/read-preview.json
+pyfs-workspace excel check C:/cases/matrices.xlsx
 ~~~
 
 Open the adjacent **read-preview.html** to inspect every field and action before
 Apply. The JSON is the pending transaction; preserve it unchanged. For the
 reverse direction, save Excel edits, use **--direction write** and a new batch
 path. Add repeated **--matrix batch.fs** options to select a subset explicitly.
-Cancel uses **python -m pyflightstream.workspace.excel cancel C:/cases/read-preview.json**.
+Cancel uses **pyfs-workspace excel cancel C:/cases/read-preview.json**.
 Preview and Cancel change neither workbook nor matrices. Each batch is single-use.
 The [workbook synchronization example](examples/excel_matrix_sync.md) runs both
 directions on an isolated synthetic workbook.

@@ -47,6 +47,11 @@ per-probe population standard deviation of the averaged steps, written beside
 the mean as ``<stem>.fluctuation.csv`` and named in its provenance) and
 ``--fluctuation-only --last K`` (that report alone, no field).
 
+``pyfs-workspace excel create|preview|apply|cancel|check`` creates the
+macro-free matrix workbook and synchronises a saved one through
+:mod:`pyflightstream.workspace.excel`, whose module form
+``python -m pyflightstream.workspace.excel`` is the same command.
+
 ``pyfs-workspace profile sections|uni|bp`` prepares (FR-347) the radial
 thrust profile of an actuator disc a row's ``PROFILE`` names, written into
 ``inputs/profiles/<stem>.csv`` with its provenance record through
@@ -90,6 +95,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
 )
 from pyflightstream.workspace import actuator_profiles as _profiles
+from pyflightstream.workspace import excel as _excel
 from pyflightstream.workspace import fields as _fields
 from pyflightstream.workspace._settings_file import (
     DEFAULT_KEYS,
@@ -201,6 +207,18 @@ def _build_parser() -> argparse.ArgumentParser:
         )
     _add_field_commands(subparsers)
     _add_profile_commands(subparsers)
+    excel = subparsers.add_parser(
+        "excel",
+        help="create a macro-free matrix workbook, or preview, apply, cancel or check "
+        "its synchronisation with the matrices",
+        description=(
+            "Creates a macro-free workbook of the workspace's matrices, and synchronises "
+            "a saved workbook with them through a preview batch that is applied or "
+            "cancelled explicitly. `python -m pyflightstream.workspace.excel` is the "
+            "same command."
+        ),
+    )
+    _excel.add_excel_actions(excel)
     for _, add, _ in _COMMAND_GROUPS:
         add(subparsers)
     return parser
@@ -521,6 +539,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_field(args)
         if args.subcommand == "profile":
             return _cmd_profile(args)
+        if args.subcommand == "excel":
+            return _excel.run_excel_action(args)
         for name, _, handler in _COMMAND_GROUPS:
             if args.subcommand == name:
                 return handler(args)
