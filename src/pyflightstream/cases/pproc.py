@@ -2026,16 +2026,6 @@ class PprocSpec(BaseModel):
     time_averaging: SurfaceTimeAveragingSpec | None = None
     vtk_variables: list[str] | None = None
 
-    @field_serializer("groups")
-    def _groups_serialize_as_the_one_alias_they_were_stated_as(
-        self, groups: dict[str, list[int | str]]
-    ) -> dict[str, str | list[int | str]]:
-        """Write each group as its one alias string, so a dump re-validates."""
-        return {
-            name: members[0] if len(members) == 1 and isinstance(members[0], str) else members
-            for name, members in groups.items()
-        }
-
     @field_validator("vtk_variables")
     @classmethod
     def _known_vtk_variables(cls, value: list[str] | None) -> list[str] | None:

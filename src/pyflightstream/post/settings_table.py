@@ -591,12 +591,12 @@ def read_settings_table(path: str | Path) -> list[Row]:
         raw = list(reader)
     repeated = sorted({name for name in header if header.count(name) > 1})
     if repeated:
-        raise ProductError(
+        raise MalformedOutputError(
             f"{source} names {', '.join(repeated)} more than once in its header, so one "
             "value of each would be dropped"
         )
     if "codebook_version" not in header:
-        raise ProductError(
+        raise MalformedOutputError(
             f"{source} carries no codebook_version column, so nothing says which "
             "encoding wrote it and every code in it is unresolvable"
         )
@@ -605,13 +605,13 @@ def read_settings_table(path: str | Path) -> list[Row]:
         # the column and no rows was written for no snapshot at all, and
         # telling that reader the column is missing sends them to look
         # for a defect in a file that has none.
-        raise ProductError(
+        raise MalformedOutputError(
             f"{source} holds a header and no rows, so it describes no run. A settings "
             "table is written from a sequence of snapshots and that sequence was empty."
         )
     stamps = {row["codebook_version"] for row in raw}
     if stamps != {str(CODEBOOK_VERSION)}:
-        raise ProductError(
+        raise MalformedOutputError(
             f"{source} was written under codebook version(s) {sorted(stamps)} and this "
             f"library holds version {CODEBOOK_VERSION}. It is refused rather than read: "
             "an id or a code that moved between the two would make every row describe a "
@@ -645,7 +645,7 @@ def _number(cell: str, source: Path, line: int, column: str) -> int | float:
     except ValueError:
         value = math.nan
     if not math.isfinite(value):
-        raise ProductError(
+        raise MalformedOutputError(
             f"{source} line {line} column {column}: {cell!r} is not a finite number; a value "
             "that does not apply is written NA"
         )

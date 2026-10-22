@@ -309,7 +309,7 @@ def test_f1417_keys_with_the_same_names_in_another_order_are_accepted(tmp_path):
     with table.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
     assert [(row["run"], row["case"]) for row in rows] == [("a", "x"), ("b", "y")]
-    with pytest.raises(MalformedOutputError, match="all with the same keys"):
+    with pytest.raises(ProductError, match="all with the same keys"):
         write_settings_table(
             tmp_path / "other.csv",
             [snapshot(), snapshot()],
