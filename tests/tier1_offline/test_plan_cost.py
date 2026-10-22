@@ -176,6 +176,18 @@ def test_the_mesh_column_is_the_size_the_file_states_and_not_its_boundary_count(
     assert cost.panels != 3, "the column is reading the boundary count again"
 
 
+def test_f_265_a_failed_marked_row_handed_over_directly_is_no_cost_sample(tmp_path):
+    """FR-517: estimate_point_cost leaves a FAILED_MARKED record out, as _recorded_costs does."""
+    geometry = saved_simulation(tmp_path / "wb.fsm", ["W"])
+    case = steady_case(geometry)
+    marked = {**recorded("run/old", 9999.0), "status": "FAILED_MARKED"}
+    only_marked = estimate_point_cost(case, run_id="run/a", recorded=[marked])
+    assert only_marked.samples == 0 and only_marked.seconds is None
+    kept = {**recorded("run/ok", 10.0), "status": "CONVERGED"}
+    mixed = estimate_point_cost(case, run_id="run/a", recorded=[marked, kept])
+    assert mixed.samples == 1 and mixed.seconds == 10.0
+
+
 def test_a_geometry_with_no_mesh_block_leaves_the_column_blank(tmp_path):
     """A wrong mesh size is compared against other rows; a blank is not."""
     empty = tmp_path / "not-a-simulation.fsm"

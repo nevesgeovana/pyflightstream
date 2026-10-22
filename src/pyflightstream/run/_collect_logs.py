@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace._batches import job_of
@@ -70,7 +70,14 @@ def _glob_values(record: RunRecord, point: str) -> dict[str, object]:
 def _profile_glob(key: str, pattern: str, values: Mapping[str, object]) -> tuple[str | None, str]:
     """Return the glob ``pattern`` formats to, or None and the refusal naming what it lacks."""
     try:
-        return pattern.format(**values), ""
+        formatted = pattern.format(**values)
+        if PurePosixPath(formatted).is_absolute() or PureWindowsPath(formatted).is_absolute():
+            return None, (
+                f"the HPC profile's {key} ({pattern!r}) formats to an absolute path, and a "
+                "glob is read inside the run's own folder. Write it relative to that folder "
+                "in the profile."
+            )
+        return formatted, ""
     except KeyError as error:
         lacking = f"{{{error.args[0]}}}"
     except (IndexError, ValueError, AttributeError, TypeError) as error:

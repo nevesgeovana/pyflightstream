@@ -270,7 +270,12 @@ def _mint(
         matrix, workspace, name=name, fs_version=None, recipes={}, ignore_missing_families=True
     )
     cases = list(resolved.campaign.sims)
-    index = next(number for number, case in enumerate(cases) if str(case.sim_id) == sim)
+    index = next((number for number, case in enumerate(cases) if str(case.sim_id) == sim), None)
+    if index is None:
+        return (
+            f"the matrix holds no row for simulation {sim}, so there is no row to mint "
+            "its record from. Pass the matrix the simulation was run from."
+        )
     campaign = resolved.campaign.model_copy(update={"sims": [cases[index]]})
     row_builds = resolved.row_builds
     if len(row_builds) == len(cases):

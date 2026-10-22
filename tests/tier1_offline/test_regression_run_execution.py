@@ -202,6 +202,14 @@ class TestIntegfixRun1Review:
         job = {"values": {"sim": "9001", "batch": "b1"}}
         assert _formatted(pattern, job) is None  # type: ignore[arg-type]
 
+    @staticmethod
+    @pytest.mark.parametrize("pattern", ["/scratch/{sim}/log*", "C:/runs/{sim}/log*"])
+    def test_x_f_1340_an_absolute_profile_glob_is_a_refusal_not_a_traceback(pattern):
+        """A formatted pattern that is absolute would raise NotImplementedError from Path.glob."""
+        glob, refusal = _profile_glob("native_log", pattern, {"sim": "9001", "point": "p"})
+        assert glob is None and "absolute path" in refusal and "native_log" in refusal
+        assert _profile_glob("native_log", "FTS{sim}.l*", {"sim": "9001"}) == ("FTS9001.l*", "")
+
 
 def _last6_continuation___case(key, value, offset=250, owed=150):
     return _last6_continuation___continuing_case(
@@ -1402,3 +1410,48 @@ def test_pfs_2130_071_reconstruct_expands_a_compacted_simulation(tmp_path):
     assert not workspace.sim_dir("9001").exists()
     rebuilt = reconstruct(record, workspace=workspace)
     assert rebuilt.script_text == "CLOSE_FLIGHTSTREAM\n"
+
+
+def test_x_f_0399_an_export_at_another_sideslip_is_not_assembled_with_the_row_beta():
+    """The angle a sweep holds fixed is compared with the value the row states for it."""
+    from pyflightstream.run._assemble import _the_point
+    from pyflightstream.workspace import WorkspaceError
+
+    sweep = SimpleNamespace(
+        type="alpha",
+        values=[0.0, 2.0, 4.0],
+        points=lambda: [{"alpha": 0.0}, {"alpha": 2.0}, {"alpha": 4.0}],
+    )
+    stated = SimpleNamespace(pol="6001", flight_condition={"BETA": 0.0}, sweep=sweep)
+    assert _the_point(stated, "export", 2.0, 0.0) == {"alpha": 2.0}
+    with pytest.raises(WorkspaceError, match="no point of row POL 6001"):
+        _the_point(stated, "export", 2.0, 3.0)
+    unstated = SimpleNamespace(pol="6001", flight_condition={}, sweep=sweep)
+    assert _the_point(unstated, "export", 2.0, 3.0) == {"alpha": 2.0}
+
+
+def test_x_f_1293_plan_resolves_a_continuation_without_expanding_a_compacted_simulation(
+    tmp_path,
+):
+    """A preview writes nothing: ``expand=False`` leaves the simulation compacted."""
+    from pyflightstream.run import resolve_continuation
+    from pyflightstream.workspace import CampaignWorkspace
+    from tests.tier1_offline import test_restart_continuation as restart
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.init(tmp_path / "camp")
+    saved = workspace.sim_dir("9001") / "datapoints" / "DP-AL+000"
+    saved.mkdir(parents=True)
+    (saved / "state.fsm").write_text("a stopped march", encoding="utf-8")
+    workspace.append_record(restart._stopped_record())
+    _compact_sim(workspace, "9001")
+    folder = workspace.sim_dir("9001")
+    assert not folder.exists()
+    case = restart._continuing_case("{FINISH_PENDING}")
+    preview = resolve_continuation(
+        workspace, case, {"alpha": 0.0}, run_id="camp/sim_9001/AL+000", expand=False
+    )
+    assert preview is not None and str(preview["saved"]).endswith("state.fsm")
+    assert not folder.exists(), "the preview expanded the simulation"
+    resolve_continuation(workspace, case, {"alpha": 0.0}, run_id="camp/sim_9001/AL+000")
+    assert (folder / "datapoints" / "DP-AL+000" / "state.fsm").is_file()

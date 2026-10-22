@@ -62,15 +62,14 @@ def summary_lines(entry: Mapping[str, Any]) -> list[str]:
     )
     for row in rebuilt:
         lines.append(f"  sim_{row['sim']}: {REBUILT} {row['status']} {row['run_id']}")
+    waiting = set(entry["waiting_for_matrix"])
     for sim, reason in refused.items():
-        lines.append(f"  sim_{sim}: NOT RECOVERABLE: {reason}")
+        # A simulation no matrix row names is listed once, as waiting for the
+        # matrix revision that ran, with the reason that names the remedy.
+        label = "WAITING FOR THE MATRIX THAT RAN" if sim in waiting else "NOT RECOVERABLE"
+        lines.append(f"  sim_{sim}: {label}: {reason}")
     for run_id in entry["submitted"]:
         lines.append(f"  SUBMITTED, for pyfs-matrix collect: {run_id}")
-    if entry["waiting_for_matrix"]:
-        lines.append(
-            "  waiting for the matrix revision that ran (--matrix FILE): "
-            + ", ".join(f"sim_{sim}" for sim in entry["waiting_for_matrix"])
-        )
     for run_id in entry["never_ran"]:
         lines.append(f"  never ran (no datapoint folder), no record: {run_id}")
     for line in entry["notes"]:

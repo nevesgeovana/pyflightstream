@@ -404,13 +404,19 @@ def _cmd_export_surface_mesh(args: argparse.Namespace) -> int:
         print(f"surface mesh of {source} on build {build} (FlightStream {version_id})")
         print(f"exports to {work / 'surface_mesh.stl'}, then writes {target}")
         print(_surface_mesh_script(source, work / "surface_mesh.stl", version_id, "STL", -1))
-        if not args.apply:
-            print("preview only: nothing was run and nothing was written; add --apply to export")
-            return 0
         if target.exists() and not args.overwrite:
+            if not args.apply:
+                print(
+                    f"preview only: nothing was run and nothing was written; {target} exists, "
+                    "so --apply will refuse unless --overwrite is added"
+                )
+                return 0
             raise InputArtifactError(
                 f"{target} exists; use --overwrite to replace the surface mesh"
             )
+        if not args.apply:
+            print("preview only: nothing was run and nothing was written; add --apply to export")
+            return 0
         executable = (
             Path(args.fs_exe) if args.fs_exe else resolve_build(root / "inputs", build).fs_exe
         )

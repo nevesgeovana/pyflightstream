@@ -109,6 +109,16 @@ def collect_interval_error(value: float | None) -> str | None:
     return None
 
 
+def watch_interval_error(value: float | None) -> str | None:
+    """Return the refusal for a watch interval that would spin or raise (X-F-1292)."""
+    if value is not None and not 0.0 < value < float("inf"):
+        return (
+            f"watch-interval (CLI: --watch-interval) takes a finite number of seconds above 0, "
+            f"not {value}"
+        )
+    return None
+
+
 def _a_word_that_means_false(word: str) -> bool:
     """Read a flag's word as a choice, so `false` at the shell means False.
 
@@ -620,9 +630,12 @@ def _add_run_parsers(subparsers: Any) -> None:
     """Add the run subcommand."""
     run = subparsers.add_parser(
         "run",
-        help="run every active point of the matrix and write the sweep table",
+        help="run every active point of the matrix and write the sweep table (a point "
+        "submitted to a scheduler is posted by `collect` once its outputs land)",
         description=(
-            "Runs every active point of the matrix and writes the sweep table. "
+            "Runs every active point of the matrix and writes the sweep table; a point "
+            "submitted to a scheduler is posted, with the products and the table, by "
+            "`pyfs-matrix collect` once its outputs land. "
             "THIS NEEDS A PLAN: run `pyfs-matrix plan <matrix>` "
             "first and this command will not release without it. The plan is "
             "where the warning is, and it is pinned to the matrix it read, so a "
@@ -736,7 +749,8 @@ _ACCEPT_HELP = (
     "version a row names, instead of refusing it: its compatibility is then YOUR "
     "responsibility, the run warns, and every record says the flag was used and carries "
     "the build the solver printed. `plan` launches no solver and records the flag in "
-    "plan.json, so it rehearses the same command line `run` executes"
+    "plan.json, so it rehearses the command line `run` executes with the options `plan` "
+    "takes (--local, --resume and --force-rerun belong to `run` alone)"
 )
 
 
@@ -773,7 +787,8 @@ def _add_collect_parsers(subparsers: Any) -> None:
         "--discard-walltime",
         action="store_true",
         help="mark each WALLTIME_REACHED point FAILED_MARKED, outputs kept. A grouped plan takes "
-        "it again from the start automatically; a default-mode plan needs --force-rerun",
+        "it again from the start automatically; a default-mode plan needs `pyfs-matrix run "
+        "--force-rerun POINT` (an option of run, not of collect or plan)",
     )
     collect.add_argument(
         "--interval",

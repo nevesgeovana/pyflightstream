@@ -882,3 +882,22 @@ def test_f6_0102_a_non_finite_clocking_export_does_not_leave_the_wheel_converged
     assessment = LoadsAssessor()(case, None, sim)
     assert assessment.status is RunStatus.FAILED_DIVERGED, assessment.error
     assert "non-finite" in (assessment.error or "")
+
+
+def test_docstrings_state_what_the_code_does_f6_1718():
+    """F-1894, X-F-1701, X-F-1702, X-F-1703, X-F-1231, X-F-1706, X-F-1708, F-1899."""
+    import pyflightstream.run as run_package
+    import pyflightstream.run._sweep as sweep_module
+    from pyflightstream.run import Assessment, ExecutionResult, PointPlan, run_campaign
+    from pyflightstream.run._identity import package_vcs_state
+
+    assert "stays pending" not in (run_package.__doc__ or "")
+    assert "FR-15" in (run_package.__doc__ or "") and "implemented" in run_package.__doc__
+    for status in ("MAX_ITER_REACHED", "FAILED_INCOMPLETE_OUTPUT"):
+        assert status in (Assessment.__doc__ or "")
+        assert status in (run_campaign.__doc__ or "")
+    assert "Only\n    the FAILED_* statuses" in (run_campaign.__doc__ or "")
+    assert "124" in (ExecutionResult.__doc__ or "")
+    assert "Both are None together" not in (package_vcs_state.__doc__ or "")
+    assert "still reads" not in (PointPlan.__doc__ or "")
+    assert "ONE record" in (sweep_module.__doc__ or "")

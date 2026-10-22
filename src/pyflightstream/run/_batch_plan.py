@@ -333,6 +333,10 @@ def _user_action_warnings(split: JobSplit, folder: str) -> list[str]:
     actions = split.units[0].actions
     if not actions:
         return []
+    # FR-1598: a job whose only actions are SCRIPT files at absolute paths has
+    # nothing that resolves in the job's folder, so it earns no warning.
+    if all(kind == "SCRIPT" and is_absolute_target(name) for kind, _, name in actions):
+        return []
     sims = ", ".join(unit.sim_id for unit in split.units)
     names = ", ".join(name for _, name, _ in actions)
     message = (
@@ -574,8 +578,9 @@ def _profile_warnings(profile: HpcProfile | None) -> list[str]:
     if profile is None or profile.export_log or profile.job_end_files:
         return []
     return [
-        "the profile states export_log = false and no job_end_files, so a batch is moved only "
-        "if its clock fires; job_end_files makes the move possible."
+        "the profile states export_log = false and no job_end_files, so a batch submitted to "
+        "the cluster is moved only if its clock fires (a local launch writes its own end "
+        "record); job_end_files makes the move possible."
     ]
 
 

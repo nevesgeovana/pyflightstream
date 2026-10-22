@@ -349,3 +349,30 @@ def test_f6_0102_x_f_1300_a_preview_holding_a_refusal_exits_two_a_clean_one_zero
     code, said = pyfs([*argv, "--sims", "7001"], workspace.root, capsys)
     assert code == 0, said
     assert "would mark CONVERGED" in said, said
+
+
+def test_x_f_0404_a_tip_mach_that_is_not_a_number_is_unknown_not_supersonic():
+    """NaN fails every comparison; it is named as not known, with a reason, never as M_adv >= 1."""
+    from types import SimpleNamespace
+
+    from pyflightstream.run._matrix_warnings import _warn_when_a_helical_mach_may_reach_one
+
+    entry = SimpleNamespace(
+        sim_id="2001",
+        run_id="camp/sim_2001/P",
+        point={},
+        rotor_mach={
+            "R1": {"mach_helical": float("nan"), "mach_advancing": float("nan"), "note": None},
+            "R2": {"mach_helical": 0.4, "mach_advancing": 0.5},
+        },
+    )
+    resolved = SimpleNamespace(campaign=SimpleNamespace(sims=[]))
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _warn_when_a_helical_mach_may_reach_one(
+            resolved,  # type: ignore[arg-type]
+            SimpleNamespace(points=[entry]),  # type: ignore[arg-type]
+        )
+    text = " ".join(str(w.message) for w in caught)
+    assert "M_adv >=" not in text
+    assert "R1: the tip Mach number is not finite" in text and "None" not in text

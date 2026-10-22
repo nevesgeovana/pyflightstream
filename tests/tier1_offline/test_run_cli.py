@@ -798,3 +798,56 @@ def test_f1572_the_additional_post_abort_does_not_say_that_nothing_ran(monkeypat
     assert "the third extraction could not be planned" in said
     assert "not run" not in said
     assert "finished before the stop keeps its record" in said
+
+
+@pytest.mark.parametrize("value", ["0", "-5", "nan", "inf", "soon"])
+def test_x_f_1292_a_watch_interval_that_would_spin_or_raise_is_refused(value, capsys):
+    """--watch-interval takes a finite number of seconds above zero."""
+    try:
+        status = main(["collect", "--watch", "--watch-interval", value])
+    except SystemExit as stop:
+        status = stop.code
+    assert status == 2
+    assert "--watch-interval" in capsys.readouterr().err
+
+
+def test_f_1898_x_f_1704_the_help_states_what_run_and_plan_each_take(capsys):
+    """The run help says a submitted point is posted by collect; the shared flag help
+    says which options belong to run alone."""
+    texts = {}
+    for command in ("run", "plan"):
+        with pytest.raises(SystemExit):
+            main([command, "--help"])
+        texts[command] = " ".join(capsys.readouterr().out.split())
+    run_text, plan_text = ("".join(texts[name].split()) for name in ("run", "plan"))
+    assert "submittedtoaschedulerisposted" in run_text and "`pyfs-matrixcollect`" in run_text
+    assert "--local,--resumeand--force-rerunbelongto`run`alone" in plan_text
+
+
+def test_x_f_0402_status_csv_keeps_every_digit_the_table_rounds():
+    """status --csv carries the same precision as --json; the printed table shows six."""
+    from pyflightstream.run._cli_query import _cell, _csv_text
+
+    value = 1.2345678901234e-5
+    assert _cell(value) == "1.23457e-05"
+    csv_row = _csv_text([{"residual": value, "wall_s": 12.3456789}], ["residual", "wall_s"])
+    assert csv_row.splitlines()[1] == f"{value!r},12.3456789"
+
+
+@pytest.mark.parametrize("content", ["[1, 2]", '"text"', '{"matrix_sha256": 5}'])
+def test_x_f_1232_a_plan_file_of_another_shape_is_the_plan_again_refusal(tmp_path, content):
+    """Valid JSON that is not a plan refuses with the documented sentence, never AttributeError."""
+    from pyflightstream.run import plan_receipt_error
+    from pyflightstream.run._plan import PLAN_REQUIRED_MESSAGE
+    from pyflightstream.workspace import CampaignWorkspace
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.init(tmp_path / "camp")
+    matrix = tmp_path / "wing.toml"
+    matrix.write_text("x = 1\n", encoding="utf-8")
+    plan_file = workspace.plan_dir("wing") / "plan.json"
+    plan_file.parent.mkdir(parents=True, exist_ok=True)
+    plan_file.write_text(content, encoding="utf-8")
+    refusal = plan_receipt_error(workspace, matrix, "wing")
+    assert refusal is not None and ("is not a plan receipt" in refusal or "not text" in refusal)
+    assert PLAN_REQUIRED_MESSAGE in refusal

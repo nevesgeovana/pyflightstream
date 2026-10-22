@@ -2,9 +2,10 @@
 
 Private to :mod:`pyflightstream.run`. :func:`_execute_sweep` renders the
 row's single script, runs or submits it once in the simulation folder and
-lands one record per point of the row, each judged by the assessor on the
-loads of its own step. It shares the pending files and the declared logs
-with the point path and sits above it in the package order.
+lands ONE record for the whole job, whose ``points_ran`` states each point
+with the status the assessor judged it in, on the loads of its own step. It
+shares the pending files and the declared logs with the point path and sits
+above it in the package order.
 """
 
 from __future__ import annotations

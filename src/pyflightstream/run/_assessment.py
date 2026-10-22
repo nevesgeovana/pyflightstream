@@ -69,9 +69,10 @@ class Assessment:
     Attributes
     ----------
     status : RunStatus
-        ``CONVERGED``, ``COMPLETED_MAX_ITER``, or ``FAILED_DIVERGED``;
-        execution and completeness failures are decided by the loop
-        before the assessor runs.
+        ``CONVERGED``, ``COMPLETED_MAX_ITER``, ``MAX_ITER_REACHED``,
+        ``FAILED_DIVERGED`` or ``FAILED_INCOMPLETE_OUTPUT`` (an export that
+        is missing, unreadable or lacks what the case declared); execution
+        failures are decided by the loop before the assessor runs.
     iterations : int, optional
         Solver iterations reached, when the assessor parsed them.
     residual : float, optional

@@ -404,10 +404,11 @@ def package_vcs_state() -> tuple[str | None, bool | None]:
     -------
     tuple of (str or None, bool or None)
         Commit sha and dirty flag, or ``(None, None)`` when the package
-        did not come from a git work tree. Both are None together, and
-        None means "not knowable here" rather than "clean": a wheel
-        install has no repository to ask, and inventing an answer is
-        the failure this pair exists to prevent.
+        did not come from a git work tree. A known commit with ``None`` for
+        the flag means ``git status`` failed. None means "not knowable
+        here" rather than "clean": a wheel install has no repository to
+        ask, and inventing an answer is the failure this pair exists to
+        prevent.
 
     Notes
     -----

@@ -127,8 +127,10 @@ class ExecutionResult:
     Attributes
     ----------
     return_code : int or None
-        Process return code; None when the run timed out and the
-        process was killed.
+        Process return code; None when a local run timed out and the
+        process was killed. A submit command that did not return in time
+        reports 124. ``timed_out`` is the authority on a timeout, never the
+        code.
     wall_time_s : float
         Wall-clock duration of the process in seconds.
     timed_out : bool

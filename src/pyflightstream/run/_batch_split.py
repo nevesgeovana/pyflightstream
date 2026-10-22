@@ -549,9 +549,11 @@ def job_walltime(
 
     No cell and a BEST polar: the job is BEST, ``ceil(1.25 x estimate + margin)`` to the minute,
     capped at ``max_walltime_s`` with a warning that suggests a larger ``n``. Otherwise the job
-    takes the sum of the cells per point and each other row's priced estimate, BEST or stating no
-    WALLTIME (PFS-2094.007). A point with no estimate takes ``max_walltime_s`` with a warning
-    naming it, or blocks the plan where the profile states none. A cell above
+    takes the sum of the cells per point and each BEST row's priced estimate (PFS-2094.007); a
+    row that states no WALLTIME and is not BEST sends the job to ``max_walltime_s`` with a
+    warning, and the plan is refused where the profile states none. A point with no estimate
+    takes ``max_walltime_s`` with a warning naming it, or blocks the plan where the profile
+    states none. A cell above
     ``max_walltime_s`` is refused; a shortfall is named only with a recorded point estimate. A job
     whose rows all state nothing asks for none.
 

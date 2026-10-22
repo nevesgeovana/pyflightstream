@@ -151,3 +151,18 @@ def test_p0410_rx06_zero_exit_without_mesh_is_a_clean_refusal(
     assert _call(source, "--apply") == 3
     assert "was not written" in capsys.readouterr().err
     assert not source.with_suffix(".surface.stl").exists()
+
+
+def test_x_f_1296_the_preview_says_the_apply_will_refuse_an_existing_surface(
+    tmp_path, monkeypatch, capsys, solver
+):
+    source = _saved(tmp_path, monkeypatch)
+    target = source.with_suffix(".surface.stl")
+    target.write_bytes(b"earlier mesh")
+
+    assert _call(source) == 0
+    out = capsys.readouterr().out
+    assert "--apply will refuse" in out and "--overwrite" in out
+    assert target.read_bytes() == b"earlier mesh" and solver.calls == []
+    assert _call(source, "--overwrite") == 0
+    assert "--apply will refuse" not in capsys.readouterr().out

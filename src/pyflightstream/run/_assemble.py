@@ -501,13 +501,20 @@ def _the_point(row: MatrixRow, export: str, alpha: float, beta: float) -> dict[s
     """Return the point of the row's sweep an export reports, or refuse naming why."""
     points = [dict(point) for point in row.sweep.points()]
     reported = {"alpha": alpha, "beta": beta}
+    # An angle the sweep holds fixed is compared with the value the row states
+    # for it, so an export at another sideslip is not assembled with the row's.
+    held = {
+        axis: float(row.flight_condition[axis.upper()])
+        for axis in _REPORTED_ANGLES
+        if axis.upper() in row.flight_condition
+    }
     fitting = [
         point
         for point in points
         if all(
-            abs(float(point[axis]) - reported[axis]) <= _ANGLE_TOLERANCE_DEG
+            abs(float(point.get(axis, held.get(axis, reported[axis]))) - reported[axis])
+            <= _ANGLE_TOLERANCE_DEG
             for axis in _REPORTED_ANGLES
-            if axis in point
         )
     ]
     if len(fitting) == 1:

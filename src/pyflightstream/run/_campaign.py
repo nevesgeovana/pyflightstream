@@ -377,8 +377,10 @@ def run_campaign(
     FAILED_EXECUTION), collect the declared outputs into that point's
     own ``datapoints/DP-<point>/``
     (missing output: FAILED_INCOMPLETE_OUTPUT), and judge the solver
-    quality through ``assess`` (CONVERGED, COMPLETED_MAX_ITER, or
-    FAILED_DIVERGED). Exactly one record per point is appended to the
+    quality through ``assess`` (CONVERGED, COMPLETED_MAX_ITER,
+    MAX_ITER_REACHED, FAILED_DIVERGED or FAILED_INCOMPLETE_OUTPUT). Only
+    the FAILED_* statuses make :class:`CampaignErrors` raise; the others
+    are recorded and returned. Exactly one record per point is appended to the
     manifest; an unexpected internal error crashes the loop loudly
     instead of masquerading as a solver status.
 

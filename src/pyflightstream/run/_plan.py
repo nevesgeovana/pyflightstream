@@ -166,9 +166,9 @@ class PointPlan:
         waiver. Known at plan time, because the dry run builds the same
         script, and reported here so an operator learns the campaign
         leans on a command a probe measured broken BEFORE spending
-        solver time rather than from the manifest afterwards. The deprecated
-        alias ``broken_commands`` still reads, warning from the deprecation
-        ledger (PFS-2022.01.05). ``plan.json`` uses ``waived_commands``.
+        solver time rather than from the manifest afterwards. The former
+        name ``broken_commands`` is gone from the point and from ``plan.json``
+        (PFS-2022.01.05); ``pyfs-workspace migrate`` renames it in old files.
     raw : bool
         Whether the point's script used the ``raw()`` escape hatch.
         Same reason.
@@ -487,7 +487,11 @@ def estimate_point_cost(
     same = [
         r
         for r in recorded
-        if _recorded_is_unsteady(r, steps=(steps_by_run or {}).get(r.get("run_id", ""))) == unsteady
+        # A caller handing the rows over directly is held to the same rule as
+        # _recorded_costs: a failed or unfinished status is no cost sample (FR-517).
+        if str(r.get("status")) not in _NOT_A_COST_SAMPLE
+        and _recorded_is_unsteady(r, steps=(steps_by_run or {}).get(r.get("run_id", "")))
+        == unsteady
     ]
     seconds = None
     basis = (
@@ -547,7 +551,8 @@ def estimate_point_cost(
         how = (
             "linear in the time steps the point asks for"
             if unsteady
-            else "one solve per recorded run, which is what a steady row asks for"
+            else "one solve per point a recorded run solved (a steady job's wall time is shared "
+            "by the points it ran), which is what a steady row asks for"
         )
         basis = (
             f"fitted from {samples} recorded "
@@ -1561,7 +1566,13 @@ def _plan_point(
         # rows have spent the seat.
         _ids._is_cold_start(case)
         rehearsed = resolve_continuation(
-            workspace, case, point, run_id=run_id, recipe=recipe, fs_version=fs_version
+            workspace,
+            case,
+            point,
+            run_id=run_id,
+            recipe=recipe,
+            fs_version=fs_version,
+            expand=False,
         )
     except (WorkspaceError, CampaignConfigError) as error:
         return PointPlan(

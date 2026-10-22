@@ -264,7 +264,8 @@ def test_help_explains_default_mode_rerun(capsys):
     assert stop.value.code == 0
     out = " ".join(capsys.readouterr().out.split())
     assert "--discard-walltime" in out
-    assert "a default-mode plan needs --force-rerun" in out
+    # argparse breaks a line after the hyphen of "pyfs-matrix", so compare without spaces.
+    assert "adefault-modeplanneeds`pyfs-matrixrun--force-rerunPOINT`" in "".join(out.split())
     assert "A grouped plan takes it again from the start automatically" in out
 
 

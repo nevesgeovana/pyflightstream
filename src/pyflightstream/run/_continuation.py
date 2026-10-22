@@ -137,10 +137,15 @@ def resolve_continuation(
     run_id: str,
     recipe: ScriptRecipe | None = None,
     fs_version: str | None = None,
+    expand: bool = True,
 ) -> dict[str, object] | None:
     """Resolve the two facts a continuation needs, from the record it continues.
 
     None where the row states no ``RESTART``, which is every ordinary row.
+
+    With ``expand`` False (``plan``) a compacted simulation is left compacted:
+    a preview writes nothing to the disk, so the saved file is not looked for
+    and the original frame is not recovered; the run expands it.
 
     THE ROW SAYS HOW MUCH MORE AND THE MANIFEST SAYS FROM WHAT. Which run
     stopped, where it stopped, and which saved simulation it left are all
@@ -168,8 +173,13 @@ def resolve_continuation(
             "of a row naming a run type saves its simulation and no artifact can turn that "
             "export off, so run the row again."
         )
-    ensure_sim_expanded(workspace, case.sim_id, reason="continuation")
-    if not (workspace.sim_dir(case.sim_id) / str(saved)).is_file():
+    folder = workspace.sim_dir(case.sim_id)
+    compacted = (
+        not expand and not folder.is_dir() and folder.with_name(folder.name + ".zip").is_file()
+    )
+    if expand:
+        ensure_sim_expanded(workspace, case.sim_id, reason="continuation")
+    if not compacted and not (workspace.sim_dir(case.sim_id) / str(saved)).is_file():
         raise CampaignConfigError(
             f"run {previous.run_id!r} stopped at {previous.status} and recorded its saved "
             f"simulation as {saved}, which is not in {workspace.sim_dir(case.sim_id)}. A "
@@ -191,7 +201,8 @@ def resolve_continuation(
     _refuse_a_field_the_stopped_run_did_not_read(case, tag, previous)
     recovery: dict[str, object] = {}
     if (
-        "tecplot" in classify_outputs([str(name) for name in case.outputs])
+        not compacted
+        and "tecplot" in classify_outputs([str(name) for name in case.outputs])
         and _recorded_loads_frame(previous) is None
     ):
         try:

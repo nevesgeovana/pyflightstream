@@ -391,3 +391,32 @@ def test_plan_receipt_f1570_f1571_malformed_receipts_are_refused(tmp_path, body,
     plan_file.write_text(body, encoding="utf-8")
     message = _plan.plan_receipt_error(workspace, matrix, "rotor")
     assert message is not None and needle in message
+
+
+def _job_with_actions(*actions):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(units=[SimpleNamespace(actions=tuple(actions), sim_id="2001")])
+
+
+def test_f_1573_a_job_with_only_absolute_script_actions_earns_no_warning():
+    """FR-1598: absolute SCRIPT files resolve anywhere, so nothing is said about them."""
+    from pyflightstream.run._batch_plan import _user_action_warnings
+
+    absolute = _job_with_actions(("SCRIPT", "", "/opt/shared/post.py"))
+    assert _user_action_warnings(absolute, "job_1") == []
+    mixed = _job_with_actions(("SCRIPT", "", "/opt/shared/post.py"), ("SCRIPT", "", "local.py"))
+    (message,) = _user_action_warnings(mixed, "job_1")
+    assert "local.py" in message
+    command = _job_with_actions(("COMMAND_LINE", "run.sh", ""))
+    assert len(_user_action_warnings(command, "job_1")) == 1
+
+
+def test_f_1895_the_clock_warning_is_about_the_cluster_not_a_local_launch():
+    from types import SimpleNamespace
+
+    from pyflightstream.run._batch_plan import _profile_warnings
+
+    profile = SimpleNamespace(export_log=False, job_end_files=())
+    (message,) = _profile_warnings(profile)
+    assert "cluster" in message and "local launch writes its own end record" in message

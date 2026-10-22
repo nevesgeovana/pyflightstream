@@ -11,6 +11,7 @@ extracts one instant) and none refuses a run.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
@@ -103,13 +104,22 @@ def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: Camp
     for entry in plan.points:
         for alias, mach in entry.rotor_mach.items():
             helical = mach.get("mach_helical")
-            if not isinstance(helical, int | float):
-                unknown[str(mach.get("note"))] = None
-                continue
             # FR-1201: the warning reads the advancing tip, which is M_hel in
             # axial flow and the larger edgewise; a record without it reads M_hel.
             advancing = mach.get("mach_advancing")
             tip_mach = advancing if isinstance(advancing, int | float) else helical
+            if not (
+                isinstance(helical, int | float)
+                and isinstance(tip_mach, int | float)
+                and math.isfinite(helical)
+                and math.isfinite(tip_mach)
+            ):
+                # A number that is not finite fails every comparison, so it
+                # would be listed as supersonic: it is not known instead.
+                unknown[str(mach.get("note") or f"{alias}: the tip Mach number is not finite")] = (
+                    None
+                )
+                continue
             if tip_mach < SONIC_HELICAL_MACH:
                 continue
             case = cases.get(entry.sim_id)

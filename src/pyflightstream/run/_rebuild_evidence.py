@@ -399,9 +399,10 @@ def _reactivate(matrix: Path, sims: set[str]) -> list[str]:
         if header is None or len(cells) <= max(header):
             continue
         pol, run = names[header[0]], names[header[1]]
-        if pol in sims and run == "0":
-            width = len(cells[header[1]])
-            cells[header[1]] = cells[header[1]].replace("0", "1", 1) if width else "1"
+        # The matrix reader takes RUN as an integer, so "00" and "+0" are the
+        # same switched-off row as "0" and are switched on the same way.
+        if pol in sims and re.fullmatch(r"[+-]?0+", run):
+            cells[header[1]] = re.sub(r"[+-]?0+", "1", cells[header[1]], count=1)
             lines[index] = "|".join(cells)
             changed.append(pol)
     if changed:

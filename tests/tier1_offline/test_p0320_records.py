@@ -967,3 +967,77 @@ def test_p0430_a_restored_products_record_archives_the_displaced_one_first_fr_29
     assert kept.read_bytes() == displaced, "the displaced products record was not archived"
     assert kept.parent.parent.name == "archive" and kept != source
     assert current.read_bytes() == source.read_bytes()
+
+
+def test_x_f_0565_reactivation_reads_run_as_the_matrix_reader_does(tmp_path):
+    """RUN is an integer to the matrix reader, so 00 and +0 switch on like 0."""
+    from pyflightstream.run._rebuild_evidence import _reactivate
+
+    matrix = tmp_path / "m.txt"
+    matrix.write_text(
+        "| POL | RUN |\n| 5001 | 00 |\n| 5002 | 0 |\n| 5003 | +0 |\n| 5004 | 1 |\n",
+        encoding="utf-8",
+    )
+    assert _reactivate(matrix, {"5001", "5002", "5003", "5004"}) == ["5001", "5002", "5003"]
+    runs = [
+        line.split("|")[2].strip() for line in matrix.read_text(encoding="utf-8").splitlines()[1:]
+    ]
+    assert runs == ["1", "1", "1", "1"]
+
+
+def test_x_f_0565_a_simulation_the_matrix_does_not_name_is_a_refusal_not_stop_iteration(
+    tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from pyflightstream.run._rebuild import _mint
+
+    monkeypatch.setattr(
+        "pyflightstream.workspace.matrix.resolve_matrix",
+        lambda *args, **kwargs: SimpleNamespace(
+            campaign=SimpleNamespace(sims=[SimpleNamespace(sim_id="5002")]), row_builds=()
+        ),
+    )
+    said = _mint(
+        SimpleNamespace(shadow=tmp_path), tmp_path / "m.toml", "5001", "T", "n", None, None, []
+    )  # type: ignore[arg-type]
+    assert isinstance(said, str) and "holds no row for simulation 5001" in said
+
+
+def test_x_f_1710_a_waiting_simulation_is_listed_once_and_not_as_unrecoverable():
+    from pyflightstream.run._rebuild_summary import summary_lines
+
+    entry = {
+        "rebuilt": [],
+        "refused": {"5001": "pass the matrix revision that ran", "5002": "it holds no files"},
+        "package_version": "0.0.0",
+        "submitted": [],
+        "waiting_for_matrix": ["5001"],
+        "never_ran": [],
+        "notes": [],
+        "applied": False,
+        "target": "runs.json",
+    }
+    lines = summary_lines(entry)
+    mentions = [line for line in lines if "sim_5001" in line]
+    assert len(mentions) == 1 and "WAITING FOR THE MATRIX THAT RAN" in mentions[0]
+    assert "pass the matrix revision that ran" in mentions[0]
+    (other,) = [line for line in lines if "sim_5002" in line]
+    assert "NOT RECOVERABLE" in other
+
+
+def test_x_f_1233_an_unreadable_grouping_receipt_is_said_not_reported_as_absent():
+    from pyflightstream.run._rebuild_grouped import GroupedPoint, grouped_facts
+
+    point = GroupedPoint(
+        label="warm_b1",
+        entry=None,
+        job_dir=None,
+        descriptor=None,
+        in_batch=True,
+        unreadable="the plan holds no readable grouping (KeyError: 'jobs')",
+    )
+    said = grouped_facts({}, point)
+    assert said is not None and "exists and cannot be read" in said and "KeyError" in said
+    absent = grouped_facts({}, GroupedPoint("warm_b1", None, None, None, True))
+    assert absent is not None and "cannot be read" not in absent

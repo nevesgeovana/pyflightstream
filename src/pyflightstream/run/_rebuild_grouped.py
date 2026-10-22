@@ -59,6 +59,9 @@ class GroupedPoint:
         That descriptor's path, spelled from the run's own root.
     in_batch : bool
         The simulation's files are still in its batch folder.
+    unreadable : str or None
+        Why the plan's grouping block could not be read, when it exists and is
+        unreadable; None when it is readable or absent.
     """
 
     label: str | None
@@ -66,6 +69,7 @@ class GroupedPoint:
     job_dir: Path | None
     descriptor: str | None
     in_batch: bool
+    unreadable: str | None = None
 
 
 def simulation_home(base: Path, sim: str, scripts: list[str]) -> Path:
@@ -105,11 +109,20 @@ def rendered_at_home(rendered: str, shadow: Path, sim: str, label: str | None) -
     )
 
 
-def _receipt(base: Path, stem: str) -> GroupingReceipt | None:
-    """Read the grouping receipt of ``post/<stem>/plan.json``; None when there is none."""
+def _read_receipt(base: Path, stem: str) -> tuple[GroupingReceipt | None, str | None]:
+    """Read the grouping receipt of ``post/<stem>/plan.json`` and the reason it is unreadable.
+
+    The receipt is None when there is none or it cannot be read; the reason is
+    the sentence ``read_grouping`` gives for an unreadable one, else None.
+    """
     from pyflightstream.workspace._batches import read_grouping
 
-    return read_grouping(base / "post" / stem / "plan.json")[0]
+    return read_grouping(base / "post" / stem / "plan.json")
+
+
+def _receipt(base: Path, stem: str) -> GroupingReceipt | None:
+    """Read the grouping receipt of ``post/<stem>/plan.json``; None when there is none."""
+    return _read_receipt(base, stem)[0]
 
 
 def _entry(
@@ -174,7 +187,7 @@ def grouped_point(
     """
     sim = home.name[len("sim_") :]
     label = batch_label(executed, sim)
-    receipt = _receipt(base, stem)
+    receipt, unreadable = _read_receipt(base, stem)
     job = next((item for item in (receipt.jobs if receipt else ()) if run_id in item.points), None)
     if job is not None and label is not None and job.label != label:
         # F-607: the executed script ran in another batch than the plan now lists for this
@@ -197,6 +210,7 @@ def grouped_point(
         job_dir=job_dir if submitted else None,
         descriptor=f"{root}/{relative}/{descriptor_name}" if submitted else None,
         in_batch=base / "sims" / "batch" in home.parents,
+        unreadable=unreadable,
     )
 
 
@@ -240,11 +254,16 @@ def grouped_facts(facts: dict[str, Any], grouped: GroupedPoint | None) -> str | 
         return None
     where = f"sims/batch/{grouped.label}/"
     if grouped.entry is None:
+        said = (
+            f"the plan receipt exists and cannot be read: {grouped.unreadable}. "
+            if grouped.unreadable
+            else ""
+        )
         return (
             f"its files are still in the batch folder {where} and no plan receipt "
             "(post/<matrix>/plan.json) names its job, so collect could not move them home; "
-            "restore the plan receipt (CLI: pyfs-matrix restore plan --matrix STEM) and rebuild "
-            "again"
+            f"{said}restore the plan receipt (CLI: pyfs-matrix restore plan --matrix STEM) and "
+            "rebuild again"
         )
     facts.setdefault(
         "keep_submitted",

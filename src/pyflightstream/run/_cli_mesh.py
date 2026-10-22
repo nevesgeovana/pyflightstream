@@ -18,8 +18,9 @@ calls for any command of :data:`GEOMETRY_COMMANDS`.
 
 A mesh verb needs no executable, no matrix and no workspace: it reads the OBJ
 it is given and writes beside it. Its exit status is the console contract of
-FR-937: 0 when every gate and check passes, 1 when one fails (the audit is
-still written, and each failure is a warning held to the end of the command),
+FR-937: 0 when every gate and check passes, 1 when one fails on ``audit-mesh``
+(the audit is still written, and each failure is a warning held to the end of the
+command; ``refine`` exits 0 when only its audit fails, the level being written),
 2 when the input is refused, with the refusal on standard error. ``audit-mesh``
 also exits 2 when the CSV of ``--out`` cannot be written after the audit was:
 the error on standard error names the audit file that was written.

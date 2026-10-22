@@ -92,6 +92,7 @@ from pyflightstream.run._cli_parsers import (
     collect_interval_error,
     parsed,
     resume_hint,
+    watch_interval_error,
 )
 from pyflightstream.run._cli_parsers import _parse_workflows as _parse_workflows
 from pyflightstream.run._cli_parsers import _whole_sims as _whole_sims
@@ -595,6 +596,9 @@ def _cmd_collect(args: argparse.Namespace) -> int:
     # rather than by the parser, so a value from pyfs.toml is held to it too.
     if (interval_error := collect_interval_error(args.interval)) is not None:
         print(interval_error, file=sys.stderr)
+        return 2
+    if (watch_error := watch_interval_error(args.watch_interval)) is not None:
+        print(watch_error, file=sys.stderr)
         return 2
     # Reach the post stage through the workspace registry, as _cmd_post does.
     # Importing the products writer would point dependencies upward even if
