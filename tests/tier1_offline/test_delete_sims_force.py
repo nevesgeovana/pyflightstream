@@ -70,9 +70,18 @@ def _workspace(tmp_path: Path) -> CampaignWorkspace:
 
 
 def _link(target: Path, link: Path) -> None:
-    """Make ``link`` a directory link to ``target``; skip when the host does not permit one."""
+    """Make ``link`` a directory link to ``target``; skip when the host does not permit one.
+
+    On Windows the link is a junction, which needs no privilege, so the test runs on every
+    host; a symbolic link elsewhere.
+    """
     try:
-        os.symlink(target, link, target_is_directory=True)
+        if sys.platform == "win32":
+            import _winapi
+
+            _winapi.CreateJunction(str(target), str(link))
+        else:
+            os.symlink(target, link, target_is_directory=True)
     except OSError as error:
         pytest.skip(f"links are not permitted here: {error}")
 
@@ -209,7 +218,7 @@ def test_f_742_a_planted_staging_link_is_unlinked_and_never_extracted_through(tm
 def test_rb4_a_product_reached_through_a_linked_folder_deletes_nothing(tmp_path):
     """RB4-01: F-743, a product key whose folder is a link leaves the post folder too.
 
-    The link is a symbolic link, skipped on a host that does not permit one.
+    The link is a junction on Windows (no privilege needed), so the test runs on every host.
     """
     workspace = _workspace(tmp_path)
     elsewhere = tmp_path / "elsewhere"
