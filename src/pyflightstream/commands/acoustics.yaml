@@ -146,7 +146,9 @@ DELETE_ACOUSTIC_OBSERVER:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.380, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.386, unchanged from FSM-26.124 p.380"}
   notes: >
-    Deletes one observer by index. The manual defines the index as the
+    Deletes one observer by index; the deletion of index 1 is the one run
+    (26.124, the second computation and export held only the second observer;
+    L4 F-553), so no other index is claimed. The manual defines the index as the
     observer's position in the application's own tree, which is a
     statement about the user interface rather than about anything a
     script can read back, so the index is not declared as a citation and

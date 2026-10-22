@@ -86,6 +86,8 @@ FlightStream versions.
 
 ### Fixed
 
+- The `DELETE_ACOUSTIC_OBSERVER` probe of `pyfs-qa` requires the second observer to be the one
+  left after deleting index 1, so deleting the wrong observer no longer reads as a deletion.
 - The `SET_INVISCID_LOADS` probe of `pyfs-qa` judges the viscous drag column (field 6, named
   `CDo` on 26.124 and `CDv` on 26.125) only once the sheet header names it, so a sheet whose
   sixth column is another quantity is no longer verified or broken by it.

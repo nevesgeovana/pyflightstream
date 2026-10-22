@@ -906,14 +906,21 @@ _TWO_OBSERVERS = _seq(_acoustic_motion, _observer, _second_observer, _observer_t
 
 
 def _one_observer_gone(artifacts: ProbeArtifacts) -> bool | None:
+    """Judge the deletion of observer 1: PYFS_OBS2 is the one that is left.
+
+    F-553 (L4, 26.124, namespace 63503b6a, F-553/analysis.json): the
+    deletion of index 1 was verified for observer 1 only, so the survivor
+    is named, not just counted. Observer 1 still exported means nothing
+    was deleted or the wrong observer went.
+    """
     blocks = _signal_blocks(artifacts)
     if not blocks:
         return None
     names = {name for name, _ in blocks}
     survivors = names & {"PYFS_OBS1", "PYFS_OBS2"}
-    if len(survivors) == 1:
+    if survivors == {"PYFS_OBS2"}:
         return True
-    return False if len(survivors) == 2 else None
+    return False if survivors else None
 
 
 _CONTROL_OBSERVER = "PYFS_CTRL"
@@ -953,8 +960,8 @@ _spec(
     assert_effect=_one_observer_gone,
     observe=_signals_read,
     effect_note=(
-        "of the two observers created, exactly one is left in the signals file "
-        "(the manual counts the index in the application's own tree)"
+        "of the two observers created, only the second is left in the signals file "
+        "after deleting index 1 (verified for observer 1 only)"
     ),
     timeout_s=240.0,
 )
