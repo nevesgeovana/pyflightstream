@@ -173,7 +173,8 @@ class LoadsReport:
         ]
 
 
-#: Boolean footer tokens observed on 26.120 and 26.121. Enumerate them
+#: Boolean footer tokens seen on 26.120 and 26.121 (no committed dated report
+#: lists them; the set is the spellings the parser accepts). Enumerate them
 #: so an unrecognized spelling is refused rather than silently read as off.
 _TRUE_TOKENS = frozenset({"T", "TRUE"})
 _FALSE_TOKENS = frozenset({"F", "FALSE"})
