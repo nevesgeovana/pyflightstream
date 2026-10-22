@@ -176,7 +176,7 @@ def _admit_a_row_hand(case: SimCase, rotor: RotorBlock, stated: str) -> None:
     The hand of a rotation is the rotor's, declared once beside its axis and its
     origin; a row that states the SAME value says nothing the block does not, so it
     passes. A row that states a DIFFERENT value is a second opinion and is refused
-    (the owner's rule of X-F-1147 and X-F-1157: refuse only the disagreement).
+    (the rule of X-F-1147 and X-F-1157: only the disagreement is refused).
     One home for the sentence, because the record path (`_motion_view`) and the
     row path (`_rpm_sign`) enforce the same rule.
     """

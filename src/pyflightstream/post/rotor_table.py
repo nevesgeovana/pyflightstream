@@ -680,8 +680,8 @@ def _mach_cells(
             sonic_velocity_m_per_s=float(air[1]),
         )
         # FR-1201: the advancing tip, on the rotor's own axis and the row's attitude.
-        # An unstated ALPHA or BETA is 0.0, stated as the default (the owner's FR-69
-        # decision), so MADV is computed, not NA.
+        # An unstated ALPHA or BETA is 0.0, stated as the default (FR-69), so MADV is
+        # computed, not NA.
         madv = advancing_tip_mach_number(
             rpm=rpm,
             diameter_m=diameter,
