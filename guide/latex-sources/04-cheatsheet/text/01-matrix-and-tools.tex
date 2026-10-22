@@ -259,6 +259,22 @@ See the website's Upgrading page for supported workspace conversion.
 \sub{calibrate <id>}{derive an unvalidated sector-offset calibration from recorded wheel and sector points}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--workspace DIR}, \fl{--wheel-run ID}, \fl{--sector-run ID}, \fl{--rotor NAME}, \fl{--matrix NAME}, \fl{--overwrite}.
+\sub{excel}{the macro-free workbook of the workspace's matrices, the \texttt{[excel]} extra; \texttt{python -m pyflightstream.workspace.excel} is the same command (page 2); save and close the workbook first}
+\sub{excel create <output>}{create a new workbook; an existing file is refused}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
+\fl{--workspace DIR} the workspace root (default: the current folder).
+\sub{excel preview <workbook>}{inspect changes without applying them (a batch JSON and its HTML)}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
+\begin{flags}
+\item \fl{--workspace DIR} \quad \fl{--batch FILE} the new batch \quad \fl{--direction \{read,write\}} read imports matrices, write exports
+\item \fl{--matrix FILE} select a subset (repeatable)
+\end{flags}
+\sub{excel apply <batch>}{apply one fresh reviewed batch (single use)}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
+\sub{excel cancel <batch>}{cancel a preview without changing inputs}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
+\sub{excel check <workbook>}{validate its Runs and Dictionary}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \sub{geometry export-surface-mesh <FSM>}{preview the surface export of a saved workspace body; \fl{--apply} runs the licensed solver and writes \texttt{<stem>.surface.stl} beside it for probe planning; \fl{--build ID} selects the build, \fl{--fs-exe PATH} overrides its executable, and \fl{--overwrite} replaces an existing mesh only after a successful export}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \sub{geometry trailing-edge <mesh> <output>}{write mesh trailing-edge midpoint nodes}
