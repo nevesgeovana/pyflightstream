@@ -138,7 +138,10 @@ line says how many were dropped.
 A workspace may carry one cost file for each machine, `inputs/costs/c<NNN>.toml`
 `plan --cost` and the `plan --batch` estimate read it when it is
 present, and `--cost-file NAME` names the one to read when the workspace holds
-several; a single file needs no name. Without a cost file `plan --cost` fits
+several; a single file needs no name. Only `c` followed by digits is a cost file name
+(`c002.toml`): any other `c*.toml` in the folder is refused, naming the file and the
+pattern. `--cost-file` removes a final `.toml` and nothing else from the name it is given.
+Without a cost file `plan --cost` fits
 its expected time from the workspace's own recorded runs, as before.
 
 The file has an anchor run (`[reference]`: the mesh size, processor count,

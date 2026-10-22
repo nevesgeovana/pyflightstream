@@ -231,3 +231,23 @@ def test_a_repeated_flag_multiplies_once(tmp_path):
     once = estimate_seconds(cost, **base, flags=["viscous_coupling"])
     twice = estimate_seconds(cost, **base, flags=["viscous_coupling", "viscous_coupling"])
     assert twice.seconds == once.seconds == 300.0
+
+
+def test_x_f_0585_only_c_digits_toml_is_a_cost_file(tmp_path):
+    """Any other c*.toml in the costs folder is refused naming the file and the pattern."""
+    inputs = _inputs(tmp_path, "c001", "cluster_a")
+    with pytest.raises(InputArtifactError) as refused:
+        resolve_cost_file(inputs)
+    message = str(refused.value)
+    assert "cluster_a.toml" in message and "c<digits>.toml" in message
+
+
+def test_f_1566_the_selected_name_loses_only_a_final_toml(tmp_path):
+    """c001.toml selects c001; c001.v2 is another name and does not select c001."""
+    inputs = _inputs(tmp_path, "c001")
+    select_cost_file("c001.toml")
+    chosen = resolve_cost_file(inputs)
+    assert chosen is not None and chosen.path.stem == "c001"
+    select_cost_file("c001.v2")
+    with pytest.raises(InputArtifactError, match=re.escape("c001.v2")):
+        resolve_cost_file(inputs)

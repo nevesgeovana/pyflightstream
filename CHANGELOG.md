@@ -16,6 +16,8 @@ FlightStream versions.
 
 ### Changed
 
+- Only `c<digits>.toml` is a cost file: any other `c*.toml` in `inputs/costs/` is refused,
+  naming the file and the pattern. A name given to `select_cost_file` loses only a final `.toml`.
 - The wake-edge type has no default: a `[trailing_edges]` table with `file` and no `type`, and
   a `WakeEdgeImport` without `edge_type`, are refused naming VORTEX_SHEDDING and STANDARD.
   Sidecars written by the geometry converter now carry `type = "STANDARD"`.

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import re
 import warnings
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -53,6 +54,9 @@ __all__ = [
 
 #: Where a workspace keeps the cost file of each machine it is planned for.
 COSTS_DIR = "costs"
+
+#: The only file name of a cost file: ``c`` and digits, then ``.toml`` (X-F-0585).
+_COST_FILE_NAME = re.compile(r"c[0-9]+\.toml")
 
 #: The word every tracked cost file carries, so no measured value ships (FR-807).
 SYNTHETIC_WORD = "synthetic"
@@ -157,10 +161,25 @@ def cost_files(inputs_dir: str | Path) -> list[Path]:
     Returns
     -------
     list of Path
-        The ``c*.toml`` files of its ``costs/`` folder; empty when none.
+        The ``c<digits>.toml`` files of its ``costs/`` folder; empty when none.
+
+    Raises
+    ------
+    InputArtifactError
+        If the folder holds a ``c*.toml`` file whose name is not ``c`` and
+        digits, which names the file and the expected pattern.
     """
     directory = Path(inputs_dir) / COSTS_DIR
-    return sorted(directory.glob("c*.toml")) if directory.is_dir() else []
+    if not directory.is_dir():
+        return []
+    every = sorted(directory.glob("c*.toml"))
+    for path in every:
+        if _COST_FILE_NAME.fullmatch(path.name) is None:
+            raise InputArtifactError(
+                f"{path} is not a cost file name: a cost file is c<digits>.toml, for "
+                "example c002.toml. Rename it, or move it out of the costs folder."
+            )
+    return every
 
 
 def select_cost_file(name: str | None) -> None:
@@ -180,7 +199,11 @@ def select_cost_file(name: str | None) -> None:
     """
     from pyflightstream._cli import for_this_invocation
 
-    for_this_invocation(_SELECTED_COST_FILE, None if name is None else Path(name).stem)
+    # Only a final .toml is an extension (F-1566): Path.stem cuts a dotted name at its last dot.
+    stem = None if name is None else Path(name).name
+    if stem is not None and stem.lower().endswith(".toml"):
+        stem = stem[: -len(".toml")]
+    for_this_invocation(_SELECTED_COST_FILE, stem)
 
 
 def resolve_cost_file(inputs_dir: str | Path) -> CostFile | None:
