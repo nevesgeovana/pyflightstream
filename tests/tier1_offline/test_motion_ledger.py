@@ -241,3 +241,23 @@ def test_measured_timing_is_bound_to_executable_build_and_unit():
     assert resolve_frame_motion(original, solver_identity=rebuilt)["state"] == "known"
     unrecorded = {**identity, "fs_exe_sha256": None}
     assert resolve_frame_motion(original, solver_identity=unrecorded)["state"] == "unknown"
+
+
+def test_last_a_huge_finite_speed_does_not_overflow_the_angular_speed():
+    """F-274 and F-275: rpm * pi overflowed to infinity and was marked known."""
+    from pyflightstream.script.motion import resolve_frame_motion
+
+    rpm = 1.0e308
+    script, hub, moving = placed_script()
+    helpers.rotary_motion(script, frame=hub, axis="X", rpm=rpm, moving_frames=[moving])
+    helpers.unsteady_solver(script, time_iterations=6, delta_time=0.00625)
+    original = script.frame_motions[moving]
+    identity = {"fs_exe_sha256": "9" * 64, "fs_build": "8172026"}
+    resolved = resolve_frame_motion(original, solver_identity=identity)
+    expected = rpm / 30 * math.pi
+    assert math.isfinite(resolved["trajectory"]["omega_rad_s"])
+    assert resolved["trajectory"]["omega_rad_s"] == pytest.approx(expected)
+    # the snapshot taken at the end of the script follows the same conversion
+    for record in script.frame_motions.values():
+        omega = record["trajectory"].get("omega_rad_s")
+        assert omega is None or math.isfinite(omega)

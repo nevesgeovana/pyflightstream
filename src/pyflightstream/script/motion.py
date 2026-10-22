@@ -217,6 +217,11 @@ def _rotary_proof(
     return {**measured[0], "fs_build": build, **caveat}
 
 
+def _omega_rad_s(rpm: float, signed_rpm_factor: float) -> float:
+    """Convert rev/min to rad/s, dividing first so a huge finite speed stays finite."""
+    return rpm / 30 * math.pi * signed_rpm_factor
+
+
 def resolve_frame_motion(
     record: Mapping[str, Any], *, solver_identity: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -236,6 +241,12 @@ def resolve_frame_motion(
         A copy of the record; where a measured proof exists for its version, unit and build, the
         trajectory gains its signed angular speed and step time origin and the record the proof.
         The record passed in is never changed.
+
+    Notes
+    -----
+    A record whose timing stays unresolved keeps its state: ``known`` says the
+    trajectory is stated, and the proof flags of the record say whether the
+    timing of it was proved.
     """
     result = deepcopy(dict(record))
     trajectory = result.get("trajectory", {})
@@ -268,7 +279,7 @@ def resolve_frame_motion(
         return result
     if start and proof.get("start_time_rule") != "stationary-until-start":
         return result
-    trajectory["omega_rad_s"] = rpm * math.pi / 30 * proof["signed_rpm_factor"]
+    trajectory["omega_rad_s"] = _omega_rad_s(rpm, proof["signed_rpm_factor"])
     trajectory["step_time_origin"] = proof["step_time_origin"]
     result["proof"]["timing"] = {
         **deepcopy(proof),
@@ -477,7 +488,7 @@ class MotionLedger:
                 ):
                     reason = "Delayed-start timing is not measured for this build/unit."
                 else:
-                    trajectory["omega_rad_s"] = rpm * math.pi / 30 * proof["signed_rpm_factor"]
+                    trajectory["omega_rad_s"] = _omega_rad_s(rpm, proof["signed_rpm_factor"])
                     trajectory["step_time_origin"] = proof["step_time_origin"]
                     record["proof"]["timing"] = {
                         **deepcopy(proof),
