@@ -363,9 +363,11 @@ def classify_outputs(names: Sequence[str], *, package_version: str | None = None
 
 
 #: The end of the name of a point's acoustic export, written beside its
-#: other exports as ``<point><suffix>``. Confirmed by the round-1 probe A1 on
-#: 26.124: the solver writes the export to the path it is given, and the file
-#: is text (``Observer:``, ``Position:`` and ``Columns:`` lines, then rows).
+#: other exports as ``<point><suffix>``. Probe A1 of round 1 on 26.124 (RPT-096,
+#: "probe round 1 on 26.124", 2026-09-30) exported ``signals.txt`` at the path
+#: it gave, with 16 rows for each of 3 observers; the ``Observer:``, ``Position:``
+#: and ``Columns:`` header lines are the layout the reader of
+#: :mod:`pyflightstream.cases.acoustics` expects, and no committed report quotes them.
 #: Defined here, beside the export kinds the classifier reads, and published
 #: by :mod:`pyflightstream.cases.acoustics`, so neither module imports the other
 #: inside a function.
@@ -642,9 +644,11 @@ class SectionsSpec(BaseModel):
 
 #: THE PRISM-LAYER ARGUMENTS EVERY VOLUME SECTION IS CREATED WITH (G05):
 #: ``prisms_type``, ``thickness``, ``layers`` and ``growth_rate``, in the order
-#: both create commands take them. They are the values the verified create
-#: probes sent (``qa/specs.py``, the volume-section specs, verified on 26.120
-#: to 26.124); with ``NONE`` the manual reads no prism layer, and what the other
+#: both create commands take them. They are the values the create
+#: probes sent (``qa/specs.py``, the volume-section specs); the create commands
+#: read ``verified`` on 26.120 to 26.124 in the command database
+#: (``commands/volume_sections.yaml``, CMP-26120_2026-08-08_full to
+#: CMP-26124_2026-09-14_full-sim); with ``NONE`` the manual reads no prism layer, and what the other
 #: three then mean is the manual's (FSM-26.120 p.366). A pproc cannot state them:
 #: a value no run has sent is not one this package offers.
 VOLUME_SECTION_PRISMS: tuple[str, float, int, float] = ("NONE", 0.1, 1, 1.2)
@@ -1223,15 +1227,18 @@ class ProbesSpec(_LocatedSpec):
     #: row binds, the way a GEOMETRY stem becomes an absolute path on the case.
     #: On an unsteady row, PLAN reads this file and turns its points into
     #: fluid-plot vertices. On a steady row, the script imports the survey by
-    #: this absolute path, since a relative path resolves against the solver's
-    #: working directory rather than the submitted point's simulation folder.
+    #: this absolute path, so it does not depend on the solver's working
+    #: directory (what a relative path resolves against is not measured in a
+    #: committed report).
     #: Excluded from every dump, so no machine path reaches a record or a plan.
     resolved_points_file: str | None = Field(default=None, exclude=True)
     #: FR-417: how an unsteady row samples this entry. ``unsteady`` (the
     #: default) is one fluid plot per point and
     #: parameter, a history at every time step; ``normal`` is probe points
     #: created after the time march with the steady commands, updated and
-    #: exported once, so they hold the last time step. A steady row samples
+    #: exported once, so they hold the solution at the end of the march (RPT-153,
+    #: "normal probes after an unsteady march", 2026-10-05; not the same sample as
+    #: the last fluid-plot step). A steady row samples
     #: probe points whatever the entry states.
     kind: ProbeKind = "unsteady"
 
@@ -2046,7 +2053,9 @@ class PprocSpec(BaseModel):
         return spelled
 
     #: SS1: whether a point's Tecplot surface carries the nodal
-    #: ``Singularity_strength``. The VTK does not hold it, so carrying it costs
+    #: ``Singularity_strength``. The VTK export does not hold it (RPT-074, "the VTK
+    #: export is written in the loads frame per cell", 2026-09-25, on 26.124), so
+    #: carrying it costs
     #: a second, native Tecplot export per point and per exported step
     #: (``<name>_native_tecplot.dat``). OFF by default: the script exports the
     #: VTK alone, and the ``.dat`` carries every VTK variable and declares
