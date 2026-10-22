@@ -369,6 +369,9 @@ FlightStream versions.
 - An unreadable stamped file of one series kind costs that kind's series only: the loads,
   sections and probe series read from other files are still written and indexed, and the
   point's skip names the table that was not written.
+- A continuation (`RESTART`) whose point is refused before the solver starts moves the
+  stopped run's archived outputs back into the datapoint folder, so the stopped record
+  still names files that exist.
 
 ### Deprecated
 

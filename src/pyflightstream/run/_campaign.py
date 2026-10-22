@@ -349,6 +349,7 @@ class _CampaignState:
     point_extra: dict[str, object] = field(init=False)
     continues: str | None = field(init=False)
     continuation: dict[str, object] | None = field(init=False)
+    archived: Path | None = field(init=False)
 
 
 @workspace_activity("run")
@@ -1096,6 +1097,7 @@ def _resolve_campaign_continuation(state: _CampaignState) -> bool:
     # already read.
     state.point_extra = {}
     state.continues = None
+    state.archived = None
     try:
         state.continuation = resolve_continuation(
             state.workspace,
@@ -1120,6 +1122,7 @@ def _resolve_campaign_continuation(state: _CampaignState) -> bool:
             if state.continuation is not None
             else None
         )
+        state.archived = archived
     except (CampaignConfigError, WorkspaceError, OSError) as error:
         # RECORDED AND REPORTED, LIKE EVERY OTHER FAILED POINT. This
         # branch put the record in the returned list alone: nothing in
@@ -1242,6 +1245,15 @@ def _execute_campaign_point(state: _CampaignState) -> None:
                 state.campaign, state.case, state.point, state.run_id, state.canonical
             ),
         )
+    # A CONTINUATION THAT WAS NEVER BUILT gives back what it archived: the
+    # stopped run's record names those outputs in the datapoint folder, and a
+    # point refused before the solver started replaced nothing.
+    if (
+        state.archived is not None
+        and record.status == RunStatus.FAILED_SCRIPT
+        and record.executor is None
+    ):
+        _restore_archived_outputs(state.archived)
     # And as it ENDS, with the status, so the two lines bracket the
     # wait and a reader can see which point a warning between them
     # belonged to.
@@ -1262,6 +1274,24 @@ def _execute_campaign_point(state: _CampaignState) -> None:
     state.ran_here += 1 if state.runs_here and record.executor is not None else 0
     if record.status.startswith("FAILED"):
         state.failures.append(record)
+
+
+def _restore_archived_outputs(archived: Path) -> None:
+    """Move a continuation's archived outputs back into their datapoint folder.
+
+    ``archived`` is ``<datapoint>/archive/<stamp>/``, as
+    :meth:`CampaignWorkspace.archive_datapoint` returned it. A name the folder
+    holds again is left in the archive rather than overwritten.
+    """
+    folder = archived.parent.parent
+    for child in list(archived.iterdir()):
+        if not (folder / child.name).exists():
+            child.replace(folder / child.name)
+    for emptied in (archived, archived.parent):
+        try:
+            emptied.rmdir()
+        except OSError:
+            break
 
 
 def _finish_campaign(state: _CampaignState) -> list[RunRecord]:

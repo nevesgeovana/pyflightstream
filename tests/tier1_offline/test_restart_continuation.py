@@ -710,6 +710,45 @@ class TestFr96ConvergedContinuation:
         assert len(stub.invocations) == 1
 
     @staticmethod
+    def test_p0430_a_continuation_refused_before_the_solver_gives_back_its_archive(
+        tmp_path, monkeypatch
+    ):
+        """X-F-0549: a continuation never built leaves the stopped run's outputs in place.
+
+        The continuation archived the datapoint folder before the point was known to
+        build, so a point refused at its script left the stopped record naming an
+        emptied folder. A point recorded FAILED_SCRIPT with no executor moves the
+        archived outputs back.
+        """
+        import pyflightstream.run._campaign as campaign
+
+        workspace = _fr96_converged_continuation___converged(tmp_path)
+        folders = list((workspace.sim_dir("7001") / "datapoints").iterdir())
+        before = {f: sorted(p.name for p in f.iterdir()) for f in folders}
+        assert any(before.values()), before
+
+        def _refused(**kwargs):
+            case = kwargs["case"]
+            return RunRecord(
+                run_id=kwargs["run_id"],
+                sim_id=case.sim_id,
+                point=dict(kwargs["point"]),
+                fs_version_requested="26.123",
+                package_version="0.43.0",
+                script_sha256="",
+                raw_flag=False,
+                status=RunStatus.FAILED_SCRIPT,
+                error="refused at its script",
+            )
+
+        monkeypatch.setattr(campaign, "_execute_point", _refused)
+        matrix = _fr96_converged_continuation___restart(tmp_path, "ADDITIONAL_REVS=1")
+        with pytest.raises(Exception, match="refused at its script"):
+            _fr96_converged_continuation___continue(workspace, matrix)
+        after = {f: sorted(p.name for p in f.iterdir()) for f in folders}
+        assert after == before, (before, after)
+
+    @staticmethod
     def test_additional_iters_continues_a_converged_unsteady_point_fr_96(tmp_path):
         workspace = _fr96_converged_continuation___converged(tmp_path)
         records, _ = _fr96_converged_continuation___continue(
