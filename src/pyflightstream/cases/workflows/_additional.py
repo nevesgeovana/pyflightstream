@@ -205,8 +205,8 @@ def additional_outputs(pproc: PprocSpec, *, stem: str, unsteady: bool) -> tuple[
     stores the sections and not their loads, so the extraction computes them
     every time (RPT-062); the plots history on an unsteady point, which the file
     keeps; and the solver log unless ``[exports]`` turns it off. Never a saved
-    simulation and never probe points: the extraction saves nothing and samples
-    nothing off the body.
+    simulation and never probe points: the extraction saves nothing and samples no probe
+    points; the traces of the artifact's streamlines, surface and off the body, are its one tracing.
 
     Parameters
     ----------

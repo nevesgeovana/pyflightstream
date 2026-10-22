@@ -94,13 +94,13 @@ def unsteady_action_command_line(interpreter: str = sys.executable) -> str:
     argument. The interpreter is the one building the script, which is
     the one the run layer names when it writes the program, so the line
     the solver runs and the program it runs agree on which Python. On Windows,
-    its existing pythonw.exe sibling prevents a console per callback.
+    its pythonw.exe sibling, which must exist or the build is refused, prevents a console.
 
     Parameters
     ----------
     interpreter : str, optional
         The Python executable building the script; ``sys.executable`` by default. On Windows its
-        pythonw.exe sibling is used where it exists.
+        pythonw.exe sibling is used and must exist; without it the build is refused.
 
     Returns
     -------

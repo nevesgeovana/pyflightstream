@@ -281,7 +281,8 @@ def refuse_a_threshold_after_the_averaging_start(
         If the average needs a step before ``first_step``.
     """
     window = surface_time_averaging(case)
-    assert window is not None
+    if window is None:
+        return  # No surface average, so no step of it can precede the first export.
     start = int(window["iterations"][0])
     if first_step <= start:
         return
