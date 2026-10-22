@@ -198,6 +198,55 @@ FlightStream versions.
   reads back.
 - The input glossary states no solver command the package never emits, and its guides and
   defaults are placed and quoted as TOML.
+- Result readers: a second export cut before its footer, a bare numeric unsteady table, a
+  second table after the closing rule, repeated VTK or wake blocks, non-finite VTK and wake
+  values, an unknown loads flag, undeclared probe rows and a file of separators are refused;
+  residual columns follow the header names; the freeze detector reads spaced (k/N) markers,
+  lists an interior step without a page as unjudged and diagnoses malformed residual cells;
+  a wake line starting downstream, a malformed wake line and oversized wake tokens are named,
+  and the wake constant-line tolerance is the line's own. `write_table` creates its file
+  exclusively and raises `ProductExistsError`, and `loads_file` accepts a recorded path.
+- Far field: the Trefftz trace no longer returns NaN for a zero-strength filament, refuses a
+  trace point on a nonzero shed filament, coincident trace points and a wake whose strengths
+  do not sum to zero; `symmetry_floor` refuses `m_max=0`; rotor coverage counts v, w and
+  p_prime; the atmosphere refuses non-finite inputs; the far-field functions refuse
+  malformed shapes, non-finite samples and invalid densities by name.
+- Probes: a lateral cylinder inside the outer ring edge, a non-(n, 3) points array, a probe
+  layout count that divides by zero, an infinite extent and a lateral station list without a
+  radius are refused; a geometric axis can neither overflow nor coincide; frames keep huge
+  axes and a stored frame survives the JSON round trip exactly.
+- Script helpers refuse a string row read as coordinates, actuator disc radii that enclose no
+  area, a boolean swirl, a wake stabilization count below one, an unsteady regime that cannot
+  advance in time, an empty `vtk_boundaries`, a `probe_line` with fewer than one point, a
+  `coordinate_frame` origin that is not three numbers and a separation-model diameter that is
+  not positive; an array is judged as a selection, not compared with `"all"`.
+- FSI and structure: the dummy step refuses a node count below one and archives the solver's
+  node list, a failed archive is an error-logged failure, swapped major and minor inertia
+  lists are refused, and a material suitability note is kept in the provenance. Generated
+  blades from materials with a note now carry `provenance.material.notes`, so their
+  `config_sha256` changes; configs from materials with an empty note are unchanged.
+- QA and physics: reference bands refuse inverted widths, unknown kinds and non-finite
+  numbers; the physics pre-flight refuses a case the build has no evidence for and a matrix
+  naming no case before a seat is spent; the physics YAML says `not recorded` for a run that
+  took no digest; a withdrawal report without detail and a report without a build are
+  `QaEvidenceError`; summaries count aborted cases; blade and wing end caps no longer face
+  inward; the loft reference is exported before the second loft.
+- Run layer: a collect sweep survives one simulation that cannot be expanded, retries a file
+  error while completing an extraction and drops a point collected in a later sweep from the
+  failed total; a submitted extraction keeps an earlier archive written in the same second;
+  a profile placeholder an extraction cannot fill is a refusal; a crashed or timed-out local
+  grouped job fails the run; `collect --watch-interval` refuses zero, negative and non-finite
+  values with exit 2; `status --csv` keeps full float precision; `log --sims` takes
+  blank-separated ids; a continuation refuses a replaced saved state; a relative `fs_exe`
+  is resolved; descriptor strings are escaped in TOML and YAML; `reconstruct` expands a
+  compacted simulation first; a rewritten point script keeps the replaced bytes under
+  `scripts/archive/`; a live scheduler log is no proof that an extraction job ended.
+- Removed names answer `hasattr` with False (the 0.13.0 names of `pyflightstream.run` and
+  `pyflightstream.qa.physics`), and the import statement still gives the migration
+  instruction; `report_paths` refuses a report label longer than 64 characters.
+- Maintainer scripts and the manual register: `pyfs-manual` withholds measured-broken rows,
+  `draft` accepts `--overwrite`, the corpus capture scripts exit non-zero when an export is
+  missing or stale, and `build_living_physics` writes into a missing folder.
 
 ## [0.42.0] - 2026-10-16
 
