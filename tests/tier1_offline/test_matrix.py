@@ -275,6 +275,25 @@ def test_header_deviation_is_refused(tmp_path):
         read_matrix(bad)
 
 
+@pytest.mark.requirement("FR-1312")
+def test_an_unknown_column_is_refused_naming_it_and_the_closest_known_column(tmp_path):
+    """The layout is exact: a misspelled column is refused, never preserved.
+
+    The refusal names the column it does not know and the known column
+    nearest to it, so a one-character slip is fixed from the message.
+    """
+    header = list(matrix_mod._COLUMNS)
+    header[header.index("FLIGHT_CONDITION")] = "FLIGHT_CONDITON"
+    lines = FIXTURE.read_text(encoding="utf-8").splitlines()
+    bad = tmp_path / "matrix.fs"
+    bad.write_text("\n".join([" | ".join(header), *lines[1:]]) + "\n", encoding="utf-8")
+    with pytest.raises(MatrixError) as caught:
+        read_matrix(bad, active_only=False)
+    message = str(caught.value)
+    assert "'FLIGHT_CONDITON' is not a known column" in message
+    assert "closest known column is 'FLIGHT_CONDITION'" in message
+
+
 def test_empty_matrix_file_is_refused(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text("\n-----\n\n", encoding="utf-8")

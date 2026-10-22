@@ -49,6 +49,7 @@ which is what :mod:`tests.test_conventions` now holds it to.
 
 from __future__ import annotations
 
+import difflib
 import math
 import re
 from collections.abc import Mapping
@@ -945,6 +946,24 @@ def _refuse_legacy_motion(record: Mapping[str, str], rotations: bool, translatio
         )
 
 
+def _unknown_columns_sentence(header: tuple[str, ...]) -> str:
+    """Name each header column the layout does not know and its closest known column.
+
+    The layout is exact (FR-1312): an unknown column is refused, never
+    preserved, and the refusal points at the known column nearest in
+    spelling, compared without case, so a one-character slip is fixed
+    from the message.
+    """
+    sentences = []
+    for name in header:
+        if name in _COLUMNS:
+            continue
+        closest = difflib.get_close_matches(name.upper(), _COLUMNS, n=1, cutoff=0.0)
+        suggestion = f"; the closest known column is {closest[0]!r}" if closest else ""
+        sentences.append(f" {name!r} is not a known column{suggestion}.")
+    return "".join(sentences)
+
+
 def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow]:
     """Read a pipe-delimited ``matrix.fs`` run matrix.
 
@@ -965,7 +984,8 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
     Raises
     ------
     MatrixError
-        If the file carries the column layout of an earlier release, or a LEGACY row states a raw
+        If the file carries the column layout of an earlier release, a column the layout
+        does not know (named with the closest known column), or a LEGACY row states a raw
         command, a rotation or a translation.
 
     Examples
@@ -1046,7 +1066,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             f"{path} header does not match the verified {len(_COLUMNS)}-column layout; "
             f"expected {', '.join(_COLUMNS)} and found {', '.join(header)}. "
             f"There are {len(header)} columns where {len(_COLUMNS)} are expected, and "
-            f"{first_difference}.{remedy}"
+            f"{first_difference}.{_unknown_columns_sentence(header)}{remedy}"
         )
     rows: list[MatrixRow] = []
     for row_number, line in enumerate(content[1:], start=1):

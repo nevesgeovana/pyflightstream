@@ -31,6 +31,9 @@ FlightStream versions.
 
 ### Changed
 
+- A run matrix whose header holds a column the layout does not know is refused naming that
+  column and the closest known column.
+
 - An unstated `ALPHA` or `BETA` is 0.0 in every product that reads the angle: the rotor table's
   shaft angle and `ETAW` and the axis coefficients of the unsteady polar are computed at it, and a
   warning or a note names the rows that took the default. Only an angle that is stated and is

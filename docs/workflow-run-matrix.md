@@ -82,6 +82,11 @@ where it found it for exactly that reason.
 in its column AND as a key of the free cell is refused naming both, because
 two homes for one fact is how the two come to disagree.
 
+**THE HEADER IS EXACT.** A column the layout does not know is refused before
+anything is planned, never carried along: the message names the column and the
+known column closest to it in spelling, so `FLIGHT_CONDITON` is answered with
+`FLIGHT_CONDITION`.
+
 `VAR_NAMES_VALUES` is the last cell and the one that carries everything
 else, as `KEY: value` pairs separated by ` / `. The rows above use
 `FSM_FILE`, which is a key of THEIR OWN: nothing in the package reads it,
