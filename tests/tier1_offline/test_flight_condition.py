@@ -584,3 +584,29 @@ def _render_fluid(state) -> list[str]:
     script = Script("26.120")
     build_script(case, script)
     return script.render().splitlines()
+
+
+def test_p0430_a_fluid_state_refuses_air_a_gas_cannot_have():
+    good = dict(
+        velocity_m_per_s=50.0,
+        density_kg_m3=1.2,
+        pressure_pa=101325.0,
+        temperature_k=288.15,
+        viscosity_pa_s=1.8e-5,
+        sonic_velocity_m_per_s=340.0,
+        source="atmosphere",
+    )
+    FluidState(**good)
+    for key, bad in (
+        ("density_kg_m3", 0.0),
+        ("temperature_k", -1.0),
+        ("viscosity_pa_s", float("nan")),
+    ):
+        with pytest.raises(ValueError, match="finite positive air property"):
+            FluidState(**{**good, key: bad})
+
+
+def test_p0430_a_negative_zero_files_under_the_zero_key():
+    from pyflightstream.cases.settings import point_state_key
+
+    assert point_state_key({"alpha": -0.0}) == point_state_key({"alpha": 0.0}) == "alpha=0"

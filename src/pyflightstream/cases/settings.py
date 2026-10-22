@@ -685,7 +685,8 @@ class SolverSettings(BaseModel):
     unsteady_viscous_coupling_iteration: int | None = Field(default=None, ge=1)
     #: SET_ANALYSIS_MOMENTS_MODEL (FR-317): PRESSURE or VORTICITY, the moments
     #: model stated before the solve; None states the default PRESSURE, except on a
-    #: row turning a rotor with vorticity drag, which states VORTICITY (FR-318).
+    #: row turning a rotor with vorticity drag, which states VORTICITY (FR-318). A row with
+    #: no moment point and no model emits no moments command at all.
     moments_model: MomentsModel | None = None
     #: SET_NEW_UNSTEADY_SOLVER_ACTION (FR-319): actions run after every time step
     #: of an unsteady row, after the package's own. None emits nothing.
@@ -766,8 +767,10 @@ class FluidState(BaseModel):
     #: Legacy explicit speed of sound, metres per second, on evidenced builds only.
     sonic_velocity_m_per_s: float = Field(gt=0.0)
     #: The dimensionless ratio of specific heats, carried beside sonic
-    #: velocity because the three pre-26.100 builds take sonic velocity and
-    #: later builds take this ratio. The shared ISA constant supplies the
+    #: velocity because the three pre-26.100 builds document a sonic velocity input and
+    #: later builds take this ratio. (The ``SolverSettings`` key that states a sonic velocity
+    #: is refused on every registered build, for want of recorded evidence.)
+    #: The shared ISA constant supplies the
     #: default, also used by workspace.flight_condition.ResolvedCondition,
     #: so authored cases and resolved cases cannot drift to different gases.
     #: The resolver explicitly supplies the value; only an authored case
@@ -779,6 +782,23 @@ class FluidState(BaseModel):
     #: The length a stated Reynolds number was measured against, in
     #: metres. None when no Reynolds number was stated.
     reference_length_m: float | None = None
+
+    @model_validator(mode="after")
+    def _an_air_state_a_gas_can_have(self) -> FluidState:
+        positive = {
+            "density_kg_m3": self.density_kg_m3,
+            "pressure_pa": self.pressure_pa,
+            "temperature_k": self.temperature_k,
+            "viscosity_pa_s": self.viscosity_pa_s,
+            "sonic_velocity_m_per_s": self.sonic_velocity_m_per_s,
+            "heat_capacity_ratio": self.heat_capacity_ratio,
+        }
+        for name, value in positive.items():
+            if not math.isfinite(value) or value <= 0.0:
+                raise ValueError(f"{name} = {value!r} is not a finite positive air property")
+        if not math.isfinite(self.velocity_m_per_s):
+            raise ValueError(f"velocity_m_per_s = {self.velocity_m_per_s!r} is not finite")
+        return self
 
 
 class PointState(BaseModel):
@@ -840,4 +860,5 @@ def point_state_key(point: Mapping[str, float]) -> str:
     >>> point_state_key({"beta": -0.0})
     'beta=0'
     """
+    # ``+ 0.0`` turns a negative zero into zero, so -0.0 and 0.0 file under one key.
     return "|".join(f"{axis}={float(value) + 0.0:.10g}" for axis, value in sorted(point.items()))
