@@ -13,7 +13,8 @@ fuselage and the body of revolution are
 
 THE CURVE ROUTE is the one licensed round 1 accepted on 26.124 for a wing, a
 fuselage and a body of revolution, each saving a simulation that lists the
-new boundary (probes C1, C4, C5)::
+new boundary (RPT-096, "probe round 1 on 26.124", 2026-09-30: probes C1, C4,
+C5)::
 
     CAD_CREATE_INITIALIZE
     CAD_CREATE_IMPORT_CURVE_CCS <units> 1 <component>
@@ -28,17 +29,18 @@ script command does that, so the loft reads the selection that
 created before it: the route is the probed one, in the probed order.
 
 THE FILE ROUTE (``kind = "file"``) is ``CCS_IMPORT``, which imported all three
-components of one file on 26.124 with each boundary named after its
-``Component`` line (probe C0). It is the only route that reads a component's
+components of one file on 26.124, listing the boundaries PYFS_CCS_WING,
+PYFS_CCS_FUS and PYFS_CCS_REV (RPT-096, "probe round 1 on 26.124", probe C0).
+It is the only route that reads a component's
 ``Relaxed_TE`` line, whose last value is the direction of the relaxed wake's
 parametric shedding line (FSM-26.124 p.85); the script commands
 ``NEW_CCS_FUSELAGE_RELAXED_TE`` and ``NEW_CCS_REVOLVE_RELAXED_TE`` take no
 direction. So a row choosing that direction (``CCS_SHEDDING``, G35) is a row on
 the file route, and the run imports its own copy of the file with every
-``Relaxed_TE`` line restated in the row's direction. Round 1 imported the same
-fuselage with the digit 0 and 1 and the two saved simulations differ in five
-per-face lines, the axial file marking a set of faces 79 apart (one per ring
-along the body) and the azimuth file a run of 47 consecutive faces (around it).
+``Relaxed_TE`` line restated in the row's direction. Round 1 imported the same fuselage with
+the digit 0 and 1 and the two saved simulations differ in 5 lines (RPT-096, "probe
+round 1 on 26.124", section 3.2); that round did not decode the lines or compare
+geometry, so the geometric effect of the digit is not measured there.
 """
 
 from __future__ import annotations
