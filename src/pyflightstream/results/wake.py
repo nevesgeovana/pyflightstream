@@ -5,7 +5,8 @@ surface when ``SET_VTK_EXPORT_VARIABLES`` states the wake: VTK legacy ASCII
 polydata of POINTS, two-point LINES and one cell scalar,
 ``Normalized_Vorticity``. The segments chain into one wake line per
 trailing-edge node, each line carrying one value, constant along it; the value
-is the circulation shed by that wake line. Trefftz B of
+is read as the circulation shed by that wake line (FR-1023; the reading is
+not measured in a committed solver report). Trefftz B of
 the far-field family reads it (:mod:`pyflightstream.farfield.trefftz`).
 
 Refused, as every reader refuses (FR-16, FR-17): a file whose counts do not add
