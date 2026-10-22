@@ -40,6 +40,7 @@ from pyflightstream.cases import (
     BaseRegionOperation,
     CampaignConfigError,
     MeshOperation,
+    PortBoundary,
     RawMeshConditions,
     SimCase,
     TrailingEdgeMarking,
@@ -609,6 +610,31 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
         helpers.detect_every_boundary(script, "base_regions")
 
 
+def _park_the_inlet_profile(
+    case: SimCase, script: Script, port: PortBoundary, port_index: int, name: str
+) -> str:
+    """Read a port's inlet profile, verify it and park it; return the parked file name."""
+    if name != "inlets":
+        raise CampaignConfigError("an outlet profile has no documented native command")
+    profile = Path(str(port.profile))
+    try:
+        payload = profile.read_bytes()
+    except OSError as error:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the inlet profile {profile} of port "
+            f"{port.boundary!r} cannot be read ({error.strerror or error}); "
+            "restore the file the matrix row names, or drop the profile."
+        ) from error
+    digest = sha256(payload).hexdigest()
+    if port.profile_sha256 and digest != port.profile_sha256:
+        raise CampaignConfigError(f"inlet profile changed after binding: {profile}")
+    if not payload:
+        raise CampaignConfigError(f"inlet profile is empty: {profile}")
+    profile_name = f"pfs_inlet_{port_index}_{digest[:16]}.txt"
+    script.park_input_file(profile_name, payload)
+    return profile_name
+
+
 def _setup_ports(case: SimCase, script: Script) -> None:
     """Apply resolved port conditions during setup, preserving measured creation/staging order."""
     if case.raw_mesh_conditions and (
@@ -644,24 +670,7 @@ def _setup_ports(case: SimCase, script: Script) -> None:
         port_index += 1
         profile_name = None
         if port.profile is not None:
-            if name != "inlets":
-                raise CampaignConfigError("an outlet profile has no documented native command")
-            profile = Path(port.profile)
-            try:
-                payload = profile.read_bytes()
-            except OSError as error:
-                raise CampaignConfigError(
-                    f"case {case.sim_id!r}: the inlet profile {profile} of port "
-                    f"{port.boundary!r} cannot be read ({error.strerror or error}); "
-                    "restore the file the matrix row names, or drop the profile."
-                ) from error
-            digest = sha256(payload).hexdigest()
-            if port.profile_sha256 and digest != port.profile_sha256:
-                raise CampaignConfigError(f"inlet profile changed after binding: {profile}")
-            if not payload:
-                raise CampaignConfigError(f"inlet profile is empty: {profile}")
-            profile_name = f"pfs_inlet_{port_index}_{digest[:16]}.txt"
-            script.park_input_file(profile_name, payload)
+            profile_name = _park_the_inlet_profile(case, script, port, port_index, name)
         indices = _sidecar_surfaces(case, script, "setup", "[[ports]]", (port.boundary,))
         script.emit(command, indices[0], port.velocity)
         if port.remesh is not None:

@@ -101,6 +101,39 @@ def _warn_all_is_shadowed(names: Sequence[str]) -> None:
     )
 
 
+def _select_one_word(
+    selection: str,
+    inventory: Sequence[str],
+    is_blade: Callable[[str], bool],
+    aliases: Mapping[str, Sequence[str]] | None,
+    *,
+    strict: bool,
+) -> list[list[str]]:
+    """Expand a ``families`` entry written as one bare word."""
+    # ONE READING FOR A CITED WORD, the one `select_group_members` uses
+    # (PFS-2104.029/.030): a word that is both a boundary and an alias
+    # selected the alias in a plot and the boundary in a [groups] entry.
+    aliased = _resolve_token(selection, inventory, aliases, strict=strict, alone=True)
+    if aliased is not None:
+        if aliased and selection == EVERY_FAMILY:
+            _warn_all_is_shadowed(aliased)
+        return [aliased] if aliased else []
+    if selection == "all":
+        return [[]]
+    # The alias lookup has already failed, so this word is a selector.
+    # A reference that declares an airframe alias uses that alias instead
+    # of reaching this retired-selector refusal.
+    if selection in _SELECTORS_THAT_GUESS:
+        warn_a_selector_that_guesses(selection)
+    if selection == "each":
+        return [[name] for name in inventory]
+    if selection == "each_blade":
+        return [[name] for name in inventory if is_blade(name)]
+    # A bare word outside the selectors and aliases resolves as a family;
+    # one absent from the inventory produces an empty result.
+    return []
+
+
 def select_families(
     selection: str | Sequence[str],
     inventory: Sequence[str],
@@ -155,30 +188,8 @@ def select_families(
         One family list per emitted entry; empty when the entry resolves to
         nothing.
     """
-    blades = [name for name in inventory if is_blade(name)]
     if isinstance(selection, str):
-        # ONE READING FOR A CITED WORD, the one `select_group_members` uses
-        # (PFS-2104.029/.030): a word that is both a boundary and an alias
-        # selected the alias in a plot and the boundary in a [groups] entry.
-        aliased = _resolve_token(selection, inventory, aliases, strict=strict, alone=True)
-        if aliased is not None:
-            if aliased and selection == EVERY_FAMILY:
-                _warn_all_is_shadowed(aliased)
-            return [aliased] if aliased else []
-        if selection == "all":
-            return [[]]
-        # The alias lookup has already failed, so this word is a selector.
-        # A reference that declares an airframe alias uses that alias instead
-        # of reaching this retired-selector refusal.
-        if selection in _SELECTORS_THAT_GUESS:
-            warn_a_selector_that_guesses(selection)
-        if selection == "each":
-            return [[name] for name in inventory]
-        if selection == "each_blade":
-            return [[name] for name in blades]
-        # A bare word outside the selectors and aliases resolves as a family;
-        # one absent from the inventory produces an empty result.
-        return []
+        return _select_one_word(selection, inventory, is_blade, aliases, strict=strict)
     chosen: list[str] = []
     alone = len(selection) == 1
     for item in selection:

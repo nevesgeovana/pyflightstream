@@ -218,6 +218,52 @@ def pproc_emissions(
     return kept
 
 
+def _emit_the_force_plots(
+    script: Script,
+    parameters: Sequence[str],
+    *,
+    frame: int,
+    name: str,
+    indices: list[int],
+    emitted: set[str],
+) -> None:
+    """Emit one force plot per parameter of a group, naming each ``{parameter}_{group}``."""
+    for short in parameters:
+        parameter, units = FORCE_PLOT_PARAMETERS[short]
+        emitted.add(f"{short}_{name}")
+        if indices:
+            script.emit(
+                "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+                frame=frame,
+                units=units,
+                parameter=parameter,
+                name=f"{short}_{name}",
+                boundaries=len(indices),
+                boundary_indices=indices,
+            )
+        else:
+            script.emit(
+                "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+                frame=frame,
+                units=units,
+                parameter=parameter,
+                name=f"{short}_{name}",
+                boundaries=-1,
+            )
+
+
+def _the_fields_ask_for_plots(pproc: PprocSpec) -> bool:
+    """Whether the artifact's probes or sections need the plots cleared first."""
+    return bool(
+        pproc.surface_probes
+        or pproc.volume_section is not None
+        or any(
+            (entry.field_formats or entry.reusable_inflow) and entry.kind != "normal"
+            for entry in pproc.probes
+        )
+    )
+
+
 def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     """Emit the force plots and the fluid plots the pproc artifact defines.
 
@@ -236,14 +282,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
         return
     # FR-418: a normal entry's field is read from the probe-points export, so
     # it asks nothing of the plots.
-    if (
-        pproc.surface_probes
-        or pproc.volume_section is not None
-        or any(
-            (entry.field_formats or entry.reusable_inflow) and entry.kind != "normal"
-            for entry in pproc.probes
-        )
-    ):
+    if _the_fields_ask_for_plots(pproc):
         script.emit("UNSTEADY_SOLVER_DELETE_ALL_PLOTS")
     inventory = _inventory(script)
     emitted: set[str] = set()
@@ -280,28 +319,14 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                         "parameters": list(pproc.plots.parameters),
                     }
                 )
-            for short in pproc.plots.parameters:
-                parameter, units = FORCE_PLOT_PARAMETERS[short]
-                emitted.add(f"{short}_{name}")
-                if indices:
-                    script.emit(
-                        "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
-                        frame=frame,
-                        units=units,
-                        parameter=parameter,
-                        name=f"{short}_{name}",
-                        boundaries=len(indices),
-                        boundary_indices=indices,
-                    )
-                else:
-                    script.emit(
-                        "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
-                        frame=frame,
-                        units=units,
-                        parameter=parameter,
-                        name=f"{short}_{name}",
-                        boundaries=-1,
-                    )
+            _emit_the_force_plots(
+                script,
+                pproc.plots.parameters,
+                frame=frame,
+                name=name,
+                indices=indices,
+                emitted=emitted,
+            )
     _plot_each_rotors_own_history(case, script, frames, inventory, emitted)
     # THE SIX COMPONENTS IN THE GLOBAL FRAME, ADDED WHERE THE ARTIFACT PLOTS THEM FOR
     # NO GROUP OF IT. The unsteady polar's axis coefficients are built from

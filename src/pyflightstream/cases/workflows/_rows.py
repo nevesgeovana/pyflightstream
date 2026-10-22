@@ -856,6 +856,26 @@ def _states_a_rotor_speed(case: SimCase) -> bool:
 # --- PFS-2025.05: the rotor motion, off the row ------------------------------
 
 
+def _the_aliases_the_row_names(case: SimCase) -> list[str | None]:
+    """Return the rotor aliases a sector row names, from its motion records or its variables."""
+    aliases = [
+        record.get(MOVING_BC_ALIAS_VARIABLE)
+        for record in (case.motions or [])
+        if record.get(MOVING_BC_ALIAS_VARIABLE)
+    ]
+    if not aliases:
+        alias = _variable(case, MOVING_BC_ALIAS_VARIABLE)
+        aliases = [str(alias)] if alias else []
+    if not aliases and case.recipe == QSTEADY_ROTOR:
+        # A QUASI-STEADY ROW HAS NO MOTION RECORD TO NAME ITS ROTOR: its rotor is the
+        # reference's one isolated rotor, which is what the run type already solves.
+        try:
+            aliases = [_the_isolated_rotor(case).alias]
+        except CampaignConfigError:
+            aliases = []
+    return aliases
+
+
 def _the_copies_the_sector_stands_for(case: SimCase, script: Script) -> tuple[int | None, str]:
     """Return the copy count a sector row implies, and WHY not (FR-59, FR-61).
 
@@ -880,21 +900,7 @@ def _the_copies_the_sector_stands_for(case: SimCase, script: Script) -> tuple[in
     THE SECOND RETURN IS THE REASON, distinguishing the row shapes that
     return None so the refusal can explain the missing information.
     """
-    aliases = [
-        record.get(MOVING_BC_ALIAS_VARIABLE)
-        for record in (case.motions or [])
-        if record.get(MOVING_BC_ALIAS_VARIABLE)
-    ]
-    if not aliases:
-        alias = _variable(case, MOVING_BC_ALIAS_VARIABLE)
-        aliases = [str(alias)] if alias else []
-    if not aliases and case.recipe == QSTEADY_ROTOR:
-        # A QUASI-STEADY ROW HAS NO MOTION RECORD TO NAME ITS ROTOR: its rotor is the
-        # reference's one isolated rotor, which is what the run type already solves.
-        try:
-            aliases = [_the_isolated_rotor(case).alias]
-        except CampaignConfigError:
-            aliases = []
+    aliases = _the_aliases_the_row_names(case)
     named = {str(alias).strip().casefold() for alias in aliases}
     if not named:
         if case.recipe == "unsteady_rotor":

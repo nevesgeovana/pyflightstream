@@ -920,6 +920,31 @@ def _check_one_sweep_per_row(pol: str, sweep: SweepAxis, variables: dict[str, st
     )
 
 
+def _refuse_legacy_motion(record: Mapping[str, str], rotations: bool, translations: bool) -> None:
+    """Refuse a LEGACY row that states a rotation or a translation list."""
+    if record["WORKFLOW"] != LEGACY_WORKFLOW:
+        return
+    if rotations:
+        # A LEGACY row's recipe reads its keys and emits no row rotation
+        # (PFS-2034.03). Refuse the list here instead of silently dropping it.
+        raise MatrixError(
+            f"POL {record['POL']} writes LEGACY and states {ROTATE_VARIABLE}; a LEGACY row "
+            "is built by its own recipe, which reads no rotation, so the list would turn "
+            f"nothing. Name a run type in the WORKFLOW column ({', '.join(workflow_names())}), "
+            "which rotates what the records name, or drop the key."
+        )
+    if translations:
+        # THE ROTATION'S RULE, FOR THE ROTATION'S REASON (FR-100): a LEGACY
+        # row's recipe reads no translation, so the list would move nothing.
+        raise MatrixError(
+            f"POL {record['POL']} writes LEGACY and states {TRANSLATE_VARIABLE}; a LEGACY "
+            "row is built by its own recipe, which reads no translation, so the list would "
+            f"move nothing. Name a run type in the WORKFLOW column "
+            f"({', '.join(workflow_names())}), which moves what the records name, or drop "
+            "the key."
+        )
+
+
 def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow]:
     """Read a pipe-delimited ``matrix.fs`` run matrix.
 
@@ -1039,25 +1064,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         rotations = _parse_rotations(variables, record["POL"])
         translations = _parse_translations(variables, record["POL"])
         raw = _raw_records(variables, record["POL"])
-        if rotations and record["WORKFLOW"] == LEGACY_WORKFLOW:
-            # A LEGACY row's recipe reads its keys and emits no row rotation
-            # (PFS-2034.03). Refuse the list here instead of silently dropping it.
-            raise MatrixError(
-                f"POL {record['POL']} writes LEGACY and states {ROTATE_VARIABLE}; a LEGACY row "
-                "is built by its own recipe, which reads no rotation, so the list would turn "
-                f"nothing. Name a run type in the WORKFLOW column ({', '.join(workflow_names())}), "
-                "which rotates what the records name, or drop the key."
-            )
-        if translations and record["WORKFLOW"] == LEGACY_WORKFLOW:
-            # THE ROTATION'S RULE, FOR THE ROTATION'S REASON (FR-100): a LEGACY
-            # row's recipe reads no translation, so the list would move nothing.
-            raise MatrixError(
-                f"POL {record['POL']} writes LEGACY and states {TRANSLATE_VARIABLE}; a LEGACY "
-                "row is built by its own recipe, which reads no translation, so the list would "
-                f"move nothing. Name a run type in the WORKFLOW column "
-                f"({', '.join(workflow_names())}), which moves what the records name, or drop "
-                "the key."
-            )
+        _refuse_legacy_motion(record, bool(rotations), bool(translations))
         if raw and record["WORKFLOW"] == LEGACY_WORKFLOW:
             # A LEGACY recipe emits no raw-command list. Refuse both the preset's
             # raw table and this row-level list so the run record cannot claim

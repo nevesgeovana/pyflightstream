@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import (
+    Collection,
     Mapping,
     Sequence,
 )
@@ -250,6 +251,29 @@ def _refuse_an_azimuthal_inflow_on_a_sector(case: SimCase) -> None:
         )
 
 
+def _the_surface_of_a_blade(
+    case: SimCase,
+    member: str,
+    labels: Mapping[str, int],
+    ordered: Sequence[str],
+    exact: set[str],
+    *,
+    numbered: bool,
+    aliased: bool,
+    found: Collection[int],
+) -> frozenset[int]:
+    """Return the boundary indices one rotor member stands for."""
+    if numbered and aliased and member.casefold() not in exact:
+        return frozenset(
+            labels[name] for name in resolve_alias(member, ordered, case.aliases) or ()
+        )
+    if numbered:
+        return frozenset(
+            index for name, index in labels.items() if name.casefold() == member.casefold()
+        )
+    return frozenset(found)
+
+
 def _refuse_what_is_not_the_rotor(
     case: SimCase, script: Script, rotor: RotorBlock, kind: str
 ) -> list[int]:
@@ -302,16 +326,16 @@ def _refuse_what_is_not_the_rotor(
             # TWO BLADES ARE TWO ONLY IF THEY ARE TWO SURFACES: aliases that
             # resolve to one boundary are one blade in the mesh, so the second
             # is not counted and the wheel check below names it.
-            if numbered and aliased and member.casefold() not in exact:
-                surface = frozenset(
-                    labels[name] for name in resolve_alias(member, ordered, case.aliases) or ()
-                )
-            elif numbered:
-                surface = frozenset(
-                    index for name, index in labels.items() if name.casefold() == member.casefold()
-                )
-            else:
-                surface = frozenset(found)
+            surface = _the_surface_of_a_blade(
+                case,
+                member,
+                labels,
+                ordered,
+                exact,
+                numbered=numbered,
+                aliased=aliased,
+                found=found,
+            )
             if surface in claimed:
                 shared.append((member, claimed[surface]))
                 continue
@@ -444,6 +468,41 @@ def _qsteady_free_stream(
     helpers.free_stream(script, "CUSTOM", filetype=custom.form, profile=field.path)
 
 
+def _metres_per_mesh_unit(case: SimCase, path: Path) -> float | str:
+    """Return the factor taking the mesh's length unit to metres, or why it cannot be read."""
+    factor: float | None
+    if path.suffix.lower() == ".fsm":
+        try:
+            stored = saved_mesh_coordinate_unit(path)
+        except (MeshReadError, OSError) as error:
+            return f"{path.name} could not be read: {error}"
+        factor = scale(stored, "METER") if stored else None
+    else:
+        unit = getattr(case.mesh_import, "units", None)
+        factor = scale(str(unit), "METER") if unit else None
+    if factor is None:
+        return f"{path.name} states no length unit a metre can be read from"
+    return factor
+
+
+def _mesh_groups_in_metres(
+    path: Path, factor: float
+) -> dict[str, list[tuple[float, float, float]]] | str:
+    """Return the mesh's vertices per boundary in metres, or why they cannot be read."""
+    try:
+        if path.suffix.lower() == ".fsm":
+            boundaries = boundary_vertices(path)
+            if boundaries is None:
+                return f"{path.name} does not tell its faces to their boundaries"
+            return {
+                name: [(x * factor, y * factor, z * factor) for x, y, z in vertices]
+                for name, vertices in boundaries.items()
+            }
+        return _qsteady.obj_group_vertices(path, metres_per_unit=factor)
+    except (OSError, UnicodeError, ValueError) as error:
+        return f"{path.name} could not be read: {error}"
+
+
 def _blade_stations_from_the_mesh(
     case: SimCase, rotor: RotorBlock
 ) -> tuple[tuple[float, ...], tuple[float, ...]] | str:
@@ -467,38 +526,17 @@ def _blade_stations_from_the_mesh(
             f"the chord is read at plan time from an OBJ mesh or a saved simulation only, "
             f"and {path.name} is a {path.suffix or 'file with no extension'}"
         )
-    factor: float | None
-    if suffix == ".fsm":
-        try:
-            stored = saved_mesh_coordinate_unit(path)
-        except (MeshReadError, OSError) as error:
-            return f"{path.name} could not be read: {error}"
-        factor = scale(stored, "METER") if stored else None
-        if factor is None:
-            return f"{path.name} states no length unit a metre can be read from"
-    else:
-        unit = getattr(case.mesh_import, "units", None)
-        factor = scale(str(unit), "METER") if unit else None
-        if factor is None:
-            return f"{path.name} states no length unit a metre can be read from"
+    factor = _metres_per_mesh_unit(case, path)
+    if isinstance(factor, str):
+        return factor
     moved = [key for key in (ROTATE_VARIABLE, TRANSLATE_VARIABLE) if _variable(case, key)]
     operations = getattr(case.mesh_import, "operations", None) or ()
     moved += sorted({f"the import's {op.op}" for op in operations if op.op != "rename"})
     if moved:
         return f"the row moves the mesh ({', '.join(moved)}) before the solve"
-    try:
-        if suffix == ".fsm":
-            boundaries = boundary_vertices(path)
-            if boundaries is None:
-                return f"{path.name} does not tell its faces to their boundaries"
-            groups = {
-                name: [(x * factor, y * factor, z * factor) for x, y, z in vertices]
-                for name, vertices in boundaries.items()
-            }
-        else:
-            groups = _qsteady.obj_group_vertices(path, metres_per_unit=factor)
-    except (OSError, UnicodeError, ValueError) as error:
-        return f"{path.name} could not be read: {error}"
+    groups = _mesh_groups_in_metres(path, factor)
+    if isinstance(groups, str):
+        return groups
     # THE IMPORT'S RENAMES, in the order written: the rotor's blade names are the
     # names the solver sees after them, so a blade the import renamed is found
     # under its new name and the chords are not read off another surface.

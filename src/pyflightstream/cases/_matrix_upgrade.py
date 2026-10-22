@@ -97,6 +97,24 @@ def _retag_cell(cell: bytes, mapping: Mapping[str, str]) -> tuple[bytes, str | N
     return leading + new.encode("utf-8") + trailing, old
 
 
+def _check_the_mapping(mapping: Mapping[str, Mapping[str, str]]) -> None:
+    """Refuse a mapping that names a foreign column or an id that would corrupt the matrix."""
+    unknown = sorted(set(mapping) - set(CODE_COLUMNS))
+    if unknown:
+        raise MatrixError(
+            f"column(s) {', '.join(unknown)} carry no input-library id; the columns "
+            f"this rewrite touches are {', '.join(CODE_COLUMNS)}."
+        )
+    for column, ids in mapping.items():
+        for old_id, new_id in ids.items():
+            if not new_id or new_id != new_id.strip() or re.search(r"[\s|]", new_id):
+                raise MatrixError(
+                    f"the replacement id {new_id!r} for {old_id!r} in column {column} is "
+                    "empty or holds whitespace or the cell separator, so writing it would "
+                    "corrupt the matrix; nothing was rewritten."
+                )
+
+
 def rewrite_codes(
     path: str | Path,
     mapping: Mapping[str, Mapping[str, str]],
@@ -150,20 +168,7 @@ def rewrite_codes(
     ...     "matrix.fs", {"REF": {"003": "r003"}}, in_place=True
     ... )
     """
-    unknown = sorted(set(mapping) - set(CODE_COLUMNS))
-    if unknown:
-        raise MatrixError(
-            f"column(s) {', '.join(unknown)} carry no input-library id; the columns "
-            f"this rewrite touches are {', '.join(CODE_COLUMNS)}."
-        )
-    for column, ids in mapping.items():
-        for old_id, new_id in ids.items():
-            if not new_id or new_id != new_id.strip() or re.search(r"[\s|]", new_id):
-                raise MatrixError(
-                    f"the replacement id {new_id!r} for {old_id!r} in column {column} is "
-                    "empty or holds whitespace or the cell separator, so writing it would "
-                    "corrupt the matrix; nothing was rewritten."
-                )
+    _check_the_mapping(mapping)
     source = str(path)
     data = Path(path).read_bytes()
     indices = {name: _COLUMNS.index(name) for name in CODE_COLUMNS if name in mapping}

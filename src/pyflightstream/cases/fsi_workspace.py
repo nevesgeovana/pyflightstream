@@ -748,18 +748,7 @@ def validate_workspace_fsi(
         return
     _check_output_attachment(case)
     _refuse_the_workflow(case, workflow, script.version)
-    if workflow in FIXED_WING_WORKFLOWS and case.fsi.wing is None:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: FSI on the {workflow} workflow is a fixed wing's (FSI-G), "
-            "and the FSI input this row names states no [config.wing] table, so it describes "
-            "a rotor blade and no wing. State [config.wing] (self_weight, gravity_m_per_s2, "
-            "span_axis, origin_m) with omega_rad_per_s = 0 and blade_count = 1."
-        )
-    if workflow not in FIXED_WING_WORKFLOWS and case.fsi.wing is not None:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: the FSI input states a fixed wing ([config.wing]) and the "
-            f"row runs {workflow}; a fixed wing couples on {' or '.join(FIXED_WING_WORKFLOWS)}."
-        )
+    _refuse_a_wing_mismatch(case, workflow)
     if continuation:
         raise CampaignConfigError(
             "FSI continuation requires proved compatible structural state and section order; "
@@ -801,6 +790,24 @@ def validate_workspace_fsi(
     if case.pproc.sections.include_symmetry:
         raise CampaignConfigError(
             "Workspace FSI requires explicit per-blade sections without symmetry copies."
+        )
+
+
+def _refuse_a_wing_mismatch(case: SimCase, workflow: str) -> None:
+    """Refuse a fixed-wing workflow without a wing table, and a wing table off a wing workflow."""
+    fsi = case.fsi
+    assert fsi is not None
+    if workflow in FIXED_WING_WORKFLOWS and fsi.wing is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: FSI on the {workflow} workflow is a fixed wing's (FSI-G), "
+            "and the FSI input this row names states no [config.wing] table, so it describes "
+            "a rotor blade and no wing. State [config.wing] (self_weight, gravity_m_per_s2, "
+            "span_axis, origin_m) with omega_rad_per_s = 0 and blade_count = 1."
+        )
+    if workflow not in FIXED_WING_WORKFLOWS and fsi.wing is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the FSI input states a fixed wing ([config.wing]) and the "
+            f"row runs {workflow}; a fixed wing couples on {' or '.join(FIXED_WING_WORKFLOWS)}."
         )
 
 
