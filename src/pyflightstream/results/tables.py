@@ -407,6 +407,9 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = Fals
     refused is a frame that cannot answer the question at all, or one
     whose answer contradicts itself.
 
+    A missing cell (NaN or None) is written as the ``NA`` token, never as an
+    empty field, in every table this writes, :func:`to_csv` included (F-251).
+
     Parameters
     ----------
     frame : pandas.DataFrame
