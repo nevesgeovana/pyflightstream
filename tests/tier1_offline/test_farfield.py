@@ -510,16 +510,16 @@ def _shape_of(lattice):
     return (len(lattice.stations), lattice.n_r, lattice.n_psi)
 
 
-def test_lateral_flux_reversed_bounds_are_the_negated_forward_flux():
-    """F-100: swapping inlet and outlet negates the lateral flux; it is never a silent 0."""
-    from pyflightstream.farfield import lateral_flux
+def test_lateral_flux_reversed_bounds_are_refused_never_a_silent_value():
+    """F-100, X-F-0307: a swapped inlet and outlet is refused, neither 0 nor a guessed sign."""
+    from pyflightstream.farfield import FarfieldInputError, lateral_flux
 
     fields = _lateral_fixture()
     first, last = float(fields.lateral_stations[0]), float(fields.lateral_stations[-1])
     forward = lateral_flux(fields, rho=RHO, inlet=first, outlet=last)
-    backward = lateral_flux(fields, rho=RHO, inlet=last, outlet=first)
     assert forward != 0.0
-    assert backward == pytest.approx(-forward, rel=1e-12)
+    with pytest.raises(FarfieldInputError, match="upstream of the inlet"):
+        lateral_flux(fields, rho=RHO, inlet=last, outlet=first)
     assert lateral_flux(fields, rho=RHO, inlet=first, outlet=first) == 0.0
 
 

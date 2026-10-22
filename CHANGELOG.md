@@ -213,7 +213,8 @@ FlightStream versions.
   trace point on a nonzero shed filament, coincident trace points and a wake whose strengths
   do not sum to zero; `symmetry_floor` refuses `m_max=0`; rotor coverage counts v, w and
   p_prime; the atmosphere refuses non-finite inputs; the far-field functions refuse
-  malformed shapes, non-finite samples and invalid densities by name.
+  malformed shapes, non-finite samples and invalid densities by name; `lateral_flux` refuses an
+  outlet upstream of its inlet instead of returning 0.0.
 - Probes: a lateral cylinder inside the outer ring edge, a non-(n, 3) points array, a probe
   layout count that divides by zero, an infinite extent and a lateral station list without a
   radius are refused; a geometric axis can neither overflow nor coincide; frames keep huge
