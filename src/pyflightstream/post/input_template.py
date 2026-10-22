@@ -755,6 +755,7 @@ _SETUP_TABLES_LEFT_OUT: Mapping[str, Mapping[str, tuple[str, ...]]] = {
             "scenario-specific assignment; select surfaces explicitly": (
                 "name",
                 "valarezo_criterion",
+                "leading_edge_type",
                 "boundaries",
             )
         }

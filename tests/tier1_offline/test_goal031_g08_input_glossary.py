@@ -141,7 +141,12 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("setup", "`[[base_region_operations]]`"): _fields(BaseRegionOperation),
         ("setup", "`[base_region_operations.mesh]`"): _fields(RadialBoundaryMesh),
         ("setup", "`[bulk_separation]`"): {"name", "separation_type", "diameter", "boundaries"},
-        ("setup", "`[[airfoil_separation]]`"): {"name", "valarezo_criterion", "boundaries"},
+        ("setup", "`[[airfoil_separation]]`"): {
+            "name",
+            "valarezo_criterion",
+            "leading_edge_type",
+            "boundaries",
+        },
         ("setup", "`[[axial_vortex_separation]]`"): {
             "name",
             "diameter",
