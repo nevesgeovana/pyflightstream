@@ -212,7 +212,7 @@ A retired UID keeps its place in the numbering and is never reused. Each one nam
 | --- | --- |
 | `NL-PHYS-5` | NL-RECS-2 (evidence classes carry the origin and limitation of every resolved model value) |
 | `NL-TRST-4` | NL-SPCM-5 (the quality and provenance checks of a specimen are one acceptance gate) |
-| `NL-WKSP-2` | NL-WKSP-4 and NL-WKSP-5 (a retained output is kept whole and every storage operation on it is recorded; the content-hash reference from the records rested on a feature parked at the 0.43.0 trim) |
+| `NL-WKSP-2` | NL-WKSP-4 and NL-WKSP-5 (a retained output is kept whole and every storage operation on it is recorded; the content-hash reference from the records rested on a feature parked on the roadmap when the requirements were trimmed) |
 | `NL-WKSP-3` | NL-WKSP-4 and NL-WKSP-5 (identity and preservation of a retained output are one obligation, carried as NL-WKSP-2 was) |
 | `NL-OPER-4` | the quality requirements (dependency, maturity and retirement contracts are a compatibility and maintainability constraint, not a stage of the experiment) |
 
