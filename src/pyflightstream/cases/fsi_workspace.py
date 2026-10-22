@@ -793,7 +793,12 @@ def validate_workspace_fsi(
         raise CampaignConfigError(
             "Workspace FSI requires all blades explicitly, without symmetry copies."
         )
-    if case.pproc is None or case.pproc.sections.include_symmetry:
+    if case.pproc is None:
+        raise CampaignConfigError(
+            "Workspace FSI requires a post-processing block that states explicit per-blade "
+            "sections; this row states none."
+        )
+    if case.pproc.sections.include_symmetry:
         raise CampaignConfigError(
             "Workspace FSI requires explicit per-blade sections without symmetry copies."
         )

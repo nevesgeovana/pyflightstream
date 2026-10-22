@@ -482,3 +482,33 @@ def test_a_direct_call_without_the_aerodynamic_nodes_file_is_refused_fr_341(tmp_
     with pytest.raises(FsiInputError, match=AERO_NODES_FILE):
         _call(tmp_path, 100)
     assert not (tmp_path / driver.DISPLACEMENT_FILE).exists()
+
+
+def test_workspace_fsi_without_a_pproc_block_says_so_f5_1718(tmp_path):
+    """A row that states no post-processing is told that, not that its sections touch symmetry."""
+    case = _sector(tmp_path).model_copy(update={"pproc": None})
+    script = Script("26.124")
+    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+    with pytest.raises(CampaignConfigError, match="states none") as caught:
+        validate_workspace_fsi(case, script, workflow="qsteady_rotor", continuation=False)
+    assert "symmetry" not in str(caught.value)
+
+
+def test_f5_1718_small_refusals_and_wording(tmp_path):
+    """X-F-0300 fractional step count, X-F-1153 setup wording, X-F-1333 path-like points_file."""
+    from types import SimpleNamespace
+
+    from pyflightstream.cases import ProbesSpec
+    from pyflightstream.cases.workflows import _freestream, _geometry
+
+    case = SimpleNamespace(sim_id="9001")
+    with pytest.raises(CampaignConfigError, match="whole number"):
+        _freestream._count_steps(case, "wake_termination_steps", 10.5, None)
+    assert _freestream._count_steps(case, "wake_termination_steps", 10.0, None) == 10
+    script = SimpleNamespace(entities=SimpleNamespace(labels=lambda kind: {"A": 1}))
+    with pytest.raises(CampaignConfigError, match=r"of the setup names") as caught:
+        _geometry._sidecar_surfaces(case, script, "setup", "[[ports]]", ["Z"])
+    assert "as the mesh does" in str(caught.value)
+    for bad in ("..", "C:name.txt"):
+        with pytest.raises(ValidationError, match="names a path"):
+            ProbesSpec(points_file=bad, parameters=["VX"])

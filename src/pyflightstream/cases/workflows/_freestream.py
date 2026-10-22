@@ -137,11 +137,13 @@ _FREESTREAM_FORM_TEXT: Mapping[str, str] = MappingProxyType(
         "STRUCTURED": (
             "The manual's STRUCTURED form (a .txt) is a first line 'Npts Mpts', two "
             "positive integers, then Npts x Mpts rows 'x y z vx vy vz', the first index "
-            "outer and the second inner, in m and m/s in the global frame."
+            "outer and the second inner, in m and m/s in the global frame (positions in the "
+            "simulation's own length unit where the row states FREESTREAM_UNITS: NATIVE)."
         ),
         "UNSTRUCTURED": (
             "The manual's UNSTRUCTURED form (a .dat) is one row 'x y z vx vy vz' per "
-            "vertex and no header, in m and m/s in the global frame."
+            "vertex and no header, in m and m/s in the global frame (positions in the "
+            "simulation's own length unit where the row states FREESTREAM_UNITS: NATIVE)."
         ),
     }
 )
@@ -235,7 +237,9 @@ def _read_custom_freestream(path: str, form: str) -> tuple[float, float, float, 
     what = _FREESTREAM_FORM_TEXT[form]
     where = f"the custom free stream {path}"
     try:
-        text = Path(path).read_text(encoding="utf-8")
+        # utf-8-sig: a spreadsheet's "CSV UTF-8" opens with a byte order mark, which read as
+        # text made the first number of the first row unreadable.
+        text = Path(path).read_text(encoding="utf-8-sig")
     except (OSError, UnicodeError) as error:
         raise CampaignConfigError(f"{where} cannot be read: {error}. {what}") from error
     lines = [
@@ -888,7 +892,7 @@ class WakeTermination:
         """
         if self.length_r is None or self.steps is None:
             return {}
-        asked = "the default of FR-321" if self.stated_as == "default" else "stated"
+        asked = "the default of FR-583" if self.stated_as == "default" else "stated"
         speed = "none" if self.v_ax_m_s is None else f"{self.v_ax_m_s:.6g}"
         return {
             "wake_termination_length": f"{self.length_r:g} R ({asked})",
@@ -1040,6 +1044,11 @@ def _length_steps(
 
 def _count_steps(case: SimCase, key: str, value: float, stepping: TimeStepping) -> int:
     if key == "wake_termination_steps":
+        if value != int(value):
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {key} as {value}, and a step count is a whole "
+                "number; write it without a fraction."
+            )
         return int(value)
     per_revolution = stepping.steps_per_revolution
     if per_revolution is None:

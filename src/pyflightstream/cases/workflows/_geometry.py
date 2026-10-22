@@ -816,10 +816,12 @@ def _sidecar_surfaces(
         index = labels.get(name)
         if index is None:
             known = ", ".join(repr(label) for label in labels) or "none"
+            owner = "the setup" if sidecar == "setup" else sidecar
+            exactly = "as the mesh does" if sidecar == "setup" else "as the sidecar does"
             raise CampaignConfigError(
-                f"case {case.sim_id!r}: {table} of {sidecar} names the surface {name!r}, "
+                f"case {case.sim_id!r}: {table} of {owner} names the surface {name!r}, "
                 f"and the mesh's surfaces, as its boundaries and the import's renames left "
-                f"them, are {known}. Name a surface exactly as the sidecar does; never by "
+                f"them, are {known}. Name a surface exactly {exactly}; never by "
                 "position."
             )
         if index not in indices:

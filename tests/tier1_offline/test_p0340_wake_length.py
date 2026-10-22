@@ -135,7 +135,7 @@ def test_p0340_wake_length_a_rotor_row_stating_nothing_keeps_four_radii():
     assert script.solver_setup is not None
     record = script.solver_setup.model_dump(mode="json")
     assert record["derived"] == {
-        "wake_termination_length": "4 R (the default of FR-321)",
+        "wake_termination_length": "4 R (the default of FR-583)",
         "wake_termination_v_ax_m_s": "30",
         "wake_termination_rule": "free_stream",
         "wake_termination_steps": "2439",
@@ -186,7 +186,7 @@ def test_p0340_wake_length_the_run_record_carries_the_three_values(tmp_path):
     (record,) = workspace.read_manifest()
     assert record.solver_setup is not None, (requirement, record.error)
     derived = record.solver_setup["derived"]
-    assert derived["wake_termination_length"] == "4 R (the default of FR-321)", derived
+    assert derived["wake_termination_length"] == "4 R (the default of FR-583)", derived
     assert derived["wake_termination_rule"] == "free_stream", derived
     assert float(derived["wake_termination_v_ax_m_s"]) == pytest.approx(30.0), derived
     assert derived["wake_termination_steps"] == "800", derived
