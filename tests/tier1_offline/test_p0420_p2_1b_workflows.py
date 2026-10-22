@@ -339,24 +339,24 @@ def test_f5_0102_f752_a_hub_only_inventory_cuts_no_section_in_a_rotor_frame():
     assert plot in with_blade
 
 
-def test_f5_0102_f034_duplicate_named_boundaries_are_surfaces_the_rotor_does_not_own():
+def test_f5_0102_f034_duplicate_named_boundaries_are_surfaces_the_rotor_does_not_own(tmp_path):
     """F-034: two boundaries sharing a name are no label, yet the geometry holds them."""
     from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.cases.workflows._qsteady_rotor import _refuse_what_is_not_the_rotor
-    from pyflightstream.script import Script
-    from tests.tier1_offline.test_workflows import FIXTURE_ROTOR, rotor_case
+    from tests.tier1_offline.test_goal035_qsteady_rotor import (
+        _blade_obj,
+        _case,
+        _lines,
+        _with_obj,
+    )
 
-    rotor = FIXTURE_ROTOR.model_copy(update={"families_blades": ["Blade1"]})
-    case = rotor_case().model_copy(update={"rotors": {rotor.alias: rotor}})
-    script = Script("26.124")
-    script.declare_existing(boundaries={"Blade1": 1})
-    script.declare_existing(boundaries=2)  # the file holds Blade1, Dup, Dup
-    script.boundary_inventory = ("Blade1", "Dup", "Dup")
+    def sector(inventory):
+        obj = _blade_obj(tmp_path / "sector.obj", blades=1)
+        return _with_obj(_case(SYMMETRY="PERIODIC"), obj, inventory)
+
+    # the file holds Blade1, Dup, Dup
     with pytest.raises(CampaignConfigError, match="Dup.*boundary 2.*used more than once"):
-        _refuse_what_is_not_the_rotor(case, script, rotor, "sector")
-    clean = Script("26.124")
-    clean.declare_existing(boundaries={"Blade1": 1})
-    assert _refuse_what_is_not_the_rotor(case, clean, rotor, "sector") == [1]
+        _lines(sector(("Blade1", "Dup", "Dup")))
+    _lines(sector(("Blade1",)))
 
 
 def test_f5_0102_f036_the_sole_rotor_with_no_selector_keeps_its_hand():

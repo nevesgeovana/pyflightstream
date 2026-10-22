@@ -179,19 +179,27 @@ def test_f5_0102_f019_a_far_point_still_sweeps_its_radius():
 
 def test_f5_0102_f024_the_far_field_lattice_sits_on_the_rotor_origin_the_row_states():
     """F-024: a row stating ROTOR_ORIGIN moves the hub the lattice is laid on."""
+    from types import SimpleNamespace
+
+    import numpy as np
+
     from pyflightstream.cases._farfield_spec import LatticeShape
-    from pyflightstream.cases.workflows._farfield import _rotor_placement
+    from pyflightstream.cases.workflows._farfield import emit_declared_lattices, farfield_lattice
+    from pyflightstream.script import Script
     from tests.tier1_offline.test_workflows import FIXTURE_ROTOR, rotor_case
 
     shape = LatticeShape(rotor=FIXTURE_ROTOR.alias)
-    block_hub = _rotor_placement(rotor_case(), shape)[2]
-    assert list(block_hub) == pytest.approx(
-        [FIXTURE_ROTOR.x_m, FIXTURE_ROTOR.y_m, FIXTURE_ROTOR.z_m]
-    )
+    block_hub = np.array([FIXTURE_ROTOR.x_m, FIXTURE_ROTOR.y_m, FIXTURE_ROTOR.z_m])
+    relative = farfield_lattice(rotor_case(), shape) - block_hub
     stated = rotor_case(ROTOR_ORIGIN="1.0,2.0,3.0")
-    assert list(_rotor_placement(stated, shape)[2]) == pytest.approx([1.0, 2.0, 3.0])
+    moved = np.array([1.0, 2.0, 3.0])
+    assert farfield_lattice(stated, shape) == pytest.approx(relative + moved)
     # the stated origin is in the simulation unit: 1000 of them to the metre
-    assert list(_rotor_placement(stated, shape, 1000.0)[2]) == pytest.approx([0.001, 0.002, 0.003])
+    probes = SimpleNamespace(lattices=[shape], frame="REFERENCE", parameters=[])
+    script = Script("26.124")
+    emit_declared_lattices(stated, script, probes, 1000.0)
+    native = np.asarray([point[1:4] for point in script.probe_points], dtype=float)
+    assert native == pytest.approx(relative * 1000.0 + moved, abs=1e-5)
 
 
 def test_f5_0102_f025_the_plane_extent_follows_the_emitted_translation(tmp_path):

@@ -210,11 +210,11 @@ def test_the_february_edition_enable_needs_no_blade_count_because_it_takes_none(
 def test_f1311_a_second_deletion_keeps_the_first_inventory_for_the_model(tmp_path):
     """F-1311: the model inventory is what the geometry opened with, however many removals ran."""
     from pyflightstream.cases.setup_surfaces import emit_setup_surfaces, the_model_inventory
-    from pyflightstream.cases.workflows._geometry import _declare_inventory
 
     first = _with(steady_case(geometry=_twin(tmp_path)), delete_surfaces=["Blade1"])
     script = Script("26.124")
-    _declare_inventory(first, script, TWIN)
+    script.declare_existing(boundaries={name: index for index, name in enumerate(TWIN, 1)})
+    script.boundary_inventory = tuple(TWIN)
     emit_setup_surfaces(script, first)
     assert the_model_inventory(script) == TWIN
     emit_setup_surfaces(script, _with(first, delete_surfaces=["Blade2"]))

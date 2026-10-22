@@ -496,18 +496,40 @@ def test_workspace_fsi_without_a_pproc_block_says_so_f5_1718(tmp_path):
 
 def test_f5_1718_small_refusals_and_wording(tmp_path):
     """X-F-0300 fractional step count, X-F-1153 setup wording, X-F-1333 path-like points_file."""
-    from types import SimpleNamespace
+    from pyflightstream.cases import (
+        MeshImport,
+        ProbesSpec,
+        RawMeshConditions,
+        SolverSettings,
+        TrailingEdgeMarking,
+    )
+    from pyflightstream.cases.workflows import _freestream, build_script
+    from pyflightstream.script import Script
+    from tests.tier1_offline.test_goal035_qsteady_rotor import _blade_obj
+    from tests.tier1_offline.test_workflows import rotor_case, steady_case
 
-    from pyflightstream.cases import ProbesSpec
-    from pyflightstream.cases.workflows import _freestream, _geometry
-
-    case = SimpleNamespace(sim_id="9001")
+    # The settings model refuses a fractional count at its own door; a model built without
+    # validation reaches the conversion's own refusal.
+    fractional = rotor_case().model_copy(
+        update={"solver": SolverSettings.model_construct(wake_termination_steps=10.5)}
+    )
     with pytest.raises(CampaignConfigError, match="whole number"):
-        _freestream._count_steps(case, "wake_termination_steps", 10.5, None)
-    assert _freestream._count_steps(case, "wake_termination_steps", 10.0, None) == 10
-    script = SimpleNamespace(entities=SimpleNamespace(labels=lambda kind: {"A": 1}))
+        _freestream.wake_termination_of(fractional)
+    whole = rotor_case().model_copy(update={"solver": SolverSettings(wake_termination_steps=10)})
+    assert _freestream.wake_termination_of(whole).steps == 10
+    ports = [{"port": "feed", "kind": "inlet", "boundary": "Z", "velocity": 5.0}]
+    raw = steady_case(geometry=str(_blade_obj(tmp_path / "p.obj", blades=1))).model_copy(
+        update={
+            "mesh_import": MeshImport(units="METER"),
+            "inventory": ("Blade1",),
+            "raw_mesh_conditions": RawMeshConditions(
+                trailing_edges=TrailingEdgeMarking(route="detect")
+            ),
+            "solver": SolverSettings(ports=ports),
+        }
+    )
     with pytest.raises(CampaignConfigError, match=r"of the setup names") as caught:
-        _geometry._sidecar_surfaces(case, script, "setup", "[[ports]]", ["Z"])
+        build_script(raw, Script("26.124"))
     assert "as the mesh does" in str(caught.value)
     for bad in ("..", "C:name.txt"):
         with pytest.raises(ValidationError, match="names a path"):

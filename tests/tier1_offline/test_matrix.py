@@ -1642,14 +1642,15 @@ def test_p0430_f1305_the_reader_refuses_bytes_that_are_not_utf8(tmp_path):
         read_matrix(bad)
 
 
-def test_p0430_f046_an_overflowing_reynolds_number_is_refused_not_infinite():
-    from types import SimpleNamespace
+def test_p0430_f046_an_overflowing_reynolds_number_is_refused_not_infinite(tmp_path):
+    def convert(path):
+        return to_campaign(
+            path, name="matrix", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES
+        )
 
-    from pyflightstream.cases.matrix import _condition_reynolds
-
-    row = SimpleNamespace(pol="9001", flight_condition={"REmi": 1e305})
+    overflowing = _with_condition(tmp_path, "MACH:0.1441, REmi:1e305, ALPHA:sweep, BETA:0.0")
     with pytest.raises(MatrixError, match="finite"):
-        _condition_reynolds(row)
-    assert _condition_reynolds(SimpleNamespace(pol="9001", flight_condition={"REmi": 4.38})) == (
-        4.38 * 1e6
-    )
+        convert(overflowing)
+    (tmp_path / "control").mkdir()
+    control = _with_condition(tmp_path / "control", "MACH:0.1441, REmi:4.38, ALPHA:sweep, BETA:0.0")
+    assert convert(control).sims[0].reynolds == 4.38 * 1e6

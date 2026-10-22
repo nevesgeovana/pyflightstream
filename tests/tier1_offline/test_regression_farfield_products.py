@@ -1283,7 +1283,7 @@ class TestRfixF2Distributions:
         aggregate.
         """
         from pyflightstream.cases.farfield_inputs import traced_family
-        from pyflightstream.cases.workflows._farfield import _covered
+        from pyflightstream.script import Script
         from tests.tier1_offline.test_regression_farfield_interfaces import (
             _farfield_plan___case as _case,
         )
@@ -1293,7 +1293,10 @@ class TestRfixF2Distributions:
             _RFIXF2_DISTRIBUTIONS___TREFFTZ_A,
             **_rfixf2_distributions___sections(["W", "T"]),
         )
-        assert _covered(case, ["W", "T"]) == set()
+        script = Script("26.124")
+        script.declare_existing(boundaries={"W": 1, "T": 2})
+        # Neither family is covered by the block, so the plan adds its own: nothing is reused.
+        assert _rfixf2_distributions___states(plan_record(case, "26.124", script)) == {"added"}
         assert traced_family(["W", "T"], ["W", "T"]) is None
         assert traced_family([], ["W"]) == "W"
         assert traced_family([], ["W", "T"]) is None

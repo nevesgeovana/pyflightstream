@@ -3404,7 +3404,7 @@ def test_a_wake_termination_with_no_rotor_speed_is_refused():
     stepping = rotor_time_stepping(case)
     assert stepping.rpm is None, "the clock must carry no speed for this arm to exist"
     with pytest.raises(CampaignConfigError) as raised:
-        _freestream._wake_termination(case, stepping)
+        _freestream.wake_termination_of(case, stepping)
     assert "has no length in time steps here" in str(raised.value)
 
 
@@ -7871,19 +7871,29 @@ def test_p0430_f065_a_row_without_a_block_centres_its_blade_axes_on_the_stated_h
     assert _blade_axis_origin_x(case) == "ORIGIN_X 1.0"
 
 
-def test_p0430_f028_a_rotor_owns_its_blade_frames_and_not_a_name_that_shares_the_prefix():
-    """F-028: ROTOR_RMRP and ROTOR_RMRP<k> are the rotor's, ROTOR_RMRP_notes is not."""
-    from pyflightstream.cases.workflows._frames import _frames_the_alias_owns
+def test_p0430_f028_a_rotor_owns_its_blade_frames_and_not_a_name_that_shares_the_prefix(tmp_path):
+    """F-028: PUSHER_RMRP and PUSHER_RMRP<k> are the rotor's, PUSHER_RMRP_notes is not."""
+    from pyflightstream.cases import FrameSpec
+    from tests.tier1_offline.test_goal022_translate import (
+        frame_names,
+        lines_of,
+        moving_rotor,
+        origin_moves,
+    )
 
-    frames = {
-        "ROTOR_SMRP": 1,
-        "ROTOR_RMRP": 2,
-        "ROTOR_RMRP1": 3,
-        "ROTOR_RMRP_notes": 4,
-        "ROTOR_RMRPX": 5,
-    }
-    owned = _frames_the_alias_owns(rotor_case(), {"ALIAS": "ROTOR"}, frames)
-    assert owned == ["ROTOR_SMRP", "ROTOR_RMRP", "ROTOR_RMRP1"]
+    case = moving_rotor(tmp_path, "{DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}")
+    case = case.model_copy(
+        update={
+            "frames": [
+                FrameSpec(name="PUSHER_RMRP_notes", origin=(1.0, 0.0, 0.0)),
+                FrameSpec(name="PUSHER_RMRPX", origin=(2.0, 0.0, 0.0)),
+            ]
+        }
+    )
+    lines = lines_of(case)
+    names = frame_names("\n".join(lines))
+    moved = sorted(names[int(line.split()[1])] for line in origin_moves(lines))
+    assert moved == ["PUSHER_RMRP", "PUSHER_RMRP1", "PUSHER_RMRP2", "PUSHER_RMRP3", "PUSHER_SMRP"]
 
 
 @pytest.mark.parametrize("angle", ["nan", "inf", "three"])
@@ -7907,35 +7917,51 @@ def test_p0430_f1318_the_unknown_frame_refusal_points_at_the_reference_table(tmp
 def test_p0430_f066_a_revolution_cap_shorter_than_one_step_is_refused_not_clamped():
     """F-066: the cap in revolutions is never exceeded by a step count clamped up to one."""
     from pyflightstream.cases import SolverSettings
-    from pyflightstream.cases.workflows._freestream import _length_steps
 
+    # The row's clock is 1200 rpm at 0.0001 s a step: 500 steps a revolution.
     case = rotor_case().model_copy(
         update={"solver": SolverSettings(wake_termination_revolutions_cap=0.001)}
     )
-    clock = (125.66, 0.012566)  # rad/s and rad per step: 500 steps a revolution
     with pytest.raises(CampaignConfigError, match="less than one time step"):
-        _length_steps(case, 4.0, 1.8, clock, 0.0001)
+        _freestream.wake_termination_of(case)
     longer = case.model_copy(
         update={"solver": SolverSettings(wake_termination_revolutions_cap=0.01)}
     )
-    steps, _, _ = _length_steps(longer, 4.0, 1.8, clock, 0.0001)
-    assert 1 <= steps <= 5  # 0.01 revolutions of 500 steps: five at most
+    steps = _freestream.wake_termination_of(longer).steps
+    assert steps is not None and 1 <= steps <= 5  # 0.01 revolutions of 500 steps: five at most
 
 
-def test_p0430_f064_two_probe_sets_one_quantization_step_apart_are_not_one():
+def test_p0430_f064_two_probe_sets_one_quantization_step_apart_are_not_one(tmp_path):
     """F-064: positions that differ at the fifth decimal are different probes."""
-    from pyflightstream.cases.workflows._farfield import _same_points
+    from tests.tier1_offline.test_regression_farfield_interfaces import (
+        _farfield_plan___case,
+        _farfield_plan___script,
+    )
 
-    base = np.array([[1.0, 2.0, 3.0]])
-    assert _same_points(base, base + np.array([[0.0, 0.0, 1e-5]]), 1.0) is False
-    assert _same_points(base, base + np.array([[0.0, 0.0, 1e-12]]), 1.0) is True
+    lattice = {"rotor": "ROTOR", "stations": [2.0], "n_r": 2, "n_psi": 16, "r_inner": 0.5}
+
+    def probe_points(tmp_path, shift: float) -> int:
+        tmp_path.mkdir()
+        declared = dict(lattice, r_inner=0.5 + shift)
+        case = _farfield_plan___case(
+            tmp_path,
+            {"families": "all", "ledgers": dict(lattice, m_max=2)},
+            probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [declared]}],
+        )
+        return len(_farfield_plan___script(case).probe_points)
+
+    # The declared lattice that agrees at the fifth decimal is the far field's own, laid once.
+    assert probe_points(tmp_path / "same", 1e-12) == probe_points(tmp_path / "exact", 0.0)
+    # One quantization step apart it is another set, and both are laid.
+    assert probe_points(tmp_path / "apart", 1e-5) == 2 * probe_points(tmp_path / "again", 0.0)
 
 
 def test_p0430_f026_f027_a_moved_body_is_not_checked_or_gated_against_its_mesh_file():
     """F-026, F-027: ROTATE and TRANSLATE move the body off the mesh file the check reads."""
     from types import SimpleNamespace
 
-    from pyflightstream.cases.workflows._farfield import _inside, planar_points
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.cases.workflows._farfield import planar_points, warn_declared_inside
 
     moved = rotor_case().model_copy(
         update={
@@ -7943,36 +7969,39 @@ def test_p0430_f026_f027_a_moved_body_is_not_checked_or_gated_against_its_mesh_f
             "rotations": [{"ANGLE": "3", "AXIS": "NAC-Y", "ALIAS": "Blade1"}],
         }
     )
-    count, reason = _inside(moved, np.zeros((1, 3)))
-    assert count == -1 and "rotates or translates the body" in reason
+    with pytest.warns(PyflightstreamWarning, match="rotates or translates the body"):
+        warn_declared_inside(moved, [(1, "REFERENCE", np.zeros((1, 3)))])
     with pytest.raises(CampaignConfigError, match="ROTATE or TRANSLATE"):
         planar_points(moved, SimpleNamespace(grids=[object()]), 1.0)
 
 
 def test_p0430_f1317_f765_the_plan_record_says_when_it_is_unresolved_and_reads_the_script_inventory(
-    monkeypatch,
+    monkeypatch, tmp_path
 ):
     """F-1317: a registry failure is not an empty record; F-765: the script's inventory wins."""
-    from pyflightstream.cases.workflows import _farfield
+    from pyflightstream._errors import PyflightstreamError
+    from pyflightstream.cases.workflows._farfield import plan_record
+    from pyflightstream.commands import CommandRegistry
     from pyflightstream.script import Script
-
-    case = rotor_case().model_copy(update={"inventory": ["FromCase"]})
-    monkeypatch.setattr(_farfield, "_spec", lambda case: object())
-    seen = {}
-    monkeypatch.setattr(
-        _farfield, "_resolve", lambda case, inventory, view, shapes: seen.update(inv=inventory)
+    from tests.tier1_offline.test_regression_farfield_interfaces import (
+        _FARFIELD_PLAN___SECTIONS,
+        _farfield_plan___case,
     )
+
+    case = _farfield_plan___case(tmp_path, _FARFIELD_PLAN___SECTIONS)
+    assert case.inventory == ("W",)
     script = Script("26.124")
     script.declare_existing(boundaries={"FromScript": 1})
-    _farfield.plan_record(case, "26.124", script)
-    assert seen["inv"] == ["FromScript"]
+    record = plan_record(case, "26.124", script)
+    sources = " ".join(str(row["source"]) for row in record["inputs"])  # type: ignore[index]
+    assert "over FromScript," in sources and "over W," not in sources
 
     def broken(*_):
-        raise _farfield.PyflightstreamError("no database")
+        raise PyflightstreamError("no database")
 
-    monkeypatch.setattr(_farfield.CommandRegistry, "load", staticmethod(broken))
-    record = _farfield.plan_record(case, "26.124", script)
-    assert "unresolved" in record and "no database" in record["unresolved"]
+    monkeypatch.setattr(CommandRegistry, "load", staticmethod(broken))
+    record = plan_record(case, "26.124", script)
+    assert "unresolved" in record and "no database" in record["unresolved"]  # type: ignore[operator]
 
 
 class TestVocabularyStatesTheCode:
