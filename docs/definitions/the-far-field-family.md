@@ -341,7 +341,7 @@ on a lateral cylinder; cylindrical axes on the rotor shaft, `y = r sin(psi)`,
 
 A non-uniform azimuth grid is refused: uniform periodic sampling is what makes the
 azimuthal rectangle rule spectrally accurate. A missing sample makes `I[f]` `NA`;
-`COVERAGE` states the fraction of the plane's area that was sampled, a missing sample weighted by the annular cell it stands for (`pyflightstream.farfield.sample_coverage`).
+`COVERAGE` states the fraction of the plane's area that was sampled, a missing sample weighted by the annular cell it stands for (`pyflightstream.farfield.sample_area_coverage`).
 
 **Harmonics.** `c_m = (1 / N_psi) sum_k f_k exp(-i m psi_k)`, `m = 0 .. m_max`,
 `m_max < N_psi / 2`.
