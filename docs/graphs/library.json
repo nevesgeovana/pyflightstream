@@ -5344,6 +5344,11 @@
     },
     {
       "source": "pyflightstream.post._products_campaign",
+      "target": "pyflightstream._tokens",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._products_campaign",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -5380,6 +5385,11 @@
     {
       "source": "pyflightstream.post._products_campaign",
       "target": "pyflightstream.post._tables",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._products_campaign",
+      "target": "pyflightstream.post.polar",
       "kind": "module"
     },
     {
@@ -6659,6 +6669,11 @@
     },
     {
       "source": "pyflightstream.post.point_tables",
+      "target": "pyflightstream.cases.workflows._probes",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.point_tables",
       "target": "pyflightstream.post._condition",
       "kind": "module"
     },
@@ -6695,6 +6710,11 @@
     {
       "source": "pyflightstream.post.point_tables",
       "target": "pyflightstream.results.sectional_loads",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.polar",
+      "target": "pyflightstream._deprecations",
       "kind": "module"
     },
     {
@@ -9159,6 +9179,11 @@
     },
     {
       "source": "pyflightstream.run._batch_run",
+      "target": "pyflightstream.run._batch_plan",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._batch_run",
       "target": "pyflightstream.run._campaign",
       "kind": "module"
     },
@@ -9420,11 +9445,6 @@
     {
       "source": "pyflightstream.run._cli_parsers",
       "target": "pyflightstream._cli",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._cli_parsers",
-      "target": "pyflightstream._console",
       "kind": "module"
     },
     {
@@ -9883,6 +9903,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.run._field_motion",
+      "target": "pyflightstream.cases.workflows._probes",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.run._grouped",
       "target": "pyflightstream.cases",
       "kind": "module"
@@ -10166,6 +10191,11 @@
       "source": "pyflightstream.run._pending",
       "target": "pyflightstream.cases.workflows",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._pending",
+      "target": "pyflightstream.cases.workflows._probes",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.run._pending",
@@ -12890,6 +12920,11 @@
     {
       "source": "pyflightstream.workspace.cli",
       "target": "pyflightstream.workspace.actuator_profiles",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.cli",
+      "target": "pyflightstream.workspace.excel",
       "kind": "module"
     },
     {

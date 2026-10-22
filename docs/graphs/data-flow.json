@@ -45,7 +45,7 @@
       ],
       "parameters": "campaign: Campaign, workspace: CampaignWorkspace, *, recipes: dict[str, ScriptRecipe] | None=None, write_plan: bool=True, name_from: str | None=None, builds: Mapping[str, SolverBuild] | None=None, versions: Mapping[str, str] | None=None, matrix_path: str | Path | None=None, accept_unregistered_build: bool=False, setup_inspections: Sequence[dict[str, object]] | None=None, inflow_fft: bool=False, accepted_builds: Collection[str]=(), planned_order: Mapping[str, Sequence[str]] | None=None",
       "returns": "CampaignPlan",
-      "source_sha256": "98f9f72a4fb3955273582e78fd09cbebc04d118887ef3aaf0f7c13c9df22c141"
+      "source_sha256": "c5e179e73ce6d43b5946e5c8031cc3ffaec2ec0cd526ed4876fd65d5b6e89f5c"
     },
     {
       "id": "run",
