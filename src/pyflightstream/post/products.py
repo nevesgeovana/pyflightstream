@@ -61,8 +61,10 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   and the solver build as agents.
 
 THE AXIS COLUMNS COME FROM ONE VECTOR. The loads export states a force
-``(Cx, Cy, Cz)`` and a moment ``(CMx, CMy, CMz)`` in its own frame, x aft, y right,
-z up, and :mod:`pyflightstream.post.axes` turns that one pair into body, stability
+``(Cx, Cy, Cz)`` in its own frame, x aft, y right, z up (scored against recorded
+exports in RPT-063, "emitted coefficients are scored against recorded solver
+output", 2026-09-23; its moments are read in the same frame, not scored), and
+:mod:`pyflightstream.post.axes` turns that one pair into body, stability
 and wind axes, under sideslip too. So ``CDB`` is the ``Cx`` of the export and
 ``CLB`` its ``Cz``; the rolling and yawing moments are normalised by the span and
 the pitching moment by the chord, after the moment has turned as one vector.
