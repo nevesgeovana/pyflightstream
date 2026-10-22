@@ -645,8 +645,10 @@ class GeometryInstruction(BaseModel):
         )
         if marks_itself and self.trailing_edges is not None:
             raise ValueError(
-                "[trailing_edges] is refused beside a CCS source or a section loft, which mark "
-                "their own trailing edges (mark_trailing_edges); a second pass would mark twice"
+                "[trailing_edges] is refused beside a CCS source or a section loft: their own "
+                "mark_trailing_edges option decides whether the body's trailing edges are "
+                "marked, so a second instruction here would decide it twice. Set "
+                "mark_trailing_edges there instead"
             )
 
     def _check_sweep(self) -> None:
