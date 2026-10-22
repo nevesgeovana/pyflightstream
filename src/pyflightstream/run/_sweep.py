@@ -39,6 +39,7 @@ from pyflightstream.cases.workflows import (
     angles_not_stated,
     build_steady_sweep,
     rotor_machs,
+    row_ncpus,
 )
 from pyflightstream.results import (
     translate_surface_exports,
@@ -106,6 +107,7 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace.naming import (
     PointName,
+    machine_description,
     submitted_by,
     sweep_file_stem,
 )
@@ -256,6 +258,9 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
         "package_dirty": package_dirty,
         # Capture the submitting user now; that identity cannot be recovered later.
         "submitted_by": submitted_by(),
+        # NL-RECS-6: the cost beside the result names its processors and machine.
+        "processor_count": row_ncpus(job.case, job.case.solver.max_threads),
+        "machine": None if isinstance(job.executor, Submitting) else machine_description(),
         "recipe": job.case.recipe,
         # A JOB'S RECIPE IS THE RUN TYPE, which has no user function behind
         # it and therefore no source to digest. The field is carried empty

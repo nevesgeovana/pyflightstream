@@ -55,6 +55,7 @@ from pyflightstream.cases.workflows import (
     job_start_state,
     reduction_windows,
     rotor_machs,
+    row_ncpus,
     row_walltime_s,
     walltime_clock_program,
     walltime_margin_s,
@@ -76,6 +77,7 @@ from pyflightstream.run._executors import (
     ExecutionResult,
     Executor,
     LocalExecutor,
+    Submitting,
     _submission_record,
     _with_the_profile_s_log,
     action_count,
@@ -120,6 +122,7 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace.naming import (
     PointName,
+    machine_description,
     submitted_by,
 )
 
@@ -487,6 +490,9 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
         "package_dirty": package_dirty,
         # Capture who submitted the run here; it cannot be recovered afterwards.
         "submitted_by": submitted_by(),
+        # NL-RECS-6: the cost beside the result names its processors and machine.
+        "processor_count": row_ncpus(job.case, job.case.solver.max_threads),
+        "machine": None if isinstance(job.executor, Submitting) else machine_description(),
         "recipe": job.case.recipe,
         "recipe_sha256": _recipe_digest(job.recipe),
         # The BUILD's executable, which is the campaign's unless the case

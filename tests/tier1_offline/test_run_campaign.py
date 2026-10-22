@@ -174,6 +174,48 @@ def test_dry_run_records_every_point_end_to_end(tmp_path):
     assert len(workspace.read_manifest()) == 2
 
 
+def test_p0430_every_run_record_states_its_processor_count_and_machine(tmp_path):
+    """NL-RECS-6: the cost of a run beside its result names the processors and the machine.
+
+    The wall time was recorded; the processor count the solver was given (the
+    setup's thread count, or the row's NCPUS) and a description of the machine
+    it ran on were not. The description names the system and the processors,
+    never the host. A row that gives the solver no count records None, the
+    explicit unknown.
+    """
+    import os
+    import platform
+
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    threaded = campaign.sims[0].model_copy(
+        update={"solver": campaign.sims[0].solver.model_copy(update={"max_threads": 4})}
+    )
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    [record] = run_campaign(
+        campaign.model_copy(update={"sims": [threaded]}),
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    assert record.processor_count == 4
+    assert record.machine is not None
+    assert platform.system() in record.machine and str(os.cpu_count()) in record.machine
+    assert platform.node() not in record.machine
+    assert workspace.read_manifest()[0].machine == record.machine
+
+    other = tmp_path / "b"
+    other.mkdir()
+    unthreaded = run_campaign(
+        make_campaign(other, alphas=(0.0,)),
+        StubSolver(WRITES_LOADS),
+        CampaignWorkspace(other / "camp"),
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    assert unthreaded[0].processor_count is None
+
+
 def test_recipe_failure_lands_as_failed_script(tmp_path):
     campaign = make_campaign(tmp_path, recipe="broken", alphas=(0.0,))
     workspace = CampaignWorkspace(tmp_path / "camp")

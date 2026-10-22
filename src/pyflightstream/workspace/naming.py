@@ -37,6 +37,7 @@ from __future__ import annotations
 import datetime as _dt
 import getpass
 import os
+import platform
 import re
 import shutil
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -71,6 +72,7 @@ __all__ = [
     "is_portable_name",
     "point_file_stem",
     "resolve_manifest",
+    "machine_description",
     "submitted_by",
     "sweep_file_stem",
 ]
@@ -911,6 +913,28 @@ def _render(template: str, values: dict[str, object], role: str, check_name: boo
 #: falls back to the password database where there is one, which is what makes
 #: ONE call right on Windows and on the cluster alike.
 _getuser = getpass.getuser
+
+
+def machine_description() -> str | None:
+    """Describe the machine this process runs on, without naming it (NL-RECS-6).
+
+    The system, its release, the processor architecture and the count of
+    logical processors: what a reader comparing the cost of two runs needs,
+    and nothing that identifies the host. None where the platform states no
+    system, the explicit unknown a record keeps.
+
+    Returns
+    -------
+    str or None
+        For example ``"Windows 11 AMD64, 16 logical processors"``.
+    """
+    system = platform.system()
+    if not system:
+        return None
+    parts = [part for part in (system, platform.release(), platform.machine()) if part]
+    count = os.cpu_count()
+    processors = f"{count} logical processors" if count else "an unknown processor count"
+    return f"{' '.join(parts)}, {processors}"
 
 
 def submitted_by() -> str | None:

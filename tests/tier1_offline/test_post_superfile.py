@@ -752,6 +752,11 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         "mesh_import",
         "fs_version_source",
         "export_window",
+        # NL-RECS-6: the processors and the machine a run used are its cost,
+        # kept in the record beside its wall time; a machine description in a
+        # result table would make two identical results differ by the host.
+        "processor_count",
+        "machine",
         "waived_commands",
         # FR-91. The path of the file this run's probe positions were
         # written to. It is an INDEX into another file and not a fact about

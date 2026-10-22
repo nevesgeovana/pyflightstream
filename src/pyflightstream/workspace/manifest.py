@@ -598,6 +598,14 @@ class RunRecord(BaseModel):
     #: afterwards. An unrecorded identity remains None and reads as NA. The
     #: standard-library lookup serves both Windows and cluster execution.
     submitted_by: str | None = None
+    #: NL-RECS-6: the processor count the solver was given (the row's NCPUS,
+    #: else the setup's thread count), beside the wall time; None where
+    #: neither states one and the solver chose its own.
+    processor_count: int | None = None
+    #: NL-RECS-6: the machine the solver ran on, described without its name
+    #: (workspace.naming.machine_description); None for a submitted run,
+    #: which runs on a node this process does not see, and for an assembled one.
+    machine: str | None = None
     manifest_schema: str | None = None
     fs_exe: str | None = None
     fs_exe_sha256: str | None = None
