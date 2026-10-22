@@ -223,14 +223,9 @@ The method admits no aspirational requirement: a central requirement stays in th
 | UID | Owed |
 | --- | --- |
 | `NL-INST-5` | a test that a superseded compatibility verdict keeps the reference to the prior report. |
-| `NL-EXEC-5` | the executed procedure archived before a rerun replaces the procedure file. |
 | `NL-RECS-2` | an unemitted documented default reported as a default, never as an effective value. |
 | `NL-RECS-3` | regeneration of the executed procedure from the record, compared with the executed one by digest. |
-| `NL-RECS-4` | the original producer reported after a continuation, never the continuation identity. |
 | `NL-RECS-6` | the processor count and the machine description in every run record, beside the wall time already recorded. |
-| `NL-TRST-1` | a failing-residual control behind the convergence verdict. |
-| `NL-TRST-5` | a restoration control that accepts every valid restored state. |
-| `NL-WKSP-7` | workbook digests free of embedded timestamps. |
 | `NL-OPER-2` | a test of the observation operations with the network disabled. |
 
 ## Sources
