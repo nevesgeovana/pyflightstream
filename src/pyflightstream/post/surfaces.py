@@ -23,8 +23,8 @@ itself is :func:`~pyflightstream.post.unsteady.blade_passage_average`, the
 package's one averaging routine: the panels are its samples and the steps its
 frames.
 
-``SOLVER_TIME_AVERAGING`` is never emitted: it hangs 26.124 (C01, measured
-2026-09-19, ``reports/compat/CMP-26124_2026-09-19_time-averaging.yaml``). The per-step
+``SOLVER_TIME_AVERAGING`` is never emitted: it hangs 26.124 (C01, see
+``reports/compat/CMP-26124_2026-09-19_time-averaging.yaml``). The per-step
 instants stay on disk and in ``products.json`` as ``kind: instant``.
 """
 
