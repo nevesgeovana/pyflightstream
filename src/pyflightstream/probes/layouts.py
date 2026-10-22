@@ -438,9 +438,10 @@ def emit_probe_points(
 
     Every probe is a VOLUME probe: the lattice samples the flow field,
     never the body surface. Emission is version-validated by the
-    script's command view; the probe family is stable across 26.1 and
-    26.12, and a version without recorded evidence (for example
-    26.000) refuses with a citation.
+    script's command view; NEW_PROBE_POINT is verified on 26.101 through
+    26.125 in the command database (CMP-26101_2026-08-08_full to
+    CMP-26125_2026-10-05_probe-campaign), and a version without recorded
+    evidence (for example 26.000) refuses with a citation.
 
     The placement is the one the workspace plan applies to a lattice it
     lays: along a shaft ``axis`` (:func:`lattice_points`), moved to the hub
