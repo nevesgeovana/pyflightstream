@@ -56,6 +56,13 @@ jobs:
         run: |
           mkdir -p site/downloads
           cp build/guides/*.pdf build/guides/build-record.json build/guides/LICENSE-AND-AUTHORSHIP.md site/downloads/
+      # FR-2331: the same sources, built for a folder opened without a server (pages
+      # are page.html, and the Understanding views read their data from scripts),
+      # offered as one download of this edition.
+      - name: Build the offline edition
+        run: |
+          properdocs build --strict --no-directory-urls --site-dir build/site-offline
+          (cd build && zip -qr ../site/downloads/pyflightstream-docs-offline.zip site-offline)
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: guides
@@ -64,8 +71,9 @@ jobs:
             build/guides/*.log
             build/guides/build-record.json
             build/guides/LICENSE-AND-AUTHORSHIP.md
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa  # v3
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
+          name: site
           path: site
       - name: Upload failed guide logs
         if: failure()
@@ -74,8 +82,56 @@ jobs:
           name: failed-guide-logs
           path: build/guides/*.log
 
-  deploy:
+  # FR-2307: every release stays published as its own edition. The editions live on
+  # the docs-editions branch; this job adds the edition this run built (the tag's
+  # number with the alias latest, or main from a dispatch), records the branch and
+  # hands the whole tree to the deploy. Only this job may write the repository, and
+  # it installs nothing: it runs the standard-library script of the checked-out tag.
+  editions:
     needs: build
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          path: source
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: site
+          path: site
+      - name: Check out the published editions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$remote" docs-editions > /dev/null; then
+            git clone --quiet --depth 1 --branch docs-editions "$remote" editions
+          else
+            git init --quiet -b docs-editions editions
+            git -C editions remote add origin "$remote"
+          fi
+      - name: Add this edition
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            python source/scripts/publish_doc_editions.py --site site --editions editions --version "${GITHUB_REF_NAME#v}" --alias latest --base /pyflightstream/
+          else
+            python source/scripts/publish_doc_editions.py --site site --editions editions --version main --base /pyflightstream/
+          fi
+      - name: Record the editions
+        run: |
+          git -C editions config user.name "github-actions[bot]"
+          git -C editions config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C editions add -A
+          git -C editions commit --quiet -m "docs edition from ${GITHUB_REF_NAME} (${GITHUB_SHA})" || echo "no change to record"
+          git -C editions push --quiet origin HEAD:docs-editions
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa  # v3
+        with:
+          path: editions
+
+  deploy:
+    needs: editions
     if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy)
     runs-on: ubuntu-latest
     environment:

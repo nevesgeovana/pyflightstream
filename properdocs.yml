@@ -109,6 +109,14 @@ extra_javascript:
   - understanding/assets/vendor/d3.min.js
   - understanding/assets/vendor/d3-sankey.min.js
   - understanding/assets/understanding.js
+# FR-2307: each release is published as its own edition under <site>/<version>/,
+# with `latest` beside the newest, by scripts/publish_doc_editions.py in the docs
+# workflow. The selector reads the `versions.json` that script writes at the site
+# root; a build served anywhere else (a local build, the CI check) shows none.
+extra:
+  version:
+    provider: mike
+    default: latest
 nav:
   - Home: index.md
   - Start here:

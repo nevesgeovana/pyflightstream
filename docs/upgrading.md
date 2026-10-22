@@ -9,6 +9,12 @@ describe the older releases that supplied them.
 
 ## 0.43.0
 
+### The documentation site
+
+The site is published per release, under `/<version>/`, with `/latest/` for the newest. A
+bookmark of an earlier page opens the same page of the latest edition; bookmark an edition's
+own address to keep reading the release a workspace uses.
+
 ### Results that change
 
 Archive the products of a workspace and post again before comparing them with
