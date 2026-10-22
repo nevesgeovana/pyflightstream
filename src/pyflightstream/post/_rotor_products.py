@@ -1166,6 +1166,7 @@ def _point_series(
         ),
         ([], {}),
     )
+    failed: dict[str, str] = {}
     try:
         written, names = write_point_series(
             workspace.root,
@@ -1184,6 +1185,7 @@ def _point_series(
             target=lambda path: _refuse_an_existing_product(
                 path, archive=archive, stamp=archive_stamp
             ),
+            failed=failed,
         )
     except ProductExistsError:
         raise
@@ -1195,6 +1197,16 @@ def _point_series(
             stacklevel=2,
         )
         written, names = [], {}
+    if failed:
+        # A kind whose stamped files cannot be read costs that kind; the kinds
+        # read from other files are written and keep their entries.
+        reasons = "; ".join(f"{table}: {reason}" for table, reason in failed.items())
+        split_skips[f"series/{record.run_id}"] = reasons
+        warn(
+            f"series of {record.run_id} not written: {reasons}",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
     # P0310-HARMONICS: AN UNSTEADY ROTOR POINT'S PER-STATION HARMONICS,
     # fitted over its last complete revolution of the sections series just written.
     if record.recipe == "unsteady_rotor":

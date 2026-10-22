@@ -529,6 +529,7 @@ def write_point_series(
     rotors: Mapping[str, Mapping[str, object]] | None = None,
     skipped: dict[str, str] | None = None,
     surface_exports: dict[str, dict[str, object]] | None = None,
+    failed: dict[str, str] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write the series tables of one point from its stamped exports.
 
@@ -587,6 +588,10 @@ def write_point_series(
         Receives the reason a kind is not written, under the table's name.
     surface_exports : dict of str to dict, optional
         Receives the manifest entries of the native Tecplot, VTK and CSV files.
+    failed : dict of str to str, optional
+        Receives, under the table's name, the refusal of a kind whose stamped
+        files cannot be read, and the other kinds are still written. Without it
+        that refusal is raised and no table of the point is returned.
 
     Returns
     -------
@@ -651,9 +656,19 @@ def write_point_series(
                     f"is in {looked}, so there is no row to table"
                 )
             continue
-        columns, rows = _ROWS[kind](
-            files, steps, delta, step_deg, context, layout=record.sections_layout, rotors=rotors
-        )
+        try:
+            columns, rows = _ROWS[kind](
+                files, steps, delta, step_deg, context, layout=record.sections_layout, rotors=rotors
+            )
+        except ProductExistsError:
+            raise
+        except ProductError as error:
+            # ONE KIND'S UNREADABLE FILE costs that kind, not the kinds read
+            # from other files, when the caller collects the refusals.
+            if failed is None:
+                raise
+            failed[relative] = str(error)
+            continue
         path = out / relative
         # An explicit target owns the archive and overwrite policy. Skip the
         # separate overwrite gate when a target is provided so the series follows

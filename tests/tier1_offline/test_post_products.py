@@ -1789,6 +1789,40 @@ def test_a_stamped_file_the_parser_cannot_read_skips_that_series_and_not_the_sta
     assert any(name.endswith("_g01.csv") for name in manifest["products"]), "the polar still wrote"
 
 
+def test_p0430_a_torn_loads_file_costs_the_loads_series_and_not_the_other_kinds(tmp_path):
+    """F-786: one kind's unreadable stamped file costs that kind's series only.
+
+    A refusal in the loads kind stopped the loop, so the sections and probe series,
+    read from other files, were lost with their manifest entries. They are now
+    written and indexed, and the point's skip names the loads table and its file.
+    """
+    import warnings
+
+    from pyflightstream._errors import PyflightstreamWarning
+
+    window = {
+        "stated_form": "iterations",
+        "stated_value": 3.0,
+        "first_step": 3,
+        "time_iterations": 4,
+        "delta_time_s": 0.01,
+    }
+    workspace = _windowed_workspace(tmp_path, window=window)
+    torn = workspace.sim_dir("7001") / "AL-020_iteration=4.txt"
+    torn.write_text(LOADS[: LOADS.index("Surface, Cx")], encoding="utf-8")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", PyflightstreamWarning)
+        write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    reason = manifest["skipped"]["series/camp/sim_7001/AL-020"]
+    assert "loads_series" in reason and "iteration=4" in reason, reason
+    assert any("series of camp/sim_7001/AL-020 not written" in str(w.message) for w in caught)
+    indexed = [name for name in manifest["products"] if name.startswith("series/")]
+    assert any(name.endswith("AL-020_sections_series.csv") for name in indexed), indexed
+    assert any(name.endswith("AL-020_probes_series.csv") for name in indexed), indexed
+    assert not any(name.endswith("AL-020_loads_series.csv") for name in indexed), indexed
+
+
 def test_a_step_the_solver_never_stamped_is_absent_from_the_series_and_named_in_the_index(tmp_path):
     """The record says which steps exist; a step without a file is not invented."""
     window = {

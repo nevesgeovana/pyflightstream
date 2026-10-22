@@ -533,8 +533,9 @@ the Tecplot file (`.dat`) of the window are listed there by path, as
 files above; each step's Tecplot is the one the run wrote from that step's VTK
 ([the definitions](post-processing-definitions.md#native-surface-flow-exports)),
 and is not rewritten by the post. A stamped file the parsers cannot read costs that
-point its series, recorded under `skipped` as `series/<run id>`, and
-never the stage. These tables are not the "raw series" the reductions
+point the series of its kind (loads, sections or probes), recorded under `skipped`
+as `series/<run id>` with the table it stops; the kinds read from other files are
+written, and never the stage. These tables are not the "raw series" the reductions
 write beside the plots table: that one is the plots export's history of
 the coefficients per step, this one is the stamped spreadsheets, surface
 by surface and section by section, over the exported window. The series

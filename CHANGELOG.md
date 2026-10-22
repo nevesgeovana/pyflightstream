@@ -366,6 +366,9 @@ FlightStream versions.
   it averaged: `FIRST_STEP` and `LAST_STEP` are the first and last step held inside the
   window, `STEPS` counts the steps that entered the average, and the azimuths are at those
   steps.
+- An unreadable stamped file of one series kind costs that kind's series only: the loads,
+  sections and probe series read from other files are still written and indexed, and the
+  point's skip names the table that was not written.
 
 ### Deprecated
 
