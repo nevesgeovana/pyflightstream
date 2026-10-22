@@ -122,6 +122,14 @@ def test_p0430_xf0095_the_26121_start_time_row_rests_on_its_own_runs():
     assert "licence expired on 2026-10-21" in row.note
 
 
+def test_p0430_xf0103_the_26121_altitude_row_says_metres_are_honoured():
+    """X-F-0103: the 26.121 AIR_ALTITUDE row states what its own run measured."""
+    row = CommandRegistry.load().commands["AIR_ALTITUDE"].versions["26.121"]
+    assert row.status == "verified" and row.note is not None
+    assert "honours the METERS token" in row.note and "0.736" in row.note
+    assert "licence expired on 2026-10-21" in row.note
+
+
 def test_p0430_fd02_ccs_blend_default_is_queryable():
     entry = CommandRegistry.load().for_version("26.125")["SET_CCS_TE_BLEND_LENGTH"]
     assert entry.default == 10

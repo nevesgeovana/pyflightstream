@@ -310,7 +310,17 @@ AIR_ALTITUDE:
     "26.100": {status: broken, report: "reports/compat/CMP-26100_2026-10-16_pfs-2001-03-02-altitude.yaml", note: "At 5000 METERS the density was 1.056 kg/m^3 instead of the expected 0.736 kg/m^3. The 5000 FEET control also gave 1.056; the equal physical altitude in FEET gave 0.736. These controls show the units token was ignored."}
     "26.101": {status: broken, report: "reports/compat/CMP-26101_2026-08-08_full.yaml", note: "The script continued past AIR_ALTITUDE, but the sweep reported 1.056 kg/m^3 at 5000 METERS instead of the expected 0.736 kg/m^3. The requested metre-altitude effect was not established; see the cited report."}
     "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "The script continued past AIR_ALTITUDE, but the sweep reported 1.056 kg/m^3 at 5000 METERS instead of the expected 0.736 kg/m^3. The requested metre-altitude effect was not established; see the cited report."}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.121":
+      status: verified
+      report: "reports/compat/CMP-26121_2026-08-08_full.yaml"
+      note: >-
+        Read again on 2026-10-21 from the cited report alone: this build's own run
+        records effect true, its settings dump giving the 5000 m standard-atmosphere
+        density (0.736 kg/m^3) for 5000 METERS, so 26.121 honours the METERS token.
+        The same detail's sentence about the first full sweep reading 1.056 kg/m^3
+        is the cross-build sentence the 26.122 row reads separately; it does not
+        establish a units failure on this build. No new run: the 26.121 licence
+        expired on 2026-10-21
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml",
       note: "The cited report records outcome verified and effect true, but its detail also contains a conflicting cross-build sentence about the first sweep. Read those fields separately; that sentence does not establish a units failure on this build."}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.333, unchanged from FSM-26.122 p.333"}
