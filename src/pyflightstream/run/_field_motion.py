@@ -50,17 +50,8 @@ def continued_frame_motions(previous, script):
     return result
 
 
-def continued_field_inputs(previous, sim_dir):
-    """Retain a saved sampling request only with matching recorded point evidence."""
-    layout = deepcopy(previous.probe_field_layout)
-    if not layout:
-        return {}
-    if previous.solver_setup is None or not previous.probe_points_file:
-        raise ValueError("continued fields need the predecessor's setup and sample-position file")
-    root = Path(sim_dir).resolve()
-    source = (root / previous.probe_points_file).resolve()
-    if not source.is_relative_to(root):
-        raise ValueError("continued sample-position evidence escapes the simulation folder")
+def _recorded_points(source):
+    """Return the sample positions a continued point recorded, by probe number."""
     with source.open(encoding="utf-8-sig", newline="") as stream:
         # The writer's marker line sits above the header of every file it creates.
         if stream.readline().strip() != PROBE_POSITIONS_MARKER:
@@ -74,6 +65,21 @@ def continued_field_inputs(previous, sim_dir):
             if not number.is_integer() or int(number) in points:
                 raise ValueError("continued sample-position file has invalid sample IDs")
             points[int(number)] = ([float(row[a]) for a in ("X", "Y", "Z")], row["FRAME"])
+    return points
+
+
+def continued_field_inputs(previous, sim_dir):
+    """Retain a saved sampling request only with matching recorded point evidence."""
+    layout = deepcopy(previous.probe_field_layout)
+    if not layout:
+        return {}
+    if previous.solver_setup is None or not previous.probe_points_file:
+        raise ValueError("continued fields need the predecessor's setup and sample-position file")
+    root = Path(sim_dir).resolve()
+    source = (root / previous.probe_points_file).resolve()
+    if not source.is_relative_to(root):
+        raise ValueError("continued sample-position evidence escapes the simulation folder")
+    points = _recorded_points(source)
     for item in layout:
         ids, coordinates = item.get("probe_ids", []), item.get("points_native", [])
         if not ids or len(ids) != len(coordinates):
