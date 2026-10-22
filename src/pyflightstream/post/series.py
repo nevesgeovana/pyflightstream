@@ -515,6 +515,37 @@ def _surface_export_entries(
             }
 
 
+def _series_destination(path: Path, target: Callable[[Path], Path] | None, overwrite: bool) -> Path:
+    """Return where a series table is written, refusing an unowned existing one.
+
+    An explicit ``target`` owns the archive and overwrite policy, so the series
+    follows the same rebuild policy as the other products; without one an
+    existing table is refused unless ``overwrite`` is set.
+    """
+    if target is not None:
+        return target(path)
+    if path.exists() and not overwrite:
+        raise ProductExistsError(
+            f"the product {path} exists; pass overwrite=True to rewrite it from the "
+            "manifest, or a target that decides what becomes of it (the products stage "
+            "passes one that archives it first)"
+        )
+    return path
+
+
+def _listed_files(
+    stamped: Mapping[tuple[str, str], Mapping[int, Path]], steps: range, out: Path
+) -> dict[str, list[str]]:
+    """Return the listed native files of the window by step, relative to ``out``."""
+    listed_files: dict[str, list[str]] = {}
+    for listed, listed_suffix, extension in LISTED_KINDS:
+        found = stamped.get((listed_suffix, extension), {})
+        listed_files[f"{listed}_files"] = [
+            Path(os.path.relpath(found[step], out)).as_posix() for step in steps if step in found
+        ]
+    return listed_files
+
+
 def write_point_series(
     root: Path,
     *,
@@ -669,18 +700,7 @@ def write_point_series(
                 raise
             failed[relative] = str(error)
             continue
-        path = out / relative
-        # An explicit target owns the archive and overwrite policy. Skip the
-        # separate overwrite gate when a target is provided so the series follows
-        # the same rebuild policy as the other products.
-        if target is not None:
-            path = target(path)
-        elif path.exists() and not overwrite:
-            raise ProductExistsError(
-                f"the product {path} exists; pass overwrite=True to rewrite it from the "
-                "manifest, or a target that decides what becomes of it (the products stage "
-                "passes one that archives it first)"
-            )
+        path = _series_destination(out / relative, target, overwrite)
         # THE POLAR FIRST (G16), the run record's own: every row of a
         # series is a step of this one point.
         done = write_csv_table(
@@ -695,15 +715,8 @@ def write_point_series(
             "steps": [first, last],
             "steps_tabled": tabled,
             "clock": {"delta_time_s": delta, "step_deg": step_deg},
+            **(_listed_files(stamped, steps, out) if kind == "loads" else {}),
         }
-        if kind == "loads":
-            for listed, listed_suffix, extension in LISTED_KINDS:
-                found = stamped.get((listed_suffix, extension), {})
-                entry[f"{listed}_files"] = [
-                    Path(os.path.relpath(found[step], out)).as_posix()
-                    for step in steps
-                    if step in found
-                ]
         # KEYED BY WHERE THE TABLE WENT, as write_superfiles keys its entries
         # (the API lens, round two): keyed by the path asked for, a target that
         # redirected left products.json naming a file that does not exist.
