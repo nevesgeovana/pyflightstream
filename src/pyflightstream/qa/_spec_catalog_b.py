@@ -601,7 +601,10 @@ _spec(
     prelude=_motion_frame_prelude,
     save_state=True,
     assert_effect=fsm_changed(),
-    effect_note=("the saved simulation carries the motion frame binding"),
+    effect_note=(
+        "the saved simulation differs after the command; the stored motion frame binding "
+        "itself is not read back"
+    ),
 )
 # PFS-2135.066. The start time is judged on the saved simulation across the
 # command: the gap probes measure a 6DOF setter's value moving a

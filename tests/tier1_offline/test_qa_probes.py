@@ -2147,3 +2147,28 @@ def test_f_806_x_f_1216_a_scope_refusal_of_one_spec_leaves_the_other_evidence(tm
     assert results["PRINT"].outcome is ProbeOutcome.UNPROBED
     assert "scoped to another build" in results["PRINT"].detail
     assert results["STOP"].outcome is ProbeOutcome.VERIFIED
+
+
+def test_f_562_a_saved_state_change_note_claims_no_stored_value():
+    """F-562: fsm_changed proves only that the saved file differs, so the note stamped into
+    verified evidence must not claim a specific stored value is carried."""
+    from pyflightstream.qa.specs import PROBE_SPECS
+
+    notes = [
+        spec.effect_note
+        for spec in PROBE_SPECS.values()
+        if getattr(spec.assert_effect, "__qualname__", "").startswith("fsm_changed")
+    ]
+    assert len(notes) >= 9
+    claims = [note for note in notes if "carries" in note]
+    assert not claims, claims
+    assert sum("not read back" in note for note in notes) >= 11
+
+
+def test_x_f_0167_x_f_0541_the_catalog_docstring_and_frame_assumption_are_stated():
+    import pyflightstream.qa.specs as specs
+
+    text = open(specs.__file__, encoding="utf-8").read()
+    assert "Three\ncommands carry no specification" not in text
+    assert "recorded unprobed in every run" in (specs.__doc__ or "")
+    assert "assume the probed simulation holds no frame of its own" in text

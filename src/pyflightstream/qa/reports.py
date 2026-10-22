@@ -31,9 +31,12 @@ from pyflightstream.workspace.naming import is_portable_name
 
 __all__ = ["refuse_existing_report", "report_paths", "resolve_report_date"]
 
-#: The report series this repository writes. `reports/README.md` is the
-#: home of the taxonomy; this is the machine-readable half of it, and a
-#: series outside it is refused rather than pasted into a file name.
+#: The longest label a report file name carries, in characters (X-F-1217).
+_MAX_LABEL_LENGTH = 64
+
+#: The report series this repository writes. This is the machine-readable
+#: list of the taxonomy (CMP compat, PHY physics, DRF drift), and a series
+#: outside it is refused rather than pasted into a file name.
 #: `RPT-` and `TRI-` are deliberately absent: both are narrative and
 #: neither is written by any code path.
 _SERIES = frozenset({"CMP", "PHY", "DRF"})
@@ -170,8 +173,8 @@ def report_paths(
         go must not have the side effect of making a directory, because
         the whole point of asking is to decide whether to run at all.
     series : str, keyword-only
-        Report series, ``"CMP"``, ``"PHY"`` or ``"DRF"``. The word is
-        the one ``reports/README.md`` uses for the same idea.
+        Report series, ``"CMP"``, ``"PHY"`` or ``"DRF"``: compat, physics and
+        drift reports.
     versions : sequence of str, keyword-only
         The canonical version identifiers the report is about, in the
         order the series states them: one for a single-version report,
@@ -299,6 +302,12 @@ def report_paths(
         # reason the date is: a label carrying a separator or a character
         # Windows forbids passed the collision check against a path that
         # cannot exist, and the write failed after the licensed run.
+        if len(label) > _MAX_LABEL_LENGTH:
+            raise QaEvidenceError(
+                f"the label is {len(label)} characters long and the longest a report file "
+                f"name carries is {_MAX_LABEL_LENGTH}, so the write could fail on a file "
+                "system with short paths after the licensed run; choose a shorter label"
+            )
         if not is_portable_name(label) or any(ord(character) < 32 for character in label):
             raise QaEvidenceError(
                 f"the label {label!r} is not a plain file-name token (no separators, no "

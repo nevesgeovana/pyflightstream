@@ -122,7 +122,8 @@ _spec(
     save_state=True,
     assert_effect=fsm_changed(),
     effect_note=(
-        "the saved simulation carries the wake termination step count, set under the "
-        "unsteady mode the rotor goldens render it in"
+        "the saved simulation differs after the command, set under the unsteady mode the "
+        "rotor goldens render it in; the stored wake termination step count itself is not "
+        "read back"
     ),
 )

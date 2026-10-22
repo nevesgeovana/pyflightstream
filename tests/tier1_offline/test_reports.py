@@ -76,3 +76,25 @@ def test_the_sentence_built_from_a_record_says_it_was_read():
 _DIMENSIONAL = re.compile(
     r"\d\s?(?:N m|N|m/s|kg/m3|rev/min)\b|RPM\d|\"rpm\"|_Nm?\"|delta_time_s|velocity_m_s"
 )
+
+
+def test_x_f_1217_a_label_too_long_for_a_file_name_is_refused_before_the_run(tmp_path):
+    """The pre-flight refuses a 300-character label that could fail at write on a short-path
+    file system, and names the longest it accepts."""
+    import pytest
+
+    from pyflightstream.qa.errors import QaEvidenceError
+    from pyflightstream.qa.reports import report_paths
+
+    report_paths(tmp_path, series="CMP", versions=["26.120"], date="2026-10-21", label="x" * 64)
+    with pytest.raises(QaEvidenceError, match=r"300 characters long.*longest.*is 64"):
+        report_paths(
+            tmp_path, series="CMP", versions=["26.120"], date="2026-10-21", label="x" * 300
+        )
+
+
+def test_f_1866_the_report_series_comment_points_at_nothing_absent():
+    import pyflightstream.qa.reports as reports
+
+    source = open(reports.__file__, encoding="utf-8").read()
+    assert "reports/README.md" not in source

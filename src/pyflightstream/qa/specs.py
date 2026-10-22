@@ -14,8 +14,9 @@ and START_SOLVER print distinctive log messages.
 Assertion strictness follows the evidence rules: strict assertions
 (absence is ``broken``) only where the instrument is recon-proven to
 expose the state; everywhere else the assertion returns None and the
-command lands ``unprobed``, because a probe may never guess. Three
-commands carry no specification yet, each needing an input-file fixture:
+command lands ``unprobed``, because a probe may never guess. A command
+with no specification is recorded unprobed in every run (the catalog does not
+cover the whole database); among them are those needing an input-file fixture:
 SET_PROP_ACTUATOR_PROFILE, whose file form 26.124 reads was measured by a
 licensed probe outside this catalog (RPT-070), and the two FSI commands,
 whose input-file format awaits a manual pass.
@@ -218,6 +219,9 @@ _spec(
 )
 
 
+# The coordinate-system probes address frame 2, the first frame the prelude
+# creates, so they assume the probed simulation holds no frame of its own
+# beyond the global one; a simulation with extra frames moves the index.
 _CREATE_FRAME_PRELUDE = _emit("CREATE_NEW_COORDINATE_SYSTEM")
 
 _spec(
@@ -304,7 +308,10 @@ _spec(
     prelude=_detect_trailing_edges,
     save_state=True,
     assert_effect=fsm_changed(),
-    effect_note=("the saved simulation carries the trailing-edge type"),
+    effect_note=(
+        "the saved simulation differs after the command; the stored trailing-edge type"
+        " itself is not read back"
+    ),
 )
 _spec(
     command="DISABLE_WAKE_NODES_ON_TRAILING_EDGE",
@@ -313,7 +320,10 @@ _spec(
     prelude=_detect_trailing_edges,
     save_state=True,
     assert_effect=fsm_changed(),
-    effect_note=("the saved simulation carries the wake-node state"),
+    effect_note=(
+        "the saved simulation differs after the command; the stored wake-node state"
+        " itself is not read back"
+    ),
 )
 _spec(
     command="AUTO_DETECT_WAKE_TERMINATION_NODES",
@@ -577,7 +587,10 @@ _spec(
     requires=Requires.SIM,
     save_state=True,
     assert_effect=fsm_changed(),
-    effect_note=("the saved simulation carries the thread count"),
+    effect_note=(
+        "the saved simulation differs after the command; the stored thread count"
+        " itself is not read back"
+    ),
 )
 
 
@@ -642,7 +655,10 @@ _spec(
     requires=Requires.SIM,
     save_state=True,
     assert_effect=fsm_changed(),
-    effect_note=("the saved simulation carries the boundary-layer model choice"),
+    effect_note=(
+        "the saved simulation differs after the command; the stored boundary-layer model choice"
+        " itself is not read back"
+    ),
 )
 _spec(
     command="SET_SOLVER_VISCOUS_COUPLING",
@@ -650,7 +666,10 @@ _spec(
     requires=Requires.SIM,
     save_state=True,
     assert_effect=fsm_changed(),
-    effect_note=("the saved simulation carries the viscous-coupling choice"),
+    effect_note=(
+        "the saved simulation differs after the command; the stored viscous-coupling choice"
+        " itself is not read back"
+    ),
 )
 _spec(
     command="SET_VISCOUS_EXCLUDED_BOUNDARIES",
@@ -658,7 +677,10 @@ _spec(
     requires=Requires.SIM,
     save_state=True,
     assert_effect=fsm_changed(),
-    effect_note=("the saved simulation carries the viscous exclusion list"),
+    effect_note=(
+        "the saved simulation differs after the command; the stored viscous exclusion list"
+        " itself is not read back"
+    ),
 )
 
 
@@ -683,7 +705,10 @@ _spec(
     requires=Requires.SIM,
     save_state=True,
     assert_effect=fsm_changed(),
-    effect_note=("the saved simulation carries the proximal-boundary marking"),
+    effect_note=(
+        "the saved simulation differs after the command; the stored proximal-boundary marking"
+        " itself is not read back"
+    ),
 )
 
 
@@ -747,7 +772,10 @@ _spec(
     requires=Requires.SOLUTION,
     save_state=True,
     assert_effect=fsm_changed(),
-    effect_note=("the saved simulation carries the vorticity-drag list"),
+    effect_note=(
+        "the saved simulation differs after the command; the stored vorticity-drag list"
+        " itself is not read back"
+    ),
 )
 _spec(
     command="DELETE_VORTICITY_DRAG_BOUNDARIES",
@@ -780,7 +808,10 @@ _spec(
     requires=Requires.SOLVER,
     save_state=True,
     assert_effect=fsm_changed(),
-    effect_note=("the saved simulation carries the moments-model choice"),
+    effect_note=(
+        "the saved simulation differs after the command; the stored moments-model choice"
+        " itself is not read back"
+    ),
 )
 _spec(
     command="SET_ANALYSIS_SYMMETRY_LOADS",
