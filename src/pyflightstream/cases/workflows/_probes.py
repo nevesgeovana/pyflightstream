@@ -245,7 +245,8 @@ def _pproc_probes(
 
     THE VERTEX COUNTER RUNS ACROSS THE ENTRIES (FR-77), because the plot name
     is `{parameter}{n}` and two entries restarting at 1 would write two plots to
-    one name, which the solver takes as the same plot.
+    one name (the solver treating a repeated plot name as one plot is assumed, not
+    measured in a committed report).
 
     NORMAL PROBES OF AN UNSTEADY ROW (FR-417) take the steady route: an
     unsteady row whose entries all state ``kind = "normal"`` places none of
@@ -849,10 +850,11 @@ def _in_the_reference_frame(
             "them. State the probes in a frame the reference declares, or in the reference frame."
         )
     origin = placement.origin
-    # UNIT AXES, as the solver reads a frame: the axes are kept as emitted, and
-    # a [[frames]] x_axis of length 2 doubled every probe's distance from the
-    # origin on this route while the unsteady route, which hands the solver the
-    # frame, placed the same declaration at its stated distance.
+    # UNIT AXES: the axes are normalised here. Without that, an x_axis of
+    # length 2 in [[frames]] would double every probe's distance from the origin
+    # on this route, while the unsteady route, which hands the solver the frame,
+    # is assumed to place the same declaration at its stated distance (the
+    # solver's reading of a non-unit axis is not measured in a committed report).
     axes = []
     for axis in placement.axes:
         length = math.sqrt(sum(float(value) ** 2 for value in axis))
