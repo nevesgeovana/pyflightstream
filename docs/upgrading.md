@@ -63,8 +63,17 @@ name.
 
 ### Inputs to change
 
-- A `[trailing_edges]` table with `file` states `type`, and a `WakeEdgeImport` states
-  `edge_type`: `VORTEX_SHEDDING` or `STANDARD`. Neither has a default.
+- A `[trailing_edges]` table with `file` now needs `type`, `VORTEX_SHEDDING` or `STANDARD`.
+  Its former default was `STANDARD`, so add `type = "STANDARD"` beside `file` to keep what
+  0.42.0 ran. A table without it is refused before any script is written, with the row and
+  the sidecar's path before this message:
+
+  ```text
+  the [trailing_edges] table states file = 'wing.te.txt' and no type, and the edge type has no default: VORTEX_SHEDDING and STANDARD mark different edges. Add type = "VORTEX_SHEDDING" or type = "STANDARD" beside file.
+  ```
+
+- A `WakeEdgeImport` now needs `edge_type`; its former default was `VORTEX_SHEDDING`, so pass
+  `edge_type="VORTEX_SHEDDING"` to keep the 0.42.0 import.
 - Rename a cost file to `c<digits>.toml`; any other `c*.toml` in `inputs/costs/` is refused.
 - Rename an artifact id or a simulation id holding a character other than letters, digits,
   `.`, `_` and `-`, an edge blank, a trailing dot, or a case-only difference from another.

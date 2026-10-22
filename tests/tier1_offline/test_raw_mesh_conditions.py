@@ -319,6 +319,23 @@ def test_a_table_that_does_not_hold_its_shape_is_refused_at_binding(tmp_path, ta
         assert needle in message, f"the refusal does not name {needle!r}: {message}"
 
 
+def test_p0430_the_upgrade_notes_show_the_untyped_file_route_refusal(tmp_path):
+    """PFS-2124.055: a 0.42.0 sidecar whose file route states no type is refused in 0.43.0.
+
+    The upgrade notes tell the user the former default (STANDARD) and show the message the
+    refusal prints, so it is read from the refusal itself rather than retyped.
+    """
+    workspace = _library(tmp_path, '[trailing_edges]\nfile = "wing.te.txt"\n')
+    with pytest.raises(InputArtifactError) as caught:
+        _case(tmp_path, workspace)
+    message = str(caught.value)
+    shown = message[message.index("the [trailing_edges] table states") :]
+    page = (Path(__file__).resolve().parents[2] / "docs/upgrading.md").read_text(encoding="utf-8")
+    notes = page[page.index("## 0.43.0") : page.index("## 0.42.0")]
+    assert shown in notes, shown
+    assert 'type = "STANDARD"' in notes and "former default" in notes
+
+
 def test_a_points_file_that_misses_the_mesh_is_refused_at_binding_naming_the_line(tmp_path):
     """Point 3 moved 0.2 mm aft marks nothing, silently; it is refused before any seat."""
     moved = list(MIDPOINTS)
