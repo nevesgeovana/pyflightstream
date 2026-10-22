@@ -195,12 +195,8 @@
           ],
           "pproc": {
             "groups": {
-              "1": [
-                "all"
-              ],
-              "2": [
-                "wing_left"
-              ]
+              "1": "all",
+              "2": "wing_left"
             },
             "phase_locked": null,
             "per_revolution": null,
@@ -456,12 +452,8 @@
           ],
           "pproc": {
             "groups": {
-              "1": [
-                "all"
-              ],
-              "2": [
-                "wing_left"
-              ]
+              "1": "all",
+              "2": "wing_left"
             },
             "phase_locked": null,
             "per_revolution": null,
@@ -723,12 +715,8 @@
           ],
           "pproc": {
             "groups": {
-              "1": [
-                "all"
-              ],
-              "2": [
-                "wing_left"
-              ]
+              "1": "all",
+              "2": "wing_left"
             },
             "phase_locked": null,
             "per_revolution": null,
@@ -986,12 +974,8 @@
           ],
           "pproc": {
             "groups": {
-              "1": [
-                "all"
-              ],
-              "2": [
-                "wing_left"
-              ]
+              "1": "all",
+              "2": "wing_left"
             },
             "phase_locked": null,
             "per_revolution": null,
@@ -1252,12 +1236,8 @@
           ],
           "pproc": {
             "groups": {
-              "1": [
-                "all"
-              ],
-              "2": [
-                "wing_left"
-              ]
+              "1": "all",
+              "2": "wing_left"
             },
             "phase_locked": null,
             "per_revolution": null,
@@ -1517,12 +1497,8 @@
           ],
           "pproc": {
             "groups": {
-              "1": [
-                "all"
-              ],
-              "2": [
-                "wing_left"
-              ]
+              "1": "all",
+              "2": "wing_left"
             },
             "phase_locked": null,
             "per_revolution": null,
@@ -1803,12 +1779,8 @@
     "pprocs": {
       "p001": {
         "groups": {
-          "1": [
-            "all"
-          ],
-          "2": [
-            "wing_left"
-          ]
+          "1": "all",
+          "2": "wing_left"
         },
         "phase_locked": null,
         "per_revolution": null,
@@ -2061,12 +2033,8 @@
           ],
           "pproc": {
             "groups": {
-              "1": [
-                "all"
-              ],
-              "2": [
-                "wing_left"
-              ]
+              "1": "all",
+              "2": "wing_left"
             },
             "phase_locked": null,
             "per_revolution": null,
@@ -2321,12 +2289,8 @@
           ],
           "pproc": {
             "groups": {
-              "1": [
-                "all"
-              ],
-              "2": [
-                "wing_left"
-              ]
+              "1": "all",
+              "2": "wing_left"
             },
             "phase_locked": null,
             "per_revolution": null,
@@ -2489,12 +2453,8 @@
     "pprocs": {
       "p001": {
         "groups": {
-          "1": [
-            "all"
-          ],
-          "2": [
-            "wing_left"
-          ]
+          "1": "all",
+          "2": "wing_left"
         },
         "phase_locked": null,
         "per_revolution": null,
