@@ -1659,7 +1659,7 @@ def _qsteady_speed(case: SimCase, rotor: RotorBlock) -> RotorSpeed:
     return rotor_speed(view)
 
 
-def _require_the_averaging_window(case: SimCase, name: str) -> None:
+def _require_the_averaging_window(case: SimCase, name: str | None) -> None:
     """Refuse an unsteady row that states no averaging window.
 
     The definitions page states it: the window lives on the matrix and is a
