@@ -8,6 +8,8 @@ campaign root. The cost table (:func:`estimate_point_cost`,
 :func:`point_costs`, :func:`format_cost_table`) and the plan receipt the
 run refuses without (:func:`plan_receipt_error`) live here too, with the
 collision checks the run repeats before anything executes.
+
+Size exemption: one plan receipt, written and compared with the resolved matrix in the same module.
 """
 
 from __future__ import annotations
