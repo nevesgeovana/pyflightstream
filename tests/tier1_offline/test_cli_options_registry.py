@@ -842,17 +842,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "last"): frozenset({"profile", "time-mean"}),
     ("pyfs-workspace", "tolerance"): frozenset({"subtract", "time-mean"}),
     ("pyfs-workspace", "out"): frozenset(
-        {
-            "audit",
-            "fill-interior",
-            "mirror",
-            "move",
-            "profile",
-            "refine",
-            "subtract",
-            "time-mean",
-            "trailing-edge",
-        }
+        "audit fill-interior mirror move profile refine subtract time-mean trailing-edge".split()
     ),
     ("pyfs-workspace", "apply"): frozenset(
         {
