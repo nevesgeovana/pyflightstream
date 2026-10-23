@@ -44,6 +44,9 @@ def test_setup_bc_is_complete_every_in_scope_command_operational_the_rest_refuse
         stated_dir.mkdir()
         control_dir.mkdir()
         lines, why = setup._render(route.stated(stated_dir))
+        if command == "MARK_WAKE_TERMINATION_NODES":
+            assert lines is None and "[wake_termination] file" in why
+            continue
         if lines is None or not setup._carries(lines, route.block):
             broken.append(f"{command}: stated {why[:120] or 'lacks its block'}")
             continue
