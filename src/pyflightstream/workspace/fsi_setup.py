@@ -202,7 +202,9 @@ def write_campbell_study(
     files = ["campbell.csv", "southwell.csv", "campbell.json"]
     for name in files:
         if (folder / name).exists() and not overwrite:
-            raise FsiSetupError(f"{folder / name} exists; pass --overwrite to replace the study.")
+            raise FsiSetupError(
+                f"{folder / name} exists; pass overwrite=True (--overwrite) to replace the study."
+            )
     speeds = [start + (stop - start) * i / (int(count) - 1) for i in range(int(count))]
     data = campbell_sweep(resolved.effective, [r * math.pi / 30 for r in speeds], n_modes)
     rows, fits, missing = _campbell_tables(data, speeds)
