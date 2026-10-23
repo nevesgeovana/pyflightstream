@@ -1524,31 +1524,21 @@ ENTRY_FILE = "executables.local.toml"
 #: accept_unregistered_build, None where it names none). None states nothing; the matrix
 #: rows name 26.120 (entry 26.120) unless the builds say another. A refused row still
 #: names the file whose false it took (FR-999 maps every value taken from a file).
-#: THE TWO COLUMNS ARE ONLY MEANINGFUL FOR A ROW WHOSE FILES STATE NOTHING: a settings file
-#: that states the key is refused (_check_default), whatever else the row says, so TRUTH
-#: below replaces the accepted and source columns of such a row by "file" and None.
+#: A settings file that states the key is refused (_check_default), whatever else the
+#: row says: its accepted and source columns state "file" and None directly.
 _TRUTH_ROWS = [
     ("nothing-stated", None, None, None, None, ("26.120",), False, None),
-    ("all-false", False, False, False, None, ("26.120",), False, LOCAL_FILE),
-    ("workspace-true", True, None, None, None, ("26.120",), True, WORKSPACE_FILE),
-    ("local-alone-true", None, True, None, None, ("26.120",), True, LOCAL_FILE),
-    ("toml-true-local-false", True, False, None, None, ("26.120",), False, LOCAL_FILE),
-    (
-        "toml-true-local-false-entry-false",
-        True,
-        False,
-        False,
-        None,
-        ("26.120",),
-        False,
-        LOCAL_FILE,
-    ),
-    ("toml-false-local-true", False, True, None, None, ("26.120",), True, LOCAL_FILE),
+    ("all-false", False, False, False, None, ("26.120",), "file", None),
+    ("workspace-true", True, None, None, None, ("26.120",), "file", None),
+    ("local-alone-true", None, True, None, None, ("26.120",), "file", None),
+    ("toml-true-local-false", True, False, None, None, ("26.120",), "file", None),
+    ("toml-true-local-false-entry-false", True, False, False, None, ("26.120",), "file", None),
+    ("toml-false-local-true", False, True, None, None, ("26.120",), "file", None),
     ("entry-true", None, None, True, None, ("26.120",), True, ENTRY_FILE),
     ("entry-true-other-row", None, None, True, None, ("26.120", "26.124"), False, ENTRY_FILE),
-    ("both-routes-true", True, None, True, None, ("26.120",), True, WORKSPACE_FILE),
-    ("local-and-entry-true", None, True, True, None, ("26.120",), True, LOCAL_FILE),
-    ("toml-true-local-false-entry-true", True, False, True, None, ("26.120",), True, ENTRY_FILE),
+    ("both-routes-true", True, None, True, None, ("26.120",), "file", None),
+    ("local-and-entry-true", None, True, True, None, ("26.120",), "file", None),
+    ("toml-true-local-false-entry-true", True, False, True, None, ("26.120",), "file", None),
     (
         "typed-files-silent",
         None,
@@ -1566,8 +1556,8 @@ _TRUTH_ROWS = [
         False,
         "--accept-unregistered-build",
         ("26.120",),
-        True,
-        "typed",
+        "file",
+        None,
     ),
     (
         "typed-over-overlay-false",
@@ -1576,8 +1566,8 @@ _TRUTH_ROWS = [
         None,
         "--accept-unregistered-build",
         ("26.120",),
-        True,
-        "typed",
+        "file",
+        None,
     ),
     (
         "typed-and-routes-true",
@@ -1586,8 +1576,8 @@ _TRUTH_ROWS = [
         True,
         "--accept-unregistered-build",
         ("26.120",),
-        True,
-        "typed",
+        "file",
+        None,
     ),
     (
         "negated-nothing",
@@ -1606,10 +1596,19 @@ _TRUTH_ROWS = [
         None,
         "--no-accept-unregistered-build",
         ("26.120",),
-        False,
+        "file",
         None,
     ),
-    ("negated-local", None, True, None, "--no-accept-unregistered-build", ("26.120",), False, None),
+    (
+        "negated-local",
+        None,
+        True,
+        None,
+        "--no-accept-unregistered-build",
+        ("26.120",),
+        "file",
+        None,
+    ),
     ("negated-entry", None, None, True, "--no-accept-unregistered-build", ("26.120",), False, None),
     (
         "negated-all-routes",
@@ -1618,15 +1617,12 @@ _TRUTH_ROWS = [
         True,
         "--no-accept-unregistered-build",
         ("26.120",),
-        False,
+        "file",
         None,
     ),
 ]
 
-TRUTH = [
-    (*row[:6], "file", None) if (row[1] is not None or row[2] is not None) else row
-    for row in _TRUTH_ROWS
-]
+TRUTH = _TRUTH_ROWS
 
 
 @pytest.mark.parametrize(
@@ -1914,3 +1910,9 @@ def test_p0440_windows_capture_marks_belong_to_the_test():
     marks = getattr(test_p0390_r03_without_the_files_every_output_is_that_of_0380, "pytestmark", [])
     assert {mark.name for mark in marks} >= {"skipif", "filterwarnings"}
     assert not getattr(_minimum_cp_evidence_prose, "pytestmark", [])
+
+
+def test_p0440_acceptance_fixture_states_the_file_refusal_directly():
+    for row in _TRUTH_ROWS:
+        if row[1] is not None or row[2] is not None:
+            assert row[-2:] == ("file", None), row[0]
