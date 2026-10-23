@@ -931,7 +931,7 @@ FIGURE is reported and never judged.
 | gate | fails when |
 |---|---|
 | G1 | an edge is shared by more than two faces, two nodes sit at one position (within 1e-9 of the size, the diagonal of the bounding box), or a face has zero area |
-| G2 | two neighbouring faces have opposite orientation, or a closed family does not enclose a positive volume |
+| G2 | two neighbouring faces have opposite orientation, or a closed shell, including one spread across families, does not enclose a positive volume |
 | G3 | the open boundary loops of the mesh are not the source's in number and in the opening each closes: a level loop matches one source loop, one to one, when every node of each lies within a quarter of the source loop's extent (its bounding-box diagonal) from the other's polyline |
 | G4 | a trailing-edge point lies on no mesh edge, two points lie on one mesh edge (`points_sharing_an_edge`), the trailing-edge chains are not the source's in number, or a chain of the source ends where no chain of the level ends (a shortened line); the lines' total lengths are reported, not judged |
 | G5 | two families that shared nodes in the source share none |

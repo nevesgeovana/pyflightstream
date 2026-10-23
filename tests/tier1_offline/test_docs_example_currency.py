@@ -20,6 +20,12 @@ def test_p0440_missing_value_definition_names_the_fixed_width_exception():
 PAGE = WORKFLOW_DOCS
 
 
+def test_p0440_g2_documents_closed_shells_across_families():
+    text = (REPO / "docs/mesh/reference.md").read_text(encoding="utf-8")
+    gate = next(line for line in text.splitlines() if line.startswith("| G2 |"))
+    assert "closed shell" in gate and "across families" in gate
+
+
 def test_p0440_show_documents_the_final_resolved_record():
     text = (REPO / "docs/workspace-queries.md").read_text(encoding="utf-8")
     show = text.split("`show` prints", 1)[1].split("`log` prints", 1)[0]
