@@ -201,6 +201,18 @@ def test_boundary_declarations_merge_count_and_mapping():
     assert script.entities.labels("boundaries") == {"wing": 2}
 
 
+def test_p0440_boundary_declaration_explains_partial_mapping_inventory():
+    script = Script(version="26.120")
+    script.declare_existing(boundaries={"wing": 2})
+    with pytest.raises(
+        ScriptReferenceError, match="highest mapped index; integer declarations add"
+    ):
+        script.resolve_boundary(3)
+    documentation = Script.declare_existing.__doc__
+    assert "not a labels-only declaration" in documentation
+    assert "Integer declarations add" in documentation
+
+
 def test_boundary_mapping_validates_labels_and_indices():
     script = Script(version="26.120")
     with pytest.raises(ScriptLabelError, match="positive 1-based"):

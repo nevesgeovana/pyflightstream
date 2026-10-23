@@ -737,7 +737,10 @@ class Script(_ScriptRendering):
             argument; until then those citations pass unverified,
             because the boundary total cannot be known statically.
             Labels then stand in for indices anywhere a boundary is
-            cited.
+            cited. A mapping raises the inventory to its highest mapped index
+            if larger than the existing count; it is not a labels-only declaration.
+            Integer declarations add to the existing count. For example,
+            ``boundaries={"wing": 2}`` followed by ``boundaries=1`` declares three.
         """
         for kind, extra in (("frames", frames), ("actuators", actuators), ("motions", motions)):
             self.entities.declare(kind, extra)

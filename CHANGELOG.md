@@ -32,6 +32,7 @@ FlightStream versions.
 
 ### Fixed
 
+- Boundary declaration docs and range refusals explain mapping maxima and additive counts (PFS-2124.047).
 - Multiplied-sweep refusals recommend the documented `ROTATE` and `ANGLE` form (RB4-18).
 - History and diff accept run aliases; history, diff and log print aliases beside
   recorded run IDs (PFS-2130.050).
