@@ -50,7 +50,12 @@ inplane_radius_m = 0.7
 """,
     )
     manifest, folder, _ = _post_recorded(workspace)
-    files = list(folder.glob("noise/*.csv"))
+    # The pressure series, not the harmonics table beside it: glob order differs by platform.
+    files = [
+        path
+        for path in sorted(folder.glob("noise/*.csv"))
+        if "pressure_pa" in path.read_text().splitlines()[0]
+    ]
     assert files
     rows = list(csv.DictReader(files[0].read_text().splitlines()))
     assert len(rows) == 64

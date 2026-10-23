@@ -67,11 +67,13 @@ def test_p0440_series_contract_keeps_the_moving_grid_refusal():
 def test_p0440_probe_reference_contract_names_the_unmeasured_placement():
     from pyflightstream.post.point_tables import write_probes_table
 
-    assert "per-export placement probe is still owed in 0.45.0" in write_probes_table.__doc__
+    doc = " ".join(write_probes_table.__doc__.split())
+    assert "A licensed per-export placement probe remains pending" in doc
     text = (REPO / "docs/definitions/sampled-velocity-fields-and-reusable-inflow.md").read_text(
         encoding="utf-8"
     )
-    assert "by the 0.40.0 design" in text and "RB3-04" in text
+    page = " ".join(text.split())
+    assert "the current label is retained until that measurement (RB3-04)" in page
 
 
 def test_p0440_custom_inflow_supplement_has_a_dated_erratum():
