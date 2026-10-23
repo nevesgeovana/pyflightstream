@@ -1258,6 +1258,10 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                         ),
                     }
                 ),
+                "`[trailing_edges]`": {"multiple typed files are shown in mesh-inputs": ("files",)},
+                "`[wake_termination]`": {
+                    "explicit node files remain probe-gated; see mesh-inputs": ("file", "tolerance")
+                },
                 "`detect = { ... }` of `[trailing_edges]`": MappingProxyType(
                     {_IN_THE_COMMENT: ("surfaces", "sweep_angle")}
                 ),

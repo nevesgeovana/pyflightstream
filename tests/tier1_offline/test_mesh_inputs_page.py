@@ -252,7 +252,7 @@ def test_the_complete_example_plans_and_renders_the_script_the_page_shows(tmp_pa
         defaults = TrailingEdgeMarking.model_fields
         words = lines[at].split()
         assert words[0] == "IMPORT_WAKE_EDGES_FROM_FILE", words
-        assert words[1] == marking.get("type", defaults["edge_type"].default), words
+        assert words[1] == marking["type"], words
         assert float(words[2]) == marking.get("tolerance", defaults["tolerance"].default), words
         assert words[3] == SIMULATION_LENGTH_UNIT, words
         node_path = script.render().splitlines()[at + 1]
@@ -332,8 +332,10 @@ def _reader_key_paths() -> set[tuple[str, ...]]:
     }
     paths |= {(imports, OPERATIONS, key) for key in MeshOperation.model_fields}
     paths |= {(trailing, key) for key in sidecar_reader._TRAILING_EDGE_KEYS}
+    paths |= {(trailing, "files", key) for key in ("file", "type")}
     paths |= {(trailing, DETECT, key) for key in sidecar_reader._DETECT_KEYS}
     paths |= {(wake, DETECT), (wake, DETECT, SURFACES), (base, DETECT)}
+    paths |= {(wake, key) for key in ("file", "tolerance")}
     return paths
 
 
@@ -421,7 +423,9 @@ def test_the_key_comparison_sees_a_divergence_in_either_direction():
         for block in blocks
     ]
     _, unwritten = _divergence(without_tolerance)
-    assert unwritten == {("trailing_edges", "tolerance")}, unwritten
+    assert unwritten == {("trailing_edges", "tolerance"), ("wake_termination", "tolerance")}, (
+        unwritten
+    )
 
 
 def test_every_name_a_python_block_on_the_page_imports_exists():
