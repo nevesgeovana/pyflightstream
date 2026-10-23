@@ -294,6 +294,9 @@ table with `file` and no `type` is refused: STANDARD is the type the solver's
 detection gives the edges it marks, so one mesh marked by file and by detection
 carries one type when you write it.
 
+The setup's `trailing_edge_types` also accepts `RELAXED` for an explicitly
+numbered trailing edge, subject to the selected build's command record.
+
 **Detection, the second route, applies only when written.** It is never a
 default:
 

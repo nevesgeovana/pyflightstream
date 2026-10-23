@@ -472,9 +472,12 @@ class SolverSettings(BaseModel):
     #: setting a run applied: by the build guard naming the command on 25.100
     #: onward, and on 25.000 by the INITIALIZE_SOLVER helper, as every case is.
     legacy_solver_model: str | None = None
-    #: Explicit BC overrides, emitted before runtime/init settings. RELAXED remains deferred.
+    #: Explicit BC overrides, emitted before runtime/init settings and checked per build.
     trailing_edge_types: (
-        dict[Annotated[int, Field(ge=1)], Literal["STANDARD", "JET_OUTFLOW", "VORTEX_SHEDDING"]]
+        dict[
+            Annotated[int, Field(ge=1)],
+            Literal["STANDARD", "RELAXED", "JET_OUTFLOW", "VORTEX_SHEDDING"],
+        ]
         | None
     ) = None
     #: One-based trailing-edge indices whose wake nodes are disabled.

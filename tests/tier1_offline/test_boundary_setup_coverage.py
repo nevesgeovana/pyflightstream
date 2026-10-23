@@ -24,6 +24,18 @@ def _case(**kwargs):
     )
 
 
+@pytest.mark.parametrize("build", ["26.124", "26.125"])
+def test_p0440_relaxed_trailing_edge_override(build):
+    """PFS-2149: RELAXED uses the build-validated trailing-edge setter."""
+    try:
+        setup = SolverSettings(trailing_edge_types={1: "RELAXED"})
+    except ValueError as error:
+        pytest.fail(f"the documented RELAXED override was refused: {error}")
+    script = Script(build)
+    _settings(_case(solver=setup), script)
+    assert "SET_TRAILING_EDGE_TYPE 1 RELAXED" in script.render()
+
+
 def _port_case(tmp_path, *, inlet=True, outlet=False, profile=True, remesh=False):
     sidecar = tmp_path / "duct.boundaries.toml"
     sidecar.write_text('[ports]\nfeed="Inlet"\nexit="Outlet"\n')
