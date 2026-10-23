@@ -9,7 +9,6 @@ package's one text route, so a level holds no carriage return (NFR-32).
 
 from __future__ import annotations
 
-import json
 import math
 import re
 import tomllib
@@ -25,6 +24,7 @@ from pyflightstream._decimal import plain_decimal
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._lengths import METRES_PER_UNIT, scale
+from pyflightstream.workspace._geometry_sidecar import toml_value
 from pyflightstream.workspace.sidecars import (
     BOUNDARY_FACES_KEY,
     MESH_FACES_KEY,
@@ -500,10 +500,10 @@ def rewrite_value(
     Every spelling of the key (bare, quoted, the last part of a dotted key, a
     member of an inline table) is a candidate; the value after it is the
     shortest text that parses to ``old``; the first replacement whose whole
-    file parses to ``wanted`` is the one. The new value is written as JSON
-    strings, which are TOML basic strings.
+    file parses to ``wanted`` is the one. The shared TOML writer escapes
+    control characters, including DEL, in replacement strings.
     """
-    new = json.dumps(_value_of(wanted, key) if value is None else value, ensure_ascii=False)
+    new = toml_value(_value_of(wanted, key) if value is None else value)
     spelled = rf"(?<![\w\-\"'])(?:{key}|\"{key}\"|'{key}')\s*=[ \t]*"
     for match in re.finditer(spelled, text):
         start = match.end()
@@ -524,7 +524,7 @@ def rewrite_value(
     raise _refuse(
         side,
         f"the value of {key} cannot be rewritten for the level; state it as "
-        f"{key} = {json.dumps(old, ensure_ascii=False)} and run again",
+        f"{key} = {toml_value(old)} and run again",
     )
 
 
