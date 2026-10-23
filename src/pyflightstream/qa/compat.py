@@ -1903,7 +1903,9 @@ def apply_reanalysis(report_path: str | Path, *, repo_root: str | Path) -> list[
     Raises
     ------
     QaEvidenceError
-        If source evidence changed, a command is unknown or validation fails.
+        If source evidence changed, a command is unknown, the build is
+        unregistered, surviving evidence lies outside the repository, or
+        validation fails.
     """
     root = Path(repo_root).resolve()
     report = read_compat_report(report_path)

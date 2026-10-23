@@ -15,6 +15,7 @@ from typing import Any
 import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.run._alias import _aliases, _resolve, _with_aliases
 from pyflightstream.workspace.ledger import diff, history, read_ledger
 
 
@@ -26,7 +27,7 @@ def add_history_parsers(subparsers: Any) -> None:
         description="Read present and archived records with continuation links and archive "
         "stamps. No log, lock, record or extracted file is written.",
     )
-    history_parser.add_argument("target", help="simulation id, point name or run id")
+    history_parser.add_argument("target", help="simulation id, point name, run id or alias")
     diff_parser = subparsers.add_parser(
         "diff",
         help="compare two runs' recorded identities and scripts (reads only)",
@@ -34,8 +35,8 @@ def add_history_parsers(subparsers: Any) -> None:
         "Use run_id@<archive stamp> for an archived copy. Script changes name line numbers "
         "and candidate inputs using rebuild's comparison.",
     )
-    diff_parser.add_argument("run_a", help="first run id, optionally @<archive stamp>")
-    diff_parser.add_argument("run_b", help="second run id, optionally @<archive stamp>")
+    diff_parser.add_argument("run_a", help="first run id or alias, optionally @<archive stamp>")
+    diff_parser.add_argument("run_b", help="second run id or alias, optionally @<archive stamp>")
     for parser in (history_parser, diff_parser):
         parser.add_argument(
             "--workspace", default=".", help="workspace root (default: current directory)"
@@ -55,11 +56,20 @@ def run_history_query(args: argparse.Namespace) -> int:
     try:
         ledger = read_ledger(args.workspace, runs=args.runs)
         rows = (
-            history(ledger, args.target)
+            history(ledger, _history_target(ledger, args.target, all_attempts=True))
             if args.subcommand == "history"
-            else diff(ledger, args.run_a, args.run_b)
+            else diff(
+                ledger, _history_target(ledger, args.run_a), _history_target(ledger, args.run_b)
+            )
         )
-    except (PyflightstreamError, ValueError, OSError) as error:
+        rows = _with_aliases(ledger, rows)
+        for row in rows:
+            if row.get("field") == "run_id":
+                for side in ("a", "b"):
+                    row[f"{side}_alias"] = _with_aliases(ledger, {"run_id": row[side]}).get(
+                        "run_id_alias"
+                    )
+    except (PyflightstreamError, ValueError, OSError, LookupError) as error:
         print(str(error), file=sys.stderr)
         return 2
     for item in (*ledger.unreadable, *(row for row in rows if "error" in row)):
@@ -75,6 +85,29 @@ def run_history_query(args: argparse.Namespace) -> int:
         print(f"target (CLI: history): {args.target!r} holds no recorded run", file=sys.stderr)
         return 1
     return 0
+
+
+def _history_target(ledger: Any, target: str, *, all_attempts: bool = False) -> str:
+    """Resolve known aliases while retaining history's broader and archived selectors."""
+    name, separator, stamp = target.partition("@")
+    pair = _aliases(ledger).get(name)
+    if pair is None:
+        return target
+    point = f"sim_{pair[0]}/{pair[1]}"
+    if all_attempts:
+        return point
+    if separator:
+        matches = {
+            row["run_id"]
+            for row in history(ledger, point)
+            if row.get("archive_stamp") == stamp and "record" in row
+        }
+        if len(matches) != 1:
+            raise LookupError(f"run (CLI: diff): {target!r} needs one archived run id")
+        resolved = matches.pop()
+    else:
+        resolved = _resolve(ledger, name)
+    return f"{resolved}@{stamp}" if separator else resolved
 
 
 def _cell(value: Any) -> str:

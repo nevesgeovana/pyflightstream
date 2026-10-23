@@ -46,6 +46,22 @@ FlightStream versions.
   units are absent, instead of silently interpreting lengths as metres (RB3-11).
 - Missing section frames are named as missing layout metadata in reduced-frequency
   diagnostics instead of being described as frame `None` (RB3-07).
+- Time-averaging evidence notes link committed transcriptions and state the measured
+  timeout bound without claiming an infinite hang (RB2-04, RED2-V1).
+- Boundary declaration docs and range refusals explain mapping maxima and additive counts (PFS-2124.047).
+- Multiplied-sweep refusals recommend the documented `ROTATE` and `ANGLE` form (RB4-18).
+- History and diff accept run aliases; history, diff and log print aliases beside
+  recorded run IDs (PFS-2130.050).
+- A gained-token probe with no before-dump stays inconclusive instead of verified (RB4-16).
+- `apply_reanalysis` documents its build-registration and evidence-location refusals (RB4-24).
+- Read-only rebuild collection refuses grouped preparation and extraction completion
+  through its write policy before they can change source files (PFS-2124.045).
+- Workflow decisions use the declared run type consistently, including reduction
+  windows for Python cases that state only `matrix_workflow` (PFS-2124.020).
+- The missing custom-flag command diagnostic gives a supported command example (RB6-11).
+- Invalid `RPM_SIGN` values beside a rotor block name the allowed values before
+  checking agreement with the block (RB6-09).
+- Non-finite coordinate-frame diagnostics name the offending axis (P0-A1).
 - The boundaries file of a refined level states the level's own `mesh_faces`, `boundary_faces`
   and `mesh_sha256`, counted in and taken from the level's OBJ (after any `[components]` merge),
   where it copied the source's, and its header comment names the level OBJ's sha256; the source's

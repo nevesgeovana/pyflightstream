@@ -275,6 +275,13 @@ def test_log_post_groups_category_family_shape(workspace, capsys):
     assert len(_rows(workspace, capsys, "log", "--post", "demo")) == 2
 
 
+def test_p0440_log_prints_the_alias_beside_run_ids(workspace, capsys):
+    rows = _rows(workspace, capsys, "log", "--run", "9101_1")
+    identified = [row for row in rows if row.get("run_id") == RUN]
+    assert identified
+    assert all(row.get("run_id_alias") == "9101_1" for row in identified)
+
+
 def test_log_storage_preserves_calls_and_filters(workspace, capsys):
     """P0350-QUERY-LOG-STORAGE FR-392: raw storage calls, read-only meaningful filters."""
     calls = [

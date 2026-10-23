@@ -292,10 +292,10 @@ def time_steps_of(case: SimCase) -> int | None:
         from the builder, with the builder's message, and a table meanwhile
         prints a blank instead of a number nobody can check.
     """
-    if case.recipe == "steady":
+    if select_workflow(case) == "steady":
         return None
     try:
-        if case.recipe == "unsteady_rotor":
+        if select_workflow(case) == "unsteady_rotor":
             stepping = rotor_time_stepping(case, speed=_optional_rotor_speed(case))
         else:
             stepping = unsteady_time_stepping(case)

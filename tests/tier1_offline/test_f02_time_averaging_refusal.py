@@ -23,11 +23,19 @@ from pyflightstream.workspace import CampaignWorkspace
 from tests.tier1_offline.test_surface_exports import _case
 
 
-def test_database_records_the_measured_hang():
+def test_p0440_database_records_the_bounded_measurement():
     record = CommandRegistry.load().commands["SOLVER_TIME_AVERAGING"].versions["26.124"]
     assert record.status is Status.BROKEN, "26.124 must record the measured hang as broken"
     assert "2026-09-19" in record.note
-    assert "hang" in record.note.lower()
+    assert "no outputs before termination at 240.5 s" in record.note
+    assert "does not establish an infinite hang" in record.note
+
+
+def test_p0440_time_averaging_notes_name_the_committed_transcriptions():
+    entry = CommandRegistry.load().commands["SOLVER_TIME_AVERAGING"]
+    assert "reports/compat/CMP-26122_2026-09-25_time-averaging.yaml" in entry.notes
+    for version in ("26.122", "26.123"):
+        assert "RPT-079" not in entry.versions[version].note
 
 
 @pytest.mark.requirement("FR-112")

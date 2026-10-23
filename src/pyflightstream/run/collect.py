@@ -458,7 +458,8 @@ def _collect_additional(
     """Complete stable submitted extractions; retain pending jobs and native logs."""
     from pyflightstream.workspace import ExtractionStatus
 
-    expand = (writes or CollectWrites()).ensure_sim_expanded
+    writes = writes or CollectWrites()
+    expand = writes.ensure_sim_expanded
     latest = {record.extraction_id: record for record in workspace.read_additional()}
     for record in latest.values():
         if record.status is not ExtractionStatus.SUBMITTED:
@@ -498,7 +499,7 @@ def _collect_additional(
                     )
                 )
                 continue
-            completed = finish_extraction(workspace, record, context)
+            completed = writes.finish_extraction(workspace, record, context)
         except OSError as error:
             # A FILE ERROR IS RETRIED, not recorded as a final failure: the
             # extraction stays SUBMITTED, so the next sweep completes it once
@@ -559,7 +560,7 @@ def _of_the_simulations(records: list[RunRecord], sims: frozenset[str] | None) -
 
 @dataclass(frozen=True)
 class CollectWrites:
-    """The three writes of the collect stage outside the manifest, injected (PFS-2126.032).
+    """The writes of the collect stage outside the manifest, injected (PFS-2126.032).
 
     ``collect_once`` makes them through this object, so a caller that must collect
     without writing (the rebuild) passes refusals here instead of replacing module
@@ -573,17 +574,24 @@ class CollectWrites:
         Writes each Tecplot export from its VTK.
     ensure_sim_expanded : callable
         Expands a compressed simulation before it is read.
+    prepare_grouped_points : callable
+        Moves or copies grouped outputs and prepares their records.
+    finish_extraction : callable
+        Completes an extraction and removes its private simulation copy.
     """
 
     copy_native_log: Callable[[NativeLog], None] = _copy_native_log
     translate_surface_exports: Callable[..., Any] = translate_surface_exports
     ensure_sim_expanded: Callable[..., Any] = ensure_sim_expanded
+    prepare_grouped_points: Callable[..., Any] = prepare_grouped_points
+    finish_extraction: Callable[..., Any] = finish_extraction
 
 
 def _records_after_grouped_jobs(
     workspace: CampaignWorkspace,
     report: CollectReport,
     *,
+    writes: CollectWrites,
     sims: Collection[str] | None,
     interval: float,
     sleep: Callable[[float], None],
@@ -599,7 +607,7 @@ def _records_after_grouped_jobs(
     as failed is reported here and not swept again; a note (a file the move
     replaced) is a warning.
     """
-    sweep = prepare_grouped_points(
+    sweep = writes.prepare_grouped_points(
         workspace,
         workspace.read_manifest(),
         sims=sims,
@@ -667,9 +675,9 @@ def collect_once(
         counted as outstanding. A simulation no record holds is refused by
         name before anything is swept. None sweeps every record.
     writes
-        The scheduler-log copy, the surface translation and the expansion of a
-        compressed simulation, as :class:`CollectWrites`; None makes the real
-        writes. A read-only collection passes refusals.
+        Filesystem writes, grouped preparation and extraction completion, as
+        :class:`CollectWrites`; None makes the real writes. A read-only
+        collection passes refusals.
 
     Returns
     -------
@@ -700,7 +708,13 @@ def collect_once(
     # was refused. Its own refusals keep their own words.
     selected = None if sims is None else selected_sims(recorded, sims, scope="in the manifest")
     records = _records_after_grouped_jobs(
-        workspace, report, sims=selected, interval=interval, sleep=sleep, observer=observer
+        workspace,
+        report,
+        writes=writes,
+        sims=selected,
+        interval=interval,
+        sleep=sleep,
+        observer=observer,
     )
     submitted = [
         r for r in _of_the_simulations(records, selected) if r.status is RunStatus.SUBMITTED

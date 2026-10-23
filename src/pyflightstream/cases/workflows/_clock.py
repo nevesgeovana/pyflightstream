@@ -282,7 +282,7 @@ def _action_export_kinds(
     # export them at every step of the window; the wall clock's rescue does not,
     # since the points may not exist when it fires.
     normal = not whole_run and case.pproc is not None and case.pproc.samples_normal_probes()
-    if case.recipe in _UNSTEADY_RECIPES and not normal:
+    if select_workflow(case) in _UNSTEADY_RECIPES and not normal:
         for kind in STEADY_ONLY_EXPORT_KINDS:
             kinds.pop(kind, None)
     # G05: an action fires during the march and a volume section is cut after
@@ -371,7 +371,7 @@ def unsteady_export_threshold(
     stated = stated_threshold_keys(case)
     averaged = (
         case.pproc.time_averaging is not None
-        and case.recipe in _UNSTEADY_RECIPES
+        and select_workflow(case) in _UNSTEADY_RECIPES
         and continuation_of(case) is None
         if case.pproc is not None
         else False

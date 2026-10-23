@@ -298,11 +298,11 @@ def _refuse_a_free_body_off_the_unsteady_run(case: SimCase) -> None:
     binds, and a case authored in Python meets it here, whether it is built one
     point at a time or as a steady sweep (F-755).
     """
-    if case.sixdof is not None and case.recipe != "unsteady":
+    if case.sixdof is not None and select_workflow(case) != "unsteady":
         raise CampaignConfigError(
             f"case {case.sim_id!r}: a 6DOF body runs on the unsteady run type only, and this "
-            f"case runs {case.recipe}; a free body needs the time march, and a free body with "
-            "a rotor turning is outside this route."
+            f"case runs {select_workflow(case)}; a free body needs the time march, "
+            "and a free body with a rotor turning is outside this route."
         )
 
 

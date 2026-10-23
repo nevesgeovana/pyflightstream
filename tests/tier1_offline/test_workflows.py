@@ -488,6 +488,32 @@ def _case_for(name: str) -> SimCase:
 
 
 @pytest.mark.parametrize("name", sorted(WORKFLOWS))
+def test_p0440_workflow_cell_alone_has_the_same_run_semantics(name):
+    case = _case_for(name)
+    expected = rendered(case)
+    try:
+        actual = rendered(case.model_copy(update={"recipe": None}))
+    except CampaignConfigError as error:
+        actual = str(error)
+    assert actual == expected
+
+
+def test_p0440_workflow_cell_alone_resolves_the_rotor_clock():
+    from pyflightstream.cases.workflows import time_steps_of
+
+    case = rotor_case(DELTA_TIME=None, TIME_ITERATIONS=None, DELTA_THETA="15", REVOLUTIONS="2")
+    assert time_steps_of(case) == 48
+    assert time_steps_of(case.model_copy(update={"recipe": ""})) == 48
+
+
+def test_p0440_workflow_cell_alone_keeps_reduction_windows():
+    case = rotor_case()
+    expected = _reduction_windows()(case)
+    assert expected is not None
+    assert _reduction_windows()(case.model_copy(update={"recipe": ""})) == expected
+
+
+@pytest.mark.parametrize("name", sorted(WORKFLOWS))
 def test_the_workspace_conventions_are_passed_in_and_never_imported(name):
     """`workspace` sits ABOVE `cases`, so the conventions arrive as data.
 
@@ -1183,6 +1209,7 @@ def test_a_rotorless_row_stating_a_window_in_steps_averages_over_it():
 
 def test_a_steady_row_has_no_reduction_windows():
     case = rotor_case().model_copy(update={"recipe": "steady"})
+    case.variables[WORKFLOW_KEY] = "steady"
     assert _reduction_windows()(case) is None
 
 
@@ -3047,6 +3074,16 @@ def test_a_row_naming_its_rotor_by_alias_is_refused_for_a_disagreeing_hand():
     assert "disagrees with it" in message, message
     assert "rpm_sign" in message, "the refusal names the block's key in the block's spelling"
     assert FIXTURE_ROTOR.alias in message, message
+
+
+@pytest.mark.parametrize("value", ["garbage", "1.5", "0", "2"])
+def test_p0440_invalid_rotor_hand_names_the_allowed_values(value):
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_speed(_row_naming_its_rotor_by_alias(-1, RPM_SIGN=value))
+    message = str(raised.value)
+    assert "RPM_SIGN" in message and value in message
+    assert "1 or -1" in message
+    assert "disagrees" not in message
 
 
 def test_a_ratio_with_no_diameter_on_the_reference_is_refused_naming_the_field():

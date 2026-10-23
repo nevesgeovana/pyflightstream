@@ -20,6 +20,16 @@ from pyflightstream.script._arg_checks import CommandArgumentError
 X, Y = (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)
 S = math.sqrt(0.5)
 
+
+@pytest.mark.parametrize("index,label", list(enumerate(("x_axis", "y_axis", "z_axis"))))
+@pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf])
+def test_p0440_nonfinite_frame_component_names_its_axis(index, label, value):
+    axes = [X, Y, (0.0, 0.0, 1.0)]
+    axes[index] = (value, 0.0, 0.0)
+    reason = helpers.frame_axes_problem(*axes)
+    assert reason is not None and label in reason
+
+
 BAD = {
     "zero x": ((0.0, 0.0, 0.0), Y, "x_axis has zero length"),
     "zero y": (X, (0.0, 0.0, 0.0), "y_axis has zero length"),

@@ -589,7 +589,8 @@ class EntityRegistry:
             guidance = (
                 "Mesh boundaries come from the loaded geometry; check the inventory "
                 "declared with declare_existing(boundaries=...) against the geometry "
-                "the script opens or imports."
+                "the script opens or imports. A mapping raises the count to its highest "
+                "mapped index; integer declarations add to that count."
             )
         else:
             available = (

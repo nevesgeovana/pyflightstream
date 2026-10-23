@@ -17,7 +17,7 @@ from zipfile import BadZipFile
 import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.run._alias import alias_lines, planned_in_workspace
+from pyflightstream.run._alias import _aliases, _resolve, _with_aliases
 
 # Re-exported through this public import path.
 from pyflightstream.run._alias import planned_from_plan_files as planned_from_plan_files
@@ -83,29 +83,6 @@ def _add_parsers(subparsers: Any) -> None:
         output.add_argument("--csv", action="store_true", help="print CSV; nested cells are JSON")
 
 
-def _aliases(ledger: Ledger) -> dict[str, tuple[str, str]]:
-    from pyflightstream.workspace.record_document import read_rows
-
-    rows = read_rows(ledger.manifest)
-    rows = [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
-    planned = planned_in_workspace(ledger.root, rows)
-    for row in ledger.points():
-        planned.setdefault(str(row["sim"]), [])
-    return {alias: (sim, point) for alias, sim, point in alias_lines(rows, planned)}
-
-
-def _resolve(ledger: Ledger, target: str, label: str = "run (CLI: --run)") -> str:
-    """Return the run id ``target`` names (a run id or an alias); ``label`` names the argument."""
-    pair = _aliases(ledger).get(target)
-    if pair is not None:
-        matches = [row for row in ledger.points(sims=[pair[0]]) if row["point"] == pair[1]]
-        if matches and matches[0]["run_id"]:
-            return str(matches[0]["run_id"])
-    if ledger.card(target) is not None:
-        return target
-    raise LookupError(f"{label}: {target!r} names no effective recorded point")
-
-
 def _no_such_point(ledger: Ledger, sim: str, point: str) -> LookupError:
     """Return the refusal of a ``show SIM --point NAME`` whose simulation has no such point."""
     aliases = {pair: alias for alias, pair in _aliases(ledger).items()}
@@ -119,31 +96,6 @@ def _no_such_point(ledger: Ledger, sim: str, point: str) -> LookupError:
         f"point (CLI: --point): simulation {sim!r} records no point {point!r}; it records "
         f"{', '.join(names) or 'none'}"
     )
-
-
-def _with_aliases(ledger: Ledger, value: Any) -> Any:
-    aliases = {pair: alias for alias, pair in _aliases(ledger).items()}
-    return _annotate(value, aliases)
-
-
-def _annotate(value: Any, aliases: dict[tuple[str, str], str]) -> Any:
-    if isinstance(value, list):
-        return [_annotate(item, aliases) for item in value]
-    if not isinstance(value, dict):
-        return value
-    result = {key: _annotate(item, aliases) for key, item in value.items()}
-    run_id = value.get("run_id")
-    if isinstance(run_id, str):
-        parts = run_id.split("/")
-        # <campaign>/sim_<id>/<point>: the campaign (the folder name) may
-        # itself start with sim_, so the simulation is the second last part.
-        # A continuation's id carries its stamp folder before the point
-        # (<campaign>/sim_<id>/r<stamp>/<point>), so the simulation is the part
-        # after the campaign when that part names one.
-        holder = parts[1] if len(parts) > 2 and parts[1].startswith("sim_") else parts[-2:][0]
-        sim = holder.removeprefix("sim_") if len(parts) > 1 else ""
-        result["run_id_alias"] = aliases.get((sim, parts[-1]))
-    return result
 
 
 def _show(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -286,8 +238,7 @@ def _run_point_query(args: argparse.Namespace, emit: Callable[[str], None]) -> i
             rows = _additional(ledger)
         else:
             rows = commands[args.subcommand](ledger, args)
-            if args.subcommand != "log":
-                rows = _with_aliases(ledger, rows)
+            rows = _with_aliases(ledger, rows)
         _render(rows, args, ledger, emit)
         return 0
     except LookupError as error:

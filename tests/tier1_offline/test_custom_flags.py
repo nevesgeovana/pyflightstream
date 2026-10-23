@@ -35,6 +35,15 @@ from pyflightstream.script import Script
 SETUP_COMMAND = "SET_SIGNIFICANT_DIGITS"
 
 
+def test_p0440_missing_flag_command_recommends_a_supported_command():
+    with pytest.raises(ValueError) as raised:
+        CustomFlag(name="digits", command="")
+    assert f'command = "{SETUP_COMMAND}"' in str(raised.value)
+    script = Script("26.125")
+    script.emit(SETUP_COMMAND, 6)
+    assert f"{SETUP_COMMAND} 6" in script.render()
+
+
 def case(**overrides) -> SimCase:
     """A steady row, with whatever flags and variables the case under test wants."""
     fields = {

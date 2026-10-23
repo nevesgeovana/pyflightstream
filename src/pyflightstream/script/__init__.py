@@ -728,16 +728,16 @@ class Script(_ScriptRendering):
         volume_sections : int
             Volume sections already present in the project, numbered from one.
         boundaries : int or mapping of str to int
-            Mesh boundaries of the loaded geometry: either their total
-            count (zero, the default, keeps the inventory undeclared),
-            or a mapping of configuration labels to 1-based boundary
-            indices in geometry-tree order, for example
-            ``{"fuselage": 1, "wing": 2}``. Declaring the inventory
-            turns on range verification for every boundary-citing
-            argument; until then those citations pass unverified,
-            because the boundary total cannot be known statically.
-            Labels then stand in for indices anywhere a boundary is
-            cited.
+            Mesh boundary count (zero keeps the inventory undeclared), or a
+            mapping of labels to 1-based indices in geometry-tree order, for
+            example ``{"fuselage": 1, "wing": 2}``. Declaring an inventory
+            enables range verification; without it the total is unknown.
+            Citations still follow each command's lower-bound rules without a count.
+            Labels stand in for indices wherever a boundary is cited.
+            A mapping raises the inventory to its highest mapped index
+            if larger than the existing count; it is not a labels-only declaration.
+            Integer declarations add to the existing count. For example,
+            ``boundaries={"wing": 2}`` followed by ``boundaries=1`` declares three.
         """
         for kind, extra in (("frames", frames), ("actuators", actuators), ("motions", motions)):
             self.entities.declare(kind, extra)

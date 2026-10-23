@@ -1568,6 +1568,12 @@ class TestQaProbes:
         assert dump_gained("7.2531")(gained) is True
 
     @staticmethod
+    @pytest.mark.parametrize("strict", [False, True])
+    def test_p0440_a_missing_before_dump_cannot_prove_a_token_was_gained(strict):
+        missing = SimpleNamespace(dump_before=lambda: None, dump_after=lambda: "x 7.2531 y")
+        assert dump_gained("7.2531", strict=strict)(missing) is None
+
+    @staticmethod
     def test_f535_a_missing_end_sentinel_is_not_a_promotable_broken(tmp_path):
         """F-535 the verdict follows its detail: grammar doubt means unprobed, never broken."""
         spec = _QA_PROBES__PROBE_SPECS["DELETE_SURFACES"]

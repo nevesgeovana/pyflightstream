@@ -53,6 +53,7 @@ from pyflightstream.script import (
 from ._conventions import (
     WORKFLOWS,
     _workflow_cell,
+    select_workflow,
 )
 from ._row_cells import (
     _required_float as _required_float,
@@ -181,7 +182,13 @@ def _admit_a_row_hand(case: SimCase, rotor: RotorBlock, stated: str) -> None:
     One home for the sentence, because the record path (`_motion_view`) and the
     row path (`_rpm_sign`) enforce the same rule.
     """
-    if _hand_of(stated) == rotor.rpm_sign:
+    hand = _hand_of(stated)
+    if hand not in (1, -1):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {RPM_SIGN_VARIABLE} as {stated!r}; "
+            "the sign of a rotor speed is 1 or -1. State one of those two values."
+        )
+    if hand == rotor.rpm_sign:
         return
     raise CampaignConfigError(
         f"case {case.sim_id!r} states {RPM_SIGN_VARIABLE} as {stated!r} and the rotor "
@@ -869,7 +876,7 @@ def _the_aliases_the_row_names(case: SimCase) -> list[str | None]:
     if not aliases:
         alias = _variable(case, MOVING_BC_ALIAS_VARIABLE)
         aliases = [str(alias)] if alias else []
-    if not aliases and case.recipe == QSTEADY_ROTOR:
+    if not aliases and select_workflow(case) == QSTEADY_ROTOR:
         # A QUASI-STEADY ROW HAS NO MOTION RECORD TO NAME ITS ROTOR: its rotor is the
         # reference's one isolated rotor, which is what the run type already solves.
         try:
@@ -906,7 +913,7 @@ def _the_copies_the_sector_stands_for(case: SimCase, script: Script) -> tuple[in
     aliases = _the_aliases_the_row_names(case)
     named = {str(alias).strip().casefold() for alias in aliases}
     if not named:
-        if case.recipe == "unsteady_rotor":
+        if select_workflow(case) == "unsteady_rotor":
             return None, (
                 f"Add it to the row's variables, or name the rotor by alias "
                 f"({MOVING_BC_ALIAS_VARIABLE}) and let its block's blades say it."

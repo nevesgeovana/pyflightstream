@@ -13,6 +13,7 @@ from pyflightstream.cases import CampaignConfigError, SimCase
 from pyflightstream.cases.pproc import StreamlineLine, StreamlinesSpec, StreamlineTube
 from pyflightstream.script import Script
 
+from ._conventions import select_workflow
 from ._frames import _pproc_frame
 from ._gap_evidence import refuse_unprobed_commands
 from ._probes import _in_the_reference_frame, _the_radius_the_probe_lines_are_in
@@ -88,7 +89,7 @@ def refuse_streamlines_where_they_cannot_run(case: SimCase, spec: StreamlinesSpe
             "aeroelastic post-processing script, a different place in the script, so "
             "[streamlines] is not traced there; name a pproc without it on this row."
         )
-    if case.recipe == QSTEADY_ROTOR and spec.off_body:
+    if select_workflow(case) == QSTEADY_ROTOR and spec.off_body:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} seeds off-body "
             "streamlines on a qsteady_rotor row. There the blade is held still and the free "

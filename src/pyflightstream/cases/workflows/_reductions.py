@@ -23,6 +23,7 @@ from pyflightstream.cases import (
     windows as _windows,
 )
 
+from ._conventions import select_workflow
 from ._motion import (
     _optional_rotor_speed,
     _the_rotors_the_row_turns,
@@ -187,7 +188,7 @@ class ExportWindow:
         Reads ``LAST_REVS_AVG`` or ``LAST_ITERS_AVG`` alongside the clock.
         """
         _refuse_retired_window_keys(case)
-        _require_the_averaging_window(case, case.recipe)
+        _require_the_averaging_window(case, select_workflow(case))
         if (
             _variable(case, LAST_REVS_AVG_VARIABLE) is not None
             and _variable(case, LAST_ITERS_AVG_VARIABLE) is not None
@@ -1158,9 +1159,9 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     [596, 720]
     """
     _refuse_retired_window_keys(case)
-    if case.recipe not in _UNSTEADY_RECIPES:
+    if select_workflow(case) not in _UNSTEADY_RECIPES:
         return None
-    rotor = case.recipe == "unsteady_rotor"
+    rotor = select_workflow(case) == "unsteady_rotor"
     try:
         if rotor:
             # Use the clock motion's speed for MOTIONS rows (FR-64, FR-68), resolved

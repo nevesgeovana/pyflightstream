@@ -48,7 +48,7 @@ class _WouldWriteError(RuntimeError):
 
 
 def _read_only_writes() -> Any:
-    """Return the collect stage's three writes as refusals (PFS-2126.032).
+    """Return the collect stage's writes as refusals (PFS-2126.032).
 
     The stage copies a scheduler's log to its declared name, writes a surface
     export translated from the VTK, and expands a compressed simulation. Each
@@ -84,7 +84,24 @@ def _read_only_writes() -> Any:
         copy_native_log=refuse_copy,
         translate_surface_exports=refuse_translation,
         ensure_sim_expanded=refuse_expand,
+        prepare_grouped_points=_refuse_grouped,
+        finish_extraction=_refuse_extraction,
     )
+
+
+def _refuse_grouped(workspace: Any, records: Any, *, sims: Any, **keywords: Any) -> Any:
+    """Leave grouped preparation to the explicit collecting operation."""
+    from pyflightstream.run._batch_collect import GroupedSweep, jobs_of
+
+    selected = [r for r in records if sims is None or r.sim_id in sims]
+    if jobs_of(selected):
+        raise _WouldWriteError("collection would prepare grouped job outputs; run collect first")
+    return GroupedSweep(records=records)
+
+
+def _refuse_extraction(*arguments: Any) -> Any:
+    """Keep extraction output and its private simulation copy untouched."""
+    raise _WouldWriteError("collection would finish an extraction; run collect first")
 
 
 def collect_without_writing(
