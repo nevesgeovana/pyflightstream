@@ -31,7 +31,8 @@ computed again. Which rows:
   `first + (m - 1) N` to `first + m N - 1`, counted from the series' first
   stamped step as [`per_revolution`](per_revolution.md#per_revolution) counts from its first
   row, with `N` the rotor's own `steps_per_revolution` from the run record
-  rounded to a whole step; the steps after the last complete revolution are
+  as an integral number of steps. Fractional clocks are skipped by rotor in
+  `products.json`, stating the clock and its fractional remainder; the steps after the last complete revolution are
   not read. The series states each block's OWN blade's azimuth
   (blade `n` of the rotor's `B` at blade one's plus `(n - 1) 360 / B`, the
   blades placed ahead of blade one whatever the sense of rotation, as the

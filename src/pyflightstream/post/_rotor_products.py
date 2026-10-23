@@ -616,15 +616,19 @@ def _unsteady_harmonics(
         ):
             reason = f"rotor {alias!r} states no steps per revolution in the point's record"
         else:
-            revolution = _harmonics.last_complete_revolution(first, last, float(per_revolution))
-            if revolution is not None:
-                windows[alias] = revolution
-                clocks[alias] = float(per_revolution)
-                continue
-            reason = (
-                f"the series holds steps {first} to {last}, not one complete revolution of "
-                f"rotor {alias!r} at {float(per_revolution):g} steps per revolution"
-            )
+            try:
+                revolution = _harmonics.last_complete_revolution(first, last, float(per_revolution))
+            except ProductError as error:
+                reason = f"rotor {alias!r}: {error}"
+            else:
+                if revolution is not None:
+                    windows[alias] = revolution
+                    clocks[alias] = float(per_revolution)
+                    continue
+                reason = (
+                    f"the series holds steps {first} to {last}, not one complete revolution of "
+                    f"rotor {alias!r} at {float(per_revolution):g} steps per revolution"
+                )
         skipped[f"{relative}#rotor={alias}"] = reason
         warn(f"point={stem} product={relative}: {reason}", PyflightstreamWarning, stacklevel=2)
         _skip_disc_maps(stem, reason, skipped, f"#rotor={alias}")

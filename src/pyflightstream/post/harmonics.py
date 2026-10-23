@@ -356,8 +356,8 @@ def last_complete_revolution(
 
     Revolution k is steps ``first + (k - 1) N`` to ``first + k N - 1``, counted
     from the history's first step as the per-revolution product counts from
-    its first row, with ``N`` the steps per revolution rounded to a whole
-    step; the last one whose steps all lie inside the history is returned.
+    its first row, with ``N`` an integral number of steps per revolution.
+    Fractional clocks are refused rather than rounded to another period.
 
     Parameters
     ----------
@@ -376,7 +376,7 @@ def last_complete_revolution(
     Raises
     ------
     ProductError
-        If ``steps_per_revolution`` is not a finite number.
+        If ``steps_per_revolution`` is not finite or has a fractional remainder.
 
     Examples
     --------
@@ -389,7 +389,13 @@ def last_complete_revolution(
         raise ProductError(
             f"steps per revolution must be a finite number, got {steps_per_revolution!r}"
         )
-    steps = int(round(float(steps_per_revolution)))
+    if not float(steps_per_revolution).is_integer():
+        raise ProductError(
+            f"{steps_per_revolution:g} steps per revolution has fractional remainder "
+            f"{steps_per_revolution % 1:g}; a complete revolution cannot be represented "
+            "by whole solver steps without rounding"
+        )
+    steps = int(steps_per_revolution)
     if steps < 1 or last_step < first_step:
         return None
     complete = (last_step - first_step + 1) // steps

@@ -476,6 +476,20 @@ def test_an_unsteady_rotor_s_last_revolution_gives_back_its_harmonics(tmp_path, 
     assert entry["revolution"] == {"PROP": [7, 12]}
 
 
+def test_p0440_fractional_revolution_harmonics_are_named(tmp_path, monkeypatch):
+    from pyflightstream._errors import ProductError
+
+    workspace = _unsteady(tmp_path, monkeypatch, blades=3, rpm=1200.0)
+    record = workspace.read_manifest()[0]
+    record.reductions["rotors"]["PROP"]["steps_per_revolution"] = 6.5
+    out, manifest, _log = _post(workspace)
+    assert not (out / "sections" / "AL-020_harmonics.csv").exists()
+    reason = manifest["skipped"]["sections/AL-020_harmonics.csv#rotor=PROP"]
+    assert "6.5" in reason and "remainder 0.5" in reason
+    with pytest.raises(ProductError, match="remainder 0.5"):
+        last_complete_revolution(1, 14, 6.5)
+
+
 def test_an_unsteady_rotor_short_of_one_revolution_is_named(tmp_path, monkeypatch):
     """At 20 steps per revolution the 14 stamped steps hold no complete revolution: named."""
     # P0310-HARMONICS

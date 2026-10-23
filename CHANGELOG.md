@@ -32,6 +32,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Per-revolution means and unsteady sectional harmonics skip fractional clocks
+  by name with their remainder, instead of silently rounding the period (PFS-2124.058).
+
 - In-row geometry migration warnings state that the route still runs, instead
   of claiming a refusal since 0.41.0 (X-F-0188).
 

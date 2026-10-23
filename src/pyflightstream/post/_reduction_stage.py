@@ -307,7 +307,14 @@ def _write_the_per_revolution_products(
                 "It is stated where the row gives the rotor speed and the solver time step."
             )
             continue
-        revolution_steps = int(round(float(per_revolution)))
+        if not float(per_revolution).is_integer():
+            skipped[relative] = (
+                f"{who} has {per_revolution:g} steps per revolution with fractional remainder "
+                f"{per_revolution % 1:g}; a complete revolution cannot be represented "
+                "by whole solver steps without rounding"
+            )
+            continue
+        revolution_steps = int(per_revolution)
         read: set[int] = set()
         try:
             windows, means, partial = per_revolution_table(

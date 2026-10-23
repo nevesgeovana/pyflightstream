@@ -284,6 +284,15 @@ def test_less_than_one_revolution_is_a_named_skip_and_writes_no_file(tmp_path):
     assert "not one COMPLETE revolution" in reason, reason
 
 
+def test_p0440_fractional_revolution_is_named_without_rounding(tmp_path):
+    workspace = _workspace(tmp_path, FX, plan=_plan(len(FX), per_revolution=4.5))
+    write_campaign_products(workspace)
+    relative = "probes/AL-020_per_revolution_PROP.csv"
+    assert not (workspace.root / "post" / "products" / relative).exists()
+    reason = _products_manifest(workspace)["skipped"][relative]
+    assert "4.5" in reason and "remainder 0.5" in reason
+
+
 def test_a_rotor_with_no_clock_is_a_named_skip(tmp_path):
     # P0310-G2-PER-REV
     workspace = _workspace(tmp_path, FX, plan=_plan(len(FX), per_revolution=None))
