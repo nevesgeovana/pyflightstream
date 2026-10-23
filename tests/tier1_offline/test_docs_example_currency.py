@@ -10,6 +10,18 @@ from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 REPO = Path(__file__).resolve().parents[2]
 
 
+def test_p0440_unemitted_defaults_are_provenance_not_loaded_state():
+    import csv
+
+    from pyflightstream.script.solver_setup import FlagRecord
+
+    with (REPO / "tests/requirements_l3.csv").open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.reader(stream))
+    row = next(row for row in rows if row[0] == "FR-1216")
+    assert "not the effective state of a loaded simulation" in row[3]
+    assert "not the effective state of a loaded simulation" in FlagRecord.__doc__
+
+
 def test_p0440_preview_contract_preserves_invalid_or_old_batches():
     from pyflightstream.workspace.excel_bridge import _preview_records
 

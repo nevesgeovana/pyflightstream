@@ -37,6 +37,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Setup snapshot documentation distinguishes unemitted documented defaults
+  from the effective state of a loaded simulation (C-SRS-S07-001, C-S13-021).
+
 - HPC profiles refuse unknown descriptor keys, including the unused `template`
   key; scheduler-specific names remain valid under `descriptor.fields` (F-1526).
 
