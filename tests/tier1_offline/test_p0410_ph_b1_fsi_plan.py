@@ -29,6 +29,7 @@ def polar_glob_order(monkeypatch, request):
     monkeypatch.setattr(Path, "glob", ordered_glob)
 
 
+@pytest.mark.requirement("FR-2115")
 def test_p0410_workspace_posts_exploratory_loading_noise(tmp_path):
     import csv
 
@@ -60,6 +61,19 @@ inplane_radius_m = 0.7
     report = json.loads((folder / "noise_report.json").read_text())
     assert report["validation"] == "exploratory, not validated"
     assert report["products"][files[0].relative_to(folder).as_posix()] == entry
+
+
+def test_p0440_noise_requirement_keeps_explicit_exploratory_post():
+    """F-485: the requirement must describe the retained opt-in post route."""
+    import csv
+
+    source = Path(__file__).parents[1] / "requirements_l3.csv"
+    with source.open(encoding="utf-8", newline="") as handle:
+        row = next(row for row in csv.reader(handle) if row[0] == "FR-2115")
+    assert "explicitly requested exploratory" in row[3]
+    assert "not validated" in row[3]
+    assert row[4] == "pyflightstream.post._noise_products:noise_products"
+    assert row[5].endswith("::test_p0410_workspace_posts_exploratory_loading_noise")
 
 
 @pytest.mark.parametrize("velocity", [0.0, 1.0], ids=["P0440-REST", "P0440-MOVING"])

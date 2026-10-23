@@ -1,7 +1,8 @@
 """The quasi-steady rotor noise model (QS-NOISE, work package F): EXPLORATORY.
 
-Pipeline role: a library beside the post row. The post stage calls only its
-report writer, :func:`write_qsteady_noise_report`; the model itself is not wired in.
+Pipeline role: the opt-in exploratory post model. The workspace writes observer
+signals, Gutin harmonics and reference comparisons, indexed by
+:func:`write_qsteady_noise_report`.
 QS-NOISE is exploratory: it carries no threshold and no gate, and the package
 does not wait on it. The module holds the model of route A of the scope (GEO-066
 section 2.6 part 5): reconstruct a blade's load against azimuth from the loads

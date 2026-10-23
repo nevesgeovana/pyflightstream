@@ -11,6 +11,7 @@ sound_speed_m_s = 340.0
 samples_per_revolution = 360
 ```
 
+FR-2115 permits these exploratory post products only when explicitly requested.
 The opt-in is required. The current reconstruction supports a wheel about +X,
 with azimuth zero along +Z. It combines the recorded per-blade forces and hub
 moments at the wheel's clockings, fits their azimuthal variation, and applies

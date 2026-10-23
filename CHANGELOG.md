@@ -166,6 +166,9 @@ FlightStream versions.
 
 ### Changed
 
+- FR-2115 now states the retained opt-in exploratory loading-noise post products;
+  these products remain labelled not validated (F-485).
+
 - A run matrix whose header holds a column the layout does not know is refused naming that
   column and the closest known column.
 - The install command a missing optional extra names is quoted,
