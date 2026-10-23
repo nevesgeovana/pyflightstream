@@ -32,6 +32,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Refinement includes the exact 45-degree spanwise boundary with an absolute
+  cosine tolerance of 1e-14 (PFS-2153).
+
 - Surface deletion preserves survivor IDs, as measured by the PFS-2119.016
   licensed probe. Later boundary selections no longer shift to another surface (RB7-35).
 

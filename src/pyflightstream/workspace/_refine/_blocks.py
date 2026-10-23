@@ -423,6 +423,7 @@ def _arcs(
 
 #: An arc runs SPANWISE when its edges run, on average weighted by length, within 45
 #: degrees of the trailing-edge segment nearest each: the mean of |cos| at least cos 45.
+#: Absolute cosine tolerance 1e-14 includes the boundary despite floating-point roundoff.
 SPANWISE_COS = math.cos(math.radians(45.0))
 
 
@@ -446,7 +447,7 @@ def runs_spanwise(verts: Points, chain: Sequence[int], te: Points) -> bool:
     length = numpy.linalg.norm(edge, axis=1)
     scale = numpy.maximum(length * numpy.linalg.norm(near, axis=1), 1e-300)
     cos = numpy.abs((edge * near).sum(axis=1)) / scale
-    return float((cos * length).sum() / max(float(length.sum()), 1e-300)) >= SPANWISE_COS
+    return float((cos * length).sum() / max(float(length.sum()), 1e-300)) >= SPANWISE_COS - 1e-14
 
 
 def te_directions(
