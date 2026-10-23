@@ -174,10 +174,13 @@ def _load_toml(path: Path, kind: str) -> dict[str, Any]:
         raise StorageError(f"{path}: the {kind} cannot be read as TOML ({error})") from error
 
 
-def _load_json(path: Path, kind: str) -> Any:
+def _load_json(path: Path, kind: str, *, object_only: bool = False) -> Any:
     """Read a JSON document of the storage commands, refusing it by path when it cannot be read."""
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(path.read_text(encoding="utf-8"))
+        if object_only and not isinstance(value, dict):
+            raise ValueError("expected a JSON object")
+        return value
     except (OSError, ValueError) as error:
         raise StorageError(f"{path}: the {kind} cannot be read as JSON ({error})") from error
 
@@ -951,18 +954,15 @@ def _products_of(workspace: CampaignWorkspace, sim_ids: set[str], run_ids: set[s
         if ARCHIVE_DIR in manifest.relative_to(post).parts:
             continue
         try:
-            document = json.loads(manifest.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as error:
+            document = _load_json(manifest, "products manifest", object_only=True)
+        except StorageError as error:
             # NEVER SKIPPED (PFS-2086.006): an unread manifest hides the products
             # that hold the deleted points, and the shared-product refusal with them.
             raise StorageError(
-                f"{manifest} cannot be read ({error}); delete-sims reads it to find the "
-                "products that hold the deleted points, so nothing is deleted. Restore it "
-                "(pyfs-matrix restore products) or rebuild it with a post, then run again."
+                f"{manifest} cannot be read ({error}); nothing is deleted. "
+                "Restore it (pyfs-matrix restore products) or rebuild it with a post, then retry."
             ) from error
-        folder = manifest.parent
-        own: list[str] = []
-        shared: list[str] = []
+        folder, own, shared = manifest.parent, [], []
         for name, entry in dict(document.get("products", {})).items():
             if not isinstance(entry, dict):
                 continue

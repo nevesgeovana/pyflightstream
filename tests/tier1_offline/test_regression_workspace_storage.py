@@ -962,13 +962,15 @@ class TestWorkspace3Storage:
         assert [row for row in rows if row.get(_WORKSPACE_3_STORAGE__DELETED) == "3001"]
 
     @staticmethod
-    def test_p0400_delete_refuses_when_a_products_manifest_cannot_be_read(tmp_path):
+    @pytest.mark.parametrize("content", ['{"products": {"polar.csv": {', "[]", "null", "7"])
+    def test_p0440_rb5_43_delete_refuses_unreadable_products(tmp_path, content):
         """P0400-DELETE-PRODUCTS (PFS-2086.006): a truncated products.json refuses, deleting nothing."""  # noqa: E501
         workspace = _workspace_3_storage___shared_product_workspace(tmp_path, "truncated")
         manifest = workspace.root / "post" / "matriz" / "products.json"
-        manifest.write_text('{"products": {"polar.csv": {', encoding="utf-8")
-        with pytest.raises(_Workspace3StorageStorageError) as raised:
+        manifest.write_text(content, encoding="utf-8")
+        with pytest.raises(Exception) as raised:
             storage_module.delete_sims(workspace.root, ["3001"], apply=True)
+        assert isinstance(raised.value, _Workspace3StorageStorageError)
         assert str(manifest) in str(raised.value)
         assert workspace.sim_dir("3001").is_dir()
 

@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- `delete-sims` refuses a non-object `products.json` with `StorageError` before deletion
+  and names the manifest and recovery route (RB5-43).
 - Query problem filters retain failed outcomes recorded as a list (RB5-35).
 - FSI records applied-twist lag verdicts in the run folder as well as the logger (RB4-15).
 - The boundaries file of a refined level states the level's own `mesh_faces`, `boundary_faces`
