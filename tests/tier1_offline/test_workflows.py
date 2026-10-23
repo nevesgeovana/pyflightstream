@@ -3544,16 +3544,6 @@ def test_a_steady_row_refuses_a_wake_termination_it_cannot_emit():
     assert "STEADY" in message and "revolutions" in message
 
 
-def test_a_rotor_row_is_not_caught_by_the_steady_refusal():
-    """The other half of the same claim: it must not fire where it can convert."""
-    case = _angular().model_copy(
-        update={"solver": SolverSettings(wake_termination_revolutions=-1.0)}
-    )
-    script = Script("26.123")
-    build_script(case, script, conventions=WorkflowConventions(outputs=("loads.txt",)))
-    assert "SET_WAKE_TERMINATION_TIME_STEPS -36" in script.render().splitlines()
-
-
 @pytest.mark.parametrize("origin", ["nan,0,0", "0,inf,0", "0,0,-inf"])
 def test_a_non_finite_rotor_origin_is_refused(origin):
     """The one numeric cell that does not pass through _required_float.

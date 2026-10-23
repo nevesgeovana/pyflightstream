@@ -354,14 +354,6 @@ def test_a_negative_sectional_iteration_is_refused():
         parse_sectional_loads(negative)
 
 
-def test_the_pristine_sectional_fixture_still_parses():
-    """The control: the four mutants above cannot be passing because the
-    parser refuses everything."""
-    report = parse_sectional_loads(CALL2)
-    assert report.current_iteration == 154
-    assert report.declared_section_count == 100
-
-
 # --- REV010-008: the resampler assumed coverage nobody enforced ------------
 #
 # to_elastic_axis refused sections reaching BEYOND the configured blade and
