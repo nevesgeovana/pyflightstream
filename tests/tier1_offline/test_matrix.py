@@ -916,7 +916,7 @@ def _with_variable(text: str, pair: str) -> str:
     return text.replace("| CONFIG:NSX   /", f"| {pair} / CONFIG:NSX   /", 1)
 
 
-def test_an_aerodynamic_and_a_geometric_sweep_together_are_refused(tmp_path):
+def test_p0440_an_aerodynamic_and_a_geometric_sweep_together_are_refused(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text(
         _with_variable(FIXTURE.read_text(encoding="utf-8"), "angle_sweep_deg:0.0,5.0,10.0"),
@@ -932,7 +932,8 @@ def test_an_aerodynamic_and_a_geometric_sweep_together_are_refused(tmp_path):
     )
     assert "3" in message
     assert "0.0,5.0,10.0" in message
-    assert "angle_deg" in message, "the refusal names no fixed-offset form, so it only says no"
+    assert "ROTATE: {ANGLE:" in message
+    assert "AXIS: MRP-Y / ALIAS:" in message
 
 
 def test_two_sweeps_are_refused_on_a_parked_row_too(tmp_path):
@@ -989,7 +990,7 @@ def test_the_rotation_keys_are_read_whatever_their_case(tmp_path):
         _with_variable(FIXTURE.read_text(encoding="utf-8"), "ANGLE_SWEEP_DEG:0.0,5.0"),
         encoding="utf-8",
     )
-    with pytest.raises(MatrixError, match="angle_deg"):
+    with pytest.raises(MatrixError, match="ROTATE"):
         read_matrix(bad)
 
 

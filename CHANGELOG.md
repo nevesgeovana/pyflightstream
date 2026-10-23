@@ -32,6 +32,7 @@ FlightStream versions.
 
 ### Fixed
 
+- Multiplied-sweep refusals recommend the documented `ROTATE` and `ANGLE` form (RB4-18).
 - History and diff accept run aliases; history, diff and log print aliases beside
   recorded run IDs (PFS-2130.050).
 - A gained-token probe with no before-dump stays inconclusive instead of verified (RB4-16).

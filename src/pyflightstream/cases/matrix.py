@@ -58,8 +58,8 @@ from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
 from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
+from pyflightstream.cases import ROTATION_OFFSET_KEY as ROTATION_OFFSET_KEY
 from pyflightstream.cases import (
-    ROTATION_OFFSET_KEY,
     ROTATION_SWEEP_KEY,
     Campaign,
     RawCommand,
@@ -904,7 +904,7 @@ def _check_one_sweep_per_row(pol: str, sweep: SweepAxis, variables: dict[str, st
 
     The refusal names the fixed-offset form, because the user asking for
     both almost always wants one rotation held fixed across an alpha
-    sweep, which is what ``angle_deg`` already does.
+    sweep, which is what a single ``ROTATE`` entry's ``ANGLE`` does.
     """
     rotation = multiplied_sweep(sweep, variables)
     if not rotation:
@@ -916,7 +916,8 @@ def _check_one_sweep_per_row(pol: str, sweep: SweepAxis, variables: dict[str, st
         f"two would multiply into {len(sweep.values) * len(rotation)} runs this row "
         "does not name and whose points cannot "
         "be told apart. A rotation held FIXED across an aerodynamic sweep is written "
-        f"{ROTATION_OFFSET_KEY}: <angle>, one value; a sweep OF the rotation is a row "
+        "ROTATE: {ANGLE: <angle> / AXIS: MRP-Y / ALIAS: <boundary label>}, one angle; "
+        "a sweep OF the rotation is a row "
         "of its own with a single-point SWEEP_VALUES."
     )
 
