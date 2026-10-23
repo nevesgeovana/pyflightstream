@@ -6,6 +6,7 @@ import re
 from collections.abc import Mapping
 from pathlib import Path
 
+from pyflightstream import _textio
 from pyflightstream.cases._matrix_layouts import (
     _COLUMNS,
     _LAYOUT_0_9_0,
@@ -209,5 +210,5 @@ def rewrite_codes(
         raise MatrixError(f"{source} holds no matrix content: no line carries a cell separator")
     rewritten = b"".join(rebuilt)
     if in_place:
-        Path(path).write_bytes(rewritten)
+        _textio.write_bytes(path, rewritten)
     return rewritten, counts

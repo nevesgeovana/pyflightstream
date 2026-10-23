@@ -56,6 +56,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from pyflightstream import _textio
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
 from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
 from pyflightstream.cases import ROTATION_OFFSET_KEY as ROTATION_OFFSET_KEY
@@ -1332,7 +1333,7 @@ def renumber_pols(
         )
     rewritten = b"".join(rebuilt)
     if in_place:
-        Path(path).write_bytes(rewritten)
+        _textio.write_bytes(path, rewritten)
     return rewritten
 
 

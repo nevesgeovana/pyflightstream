@@ -119,6 +119,17 @@ def append_text(path: str | Path, text: str, *, encoding: str = "utf-8") -> int:
         return stream.write(text)
 
 
+def write_bytes(path: str | Path, data: bytes) -> int:
+    """Replace a complete byte payload atomically through a sibling temporary file.
+
+    Keep the same permission and symlink policy as :func:`atomic_text`.
+    Latin-1 maps each byte to one character; the explicit LF newline policy
+    leaves CR, LF and CRLF bytes unchanged, including non-UTF-8 matrix comments.
+    """
+    with atomic_text(path, encoding="latin-1") as stream:
+        return stream.write(data.decode("latin-1"))
+
+
 def open_text(
     path: str | Path, mode: str = "w", *, encoding: str = "utf-8", errors: str | None = None
 ) -> IO[str]:

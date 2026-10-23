@@ -1175,6 +1175,34 @@ def test_a_default_that_is_given_lets_a_silent_row_through(tmp_path):
 # --- PFS-2009.03: rewriting the id cells, byte for byte ---------------------
 
 
+@pytest.mark.parametrize("operation", ["renumber", "codes"])
+def test_p0440_matrix_rewrite_replace_failure_keeps_original(tmp_path, monkeypatch, operation):
+    import os
+
+    from pyflightstream.cases.matrix import renumber_pols, rewrite_codes
+
+    target = tmp_path / "atomic.fs"
+    original = FIXTURE.read_bytes()
+    target.write_bytes(original)
+
+    def refuse(source, destination):
+        assert Path(source).parent == target.parent
+        assert Path(destination) == target
+        assert Path(source).read_bytes() != original
+        assert target.read_bytes() == original
+        raise OSError("replacement refused")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(os, "replace", refuse)
+        with pytest.raises(OSError, match="replacement refused"):
+            if operation == "renumber":
+                renumber_pols(target, {1: "9999"}, in_place=True)
+            else:
+                rewrite_codes(target, {"REF": {"r003": "r009"}}, in_place=True)
+    assert target.read_bytes() == original
+    assert list(tmp_path.iterdir()) == [target]
+
+
 def test_rewrite_codes_changes_only_the_named_cells(tmp_path):
     """Every other byte, separator, rule and line ending survives."""
     from pyflightstream.cases.matrix import rewrite_codes

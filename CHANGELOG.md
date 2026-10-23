@@ -40,6 +40,9 @@ FlightStream versions.
 
 ### Fixed
 
+- In-place matrix POL and artifact-code rewrites publish by atomic replacement,
+  preserving the original when replacement fails (PFS-2119.015).
+
 - Permuted body-axis declarations refuse with RPT-052/RPT-060 evidence limits;
   the supported rate mapping is roll=X, pitch=Y, yaw=Z (PFS-2126.043).
 
