@@ -1082,8 +1082,10 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                 ),
                 "`[noise]`": {
                     "exploratory wheel-only model; see exploratory-loading-noise": tuple(
-                        "exploratory observers_m hub_velocity_m_s observer_velocity_m_s "
-                        "sound_speed_m_s samples_per_revolution orders gutin_orders reference "
+                        "exploratory observers_m "
+                        "hub_velocity_m_s observer_velocity_m_s sound_speed_m_s "
+                        "samples_per_revolution orders "
+                        "gutin_orders reference "
                         "axial_radius_m inplane_radius_m".split()
                     )
                 },
