@@ -22,6 +22,8 @@ from pyflightstream import exceptions
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 from tests.tier1_offline.test_public_api import PUBLIC_MODULES
 
+_OPTIONAL_IMPORTS = {"Pynite", "scipy", "rtree", "matplotlib", "xlsxwriter", "pypdf"}
+
 
 def _defined_exception_classes() -> dict[str, type]:
     """Every exception class visible in a public pyflightstream module.
@@ -38,7 +40,9 @@ def _defined_exception_classes() -> dict[str, type]:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", DeprecationWarning)
                 module = importlib.import_module(name)
-        except ImportError:  # optional extra absent; its didactic refusal
+        except ModuleNotFoundError as error:
+            if error.name not in _OPTIONAL_IMPORTS:
+                raise
             continue
         for _, obj in inspect.getmembers(module, inspect.isclass):
             if (
@@ -48,6 +52,16 @@ def _defined_exception_classes() -> dict[str, type]:
             ):
                 found[obj.__name__] = obj
     return found
+
+
+@pytest.mark.parametrize("walker", [_defined_exception_classes, lambda: _public_module_sources()])
+def test_p0440_catalog_walkers_propagate_broken_imports(monkeypatch, walker):
+    def broken(name):
+        raise ImportError(f"broken public import: {name}")
+
+    monkeypatch.setattr(importlib, "import_module", broken)
+    with pytest.raises(ImportError, match="broken public import"):
+        walker()
 
 
 def test_every_defined_exception_is_in_the_catalog():
@@ -615,7 +629,9 @@ def _public_module_sources() -> list[tuple[str, str, str, set[str]]]:
             warnings.simplefilter("ignore")
             try:
                 module = importlib.import_module(name)
-            except ImportError:
+            except ModuleNotFoundError as error:
+                if error.name not in _OPTIONAL_IMPORTS:
+                    raise
                 continue  # an extra is not installed; covered by test_extras
         if not getattr(module, "__file__", None):
             continue
