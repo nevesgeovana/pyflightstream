@@ -942,6 +942,14 @@ RAW_MESH_CONDITION_KEYS: Mapping[str, Mapping[str, InputKey]] = {
         ),
     },
     WAKE_TERMINATION_TABLE: {
+        "file": InputKey(
+            "Explicit wake-termination node coordinates.",
+            "a file name",
+            "SELECT_MESH_NODE, MARK_WAKE_TERMINATION_NODES",
+        ),
+        "tolerance": InputKey(
+            "Maximum distance to exactly one mesh vertex.", "m, > 0", "SELECT_MESH_NODE"
+        ),
         "detect": InputKey(
             "Detects the wake-termination nodes over every surface, or on the surfaces named.",
             '`"auto"`, or `{ surfaces = ["<name>"] }`',
@@ -1077,7 +1085,7 @@ def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
                 if wake is None
                 else cast(
                     "Literal['auto'] | tuple[str, ...]",
-                    _read_detection(path, WAKE_TERMINATION_TABLE, wake, by_surface=True),
+                    _read_wake_termination(path, wake),
                 )
             ),
             base_regions=(
@@ -1092,6 +1100,25 @@ def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
         )
     except ValueError as exc:
         raise InputArtifactError(f"{path}: invalid mesh boundary conditions: {exc}") from exc
+
+
+def _read_wake_termination(path: Path, table: Mapping[str, Any]):
+    """Read explicit termination points or the existing detection declaration."""
+    from pyflightstream.cases.mesh import WakeTerminationMarking
+
+    if "file" not in table:
+        return _read_detection(path, WAKE_TERMINATION_TABLE, table, by_surface=True)
+    foreign = sorted(set(table) - {"file", "tolerance"})
+    if foreign:
+        raise InputArtifactError(
+            f"{path}: [wake_termination] file cannot be combined with {', '.join(foreign)}"
+        )
+    fields = _trailing_edge_file_fields(
+        path, f"{path}: [wake_termination]", {**table, "type": "STANDARD"}, 0.0001
+    )
+    return WakeTerminationMarking(
+        points_file=fields["points_file"], tolerance=table.get("tolerance", 0.0001)
+    )
 
 
 def _trailing_edge_file_fields(

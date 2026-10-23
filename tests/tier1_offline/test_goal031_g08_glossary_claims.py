@@ -986,7 +986,13 @@ SETTING_VARIATIONS: dict[str, Variation] = {
     "reference_mach": _setting_on(_plain, "reference_mach", 0.1, 0.2),
     "disable_reference_velocity": _setting_on(_plain, "disable_reference_velocity", None, True),
     "remove_initialization": _setting_on(_plain, "remove_initialization", None, True),
-    "mark_wake_termination_nodes": _setting_on(_plain, "mark_wake_termination_nodes", None, True),
+    "mark_wake_termination_nodes": Variation(
+        _plain,
+        lambda tmp: _plain(tmp).model_copy(
+            update={"solver": SolverSettings(mark_wake_termination_nodes=True)}
+        ),
+        refusal="[wake_termination] file",
+    ),
     # Existing entities by their one-based index, in the declared order.
     **{
         name: _setting_on(_plain, name, [1], [2])
@@ -1189,6 +1195,7 @@ def _states(case: SimCase, table: tuple[str, str], key: str) -> bool:
 
 #: The keys refused in 0.29.0 whatever their value, by table.
 REFUSED_IN_THIS_RELEASE = {
+    (SETTINGS, "mark_wake_termination_nodes"),
     (ROW_KEYS, "ROTOR_SHEDDING"),
     (SETTINGS, "legacy_solver_model"),
     (SETTINGS, "sonic_velocity_m_per_s"),

@@ -985,3 +985,58 @@ def test_p0420_the_file_route_writes_points_and_tolerance_in_the_simulation_unit
     (parked,) = script.pending_input_files.values()
     first = [float(v) for v in parked.splitlines()[2].split(",")]
     assert first == pytest.approx([1.0 * factor, -3.75 * factor, 0.0])
+
+
+@pytest.mark.parametrize("build", ["26.124", "26.125"])
+def test_p0440_wake_termination_file_is_probe_gated(tmp_path, build):
+    workspace = _library(
+        tmp_path, DETECT_AUTO + '[wake_termination]\nfile="tips.wt.txt"\n', build=build
+    )
+    (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(
+        _points_text([(1.0, -4.0, 0.0)])
+    )
+    try:
+        case = _case(tmp_path, workspace, build=build)
+        _render(case, build)
+    except (ValueError, InputArtifactError) as exc:
+        reason = str(exc)
+    else:
+        reason = "accepted an unprobed command"
+    assert "MARK_WAKE_TERMINATION_NODES" in reason and "PFS-2149.01" in reason
+
+
+@pytest.mark.parametrize("point,tolerance,count", [((9, 9, 9), 0.0001, 0), ((1, -4, 0), 1.0, None)])
+def test_p0440_termination_points_must_match_one_vertex(tmp_path, point, tolerance, count):
+    tables = DETECT_AUTO + f'[wake_termination]\nfile="tips.wt.txt"\ntolerance={tolerance}\n'
+    workspace = _library(tmp_path, tables)
+    (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(_points_text([point]))
+    with pytest.raises((ValueError, InputArtifactError)) as caught:
+        _case(tmp_path, workspace)
+    assert "tips.wt.txt" in str(caught.value) and "require exactly one" in str(caught.value)
+
+
+@pytest.mark.parametrize("build", ["26.124", "26.125"])
+def test_p0440_verified_termination_selects_nodes_before_marking(tmp_path, build):
+    import copy
+
+    from pyflightstream.commands import CommandRegistry, Status
+
+    workspace = _library(
+        tmp_path, DETECT_AUTO + '[wake_termination]\nfile="tips.wt.txt"\n', build=build
+    )
+    (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(
+        _points_text([(1.0, -4.0, 0.0)])
+    )
+    try:
+        case = _case(tmp_path, workspace, build=build)
+    except (ValueError, InputArtifactError) as exc:
+        pytest.fail(f"explicit termination points must bind: {exc}")
+    registry = copy.deepcopy(CommandRegistry.load())
+    entry = registry.commands["MARK_WAKE_TERMINATION_NODES"]
+    entry.versions[build] = entry.versions[build].model_copy(update={"status": Status.VERIFIED})
+    script = Script(build, registry=registry)
+    build_script(case, script, registry=registry)
+    lines = script.render().splitlines()
+    index = lines.index("MARK_WAKE_TERMINATION_NODES")
+    nodes = case.raw_mesh_conditions.wake_termination.nodes
+    assert lines[index - 1] == f"SELECT_MESH_NODE {nodes[0]}"

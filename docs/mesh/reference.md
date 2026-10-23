@@ -329,7 +329,24 @@ absence of trailing edges; it is not automatic detection and does not make
 omission of the table equivalent to this declaration. A `<stem>.te.txt` left
 beside the mesh is then not read.
 
-**Two options, each only when written.**
+**Explicit termination nodes (probe gated).** A points file uses the same
+unit-first coordinate format as a trailing-edge file:
+
+```toml
+[wake_termination]
+file = "tips.wt.txt"
+tolerance = 0.0001  # metres
+```
+
+Each point must match exactly one source-mesh vertex within the tolerance.
+An absent or ambiguous match names the point and file. `file` and `detect`
+cannot be combined, and moving import operations are refused. The script
+selects the matched nodes after import and then marks them. This route is
+refused at plan until `MARK_WAKE_TERMINATION_NODES` has verified evidence
+on the selected build (PFS-2149.01). The old bare setup key
+`mark_wake_termination_nodes = true` is refused because it selects no nodes.
+
+**Two detection options, each only when written.**
 
 ```toml
 [wake_termination]

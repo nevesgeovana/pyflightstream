@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Added
 
+- Explicit `[wake_termination] file` matches chosen mesh vertices. Planning
+  refuses `MARK_WAKE_TERMINATION_NODES` until the selected build has verified
+  probe evidence (PFS-2149.01).
 - Setup `trailing_edge_types` accepts `RELAXED`, checked against the selected
   build's command record (PFS-2149).
 - `refine` reports its progress while it runs: one line per stage and per family (read, layout,
@@ -139,6 +142,8 @@ FlightStream versions.
 
 ### Changed
 
+- Bare `mark_wake_termination_nodes = true` is refused because it selects no
+  nodes. Use the geometry sidecar's `[wake_termination] file` route (PFS-2149).
 - A run matrix whose header holds a column the layout does not know is refused naming that
   column and the closest known column.
 - The install command a missing optional extra names is quoted,

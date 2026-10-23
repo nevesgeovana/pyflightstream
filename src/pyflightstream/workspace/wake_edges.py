@@ -60,6 +60,7 @@ import pyflightstream._textio as _textio
 from pyflightstream._decimal import plain_decimal
 from pyflightstream._lengths import METRES_PER_UNIT, scale
 from pyflightstream._mesh import read_mesh
+from pyflightstream.cases.mesh import WakeTerminationMarking
 from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import LENGTH_UNIT_COMMAND, CommandArgumentError
 from pyflightstream.script.helpers import render_wake_edge_node_file
@@ -885,6 +886,49 @@ def matched_trailing_edge_points(
             )
         first_on[edge] = position
     return scaled
+
+
+def bind_wake_termination(conditions, geometry, mesh_import, solver):
+    """Bind a selected explicit termination route when the imported mesh is unchanged."""
+    if conditions is None or not isinstance(conditions.wake_termination, WakeTerminationMarking):
+        return conditions
+    if solver is not None and solver.apply_wake_termination is False:
+        return conditions
+    if mesh_import is None or mesh_import.moving_operations:
+        return conditions
+    return conditions.model_copy(
+        update={
+            "wake_termination": matched_wake_termination_nodes(
+                conditions.wake_termination, geometry, mesh_import.units
+            )
+        }
+    )
+
+
+def matched_wake_termination_nodes(
+    marking: WakeTerminationMarking, mesh: Path, mesh_unit: str
+) -> WakeTerminationMarking:
+    """Match each point to exactly one mesh vertex, refusing absent or ambiguous matches."""
+    read = read_trailing_edge_points(marking.points_file)
+    loaded = read_mesh(mesh)
+    if getattr(loaded, "vertices", None) is None and hasattr(loaded, "to_mesh"):
+        loaded = loaded.to_mesh()
+    vertices = numpy.asarray(loaded.vertices) * length_scale(mesh_unit, "METER")
+    points = read.points * length_scale(read.unit, "METER")
+    nodes = []
+    for index, point in enumerate(points, start=1):
+        matches = numpy.flatnonzero(
+            numpy.linalg.norm(vertices - point, axis=1) <= marking.tolerance
+        )
+        if len(matches) != 1:
+            raise InputArtifactError(
+                f"{marking.points_file}: wake-termination point {index} matches "
+                f"{len(matches)} mesh vertices within {marking.tolerance:g} m; "
+                "require exactly one, adjust the point or tolerance"
+            )
+        # SELECT_MESH_NODE uses node 1 in qa/_spec_0400_gap.py P1-10 (RPT-166).
+        nodes.append(int(matches[0]) + 1)
+    return marking.model_copy(update={"nodes": tuple(nodes)})
 
 
 def write_node_file(

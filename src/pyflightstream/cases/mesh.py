@@ -472,6 +472,15 @@ class PortBoundary(BaseModel):
         return self
 
 
+class WakeTerminationMarking(BaseModel):
+    """Explicit wake-termination vertices, matched in metres before emission."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+    points_file: str = Field(exclude=True)
+    tolerance: float = Field(default=0.0001, gt=0)
+    nodes: tuple[int, ...] = ()
+
+
 class RawMeshConditions(BaseModel):
     """The boundary conditions a raw mesh's sidecar declares (G02, Q1).
 
@@ -495,7 +504,7 @@ class RawMeshConditions(BaseModel):
     #: Stable geometric port identities mapped to exact surface names after import renames.
     ports: dict[str, str] = Field(default_factory=dict)
     trailing_edges: TrailingEdgeMarking | None = None
-    wake_termination: Literal["auto"] | tuple[str, ...] | None = None
+    wake_termination: Literal["auto"] | tuple[str, ...] | WakeTerminationMarking | None = None
     base_regions: Literal["auto"] | None = None
     inlets: tuple[PortBoundary, ...] = ()
     outlets: tuple[PortBoundary, ...] = ()

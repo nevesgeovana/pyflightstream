@@ -36,6 +36,13 @@ def test_p0440_relaxed_trailing_edge_override(build):
     assert "SET_TRAILING_EDGE_TYPE 1 RELAXED" in script.render()
 
 
+def test_p0440_bare_termination_key_refers_to_explicit_file():
+    from pyflightstream.cases import CampaignConfigError
+
+    with pytest.raises(CampaignConfigError, match=r"\[wake_termination\] file"):
+        _settings(_case(solver=SolverSettings(mark_wake_termination_nodes=True)), Script("26.124"))
+
+
 def _port_case(tmp_path, *, inlet=True, outlet=False, profile=True, remesh=False):
     sidecar = tmp_path / "duct.boundaries.toml"
     sidecar.write_text('[ports]\nfeed="Inlet"\nexit="Outlet"\n')

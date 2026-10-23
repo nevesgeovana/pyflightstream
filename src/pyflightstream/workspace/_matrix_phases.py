@@ -97,6 +97,7 @@ from pyflightstream.workspace.inputs import (
 from pyflightstream.workspace.naming import group_token
 from pyflightstream.workspace.sixdof_setup import resolve_row_sixdof
 from pyflightstream.workspace.wake_edges import (
+    bind_wake_termination,
     length_scale,
     matched_trailing_edge_points,
     read_trailing_edge_points,
@@ -656,6 +657,7 @@ def _raw_mesh_conditions_of(
     where = f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names {geometry.name}, and"
     try:
         declared = read_raw_mesh_conditions(sidecar)
+        declared = bind_wake_termination(declared, geometry, mesh_import, solver)
     except InputArtifactError as error:
         raise InputArtifactError(f"{where} {error}") from error
     marking = None if declared is None else declared.trailing_edges

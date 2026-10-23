@@ -1,4 +1,7 @@
 uid,destination,target,new_uids,file
+FR-3247,kept,,,tests/requirements_l3.csv
+FR-3248,kept,,,tests/requirements_l3.csv
+FR-3249,kept,,,tests/requirements_l3.csv
 FR-3246,kept,,,tests/requirements_l3.csv
 FR-01,kept,,FR-3200,docs/unpublished/requirements/inst.md
 FR-02,kept,,,docs/unpublished/requirements/inst.md

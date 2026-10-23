@@ -222,7 +222,10 @@ def _settings(
         boundaries = solver.leading_edge_wake_boundaries
         script.emit("DETECT_LEADING_EDGES_WAKES_BY_SURFACE", len(boundaries), boundaries)
     if solver.mark_wake_termination_nodes:
-        script.emit("MARK_WAKE_TERMINATION_NODES")
+        raise CampaignConfigError(
+            "mark_wake_termination_nodes = true selects no node; "
+            "use the [wake_termination] file route"
+        )
     if solver.sonic_velocity_m_per_s is not None:
         script.emit("SONIC_VELOCITY", solver.sonic_velocity_m_per_s)
     for inlet in solver.delete_inlets or ():
