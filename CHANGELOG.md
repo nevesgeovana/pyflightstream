@@ -32,6 +32,9 @@ FlightStream versions.
 
 ### Fixed
 
+- The timestep-series reader documents its retained moving-point refusal and
+  stationary-coordinate scope (RB5-30).
+
 - Probe-table documentation states the retained REFERENCE-frame design and
   the outstanding licensed placement measurement (RB3-04).
 

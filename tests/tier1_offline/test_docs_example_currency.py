@@ -10,6 +10,13 @@ from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 REPO = Path(__file__).resolve().parents[2]
 
 
+def test_p0440_series_contract_keeps_the_moving_grid_refusal():
+    from pyflightstream.post.unsteady import read_timestep_series
+
+    assert "stationary sample coordinates only" in read_timestep_series.__doc__
+    assert "RB5-30" in read_timestep_series.__doc__
+
+
 def test_p0440_probe_reference_contract_names_the_unmeasured_placement():
     from pyflightstream.post.point_tables import write_probes_table
 

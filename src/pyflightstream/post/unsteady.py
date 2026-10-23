@@ -508,6 +508,10 @@ def read_timestep_series(
 ) -> TimestepSeries:
     """Read exported frames back as one ordered series.
 
+    This reader supports stationary sample coordinates only. A moving point
+    keeps its named refusal: moving-grid series are a new capability outside
+    0.44.0 (RB5-30), not coordinates silently borrowed from the first frame.
+
     Parameters
     ----------
     frames : sequence of str or pathlib.Path
