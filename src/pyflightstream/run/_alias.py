@@ -550,10 +550,9 @@ def listed_ids(values: Sequence[str] | None) -> list[str]:
 
 
 def _aliases(ledger: Ledger) -> dict[str, tuple[str, str]]:
-    from pyflightstream.workspace.record_document import read_rows
-
-    rows = read_rows(ledger.manifest)
-    rows = [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+    # Use the query's validated snapshot. A strict reread would refuse all
+    # aliases when one malformed row was already reported in ledger.unreadable.
+    rows = ledger.records()
     planned = planned_in_workspace(ledger.root, rows)
     for row in ledger.points():
         planned.setdefault(str(row["sim"]), [])

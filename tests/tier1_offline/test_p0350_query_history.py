@@ -159,6 +159,27 @@ def test_p0440_history_and_diff_resolve_and_print_run_aliases(workspace, capsys)
     assert identity["a_alias"] == identity["b_alias"] == "2006_1"
 
 
+@pytest.mark.parametrize("verb", ["history", "diff"])
+def test_p0440_rv1_aliases_keep_readable_rows_of_a_partial_manifest(workspace, capsys, verb):
+    """RV1-02: alias decoration retains the ledger's tolerant query boundary."""
+    manifest = workspace / "runs.json"
+    document = json.loads(manifest.read_text(encoding="utf-8"))
+    document["runs"].insert(0, 17)
+    _write(manifest, document)
+    args = ("2006_1",) if verb == "history" else (f"2006_1@{STAMP}", "2006_1")
+    code, out, err = _call(workspace, capsys, verb, *args, "--json")
+    assert code == 0, err
+    assert "cannot be read" in err
+    rows = json.loads(out)["rows"]
+    assert rows
+    if verb == "history":
+        assert {row["run_id"] for row in rows} == {RUN, NEXT}
+        assert all(row["run_id_alias"] == "2006_1" for row in rows)
+    else:
+        identity = next(row for row in rows if row["field"] == "run_id")
+        assert identity["a_alias"] == identity["b_alias"] == "2006_1"
+
+
 def _tree(root: Path) -> dict[str, tuple[bytes | None, int]]:
     """Every path under ``root`` with its bytes (None for a folder) and modification time."""
     return {
