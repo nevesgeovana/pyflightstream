@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Time-averaging evidence notes link committed transcriptions and state the measured
+  timeout bound without claiming an infinite hang (RB2-04, RED2-V1).
 - Boundary declaration docs and range refusals explain mapping maxima and additive counts (PFS-2124.047).
 - Multiplied-sweep refusals recommend the documented `ROTATE` and `ANGLE` form (RB4-18).
 - History and diff accept run aliases; history, diff and log print aliases beside
