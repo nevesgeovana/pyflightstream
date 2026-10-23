@@ -1081,18 +1081,10 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                     {"a circle's keys, " + _IN_THE_COMMENT: ("radii_m", "points")}
                 ),
                 "`[noise]`": {
-                    "exploratory wheel-only model; see exploratory-loading-noise": (
-                        "exploratory",
-                        "observers_m",
-                        "hub_velocity_m_s",
-                        "observer_velocity_m_s",
-                        "sound_speed_m_s",
-                        "samples_per_revolution",
-                        "orders",
-                        "gutin_orders",
-                        "reference",
-                        "axial_radius_m",
-                        "inplane_radius_m",
+                    "exploratory wheel-only model; see exploratory-loading-noise": tuple(
+                        "exploratory observers_m hub_velocity_m_s observer_velocity_m_s "
+                        "sound_speed_m_s samples_per_revolution orders gutin_orders reference "
+                        "axial_radius_m inplane_radius_m".split()
                     )
                 },
                 "`[[probes]]`": {"optional planar grids; see planar-workspace-probes": ("grids",)},
