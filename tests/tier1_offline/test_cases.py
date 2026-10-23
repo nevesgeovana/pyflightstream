@@ -16,26 +16,6 @@ from pyflightstream.cases import (
     resolve_recipe,
 )
 
-CAMPAIGN_TOML = """
-[campaign]
-name = "wing_steady_sweep"
-fs_version = "26.120"
-fs_exe = 'C:\\FlightStream\\26.12\\FlightStream.exe'
-
-[[sim]]
-sim_id = "9001"
-aircraft = "TestWing"
-description = "steady polar"
-reynolds = 4.38e6
-mach = 0.1441
-sweep = {type = "alpha_beta", values = [[0.0, 0.0], [2.0, 0.0]]}
-recipe = "recipes.steady_polar:build"
-outputs = ["loads_{point}.txt"]
-[sim.variables]
-advance_ratio = 1.7
-symmetry = "PERIODIC 6"
-"""
-
 
 def test_unregistered_fs_version_fails_at_load():
     with pytest.raises(ValidationError, match="fs_version"):

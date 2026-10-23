@@ -607,19 +607,6 @@ def _peel(line: bytes) -> tuple[bytes, bytes]:
     return line, b""
 
 
-def _without_the_new_cell(data: bytes, index: int) -> bytes:
-    rebuilt = []
-    for line in data.splitlines(keepends=True):
-        body, terminator = _peel(line)
-        if b"|" not in body:
-            rebuilt.append(line)
-            continue
-        parts = body.split(b"|")
-        del parts[index]
-        rebuilt.append(b"|".join(parts) + terminator)
-    return b"".join(rebuilt)
-
-
 def _normalized(data: bytes) -> bytes:
     """The fixture's bytes with line endings reduced to LF.
 
@@ -831,81 +818,6 @@ def test_rewriting_a_code_cell_leaves_the_same_id_alone_outside_its_column(tmp_p
         "the rewrite edited the DESCRIPTION cell, which is not a code column: it "
         f"reads {rewritten_description!r} where the source had {cells[description]!r}"
     )
-
-
-def _one_row_at_the_0_11_0_layout(tmp_path, name, condition, code, values):
-    """Write a one-row matrix at the layout the converter reads, and return it."""
-    layout = matrix_mod._LAYOUT_0_11_0
-    cells = dict.fromkeys(layout, "")
-    cells.update(
-        {
-            "POL": "9100",
-            "AIRCRAFT": "TestWing",
-            "DESCRIPTION": "ROUND",
-            "FLIGHT_CONDITION": condition,
-            "SWEEP_TYPE": code,
-            "SWEEP_VALUES": values,
-            "REF": "r003",
-            "SET": "s003",
-            "PPROC": "p001",
-            "FS_BUILD": "MANUAL",
-            "HIDDEN": "0",
-            "RUN": "1",
-            "WORKFLOW": "LEGACY",
-            "VAR_NAMES_VALUES": "FSM_FILE:wing_clean / RECIPE: 003",
-        }
-    )
-    path = tmp_path / name
-    path.write_text(
-        "\n".join(
-            [
-                " | ".join(layout),
-                "-" * 20,
-                " | ".join(cells[key] for key in layout),
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    return path
-
-
-def _unfolded(data: bytes) -> bytes:
-    """Put RE and MACH back where FLIGHT_CONDITION now stands.
-
-    The inverse of the 0.9.0 fold, so the byte comparison below can still
-    say "and changed no OTHER byte" now that the conversion touches two
-    places instead of one. It is deliberately dumb: it splits the cell on
-    the two key names rather than parsing it, because a helper that used
-    the parser would pass on any cell the parser accepts.
-    """
-    # THE INDEX COMES FROM THE LAYOUT THE DATA IS AT, not from the current
-    # one. This helper is handed the TWO-STAGE result, which sits at the
-    # sixteen-column layout with FLIGHT_CONDITION standing where RE was, so
-    # the current layout's index is the wrong number the moment the two
-    # stop agreeing. They agreed until 0.17.0 moved FLIGHT_CONDITION from
-    # position 3 to position 6, and then this helper unfolded the wrong
-    # cell: exactly the positional mistake the padding test below carries a
-    # comment about.
-    index = matrix_mod._LEGACY_COLUMNS_16.index("RE")
-    rebuilt = []
-    header_seen = False
-    for line in data.splitlines(keepends=True):
-        body, terminator = _peel(line)
-        if b"|" not in body:
-            rebuilt.append(line)
-            continue
-        parts = body.split(b"|")
-        if not header_seen:
-            header_seen = True
-            parts[index : index + 1] = [b" RE      ", b" MACH    "]
-        else:
-            cell = parts[index].strip()
-            mach, _, remi = cell.partition(b", REmi:")
-            mach = mach.replace(b"MACH:", b"", 1)
-            parts[index : index + 1] = [b" " + remi + b"   ", b" " + mach + b"  "]
-        rebuilt.append(b"|".join(parts) + terminator)
-    return b"".join(rebuilt)
 
 
 # --- two sweeps in one row (PFS-2025.17.01) --------------------------------

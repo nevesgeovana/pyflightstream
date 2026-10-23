@@ -199,19 +199,3 @@ def test_g61_a_probe_sampled_field_becomes_the_custom_inflow_of_another_run(tmp_
 REPO = Path(__file__).resolve().parents[2]
 #: The pages 0.29.0 added (``git diff --name-status v0.28.0`` on docs/), each
 #: with the worked example it teaches from, where it has one.
-PAGES_029 = {
-    "boundary-conditions.md": "base_region_setup",
-    "boundary-layer-products.md": "boundary_layer_sections",
-    "cad-inputs.md": "cad_import",
-    "continuation-recovery.md": "continuation_frame_recovery",
-    "custom-field-units.md": "prepare_custom_field",
-    "excel-matrices.md": "excel_matrix_sync",
-    "fsi-workspace.md": "workspace_fsi_calibration",
-    "geometry-units-and-starts.md": None,
-    "upgrading.md": None,
-    "sampled-fields.md": "sampled_field_export",
-    "setup-standards.md": None,
-    "simulation-geometry-controls.md": None,
-    "surface-translation.md": "surface_with_native_strength",
-    "unsteady-postprocessing.md": None,
-}

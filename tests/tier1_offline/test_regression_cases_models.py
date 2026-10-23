@@ -150,24 +150,6 @@ class TestCasesCorrections:
         assert read.source_run_id == "run\t1"
 
 
-_CASES_LOAD_CAMPAIGN__CAMPAIGN_TOML = """
-[campaign]
-name = "wing_steady_sweep"
-fs_version = "26.120"
-fs_exe = 'C:/FlightStream/FlightStream.exe'
-
-[[sim]]
-sim_id = "9001"
-aircraft = "TestWing"
-description = "steady polar"
-reynolds = 4.38e6
-mach = 0.1441
-sweep = {type = "alpha", values = [0.0, 2.0]}
-recipe = "recipes.steady_polar:build"
-outputs = ["loads_{point}.txt"]
-"""
-
-
 #: The header of v0.15.0 to v0.16.0, as those releases wrote it.
 _CASES_MATRIX__LAYOUT_0_15_0 = (
     "POL | AIRCRAFT | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | REF | SET | PPROC "
