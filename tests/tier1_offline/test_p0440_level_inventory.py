@@ -49,6 +49,13 @@ def test_the_levels_boundaries_file_states_the_levels_faces_and_sha256(tmp_path)
     assert got["mesh_sha256"] == hashlib.sha256(level.obj.read_bytes()).hexdigest()
     assert got["mesh_sha256"] != source["mesh_sha256"]
     assert got["boundary_faces"] != source["boundary_faces"]
+    # The header comment names the OBJ's sha256 too: the level's, and the source's nowhere.
+    header = "# the OBJ's sha256 was "
+    assert f"{header}{source['mesh_sha256']}" in src.with_name("wing.boundaries.toml").read_text(
+        encoding="utf-8"
+    )
+    text = (level.folder / f"{level.folder.name}.boundaries.toml").read_text(encoding="utf-8")
+    assert f"{header}{got['mesh_sha256']}" in text and source["mesh_sha256"] not in text
     plain = write_source(tmp_path / "plain" / "src", "wing", mesh, refine_toml=toml)
     level = refine_mesh(plain, 2.0, families=["G", "T"])
     assert not any(key in _boundaries(level.folder) for key in KEYS)

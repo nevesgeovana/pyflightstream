@@ -542,7 +542,10 @@ def level_inventory(side: Path, text: str, obj: Path) -> str:
     (``boundary_faces`` in the level's ``boundaries`` order, after any
     ``[components]`` merge) and its sha256 of those bytes. A file stating none
     is returned as it is. Each value is rewritten in place
-    (:func:`rewrite_value`), every other byte kept.
+    (:func:`rewrite_value`), every other byte kept. The source's sha256 is
+    cited nowhere in the level's file: the header comment the package writes
+    with an inventory ("the OBJ's sha256 was ..."), and any other place the
+    source's digest appears, names the level OBJ's.
 
     Raises
     ------
@@ -551,9 +554,26 @@ def level_inventory(side: Path, text: str, obj: Path) -> str:
         not hold; nothing was written.
     """
     data = tomllib.loads(text)
+    sha = file_sha256(obj)
+    cited = {m.group(1) for m in _SOURCE_SHA.finditer(text)}
+    if isinstance(data.get(MESH_SHA256_KEY), str):
+        cited.add(data[MESH_SHA256_KEY])
     keys = [k for k in (MESH_FACES_KEY, BOUNDARY_FACES_KEY, MESH_SHA256_KEY) if k in data]
-    if not keys:
-        return text
+    if keys:
+        text = _counted_inventory(side, text, obj, data, keys, sha)
+    for old in sorted(cited - {sha}):
+        text = text.replace(old, sha)
+    return text
+
+
+#: The header line the package writes with an OBJ's inventory, naming the OBJ's sha256.
+_SOURCE_SHA = re.compile(r"(?m)^# the OBJ's sha256 was ([0-9a-f]{64})")
+
+
+def _counted_inventory(
+    side: Path, text: str, obj: Path, data: dict[str, Any], keys: list[str], sha: str
+) -> str:
+    """Return the file with each inventory key the source states rewritten to the level's."""
     held: dict[str, int] = {}
     for name, faces in zip(obj_boundary_names(obj), obj_face_counts(obj), strict=True):
         held[name] = held.get(name, 0) + faces
@@ -564,7 +584,7 @@ def level_inventory(side: Path, text: str, obj: Path) -> str:
     values: dict[str, object] = {
         MESH_FACES_KEY: sum(held.values()),
         BOUNDARY_FACES_KEY: [held[n] for n in listed],
-        MESH_SHA256_KEY: file_sha256(obj),
+        MESH_SHA256_KEY: sha,
     }
     for key in keys:
         wanted = {**data, key: values[key]}
