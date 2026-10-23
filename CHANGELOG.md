@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Missing section frames are named as missing layout metadata in reduced-frequency
+  diagnostics instead of being described as frame `None` (RB3-07).
 - The boundaries file of a refined level states the level's own `mesh_faces`, `boundary_faces`
   and `mesh_sha256`, counted in and taken from the level's OBJ (after any `[components]` merge),
   where it copied the source's, and its header comment names the level OBJ's sha256; the source's
