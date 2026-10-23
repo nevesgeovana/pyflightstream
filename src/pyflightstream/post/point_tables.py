@@ -609,8 +609,8 @@ def write_probes_table(
     are measured in, so a reader could place the numbers only by knowing
     the artifact. The export's own coordinates are kept, because they are
     the solver's answer about the point it sampled. The export is labeled
-    REFERENCE by the 0.40.0 design; recorded positions cannot relabel it.
-    A per-export placement probe is still owed in 0.45.0 (licensed).
+    REFERENCE; recorded positions cannot relabel it. A licensed per-export
+    placement probe remains pending.
 
     Parameters
     ----------
