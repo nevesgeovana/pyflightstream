@@ -12,8 +12,10 @@ The order, from the source to the level folder:
 2. recover the grid of every family asked to change (a sheet, a tube, or a
    multiblock grid of quadrilaterals, :mod:`._blocks`) and decide its
    method, refusing before any work (FR-923 to FR-925);
-3. refine the grid families first, in the source's family order; a grid that
-   shares nodes with a grid refined before it is remeshed (FR-932);
+3. refine the grid families first, in the source's family order; grids that
+   share nodes are resampled as one layout, so both hold the same nodes on
+   every curve they share, and a grid that cannot join one is remeshed when
+   it shares nodes with a grid refined before it (FR-932, :mod:`._layout`);
 4. hand each neighbour the grid's new nodes on their shared curve: a remeshed
    neighbour is rebuilt on them (FR-933), an unchanged one is remeshed at
    factor 1 in a band of two face layers (FR-934), or whole when the band
@@ -53,7 +55,15 @@ from numpy.typing import NDArray
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
 from pyflightstream._lengths import scale as length_scale
-from pyflightstream.workspace._refine import _blocks, _config, _geometry, _grid, _obj, _periodic
+from pyflightstream.workspace._refine import (
+    _blocks,
+    _config,
+    _geometry,
+    _grid,
+    _layout,
+    _obj,
+    _periodic,
+)
 from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import FamilySpec, RefineRequest
 from pyflightstream.workspace._refine._geometry import NearestIndex, Stretch, order_like
@@ -127,8 +137,8 @@ class _Work:
     shared: dict[str, list[tuple[set[int], Points]]] = field(default_factory=dict)
     # FR-431: the unchanged neighbours a band would have covered whole, and their record
     rebuilt: dict[str, dict[str, Any]] = field(default_factory=dict)
-    # FR-915: per multiblock family, the patch sides its factor cannot coarsen, kept and reported
-    kept: dict[str, list[dict[str, object]]] = field(default_factory=dict)
+    # FR-932, FR-915: the layout of each multiblock family and of each grid resampled with others
+    layouts: dict[str, _layout.Layout] = field(default_factory=dict)
     # the progress line callback of refine_mesh; silent by default
     say: Callable[[str], None] = field(default=lambda _line: None)
     bands: dict[str, str] = field(default_factory=dict)
@@ -294,8 +304,6 @@ def _decide_family(work: _Work, name: str) -> None:
                 "is a multiblock grid",
             )
         _blocks.check_factor(found, name, spec)
-        where = f"{work.source} family {name}"
-        work.kept[name] = _blocks.keep_short_sides(found, work.mesh.verts, spec.factor, where)
     else:
         chordwise, spanwise = spec.directions
         keep = _first_rows(work, name, found) if spec.keep_first_row else (False, False)
@@ -510,7 +518,7 @@ def _planned_bands(work: _Work) -> list[str]:
     An unchanged neighbour gets a band when it shares a curve with a grid
     family whose nodes on that curve change, which the grid's counts tell
     without resampling it (:func:`._grid.curve_changes`,
-    :func:`._blocks.nodes_change`); its remesh needs the geometry extra like
+    :meth:`._layout.Layout.changes`); its remesh needs the geometry extra like
     any other (FR-924, FR-925).
     """
     planned: list[str] = []
@@ -525,8 +533,8 @@ def _planned_bands(work: _Work) -> list[str]:
             if not edges:
                 continue
             chordwise, spanwise = work.specs[grid_name].directions
-            if isinstance(grid, _blocks.Blocks):
-                changes = _blocks.nodes_change(grid, chordwise)
+            if grid_name in work.layouts or not isinstance(grid, _grid.Grid):
+                changes = work.layouts[grid_name].changes(grid_name)
             else:
                 changes = _grid.curve_changes(
                     grid,
@@ -542,20 +550,27 @@ def _planned_bands(work: _Work) -> list[str]:
 
 
 def _grid_after_grid(work: _Work) -> None:
-    """Remesh a grid that shares nodes with a grid refined first, or refuse it (FR-932)."""
-    done: list[str] = []
-    for name in [n for n in work.names if n in work.grids]:
-        first = [m for m in done if work.fam_v[name] & work.fam_v[m]]
-        if not first:
-            done.append(name)
-            continue
+    """Resample grids that share nodes as one layout; remesh or refuse one that cannot join.
+
+    (FR-932, :func:`._layout.plan`).
+    """
+    work.layouts, late = _layout.plan(
+        work.mesh.verts,
+        work.mesh.families,
+        work.grids,
+        work.specs,
+        work.te_edges,
+        held=set(work.keep_rows),
+        where=str(work.source),
+    )
+    for name, first, why in late:
         if work.specs[name].method == "grid":
             raise _refuse(
                 f"{work.source} family {name}",
-                f"method is grid and it shares nodes with {first[0]}, refined as a grid first",
+                f"method is grid and it shares nodes with {first}, refined as a grid first{why}",
             )
         del work.grids[name]
-        _remesh_or_keep(work, name, f"shares nodes with the grid {first[0]}")
+        _remesh_or_keep(work, name, f"shares nodes with the grid {first}{why}")
     work.remesh.sort(key=work.names.index)
 
 
@@ -661,13 +676,18 @@ def _no_stretched_cut(work: _Work) -> None:
 
 def _refine_grids(work: _Work) -> None:
     """Refine every grid family and record what its neighbours must take (FR-933, FR-934)."""
+    levels: dict[str, _grid.GridLevel] = {}
     for i, (name, grid) in enumerate(work.grids.items(), 1):
         chordwise, spanwise = work.specs[name].directions
         work.say(f"grid {i} of {len(work.grids)}: {name} ({grid.describe()})")
-        if isinstance(grid, _blocks.Blocks):
-            level = _blocks.refine_blocks(
-                work.mesh.verts, work.mesh.families[name], grid, factor=chordwise
-            )
+        layout = work.layouts.get(name)  # every multiblock family has one (FR-932)
+        mates = layout.names if layout is not None else (name,)
+        if layout is not None or not isinstance(grid, _grid.Grid):
+            if name not in levels:
+                levels.update(
+                    _layout.refine_layout(work.mesh.verts, work.mesh.families, work.layouts[name])
+                )
+            level = levels[name]
         else:
             level = _grid.refine_grid(
                 work.mesh.verts,
@@ -679,8 +699,8 @@ def _refine_grids(work: _Work) -> None:
                 keep=work.keep_rows.get(name, (False, False)),
             )
         info: dict[str, Any] = dict(level.report, method="grid", reason=grid.describe())
-        if isinstance(grid, _blocks.Blocks):
-            info["kept_sides"] = work.kept.get(name, [])
+        if layout is not None:
+            info["kept_sides"] = layout.kept[name]
         if name in work.te_source:
             info["trailing_edge"] = work.te_source[name]
         if name in work.te_detected:
@@ -692,7 +712,7 @@ def _refine_grids(work: _Work) -> None:
             )
         interfaces: dict[str, str] = {}
         for other in work.names:
-            old = work.fam_v[name] & work.fam_v[other] if other != name else set()
+            old = work.fam_v[name] & work.fam_v[other] if other not in mates else set()
             new = _interface_points(work, name, old, level) if old else None
             if new is None or _unchanged_curve(work, old, new):
                 continue
@@ -702,7 +722,9 @@ def _refine_grids(work: _Work) -> None:
         if interfaces:
             info["interfaces"] = interfaces
         work.report[name] = info
-        work.parts[name] = (level.points, {name: level.faces}, level.te_midpoints)
+        if name == mates[0]:  # a layout's families are one part, under its first family
+            fams = {n: levels[n].faces for n in mates} if layout else {name: level.faces}
+            work.parts[name] = (level.points, fams, level.te_midpoints)
 
 
 def _interface_points(
@@ -850,7 +872,12 @@ def _conform_cuts(work: _Work) -> None:
         work.cuts,
         work.request.periodic,
         remeshed={n: _cut_factor(work.specs[n]) for n in work.remesh},
-        grids={n: (pts, fams[n]) for n, (pts, fams, _) in work.parts.items() if n in work.grids},
+        grids={
+            m: (pts, fams[m])
+            for n, (pts, fams, _) in work.parts.items()
+            if n in work.grids
+            for m in fams
+        },
     )
     for name, entries in planned.items():
         work.conform.setdefault(name, []).extend(entries)

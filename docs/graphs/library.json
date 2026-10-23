@@ -1551,6 +1551,11 @@
       "path": "workspace/_refine/_grid.py"
     },
     {
+      "id": "pyflightstream.workspace._refine._layout",
+      "layer": 2,
+      "path": "workspace/_refine/_layout.py"
+    },
+    {
       "id": "pyflightstream.workspace._refine._level",
       "layer": 2,
       "path": "workspace/_refine/_level.py"
@@ -12613,6 +12618,36 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._refine._layout",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._layout",
+      "target": "pyflightstream.workspace._refine._blocks",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._layout",
+      "target": "pyflightstream.workspace._refine._config",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._layout",
+      "target": "pyflightstream.workspace._refine._geometry",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._layout",
+      "target": "pyflightstream.workspace._refine._grid",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._layout",
+      "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._refine._level",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -12650,6 +12685,11 @@
     {
       "source": "pyflightstream.workspace._refine._level",
       "target": "pyflightstream.workspace._refine._grid",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._level",
+      "target": "pyflightstream.workspace._refine._layout",
       "kind": "module"
     },
     {

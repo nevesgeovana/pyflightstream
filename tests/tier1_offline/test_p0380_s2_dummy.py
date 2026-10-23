@@ -3,8 +3,10 @@
 Every source is synthetic (tests/p0380_mesh_fixtures.py): the cambered sheet
 grid ``G``; ``T``, a strip of triangles (no grid) sharing G's tip station
 node for node; ``U``, a strip of triangles sharing T's last row only, so it
-touches T and never G; and for FR-932 ``G2``, a second grid of quadrilaterals
-sharing G's tip station. Each behaviour is also run with the step it rests on
+touches T and never G; and for FR-932 ``G2``, a second grid sharing G's tip
+station, of quadrilaterals (resampled with G as one layout, PFS-2151) or of
+split quadrilaterals (which joins no layout and falls back to the rule of
+the first grid). Each behaviour is also run with the step it rests on
 taken away or on a planted input, so a check that accepts everything cannot
 pass.
 """
@@ -75,14 +77,56 @@ def _refused(tmp_path: Path, src: Path, capsys, *args, **kwargs) -> str:
 
 # --------------------------------------------------------- FR-932 grids first
 
+#: G2 as a sheet of split quadrilaterals: a grid, but not one of quadrilaterals.
+GG_SPLIT = (("G2", "tri", (0.05, 0.05, 0.05)),)
 
-def test_r1_a_second_grid_sharing_nodes_is_remeshed_under_auto(tmp_path):
-    """P0380-DUMMY (FR-932): G is refined as a grid first, G2 sharing its nodes is remeshed.
 
-    Controls: G2 alone is refined as a grid (it is one), and with G2 written
-    first in the source it is G that is remeshed, naming G2.
+def _split_source(tmp_path: Path, *, refine_toml=None, first=None) -> Path:
+    """Write the source whose G2 is a sheet of split quadrilaterals with its trailing edge."""
+    mesh = sheet_with_strips(GG_SPLIT)
+    column = [row[0] for row in mesh.rows["G2"]]
+    mesh.te = np.vstack([mesh.te, 0.5 * (mesh.verts[column[:-1]] + mesh.verts[column[1:]])])
+    if first is not None:
+        mesh.families = {first: mesh.families[first]} | {
+            n: f for n, f in mesh.families.items() if n != first
+        }
+    return write_source(tmp_path / "src", "wing", mesh, refine_toml=refine_toml)
+
+
+def test_r1_two_grids_of_quadrilaterals_sharing_nodes_are_both_grids(tmp_path):
+    """P0380-DUMMY (FR-932, PFS-2151): G and G2, quadrilateral sheets sharing G's tip, stay grids.
+
+    CHANGED IN 0.44.0 (PFS-2151, owner decision of 2026-10-22): this test replaced
+    the FR-932 rule it checked before, that G2 sharing G's nodes is remeshed. Grids
+    of quadrilaterals that share nodes are now resampled as one layout: both are
+    grids, each names the other under ``grouped_with``, and their shared station
+    holds the same 37 nodes from both sides. Control: G2 alone is a grid with no
+    ``grouped_with``.
     """
     src = _source(tmp_path, GG)
+    level = refine_mesh(src, 2.0)
+    report = level.report
+    assert (report["G"]["method"], report["G2"]["method"]) == ("grid", "grid")
+    assert (report["G"]["grouped_with"], report["G2"]["grouped_with"]) == (["G2"], ["G"])
+    lv, lf = read_mesh(level.obj)
+    assert len(_tip_nodes(lv, lf["G"])) == 37 and _nodes(lf["G"]) & _nodes(lf["G2"]) == (
+        _tip_nodes(lv, lf["G"])
+    )
+    assert all(g.passed for g in level.audit.gates), [g.verdict for g in level.audit.gates]
+    alone = refine_mesh(src, 2.0, families=["G2"]).report
+    assert alone["G2"]["method"] == "grid" and "grouped_with" not in alone["G2"]
+
+
+def test_r1_a_grid_that_cannot_join_the_layout_is_remeshed_under_auto(tmp_path):
+    """P0380-DUMMY (FR-932): a grid of split quadrilaterals sharing G's nodes is remeshed.
+
+    The fallback of PFS-2151: G2, a sheet of split quadrilaterals, joins no
+    layout, so the first grid in the source's family order is a grid and the
+    later one is remeshed, as before 0.44.0. Controls: G2 alone is refined as a
+    grid (it is one), and with G2 written first in the source it is G that is
+    remeshed, naming G2.
+    """
+    src = _split_source(tmp_path)
     report = refine_mesh(src, 2.0).report
     assert report["G"]["method"] == "grid"
     assert (report["G2"]["method"], report["G2"]["reason"]) == (
@@ -91,23 +135,28 @@ def test_r1_a_second_grid_sharing_nodes_is_remeshed_under_auto(tmp_path):
     )
     alone = refine_mesh(src, 2.0, families=["G2"]).report
     assert alone["G2"]["method"] == "grid" and alone["G"]["method"] == "unchanged"
-    swapped = refine_mesh(_source(tmp_path / "swapped", GG, first="G2"), 2.0).report
+    swapped = refine_mesh(_split_source(tmp_path / "swapped", first="G2"), 2.0).report
     assert swapped["G2"]["method"] == "grid"
     assert swapped["G"]["reason"] == "shares nodes with the grid G2"
 
 
 def test_r1_method_grid_on_the_second_grid_is_refused_naming_both(tmp_path, capsys):
-    """P0380-DUMMY (FR-932; FR-925): ``grid`` on G2 is refused naming G2 and G.
+    """P0380-DUMMY (FR-932; FR-925): ``grid`` on a G2 that cannot join G's layout is refused.
 
-    Control: ``grid`` on G2 with G not refined is accepted.
+    CHANGED IN 0.44.0 (PFS-2151): G2 is now a sheet of split quadrilaterals,
+    which joins no layout; a quadrilateral G2 is resampled with G and accepted
+    under ``grid``, which is the first control. Second control: ``grid`` on the
+    split G2 with G not refined is accepted.
     """
     toml = '[families.G]\nfactor = 2\n\n[families.G2]\nfactor = 2\nmethod = "grid"\n'
-    src = _source(tmp_path, GG, refine_toml=toml)
+    src = _split_source(tmp_path, refine_toml=toml)
     text = _refused(tmp_path, src, capsys)
     assert text == (
         f"{src} family G2: method is grid and it shares nodes with G, refined as a grid first. "
         "Nothing was written."
     )
+    quads = _source(tmp_path / "quads", GG, refine_toml=toml)
+    assert refine_mesh(quads, out_dir=tmp_path / "q").report["G2"]["method"] == "grid"
     src.with_name("wing.refine.toml").write_bytes(b'[families.G2]\nfactor = 2\nmethod = "grid"\n')
     assert refine_mesh(src).report["G2"]["method"] == "grid"
 

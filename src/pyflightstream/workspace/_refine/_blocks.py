@@ -50,7 +50,7 @@ from dataclasses import dataclass
 import numpy
 from numpy.typing import NDArray
 
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
+from pyflightstream._errors import InputArtifactError
 from pyflightstream.workspace._refine._config import FamilySpec
 from pyflightstream.workspace._refine._geometry import (
     RIDGE_DEGREES,
@@ -219,11 +219,37 @@ def _seeds(verts: Points, topo: _Topology, te: frozenset[int]) -> list[tuple[int
     return seeds
 
 
-def _recover(verts: Points, faces: Faces, te: frozenset[int]) -> Blocks:
+def recover_joined(
+    verts: Points, faces: Faces, te_vertices: Collection[int], joins: Collection[Edge]
+) -> Blocks | str:
+    """Recover the multiblock grid of several families' quadrilaterals taken as one (FR-932).
+
+    ``joins`` are the edges where two of the families meet: they are cut, and
+    the grid line through each is traced on in both directions like a
+    separatrix, so every patch lies inside one family and every curve two
+    families share is the side of a patch. Returns the reason, as text, when
+    no such layout exists.
+    """
+    if any(len(f) != 4 for f in faces):
+        return "a face is not a quadrilateral"
+    try:
+        return _recover(
+            numpy.asarray(verts, dtype=float), faces, frozenset(te_vertices), frozenset(joins)
+        )
+    except _OnePatchError:
+        return "the faces form one patch"
+    except _NoLayoutError as why:
+        return str(why)
+
+
+def _recover(
+    verts: Points, faces: Faces, te: frozenset[int], joins: frozenset[Edge] = frozenset()
+) -> Blocks:
     """Return the multiblock grid of a family of quadrilaterals or raise why it has none."""
     topo = _Topology.of(faces)
-    cut = {e for e, fs in topo.emap.items() if len(fs) == 1}
-    for a, b in _seeds(verts, topo, te):
+    cut = {e for e, fs in topo.emap.items() if len(fs) == 1} | joins
+    seeds = _seeds(verts, topo, te) + [s for a, b in sorted(joins) for s in ((a, b), (b, a))]
+    for a, b in seeds:
         cut.update(topo.trace(a, b))
     groups = _patches(topo, cut)
     if len(groups) < 2:
@@ -369,7 +395,7 @@ def check_factor(blocks: Blocks, family: str, spec: FamilySpec) -> None:
     """Refuse chordwise or spanwise on a multiblock family.
 
     A factor below 1/m for the m source intervals of a patch side is not
-    refused: that side keeps ``max(1, round(f m))`` intervals (:func:`_count`),
+    refused: that side keeps ``max(1, round(f m))`` intervals (:func:`count`),
     its source count for a one-interval side, and :func:`kept_sides` names it
     (FR-915).
 
@@ -397,25 +423,31 @@ def check_factor(blocks: Blocks, family: str, spec: FamilySpec) -> None:
 
 
 def kept_sides(
-    blocks: Blocks, verts: NDArray[numpy.float64], factor: float
+    blocks: Blocks,
+    verts: NDArray[numpy.float64],
+    factor: float | Mapping[int, float],
+    *,
+    patches: Sequence[int] | None = None,
 ) -> list[dict[str, object]]:
     """Return the patch sides a factor below 1/m cannot coarsen, with where they lie.
 
     A side of m source intervals with ``factor * m < 1`` keeps
     ``max(1, round(factor * m))`` intervals rather than refusing the family,
     so the rest of the family is resampled as asked (FR-915). Each entry names
-    the patch (1-based, as the layout numbers it), the side, both counts, and
+    the patch (1-based, in the order of ``patches``), the side, both counts, and
     the patch's centroid and bounding box in the mesh's units (three
     significant figures), so the side can be found in a viewer.
 
     Parameters
     ----------
     blocks : Blocks
-        The family's recovered multiblock grid.
+        The recovered multiblock grid.
     verts : numpy.ndarray
         The source vertices, shape (n, 3).
-    factor : float
-        The family's factor.
+    factor : float or mapping of int to float
+        The family's factor, or the factor of each arc of its patches.
+    patches : sequence of int, optional
+        The family's patches (default: every patch of the layout).
 
     Returns
     -------
@@ -427,17 +459,19 @@ def kept_sides(
         return [float(f"{v:.3g}") for v in values]
 
     kept: list[dict[str, object]] = []
-    for p, sides in enumerate(blocks.sides):
+    mine = range(len(blocks.patches)) if patches is None else patches
+    for n, p in enumerate(mine, 1):
         pts = verts[blocks.patches[p].ravel()]
-        for side, (arc, _) in zip(SIDES, sides, strict=True):
+        for side, (arc, _) in zip(SIDES, blocks.sides[p], strict=True):
             m = len(blocks.arcs[arc]) - 1
-            if factor * m < 1.0:
+            f = factor[arc] if isinstance(factor, Mapping) else factor
+            if f * m < 1.0:
                 kept.append(
                     {
-                        "patch": p + 1,
+                        "patch": n,
                         "side": side,
                         "source_intervals": m,
-                        "intervals": _count(m, factor),
+                        "intervals": count(m, f),
                         "centroid": _sig(pts.mean(axis=0)),
                         "bbox_min": _sig(pts.min(axis=0)),
                         "bbox_max": _sig(pts.max(axis=0)),
@@ -446,44 +480,24 @@ def kept_sides(
     return kept
 
 
-def keep_short_sides(
-    blocks: Blocks, verts: NDArray[numpy.float64], factor: float, where: str
-) -> list[dict[str, object]]:
-    """Return :func:`kept_sides` and warn once naming each kept side and where it lies (FR-915).
-
-    ``where`` is the source and family, for the message.
-    """
-    kept = kept_sides(blocks, verts, factor)
-    if kept:
-        lines = "; ".join(
-            f"patch {k['patch']} {k['side']}: {k['source_intervals']} source interval(s), "
-            f"{k['intervals']} written, centroid {k['centroid']}, "
-            f"box {k['bbox_min']} to {k['bbox_max']}"
-            for k in kept
-        )
-        warn(
-            f"{where}: the factor {factor:g} cannot coarsen {len(kept)} patch side(s) of "
-            f"{blocks.describe()}; they are kept and the rest of the family is resampled: "
-            f"{lines}",
-            PyflightstreamWarning,
-            stacklevel=5,  # past _decide_family, _decide and refine_mesh, the user
-        )
-    return kept
-
-
-def _count(m: int, factor: float) -> int:
+def count(m: int, factor: float) -> int:
     """Return round(f m), at least one interval."""
     return max(1, round(m * factor))
 
 
-def nodes_change(blocks: Blocks, factor: float) -> bool:
-    """Return whether resampling by ``factor`` would change the nodes of any patch side.
+def sheet_directions(grid: Grid, blocks: Blocks, arcs: Collection[int]) -> dict[int, str]:
+    """Return ``"chordwise"`` or ``"spanwise"`` for each arc lying in a sheet grid.
 
-    Read from the counts alone, before any family is resampled (FR-424
-    FR-925): a side keeps its nodes when its count is the source's. Any side
-    changing is taken to change every curve the family shares.
+    A sheet keeps its index directions when it is resampled with other grids
+    (FR-932): an arc along one of its stations is chordwise, one along a
+    column spanwise, as :func:`._grid.refine_grid` reads them.
     """
-    return any(_count(len(arc) - 1, factor) != len(arc) - 1 for arc in blocks.arcs)
+    place = {int(v): (k, i) for (k, i), v in numpy.ndenumerate(grid.ids)}
+    out = {}
+    for arc in arcs:
+        a, b = (place[v] for v in blocks.arcs[arc][:2])
+        out[arc] = "chordwise" if a[0] == b[0] else "spanwise"
+    return out
 
 
 # ------------------------------------------------------------- the resampling
@@ -511,13 +525,16 @@ def _patch_nodes(
     arcs: list[Points],
     nodes: _Nodes,
     *,
-    factor: float,
+    counts: Sequence[int],
 ) -> NDArray[numpy.int64]:
-    """Return the level's node index of every point of a patch's new grid."""
+    """Return the level's node index of every point of a patch's new grid.
+
+    Its columns are its first row's arc's count, its rows its first column's.
+    """
     ids = blocks.patches[p]
     rows, cols = ids.shape[0] - 1, ids.shape[1] - 1
-    s = numpy.linspace(0, cols, _count(cols, factor) + 1)
-    t = numpy.linspace(0, rows, _count(rows, factor) + 1)
+    s = numpy.linspace(0, cols, counts[blocks.sides[p][0][0]] + 1)
+    t = numpy.linspace(0, rows, counts[blocks.sides[p][2][0]] + 1)
     across = not_a_knot(verts[ids].transpose(1, 0, 2), s).transpose(1, 0, 2)
     inside = not_a_knot(across, t)
     kp, cp = inside.shape[:2]
@@ -561,6 +578,81 @@ def _forward(quad: Sequence[int], a: int, b: int) -> bool:
     return quad[(i + 1) % len(quad)] == b
 
 
+@dataclass(frozen=True, eq=False)
+class Resampled:
+    """A layout resampled: the new nodes, each patch's new faces and shapes, the trailing edge.
+
+    Attributes
+    ----------
+    points : numpy.ndarray
+        The new nodes, shape (P, 3), each arc's made once.
+    cells : tuple of list of list of int
+        Per patch, its new faces, oriented like its source faces.
+    shapes : tuple of tuple
+        Per patch, its node array's shape before and after.
+    te_midpoints : numpy.ndarray
+        One mid-point per new trailing-edge edge, shape (T, 3).
+    """
+
+    points: Points
+    cells: tuple[Faces, ...]
+    shapes: tuple[tuple[tuple[int, ...], tuple[int, ...]], ...]
+    te_midpoints: Points
+
+
+def resample(verts: Points, faces: Faces, blocks: Blocks, counts: Sequence[int]) -> Resampled:
+    """Resample every arc of a layout to its count, then every patch inside its arcs (FR-920).
+
+    ``counts`` holds each arc's new interval count; opposite sides of a patch
+    must hold the same. ``faces`` are the faces the layout was recovered on.
+    """
+    verts = numpy.asarray(verts, dtype=float)
+    arcs = [
+        not_a_knot(verts[list(arc)], numpy.linspace(0, len(arc) - 1, counts[n] + 1))
+        for n, arc in enumerate(blocks.arcs)
+    ]
+    nodes = _Nodes()
+    cells: list[Faces] = []
+    shapes = []
+    for p, ids in enumerate(blocks.patches):
+        grid = _patch_nodes(verts, blocks, p, arcs, nodes, counts=counts)
+        same = _forward(faces[int(blocks.cells[p][0, 0])], int(ids[0, 0]), int(ids[0, 1]))
+        built: Faces = []
+        for r in range(grid.shape[0] - 1):
+            for c in range(grid.shape[1] - 1):
+                quad = [
+                    int(grid[r, c]),
+                    int(grid[r, c + 1]),
+                    int(grid[r + 1, c + 1]),
+                    int(grid[r + 1, c]),
+                ]
+                built.append(quad if same else [quad[0], quad[3], quad[2], quad[1]])
+        cells.append(built)
+        shapes.append((tuple(ids.shape), tuple(grid.shape)))
+    points = numpy.array(nodes.points, dtype=float).reshape(-1, 3)
+    te = [0.5 * (arcs[a][:-1] + arcs[a][1:]) for a in sorted(blocks.te_arcs)]
+    midpoints = numpy.vstack(te) if te else numpy.zeros((0, 3))
+    return Resampled(points, tuple(cells), tuple(shapes), midpoints)
+
+
+def report(
+    blocks: Blocks, done: Resampled, patches: Sequence[int], faces: tuple[int, int]
+) -> dict[str, object]:
+    """Return the ``refine.json`` entry of the family holding ``patches`` of a resampled layout."""
+    shapes = [done.shapes[p] for p in patches]
+    return {
+        "layout": "multiblock",
+        "split": "quadrilaterals",
+        "patches": len(patches),
+        "blocks": [
+            {"rows": [a[0] - 1, b[0] - 1], "columns": [a[1] - 1, b[1] - 1]} for a, b in shapes
+        ],
+        "arcs": len({arc for p in patches for arc, _ in blocks.sides[p]}),
+        "faces": list(faces),
+        "order": "nearest",
+    }
+
+
 def refine_blocks(verts: Points, faces: Faces, blocks: Blocks, *, factor: float) -> GridLevel:
     """Resample a multiblock family by its factor (FR-920, FR-921).
 
@@ -580,42 +672,8 @@ def refine_blocks(verts: Points, faces: Faces, blocks: Blocks, *, factor: float)
     GridLevel
         The new points, faces, trailing-edge mid-points and report.
     """
-    verts = numpy.asarray(verts, dtype=float)
-    arcs = [
-        not_a_knot(
-            verts[list(arc)], numpy.linspace(0, len(arc) - 1, _count(len(arc) - 1, factor) + 1)
-        )
-        for arc in blocks.arcs
-    ]
-    nodes = _Nodes()
-    built: Faces = []
-    shapes = []
-    for p, ids in enumerate(blocks.patches):
-        grid = _patch_nodes(verts, blocks, p, arcs, nodes, factor=factor)
-        same = _forward(faces[int(blocks.cells[p][0, 0])], int(ids[0, 0]), int(ids[0, 1]))
-        for r in range(grid.shape[0] - 1):
-            for c in range(grid.shape[1] - 1):
-                quad = [
-                    int(grid[r, c]),
-                    int(grid[r, c + 1]),
-                    int(grid[r + 1, c + 1]),
-                    int(grid[r + 1, c]),
-                ]
-                built.append(quad if same else [quad[0], quad[3], quad[2], quad[1]])
-        shapes.append((ids.shape, grid.shape))
-    points = numpy.array(nodes.points, dtype=float).reshape(-1, 3)
-    ordered = order_like(points, built, verts, faces)
-    te = [0.5 * (arcs[a][:-1] + arcs[a][1:]) for a in sorted(blocks.te_arcs)]
-    report = {
-        "layout": "multiblock",
-        "split": "quadrilaterals",
-        "patches": len(blocks.patches),
-        "blocks": [
-            {"rows": [a[0] - 1, b[0] - 1], "columns": [a[1] - 1, b[1] - 1]} for a, b in shapes
-        ],
-        "arcs": len(blocks.arcs),
-        "faces": [len(faces), len(ordered)],
-        "order": "nearest",
-    }
-    midpoints = numpy.vstack(te) if te else numpy.zeros((0, 3))
-    return GridLevel(points, ordered, midpoints, report)
+    done = resample(verts, faces, blocks, [count(len(arc) - 1, factor) for arc in blocks.arcs])
+    built = [f for cell in done.cells for f in cell]
+    ordered = order_like(done.points, built, numpy.asarray(verts, dtype=float), faces)
+    entry = report(blocks, done, range(len(blocks.patches)), (len(faces), len(ordered)))
+    return GridLevel(done.points, ordered, done.te_midpoints, entry)
