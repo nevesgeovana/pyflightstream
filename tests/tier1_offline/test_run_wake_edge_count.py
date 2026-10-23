@@ -37,6 +37,47 @@ from pyflightstream.workspace.record_document import read_rows as _read_record_r
 #: the case the solver's line was read on: 16 imported for boundary Wing.
 MIDPOINTS = [(1.0, -3.75 + 0.5 * k, 0.0) for k in range(16)]
 
+
+def test_p0440_recipe_without_workflow_has_no_reduction_windows():
+    """PFS-2124.020: a custom recipe keeps the pre-wave-1 reduction contract."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import reduction_windows
+
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        recipe="wake",
+        sweep=SweepAxis(type="alpha", values=[2.0]),
+    )
+    try:
+        actual = reduction_windows(case)
+    except CampaignConfigError as error:
+        actual = str(error)
+    assert actual is None
+
+
+def test_p0440_registered_workflow_still_selects_reduction_windows():
+    """A WORKFLOW-only case uses the same windows as its registered recipe."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import reduction_windows
+
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        recipe="unsteady",
+        sweep=SweepAxis(type="alpha", values=[2.0]),
+        variables={"DELTA_TIME": "0.01", "TIME_ITERATIONS": "10", "LAST_ITERS_AVG": "4"},
+    )
+    selected = case.model_copy(
+        update={"recipe": None, "variables": {**case.variables, "matrix_workflow": "unsteady"}}
+    )
+    assert reduction_windows(selected) == reduction_windows(case)
+    assert reduction_windows(selected)["time_average"]["windows"] == [[7, 10]]
+    conflict = selected.model_copy(update={"recipe": "steady"})
+    with pytest.raises(CampaignConfigError, match="disagree"):
+        reduction_windows(conflict)
+
+
 #: What 26.124 wrote around the import line in the log of that run: lines end in
 #: CR LF and a NUL sits alone on a line between them.
 LOG_AROUND = (

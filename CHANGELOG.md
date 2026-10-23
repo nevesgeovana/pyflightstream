@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Custom recipes without a registered workflow again record no reduction windows
+  (PFS-2124.020). Registered run types retain consistent workflow selection.
 - Far-field products refuse steady probe velocities from non-metre simulations
   by name until their velocity units have measured conversion evidence (F-122).
 - Far-field mass, symmetry, and energy ledger columns retain six significant

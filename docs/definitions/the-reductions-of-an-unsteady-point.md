@@ -1,5 +1,9 @@
 ## The reductions of an unsteady point
 
+Custom recipes that name no registered workflow record no reduction windows.
+Registered workflows select reductions from their run type, including when only
+the workflow cell supplies that type; conflicting declarations are refused.
+
 For animation-frame reductions, `write_reduction` writes
 `field,probe,mean,first_step,last_step,n_frames`. The final three columns
 record the first and last source steps actually used and the number of
