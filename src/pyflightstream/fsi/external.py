@@ -28,7 +28,7 @@ import time
 from collections.abc import Iterable
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import one_file_key
@@ -158,6 +158,17 @@ class ExternalStructure(BaseModel):
                     "input or output is a bare name, with no path separator, drive or '..'"
                 )
         return value
+
+    @model_validator(mode="after")
+    def _separate_inputs_and_outputs(self) -> ExternalStructure:
+        """Refuse output aliases of an input before the step removes stale outputs."""
+        inputs = {one_file_key(name) for name in self.inputs}
+        overlap = [name for name in self.outputs if one_file_key(name) in inputs]
+        if overlap:
+            raise ValueError(
+                f"input/output collision: {overlap!r}; use distinct names for inputs and outputs"
+            )
+        return self
 
     def provenance(self) -> dict[str, object]:
         """Return the record's ``fsi-provenance.json`` content (FR-1095)."""

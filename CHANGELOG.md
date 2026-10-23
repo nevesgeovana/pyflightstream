@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- External FSI steps refuse input/output filename collisions before removing stale outputs
+  or running the program (RB4-21).
 - `delete-sims` refuses a non-object `products.json` with `StorageError` before deletion
   and names the manifest and recovery route (RB5-43).
 - Query problem filters retain failed outcomes recorded as a list (RB5-35).
