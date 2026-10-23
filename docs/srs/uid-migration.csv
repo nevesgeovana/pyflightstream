@@ -47,8 +47,8 @@ FR-29,kept,,FR-2232 FR-2233 FR-2234,docs/unpublished/requirements/wksp.md
 FR-29a,merged,FR-1208,FR-1208,docs/unpublished/requirements/wksp.md
 FR-30,kept,,FR-1404,docs/unpublished/requirements/proc.md
 FR-31,kept,,,docs/unpublished/requirements/recs.md
-FR-32,kept,,FR-3259 FR-3260,docs/unpublished/requirements/dred.md
-FR-3259,l3,FR-32,,tests/requirements_l3.csv
+FR-32,kept,,FR-3261 FR-3260,docs/unpublished/requirements/dred.md
+FR-3261,l3,FR-32,,tests/requirements_l3.csv
 FR-3260,l3,FR-32,,tests/requirements_l3.csv
 FR-33,merged,FR-1219,,docs/unpublished/requirements/wksp.md
 FR-34,kept,,FR-1313,docs/unpublished/requirements/dexp.md

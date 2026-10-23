@@ -66,7 +66,7 @@ def test_p0440_tables_are_numpy_columns_with_optional_dataframe_parity(tmp_path)
     assert row.to_dict("records")[0]["alpha"] == 2.0
 
 
-@pytest.mark.requirement("FR-3259")
+@pytest.mark.requirement("FR-3261")
 def test_p0440_tables_work_when_pandas_is_absent(monkeypatch, tmp_path):
     """P0440-PANDAS: only the explicit conversion requires the extra."""
     import sys
