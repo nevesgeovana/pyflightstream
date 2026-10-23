@@ -1,6 +1,8 @@
 ## The token for a value that does not exist
 
-Every product writes **`NA`**. Not a zero, and not a blank.
+Products write **`NA`**, except the fixed-width custom polar, whose numeric
+format writes missing values as **`nan`** in the column's own width.
+Neither format substitutes a zero or a blank.
 
 - **Not a zero**, because zero is a value a row can genuinely have -- an advance
   ratio at rest is exactly zero and is a measurement -- so a zero written for

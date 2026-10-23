@@ -10,6 +10,13 @@ from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 REPO = Path(__file__).resolve().parents[2]
 
 
+def test_p0440_missing_value_definition_names_the_fixed_width_exception():
+    text = (REPO / "docs/definitions/the-token-for-a-value-that-does-not-exist.md").read_text(
+        encoding="utf-8"
+    )
+    assert "except the fixed-width custom polar" in text and "`nan`" in text
+
+
 PAGE = WORKFLOW_DOCS
 
 
