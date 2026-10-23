@@ -709,6 +709,23 @@ def _gaps_rt_fsiext___external_case(tmp_path: Path, make=_gaps_rt_fsiext__steady
     return make().model_copy(update=update), structure
 
 
+def test_p0440_external_fsi_staged_provenance_is_portable(tmp_path):
+    payloads = []
+    for name in ("first", "second"):
+        case, structure = _gaps_rt_fsiext___external_case(tmp_path / name)
+        _, script = _gaps_rt_fsiext___lines(case)
+        payload = script.pending_input_files["fsi-provenance.json"]
+        payloads.append(payload)
+        recorded = json.loads(payload)
+        assert recorded["source"] == "f010.toml"
+        assert recorded["executable"] == "struct_wrapper.exe"
+        assert recorded["structural_nodes"] == "f010.nodes.txt"
+        assert recorded["source_sha256"] == structure.source_sha256
+        assert case.fsi_provenance["source"] == structure.source
+        assert Path(structure.source).is_absolute()
+    assert payloads[0] == payloads[1]
+
+
 def _gaps_rt_fsiext___steady_external():
     from pyflightstream.cases._fsi_external import EXTERNAL_NODES_FILE
 

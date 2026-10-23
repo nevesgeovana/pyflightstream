@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Added
 
+- Staged external FSI provenance records portable file names and content digests,
+  while live source validation retains original locations (X-F-1364).
+
 - Base-region follow-up operations accept the boundary name used by an earlier
   create or named declaration, resolving its region index at build time (PFS-2122.002).
 
