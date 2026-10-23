@@ -32,6 +32,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Excel preview documentation states that invalid directions preserve the prior
+  batch and older-version batches are refused without replacement (RB5-50).
+
 - The timestep-series reader documents its retained moving-point refusal and
   stationary-coordinate scope (RB5-30).
 

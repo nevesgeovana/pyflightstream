@@ -10,6 +10,14 @@ from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 REPO = Path(__file__).resolve().parents[2]
 
 
+def test_p0440_preview_contract_preserves_invalid_or_old_batches():
+    from pyflightstream.workspace.excel_bridge import _preview_records
+
+    assert "invalid direction preserves the previous batch" in _preview_records.__doc__
+    assert "older-version batch" in _preview_records.__doc__
+    assert "refused rather than replaced" in _preview_records.__doc__
+
+
 def test_p0440_series_contract_keeps_the_moving_grid_refusal():
     from pyflightstream.post.unsteady import read_timestep_series
 
