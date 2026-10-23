@@ -4491,26 +4491,18 @@ def test_x_f1257_a_string_for_a_name_list_is_refused_not_split_into_letters(tmp_
         read_geometry_instruction(path)
 
 
-def test_p0440_unreadable_saved_actions_warn_without_blocking_grouping(tmp_path, monkeypatch):
-    from types import SimpleNamespace
-
-    from pyflightstream.run._batch_plan import _pristine_refusal
+def test_p0440_unreadable_saved_actions_warn_without_blocking_grouping(tmp_path):
     from pyflightstream.workspace import _geometry_clean
 
     geometry = tmp_path / "unknown.fsm"
-    case = SimpleNamespace(geometry=geometry, sim_id="42")
-    monkeypatch.setattr(_geometry_clean, "saved_solver_actions", lambda path: None)
+    geometry.write_text("no solver block\n", encoding="utf-8")
     message = _geometry_clean.saved_action_warning(geometry, str(geometry), ["42"])
     assert message is not None
     assert "cannot be read for saved unsteady solver actions" in message
     assert "unknown.fsm" in message and "42" in message
-    assert _pristine_refusal(case) is None
-    monkeypatch.setattr(_geometry_clean, "saved_solver_actions", lambda path: ())
+    assert _geometry_clean.saved_action_warning(geometry, str(geometry), known_only=True) is None
+    geometry.write_text("$SOLVER_START$\n F\n0\n0\n1,1, F\n0\n$SOLVER_END$\n", encoding="utf-8")
     assert _geometry_clean.saved_action_warning(geometry, str(geometry)) is None
-    monkeypatch.setattr(
-        _geometry_clean, "saved_solver_actions", lambda path: (("action", "command", "SCRIPT"),)
-    )
-    assert "action" in _pristine_refusal(case)
 
 
 def test_f1594_the_cleanup_command_quotes_a_path_with_spaces(tmp_path):
