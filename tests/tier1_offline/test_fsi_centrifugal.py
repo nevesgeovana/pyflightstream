@@ -223,6 +223,10 @@ def test_southwell_refuses_a_non_finite_frequency():
 def test_p0440_rb4_17_readme_describes_flap_softening():
     from pathlib import Path
 
-    text = Path(centrifugal.__file__).with_name("README.md").read_text(encoding="utf-8")
+    # The source tree's README: the release job tests the installed wheel, which ships none.
+    readme = Path(__file__).resolve().parents[2] / "src/pyflightstream/fsi/README.md"
+    if not readme.exists():
+        pytest.skip("the fsi README is a source-tree file, absent beside these tests")
+    text = readme.read_text(encoding="utf-8")
     assert "adds a restoring term" not in text
     assert "adds a destabilizing term" in text
