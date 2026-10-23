@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- External FSI call records retain loads-file presence at call start even when the
+  structural program removes the file (RB4-23).
 - External FSI steps refuse input/output filename collisions before removing stale outputs
   or running the program (RB4-21).
 - `delete-sims` refuses a non-object `products.json` with `StorageError` before deletion

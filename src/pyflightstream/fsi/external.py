@@ -442,7 +442,7 @@ def external_step(directory: str | Path) -> int:
         "rows_written": rows,
         # X-F-0518. Said outright, never inferred from a missing key: a call
         # that found no loads file fails (F-776) and its record says why.
-        "loads_file_present": loads.is_file(),
+        "loads_file_present": LOADS_FILE in read,
         "verdict": verdict,
         "reason": reason or "",
     }
