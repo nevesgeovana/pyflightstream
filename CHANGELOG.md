@@ -32,6 +32,7 @@ FlightStream versions.
 
 ### Fixed
 
+- `apply_reanalysis` documents its build-registration and evidence-location refusals (RB4-24).
 - Read-only rebuild collection refuses grouped preparation and extraction completion
   through its write policy before they can change source files (PFS-2124.045).
 - Workflow decisions use the declared run type consistently, including reduction

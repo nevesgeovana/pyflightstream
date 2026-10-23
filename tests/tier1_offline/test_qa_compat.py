@@ -30,6 +30,15 @@ from pyflightstream.qa.compat import (
 )
 from pyflightstream.qa.errors import QaEvidenceError
 
+
+def test_p0440_reanalysis_documents_build_and_citation_refusals():
+    from pyflightstream.qa.compat import apply_reanalysis
+
+    raises = (apply_reanalysis.__doc__ or "").split("Raises", 1)[1]
+    assert "unregistered" in raises
+    assert "outside the repository" in raises
+
+
 # A chapter fixture with documented statuses, independent of the live
 # database files (which carry real promotions as evidence lands).
 CHAPTER_FIXTURE = """\
