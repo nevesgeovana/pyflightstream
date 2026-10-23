@@ -178,6 +178,14 @@ cutter waits for a licensed probe on each build (see **Evidence on the build**
 below): until one verifies it, `--apply` refuses and the preview shows the
 script.
 
+The QA catalog now includes `CAD_CREATE_AUTO_CROSS_SECTIONS`, dry-rendered on
+26.124 and 26.125. It imports the synthetic QA wing into CAD Create, asks for
+nine uniformly spaced full sections along Y, and reads the saved curve count:
+nine after the cutter, zero before it and zero in the unchanged control.
+Missing or malformed saved state is unobservable. This judge counts curves;
+it does not establish their geometric accuracy. The licensed probe remains
+deferred, and adding its specification does not lift the build's refusal.
+
 ### Trailing edges
 
 `[trailing_edges]` has the routes of a mesh's sidecar (`file`, `detect`,

@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Added
 
+- The QA catalog includes an offline-tested `CAD_CREATE_AUTO_CROSS_SECTIONS` probe for
+  26.124 and 26.125, checking nine saved curves against an empty before-state and control.
+  Licensed validation and the `remesh_from_sections` evidence gate remain pending (PFS-2157).
 - `pyfs-workspace geometry trailing-edge --from-nodes nodes.txt --out wing.te.txt`
   writes ordered neighbouring-node midpoints from an ANSA SET export without a mesh or solver.
   It preserves the coordinate unit and refuses malformed rows with their file and line (PFS-2156).
