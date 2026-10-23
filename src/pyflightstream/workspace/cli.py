@@ -155,11 +155,22 @@ def _add_fsi_commands(subparsers: Any) -> None:
     )
     study.add_argument("fsi_id", help="input code in inputs/fsi, without extension")
     study.add_argument(
-        "--rpm", nargs=3, type=float, required=True, metavar=("START", "STOP", "COUNT")
+        "--rpm",
+        nargs=3,
+        type=float,
+        required=True,
+        metavar=("START", "STOP", "COUNT"),
+        help="inclusive rotor-speed sweep in rev/min: START >= 0, STOP > START, integer COUNT >= 3",
     )
-    study.add_argument("--modes", type=int, default=6)
-    study.add_argument("--workspace", default=".")
-    study.add_argument("--overwrite", action="store_true")
+    study.add_argument(
+        "--modes", type=int, default=6, help="number of lowest modes per speed (default: 6)"
+    )
+    study.add_argument(
+        "--workspace", default=".", help="workspace root (default: current directory)"
+    )
+    study.add_argument(
+        "--overwrite", action="store_true", help="replace existing post/fsi/<fsi id> products"
+    )
 
 
 def _cmd_fsi(args: argparse.Namespace) -> int:

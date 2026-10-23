@@ -1202,3 +1202,14 @@ def test_p0420_the_file_route_writes_points_and_tolerance_in_the_simulation_unit
     (parked,) = script.pending_input_files.values()
     first = [float(v) for v in parked.splitlines()[2].split(",")]
     assert first == pytest.approx([1.0 * factor, -3.75 * factor, 0.0])
+
+
+def test_p0440_ad_f3_a_refused_files_entry_is_named_by_its_number(tmp_path):
+    """AD-F3: a malformed entry in a files list is refused naming its position and keys."""
+    tables = (
+        '[trailing_edges]\nfiles = [{file="wing.te.txt", type="STANDARD"}, '
+        '{file="junction.te.txt"}]\n'
+    )
+    workspace = _library(tmp_path, tables)
+    with pytest.raises((ValueError, InputArtifactError), match="files entry 2 has"):
+        _case(tmp_path, workspace)

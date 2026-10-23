@@ -181,8 +181,9 @@ for older, expected in (("25.000", CommandNotInVersionError), ("26.000", Command
 #   uniquely named export per point, so no point overwrites another's
 #   evidence).
 # - `sweep_table` then reads the manifest back and joins each record
-#   with its parsed coefficient table: the whole polar as one tidy
-#   DataFrame, one row per run, and the csv is one `to_csv` away.
+#   with its parsed coefficient table: the whole polar as one Table of
+#   named NumPy columns, one row per run; the csv is one `to_csv` away
+#   and `to_pandas()` gives a DataFrame with the [pandas] extra.
 
 # %%
 fs_exe = sys.argv[1] if len(sys.argv) > 1 else None

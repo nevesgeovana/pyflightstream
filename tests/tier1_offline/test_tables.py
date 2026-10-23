@@ -49,7 +49,11 @@ def test_p0440_rv1_csv_header_sanitization_keeps_every_value(tmp_path, overwrite
     """RV1-01: distinct plot columns survive even when their CSV headings coincide."""
     from pyflightstream.results import parse_unsteady_plots
 
-    report = parse_unsteady_plots("Time, lift\", lift'\n0, 1.25, 2.5\n1, 3.75, 4.5\n")
+    report = parse_unsteady_plots(
+        "Time, lift\", lift'\n0, 1.25, 2.5,\n1, 3.75, 4.5,\n"
+        + "-" * 60
+        + "\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
     table = to_table(report)
     target = tmp_path / "plots.csv"
     if overwrite:
@@ -152,7 +156,13 @@ def test_p0440_all_table_families_match_0390_column_for_column(tmp_path):
     ]
     from pyflightstream.results import parse_unsteady_plots
 
-    reports.append(parse_unsteady_plots("Time (sec), CL\n0.0, 0.4\n0.1, 0.5\n"))
+    reports.append(
+        parse_unsteady_plots(
+            "Time (sec), CL\n0.0, 0.4,\n0.1, 0.5,\n"
+            + "-" * 60
+            + "\nSoftware : Flightstream version 26.1, build #7012026\n"
+        )
+    )
     for report in reports:
         table = to_table(report)
         assert isinstance(table[table.columns[0]], np.ndarray)
@@ -2044,3 +2054,19 @@ def test_x_f_1339_a_manifest_output_name_cannot_leave_the_simulation_folder(tmp_
         tables_module._read_output(sim, "../outside.txt", record)
     (sim / "inside.txt").write_text("fine", encoding="utf-8")
     assert tables_module._read_output(sim, "inside.txt", record) == "fine"
+
+
+def test_p0440_ad_f1_rename_accepts_a_mapping():
+    """AD-F1: the dataframe form rename(columns={old: new}) works on a Table."""
+    from pyflightstream.results.tables import Table
+
+    assert Table({"a": [1.0], "c": [2.0]}).rename(columns={"a": "b"}).columns == ("b", "c")
+
+
+def test_p0440_ad_f2_loc_column_and_numpy_row_index():
+    """AD-F2: loc[mask, column] selects the column; a numpy integer selects one row."""
+    from pyflightstream.results.tables import Table
+
+    table = Table({"a": [1.0, 2.0], "b": [3.0, 4.0]})
+    assert list(table.loc[table["a"] > 1, "b"]) == [4.0]
+    assert table.iloc[np.int64(0)] == {"a": 1.0, "b": 3.0}

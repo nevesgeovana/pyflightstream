@@ -1221,11 +1221,23 @@ def _trailing_edge_sets(path: Path, table: Mapping[str, Any], where: str) -> Tra
         raise InputArtifactError(f"{where}: files must be a nonempty list of file/type tables")
     sets: list = []
     seen: set[str] = set()
-    for entry in entries:
+    for number, entry in enumerate(entries, start=1):
         if not isinstance(entry, dict) or set(entry) != {"file", "type"}:
-            raise InputArtifactError(f"{where}: each files entry requires exactly file and type")
-        marking = read_trailing_edges(path, {**entry, "tolerance": table.get("tolerance", 0.0001)})
-        assert marking.points_file is not None
+            found = sorted(entry) if isinstance(entry, dict) else type(entry).__name__
+            raise InputArtifactError(
+                f"{where}: files entry {number} has {found}; write exactly "
+                '{file = "<name>.te.txt", type = "<type>"}'
+            )
+        try:
+            marking = read_trailing_edges(
+                path, {**entry, "tolerance": table.get("tolerance", 0.0001)}
+            )
+        except InputArtifactError as error:
+            raise InputArtifactError(
+                f"{where}: files entry {number} ({entry['file']!r}): {error}"
+            ) from error
+        if marking.points_file is None:
+            raise InputArtifactError(f"{where}: files entry {number} names no points file")
         key = str(Path(marking.points_file).resolve()).casefold()
         if key in seen:
             raise InputArtifactError(f"{where}: points file {entry['file']!r} is listed twice")

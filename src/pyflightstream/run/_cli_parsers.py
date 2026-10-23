@@ -397,7 +397,9 @@ def _add_noise_parser(subparsers: Any) -> None:
         "noise", help="post exploratory loading noise and list its comparisons"
     )
     noise.add_argument("matrix", help="matrix whose pproc declares [noise]")
-    noise.add_argument("--workspace", default=".")
+    noise.add_argument(
+        "--workspace", default=".", help="workspace root (default: current directory)"
+    )
     noise.add_argument(
         "--sims", nargs="+", default=None, help="rebuild only these recorded simulations"
     )

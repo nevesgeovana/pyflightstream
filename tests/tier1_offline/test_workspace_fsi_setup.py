@@ -538,3 +538,13 @@ def test_x_f_1365_a_frozen_file_outside_the_input_folder_is_refused(
     source.write_text(f'frozen_displacements_file = "{named}"\n' + SUPPLIED)
     with pytest.raises(FsiSetupError, match="leaves the folder"):
         resolve_fsi_setup(source)
+
+
+def test_p0440_ad_f4_campbell_help_states_the_sweep_contract(capsys):
+    """AD-F4: --help states the inclusive sweep, its unit and the COUNT bound."""
+    from pyflightstream.workspace.cli import main
+
+    with pytest.raises(SystemExit):
+        main(["fsi", "campbell", "--help"])
+    out = capsys.readouterr().out
+    assert "COUNT >= 3" in out and "rev/min" in out

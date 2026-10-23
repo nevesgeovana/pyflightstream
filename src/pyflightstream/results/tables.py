@@ -154,7 +154,7 @@ class _Rows:
         self.table = table
 
     def __getitem__(self, key):
-        if isinstance(key, int):
+        if isinstance(key, (int, np.integer)):
             return {name: self.table[name][key] for name in self.table.columns}
         return Table({name: self.table[name][key] for name in self.table.columns})
 
@@ -216,15 +216,18 @@ class Table:
 
     @property
     def loc(self):
-        """Boolean row selection."""
+        """Boolean row selection, optionally followed by a column: ``loc[mask, "CL"]``."""
         return self
 
     def __getitem__(self, key):
-        """Select named columns or a boolean row mask."""
+        """Select named columns, a boolean row mask, or ``(rows, columns)``."""
         if isinstance(key, str):
             return self._data[key]
         if isinstance(key, (list, tuple)) and all(isinstance(name, str) for name in key):
             return Table({name: self._data[name] for name in key})
+        if isinstance(key, tuple) and len(key) == 2:
+            rows, columns = key
+            return self[rows][columns]
         return Table({name: values[key] for name, values in self._data.items()})
 
     def __setitem__(self, key, values):
@@ -244,7 +247,10 @@ class Table:
         return result
 
     def rename(self, *, columns):
-        """Return a copy with column names transformed by a callable."""
+        """Return a copy with column names mapped by a dict or transformed by a callable."""
+        if isinstance(columns, Mapping):
+            mapping = columns
+            return Table({mapping.get(name, name): values for name, values in self._data.items()})
         return Table({columns(name): values for name, values in self._data.items()})
 
     def map(self, function):
