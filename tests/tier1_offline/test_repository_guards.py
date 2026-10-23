@@ -18,6 +18,15 @@ REPO = Path(__file__).resolve().parents[2]
 TOOLS = REPO / "tools"
 
 
+def test_p0440_confirmed_reachability_decisions_name_the_confirmation():
+    import json
+
+    data = json.loads((REPO / "tests/tier1_offline/reachability_exceptions.json").read_text())
+    rows = {row["id"]: row for row in data["rows"]}
+    for name in ("RX-13", "RX-17", "RX-18", "RX-21", "RX-37"):
+        assert "the owner confirmed on 2026-10-22" in rows[name]["decision"], name
+
+
 SHIPPED_SURFACE_CONFIG = TOOLS / "shipped_surface.conf"
 
 
@@ -202,11 +211,24 @@ def test_the_unguarded_spawns_under_tests_do_not_grow() -> None:
     summary = done.stdout.strip().splitlines()[-1]
     assert "spawn call(s)" in summary, done.stdout
     unguarded = int(summary.split(" unguarded")[0].split(", ")[-1])
-    assert unguarded <= TESTS_UNGUARDED_SPAWNS, (
-        f"{unguarded} unguarded spawn call(s) under tests, up from the pinned "
-        f"{TESTS_UNGUARDED_SPAWNS}. A new spawn that inherits the whole "
-        "environment was added; pass env= on it."
+    assert unguarded == TESTS_UNGUARDED_SPAWNS, (
+        f"{unguarded} unguarded spawn call(s) under tests, differing from the pinned "
+        f"{TESTS_UNGUARDED_SPAWNS}. Pass env= on new spawns; lower the pin when "
+        "an unguarded spawn is removed."
     )
+
+
+@pytest.mark.parametrize("count", [TESTS_UNGUARDED_SPAWNS - 1, TESTS_UNGUARDED_SPAWNS + 1])
+def test_p0440_spawn_ratchet_rejects_both_directions(monkeypatch, count):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        sys.modules[__name__],
+        "_run",
+        lambda *args: SimpleNamespace(stdout=f"10 spawn call(s), {count} unguarded\n"),
+    )
+    with pytest.raises(AssertionError):
+        test_the_unguarded_spawns_under_tests_do_not_grow()
 
 
 def test_no_forbidden_identifier_in_the_versioned_tree() -> None:

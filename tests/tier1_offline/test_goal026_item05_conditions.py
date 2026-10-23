@@ -127,13 +127,14 @@ def test_a_recorded_condition_reaches_the_column_it_means():
 
 
 def test_what_the_loads_export_reports_reaches_the_same_columns():
-    """The REPORTED condition, which is what a product should carry.
+    """Reported angles, speed and altitude reach their product columns.
 
     Two sources exist per point and they are not equivalent: the matrix cell is
     what was ASKED for, the loads export header is what the solver SAYS it ran
     at. A file that says what it is a file OF must carry the second -- the two
     differ exactly when something went wrong, which is the case a reader most
-    needs to see.
+    needs to see. Absolute Reynolds requires conversion to millions by
+    point_condition first; context_row deliberately leaves RE unset here.
     """
     from pyflightstream.post._tables import CONTEXT_COLUMNS, context_row
 
@@ -148,6 +149,13 @@ def test_what_the_loads_export_reports_reaches_the_same_columns():
     assert row["ALPHA"] == 2.0 and row["BETA"] == -1.0, row
     assert row["VINF"] == 49.036 and row["ALT"] == 1000.0, row
     assert row["RE"] is None, row
+
+
+def test_p0440_reported_condition_test_states_the_reynolds_conversion():
+    description = test_what_the_loads_export_reports_reaches_the_same_columns.__doc__
+    assert description is not None
+    assert "Absolute Reynolds requires conversion to millions" in description
+    assert "context_row deliberately leaves RE unset" in description
 
 
 def test_a_matrix_reynolds_key_requires_a_resolved_product_condition():

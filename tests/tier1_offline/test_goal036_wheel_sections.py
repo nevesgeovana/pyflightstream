@@ -565,7 +565,18 @@ def test_p0430_unknown_section_frame_has_no_reduced_frequency(tmp_path, frame):
         velocity_m_per_s=10,
         layout=[{"families": ["Blade1"], "plane": "XZ", "frame": frame}],
     )
-    assert result is None or result.values.get("K_1P_MAX") is None
+    assert result is not None
+    assert result.values.get("K_1P_MAX") is None
+    assert any("frame" in note.lower() for note in result.notes)
+
+
+def test_p0440_unknown_frame_regression_requires_a_reported_result():
+    import ast
+    import inspect
+
+    tree = ast.parse(inspect.getsource(test_p0430_unknown_section_frame_has_no_reduced_frequency))
+    assertions = [ast.unparse(node.test) for node in ast.walk(tree) if isinstance(node, ast.Assert)]
+    assert "result is not None" in assertions
 
 
 def test_p0430_other_blade_unplaced_does_not_disable_selected_shares(tmp_path):

@@ -40,7 +40,8 @@ a `mark-failed` or a `mark-converged` gave (with its reason), the warnings and t
 files with their last lines, the log entries that name the point, the chain of
 the run it continues and the run that continued it, the identity of the
 package, build and script, and the inputs. A coupled point also names
-its coupling records, the files it lacks and its last exchange row.
+its coupling records, the files it lacks and its last exchange row. The output
+ends with the full resolved record.
 
 `log` prints the activity log oldest first, filtered by `--sims`,
 `--run`, `--stage` and `--since`; `--problems` keeps the events with a problem,

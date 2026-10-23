@@ -86,6 +86,15 @@ FlightStream versions.
   and names the manifest and recovery route (RB5-43).
 - Query problem filters retain failed outcomes recorded as a list (RB5-35).
 - FSI records applied-twist lag verdicts in the run folder as well as the logger (RB4-15).
+- Refined-level selection tags now include the body axis and origin in
+  `canonical_selection`. A changed axis or origin therefore gives a different
+  summary tag and level folder. migration: rerunning an existing refinement
+  may create a new level folder; regenerate dependent paths and products.
+- The unsteady polar's super content records `SET_SOLVER_UNSTEADY` with the
+  row's own `time_iterations` and `delta_time`, marked explicit and emitted.
+  Earlier releases wrote `NA` with unknown provenance and a null value.
+  Existing products retain their recorded content; regenerating them records
+  the row's settings.
 - The boundaries file of a refined level states the level's own `mesh_faces`, `boundary_faces`
   and `mesh_sha256`, counted in and taken from the level's OBJ (after any `[components]` merge),
   where it copied the source's, and its header comment names the level OBJ's sha256; the source's

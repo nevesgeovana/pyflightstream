@@ -63,6 +63,11 @@ scheduler's own field is given is the HPC profile's to say
 watchdog measures elapsed time with the machine's monotonic clock between
 solver steps, so setting the system clock during a run neither stops it early
 nor late; after a restart of the machine it counts the calendar time instead.
+A local launcher records the job start before launching the solver, so setup
+and the first step count. Without that record, the watchdog starts at its
+first invocation after the first step; `walltime_margin_s` must also cover
+the setup and first-step time. The clock state names its `origin` as
+`job-start` or `first-invocation`.
 
 **A COLUMN SAYS NOTHING WITH `-`.** One character rather than an empty
 cell, so a reader can tell "states nothing" from "the line is truncated".

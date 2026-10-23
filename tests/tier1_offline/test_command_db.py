@@ -92,9 +92,30 @@ def test_p0430_fd02_absent_build_refusal_cites_the_command_evidence():
     ],
 )
 def test_p0430_fd02_notes_match_recorded_contracts(filename, obsolete, correction):
-    text = " ".join((COMMANDS_DIR / filename).read_text(encoding="utf-8").split())
+    raw = (COMMANDS_DIR / filename).read_text(encoding="utf-8")
+    if filename == "mesh_wrapper.yaml":
+        raw = yaml.safe_load(raw)["WRAPPER_DELETE_ALL_LOCAL_CONTROLS"]["notes"]
+    text = " ".join(raw.split())
     assert obsolete not in text
     assert correction in text
+
+
+def test_p0440_local_control_correction_must_be_in_its_own_note(tmp_path, monkeypatch):
+    """A correct sibling cannot excuse an incorrect delete-all explanation."""
+    import sys
+
+    (tmp_path / "mesh_wrapper.yaml").write_text(
+        "WRAPPER_DELETE_ALL_LOCAL_CONTROLS:\n  notes: Delete every control to correct one.\n"
+        "WRAPPER_EDIT_LOCAL_CONTROL:\n  notes: WRAPPER_EDIT_LOCAL_CONTROL edits one.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sys.modules[__name__], "COMMANDS_DIR", tmp_path)
+    with pytest.raises(AssertionError):
+        test_p0430_fd02_notes_match_recorded_contracts(
+            "mesh_wrapper.yaml",
+            "correcting a single control means deleting all",
+            "WRAPPER_EDIT_LOCAL_CONTROL",
+        )
 
 
 def test_p0430_f424_a_command_the_26123_edition_stops_printing_is_recorded_removed():

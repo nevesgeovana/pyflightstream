@@ -421,10 +421,23 @@ def _farfield_numpy___assert_agree(case, key, got, expected, sign) -> None:
     got_floats = _farfield_numpy___floats(got)
     expected_floats = _farfield_numpy___floats(expected)
     if expected_floats is None:
+        if sign != 1.0 or got.get("sha256") != expected.get("sha256"):
+            pytest.skip(
+                f"{case}/{key}: digest differs off the pinned platform; "
+                "no numeric reference is stored for a tolerance comparison"
+            )
         return
     assert got_floats is not None and len(got_floats) == len(expected_floats), (case, key)
     for a, b in zip(got_floats, expected_floats, strict=True):
         assert a == pytest.approx(sign * b, rel=1e-9, abs=1e-12, nan_ok=True), (case, key)
+
+
+def test_p0440_digest_only_golden_cannot_pass_on_shape_and_dtype_alone():
+    expected = {"shape": [65], "dtype": "float64", "sha256": "expected"}
+    got = {**expected, "sha256": "different"}
+    with pytest.raises(pytest.skip.Exception, match="case/field.*no numeric reference"):
+        _farfield_numpy___assert_agree("case", "field", got, expected, 1.0)
+    _farfield_numpy___assert_agree("case", "field", expected, expected, 1.0)
 
 
 def _farfield_numpy___results(name: str) -> dict[str, object]:

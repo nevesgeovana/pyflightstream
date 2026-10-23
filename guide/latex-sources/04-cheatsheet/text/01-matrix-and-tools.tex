@@ -382,7 +382,7 @@ See the website's Upgrading page for supported workspace conversion.
 \item \fl{--identity-only} judge no command: capture the solver's identity banner, the way a new build gets its number into a committed report
 \item \fl{--fsm FILE} local saved simulation for preludes that need one
 \item \fl{--workroot DIR} scratch root (default \texttt{runs/probes})
-\item \fl{--timeout S} per-probe limit, seconds (default 120)
+\item \fl{--timeout S} per-probe limit, seconds (default 120); solved probes keep their own limits (180/240 seconds; 26.125 hang guards: 60 seconds)
 \item \fl{--report-dir DIR} (default \texttt{reports/compat}) \quad \fl{--label TEXT} report stem suffix
 \end{flags}
 \sub{apply-compat <report>}{promote database statuses from a committed compat report}

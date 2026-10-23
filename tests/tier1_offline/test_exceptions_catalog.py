@@ -22,6 +22,8 @@ from pyflightstream import exceptions
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 from tests.tier1_offline.test_public_api import PUBLIC_MODULES
 
+_OPTIONAL_IMPORTS = {"Pynite", "scipy", "rtree", "matplotlib", "xlsxwriter", "pypdf"}
+
 
 def _defined_exception_classes() -> dict[str, type]:
     """Every exception class visible in a public pyflightstream module.
@@ -38,7 +40,9 @@ def _defined_exception_classes() -> dict[str, type]:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", DeprecationWarning)
                 module = importlib.import_module(name)
-        except ImportError:  # optional extra absent; its didactic refusal
+        except ModuleNotFoundError as error:
+            if error.name not in _OPTIONAL_IMPORTS:
+                raise
             continue
         for _, obj in inspect.getmembers(module, inspect.isclass):
             if (
@@ -48,6 +52,16 @@ def _defined_exception_classes() -> dict[str, type]:
             ):
                 found[obj.__name__] = obj
     return found
+
+
+@pytest.mark.parametrize("walker", [_defined_exception_classes, lambda: _public_module_sources()])
+def test_p0440_catalog_walkers_propagate_broken_imports(monkeypatch, walker):
+    def broken(name):
+        raise ImportError(f"broken public import: {name}")
+
+    monkeypatch.setattr(importlib, "import_module", broken)
+    with pytest.raises(ImportError, match="broken public import"):
+        walker()
 
 
 def test_every_defined_exception_is_in_the_catalog():
@@ -509,6 +523,29 @@ def _is_validator(node) -> bool:
     return False
 
 
+def _raised_name(expression, scope, line):
+    """Resolve a direct class or a locally constructed exception instance."""
+    import ast
+
+    if isinstance(expression, ast.Call):
+        expression = expression.func
+    name = getattr(expression, "id", None) or getattr(expression, "attr", "")
+    if name in _BARE:
+        return name
+    assignments = [
+        node
+        for node in ast.walk(scope)
+        if isinstance(node, ast.Assign)
+        and node.lineno <= line
+        and any(isinstance(target, ast.Name) and target.id == name for target in node.targets)
+    ]
+    if assignments:
+        value = max(assignments, key=lambda node: (node.lineno, node.col_offset)).value
+        if isinstance(value, ast.Call):
+            return getattr(value.func, "id", None) or getattr(value.func, "attr", "")
+    return name
+
+
 def _bare_raises_in(module_name: str, filename: str, source: str, exported: set[str]) -> list[str]:
     """Every bare stdlib raise inside a public callable of one module.
 
@@ -582,10 +619,10 @@ def _bare_raises_in(module_name: str, filename: str, source: str, exported: set[
         for sub in ast.walk(node):
             if _is_validator(sub) and sub is not node:
                 continue
-            if not (isinstance(sub, ast.Raise) and isinstance(sub.exc, ast.Call)):
+            if not isinstance(sub, ast.Raise) or sub.exc is None:
                 continue
             owner = sub
-            raised = getattr(sub.exc.func, "id", None) or getattr(sub.exc.func, "attr", "")
+            raised = _raised_name(sub.exc, node, sub.lineno)
             if raised not in _BARE:
                 continue
             # A raise inside a validator method of a public model is
@@ -615,7 +652,9 @@ def _public_module_sources() -> list[tuple[str, str, str, set[str]]]:
             warnings.simplefilter("ignore")
             try:
                 module = importlib.import_module(name)
-            except ImportError:
+            except ModuleNotFoundError as error:
+                if error.name not in _OPTIONAL_IMPORTS:
+                    raise
                 continue  # an extra is not installed; covered by test_extras
         if not getattr(module, "__file__", None):
             continue
@@ -878,6 +917,16 @@ def test_no_exported_public_name_raises_a_bare_stdlib_error() -> None:
         "an existing `except ValueError` catches exactly what it caught before.\n  "
         + "\n  ".join(sorted(offenders)[:15])
     )
+
+
+@pytest.mark.parametrize(
+    "statement", ["raise ValueError", "error = ValueError('bad'); raise error"]
+)
+def test_p0440_bare_raise_detector_sees_classes_and_instances(statement):
+    source = f"def public():\n    {statement}\n"
+    assert _bare_raises_in("example", "example.py", source, set()) == [
+        "example.public -> ValueError"
+    ]
 
 
 def test_the_bare_raise_detector_can_find_one() -> None:

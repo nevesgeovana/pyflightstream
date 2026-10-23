@@ -113,8 +113,8 @@ def _mutable_module_state() -> list[dict]:
 
     The list is the single inventory of test-mutable module state:
     public case registries, private derived mappings, and the
-    mutable objects held by the two lru caches (the loaded command
-    database and the manual-edition map), which would otherwise carry a
+    mutable objects held by the loaded command database cache,
+    which would otherwise carry a
     test's mutation for the rest of the session. The snapshot contract
     is shallow (top-level membership and bindings): registry values are
     frozen models by construction, and a future mutable value joins
@@ -150,7 +150,7 @@ def _mutable_module_state() -> list[dict]:
         # Cached mutable objects: the cache keeps returning the same
         # dict, so an in-place mutation outlives the test that made it.
         CommandRegistry.load().commands,
-        # _versions.manual_editions() left this list in 0.43.0: it now returns a
+        # versions.manual_editions() left this list in 0.43.0: it now returns a
         # read-only mapping, so there is nothing an in-place mutation could leak.
     ]
 

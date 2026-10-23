@@ -30,14 +30,36 @@ def test_p0430_fd02_manual_editions_cannot_poison_later_reads():
     """Mutating manual_editions() must not change the process registry."""
     editions = versions.manual_editions()
     original = dict(editions)
-    try:
+    with pytest.raises(TypeError):
         editions["26.125"] = "untrusted replacement"
-    except TypeError:
-        pass
     try:
         assert dict(versions.manual_editions()) == original
     finally:
         versions.manual_editions.cache_clear()
+
+
+def test_p0440_manual_editions_test_requires_assignment_refusal():
+    import ast
+    import inspect
+
+    tree = ast.parse(inspect.getsource(test_p0430_fd02_manual_editions_cannot_poison_later_reads))
+    contexts = [
+        item.context_expr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.With)
+        for item in node.items
+    ]
+    assert any(ast.unparse(call) == "pytest.raises(TypeError)" for call in contexts)
+
+
+@pytest.mark.parametrize("obsolete", ["two lru caches", "_versions.manual_editions"])
+def test_p0440_mutable_inventory_describes_only_the_remaining_cache(obsolete):
+    import inspect
+
+    from tests.tier1_offline.conftest import _mutable_module_state
+
+    text = inspect.getsource(_mutable_module_state)
+    assert obsolete not in text
 
 
 @pytest.mark.parametrize("value", [26.124, 26.120, None, 26, True])

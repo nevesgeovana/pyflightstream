@@ -10,7 +10,48 @@ from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 REPO = Path(__file__).resolve().parents[2]
 
 
+def test_p0440_missing_value_definition_names_the_fixed_width_exception():
+    text = (REPO / "docs/definitions/the-token-for-a-value-that-does-not-exist.md").read_text(
+        encoding="utf-8"
+    )
+    assert "except the fixed-width custom polar" in text and "`nan`" in text
+
+
 PAGE = WORKFLOW_DOCS
+
+
+def test_p0440_executable_report_separates_public_builds_from_byte_identity():
+    text = (REPO / "reports/RPT-032_executable-identity-baseline_2026-08-19.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Correction recorded 2026-10-23" in text
+    assert "Build agreement does not establish byte identity" in text
+    assert "The nine original rows were in hand on the title date" in text
+    assert "Equal, and the evidence transfers" not in text
+
+
+def test_p0440_capture_comment_distinguishes_historical_export_grammar():
+    text = (REPO / "scripts/capture_export_corpus.py").read_text(encoding="utf-8")
+    assert "current entry declares both index and path" in text
+    assert "entry declares `index: int` alone" not in text
+
+
+def test_p0440_walltime_documents_both_clock_origins():
+    text = (REPO / "docs/workflow-run-matrix.md").read_text(encoding="utf-8")
+    clock = text.split("`WALLTIME` is the wall clock", 1)[1].split("**A COLUMN", 1)[0]
+    assert all(term in clock for term in ("job-start", "first-invocation", "walltime_margin_s"))
+
+
+def test_p0440_g2_documents_closed_shells_across_families():
+    text = (REPO / "docs/mesh/reference.md").read_text(encoding="utf-8")
+    gate = next(line for line in text.splitlines() if line.startswith("| G2 |"))
+    assert "closed shell" in gate and "across families" in gate
+
+
+def test_p0440_show_documents_the_final_resolved_record():
+    text = (REPO / "docs/workspace-queries.md").read_text(encoding="utf-8")
+    show = text.split("`show` prints", 1)[1].split("`log` prints", 1)[0]
+    assert "ends with the full resolved record" in show
 
 
 def _blocks(text: str) -> list[tuple[str, str]]:
