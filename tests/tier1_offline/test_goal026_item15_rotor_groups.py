@@ -244,7 +244,7 @@ def test_f1963_and_x_f1744_the_naming_refusals_state_the_real_prerequisites():
     text = str(missing.value)
     assert "{polar} and {point} only when the point has a name" in text
     assert "{mach} only when the case declares a Mach number" in text
-    with pytest.raises(NamingTemplateError, match="no whitespace and none of the characters"):
+    with pytest.raises(NamingTemplateError, match="no whitespace, control characters, or"):
         NamingTemplate(point_name="{campaign}").render_point(campaign="a b", sim="1", point={})
 
 

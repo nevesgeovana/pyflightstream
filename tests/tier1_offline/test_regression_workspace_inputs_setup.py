@@ -1776,7 +1776,7 @@ delete_sims(sys.argv[1], ["3001"], matrix_products="regenerate", apply=True)
 
     @staticmethod
     def test_p0400_lane_regressions_carry_release_in_test_names():
-        missing = []
+        later_releases = []
         # The tests tree itself, not a path through the package: the release workflow runs
         # these tests against the installed wheel, where the package has no tests beside it.
         directory = Path(__file__).resolve().parent
@@ -1791,8 +1791,14 @@ delete_sims(sys.argv[1], ["3001"], matrix_products="regenerate", apply=True)
             for node in ast.walk(group):
                 if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
                     if not node.name.startswith("test_p0400_"):
-                        missing.append(f"{path.name}:{node.name}")
-        assert not missing, missing
+                        later_releases.append(f"{path.name}:{node.name}")
+        # RB5-26 and RB5-43 deliberately extended these cases in the 0.44.0 lane.
+        assert set(later_releases) == {
+            "test_regression_workspace_storage.py:"
+            "test_p0440_rb5_26_same_clock_deletes_have_distinct_record_ids",
+            "test_regression_workspace_storage.py:"
+            "test_p0440_rb5_43_delete_refuses_unreadable_products",
+        }, later_releases
 
 
 class TestWorkspace3Setup:

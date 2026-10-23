@@ -1105,7 +1105,7 @@ def _measured_integration(
 ) -> set[int]:
     """Keep raw data when recorded mesh units lack sectional export evidence."""
     units = (record.mesh_import or {}).get("units")
-    if str(units).upper() == "METER":
+    if record.mesh_import is None or str(units).upper() == "METER":
         return integrate
     for owner in integrate:
         errors[owner] = (
