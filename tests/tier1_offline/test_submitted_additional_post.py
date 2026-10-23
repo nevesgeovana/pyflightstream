@@ -20,6 +20,30 @@ class Scheduler(CountingStub):
         return {"submitted": True, "scheduler_id": "fake-23"}
 
 
+def test_p0440_extraction_completion_obeys_the_write_policy(tmp_path):
+    from pyflightstream.run.collect import CollectWrites
+    from pyflightstream.workspace import ExtractionStatus
+
+    workspace, matrix = a_recorded_campaign(tmp_path, values="0.0")
+    _, records = extract(workspace, matrix, Scheduler())
+    record = records[0]
+    folder = workspace.sim_dir(record.sim_id) / record.working_dir
+    a_stub(tmp_path).run_script(
+        workspace.sim_dir(record.sim_id) / record.script_path, working_dir=folder
+    )
+    copies = list(folder.glob("*.reopened.fsm"))
+    called = []
+
+    def finish(workspace, record, context):
+        called.append(record.extraction_id)
+        return record.model_copy(update={"status": ExtractionStatus.EXTRACTED})
+
+    writes = SimpleNamespace(**{**vars(CollectWrites()), "finish_extraction": finish})
+    collect_once(workspace, interval=0, sleep=lambda _: None, writes=writes)
+    assert called == [record.extraction_id]
+    assert copies and all(path.exists() for path in copies)
+
+
 def test_submitted_extraction_waits_then_collects_without_mutating_original(tmp_path):
     # GOAL033:post:checks:submitted_collection
     # GOAL033:logging:checks:collection

@@ -14,6 +14,7 @@ real ``stat`` calls on real files.
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -49,6 +50,23 @@ CLOSED_SET = {
     # iteration limit without settling; minted by the assessor, never by collect's own rules.
     "MAX_ITER_REACHED",
 }
+
+
+def test_p0440_collect_routes_group_preparation_through_its_write_policy(tmp_path):
+    from pyflightstream.run._batch_collect import GroupedSweep
+
+    workspace = CampaignWorkspace.init(tmp_path / "policy")
+    called = []
+
+    def prepare(workspace, records, **keywords):
+        called.append("grouped")
+        return GroupedSweep(records=records)
+
+    writes = SimpleNamespace(
+        prepare_grouped_points=prepare, ensure_sim_expanded=lambda *a, **k: None
+    )
+    collect_once(workspace, writes=writes, sleep=_no_sleep)
+    assert called == ["grouped"]
 
 
 def _submitted_workspace(tmp_path, *, declared=("loads.txt", "run_log.txt")):
