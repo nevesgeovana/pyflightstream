@@ -438,3 +438,14 @@ def test_the_source_import_table_is_carried_whole_to_the_thin_blade(tmp_path):
     with pytest.raises(InputArtifactError, match=r"states \[import.cad\]") as refused:
         derive_thin_blade(cad, root_offset=0.05)
     assert str(cad) in str(refused.value) and not thin_blade_path(cad).exists()
+
+
+@pytest.mark.parametrize("name", ["Blade #1", "Blade  one"])
+def test_p0440_rb5_25_object_name_keeps_hash_and_spacing(tmp_path, name):
+    vertices, faces = _blade()
+    source = _write_obj(tmp_path / "blade.obj", vertices, faces, group=name)
+    try:
+        result = derive_thin_blade(source, boundary=name, root_offset=0.05)
+    except InputArtifactError as error:
+        pytest.fail(f"the written object name must remain selectable: {error}")
+    assert result is not None
