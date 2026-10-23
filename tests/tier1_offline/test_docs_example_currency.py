@@ -10,6 +10,16 @@ from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 REPO = Path(__file__).resolve().parents[2]
 
 
+def test_p0440_probe_reference_contract_names_the_unmeasured_placement():
+    from pyflightstream.post.point_tables import write_probes_table
+
+    assert "per-export placement probe is still owed in 0.45.0" in write_probes_table.__doc__
+    text = (REPO / "docs/definitions/sampled-velocity-fields-and-reusable-inflow.md").read_text(
+        encoding="utf-8"
+    )
+    assert "by the 0.40.0 design" in text and "RB3-04" in text
+
+
 def test_p0440_custom_inflow_supplement_has_a_dated_erratum():
     text = (REPO / "reports/RPT-082_cad-units-and-custom-inflow-coverage_2026-09-27.md").read_text(
         encoding="utf-8"

@@ -32,6 +32,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Probe-table documentation states the retained REFERENCE-frame design and
+  the outstanding licensed placement measurement (RB3-04).
+
 - RPT-082 dates its 2026-10-21 custom-inflow supplement explicitly (RB5-16).
 
 - Flight-condition documentation identifies external licensed evidence citations

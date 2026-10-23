@@ -607,8 +607,9 @@ def write_probes_table(
     already states `X`, `Y` and `Z` and it never states WHICH FRAME they
     are measured in, so a reader could place the numbers only by knowing
     the artifact. The export's own coordinates are kept, because they are
-    the solver's answer about the point it sampled; the recorded
-    positions supply the frame name and nothing else here.
+    the solver's answer about the point it sampled. The export is labeled
+    REFERENCE by the 0.40.0 design; recorded positions cannot relabel it.
+    A per-export placement probe is still owed in 0.45.0 (licensed).
 
     Parameters
     ----------
@@ -619,8 +620,9 @@ def write_probes_table(
     positions : mapping, optional
         Vertex number to ``(x, y, z, frame)``, from
         :func:`read_probe_positions`. Absent for every run recorded
-        in legacy releases, and the spine's position and frame cells then read
-        ``NA`` rather than the table being refused. They were EMPTY in legacy releases; the
+        in legacy releases. Exported coordinates still carry REFERENCE;
+        only a position unavailable from both sources reads ``NA``.
+        Missing cells were EMPTY in legacy releases; the
         producer still returns a blank there and the funnel in
         :mod:`pyflightstream.post._tables` renders it, so this says what the
         user opens rather than what the tuple carries.
