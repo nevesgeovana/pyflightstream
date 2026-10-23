@@ -6,7 +6,7 @@ the first part of the simulation stage of
 in the records' order, into an :class:`_Admitted`:
 
 * a record that names no output, whose loads export is not on disk or is not
-  a loads table, or whose loads are not printed in coefficients, is SKIPPED
+  a loads table is SKIPPED
   under ``runs/<run id>`` with the reason, never dropped in silence;
 * an admitted record becomes a point: its loads, its own state resolved
   from its row, the induced drag the solver declined, the freeze its native
@@ -159,17 +159,16 @@ def _loads_of(
         )
         return None
     if not _in_coefficients(report):
-        # G09: the export states its force and moment units (`report.force_units`,
-        # `report.moment_units`), and every product reads the loads as coefficients;
-        # this guard reads those stated units, not the column headers.
+        # Refuse only products that read these loads as coefficients. Independent
+        # exports remain admitted and the simulation stage filters the load steps.
         skipped[f"runs/{record.run_id}"] = (
             f"{by_name[loads_name]} prints its loads in {report.force_units or 'no unit'} "
-            f"and its moments in {report.moment_units or 'no unit'}, and every product "
-            "here is written in coefficients, so none holds a row of it. The setup this "
+            f"and its moments in {report.moment_units or 'no unit'}; load-table polars, "
+            "superfiles and rotor coefficients omit this point. Plots, probes and "
+            "sections remain available. The setup this "
             "row names states load_units; drop it, or state COEFFICIENTS, and run the "
             "point again."
         )
-        return None
     return loads_name, report, by_name, kinds
 
 

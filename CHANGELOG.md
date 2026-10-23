@@ -40,6 +40,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Plans warn which coefficient products dimensional load units omit; post keeps
+  independent plots, probes and sectional products (PFS-2130.039).
+
 - Execution and Excel sync share matrix comment and separator rules and accept
   an optional UTF-8 BOM while refusing invalid UTF-8 (PFS-2124.050).
 

@@ -1114,6 +1114,7 @@ def plan_campaign(
                 )
             )
     _warn_on_relaxed_discs_naming_a_profile(campaign.sims)
+    _warn_on_dimensional_loads(campaign.sims)
     _warn_on_rows_that_open_no_geometry(campaign.sims)
     _warn_on_short_wakes(points)
     groups = _build_groups(campaign)
@@ -1295,6 +1296,19 @@ def _warn_on_rows_that_open_no_geometry(cases: Sequence[SimCase]) -> None:
             PyflightstreamWarning,
             stacklevel=3,
         )
+
+
+def _warn_on_dimensional_loads(cases: Sequence[SimCase]) -> None:
+    """Name the coefficient products lost before a dimensional-load run is submitted."""
+    for case in cases:
+        units = case.solver.load_units
+        if units is not None and units != "COEFFICIENTS":
+            warnings.warn(
+                f"row {case.sim_id!r}: load_units={units} omits load-table polars, superfiles "
+                "and rotor coefficients; independent plots, probes and sections remain available",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
 
 
 def _warn_on_relaxed_discs_naming_a_profile(cases: Sequence[SimCase]) -> None:

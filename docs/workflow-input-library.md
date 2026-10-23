@@ -214,10 +214,10 @@ not take is refused when the preset is read, naming the five it does
 (`load_units = 'FOO' is not one of COEFFICIENTS, NEWTONS, KILO-NEWTONS,
 POUND-FORCE, KILOGRAM-FORCE`). What each means for the products:
 
-- **`load_units`**: every product reads the loads table as coefficients, so
- a point whose table's footer names another unit writes no product row; the
- post stage skips it, naming the unit and `load_units`. The export itself is
- collected and hashed as usual.
+- **`load_units`**: load-table polars, superfiles and rotor coefficients need
+ coefficients. Planning warns which products another unit omits; post names
+ the unit and `load_units` while keeping independent plots, probes and sections.
+ The export itself is collected and hashed as usual.
 - **`inviscid_loads`**: the verified run of this command on 26.120 and
  26.123 exported `CDo` exactly zero, so a polar of such a row is inviscid by
  construction.

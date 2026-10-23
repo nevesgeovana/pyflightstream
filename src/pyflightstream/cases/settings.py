@@ -678,8 +678,8 @@ class SolverSettings(BaseModel):
     #: not carry is left out, and a list that resolves to none is refused.
     analysis_families: list[str] | None = None
     #: SET_LOADS_AND_MOMENTS_UNITS: the unit the loads table prints, one of the
-    #: tokens the command takes on the row's build. The polar and every product
-    #: read coefficients, so a point exported in another unit writes no product.
+    #: tokens the command takes on the row's build. Load-table polars, superfiles
+    #: and rotor coefficients need COEFFICIENTS; independent exports remain available.
     load_units: str | None = None
     #: SET_INVISCID_LOADS: the loads and moments without their viscous part.
     inviscid_loads: SolverToggle | None = None
