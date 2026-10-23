@@ -6,7 +6,7 @@ import re
 from collections.abc import Mapping
 from pathlib import Path
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream.cases._matrix_layouts import (
     _COLUMNS,
     _LAYOUT_0_9_0,
