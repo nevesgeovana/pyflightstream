@@ -32,6 +32,7 @@ FlightStream versions.
 
 ### Fixed
 
+- Naming refusals identify control characters among nonportable filename characters (RB5-27).
 - HPC job-end glob refusals explain that paths must be relative to the job folder (RB5-24).
 - Excel batch apply uses the shared token validation and recovery diagnostic (RB5-23).
 - Documentation now states the manifest writer's lock lifetime, FSI flap softening and
