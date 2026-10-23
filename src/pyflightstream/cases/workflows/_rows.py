@@ -181,7 +181,13 @@ def _admit_a_row_hand(case: SimCase, rotor: RotorBlock, stated: str) -> None:
     One home for the sentence, because the record path (`_motion_view`) and the
     row path (`_rpm_sign`) enforce the same rule.
     """
-    if _hand_of(stated) == rotor.rpm_sign:
+    hand = _hand_of(stated)
+    if hand not in (1, -1):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {RPM_SIGN_VARIABLE} as {stated!r}; "
+            "the sign of a rotor speed is 1 or -1. State one of those two values."
+        )
+    if hand == rotor.rpm_sign:
         return
     raise CampaignConfigError(
         f"case {case.sim_id!r} states {RPM_SIGN_VARIABLE} as {stated!r} and the rotor "

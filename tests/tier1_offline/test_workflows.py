@@ -3049,6 +3049,16 @@ def test_a_row_naming_its_rotor_by_alias_is_refused_for_a_disagreeing_hand():
     assert FIXTURE_ROTOR.alias in message, message
 
 
+@pytest.mark.parametrize("value", ["garbage", "1.5", "0", "2"])
+def test_p0440_invalid_rotor_hand_names_the_allowed_values(value):
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_speed(_row_naming_its_rotor_by_alias(-1, RPM_SIGN=value))
+    message = str(raised.value)
+    assert "RPM_SIGN" in message and value in message
+    assert "1 or -1" in message
+    assert "disagrees" not in message
+
+
 def test_a_ratio_with_no_diameter_on_the_reference_is_refused_naming_the_field():
     """The refusal has to name the artifact field, or the author cannot act."""
     case = ratio_case().model_copy(

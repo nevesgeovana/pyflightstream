@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Invalid `RPM_SIGN` values beside a rotor block name the allowed values before
+  checking agreement with the block (RB6-09).
 - Non-finite coordinate-frame diagnostics name the offending axis (P0-A1).
 - The boundaries file of a refined level states the level's own `mesh_faces`, `boundary_faces`
   and `mesh_sha256`, counted in and taken from the level's OBJ (after any `[components]` merge),
