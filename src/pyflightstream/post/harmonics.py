@@ -163,6 +163,7 @@ class HarmonicRotor:
     hub_m: Sequence[float] | None = None
     axis_vector: Sequence[float] | None = None
     section_frames: Mapping[tuple[str, str], str | None] | None = None
+    moment_point_m: Sequence[float] | None = None
 
 
 @dataclass
@@ -628,6 +629,7 @@ def _station_radius(rotor: HarmonicRotor, row: Mapping[str, str]) -> float | Non
         hub_m=rotor.hub_m,
         axis_vector=rotor.axis_vector,
         rotor_alias=rotor.alias,
+        moment_point_m=rotor.moment_point_m,
     )
     return None if radius is None else abs(radius)
 

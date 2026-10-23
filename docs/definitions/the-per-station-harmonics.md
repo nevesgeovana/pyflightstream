@@ -52,8 +52,9 @@ registered as a skip with the rotor, station and quantity.
 **The stations.** Station `j` is the `j`-th row of every blade block of the
 rotor, at the radius from the hub of the first sample, as the validity
 columns read it. For a rotor frame this is `|Offset|`; for an MRP cut it is
-the absolute value of Offset minus the hub coordinate along the cut normal. Where
-the hub is off the cut's radial line or the recorded frame is ambiguous,
+the absolute value of `Offset - (hub - moment_point)` along the cut normal. Where
+the hub is off the cut's radial line, the recorded frame is ambiguous, or a
+historical record lacks the moment point,
 `STATION_R_M` and `R_OVER_R` read `NA` and `post.log` names the missing radius.
 Every sample with a known radius must hold its station within a thousandth (`1e-3`) of the
 first sample's largest radius: a station where one does not is left out and

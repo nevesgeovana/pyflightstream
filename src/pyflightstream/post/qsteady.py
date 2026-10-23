@@ -618,6 +618,7 @@ def radius_from_the_hub(
     hub_m: Sequence[float] | None,
     axis_vector: Sequence[float] | None,
     rotor_alias: str | None = None,
+    moment_point_m: Sequence[float] | None = None,
 ) -> float | None:
     """Return a station's ``Offset`` measured from the hub, or None where it cannot be placed.
 
@@ -625,8 +626,9 @@ def radius_from_the_hub(
     radius. A frame of :data:`GEOMETRY_SECTION_FRAMES` (and a clocking's copy
     of one, turned about the shaft through the hub) has the moment point for
     its origin: the station ``r = Offset e_n`` (``e_y`` of an XZ cut, ``e_z``
-    of an XY cut) is ``Offset - hub . e_n`` from the hub along the blade, and
-    only while the hub sits on the plane's radial line, ``hub . (a x e_n)``
+    of an XY cut) is ``Offset - (hub - moment_point) . e_n`` from the hub along
+    the blade, and only while the relative hub sits on the plane's radial line,
+    ``(hub - moment_point) . (a x e_n)``
     zero; off it, Offset does not place the station and the radius is None.
 
     Parameters
@@ -643,6 +645,9 @@ def radius_from_the_hub(
         Rotor shaft direction in the geometry frame.
     rotor_alias : str or None, optional
         Alias identifying the rotor's hub frames. Other frames cannot place a station.
+    moment_point_m : sequence of float or None, optional
+        Recorded MRP origin in geometry coordinates, metres. Missing historical
+        origins leave MRP radii unavailable rather than assuming zero.
 
     Returns
     -------
@@ -659,9 +664,9 @@ def radius_from_the_hub(
         return offset if alias and re.fullmatch(rf"{alias}_(?:SMRP|RMRP\d*)", name) else None
     if normal is None:
         return None
-    if hub_m is None or axis_vector is None:
+    if hub_m is None or axis_vector is None or moment_point_m is None:
         return None
-    hub = [float(value) for value in hub_m]
+    hub = [float(v) - float(o) for v, o in zip(hub_m, moment_point_m, strict=True)]
     axis = [float(value) for value in axis_vector]
     unit = [0.0, 0.0, 0.0]
     unit[normal] = 1.0
@@ -805,6 +810,7 @@ def _station_radii(
                 hub_m=record.hub_m,
                 axis_vector=record.axis_vector,
                 rotor_alias=alias,
+                moment_point_m=record.moment_point_m,
             )
         )
         if row[index["ROTOR"]] == alias and offset is not None and radius is None:

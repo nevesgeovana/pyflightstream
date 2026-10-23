@@ -655,6 +655,27 @@ def test_a_station_off_its_radius_is_a_named_skip_and_the_others_are_fitted():
     assert close.skipped == {} and len(close.rows) == 3
 
 
+def test_p0440_mrp_harmonics_use_the_recorded_moment_origin():
+    from dataclasses import replace
+
+    columns, rows = _rows()
+    for row in rows:
+        row["Offset"] = str(float(row["Offset"]) + 3.0)
+    assert "moment_point_m" in HarmonicRotor.__dataclass_fields__
+    rotor = replace(
+        ROTOR,
+        hub_m=(4.0, 5.0, 6.0),
+        moment_point_m=(1.0, 2.0, 6.0),
+        axis_vector=(1.0, 0.0, 0.0),
+        section_frames={("Blade1", "XZ"): "MRP", ("Blade2", "XZ"): "MRP_QS01"},
+    )
+    result = station_harmonics(columns, rows, {"PROP": rotor}, sample_column="CLOCKING")
+    assert [row[2] for row in result.rows] == pytest.approx(RADII)
+    historical = replace(rotor, moment_point_m=None)
+    unknown = station_harmonics(columns, rows, {"PROP": historical}, sample_column="CLOCKING")
+    assert all(row[2] is None for row in unknown.rows)
+
+
 def test_blocks_of_other_station_counts_skip_the_rotor_by_name():
     # P0310-HARMONICS
     columns, rows = _rows(counts=2)

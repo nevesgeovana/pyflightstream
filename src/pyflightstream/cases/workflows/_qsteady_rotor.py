@@ -819,6 +819,7 @@ def _park_the_qsteady_record(
         rpm=speed.rpm,
         shaft_frame_axis=_the_shaft_letter(rotor),
         hub_m=rotor.origin,
+        moment_point_m=None if case.reference is None else case.reference.moment_point_m,
         axis_vector=rotor.axis_vector,
         diameter_m=rotor.diameter_m,
         families_general=tuple(rotor.families_general),

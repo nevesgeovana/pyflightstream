@@ -40,6 +40,9 @@ FlightStream versions.
 
 ### Fixed
 
+- MRP sectional radii subtract the hub relative to the recorded moment point;
+  historical wheel records without that origin report unavailable radii (F-127).
+
 - Unreadable saved-action metadata warns by file and row without being treated
   as known saved actions that block grouping (PFS-2119.012).
 

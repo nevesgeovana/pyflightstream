@@ -994,6 +994,8 @@ class QsteadyRecord:
     blade1_azimuth_deg: float
     positions: tuple[QsteadyClocking, ...]
     validity: Mapping[str, Any] | None
+    #: MRP origin in geometry coordinates, metres; None for historical records without it.
+    moment_point_m: tuple[float, float, float] | None = None
 
     def solve_order(self) -> tuple[QsteadyClocking, ...]:
         """Return the clockings in the order the run solved them: 1 to k - 1, then 0.
@@ -1023,6 +1025,7 @@ class QsteadyRecord:
             "blade1_azimuth_deg": self.blade1_azimuth_deg,
             "positions": [clocking.as_json() for clocking in self.positions],
             "validity": self.validity,
+            "moment_point_m": self.moment_point_m and list(self.moment_point_m),
         }
 
     def to_text(self) -> str:
@@ -1177,7 +1180,7 @@ def _parse_record(data: object) -> QsteadyRecord:
             f"is of schema {version!r}; this package writes and reads schema "
             f"{RECORD_SCHEMA_VERSION} only"
         )
-    _exact_keys(data, _RECORD_KEYS, "record")
+    _exact_keys(data, _RECORD_KEYS, "record", optional=("moment_point_m",))
     if data["run_type"] != RECORD_RUN_TYPE:
         raise QsteadyRecordError(f"is of run type {data['run_type']!r}, not {RECORD_RUN_TYPE!r}")
     case = data["case"]
@@ -1205,6 +1208,11 @@ def _parse_record(data: object) -> QsteadyRecord:
         blade1_azimuth_deg=_record_number(data["blade1_azimuth_deg"], "blade1_azimuth_deg"),
         positions=tuple(_record_clocking(value, at) for at, value in enumerate(positions)),
         validity=validity,
+        moment_point_m=(
+            _record_vector(data["moment_point_m"], "moment_point_m")
+            if data.get("moment_point_m") is not None
+            else None
+        ),
     )
 
 
