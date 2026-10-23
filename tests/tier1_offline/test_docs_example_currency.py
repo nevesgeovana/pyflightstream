@@ -20,6 +20,12 @@ def test_p0440_missing_value_definition_names_the_fixed_width_exception():
 PAGE = WORKFLOW_DOCS
 
 
+def test_p0440_walltime_documents_both_clock_origins():
+    text = (REPO / "docs/workflow-run-matrix.md").read_text(encoding="utf-8")
+    clock = text.split("`WALLTIME` is the wall clock", 1)[1].split("**A COLUMN", 1)[0]
+    assert all(term in clock for term in ("job-start", "first-invocation", "walltime_margin_s"))
+
+
 def test_p0440_g2_documents_closed_shells_across_families():
     text = (REPO / "docs/mesh/reference.md").read_text(encoding="utf-8")
     gate = next(line for line in text.splitlines() if line.startswith("| G2 |"))
