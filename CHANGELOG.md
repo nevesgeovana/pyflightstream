@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Added
 
+- Base-region follow-up operations accept the boundary name used by an earlier
+  create or named declaration, resolving its region index at build time (PFS-2122.002).
+
 - `refine` reports its progress while it runs: one line per stage and per family (read, layout,
   grid, remesh, write, audit) on stderr, as `[refine HH:MM:SS +N.N s] <stage>`, so a long refinement
   shows it is moving; `--log-level quiet` hides them. In Python, `refine_mesh(..., progress=callable)`
