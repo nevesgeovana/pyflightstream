@@ -634,9 +634,9 @@ def _job_end_files(target: Path, ends: object) -> tuple[str, ...]:
         valid = False
     if not valid or not isinstance(ends, list):
         raise InputArtifactError(
-            f"the HPC profile {target} states job_end_files = {ends!r}. It is a list of the "
-            "file names the scheduler writes when a job ends, as globs with the placeholders "
-            'of native_log, {sim} and {point}, for example ["FTS{sim}.o*", "FTS{sim}.e*"].'
+            f"the HPC profile {target} states job_end_files = {ends!r}. Use a list of globs "
+            "relative to the job folder, never absolute paths, with native_log's placeholders "
+            '{sim} and {point}, for example ["FTS{sim}.o*", "FTS{sim}.e*"].'
         )
     return tuple(str(pattern).strip() for pattern in ends)
 

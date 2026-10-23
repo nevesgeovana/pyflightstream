@@ -32,6 +32,7 @@ FlightStream versions.
 
 ### Fixed
 
+- HPC job-end glob refusals explain that paths must be relative to the job folder (RB5-24).
 - Excel batch apply uses the shared token validation and recovery diagnostic (RB5-23).
 - Documentation now states the manifest writer's lock lifetime, FSI flap softening and
   load-rotation conventions, sidecar refusal behavior, and partial storage application.
