@@ -523,6 +523,29 @@ def _is_validator(node) -> bool:
     return False
 
 
+def _raised_name(expression, scope, line):
+    """Resolve a direct class or a locally constructed exception instance."""
+    import ast
+
+    if isinstance(expression, ast.Call):
+        expression = expression.func
+    name = getattr(expression, "id", None) or getattr(expression, "attr", "")
+    if name in _BARE:
+        return name
+    assignments = [
+        node
+        for node in ast.walk(scope)
+        if isinstance(node, ast.Assign)
+        and node.lineno <= line
+        and any(isinstance(target, ast.Name) and target.id == name for target in node.targets)
+    ]
+    if assignments:
+        value = max(assignments, key=lambda node: (node.lineno, node.col_offset)).value
+        if isinstance(value, ast.Call):
+            return getattr(value.func, "id", None) or getattr(value.func, "attr", "")
+    return name
+
+
 def _bare_raises_in(module_name: str, filename: str, source: str, exported: set[str]) -> list[str]:
     """Every bare stdlib raise inside a public callable of one module.
 
@@ -596,10 +619,10 @@ def _bare_raises_in(module_name: str, filename: str, source: str, exported: set[
         for sub in ast.walk(node):
             if _is_validator(sub) and sub is not node:
                 continue
-            if not (isinstance(sub, ast.Raise) and isinstance(sub.exc, ast.Call)):
+            if not isinstance(sub, ast.Raise) or sub.exc is None:
                 continue
             owner = sub
-            raised = getattr(sub.exc.func, "id", None) or getattr(sub.exc.func, "attr", "")
+            raised = _raised_name(sub.exc, node, sub.lineno)
             if raised not in _BARE:
                 continue
             # A raise inside a validator method of a public model is
@@ -894,6 +917,16 @@ def test_no_exported_public_name_raises_a_bare_stdlib_error() -> None:
         "an existing `except ValueError` catches exactly what it caught before.\n  "
         + "\n  ".join(sorted(offenders)[:15])
     )
+
+
+@pytest.mark.parametrize(
+    "statement", ["raise ValueError", "error = ValueError('bad'); raise error"]
+)
+def test_p0440_bare_raise_detector_sees_classes_and_instances(statement):
+    source = f"def public():\n    {statement}\n"
+    assert _bare_raises_in("example", "example.py", source, set()) == [
+        "example.public -> ValueError"
+    ]
 
 
 def test_the_bare_raise_detector_can_find_one() -> None:
