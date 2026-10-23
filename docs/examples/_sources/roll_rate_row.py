@@ -125,6 +125,8 @@ resolved = resolve_matrix(matrix, workspace, name="roll_study", fs_version=BUILD
 (case,) = resolved.campaign.sims
 print(f"{'roll_rate [deg/s]':>18}  free stream")
 for rate in case.sweep.values:
+    if isinstance(rate, tuple):
+        raise AssertionError("this example requires a scalar roll-rate sweep")
     script = Script(BUILD)
     build_script(case_at_point(case, {case.sweep.type: rate}), script)
     line = next(line for line in script.render().splitlines() if line.startswith("SET_FREESTREAM"))
