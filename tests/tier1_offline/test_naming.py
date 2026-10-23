@@ -201,3 +201,9 @@ def test_beta_and_the_swept_advance_ratio_reach_the_name():
         "M200AL-020BE+035J+170"
     ), "the case-level J overrode the swept axis"
     assert point_name(case, {"alpha": 0.0, "beta": 0.0}) == "M200AL+000BE+000J+130"
+
+
+@pytest.mark.parametrize("template,sim", [("sim_{sim}", "a\x01b"), ("bad\x01", "1")])
+def test_p0440_rb5_27_control_character_refusal_explains_remedy(template, sim):
+    with pytest.raises(NamingTemplateError, match="control characters"):
+        NamingTemplate(archive_name=template).render_archive(sim=sim)

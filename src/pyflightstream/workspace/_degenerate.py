@@ -338,6 +338,10 @@ def _obj_statements(text: str) -> tuple[list[list[float]], dict[str, list[list[i
     groups: dict[str, list[list[int]]] = {}
     current = ""
     for number, line in enumerate(text.splitlines(), start=1):
+        statement = line.strip().split(maxsplit=1)
+        if len(statement) == 2 and statement[0] == "o":
+            current = statement[1]
+            continue
         words = line.split("#", 1)[0].split()
         if not words:
             continue
@@ -347,8 +351,6 @@ def _obj_statements(text: str) -> tuple[list[list[float]], dict[str, list[list[i
                     f"line {number} states a vertex of {len(words) - 1} coordinates, not three"
                 )
             vertices.append([float(word) for word in words[1:4]])
-        elif words[0] == "o" and len(words) > 1:
-            current = " ".join(words[1:])  # the name the writer gives, spaces kept
         elif words[0] == "g" and len(words) > 1:
             current = words[1]
         elif words[0] == "f":
@@ -608,8 +610,9 @@ def _section(local: Points, faces: Faces, station: float, tolerance: float) -> l
 def _ends(points: Points) -> tuple[int, int]:
     """Return the indices of the two loop points farthest apart (the chord's ends)."""
     best, a, b = -1.0, 0, 0
-    for start in range(0, len(points), 512):
-        block = points[start : start + 512]
+    batch = max(1, min(512, 131072 // max(1, len(points))))
+    for start in range(0, len(points), batch):
+        block = points[start : start + batch]
         distance = numpy.linalg.norm(block[:, None, :] - points[None, :, :], axis=2)
         row, column = numpy.unravel_index(int(numpy.argmax(distance)), distance.shape)
         if float(distance[row, column]) > best:

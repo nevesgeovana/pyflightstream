@@ -261,7 +261,7 @@ def run_sequence(run_dir: Path, calls: int, first_iteration: int = 100) -> list:
     return results
 
 
-def test_p0430_f6_04_stable_solve_does_not_hide_relaxation_lag(tmp_path):
+def test_p0440_rb4_15_stable_solve_does_not_hide_relaxation_lag(tmp_path):
     cfg = driver_config()
     cfg = cfg.model_copy(
         update={
@@ -280,6 +280,9 @@ def test_p0430_f6_04_stable_solve_does_not_hide_relaxation_lag(tmp_path):
     computed = results[-1].solutions[0].elastic_twist_rad[-1]
     assert abs(np.degrees(computed - applied[-1])) > cfg.phases.tip_twist_tolerance_deg
     assert load_state(tmp_path / driver.STATE_FILE).phase == 3
+    verdict = tmp_path / driver.VERDICT_FILE
+    assert verdict.is_file(), "the applied-twist lag must be recorded in the run folder"
+    assert "the applied twist still lags the structural solve" in verdict.read_text()
 
 
 def test_phase_progression_counters_and_log(tmp_path):

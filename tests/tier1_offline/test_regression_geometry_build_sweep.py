@@ -2863,6 +2863,21 @@ class TestGeometryPlan:
         assert all("POL 9401" in text for text in texts)
 
     @staticmethod
+    def test_p0440_x_f_0423_line_ending_change_names_raw_byte_contract(built):
+        _, folder, fsm = built
+        source = folder / "src.obj"
+        original = source.read_bytes()
+        changed = (
+            original.replace(b"\r\n", b"\n")
+            if b"\r\n" in original
+            else original.replace(b"\n", b"\r\n")
+        )
+        assert changed != original
+        source.write_bytes(changed)
+        with pytest.raises(InputArtifactError, match="raw bytes, including line endings"):
+            judge_the_row_geometry(fsm, "9401", fs_build="26.125", mesh_import=None)
+
+    @staticmethod
     @pytest.mark.requirement("FR-473")
     def test_p0400_geom_plan_a_body_without_a_record_is_planned_as_before(tmp_path):
         """P0400-GEOM-PLAN (PFS-2081.41): FR-1123, nothing is said of a GUI-saved simulation."""
@@ -4613,3 +4628,24 @@ def test_f2_0809_a_dangling_link_is_not_a_free_archive_path(tmp_path, monkeypatc
     assert free_root_archive(tmp_path, "x.json", "20261021").name == "x-20261021.2.json"
     taken = free_matrix_archive(tmp_path, "mx", "m.txt", "20261021")
     assert taken.parent.name == "20261021.2" and taken.name == "m.txt"
+
+
+def test_p0440_rb5_20_obj_reader_makes_no_uncited_solver_claim():
+    from pyflightstream.workspace._refine._obj import read_obj
+
+    assert "does not need" not in read_obj.__doc__
+
+
+def test_p0440_rb5_21_profile_help_labels_evidence_gap(capsys):
+    with pytest.raises(SystemExit) as ended:
+        workspace_cli.main(["profile", "--help"])
+    assert ended.value.code == 0
+    text = " ".join(capsys.readouterr().out.split())
+    assert "documented behaviour" not in text
+    assert "no manual citation or measurement" in text
+
+
+def test_p0440_rb5_28_carried_tables_documents_unreadable_refusal():
+    from pyflightstream.workspace._geometry_sidecar import carried_tables
+
+    assert "UnreadableSidecarError" in carried_tables.__doc__

@@ -505,11 +505,9 @@ def _post_archive(stamp: Path, root: Path, action: str, apply: bool) -> tuple[di
             with handle, zipfile.ZipFile(handle, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
                 for folder, dirs, files in os.walk(stamp, followlinks=False):
                     here = Path(folder)
-                    dirs[:] = [name for name in dirs if not is_reparse(here / name)]
                     for name in sorted([*dirs, *files]):
-                        path = here / name
-                        if not is_reparse(path) and (path.is_dir() or path.is_file()):
-                            bundle.write(path, path.relative_to(stamp))
+                        _write_post_member(bundle, stamp, here / name)
+                    dirs[:] = [name for name in dirs if not is_reparse(here / name)]
             _verify_zip(stamp, archive)
         except BaseException:
             archive.unlink(missing_ok=True)
@@ -518,6 +516,18 @@ def _post_archive(stamp: Path, root: Path, action: str, apply: bool) -> tuple[di
         size -= _size(archive)
     shutil.rmtree(stamp)
     return entry, size
+
+
+def _write_post_member(bundle: zipfile.ZipFile, stamp: Path, path: Path) -> None:
+    """Archive a post member, recording links as notes without following their targets."""
+    name = path.relative_to(stamp).as_posix()
+    if is_reparse(path):
+        note = name + ".LINK.txt"
+        if (stamp / note).exists() or is_reparse(stamp / note):
+            raise WorkspaceError(f"Cannot compact {stamp}: link note {note} already exists.")
+        bundle.writestr(note, os.path.realpath(path) + "\n")
+    elif path.is_dir() or path.is_file():
+        bundle.write(path, name)
 
 
 def _verify_zip(stamp: Path, archive: Path) -> None:

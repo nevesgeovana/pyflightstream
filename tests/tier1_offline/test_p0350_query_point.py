@@ -537,13 +537,14 @@ def test_query_errors_and_machine_csv(workspace, capsys):
     assert "\r" not in out
 
 
-def test_log_problems_tolerates_an_outcomes_list(workspace, capsys):
+def test_p0440_rb5_35_log_problems_retains_an_outcomes_list(workspace, capsys):
     """F-1220: an event whose outcomes is a nonempty list does not abort the problems filter."""
     log = workspace / "logs/activity.log.jsonl"
     odd = _event("collect", "finished", "2026-01-01T14:00:00Z", outcomes=["FAILED_DIVERGED"])
     log.write_text(log.read_text(encoding="utf-8") + json.dumps(odd) + "\n", encoding="utf-8")
-    code, _, err = _query(workspace, capsys, "log", "--problems")
+    code, out, err = _query(workspace, capsys, "log", "--problems", "--json")
     assert code == 0, err
+    assert any(row.get("outcomes") == ["FAILED_DIVERGED"] for row in json.loads(out)["rows"])
 
 
 def test_history_reports_an_unreadable_zip_as_a_row_and_still_answers(workspace, capsys):
@@ -630,3 +631,11 @@ def test_f2_0809_the_python_queries_write_nothing_and_equal_the_console_rows(wor
     assert results[0] and results[1] and results[2] is not None
     assert _rows(workspace, capsys, "status") == results[0]
     assert _rows(workspace, capsys, "status", "--points") == results[1]
+
+
+def test_p0440_rb5_33_query_uses_link_guard_on_python_311(workspace, capsys, monkeypatch):
+    from pathlib import Path
+
+    monkeypatch.delattr(Path, "is_junction", raising=False)
+    rows = _rows(workspace, capsys, "show", "9101_1")
+    assert rows[0]["evidence"][0]["last_lines"][-1] == "last solver line"

@@ -75,11 +75,12 @@ def toml_table(name: str, table: Mapping[str, Any]) -> list[str]:
 
 
 def carried_tables(candidates: Sequence[Path]) -> dict[str, Any]:
-    """Return what the first readable sidecar of ``candidates`` carries over, or nothing.
+    """Return what the first existing sidecar of ``candidates`` carries over, or nothing.
 
     The result holds ``operations`` (the translate and rotate operations, in the
     order written) and the ``wake_termination`` and ``base_regions`` tables, each
-    only when stated.
+    only when stated. An existing unreadable sidecar raises UnreadableSidecarError;
+    later candidates are not tried, so its settings cannot silently disappear.
     """
     for path in candidates:
         if not path.is_file():

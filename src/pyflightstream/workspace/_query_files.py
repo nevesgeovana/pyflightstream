@@ -17,6 +17,7 @@ from typing import IO, TYPE_CHECKING, Any
 from zipfile import ZipFile
 
 from pyflightstream._digest import file_sha256
+from pyflightstream.workspace._links import is_reparse
 
 if TYPE_CHECKING:
     from pyflightstream.workspace.ledger import Ledger
@@ -70,7 +71,7 @@ def _files(ledger: Ledger, sim: str) -> dict[str, str]:
 
 
 def _linked(path: Path) -> bool:
-    return path.is_symlink() or path.is_junction()
+    return is_reparse(path)
 
 
 def _text(ledger: Ledger, path: str) -> str:

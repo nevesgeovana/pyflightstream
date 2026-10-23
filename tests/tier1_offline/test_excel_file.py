@@ -496,7 +496,7 @@ def test_x_f_1314_a_repeated_cancel_says_so(
     assert "already cancelled" in capsys.readouterr().err
 
 
-def test_x_f_1358_a_token_that_is_not_a_package_token_is_refused(
+def test_p0440_rb5_23_invalid_token_uses_shared_refusal(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     import json
@@ -506,7 +506,7 @@ def test_x_f_1358_a_token_that_is_not_a_package_token_is_refused(
     payload["preview"]["token"] = "../../escape"
     batch.write_text(json.dumps(payload), encoding="utf-8")
     assert main(["apply", str(batch)]) == 2
-    assert "token" in capsys.readouterr().err
+    assert "32-character hexadecimal token" in capsys.readouterr().err
     assert not (tmp_path / "escape").exists()
 
 

@@ -370,13 +370,15 @@ class ElasticAxisLoads:
         Local chords [m].
     force_chordwise_n_per_m : numpy.ndarray
         Force densities [N/m] projected toward the section leading edge;
-        :func:`to_elastic_axis` selects the configured frame projection.
+        section-frame exports are unprojected unless station rotation is supplied.
     force_normal_n_per_m : numpy.ndarray
-        Force densities [N/m] projected toward the section suction side.
+        Force densities [N/m] toward the section suction side, with the same frame rule.
     moment_pa_nm_per_m : numpy.ndarray
         Nose-up moment densities about the pitch axis [N m / m]. The export
         moment is negated in the rotor-frame projection and retained in the
-        wing-frame and section-frame projections.
+        wing-frame and section-frame projections. With station rotation, it is
+        additionally scaled by cos(arctan(slope)), where slope is the interpolated
+        deflection gradient; twist rotates the forces but does not scale this moment.
     moment_ea_nm_per_m : numpy.ndarray
         Moment densities about the elastic axis [N m / m] (FSI-R04).
     ea_offset_chordwise_m, ea_offset_normal_m : numpy.ndarray

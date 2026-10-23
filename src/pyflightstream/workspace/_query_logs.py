@@ -152,6 +152,8 @@ def _problem(row: dict[str, Any]) -> bool:
     outcomes = row.get("outcomes")
     if isinstance(outcomes, dict):
         words.extend(str(key) for key, count in outcomes.items() if count)
+    elif isinstance(outcomes, list):
+        words.extend(value for value in outcomes if isinstance(value, str))
     failed = any(
         word.upper().startswith(("FAILED", "ERROR", "WARNING", "CANCELLED")) for word in words
     )

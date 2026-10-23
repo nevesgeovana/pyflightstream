@@ -1394,3 +1394,33 @@ def test_f6_0102_an_external_call_without_the_loads_file_fails(tmp_path):
     record = json.loads((folder / "fsi_archive" / "call_0001" / "call.json").read_text("utf-8"))
     assert record["verdict"] == "failed" and "loads file" in record["reason"]
     assert record["return_code"] is None
+
+
+@pytest.mark.parametrize("name", ["stand_in.py", "STAND_IN.PY."])
+def test_p0440_rb4_21_external_overlap_keeps_input(tmp_path, name):
+    folder = _gaps_rt_fsiext___point(tmp_path)
+    manifest = folder / EXTERNAL_MANIFEST
+    payload = json.loads(manifest.read_text())
+    payload["outputs"] = [name]
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    script = folder / "stand_in.py"
+    before = script.read_bytes()
+    assert external_step(folder) == 1
+    assert script.is_file(), "an input/output collision must not delete the input"
+    assert script.read_bytes() == before
+    assert not (folder / "fsi_archive").exists()
+
+
+def test_p0440_rb4_23_loads_presence_describes_call_input(tmp_path):
+    folder = _gaps_rt_fsiext___point(tmp_path)
+    script = folder / "stand_in.py"
+    script.write_text(script.read_text() + f"\nimport os\nos.unlink({LOADS_FILE!r})\n")
+    manifest = folder / EXTERNAL_MANIFEST
+    payload = json.loads(manifest.read_text())
+    payload["inputs_sha256"][script.name] = hashlib.sha256(script.read_bytes()).hexdigest()
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    assert external_step(folder) == 0
+    assert not (folder / LOADS_FILE).exists()
+    record = json.loads((folder / "fsi_archive/call_0001/call.json").read_text())
+    assert record["loads_file_present"] is True
+    assert LOADS_FILE in record["read_sha256"]

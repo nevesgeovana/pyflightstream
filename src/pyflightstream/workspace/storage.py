@@ -174,10 +174,13 @@ def _load_toml(path: Path, kind: str) -> dict[str, Any]:
         raise StorageError(f"{path}: the {kind} cannot be read as TOML ({error})") from error
 
 
-def _load_json(path: Path, kind: str) -> Any:
+def _load_json(path: Path, kind: str, *, object_only: bool = False) -> Any:
     """Read a JSON document of the storage commands, refusing it by path when it cannot be read."""
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(path.read_text(encoding="utf-8"))
+        if object_only and not isinstance(value, dict):
+            raise ValueError("expected a JSON object")
+        return value
     except (OSError, ValueError) as error:
         raise StorageError(f"{path}: the {kind} cannot be read as JSON ({error})") from error
 
@@ -865,6 +868,10 @@ def free_space(
 ) -> dict[str, Any]:
     """Run a storage recipe: preview by default, change files only with ``apply``.
 
+    Applying is not transactional: earlier steps may complete before a later
+    archive collision or I/O failure. The storage call records completed steps
+    and an ``interrupted`` reason; resolve that failure before retrying.
+
     ``runs`` names another manifest in the root (CLI: ``--runs NAME``), such
     as a rebuilt one, whose records the recipe reads IN ADDITION to
     ``runs.json``'s: a file either names is protected, and a simulation
@@ -893,6 +900,8 @@ def free_space(
     ------
     StorageError
         If the recipe is invalid, would delete a saved simulation, or a run is in progress.
+    WorkspaceError
+        If post-archive compaction finds an existing archive or fails verification.
     """
     workspace = _workspace(root)
     manifest = resolve_manifest(workspace.root, runs)
@@ -951,18 +960,15 @@ def _products_of(workspace: CampaignWorkspace, sim_ids: set[str], run_ids: set[s
         if ARCHIVE_DIR in manifest.relative_to(post).parts:
             continue
         try:
-            document = json.loads(manifest.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as error:
+            document = _load_json(manifest, "products manifest", object_only=True)
+        except StorageError as error:
             # NEVER SKIPPED (PFS-2086.006): an unread manifest hides the products
             # that hold the deleted points, and the shared-product refusal with them.
             raise StorageError(
-                f"{manifest} cannot be read ({error}); delete-sims reads it to find the "
-                "products that hold the deleted points, so nothing is deleted. Restore it "
-                "(pyfs-matrix restore products) or rebuild it with a post, then run again."
+                f"{manifest} cannot be read ({error}); nothing is deleted. "
+                "Restore it (pyfs-matrix restore products) or rebuild it with a post, then retry."
             ) from error
-        folder = manifest.parent
-        own: list[str] = []
-        shared: list[str] = []
+        folder, own, shared = manifest.parent, [], []
         for name, entry in dict(document.get("products", {})).items():
             if not isinstance(entry, dict):
                 continue
@@ -1259,7 +1265,7 @@ def _delete_applied(
 ) -> None:
     """Remove the checked simulations, their own products and their records; fill ``entry``."""
     ids = [str(item["sim_id"]) for item in entry["sims"]]
-    stamp = _stamp()
+    clock, stamp = _stamp(), os.urandom(16).hex()
     entry["delete_stamp"] = stamp
     # THE FOLDERS GO FIRST, links undone before anything is removed: a
     # refusal there leaves the records, the products and the mesh as they were.
@@ -1281,7 +1287,7 @@ def _delete_applied(
         )
     # The runs.json lease is already held by delete_sims for all of this.
     raw = _read_rows(manifest)
-    archived_as = _archive_manifest(workspace, manifest, stamp) if manifest.is_file() else None
+    archived_as = _archive_manifest(workspace, manifest, clock) if manifest.is_file() else None
     kept = [row for row in raw if str(row.get("run_id")) not in run_ids]
     index = len(read_storage_calls(workspace.root))
     for item in entry["sims"]:

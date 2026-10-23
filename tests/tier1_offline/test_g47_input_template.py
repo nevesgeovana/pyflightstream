@@ -998,7 +998,7 @@ def test_x_f1255_a_dotted_hpc_profile_name_can_be_selected(tmp_path):
 
 
 @pytest.mark.parametrize("pattern", ["/scratch/FTS*.o", "C:\\scratch\\FTS*.o", "\\\\srv\\share\\x"])
-def test_x_f0577_an_absolute_job_end_glob_is_refused_where_it_is_written(tmp_path, pattern):
+def test_p0440_rb5_24_absolute_job_end_glob_explains_relative_paths(tmp_path, pattern):
     path = tmp_path / "h001.toml"
     path.write_text(
         'application_id = "X"\n[descriptor.fields]\nwalltime = "1"\n'
@@ -1007,7 +1007,7 @@ def test_x_f0577_an_absolute_job_end_glob_is_refused_where_it_is_written(tmp_pat
         + "]\n",
         encoding="utf-8",
     )
-    with pytest.raises(InputArtifactError, match="job_end_files"):
+    with pytest.raises(InputArtifactError, match="relative to the job folder"):
         read_hpc_profile(path)
 
 

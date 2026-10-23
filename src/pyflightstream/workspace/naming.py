@@ -892,7 +892,7 @@ def _render(template: str, values: dict[str, object], role: str, check_name: boo
             raise NamingTemplateError(
                 f"the value of {{{name}}} ({text!r}) contains characters that are "
                 f"not portable in file names; rename it so the rendered {role} "
-                "stays a plain file name (no whitespace and none of the characters "
+                "stays a plain file name (no whitespace, control characters, or "
                 '<>:"/\\|?*).'
             )
     if check_name and (
@@ -900,7 +900,7 @@ def _render(template: str, values: dict[str, object], role: str, check_name: boo
     ):
         raise NamingTemplateError(
             f"the rendered {role} {rendered!r} is not a portable file name; avoid "
-            'path separators, whitespace, the characters <>:"|?*, and the names Windows '
+            'separators, whitespace, control characters, <>:"|?*, and the names Windows '
             "reserves for devices (NUL, CON, COM1 and the like) in the "
             "template. Names are generated for human reading only; identity "
             "lives in the manifest."

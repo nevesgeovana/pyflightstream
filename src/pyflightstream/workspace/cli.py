@@ -473,8 +473,8 @@ def _add_profile_commands(subparsers: argparse._SubParsersAction) -> None:
             "reference's block (--ref, --disc) or stated (--tip-radius, --hub-radius, "
             "--blades). The ELLIPTICAL disc is native in the solver and needs no file: its row "
             "states ACTUATOR_THRUST. A RELAXED disc ignores a custom profile (RPT-137); that "
-            "was measured on one case on build 26.124, and that a RIGID disc reads the "
-            "profile is the documented behaviour, with no measurement cited. "
+            "was measured on one case on build 26.124. The RIGID profile route has "
+            "no manual citation or measurement cited here. "
             "Previews by default; --apply writes inputs/profiles/<stem>.csv and "
             "<stem>.provenance.json, and an existing file is replaced only with --overwrite."
         ),
@@ -1268,7 +1268,7 @@ def _print_profile(
         print(
             f"  note: the disc {args.disc!r} is RELAXED; measured on 26.124 (RPT-137) a RELAXED "
             "disc ignored a custom profile, and the plan warns on a row that names one. A "
-            "RIGID disc is documented to read the profile; no measurement is cited."
+            "RIGID profile route has no manual citation or measurement cited here."
         )
     if not written.applied:
         print(f"preview: would write {written.target} and {written.sidecar.name}")

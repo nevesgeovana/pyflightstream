@@ -62,6 +62,30 @@ FlightStream versions.
 - Invalid `RPM_SIGN` values beside a rotor block name the allowed values before
   checking agreement with the block (RB6-09).
 - Non-finite coordinate-frame diagnostics name the offending axis (P0-A1).
+- Geometry input-change refusals explain that hashes compare raw bytes, including line
+  endings (X-F-0423).
+- Post compaction records links as `.LINK.txt` notes without following their targets, and
+  refuses a collision with an existing note name before removing the source (RB4-29).
+- Point queries use the shared link guard, including on Python 3.11 (RB5-33).
+- Deletion records use a unique call ID even within one clock tick, preserving archive ordering
+  by the existing timestamp (RB5-26).
+- Refinement sidecar rewrites escape DEL with the shared TOML writer (RB5-46).
+- Naming refusals identify control characters among nonportable filename characters (RB5-27).
+- HPC job-end glob refusals explain that paths must be relative to the job folder (RB5-24).
+- Excel batch apply uses the shared token validation and recovery diagnostic (RB5-23).
+- Documentation now states the manifest writer's lock lifetime, FSI flap softening and
+  load-rotation conventions, sidecar refusal behavior, and partial storage application.
+  OBJ and profile descriptions no longer make uncited solver claims.
+- Thin-blade chord detection bounds temporary distance arrays for dense sections (RB4-30).
+- Thin-blade extraction preserves `#` and repeated spaces in OBJ object names (RB5-25).
+- External FSI call records retain loads-file presence at call start even when the
+  structural program removes the file (RB4-23).
+- External FSI steps refuse input/output filename collisions before removing stale outputs
+  or running the program (RB4-21).
+- `delete-sims` refuses a non-object `products.json` with `StorageError` before deletion
+  and names the manifest and recovery route (RB5-43).
+- Query problem filters retain failed outcomes recorded as a list (RB5-35).
+- FSI records applied-twist lag verdicts in the run folder as well as the logger (RB4-15).
 - The boundaries file of a refined level states the level's own `mesh_faces`, `boundary_faces`
   and `mesh_sha256`, counted in and taken from the level's OBJ (after any `[components]` merge),
   where it copied the source's, and its header comment names the level OBJ's sha256; the source's

@@ -1525,3 +1525,13 @@ def test_the_levels_boundaries_file_states_the_levels_faces_and_sha256(tmp_path)
     plain = write_source(tmp_path / "plain" / "src", "wing", mesh, refine_toml=toml)
     level = refine_mesh(plain, 2.0, families=["G", "T"])
     assert not any(key in _level_boundaries(level.folder) for key in INVENTORY_KEYS)
+
+
+def test_p0440_rb5_46_rewritten_sidecar_escapes_del(tmp_path):
+    from pyflightstream.workspace._refine._obj import rewrite_value
+
+    wanted = {"boundaries": ["Wing\x7f"]}
+    result = rewrite_value(
+        tmp_path / "wing.boundaries.toml", 'boundaries = ["Wing"]\n', "boundaries", ["Wing"], wanted
+    )
+    assert tomllib.loads(result) == wanted
