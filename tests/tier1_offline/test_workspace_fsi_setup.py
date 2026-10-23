@@ -35,6 +35,136 @@ geometric_pitch_deg = [0.0, 0.0]
 """
 
 
+@pytest.mark.requirement("FR-3250")
+def test_p0440_campbell_cli_writes_workspace_study(tmp_path, capsys):
+    """pyfs-workspace fsi campbell f001 --rpm 0 600 3 --modes 2."""
+    import csv
+    import hashlib
+    import math
+
+    from pyflightstream.workspace.cli import main
+
+    source = tmp_path / "inputs/fsi/f001.toml"
+    source.parent.mkdir(parents=True)
+    source.write_text(SUPPLIED)
+    args = [
+        "fsi",
+        "campbell",
+        "f001",
+        "--rpm",
+        "0",
+        "600",
+        "3",
+        "--modes",
+        "2",
+        "--workspace",
+        str(tmp_path),
+    ]
+    try:
+        result = main(args)
+    except SystemExit as error:
+        result = error.code
+    assert result == 0
+    folder = tmp_path / "post/fsi/f001"
+    rows = list(csv.DictReader((folder / "campbell.csv").read_text().splitlines()))
+    assert len(rows) == 6
+    assert [float(row["RPM"]) for row in rows] == [0, 0, 300, 300, 600, 600]
+    assert rows[0]["FREQ_PER_REV"] == "NA"
+    for row in rows[2:]:
+        assert float(row["FREQ_PER_REV"]) == pytest.approx(
+            float(row["FREQ_HZ"]) * 2 * math.pi / float(row["OMEGA_RAD_S"])
+        )
+    fit = list(csv.DictReader((folder / "southwell.csv").read_text().splitlines()))
+    assert fit
+    receipt = json.loads((folder / "campbell.json").read_text())
+    assert receipt["input_sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
+    assert receipt["limitation"] == "structural model only, no aerodynamic damping"
+    assert "campbell.csv" in capsys.readouterr().out
+    before = (folder / "campbell.csv").read_bytes()
+    assert main(args) != 0
+    assert (folder / "campbell.csv").read_bytes() == before
+    assert main([*args, "--overwrite"]) == 0
+
+
+@pytest.mark.parametrize(
+    "rpm",
+    [(0, 600, 2), (-1, 600, 3), (600, 600, 3), (0, 600, 3.5), (0, float("inf"), 3)],
+    ids=lambda value: f"P0440-{value}",
+)
+def test_p0440_campbell_refuses_invalid_sweep(tmp_path, rpm, capsys):
+    from pyflightstream.workspace.cli import main
+
+    try:
+        result = main(
+            ["fsi", "campbell", "f001", "--rpm", *map(str, rpm), "--workspace", str(tmp_path)]
+        )
+    except SystemExit as error:
+        result = error.code
+    assert result != 0
+    assert "COUNT >= 3" in capsys.readouterr().err
+    assert not (tmp_path / "post/fsi/f001/campbell.csv").exists()
+
+
+def test_p0440_campbell_crossings_and_missing_family(tmp_path, monkeypatch, capsys):
+    import csv
+    from types import SimpleNamespace
+
+    from pyflightstream.fsi import centrifugal
+    from pyflightstream.workspace.cli import main
+
+    def modes(cfg, n_modes):
+        # Analytic constant track: crossing n Omega at Omega=10/n, S=0.
+        middle = 10 < cfg.omega_rad_per_s < 20
+        return SimpleNamespace(
+            frequencies_rad_per_s=(10.0, 20.0), kinds=("flap", "flap" if middle else "torsion")
+        )
+
+    monkeypatch.setattr(centrifugal, "rotating_frequencies", modes)
+    source = tmp_path / "inputs/fsi/f001.toml"
+    source.parent.mkdir(parents=True)
+    source.write_text(SUPPLIED)
+    try:
+        result = main(
+            ["fsi", "campbell", "f001", "--rpm", "0", "300", "3", "--workspace", str(tmp_path)]
+        )
+    except SystemExit as error:
+        result = error.code
+    assert result == 0
+    folder = tmp_path / "post/fsi/f001"
+    receipt = json.loads((folder / "campbell.json").read_text())
+    assert len(receipt["crossings"]) == 6
+    import math
+
+    for crossing in receipt["crossings"]:
+        assert crossing["rpm"] == pytest.approx(300 / (math.pi * crossing["n"]))
+        assert crossing["mode"] == 1
+        assert crossing["kind"] == "flap"
+    assert len(receipt["skipped"]) == 1
+    assert "torsion" in receipt["skipped"][0]
+    assert "torsion" in capsys.readouterr().out
+    rows = list(csv.DictReader((folder / "southwell.csv").read_text().splitlines()))
+    assert len(rows) == 1
+    assert float(rows[0]["SOUTHWELL_S"]) == pytest.approx(0)
+    assert float(rows[0]["OMEGA0_HZ"]) == pytest.approx(5 / math.pi)
+
+
+def test_p0440_campbell_refuses_external_mode_before_program_binding(tmp_path, capsys):
+    from pyflightstream.workspace.cli import main
+
+    source = tmp_path / "inputs/fsi/f001.toml"
+    source.parent.mkdir(parents=True)
+    source.write_text('mode = "external"\n')
+    try:
+        code = main(
+            ["fsi", "campbell", "f001", "--rpm", "0", "600", "3", "--workspace", str(tmp_path)]
+        )
+    except SystemExit as error:
+        code = error.code
+    assert code != 0
+    assert "mode external has no beam model" in capsys.readouterr().err
+    assert not (tmp_path / "post/fsi").exists()
+
+
 @pytest.mark.requirement("FR-155")
 def test_matrix_factor_replaces_file_factor_once(tmp_path: Path) -> None:
     # GOAL033:fsi:checks:matrix_calibration

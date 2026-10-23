@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Added
 
+- `pyfs-workspace fsi campbell` writes structural Campbell frequencies, Southwell
+  fits and a provenance/crossing report from an FSI input (PFS-2154).
+
 - `refine` reports its progress while it runs: one line per stage and per family (read, layout,
   grid, remesh, write, audit) on stderr, as `[refine HH:MM:SS +N.N s] <stage>`, so a long refinement
   shows it is moving; `--log-level quiet` hides them. In Python, `refine_mesh(..., progress=callable)`

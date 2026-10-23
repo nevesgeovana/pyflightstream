@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import math
 import re
@@ -43,6 +44,7 @@ __all__ = [
     "resolve_row_fsi",
     "stage_fsi_setup",
     "structural_assessment",
+    "write_campbell_study",
 ]
 
 
@@ -141,6 +143,148 @@ class ResolvedFsiSetup:
             "frozen_displacements_sha256": self.frozen_displacements_sha256,
             "allow_configuration_change": self.allow_configuration_change,
         }
+
+
+def write_campbell_study(
+    root: str | Path,
+    fsi_id: str,
+    *,
+    rpm: tuple[float, float, float],
+    n_modes: int = 6,
+    overwrite: bool = False,
+) -> dict[str, Any]:
+    """Write a structural-only speed study using the workspace's FSI binder.
+
+    Parameters
+    ----------
+    root : str or Path
+        Workspace containing inputs/fsi.
+    fsi_id : str
+        FSI input code, without extension.
+    rpm : tuple of float
+        Start, stop and integer count of inclusive speeds in revolutions per minute.
+    n_modes : int, optional
+        Number of lowest modes at each speed.
+    overwrite : bool, optional
+        Replace existing study products only when true.
+
+    Returns
+    -------
+    dict
+        Provenance, written file names, crossings and named missing families.
+
+    Raises
+    ------
+    FsiSetupError
+        Invalid sweep, external model, missing input or existing output.
+    """
+    from pyflightstream.fsi.centrifugal import campbell_sweep
+
+    start, stop, count = rpm
+    if (
+        not all(math.isfinite(v) for v in rpm)
+        or start < 0
+        or stop <= start
+        or count < 3
+        or count != int(count)
+    ):
+        raise FsiSetupError(
+            f"rpm={rpm}: use finite START >= 0, STOP > START and integer COUNT >= 3."
+        )
+    if isinstance(n_modes, bool) or n_modes < 1:
+        raise FsiSetupError(f"modes={n_modes}: use a positive integer.")
+    resolved = resolve_row_fsi(Path(root) / "inputs", {"FSI": fsi_id}, require_beam=True)
+    if not isinstance(resolved, ResolvedFsiSetup):
+        raise FsiSetupError(
+            f"FSI {fsi_id!r}: name a supplied or calculated beam input, such as f001."
+        )
+    folder = Path(root) / "post" / "fsi" / fsi_id
+    files = ["campbell.csv", "southwell.csv", "campbell.json"]
+    for name in files:
+        if (folder / name).exists() and not overwrite:
+            raise FsiSetupError(f"{folder / name} exists; pass --overwrite to replace the study.")
+    speeds = [start + (stop - start) * i / (int(count) - 1) for i in range(int(count))]
+    data = campbell_sweep(resolved.effective, [r * math.pi / 30 for r in speeds], n_modes)
+    rows, fits, missing = _campbell_tables(data, speeds)
+    receipt = {
+        "input_sha256": resolved.source_sha256,
+        "sweep": {"rpm": speeds, "modes": n_modes},
+        "files": files,
+        "crossings": _campbell_crossings(data),
+        "skipped": missing,
+        "limitation": "structural model only, no aerodynamic damping",
+    }
+    folder.mkdir(parents=True, exist_ok=True)
+    _study_csv(
+        folder / files[0], ("RPM", "OMEGA_RAD_S", "MODE", "KIND", "FREQ_HZ", "FREQ_PER_REV"), rows
+    )
+    _study_csv(folder / files[1], ("KIND", "OMEGA0_HZ", "SOUTHWELL_S", "R_SQUARED"), fits)
+    _textio.write_text(folder / files[2], json.dumps(receipt, indent=2, allow_nan=False) + "\n")
+    return receipt
+
+
+def _study_csv(path, columns, rows):
+    stream = io.StringIO(newline="")
+    writer = _textio.csv_writer(stream)
+    writer.writerow(columns)
+    writer.writerows(rows)
+    _textio.write_text(path, stream.getvalue())
+
+
+def _campbell_tables(data, speeds):
+    from pyflightstream.fsi.centrifugal import southwell_fit
+
+    rows, fits, missing = [], [], []
+    families = sorted(
+        {"flap", "torsion"} | {kind for result in data.modal_results for kind in result.kinds}
+    )
+    for rpm, omega, result in zip(speeds, data.omegas_rad_per_s, data.modal_results, strict=True):
+        for mode, (freq, kind) in enumerate(
+            zip(result.frequencies_rad_per_s, result.kinds, strict=True), 1
+        ):
+            rows.append(
+                (rpm, omega, mode, kind, freq / (2 * math.pi), freq / omega if omega else "NA")
+            )
+    for kind in families:
+        try:
+            track = data.family_track(kind)
+        except FsiInputError as error:
+            missing.append(f"Southwell {kind}: {error}")
+            continue
+        zero, slope, quality = southwell_fit(data.omegas_rad_per_s, track)
+        fits.append((kind, zero / (2 * math.pi), slope, quality))
+    return rows, fits, missing
+
+
+def _campbell_crossings(data):
+    """Interpolate n Omega crossings only between matching family-labelled modal slots."""
+    crossings = []
+    seen = set()
+    for index in range(len(data.modal_results) - 1):
+        left, right = data.modal_results[index : index + 2]
+        w0, w1 = data.omegas_rad_per_s[index : index + 2]
+        for mode, (f0, f1, k0, k1) in enumerate(
+            zip(
+                left.frequencies_rad_per_s,
+                right.frequencies_rad_per_s,
+                left.kinds,
+                right.kinds,
+                strict=True,
+            ),
+            1,
+        ):
+            if k0 != k1:
+                continue
+            for order in range(1, 7):
+                a, b = f0 - order * w0, f1 - order * w1
+                if a * b > 0 or a == b:
+                    continue
+                speed = (w0 - a * (w1 - w0) / (b - a)) * 30 / math.pi
+                key = (mode, order, speed)
+                if key not in seen:
+                    crossings.append({"rpm": speed, "mode": mode, "kind": k0, "n": order})
+                    seen.add(key)
+    return crossings
 
 
 def _factors(values: Mapping[str, float], where: str) -> dict[str, float]:
@@ -380,7 +524,7 @@ def load_fsi_setup(
 
 
 def _resolve_external_row(
-    path: Path, code: str, factor_cells: Mapping[str, Any]
+    path: Path, code: str, factor_cells: Mapping[str, Any], *, require_beam: bool = False
 ) -> ExternalStructure | None:
     """Resolve an input of ``mode = "external"`` (FR-462), else None; unreadable is not one.
 
@@ -393,6 +537,10 @@ def _resolve_external_row(
         return None
     if data.get("mode") != "external":
         return None
+    if require_beam:
+        raise FsiSetupError(
+            f"FSI {code}: mode external has no beam model; use supplied or calculated."
+        )
     stated = sorted(
         key for key, value in factor_cells.items() if str(value).strip() not in ("", "-")
     )
@@ -408,7 +556,7 @@ def _resolve_external_row(
 
 
 def resolve_row_fsi(
-    inputs_dir: str | Path, variables: Mapping[str, Any]
+    inputs_dir: str | Path, variables: Mapping[str, Any], *, require_beam: bool = False
 ) -> ResolvedFsiSetup | ExternalStructure | None:
     """Resolve ``FSI: f001`` and named factor keys from the matrix free cell.
 
@@ -421,6 +569,8 @@ def resolve_row_fsi(
         The workspace's inputs folder.
     variables : mapping of str to object
         The row's free-cell variables.
+    require_beam : bool, optional
+        Refuse external mode before binding its program, for structural-only studies.
 
     Returns
     -------
@@ -462,7 +612,7 @@ def resolve_row_fsi(
             f"FSI {code}: there is no {path.name} in {root}; the FSI inputs there are "
             f"{', '.join(stated) if stated else 'none'}."
         )
-    external = _resolve_external_row(path, code, factor_cells)
+    external = _resolve_external_row(path, code, factor_cells, require_beam=require_beam)
     if external is not None:
         return external
     return resolve_fsi_setup(path, matrix_calibration=_stated_factors(factor_cells))

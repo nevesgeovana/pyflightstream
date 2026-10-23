@@ -147,6 +147,52 @@ def register_command_group(
         _COMMAND_GROUPS.append((name, add, handler))
 
 
+def _add_fsi_commands(subparsers: Any) -> None:
+    group = subparsers.add_parser("fsi", help="structural-only workspace studies")
+    actions = group.add_subparsers(dest="fsi_command", required=True)
+    study = actions.add_parser(
+        "campbell", help="natural frequencies and Southwell fit over rotor speed"
+    )
+    study.add_argument("fsi_id", help="input code in inputs/fsi, without extension")
+    study.add_argument(
+        "--rpm", nargs=3, type=float, required=True, metavar=("START", "STOP", "COUNT")
+    )
+    study.add_argument("--modes", type=int, default=6)
+    study.add_argument("--workspace", default=".")
+    study.add_argument("--overwrite", action="store_true")
+
+
+def _cmd_fsi(args: argparse.Namespace) -> int:
+    from pyflightstream._errors import PyflightstreamError
+    from pyflightstream.workspace.fsi_setup import write_campbell_study
+
+    try:
+        result = write_campbell_study(
+            args.workspace,
+            args.fsi_id,
+            rpm=tuple(args.rpm),
+            n_modes=args.modes,
+            overwrite=args.overwrite,
+        )
+    except (OSError, ValueError, PyflightstreamError) as error:
+        print(f"FSI Campbell study refused: {error}", file=sys.stderr)
+        return 2
+    print(result["limitation"])
+    for name in result["files"]:
+        print(Path(args.workspace) / "post" / "fsi" / args.fsi_id / name)
+    for crossing in result["crossings"]:
+        print(
+            f"{crossing['n']} Omega crossing: {crossing['rpm']:.6g} rpm, "
+            f"mode {crossing['mode']} ({crossing['kind']})"
+        )
+    for reason in result["skipped"]:
+        print(reason)
+    return 0
+
+
+register_command_group("fsi", _add_fsi_commands, _cmd_fsi)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pyfs-workspace",

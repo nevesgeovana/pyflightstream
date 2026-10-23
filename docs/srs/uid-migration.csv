@@ -1,4 +1,5 @@
 uid,destination,target,new_uids,file
+FR-3250,l3,FR-1207,,tests/requirements_l3.csv
 FR-01,kept,,FR-3200,docs/unpublished/requirements/inst.md
 FR-02,kept,,,docs/unpublished/requirements/inst.md
 FR-02a,merged,FR-1204,FR-1204,docs/unpublished/requirements/inst.md
@@ -21,7 +22,7 @@ FR-17,kept,,,docs/unpublished/requirements/trst.md
 FR-18,kept,,FR-2171,docs/unpublished/requirements/trst.md
 FR-19,l3,FR-46,FR-2000,tests/requirements_l3.csv
 FR-22,kept,,,docs/unpublished/requirements/recs.md
-FR-23a,merged,FR-1207,FR-1207,docs/unpublished/requirements/phys.md
+FR-23a,merged,FR-1207,FR-1207 FR-3250,docs/unpublished/requirements/phys.md
 FR-24,l3,NFR-44,,tests/requirements_l3.csv
 FR-25,kept,,,docs/unpublished/requirements/inst.md
 FR-26,kept,,,docs/unpublished/requirements/trst.md

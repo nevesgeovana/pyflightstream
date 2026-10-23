@@ -56,6 +56,8 @@ FIELD_OPERATION = (
 
 #: (console script, destination) -> why it is not a registry knob.
 ALLOWLIST: dict[tuple[str, str], str] = {
+    ("pyfs-workspace", "fsi_id"): SUBJECT,
+    ("pyfs-workspace", "modes"): CASE,
     # 0.43.0 (FR-44): `pyfs-workspace excel create|preview|apply|cancel|check`. The
     # workbook, the batch and the matrices name what the call works on; the
     # direction is a mode of one preview.
@@ -774,6 +776,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         (("pyfs-workspace", "verbose"), ("pyfs-workspace", "log_level")),
         frozenset(
             {
+                "campbell",
                 "accept",
                 "apply",
                 "archive",
@@ -803,6 +806,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "workspace"): frozenset(
         {
+            "campbell",
             "calibrate",
             "accept",
             "archive",
@@ -849,6 +853,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "overwrite"): frozenset(
         {
+            "campbell",
             "export-surface-mesh",
             "calibrate",
             "trailing-edge",
@@ -885,7 +890,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "thrust"): frozenset({"profile"}),
     ("pyfs-workspace", "ct"): frozenset({"profile"}),
     ("pyfs-workspace", "rho"): frozenset({"profile"}),
-    ("pyfs-workspace", "rpm"): frozenset({"profile"}),
+    ("pyfs-workspace", "rpm"): frozenset({"campbell", "profile"}),
+    ("pyfs-workspace", "fsi_id"): frozenset({"campbell"}),
+    ("pyfs-workspace", "modes"): frozenset({"campbell"}),
     # The options of `pyfs-workspace geometry`; the feature tests prove their behavior.
     ("pyfs-workspace", "target"): frozenset({"build", "export-surface-mesh"}),
     ("pyfs-workspace", "build"): frozenset({"build", "from-sidecar", "export-surface-mesh"}),
