@@ -50,8 +50,6 @@ class TestWorkspace1Excel:
     Each test is the regression of one planning node and fails on the code before its fix.
     """  # noqa: E501
 
-    pytestmark = pytest.mark.requirement("P0400-WSEXCEL")
-
     @staticmethod
     def test_p0400_wsexcel_an_encrypted_workbook_is_refused_by_name(tmp_path):
         """P0400-WSEXCEL (PFS-2095.060): an OLE container (a password workbook) is no traceback."""
@@ -129,8 +127,6 @@ class TestWorkspace1Matrix:
     Each test is the regression of one planning node and fails on the code before its fix.
     """
 
-    pytestmark = pytest.mark.requirement("P0400-WSMATRIX")
-
     @staticmethod
     def test_p0400_wsmatrix_a_compacted_simulation_claims_its_pol(tmp_path):
         """P0400-WSMATRIX (PFS-2085.020): sims/sim_<id>.zip is evidence, and a new POL passes it."""
@@ -164,8 +160,6 @@ class TestWorkspace1MatrixPhases:
 
     Each test is the regression of one planning node and fails on the code before its fix.
     """  # noqa: E501
-
-    pytestmark = pytest.mark.requirement("P0400-WSPHASES")
 
     @staticmethod
     def test_p0400_wsphases_a_named_origin_keeps_the_row_setup_keys_out_of_the_variables(tmp_path):

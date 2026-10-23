@@ -16,7 +16,7 @@ INDEX = REPO / "reports" / "requirements-index.json"
 
 
 def _marked() -> dict[str, list[str]]:
-    """Return {requirement id: [test names]} from the marker decorators."""
+    """Read decorators and module/class pytestmark assignments, including lists."""
     from scripts._requirements_paths import migrated_uids
 
     aliases = migrated_uids(REPO)
@@ -24,9 +24,18 @@ def _marked() -> dict[str, list[str]]:
     for path in sorted(TESTS.rglob("test_*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if not isinstance(node, ast.FunctionDef | ast.ClassDef):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+                candidates = node.decorator_list
+                location = node.name
+            elif isinstance(node, ast.Assign | ast.AnnAssign):
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                if not any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in targets):
+                    continue
+                candidates = list(ast.walk(node.value)) if node.value is not None else []
+                location = f"pytestmark:{node.lineno}"
+            else:
                 continue
-            for decorator in node.decorator_list:
+            for decorator in candidates:
                 if not isinstance(decorator, ast.Call):
                     continue
                 target = decorator.func
@@ -39,7 +48,7 @@ def _marked() -> dict[str, list[str]]:
                 for argument in decorator.args:
                     if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
                         found.setdefault(aliases.get(argument.value, argument.value), []).append(
-                            f"{path.relative_to(REPO).as_posix()}::{node.name}"
+                            f"{path.relative_to(REPO).as_posix()}::{location}"
                         )
     return found
 
@@ -53,6 +62,22 @@ def _live_identifiers() -> set[str]:
     # partial behaviour of a parked candidate. Neither kind is counted by the index.
     live = {entry["id"] for entry in collect(SRS)}
     return live | {row["uid"] for row in read_l3(REPO)} | roadmap_uids(REPO)
+
+
+def test_p0440_marker_scan_includes_module_and_class_assignments(tmp_path, monkeypatch):
+    import sys
+
+    (tmp_path / "test_control.py").write_text(
+        'pytestmark = [pytest.mark.requirement("MODULE"), pytest.mark.slow]\n'
+        "class TestControl:\n"
+        '    pytestmark: object = pytest.mark.requirement("CLASS")\n'
+        '    @pytest.mark.requirement("METHOD")\n'
+        "    def test_control(self): pass\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sys.modules[__name__], "REPO", tmp_path)
+    monkeypatch.setattr(sys.modules[__name__], "TESTS", tmp_path)
+    assert set(_marked()) == {"MODULE", "CLASS", "METHOD"}
 
 
 def test_every_marker_resolves_to_a_live_requirement():

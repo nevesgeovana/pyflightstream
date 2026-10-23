@@ -120,8 +120,6 @@ class _ResultsConditionsPrinted:
 class TestResultsConditions:
     """P0400-RESULTS (PFS-2105.044): the condition binding at the exact half count of the print."""
 
-    pytestmark = pytest.mark.requirement("P0400-RESULTS-CONDITIONS")
-
     @staticmethod
     def test_p0400_results_half_count_is_within_the_print_tolerance():
         """P0400-RESULTS (PFS-2105.044): requested 0.0625 printed 0.063 is rounding, not a mismatch."""  # noqa: E501

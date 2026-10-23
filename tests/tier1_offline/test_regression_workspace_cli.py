@@ -23,8 +23,6 @@ class TestWorkspace1Cli:
     Each test is the regression of one planning node and fails on the code before its fix.
     """
 
-    pytestmark = pytest.mark.requirement("P0400-WSCLI")
-
     @staticmethod
     def test_p0400_wscli_init_on_a_bad_root_is_a_refusal_with_exit_2(tmp_path, capsys):
         """P0400-WSCLI (PFS-2095.059): init refuses a root that is a file, like its siblings."""
@@ -77,8 +75,6 @@ class TestWorkspace1Query:
 
     Each test is the regression of one planning node and fails on the code before its fix.
     """
-
-    pytestmark = pytest.mark.requirement("P0400-WSQUERY")
 
     @staticmethod
     def test_p0400_wsquery_a_binary_output_is_named_by_size_and_digest(tmp_path):

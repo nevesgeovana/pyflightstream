@@ -1446,8 +1446,6 @@ def _rfixg_record__legacy_record() -> dict:
 class TestRfixGRecord:
     """Planning a body with a legacy build record must give an actionable refusal."""
 
-    pytestmark = pytest.mark.requirement("P0400-RFIXG-RECORD")
-
     @staticmethod
     @pytest.mark.requirement("FR-473")
     def test_p0400_rfixg_legacy_record_is_refused_by_matrix_plan(tmp_path: Path) -> None:
@@ -3149,8 +3147,6 @@ class TestRfixBGeometry:
 
 class TestRfixGAudit:
     """A sliver build must remain inspectable in partial storage, without promotion."""
-
-    pytestmark = pytest.mark.requirement("P0400-RFIXG-AUDIT")
 
     @staticmethod
     @pytest.mark.requirement("FR-471")

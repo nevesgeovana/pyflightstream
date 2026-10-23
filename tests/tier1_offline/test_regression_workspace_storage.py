@@ -166,8 +166,6 @@ class TestWorkspace1BatchLife:
     Each test is the regression of one planning node and fails on the code before its fix.
     """
 
-    pytestmark = pytest.mark.requirement("P0400-WSBATCH")
-
     @staticmethod
     @pytest.mark.parametrize("fired", [True, False], ids=["clock-fired", "no-evidence"])
     def test_p0400_wsbatch_the_workspace_and_collect_agree_on_a_fired_clock(tmp_path, fired):
@@ -275,8 +273,6 @@ class TestWorkspace1Ledger:
     0.40.0 lane workspace-1. Each test is the regression of one planning node and
     fails on the code before its fix.
     """
-
-    pytestmark = pytest.mark.requirement("P0400-WSLEDGER")
 
     @staticmethod
     def test_p0400_wsledger_a_local_and_a_cluster_run_of_one_script_do_not_differ(tmp_path):
@@ -409,8 +405,6 @@ class TestWorkspace1Manifest:
     Each test is the regression of one planning node and fails on the code before its fix.
     """
 
-    pytestmark = pytest.mark.requirement("P0400-WSMANIFEST")
-
     @staticmethod
     @pytest.mark.parametrize(
         ("entry", "named"),
@@ -455,8 +449,6 @@ class TestWorkspace1Sidecars:
     Each test is the regression of one planning node and fails on the code before its fix.
     """  # noqa: E501
 
-    pytestmark = pytest.mark.requirement("P0400-WSSIDECAR")
-
     @staticmethod
     def test_p0400_wssidecar_names_with_a_backslash_or_a_quote_read_back_unchanged(tmp_path):
         """P0400-WSSIDECAR (PFS-2095.034): each name and the file value is a quoted TOML string."""
@@ -487,8 +479,6 @@ class TestWorkspace1Storage:
 
     Each test is the regression of one planning node and fails on the code before its fix.
     """
-
-    pytestmark = pytest.mark.requirement("P0400-WSSTORAGE")
 
     @staticmethod
     @pytest.mark.parametrize(

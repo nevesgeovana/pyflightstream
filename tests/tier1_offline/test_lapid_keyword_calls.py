@@ -10,8 +10,6 @@ import pytest
 
 from pyflightstream import farfield, probes
 
-pytestmark = pytest.mark.requirement("LAPID-002")
-
 
 @pytest.mark.parametrize(
     "function",

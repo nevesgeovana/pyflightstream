@@ -68,8 +68,6 @@ from tests.tier1_offline.test_p0370_s1_matrix_home import pyfs as _run_1_mark_co
 class TestLast6Selection:
     """Matrix selections determine build refusals and solver window mode."""
 
-    pytestmark = pytest.mark.requirement("P0400-LAST6-SELECTION")
-
     @staticmethod
     @pytest.mark.parametrize("selection", [{"sims": ["7002"]}, {"points": ["7002_1"]}])
     def test_p0400_last6_unselected_silent_row_does_not_refuse_plan(tmp_path, selection):

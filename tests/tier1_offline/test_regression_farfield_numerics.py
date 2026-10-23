@@ -1783,8 +1783,6 @@ class TestLitARerun:
 class TestLitBBulk:
     """Build a far-field plane and lattice together through one probe CSV import."""
 
-    pytestmark = pytest.mark.requirement("P0400-LITB-BULK")
-
     @staticmethod
     @pytest.mark.parametrize("version", ["26.124", "26.125"])
     def test_p0400_litb_one_import_preserves_plane_then_lattice(tmp_path, version):
@@ -2169,8 +2167,6 @@ def _rfixapi_contracts__help_text(parser, argv, capsys) -> str:
 class TestRfixAPIContracts:
     """Exercise post/build help, FSI external, missing area and geometry row refusals."""
 
-    pytestmark = pytest.mark.requirement("P0400-RFIXAPI")
-
     @staticmethod
     @pytest.mark.requirement("FR-397")
     def test_p0400_api001_post_and_build_help(capsys) -> None:
@@ -2282,8 +2278,6 @@ class TestRfixAPIContracts:
 
 class TestRfixAEvidence:
     """Signed shed circulation and nonlinear per-step balances through the post route."""
-
-    pytestmark = pytest.mark.requirement("P0400-RFIXA-EVIDENCE")
 
     @staticmethod
     def test_p0400_rfixa_signed_wake_requirement_matches_the_edge_fixture():
@@ -2464,8 +2458,6 @@ _RFIXA_WAKE__HEADER = "# vtk DataFile Version 3.0\nwake\nASCII\nDATASET POLYDATA
 
 class TestRfixAWake:
     """Malformed wake headers stay within the reader and post refusal contract."""
-
-    pytestmark = pytest.mark.requirement("P0400-RFIXA-WAKE")
 
     @staticmethod
     @pytest.mark.parametrize("block", ["POINTS", "LINES", "CELL_DATA", "POINT_DATA"])

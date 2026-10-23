@@ -2301,8 +2301,6 @@ class TestIntegfixBlades:
 class TestLast6Script:
     """Public parking and observation of accepted Script emissions."""
 
-    pytestmark = pytest.mark.requirement("P0400-LAST6-SCRIPT")
-
     @staticmethod
     def test_p0400_last6_input_collision_is_case_insensitive():
         script = Script("26.124")

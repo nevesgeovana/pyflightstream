@@ -594,8 +594,6 @@ class TestWorkspace1Costs:
     Each test is the regression of one planning node and fails on the code before its fix.
     """
 
-    pytestmark = pytest.mark.requirement("P0400-WSCOST")
-
     @staticmethod
     @pytest.fixture(autouse=True)
     def _clear_selection():
@@ -754,8 +752,6 @@ class TestWorkspace1Degenerate:
     ``test_p0340_thin_blade``: a cambered section whose mean surface is known.
     """
 
-    pytestmark = pytest.mark.requirement("P0400-WSTHIN")
-
     @staticmethod
     @pytest.mark.parametrize("seed", [1, 2, 3])
     def test_p0400_wsthin_every_row_runs_from_the_leading_edge_whatever_the_face_order(
@@ -850,8 +846,6 @@ class TestWorkspace1GeometryClean:
     Each test is the regression of one planning node and fails on the code before its fix.
     """
 
-    pytestmark = pytest.mark.requirement("P0400-WSCLEAN")
-
     @staticmethod
     def test_p0400_wsclean_a_held_file_is_a_refusal_and_leaves_no_temporary(tmp_path, monkeypatch):
         """P0400-WSCLEAN (PFS-2099.012): a refused replace names the file and leaves no .tmp."""
@@ -934,8 +928,6 @@ class TestWorkspace1Init:
 
     Each test is the regression of one planning node and fails on the code before its fix.
     """  # noqa: E501
-
-    pytestmark = pytest.mark.requirement("P0400-WSINIT")
 
     @staticmethod
     def test_p0400_wsinit_a_dangling_inputs_link_is_replaced_by_the_next_staging(tmp_path):
@@ -1069,8 +1061,6 @@ class TestWorkspace1Inputs:
     Each test is the regression of one planning node and fails on the code before its fix.
     """
 
-    pytestmark = pytest.mark.requirement("P0400-WSINPUTS")
-
     @staticmethod
     @pytest.mark.parametrize(
         ("text", "named"),
@@ -1100,8 +1090,6 @@ class TestWorkspace1TrailingEdges:
 
     Each test is the regression of one planning node and fails on the code before its fix.
     """  # noqa: E501
-
-    pytestmark = pytest.mark.requirement("P0400-WSTE")
 
     @staticmethod
     @pytest.mark.parametrize("count", [numpy.int64(8), numpy.int32(8), 8])
@@ -1790,7 +1778,7 @@ delete_sims(sys.argv[1], ["3001"], matrix_products="regenerate", apply=True)
         for path, group in groups:
             for node in ast.walk(group):
                 if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
-                    if not node.name.startswith("test_p0400_"):
+                    if not re.match(r"test_p\d{4}_", node.name):
                         missing.append(f"{path.name}:{node.name}")
         assert not missing, missing
 

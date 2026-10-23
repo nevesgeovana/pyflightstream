@@ -30,8 +30,6 @@ from tests.tier1_offline.test_p0370_s1_matrix_home import (
 class TestLast6Archive:
     """Every product rebuild uses the same opt-in archive policy."""
 
-    pytestmark = pytest.mark.requirement("P0400-LAST6-ARCHIVE")
-
     @staticmethod
     @pytest.mark.parametrize("archive", [False, True])
     def test_p0400_last6_collect_archives_only_when_requested(tmp_path, monkeypatch, archive):
@@ -93,8 +91,6 @@ class TestLast6Archive:
 
 class TestLast6Records:
     """The persisted threshold and stopped-step records have a shared declared type."""
-
-    pytestmark = pytest.mark.requirement("P0400-LAST6-RECORDS")
 
     @staticmethod
     def test_p0400_last6_threshold_record_has_a_declared_type():

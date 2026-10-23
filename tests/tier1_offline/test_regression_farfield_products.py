@@ -1018,8 +1018,6 @@ def _litb_post__post_wake(root, fixture, *, cl=0.3400367, vref=None):
 class TestLitBPost:
     """Post the untouched wake exports through the public far-field product stage."""
 
-    pytestmark = pytest.mark.requirement("P0400-LITB-POST")
-
     @staticmethod
     @pytest.mark.parametrize("build", ["26124", "26125"])
     def test_p0400_litb_real_mirror_wake_reaches_post(tmp_path, build):
@@ -1033,8 +1031,6 @@ class TestLitBPost:
 
 class TestRfixAProducts:
     """Regressions through planned section layouts and the public post stage."""
-
-    pytestmark = pytest.mark.requirement("P0400-RFIXA-PRODUCTS")
 
     @staticmethod
     @pytest.mark.parametrize("selection", ['"Wing"', '"each"', '["Wing"]', '"outer"'])
