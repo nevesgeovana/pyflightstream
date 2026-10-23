@@ -32,6 +32,7 @@ FlightStream versions.
 
 ### Fixed
 
+- Non-finite coordinate-frame diagnostics name the offending axis (P0-A1).
 - The boundaries file of a refined level states the level's own `mesh_faces`, `boundary_faces`
   and `mesh_sha256`, counted in and taken from the level's OBJ (after any `[components]` merge),
   where it copied the source's, and its header comment names the level OBJ's sha256; the source's
