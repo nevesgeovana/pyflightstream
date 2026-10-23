@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Post compaction records links as `.LINK.txt` notes without following their targets, and
+  refuses a collision with an existing note name before removing the source (RB4-29).
 - Point queries use the shared link guard, including on Python 3.11 (RB5-33).
 - Deletion records use a unique call ID even within one clock tick, preserving archive ordering
   by the existing timestamp (RB5-26).

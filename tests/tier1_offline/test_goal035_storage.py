@@ -1213,3 +1213,35 @@ def test_restore_of_a_compacted_linked_sim_relinks_inputs(tmp_path):
 def test_mutant_dropping_the_restore_relink_is_caught(tmp_path):
     mutant = _mutant_module(tmp_path, _RELINK_OLD, _RELINK_NEW, "relink")
     assert not _restore_relinks_inputs(mutant, tmp_path / "mut")
+
+
+def test_p0440_rb4_29_post_archive_records_directory_links_without_following(tmp_path):
+    workspace = _ws(tmp_path)
+    stamp = workspace.root / "post" / "matriz" / ARCHIVE_DIR / "20260101-000000"
+    _write(stamp / "old.csv", "data")
+    target = tmp_path / "external"
+    _write(target / "private.txt", "outside")
+    _make_dir_link(target, stamp / "linked")
+    _write_recipe(workspace, "m001", '[[post_archives]]\naction = "compact"\nkeep_latest = 0\n')
+    storage_module.free_space(workspace.root, "m001", apply=True)
+    with zipfile.ZipFile(stamp.with_suffix(".zip")) as bundle:
+        assert bundle.read("linked.LINK.txt").decode().strip() == os.path.realpath(target)
+        assert "linked/private.txt" not in bundle.namelist()
+    assert (target / "private.txt").read_text() == "outside"
+    assert not stamp.exists()
+
+
+def test_p0440_rb4_29_post_link_note_collision_keeps_source(tmp_path):
+    from pyflightstream.workspace import WorkspaceError
+
+    workspace = _ws(tmp_path)
+    stamp = workspace.root / "post" / "matriz" / ARCHIVE_DIR / "20260101-000000"
+    _write(stamp / "linked.LINK.txt", "original note")
+    target = tmp_path / "external"
+    target.mkdir()
+    _make_dir_link(target, stamp / "linked")
+    _write_recipe(workspace, "m001", '[[post_archives]]\naction = "compact"\nkeep_latest = 0\n')
+    with pytest.raises(WorkspaceError, match="link note linked.LINK.txt already exists"):
+        storage_module.free_space(workspace.root, "m001", apply=True)
+    assert (stamp / "linked.LINK.txt").read_text() == "original note"
+    assert not stamp.with_suffix(".zip").exists()
