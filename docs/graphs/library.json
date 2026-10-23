@@ -12714,6 +12714,11 @@
     },
     {
       "source": "pyflightstream.workspace._refine._obj",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._obj",
       "target": "pyflightstream._errors",
       "kind": "module"
     },

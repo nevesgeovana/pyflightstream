@@ -22,9 +22,18 @@ from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
 from pyflightstream._decimal import plain_decimal
+from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._lengths import METRES_PER_UNIT, scale
-from pyflightstream.workspace.sidecars import TRAILING_EDGES_TABLE, read_raw_mesh_conditions
+from pyflightstream.workspace.sidecars import (
+    BOUNDARY_FACES_KEY,
+    MESH_FACES_KEY,
+    MESH_SHA256_KEY,
+    TRAILING_EDGES_TABLE,
+    obj_boundary_names,
+    obj_face_counts,
+    read_raw_mesh_conditions,
+)
 
 Faces = list[list[int]]
 
@@ -472,8 +481,9 @@ def edge_midpoints(
     return e, 0.5 * (verts[e[:, 0]] + verts[e[:, 1]])
 
 
-#: The places a value can be closed: a quote of a string or the bracket of an array.
-_VALUE_ENDS = re.compile(r"[\"'\]]")
+#: The places a value can be closed: a quote of a string, the bracket of an array, or
+#: the last digit of a number (an inventory's face count).
+_VALUE_ENDS = re.compile(r"[\"'\]]|\d(?=[\s,#}\]]|\Z)")
 
 
 def rewrite_value(
@@ -521,3 +531,43 @@ def rewrite_value(
 def _value_of(data: dict[str, Any], key: str) -> object:
     """Return the value a rewrite writes: the ``boundaries`` list or the points file name."""
     return data[key] if key == "boundaries" else data["trailing_edges"][key]
+
+
+def level_inventory(side: Path, text: str, obj: Path) -> str:
+    """Return a level's boundaries file with the face counts and digest of its own OBJ (FR-348).
+
+    A source boundaries file that states ``mesh_faces``, ``boundary_faces`` or
+    ``mesh_sha256`` states them of the SOURCE mesh; the level's file states
+    each of those the source's states, counted in the level's OBJ as written
+    (``boundary_faces`` in the level's ``boundaries`` order, after any
+    ``[components]`` merge) and its sha256 of those bytes. A file stating none
+    is returned as it is. Each value is rewritten in place
+    (:func:`rewrite_value`), every other byte kept.
+
+    Raises
+    ------
+    InputArtifactError
+        A value the rewrite cannot place, or a boundary the level's OBJ does
+        not hold; nothing was written.
+    """
+    data = tomllib.loads(text)
+    keys = [k for k in (MESH_FACES_KEY, BOUNDARY_FACES_KEY, MESH_SHA256_KEY) if k in data]
+    if not keys:
+        return text
+    held: dict[str, int] = {}
+    for name, faces in zip(obj_boundary_names(obj), obj_face_counts(obj), strict=True):
+        held[name] = held.get(name, 0) + faces
+    listed = data.get("boundaries", list(held))
+    missing = [n for n in listed if n not in held]
+    if missing:
+        raise _refuse(side, f"its boundaries {missing} are not groups of the level's OBJ")
+    values: dict[str, object] = {
+        MESH_FACES_KEY: sum(held.values()),
+        BOUNDARY_FACES_KEY: [held[n] for n in listed],
+        MESH_SHA256_KEY: file_sha256(obj),
+    }
+    for key in keys:
+        wanted = {**data, key: values[key]}
+        text = rewrite_value(side, text, key, data[key], wanted, value=values[key])
+        data = wanted
+    return text

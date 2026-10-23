@@ -1298,9 +1298,10 @@ def _write(
     if work.te_listed or len(te):
         target = folder / f"{stem}{TE_SUFFIX}"
         written.append(_obj.write_te(target, work.te_unit, te * work.te_to_file))
-    if work.sidecar is not None:
+    if work.sidecar is not None:  # its face counts and digest are the level OBJ's (FR-348)
         target = folder / f"{stem}{_obj.SIDECAR_SUFFIX}"
-        _textio.write_text(target, work.sidecar)
+        side = work.source.with_name(work.source.stem + _obj.SIDECAR_SUFFIX)
+        _textio.write_text(target, _obj.level_inventory(side, work.sidecar, written[0]))
         written.append(target)
     record = folder / f"{stem}.refine.json"
     _textio.write_json(
