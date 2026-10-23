@@ -34,12 +34,78 @@ from pyflightstream.qa._spec_ccs_noise import (
     ccs_probe_text,
 )
 from pyflightstream.qa._spec_kit import _emit, _emit_full, _seq, _spec
+from pyflightstream.qa.geometry import WingSpec, generate_wing_stl
 from pyflightstream.qa.probes import ProbeArtifacts
 from pyflightstream.script import Script
 
 __all__: list[str] = []
 
 Build = Callable[[Script, Path], None]
+
+
+def _auto_sections_prelude(script: Script, workdir: Path) -> None:
+    """Import the QA wing and save the unchanged CAD Create control (FR-1621)."""
+    path = generate_wing_stl(WingSpec(), workdir / "section_wing.stl")
+    script.emit("NEW_SIMULATION")
+    script.emit("IMPORT", "METER", "STL", path, clear=True)
+    script.declare_existing(boundaries=1)
+    script.emit("CAD_CREATE_INITIALIZE")
+    script.emit("SAVEAS", workdir / "control.fsm")
+
+
+def _saved_curve_rows(lines: list[str], count: int) -> bool:
+    """Check the sized curve payload before trusting its count."""
+    if count < 0 or len(lines) != 1 + 5 * count + (10 if count else 4):
+        return False
+    for start in range(1, 1 + 5 * count, 5):
+        header = lines[start].split(",")
+        if len(header) != 4 or int(header[1]) < 2:
+            return False
+        size = int(header[1])
+        for line in lines[start + 1 : start + 5]:
+            values = [float(value) for value in line.rstrip(",").split(",")]
+            if len(values) != size or not all(math.isfinite(value) for value in values):
+                return False
+    return True
+
+
+def _saved_curve_count(path: Path) -> int | None:
+    """Read the bounded CAD Create layout measured in the FR-1621-CUT L5 receipts.
+
+    Both 26.124 and 26.125 saves of 2026-10-22 store a curve count followed by
+    five lines per curve: four-field header (point count second), parameter
+    array, X, Y, Z arrays. Their zero-curve controls have four settings rows;
+    populated blocks have ten. Other layouts are unobservable, never guessed.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+        begin, end = "$CADCREATE_START$", "$CADCREATE_END$"
+        if text.count(begin) != 1 or text.count(end) != 1:
+            return None
+        lines = text.split(begin)[1].split(end)[0].strip().splitlines()
+        count = int(lines[0])
+        return count if _saved_curve_rows(lines, count) else None
+    except (OSError, UnicodeError, ValueError, IndexError):
+        return None
+
+
+def _auto_sections_counts(artifacts: ProbeArtifacts) -> tuple[int | None, ...]:
+    return tuple(
+        _saved_curve_count(artifacts.workdir / f"{name}.fsm")
+        for name in ("state_before", "state_after", "control")
+    )
+
+
+def _auto_sections_effect(artifacts: ProbeArtifacts) -> bool | None:
+    before, after, control = _auto_sections_counts(artifacts)
+    if before != 0 or control != 0 or after is None:
+        return None
+    return after == 9
+
+
+def _auto_sections_observe(artifacts: ProbeArtifacts) -> str:
+    before, after, control = _auto_sections_counts(artifacts)
+    return f"CAD Create curves: before={before}, after={after}, control={control}; expected 0,9,0"
 
 
 @dataclass(frozen=True)
@@ -414,6 +480,19 @@ for _family in (_WING, _FUSELAGE, _REVOLVE):
 for _family in (_FUSELAGE, _REVOLVE):
     _relaxed_trailing_edges(_family)
 _wing_variants()
+_spec(
+    command="CAD_CREATE_AUTO_CROSS_SECTIONS",
+    build_target=_emit("CAD_CREATE_AUTO_CROSS_SECTIONS", 1, "Y", 9, 1, "1", 1.0, "NONE", "MESH"),
+    prelude=_auto_sections_prelude,
+    save_state=True,
+    assert_effect=_auto_sections_effect,
+    observe=_auto_sections_observe,
+    effect_note=(
+        "the QA wing gains nine CAD Create cross-section curves after uniform cuts along Y; "
+        "the saved state before the cutter and the unchanged control contain no curves; "
+        "this counts curves only, not their geometric accuracy"
+    ),
+)
 _spec(
     command="EXPORT_WING_CCS_FILE",
     build_target=_export_wing,

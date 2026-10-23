@@ -81,6 +81,7 @@ __all__ = [
     "tolerance_unit",
     "write_node_file",
     "write_trailing_edge_points",
+    "write_trailing_edge_points_from_nodes",
 ]
 
 #: The command this module's inputs are assembled for.
@@ -589,6 +590,79 @@ class TrailingEdgePoints(NamedTuple):
     unit: str
     points: numpy.ndarray
     lines: tuple[int, ...]
+
+
+def _ansa_nodes(source: Path) -> numpy.ndarray:
+    """Read five-column SET rows in listed order, with physical line diagnostics."""
+    points = []
+    seen: set[int] = set()
+    number = 1
+    for number, raw in enumerate(source.read_text(encoding="utf-8-sig").splitlines(), 1):
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        fields = [field.strip() for field in raw.split(",")]
+        reason = "expected five fields: Id, Name, X, Y, Z"
+        if len(fields) == 5:
+            try:
+                node = int(fields[0])
+                xyz = [float(value) for value in fields[2:]]
+            except ValueError:
+                reason = "expected an integer node id and three finite coordinates"
+            else:
+                reason = "expected three finite coordinates"
+                if node in seen:
+                    reason = f"repeated node id {node}; list each node once"
+                elif all(math.isfinite(value) for value in xyz):
+                    seen.add(node)
+                    points.append(xyz)
+                    continue
+        raise InputArtifactError(f"{source}: line {number}: {reason}", kind="wake_edges")
+    if len(points) < 2:
+        raise InputArtifactError(
+            f"{source}: line {number}: fewer than two nodes; list at least two ordered nodes",
+            kind="wake_edges",
+        )
+    return numpy.asarray(points, dtype=float)
+
+
+def write_trailing_edge_points_from_nodes(
+    source: str | Path, path: str | Path, *, unit: str = "METER", overwrite: bool = False
+) -> Path:
+    """Write edge mid-points from an ordered ANSA SET node-window export.
+
+    Parameters
+    ----------
+    source : str or pathlib.Path
+        Comma-separated Id, Name, X, Y, Z rows; blank and comment lines are ignored.
+    path : str or pathlib.Path
+        Destination points file. No mesh is needed.
+    unit : str
+        Length unit of the coordinates, preserved in the output.
+    overwrite : bool
+        Allow replacement of an existing destination.
+
+    Returns
+    -------
+    pathlib.Path
+        The written points file, with one midpoint per neighbouring pair in listed order.
+
+    Raises
+    ------
+    InputArtifactError
+        For fewer than two nodes, malformed rows, repeated ids or non-finite coordinates,
+        naming the source line; also for an invalid unit or an existing output.
+    OSError
+        If the input cannot be read or the destination cannot be written.
+
+    Notes
+    -----
+    Coordinates retain the input reference frame. Nodes are neither sorted nor joined
+    by proximity: the supplied order defines the trailing-edge chain.
+    """
+    nodes = _ansa_nodes(Path(source))
+    return write_trailing_edge_points(
+        path, nodes[:-1] / 2 + nodes[1:] / 2, unit=unit, overwrite=overwrite
+    )
 
 
 def read_trailing_edge_points(path: str | Path) -> TrailingEdgePoints:

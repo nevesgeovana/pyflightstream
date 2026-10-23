@@ -26,6 +26,69 @@ RESTORES = (
 RELAXED = ("DELETE_CCS_FUSELAGE_RELAXED_TE", "DELETE_CCS_REVOLVE_RELAXED_TE")
 
 
+@pytest.mark.parametrize("build", ["26.124", "26.125"])
+@pytest.mark.requirement("FR-3257")
+def test_p0440_auto_sections_probe_renders_with_control(tmp_path, build):
+    from tests.tier1_offline._p0340_probe_support import build_script
+
+    command = "CAD_CREATE_AUTO_CROSS_SECTIONS"
+    assert command in PROBE_SPECS
+    text = build_script(command, build)
+    assert text.count(command + " 1 Y 9 1 1 1.0 NONE MESH") == 1
+    assert text.index("CAD_CREATE_INITIALIZE") < text.index("control.fsm")
+    assert text.index("control.fsm") < text.index(command + " 1 Y")
+    assert PROBE_SPECS[command].save_state
+
+
+def _cut_state(count):
+    # Synthetic CAD Create serialization: count, then header and four arrays per curve.
+    curve = "0,3,0,2.0\n0,0.5,1,\n0,1,0,\n0,0,0,\n0,0,1,\n"
+    tail = "200\n0.1\n"
+    if count:
+        tail += ",".join(str(i + 1) for i in range(count)) + ",\n"
+        tail += (",".join(["1"] * count) + ",\n") * 4
+    tail += "F\n"
+    if count:
+        tail += ",".join(["0"] * count) + ",\n"
+    return "$CADCREATE_START$\n" + str(count) + "\n" + curve * count + tail + "0\n$CADCREATE_END$\n"
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "control", "expected"),
+    [
+        (0, 9, 0, True),
+        (0, 0, 0, False),
+        (0, 8, 0, False),
+        (1, 9, 0, None),
+        (0, 9, 1, None),
+        (0, None, 0, None),
+    ],
+)
+@pytest.mark.requirement("FR-3257")
+def test_p0440_auto_sections_judges_saved_curves(tmp_path, before, after, control, expected):
+    command = "CAD_CREATE_AUTO_CROSS_SECTIONS"
+    assert command in PROBE_SPECS
+    for name, count in (("state_before", before), ("state_after", after), ("control", control)):
+        if count is not None:
+            (tmp_path / f"{name}.fsm").write_text(_cut_state(count), encoding="utf-8")
+    spec = PROBE_SPECS[command]
+    assert spec.assert_effect(artifacts_in(tmp_path)) is expected
+    assert "curves" in spec.observe(artifacts_in(tmp_path))
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["", "$CADCREATE_START$\n9\n$CADCREATE_END$\n", _cut_state(9).replace("0,0,1,", "0,nan,1,", 1)],
+)
+def test_p0440_auto_sections_cannot_judge_unreadable_saved_state(tmp_path, text):
+    command = "CAD_CREATE_AUTO_CROSS_SECTIONS"
+    assert command in PROBE_SPECS
+    for name in ("state_before", "control"):
+        (tmp_path / f"{name}.fsm").write_text(_cut_state(0), encoding="utf-8")
+    (tmp_path / "state_after.fsm").write_text(text, encoding="utf-8")
+    assert PROBE_SPECS[command].assert_effect(artifacts_in(tmp_path)) is None
+
+
 def obj(name, changed=False, formatted=False):
     points = "v 0 0 0\nv 1 0 0\nv 0 2 0\n"
     if formatted:

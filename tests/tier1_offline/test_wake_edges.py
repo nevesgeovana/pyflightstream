@@ -49,6 +49,113 @@ from pyflightstream.workspace.wake_edges import (
 ONE_NODE = (PointXyz(x_m=1.0, y_m=0.0, z_m=0.0),)
 
 
+def _ansa_cli(source, output, *options):
+    from pyflightstream.workspace.cli import main
+
+    try:
+        return main(
+            [
+                "geometry",
+                "trailing-edge",
+                "--from-nodes",
+                str(source),
+                "--out",
+                str(output),
+                *options,
+            ]
+        )
+    except SystemExit as error:
+        return error.code
+
+
+@pytest.mark.parametrize("unit", ["METER", "MILLIMETER"])
+@pytest.mark.requirement("FR-3256")
+def test_p0440_ansa_list_preserves_order_and_writes_midpoints(tmp_path, unit):
+    source, output = tmp_path / "nodes.txt", tmp_path / "wing.te.txt"
+    source.write_text(
+        "#  Id, Name, X , Y, Z\n30, tip, 0, 10, 2\n10, root, 2, 0, 4\n20, middle, 6, 4, 8\n",
+        encoding="utf-8",
+    )
+    assert _ansa_cli(source, output, "--unit", unit) == 0
+    result = read_trailing_edge_points(output)
+    assert result.unit == unit
+    numpy.testing.assert_array_equal(result.points, [[1, 5, 3], [4, 2, 6]])
+
+
+@pytest.mark.parametrize(
+    ("rows", "line", "reason"),
+    [
+        ("", 1, "fewer than two nodes"),
+        ("1, a, 0, 0, 0\n", 2, "fewer than two nodes"),
+        ("1, a, 0, 0, 0\n2, b, 1, 2\n", 3, "five fields"),
+        ("1, a, 0, 0, 0\n1, b, 1, 2, 3\n", 3, "repeated node id"),
+        ("1, a, 0, 0, 0\n2, b, nan, 2, 3\n", 3, "finite"),
+        ("1, a, 0, 0, 0\n2, b, inf, 2, 3\n", 3, "finite"),
+        ("1, a, 0, 0, 0\n2, b, bad, 2, 3\n", 3, "finite"),
+        ("1, a, 0, 0, 0\n2, b, 1, 2, 3, extra\n", 3, "five fields"),
+        ("1, a, 0, 0, 0\nx, b, 1, 2, 3\n", 3, "integer node id"),
+    ],
+)
+@pytest.mark.requirement("FR-3258")
+def test_p0440_ansa_list_refuses_bad_rows_before_writing(tmp_path, capsys, rows, line, reason):
+    source, output = tmp_path / "nodes.txt", tmp_path / "wing.te.txt"
+    source.write_text("#  Id, Name, X , Y, Z\n" + rows, encoding="utf-8")
+    assert _ansa_cli(source, output) == 2
+    message = capsys.readouterr().err
+    assert str(source) in message and f"line {line}" in message and reason in message
+    assert not output.exists()
+
+
+def test_p0440_ansa_list_preserves_existing_output(tmp_path, capsys):
+    source, output = tmp_path / "nodes.txt", tmp_path / "wing.te.txt"
+    source.write_text("#  Id, Name, X , Y, Z\n1, a, 0, 0, 0\n2, b, 2, 4, 6\n")
+    output.write_text("existing\n")
+    assert _ansa_cli(source, output) == 2
+    assert output.read_text() == "existing\n"
+    assert str(output) in capsys.readouterr().err
+    assert _ansa_cli(source, output, "--overwrite") == 0
+    result = read_trailing_edge_points(output)
+    assert result.unit == "METER"
+    numpy.testing.assert_array_equal(result.points, [[1, 2, 3]])
+
+
+def test_p0440_ansa_default_output_is_beside_input_and_requires_overwrite(tmp_path, capsys):
+    from pyflightstream.workspace.cli import main
+
+    source = tmp_path / "nodes.csv"
+    output = tmp_path / "nodes.te.txt"
+    source.write_text("1, a, 0, 0, 0\n2, b, 2, 4, 6\n")
+    args = ["geometry", "trailing-edge", "--from-nodes", str(source)]
+    try:
+        result = main(args)
+    except SystemExit as error:
+        result = error.code
+    assert result == 0
+    numpy.testing.assert_array_equal(read_trailing_edge_points(output).points, [[1, 2, 3]])
+    output.write_text("existing\n")
+    assert main(args) == 2
+    assert str(output) in capsys.readouterr().err
+    assert output.read_text() == "existing\n"
+    assert main([*args, "--overwrite"]) == 0
+    assert read_trailing_edge_points(output).unit == "METER"
+
+
+def test_p0440_ansa_comments_and_blank_lines_preserve_physical_lines(tmp_path, capsys):
+    source, output = tmp_path / "nodes.txt", tmp_path / "wing.te.txt"
+    source.write_text("# Id, Name, X, Y, Z\n\n1, a, 0, 0, 0\n # comment\n2, b, 2, 4, 6\n")
+    assert _ansa_cli(source, output) == 0
+    numpy.testing.assert_array_equal(read_trailing_edge_points(output).points, [[1, 2, 3]])
+    assert _ansa_cli(source, output, "--unit", "OTHER", "--overwrite") == 2
+    assert "OTHER" in capsys.readouterr().err
+    assert read_trailing_edge_points(output).unit == "METER"
+
+
+@pytest.mark.parametrize("options", [("--axis", "0", "0", "1"), ("--sections", "9")])
+def test_p0440_ansa_route_refuses_mesh_options(tmp_path, capsys, options):
+    assert _ansa_cli(tmp_path / "nodes.txt", tmp_path / "wing.te.txt", *options) == 2
+    assert "--from-nodes takes no mesh" in capsys.readouterr().err
+
+
 def test_the_tolerance_defaults_to_what_the_manual_page_prints():
     """Both defaults are the vendor's own, not this package's taste.
 
