@@ -474,7 +474,7 @@ def test_p0320_matrices_home_the_post_finds_the_matrix_in_inputs_matrices(tmp_pa
 
 
 def test_p0320_matrices_home_the_post_refuses_a_differing_pair_naming_both(tmp_path):
-    # P0320-MATRICES-HOME and P0320-RST-1: refused, said, never guessed (and never blocking).
+    # RB3-12 deliberately makes the completeness audit refuse conflicting homes.
     from pyflightstream.post.superfile import matrix_rows
     from tests.tier1_offline.test_post_superfile import _workspace
 
@@ -484,10 +484,12 @@ def test_p0320_matrices_home_the_post_refuses_a_differing_pair_naming_both(tmp_p
     text = (workspace.root / "matriz.fs").read_text("utf-8")
     (home / "matriz.fs").write_text(text + "\n", encoding="utf-8")
     assert matrix_rows(workspace.root, "matriz") == {}
-    (said,) = _post_warnings(workspace)
+    with pytest.raises(WorkspaceError) as refused:
+        _post_warnings(workspace)
+    said = str(refused.value)
     assert str(workspace.root / "matriz.fs") in said
     assert str(home / "matriz.fs") in said
-    assert "run records" in said
+    assert "keep one, or make the two identical" in said
 
 
 # --------------------------------------------------------------------------- RST-6
