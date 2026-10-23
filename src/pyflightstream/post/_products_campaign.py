@@ -448,7 +448,14 @@ def _retire_optional_products(
 
 
 #: The ``kind`` of the products a pproc key switches on and off (FR-419).
-_OPTIONAL_KINDS = (SETTINGS_KIND, INSTALLED_KIND, "loading_noise", "refinement_study")
+_OPTIONAL_KINDS = (
+    SETTINGS_KIND,
+    INSTALLED_KIND,
+    "loading_noise",
+    "loading_noise_harmonics",
+    "loading_noise_comparison",
+    "refinement_study",
+)
 
 
 #: NL-TRST-7: the ``kind`` of a refinement study's uncertainty table in ``products.json``.

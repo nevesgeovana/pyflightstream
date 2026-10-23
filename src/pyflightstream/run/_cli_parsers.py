@@ -384,11 +384,25 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_collect_parsers(subparsers)
     _add_post_parsers(subparsers)
     _add_post_selection_parsers(subparsers)
+    _add_noise_parser(subparsers)
     _add_degenerate_parsers(subparsers)
     _add_query_parsers(subparsers)
     add_mark_converged_parser(subparsers)  # FR-414
     add_mesh_parsers(subparsers)  # FR-426
     return parser
+
+
+def _add_noise_parser(subparsers: Any) -> None:
+    noise = subparsers.add_parser(
+        "noise", help="post exploratory loading noise and list its comparisons"
+    )
+    noise.add_argument("matrix", help="matrix whose pproc declares [noise]")
+    noise.add_argument("--workspace", default=".")
+    noise.add_argument(
+        "--sims", nargs="+", default=None, help="rebuild only these recorded simulations"
+    )
+    noise.add_argument("--overwrite", action="store_true", help="replace existing products")
+    add_console_arguments(noise, "print more detail")
 
 
 #: The commands that take ``--runs NAME``, the manifest they read.

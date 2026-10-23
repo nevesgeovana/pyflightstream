@@ -55,10 +55,10 @@ _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
 # 273: N3 removes five retired RX-19/RX-20 migration names; no new exception.
 # P0420-P1-1d: launch instruction h authorizes the four new QA maintainer
 # APIs; minimal_workflow is now reached and leaves the register.
-_REACH_GUARD___REGISTER_CEILING = 223
+_REACH_GUARD___REGISTER_CEILING = 217
 
 
-_REACH_GUARD___REGISTER_DIGEST = "cd44ecb4b9a862759c9c255287b98a0cde3feb63737ba17e8efeef6c404fc458"
+_REACH_GUARD___REGISTER_DIGEST = "4dc521af7bbeaf342bb89093ff5418051382632e8298aad2143040820845b830"
 
 
 _REACH_GUARD__REASONS = (
@@ -980,7 +980,9 @@ class TestReachGuard:
         """P0400-REACH-NO: names the audit of 2026-10-12 confirmed unreached by grep are unreached."""  # noqa: E501
         # farfield.mass_flux left this list: the far-field lane (FR-450 to FR-459) routed the
         # conservation ledgers through the workspace, so the audit's NO became reached (rule (a)).
-        confirmed = ("pyflightstream.fsi.centrifugal.campbell_sweep",)
+        # PFS-2154 routes Campbell through the CLI; the Gutin azimuth inference
+        # helper remains an explicitly registered maintainer API.
+        confirmed = ("pyflightstream.post.qsteady_noise.azimuth_from_moment",)
         wrong = []
         for path in confirmed:
             capability = verdict.capability_named(path)

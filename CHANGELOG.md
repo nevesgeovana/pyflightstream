@@ -9,6 +9,10 @@ FlightStream versions.
 
 ### Added
 
+- Opt-in exploratory loading noise now includes blade-passage harmonic/Gutin
+  tables and optional reference-signal comparisons. `pyfs-matrix noise` rebuilds
+  selected simulations and lists noise products and skips (PFS-2155).
+
 - `pyfs-workspace fsi campbell` writes structural Campbell frequencies, Southwell
   fits and a provenance/crossing report from an FSI input (PFS-2154).
 

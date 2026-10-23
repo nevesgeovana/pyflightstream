@@ -985,11 +985,17 @@ def write_qsteady_noise_report(
         products = {
             name: entry
             for name, entry in manifest["products"].items()
-            if entry.get("kind") == "loading_noise"
+            if entry.get("kind")
+            in {"loading_noise", "loading_noise_harmonics", "loading_noise_comparison"}
         }
     except (OSError, ValueError, KeyError, AttributeError, TypeError) as error:
         raise ProductError(f"Loading-noise product manifest cannot be read: {error}") from error
-    if not products:
+    noise_skips = {
+        name: reason
+        for name, reason in manifest.get("skipped", {}).items()
+        if name.startswith("noise/")
+    }
+    if not products and not noise_skips:
         raise ProductError(
             "No loading-noise products; post a pproc with exploratory noise enabled."
         )
@@ -997,7 +1003,14 @@ def write_qsteady_noise_report(
     _refuse_existing_product(target, overwrite)
     _textio.write_text(
         target,
-        json.dumps({"validation": "exploratory, not validated", "products": products}, indent=2)
+        json.dumps(
+            {
+                "validation": "exploratory, not validated",
+                "products": products,
+                "skipped": noise_skips,
+            },
+            indent=2,
+        )
         + "\n",
     )
     return target

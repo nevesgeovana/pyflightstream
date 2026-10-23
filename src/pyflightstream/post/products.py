@@ -882,7 +882,7 @@ def _campaign_products(
             manifest["skipped"] = {**partial.skipped, **skipped}
         carry_marks(products_index, points)  # FR-870
         _write_manifest(out, manifest)
-        if any(entry.get("kind") == "loading_noise" for entry in products_index.values()):
+        if any(name.startswith("noise/") for name in (*products_index, *skipped)):
             from pyflightstream.post.qsteady_noise import write_qsteady_noise_report
 
             write_qsteady_noise_report(workspace, matrix=matrix_stem)

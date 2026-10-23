@@ -577,6 +577,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     # which is what shows the [continuation] lines on the console.
     ("pyfs-matrix", "verbose"): frozenset(
         {
+            "noise",
             "audit-mesh",
             "collect",
             "degenerate",
@@ -591,6 +592,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     # 0.39.0 (FR-997): every command that takes --verbose takes --log-level.
     ("pyfs-matrix", "log_level"): frozenset(
         {
+            "noise",
             "audit-mesh",
             "collect",
             "degenerate",
@@ -611,6 +613,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "ignore_missing_families"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "matrix"): frozenset(
         {
+            "noise",
             "inspect-setups",
             "plan",
             "post",
@@ -621,7 +624,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         }
     ),
     ("pyfs-matrix", "name"): frozenset({"inspect-setups", "plan", "run"}),
-    ("pyfs-matrix", "overwrite"): frozenset({"degenerate", "inventory", "refine", "sync"}),
+    ("pyfs-matrix", "overwrite"): frozenset({"degenerate", "inventory", "noise", "refine", "sync"}),
     ("pyfs-matrix", "clean"): frozenset({"inventory"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
     ("pyfs-matrix", "archive"): frozenset({"post", "collect", "delete-sims"}),
@@ -645,6 +648,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "hpc"): frozenset({"collect", "inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "sims"): frozenset(
         {
+            "noise",
             "log",
             "collect",
             "delete-sims",
@@ -672,6 +676,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "workflow"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "workspace"): frozenset(
         {
+            "noise",
             "show",
             "log",
             "trace",

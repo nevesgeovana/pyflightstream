@@ -10,30 +10,6 @@
  "classification": "the rows outside routed later were classified by the release session under the owner delegation of 2026-10-12",
  "rows": [
   {
-   "id": "RX-08",
-   "capability": "Natural frequencies, Campbell diagram and Southwell fit of the configured blade (the n Omega / omega_n check before a coupled run)",
-   "reason": "Python-only by design",
-   "decision": "PFS-2140.002 closed at 0.41.0: pyfs-matrix plan on an FSI row prints the natural frequencies at the row's speed with the n Omega / omega_n warning; the speed sweep (Campbell diagram) and the Southwell fit are design-study analysis of the configured blade in Python; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
-   "names": [
-    "pyflightstream.fsi.centrifugal.CampbellData",
-    "pyflightstream.fsi.centrifugal.campbell_sweep",
-    "pyflightstream.fsi.centrifugal.southwell_fit"
-   ]
-  },
-  {
-   "id": "RX-11",
-   "capability": "Quasi-steady rotor loading noise (observer signals and Gutin harmonics)",
-   "reason": "maintainer or developer API",
-   "decision": "PFS-2140.004 closed at 0.41.0: the gated quasi-steady noise is a pproc product; the signal comparison, the analytic Gutin harmonic, the azimuth helper and the not-implemented contract error are verification and building-block API behind it; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
-   "names": [
-    "pyflightstream.exceptions.ContractNotImplementedError",
-    "pyflightstream.post.qsteady_noise.SignalComparison",
-    "pyflightstream.post.qsteady_noise.azimuth_from_moment",
-    "pyflightstream.post.qsteady_noise.compare_signals",
-    "pyflightstream.post.qsteady_noise.gutin_harmonic_rms"
-   ]
-  },
-  {
    "id": "RX-13",
    "capability": "Route-2 sector-offset calibration written from a recorded wheel point and sector point",
    "reason": "Python-only by design",
@@ -313,8 +289,9 @@
    "id": "RX-32",
    "capability": "Post readers and writer wrappers whose products the workspace writes through other entry points",
    "reason": "maintainer or developer API",
-   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12; D3 of 0.44.0 retains azimuth_from_moment and ContractNotImplementedError as maintainer API: the workspace reconstructs from recorded clocking azimuth, and no route invokes the unimplemented contract.",
    "names": [
+    "pyflightstream.exceptions.ContractNotImplementedError",
     "pyflightstream.post.CustomPolarTable",
     "pyflightstream.post.custom_polar.custom_count",
     "pyflightstream.post.custom_polar.custom_polar_file_name",
@@ -322,6 +299,7 @@
     "pyflightstream.post.passage_windows",
     "pyflightstream.post.point_tables.is_force_or_moment_column",
     "pyflightstream.post.products.polar_file_name",
+    "pyflightstream.post.qsteady_noise.azimuth_from_moment",
     "pyflightstream.post.read_custom_polar_format",
     "pyflightstream.post.read_timestep_series",
     "pyflightstream.post.settings_table.read_settings_table",

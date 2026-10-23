@@ -1952,6 +1952,17 @@ class _NoiseSpec(BaseModel):
     #: Explicit in-plane loading radius in metres; omitted uses the inferred centroid.
     inplane_radius_m: float | None = Field(default=None, gt=0.0)
 
+    #: Number of blade-passage orders in the exploratory harmonic table.
+    gutin_orders: int = Field(default=4, ge=1, strict=True)
+    #: Workspace-relative reference CSV per observer; an empty string omits one.
+    reference: list[str] | None = None
+
+    @model_validator(mode="after")
+    def _noise_references(self):
+        if self.reference is not None and len(self.reference) != len(self.observers_m):
+            raise ValueError("noise.reference needs one CSV path or empty string per observer")
+        return self
+
 
 class PprocSpec(BaseModel):
     """The post-processing specification a matrix row's PPROC cell names.

@@ -286,11 +286,70 @@ def main(argv: list[str] | None = None) -> int:
 
 def _records_or_storage(args: argparse.Namespace) -> int | None:
     """Run the records or the storage command the arguments name, else return None."""
+    if args.subcommand == "noise":
+        return _cmd_noise(args)
     if args.subcommand in _RECORDS_COMMANDS:
         return _cmd_records(args)
     if args.subcommand in _STORAGE_COMMANDS:
         return _cmd_storage(args)
     return None
+
+
+def _cmd_noise(args: argparse.Namespace) -> int:
+    """Rebuild selected simulations through the registered post stages, without upward imports."""
+    from pyflightstream.cases.matrix import read_matrix
+    from pyflightstream.workspace import post_stages
+
+    workspace = CampaignWorkspace(Path(args.workspace))
+    matrix = matrix_stem(args.matrix)
+    records = [r for r in workspace.read_manifest() if r.matrix_stem == matrix]
+    sims = (
+        sorted(selected_sims(records, _listed_sims(args.sims), scope=f"of matrix {matrix!r}"))
+        if args.sims
+        else None
+    )
+    rows = read_matrix(args.matrix)
+    selected = [r for r in rows if sims is None or r.pol in sims]
+    if not any(workspace.resolve_pproc(r.pproc_code).noise is not None for r in selected):
+        raise InputArtifactError(
+            f"matrix {matrix}: no selected pproc has [noise]; add an exploratory [noise] table."
+        )
+    if not records:
+        raise WorkspaceError(
+            f"matrix {matrix}: no recorded simulations; run and collect it before noise."
+        )
+    note_post_ran()
+    for stage in post_stages():
+        stage(
+            workspace,
+            matrix_stem=matrix,
+            overwrite=args.overwrite,
+            **({"sims": sims} if sims is not None else {}),
+        )
+    _print_noise_products(workspace.products_dir(matrix))
+    return 0
+
+
+def _print_noise_products(folder: Path) -> None:
+    import csv
+    import json
+
+    report_path = folder / "noise_report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    print(report_path)
+    for name, entry in report["products"].items():
+        print(folder / name)
+        if entry["kind"] != "loading_noise_harmonics":
+            continue
+        with (folder / name).open(encoding="utf-8", newline="") as handle:
+            ratios = [float(row["RATIO"]) for row in csv.DictReader(handle) if row["RATIO"] != "NA"]
+        print(
+            f"{name}: worst Gutin ratio = {max(ratios):.6g}"
+            if ratios
+            else f"{name}: Gutin ratio NA"
+        )
+    for name, reason in report.get("skipped", {}).items():
+        print(f"noise skip {name}: {reason}")
 
 
 def _failed(subcommand: str, error: Exception) -> int:

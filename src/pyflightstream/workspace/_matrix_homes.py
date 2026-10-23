@@ -66,6 +66,7 @@ MATRIX_ARGUMENTS: frozenset[tuple[str, str]] = frozenset(
         ("inspect-setups", "matrix"),
         ("run", "matrix"),
         ("post", "matrix"),
+        ("noise", "matrix"),
         ("rebuild", "matrix"),
         # FR-736: status --matrix accepts a stem in either matrix home and reads
         # the resolved path back as its stem.
