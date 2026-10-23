@@ -584,3 +584,13 @@ def test_a_series_refuses_a_non_finite_azimuth_or_value_f4_07():
         qn.fit_azimuthal_series([0.0, 120.0, float("nan")], [1.0, 2.0, 3.0])
     with pytest.raises(ProductError, match="finite"):
         qn.fit_azimuthal_series([0.0, 120.0, 240.0], [1.0, float("nan"), 3.0])
+
+
+def test_noise_reference_missing_file_names_the_remedy(tmp_path):
+    """RXR-01: a missing reference file is refused naming what to do, not an OS error."""
+    import pytest
+
+    from pyflightstream.post._noise_products import _reference_values
+
+    with pytest.raises(ValueError, match="empty string to skip"):
+        _reference_values(tmp_path / "absent.csv", "absent.csv")

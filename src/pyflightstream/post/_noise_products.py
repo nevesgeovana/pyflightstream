@@ -261,6 +261,11 @@ def _comparison_rows(ctx, spec, index, times, signal):
 
 
 def _reference_values(path, stated):
+    if not path.is_file():
+        raise ValueError(
+            f"noise reference {stated}: no such file in the workspace; "
+            "name an existing CSV or an empty string to skip that observer"
+        )
     with path.open(encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         fields = reader.fieldnames or []
