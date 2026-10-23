@@ -686,6 +686,19 @@ def acceptance_of(
     return False, None
 
 
+def _effective_build_contract(campaign, versions, accepted, accepted_builds, row_builds=None):
+    """Record resolved installation keys and effective acceptance, regardless of input source."""
+    keys = row_builds if row_builds is not None else [case.fs_build for case in campaign.sims]
+    return {
+        case.sim_id: {
+            "build": key or resolve(campaign.fs_version).canonical,
+            "version": resolve((versions or {}).get(case.sim_id, campaign.fs_version)).canonical,
+            "accepted": bool(accepted or (key or "") in accepted_builds),
+        }
+        for case, key in zip(campaign.sims, keys, strict=True)
+    }
+
+
 def entry_accepted_builds(
     resolved: ResolvedMatrix,
     workspace: CampaignWorkspace,

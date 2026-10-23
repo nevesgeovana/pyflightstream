@@ -76,6 +76,7 @@ from pyflightstream.run._identity import (
     _build_groups,
     _build_label,
     _case_build,
+    _effective_build_contract,
     _file_digest,
     _instrument_or_inputs_changed,
     _plan_bindings,
@@ -843,6 +844,7 @@ def plan_receipt_error(
     matrix_stem: str | None,
     *,
     fs_exe: str | Path | None = None,
+    effective_builds: Mapping[str, object] | None = None,
 ) -> str | None:
     """Return why this run may not proceed on the plan it has, or None.
 
@@ -873,6 +875,9 @@ def plan_receipt_error(
     fs_exe : str or Path, optional
         The executable the run names for the campaign's own installation,
         when it names one; None leaves the comparison to the digests.
+    effective_builds : mapping, optional
+        Resolved per-simulation build, version and acceptance to compare with
+        the plan after workspace and executable-entry defaults are applied.
 
     Returns
     -------
@@ -913,7 +918,80 @@ def plan_receipt_error(
             "Plan it again; a plan that measured another study is not a plan for this "
             "one."
         )
-    return _instrument_or_inputs_changed(payload, plan_file, fs_exe)
+    return _effective_build_error(payload, effective_builds) or _instrument_or_inputs_changed(
+        payload, plan_file, fs_exe
+    )
+
+
+def _effective_build_error(payload, effective_builds):
+    for sim, current in (effective_builds or {}).items():
+        planned = payload.get("effective_builds", {})
+        planned = planned.get(sim) if isinstance(planned, dict) else None
+        if planned != current:
+            return (
+                f"effective build contract changed for simulation {sim}: "
+                f"planned {planned!r}; run {current!r}. Plan it again."
+            )
+    return None
+
+
+def resolved_plan_error(resolved, workspace, path, *, default, fs_exe, accepted):
+    """Compare a receipt with the already resolved matrix, before any execution."""
+    from pyflightstream.run._identity import entry_accepted_builds
+
+    return plan_receipt_error(
+        workspace,
+        path,
+        Path(path).stem,
+        fs_exe=fs_exe,
+        effective_builds=_effective_build_contract(
+            resolved.campaign,
+            row_versions(resolved, default),
+            accepted,
+            entry_accepted_builds(resolved, workspace, default, fs_exe),
+            resolved.row_builds,
+        ),
+    )
+
+
+def preflight_resolved_matrix(
+    resolved, workspace, path, *, recipes, default, fs_exe, accepted, require_plan
+):
+    """Validate the resolved receipt and rehearse its point scripts before execution."""
+    from pyflightstream.cases.matrix import MatrixError
+
+    if require_plan:
+        refusal = resolved_plan_error(
+            resolved, workspace, path, default=default, fs_exe=fs_exe, accepted=accepted
+        )
+        if refusal is not None:
+            raise MatrixError(refusal)
+    return plan_campaign(
+        resolved.campaign,
+        workspace,
+        recipes=recipes,
+        versions=row_versions(resolved, default),
+        matrix_path=path,
+        write_plan=False,
+    )
+
+
+def row_versions(resolved, default: str | None = None) -> dict[str, str]:
+    """Return the per-simulation version override, keyed by sim id.
+
+    Per simulation, from the build each row named, by the fallback chain the
+    run emits its scripts under (:func:`_bind_row_builds`): the version its
+    registry entry declares, else ``default``, else the build id itself
+    (PFS-2094.018: with no default, a bare-path row pre-flighted under the
+    first row's build). A row naming no build is absent here and pre-flights
+    under the campaign default. Planning and execution share this resolution.
+    """
+    versions: dict[str, str] = {}
+    for case, build in zip(resolved.campaign.sims, resolved.row_builds, strict=True):
+        registered = resolved.builds.get(build) if build else None
+        if registered is not None:
+            versions[case.sim_id] = registered.fs_version or (default or "").strip() or str(build)
+    return versions
 
 
 @noting_the_families_rows_lack()  # FR-320: each family a row lacks, said once
@@ -933,6 +1011,7 @@ def plan_campaign(
     inflow_fft: bool = False,
     accepted_builds: Collection[str] = (),
     planned_order: Mapping[str, Sequence[str]] | None = None,
+    row_builds: Sequence[str | None] | None = None,
 ) -> CampaignPlan:
     """Pre-flight a campaign: validate every point without executing any.
 
@@ -1023,6 +1102,10 @@ def plan_campaign(
         as ``run`` numbers them (FR-395). None reads it off ``campaign``, which
         is the whole sweep when nothing was selected. Written into ``plan.json``
         as ``planned_order`` and onto :attr:`CampaignPlan.planned_order`.
+
+    row_builds : sequence of str or None, optional
+        Resolved installation keys, in campaign simulation order, for the
+        plan/run effective-build contract. None uses each case's build key.
 
     Returns
     -------
@@ -1146,7 +1229,9 @@ def plan_campaign(
             "accept_unregistered_build": accept_unregistered_build,
             # FR-998, FR-999: what the workspace files gave this plan, and where
             # from; nothing where no file gave anything.
-            **_settings_provenance(campaign, accept_unregistered_build, accepted_builds),
+            **_settings_provenance(
+                campaign, accept_unregistered_build, accepted_builds, versions, row_builds
+            ),
         }
         plan_file.parent.mkdir(parents=True, exist_ok=True)
         if campaign.matrix_stem:
@@ -1199,7 +1284,11 @@ def _planned_order(
 
 
 def _settings_provenance(
-    campaign: Campaign, accepted: bool, accepted_builds: Collection[str]
+    campaign: Campaign,
+    accepted: bool,
+    accepted_builds: Collection[str],
+    versions: Mapping[str, str] | None = None,
+    row_builds: Sequence[str | None] | None = None,
 ) -> dict[str, object]:
     """Return what ``plan.json`` adds where a workspace file stated a value (FR-998, FR-999).
 
@@ -1211,7 +1300,11 @@ def _settings_provenance(
     Empty where no file stated anything, so such a plan is written as before.
     """
     sources = invocation_sources()
-    extra: dict[str, object] = {}
+    extra: dict[str, object] = {
+        "effective_builds": _effective_build_contract(
+            campaign, versions, accepted, accepted_builds, row_builds
+        )
+    }
     if accepted and sources and "accept_unregistered_build" not in sources:
         sources["accept_unregistered_build"] = TYPED_ACCEPTANCE_SOURCE
     if accepted_builds and not accepted:

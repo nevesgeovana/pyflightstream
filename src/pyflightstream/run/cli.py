@@ -1156,6 +1156,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             workspace,
             name=name,
             name_from=name_from,
+            require_plan=True,
             # The command line's own flag is still --fs-version, and the
             # keyword it feeds is the DEFAULT a row whose FS_BUILD names
             # no build falls back to; a row that names a build wins.

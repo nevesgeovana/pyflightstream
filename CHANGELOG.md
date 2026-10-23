@@ -9,6 +9,10 @@ FlightStream versions.
 
 ### Added
 
+- Runs compare resolved per-simulation builds and acceptance with their plan;
+  equivalent defaults from different sources are accepted. Replan older receipts
+  that lack this effective contract (C-S13-019).
+
 - Grouped execution refuses unrecognised paths inside its staging root instead
   of delegating them to the real executor. Simulation folder readers share the
   workspace naming rule (PFS-2126.030).

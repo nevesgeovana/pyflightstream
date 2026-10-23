@@ -75,7 +75,7 @@ from pyflightstream.run._grouped import (
 )
 from pyflightstream.run._identity import _check_scheduled_builds, entry_accepted_builds
 from pyflightstream.run._ids import CampaignErrors, narrow_to_selection
-from pyflightstream.run._plan import plan_campaign
+from pyflightstream.run._plan import plan_campaign, resolved_plan_error
 from pyflightstream.run._rebuild import bind_row_builds, campaign_executor, row_versions
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt, job_of
@@ -623,6 +623,17 @@ def run_grouped_matrix(
     if refusal is not None or receipt is None:
         raise MatrixError(f"grouped run refused: {refusal}")
     resolved = _bound_matrix(path, workspace, receipt, kw)
+    if (
+        refusal := resolved_plan_error(
+            resolved,
+            workspace,
+            path,
+            default=_default_version(kw),
+            fs_exe=kw.get("fs_exe"),
+            accepted=bool(kw.get("accept_unregistered_build")),
+        )
+    ) is not None:
+        raise MatrixError(refusal)
     # THE FAILED RECORDS ARE SUPERSEDED IN _run_receipt, after every refusal
     # (PFS-2096.004, as run_campaign orders its own, FIX-0212).
     # THE PRE-FLIGHT ALLOCATES EACH SIMULATION'S FOLDER, so it plans in the
