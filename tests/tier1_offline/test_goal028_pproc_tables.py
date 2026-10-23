@@ -263,7 +263,12 @@ def _history() -> str:
         f"{i}.0000,{TOTAL[i - 1]:.5f},{BLADE1[i - 1]:.5f},{BLADE2[i - 1]:.5f},\n"
         for i in range(1, STEPS + 1)
     )
-    return PLOTS_HEADER + table + "-" * 60 + "\n     Force Units: Newtons\n"
+    return (
+        PLOTS_HEADER
+        + table
+        + "-" * 60
+        + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
 
 
 def _plan(**phase_locked) -> dict[str, object]:

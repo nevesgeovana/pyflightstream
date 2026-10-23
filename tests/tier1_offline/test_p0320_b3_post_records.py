@@ -269,6 +269,22 @@ def _post_log(folder: Path) -> str:
     return (folder / "post.log").read_text(encoding="utf-8")
 
 
+def test_p0440_assembled_history_cross_checks_the_requested_build(tmp_path):
+    from pyflightstream.results import VersionMismatchWarning
+
+    workspace = _from_sims_workspace(tmp_path, variables="LAST_ITERS_AVG: 2")
+    histories = list(workspace.sim_dir("6002").rglob("*_plots.txt"))
+    assert histories
+    for path in histories:
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("build #8112026", "build #8172026"),
+            encoding="utf-8",
+        )
+    with pytest.warns(VersionMismatchWarning):
+        assembled, _ = records.assemble_records(workspace.root, "matriz")
+    assert any(record.sim_id == "6002" for record in assembled)
+
+
 def test_p0320_post_no_manifest_assembles_the_records_from_the_sims(tmp_path, capsys):
     """P0320-POST-NO-MANIFEST: the steady polar is posted from its exports alone, apart."""
     workspace = _from_sims_workspace(tmp_path)

@@ -142,11 +142,16 @@ def test_fields_with_general_plots_disabled(tmp_path, monkeypatch):
             ",".join(
                 map(str, [step] + [v for i in range(1, 5) for v in (10 + step + i, 3 + i, 5 - i)])
             )
-            + "\n"
+            + ",\n"
         )
     source = w.sim_dir("7001") / "outputs/AL-020_plots.txt"
     source.write_text(
-        PLOTS_HEADER + history + "-" * 60 + "\n     Force Units: Coefficients\n", encoding="utf-8"
+        PLOTS_HEADER
+        + history
+        + "-" * 60
+        + "\n     Force Units: Coefficients\n"
+        + "Software : Flightstream version 26.1, build #7012026\n",
+        encoding="utf-8",
     )
     original = source.read_bytes()
     record = w.read_manifest()[0].model_copy(

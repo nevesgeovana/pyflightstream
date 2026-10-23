@@ -823,9 +823,13 @@ class TestFr153FieldBuildWarning:
         )
         for step in (1, 2):
             values = [step] + [v for i in range(1, 5) for v in (10 + step + i, 3 + i, 5 - i)]
-            history += ",".join(map(str, values)) + "\n"
+            history += ",".join(map(str, values)) + ",\n"
         (w.sim_dir("7001") / "outputs/AL-020_plots.txt").write_text(
-            PLOTS_HEADER + history + "-" * 60 + "\n     Force Units: Coefficients\n",
+            PLOTS_HEADER
+            + history
+            + "-" * 60
+            + "\n     Force Units: Coefficients\n"
+            + "Software : Flightstream version 26.1, build #7012026\n",
             encoding="utf-8",
         )
         record = w.read_manifest()[0].model_copy(

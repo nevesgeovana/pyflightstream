@@ -559,7 +559,10 @@ def _post_1_rotor_plan___plots_export(columns: str) -> str:
     for step, force in enumerate(_POST_1_ROTOR_PLAN__SHAFT_FORCE, start=1):
         table += f"{step}.0000,{force:.4f},0.0000,0.0000,0.0000,0.0000,0.0000,\n"
     return (
-        _POST_1_ROTOR_PLAN__PLOTS_HEADER + table + "-" * 70 + "\n     Force Units: Coefficients\n"
+        _POST_1_ROTOR_PLAN__PLOTS_HEADER
+        + table
+        + "-" * 70
+        + "\n     Force Units: Coefficients\nSoftware : Flightstream version 26.1, build #7012026\n"
     )
 
 

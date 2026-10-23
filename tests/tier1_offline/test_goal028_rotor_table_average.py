@@ -91,7 +91,13 @@ def _posted(tmp_path, *, group="HUB_PUSHER", frame="MRP", columns="HUB_PUSHER", 
             table = "Time-step," + ",".join(names) + "\n" + "-" * 70 + "\n"
             for step, force in enumerate(SHAFT_FORCE, start=1):
                 table += f"{step}.0000,{force:.4f},0.0000,0.0000,0.0000,0.0000,0.0000,\n"
-            export = PLOTS_HEADER + table + "-" * 70 + "\n     Force Units: Coefficients\n"
+            export = (
+                PLOTS_HEADER
+                + table
+                + "-" * 70
+                + "\n     Force Units: Coefficients\n"
+                + "Software : Flightstream version 26.1, build #7012026\n"
+            )
             plots = next(o for o in record.outputs if o.endswith("_plots.txt"))
             (workspace.sim_dir("6002") / plots).write_text(export, encoding="utf-8")
             plan = dict(record.reductions or {})

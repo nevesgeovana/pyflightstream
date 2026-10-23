@@ -163,10 +163,14 @@ def _post_workspace(
         values = [step, 0.1] + [
             value for vertex in vertices for value in (vertex + step / 10, vertex * 10 + step)
         ]
-        history += ",".join(str(value) for value in values) + "\n"
+        history += ",".join(str(value) for value in values) + ",\n"
     outputs = workspace.sim_dir("7001") / "outputs"
     (outputs / "AL-020_plots.txt").write_text(
-        PLOTS_HEADER + history + "-" * 60 + "\n     Force Units: Coefficients\n",
+        PLOTS_HEADER
+        + history
+        + "-" * 60
+        + "\n     Force Units: Coefficients\n"
+        + "Software : Flightstream version 26.1, build #7012026\n",
         encoding="utf-8",
         newline="\n",
     )

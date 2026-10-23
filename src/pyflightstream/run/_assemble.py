@@ -689,7 +689,10 @@ def _reductions(
             "(CLI: --steps-per-revolution)"
         )
     try:
-        history = parse_unsteady_plots(plots.read_text(encoding="utf-8"))
+        history = parse_unsteady_plots(
+            plots.read_text(encoding="utf-8"),
+            requested_version=row.fs_build if row.fs_build not in UNSTATED_CELLS else None,
+        )
         clock = history.series(_CLOCK_COLUMN)
     except (PyflightstreamError, ValueError) as error:
         raise WorkspaceError(

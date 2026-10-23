@@ -554,7 +554,12 @@ def _ffproof_post___plots_export(count: int, steps: int) -> str:
     for step in range(1, steps + 1):
         values = [_ffproof_post___speed(step), 0.0, 0.0, 0.0] * count
         table += f"{step}.0000," + ",".join(f"{v:.5f}" for v in values) + ",\n"
-    return _FFPROOF_POST__PLOTS_HEADER + table + "-" * 60 + "\n     Force Units: Coefficients\n"
+    return (
+        _FFPROOF_POST__PLOTS_HEADER
+        + table
+        + "-" * 60
+        + "\n     Force Units: Coefficients\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
 
 
 def _ffproof_post___campaign(

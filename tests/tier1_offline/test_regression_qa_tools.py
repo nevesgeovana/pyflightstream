@@ -2093,7 +2093,12 @@ class TestReach2Routes:
         )
         history += "\n1," + ",".join(str(v) for i in range(1, 5) for v in (10 + i, 3 + i, 5 - i))
         (w.sim_dir("7001") / "outputs/AL-020_plots.txt").write_text(
-            PLOTS_HEADER + history + "\n" + "-" * 60 + "\n     Force Units: Coefficients\n",
+            PLOTS_HEADER
+            + history
+            + ",\n"
+            + "-" * 60
+            + "\n     Force Units: Coefficients\n"
+            + "Software : Flightstream version 26.1, build #7012026\n",
             encoding="utf-8",
         )
         layout = {

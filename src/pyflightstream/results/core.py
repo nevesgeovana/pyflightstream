@@ -782,7 +782,7 @@ EXPORT_CONVERSIONS: dict[str, ExportConversion] = {
         EXPORT_PARSED,
         "pyflightstream.results.parse_unsteady_plots",
         None,
-        "one row per time step; the entry is documented, not verified",
+        "one row per time step; format observed in rpt134 and s10_26125 committed fixtures",
     ),
     "EXPORT_SURFACE_SECTIONAL_LOADS": ExportConversion(
         EXPORT_PARSED,

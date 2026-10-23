@@ -73,7 +73,13 @@ def _plots(tmp_path, groups: tuple[str, ...]) -> Path:
         "Freestream velocity (m/s)                   50.000",
         "Freestream velocity (m/s)                   60.000",
     )  # noqa: E501
-    export = text + "\n".join(lines) + "\n" + "-" * 60 + "\n     Force Units: Coefficients\n"
+    export = (
+        text
+        + "\n".join(lines)
+        + "\n"
+        + "-" * 60
+        + "\n     Force Units: Coefficients\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
     table = write_plots_table(tmp_path / "P_plots.csv", export)
     assert table is not None
     return table

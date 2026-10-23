@@ -236,7 +236,10 @@ _POST2_PLOTS_TABLES___TABLE = (
 )
 
 
-_POST2_PLOTS_TABLES___FOOT = "-" * 60 + "\n     Force Units: Coefficients\n"
+_POST2_PLOTS_TABLES___FOOT = (
+    "-" * 60
+    + "\n     Force Units: Coefficients\nSoftware : Flightstream version 26.1, build #7012026\n"
+)
 
 
 def _post2_plots_tables___without_banner(text: str) -> str:
@@ -328,7 +331,7 @@ class TestPost2PlotsTables:
         )
         assert probes is not None
         _, rows = _post2_plots_tables__read_csv_table(probes)
-        assert [row["MACH"] for row in rows] == ["0.20000", "0.30000", "NA"]
+        assert [row["MACH_LOCAL"] for row in rows] == ["0.20000", "0.30000", "NA"]
 
 
 _POST2_SERIES_PRECISION__MU = 1.7892976260350732e-05

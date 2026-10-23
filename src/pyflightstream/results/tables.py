@@ -524,7 +524,8 @@ def to_csv(result: object, path: str | Path, *, overwrite: bool = False) -> Path
     >>> import tempfile
     >>> from pathlib import Path
     >>> from pyflightstream.results import parse_unsteady_plots
-    >>> text = "Time (sec), CL\n.000, +2.3500000E-3\n.004, +2.1000000E-3\n"
+    >>> text = "Time (sec), CL\n.000, +2.3500000E-3,\n.004, +2.1000000E-3,\n"
+    >>> text += "------------\nSoftware : Flightstream version 26.1, build #7012026\n"
     >>> report = parse_unsteady_plots(text)
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     written = to_csv(report, Path(folder) / "plots.csv")

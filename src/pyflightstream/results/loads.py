@@ -622,11 +622,10 @@ class UnsteadyPlotsReport:
     describe one instant, and the residual log counts iterations rather
     than physical time.
 
-    GROUNDING, and read it before trusting a column: the shape comes
-    from the command's manual paraphrase (FSM-26.120 p.347, one column per
-    plot and one row per time step) and from no observed export. The
-    database entry stays at ``documented`` and the committed fixture
-    says SYNTHETIC in its own header.
+    The manual specifies one column per plot and one row per time step
+    (FSM-26.120 p.347). Committed rpt134/control_plots.txt and
+    s10_26125/plots_26.125.txt fixtures establish comma-terminated rows,
+    a closing dashed rule and a software footer on their measured builds.
 
     Attributes
     ----------
@@ -778,33 +777,31 @@ def _unsteady_row(cells: list[str], columns: tuple[str, ...], step: int) -> list
     return values
 
 
-def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
+def parse_unsteady_plots(
+    text: str, requested_version: str | FsVersion | None = None
+) -> UnsteadyPlotsReport:
     r"""Parse an unsteady plot export into per-column time series.
 
     Anchor-based like every parser here, and the anchor is the
     SEPARATOR: the table starts at the first line carrying a comma, so
     a banner or a title block above it is skipped without this parser
     counting lines. Everything below the header is a time step until a
-    dashed rule closes the table or the text ends.
+    dashed rule closes the table. Ending before that rule is an incomplete export.
 
     WHAT IS EVIDENCE HERE AND WHAT IS NOT. The row and column meaning
     is the manual's (FSM-26.120 p.347, paraphrased in the database entry
     for ``UNSTEADY_SOLVER_EXPORT_PLOTS``: one column per plot, one row
-    per time step). The DELIMITER is not documented anywhere and no
-    export of this command has been read: a comma is assumed because
-    the loads and probe exports of the same solver use one. A file
-    delimited some other way is refused by the anchor rather than
-    misread, and a real export is owed before this parser can be called
-    verified (PFS-2015.02.02).
-
-    No version footer is required, and none is cross-checked (FR-18),
-    because whether this export prints one is exactly the sort of thing
-    a fixture would have to show.
+    per time step). The comma delimiter, trailing comma on each data row,
+    closing rule and software footer are observed in the committed
+    rpt134/control_plots.txt and s10_26125/plots_26.125.txt fixtures.
+    The footer is required and cross-checked when a requested version is given.
 
     Parameters
     ----------
     text : str
         Complete export file text.
+    requested_version : str, FsVersion, or None
+        Cross-check the printed version and build against this requested solver.
 
     Returns
     -------
@@ -828,7 +825,8 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
     Examples
     --------
     >>> from pyflightstream.results import parse_unsteady_plots
-    >>> text = "Time (sec), CL\n.000, +2.3500000E-3\n.004, +2.1000000E-3\n"
+    >>> text = "Time (sec), CL\n.000, +2.3500000E-3,\n.004, +2.1000000E-3,\n"
+    >>> text += "------------\nSoftware : Flightstream version 26.1, build #7012026\n"
     >>> report = parse_unsteady_plots(text)
     >>> report.columns
     ('Time (sec)', 'CL')
@@ -842,9 +840,8 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
     # cleanly here and returned twelve "time steps" that are twelve
     # probe POSITIONS, because that export is also a comma table of
     # numbers under a header. A file that identifies itself as another
-    # export is refused rather than read as a history; nothing else in
-    # the format distinguishes them, which is one more reason a real
-    # export of this command is owed (PFS-2015.02.02).
+    # export is refused rather than read as a history. The measured histories
+    # are committed under rpt134 and s10_26125; probe rows remain spatial samples.
     if "Number of Probe Points:" in text:
         raise MalformedOutputError(
             "this file declares a probe-point count, so it is an EXPORT_PROBE_POINTS "
@@ -857,7 +854,7 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
     reject_duplicate_columns(columns, what="unsteady plot export")
 
     rows: list[list[float]] = []
-    after_rule: list[str] = []
+    after_rule: list[str] | None = None
     body = lines[header_index + 1 :]
     for position, line in enumerate(body):
         stripped = line.strip()
@@ -868,8 +865,10 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
                 after_rule = body[position + 1 :]
                 break
             continue
-        rows.append(_unsteady_row(_unsteady_cells(stripped), columns, len(rows) + 1))
-    for line in after_rule:
+        if SOFTWARE_LINE.search(stripped):
+            break
+        rows.append(_complete_unsteady_row(stripped, columns, len(rows) + 1))
+    for line in after_rule or []:
         cells = _unsteady_cells(line)
         if len(cells) >= 2 and all(_is_printed_number(cell) for cell in cells):
             raise MalformedOutputError(
@@ -884,4 +883,28 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
             "is written by a solver that has advanced in time, so an empty table means "
             "the file was cut off after its header"
         )
+    _unsteady_footer(after_rule, requested_version)
     return UnsteadyPlotsReport(columns=columns, values=np.asarray(rows, dtype=float))
+
+
+def _complete_unsteady_row(line: str, columns: tuple[str, ...], step: int) -> list[float]:
+    """Read each cell before checking the observed final delimiter."""
+    row = _unsteady_row(_unsteady_cells(line), columns, step)
+    if not line.endswith(","):
+        raise IncompleteOutputError(
+            f"unsteady plot row {step} lacks its trailing comma; the final cell may be cut"
+        )
+    return row
+
+
+def _unsteady_footer(lines: list[str] | None, requested: str | FsVersion | None) -> None:
+    """Require the measured closing rule and footer before accepting a complete history."""
+    if lines is None:
+        raise IncompleteOutputError("the unsteady plot export ends before its closing dashed rule")
+    software = SOFTWARE_LINE.search("\n".join(lines))
+    if software is None:
+        raise IncompleteOutputError(
+            "the unsteady plot export has no software footer after its rule"
+        )
+    if requested is not None:
+        cross_check_version(software.group("version"), requested, software.group("build"))

@@ -596,7 +596,41 @@ UNSTEADY_HEADER = "Time (sec), CL, CDi, CM"
 
 def _unsteady(rows: str, header: str = UNSTEADY_HEADER) -> str:
     """A minimal export body: a banner with no comma, then the table."""
-    return f"UNSTEADY PLOT EXPORT\n\n{header}\n{rows}"
+    complete = "".join(line.rstrip(",") + ",\n" for line in rows.splitlines())
+    return (
+        f"UNSTEADY PLOT EXPORT\n\n{header}\n{complete}------------\n"
+        "Software : Flightstream version 26.1, build #7012026\n"
+    )
+
+
+@pytest.mark.parametrize("damage", ["rule", "footer", "comma"])
+def test_p0440_unsteady_history_requires_observed_completion(damage):
+    from pyflightstream.results import parse_unsteady_plots
+
+    text = _unsteady("0., 1., 2., 3.\n")
+    if damage == "rule":
+        text = text.split("------------")[0]
+    elif damage == "footer":
+        text = text.split("Software")[0]
+    else:
+        text = text.replace("3.,\n", "3.\n")
+    with pytest.raises(IncompleteOutputError):
+        parse_unsteady_plots(text)
+
+
+def test_p0440_observed_history_footer_is_cross_checked():
+    import inspect
+
+    from pyflightstream.results import parse_unsteady_plots
+
+    text = read_fixture("rpt134/control_plots.txt")
+    kwargs = (
+        {"requested_version": "26.120"}
+        if "requested_version" in inspect.signature(parse_unsteady_plots).parameters
+        else {}
+    )
+    with pytest.warns(VersionMismatchWarning):
+        assert parse_unsteady_plots(text, **kwargs).steps == 24
 
 
 def _parse_unsteady(text: str):

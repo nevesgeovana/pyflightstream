@@ -53,7 +53,12 @@ def _history(fx: list[float], rows: int | None = None) -> str:
         f"{i}.0000,{fx[i - 1]:.5f},{FY[i - 1]:.5f},{MACH[i - 1]:.5f},\n"
         for i in range(1, count + 1)
     )
-    return PLOTS_HEADER + table + "-" * 60 + "\n     Force Units: Newtons\n"
+    return (
+        PLOTS_HEADER
+        + table
+        + "-" * 60
+        + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
 
 
 def _plan(steps: int, per_revolution: float | None = float(PER_REVOLUTION)) -> dict[str, object]:
@@ -372,7 +377,7 @@ def _rotor_workspace(tmp_path, means, *, pproc=""):
         + "\n".join(rows)
         + "\n"
         + "-" * 60
-        + "\n     Force Units: Newtons\n",
+        + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #7012026\n",
         encoding="utf-8",
     )
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(

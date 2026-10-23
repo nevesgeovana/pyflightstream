@@ -40,6 +40,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Unsteady histories require the observed trailing row commas, closing rule and
+  software footer; reconstruction cross-checks the requested build (PFS-2130.049).
+
 - Missing recorded attitude leaves shaft angle and ETAW unavailable and refuses
   unsteady axis coefficients; MADV retains its zero-angle exception (RB6-07).
 

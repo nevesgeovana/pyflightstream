@@ -55,7 +55,12 @@ def test_a_default_unsteady_row_gets_its_probe_table(tmp_path):
     )
     outputs = workspace.sim_dir("7001") / "outputs"
     (outputs / "AL-020_plots.txt").write_text(
-        PLOTS_HEADER + history + "-" * 60 + "\n     Force Units: Coefficients\n", encoding="utf-8"
+        PLOTS_HEADER
+        + history
+        + "-" * 60
+        + "\n     Force Units: Coefficients\n"
+        + "Software : Flightstream version 26.1, build #7012026\n",
+        encoding="utf-8",
     )
     # WHAT EVERY REAL UNSTEADY RUN LEAVES: a steady probe export of zero points.
     zero = (FIXTURES / "probe_points_zero_26.123.txt").read_text(encoding="utf-8")
