@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from pyflightstream.run import _cli_query_point, cli
+from pyflightstream.run import _alias, cli
 from pyflightstream.run._cli_parsers import _build_parser, parsed
 from pyflightstream.workspace import CampaignWorkspace, MeshAudit, costs, hpc
 from tests.tier1_offline import test_p0350_run_id_alias as _run_1_cli_query__alias_tests
@@ -177,9 +177,9 @@ class TestRun2Cli:
         """
         aliases = {("2006", "a+02.0_b+00.0"): "2006_1"}
         row = {"run_id": "sim_runs/sim_2006/a+02.0_b+00.0"}
-        assert _cli_query_point._annotate(row, aliases)["run_id_alias"] == "2006_1"
+        assert _alias._annotate(row, aliases)["run_id_alias"] == "2006_1"
         plain = {"run_id": "campaign/sim_2006/a+02.0_b+00.0"}
-        assert _cli_query_point._annotate(plain, aliases)["run_id_alias"] == "2006_1"
+        assert _alias._annotate(plain, aliases)["run_id_alias"] == "2006_1"
 
     @staticmethod
     def test_p0400_plan_refuses_the_arguments_before_writing_anything(tmp_path, capsys):
@@ -293,6 +293,6 @@ def test_f6_0102_a_continuation_run_id_gets_its_points_alias():
     """C-SRS-S11-066: the stamp folder of a continuation id does not hide its simulation."""
     aliases = {("2006", "a+02.0_b+00.0"): "2006_1"}
     row = {"run_id": "camp/sim_2006/r20261002T010203/a+02.0_b+00.0"}
-    assert _cli_query_point._annotate(row, aliases)["run_id_alias"] == "2006_1"
+    assert _alias._annotate(row, aliases)["run_id_alias"] == "2006_1"
     nested = {"run_id": "sim_runs/sim_2006/r20261002T010203/a+02.0_b+00.0"}
-    assert _cli_query_point._annotate(nested, aliases)["run_id_alias"] == "2006_1"
+    assert _alias._annotate(nested, aliases)["run_id_alias"] == "2006_1"
