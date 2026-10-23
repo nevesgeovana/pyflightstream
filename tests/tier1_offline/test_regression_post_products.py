@@ -74,6 +74,22 @@ from tests.tier1_offline.test_post_superfile import _workspace as _post_1_sim___
 from tests.tier1_offline.test_settings_codebook import snapshot as _post_1_review__snapshot
 
 
+@pytest.mark.parametrize("value", [1.23456789e-9, -1.23456789e-9, 0.0, 1.23456789e5])
+def test_p0440_farfield_ledger_keeps_six_significant_digits(tmp_path, value):
+    columns = [
+        "MASS_SPREAD",
+        "SYMMETRY_FLOOR",
+        "MDOT_KG_S",
+        "E_TOTAL_W",
+        "E_SWIRL_W",
+        "E_INDUCED_W",
+    ]
+    path = write_csv_table(tmp_path / "ledger.csv", columns, [[value] * len(columns)])
+    _, rows = read_csv_table(path)
+    for name in columns:
+        assert float(rows[0][name]) == pytest.approx(value, rel=5e-6, abs=0)
+
+
 def _integfix_post_groupkey___ctx() -> SimpleNamespace:
     point = SimpleNamespace(name="AL-020", loads=SimpleNamespace(surfaces={"W": None}))
     return SimpleNamespace(

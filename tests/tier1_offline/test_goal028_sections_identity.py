@@ -148,10 +148,33 @@ def test_the_stage_takes_a_rotors_families_from_the_reference_and_its_clock_from
         "steps_per_revolution": 72.0,
         "blade1_azimuth_deg": 90.0,
         "rpm": -1200.0,
+        "blades": None,
     }
     # A rotor the record says nothing of is NAMED and has no clock: with two rotors
     # the row-level clock belongs to one of them and is not lent to the other.
     assert table["LIFTER"] == {"families": ["L1"], "blade_families": [["L1"]]}
+
+
+@pytest.mark.parametrize("has_reference", [False, True])
+def test_p0440_sector_sections_use_the_recorded_full_rotor_blade_count(has_reference):
+    from types import SimpleNamespace
+
+    from pyflightstream.cases.workflows import BLADE_FAMILIES_KEY
+    from pyflightstream.post._condition import _section_rotors
+    from pyflightstream.post._tables import section_identity
+
+    own = {
+        BLADE_FAMILIES_KEY: ["B1", "B2"],
+        "blades": 4,
+        "rpm": 1200.0,
+        "steps_per_revolution": 36.0,
+        "blade1_azimuth_deg": 0.0,
+    }
+    record = SimpleNamespace(reductions={"rotors": {"R": own}})
+    live = SimpleNamespace(rotors={"R": SimpleNamespace(families_blades=["B1", "B2"])})
+    rotors = _section_rotors(live if has_reference else None, {}, record)
+    layout = [{"families": ["B2"], "plane": "XZ", "count": 1}]
+    assert section_identity(1, layout, rotors, 0, None)[0][3] == pytest.approx(90.0)
 
 
 def test_the_stage_reads_the_layout_off_the_points_own_record_and_says_it_is_one_instant(tmp_path):

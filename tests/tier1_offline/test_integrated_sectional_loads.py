@@ -55,6 +55,7 @@ def _spec(option=None, *, validate=True):
 
 def _case(tmp_path, monkeypatch, *, option=True, blocks=None, stamped=False, validate=False):
     workspace, record = _workspace(tmp_path, monkeypatch, stamped=stamped)
+    record.mesh_import = {"units": "METER"}
     spec = _spec(option, validate=validate)
     monkeypatch.setattr(CampaignWorkspace, "resolve_pproc", lambda self, key: spec)
     blocks = blocks or [OFFSETS]
@@ -127,6 +128,28 @@ def test_p0430_nonmetre_mesh_refuses_unmeasured_strip_integration(tmp_path, monk
     with pytest.warns(PyflightstreamWarning, match="MILLIMETER"):
         _, columns, rows = _table(workspace)
     assert rows and not set(EXTRA) & set(columns)
+
+
+@pytest.mark.parametrize("mesh_import", [None, {}, {"units": None}])
+def test_p0440_missing_mesh_units_keep_raw_sections(tmp_path, monkeypatch, mesh_import):
+    workspace = _case(tmp_path, monkeypatch)
+    workspace.read_manifest()[0].mesh_import = mesh_import
+    with pytest.warns(PyflightstreamWarning, match="units.*unmeasured"):
+        _, columns, rows = _table(workspace)
+    assert rows and not set(EXTRA) & set(columns)
+
+
+def test_p0440_integration_admission_has_a_checked_type_boundary():
+    import inspect
+
+    from pyflightstream.post import section_distributions
+
+    unchecked = [
+        name
+        for name, function in inspect.getmembers(section_distributions, inspect.isfunction)
+        if function.__module__ == section_distributions.__name__ and not function.__annotations__
+    ]
+    assert not unchecked, f"function bodies omitted from type checking: {unchecked}"
 
 
 def test_opt_in_columns_and_glossary(tmp_path, monkeypatch):

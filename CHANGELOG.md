@@ -32,6 +32,20 @@ FlightStream versions.
 
 ### Fixed
 
+- Far-field products refuse steady probe velocities from non-metre simulations
+  by name until their velocity units have measured conversion evidence (F-122).
+- Far-field mass, symmetry, and energy ledger columns retain six significant
+  digits when five decimal places would round small nonzero results to zero (X-F-0340).
+- Section azimuths carry the recorded full rotor blade count through post-processing;
+  a periodic sector no longer spaces its blades as if it were the full rotor (RB6-10).
+- Quasi-steady noise fits identify the sample and whether its azimuth or value
+  is non-finite (RB6-12).
+- Superfile completeness checks refuse conflicting copies of a matrix instead of
+  silently omitting its fields from the audit (RB3-12).
+- Section integration retains raw loads and names the refusal when mesh length
+  units are absent, instead of silently interpreting lengths as metres (RB3-11).
+- Missing section frames are named as missing layout metadata in reduced-frequency
+  diagnostics instead of being described as frame `None` (RB3-07).
 - The boundaries file of a refined level states the level's own `mesh_faces`, `boundary_faces`
   and `mesh_sha256`, counted in and taken from the level's OBJ (after any `[components]` merge),
   where it copied the source's, and its header comment names the level OBJ's sha256; the source's

@@ -230,8 +230,14 @@ def fit_azimuthal_series(
     samples = np.asarray(values, dtype=float).reshape(-1)
     if azimuths.size == 0 or azimuths.shape != samples.shape:
         raise ProductError("a series needs one value per azimuth and at least one sample")
-    if not (np.all(np.isfinite(azimuths)) and np.all(np.isfinite(samples))):
-        raise ProductError("a series needs finite azimuths and values, and one is not finite")
+    for name, data in (("azimuth", azimuths), ("value", samples)):
+        bad = np.flatnonzero(~np.isfinite(data))
+        if bad.size:
+            at = int(bad[0])
+            raise ProductError(
+                f"sample {at + 1} {name} {data[at]!r} is not finite; "
+                "a series needs finite azimuths and values"
+            )
     distinct = _distinct(azimuths)
     most = (distinct - 1) // 2
     if orders is None:

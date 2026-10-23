@@ -783,6 +783,13 @@ def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[
         if not unsteady:
             if probes is None:
                 return [], "the point exported no probe values"
+            per_m = _per_m(ctx, point)
+            if per_m != 1.0:
+                return [], (
+                    f"steady probe velocity units are unmeasured at {per_m!r} simulation "
+                    "length units per metre; use a metre simulation until a measured "
+                    "velocity conversion is available"
+                )
             return [_Instant(steady_samples(Path(probes).read_text(encoding="utf-8")), _NA)], ""
         if plots is None:
             return [], "the point exported no fluid plots"

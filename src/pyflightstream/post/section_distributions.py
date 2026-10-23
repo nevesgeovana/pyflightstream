@@ -1100,10 +1100,12 @@ def _end_distribution_export(sim_dir: Path, record: RunRecord, stem: str, kind: 
     )
 
 
-def _measured_integration(record, integrate, errors):
+def _measured_integration(
+    record: RunRecord, integrate: set[int], errors: dict[int, str]
+) -> set[int]:
     """Keep raw data when recorded mesh units lack sectional export evidence."""
     units = (record.mesh_import or {}).get("units")
-    if units is None or str(units).upper() == "METER":
+    if str(units).upper() == "METER":
         return integrate
     for owner in integrate:
         errors[owner] = (

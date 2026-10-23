@@ -896,10 +896,7 @@ def _matrix_names(path: Path, pols: Iterable[str]) -> set[str]:
 
 def _recorded_matrix_names(root: Path, stem: str, pols: set[str]) -> set[str]:
     """Gather names from the same unambiguous matrix home as the row reader."""
-    try:
-        path = find_matrix(root, stem)
-    except WorkspaceError:
-        return set()
+    path = find_matrix(root, stem)
     return set() if path is None else _matrix_names(path, pols)
 
 
@@ -946,6 +943,11 @@ def union_the_workspace_knows(
     -------
     set of str
         Every field the workspace's files carry.
+
+    Raises
+    ------
+    WorkspaceError
+        If two matrix homes disagree; completeness cannot be measured until resolved.
     """
     known: set[str] = set()
     for table in sorted((out / polars_dir).glob(POLAR_TABLE_GLOB)):

@@ -809,10 +809,11 @@ def _station_radii(
         )
         if row[index["ROTOR"]] == alias and offset is not None and radius is None:
             unplaced.add(at)
+            why = f"axes of frame {frame}, whose origin is unknown or whose hub is off-line"
+            if frame is None:
+                why = "the sections layout names no frame"
             notes.append(
-                f"K_1P of rotor {alias} reads NA in block {family} {plane}: the cut is in the "
-                f"axes of frame {frame}, whose origin is unknown or whose hub is off "
-                "the radial line; "
+                f"K_1P of rotor {alias} reads NA in block {family} {plane}: {why}; "
                 "Offset does not place the station on the blade"
             )
         radius_of_row.append(radius)

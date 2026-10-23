@@ -34,6 +34,25 @@ import pytest
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 
+def test_p0440_completeness_refuses_ambiguous_matrix_home(tmp_path):
+    from pyflightstream.post.superfile import union_the_workspace_knows
+    from pyflightstream.workspace import WorkspaceError
+
+    folder = tmp_path / "inputs" / "matrices"
+    folder.mkdir(parents=True)
+    (tmp_path / "study.fs").write_text("POL|FIRST\n1|x\n", encoding="utf-8")
+    (folder / "study.fs").write_text("POL|SECOND\n1|y\n", encoding="utf-8")
+    with pytest.raises(WorkspaceError, match="study"):
+        union_the_workspace_knows(
+            tmp_path,
+            tmp_path / "post",
+            "study",
+            polars_dir="polars",
+            probes_dir="probes",
+            raw_records=[],
+        )
+
+
 def test_p0430_w012_release_tags_are_unambiguous_and_keep_existing_names():
     from pyflightstream.post.superfile import release_tag
 

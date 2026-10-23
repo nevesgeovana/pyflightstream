@@ -150,7 +150,7 @@ def test_the_projection_is_the_one_in_post_axes():
     assert section_station_shaft_loads(4.0, -2.0, 0.5, plane="XZ", shaft=(0, 0, 0)) is None
 
 
-def test_a_frame_or_plane_the_post_cannot_read_leaves_both_shares_na_and_says_why(tmp_path):
+def test_p0440_a_frame_or_plane_the_post_cannot_read_leaves_both_shares_na_and_says_why(tmp_path):
     """A setup's own frame, a plane other than XZ, or a block the layout does not name."""
     # P0310-THRUST-AXIS
     forces = ((10.0, 1.0),) * 4
@@ -158,7 +158,7 @@ def test_a_frame_or_plane_the_post_cannot_read_leaves_both_shares_na_and_says_wh
     cases = (
         ("XZ", _layout("SETUP_FRAME"), "axes of frame SETUP_FRAME, whose origin is unknown"),
         ("YZ", _layout("PROP_RMRP1", plane="YZ"), "a cut in plane YZ are not read"),
-        ("XZ", _layout("PROP_RMRP1", plane="XY"), "axes of frame None, whose origin is unknown"),
+        ("XZ", _layout("PROP_RMRP1", plane="XY"), "sections layout names no frame"),
     )
     for at, (plane, layout, said) in enumerate(cases):
         table = _table(tmp_path / f"s{at}.csv", forces, plane=plane)
