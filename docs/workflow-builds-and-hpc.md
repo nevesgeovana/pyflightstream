@@ -6,7 +6,7 @@ The build as an input, where a point runs, what the record's digests guard, and 
 unregistered-build acceptance with `plan`. Workspace defaults and executable-entry
 settings are resolved first: equivalent choices from different sources are accepted.
 A changed choice is refused with both planned and current values. Replan receipts
-written before 0.44.0, which do not record this effective contract.
+that do not record this effective contract.
 
 ## Keeping a Linux run local
 
