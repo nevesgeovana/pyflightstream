@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Geometry input-change refusals explain that hashes compare raw bytes, including line
+  endings (X-F-0423).
 - Post compaction records links as `.LINK.txt` notes without following their targets, and
   refuses a collision with an existing note name before removing the source (RB4-29).
 - Point queries use the shared link guard, including on Python 3.11 (RB5-33).

@@ -2863,6 +2863,21 @@ class TestGeometryPlan:
         assert all("POL 9401" in text for text in texts)
 
     @staticmethod
+    def test_p0440_x_f_0423_line_ending_change_names_raw_byte_contract(built):
+        _, folder, fsm = built
+        source = folder / "src.obj"
+        original = source.read_bytes()
+        changed = (
+            original.replace(b"\r\n", b"\n")
+            if b"\r\n" in original
+            else original.replace(b"\n", b"\r\n")
+        )
+        assert changed != original
+        source.write_bytes(changed)
+        with pytest.raises(InputArtifactError, match="raw bytes, including line endings"):
+            judge_the_row_geometry(fsm, "9401", fs_build="26.125", mesh_import=None)
+
+    @staticmethod
     @pytest.mark.requirement("FR-473")
     def test_p0400_geom_plan_a_body_without_a_record_is_planned_as_before(tmp_path):
         """P0400-GEOM-PLAN (PFS-2081.41): FR-1123, nothing is said of a GUI-saved simulation."""

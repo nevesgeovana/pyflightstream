@@ -105,7 +105,8 @@ def _judge_the_record(geometry: Path, pol: str, fs_build: str | None) -> None:
         raise InputArtifactError(
             f"{where}, built from an instruction whose inputs changed after the build "
             f"({', '.join(changed)}): the body on disk is not the one the instruction now "
-            f"describes. Rebuild it with `{_rebuild_command(record, data)}` ({_PAGE})."
+            "describes. Hashes compare raw bytes, including line endings. "
+            f"Rebuild it with `{_rebuild_command(record, data)}` ({_PAGE})."
         )
     listed = data.get("outputs", [])
     if not isinstance(listed, list) or not all(isinstance(item, dict) for item in listed):
