@@ -12574,11 +12574,6 @@
     },
     {
       "source": "pyflightstream.workspace._refine._blocks",
-      "target": "pyflightstream.workspace._refine._config",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._refine._blocks",
       "target": "pyflightstream.workspace._refine._geometry",
       "kind": "module"
     },

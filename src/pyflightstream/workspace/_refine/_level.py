@@ -303,7 +303,6 @@ def _decide_family(work: _Work, name: str) -> None:
                 "keep_first_row applies to a single grid with a trailing edge; this family "
                 "is a multiblock grid",
             )
-        _blocks.check_factor(found, name, spec)
     else:
         chordwise, spanwise = spec.directions
         keep = _first_rows(work, name, found) if spec.keep_first_row else (False, False)

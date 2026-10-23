@@ -1873,7 +1873,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.workspace._refine._blocks"><summary><code>pyflightstream.workspace._refine._blocks</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.workspace._refine._config">pyflightstream.workspace._refine._config</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._geometry">pyflightstream.workspace._refine._geometry</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._grid">pyflightstream.workspace._refine._grid</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>

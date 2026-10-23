@@ -29,6 +29,9 @@ the same m, so they agree. A patch's interior is the tensor spline of its
 nodes, as a single grid's is, and its boundary nodes are the arcs' nodes, so
 two patches sharing an arc share its nodes exactly. The source's nodes at
 integer parameters are kept bit for bit, the layout's corners among them.
+The count of each arc is given per arc (:func:`resample`): ``factor`` applies
+to every arc, and ``chordwise`` and ``spanwise`` by the arc's direction, read
+from the family's trailing edge (:func:`te_directions`, FR-915, PFS-2150).
 
 Face order (FR-921): every new face takes the position of the source face whose
 centroid is nearest (``_geometry.order_like``), each patch oriented like the
@@ -43,6 +46,7 @@ This module imports neither scipy nor rtree (FR-924).
 
 from __future__ import annotations
 
+import math
 from collections import Counter, defaultdict
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
@@ -51,7 +55,6 @@ import numpy
 from numpy.typing import NDArray
 
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.workspace._refine._config import FamilySpec
 from pyflightstream.workspace._refine._geometry import (
     RIDGE_DEGREES,
     Faces,
@@ -391,35 +394,98 @@ def _arcs(
 # ------------------------------------------------------------- the factors
 
 
-def check_factor(blocks: Blocks, family: str, spec: FamilySpec) -> None:
-    """Refuse chordwise or spanwise on a multiblock family.
+#: An arc runs SPANWISE when its edges run, on average weighted by length, within 45
+#: degrees of the trailing-edge segment nearest each: the mean of |cos| at least cos 45.
+SPANWISE_COS = math.cos(math.radians(45.0))
 
-    A factor below 1/m for the m source intervals of a patch side is not
-    refused: that side keeps ``max(1, round(f m))`` intervals (:func:`count`),
-    its source count for a one-interval side, and :func:`kept_sides` names it
-    (FR-915).
+
+def runs_spanwise(verts: Points, chain: Sequence[int], te: Points) -> bool:
+    """Return whether an arc runs along the trailing edge (spanwise) rather than across it.
+
+    ``te`` holds the trailing-edge segments, shape (T, 2, 3). Each edge of the
+    arc is compared with the segment nearest its mid-point; the arc's value
+    is the length-weighted mean of the absolute cosine between the two, so an
+    arc wrapping round a leading edge, whose ends almost meet, is read by its
+    edges and not by its chord (FR-915, PFS-2150).
+    """
+    p = numpy.asarray(verts, dtype=float)[list(chain)]
+    edge = p[1:] - p[:-1]
+    mid = 0.5 * (p[1:] + p[:-1])
+    a, ab = te[:, 0], te[:, 1] - te[:, 0]
+    t = ((mid[:, None, :] - a[None]) * ab[None]).sum(axis=2)
+    t = numpy.clip(t / numpy.maximum((ab * ab).sum(axis=1), 1e-300)[None], 0.0, 1.0)
+    gap = numpy.linalg.norm(a[None] + t[..., None] * ab[None] - mid[:, None, :], axis=2)
+    near = ab[numpy.argmin(gap, axis=1)]
+    length = numpy.linalg.norm(edge, axis=1)
+    scale = numpy.maximum(length * numpy.linalg.norm(near, axis=1), 1e-300)
+    cos = numpy.abs((edge * near).sum(axis=1)) / scale
+    return float((cos * length).sum() / max(float(length.sum()), 1e-300)) >= SPANWISE_COS
+
+
+def te_directions(
+    verts: Points,
+    blocks: Blocks,
+    patches: Sequence[int],
+    te: Points,
+    *,
+    family: str,
+    what: str,
+) -> dict[int, str]:
+    """Return ``"chordwise"`` or ``"spanwise"`` for each arc of a family's patches (PFS-2150).
+
+    An arc is classified from the family's trailing edge (:func:`runs_spanwise`).
+    Opposite sides of a patch hold the same m and must classify alike, and its
+    rows and its columns must run in different directions.
 
     Parameters
     ----------
+    verts : numpy.ndarray
+        All the mesh's vertices, shape (V, 3).
     blocks : Blocks
-        The family's recovered multiblock grid.
+        The layout.
+    patches : sequence of int
+        The family's patches, numbered 1, 2, ... in this order in a refusal.
+    te : numpy.ndarray
+        The family's trailing-edge segments, shape (T, 2, 3).
     family : str
-        The family's name, for the message.
-    spec : FamilySpec
-        The family's request.
+        The source and family, for a refusal.
+    what : str
+        The family's layout as a refusal names it.
 
     Raises
     ------
     InputArtifactError
-        Naming the family; nothing was written.
+        The family has no trailing edge, or a patch's two directions cannot be
+        told apart, naming the patch and where it lies; nothing was written.
     """
-    if spec.chordwise is not None or spec.spanwise is not None:
+    if not len(te):
         raise InputArtifactError(
-            f"family {family}: chordwise and spanwise are not defined for {blocks.describe()}, "
-            "whose patches share no index directions. Give its factor alone and run again. "
-            "Nothing was written.",
+            f"{family}: chordwise and spanwise are not defined for {what} without a trailing "
+            "edge: its arcs are told chordwise or spanwise by the direction of the family's "
+            "trailing edge, and it has none. Give its factor alone, or list its trailing edge "
+            "in the points file, and run again. Nothing was written.",
             kind=KIND,
         )
+    out: dict[int, str] = {}
+    for n, p in enumerate(patches, 1):
+        arcs = [arc for arc, _ in blocks.sides[p]]
+        for arc in arcs:
+            if arc not in out:
+                spanwise = runs_spanwise(verts, blocks.arcs[arc], te)
+                out[arc] = "spanwise" if spanwise else "chordwise"
+        rows, columns = {out[a] for a in arcs[:2]}, {out[a] for a in arcs[2:]}
+        if len(rows) == 1 and len(columns) == 1 and rows != columns:
+            continue
+        pts = numpy.asarray(verts, dtype=float)[blocks.patches[p].ravel()]
+        where = ", ".join(f"{v:.3g}" for v in pts.mean(axis=0))
+        raise InputArtifactError(
+            f"{family}: chordwise and spanwise cannot be told apart on patch {n} of {what} "
+            f"(centroid {where}): its rows run {' and '.join(sorted(rows))} and its columns "
+            f"{' and '.join(sorted(columns))} of the trailing edge. Give the family's factor "
+            "alone and run again. Nothing was written.",
+            kind=KIND,
+        )
+    return out
 
 
 def kept_sides(

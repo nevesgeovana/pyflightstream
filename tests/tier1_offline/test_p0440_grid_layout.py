@@ -19,7 +19,13 @@ import pytest
 
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.workspace import refine_mesh
-from tests.p0380_mesh_fixtures import Composite, face_coordinates, read_mesh, write_source
+from tests.p0380_mesh_fixtures import (
+    Composite,
+    face_coordinates,
+    l_sheet,
+    read_mesh,
+    write_source,
+)
 
 NX = 13  # chordwise cells
 BANDS = {"W": [(10, 18)], "C": [(3, 7)], "J": [(0, 3), (7, 10)]}
@@ -163,3 +169,86 @@ def test_two_grids_giving_a_shared_curve_different_counts_are_refused_naming_bot
     assert "of 13 source intervals, would hold 10 intervals as " in text
     assert "and 6 as J is" in text and text.endswith("Nothing was written.")
     assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
+
+
+# ------------------------------------------- PFS-2150 chordwise and spanwise on a multiblock
+
+
+def _pairs(entry) -> list[list[tuple[int, int]]]:
+    """Return each patch's (before, after) interval pairs, its two directions sorted."""
+    return sorted(sorted([tuple(b["rows"]), tuple(b["columns"])]) for b in entry["blocks"])
+
+
+def test_the_junction_coarsened_chordwise_only_keeps_its_spanwise_counts(tmp_path):
+    """P0440-LAYOUT (FR-915, FR-932, PFS-2150): J at chordwise 0.76923, spanwise 1.
+
+    J's arcs are told chordwise or spanwise from its trailing edge: its
+    spanwise arcs (3 intervals across each strip, along the trailing edge)
+    keep 3, its chordwise arcs (13 intervals) take 10, and so do the curves it
+    shares with W and C at 0.76923; the level conforms and its gates pass.
+    Control: J at factor 0.76923 in both directions takes 2 across each strip.
+    """
+    toml = (
+        f"[families.W]\nfactor = {FACTOR}\n\n[families.C]\nfactor = {FACTOR}\n\n"
+        f"[families.J]\nchordwise = {FACTOR}\nspanwise = 1\n"
+    )
+    src = _source(tmp_path, toml, strip=False)
+    level = refine_mesh(src)
+    report = level.report
+    assert _pairs(report["J"]) == [[(3, 3), (13, 10)]] * 2, report["J"]
+    assert _pairs(report["C"]) == [[(4, 3), (13, 10)]]
+    assert _pairs(report["W"]) == [[(8, 6), (13, 10)]]
+    assert report["J"]["kept_sides"] == []
+    assert all(g.passed for g in level.audit.gates), _gates(level)
+    lv, lf = read_mesh(level.obj)
+    assert len(_nodes(lf["C"]) & _nodes(lf["J"])) == 2 * (round(NX * FACTOR) + 1)
+    both = refine_mesh(src, FACTOR, out_dir=tmp_path / "both").report
+    assert _pairs(both["J"]) == [[(3, 2), (13, 10)]] * 2
+
+
+def _l_with_trailing_edge(shear: float = 0.0) -> Composite:
+    """Return the L-shaped multiblock sheet M with its j = 0 row as the trailing edge."""
+    sheet = l_sheet()
+    verts = sheet.verts.copy()
+    verts[:, 0] += shear * verts[:, 1]
+    row = sorted((v for v, (i, j) in sheet.place.items() if j == 0), key=lambda v: sheet.place[v])
+    te = 0.5 * (verts[row[:-1]] + verts[row[1:]])
+    return Composite(verts, {"M": sheet.faces}, te, {})
+
+
+def test_a_lone_multiblock_takes_chordwise_and_spanwise_from_its_trailing_edge(tmp_path):
+    """P0440-LAYOUT (FR-915, PFS-2150): the L-shaped multiblock M at chordwise 0.5, spanwise 1.
+
+    Its trailing edge runs along its rows, so every row arc is spanwise and
+    keeps its count, every column arc is chordwise and halves. Control: the
+    single factor 0.5 halves both, as before.
+    """
+    src = write_source(tmp_path / "src", "plate", _l_with_trailing_edge())
+    level = refine_mesh(src, chordwise=0.5, spanwise=1.0, out_dir=tmp_path / "a")
+    assert _pairs(level.report["M"]) == [
+        [(4, 2), (5, 5)],
+        [(4, 2), (7, 7)],
+        [(6, 3), (7, 7)],
+    ], level.report["M"]
+    assert all(g.passed for g in level.audit.gates), _gates(level)
+    half = refine_mesh(src, 0.5, out_dir=tmp_path / "b").report["M"]
+    assert _pairs(half) == [[(4, 2), (5, 2)], [(4, 2), (7, 4)], [(6, 3), (7, 4)]]
+
+
+def test_a_patch_whose_two_directions_cannot_be_told_apart_is_refused_naming_it(tmp_path):
+    """P0440-LAYOUT (FR-915, FR-925, PFS-2150): M sheared until its columns run near the edge.
+
+    Sheared by 1.5, its columns run within 35 degrees of the trailing edge,
+    like its rows, so patch 1 has no chordwise direction: chordwise and
+    spanwise are refused naming the family and the patch, nothing written.
+    Control: the single factor is accepted on the sheared M.
+    """
+    src = write_source(tmp_path / "src", "plate", _l_with_trailing_edge(shear=1.5))
+    with pytest.raises(InputArtifactError) as caught:
+        refine_mesh(src, chordwise=0.5, spanwise=1.0, out_dir=tmp_path / "a")
+    text = str(caught.value)
+    assert text.startswith(f"{src} family M: chordwise and spanwise cannot be told apart on ")
+    assert "patch 1 of a multiblock of 3 four-sided patches" in text
+    assert "its rows run spanwise and its columns spanwise" in text
+    assert text.endswith("Nothing was written.") and not (tmp_path / "a").exists()
+    assert refine_mesh(src, 0.5, out_dir=tmp_path / "b").report["M"]["method"] == "grid"

@@ -126,14 +126,29 @@ def _join(
 
 
 def _arc_factors(
-    blocks: _blocks.Blocks, patches: Sequence[int], grid: Recovered, spec: FamilySpec
+    verts: Points,
+    blocks: _blocks.Blocks,
+    patches: Sequence[int],
+    grid: Recovered,
+    spec: FamilySpec,
+    te_edges: Collection[Edge],
+    family: str,
 ) -> dict[int, float]:
-    """Return the factor of each arc of a family's patches, in the arc's direction."""
+    """Return the factor of each arc of a family's patches, in the arc's direction.
+
+    A sheet's arcs take its own index directions; a multiblock family's are
+    classified from its trailing edge (:func:`._blocks.te_directions`).
+    """
     chordwise, spanwise = spec.directions
     arcs = sorted({arc for p in patches for arc, _ in blocks.sides[p]})
-    if chordwise == spanwise or not isinstance(grid, Grid):
+    if chordwise == spanwise:
         return dict.fromkeys(arcs, chordwise)
-    runs = _blocks.sheet_directions(grid, blocks, arcs)
+    if isinstance(grid, Grid):
+        runs = _blocks.sheet_directions(grid, blocks, arcs)
+    else:
+        te = numpy.asarray(verts, dtype=float)[sorted(te_edges)].reshape(-1, 2, 3)
+        what = grid.describe() if len(patches) == len(blocks.patches) else "its patches"
+        runs = _blocks.te_directions(verts, blocks, patches, te, family=family, what=what)
     return {a: chordwise if runs[a] == "chordwise" else spanwise for a in arcs}
 
 
@@ -143,6 +158,7 @@ def _counted(
     found: tuple[_blocks.Blocks, tuple[int, ...]],
     grids: Mapping[str, Recovered],
     specs: Mapping[str, FamilySpec],
+    te_edges: Mapping[str, Collection[Edge]],
     where: str,
 ) -> Layout:
     """Return the layout with every arc's count, refusing an arc two families count apart."""
@@ -151,7 +167,9 @@ def _counted(
     kept: dict[str, list[dict[str, object]]] = {}
     for i, name in enumerate(names):
         mine = [p for p, o in enumerate(owner) if o == i]
-        factors = _arc_factors(blocks, mine, grids[name], specs[name])
+        factors = _arc_factors(
+            verts, blocks, mine, grids[name], specs[name], te_edges[name], f"{where} family {name}"
+        )
         for arc, f in factors.items():
             chain = blocks.arcs[arc]
             new = _blocks.count(len(chain) - 1, f)
@@ -257,7 +275,7 @@ def plan(
                 dict.fromkeys(group, f"; the grids {', '.join(group)} form no layout: {found}")
             )
             continue
-        layouts.append(_counted(verts, tuple(group), found, grids, specs, where))
+        layouts.append(_counted(verts, tuple(group), found, grids, specs, te_edges, where))
     done = [n for lay in layouts for n in lay.names]
     late: list[tuple[str, str, str]] = []
     for name in names:
@@ -271,7 +289,7 @@ def plan(
         grid = grids[name]
         if isinstance(grid, _blocks.Blocks):
             lone = (grid, (0,) * len(grid.patches))
-            layouts.append(_counted(verts, (name,), lone, grids, specs, where))
+            layouts.append(_counted(verts, (name,), lone, grids, specs, te_edges, where))
     for layout in layouts:
         _warn_kept(layout, specs, where)
     return {n: lay for lay in layouts for n in lay.names}, late
