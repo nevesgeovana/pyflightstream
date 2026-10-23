@@ -10,6 +10,15 @@ from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 REPO = Path(__file__).resolve().parents[2]
 
 
+def test_p0440_blade_passage_windows_are_distinct_from_shared_average():
+    from pyflightstream.cases.workflows import ReductionPlan
+
+    assert "disjoint passage windows" in ReductionPlan.blade_windows.__doc__
+    text = (REPO / "docs/definitions/per_blade.md").read_text(encoding="utf-8")
+    assert "ReductionPlan.blade_windows()" in text
+    assert "different parts of the history" in text
+
+
 def test_p0440_alias_contract_states_recorded_first_order():
     import csv
 

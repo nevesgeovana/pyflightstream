@@ -37,6 +37,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Per-blade documentation distinguishes the retained public passage-window
+  helper from the campaign product's shared averaging window (F-073).
+
 - Run-alias documentation states the retained recorded-first ordinal order
   rather than promising plan order alone (C-SRS-S11-064).
 
