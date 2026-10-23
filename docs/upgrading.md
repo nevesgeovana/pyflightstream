@@ -9,6 +9,19 @@ describe the older releases that supplied them.
 
 ## 0.44.0
 
+### Surface deletion keeps survivor IDs
+
+Regenerate scripts and additional-post products for cases using `delete_surfaces`.
+Surviving surfaces keep their original IDs in all-boundary selections and reopened
+simulations, as the solver numbers them; deleted IDs no longer cause valid isolated
+rotors to be refused (RB7-35).
+
+### `blade_stations` returns band widths
+
+`pyflightstream.cases.qsteady.blade_stations` now returns radii, chords and the full
+radial band width of each station. Unpack three values,
+`radii, chords, widths = blade_stations(...)`, where two were unpacked before (PFS-2124.016).
+
 ### NumPy tables and optional pandas
 
 `to_table`, `run_table` and `sweep_table` now return

@@ -676,6 +676,54 @@ def test_p0440_mrp_harmonics_use_the_recorded_moment_origin():
     assert all(row[2] is None for row in unknown.rows)
 
 
+@pytest.mark.parametrize("origin", [(0.0, 0.0, 0.0), (1.0, 2.0, 6.0), None])
+def test_p0440_rv2_unsteady_product_preserves_the_reference_moment_origin(
+    tmp_path, monkeypatch, origin
+):
+    """Real reference artifacts reach the public writer; a missing reference stays unavailable."""
+    from tests.tier1_offline.test_post_superfile import _MATRIX
+
+    workspace = _unsteady(tmp_path, monkeypatch, blades=2, rpm=1200.0)
+    record = workspace.read_manifest()[0]
+    record.matrix_stem = "study"
+    record.sections_layout = [{**entry, "frame": "MRP"} for entry in _layout(2)]
+    row = next(line for line in _MATRIX.splitlines() if line.startswith("6002"))
+    (workspace.root / "study.fs").write_text(
+        _MATRIX.splitlines()[0] + "\n" + row.replace("6002", "7001").replace("PUSHER", "PROP"),
+        encoding="utf-8",
+    )
+    x, y, z = origin or (0.0, 0.0, 0.0)
+    moment = f"moment_point = {{x_m = {x}, y_m = {y}, z_m = {z}}}\n" if origin else ""
+    if origin is not None:
+        (workspace.inputs_dir / "references" / "r002.toml").write_text(
+            "area_m2 = 1.0\nchord_m = 1.0\nspan_m = 1.0\n"
+            + moment
+            + f"""[rotors.PROP]
+alias = "PROP"
+axis = "X"
+blade1 = {{zero = "Y"}}
+diameter_m = 2.0
+families_blades = ["Blade1", "Blade2"]
+x_m = {x + 4.0}
+y_m = {y}
+z_m = {z}
+""",
+            encoding="utf-8",
+        )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        write_campaign_products(workspace, matrix_stem="study")
+    _, rows = read_csv_table(workspace.products_dir("study") / "sections/AL-020_harmonics.csv")
+    assert len(rows) == len(KNOWN) * len(RADII)
+    if origin is None:
+        assert {row["STATION_R_M"] for row in rows} == {"NA"}
+        assert {row["R_OVER_R"] for row in rows} == {"NA"}
+    else:
+        assert all(row["STATION_R_M"] != "NA" and row["R_OVER_R"] != "NA" for row in rows)
+        assert [float(row["STATION_R_M"]) for row in rows] == pytest.approx(RADII * len(KNOWN))
+        assert [float(row["R_OVER_R"]) for row in rows] == pytest.approx(RADII * len(KNOWN))
+
+
 def test_blocks_of_other_station_counts_skip_the_rotor_by_name():
     # P0310-HARMONICS
     columns, rows = _rows(counts=2)

@@ -360,7 +360,8 @@ def whole_revolution_steps(steps_per_revolution: float) -> int:
         raise ProductError(
             f"{steps_per_revolution:g} steps per revolution has fractional remainder "
             f"{steps_per_revolution % 1:g}; a complete revolution cannot be represented "
-            "by whole solver steps without rounding"
+            "by whole solver steps without rounding. Choose the time step so one revolution "
+            "is a whole number of steps (delta_time = 60 / (rpm * N) for N steps per revolution)"
         )
     return int(steps_per_revolution)
 

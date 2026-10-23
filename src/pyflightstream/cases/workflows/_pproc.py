@@ -524,7 +524,8 @@ def _declared_sections(case: SimCase, script: Script, frames: Frames) -> None:
             if not indices:
                 # EVERY BOUNDARY, THE DUPLICATE-NAMED ONES INCLUDED: the label inventory leaves
                 # out a name two boundaries share, so its length is not the file's count.
-                indices = list(range(1, (script.num_boundaries or len(inventory)) + 1))
+                survivors = script.entities.boundary_indices()
+                indices = list(survivors if survivors is not None else range(1, len(inventory) + 1))
             # THE SYMMETRY SWITCH IS WRITTEN ONLY WHERE THE BUILD HAS IT.
             # The builds before 26.120 take no INCLUDE_SYMMETRY, and writing
             # `DISABLE` there refused every section distribution on them even

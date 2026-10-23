@@ -81,6 +81,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Surface deletion keeps original survivor IDs in section selections, additional
+  post extraction, isolated-rotor checks and 26.125 trailing-edge detection (RV2-02).
 - History and diff retain readable records and aliases when another manifest row is malformed (RV1-02).
 - Table CSV writing retains every numeric column when sanitized headings coincide (RV1-01).
 - Custom recipes without a registered workflow again record no reduction windows
@@ -92,6 +94,7 @@ FlightStream versions.
 - Mesh-based reduced-frequency and inflow-harmonic summaries weight each radial
   band by its full width, including root and tip. `blade_stations` now returns
   radii, chords and band widths; nodal section strips retain their rule (PFS-2124.016).
+  migration: unpack three values from `blade_stations`, `radii, chords, widths = ...`.
 - Plans warn which coefficient products dimensional load units omit; post keeps
   independent plots, probes and sectional products (PFS-2130.039).
 - Execution and Excel sync share matrix comment and separator rules and accept
@@ -100,8 +103,9 @@ FlightStream versions.
   preserving the original when replacement fails (PFS-2119.015).
 - Permuted body-axis declarations refuse with RPT-052/RPT-060 evidence limits;
   the supported rate mapping is roll=X, pitch=Y, yaw=Z (PFS-2126.043).
-- MRP sectional radii subtract the hub relative to the recorded moment point;
-  historical wheel records without that origin report unavailable radii (F-127).
+- MRP sectional radii subtract the hub relative to the recorded moment point, in steady
+  and unsteady sectional harmonics; historical wheel records without that origin report
+  unavailable radii (F-127).
 - Unreadable saved-action metadata warns by file and row without being treated
   as known saved actions that block grouping (PFS-2119.012).
 - The off-body streamline deletion probe keeps an empty export inconclusive

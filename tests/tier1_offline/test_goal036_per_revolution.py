@@ -296,6 +296,8 @@ def test_p0440_fractional_revolution_is_named_without_rounding(tmp_path):
     assert not (workspace.root / "post" / "products" / relative).exists()
     reason = _products_manifest(workspace)["skipped"][relative]
     assert "4.5" in reason and "remainder 0.5" in reason
+    # RV2-05: the skip names how to obtain the product.
+    assert "whole number of steps" in reason
 
 
 def test_a_rotor_with_no_clock_is_a_named_skip(tmp_path):
