@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Far-field mass, symmetry, and energy ledger columns retain six significant
+  digits when five decimal places would round small nonzero results to zero (X-F-0340).
 - Section azimuths carry the recorded full rotor blade count through post-processing;
   a periodic sector no longer spaces its blades as if it were the full rotor (RB6-10).
 - Quasi-steady noise fits identify the sample and whether its azimuth or value
