@@ -510,9 +510,7 @@ def cancel_batch(path: Path) -> None:
 
 def _refuse_a_stale_preview(preview: SyncPreview, snapshot: WorkbookSnapshot) -> None:
     """Refuse a preview whose token, matrices or rows no longer allow an apply."""
-    if not re.fullmatch(r"[0-9a-f]{32}", str(preview.token)):
-        # The token names a recovery folder; only one this package wrote builds that path.
-        raise ExcelSyncError("The preview's token is not one this package wrote; preview again.")
+    require_token(preview.token)
     fresh = preview_sync(
         preview.workspace, snapshot, direction=preview.direction, matrices=preview.selection
     )
@@ -554,7 +552,7 @@ def apply_batch(path: Path) -> dict:
     snapshot = read_snapshot(workbook)
     preview = preview_from_json(payload["preview"])
     _refuse_a_stale_preview(preview, snapshot)
-    recovery = Path(preview.workspace) / ".excel-sync-recovery" / require_token(preview.token)
+    recovery = Path(preview.workspace) / ".excel-sync-recovery" / preview.token
     recovery.mkdir(parents=True, exist_ok=False)
     backup = recovery / "workbook-original.xlsx"
     backup.write_bytes(original)

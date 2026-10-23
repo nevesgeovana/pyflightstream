@@ -32,6 +32,7 @@ FlightStream versions.
 
 ### Fixed
 
+- Excel batch apply uses the shared token validation and recovery diagnostic (RB5-23).
 - Documentation now states the manifest writer's lock lifetime, FSI flap softening and
   load-rotation conventions, sidecar refusal behavior, and partial storage application.
   OBJ and profile descriptions no longer make uncited solver claims.
