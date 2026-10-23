@@ -37,6 +37,9 @@ FlightStream versions.
 
 ### Fixed
 
+- The off-body streamline deletion probe keeps an empty export inconclusive
+  without before-deletion evidence, rather than marking the effect verified (F-543).
+
 - Per-blade documentation distinguishes the retained public passage-window
   helper from the campaign product's shared averaging window (F-073).
 

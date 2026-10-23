@@ -282,13 +282,17 @@ def streamline_lengths(name: str, length: float, tolerance: float = 0.1) -> Judg
 
 
 def emptied(name: str) -> Judge:
-    """Judge a delete by the export after it: no rows True, rows False, absent unprobed."""
+    """Judge surviving rows False; zero rows or an absent export remain unprobed.
+
+    Without a before-instrument, an empty export cannot prove deletion: the
+    generation may have produced no lines. Do not promote that silence (F-543).
+    """
 
     def check(artifacts: ProbeArtifacts) -> bool | None:
         path = artifacts.workdir / name
         if not path.is_file():
             return None
-        return len(_rows(path)) == 0
+        return False if _rows(path) else None
 
     return check
 
