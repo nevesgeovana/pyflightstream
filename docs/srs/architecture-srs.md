@@ -307,3 +307,68 @@ Console status, progress and logs observe the operation's outcome. A logging
 failure is reported without replacing the underlying result. Expected refusals
 name their cause and remedy; validation and failure reporting remain bounded
 contracts, not a guarantee that all conceivable failures are impossible.
+## The 0.43.0 and 0.44.0 additions and their limits
+
+The 0.43.0 documentation has an edition for each release. The site serves
+versioned pages with an edition selector, and the release documentation zip
+can be read from an unzipped folder. An edition describes the sources of
+that release; it does not turn an unmeasured capability into a verified one.
+
+Geometry instructions gained `remesh_from_sections`, which cuts a body's
+sections and lofts a new wing or fuselage beside the source. The cutter stays
+behind build-specific probe evidence. The 0.44.0 QA catalog adds its
+offline-tested `CAD_CREATE_AUTO_CROSS_SECTIONS` probe specification, comparing
+nine saved curves against an empty before-state and an unchanged control.
+The licensed cutter runs remain pending, so the specification does not open
+the evidence gate.
+
+CCS wing rows gained morphing surfaces in 0.43.0 through
+`[[import.ccs.morphing_surfaces]]`, `MORPHING` and `MORPHING_ANGLE`, without
+regenerating the CCS file. A deformed solve alone does not establish the
+containment claim: the 26.125 containment verdict remains unprobed, and the
+26.124 form still needs its grammar evidence. The same release added trimmed
+polars at zero `CMB25`, using interpolation without extrapolation, and
+refinement-study uncertainty products from a pproc `[refinement]` table.
+Their numerical definitions and admission conditions remain on the product
+definition pages. Both the sidecar trailing-edge declaration and
+`WakeEdgeImport` require an explicit wake-edge type; conversion writes
+`STANDARD`.
+
+In 0.44.0 a raw mesh can import several ordered trailing-edge files, each
+with its own type. The script, plan and record carry those declarations, and
+run checks each logged count. For several files it also requires exactly one
+collected saved simulation and checks the declared edges against its saved
+markings in physical coordinates. Missing saved evidence is incomplete
+output; missing declared markings fail the script verdict. This checks edge
+presence, not the retained type, so successive-import and type readback
+measurements remain owed. `RELAXED` setup overrides are checked against the
+selected build's command record. Explicit wake-termination points can be
+matched to mesh vertices, but emission remains gated on verified command
+evidence. The solver's node-id mapping must also be measured before that
+gate opens.
+
+`pyfs-workspace fsi campbell` writes Campbell frequencies, Southwell fits and
+an input-provenance report with interpolated crossings. These are structural
+model results without aerodynamic damping, and the interpolation does not
+track eigenvectors through modal exchanges. The opt-in `[noise]` route adds
+blade-passage harmonic and Gutin tables and optional reference-signal
+comparisons. `pyfs-matrix noise` rebuilds products for selected simulations
+and lists noise files and skips. Loading noise remains exploratory, without
+thickness noise or a validated prediction claim. A moving hub has no Gutin
+comparison, and reference comparison does not align phase automatically.
+
+Result and campaign tables now use `results.tables.Table`, holding ordered
+named NumPy columns. This changes the public return type of `to_table`,
+`run_table` and `sweep_table`. DataFrame operations require the optional
+`[pandas]` extra and explicit `Table.to_pandas()` conversion. Product CSV
+bytes, units, row order and provenance retain their contracts, and writer
+functions still return `Path`. See [upgrading](../upgrading.md) for the
+migration.
+
+Workflow decisions now share `declared_run_type` in
+`cases/workflows/_conventions.py`. It reads the registered declaration once
+for clock, reduction, export and other builder decisions, including Python
+cases that declare only `matrix_workflow`. Conflicting declarations remain
+refused. Custom recipe strings retain their earlier interpretation and do
+not acquire registered-workflow reduction windows merely by using this
+shared reader.
