@@ -1013,6 +1013,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.run._assessment"><summary><code>pyflightstream.run._assessment</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.qsteady">pyflightstream.cases.qsteady</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
@@ -2435,6 +2436,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.cases.mesh"><summary><code>pyflightstream.cases.mesh</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.cases._ccs">pyflightstream.cases._ccs</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.cases.reference_blocks">pyflightstream.cases.reference_blocks</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.cases.naming"><summary><code>pyflightstream.cases.naming</code></summary><ul>

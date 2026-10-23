@@ -38,7 +38,7 @@ LEAN_CAPS = {
     "reports_files": 91,
     "reports_lines": 138107,
     "tests_files": 1147,
-    "tests_lines": 389553,
+    "tests_lines": 392000,
 }
 
 

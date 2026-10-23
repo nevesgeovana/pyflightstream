@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-10-23
+
 ### Changed
 
 - Result and campaign tables hold named NumPy columns; pandas is the optional
