@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Deletion records use a unique call ID even within one clock tick, preserving archive ordering
+  by the existing timestamp (RB5-26).
 - Refinement sidecar rewrites escape DEL with the shared TOML writer (RB5-46).
 - Naming refusals identify control characters among nonportable filename characters (RB5-27).
 - HPC job-end glob refusals explain that paths must be relative to the job folder (RB5-24).

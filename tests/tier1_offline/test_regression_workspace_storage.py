@@ -893,16 +893,15 @@ class TestWorkspace3Storage:
         assert (workspace.sim_dir("4301") / "datapoints" / "DP-1" / "b.txt").is_file()
 
     @staticmethod
-    def test_p0400_storage_archives_runs_on_the_package_clock_and_never_over_a_copy(
-        tmp_path, monkeypatch
-    ):
+    def test_p0440_rb5_26_same_clock_deletes_have_distinct_record_ids(tmp_path, monkeypatch):
         """P0400-ARCHIVE-CLOCK (PFS-2096.026): restore takes the newest copy, and none is lost."""
         monkeypatch.setattr(dt, "datetime", _Workspace3StorageClock)
         workspace = _workspace_3_storage___ws(tmp_path, "clock")
         for sim in ("4401", "4402", "4403"):
             _workspace_3_storage___recorded_sim(workspace, sim, {"scripts/point.fs": "s"})
-        storage_module.delete_sims(workspace.root, ["4401"], apply=True)
-        storage_module.delete_sims(workspace.root, ["4402"], apply=True)
+        first = storage_module.delete_sims(workspace.root, ["4401"], apply=True)
+        second = storage_module.delete_sims(workspace.root, ["4402"], apply=True)
+        assert first["delete_stamp"] != second["delete_stamp"]
         workspace.supersede_records(["camp/sim_4403/AL+000"], stamp=dt.datetime(2026, 10, 12, 9))
         archives = sorted((workspace.root / ARCHIVE_DIR).glob("runs-*.json"))
         assert len(archives) == 3, [path.name for path in archives]

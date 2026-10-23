@@ -1265,7 +1265,7 @@ def _delete_applied(
 ) -> None:
     """Remove the checked simulations, their own products and their records; fill ``entry``."""
     ids = [str(item["sim_id"]) for item in entry["sims"]]
-    stamp = _stamp()
+    clock, stamp = _stamp(), os.urandom(16).hex()
     entry["delete_stamp"] = stamp
     # THE FOLDERS GO FIRST, links undone before anything is removed: a
     # refusal there leaves the records, the products and the mesh as they were.
@@ -1287,7 +1287,7 @@ def _delete_applied(
         )
     # The runs.json lease is already held by delete_sims for all of this.
     raw = _read_rows(manifest)
-    archived_as = _archive_manifest(workspace, manifest, stamp) if manifest.is_file() else None
+    archived_as = _archive_manifest(workspace, manifest, clock) if manifest.is_file() else None
     kept = [row for row in raw if str(row.get("run_id")) not in run_ids]
     index = len(read_storage_calls(workspace.root))
     for item in entry["sims"]:
