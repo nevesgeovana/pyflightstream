@@ -216,7 +216,7 @@ def _pristine_refusal(case: SimCase) -> str | None:
     geometry = case.geometry
     if not geometry or Path(str(geometry)).suffix.lower() != ".fsm":
         return None
-    return saved_action_warning(Path(str(geometry)), str(geometry), [case.sim_id])
+    return saved_action_warning(Path(str(geometry)), str(geometry), [case.sim_id], known_only=True)
 
 
 def _clock(seconds: float | None) -> str:

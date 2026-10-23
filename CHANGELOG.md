@@ -37,6 +37,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Unreadable saved-action metadata warns by file and row without being treated
+  as known saved actions that block grouping (PFS-2119.012).
+
 - The off-body streamline deletion probe keeps an empty export inconclusive
   without before-deletion evidence, rather than marking the effect verified (F-543).
 
