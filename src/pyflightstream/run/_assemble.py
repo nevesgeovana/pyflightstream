@@ -54,6 +54,7 @@ from pyflightstream.workspace.naming import (
     RunsManifestError,
     datapoint_name_of,
     resolve_manifest,
+    sim_dir_name,
 )
 from pyflightstream.workspace.storage import ensure_sim_expanded
 
@@ -364,8 +365,8 @@ def assemble_records(
     assembled: list[RunRecord] = []
     refusals: dict[str, str] = {}
     for row in read_matrix(matrix, active_only=False):
-        sim_dir = workspace.root / "sims" / f"sim_{row.pol}"
-        where = f"sims/sim_{row.pol}"
+        sim_dir = workspace.sim_dir(row.pol)
+        where = f"sims/{sim_dir_name(row.pol)}"
         try:
             # A compacted simulation is read as if it never was, as post reads it.
             ensure_sim_expanded(workspace, row.pol, reason="post --from-sims")
@@ -565,7 +566,7 @@ def _assembled_record(
     """Assemble the record of one point from its loads export, or refuse it by name."""
     from pyflightstream.run import LoadsAssessor
 
-    export = f"sims/sim_{row.pol}/{loads.relative_to(sim_dir).as_posix()}"
+    export = f"sims/{sim_dir_name(row.pol)}/{loads.relative_to(sim_dir).as_posix()}"
     try:
         report = parse_loads(loads.read_text(encoding="utf-8"))
     except (PyflightstreamError, ValueError) as error:
@@ -595,7 +596,7 @@ def _assembled_record(
     companions = _companions(loads)
     moment = reference.moment_point
     record = RunRecord(
-        run_id=f"{workspace.root.name}/sim_{row.pol}/{name}",
+        run_id=f"{workspace.root.name}/{sim_dir_name(row.pol)}/{name}",
         sim_id=row.pol,
         point=point,
         point_name=str(name),

@@ -39,7 +39,7 @@ from pyflightstream.workspace._script_comparison import (
 from pyflightstream.workspace._script_comparison import (
     slashes as slashes,
 )
-from pyflightstream.workspace.naming import DEFAULT_MANIFEST
+from pyflightstream.workspace.naming import DEFAULT_MANIFEST, sim_id_of_folder
 from pyflightstream.workspace.record_document import encode_rows, read_rows
 
 
@@ -222,14 +222,17 @@ def _read_rows(path: Path) -> list[dict[str, Any]] | None:
     return read_rows(path)
 
 
-_SIM_IN_RUN_ID = re.compile(r"(?:^|/)sim_([^/]+)(?:/|$)")
-
-
 def _sim_of(row: Mapping[str, Any]) -> str | None:
     if row.get("sim_id") not in (None, ""):
         return str(row["sim_id"])
-    match = _SIM_IN_RUN_ID.search(str(row.get("run_id", "")))
-    return match.group(1) if match else None
+    return next(
+        (
+            sim
+            for part in str(row.get("run_id", "")).split("/")
+            if (sim := sim_id_of_folder(part)) is not None
+        ),
+        None,
+    )
 
 
 @dataclasses.dataclass
@@ -327,7 +330,11 @@ def descriptor_folder(base: Path, sim_dir: Path, work_dir: Path, profile: Any) -
     # a descriptor left by another, stale batch must not relabel a standalone run.
     folders = [
         work_dir,
-        *(p.parent for p in batch_sim_dirs(base).get(sim_dir.name[4:], []) if p == sim_dir),
+        *(
+            p.parent
+            for p in batch_sim_dirs(base).get(sim_id_of_folder(sim_dir.name) or "", [])
+            if p == sim_dir
+        ),
     ]
     return next((f for f in folders if (f / profile.descriptor_name).is_file()), None)
 
@@ -343,13 +350,13 @@ def _on_disk(base: Path) -> tuple[set[str], set[str]]:
     zipped: set[str] = set()
     sims = base / "sims"
     for path in sims.iterdir() if sims.is_dir() else []:
-        match = re.fullmatch(r"sim_(.+?)(\.zip)?", path.name)
-        if not match:
+        sim = sim_id_of_folder(path.name.removesuffix(".zip"))
+        if sim is None:
             continue
-        if match.group(2) and path.is_file():
-            zipped.add(match.group(1))
-        elif not match.group(2) and path.is_dir():
-            folders.add(match.group(1))
+        if path.suffix == ".zip" and path.is_file():
+            zipped.add(sim)
+        elif not path.suffix and path.is_dir():
+            folders.add(sim)
     return folders, zipped
 
 

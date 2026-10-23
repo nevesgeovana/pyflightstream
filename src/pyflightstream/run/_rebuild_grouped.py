@@ -26,6 +26,7 @@ from typing import Any
 
 from pyflightstream.run._batch_exec import receipt_digest
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt, batch_sim_dirs
+from pyflightstream.workspace.naming import sim_id_of_folder
 
 __all__ = [
     "GroupedPoint",
@@ -185,7 +186,9 @@ def grouped_point(
     GroupedPoint or None
         None for a point that ran alone: no batch named and no receipt naming it.
     """
-    sim = home.name[len("sim_") :]
+    sim = sim_id_of_folder(home.name)
+    if sim is None:
+        raise ValueError(f"unrecognised simulation folder {home}")
     label = batch_label(executed, sim)
     receipt, unreadable = _read_receipt(base, stem)
     job = next((item for item in (receipt.jobs if receipt else ()) if run_id in item.points), None)

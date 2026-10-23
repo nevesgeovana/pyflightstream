@@ -85,7 +85,7 @@ from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
 from pyflightstream.workspace.inputs import hpc_profiles as hpc_profiles
 from pyflightstream.workspace.inputs import read_hpc_profile as read_hpc_profile
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
-from pyflightstream.workspace.naming import PointName
+from pyflightstream.workspace.naming import PointName, sim_dir_name
 
 #: The job root a profile that states none takes: the job folder as the workspace sees it.
 DEFAULT_JOB_ROOT = "{work_dir}"
@@ -342,7 +342,7 @@ def _homes(receipt: GroupingReceipt, root: Path) -> dict[str, Path]:
     """Return each batched simulation's folder inside its batch; none for a polar sweep."""
     if receipt.mode != "batch":
         return {}
-    return {sim: root / job.dir / f"sim_{sim}" for job in receipt.jobs for sim in job.sims}
+    return {sim: root / job.dir / sim_dir_name(sim) for job in receipt.jobs for sim in job.sims}
 
 
 def _prepare_job_folders(receipt: GroupingReceipt, root: Path) -> None:

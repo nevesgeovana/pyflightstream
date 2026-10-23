@@ -9,6 +9,10 @@ FlightStream versions.
 
 ### Added
 
+- Grouped execution refuses unrecognised paths inside its staging root instead
+  of delegating them to the real executor. Simulation folder readers share the
+  workspace naming rule (PFS-2126.030).
+
 - Release builds scan both built archives for forbidden identifiers before
   upload, with the scanner and its policy shipped as support files (X-F-0265).
 

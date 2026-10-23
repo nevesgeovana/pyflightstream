@@ -34,6 +34,7 @@ from pyflightstream.workspace import JOB_TAG
 # Re-exported through this module for callers using this path.
 from pyflightstream.workspace.ledger import SIMS_IDS_HELP as SIMS_IDS_HELP
 from pyflightstream.workspace.ledger import Ledger, listed_sims
+from pyflightstream.workspace.naming import sim_id_of_folder
 
 #: What joins the simulation id and the index: ``2006_3``.
 ALIAS_JOINER = "_"
@@ -502,7 +503,7 @@ def _record_sim(record: Any) -> str:
     if sim is not None:
         return str(sim)
     parts = str(record.run_id).split("/")
-    return parts[-2].removeprefix("sim_") if len(parts) > 1 else ""
+    return (sim_id_of_folder(parts[-2]) or "") if len(parts) > 1 else ""
 
 
 def failure_alias_lines(
@@ -595,7 +596,7 @@ def _annotate(value: Any, aliases: dict[tuple[str, str], str]) -> Any:
         # A continuation's id carries its stamp folder before the point
         # (<campaign>/sim_<id>/r<stamp>/<point>), so the simulation is the part
         # after the campaign when that part names one.
-        holder = parts[1] if len(parts) > 2 and parts[1].startswith("sim_") else parts[-2:][0]
-        sim = holder.removeprefix("sim_") if len(parts) > 1 else ""
+        holder = parts[1] if len(parts) > 2 and sim_id_of_folder(parts[1]) else parts[-2:][0]
+        sim = (sim_id_of_folder(holder) or "") if len(parts) > 1 else ""
         result["run_id_alias"] = aliases.get((sim, parts[-1]))
     return result

@@ -223,6 +223,32 @@ def _files(folder: Path) -> list[str]:
     return sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file())
 
 
+def test_p0440_grouped_executor_refuses_unrecognised_staged_points(tmp_path):
+    from types import SimpleNamespace
+
+    from pyflightstream.run._batch_exec import GroupingExecutor, JobCollector
+
+    job = _job("batch", ["7001"], ["rotor/sim_7001/point"])
+    receipt = SimpleNamespace(jobs=(job,), to_json=lambda: {"jobs": []})
+    collector = JobCollector(receipt, root=tmp_path, job_roots={}, values={})
+    calls = []
+    inner = SimpleNamespace(run_script=lambda *args: calls.append(args))
+    executor = GroupingExecutor(inner, collector, profile=None)
+    malformed = tmp_path / job.dir / "sim_7001" / "wrong-folder" / "DP-point"
+    with pytest.raises(ValueError, match="grouped staging"):
+        executor.run_script(malformed / "point.txt", malformed)
+    assert not calls
+    probe = tmp_path.parent / "external-probe"
+    executor.run_script(probe / "probe.txt", probe)
+    assert len(calls) == 1
+    from pyflightstream.workspace.naming import sim_dir_name, sim_id_of_folder
+
+    for sim in ("7001", "wing_2-a", "sim_3"):
+        assert sim_id_of_folder(sim_dir_name(sim)) == sim
+    for folder in ("sim_", "sim_7001/child", "sim_7001\n", "7001", "sim_.."):
+        assert sim_id_of_folder(folder) is None
+
+
 def test_p0350_run_fr351_fr358_fr374_a_batch_lives_in_its_folder(tmp_path):
     """P0350-RUN-BATCH, P0350-BATCH-POINT-SCRIPTS (FR-351, FR-356, FR-357, FR-358, FR-374).
 

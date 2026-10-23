@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 from pyflightstream.cases.workflows import BATCH_DIR, BATCH_STEM_PREFIX
 from pyflightstream.workspace.manifest import WorkspaceError
+from pyflightstream.workspace.naming import sim_id_of_folder
 
 if TYPE_CHECKING:
     from pyflightstream.workspace import RunRecord
@@ -146,8 +147,8 @@ def batch_sim_dirs(root: Path) -> dict[str, list[Path]]:
     found: dict[str, list[Path]] = {}
     for folder in batch_dirs(root):
         for sim in sorted(folder.glob("sim_*")):
-            if sim.is_dir():
-                found.setdefault(sim.name[len("sim_") :], []).append(sim)
+            if sim.is_dir() and (sim_id := sim_id_of_folder(sim.name)) is not None:
+                found.setdefault(sim_id, []).append(sim)
     return found
 
 
