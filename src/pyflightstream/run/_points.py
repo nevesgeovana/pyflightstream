@@ -791,6 +791,8 @@ def _write_point_script(job: _PointJob) -> RunRecord | None:
         )
     if job.probe_points_file is not None:
         job.base["probe_points_file"] = job.probe_points_file
+    if len(job.script.wake_edge_sets) > 1:
+        job.base["wake_edge_sets"] = job.script.wake_edge_sets
     if job.script.plot_groups and isinstance(job.base.get("reductions"), dict):
         job.base["reductions"]["plot_groups"] = [dict(group) for group in job.script.plot_groups]
     # WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE, recorded
@@ -1067,7 +1069,14 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
                 # G02: the points the script imports, which the collector
                 # compares with the count the solver logs.
                 **(
-                    {"wake_edge_points": job.script.wake_edge_points}
+                    {
+                        "wake_edge_points": job.script.wake_edge_points,
+                        **(
+                            {"wake_edge_sets": job.script.wake_edge_sets}
+                            if len(job.script.wake_edge_sets) > 1
+                            else {}
+                        ),
+                    }
                     if job.script.wake_edge_points is not None
                     else {}
                 ),
@@ -1196,7 +1205,13 @@ def _assess_point_record(job: _PointJob) -> RunRecord:
         assessment.error,
         _no_local_log_verdict(job.script.wake_edge_points, log_text, job.local_log.note)
         if job.local_log.excused and job.local_log.note
-        else wake_edge_import_verdict(job.script.wake_edge_points, log_text),
+        else wake_edge_import_verdict(
+            job.script.wake_edge_points, log_text, job.script.wake_edge_sets
+        ),
+        sets=job.script.wake_edge_sets,
+        folder=job.sim_dir,
+        collected=job.collected,
+        build=str(job.script.version),
     )
     # G06. A run whose log says the solver could not use its actuator disc's
     # profile file went on to the end with a loading that is not the file's, and

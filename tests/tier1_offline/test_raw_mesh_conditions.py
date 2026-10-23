@@ -145,6 +145,223 @@ def _render(case, build="26.124") -> str:
     return script.render()
 
 
+@pytest.mark.parametrize("build", ["26.124", "26.125"])
+def test_p0440_multiple_edge_files_keep_types_and_order(tmp_path, build):
+    tables = (
+        '[trailing_edges]\nfiles = [{file="wing.te.txt", type="STANDARD"}, '
+        '{file="junction.te.txt", type="RELAXED"}]\n'
+    )
+    workspace = _library(tmp_path, tables, build=build, points=_points_text(MIDPOINTS[:8]))
+    (workspace.inputs_dir / "geometries" / "junction.te.txt").write_text(
+        _points_text(MIDPOINTS[8:])
+    )
+    try:
+        case = _case(tmp_path, workspace, build=build)
+    except (ValueError, InputArtifactError) as error:
+        pytest.fail(f"two disjoint edge files must bind: {error}")
+    text = _render(case, build)
+    first = "IMPORT_WAKE_EDGES_FROM_FILE STANDARD"
+    second = "IMPORT_WAKE_EDGES_FROM_FILE RELAXED"
+    assert text.index(first) < text.index(second)
+    assert "wing.wake_nodes.txt" in text
+    assert "wing.wake_nodes.2.txt" in text
+    assert [len(s.points_m) for s in case.raw_mesh_conditions.trailing_edges.sets] == [8, 8]
+    with pytest.warns(UserWarning, match="unmeasured.*saved state.*PFS-2149.01"):
+        _plan(tmp_path, workspace, build=build)
+
+
+def test_p0440_multiple_files_refuse_overlapping_edges(tmp_path):
+    tables = (
+        '[trailing_edges]\nfiles = [{file="wing.te.txt", type="STANDARD"}, '
+        '{file="junction.te.txt", type="RELAXED"}]\n'
+    )
+    workspace = _library(tmp_path, tables)
+    (workspace.inputs_dir / "geometries" / "junction.te.txt").write_text(
+        _points_text(MIDPOINTS[:1])
+    )
+    with pytest.raises(
+        (ValueError, InputArtifactError),
+        match="wing.te.txt.*junction.te.txt|junction.te.txt.*wing.te.txt",
+    ):
+        _case(tmp_path, workspace)
+
+
+def test_p0440_geometry_build_cannot_silently_discard_a_second_file(tmp_path):
+    from pyflightstream.workspace._geometry_instruction import (
+        checked_trailing_edge_points,
+        read_geometry_instruction,
+    )
+
+    path = tmp_path / "wing.geometry.toml"
+    (tmp_path / "wing.stl").touch()
+    (tmp_path / "a.te.txt").write_text(_points_text(MIDPOINTS[:8]))
+    (tmp_path / "b.te.txt").write_text(_points_text(MIDPOINTS[8:]))
+    path.write_text(
+        'name="wing"\nboundaries=["Wing"]\n[mesh]\nfile="wing.stl"\nunits="METER"\n'
+        '[trailing_edges]\nfiles=[{file="a.te.txt",type="STANDARD"},'
+        '{file="b.te.txt",type="RELAXED"}]\n'
+    )
+    with pytest.raises(InputArtifactError) as caught:
+        instruction = read_geometry_instruction(path)
+        checked_trailing_edge_points(instruction, path)
+    assert "saved-state check" in str(caught.value)
+
+
+@pytest.mark.parametrize("sweep", ["0.0", "0.0,2.0"])
+@pytest.mark.parametrize("submitted", [False, True])
+def test_p0440_multi_file_records_survive_local_and_submitted_runs(tmp_path, sweep, submitted):
+    from tests.tier1_offline.test_fsm_trailing_edges import _LIBRARY
+
+    tables = (
+        '[trailing_edges]\nfiles=[{file="wing.te.txt",type="STANDARD"},'
+        '{file="junction.te.txt",type="RELAXED"}]\n'
+    )
+    workspace = _library(tmp_path, tables, points=_points_text(MIDPOINTS[:8]))
+    (workspace.inputs_dir / "geometries" / "junction.te.txt").write_text(
+        _points_text(MIDPOINTS[8:])
+    )
+    source = _LIBRARY / "10_WING.fsm"
+    stub = tmp_path / "stand_in.py"
+    stub.write_text(
+        STUB.replace(
+            '    if line == "EXPORT_LOG":',
+            '    if line == "SAVEAS":\n'
+            "        pathlib.Path(lines[index + 1]).write_bytes("
+            f"pathlib.Path({str(source)!r}).read_bytes())\n"
+            '    if line == "EXPORT_LOG":',
+        )
+    )
+    log = tmp_path / "import_log.txt"
+    log.write_text("8 trailing edges imported for boundary Wing\n" * 2)
+    row = ROW.format(
+        build="26.124", outputs=WITH_LOG + ",state_{point}.fsm", geometry="wing.stl", tail=""
+    )
+    matrix = write_matrix(tmp_path / "multi.fs", [row.replace("| AL | 0.0 |", f"| AL | {sweep} |")])
+    try:
+        run_matrix(
+            matrix,
+            workspace,
+            name="matrix",
+            default_fs_version="26.124",
+            recipes=RECIPES,
+            assess=_converged_reading_the_exported_log,
+            executor=_submitting(workspace) if submitted else _Solver(stub, log),
+            recipe_registry=workflow_registry(),
+        )
+    except (CampaignErrors, InputArtifactError) as error:
+        pytest.fail(f"the declared multi-file run did not complete: {error}")
+    (record,) = workspace.read_manifest()
+    assert record.status == (RunStatus.SUBMITTED if submitted else RunStatus.CONVERGED), (
+        record.error
+    )
+    assert [(entry["type"], entry["count"]) for entry in record.wake_edge_sets] == [
+        ("STANDARD", 8),
+        ("RELAXED", 8),
+    ]
+    if submitted:
+        assert record.submission["wake_edge_sets"] == record.wake_edge_sets
+
+
+@pytest.mark.parametrize("build", ["26.124", "26.125"])
+def test_p0440_wake_termination_file_is_probe_gated(tmp_path, build):
+    workspace = _library(
+        tmp_path, DETECT_AUTO + '[wake_termination]\nfile="tips.wt.txt"\n', build=build
+    )
+    (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(
+        _points_text([(1.0, -4.0, 0.0)])
+    )
+    try:
+        case = _case(tmp_path, workspace, build=build)
+        _render(case, build)
+    except (ValueError, InputArtifactError) as exc:
+        reason = str(exc)
+    else:
+        reason = "accepted an unprobed command"
+    assert "MARK_WAKE_TERMINATION_NODES" in reason and "PFS-2149.01" in reason
+
+
+@pytest.mark.parametrize("point,tolerance,count", [((9, 9, 9), 0.0001, 0), ((1, -4, 0), 1.0, None)])
+def test_p0440_termination_points_must_match_one_vertex(tmp_path, point, tolerance, count):
+    tables = DETECT_AUTO + f'[wake_termination]\nfile="tips.wt.txt"\ntolerance={tolerance}\n'
+    workspace = _library(tmp_path, tables)
+    (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(_points_text([point]))
+    with pytest.raises((ValueError, InputArtifactError)) as caught:
+        _case(tmp_path, workspace)
+    assert "tips.wt.txt" in str(caught.value) and "require exactly one" in str(caught.value)
+
+
+def test_p0440_one_file_record_keeps_published_bytes(tmp_path):
+    import hashlib
+
+    from pyflightstream.cases import TrailingEdgeMarking
+
+    marking = TrailingEdgeMarking(
+        route="file", edge_type="STANDARD", points_m=((1, 2, 3),), points_file="wing.te.txt"
+    )
+    assert marking.model_dump_json() == (
+        '{"route":"file","edge_type":"STANDARD","tolerance":0.0001,'
+        '"points_m":[[1.0,2.0,3.0]],"detect_surfaces":[],"sweep_angle_deg":null}'
+    )
+    case = _case(tmp_path, _library(tmp_path, FILE_ROUTE))
+    script = _render(case).replace(case.geometry, "wing.stl")
+    # Base 932e90bc, with only the machine-local geometry path normalized.
+    assert hashlib.sha256(script.encode()).hexdigest() == (
+        "25eac8d3d685402810416eac3b37a441e1a1fd528b56c916cdda921015fd8893"
+    )
+
+
+@pytest.mark.parametrize("build", ["26.124", "26.125"])
+def test_p0440_verified_termination_selects_nodes_before_marking(tmp_path, build):
+    import copy
+
+    from pyflightstream.commands import CommandRegistry, Status
+
+    workspace = _library(
+        tmp_path, DETECT_AUTO + '[wake_termination]\nfile="tips.wt.txt"\n', build=build
+    )
+    (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(
+        _points_text([(1.0, -4.0, 0.0)])
+    )
+    try:
+        case = _case(tmp_path, workspace, build=build)
+    except (ValueError, InputArtifactError) as exc:
+        pytest.fail(f"explicit termination points must bind: {exc}")
+    registry = copy.deepcopy(CommandRegistry.load())
+    entry = registry.commands["MARK_WAKE_TERMINATION_NODES"]
+    entry.versions[build] = entry.versions[build].model_copy(update={"status": Status.VERIFIED})
+    script = Script(build, registry=registry)
+    build_script(case, script, registry=registry)
+    lines = script.render().splitlines()
+    index = lines.index("MARK_WAKE_TERMINATION_NODES")
+    nodes = case.raw_mesh_conditions.wake_termination.nodes
+    assert lines[index - 1] == f"SELECT_MESH_NODE {nodes[0]}"
+
+
+@pytest.mark.parametrize(
+    "table,reason",
+    [
+        ("files=[]", "nonempty"),
+        (
+            'files=[{file="wing.te.txt",type="STANDARD"}]\nfile="wing.te.txt"',
+            "files cannot be combined with file",
+        ),
+        (
+            'files=[{file="wing.te.txt",type="STANDARD"},{file="wing.te.txt",type="RELAXED"}]',
+            "listed twice",
+        ),
+        ('files=[{file="wing.te.txt",type="UNKNOWN"}]', "UNKNOWN"),
+    ],
+)
+def test_p0440_multiple_file_declarations_are_unambiguous(tmp_path, table, reason):
+    from pyflightstream.workspace.sidecars import read_raw_mesh_conditions
+
+    path = tmp_path / "wing.boundaries.toml"
+    path.write_text("[trailing_edges]\n" + table)
+    with pytest.raises(InputArtifactError) as caught:
+        read_raw_mesh_conditions(path)
+    assert reason in str(caught.value)
+
+
 def _normalized(text: str, tmp_path: Path) -> str:
     """The render with the machine's folder replaced, in one separator."""
     return (
@@ -985,58 +1202,3 @@ def test_p0420_the_file_route_writes_points_and_tolerance_in_the_simulation_unit
     (parked,) = script.pending_input_files.values()
     first = [float(v) for v in parked.splitlines()[2].split(",")]
     assert first == pytest.approx([1.0 * factor, -3.75 * factor, 0.0])
-
-
-@pytest.mark.parametrize("build", ["26.124", "26.125"])
-def test_p0440_wake_termination_file_is_probe_gated(tmp_path, build):
-    workspace = _library(
-        tmp_path, DETECT_AUTO + '[wake_termination]\nfile="tips.wt.txt"\n', build=build
-    )
-    (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(
-        _points_text([(1.0, -4.0, 0.0)])
-    )
-    try:
-        case = _case(tmp_path, workspace, build=build)
-        _render(case, build)
-    except (ValueError, InputArtifactError) as exc:
-        reason = str(exc)
-    else:
-        reason = "accepted an unprobed command"
-    assert "MARK_WAKE_TERMINATION_NODES" in reason and "PFS-2149.01" in reason
-
-
-@pytest.mark.parametrize("point,tolerance,count", [((9, 9, 9), 0.0001, 0), ((1, -4, 0), 1.0, None)])
-def test_p0440_termination_points_must_match_one_vertex(tmp_path, point, tolerance, count):
-    tables = DETECT_AUTO + f'[wake_termination]\nfile="tips.wt.txt"\ntolerance={tolerance}\n'
-    workspace = _library(tmp_path, tables)
-    (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(_points_text([point]))
-    with pytest.raises((ValueError, InputArtifactError)) as caught:
-        _case(tmp_path, workspace)
-    assert "tips.wt.txt" in str(caught.value) and "require exactly one" in str(caught.value)
-
-
-@pytest.mark.parametrize("build", ["26.124", "26.125"])
-def test_p0440_verified_termination_selects_nodes_before_marking(tmp_path, build):
-    import copy
-
-    from pyflightstream.commands import CommandRegistry, Status
-
-    workspace = _library(
-        tmp_path, DETECT_AUTO + '[wake_termination]\nfile="tips.wt.txt"\n', build=build
-    )
-    (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(
-        _points_text([(1.0, -4.0, 0.0)])
-    )
-    try:
-        case = _case(tmp_path, workspace, build=build)
-    except (ValueError, InputArtifactError) as exc:
-        pytest.fail(f"explicit termination points must bind: {exc}")
-    registry = copy.deepcopy(CommandRegistry.load())
-    entry = registry.commands["MARK_WAKE_TERMINATION_NODES"]
-    entry.versions[build] = entry.versions[build].model_copy(update={"status": Status.VERIFIED})
-    script = Script(build, registry=registry)
-    build_script(case, script, registry=registry)
-    lines = script.render().splitlines()
-    index = lines.index("MARK_WAKE_TERMINATION_NODES")
-    nodes = case.raw_mesh_conditions.wake_termination.nodes
-    assert lines[index - 1] == f"SELECT_MESH_NODE {nodes[0]}"

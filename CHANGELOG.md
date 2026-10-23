@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Added
 
+- Raw-mesh `[trailing_edges] files` imports ordered files with separate types,
+  checks every logged count and verifies their union in the saved simulation.
+  Plans state that successive imports remain unmeasured (PFS-2149.01).
 - Explicit `[wake_termination] file` matches chosen mesh vertices. Planning
   refuses `MARK_WAKE_TERMINATION_NODES` until the selected build has verified
   probe evidence (PFS-2149.01).

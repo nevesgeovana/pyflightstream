@@ -16,7 +16,12 @@ from __future__ import annotations
 import re
 from collections.abc import Collection, Sequence
 from pathlib import Path, PureWindowsPath
+from typing import Any
 
+import numpy as np
+
+from pyflightstream._fsm import MeshReadError, saved_mesh_coordinate_unit, trailing_edge_midpoints
+from pyflightstream._lengths import scale
 from pyflightstream.cases import EXPORT_KINDS
 from pyflightstream.results import (
     IncompleteOutputError,
@@ -343,7 +348,7 @@ def collected_log_texts(
 
 
 def wake_edge_import_verdict(
-    expected: int | None, log_text: str | None
+    expected: int | None, log_text: str | None, sets: Sequence[dict[str, Any]] = ()
 ) -> tuple[RunStatus, str] | None:
     """Judge a run that imported trailing edges by the count the solver logged.
 
@@ -360,6 +365,8 @@ def wake_edge_import_verdict(
         continuation that opens a saved state is not held to a count.
     log_text : str or None
         The run's solver log.
+    sets : sequence of dict, optional
+        Ordered file metadata; multiple imports are checked individually.
 
     Returns
     -------
@@ -379,6 +386,18 @@ def wake_edge_import_verdict(
             "among the row's outputs",
         )
     counts = imported_trailing_edges(log_text)
+    if len(sets) > 1:
+        logged_sets = [
+            sum(count.values())
+            for line in log_text.splitlines()
+            if (count := imported_trailing_edges(line))
+        ]
+        expected_sets = [entry["count"] for entry in sets]
+        if logged_sets != expected_sets:
+            return RunStatus.FAILED_SCRIPT, (
+                f"trailing-edge imports of {[entry['file'] for entry in sets]} expected "
+                f"counts {expected_sets}, but the solver logged {logged_sets} in import order"
+            )
     logged = sum(counts.values())
     if logged == expected:
         return None
@@ -392,12 +411,57 @@ def wake_edge_import_verdict(
 
 
 def with_wake_edge_verdict(
-    status: RunStatus, error: str | None, verdict: tuple[RunStatus, str] | None
+    status: RunStatus,
+    error: str | None,
+    verdict: tuple[RunStatus, str] | None,
+    *,
+    sets: Sequence[dict[str, Any]] = (),
+    folder: Path | None = None,
+    collected: Sequence[str] = (),
+    build: str = "unknown",
 ) -> tuple[RunStatus, str | None]:
     """Apply a verdict read off the log over a status that is not already a failure.
 
     The trailing-edge count's (G02) and the actuator profile's (G06) alike.
     """
+    if verdict is None and len(sets) > 1 and folder is not None:
+        verdict = _saved_wake_edge_verdict(sets, folder, collected, build)
     if verdict is None or str(status).startswith("FAILED"):
         return status, error
     return verdict[0], "; ".join(part for part in (error, verdict[1]) if part)
+
+
+def _saved_wake_edge_verdict(sets, folder: Path, collected: Sequence[str], build: str):
+    """Compare the marked saved mesh with every declared set in physical metres."""
+    saves = [folder / name for name in collected if Path(name).suffix.lower() == ".fsm"]
+    if len(saves) != 1:
+        return (
+            RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            "multiple wake-edge imports require one collected saved simulation",
+        )
+    try:
+        unit = saved_mesh_coordinate_unit(saves[0])
+        factor = None if unit is None else scale(unit, "METER")
+        if factor is None:
+            raise ValueError("saved mesh coordinate unit is unknown")
+        marked = np.asarray(trailing_edge_midpoints(saves[0]), dtype=float).reshape(-1, 3) * factor
+    except (OSError, ValueError, MeshReadError) as exc:
+        return RunStatus.FAILED_INCOMPLETE_OUTPUT, f"cannot check saved trailing-edge sets: {exc}"
+    missing, present, total = [], 0, 0
+    for entry in sets:
+        found = 0
+        for point in entry["points_m"]:
+            found += bool(
+                len(marked) and np.any(np.linalg.norm(marked - point, axis=1) <= entry["tolerance"])
+            )
+        total += len(entry["points_m"])
+        present += found
+        if found < len(entry["points_m"]):
+            missing.append(entry["file"])
+    if missing:
+        return RunStatus.FAILED_SCRIPT, (
+            f"the saved simulation marks {present} of {total} trailing-edge points; the edges of "
+            f"{', '.join(missing)} are missing, which is what a second wake-edge import replacing "
+            f"the first would leave (unmeasured on {build}, PFS-2149.01)"
+        )
+    return None

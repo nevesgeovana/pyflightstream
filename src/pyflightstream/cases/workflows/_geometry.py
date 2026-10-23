@@ -835,14 +835,31 @@ def _mark_trailing_edges_from_file(
             f"{unit}, which names no length to convert them into. Set "
             f"simulation_length_unit to a length, or mark the edges by detection ({page})."
         )
-    helpers.mark_wake_edges(
-        script,
-        edge_type=marking.edge_type,
-        tolerance=marking.tolerance * factor,
-        units=unit,
-        node_file=node_file,
-        midpoints=[tuple(value * factor for value in point) for point in marking.points_m],
-    )
+    for index, entry in enumerate(marking.sets, start=1):
+        destination = node_file if index == 1 else node_file.removesuffix(".txt") + f".{index}.txt"
+        helpers.mark_wake_edges(
+            script,
+            edge_type=entry.edge_type,
+            tolerance=marking.tolerance * factor,
+            units=unit,
+            node_file=destination,
+            midpoints=[tuple(value * factor for value in point) for point in entry.points_m],
+        )
+        script.wake_edge_sets.append(
+            {
+                "file": PurePath(entry.points_file).name if entry.points_file else name,
+                "type": entry.edge_type,
+                "count": len(entry.points_m),
+                "points_m": entry.points_m,
+                "tolerance": marking.tolerance,
+            }
+        )
+    if len(marking.sets) > 1:
+        script.comment(
+            "Multiple wake-edge imports: add-or-replace behaviour is unmeasured "
+            f"on {script.version}; "
+            "checked on the saved state after the run (PFS-2149.01)."
+        )
 
 
 def _sidecar_surfaces(

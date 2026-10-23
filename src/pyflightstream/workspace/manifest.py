@@ -716,6 +716,8 @@ class RunRecord(BaseModel):
     #: None, as ``inventory`` is, so a manifest of ``.fsm`` rows stays
     #: readable by a legacy reader.
     mesh_import: dict[str, object] | None = None
+    #: Declared wake-edge files and their types and counts, present for multiple imports only.
+    wake_edge_sets: list[dict[str, object]] | None = None
     #: How the inputs were staged (PFS-2029.17): ``link``, a directory
     #: junction on Windows and a symbolic link elsewhere, at the geometry's
     #: own folder of the library or at the flat library (PFS-2032.04), or
@@ -791,7 +793,8 @@ class RunRecord(BaseModel):
         pydantic 2.11 where this package's floor is pydantic 2.
         """
         keys = (
-            "inventory mesh_import rotor_mach clocking_verdicts marked restart discarded_by"
+            "inventory mesh_import wake_edge_sets rotor_mach clocking_verdicts"
+            " marked restart discarded_by"
             " iterations_requested skipped_names settings_sources farfield_layout"
             " probe_field_layout surface_probe_layout frame_motions custom_field_coverage"
             " freestream_units"

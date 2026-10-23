@@ -294,6 +294,31 @@ table with `file` and no `type` is refused: STANDARD is the type the solver's
 detection gives the edges it marks, so one mesh marked by file and by detection
 carries one type when you write it.
 
+Several disjoint sets may carry different types in the raw-mesh run route:
+
+```toml
+[trailing_edges]
+files = [
+  { file = "outer.te.txt", type = "STANDARD" },
+  { file = "junction.te.txt", type = "RELAXED" },
+]
+tolerance = 0.0001  # metres, shared by every file
+```
+
+Imports follow this order, with node files `<stem>.wake_nodes.txt`,
+`<stem>.wake_nodes.2.txt`, and so on. `file` and `files` together, an empty
+list, repeated paths, unsupported types, or two files claiming the same mesh
+edge are refused by name. The one-file spelling and its script stay unchanged.
+
+Plans state that successive imports adding or replacing earlier marks is
+unmeasured on the build (PFS-2149.01). The run checks each logged import count
+and the union of marked midpoints in its saved simulation, in metres. Missing
+edges produce `FAILED_SCRIPT` naming their files. A missing or unreadable save
+produces `FAILED_INCOMPLETE_OUTPUT`. Records carry `wake_edge_sets` with each
+file, type and count. Saved-state flags cannot verify types; their read-back
+remains PFS-2149.01. Geometry build refuses multiple sets because it does not
+perform the run's saved-state check.
+
 The setup's `trailing_edge_types` also accepts `RELAXED` for an explicitly
 numbered trailing edge, subject to the selected build's command record.
 

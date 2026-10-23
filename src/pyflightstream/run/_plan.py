@@ -1480,6 +1480,7 @@ def _plan_point(
             status=PlanStatus.BLOCKED,
             error=f"{type(error).__name__}: {error}",
         )
+    _say_multiple_wake_files(point_case, script, fs_version)
     # FR-1047 (PFS-2081.56): the far-field probes this dry-run script
     # chose, reused or added, which are the ones the run lays and records.
     if base.get("farfield"):
@@ -1526,6 +1527,19 @@ def _plan_point(
         raw=script.raw_flag,
         march_strategy=script.march_strategy,
     )
+
+
+def _say_multiple_wake_files(case, script, version) -> None:
+    """State the declared file types and the saved-state check at plan."""
+    if len(script.wake_edge_sets) > 1:
+        files = ", ".join(f"{entry['file']} ({entry['type']})" for entry in script.wake_edge_sets)
+        warnings.warn(
+            f"case {case.sim_id}: trailing-edge files {files}; add-or-replace behaviour "
+            f"is unmeasured on {version} and is checked on the saved state after the run "
+            "(PFS-2149.01)",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
 
 
 def _inflow_plan_products(

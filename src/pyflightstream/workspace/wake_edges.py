@@ -60,7 +60,7 @@ import pyflightstream._textio as _textio
 from pyflightstream._decimal import plain_decimal
 from pyflightstream._lengths import METRES_PER_UNIT, scale
 from pyflightstream._mesh import read_mesh
-from pyflightstream.cases.mesh import WakeTerminationMarking
+from pyflightstream.cases.mesh import TrailingEdgeMarking, WakeTerminationMarking
 from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import LENGTH_UNIT_COMMAND, CommandArgumentError
 from pyflightstream.script.helpers import render_wake_edge_node_file
@@ -929,6 +929,39 @@ def matched_wake_termination_nodes(
         # SELECT_MESH_NODE uses node 1 in qa/_spec_0400_gap.py P1-10 (RPT-166).
         nodes.append(int(matches[0]) + 1)
     return marking.model_copy(update={"nodes": tuple(nodes)})
+
+
+def matched_trailing_edge_sets(
+    marking: TrailingEdgeMarking, mesh: Path, mesh_unit: str
+) -> TrailingEdgeMarking:
+    """Bind every file to the source mesh and refuse edges claimed by two files."""
+    midpoints = _mesh_edge_midpoints(mesh) * length_scale(mesh_unit, "METER")
+    owners: dict[int, str] = {}
+    checked = []
+    for entry in marking.sets:
+        assert entry.points_file is not None
+        source = Path(entry.points_file)
+        read = read_trailing_edge_points(source)
+        points = matched_trailing_edge_points(
+            read.points,
+            points_unit=read.unit,
+            mesh=mesh,
+            mesh_unit=mesh_unit,
+            simulation_unit="METER",
+            tolerance=marking.tolerance,
+            source=source.name,
+            lines=read.lines,
+        )
+        nearest, _ = _nearest(points, midpoints)
+        for index in nearest.tolist():
+            if index in owners:
+                raise InputArtifactError(
+                    f"trailing-edge files {owners[index]} and {source.name} claim "
+                    "the same mesh edge; name each edge once"
+                )
+            owners[index] = source.name
+        checked.append(entry.model_copy(update={"points_m": tuple(map(tuple, points.tolist()))}))
+    return marking.model_copy(update={"sets": tuple(checked)})
 
 
 def write_node_file(
