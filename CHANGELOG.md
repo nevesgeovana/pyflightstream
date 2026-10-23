@@ -30,6 +30,11 @@ FlightStream versions.
   strip can be coarsened chordwise only. A family without a trailing edge, or a patch whose two
   directions cannot be told apart, is refused naming it; `factor` alone still applies to both.
 
+### Changed
+
+- Probe sample Mach is `MACH_LOCAL` in steady and unsteady probe tables;
+  condition Mach remains `MACH`, removing ambiguous duplicate headers (F-783).
+
 ### Fixed
 
 - CLI and ledger status filters share the workspace status-word validator (RB5-41).

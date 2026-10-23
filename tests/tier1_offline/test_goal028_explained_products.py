@@ -76,7 +76,7 @@ def test_a_default_unsteady_row_gets_its_probe_table(tmp_path):
         f"satisfied the gate. skipped: {_products_manifest(workspace).get('skipped')}"
     )
     columns, rows = read_csv_table(table)
-    assert "MACH" in columns and len(rows) == 4, (columns, len(rows))
+    assert "MACH_LOCAL" in columns and len(rows) == 4, (columns, len(rows))
 
 
 def test_a_successful_run_whose_loads_table_is_gone_is_named(tmp_path):

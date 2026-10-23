@@ -594,6 +594,7 @@ def write_probes_table(
     Nothing is scaled: the plots table brings its COEFFICIENT columns
     from the solver's reference velocity to the free stream because those
     columns are coefficients, and a sampled velocity is not.
+    The sampled Mach header is ``MACH_LOCAL``; the condition keeps ``MACH``.
 
     It lands beside the unsteady plots table, under
     :data:`PROBES_DIR`, which is the whole point of FR-87: a steady row
@@ -687,7 +688,8 @@ def write_probes_table(
                 *(float(row[columns.index(name)]) for name in rest),
             )
         )
-    return write_csv_table(path, (*PROBE_SPINE, *rest), rows, overwrite=overwrite)
+    heading = tuple("MACH_LOCAL" if name.upper() == "MACH" else name for name in rest)
+    return write_csv_table(path, (*PROBE_SPINE, *heading), rows, overwrite=overwrite)
 
 
 def _plotted_value(text: str | None) -> float | None:
@@ -728,6 +730,9 @@ def write_unsteady_probes_table(
     plots-table header, nor that it states no position.) This un-pivots those groups
     into one row per point and step and puts the recorded position in front
     of them.
+
+    Sample parameter ``MACH`` is written as ``MACH_LOCAL`` to distinguish it
+    from the condition's ``MACH`` column. Source plot names stay unchanged.
 
     THE COLUMNS ARE COMPOSED FORWARD, from the parameters the artifact
     declares and the vertices the script recorded, exactly as the builder
@@ -824,7 +829,8 @@ def write_unsteady_probes_table(
                     *(_plotted_value(row[name]) if name in present else None for name in names),
                 )
             )
-    return write_csv_table(path, (*PROBE_SPINE, *tuple(parameters)), out, overwrite=overwrite)
+    heading = tuple("MACH_LOCAL" if name.upper() == "MACH" else name for name in parameters)
+    return write_csv_table(path, (*PROBE_SPINE, *heading), out, overwrite=overwrite)
 
 
 #: WHERE X, Y AND Z SIT IN A PROBE SPINE, read off the spine itself.

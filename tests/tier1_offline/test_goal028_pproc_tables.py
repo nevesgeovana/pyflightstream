@@ -87,7 +87,7 @@ def test_p0430_f1386_historical_dash_is_missing(tmp_path):
     except ValueError:
         pytest.fail("historical missing token was refused")
     _, rows = read_csv_table(target)
-    assert rows[0]["MACH"] == "NA"
+    assert rows[0]["MACH_LOCAL"] == "NA"
 
 
 def test_p0430_f1387_every_missing_probe_history_is_named(tmp_path):

@@ -7,6 +7,13 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.44.0
+
+The sample Mach column of steady and unsteady probe tables is now `MACH_LOCAL`.
+The condition remains `MACH`. Update readers that selected the sample by `Mach`
+or `MACH`; source solver exports and numbered plot names such as `MACH1` retain
+their original names. This removes ambiguous duplicate headers (F-783).
+
 ## 0.43.0
 
 ### The documentation of the release a workspace uses
