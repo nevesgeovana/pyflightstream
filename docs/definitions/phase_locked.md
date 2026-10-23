@@ -58,7 +58,8 @@ number of frames that entered the average, every step read once.
   every sample is a row of the history and nothing is interpolated.
 - **Without blade one's datum or the rotor's signed speed no azimuth can be
   stated**, and the table is a named skip: declare the rotor in the reference
-  and have the row cite it. A depth under one revolution is a named skip too.
+  and have the row cite it. The pproc configuration refuses an averaging depth
+  under one revolution; historical records with that depth remain a named skip.
 
 ### When it is generated
 

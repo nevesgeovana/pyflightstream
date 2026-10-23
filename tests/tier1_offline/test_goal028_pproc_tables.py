@@ -46,6 +46,17 @@ DATUM = 30.0
 RPM = -1200.0
 
 
+@pytest.mark.parametrize("depth", [0.5, 0.999999])
+def test_p0440_phase_locked_refuses_less_than_one_revolution(depth):
+    from pydantic import ValidationError
+
+    from pyflightstream.cases import PhaseLockedSpec
+
+    with pytest.raises(ValidationError, match="greater than or equal to 1"):
+        PhaseLockedSpec(min_revolutions=2.0, last_revolutions_avg=depth)
+    assert PhaseLockedSpec(min_revolutions=1.0, last_revolutions_avg=1.0)
+
+
 def test_p0430_pfs2119_032_absolute_reynolds_is_not_a_millions_alias():
     from pyflightstream.post.products import context_row
 

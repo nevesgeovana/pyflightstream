@@ -32,6 +32,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Phase-locked averaging depths below one revolution are refused when reading
+  the pproc configuration, before a run can plan an unusable reduction (PFS-2130.026).
+
 - Far-field products refuse steady probe velocities from non-metre simulations
   by name until their velocity units have measured conversion evidence (F-122).
 - Far-field mass, symmetry, and energy ledger columns retain six significant
