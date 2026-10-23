@@ -130,22 +130,17 @@ def test_p0440_import_counts_are_checked_per_file():
     assert "outer.te.txt" in verdict[1] and "[7, 9]" in verdict[1]
 
 
-def test_p0440_recipe_without_workflow_has_no_reduction_windows():
+def test_p0440_custom_recipe_is_planned_without_a_run_type():
     """PFS-2124.020: a custom recipe keeps the pre-wave-1 reduction contract."""
-    from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.cases.workflows import reduction_windows
+    from pyflightstream.cases.workflows import planned_wake
 
     case = SimCase(
         sim_id="9001",
         aircraft="TestWing",
-        recipe="wake",
+        recipe="tests.tier1_offline.test_matrix:a_recipe_named_in_the_cell",
         sweep=SweepAxis(type="alpha", values=[2.0]),
     )
-    try:
-        actual = reduction_windows(case)
-    except CampaignConfigError as error:
-        actual = str(error)
-    assert actual is None
+    assert planned_wake(case) is None
 
 
 def test_p0440_registered_workflow_still_selects_reduction_windows():
