@@ -15,7 +15,7 @@ The order, from the source to the level folder:
 3. refine the grid families first, in the source's family order; grids that
    share nodes are resampled as one layout, so both hold the same nodes on
    every curve they share, and a grid that cannot join one is remeshed when
-   it shares nodes with a grid refined before it (FR-932, :mod:`._layout`);
+   it shares nodes with a grid refined before it (FR-932, :mod:`._blocks`);
 4. hand each neighbour the grid's new nodes on their shared curve: a remeshed
    neighbour is rebuilt on them (FR-933), an unchanged one is remeshed at
    factor 1 in a band of two face layers (FR-934), or whole when the band
@@ -60,7 +60,6 @@ from pyflightstream.workspace._refine import (
     _config,
     _geometry,
     _grid,
-    _layout,
     _obj,
     _periodic,
 )
@@ -138,7 +137,7 @@ class _Work:
     # FR-431: the unchanged neighbours a band would have covered whole, and their record
     rebuilt: dict[str, dict[str, Any]] = field(default_factory=dict)
     # FR-932, FR-915: the layout of each multiblock family and of each grid resampled with others
-    layouts: dict[str, _layout.Layout] = field(default_factory=dict)
+    layouts: dict[str, _blocks.Layout] = field(default_factory=dict)
     # the progress line callback of refine_mesh; silent by default
     say: Callable[[str], None] = field(default=lambda _line: None)
     bands: dict[str, str] = field(default_factory=dict)
@@ -517,7 +516,7 @@ def _planned_bands(work: _Work) -> list[str]:
     An unchanged neighbour gets a band when it shares a curve with a grid
     family whose nodes on that curve change, which the grid's counts tell
     without resampling it (:func:`._grid.curve_changes`,
-    :meth:`._layout.Layout.changes`); its remesh needs the geometry extra like
+    :meth:`._blocks.Layout.changes`); its remesh needs the geometry extra like
     any other (FR-924, FR-925).
     """
     planned: list[str] = []
@@ -551,9 +550,9 @@ def _planned_bands(work: _Work) -> list[str]:
 def _grid_after_grid(work: _Work) -> None:
     """Resample grids that share nodes as one layout; remesh or refuse one that cannot join.
 
-    (FR-932, :func:`._layout.plan`).
+    (FR-932, :func:`._blocks.plan`).
     """
-    work.layouts, late = _layout.plan(
+    work.layouts, late = _blocks.plan(
         work.mesh.verts,
         work.mesh.families,
         work.grids,
@@ -684,7 +683,7 @@ def _refine_grids(work: _Work) -> None:
         if layout is not None or not isinstance(grid, _grid.Grid):
             if name not in levels:
                 levels.update(
-                    _layout.refine_layout(work.mesh.verts, work.mesh.families, work.layouts[name])
+                    _blocks.refine_layout(work.mesh.verts, work.mesh.families, work.layouts[name])
                 )
             level = levels[name]
         else:
