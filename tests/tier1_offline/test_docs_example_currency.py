@@ -20,6 +20,12 @@ def test_p0440_missing_value_definition_names_the_fixed_width_exception():
 PAGE = WORKFLOW_DOCS
 
 
+def test_p0440_show_documents_the_final_resolved_record():
+    text = (REPO / "docs/workspace-queries.md").read_text(encoding="utf-8")
+    show = text.split("`show` prints", 1)[1].split("`log` prints", 1)[0]
+    assert "ends with the full resolved record" in show
+
+
 def _blocks(text: str) -> list[tuple[str, str]]:
     """Return every fenced block as ``(info string, body)``."""
     found = []
