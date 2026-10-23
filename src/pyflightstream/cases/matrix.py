@@ -966,8 +966,21 @@ def _unknown_columns_sentence(header: tuple[str, ...]) -> str:
     return "".join(sentences)
 
 
+def matrix_content_line(line: str) -> bool:
+    """Classify UTF-8 matrix text for both execution and byte-preserving Excel sync.
+
+    Blank lines, hash comments and rules containing only whitespace, pipes,
+    dashes, colons and plus signs carry no cells. All other lines need parsing.
+    """
+    stripped = line.strip()
+    return bool(stripped) and not stripped.startswith("#") and not set(stripped) <= set("-:+| \t")
+
+
 def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow]:
     """Read a pipe-delimited ``matrix.fs`` run matrix.
+
+    Decode strict UTF-8 with an optional BOM. Skip hash comments, blank lines
+    and separator rules using the same classifier as Excel sync.
 
     Parameters
     ----------
@@ -1010,13 +1023,13 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
     [('9001', 1)]
     """
     try:
-        lines = Path(path).read_text(encoding="utf-8").splitlines()
+        lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
     except UnicodeDecodeError as error:
         raise MatrixError(
             f"{path} is not valid UTF-8 (byte {error.start}); a replaced character would alter "
             "a declared input, so save the matrix as UTF-8."
         ) from None
-    content = [line for line in lines if line.strip() and not set(line.strip()) <= {"-"}]
+    content = [line for line in lines if matrix_content_line(line)]
     if not content:
         raise MatrixError(f"{path} holds no matrix content")
     header = tuple(cell.strip() for cell in content[0].split("|"))

@@ -40,6 +40,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Execution and Excel sync share matrix comment and separator rules and accept
+  an optional UTF-8 BOM while refusing invalid UTF-8 (PFS-2124.050).
+
 - In-place matrix POL and artifact-code rewrites publish by atomic replacement,
   preserving the original when replacement fails (PFS-2119.015).
 
