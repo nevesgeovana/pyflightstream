@@ -21,6 +21,18 @@ FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "matrix.fs"
 
 
+@pytest.mark.parametrize("command", ["post", "collect"])
+def test_p0440_check_frozen_help_names_reference_mismatch(command, capsys):
+    with pytest.raises(SystemExit) as stopped:
+        main([command, "--help"])
+    assert stopped.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "reference area/length mismatch" in help_text
+    assert "SREF/CREF" in help_text
+    page = Path(__file__).parents[2] / "docs" / "post-processing-definitions.md"
+    assert "reference area/length mismatch" in page.read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize(
     "command",
     [

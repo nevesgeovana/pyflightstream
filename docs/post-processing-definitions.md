@@ -23,6 +23,12 @@ product's recorded window, units and reference quantities before comparing
 values. A solver rerun is needed when the required exports are absent or the
 solver inputs must change; recomputing a reduction alone does not require one.
 
+`post --check-frozen` and `collect --check-frozen` refuse a reference area/length mismatch
+between an export and SREF/CREF, as well as averages affected by frozen solves or
+unread native-log blocks. Without the switch these conditions warn and computable
+products are still written; a reference mismatch can leave coefficients wrong by a
+constant factor. Correct the recorded reference or solver inputs before using them.
+
 
 <a id="contents"></a>
 
