@@ -20,6 +20,16 @@ def test_p0440_missing_value_definition_names_the_fixed_width_exception():
 PAGE = WORKFLOW_DOCS
 
 
+def test_p0440_executable_report_separates_public_builds_from_byte_identity():
+    text = (REPO / "reports/RPT-032_executable-identity-baseline_2026-08-19.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Correction recorded 2026-10-23" in text
+    assert "Build agreement does not establish byte identity" in text
+    assert "The nine original rows were in hand on the title date" in text
+    assert "Equal, and the evidence transfers" not in text
+
+
 def test_p0440_capture_comment_distinguishes_historical_export_grammar():
     text = (REPO / "scripts/capture_export_corpus.py").read_text(encoding="utf-8")
     assert "current entry declares both index and path" in text
