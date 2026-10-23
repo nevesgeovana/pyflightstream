@@ -103,10 +103,13 @@ def test_p0440_executable_report_separates_public_builds_from_byte_identity():
     text = (REPO / "reports/RPT-032_executable-identity-baseline_2026-08-19.md").read_text(
         encoding="utf-8"
     )
-    assert "Correction recorded 2026-10-23" in text
-    assert "Build agreement does not establish byte identity" in text
-    assert "The nine original rows were in hand on the title date" in text
-    assert "Equal, and the evidence transfers" not in text
+    # A dated report is corrected by an erratum; its original text stays readable (VV-2).
+    after = text.split("## Erratum dated 2026-10-23", 1)[1]
+    erratum, dated = after.split("The licence in use is temporary", 1)
+    assert "Build agreement does not establish byte identity" in erratum
+    assert "read the nine original rows" in erratum
+    assert "a public build-only match does not" in erratum
+    assert "Every other row is this report's own measurement of" in dated
 
 
 def test_p0440_capture_comment_distinguishes_historical_export_grammar():

@@ -2261,3 +2261,10 @@ def test_p0420_withdrawn_manual_entries_are_not_never_present(name, version):
     assert row.report is None
     assert f"FSM-{version}" in row.note
     assert "document" in row.note and "measurement" in row.note
+
+
+def test_p0440_vv1_unreceipted_time_averaging_run_states_no_duration():
+    """VV-1: an observation without a receipt states no measured value the cited report lacks."""
+    row = CommandRegistry.load().commands["SOLVER_TIME_AVERAGING"].versions["26.124"]
+    assert "observed without receipt" in row.note
+    assert "300 s" not in row.note

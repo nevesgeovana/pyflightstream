@@ -1,11 +1,24 @@
 # RPT-032: the executables in hand, by digest, before the licence swap (2026-08-19)
 
-Correction recorded 2026-10-23: this dated measurement has later additions
-and public digests withheld. Build agreement does not establish byte identity.
+## Erratum dated 2026-10-23
 
-The original measurement preceded a licence swap. It asked whether the
-replacement executable would match the bytes behind the committed evidence,
-and whether its printed build number would agree with the registry.
+The text below is the report as dated, kept unchanged. Three of its statements are corrected here:
+
+- The table holds nine rows measured on 2026-08-19 (through 26.123) and two later additions, 26.124 (2026-09-14)
+  and 26.125 (2026-10-05), each dated in its own paragraph; neither addition belongs to the original measurement.
+  Where the text says "the eleven rows" as the executables in hand on the title date, read the nine original rows.
+- The digests are withheld from the public tree (NFR-31), so a row's public build identifies a build, not the
+  executable bytes. Build agreement does not establish byte identity.
+- Procedure steps 2 and 4 are corrected accordingly: a digest match against the private baseline establishes byte
+  identity with the measured executable, while a public build-only match does not; an equal build number establishes
+  build agreement only, so record both numbers and obtain the private digest comparison before transferring evidence.
+
+The licence in use is temporary and a replacement executable is expected
+on the vendor's unit-based licensing. When it arrives, one cheap question
+decides whether every licensed seat already spent still counts: is the
+new binary the one this repository's evidence was gathered on, and if not,
+does it print the build number the registry records for the version it
+claims?
 
 That question has two sides and only one of them existed. The NEW side is
 free to obtain, since an identity-only probe prints the build number. The
@@ -19,8 +32,8 @@ side, measured now, with no solver started and no seat spent.
 Every FlightStream executable held locally under `_private/exe/` was
 hashed with `pyflightstream._digest.file_sha256`, which reads the raw
 bytes of the file in blocks and decodes nothing. The binaries are
-licensed vendor software: they live outside Git; the digests originally
-committed are now withheld. No process was started, so this cost no licensed
+licensed vendor software: they live outside Git and only these digests
+are committed. No process was started, so this report costs no licensed
 seat and could be reproduced on an expired licence.
 
 Two files carry the same bytes in every install directory: the name the
@@ -49,8 +62,8 @@ The 26.124 row was ADDED ON 2026-09-14, when that build was registered, from
 the digest its identity run recorded (`reports/compat/CMP-26124_2026-09-14.yaml`);
 its size is not in that file and is read in
 `reports/RPT-050_the-26124-package-against-26123_2026-09-15.md`, which measures
-the whole package. The nine rows through 26.123 are this report's measurement
-of 2026-08-19; neither later addition belongs to that original measurement.
+the whole package. Every other row is this report's own measurement of
+2026-08-19.
 
 The 26.125 row was added on 2026-10-05, when that build was registered: its build
 is the one its identity run printed (`reports/compat/CMP-26125_2026-10-05_identity.yaml`),
@@ -58,7 +71,7 @@ and its size is the file's as delivered.
 
 EVERY DIGEST IS WITHHELD from the public tree since 2026-09-30 (NFR-31):
 the public tree carries no identity of a user's machine, and each row states
-its build, which identifies a build rather than the executable bytes. Digests were measured
+its build, which identifies that executable. The ten digests were measured
 and still exist on the measuring machine; only their committed copies are
 gone. `read_executable_baseline` reads a cell that starts with `withheld` as a
 row whose digest is not public, so `classify_executable` compares a binary by
@@ -100,17 +113,17 @@ executable:
    withheld is compared by its build (the identity-only probe), and a
    byte comparison against a local copy that keeps the digests starts no
    process;
-2. a digest match against the private baseline establishes byte identity
-   with the measured executable. A public build-only match does not;
-   record which comparison was made before transferring evidence;
+2. if it matches one of the eleven rows above, it is the binary the
+   evidence was gathered on and every row of that version's evidence
+   transfers untouched, with both identities named. No seat is spent;
 3. if it matches no row, nothing is known about the binary yet. The
    ONLY licensed work authorised at that point is the identity-only
    probe, `pyfs-qa probe --fs-version <v> --fs-exe <path>
    --identity-only`, which judges no command and reads the solver's own
    banner;
 4. compare the build number it printed against the one the registry
-   records. Equal establishes build agreement only; record both numbers
-   and obtain the private digest comparison for byte identity. Different: no further
+   records. Equal, and the evidence transfers, with both digests and both
+   numbers recorded. Different, and it is a DIFFERENT build: no further
    licensed work starts on that identifier and the disagreement is
    reported with both numbers.
 
@@ -123,9 +136,9 @@ may refuse is the separate question recorded against the version rows in
 `src/pyflightstream/commands/_meta.yaml` and in
 the compatibility reports under `reports/compat/`.
 
-The nine original rows were in hand on the title date; the 26.124 and 26.125
-additions have their dates above. Withheld digests cannot be independently
-compared from this public table; a build number does not replace that evidence.
+The eleven rows are the executables in hand on the date in the title. The
+replacement is not among them, and nothing here is a measurement of a
+build nobody has: no row describes a binary that has not been hashed.
 
 The Build column reproduces the registry, so it is the one column here
 that is not an independent measurement. Where a build number is in doubt,

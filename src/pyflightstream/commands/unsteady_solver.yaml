@@ -430,7 +430,7 @@ SOLVER_TIME_AVERAGING:
         friction is not averaged (the last step's). Folded in by hand: the
         promotion cannot rewrite a block that carries a note.
     "26.123": {status: removed, report: "reports/compat/CMP-26123_2026-09-25_time-averaging.yaml", note: "FSM-26.123 p.353 documents the command; MEASURED REMOVED 2026-09-25 on FlightStream 26.123 (build 8112026) by the licensed probe T21 (the report linked above): the line SOLVER_TIME_AVERAGING ENABLE 7 12 was refused as an unrecognized command and the script stopped there, while the same line, byte for byte, ran on 26.122. The edition documents a command the build does not carry."}
-    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-19_time-averaging.yaml", note: "Measured 2026-09-19 on FlightStream 26.124: SOLVER_TIME_AVERAGING ENABLE before INITIALIZE_SOLVER produced no outputs before termination at 240.5 s; this bounded observation does not establish an infinite hang. A prior run after INITIALIZE_SOLVER produced no outputs by termination at 300 s, observed without receipt. Removing the command let the control write all seven outputs and its final log, exiting 0 in 133.0 s."}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-19_time-averaging.yaml", note: "Measured 2026-09-19 on FlightStream 26.124: SOLVER_TIME_AVERAGING ENABLE before INITIALIZE_SOLVER produced no outputs before termination at 240.5 s; this bounded observation does not establish an infinite hang. A prior run after INITIALIZE_SOLVER also produced no outputs before it was terminated, observed without receipt. Removing the command let the control write all seven outputs and its final log, exiting 0 in 133.0 s."}
 
 SET_NEW_UNSTEADY_SOLVER_ACTION:
   layout: mixed_inline
