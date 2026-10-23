@@ -861,6 +861,7 @@ def _arc_factors(
     patches: Sequence[int],
     grid: Recovered,
     spec: FamilySpec,
+    *,
     te_edges: Collection[Edge],
     family: str,
 ) -> dict[int, float]:
@@ -888,6 +889,7 @@ def _counted(
     found: tuple[Blocks, tuple[int, ...]],
     grids: Mapping[str, Recovered],
     specs: Mapping[str, FamilySpec],
+    *,
     te_edges: Mapping[str, Collection[Edge]],
     where: str,
 ) -> Layout:
@@ -898,7 +900,13 @@ def _counted(
     for i, name in enumerate(names):
         mine = [p for p, o in enumerate(owner) if o == i]
         factors = _arc_factors(
-            verts, blocks, mine, grids[name], specs[name], te_edges[name], f"{where} family {name}"
+            verts,
+            blocks,
+            mine,
+            grids[name],
+            specs[name],
+            te_edges=te_edges[name],
+            family=f"{where} family {name}",
         )
         for arc, f in factors.items():
             chain = blocks.arcs[arc]
@@ -1005,7 +1013,9 @@ def plan(
                 dict.fromkeys(group, f"; the grids {', '.join(group)} form no layout: {found}")
             )
             continue
-        layouts.append(_counted(verts, tuple(group), found, grids, specs, te_edges, where))
+        layouts.append(
+            _counted(verts, tuple(group), found, grids, specs, te_edges=te_edges, where=where)
+        )
     done = [n for lay in layouts for n in lay.names]
     late: list[tuple[str, str, str]] = []
     for name in names:
@@ -1019,7 +1029,9 @@ def plan(
         grid = grids[name]
         if isinstance(grid, Blocks):
             lone = (grid, (0,) * len(grid.patches))
-            layouts.append(_counted(verts, (name,), lone, grids, specs, te_edges, where))
+            layouts.append(
+                _counted(verts, (name,), lone, grids, specs, te_edges=te_edges, where=where)
+            )
     for layout in layouts:
         _warn_kept(layout, specs, where)
     return {n: lay for lay in layouts for n in lay.names}, late

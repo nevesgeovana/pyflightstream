@@ -696,18 +696,7 @@ def _refine_grids(work: _Work) -> None:
                 family=name,
                 keep=work.keep_rows.get(name, (False, False)),
             )
-        info: dict[str, Any] = dict(level.report, method="grid", reason=grid.describe())
-        if layout is not None:
-            info["kept_sides"] = layout.kept[name]
-        if name in work.te_source:
-            info["trailing_edge"] = work.te_source[name]
-        if name in work.te_detected:
-            info["trailing_edge_points"] = _te_rows(work, work.te_detected[name])
-        if work.request.elements_of(name) != _config.TRIANGLES:
-            info["elements"] = (
-                f"{work.request.elements_of(name)} ignored: it applies to a remeshed family, "
-                "and a grid keeps its cells"
-            )
+        info = _grid_info(work, name, grid, level, layout)
         interfaces: dict[str, str] = {}
         for other in work.names:
             old = work.fam_v[name] & work.fam_v[other] if other not in mates else set()
@@ -723,6 +712,29 @@ def _refine_grids(work: _Work) -> None:
         if name == mates[0]:  # a layout's families are one part, under its first family
             fams = {n: levels[n].faces for n in mates} if layout else {name: level.faces}
             work.parts[name] = (level.points, fams, level.te_midpoints)
+
+
+def _grid_info(
+    work: _Work,
+    name: str,
+    grid: _grid.Grid | _blocks.Blocks,
+    level: _grid.GridLevel,
+    layout: _blocks.Layout | None,
+) -> dict[str, Any]:
+    """Return a grid family's refine.json entry, before its interfaces (FR-933)."""
+    info: dict[str, Any] = dict(level.report, method="grid", reason=grid.describe())
+    if layout is not None:
+        info["kept_sides"] = layout.kept[name]
+    if name in work.te_source:
+        info["trailing_edge"] = work.te_source[name]
+    if name in work.te_detected:
+        info["trailing_edge_points"] = _te_rows(work, work.te_detected[name])
+    if work.request.elements_of(name) != _config.TRIANGLES:
+        info["elements"] = (
+            f"{work.request.elements_of(name)} ignored: it applies to a remeshed family, "
+            "and a grid keeps its cells"
+        )
+    return info
 
 
 def _interface_points(

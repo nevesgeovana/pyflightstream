@@ -560,7 +560,7 @@ def level_inventory(side: Path, text: str, obj: Path) -> str:
         cited.add(data[MESH_SHA256_KEY])
     keys = [k for k in (MESH_FACES_KEY, BOUNDARY_FACES_KEY, MESH_SHA256_KEY) if k in data]
     if keys:
-        text = _counted_inventory(side, text, obj, data, keys, sha)
+        text = _counted_inventory(side, text, obj, data, keys, sha=sha)
     for old in sorted(cited - {sha}):
         text = text.replace(old, sha)
     return text
@@ -571,7 +571,7 @@ _SOURCE_SHA = re.compile(r"(?m)^# the OBJ's sha256 was ([0-9a-f]{64})")
 
 
 def _counted_inventory(
-    side: Path, text: str, obj: Path, data: dict[str, Any], keys: list[str], sha: str
+    side: Path, text: str, obj: Path, data: dict[str, Any], keys: list[str], *, sha: str
 ) -> str:
     """Return the file with each inventory key the source states rewritten to the level's."""
     held: dict[str, int] = {}
