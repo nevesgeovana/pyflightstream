@@ -372,7 +372,7 @@ class CustomFlag(BaseModel):
         if not self.command:
             raise ValueError(
                 f"the flag {self.name!r} names no command; write the FlightStream "
-                'command it becomes, bare, as command = "SET_WAKE_LENGTH"'
+                'command it becomes, bare, as command = "SET_SIGNIFICANT_DIGITS"'
             )
         if len(self.command.split()) > 1:
             raise ValueError(

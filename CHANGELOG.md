@@ -32,6 +32,7 @@ FlightStream versions.
 
 ### Fixed
 
+- The missing custom-flag command diagnostic gives a supported command example (RB6-11).
 - Invalid `RPM_SIGN` values beside a rotor block name the allowed values before
   checking agreement with the block (RB6-09).
 - Non-finite coordinate-frame diagnostics name the offending axis (P0-A1).
