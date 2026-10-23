@@ -44,11 +44,17 @@ def test_p0440_unemitted_defaults_are_provenance_not_loaded_state():
 
 
 def test_p0440_preview_contract_preserves_invalid_or_old_batches():
-    from pyflightstream.workspace.excel_bridge import _preview_records
+    import ast
 
-    assert "invalid direction preserves the previous batch" in _preview_records.__doc__
-    assert "older-version batch" in _preview_records.__doc__
-    assert "refused rather than replaced" in _preview_records.__doc__
+    tree = ast.parse((REPO / "src/pyflightstream/workspace/excel_bridge.py").read_text())
+    contract = next(
+        ast.get_docstring(node)
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_preview_records"
+    )
+    assert "invalid direction preserves the previous batch" in contract
+    assert "older-version batch" in contract
+    assert "refused rather than replaced" in contract
 
 
 def test_p0440_series_contract_keeps_the_moving_grid_refusal():
