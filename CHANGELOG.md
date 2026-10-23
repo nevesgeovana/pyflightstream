@@ -32,6 +32,7 @@ FlightStream versions.
 
 ### Fixed
 
+- Query problem filters retain failed outcomes recorded as a list (RB5-35).
 - FSI records applied-twist lag verdicts in the run folder as well as the logger (RB4-15).
 - The boundaries file of a refined level states the level's own `mesh_faces`, `boundary_faces`
   and `mesh_sha256`, counted in and taken from the level's OBJ (after any `[components]` merge),
