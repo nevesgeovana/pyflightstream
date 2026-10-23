@@ -21,6 +21,53 @@ def case(settings, **kwargs):
     )
 
 
+@pytest.mark.parametrize(
+    "operation,extra,command",
+    [
+        ("set_pressure", {"model": "CUSTOM", "cp": -0.3}, "SET_BASE_REGION_CP 1 CUSTOM -0.3"),
+        ("delete", {}, "DELETE_BASE_REGION 1"),
+        ("mark_trailing_edges", {}, "SET_BASE_REGION_TRAILING_EDGES 1"),
+        ("select_faces", {}, "SELECT_BASE_REGION_FACES 1"),
+        ("remesh", {"mesh": {"radial_faces": 4}}, "REMESH_BASE_REGION\nBASE_REGION 1"),
+    ],
+)
+def test_p0440_created_region_is_selected_by_boundary_name(operation, extra, command):
+    setup = SolverSettings(
+        base_region_operations=[
+            {"operation": "create", "boundary": "Base", "model": "USER", "cp": -0.2},
+            {"operation": operation, "boundary": "Base", **extra},
+        ]
+    )
+    script = Script("26.124")
+    script.declare_existing(boundaries={"Body": 1, "Base": 7})
+    _detect_base_regions(case(setup), script)
+    assert command in script.render()
+
+
+def test_p0440_named_region_requires_an_earlier_declaration():
+    setup = SolverSettings(base_region_operations=[{"operation": "delete", "boundary": "Base"}])
+    script = Script("26.124")
+    script.declare_existing(boundaries={"Base": 7})
+    with pytest.raises(ValueError, match="Base.*earlier"):
+        _detect_base_regions(case(setup), script)
+
+
+def test_p0440_named_regions_follow_declaration_order_and_deletion():
+    setup = SolverSettings(
+        base_region_operations=[
+            {"operation": "create", "boundary": "Second", "model": "USER", "cp": -0.2},
+            {"operation": "delete", "boundary": "Base"},
+            {"operation": "select_faces", "boundary": "Second"},
+        ]
+    )
+    script = Script("26.124")
+    script.declare_existing(boundaries={"Body": 1, "Base": 7, "Second": 8})
+    _detect_base_regions(case(setup, variables={"BASE_REGIONS": "Base"}), script)
+    text = script.render()
+    assert "DELETE_BASE_REGION 1" in text
+    assert "SELECT_BASE_REGION_FACES 1" in text
+
+
 def test_operations_keep_base_indices_distinct_from_mesh_boundary_indices():
     setup = SolverSettings(
         base_region_operations=[

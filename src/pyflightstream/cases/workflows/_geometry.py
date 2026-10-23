@@ -11,6 +11,7 @@ emitted by :func:`_emit_import_operation`.
 from __future__ import annotations
 
 from collections.abc import (
+    Mapping,
     Sequence,
 )
 from dataclasses import (
@@ -1084,15 +1085,19 @@ def _base_region_families(case: SimCase) -> list[str]:
 
 
 def _base_region_operations(
-    case: SimCase, script: Script, skipped_regions: Sequence[str] = ()
+    case: SimCase,
+    script: Script,
+    skipped_regions: Sequence[str] = (),
+    declared: Mapping[str, int] | None = None,
 ) -> None:
-    """Apply explicit base indices in order; deletion may renumber later selections.
+    """Apply base indices or earlier boundary names in order, tracking deletion.
 
     An entry whose ``boundary`` the row's study holds and the model lacks is
     not emitted (FR-982), and a skip that renumbers the base regions an
     indexed entry counts is refused (FR-983).
     """
-    for action in _the_operations_the_model_reaches(case, script, skipped_regions):
+    actions = _the_operations_the_model_reaches(case, script, skipped_regions)
+    for action in _named_base_operations(actions, dict(declared or {})):
         if action.operation == "create":
             assert action.boundary is not None and action.model is not None
             boundary = script.resolve_boundary(action.boundary, context="base-region create")
@@ -1145,6 +1150,49 @@ def _base_region_operations(
                 "select_faces": "SELECT_BASE_REGION_FACES",
             }[action.operation]
             script.emit(command, index)
+
+
+def _named_base_operations(
+    actions: Sequence[BaseRegionOperation], regions: dict[str, int]
+) -> list[BaseRegionOperation]:
+    """Resolve names against earlier declarations and creates, tracking indexed deletions."""
+    count = max(regions.values(), default=0)
+    resolved = []
+    for action in actions:
+        if action.operation == "create":
+            count += 1
+            if isinstance(action.boundary, str):
+                if action.boundary in regions:
+                    raise CampaignConfigError(
+                        f"base region {action.boundary!r} is already declared"
+                    )
+                regions[action.boundary] = count
+        elif action.operation != "mark_outflow_edges":
+            action = _named_base_selection(action, regions)
+            if action.operation == "delete" and isinstance(action.index, int):
+                regions = {
+                    name: index - int(index > action.index)
+                    for name, index in regions.items()
+                    if index != action.index
+                }
+                count = max(0, count - 1)
+        resolved.append(action)
+    return resolved
+
+
+def _named_base_selection(
+    action: BaseRegionOperation, regions: Mapping[str, int]
+) -> BaseRegionOperation:
+    """Resolve a follow-up boundary name without borrowing a mesh boundary's index."""
+    if action.boundary is None:
+        return action
+    index = regions.get(str(action.boundary))
+    if index is None:
+        raise CampaignConfigError(
+            f"base region {action.boundary!r} has no earlier create or declared region; "
+            "declare it first, or use index for a region in an opened saved simulation"
+        )
+    return action.model_copy(update={"index": index, "boundary": None})
 
 
 def _the_operations_the_model_reaches(
@@ -1271,7 +1319,13 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
         indices.extend(index for index in found if index not in indices)
     for index in sorted(indices):
         script.emit("DETECT_BASE_REGIONS_BY_SURFACE", boundary_index=index)
-    _base_region_operations(case, script, skipped)
+    declared = {
+        name: position
+        for position, index in enumerate(sorted(indices), 1)
+        for name, boundary in labels.items()
+        if boundary == index
+    }
+    _base_region_operations(case, script, skipped, declared)
 
 
 def _declare_boundaries(

@@ -468,7 +468,7 @@ class TestGapprobesSpecs:
             assert kit.one_vertex_moved(None)(artifacts) is None
 
     @staticmethod
-    def test_the_trajectory_and_export_judges_read_numeric_rows(tmp_path):
+    def test_p0440_trajectory_and_deletion_judges_require_effect_evidence(tmp_path):
         """P0400-GAPPROBES-EXPORTS: rows that move verify; a header alone or a still body does not."""  # noqa: E501
         artifacts = SimpleNamespace(workdir=tmp_path)
         path = tmp_path / "trajectory.txt"
@@ -480,7 +480,7 @@ class TestGapprobesSpecs:
         lines = tmp_path / "offbody.txt"
         lines.write_text("header only\n", encoding="utf-8")
         assert kit.file_rows("offbody.txt")(artifacts) is None
-        assert kit.emptied("offbody.txt")(artifacts) is True
+        assert kit.emptied("offbody.txt")(artifacts) is None
         lines.write_text("1 2 3\n", encoding="utf-8")
         assert kit.emptied("offbody.txt")(artifacts) is False
         assert kit.emptied("absent.txt")(artifacts) is None
@@ -2093,7 +2093,12 @@ class TestReach2Routes:
         )
         history += "\n1," + ",".join(str(v) for i in range(1, 5) for v in (10 + i, 3 + i, 5 - i))
         (w.sim_dir("7001") / "outputs/AL-020_plots.txt").write_text(
-            PLOTS_HEADER + history + "\n" + "-" * 60 + "\n     Force Units: Coefficients\n",
+            PLOTS_HEADER
+            + history
+            + ",\n"
+            + "-" * 60
+            + "\n     Force Units: Coefficients\n"
+            + "Software : Flightstream version 26.1, build #7012026\n",
             encoding="utf-8",
         )
         layout = {

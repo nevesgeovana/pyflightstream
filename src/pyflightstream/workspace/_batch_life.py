@@ -38,7 +38,7 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.workspace import WorkspaceError
 from pyflightstream.workspace._batches import batch_dirs, batch_sim_dirs
 from pyflightstream.workspace._links import is_reparse
-from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR
+from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR, sim_id_of_folder
 
 if TYPE_CHECKING:
     from pyflightstream.workspace import CampaignWorkspace
@@ -559,8 +559,8 @@ def batch_files(ws: Path, rank: int, skip_sims: set[str]) -> set[Path]:
     out: set[Path] = set()
     for folder in batch_dirs(ws):
         for entry in sorted(folder.iterdir()):
-            if entry.is_dir() and entry.name.startswith("sim_"):
-                if entry.name[len("sim_") :] not in skip_sims and not is_reparse(entry):
+            if entry.is_dir() and (sim := sim_id_of_folder(entry.name)) is not None:
+                if sim not in skip_sims and not is_reparse(entry):
                     out |= sim_sync_files(entry, rank)
             elif (
                 entry.is_file()

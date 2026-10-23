@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -55,6 +55,7 @@ from pyflightstream.post._admit import (
 from pyflightstream.post._condition import (
     _advance_ratio_of,
     _effective_pproc,
+    _in_coefficients,
     _last_time_step,
     _live_reference,
     _mach_of,
@@ -360,7 +361,9 @@ def _run_steps(ctx: SimContext, steps: Sequence[Callable[[SimContext], None]]) -
         # must not take the independent products of the post with it; it is named with
         # its type, so it reads as the defect it is and not as a refusal.
         try:
-            step(ctx)
+            scoped = _load_step_context(ctx, step)
+            if scoped.points:
+                step(scoped)
         except (ProductExistsError, Warning):
             # An existing product refuses the post; a warning raised as an error is
             # the caller's filter, and it stays the caller's.
@@ -377,6 +380,20 @@ def _run_steps(ctx: SimContext, steps: Sequence[Callable[[SimContext], None]]) -
 
 
 # ------------------------------------------------------------------ the context
+
+
+def _load_step_context(ctx: SimContext, step: Callable[[SimContext], None]) -> SimContext:
+    """Scope load-table consumers without suppressing independent export products."""
+    if step not in (_group_polars, _rotor_table_products, _qsteady_rotor_products):
+        return ctx
+    selected = [
+        (point, condition)
+        for point, condition in zip(ctx.points, ctx.conditions, strict=True)
+        if _in_coefficients(point.loads)
+    ]
+    return replace(
+        ctx, points=[point for point, _ in selected], conditions=[state for _, state in selected]
+    )
 
 
 def _resolve(

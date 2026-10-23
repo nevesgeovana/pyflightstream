@@ -42,7 +42,12 @@ from pyflightstream.cases.windows import (
     surface_averaging_window,
 )
 from pyflightstream.script import MarchStrategy, SurfaceAverageWindow, SurfaceAveragingWindow
-from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP, free_root_archive
+from pyflightstream.workspace.naming import (
+    ARCHIVE_DIR,
+    ARCHIVE_STAMP,
+    free_root_archive,
+    sim_id_of_folder,
+)
 
 __all__ = [
     "COST_EXCLUDED_STATUSES",
@@ -1150,7 +1155,7 @@ def planned_points_without_record(
     for run_id in planned:
         parts = run_id.split("/")
         campaign, tag = parts[0], parts[-1]
-        sim = parts[1].removeprefix("sim_") if len(parts) > 2 else ""
+        sim = (sim_id_of_folder(parts[1]) or "") if len(parts) > 2 else ""
         if (campaign, sim, tag) in points or (campaign, sim) in whole_rows:
             continue
         missing.append(run_id)

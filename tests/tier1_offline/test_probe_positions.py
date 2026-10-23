@@ -162,13 +162,45 @@ def test_the_steady_table_keeps_the_export_coordinates_and_gains_the_frame(tmp_p
     assert int(float(first["PROBE"])) == 1
 
 
+@pytest.mark.parametrize("unsteady", [False, True])
+def test_p0440_probe_mach_is_distinct_from_condition_mach(tmp_path, unsteady):
+    path = tmp_path / "probes.csv"
+    if unsteady:
+        plots = tmp_path / "plots.csv"
+        plots.write_text("Time-step,MACH1\n1,0.25\n", encoding="utf-8")
+        write_unsteady_probes_table(
+            path,
+            plots,
+            positions={1: (0.0, 0.0, 0.0, "REFERENCE")},
+            parameters=["MACH"],
+            condition={"MACH": 0.9},
+        )
+    else:
+        export = (FIXTURES / "probe_points_26.120.txt").read_text(encoding="utf-8")
+        write_probes_table(path, export, condition={"MACH": 0.9})
+    columns, rows = read_csv_table(path)
+    assert len({column.upper() for column in columns}) == len(columns)
+    assert "MACH_LOCAL" in columns
+    assert float(rows[0]["MACH"]) == pytest.approx(0.9)
+    if unsteady:
+        assert float(rows[0]["MACH_LOCAL"]) == pytest.approx(0.25)
+
+
 def test_the_steady_table_carries_the_boundary_layer_columns_she_asked_for(tmp_path):
     """Her answer on which quantities: everything the steady probe returns."""
     export = (FIXTURES / "probe_points_26.120.txt").read_text(encoding="utf-8")
     written = write_probes_table(tmp_path / "p_probes.csv", export, positions={})
     assert written is not None
     columns, _ = read_csv_table(written)
-    for column in ("Mach", "Cp", "vtot", "momentum_thickness", "disp_thick", "CF", "Transition"):
+    for column in (
+        "MACH_LOCAL",
+        "Cp",
+        "vtot",
+        "momentum_thickness",
+        "disp_thick",
+        "CF",
+        "Transition",
+    ):
         assert column in columns, column
 
 
@@ -242,12 +274,12 @@ def test_the_unsteady_table_places_every_sample_it_carries(tmp_path):
     )
     assert written is not None
     columns, rows = read_csv_table(written)
-    assert tuple(columns) == (*PROBE_SPINE, "MACH", "VX")
+    assert tuple(columns) == (*PROBE_SPINE, "MACH_LOCAL", "VX")
     assert len(rows) == 4
     placed = {
         (int(float(row["PROBE"])), int(float(row["STEP"]))): (
             float(row["X"]),
-            float(row["MACH"]),
+            float(row["MACH_LOCAL"]),
         )
         for row in rows
     }
@@ -281,7 +313,7 @@ def test_the_unsteady_table_keeps_the_emitted_coordinates_exactly(tmp_path):
     first = next(row for row in rows if int(float(row["PROBE"])) == 1)
     assert (float(first["X"]), float(first["Y"]), float(first["Z"])) == (third, 0.1, two_thirds)
     # The measured cells keep the five-decimal rule of the CSV funnel.
-    assert first["MACH"] == "1.10000"
+    assert first["MACH_LOCAL"] == "1.10000"
 
 
 def test_a_force_column_of_a_family_whose_name_ends_in_a_digit_is_not_a_probe(tmp_path):
@@ -302,7 +334,7 @@ def test_a_force_column_of_a_family_whose_name_ends_in_a_digit_is_not_a_probe(tm
     assert written is not None
     columns, _ = read_csv_table(written)
     assert "CL_MRP_Blade" not in columns
-    assert tuple(columns) == (*PROBE_SPINE, "MACH", "VX")
+    assert tuple(columns) == (*PROBE_SPINE, "MACH_LOCAL", "VX")
 
 
 def test_a_plots_table_carrying_no_group_of_the_declared_parameters_writes_nothing(tmp_path):
@@ -475,10 +507,10 @@ def test_a_point_whose_group_is_only_half_present_keeps_what_it_has(tmp_path):
     assert written is not None
     columns, rows = read_csv_table(written)
     assert [int(float(row["PROBE"])) for row in rows] == [1, 2]
-    assert "VX" in columns and "MACH" in columns
+    assert "VX" in columns and "MACH_LOCAL" in columns
     whole, half = rows
-    assert float(whole["MACH"]) == 0.1 and float(whole["VX"]) == 70.0
-    assert float(half["MACH"]) == 0.2, "the sample this point does have is kept"
+    assert float(whole["MACH_LOCAL"]) == 0.1 and float(whole["VX"]) == 70.0
+    assert float(half["MACH_LOCAL"]) == 0.2, "the sample this point does have is kept"
     assert half["VX"] in ("NA", ""), f"the unsampled column says NA, not a number: {half['VX']!r}"
 
 
@@ -940,11 +972,11 @@ def test_goal019_bandd_two_entries_asking_for_different_parameters_say_so(tmp_pa
     )
     assert written is not None, "four valid samples exist; the table is written"
     columns, rows = read_csv_table(written)
-    assert "MACH" in columns and "VELOCITY" in columns
+    assert "MACH_LOCAL" in columns and "VELOCITY" in columns
     probes = {int(float(row["PROBE"])): row for row in rows}
     assert sorted(probes) == [1, 2, 3, 4]
-    assert float(probes[1]["MACH"]) == 0.1 and probes[1]["VELOCITY"] in ("NA", "")
-    assert float(probes[3]["VELOCITY"]) == 70.0 and probes[3]["MACH"] in ("NA", "")
+    assert float(probes[1]["MACH_LOCAL"]) == 0.1 and probes[1]["VELOCITY"] in ("NA", "")
+    assert float(probes[3]["VELOCITY"]) == 70.0 and probes[3]["MACH_LOCAL"] in ("NA", "")
 
 
 def test_goal019_bandd_a_row_that_declared_no_probes_still_answers_none(tmp_path):

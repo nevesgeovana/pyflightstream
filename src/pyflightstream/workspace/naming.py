@@ -6,8 +6,8 @@ template. Names are a reading convenience for people and external
 tools, nothing more: run identity lives in the campaign manifest
 (``runs.json``), never in a file or folder name, and no API in this
 package parses a generated name back into its parts (SAD Section 6).
-That absence is enforced by a test, so a parse-back helper can never
-appear silently.
+Structural simulation and datapoint folders have explicit inverses below;
+these do not parse configurable generated file names.
 
 Available placeholders:
 
@@ -74,6 +74,8 @@ __all__ = [
     "resolve_manifest",
     "machine_description",
     "submitted_by",
+    "sim_dir_name",
+    "sim_id_of_folder",
     "sweep_file_stem",
 ]
 
@@ -93,6 +95,49 @@ _ARCHIVE_PLACEHOLDERS = ("campaign", "sim")
 #: The simulation subfolder holding one folder per datapoint (FR-92).
 #: Each point's collected evidence belongs in its own folder.
 SIM_DATAPOINTS_DIR = "datapoints"
+
+
+def sim_dir_name(sim_id: str) -> str:
+    """Render the managed simulation folder.
+
+    Parameters
+    ----------
+    sim_id : str
+        Letters, digits, underscore or hyphen, starting with a letter or digit.
+
+    Returns
+    -------
+    str
+        The portable ``sim_<id>`` folder name.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", sim_id):
+        raise NamingTemplateError(
+            f"sim_id {sim_id!r} cannot name a managed folder: use letters, digits, "
+            "underscore, or hyphen. Folder names derive from sim_id and must stay "
+            "stable and portable; identity lives in the manifest, not in names."
+        )
+    return f"sim_{sim_id}"
+
+
+def sim_id_of_folder(folder: str) -> str | None:
+    """Read a structural simulation folder, returning None for other names.
+
+    Parameters
+    ----------
+    folder : str
+        One folder name, without parent paths.
+
+    Returns
+    -------
+    str or None
+        The simulation identifier if the renderer reproduces this folder.
+    """
+    candidate = folder.removeprefix("sim_")
+    try:
+        return candidate if sim_dir_name(candidate) == folder else None
+    except NamingTemplateError:
+        return None
+
 
 #: What every datapoint folder name begins with, so a reader scanning
 #: `datapoints/` sees at once that the entries are points and not files.

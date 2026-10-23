@@ -464,6 +464,7 @@ def _post_1_qsteady___sections(tmp_path, hub):
         rpm=1200.0,
         families_blades=["B", "C"],
         hub_m=hub,
+        moment_point_m=(0.0, 0.0, 0.0),
         axis_vector=(1.0, 0.0, 0.0),
         shaft_frame_axis="X",
     )
@@ -558,7 +559,10 @@ def _post_1_rotor_plan___plots_export(columns: str) -> str:
     for step, force in enumerate(_POST_1_ROTOR_PLAN__SHAFT_FORCE, start=1):
         table += f"{step}.0000,{force:.4f},0.0000,0.0000,0.0000,0.0000,0.0000,\n"
     return (
-        _POST_1_ROTOR_PLAN__PLOTS_HEADER + table + "-" * 70 + "\n     Force Units: Coefficients\n"
+        _POST_1_ROTOR_PLAN__PLOTS_HEADER
+        + table
+        + "-" * 70
+        + "\n     Force Units: Coefficients\nSoftware : Flightstream version 26.1, build #7012026\n"
     )
 
 
@@ -798,9 +802,8 @@ class TestPost1RotorTable:
 
     P0400-ETAWSENSE (PFS-2105.017): ETAW's sense is fixed once per rotor, so a lift
     rotor swept through alpha 0 keeps the sign of its ETAW.
-    P0400-NOATTITUDE (PFS-2105.018, FR-69): a row stating no ALPHA or BETA takes 0.0 as the
-    default and a warning says so; an angle that is not a number gives ETAW NA; the keys are
-    read case-folded.
+    P0400-NOATTITUDE (PFS-2105.018): missing or unreadable ALPHA/BETA leaves ETAW NA;
+    the keys are read case-folded. MADV alone retains its zero-angle exception.
     P0400-NAROWSAID (PFS-2105.040): a loads export in another frame is a refused row
     with its reason; a static row stays and is said once.
     """
@@ -817,8 +820,8 @@ class TestPost1RotorTable:
 
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-NOATTITUDE")])
-    def test_p0400_noattitude_is_the_default_angle_and_said(tmp_path):
-        """P0400-NOATTITUDE (FR-69, RB6-07): no BETA is 0.0, stated; lower-case keys are read."""
+    def test_p0440_noattitude_is_na_and_said(tmp_path):
+        """Missing BETA leaves ETAW unavailable; explicit lower-case keys remain readable."""
         no_beta = _post_1_rotor_table___row(
             "r1", condition={"MACH": 0.15, "ALPHA": 2.0, "VINF": 40.0, "J": 0.5}
         )
@@ -827,13 +830,13 @@ class TestPost1RotorTable:
         )
         stated = _post_1_rotor_table___at(2.0, "r3")
         etaw, caught = _post_1_rotor_table___etaw(tmp_path, [no_beta, lower, stated])
-        assert etaw[0] == etaw[1] == etaw[2] != "NA", etaw
-        assert any("state no ALPHA or BETA (r1)" in message for message in caught), caught
+        assert etaw[0] == "NA" and etaw[1] == etaw[2] != "NA", etaw
+        assert any("state no ALPHA or BETA" in message and "r1" in message for message in caught)
 
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-NOATTITUDE")])
     def test_p0430_rb6_07_an_angle_that_is_not_a_number_is_still_na(tmp_path):
-        """RB6-07: only an UNSTATED angle is 0.0; an unreadable one keeps ETAW NA and is said."""
+        """RB6-07: an unreadable angle keeps ETAW NA and is said."""
         unreadable = _post_1_rotor_table___row(
             "r1", condition={"MACH": 0.15, "ALPHA": "x", "BETA": 0.0, "VINF": 40.0, "J": 0.5}
         )

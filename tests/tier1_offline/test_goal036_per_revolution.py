@@ -53,7 +53,12 @@ def _history(fx: list[float], rows: int | None = None) -> str:
         f"{i}.0000,{fx[i - 1]:.5f},{FY[i - 1]:.5f},{MACH[i - 1]:.5f},\n"
         for i in range(1, count + 1)
     )
-    return PLOTS_HEADER + table + "-" * 60 + "\n     Force Units: Newtons\n"
+    return (
+        PLOTS_HEADER
+        + table
+        + "-" * 60
+        + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
 
 
 def _plan(steps: int, per_revolution: float | None = float(PER_REVOLUTION)) -> dict[str, object]:
@@ -284,6 +289,15 @@ def test_less_than_one_revolution_is_a_named_skip_and_writes_no_file(tmp_path):
     assert "not one COMPLETE revolution" in reason, reason
 
 
+def test_p0440_fractional_revolution_is_named_without_rounding(tmp_path):
+    workspace = _workspace(tmp_path, FX, plan=_plan(len(FX), per_revolution=4.5))
+    write_campaign_products(workspace)
+    relative = "probes/AL-020_per_revolution_PROP.csv"
+    assert not (workspace.root / "post" / "products" / relative).exists()
+    reason = _products_manifest(workspace)["skipped"][relative]
+    assert "4.5" in reason and "remainder 0.5" in reason
+
+
 def test_a_rotor_with_no_clock_is_a_named_skip(tmp_path):
     # P0310-G2-PER-REV
     workspace = _workspace(tmp_path, FX, plan=_plan(len(FX), per_revolution=None))
@@ -363,7 +377,7 @@ def _rotor_workspace(tmp_path, means, *, pproc=""):
         + "\n".join(rows)
         + "\n"
         + "-" * 60
-        + "\n     Force Units: Newtons\n",
+        + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #7012026\n",
         encoding="utf-8",
     )
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(

@@ -533,7 +533,12 @@ def _plots_export(rows: int) -> str:
         f"{i}.0000,{0.1 * i:.5f},{0.01 * i:.5f},{0.2 * i:.5f},{0.3 * i:.5f},\n"
         for i in range(1, rows + 1)
     )
-    return PLOTS_HEADER + table + "-" * 60 + "\n     Force Units: Coefficients\n"
+    return (
+        PLOTS_HEADER
+        + table
+        + "-" * 60
+        + "\n     Force Units: Coefficients\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
 
 
 #: The windows a rotor row of eight steps states: four steps per revolution,
@@ -2012,7 +2017,11 @@ def test_the_probe_positions_the_record_names_reach_the_delivered_table(tmp_path
         for i in range(1, 5)
     )
     (workspace.sim_dir("7001") / "outputs" / "AL-020_plots.txt").write_text(
-        PLOTS_HEADER + probe_export + "-" * 60 + "\n     Force Units: Coefficients\n",
+        PLOTS_HEADER
+        + probe_export
+        + "-" * 60
+        + "\n     Force Units: Coefficients\n"
+        + "Software : Flightstream version 26.1, build #7012026\n",
         encoding="utf-8",
     )
 
@@ -2127,7 +2136,11 @@ def test_an_unsteady_point_with_a_steady_probe_export_gets_the_history_table(tmp
     )
     outputs = workspace.sim_dir("7001") / "outputs"
     (outputs / "AL-020_plots.txt").write_text(
-        PLOTS_HEADER + probe_export + "-" * 60 + "\n     Force Units: Coefficients\n",
+        PLOTS_HEADER
+        + probe_export
+        + "-" * 60
+        + "\n     Force Units: Coefficients\n"
+        + "Software : Flightstream version 26.1, build #7012026\n",
         encoding="utf-8",
     )
     # AND a steady probe-points export for the same point.

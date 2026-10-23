@@ -131,7 +131,6 @@ from __future__ import annotations
 import enum as enum
 import json
 import os
-import re
 import shutil
 import socket as socket
 import sys as sys
@@ -267,7 +266,7 @@ from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR as SIM_DATAPOINTS
 from pyflightstream.workspace.naming import NamingTemplate as NamingTemplate
 from pyflightstream.workspace.naming import NamingTemplateError as NamingTemplateError
 from pyflightstream.workspace.naming import PointName as PointName
-from pyflightstream.workspace.naming import archive_previous
+from pyflightstream.workspace.naming import archive_previous, sim_dir_name, sim_id_of_folder
 from pyflightstream.workspace.naming import datapoint_dir_name as datapoint_dir_name
 from pyflightstream.workspace.naming import datapoint_name_of as datapoint_name_of
 from pyflightstream.workspace.sixdof_setup import SixDofSetupError  # noqa: F401
@@ -401,8 +400,6 @@ def collection_name(declared: str | Path) -> str:
     """
     return str(declared).replace("\\", "/").rsplit("/", 1)[-1]
 
-
-_SIM_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
 
 #: The simulation subfolder a run collects its declared outputs into
 #: (FR-84). ``raw`` named HOW the data arrived; ``outputs`` names WHAT it
@@ -1043,14 +1040,15 @@ class CampaignWorkspace:
             hyphen only, so the derived folder name is stable and
             portable (NFR-10).
         """
-        # fullmatch: a "$" anchor would accept a trailing newline in the folder name.
-        if not _SIM_ID_PATTERN.fullmatch(sim_id):
+        if sim_id_of_folder(f"sim_{sim_id}") is None:
             raise WorkspaceError(
                 f"sim_id {sim_id!r} cannot name a managed folder: use letters, digits, "
                 "underscore, or hyphen. Folder names derive from sim_id and must stay "
                 "stable and portable; identity lives in the manifest, not in names."
             )
-        return self.root / "sims" / f"sim_{sim_id}"
+        folder = sim_dir_name(sim_id)
+        sims = self.root / "sims"
+        return sims / folder
 
     def create_sim(self, sim_id: str) -> Path:
         """Create the managed subfolders of one simulation and return its path.
@@ -1509,7 +1507,7 @@ class CampaignWorkspace:
         # guard against.
         name = datapoint_dir_name(datapoint)
         folder = f"{SIM_DATAPOINTS_DIR}/{name}"
-        # The solver writes the wake beside the surface without a second export command.
+        # RPT-074 (2026-09-25): the default surface export also writes its wake.
         produced = with_wake_companions(produced)
         # File all existing outputs before reporting missing ones. Run every
         # refusal below against existing outputs before moving any of them.

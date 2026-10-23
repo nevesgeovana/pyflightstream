@@ -60,6 +60,7 @@ from pyflightstream.post.farfield_fields import (
     recorded_layout,
     rotor_lattice,
 )
+from pyflightstream.post.harmonics import whole_revolution_steps
 from pyflightstream.post.point_tables import (
     DRIFT_SUFFIX,
     PER_REVOLUTION_COLUMNS,
@@ -307,9 +308,9 @@ def _write_the_per_revolution_products(
                 "It is stated where the row gives the rotor speed and the solver time step."
             )
             continue
-        revolution_steps = int(round(float(per_revolution)))
         read: set[int] = set()
         try:
+            revolution_steps = whole_revolution_steps(float(per_revolution))
             windows, means, partial = per_revolution_table(
                 series, printed, revolution_steps=revolution_steps, read_steps=read
             )

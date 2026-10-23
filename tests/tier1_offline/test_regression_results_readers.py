@@ -715,7 +715,13 @@ def test_f7_0203_a_bare_numeric_table_is_not_an_unsteady_history():
 
     with pytest.raises(AnchorNotFoundError, match="all numbers"):
         parse_unsteady_plots("1.0,2.0\n3.0,4.0\n5.0,6.0\n")
-    assert parse_unsteady_plots("Time (sec), CL\n.000,1.0\n.004,2.0\n").steps == 2
+    assert (
+        parse_unsteady_plots(
+            "Time (sec), CL\n.000,1.0,\n.004,2.0,\n-----------\n"
+            "Software : Flightstream version 26.1, build #7012026\n"
+        ).steps
+        == 2
+    )
 
 
 def test_f7_0203_a_second_table_after_the_closing_rule_is_refused():
@@ -723,8 +729,11 @@ def test_f7_0203_a_second_table_after_the_closing_rule_is_refused():
     from pyflightstream.results import parse_unsteady_plots
     from pyflightstream.results.core import MalformedOutputError
 
-    first = "Time (sec), CL\n.000,1.0\n.004,2.0\n-----------\n"
-    assert parse_unsteady_plots(first + "Force Units: Coefficients\n").steps == 2
+    first = "Time (sec), CL\n.000,1.0,\n.004,2.0,\n-----------\n"
+    assert (
+        parse_unsteady_plots(first + "Software : Flightstream version 26.1, build #7012026\n").steps
+        == 2
+    )
     with pytest.raises(MalformedOutputError, match="second table"):
         parse_unsteady_plots(first + "Time (sec), CL\n.008,3.0\n.012,4.0\n")
 

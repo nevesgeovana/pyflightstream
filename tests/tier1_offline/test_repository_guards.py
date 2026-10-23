@@ -146,6 +146,56 @@ def _run(*argv: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def test_p0440_release_checks_built_archives_and_declares_scanned_floors():
+    config = _shipped_surface_module().load_config(SHIPPED_SURFACE_CONFIG)
+    assert "pyflightstream/__init__.py" in config.wheel_floor
+    assert "src/pyflightstream/__init__.py" in config.sdist_floor
+    assert "tools/check_shipped_surface.py" in config.sdist_floor
+    workflow = (REPO / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    build = workflow.split("  test-artifact:")[0]
+    assert (
+        "python tools/check_shipped_surface.py --config tools/shipped_surface.conf --dist dist"
+        in build
+    )
+    assert build.index("python -m build") < build.index("--dist dist")
+    assert build.index("--dist dist") < build.index("actions/upload-artifact@")
+
+
+def test_p0440_dist_boundary_reads_both_archives_and_rejects_an_omitted_floor(tmp_path):
+    import tarfile
+    import zipfile
+
+    config = _shipped_surface_module().load_config(SHIPPED_SURFACE_CONFIG)
+    with zipfile.ZipFile(tmp_path / "control-1.0-py3-none-any.whl", "w") as archive:
+        for path in config.wheel_floor:
+            archive.writestr(path, "clean control\n")
+
+    def sdist(omit):
+        with tarfile.open(tmp_path / "control-1.0.tar.gz", "w:gz") as archive:
+            for path in config.sdist_floor:
+                if path != omit:
+                    payload = b"clean control\n"
+                    member = tarfile.TarInfo(f"control-1.0/{path}")
+                    member.size = len(payload)
+                    archive.addfile(member, BytesIO(payload))
+
+    args = (
+        str(TOOLS / "check_shipped_surface.py"),
+        "--config",
+        str(SHIPPED_SURFACE_CONFIG),
+        "--dist",
+        str(tmp_path),
+    )
+    sdist(None)
+    clean = _run(*args)
+    assert clean.returncode == 0, clean.stdout + clean.stderr
+    assert "ARTIFACT boundary" in clean.stdout
+    sdist("tools/check_shipped_surface.py")
+    refused = _run(*args)
+    assert refused.returncode != 0
+    assert "tools/check_shipped_surface.py" in refused.stdout + refused.stderr
+
+
 def test_every_checker_this_module_runs_is_present() -> None:
     """Guard the guard: a checker that is not there denies nothing.
 
@@ -234,13 +284,8 @@ def test_p0440_spawn_ratchet_rejects_both_directions(monkeypatch, count):
 def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     """The shipped-surface rule, over the tree boundary only.
 
-    SCOPE, stated because the checker itself insists on it: this is the TREE
-    boundary and it REASONS about what ships. Only the archive answers it,
-    and the artifact boundary (``--dist`` over a built wheel and sdist) is
-    not wired here, because wiring it needs a build in the loop. The config
-    records that adding it later means adding a wheel-floor and an
-    sdist-floor in the same change, which the checker refuses to run
-    without.
+    This checks the TREE boundary. The release workflow separately checks
+    the built wheel and sdist with ``--dist`` before uploading either archive.
     """
     _assert_no_internal_lane_records()
     done = _run(

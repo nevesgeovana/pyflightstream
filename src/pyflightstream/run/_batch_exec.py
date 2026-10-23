@@ -28,14 +28,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 
-from pyflightstream.run._executors import ExecutionResult, Executor
+from pyflightstream.run._executors import ExecutionResult, Executor, ExecutorConfigurationError
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt, JobEntry
 from pyflightstream.workspace.hpc import HpcProfile
-from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR, NamingTemplate
-
-#: The prefix of a simulation's folder name, ``sim_<id>``.
-_SIM_PREFIX = "sim_"
+from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR, NamingTemplate, sim_id_of_folder
 
 
 @dataclass(frozen=True)
@@ -189,9 +186,9 @@ class JobCollector:
 def _sim_of(working_dir: Path) -> str | None:
     """Return the simulation id of a datapoint folder ``.../sim_<id>/datapoints/DP-x``."""
     parent = working_dir.parent
-    if parent.name != SIM_DATAPOINTS_DIR or not parent.parent.name.startswith(_SIM_PREFIX):
+    if parent.name != SIM_DATAPOINTS_DIR:
         return None
-    return parent.parent.name.removeprefix(_SIM_PREFIX)
+    return sim_id_of_folder(parent.parent.name)
 
 
 class GroupingExecutor:
@@ -199,7 +196,8 @@ class GroupingExecutor:
 
     A point of a simulation the collector knows is remembered and answered
     with a zero-time result, so the loop records it ``SUBMITTED`` with the
-    job's entry; every other call is the inner executor's.
+    job's entry. An unrecognised path inside the staging root is refused;
+    calls outside that root, such as identity probes, use the inner executor.
 
     Parameters
     ----------
@@ -272,7 +270,7 @@ class GroupingExecutor:
     def run_script(
         self, script_path: Path, working_dir: Path, timeout_s: float | None = None
     ) -> ExecutionResult:
-        """Remember a point of a grouped job, or delegate any other run to the inner.
+        """Remember a grouped point, refusing unrecognised paths inside staging.
 
         Parameters
         ----------
@@ -292,6 +290,11 @@ class GroupingExecutor:
         sim = _sim_of(Path(working_dir))
         job = self.collector.job_for(sim) if sim is not None else None
         if sim is None or job is None:
+            if Path(working_dir).resolve().is_relative_to(self.collector.root.resolve()):
+                raise ExecutorConfigurationError(
+                    f"cannot recognise grouped staging point {working_dir}; "
+                    "refusing to delegate it to the real executor"
+                )
             return self.inner.run_script(script_path, working_dir, timeout_s)
         self.collector.remember(
             CollectedPoint(

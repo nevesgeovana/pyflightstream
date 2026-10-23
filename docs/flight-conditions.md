@@ -1,5 +1,10 @@
 # Flight conditions
 
+Evidence convention: external citations such as RPT-052, RPT-060 and RPT-078
+refer to licensed measurements held in the private release records. These
+records are not publicly available; the citations identify the evidence
+behind the stated contract, rather than a downloadable public report.
+
 ## Compare requested and reported conditions
 
 `bind_conditions` compares the requested point with the conditions printed
@@ -190,10 +195,10 @@ Set `COLD_START: false` explicitly to opt into warm steady starts.
 neither sweeps nor holds `ALPHA` (or `BETA`) flies that angle at 0.0. The plan summary
 carries `<run_id>: ALPHA = 0.0 (default); the row states no such angle`, and the run record
 written for the point lists the names under `angles_not_stated`, so a zero is never read
-as a choice. Every product that reads the angle takes the same default: the rotor table's
-shaft angle, `ETAW` and `MADV`, and the axis coefficients of the unsteady polar are
-computed at 0.0, and a warning or a note names the rows that took it. An angle that is
-stated but is not a number still reads `NA`.
+as a choice. For post-processing of records missing attitude, `MADV` alone has
+the documented zero-angle exception. The rotor table's shaft angle and `ETAW`
+read `NA`; unsteady axis coefficients are refused with a note naming the missing
+angles. An angle that is stated but is not a number also remains unavailable.
 
 **An angle the row HOLDS still names the point.** `ALPHA:sweep, BETA:0.0`
 over `-4,0,4` plans three runs named `AL-040BE+000`, `AL+000BE+000` and
@@ -305,9 +310,9 @@ of the rate the row states. A row stating `pitch_rate` is unaffected. The
 reversal is measured on 26.124 and on one configuration's axes; on another
 build the same line was emitted and its response is unmeasured.
 
-A `[body_axes]` table that permutes the axes (`roll = "Y"`, say) turns about
-the axis it declares with its rate's sign above;
-no probe has measured such a mesh.
+A `[body_axes]` table that permutes the axes (`roll = "Y"`, say) is refused.
+Only roll=X, pitch=Y, yaw=Z has measured signs in RPT-052 and RPT-060;
+permuted meshes require another probe before they can be supported.
 
 ## Which quantity gets solved for
 

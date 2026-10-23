@@ -2,6 +2,12 @@
 
 The build as an input, where a point runs, what the record's digests guard, and naming a build to a cluster's scheduler.
 
+`run` compares each simulation's resolved installation key, solver version and
+unregistered-build acceptance with `plan`. Workspace defaults and executable-entry
+settings are resolved first: equivalent choices from different sources are accepted.
+A changed choice is refused with both planned and current values. Replan receipts
+written before 0.44.0, which do not record this effective contract.
+
 ## Keeping a Linux run local
 
 Linux is the cluster: a workspace that carries a submission profile submits
@@ -250,7 +256,9 @@ runs that own them.
 ## Choosing a profile and the longest walltime
 
 When a workspace holds more than one profile in `inputs/hpc/`, `--hpc NAME` on
-`plan`, `run` and `collect` selects `inputs/hpc/<NAME>.toml`; a workspace with
+`plan`, `run`, `collect` and `post --additional-pproc` selects
+`inputs/hpc/<NAME>.toml`; `post --hpc NAME` without `--additional-pproc` is
+refused because rebuilding products launches nothing. A workspace with
 one profile needs no option. A `[defaults]` block in a profile has no effect:
 a profile that carries it loads, with a warning, and the block is ignored. The top-level key `max_walltime`, written
 `HH:MM:SS` (hours may exceed 24), states the longest walltime the queue

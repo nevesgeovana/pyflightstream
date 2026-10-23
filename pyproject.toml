@@ -170,6 +170,10 @@ Issues = "https://github.com/nevesgeovana/pyflightstream/issues"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Keep the artifact scanner and its policy available with the distribution.
+[tool.setuptools.data-files]
+"share/pyflightstream/tools" = ["tools/check_shipped_surface.py", "tools/shipped_surface.conf"]
+
 [tool.setuptools.package-data]
 "pyflightstream.commands" = ["*.yaml"]
 "pyflightstream.qa" = ["references/*.yaml", "references/pressure-drag/*.yaml"]

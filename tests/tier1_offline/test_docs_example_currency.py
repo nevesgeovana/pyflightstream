@@ -10,6 +10,85 @@ from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 REPO = Path(__file__).resolve().parents[2]
 
 
+def test_p0440_blade_passage_windows_are_distinct_from_shared_average():
+    from pyflightstream.cases.workflows import ReductionPlan
+
+    assert "disjoint passage windows" in ReductionPlan.blade_windows.__doc__
+    text = (REPO / "docs/definitions/per_blade.md").read_text(encoding="utf-8")
+    assert "ReductionPlan.blade_windows()" in text
+    assert "different parts of the history" in text
+
+
+def test_p0440_alias_contract_states_recorded_first_order():
+    import csv
+
+    from pyflightstream.run._alias import alias_order
+
+    with (REPO / "tests/requirements_l3.csv").open(encoding="utf-8", newline="") as stream:
+        row = next(row for row in csv.reader(stream) if row[0] == "FR-395")
+    assert "recorded points first" in row[3]
+    assert "unrecorded planned points" in row[3]
+    assert "no longer planned" in alias_order.__doc__
+
+
+def test_p0440_unemitted_defaults_are_provenance_not_loaded_state():
+    import csv
+
+    from pyflightstream.script.solver_setup import FlagRecord
+
+    with (REPO / "tests/requirements_l3.csv").open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.reader(stream))
+    row = next(row for row in rows if row[0] == "FR-1216")
+    assert "not the effective state of a loaded simulation" in row[3]
+    assert "not the effective state of a loaded simulation" in FlagRecord.__doc__
+
+
+def test_p0440_preview_contract_preserves_invalid_or_old_batches():
+    import ast
+
+    tree = ast.parse((REPO / "src/pyflightstream/workspace/excel_bridge.py").read_text())
+    contract = next(
+        ast.get_docstring(node)
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_preview_records"
+    )
+    assert "invalid direction preserves the previous batch" in contract
+    assert "older-version batch" in contract
+    assert "refused rather than replaced" in contract
+
+
+def test_p0440_series_contract_keeps_the_moving_grid_refusal():
+    from pyflightstream.post.unsteady import read_timestep_series
+
+    assert "stationary sample coordinates only" in read_timestep_series.__doc__
+    assert "RB5-30" in read_timestep_series.__doc__
+
+
+def test_p0440_probe_reference_contract_names_the_unmeasured_placement():
+    from pyflightstream.post.point_tables import write_probes_table
+
+    assert "per-export placement probe is still owed in 0.45.0" in write_probes_table.__doc__
+    text = (REPO / "docs/definitions/sampled-velocity-fields-and-reusable-inflow.md").read_text(
+        encoding="utf-8"
+    )
+    assert "by the 0.40.0 design" in text and "RB3-04" in text
+
+
+def test_p0440_custom_inflow_supplement_has_a_dated_erratum():
+    text = (REPO / "reports/RPT-082_cad-units-and-custom-inflow-coverage_2026-09-27.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Erratum dated 2026-10-23" in text
+    assert "supplement added on 2026-10-21" in text
+    assert "original report date remains 2026-09-27" in text
+
+
+def test_p0440_external_flight_evidence_is_named_as_private():
+    text = (REPO / "docs/flight-conditions.md").read_text(encoding="utf-8")
+    assert "RPT-052, RPT-060 and RPT-078" in text
+    assert "private release records" in text and "not publicly available" in text
+
+
 def test_p0440_missing_value_definition_names_the_fixed_width_exception():
     text = (REPO / "docs/definitions/the-token-for-a-value-that-does-not-exist.md").read_text(
         encoding="utf-8"
@@ -74,6 +153,23 @@ def _blocks(text: str) -> list[tuple[str, str]]:
         found.append((info, "\n".join(body)))
         index += 1
     return found
+
+
+def test_p0440_solver_export_claims_cite_their_measured_evidence():
+    import ast
+
+    for module, function, report in (
+        ("workspace/_layout.py", "with_wake_companions", "RPT-074"),
+        ("workspace/__init__.py", "collect_outputs", "RPT-074"),
+        ("results/tables.py", "_loads_frame", "RPT-053"),
+    ):
+        tree = ast.parse((REPO / "src/pyflightstream" / module).read_text(encoding="utf-8"))
+        node = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == function
+        )
+        assert report in (ast.get_docstring(node) or ""), (module, function, report)
 
 
 def test_the_page_exists_and_is_reachable_from_the_site_nav():

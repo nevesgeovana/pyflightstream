@@ -201,7 +201,7 @@ def wire_external_fsi(
             "from pyflightstream.fsi.cli import main\n"
             "raise SystemExit(main(['external', '--out', '.']))\n"
         ),
-        "fsi-provenance.json": json.dumps(structure.provenance(), indent=2) + "\n",
+        "fsi-provenance.json": json.dumps(structure.provenance(portable=True), indent=2) + "\n",
         # FR-1095: the input itself, under the digest the record states for it
         # (the run refuses a source changed after the plan).
         Path(structure.source).name: Path(structure.source).read_bytes(),

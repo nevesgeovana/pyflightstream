@@ -730,7 +730,8 @@ def to_csv(result: object, path: str | Path, *, overwrite: bool = False) -> Path
     >>> import tempfile
     >>> from pathlib import Path
     >>> from pyflightstream.results import parse_unsteady_plots
-    >>> text = "Time (sec), CL\n.000, +2.3500000E-3\n.004, +2.1000000E-3\n"
+    >>> text = "Time (sec), CL\n.000, +2.3500000E-3,\n.004, +2.1000000E-3,\n"
+    >>> text += "------------\nSoftware : Flightstream version 26.1, build #7012026\n"
     >>> report = parse_unsteady_plots(text)
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     written = to_csv(report, Path(folder) / "plots.csv")
@@ -1256,7 +1257,11 @@ def _stamped(frame: Table, *, origin: str, reduction: str) -> Table:
 
 
 def _loads_frame(report: LoadsReport) -> Table:
-    """One row per surface plus Total, with the printed units alongside."""
+    """One row per surface plus Total, with the printed units alongside.
+
+    The last-timestep interpretation of an unsteady loads export is measured in
+    RPT-053 (2026-09-19), an external private solver-evidence report.
+    """
     rows = []
     for surface, coefficients in {**report.surfaces, "Total": report.total}.items():
         row: dict[str, object] = {"surface": surface}

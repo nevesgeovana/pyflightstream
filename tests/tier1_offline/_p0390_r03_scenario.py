@@ -134,7 +134,7 @@ def make_workspace(
         hpc.mkdir(exist_ok=True)
         for stem in ("h001", "h002"):
             (hpc / f"{stem}.toml").write_text(
-                f'application_id = "app-{stem}"\n\n[descriptor]\ntemplate = "d.tmpl"\n\n'
+                f'application_id = "app-{stem}"\n\n[descriptor]\nname = "d.yaml"\n\n'
                 '[descriptor.fields]\nwalltime = "{walltime}"\n\n'
                 '[submit]\ncommand = ["sbatch", "{descriptor}"]\n',
                 encoding="utf-8",

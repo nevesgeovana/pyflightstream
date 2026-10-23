@@ -1561,7 +1561,7 @@ class PhaseLockedSpec(BaseModel):
     of THAT rotor, and never the length of the exported window.
 
     ``last_revolutions_avg`` is how many of the last revolutions enter the mean
-    at each azimuth. It may not exceed ``min_revolutions``: a reduction may not
+    at each azimuth, at least one. It may not exceed ``min_revolutions``: a reduction may not
     average over more history than it required in order to exist.
 
     NOT REACHING THE MINIMUM NEVER REFUSES ANOTHER PRODUCT. This is a gate on
@@ -1581,7 +1581,7 @@ class PhaseLockedSpec(BaseModel):
     #: Total revolutions the matrix must specify before this is generated.
     min_revolutions: float = Field(gt=0.0, allow_inf_nan=False)
     #: How many of the LAST revolutions the average uses.
-    last_revolutions_avg: float = Field(gt=0.0, allow_inf_nan=False)
+    last_revolutions_avg: float = Field(ge=1.0, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def _averages_no_more_than_it_required(self) -> PhaseLockedSpec:

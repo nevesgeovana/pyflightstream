@@ -36,7 +36,7 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace._links import _is_link, _make_dir_link, is_reparse
 from pyflightstream.workspace._verdicts import DELETED_SIM_KEY
-from pyflightstream.workspace.naming import ARCHIVE_DIR, archive_previous
+from pyflightstream.workspace.naming import ARCHIVE_DIR, archive_previous, sim_id_of_folder
 
 COMPACTED_SUFFIX = ".zip"
 _PROTECTED_SUFFIXES = (".fsm",)
@@ -673,12 +673,15 @@ def _sim_ids(ws: Path) -> set[str]:
     found: set[str] = set()
     sims = ws / "sims"
     for path in sims.glob("sim_*") if sims.is_dir() else []:
-        if is_reparse(path):
+        if (
+            is_reparse(path)
+            or (sim := sim_id_of_folder(path.name.removesuffix(COMPACTED_SUFFIX))) is None
+        ):
             continue
         if path.is_dir():
-            found.add(path.name[len("sim_") :])
+            found.add(sim)
         elif path.is_file() and path.name.endswith(COMPACTED_SUFFIX):
-            found.add(path.name[len("sim_") : -len(COMPACTED_SUFFIX)])
+            found.add(sim)
     return found
 
 
@@ -687,12 +690,13 @@ def _brought_sim_ids(files: list[Path]) -> set[str]:
     found: set[str] = set()
     for relative in files:
         parts = relative.parts
-        if len(parts) < 2 or parts[0] != "sims" or not parts[1].startswith("sim_"):
+        if len(parts) < 2 or parts[0] != "sims":
             continue
         name = parts[1]
         if len(parts) == 2 and name.endswith(COMPACTED_SUFFIX):
             name = name[: -len(COMPACTED_SUFFIX)]
-        found.add(name[len("sim_") :])
+        if (sim := sim_id_of_folder(name)) is not None:
+            found.add(sim)
     return found
 
 
@@ -763,8 +767,8 @@ def _sync_existing(main: CampaignWorkspace, relative: Path, source: Path) -> tup
     if target.exists():
         return True, _size(source) == _size(target) and _sha256(source) == _sha256(target)
     parts = relative.parts
-    if len(parts) > 2 and parts[0] == "sims" and parts[1].startswith("sim_"):
-        archive = _zip_path(main, parts[1][len("sim_") :])
+    if len(parts) > 2 and parts[0] == "sims" and (sim := sim_id_of_folder(parts[1])) is not None:
+        archive = _zip_path(main, sim)
         if archive.is_file():
             with zipfile.ZipFile(archive) as zf:
                 name = Path(*parts[2:]).as_posix()

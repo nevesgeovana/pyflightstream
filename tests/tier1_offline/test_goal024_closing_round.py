@@ -37,7 +37,7 @@ walltime_arithmetic = "wall"
 {top}
 
 [descriptor]
-template = "descriptor.tmpl"
+name = "descriptor.yaml"
 
 [descriptor.fields]
 walltime = "{walltime}"
@@ -62,6 +62,19 @@ def _profile(tmp_path, extra: str = "", *, top: str = "", body: str = PROFILE):
 
 
 # ------------------------------------------------------------------ the profile
+
+
+@pytest.mark.parametrize("key", ["template", "formatt", "field"])
+def test_p0440_unknown_descriptor_keys_are_refused(tmp_path, key):
+    body = PROFILE.replace("[descriptor]\n", f'[descriptor]\n{key} = "ignored"\n')
+    with pytest.raises(InputArtifactError, match=rf"{key}.*under \[descriptor\]"):
+        read_hpc_profile(_profile(tmp_path, body=body))
+
+
+def test_p0440_descriptor_field_names_remain_scheduler_owned(tmp_path):
+    body = PROFILE.replace('walltime = "{walltime}"', 'custom_queue_field = "{walltime}"')
+    profile = read_hpc_profile(_profile(tmp_path, body=body))
+    assert profile.fields == {"custom_queue_field": "{walltime}"}
 
 
 def test_goal024_closing_round_a_profile_key_this_package_does_not_read_is_refused(tmp_path):

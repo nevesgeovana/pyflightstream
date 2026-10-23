@@ -515,14 +515,14 @@ class FlagRecord(BaseModel):
         ``solver_analysis`` for the induced-drag selection).
     provenance : str
         ``explicit`` (the caller passed the flag), ``default`` (the
-        value applies without user input: either emitted by the
-        library, or the documented solver default with its citation),
+        value is either emitted by the library or retained as a documented
+        solver default with its citation),
         or ``unknown`` (no in-repo evidence; the value is None and
         never guessed). A documented default is recorded only when the
         command exists in the script's FlightStream version, because
         defaults are per-version facts.
     value : JSON value
-        Effective value in helper vocabulary (bool for toggles,
+        Recorded value in helper vocabulary (bool for toggles,
         mapping for the unsteady mode and the bulk separation); None
         when unknown. A boundary selection is a list of indices or
         labels, or the string ``all``; the empty list is the recorded
@@ -536,9 +536,9 @@ class FlagRecord(BaseModel):
         the first curated call reaching the analysis phase, and may
         have been emitted by an earlier settings call on the same
         script, so this is a fact about the script rather than about
-        the single call. A documented-but-unemitted default is the
-        solver's own behavior, assuming the opened file did not
-        override it.
+        the single call. A documented default with ``emitted=False`` is
+        provenance, not the effective state of a loaded simulation.
+        A saved file can override it; this record does not observe that state.
     evidence : str, optional
         Citation of a ``default`` value; None for explicit values (the
         script line is the evidence) and for unknown flags.
@@ -829,6 +829,8 @@ def _generic_family_record(
     Explicit when the keyword was passed, the library minimum-Cp default when
     that one was emitted, the solver's documented default when the build has
     the command, and unknown otherwise.
+    A documented default remains ``emitted=False`` provenance; it does not
+    establish the effective state of a loaded simulation.
     """
     base = {"command": entry.name, "family": entry.chapter}
     value = passed.get(spec.param)

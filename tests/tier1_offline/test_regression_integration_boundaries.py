@@ -188,6 +188,7 @@ def _bg_regressions___k_1p(
         rpm=1200.0,
         families_blades=["B", "C"],
         hub_m=hub,
+        moment_point_m=(0.0, 0.0, 0.0),
         axis_vector=(1.0, 0.0, 0.0),
         shaft_frame_axis="X",
     )
@@ -252,7 +253,7 @@ class TestBgRegressions:
         (inputs / "costs").mkdir(parents=True, exist_ok=True)
         for stem in ("h001", "h002"):
             (inputs / "hpc" / f"{stem}.toml").write_text(
-                f'application_id = "app-{stem}"\n\n[descriptor]\ntemplate = "d.tmpl"\n\n'
+                f'application_id = "app-{stem}"\n\n[descriptor]\nname = "d.yaml"\n\n'
                 '[descriptor.fields]\nwalltime = "{walltime}"\n\n'
                 '[submit]\ncommand = ["sbatch", "{descriptor}"]\n',
                 encoding="utf-8",

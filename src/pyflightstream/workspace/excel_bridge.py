@@ -250,7 +250,12 @@ def _clear_the_previous_batch(batch: Path) -> None:
 def _preview_records(
     metadata: dict[str, str], snapshot: WorkbookSnapshot, batch: Path
 ) -> list[list[str]]:
-    """Preview the sync, write the single-use batch and return the response records."""
+    """Preview the sync, write the single-use batch and return the response records.
+
+    An invalid direction preserves the previous batch. An older-version batch
+    is refused rather than replaced: its contract cannot be validated by this
+    bridge. Both rules conservatively retain the user's batch (RB5-50).
+    """
     stated_direction = metadata["direction"]
     if stated_direction not in ("read", "write"):
         raise ExcelSyncError("direction must be read or write")

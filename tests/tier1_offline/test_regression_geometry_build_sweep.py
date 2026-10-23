@@ -2671,7 +2671,7 @@ class TestGeometryMigration:
         geometry = folder / name
         geometry.write_text("x\n", encoding="utf-8")
         (texts,) = _geometry_migration___warnings(geometry)
-        assert "POL 7001" in texts and "0.41.0 refuses" in texts
+        assert "POL 7001" in texts and "currently warns without refusing" in texts
         assert f"pyfs-workspace geometry from-sidecar {name} --apply" in texts
         assert f"pyfs-workspace geometry build {folder.name} --apply" in texts
         assert f"name {built} in the GEOMETRY cell" in texts
@@ -2702,7 +2702,7 @@ class TestGeometryMigration:
         """P0400-GEOM-MIGRATE (PFS-2081.41): FR-1134, through the plan's binding."""
         from tests.tier1_offline.test_p0320_ccs import THREE, _row_case
 
-        with pytest.warns(PyflightstreamWarning, match="0.41.0 refuses"):
+        with pytest.warns(PyflightstreamWarning, match="currently warns without refusing"):
             case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n', ["W1"], text=THREE)
         assert case.mesh_import is not None and case.mesh_import.ccs is not None
 
@@ -4489,6 +4489,20 @@ def test_x_f1257_a_string_for_a_name_list_is_refused_not_split_into_letters(tmp_
     )
     with pytest.raises(InputArtifactError, match="write boundaries as a list"):
         read_geometry_instruction(path)
+
+
+def test_p0440_unreadable_saved_actions_warn_without_blocking_grouping(tmp_path):
+    from pyflightstream.workspace import _geometry_clean
+
+    geometry = tmp_path / "unknown.fsm"
+    geometry.write_text("no solver block\n", encoding="utf-8")
+    message = _geometry_clean.saved_action_warning(geometry, str(geometry), ["42"])
+    assert message is not None
+    assert "cannot be read for saved unsteady solver actions" in message
+    assert "unknown.fsm" in message and "42" in message
+    assert _geometry_clean.saved_action_warning(geometry, str(geometry), known_only=True) is None
+    geometry.write_text("$SOLVER_START$\n F\n0\n0\n1,1, F\n0\n$SOLVER_END$\n", encoding="utf-8")
+    assert _geometry_clean.saved_action_warning(geometry, str(geometry)) is None
 
 
 def test_f1594_the_cleanup_command_quotes_a_path_with_spaces(tmp_path):

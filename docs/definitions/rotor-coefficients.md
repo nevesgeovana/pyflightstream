@@ -14,6 +14,9 @@ then `MTIP_<alias>` and `MHEL_<alias>`
 ([The in-plane coefficients](#the-in-plane-coefficients)), and, last,
 `MADV_<alias>`, the advancing-tip Mach number. The column contract
 grows at its end only, so every earlier column keeps its position.
+Missing recorded ALPHA or BETA leaves the shaft angle and ETAW as `NA`, with
+a warning naming the rows; unsteady axis coefficients refuse missing attitude.
+MADV's documented zero-angle default is the one exception for these products.
 Its first line is its header; the `ROTOR` column identifies the rotor on every row. See [the CSV migration](../upgrading.md#older-layouts) for older files with an alias line.
 
 ### Where an unsteady point's numbers come from

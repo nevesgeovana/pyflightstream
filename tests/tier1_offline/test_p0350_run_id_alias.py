@@ -49,6 +49,18 @@ def _record(sim, run_id, *, status=RunStatus.CONVERGED, points_ran=None):
     )
 
 
+def test_p0440_failure_alias_requires_a_structural_simulation_folder():
+    from types import SimpleNamespace
+
+    from pyflightstream.run._alias import failure_alias_lines
+
+    rows = [_record("7001", "camp/sim_7001/AL+000").model_dump()]
+    malformed = SimpleNamespace(run_id="camp/7001/AL+000")
+    assert failure_alias_lines([malformed], rows) == []
+    valid = SimpleNamespace(run_id="camp/sim_7001/AL+000")
+    assert failure_alias_lines([valid], rows) == ["  alias 7001_1 = camp/sim_7001/AL+000"]
+
+
 def _aliases(capsys, workspace, matrix):
     """Plan through main and return {alias: point name} the plan prints."""
     capsys.readouterr()

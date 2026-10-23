@@ -109,6 +109,7 @@ class EntityRegistry:
     def __init__(self) -> None:
         self._counts: dict[str, int] = {kind: 0 for kind in CREATED_KINDS}
         self._boundary_total: int | None = None
+        self._deleted_boundaries: set[int] = set()
         self._labels: dict[str, dict[str, int]] = {kind: {} for kind in ENTITY_KINDS}
 
     @staticmethod
@@ -138,7 +139,8 @@ class EntityRegistry:
         """
         self._require_kind(kind)
         if kind == "boundaries":
-            return self._boundary_total
+            total = self._boundary_total
+            return None if total is None else total - len(self._deleted_boundaries)
         return self._counts[kind]
 
     def limit(self, kind: str) -> int | None:
@@ -147,10 +149,14 @@ class EntityRegistry:
         Returns
         -------
         int or None
-            Highest valid 1-based index: the count plus one for frames
-            (the reference frame occupies index 1), the count itself
-            otherwise; None for an undeclared boundary inventory.
+            Highest surviving boundary ID, or None for an undeclared inventory.
+            Other kinds use the count, plus one for the reference frame.
         """
+        if kind == "boundaries":
+            limit = self._boundary_total
+            while limit in self._deleted_boundaries:
+                limit -= 1
+            return limit
         count = self.count(kind)
         if count is None:
             return None
@@ -355,13 +361,10 @@ class EntityRegistry:
             self._boundary_total = (self._boundary_total or 0) + declaration
 
     def renumber_boundaries(self, labels: Mapping[str, int], total: int) -> None:
-        """Replace the boundary inventory after surfaces were removed.
+        """Replace the inventory with an explicitly supplied contiguous numbering.
 
-        The solver renumbers the surfaces after a deleted one (RPT-014,
-        read back on 26.124 by probe round 1), so the labels of the
-        survivors change index and the total shrinks. The caller states
-        the inventory as it stands after the removal, and every later
-        boundary citation is judged against it.
+        This explicit replacement is not DELETE_SURFACES semantics: the
+        PFS-2119.016 licensed ID fixture shows that deletion keeps survivor IDs.
 
         Parameters
         ----------
@@ -399,6 +402,7 @@ class EntityRegistry:
             )
         self._labels["boundaries"] = dict(labels)
         self._boundary_total = total
+        self._deleted_boundaries.clear()
 
     def resolve(
         self, kind: str, value: object, *, context: str, citation: str | None = None
@@ -509,6 +513,11 @@ class EntityRegistry:
         sentinel = all_sentinel
         if sentinel is not None and value == sentinel:
             return
+        if kind == "boundaries" and value in self._deleted_boundaries:
+            raise ScriptReferenceError(
+                f"{context} cites deleted mesh boundary {value}; survivors keep their IDs. "
+                "Select a surviving boundary label or its original ID."
+            )
         limit = self.limit(kind)
         if limit is None:
             # The inventory size is unknown, but indices must still be positive
@@ -629,7 +638,7 @@ class EntityRegistry:
             If the count exceeds the declared boundary total or is
             negative without being -1.
         """
-        total = self._boundary_total
+        total = self.count("boundaries")
         if total is None or isinstance(value, bool) or not isinstance(value, int):
             return
         if value == -1 or 0 <= value <= total:
@@ -643,13 +652,14 @@ class EntityRegistry:
         )
 
     def _delete_boundary(self, index: int) -> None:
-        """Apply measured surface deletion to a known boundary inventory."""
-        total = self.limit("boundaries")
-        if total is not None:
-            labels = self.labels("boundaries")
-            surviving = {
-                name: held - (held > index)
-                for name, held in labels.items()
-                if index != -1 and held != index
-            }
-            self.renumber_boundaries(surviving, 0 if index == -1 else total - 1)
+        """Keep survivor IDs, per fixtures/pfs2119_016_delete_surfaces_ids_2026-10-16.md."""
+        if index == -1:
+            self._boundary_total = 0
+            self._deleted_boundaries.clear()
+        elif self._boundary_total is not None:
+            self._deleted_boundaries.add(index)
+        self._labels["boundaries"] = {
+            name: held
+            for name, held in self.labels("boundaries").items()
+            if index != -1 and held != index
+        }

@@ -77,6 +77,50 @@ def test_the_reader_round_trips_the_writers_record(tmp_path, row):
     assert record.run_type == QSTEADY_ROTOR == record_module.RECORD_RUN_TYPE
 
 
+def test_p0440_record_preserves_moment_origin_for_station_radius(tmp_path):
+    from pyflightstream.post.qsteady import radius_from_the_hub
+
+    case = _case(PASSAGE_POSITIONS="2")
+    rotor = case.rotors["PROP"].model_copy(update={"x_m": 4.0, "y_m": 5.0, "z_m": 6.0})
+    case = case.model_copy(
+        update={
+            "rotors": {"PROP": rotor},
+            "reference": case.reference.model_copy(update={"moment_point_m": (1.0, 2.0, 6.0)}),
+        }
+    )
+    _, script = _lines(case)
+    payload = json.loads(script.pending_input_files["DP_qsteady.json"])
+    assert payload.get("moment_point_m") == [1.0, 2.0, 6.0]
+    path = tmp_path / "DP_qsteady.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    record = read_qsteady_record(tmp_path / "DP.txt")
+    assert record.as_json()["moment_point_m"] == [1.0, 2.0, 6.0]
+    for frame in ("MRP", "MRP_QS01"):
+        assert radius_from_the_hub(
+            frame,
+            "XZ",
+            4.0,
+            hub_m=record.hub_m,
+            axis_vector=record.axis_vector,
+            moment_point_m=record.moment_point_m,
+        ) == pytest.approx(1.0)
+    payload.pop("moment_point_m")
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    historic = read_qsteady_record(tmp_path / "DP.txt")
+    assert historic.moment_point_m is None
+    assert (
+        radius_from_the_hub(
+            "MRP",
+            "XZ",
+            4.0,
+            hub_m=historic.hub_m,
+            axis_vector=historic.axis_vector,
+            moment_point_m=historic.moment_point_m,
+        )
+        is None
+    )
+
+
 def test_p0420_the_writer_keeps_key_order_and_records_the_datum_frame_axis():
     """The two-clocking wheel retains key order and records its vector frame's Z shaft.
 
@@ -106,6 +150,7 @@ def test_p0420_the_writer_keeps_key_order_and_records_the_datum_frame_axis():
             {"index": 1, "clocking_deg": 60.0, "rotated_deg": 60.0, "loads": "DP_qs01.txt"},
         ],
         "validity": stated["validity"],
+        "moment_point_m": None,
     }
     assert text == json.dumps(expected, indent=2) + "\n"
 

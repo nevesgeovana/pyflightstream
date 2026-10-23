@@ -620,6 +620,7 @@ Positions are in REFERENCE coordinates and meters, velocity absolute in REFERENC
 \opt{--from-sims}{ignore \file{runs.json}: records assembled in memory from \file{sims/}, for runs made outside the package; products to \file{post/<matrix>@sims/}.}
 \opt{--steps-per-revolution N}{with \fl{--from-sims}: for a \texttt{LAST\_REVS\_AVG} window.}
 \opt{--additional-pproc}{first reopen the final \texttt{.fsm} of each recorded point whose row states \texttt{ADDITIONAL\_PPROC}, with no solve, and extract that pproc; one solver launch per point; 26.124 only.}
+\opt{--hpc NAME}{with \texttt{--additional-pproc}, select the HPC profile when the workspace holds several; refused for a products-only rebuild.}
 \opt{--fs-version V}{\fl{--fs-exe PATH}, \fl{--local}, \fl{--recipe CODE=MODULE:FUNCTION}: for the additional post, as in run.}
 \opt{--diagnostics}{print the recorded post diagnostics as Markdown, change nothing.}
 \opt{--strict}{exit 3 when a product was skipped by design, after writing everything.}

@@ -147,14 +147,23 @@ def test_g09_a_preset_that_says_nothing_emits_none_of_the_three(tmp_path):
     assert emitted == [], emitted
 
 
-def test_g09_a_point_exported_in_newtons_writes_no_coefficient_product(tmp_path):
+def test_p0440_dimensional_loads_keep_independent_plots(tmp_path):
     """The polar sums coefficients by name; a table in Newtons is skipped, naming load_units."""
     from pyflightstream.post.products import write_campaign_products
-    from tests.tier1_offline.test_post_products import _steady_workspace_with_provenance
+    from pyflightstream.workspace.record_document import encode_rows
+    from tests.tier1_offline.test_post_products import (
+        _plots_export,
+        _steady_workspace_with_provenance,
+    )
 
     written = {}
     for units in ("Coefficients", "Newtons"):
         workspace = _steady_workspace_with_provenance(tmp_path / units)
+        plot_name = "outputs/POLAR-3207_M20AL-020BE+000_plots.txt"
+        (workspace.sim_dir("3207") / plot_name).write_text(_plots_export(8), encoding="utf-8")
+        records = workspace.read_raw_manifest()
+        records[0]["outputs"].append(plot_name)
+        workspace.manifest_path.write_text(json.dumps(encode_rows(records)), encoding="utf-8")
         loads = workspace.sim_dir("3207") / "outputs" / "POLAR-3207_M20AL-020BE+000.txt"
         text = loads.read_text(encoding="utf-8")
         loads.write_text(
@@ -171,5 +180,19 @@ def test_g09_a_point_exported_in_newtons_writes_no_coefficient_product(tmp_path)
     control, _ = written["Coefficients"]
     assert "runs/camp/sim_3207/AL-020" not in control["skipped"], control["skipped"]
     newtons, _ = written["Newtons"]
+    assert any("plots" in name for name in written["Newtons"][1])
+    assert not any("polar_" in name for name in written["Newtons"][1])
     why = newtons["skipped"].get("runs/camp/sim_3207/AL-020", "")
     assert "load_units" in why and "Newtons" in why, newtons["skipped"]
+
+
+def test_p0440_plan_names_products_lost_to_dimensional_loads(tmp_path):
+    from pyflightstream.cases import Campaign
+    from pyflightstream.run import plan_campaign
+    from pyflightstream.workspace import CampaignWorkspace
+
+    case = _with_geometry(setup_case(tmp_path, 'load_units = "NEWTONS"\n'), tmp_path)
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    campaign = Campaign(name="units", fs_version="26.120", fs_exe="FlightStream.exe", sims=[case])
+    with pytest.warns(UserWarning, match="9001.*load_units=NEWTONS.*polars.*superfiles.*rotor"):
+        plan_campaign(campaign, workspace, write_plan=False)

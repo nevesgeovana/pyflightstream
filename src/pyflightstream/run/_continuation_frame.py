@@ -41,6 +41,7 @@ from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
 # FR-381: the run layer and ledger share the workspace's effective-record rules.
 from pyflightstream.workspace.ledger import latest_record_of_point
+from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR
 
 #: The statuses a continuation continues FROM whatever the run type: these three
 #: stopped with their outputs written and more to march, the wall clock or the
@@ -189,7 +190,7 @@ def _rebuild(
     shadow = Script(version)
     work = (
         workspace.sim_dir(case.sim_id)
-        / "datapoints"
+        / SIM_DATAPOINTS_DIR
         / datapoint_dir_name(PointName(point_name(case, point)))
     )
     shadow.working_dir = str(work)

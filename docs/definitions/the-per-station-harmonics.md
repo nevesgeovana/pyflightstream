@@ -31,7 +31,8 @@ computed again. Which rows:
   `first + (m - 1) N` to `first + m N - 1`, counted from the series' first
   stamped step as [`per_revolution`](per_revolution.md#per_revolution) counts from its first
   row, with `N` the rotor's own `steps_per_revolution` from the run record
-  rounded to a whole step; the steps after the last complete revolution are
+  as an integral number of steps. Fractional clocks are skipped by rotor in
+  `products.json`, stating the clock and its fractional remainder; the steps after the last complete revolution are
   not read. The series states each block's OWN blade's azimuth
   (blade `n` of the rotor's `B` at blade one's plus `(n - 1) 360 / B`, the
   blades placed ahead of blade one whatever the sense of rotation, as the
@@ -51,8 +52,9 @@ registered as a skip with the rotor, station and quantity.
 **The stations.** Station `j` is the `j`-th row of every blade block of the
 rotor, at the radius from the hub of the first sample, as the validity
 columns read it. For a rotor frame this is `|Offset|`; for an MRP cut it is
-the absolute value of Offset minus the hub coordinate along the cut normal. Where
-the hub is off the cut's radial line or the recorded frame is ambiguous,
+the absolute value of `Offset - (hub - moment_point)` along the cut normal. Where
+the hub is off the cut's radial line, the recorded frame is ambiguous, or a
+historical record lacks the moment point,
 `STATION_R_M` and `R_OVER_R` read `NA` and `post.log` names the missing radius.
 Every sample with a known radius must hold its station within a thousandth (`1e-3`) of the
 first sample's largest radius: a station where one does not is left out and

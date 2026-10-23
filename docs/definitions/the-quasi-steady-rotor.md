@@ -71,6 +71,12 @@ the point's density, by the rotor table's own statics. A point whose record
 or one of whose clocking exports is missing is not a row, and
 `products.json` names it under the file.
 
+At plan time, mesh stations represent equal radial bands, including the full
+root and tip bands. Reduced-frequency and inflow-harmonic summaries use the
+returned band widths, not midpoint strips: one qualifying band among twenty
+equal bands contributes 5% of the sampled span. A missing band contributes no
+sample or weight. Sectional export stations retain the nodal strip rule below.
+
 **The validity columns**, on both tables and on the sections of a wheel
 point: `K_1P_MIN`, `K_1P_MAX`, `K_1P_MEAN` (span weighted),
 `SPAN_PCT_K_GT_0_05`, `SPAN_PCT_K_GT_0_1`, `THRUST_PCT_K_GT_0_1`,
@@ -82,8 +88,10 @@ blade-passing frequency a fixed surface near the rotor feels, nor what a
 balance summing every blade reads. Where the point has
 a sectional loads export (`K_1P_SOURCE` `sections`), `c` is the export's
 `Chord` and `r` the station's distance from the hub. In a rotor frame this is
-the absolute `Offset`; for an MRP cut, subtract the hub coordinate along the
-cut normal before taking the magnitude. If the hub sits off the cut's radial
+the absolute `Offset`; for an MRP cut, subtract `(hub - moment_point)` along the
+cut normal before taking the magnitude. New wheel records preserve the moment
+point in geometry coordinates. Historical records without it leave MRP radii
+unavailable instead of assuming a zero origin. If the hub sits off the cut's radial
 line, or the recorded frame cannot locate the hub, the radius and `K_1P` read `NA`, and the load shares are unavailable,
 with a note. The torque lever arm is also measured from the hub.
 The summary is taken over the rotor's first blade present, so a wheel's

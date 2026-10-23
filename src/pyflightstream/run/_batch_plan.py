@@ -85,6 +85,7 @@ from pyflightstream.workspace._batches import (
 from pyflightstream.workspace._geometry_clean import UNSTEADY_WORKFLOWS, saved_action_warning
 from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
+from pyflightstream.workspace.naming import sim_dir_name
 
 __all__ = ["LEFT_OUT_REASONS", "eligibility", "grouping_table_lines", "plan_grouped_matrix"]
 
@@ -216,7 +217,7 @@ def _pristine_refusal(case: SimCase) -> str | None:
     geometry = case.geometry
     if not geometry or Path(str(geometry)).suffix.lower() != ".fsm":
         return None
-    return saved_action_warning(Path(str(geometry)), str(geometry), [case.sim_id])
+    return saved_action_warning(Path(str(geometry)), str(geometry), [case.sim_id], known_only=True)
 
 
 def _clock(seconds: float | None) -> str:
@@ -461,7 +462,8 @@ def _job_of(
         script = f"{folder}{script_name}"
     else:
         label, name = sims[0], _FULL_POLAR
-        folder, script = f"sims/sim_{sims[0]}/", f"sims/sim_{sims[0]}/{_FULL_POLAR}.txt"
+        folder = f"sims/{sim_dir_name(sims[0])}/"
+        script = f"{folder}{_FULL_POLAR}.txt"
     warnings = [*warnings, *_user_action_warnings(split, folder)]
     run_ids = tuple(run_id for unit in units for run_id in unit.run_ids)
     bases = sorted({costs[r].basis for r in run_ids if r in costs and costs[r].seconds is not None})

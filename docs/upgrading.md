@@ -30,6 +30,14 @@ table = to_table(parse_unsteady_plots("Time (sec), CL\n0.0, 0.4\n0.1, 0.5\n"))
 assert table["CL"].tolist() == [0.4, 0.5]
 assert table.to_dict("records")[0]["CL"] == 0.4
 ```
+Missing recorded attitude no longer defaults to zero for shaft angle, ETAW or
+unsteady axis coefficients. Supply explicit ALPHA and BETA to compute them;
+MADV keeps its documented zero-angle exception (RB6-07).
+
+The sample Mach column of steady and unsteady probe tables is now `MACH_LOCAL`.
+The condition remains `MACH`. Update readers that selected the sample by `Mach`
+or `MACH`; source solver exports and numbered plot names such as `MACH1` retain
+their original names. This removes ambiguous duplicate headers (F-783).
 
 ## 0.43.0
 
@@ -197,8 +205,8 @@ a real filesystem directory.
 - Command emission validates enumerations, entity references and free labels before
   a script is written. Numeric rotor axes 1, 2 and 3 resolve to X, Y and Z;
   `SURFACE_MIRROR` accepts only the mirror planes 1, 2 and 3; surface deletion
-  renumbers the surviving boundary labels, so labels recorded before a deletion
-  no longer address the same surface.
+  retains surviving boundary IDs as of 0.44.0, correcting the earlier
+  renumbering behavior to match the PFS-2119.016 licensed observation.
 - Public parking rejects absolute, drive-relative and parent-traversal paths.
 - Undefined rotor coefficients raise `ProductError` and empty passage series raise
   `MalformedOutputError`. Catch `CampaignConfigError` for row and artifact naming

@@ -49,6 +49,35 @@ def blank() -> WorkbookSnapshot:
     )
 
 
+@pytest.mark.parametrize("decoration", ["# study comment\n", "---+::: | :---+\n", "\ufeff"])
+def test_p0440_execution_and_excel_share_matrix_line_rules(tmp_path, decoration):
+    from pyflightstream.cases.matrix import MATRIX_COLUMNS, read_matrix
+
+    folder = tmp_path / "inputs" / "matrices"
+    folder.mkdir(parents=True)
+    path = folder / "shared.fs"
+    cells = dict.fromkeys(MATRIX_COLUMNS, "NA")
+    cells.update(
+        POL="9001",
+        HIDDEN="0",
+        RUN="1",
+        AIRCRAFT="Wing",
+        DESCRIPTION="POLAR",
+        FLIGHT_CONDITION="MACH:0.1, ALPHA:sweep",
+        SWEEP_VALUES="0.0,2.0",
+        FS_BUILD="MANUAL",
+        WORKFLOW="LEGACY",
+        VAR_NAMES_VALUES="OUTPUTS: loads_{point}.txt / RECIPE: 003",
+    )
+    path.write_text(
+        decoration + " | ".join(cells) + "\n" + " | ".join(cells.values()) + "\n",
+        encoding="utf-8",
+    )
+    assert [row.pol for row in read_matrix(path)] == ["9001"]
+    snap = imported(tmp_path)
+    assert [row[snap.headers.index("POL")].value for row in snap.rows] == ["9001"]
+
+
 def consume(snapshot: WorkbookSnapshot, result: SyncPreview | ApplyResult) -> WorkbookSnapshot:
     headers = result.headers
     rows = [row + [Cell()] * (len(headers) - len(row)) for row in snapshot.rows]

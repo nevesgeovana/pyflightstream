@@ -75,7 +75,7 @@ from pyflightstream.run._grouped import (
 )
 from pyflightstream.run._identity import _check_scheduled_builds, entry_accepted_builds
 from pyflightstream.run._ids import CampaignErrors, narrow_to_selection
-from pyflightstream.run._plan import plan_campaign
+from pyflightstream.run._plan import plan_campaign, resolved_plan_error
 from pyflightstream.run._rebuild import bind_row_builds, campaign_executor, row_versions
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt, job_of
@@ -85,7 +85,7 @@ from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
 from pyflightstream.workspace.inputs import hpc_profiles as hpc_profiles
 from pyflightstream.workspace.inputs import read_hpc_profile as read_hpc_profile
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
-from pyflightstream.workspace.naming import PointName
+from pyflightstream.workspace.naming import PointName, sim_dir_name
 
 #: The job root a profile that states none takes: the job folder as the workspace sees it.
 DEFAULT_JOB_ROOT = "{work_dir}"
@@ -342,7 +342,7 @@ def _homes(receipt: GroupingReceipt, root: Path) -> dict[str, Path]:
     """Return each batched simulation's folder inside its batch; none for a polar sweep."""
     if receipt.mode != "batch":
         return {}
-    return {sim: root / job.dir / f"sim_{sim}" for job in receipt.jobs for sim in job.sims}
+    return {sim: root / job.dir / sim_dir_name(sim) for job in receipt.jobs for sim in job.sims}
 
 
 def _prepare_job_folders(receipt: GroupingReceipt, root: Path) -> None:
@@ -623,6 +623,17 @@ def run_grouped_matrix(
     if refusal is not None or receipt is None:
         raise MatrixError(f"grouped run refused: {refusal}")
     resolved = _bound_matrix(path, workspace, receipt, kw)
+    if (
+        refusal := resolved_plan_error(
+            resolved,
+            workspace,
+            path,
+            default=_default_version(kw),
+            fs_exe=kw.get("fs_exe"),
+            accepted=bool(kw.get("accept_unregistered_build")),
+        )
+    ) is not None:
+        raise MatrixError(refusal)
     # THE FAILED RECORDS ARE SUPERSEDED IN _run_receipt, after every refusal
     # (PFS-2096.004, as run_campaign orders its own, FIX-0212).
     # THE PRE-FLIGHT ALLOCATES EACH SIMULATION'S FOLDER, so it plans in the

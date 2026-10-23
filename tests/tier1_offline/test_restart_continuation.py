@@ -598,7 +598,7 @@ def _fr96_converged_continuation___export(steps, offset=0):
         _FR96_CONVERGED_CONTINUATION__PLOTS_HEADER
         + table
         + "-" * 60
-        + "\n     Force Units: Coefficients\n"
+        + "\n     Force Units: Coefficients\nSoftware : Flightstream version 26.1, build #7012026\n"
     )
 
 

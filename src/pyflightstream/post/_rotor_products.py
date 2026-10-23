@@ -32,7 +32,7 @@ from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import CampaignConfigError, PprocSpec
@@ -456,6 +456,7 @@ def _wheel_harmonics(
         diameter_m=float(quasi.diameter_m),
         azimuth_is_blade_one=False,
         hub_m=quasi.hub_m,
+        moment_point_m=quasi.moment_point_m,
         axis_vector=quasi.axis_vector,
         section_frames=_qsteady._section_frames(record.sections_layout)
         if record.sections_layout is not None
@@ -524,6 +525,7 @@ def _harmonic_rotors(
                 diameter_m=stated_diameter,
                 azimuth_is_blade_one=False,
                 hub_m=(block.x_m, block.y_m, block.z_m) if block is not None else None,
+                moment_point_m=getattr(live, "moment_point_m", None),
                 axis_vector=block.axis_vector if block is not None else None,
                 section_frames=_qsteady._section_frames(record.sections_layout)
                 if record.sections_layout is not None
@@ -609,22 +611,13 @@ def _unsteady_harmonics(
     windows: dict[str, tuple[int, int]] = {}
     clocks: dict[str, float] = {}
     for alias, (_, per_revolution) in rotors.items():
-        if (
-            isinstance(per_revolution, bool)
-            or not isinstance(per_revolution, int | float)
-            or not 0.5 <= per_revolution < float("inf")
-        ):
-            reason = f"rotor {alias!r} states no steps per revolution in the point's record"
-        else:
-            revolution = _harmonics.last_complete_revolution(first, last, float(per_revolution))
-            if revolution is not None:
-                windows[alias] = revolution
-                clocks[alias] = float(per_revolution)
-                continue
-            reason = (
-                f"the series holds steps {first} to {last}, not one complete revolution of "
-                f"rotor {alias!r} at {float(per_revolution):g} steps per revolution"
-            )
+        revolution, reason = _harmonics.revolution_window_or_reason(
+            first, last, per_revolution, alias
+        )
+        if revolution is not None:
+            windows[alias] = revolution
+            clocks[alias] = float(cast(float, per_revolution))
+            continue
         skipped[f"{relative}#rotor={alias}"] = reason
         warn(f"point={stem} product={relative}: {reason}", PyflightstreamWarning, stacklevel=2)
         _skip_disc_maps(stem, reason, skipped, f"#rotor={alias}")

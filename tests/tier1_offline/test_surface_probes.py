@@ -112,7 +112,9 @@ def test_surface_plot_csv_preserves_native_values_and_column_identity(tmp_path):
 
     text = (
         PLOTS_HEADER + "Time-step,SURFACE_upper_cp,SURFACE_upper_theta,CL_all\n"
-        "1,-0.125,0.001,0.5\n2,-0.25,0.002,0.75\n" + "-" * 60 + "\n     Force Units: Coefficients\n"
+        "1,-0.125,0.001,0.5,\n2,-0.25,0.002,0.75,\n"
+        + "-" * 60
+        + "\n     Force Units: Coefficients\nSoftware : Flightstream version 26.1, build #7012026\n"
     )
     target = tmp_path / "surface.csv"
     write_plots_table(target, text, pol="9001")

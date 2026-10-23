@@ -16,6 +16,7 @@ from typing import Literal
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases.matrix import (
     MATRIX_COLUMNS,
+    matrix_content_line,
 )
 from pyflightstream.cases.matrix import (
     RECOGNIZED_MATRIX_LAYOUTS as SUPPORTED_LAYOUTS,
@@ -371,8 +372,7 @@ def _parse_matrix(raw: bytes, name: str) -> _Matrix:
     locations = {}
     columns: tuple[str, ...] = MATRIX_COLUMNS
     for index, line in enumerate(lines):
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "|" not in line:
+        if not matrix_content_line(line):
             continue
         fields = [value.strip() for value in line.rstrip("\r\n").split("|")]
         if not header_seen:
@@ -383,8 +383,6 @@ def _parse_matrix(raw: bytes, name: str) -> _Matrix:
                 )
             columns = tuple(fields)
             header_seen = True
-            continue
-        if all(not value or set(value) <= {"-", ":", "+"} for value in fields):
             continue
         if len(fields) != len(columns):
             raise ExcelSyncError(

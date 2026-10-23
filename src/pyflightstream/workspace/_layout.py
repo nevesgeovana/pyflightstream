@@ -591,6 +591,8 @@ def with_wake_companions(produced: Sequence[str | Path]) -> list[str | Path]:
     The solver writes the wake beside the surface without a second export command, so it
     joins the same containment and collision pre-scans as every declared output, before
     either file is moved. An absent companion adds nothing: it is optional.
+    RPT-074 (2026-09-25) measured the default wake export and its absence with
+    ``-1 DISABLE`` on FlightStream 26.124; this is not a per-timestep claim.
     """
     expanded = list(produced)
     named = {Path(path).resolve() for path in expanded}

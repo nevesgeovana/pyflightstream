@@ -46,6 +46,17 @@ DATUM = 30.0
 RPM = -1200.0
 
 
+@pytest.mark.parametrize("depth", [0.5, 0.999999])
+def test_p0440_phase_locked_refuses_less_than_one_revolution(depth):
+    from pydantic import ValidationError
+
+    from pyflightstream.cases import PhaseLockedSpec
+
+    with pytest.raises(ValidationError, match="greater than or equal to 1"):
+        PhaseLockedSpec(min_revolutions=2.0, last_revolutions_avg=depth)
+    assert PhaseLockedSpec(min_revolutions=1.0, last_revolutions_avg=1.0)
+
+
 def test_p0430_pfs2119_032_absolute_reynolds_is_not_a_millions_alias():
     from pyflightstream.post.products import context_row
 
@@ -76,7 +87,7 @@ def test_p0430_f1386_historical_dash_is_missing(tmp_path):
     except ValueError:
         pytest.fail("historical missing token was refused")
     _, rows = read_csv_table(target)
-    assert rows[0]["MACH"] == "NA"
+    assert rows[0]["MACH_LOCAL"] == "NA"
 
 
 def test_p0430_f1387_every_missing_probe_history_is_named(tmp_path):
@@ -252,7 +263,12 @@ def _history() -> str:
         f"{i}.0000,{TOTAL[i - 1]:.5f},{BLADE1[i - 1]:.5f},{BLADE2[i - 1]:.5f},\n"
         for i in range(1, STEPS + 1)
     )
-    return PLOTS_HEADER + table + "-" * 60 + "\n     Force Units: Newtons\n"
+    return (
+        PLOTS_HEADER
+        + table
+        + "-" * 60
+        + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
 
 
 def _plan(**phase_locked) -> dict[str, object]:

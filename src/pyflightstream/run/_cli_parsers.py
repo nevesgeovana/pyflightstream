@@ -885,6 +885,7 @@ def _add_post_parsers(subparsers: Any) -> None:
         help="with --additional-pproc: a LEGACY row's recipe code (repeatable), so a matrix "
         "mixing LEGACY rows with rows naming a run type binds as it did for `run`",
     )
+    _add_hpc_argument(post)
     _add_switch(post, "--check-frozen", _CHECK_FROZEN_HELP)
     post.add_argument(
         "matrix",

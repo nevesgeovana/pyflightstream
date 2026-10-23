@@ -20,6 +20,12 @@ each was sampled -- and nothing in the file says which is which. With one window
 the azimuth columns carry the difference explicitly and the reader can see it.
 
 **The window comes from `LAST_REVS_AVG` or `LAST_ITERS_AVG` on the matrix row.**
+The public Python helper `ReductionPlan.blade_windows()` has a separate contract:
+it partitions the last revolution into disjoint, inclusive blade-passage windows.
+Those windows sample different parts of the history, so differences between
+their means can include temporal variation. It remains available for that
+quantity and does not define this product's shared averaging window (F-073).
+
 On a multi-rotor run, each blade follows its own rotor's clock:
 `LAST_REVS_AVG` counts that rotor's own revolutions. Rotors turning at different
 rates can therefore have different step windows for the same requested number

@@ -575,8 +575,7 @@ def test_a_build_the_workflow_does_not_cover_is_refused_before_the_solver(tmp_pa
     matrix.write_text(
         FIXTURE.read_text(encoding="utf-8").replace("26.120", "25.000"), encoding="utf-8"
     )
-    args = planned(workspace, matrix)
-    args[args.index("26.120")] = "25.000"
+    args = planned(workspace, matrix, "--fs-version", "25.000")
     assert main(args) == 2
     error = capsys.readouterr().err
     assert "25.000" in error and "CREATE_NEW_MOTION" in error, (
@@ -906,6 +905,41 @@ def test_last_a_corrupt_products_manifest_is_named_not_a_traceback(tmp_path, cap
 
 
 @pytest.mark.requirement("FR-1556")
+@pytest.mark.parametrize("change", ["build", "acceptance"])
+def test_p0440_run_refuses_a_changed_effective_build_contract(tmp_path, capsys, change):
+    workspace = make_workspace(tmp_path)
+    registry = workspace.inputs_dir / "executables.toml"
+    with registry.open("a", encoding="utf-8") as handle:
+        handle.write(f'"26.123" = "{Path(sys.executable).as_posix()}"\n')
+    assert main(plan_args(workspace, FIXTURE)) in (0, 1)
+    capsys.readouterr()
+    extra = ("--fs-version", "26.123") if change == "build" else ("--accept-unregistered-build",)
+    assert main(run_args(workspace, FIXTURE, *extra)) == 2
+    message = capsys.readouterr().err
+    assert "effective build contract changed" in message
+    assert "planned" in message and "run" in message
+    assert not workspace.read_manifest()
+
+
+def test_p0440_run_accepts_equivalent_resolved_defaults_from_other_sources(tmp_path, capsys):
+    workspace = make_workspace(tmp_path)
+    (workspace.root / "pyfs.toml").write_text(
+        '[defaults]\nfs_version = "26.120"\n', encoding="utf-8"
+    )
+    (workspace.inputs_dir / "executables.local.toml").write_text(
+        f'"26.120" = {{ path = "{Path(sys.executable).as_posix()}", '
+        "accept_unregistered_build = true }\n",
+        encoding="utf-8",
+    )
+    planned_args = plan_args(workspace)
+    index = planned_args.index("--fs-version")
+    del planned_args[index : index + 2]
+    assert main(planned_args) == 0
+    capsys.readouterr()
+    assert main(run_args(workspace, FIXTURE, "--accept-unregistered-build")) == 0
+    assert "effective build contract changed" not in capsys.readouterr().err
+
+
 def test_p0430_a_run_whose_executable_changed_after_the_plan_is_refused(tmp_path, capsys):
     """NL-EXEC-1, FR-1556: the plan records the executable it measured and its digest, and
     a run on an executable that changed after planning is refused before any point."""

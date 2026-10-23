@@ -120,6 +120,7 @@ def test_p0350_plan_fr365_the_receipt_holds_every_field(tmp_path):
         "planned_order",
         "instrument",
         "inputs_sha256",
+        "effective_builds",
     }
     grouping = payload["grouping"]
     assert set(grouping) == RECEIPT_KEYS

@@ -15,15 +15,15 @@ without its trailing number), and never an index. The workflow emits one
 `DELETE_SURFACES` per surface right after the geometry opens, before anything
 else cites a surface.
 
-The solver renumbers the surfaces after a deleted one. The package follows it:
-after the removal, the inventory the script holds, and the inventory the run
-record stores, list the surviving names at their new indices, so a later
-`MOVING_BOUNDARIES: Blade2` cites the index the solver now gives that surface.
-A licensed check on 26.124 removed `Blade1` from a mesh listing Body, Base,
-Blade1 and Blade2; the saved simulation then listed Body, Base and Blade2.
+Survivors keep their original boundary IDs. Tree position after deletion is
+not an ID: a later `MOVING_BOUNDARIES: Blade2` still cites Blade2's original ID.
+The committed PFS-2119.016 fixture
+(`tests/tier1_offline/fixtures/pfs2119_016_delete_surfaces_ids_2026-10-16.md`)
+records this on 26.124 and 26.125 for OBJ and STL imports, including renamed
+blades. It did not measure assign or morph operations after deletion.
 
-A family is removed from its last member first, so no index shifts under the
-next command. These are refused, each naming the key and the inventory:
+A family is removed in descending ID order. These are refused, each naming
+the key and the inventory:
 
 - a name that resolves to no surface of the geometry, unless the row's
   reference declares it among the study's surfaces, where it is skipped and

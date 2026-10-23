@@ -63,9 +63,10 @@ def test_mixed_probe_parameters_keep_available_samples(tmp_path, monkeypatch):
     path.write_text(
         PLOTS_HEADER
         + "Time-step,CL_MRP_TOTAL,MACH1,VELOCITY1,MACH2,VELOCITY2,VX3,VX4\n"
-        + "1,0.1,0.2,10,0.3,20,30,40\n2,0.2,0.4,11,0.5,21,31,41\n"
+        + "1,0.1,0.2,10,0.3,20,30,40,\n2,0.2,0.4,11,0.5,21,31,41,\n"
         + "-" * 60
-        + "\n     Force Units: Coefficients\n",
+        + "\n     Force Units: Coefficients\n"
+        + "Software : Flightstream version 26.1, build #7012026\n",
         newline="\n",
     )
     write_campaign_products(workspace)
@@ -75,10 +76,10 @@ def test_mixed_probe_parameters_keep_available_samples(tmp_path, monkeypatch):
     _, rows = read_csv_table(workspace.products_dir(None) / key)
     assert len(rows) == 8
     first = {int(row["PROBE"]): row for row in rows if row["STEP"] == "1"}
-    assert float(first[1]["MACH"]) == 0.2
+    assert float(first[1]["MACH_LOCAL"]) == 0.2
     assert first[1]["VX"] == "NA"
     assert float(first[3]["VX"]) == 30
-    assert first[3]["MACH"] == "NA"
+    assert first[3]["MACH_LOCAL"] == "NA"
     assert any(name.endswith("_uns_avg.csv") for name in manifest["products"])
 
 

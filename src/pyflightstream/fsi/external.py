@@ -170,16 +170,23 @@ class ExternalStructure(BaseModel):
             )
         return self
 
-    def provenance(self) -> dict[str, object]:
-        """Return the record's ``fsi-provenance.json`` content (FR-1095)."""
+    def provenance(self, *, portable: bool = False) -> dict[str, object]:
+        """Return FSI identity, optionally without machine-specific source locations.
+
+        Staged provenance uses file names and digests. The default retains live
+        paths for pre-run source revalidation; the execution manifest separately
+        retains the executable location needed by the local structural callback.
+        """
         return {
             "mode": "external",
             "route": "B: SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND -> pyfs-fsi external",
-            "source": self.source,
+            "source": Path(self.source).name if portable else self.source,
             "source_sha256": self.source_sha256,
-            "executable": self.executable,
+            "executable": Path(self.executable).name if portable else self.executable,
             "executable_sha256": self.executable_sha256,
-            "structural_nodes": self.structural_nodes,
+            "structural_nodes": Path(self.structural_nodes).name
+            if portable
+            else self.structural_nodes,
             "structural_nodes_sha256": self.structural_nodes_sha256,
             "node_count": self.node_count,
             "inputs_sha256": dict(self.inputs_sha256),

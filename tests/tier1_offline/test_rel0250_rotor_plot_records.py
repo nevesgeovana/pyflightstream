@@ -56,7 +56,11 @@ def posted(tmp_path, monkeypatch, emitted):
         table += f"{step + 1}.0000," + ",".join(str(v) for v in values) + ",\n"
     output = next(o for o in original.outputs if o.endswith("_plots.txt"))
     (workspace.sim_dir("6002") / output).write_text(
-        PLOTS_HEADER + table + "-" * 70 + "\n     Force Units: Coefficients\n",
+        PLOTS_HEADER
+        + table
+        + "-" * 70
+        + "\n     Force Units: Coefficients\n"
+        + "Software : Flightstream version 26.1, build #7012026\n",
         encoding="utf-8",
         newline="\n",
     )

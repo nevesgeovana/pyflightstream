@@ -455,7 +455,7 @@ class BaseRegionOperation(BaseModel):
         "remesh",
         "select_faces",
     ]
-    #: Mesh boundary for creation or outflow marking; all is only allowed for outflow marking.
+    #: Mesh boundary for creation/outflow marking, or an earlier region's boundary name.
     boundary: str | Annotated[int, Field(ge=1)] | None = None
     #: Current base-region index; all is only allowed for trailing-edge marking or face selection.
     index: Annotated[int, Field(ge=1)] | Literal["all"] | None = None
@@ -471,9 +471,9 @@ class BaseRegionOperation(BaseModel):
         allowed = {
             "create": {"boundary", "model", "cp"},
             "mark_outflow_edges": {"boundary"},
-            "set_pressure": {"index", "model", "cp"},
-            "remesh": {"index", "mesh"},
-        }.get(self.operation, {"index"})
+            "set_pressure": {"index", "boundary", "model", "cp"},
+            "remesh": {"index", "boundary", "mesh"},
+        }.get(self.operation, {"index", "boundary"})
         for name in ("boundary", "index", "model", "cp", "mesh"):
             if name not in allowed and getattr(self, name) is not None:
                 raise ValueError(f"{name} does not apply to base-region {self.operation}")
@@ -485,8 +485,14 @@ class BaseRegionOperation(BaseModel):
         elif self.operation == "mark_outflow_edges":
             if self.boundary is None or self.boundary == "":
                 raise ValueError("base-region mark_outflow_edges requires boundary")
-        elif self.index is None:
-            raise ValueError(f"base-region {self.operation} requires index")
+        elif self.operation in {
+            "set_pressure",
+            "delete",
+            "mark_trailing_edges",
+            "remesh",
+            "select_faces",
+        }:
+            self._followup_selector()
         if self.boundary == "all" and self.operation != "mark_outflow_edges":
             raise ValueError("base-region create has no documented all form")
         if self.index == "all" and self.operation not in {"mark_trailing_edges", "select_faces"}:
@@ -501,6 +507,17 @@ class BaseRegionOperation(BaseModel):
         if self.operation == "remesh" and self.mesh is None:
             raise ValueError("base-region remesh requires mesh parameters")
         return self
+
+    def _followup_selector(self) -> None:
+        """Require one explicit index or one previously created/declared boundary name."""
+        if self.boundary is None:
+            if self.index is None:
+                raise ValueError(f"base-region {self.operation} requires index or boundary")
+            return
+        if self.index is not None:
+            raise ValueError("base-region selection requires index or boundary, not both")
+        if not isinstance(self.boundary, str) or not self.boundary.strip():
+            raise ValueError("a follow-up base-region boundary must be a nonempty name")
 
 
 class PortBoundary(BaseModel):

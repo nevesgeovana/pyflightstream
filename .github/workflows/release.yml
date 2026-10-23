@@ -63,6 +63,8 @@ jobs:
           python -m pip install --upgrade "pip==26.1.2" "build==1.5.0" "twine==6.2.0"
           python -m build
           twine check dist/*
+      - name: Check the shipped surface of both built archives
+        run: python tools/check_shipped_surface.py --config tools/shipped_surface.conf --dist dist
       - name: Verify tag matches the package version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |

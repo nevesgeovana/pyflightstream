@@ -162,7 +162,9 @@ def test_continuation_preserves_predecessor_motion_without_replacing_history(tmp
     )
     plot_text = (
         PLOTS_HEADER + "Time-step,VX1,VY1,VZ1,SURFACE_upper_cp\n"
-        "251,11,3,5,-0.1\n252,12,4,6,-0.2\n" + "-" * 60 + "\n     Force Units: Coefficients\n"
+        "251,11,3,5,-0.1,\n252,12,4,6,-0.2,\n"
+        + "-" * 60
+        + "\n     Force Units: Coefficients\nSoftware : Flightstream version 26.1, build #7012026\n"
     )
 
     class OfflineExports(LocalExecutor):

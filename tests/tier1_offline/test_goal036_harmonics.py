@@ -476,6 +476,20 @@ def test_an_unsteady_rotor_s_last_revolution_gives_back_its_harmonics(tmp_path, 
     assert entry["revolution"] == {"PROP": [7, 12]}
 
 
+def test_p0440_fractional_revolution_harmonics_are_named(tmp_path, monkeypatch):
+    from pyflightstream._errors import ProductError
+
+    workspace = _unsteady(tmp_path, monkeypatch, blades=3, rpm=1200.0)
+    record = workspace.read_manifest()[0]
+    record.reductions["rotors"]["PROP"]["steps_per_revolution"] = 6.5
+    out, manifest, _log = _post(workspace)
+    assert not (out / "sections" / "AL-020_harmonics.csv").exists()
+    reason = manifest["skipped"]["sections/AL-020_harmonics.csv#rotor=PROP"]
+    assert "6.5" in reason and "remainder 0.5" in reason
+    with pytest.raises(ProductError, match="remainder 0.5"):
+        last_complete_revolution(1, 14, 6.5)
+
+
 def test_an_unsteady_rotor_short_of_one_revolution_is_named(tmp_path, monkeypatch):
     """At 20 steps per revolution the 14 stamped steps hold no complete revolution: named."""
     # P0310-HARMONICS
@@ -639,6 +653,27 @@ def test_a_station_off_its_radius_is_a_named_skip_and_the_others_are_fitted():
     columns, rows = _rows({(1, 2): 1e-4})
     close = station_harmonics(columns, rows, {"PROP": ROTOR}, sample_column="CLOCKING")
     assert close.skipped == {} and len(close.rows) == 3
+
+
+def test_p0440_mrp_harmonics_use_the_recorded_moment_origin():
+    from dataclasses import replace
+
+    columns, rows = _rows()
+    for row in rows:
+        row["Offset"] = str(float(row["Offset"]) + 3.0)
+    assert "moment_point_m" in HarmonicRotor.__dataclass_fields__
+    rotor = replace(
+        ROTOR,
+        hub_m=(4.0, 5.0, 6.0),
+        moment_point_m=(1.0, 2.0, 6.0),
+        axis_vector=(1.0, 0.0, 0.0),
+        section_frames={("Blade1", "XZ"): "MRP", ("Blade2", "XZ"): "MRP_QS01"},
+    )
+    result = station_harmonics(columns, rows, {"PROP": rotor}, sample_column="CLOCKING")
+    assert [row[2] for row in result.rows] == pytest.approx(RADII)
+    historical = replace(rotor, moment_point_m=None)
+    unknown = station_harmonics(columns, rows, {"PROP": historical}, sample_column="CLOCKING")
+    assert all(row[2] is None for row in unknown.rows)
 
 
 def test_blocks_of_other_station_counts_skip_the_rotor_by_name():

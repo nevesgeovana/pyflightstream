@@ -73,7 +73,13 @@ def _plots(tmp_path, groups: tuple[str, ...]) -> Path:
         "Freestream velocity (m/s)                   50.000",
         "Freestream velocity (m/s)                   60.000",
     )  # noqa: E501
-    export = text + "\n".join(lines) + "\n" + "-" * 60 + "\n     Force Units: Coefficients\n"
+    export = (
+        text
+        + "\n".join(lines)
+        + "\n"
+        + "-" * 60
+        + "\n     Force Units: Coefficients\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
     table = write_plots_table(tmp_path / "P_plots.csv", export)
     assert table is not None
     return table
@@ -218,8 +224,8 @@ def test_a_row_stating_no_density_gets_no_axes_and_says_so(tmp_path):
     assert any("RHO" in note for note in notes), notes
 
 
-def test_p0430_rb6_07_a_row_stating_no_angle_takes_zero_and_says_so(tmp_path):
-    """RB6-07 (FR-69): the axes of a row with no ALPHA or BETA are those at 0.0, stated."""
+def test_p0440_rb6_07_missing_attitude_refuses_axis_coefficients(tmp_path):
+    """Missing attitude refuses axis coefficients; explicitly stated zero is computable."""
     notes: list[str] = []
     bare = {key: value for key, value in CONDITION.items() if key not in ("ALPHA", "BETA")}
     zero = {**bare, "ALPHA": 0.0, "BETA": 0.0}
@@ -239,8 +245,8 @@ def test_p0430_rb6_07_a_row_stating_no_angle_takes_zero_and_says_so(tmp_path):
         )
         names, rows = read_csv_table(path)
         columns[name] = {key: rows[0][key] for key in names if key.startswith("CLW")}
-    assert columns["bare"] and columns["bare"] == columns["zero"]
-    assert any("ALPHA = 0.0 (default)" in note and "BETA = 0.0 (default)" in note for note in notes)
+    assert not columns["bare"] and columns["zero"]
+    assert any("no ALPHA, BETA" in note for note in notes)
 
 
 def test_the_stage_records_why_an_unsteady_polar_carries_no_axes(tmp_path):

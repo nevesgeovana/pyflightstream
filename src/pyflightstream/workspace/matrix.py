@@ -291,6 +291,7 @@ from pyflightstream.workspace.inputs import read_raw_mesh_conditions as read_raw
 from pyflightstream.workspace.inputs import resolve_build as resolve_build
 from pyflightstream.workspace.inputs import rotor_integration_groups as rotor_integration_groups
 from pyflightstream.workspace.naming import group_token as group_token
+from pyflightstream.workspace.naming import sim_id_of_folder
 from pyflightstream.workspace.storage import COMPACTED_SUFFIX
 
 __all__ = [
@@ -490,9 +491,9 @@ def renumber_repeated_pols(
     # as a folder does (PFS-2085.020); '123.zip' failed the digit test and was dropped.
     folders = [
         *(
-            entry.name[len("sim_") :].removesuffix(COMPACTED_SUFFIX)
+            sim
             for entry in (sims.iterdir() if sims.is_dir() else ())
-            if entry.name.startswith("sim_")
+            if (sim := sim_id_of_folder(entry.name.removesuffix(COMPACTED_SUFFIX))) is not None
         ),
         *batch_sim_dirs(Path(workspace.root)),
     ]

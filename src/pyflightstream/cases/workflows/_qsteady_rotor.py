@@ -507,7 +507,7 @@ def _mesh_groups_in_metres(
 
 def _blade_stations_from_the_mesh(
     case: SimCase, rotor: RotorBlock
-) -> tuple[tuple[float, ...], tuple[float, ...]] | str:
+) -> tuple[tuple[float, ...], tuple[float, ...], tuple[float, ...]] | str:
     """Return blade one's stations and chords read off the mesh, or why they cannot be.
 
     Read from an OBJ, whose groups name its boundaries and whose ``[import]``
@@ -556,12 +556,12 @@ def _blade_stations_from_the_mesh(
     if not vertices:
         return f"{path.name} holds no face of blade {blade}"
     try:
-        radii, chords = _qsteady.blade_stations(vertices, hub=rotor.origin, axis=rotor.axis_vector)
+        stations = _qsteady.blade_stations(vertices, hub=rotor.origin, axis=rotor.axis_vector)
     except CampaignConfigError as error:
         return str(error)
-    if not radii:
+    if not stations[0]:
         return f"blade {blade} of {path.name} is too coarse to cut into stations"
-    return radii, chords
+    return stations
 
 
 def qsteady_validity(case: SimCase, *, inflow_fft: bool = False) -> dict[str, object] | None:
@@ -656,10 +656,15 @@ def _one_per_revolution_validity(case: SimCase) -> dict[str, object] | None:
             "k_per_chord_m_root": abs(omega) / (2.0 * root) if root > 0.0 else None,
             "k_per_chord_m_tip": abs(omega) / (2.0 * tip_speed),
         }
-    radii, chords = stations
+    radii, chords, widths = stations
     try:
         frequencies = _qsteady.reduced_frequencies(
-            radii, chords, omega_rad_s=omega, velocity_m_per_s=velocity, source="mesh"
+            radii,
+            chords,
+            omega_rad_s=omega,
+            velocity_m_per_s=velocity,
+            source="mesh",
+            band_widths_m=widths,
         )
     except CampaignConfigError as error:
         return {**base, "note": f"POL {case.sim_id}: {error}"}
@@ -748,16 +753,22 @@ def qsteady_inflow_fft(case: SimCase) -> dict[str, object] | None:
         low = _INFLOW_FFT_ROOT_FRACTION * tip
         width = (tip - low) / count
         radii: tuple[float, ...] = tuple(low + (i + 0.5) * width for i in range(count))
+        widths = (width,) * count
         k_1p: tuple[float, ...] | None = None
         note: str | None = (
             f"POL {case.sim_id}: the chord is not known at plan time ({stations}), so k_eff is "
             "not computed; the harmonics are read at equal bands from 0.2 R to the tip"
         )
     else:
-        radii, chords = stations
+        radii, chords, widths = stations
         try:
             frequencies = _qsteady.reduced_frequencies(
-                radii, chords, omega_rad_s=omega, velocity_m_per_s=velocity, source="mesh"
+                radii,
+                chords,
+                omega_rad_s=omega,
+                velocity_m_per_s=velocity,
+                source="mesh",
+                band_widths_m=widths,
             )
         except CampaignConfigError as error:
             radii, k_1p, note = tuple(radii), None, f"POL {case.sim_id}: {error}"
@@ -770,7 +781,7 @@ def qsteady_inflow_fft(case: SimCase) -> dict[str, object] | None:
         radii_m=tuple(radii),
         n95=orders,
         k_1p=k_1p,
-        strips_m=_qsteady.strip_lengths(radii),
+        strips_m=widths,
         blades=rotor.blade_count,
     )
     return {**harmonics.record(declared_positions=declared), "note": note}
@@ -819,6 +830,7 @@ def _park_the_qsteady_record(
         rpm=speed.rpm,
         shaft_frame_axis=_the_shaft_letter(rotor),
         hub_m=rotor.origin,
+        moment_point_m=None if case.reference is None else case.reference.moment_point_m,
         axis_vector=rotor.axis_vector,
         diameter_m=rotor.diameter_m,
         families_general=tuple(rotor.families_general),

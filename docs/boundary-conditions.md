@@ -91,7 +91,7 @@ the same surface in setup port selections is refused: the manual says reassignme
 
 ## Ordered base-region actions
 
-A setup may declare `base_region_bending_angle_deg` and an ordered array of `[[base_region_operations]]`. Detection happens first, then these operations, then initialization. The angle is applied before automatic or named-boundary detection. The package does not invent a base-region inventory: `boundary` identifies a mesh boundary when creating a region; `index` identifies the current base-region sequence. After deletion, state and numbering may change, so subsequent indices are the user's explicit responsibility.
+A setup may declare `base_region_bending_angle_deg` and an ordered array of `[[base_region_operations]]`. Detection happens first, then these operations, then initialization. The angle is applied before automatic or named-boundary detection. `boundary` identifies a mesh boundary when creating a region. Follow-up pressure, deletion, remesh, trailing-edge and face-selection operations may use that same boundary name instead of `index`; the builder resolves it from earlier creates or named region declarations and tracks deletion in that sequence. A name without an earlier region is refused. Use exactly one selector. `index` remains available for the current base-region sequence, including regions in opened saved simulations whose names are not declared here; subsequent explicit indices remain the user's responsibility.
 
 ```toml
 base_region_bending_angle_deg = 25.0

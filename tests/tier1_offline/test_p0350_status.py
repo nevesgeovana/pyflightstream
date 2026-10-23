@@ -32,6 +32,30 @@ MATRIX = "l1_g6"
 CAMPAIGN = "camp"
 
 
+def test_p0440_cli_status_uses_the_workspace_vocabulary():
+    import ast
+
+    from pyflightstream.workspace import WorkspaceError, ledger
+
+    tree = ast.parse(
+        (Path(__file__).parents[2] / "src/pyflightstream/run/_cli_query.py").read_text()
+    )
+    validator = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_status_words"
+    )
+    assert any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "check_status_words"
+        for node in ast.walk(validator)
+    )
+    ledger.check_status_words([ledger.PLANNED, "FAILED*"])
+    with pytest.raises(WorkspaceError, match=r"status \(CLI: --status\) names"):
+        ledger.check_status_words(["invalid"], context="status (CLI: --status)")
+
+
 def _record(sim: str, name: str, status: RunStatus, **fields: object) -> dict:
     record = RunRecord(
         run_id=f"{CAMPAIGN}/sim_{sim}/{name}",

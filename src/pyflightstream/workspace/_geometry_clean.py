@@ -169,7 +169,9 @@ def clean_saved_actions(geometry: str | Path, *, stamp: str) -> CleanedGeometry:
     )
 
 
-def saved_action_warning(geometry: Path, shown: str, rows: Iterable[str] = ()) -> str | None:
+def saved_action_warning(
+    geometry: Path, shown: str, rows: Iterable[str] = (), *, known_only: bool = False
+) -> str | None:
     """Return the warning a saved simulation's actions call for, or None when it carries none.
 
     One text for the inventory (FR-308) and the plan (FR-313): the file,
@@ -186,15 +188,29 @@ def saved_action_warning(geometry: Path, shown: str, rows: Iterable[str] = ()) -
         The file as the ``--clean`` command should spell it.
     rows : iterable of str
         The rows (POL) of a plan that open it; none for the inventory.
+    known_only : bool
+        Return only known saved actions, for grouping refusals. Unknown metadata
+        is still a warning in the default inventory and planning route.
     """
     named = sorted(set(rows))
     whose = f"row(s) {', '.join(named)}: " if named else ""
     try:
         actions = saved_solver_actions(geometry)
     except (OSError, MeshReadError) as error:
+        if known_only:
+            return None
         return (
             f"{whose}the geometry {geometry.name} cannot be read for saved unsteady solver "
             f"actions ({error}); what the solver will run from it is not known."
+        )
+    if actions is None:
+        return (
+            None
+            if known_only
+            else (
+                f"{whose}the geometry {geometry.name} cannot be read for saved unsteady solver "
+                "actions; what the solver will run from it is not known."
+            )
         )
     if not actions:
         return None

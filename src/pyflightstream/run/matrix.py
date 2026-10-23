@@ -120,6 +120,8 @@ from pyflightstream.run._matrix_warnings import (
     _warn_when_a_quasi_steady_point_leaves_its_assumption,
     _warn_when_the_points_may_not_fit,
 )
+from pyflightstream.run._plan import preflight_resolved_matrix
+from pyflightstream.run._plan import row_versions as _row_versions
 from pyflightstream.script import Script
 from pyflightstream.versions import known_versions, resolve
 from pyflightstream.workspace import (
@@ -615,6 +617,7 @@ def plan_matrix(
         write_plan=write_plan,
         name_from=name_from,
         versions=row_versions,
+        row_builds=resolved.row_builds,
         setup_inspections=inspections,
         planned_order=planned_order,
         matrix_path=path,
@@ -646,24 +649,6 @@ def plan_matrix(
             )
         )
     return plan
-
-
-def _row_versions(resolved: ResolvedMatrix, default: str | None = None) -> dict[str, str]:
-    """Return the per-simulation version override, keyed by sim id.
-
-    Per simulation, from the build each row named, by the fallback chain the
-    run emits its scripts under (:func:`_bind_row_builds`): the version its
-    registry entry declares, else ``default``, else the build id itself
-    (PFS-2094.018: with no default, a bare-path row pre-flighted under the
-    first row's build). A row naming no build is absent here and pre-flights
-    under the campaign default. Planning and execution share this resolution.
-    """
-    versions: dict[str, str] = {}
-    for case, build in zip(resolved.campaign.sims, resolved.row_builds, strict=True):
-        registered = resolved.builds.get(build) if build else None
-        if registered is not None:
-            versions[case.sim_id] = registered.fs_version or (default or "").strip() or str(build)
-    return versions
 
 
 def _campaign_executor(
@@ -909,6 +894,7 @@ def run_matrix(
     accept_unregistered_build: bool = False,
     sweep_csv: str | Path | None = None,
     local: bool = False,
+    require_plan: bool = False,
 ) -> list[RunRecord]:
     """Read a run matrix and run it: the one-call first-class entry.
 
@@ -1019,6 +1005,9 @@ def run_matrix(
     accept_unregistered_build : bool, optional
         Run on an installed build other than the one registered for the version a row names instead
         of refusing it; the run warns and every record says the flag was used.
+    require_plan : bool
+        Require a matching receipt after resolving the effective build and its
+        acceptance. The CLI sets this; Python callers default to False.
 
     Returns
     -------
@@ -1096,24 +1085,21 @@ def run_matrix(
         force_rerun, resolved = _everything_recorded(
             resolved, workspace, sims=sims, force_rerun=force_rerun, resume=resume
         )
-    # FR-97. THE GATE IS ON THE COMMAND, not here. The CLI
-    # requires a plan receipt; the library API does not: this
-    # function is the library entry a caller composes, and a caller that
-    # composed plan and run into one call would be made to write a file
-    # between them for no reason. `pyfs-matrix run` asks
-    # `_plan_receipt_error` before it reaches this.
-    plan = plan_campaign(
-        resolved.campaign,
+    plan = preflight_resolved_matrix(
+        resolved,
         workspace,
+        path,
         recipes=recipe_registry,
-        versions=_row_versions(resolved, default),
-        matrix_path=path,
-        write_plan=False,
+        default=default,
+        fs_exe=fs_exe,
+        accepted=accept_unregistered_build,
+        require_plan=require_plan,
     )
     if plan.blocked:
+        summary = plan.summary()
         raise MatrixError(
             f"pre-flight blocked {len(plan.blocked)} matrix point(s); nothing was "
-            f"executed:\n{plan.summary()}"
+            f"executed:\n{summary}"
         )
     executor, executor_for = _campaign_executor(
         workspace,

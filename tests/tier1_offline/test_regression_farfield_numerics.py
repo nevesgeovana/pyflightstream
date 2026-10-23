@@ -2411,6 +2411,7 @@ class TestRfixAEvidence:
                 + table
                 + "-" * 60
                 + "\n     Force Units: Coefficients\n"
+                + "Software : Flightstream version 26.1, build #7012026\n"
             },
             recipe="unsteady",
             reductions=_rfixa_evidence__post._FFPROOF_POST___WINDOW,

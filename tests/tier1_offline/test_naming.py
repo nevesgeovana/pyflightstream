@@ -42,6 +42,16 @@ def _case(order, *, sim="9001", point_values=None, variables=None, flow=None, ma
     )
 
 
+def test_p0440_simulation_folder_inverse_matches_the_managed_renderer(tmp_path):
+    from pyflightstream.workspace.naming import sim_id_of_folder
+
+    workspace = CampaignWorkspace(tmp_path)
+    for sim in ("7001", "wing_2-a", "sim_3"):
+        assert sim_id_of_folder(workspace.sim_dir(sim).name) == sim
+    for folder in ("sim_", "sim_7001/child", "sim_7001\n", "7001", "sim_.."):
+        assert sim_id_of_folder(folder) is None
+
+
 def test_the_default_template_is_her_convention():
     """P<sim>-<every declared variable, in row order, at the digits of its code> (0.21.0)."""
     template = NamingTemplate(point_name=MATRIX_POINT_NAME)

@@ -1155,7 +1155,10 @@ def _p3() -> list[GapProbe]:
             epilogue=_offbody_file(offbody),
             assert_effect=emptied(offbody),
             observe=read,
-            effect_note="the off-body export after the deletion holds no line",
+            effect_note=(
+                "the off-body export after deletion is inspected for surviving lines; "
+                "zero lines remain inconclusive without a before-instrument"
+            ),
         ),
         _g(
             "P3-08",

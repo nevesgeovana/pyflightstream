@@ -686,13 +686,18 @@ def test_the_junction_coarsened_chordwise_only_keeps_its_spanwise_counts(tmp_pat
     src = _source(tmp_path, toml, strip=False)
     level = refine_mesh(src)
     report = level.report
+    lv, lf = read_mesh(level.obj)
+    assert len(_nodes(lf["C"]) & _nodes(lf["J"])) == 2 * (round(NX * FACTOR) + 1)
+    # Count the written OBJ's span stations and cells, independently of refine.json.
+    for lo, hi in BANDS["J"]:
+        cells = [f for f in lf["J"] if _point(0, lo)[1] < lv[f, 1].mean() < _point(0, hi)[1]]
+        assert len(cells) == 3 * round(NX * FACTOR)
+        assert len(np.unique(np.round(lv[sorted(_nodes(cells)), 1], 12))) == 4
     assert _pairs(report["J"]) == [[(3, 3), (13, 10)]] * 2, report["J"]
     assert _pairs(report["C"]) == [[(4, 3), (13, 10)]]
     assert _pairs(report["W"]) == [[(8, 6), (13, 10)]]
     assert report["J"]["kept_sides"] == []
     assert all(g.passed for g in level.audit.gates), _gates(level)
-    lv, lf = read_mesh(level.obj)
-    assert len(_nodes(lf["C"]) & _nodes(lf["J"])) == 2 * (round(NX * FACTOR) + 1)
     both = refine_mesh(src, FACTOR, out_dir=tmp_path / "both").report
     assert _pairs(both["J"]) == [[(3, 2), (13, 10)]] * 2
 
@@ -743,3 +748,52 @@ def test_a_patch_whose_two_directions_cannot_be_told_apart_is_refused_naming_it(
     assert "its rows run spanwise and its columns spanwise" in text
     assert text.endswith("Nothing was written.") and not (tmp_path / "a").exists()
     assert refine_mesh(src, 0.5, out_dir=tmp_path / "b").report["M"]["method"] == "grid"
+
+
+@pytest.mark.parametrize("direction", ["chordwise", "spanwise"])
+def test_p0440_multiblock_direction_without_trailing_edge_is_refused(tmp_path, direction):
+    mesh = _l_with_trailing_edge()
+    mesh.te = np.empty((0, 3))
+    src = write_source(tmp_path / "src", "plate", mesh)
+    with pytest.raises(InputArtifactError, match="trailing edge, and it has none"):
+        refine_mesh(src, **{direction: 0.5}, out_dir=tmp_path / "bad")
+    assert not (tmp_path / "bad").exists()
+    assert refine_mesh(src, 0.5, out_dir=tmp_path / "control").report["M"]["method"] == "grid"
+
+
+@pytest.mark.parametrize("dy,expected", [(1.0, True), (1.0 - 1e-10, True), (1.0 + 1e-10, False)])
+def test_p0440_spanwise_includes_the_45_degree_boundary(dy, expected):
+    from pyflightstream.workspace._refine._blocks import runs_spanwise
+
+    vertices = np.array([[0.0, 0.0, 0.0], [1.0, dy, 0.0]])
+    edge = np.array([[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]])
+    assert runs_spanwise(vertices, [0, 1], edge) is expected
+
+
+def test_p0440_union_without_four_sided_layout_joins_none():
+    from pyflightstream.workspace._refine._blocks import plan
+    from pyflightstream.workspace._refine._config import FamilySpec
+
+    vertices = np.array(
+        [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [1, -1, 0], [0, -1, 0], [1, 0, 1], [0, 0, 1]],
+        dtype=float,
+    )
+    families = {"A": [[0, 1, 2, 3]], "B": [[0, 1, 4, 5]], "C": [[0, 1, 6, 7]]}
+    edges = {name: {(0, 1)} for name in families}
+    grids = {
+        n: recover_family(vertices, faces, {v for e in edges[n] for v in e})
+        for n, faces in families.items()
+    }
+    assert all(isinstance(grid, Grid) for grid in grids.values())
+    layouts, late = plan(
+        vertices,
+        families,
+        grids,
+        {n: FamilySpec(factor=2.0) for n in families},
+        edges,
+        held=(),
+        where="three sheets sharing one edge",
+    )
+    assert layouts == {}
+    assert [row[:2] for row in late] == [("B", "A"), ("C", "A")]
+    assert all("form no layout" in row[2] for row in late)

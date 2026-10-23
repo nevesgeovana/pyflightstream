@@ -1254,6 +1254,36 @@ def test_g12_a_flag_of_the_additional_post_without_it_is_refused(flags, tmp_path
     assert "--additional-pproc" in capsys.readouterr().err
 
 
+def test_p0440_additional_post_selects_hpc_and_refuses_an_idle_selection(
+    tmp_path, monkeypatch, capsys
+):
+    from pyflightstream.workspace.hpc import resolve_hpc_profile
+    from tests.tier1_offline.test_p0350_hpc_selector import _REST
+
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    for stem in ("h001", "h002"):
+        (workspace.inputs_dir / "hpc" / f"{stem}.toml").write_text(
+            f'application_id = "app-{stem}"\n{_REST}', encoding="utf-8"
+        )
+    selected = []
+    made = []
+    factory = a_local_executor_writing_every_export(tmp_path, made)
+
+    def executor(*args, **kwargs):
+        selected.append(resolve_hpc_profile(workspace.inputs_dir).application_id)
+        return factory(*args, **kwargs)
+
+    monkeypatch.setattr("pyflightstream.run.matrix.LocalExecutor", executor)
+    command = ["post", str(matrix), "--workspace", str(workspace.root), "--hpc", "h002"]
+    assert matrix_cli.main([*command, "--additional-pproc", "--local"]) == 0
+    assert selected and set(selected) == {"app-h002"}
+    count = len(selected)
+    capsys.readouterr()
+    assert matrix_cli.main(command) == 2
+    assert "--hpc only mean something to --additional-pproc" in capsys.readouterr().err
+    assert len(selected) == count
+
+
 def test_g12_the_additional_post_needs_the_matrix(tmp_path, capsys):
     """The key is read from the rows, so the matrix is not optional with the flag."""
     workspace, _ = a_campaign(tmp_path)

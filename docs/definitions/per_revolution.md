@@ -25,7 +25,9 @@ revolution) and its `rotor`.
 
 **How the history is cut.** Revolution `k` is rows `(k-1) * N + 1` to `k * N` of
 the table, counted from its first row, where `N` is the rotor's steps per
-revolution rounded to a whole solver step.
+revolution, which must be integral. A fractional clock is not rounded:
+the product is skipped by name in `products.json`, stating the clock and
+its fractional remainder. Exact fractional-period integration is not provided.
 A history that starts at step 1 cuts at steps 1 to `N`, `N+1` to `2N` and so
 on. Each mean is the package's one average over that window, the one the time
 average takes.

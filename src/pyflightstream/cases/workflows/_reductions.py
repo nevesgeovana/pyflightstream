@@ -401,11 +401,11 @@ class ReductionPlan:
         """One window per blade, over the LAST complete revolution.
 
         Contiguous and inclusive, ending at the last solver step of the
-        run. The per-blade split is what separates a rotor whose blades
-        are not identical from one whose average hides that. The campaign's
-        own per-blade windows come from :func:`per_blade_window`, which also
-        decides whether the span holds a revolution; this method is the plain
-        split of the last revolution and is kept for callers that use it.
+        run. These are disjoint passage windows: different blades sample
+        different parts of the history. Their means mix temporal variation
+        with blade differences. This public helper is retained for callers
+        requesting that quantity; the campaign's ``per_blade`` product instead
+        averages every blade over one shared window of its rotor.
         """
         end = self.window.time_iterations
         return [

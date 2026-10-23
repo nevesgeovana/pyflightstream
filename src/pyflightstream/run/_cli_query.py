@@ -29,12 +29,11 @@ from pyflightstream.run._cli_query_history import add_history_parsers, run_histo
 from pyflightstream.run._cli_query_point import _add_parsers, _run_point_query
 from pyflightstream.run._ids import _add_sim_ids
 from pyflightstream.support import support_table, version_support
-from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.ledger import (
-    PLANNED,
     POINT_COLUMNS,
     STATUS_COLUMNS,
     Ledger,
+    check_status_words,
     listed_sims,
     point_rows,
     read_ledger,
@@ -196,16 +195,7 @@ def run_query(args: argparse.Namespace) -> int:
 
 def _status_words(words: Sequence[str]) -> list[str]:
     """Return the ``--status`` words, refusing one no recorded or derived status takes."""
-    known = [status.value for status in RunStatus] + [PLANNED]
-    for word in words:
-        stem = word[:-1] if word.endswith("*") else None
-        if (stem is None and word not in known) or (
-            stem is not None and not any(item.startswith(stem) for item in known)
-        ):
-            raise ValueError(
-                f"status (CLI: --status) names {word!r}, which no status takes; the words "
-                f"are {', '.join(known)}, and a trailing * matches every word it begins"
-            )
+    check_status_words(words, context="status (CLI: --status)")
     return list(words)
 
 

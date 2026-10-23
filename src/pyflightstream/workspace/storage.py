@@ -111,6 +111,7 @@ from pyflightstream.workspace.naming import (
     archive_previous,
     free_root_archive,
     resolve_manifest,
+    sim_id_of_folder,
 )
 
 __all__ = [
@@ -428,7 +429,7 @@ def _measure(root: Path) -> SpaceReport:
         report.by_folder[folder] = report.by_folder.get(folder, 0) + size
         if len(parts) > 1 and parts[0] == "sims":
             name = parts[1]
-            if name.startswith("sim_"):
+            if sim_id_of_folder(name.removesuffix(COMPACTED_SUFFIX)) is not None:
                 report.by_sim[name] = report.by_sim.get(name, 0) + size
                 if len(parts) == 2 and name.endswith(COMPACTED_SUFFIX):
                     report.compacted.append(name)
@@ -695,9 +696,9 @@ def compacted_sim_ids(workspace: CampaignWorkspace) -> list[str]:
     if not sims.is_dir():
         return []
     return sorted(
-        path.name[len("sim_") : -len(COMPACTED_SUFFIX)]
+        sim
         for path in sims.glob(f"sim_*{COMPACTED_SUFFIX}")
-        if path.is_file()
+        if path.is_file() and (sim := sim_id_of_folder(path.stem)) is not None
     )
 
 
@@ -913,9 +914,9 @@ def free_space(
         )
         sims_root = workspace.root / "sims"
         present = [
-            p.name[len("sim_") :]
+            sim
             for p in (sims_root.iterdir() if sims_root.is_dir() else [])
-            if p.is_dir() and p.name.startswith("sim_") and not is_reparse(p)
+            if p.is_dir() and (sim := sim_id_of_folder(p.name)) is not None and not is_reparse(p)
         ]
         _check_selections(workspace, document, records, present, select=_select_sims)
         entry: dict[str, Any] = {
@@ -1534,10 +1535,10 @@ def _sync_files(
     out: set[Path] = set()
     sims = ws / "sims"
     for sim in sorted(sims.glob("sim_*")) if sims.is_dir() else []:
-        sim_id = sim.name[len("sim_") :]
+        sim_id = sim_id_of_folder(sim.name)
         if sim.is_file() and sim.name.endswith(COMPACTED_SUFFIX):
-            sim_id = sim.name[len("sim_") : -len(COMPACTED_SUFFIX)]
-        if is_reparse(sim) or sim_id in skip_sims:
+            sim_id = sim_id_of_folder(sim.name.removesuffix(COMPACTED_SUFFIX))
+        if is_reparse(sim) or sim_id is None or sim_id in skip_sims:
             continue
         if sim.is_file():
             if rank >= 3 and sim.name.endswith(COMPACTED_SUFFIX):
@@ -1695,12 +1696,11 @@ def _expand_compacted(
     found: set[str] = set()
     for relative in files:
         parts = relative.parts
-        if len(parts) < 2 or parts[0] != "sims" or not parts[1].startswith("sim_"):
+        if len(parts) < 2 or parts[0] != "sims":
             continue
         incoming_archive = len(parts) == 2 and relative.suffix == COMPACTED_SUFFIX
-        sim_id = parts[1][len("sim_") :]
-        if incoming_archive:
-            sim_id = sim_id[: -len(COMPACTED_SUFFIX)]
+        if (sim_id := sim_id_of_folder(parts[1].removesuffix(COMPACTED_SUFFIX))) is None:
+            continue
         folder, archive = main.sim_dir(sim_id), _zip_path(main, sim_id)
         if folder.exists() and (incoming_archive or archive.is_file()):
             raise StorageError(
@@ -1842,7 +1842,7 @@ def _sync_one(
             # geometry library, the way the other workspace's simulation had it.
             other_sims = other / "sims"
             for sim in sorted(other_sims.glob("sim_*")) if other_sims.is_dir() else []:
-                if not sim.is_dir() or is_reparse(sim) or sim.name[len("sim_") :] in submitted:
+                if not sim.is_dir() or is_reparse(sim) or sim_id_of_folder(sim.name) in submitted:
                     continue
                 if apply:
                     done = _relink_inputs(main, other, sim.name)
