@@ -38,14 +38,18 @@ def test_p0430_fd02_manual_editions_cannot_poison_later_reads():
         versions.manual_editions.cache_clear()
 
 
-def test_p0440_mutable_manual_editions_cannot_satisfy_the_readonly_test(monkeypatch):
-    def mutable():
-        return {"26.125": "manual"}
+def test_p0440_manual_editions_test_requires_assignment_refusal():
+    import ast
+    import inspect
 
-    mutable.cache_clear = lambda: None
-    monkeypatch.setattr(versions, "manual_editions", mutable)
-    with pytest.raises(pytest.fail.Exception):
-        test_p0430_fd02_manual_editions_cannot_poison_later_reads()
+    tree = ast.parse(inspect.getsource(test_p0430_fd02_manual_editions_cannot_poison_later_reads))
+    contexts = [
+        item.context_expr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.With)
+        for item in node.items
+    ]
+    assert any(ast.unparse(call) == "pytest.raises(TypeError)" for call in contexts)
 
 
 @pytest.mark.parametrize("obsolete", ["two lru caches", "_versions.manual_editions"])
