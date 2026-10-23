@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Added
 
+- Export collection and loads-table documentation cite the measured solver
+  evidence for wake companions and last-timestep loads (RB5-19).
+
 - Staged external FSI provenance records portable file names and content digests,
   while live source validation retains original locations (X-F-1364).
 

@@ -1509,7 +1509,7 @@ class CampaignWorkspace:
         # guard against.
         name = datapoint_dir_name(datapoint)
         folder = f"{SIM_DATAPOINTS_DIR}/{name}"
-        # The solver writes the wake beside the surface without a second export command.
+        # RPT-074 (2026-09-25): the default surface export also writes its wake.
         produced = with_wake_companions(produced)
         # File all existing outputs before reporting missing ones. Run every
         # refusal below against existing outputs before moving any of them.

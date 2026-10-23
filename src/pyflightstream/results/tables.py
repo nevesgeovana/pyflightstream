@@ -1055,7 +1055,11 @@ def _stamped(frame: pd.DataFrame, *, origin: str, reduction: str) -> pd.DataFram
 
 
 def _loads_frame(report: LoadsReport) -> pd.DataFrame:
-    """One row per surface plus Total, with the printed units alongside."""
+    """One row per surface plus Total, with the printed units alongside.
+
+    The last-timestep interpretation of an unsteady loads export is measured in
+    RPT-053 (2026-09-19), an external private solver-evidence report.
+    """
     import pandas as pd
 
     rows = []

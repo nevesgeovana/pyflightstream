@@ -155,6 +155,23 @@ def _blocks(text: str) -> list[tuple[str, str]]:
     return found
 
 
+def test_p0440_solver_export_claims_cite_their_measured_evidence():
+    import ast
+
+    for module, function, report in (
+        ("workspace/_layout.py", "with_wake_companions", "RPT-074"),
+        ("workspace/__init__.py", "collect_outputs", "RPT-074"),
+        ("results/tables.py", "_loads_frame", "RPT-053"),
+    ):
+        tree = ast.parse((REPO / "src/pyflightstream" / module).read_text(encoding="utf-8"))
+        node = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == function
+        )
+        assert report in (ast.get_docstring(node) or ""), (module, function, report)
+
+
 def test_the_page_exists_and_is_reachable_from_the_site_nav():
     """A page nobody can navigate to is not published."""
     assert PAGE.is_file(), "the workspace and workflow page does not exist"
