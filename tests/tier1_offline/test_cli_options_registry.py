@@ -139,6 +139,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "last"): FIELD_OPERATION,
     ("pyfs-workspace", "tolerance"): FIELD_OPERATION,
     ("pyfs-workspace", "out"): OUTPUT,
+    ("pyfs-workspace", "from_nodes"): SUBJECT,
     ("pyfs-workspace", "apply"): SWITCH,
     # 0.43.0 (PFS-2119.070): the console level of every pyfs-workspace command, as
     # pyfs-matrix takes it; a typed level wins over the files' [log] console.
@@ -539,6 +540,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "hub"): frozenset({"trailing-edge"}),
     ("pyfs-workspace", "unit"): frozenset({"trailing-edge"}),
     ("pyfs-workspace", "sections"): frozenset({"trailing-edge"}),
+    ("pyfs-workspace", "from_nodes"): frozenset({"trailing-edge"}),
     ("pyfs-matrix", "build"): frozenset({"support"}),
     ("pyfs-matrix", "additional"): frozenset({"status"}),
     ("pyfs-matrix", "target"): frozenset({"show", "history"}),
@@ -645,7 +647,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "force_rerun_all"): frozenset({"run"}),
     ("pyfs-matrix", "polar_sweep"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "batch"): frozenset({"inspect-setups", "plan", "run"}),
-    ("pyfs-matrix", "hpc"): frozenset({"collect", "inspect-setups", "plan", "run"}),
+    ("pyfs-matrix", "hpc"): frozenset({"collect", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "sims"): frozenset(
         {
             "noise",
@@ -840,7 +842,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "last"): frozenset({"profile", "time-mean"}),
     ("pyfs-workspace", "tolerance"): frozenset({"subtract", "time-mean"}),
     ("pyfs-workspace", "out"): frozenset(
-        {"audit", "fill-interior", "mirror", "move", "profile", "refine", "subtract", "time-mean"}
+        "audit fill-interior mirror move profile refine subtract time-mean trailing-edge".split()
     ),
     ("pyfs-workspace", "apply"): frozenset(
         {

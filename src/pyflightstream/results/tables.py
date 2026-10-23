@@ -539,6 +539,13 @@ def to_table(result: object) -> Table:
         solver's layout.
     UnsupportedResultTypeError
         If ``result`` is not one of the kinds above.
+
+    Examples
+    --------
+    >>> from pyflightstream.results import ResidualSample, to_table
+    >>> table = to_table([ResidualSample(1, 0.01, 0.02)])
+    >>> table["iteration"].tolist()
+    [1]
     """
     if isinstance(result, LoadsReport):
         return _loads_frame(result)

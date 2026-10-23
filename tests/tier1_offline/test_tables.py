@@ -122,6 +122,7 @@ def test_p0440_tables_work_when_pandas_is_absent(monkeypatch, tmp_path):
 @pytest.mark.requirement("FR-3260")
 def test_p0440_all_table_families_match_0390_column_for_column(tmp_path):
     """P0440-PANDAS: execute the released adapters as the independent parity oracle."""
+    import os
     import subprocess
     import types
 
@@ -132,6 +133,7 @@ def test_p0440_all_table_families_match_0390_column_for_column(tmp_path):
         capture_output=True,
         text=True,
         check=False,
+        env=os.environ.copy(),
     )
     if old.returncode:
         pytest.skip("released v0.39.0 source is unavailable in this checkout")

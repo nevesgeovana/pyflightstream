@@ -113,7 +113,8 @@ SET_AEROELASTIC_ITERATIONS 50"""
 #: configuration, measured with the 0.37.0 tree before FR-341 entered it
 #: (rel/0-37 at cb59b941) on 26.124.
 MAPPED_SCRIPT_SHA256 = "2a677fb53754e6e1e06d96dc72671d47adecd51c860eb054a2356d7ddd2d4714"
-MAPPED_STAGED_SHA256 = "300be9de64bef25749161ac99310fb80ab2a59500dff3a5fa30cfd91c5101661"
+# F-127 adds the explicit null moment origin to DP_qsteady.json; other bytes are unchanged.
+MAPPED_STAGED_SHA256 = "79adea4247fff56764d60eefd02c2e20a86211756194799ce7c5d0f5899a57cd"
 
 
 def _sector(tmp_path: Path, *, morphing: str | None = None, **variables) -> SimCase:

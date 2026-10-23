@@ -477,7 +477,7 @@ def test_the_fluid_columns_reach_the_table_of_a_row_that_asked_for_them(tmp_path
     steady = next(out.rglob("POLAR-0002_M15AL+020BE+000_probes.csv"), None)
     assert steady is not None, "the steady row's flow-field samples were not tabled at all"
     columns, rows = read_csv_table(steady)
-    assert {"Mach", "vtot", "Cp"} <= set(columns), (
+    assert {"MACH_LOCAL", "vtot", "Cp"} <= set(columns), (
         f"the steady row's flow-field sample carries no fluid quantity: {columns}"
     )
     assert rows, "the steady table has no sample"

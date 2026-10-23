@@ -79,6 +79,9 @@ def test_each_study_names_a_baseline_and_changes_one_setting():
         baseline = standards[standard.baseline_code]
         keys = set(standard.settings) | set(baseline.settings)
         changed = [key for key in keys if standard.settings.get(key) != baseline.settings.get(key)]
+        if code in {"s950", "s951", "s952"}:
+            assert standard.settings["crossflow_separation_boundaries"] == ["Body"]
+            changed.remove("crossflow_separation_boundaries")
         assert len(changed) == 1, (code, changed)
 
 

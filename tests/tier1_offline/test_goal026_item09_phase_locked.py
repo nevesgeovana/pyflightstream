@@ -362,32 +362,32 @@ def test_the_gate_counts_the_run_and_not_the_exported_window():
                 "RPM": "1200",
                 "BLADES": "4",
                 "DELTA_TIME": "0.0001",
-                "TIME_ITERATIONS": "720",
-                "LAST_REVS_AVG": "0.25",
+                "TIME_ITERATIONS": "1440",
+                "LAST_REVS_AVG": "1.0",
             },
             pproc=PprocSpec(
-                phase_locked=PhaseLockedSpec(min_revolutions=minimum, last_revolutions_avg=0.1)
+                phase_locked=PhaseLockedSpec(min_revolutions=minimum, last_revolutions_avg=1.0)
             ),
         )
         plan = reduction_windows(case)
         assert plan is not None
         return plan
 
-    # THE RUN TURNS 1.44, so a minimum of one is MET and the reduction exists.
-    # Under the window reading this row holds 0.25 of a revolution and would be
+    # THE RUN TURNS 2.88, so a minimum of two is MET and the reduction exists.
+    # Under the window reading this row holds one revolution and would be
     # skipped, so this single assertion is the whole discrimination.
-    generated = plan_at(1.0)["phase_locked"]
+    generated = plan_at(2.0)["phase_locked"]
     assert "windows" in generated, (
-        "the gate skipped a run that turns 1.44 revolutions against a minimum of 1.0, "
-        f"which means it counted the 0.25-revolution export window instead: {generated}"
+        "the gate skipped a run that turns 2.88 revolutions against a minimum of 2.0, "
+        f"which means it counted the one-revolution export window instead: {generated}"
     )
 
     # AND IT STILL REFUSES WHAT IT SHOULD, so the assertion above is not
     # satisfied by a gate that stopped gating: a refusal test alone is met by a
     # constant, and so is an acceptance test alone.
-    skipped = plan_at(2.0)["phase_locked"]
-    assert "skipped" in skipped, f"the run turns 1.44 revolutions and 2.0 were asked for: {skipped}"
-    assert "1.44" in str(skipped["skipped"]), (
+    skipped = plan_at(3.0)["phase_locked"]
+    assert "skipped" in skipped, f"the run turns 2.88 revolutions and 3.0 were asked for: {skipped}"
+    assert "2.88" in str(skipped["skipped"]), (
         "the skip states a number that is not what the row turned; a message naming the "
-        f"window would read 0.25 here: {skipped['skipped']}"
+        f"window would read 1.0 here: {skipped['skipped']}"
     )

@@ -583,6 +583,7 @@ def test_a_fit_without_one_value_per_azimuth_raises_the_catalogued_error():
 
 
 def test_the_last_complete_revolution_is_counted_from_the_first_step():
+    assert last_complete_revolution(1, 1000, 60 / (1200 * 0.0001)) == (501, 1000)
     # P0310-HARMONICS
     assert last_complete_revolution(1, 14, 6.0) == (7, 12)
     assert last_complete_revolution(1, 12, 6.0) == (7, 12)

@@ -42,7 +42,7 @@ def _continues(record):
 
 def _plan_that_blocks_nothing(monkeypatch):
     monkeypatch.setattr(
-        "pyflightstream.run.matrix.plan_campaign",
+        "pyflightstream.run.matrix.preflight_resolved_matrix",
         lambda *args, **kwargs: SimpleNamespace(blocked=[]),
     )
 

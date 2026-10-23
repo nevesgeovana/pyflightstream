@@ -356,14 +356,15 @@ def whole_revolution_steps(steps_per_revolution: float) -> int:
         raise ProductError(
             f"steps per revolution must be a finite number, got {steps_per_revolution!r}"
         )
-    if not float(steps_per_revolution).is_integer():
+    nearest = round(steps_per_revolution)
+    if abs(steps_per_revolution - nearest) > 2 * math.ulp(steps_per_revolution):
         raise ProductError(
             f"{steps_per_revolution:g} steps per revolution has fractional remainder "
             f"{steps_per_revolution % 1:g}; a complete revolution cannot be represented "
             "by whole solver steps without rounding. Choose the time step so one revolution "
             "is a whole number of steps (delta_time = 60 / (rpm * N) for N steps per revolution)"
         )
-    return int(steps_per_revolution)
+    return nearest
 
 
 def revolution_window_or_reason(

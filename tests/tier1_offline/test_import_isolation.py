@@ -61,6 +61,7 @@ _EXTRA_IMPORT_ROOTS = {
     "PyNiteFEA": "Pynite",  # fsi
     "XlsxWriter": "xlsxwriter",  # excel
     "matplotlib": "matplotlib",  # plot
+    "pandas": "pandas",  # pandas
     "pypdf": "pypdf",  # manual
     "rtree": "rtree",  # geom
     "scipy": "scipy",  # geom

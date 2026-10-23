@@ -27,6 +27,7 @@ import pyflightstream
 from pyflightstream import _cli
 from pyflightstream._console import WIDTH, blocks
 from pyflightstream._errors import PyflightstreamWarning
+from tests.tier1_offline.test_fsm_saved_actions import _saved_simulation
 from tests.tier1_offline.test_goal024_rpm import _rotor_matrix
 
 #: The rotor cell of the 0.30.0 Mach tests: a row that states its clock and window.
@@ -61,6 +62,7 @@ def _two_case_matrix(tmp_path, *, values="3000,6000", inside=False):
         values=values,
         cell=ROTOR_CELL,
     )
+    _saved_simulation(workspace.inputs_dir / "geometries" / "wing_clean.fsm", [], names=("OTHER",))
     lines = matrix.read_text(encoding="utf-8").splitlines()
     lines.append(lines[-1].replace("9001", "9002", 1))
     target = workspace.root / "inputs" / "matrices" / matrix.name if inside else matrix
@@ -104,7 +106,7 @@ def test_plan_prints_each_title_in_order_with_a_blank_line_between_blocks(tmp_pa
     # P0310-CONSOLE-BLOCKS
     workspace, matrix = _two_case_matrix(tmp_path)
     code, out = _console(workspace, matrix)
-    assert code == 1, out  # the fixture mesh names no boundary, so every point is BLOCKED
+    assert code == 1, out  # the fixture mesh has no PORT boundary, so every point is BLOCKED
     lines = out.splitlines()
     at = [lines.index(title) for title in TITLES if title in lines]
     assert [lines[index] for index in at] == TITLES, out

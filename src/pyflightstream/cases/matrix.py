@@ -56,7 +56,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
 from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
 from pyflightstream.cases import ROTATION_OFFSET_KEY as ROTATION_OFFSET_KEY

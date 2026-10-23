@@ -362,7 +362,7 @@ def _run_steps(ctx: SimContext, steps: Sequence[Callable[[SimContext], None]]) -
         # its type, so it reads as the defect it is and not as a refusal.
         try:
             scoped = _load_step_context(ctx, step)
-            if scoped.points:
+            if scoped is ctx or scoped.points:
                 step(scoped)
         except (ProductExistsError, Warning):
             # An existing product refuses the post; a warning raised as an error is

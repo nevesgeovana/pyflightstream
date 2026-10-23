@@ -253,7 +253,7 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("geometry", "`[[import.operations]]`"): _fields(MeshOperation),
         ("geometry", "`[trailing_edges]`"): set(_TRAILING_EDGE_KEYS),
         ("geometry", "`detect = { ... }` of `[trailing_edges]`"): set(_DETECT_KEYS),
-        ("geometry", "`[wake_termination]`"): {"detect"},
+        ("geometry", "`[wake_termination]`"): {"detect", "file", "tolerance"},
         ("geometry", "`[base_regions]`"): {"detect"},
     }
 

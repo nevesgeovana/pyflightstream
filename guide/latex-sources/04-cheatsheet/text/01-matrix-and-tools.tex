@@ -170,6 +170,9 @@ See the website's Upgrading page for supported workspace conversion.
 \item \fl{--log-level LEVEL}, \fl{--no-check-frozen}, \fl{--no-local}, \fl{--no-pproc-warnings}: as in \cmd{run}
 \end{flags}
 
+\sub{noise <matrix>}{rebuild exploratory loading-noise products and list comparisons}
+\fl{--workspace ROOT}, \fl{--sims IDS}, \fl{--overwrite}, \fl{--verbose}, \fl{--log-level LEVEL}.
+
 \stage{6. SYNC WORKSPACES (E.G. CLUSTER TO WINDOWS)}
 \sub{sync \{runs|post|fsm|all\}}{run on the MAIN workspace; peers in \texttt{inputs/sync-workspaces.toml}; levels cumulative, runs $<$ post $<$ fsm $<$ all. Nothing in main is deleted; \texttt{inputs/} untouched but a declared matrix}
 \begin{flags}
@@ -277,7 +280,12 @@ See the website's Upgrading page for supported workspace conversion.
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \sub{geometry export-surface-mesh <FSM>}{preview the surface export of a saved workspace body; \fl{--apply} runs the licensed solver and writes \texttt{<stem>.surface.stl} beside it for probe planning; \fl{--build ID} selects the build, \fl{--fs-exe PATH} overrides its executable, and \fl{--overwrite} replaces an existing mesh only after a successful export}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
+\sub{fsi}{structural-only workspace studies}
+\sub{fsi campbell <fsi-id>}{write natural frequencies, Southwell fits and crossing provenance}
+\fl{--rpm START STOP COUNT}, \fl{--modes N}, \fl{--workspace ROOT}, \fl{--overwrite}.
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level.
 \sub{geometry trailing-edge <mesh> <output>}{write mesh trailing-edge midpoint nodes}
+\fl{--from-nodes FILE} import explicit nodes; \fl{--out FILE} name the output.
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--axis X Y Z}, \fl{--hub X Y Z}, \fl{--unit UNIT}, \fl{--sections N}, \fl{--overwrite}.
 \sub{geometry}{build and accept bodies outside the run matrix; includes the mesh tools of page 1}

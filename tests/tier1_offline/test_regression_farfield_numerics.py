@@ -646,11 +646,11 @@ class TestFarfieldNumpy:
         )["project"]
         assert project["dependencies"] == [
             "numpy>=2.2",
-            "pandas>=2.3",
             "pydantic>=2",
             "pyyaml",
             "trimesh>=4.12,<6",
         ]
+        assert project["optional-dependencies"]["pandas"] == ["pandas>=2.3"]
 
     @staticmethod
     @pytest.mark.requirement("FR-457")
