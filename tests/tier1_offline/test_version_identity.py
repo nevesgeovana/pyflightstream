@@ -24,3 +24,9 @@ def test_p0440_guide_version_matches_the_package():
     text = (REPO / "guide/latex-sources/shared/info.tex").read_text(encoding="utf-8")
     versions = re.findall(r"\\newcommand\{\\pkgversion\}\{([^}]+)\}", text)
     assert versions == [_pyproject_version()]
+
+
+def test_p0440_unsteady_super_content_change_is_named():
+    notes = (REPO / "CHANGELOG.md").read_text(encoding="utf-8").split("## [0.43.0]", 1)[0]
+    assert "SET_SOLVER_UNSTEADY" in notes
+    assert "time_iterations" in notes and "delta_time" in notes and "NA" in notes

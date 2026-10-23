@@ -32,6 +32,11 @@ FlightStream versions.
 
 ### Fixed
 
+- The unsteady polar's super content records `SET_SOLVER_UNSTEADY` with the
+  row's own `time_iterations` and `delta_time`, marked explicit and emitted.
+  Earlier releases wrote `NA` with unknown provenance and a null value.
+  Existing products retain their recorded content; regenerating them records
+  the row's settings.
 - The boundaries file of a refined level states the level's own `mesh_faces`, `boundary_faces`
   and `mesh_sha256`, counted in and taken from the level's OBJ (after any `[components]` merge),
   where it copied the source's, and its header comment names the level OBJ's sha256; the source's
