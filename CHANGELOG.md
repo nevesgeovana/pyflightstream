@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Added
 
+- Release builds scan both built archives for forbidden identifiers before
+  upload, with the scanner and its policy shipped as support files (X-F-0265).
+
 - Export collection and loads-table documentation cite the measured solver
   evidence for wake companions and last-timestep loads (RB5-19).
 
