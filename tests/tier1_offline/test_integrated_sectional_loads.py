@@ -144,9 +144,12 @@ def test_p0440_integration_admission_has_a_checked_type_boundary():
 
     from pyflightstream.post import section_distributions
 
-    signature = inspect.signature(section_distributions._measured_integration)
-    assert signature.return_annotation is not inspect.Signature.empty
-    assert all(p.annotation is not inspect.Parameter.empty for p in signature.parameters.values())
+    unchecked = [
+        name
+        for name, function in inspect.getmembers(section_distributions, inspect.isfunction)
+        if function.__module__ == section_distributions.__name__ and not function.__annotations__
+    ]
+    assert not unchecked, f"function bodies omitted from type checking: {unchecked}"
 
 
 def test_opt_in_columns_and_glossary(tmp_path, monkeypatch):
