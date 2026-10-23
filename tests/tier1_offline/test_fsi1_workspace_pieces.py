@@ -276,7 +276,7 @@ def _script_after_the_deletion(case, names):
 
 @pytest.mark.parametrize("arm", sorted(ARMS))
 def test_p0420_the_survivors_get_the_id_the_saved_mesh_keeps(tmp_path, arm):
-    """PFS-2119.016: the ID of each survivor, cited by name or by its tree position now."""
+    """P0440-RB7-35: survivors retain their original IDs when selected by name or ID."""
     suffix, before, after = ARMS[arm]
     names = [name for _, name in before]
     case = _deleted_case(tmp_path, suffix, names[0])
@@ -284,18 +284,18 @@ def test_p0420_the_survivors_get_the_id_the_saved_mesh_keeps(tmp_path, arm):
     survivors = [name for _, name in after]
     kept = [identity for identity, _ in after]
     assert ws.aeroelastic_surface_ids(case, script, survivors, context="FSI") == kept
-    # Cited by position in the tree the deletion left (1 is the first survivor), the same IDs.
-    assert ws.aeroelastic_surface_ids(case, script, [1, 2], context="FSI") == kept
+    original = [names.index(name) + 1 for name in survivors]
+    assert ws.aeroelastic_surface_ids(case, script, original, context="FSI") == kept
 
 
 def test_p0420_the_tree_position_plus_the_offset_is_not_the_id_after_a_deletion(tmp_path):
-    """PFS-2119.016: the old rule gave Blade1 the ID 2 where the mesh keeps 3 (OBJ)."""
+    """P0440-RB7-35: boundary resolution preserves the original ID after deletion."""
     suffix, before, after = ARMS["OBJ b (Body, Blade1, Blade2)"]
     names = [name for _, name in before]
     case = _deleted_case(tmp_path, suffix, names[0])
     script = _script_after_the_deletion(case, names)
     position = script.resolve_boundary("Blade1")
-    assert position + ws.IMPORT_BOUNDARY_ID_OFFSET[suffix] == 2
+    assert position + ws.IMPORT_BOUNDARY_ID_OFFSET[suffix] == 3
     assert ws.aeroelastic_surface_ids(case, script, ["Blade1"], context="FSI") == [3]
 
 
