@@ -20,8 +20,8 @@ precise discriminator.
 Number forms follow the solver's printing: ``.000`` (no leading
 zero), ``4380000.`` (trailing point), and ``1.000E-05`` all parse.
 
-On top of the parsers, a pandas tabular layer turns the parsed
-results into DataFrames: :func:`to_table`/:func:`to_csv` for each
+On top of the parsers, a NumPy tabular layer turns the parsed
+results into named-column tables: :func:`to_table`/:func:`to_csv` for each
 parser, :func:`parse_run_loads` for one run's coefficients, and
 :func:`run_table`/:func:`sweep_table` for one run or a whole sweep
 read from the manifest. The manifest is an artifact of the workspace

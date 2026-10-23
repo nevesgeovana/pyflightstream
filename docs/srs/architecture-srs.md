@@ -92,8 +92,8 @@ boundaries; they do not repeat the chronology of each extraction.
 
 !!! decision "AD-06 Numerical and table substrates"
     Numerical arrays use NumPy. The far-field core has no xarray dependency.
-    pandas remains a runtime dependency for current table paths; its removal
-    is future work, not a property of this release.
+    Tables hold named NumPy columns. DataFrame conversion is explicit through
+    Table.to_pandas(), which requires the optional pandas extra.
 
 !!! decision "AD-07 External numerical integration"
     Numerical integration crosses a solver-independent array boundary.

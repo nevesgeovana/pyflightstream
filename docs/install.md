@@ -13,6 +13,9 @@
 Install the release into an isolated Python environment, then select the
 optional extras needed by the workflow. The `excel` extra adds workbook
 synchronization; the `manual` extra supports manual database maintenance.
+The `pandas` extra provides `Table.to_pandas()` for dataframe workflows:
+`pip install "pyflightstream[pandas]"`. Parsing, NumPy tables and CSV products
+work with the core install alone. See [upgrading](upgrading.md#numpy-tables-and-optional-pandas).
 
 ## Choose the FlightStream build
 
@@ -43,7 +46,7 @@ preserve those notices when redistributing them.
 | Library | Version inspected | License recorded |
 |---|---|---|
 | numpy | 2.5.2 | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 |
-| pandas | 3.0.3 | BSD-3-Clause |
+| pandas (`pandas`) | 3.0.3 | BSD-3-Clause |
 | pydantic | 2.13.4 | MIT |
 | PyYAML | 6.0.3 | MIT |
 | trimesh | 4.12.2 and 5.0.0 | MIT |

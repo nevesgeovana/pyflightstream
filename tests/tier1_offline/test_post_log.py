@@ -585,7 +585,7 @@ def test_the_sweep_tables_own_warning_stays_out_of_the_post_log(tmp_path, monkey
     With its control: the same route from the stage itself IS logged, so a
     route that logged nothing could not pass the first assertion.
     """
-    import pandas
+    pandas = pytest.importorskip("pandas")
 
     from pyflightstream._errors import PyflightstreamWarning, warn
     from pyflightstream.post import products

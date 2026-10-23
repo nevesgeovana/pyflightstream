@@ -7,6 +7,30 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.44.0
+
+### NumPy tables and optional pandas
+
+`to_table`, `run_table` and `sweep_table` now return
+`pyflightstream.results.tables.Table`, with ordered named NumPy columns.
+Column names, row order, units, provenance and written product bytes stay the same.
+`write_table` accepts these tables and still returns the written `Path`, as does
+the module-level `to_csv` function. Function arguments are unchanged.
+
+Use `table["CL"]` for a NumPy column, `table.to_dict("records")` for rows, and
+`table.to_csv(path, index=False)` for ordinary CSV. Use `write_table(table, path)`
+for the package's provenance checks and product formatting.
+For dataframe operations, install `pip install "pyflightstream[pandas]"` and
+call `table.to_pandas()`. The core install no longer requires pandas.
+
+```python
+from pyflightstream.results import parse_unsteady_plots, to_table
+
+table = to_table(parse_unsteady_plots("Time (sec), CL\n0.0, 0.4\n0.1, 0.5\n"))
+assert table["CL"].tolist() == [0.4, 0.5]
+assert table.to_dict("records")[0]["CL"] == 0.4
+```
+
 ## 0.43.0
 
 ### The documentation of the release a workspace uses

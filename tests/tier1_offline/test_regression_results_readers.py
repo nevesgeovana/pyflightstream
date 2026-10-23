@@ -7,7 +7,6 @@ import re
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from pyflightstream._errors import ProductExistsError, PyflightstreamWarning
@@ -299,6 +298,7 @@ class TestResultsTables:
     @staticmethod
     def test_p0400_results_a_recorded_unsteady_loads_export_is_labelled_last_step(tmp_path):
         """P0400-RESULTS (PFS-2105.043, PFS-2105.046): the recorded unsteady export, read back."""
+        pd = pytest.importorskip("pandas")
         # Actual RPT-133 arm B output, with its recorded coefficient values.
         report = parse_loads(_results_tables___fixture("rpt133/B_final.txt"))
         assert report.solver_mode.strip().lower() == "unsteady", (
@@ -340,6 +340,7 @@ class TestResultsTables:
     @staticmethod
     def test_p0400_results_the_last_step_tokens_are_appended_and_paired(tmp_path):
         """P0400-RESULTS (PFS-2105.043): appended codes, and each token refuses another partner."""
+        pd = pytest.importorskip("pandas")
         assert REDUCTION_CODES["last_step"] == 3
         assert REDUCTION_WINDOW_CODES["last_time_step"] == 3
         for reduction, window in (("last_step", "not_printed"), ("time_average", "last_time_step")):

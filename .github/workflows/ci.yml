@@ -132,7 +132,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with every declared extra
-        run: pip install -e .[dev,fsi,geom,excel,manual,plot]
+        run: pip install -e .[dev,fsi,geom,excel,manual,plot,pandas]
       - name: Tier 1 with nothing skipped for a missing extra
         # Zero skips is NOT asserted here: some tests skip for reasons
         # that have nothing to do with extras (a licensed solver, an
@@ -176,7 +176,7 @@ jobs:
         # reads as a broken test rather than as a broken dependency set.
         run: python -c "import trimesh; print('trimesh', trimesh.__version__)"
       - name: Mark a trailing edge end to end, with no extras present
-        run: pytest tests/tier1_offline/test_trailing_edges.py
+        run: pytest tests/tier1_offline/test_trailing_edges.py tests/tier1_offline/test_tables.py
 
   test-floors:
     # The leg that installs the FLOORS of the two scientific dependencies

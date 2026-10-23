@@ -15,7 +15,6 @@ import sys
 import warnings
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
 import pyflightstream.run as run_module
@@ -2973,6 +2972,7 @@ def test_a_completed_sweep_leaves_its_csv_beside_its_runs_unasked(tmp_path):
     campaign's own post/ folder, with one line per point carrying the
     integrated forces.
     """
+    pd = pytest.importorskip("pandas")
     campaign = mixed_campaign(tmp_path)
     workspace = CampaignWorkspace(tmp_path / "camp")
     records = run_campaign(
@@ -3009,6 +3009,7 @@ def test_every_line_says_which_of_the_two_produced_its_numbers(tmp_path):
     names in one file, so a reader without these three columns compares
     them and reads a method difference as physics.
     """
+    pd = pytest.importorskip("pandas")
     campaign = mixed_campaign(tmp_path)
     workspace = CampaignWorkspace(tmp_path / "camp")
     run_campaign(
@@ -3054,6 +3055,7 @@ def test_a_campaign_whose_every_point_failed_still_leaves_its_table(tmp_path):
     arm that returned first, so a sweep with one failed point left no
     table at all.
     """
+    pd = pytest.importorskip("pandas")
     campaign = make_campaign(tmp_path, alphas=(0.0, 2.0))
     workspace = CampaignWorkspace(tmp_path / "camp")
     with pytest.raises(CampaignErrors, match="2 campaign point"):
@@ -3087,6 +3089,7 @@ def test_a_sweep_whose_exports_do_not_read_as_loads_still_leaves_its_rows(tmp_pa
     operator which point to look at, so raising there would withhold the
     evidence exactly when it is needed.
     """
+    pd = pytest.importorskip("pandas")
     campaign = make_campaign(tmp_path, alphas=(0.0, 2.0))
     workspace = CampaignWorkspace(tmp_path / "camp")
     with pytest.warns(PyflightstreamWarning, match="none of the 2 successful runs"):
@@ -3138,6 +3141,7 @@ def test_the_table_is_rebuilt_from_the_whole_manifest_on_a_resume(tmp_path):
     join, and refusing the overwrite would freeze the table at the first
     call.
     """
+    pd = pytest.importorskip("pandas")
     workspace = CampaignWorkspace(tmp_path / "camp")
     run_campaign(
         make_campaign(tmp_path, alphas=(0.0,)),

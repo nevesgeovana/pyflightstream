@@ -11,7 +11,6 @@ import math
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytest
 
 import pyflightstream
@@ -43,6 +42,119 @@ from pyflightstream.results import tables as tables_module
 from pyflightstream.workspace import CampaignWorkspace, PointName, RunRecord, RunStatus
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def test_p0440_tables_are_numpy_columns_with_optional_dataframe_parity(tmp_path):
+    """P0440-PANDAS: table columns and CSV do not depend on a dataframe substrate."""
+    pd = pytest.importorskip("pandas")
+    report = parse_loads(read_fixture("loads_steady_26.120.txt"))
+    table = to_table(report)
+    assert isinstance(table["CL"], np.ndarray)
+    expected = pd.DataFrame(
+        [dict(surface=name, **values) for name, values in report.surfaces.items()]
+        + [dict(surface="Total", **report.total)]
+    )
+    expected["force_units"] = report.force_units
+    expected["moment_units"] = report.moment_units
+    expected["data_origin"] = "raw"
+    expected["reduction"] = "none"
+    expected["reduction_window"] = "not_applicable"
+    pd.testing.assert_frame_equal(table.to_pandas(), expected)
+    assert table.to_csv(index=False) == expected.to_csv(index=False, lineterminator="\n")
+    row = run_table(make_record())
+    assert isinstance(row["alpha"], np.ndarray)
+    assert row.to_dict("records")[0]["alpha"] == 2.0
+
+
+@pytest.mark.requirement("FR-3259")
+def test_p0440_tables_work_when_pandas_is_absent(monkeypatch, tmp_path):
+    """P0440-PANDAS: only the explicit conversion requires the extra."""
+    import sys
+    import tomllib
+
+    from pyflightstream.extras import MissingExtraError
+
+    project = tomllib.loads(
+        (Path(__file__).resolve().parents[2] / "pyproject.toml").read_text(encoding="utf-8")
+    )["project"]
+    assert not any(dependency.startswith("pandas") for dependency in project["dependencies"])
+    assert project["optional-dependencies"]["pandas"] == ["pandas>=2.3"]
+    monkeypatch.setitem(sys.modules, "pandas", None)
+    report = parse_loads(read_fixture("loads_steady_26.120.txt"))
+    table = to_table(report)
+    assert isinstance(table["CL"], np.ndarray)
+    assert write_table(table, tmp_path / "table.csv").is_file()
+    workspace = build_sweep_workspace(tmp_path)
+    campaign = sweep_table(workspace)
+    assert campaign["alpha"].tolist() == [2.0, 0.0, 4.0]
+    assert isinstance(run_table(make_record())["alpha"], np.ndarray)
+    assert len(campaign.to_dict("records")) == 3
+    assert write_table(campaign, tmp_path / "campaign.csv").is_file()
+    with pytest.raises(TypeError, match="write it with write_table"):
+        to_table(table)
+    with pytest.raises(MissingExtraError, match="pandas"):
+        table.to_pandas()
+
+
+@pytest.mark.requirement("FR-3260")
+def test_p0440_all_table_families_match_0390_column_for_column(tmp_path):
+    """P0440-PANDAS: execute the released adapters as the independent parity oracle."""
+    import subprocess
+    import types
+
+    pd = pytest.importorskip("pandas")
+    root = Path(__file__).resolve().parents[2]
+    old = subprocess.run(
+        ["git", "-C", str(root), "show", "v0.39.0:src/pyflightstream/results/tables.py"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if old.returncode:
+        pytest.skip("released v0.39.0 source is unavailable in this checkout")
+    legacy = types.ModuleType("pyflightstream.results.legacy_tables")
+    exec(compile(old.stdout, "v0.39.0/results/tables.py", "exec"), legacy.__dict__)
+    reports = [
+        parse_loads(read_fixture("loads_steady_26.120.txt")),
+        parse_loads(read_fixture("loads_unsteady_26.120.txt")),
+        parse_residual_history(read_fixture("log_residuals_26.120.txt")),
+        parse_probe_points(read_fixture("probe_points_26.120.txt")),
+        parse_sectional_loads(read_fixture("fsi/FS_SurfaceSection_Loads_call0002.txt")),
+    ]
+    reports += [
+        _parsed(name)
+        for name in (
+            "force_distributions_26.123.txt",
+            "off_body_streamlines_26.123.txt",
+            "all_surface_sections_26.123.txt",
+            "sweeper_spreadsheet_26.123.txt",
+            "solver_analysis_26.123.csv",
+        )
+    ]
+    from pyflightstream.results import parse_unsteady_plots
+
+    reports.append(parse_unsteady_plots("Time (sec), CL\n0.0, 0.4\n0.1, 0.5\n"))
+    for report in reports:
+        table = to_table(report)
+        assert isinstance(table[table.columns[0]], np.ndarray)
+        expected = legacy.to_table(report)
+        actual = table.to_pandas()
+        # The post-0.39 residual overflow flags are an intentional existing extension.
+        added = set(actual.columns) - set(expected.columns)
+        assert added == (
+            {"velocity_overflowed", "pressure_overflowed"} if isinstance(report, list) else set()
+        )
+        pd.testing.assert_frame_equal(actual[list(expected.columns)], expected)
+        assert table[list(expected.columns)].to_csv(index=False) == expected.to_csv(
+            index=False, lineterminator="\n"
+        )
+    record = make_record()
+    for loads in (None, reports[0]):
+        pd.testing.assert_frame_equal(
+            run_table(record, loads=loads).to_pandas(), legacy.run_table(record, loads=loads)
+        )
+    workspace = build_sweep_workspace(tmp_path)
+    pd.testing.assert_frame_equal(sweep_table(workspace).to_pandas(), legacy.sweep_table(workspace))
 
 
 def read_fixture(name: str) -> str:
@@ -151,6 +263,7 @@ def test_sectional_dispatch_without_the_extra_raises_didactically(monkeypatch):
 
 
 def test_to_csv_round_trips_through_pandas(tmp_path):
+    pd = pytest.importorskip("pandas")
     report = parse_loads(read_fixture("loads_steady_26.120.txt"))
     written = to_csv(report, tmp_path / "loads.csv")
     back = pd.read_csv(written)
@@ -159,6 +272,7 @@ def test_to_csv_round_trips_through_pandas(tmp_path):
 
 
 def test_to_dataframe_refuses_unknown_inputs_didactically():
+    pd = pytest.importorskip("pandas")
     with pytest.raises(TypeError, match="parse_loads"):
         to_table(object())
     with pytest.raises(ValueError, match="empty result list"):
@@ -525,6 +639,7 @@ def build_sweep_workspace(tmp_path):
 
 
 def test_sweep_table_builds_one_row_per_manifest_record(tmp_path):
+    pd = pytest.importorskip("pandas")
     workspace = build_sweep_workspace(tmp_path)
     frame = sweep_table(workspace)
     assert frame.shape[0] == 3
@@ -853,6 +968,7 @@ def test_a_mixed_sweep_traces_every_row_without_another_file(tmp_path):
     iteration-limited unsteady point, and a failed point with no loads
     export at all.
     """
+    pd = pytest.importorskip("pandas")
     frame = sweep_table(build_sweep_workspace(tmp_path))
     written = write_table(frame, tmp_path / "sweep.csv")
     back = pd.read_csv(written)
@@ -879,6 +995,7 @@ def test_every_written_table_says_what_produced_its_numbers(tmp_path):
     "this one happens to be uniform, so it needs no column" is how a file
     ends up needing a second file.
     """
+    pd = pytest.importorskip("pandas")
     cases = {
         "loads_steady": (parse_loads(read_fixture("loads_steady_26.120.txt")), "none"),
         "loads_unsteady": (
@@ -911,6 +1028,7 @@ def test_write_table_refuses_a_table_that_cannot_say_what_it_is(tmp_path):
     (data_origin, reduction) pair, which would have refused the mixed
     sweep this item exists to make writable.
     """
+    pd = pytest.importorskip("pandas")
     mixed = pd.DataFrame(
         {
             "CL": [0.4, 0.5],
@@ -979,6 +1097,7 @@ def test_write_table_refuses_a_table_that_cannot_say_what_it_is(tmp_path):
 
 def test_write_table_can_be_told_not_to_replace_a_file(tmp_path):
     """The default preserves an existing file; replacement is deliberate."""
+    pd = pytest.importorskip("pandas")
     frame = pd.DataFrame(
         {
             "CL": [0.4],
@@ -996,6 +1115,7 @@ def test_write_table_can_be_told_not_to_replace_a_file(tmp_path):
 
 
 def test_f_830_a_file_created_after_the_existence_check_is_not_truncated(tmp_path, monkeypatch):
+    pd = pytest.importorskip("pandas")
     frame = pd.DataFrame(
         {
             "CL": [0.4],
@@ -1289,6 +1409,7 @@ def test_to_table_refuses_an_unsupported_result_through_the_catalog():
     Both arms of the refusal are exercised, because they are two raises
     in one definition and the FR-39 ratchet counts them separately.
     """
+    pd = pytest.importorskip("pandas")
     from pyflightstream import exceptions
     from pyflightstream._errors import PyflightstreamError
 
@@ -1402,8 +1523,9 @@ def test_the_streamline_table_keys_every_row_by_its_streamline():
         *PROVENANCE,
     ]
     assert len(frame) == 90
-    assert frame["streamline"].value_counts().to_dict() == {1: 30, 2: 30, 3: 30}
-    assert list(frame["streamline"].unique()) == [1, 2, 3]
+    names, counts = np.unique(frame["streamline"], return_counts=True)
+    assert dict(zip(names, counts, strict=True)) == {1: 30, 2: 30, 3: 30}
+    assert list(dict.fromkeys(frame["streamline"])) == [1, 2, 3]
     first = frame[frame["streamline"] == 1]
     assert first["X"].iloc[0] == pytest.approx(2.0)
     assert first["vtot"].iloc[0] == pytest.approx(0.2990135e02)
@@ -1567,6 +1689,7 @@ def test_a_report_whose_columns_moved_is_refused_by_the_table_too():
 
 def test_every_new_table_survives_the_write_path():
     """`write_table` refuses a frame that cannot say what it is; none of these can."""
+    pd = pytest.importorskip("pandas")
     import tempfile
 
     for name in (
