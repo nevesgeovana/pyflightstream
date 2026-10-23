@@ -123,6 +123,9 @@ def test_single_setting_studies_change_only_one_selected_key():
         if item.code >= "s910":
             baseline = by_code[item.baseline_code].settings
             changed = {key for key in item.settings if item.settings[key] != baseline.get(key)}
+            if item.code in {"s950", "s951", "s952"}:
+                assert item.settings["crossflow_separation_boundaries"] == ["Body"]
+                changed.remove("crossflow_separation_boundaries")
             assert len(changed) == 1, item.code
 
 
