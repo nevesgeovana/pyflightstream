@@ -84,11 +84,6 @@ def _declared_table_rows() -> list[str]:
     return [_collapse(" ".join(names) + " " + caption) for names, caption in _LAYER_STACK]
 
 
-def _declared_chain() -> str:
-    """The layer CHAIN, derived bottom-up, as the layout rule writes it."""
-    return " <- ".join("/".join(names) for names, _ in reversed(_CORE_LAYERS))
-
-
 def _declared_names() -> set[str]:
     """Every module name the overview declares, core, base and side."""
     names = {name for group, _ in _LAYER_STACK for name in group}

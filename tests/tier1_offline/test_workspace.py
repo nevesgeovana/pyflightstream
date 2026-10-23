@@ -572,20 +572,6 @@ z_m = 0.0
 """
 
 
-def _artifact_id(field: str, parameter: object) -> str:
-    """An id that names its case, and that two cases cannot share.
-
-    The first version built ids from `abs(magnitude)` and `len(written)`,
-    which discards the sign and collides "1.0" with a quoted "1". Nothing
-    tested the wrong thing, because `tmp_path` is per-invocation, and that
-    is the trap: hoisting `library(tmp_path)` to a module-scoped fixture,
-    which is the natural cost optimisation here, would have two cases
-    overwrite each other's artifact and the survivor test the other's
-    content while passing.
-    """
-    return "r" + re.sub(r"\W", "", f"{field}{parameter}").lower()
-
-
 def _reference_with(tmp_path, artifact_id: str, line: str, replacing: str) -> str:
     """Write the campaign fixture with one line replaced, and resolve it.
 

@@ -360,13 +360,6 @@ def card_headings(texts) -> set[str]:
     return {_normalised(heading) for text in texts for heading in _CARD_HEADING.findall(text)}
 
 
-def _dev_distributions() -> list[str]:
-    """Distribution names of the `dev` extra, in pyproject order."""
-    with open(REPO / "pyproject.toml", "rb") as handle:
-        declared = tomllib.load(handle)["project"]["optional-dependencies"]["dev"]
-    return [re.split(r"[<>=!~\[]", spec)[0].strip() for spec in declared]
-
-
 @pytest.mark.requirement("NFR-02")
 def test_every_runtime_dependency_has_a_license_card():
     """The set that reaches every user, which is the one that had no card."""

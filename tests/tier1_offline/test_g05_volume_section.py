@@ -282,16 +282,6 @@ def test_g05_a_raw_delete_below_the_pproc_s_section_moves_its_index_down():
 # solution has converged, which the script command UPDATE_ALL_VOLUME_SECTIONS is.
 
 
-def _volume_lines(lines: list[str]) -> list[str]:
-    """The solves, the volume-section commands and the volume exports, in order."""
-    return [
-        line
-        for line in lines
-        if line == "START_SOLVER"
-        or ("VOLUME_SECTION" in line and not line.startswith("VOLUME_SECTION_"))
-    ]
-
-
 @pytest.mark.parametrize(
     ("table", "export"),
     [(RECTANGLE, "EXPORT_VOLUME_SECTION_VTK 1"), (CIRCLE, "EXPORT_VOLUME_SECTION_TECPLOT 1")],

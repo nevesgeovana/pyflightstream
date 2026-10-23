@@ -991,19 +991,6 @@ def test_p0410_pc_timing_only_warning_does_not_discredit_proven_velocity(
     assert "native velocity convention" not in diagnostic, diagnostic
 
 
-def _f4_0304_point(*, v_inf, v_ref, cl):
-    loads = SimpleNamespace(
-        freestream_velocity_m_s=v_inf,
-        reference_velocity_m_s=v_ref,
-        total={"CL": cl},
-        angle_of_attack_deg=0.0,
-        sideslip_deg=0.0,
-    )
-    return SimpleNamespace(
-        name="p", loads=loads, state=SimpleNamespace(density_kg_m3=1.0), vorticity_selection=False
-    )
-
-
 def test_f4_0304_free_stream_lift_is_compared_with_the_solver_cl_on_one_basis(tmp_path):
     """F-143, F-146, X-F-0321: VINF-based traced lift meets the VREF-based CL on one q."""
     import tests.tier1_offline.test_regression_farfield_products as wing

@@ -500,14 +500,6 @@ def test_ind06_csv_naming_a_file_the_audit_reads_or_writes_is_refused(tmp_path, 
 REPO = Path(__file__).resolve().parents[2]
 
 
-def _known_limitations() -> str:
-    """Return the Known limitations of the CHANGELOG's 0.38.0 entry."""
-    text = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
-    entry = text[text.index("## [0.38.0]") :]
-    entry = entry[: entry.index("## [", 5)]
-    return entry[entry.index("### Known limitations") :]
-
-
 def test_ind07_a_paired_square_mesh_passes_the_relative_checks(tmp_path):
     """P0380-AUDIT (FR-939, IND-07): quad-dominant is not a warning by construction.
 

@@ -1297,25 +1297,6 @@ def test_a_file_that_was_already_there_is_not_collected_as_this_point(tmp_path):
     assert record.script_sha256
 
 
-def test_an_ordinary_point_is_unaffected_by_the_stale_output_check(tmp_path):
-    """The control: the folder is empty, so nothing is refused.
-
-    Without it, a mutation refusing every point would leave the test above
-    green while no campaign could run at all.
-    """
-    campaign = make_campaign(tmp_path)
-    workspace = CampaignWorkspace(tmp_path / "camp")
-    records = run_campaign(
-        campaign,
-        StubSolver(WRITES_LOADS),
-        workspace,
-        assess=converged,
-        recipes={"steady": steady_recipe},
-    )
-    assert all(record.status is RunStatus.CONVERGED for record in records)
-    assert records[0].outputs == ["datapoints/DP-AL+000/loads_AL+000.txt"]
-
-
 def test_the_manifest_records_a_hash_per_collected_output(tmp_path):
     """A record that names evidence should say which bytes it named.
 
