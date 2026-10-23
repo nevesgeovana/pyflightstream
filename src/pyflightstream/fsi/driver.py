@@ -1235,7 +1235,9 @@ def _record_the_revolution(
     # as unsettled thrust.
     verdict = _phase3_verdict(cfg, previous_rev, last)
     if not applied_twist_settled:
-        logger.info("revolution %d: the applied twist still lags the structural solve", completed)
+        _say_the_verdict(
+            run_dir, "revolution %d: the applied twist still lags the structural solve", completed
+        )
     elif verdict.converged:
         state.phase = 4
         state.phase4_start_step = state.step_count + 1
