@@ -37,7 +37,7 @@
    "id": "RX-13",
    "capability": "Route-2 sector-offset calibration written from a recorded wheel point and sector point",
    "reason": "Python-only by design",
-   "decision": "PFS-2140.004 closed at 0.41.0: the route-2 sector calibration is written by the calibrate verb (sector_offset_calibration is reached); bessel_y is the special function re-exported beside the corrections for a Python caller; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
+   "decision": "PFS-2140.004 closed at 0.41.0: the route-2 sector calibration is written by the calibrate verb (sector_offset_calibration is reached); bessel_y is the special function re-exported beside the corrections for a Python caller; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirmed on 2026-10-22",
    "names": [
     "pyflightstream.post.corrections.bessel_y"
    ]
@@ -46,7 +46,7 @@
    "id": "RX-17",
    "capability": "The Sweeper toolbox and its spreadsheet (a run type, or documented as outside the workspace)",
    "reason": "Python-only by design",
-   "decision": "PFS-2140.005 closed at 0.41.0 with the sweeper decided: a sweep is declared as matrix rows, the workspace's route; the Sweeper toolbox helper and its spreadsheet reader stay script-level Python for a hand-written script, documented as outside the workspace in docs/gui-to-pyfs.md (the Sweeper toolbox row); classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
+   "decision": "PFS-2140.005 closed at 0.41.0 with the sweeper decided: a sweep is declared as matrix rows, the workspace's route; the Sweeper toolbox helper and its spreadsheet reader stay script-level Python for a hand-written script, documented as outside the workspace in docs/gui-to-pyfs.md (the Sweeper toolbox row); classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirmed on 2026-10-22",
    "names": [
     "pyflightstream.results.SweepSpreadsheetReport",
     "pyflightstream.results.parse_sweep_spreadsheet",
@@ -57,7 +57,7 @@
    "id": "RX-18",
    "capability": "Trailing-edge points file of a raw mesh's sidecar route 'file'",
    "reason": "Python-only by design",
-   "decision": "PFS-2140.005 closed at 0.41.0: the workspace writes the trailing-edge points file by detection in the refinement route, or reads the one a sidecar lists (route 'file'); extract_trailing_edge and its node-file writer are the documented Python way to prepare that file from a blade mesh (docs/mesh/how-to.md); classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
+   "decision": "PFS-2140.005 closed at 0.41.0: the workspace writes the trailing-edge points file by detection in the refinement route, or reads the one a sidecar lists (route 'file'); extract_trailing_edge and its node-file writer are the documented Python way to prepare that file from a blade mesh (docs/mesh/how-to.md); classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirmed on 2026-10-22",
    "names": [
     "pyflightstream.workspace.TrailingEdge",
     "pyflightstream.workspace.extract_trailing_edge",
@@ -68,7 +68,7 @@
    "id": "RX-21",
    "capability": "Support level of a FlightStream build",
    "reason": "Python-only by design",
-   "decision": "PFS-2140.005 closed at 0.41.0: pyfs-matrix support prints the support level of each build through version_support and support_table; support_level is the Python shorthand for that one value; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirms",
+   "decision": "PFS-2140.005 closed at 0.41.0: pyfs-matrix support prints the support level of each build through version_support and support_table; support_level is the Python shorthand for that one value; classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirmed on 2026-10-22",
    "names": [
     "pyflightstream.support_level"
    ]
@@ -390,7 +390,7 @@
    "id": "RX-37",
    "capability": "Library selection of a cost file and of an HPC profile, the Python form of the console flags --cost-file and --hpc",
    "reason": "maintainer or developer API",
-   "decision": "classified by the integfix lane after RX-36, its sibling among the workspace helpers; the owner confirms",
+   "decision": "classified by the integfix lane after RX-36, its sibling among the workspace helpers; the owner confirmed on 2026-10-22",
    "names": [
     "pyflightstream.workspace.costs.select_cost_file",
     "pyflightstream.workspace.hpc.select_hpc_profile"

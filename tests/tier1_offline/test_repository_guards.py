@@ -18,6 +18,15 @@ REPO = Path(__file__).resolve().parents[2]
 TOOLS = REPO / "tools"
 
 
+def test_p0440_confirmed_reachability_decisions_name_the_confirmation():
+    import json
+
+    data = json.loads((REPO / "tests/tier1_offline/reachability_exceptions.json").read_text())
+    rows = {row["id"]: row for row in data["rows"]}
+    for name in ("RX-13", "RX-17", "RX-18", "RX-21", "RX-37"):
+        assert "the owner confirmed on 2026-10-22" in rows[name]["decision"], name
+
+
 SHIPPED_SURFACE_CONFIG = TOOLS / "shipped_surface.conf"
 
 
