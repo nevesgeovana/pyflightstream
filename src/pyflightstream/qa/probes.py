@@ -804,7 +804,8 @@ def dump_gained(token: str, strict: bool = False) -> Callable[[ProbeArtifacts], 
     Returns
     -------
     callable
-        The assertion: True when the token is in the dump after the target; otherwise False when
+        True when the token appears after the target and was absent in the before-dump.
+        Missing baseline evidence is None; an absent after-token is False when
         ``strict``, None when not.
     """
 
@@ -819,7 +820,7 @@ def dump_gained(token: str, strict: bool = False) -> Callable[[ProbeArtifacts], 
             # target proves nothing about the target: the command may have
             # done nothing. Unobservable, never verified.
             before = artifacts.dump_before()
-            if before is not None and token in before:
+            if before is None or token in before:
                 return None
             return True
         return False if strict else None

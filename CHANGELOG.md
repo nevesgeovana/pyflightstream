@@ -32,6 +32,7 @@ FlightStream versions.
 
 ### Fixed
 
+- A gained-token probe with no before-dump stays inconclusive instead of verified (RB4-16).
 - `apply_reanalysis` documents its build-registration and evidence-location refusals (RB4-24).
 - Read-only rebuild collection refuses grouped preparation and extraction completion
   through its write policy before they can change source files (PFS-2124.045).
