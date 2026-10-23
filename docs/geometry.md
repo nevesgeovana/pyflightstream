@@ -25,6 +25,36 @@ give the identical result but will be removed in v1.0.0. Their replacements
 are `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate`,
 respectively.
 
+## A trailing-edge points file from a node list
+
+If you already selected the trailing-edge nodes in ANSA, export the SET node
+window as comma-separated `Id, Name, X, Y, Z` rows. List the nodes in their
+order along one trailing edge, including both end nodes. No mesh or solver is
+needed to turn each neighbouring pair into its edge midpoint:
+
+```text
+#  Id, Name, X , Y, Z
+30, tip, 0, 10, 2
+10, root, 2, 0, 4
+20, middle, 6, 4, 8
+```
+
+```text
+pyfs-workspace geometry trailing-edge --from-nodes nodes.txt --out wing.te.txt --unit METER
+```
+
+This writes the unit line `METER` and the points `(1, 5, 3)` and `(4, 2, 6)`
+in that order. Coordinates keep the input frame and unit; `--unit` defaults to
+`METER` for this route. Without `--out`, it writes `<input stem>.te.txt` beside
+the input file, for example `nodes.te.txt` beside `nodes.txt`.
+The command does not sort nodes or split gaps. Export
+each chain separately. Blank lines and `#` comments are ignored. Fewer than two
+nodes, repeated node ids, rows other than five fields and non-finite coordinates
+are refused with the file and line to correct. An existing output needs
+`--overwrite`. Use the resulting file in the mesh sidecar's `[trailing_edges]`
+table. The existing mesh extraction form still takes `mesh output --axis ...
+--hub ... --unit ...`.
+
 ## The instruction file
 
 Each geometry folder of the workspace, `inputs/geometries/<folder>/`, may hold

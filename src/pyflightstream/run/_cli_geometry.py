@@ -128,12 +128,14 @@ def add_geometry_commands(subparsers: Any) -> None:
     export.add_argument("--apply", action="store_true", help="run the solver and export the mesh")
     export.add_argument("--overwrite", action="store_true", help="replace an existing surface mesh")
     edge = verbs.add_parser("trailing-edge", help="extract trailing-edge midpoint coordinates")
-    edge.add_argument("mesh")
-    edge.add_argument("output")
-    edge.add_argument("--axis", nargs=3, type=float, required=True)
-    edge.add_argument("--hub", nargs=3, type=float, required=True)
-    edge.add_argument("--unit", required=True)
-    edge.add_argument("--sections", type=int, default=DEFAULT_SECTIONS)
+    edge.add_argument("mesh", nargs="?")
+    edge.add_argument("output", nargs="?")
+    edge.add_argument("--from-nodes", help="ordered ANSA SET node-window export; no mesh needed")
+    edge.add_argument("--out", help="destination for --from-nodes; default: <input stem>.te.txt")
+    edge.add_argument("--axis", nargs=3, type=float)
+    edge.add_argument("--hub", nargs=3, type=float)
+    edge.add_argument("--unit", help="coordinate unit; METER by default for --from-nodes")
+    edge.add_argument("--sections", type=int)
     edge.add_argument("--overwrite", action="store_true")
     build = verbs.add_parser(
         "build",
@@ -474,29 +476,58 @@ def _cmd_from_sidecar(args: argparse.Namespace) -> int:
     return 0
 
 
-def run_geometry(args: argparse.Namespace) -> int:
-    """Run the ``pyfs-workspace geometry`` verb ``args`` names and return its exit code."""
-    verb = args.geometry_command
-    if verb == "export-surface-mesh":
-        return _cmd_export_surface_mesh(args)
-    if verb == "trailing-edge":
-        from pyflightstream.workspace.trailing_edges import write_trailing_edge_node_file
+def _cmd_trailing_edge(args: argparse.Namespace) -> int:
+    """Keep the ordered-node conversion and existing mesh extraction routes explicit."""
+    from pyflightstream.workspace.trailing_edges import write_trailing_edge_node_file
+    from pyflightstream.workspace.wake_edges import write_trailing_edge_points_from_nodes
 
-        try:
+    try:
+        if args.from_nodes:
+            if any(
+                value is not None
+                for value in (args.mesh, args.output, args.axis, args.hub, args.sections)
+            ):
+                raise ValueError(
+                    "--from-nodes takes no mesh, output positional, --axis, --hub or --sections; "
+                    "use --out"
+                )
+            path = write_trailing_edge_points_from_nodes(
+                args.from_nodes,
+                args.out or Path(args.from_nodes).with_suffix(".te.txt"),
+                unit=args.unit or "METER",
+                overwrite=args.overwrite,
+            )
+        else:
+            if args.out is not None or any(
+                value is None for value in (args.mesh, args.output, args.axis, args.hub, args.unit)
+            ):
+                raise ValueError(
+                    "mesh extraction needs mesh output --axis --hub --unit; "
+                    "--out belongs to --from-nodes"
+                )
             path = write_trailing_edge_node_file(
                 args.mesh,
                 args.output,
                 axis=args.axis,
                 hub=args.hub,
                 unit=args.unit,
-                sections=args.sections,
+                sections=args.sections if args.sections is not None else DEFAULT_SECTIONS,
                 overwrite=args.overwrite,
             )
-        except (PyflightstreamError, OSError, ValueError) as error:
-            print(str(error), file=sys.stderr)
-            return 2
-        print(path)
-        return 0
+    except (PyflightstreamError, OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    print(path)
+    return 0
+
+
+def run_geometry(args: argparse.Namespace) -> int:
+    """Run the ``pyfs-workspace geometry`` verb ``args`` names and return its exit code."""
+    verb = args.geometry_command
+    if verb == "export-surface-mesh":
+        return _cmd_export_surface_mesh(args)
+    if verb == "trailing-edge":
+        return _cmd_trailing_edge(args)
     if verb == "build":
         return _cmd_build(args)
     if verb == "accept":

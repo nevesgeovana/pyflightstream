@@ -1,4 +1,7 @@
 uid,destination,target,new_uids,file
+FR-1620,kept,,FR-3256 FR-3258,docs/unpublished/requirements/spcm.md
+FR-3256,l3,FR-1620,,tests/requirements_l3.csv
+FR-3258,l3,FR-1620,,tests/requirements_l3.csv
 FR-01,kept,,FR-3200,docs/unpublished/requirements/inst.md
 FR-02,kept,,,docs/unpublished/requirements/inst.md
 FR-02a,merged,FR-1204,FR-1204,docs/unpublished/requirements/inst.md
