@@ -188,6 +188,7 @@ def _bg_regressions___k_1p(
         rpm=1200.0,
         families_blades=["B", "C"],
         hub_m=hub,
+        moment_point_m=(0.0, 0.0, 0.0),
         axis_vector=(1.0, 0.0, 0.0),
         shaft_frame_axis="X",
     )
