@@ -33,7 +33,7 @@ from pyflightstream.workspace import JOB_TAG
 
 # Re-exported through this module for callers using this path.
 from pyflightstream.workspace.ledger import SIMS_IDS_HELP as SIMS_IDS_HELP
-from pyflightstream.workspace.ledger import listed_sims
+from pyflightstream.workspace.ledger import Ledger, listed_sims
 
 #: What joins the simulation id and the index: ``2006_3``.
 ALIAS_JOINER = "_"
@@ -547,3 +547,51 @@ def listed_ids(values: Sequence[str] | None) -> list[str]:
             listed_sims(",".join(part for value in values or [] for part in str(value).split()))
         )
     )
+
+
+def _aliases(ledger: Ledger) -> dict[str, tuple[str, str]]:
+    from pyflightstream.workspace.record_document import read_rows
+
+    rows = read_rows(ledger.manifest)
+    rows = [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+    planned = planned_in_workspace(ledger.root, rows)
+    for row in ledger.points():
+        planned.setdefault(str(row["sim"]), [])
+    return {alias: (sim, point) for alias, sim, point in alias_lines(rows, planned)}
+
+
+def _resolve(ledger: Ledger, target: str, label: str = "run (CLI: --run)") -> str:
+    """Return the run id ``target`` names (a run id or an alias); ``label`` names the argument."""
+    pair = _aliases(ledger).get(target)
+    if pair is not None:
+        matches = [row for row in ledger.points(sims=[pair[0]]) if row["point"] == pair[1]]
+        if matches and matches[0]["run_id"]:
+            return str(matches[0]["run_id"])
+    if ledger.card(target) is not None:
+        return target
+    raise LookupError(f"{label}: {target!r} names no effective recorded point")
+
+
+def _with_aliases(ledger: Ledger, value: Any) -> Any:
+    aliases = {pair: alias for alias, pair in _aliases(ledger).items()}
+    return _annotate(value, aliases)
+
+
+def _annotate(value: Any, aliases: dict[tuple[str, str], str]) -> Any:
+    if isinstance(value, list):
+        return [_annotate(item, aliases) for item in value]
+    if not isinstance(value, dict):
+        return value
+    result = {key: _annotate(item, aliases) for key, item in value.items()}
+    run_id = value.get("run_id")
+    if isinstance(run_id, str):
+        parts = run_id.split("/")
+        # <campaign>/sim_<id>/<point>: the campaign (the folder name) may
+        # itself start with sim_, so the simulation is the second last part.
+        # A continuation's id carries its stamp folder before the point
+        # (<campaign>/sim_<id>/r<stamp>/<point>), so the simulation is the part
+        # after the campaign when that part names one.
+        holder = parts[1] if len(parts) > 2 and parts[1].startswith("sim_") else parts[-2:][0]
+        sim = holder.removeprefix("sim_") if len(parts) > 1 else ""
+        result["run_id_alias"] = aliases.get((sim, parts[-1]))
+    return result

@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- History and diff accept run aliases; history, diff and log print aliases beside
+  recorded run IDs (PFS-2130.050).
 - A gained-token probe with no before-dump stays inconclusive instead of verified (RB4-16).
 - `apply_reanalysis` documents its build-registration and evidence-location refusals (RB4-24).
 - Read-only rebuild collection refuses grouped preparation and extraction completion

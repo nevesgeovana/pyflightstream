@@ -147,6 +147,18 @@ def _call(root: Path, capsys, verb: str, *args: str) -> tuple[int, str, str]:
     return code, out, err
 
 
+def test_p0440_history_and_diff_resolve_and_print_run_aliases(workspace, capsys):
+    code, out, err = _call(workspace, capsys, "history", "2006_1", "--json")
+    assert code == 0, err
+    rows = json.loads(out)["rows"]
+    assert rows and all(row["run_id_alias"] == "2006_1" for row in rows)
+    assert {row["run_id"] for row in rows} == {RUN, NEXT}
+    code, out, err = _call(workspace, capsys, "diff", f"2006_1@{STAMP}", "2006_1", "--json")
+    assert code == 0, err
+    identity = next(row for row in json.loads(out)["rows"] if row["field"] == "run_id")
+    assert identity["a_alias"] == identity["b_alias"] == "2006_1"
+
+
 def _tree(root: Path) -> dict[str, tuple[bytes | None, int]]:
     """Every path under ``root`` with its bytes (None for a folder) and modification time."""
     return {
@@ -156,6 +168,18 @@ def _tree(root: Path) -> dict[str, tuple[bytes | None, int]]:
         )
         for path in root.rglob("*")
     }
+
+
+def _without_aliases(value):
+    if isinstance(value, list):
+        return [_without_aliases(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _without_aliases(item)
+            for key, item in value.items()
+            if key not in {"run_id_alias", "a_alias", "b_alias"}
+        }
+    return value
 
 
 def test_history_reads_present_archived_and_datapoint_records(workspace, capsys):
@@ -168,7 +192,7 @@ def test_history_reads_present_archived_and_datapoint_records(workspace, capsys)
     assert rows[-1]["continues"] == RUN and rows[-1]["run_id"] == NEXT
     assert rows[-1]["datapoint_archives"][0]["stamp"] == STAMP
     assert {row["status"] for row in rows} == {"WALLTIME_REACHED", "CONVERGED"}
-    assert history(workspace, "A0") == rows
+    assert history(workspace, "A0") == _without_aliases(rows)
     assert len(point_rows(workspace)) == 1
     assert point_card(workspace, RUN) is None
     job = _record(
@@ -197,7 +221,7 @@ def test_diff_compares_recorded_fields_and_attributes_script_lines(workspace, ca
     assert "line 1" in detail and "a 'SET_PLOT_TYPE | old_plot'" in detail
     assert "b 'SET_PLOT_TYPE | new_plot'" in detail and "inputs/pproc/p1.toml" not in detail
     assert "old_plot" in detail and "new_plot" in detail
-    assert diff(workspace, f"{RUN}@{STAMP}", NEXT) == rows
+    assert diff(workspace, f"{RUN}@{STAMP}", NEXT) == _without_aliases(rows)
 
 
 def test_history_has_its_own_batch_transparency_test(workspace, capsys):
