@@ -387,7 +387,7 @@ def prove_guard_a() -> list[str]:
         REPO / ".github" / "workflows" / "ci.yml",
         # The all-extras leg as ci.yml spells it since excel joined it
         # (2026-09-27); the old spelling left this mutant with no anchor.
-        "        run: pip install -e .[dev,fsi,geom,excel,manual,plot]",
+        "        run: pip install -e .[dev,fsi,geom,excel,manual,plot,pandas]",
         "        run: pip install -e .[dev,fsi,geom,excel]",
         "M14 the all-extras leg reduced to the lean set",
     )

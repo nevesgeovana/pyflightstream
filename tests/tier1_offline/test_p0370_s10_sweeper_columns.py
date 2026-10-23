@@ -55,7 +55,7 @@ def test_the_simcenter_sweeper_keeps_every_printed_column():
     frame = to_table(report)
     assert frame["CDp"].tolist() == [0.1473]
     assert frame["CDv"].tolist() == [0.0012]
-    assert "CDi" not in frame and "CDo" not in frame
+    assert "CDi" not in frame.columns and "CDo" not in frame.columns
 
 
 def test_the_legacy_sweeper_still_keeps_its_original_columns():
