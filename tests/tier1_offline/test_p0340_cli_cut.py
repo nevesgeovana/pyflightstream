@@ -89,6 +89,7 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
     # `audit-mesh` (FR-426).
     assert choices == [
         *V0330_SUBCOMMANDS,
+        "noise",
         "degenerate",
         "support",
         "status",

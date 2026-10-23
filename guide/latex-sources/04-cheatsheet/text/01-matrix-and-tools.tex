@@ -170,6 +170,9 @@ See the website's Upgrading page for supported workspace conversion.
 \item \fl{--log-level LEVEL}, \fl{--no-check-frozen}, \fl{--no-local}, \fl{--no-pproc-warnings}: as in \cmd{run}
 \end{flags}
 
+\sub{noise <matrix>}{rebuild exploratory loading-noise products and list comparisons}
+\fl{--workspace ROOT}, \fl{--sims IDS}, \fl{--overwrite}, \fl{--verbose}, \fl{--log-level LEVEL}.
+
 \stage{6. SYNC WORKSPACES (E.G. CLUSTER TO WINDOWS)}
 \sub{sync \{runs|post|fsm|all\}}{run on the MAIN workspace; peers in \texttt{inputs/sync-workspaces.toml}; levels cumulative, runs $<$ post $<$ fsm $<$ all. Nothing in main is deleted; \texttt{inputs/} untouched but a declared matrix}
 \begin{flags}

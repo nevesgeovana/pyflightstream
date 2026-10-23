@@ -1089,6 +1089,8 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                         "sound_speed_m_s",
                         "samples_per_revolution",
                         "orders",
+                        "gutin_orders",
+                        "reference",
                         "axial_radius_m",
                         "inplane_radius_m",
                     )

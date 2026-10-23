@@ -1671,7 +1671,10 @@ def test_f3_0203_f788_one_unusable_observer_costs_only_its_own_file(tmp_path):
     """F-788: the other observers of the point are still written; the bad one is a named skip."""
     manifest, folder = _f3_0203_noise_run(tmp_path)
     written = sorted(p.name.rsplit("_observer_", 1)[1] for p in folder.glob("noise/*.csv"))
-    assert sorted(set(written)) == ["1.csv", "3.csv"] and len(written) == 4
+    assert (
+        sorted(set(written)) == ["1.csv", "1_harmonics.csv", "3.csv", "3_harmonics.csv"]
+        and len(written) == 8
+    )
     reasons = [v for k, v in manifest["skipped"].items() if k.endswith("_observer_2.csv")]
     assert len(reasons) == 2 and all("not finite" in reason for reason in reasons)
 
