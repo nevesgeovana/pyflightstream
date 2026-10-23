@@ -65,8 +65,6 @@ class TestArchiveRoot:
     Compatibility: pyfs-workspace archive campaign 9001
     """
 
-    pytestmark = pytest.mark.requirement("P0400-ARCHROOT")
-
     @staticmethod
     @pytest.mark.parametrize("option_first", [False, True])
     def test_named_workspace_archives_only_the_selected_campaign(

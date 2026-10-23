@@ -36,6 +36,13 @@ FlightStream versions.
   probe evidence (PFS-2149.01).
 - Setup `trailing_edge_types` accepts `RELAXED`, checked against the selected
   build's command record (PFS-2149).
+- Assessment warns when declared outputs are absent and it falls back to the
+  whole selected output folder, naming the affected point and declarations (F-600).
+
+- `post --check-frozen` and `collect --check-frozen` help now name the reference
+  area/length mismatch policy, also stated in the post-processing definitions
+  (PFS-2109.001).
+
 - Runs compare resolved per-simulation builds and acceptance with their plan;
   equivalent defaults from different sources are accepted. Replan older receipts
   that lack this effective contract (C-S13-019).

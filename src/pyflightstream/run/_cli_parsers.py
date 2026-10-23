@@ -823,7 +823,8 @@ def _add_collect_parsers(subparsers: Any) -> None:
 #: The help of ``--check-frozen``, which ``collect`` and ``post`` share.
 _CHECK_FROZEN_HELP = (
     "REFUSE instead of WARN for averages touched by a frozen solve or "
-    "an unread native-log block. By default computable products are written "
+    "an unread native-log block, and for a reference area/length mismatch "
+    "between the export and SREF/CREF. By default computable products are written "
     "and post.log warns. Both modes write post.log and post.log.json with the "
     "point, product, step and remedy; refusals are also named in products.json"
 )

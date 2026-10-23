@@ -52,8 +52,6 @@ from tests.tier1_offline.test_tables import read_fixture as _results_loads_suppo
 class TestResultsCore:
     """P0400-RESULTS: the shared parsers of the results package (PFS-2095.048)."""
 
-    pytestmark = pytest.mark.requirement("P0400-RESULTS-NUMBERS")
-
     @staticmethod
     @pytest.mark.parametrize("token", ["nan", "inf", "-Infinity", "NaN"])
     def test_p0400_results_parse_count_refuses_a_non_finite_value(token):
@@ -139,8 +137,6 @@ _RESULTS_SURFACE__TRANSLATIONS = [
 
 class TestResultsSurface:
     """P0400-RESULTS: the VTK surface reader and the surface translations of 0.40.0 (lane results)."""  # noqa: E501
-
-    pytestmark = pytest.mark.requirement("P0400-RESULTS-SURFACE")
 
     @staticmethod
     # --- PFS-2095.023: truncated or malformed VTK header lines raise catalogued errors ---
@@ -254,8 +250,6 @@ class TestResultsSurface:
 class TestResultsSweep:
     """P0400-RESULTS: the results tables of 0.40.0 (lane results)."""
 
-    pytestmark = pytest.mark.requirement("P0400-RESULTS-TABLES")
-
     @staticmethod
     def test_p0400_results_one_unreadable_record_does_not_abort_the_sweep(tmp_path):
         """P0400-RESULTS (PFS-2095.025): a deleted output keeps its row, NaN, warned by run id."""
@@ -292,8 +286,6 @@ def _results_tables___unsteady(text: str) -> str:
 
 class TestResultsTables:
     """P0400-RESULTS: the results tables of 0.40.0 (lane results)."""
-
-    pytestmark = pytest.mark.requirement("P0400-RESULTS-TABLES")
 
     @staticmethod
     def test_p0400_results_a_recorded_unsteady_loads_export_is_labelled_last_step(tmp_path):
@@ -395,8 +387,6 @@ def _results_topology___strip(cells: int) -> VtkSurface:
 class TestResultsTopology:
     """Results regressions for 0.40.0."""
 
-    pytestmark = pytest.mark.requirement("P0400-RESULTS-SURFACE")
-
     @staticmethod
     def test_p0400_results_topology_differs_is_linear_in_the_polygons(monkeypatch):
         """P0400-RESULTS (PFS-2101.002): np.diff runs a fixed number of times, not once per polygon."""  # noqa: E501
@@ -416,8 +406,6 @@ class TestResultsTopology:
 
 class TestResultsAmbiguity:
     """P0400-RESULTS: the results tables of 0.40.0 (lane results)."""
-
-    pytestmark = pytest.mark.requirement("P0400-RESULTS-TABLES")
 
     @staticmethod
     def test_p0400_results_loads_file_naming_two_outputs_is_ambiguous(tmp_path):
@@ -475,8 +463,6 @@ class TestResultsAmbiguity:
 
 class TestResultsDetection:
     """P0400-RESULTS: the results tables of 0.40.0 (lane results)."""
-
-    pytestmark = pytest.mark.requirement("P0400-RESULTS-TABLES")
 
     @staticmethod
     def test_p0400_results_a_truncated_loads_spreadsheet_is_refused_not_skipped(tmp_path):
@@ -543,8 +529,6 @@ class TestResultsDetection:
 class TestResultsReview:
     """Review regressions: read_vtk_surface and repeated translate_surface_exports calls."""
 
-    pytestmark = pytest.mark.requirement("P0400-RESULTS-SURFACE")
-
     @staticmethod
     @pytest.mark.parametrize("token", [str(2**63), str(-(2**63) - 1)])
     def test_p0400_results_polygon_integer_overflow_is_catalogued(tmp_path, token):
@@ -584,8 +568,6 @@ class TestResultsReview:
 class TestResultsTranslation:
     """Results regressions for 0.40.0."""
 
-    pytestmark = pytest.mark.requirement("P0400-RESULTS-SURFACE")
-
     @staticmethod
     def test_p0400_results_a_stale_dat_with_no_native_source_is_preserved_not_written(tmp_path):
         """P0400-RESULTS (PFS-2105.024): the real translation, on a stale .dat beside a valid VTK."""  # noqa: E501
@@ -616,8 +598,6 @@ class TestResultsTranslation:
 class TestResultsVersion:
     """P0400-RESULTS: the results tables of 0.40.0 (lane results)."""
 
-    pytestmark = pytest.mark.requirement("P0400-RESULTS-TABLES")
-
     @staticmethod
     @pytest.mark.parametrize("requested", ["unstated", "99.999", "26.12"])
     def test_p0400_results_an_unresolvable_requested_version_still_yields_the_loads(
@@ -640,8 +620,6 @@ class TestResultsVersion:
 
 class TestResultsWriters:
     """P0400-RESULTS: the results tables of 0.40.0 (lane results)."""
-
-    pytestmark = pytest.mark.requirement("P0400-RESULTS-TABLES")
 
     @staticmethod
     def test_p0400_results_to_csv_can_refuse_to_overwrite(tmp_path):

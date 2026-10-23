@@ -783,8 +783,6 @@ class TestPrivateImportRatchet:
 class TestRfixAGuards:
     """Positive and negative controls for the static core and recorded-byte guards."""
 
-    pytestmark = pytest.mark.requirement("P0400-RFIXA-GUARDS")
-
     @staticmethod
     @pytest.mark.parametrize(
         "source,name",

@@ -219,8 +219,6 @@ class TestWorkspace1Refine:
     Each test is the regression of one planning node and fails on the code before its fix.
     """
 
-    pytestmark = pytest.mark.requirement("P0400-WSREFINE")
-
     @staticmethod
     @pytest.mark.parametrize("families", [[], ()], ids=["list", "tuple"])
     def test_p0400_wsrefine_an_empty_family_selection_is_refused(tmp_path, families):

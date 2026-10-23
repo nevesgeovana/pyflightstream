@@ -224,8 +224,6 @@ def _last6_continuation___case(key, value, offset=250, owed=150):
 class TestLast6Continuation:
     """Continuation thresholds must be reached by the continued march's local counter."""
 
-    pytestmark = pytest.mark.requirement("P0400-LAST6-CONTINUATION")
-
     @staticmethod
     def test_p0400_last6_some_owed_count_reaches_last_iter_threshold(tmp_path):
         threshold = unsteady_export_threshold(

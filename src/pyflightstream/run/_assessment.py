@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.cases import (
     SimCase,
     point_name,
@@ -455,6 +456,15 @@ def _find_assessment_outputs(job: _LoadsJudgment) -> Assessment | None:
         own_outputs = [path for path in job.collected if path.name in declared]
         if own_outputs:
             job.collected = own_outputs
+        else:
+            warn(
+                f"point={getattr(job.case, 'sim_id', 'unknown')}/"
+                f"{own_name or Path(job.sim_dir).name}: "
+                f"declared outputs {', '.join(sorted(declared))} are absent; "
+                "assessment falls back to all files in the selected output folder",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
     return None
 
 
