@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Superfile completeness checks refuse conflicting copies of a matrix instead of
+  silently omitting its fields from the audit (RB3-12).
 - Section integration retains raw loads and names the refusal when mesh length
   units are absent, instead of silently interpreting lengths as metres (RB3-11).
 - Missing section frames are named as missing layout metadata in reduced-frequency
