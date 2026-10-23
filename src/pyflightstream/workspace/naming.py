@@ -109,6 +109,11 @@ def sim_dir_name(sim_id: str) -> str:
     -------
     str
         The portable ``sim_<id>`` folder name.
+
+    Raises
+    ------
+    NamingTemplateError
+        If sim_id is empty or contains characters outside the portable alphabet.
     """
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", sim_id):
         raise NamingTemplateError(
