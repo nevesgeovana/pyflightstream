@@ -289,6 +289,15 @@ def _farfield_products___table(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def test_p0440_nonmetre_steady_probe_velocity_is_a_named_skip(tmp_path):
+    workspace = _farfield_products___workspace(tmp_path, farfield=True)
+    saved = next(workspace.sim_dir("3207").glob("outputs/*.fsm"))
+    saved.write_text("$GLOBAL_START$\n.001\n2\n$GLOBAL_END$\n", encoding="utf-8")
+    messages = _farfield_products___post(workspace)
+    assert any("steady probe velocity units" in message for message in messages)
+    assert any("1000" in message and "unmeasured" in message for message in messages)
+
+
 def _farfield_products___one(root: Path, pattern: str) -> Path:
     found = sorted(root.rglob(pattern))
     assert len(found) == 1, (pattern, found)

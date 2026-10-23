@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Far-field products refuse steady probe velocities from non-metre simulations
+  by name until their velocity units have measured conversion evidence (F-122).
 - Far-field mass, symmetry, and energy ledger columns retain six significant
   digits when five decimal places would round small nonzero results to zero (X-F-0340).
 - Section azimuths carry the recorded full rotor blade count through post-processing;
