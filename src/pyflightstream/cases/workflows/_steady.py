@@ -354,7 +354,7 @@ def _before_the_build(
         # its per-step VTK exports; a point exporting no Tecplot has nothing to
         # average into one.
         names = list((conventions.outputs if conventions else None) or case.outputs)
-        if case.recipe in _UNSTEADY_RECIPES:
+        if select_workflow(case) in _UNSTEADY_RECIPES:
             try:
                 script.entry(_AVERAGE_ACTION)
             except CommandNotInVersionError as error:
@@ -399,7 +399,7 @@ def _after_the_build(case: SimCase, script: Script) -> None:
             block["loads_frame_index"] = script.loads_frame
     # A continuation's loads frame is its saved simulation's, which the run takes
     # from the run it continues; only an unsteady row continues one.
-    if case.recipe not in _UNSTEADY_RECIPES or continuation_of(case) is None:
+    if select_workflow(case) not in _UNSTEADY_RECIPES or continuation_of(case) is None:
         refuse_an_untranslatable_surface(case, script)
     # THE LABEL IS THE SCRIPT: a point recorded as marched by actions registers
     # at least one of the package's own, and one recorded as a single march

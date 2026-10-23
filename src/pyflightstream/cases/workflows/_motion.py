@@ -29,6 +29,7 @@ from pyflightstream.cases import (
 from ._actuator import (
     _the_actuator_the_row_names,
 )
+from ._conventions import select_workflow
 from ._rows import (
     UNNAMED_ROTOR_RADICAL,
     RotorMach,
@@ -149,8 +150,8 @@ def rotor_machs(case: SimCase) -> list[RotorMach]:
         )
 
     machs: list[RotorMach] = []
-    if case.recipe in ("unsteady_rotor", QSTEADY_ROTOR) or (
-        case.recipe == "steady" and _states_a_rotor_speed(case)
+    if select_workflow(case) in ("unsteady_rotor", QSTEADY_ROTOR) or (
+        select_workflow(case) == "steady" and _states_a_rotor_speed(case)
     ):
         machs.extend(_rotor_machs(case, where, one))
     if _variable(case, ACTUATOR_VARIABLE) is not None:

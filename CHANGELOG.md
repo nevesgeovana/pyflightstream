@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Workflow decisions use the declared run type consistently, including reduction
+  windows for Python cases that state only `matrix_workflow` (PFS-2124.020).
 - The missing custom-flag command diagnostic gives a supported command example (RB6-11).
 - Invalid `RPM_SIGN` values beside a rotor block name the allowed values before
   checking agreement with the block (RB6-09).

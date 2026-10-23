@@ -79,6 +79,7 @@ from pyflightstream.script import (
     helpers,
 )
 
+from ._conventions import select_workflow
 from ._motion import (
     _clock_speed,
     _motion_view,
@@ -375,7 +376,7 @@ def _how_the_row_moves_the_body(case: SimCase) -> list[str]:
     ):
         if records and key not in moved:
             moved.append(key)
-    if case.recipe == "unsteady_rotor" and MOTIONS_VARIABLE not in moved:
+    if select_workflow(case) == "unsteady_rotor" and MOTIONS_VARIABLE not in moved:
         moved.append(MOTIONS_VARIABLE)
     operations = getattr(case.mesh_import, "operations", None) or ()
     moved += sorted({f"the import's {op.op}" for op in operations if op.op != "rename"})
@@ -1179,7 +1180,7 @@ def planned_wake(case: SimCase) -> WakeTermination | None:
     the plan adds nothing about it. The same conversion as the builder's
     (:func:`wake_termination_of`), so the plan and the script agree.
     """
-    if case.recipe != "unsteady_rotor":
+    if select_workflow(case) != "unsteady_rotor":
         return None
     try:
         if parse_restart(case) is not None:
@@ -1199,7 +1200,7 @@ def planned_run_wake(case: SimCase) -> RunWakeLength | None:
     (:func:`rotor_row_stepping`), so the plan prints the count the script
     carries (FR-906).
     """
-    if case.recipe != "unsteady_rotor":
+    if select_workflow(case) != "unsteady_rotor":
         return None
     try:
         if parse_restart(case) is not None:

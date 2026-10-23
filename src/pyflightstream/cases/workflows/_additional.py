@@ -36,6 +36,7 @@ from pyflightstream.versions import (
 from ._conventions import (
     WorkflowConventions,
     WorkflowCoverageError,
+    select_workflow,
 )
 from ._exports import (
     _export_block,
@@ -443,7 +444,7 @@ def build_additional_script(case: SimCase, script: Script, *, saved: str, shadow
             "no run type built; the additional post cites the frames of a saved simulation "
             "by the names its run type gave them, and a LEGACY recipe's are its own."
         )
-    unsteady = case.recipe in _UNSTEADY_RECIPES
+    unsteady = select_workflow(case) in _UNSTEADY_RECIPES
     _configuration_comment(case, script)
     script.emit("OPEN", saved)
     # THE FRAMES AND THE BOUNDARIES THE SAVED SIMULATION HOLDS, declared rather
