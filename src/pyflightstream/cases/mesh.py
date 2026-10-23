@@ -18,7 +18,14 @@ import math
 from collections.abc import Mapping, Sequence
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 # The CCS geometry table, a table of a geometry sidecar's [import]; its
 # module imports only pydantic and the script row, so the package may import it
@@ -279,6 +286,20 @@ class MeshImport(BaseModel):
 TrailingEdgeRoute = Literal["file", "detect", "none"]
 
 
+class TrailingEdgeSet(BaseModel):
+    """One points file and the type applied to its trailing edges, in metres."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+    edge_type: Literal["STANDARD", "RELAXED", "JET_OUTFLOW", "VORTEX_SHEDDING"] = "STANDARD"
+    points_m: tuple[tuple[float, float, float], ...] = ()
+    points_file: str | None = Field(default=None, exclude=True)
+
+    @field_validator("edge_type", mode="before")
+    @classmethod
+    def _uppercase(cls, value: object) -> object:
+        return value.strip().upper() if isinstance(value, str) else value
+
+
 class TrailingEdgeMarking(BaseModel):
     """How a raw mesh's trailing edges are marked: its sidecar's ``[trailing_edges]`` (G02).
 
@@ -313,17 +334,66 @@ class TrailingEdgeMarking(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     route: TrailingEdgeRoute
-    edge_type: str = "STANDARD"
     tolerance: float = 0.0001
-    points_m: tuple[tuple[float, float, float], ...] = ()
-    points_file: str | None = Field(default=None, exclude=True)
+    sets: tuple[TrailingEdgeSet, ...] = ()
     detect_surfaces: tuple[str, ...] = ()
     sweep_angle_deg: float | None = None
 
-    @field_validator("edge_type", mode="before")
+    @model_validator(mode="before")
     @classmethod
-    def _one_word_in_capitals(cls, value: object) -> object:
-        return value.strip().upper() if isinstance(value, str) else value
+    def _legacy_file(cls, value: object) -> object:
+        if not isinstance(value, Mapping):
+            return value
+        data = dict(value)
+        legacy = {
+            key: data.pop(key) for key in ("edge_type", "points_m", "points_file") if key in data
+        }
+        if "sets" not in data and (data.get("route") == "file" or legacy):
+            data["sets"] = (legacy,)
+        return data
+
+    @property
+    def edge_type(self) -> str:
+        """Return the first file's type for single-file callers."""
+        return self.sets[0].edge_type if self.sets else "STANDARD"
+
+    @property
+    def points_m(self) -> tuple[tuple[float, float, float], ...]:
+        """Return the first file's points in metres."""
+        return self.sets[0].points_m if self.sets else ()
+
+    @property
+    def points_file(self) -> str | None:
+        """Return the first file's local path, excluded from records."""
+        return self.sets[0].points_file if self.sets else None
+
+    def model_copy(self, *, update=None, deep=False):
+        """Preserve the legacy first-file update spelling for existing callers."""
+        values = dict(update or {})
+        first = {
+            key: values.pop(key)
+            for key in ("edge_type", "points_m", "points_file")
+            if key in values
+        }
+        if first:
+            entry = self.sets[0] if self.sets else TrailingEdgeSet()
+            values["sets"] = (entry.model_copy(update=first, deep=deep), *self.sets[1:])
+        return super().model_copy(update=values, deep=deep)
+
+    @model_serializer(mode="wrap")
+    def _record(self, handler):
+        data = handler(self)
+        sets = data.pop("sets")
+        record = {
+            "route": data.pop("route"),
+            "edge_type": self.edge_type,
+            "tolerance": data.pop("tolerance"),
+            "points_m": sets[0]["points_m"] if sets else [],
+            **data,
+        }
+        if len(sets) > 1:
+            record["sets"] = sets
+        return record
 
     @model_validator(mode="after")
     def _one_route_and_sound_values(self) -> TrailingEdgeMarking:
@@ -472,6 +542,15 @@ class PortBoundary(BaseModel):
         return self
 
 
+class WakeTerminationMarking(BaseModel):
+    """Explicit wake-termination vertices, matched in metres before emission."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+    points_file: str = Field(exclude=True)
+    tolerance: float = Field(default=0.0001, gt=0)
+    nodes: tuple[int, ...] = ()
+
+
 class RawMeshConditions(BaseModel):
     """The boundary conditions a raw mesh's sidecar declares (G02, Q1).
 
@@ -495,7 +574,7 @@ class RawMeshConditions(BaseModel):
     #: Stable geometric port identities mapped to exact surface names after import renames.
     ports: dict[str, str] = Field(default_factory=dict)
     trailing_edges: TrailingEdgeMarking | None = None
-    wake_termination: Literal["auto"] | tuple[str, ...] | None = None
+    wake_termination: Literal["auto"] | tuple[str, ...] | WakeTerminationMarking | None = None
     base_regions: Literal["auto"] | None = None
     inlets: tuple[PortBoundary, ...] = ()
     outlets: tuple[PortBoundary, ...] = ()

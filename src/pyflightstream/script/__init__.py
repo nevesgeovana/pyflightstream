@@ -272,9 +272,8 @@ class Script(_ScriptRendering):
 
     def __init__(self, version: str | FsVersion, registry: CommandRegistry | None = None):
         self._registry = registry or CommandRegistry.load()
-        view = self._registry.for_version(version)
-        self._view = view
-        self.version: FsVersion = view.version
+        self._view = self._registry.for_version(version)
+        self.version: FsVersion = self._view.version
         self.raw_flag = False
         # Broken-command waivers (FR-48): the justification per command
         # name the caller allowed, and the record of the ones actually
@@ -389,8 +388,7 @@ class Script(_ScriptRendering):
         #: still means that boundary. None for a script that opened no
         #: geometry declaring names, which includes every LEGACY recipe.
         self.boundary_inventory: tuple[str, ...] | None = None
-        #: HOW MANY TRAILING-EDGE POINTS THIS SCRIPT IMPORTS, or None when it
-        #: imports none (G02). Set by
+        #: Imported trailing-edge point count, or None when none are imported (G02). Set by
         #: :func:`~pyflightstream.script.helpers.mark_wake_edges` after it
         #: emits, and summed over its calls. The run compares it with the
         #: count the solver logs as imported, because a point that matches
@@ -398,6 +396,8 @@ class Script(_ScriptRendering):
         #: SCRIPT so a continuation, which imports nothing, is never held to
         #: a count its own script did not write.
         self.wake_edge_points: int | None = None
+        #: Ordered file imports for saved-state validation; coordinates and tolerance in metres.
+        self.wake_edge_sets: list[dict[str, object]] = []
         #: The id of the 6DOF motion a row's ``SIXDOF`` input created, or None.
         #: The trajectory export (FR-1089) names it after the march.
         self.sixdof_motion: int | None = None

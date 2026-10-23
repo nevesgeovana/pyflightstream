@@ -97,9 +97,9 @@ from pyflightstream.workspace.inputs import (
 from pyflightstream.workspace.naming import group_token
 from pyflightstream.workspace.sixdof_setup import resolve_row_sixdof
 from pyflightstream.workspace.wake_edges import (
+    bind_wake_termination,
     length_scale,
-    matched_trailing_edge_points,
-    read_trailing_edge_points,
+    matched_trailing_edge_sets,
 )
 
 
@@ -656,6 +656,7 @@ def _raw_mesh_conditions_of(
     where = f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names {geometry.name}, and"
     try:
         declared = read_raw_mesh_conditions(sidecar)
+        declared = bind_wake_termination(declared, geometry, mesh_import, solver)
     except InputArtifactError as error:
         raise InputArtifactError(f"{where} {error}") from error
     marking = None if declared is None else declared.trailing_edges
@@ -676,26 +677,11 @@ def _raw_mesh_conditions_of(
         length_scale(mesh_import.units, SIMULATION_LENGTH_UNIT)
     except InputArtifactError:
         return declared
-    assert marking.points_file is not None  # the file route's reader always sets it
-    points_file = Path(marking.points_file)
     try:
-        read = read_trailing_edge_points(points_file)
-        points = matched_trailing_edge_points(
-            read.points,
-            points_unit=read.unit,
-            mesh=geometry,
-            mesh_unit=mesh_import.units,
-            simulation_unit=SIMULATION_LENGTH_UNIT,
-            tolerance=marking.tolerance,
-            source=f"the [trailing_edges] file {points_file.name} of {sidecar.name}",
-            lines=read.lines,
-        )
+        checked = matched_trailing_edge_sets(marking, geometry, mesh_import.units)
     except InputArtifactError as error:
         raise InputArtifactError(f"{where} {error}") from error
-    checked = tuple((float(x), float(y), float(z)) for x, y, z in points.tolist())
-    return declared.model_copy(
-        update={"trailing_edges": marking.model_copy(update={"points_m": checked})}
-    )
+    return declared.model_copy(update={"trailing_edges": checked})
 
 
 def _resolve_geometry(workspace: CampaignWorkspace, name: str, pol: str) -> Path:

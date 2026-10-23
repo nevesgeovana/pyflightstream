@@ -1366,9 +1366,16 @@ def _log_verdicts(
     if log_text is None:
         log_text = job_log
     expected = (record.submission or {}).get("wake_edge_points")
+    sets = (record.submission or {}).get("wake_edge_sets", [])
     if isinstance(expected, int):
         status, verdict = with_wake_edge_verdict(
-            status, verdict, wake_edge_import_verdict(expected, log_text)
+            status,
+            verdict,
+            wake_edge_import_verdict(expected, log_text, sets),
+            sets=sets,
+            folder=sim_dir,
+            collected=collected,
+            build=record.fs_version_requested,
         )
     declared = declared_log_names(record, sim_dir)
     # The solver's own log, where the job ran, whether or not a row declared it:

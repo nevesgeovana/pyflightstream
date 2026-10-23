@@ -294,6 +294,34 @@ table with `file` and no `type` is refused: STANDARD is the type the solver's
 detection gives the edges it marks, so one mesh marked by file and by detection
 carries one type when you write it.
 
+Several disjoint sets may carry different types in the raw-mesh run route:
+
+```toml
+[trailing_edges]
+files = [
+  { file = "outer.te.txt", type = "STANDARD" },
+  { file = "junction.te.txt", type = "RELAXED" },
+]
+tolerance = 0.0001  # metres, shared by every file
+```
+
+Imports follow this order, with node files `<stem>.wake_nodes.txt`,
+`<stem>.wake_nodes.2.txt`, and so on. `file` and `files` together, an empty
+list, repeated paths, unsupported types, or two files claiming the same mesh
+edge are refused by name. The one-file spelling and its script stay unchanged.
+
+Plans state that successive imports adding or replacing earlier marks is
+unmeasured on the build (PFS-2149.01). The run checks each logged import count
+and the union of marked midpoints in its saved simulation, in metres. Missing
+edges produce `FAILED_SCRIPT` naming their files. A missing or unreadable save
+produces `FAILED_INCOMPLETE_OUTPUT`. Records carry `wake_edge_sets` with each
+file, type and count. Saved-state flags cannot verify types; their read-back
+remains PFS-2149.01. Geometry build refuses multiple sets because it does not
+perform the run's saved-state check.
+
+The setup's `trailing_edge_types` also accepts `RELAXED` for an explicitly
+numbered trailing edge, subject to the selected build's command record.
+
 **Detection, the second route, applies only when written.** It is never a
 default:
 
@@ -326,7 +354,24 @@ absence of trailing edges; it is not automatic detection and does not make
 omission of the table equivalent to this declaration. A `<stem>.te.txt` left
 beside the mesh is then not read.
 
-**Two options, each only when written.**
+**Explicit termination nodes (probe gated).** A points file uses the same
+unit-first coordinate format as a trailing-edge file:
+
+```toml
+[wake_termination]
+file = "tips.wt.txt"
+tolerance = 0.0001  # metres
+```
+
+Each point must match exactly one source-mesh vertex within the tolerance.
+An absent or ambiguous match names the point and file. `file` and `detect`
+cannot be combined, and moving import operations are refused. The script
+selects the matched nodes after import and then marks them. This route is
+refused at plan until `MARK_WAKE_TERMINATION_NODES` has verified evidence
+on the selected build (PFS-2149.01). The old bare setup key
+`mark_wake_termination_nodes = true` is refused because it selects no nodes.
+
+**Two detection options, each only when written.**
 
 ```toml
 [wake_termination]

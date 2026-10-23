@@ -472,16 +472,19 @@ class SolverSettings(BaseModel):
     #: setting a run applied: by the build guard naming the command on 25.100
     #: onward, and on 25.000 by the INITIALIZE_SOLVER helper, as every case is.
     legacy_solver_model: str | None = None
-    #: Explicit BC overrides, emitted before runtime/init settings. RELAXED remains deferred.
+    #: Explicit BC overrides, emitted before runtime/init settings and checked per build.
     trailing_edge_types: (
-        dict[Annotated[int, Field(ge=1)], Literal["STANDARD", "JET_OUTFLOW", "VORTEX_SHEDDING"]]
+        dict[
+            Annotated[int, Field(ge=1)],
+            Literal["STANDARD", "RELAXED", "JET_OUTFLOW", "VORTEX_SHEDDING"],
+        ]
         | None
     ) = None
     #: One-based trailing-edge indices whose wake nodes are disabled.
     disabled_wake_trailing_edges: list[Annotated[int, Field(ge=1)]] | None = None
     #: Boundary labels or indices on which leading-edge wakes are detected.
     leading_edge_wake_boundaries: list[int | str] | None = Field(default=None, min_length=1)
-    #: Explicitly mark wake termination nodes; no implicit detection is requested.
+    #: Refused: selects no node. Use the geometry sidecar's [wake_termination] file route.
     mark_wake_termination_nodes: Literal[True] | None = None
     #: Ports selected by setup; surface identity is bound from the geometry and values from MATRIX.
     ports: tuple[PortBoundary, ...] = ()

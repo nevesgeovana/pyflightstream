@@ -22,6 +22,14 @@ FlightStream versions.
 - `pyfs-workspace fsi campbell` writes structural Campbell frequencies, Southwell
   fits and a provenance/crossing report from an FSI input (PFS-2154).
 
+- Raw-mesh `[trailing_edges] files` imports ordered files with separate types,
+  checks every logged count and verifies their union in the saved simulation.
+  Plans state that successive imports remain unmeasured (PFS-2149.01).
+- Explicit `[wake_termination] file` matches chosen mesh vertices. Planning
+  refuses `MARK_WAKE_TERMINATION_NODES` until the selected build has verified
+  probe evidence (PFS-2149.01).
+- Setup `trailing_edge_types` accepts `RELAXED`, checked against the selected
+  build's command record (PFS-2149).
 - `refine` reports its progress while it runs: one line per stage and per family (read, layout,
   grid, remesh, write, audit) on stderr, as `[refine HH:MM:SS +N.N s] <stage>`, so a long refinement
   shows it is moving; `--log-level quiet` hides them. In Python, `refine_mesh(..., progress=callable)`
@@ -45,6 +53,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Custom recipes without a registered workflow again record no reduction windows
+  (PFS-2124.020). Registered run types retain consistent workflow selection.
 - Far-field products refuse steady probe velocities from non-metre simulations
   by name until their velocity units have measured conversion evidence (F-122).
 - Far-field mass, symmetry, and energy ledger columns retain six significant
@@ -184,6 +194,8 @@ FlightStream versions.
 - FR-2115 now states the retained opt-in exploratory loading-noise post products;
   these products remain labelled not validated (F-485).
 
+- Bare `mark_wake_termination_nodes = true` is refused because it selects no
+  nodes. Use the geometry sidecar's `[wake_termination] file` route (PFS-2149).
 - A run matrix whose header holds a column the layout does not know is refused naming that
   column and the closest known column.
 - The install command a missing optional extra names is quoted,

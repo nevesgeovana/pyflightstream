@@ -235,6 +235,12 @@ def checked_trailing_edge_points(
     marking = instruction.trailing_edges
     if marking is None or marking.route != "file":
         return ()
+    if len(marking.sets) > 1:
+        raise _refuse(
+            path,
+            "multiple trailing-edge files require the raw-mesh run route and its saved-state "
+            "check (PFS-2149.01); geometry build cannot verify successive imports",
+        )
     if instruction.mesh is None:
         raise _refuse(
             path,

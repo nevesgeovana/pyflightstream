@@ -570,6 +570,9 @@ def test_setup_command_is_emitted_with_its_stated_argument_on_26124(command, tmp
     stated_dir.mkdir()
     control_dir.mkdir()
     lines, why = _render(route.stated(stated_dir))
+    if command == "MARK_WAKE_TERMINATION_NODES":
+        assert lines is None and "[wake_termination] file" in why
+        return
     assert lines is not None, f"{command}: the stated case does not build on {BUILD}: {why}"
     near = [line for line in lines if line.startswith(command)]
     assert _carries(lines, route.block), (

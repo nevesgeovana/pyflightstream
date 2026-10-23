@@ -35,6 +35,7 @@ _SIXDOF_PROBE = "the 6DOF probes of the command-gap batch (P4)"
 #: The gated commands, each with the licensed probe that settles it.
 PROBE_GATED_COMMANDS: Mapping[str, str] = MappingProxyType(
     {
+        "MARK_WAKE_TERMINATION_NODES": "PFS-2149.01, the wake-termination probe",
         "NEW_OFF_BODY_STREAMTUBE": _STREAMLINE_PROBE,
         "SET_OFF_BODY_STREAMLINE_LENGTH": _STREAMLINE_PROBE,
         "SET_ALL_OFF_BODY_STREAMLINES_UPSTREAM": _STREAMLINE_PROBE,
@@ -58,6 +59,21 @@ PROBE_GATED_COMMANDS: Mapping[str, str] = MappingProxyType(
         "EXPORT_6DOF_TRAJECTORY": _SIXDOF_PROBE,
     }
 )
+
+
+def refuse_unprobed_wake_termination(case: SimCase, script: Script) -> None:
+    """Check the selected explicit termination route before geometry emission."""
+    from pyflightstream.cases.mesh import WakeTerminationMarking
+
+    conditions = case.raw_mesh_conditions
+    if (
+        conditions is not None
+        and case.solver.apply_wake_termination is not False
+        and isinstance(conditions.wake_termination, WakeTerminationMarking)
+    ):
+        refuse_unprobed_commands(
+            case, script, ["MARK_WAKE_TERMINATION_NODES"], capability="[wake_termination] file"
+        )
 
 
 def command_verified(script: Script, command: str) -> bool:

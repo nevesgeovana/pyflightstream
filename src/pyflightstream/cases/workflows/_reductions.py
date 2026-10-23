@@ -23,7 +23,7 @@ from pyflightstream.cases import (
     windows as _windows,
 )
 
-from ._conventions import select_workflow
+from ._conventions import WORKFLOWS, _workflow_cell, select_workflow
 from ._motion import (
     _optional_rotor_speed,
     _the_rotors_the_row_turns,
@@ -1159,9 +1159,12 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     [596, 720]
     """
     _refuse_retired_window_keys(case)
-    if select_workflow(case) not in _UNSTEADY_RECIPES:
+    if _workflow_cell(case) is None and (case.recipe or "").strip() not in WORKFLOWS:
         return None
-    rotor = select_workflow(case) == "unsteady_rotor"
+    workflow = select_workflow(case)
+    if workflow not in _UNSTEADY_RECIPES:
+        return None
+    rotor = workflow == "unsteady_rotor"
     try:
         if rotor:
             # Use the clock motion's speed for MOTIONS rows (FR-64, FR-68), resolved

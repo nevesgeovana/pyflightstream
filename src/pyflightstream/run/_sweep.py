@@ -364,6 +364,8 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
 
 def _write_sweep_script(job: _SweepJob) -> RunRecord | None:
     """Write sweep script."""
+    if len(job.script.wake_edge_sets) > 1:
+        job.base["wake_edge_sets"] = job.script.wake_edge_sets
     job.base["probe_field_layout"] = list(job.script.probe_field_layout) or None
     # FR-1047 (PFS-2081.58): each point's far-field plane turns with its
     # attitude, so the layouts are keyed by point name, as the rotor Mach numbers are.
@@ -549,7 +551,14 @@ def _run_sweep_solver(job: _SweepJob) -> RunRecord | None:
                 # one log with one import line, so every point is held to this
                 # number and it is never multiplied by the points.
                 **(
-                    {"wake_edge_points": job.script.wake_edge_points}
+                    {
+                        "wake_edge_points": job.script.wake_edge_points,
+                        **(
+                            {"wake_edge_sets": job.script.wake_edge_sets}
+                            if len(job.script.wake_edge_sets) > 1
+                            else {}
+                        ),
+                    }
                     if job.script.wake_edge_points is not None
                     else {}
                 ),
@@ -688,7 +697,13 @@ def _assess_sweep_points(job: _SweepJob) -> RunRecord | None:
             assessment.error,
             _no_local_log_verdict(job.script.wake_edge_points, log_text, _NO_JOB_LOG_NOTE)
             if job.cannot_log
-            else wake_edge_import_verdict(job.script.wake_edge_points, log_text),
+            else wake_edge_import_verdict(
+                job.script.wake_edge_points, log_text, job.script.wake_edge_sets
+            ),
+            sets=job.script.wake_edge_sets,
+            folder=job.sim_dir,
+            collected=collected,
+            build=str(job.script.version),
         )
         # G06. A point whose log says the solver could not use its actuator
         # disc's profile file ran on with a loading that is not the file's. Every

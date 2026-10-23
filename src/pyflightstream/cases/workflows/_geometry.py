@@ -452,6 +452,7 @@ def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
     for step in steps:
         if step.geometry_phase:
             _emit_import_operation(script, step, spec.units)
+    _mark_explicit_wake_termination(case, script)
     _geometry_simulation_controls(case, script, default_unit=SIMULATION_LENGTH_UNIT)
     for step in steps:
         if not step.geometry_phase:
@@ -707,6 +708,10 @@ def _wake_termination_detection(
     """
     conditions = _applied_boundary_conditions(case)
     wake = None if conditions is None else conditions.wake_termination
+    from pyflightstream.cases.mesh import WakeTerminationMarking
+
+    if isinstance(wake, WakeTerminationMarking):
+        return []
     if wake is None:
         return []
     if wake == "auto":
@@ -715,6 +720,28 @@ def _wake_termination_detection(
         ("DETECT_WAKE_TERMINATION_NODES_BY_SURFACE", (index,))
         for index in _sidecar_surfaces(case, script, sidecar, "[wake_termination]", wake)
     ]
+
+
+def _mark_explicit_wake_termination(case, script):
+    """Select and mark after import while geometry-phase selection remains legal."""
+    from pyflightstream.cases.mesh import WakeTerminationMarking
+
+    conditions = _applied_boundary_conditions(case)
+    wake = None if conditions is None else conditions.wake_termination
+    if not isinstance(wake, WakeTerminationMarking):
+        return
+    if case.mesh_import is not None and case.mesh_import.moving_operations:
+        raise CampaignConfigError(
+            f"[wake_termination] file {wake.points_file} cannot follow moving import operations; "
+            "apply them to the mesh first"
+        )
+    if not wake.nodes:
+        raise CampaignConfigError(
+            f"[wake_termination] file {wake.points_file} has no matched mesh nodes"
+        )
+    for node in wake.nodes:
+        script.emit("SELECT_MESH_NODE", node)
+    script.emit("MARK_WAKE_TERMINATION_NODES")
 
 
 def _wake_termination_after_initialization(
@@ -808,14 +835,31 @@ def _mark_trailing_edges_from_file(
             f"{unit}, which names no length to convert them into. Set "
             f"simulation_length_unit to a length, or mark the edges by detection ({page})."
         )
-    helpers.mark_wake_edges(
-        script,
-        edge_type=marking.edge_type,
-        tolerance=marking.tolerance * factor,
-        units=unit,
-        node_file=node_file,
-        midpoints=[tuple(value * factor for value in point) for point in marking.points_m],
-    )
+    for index, entry in enumerate(marking.sets, start=1):
+        destination = node_file if index == 1 else node_file.removesuffix(".txt") + f".{index}.txt"
+        helpers.mark_wake_edges(
+            script,
+            edge_type=entry.edge_type,
+            tolerance=marking.tolerance * factor,
+            units=unit,
+            node_file=destination,
+            midpoints=[tuple(value * factor for value in point) for point in entry.points_m],
+        )
+        script.wake_edge_sets.append(
+            {
+                "file": PurePath(entry.points_file).name if entry.points_file else name,
+                "type": entry.edge_type,
+                "count": len(entry.points_m),
+                "points_m": entry.points_m,
+                "tolerance": marking.tolerance,
+            }
+        )
+    if len(marking.sets) > 1:
+        script.comment(
+            "Multiple wake-edge imports: add-or-replace behaviour is unmeasured "
+            f"on {script.version}; "
+            "checked on the saved state after the run (PFS-2149.01)."
+        )
 
 
 def _sidecar_surfaces(

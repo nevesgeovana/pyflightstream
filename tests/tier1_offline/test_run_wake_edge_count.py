@@ -37,6 +37,139 @@ from pyflightstream.workspace.record_document import read_rows as _read_record_r
 #: the case the solver's line was read on: 16 imported for boundary Wing.
 MIDPOINTS = [(1.0, -3.75 + 0.5 * k, 0.0) for k in range(16)]
 
+
+@pytest.mark.parametrize("keep_all", [False, True])
+def test_p0440_saved_state_checks_every_imported_set(tmp_path, keep_all):
+    from pyflightstream._fsm import surface_mesh
+    from pyflightstream.run._wake_edge_verdict import with_wake_edge_verdict
+    from tests.tier1_offline.test_fsm_trailing_edges import _LIBRARY, _flag_row_lines
+
+    source = _LIBRARY / "10_WING.fsm"
+    text = source.read_text(encoding="utf-8")
+    vertices, faces = surface_mesh(source)
+    lines = text.split("\n")
+    if not keep_all:
+        for row, (a, b) in {2: (0, 1), 3: (1, 2), 4: (2, 0)}.items():
+            index = _flag_row_lines(text)[row - 1]
+            tokens = lines[index].split(",")
+            for face, triangle in enumerate(faces):
+                if (vertices[triangle[a]][1] + vertices[triangle[b]][1]) / 2 < 0:
+                    tokens[face] = " F"
+            lines[index] = ",".join(tokens)
+    (tmp_path / "saved.fsm").write_text("\n".join(lines), encoding="utf-8")
+    sets = [
+        {
+            "file": "outer.te.txt",
+            "type": "STANDARD",
+            "count": 8,
+            "points_m": MIDPOINTS[:8],
+            "tolerance": 0.0001,
+        },
+        {
+            "file": "junction.te.txt",
+            "type": "RELAXED",
+            "count": 8,
+            "points_m": MIDPOINTS[8:],
+            "tolerance": 0.0001,
+        },
+    ]
+    try:
+        status, error = with_wake_edge_verdict(
+            RunStatus.CONVERGED,
+            None,
+            None,
+            sets=sets,
+            folder=tmp_path,
+            collected=["saved.fsm"],
+            build="26.124",
+        )
+    except TypeError as exc:
+        status, error = None, str(exc)
+    assert status == (RunStatus.CONVERGED if keep_all else RunStatus.FAILED_SCRIPT), error
+    if not keep_all:
+        assert "outer.te.txt" in error and "8 of 16" in error and "PFS-2149.01" in error
+    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
+
+    workspace, sim = _submitted_workspace(
+        tmp_path / "collected", declared=("loads.txt", "run_log.txt", "saved.fsm")
+    )
+    raw = _read_record_rows(workspace.manifest_path)
+    raw[0]["submission"].update(wake_edge_points=16, wake_edge_sets=sets)
+    raw[0]["wake_edge_sets"] = sets
+    workspace._replace_manifest(raw)
+    (sim / "loads.txt").write_text("numbers")
+    (sim / "saved.fsm").write_bytes((tmp_path / "saved.fsm").read_bytes())
+    (sim / "run_log.txt").write_text(
+        _residual_log("8 trailing edges imported for boundary Wing\n" * 2)
+    )
+    report = collect_once(
+        workspace,
+        interval=0.0,
+        sleep=_no_sleep,
+        assessor=lambda record, sim_dir: (RunStatus.CONVERGED, None),
+    )
+    (outcome,) = report.collected + report.failed
+    assert outcome.record.status == status, outcome.record.error
+    assert [entry["file"] for entry in outcome.record.wake_edge_sets] == [
+        "outer.te.txt",
+        "junction.te.txt",
+    ]
+
+
+def test_p0440_import_counts_are_checked_per_file():
+    from pyflightstream.run._wake_edge_verdict import wake_edge_import_verdict
+
+    sets = [{"file": "outer.te.txt", "count": 8}, {"file": "junction.te.txt", "count": 8}]
+    log = "7 trailing edges imported for boundary Wing\n9 trailing edges imported for boundary Wing"
+    try:
+        verdict = wake_edge_import_verdict(16, log, sets)
+    except TypeError:
+        verdict = None
+    assert verdict is not None
+    assert verdict[0] == RunStatus.FAILED_SCRIPT
+    assert "outer.te.txt" in verdict[1] and "[7, 9]" in verdict[1]
+
+
+def test_p0440_recipe_without_workflow_has_no_reduction_windows():
+    """PFS-2124.020: a custom recipe keeps the pre-wave-1 reduction contract."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import reduction_windows
+
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        recipe="wake",
+        sweep=SweepAxis(type="alpha", values=[2.0]),
+    )
+    try:
+        actual = reduction_windows(case)
+    except CampaignConfigError as error:
+        actual = str(error)
+    assert actual is None
+
+
+def test_p0440_registered_workflow_still_selects_reduction_windows():
+    """A WORKFLOW-only case uses the same windows as its registered recipe."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import reduction_windows
+
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        recipe="unsteady",
+        sweep=SweepAxis(type="alpha", values=[2.0]),
+        variables={"DELTA_TIME": "0.01", "TIME_ITERATIONS": "10", "LAST_ITERS_AVG": "4"},
+    )
+    selected = case.model_copy(
+        update={"recipe": None, "variables": {**case.variables, "matrix_workflow": "unsteady"}}
+    )
+    assert reduction_windows(selected) == reduction_windows(case)
+    assert reduction_windows(selected)["time_average"]["windows"] == [[7, 10]]
+    conflict = selected.model_copy(update={"recipe": "steady"})
+    with pytest.raises(CampaignConfigError, match="disagree"):
+        reduction_windows(conflict)
+
+
 #: What 26.124 wrote around the import line in the log of that run: lines end in
 #: CR LF and a NUL sits alone on a line between them.
 LOG_AROUND = (

@@ -324,6 +324,9 @@ def _before_the_build(
     BUILDER, in one home so the steady sweep runs them too: it built through its
     own body and skipped every one, the boundary-layer dependency check among them.
     """
+    from ._gap_evidence import refuse_unprobed_wake_termination
+
+    refuse_unprobed_wake_termination(case, script)
     _refuse_retired_window_keys(case)
     _refuse_unmeasured_normal_probes(case, script)
     _refuse_rotor_shedding(case)
