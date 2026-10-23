@@ -60,6 +60,7 @@ from pyflightstream.post.farfield_fields import (
     recorded_layout,
     rotor_lattice,
 )
+from pyflightstream.post.harmonics import whole_revolution_steps
 from pyflightstream.post.point_tables import (
     DRIFT_SUFFIX,
     PER_REVOLUTION_COLUMNS,
@@ -307,16 +308,9 @@ def _write_the_per_revolution_products(
                 "It is stated where the row gives the rotor speed and the solver time step."
             )
             continue
-        if not float(per_revolution).is_integer():
-            skipped[relative] = (
-                f"{who} has {per_revolution:g} steps per revolution with fractional remainder "
-                f"{per_revolution % 1:g}; a complete revolution cannot be represented "
-                "by whole solver steps without rounding"
-            )
-            continue
-        revolution_steps = int(per_revolution)
         read: set[int] = set()
         try:
+            revolution_steps = whole_revolution_steps(float(per_revolution))
             windows, means, partial = per_revolution_table(
                 series, printed, revolution_steps=revolution_steps, read_steps=read
             )

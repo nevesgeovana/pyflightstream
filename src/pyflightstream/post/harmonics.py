@@ -349,6 +349,37 @@ def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> Har
     )
 
 
+def whole_revolution_steps(steps_per_revolution: float) -> int:
+    """Return an exact whole-step period, refusing non-finite or fractional clocks."""
+    if not math.isfinite(float(steps_per_revolution)):
+        raise ProductError(
+            f"steps per revolution must be a finite number, got {steps_per_revolution!r}"
+        )
+    if not float(steps_per_revolution).is_integer():
+        raise ProductError(
+            f"{steps_per_revolution:g} steps per revolution has fractional remainder "
+            f"{steps_per_revolution % 1:g}; a complete revolution cannot be represented "
+            "by whole solver steps without rounding"
+        )
+    return int(steps_per_revolution)
+
+
+def revolution_window_or_reason(
+    first: int, last: int, clock: object, rotor: str
+) -> tuple[tuple[int, int] | None, str]:
+    """Resolve a rotor's complete window or its named manifest skip reason."""
+    if isinstance(clock, bool) or not isinstance(clock, int | float) or not 0.5 <= clock < math.inf:
+        return None, f"rotor {rotor!r} states no steps per revolution in the point's record"
+    try:
+        window = last_complete_revolution(first, last, float(clock))
+    except ProductError as error:
+        return None, f"rotor {rotor!r}: {error}"
+    return window, (
+        f"the series holds steps {first} to {last}, not one complete revolution of "
+        f"rotor {rotor!r} at {clock:g} steps per revolution"
+    )
+
+
 def last_complete_revolution(
     first_step: int, last_step: int, steps_per_revolution: float
 ) -> tuple[int, int] | None:
@@ -385,17 +416,7 @@ def last_complete_revolution(
     >>> last_complete_revolution(3, 5, 4.0) is None
     True
     """
-    if not math.isfinite(float(steps_per_revolution)):
-        raise ProductError(
-            f"steps per revolution must be a finite number, got {steps_per_revolution!r}"
-        )
-    if not float(steps_per_revolution).is_integer():
-        raise ProductError(
-            f"{steps_per_revolution:g} steps per revolution has fractional remainder "
-            f"{steps_per_revolution % 1:g}; a complete revolution cannot be represented "
-            "by whole solver steps without rounding"
-        )
-    steps = int(steps_per_revolution)
+    steps = whole_revolution_steps(steps_per_revolution)
     if steps < 1 or last_step < first_step:
         return None
     complete = (last_step - first_step + 1) // steps
