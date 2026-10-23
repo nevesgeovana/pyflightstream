@@ -207,6 +207,18 @@ degrees are curves the nodes move along and never leave. Remeshing needs the geo
 without it. `W1_R2.refine.json` names, per family, the method taken and the
 reason a grid was or was not recovered.
 
+Grids that share nodes stay grids together. Grid families of quadrilaterals
+that touch (a stabilizer, its centre strip and its junction strips, say) are
+resampled as one layout: each curve two of them share is resampled once, so
+both hold the same nodes on it, and each family keeps its own faces, their
+orientation and its face order. The factors of the two families must give a
+shared curve the same number of intervals, or the refinement is refused
+naming both families and the curve; `refine.json` names under `grouped_with`
+the families each grid was resampled with. A tube, a family with triangles,
+or a grid with `keep_first_row` joins no such layout: of grids that share
+nodes, the first in the file's family order is then a grid and a later one is
+remeshed under `method = "auto"`, or refused under `method = "grid"`.
+
 When two families meet, they keep meeting on shared nodes. A family that shares
 a curve with a refined grid is rebuilt on the grid's new nodes; a family the
 refinement does not change is remeshed only in a band of two face layers along
@@ -233,11 +245,16 @@ patch side is resampled once, so two patches hold the same nodes on the side
 they share.
 
 `W1_R2.refine.json` reports the layout `multiblock` for such a family, with the
-number of patches and each patch's rows and columns. Because a multiblock
-family has no single chordwise or spanwise direction, `--chordwise` and
-`--spanwise` are refused on it, naming it; give it `FACTOR` or a `factor` in
-its table. Across a patch side the level is continuous but not smooth: no
-spline crosses it.
+number of patches and each patch's rows and columns. A multiblock family has
+no single chordwise or spanwise direction, so `--chordwise` and `--spanwise`
+apply to it side by side: a patch side running within 45 degrees of the
+family's trailing edge is spanwise, any other chordwise, so a junction strip
+can be coarsened chordwise only with `chordwise = 0.77` and `spanwise = 1`.
+Opposite sides of a patch must read alike and its two directions must
+differ; a patch whose directions cannot be told apart, or a family without a
+trailing edge, is refused naming it, and then `FACTOR` or a `factor` in its
+table applies to both directions. Across a patch side the level is
+continuous but not smooth: no spline crosses it.
 
 A patch side of m intervals that a factor below 1/m cannot coarsen (a strip
 one face wide, say, at any factor below 1) is kept, with `max(1, round(f m))`

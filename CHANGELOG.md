@@ -13,9 +13,30 @@ FlightStream versions.
   grid, remesh, write, audit) on stderr, as `[refine HH:MM:SS +N.N s] <stage>`, so a long refinement
   shows it is moving; `--log-level quiet` hides them. In Python, `refine_mesh(..., progress=callable)`
   receives the same lines and stays silent without one.
+- `refine` keeps every grid family a grid when grids share nodes (PFS-2151). Grid families of
+  quadrilaterals that touch (sheets and multiblock families, a stabilizer, its centre strip and
+  its junction strips, say) are resampled together as one layout: each curve two of them share is
+  resampled once, both hold the same nodes on it, and each family keeps its own faces, orientation
+  and face order. Before, only the first of them in the file's family order stayed a grid and the
+  others were remeshed, or refused under `method = "grid"`. A curve whose two families' factors
+  give it different interval counts is refused naming both families, the curve and both counts.
+  `refine.json` names under `grouped_with` the families a grid was resampled with. A tube, a
+  family with triangles, or a grid with `keep_first_row` joins no layout and keeps the earlier
+  rule. migration: a level from a source whose grids share nodes now holds those families as
+  grids instead of remeshed ones; state factors that agree on the shared curves.
+- `--chordwise` and `--spanwise` (and the `chordwise` and `spanwise` keys) apply to a multiblock
+  family, alone or in such a layout (PFS-2150). Each patch side is chordwise or spanwise by its
+  direction against the family's trailing edge (within 45 degrees of it: spanwise), so a junction
+  strip can be coarsened chordwise only. A family without a trailing edge, or a patch whose two
+  directions cannot be told apart, is refused naming it; `factor` alone still applies to both.
 
 ### Fixed
 
+- The boundaries file of a refined level states the level's own `mesh_faces`, `boundary_faces`
+  and `mesh_sha256`, counted in and taken from the level's OBJ (after any `[components]` merge),
+  where it copied the source's, and its header comment names the level OBJ's sha256; the source's
+  digest appears nowhere in it. A source boundaries file without these keys gives a level file
+  without them.
 - `refine` no longer refuses a multiblock family when a patch side has too few intervals for its
   factor (the message said the side "would be left with none", while the resampling keeps at least
   one). Such a side is kept with `max(1, round(f m))` intervals, the rest of the family is resampled,

@@ -607,7 +607,7 @@ pyfs-matrix audit-mesh OBJ [--against SOURCE] [--out FILE]
 | `MESH` | `refine` | the source OBJ; it and its folder are never modified |
 | `FACTOR` | `refine` | the factor of every selected family, a finite number above zero |
 | `--families A,B` | `refine` | the families to change, comma separated (default: every family) |
-| `--chordwise F`, `--spanwise F` | `refine` | the factor of one index direction of every selected grid family; refused for a remeshed family |
+| `--chordwise F`, `--spanwise F` | `refine` | the factor of one index direction of every selected grid family (on a multiblock family, of the patch sides running that way against its trailing edge); refused for a remeshed family |
 | `--config FILE` | `refine` | the refinement file (default: `<stem>.refine.toml` beside the mesh) |
 | `--keep-first-row FAMILY[,FAMILY...]` | `refine` | the grid families that keep the spanwise width of their row at another component, comma separated ([The row kept at an interface](#the-row-kept-at-an-interface)) |
 | `--out DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source); the `out_dir` keyword of `refine_mesh` in Python; `--out-dir DIR` is a deprecated alias |
@@ -819,8 +819,16 @@ Its `families` entry holds, per family:
   `columns` before and after), `arcs` (the patch sides), `order`
   (`"nearest"`) and `kept_sides` (each patch side a factor below 1/m kept:
   `patch`, `side`, `source_intervals`, `intervals`, `centroid`, `bbox_min`,
-  `bbox_max`; empty when none); `--chordwise` and `--spanwise` are refused on it, and across a
-  patch side the level is continuous, not smooth;
+  `bbox_max`; empty when none); `--chordwise` and `--spanwise` apply to each
+  patch side by its direction against the family's trailing edge (spanwise
+  within 45 degrees of it, measured as the length-weighted mean of the
+  absolute cosine against the nearest trailing-edge segment), refused for a
+  family without a trailing edge or a patch whose two directions cannot be
+  told apart, and across a patch side the level is continuous, not smooth;
+- a grid resampled with the grids it shares nodes with (one layout) reports
+  `grouped_with` (those families), its own `layout` (`"sheet"` or
+  `"multiblock"`), and the `patches`, `blocks`, `arcs`, `kept_sides` and
+  `faces` of its own part of the layout, with `order` `"nearest"`;
 - a remeshed family: `method` (`"remesh"`), `reason` (why no grid was taken),
   `elements`, `quads`, `triangles` and `quad_share` (the element mode and its
   counts; `elements` on a grid says the key was ignored),
@@ -1008,9 +1016,23 @@ Each of these is imported from `pyflightstream.workspace`.
  cap a family of its own in the pre-processor and merge it back with
  `[components]`, as in
  [A solid blade kept structured by dummy families](how-to.md#a-solid-blade-kept-structured-by-dummy-families).
-- **A grid that shares nodes with an earlier grid is remeshed.** Grid families
- are refined in the source's family order; a later grid that shares nodes with
- an earlier one is remeshed, or refused naming both under `method = "grid"`.
+- **Grids that share nodes are resampled as one layout.** Grid families of
+ quadrilaterals that touch, sheets and multiblock families, are cut together
+ into four-sided patches, the curves where two families meet among the patch
+ sides, so each shared curve is resampled once and both families hold its
+ nodes. Its interval count is `max(1, round(f m))` from each family holding
+ it, `f` the family's factor in the curve's direction; two counts that differ
+ are refused naming both families, the curve's end nodes and both counts.
+ A tube, a family with triangles, a grid with `keep_first_row`, and touching
+ grids whose union has no layout of four-sided patches join none: of grids
+ that share nodes the first in the source's family order is then a grid and a
+ later one is remeshed, or refused naming both under `method = "grid"`.
+- **A level's boundaries file states the level's inventory.** When the source's
+ boundaries file states `mesh_faces`, `boundary_faces` or `mesh_sha256`, the
+ level's states each of them counted in the level's OBJ as written (per
+ boundary in the level's `boundaries` order, after `[components]`) and its
+ sha256, and its header comment names that sha256; a source file without them
+ gives a level file without them.
 - **Offline verification, not validation.** The tests verify the geometry of a
  level offline. Whether a level gives the solver the result of a mesh made at
  that size in the pre-processor is a licensed comparison, reported for one
