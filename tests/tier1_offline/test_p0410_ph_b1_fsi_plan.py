@@ -29,6 +29,7 @@ def polar_glob_order(monkeypatch, request):
     monkeypatch.setattr(Path, "glob", ordered_glob)
 
 
+@pytest.mark.requirement("FR-2115")
 def test_p0410_workspace_posts_exploratory_loading_noise(tmp_path):
     import csv
 
@@ -60,6 +61,168 @@ inplane_radius_m = 0.7
     report = json.loads((folder / "noise_report.json").read_text())
     assert report["validation"] == "exploratory, not validated"
     assert report["products"][files[0].relative_to(folder).as_posix()] == entry
+
+
+def test_p0440_noise_requirement_keeps_explicit_exploratory_post():
+    """F-485: the requirement must describe the retained opt-in post route."""
+    import csv
+
+    source = Path(__file__).parents[1] / "requirements_l3.csv"
+    with source.open(encoding="utf-8", newline="") as handle:
+        row = next(row for row in csv.reader(handle) if row[0] == "FR-2115")
+    assert "explicitly requested exploratory" in row[3]
+    assert "not validated" in row[3]
+    assert row[4] == "pyflightstream.post._noise_products:noise_products"
+    assert row[5].endswith("::test_p0410_workspace_posts_exploratory_loading_noise")
+
+
+@pytest.mark.parametrize("velocity", [0.0, 1.0], ids=["P0440-REST", "P0440-MOVING"])
+@pytest.mark.requirement("FR-3251")
+@pytest.mark.requirement("FR-3252")
+def test_p0440_noise_harmonics_and_reference(tmp_path, velocity):
+    import csv
+
+    import numpy as np
+
+    from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_goal036_qsteady_corrections import _post_recorded, _recorded_wheel
+
+    extra = f"""
+[noise]
+exploratory = true
+observers_m = [[10.0, 2.0, 2.0]]
+hub_velocity_m_s = [{velocity}, 0.0, 0.0]
+sound_speed_m_s = 340.0
+samples_per_revolution = 64
+orders = 0
+axial_radius_m = 0.7
+inplane_radius_m = 0.7
+"""
+    workspace = _recorded_wheel(tmp_path, pproc_extra=extra)
+    manifest, folder, _ = _post_recorded(workspace)
+    tables = list(folder.glob("noise/*_harmonics.csv"))
+    assert len(tables) == 2
+    harmonic_rows = list(csv.DictReader(tables[0].read_text().splitlines()))
+    assert len(harmonic_rows) == 4
+    signal_path = tables[0].with_name(tables[0].name.replace("_harmonics", ""))
+    rows = list(csv.DictReader(signal_path.read_text().splitlines()))
+    signal = np.array([float(row["pressure_pa"]) for row in rows])
+    times = np.array([float(row["time_s"]) for row in rows])
+    for row in harmonic_rows:
+        h = int(row["HARMONIC"])
+        expected = abs(sum(signal * np.exp(-2j * np.pi * h * np.arange(64) / 64))) * np.sqrt(2) / 64
+        assert float(row["RMS_PA"]) == pytest.approx(expected)
+        assert (row["GUTIN_RMS_PA"] == "NA") == (velocity != 0)
+    entry = manifest["products"][tables[0].relative_to(folder).as_posix()]
+    assert entry["kind"] == "loading_noise_harmonics"
+    assert entry["validation"] == "exploratory, not validated"
+    if velocity:
+        assert "hub" in (folder / "post.log").read_text().lower()
+    # One complete revolution of the written prediction provides a reference
+    # with known metrics, without using compare_signals as its own oracle.
+    period = times[1] * 64
+    reference = workspace.root / "reference.csv"
+    reference.write_text(
+        "time_s,pressure_pa\n"
+        + "".join(
+            f"{t},{p}\n"
+            for t, p in zip(np.append(times, period), np.append(signal, signal[0]), strict=True)
+        )
+    )
+    pproc_path = workspace.inputs_dir / "pproc/p001.toml"
+    pproc_path.write_text(pproc_path.read_text() + 'reference = ["reference.csv"]\n')
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    comparison = list(folder.glob("noise/*_comparison.csv"))
+    assert len(comparison) == 2
+    matched = signal_path.with_name(signal_path.stem + "_comparison.csv")
+    metrics = list(csv.DictReader(matched.read_text().splitlines()))[0]
+    assert float(metrics["rms_ratio"]) == pytest.approx(1)
+    assert float(metrics["correlation"]) == pytest.approx(1)
+    assert float(metrics["normalized_rms_difference"]) == pytest.approx(0, abs=1e-12)
+    report = json.loads((folder / "noise_report.json").read_text())
+    assert tables[0].relative_to(folder).as_posix() in report["products"]
+    assert comparison[0].relative_to(folder).as_posix() in report["products"]
+    reference.write_text("time_s,pressure_pa\n0,1\n0.000001,2\n")
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    manifest = json.loads((folder / "products.json").read_text())
+    assert any("revolution" in reason for reason in manifest["skipped"].values())
+    assert not matched.exists()
+    reference.write_text("TIME_S,PRESSURE_PA\n0,1\n0.1,\n")
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    manifest = json.loads((folder / "products.json").read_text())
+    assert any(
+        "reference.csv" in reason and "numeric" in reason for reason in manifest["skipped"].values()
+    )
+
+
+@pytest.mark.requirement("FR-3253")
+def test_p0440_noise_command_posts_selected_simulations(tmp_path, capsys):
+    from pyflightstream.run.cli import main
+    from tests.tier1_offline.test_goal036_qsteady_corrections import _recorded_wheel
+
+    workspace = _recorded_wheel(
+        tmp_path,
+        pproc_extra="""
+[noise]
+exploratory = true
+observers_m = [[10.0, 2.0, 2.0]]
+hub_velocity_m_s = [0.0, 0.0, 0.0]
+sound_speed_m_s = 340.0
+samples_per_revolution = 64
+orders = 0
+axial_radius_m = 0.7
+inplane_radius_m = 0.7
+""",
+    )
+    args = ["noise", "matriz", "--workspace", str(workspace.root), "--sims", "6001"]
+    try:
+        code = main(args)
+    except SystemExit as error:
+        code = error.code
+    assert code == 0
+    folder = workspace.products_dir("matriz")
+    report = json.loads((folder / "noise_report.json").read_text())
+    assert any(entry["kind"] == "loading_noise_harmonics" for entry in report["products"].values())
+    manifest = json.loads((folder / "products.json").read_text())
+    assert manifest["partial"]["sims"] == ["6001"]
+    output = capsys.readouterr().out
+    assert "worst Gutin ratio" in output
+    assert "noise_report.json" in output
+    assert main(args) != 0
+    assert main([*args, "--overwrite"]) == 0
+    pproc = workspace.inputs_dir / "pproc/p001.toml"
+    pproc.write_text(pproc.read_text().split("[noise]")[0])
+    assert main([*args, "--overwrite"]) != 0
+    assert "[noise]" in capsys.readouterr().err
+
+
+def test_p0440_noise_command_reports_every_skipped_observer(tmp_path, capsys):
+    from pyflightstream.run.cli import main
+    from tests.tier1_offline.test_goal036_qsteady_corrections import _recorded_wheel
+
+    workspace = _recorded_wheel(
+        tmp_path,
+        pproc_extra="""
+[noise]
+exploratory = true
+observers_m = [[10.0, 2.0, 2.0]]
+hub_velocity_m_s = [500.0, 0.0, 0.0]
+sound_speed_m_s = 340.0
+samples_per_revolution = 64
+orders = 0
+axial_radius_m = 0.7
+inplane_radius_m = 0.7
+""",
+    )
+    try:
+        code = main(["noise", "matriz", "--workspace", str(workspace.root), "--sims", "6001"])
+    except SystemExit as error:
+        code = error.code
+    assert code == 0
+    report = json.loads((workspace.products_dir("matriz") / "noise_report.json").read_text())
+    assert report["products"] == {}
+    assert len(report["skipped"]) == 2
+    assert "noise skip" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("axes,suffix", [("wind", "W"), ("stability", "S")])

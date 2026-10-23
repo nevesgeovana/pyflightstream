@@ -1,7 +1,8 @@
 """The quasi-steady rotor noise model (QS-NOISE, work package F): EXPLORATORY.
 
-Pipeline role: a library beside the post row. The post stage calls only its
-report writer, :func:`write_qsteady_noise_report`; the model itself is not wired in.
+Pipeline role: the opt-in exploratory post model. The workspace writes observer
+signals, Gutin harmonics and reference comparisons, indexed by
+:func:`write_qsteady_noise_report`.
 QS-NOISE is exploratory: it carries no threshold and no gate, and the package
 does not wait on it. The module holds the model of route A of the scope (GEO-066
 section 2.6 part 5): reconstruct a blade's load against azimuth from the loads
@@ -985,11 +986,17 @@ def write_qsteady_noise_report(
         products = {
             name: entry
             for name, entry in manifest["products"].items()
-            if entry.get("kind") == "loading_noise"
+            if entry.get("kind")
+            in {"loading_noise", "loading_noise_harmonics", "loading_noise_comparison"}
         }
     except (OSError, ValueError, KeyError, AttributeError, TypeError) as error:
         raise ProductError(f"Loading-noise product manifest cannot be read: {error}") from error
-    if not products:
+    noise_skips = {
+        name: reason
+        for name, reason in manifest.get("skipped", {}).items()
+        if name.startswith("noise/")
+    }
+    if not products and not noise_skips:
         raise ProductError(
             "No loading-noise products; post a pproc with exploratory noise enabled."
         )
@@ -997,7 +1004,14 @@ def write_qsteady_noise_report(
     _refuse_existing_product(target, overwrite)
     _textio.write_text(
         target,
-        json.dumps({"validation": "exploratory, not validated", "products": products}, indent=2)
+        json.dumps(
+            {
+                "validation": "exploratory, not validated",
+                "products": products,
+                "skipped": noise_skips,
+            },
+            indent=2,
+        )
         + "\n",
     )
     return target

@@ -3064,7 +3064,8 @@ inplane_radius_m = 0.7
     manifest, folder, _log = _post_recorded(workspace)
     written = sorted(p.relative_to(folder).as_posix() for p in folder.glob("noise/*.csv"))
     assert written and all(
-        manifest["products"][name]["kind"] == "loading_noise" for name in written
+        manifest["products"][name]["kind"] in {"loading_noise", "loading_noise_harmonics"}
+        for name in written
     )
     for pproc in ("p001", "p002"):
         path = workspace.inputs_dir / "pproc" / f"{pproc}.toml"

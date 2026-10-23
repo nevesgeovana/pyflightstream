@@ -1,5 +1,31 @@
 # FSI workspace inputs
 
+## Campbell study before a run
+
+Compare structural natural frequencies with rotor speed without a solver run:
+
+```text
+pyfs-workspace fsi campbell f001 --rpm 0 600 3 --modes 2 --workspace study
+```
+
+This reads `study/inputs/fsi/f001.toml` through the same calibrated beam binder as
+planning. Supplied and calculated models work; external structural programs have
+no beam model for this study. START must be nonnegative, STOP greater than START,
+and COUNT an integer of at least three. Existing products require `--overwrite`.
+
+The command lists `post/fsi/f001/campbell.csv`, `southwell.csv` and `campbell.json`.
+The Campbell table is the diagram data: RPM, angular speed, mode number, family,
+frequency in Hz and frequency per revolution (`NA` at zero speed). Southwell fits
+the first mode of each family available at every speed. Missing families are named
+on the console and in the JSON, rather than fitted across a gap. The JSON records
+the input SHA-256, sweep, file names and linearly interpolated 1 through 6 Omega
+crossings between successive samples of matching family-labelled modal slots.
+This interpolation does not track eigenvectors through modal exchanges.
+
+These are **structural model only, no aerodynamic damping** results, not a coupled
+stability prediction. The CLI example is exercised with a synthetic supplied beam
+in `test_p0440_campbell_cli_writes_workspace_study`.
+
 ## Structural products after a run
 
 Ordinary `pyfs-matrix post` writes `structure/<point>_deflection.csv` for

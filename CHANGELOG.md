@@ -15,6 +15,13 @@ FlightStream versions.
 - `pyfs-workspace geometry trailing-edge --from-nodes nodes.txt --out wing.te.txt`
   writes ordered neighbouring-node midpoints from an ANSA SET export without a mesh or solver.
   It preserves the coordinate unit and refuses malformed rows with their file and line (PFS-2156).
+- Opt-in exploratory loading noise now includes blade-passage harmonic/Gutin
+  tables and optional reference-signal comparisons. `pyfs-matrix noise` rebuilds
+  selected simulations and lists noise products and skips (PFS-2155).
+
+- `pyfs-workspace fsi campbell` writes structural Campbell frequencies, Southwell
+  fits and a provenance/crossing report from an FSI input (PFS-2154).
+
 - `refine` reports its progress while it runs: one line per stage and per family (read, layout,
   grid, remesh, write, audit) on stderr, as `[refine HH:MM:SS +N.N s] <stage>`, so a long refinement
   shows it is moving; `--log-level quiet` hides them. In Python, `refine_mesh(..., progress=callable)`
@@ -173,6 +180,9 @@ FlightStream versions.
   `pyfs-matrix` twins, whose options they keep exactly.
 
 ### Changed
+
+- FR-2115 now states the retained opt-in exploratory loading-noise post products;
+  these products remain labelled not validated (F-485).
 
 - A run matrix whose header holds a column the layout does not know is refused naming that
   column and the closest known column.

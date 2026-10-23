@@ -56,6 +56,8 @@ FIELD_OPERATION = (
 
 #: (console script, destination) -> why it is not a registry knob.
 ALLOWLIST: dict[tuple[str, str], str] = {
+    ("pyfs-workspace", "fsi_id"): SUBJECT,
+    ("pyfs-workspace", "modes"): CASE,
     # 0.43.0 (FR-44): `pyfs-workspace excel create|preview|apply|cancel|check`. The
     # workbook, the batch and the matrices name what the call works on; the
     # direction is a mode of one preview.
@@ -575,6 +577,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     # which is what shows the [continuation] lines on the console.
     ("pyfs-matrix", "verbose"): frozenset(
         {
+            "noise",
             "audit-mesh",
             "collect",
             "degenerate",
@@ -589,6 +592,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     # 0.39.0 (FR-997): every command that takes --verbose takes --log-level.
     ("pyfs-matrix", "log_level"): frozenset(
         {
+            "noise",
             "audit-mesh",
             "collect",
             "degenerate",
@@ -609,6 +613,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "ignore_missing_families"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "matrix"): frozenset(
         {
+            "noise",
             "inspect-setups",
             "plan",
             "post",
@@ -619,7 +624,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         }
     ),
     ("pyfs-matrix", "name"): frozenset({"inspect-setups", "plan", "run"}),
-    ("pyfs-matrix", "overwrite"): frozenset({"degenerate", "inventory", "refine", "sync"}),
+    ("pyfs-matrix", "overwrite"): frozenset({"degenerate", "inventory", "noise", "refine", "sync"}),
     ("pyfs-matrix", "clean"): frozenset({"inventory"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
     ("pyfs-matrix", "archive"): frozenset({"post", "collect", "delete-sims"}),
@@ -643,6 +648,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "hpc"): frozenset({"collect", "inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "sims"): frozenset(
         {
+            "noise",
             "log",
             "collect",
             "delete-sims",
@@ -670,6 +676,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "workflow"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "workspace"): frozenset(
         {
+            "noise",
             "show",
             "log",
             "trace",
@@ -774,6 +781,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         (("pyfs-workspace", "verbose"), ("pyfs-workspace", "log_level")),
         frozenset(
             {
+                "campbell",
                 "accept",
                 "apply",
                 "archive",
@@ -803,6 +811,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "workspace"): frozenset(
         {
+            "campbell",
             "calibrate",
             "accept",
             "archive",
@@ -849,6 +858,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "overwrite"): frozenset(
         {
+            "campbell",
             "export-surface-mesh",
             "calibrate",
             "trailing-edge",
@@ -885,7 +895,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "thrust"): frozenset({"profile"}),
     ("pyfs-workspace", "ct"): frozenset({"profile"}),
     ("pyfs-workspace", "rho"): frozenset({"profile"}),
-    ("pyfs-workspace", "rpm"): frozenset({"profile"}),
+    ("pyfs-workspace", "rpm"): frozenset({"campbell", "profile"}),
+    ("pyfs-workspace", "fsi_id"): frozenset({"campbell"}),
+    ("pyfs-workspace", "modes"): frozenset({"campbell"}),
     # The options of `pyfs-workspace geometry`; the feature tests prove their behavior.
     ("pyfs-workspace", "target"): frozenset({"build", "export-surface-mesh"}),
     ("pyfs-workspace", "build"): frozenset({"build", "from-sidecar", "export-surface-mesh"}),

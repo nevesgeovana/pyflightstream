@@ -5808,6 +5808,7 @@ _FR310_MATRIX_HOMES_ALL__WITHOUT_WORKSPACE: set[tuple[str, str]] = set()
 
 #: The fewest arguments each command's parser accepts beside its matrix.
 _FR310_MATRIX_HOMES_ALL__ARGV = {
+    ("noise", "matrix"): ["noise", _FR310_MATRIX_HOMES_ALL__NAME],
     ("plan", "matrix"): ["plan", _FR310_MATRIX_HOMES_ALL__NAME],
     ("inspect-setups", "matrix"): ["inspect-setups", _FR310_MATRIX_HOMES_ALL__NAME],
     ("run", "matrix"): ["run", _FR310_MATRIX_HOMES_ALL__NAME],

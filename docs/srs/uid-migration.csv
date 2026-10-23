@@ -4,6 +4,10 @@ FR-3257,l3,FR-1621,,tests/requirements_l3.csv
 FR-1620,kept,,FR-3256 FR-3258,docs/unpublished/requirements/spcm.md
 FR-3256,l3,FR-1620,,tests/requirements_l3.csv
 FR-3258,l3,FR-1620,,tests/requirements_l3.csv
+FR-3251,l3,FR-300,,tests/requirements_l3.csv
+FR-3252,l3,FR-300,,tests/requirements_l3.csv
+FR-3253,l3,FR-300,,tests/requirements_l3.csv
+FR-3250,l3,FR-1207,,tests/requirements_l3.csv
 FR-01,kept,,FR-3200,docs/unpublished/requirements/inst.md
 FR-02,kept,,,docs/unpublished/requirements/inst.md
 FR-02a,merged,FR-1204,FR-1204,docs/unpublished/requirements/inst.md
@@ -26,7 +30,7 @@ FR-17,kept,,,docs/unpublished/requirements/trst.md
 FR-18,kept,,FR-2171,docs/unpublished/requirements/trst.md
 FR-19,l3,FR-46,FR-2000,tests/requirements_l3.csv
 FR-22,kept,,,docs/unpublished/requirements/recs.md
-FR-23a,merged,FR-1207,FR-1207,docs/unpublished/requirements/phys.md
+FR-23a,merged,FR-1207,FR-1207 FR-3250,docs/unpublished/requirements/phys.md
 FR-24,l3,NFR-44,,tests/requirements_l3.csv
 FR-25,kept,,,docs/unpublished/requirements/inst.md
 FR-26,kept,,,docs/unpublished/requirements/trst.md
@@ -280,7 +284,7 @@ FR-295,l3,FR-1121,,tests/requirements_l3.csv
 FR-296,l3,FR-04,,tests/requirements_l3.csv
 FR-297,l3,FR-04,,tests/requirements_l3.csv
 FR-298,l3,FR-04,,tests/requirements_l3.csv
-FR-300,kept,,FR-2114 FR-2115,docs/unpublished/requirements/dred.md
+FR-300,kept,,FR-2114 FR-2115 FR-3251 FR-3252 FR-3253,docs/unpublished/requirements/dred.md
 FR-301,l3,FR-300,FR-2116 FR-2117,tests/requirements_l3.csv
 FR-302,kept,,FR-2118,docs/unpublished/requirements/dred.md
 FR-303,l3,FR-176,,tests/requirements_l3.csv

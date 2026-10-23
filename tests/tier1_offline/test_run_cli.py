@@ -676,6 +676,7 @@ def test_plan_and_inspect_still_take_recipe_references(tmp_path):
     # and takes no recipe, no version and no executable. `refine` joined with it
     # (FR-424) on the same terms: it reads one OBJ and needs no executable.
     assert set(choices) == {
+        "noise",
         "audit-mesh",
         "collect",
         "degenerate",
