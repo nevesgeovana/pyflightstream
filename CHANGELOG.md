@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Quasi-steady noise fits identify the sample and whether its azimuth or value
+  is non-finite (RB6-12).
 - Superfile completeness checks refuse conflicting copies of a matrix instead of
   silently omitting its fields from the audit (RB3-12).
 - Section integration retains raw loads and names the refusal when mesh length

@@ -31,6 +31,16 @@ from pyflightstream.post import qsteady_noise as qn
 C0 = 340.0
 
 
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+@pytest.mark.parametrize("field", ["azimuth", "value"])
+def test_p0440_nonfinite_series_names_the_offending_field(bad, field):
+    azimuths, values = [0.0, 120.0, 240.0], [1.0, 2.0, 3.0]
+    (azimuths if field == "azimuth" else values)[1] = bad
+    with pytest.raises(ProductError, match=f"{field}.*not finite") as caught:
+        qn.fit_azimuthal_series(azimuths, values)
+    assert f"sample 2 {field}" in str(caught.value)
+
+
 @pytest.mark.parametrize("argument", ["blades", "omega_rad_s", "c0", "distance_m"])
 @pytest.mark.parametrize("value", [0, -1])
 def test_p0420_gutin_refuses_undefined_inputs(argument, value):
