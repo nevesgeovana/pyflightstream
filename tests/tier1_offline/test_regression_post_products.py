@@ -1220,6 +1220,7 @@ class TestPost1Review:
         record = workspace.sim_dir("7001") / "DP_qsteady.json"
         stated = json.loads(record.read_text(encoding="utf-8"))
         stated["hub_m"] = list(hub)
+        stated["moment_point_m"] = [0.0, 0.0, 0.0]
         record.write_text(json.dumps(stated), encoding="utf-8")
         # the sections are cut in the analysis frame, where the hub is not the origin
         (recorded,) = workspace.read_manifest()

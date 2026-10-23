@@ -41,6 +41,7 @@ def _record(*, letter: str, axis: tuple[float, float, float]) -> arithmetic.Qste
         rpm=1200.0,
         shaft_frame_axis=letter,
         hub_m=(0.0, 0.0, 0.0),
+        moment_point_m=(0.0, 0.0, 0.0),
         axis_vector=axis,
         diameter_m=2.0,
         families_general=(),
