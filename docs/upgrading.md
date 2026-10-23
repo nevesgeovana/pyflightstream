@@ -9,6 +9,10 @@ describe the older releases that supplied them.
 
 ## 0.44.0
 
+Missing recorded attitude no longer defaults to zero for shaft angle, ETAW or
+unsteady axis coefficients. Supply explicit ALPHA and BETA to compute them;
+MADV keeps its documented zero-angle exception (RB6-07).
+
 The sample Mach column of steady and unsteady probe tables is now `MACH_LOCAL`.
 The condition remains `MACH`. Update readers that selected the sample by `Mach`
 or `MACH`; source solver exports and numbered plot names such as `MACH1` retain

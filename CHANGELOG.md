@@ -40,6 +40,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Missing recorded attitude leaves shaft angle and ETAW unavailable and refuses
+  unsteady axis coefficients; MADV retains its zero-angle exception (RB6-07).
+
 - Mesh-based reduced-frequency and inflow-harmonic summaries weight each radial
   band by its full width, including root and tip. `blade_stations` now returns
   radii, chords and band widths; nodal section strips retain their rule (PFS-2124.016).

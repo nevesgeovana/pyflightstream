@@ -599,50 +599,18 @@ def _angle_of(attitude: Mapping[object, object], key: str) -> float | None:
     return None
 
 
-def _states(attitude: Mapping[object, object], key: str) -> bool:
-    """Whether the row's condition names ``key`` at all, read case-folded."""
-    return any(str(name).casefold() == key.casefold() for name in attitude)
-
-
-def _row_angles(
-    attitude: Mapping[object, object],
-    run_id: str,
-    defaulted: list[tuple[str, tuple[str, ...]]],
-) -> tuple[float | None, float | None]:
-    """Return the row's ALPHA and BETA, an unstated one 0.0 (FR-69), noting the defaulted.
-
-    AN UNSTATED ANGLE IS 0.0, STATED AS THE DEFAULT: the shaft angle and the wind-axis
-    force read the angle as MADV does, and the table says it was taken.
-    """
-    absent = tuple(key for key in ("ALPHA", "BETA") if not _states(attitude, key))
-    if absent:
-        defaulted.append((run_id, absent))
-    alpha, beta = (0.0 if key in absent else _angle_of(attitude, key) for key in ("ALPHA", "BETA"))
-    return alpha, beta
-
-
 def _say_the_na_rows(
     product: str,
     alias: str,
     *,
     unangled: Sequence[str],
     at_rest: Sequence[str],
-    defaulted: Sequence[tuple[str, tuple[str, ...]]] = (),
 ) -> None:
-    """Warn once per table for the rows written with NA cells or default angles, naming them."""
-    if defaulted:
-        runs = ", ".join(run or "NA" for run, _names in defaulted)
-        warn(
-            f"point={defaulted[0][0] or 'NA'} product={product}: {len(defaulted)} row(s) of "
-            f"rotor {alias} state no ALPHA or BETA ({runs}); an unstated angle is 0.0 degrees "
-            f"(FR-69), so the shaft angle and ETAW_{alias} are computed at that attitude there.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
+    """Warn once per table for rows with NA cells, naming the missing inputs."""
     if unangled:
         warn(
             f"point={unangled[0] or 'NA'} product={product}: {len(unangled)} row(s) of rotor "
-            f"{alias} state an ALPHA or BETA that is not a finite number "
+            f"{alias} state no ALPHA or BETA, or one that is not a finite number "
             f"({', '.join(r or 'NA' for r in unangled)}), so the shaft angle and "
             f"ETAW_{alias} read NA there.",
             PyflightstreamWarning,
@@ -845,7 +813,6 @@ def write_rotor_table(
     refused = [] if left_out is None else left_out
     emitted = [] if written_runs is None else written_runs
     unangled: list[str] = []
-    defaulted: list[tuple[str, tuple[str, ...]]] = []
     at_rest: list[str] = []
     for row in rows:
         stated = row.get("run_id")
@@ -884,7 +851,8 @@ def write_rotor_table(
         if reason is not None:
             refused.append((run_id, reason))
             continue
-        angles = _row_angles(attitude, run_id, defaulted)
+        alpha = _angle_of(attitude, "ALPHA")
+        beta = _angle_of(attitude, "BETA")
         loads = rotor_shaft_loads(
             surfaces if isinstance(surfaces := row.get("surfaces"), Mapping) else {},
             rotor=rotor,
@@ -896,8 +864,8 @@ def write_rotor_table(
                 if isinstance(stated_aliases := row.get("aliases"), Mapping)
                 else None
             ),
-            alpha_deg=angles[0] if angles[0] is not None else 0.0,
-            beta_deg=angles[1] if angles[1] is not None else 0.0,
+            alpha_deg=alpha if alpha is not None else 0.0,
+            beta_deg=beta if beta is not None else 0.0,
             # THE CALL SITE IS WHAT DELIVERS THE CHECK. The witness field and
             # the refusal both existed for a few minutes without this line, and
             # `ETAW` would have gone on being computed from a force in whatever
@@ -922,7 +890,7 @@ def write_rotor_table(
                 )
             )
             continue
-        if None in angles:
+        if None in (alpha, beta):
             # AN ANGLE THAT IS NOT A NUMBER IS NOT LEVEL FLIGHT (PFS-2105.018): the shaft
             # angle and the wind-axis force need a readable ALPHA and BETA, and read NA.
             loads = replace(loads, shaft_angle_deg=math.nan, wind_force_n=math.nan)
@@ -976,7 +944,7 @@ def write_rotor_table(
             )
         condition = dict(attitude)
         # M1: `NA` where the point's air did not resolve, never a guess.
-        machs, madv = _mach_cells(row.get("air"), rpm, diameter, angles, shaft)
+        machs, madv = _mach_cells(row.get("air"), rpm, diameter, (alpha, beta), shaft)
         written.append(
             (
                 pol,
@@ -994,9 +962,7 @@ def write_rotor_table(
 
     if not written:
         return None
-    _say_the_na_rows(
-        Path(path).name, alias, unangled=unangled, at_rest=at_rest, defaulted=defaulted
-    )
+    _say_the_na_rows(Path(path).name, alias, unangled=unangled, at_rest=at_rest)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     # THROUGH `write_csv_table`, which is THE funnel: every cell of every
     # product is rendered by `_cell` there, so a value this table cannot fill
