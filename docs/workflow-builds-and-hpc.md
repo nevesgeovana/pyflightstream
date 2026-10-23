@@ -250,7 +250,9 @@ runs that own them.
 ## Choosing a profile and the longest walltime
 
 When a workspace holds more than one profile in `inputs/hpc/`, `--hpc NAME` on
-`plan`, `run` and `collect` selects `inputs/hpc/<NAME>.toml`; a workspace with
+`plan`, `run`, `collect` and `post --additional-pproc` selects
+`inputs/hpc/<NAME>.toml`; `post --hpc NAME` without `--additional-pproc` is
+refused because rebuilding products launches nothing. A workspace with
 one profile needs no option. A `[defaults]` block in a profile has no effect:
 a profile that carries it loads, with a warning, and the block is ignored. The top-level key `max_walltime`, written
 `HH:MM:SS` (hours may exceed 24), states the longest walltime the queue

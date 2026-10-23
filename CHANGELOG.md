@@ -37,6 +37,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Additional post accepts `--hpc NAME` to select among workspace profiles and
+  refuses the flag without `--additional-pproc` (PFS-2119.067).
+
 - Setup snapshot documentation distinguishes unemitted documented defaults
   from the effective state of a loaded simulation (C-SRS-S07-001, C-S13-021).
 

@@ -1254,6 +1254,28 @@ def test_g12_a_flag_of_the_additional_post_without_it_is_refused(flags, tmp_path
     assert "--additional-pproc" in capsys.readouterr().err
 
 
+def test_p0440_additional_post_selects_hpc_and_refuses_an_idle_selection(
+    tmp_path, monkeypatch, capsys
+):
+    from pyflightstream._cli import _SELECTED_HPC
+
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    selected = []
+
+    def extract(args, current):
+        selected.append(_SELECTED_HPC.get())
+        return 0, 0
+
+    monkeypatch.setattr(matrix_cli, "_additional_post", extract)
+    command = ["post", str(matrix), "--workspace", str(workspace.root), "--hpc", "h002"]
+    assert matrix_cli.main([*command, "--additional-pproc"]) == 0
+    assert selected == ["h002"]
+    capsys.readouterr()
+    assert matrix_cli.main(command) == 2
+    assert "--hpc only mean something to --additional-pproc" in capsys.readouterr().err
+    assert selected == ["h002"]
+
+
 def test_g12_the_additional_post_needs_the_matrix(tmp_path, capsys):
     """The key is read from the rows, so the matrix is not optional with the flag."""
     workspace, _ = a_campaign(tmp_path)

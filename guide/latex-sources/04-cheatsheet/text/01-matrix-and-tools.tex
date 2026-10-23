@@ -160,7 +160,7 @@ See the website's Upgrading page for supported workspace conversion.
 \item \fl{--runs NAME} read another manifest (e.g. a rebuilt one)
 \item \fl{--from-sims} ignore runs.json, build records in memory from \texttt{sims/} (runs made outside the package); products go to \texttt{post/<matrix>@sims/}
 \item \fl{--steps-per-revolution N} with \fl{--from-sims}: for a LAST\_REVS\_AVG window
-\item \fl{--additional-pproc} reopen the final .fsm of rows with ADDITIONAL\_PPROC (no solve, one launch per point) and extract that pproc; 26.124 only. With it: \fl{--fs-version}, \fl{--fs-exe}, \fl{--local}, \fl{--recipe}
+\item \fl{--additional-pproc} reopen the final .fsm of rows with ADDITIONAL\_PPROC (no solve, one launch per point) and extract that pproc; 26.124 only. With it: \fl{--fs-version}, \fl{--fs-exe}, \fl{--local}, \fl{--recipe}, \fl{--hpc NAME} (select a profile when several exist; refused without additional post).
 \item \fl{--diagnostics} print recorded post diagnostics as Markdown, change nothing
 \item \fl{--strict} exit 3 when a product was skipped by design (e.g. polar under sideslip)
 \item \fl{--check-frozen} refuse instead of warn (see \cmd{collect})

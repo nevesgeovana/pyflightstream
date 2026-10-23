@@ -703,7 +703,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
     # settings file gave is left unused by a rebuild that does not take it.
     if idle := [
         flag
-        for flag in ("--fs-version", "--fs-exe", "--local", "--recipe")
+        for flag in ("--fs-version", "--fs-exe", "--local", "--recipe", "--hpc")
         if typed_value(args, flag) and not args.additional_pproc
     ]:
         print(
