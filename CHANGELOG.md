@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Section azimuths carry the recorded full rotor blade count through post-processing;
+  a periodic sector no longer spaces its blades as if it were the full rotor (RB6-10).
 - Quasi-steady noise fits identify the sample and whether its azimuth or value
   is non-finite (RB6-12).
 - Superfile completeness checks refuse conflicting copies of a matrix instead of

@@ -663,7 +663,7 @@ def _section_rotors(
                 "blade_families": per_blade,
                 **{
                     key: own.get(key)
-                    for key in ("steps_per_revolution", "blade1_azimuth_deg", "rpm")
+                    for key in ("steps_per_revolution", "blade1_azimuth_deg", "rpm", "blades")
                 },
             }
         return table
@@ -680,7 +680,7 @@ def _section_rotors(
             own = reductions
         entry: dict[str, object] = {"families": families, "blade_families": per_blade_families}
         if isinstance(own, Mapping):
-            for key in ("steps_per_revolution", "blade1_azimuth_deg", "rpm"):
+            for key in ("steps_per_revolution", "blade1_azimuth_deg", "rpm", "blades"):
                 entry[key] = own.get(key)
         table[str(alias)] = entry
     return table
