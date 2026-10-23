@@ -437,7 +437,9 @@ def _saved_wake_edge_verdict(sets, folder: Path, collected: Sequence[str], build
     if len(saves) != 1:
         return (
             RunStatus.FAILED_INCOMPLETE_OUTPUT,
-            "multiple wake-edge imports require one collected saved simulation",
+            "multiple wake-edge imports are checked on the saved simulation, and the run "
+            f"collected {len(saves)} .fsm files; list exactly one saved simulation (.fsm) "
+            "among the row's outputs",
         )
     try:
         unit = saved_mesh_coordinate_unit(saves[0])

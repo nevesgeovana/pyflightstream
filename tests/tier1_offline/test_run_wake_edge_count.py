@@ -434,3 +434,35 @@ def test_a_collected_job_judged_by_a_custom_assessor_is_held_to_the_count(
         assert "16" in outcome.record.error and "15" in outcome.record.error
     else:
         assert "no solver log was read" in outcome.record.error, outcome.record.error
+
+
+def test_p0440_ter01_missing_saved_simulation_names_the_output_to_list(tmp_path):
+    from pyflightstream.run._wake_edge_verdict import with_wake_edge_verdict
+
+    sets = [
+        {
+            "file": "a.te.txt",
+            "type": "STANDARD",
+            "count": 1,
+            "points_m": [(0, 0, 0)],
+            "tolerance": 0.0001,
+        },
+        {
+            "file": "b.te.txt",
+            "type": "RELAXED",
+            "count": 1,
+            "points_m": [(1, 0, 0)],
+            "tolerance": 0.0001,
+        },
+    ]
+    status, error = with_wake_edge_verdict(
+        RunStatus.CONVERGED,
+        None,
+        None,
+        sets=sets,
+        folder=tmp_path,
+        collected=["loads.txt"],
+        build="26.124",
+    )
+    assert status == RunStatus.FAILED_INCOMPLETE_OUTPUT
+    assert ".fsm" in error and "among the row's outputs" in error
