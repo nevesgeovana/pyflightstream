@@ -200,13 +200,10 @@ def build_capture(stl: Path, out: Path) -> tuple[Script, dict[str, str]]:
     )
     export("EXPORT_SURFACE_SECTIONAL_LOADS", "sectional.txt", str(out / "sectional.txt"))
     export("EXPORT_ALL_SURFACE_SECTIONS", "sections.txt", str(out / "sections.txt"))
-    # `EXPORT_SURFACE_SECTIONS` (the single-section export) is NOT emitted
-    # here and its absence is a finding rather than an omission. RPT-036b
-    # observed the solver consuming the FOLLOWING LINE as its filename: the
-    # entry declares `index: int` alone and the real layout carries a path on
-    # its own line, so emitting it mid-script destroys the next command. The
-    # 26.120 capture of that format is already committed; correcting the entry
-    # needs the manual page and a probe report, not this run.
+    # `EXPORT_SURFACE_SECTIONS` is absent from this historical capture.
+    # RPT-036b observed the old index-only entry consuming the next command
+    # as its filename. The current entry declares both index and path;
+    # the 26.120 capture remains the record of the earlier grammar defect.
 
     # THE LOG IS EXPORTED BEFORE THE LAST EXPORT, not after, which is the
     # opposite of the obvious order and is what the first run taught. Every

@@ -20,6 +20,12 @@ def test_p0440_missing_value_definition_names_the_fixed_width_exception():
 PAGE = WORKFLOW_DOCS
 
 
+def test_p0440_capture_comment_distinguishes_historical_export_grammar():
+    text = (REPO / "scripts/capture_export_corpus.py").read_text(encoding="utf-8")
+    assert "current entry declares both index and path" in text
+    assert "entry declares `index: int` alone" not in text
+
+
 def test_p0440_walltime_documents_both_clock_origins():
     text = (REPO / "docs/workflow-run-matrix.md").read_text(encoding="utf-8")
     clock = text.split("`WALLTIME` is the wall clock", 1)[1].split("**A COLUMN", 1)[0]
