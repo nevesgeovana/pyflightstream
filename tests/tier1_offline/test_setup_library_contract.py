@@ -94,6 +94,18 @@ def test_recommended_setups_keep_model_and_workflow_applicability():
     assert "hypothesis" in standards["s908"].purpose
 
 
+def test_p0440_separation_studies_enable_their_selected_model():
+    standards = {s.code: s for s in setup_standards()}
+    for code in ("s950", "s951", "s952"):
+        settings = tomllib.loads(render_standard(standards[code], "26.100"))
+        assert settings.get("crossflow_separation_boundaries") == ["Body"]
+    assert not standards["s900"].settings.get("crossflow_separation_boundaries")
+    selected = standards["s948"]
+    assert standards[selected.baseline_code].settings["valarezo_criterion"] is True
+    assert selected.settings["valarezo_criterion"] is True
+    assert selected.settings["valarezo_separation_boundaries"] == ["Wing"]
+
+
 def test_guidelines_cite_sources_and_separate_model_context_from_native_evidence():
     """GOAL033:standards:checks:bibliography"""
     text = render_guidelines("26.124")

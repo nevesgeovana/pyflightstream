@@ -532,18 +532,26 @@ def setup_standards() -> tuple[SetupStandard, ...]:
             if key == "adaptive_field_grid_refinement"
             else "s906"
             if key == "laminar_separation"
+            else "s933"
+            if code == "s948"
             else "s900"
         )
         baseline = baselines[baseline_code]
+        paired = (
+            {"crossflow_separation_boundaries": ["Body"]}
+            if code in {"s950", "s951", "s952"}
+            else {}
+        )
         singles.append(
             SetupStandard(
                 code,
                 f"Single-setting sensitivity: {key}; compare with {baseline_code}",
-                {**baseline.settings, key: value},
+                {**baseline.settings, **paired, key: value},
                 baseline_code=baseline_code,
                 workflow=baseline.workflow,
             )
         )
+        baselines[code] = singles[-1]
     return combined + tuple(singles)
 
 

@@ -32,6 +32,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Separation studies s950-s952 now select Body, and s948 compares with the
+  Valarezo-enabled s933 baseline (PFS-2119.060).
+
 - Refinement includes the exact 45-degree spanwise boundary with an absolute
   cosine tolerance of 1e-14 (PFS-2153).
 
