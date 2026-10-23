@@ -256,8 +256,28 @@ def test_f2_0809_every_case_equivalent_group_is_checked_in_any_order(order):
         spelling: (["Blade1", "Blade2"] if spelling == order[0] else ["SomeoneElsesWing"])
         for spelling in order
     }
-    with pytest.raises(CampaignConfigError):
+    with pytest.raises(
+        CampaignConfigError,
+        match=r"rotor's alias.*SomeoneElsesWing.*Blade1.*Blade2.*Rename the group",
+    ):
         rotor_integration_groups(rotors, declared)
+
+
+def test_p0440_case_equivalent_group_guard_requires_the_diagnostic():
+    import ast
+    import inspect
+
+    tree = ast.parse(
+        inspect.getsource(test_f2_0809_every_case_equivalent_group_is_checked_in_any_order)
+    )
+    patterns = [
+        keyword.value.value
+        for call in ast.walk(tree)
+        if isinstance(call, ast.Call)
+        for keyword in call.keywords
+        if keyword.arg == "match" and isinstance(keyword.value, ast.Constant)
+    ]
+    assert patterns == [r"rotor's alias.*SomeoneElsesWing.*Blade1.*Blade2.*Rename the group"]
 
 
 def test_f2_0809_mixed_int_and_str_members_are_named_in_the_refusal():
