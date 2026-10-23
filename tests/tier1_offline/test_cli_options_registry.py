@@ -647,7 +647,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "force_rerun_all"): frozenset({"run"}),
     ("pyfs-matrix", "polar_sweep"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "batch"): frozenset({"inspect-setups", "plan", "run"}),
-    ("pyfs-matrix", "hpc"): frozenset({"collect", "inspect-setups", "plan", "run"}),
+    ("pyfs-matrix", "hpc"): frozenset({"collect", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "sims"): frozenset(
         {
             "noise",
