@@ -1,5 +1,10 @@
 # Flight conditions
 
+Evidence convention: external citations such as RPT-052, RPT-060 and RPT-078
+refer to licensed measurements held in the private release records. These
+records are not publicly available; the citations identify the evidence
+behind the stated contract, rather than a downloadable public report.
+
 ## Compare requested and reported conditions
 
 `bind_conditions` compares the requested point with the conditions printed

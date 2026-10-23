@@ -10,6 +10,12 @@ from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 REPO = Path(__file__).resolve().parents[2]
 
 
+def test_p0440_external_flight_evidence_is_named_as_private():
+    text = (REPO / "docs/flight-conditions.md").read_text(encoding="utf-8")
+    assert "RPT-052, RPT-060 and RPT-078" in text
+    assert "private release records" in text and "not publicly available" in text
+
+
 def test_p0440_missing_value_definition_names_the_fixed_width_exception():
     text = (REPO / "docs/definitions/the-token-for-a-value-that-does-not-exist.md").read_text(
         encoding="utf-8"
