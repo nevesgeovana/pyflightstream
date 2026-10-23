@@ -3644,7 +3644,7 @@ def test_the_default_assessor_judges_the_points_own_table_in_a_two_point_sweep(t
     ]
 
 
-def test_a_case_whose_declared_outputs_are_absent_is_judged_over_the_folder(tmp_path):
+def test_p0440_absent_declared_outputs_warn_before_folder_assessment(tmp_path):
     """The fallback half of the assessor's restriction, asked for by the QA lens.
 
     A case declares outputs that never appeared under outputs/ (a failed export, an
@@ -3663,9 +3663,10 @@ def test_a_case_whose_declared_outputs_are_absent_is_judged_over_the_folder(tmp_
         outputs=["never_exported.txt"],
     )
     case.point = {"alpha": 2.0}
-    assessment = LoadsAssessor()(
-        case, None, make_collected(tmp_path, "", name="loads.txt", text=steady)
-    )
+    with pytest.warns(UserWarning, match="9001.*declared outputs.*never_exported.txt.*absent"):
+        assessment = LoadsAssessor()(
+            case, None, make_collected(tmp_path, "", name="loads.txt", text=steady)
+        )
     assert assessment.status is RunStatus.CONVERGED, assessment.error
     # And a case whose declared table IS there is judged on that table alone,
     # with a second table beside it ignored.

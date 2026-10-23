@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Added
 
+- Assessment warns when declared outputs are absent and it falls back to the
+  whole selected output folder, naming the affected point and declarations (F-600).
+
 - `post --check-frozen` and `collect --check-frozen` help now name the reference
   area/length mismatch policy, also stated in the post-processing definitions
   (PFS-2109.001).
