@@ -179,7 +179,7 @@ def _load_json(path: Path, kind: str, *, object_only: bool = False) -> Any:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
         if object_only and not isinstance(value, dict):
-            raise ValueError("expected a JSON object")
+            raise StorageError("expected a JSON object")
         return value
     except (OSError, ValueError) as error:
         raise StorageError(f"{path}: the {kind} cannot be read as JSON ({error})") from error
