@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Section integration retains raw loads and names the refusal when mesh length
+  units are absent, instead of silently interpreting lengths as metres (RB3-11).
 - Missing section frames are named as missing layout metadata in reduced-frequency
   diagnostics instead of being described as frame `None` (RB3-07).
 - The boundaries file of a refined level states the level's own `mesh_faces`, `boundary_faces`
