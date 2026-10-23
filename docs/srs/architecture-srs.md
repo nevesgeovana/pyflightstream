@@ -307,26 +307,26 @@ Console status, progress and logs observe the operation's outcome. A logging
 failure is reported without replacing the underlying result. Expected refusals
 name their cause and remedy; validation and failure reporting remain bounded
 contracts, not a guarantee that all conceivable failures are impossible.
-## The 0.43.0 and 0.44.0 additions and their limits
+## Capabilities and their limits
 
-The 0.43.0 documentation has an edition for each release. The site serves
+The documentation has an edition for each release. The site serves
 versioned pages with an edition selector, and the release documentation zip
 can be read from an unzipped folder. An edition describes the sources of
 that release; it does not turn an unmeasured capability into a verified one.
 
 Geometry instructions gained `remesh_from_sections`, which cuts a body's
 sections and lofts a new wing or fuselage beside the source. The cutter stays
-behind build-specific probe evidence. The 0.44.0 QA catalog adds its
+behind build-specific probe evidence. The QA catalog contains an
 offline-tested `CAD_CREATE_AUTO_CROSS_SECTIONS` probe specification, comparing
 nine saved curves against an empty before-state and an unchanged control.
 The licensed cutter runs remain pending, so the specification does not open
 the evidence gate.
 
-CCS wing rows gained morphing surfaces in 0.43.0 through
+CCS wing rows support morphing surfaces through
 `[[import.ccs.morphing_surfaces]]`, `MORPHING` and `MORPHING_ANGLE`, without
 regenerating the CCS file. A deformed solve alone does not establish the
 containment claim: the 26.125 containment verdict remains unprobed, and the
-26.124 form still needs its grammar evidence. The same release added trimmed
+26.124 form still needs its grammar evidence. Post-processing supports trimmed
 polars at zero `CMB25`, using interpolation without extrapolation, and
 refinement-study uncertainty products from a pproc `[refinement]` table.
 Their numerical definitions and admission conditions remain on the product
@@ -334,7 +334,7 @@ definition pages. Both the sidecar trailing-edge declaration and
 `WakeEdgeImport` require an explicit wake-edge type; conversion writes
 `STANDARD`.
 
-In 0.44.0 a raw mesh can import several ordered trailing-edge files, each
+A raw mesh can import several ordered trailing-edge files, each
 with its own type. The script, plan and record carry those declarations, and
 run checks each logged count. For several files it also requires exactly one
 collected saved simulation and checks the declared edges against its saved
