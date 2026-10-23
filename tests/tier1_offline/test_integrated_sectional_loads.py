@@ -139,6 +139,16 @@ def test_p0440_missing_mesh_units_keep_raw_sections(tmp_path, monkeypatch, mesh_
     assert rows and not set(EXTRA) & set(columns)
 
 
+def test_p0440_integration_admission_has_a_checked_type_boundary():
+    import inspect
+
+    from pyflightstream.post import section_distributions
+
+    signature = inspect.signature(section_distributions._measured_integration)
+    assert signature.return_annotation is not inspect.Signature.empty
+    assert all(p.annotation is not inspect.Parameter.empty for p in signature.parameters.values())
+
+
 def test_opt_in_columns_and_glossary(tmp_path, monkeypatch):
     workspace = _case(tmp_path, monkeypatch)
     _, columns, rows = _table(workspace)
