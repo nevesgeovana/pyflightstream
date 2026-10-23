@@ -59,6 +59,7 @@ FlightStream versions.
 
 ### Fixed
 
+- Table CSV writing retains every numeric column when sanitized headings coincide (RV1-01).
 - Custom recipes without a registered workflow again record no reduction windows
   (PFS-2124.020). Registered run types retain consistent workflow selection.
 - Far-field products refuse steady probe velocities from non-metre simulations

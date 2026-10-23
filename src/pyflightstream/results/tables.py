@@ -272,11 +272,23 @@ class Table:
             raise missing_extra("pandas", package="pandas", purpose="Table.to_pandas()") from error
         return pd.DataFrame({name: np.asarray(values) for name, values in self._data.items()})
 
-    def to_csv(self, path_or_buf=None, *, index=True, lineterminator=_textio.LINE_END, na_rep=""):
+    def to_csv(
+        self,
+        path_or_buf=None,
+        *,
+        index=True,
+        lineterminator=_textio.LINE_END,
+        na_rep="",
+        header=True,
+    ):
         """Write CSV to a path or text stream, or return CSV text when no path is given."""
         buffer = io.StringIO(newline="")
         writer = _textio.csv_writer(buffer, lineterminator=lineterminator)
-        writer.writerow(([""] if index else []) + list(self.columns))
+        if header is not False:
+            names = list(self.columns if header is True else header)
+            if len(names) != len(self.columns):
+                raise MalformedOutputError("CSV header length differs; supply one name per column")
+            writer.writerow(([""] if index else []) + names)
         for number, row in enumerate(zip(*self._data.values(), strict=True)):
             cells = [_csv_cell(value, na_rep) for value in row]
             writer.writerow(([number] if index else []) + cells)
@@ -658,18 +670,30 @@ def write_table(frame: Table, path: str | Path, *, overwrite: bool = False) -> P
     # under the same rule, and on a copy, so the caller's frame keeps its text.
     # LF ON EVERY PLATFORM (NFR-32): pandas ends a row with os.linesep unless
     # told otherwise, which is CRLF on Windows, so the line end is stated.
-    plain = frame.rename(columns=lambda name: plain_cell(str(name)))
-    plain = plain.map(lambda value: plain_cell(value) if isinstance(value, str) else value)
+    # Sanitize the serialized header, not the column keys: distinct names may
+    # acquire the same spelling, and rekeying a Table would discard their data.
+    header = [plain_cell(str(name)) for name in frame.columns]
+    plain = frame.map(lambda value: plain_cell(value) if isinstance(value, str) else value)
     # A declined value (NaN) is the NA token, as every other product writes it (F-251).
     if overwrite:
-        plain.to_csv(target, index=False, lineterminator=_textio.LINE_END, na_rep=NOT_APPLICABLE)
+        plain.to_csv(
+            target,
+            index=False,
+            lineterminator=_textio.LINE_END,
+            na_rep=NOT_APPLICABLE,
+            header=header,
+        )
         return target
     # Created exclusively: a writer that appeared between the check above and
     # here must not be truncated by a call that promised not to replace a file.
     try:
         with _textio.open_text(target, "x") as stream:
             plain.to_csv(
-                stream, index=False, lineterminator=_textio.LINE_END, na_rep=NOT_APPLICABLE
+                stream,
+                index=False,
+                lineterminator=_textio.LINE_END,
+                na_rep=NOT_APPLICABLE,
+                header=header,
             )
     except FileExistsError:
         raise ProductExistsError(exists) from None

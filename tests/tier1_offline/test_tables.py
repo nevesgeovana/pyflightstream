@@ -44,6 +44,25 @@ from pyflightstream.workspace import CampaignWorkspace, PointName, RunRecord, Ru
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+@pytest.mark.parametrize("overwrite", [False, True])
+def test_p0440_rv1_csv_header_sanitization_keeps_every_value(tmp_path, overwrite):
+    """RV1-01: distinct plot columns survive even when their CSV headings coincide."""
+    from pyflightstream.results import parse_unsteady_plots
+
+    report = parse_unsteady_plots("Time, lift\", lift'\n0, 1.25, 2.5\n1, 3.75, 4.5\n")
+    table = to_table(report)
+    target = tmp_path / "plots.csv"
+    if overwrite:
+        target.write_text("old product\n", encoding="utf-8")
+    write_table(table, target, overwrite=overwrite)
+    assert target.read_text(encoding="utf-8").splitlines() == [
+        "Time,lift',lift',data_origin,reduction,reduction_window",
+        "0.0,1.25,2.5,raw,none,not_applicable",
+        "1.0,3.75,4.5,raw,none,not_applicable",
+    ]
+    assert table['lift"'].tolist() == [1.25, 3.75]
+
+
 def test_p0440_tables_are_numpy_columns_with_optional_dataframe_parity(tmp_path):
     """P0440-PANDAS: table columns and CSV do not depend on a dataframe substrate."""
     pd = pytest.importorskip("pandas")
