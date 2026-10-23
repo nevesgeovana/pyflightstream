@@ -493,6 +493,7 @@ def _harmonic_rotors(
     """
     clocks = _section_rotors(live, aliases, record)
     blocks = getattr(live, "rotors", None) or {}
+    moment = getattr(live, "moment_point", None)
     reductions = record.reductions if isinstance(record.reductions, Mapping) else {}
     stated = reductions.get("rotors")
     table: dict[str, tuple[_harmonics.HarmonicRotor, object]] = {}
@@ -525,7 +526,7 @@ def _harmonic_rotors(
                 diameter_m=stated_diameter,
                 azimuth_is_blade_one=False,
                 hub_m=(block.x_m, block.y_m, block.z_m) if block is not None else None,
-                moment_point_m=getattr(live, "moment_point_m", None),
+                moment_point_m=(moment.x_m, moment.y_m, moment.z_m) if moment is not None else None,
                 axis_vector=block.axis_vector if block is not None else None,
                 section_frames=_qsteady._section_frames(record.sections_layout)
                 if record.sections_layout is not None

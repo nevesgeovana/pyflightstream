@@ -84,6 +84,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Unsteady MRP sectional harmonics read the reference artifact's moment point,
+  preserving available station radii and radius ratios (RV2-01, F-127).
+
 - History and diff retain readable records and aliases when another manifest row is malformed (RV1-02).
 - Table CSV writing retains every numeric column when sanitized headings coincide (RV1-01).
 - Custom recipes without a registered workflow again record no reduction windows

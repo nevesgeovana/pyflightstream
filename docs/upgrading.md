@@ -9,6 +9,10 @@ describe the older releases that supplied them.
 
 ## 0.44.0
 
+Unsteady sectional harmonics use the reference artifact's `moment_point` for
+MRP cuts. Rebuild these products to recover station radii and radius ratios
+that the initial 0.44.0 adapter left unavailable despite a supplied origin.
+
 ### NumPy tables and optional pandas
 
 `to_table`, `run_table` and `sweep_table` now return
