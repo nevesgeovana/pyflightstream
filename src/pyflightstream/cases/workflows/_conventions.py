@@ -231,6 +231,23 @@ def _workflow_cell(case: SimCase) -> str | None:
     return name
 
 
+def declared_run_type(case: SimCase) -> str | None:
+    """Return the run type a case declares, or its custom recipe when it declares none.
+
+    The one reading of a case's run type for the decisions a builder takes
+    (PFS-2124.020). A case that names a workflow, in its WORKFLOW cell or as a
+    recipe that is a registered workflow, is read through
+    :func:`select_workflow`, so two disagreeing declarations are still refused.
+    A case whose recipe is a function the user wrote names no workflow; its
+    recipe string is returned as written, the value those decisions read
+    before 0.44.0, because a custom recipe is no run type and must not be
+    refused for lacking one.
+    """
+    if _workflow_cell(case) is not None or (case.recipe or "").strip() in WORKFLOWS:
+        return select_workflow(case)
+    return case.recipe
+
+
 def select_workflow(case: SimCase) -> str:
     """Return the workflow a case names, refusing two builders or none.
 

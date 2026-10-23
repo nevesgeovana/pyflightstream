@@ -62,7 +62,7 @@ from pyflightstream.probes.layouts import (
 )
 from pyflightstream.script import Script
 
-from ._conventions import select_workflow
+from ._conventions import declared_run_type
 from ._motion import _origin
 from ._names import _inventory
 from ._rows import (
@@ -115,7 +115,7 @@ def _spec(case: SimCase) -> FarfieldSpec | None:
 
 
 def _run_type(case: SimCase) -> str:
-    return str(select_workflow(case) or "steady")
+    return str(declared_run_type(case) or "steady")
 
 
 def _rotor(case: SimCase) -> bool:

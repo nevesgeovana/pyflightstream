@@ -40,6 +40,7 @@ from ._clock import (
 )
 from ._conventions import (
     WorkflowConventions,
+    declared_run_type,
     select_workflow,
 )
 from ._exports import (
@@ -298,10 +299,10 @@ def _refuse_a_free_body_off_the_unsteady_run(case: SimCase) -> None:
     binds, and a case authored in Python meets it here, whether it is built one
     point at a time or as a steady sweep (F-755).
     """
-    if case.sixdof is not None and select_workflow(case) != "unsteady":
+    if case.sixdof is not None and declared_run_type(case) != "unsteady":
         raise CampaignConfigError(
             f"case {case.sim_id!r}: a 6DOF body runs on the unsteady run type only, and this "
-            f"case runs {select_workflow(case)}; a free body needs the time march, "
+            f"case runs {declared_run_type(case)}; a free body needs the time march, "
             "and a free body with a rotor turning is outside this route."
         )
 

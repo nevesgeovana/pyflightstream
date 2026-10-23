@@ -23,7 +23,7 @@ from pyflightstream.cases import (
     windows as _windows,
 )
 
-from ._conventions import WORKFLOWS, _workflow_cell, select_workflow
+from ._conventions import WORKFLOWS, _workflow_cell, declared_run_type, select_workflow
 from ._motion import (
     _optional_rotor_speed,
     _the_rotors_the_row_turns,
@@ -188,7 +188,7 @@ class ExportWindow:
         Reads ``LAST_REVS_AVG`` or ``LAST_ITERS_AVG`` alongside the clock.
         """
         _refuse_retired_window_keys(case)
-        _require_the_averaging_window(case, select_workflow(case))
+        _require_the_averaging_window(case, declared_run_type(case))
         if (
             _variable(case, LAST_REVS_AVG_VARIABLE) is not None
             and _variable(case, LAST_ITERS_AVG_VARIABLE) is not None

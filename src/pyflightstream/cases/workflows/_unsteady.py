@@ -39,7 +39,7 @@ from ._clock import (
 )
 from ._conventions import (
     WorkflowConventions,
-    select_workflow,
+    declared_run_type,
 )
 from ._exports import (
     _declared_export_kinds,
@@ -170,7 +170,7 @@ def _build_continuation(
     # marched the remainder at a different step would change the character
     # of the march halfway through and record nothing saying so. Derived
     # here exactly as the full builder derives it, so the two cannot drift.
-    if select_workflow(case) == "unsteady_rotor":
+    if declared_run_type(case) == "unsteady_rotor":
         clock = _optional_rotor_speed(case)
         stepping = rotor_time_stepping(
             case, speed=clock if clock is not None else rotor_speed(case)

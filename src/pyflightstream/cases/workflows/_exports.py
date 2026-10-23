@@ -38,7 +38,7 @@ from pyflightstream.script import (
 
 from ._conventions import (
     WorkflowConventions,
-    select_workflow,
+    declared_run_type,
 )
 from ._farfield import wants_wake
 from ._freestream import (
@@ -90,7 +90,7 @@ def surface_time_averaging(case: SimCase) -> SurfaceAverageWindow | None:
     if stated is None:
         return None
     _refuse_retired_window_keys(case)
-    if select_workflow(case) not in _UNSTEADY_RECIPES:
+    if declared_run_type(case) not in _UNSTEADY_RECIPES:
         raise CampaignConfigError("[time_averaging] requires an unsteady run")
     plan = reduction_windows(case)
     assert plan is not None

@@ -42,7 +42,7 @@ from pyflightstream.script import (
 from ._clock import (
     unsteady_export_threshold,
 )
-from ._conventions import select_workflow
+from ._conventions import declared_run_type
 from ._farfield import (
     declared_lattices,
     emit_declared_lattices,
@@ -375,7 +375,7 @@ def _has_a_per_step_window(case: SimCase, script: Script) -> bool:
 
 def _refuse_unmeasured_normal_probes(case: SimCase, script: Script) -> None:
     """Enforce the measured version boundary before a normal-probe script is emitted."""
-    if select_workflow(case) not in ("unsteady", "unsteady_rotor") or case.pproc is None:
+    if declared_run_type(case) not in ("unsteady", "unsteady_rotor") or case.pproc is None:
         return
     if any(entry.kind == "normal" for entry in case.pproc.probes):
         if script.version.canonical not in NORMAL_PROBE_BUILDS:
@@ -519,7 +519,7 @@ def _creation_of_normal_probes(
     taken from the row built from the mesh on a scratch script; empty for a
     row whose probes are not normal or that states no per-step window.
     """
-    if select_workflow(case) not in ("unsteady", "unsteady_rotor"):
+    if declared_run_type(case) not in ("unsteady", "unsteady_rotor"):
         return ""
     if case.pproc is None or not _normal_probes_of(case):
         return ""

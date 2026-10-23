@@ -36,7 +36,7 @@ from pyflightstream.script import (
     helpers,
 )
 
-from ._conventions import select_workflow
+from ._conventions import declared_run_type
 from ._geometry import (
     _setup_ports,
 )
@@ -72,7 +72,7 @@ def _refuse_the_loads_selections_on_a_march(case: SimCase) -> None:
     if not stated:
         return
     raise CampaignConfigError(
-        f"case {case.sim_id!r} names the run type {select_workflow(case)!r} and its setup states "
+        f"case {case.sim_id!r} names the run type {declared_run_type(case)!r} and its setup states "
         f"{', '.join(stated)}. The loads selections are applied after the solve starts, "
         "and on a march that reaches only the final export, not the step exports and "
         "plots the unsteady products are read from (RPT-064 measured this for the loads "
@@ -91,7 +91,7 @@ def _analysis(case: SimCase, script: Script, frame: int | None) -> None:
     here, from :func:`_script_init`, once the solver is initialised and the
     sections are declared.
     """
-    rotor = select_workflow(case) in ("unsteady_rotor", QSTEADY_ROTOR) or _states_a_rotor_speed(
+    rotor = declared_run_type(case) in ("unsteady_rotor", QSTEADY_ROTOR) or _states_a_rotor_speed(
         case
     )
     _setup_link.analysis_frame_and_moments(case, script, frame, rotor=rotor)
@@ -331,7 +331,9 @@ def _settings(
     symmetry_loads = row_symmetry_loads(case, solver.symmetry_loads)
     if symmetry_loads is not None:
         helpers.analysis_setup(script, symmetry_loads=symmetry_loads)
-    _setup_link.emit_setup_extras(case, script, marching=select_workflow(case) in _UNSTEADY_RECIPES)
+    _setup_link.emit_setup_extras(
+        case, script, marching=declared_run_type(case) in _UNSTEADY_RECIPES
+    )
 
 
 def _lift_and_coupling(case: SimCase, script: Script) -> None:

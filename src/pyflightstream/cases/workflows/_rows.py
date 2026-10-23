@@ -53,7 +53,7 @@ from pyflightstream.script import (
 from ._conventions import (
     WORKFLOWS,
     _workflow_cell,
-    select_workflow,
+    declared_run_type,
 )
 from ._row_cells import (
     _required_float as _required_float,
@@ -876,7 +876,7 @@ def _the_aliases_the_row_names(case: SimCase) -> list[str | None]:
     if not aliases:
         alias = _variable(case, MOVING_BC_ALIAS_VARIABLE)
         aliases = [str(alias)] if alias else []
-    if not aliases and select_workflow(case) == QSTEADY_ROTOR:
+    if not aliases and declared_run_type(case) == QSTEADY_ROTOR:
         # A QUASI-STEADY ROW HAS NO MOTION RECORD TO NAME ITS ROTOR: its rotor is the
         # reference's one isolated rotor, which is what the run type already solves.
         try:
@@ -913,7 +913,7 @@ def _the_copies_the_sector_stands_for(case: SimCase, script: Script) -> tuple[in
     aliases = _the_aliases_the_row_names(case)
     named = {str(alias).strip().casefold() for alias in aliases}
     if not named:
-        if select_workflow(case) == "unsteady_rotor":
+        if declared_run_type(case) == "unsteady_rotor":
             return None, (
                 f"Add it to the row's variables, or name the rotor by alias "
                 f"({MOVING_BC_ALIAS_VARIABLE}) and let its block's blades say it."

@@ -61,7 +61,7 @@ from ._clock import (
 )
 from ._conventions import (
     WorkflowConventions,
-    select_workflow,
+    declared_run_type,
 )
 from ._exports import (
     _declared_export_kinds,
@@ -616,7 +616,7 @@ def _one_per_revolution_validity(case: SimCase) -> dict[str, object] | None:
         None for a point that is not a quasi-steady WHEEL: a sector's inflow is
         the same at every azimuth, so it has no once-per-revolution load.
     """
-    if select_workflow(case) != QSTEADY_ROTOR:
+    if declared_run_type(case) != QSTEADY_ROTOR:
         return None
     try:
         if qsteady_case_kind(case) != "wheel":
@@ -713,7 +713,7 @@ def qsteady_inflow_fft(case: SimCase) -> dict[str, object] | None:
         the suggested ``PASSAGE_POSITIONS`` and a ``note``); None for a point
         that is not a quasi-steady wheel with a custom inflow.
     """
-    if select_workflow(case) != QSTEADY_ROTOR:
+    if declared_run_type(case) != QSTEADY_ROTOR:
         return None
     try:
         if qsteady_case_kind(case) != "wheel":

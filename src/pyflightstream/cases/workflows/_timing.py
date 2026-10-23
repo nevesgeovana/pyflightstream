@@ -32,6 +32,7 @@ from ._conventions import (
     BuildCapabilities,
     BuildCapabilityError,
     _builds_with_actions,
+    declared_run_type,
     select_workflow,
 )
 from ._motion import (
@@ -292,10 +293,10 @@ def time_steps_of(case: SimCase) -> int | None:
         from the builder, with the builder's message, and a table meanwhile
         prints a blank instead of a number nobody can check.
     """
-    if select_workflow(case) == "steady":
+    if declared_run_type(case) == "steady":
         return None
     try:
-        if select_workflow(case) == "unsteady_rotor":
+        if declared_run_type(case) == "unsteady_rotor":
             stepping = rotor_time_stepping(case, speed=_optional_rotor_speed(case))
         else:
             stepping = unsteady_time_stepping(case)
