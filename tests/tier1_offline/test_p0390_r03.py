@@ -1635,10 +1635,10 @@ def test_p0390_r03_the_acceptance_truth_table_end_to_end(
 ):
     """P0390-R03 (FR-998, FR-999): each row of the acceptance table, planned and run end to end.
 
-    The workspace acceptance is pyfs.local.toml over pyfs.toml, key by key (so
-    "pyfs.toml true, pyfs.local.toml false" is refused); the entry acceptance accepts its
-    own build only; the typed flag accepts whatever the files state, its negation
-    refuses whatever they state. Accepted: the run exits 0, warns, and plan.json and the
+    Settings files stating acceptance are refused, even with a typed flag.
+    An executable entry accepts its own build only; with settings files silent,
+    the typed flag accepts and its negation refuses. Accepted: the run exits 0,
+    warns, and plan.json and the
     records state the acceptance and its source; refused: "Nothing ran", exit 2, no
     record, and plan.json states no acceptance. fs_version comes from pyfs.toml in every
     row, so the "typed" source (recorded beside another value taken from a file) shows.
@@ -1913,6 +1913,9 @@ def test_p0440_windows_capture_marks_belong_to_the_test():
 
 
 def test_p0440_acceptance_fixture_states_the_file_refusal_directly():
+    assert "Settings files stating acceptance are refused" in (
+        test_p0390_r03_the_acceptance_truth_table_end_to_end.__doc__ or ""
+    )
     for row in _TRUTH_ROWS:
         if row[1] is not None or row[2] is not None:
             assert row[-2:] == ("file", None), row[0]
