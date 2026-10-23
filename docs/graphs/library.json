@@ -1581,6 +1581,11 @@
       "path": "workspace/_refine/_remesh_pairs.py"
     },
     {
+      "id": "pyflightstream.workspace._refine._staging",
+      "layer": 2,
+      "path": "workspace/_refine/_staging.py"
+    },
+    {
       "id": "pyflightstream.workspace._row_setup",
       "layer": 2,
       "path": "workspace/_row_setup.py"
@@ -9439,6 +9444,11 @@
     },
     {
       "source": "pyflightstream.run._cli_mesh",
+      "target": "pyflightstream._progress",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_mesh",
       "target": "pyflightstream._textio",
       "kind": "module"
     },
@@ -12658,6 +12668,11 @@
       "kind": "deferred"
     },
     {
+      "source": "pyflightstream.workspace._refine._level",
+      "target": "pyflightstream.workspace._refine._staging",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._refine._obj",
       "target": "pyflightstream._decimal",
       "kind": "module"
@@ -12750,6 +12765,16 @@
     {
       "source": "pyflightstream.workspace._refine._remesh_pairs",
       "target": "pyflightstream.workspace._refine._remesh_group",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._staging",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._staging",
+      "target": "pyflightstream.workspace._refine._obj",
       "kind": "module"
     },
     {

@@ -1143,6 +1143,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.run._cli_mesh"><summary><code>pyflightstream.run._cli_mesh</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._progress">pyflightstream._progress</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows._vocabulary">pyflightstream.cases.workflows._vocabulary</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (module)</li>
@@ -1905,6 +1906,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._periodic">pyflightstream.workspace._refine._periodic</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._remesh">pyflightstream.workspace._refine._remesh</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._staging">pyflightstream.workspace._refine._staging</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._refine._obj"><summary><code>pyflightstream.workspace._refine._obj</code></summary><ul>
@@ -1939,6 +1941,11 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.workspace._refine._remesh_pairs"><summary><code>pyflightstream.workspace._refine._remesh_pairs</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._geometry">pyflightstream.workspace._refine._geometry</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._remesh_group">pyflightstream.workspace._refine._remesh_group</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._refine._staging"><summary><code>pyflightstream.workspace._refine._staging</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._row_setup"><summary><code>pyflightstream.workspace._row_setup</code></summary><ul>

@@ -106,9 +106,9 @@
       "outputs": [
         "geometry"
       ],
-      "parameters": "mesh: str | os.PathLike[str], factor: float | None=None, *, families: Sequence[str] | None=None, chordwise: float | None=None, spanwise: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None",
+      "parameters": "mesh: str | os.PathLike[str], factor: float | None=None, *, families: Sequence[str] | None=None, chordwise: float | None=None, spanwise: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None, progress: Callable[[str], None] | None=None",
       "returns": "RefinedMesh",
-      "source_sha256": "8319e109089434986d7b4424611929fd52edc281c203951d28fa99b62e69c6f9"
+      "source_sha256": "f6634d0df981857eaac34c540a5634a18ee3085571efaa588948194463d322d5"
     }
   ],
   "cases": [
