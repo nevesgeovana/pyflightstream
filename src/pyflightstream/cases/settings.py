@@ -110,8 +110,8 @@ class ReferenceData(BaseModel):
     rotor_position_m: tuple[float, float, float] | None = None
     #: WHICH MODEL AXIS EACH BODY RATE TURNS ABOUT, from the
     #: reference artifact's ``[body_axes]`` table: ``roll``, ``pitch`` and
-    #: ``yaw`` to ``X``, ``Y`` or ``Z``. A mesh is built in whatever
-    #: orientation its author chose, and a rotating free stream has to be
+    #: ``yaw`` to ``X``, ``Y`` and ``Z``, respectively. Only that mapping's
+    #: signs are measured (RPT-052/RPT-060). A rotating free stream has to be
     #: given an AXIS of a frame, so the row cannot state one without the
     #: reference saying which axis is which. Empty for a reference that
     #: declares none, and a row stating a rate against such a reference is
@@ -154,6 +154,18 @@ class ReferenceData(BaseModel):
             raise ValueError(
                 f"body_axes writes one axis twice ({axes}), and two body rates cannot turn "
                 "about the same axis of one frame."
+            )
+        return axes
+
+    @field_validator("body_axes")
+    @classmethod
+    def _axes_have_measured_rate_signs(cls, axes: dict[str, str]) -> dict[str, str]:
+        """Keep rate signs within the axis mapping measured by RPT-052 and RPT-060."""
+        standard = {"roll": "X", "pitch": "Y", "yaw": "Z"}
+        if any(axis != standard[rate] for rate, axis in axes.items()):
+            raise ValueError(
+                "body_axes supports only roll=X, pitch=Y, yaw=Z: RPT-052 and RPT-060 "
+                "did not measure a permuted mesh, so its rate signs are unavailable"
             )
         return axes
 

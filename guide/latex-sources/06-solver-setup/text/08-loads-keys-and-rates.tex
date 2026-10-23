@@ -55,7 +55,8 @@
 \begin{frame}[fragile]{Body rates: a cell of the row, not the setup}
 \small \code{roll\_rate}, \code{pitch\_rate} and \code{yaw\_rate} are keys of
 \code{FLIGHT\_CONDITION}, in deg/s, one non-zero rate per row; the reference's
-\code{[body\_axes]} says which model axis is which.
+\code{[body\_axes]} must use roll=X, pitch=Y, yaw=Z. Permutations are refused:
+RPT-052 and RPT-060 did not measure their signs.
 \begin{lstlisting}[style=ftsbase]
 MACH:0.2, REmi:5.5, ALPHA:0, roll_rate:sweep | -40,0,40
 \end{lstlisting}

@@ -610,10 +610,8 @@ def _free_stream(
             f"case {case.sim_id!r} states {key}: {rate:g} deg/s, and the reference "
             f"artifact its REF names declares no {axis_name} axis "
             f"({'it declares ' + declared if axes else 'it declares no [body_axes] at all'}). "
-            "A mesh is built in whatever orientation its author chose, so which axis the "
-            "aircraft rolls, pitches and yaws about is the configuration's to state: write "
-            "'[body_axes]' in the reference artifact, with roll, pitch and yaw against X, "
-            "Y or Z."
+            "Write '[body_axes]' in the reference artifact with roll=X, pitch=Y, yaw=Z; "
+            "RPT-052 and RPT-060 do not establish rate signs for a permuted mesh."
         )
     frame = frames.get("MRP")
     if not isinstance(frame, int):

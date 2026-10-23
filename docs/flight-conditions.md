@@ -310,9 +310,9 @@ of the rate the row states. A row stating `pitch_rate` is unaffected. The
 reversal is measured on 26.124 and on one configuration's axes; on another
 build the same line was emitted and its response is unmeasured.
 
-A `[body_axes]` table that permutes the axes (`roll = "Y"`, say) turns about
-the axis it declares with its rate's sign above;
-no probe has measured such a mesh.
+A `[body_axes]` table that permutes the axes (`roll = "Y"`, say) is refused.
+Only roll=X, pitch=Y, yaw=Z has measured signs in RPT-052 and RPT-060;
+permuted meshes require another probe before they can be supported.
 
 ## Which quantity gets solved for
 

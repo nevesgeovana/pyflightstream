@@ -596,8 +596,8 @@ _DEG_PER_S_TO_RPM = 60.0 / 360.0
 #: it LESS lift, the response of -r. Both reports and their evidence are under
 #: reports/.
 #:
-#: A configuration whose [body_axes] permutes the axes turns about the axis it
-#: declares with its rate's sign here; no probe has measured such a mesh.
+#: Permuted [body_axes] mappings are refused until a probe measures their signs;
+#: RPT-052 and RPT-060 support only roll=X, pitch=Y, yaw=Z.
 #:
 #: WHAT CHANGES IF A LATER PROBE DISAGREES: this table, the frame algebra and
 #: the pins of tests/tier1_offline/test_goal024_freestream_rotation.py, and the

@@ -17,6 +17,8 @@
 # q = +omega_y, r = -omega_z. The solver's sense was measured on FlightStream
 # 26.124, pitch in RPT-052 and roll and yaw in RPT-060. See the upgrade
 # guidance for historical roll and yaw sign corrections.
+# Only roll=X, pitch=Y, yaw=Z is supported. Permuted mappings are refused:
+# RPT-052 and RPT-060 did not measure their signs.
 #
 # This example sweeps the roll rate over one row and prints the free-stream
 # line each point's script carries, without a solver.

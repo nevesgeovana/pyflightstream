@@ -40,6 +40,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Permuted body-axis declarations refuse with RPT-052/RPT-060 evidence limits;
+  the supported rate mapping is roll=X, pitch=Y, yaw=Z (PFS-2126.043).
+
 - MRP sectional radii subtract the hub relative to the recorded moment point;
   historical wheel records without that origin report unavailable radii (F-127).
 
