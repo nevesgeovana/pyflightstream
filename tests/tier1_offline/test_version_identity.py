@@ -30,3 +30,9 @@ def test_p0440_unsteady_super_content_change_is_named():
     notes = (REPO / "CHANGELOG.md").read_text(encoding="utf-8").split("## [0.43.0]", 1)[0]
     assert "SET_SOLVER_UNSTEADY" in notes
     assert "time_iterations" in notes and "delta_time" in notes and "NA" in notes
+
+
+def test_p0440_refinement_identity_migration_is_named():
+    notes = (REPO / "CHANGELOG.md").read_text(encoding="utf-8").split("## [0.43.0]", 1)[0]
+    assert "canonical_selection" in notes
+    assert all(term in notes for term in ("body axis and origin", "level folder", "migration:"))
