@@ -195,7 +195,8 @@ def _warn_in_row_routes(geometry: Path, pol: str, mesh_import: MeshImport | None
     )
     warn(
         f"matrix row POL {pol} builds {what} inside the run, a route the geometry stage "
-        f"replaces and 0.41.0 refuses. Write the instruction with `pyfs-workspace geometry "
+        "replaces; this route currently warns without refusing. Write the instruction with "
+        "`pyfs-workspace geometry "
         f"from-sidecar {geometry.name} --apply`, build it with `pyfs-workspace geometry "
         f"build {folder} --apply`, and name {built} in the GEOMETRY cell ({_PAGE}).",
         PyflightstreamWarning,

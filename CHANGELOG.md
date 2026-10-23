@@ -32,6 +32,9 @@ FlightStream versions.
 
 ### Fixed
 
+- In-row geometry migration warnings state that the route still runs, instead
+  of claiming a refusal since 0.41.0 (X-F-0188).
+
 - Separation studies s950-s952 now select Body, and s948 compares with the
   Valarezo-enabled s933 baseline (PFS-2119.060).
 
