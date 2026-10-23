@@ -14,7 +14,7 @@ from pyflightstream.workspace.hpc import resolve_hpc_profile, select_hpc_profile
 
 _REST = """
 [descriptor]
-template = "descriptor.tmpl"
+name = "descriptor.yaml"
 
 [descriptor.fields]
 walltime = "{walltime}"

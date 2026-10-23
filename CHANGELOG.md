@@ -37,6 +37,9 @@ FlightStream versions.
 
 ### Fixed
 
+- HPC profiles refuse unknown descriptor keys, including the unused `template`
+  key; scheduler-specific names remain valid under `descriptor.fields` (F-1526).
+
 - CLI and ledger status filters share the workspace status-word validator (RB5-41).
 
 - Excel preview documentation states that invalid directions preserve the prior

@@ -309,6 +309,7 @@ HPC_PROFILE_KEYS: frozenset[str] = frozenset(
     }
 )
 HPC_LOG_KEYS: frozenset[str] = frozenset({"export_log", "native_log", "job_end_files"})
+HPC_DESCRIPTOR_KEYS: frozenset[str] = frozenset({"format", "name", "fields"})
 
 #: The top-level keys of a profile that are values, not tables; under a table they are not read.
 _TOP_LEVEL_SCALARS = frozenset({"max_walltime", "job_root", "walltime_arithmetic"})
@@ -333,9 +334,8 @@ def _refuse_unknown_keys(
 def _refuse_a_misplaced_key(target: Path, table: Mapping[str, object]) -> None:
     """Refuse a key this package OWNS that is written under some other table.
 
-    The top level and ``[log]`` are closed sets; the tables between them are the
-    user's own (``[submit]`` carries the submission's fields, ``[descriptor]``
-    the descriptor's names), so closing those would refuse working profiles.
+    The top level, ``[log]`` and ``[descriptor]`` are closed sets. Scheduler
+    names belong inside ``[descriptor.fields]``, which remains open.
     What is refused here is narrower and is the mistake people actually make:
     a key this package reads, written where this package does not read it.
 
@@ -456,6 +456,7 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
             stacklevel=2,
         )
     descriptor = table.get("descriptor") or {}
+    _refuse_unknown_keys(target, descriptor, HPC_DESCRIPTOR_KEYS, "under [descriptor]")
     fmt = str(descriptor.get("format") or "yaml").strip().lower()
     if fmt not in HPC_FORMATS:
         raise InputArtifactError(
