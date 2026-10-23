@@ -510,11 +510,13 @@ the run defined.
 from pyflightstream.results import parse_unsteady_plots
 
 # Synthetic data demonstrating the table format; no repository files are needed.
-export = """Time-step,CL_G1
-1,0.004
-2,0.054
-3,0.068
-4,0.082
+export = """Time-step,CL_G1,
+1,0.004,
+2,0.054,
+3,0.068,
+4,0.082,
+------------
+Software : Flightstream version 26.1, build #7012026
 """
 report = parse_unsteady_plots(export)
 assert report.steps == 4
