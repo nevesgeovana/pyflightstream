@@ -62,6 +62,11 @@ they do not replace the native geometric measurements above.
 
 ## Uniform, sheared, and millimetre custom fields
 
+Erratum dated 2026-10-23 (RB5-16): this section is the supplement added on 2026-10-21,
+retained in the existing report under the lean-file rule. The original report date remains 2026-09-27.
+The measurements and comparison receipt below are unchanged; the supplement date identifies when
+this additional custom-inflow evidence entered the report, not a new measurement made for this erratum.
+
 Eight successful six-STEP controls used the same executable/build above and
 one solver thread. The fixed wing used dt=0.02 s; the rotating case reused the
 measured six-STEP rotor fixture with dt=0.00625 s and emitted -800 RPM.

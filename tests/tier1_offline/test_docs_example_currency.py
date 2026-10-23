@@ -10,6 +10,15 @@ from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 REPO = Path(__file__).resolve().parents[2]
 
 
+def test_p0440_custom_inflow_supplement_has_a_dated_erratum():
+    text = (REPO / "reports/RPT-082_cad-units-and-custom-inflow-coverage_2026-09-27.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Erratum dated 2026-10-23" in text
+    assert "supplement added on 2026-10-21" in text
+    assert "original report date remains 2026-09-27" in text
+
+
 def test_p0440_external_flight_evidence_is_named_as_private():
     text = (REPO / "docs/flight-conditions.md").read_text(encoding="utf-8")
     assert "RPT-052, RPT-060 and RPT-078" in text

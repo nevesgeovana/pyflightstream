@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- RPT-082 dates its 2026-10-21 custom-inflow supplement explicitly (RB5-16).
+
 - Flight-condition documentation identifies external licensed evidence citations
   as private release records rather than public reports (RB4-28).
 
