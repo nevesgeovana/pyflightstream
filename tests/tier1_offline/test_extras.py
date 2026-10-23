@@ -338,6 +338,28 @@ def _normalised(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).strip().lower()
 
 
+def card_headings(texts) -> set[str]:
+    """Normalised heading texts of every card section in the given documents.
+
+    Takes TEXTS rather than paths, for the same reason
+    :func:`_remedies_in_raises` above does: a coverage assertion that can
+    only be run over the real tree cannot be told apart from one that
+    matches everything, and the difference between this and a substring
+    sweep is the whole point of the check below.
+
+    Parameters
+    ----------
+    texts : iterable of str
+        Markdown documents.
+
+    Returns
+    -------
+    set of str
+        One entry per level-two-or-deeper heading, normalised.
+    """
+    return {_normalised(heading) for text in texts for heading in _CARD_HEADING.findall(text)}
+
+
 @pytest.mark.requirement("NFR-02")
 def test_every_runtime_dependency_has_a_license_card():
     """The set that reaches every user, which is the one that had no card."""
