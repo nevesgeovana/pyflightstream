@@ -130,13 +130,20 @@ def test_p0430_nonmetre_mesh_refuses_unmeasured_strip_integration(tmp_path, monk
     assert rows and not set(EXTRA) & set(columns)
 
 
-@pytest.mark.parametrize("mesh_import", [None, {}, {"units": None}])
+@pytest.mark.parametrize("mesh_import", [{}, {"units": None}])
 def test_p0440_missing_mesh_units_keep_raw_sections(tmp_path, monkeypatch, mesh_import):
     workspace = _case(tmp_path, monkeypatch)
     workspace.read_manifest()[0].mesh_import = mesh_import
     with pytest.warns(PyflightstreamWarning, match="units.*unmeasured"):
         _, columns, rows = _table(workspace)
     assert rows and not set(EXTRA) & set(columns)
+
+
+def test_p0440_saved_simulation_without_mesh_import_keeps_integration(tmp_path, monkeypatch):
+    workspace = _case(tmp_path, monkeypatch)
+    workspace.read_manifest()[0].mesh_import = None
+    _, columns, rows = _table(workspace)
+    assert rows and tuple(columns[-4:]) == EXTRA
 
 
 def test_p0440_integration_admission_has_a_checked_type_boundary():
