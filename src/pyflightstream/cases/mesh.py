@@ -7,9 +7,9 @@ how its trailing edges are found; :class:`RawMeshConditions` the boundary
 conditions a raw mesh's sidecar declares; and :class:`BaseRegionOperation` and
 :class:`PortBoundary` the base regions and the ports a setup declares.
 
-The package root re-exports these models (AD-16). This module imports none of the other five model
-modules and never the package root; :mod:`pyflightstream.cases.settings`
-imports it.
+The package root re-exports these models (AD-16). This module imports the shared
+configuration error from reference_blocks and never the package root;
+:mod:`pyflightstream.cases.settings` imports it.
 """
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ from pydantic import (
 # module imports only pydantic and the script row, so the package may import it
 # while it loads.
 from pyflightstream.cases._ccs import CcsImportOptions
+from pyflightstream.cases.reference_blocks import CampaignConfigError
 
 __all__ = [
     "EVERY_SURFACE",
@@ -512,12 +513,14 @@ class BaseRegionOperation(BaseModel):
         """Require one explicit index or one previously created/declared boundary name."""
         if self.boundary is None:
             if self.index is None:
-                raise ValueError(f"base-region {self.operation} requires index or boundary")
+                raise CampaignConfigError(
+                    f"base-region {self.operation} requires index or boundary"
+                )
             return
         if self.index is not None:
-            raise ValueError("base-region selection requires index or boundary, not both")
+            raise CampaignConfigError("base-region selection requires index or boundary, not both")
         if not isinstance(self.boundary, str) or not self.boundary.strip():
-            raise ValueError("a follow-up base-region boundary must be a nonempty name")
+            raise CampaignConfigError("a follow-up base-region boundary must be a nonempty name")
 
 
 class PortBoundary(BaseModel):
