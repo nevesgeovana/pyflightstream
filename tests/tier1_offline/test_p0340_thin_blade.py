@@ -449,3 +449,21 @@ def test_p0440_rb5_25_object_name_keeps_hash_and_spacing(tmp_path, name):
     except InputArtifactError as error:
         pytest.fail(f"the written object name must remain selectable: {error}")
     assert result is not None
+
+
+def test_p0440_rb4_30_dense_sections_bound_temporary_memory(tmp_path, monkeypatch):
+    import tracemalloc
+
+    monkeypatch.setitem(globals(), "SIDE_POINTS", 1500)
+    monkeypatch.setitem(globals(), "RINGS", 3)
+    vertices, faces = _blade()
+    source = _write_obj(tmp_path / "dense.obj", vertices, faces)
+    tracemalloc.start()
+    try:
+        result = derive_thin_blade(source, root_offset=0.05)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 40 * 1024**2, f"dense-section derivation allocated {peak} bytes"
+    sheet = _read_obj(result.mesh)
+    assert _off_the_mean_surface(sheet).max() < 1e-8

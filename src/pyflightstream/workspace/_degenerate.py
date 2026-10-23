@@ -610,8 +610,9 @@ def _section(local: Points, faces: Faces, station: float, tolerance: float) -> l
 def _ends(points: Points) -> tuple[int, int]:
     """Return the indices of the two loop points farthest apart (the chord's ends)."""
     best, a, b = -1.0, 0, 0
-    for start in range(0, len(points), 512):
-        block = points[start : start + 512]
+    batch = max(1, min(512, 131072 // max(1, len(points))))
+    for start in range(0, len(points), batch):
+        block = points[start : start + batch]
         distance = numpy.linalg.norm(block[:, None, :] - points[None, :, :], axis=2)
         row, column = numpy.unravel_index(int(numpy.argmax(distance)), distance.shape)
         if float(distance[row, column]) > best:

@@ -32,6 +32,7 @@ FlightStream versions.
 
 ### Fixed
 
+- Thin-blade chord detection bounds temporary distance arrays for dense sections (RB4-30).
 - Thin-blade extraction preserves `#` and repeated spaces in OBJ object names (RB5-25).
 - External FSI call records retain loads-file presence at call start even when the
   structural program removes the file (RB4-23).
