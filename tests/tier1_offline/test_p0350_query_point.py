@@ -624,3 +624,11 @@ def test_f2_0809_the_python_queries_write_nothing_and_equal_the_console_rows(wor
     assert results[0] and results[1] and results[2] is not None
     assert _rows(workspace, capsys, "status") == results[0]
     assert _rows(workspace, capsys, "status", "--points") == results[1]
+
+
+def test_p0440_rb5_33_query_uses_link_guard_on_python_311(workspace, capsys, monkeypatch):
+    from pathlib import Path
+
+    monkeypatch.delattr(Path, "is_junction", raising=False)
+    rows = _rows(workspace, capsys, "show", "9101_1")
+    assert rows[0]["evidence"][0]["last_lines"][-1] == "last solver line"

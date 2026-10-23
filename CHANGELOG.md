@@ -32,6 +32,7 @@ FlightStream versions.
 
 ### Fixed
 
+- Point queries use the shared link guard, including on Python 3.11 (RB5-33).
 - Deletion records use a unique call ID even within one clock tick, preserving archive ordering
   by the existing timestamp (RB5-26).
 - Refinement sidecar rewrites escape DEL with the shared TOML writer (RB5-46).
