@@ -892,12 +892,6 @@ def _docs_clean_plan_evidence(captured: bytes) -> bytes:
     return captured
 
 
-@pytest.mark.skipif(
-    sys.platform != "win32",
-    reason="the v0.38.0 outputs were captured on Windows, where the stub and the console "
-    "paths were measured; the Windows runner holds R10",
-)
-@pytest.mark.filterwarnings("ignore::Warning")
 def _minimum_cp_evidence_prose() -> bytes:
     """The serialized notes of SOLVER_MINIMUM_CP as the plan carries them, from the database.
 
@@ -913,6 +907,12 @@ def _minimum_cp_evidence_prose() -> bytes:
     return notes[notes.index(anchor) :].encode()
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="the v0.38.0 outputs were captured on Windows, where the stub and the console "
+    "paths were measured; the Windows runner holds R10",
+)
+@pytest.mark.filterwarnings("ignore::Warning")
 def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     """P0390-R03 (FR-1001): no file, every output of plan, run, post and collect of 0.38.0.
 
@@ -1908,3 +1908,9 @@ def test_p0390_r03_only_the_two_command_families_import_the_settings_module():
     builds = (PACKAGE / "workspace" / "builds.py").read_text(encoding="utf-8")
     assert "accept_unregistered_build" in builds
     assert "pyflightstream.run" not in _imports(PACKAGE / "workspace" / "builds.py")
+
+
+def test_p0440_windows_capture_marks_belong_to_the_test():
+    marks = getattr(test_p0390_r03_without_the_files_every_output_is_that_of_0380, "pytestmark", [])
+    assert {mark.name for mark in marks} >= {"skipif", "filterwarnings"}
+    assert not getattr(_minimum_cp_evidence_prose, "pytestmark", [])
