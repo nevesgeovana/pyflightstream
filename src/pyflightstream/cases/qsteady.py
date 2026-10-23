@@ -397,6 +397,7 @@ def reduced_frequencies(
     omega_rad_s: float,
     velocity_m_per_s: float,
     source: str,
+    band_widths_m: Sequence[float] | None = None,
 ) -> ReducedFrequencies:
     """Return the reduced frequency of every station, sorted by radius.
 
@@ -412,6 +413,9 @@ def reduced_frequencies(
         The free-stream speed in metres per second.
     source : str
         Where the chords came from, ``mesh`` or ``sections``.
+    band_widths_m : sequence of float, optional
+        Full widths of mesh bands, in station order. Nodal sections omit this
+        and retain midpoint strips with half-width end stations.
 
     Returns
     -------
@@ -440,7 +444,15 @@ def reduced_frequencies(
         )
         for radius, chord in zip(radii, chords, strict=True)
     )
-    return ReducedFrequencies(radii, chords, values, strip_lengths(radii), source)
+    strips = strip_lengths(radii) if band_widths_m is None else _band_widths(radii_m, band_widths_m)
+    return ReducedFrequencies(radii, chords, values, strips, source)
+
+
+def _band_widths(radii: Sequence[float], widths: Sequence[float]) -> tuple[float, ...]:
+    """Validate full-band weights and sort them with their station radii."""
+    if len(widths) != len(radii) or any(not math.isfinite(w) or w <= 0 for w in widths):
+        raise CampaignConfigError("band_widths_m needs one finite positive width per station")
+    return tuple(w for _, w in sorted(zip(radii, widths, strict=True), key=lambda row: abs(row[0])))
 
 
 def _sub(a: Sequence[float], b: Sequence[float]) -> Vector:
@@ -468,7 +480,7 @@ def blade_stations(
     hub: Sequence[float],
     axis: Sequence[float],
     count: int = DEFAULT_STATIONS,
-) -> tuple[tuple[float, ...], tuple[float, ...]]:
+) -> tuple[tuple[float, ...], tuple[float, ...], tuple[float, ...]]:
     """Estimate a blade's chord at ``count`` radial stations from its surface vertices.
 
     The blade's span, from its innermost to its outermost vertex measured from
@@ -492,9 +504,9 @@ def blade_stations(
 
     Returns
     -------
-    tuple of (radii, chords)
+    tuple of (radii, chords, band_widths)
         Per station with two vertices or more, the band's mid radius and the
-        chord estimate, in metres, in ascending radius.
+        chord estimate and full band width, in metres, in ascending radius.
 
     Raises
     ------
@@ -543,7 +555,7 @@ def blade_stations(
             chord = max(chord, max(projections) - min(projections))
         radii.append(r_low + (index + 0.5) * width)
         chords.append(chord)
-    return tuple(radii), tuple(chords)
+    return tuple(radii), tuple(chords), (width,) * len(radii)
 
 
 def obj_group_vertices(path: str | Path, *, metres_per_unit: float) -> dict[str, list[Vector]]:

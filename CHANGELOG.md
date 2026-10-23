@@ -40,6 +40,10 @@ FlightStream versions.
 
 ### Fixed
 
+- Mesh-based reduced-frequency and inflow-harmonic summaries weight each radial
+  band by its full width, including root and tip. `blade_stations` now returns
+  radii, chords and band widths; nodal section strips retain their rule (PFS-2124.016).
+
 - Plans warn which coefficient products dimensional load units omit; post keeps
   independent plots, probes and sectional products (PFS-2130.039).
 

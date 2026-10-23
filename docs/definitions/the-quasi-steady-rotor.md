@@ -71,6 +71,12 @@ the point's density, by the rotor table's own statics. A point whose record
 or one of whose clocking exports is missing is not a row, and
 `products.json` names it under the file.
 
+At plan time, mesh stations represent equal radial bands, including the full
+root and tip bands. Reduced-frequency and inflow-harmonic summaries use the
+returned band widths, not midpoint strips: one qualifying band among twenty
+equal bands contributes 5% of the sampled span. A missing band contributes no
+sample or weight. Sectional export stations retain the nodal strip rule below.
+
 **The validity columns**, on both tables and on the sections of a wheel
 point: `K_1P_MIN`, `K_1P_MAX`, `K_1P_MEAN` (span weighted),
 `SPAN_PCT_K_GT_0_05`, `SPAN_PCT_K_GT_0_1`, `THRUST_PCT_K_GT_0_1`,

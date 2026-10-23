@@ -269,12 +269,40 @@ def test_the_reduced_frequency_is_the_hand_calculation():
     assert value == pytest.approx(0.180483, abs=1e-6)
 
 
+def test_p0440_mesh_root_band_counts_its_full_span():
+    radial_nodes = [0.2, *(0.22 + index * 0.04 for index in range(20)), 1.0]
+    vertices = [(x, radius, 0.0) for radius in radial_nodes for x in (-0.1, 0.1)]
+    stations = arithmetic.blade_stations(vertices, hub=(0, 0, 0), axis=(1, 0, 0))
+    radii = stations[0]
+    kwargs = {"band_widths_m": stations[2]} if len(stations) == 3 else {}
+    reduced = arithmetic.reduced_frequencies(
+        radii,
+        [1.0, *([0.01] * 19)],
+        omega_rad_s=1.0,
+        velocity_m_per_s=0.0,
+        source="mesh",
+        **kwargs,
+    )
+    assert reduced.record()["span_pct_k_gt_0_1"] == pytest.approx(5.0)
+    harmonics = arithmetic.InflowHarmonics(
+        radii_m=tuple(radii),
+        n95=(1,) * 20,
+        k_1p=reduced.k,
+        strips_m=reduced.strips_m,
+        blades=2,
+    )
+    assert harmonics.record(declared_positions=2)["span_pct_k_eff_gt_0_1"] == pytest.approx(5.0)
+
+
 def test_the_chord_of_a_rectangular_blade_is_read_off_its_mesh(tmp_path):
     """Every station of a 0.2 m rectangular blade measures 0.2 m."""
     groups = arithmetic.obj_group_vertices(_blade_obj(tmp_path / "prop.obj"), metres_per_unit=1.0)
-    radii, chords = arithmetic.blade_stations(groups["Blade2"], hub=(0, 0, 0), axis=(1, 0, 0))
+    radii, chords, widths = arithmetic.blade_stations(
+        groups["Blade2"], hub=(0, 0, 0), axis=(1, 0, 0)
+    )
     assert radii and all(c == pytest.approx(0.2, abs=1e-9) for c in chords)
     assert min(radii) > 0.2 and max(radii) < 1.0
+    assert widths == pytest.approx([0.04] * len(radii))
 
 
 def test_a_radial_inflow_is_accepted_and_a_crossflow_is_named():
@@ -468,8 +496,8 @@ def test_the_plan_shows_the_four_values_of_a_wheel_read_off_its_mesh(tmp_path):
     assert validity["k_min"] == pytest.approx(min(by_hand))
     # k > 0.1 where V_rel < 1.257 pi / 0.1 ... solved: V_rel < 40 pi * 0.1, r < 0.5818 m.
     limit = math.sqrt((OMEGA * 0.2 / (2 * 0.1)) ** 2 - 30.0**2) / OMEGA
-    strips = arithmetic.strip_lengths(radii)
-    above = sum(w for r, w in zip(radii, strips, strict=True) if r < limit) / sum(strips)
+    above = sum(r < limit for r in radii) / len(radii)
+    assert validity["k_mean"] == pytest.approx(sum(by_hand) / len(by_hand))
     assert validity["span_pct_k_gt_0_1"] == pytest.approx(100.0 * above)
     line = qsteady_validity_line(validity)
     assert "k > 0.1 over" in line and "k min" in line and "k max" in line and "k mean" in line
