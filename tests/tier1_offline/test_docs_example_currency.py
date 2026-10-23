@@ -10,6 +10,18 @@ from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 REPO = Path(__file__).resolve().parents[2]
 
 
+def test_p0440_alias_contract_states_recorded_first_order():
+    import csv
+
+    from pyflightstream.run._alias import alias_order
+
+    with (REPO / "tests/requirements_l3.csv").open(encoding="utf-8", newline="") as stream:
+        row = next(row for row in csv.reader(stream) if row[0] == "FR-395")
+    assert "recorded points first" in row[3]
+    assert "unrecorded planned points" in row[3]
+    assert "no longer planned" in alias_order.__doc__
+
+
 def test_p0440_unemitted_defaults_are_provenance_not_loaded_state():
     import csv
 

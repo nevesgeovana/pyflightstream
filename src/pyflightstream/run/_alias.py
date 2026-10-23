@@ -134,6 +134,10 @@ def alias_order(
 ) -> list[str]:
     """Return the point tags of ``sim_id`` in alias order: recorded first, then the plan's rest.
 
+    Recorded points still planned come first in plan order, followed by recorded
+    points no longer planned in first-recorded order, then unrecorded planned
+    points in plan order. The one-based index refers to this combined order.
+
     Parameters
     ----------
     rows : iterable of mapping

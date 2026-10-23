@@ -37,6 +37,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Run-alias documentation states the retained recorded-first ordinal order
+  rather than promising plan order alone (C-SRS-S11-064).
+
 - Additional post accepts `--hpc NAME` to select among workspace profiles and
   refuses the flag without `--additional-pproc` (PFS-2119.067).
 
