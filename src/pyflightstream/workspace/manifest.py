@@ -1421,7 +1421,7 @@ def manifest_lock(
 
     @contextmanager
     def arbitrate() -> Iterator[None]:
-        # Only metadata operations hold this OS lock, never the slow writer.
+        # The OS lock covers metadata arbitration and the entire writer yield.
         with guard.open("a+b") as handle:
             if os.fstat(handle.fileno()).st_size == 0:
                 handle.write(b"0")

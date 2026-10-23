@@ -225,7 +225,7 @@ every coupling call:
 * In-plane flap softening (`in_plane_softening_coefficients`): the
   flap degree of freedom lies along the section normal, which the
   blade angle turns out of the rotor plane, so the centrifugal field
-  adds a restoring term mu Omega^2 sin^2(beta) w to the flap load and
+  adds a destabilizing term mu Omega^2 sin^2(beta) w to the flap load and
   lowers the flap stiffness the tension raises.
 
 The trapeze effect is not modeled, a declared limitation: omitting it

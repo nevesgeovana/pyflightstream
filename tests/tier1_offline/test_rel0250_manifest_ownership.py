@@ -94,3 +94,11 @@ def test_p0430_live_writer_retains_exclusive_publication_after_heartbeat_expiry(
             pass
         assert not displaced, "a live writer can still publish after its lease was taken over"
         assert lock.read_bytes() == owner
+
+
+def test_p0440_rb3_08_lock_comment_covers_writer_lifetime():
+    import inspect
+
+    from pyflightstream.workspace.manifest import manifest_lock
+
+    assert "Only metadata operations hold this OS lock" not in inspect.getsource(manifest_lock)

@@ -1138,3 +1138,10 @@ class TestWorkspace3Storage:
         (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
         assert Path(entry["source"]) == other.root.resolve()
         assert entry["runs"]["added"]
+
+
+def test_p0440_rb4_13_free_space_documents_partial_apply():
+    text = storage_module.free_space.__doc__
+    assert "WorkspaceError" in text
+    assert "earlier steps" in text
+    assert "interrupted" in text

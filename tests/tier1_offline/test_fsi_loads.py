@@ -456,3 +456,11 @@ def test_one_uncovered_end_is_enough_to_refuse(end):
 
     with pytest.raises(ValueError, match="of the configured blade span"):
         to_elastic_axis(dataclasses.replace(block, offset_m=kept), cfg)
+
+
+def test_p0440_rb4_25_load_fields_document_station_rotation():
+    from pyflightstream.fsi.loads import ElasticAxisLoads
+
+    text = ElasticAxisLoads.__doc__
+    assert "unprojected" in text
+    assert "cos(arctan(slope))" in text

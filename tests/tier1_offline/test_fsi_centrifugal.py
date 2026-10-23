@@ -218,3 +218,11 @@ def test_southwell_refuses_a_non_finite_frequency():
     """F-106: NaN is refused rather than reported with R-squared 1.0."""
     with pytest.raises(centrifugal.FsiInputError, match="finite"):
         centrifugal.southwell_fit([0.0, 1.0, 2.0], [10.0, float("nan"), 11.0])
+
+
+def test_p0440_rb4_17_readme_describes_flap_softening():
+    from pathlib import Path
+
+    text = Path(centrifugal.__file__).with_name("README.md").read_text(encoding="utf-8")
+    assert "adds a restoring term" not in text
+    assert "adds a destabilizing term" in text

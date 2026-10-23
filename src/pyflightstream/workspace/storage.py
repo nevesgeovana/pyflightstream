@@ -868,6 +868,10 @@ def free_space(
 ) -> dict[str, Any]:
     """Run a storage recipe: preview by default, change files only with ``apply``.
 
+    Applying is not transactional: earlier steps may complete before a later
+    archive collision or I/O failure. The storage call records completed steps
+    and an ``interrupted`` reason; resolve that failure before retrying.
+
     ``runs`` names another manifest in the root (CLI: ``--runs NAME``), such
     as a rebuilt one, whose records the recipe reads IN ADDITION to
     ``runs.json``'s: a file either names is protected, and a simulation
@@ -896,6 +900,8 @@ def free_space(
     ------
     StorageError
         If the recipe is invalid, would delete a saved simulation, or a run is in progress.
+    WorkspaceError
+        If post-archive compaction finds an existing archive or fails verification.
     """
     workspace = _workspace(root)
     manifest = resolve_manifest(workspace.root, runs)

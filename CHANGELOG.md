@@ -32,6 +32,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Documentation now states the manifest writer's lock lifetime, FSI flap softening and
+  load-rotation conventions, sidecar refusal behavior, and partial storage application.
+  OBJ and profile descriptions no longer make uncited solver claims.
 - Thin-blade chord detection bounds temporary distance arrays for dense sections (RB4-30).
 - Thin-blade extraction preserves `#` and repeated spaces in OBJ object names (RB5-25).
 - External FSI call records retain loads-file presence at call start even when the
