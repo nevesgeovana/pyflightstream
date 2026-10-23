@@ -89,7 +89,7 @@ def at_advance_ratio(radii, chords, advance_ratio):
 def compare_the_mesh_estimate() -> None:
     """Print the plan's mesh estimate of the chord beside the blade's chord law."""
     vertices = blade_triangles(SPEC).reshape(-1, 3)
-    radii, chords = blade_stations(vertices, hub=(0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
+    radii, chords, _widths = blade_stations(vertices, hub=(0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
     print("r/R    mesh_chord_m  law_chord_m")
     for radius, chord in zip(radii, chords, strict=True):
         fraction = radius / SPEC.r_tip_m
