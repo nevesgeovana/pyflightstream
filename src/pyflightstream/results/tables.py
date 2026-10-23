@@ -1,15 +1,13 @@
-"""Tabular views of parsed FlightStream results, on pandas for now.
+"""Tabular views of parsed FlightStream results, on named NumPy columns.
 
 Pipeline role: turns the typed parser outputs of
 :mod:`pyflightstream.results` (and, when the optional ``[fsi]`` extra
 is installed, the sectional loads report of
-:mod:`pyflightstream.fsi.loads`) into tidy :class:`pandas.DataFrame`
+:mod:`pyflightstream.fsi.loads`) into tidy :class:`Table`
 tables, then assembles run-level and sweep-level tables by joining the
-campaign manifest records with the parsed coefficient tables. Tables
-rest on pandas today, which leaves the runtime set at the release SRS
-NFR-06 names (SRS AD-06, which replaced the division this docstring used
-to state as permanent); the far field of :mod:`pyflightstream.farfield`
-rests on plain numpy arrays. Downstream code should
+campaign manifest records with the parsed coefficient tables.
+Tables and the far field rest on NumPy. The explicit
+Table.to_pandas() adapter requires the optional [pandas] extra. Downstream code should
 depend on the documented column schema (SRS NFR-19), not on the
 library holding the values.
 
@@ -64,10 +62,14 @@ dependency from the parsing layer into the execution layer (AD-01).
 
 from __future__ import annotations
 
+import io
 import math
+import sys
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
+
+import numpy as np
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -121,6 +123,185 @@ from pyflightstream.results.loads import (
 )
 from pyflightstream.results.log import ResidualSample
 from pyflightstream.results.sectional_loads import SectionalLoadsReport
+
+
+class _Column(np.ndarray):
+    """A numpy column with the positional accessor used by existing readers."""
+
+    @property
+    def iloc(self):
+        return self
+
+
+def _column(values):
+    """Infer numeric columns without coercing mixed text and missing cells to strings."""
+    if isinstance(values, np.ndarray):
+        return values.copy().view(_Column)
+    values = list(values)
+    numeric = values and all(
+        value is None or isinstance(value, (int, float, bool, np.number)) for value in values
+    )
+    if numeric and any(value is not None for value in values):
+        values = [math.nan if value is None else value for value in values]
+        return np.asarray(values).view(_Column)
+    return np.asarray(values, dtype=object).view(_Column)
+
+
+class _Rows:
+    """Positional rows of a table, without a dataframe dependency."""
+
+    def __init__(self, table):
+        self.table = table
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return {name: self.table[name][key] for name in self.table.columns}
+        return Table({name: self.table[name][key] for name in self.table.columns})
+
+
+class Table:
+    """Ordered, equal-length named NumPy columns of parsed results.
+
+    Select a column by name, several columns by a list of names, or rows
+    by a boolean mask. ``to_dict('records')`` returns plain row dictionaries.
+    ``to_csv`` writes CSV without an optional dependency; ``to_pandas`` is
+    the explicit adapter provided by the ``[pandas]`` extra.
+
+    Parameters
+    ----------
+    data : mapping, sequence of mappings or two-dimensional array, optional
+        Column values, row records or a numeric matrix.
+    columns : sequence of str, optional
+        Column order, required for a matrix.
+    """
+
+    def __init__(self, data=None, columns=None):
+        if data is None:
+            data = {name: [] for name in columns or ()}
+        elif isinstance(data, np.ndarray):
+            data = {name: data[:, index] for index, name in enumerate(columns)}
+        elif not isinstance(data, Mapping):
+            rows = list(data)
+            names = columns if columns is not None else dict.fromkeys(k for r in rows for k in r)
+            data = {name: [row.get(name, math.nan) for row in rows] for name in names}
+        self._data = {name: _column(data[name]) for name in (columns or data)}
+        if len({len(values) for values in self._data.values()}) > 1:
+            raise MalformedOutputError(
+                "table columns have different lengths; supply one value per row"
+            )
+
+    @property
+    def columns(self):
+        """Column names in insertion order."""
+        return tuple(self._data)
+
+    def __len__(self):
+        """Return the number of rows."""
+        return len(next(iter(self._data.values()), ()))
+
+    @property
+    def shape(self):
+        """Number of rows and columns."""
+        return len(self), len(self.columns)
+
+    @property
+    def empty(self):
+        """Whether either dimension is empty."""
+        return not all(self.shape)
+
+    @property
+    def iloc(self):
+        """Positional row selection; a scalar row is a mapping."""
+        return _Rows(self)
+
+    @property
+    def loc(self):
+        """Boolean row selection."""
+        return self
+
+    def __getitem__(self, key):
+        """Select named columns or a boolean row mask."""
+        if isinstance(key, str):
+            return self._data[key]
+        if isinstance(key, (list, tuple)) and all(isinstance(name, str) for name in key):
+            return Table({name: self._data[name] for name in key})
+        return Table({name: values[key] for name, values in self._data.items()})
+
+    def __setitem__(self, key, values):
+        """Replace a column or broadcast a scalar over the existing rows."""
+        if np.isscalar(values) or values is None:
+            values = [values] * len(self)
+        column = _column(values)
+        if self._data and len(column) != len(self):
+            raise MalformedOutputError("table column length differs; supply one value per row")
+        self._data[key] = column
+
+    def assign(self, **columns):
+        """Return a copy with the supplied columns."""
+        result = Table(self._data)
+        for name, values in columns.items():
+            result[name] = values
+        return result
+
+    def rename(self, *, columns):
+        """Return a copy with column names transformed by a callable."""
+        return Table({columns(name): values for name, values in self._data.items()})
+
+    def map(self, function):
+        """Return a copy with a callable applied to every cell."""
+        return Table({name: [function(v) for v in values] for name, values in self._data.items()})
+
+    def to_numpy(self):
+        """Return the columns as a two-dimensional array."""
+        return np.column_stack(list(self._data.values())) if self.columns else np.empty((0, 0))
+
+    def to_dict(self, orient="records"):
+        """Return plain row dictionaries in table order (records orientation)."""
+        if orient != "records":
+            raise MalformedOutputError(
+                f"table orientation {orient!r} is unsupported; use 'records'"
+            )
+        rows = zip(*(values.tolist() for values in self._data.values()), strict=True)
+        return [dict(zip(self.columns, row, strict=True)) for row in rows]
+
+    def to_pandas(self) -> pd.DataFrame:
+        """Return the equivalent DataFrame, requiring the optional pandas extra."""
+        try:
+            import pandas as pd
+        except ImportError as error:
+            raise missing_extra("pandas", package="pandas", purpose="Table.to_pandas()") from error
+        return pd.DataFrame({name: np.asarray(values) for name, values in self._data.items()})
+
+    def to_csv(self, path_or_buf=None, *, index=True, lineterminator=_textio.LINE_END, na_rep=""):
+        """Write CSV to a path or text stream, or return CSV text when no path is given."""
+        buffer = io.StringIO(newline="")
+        writer = _textio.csv_writer(buffer, lineterminator=lineterminator)
+        writer.writerow(([""] if index else []) + list(self.columns))
+        for number, row in enumerate(zip(*self._data.values(), strict=True)):
+            cells = [_csv_cell(value, na_rep) for value in row]
+            writer.writerow(([number] if index else []) + cells)
+        text = buffer.getvalue()
+        if path_or_buf is None:
+            return text
+        if isinstance(path_or_buf, (str, Path)):
+            _textio.write_text(path_or_buf, text)
+        else:
+            path_or_buf.write(text)
+        return None
+
+
+def _csv_cell(value, missing):
+    """Match dataframe CSV spelling for the scalar types the parsers produce."""
+    if value is None or isinstance(value, (float, np.floating)) and math.isnan(value):
+        return missing
+    return value.item() if isinstance(value, np.generic) else value
+
+
+def _concat(blocks):
+    """Concatenate identically named blocks without changing numeric column types."""
+    return Table(
+        {name: np.concatenate([block[name] for block in blocks]) for name in blocks[0].columns}
+    )
 
 
 class _ManifestRecord(Protocol):
@@ -249,8 +430,8 @@ class AmbiguousLoadsError(PyflightstreamError, ValueError):
     """
 
 
-def to_table(result: object) -> pd.DataFrame:
-    """Tabulate one parsed FlightStream result as a tidy DataFrame.
+def to_table(result: object) -> Table:
+    """Tabulate one parsed FlightStream result as a tidy NumPy-backed table.
 
     Dispatches on the parsed result type:
 
@@ -329,7 +510,7 @@ def to_table(result: object) -> pd.DataFrame:
 
     Returns
     -------
-    pandas.DataFrame
+    Table
         Tidy table, one observation per row; write it with
         :func:`to_csv` or :func:`write_table`.
 
@@ -341,8 +522,6 @@ def to_table(result: object) -> pd.DataFrame:
     UnsupportedResultTypeError
         If ``result`` is not one of the kinds above.
     """
-    import pandas as pd
-
     if isinstance(result, LoadsReport):
         return _loads_frame(result)
     if isinstance(result, ProbePointsReport):
@@ -368,9 +547,12 @@ def to_table(result: object) -> pd.DataFrame:
                 "return an empty history (they raise IncompleteOutputError instead), "
                 "so an empty list points at filtering upstream of this call"
             )
-    if isinstance(result, pd.DataFrame):
+    if isinstance(result, Table) or (
+        getattr(sys.modules.get("pandas"), "DataFrame", None) is not None
+        and isinstance(result, sys.modules["pandas"].DataFrame)
+    ):
         raise UnsupportedResultTypeError(
-            "the result is already a pandas DataFrame; write it with write_table, which "
+            f"the result is already a {type(result).__name__}; write it with write_table, which "
             "checks that it states its provenance, instead of tabulating it again"
         )
     sectional_type = _sectional_loads_type()
@@ -396,7 +578,7 @@ def to_table(result: object) -> pd.DataFrame:
     )
 
 
-def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = False) -> Path:
+def write_table(frame: Table, path: str | Path, *, overwrite: bool = False) -> Path:
     """Write one table as a csv, refusing a file that cannot say what it is.
 
     THE ONE WRITE PATH of this module (PFS-2014.05). Every file this
@@ -418,7 +600,7 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = Fals
 
     Parameters
     ----------
-    frame : pandas.DataFrame
+    frame : Table or pandas.DataFrame
         The table to write, carrying the three
         :data:`~pyflightstream.results.PROVENANCE_COLUMNS`:
         ``data_origin``, ``reduction`` and ``reduction_window``, whose
@@ -449,9 +631,9 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = Fals
 
     Examples
     --------
-    >>> import pandas as pd
+    >>> from pyflightstream.results.tables import Table
     >>> from pyflightstream.results import write_table
-    >>> frame = pd.DataFrame(
+    >>> frame = Table(
     ...     {
     ...         "CL": [0.4],
     ...         "data_origin": ["raw"],
@@ -535,12 +717,12 @@ def to_csv(result: object, path: str | Path, *, overwrite: bool = False) -> Path
     return write_table(to_table(result), path, overwrite=overwrite)
 
 
-def _refuse_a_frame_that_cannot_say_what_it_is(frame: pd.DataFrame) -> None:
+def _refuse_a_frame_that_cannot_say_what_it_is(frame: Table) -> None:
     """Refuse a table whose rows cannot be traced to raw or reduced.
 
     Parameters
     ----------
-    frame : pandas.DataFrame
+    frame : Table or pandas.DataFrame
         The table about to be written.
 
     Raises
@@ -632,7 +814,7 @@ _WRITTEN_PAIRS = (
 )
 
 
-def run_table(record: _ManifestRecord, *, loads: LoadsReport | None = None) -> pd.DataFrame:
+def run_table(record: _ManifestRecord, *, loads: LoadsReport | None = None) -> Table:
     """Join one manifest record with its parsed loads into one wide row.
 
     The row carries the run identity and conditions from the manifest
@@ -660,12 +842,10 @@ def run_table(record: _ManifestRecord, *, loads: LoadsReport | None = None) -> p
 
     Returns
     -------
-    pandas.DataFrame
+    Table
         One row; missing numeric outcomes are NaN.
     """
-    import pandas as pd
-
-    return pd.DataFrame([_run_row(record, loads)])
+    return Table([_run_row(record, loads)])
 
 
 def parse_run_loads(
@@ -850,7 +1030,7 @@ def sweep_table(
     loads_file: str | None = None,
     require_loads: bool = True,
     matrix_stem: str | None = None,
-) -> pd.DataFrame:
+) -> Table:
     """Assemble the tidy table of a whole campaign sweep.
 
     One row per manifest record, in manifest order: the run identity,
@@ -898,7 +1078,7 @@ def sweep_table(
 
     Returns
     -------
-    pandas.DataFrame
+    Table
         The sweep table; sweep point axes are in their sweep units
         (alpha and beta in deg, advance_ratio dimensionless) and the
         coefficient columns follow each run's printed units, exposed
@@ -930,8 +1110,6 @@ def sweep_table(
     >>> table = sweep_table(CampaignWorkspace("campaign"))   # doctest: +SKIP
     >>> table[["run_id", "alpha", "CL"]]                     # doctest: +SKIP
     """
-    import pandas as pd
-
     _refuse_a_bare_root(workspace, "sweep_table")
     # Expand manifest jobs into points: a steady job can hold several
     # points, each needing its own row and status. A single point returns itself.
@@ -986,7 +1164,7 @@ def sweep_table(
         rows.append(_run_row(record, loads))
     if runs_with_loads == 0:
         _complain_no_loads(records, loads_file, require_loads)
-    return pd.DataFrame(rows)
+    return Table(rows)
 
 
 def _complain_no_loads(records: list, loads_file: str | None, require_loads: bool) -> None:
@@ -1021,7 +1199,7 @@ def _complain_no_loads(records: list, loads_file: str | None, require_loads: boo
     warn(complaint, PyflightstreamWarning, stacklevel=3)
 
 
-def _stamped(frame: pd.DataFrame, *, origin: str, reduction: str) -> pd.DataFrame:
+def _stamped(frame: Table, *, origin: str, reduction: str) -> Table:
     """Add the three provenance columns to a whole-file table.
 
     PFS-2014.05 for the first two and PFS-2014.03 for the window.
@@ -1035,7 +1213,7 @@ def _stamped(frame: pd.DataFrame, *, origin: str, reduction: str) -> pd.DataFram
 
     Parameters
     ----------
-    frame : pandas.DataFrame
+    frame : Table or pandas.DataFrame
         The tidy table, already built.
     origin : str
         One key of :data:`~pyflightstream.results.DATA_ORIGIN_CODES`.
@@ -1044,7 +1222,7 @@ def _stamped(frame: pd.DataFrame, *, origin: str, reduction: str) -> pd.DataFram
 
     Returns
     -------
-    pandas.DataFrame
+    Table
         The same table with the three columns appended.
     """
     frame[DATA_ORIGIN_COLUMN] = origin
@@ -1053,10 +1231,8 @@ def _stamped(frame: pd.DataFrame, *, origin: str, reduction: str) -> pd.DataFram
     return frame
 
 
-def _loads_frame(report: LoadsReport) -> pd.DataFrame:
+def _loads_frame(report: LoadsReport) -> Table:
     """One row per surface plus Total, with the printed units alongside."""
-    import pandas as pd
-
     rows = []
     for surface, coefficients in {**report.surfaces, "Total": report.total}.items():
         row: dict[str, object] = {"surface": surface}
@@ -1068,13 +1244,13 @@ def _loads_frame(report: LoadsReport) -> pd.DataFrame:
     # still raw off the run and it is the reduction token that names what
     # they are.
     return _stamped(
-        pd.DataFrame(rows),
+        Table(rows),
         origin="raw",
         reduction=reduction_for_solver_mode(report.solver_mode),
     )
 
 
-def _residual_history_frame(history: list[ResidualSample]) -> pd.DataFrame:
+def _residual_history_frame(history: list[ResidualSample]) -> Table:
     """Tabulate the residual history in iteration order, dimensionless.
 
     The columns are ``iteration``, ``velocity_residual`` and ``pressure_residual``,
@@ -1084,14 +1260,12 @@ def _residual_history_frame(history: list[ResidualSample]) -> pd.DataFrame:
     a NaN; the flag is the only thing that tells the two apart, and an
     unprintable residual is not a diverged solve.
     """
-    import pandas as pd
-
     # ``none`` rather than ``unknown``, and the difference is not cosmetic.
     # A residual history is a per-iteration reading, so no reduction is
     # applicable to it at all, whereas an unread solver mode on a
     # COEFFICIENT row leaves open whether the number was averaged.
     return _stamped(
-        pd.DataFrame(
+        Table(
             {
                 "iteration": [sample.iteration for sample in history],
                 "velocity_residual": [sample.velocity_residual for sample in history],
@@ -1105,21 +1279,19 @@ def _residual_history_frame(history: list[ResidualSample]) -> pd.DataFrame:
     )
 
 
-def _probe_points_frame(report: ProbePointsReport) -> pd.DataFrame:
+def _probe_points_frame(report: ProbePointsReport) -> Table:
     """Tabulate the probe table under its printed names, rows in probe order."""
-    import pandas as pd
-
     # A probe export is a point sample, so nothing was averaged to make it
     # (see the residual history above for why that is ``none`` and not
     # ``unknown``).
     return _stamped(
-        pd.DataFrame(report.values, columns=list(report.columns)),
+        Table(report.values, columns=list(report.columns)),
         origin="raw",
         reduction="none",
     )
 
 
-def _unsteady_plots_frame(report: UnsteadyPlotsReport) -> pd.DataFrame:
+def _unsteady_plots_frame(report: UnsteadyPlotsReport) -> Table:
     """Tabulate the unsteady plot export, one row per time step.
 
     THE COLUMN LABELS ARE THE SOLVER'S, and the plot names are the
@@ -1142,8 +1314,6 @@ def _unsteady_plots_frame(report: UnsteadyPlotsReport) -> pd.DataFrame:
         constant token and leave a frame that still writes and still
         looks right.
     """
-    import pandas as pd
-
     collisions = sorted(set(report.columns) & set(PROVENANCE_COLUMNS))
     if collisions:
         raise MalformedOutputError(
@@ -1153,7 +1323,7 @@ def _unsteady_plots_frame(report: UnsteadyPlotsReport) -> pd.DataFrame:
             "constant token; rename the plot in the run that defines it"
         )
     return _stamped(
-        pd.DataFrame(report.values, columns=list(report.columns)),
+        Table(report.values, columns=list(report.columns)),
         origin="raw",
         reduction="none",
     )
@@ -1181,19 +1351,17 @@ def _pinned_frame_columns(
     return list(expected)
 
 
-def _force_distribution_frame(report: ForceDistributionReport) -> pd.DataFrame:
+def _force_distribution_frame(report: ForceDistributionReport) -> Table:
     """Tabulate the per-panel force distribution under its printed names.
 
     ``Boundary`` stays an integer column: it indexes the mesh boundaries
     the run initialized, and a boundary index that reads back out of a
     csv as ``1.0`` is a label pretending to be a measurement.
     """
-    import pandas as pd
-
     columns = _pinned_frame_columns(
         tuple(report.columns), FORCE_DISTRIBUTION_COLUMNS, what="force distribution report"
     )
-    frame = pd.DataFrame(report.values, columns=columns)
+    frame = Table(report.values, columns=columns)
     frame["Boundary"] = frame["Boundary"].astype(int)
     frame["force_units"] = report.force_units
     frame["moment_units"] = report.moment_units
@@ -1204,7 +1372,7 @@ def _force_distribution_frame(report: ForceDistributionReport) -> pd.DataFrame:
     )
 
 
-def _off_body_streamlines_frame(report: OffBodyStreamlinesReport) -> pd.DataFrame:
+def _off_body_streamlines_frame(report: OffBodyStreamlinesReport) -> Table:
     """Tabulate every streamline into one long table, keyed by streamline.
 
     ONE FRAME RATHER THAN ONE PER STREAMLINE, with the streamline number
@@ -1213,20 +1381,14 @@ def _off_body_streamlines_frame(report: OffBodyStreamlinesReport) -> pd.DataFram
     reader joining the last point of one streamline to the first of the
     next, which is a plausible-looking curve that no flow ever followed.
     """
-    import pandas as pd
-
     columns = _pinned_frame_columns(
         tuple(report.columns), OFF_BODY_STREAMLINE_COLUMNS, what="off-body streamline report"
     )
     blocks = [
-        pd.DataFrame(line.values, columns=columns).assign(**{_STREAMLINE_COLUMN: line.index})
+        Table(line.values, columns=columns).assign(**{_STREAMLINE_COLUMN: line.index})
         for line in report.streamlines
     ]
-    frame = (
-        pd.concat(blocks, ignore_index=True)
-        if blocks
-        else pd.DataFrame(columns=[*columns, _STREAMLINE_COLUMN])
-    )
+    frame = _concat(blocks) if blocks else Table(columns=[*columns, _STREAMLINE_COLUMN])
     frame = frame[[_STREAMLINE_COLUMN, *columns]]
     # A streamline is an integration through the field at one instant, so
     # nothing was averaged to make a point of it; the token still comes from
@@ -1239,27 +1401,21 @@ def _off_body_streamlines_frame(report: OffBodyStreamlinesReport) -> pd.DataFram
     )
 
 
-def _surface_sections_frame(report: SurfaceSectionsReport) -> pd.DataFrame:
+def _surface_sections_frame(report: SurfaceSectionsReport) -> Table:
     """Tabulate every cross-section into one table, keyed by section.
 
     Same shape and same reason as the streamline table above: a section
     is a closed cut and concatenating two of them without the key would
     read as one.
     """
-    import pandas as pd
-
     columns = _pinned_frame_columns(
         tuple(report.columns), SURFACE_SECTION_COLUMNS, what="surface section report"
     )
     blocks = [
-        pd.DataFrame(section.values, columns=columns).assign(**{_SECTION_COLUMN: section.index})
+        Table(section.values, columns=columns).assign(**{_SECTION_COLUMN: section.index})
         for section in report.sections
     ]
-    frame = (
-        pd.concat(blocks, ignore_index=True)
-        if blocks
-        else pd.DataFrame(columns=[*columns, _SECTION_COLUMN])
-    )
+    frame = _concat(blocks) if blocks else Table(columns=[*columns, _SECTION_COLUMN])
     frame = frame[[_SECTION_COLUMN, *columns]]
     return _stamped(
         frame,
@@ -1268,7 +1424,7 @@ def _surface_sections_frame(report: SurfaceSectionsReport) -> pd.DataFrame:
     )
 
 
-def _sweep_spreadsheet_frame(report: SweepSpreadsheetReport) -> pd.DataFrame:
+def _sweep_spreadsheet_frame(report: SweepSpreadsheetReport) -> Table:
     """Tabulate the sweeper's polar, one row per sweep point.
 
     The nearest thing here to :func:`sweep_table`, and deliberately not
@@ -1278,10 +1434,8 @@ def _sweep_spreadsheet_frame(report: SweepSpreadsheetReport) -> pd.DataFrame:
     provenance columns so the two can be compared without either having
     to explain itself.
     """
-    import pandas as pd
-
     columns = list(sweep_columns(",".join(report.columns), what="sweeper spreadsheet report"))
-    frame = pd.DataFrame(report.values, columns=columns)
+    frame = Table(report.values, columns=columns)
     frame["force_units"] = report.force_units
     frame["moment_units"] = report.moment_units
     return _stamped(
@@ -1291,7 +1445,7 @@ def _sweep_spreadsheet_frame(report: SweepSpreadsheetReport) -> pd.DataFrame:
     )
 
 
-def _solver_analysis_csv_frame(report: SolverAnalysisCsvReport) -> pd.DataFrame:
+def _solver_analysis_csv_frame(report: SolverAnalysisCsvReport) -> Table:
     """Tabulate the header-less csv, carrying what its fourth column is.
 
     ``scalar_field`` is a column and not a note, on the same reasoning as
@@ -1307,25 +1461,21 @@ def _solver_analysis_csv_frame(report: SolverAnalysisCsvReport) -> pd.DataFrame:
     it is unanswerable from the file. Saying ``none`` would assert a
     direct reading that may not have happened.
     """
-    import pandas as pd
-
     columns = _pinned_frame_columns(
         tuple(report.columns), SOLVER_ANALYSIS_CSV_COLUMNS, what="solver analysis csv report"
     )
-    frame = pd.DataFrame(report.values, columns=columns)
+    frame = Table(report.values, columns=columns)
     frame[_CSV_FIELD_COLUMN] = report.scalar_field
     return _stamped(frame, origin="raw", reduction=reduction_for_solver_mode(None))
 
 
-def _sectional_loads_frame(report: object) -> pd.DataFrame:
+def _sectional_loads_frame(report: object) -> Table:
     """Tabulate the sectional loads under the unit-suffixed column names.
 
     Duck-typed on the ``columns`` / ``values`` attributes of the FSI
     ``SectionalLoadsReport``, so tabulating an already parsed report
     never needs the optional extra to be importable again.
     """
-    import pandas as pd
-
     printed = tuple(report.columns)  # type: ignore[attr-defined]
     expected = tuple(_SECTIONAL_COLUMN_UNITS)
     if printed != expected:
@@ -1336,7 +1486,7 @@ def _sectional_loads_frame(report: object) -> pd.DataFrame:
         )
     columns = [_SECTIONAL_COLUMN_UNITS[name] for name in printed]
     return _stamped(
-        pd.DataFrame(report.values, columns=columns),  # type: ignore[attr-defined]
+        Table(report.values, columns=columns),  # type: ignore[attr-defined]
         origin="raw",
         reduction=reduction_for_solver_mode(getattr(report, "solver_mode", None)),
     )

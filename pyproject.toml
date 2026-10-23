@@ -75,13 +75,13 @@ classifiers = [
 # is written against (field_validator, model_validator).
 dependencies = [
     "numpy>=2.2",
-    "pandas>=2.3",
     "pydantic>=2",
     "pyyaml",
     "trimesh>=4.12,<6",
 ]
 
 [project.optional-dependencies]
+pandas = ["pandas>=2.3"]
 # matplotlib is PSF/BSD-style, MIT-compatible (NFR-02); it backs the
 # plotting examples only, no core code imports it.
 plot = ["matplotlib"]

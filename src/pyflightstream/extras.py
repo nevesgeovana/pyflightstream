@@ -19,6 +19,7 @@ __all__ = ["EXTRAS", "MissingExtraError", "UnknownExtraError", "missing_extra"]
 #: Reading vertices and faces, including trailing-edge extraction, needs
 #: neither spatial-index dependency.
 EXTRAS: dict[str, tuple[str, ...]] = {
+    "pandas": ("pandas",),
     "excel": ("XlsxWriter",),
     "fsi": ("PyNiteFEA",),
     "manual": ("pypdf",),

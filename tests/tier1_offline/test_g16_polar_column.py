@@ -538,7 +538,7 @@ def test_g16_a_text_cell_writes_no_comma_no_quote_and_no_line_break(tmp_path):
 
 def test_g16_the_campaign_sweep_table_writes_no_comma_in_a_cell(tmp_path):
     """The sweep is written through the tabular layer's one write path, under the same rule."""
-    import pandas as pd
+    pd = pytest.importorskip("pandas")
 
     from pyflightstream.results.tables import write_table
 
@@ -561,7 +561,7 @@ def test_g16_the_campaign_sweep_table_writes_no_comma_in_a_cell(tmp_path):
 
 def test_f251_a_declined_cell_of_the_sweep_table_writes_as_na(tmp_path):
     """F-251: a NaN cell is the NA token, never an empty field a reader takes as missing data."""
-    import pandas as pd
+    pd = pytest.importorskip("pandas")
 
     from pyflightstream.results.tables import write_table
 

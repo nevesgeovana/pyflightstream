@@ -922,8 +922,8 @@ _SCIPY_MARKER = "AD-06 scipy:"
 #: somebody's decision.
 _AD06_RESIDUALS = {
     ("pyflightstream.results.tables", "pandas"): (
-        "the tabular substrate itself (SRS AD-06); the module's own docstring "
-        "says the tables rest on pandas and that downstream code depends on the "
+        "the optional Table.to_pandas adapter (SRS AD-06); the module "
+        "imports pandas only for explicit conversion; downstream code depends on the "
         "column schema rather than on the library holding the values"
     ),
     ("pyflightstream.post.writers", "pydantic"): (

@@ -7,6 +7,12 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- Result and campaign tables hold named NumPy columns; pandas is the optional
+  `[pandas]` extra, used by `Table.to_pandas()`. CSV products retain their bytes
+  and the writer functions retain their `Path` returns (PFS-2023.02).
+
 ### Added
 
 - The QA catalog includes an offline-tested `CAD_CREATE_AUTO_CROSS_SECTIONS` probe for
