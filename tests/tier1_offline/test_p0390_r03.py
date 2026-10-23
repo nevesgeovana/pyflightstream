@@ -181,7 +181,7 @@ def test_p0390_r03_the_current_directory_is_the_workspace(tmp_path, capsys, monk
     root = make_workspace(tmp_path)
     (root / "pyfs.local.toml").write_text('[defaults]\nfs_version = "26.120"\n', encoding="utf-8")
     monkeypatch.chdir(root)
-    call(capsys, matrix_main, ["plan", "polars.fs"])
+    call(capsys, matrix_main, ["plan", "polars.fs", "--accept-unregistered-build"])
     assert plan_json(root)["settings_sources"]["fs_version"] == "pyfs.local.toml"
     with pytest.warns(VersionMismatchWarning, match="accept-unregistered-build"):
         code, _out, err = call(
@@ -934,6 +934,12 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     # Preserve the historical fixture and apply only the reviewed text change.
     plan_name = "tree/post/polars/plan.json"
     # CL-03 moves only these evidence locators; preserve every other captured byte.
+    captured[plan_name] = captured[plan_name].replace(
+        b'  "accept_unregistered_build": true\n',
+        b'  "accept_unregistered_build": true,\n  "effective_builds": {\n'
+        b'    "7002": {\n      "build": "26.120",\n      "version": "26.120",\n'
+        b'      "accepted": true\n    }\n  }\n',
+    )
     for locator in (
         b"reports/physics/PHY-26120_2026-07-21_phy02-symmetry-phase-reval.yaml",
         b"reports/RPT-030_what-an-unsteady-action-receives_2026-08-19.md",
