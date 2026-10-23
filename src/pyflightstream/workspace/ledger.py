@@ -91,6 +91,7 @@ __all__ = [
     "Ledger",
     "activity_rows",
     "additional_rows",
+    "check_status_words",
     "diff",
     "history",
     "point_card",
@@ -383,7 +384,7 @@ class Ledger:
             with a record), ``planned`` (datapoints the plan names, None when
             no plan names the simulation) and ``counts`` (word to count).
         """
-        _check_status_words(statuses)
+        check_status_words(statuses)
         rows = []
         for (stem, sim), entries in self._polars(sims=sims, matrix=matrix).items():
             words = [entry.word for entry in entries]
@@ -421,7 +422,7 @@ class Ledger:
             replaced; ``where`` is ``local``, the job label of a grouped run,
             or ``cluster``.
         """
-        _check_status_words(statuses)
+        check_status_words(statuses)
         rows = []
         for (stem, sim), entries in self._polars(sims=sims, matrix=matrix).items():
             for entry in entries:
@@ -610,7 +611,7 @@ class Ledger:
         return "current" if optional_file_sha256(path) == plan.matrix_sha256 else "stale"
 
 
-def _check_status_words(statuses: Sequence[str]) -> None:
+def check_status_words(statuses: Sequence[str], *, context: str = "statuses") -> None:
     """Refuse a status word that no recorded or derived status takes.
 
     Parameters
@@ -618,6 +619,8 @@ def _check_status_words(statuses: Sequence[str]) -> None:
     statuses : sequence of str
         The words of a ``--status`` selection; a trailing ``*`` matches every
         word it begins.
+    context : str
+        Selection name to include in a refusal; defaults to ``statuses``.
 
     Raises
     ------
@@ -633,7 +636,7 @@ def _check_status_words(statuses: Sequence[str]) -> None:
             stem is not None and not any(item.startswith(stem) for item in known)
         ):
             raise WorkspaceError(
-                f"statuses names {word!r}, which no status takes; the words are "
+                f"{context} names {word!r}, which no status takes; the words are "
                 f"{', '.join(known)}, and a trailing * matches every word it begins"
             )
 

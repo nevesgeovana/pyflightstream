@@ -32,6 +32,8 @@ FlightStream versions.
 
 ### Fixed
 
+- CLI and ledger status filters share the workspace status-word validator (RB5-41).
+
 - Excel preview documentation states that invalid directions preserve the prior
   batch and older-version batches are refused without replacement (RB5-50).
 

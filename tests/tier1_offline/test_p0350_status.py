@@ -32,6 +32,20 @@ MATRIX = "l1_g6"
 CAMPAIGN = "camp"
 
 
+def test_p0440_cli_status_uses_the_workspace_vocabulary(monkeypatch):
+    from pyflightstream.run._cli_query import _status_words
+    from pyflightstream.workspace import WorkspaceError, ledger
+
+    monkeypatch.setattr(ledger, "PLANNED", "planned_control")
+    assert _status_words(["planned_control", "planned_c*", "FAILED*"]) == [
+        "planned_control",
+        "planned_c*",
+        "FAILED*",
+    ]
+    with pytest.raises(WorkspaceError, match=r"status \(CLI: --status\) names"):
+        _status_words(["planned"])
+
+
 def _record(sim: str, name: str, status: RunStatus, **fields: object) -> dict:
     record = RunRecord(
         run_id=f"{CAMPAIGN}/sim_{sim}/{name}",
