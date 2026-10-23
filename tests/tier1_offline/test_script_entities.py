@@ -232,16 +232,32 @@ def test_two_scripts_have_independent_registries():
         second.resolve_boundary("wing")
 
 
-def test_p0420_deletion_renumbers_boundary_inventory():
+def test_p0440_deletion_preserves_survivor_ids():
     from pyflightstream.script import Script, ScriptReferenceError
 
     script = Script("26.124")
     script.declare_existing(boundaries={"first": 1, "middle": 2, "last": 3})
     script.emit("DELETE_SURFACES", "middle")
-    assert script.entities.limit("boundaries") == 2
-    assert script.entities.labels("boundaries") == {"first": 1, "last": 2}
-    with pytest.raises(ScriptReferenceError):
-        script.emit("DELETE_SURFACES", 3)
+    assert script.num_boundaries == 2
+    assert script.entities.limit("boundaries") == 3
+    assert script.entities.labels("boundaries") == {"first": 1, "last": 3}
+    assert script.resolve_boundary("last") == 3
+    with pytest.raises(ScriptReferenceError, match="deleted"):
+        script.emit("DELETE_SURFACES", 2)
+    with pytest.raises(ScriptReferenceError, match="counts 3"):
+        script.emit("SET_VORTICITY_DRAG_BOUNDARIES", 3, [1, 2, 3])
     script.emit("DELETE_SURFACES", -1)
     assert script.entities.limit("boundaries") == 0
     assert script.entities.labels("boundaries") == {}
+
+
+@pytest.mark.parametrize("deleted", [1, 2, 3])
+def test_p0440_count_only_deletion_keeps_original_numeric_ids(deleted):
+    script = Script("26.124")
+    script.declare_existing(boundaries=3)
+    script.emit("DELETE_SURFACES", deleted)
+    for index in {1, 2, 3} - {deleted}:
+        assert script.resolve_boundary(index) == index
+    with pytest.raises(ScriptReferenceError, match="deleted"):
+        script.resolve_boundary(deleted)
+    assert script.num_boundaries == 2

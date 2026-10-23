@@ -1,8 +1,8 @@
 """Setup operations on a point's surfaces: removing surfaces, and the wake option it emits.
 
 Pipeline role: the cases row, where a row's solver commands are emitted.
-It emits the removal of the surfaces a setup names, with the renumbering
-of the surface inventory that removal causes, and the slipstream wake
+It emits the removal of the surfaces a setup names, preserving survivor
+IDs in the surface inventory, and the slipstream wake
 stabilization a setup states.
 
 Two setup keys reach the solver here, each through a short hook in
@@ -10,15 +10,11 @@ Two setup keys reach the solver here, each through a short hook in
 
 ``delete_surfaces``
     Boundaries named by NAME, alias or family, never by index. Each is
-    removed with ``DELETE_SURFACES``. The solver renumbers the surfaces
-    after a deleted one, so the inventory the script holds is rewritten
-    to the surviving names at their new indices, and every later command
-    and the run record's inventory read the new numbering. Licensed
-    probe round 1 on 26.124 (probe ``D1_delete_surfaces``):
-    ``DELETE_SURFACES 3`` on a four-surface mesh (Body, Base, Blade1,
-    Blade2) left Body, Base, Blade2, and only Blade2 moved, to index 3.
-    A family is removed from its last member so no index shifts under
-    the next command. Where the row's reference declares the study's
+    removed with ``DELETE_SURFACES``. Survivors keep their original IDs,
+    as measured on 26.124 and 26.125 in the committed fixture
+    ``pfs2119_016_delete_surfaces_ids_2026-10-16.md``. Tree position after
+    deletion is not an ID. Later selections use the retained IDs.
+    Families are removed in descending ID order. Where the row's reference declares the study's
     vocabulary (FR-435), a name the study holds and the row's model lacks
     is skipped and said, and a list every name of which is skipped emits
     no removal.
@@ -79,7 +75,7 @@ _OPENED: WeakKeyDictionary[Script, tuple[str, ...]] = WeakKeyDictionary()
 
 
 def emit_setup_surfaces(script: Script, case: SimCase) -> None:
-    """Emit the removal of the surfaces the case's setup names, and renumber the inventory.
+    """Emit removal of the named surfaces, preserving every surviving boundary ID.
 
     Nothing is emitted, and the script is left as it was, when the setup
     states no ``delete_surfaces``.
@@ -146,14 +142,7 @@ def emit_setup_surfaces(script: Script, case: SimCase) -> None:
     _OPENED.setdefault(script, tuple(ordered))
     for index in sorted(doomed, reverse=True):
         script.emit(_DELETE, index)
-    survivors = tuple(name for position, name in enumerate(inventory, 1) if position not in doomed)
-    script.boundary_inventory = survivors
-    renumbered = {
-        name: new_index
-        for new_index, name in enumerate(survivors, 1)
-        if name in labels and survivors.count(name) == 1
-    }
-    script.entities.renumber_boundaries(renumbered, len(survivors))
+    script.boundary_inventory = tuple(name for name in inventory if labels.get(name) not in doomed)
 
 
 def emit_wake_stabilization(

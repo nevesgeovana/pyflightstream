@@ -64,20 +64,20 @@ def _emitted(case, build: str) -> list[str]:
 
 
 @pytest.mark.requirement("FR-275")
-def test_delete_surfaces_by_name_emits_the_index_and_renumbers_the_inventory(tmp_path):
-    """P0320-G9-DELETE-SURFACES: the round-1 shape, Blade1 removed, Blade2 moves from 4 to 3."""
+def test_p0440_delete_surfaces_keeps_the_survivor_ids(tmp_path):
+    """P0440-RB7-35: the committed PFS-2119.016 probe keeps Blade2 at ID 4."""
     case = _with(steady_case(geometry=_twin(tmp_path)), delete_surfaces=["Blade1"])
     script = _built(case)
     lines = script.render().splitlines()
     assert "DELETE_SURFACES 3" in lines
     assert lines.index("DELETE_SURFACES 3") > lines.index("OPEN")
     assert script.boundary_inventory == ("Body", "Base", "Blade2")
-    assert script.entities.labels("boundaries") == {"Body": 1, "Base": 2, "Blade2": 3}
+    assert script.entities.labels("boundaries") == {"Body": 1, "Base": 2, "Blade2": 4}
     assert script.num_boundaries == 3
 
 
-def test_a_command_after_the_removal_cites_the_new_index(tmp_path):
-    """P0320-G9-DELETE-SURFACES: the motion moves Blade2, and the solver now numbers it 3."""
+def test_p0440_command_after_removal_cites_the_original_id(tmp_path):
+    """P0440-RB7-35: later selections must preserve the measured survivor ID."""
     geometry = _twin(tmp_path)
     kept = rotor_case(MOVING_BOUNDARIES="Blade2").model_copy(update={"geometry": geometry})
     before = rendered(kept, build="26.124").splitlines()
@@ -91,7 +91,7 @@ def test_a_command_after_the_removal_cites_the_new_index(tmp_path):
     assert before[moved_before] == "SET_MOTION_BOUNDARIES 1 1"
     assert before[moved_before + 1] == "4"
     assert after[moved_after] == "SET_MOTION_BOUNDARIES 1 1"
-    assert after[moved_after + 1] == "3"
+    assert after[moved_after + 1] == "4"
 
 
 def test_a_family_removes_every_member_from_the_last_so_no_index_shifts_under_it(tmp_path):

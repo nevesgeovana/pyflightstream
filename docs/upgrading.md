@@ -173,8 +173,8 @@ a real filesystem directory.
 - Command emission validates enumerations, entity references and free labels before
   a script is written. Numeric rotor axes 1, 2 and 3 resolve to X, Y and Z;
   `SURFACE_MIRROR` accepts only the mirror planes 1, 2 and 3; surface deletion
-  renumbers the surviving boundary labels, so labels recorded before a deletion
-  no longer address the same surface.
+  retains surviving boundary IDs as of 0.44.0, correcting the earlier
+  renumbering behavior to match the PFS-2119.016 licensed observation.
 - Public parking rejects absolute, drive-relative and parent-traversal paths.
 - Undefined rotor coefficients raise `ProductError` and empty passage series raise
   `MalformedOutputError`. Catch `CampaignConfigError` for row and artifact naming

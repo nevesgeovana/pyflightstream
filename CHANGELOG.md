@@ -32,6 +32,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Surface deletion preserves survivor IDs, as measured by the PFS-2119.016
+  licensed probe. Later boundary selections no longer shift to another surface (RB7-35).
+
 - Phase-locked averaging depths below one revolution are refused when reading
   the pproc configuration, before a run can plan an unusable reduction (PFS-2130.026).
 
