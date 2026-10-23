@@ -84,6 +84,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Surface deletion keeps original survivor IDs in section selections, additional
+  post extraction, isolated-rotor checks and 26.125 trailing-edge detection (RV2-02).
 - Unsteady MRP sectional harmonics read the reference artifact's moment point,
   preserving available station radii and radius ratios (RV2-01, F-127).
 

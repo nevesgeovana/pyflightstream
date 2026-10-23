@@ -94,6 +94,69 @@ def test_p0440_command_after_removal_cites_the_original_id(tmp_path):
     assert after[moved_after + 1] == "4"
 
 
+def test_p0440_rv2_deleted_body_does_not_block_an_isolated_wheel(tmp_path):
+    from tests.tier1_offline.test_goal035_qsteady_rotor import _case
+
+    geometry = _saved_simulation(tmp_path / "wheel.fsm", ["Body", "Blade1", "Blade2", "Blade3"])
+    case = _with(_case().model_copy(update={"geometry": str(geometry)}), delete_surfaces=["Body"])
+    script = _built(case)
+    assert script.entities.labels("boundaries") == {"Blade1": 2, "Blade2": 3, "Blade3": 4}
+    assert "START_SOLVER" in script.render()
+
+
+def test_p0440_rv2_duplicate_names_still_refuse_non_rotor_survivors(tmp_path):
+    from tests.tier1_offline.test_goal035_qsteady_rotor import _case
+
+    geometry = _saved_simulation(
+        tmp_path / "wheel.fsm", ["Body", "Blade1", "Blade2", "Blade3", "Other", "Other"]
+    )
+    case = _with(_case().model_copy(update={"geometry": str(geometry)}), delete_surfaces=["Body"])
+    with pytest.warns(UserWarning, match="name.*used more than once"):
+        with pytest.raises(CampaignConfigError) as refused:
+            _built(case)
+    assert "Other (boundary 5" in str(refused.value)
+    assert "Other (boundary 6" in str(refused.value)
+
+
+@pytest.mark.parametrize("additional", [False, True])
+def test_p0440_rv2_sections_keep_sparse_surface_ids(tmp_path, additional):
+    from pyflightstream.cases import PprocSpec, ReferenceData
+    from pyflightstream.cases.workflows import build_additional_script
+
+    case = _with(steady_case(geometry=_twin(tmp_path)), delete_surfaces=["Base", "Blade1"])
+    case = case.model_copy(
+        update={"reference": ReferenceData(area=1.0, length=1.0, moment_point_m=(0, 0, 0))}
+    )
+    pproc = PprocSpec.model_validate(
+        {"sections": {"distributions": [{"families": "all", "frame": "MRP", "planes": ["XZ"]}]}}
+    )
+    if additional:
+        shadow = _built(case)
+        script = Script("26.124")
+        build_additional_script(
+            case.model_copy(update={"pproc": pproc}), script, saved="point.fsm", shadow=shadow
+        )
+        assert script.resolve_boundary("Blade2") == 4
+        assert shadow.resolve_boundary("Blade2") == 4
+    else:
+        script = _built(case.model_copy(update={"pproc": pproc}))
+    assert "SURFACES 2\n1 4" in script.render()
+    if additional:
+        script.entities._delete_boundary(4)
+        assert shadow.entities.boundary_indices() == (1, 4)
+        assert shadow.resolve_boundary("Blade2") == 4
+
+
+def test_p0440_rv2_detection_uses_survivors_including_unlabelled_boundaries():
+    from pyflightstream.script._build_forms import detect_every_boundary
+
+    script = Script("26.125")
+    script.declare_existing(boundaries=4)
+    script.emit("DELETE_SURFACES", 2)
+    detect_every_boundary(script, "trailing_edges")
+    assert "SURFACES 3\n1,3,4" in script.render()
+
+
 def test_a_family_removes_every_member_from_the_last_so_no_index_shifts_under_it(tmp_path):
     """P0320-G9-DELETE-SURFACES: the family Blade is Blade1 and Blade2, removed 4 then 3."""
     case = _with(steady_case(geometry=_twin(tmp_path)), delete_surfaces=["Blade"])

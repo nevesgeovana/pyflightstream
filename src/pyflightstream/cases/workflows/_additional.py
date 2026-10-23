@@ -44,7 +44,6 @@ from ._exports import (
 )
 from ._geometry import (
     _configuration_comment,
-    _declare_inventory,
 )
 from ._names import (
     _judge_the_group_members_the_model_lacks,
@@ -450,8 +449,8 @@ def build_additional_script(case: SimCase, script: Script, *, saved: str, shadow
     # THE FRAMES AND THE BOUNDARIES THE SAVED SIMULATION HOLDS, declared rather
     # than created, so every citation below resolves exactly as the run's did.
     script.declare_existing(frames=shadow.num_local_frames)
-    if shadow.boundary_inventory is not None:
-        _declare_inventory(case, script, shadow.boundary_inventory)
+    script.boundary_inventory = shadow.boundary_inventory
+    script.entities.copy_boundaries_from(shadow.entities)
     _refuse_a_pproc_the_geometry_shares_no_name_with(case, script)
     _judge_the_group_members_the_model_lacks(case, script)
     _pproc_sections(case, script, frames)

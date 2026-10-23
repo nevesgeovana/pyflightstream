@@ -9,6 +9,10 @@ describe the older releases that supplied them.
 
 ## 0.44.0
 
+Regenerate scripts and additional-post products for cases using `delete_surfaces`.
+Surviving surfaces keep their original IDs in all-boundary selections and reopened
+simulations; deleted IDs no longer cause valid isolated rotors to be refused (RV2-02).
+
 Unsteady sectional harmonics use the reference artifact's `moment_point` for
 MRP cuts. Rebuild these products to recover station radii and radius ratios
 that the initial 0.44.0 adapter left unavailable despite a supplied origin.

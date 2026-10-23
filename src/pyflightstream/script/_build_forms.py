@@ -175,14 +175,14 @@ def detect_every_boundary(script: Script, kind: str) -> str:
     if kind == "trailing_edges" and script.version.canonical == "26.125":
         from pyflightstream.script import CommandArgumentError
 
-        count = script.num_boundaries
-        if not count:
+        indices = script.entities.boundary_indices()
+        if not indices:
             raise CommandArgumentError(
                 "automatic trailing-edge detection on 26.125 needs a declared boundary "
                 "inventory; the solver has marked zero edges with SURFACES -1. "
                 "Declare the boundaries or select explicit surface indices"
             )
-        arguments = (count, list(range(1, count + 1)))
+        arguments = (len(indices), list(indices))
     script.emit(command, *arguments)
     return command
 

@@ -167,6 +167,22 @@ class EntityRegistry:
         self._require_kind(kind)
         return dict(self._labels[kind])
 
+    def boundary_indices(self) -> tuple[int, ...] | None:
+        """Return surviving boundary IDs, including unlabelled ones, or None if unknown."""
+        if self._boundary_total is None:
+            return None
+        return tuple(
+            index
+            for index in range(1, self._boundary_total + 1)
+            if index not in self._deleted_boundaries
+        )
+
+    def copy_boundaries_from(self, other: EntityRegistry) -> None:
+        """Declare a saved simulation's boundary state without renumbering its survivors."""
+        self._boundary_total = other._boundary_total
+        self._deleted_boundaries = other._deleted_boundaries.copy()
+        self._labels["boundaries"] = other.labels("boundaries")
+
     def assert_label_free(self, kind: str, label: str) -> None:
         """Reject a label that is invalid or already taken for ``kind``.
 

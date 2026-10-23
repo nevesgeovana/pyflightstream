@@ -349,9 +349,9 @@ def _refuse_what_is_not_the_rotor(
     named = set(labels.values())
     held = script.boundary_inventory or ()
     others += [
-        f"{held[index - 1] if index <= len(held) else 'a boundary'} (boundary {index}, "
+        f"{held[position] if position < len(held) else 'a boundary'} (boundary {index}, "
         "its name used more than once)"
-        for index in range(1, (script.num_boundaries or 0) + 1)
+        for position, index in enumerate(script.entities.boundary_indices() or ())
         if index not in named
     ]
     if others:
