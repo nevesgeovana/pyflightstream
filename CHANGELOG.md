@@ -132,6 +132,7 @@ FlightStream versions.
   as private release records rather than public reports (RB4-28).
 - Per-revolution means and unsteady sectional harmonics skip fractional clocks
   by name with their remainder, instead of silently rounding the period (PFS-2124.058).
+  Integral clocks retain their products despite floating-point error within two ULPs.
 - In-row geometry migration warnings state that the route still runs, instead
   of claiming a refusal since 0.41.0 (X-F-0188).
 - Separation studies s950-s952 now select Body, and s948 compares with the

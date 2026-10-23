@@ -27,7 +27,8 @@ revolution) and its `rotor`.
 the table, counted from its first row, where `N` is the rotor's steps per
 revolution, which must be integral. A fractional clock is not rounded:
 the product is skipped by name in `products.json`, stating the clock and
-its fractional remainder. Exact fractional-period integration is not provided.
+its fractional remainder. Floating-point arithmetic within two ULPs of an integer
+is treated as that integer. Exact fractional-period integration is not provided.
 A history that starts at step 1 cuts at steps 1 to `N`, `N+1` to `2N` and so
 on. Each mean is the package's one average over that window, the one the time
 average takes.
