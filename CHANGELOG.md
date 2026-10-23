@@ -12,6 +12,10 @@ FlightStream versions.
 - Result and campaign tables hold named NumPy columns; pandas is the optional
   `[pandas]` extra, used by `Table.to_pandas()`. CSV products retain their bytes
   and the writer functions retain their `Path` returns (PFS-2023.02).
+- Probe sample Mach is `MACH_LOCAL` in steady and unsteady probe tables;
+  condition Mach remains `MACH`, removing ambiguous duplicate headers (F-783).
+- The setup key `mark_wake_termination_nodes = true` is refused, because it selects no node.
+  migration: name the nodes in a `[wake_termination] file` (PFS-2149).
 
 ### Added
 
@@ -24,10 +28,8 @@ FlightStream versions.
 - Opt-in exploratory loading noise now includes blade-passage harmonic/Gutin
   tables and optional reference-signal comparisons. `pyfs-matrix noise` rebuilds
   selected simulations and lists noise products and skips (PFS-2155).
-
 - `pyfs-workspace fsi campbell` writes structural Campbell frequencies, Southwell
   fits and a provenance/crossing report from an FSI input (PFS-2154).
-
 - Raw-mesh `[trailing_edges] files` imports ordered files with separate types,
   checks every logged count and verifies their union in the saved simulation.
   Plans state that successive imports remain unmeasured (PFS-2149.01).
@@ -38,31 +40,23 @@ FlightStream versions.
   build's command record (PFS-2149).
 - Assessment warns when declared outputs are absent and it falls back to the
   whole selected output folder, naming the affected point and declarations (F-600).
-
 - `post --check-frozen` and `collect --check-frozen` help now name the reference
   area/length mismatch policy, also stated in the post-processing definitions
   (PFS-2109.001).
-
 - Runs compare resolved per-simulation builds and acceptance with their plan;
   equivalent defaults from different sources are accepted. Replan older receipts
   that lack this effective contract (C-S13-019).
-
 - Grouped execution refuses unrecognised paths inside its staging root instead
   of delegating them to the real executor. Simulation folder readers share the
   workspace naming rule (PFS-2126.030).
-
 - Release builds scan both built archives for forbidden identifiers before
   upload, with the scanner and its policy shipped as support files (X-F-0265).
-
 - Export collection and loads-table documentation cite the measured solver
   evidence for wake companions and last-timestep loads (RB5-19).
-
 - Staged external FSI provenance records portable file names and content digests,
   while live source validation retains original locations (X-F-1364).
-
 - Base-region follow-up operations accept the boundary name used by an earlier
   create or named declaration, resolving its region index at build time (PFS-2122.002).
-
 - `refine` reports its progress while it runs: one line per stage and per family (read, layout,
   grid, remesh, write, audit) on stderr, as `[refine HH:MM:SS +N.N s] <stage>`, so a long refinement
   shows it is moving; `--log-level quiet` hides them. In Python, `refine_mesh(..., progress=callable)`
@@ -83,11 +77,7 @@ FlightStream versions.
   direction against the family's trailing edge (within 45 degrees of it: spanwise), so a junction
   strip can be coarsened chordwise only. A family without a trailing edge, or a patch whose two
   directions cannot be told apart, is refused naming it; `factor` alone still applies to both.
-
-### Changed
-
-- Probe sample Mach is `MACH_LOCAL` in steady and unsteady probe tables;
-  condition Mach remains `MACH`, removing ambiguous duplicate headers (F-783).
+  The exact 45-degree boundary counts as spanwise (absolute cosine tolerance 1e-14, PFS-2153).
 
 ### Fixed
 
@@ -97,84 +87,55 @@ FlightStream versions.
   (PFS-2124.020). Registered run types retain consistent workflow selection.
 - Unsteady histories require the observed trailing row commas, closing rule and
   software footer; reconstruction cross-checks the requested build (PFS-2130.049).
-
 - Missing recorded attitude leaves shaft angle and ETAW unavailable and refuses
   unsteady axis coefficients; MADV retains its zero-angle exception (RB6-07).
-
 - Mesh-based reduced-frequency and inflow-harmonic summaries weight each radial
   band by its full width, including root and tip. `blade_stations` now returns
   radii, chords and band widths; nodal section strips retain their rule (PFS-2124.016).
-
 - Plans warn which coefficient products dimensional load units omit; post keeps
   independent plots, probes and sectional products (PFS-2130.039).
-
 - Execution and Excel sync share matrix comment and separator rules and accept
   an optional UTF-8 BOM while refusing invalid UTF-8 (PFS-2124.050).
-
 - In-place matrix POL and artifact-code rewrites publish by atomic replacement,
   preserving the original when replacement fails (PFS-2119.015).
-
 - Permuted body-axis declarations refuse with RPT-052/RPT-060 evidence limits;
   the supported rate mapping is roll=X, pitch=Y, yaw=Z (PFS-2126.043).
-
 - MRP sectional radii subtract the hub relative to the recorded moment point;
   historical wheel records without that origin report unavailable radii (F-127).
-
 - Unreadable saved-action metadata warns by file and row without being treated
   as known saved actions that block grouping (PFS-2119.012).
-
 - The off-body streamline deletion probe keeps an empty export inconclusive
   without before-deletion evidence, rather than marking the effect verified (F-543).
-
 - Per-blade documentation distinguishes the retained public passage-window
   helper from the campaign product's shared averaging window (F-073).
-
 - Run-alias documentation states the retained recorded-first ordinal order
   rather than promising plan order alone (C-SRS-S11-064).
-
 - Additional post accepts `--hpc NAME` to select among workspace profiles and
   refuses the flag without `--additional-pproc` (PFS-2119.067).
-
 - Setup snapshot documentation distinguishes unemitted documented defaults
   from the effective state of a loaded simulation (C-SRS-S07-001, C-S13-021).
-
 - HPC profiles refuse unknown descriptor keys, including the unused `template`
   key; scheduler-specific names remain valid under `descriptor.fields` (F-1526).
-
 - CLI and ledger status filters share the workspace status-word validator (RB5-41).
-
 - Excel preview documentation states that invalid directions preserve the prior
   batch and older-version batches are refused without replacement (RB5-50).
-
 - The timestep-series reader documents its retained moving-point refusal and
   stationary-coordinate scope (RB5-30).
-
 - Probe-table documentation states the retained REFERENCE-frame design and
   the outstanding licensed placement measurement (RB3-04).
-
 - RPT-082 dates its 2026-10-21 custom-inflow supplement explicitly (RB5-16).
-
 - Flight-condition documentation identifies external licensed evidence citations
   as private release records rather than public reports (RB4-28).
-
 - Per-revolution means and unsteady sectional harmonics skip fractional clocks
   by name with their remainder, instead of silently rounding the period (PFS-2124.058).
-
 - In-row geometry migration warnings state that the route still runs, instead
   of claiming a refusal since 0.41.0 (X-F-0188).
-
 - Separation studies s950-s952 now select Body, and s948 compares with the
   Valarezo-enabled s933 baseline (PFS-2119.060).
-
-- Refinement includes the exact 45-degree spanwise boundary with an absolute
-  cosine tolerance of 1e-14 (PFS-2153).
-
 - Surface deletion preserves survivor IDs, as measured by the PFS-2119.016
   licensed probe. Later boundary selections no longer shift to another surface (RB7-35).
-
 - Phase-locked averaging depths below one revolution are refused when reading
   the pproc configuration, before a run can plan an unusable reduction (PFS-2130.026).
-
 - Far-field products refuse steady probe velocities from non-metre simulations
   by name until their velocity units have measured conversion evidence (F-122).
 - Far-field mass, symmetry, and energy ledger columns retain six significant

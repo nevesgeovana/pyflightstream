@@ -26,18 +26,40 @@ call `table.to_pandas()`. The core install no longer requires pandas.
 ```python
 from pyflightstream.results import parse_unsteady_plots, to_table
 
-table = to_table(parse_unsteady_plots("Time (sec), CL\n0.0, 0.4\n0.1, 0.5\n"))
+history = "Time (sec), CL\n0.0, 0.4,\n0.1, 0.5,\n" + "-" * 60
+history += "\nSoftware : Flightstream version 26.1, build #7012026\n"
+table = to_table(parse_unsteady_plots(history))
 assert table["CL"].tolist() == [0.4, 0.5]
 assert table.to_dict("records")[0]["CL"] == 0.4
 ```
+
+### Missing recorded attitude
+
 Missing recorded attitude no longer defaults to zero for shaft angle, ETAW or
 unsteady axis coefficients. Supply explicit ALPHA and BETA to compute them;
 MADV keeps its documented zero-angle exception (RB6-07).
+
+### Probe-table sample Mach
 
 The sample Mach column of steady and unsteady probe tables is now `MACH_LOCAL`.
 The condition remains `MACH`. Update readers that selected the sample by `Mach`
 or `MACH`; source solver exports and numbered plot names such as `MACH1` retain
 their original names. This removes ambiguous duplicate headers (F-783).
+
+### Wake-termination nodes
+
+`mark_wake_termination_nodes = true` is now refused, because it selects no node. Name the
+nodes in a `[wake_termination] file` in the mesh sidecar; see [the mesh reference](mesh/reference.md).
+
+### Refinement levels
+
+A level refined from a source whose grid families share nodes now keeps those families as grids
+instead of remeshing them. State factors that agree on the shared curves; a curve whose two
+families' factors give it different interval counts is refused naming both.
+
+Refined-level selection tags now include the body axis and origin. Rerunning an existing
+refinement may create a new level folder, so regenerate the paths and products that depend on it.
+See [the mesh how-to](mesh/how-to.md).
 
 ## 0.43.0
 
