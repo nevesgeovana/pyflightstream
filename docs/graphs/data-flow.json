@@ -13,7 +13,7 @@
       ],
       "parameters": "path: str | Path, *, active_only: bool=True",
       "returns": "list[MatrixRow]",
-      "source_sha256": "aec65bbbac7ed3acdfa5e8ed5ebc6681f01666acf9db970c1c8f4109ff2ff189"
+      "source_sha256": "5fe374e9bc624693ce363e02da731a6df12cdc767acb5c2c3cae5d2c756079e4"
     },
     {
       "id": "resolve",
@@ -43,9 +43,9 @@
       "outputs": [
         "plan receipt and scripts"
       ],
-      "parameters": "campaign: Campaign, workspace: CampaignWorkspace, *, recipes: dict[str, ScriptRecipe] | None=None, write_plan: bool=True, name_from: str | None=None, builds: Mapping[str, SolverBuild] | None=None, versions: Mapping[str, str] | None=None, matrix_path: str | Path | None=None, accept_unregistered_build: bool=False, setup_inspections: Sequence[dict[str, object]] | None=None, inflow_fft: bool=False, accepted_builds: Collection[str]=(), planned_order: Mapping[str, Sequence[str]] | None=None",
+      "parameters": "campaign: Campaign, workspace: CampaignWorkspace, *, recipes: dict[str, ScriptRecipe] | None=None, write_plan: bool=True, name_from: str | None=None, builds: Mapping[str, SolverBuild] | None=None, versions: Mapping[str, str] | None=None, matrix_path: str | Path | None=None, accept_unregistered_build: bool=False, setup_inspections: Sequence[dict[str, object]] | None=None, inflow_fft: bool=False, accepted_builds: Collection[str]=(), planned_order: Mapping[str, Sequence[str]] | None=None, row_builds: Sequence[str | None] | None=None",
       "returns": "CampaignPlan",
-      "source_sha256": "c59cf8de9d56a89d03afe710cca2581f31d2fdf148162bd5483124f0c2582c29"
+      "source_sha256": "135cdca9b69e40239a22f05610b2a8c3fbe95921f16bb0f07619f067988b28d4"
     },
     {
       "id": "run",
@@ -77,7 +77,7 @@
       ],
       "parameters": "workspace: CampaignWorkspace, *, interval: float=DEFAULT_SETTLE_INTERVAL_S, sleep: Callable[[float], None]=time.sleep, observer: Callable[[Iterable[Path]], dict[str, Stamp | None]]=observe, assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None=None, sims: Collection[str] | None=None, writes: CollectWrites | None=None",
       "returns": "CollectReport",
-      "source_sha256": "bfb5936fdc35e74ce72dcf7c90cccb071b40c1631640588b780d072037d1b9f3"
+      "source_sha256": "69a424c580f1c37747f19a1463c08dfbede1509303536f7b495bbff62b02f8af"
     },
     {
       "id": "post",

@@ -52,7 +52,7 @@ resolve_matrix(path: str | Path, workspace: CampaignWorkspace, *, name: str, fs_
 ### Plan without solver
 
 ```text
-plan_campaign(campaign: Campaign, workspace: CampaignWorkspace, *, recipes: dict[str, ScriptRecipe] | None=None, write_plan: bool=True, name_from: str | None=None, builds: Mapping[str, SolverBuild] | None=None, versions: Mapping[str, str] | None=None, matrix_path: str | Path | None=None, accept_unregistered_build: bool=False, setup_inspections: Sequence[dict[str, object]] | None=None, inflow_fft: bool=False, accepted_builds: Collection[str]=(), planned_order: Mapping[str, Sequence[str]] | None=None) -> CampaignPlan
+plan_campaign(campaign: Campaign, workspace: CampaignWorkspace, *, recipes: dict[str, ScriptRecipe] | None=None, write_plan: bool=True, name_from: str | None=None, builds: Mapping[str, SolverBuild] | None=None, versions: Mapping[str, str] | None=None, matrix_path: str | Path | None=None, accept_unregistered_build: bool=False, setup_inspections: Sequence[dict[str, object]] | None=None, inflow_fft: bool=False, accepted_builds: Collection[str]=(), planned_order: Mapping[str, Sequence[str]] | None=None, row_builds: Sequence[str | None] | None=None) -> CampaignPlan
 ```
 
 ### Execute campaign
