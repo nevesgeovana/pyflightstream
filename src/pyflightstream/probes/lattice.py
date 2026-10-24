@@ -126,7 +126,8 @@ class ProbeLattice(ProbeModel):
             raise ProbeGeometryError(
                 "lateral_radius must not be smaller than the outer ring edge "
                 f"({self.ring_edges[-1]:g}): the closure cylinder would cut the annular "
-                "planes instead of enclosing them"
+                "planes instead of enclosing them; increase lateral_radius to at least "
+                "r_outer or reduce r_outer"
             )
         if any(
             b <= a for a, b in zip(self.lateral_stations, self.lateral_stations[1:], strict=False)

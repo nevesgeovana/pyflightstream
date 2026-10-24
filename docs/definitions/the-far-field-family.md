@@ -67,6 +67,8 @@ the half extents and spacing belong to `plane` alone. `station`, `rotor`, `frame
 `tip_radius_m`, `n_r`, `r_inner`, `r_outer`, `n_psi`, `lateral_radius`,
 `lateral_stations`, `hub_width`, `tip_width`, `m_max` and `balances` belong to `power`.
 Its placement requires `rotor`, or `frame` together with `tip_radius_m`.
+An unstated `lateral_radius` uses `max(2.5, r_outer)`; a stated radius below
+`r_outer` is refused, so increase it or reduce `r_outer`.
 
 Every entry accepts `export_type = "default"`, `"last_step"` or `"avg_window"`.
 Unstated means `"default"`. Other values, including `"all_steps"`, are refused.

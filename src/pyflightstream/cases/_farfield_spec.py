@@ -165,6 +165,8 @@ class LatticeShape(BaseModel):
         stated = {
             key: getattr(self, key) for key in _LATTICE_KEYS if getattr(self, key) is not None
         }
+        if self.lateral_radius is None:
+            stated["lateral_radius"] = max(2.5, self.r_outer or 2.5)
         return build_lattice(tip_radius=tip_radius, **stated)
 
 

@@ -52,6 +52,32 @@ def test_p0450_d2_power_requires_lattice_placement():
         FarfieldSpec.model_validate({"variant": "power"})
 
 
+@pytest.mark.parametrize(
+    "outer,expected", [(1.5, 2.5), (3.0, 3.0)], ids=["P0450-small", "P0450-large"]
+)
+def test_p0450_ff5_power_default_cylinder_encloses_lattice(tmp_path, outer, expected):
+    """LIC-02: power with r_outer=3 plans without an explicit lateral_radius."""
+    entry = dict(
+        variant="power",
+        frame="MRP",
+        tip_radius_m=8.0,
+        stations=[-1.0, 1.0],
+        r_inner=0.2,
+        r_outer=outer,
+        n_r=8,
+        n_psi=24,
+    )
+    spec = FarfieldSpec.model_validate(entry)
+    assert spec.ledgers.build(8.0).lateral_radius == expected
+    case = _farfield_plan___case(tmp_path, [entry])
+    text = _farfield_plan___script(case).render()
+    assert "PROBE_POINTS_IMPORT" in text
+    with pytest.raises(ValidationError, match="increase lateral_radius.*r_outer"):
+        FarfieldSpec.model_validate(dict(entry, lateral_radius=outer / 2))
+    explicit = FarfieldSpec.model_validate(dict(entry, lateral_radius=4.0))
+    assert explicit.ledgers.build(8.0).lateral_radius == 4.0
+
+
 def test_p0450_d0_named_farfield_entries():
     """P0450-D0: one analysis per entry, including two separately named A traces."""
     entries = [

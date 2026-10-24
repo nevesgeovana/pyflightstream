@@ -40,6 +40,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Power entries with an unstated `lateral_radius` use `max(2.5, r_outer)`;
+  an explicitly smaller cylinder remains refused with a remedy.
 - Ambiguous far-field lattice refusals name the required native spacing and
   the lattice keys that can change it, retaining the precision guard.
 - Trefftz C accepts tilted planes within their exported coordinate precision,
