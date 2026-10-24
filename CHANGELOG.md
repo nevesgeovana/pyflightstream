@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-10-24
+
 ### Removed
 
 - `unsteady_samples` is no longer public; read far-field per-step surveys through post.
