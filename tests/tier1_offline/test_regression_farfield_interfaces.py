@@ -68,6 +68,17 @@ def test_p0450_d0_named_farfield_entries():
     assert [entry.name for entry in spec.farfields] == ["wing", "tail", "wake", "plane", "power"]
 
 
+@pytest.mark.parametrize("mixed", [False, True])
+@pytest.mark.requirement("FR-1062")
+def test_p0450_rv1_model_entries_cannot_share_super_cells(mixed):
+    """P0450-RV1-04: validated objects and dictionaries obey the same name uniqueness."""
+    first = FarfieldSpec(variant="plane", name="survey")
+    second = {"variant": "plane", "name": "survey", "spacing_bref": 0.2}
+    entries = [first, second if mixed else FarfieldSpec.model_validate(second)]
+    with pytest.raises(ValidationError, match="unique.*name repeated variants separately"):
+        PprocSpec(farfields=entries)
+
+
 @pytest.mark.parametrize("variant", ["wake", "plane", "power"])
 def test_p0450_d0_whole_field_refuses_families(variant):
     entry = {"variant": variant, "families": ["Wing"]}

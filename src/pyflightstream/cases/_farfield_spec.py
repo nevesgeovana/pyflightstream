@@ -440,7 +440,7 @@ _KEY_VARIANTS = {
 
 
 def farfield_entries(value: Any) -> Any:
-    """Refuse the retired table with equivalent array entries; check unique entry names."""
+    """Refuse the retired table with equivalent array entries."""
     if not isinstance(value, dict):
         return value
     if value.get("farfield") is not None:
@@ -472,16 +472,5 @@ def farfield_entries(value: Any) -> Any:
             + replacement
             + '\nA 0.44.0 "plane" with ledgers on a rotor row becomes the "power" entry (D), '
             'not the "plane" entry (C); keep C only to request the velocity plane as well.'
-        )
-    raw_entries = value.get("farfields")
-    if not isinstance(raw_entries, list):
-        return value
-    names = [
-        entry.get("name", entry.get("variant")) for entry in raw_entries if isinstance(entry, dict)
-    ]
-    names = [name for name in names if isinstance(name, str)]
-    if len(names) != len(set(names)):
-        raise ValueError(
-            f"[[farfields]] names {names!r} must be unique; name repeated variants separately"
         )
     return value
