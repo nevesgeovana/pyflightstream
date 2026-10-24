@@ -9,9 +9,18 @@ and an optional unique `name`. `families` belongs only to `sections`; `wake`,
 `plane` and `power` read the whole field. Geometry keys are checked against the
 selected variant. See the [far-field keys and examples](definitions/the-far-field-family.md#selecting-analyses).
 
-Each entry may state `last_revs` or `last_steps` for its own unsteady average.
-They are exclusive; omitted, the row window is used. `last_revs` needs the row's
-rotor clock. Steady rows and normal probes refuse both keys.
+Each entry accepts `export_type = "default"`, `"last_step"` or `"avg_window"`.
+Unstated is `"default"`, which equals `"last_step"` on unsteady rows, regardless
+of `EXPORT_UNSTEADY_*`. Choose `"avg_window"` for an average: it exports A's
+sectional loads and C/D's conventional probe points only over the final window.
+With that policy, optional exclusive `last_revs` or `last_steps` overrides the
+row's averaging window. `last_revs` needs the rotor clock. These keys are refused
+with the other policies and on steady rows. Steady products are identical for
+all three policies. Every entry's manifest states `export_type`.
+
+Far-field planes and lattices always use their own conventional probe export,
+`<point>_farfield_probes.txt`, plus iteration-stamped files for `"avg_window"`.
+Declared `[[probes]]` retain their kind and their existing products.
 
 `PPROC` names `inputs/pproc/p<id>.toml`, the post-processing artifact
 It carries about twenty optional tables and keys; a file holding `[groups]`

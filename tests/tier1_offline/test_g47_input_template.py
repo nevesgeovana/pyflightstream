@@ -225,8 +225,10 @@ def _read_every_example(workspace: CampaignWorkspace, blocks) -> dict[str, str]:
         for path in sorted((inputs / folder).glob("*.toml")):
             artifact = resolve(inputs, path.stem)
             if kind == "setup":
+                from pyflightstream.workspace.inputs import SetupArtifact
                 from pyflightstream.workspace.matrix import _solver_from_setup
 
+                assert isinstance(artifact, SetupArtifact)
                 _solver_from_setup(artifact, path.stem)
             claim(path, f"resolve_{kind}")
     # The named points, the build registry and its overlay, the HPC profile.
@@ -249,12 +251,12 @@ def _read_every_example(workspace: CampaignWorkspace, blocks) -> dict[str, str]:
         for build, entry in tomllib.loads(overlay.read_text(encoding="utf-8")).items():
             # 0.39.0 (FR-998): a table entry carries its path and may accept its build.
             stated = entry if isinstance(entry, str) else entry["path"]
-            resolved = resolve_build(inputs, build)
-            assert resolved.fs_exe.as_posix() == stated, (
+            resolved_build = resolve_build(inputs, build)
+            assert resolved_build.fs_exe.as_posix() == stated, (
                 f"the overlay's path for {build} is not the one resolve_build returns"
             )
             accepts = isinstance(entry, dict) and entry.get("accept_unregistered_build", False)
-            assert resolved.accept_unregistered_build is accepts
+            assert resolved_build.accept_unregistered_build is accepts
         claim(overlay, "resolve_build")
     for path in sorted((inputs / "hpc").glob("*.toml")):
         profile = read_hpc_profile(path)
@@ -1105,3 +1107,15 @@ def test_f2_0809_a_coefficient_divisor_refuses_infinity(field):
     for bad in (float("inf"), float("nan")):
         with pytest.raises(ValidationError):
             ReferenceArtifact.model_validate({**good, field: bad})
+
+
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_generated_farfield_example_states_export_type():
+    """P0450-D8: the generated example teaches the default and both alternatives."""
+    from pyflightstream.cases import PprocSpec
+    from pyflightstream.post._field_inputs import field_example
+
+    text = field_example()
+    entries = PprocSpec.model_validate(tomllib.loads(text)).farfields
+    assert entries and all(entry.export_type == "default" for entry in entries)
+    assert all(word in text for word in ("export_type", "last_step", "avg_window"))

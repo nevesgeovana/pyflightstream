@@ -57,11 +57,10 @@ from pyflightstream.post.farfield_fields import (
     plane_values,
     rotor_values,
     steady_samples,
-    unsteady_samples,
 )
 from pyflightstream.post.section_distributions import distributions_of
 from pyflightstream.post.series import stamped_exports
-from pyflightstream.results.loads import drag_pair, parse_unsteady_plots
+from pyflightstream.results.loads import drag_pair
 from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.results.wake import parse_wake_export
 from pyflightstream.workspace.naming import sweep_file_stem
@@ -735,32 +734,45 @@ class _Instant:
 
 
 def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[_Instant], str]:
-    """Return the instants a point's probes give: one steady, or every step of a window."""
-    _sloads, plots, probes = ctx.exports.get(point.name, (None, None, None))
+    """Read only the far field's conventional probe exports, including stamped steps."""
+    probes = _output(ctx, point, "farfield_probes")
     try:
-        if not unsteady:
-            if probes is None:
-                return [], "the point exported no probe values"
-            per_m = _per_m(ctx, point)
-            if per_m != 1.0:
-                return [], (
-                    f"steady probe velocity units are unmeasured at {per_m!r} simulation "
-                    "length units per metre; use a metre simulation until a measured "
-                    "velocity conversion is available"
-                )
-            return [_Instant(steady_samples(Path(probes).read_text(encoding="utf-8")), _NA)], ""
-        if plots is None:
-            return [], "the point exported no fluid plots"
-        series = parse_unsteady_plots(Path(plots).read_text(encoding="utf-8")).series_by_name()
+        if probes is None:
+            return [], "the point exported no far-field probe values"
+        per_m = _per_m(ctx, point)
+        if per_m != 1.0:
+            return (
+                [],
+                f"conventional probe velocity units are unmeasured at {per_m!r} "
+                "simulation length units per metre",
+            )
+        final = _Instant(
+            steady_samples(probes.read_text(encoding="utf-8")),
+            _last_step(ctx.record_of[point.name]) if unsteady else _NA,
+        )
+        files = (
+            _probe_exports(ctx, point)
+            if unsteady and _spec(ctx).export_type == "avg_window"
+            else {}
+        )
+        return [
+            *[
+                _Instant(steady_samples(path.read_text(encoding="utf-8")), step)
+                for step, path in sorted(files.items())
+            ],
+            final,
+        ], ""
     except (PyflightstreamError, OSError) as error:
         return [], f"the probe values cannot be read: {error}"
-    steps = series.get("Time-step")
-    count = len(next(iter(series.values()))) if series else 0
-    out = []
-    for row in range(count):
-        step = int(steps[row]) if steps is not None and math.isfinite(steps[row]) else row + 1
-        out.append(_Instant(unsteady_samples(series, ctx.probe_positions, row), step))
-    return out, "" if out else "the fluid plots hold no time step"
+
+
+def _probe_exports(ctx: SimContext, point: PolarPoint) -> dict[int, Path]:
+    """Find stamped exports beside the run's recorded outputs."""
+    root = ctx.workspace.sim_dir(ctx.sim_id)
+    record = ctx.record_of[point.name]
+    return stamped_exports(
+        root, point.name, *(root / Path(name).parent for name in record.outputs)
+    ).get(("_farfield_probes", "txt"), {})
 
 
 def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
@@ -891,23 +903,18 @@ def _ledger_rows(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], 
     return rows
 
 
-def _last_and_window(
-    ctx: SimContext, point: PolarPoint, instants: list[_Instant], windowed: bool, normal: bool
-):
+def _last_and_window(ctx: SimContext, point: PolarPoint, instants: list[_Instant], windowed: bool):
     """Return the last instant and the window's instants (none when it is partly covered)."""
     if windowed:
         last = instants[-1]
         window, _ = _farfield_window(ctx, point, int(_step(last)))
-        chosen = [i for i in instants if window and window[0] <= _step(i) <= window[1]]
+        chosen = [i for i in instants[:-1] if window and window[0] <= _step(i) <= window[1]]
         # The average is of the whole window or it is not written: a window
         # the recorded steps only partly cover would average fewer steps.
         if window and {_step(i) for i in chosen} != set(range(int(window[0]), int(window[1]) + 1)):
             chosen = []
         return last, chosen
-    last = instants[0]
-    if normal:
-        last = replace(last, step=_last_step(ctx.record_of[point.name]))
-    return last, []
+    return instants[0], []
 
 
 def _probe_point(
@@ -926,15 +933,14 @@ def _probe_point(
     key = f"{FARFIELD_DIR}/probes#point={point.name}"
     if rotor is None:
         rotor = run_type in ROTOR_RUN_TYPES or (run_type == "steady" and _spins(ctx, record))
-    # FR-1052: an unsteady row whose [[probes]] entries are of kind normal
-    # holds its probes at the last time step only, in the probe export.
-    normal = unsteady and _normal_probes(ctx)
+    # Each entry chooses its window independently of declared probes.
+    normal = unsteady and spec.export_type != "avg_window"
     try:
         probe = _locate(ctx, point, spec, rotor)
-        instants, why = _instants(ctx, point, unsteady and not normal)
+        instants, why = _instants(ctx, point, unsteady)
         if why:
             raise PyflightstreamError(why)
-        last, chosen = _last_and_window(ctx, point, instants, unsteady and not normal, normal)
+        last, chosen = _last_and_window(ctx, point, instants, unsteady and not normal)
         sets = [(last, _instant_values(ctx, point, last, probe, analyses))]
         averaged = [
             (i, _instant_values(ctx, point, i, probe, analyses, final=i is last)) for i in chosen
@@ -947,8 +953,13 @@ def _probe_point(
     if "plane" in sets[0][1]:
         _flag_a_plane_short_of_the_lift(ctx, point, sets[0][1]["plane"])
     runs = ctx.sources[point.name]
-    _sloads, plots, probes = ctx.exports.get(point.name, (None, None, None))
-    taken = _named(ctx, [plots] if unsteady and not normal else [probes])
+    taken = _named(
+        ctx,
+        [
+            _output(ctx, point, "farfield_probes"),
+            *(_probe_exports(ctx, point).values() if unsteady and not normal else []),
+        ],
+    )
     for suffix, group in _suffixes(unsteady, sets, averaged, ctx, point, normal=normal):
         c_rows = [
             _c_row(ctx, point, values, inst.step)
@@ -981,14 +992,6 @@ def _probe_point(
 def _step(instant: _Instant) -> float:
     step = instant.step
     return float(step) if isinstance(step, int | float) else math.nan
-
-
-def _normal_probes(ctx: SimContext) -> bool:
-    """Whether the row's ``[[probes]]`` entries are all of kind normal (FR-417, FR-1052)."""
-    try:
-        return bool(ctx.pproc.samples_normal_probes())
-    except PyflightstreamError:
-        return False
 
 
 def _last_step(record: object) -> object:
@@ -1053,22 +1056,17 @@ def _suffixes(
     out = [("_instant", sets)]
     if averaged:
         out.append(("_average", averaged))
-    elif normal:
-        _skip(
-            ctx,
-            f"{FARFIELD_DIR}/average#point={point.name}",
-            point.name,
-            'the far-field probes of this unsteady row are [[probes]] of kind = "normal", '
-            "which hold the last time step only: the instant is written and the average "
-            "is not (FR-1052)",
-        )
     else:
+        reason = (
+            f"export_type = {_spec(ctx).export_type!r} reads the last step only"
+            if normal
+            else "the per-step far-field probes do not cover the averaging window"
+        )
         _skip(
             ctx,
             f"{FARFIELD_DIR}/average#point={point.name}",
             point.name,
-            "the point has no "
-            "averaging window, or no plotted step inside it, so no average is written",
+            reason + "; no average is written",
         )
     return out
 
@@ -1161,9 +1159,14 @@ def _sections_products(ctx: SimContext, point: PolarPoint, tables: _Tables, run_
     if run_type not in UNSTEADY_RUN_TYPES:
         tables.extend("trefftz", point.name, _named(ctx, [source]), rows, runs=runs)
         return
+    key = f"farfield/trefftz_average#point={point.name}#entry={_spec(ctx).name}"
     record = ctx.record_of[point.name]
     instant = [row[:2] + (_last_step(record),) + row[3:] for row in rows]
     tables.extend("trefftz_instant", point.name, _named(ctx, [source]), instant, runs=runs)
+    if _spec(ctx).export_type != "avg_window":
+        reason = f"export_type = {_spec(ctx).export_type!r} reads the last step only"
+        _skip(ctx, key, point.name, reason + "; no average is written")
+        return
     last_step = _last_step(record)
     window, source_name = _farfield_window(
         ctx,
@@ -1176,21 +1179,13 @@ def _sections_products(ctx: SimContext, point: PolarPoint, tables: _Tables, run_
     ).get(("_sloads", "txt"), {})
     steps = range(int(window[0]), int(window[1]) + 1) if window else range(0)
     if not steps or any(step not in files for step in steps):
-        _skip(
-            ctx,
-            f"farfield/trefftz_average#point={point.name}#entry={_spec(ctx).name}",
-            point.name,
-            "Trefftz A average needs per-step sectional exports covering its window",
-        )
+        reason = "Trefftz A average needs per-step sectional exports covering its window"
+        _skip(ctx, key, point.name, reason)
         return
     samples = [_variant_a(ctx, point, files[step]) for step in steps]
     if not all(samples) or any(len(sample) != len(samples[0]) for sample in samples):
-        _skip(
-            ctx,
-            f"farfield/trefftz_average#point={point.name}#entry={_spec(ctx).name}",
-            point.name,
-            "per-step sectional traces do not cover the same families at every step",
-        )
+        reason = "per-step sectional traces do not cover the same families at every step"
+        _skip(ctx, key, point.name, reason)
         return
     tables.extend(
         "trefftz_average",
@@ -1230,6 +1225,9 @@ def _write(ctx: SimContext, tables: _Tables) -> None:
             "analysis": analysis,
             "variants": variants if analysis == "trefftz" else [],
             "inputs": tables.inputs.get(suffix, {}),
+            "entries": {
+                item.name: {"export_type": item.export_type} for item in ctx.pproc.farfields
+            },
         }
         if "_" in suffix:
             entry["reduction"] = suffix.split("_")[1]

@@ -23,6 +23,13 @@ the entry name: `<quantity>_<VARIANT>_<ENTRY>`, for example `CL_T_A_wing`,
 `CDI_T_A_tail` and `CDI_T_C_net`. Default entry names also appear, as in
 `CDI_T_C_plane`. Update readers to select each entry's cells.
 
+Far-field entries now default to the last unsteady step only. Set
+`export_type = "avg_window"` to export and average a final window for A, C or D.
+Use `last_revs` or `last_steps` only with that policy; they remain optional.
+The row's `EXPORT_UNSTEADY_*` keys do not select far-field samples. C/D read
+their dedicated `_farfield_probes.txt` exports and window snapshots, so rerun
+the plan to obtain them; old fluid-plot histories are not far-field inputs.
+
 ## 0.44.0
 
 ### Surface deletion keeps survivor IDs

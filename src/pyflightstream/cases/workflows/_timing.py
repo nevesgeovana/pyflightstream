@@ -155,6 +155,11 @@ def march_strategy(
                 "remove [time_averaging], and the surface exports are the run's last instant",
             )
         )
+    if case.pproc is not None and any(
+        entry.export_type == "avg_window" and entry.variant != "wake"
+        for entry in case.pproc.farfields
+    ):
+        wanted.append(("the far-field averaging window", 'use export_type = "last_step"'))
     uses_actions = bool(wanted)
     if restart is not None and restart.form in (RESTART_FINISH_PENDING, RESTART_ADDITIONAL_REVS):
         needs = (

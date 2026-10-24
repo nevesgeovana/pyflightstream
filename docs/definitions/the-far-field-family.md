@@ -68,14 +68,28 @@ the half extents and spacing belong to `plane` alone. `station`, `rotor`, `frame
 `lateral_stations`, `hub_width`, `tip_width`, `m_max` and `balances` belong to `power`.
 Its placement requires `rotor`, or `frame` together with `tip_radius_m`.
 
-Every entry accepts one optional averaging key: `last_revs` (positive turns
-of the row's rotor clock) or `last_steps` (positive integer). Stating both is
-refused. Neither stated uses the row window. The entry's window ends at the
-last recorded step and clips to the run if longer than it. Only the average
-changes; instant remains the last step. Steady rows and normal probes refuse
-either key; `last_revs` without a rotor clock is refused naming `last_steps`.
-Each average's manifest records its window, sample count, and source under
-`reduced_from` for the point and entry name.
+Every entry accepts `export_type = "default"`, `"last_step"` or `"avg_window"`.
+Unstated means `"default"`. Other values, including `"all_steps"`, are refused.
+On steady rows all three values produce the same single-step products.
+On unsteady rows `"default"` and `"last_step"` read only the last step,
+regardless of the row's `EXPORT_UNSTEADY_*` keys. They write `_instant` only;
+the manifest names the absent average. A needs no explicit window to plan.
+
+`"avg_window"` exports A's sectional loads and C/D's conventional probe points
+at exactly the steps in the final averaging window. Each entry may specify
+`last_revs` (positive turns of the row's rotor clock) or `last_steps` (positive
+integer), exclusively; otherwise it uses `LAST_REVS_AVG` or `LAST_ITERS_AVG`.
+The window ends at the last recorded step and clips to the run if longer.
+Multiple entries export the union of their windows. Other per-step products
+retain the row's export threshold. The average is the mean of the per-step
+analysis results, and is skipped if any window snapshot is missing.
+B retains its steady-only applicability.
+
+`last_revs` and `last_steps` are refused on steady rows and with `export_type`
+other than `"avg_window"`. `last_revs` without a rotor clock is refused naming
+`last_steps`. Normal declared probes do not restrict the far-field window.
+The manifest records each entry's `export_type`; each average also records
+its window, sample count and source under `reduced_from`.
 
 The 0.44.0 `[farfield]` spelling is refused at load with equivalent array entries.
 Its families move to A alone. Its ledgers become a `power` entry. A 0.44.0 rotor
@@ -85,9 +99,9 @@ entry only when a velocity plane is also wanted.
 `<group>` is the stem of the simulation's polar table. Every row of these files, and
 of the spanwise files, ends with `STATUS`, the point's solver termination status as
 `campaign_sweep.csv` writes it, so a point that is not converged says so on its rows. On an unsteady row each
-file is written twice, `<group>_<analysis>_instant.csv` (the last time step)
-and `<group>_<analysis>_average.csv` (the average over the row's averaging
-window), and each manifest entry states `reduction` as `instant` or `average`.
+file has `<group>_<analysis>_instant.csv` (the last time step), and under
+`"avg_window"`, `<group>_<analysis>_average.csv` (the entry's window average).
+Each manifest entry states `reduction` as `instant` or `average`.
 
 What each analysis needs and is not declared, the plan adds and says so; see
 [What the plan adds](#what-the-plan-adds).
@@ -481,8 +495,14 @@ On a steady row the added plane and lattice are written to one staged
 placement for a lattice added alone) and appended by one
 `PROBE_POINTS_IMPORT`. The file starts with its point count, uses volume
 type 1 and preserves the recorded order, plane before lattice. Distinct
-point sets have distinct content-derived filenames. Unsteady rows keep
-their per-step fluid plots.
+point sets have distinct content-derived filenames. On every row type the
+far field uses conventional probe points, never fluid plots. Its own export is
+`<point>_farfield_probes.txt`, with
+`<point>_farfield_probes_iteration=<step>.txt` at each `"avg_window"` step.
+The FR-1052 warning states points per exported step and the exported step count.
+Declared unsteady probes keep their fluid plots and `probes/<point>_probes.csv`.
+With normal declared probes, the far-field export also contains those points;
+the far field selects its own by recorded positions.
 
 <a id="what-the-plan-adds"></a>
 

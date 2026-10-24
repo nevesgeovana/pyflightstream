@@ -49,6 +49,64 @@ ITER = "EXPORT_UNSTEADY_AFTER_ITER"
 PROGRAM = "actions/pfs_unsteady_actions.py"
 SCRIPT_FILE = "actions/pfs_unsteady_exports.txt"
 COUNT_FILE = "actions/pfs_unsteady_actions.count"
+
+
+@pytest.mark.parametrize("policy", ["default", "last_step", "avg_window"])
+@pytest.mark.parametrize("row_first", [None, 2, 8])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_independent_counter_windows(tmp_path, policy, row_first):
+    """P0450-D8: A and C/D export only their union windows, other products keep their cadence."""
+    from pyflightstream.cases import PprocSpec
+    from pyflightstream.cases.workflows import row_outputs
+    from pyflightstream.run._actions_counter import stage_counter
+    from tests.tier1_offline.test_regression_farfield_interfaces import (
+        _FFPROOF_PLAN___LATTICE,
+        _ffproof_plan___unsteady,
+    )
+
+    entries = [
+        {"variant": "sections", "name": "short", "families": "all", "export_type": policy},
+        {"variant": "sections", "name": "long", "families": "all", "export_type": policy},
+        {"variant": "plane", "export_type": policy, "spacing_bref": 0.25},
+        {"variant": "power", "export_type": policy, **dict(_FFPROOF_PLAN___LATTICE, m_max=2)},
+    ]
+    case = _ffproof_plan___unsteady(tmp_path, entries)
+    if policy == "avg_window":
+        entries[0]["last_steps"], entries[1]["last_steps"] = 2, 3
+    variables = {**case.variables, "TIME_ITERATIONS": "8", "LAST_ITERS_AVG": "4"}
+    if row_first is not None:
+        variables[ITER] = str(row_first)
+    case = case.model_copy(
+        update={"variables": variables, "pproc": PprocSpec.model_validate({"farfields": entries})}
+    )
+    case = case.model_copy(update={"outputs": row_outputs(case, "unsteady")})
+    script = Script("26.124")
+    build_script(case, script)
+    for name, payload in script.pending_input_files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(payload, encoding="utf-8")
+    (tmp_path / SCRIPT_FILE).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / SCRIPT_FILE).write_text("", encoding="utf-8")
+    fields = stage_counter(tmp_path, script, case, "26.124", {})
+    assert fields is not None
+    seen = []
+    for step in range(1, 10):
+        assert runpy.run_path(str(tmp_path / PROGRAM))["main"]() == 0
+        text = (tmp_path / SCRIPT_FILE).read_text() if (tmp_path / SCRIPT_FILE).exists() else ""
+        seen.append(text)
+        assert ("EXPORT_SURFACE_SECTIONAL_LOADS" in text) == (
+            policy == "avg_window" and 6 <= step <= 8
+        )
+        assert ("_farfield_probes.txt" in text) == (policy == "avg_window" and 5 <= step <= 8)
+        assert ("EXPORT_SOLVER_ANALYSIS_SPREADSHEET" in text) == (
+            row_first is not None and step >= row_first
+        )
+    assert sum("PROBE_POINTS_IMPORT" in text for text in seen) == (
+        1 if policy == "avg_window" else 0
+    )
+
+
 #: The interpreter the COMMAND_LINE action names. Since G59 of 0.29.0 (e9fa00ec;
 #: CHANGELOG [Unreleased]: "Windows callbacks use a hidden runtime when that route
 #: is supported") it is, on Windows, the building interpreter's pythonw.exe

@@ -648,6 +648,16 @@ def _retain_point_provenance(job: _PointJob) -> RunRecord | None:
     # reused, so post integrates exactly them; one point, so its last layout.
     if job.script.farfield_layout:
         job.base["farfield_layout"] = {"shapes": job.script.farfield_layout[-1]["shapes"]}
+    if job.point_case.pproc is not None and job.point_case.pproc.farfields:
+        job.base["farfield_layout"] = {
+            "shapes": job.script.farfield_layout[-1]["shapes"]
+            if job.script.farfield_layout
+            else [],
+            "entries": {
+                entry.name: {"export_type": entry.export_type}
+                for entry in job.point_case.pproc.farfields
+            },
+        }
     job.base["surface_probe_layout"] = list(job.script.surface_probe_layout) or None
     job.base["frame_motions"] = job.script.frame_motions or None
     job.base["custom_field_coverage"] = job.script.custom_field_coverage

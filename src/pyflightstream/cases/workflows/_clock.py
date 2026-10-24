@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from dataclasses import (
     dataclass,
+    replace,
 )
 from pathlib import (
     PurePath,
@@ -56,6 +57,7 @@ from ._exports import (
     _surface_export,
     surface_time_averaging,
 )
+from ._farfield import farfield_export_windows
 from ._freestream import (
     refuse_a_wake_length,
     rotor_row_stepping,
@@ -168,6 +170,7 @@ class UnsteadyExportThreshold:
     rpm: float | None
     exports: str
     step_offset: int = 0
+    farfield_windows: tuple[tuple[int, int, str], ...] = ()
 
     @property
     def program_form(self) -> str:
@@ -295,6 +298,12 @@ def _action_export_kinds(
     # command sits; an action never exports it.
     for kind in TABLE_DECLARED_KINDS:
         kinds.pop(kind, None)
+    if (
+        not whole_run
+        and case.pproc is not None
+        and any(entry.variant == "sections" for entry in case.pproc.farfields)
+    ):
+        kinds.pop("sectional_loads", None)
     # THE LOG ASKS THE END-OF-RUN BLOCK'S TWO QUESTIONS (`_export_block`): a
     # machine whose profile turns EXPORT_LOG off gets none, and a row that names
     # its log through LOG_OUTPUT gets it by position below rather than by
@@ -325,6 +334,48 @@ def _rotor_clock(case: SimCase) -> TimeStepping:
     clocked on its slower rotor exported and counted on the other's clock.
     """
     return rotor_row_stepping(case)
+
+
+def _with_farfield_threshold(
+    case: SimCase,
+    conventions: WorkflowConventions | None,
+    threshold: UnsteadyExportThreshold | None,
+) -> UnsteadyExportThreshold | None:
+    """Combine the row threshold and independent far-field windows without widening either."""
+    windows = farfield_export_windows(case)
+    if not windows:
+        return threshold
+    if threshold is None:
+        clock = (
+            _rotor_clock(case)
+            if select_workflow(case) == "unsteady_rotor"
+            else unsteady_time_stepping(case)
+        )
+        threshold = UnsteadyExportThreshold(
+            "iterations",
+            float(clock.time_iterations + 1),
+            clock.time_iterations + 1,
+            clock.time_iterations,
+            clock.delta_time_s,
+            None if clock.steps_per_revolution is None else 360.0 / clock.steps_per_revolution,
+            clock.rpm,
+            "",
+        )
+    names = classify_outputs(
+        (conventions or WorkflowConventions.for_case(case)).outputs or case.outputs
+    )
+    exports = []
+    for first, last, kind in windows:
+        verb = (
+            "EXPORT_SURFACE_SECTIONAL_LOADS" if kind == "sectional_loads" else "EXPORT_PROBE_POINTS"
+        )
+        update = (
+            "UPDATE_ALL_SURFACE_SECTIONS\nCOMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS"
+            if kind == "sectional_loads"
+            else "UPDATE_PROBE_POINTS"
+        )
+        exports.append((first, last, f"{update}\n{verb}\n{names[kind]}\n"))
+    return replace(threshold, farfield_windows=tuple(exports))
 
 
 def unsteady_export_threshold(
@@ -378,7 +429,7 @@ def unsteady_export_threshold(
         else False
     )
     if not stated and not averaged:
-        return None
+        return _with_farfield_threshold(case, conventions, None)
     if not stated:
         # G25: [time_averaging] EXPORTS THE SURFACE AT EVERY STEP OF ITS WINDOW,
         # through this machinery, as a row stating EXPORT_UNSTEADY_AFTER_ITER at
@@ -392,16 +443,20 @@ def unsteady_export_threshold(
             else unsteady_time_stepping(case)
         )
         per_revolution = stepping.steps_per_revolution
-        return UnsteadyExportThreshold(
-            stated_form="iterations",
-            stated_value=float(first),
-            first_step=first,
-            time_iterations=stepping.time_iterations,
-            delta_time_s=stepping.delta_time_s,
-            step_deg=None if per_revolution is None else round(360.0 / per_revolution, 9),
-            rpm=stepping.rpm,
-            exports=_per_step_exports(
-                conventions or WorkflowConventions.for_case(case), case, version=version
+        return _with_farfield_threshold(
+            case,
+            conventions,
+            UnsteadyExportThreshold(
+                stated_form="iterations",
+                stated_value=float(first),
+                first_step=first,
+                time_iterations=stepping.time_iterations,
+                delta_time_s=stepping.delta_time_s,
+                step_deg=None if per_revolution is None else round(360.0 / per_revolution, 9),
+                rpm=stepping.rpm,
+                exports=_per_step_exports(
+                    conventions or WorkflowConventions.for_case(case), case, version=version
+                ),
             ),
         )
     refuse_two_threshold_keys(case, stated)
@@ -441,20 +496,24 @@ def unsteady_export_threshold(
         first_step -= offset
     if averaged:
         refuse_a_threshold_after_the_averaging_start(case, key, number, first_step)
-    return UnsteadyExportThreshold(
-        stated_form=form,
-        stated_value=float(number),
-        first_step=first_step,
-        time_iterations=resumed[1] if resumed is not None else stepping.time_iterations,
-        step_offset=offset,
-        delta_time_s=stepping.delta_time_s,
-        # Nine decimals: below what any cell states, so a step of 1200
-        # rev/min at 0.0001 s reads 0.72 in the program and not the
-        # product's last bit.
-        step_deg=None if per_revolution is None else round(360.0 / per_revolution, 9),
-        rpm=stepping.rpm,
-        exports=_per_step_exports(
-            conventions or WorkflowConventions.for_case(case), case, version=version
+    return _with_farfield_threshold(
+        case,
+        conventions,
+        UnsteadyExportThreshold(
+            stated_form=form,
+            stated_value=float(number),
+            first_step=first_step,
+            time_iterations=resumed[1] if resumed is not None else stepping.time_iterations,
+            step_offset=offset,
+            delta_time_s=stepping.delta_time_s,
+            # Nine decimals: below what any cell states, so a step of 1200
+            # rev/min at 0.0001 s reads 0.72 in the program and not the
+            # product's last bit.
+            step_deg=None if per_revolution is None else round(360.0 / per_revolution, 9),
+            rpm=stepping.rpm,
+            exports=_per_step_exports(
+                conventions or WorkflowConventions.for_case(case), case, version=version
+            ),
         ),
     )
 

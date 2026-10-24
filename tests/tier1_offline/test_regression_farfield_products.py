@@ -239,7 +239,7 @@ def _farfield_products___workspace(root: Path, *, farfield: bool) -> CampaignWor
         f"{stem}_sloads.txt": _farfield_products___sloads(),
         f"{stem}.vtk": "# vtk DataFile Version 3.0\n",
         f"{stem}_wakes.vtk": _farfield_products___wakes(),
-        f"{stem}_probes.txt": _farfield_products___probes(),
+        f"{stem}_farfield_probes.txt": _farfield_products___probes(),
     }
     for name, text in files.items():
         (raw / name).write_text(text, encoding="utf-8")
@@ -300,7 +300,7 @@ def test_p0440_nonmetre_steady_probe_velocity_is_a_named_skip(tmp_path):
     saved = next(workspace.sim_dir("3207").glob("outputs/*.fsm"))
     saved.write_text("$GLOBAL_START$\n.001\n2\n$GLOBAL_END$\n", encoding="utf-8")
     messages = _farfield_products___post(workspace)
-    assert any("steady probe velocity units" in message for message in messages)
+    assert any("conventional probe velocity units" in message for message in messages)
     assert any("1000" in message and "unmeasured" in message for message in messages)
 
 
@@ -856,7 +856,7 @@ class TestFfproofPost:
             tmp_path,
             pproc=_FFPROOF_POST___LEDGERS,
             files={
-                f"{_FFPROOF_POST___STEM}_probes.txt": _ffproof_post___probe_export(
+                f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _ffproof_post___probe_export(
                     _FFPROOF_POST___POINTS_M, 20.0
                 )
             },
@@ -898,11 +898,10 @@ class TestFfproofPost:
         (14.5/18 would be the whole run, 18/18 the last step). Each file names its
         reduction in its name and in its manifest entry.
         """
-        count = len(_FFPROOF_POST___POINTS_M)
         workspace = _ffproof_post___campaign(
             tmp_path,
-            pproc=_FFPROOF_POST___LEDGERS,
-            files={f"{_FFPROOF_POST___STEM}_plots.txt": _ffproof_post___plots_export(count, 8)},
+            pproc=_FFPROOF_POST___LEDGERS + 'export_type = "avg_window"\n',
+            files=_p0450_probe_series(_FFPROOF_POST___POINTS_M),
             recipe="unsteady",
             reductions=_FFPROOF_POST___WINDOW,
             positions=True,
@@ -945,7 +944,7 @@ class TestFfproofPost:
             tmp_path,
             pproc=probes + _FFPROOF_POST___LEDGERS,
             files={
-                f"{_FFPROOF_POST___STEM}_probes.txt": _ffproof_post___probe_export(
+                f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _ffproof_post___probe_export(
                     _FFPROOF_POST___POINTS_M, _ffproof_post___speed(8)
                 )
             },
@@ -963,8 +962,8 @@ class TestFfproofPost:
         assert not list(root.rglob("farfield/*_ledgers_average.csv"))
         skipped = _ffproof_post___manifest(root)["skipped"]
         (reason,) = [v for k, v in skipped.items() if k.startswith("farfield/average#point=")]
-        assert 'kind = "normal"' in reason and "last time step" in reason
-        assert any('kind = "normal"' in line for line in _ffproof_post___warnings_of(root))
+        assert "export_type = 'default'" in reason and "last step" in reason
+        assert any("export_type" in line for line in _ffproof_post___warnings_of(root))
 
 
 _LITB_POST__FIXTURES = Path(__file__).parent / "fixtures"
@@ -1174,7 +1173,7 @@ class TestRfixAProducts:
                 "spacing_bref = 0.05\n"
             ),
             files={
-                f"{_rfixa_products__post._FFPROOF_POST___STEM}_probes.txt": _rfixa_products__post._ffproof_post___probe_export(  # noqa: E501
+                f"{_rfixa_products__post._FFPROOF_POST___STEM}_farfield_probes.txt": _rfixa_products__post._ffproof_post___probe_export(  # noqa: E501
                     points, 10.0
                 )
             },
@@ -1192,7 +1191,7 @@ class TestRfixAProducts:
             if "Angle of attack (Deg)" in line:
                 lines[n] = "     Angle of attack (Deg)                       0.0"
         loads.write_text("\n".join(lines) + "\n")
-        probes = next(raw.glob("*_probes.txt"))
+        probes = next(raw.glob("*_farfield_probes.txt"))
         probes.write_text(
             probes.read_text().replace(
                 " 0.000000E+00,  1.000000E+01", "-1.000000E-01,  1.000000E+01"
@@ -1368,7 +1367,6 @@ def _rfixf2_matching___lattice_case():
 
 def _rfixf2_matching___unsteady(entries: list[tuple[np.ndarray, str, float]]) -> ProbeSamples:
     """One step of fluid plots: each entry's points (native = m), frame label and axial speed."""
-    from pyflightstream.post.farfield_fields import unsteady_samples
 
     positions: dict[int, tuple[float, float, float, str]] = {}
     series: dict[str, np.ndarray] = {}
@@ -1457,7 +1455,6 @@ class TestRfixF2Matching:
         positions (local plus the frame origin) with 50 m/s. Post must read the
         20 m/s, and the balance must be the lattice's own mass flow.
         """
-        from pyflightstream.post.farfield_fields import far_samples, recorded_layout
 
         _, _LOCAL, _SHAPE = _rfixf2_matching___lattice_case()
         samples = _rfixf2_matching___unsteady(
@@ -1475,7 +1472,6 @@ class TestRfixF2Matching:
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_a_frame_lattice_found_twice_in_its_frame_is_refused():
         """P0400-RFIXF2-MATCHING (FR-1045): two MRP entries at the same points are refused."""
-        from pyflightstream.post.farfield_fields import far_samples, recorded_layout
 
         _, _LOCAL, _SHAPE = _rfixf2_matching___lattice_case()
         samples = _rfixf2_matching___unsteady([(_LOCAL, "MRP", 20.0), (_LOCAL, "MRP", 50.0)])
@@ -1490,7 +1486,7 @@ class TestRfixF2Matching:
         The control is the recorded 4 m2 plane at the same place: matched, and its
         induced drag is the crossflow's 0.5 rho v^2 S = 2 N.
         """
-        from pyflightstream.post.farfield_fields import far_samples, plane_values, recorded_layout
+        from pyflightstream.post.farfield_fields import plane_values
 
         center = (30000.0, 0.0, 0.0)
         samples = _rfixf2_matching___crossflow(_rfixf2_matching___plane(center, 1.0))
@@ -1516,7 +1512,7 @@ class TestRfixF2Matching:
         A record without a layout matches the plane by shape. A distant unrelated
         point before a 1 m grid must not make a 2 m grid's shape match it.
         """
-        from pyflightstream.post.farfield_fields import FarLayout, far_samples
+        from pyflightstream.post.farfield_fields import FarLayout
 
         points = np.vstack([[[1.0e6, 0.0, 0.0]], _rfixf2_matching___plane((5.0, 0.0, 0.0), 1.0)])
         samples = _rfixf2_matching___crossflow(points)
@@ -1539,7 +1535,6 @@ class TestRfixF2Matching:
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_a_layout_finer_than_the_printed_digits_is_refused():
         """P0400-RFIXF2-MATCHING (FR-1045, PFS-2081.103): seven digits cannot place 1 m at 3e7 m."""  # noqa: E501
-        from pyflightstream.post.farfield_fields import far_samples, recorded_layout
 
         center = (3.0e7, 0.0, 0.0)
         samples = _rfixf2_matching___crossflow(_rfixf2_matching___plane(center, 1.0))
@@ -1679,27 +1674,13 @@ class TestRfixF2Plots:
         messages = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
         text = script.render()
         assert len(script.probe_points) == _RFIXF2_PLOTS___POINTS, "the declared lattice, laid once"
-        assert text.count(_RFIXF2_PLOTS___PLOT) == 4 * _RFIXF2_PLOTS___POINTS
+        assert text.count(_RFIXF2_PLOTS___PLOT) == _RFIXF2_PLOTS___POINTS
         (shape,) = script.farfield_layout[-1]["shapes"]
-        assert (shape["source"], shape["plots_added"]) == ("declared", ["VY", "VZ", "CP_REF"])
-        assert any(
-            f"{3 * _RFIXF2_PLOTS___POINTS} fluid plots at every time step (FR-1052)" in m
-            for m in messages
-        )
+        assert shape["source"] == "declared" and "plots_added" not in shape
+        assert any("per exported step" in message for message in messages)
         names = _rfixf2_plots___plot_names(text)
-        vertices = [point[0] for point in script.probe_points]
-        for parameter in ("VX", "VY", "VZ", "CP_REF"):
-            assert sorted(n for n in names if re.fullmatch(f"{parameter}\\d+", n)) == sorted(
-                f"{parameter}{v}" for v in vertices
-            )
-        series = {name: np.array([1.0]) for name in names}
-        positions = {p[0]: (p[1], p[2], p[3], p[4]) for p in script.probe_points}
-        samples = unsteady_samples(series, positions, 0)
-        lattice, _, why = far_samples(samples, recorded_layout([shape]), per_m=1.0)
-        assert why == ""
-        assert (
-            np.isfinite(samples.velocity[lattice]).all() and np.isfinite(samples.cp[lattice]).all()
-        )
+        assert names == [f"VX{point[0]}" for point in script.probe_points]
+        assert "PROBE_POINTS_IMPORT" in text and "_farfield_probes.txt" in text
 
     @staticmethod
     @pytest.mark.requirement("FR-455")
@@ -1884,8 +1865,10 @@ def test_p0450_d5_super_reads_net_and_preserves_a_total(tmp_path):
 def _p0450_plane_series(tmp_path, extra=""):
     workspace = _ffproof_post___campaign(
         tmp_path,
-        pproc=_RFIXF_LAYOUT___TABLE_1M + extra,
-        files={f"{_FFPROOF_POST___STEM}_plots.txt": _ffproof_post___plots_export(9, 8)},
+        pproc=(_RFIXF_LAYOUT___TABLE_1M + extra).replace(
+            "[[farfields]]", '[[farfields]]\nexport_type = "avg_window"'
+        ),
+        files=_p0450_probe_series(_RFIXF_LAYOUT___LAID.points),
         recipe="unsteady_rotor",
         reductions=_FFPROOF_POST___WINDOW,
     )
@@ -1908,14 +1891,10 @@ def test_p0450_d2_power_writes_d_and_optional_ledgers(tmp_path, recipe, balances
         table = table[: table.index("balances =")] + table[table.index("frame =") :]
     unsteady = recipe == "unsteady_rotor"
     files = (
-        {
-            f"{_FFPROOF_POST___STEM}_plots.txt": _ffproof_post___plots_export(
-                len(_FFPROOF_POST___POINTS_M), 8
-            )
-        }
+        _p0450_probe_series(_FFPROOF_POST___POINTS_M)
         if unsteady
         else {
-            f"{_FFPROOF_POST___STEM}_probes.txt": _ffproof_post___probe_export(
+            f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _ffproof_post___probe_export(
                 _FFPROOF_POST___POINTS_M, 20.0
             )
         }
@@ -1975,8 +1954,8 @@ def test_p0450_d2_rotor_lattice_and_plane_write_both(tmp_path):
         probe_points_file=path,
         farfield_layout={"shapes": [plane, shape]},
     )
-    plots = next(workspace.sim_dir("3207").rglob("*_plots.txt"))
-    plots.write_text(_ffproof_post___plots_export(len(points), 8), encoding="utf-8")
+    for name, text in _p0450_probe_series(points).items():
+        (workspace.sim_dir("3207") / "outputs" / name).write_text(text, encoding="utf-8")
     _ffproof_post___post(workspace)
     for suffix in ("instant", "average"):
         rows = _rfixf_layout___rows(Path(workspace.root), f"farfield/*_trefftz_{suffix}.csv")
@@ -1987,7 +1966,8 @@ def test_p0450_d2_rotor_lattice_and_plane_write_both(tmp_path):
 def test_p0450_d3_unsteady_sections_instant_and_window(tmp_path, series):
     workspace = _farfield_products___workspace(tmp_path, farfield=True)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[[farfields]]\nvariant = "sections"\nfamilies = ["W"]\n', encoding="utf-8"
+        '[[farfields]]\nvariant = "sections"\nexport_type = "avg_window"\nfamilies = ["W"]\n',
+        encoding="utf-8",
     )
     _ffproof_post___set_record(
         workspace, recipe="unsteady_rotor", reductions=_FFPROOF_POST___WINDOW
@@ -2069,7 +2049,7 @@ def _rfixf_layout___crossflow_plane(tmp_path: Path, table: str, **record: object
         tmp_path,
         pproc=table,
         files={
-            f"{_rfixf_layout__ffpost._FFPROOF_POST___STEM}_probes.txt": _rfixf_layout___export(
+            f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _rfixf_layout___export(
                 _RFIXF_LAYOUT___LAID.points, velocity
             )
         },
@@ -2100,7 +2080,7 @@ def _rfixf_layout___lattice_then_another_entry(tmp_path: Path, **record: object)
         tmp_path,
         pproc=_rfixf_layout__ffpost._FFPROOF_POST___LEDGERS,
         files={
-            f"{_rfixf_layout__ffpost._FFPROOF_POST___STEM}_probes.txt": _rfixf_layout___export(
+            f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _rfixf_layout___export(
                 positions, velocity
             )
         },
@@ -2352,7 +2332,6 @@ class TestRfixFLayout:
     @staticmethod
     def test_p0400_rfixf_layout_points_rebuild_bit_for_bit():
         """P0400-RFIXF-LAYOUT: a recorded lattice and plane lay again to the same bits after JSON."""  # noqa: E501
-        from pyflightstream.post.farfield_fields import recorded_layout
 
         lattice = _rfixf_layout__ffpost._FFPROOF_POST___SHAPE.build(1.0)
         shapes = [
@@ -2535,7 +2514,7 @@ def _rfixf_plane_lift___post(tmp_path: Path, scale: float) -> tuple[dict[str, st
         tmp_path,
         pproc=_RFIXF_PLANE_LIFT___TABLE,
         files={
-            f"{_rfixf_plane_lift__ffpost._FFPROOF_POST___STEM}_probes.txt": _rfixf_layout___export(
+            f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _rfixf_layout___export(
                 _RFIXF_PLANE_LIFT___PLANE.points, _rfixf_plane_lift___crossflow(scale)
             )
         },
@@ -2635,9 +2614,7 @@ def _rfixf_qsteady___quasi(rpm: float) -> str:
         families_general=(),
         families_blades=("B1", "B2"),
         blade1_azimuth_deg=0.0,
-        positions=(
-            QsteadyClocking(0, 0.0, 0.0, f"{_rfixf_qsteady__ffpost._FFPROOF_POST___STEM}.txt"),
-        ),
+        positions=(QsteadyClocking(0, 0.0, 0.0, f"{_FFPROOF_POST___STEM}.txt"),),
         validity=None,
     ).to_text()
 
@@ -2653,12 +2630,10 @@ def _rfixf_qsteady___ledgers(tmp_path: Path, rpm: float) -> list[dict[str, str]]
         pproc=_RFIXF_QSTEADY___LEDGERS,
         recipe="qsteady_rotor",
         files={
-            f"{_rfixf_qsteady__ffpost._FFPROOF_POST___STEM}_probes.txt": _rfixf_layout___export(
+            f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _rfixf_layout___export(
                 _RFIXF_QSTEADY___POINTS, turning
             ),
-            f"{_rfixf_qsteady__ffpost._FFPROOF_POST___STEM}_qsteady.json": _rfixf_qsteady___quasi(
-                rpm
-            ),
+            f"{_FFPROOF_POST___STEM}_qsteady.json": _rfixf_qsteady___quasi(rpm),
         },
     )
     shape = {
@@ -2754,7 +2729,7 @@ class TestRfixFStatus:
             tmp_path,
             pproc=_rfixf_status__ffpost._FFPROOF_POST___LEDGERS,
             files={
-                f"{_rfixf_status__ffpost._FFPROOF_POST___STEM}_probes.txt": _rfixf_status__ffpost._ffproof_post___probe_export(  # noqa: E501
+                f"{_rfixf_status__ffpost._FFPROOF_POST___STEM}_farfield_probes.txt": _rfixf_status__ffpost._ffproof_post___probe_export(  # noqa: E501
                     _rfixf_status__ffpost._FFPROOF_POST___POINTS_M, 20.0
                 )
             },
@@ -2858,3 +2833,56 @@ def test_p0430_f3_a_number_mixed_with_na_averages_to_na():
     second = [("POL", "2", "NA", "label")]
     (row,) = average_rows([first, second], 2)
     assert row[:2] == ("POL", "AVERAGE") and row[2] == "NA" and row[3] == "label"
+
+
+def _p0450_probe_series(points):
+    """Independent uniform-flow exports: velocity at step n is 10 + n m/s."""
+    name = f"{_FFPROOF_POST___STEM}_farfield_probes"
+    return {
+        f"{name}.txt": _ffproof_post___probe_export(points, 18.0),
+        **{
+            f"{name}_iteration={step}.txt": _ffproof_post___probe_export(points, 10.0 + step)
+            for step in range(1, 9)
+        },
+    }
+
+
+@pytest.mark.parametrize("policy", ["default", "last_step"])
+@pytest.mark.parametrize("variant", ["sections", "plane", "power"])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_last_step_products_and_manifest(tmp_path, policy, variant):
+    """P0450-D8: even with history present, last-step policies write only the instant."""
+    if variant == "sections":
+        workspace = _farfield_products___workspace(tmp_path, farfield=True)
+        table = '[[farfields]]\nvariant = "sections"\nfamilies = ["W"]\n'
+        _ffproof_post___set_record(
+            workspace, recipe="unsteady_rotor", reductions=_FFPROOF_POST___WINDOW
+        )
+        source = next(workspace.sim_dir("3207").rglob("*_sloads.txt"))
+        for step in range(5, 9):
+            source.with_name(f"{source.stem}_iteration={step}.txt").write_bytes(source.read_bytes())
+    elif variant == "plane":
+        workspace = _p0450_plane_series(tmp_path)
+        table = _RFIXF_LAYOUT___TABLE_1M
+    else:
+        table = _FFPROOF_POST___LEDGERS
+        workspace = _ffproof_post___campaign(
+            tmp_path,
+            pproc=table,
+            files=_p0450_probe_series(_FFPROOF_POST___POINTS_M),
+            recipe="unsteady_rotor",
+            reductions=_FFPROOF_POST___WINDOW,
+        )
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        table + f'export_type = "{policy}"\n', encoding="utf-8"
+    )
+    _ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    assert _rfixf_layout___rows(root, "farfield/*_trefftz_instant.csv")
+    assert not _rfixf_layout___rows(root, "farfield/*_trefftz_average.csv")
+    manifest = _ffproof_post___manifest(root)
+    entry = _ffproof_post___entry(manifest, "_trefftz_instant.csv")
+    assert entry["entries"][variant]["export_type"] == policy
+    assert any(
+        "export_type" in reason and policy in reason for reason in manifest["skipped"].values()
+    )

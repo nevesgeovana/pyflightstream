@@ -212,7 +212,8 @@ def test_p0450_d1_rotor_plane_plans_or_names_power(tmp_path, run_type):
         script = _farfield_plan___script(case)
         assert script.farfield_layout, "C on a rotor row must record its velocity plane"
         assert script.farfield_layout[-1]["shapes"][0]["kind"] == "plane"
-        assert len(script.probe_points) == 35
+        assert script.farfield_layout[-1]["shapes"][0]["count"] == 35
+        assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in script.render()
 
 
 @pytest.mark.parametrize("selection", [["W"], "all", "each"])
@@ -1324,13 +1325,13 @@ class TestFfproofPlan:
             tmp_path, [{"variant": "power", **dict(_FFPROOF_PLAN___LATTICE, m_max=2)}]
         )
         text, messages = _ffproof_plan___built(case)
-        assert text.count(_FFPROOF_PLAN___PLOT) == 4 * _FFPROOF_PLAN___POINTS
+        assert text.count(_FFPROOF_PLAN___PLOT) == 0
         stated = [m for m in messages if "FR-1052" in m]
         assert stated == [
-            f"case '7002': the far-field lattice samples {_FFPROOF_PLAN___POINTS} points at every time step, "  # noqa: E501
-            f"{4 * _FFPROOF_PLAN___POINTS} fluid plots (FR-1052)."
+            f"case '7002': the far-field lattice samples {_FFPROOF_PLAN___POINTS} points "
+            "per exported step, 1 exported steps (FR-1052)."
         ]
-        assert any(name.endswith("_plots.txt") for name in case.outputs)
+        assert any(name.endswith("_farfield_probes.txt") for name in case.outputs)
 
     @staticmethod
     @pytest.mark.requirement("FR-455")
@@ -1354,7 +1355,7 @@ class TestFfproofPlan:
             "the declared lattice, laid once"
         )
         assert _FFPROOF_PLAN___PLOT not in text
-        assert not [m for m in messages if "FR-1052" in m]
+        assert any("1 exported steps (FR-1052)" in m for m in messages)
         assert any(name.endswith("_probes.txt") for name in case.outputs)
 
     @staticmethod
@@ -1400,3 +1401,95 @@ def test_the_farfield_core_performs_no_file_or_environment_io():
             for name in names & forbidden_modules:
                 found.append(f"{source.name}:{node.lineno} imports {name}")
     assert not found, found
+
+
+@pytest.mark.parametrize("value", ["last_step", "avg_window", "default"])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_export_type_is_accepted(value):
+    """P0450-D8: each supported sampling policy is retained by the input model."""
+    from pyflightstream.cases._farfield_spec import FarfieldSpec
+
+    entry = FarfieldSpec.model_validate({"variant": "plane", "export_type": value})
+    assert entry.export_type == value
+
+
+@pytest.mark.parametrize("value", ["all_steps", "unknown"])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_export_type_refusal_names_choices(value):
+    """P0450-D8: a refused policy names all three supported choices."""
+    from pyflightstream.cases._farfield_spec import FarfieldSpec
+
+    with pytest.raises(ValueError) as caught:
+        FarfieldSpec.model_validate({"variant": "plane", "export_type": value})
+    assert all(word in str(caught.value) for word in ("last_step", "avg_window", "default"))
+
+
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_default_has_own_conventional_probe_export(tmp_path):
+    """P0450-D8b: an unstated policy samples once in its own conventional export."""
+    case = _ffproof_plan___unsteady(
+        tmp_path, [{"variant": "power", **dict(_FFPROOF_PLAN___LATTICE, m_max=2)}]
+    )
+    text, messages = _ffproof_plan___built(case)
+    assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in text
+    assert any(name.endswith("_farfield_probes.txt") for name in case.outputs)
+    assert "EXPORT_PROBE_POINTS" in text
+    cost = [message for message in messages if "FR-1052" in message]
+    assert any("per exported step" in message and "1 exported step" in message for message in cost)
+
+
+@pytest.mark.parametrize("value", ["last_step", "default"])
+@pytest.mark.parametrize("key", ["last_steps", "last_revs"])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_window_requires_avg_window(tmp_path, value, key):
+    """P0450-D8: a last-step policy refuses an explicit averaging window at plan."""
+    case = _p0450_rotor_case(tmp_path, [{"variant": "plane"}], "unsteady_rotor")
+    case = case.model_copy(
+        update={
+            "pproc": PprocSpec.model_validate(
+                {"farfields": [{"variant": "plane", "export_type": value, key: 1}]}
+            )
+        }
+    )
+    with pytest.raises(CampaignConfigError, match="export_type"):
+        _farfield_plan___script(case)
+
+
+@pytest.mark.parametrize("value", ["default", "last_step", "avg_window"])
+@pytest.mark.parametrize("kind", ["normal", "unsteady"])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_declared_probe_kind_does_not_route_farfield(tmp_path, value, kind):
+    """P0450-D8b: declared fluid histories stay declared, with no far-field histories added."""
+    entry = {
+        "frame": "MRP",
+        "kind": kind,
+        "parameters": ["VX"],
+        "lattices": [_FFPROOF_PLAN___LATTICE],
+    }
+    case = _ffproof_plan___unsteady(
+        tmp_path,
+        [{"variant": "power", "export_type": value, **dict(_FFPROOF_PLAN___LATTICE, m_max=2)}],
+        probes=[entry],
+    )
+    text, _ = _ffproof_plan___built(case)
+    assert text.count(_FFPROOF_PLAN___PLOT) == (_FFPROOF_PLAN___POINTS if kind == "unsteady" else 0)
+    assert "EXPORT_PROBE_POINTS" in text and "_farfield_probes.txt" in text
+
+
+@pytest.mark.parametrize("variant", ["sections", "plane", "power"])
+@pytest.mark.parametrize("value", ["default", "last_step", "avg_window"])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_steady_policies_emit_identical_products(tmp_path, variant, value):
+    """P0450-D8: every policy is accepted on a steady row without changing the script."""
+    entry = {"variant": variant}
+    if variant == "sections":
+        entry["families"] = "all"
+    if variant == "power":
+        entry.update(dict(_FFPROOF_PLAN___LATTICE, m_max=2))
+    case = _farfield_plan___case(tmp_path, [entry])
+    baseline, _ = _ffproof_plan___built(case)
+    changed = case.model_copy(
+        update={"pproc": PprocSpec.model_validate({"farfields": [{**entry, "export_type": value}]})}
+    )
+    text, _ = _ffproof_plan___built(changed)
+    assert text == baseline

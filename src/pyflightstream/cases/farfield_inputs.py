@@ -343,8 +343,6 @@ class _Resolver:
 
     def lacks(self, analysis: str, name: str) -> bool:
         command = _COMMANDS[name]
-        if name == "probe_points" and self.run_type in UNSTEADY_RUN_TYPES:
-            command = "UNSTEADY_SOLVER_NEW_FLUID_PLOT"
         if self.has_command(command):
             return False
         self.item(analysis, name, "refused", reason=f"the selected build has no {command}")
@@ -408,7 +406,4 @@ class _Resolver:
             f"the declared [[probes]] {shape}",
             f"the far-field {shape} as probe points",
         )
-        if self.run_type in UNSTEADY_RUN_TYPES:
-            self.item(analysis, "probe_export", "added", "per-step fluid plots of every point")
-        else:
-            self.export(analysis, "probes", "probe_export", True)
+        self.item(analysis, "probe_export", "added", "the dedicated farfield_probes export")

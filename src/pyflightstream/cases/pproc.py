@@ -127,6 +127,7 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
     ("sections", "_cp.txt", "EXPORT_ALL_SURFACE_SECTIONS", False),
     ("sectional_loads", "_sloads.txt", "EXPORT_SURFACE_SECTIONAL_LOADS", False),
     ("probes", "_probes.txt", "EXPORT_PROBE_POINTS", False),
+    ("farfield_probes", "_farfield_probes.txt", "EXPORT_PROBE_POINTS", False),
     ("plots", "_plots.txt", "UNSTEADY_SOLVER_EXPORT_PLOTS", True),
     ("plot_residuals", "_plot_residuals.txt", "SAVE_PLOT_TO_FILE", False),
     ("plot_loads", "_plot_loads.txt", "SAVE_PLOT_TO_FILE", False),
@@ -148,7 +149,7 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
 #: (FR-460) and the trajectory of a row's ``SIXDOF`` input (FR-461). Each is
 #: written once, where its command sits, and never by a per-step action.
 TABLE_DECLARED_KINDS: frozenset[str] = frozenset(
-    {"streamlines_surface", "streamlines_off_body", "trajectory_6dof"}
+    {"streamlines_surface", "streamlines_off_body", "trajectory_6dof", "farfield_probes"}
 )
 
 #: The plot each solver-plot kind chooses with ``SET_PLOT_TYPE`` before its

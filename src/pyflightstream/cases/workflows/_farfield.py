@@ -64,6 +64,7 @@ from pyflightstream.probes.layouts import (
 from pyflightstream.script import Script
 
 from ._conventions import declared_run_type
+from ._freestream import rotor_row_stepping
 from ._motion import _origin
 from ._names import _inventory
 from ._rows import (
@@ -74,7 +75,7 @@ from ._rows import (
     _the_rotor_a_flat_row_turns,
     _variable,
 )
-from ._timing import rotor_time_stepping
+from ._timing import rotor_time_stepping, unsteady_time_stepping
 from ._vocabulary import ROTOR_ORIGIN_VARIABLE
 
 __all__ = [
@@ -160,8 +161,8 @@ def _entry_window(spec: FarfieldSpec, case: SimCase) -> None:
     per_revolution = None
     if _run_type(case) not in ("unsteady", "unsteady_rotor"):
         why = "requires an unsteady row"
-    elif _normal(case):
-        why = "normal probes hold only the last step"
+    elif spec.export_type != "avg_window":
+        why = 'requires export_type = "avg_window"'
     elif key == "last_revs":
         if _rotor(case):
             per_revolution = rotor_time_stepping(case).steps_per_revolution
@@ -240,8 +241,7 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
     if needs_fresh_probes(case):
         # FR-1052: an unsteady row whose [[probes]] entries are of kind normal
         # samples the far field with them, as probe points exported once.
-        kind = "plots" if workflow.startswith("unsteady") and not _normal(case) else "probes"
-        wanted.append((kind, f"{{name}}_{kind}.txt", "trefftz:plane or ledgers"))
+        wanted.append(("farfield_probes", "{name}_farfield_probes.txt", "trefftz:plane or ledgers"))
     out = list(names)
     present = classify_outputs(out)
     exports = dict(case.pproc.exports) if case.pproc is not None else {}
@@ -1181,35 +1181,32 @@ def farfield_probes(
     script.farfield_layout.append({"point": dict(case.point), "shapes": records})
     imported: list[tuple[float, float, float]] = []
     for shape, recorded in _unique_shapes(shapes, records):
-        if shape.source != "added":
-            if unsteady:
-                _complete_declared_plots(case, script, frames, shape, recorded, native_per_m)
-            continue
         what, points = shape.kind, shape.points_m
         native = np.round(points * native_per_m, 5)
-        _check_added(case, native, what)
-        if unsteady:
+        if shape.source == "added":
+            _check_added(case, native, what)
+        if _run_type(case) in ("unsteady", "unsteady_rotor"):
+            windows = farfield_export_windows(case)
+            steps = max(
+                (end - start + 1 for start, end, kind in windows if kind == "farfield_probes"),
+                default=1,
+            )
             warn(
-                f"case {case.sim_id!r}: the far-field {what} samples {len(points)} points at "
-                f"every time step, {len(points) * len(FARFIELD_PLOT_PARAMETERS)} fluid plots "
-                "(FR-1052).",
+                f"case {case.sim_id!r}: the far-field {what} samples {len(points)} points "
+                f"per exported step, {steps} exported steps (FR-1052).",
                 PyflightstreamWarning,
                 stacklevel=2,
             )
+        if shape.source != "added" and (
+            _run_type(case) not in ("unsteady", "unsteady_rotor") or _normal(case)
+        ):
+            continue
+        recorded["positions_frame"] = "REFERENCE"
         for x, y, z in native.tolist():
             vertex += 1
-            script.probe_points.append((vertex, float(x), float(y), float(z), "REFERENCE"))
-            if not unsteady:
-                imported.append((x, y, z))
-                continue
-            for parameter in FARFIELD_PLOT_PARAMETERS:
-                script.emit(
-                    "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
-                    frame=_PLOT_FRAME,
-                    parameter=parameter,
-                    name=f"{parameter}{vertex}",
-                    vertex=" ".join(str(value / native_per_m) for value in (x, y, z)),
-                )
+            if not (_run_type(case) in ("unsteady", "unsteady_rotor") and not _normal(case)):
+                script.probe_points.append((vertex, float(x), float(y), float(z), "REFERENCE"))
+            imported.append((x, y, z))
     if imported:
         _stage_import(script, shapes, imported, native_per_m)
     return vertex
@@ -1241,7 +1238,7 @@ def _stage_import(
     """
     staged = io.StringIO()
     added = [shape for shape in shapes if shape.source == "added"]
-    if len(added) == 1 and added[0].kind == "lattice":
+    if len(added) == 1 and added[0].kind == "lattice" and len(imported) == len(added[0].points_m):
         write_probe_csv(
             added[0].lattice,
             staged,
@@ -1303,3 +1300,41 @@ def planar_points(case: SimCase, probes: ProbesSpec, native_per_m: float) -> lis
                 )
         points.extend(native.tolist())
     return points
+
+
+def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
+    """Resolve independent far-field export windows on the row's solver clock."""
+    from pyflightstream.cases.windows import averaging_span
+
+    if case.pproc is None or _run_type(case) not in ("unsteady", "unsteady_rotor"):
+        return ()
+    entries = [entry for entry in case.pproc.farfields if entry.export_type == "avg_window"]
+    if not entries:
+        return ()
+    clock = (
+        rotor_row_stepping(case)
+        if _run_type(case) == "unsteady_rotor"
+        else unsteady_time_stepping(case)
+    )
+    windows: dict[str, tuple[int, int]] = {}
+    for entry in entries:
+        if entry.variant == "wake":
+            continue
+        variables = (
+            {"LAST_REVS_AVG": entry.last_revs}
+            if entry.last_revs is not None
+            else {"LAST_ITERS_AVG": entry.last_steps}
+            if entry.last_steps is not None
+            else case.variables
+        )
+        span = averaging_span(
+            variables, last_step=clock.time_iterations, per_revolution=clock.steps_per_revolution
+        )
+        if span is None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: export_type avg_window needs an averaging window"
+            )
+        kind = "sectional_loads" if entry.variant == "sections" else "farfield_probes"
+        previous = windows.get(kind, span)
+        windows[kind] = (min(previous[0], span[0]), span[1])
+    return tuple((first, last, kind) for kind, (first, last) in windows.items())
