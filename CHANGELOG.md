@@ -7,6 +7,13 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- Far-field requests use `[[farfields]]`, one named entry per analysis. Each
+  variant accepts only the keys it reads; family selection belongs to sections
+  alone. The retired `[farfield]` table is refused with replacement entries.
+  Far-field Trefftz and ledger tables carry `ENTRY` immediately after `POL`.
+
 ## [0.44.0] - 2026-10-23
 
 ### Changed

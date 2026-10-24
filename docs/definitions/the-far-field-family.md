@@ -4,7 +4,7 @@
     Far-field lift, induced drag and span efficiency from three independent
     traces of the wake (the section loads, the solver's wake lines, a plane of
     probes), and the conservation balances of a probe survey, selected in the
-    `[farfield]` table of the pproc artifact and written to `farfield/`.
+    `[[farfields]]` entries of the pproc artifact and written to `farfield/`.
 
 **The far field is an instrument, not a second solver.** It integrates what the
 solver already exported, downstream of the body, and states a number the solver
@@ -14,12 +14,54 @@ does not compute: the solver reports no force in a Trefftz plane (its log's
 
 The analyses and where they are written:
 
-| analysis | `[farfield]` selection | reads | writes |
+| analysis | `[[farfields]]` selection | reads | writes |
 |---|---|---|---|
-| Trefftz A, section loads | `[farfield.trefftz] variant = "sections"` | the sectional loads export | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_<family>.csv` |
+| Trefftz A, section loads | `variant = "sections"` | the sectional loads export | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_<family>.csv` |
 | Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | the same two files, family `TOTAL` |
 | Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane or lattice | `farfield/<group>_trefftz.csv` |
-| Balances | `[farfield.ledgers]` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
+| Balances | `variant = "power"` with `balances` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
+
+### Selecting analyses
+
+Each `[[farfields]]` entry selects one variant. Its optional `name` defaults to
+the variant word and must be unique. Name both entries when selecting a variant
+twice, for example separate section traces for a wing and tail. Both far-field
+tables carry `ENTRY` immediately after `POL`, including every total and ledger row.
+
+```toml
+[[farfields]]
+name = "wing"
+variant = "sections"
+families = ["Wing"]
+stations = 80
+
+[[farfields]]
+name = "tail"
+variant = "sections"
+families = ["HTail"]
+
+[[farfields]]
+variant = "plane"
+distance_bref = 0.25
+half_width_bref = 0.75
+half_height_bref = 0.5
+spacing_bref = 0.01
+```
+
+Keys belong to the analysis that reads them; a key on another variant is refused
+with the variants that accept it. `families` is required on `sections` and refused
+on `wake`, `plane` and `power`: these read the whole field, respectively every wake
+line, the plane and the lattice. `stations` is a count per side on `sections` and
+a list of x/R positions on `power`. `distance_bref` belongs to `wake` and `plane`;
+the half extents and spacing belong to `plane` alone. `station`, `rotor`, `frame`,
+`tip_radius_m`, `n_r`, `r_inner`, `r_outer`, `n_psi`, `lateral_radius`,
+`lateral_stations`, `hub_width`, `tip_width`, `m_max` and `balances` belong to `power`.
+Its placement requires `rotor`, or `frame` together with `tip_radius_m`.
+
+The 0.44.0 `[farfield]` spelling is refused at load with equivalent array entries.
+Its families move to A alone. Its ledgers become a `power` entry. A 0.44.0 rotor
+`plane` analysis with ledgers means the power analysis; request a separate `plane`
+entry only when a velocity plane is also wanted.
 
 `<group>` is the stem of the simulation's polar table. Every row of these files, and
 of the spanwise files, ends with `STATUS`, the point's solver termination status as

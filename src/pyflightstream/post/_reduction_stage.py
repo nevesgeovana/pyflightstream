@@ -898,6 +898,8 @@ def _layout(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> FarLayout:
     record = ctx.record_of[point.name]
     shapes = (getattr(record, "farfield_layout", None) or {}).get("shapes")
     if shapes:
+        if getattr(spec, "name", None) and any("farfield_entry" in shape for shape in shapes):
+            shapes = [shape for shape in shapes if shape.get("farfield_entry") == spec.name]
         return recorded_layout(shapes)
     plane = spec.trefftz is not None and "plane" in spec.trefftz.variant and not rotor
     _rho, _speed, alpha, beta = _flow(point)

@@ -213,8 +213,14 @@ def _farfield_products___probes() -> str:
 
 
 _FARFIELD_PRODUCTS___FARFIELD = (
-    '[farfield]\nfamilies = "all"\n[farfield.trefftz]\n'
-    'variant = ["sections", "wake", "plane"]\nspacing_bref = 0.05\n'
+    "[[farfields]]\n"
+    'variant = "sections"\n'
+    'families = "all"\n'
+    "[[farfields]]\n"
+    'variant = "wake"\n'
+    "[[farfields]]\n"
+    'variant = "plane"\n'
+    "spacing_bref = 0.05\n"
 )
 
 
@@ -345,7 +351,8 @@ class TestFarfieldProducts:
 
     @staticmethod
     @pytest.mark.requirement("FR-456")
-    def test_p0400_ffout_the_trefftz_table(posted):
+    @pytest.mark.requirement("FR-3263")
+    def test_p0450_d0_trefftz_table_identifies_entries(posted):
         """P0400-FFOUT (FR-1053, FR-1054): one file beside the polar, A, B and C rows, NA per
         rule.
         """
@@ -355,8 +362,9 @@ class TestFarfieldProducts:
         assert set(rows) == {"A", "B", "C"}
         header = path.read_text(encoding="utf-8").splitlines()[0].split(",")
         # PFS-2081.97: the point's status closes every far-field row, after ETA_FF.
-        assert header[:2] == ["POL", "STEP"] and header[-2:] == ["ETA_FF", "STATUS"]
+        assert header[:3] == ["POL", "ENTRY", "STEP"] and header[-2:] == ["ETA_FF", "STATUS"]
         a, b, c = rows["A"], rows["B"], rows["C"]
+        assert [a["ENTRY"], b["ENTRY"], c["ENTRY"]] == ["sections", "wake", "plane"]
         assert float(a["CL_T"]) == pytest.approx(_FARFIELD_PRODUCTS__CL, rel=2e-3)
         assert 1.0 < float(a["E_T"]) < 1.012, "the elliptic bias of 80 stations per side"
         assert float(b["CL_T"]) == pytest.approx(_FARFIELD_PRODUCTS__CL, abs=1e-5), (
@@ -440,8 +448,7 @@ class TestFarfieldProducts:
         before = _superfiles(plain)[name][0]
         workspace = matrix_workspace(tmp_path / "far")
         (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-            '[groups]\n"1" = "all"\n"2" = "W"\n[farfield]\nfamilies = "all"\n'
-            '[farfield.trefftz]\nvariant = "wake"\n',
+            '[groups]\n"1" = "all"\n"2" = "W"\n[[farfields]]\nvariant = "wake"\n',
             encoding="utf-8",
         )
         outputs = workspace.sim_dir("6001") / "outputs"
@@ -496,8 +503,16 @@ _FFPROOF_POST___POINTS_M = lattice_points(_FFPROOF_POST___SHAPE.build(1.0), axis
 
 
 _FFPROOF_POST___LEDGERS = (
-    '[farfield]\nfamilies = "all"\n[farfield.ledgers]\nframe = "MRP"\ntip_radius_m = 1.0\n'
-    "stations = [-1.0, 1.0]\nn_r = 2\nn_psi = 16\nm_max = 2\n"
+    "[[farfields]]\n"
+    'variant = "power"\n'
+    'balances = ["mass", "axial", "transverse", "torque", "in_plane_mo'
+    'ment", "crossflow_energy"]\n'
+    'frame = "MRP"\n'
+    "tip_radius_m = 1.0\n"
+    "stations = [-1.0, 1.0]\n"
+    "n_r = 2\n"
+    "n_psi = 16\n"
+    "m_max = 2\n"
 )
 
 
@@ -734,8 +749,14 @@ class TestFfproofPost:
         """
         workspace = _ffproof_post__wing._farfield_products___workspace(tmp_path, farfield=True)
         (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-            '[groups]\n"1" = "all"\n[farfield]\nfamilies = "all"\n[farfield.trefftz]\n'
-            'variant = "sections"\nstations = 160\n',
+            (
+                "[groups]\n"
+                '"1" = "all"\n'
+                "[[farfields]]\n"
+                'variant = "sections"\n'
+                'families = "all"\n'
+                "stations = 160\n"
+            ),
             encoding="utf-8",
         )
         _ffproof_post___post(workspace)
@@ -816,7 +837,7 @@ class TestFfproofPost:
     # ------------------------------------------------- FR-1053, FR-1056 and FR-478 to FR-480
     @pytest.mark.requirement("FR-456")
     @pytest.mark.requirement("FR-38")
-    def test_p0400_ffproof_post_writes_the_ledgers_table(tmp_path):
+    def test_p0450_d0_ledgers_table_identifies_entries(tmp_path):
         """P0400-FFPROOF (FR-1053, FR-1056; FR-478 to FR-480): ``farfield/<group>_ledgers.csv``.
 
         A steady point whose probe export holds the survey lattice in a uniform
@@ -841,7 +862,7 @@ class TestFfproofPost:
         group = polar.stem.rsplit("_", 1)[0]
         assert path.name == f"{group}_ledgers.csv", "beside the polar, by name (R1)"
         columns, rows = _ffproof_post___table(path)
-        assert columns == ["POL", "STEP", *CONTEXT_COLUMNS, *LEDGER_COLUMNS]
+        assert columns == ["POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *LEDGER_COLUMNS]
         assert [float(row["STATION_X_R"]) for row in rows] == [-1.0, 1.0]
         assert {row["LATTICE"] for row in rows} == {"MRP"}
         inlet, outlet = rows
@@ -886,7 +907,7 @@ class TestFfproofPost:
         average = _ffproof_post___one(root, "farfield/*_ledgers_average.csv")
         assert not list(root.rglob("farfield/*_ledgers.csv"))
         columns, now = _ffproof_post___table(instant)
-        assert columns == ["POL", "STEP", *CONTEXT_COLUMNS, *LEDGER_COLUMNS]
+        assert columns == ["POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *LEDGER_COLUMNS]
         _columns, mean = _ffproof_post___table(average)
         assert {row["STEP"] for row in now} == {"8"}
         assert {row["STEP"] for row in mean} == {"AVERAGE"}
@@ -975,11 +996,7 @@ def _litb_post__post_wake(root, fixture, *, cl=0.3400367, vref=None):
         return path
 
     ctx = SimpleNamespace(
-        pproc=PprocSpec.model_validate(
-            {
-                "farfield": {"families": "all", "trefftz": {"variant": "wake"}},
-            }
-        ),
+        pproc=PprocSpec.model_validate({"farfields": [{"variant": "wake"}]}),
         workspace=SimpleNamespace(sim_dir=lambda sim: root),
         record_of={
             "point": SimpleNamespace(
@@ -1081,7 +1098,7 @@ class TestRfixAProducts:
     def test_p0400_rfixa_missing_families_get_individual_distributions(tmp_path):
         """FR-1046: both auto-added distributions have ownership post can interpret."""
         case = _rfixa_products__plan._farfield_plan___case(
-            tmp_path, {"families": "all", "trefftz": {"variant": "sections", "stations": 80}}
+            tmp_path, [{"variant": "sections", "families": "all", "stations": 80}]
         )
         mesh = Path(case.geometry)
         mesh.write_text(mesh.read_text().replace("g W", "g Wing1") + "g Wing2\nf 1 2 4 3\n")
@@ -1117,15 +1134,14 @@ class TestRfixAProducts:
         """FR-1031: Cp_ref=-0.1, rho=1, V=10, Vref=20 gives p'=-20 Pa."""
         case = _rfixa_products__plan._farfield_plan___case(
             tmp_path,
-            {
-                "families": "all",
-                "trefftz": {
+            [
+                {
                     "variant": "plane",
                     "half_width_bref": 0.25,
                     "half_height_bref": 0.25,
                     "spacing_bref": 0.25,
-                },
-            },
+                }
+            ],
         )
         # The row's VELOCITY cell follows the velocity it resolves: two different speeds
         # are refused (X-F-1157).
@@ -1144,9 +1160,13 @@ class TestRfixAProducts:
         # Check the recorded-reference path through post, in addition to the adapter.
         workspace = _rfixa_products__post._ffproof_post___campaign(
             tmp_path,
-            pproc='[farfield]\nfamilies="all"\n'
-            '[farfield.trefftz]\nvariant="plane"\nhalf_width_bref=0.05\n'
-            "half_height_bref=0.05\nspacing_bref=0.05\n",
+            pproc=(
+                "[[farfields]]\n"
+                'variant = "plane"\n'
+                "half_width_bref = 0.05\n"
+                "half_height_bref = 0.05\n"
+                "spacing_bref = 0.05\n"
+            ),
             files={
                 f"{_rfixa_products__post._FFPROOF_POST___STEM}_probes.txt": _rfixa_products__post._ffproof_post___probe_export(  # noqa: E501
                     points, 10.0
@@ -1205,10 +1225,7 @@ class TestRfixAProducts:
         assert "divided by dynamic pressure" not in returns
 
 
-_RFIXF2_DISTRIBUTIONS___TREFFTZ_A = {
-    "families": "all",
-    "trefftz": {"variant": "sections", "stations": 80},
-}
+_RFIXF2_DISTRIBUTIONS___TREFFTZ_A = [{"variant": "sections", "families": "all", "stations": 80}]
 
 
 def _rfixf2_distributions___sections(families: object) -> dict:
@@ -1563,7 +1580,7 @@ class TestRfixF2PlanStates:
     def test_p0400_rfixf2_a_rotor_trefftz_c_reads_the_declared_lattice_flag():
         """P0400-RFIXF2-PLANSTATES (FR-1047): the resolver uses the lattice flag for a rotor's C."""  # noqa: E501
         spec = FarfieldSpec.model_validate(
-            {"families": "all", "trefftz": {"variant": "plane"}, "ledgers": {"rotor": "R"}}
+            {"variant": "power", "rotor": "ROTOR", "balances": ["mass"]}
         )
         resolution = resolve_farfield(
             spec,
@@ -1579,7 +1596,7 @@ class TestRfixF2PlanStates:
             rotor=True,
         )
         assert _rfixf2_plan_states___probe_states(resolution.as_record()) == {
-            "trefftz:plane": {"reused"},
+            "trefftz:power": {"reused"},
             "ledgers": {"reused"},
         }
 
@@ -1594,11 +1611,7 @@ class TestRfixF2PlanStates:
         lattice = {"rotor": "ROTOR", "stations": [2.0], "n_r": 2, "n_psi": 16}
         case = _rfixf2_plan_states___case(
             tmp_path,
-            {
-                "families": "all",
-                "trefftz": {"variant": "plane"},
-                "ledgers": {"rotor": "ROTOR", "m_max": 2},
-            },
+            [{"variant": "power", "rotor": "ROTOR", "m_max": 2, "balances": ["mass"]}],
             probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [lattice]}],
         )
         case = case.model_copy(update={"point": {**case.point, "RPM": 1000.0}})
@@ -1608,7 +1621,7 @@ class TestRfixF2PlanStates:
         (shape,) = script.farfield_layout[-1]["shapes"]
         assert (shape["kind"], shape["source"]) == ("lattice", "declared")
         states = _rfixf2_plan_states___probe_states(plan_record(case, "26.124", script))
-        assert states == {"trefftz:plane": {"reused"}, "ledgers": {"reused"}}
+        assert states == {"trefftz:power": {"reused"}, "ledgers": {"reused"}}
 
 
 _RFIXF2_PLOTS___PLOT = "UNSTEADY_SOLVER_NEW_FLUID_PLOT"
@@ -1650,7 +1663,7 @@ class TestRfixF2Plots:
         entry = {"frame": "MRP", "parameters": ["VX"], "lattices": [_RFIXF2_PLOTS___LATTICE]}
         case = _rfixf2_plots___unsteady(
             tmp_path,
-            {"families": "all", "ledgers": dict(_RFIXF2_PLOTS___LATTICE, m_max=2)},
+            [{"variant": "power", **dict(_RFIXF2_PLOTS___LATTICE, m_max=2)}],
             probes=[entry],
         )
         script = Script("26.124")
@@ -1693,7 +1706,7 @@ class TestRfixF2Plots:
         }
         case = _rfixf2_plots___unsteady(
             tmp_path,
-            {"families": "all", "ledgers": dict(_RFIXF2_PLOTS___LATTICE, m_max=2)},
+            [{"variant": "power", **dict(_RFIXF2_PLOTS___LATTICE, m_max=2)}],
             probes=[entry],
         )
         script = Script("26.124")
@@ -1783,8 +1796,11 @@ _RFIXF_LAYOUT___LAID = farfield_plane(
 
 #: The table as it stands at post states another 3 by 3 grid, 2 m apart (16 m^2).
 _RFIXF_LAYOUT___TABLE_2M = (
-    '[farfield]\nfamilies = "all"\n[farfield.trefftz]\nvariant = "plane"\n'
-    "half_width_bref = 0.1\nhalf_height_bref = 0.1\nspacing_bref = 0.1\n"
+    "[[farfields]]\n"
+    'variant = "plane"\n'
+    "half_width_bref = 0.1\n"
+    "half_height_bref = 0.1\n"
+    "spacing_bref = 0.1\n"
 )
 
 
@@ -1981,7 +1997,7 @@ class TestRfixFLayout:
         declared = {"rotor": "ROTOR", "stations": [2.0], "n_r": 2, "n_psi": 16}
         case = _rfixf_layout___case(
             tmp_path,
-            {"families": "all", "ledgers": {"rotor": "ROTOR", "m_max": 2}},
+            [{"variant": "power", **{"rotor": "ROTOR", "m_max": 2}}],
             probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [declared]}],
         )
         script = _rfixf_layout___script(case)
@@ -2004,7 +2020,7 @@ class TestRfixFLayout:
         shape = {"rotor": "ROTOR", "stations": [2.0], "n_r": 2, "n_psi": 16}
         case = _rfixf_layout___case(
             tmp_path,
-            {"families": "all", "ledgers": dict(shape, r_inner=0.05, m_max=2)},
+            [{"variant": "power", **dict(shape, r_inner=0.05, m_max=2)}],
             probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [shape]}],
         )
         script = _rfixf_layout___script(case)
@@ -2032,7 +2048,7 @@ class TestRfixFLayout:
         }
         case = _rfixf_layout___case(
             tmp_path,
-            {"families": "all", "trefftz": {"variant": "plane"}},
+            [{"variant": "plane"}],
             probes=[{"frame": "REFERENCE", "parameters": ["VX"], "rectangles": [rectangle]}],
         )
         script = _rfixf_layout___script(case)
@@ -2061,7 +2077,7 @@ class TestRfixFLayout:
         }
         case = _rfixf_layout___case(
             tmp_path,
-            {"families": "all", "trefftz": {"variant": "plane", "spacing_bref": 0.25}},
+            [{"variant": "plane", "spacing_bref": 0.25}],
             probes=[{"frame": "REFERENCE", "parameters": ["VX"], "rectangles": [rectangle]}],
         )
         script = _rfixf_layout___script(case)
@@ -2220,8 +2236,11 @@ _RFIXF_PLANE_LIFT___LAYOUT = {
 
 
 _RFIXF_PLANE_LIFT___TABLE = (
-    '[farfield]\nfamilies = "all"\n[farfield.trefftz]\nvariant = "plane"\n'
-    "half_width_bref = 0.5\nhalf_height_bref = 0.25\nspacing_bref = 0.0125\n"
+    "[[farfields]]\n"
+    'variant = "plane"\n'
+    "half_width_bref = 0.5\n"
+    "half_height_bref = 0.25\n"
+    "spacing_bref = 0.0125\n"
 )
 
 
@@ -2343,8 +2362,15 @@ _RFIXF_QSTEADY___SHAPE = {"rotor": "ROTOR", "stations": [-1.0, 1.0], "n_r": 2, "
 
 
 _RFIXF_QSTEADY___LEDGERS = (
-    '[farfield]\nfamilies = "all"\n[farfield.ledgers]\nrotor = "ROTOR"\n'
-    "stations = [-1.0, 1.0]\nn_r = 2\nn_psi = 16\nm_max = 2\n"
+    "[[farfields]]\n"
+    'variant = "power"\n'
+    'balances = ["mass", "axial", "transverse", "torque", "in_plane_mo'
+    'ment", "crossflow_energy"]\n'
+    'rotor = "ROTOR"\n'
+    "stations = [-1.0, 1.0]\n"
+    "n_r = 2\n"
+    "n_psi = 16\n"
+    "m_max = 2\n"
 )
 
 

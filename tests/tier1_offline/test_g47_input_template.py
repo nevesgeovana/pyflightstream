@@ -553,9 +553,7 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
         "`[[probes.circles]]`": [
             e for f in data for p in f.get("probes", []) for e in p.get("circles", [])
         ],
-        "`[farfield]`": [f.get("farfield", {}) for f in data],
-        "`[farfield.trefftz]`": [f.get("farfield", {}).get("trefftz", {}) for f in data],
-        "`[farfield.ledgers]`": [f.get("farfield", {}).get("ledgers", {}) for f in data],
+        "`[[farfields]]`": [entry for f in data for entry in f.get("farfields", [])],
         "`[[probes.lattices]]`": [
             e for f in data for p in f.get("probes", []) for e in p.get("lattices", [])
         ],

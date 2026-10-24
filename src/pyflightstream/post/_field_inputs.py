@@ -58,19 +58,25 @@ lateral_stations = [-1.0, 1.0]
 hub_width = 0.05
 tip_width = 0.05
 
-# The far field: which families, and the analyses over them.
-[farfield]
+# The far field: one named entry per analysis.
+[[farfields]]
+variant = "sections"
 families = "lifting"
-
-[farfield.trefftz]
-variant = ["sections", "wake", "plane"]
 stations = 80                     # per side, when the plan adds a distribution
-distance_bref = 0.25              # plane behind the families, in BREF
+
+[[farfields]]
+variant = "wake"
+distance_bref = 0.25
+
+[[farfields]]
+variant = "plane"
+distance_bref = 0.25              # plane behind the whole geometry, in BREF
 half_width_bref = 0.75
 half_height_bref = 0.5
 spacing_bref = 0.01
 
-[farfield.ledgers]                # the lattice may be stated here instead
+[[farfields]]
+variant = "power"
 frame = "MRP"
 tip_radius_m = 1.0
 stations = [-1.0, 1.0]
@@ -100,13 +106,14 @@ _FIELD_LEFT_OUT: Final = MappingProxyType(
             }
         ),
         "`[[probes.lattices]]`": MappingProxyType({_A_ROTOR_PLACES_IT: ("rotor",)}),
-        "`[farfield.trefftz]`": MappingProxyType(
+        "`[[farfields]]`": MappingProxyType(
             {
                 "a rotor lattice's station x/R, read only where the survey is a rotor's; "
                 "unstated, the last station": ("station",),
+                _A_ROTOR_PLACES_IT: ("rotor",),
+                "an optional unique entry label; defaults to the variant": ("name",),
             }
         ),
-        "`[farfield.ledgers]`": MappingProxyType({_A_ROTOR_PLACES_IT: ("rotor",)}),
     }
 )
 

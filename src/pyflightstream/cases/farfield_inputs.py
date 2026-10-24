@@ -77,10 +77,12 @@ class FarfieldInput:
     state: str
     source: str = ""
     reason: str = ""
+    entry: str = ""
 
     def as_record(self) -> dict[str, str]:
         """Return the input as the plan output states it (FR-1047)."""
         return {
+            "entry": self.entry,
             "analysis": self.analysis,
             "input": self.input,
             "state": self.state,
@@ -305,7 +307,7 @@ def resolve_farfield(
             )
         else:
             # A rotor's Trefftz C reads a lattice station, as _Resolver.probes says (PFS-2081.101).
-            reads_lattice = analysis == "ledgers" or resolver.rotor
+            reads_lattice = analysis in ("ledgers", "trefftz:power")
             declared = declares_lattice if reads_lattice else declares_plane
             resolver.probes(analysis, declared)
     return FarfieldResolution(tuple(resolver.inputs))
@@ -387,7 +389,7 @@ class _Resolver:
         self.export(analysis, "sectional_loads", "sectional_loads_export", True)
 
     def probes(self, analysis: str, declared: bool) -> None:
-        shape = "lattice" if analysis == "ledgers" or self.rotor else "plane"
+        shape = "lattice" if analysis in ("ledgers", "trefftz:power") else "plane"
         self.needed(
             analysis,
             "probe_points",

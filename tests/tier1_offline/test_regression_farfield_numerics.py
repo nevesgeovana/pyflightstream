@@ -1788,18 +1788,20 @@ class TestLitBBulk:
     def test_p0400_litb_one_import_preserves_plane_then_lattice(tmp_path, version):
         case = _litb_bulk___case(
             tmp_path,
-            {
-                "families": "all",
-                "trefftz": {"variant": "plane", "spacing_bref": 0.25},
-                "ledgers": {
-                    "frame": "MRP",
-                    "tip_radius_m": 0.5,
-                    "stations": [2.0],
-                    "n_r": 2,
-                    "n_psi": 16,
-                    "m_max": 2,
+            [
+                {"variant": "plane", "spacing_bref": 0.25},
+                {
+                    "variant": "power",
+                    **{
+                        "frame": "MRP",
+                        "tip_radius_m": 0.5,
+                        "stations": [2.0],
+                        "n_r": 2,
+                        "n_psi": 16,
+                        "m_max": 2,
+                    },
                 },
-            },
+            ],
         )
         script = Script(version)
         build_script(case, script)
@@ -1823,17 +1825,19 @@ class TestLitBBulk:
     def test_p0400_litb_default_27059_points_are_one_import(tmp_path):
         case = _litb_bulk___case(
             tmp_path,
-            {
-                "families": "all",
-                "trefftz": {"variant": "plane"},
-                "ledgers": {
-                    "frame": "MRP",
-                    "tip_radius_m": 0.5,
-                    "stations": [-4.0, 4.0, 6.0, 8.0],
-                    "n_r": 40,
-                    "n_psi": 72,
+            [
+                {"variant": "plane"},
+                {
+                    "variant": "power",
+                    **{
+                        "frame": "MRP",
+                        "tip_radius_m": 0.5,
+                        "stations": [-4.0, 4.0, 6.0, 8.0],
+                        "n_r": 40,
+                        "n_psi": 72,
+                    },
                 },
-            },
+            ],
         )
         script = Script("26.124")
         build_script(case, script)
@@ -1848,10 +1852,7 @@ class TestLitBBulk:
     def test_p0400_litb_different_sweep_planes_have_distinct_parked_files(tmp_path):
         case = _litb_bulk___case(
             tmp_path,
-            {
-                "families": "all",
-                "trefftz": {"variant": "plane", "spacing_bref": 0.25},
-            },
+            [{"variant": "plane", "spacing_bref": 0.25}],
         )
         first, second = Script("26.124"), Script("26.124")
         build_script(case, first)
@@ -1865,17 +1866,19 @@ class TestLitBBulk:
             {
                 "groups": {"1": "all"},
                 "probes": [_litb_bulk___entry("normal", frame="MRP")],
-                "farfield": {
-                    "families": "all",
-                    "ledgers": {
-                        "frame": "MRP",
-                        "tip_radius_m": 0.5,
-                        "stations": [-10.0, 10.0],
-                        "n_r": 2,
-                        "n_psi": 16,
-                        "m_max": 2,
-                    },
-                },
+                "farfields": [
+                    {
+                        "variant": "power",
+                        **{
+                            "frame": "MRP",
+                            "tip_radius_m": 0.5,
+                            "stations": [-10.0, 10.0],
+                            "n_r": 2,
+                            "n_psi": 16,
+                            "m_max": 2,
+                        },
+                    }
+                ],
             }
         )
         full, continued = _litb_bulk___continuation(tmp_path, "unsteady", spec)
@@ -2346,8 +2349,14 @@ class TestRfixAEvidence:
         next(raw.glob("*_wakes.vtk")).write_text(wake)
         artifact = workspace.inputs_dir / "pproc" / "p001.toml"
         artifact.write_text(
-            '[groups]\n"1"="all"\n[farfield]\nfamilies="all"\n'
-            '[farfield.trefftz]\nvariant=["sections","wake"]\nstations=2\n'
+            "[groups]\n"
+            '"1"="all"\n'
+            "[[farfields]]\n"
+            'variant = "sections"\n'
+            'families = "all"\n'
+            "stations = 2\n"
+            "[[farfields]]\n"
+            'variant = "wake"\n'
         )
         _rfixa_evidence__post._ffproof_post___set_record(
             workspace,

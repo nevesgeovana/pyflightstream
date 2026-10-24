@@ -7,6 +7,16 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.45.0
+
+Replace `[farfield]` with `[[farfields]]`, one entry per analysis, as shown in
+the [far-field definition](definitions/the-far-field-family.md#selecting-analyses).
+`variant` is one word. Give repeated variants distinct names. Move `families`
+to the `sections` entry alone, and the old ledger keys to a `power` entry.
+The loader refuses the retired table and prints replacement entries, including
+the distinction between the old rotor power channels and the velocity plane.
+Far-field CSV readers must account for `ENTRY` immediately after `POL`.
+
 ## 0.44.0
 
 ### Surface deletion keeps survivor IDs

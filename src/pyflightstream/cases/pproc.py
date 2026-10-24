@@ -44,7 +44,7 @@ from pyflightstream._tokens import REDUCTION_COLUMNS
 
 # The quasi-steady wheel's correction choice, a table of the pproc; its
 # module imports only the floor, so the package may import it while it loads.
-from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape
+from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape, farfield_entries
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
 from pyflightstream.cases.reference_blocks import CampaignConfigError
 from pyflightstream.cases.selection import EVERY_FAMILY
@@ -2157,7 +2157,17 @@ class PprocSpec(BaseModel):
     #: Native surface-property histories, separate from fluid samples and field products.
     surface_probes: list[SurfaceProbeSpec] = Field(default_factory=list)
     #: FR-454: the far-field family's table; absent, nothing changes.
-    farfield: FarfieldSpec | None = None
+    farfields: list[FarfieldSpec] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _farfield_entries(cls, value: object) -> object:
+        return farfield_entries(value)
+
+    @property
+    def farfield(self) -> FarfieldSpec | None:
+        """Return the entry of an analysis-specific planning or post context."""
+        return self.farfields[0] if self.farfields else None
 
     @field_validator("surface_probes")
     @classmethod

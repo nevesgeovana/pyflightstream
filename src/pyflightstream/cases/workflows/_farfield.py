@@ -114,6 +114,15 @@ def _spec(case: SimCase) -> FarfieldSpec | None:
     return getattr(case.pproc, "farfield", None) if case.pproc is not None else None
 
 
+def _entry_cases(case: SimCase) -> list[SimCase]:
+    if case.pproc is None or len(case.pproc.farfields) < 2:
+        return []
+    return [
+        case.model_copy(update={"pproc": case.pproc.model_copy(update={"farfields": [entry]})})
+        for entry in case.pproc.farfields
+    ]
+
+
 def _run_type(case: SimCase) -> str:
     return str(declared_run_type(case) or "steady")
 
@@ -136,6 +145,9 @@ def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
 
 def wants_wake(case: SimCase) -> bool:
     """Whether the row's far field reads the wake export (Trefftz B applies)."""
+    entries = _entry_cases(case)
+    if entries:
+        return any(wants_wake(entry) for entry in entries)
     spec = _spec(case)
     return spec is not None and "trefftz:wake" in _analyses(spec, case)
 
@@ -150,12 +162,17 @@ def _needs_lattice(case: SimCase) -> bool:
     if spec is None:
         return False
     analyses = _analyses(spec, case)
-    return "ledgers" in analyses or ("trefftz:plane" in analyses and _rotor(case))
+    return "ledgers" in analyses or "trefftz:power" in analyses
 
 
 def needs_fresh_probes(case: SimCase) -> bool:
     """Whether the row's far field lays probes, so a steady point starts from none."""
-    return _needs_plane(case) or _needs_lattice(case)
+    entries = _entry_cases(case)
+    return (
+        any(needs_fresh_probes(entry) for entry in entries)
+        if entries
+        else (_needs_plane(case) or _needs_lattice(case))
+    )
 
 
 def _normal(case: SimCase) -> bool:
@@ -174,6 +191,11 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
     An ``[exports]`` entry set to false that the far field needs is turned on
     for this row, with a WARNING naming the entry and the analysis.
     """
+    entries = _entry_cases(case)
+    if entries:
+        for entry in entries:
+            names = farfield_outputs(entry, workflow, names)
+        return list(names)
     spec = _spec(case)
     if spec is None:
         return list(names)
@@ -209,7 +231,7 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
 def _selected(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> list[str]:
     is_blade = case.pproc.is_blade if case.pproc is not None else (lambda name: False)
     groups = select_families(
-        spec.families, inventory, is_blade, aliases=_the_names_a_rotor_answers_to(case)
+        spec.families or "all", inventory, is_blade, aliases=_the_names_a_rotor_answers_to(case)
     )
     chosen: list[str] = []
     for group in groups:
@@ -565,11 +587,21 @@ def farfield_shapes(
         The plane (a wing's Trefftz C) and the lattice (the balances, or a
         rotor's Trefftz C), each where the row needs it.
     """
+    entries = _entry_cases(case)
+    if entries:
+        return [
+            shape
+            for entry in entries
+            for shape in farfield_shapes(entry, script, frames, native_per_m)
+        ]
     shapes: list[FarfieldShape] = []
     if _needs_plane(case):
         shapes.append(_plane_choice(case, native_per_m, script))
     if _needs_lattice(case):
         shapes.append(_lattice_choice(case, script, frames, native_per_m))
+    spec = _spec(case)
+    for shape in shapes:
+        shape.geometry["farfield_entry"] = spec.name if spec is not None else ""
     return shapes
 
 
@@ -591,6 +623,12 @@ def _resolve(
     shapes: Sequence[Mapping[str, Any]] = (),
 ) -> FarfieldResolution | None:
     """Resolve the row's inputs; ``shapes`` is the probe selection the script recorded."""
+    entries = _entry_cases(case)
+    if entries:
+        resolved = [_resolve(entry, inventory, view, shapes) for entry in entries]
+        return FarfieldResolution(
+            tuple(item for result in resolved if result for item in result.inputs)
+        )
     spec = _spec(case)
     if spec is None:
         return None
@@ -598,7 +636,7 @@ def _resolve(
     def declares(kind: str) -> bool:
         return any(s.get("kind") == kind and s.get("source") == "declared" for s in shapes)
 
-    return resolve_farfield(
+    resolution = resolve_farfield(
         spec,
         run_type=_run_type(case),
         covered_families=_covered(case, inventory),
@@ -611,6 +649,7 @@ def _resolve(
         has_command=_command_test(view),
         rotor=_rotor(case),
     )
+    return FarfieldResolution(tuple(replace(item, entry=spec.name) for item in resolution.inputs))
 
 
 def farfield_resolution(case: SimCase, script: Script) -> FarfieldResolution | None:
@@ -673,6 +712,11 @@ def _refuse(case: SimCase, resolution: FarfieldResolution) -> None:
 
 def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
     """Add the section distribution Trefftz A needs over the uncovered families (FR-1046)."""
+    entries = _entry_cases(case)
+    if entries:
+        for entry in entries:
+            farfield_sections(entry, script, frames)
+        return
     spec = _spec(case)
     if spec is None or "trefftz:sections" not in _analyses(spec, case):
         return
@@ -695,11 +739,12 @@ def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
     frame = _pproc_frame(case, frames, "MRP", "the far-field section distribution", missing)
     args = {arg.name for arg in script.registry.for_version(script.version)[_SECTION_COMMAND].args}
     sections = spec_sections(case)
+    first = max(len(sections.distributions), len(script.section_blocks))
     for offset, name in enumerate(missing, start=1):
         index = script.resolve_boundary(name, context="far-field section")
         script.section_blocks.append(
             {
-                "distribution": len(sections.distributions) + offset,
+                "distribution": first + offset,
                 "distribution_families": [name],
                 "families": [name],
                 "plane": "XZ",
@@ -1090,7 +1135,7 @@ def farfield_probes(
     records = [shape.record() for shape in shapes]
     script.farfield_layout.append({"point": dict(case.point), "shapes": records})
     imported: list[tuple[float, float, float]] = []
-    for shape, recorded in zip(shapes, records, strict=True):
+    for shape, recorded in _unique_shapes(shapes, records):
         if shape.source != "added":
             if unsteady:
                 _complete_declared_plots(case, script, frames, shape, recorded, native_per_m)
@@ -1123,6 +1168,16 @@ def farfield_probes(
     if imported:
         _stage_import(script, shapes, imported, native_per_m)
     return vertex
+
+
+def _unique_shapes(shapes: Sequence[FarfieldShape], records: list[dict[str, Any]]):
+    """Emit identical sample positions once while retaining each entry's layout record."""
+    seen = set()
+    for shape, recorded in zip(shapes, records, strict=True):
+        key = (shape.kind, shape.source, shape.entry, shape.points_m.tobytes())
+        if key not in seen:
+            seen.add(key)
+            yield shape, recorded
 
 
 def _stage_import(

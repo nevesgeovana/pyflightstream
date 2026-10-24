@@ -335,7 +335,7 @@ def _row(ctx: SimContext, point: PolarPoint, step: object, values: Mapping[str, 
         **values,
     }
     cells = (merged.get(column, _NA) for column in TREFFTZ_COLUMNS)
-    return (ctx.sim_id, step, *_context(ctx, point), *cells)
+    return (ctx.sim_id, _spec(ctx).name, step, *_context(ctx, point), *cells)
 
 
 def _trace_rows(
@@ -539,7 +539,7 @@ def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
     if blocks is None:
         return []
     inventory = ctx.record_of[point.name].inventory or list(blocks)
-    selected = _selected(spec.families, inventory, ctx.aliases, ctx.pproc.is_blade)
+    selected = _selected(spec.families or "all", inventory, ctx.aliases, ctx.pproc.is_blade)
     chosen = [name for name in selected if name in blocks]
     for name in (name for name in selected if name not in blocks):
         _skip(
@@ -921,7 +921,15 @@ def _ledger_rows(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], 
     rows = []
     for station in values["ledgers"]:
         cells = {"LATTICE": name, "STATUS": _status(ctx, point), **station}
-        rows.append((ctx.sim_id, step, *context, *(cells.get(c, _NA) for c in LEDGER_COLUMNS)))
+        rows.append(
+            (
+                ctx.sim_id,
+                _spec(ctx).name,
+                step,
+                *context,
+                *(cells.get(c, _NA) for c in LEDGER_COLUMNS),
+            )
+        )
     return rows
 
 
@@ -995,8 +1003,8 @@ def _probe_point(
             if "ledgers" in values
         ]
         if suffix.endswith("average"):
-            c_rows = average_rows([[row] for row in c_rows], 2 + len(CONTEXT_COLUMNS) + 2)
-            l_rows = [average_rows(l_rows, 2 + len(CONTEXT_COLUMNS) + 1)] if l_rows else []
+            c_rows = _average_entry_rows([[row] for row in c_rows], 2 + len(CONTEXT_COLUMNS) + 2)
+            l_rows = [_average_entry_rows(l_rows, 2 + len(CONTEXT_COLUMNS) + 1)] if l_rows else []
         reduced: dict[str, Any] = {}
         if suffix.endswith("average"):
             reduced = {"window": ctx.point_windows.get(point.name), "samples": len(averaged)}
@@ -1014,6 +1022,14 @@ def _probe_point(
 def _step(instant: _Instant) -> float:
     step = instant.step
     return float(step) if isinstance(step, int | float) else math.nan
+
+
+def _average_entry_rows(rows: list, first: int) -> list:
+    if not rows:
+        return []
+    name = rows[0][0][1]
+    stripped = [[row[:1] + row[2:] for row in step] for step in rows]
+    return [row[:1] + (name,) + row[1:] for row in average_rows(stripped, first)]
 
 
 def _normal_probes(ctx: SimContext) -> bool:
@@ -1121,7 +1137,7 @@ def _super_cells(rows: Sequence[tuple[tuple[object, ...], str]]) -> dict[str, di
 
     (FR-1062).
     """
-    first = 2 + len(CONTEXT_COLUMNS)
+    first = 3 + len(CONTEXT_COLUMNS)
     family = first + TREFFTZ_COLUMNS.index("FAMILY")
     variant = first + TREFFTZ_COLUMNS.index("VARIANT")
     out: dict[str, dict[str, str]] = {}
@@ -1142,10 +1158,22 @@ def farfield_products(ctx: SimContext) -> None:
     ctx : SimContext
         Product context carrying the resolved case, exports and output destinations.
     """
-    spec = getattr(ctx.pproc, "farfield", None)
-    if spec is None:
+    if not ctx.pproc.farfields:
         return
     tables = _Tables()
+    for entry in ctx.pproc.farfields:
+        selected = (
+            ctx
+            if len(ctx.pproc.farfields) == 1
+            else replace(ctx, pproc=ctx.pproc.model_copy(update={"farfields": [entry]}))
+        )
+        _entry_products(selected, tables)
+    _write(ctx, tables)
+    ctx.farfield_super.update(_super_cells(tables.super_rows()))
+
+
+def _entry_products(ctx: SimContext, tables: _Tables) -> None:
+    spec = _spec(ctx)
     for point in ctx.points:
         record = ctx.record_of[point.name]
         run_type = str(record.recipe or "steady")
@@ -1171,8 +1199,6 @@ def farfield_products(ctx: SimContext) -> None:
         tables.extend("trefftz", point.name, _named(ctx, read), steady_rows, runs=runs)
         if "trefftz:plane" in analyses or "ledgers" in analyses:
             _probe_point(ctx, point, analyses, tables, rotor=rotor)
-    _write(ctx, spec, tables)
-    ctx.farfield_super.update(_super_cells(tables.super_rows()))
 
 
 def _spins(ctx: SimContext, record: object) -> bool:
@@ -1185,8 +1211,8 @@ def _spins(ctx: SimContext, record: object) -> bool:
     return any(str(name).upper() in ("RPM", "MOTIONS") for name in stated)
 
 
-def _write(ctx: SimContext, spec, tables: _Tables) -> None:
-    variants = list(spec.trefftz.variant) if spec.trefftz is not None else []
+def _write(ctx: SimContext, tables: _Tables) -> None:
+    variants = list(dict.fromkeys(entry.variant for entry in ctx.pproc.farfields))
     for suffix, rows in tables.rows.items():
         analysis = suffix.split("_")[0]
         columns = TREFFTZ_COLUMNS if analysis == "trefftz" else LEDGER_COLUMNS
@@ -1195,7 +1221,7 @@ def _write(ctx: SimContext, spec, tables: _Tables) -> None:
         group = sweep_file_stem(ctx.sim_id, ctx.table_name)
         path = ctx.target(ctx.out / FARFIELD_DIR / f"{group}_{suffix}.csv")
         path.parent.mkdir(parents=True, exist_ok=True)
-        write_csv_table(path, ("POL", "STEP", *CONTEXT_COLUMNS, *columns), rows)
+        write_csv_table(path, ("POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *columns), rows)
         entry: dict[str, object] = {
             "runs": tables.runs[suffix],
             "analysis": analysis,

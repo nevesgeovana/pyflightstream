@@ -4,6 +4,11 @@ What the post-processing artifact of a row holds, the products it derives, and a
 
 ## What the post-processing artifact holds
 
+Far-field analyses use `[[farfields]]`, one entry per analysis, with `variant`
+and an optional unique `name`. `families` belongs only to `sections`; `wake`,
+`plane` and `power` read the whole field. Geometry keys are checked against the
+selected variant. See the [far-field keys and examples](definitions/the-far-field-family.md#selecting-analyses).
+
 `PPROC` names `inputs/pproc/p<id>.toml`, the post-processing artifact
 It carries about twenty optional tables and keys; a file holding `[groups]`
 alone is valid. `[volume_section]` has [its own paragraph below](#a-volume-section).

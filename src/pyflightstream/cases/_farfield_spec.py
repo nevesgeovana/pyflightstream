@@ -12,7 +12,8 @@ states none leaves the geometry to the plan's reuse rule (FR-1042, FR-455).
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+import json
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
@@ -29,7 +30,7 @@ __all__ = [
 ]
 
 #: The three accepted Trefftz variants.
-TREFFTZ_VARIANTS: tuple[str, ...] = ("sections", "wake", "plane")
+TREFFTZ_VARIANTS: tuple[str, ...] = ("sections", "wake", "plane", "power")
 #: The six balances of FR-479, in the order the ledgers table writes them.
 BALANCES: tuple[str, ...] = (
     "mass",
@@ -190,7 +191,7 @@ class TrefftzSpec(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     variant: Annotated[
-        list[Literal["sections", "wake", "plane"]], BeforeValidator(_one_or_list)
+        list[Literal["sections", "wake", "plane", "power"]], BeforeValidator(_one_or_list)
     ] = Field(
         min_length=1,
         description=(
@@ -262,7 +263,6 @@ class LedgersSpec(LatticeShape):
         Literal["mass", "axial", "transverse", "torque", "in_plane_moment", "crossflow_energy"]
     ] = Field(
         default_factory=lambda: list(BALANCES),  # type: ignore[arg-type]
-        min_length=1,
         description="The balances written: any of the six, all six by default.",
     )
     m_max: int = Field(
@@ -288,37 +288,186 @@ def _family_selection(value: object) -> object:
 
 
 class FarfieldSpec(BaseModel):
-    """The ``[farfield]`` table: what the far field is computed over, and how (FR-454).
+    """One named analysis in ``[[farfields]]``; geometry keys belong to their variant.
+
+    ``sections`` requires families and accepts a station count. ``wake`` and
+    ``plane`` read the whole field. ``power`` requires a rotor or a frame
+    lattice and optionally writes balances. Names default to the variant.
 
     Attributes
     ----------
+    variant : str
+        One analysis: sections (A), wake (B), plane (C), or power (D).
+    name : str
+        Unique entry label, defaulting to the variant word.
     families : str or list of str
-        A selector word, an alias, a family name or a list, the grammar of
-        ``[sections]``.
-    trefftz : TrefftzSpec, optional
-        The Trefftz variants.
-    ledgers : LedgersSpec, optional
-        The survey balances.
+        Required selection for sections; the other variants read the whole field.
+    stations : int or tuple of float
+        A station count per side for sections; lattice positions x/R for power.
+    distance_bref : float
+        Wake or plane distance behind the whole geometry in BREF.
+    half_width_bref, half_height_bref, spacing_bref : float
+        Plane half extents and uniform spacing in BREF.
+    station : float
+        Power station x/R; defaults to the last lattice station.
+    rotor : str
+        Reference rotor whose hub and radius place the power lattice.
+    frame, tip_radius_m : str and float
+        Alternative power lattice placement: frame and reference radius in metres.
+    n_r, r_inner, r_outer, n_psi : int or float
+        Power lattice ring count, radial bounds r/R, and uniform azimuth count.
+    lateral_radius, lateral_stations : float or tuple of float
+        Power lattice closure cylinder radius r/R and ring positions x/R.
+    hub_width, tip_width : float
+        Power lattice clustering widths r/R near the hub and tip.
+    m_max : int
+        Highest azimuthal harmonic, strictly below half the lattice azimuth count.
+    balances : list of str
+        Optional ledger balances; omitted, no ledger table is requested.
     """
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    variant: Literal["sections", "wake", "plane", "power"]
+    name: str = Field(default="", min_length=1)
+    families: Annotated[str | list[str] | None, BeforeValidator(_family_selection)] = None
+    stations: int | tuple[float, ...] | None = None
+    distance_bref: float = Field(default=0.25, gt=0)
+    half_width_bref: float | None = Field(default=None, gt=0)
+    half_height_bref: float | None = Field(default=None, gt=0)
+    spacing_bref: float | None = Field(default=None, gt=0)
+    station: float | None = None
+    rotor: str | None = None
+    frame: str | None = None
+    tip_radius_m: float | None = None
+    n_r: int | None = None
+    r_inner: float | None = None
+    r_outer: float | None = None
+    n_psi: int | None = None
+    lateral_radius: float | None = None
+    lateral_stations: tuple[float, ...] | None = None
+    hub_width: float | None = None
+    tip_width: float | None = None
+    m_max: int = 6
+    balances: list[str] = Field(default_factory=list)
 
-    families: Annotated[str | list[str], BeforeValidator(_family_selection)] = Field(
-        description=(
-            "What the far field is computed over: a selector word, an alias, a family name or "
-            "a list, the grammar of [sections]."
-        )
-    )
-    trefftz: TrefftzSpec | None = Field(default=None, description="The Trefftz-plane analyses.")
-    ledgers: LedgersSpec | None = Field(
-        default=None, description="The conservation balances of a survey lattice."
-    )
+    @model_validator(mode="before")
+    @classmethod
+    def _keys_belong_to_the_variant(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        variant = value.get("variant")
+        if not isinstance(variant, str) or variant not in TREFFTZ_VARIANTS:
+            return value
+        for key in value:
+            readers = _KEY_VARIANTS.get(key)
+            if readers is not None and variant not in readers:
+                reason = ""
+                if key == "families":
+                    reason = (
+                        "; wake, plane and power read the whole field, "
+                        "so there is no family selection"
+                    )
+                raise ValueError(f"{key} is read by {', '.join(readers)}, not {variant!r}{reason}")
+        return value
 
     @model_validator(mode="after")
-    def _selects_an_analysis(self) -> FarfieldSpec:
-        if self.trefftz is None and self.ledgers is None:
-            raise ValueError(
-                "[farfield] selects no analysis: state [farfield.trefftz] with a variant, "
-                "[farfield.ledgers], or both"
-            )
+    def _analysis_geometry(self) -> FarfieldSpec:
+        if not self.name:
+            self.name = self.variant
+        if self.variant == "sections":
+            if self.families is None:
+                raise ValueError('variant = "sections" requires families')
+            if self.stations is not None and (
+                not isinstance(self.stations, int) or self.stations < 2
+            ):
+                raise ValueError('variant = "sections" reads stations as a count of at least 2')
+        if self.variant == "power":
+            if isinstance(self.stations, int):
+                raise ValueError('variant = "power" reads stations as a list of x/R positions')
+            _ = self.ledgers
         return self
+
+    @property
+    def trefftz(self) -> TrefftzSpec:
+        """Return the numerical trace parameters of this single analysis."""
+        keys = ("distance_bref", "half_width_bref", "half_height_bref", "spacing_bref", "station")
+        values = {key: getattr(self, key) for key in keys}
+        values.update(
+            variant=[self.variant], stations=self.stations if self.variant == "sections" else 80
+        )
+        if values["stations"] is None:
+            values["stations"] = 80
+        return TrefftzSpec.model_validate(values)
+
+    @property
+    def ledgers(self) -> LedgersSpec | None:
+        """Return the power analysis's validated lattice, or None for a trace."""
+        if self.variant != "power":
+            return None
+        keys = (*_LATTICE_KEYS, "rotor", "frame", "tip_radius_m", "m_max", "balances")
+        return LedgersSpec.model_validate({key: getattr(self, key) for key in keys})
+
+
+_KEY_VARIANTS = {
+    "families": ("sections",),
+    "stations": ("sections", "power"),
+    "distance_bref": ("wake", "plane"),
+    **{key: ("plane",) for key in ("half_width_bref", "half_height_bref", "spacing_bref")},
+    **{
+        key: ("power",)
+        for key in (
+            *_LATTICE_KEYS[1:],
+            "station",
+            "rotor",
+            "frame",
+            "tip_radius_m",
+            "m_max",
+            "balances",
+        )
+    },
+}
+
+
+def farfield_entries(value: Any) -> Any:
+    """Refuse the retired table with equivalent array entries; check unique entry names."""
+    if not isinstance(value, dict):
+        return value
+    if value.get("farfield") is not None:
+        old = value["farfield"]
+        entries = []
+        if isinstance(old, dict):
+            trace = old.get("trefftz", {})
+            variants = trace.get("variant", [])
+            for variant in [variants] if isinstance(variants, str) else variants:
+                entry = {"variant": variant}
+                entry.update(
+                    {k: v for k, v in trace.items() if variant in _KEY_VARIANTS.get(k, ())}
+                )
+                if variant == "sections":
+                    entry["families"] = old.get("families", "all")
+                entries.append(entry)
+            if "ledgers" in old:
+                entries.append({"variant": "power", **old["ledgers"]})
+        replacement = "\n\n".join(
+            "[[farfields]]\n"
+            + "\n".join(f"{key} = {json.dumps(val)}" for key, val in entry.items())
+            for entry in entries
+        )
+        raise ValueError(
+            "[farfield] was replaced by [[farfields]], one analysis per entry:\n"
+            + replacement
+            + '\nA 0.44.0 "plane" with ledgers on a rotor row becomes the "power" entry (D), '
+            'not the "plane" entry (C); keep C only to request the velocity plane as well.'
+        )
+    raw_entries = value.get("farfields")
+    if not isinstance(raw_entries, list):
+        return value
+    names = [
+        entry.get("name", entry.get("variant")) for entry in raw_entries if isinstance(entry, dict)
+    ]
+    names = [name for name in names if isinstance(name, str)]
+    if len(names) != len(set(names)):
+        raise ValueError(
+            f"[[farfields]] names {names!r} must be unique; name repeated variants separately"
+        )
+    return value
