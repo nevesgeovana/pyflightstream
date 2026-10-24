@@ -9,6 +9,8 @@ FlightStream versions.
 
 ### Changed
 
+- Trefftz C uses the whole-configuration plane on rotor rows as well as wing
+  rows. Quasi-steady rotor rows refuse C and name `power` instead.
 - Far-field requests use `[[farfields]]`, one named entry per analysis. Each
   variant accepts only the keys it reads; family selection belongs to sections
   alone. The retired `[farfield]` table is refused with replacement entries.

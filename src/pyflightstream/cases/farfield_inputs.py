@@ -147,6 +147,11 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
     >>> bool(applies('trefftz:wake', 'unsteady_rotor'))
     True
     """
+    if analysis == "trefftz:plane" and run_type == "qsteady_rotor":
+        return (
+            "Trefftz C requires a uniform freestream; qsteady_rotor uses a rotating frame: "
+            'select "power"'
+        )
     if analysis in ("trefftz:sections", "trefftz:wake"):
         if rotor or run_type in ROTOR_RUN_TYPES:
             return "a rotor's helical wake is not a streamwise sheet"
@@ -290,7 +295,8 @@ def resolve_farfield(
     for analysis in _analyses(spec):
         why = applies(analysis, run_type, rotor=rotor)
         if why:
-            resolver.item(analysis, "run_type", "not_applicable", reason=why)
+            state = "refused" if analysis == "trefftz:plane" else "not_applicable"
+            resolver.item(analysis, "run_type", state, reason=why)
         elif analysis == "trefftz:sections":
             resolver.sections(analysis, selected_families, coupled)
         elif analysis == "trefftz:wake":

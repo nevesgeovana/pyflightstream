@@ -836,8 +836,8 @@ def _instant_values(
     layout = probe.layout
     lattice_at, plane_at, why = far_samples(instant.samples, layout, per_m=probe.per_m)
     # A wing's Trefftz C reads the plane; a rotor's reads a lattice station.
-    wants_plane = "trefftz:plane" in analyses and not probe.rotor
-    wants_lattice = "ledgers" in analyses or ("trefftz:plane" in analyses and probe.rotor)
+    wants_plane = "trefftz:plane" in analyses
+    wants_lattice = "ledgers" in analyses
     no_plane, no_lattice = wants_plane and plane_at is None, wants_lattice and lattice_at is None
     if no_plane or no_lattice:
         usable = (wants_plane and not no_plane) or (wants_lattice and not no_lattice)

@@ -269,12 +269,13 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
 
 ### Trefftz C, from a plane of probes
 
-**Input.** The probe values on the far-field plane: for a wing, a uniform
+**Input.** The probe values on the far-field plane: a uniform
 rectangular grid normal to the free stream of each point (it turns with the
 angle of attack and the sideslip), centered on the free-stream line through the
-moment reference point, at `distance_bref BREF` behind the selected families;
-for a rotor, one station of its survey lattice. Velocities are turned to wind
-axes (wing) or lattice axes (rotor); the static pressure is `p - p_inf = Cp_ref q_ref`,
+moment reference point, at `distance_bref BREF` behind the whole geometry.
+This includes steady RPM and `unsteady_rotor` rows. A `qsteady_rotor` row is
+refused: its rotating frame has no uniform freestream for C; select `power`.
+Velocities are turned to wind axes; the static pressure is `p - p_inf = Cp_ref q_ref`,
 the export's coefficient on the reference velocity, which a rotor at rest still has
 (on a wing at speed with the reference velocity the free stream, `Cp q`). The
 probe positions are in the simulation's length unit, read as for Trefftz B.
@@ -286,7 +287,9 @@ probe positions are in the simulation's length unit, read as for Trefftz B.
 The integrand is the crossflow-energy integrand of the balances
 ([The balances](#the-balances)) with the advecting velocity set to `V`; the
 balance advects with the sampled `u`, which differs at second order in the
-perturbation. Written as `CDI_T`.
+perturbation. Written as `CDI_T`. On rotor configurations this is the net
+configuration induced drag, including swirl; efficiency uses configuration
+`CL`, and the Bernoulli residual remains an informative field check.
 
 **Induced drag, the vorticity (Maskell).** From the streamwise vorticity
 `xi = dw/dy - dv/dz` (central differences on the grid) and its stream function

@@ -1824,6 +1824,34 @@ _RFIXF_LAYOUT___PLANE_RECORD = {
 }
 
 
+def _p0450_plane_series(tmp_path, extra=""):
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=_RFIXF_LAYOUT___TABLE_1M + extra,
+        files={f"{_FFPROOF_POST___STEM}_plots.txt": _ffproof_post___plots_export(9, 8)},
+        recipe="unsteady_rotor",
+        reductions=_FFPROOF_POST___WINDOW,
+    )
+    positions = [
+        (i, *map(float, point), "REFERENCE")
+        for i, point in enumerate(_RFIXF_LAYOUT___LAID.points, 1)
+    ]
+    path = _write_probe_points(workspace.sim_dir("3207"), "3207", positions)
+    _ffproof_post___set_record(
+        workspace, probe_points_file=path, farfield_layout=_RFIXF_LAYOUT___PLANE_RECORD
+    )
+    return workspace
+
+
+def test_p0450_d1_rotor_plane_posts_instant_and_average(tmp_path):
+    workspace = _p0450_plane_series(tmp_path)
+    _ffproof_post___post(workspace)
+    for suffix, step in (("instant", "8"), ("average", "AVERAGE")):
+        rows = _rfixf_layout___rows(Path(workspace.root), f"farfield/*_trefftz_{suffix}.csv")
+        assert len(rows) == 1, "C must read the plane on an unsteady rotor row"
+        assert (rows[0]["VARIANT"], rows[0]["FAMILY"], rows[0]["STEP"]) == ("C", "TOTAL", step)
+
+
 def _rfixf_layout___crossflow_plane(tmp_path: Path, table: str, **record: object):
     """A point whose export holds the laid plane in the free stream plus 1 m/s along its y."""
     velocity = np.tile(

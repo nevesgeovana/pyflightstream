@@ -140,6 +140,8 @@ def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
     if spec.ledgers is not None:
         selected.append("ledgers")
     run_type, rotor = _run_type(case), _rotor(case)
+    if "trefftz:plane" in selected and run_type == "qsteady_rotor":
+        raise CampaignConfigError(applies("trefftz:plane", run_type))
     return [analysis for analysis in selected if not applies(analysis, run_type, rotor=rotor)]
 
 
@@ -154,7 +156,7 @@ def wants_wake(case: SimCase) -> bool:
 
 def _needs_plane(case: SimCase) -> bool:
     spec = _spec(case)
-    return spec is not None and "trefftz:plane" in _analyses(spec, case) and not _rotor(case)
+    return spec is not None and "trefftz:plane" in _analyses(spec, case)
 
 
 def _needs_lattice(case: SimCase) -> bool:

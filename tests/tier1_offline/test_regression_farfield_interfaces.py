@@ -186,6 +186,30 @@ def _farfield_plan___case(root: Path, farfield: dict, **pproc: object):
     return case.model_copy(update={"outputs": row_outputs(case, "steady")})
 
 
+def _p0450_rotor_case(root, entries, run_type="unsteady_rotor"):
+    case = _farfield_plan___case(root, entries)
+    rotor = _FARFIELD_PLAN__FIXTURE_ROTOR.model_copy(update={"families_blades": ["W"]})
+    variables = dict(_ffproof_plan___case_for(run_type).variables)
+    if run_type == "unsteady_rotor":
+        variables["BLADES"] = 1
+    return case.model_copy(
+        update={"recipe": run_type, "variables": variables, "rotors": {"ROTOR": rotor}}
+    )
+
+
+@pytest.mark.parametrize("run_type", ["unsteady_rotor", "qsteady_rotor"])
+def test_p0450_d1_rotor_plane_plans_or_names_power(tmp_path, run_type):
+    case = _p0450_rotor_case(tmp_path, [{"variant": "plane", "spacing_bref": 0.25}], run_type)
+    if run_type == "qsteady_rotor":
+        with pytest.raises(CampaignConfigError, match="power"):
+            _farfield_plan___script(case)
+    else:
+        script = _farfield_plan___script(case)
+        assert script.farfield_layout, "C on a rotor row must record its velocity plane"
+        assert script.farfield_layout[-1]["shapes"][0]["kind"] == "plane"
+        assert len(script.probe_points) == 35
+
+
 def _farfield_plan___script(case) -> Script:
     script = Script("26.124")
     build_script(case, script)
