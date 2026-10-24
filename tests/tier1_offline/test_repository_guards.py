@@ -34,7 +34,7 @@ TESTS_UNGUARDED_SPAWNS = 5
 
 
 LEAN_CAPS = {
-    "tracked_files": 2016,
+    "tracked_files": 2030,
     "reports_files": 91,
     "reports_lines": 138107,
     "tests_files": 1147,

@@ -35,6 +35,8 @@ FlightStream versions.
   variant accepts only the keys it reads; family selection belongs to sections
   alone. The retired `[farfield]` table is refused with replacement entries.
   Far-field Trefftz and ledger tables carry `ENTRY` immediately after `POL`.
+- Release tools reach the sdist through MANIFEST.in and are no longer installed
+  with the package (RV2-03).
 
 ### Fixed
 
