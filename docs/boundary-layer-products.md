@@ -80,8 +80,9 @@ build or a moving frame.
 
 Setting `boundary_layer_velocity_profile = true` raises a named configuration
 refusal before execution. On 26.122 the command opens a modal dialog requiring a
-person to press Done
-on 26.124 it prevents an unattended script from completing
+person to press Done. On 26.124 it prevents an unattended script from completing.
+On 26.125 it opens the same modal and writes no profile
+(CMP-26125_2026-10-16_bl-profile).
 No supported build currently has positive unattended-profile evidence. A new
 build needs that evidence before the route is enabled. Requesting a profile never
 silently produces integrals in its place, including when both flags are true.

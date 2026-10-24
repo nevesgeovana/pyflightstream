@@ -2912,6 +2912,37 @@ def test_p0430_f126_a_window_the_recorded_steps_only_partly_cover_writes_no_aver
     assert not list(root.rglob("farfield/*_ledgers_average.csv"))
 
 
+@pytest.mark.parametrize("truncated", [False, True])
+def test_p0450_qa01_a_truncated_window_snapshot_writes_no_average(tmp_path, truncated):
+    """QA-01: a window snapshot cut short never enters an average (the removed reader's guard)."""
+    helpers = _ff_helpers()
+    stem = helpers._FFPROOF_POST___STEM
+    files = {
+        f"{stem}_farfield_survey_iteration={step}.txt": helpers._ffproof_post___probe_export(
+            helpers._FFPROOF_POST___POINTS_M, helpers._ffproof_post___speed(step)
+        )
+        for step in range(5, 9)
+    }
+    files[f"{stem}_farfield_survey.txt"] = files[f"{stem}_farfield_survey_iteration=8.txt"]
+    if truncated:
+        cut = f"{stem}_farfield_survey_iteration=6.txt"
+        files[cut] = "".join(files[cut].splitlines(keepends=True)[:-3])
+    workspace = helpers._ffproof_post___campaign(
+        tmp_path,
+        pproc=helpers._FFPROOF_POST___LEDGERS.replace(
+            "[[farfields]]", '[[farfields]]\nexport_type = "avg_window"'
+        ),
+        files=files,
+        recipe="unsteady",
+        reductions=helpers._FFPROOF_POST___WINDOW,
+        positions=True,
+    )
+    helpers._ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    assert list(root.rglob("farfield/*_ledgers_instant.csv"))
+    assert bool(list(root.rglob("farfield/*_average.csv"))) is not truncated
+
+
 def test_p0430_f145_a_normal_probe_row_carries_the_recorded_stop(tmp_path):
     """F-145: a run stopped at step 6 of 8 labels its normal-probe instant 6."""
     helpers = _ff_helpers()
