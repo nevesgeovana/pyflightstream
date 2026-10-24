@@ -306,7 +306,7 @@ def _trace_rows(
     extra: Mapping[str, float],
     blank: Sequence[str] = (),
 ) -> list[tuple[object, ...]]:
-    """Return the rows of one trace: each family where there are several, then TOTAL."""
+    """Return A's family rows and TOTAL, or B's whole-flow net row."""
     rho, speed, _alpha, _beta = _flow(point)
     q = 0.5 * rho * speed * speed
     sref, bref = float(ctx.reference.sref_m2), float(ctx.reference.bref_m)
@@ -324,9 +324,8 @@ def _trace_rows(
                     count,
                 )
             )
-    entries.append(
-        ("TOTAL", result.lift, result.side_force, result.induced_drag, _NA, len(result.y))
-    )
+    total = "TOTAL" if variant == "sections" else "net"
+    entries.append((total, result.lift, result.side_force, result.induced_drag, _NA, len(result.y)))
     rows = []
     for name, lift, side, drag, alone, count in entries:
         c = trace_coefficients(
@@ -659,7 +658,7 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
             else ""
         )
         _skip(ctx, key, point.name, f"no trace at x = {x_t:.4g} m: {trace.problem}{length}")
-        values = {"FAMILY": "TOTAL", "VARIANT": "B", "X_T_M": x_t}
+        values = {"FAMILY": "net", "VARIANT": "B", "X_T_M": x_t}
         return [_row(ctx, point, _NA, values)]
     try:
         raw = trace.forces(rho=rho, v_inf=speed, mirror=mirror)
@@ -683,13 +682,13 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
             "the point has no near-field CL to calibrate "
             "the wake values from, so E_T alone is written",
         )
-    _spanwise(ctx, point, variant="wake", name="TOTAL", result=result, chords=None)
+    _spanwise(ctx, point, variant="wake", name="net", result=result, chords=None)
     return _trace_rows(
         ctx,
         point,
         result,
         variant="wake",
-        names=["TOTAL"],
+        names=["net"],
         factor=factor,
         extra={"X_T_M": x_t, "GAMMA_SCALE": k},
         blank=() if calibrated else ("CL_T", "CDI_T", "CY_T"),
@@ -855,7 +854,7 @@ def _c_row(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: 
         aspect = float(ctx.reference.bref_m) ** 2 / float(ctx.reference.sref_m2)
         e = cl * cl / (math.pi * aspect * cdi) if math.isfinite(cdi) and cdi else _NA
         cells = {
-            "FAMILY": "TOTAL",
+            "FAMILY": "net",
             "VARIANT": "C",
             "CL_T": plane["L"] / qs,
             "CDI_T": cdi,
@@ -870,7 +869,7 @@ def _c_row(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: 
         }
         return _row(ctx, point, step, cells)
     rotor = values["rotor"]
-    cells = {"FAMILY": "TOTAL", "VARIANT": "D", **rotor}
+    cells = {"FAMILY": "net", "VARIANT": "D", **rotor}
     return _row(ctx, point, step, cells)
 
 
@@ -1085,7 +1084,7 @@ def _analyses(spec, run_type: str, rotor: bool) -> tuple[list[str], dict[str, st
 
 
 def _super_cells(rows: Sequence[tuple[tuple[object, ...], str]]) -> dict[str, dict[str, str]]:
-    """Return per point the super-file cells of its TOTAL rows, as the tables write them.
+    """Return super-file cells from A's TOTAL and the whole-flow variants' net rows.
 
     (FR-1062).
     """
@@ -1094,7 +1093,7 @@ def _super_cells(rows: Sequence[tuple[tuple[object, ...], str]]) -> dict[str, di
     variant = first + TREFFTZ_COLUMNS.index("VARIANT")
     out: dict[str, dict[str, str]] = {}
     for row, point in rows:
-        if row[family] != "TOTAL":
+        if row[family] != ("TOTAL" if row[variant] == "A" else "net"):
             continue
         cells = out.setdefault(point, {})
         for column in ("CL_T", "CDI_T", "E_T"):

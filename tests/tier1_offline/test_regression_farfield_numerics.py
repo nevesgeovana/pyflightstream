@@ -2379,7 +2379,7 @@ class TestRfixAEvidence:
                 Path(workspace.root), "farfield/*_trefftz.csv"
             )
         )
-        totals = {r["VARIANT"]: r for r in rows_out if r["FAMILY"] == "TOTAL"}
+        totals = {r["VARIANT"]: r for r in rows_out if r["FAMILY"] in ("TOTAL", "net")}
         assert float(totals["B"]["GAMMA_SCALE"]) == pytest.approx(1.0, abs=1e-10)
         for column in ("CL_T", "CDI_T", "E_T"):
             assert float(totals["A"][column]) == pytest.approx(float(totals["B"][column]), rel=2e-5)

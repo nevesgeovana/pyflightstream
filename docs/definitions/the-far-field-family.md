@@ -17,10 +17,17 @@ The analyses and where they are written:
 | analysis | `[[farfields]]` selection | reads | writes |
 |---|---|---|---|
 | Trefftz A, section loads | `variant = "sections"` | the sectional loads export | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_<family>.csv` |
-| Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | the same two files, family `TOTAL` |
+| Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_net.csv` |
 | Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane | `farfield/<group>_trefftz.csv` |
 | Trefftz D, power | `variant = "power"` | the survey lattice | `farfield/<group>_trefftz.csv` |
 | Balances | `variant = "power"` with `balances` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
+
+B, C and D identify the whole flow with lowercase `net` in `FAMILY`.
+A retains its selected family rows and their `TOTAL` row. B's spanwise file
+and its product-manifest key use `_trefftz_net.csv`.
+The super file reads A's `TOTAL` and B/C/D's `net` rows into the unchanged
+`CL_T_<VARIANT>`, `CDI_T_<VARIANT>` and `E_T_<VARIANT>` columns. When several
+entries share a variant, the later row supplies that variant's super-file cells.
 
 ### Selecting analyses
 
@@ -271,7 +278,7 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   as converged as the wake the solver relaxed.
 - The plane must lie inside the wake: a line that ends before it makes the
   point's B value `NA`.
-- One `TOTAL` row per point: the export does not say which family a line
+- One `net` row per point: the export does not say which family a line
   belongs to.
 - Rotors are not traced.
 
@@ -356,7 +363,7 @@ probes close to wake lines need spacing refinement.
 `variant = "power"` reads `station` in x/R, defaulting to the last lattice
 station, on every row type, including power-off rows. Placement requires
 `rotor` or `frame` plus `tip_radius_m`. The row has `VARIANT = D` and
-`FAMILY = TOTAL`; `balances` additionally requests the ledger rows.
+`FAMILY = net`; `balances` additionally requests the ledger rows.
 
 **Power channels** at a lattice station, `u' = u - V`, `v_theta_0` the azimuthal
 mean of the swirl:

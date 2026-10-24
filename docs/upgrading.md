@@ -16,6 +16,10 @@ to the `sections` entry alone, and the old ledger keys to a `power` entry.
 The loader refuses the retired table and prints replacement entries, including
 the distinction between the old rotor power channels and the velocity plane.
 Far-field CSV readers must account for `ENTRY` immediately after `POL`.
+Select `FAMILY = net` for B, C and D, replacing `TOTAL`; A retains its family
+rows and `TOTAL`. Read B's spanwise product at `sections/<point>_trefftz_net.csv`.
+Its manifest key changes with it. Super-file column names remain
+unchanged.
 
 ## 0.44.0
 

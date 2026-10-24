@@ -364,6 +364,7 @@ class TestFarfieldProducts:
         # PFS-2081.97: the point's status closes every far-field row, after ETA_FF.
         assert header[:3] == ["POL", "ENTRY", "STEP"] and header[-2:] == ["ETA_FF", "STATUS"]
         a, b, c = rows["A"], rows["B"], rows["C"]
+        assert [a["FAMILY"], b["FAMILY"], c["FAMILY"]] == ["TOTAL", "net", "net"]
         assert [a["ENTRY"], b["ENTRY"], c["ENTRY"]] == ["sections", "wake", "plane"]
         assert float(a["CL_T"]) == pytest.approx(_FARFIELD_PRODUCTS__CL, rel=2e-3)
         assert 1.0 < float(a["E_T"]) < 1.012, "the elliptic bias of 80 stations per side"
@@ -387,18 +388,23 @@ class TestFarfieldProducts:
     @staticmethod
     @pytest.mark.requirement("FR-456")
     def test_p0400_ffout_the_spanwise_files(posted):
-        """P0400-FFOUT (FR-1055): A per family, B as TOTAL, downwash and local drag."""
+        """P0450-D5 (FR-1055): A per family, B as net, downwash and local drag."""
         root, _plain, _messages = posted
         family = _farfield_products___table(
             _farfield_products___one(root, "sections/*_trefftz_W.csv")
         )
         total = _farfield_products___table(
-            _farfield_products___one(root, "sections/*_trefftz_TOTAL.csv")
+            _farfield_products___one(root, "sections/*_trefftz_net.csv")
         )
         assert len(family) == _FARFIELD_PRODUCTS__STATIONS and {
             row["VARIANT"] for row in family
         } == {"A"}
         assert {row["CDI_LOCAL"] for row in total} == {"NA"}
+        assert {row["FAMILY"] for row in total} == {"net"}
+        manifest = _farfield_products___one(root, "products.json").read_text()
+        log = _farfield_products___one(root, "post.log").read_text()
+        assert "_trefftz_net.csv" in manifest
+        assert "_trefftz_TOTAL.csv" not in manifest + log
         downwash = [float(row["W_M_S"]) for row in family[10:-10]]
         assert max(downwash) - min(downwash) < 0.05 * abs(np.mean(downwash)), "elliptic: uniform"
 
@@ -789,7 +795,7 @@ class TestFfproofPost:
         root = Path(workspace.root)
         _columns, rows = _ffproof_post___table(_ffproof_post___one(root, "farfield/*_trefftz.csv"))
         (b,) = [row for row in rows if row["VARIANT"] == "B"]
-        assert b["FAMILY"] == "TOTAL"
+        assert b["FAMILY"] == "net"
         assert {b[c] for c in ("CL_T", "CDI_T", "CY_T", "E_T", "GAMMA_SCALE")} == {"NA"}
         assert b["X_T_M"] != "NA"
         said = [
@@ -1824,6 +1830,28 @@ _RFIXF_LAYOUT___PLANE_RECORD = {
 }
 
 
+@pytest.mark.requirement("FR-1062")
+def test_p0450_d5_super_reads_net_and_preserves_a_total(tmp_path):
+    """P0450-D5: every variant keeps its columns and selects its aggregate row."""
+    workspace = _farfield_products___workspace(tmp_path, farfield=True)
+    _farfield_products___post(workspace)
+    root = Path(workspace.root)
+    rows = _farfield_products___table(_farfield_products___one(root, "farfield/*_trefftz.csv"))
+    (super_row,) = _farfield_products___table(_farfield_products___one(root, "polars/SUPER-*.csv"))
+    assert {(r["VARIANT"], r["FAMILY"]) for r in rows} == {
+        ("A", "TOTAL"),
+        ("B", "net"),
+        ("C", "net"),
+    }
+    for row in rows:
+        for column in ("CL_T", "CDI_T", "E_T"):
+            actual = super_row[f"{column}_{row['VARIANT']}"]
+            if row[column] == "NA":
+                assert actual == "NA"
+            else:
+                assert float(actual) == pytest.approx(float(row[column]), abs=1e-5)
+
+
 def _p0450_plane_series(tmp_path, extra=""):
     workspace = _ffproof_post___campaign(
         tmp_path,
@@ -1877,7 +1905,7 @@ def test_p0450_d2_power_writes_d_and_optional_ledgers(tmp_path, recipe, balances
     rows = _rfixf_layout___rows(root, f"farfield/*_trefftz{suffix}.csv")
     assert len(rows) == 1
     row = rows[0]
-    assert (row["VARIANT"], row["FAMILY"], row["ENTRY"]) == ("D", "TOTAL", "power")
+    assert (row["VARIANT"], row["FAMILY"], row["ENTRY"]) == ("D", "net", "power")
     assert float(row["X_T_M"]) == 1.0
     assert row["P_AXIAL_W"] != "NA" and row["ETA_FF"] == "NA"
     assert bool(_rfixf_layout___rows(root, f"farfield/*_ledgers{suffix}.csv")) is balances
@@ -1889,7 +1917,7 @@ def test_p0450_d1_rotor_plane_posts_instant_and_average(tmp_path):
     for suffix, step in (("instant", "8"), ("average", "AVERAGE")):
         rows = _rfixf_layout___rows(Path(workspace.root), f"farfield/*_trefftz_{suffix}.csv")
         assert len(rows) == 1, "C must read the plane on an unsteady rotor row"
-        assert (rows[0]["VARIANT"], rows[0]["FAMILY"], rows[0]["STEP"]) == ("C", "TOTAL", step)
+        assert (rows[0]["VARIANT"], rows[0]["FAMILY"], rows[0]["STEP"]) == ("C", "net", step)
 
 
 def test_p0450_d2_rotor_lattice_and_plane_write_both(tmp_path):
