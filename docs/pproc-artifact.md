@@ -9,6 +9,10 @@ and an optional unique `name`. `families` belongs only to `sections`; `wake`,
 `plane` and `power` read the whole field. Geometry keys are checked against the
 selected variant. See the [far-field keys and examples](definitions/the-far-field-family.md#selecting-analyses).
 
+Each entry may state `last_revs` or `last_steps` for its own unsteady average.
+They are exclusive; omitted, the row window is used. `last_revs` needs the row's
+rotor clock. Steady rows and normal probes refuse both keys.
+
 `PPROC` names `inputs/pproc/p<id>.toml`, the post-processing artifact
 It carries about twenty optional tables and keys; a file holding `[groups]`
 alone is valid. `[volume_section]` has [its own paragraph below](#a-volume-section).

@@ -59,6 +59,15 @@ the half extents and spacing belong to `plane` alone. `station`, `rotor`, `frame
 `lateral_stations`, `hub_width`, `tip_width`, `m_max` and `balances` belong to `power`.
 Its placement requires `rotor`, or `frame` together with `tip_radius_m`.
 
+Every entry accepts one optional averaging key: `last_revs` (positive turns
+of the row's rotor clock) or `last_steps` (positive integer). Stating both is
+refused. Neither stated uses the row window. The entry's window ends at the
+last recorded step and clips to the run if longer than it. Only the average
+changes; instant remains the last step. Steady rows and normal probes refuse
+either key; `last_revs` without a rotor clock is refused naming `last_steps`.
+Each average's manifest records its window, sample count, and source under
+`reduced_from` for the point and entry name.
+
 The 0.44.0 `[farfield]` spelling is refused at load with equivalent array entries.
 Its families move to A alone. Its ledgers become a `power` entry. A 0.44.0 rotor
 `plane` analysis with ledgers means the power analysis; request a separate `plane`
@@ -291,6 +300,8 @@ balance advects with the sampled `u`, which differs at second order in the
 perturbation. Written as `CDI_T`. On rotor configurations this is the net
 configuration induced drag, including swirl; efficiency uses configuration
 `CL`, and the Bernoulli residual remains an informative field check.
+The propeller slipstream's total-pressure gain can make that residual depart
+from zero; this is information about the powered field, not an error.
 
 **Induced drag, the vorticity (Maskell).** From the streamwise vorticity
 `xi = dw/dy - dv/dz` (central differences on the grid) and its stream function
@@ -479,7 +490,7 @@ their per-step fluid plots.
 **Which declaration is reused.** A declared plane or lattice is the far field's when
 its points after layout are the far field's own (same frame, every coordinate equal
 at the precision a probe position is written in), so a key stated at its default
-is the same geometry as the key left out. Where `[farfield]` states no geometry, the
+is the same geometry as the key left out. Where an entry states no geometry, the
 one declaration that qualifies is reused: a lattice on the same rotor, or in the
 same frame with the same tip radius, whose azimuths carry `m_max`; a rectangle of
 the reference frame that is a Trefftz C plane of the point (one spacing both ways,

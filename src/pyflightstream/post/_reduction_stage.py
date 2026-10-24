@@ -30,7 +30,7 @@ import numpy as np
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import DEFAULT_DRIFT_LIMIT_PCT
-from pyflightstream.cases.windows import AZIMUTHAL
+from pyflightstream.cases.windows import AZIMUTHAL, averaging_span
 from pyflightstream.cases.workflows import PER_ROTOR_REDUCTIONS, REDUCTION_NAMES, ROTORS_KEY
 from pyflightstream.post._condition import _recorded_speeds, row_rotor_speeds
 from pyflightstream.post._stage import (
@@ -885,6 +885,27 @@ class _Probe:
     layout: FarLayout
     hub: tuple[float, np.ndarray, np.ndarray] | None
     rotor: bool = False
+
+
+def _farfield_window(ctx: SimContext, point: PolarPoint, last: int):
+    """Resolve this entry's window on the recorded clock, else use the row window."""
+    spec = ctx.pproc.farfield
+    plan = ctx.record_of[point.name].reductions or {}
+    if spec is None or (spec.last_revs is None and spec.last_steps is None):
+        average = plan.get("time_average")
+        source = average.get("window_from") if isinstance(average, Mapping) else None
+        return ctx.point_windows.get(point.name), str(source or "row averaging window")
+    key = "last_revs" if spec.last_revs is not None else "last_steps"
+    value = getattr(spec, key)
+    clock = plan.get("steps_per_revolution")
+    window = averaging_span(
+        {"LAST_REVS_AVG" if key == "last_revs" else "LAST_ITERS_AVG": value},
+        last_step=last,
+        per_revolution=float(clock) if isinstance(clock, int | float) else None,
+    )
+    if window is None:
+        raise PyflightstreamError(f"{key} has no recorded rotor clock; state last_steps")
+    return window, f"{key} = {value:g}"
 
 
 def _layout(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> FarLayout:

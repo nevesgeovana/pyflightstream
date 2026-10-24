@@ -9,6 +9,8 @@ FlightStream versions.
 
 ### Added
 
+- Per-entry `last_revs` or `last_steps` selects the far-field averaging window
+  without changing instant products; manifests state each entry's window source.
 - Trefftz D (`variant = "power"`) writes lattice power channels on rotor and
   power-off rows, with optional balance ledgers. Efficiency is `NA` at nonpositive
   useful propulsive power. These channels were the rotor reading of C in 0.44.0.

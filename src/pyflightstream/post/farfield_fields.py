@@ -104,6 +104,7 @@ class _Tables:
         runs: Sequence[str],
         window: Sequence[float] | None = None,
         samples: int | None = None,
+        source: str = "",
     ) -> None:
         """Add a point's rows; ``exports`` names the input exports the rows were read from."""
         if not rows:
@@ -112,25 +113,47 @@ class _Tables:
         self.owners.setdefault(suffix, []).extend([point] * len(rows))
         held = self.runs.setdefault(suffix, [])
         held += [run for run in runs if run not in held]
-        self.inputs.setdefault(suffix, {}).setdefault(point, list(exports))
+        inputs = self.inputs.setdefault(suffix, {}).setdefault(point, [])
+        inputs.extend(path for path in exports if path not in inputs)
         if samples is not None:
-            self.reduced.setdefault(suffix, {})[point] = {
+            metadata = {
                 "window": None if window is None else [float(window[0]), float(window[1])],
                 "samples": int(samples),
+                "source": source,
             }
+            reduced = self.reduced.setdefault(suffix, {}).setdefault(point, dict(metadata))
+            entries = reduced.setdefault("entries", {})
+            if isinstance(entries, dict):
+                entries[str(rows[0][1])] = metadata
 
     def super_rows(self) -> list[tuple[tuple[object, ...], str]]:
         """Return the rows the super file reads: steady, else each point's average or instant."""
         out = list(zip(self.rows.get("trefftz", []), self.owners.get("trefftz", []), strict=True))
-        averaged = set(self.owners.get("trefftz_average", []))
+        averaged = {
+            (point, row[1])
+            for row, point in zip(
+                self.rows.get("trefftz_average", []),
+                self.owners.get("trefftz_average", []),
+                strict=True,
+            )
+        }
         for suffix in ("trefftz_average", "trefftz_instant"):
             pairs = zip(self.rows.get(suffix, []), self.owners.get(suffix, []), strict=True)
             out += [
                 (row, point)
                 for row, point in pairs
-                if suffix == "trefftz_average" or point not in averaged
+                if suffix == "trefftz_average" or (point, row[1]) not in averaged
             ]
         return out
+
+
+def _average_entry_rows(rows: list, first: int) -> list:
+    """Average numerical cells while preserving the entry label after POL."""
+    if not rows:
+        return []
+    name = rows[0][0][1]
+    stripped = [[row[:1] + row[2:] for row in step] for step in rows]
+    return [row[:1] + (name,) + row[1:] for row in average_rows(stripped, first)]
 
 
 _NA = float("nan")

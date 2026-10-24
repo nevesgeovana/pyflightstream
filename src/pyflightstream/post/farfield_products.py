@@ -42,14 +42,14 @@ from pyflightstream.farfield import (
     wake_crossings,
 )
 from pyflightstream.post._condition import _last_time_step
-from pyflightstream.post._reduction_stage import _NA, _flow, _hub, _layout, _Probe
+from pyflightstream.post._reduction_stage import _NA, _farfield_window, _flow, _hub, _layout, _Probe
 from pyflightstream.post._tables import CONTEXT_COLUMNS, _cell, context_row, write_csv_table
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
     ProbeSamples,
+    _average_entry_rows,
     _Tables,
-    average_rows,
     far_samples,
     lattice_samples,
     ledger_values,
@@ -181,8 +181,13 @@ def _ledgers(ctx: SimContext) -> LedgersSpec:
 
 
 def _skip(ctx: SimContext, key: str, point: str, reason: str) -> None:
-    ctx.skipped[key] = reason
-    warn(f"point={point} product=farfield: {reason}", PyflightstreamWarning, stacklevel=3)
+    name = _spec(ctx).name
+    ctx.skipped[key if "#entry=" in key else f"{key}#entry={name}"] = reason
+    warn(
+        f"point={point} product=farfield entry={name}: {reason}",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
 
 
 def _named(ctx: SimContext, paths: Sequence[Path | str | None]) -> list[str]:
@@ -892,12 +897,12 @@ def _last_and_window(
 ):
     """Return the last instant and the window's instants (none when it is partly covered)."""
     if windowed:
-        window = ctx.point_windows.get(point.name)
         last = instants[-1]
+        window, _ = _farfield_window(ctx, point, int(_step(last)))
         chosen = [i for i in instants if window and window[0] <= _step(i) <= window[1]]
         # The average is of the whole window or it is not written: a window
         # the recorded steps only partly cover would average fewer steps.
-        if window and not (_step(instants[0]) <= window[0] and _step(last) >= window[1]):
+        if window and {_step(i) for i in chosen} != set(range(int(window[0]), int(window[1]) + 1)):
             chosen = []
         return last, chosen
     last = instants[0]
@@ -961,7 +966,8 @@ def _probe_point(
             l_rows = [_average_entry_rows(l_rows, 2 + len(CONTEXT_COLUMNS) + 1)] if l_rows else []
         reduced: dict[str, Any] = {}
         if suffix.endswith("average"):
-            reduced = {"window": ctx.point_windows.get(point.name), "samples": len(averaged)}
+            window, source = _farfield_window(ctx, point, int(_step(last)))
+            reduced = {"window": window, "samples": len(averaged), "source": source}
         tables.extend(f"trefftz{suffix}", point.name, taken, c_rows, runs=runs, **reduced)
         tables.extend(
             f"ledgers{suffix}",
@@ -976,14 +982,6 @@ def _probe_point(
 def _step(instant: _Instant) -> float:
     step = instant.step
     return float(step) if isinstance(step, int | float) else math.nan
-
-
-def _average_entry_rows(rows: list, first: int) -> list:
-    if not rows:
-        return []
-    name = rows[0][0][1]
-    stripped = [[row[:1] + row[2:] for row in step] for step in rows]
-    return [row[:1] + (name,) + row[1:] for row in average_rows(stripped, first)]
 
 
 def _normal_probes(ctx: SimContext) -> bool:
@@ -1165,7 +1163,12 @@ def _sections_products(ctx: SimContext, point: PolarPoint, tables: _Tables, run_
     record = ctx.record_of[point.name]
     instant = [row[:2] + (_last_step(record),) + row[3:] for row in rows]
     tables.extend("trefftz_instant", point.name, _named(ctx, [source]), instant, runs=runs)
-    window = ctx.point_windows.get(point.name)
+    last_step = _last_step(record)
+    window, source_name = _farfield_window(
+        ctx,
+        point,
+        int(last_step) if isinstance(last_step, int | float) and math.isfinite(last_step) else 0,
+    )
     root = ctx.workspace.sim_dir(ctx.sim_id)
     files = stamped_exports(
         root, point.name, *(root / Path(output).parent for output in record.outputs)
@@ -1196,6 +1199,7 @@ def _sections_products(ctx: SimContext, point: PolarPoint, tables: _Tables, run_
         runs=runs,
         window=window,
         samples=len(samples),
+        source=source_name,
     )
 
 

@@ -224,9 +224,73 @@ def test_p0450_d3_sections_refuse_rotor_families(tmp_path, selection):
 
 def test_p0450_d3_sections_plan_nonrotor_wing(tmp_path):
     case = _p0450_rotor_case(tmp_path, [{"variant": "sections", "families": ["W"]}])
-    case = case.model_copy(update={"rotors": {}})
+    mesh = tmp_path / "box.obj"
+    mesh.write_text(mesh.read_text() + "g B\nf 1 2 3\n", encoding="utf-8")
+    rotor = case.rotors["ROTOR"].model_copy(update={"families_blades": ["B"]})
+    case = case.model_copy(update={"rotors": {"ROTOR": rotor}, "inventory": ("W", "B")})
     script = _farfield_plan___script(case)
     assert script.section_blocks
+
+
+def test_p0450_d3_qsteady_sections_are_refused(tmp_path):
+    case = _p0450_rotor_case(
+        tmp_path, [{"variant": "sections", "families": ["W"]}], "qsteady_rotor"
+    )
+    with pytest.raises(CampaignConfigError, match="Trefftz A.*qsteady_rotor"):
+        _farfield_plan___script(case)
+
+
+def test_p0450_d2_windmilling_efficiency_is_na():
+    from pyflightstream.post.farfield_fields import rotor_values
+
+    _, fields = _farfield_plane___slipstream(30.0, omega=6.0, jump=-4.0)
+    channels = rotor_channels(fields, rho=1.2, v_inf=30.0, station=2.0)
+    assert channels.thrust < 0.0
+    assert math.isnan(rotor_values(fields, rho=1.2, speed=30.0, station=2.0)["ETA_FF"])
+
+
+def test_p0450_d4_window_keys_are_exclusive():
+    with pytest.raises(ValidationError, match="both last_revs and last_steps"):
+        FarfieldSpec.model_validate({"variant": "plane", "last_revs": 1, "last_steps": 2})
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("last_steps", 0),
+        ("last_steps", 1.5),
+        ("last_steps", True),
+        ("last_revs", -1),
+        ("last_revs", float("nan")),
+    ],
+)
+def test_p0450_d4_invalid_windows_are_refused(key, value):
+    with pytest.raises(ValidationError, match=key) as caught:
+        FarfieldSpec.model_validate({"variant": "plane", key: value})
+    assert "extra_forbidden" not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    "run_type,key,normal",
+    [
+        ("steady", "last_steps", False),
+        ("steady", "last_revs", False),
+        ("unsteady", "last_revs", False),
+        ("unsteady_rotor", "last_steps", True),
+        ("unsteady_rotor", "last_revs", True),
+    ],
+)
+def test_p0450_d4_plan_refuses_unusable_window(tmp_path, run_type, key, normal):
+    case = _p0450_rotor_case(tmp_path, [{"variant": "plane"}], run_type)
+    spec = PprocSpec.model_validate(
+        {
+            "farfields": [{"variant": "plane", key: 1}],
+            "probes": [{"kind": "normal", "parameters": ["VX"]}] if normal else [],
+        }
+    )
+    case = case.model_copy(update={"pproc": spec})
+    with pytest.raises(CampaignConfigError, match=f"7002.*{key}"):
+        _farfield_plan___script(case)
 
 
 def _farfield_plan___script(case) -> Script:

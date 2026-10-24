@@ -108,10 +108,11 @@ _FIELD_LEFT_OUT: Final = MappingProxyType(
         "`[[probes.lattices]]`": MappingProxyType({_A_ROTOR_PLACES_IT: ("rotor",)}),
         "`[[farfields]]`": MappingProxyType(
             {
-                "a rotor lattice's station x/R, read only where the survey is a rotor's; "
-                "unstated, the last station": ("station",),
+                "the power lattice's station x/R; unstated, the last station": ("station",),
                 _A_ROTOR_PLACES_IT: ("rotor",),
                 "an optional unique entry label; defaults to the variant": ("name",),
+                "optional exclusive trailing windows on unsteady rows; omitted, the row's "
+                "window is used": ("last_revs", "last_steps"),
             }
         ),
     }

@@ -48,6 +48,7 @@ from pyflightstream.cases.farfield_inputs import (
     traced_family,
 )
 from pyflightstream.cases.field_coverage import operated_corners
+from pyflightstream.cases.windows import averaging_steps
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.probes.geometry import apply_geometry_gate, load_surface_mesh, points_inside
 from pyflightstream.probes.layouts import (
@@ -73,6 +74,7 @@ from ._rows import (
     _the_rotor_a_flat_row_turns,
     _variable,
 )
+from ._timing import rotor_time_stepping
 from ._vocabulary import ROTOR_ORIGIN_VARIABLE
 
 __all__ = [
@@ -134,6 +136,7 @@ def _rotor(case: SimCase) -> bool:
 
 
 def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
+    _entry_window(spec, case)
     selected = []
     if spec.trefftz is not None:
         selected += [f"trefftz:{variant}" for variant in spec.trefftz.variant]
@@ -145,6 +148,31 @@ def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
     if "trefftz:sections" in selected and run_type == "qsteady_rotor":
         raise CampaignConfigError(applies("trefftz:sections", run_type))
     return [analysis for analysis in selected if not applies(analysis, run_type, rotor=rotor)]
+
+
+def _entry_window(spec: FarfieldSpec, case: SimCase) -> None:
+    """Refuse a far-field window the row cannot sample or clock."""
+    key = "last_revs" if spec.last_revs is not None else "last_steps"
+    value = getattr(spec, key)
+    if value is None:
+        return
+    why = ""
+    per_revolution = None
+    if _run_type(case) not in ("unsteady", "unsteady_rotor"):
+        why = "requires an unsteady row"
+    elif _normal(case):
+        why = "normal probes hold only the last step"
+    elif key == "last_revs":
+        if _rotor(case):
+            per_revolution = rotor_time_stepping(case).steps_per_revolution
+        if per_revolution is None:
+            why = "has no rotor clock; state last_steps"
+    if why:
+        raise CampaignConfigError(f"case {case.sim_id!r}: {key} {why}")
+    averaging_steps(
+        {"LAST_REVS_AVG" if key == "last_revs" else "LAST_ITERS_AVG": value},
+        per_revolution=per_revolution,
+    )
 
 
 def wants_wake(case: SimCase) -> bool:
@@ -646,7 +674,12 @@ def _resolve(
         return None
 
     def declares(kind: str) -> bool:
-        return any(s.get("kind") == kind and s.get("source") == "declared" for s in shapes)
+        return any(
+            s.get("kind") == kind
+            and s.get("source") == "declared"
+            and s.get("farfield_entry", spec.name) == spec.name
+            for s in shapes
+        )
 
     resolution = resolve_farfield(
         spec,

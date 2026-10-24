@@ -1938,8 +1938,14 @@ def test_p0450_d3_unsteady_sections_instant_and_window(tmp_path, series):
     source = next(workspace.sim_dir("3207").rglob("*_sloads.txt"))
     if series:
         for step in range(5, 9):
+            lines = []
+            for line in source.read_text().splitlines():
+                cells = line.split(",")
+                if len(cells) == 8:
+                    cells[5] = str(float(cells[5]) * step / 8)
+                lines.append(",".join(cells))
             source.with_name(f"{source.stem}_iteration={step}.txt").write_text(
-                source.read_text(), encoding="utf-8"
+                "\n".join(lines) + "\n", encoding="utf-8"
             )
     _farfield_products___post(workspace)
     root = Path(workspace.root)
@@ -1949,11 +1955,50 @@ def test_p0450_d3_unsteady_sections_instant_and_window(tmp_path, series):
     average = _rfixf_layout___rows(root, "farfield/*_trefftz_average.csv")
     assert bool(average) is series
     if series:
-        assert float(average[-1]["CDI_T"]) == pytest.approx(float(instant[-1]["CDI_T"]))
+        ratio = np.mean([(step / 8) ** 2 for step in range(5, 9)])
+        assert float(average[-1]["CDI_T"]) == pytest.approx(
+            float(instant[-1]["CDI_T"]) * ratio, rel=1e-5
+        )
     else:
         manifest = str(_ffproof_post___manifest(root))
         assert "per-step sectional" in manifest
         assert "per-step sectional" in next(root.rglob("post.log")).read_text()
+
+
+@pytest.mark.parametrize(
+    "key,value,first", [("last_steps", 2, 7), ("last_revs", 0.5, 7), ("last_steps", 20, 1)]
+)
+def test_p0450_d4_entry_window_preserves_instant(tmp_path, key, value, first):
+    workspace = _p0450_plane_series(tmp_path, f"{key} = {value}\n")
+    _ffproof_post___set_record(
+        workspace, reductions={**_FFPROOF_POST___WINDOW, "steps_per_revolution": 4}
+    )
+    _ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    instant = _rfixf_layout___rows(root, "farfield/*_trefftz_instant.csv")[0]
+    average = _rfixf_layout___rows(root, "farfield/*_trefftz_average.csv")[0]
+    assert instant["STEP"] == "8"
+    ratio = np.mean([(10 + step) ** 2 for step in range(first, 9)]) / 18**2
+    assert float(average["CDI_T"]) / float(instant["CDI_T"]) == pytest.approx(ratio, rel=1e-5)
+    manifest = _ffproof_post___entry(_ffproof_post___manifest(root), "_trefftz_average.csv")
+    reduced = next(iter(manifest["reduced_from"].values()))
+    entry = reduced["entries"]["plane"]
+    assert entry["window"] == [first, 8]
+    assert entry["source"] == f"{key} = {value:g}"
+
+
+def test_p0450_d4_two_entries_keep_separate_windows(tmp_path):
+    extra = "last_steps = 2\n" + _RFIXF_LAYOUT___TABLE_1M + 'name = "long"\nlast_steps = 4\n'
+    workspace = _p0450_plane_series(tmp_path, extra)
+    _ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    rows = _rfixf_layout___rows(root, "farfield/*_trefftz_average.csv")
+    assert {row["ENTRY"] for row in rows} == {"plane", "long"}
+    assert rows[0]["CDI_T"] != rows[1]["CDI_T"]
+    manifest = _ffproof_post___entry(_ffproof_post___manifest(root), "_trefftz_average.csv")
+    entries = next(iter(manifest["reduced_from"].values()))["entries"]
+    assert entries["plane"]["window"] == [7, 8]
+    assert entries["long"]["window"] == [5, 8]
 
 
 def _rfixf_layout___crossflow_plane(tmp_path: Path, table: str, **record: object):

@@ -2034,8 +2034,8 @@ class PprocSpec(BaseModel):
         families.
     probes : list of ProbesSpec
         The fluid probe entries, one per frame sampled.
-    farfield : FarfieldSpec, optional
-        The far-field analyses and what they are computed over (FR-454);
+    farfields : list of FarfieldSpec
+        Named far-field entries, one variant and optional window each (FR-454);
         absent, the artifact plans and posts as before.
     products : ProductsSpec
         Which post-processed tables the campaign writes.

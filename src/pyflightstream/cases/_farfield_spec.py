@@ -324,6 +324,10 @@ class FarfieldSpec(BaseModel):
         Highest azimuthal harmonic, strictly below half the lattice azimuth count.
     balances : list of str
         Optional ledger balances; omitted, no ledger table is requested.
+    last_revs : float, optional
+        Positive trailing revolutions on the row's rotor clock, for this entry's average.
+    last_steps : int, optional
+        Positive trailing step count, exclusive with last_revs; omitted, use the row window.
     """
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -349,6 +353,8 @@ class FarfieldSpec(BaseModel):
     tip_width: float | None = None
     m_max: int = 6
     balances: list[str] = Field(default_factory=list)
+    last_revs: float | None = Field(default=None, gt=0, strict=True)
+    last_steps: int | None = Field(default=None, gt=0, strict=True)
 
     @model_validator(mode="before")
     @classmethod
@@ -372,6 +378,8 @@ class FarfieldSpec(BaseModel):
 
     @model_validator(mode="after")
     def _analysis_geometry(self) -> FarfieldSpec:
+        if self.last_revs is not None and self.last_steps is not None:
+            raise ValueError("state only one window, not both last_revs and last_steps")
         if not self.name:
             self.name = self.variant
         if self.variant == "sections":
@@ -447,7 +455,10 @@ def farfield_entries(value: Any) -> Any:
                     entry["families"] = old.get("families", "all")
                 entries.append(entry)
             if "ledgers" in old:
-                entries.append({"variant": "power", **old["ledgers"]})
+                power = {"variant": "power", "balances": list(BALANCES), **old["ledgers"]}
+                if "station" in trace:
+                    power["station"] = trace["station"]
+                entries.append(power)
         replacement = "\n\n".join(
             "[[farfields]]\n"
             + "\n".join(f"{key} = {json.dumps(val)}" for key, val in entry.items())
