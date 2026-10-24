@@ -9,6 +9,10 @@ FlightStream versions.
 
 ### Added
 
+- Regression coverage confirms that the 648-point lattice with radius 8,
+  stations [-2, 4, 8], eight radial rings and 24 azimuths remains readable at
+  four significant digits under the corrected printed-precision guard.
+
 - Every far-field entry accepts `export_type`: `default` and `last_step` read
   only the last unsteady step; `avg_window` exports and averages the final
   window, independently of other export thresholds. Planes and lattices always

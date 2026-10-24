@@ -237,6 +237,24 @@ def test_p0450_ff5_rounded_plane_keeps_drag_and_refuses_wrong_plane(alpha, beta,
         plane_values(replace(samples, positions=warped), block, **args)
 
 
+def test_p0450_ff6_captured_lattice_four_digits_is_read():
+    """PFS-2139.015: the captured lattice fits the corrected printed-precision guard."""
+    from pyflightstream.post.farfield_fields import FarLayout
+    from pyflightstream.probes import build_lattice
+
+    lattice = build_lattice(tip_radius=8.0, stations=[-2, 4, 8], n_r=8, n_psi=24)
+    points = lattice_points(lattice, axis="X")
+    assert points.shape == (648, 3)
+    np.testing.assert_allclose(
+        points[:2], [[-16.0, 0.0, 1.07758], [-16.0, 0.2789, 1.04086]], atol=1e-4, rtol=0
+    )
+    assert points[:, 0].min() == -16.0 and points[:, 0].max() == 64.0
+    samples = _ff5_printed_samples(points, np.tile([30.0, 0.0, 0.0], (len(points), 1)))
+    assert samples.digits == 4
+    block, _, why = far_samples(samples, FarLayout(lattice_m=points), per_m=1.0)
+    assert block == slice(0, 648), why
+
+
 def test_p0450_ff5_lattice_precision_names_spacing_and_configuration():
     """LIC-03: an ambiguous lattice names the required native spacing and its controls."""
     from pyflightstream.post.farfield_fields import FarLayout
