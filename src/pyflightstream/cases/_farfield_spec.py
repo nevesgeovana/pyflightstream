@@ -480,7 +480,7 @@ def farfield_entries(value: Any) -> Any:
 
 
 def _refuse_filename_collisions(entries: Any) -> None:
-    """Keep different entry labels from writing the same sanitized filename."""
+    """Refuse sanitized filename collisions even on case-insensitive filesystems."""
     names: dict[str, str] = {}
     for entry in entries if isinstance(entries, list | tuple) else ():
         name = (
@@ -490,11 +490,11 @@ def _refuse_filename_collisions(entries: Any) -> None:
         )
         if not isinstance(name, str):
             continue
-        spelling = re.sub(r"[^A-Za-z0-9_.+-]", "_", name)
+        spelling = re.sub(r"[^A-Za-z0-9_.+-]", "_", name).casefold()
         previous = names.get(spelling)
         if previous is not None and previous != name:
             raise ValueError(
                 f"[[farfields]] names {previous!r} and {name!r} share file spelling "
-                f"{spelling!r}; choose names with distinct file spellings"
+                f"{spelling!r} ignoring case; choose names with distinct file spellings"
             )
         names[spelling] = name

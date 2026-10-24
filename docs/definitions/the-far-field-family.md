@@ -39,8 +39,11 @@ the variant word and must be unique. Name both entries when selecting a variant
 twice, for example separate section traces for a wing and tail. Both far-field
 tables carry `ENTRY` immediately after `POL`, including every total and ledger row.
 Names must also remain distinct as filenames: characters other than ASCII
-letters, digits, `_`, `.`, `+` and `-` become `_`. Thus `a/b` and `a_b` are
-refused together, naming both entries and their shared file spelling `a_b`.
+letters, digits, `_`, `.`, `+` and `-` become `_`, and the resulting spellings
+are compared ignoring case for portability across case-insensitive filesystems.
+Thus `a/b` and `a_b`, or `near` and `NEAR`, are refused together, naming both
+entries and their shared case-folded file spelling (`a_b` or `near`). Accepted
+filenames keep the entry's own case.
 
 ```toml
 [[farfields]]

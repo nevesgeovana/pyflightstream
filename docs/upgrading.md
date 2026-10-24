@@ -22,8 +22,9 @@ Select `FAMILY = net` for B, C and D, replacing `TOTAL`; A retains its family
 rows and `TOTAL`. B's 0.44.0 `sections/<point>_trefftz_TOTAL.csv` becomes
 `sections/<point>_trefftz_net_<entry>.csv`, including `_trefftz_net_wake.csv`
 for the default entry name. Named entries such as `near` and `far` each keep a file.
-Rename entries whose names sanitize to the same file spelling, such as `a/b`
-and `a_b`; validation now refuses that pair instead of allowing an overwrite.
+Rename entries whose names sanitize to the same file spelling ignoring case,
+such as `a/b` and `a_b` or `near` and `NEAR`; validation now refuses these pairs
+instead of allowing an overwrite. Accepted filenames keep the entry's own case.
 Its manifest key changes with it. Super-file far-field columns now include
 the entry name: `<quantity>_<VARIANT>_<ENTRY>`, for example `CL_T_A_wing`,
 `CDI_T_A_tail` and `CDI_T_C_net`. Default entry names also appear, as in

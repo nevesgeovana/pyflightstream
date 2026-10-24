@@ -58,6 +58,36 @@ def test_p0450_ff6_entry_names_refuse_shared_file_spelling(names):
     assert "file spelling 'a_b'" in message
 
 
+@pytest.mark.parametrize("representation", ["strings", "bytes", "iterator", "byte_iterator"])
+@pytest.mark.parametrize(
+    "names,collides",
+    [
+        (("near", "NEAR"), True),
+        (("NEAR", "near"), True),
+        (("near", "far"), False),
+        (("NEAR", "FAR"), False),
+    ],
+)
+def test_p0450_rv2_case_insensitive_file_collisions(names, collides, representation):
+    """RV2-06: near/NEAR is refused after normalization; distinct names keep case."""
+    entries = [
+        {"variant": "wake", "name": name.encode() if "byte" in representation else name}
+        for name in names
+    ]
+    value = iter(entries) if "iterator" in representation else entries
+    if collides:
+        with pytest.raises(ValidationError) as error:
+            PprocSpec.model_validate({"farfields": value})
+        message = str(error.value)
+        assert all(repr(name) in message for name in names)
+        assert "file spelling 'near'" in message
+        assert "ignoring case" in message
+        assert "choose names with distinct file spellings" in message
+    else:
+        valid = PprocSpec.model_validate({"farfields": value})
+        assert [entry.name for entry in valid.farfields] == list(names)
+
+
 @pytest.mark.requirement("FR-3262")
 def test_p0450_d2_power_requires_lattice_placement():
     with pytest.raises(ValidationError, match="rotor|frame"):

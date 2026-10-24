@@ -52,7 +52,8 @@ FlightStream versions.
 ### Changed
 
 - Far-field validation refuses distinct entry names that sanitize to the same
-  filename, naming both entries and the shared spelling before products are written.
+  filename ignoring case (for example `near` and `NEAR`), naming both entries and
+  the shared spelling before products are written. Accepted filenames keep each entry's case.
   Python iterators and decoded byte-string names receive the same validation.
 
 - The Trefftz C lift warning uses an absolute difference of 1e-3 when the
