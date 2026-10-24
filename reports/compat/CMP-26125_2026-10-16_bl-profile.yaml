@@ -2,9 +2,10 @@ schema: pyflightstream-compat-report/1
 fs_version: '26.125'
 date: '2026-10-16'
 fs_exe: Flightstream_26125.exe
-fs_exe_sha256: 'not recorded in the launch receipts; build 10052026'
+fs_exe_sha256: ''
 measured_at: '2026-10-16T16:53:51+00:00'
 source: >
+  No executable digest was recorded in the launch receipts; build 10052026.
   Transcription of the 0.42.0 licensed run GOAL-033-G52, source revision
   3891a52dfe79a1f18685c33f342f386ec3ddbe72, receipt batch
   3891a52dfe79a1f18685c33f342f386ec3ddbe72-8933767bab1e4ac0ba898140525c17c1.
