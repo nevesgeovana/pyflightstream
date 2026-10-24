@@ -17,6 +17,7 @@ FlightStream versions.
 ### Fixed
 
 - Far-field station-count warnings name the requesting `[[farfields]]` sections entry.
+- Duplicate far-field balances are refused using the entry's `balances` key.
 - Far-field `last_revs` validation follows the row's named `CLOCK_MOTION`,
   matching export scheduling on rows with multiple rotor speeds.
 - Far-field continuation exports use the local march counter and retain the

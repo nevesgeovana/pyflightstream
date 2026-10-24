@@ -274,7 +274,7 @@ class LedgersSpec(LatticeShape):
 
     @model_validator(mode="after")
     def _the_orders_fit_the_azimuths(self) -> LedgersSpec:
-        _unique(list(self.balances), "[farfield.ledgers] balances")
+        _unique(list(self.balances), "balances")
         n_psi = self.build(1.0).n_psi
         if 2 * self.m_max >= n_psi:
             raise ValueError(

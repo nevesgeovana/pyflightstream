@@ -46,6 +46,16 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("case", ["P0450-API-02"])
+def test_p0450_rel1_duplicate_balances_use_entry_vocabulary(case):
+    with pytest.raises(ValueError) as caught:
+        FarfieldSpec.model_validate(
+            {"variant": "power", "name": "shaft", "rotor": "R", "balances": ["mass", "mass"]}
+        )
+    assert "balances repeats mass" in str(caught.value)
+    assert "[farfield.ledgers]" not in str(caught.value)
+
+
 @pytest.mark.parametrize("case", ["P0450-API-01"])
 def test_p0450_rel1_station_warning_names_sections_entry(case):
     from pyflightstream.cases.farfield_inputs import few_stations_warning
