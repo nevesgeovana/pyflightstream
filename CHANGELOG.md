@@ -21,6 +21,10 @@ FlightStream versions.
 
 ### Changed
 
+- Averaged far-field `SPURIOUS_COUNTS` now uses the near-field force history
+  over the same steps as the far-field flux. Missing history produces `NA`
+  with a named skip; instant ledger values retain the final loads comparison.
+
 - Trefftz B, C and D identify whole-flow rows with `FAMILY = net`. B's spanwise
   file and manifest key use `_trefftz_net_<entry>.csv` (default entry `wake`),
   preserving separate files for multiple B entries. A keeps its family

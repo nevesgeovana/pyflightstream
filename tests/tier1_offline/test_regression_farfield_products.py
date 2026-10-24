@@ -107,6 +107,50 @@ _FARFIELD_PRODUCTS__STATIONS = 160
 _FARFIELD_PRODUCTS___RULE = " " + "-" * 100 + "\n"
 
 
+@pytest.mark.parametrize("history", ["complete", "absent", "gap"])
+def test_p0450_ff6_g4_uses_same_window_loads(tmp_path, history):
+    """LIC-04: post a two-step window; G4 compares the two means, never final loads."""
+    files = _p0450_probe_series(_FFPROOF_POST___POINTS_M)
+    if history != "absent":
+        rows = "Time-step,FX_MRP_TOTAL\n1,-9000,\n7,-10,\n"
+        if history != "gap":
+            rows += "8,-30,\n"
+        files[f"{_FFPROOF_POST___STEM}_plots.txt"] = (
+            _FFPROOF_POST__PLOTS_HEADER
+            + rows
+            + "-" * 60
+            + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #7012026\n"
+        )
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=_FFPROOF_POST___LEDGERS + 'export_type = "avg_window"\nlast_steps = 2\n',
+        files=files,
+        recipe="unsteady",
+        reductions=_FFPROOF_POST___WINDOW,
+        positions=True,
+    )
+    _ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    _, mean = _ffproof_post___table(_ffproof_post___one(root, "farfield/*_ledgers_average.csv"))
+    _, instant = _ffproof_post___table(_ffproof_post___one(root, "farfield/*_ledgers_instant.csv"))
+    assert all(row["SPURIOUS_COUNTS"] != "NA" for row in instant)
+    if history == "complete":
+        # Uniform axial speed on both planes: each step's downstream-minus-upstream
+        # flux is zero. The near mean is -( -10 -30 ) / 2 = 20 N, not 30 or 9000.
+        expected = 20.0 / (0.5 * _FFPROOF_POST___RHO * 68.058**2 * 50.0) * 1e4
+        assert all(row["SPURIOUS_COUNTS"] != "NA" for row in mean)
+        assert all(
+            float(row["SPURIOUS_COUNTS"]) == pytest.approx(expected, rel=1e-5) for row in mean
+        )
+    else:
+        assert all(row["SPURIOUS_COUNTS"] == "NA" for row in mean)
+        skipped = _ffproof_post___manifest(root)["skipped"]
+        assert any(
+            "SPURIOUS_COUNTS" in key and "loads history" in reason
+            for key, reason in skipped.items()
+        )
+
+
 def _ff5_printed_samples(points: np.ndarray, velocity: np.ndarray) -> ProbeSamples:
     """Read coordinates printed in the solver's four-digit 0.xxxxE form."""
     from pyflightstream.post.farfield_fields import steady_samples

@@ -461,6 +461,12 @@ into the plane term.
     SYMMETRY_FLOOR  = max_{m >= 1} |c_m|                    of the axial velocity
     SPURIOUS_COUNTS = 2 (F_near - F_far) / (rho V^2 SREF) 1e4
 
+For an averaged ledger, G4 compares the window mean axial flux difference with
+the mean near-field axial force over exactly the same steps. The latter comes
+from the point's whole-configuration global force plots history, the series read
+by its unsteady polar. Missing history or a missing window step gives `NA` and
+a named `SPURIOUS_COUNTS` skip; the instant still uses the final loads export.
+
 **Unsteady rows, instant and average.** The instant is the balance of the
 lattice at the last time step. The average is the average, over the row's
 averaging window (`LAST_REVS_AVG` or `LAST_ITERS_AVG`, the window the unsteady
