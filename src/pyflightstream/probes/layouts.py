@@ -398,7 +398,8 @@ def farfield_plane(
             f"far-field plane spacing={spacing!r}, half_width={half_width!r}, "
             f"half_height={half_height!r} gives {2 * n_y + 1} by {2 * n_z + 1} points; "
             "Trefftz-plane integration needs at least three points on each axis. "
-            "reduce spacing (spacing_bref in [farfield.trefftz]) or increase the half extents."
+            "reduce spacing (spacing_bref of the [[farfields]] plane entry) "
+            "or increase the half extents."
         )
     y = spacing * np.arange(-n_y, n_y + 1)
     z = spacing * np.arange(-n_z, n_z + 1)

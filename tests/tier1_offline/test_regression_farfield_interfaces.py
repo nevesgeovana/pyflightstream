@@ -46,6 +46,24 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("case", ["P0450-TW-04-LAYOUT"])
+def test_p0450_rel1_plane_spacing_remedy_names_entry(case):
+    from pyflightstream.probes.layouts import ProbeGeometryError, farfield_plane
+
+    with pytest.raises(ProbeGeometryError) as caught:
+        farfield_plane(
+            origin=(0, 0, 0),
+            direction=(1, 0, 0),
+            distance=2,
+            half_width=1,
+            half_height=1,
+            spacing=3,
+        )
+    message = str(caught.value)
+    assert "spacing_bref of the [[farfields]] plane entry" in message
+    assert "[farfield." not in message
+
+
 @pytest.mark.parametrize("case", ["P0450-TW-03"])
 def test_p0450_rel1_architecture_names_farfields_lattices(case):
     page = Path(__file__).parents[2] / "docs" / "srs" / "architecture-srs.md"

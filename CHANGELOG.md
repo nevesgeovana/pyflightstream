@@ -16,6 +16,7 @@ FlightStream versions.
 
 ### Fixed
 
+- Far-field plane spacing refusals point to the `[[farfields]]` plane entry.
 - Far-field station-count warnings name the requesting `[[farfields]]` sections entry.
 - The inside-body far-field refusal directs geometry corrections to `[[farfields]]`.
 - Duplicate far-field balances are refused using the entry's `balances` key.
