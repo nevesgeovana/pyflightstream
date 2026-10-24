@@ -57,9 +57,9 @@ def test_p0430_f151_absent_vectors_are_not_measured_zero():
         polar_row(0, 0.2, 1, coefficients, cref_m=1, bref_m=1, beta_deg=0)
 
 
-def test_p0430_omitted_beta_warns_before_required_transition():
+def test_p0450_ci3_omitted_beta_is_required():
     coefficients = group_coefficients(parse_loads(LOADS), ["W"], bref_m=BREF)
-    with pytest.warns(DeprecationWarning, match="beta_deg"):
+    with pytest.raises(TypeError, match="beta_deg"):
         polar_row(0, 0.2, 1, coefficients, cref_m=CREF, bref_m=BREF)
 
 

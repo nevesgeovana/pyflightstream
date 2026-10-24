@@ -9,6 +9,9 @@ describe the older releases that supplied them.
 
 ## 0.45.0
 
+Pass `beta_deg` to `polar_row`, including `beta_deg=0.0` for zero sideslip.
+The omitted-argument deprecation shim has been removed as promised.
+
 `unsteady_samples` is no longer public; read far-field per-step surveys through post.
 
 Replace `[farfield]` with `[[farfields]]`, one entry per analysis, as shown in

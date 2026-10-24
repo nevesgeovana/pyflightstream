@@ -6824,11 +6824,6 @@
     },
     {
       "source": "pyflightstream.post.polar",
-      "target": "pyflightstream._deprecations",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post.polar",
       "target": "pyflightstream._errors",
       "kind": "module"
     },

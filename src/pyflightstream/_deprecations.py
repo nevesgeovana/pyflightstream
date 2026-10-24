@@ -658,16 +658,6 @@ INFLOW_STATION_HARMONICS = DeprecatedFunction(
     advice="use pyflightstream.post.inflow_tools.InflowStationHarmonics",
 )
 
-#: ``polar_row`` called without ``beta_deg`` keeps zero sideslip and warns; from
-#: the removal version the argument is required.
-POLAR_ROW_OMITTED_BETA = DeprecatedFunction(
-    function="pyflightstream.post.polar.polar_row called without beta_deg",
-    deprecated_since="0.43.0",
-    removal_version="0.45.0",
-    advice="pass beta_deg explicitly; zero sideslip is used until then",
-)
-
-
 MATRIX_REFINE = DeprecatedFunction(
     function="pyfs-matrix refine",
     deprecated_since="0.40.0",
@@ -706,6 +696,5 @@ DEPRECATIONS: tuple[Deprecation, ...] = (
     PLAN_MATRIX_FS_VERSION,
     RUN_MATRIX_FS_VERSION,
     INFLOW_STATION_HARMONICS,
-    POLAR_ROW_OMITTED_BETA,
     *MATRIX_GEOMETRY_ALIASES,
 )

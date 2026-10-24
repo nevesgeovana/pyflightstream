@@ -35,11 +35,9 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
-from warnings import warn
 
 import pyflightstream._textio as _textio
-from pyflightstream._deprecations import POLAR_ROW_OMITTED_BETA
-from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases import select_group_members
 from pyflightstream.post._condition import (
@@ -491,7 +489,7 @@ def polar_row(
     *,
     cref_m: float,
     bref_m: float,
-    beta_deg: float | None = None,
+    beta_deg: float,
 ) -> tuple[float, ...]:
     """Return the twenty-four coefficient values of one polar row.
 
@@ -513,8 +511,7 @@ def polar_row(
 
     ``CD0`` and ``CDI`` stay the solver's own profile and induced drag.
 
-    Omitting ``beta_deg`` is deprecated and warns while retaining zero sideslip; the
-    warning names the release that requires it. Pass the point's sideslip explicitly.
+    Pass the point's sideslip explicitly as ``beta_deg``, including zero sideslip.
     Both measured vectors must be supplied; absent vectors are never measured zeros.
 
     AN INDUCED DRAG THE SOLVER DECLINED (PFS-2006.03) is ``CDI`` NaN, and so is
@@ -538,8 +535,8 @@ def polar_row(
         Reference chord in metres.
     bref_m : float
         Reference span in metres.
-    beta_deg : float, optional
-        Sideslip angle in degrees; omission warns and currently uses zero.
+    beta_deg : float
+        Sideslip angle in degrees.
 
     Returns
     -------
@@ -554,9 +551,6 @@ def polar_row(
         If either measured force or moment vector is absent.
     """
     g = coefficients
-    if beta_deg is None:
-        warn(POLAR_ROW_OMITTED_BETA.message(), PyflightstreamDeprecationWarning, stacklevel=2)
-        beta_deg = 0.0
     if g.force is None or g.moment is None:
         raise ProductError("polar_row needs measured force and moment vectors; supply both")
     axes = polar_axis_coefficients(

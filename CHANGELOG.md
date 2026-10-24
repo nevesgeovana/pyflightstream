@@ -11,6 +11,7 @@ FlightStream versions.
 
 ### Removed
 
+- `polar_row` no longer defaults to zero sideslip; pass `beta_deg` explicitly.
 - `unsteady_samples` is no longer public; read far-field per-step surveys through post.
 
 ### Fixed
