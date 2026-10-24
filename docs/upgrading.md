@@ -31,8 +31,9 @@ Far-field entries now default to the last unsteady step only. Set
 `export_type = "avg_window"` to export and average a final window for A, C or D.
 Use `last_revs` or `last_steps` only with that policy; they remain optional.
 The row's `EXPORT_UNSTEADY_*` keys do not select far-field samples. C/D read
-their dedicated `_farfield_probes.txt` exports and window snapshots, so rerun
-the plan to obtain them; old fluid-plot histories are not far-field inputs.
+their dedicated `<point>_farfield_survey.txt` exports and
+`<point>_farfield_survey_iteration=<step>.txt` window snapshots, so rerun the
+plan to obtain them; old fluid-plot histories are not far-field inputs.
 
 ## 0.44.0
 

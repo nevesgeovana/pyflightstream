@@ -1060,8 +1060,8 @@ def test_f4_0304_a_reduced_far_field_file_records_its_window_and_sample_count(tm
     metadata = {"window": [5.0, 8.0], "samples": 4, "source": "LAST_ITERS_AVG: 4"}
     assert average["reduced_from"] == {stem: {**metadata, "entries": {"power": metadata}}}
     assert average["inputs"] == {
-        stem: [f"outputs/{stem}_farfield_probes.txt"]
-        + [f"outputs/{stem}_farfield_probes_iteration={step}.txt" for step in range(5, 9)]
+        stem: [f"outputs/{stem}_farfield_survey.txt"]
+        + [f"outputs/{stem}_farfield_survey_iteration={step}.txt" for step in range(5, 9)]
     }
     assert "reduced_from" not in wing._ffproof_post___entry(manifest, "_ledgers_instant.csv")
 

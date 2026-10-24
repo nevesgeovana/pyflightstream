@@ -19,7 +19,8 @@ with the other policies and on steady rows. Steady products are identical for
 all three policies. Every entry's manifest states `export_type`.
 
 Far-field planes and lattices always use their own conventional probe export,
-`<point>_farfield_probes.txt`, plus iteration-stamped files for `"avg_window"`.
+`<point>_farfield_survey.txt`, plus
+`<point>_farfield_survey_iteration=<step>.txt` files for `"avg_window"`.
 Declared `[[probes]]` retain their kind and their existing products.
 
 `PPROC` names `inputs/pproc/p<id>.toml`, the post-processing artifact

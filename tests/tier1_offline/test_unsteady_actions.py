@@ -98,7 +98,7 @@ def test_p0450_d8_independent_counter_windows(tmp_path, policy, row_first):
         assert ("EXPORT_SURFACE_SECTIONAL_LOADS" in text) == (
             policy == "avg_window" and 6 <= step <= 8
         )
-        assert ("_farfield_probes.txt" in text) == (policy == "avg_window" and 5 <= step <= 8)
+        assert ("_farfield_survey.txt" in text) == (policy == "avg_window" and 5 <= step <= 8)
         assert ("EXPORT_SOLVER_ANALYSIS_SPREADSHEET" in text) == (
             row_first is not None and step >= row_first
         )

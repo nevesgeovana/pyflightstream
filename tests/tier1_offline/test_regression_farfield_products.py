@@ -439,7 +439,7 @@ def _farfield_products___workspace(root: Path, *, farfield: bool) -> CampaignWor
         f"{stem}_sloads.txt": _farfield_products___sloads(),
         f"{stem}.vtk": "# vtk DataFile Version 3.0\n",
         f"{stem}_wakes.vtk": _farfield_products___wakes(),
-        f"{stem}_farfield_probes.txt": _farfield_products___probes(),
+        f"{stem}_farfield_survey.txt": _farfield_products___probes(),
     }
     for name, text in files.items():
         (raw / name).write_text(text, encoding="utf-8")
@@ -1056,7 +1056,7 @@ class TestFfproofPost:
             tmp_path,
             pproc=_FFPROOF_POST___LEDGERS,
             files={
-                f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _ffproof_post___probe_export(
+                f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _ffproof_post___probe_export(
                     _FFPROOF_POST___POINTS_M, 20.0
                 )
             },
@@ -1144,7 +1144,7 @@ class TestFfproofPost:
             tmp_path,
             pproc=probes + _FFPROOF_POST___LEDGERS,
             files={
-                f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _ffproof_post___probe_export(
+                f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _ffproof_post___probe_export(
                     _FFPROOF_POST___POINTS_M, _ffproof_post___speed(8)
                 )
             },
@@ -1373,7 +1373,7 @@ class TestRfixAProducts:
                 "spacing_bref = 0.05\n"
             ),
             files={
-                f"{_rfixa_products__post._FFPROOF_POST___STEM}_farfield_probes.txt": _rfixa_products__post._ffproof_post___probe_export(  # noqa: E501
+                f"{_rfixa_products__post._FFPROOF_POST___STEM}_farfield_survey.txt": _rfixa_products__post._ffproof_post___probe_export(  # noqa: E501
                     points, 10.0
                 )
             },
@@ -1391,7 +1391,7 @@ class TestRfixAProducts:
             if "Angle of attack (Deg)" in line:
                 lines[n] = "     Angle of attack (Deg)                       0.0"
         loads.write_text("\n".join(lines) + "\n")
-        probes = next(raw.glob("*_farfield_probes.txt"))
+        probes = next(raw.glob("*_farfield_survey.txt"))
         probes.write_text(
             probes.read_text().replace(
                 " 0.000000E+00,  1.000000E+01", "-1.000000E-01,  1.000000E+01"
@@ -1880,7 +1880,7 @@ class TestRfixF2Plots:
         assert any("per exported step" in message for message in messages)
         names = _rfixf2_plots___plot_names(text)
         assert names == [f"VX{point[0]}" for point in script.probe_points]
-        assert "PROBE_POINTS_IMPORT" in text and "_farfield_probes.txt" in text
+        assert "PROBE_POINTS_IMPORT" in text and "_farfield_survey.txt" in text
 
     @staticmethod
     @pytest.mark.requirement("FR-455")
@@ -2094,7 +2094,7 @@ def test_p0450_d2_power_writes_d_and_optional_ledgers(tmp_path, recipe, balances
         _p0450_probe_series(_FFPROOF_POST___POINTS_M)
         if unsteady
         else {
-            f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _ffproof_post___probe_export(
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _ffproof_post___probe_export(
                 _FFPROOF_POST___POINTS_M, 20.0
             )
         }
@@ -2133,7 +2133,7 @@ def test_p0450_d1_rotor_plane_posts_instant_and_average(tmp_path):
 def test_p0450_rv1_bad_snapshot_preserves_valid_instant(tmp_path, broken_step):
     """P0450-RV1-03: only the average needing a broken snapshot is lost."""
     workspace = _p0450_plane_series(tmp_path)
-    path = next(workspace.sim_dir("3207").rglob(f"*_farfield_probes_iteration={broken_step}.txt"))
+    path = next(workspace.sim_dir("3207").rglob(f"*_farfield_survey_iteration={broken_step}.txt"))
     path.write_text("truncated export", encoding="utf-8")
     _ffproof_post___post(workspace)
     root = Path(workspace.root)
@@ -2268,7 +2268,7 @@ def _rfixf_layout___crossflow_plane(tmp_path: Path, table: str, **record: object
         tmp_path,
         pproc=table,
         files={
-            f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _rfixf_layout___export(
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
                 _RFIXF_LAYOUT___LAID.points, velocity
             )
         },
@@ -2299,7 +2299,7 @@ def _rfixf_layout___lattice_then_another_entry(tmp_path: Path, **record: object)
         tmp_path,
         pproc=_rfixf_layout__ffpost._FFPROOF_POST___LEDGERS,
         files={
-            f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _rfixf_layout___export(
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
                 positions, velocity
             )
         },
@@ -2738,7 +2738,7 @@ def _rfixf_plane_lift___post(
             f"{_FFPROOF_POST___STEM}.txt": _FFPROOF_POST__LOADS.replace(
                 "+0.1882829", f"{near_cl:+.7f}"
             ),
-            f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _rfixf_layout___export(
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
                 _RFIXF_PLANE_LIFT___PLANE.points, _rfixf_plane_lift___crossflow(scale)
             ),
         },
@@ -2854,7 +2854,7 @@ def _rfixf_qsteady___ledgers(tmp_path: Path, rpm: float) -> list[dict[str, str]]
         pproc=_RFIXF_QSTEADY___LEDGERS,
         recipe="qsteady_rotor",
         files={
-            f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _rfixf_layout___export(
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
                 _RFIXF_QSTEADY___POINTS, turning
             ),
             f"{_FFPROOF_POST___STEM}_qsteady.json": _rfixf_qsteady___quasi(rpm),
@@ -2953,7 +2953,7 @@ class TestRfixFStatus:
             tmp_path,
             pproc=_rfixf_status__ffpost._FFPROOF_POST___LEDGERS,
             files={
-                f"{_rfixf_status__ffpost._FFPROOF_POST___STEM}_farfield_probes.txt": _rfixf_status__ffpost._ffproof_post___probe_export(  # noqa: E501
+                f"{_rfixf_status__ffpost._FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_status__ffpost._ffproof_post___probe_export(  # noqa: E501
                     _rfixf_status__ffpost._FFPROOF_POST___POINTS_M, 20.0
                 )
             },
@@ -3061,7 +3061,7 @@ def test_p0430_f3_a_number_mixed_with_na_averages_to_na():
 
 def _p0450_probe_series(points):
     """Independent uniform-flow exports: velocity at step n is 10 + n m/s."""
-    name = f"{_FFPROOF_POST___STEM}_farfield_probes"
+    name = f"{_FFPROOF_POST___STEM}_farfield_survey"
     return {
         f"{name}.txt": _ffproof_post___probe_export(points, 18.0),
         **{

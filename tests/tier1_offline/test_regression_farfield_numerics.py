@@ -2405,12 +2405,12 @@ class TestRfixAEvidence:
                 u = 20 + step + 2 * cosine if outlet else 10.0
                 v = 3 * cosine if outlet else 0.0
                 values.append((u, v, 0.0))
-            files[f"{stem}_farfield_probes_iteration={step}.txt"] = (
+            files[f"{stem}_farfield_survey_iteration={step}.txt"] = (
                 _rfixa_evidence__post._rfixf_layout___export(
                     _rfixa_evidence__post._FFPROOF_POST___POINTS_M, np.asarray(values), digits=10
                 )
             )
-        files[f"{stem}_farfield_probes.txt"] = files[f"{stem}_farfield_probes_iteration=8.txt"]
+        files[f"{stem}_farfield_survey.txt"] = files[f"{stem}_farfield_survey_iteration=8.txt"]
         workspace = _rfixa_evidence__post._ffproof_post___campaign(
             tmp_path,
             pproc=_rfixa_evidence__post._FFPROOF_POST___LEDGERS.replace(

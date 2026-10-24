@@ -242,7 +242,7 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
     if needs_fresh_probes(case):
         # FR-1052: an unsteady row whose [[probes]] entries are of kind normal
         # samples the far field with them, as probe points exported once.
-        wanted.append(("farfield_probes", "{name}_farfield_probes.txt", "trefftz:plane or ledgers"))
+        wanted.append(("farfield_probes", "{name}_farfield_survey.txt", "trefftz:plane or ledgers"))
     out = list(names)
     present = classify_outputs(out)
     exports = dict(case.pproc.exports) if case.pproc is not None else {}

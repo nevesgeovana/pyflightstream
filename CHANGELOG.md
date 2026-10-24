@@ -21,7 +21,9 @@ FlightStream versions.
 - Every far-field entry accepts `export_type`: `default` and `last_step` read
   only the last unsteady step; `avg_window` exports and averages the final
   window, independently of other export thresholds. Planes and lattices always
-  use dedicated conventional probe exports. Manifests record each entry's policy.
+  use dedicated conventional probe exports: `<point>_farfield_survey.txt` and
+  `<point>_farfield_survey_iteration=<step>.txt` for window snapshots.
+  Manifests record each entry's policy and the survey input filenames.
 - Per-entry `last_revs` or `last_steps` selects the far-field averaging window
   without changing instant products; manifests state each entry's window source.
 - Trefftz D (`variant = "power"`) writes lattice power channels on rotor and

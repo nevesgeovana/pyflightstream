@@ -745,7 +745,7 @@ def _probe_exports(ctx: SimContext, point: PolarPoint) -> dict[int, Path]:
     record = ctx.record_of[point.name]
     return stamped_exports(
         root, point.name, *(root / Path(name).parent for name in record.outputs)
-    ).get(("_farfield_probes", "txt"), {})
+    ).get(("_farfield_survey", "txt"), {})
 
 
 def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:

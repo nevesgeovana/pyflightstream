@@ -515,8 +515,8 @@ placement for a lattice added alone) and appended by one
 type 1 and preserves the recorded order, plane before lattice. Distinct
 point sets have distinct content-derived filenames. On every row type the
 far field uses conventional probe points, never fluid plots. Its own export is
-`<point>_farfield_probes.txt`, with
-`<point>_farfield_probes_iteration=<step>.txt` at each `"avg_window"` step.
+`<point>_farfield_survey.txt`, with
+`<point>_farfield_survey_iteration=<step>.txt` at each `"avg_window"` step.
 The FR-1052 warning states points per exported step and the exported step count.
 Declared unsteady probes keep their fluid plots and `probes/<point>_probes.csv`.
 With normal declared probes, the far-field export also contains those points;
