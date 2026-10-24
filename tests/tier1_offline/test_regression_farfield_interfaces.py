@@ -46,6 +46,14 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("case", ["P0450-TW-03"])
+def test_p0450_rel1_architecture_names_farfields_lattices(case):
+    page = Path(__file__).parents[2] / "docs" / "srs" / "architecture-srs.md"
+    rule = next(line for line in page.read_text("utf-8").splitlines() if "FR-1073:" in line)
+    assert "`[[farfields]]` lattices" in rule
+    assert "`[farfield]`" not in rule
+
+
 @pytest.mark.parametrize("case", ["P0450-TW-02"])
 def test_p0450_rel1_farfield_overview_names_entries(case):
     assert "through the ``[[farfields]]`` entries of the pproc artifact" in ff.__doc__

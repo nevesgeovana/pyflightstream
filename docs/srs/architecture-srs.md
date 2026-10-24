@@ -268,7 +268,7 @@ Architecture rule FR-928: Layering. The refinement lives in a private package of
 
 Code: `pyflightstream.workspace._refine._level:refine_mesh`. Test: `tests/tier1_offline/test_p0380_s1_refine.py::test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allows`.
 
-Architecture rule FR-1073: The far field takes its lattice from here. `[farfield]` lattices and planes are built by `probes` and emitted as probe shapes; no other module builds probe geometry, and a tier-1 guard fails when a module outside `probes/` defines a probe layout.
+Architecture rule FR-1073: The far field takes its lattice from here. `[[farfields]]` lattices and planes are built by `probes` and emitted as probe shapes; no other module builds probe geometry, and a tier-1 guard fails when a module outside `probes/` defines a probe layout.
 
 Code: `pyflightstream.cases.workflows._farfield:farfield_probes`. Test: `tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldProbes::test_p0400_probehome_no_module_outside_probes_defines_a_layout`.
 
