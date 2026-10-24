@@ -1,0 +1,2 @@
+include tools/check_shipped_surface.py
+include tools/shipped_surface.conf

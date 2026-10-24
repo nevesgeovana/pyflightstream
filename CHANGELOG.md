@@ -7,6 +7,11 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- Release tools reach the sdist through MANIFEST.in and are no longer installed
+  with the package (RV2-03).
+
 ## [0.44.0] - 2026-10-23
 
 ### Changed
