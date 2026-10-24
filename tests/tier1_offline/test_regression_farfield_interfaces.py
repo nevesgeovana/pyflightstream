@@ -122,9 +122,11 @@ def test_p0450_rel1_plane_spacing_remedy_names_entry(case):
 @pytest.mark.parametrize("case", ["P0450-TW-03"])
 def test_p0450_rel1_architecture_names_farfields_lattices(case):
     page = Path(__file__).parents[2] / "docs" / "srs" / "architecture-srs.md"
-    rule = next(line for line in page.read_text("utf-8").splitlines() if "FR-1073:" in line)
-    assert "`[[farfields]]` lattices" in rule
-    assert "`[farfield]`" not in rule
+    text = page.read_text("utf-8")
+    rule = next(line for line in text.splitlines() if "FR-1073:" in line)
+    # A demoted rule keeps its historical statement (P0420); the current spelling is a note.
+    assert "`[farfield]` lattices" in rule
+    assert "the `[farfield]` table this rule names is written as `[[farfields]]` entries" in text
 
 
 @pytest.mark.parametrize("case", ["P0450-TW-02"])
