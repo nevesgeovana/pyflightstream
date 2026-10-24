@@ -163,6 +163,37 @@ def test_p0450_ff5_rounded_plane_keeps_drag_and_refuses_wrong_plane(alpha, beta,
         plane_values(replace(samples, positions=warped), block, **args)
 
 
+def test_p0450_ff5_lattice_precision_names_spacing_and_configuration():
+    """LIC-03: an ambiguous lattice names the required native spacing and its controls."""
+    from pyflightstream.post.farfield_fields import FarLayout
+    from pyflightstream.probes import build_lattice
+
+    for stations, inner, outer, origin, refused in [
+        ((-2.0, 4.0, 8.0), 0.05, 2.5, 100.0, True),
+        ((-1.0, 1.0), 0.2, 1.5, 0.0, False),
+    ]:
+        lattice = build_lattice(
+            tip_radius=8.0,
+            stations=stations,
+            n_r=8,
+            n_psi=24,
+            r_inner=inner,
+            r_outer=outer,
+        )
+        points = lattice_points(lattice, axis="X") + np.array([origin, 0.0, 0.0])
+        samples = _ff5_printed_samples(points, np.tile([30.0, 0.0, 0.0], (len(points), 1)))
+        assert samples.digits == 4
+        block, _, why = far_samples(samples, FarLayout(lattice_m=points), per_m=1.0)
+        if refused:
+            assert block is None
+            assert "printed precision" in why
+            assert "at least 0.80008 native units" in why
+            for key in ("r_inner", "n_psi", "n_r", "r_outer", "stations"):
+                assert key in why
+        else:
+            assert block is not None, why
+
+
 def _farfield_products___sloads() -> str:
     q = 0.5 * _FARFIELD_PRODUCTS__RHO * _FARFIELD_PRODUCTS__SPEED * _FARFIELD_PRODUCTS__SPEED
     peak = (

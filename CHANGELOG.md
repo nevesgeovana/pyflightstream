@@ -40,6 +40,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Ambiguous far-field lattice refusals name the required native spacing and
+  the lattice keys that can change it, retaining the precision guard.
 - Trefftz C accepts tilted planes within their exported coordinate precision,
   while still refusing probes that do not match the laid plane.
 - An exploratory `[noise]` post writes `noise_report.json` with an `empty`

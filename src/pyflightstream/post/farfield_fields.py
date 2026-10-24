@@ -696,13 +696,16 @@ def _locate_one(
         + ([] if by_shape else [float(np.abs(expected).max(initial=0.0))])
         + [0.0]
     )
-    if (
-        2.0 * float(coordinate_tolerance(np.array([reach]), samples.digits)[0])
-        > _SPACING_FRACTION * spacing
-    ):
+    required_spacing = (
+        2.0 * float(coordinate_tolerance(np.array([reach]), samples.digits)[0]) / _SPACING_FRACTION
+    )
+    if spacing < required_spacing:
         return None, (
             f"the {what} the run laid has points {spacing:.3g} native units apart, closer than "
-            "the printed precision of the export can tell apart at its coordinates"
+            "the printed precision of the export can tell apart at its coordinates; "
+            f"reach {reach:g} needs spacing at least {required_spacing:.6g} native units: "
+            "adjust r_inner, n_psi, n_r, r_outer or stations for a lattice, "
+            "or spacing_bref for a plane"
         )
     if len(starts) > 1:
         return None, (

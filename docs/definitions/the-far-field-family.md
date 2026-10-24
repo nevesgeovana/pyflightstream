@@ -490,6 +490,9 @@ space, also on a coupled row: they sample the flow, not the structure.
 A steady entry in the reference frame emits its declared lattices with
 `pyflightstream.probes.emit_probe_points`, placed on the rotor's hub or the
 reference axes, in the simulation length unit and rounded to five decimals.
+The minimum lattice spacing must be at least twice the coordinate tolerance at
+its reach divided by 0.25; a refusal states that spacing in native units and
+names `r_inner`, `n_psi`, `n_r`, `r_outer` and `stations` as the controls to adjust.
 
 On a steady row the added plane and lattice are written to one staged
 `X,Y,Z,TYPE` CSV in the simulation length unit (by
