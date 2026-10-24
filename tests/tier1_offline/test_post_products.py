@@ -2864,15 +2864,24 @@ def _ff_helpers():
 
 def _ff_posted(tmp_path, *, steps, record=None, pproc=None):
     helpers = _ff_helpers()
-    count = len(helpers._FFPROOF_POST___POINTS_M)
+    # D8/D8b: average only stamped conventional far-field probe exports.
+    stem = helpers._FFPROOF_POST___STEM
+    files = {
+        f"{stem}_farfield_survey_iteration={step}.txt": helpers._ffproof_post___probe_export(
+            helpers._FFPROOF_POST___POINTS_M, helpers._ffproof_post___speed(step)
+        )
+        for step in range(5, steps + 1)
+    }
+    files[f"{stem}_farfield_survey.txt"] = helpers._ffproof_post___probe_export(
+        helpers._FFPROOF_POST___POINTS_M, helpers._ffproof_post___speed(steps)
+    )
     workspace = helpers._ffproof_post___campaign(
         tmp_path,
-        pproc=pproc or helpers._FFPROOF_POST___LEDGERS,
-        files={
-            f"{helpers._FFPROOF_POST___STEM}_plots.txt": helpers._ffproof_post___plots_export(
-                count, steps
-            )
-        },
+        pproc=pproc
+        or helpers._FFPROOF_POST___LEDGERS.replace(
+            "[[farfields]]", '[[farfields]]\nexport_type = "avg_window"'
+        ),
+        files=files,
         recipe="unsteady",
         reductions=helpers._FFPROOF_POST___WINDOW,
         positions=True,
@@ -2906,6 +2915,7 @@ def test_p0430_f126_a_window_the_recorded_steps_only_partly_cover_writes_no_aver
 def test_p0430_f145_a_normal_probe_row_carries_the_recorded_stop(tmp_path):
     """F-145: a run stopped at step 6 of 8 labels its normal-probe instant 6."""
     helpers = _ff_helpers()
+    stem = helpers._FFPROOF_POST___STEM
     probes = (
         '[[probes]]\nframe = "MRP"\nkind = "normal"\nparameters = ["VX"]\n'
         '[[probes.lattices]]\nframe = "MRP"\ntip_radius_m = 1.0\nstations = [-1.0, 1.0]\n'
@@ -2915,7 +2925,8 @@ def test_p0430_f145_a_normal_probe_row_carries_the_recorded_stop(tmp_path):
         tmp_path,
         pproc=probes + helpers._FFPROOF_POST___LEDGERS,
         files={
-            f"{helpers._FFPROOF_POST___STEM}_probes.txt": helpers._ffproof_post___probe_export(
+            # D8b: the far field reads its dedicated conventional export.
+            f"{stem}_farfield_survey.txt": helpers._ffproof_post___probe_export(
                 helpers._FFPROOF_POST___POINTS_M, helpers._ffproof_post___speed(6)
             )
         },
@@ -2931,13 +2942,7 @@ def test_p0430_f145_a_normal_probe_row_carries_the_recorded_stop(tmp_path):
 
 
 def test_p0430_f144_a_steady_row_that_spins_is_a_rotor_for_the_probe_point(tmp_path):
-    """F-144: the probe stage is told the row is a rotor, as the product stage decided.
-
-    The wing's probes are one plane. A spinning row reads a rotor lattice instead, so
-    the plane is not read as a Trefftz plane: the point is skipped with the reason
-    and no Trefftz table is written. The control, the same row without a speed, writes
-    the plane's table.
-    """
+    """D1: steady RPM rows retain their configuration Trefftz C plane."""
     helpers = _ff_helpers()
 
     def posted(root, point):
@@ -2951,9 +2956,11 @@ def test_p0430_f144_a_steady_row_that_spins_is_a_rotor_for_the_probe_point(tmp_p
     tables, _skipped = posted(tmp_path / "wing", {"alpha": 4.0})
     assert tables
     tables, skipped = posted(tmp_path / "rotor", {"alpha": 4.0, "RPM": 1200.0})
-    assert not tables
-    (why,) = [v for k, v in skipped.items() if k.startswith("farfield/probes#point=")]
-    assert "the run laid no far-field probes these analyses read" in why
+    # D1 replaces the rotor-lattice interpretation of C with a configuration plane.
+    assert tables
+    (row,) = [r for r in helpers._farfield_products___table(tables[0]) if r["VARIANT"] == "C"]
+    assert row["FAMILY"] == "net"
+    assert not any(k.startswith("farfield/probes#point=") for k in skipped)
 
 
 def test_p0430_f1811_the_spanwise_table_carries_the_condition_and_reference_block(tmp_path):
@@ -2997,7 +3004,8 @@ def test_p0430_f125_e_t_puts_the_native_cl_on_the_free_stream_dynamic_pressure(t
         tmp_path,
         pproc=helpers._RFIXF_PLANE_LIFT___TABLE,
         files={
-            f"{helpers._FFPROOF_POST___STEM}_probes.txt": helpers._rfixf_layout___export(
+            # D8b: the far field reads its dedicated conventional export.
+            f"{helpers._FFPROOF_POST___STEM}_farfield_survey.txt": helpers._rfixf_layout___export(
                 helpers._RFIXF_PLANE_LIFT___PLANE.points, helpers._rfixf_plane_lift___crossflow(1.0)
             )
         },
@@ -3278,7 +3286,8 @@ def test_trefftz_b_states_a_missing_density_as_its_reason_f4_07(tmp_path):
     assert any("no density or free-stream speed" in message for message in said)
     products = helpers._ffproof_post___one(Path(workspace.root), "products.json")
     skipped = json.loads(products.read_text(encoding="utf-8"))["skipped"]
-    (why,) = [v for k, v in skipped.items() if k.endswith("#variant=wake")]
+    # D0: a skip identifies its analysis entry as well as its variant.
+    (why,) = [v for k, v in skipped.items() if k.endswith("#variant=wake#entry=wake")]
     assert why == "the point states no density or free-stream speed"
 
 

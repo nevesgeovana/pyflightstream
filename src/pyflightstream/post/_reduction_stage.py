@@ -21,18 +21,19 @@ joining :mod:`pyflightstream.post.point_tables`.
 from __future__ import annotations
 
 import math
+import os
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream.cases import DEFAULT_DRIFT_LIMIT_PCT
+from pyflightstream.cases import AXES_PLOT_GROUP, DEFAULT_DRIFT_LIMIT_PCT
 from pyflightstream.cases.windows import AZIMUTHAL, averaging_span
 from pyflightstream.cases.workflows import PER_ROTOR_REDUCTIONS, REDUCTION_NAMES, ROTORS_KEY
-from pyflightstream.post._condition import _recorded_speeds, row_rotor_speeds
+from pyflightstream.post._condition import _last_time_step, _recorded_speeds, row_rotor_speeds
 from pyflightstream.post._stage import (
     _MOMENT_POINT_COLUMNS,
     _PER_BLADE,
@@ -46,8 +47,10 @@ from pyflightstream.post._stage import (
     _window_the_reduction_reads,
 )
 from pyflightstream.post._tables import (
+    CONTEXT_COLUMNS,
     ProductError,
     ReferenceValues,
+    _cell,
     context_row,
     plots_table_series,
     renamed_columns,
@@ -55,6 +58,8 @@ from pyflightstream.post._tables import (
 )
 from pyflightstream.post.farfield_fields import (
     FarLayout,
+    ProbeSamples,
+    average_rows,
     derived_layout,
     frame_lattice,
     recorded_layout,
@@ -74,7 +79,185 @@ from pyflightstream.post.unsteady import (
     TimestepSeries,
     revolution_drift_warnings,
 )
+from pyflightstream.post.unsteady_polar import global_frame_plot_groups
 from pyflightstream.results import FrozenSolve
+
+
+@dataclass(frozen=True)
+class _Instant:
+    """The probe values of one instant and the step they are of."""
+
+    samples: ProbeSamples
+    step: object
+
+
+def _step(instant: _Instant) -> float:
+    step = instant.step
+    return float(step) if isinstance(step, int | float) else math.nan
+
+
+def _window_near_forces(
+    ctx: SimContext, point: str, chosen: list[_Instant], axis: str
+) -> dict[float, float]:
+    """Read whole-configuration forces in N on exactly the probe window's steps."""
+    assert ctx.pproc.farfield is not None
+    if not chosen or "axial" not in ctx.pproc.farfield.balances:
+        return {}
+    source = ctx.plots_tables.get(point)
+    column = f"F{axis}_{AXES_PLOT_GROUP}"
+    try:
+        if source is None:
+            raise ValueError("no point plots table")
+        _, series = plots_table_series(source)
+        groups = global_frame_plot_groups(
+            ctx.pproc, inventory=ctx.record_of[point].inventory or (), aliases=ctx.aliases
+        )
+        if AXES_PLOT_GROUP not in groups or column not in series.fields:
+            raise ValueError(f"no whole-configuration global force {column}")
+        forces = dict(zip(series.steps, -series.fields[column][:, 0], strict=True))
+        missing = [
+            int(_step(i)) for i in chosen if not math.isfinite(forces.get(_step(i), math.nan))
+        ]
+        if missing:
+            raise ValueError(f"missing finite force at steps {missing}")
+        return forces
+    except (PyflightstreamError, OSError, ValueError) as error:
+        entry = ctx.pproc.farfield.name
+        reason = (
+            f"SPURIOUS_COUNTS needs loads history covering the same window: {error}; "
+            "restore the point's complete global force history"
+        )
+        ctx.skipped[f"farfield/ledgers_average#point={point}#SPURIOUS_COUNTS#entry={entry}"] = (
+            reason
+        )
+        warn(
+            f"point={point} product=farfield entry={entry}: {reason}",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+        return {}
+
+
+def _super_cells(
+    rows: Sequence[tuple[tuple[object, ...], str]], columns: Sequence[str]
+) -> dict[str, dict[str, str]]:
+    """Return super-file cells from A's TOTAL and whole-flow net rows (FR-1062)."""
+    first = 3 + len(CONTEXT_COLUMNS)
+    family = first + columns.index("FAMILY")
+    variant = first + columns.index("VARIANT")
+    out: dict[str, dict[str, str]] = {}
+    for row, point in rows:
+        if row[family] != ("TOTAL" if row[variant] == "A" else "net"):
+            continue
+        cells = out.setdefault(point, {})
+        for column in ("CL_T", "CDI_T", "E_T"):
+            cells[f"{column}_{row[variant]}_{row[1]}"] = _cell(row[first + columns.index(column)])
+    return out
+
+
+def _named(ctx: SimContext, paths: Sequence[Path | str | None]) -> list[str]:
+    """Return the export files a product consumed, relative to the simulation folder."""
+    present = [path for path in paths if path is not None]
+    if not present:
+        return []
+    root = ctx.workspace.sim_dir(ctx.sim_id)
+    names: list[str] = []
+    for path in paths:
+        if path is None:
+            continue
+        try:
+            name = Path(os.path.relpath(path, root)).as_posix()
+        except ValueError:
+            name = Path(path).as_posix()
+        if name not in names:
+            names.append(name)
+    return names
+
+
+@dataclass
+class _Tables:
+    """The rows of one simulation's far-field files, by file suffix."""
+
+    rows: dict[str, list[tuple[object, ...]]] = field(default_factory=dict)
+    owners: dict[str, list[str]] = field(default_factory=dict)
+    runs: dict[str, list[str]] = field(default_factory=dict)
+    inputs: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    #: Per suffix and point, the averaging window and the sample count of a reduced file.
+    reduced: dict[str, dict[str, dict[str, object]]] = field(default_factory=dict)
+
+    def extend(
+        self,
+        suffix: str,
+        point: str,
+        exports: Sequence[str],
+        rows: list,
+        *,
+        runs: Sequence[str],
+        window: Sequence[float] | None = None,
+        samples: int | None = None,
+        source: str = "",
+    ) -> None:
+        """Add a point's rows; ``exports`` names the input exports the rows were read from."""
+        if not rows:
+            return
+        self.rows.setdefault(suffix, []).extend(rows)
+        self.owners.setdefault(suffix, []).extend([point] * len(rows))
+        held = self.runs.setdefault(suffix, [])
+        held += [run for run in runs if run not in held]
+        inputs = self.inputs.setdefault(suffix, {}).setdefault(point, [])
+        inputs.extend(path for path in exports if path not in inputs)
+        if samples is not None:
+            metadata = {
+                "window": None if window is None else [float(window[0]), float(window[1])],
+                "samples": int(samples),
+                "source": source,
+            }
+            reduced = self.reduced.setdefault(suffix, {}).setdefault(point, dict(metadata))
+            entries = reduced.setdefault("entries", {})
+            if isinstance(entries, dict):
+                entries[str(rows[0][1])] = metadata
+
+    def super_rows(self) -> list[tuple[tuple[object, ...], str]]:
+        """Return the rows the super file reads: steady, else each point's average or instant."""
+        out = list(zip(self.rows.get("trefftz", []), self.owners.get("trefftz", []), strict=True))
+        averaged = {
+            (point, row[1])
+            for row, point in zip(
+                self.rows.get("trefftz_average", []),
+                self.owners.get("trefftz_average", []),
+                strict=True,
+            )
+        }
+        for suffix in ("trefftz_average", "trefftz_instant"):
+            pairs = zip(self.rows.get(suffix, []), self.owners.get(suffix, []), strict=True)
+            out += [
+                (row, point)
+                for row, point in pairs
+                if suffix == "trefftz_average" or (point, row[1]) not in averaged
+            ]
+        return out
+
+
+def _average_entry_rows(rows: list, first: int) -> list:
+    """Average numerical cells while preserving the entry label after POL."""
+    if not rows:
+        return []
+    name = rows[0][0][1]
+    stripped = [[row[:1] + row[2:] for row in step] for step in rows]
+    return [row[:1] + (name,) + row[1:] for row in average_rows(stripped, first)]
+
+
+def _q_ref(point: PolarPoint, rho: float) -> float:
+    """Return the dynamic pressure the export's ``Cp_ref`` and coefficients are taken on."""
+    loads = point.loads
+    v_ref = loads.reference_velocity_m_s or loads.freestream_velocity_m_s
+    return 0.5 * rho * float(v_ref) ** 2
+
+
+def _last_step(record: object) -> object:
+    """Return the run's last time step, the instant a normal probe holds, or NA."""
+    last = _last_time_step(cast("Any", record))
+    return _NA if last is None else last
 
 
 def _dictionary_the_table_can_honour(

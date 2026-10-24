@@ -140,7 +140,7 @@ def stamped_exports(
         (suffix, extension) to the file of each step.
     """
     pattern = re.compile(
-        rf"{re.escape(stem)}(_cp|_sloads|_probes|_farfield_probes)?_iteration=(\d+)\.(txt|dat|vtk|csv)$"
+        rf"{re.escape(stem)}(_cp|_sloads|_probes|_farfield_survey)?_iteration=(\d+)\.(txt|dat|vtk|csv)$"
     )
     found: dict[tuple[str, str], dict[int, Path]] = {}
     folders: list[Path] = []

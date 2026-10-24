@@ -40,6 +40,12 @@ _UNIT_SUFFIX = re.compile(
 
 
 _DIMENSIONLESS_OR_DEBT = {
+    # D0/D2: distances divided by BREF and the power station x/R are ratios.
+    "distance_bref",
+    "half_width_bref",
+    "half_height_bref",
+    "spacing_bref",
+    "station",
     # Normalized airfoil coordinates and chord fraction are dimensionless.
     "airfoil",
     "pitch_axis_chord_fraction",

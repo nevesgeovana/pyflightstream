@@ -127,7 +127,7 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
     ("sections", "_cp.txt", "EXPORT_ALL_SURFACE_SECTIONS", False),
     ("sectional_loads", "_sloads.txt", "EXPORT_SURFACE_SECTIONAL_LOADS", False),
     ("probes", "_probes.txt", "EXPORT_PROBE_POINTS", False),
-    ("farfield_probes", "_farfield_probes.txt", "EXPORT_PROBE_POINTS", False),
+    ("farfield_probes", "_farfield_survey.txt", "EXPORT_PROBE_POINTS", False),
     ("plots", "_plots.txt", "UNSTEADY_SOLVER_EXPORT_PLOTS", True),
     ("plot_residuals", "_plot_residuals.txt", "SAVE_PLOT_TO_FILE", False),
     ("plot_loads", "_plot_loads.txt", "SAVE_PLOT_TO_FILE", False),

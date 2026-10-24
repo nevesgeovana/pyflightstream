@@ -216,7 +216,7 @@ def _farfield_plan___box(root: Path) -> Path:
     return mesh
 
 
-def _farfield_plan___case(root: Path, farfield: dict, **pproc: object):
+def _farfield_plan___case(root: Path, farfield: list[dict] | dict | None, **pproc: object):
     mesh = _farfield_plan___box(root)
     sidecar = root / "box.boundaries.toml"
     spec = PprocSpec.model_validate({"groups": {"1": "all"}, "farfields": farfield or [], **pproc})
@@ -321,7 +321,7 @@ def test_p0450_rv1_motion_clock_accepts_farfield_revolutions():
         }
     )
     outputs = row_outputs(case, "unsteady_rotor")
-    assert any(name.endswith("_farfield_probes.txt") for name in outputs)
+    assert any(name.endswith("_farfield_survey.txt") for name in outputs)
     assert farfield_export_windows(case) == ((37, 72, "farfield_probes"),)
 
 
@@ -1401,7 +1401,7 @@ class TestFfproofPlan:
             f"case '7002': the far-field lattice samples {_FFPROOF_PLAN___POINTS} points "
             "per exported step, 1 exported steps (FR-1052)."
         ]
-        assert any(name.endswith("_farfield_probes.txt") for name in case.outputs)
+        assert any(name.endswith("_farfield_survey.txt") for name in case.outputs)
 
     @staticmethod
     @pytest.mark.requirement("FR-455")
@@ -1522,7 +1522,7 @@ def test_p0450_d8_default_has_own_conventional_probe_export(tmp_path):
     )
     text, messages = _ffproof_plan___built(case)
     assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in text
-    assert any(name.endswith("_farfield_probes.txt") for name in case.outputs)
+    assert any(name.endswith("_farfield_survey.txt") for name in case.outputs)
     assert "EXPORT_PROBE_POINTS" in text
     cost = [message for message in messages if "FR-1052" in message]
     assert any("per exported step" in message and "1 exported step" in message for message in cost)
@@ -1563,7 +1563,7 @@ def test_p0450_d8_declared_probe_kind_does_not_route_farfield(tmp_path, value, k
     )
     text, _ = _ffproof_plan___built(case)
     assert text.count(_FFPROOF_PLAN___PLOT) == (_FFPROOF_PLAN___POINTS if kind == "unsteady" else 0)
-    assert "EXPORT_PROBE_POINTS" in text and "_farfield_probes.txt" in text
+    assert "EXPORT_PROBE_POINTS" in text and "_farfield_survey.txt" in text
 
 
 @pytest.mark.parametrize("variant", ["sections", "plane", "power"])

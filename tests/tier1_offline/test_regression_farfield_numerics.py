@@ -79,7 +79,6 @@ from pyflightstream.post.farfield_fields import (
     lattice_samples,
     ledger_values,
     rotor_lattice,
-    unsteady_samples,
 )
 from pyflightstream.post.products import read_csv_table as _rfixb_madv__read_csv_table
 from pyflightstream.post.products import write_rotor_table
@@ -131,7 +130,6 @@ from tests.tier1_offline.test_matrix_run import converged as _rfixb_madv__conver
 from tests.tier1_offline.test_matrix_run import make_library as _rfixb_madv__make_library
 from tests.tier1_offline.test_p0370_s5_probe_kind import _continuation as _litb_bulk___continuation
 from tests.tier1_offline.test_p0370_s5_probe_kind import _entry as _litb_bulk___entry
-from tests.tier1_offline.test_post_products import PLOTS_HEADER as _RFIXA_EVIDENCE__PLOTS_HEADER
 from tests.tier1_offline.test_regression_farfield_interfaces import (
     _farfield_plan___case as _litb_bulk___case,
 )
@@ -298,18 +296,13 @@ class TestFarfieldLedgers:
 
     @staticmethod
     @pytest.mark.requirement("FR-38")
-    def test_p0400_ledgers_unsteady_samples_read_each_vertex():
-        """P0400-LEDGERS (FR-1052): fluid plots by vertex; a missing plot is NaN, never zero."""
-        series = {
-            "VX1": np.array([1.0, 2.0]),
-            "VY1": np.array([0.0, 0.0]),
-            "VZ1": np.array([0.0, 0.0]),
-            "CP_REF1": np.array([0.1, 0.2]),
-        }
-        positions = {1: (0.0, 0.0, 0.0, "REFERENCE"), 2: (1.0, 0.0, 0.0, "REFERENCE")}
-        samples = unsteady_samples(series, positions, 1)
-        assert samples.velocity[0].tolist() == [2.0, 0.0, 0.0] and samples.cp[0] == 0.2
-        assert math.isnan(samples.velocity[1, 0]) and math.isnan(samples.cp[1])
+    def test_p0450_fix38_unsteady_samples_is_not_public():
+        """P0450-FIX38: per-step far-field surveys are read through post."""
+        from scripts.gen_api_reference import subpackage_page
+
+        assert "unsteady_samples" not in farfield_fields.__all__
+        assert not hasattr(farfield_fields, "unsteady_samples")
+        assert "unsteady_samples" not in subpackage_page(farfield_fields.__name__, set())
 
     @staticmethod
     @pytest.mark.requirement("FR-38")
@@ -2394,9 +2387,10 @@ class TestRfixAEvidence:
         """FR-481,FR-484: mean(u^2) and a correlated order-two transverse field."""
         lattice = _rfixa_evidence__post._FFPROOF_POST___SHAPE.build(1.0)
         n = lattice.point_count
-        names = [f"{p}{i}" for i in range(1, n + 1) for p in ("VX", "VY", "VZ", "CP_REF")]
-        table = "Time-step," + ",".join(names) + "\n"
-        for step in range(1, 9):
+        # D8/D8b: preserve the nonlinear field in conventional per-step exports.
+        stem = _rfixa_evidence__post._FFPROOF_POST___STEM
+        files = {}
+        for step in range(5, 9):
             values = []
             for i in range(n):
                 outlet = lattice.n_r * lattice.n_psi <= i < 2 * lattice.n_r * lattice.n_psi
@@ -2404,18 +2398,19 @@ class TestRfixAEvidence:
                 cosine = math.cos(2 * psi)
                 u = 20 + step + 2 * cosine if outlet else 10.0
                 v = 3 * cosine if outlet else 0.0
-                values.extend((u, v, 0.0, 0.0))
-            table += str(step) + "," + ",".join(f"{v:.8f}" for v in values) + ",\n"
+                values.append((u, v, 0.0))
+            files[f"{stem}_farfield_survey_iteration={step}.txt"] = (
+                _rfixa_evidence__post._rfixf_layout___export(
+                    _rfixa_evidence__post._FFPROOF_POST___POINTS_M, np.asarray(values), digits=10
+                )
+            )
+        files[f"{stem}_farfield_survey.txt"] = files[f"{stem}_farfield_survey_iteration=8.txt"]
         workspace = _rfixa_evidence__post._ffproof_post___campaign(
             tmp_path,
-            pproc=_rfixa_evidence__post._FFPROOF_POST___LEDGERS,
-            files={
-                f"{_rfixa_evidence__post._FFPROOF_POST___STEM}_plots.txt": _RFIXA_EVIDENCE__PLOTS_HEADER  # noqa: E501
-                + table
-                + "-" * 60
-                + "\n     Force Units: Coefficients\n"
-                + "Software : Flightstream version 26.1, build #7012026\n"
-            },
+            pproc=_rfixa_evidence__post._FFPROOF_POST___LEDGERS.replace(
+                "[[farfields]]", '[[farfields]]\nexport_type = "avg_window"'
+            ),
+            files=files,
             recipe="unsteady",
             reductions=_rfixa_evidence__post._FFPROOF_POST___WINDOW,
             positions=True,

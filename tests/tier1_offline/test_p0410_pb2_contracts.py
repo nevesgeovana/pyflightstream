@@ -83,9 +83,10 @@ def test_p0410_pb2_model_guard_catches_a_planted_bare_validation_error():
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
 def test_p0410_pb2_nfr47_nonfinite_pproc_names_nested_field_in_public_refusal(value):
-    data = {"farfield": {"families": ["wing"], "ledgers": {"frame": "survey", "tip_radius_m": 1.0}}}
-    assert PprocArtifact(**data).farfield.ledgers.tip_radius_m == 1.0
-    data["farfield"]["ledgers"]["tip_radius_m"] = value
+    # D0/D2: lattice keys belong directly to a power entry.
+    data = {"farfields": [{"variant": "power", "frame": "survey", "tip_radius_m": 1.0}]}
+    assert PprocArtifact(**data).farfields[0].tip_radius_m == 1.0
+    data["farfields"][0]["tip_radius_m"] = value
     _assert_refusal(lambda: PprocArtifact(**data), InputArtifactError, "tip_radius_m")
 
 

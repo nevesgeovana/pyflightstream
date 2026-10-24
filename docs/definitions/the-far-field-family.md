@@ -97,8 +97,8 @@ other than `"avg_window"`. `last_revs` without a rotor clock is refused naming
 The manifest records each entry's `export_type`; each average also records
 its window, sample count and source under `reduced_from`.
 
-The 0.44.0 `[farfield]` spelling is refused at load with equivalent array entries.
-Its families move to A alone. Its ledgers become a `power` entry. A 0.44.0 rotor
+The retired `[farfield]` spelling is refused at load with equivalent array entries.
+Its families move to A alone. Its ledgers become a `power` entry. A retired rotor
 `plane` analysis with ledgers means the power analysis; request a separate `plane`
 entry only when a velocity plane is also wanted.
 
@@ -515,8 +515,8 @@ placement for a lattice added alone) and appended by one
 type 1 and preserves the recorded order, plane before lattice. Distinct
 point sets have distinct content-derived filenames. On every row type the
 far field uses conventional probe points, never fluid plots. Its own export is
-`<point>_farfield_probes.txt`, with
-`<point>_farfield_probes_iteration=<step>.txt` at each `"avg_window"` step.
+`<point>_farfield_survey.txt`, with
+`<point>_farfield_survey_iteration=<step>.txt` at each `"avg_window"` step.
 The FR-1052 warning states points per exported step and the exported step count.
 Declared unsteady probes keep their fluid plots and `probes/<point>_probes.csv`.
 With normal declared probes, the far-field export also contains those points;

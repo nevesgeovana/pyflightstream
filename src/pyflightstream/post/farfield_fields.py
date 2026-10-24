@@ -19,19 +19,18 @@ named skip, never a guess.
 from __future__ import annotations
 
 import math
-import os
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream._fsm import saved_length_unit
 from pyflightstream._lengths import scale
-from pyflightstream.cases import AXES_PLOT_GROUP, classify_outputs
+from pyflightstream.cases import classify_outputs
 from pyflightstream.cases._farfield_spec import LatticeShape, LedgersSpec
 from pyflightstream.farfield import (
     LatticeFields,
@@ -56,15 +55,12 @@ from pyflightstream.farfield import (
     transverse_flux,
     transverse_force,
 )
-from pyflightstream.post._tables import CONTEXT_COLUMNS, _cell, plots_table_series
-from pyflightstream.post.unsteady_polar import global_frame_plot_groups
 from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.lattice import ProbeLattice
 from pyflightstream.probes.layouts import farfield_plane, lattice_points
 from pyflightstream.results.loads import parse_probe_points
 
 if TYPE_CHECKING:
-    from pyflightstream.post._sim import SimContext
     from pyflightstream.workspace import RunRecord
 
 __all__ = [
@@ -83,172 +79,7 @@ __all__ = [
     "rotor_lattice",
     "rotor_values",
     "steady_samples",
-    "unsteady_samples",
 ]
-
-
-@dataclass(frozen=True)
-class _Instant:
-    """The probe values of one instant and the step they are of."""
-
-    samples: ProbeSamples
-    step: object
-
-
-def _step(instant: _Instant) -> float:
-    step = instant.step
-    return float(step) if isinstance(step, int | float) else math.nan
-
-
-def _window_near_forces(
-    ctx: SimContext, point: str, chosen: list[_Instant], axis: str
-) -> dict[float, float]:
-    """Read whole-configuration forces in N on exactly the probe window's steps."""
-    assert ctx.pproc.farfield is not None
-    if not chosen or "axial" not in ctx.pproc.farfield.balances:
-        return {}
-    source = ctx.plots_tables.get(point)
-    column = f"F{axis}_{AXES_PLOT_GROUP}"
-    try:
-        if source is None:
-            raise ValueError("no point plots table")
-        _, series = plots_table_series(source)
-        groups = global_frame_plot_groups(
-            ctx.pproc, inventory=ctx.record_of[point].inventory or (), aliases=ctx.aliases
-        )
-        if AXES_PLOT_GROUP not in groups or column not in series.fields:
-            raise ValueError(f"no whole-configuration global force {column}")
-        forces = dict(zip(series.steps, -series.fields[column][:, 0], strict=True))
-        missing = [
-            int(_step(i)) for i in chosen if not math.isfinite(forces.get(_step(i), math.nan))
-        ]
-        if missing:
-            raise ValueError(f"missing finite force at steps {missing}")
-        return forces
-    except (PyflightstreamError, OSError, ValueError) as error:
-        entry = ctx.pproc.farfield.name
-        reason = (
-            f"SPURIOUS_COUNTS needs loads history covering the same window: {error}; "
-            "restore the point's complete global force history"
-        )
-        ctx.skipped[f"farfield/ledgers_average#point={point}#SPURIOUS_COUNTS#entry={entry}"] = (
-            reason
-        )
-        warn(
-            f"point={point} product=farfield entry={entry}: {reason}",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-        return {}
-
-
-def _super_cells(
-    rows: Sequence[tuple[tuple[object, ...], str]], columns: Sequence[str]
-) -> dict[str, dict[str, str]]:
-    """Return super-file cells from A's TOTAL and whole-flow net rows (FR-1062)."""
-    first = 3 + len(CONTEXT_COLUMNS)
-    family = first + columns.index("FAMILY")
-    variant = first + columns.index("VARIANT")
-    out: dict[str, dict[str, str]] = {}
-    for row, point in rows:
-        if row[family] != ("TOTAL" if row[variant] == "A" else "net"):
-            continue
-        cells = out.setdefault(point, {})
-        for column in ("CL_T", "CDI_T", "E_T"):
-            cells[f"{column}_{row[variant]}_{row[1]}"] = _cell(row[first + columns.index(column)])
-    return out
-
-
-def _named(ctx: SimContext, paths: Sequence[Path | str | None]) -> list[str]:
-    """Return the export files a product consumed, relative to the simulation folder."""
-    present = [path for path in paths if path is not None]
-    if not present:
-        return []
-    root = ctx.workspace.sim_dir(ctx.sim_id)
-    names: list[str] = []
-    for path in paths:
-        if path is None:
-            continue
-        try:
-            name = Path(os.path.relpath(path, root)).as_posix()
-        except ValueError:
-            name = Path(path).as_posix()
-        if name not in names:
-            names.append(name)
-    return names
-
-
-@dataclass
-class _Tables:
-    """The rows of one simulation's far-field files, by file suffix."""
-
-    rows: dict[str, list[tuple[object, ...]]] = field(default_factory=dict)
-    owners: dict[str, list[str]] = field(default_factory=dict)
-    runs: dict[str, list[str]] = field(default_factory=dict)
-    inputs: dict[str, dict[str, list[str]]] = field(default_factory=dict)
-    #: Per suffix and point, the averaging window and the sample count of a reduced file.
-    reduced: dict[str, dict[str, dict[str, object]]] = field(default_factory=dict)
-
-    def extend(
-        self,
-        suffix: str,
-        point: str,
-        exports: Sequence[str],
-        rows: list,
-        *,
-        runs: Sequence[str],
-        window: Sequence[float] | None = None,
-        samples: int | None = None,
-        source: str = "",
-    ) -> None:
-        """Add a point's rows; ``exports`` names the input exports the rows were read from."""
-        if not rows:
-            return
-        self.rows.setdefault(suffix, []).extend(rows)
-        self.owners.setdefault(suffix, []).extend([point] * len(rows))
-        held = self.runs.setdefault(suffix, [])
-        held += [run for run in runs if run not in held]
-        inputs = self.inputs.setdefault(suffix, {}).setdefault(point, [])
-        inputs.extend(path for path in exports if path not in inputs)
-        if samples is not None:
-            metadata = {
-                "window": None if window is None else [float(window[0]), float(window[1])],
-                "samples": int(samples),
-                "source": source,
-            }
-            reduced = self.reduced.setdefault(suffix, {}).setdefault(point, dict(metadata))
-            entries = reduced.setdefault("entries", {})
-            if isinstance(entries, dict):
-                entries[str(rows[0][1])] = metadata
-
-    def super_rows(self) -> list[tuple[tuple[object, ...], str]]:
-        """Return the rows the super file reads: steady, else each point's average or instant."""
-        out = list(zip(self.rows.get("trefftz", []), self.owners.get("trefftz", []), strict=True))
-        averaged = {
-            (point, row[1])
-            for row, point in zip(
-                self.rows.get("trefftz_average", []),
-                self.owners.get("trefftz_average", []),
-                strict=True,
-            )
-        }
-        for suffix in ("trefftz_average", "trefftz_instant"):
-            pairs = zip(self.rows.get(suffix, []), self.owners.get(suffix, []), strict=True)
-            out += [
-                (row, point)
-                for row, point in pairs
-                if suffix == "trefftz_average" or (point, row[1]) not in averaged
-            ]
-        return out
-
-
-def _average_entry_rows(rows: list, first: int) -> list:
-    """Average numerical cells while preserving the entry label after POL."""
-    if not rows:
-        return []
-    name = rows[0][0][1]
-    stripped = [[row[:1] + row[2:] for row in step] for step in rows]
-    return [row[:1] + (name,) + row[1:] for row in average_rows(stripped, first)]
 
 
 _NA = float("nan")
@@ -441,50 +272,6 @@ def _printed_digits(text: str) -> int:
                         counts.append(len(digits))
             break
     return min(counts) if counts else _DEFAULT_DIGITS
-
-
-def unsteady_samples(
-    series: Mapping[str, np.ndarray],
-    positions: Mapping[int, Sequence[object]],
-    row: int,
-) -> ProbeSamples:
-    """Read one time step of the fluid plots into probe samples, in vertex order.
-
-    ``series`` is the plots export keyed by column; a vertex whose plots are
-    absent is NaN, so the integrals that need it are ``NA``.
-
-    Parameters
-    ----------
-    series : Mapping[str, np.ndarray]
-        Fluid-plot history columns keyed by their native names.
-    positions : Mapping[int, Sequence[object]]
-        Probe vertex ids mapped to their recorded positions.
-    row : int
-        Zero-based time-step row to read from each history column.
-
-    Returns
-    -------
-    ProbeSamples
-        One step of probe samples in vertex order, with missing histories as NaN.
-    """
-    vertices = sorted(positions)
-
-    def at(name: str) -> float:
-        column = series.get(name)
-        return float(column[row]) if column is not None and row < len(column) else _NA
-
-    xyz = np.array([[float(str(v)) for v in list(positions[n])[:3]] for n in vertices]).reshape(
-        -1, 3
-    )
-    velocity = np.array([[at(f"{c}{n}") for c in ("VX", "VY", "VZ")] for n in vertices])
-    cp = np.array([at(f"CP_REF{n}") for n in vertices])
-    # PFS-2081.102: each vertex keeps the frame it was recorded in, so a set is
-    # matched among its own entry's points, in that frame's coordinates.
-    frames = tuple(
-        str(list(positions[n])[3]).strip().upper() if len(list(positions[n])) > 3 else _REFERENCE
-        for n in vertices
-    )
-    return ProbeSamples(xyz, velocity.reshape(-1, 3), cp, frames)
 
 
 def coordinate_tolerance(points: np.ndarray, digits: int | None) -> np.ndarray:

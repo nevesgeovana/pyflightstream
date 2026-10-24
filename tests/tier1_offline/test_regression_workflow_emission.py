@@ -2259,7 +2259,12 @@ _INTEGFIX_BLADES___ONE_FAMILY = RotorBlock(
 
 
 def _integfix_blades___row(**stated: str) -> SimCase:
-    variables = {"WORKFLOW": "unsteady_rotor", "ROTOR_AXIS": "X", "RPM": "600", **stated}
+    variables: dict[str, str | float | int | bool] = {
+        "WORKFLOW": "unsteady_rotor",
+        "ROTOR_AXIS": "X",
+        "RPM": "600",
+        **stated,
+    }
     return SimCase(
         sim_id="7001",
         aircraft="RotorRig",
@@ -2354,7 +2359,8 @@ class TestRfixr3Azimuths:
         declared = {"rotor": "ROTOR", "stations": [2.0], "n_r": 2, "n_psi": 15}
         case = _rfixr3_azimuths___case(
             tmp_path,
-            {"families": "all", "ledgers": {"rotor": "ROTOR", "m_max": 7}},
+            # D0/D2: the power entry owns the lattice and its balances.
+            [{"variant": "power", "rotor": "ROTOR", "m_max": 7, "balances": ["mass"]}],
             probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [declared]}],
         )
         script = _rfixr3_azimuths___script(case)

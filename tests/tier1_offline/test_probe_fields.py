@@ -1018,7 +1018,8 @@ def test_f4_0304_a_missing_selected_family_is_a_named_skip(tmp_path, monkeypatch
     wing._farfield_products___post(workspace)
     products = wing._farfield_products___one(tmp_path, "products.json")
     skipped = json.loads(products.read_text(encoding="utf-8")).get("skipped", {})
-    named = [why for key, why in skipped.items() if key.endswith("#family=H")]
+    # D0: family skips belong to their sections entry.
+    named = [why for key, why in skipped.items() if key.endswith("#family=H#entry=sections")]
     assert named and "H" in named[0]
 
 
@@ -1049,23 +1050,19 @@ def test_f4_0304_a_reduced_far_field_file_records_its_window_and_sample_count(tm
     import tests.tier1_offline.test_regression_farfield_products as wing
 
     stem = wing._FFPROOF_POST___STEM
-    workspace = wing._ffproof_post___campaign(
-        tmp_path,
-        pproc=wing._FFPROOF_POST___LEDGERS,
-        files={
-            f"{stem}_plots.txt": wing._ffproof_post___plots_export(
-                len(wing._FFPROOF_POST___POINTS_M), 8
-            )
-        },
-        recipe="unsteady",
-        reductions=wing._FFPROOF_POST___WINDOW,
-        positions=True,
-    )
-    wing._ffproof_post___post(workspace)
-    manifest = wing._ffproof_post___manifest(Path(workspace.root))
+    # D8/D8b: four conventional snapshots supply the explicitly requested average.
+    from tests.tier1_offline.test_post_products import _ff_posted
+
+    _, root = _ff_posted(tmp_path, steps=8)
+    manifest = wing._ffproof_post___manifest(Path(root))
     average = wing._ffproof_post___entry(manifest, "_ledgers_average.csv")
-    assert average["reduced_from"] == {stem: {"window": [5.0, 8.0], "samples": 4}}
-    assert average["inputs"] == {stem: [f"outputs/{stem}_plots.txt"]}
+    # D0/D4: window metadata includes its source and entry identity.
+    metadata = {"window": [5.0, 8.0], "samples": 4, "source": "LAST_ITERS_AVG: 4"}
+    assert average["reduced_from"] == {stem: {**metadata, "entries": {"power": metadata}}}
+    assert average["inputs"] == {
+        stem: [f"outputs/{stem}_farfield_survey.txt"]
+        + [f"outputs/{stem}_farfield_survey_iteration={step}.txt" for step in range(5, 9)]
+    }
     assert "reduced_from" not in wing._ffproof_post___entry(manifest, "_ledgers_instant.csv")
 
 
@@ -1078,7 +1075,9 @@ def test_f4_0304_one_absent_point_set_keeps_the_other_analysis(tmp_path):
     workspace = wing._farfield_products___workspace(tmp_path, farfield=True)
     pproc = Path(workspace.inputs_dir) / "pproc" / "p001.toml"
     ledgers = (
-        '[farfield.ledgers]\nframe = "MRP"\ntip_radius_m = 1.0\n'
+        # D0/D2: the independently requested lattice is a power entry.
+        '[[farfields]]\nvariant = "power"\nbalances = ["mass"]\n'
+        'frame = "MRP"\ntip_radius_m = 1.0\n'
         "stations = [-1.0, 1.0]\nn_r = 2\nn_psi = 16\nm_max = 2\n"
     )
     pproc.write_text(pproc.read_text(encoding="utf-8") + ledgers, encoding="utf-8")
@@ -1087,7 +1086,7 @@ def test_f4_0304_one_absent_point_set_keeps_the_other_analysis(tmp_path):
     skipped = json.loads(wing._farfield_products___one(root, "products.json").read_text("utf-8"))[
         "skipped"
     ]
-    assert any(key.endswith("#absent=lattice") for key in skipped), skipped
+    assert any(key.endswith("#absent=lattice#entry=power") for key in skipped), skipped
     rows = wing._farfield_products___table(
         wing._farfield_products___one(root, "farfield/*_trefftz.csv")
     )

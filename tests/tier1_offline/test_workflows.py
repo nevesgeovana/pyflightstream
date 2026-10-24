@@ -7990,7 +7990,8 @@ def test_p0430_f064_two_probe_sets_one_quantization_step_apart_are_not_one(tmp_p
         declared = dict(lattice, r_inner=0.5 + shift)
         case = _farfield_plan___case(
             tmp_path,
-            {"families": "all", "ledgers": dict(lattice, m_max=2)},
+            # D0/D2: the power entry owns the lattice.
+            [dict(lattice, variant="power", m_max=2, balances=["mass"])],
             probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [declared]}],
         )
         return len(_farfield_plan___script(case).probe_points)

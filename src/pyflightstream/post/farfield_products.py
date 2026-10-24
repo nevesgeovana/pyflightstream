@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
+import pyflightstream.post._reduction_stage as ff
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import classify_outputs
 from pyflightstream.cases.farfield_inputs import (
@@ -41,19 +42,11 @@ from pyflightstream.farfield import (
     trace_forces,
     wake_crossings,
 )
-from pyflightstream.post._condition import _last_time_step
 from pyflightstream.post._reduction_stage import _NA, _farfield_window, _flow, _hub, _layout, _Probe
 from pyflightstream.post._tables import CONTEXT_COLUMNS, context_row, write_csv_table
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
-    _average_entry_rows,
-    _Instant,
-    _named,
-    _step,
-    _super_cells,
-    _Tables,
-    _window_near_forces,
     far_samples,
     lattice_samples,
     ledger_values,
@@ -209,13 +202,6 @@ def _selected(
 
     groups = select_families(spec_families, families, is_blade, aliases, strict=False)
     return list(dict.fromkeys(name for group in groups for name in (group or families)))
-
-
-def _q_ref(point: PolarPoint, rho: float) -> float:
-    """Return the dynamic pressure the export's ``Cp_ref`` and coefficients are taken on."""
-    loads = point.loads
-    v_ref = loads.reference_velocity_m_s or loads.freestream_velocity_m_s
-    return 0.5 * rho * float(v_ref) ** 2
 
 
 def _near_cl_on_vinf(point: PolarPoint) -> float:
@@ -654,7 +640,7 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
     k = calibration_scale(
         raw.lift * factor,
         cl_near=_near_field(point)[0],
-        q=_q_ref(point, rho),
+        q=ff._q_ref(point, rho),
         s_ref=ctx.reference.sref_m2,
     )
     calibrated = math.isfinite(k)
@@ -711,7 +697,7 @@ def _wake_sheet(
     return [line for line, use in zip(lines, keep, strict=True) if use], values[keep]
 
 
-def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[_Instant], str]:
+def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[ff._Instant], str]:
     """Read only the far field's conventional probe exports, including stamped steps."""
     probes = _output(ctx, point, "farfield_probes")
     try:
@@ -724,22 +710,22 @@ def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[
                 f"conventional probe velocity units are unmeasured at {per_m!r} "
                 "simulation length units per metre",
             )
-        final = _Instant(
+        final = ff._Instant(
             steady_samples(probes.read_text(encoding="utf-8")),
-            _last_step(ctx.record_of[point.name]) if unsteady else _NA,
+            ff._last_step(ctx.record_of[point.name]) if unsteady else _NA,
         )
         files = (
             _probe_exports(ctx, point)
             if unsteady and _spec(ctx).export_type == "avg_window"
             else {}
         )
-        window, _ = _farfield_window(ctx, point, int(_step(final))) if files else (None, "")
+        window, _ = _farfield_window(ctx, point, int(ff._step(final))) if files else (None, "")
         instants = []
         for step, path in sorted(files.items()):
             if window is None or not window[0] <= step <= window[1]:
                 continue
             try:
-                instants.append(_Instant(steady_samples(path.read_text(encoding="utf-8")), step))
+                instants.append(ff._Instant(steady_samples(path.read_text(encoding="utf-8")), step))
             except (PyflightstreamError, OSError) as error:
                 _skip(
                     ctx,
@@ -759,7 +745,7 @@ def _probe_exports(ctx: SimContext, point: PolarPoint) -> dict[int, Path]:
     record = ctx.record_of[point.name]
     return stamped_exports(
         root, point.name, *(root / Path(name).parent for name in record.outputs)
-    ).get(("_farfield_probes", "txt"), {})
+    ).get(("_farfield_survey", "txt"), {})
 
 
 def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
@@ -776,7 +762,7 @@ def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
 def _instant_values(
     ctx: SimContext,
     point: PolarPoint,
-    instant: _Instant,
+    instant: ff._Instant,
     probe: _Probe,
     analyses: Sequence[str],
     *,
@@ -789,20 +775,17 @@ def _instant_values(
     near-field axial force in N from the same plots history as the unsteady polar.
     """
     rho, speed, alpha, beta = _flow(point)
-    q_ref = _q_ref(point, rho)
+    q_ref = ff._q_ref(point, rho)
     layout = probe.layout
     lattice_at, plane_at, why = far_samples(instant.samples, layout, per_m=probe.per_m)
-    # A wing's Trefftz C reads the plane; a rotor's reads a lattice station.
+    # C reads a plane on every applicable row; D and balances read a lattice.
     wants_plane = "trefftz:plane" in analyses
     wants_lattice = "ledgers" in analyses or "trefftz:power" in analyses
     no_plane, no_lattice = wants_plane and plane_at is None, wants_lattice and lattice_at is None
     if no_plane or no_lattice:
-        usable = (wants_plane and not no_plane) or (wants_lattice and not no_lattice)
         reason = why or "the run laid no far-field probes these analyses read"
-        if not usable:
-            raise PyflightstreamError(reason)
-        # One point set is absent: what the other one holds is still written, and the
-        # absent one is named, not dropped with it.
+        # Each entry keeps the named missing set, including when it is the entry's
+        # only set. Independent entries still write their available analyses.
         left = "the Trefftz C plane" if no_plane else "the lattice analyses"
         _skip(
             ctx,
@@ -890,15 +873,19 @@ def _ledger_rows(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], 
     return rows
 
 
-def _last_and_window(ctx: SimContext, point: PolarPoint, instants: list[_Instant], windowed: bool):
+def _last_and_window(
+    ctx: SimContext, point: PolarPoint, instants: list[ff._Instant], windowed: bool
+):
     """Return the last instant and the window's instants (none when it is partly covered)."""
     if windowed:
         last = instants[-1]
-        window, _ = _farfield_window(ctx, point, int(_step(last)))
-        chosen = [i for i in instants[:-1] if window and window[0] <= _step(i) <= window[1]]
+        window, _ = _farfield_window(ctx, point, int(ff._step(last)))
+        chosen = [i for i in instants[:-1] if window and window[0] <= ff._step(i) <= window[1]]
         # The average is of the whole window or it is not written: a window
         # the recorded steps only partly cover would average fewer steps.
-        if window and {_step(i) for i in chosen} != set(range(int(window[0]), int(window[1]) + 1)):
+        if window and {ff._step(i) for i in chosen} != set(
+            range(int(window[0]), int(window[1]) + 1)
+        ):
             chosen = []
         return last, chosen
     return instants[0], []
@@ -908,7 +895,7 @@ def _probe_point(
     ctx: SimContext,
     point: PolarPoint,
     analyses: Sequence[str],
-    tables: _Tables,
+    tables: ff._Tables,
     *,
     rotor: bool | None = None,
 ):
@@ -934,7 +921,7 @@ def _probe_point(
         return
     try:
         near = (
-            _window_near_forces(ctx, point.name, chosen, probe.layout.axis)
+            ff._window_near_forces(ctx, point.name, chosen, probe.layout.axis)
             if "ledgers" in analyses
             else {}
         )
@@ -942,7 +929,13 @@ def _probe_point(
             (
                 i,
                 _instant_values(
-                    ctx, point, i, probe, analyses, final=False, near=near.get(_step(i), _NA)
+                    ctx,
+                    point,
+                    i,
+                    probe,
+                    analyses,
+                    final=False,
+                    near=near.get(ff._step(i), _NA),
                 ),
             )
             for i in chosen
@@ -961,7 +954,7 @@ def _probe_point(
     if "plane" in sets[0][1]:
         _flag_a_plane_short_of_the_lift(ctx, point, sets[0][1]["plane"])
     runs = ctx.sources[point.name]
-    taken = _named(
+    taken = ff._named(
         ctx,
         [
             _output(ctx, point, "farfield_probes"),
@@ -981,11 +974,13 @@ def _probe_point(
             if "ledgers" in values
         ]
         if suffix.endswith("average"):
-            c_rows = _average_entry_rows([[row] for row in c_rows], 2 + len(CONTEXT_COLUMNS) + 2)
-            l_rows = [_average_entry_rows(l_rows, 2 + len(CONTEXT_COLUMNS) + 1)] if l_rows else []
+            c_rows = ff._average_entry_rows([[row] for row in c_rows], 2 + len(CONTEXT_COLUMNS) + 2)
+            l_rows = (
+                [ff._average_entry_rows(l_rows, 2 + len(CONTEXT_COLUMNS) + 1)] if l_rows else []
+            )
         reduced: dict[str, Any] = {}
         if suffix.endswith("average"):
-            window, source = _farfield_window(ctx, point, int(_step(last)))
+            window, source = _farfield_window(ctx, point, int(ff._step(last)))
             reduced = {"window": window, "samples": len(averaged), "source": source}
         tables.extend(f"trefftz{suffix}", point.name, taken, c_rows, runs=runs, **reduced)
         tables.extend(
@@ -996,12 +991,6 @@ def _probe_point(
             runs=runs,
             **reduced,
         )
-
-
-def _last_step(record: object) -> object:
-    """Return the run's last time step, the instant a normal probe holds, or NA."""
-    last = _last_time_step(cast("Any", record))
-    return _NA if last is None else last
 
 
 def _flag_a_plane_short_of_the_lift(
@@ -1101,7 +1090,7 @@ def farfield_products(ctx: SimContext) -> None:
     """
     if not ctx.pproc.farfields:
         return
-    tables = _Tables()
+    tables = ff._Tables()
     for entry in ctx.pproc.farfields:
         selected = (
             ctx
@@ -1110,10 +1099,10 @@ def farfield_products(ctx: SimContext) -> None:
         )
         _entry_products(selected, tables)
     _write(ctx, tables)
-    ctx.farfield_super.update(_super_cells(tables.super_rows(), TREFFTZ_COLUMNS))
+    ctx.farfield_super.update(ff._super_cells(tables.super_rows(), TREFFTZ_COLUMNS))
 
 
-def _entry_products(ctx: SimContext, tables: _Tables) -> None:
+def _entry_products(ctx: SimContext, tables: ff._Tables) -> None:
     spec = _spec(ctx)
     for point in ctx.points:
         record = ctx.record_of[point.name]
@@ -1136,28 +1125,30 @@ def _entry_products(ctx: SimContext, tables: _Tables) -> None:
             steady_rows += _variant_b(ctx, point)
             vtk = _output(ctx, point, "vtk")
             read.append(None if vtk is None else vtk.with_name(vtk.stem + "_wakes.vtk"))
-        tables.extend("trefftz", point.name, _named(ctx, read), steady_rows, runs=runs)
+        tables.extend("trefftz", point.name, ff._named(ctx, read), steady_rows, runs=runs)
         if any(a in analyses for a in ("trefftz:plane", "trefftz:power", "ledgers")):
             _probe_point(ctx, point, analyses, tables, rotor=rotor)
 
 
-def _sections_products(ctx: SimContext, point: PolarPoint, tables: _Tables, run_type: str) -> None:
+def _sections_products(
+    ctx: SimContext, point: PolarPoint, tables: ff._Tables, run_type: str
+) -> None:
     """Trace the final sections and each stamped export inside the averaging window."""
     source = ctx.exports.get(point.name, (None, None, None))[0]
     runs = ctx.sources[point.name]
     rows = _variant_a(ctx, point)
     if run_type not in UNSTEADY_RUN_TYPES:
-        tables.extend("trefftz", point.name, _named(ctx, [source]), rows, runs=runs)
+        tables.extend("trefftz", point.name, ff._named(ctx, [source]), rows, runs=runs)
         return
     key = f"farfield/trefftz_average#point={point.name}#entry={_spec(ctx).name}"
     record = ctx.record_of[point.name]
-    instant = [row[:2] + (_last_step(record),) + row[3:] for row in rows]
-    tables.extend("trefftz_instant", point.name, _named(ctx, [source]), instant, runs=runs)
+    instant = [row[:2] + (ff._last_step(record),) + row[3:] for row in rows]
+    tables.extend("trefftz_instant", point.name, ff._named(ctx, [source]), instant, runs=runs)
     if _spec(ctx).export_type != "avg_window":
         reason = f"export_type = {_spec(ctx).export_type!r} reads the last step only"
         _skip(ctx, key, point.name, reason + "; no average is written")
         return
-    last_step = _last_step(record)
+    last_step = ff._last_step(record)
     window, source_name = _farfield_window(
         ctx,
         point,
@@ -1180,8 +1171,8 @@ def _sections_products(ctx: SimContext, point: PolarPoint, tables: _Tables, run_
     tables.extend(
         "trefftz_average",
         point.name,
-        _named(ctx, [files[step] for step in steps]),
-        _average_entry_rows(samples, 2 + len(CONTEXT_COLUMNS) + 2),
+        ff._named(ctx, [files[step] for step in steps]),
+        ff._average_entry_rows(samples, 2 + len(CONTEXT_COLUMNS) + 2),
         runs=runs,
         window=window,
         samples=len(samples),
@@ -1199,7 +1190,7 @@ def _spins(ctx: SimContext, record: object) -> bool:
     return any(str(name).upper() in ("RPM", "MOTIONS") for name in stated)
 
 
-def _write(ctx: SimContext, tables: _Tables) -> None:
+def _write(ctx: SimContext, tables: ff._Tables) -> None:
     variants = list(dict.fromkeys(entry.variant for entry in ctx.pproc.farfields))
     for suffix, rows in tables.rows.items():
         analysis = suffix.split("_")[0]
