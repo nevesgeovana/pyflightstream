@@ -1843,6 +1843,46 @@ def _p0450_plane_series(tmp_path, extra=""):
     return workspace
 
 
+@pytest.mark.parametrize("recipe", ["steady", "unsteady_rotor"])
+@pytest.mark.parametrize("balances", [False, True])
+def test_p0450_d2_power_writes_d_and_optional_ledgers(tmp_path, recipe, balances):
+    table = _FFPROOF_POST___LEDGERS + "station = 1.0\n"
+    if not balances:
+        table = table[: table.index("balances =")] + table[table.index("frame =") :]
+    unsteady = recipe == "unsteady_rotor"
+    files = (
+        {
+            f"{_FFPROOF_POST___STEM}_plots.txt": _ffproof_post___plots_export(
+                len(_FFPROOF_POST___POINTS_M), 8
+            )
+        }
+        if unsteady
+        else {
+            f"{_FFPROOF_POST___STEM}_probes.txt": _ffproof_post___probe_export(
+                _FFPROOF_POST___POINTS_M, 20.0
+            )
+        }
+    )
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=table,
+        files=files,
+        recipe=recipe,
+        reductions=_FFPROOF_POST___WINDOW if unsteady else None,
+        positions=unsteady,
+    )
+    _ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    suffix = "_instant" if unsteady else ""
+    rows = _rfixf_layout___rows(root, f"farfield/*_trefftz{suffix}.csv")
+    assert len(rows) == 1
+    row = rows[0]
+    assert (row["VARIANT"], row["FAMILY"], row["ENTRY"]) == ("D", "TOTAL", "power")
+    assert float(row["X_T_M"]) == 1.0
+    assert row["P_AXIAL_W"] != "NA" and row["ETA_FF"] == "NA"
+    assert bool(_rfixf_layout___rows(root, f"farfield/*_ledgers{suffix}.csv")) is balances
+
+
 def test_p0450_d1_rotor_plane_posts_instant_and_average(tmp_path):
     workspace = _p0450_plane_series(tmp_path)
     _ffproof_post___post(workspace)
@@ -1850,6 +1890,40 @@ def test_p0450_d1_rotor_plane_posts_instant_and_average(tmp_path):
         rows = _rfixf_layout___rows(Path(workspace.root), f"farfield/*_trefftz_{suffix}.csv")
         assert len(rows) == 1, "C must read the plane on an unsteady rotor row"
         assert (rows[0]["VARIANT"], rows[0]["FAMILY"], rows[0]["STEP"]) == ("C", "TOTAL", step)
+
+
+def test_p0450_d2_rotor_lattice_and_plane_write_both(tmp_path):
+    table = _FFPROOF_POST___LEDGERS.replace('frame = "MRP"\ntip_radius_m = 1.0', 'rotor = "ROTOR"')
+    workspace = _p0450_plane_series(tmp_path, "\n" + table)
+    points = np.vstack([_RFIXF_LAYOUT___LAID.points, _FFPROOF_POST___POINTS_M])
+    path = _write_probe_points(
+        workspace.sim_dir("3207"),
+        "3207",
+        [(i, *map(float, p), "REFERENCE") for i, p in enumerate(points, 1)],
+    )
+    shape = {
+        "kind": "lattice",
+        "source": "added",
+        "entry": None,
+        "count": len(_FFPROOF_POST___POINTS_M),
+        "farfield_entry": "power",
+        "axis": "X",
+        "origin_m": [0.0, 0.0, 0.0],
+        "positions_frame": "REFERENCE",
+        "lattice": _FFPROOF_POST___SHAPE.build(1.0).model_dump(mode="json"),
+    }
+    plane = dict(_RFIXF_LAYOUT___PLANE_RECORD["shapes"][0], farfield_entry="plane")
+    _ffproof_post___set_record(
+        workspace,
+        probe_points_file=path,
+        farfield_layout={"shapes": [plane, shape]},
+    )
+    plots = next(workspace.sim_dir("3207").rglob("*_plots.txt"))
+    plots.write_text(_ffproof_post___plots_export(len(points), 8), encoding="utf-8")
+    _ffproof_post___post(workspace)
+    for suffix in ("instant", "average"):
+        rows = _rfixf_layout___rows(Path(workspace.root), f"farfield/*_trefftz_{suffix}.csv")
+        assert {(row["ENTRY"], row["VARIANT"]) for row in rows} == {("plane", "C"), ("power", "D")}
 
 
 def _rfixf_layout___crossflow_plane(tmp_path: Path, table: str, **record: object):
@@ -2034,7 +2108,9 @@ class TestRfixFLayout:
         (shape,) = script.farfield_layout[-1]["shapes"]
         assert (shape["kind"], shape["source"], shape["entry"]) == ("lattice", "declared", 1)
         assert shape["lattice"]["stations"] == [2.0]
-        assert _rfixf_layout___states(plan_record(case, "26.124", script), "ledgers") == {"reused"}
+        assert _rfixf_layout___states(plan_record(case, "26.124", script), "trefftz:power") == {
+            "reused"
+        }
 
     @staticmethod
     @pytest.mark.requirement("FR-455")
@@ -2054,7 +2130,9 @@ class TestRfixFLayout:
         script = _rfixf_layout___script(case)
         assert len(script.probe_points) == LatticeShape.model_validate(shape).build(1.0).point_count
         assert script.farfield_layout[-1]["shapes"][0]["source"] == "declared"
-        assert _rfixf_layout___states(plan_record(case, "26.124", script), "ledgers") == {"reused"}
+        assert _rfixf_layout___states(plan_record(case, "26.124", script), "trefftz:power") == {
+            "reused"
+        }
 
     @staticmethod
     @pytest.mark.requirement("FR-455")

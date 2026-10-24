@@ -892,7 +892,7 @@ def rotor_values(fields: LatticeFields, *, rho: float, speed: float, station: fl
         "P_SWIRL_W": channels.p_swirl,
         "P_CROSSFLOW_W": channels.p_crossflow,
         "P_TOTAL_W": channels.p_total,
-        "ETA_FF": channels.eta_ff,
+        "ETA_FF": channels.eta_ff if channels.thrust * speed > 0.0 else _NA,
         "COVERAGE": channels.coverage,
         "X_T_M": channels.station * float(fields.tip_radius),
         "N_TRACE": float(fields["u"].shape[-1] * fields["u"].shape[-2]),

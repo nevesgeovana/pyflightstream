@@ -223,7 +223,7 @@ def _analyses(spec: FarfieldSpec) -> list[str]:
     out = []
     if spec.trefftz is not None:
         out += [f"trefftz:{variant}" for variant in spec.trefftz.variant]
-    if spec.ledgers is not None:
+    if spec.balances:
         out.append("ledgers")
     return out
 

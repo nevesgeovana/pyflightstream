@@ -47,6 +47,11 @@ from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__st
 
 
 @pytest.mark.requirement("FR-3262")
+def test_p0450_d2_power_requires_lattice_placement():
+    with pytest.raises(ValidationError, match="rotor|frame"):
+        FarfieldSpec.model_validate({"variant": "power"})
+
+
 def test_p0450_d0_named_farfield_entries():
     """P0450-D0: one analysis per entry, including two separately named A traces."""
     entries = [
@@ -408,7 +413,7 @@ class TestFarfieldPlan:
                 "EXPORT_SURFACE_SECTIONAL_LOADS",
             ),
             ({"admits_probes": False, "coupled": True}, "trefftz:plane", "takes no probes"),
-            ({"selected_families": []}, "ledgers", "names no family"),
+            ({"selected_families": []}, "trefftz:power", "names no family"),
             ({"coupled": True, "covered_families": set()}, "trefftz:sections", "exactly one"),
         ],
     )

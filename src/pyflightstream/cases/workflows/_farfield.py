@@ -137,7 +137,7 @@ def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
     selected = []
     if spec.trefftz is not None:
         selected += [f"trefftz:{variant}" for variant in spec.trefftz.variant]
-    if spec.ledgers is not None:
+    if spec.balances:
         selected.append("ledgers")
     run_type, rotor = _run_type(case), _rotor(case)
     if "trefftz:plane" in selected and run_type == "qsteady_rotor":

@@ -18,7 +18,8 @@ The analyses and where they are written:
 |---|---|---|---|
 | Trefftz A, section loads | `variant = "sections"` | the sectional loads export | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_<family>.csv` |
 | Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | the same two files, family `TOTAL` |
-| Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane or lattice | `farfield/<group>_trefftz.csv` |
+| Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane | `farfield/<group>_trefftz.csv` |
+| Trefftz D, power | `variant = "power"` | the survey lattice | `farfield/<group>_trefftz.csv` |
 | Balances | `variant = "power"` with `balances` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
 
 ### Selecting analyses
@@ -332,7 +333,21 @@ than 10 percent, the probe field does not hold that circulation and its crossflo
 energy is not the loads' induced drag: the row is written and post writes a
 WARNING with both values. `E_T` of the C row is formed with `CL_near`.
 
-**Rotor channels** at a lattice station, `u' = u - V`, `v_theta_0` the azimuthal
+**Quadrature and validity.** The plane uses the trapezoid rule (corners a
+quarter, edges a half of a cell). Missing samples make the integral `NA`;
+`COVERAGE` is the finite sampled area fraction. Every other grid point gives
+the second value used for `CDI_T_QERR`. Relations are incompressible; Mach
+above 0.3 warns. Crossflow energy outside the finite plane is omitted, and
+probes close to wake lines need spacing refinement.
+
+### Trefftz D, power on the survey lattice
+
+`variant = "power"` reads `station` in x/R, defaulting to the last lattice
+station, on every row type, including power-off rows. Placement requires
+`rotor` or `frame` plus `tip_radius_m`. The row has `VARIANT = D` and
+`FAMILY = TOTAL`; `balances` additionally requests the ledger rows.
+
+**Power channels** at a lattice station, `u' = u - V`, `v_theta_0` the azimuthal
 mean of the swirl:
 
     P_AXIAL     = (rho / 2) integral u'^2 u dS
@@ -342,7 +357,7 @@ mean of the swirl:
     ETA_FF      = T V / (T V + P_AXIAL + P_SWIRL + P_CROSSFLOW)
 
 with `T` the axial force of the balance between the inlet and that station;
-`ETA_FF` is `NA` at `V = 0`.
+`ETA_FF` is `NA` where `T V <= 0`, including static and power-off conditions.
 
 **The quasi-steady rotor.** A `qsteady_rotor` point holds the blades still and
 carries the rotation in the free stream, so its probe velocities are those of
@@ -358,20 +373,7 @@ otherwise the row's own speed in the quasi-steady record beside the loads export
 which a `qsteady_rotor` run always writes. It is signed by the rotor's hand
 (`rpm_sign` times the row's `RPM`), and that sign alone gives the sense of `Omega`.
 
-**Quadrature.** The trapezoid rule on the grid (corners a quarter, edges a half
-of a cell); a missing sample makes the integral `NA` and `COVERAGE` states the
-fraction of the plane's AREA whose samples are finite, each sample weighted by the area its weight integrates. The same samples integrated on every other grid point give a
-second value; `CDI_T_QERR` is the difference.
-
-**Assumptions and validity.**
-
-- Incompressible relations. Above Mach 0.3 the row is written with a WARNING.
-- The crossflow energy is truncated at the plane's edges; the energy outside a
-  plane of half-width `a` falls as `1/a^2` for a wing's far wake. The vorticity
-  path is not truncated this way.
-- Probes close to a wake line sample a velocity that grows as the inverse of the
-  distance; the grid spacing and `CDI_T_QERR` say how much the plane resolves it.
-- Static rotor (`V = 0`): the channels are written; `ETA_FF` is `NA`.
+The annular quadrature and coverage are those of the balances below.
 
 <a id="the-balances"></a>
 
@@ -470,7 +472,8 @@ their per-step fluid plots.
 |---|---|---|---|
 | A | a section distribution over each family, planes XZ, reference axes; the sectional loads export | reused | added: frame `MRP`, plane XZ, 80 stations per side |
 | B | the VTK export with the wake | reused | the wake switched on in the VTK export, the export added if the row has none |
-| C | the plane (wing) or the lattice (rotor); the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
+| C | the configuration plane; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
+| D | the entry's survey lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | the stated lattice is laid as probe points |
 | balances | the lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
 
 **Which declaration is reused.** A declared plane or lattice is the far field's when
@@ -511,9 +514,9 @@ step (one fluid plot per point and parameter); the plan states that count.
 | row | A | B | C | balances |
 |---|---|---|---|---|
 | steady, fixed wing | yes | yes | yes | yes |
-| steady rotor | no | no | rotor channels | yes |
-| `unsteady_rotor` | no | no | rotor channels, instant and average | instant and average |
-| `qsteady_rotor` | no | no | rotor channels, in the hub frame | yes, in the hub frame |
+| steady rotor | no | no | configuration plane | yes |
+| `unsteady_rotor` | no | no | configuration plane, instant and average | instant and average |
+| `qsteady_rotor` | no | no | refused; select D | yes, in the hub frame |
 | unsteady, fixed wing | no | no | instant and average | instant and average |
 | coupled FSI, steady | the coupled distribution | yes | refused (no probes) | refused (no probes) |
 

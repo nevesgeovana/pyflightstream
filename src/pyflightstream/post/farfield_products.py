@@ -837,7 +837,7 @@ def _instant_values(
     lattice_at, plane_at, why = far_samples(instant.samples, layout, per_m=probe.per_m)
     # A wing's Trefftz C reads the plane; a rotor's reads a lattice station.
     wants_plane = "trefftz:plane" in analyses
-    wants_lattice = "ledgers" in analyses
+    wants_lattice = "ledgers" in analyses or "trefftz:power" in analyses
     no_plane, no_lattice = wants_plane and plane_at is None, wants_lattice and lattice_at is None
     if no_plane or no_lattice:
         usable = (wants_plane and not no_plane) or (wants_lattice and not no_lattice)
@@ -870,7 +870,7 @@ def _instant_values(
     if probe.hub is not None:
         hub = (probe.hub[0], probe.hub[1], probe.hub[2])
     fields = lattice_samples(instant.samples, lattice_at, lattice, axis, q=q_ref, hub=hub)
-    if "trefftz:plane" in analyses and probe.rotor and "plane" not in out:
+    if "trefftz:power" in analyses:
         station = _trefftz(ctx).station
         station = float(lattice.stations[-1]) if station is None else float(station)
         out["rotor"] = rotor_values(fields, rho=rho, speed=speed, station=station)
@@ -911,7 +911,7 @@ def _c_row(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: 
         }
         return _row(ctx, point, step, cells)
     rotor = values["rotor"]
-    cells = {"FAMILY": _ledgers(ctx).rotor, "VARIANT": "C", **rotor}
+    cells = {"FAMILY": "TOTAL", "VARIANT": "D", **rotor}
     return _row(ctx, point, step, cells)
 
 
@@ -1126,7 +1126,7 @@ def _analyses(spec, run_type: str, rotor: bool) -> tuple[list[str], dict[str, st
     selected = []
     if spec.trefftz is not None:
         selected += [f"trefftz:{variant}" for variant in spec.trefftz.variant]
-    if spec.ledgers is not None:
+    if spec.balances:
         selected.append("ledgers")
     reasons = {a: applies(a, run_type, rotor=rotor) for a in selected}
     return [a for a in selected if not reasons[a]], {a: r for a, r in reasons.items() if r}
@@ -1197,7 +1197,7 @@ def _entry_products(ctx: SimContext, tables: _Tables) -> None:
             vtk = _output(ctx, point, "vtk")
             read.append(None if vtk is None else vtk.with_name(vtk.stem + "_wakes.vtk"))
         tables.extend("trefftz", point.name, _named(ctx, read), steady_rows, runs=runs)
-        if "trefftz:plane" in analyses or "ledgers" in analyses:
+        if any(a in analyses for a in ("trefftz:plane", "trefftz:power", "ledgers")):
             _probe_point(ctx, point, analyses, tables, rotor=rotor)
 
 
