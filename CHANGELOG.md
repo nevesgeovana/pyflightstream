@@ -36,6 +36,11 @@ FlightStream versions.
   alone. The retired `[farfield]` table is refused with replacement entries.
   Far-field Trefftz and ledger tables carry `ENTRY` immediately after `POL`.
 
+### Fixed
+
+- An exploratory `[noise]` post writes `noise_report.json` with an `empty`
+  outcome even when its simulations yield neither products nor skips (RXR-04).
+
 ## [0.44.0] - 2026-10-23
 
 ### Changed
@@ -109,6 +114,7 @@ FlightStream versions.
   strip can be coarsened chordwise only. A family without a trailing edge, or a patch whose two
   directions cannot be told apart, is refused naming it; `factor` alone still applies to both.
   The exact 45-degree boundary counts as spanwise (absolute cosine tolerance 1e-14, PFS-2153).
+
 
 ### Fixed
 
@@ -492,6 +498,7 @@ FlightStream versions.
   raised, goes with it; a positional call raises `TypeError`, its base.
 - The positional ids of `pyfs-matrix delete-sims`, deprecated in 0.42.0; `--sims ID [ID ...]`
   is now required.
+
 
 ### Fixed
 
@@ -899,6 +906,7 @@ FlightStream versions.
   and the guides without publishing them; it publishes only from main with `deploy=true`,
   and a version tag still publishes the site.
 
+
 ### Fixed
 
 - Undefined rotor coefficients raise `ProductError` instead of `ZeroDivisionError`, and
@@ -1031,6 +1039,7 @@ FlightStream versions.
 - Authored campaign-file loading and matrix-to-campaign-file conversion, including
   `pyfs-matrix convert`. The matrix is the sole campaign declaration; use
   `pyfs-matrix plan` or the public `plan_matrix` API.
+
 
 ### Fixed
 
@@ -1330,6 +1339,7 @@ message naming the record and missing input key, instead of raising KeyError. (F
   unit instead of the source mesh's import unit. Millimetre-source builds
   retain their physical dimensions on re-import and pass valid trailing-edge
   audits for both OBJ-only and FSM-plus-OBJ outputs.
+
 
 ### Fixed
 
@@ -1687,6 +1697,7 @@ archives remain available for recovery. (no requirement: preserve records during
   Each is a deprecated alias of `--out` on its command, gives the identical result and
   warns once that it is deprecated; an alias given together with `--out` is refused, naming
   both.
+
 
 ### Fixed
 
