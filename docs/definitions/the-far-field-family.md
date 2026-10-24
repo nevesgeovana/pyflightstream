@@ -514,13 +514,23 @@ step (one fluid plot per point and parameter); the plan states that count.
 | row | A | B | C | balances |
 |---|---|---|---|---|
 | steady, fixed wing | yes | yes | yes | yes |
-| steady rotor | no | no | configuration plane | yes |
-| `unsteady_rotor` | no | no | configuration plane, instant and average | instant and average |
+| steady rotor | nonrotor families | no | configuration plane | yes |
+| `unsteady_rotor` | nonrotor families | no | configuration plane, instant and average | instant and average |
 | `qsteady_rotor` | no | no | refused; select D | yes, in the hub frame |
-| unsteady, fixed wing | no | no | instant and average | instant and average |
+| unsteady, fixed wing | yes | no | instant and average | instant and average |
 | coupled FSI, steady | the coupled distribution | yes | refused (no probes) | refused (no probes) |
 
-A "no" is a named skip: the point appears in `products.json` `skipped` with the
+A refuses any selection, including selector words, that resolves to a rotor
+block's blade or general families. The refusal names the rotor and families
+and points to the reference aliases for lifting surfaces. A on `qsteady_rotor`
+is refused. On unsteady rows A writes the end-of-run sectional trace as instant;
+its average computes each step's trace before averaging. Missing per-step
+sectional exports produce a named average skip in the manifest and `post.log`.
+The existing row keys `EXPORT_UNSTEADY_AFTER_REV` and
+`EXPORT_UNSTEADY_AFTER_ITER` request stamped per-step exports; A does not add
+that request automatically.
+
+A "no" for B is a named skip: the point appears in `products.json` `skipped` with the
 reason, and in `post.log`.
 
 

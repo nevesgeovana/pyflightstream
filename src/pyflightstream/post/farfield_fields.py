@@ -21,7 +21,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -81,6 +81,57 @@ __all__ = [
     "steady_samples",
     "unsteady_samples",
 ]
+
+
+@dataclass
+class _Tables:
+    """The rows of one simulation's far-field files, by file suffix."""
+
+    rows: dict[str, list[tuple[object, ...]]] = field(default_factory=dict)
+    owners: dict[str, list[str]] = field(default_factory=dict)
+    runs: dict[str, list[str]] = field(default_factory=dict)
+    inputs: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    #: Per suffix and point, the averaging window and the sample count of a reduced file.
+    reduced: dict[str, dict[str, dict[str, object]]] = field(default_factory=dict)
+
+    def extend(
+        self,
+        suffix: str,
+        point: str,
+        exports: Sequence[str],
+        rows: list,
+        *,
+        runs: Sequence[str],
+        window: Sequence[float] | None = None,
+        samples: int | None = None,
+    ) -> None:
+        """Add a point's rows; ``exports`` names the input exports the rows were read from."""
+        if not rows:
+            return
+        self.rows.setdefault(suffix, []).extend(rows)
+        self.owners.setdefault(suffix, []).extend([point] * len(rows))
+        held = self.runs.setdefault(suffix, [])
+        held += [run for run in runs if run not in held]
+        self.inputs.setdefault(suffix, {}).setdefault(point, list(exports))
+        if samples is not None:
+            self.reduced.setdefault(suffix, {})[point] = {
+                "window": None if window is None else [float(window[0]), float(window[1])],
+                "samples": int(samples),
+            }
+
+    def super_rows(self) -> list[tuple[tuple[object, ...], str]]:
+        """Return the rows the super file reads: steady, else each point's average or instant."""
+        out = list(zip(self.rows.get("trefftz", []), self.owners.get("trefftz", []), strict=True))
+        averaged = set(self.owners.get("trefftz_average", []))
+        for suffix in ("trefftz_average", "trefftz_instant"):
+            pairs = zip(self.rows.get(suffix, []), self.owners.get(suffix, []), strict=True)
+            out += [
+                (row, point)
+                for row, point in pairs
+                if suffix == "trefftz_average" or point not in averaged
+            ]
+        return out
+
 
 _NA = float("nan")
 _REFERENCE = "REFERENCE"

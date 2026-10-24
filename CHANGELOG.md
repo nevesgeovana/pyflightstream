@@ -15,6 +15,10 @@ FlightStream versions.
 
 ### Changed
 
+- Trefftz A accepts unsteady lifting-surface traces, including nonrotor families
+  on rotor rows. Rotor-owned families are refused. Available per-step sectional
+  exports supply the average; absent exports produce a named skip. In 0.44.0,
+  A was limited to steady rows that turned no rotor.
 - Trefftz C uses the whole-configuration plane on rotor rows as well as wing
   rows. Quasi-steady rotor rows refuse C and name `power` instead.
 - Far-field requests use `[[farfields]]`, one named entry per analysis. Each

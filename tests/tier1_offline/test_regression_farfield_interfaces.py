@@ -215,6 +215,20 @@ def test_p0450_d1_rotor_plane_plans_or_names_power(tmp_path, run_type):
         assert len(script.probe_points) == 35
 
 
+@pytest.mark.parametrize("selection", [["W"], "all", "each"])
+def test_p0450_d3_sections_refuse_rotor_families(tmp_path, selection):
+    case = _p0450_rotor_case(tmp_path, [{"variant": "sections", "families": selection}])
+    with pytest.raises(CampaignConfigError, match="ROTOR.*W.*aliases"):
+        _farfield_plan___script(case)
+
+
+def test_p0450_d3_sections_plan_nonrotor_wing(tmp_path):
+    case = _p0450_rotor_case(tmp_path, [{"variant": "sections", "families": ["W"]}])
+    case = case.model_copy(update={"rotors": {}})
+    script = _farfield_plan___script(case)
+    assert script.section_blocks
+
+
 def _farfield_plan___script(case) -> Script:
     script = Script("26.124")
     build_script(case, script)
@@ -399,7 +413,7 @@ class TestFarfieldPlan:
         assert states[("trefftz:sections", "section_distribution")] == "reused"
         assert states[("trefftz:plane", "probe_points")] == "added"
         rotor = _farfield_plan___resolve(run_type="unsteady_rotor")
-        assert rotor.state_of("trefftz:sections") == "not_applicable"
+        assert rotor.state_of("trefftz:sections") == "ready"
         assert not rotor.refused
         assert {"inputs"} == set(resolution.as_record())
 

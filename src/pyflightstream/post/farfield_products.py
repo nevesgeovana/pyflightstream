@@ -19,7 +19,7 @@ import math
 import os
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -48,6 +48,7 @@ from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_co
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
     ProbeSamples,
+    _Tables,
     average_rows,
     far_samples,
     lattice_samples,
@@ -59,6 +60,7 @@ from pyflightstream.post.farfield_fields import (
     unsteady_samples,
 )
 from pyflightstream.post.section_distributions import distributions_of
+from pyflightstream.post.series import stamped_exports
 from pyflightstream.results.loads import drag_pair, parse_unsteady_plots
 from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.results.wake import parse_wake_export
@@ -163,56 +165,6 @@ def farfield_axes(alpha_deg: float, beta_deg: float) -> np.ndarray:
         Orthonormal free-stream axes for transforming reference-frame samples.
     """
     return EXPORT_TO_BODY @ body_to_wind(alpha_deg, beta_deg) @ EXPORT_TO_BODY
-
-
-@dataclass
-class _Tables:
-    """The rows of one simulation's far-field files, by file suffix."""
-
-    rows: dict[str, list[tuple[object, ...]]] = field(default_factory=dict)
-    owners: dict[str, list[str]] = field(default_factory=dict)
-    runs: dict[str, list[str]] = field(default_factory=dict)
-    inputs: dict[str, dict[str, list[str]]] = field(default_factory=dict)
-    #: Per suffix and point, the averaging window and the sample count of a reduced file.
-    reduced: dict[str, dict[str, dict[str, object]]] = field(default_factory=dict)
-
-    def extend(
-        self,
-        suffix: str,
-        point: str,
-        exports: Sequence[str],
-        rows: list,
-        *,
-        runs: Sequence[str],
-        window: Sequence[float] | None = None,
-        samples: int | None = None,
-    ) -> None:
-        """Add a point's rows; ``exports`` names the input exports the rows were read from."""
-        if not rows:
-            return
-        self.rows.setdefault(suffix, []).extend(rows)
-        self.owners.setdefault(suffix, []).extend([point] * len(rows))
-        held = self.runs.setdefault(suffix, [])
-        held += [run for run in runs if run not in held]
-        self.inputs.setdefault(suffix, {}).setdefault(point, list(exports))
-        if samples is not None:
-            self.reduced.setdefault(suffix, {})[point] = {
-                "window": None if window is None else [float(window[0]), float(window[1])],
-                "samples": int(samples),
-            }
-
-    def super_rows(self) -> list[tuple[tuple[object, ...], str]]:
-        """Return the rows the super file reads: steady, else each point's average or instant."""
-        out = list(zip(self.rows.get("trefftz", []), self.owners.get("trefftz", []), strict=True))
-        averaged = set(self.owners.get("trefftz_average", []))
-        for suffix in ("trefftz_average", "trefftz_instant"):
-            pairs = zip(self.rows.get(suffix, []), self.owners.get(suffix, []), strict=True)
-            out += [
-                (row, point)
-                for row, point in pairs
-                if suffix == "trefftz_average" or point not in averaged
-            ]
-        return out
 
 
 def _spec(ctx: SimContext) -> FarfieldSpec:
@@ -454,9 +406,11 @@ def _sheet(result: TraceResult, index: int) -> TraceResult:
     )
 
 
-def _a_blocks(ctx: SimContext, point: PolarPoint, key: str) -> dict[str, np.ndarray] | None:
+def _a_blocks(
+    ctx: SimContext, point: PolarPoint, key: str, sloads: Path | None = None
+) -> dict[str, np.ndarray] | None:
     """Return the sectional-load rows of each family cut in XZ of a reference frame, or skip."""
-    sloads = ctx.exports.get(point.name, (None, None, None))[0]
+    sloads = sloads or ctx.exports.get(point.name, (None, None, None))[0]
     if sloads is None:
         _skip(
             ctx,
@@ -518,7 +472,7 @@ def _a_sheets(
     return ys, zs, gammas, sheets, chords
 
 
-def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
+def _variant_a(ctx: SimContext, point: PolarPoint, sloads: Path | None = None) -> list:
     """Trefftz A of one steady point (FR-451): rows, or a named skip."""
     spec = _spec(ctx)
     key = f"{FARFIELD_DIR}/trefftz#point={point.name}#variant=sections"
@@ -535,7 +489,7 @@ def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
     if not (math.isfinite(rho) and speed > 0.0):
         _skip(ctx, key, point.name, "the point states no density or free-stream speed")
         return []
-    blocks = _a_blocks(ctx, point, key)
+    blocks = _a_blocks(ctx, point, key, sloads)
     if blocks is None:
         return []
     inventory = ctx.record_of[point.name].inventory or list(blocks)
@@ -586,7 +540,7 @@ def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
     except PyflightstreamError as error:
         _skip(ctx, key, point.name, f"the trace cannot be formed: {error}")
         return []
-    for index, name in enumerate(chosen):
+    for index, name in enumerate(chosen if sloads is None else []):
         _spanwise(
             ctx,
             point,
@@ -1190,8 +1144,7 @@ def _entry_products(ctx: SimContext, tables: _Tables) -> None:
         steady_rows = []
         read: list[Path | None] = []
         if "trefftz:sections" in analyses:
-            steady_rows += _variant_a(ctx, point)
-            read.append(ctx.exports.get(point.name, (None, None, None))[0])
+            _sections_products(ctx, point, tables, run_type)
         if "trefftz:wake" in analyses:
             steady_rows += _variant_b(ctx, point)
             vtk = _output(ctx, point, "vtk")
@@ -1199,6 +1152,51 @@ def _entry_products(ctx: SimContext, tables: _Tables) -> None:
         tables.extend("trefftz", point.name, _named(ctx, read), steady_rows, runs=runs)
         if any(a in analyses for a in ("trefftz:plane", "trefftz:power", "ledgers")):
             _probe_point(ctx, point, analyses, tables, rotor=rotor)
+
+
+def _sections_products(ctx: SimContext, point: PolarPoint, tables: _Tables, run_type: str) -> None:
+    """Trace the final sections and each stamped export inside the averaging window."""
+    source = ctx.exports.get(point.name, (None, None, None))[0]
+    runs = ctx.sources[point.name]
+    rows = _variant_a(ctx, point)
+    if run_type not in UNSTEADY_RUN_TYPES:
+        tables.extend("trefftz", point.name, _named(ctx, [source]), rows, runs=runs)
+        return
+    record = ctx.record_of[point.name]
+    instant = [row[:2] + (_last_step(record),) + row[3:] for row in rows]
+    tables.extend("trefftz_instant", point.name, _named(ctx, [source]), instant, runs=runs)
+    window = ctx.point_windows.get(point.name)
+    root = ctx.workspace.sim_dir(ctx.sim_id)
+    files = stamped_exports(
+        root, point.name, *(root / Path(output).parent for output in record.outputs)
+    ).get(("_sloads", "txt"), {})
+    steps = range(int(window[0]), int(window[1]) + 1) if window else range(0)
+    if not steps or any(step not in files for step in steps):
+        _skip(
+            ctx,
+            f"farfield/trefftz_average#point={point.name}#entry={_spec(ctx).name}",
+            point.name,
+            "Trefftz A average needs per-step sectional exports covering its window",
+        )
+        return
+    samples = [_variant_a(ctx, point, files[step]) for step in steps]
+    if not all(samples) or any(len(sample) != len(samples[0]) for sample in samples):
+        _skip(
+            ctx,
+            f"farfield/trefftz_average#point={point.name}#entry={_spec(ctx).name}",
+            point.name,
+            "per-step sectional traces do not cover the same families at every step",
+        )
+        return
+    tables.extend(
+        "trefftz_average",
+        point.name,
+        _named(ctx, [files[step] for step in steps]),
+        _average_entry_rows(samples, 2 + len(CONTEXT_COLUMNS) + 2),
+        runs=runs,
+        window=window,
+        samples=len(samples),
+    )
 
 
 def _spins(ctx: SimContext, record: object) -> bool:

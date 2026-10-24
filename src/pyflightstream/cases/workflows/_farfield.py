@@ -142,6 +142,8 @@ def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
     run_type, rotor = _run_type(case), _rotor(case)
     if "trefftz:plane" in selected and run_type == "qsteady_rotor":
         raise CampaignConfigError(applies("trefftz:plane", run_type))
+    if "trefftz:sections" in selected and run_type == "qsteady_rotor":
+        raise CampaignConfigError(applies("trefftz:sections", run_type))
     return [analysis for analysis in selected if not applies(analysis, run_type, rotor=rotor)]
 
 
@@ -240,6 +242,14 @@ def _selected(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> li
         for name in group or list(inventory):
             if name not in chosen:
                 chosen.append(name)
+    if spec.variant == "sections":
+        for alias, rotor in case.rotors.items():
+            overlap = set(chosen).intersection(rotor.families_blades + rotor.families_general)
+            if overlap:
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: Trefftz A selects rotor {alias} families "
+                    f"{', '.join(sorted(overlap))}; select the reference's lifting-surface aliases"
+                )
     return chosen
 
 

@@ -1926,6 +1926,36 @@ def test_p0450_d2_rotor_lattice_and_plane_write_both(tmp_path):
         assert {(row["ENTRY"], row["VARIANT"]) for row in rows} == {("plane", "C"), ("power", "D")}
 
 
+@pytest.mark.parametrize("series", [False, True])
+def test_p0450_d3_unsteady_sections_instant_and_window(tmp_path, series):
+    workspace = _farfield_products___workspace(tmp_path, farfield=True)
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[[farfields]]\nvariant = "sections"\nfamilies = ["W"]\n', encoding="utf-8"
+    )
+    _ffproof_post___set_record(
+        workspace, recipe="unsteady_rotor", reductions=_FFPROOF_POST___WINDOW
+    )
+    source = next(workspace.sim_dir("3207").rglob("*_sloads.txt"))
+    if series:
+        for step in range(5, 9):
+            source.with_name(f"{source.stem}_iteration={step}.txt").write_text(
+                source.read_text(), encoding="utf-8"
+            )
+    _farfield_products___post(workspace)
+    root = Path(workspace.root)
+    instant = _rfixf_layout___rows(root, "farfield/*_trefftz_instant.csv")
+    assert instant and {row["VARIANT"] for row in instant} == {"A"}
+    assert {row["STEP"] for row in instant} == {"8"}
+    average = _rfixf_layout___rows(root, "farfield/*_trefftz_average.csv")
+    assert bool(average) is series
+    if series:
+        assert float(average[-1]["CDI_T"]) == pytest.approx(float(instant[-1]["CDI_T"]))
+    else:
+        manifest = str(_ffproof_post___manifest(root))
+        assert "per-step sectional" in manifest
+        assert "per-step sectional" in next(root.rglob("post.log")).read_text()
+
+
 def _rfixf_layout___crossflow_plane(tmp_path: Path, table: str, **record: object):
     """A point whose export holds the laid plane in the free stream plus 1 m/s along its y."""
     velocity = np.tile(

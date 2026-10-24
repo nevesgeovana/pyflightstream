@@ -152,11 +152,13 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
             "Trefftz C requires a uniform freestream; qsteady_rotor uses a rotating frame: "
             'select "power"'
         )
-    if analysis in ("trefftz:sections", "trefftz:wake"):
+    if analysis == "trefftz:sections" and run_type == "qsteady_rotor":
+        return "Trefftz A on qsteady_rotor has no lifting surface outside the rotor"
+    if analysis == "trefftz:wake":
         if rotor or run_type in ROTOR_RUN_TYPES:
             return "a rotor's helical wake is not a streamwise sheet"
         if run_type in UNSTEADY_RUN_TYPES:
-            return "variants A and B serve steady rows"
+            return "variant B serves steady rows"
     return ""
 
 
@@ -295,7 +297,7 @@ def resolve_farfield(
     for analysis in _analyses(spec):
         why = applies(analysis, run_type, rotor=rotor)
         if why:
-            state = "refused" if analysis == "trefftz:plane" else "not_applicable"
+            state = "refused" if analysis != "trefftz:wake" else "not_applicable"
             resolver.item(analysis, "run_type", state, reason=why)
         elif analysis == "trefftz:sections":
             resolver.sections(analysis, selected_families, coupled)
