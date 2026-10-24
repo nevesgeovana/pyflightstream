@@ -471,10 +471,10 @@ class TestFarfieldProducts:
             post_matrix(workspace)
         columns, rows = _superfiles(workspace)[name]
         added = [column for column in columns if column not in before]
-        assert added == ["CL_T_B", "CDI_T_B", "E_T_B"]
+        assert added == ["CL_T_B_wake", "CDI_T_B_wake", "E_T_B_wake"]
         kept = [column for column in before if column != "MESH_FACES"]
-        assert columns.index("CL_T_B") > max(columns.index(column) for column in kept)
-        assert all(row["E_T_B"] not in ("", None) for row in rows)
+        assert columns.index("CL_T_B_wake") > max(columns.index(column) for column in kept)
+        assert all(row["E_T_B_wake"] not in ("", None) for row in rows)
 
 
 _FFPROOF_POST___STEM = "POLAR-3207_M20AL-020BE+000"
@@ -1831,6 +1831,35 @@ _RFIXF_LAYOUT___PLANE_RECORD = {
 
 
 @pytest.mark.requirement("FR-1062")
+@pytest.mark.parametrize("plane_name", ["net", "plane"])
+def test_p0450_d7_super_cells_belong_to_each_entry(tmp_path, plane_name):
+    """P0450-D7: two A entries and C retain separate aggregate cells."""
+    workspace = _farfield_products___workspace(tmp_path, farfield=True)
+    pproc = workspace.inputs_dir / "pproc" / "p001.toml"
+    text = pproc.read_text(encoding="utf-8")
+    text = text.replace('variant = "sections"', 'name = "wing"\nvariant = "sections"')
+    text += '\n[[farfields]]\nname = "tail"\nvariant = "sections"\nfamilies = "all"\n'
+    if plane_name == "net":
+        text = text.replace('variant = "plane"', 'name = "net"\nvariant = "plane"')
+    pproc.write_text(text, encoding="utf-8")
+    _farfield_products___post(workspace)
+    root = Path(workspace.root)
+    rows = _farfield_products___table(_farfield_products___one(root, "farfield/*_trefftz.csv"))
+    (super_row,) = _farfield_products___table(_farfield_products___one(root, "polars/SUPER-*.csv"))
+    assert {r["ENTRY"] for r in rows} == {"wing", "tail", "wake", plane_name}
+    for row in rows:
+        for column in ("CL_T", "CDI_T", "E_T"):
+            key = f"{column}_{row['VARIANT']}_{row['ENTRY']}"
+            assert key in super_row
+            actual = super_row[key]
+            assert (
+                actual == "NA"
+                if row[column] == "NA"
+                else float(actual) == pytest.approx(float(row[column]), abs=1e-5)
+            )
+
+
+@pytest.mark.requirement("FR-1062")
 def test_p0450_d5_super_reads_net_and_preserves_a_total(tmp_path):
     """P0450-D5: every variant keeps its columns and selects its aggregate row."""
     workspace = _farfield_products___workspace(tmp_path, farfield=True)
@@ -1845,7 +1874,7 @@ def test_p0450_d5_super_reads_net_and_preserves_a_total(tmp_path):
     }
     for row in rows:
         for column in ("CL_T", "CDI_T", "E_T"):
-            actual = super_row[f"{column}_{row['VARIANT']}"]
+            actual = super_row[f"{column}_{row['VARIANT']}_{row['ENTRY']}"]
             if row[column] == "NA":
                 assert actual == "NA"
             else:

@@ -19,7 +19,8 @@ FlightStream versions.
 
 - Trefftz B, C and D identify whole-flow rows with `FAMILY = net`. B's spanwise
   file and manifest key use `_trefftz_net.csv`. A keeps its family
-  rows and `TOTAL`; super-file column names stay unchanged and read the net rows.
+  rows and `TOTAL`. Super-file columns include each entry's name, for example
+  `CL_T_A_wing` and `CDI_T_C_plane`, so repeated variants retain separate cells.
 - Trefftz A accepts unsteady lifting-surface traces, including nonrotor families
   on rotor rows. Rotor-owned families are refused. Available per-step sectional
   exports supply the average; absent exports produce a named skip. In 0.44.0,

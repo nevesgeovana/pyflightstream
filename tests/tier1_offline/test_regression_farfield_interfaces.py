@@ -339,6 +339,27 @@ def _farfield_plan___resolve(**overrides: object):
     )
 
 
+def test_p0450_d7_missing_a_family_names_the_entry():
+    """P0450-D7: a missing family points at its named farfields entry."""
+    spec = PprocSpec.model_validate(
+        {"farfields": [{"name": "wing", "variant": "sections", "families": ["missing"]}]}
+    ).farfields[0]
+    resolution = resolve_farfield(
+        spec,
+        run_type="steady",
+        covered_families=set(),
+        selected_families=[],
+        exports={},
+        declares_lattice=False,
+        declares_plane=False,
+        coupled=False,
+        admits_probes=True,
+        has_command=lambda command: True,
+    )
+    reason = resolution.inputs[0].reason
+    assert "[[farfields]]" in reason and "wing" in reason and "missing" in reason
+
+
 class TestFarfieldPlan:
     """P0400-FFPLAN: the plan reuses, adds, and refuses only the impossible (FR-455).
 

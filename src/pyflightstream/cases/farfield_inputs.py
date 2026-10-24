@@ -249,7 +249,7 @@ def resolve_farfield(
     Parameters
     ----------
     spec : FarfieldSpec
-        The row's ``[farfield]`` table.
+        The row's named ``[[farfields]]`` entry.
     run_type : str
         The row's run type (``steady``, ``unsteady``, ``unsteady_rotor``,
         ``qsteady_rotor``).
@@ -257,7 +257,7 @@ def resolve_farfield(
         The families a declared ``[sections]`` distribution cuts in plane XZ of a
         reference-axes frame (FR-1045).
     selected_families : sequence of str
-        The families ``[farfield] families`` resolves to on the row's geometry.
+        The families the ``[[farfields]]`` entry resolves to on the row's geometry.
     exports : dict of str to bool
         The artifact's ``[exports]`` table, as stated.
     declares_lattice, declares_plane : bool
@@ -291,7 +291,10 @@ def resolve_farfield(
                 analysis,
                 "families",
                 "refused",
-                reason=f"[farfield] families = {spec.families!r} names no family of the geometry",
+                reason=(
+                    f"[[farfields]] entry {spec.name!r}: families = {spec.families!r} "
+                    "names no family of the geometry"
+                ),
             )
         return FarfieldResolution(tuple(resolver.inputs))
     for analysis in _analyses(spec):

@@ -25,9 +25,11 @@ The analyses and where they are written:
 B, C and D identify the whole flow with lowercase `net` in `FAMILY`.
 A retains its selected family rows and their `TOTAL` row. B's spanwise file
 and its product-manifest key use `_trefftz_net.csv`.
-The super file reads A's `TOTAL` and B/C/D's `net` rows into the unchanged
-`CL_T_<VARIANT>`, `CDI_T_<VARIANT>` and `E_T_<VARIANT>` columns. When several
-entries share a variant, the later row supplies that variant's super-file cells.
+The super file reads A's `TOTAL` and B/C/D's `net` rows into
+`CL_T_<VARIANT>_<ENTRY>`, `CDI_T_<VARIANT>_<ENTRY>` and
+`E_T_<VARIANT>_<ENTRY>` columns, one set per entry. For example, A entries
+named `wing` and `tail` write `CL_T_A_wing` and `CDI_T_A_tail`; C named `net`
+writes `CDI_T_C_net`. An unnamed C entry uses `CDI_T_C_plane`.
 
 ### Selecting analyses
 

@@ -1097,7 +1097,9 @@ def _super_cells(rows: Sequence[tuple[tuple[object, ...], str]]) -> dict[str, di
             continue
         cells = out.setdefault(point, {})
         for column in ("CL_T", "CDI_T", "E_T"):
-            cells[f"{column}_{row[variant]}"] = _cell(row[first + TREFFTZ_COLUMNS.index(column)])
+            cells[f"{column}_{row[variant]}_{row[1]}"] = _cell(
+                row[first + TREFFTZ_COLUMNS.index(column)]
+            )
     return out
 
 

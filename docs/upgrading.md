@@ -18,8 +18,10 @@ the distinction between the old rotor power channels and the velocity plane.
 Far-field CSV readers must account for `ENTRY` immediately after `POL`.
 Select `FAMILY = net` for B, C and D, replacing `TOTAL`; A retains its family
 rows and `TOTAL`. Read B's spanwise product at `sections/<point>_trefftz_net.csv`.
-Its manifest key changes with it. Super-file column names remain
-unchanged.
+Its manifest key changes with it. Super-file far-field columns now include
+the entry name: `<quantity>_<VARIANT>_<ENTRY>`, for example `CL_T_A_wing`,
+`CDI_T_A_tail` and `CDI_T_C_net`. Default entry names also appear, as in
+`CDI_T_C_plane`. Update readers to select each entry's cells.
 
 ## 0.44.0
 
