@@ -20,7 +20,8 @@ pytestmark = pytest.mark.requirement("FR-455")
 def test_collapsed_plane_is_refused_while_building(tmp_path, spacing):
     case = _case(
         tmp_path,
-        {"families": "all", "trefftz": {"variant": "plane", "spacing_bref": spacing}},
+        # D0: one plane entry, without a family selection.
+        [{"variant": "plane", "spacing_bref": spacing}],
     )
     with pytest.raises(ProbeGeometryError, match="at least three points") as caught:
         build_script(case, Script("26.124"))

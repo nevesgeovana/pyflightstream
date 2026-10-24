@@ -37,4 +37,19 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
     # pproc defaults of 0.43.0, nothing else moved: refinement=None (NL-TRST-7) and
     # products.trimmed_polar=False (FR-2302).
     expected = json.loads((FIXTURES / "p0360_w9c.json").read_text(encoding="utf-8"))
+
+    # D0 replaces the absent singular table with an empty entry list; retain
+    # the complete historical binding comparison, changing only that default.
+    def migrate_default(value):
+        if isinstance(value, dict):
+            if "farfield" in value:
+                assert value.pop("farfield") is None
+                value["farfields"] = []
+            for child in value.values():
+                migrate_default(child)
+        elif isinstance(value, list):
+            for child in value:
+                migrate_default(child)
+
+    migrate_default(expected[fixture])
     assert actual == expected[fixture]

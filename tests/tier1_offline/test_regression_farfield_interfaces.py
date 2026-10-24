@@ -216,7 +216,7 @@ def _farfield_plan___box(root: Path) -> Path:
     return mesh
 
 
-def _farfield_plan___case(root: Path, farfield: dict, **pproc: object):
+def _farfield_plan___case(root: Path, farfield: list[dict] | dict | None, **pproc: object):
     mesh = _farfield_plan___box(root)
     sidecar = root / "box.boundaries.toml"
     spec = PprocSpec.model_validate({"groups": {"1": "all"}, "farfields": farfield or [], **pproc})

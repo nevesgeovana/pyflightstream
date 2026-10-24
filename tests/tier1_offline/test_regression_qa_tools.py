@@ -1937,7 +1937,8 @@ class TestReach2Routes:
         written = _reach2_routes___spy(
             monkeypatch, farfield_module, "write_points_csv", write_points_csv
         )
-        farfield = {"families": "all", "trefftz": {"variant": "plane", "spacing_bref": 0.25}}
+        # D0: plane geometry belongs to a single entry.
+        farfield = [{"variant": "plane", "spacing_bref": 0.25}]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             script = _reach2_routes___script(_reach2_routes___case(tmp_path, farfield))
@@ -1987,7 +1988,8 @@ class TestReach2Routes:
             "lines": [{"start": [1.5, 0.0, 0.0], "end": [1.5, 0.3, 0.1]}],
             "lattices": [declared],
         }
-        farfield = {"families": "all", "ledgers": dict(_REACH2_ROUTES___ROTOR_LATTICE, m_max=2)}
+        # D0/D2: power owns the lattice, without a family selection.
+        farfield = [dict(_REACH2_ROUTES___ROTOR_LATTICE, variant="power", m_max=2)]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             script = _reach2_routes___script(
@@ -2018,7 +2020,8 @@ class TestReach2Routes:
         written = _reach2_routes___spy(
             monkeypatch, farfield_module, "write_probe_csv", write_probe_csv
         )
-        farfield = {"families": "all", "ledgers": dict(_REACH2_ROUTES___ROTOR_LATTICE, m_max=2)}
+        # D0/D2: power owns the lattice, without a family selection.
+        farfield = [dict(_REACH2_ROUTES___ROTOR_LATTICE, variant="power", m_max=2)]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             script = _reach2_routes___script(_reach2_routes___case(tmp_path, farfield))

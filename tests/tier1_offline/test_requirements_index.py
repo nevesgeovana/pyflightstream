@@ -1137,7 +1137,8 @@ def test_p0410_pa2_section_trefftz_names_a_sideslip_skip(sideslip):
 
     context = SimpleNamespace(
         pproc=PprocSpec.model_validate(
-            {"farfield": {"families": ["Wing"], "trefftz": {"variant": ["sections"]}}}
+            # D0: A retains its families in a sections entry.
+            {"farfields": [{"families": ["Wing"], "variant": "sections"}]}
         ),
         skipped={},
         farfield_super={},
