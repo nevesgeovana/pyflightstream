@@ -14,6 +14,13 @@ FlightStream versions.
 - `polar_row` no longer defaults to zero sideslip; pass `beta_deg` explicitly.
 - `unsteady_samples` is no longer public; read far-field per-step surveys through post.
 
+### Changed
+
+- The far-field inputs of `plan.json` and the run record carry each input's `variant`
+  beside its `entry`.
+- A far-field entry refused for its lattice or plane keys lists every cause, each by the
+  key it names.
+
 ### Fixed
 
 - Campaign plan summaries name each far-field entry and variant, including the

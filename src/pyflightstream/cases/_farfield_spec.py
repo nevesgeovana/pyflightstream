@@ -41,6 +41,10 @@ BALANCES: tuple[str, ...] = (
     "in_plane_moment",
     "crossflow_energy",
 )
+#: The balance names a ``balances`` key accepts; a test pins it to :data:`BALANCES`.
+BalanceName = Literal[
+    "mass", "axial", "transverse", "torque", "in_plane_moment", "crossflow_energy"
+]
 #: The defaults of FR-1039 that a table may leave unstated:
 #: the plan's station count per side, the plane's distance behind the
 #: families and, for the wing plane, its half extents and spacing, all in BREF.
@@ -262,9 +266,7 @@ class LedgersSpec(LatticeShape):
         the lattice's azimuth count.
     """
 
-    balances: list[
-        Literal["mass", "axial", "transverse", "torque", "in_plane_moment", "crossflow_energy"]
-    ] = Field(
+    balances: list[BalanceName] = Field(
         default_factory=lambda: list(BALANCES),  # type: ignore[arg-type]
         description="The balances written: any of the six, all six by default.",
     )
@@ -358,9 +360,7 @@ class FarfieldSpec(BaseModel):
     hub_width: float | None = None
     tip_width: float | None = None
     m_max: int = 6
-    balances: list[
-        Literal["mass", "axial", "transverse", "torque", "in_plane_moment", "crossflow_energy"]
-    ] = Field(default_factory=list)
+    balances: list[BalanceName] = Field(default_factory=list)
     last_revs: float | None = Field(default=None, gt=0, strict=True)
     last_steps: int | None = Field(default=None, gt=0, strict=True)
 
@@ -430,9 +430,12 @@ class FarfieldSpec(BaseModel):
             raise self._entry_error(error) from error
 
     def _entry_error(self, error: ValidationError) -> ValueError:
-        first = error.errors()[0]
-        key = ".".join(str(part) for part in first["loc"]) or "geometry"
-        return ValueError(f"[[farfields]] entry {self.name!r}: {key}: {first['msg']}")
+        parts = []
+        for item in error.errors():
+            key = ".".join(str(part) for part in item["loc"])
+            message = str(item["msg"]).removeprefix("Value error, ")
+            parts.append(f"{key}: {message}" if key else message)
+        return ValueError(f"[[farfields]] entry {self.name!r}: " + "; ".join(parts))
 
 
 _KEY_VARIANTS = {

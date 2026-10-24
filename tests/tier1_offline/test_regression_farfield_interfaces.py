@@ -189,6 +189,33 @@ def test_p0450_rel1_duplicate_balances_use_entry_vocabulary(case):
     assert "[farfield.ledgers]" not in str(caught.value)
 
 
+@pytest.mark.parametrize("case", ["P0450-API-06", "P0450-QA-01"])
+def test_p0450_rel2_entry_refusal_names_every_cause_and_no_internal_key(case):
+    with pytest.raises(ValueError) as caught:
+        FarfieldSpec.model_validate(
+            {"variant": "power", "name": "shaft", "rotor": "R", "n_psi": 4, "n_r": -1}
+        )
+    message = str(caught.value)
+    assert "n_r:" in message and "n_psi:" in message
+    with pytest.raises(ValueError) as caught:
+        FarfieldSpec.model_validate(
+            {"variant": "power", "name": "shaft", "rotor": "R", "balances": ["mass", "mass"]}
+        )
+    message = str(caught.value)
+    assert "[[farfields]] entry 'shaft': balances repeats mass" in message
+    assert "geometry:" not in message
+    assert message.count("Value error,") <= 1
+
+
+@pytest.mark.parametrize("case", ["P0450-ARCH-02"])
+def test_p0450_rel2_balance_names_are_one_vocabulary(case):
+    from typing import get_args
+
+    from pyflightstream.cases._farfield_spec import BALANCES, BalanceName
+
+    assert set(get_args(BalanceName)) == set(BALANCES)
+
+
 @pytest.mark.parametrize("case", ["P0450-API-01"])
 def test_p0450_rel1_station_warning_names_sections_entry(case):
     from pyflightstream.cases.farfield_inputs import few_stations_warning
