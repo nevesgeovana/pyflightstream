@@ -695,7 +695,9 @@ def _resolve(
         has_command=_command_test(view),
         rotor=_rotor(case),
     )
-    return FarfieldResolution(tuple(replace(item, entry=spec.name) for item in resolution.inputs))
+    return FarfieldResolution(
+        tuple(replace(item, entry=spec.name, variant=spec.variant) for item in resolution.inputs)
+    )
 
 
 def farfield_resolution(case: SimCase, script: Script) -> FarfieldResolution | None:

@@ -46,6 +46,44 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("case", ["P0450-API-05"])
+def test_p0450_rel1_summary_names_both_entries(tmp_path, case):
+    import sys
+
+    from pyflightstream.cases import Campaign
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run import plan_campaign
+
+    entries = [
+        {"name": "wing_trace", "variant": "sections", "families": "all"},
+        {
+            "name": "shaft_power",
+            "variant": "power",
+            "balances": ["mass"],
+            **dict(_FFPROOF_PLAN___LATTICE, m_max=2),
+        },
+    ]
+    campaign = Campaign(
+        name="entry_summary",
+        fs_version="26.125",
+        fs_exe=sys.executable,
+        sims=[_farfield_plan___case(tmp_path, entries)],
+    )
+    plan = plan_campaign(
+        campaign,
+        CampaignWorkspace(tmp_path / "campaign"),
+        write_plan=False,
+        recipes=workflow_registry(),
+    )
+    assert len(plan.ready) == 1, plan.summary()
+    summary = plan.summary()
+    assert "far field entry 'wing_trace' (sections) section_distribution added:" in summary
+    power_lines = [line for line in summary.splitlines() if "probe_points added:" in line]
+    assert len(power_lines) == 2
+    assert all("far field entry 'shaft_power' (power)" in line for line in power_lines)
+    assert not any(word in summary for word in ("trefftz:sections", "trefftz:power", "ledgers"))
+
+
 @pytest.mark.parametrize("case", ["P0450-TW-04-SWEEP"])
 def test_p0450_rel1_retired_tables_only_in_translation(case):
     root = Path(__file__).resolve().parents[2] / "src/pyflightstream"

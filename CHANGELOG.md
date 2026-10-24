@@ -16,6 +16,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Campaign plan summaries name each far-field entry and variant, including the
+  power entry requesting balances, instead of internal analysis identifiers.
 - Far-field plane spacing refusals point to the `[[farfields]]` plane entry.
 - Far-field station-count warnings name the requesting `[[farfields]]` sections entry.
 - The inside-body far-field refusal directs geometry corrections to `[[farfields]]`.

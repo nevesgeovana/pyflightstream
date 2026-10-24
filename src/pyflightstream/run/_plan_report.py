@@ -117,7 +117,10 @@ def _farfield_lines(points: Sequence[PointPlan]) -> list[str]:
 def farfield_line(item: Mapping[str, object]) -> str:
     """Return one far-field input of the plan as its console line (FR-1047)."""
     what = item.get("source") or item.get("reason") or ""
-    return f"{item.get('analysis')} {item.get('input')} {item.get('state')}: {what}".rstrip(": ")
+    return (
+        f"entry {item.get('entry')!r} ({item.get('variant')}) "
+        f"{item.get('input')} {item.get('state')}: {what}"
+    ).rstrip(": ")
 
 
 def run_wake_length_line(run: Mapping[str, object]) -> str:

@@ -70,6 +70,8 @@ class FarfieldInput:
         The declaration reused, or what the plan adds.
     reason : str
         Why the input is not applicable or refused; empty otherwise.
+    entry, variant : str
+        The requesting entry's name and public variant, assigned by the workflow.
     """
 
     analysis: str
@@ -78,11 +80,13 @@ class FarfieldInput:
     source: str = ""
     reason: str = ""
     entry: str = ""
+    variant: str = ""
 
     def as_record(self) -> dict[str, str]:
         """Return the input as the plan output states it (FR-1047)."""
         return {
             "entry": self.entry,
+            "variant": self.variant,
             "analysis": self.analysis,
             "input": self.input,
             "state": self.state,
