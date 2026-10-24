@@ -2,7 +2,8 @@
 
 Pipeline role: the body of the post step that writes ``farfield/<group>_trefftz.csv``,
 ``farfield/<group>_ledgers.csv`` (``_instant`` and ``_average`` on an unsteady
-row) and the spanwise files ``sections/<point>_trefftz_<family>.csv`` from the
+row) and spanwise files ``sections/<point>_trefftz_<family>.csv`` for A or
+``sections/<point>_trefftz_net_<entry>.csv`` for B from the
 exports a run recorded, through the numpy core of :mod:`pyflightstream.farfield`.
 It reads the exports with the ``results`` readers, turns every vector to the
 far-field axes (FR-1005), and states every point an analysis cannot serve as
@@ -109,7 +110,7 @@ TREFFTZ_COLUMNS: tuple[str, ...] = (
     # PFS-2081.97: the point's solver termination status, as the sweep table writes it.
     "STATUS",
 )
-#: The columns of a spanwise file ``sections/<point>_trefftz_<family>.csv`` (FR-1055).
+#: The columns of A's per-family and B's per-entry spanwise files (FR-1055).
 SPANWISE_COLUMNS: tuple[str, ...] = (
     "POL",
     # The condition and reference block every product table carries.
@@ -338,7 +339,7 @@ def _spanwise(
     result: TraceResult,
     chords: np.ndarray | None,
 ) -> None:
-    """Write ``sections/<point>_trefftz_<family>.csv``, the meshed strips of one sheet."""
+    """Write a sheet's spanwise strips, qualifying whole-flow B files by entry."""
     rho, speed, _alpha, _beta = _flow(point)
     q = 0.5 * rho * speed * speed
     keep = result.original
@@ -365,7 +366,8 @@ def _spanwise(
                 _status(ctx, point),
             )
         )
-    safe = re.sub(r"[^A-Za-z0-9_.+-]", "_", name)
+    suffix = f"{name}_{_spec(ctx).name}" if variant == "wake" else name
+    safe = re.sub(r"[^A-Za-z0-9_.+-]", "_", suffix)
     path = ctx.target(ctx.out / f"sections/{point.name}_trefftz_{safe}.csv")
     write_csv_table(path, SPANWISE_COLUMNS, rows)
     ctx.add(

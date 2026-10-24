@@ -194,6 +194,39 @@ def test_p0450_ff5_lattice_precision_names_spacing_and_configuration():
             assert block is not None, why
 
 
+def test_p0450_ff5_wake_entries_keep_their_own_spanwise_files(tmp_path):
+    """RV1-06: two B entries preserve the rows each would write in isolation."""
+    entries = {"near": 0.1, "far": 0.2}
+    expected = {}
+    for selected in (["near", "far"], ["near"], ["far"]):
+        workspace = _farfield_products___workspace(tmp_path / "_".join(selected), farfield=True)
+        (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+            '[groups]\n"1" = "all"\n'
+            + "".join(
+                f'[[farfields]]\nvariant = "wake"\nname = "{name}"\n'
+                f"distance_bref = {entries[name]}\n"
+                for name in selected
+            ),
+            encoding="utf-8",
+        )
+        _farfield_products___post(workspace)
+        root = workspace.root / "post"
+        files = sorted(root.rglob("sections/*_trefftz_net_*.csv"))
+        assert len(files) == len(selected)
+        manifest = _farfield_products___one(root, "products.json").read_text(encoding="utf-8")
+        for name in selected:
+            path = next(path for path in files if path.name.endswith(f"_net_{name}.csv"))
+            rows = _farfield_products___table(path)
+            assert rows and {row["VARIANT"] for row in rows} == {"B"}
+            assert {row["FAMILY"] for row in rows} == {"net"}
+            assert path.name in manifest
+            if len(selected) == 2:
+                expected[name] = rows
+            else:
+                assert rows == expected[name]
+    assert expected["near"] != expected["far"]
+
+
 def _farfield_products___sloads() -> str:
     q = 0.5 * _FARFIELD_PRODUCTS__RHO * _FARFIELD_PRODUCTS__SPEED * _FARFIELD_PRODUCTS__SPEED
     peak = (
@@ -481,7 +514,7 @@ class TestFarfieldProducts:
             _farfield_products___one(root, "sections/*_trefftz_W.csv")
         )
         total = _farfield_products___table(
-            _farfield_products___one(root, "sections/*_trefftz_net.csv")
+            _farfield_products___one(root, "sections/*_trefftz_net_wake.csv")
         )
         assert len(family) == _FARFIELD_PRODUCTS__STATIONS and {
             row["VARIANT"] for row in family
@@ -490,7 +523,7 @@ class TestFarfieldProducts:
         assert {row["FAMILY"] for row in total} == {"net"}
         manifest = _farfield_products___one(root, "products.json").read_text()
         log = _farfield_products___one(root, "post.log").read_text()
-        assert "_trefftz_net.csv" in manifest
+        assert "_trefftz_net_wake.csv" in manifest
         assert "_trefftz_TOTAL.csv" not in manifest + log
         downwash = [float(row["W_M_S"]) for row in family[10:-10]]
         assert max(downwash) - min(downwash) < 0.05 * abs(np.mean(downwash)), "elliptic: uniform"
