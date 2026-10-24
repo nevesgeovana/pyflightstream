@@ -7,6 +7,11 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- Missing far-field point sets retain their named plane or lattice skip in the
+  product manifest, including when that set is the entry's only analysis.
+
 ### Added
 
 - Regression coverage confirms that the 648-point lattice with radius 8,

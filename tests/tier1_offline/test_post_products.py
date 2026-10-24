@@ -3286,7 +3286,8 @@ def test_trefftz_b_states_a_missing_density_as_its_reason_f4_07(tmp_path):
     assert any("no density or free-stream speed" in message for message in said)
     products = helpers._ffproof_post___one(Path(workspace.root), "products.json")
     skipped = json.loads(products.read_text(encoding="utf-8"))["skipped"]
-    (why,) = [v for k, v in skipped.items() if k.endswith("#variant=wake")]
+    # D0: a skip identifies its analysis entry as well as its variant.
+    (why,) = [v for k, v in skipped.items() if k.endswith("#variant=wake#entry=wake")]
     assert why == "the point states no density or free-stream speed"
 
 

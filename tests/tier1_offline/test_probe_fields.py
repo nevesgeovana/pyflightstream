@@ -1018,7 +1018,8 @@ def test_f4_0304_a_missing_selected_family_is_a_named_skip(tmp_path, monkeypatch
     wing._farfield_products___post(workspace)
     products = wing._farfield_products___one(tmp_path, "products.json")
     skipped = json.loads(products.read_text(encoding="utf-8")).get("skipped", {})
-    named = [why for key, why in skipped.items() if key.endswith("#family=H")]
+    # D0: family skips belong to their sections entry.
+    named = [why for key, why in skipped.items() if key.endswith("#family=H#entry=sections")]
     assert named and "H" in named[0]
 
 
@@ -1074,7 +1075,9 @@ def test_f4_0304_one_absent_point_set_keeps_the_other_analysis(tmp_path):
     workspace = wing._farfield_products___workspace(tmp_path, farfield=True)
     pproc = Path(workspace.inputs_dir) / "pproc" / "p001.toml"
     ledgers = (
-        '[farfield.ledgers]\nframe = "MRP"\ntip_radius_m = 1.0\n'
+        # D0/D2: the independently requested lattice is a power entry.
+        '[[farfields]]\nvariant = "power"\nbalances = ["mass"]\n'
+        'frame = "MRP"\ntip_radius_m = 1.0\n'
         "stations = [-1.0, 1.0]\nn_r = 2\nn_psi = 16\nm_max = 2\n"
     )
     pproc.write_text(pproc.read_text(encoding="utf-8") + ledgers, encoding="utf-8")
@@ -1083,7 +1086,7 @@ def test_f4_0304_one_absent_point_set_keeps_the_other_analysis(tmp_path):
     skipped = json.loads(wing._farfield_products___one(root, "products.json").read_text("utf-8"))[
         "skipped"
     ]
-    assert any(key.endswith("#absent=lattice") for key in skipped), skipped
+    assert any(key.endswith("#absent=lattice#entry=power") for key in skipped), skipped
     rows = wing._farfield_products___table(
         wing._farfield_products___one(root, "farfield/*_trefftz.csv")
     )

@@ -33,7 +33,7 @@ from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, w
 from pyflightstream.cases import AXES_PLOT_GROUP, DEFAULT_DRIFT_LIMIT_PCT
 from pyflightstream.cases.windows import AZIMUTHAL, averaging_span
 from pyflightstream.cases.workflows import PER_ROTOR_REDUCTIONS, REDUCTION_NAMES, ROTORS_KEY
-from pyflightstream.post._condition import _recorded_speeds, row_rotor_speeds
+from pyflightstream.post._condition import _last_time_step, _recorded_speeds, row_rotor_speeds
 from pyflightstream.post._stage import (
     _MOMENT_POINT_COLUMNS,
     _PER_BLADE,
@@ -245,6 +245,19 @@ def _average_entry_rows(rows: list, first: int) -> list:
     name = rows[0][0][1]
     stripped = [[row[:1] + row[2:] for row in step] for step in rows]
     return [row[:1] + (name,) + row[1:] for row in average_rows(stripped, first)]
+
+
+def _q_ref(point: PolarPoint, rho: float) -> float:
+    """Return the dynamic pressure the export's ``Cp_ref`` and coefficients are taken on."""
+    loads = point.loads
+    v_ref = loads.reference_velocity_m_s or loads.freestream_velocity_m_s
+    return 0.5 * rho * float(v_ref) ** 2
+
+
+def _last_step(record: object) -> object:
+    """Return the run's last time step, the instant a normal probe holds, or NA."""
+    last = _last_time_step(cast("Any", record))
+    return _NA if last is None else last
 
 
 def _dictionary_the_table_can_honour(
