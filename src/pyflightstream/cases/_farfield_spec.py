@@ -16,7 +16,7 @@ import json
 import re
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError, model_validator
 
 from pyflightstream.probes.lattice import ProbeLattice, build_lattice
 
@@ -358,7 +358,9 @@ class FarfieldSpec(BaseModel):
     hub_width: float | None = None
     tip_width: float | None = None
     m_max: int = 6
-    balances: list[str] = Field(default_factory=list)
+    balances: list[
+        Literal["mass", "axial", "transverse", "torque", "in_plane_moment", "crossflow_energy"]
+    ] = Field(default_factory=list)
     last_revs: float | None = Field(default=None, gt=0, strict=True)
     last_steps: int | None = Field(default=None, gt=0, strict=True)
 
@@ -411,7 +413,10 @@ class FarfieldSpec(BaseModel):
         )
         if values["stations"] is None:
             values["stations"] = 80
-        return TrefftzSpec.model_validate(values)
+        try:
+            return TrefftzSpec.model_validate(values)
+        except ValidationError as error:
+            raise self._entry_error(error) from error
 
     @property
     def ledgers(self) -> LedgersSpec | None:
@@ -419,7 +424,15 @@ class FarfieldSpec(BaseModel):
         if self.variant != "power":
             return None
         keys = (*_LATTICE_KEYS, "rotor", "frame", "tip_radius_m", "m_max", "balances")
-        return LedgersSpec.model_validate({key: getattr(self, key) for key in keys})
+        try:
+            return LedgersSpec.model_validate({key: getattr(self, key) for key in keys})
+        except ValidationError as error:
+            raise self._entry_error(error) from error
+
+    def _entry_error(self, error: ValidationError) -> ValueError:
+        first = error.errors()[0]
+        key = ".".join(str(part) for part in first["loc"]) or "geometry"
+        return ValueError(f"[[farfields]] entry {self.name!r}: {key}: {first['msg']}")
 
 
 _KEY_VARIANTS = {

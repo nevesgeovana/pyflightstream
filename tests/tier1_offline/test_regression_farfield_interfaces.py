@@ -46,6 +46,25 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("case", ["P0450-API-03"])
+def test_p0450_rel1_nested_validation_names_entry_and_key(case):
+    with pytest.raises(ValueError) as caught:
+        FarfieldSpec.model_validate({"variant": "power", "name": "shaft", "rotor": "R", "n_psi": 4})
+    message = str(caught.value)
+    assert "[[farfields]] entry 'shaft': n_psi:" in message
+    assert "LedgersSpec" not in message
+    with pytest.raises(ValidationError) as caught:
+        FarfieldSpec.model_validate(
+            {"variant": "power", "name": "shaft", "rotor": "R", "balances": ["drag"]}
+        )
+    assert caught.value.errors()[0]["loc"] == ("balances", 0)
+    invalid = FarfieldSpec.model_construct(variant="plane", name="survey", spacing_bref=-1)
+    with pytest.raises(ValueError) as caught:
+        _ = invalid.trefftz
+    assert "[[farfields]] entry 'survey': spacing_bref:" in str(caught.value)
+    assert "TrefftzSpec" not in str(caught.value)
+
+
 @pytest.mark.parametrize("case", ["P0450-API-02"])
 def test_p0450_rel1_duplicate_balances_use_entry_vocabulary(case):
     with pytest.raises(ValueError) as caught:
