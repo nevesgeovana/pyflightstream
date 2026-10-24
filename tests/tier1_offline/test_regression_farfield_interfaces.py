@@ -46,6 +46,12 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("case", ["P0450-TW-02"])
+def test_p0450_rel1_farfield_overview_names_entries(case):
+    assert "through the ``[[farfields]]`` entries of the pproc artifact" in ff.__doc__
+    assert "``[farfield]``" not in ff.__doc__
+
+
 @pytest.mark.parametrize("case", ["P0450-TW-01"])
 def test_p0450_rel1_inside_body_remedy_names_entry(tmp_path, case):
     pytest.importorskip("rtree")

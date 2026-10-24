@@ -6,7 +6,7 @@ containers and the one refusal), :mod:`.quadrature` (the plane, ring and strip
 rules and the harmonic layer, each once), :mod:`.balances` (the conservation
 balances of a survey lattice, FR-38) and :mod:`.trefftz` (the discrete trace of
 variants A and B and the probe plane of variant C, FR-451 to FR-453). A user
-reaches them through the ``[farfield]`` table of the pproc artifact; the post
+reaches them through the ``[[farfields]]`` entries of the pproc artifact; the post
 step reads the exports, turns the vectors and calls this core.
 
 The equations are those of the definitions page, The far-field family. The
