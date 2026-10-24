@@ -74,8 +74,9 @@ from ._rows import (
     _the_names_a_rotor_answers_to,
     _the_rotor_a_flat_row_turns,
     _variable,
+    continuation_of,
 )
-from ._timing import rotor_time_stepping, unsteady_time_stepping
+from ._timing import unsteady_time_stepping
 from ._vocabulary import ROTOR_ORIGIN_VARIABLE
 
 __all__ = [
@@ -165,7 +166,7 @@ def _entry_window(spec: FarfieldSpec, case: SimCase) -> None:
         why = 'requires export_type = "avg_window"'
     elif key == "last_revs":
         if _rotor(case):
-            per_revolution = rotor_time_stepping(case).steps_per_revolution
+            per_revolution = rotor_row_stepping(case).steps_per_revolution
         if per_revolution is None:
             why = "has no rotor clock; state last_steps"
     if why:
@@ -1316,6 +1317,10 @@ def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
         if _run_type(case) == "unsteady_rotor"
         else unsteady_time_stepping(case)
     )
+    resumed = continuation_of(case)
+    # The action counter restarts at one; prior snapshots remain on the global
+    # solver clock. Export the intersection with this continued march only.
+    last_step = resumed[1] if resumed is not None else clock.time_iterations
     windows: dict[str, tuple[int, int]] = {}
     for entry in entries:
         if entry.variant == "wake":
@@ -1328,7 +1333,7 @@ def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
             else case.variables
         )
         span = averaging_span(
-            variables, last_step=clock.time_iterations, per_revolution=clock.steps_per_revolution
+            variables, last_step=last_step, per_revolution=clock.steps_per_revolution
         )
         if span is None:
             raise CampaignConfigError(

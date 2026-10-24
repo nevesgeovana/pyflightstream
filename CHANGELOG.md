@@ -9,6 +9,10 @@ FlightStream versions.
 
 ### Added
 
+- Regression coverage confirms that the 648-point lattice with radius 8,
+  stations [-2, 4, 8], eight radial rings and 24 azimuths remains readable at
+  four significant digits under the corrected printed-precision guard.
+
 - Every far-field entry accepts `export_type`: `default` and `last_step` read
   only the last unsteady step; `avg_window` exports and averages the final
   window, independently of other export thresholds. Planes and lattices always
@@ -21,8 +25,19 @@ FlightStream versions.
 
 ### Changed
 
+- Far-field validation refuses distinct entry names that sanitize to the same
+  filename, naming both entries and the shared spelling before products are written.
+
+- The Trefftz C lift warning uses an absolute difference of 1e-3 when the
+  near-field lift magnitude is below 1e-3, avoiding ratios of round-off values.
+
+- Averaged far-field `SPURIOUS_COUNTS` now uses the near-field force history
+  over the same steps as the far-field flux. Missing history produces `NA`
+  with a named skip; instant ledger values retain the final loads comparison.
+
 - Trefftz B, C and D identify whole-flow rows with `FAMILY = net`. B's spanwise
-  file and manifest key use `_trefftz_net.csv`. A keeps its family
+  file and manifest key use `_trefftz_net_<entry>.csv` (default entry `wake`),
+  preserving separate files for multiple B entries. A keeps its family
   rows and `TOTAL`. Super-file columns include each entry's name, for example
   `CL_T_A_wing` and `CDI_T_C_plane`, so repeated variants retain separate cells.
 - Trefftz A accepts unsteady lifting-surface traces, including nonrotor families
@@ -40,6 +55,12 @@ FlightStream versions.
 
 ### Fixed
 
+- Power entries with an unstated `lateral_radius` use `max(2.5, r_outer)`;
+  an explicitly smaller cylinder remains refused with a remedy.
+- Ambiguous far-field lattice refusals name the required native spacing and
+  the lattice keys that can change it, retaining the precision guard.
+- Trefftz C accepts tilted planes within their exported coordinate precision,
+  while still refusing probes that do not match the laid plane.
 - An exploratory `[noise]` post writes `noise_report.json` with an `empty`
   outcome even when its simulations yield neither products nor skips (RXR-04).
 

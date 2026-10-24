@@ -13,6 +13,7 @@ states none leaves the geometry to the plan's reuse rule (FR-1042, FR-455).
 from __future__ import annotations
 
 import json
+import re
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
@@ -165,6 +166,8 @@ class LatticeShape(BaseModel):
         stated = {
             key: getattr(self, key) for key in _LATTICE_KEYS if getattr(self, key) is not None
         }
+        if self.lateral_radius is None:
+            stated["lateral_radius"] = max(2.5, self.r_outer or 2.5)
         return build_lattice(tip_radius=tip_radius, **stated)
 
 
@@ -440,7 +443,7 @@ _KEY_VARIANTS = {
 
 
 def farfield_entries(value: Any) -> Any:
-    """Refuse the retired table with equivalent array entries; check unique entry names."""
+    """Refuse the retired table and entry names that share a file spelling."""
     if not isinstance(value, dict):
         return value
     if value.get("farfield") is not None:
@@ -473,15 +476,26 @@ def farfield_entries(value: Any) -> Any:
             + '\nA 0.44.0 "plane" with ledgers on a rotor row becomes the "power" entry (D), '
             'not the "plane" entry (C); keep C only to request the velocity plane as well.'
         )
-    raw_entries = value.get("farfields")
-    if not isinstance(raw_entries, list):
-        return value
-    names = [
-        entry.get("name", entry.get("variant")) for entry in raw_entries if isinstance(entry, dict)
-    ]
-    names = [name for name in names if isinstance(name, str)]
-    if len(names) != len(set(names)):
-        raise ValueError(
-            f"[[farfields]] names {names!r} must be unique; name repeated variants separately"
-        )
+    _refuse_filename_collisions(value.get("farfields", []))
     return value
+
+
+def _refuse_filename_collisions(entries: Any) -> None:
+    """Keep different entry labels from writing the same sanitized filename."""
+    names: dict[str, str] = {}
+    for entry in entries if isinstance(entries, list | tuple) else ():
+        name = (
+            entry.name
+            if isinstance(entry, FarfieldSpec)
+            else (entry.get("name", entry.get("variant")) if isinstance(entry, dict) else None)
+        )
+        if not isinstance(name, str):
+            continue
+        spelling = re.sub(r"[^A-Za-z0-9_.+-]", "_", name)
+        previous = names.get(spelling)
+        if previous is not None and previous != name:
+            raise ValueError(
+                f"[[farfields]] names {previous!r} and {name!r} share file spelling "
+                f"{spelling!r}; choose names with distinct file spellings"
+            )
+        names[spelling] = name

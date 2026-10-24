@@ -17,7 +17,11 @@ The loader refuses the retired table and prints replacement entries, including
 the distinction between the old rotor power channels and the velocity plane.
 Far-field CSV readers must account for `ENTRY` immediately after `POL`.
 Select `FAMILY = net` for B, C and D, replacing `TOTAL`; A retains its family
-rows and `TOTAL`. Read B's spanwise product at `sections/<point>_trefftz_net.csv`.
+rows and `TOTAL`. B's 0.44.0 `sections/<point>_trefftz_TOTAL.csv` becomes
+`sections/<point>_trefftz_net_<entry>.csv`, including `_trefftz_net_wake.csv`
+for the default entry name. Named entries such as `near` and `far` each keep a file.
+Rename entries whose names sanitize to the same file spelling, such as `a/b`
+and `a_b`; validation now refuses that pair instead of allowing an overwrite.
 Its manifest key changes with it. Super-file far-field columns now include
 the entry name: `<quantity>_<VARIANT>_<ENTRY>`, for example `CL_T_A_wing`,
 `CDI_T_A_tail` and `CDI_T_C_net`. Default entry names also appear, as in

@@ -46,10 +46,48 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("names", [("a/b", "a_b"), ("a_b", "a/b")])
+def test_p0450_ff6_entry_names_refuse_shared_file_spelling(names):
+    """Distinct labels cannot overwrite the same entry-qualified product file."""
+    with pytest.raises(ValidationError) as error:
+        PprocSpec.model_validate(
+            {"farfields": [{"variant": "wake", "name": name} for name in names]}
+        )
+    message = str(error.value)
+    assert all(repr(name) in message for name in names)
+    assert "file spelling 'a_b'" in message
+
+
 @pytest.mark.requirement("FR-3262")
 def test_p0450_d2_power_requires_lattice_placement():
     with pytest.raises(ValidationError, match="rotor|frame"):
         FarfieldSpec.model_validate({"variant": "power"})
+
+
+@pytest.mark.parametrize(
+    "outer,expected", [(1.5, 2.5), (3.0, 3.0)], ids=["P0450-small", "P0450-large"]
+)
+def test_p0450_ff5_power_default_cylinder_encloses_lattice(tmp_path, outer, expected):
+    """LIC-02: power with r_outer=3 plans without an explicit lateral_radius."""
+    entry = dict(
+        variant="power",
+        frame="MRP",
+        tip_radius_m=8.0,
+        stations=[-1.0, 1.0],
+        r_inner=0.2,
+        r_outer=outer,
+        n_r=8,
+        n_psi=24,
+    )
+    spec = FarfieldSpec.model_validate(entry)
+    assert spec.ledgers.build(8.0).lateral_radius == expected
+    case = _farfield_plan___case(tmp_path, [entry])
+    text = _farfield_plan___script(case).render()
+    assert "PROBE_POINTS_IMPORT" in text
+    with pytest.raises(ValidationError, match="increase lateral_radius.*r_outer"):
+        FarfieldSpec.model_validate(dict(entry, lateral_radius=outer / 2))
+    explicit = FarfieldSpec.model_validate(dict(entry, lateral_radius=4.0))
+    assert explicit.ledgers.build(8.0).lateral_radius == 4.0
 
 
 def test_p0450_d0_named_farfield_entries():
@@ -66,6 +104,17 @@ def test_p0450_d0_named_farfield_entries():
     except ValidationError as error:
         pytest.fail(f"[[farfields]] must load one analysis per entry: {error}")
     assert [entry.name for entry in spec.farfields] == ["wing", "tail", "wake", "plane", "power"]
+
+
+@pytest.mark.parametrize("mixed", [False, True])
+@pytest.mark.requirement("FR-1062")
+def test_p0450_rv1_model_entries_cannot_share_super_cells(mixed):
+    """P0450-RV1-04: validated objects and dictionaries obey the same name uniqueness."""
+    first = FarfieldSpec(variant="plane", name="survey")
+    second = {"variant": "plane", "name": "survey", "spacing_bref": 0.2}
+    entries = [first, second if mixed else FarfieldSpec.model_validate(second)]
+    with pytest.raises(ValidationError, match="unique.*name repeated variants separately"):
+        PprocSpec(farfields=entries)
 
 
 @pytest.mark.parametrize("variant", ["wake", "plane", "power"])
@@ -253,6 +302,27 @@ def test_p0450_d2_windmilling_efficiency_is_na():
 def test_p0450_d4_window_keys_are_exclusive():
     with pytest.raises(ValidationError, match="both last_revs and last_steps"):
         FarfieldSpec.model_validate({"variant": "plane", "last_revs": 1, "last_steps": 2})
+
+
+@pytest.mark.requirement("FR-1052")
+def test_p0450_rv1_motion_clock_accepts_farfield_revolutions():
+    """P0450-RV1-01: entry validation uses the same named motion clock as its exports."""
+    from pyflightstream.cases.workflows._farfield import farfield_export_windows
+    from tests.tier1_offline.test_regression_workflow_emission import (
+        _cases_workflows_clock___two_speeds,
+    )
+
+    case = _cases_workflows_clock___two_speeds()
+    case = case.model_copy(
+        update={
+            "pproc": PprocSpec.model_validate(
+                {"farfields": [{"variant": "plane", "export_type": "avg_window", "last_revs": 1}]}
+            )
+        }
+    )
+    outputs = row_outputs(case, "unsteady_rotor")
+    assert any(name.endswith("_farfield_probes.txt") for name in outputs)
+    assert farfield_export_windows(case) == ((37, 72, "farfield_probes"),)
 
 
 @pytest.mark.parametrize(
@@ -1401,6 +1471,26 @@ def test_the_farfield_core_performs_no_file_or_environment_io():
             for name in names & forbidden_modules:
                 found.append(f"{source.name}:{node.lineno} imports {name}")
     assert not found, found
+
+
+@pytest.mark.requirement("FR-1052")
+def test_p0450_rv1_definition_keeps_the_bounded_export_policy():
+    """P0450-RV1-05: the planning and applicability guidance agrees with amended D8."""
+    page = (
+        Path(__file__).resolve().parents[2] / "docs/definitions/the-far-field-family.md"
+    ).read_text(encoding="utf-8")
+    planning = page.split("Every addition is stated", 1)[1].split(
+        "### Where each analysis applies", 1
+    )[0]
+    applicability = page.split("### Where each analysis applies", 1)[1].split(
+        "### Python entry points", 1
+    )[0]
+    assert "one fluid plot per point and parameter" not in planning
+    assert all(
+        word in planning for word in ("conventional probe points", '"avg_window"', '"default"')
+    )
+    assert "A does not add" not in applicability
+    assert '`export_type = "avg_window"` requests' in applicability
 
 
 @pytest.mark.parametrize("value", ["last_step", "avg_window", "default"])

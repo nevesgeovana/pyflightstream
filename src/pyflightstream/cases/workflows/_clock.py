@@ -351,15 +351,29 @@ def _with_farfield_threshold(
             if select_workflow(case) == "unsteady_rotor"
             else unsteady_time_stepping(case)
         )
+        resumed = continuation_of(case)
+        length = resumed[1] if resumed is not None else clock.time_iterations
+        offset = 0
+        if resumed is not None:
+            try:
+                offset = int(case.variables[RESTART_STEP_OFFSET_VARIABLE])
+            except (KeyError, TypeError, ValueError) as error:
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: the far-field continuation needs its recorded "
+                    "step offset; plan and run must resolve its predecessor"
+                ) from error
+            if offset < 0:
+                raise CampaignConfigError("the continuation step offset must not be negative")
         threshold = UnsteadyExportThreshold(
             "iterations",
-            float(clock.time_iterations + 1),
-            clock.time_iterations + 1,
-            clock.time_iterations,
+            float(length + 1),
+            length + 1,
+            length,
             clock.delta_time_s,
             None if clock.steps_per_revolution is None else 360.0 / clock.steps_per_revolution,
             clock.rpm,
             "",
+            step_offset=offset,
         )
     names = classify_outputs(
         (conventions or WorkflowConventions.for_case(case)).outputs or case.outputs

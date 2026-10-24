@@ -107,6 +107,206 @@ _FARFIELD_PRODUCTS__STATIONS = 160
 _FARFIELD_PRODUCTS___RULE = " " + "-" * 100 + "\n"
 
 
+@pytest.mark.parametrize(
+    "cl_plane,cl_near,flagged",
+    [
+        (-5.4e-15, -7.4e-5, False),
+        (0.0034, 0.0023, True),
+        (0.334, 0.3342, False),
+        (0.002, 0.0, True),
+    ],
+)
+def test_p0450_ff6_plane_lift_near_zero(tmp_path, cl_plane, cl_near, flagged):
+    """LIC-05: compare absolute lift below 1e-3, relative lift above it."""
+    row, flags = _rfixf_plane_lift___post(
+        tmp_path, cl_plane / _RFIXF_PLANE_LIFT___CL, near_cl=cl_near
+    )
+    assert float(row["CL_T"]) == pytest.approx(cl_plane, rel=0.02, abs=1e-8)
+    assert bool(flags) is flagged
+
+
+@pytest.mark.parametrize("history", ["complete", "absent", "gap"])
+def test_p0450_ff6_g4_uses_same_window_loads(tmp_path, history):
+    """LIC-04: post a two-step window; G4 compares the two means, never final loads."""
+    files = _p0450_probe_series(_FFPROOF_POST___POINTS_M)
+    if history != "absent":
+        rows = "Time-step,FX_MRP_TOTAL\n1,-9000,\n7,-10,\n"
+        if history != "gap":
+            rows += "8,-30,\n"
+        files[f"{_FFPROOF_POST___STEM}_plots.txt"] = (
+            _FFPROOF_POST__PLOTS_HEADER
+            + rows
+            + "-" * 60
+            + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #7012026\n"
+        )
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=_FFPROOF_POST___LEDGERS + 'export_type = "avg_window"\nlast_steps = 2\n',
+        files=files,
+        recipe="unsteady",
+        reductions=_FFPROOF_POST___WINDOW,
+        positions=True,
+    )
+    _ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    _, mean = _ffproof_post___table(_ffproof_post___one(root, "farfield/*_ledgers_average.csv"))
+    _, instant = _ffproof_post___table(_ffproof_post___one(root, "farfield/*_ledgers_instant.csv"))
+    assert all(row["SPURIOUS_COUNTS"] != "NA" for row in instant)
+    if history == "complete":
+        # Uniform axial speed on both planes: each step's downstream-minus-upstream
+        # flux is zero. The near mean is -( -10 -30 ) / 2 = 20 N, not 30 or 9000.
+        expected = 20.0 / (0.5 * _FFPROOF_POST___RHO * 68.058**2 * 50.0) * 1e4
+        assert all(row["SPURIOUS_COUNTS"] != "NA" for row in mean)
+        assert all(
+            float(row["SPURIOUS_COUNTS"]) == pytest.approx(expected, rel=1e-5) for row in mean
+        )
+    else:
+        assert all(row["SPURIOUS_COUNTS"] == "NA" for row in mean)
+        skipped = _ffproof_post___manifest(root)["skipped"]
+        assert any(
+            "SPURIOUS_COUNTS" in key and "loads history" in reason
+            for key, reason in skipped.items()
+        )
+
+
+def _ff5_printed_samples(points: np.ndarray, velocity: np.ndarray) -> ProbeSamples:
+    """Read coordinates printed in the solver's four-digit 0.xxxxE form."""
+    from pyflightstream.post.farfield_fields import steady_samples
+
+    lines = _rfixf_layout___export(points, velocity).splitlines(keepends=True)
+    index = 0
+    for i, line in enumerate(lines):
+        if re.match(r"\s*[-+]?\d\.\d+E", line):
+            cells = line.split(",")
+            for j, value in enumerate(points[index]):
+                mantissa, exponent = f"{value:.3E}".split("E")
+                cells[j] = f" {float(mantissa) / 10:.4f}E{int(exponent) + 1:+03d}"
+            lines[i] = ",".join(cells)
+            index += 1
+    assert index == len(points)
+    return steady_samples("".join(lines))
+
+
+@pytest.mark.parametrize("alpha,beta", [(4.0, 0.0), (0.0, 3.0)], ids=["P0450-alpha", "P0450-beta"])
+@pytest.mark.parametrize("per_m", [1.0, 1000.0])
+def test_p0450_ff5_rounded_plane_keeps_drag_and_refuses_wrong_plane(alpha, beta, per_m):
+    """LIC-01: reading a four-digit tilted plane preserves CDI_T; a shifted plane fails."""
+    from pyflightstream._errors import PyflightstreamError
+    from pyflightstream.post.farfield_fields import FarLayout
+
+    a, b = math.radians(alpha), math.radians(beta)
+    direction = (math.cos(a) * math.cos(b), -math.cos(a) * math.sin(b), math.sin(a))
+    grid = (0.4, 0.4, 0.08)
+    laid = farfield_plane(
+        (0.0, 0.0, 0.0),
+        direction=direction,
+        distance=2.27415,
+        half_width=grid[0],
+        half_height=grid[1],
+        spacing=grid[2],
+    )
+    velocity = np.tile([30.0, 1.0, 0.5], (len(laid.points), 1))
+    samples = _ff5_printed_samples(laid.points * per_m, velocity)
+    assert samples.digits == 4
+    layout = FarLayout(plane_m=laid.points, plane_grid=grid, plane_placed=True)
+    _, block, why = far_samples(samples, layout, per_m=per_m)
+    assert block is not None, why
+    args = dict(flow=(1.2, 30.0, alpha, beta), grid=grid, per_m=per_m, q_ref=540.0)
+    exact = replace(samples, positions=laid.points * per_m, digits=None)
+    expected = plane_values(exact, block, **args)["D"] / (540.0 * 2.0)
+    actual = plane_values(samples, block, **args)["D"] / (540.0 * 2.0)
+    assert actual > 0.0
+    assert actual == pytest.approx(expected, rel=1e-6)
+    shifted = _ff5_printed_samples((laid.points + 0.04 * laid.axes[0]) * per_m, velocity)
+    assert far_samples(shifted, layout, per_m=per_m)[1] is None
+    warped = samples.positions.copy()
+    warped[-1] += 0.04 * per_m * laid.axes[0]
+    with pytest.raises(PyflightstreamError, match="not the plane"):
+        plane_values(replace(samples, positions=warped), block, **args)
+
+
+def test_p0450_ff6_captured_lattice_four_digits_is_read():
+    """PFS-2139.015: the captured lattice fits the corrected printed-precision guard."""
+    from pyflightstream.post.farfield_fields import FarLayout
+    from pyflightstream.probes import build_lattice
+
+    lattice = build_lattice(tip_radius=8.0, stations=[-2, 4, 8], n_r=8, n_psi=24)
+    points = lattice_points(lattice, axis="X")
+    assert points.shape == (648, 3)
+    np.testing.assert_allclose(
+        points[:2], [[-16.0, 0.0, 1.07758], [-16.0, 0.2789, 1.04086]], atol=1e-4, rtol=0
+    )
+    assert points[:, 0].min() == -16.0 and points[:, 0].max() == 64.0
+    samples = _ff5_printed_samples(points, np.tile([30.0, 0.0, 0.0], (len(points), 1)))
+    assert samples.digits == 4
+    block, _, why = far_samples(samples, FarLayout(lattice_m=points), per_m=1.0)
+    assert block == slice(0, 648), why
+
+
+def test_p0450_ff5_lattice_precision_names_spacing_and_configuration():
+    """LIC-03: an ambiguous lattice names the required native spacing and its controls."""
+    from pyflightstream.post.farfield_fields import FarLayout
+    from pyflightstream.probes import build_lattice
+
+    for stations, inner, outer, origin, refused in [
+        ((-2.0, 4.0, 8.0), 0.05, 2.5, 100.0, True),
+        ((-1.0, 1.0), 0.2, 1.5, 0.0, False),
+    ]:
+        lattice = build_lattice(
+            tip_radius=8.0,
+            stations=stations,
+            n_r=8,
+            n_psi=24,
+            r_inner=inner,
+            r_outer=outer,
+        )
+        points = lattice_points(lattice, axis="X") + np.array([origin, 0.0, 0.0])
+        samples = _ff5_printed_samples(points, np.tile([30.0, 0.0, 0.0], (len(points), 1)))
+        assert samples.digits == 4
+        block, _, why = far_samples(samples, FarLayout(lattice_m=points), per_m=1.0)
+        if refused:
+            assert block is None
+            assert "printed precision" in why
+            assert "at least 0.80008 native units" in why
+            for key in ("r_inner", "n_psi", "n_r", "r_outer", "stations"):
+                assert key in why
+        else:
+            assert block is not None, why
+
+
+def test_p0450_ff5_wake_entries_keep_their_own_spanwise_files(tmp_path):
+    """RV1-06: two B entries preserve the rows each would write in isolation."""
+    entries = {"near": 0.1, "far": 0.2}
+    expected = {}
+    for selected in (["near", "far"], ["near"], ["far"]):
+        workspace = _farfield_products___workspace(tmp_path / "_".join(selected), farfield=True)
+        (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+            '[groups]\n"1" = "all"\n'
+            + "".join(
+                f'[[farfields]]\nvariant = "wake"\nname = "{name}"\n'
+                f"distance_bref = {entries[name]}\n"
+                for name in selected
+            ),
+            encoding="utf-8",
+        )
+        _farfield_products___post(workspace)
+        root = workspace.root / "post"
+        files = sorted(root.rglob("sections/*_trefftz_net_*.csv"))
+        assert len(files) == len(selected)
+        manifest = _farfield_products___one(root, "products.json").read_text(encoding="utf-8")
+        for name in selected:
+            path = next(path for path in files if path.name.endswith(f"_net_{name}.csv"))
+            rows = _farfield_products___table(path)
+            assert rows and {row["VARIANT"] for row in rows} == {"B"}
+            assert {row["FAMILY"] for row in rows} == {"net"}
+            assert path.name in manifest
+            if len(selected) == 2:
+                expected[name] = rows
+            else:
+                assert rows == expected[name]
+    assert expected["near"] != expected["far"]
+
+
 def _farfield_products___sloads() -> str:
     q = 0.5 * _FARFIELD_PRODUCTS__RHO * _FARFIELD_PRODUCTS__SPEED * _FARFIELD_PRODUCTS__SPEED
     peak = (
@@ -394,7 +594,7 @@ class TestFarfieldProducts:
             _farfield_products___one(root, "sections/*_trefftz_W.csv")
         )
         total = _farfield_products___table(
-            _farfield_products___one(root, "sections/*_trefftz_net.csv")
+            _farfield_products___one(root, "sections/*_trefftz_net_wake.csv")
         )
         assert len(family) == _FARFIELD_PRODUCTS__STATIONS and {
             row["VARIANT"] for row in family
@@ -403,7 +603,7 @@ class TestFarfieldProducts:
         assert {row["FAMILY"] for row in total} == {"net"}
         manifest = _farfield_products___one(root, "products.json").read_text()
         log = _farfield_products___one(root, "post.log").read_text()
-        assert "_trefftz_net.csv" in manifest
+        assert "_trefftz_net_wake.csv" in manifest
         assert "_trefftz_TOTAL.csv" not in manifest + log
         downwash = [float(row["W_M_S"]) for row in family[10:-10]]
         assert max(downwash) - min(downwash) < 0.05 * abs(np.mean(downwash)), "elliptic: uniform"
@@ -1928,6 +2128,25 @@ def test_p0450_d1_rotor_plane_posts_instant_and_average(tmp_path):
         assert (rows[0]["VARIANT"], rows[0]["FAMILY"], rows[0]["STEP"]) == ("C", "net", step)
 
 
+@pytest.mark.parametrize("broken_step", [1, 7])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_rv1_bad_snapshot_preserves_valid_instant(tmp_path, broken_step):
+    """P0450-RV1-03: only the average needing a broken snapshot is lost."""
+    workspace = _p0450_plane_series(tmp_path)
+    path = next(workspace.sim_dir("3207").rglob(f"*_farfield_probes_iteration={broken_step}.txt"))
+    path.write_text("truncated export", encoding="utf-8")
+    _ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    instant = _rfixf_layout___rows(root, "farfield/*_trefftz_instant.csv")
+    assert len(instant) == 1 and instant[0]["STEP"] == "8"
+    assert float(instant[0]["CDI_T"]) > 0
+    average = _rfixf_layout___rows(root, "farfield/*_trefftz_average.csv")
+    assert bool(average) is (broken_step == 1)
+    if broken_step == 7:
+        skipped = str(_ffproof_post___manifest(root)["skipped"])
+        assert "step=7" in skipped and "restore" in skipped.lower()
+
+
 def test_p0450_d2_rotor_lattice_and_plane_write_both(tmp_path):
     table = _FFPROOF_POST___LEDGERS.replace('frame = "MRP"\ntip_radius_m = 1.0', 'rotor = "ROTOR"')
     workspace = _p0450_plane_series(tmp_path, "\n" + table)
@@ -2509,14 +2728,19 @@ def _rfixf_plane_lift___crossflow(scale: float) -> np.ndarray:
     return np.asarray(_RFIXF_PLANE_LIFT___DIRECTION) * _RFIXF_PLANE_LIFT___SPEED + cross
 
 
-def _rfixf_plane_lift___post(tmp_path: Path, scale: float) -> tuple[dict[str, str], list[str]]:
+def _rfixf_plane_lift___post(
+    tmp_path: Path, scale: float, *, near_cl: float = _RFIXF_PLANE_LIFT___CL
+) -> tuple[dict[str, str], list[str]]:
     workspace = _rfixf_plane_lift__ffpost._ffproof_post___campaign(
         tmp_path,
         pproc=_RFIXF_PLANE_LIFT___TABLE,
         files={
+            f"{_FFPROOF_POST___STEM}.txt": _FFPROOF_POST__LOADS.replace(
+                "+0.1882829", f"{near_cl:+.7f}"
+            ),
             f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _rfixf_layout___export(
                 _RFIXF_PLANE_LIFT___PLANE.points, _rfixf_plane_lift___crossflow(scale)
-            )
+            ),
         },
     )
     _rfixf_plane_lift__ffpost._ffproof_post___set_record(

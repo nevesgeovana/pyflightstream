@@ -19,6 +19,7 @@ named skip, never a guess.
 from __future__ import annotations
 
 import math
+import os
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -27,10 +28,10 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream._fsm import saved_length_unit
 from pyflightstream._lengths import scale
-from pyflightstream.cases import classify_outputs
+from pyflightstream.cases import AXES_PLOT_GROUP, classify_outputs
 from pyflightstream.cases._farfield_spec import LatticeShape, LedgersSpec
 from pyflightstream.farfield import (
     LatticeFields,
@@ -55,12 +56,15 @@ from pyflightstream.farfield import (
     transverse_flux,
     transverse_force,
 )
+from pyflightstream.post._tables import CONTEXT_COLUMNS, _cell, plots_table_series
+from pyflightstream.post.unsteady_polar import global_frame_plot_groups
 from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.lattice import ProbeLattice
 from pyflightstream.probes.layouts import farfield_plane, lattice_points
 from pyflightstream.results.loads import parse_probe_points
 
 if TYPE_CHECKING:
+    from pyflightstream.post._sim import SimContext
     from pyflightstream.workspace import RunRecord
 
 __all__ = [
@@ -81,6 +85,97 @@ __all__ = [
     "steady_samples",
     "unsteady_samples",
 ]
+
+
+@dataclass(frozen=True)
+class _Instant:
+    """The probe values of one instant and the step they are of."""
+
+    samples: ProbeSamples
+    step: object
+
+
+def _step(instant: _Instant) -> float:
+    step = instant.step
+    return float(step) if isinstance(step, int | float) else math.nan
+
+
+def _window_near_forces(
+    ctx: SimContext, point: str, chosen: list[_Instant], axis: str
+) -> dict[float, float]:
+    """Read whole-configuration forces in N on exactly the probe window's steps."""
+    assert ctx.pproc.farfield is not None
+    if not chosen or "axial" not in ctx.pproc.farfield.balances:
+        return {}
+    source = ctx.plots_tables.get(point)
+    column = f"F{axis}_{AXES_PLOT_GROUP}"
+    try:
+        if source is None:
+            raise ValueError("no point plots table")
+        _, series = plots_table_series(source)
+        groups = global_frame_plot_groups(
+            ctx.pproc, inventory=ctx.record_of[point].inventory or (), aliases=ctx.aliases
+        )
+        if AXES_PLOT_GROUP not in groups or column not in series.fields:
+            raise ValueError(f"no whole-configuration global force {column}")
+        forces = dict(zip(series.steps, -series.fields[column][:, 0], strict=True))
+        missing = [
+            int(_step(i)) for i in chosen if not math.isfinite(forces.get(_step(i), math.nan))
+        ]
+        if missing:
+            raise ValueError(f"missing finite force at steps {missing}")
+        return forces
+    except (PyflightstreamError, OSError, ValueError) as error:
+        entry = ctx.pproc.farfield.name
+        reason = (
+            f"SPURIOUS_COUNTS needs loads history covering the same window: {error}; "
+            "restore the point's complete global force history"
+        )
+        ctx.skipped[f"farfield/ledgers_average#point={point}#SPURIOUS_COUNTS#entry={entry}"] = (
+            reason
+        )
+        warn(
+            f"point={point} product=farfield entry={entry}: {reason}",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+        return {}
+
+
+def _super_cells(
+    rows: Sequence[tuple[tuple[object, ...], str]], columns: Sequence[str]
+) -> dict[str, dict[str, str]]:
+    """Return super-file cells from A's TOTAL and whole-flow net rows (FR-1062)."""
+    first = 3 + len(CONTEXT_COLUMNS)
+    family = first + columns.index("FAMILY")
+    variant = first + columns.index("VARIANT")
+    out: dict[str, dict[str, str]] = {}
+    for row, point in rows:
+        if row[family] != ("TOTAL" if row[variant] == "A" else "net"):
+            continue
+        cells = out.setdefault(point, {})
+        for column in ("CL_T", "CDI_T", "E_T"):
+            cells[f"{column}_{row[variant]}_{row[1]}"] = _cell(row[first + columns.index(column)])
+    return out
+
+
+def _named(ctx: SimContext, paths: Sequence[Path | str | None]) -> list[str]:
+    """Return the export files a product consumed, relative to the simulation folder."""
+    present = [path for path in paths if path is not None]
+    if not present:
+        return []
+    root = ctx.workspace.sim_dir(ctx.sim_id)
+    names: list[str] = []
+    for path in paths:
+        if path is None:
+            continue
+        try:
+            name = Path(os.path.relpath(path, root)).as_posix()
+        except ValueError:
+            name = Path(path).as_posix()
+        if name not in names:
+            names.append(name)
+    return names
 
 
 @dataclass
@@ -675,13 +770,16 @@ def _locate_one(
         + ([] if by_shape else [float(np.abs(expected).max(initial=0.0))])
         + [0.0]
     )
-    if (
-        2.0 * float(coordinate_tolerance(np.array([reach]), samples.digits)[0])
-        > _SPACING_FRACTION * spacing
-    ):
+    required_spacing = (
+        2.0 * float(coordinate_tolerance(np.array([reach]), samples.digits)[0]) / _SPACING_FRACTION
+    )
+    if spacing < required_spacing:
         return None, (
             f"the {what} the run laid has points {spacing:.3g} native units apart, closer than "
-            "the printed precision of the export can tell apart at its coordinates"
+            "the printed precision of the export can tell apart at its coordinates; "
+            f"reach {reach:g} needs spacing at least {required_spacing:.6g} native units: "
+            "adjust r_inner, n_psi, n_r, r_outer or stations for a lattice, "
+            "or spacing_bref for a plane"
         )
     if len(starts) > 1:
         return None, (
@@ -863,7 +961,11 @@ def plane_values(
             "probes before the lattice are the plane the plan laid"
         )
     offsets = (points - points[0]) @ laid.axes[0]
-    if points.shape[0] != shape[0] * shape[1] or np.abs(offsets).max() > grid[2] * 1e-3:
+    tolerance = coordinate_tolerance(samples.positions[block], samples.digits) / per_m
+    normal_tolerance = (tolerance + tolerance[0]) @ np.abs(laid.axes[0])
+    if points.shape[0] != shape[0] * shape[1] or np.any(
+        np.abs(offsets) > normal_tolerance + grid[2] * 1e-3
+    ):
         raise PyflightstreamError(
             "the probes before the lattice are not the plane the plan laid normal to this "
             "point's free stream"

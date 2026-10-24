@@ -2165,6 +2165,16 @@ class PprocSpec(BaseModel):
     def _farfield_entries(cls, value: object) -> object:
         return farfield_entries(value)
 
+    @field_validator("farfields")
+    @classmethod
+    def _unique_farfield_names(cls, entries: list[FarfieldSpec]) -> list[FarfieldSpec]:
+        names = [entry.name for entry in entries]
+        if len(names) != len(set(names)):
+            raise ValueError(
+                f"[[farfields]] names {names!r} must be unique; name repeated variants separately"
+            )
+        return entries
+
     @property
     def farfield(self) -> FarfieldSpec | None:
         """Return the entry of an analysis-specific planning or post context."""

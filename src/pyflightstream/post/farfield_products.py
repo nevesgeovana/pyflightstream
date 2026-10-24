@@ -2,7 +2,8 @@
 
 Pipeline role: the body of the post step that writes ``farfield/<group>_trefftz.csv``,
 ``farfield/<group>_ledgers.csv`` (``_instant`` and ``_average`` on an unsteady
-row) and the spanwise files ``sections/<point>_trefftz_<family>.csv`` from the
+row) and spanwise files ``sections/<point>_trefftz_<family>.csv`` for A or
+``sections/<point>_trefftz_net_<entry>.csv`` for B from the
 exports a run recorded, through the numpy core of :mod:`pyflightstream.farfield`.
 It reads the exports with the ``results`` readers, turns every vector to the
 far-field axes (FR-1005), and states every point an analysis cannot serve as
@@ -16,10 +17,9 @@ products keep their bytes (FR-1060).
 from __future__ import annotations
 
 import math
-import os
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -43,13 +43,17 @@ from pyflightstream.farfield import (
 )
 from pyflightstream.post._condition import _last_time_step
 from pyflightstream.post._reduction_stage import _NA, _farfield_window, _flow, _hub, _layout, _Probe
-from pyflightstream.post._tables import CONTEXT_COLUMNS, _cell, context_row, write_csv_table
+from pyflightstream.post._tables import CONTEXT_COLUMNS, context_row, write_csv_table
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
-    ProbeSamples,
     _average_entry_rows,
+    _Instant,
+    _named,
+    _step,
+    _super_cells,
     _Tables,
+    _window_near_forces,
     far_samples,
     lattice_samples,
     ledger_values,
@@ -109,7 +113,7 @@ TREFFTZ_COLUMNS: tuple[str, ...] = (
     # PFS-2081.97: the point's solver termination status, as the sweep table writes it.
     "STATUS",
 )
-#: The columns of a spanwise file ``sections/<point>_trefftz_<family>.csv`` (FR-1055).
+#: The columns of A's per-family and B's per-entry spanwise files (FR-1055).
 SPANWISE_COLUMNS: tuple[str, ...] = (
     "POL",
     # The condition and reference block every product table carries.
@@ -187,25 +191,6 @@ def _skip(ctx: SimContext, key: str, point: str, reason: str) -> None:
         PyflightstreamWarning,
         stacklevel=3,
     )
-
-
-def _named(ctx: SimContext, paths: Sequence[Path | str | None]) -> list[str]:
-    """Return the export files a product consumed, relative to the simulation folder."""
-    present = [path for path in paths if path is not None]
-    if not present:
-        return []
-    root = ctx.workspace.sim_dir(ctx.sim_id)
-    names: list[str] = []
-    for path in paths:
-        if path is None:
-            continue
-        try:
-            name = Path(os.path.relpath(path, root)).as_posix()
-        except ValueError:
-            name = Path(path).as_posix()
-        if name not in names:
-            names.append(name)
-    return names
 
 
 def _symmetry(ctx: SimContext) -> tuple[bool, bool]:
@@ -357,7 +342,7 @@ def _spanwise(
     result: TraceResult,
     chords: np.ndarray | None,
 ) -> None:
-    """Write ``sections/<point>_trefftz_<family>.csv``, the meshed strips of one sheet."""
+    """Write a sheet's spanwise strips, qualifying whole-flow B files by entry."""
     rho, speed, _alpha, _beta = _flow(point)
     q = 0.5 * rho * speed * speed
     keep = result.original
@@ -384,7 +369,8 @@ def _spanwise(
                 _status(ctx, point),
             )
         )
-    safe = re.sub(r"[^A-Za-z0-9_.+-]", "_", name)
+    suffix = f"{name}_{_spec(ctx).name}" if variant == "wake" else name
+    safe = re.sub(r"[^A-Za-z0-9_.+-]", "_", suffix)
     path = ctx.target(ctx.out / f"sections/{point.name}_trefftz_{safe}.csv")
     write_csv_table(path, SPANWISE_COLUMNS, rows)
     ctx.add(
@@ -725,14 +711,6 @@ def _wake_sheet(
     return [line for line, use in zip(lines, keep, strict=True) if use], values[keep]
 
 
-@dataclass(frozen=True)
-class _Instant:
-    """The probe values of one instant and the step they are of."""
-
-    samples: ProbeSamples
-    step: object
-
-
 def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[_Instant], str]:
     """Read only the far field's conventional probe exports, including stamped steps."""
     probes = _output(ctx, point, "farfield_probes")
@@ -755,13 +733,22 @@ def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[
             if unsteady and _spec(ctx).export_type == "avg_window"
             else {}
         )
-        return [
-            *[
-                _Instant(steady_samples(path.read_text(encoding="utf-8")), step)
-                for step, path in sorted(files.items())
-            ],
-            final,
-        ], ""
+        window, _ = _farfield_window(ctx, point, int(_step(final))) if files else (None, "")
+        instants = []
+        for step, path in sorted(files.items()):
+            if window is None or not window[0] <= step <= window[1]:
+                continue
+            try:
+                instants.append(_Instant(steady_samples(path.read_text(encoding="utf-8")), step))
+            except (PyflightstreamError, OSError) as error:
+                _skip(
+                    ctx,
+                    f"{FARFIELD_DIR}/average#point={point.name}#step={step}",
+                    point.name,
+                    f"far-field snapshot cannot be read: {error}; restore or collect "
+                    "the complete snapshot, or rerun the point",
+                )
+        return [*instants, final], ""
     except (PyflightstreamError, OSError) as error:
         return [], f"the probe values cannot be read: {error}"
 
@@ -794,12 +781,12 @@ def _instant_values(
     analyses: Sequence[str],
     *,
     final: bool = True,
+    near: float = _NA,
 ) -> dict[str, Any]:
     """Return the C values and the ledger rows of one instant, keyed by analysis.
 
-    The near-field force the spurious counts are stated against is the point's
-    final one; an instant that is not the final step has no near-field force
-    of its own here, so its counts are ``NA`` (never the final step's force).
+    The final row uses the final loads. Window snapshots receive their own
+    near-field axial force in N from the same plots history as the unsteady polar.
     """
     rho, speed, alpha, beta = _flow(point)
     q_ref = _q_ref(point, rho)
@@ -848,7 +835,7 @@ def _instant_values(
         near = (
             -float(point.loads.total.get(f"C{axis.lower()}", _NA)) * q_ref * ctx.reference.sref_m2
             if final
-            else _NA
+            else near
         )
         out["ledgers"] = ledger_values(
             fields, _ledgers(ctx), rho=rho, speed=speed, near=(near, ctx.reference.sref_m2)
@@ -942,12 +929,33 @@ def _probe_point(
             raise PyflightstreamError(why)
         last, chosen = _last_and_window(ctx, point, instants, unsteady and not normal)
         sets = [(last, _instant_values(ctx, point, last, probe, analyses))]
-        averaged = [
-            (i, _instant_values(ctx, point, i, probe, analyses, final=i is last)) for i in chosen
-        ]
     except PyflightstreamError as error:
         _skip(ctx, key, point.name, f"the far-field probes cannot be read: {error}")
         return
+    try:
+        near = (
+            _window_near_forces(ctx, point.name, chosen, probe.layout.axis)
+            if "ledgers" in analyses
+            else {}
+        )
+        averaged = [
+            (
+                i,
+                _instant_values(
+                    ctx, point, i, probe, analyses, final=False, near=near.get(_step(i), _NA)
+                ),
+            )
+            for i in chosen
+        ]
+    except PyflightstreamError as error:
+        averaged = []
+        _skip(
+            ctx,
+            f"{key}#average",
+            point.name,
+            f"the far-field window cannot be read: {error}; restore or collect "
+            "complete window snapshots, or rerun the point",
+        )
     if "plane" in sets[0][1] or "rotor" in sets[0][1]:
         _warn_compressible(ctx, point)
     if "plane" in sets[0][1]:
@@ -957,6 +965,7 @@ def _probe_point(
         ctx,
         [
             _output(ctx, point, "farfield_probes"),
+            ctx.plots_tables.get(point.name) if averaged and "ledgers" in analyses else None,
             *(_probe_exports(ctx, point).values() if unsteady and not normal else []),
         ],
     )
@@ -989,11 +998,6 @@ def _probe_point(
         )
 
 
-def _step(instant: _Instant) -> float:
-    step = instant.step
-    return float(step) if isinstance(step, int | float) else math.nan
-
-
 def _last_step(record: object) -> object:
     """Return the run's last time step, the instant a normal probe holds, or NA."""
     last = _last_time_step(cast("Any", record))
@@ -1015,13 +1019,19 @@ def _flag_a_plane_short_of_the_lift(
     rho, speed, _alpha, _beta = _flow(point)
     qs = 0.5 * rho * speed * speed * float(ctx.reference.sref_m2)
     cl_plane, cl_near = plane["L"] / qs, _near_cl_on_vinf(point)
-    if not (math.isfinite(cl_plane) and math.isfinite(cl_near) and cl_near):
+    if not (math.isfinite(cl_plane) and math.isfinite(cl_near)):
         return
-    ratio = cl_plane / cl_near
-    if abs(ratio - 1.0) > _PLANE_LIFT_TOLERANCE:
+    difference = abs(cl_plane - cl_near)
+    tolerance = 1e-3 if abs(cl_near) < 1e-3 else _PLANE_LIFT_TOLERANCE * abs(cl_near)
+    comparison = (
+        f"absolute difference {difference:.4g} from"
+        if abs(cl_near) < 1e-3
+        else f"{cl_plane / cl_near:.3g} times"
+    )
+    if difference > tolerance:
         warn(
             f"point={point.name} product=farfield: the Trefftz C plane carries a lift of its own "
-            f"vorticity CL_T = {cl_plane:.4g}, {ratio:.3g} times the solver's CL {cl_near:.4g}; "
+            f"vorticity CL_T = {cl_plane:.4g}, {comparison} the solver's CL {cl_near:.4g}; "
             "the probe field does not hold the circulation the loads shed, so its crossflow "
             "energy is not their induced drag (FR-1038, RPT-171)",
             PyflightstreamWarning,
@@ -1081,26 +1091,6 @@ def _analyses(spec, run_type: str, rotor: bool) -> tuple[list[str], dict[str, st
     return [a for a in selected if not reasons[a]], {a: r for a, r in reasons.items() if r}
 
 
-def _super_cells(rows: Sequence[tuple[tuple[object, ...], str]]) -> dict[str, dict[str, str]]:
-    """Return super-file cells from A's TOTAL and the whole-flow variants' net rows.
-
-    (FR-1062).
-    """
-    first = 3 + len(CONTEXT_COLUMNS)
-    family = first + TREFFTZ_COLUMNS.index("FAMILY")
-    variant = first + TREFFTZ_COLUMNS.index("VARIANT")
-    out: dict[str, dict[str, str]] = {}
-    for row, point in rows:
-        if row[family] != ("TOTAL" if row[variant] == "A" else "net"):
-            continue
-        cells = out.setdefault(point, {})
-        for column in ("CL_T", "CDI_T", "E_T"):
-            cells[f"{column}_{row[variant]}_{row[1]}"] = _cell(
-                row[first + TREFFTZ_COLUMNS.index(column)]
-            )
-    return out
-
-
 def farfield_products(ctx: SimContext) -> None:
     """Write the far-field tables of one simulation (FR-456), or nothing without ``[farfield]``.
 
@@ -1120,7 +1110,7 @@ def farfield_products(ctx: SimContext) -> None:
         )
         _entry_products(selected, tables)
     _write(ctx, tables)
-    ctx.farfield_super.update(_super_cells(tables.super_rows()))
+    ctx.farfield_super.update(_super_cells(tables.super_rows(), TREFFTZ_COLUMNS))
 
 
 def _entry_products(ctx: SimContext, tables: _Tables) -> None:

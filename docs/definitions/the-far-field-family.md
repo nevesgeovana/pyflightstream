@@ -17,14 +17,15 @@ The analyses and where they are written:
 | analysis | `[[farfields]]` selection | reads | writes |
 |---|---|---|---|
 | Trefftz A, section loads | `variant = "sections"` | the sectional loads export | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_<family>.csv` |
-| Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_net.csv` |
+| Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_net_<entry>.csv` |
 | Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane | `farfield/<group>_trefftz.csv` |
 | Trefftz D, power | `variant = "power"` | the survey lattice | `farfield/<group>_trefftz.csv` |
 | Balances | `variant = "power"` with `balances` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
 
 B, C and D identify the whole flow with lowercase `net` in `FAMILY`.
 A retains its selected family rows and their `TOTAL` row. B's spanwise file
-and its product-manifest key use `_trefftz_net.csv`.
+and its product-manifest key use `_trefftz_net_<entry>.csv`, with `wake` as the
+default entry name; entries `near` and `far` retain separate spanwise files.
 The super file reads A's `TOTAL` and B/C/D's `net` rows into
 `CL_T_<VARIANT>_<ENTRY>`, `CDI_T_<VARIANT>_<ENTRY>` and
 `E_T_<VARIANT>_<ENTRY>` columns, one set per entry. For example, A entries
@@ -37,6 +38,9 @@ Each `[[farfields]]` entry selects one variant. Its optional `name` defaults to
 the variant word and must be unique. Name both entries when selecting a variant
 twice, for example separate section traces for a wing and tail. Both far-field
 tables carry `ENTRY` immediately after `POL`, including every total and ledger row.
+Names must also remain distinct as filenames: characters other than ASCII
+letters, digits, `_`, `.`, `+` and `-` become `_`. Thus `a/b` and `a_b` are
+refused together, naming both entries and their shared file spelling `a_b`.
 
 ```toml
 [[farfields]]
@@ -67,6 +71,8 @@ the half extents and spacing belong to `plane` alone. `station`, `rotor`, `frame
 `tip_radius_m`, `n_r`, `r_inner`, `r_outer`, `n_psi`, `lateral_radius`,
 `lateral_stations`, `hub_width`, `tip_width`, `m_max` and `balances` belong to `power`.
 Its placement requires `rotor`, or `frame` together with `tip_radius_m`.
+An unstated `lateral_radius` uses `max(2.5, r_outer)`; a stated radius below
+`r_outer` is refused, so increase it or reduce `r_outer`.
 
 Every entry accepts `export_type = "default"`, `"last_step"` or `"avg_window"`.
 Unstated means `"default"`. Other values, including `"all_steps"`, are refused.
@@ -363,12 +369,15 @@ the Kutta-Joukowski lift of the trailing vorticity the plane holds (for a flat s
 of strip circulation `Gamma` it is `rho V integral Gamma dy`, and roll-up does not
 change it), written as `CL_T` of the C row. A plane that holds the wake the loads
 shed carries the solver's lift; where `CL_T` departs from `CL_near` by more
-than 10 percent, the probe field does not hold that circulation and its crossflow
+than 10 percent (or by an absolute difference greater than 1e-3 when
+`|CL_near| < 1e-3`), the probe field does not hold that circulation and its crossflow
 energy is not the loads' induced drag: the row is written and post writes a
 WARNING with both values. `E_T` of the C row is formed with `CL_near`.
 
 **Quadrature and validity.** The plane uses the trapezoid rule (corners a
 quarter, edges a half of a cell). Missing samples make the integral `NA`;
+Plane-normal offsets allow each coordinate's printed precision, including the
+first point's precision, projected onto the normal, plus 0.001 of the spacing.
 `COVERAGE` is the finite sampled area fraction. Every other grid point gives
 the second value used for `CDI_T_QERR`. Relations are incompressible; Mach
 above 0.3 warns. Crossflow energy outside the finite plane is omitted, and
@@ -456,6 +465,12 @@ into the plane term.
     SYMMETRY_FLOOR  = max_{m >= 1} |c_m|                    of the axial velocity
     SPURIOUS_COUNTS = 2 (F_near - F_far) / (rho V^2 SREF) 1e4
 
+For an averaged ledger, G4 compares the window mean axial flux difference with
+the mean near-field axial force over exactly the same steps. The latter comes
+from the point's whole-configuration global force plots history, the series read
+by its unsteady polar. Missing history or a missing window step gives `NA` and
+a named `SPURIOUS_COUNTS` skip; the instant still uses the final loads export.
+
 **Unsteady rows, instant and average.** The instant is the balance of the
 lattice at the last time step. The average is the average, over the row's
 averaging window (`LAST_REVS_AVG` or `LAST_ITERS_AVG`, the window the unsteady
@@ -488,6 +503,9 @@ space, also on a coupled row: they sample the flow, not the structure.
 A steady entry in the reference frame emits its declared lattices with
 `pyflightstream.probes.emit_probe_points`, placed on the rotor's hub or the
 reference axes, in the simulation length unit and rounded to five decimals.
+The minimum lattice spacing must be at least twice the coordinate tolerance at
+its reach divided by 0.25; a refusal states that spacing in native units and
+names `r_inner`, `n_psi`, `n_r`, `r_outer` and `stations` as the controls to adjust.
 
 On a steady row the added plane and lattice are written to one staged
 `X,Y,Z,TYPE` CSV in the simulation length unit (by
@@ -546,8 +564,10 @@ distribution beyond the one the coupling uses, and a probe point the plan adds
 inside the body. A probe point the user declared inside the body is kept, with a
 WARNING.
 
-On an unsteady row the plane or lattice the plan adds is sampled at every time
-step (one fluid plot per point and parameter); the plan states that count.
+On an unsteady row the plane or lattice uses conventional probe points.
+`"default"` and `"last_step"` export only after the march; `"avg_window"`
+requests snapshots only over the final averaging window. The plan states
+the point count per exported step and the number of exported steps.
 
 ### Where each analysis applies
 
@@ -566,9 +586,10 @@ and points to the reference aliases for lifting surfaces. A on `qsteady_rotor`
 is refused. On unsteady rows A writes the end-of-run sectional trace as instant;
 its average computes each step's trace before averaging. Missing per-step
 sectional exports produce a named average skip in the manifest and `post.log`.
-The existing row keys `EXPORT_UNSTEADY_AFTER_REV` and
-`EXPORT_UNSTEADY_AFTER_ITER` request stamped per-step exports; A does not add
-that request automatically.
+For A, `export_type = "avg_window"` requests the stamped sectional-load
+exports automatically over its final window, independently of the row's
+`EXPORT_UNSTEADY_*` threshold. Average products in the table above require
+`"avg_window"`; `"default"` and `"last_step"` produce only the instant.
 
 A "no" for B is a named skip: the point appears in `products.json` `skipped` with the
 reason, and in `post.log`.
