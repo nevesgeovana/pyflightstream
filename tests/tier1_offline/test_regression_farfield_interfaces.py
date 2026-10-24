@@ -46,6 +46,16 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("case", ["P0450-API-01"])
+def test_p0450_rel1_station_warning_names_sections_entry(case):
+    from pyflightstream.cases.farfield_inputs import few_stations_warning
+
+    message = few_stations_warning("Wing", 40, 80)
+    assert "fewer than the 80 its [[farfields]] sections entry asks for" in message
+    assert "[farfield.trefftz]" not in message
+    assert few_stations_warning("Wing", 80, 80) == ""
+
+
 @pytest.mark.parametrize("names", [("a/b", "a_b"), ("a_b", "a/b")])
 def test_p0450_ff6_entry_names_refuse_shared_file_spelling(names):
     """Distinct labels cannot overwrite the same entry-qualified product file."""
@@ -1425,7 +1435,7 @@ class TestFfproofPlan:
         few = [m for m in messages if "stations per side" in m]
         assert len(few) == 1, messages
         assert "family W has 40 stations per side" in few[0]
-        assert "fewer than the 80 of [farfield.trefftz]" in few[0]
+        assert "fewer than the 80 its [[farfields]] sections entry asks for" in few[0]
         assert "1.05 percent at 40 stations per side" in few[0]
         (tmp_path / "dense").mkdir()
         _text, quiet = _ffproof_plan___built(

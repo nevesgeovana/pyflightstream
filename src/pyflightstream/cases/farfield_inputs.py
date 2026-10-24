@@ -193,7 +193,7 @@ def few_stations_warning(family: str, per_side: int, stations: int) -> str:
     """Return the WARNING of a family traced on fewer stations than asked (FR-1019).
 
     One sentence, said by the plan and by post alike: the family, its station
-    count per side, the count ``[farfield.trefftz] stations`` asks for, and the
+    count per side, the count its ``[[farfields]]`` sections entry asks for, and the
     strip bias of ``E_T`` the definitions page measured at the nearest count
     (:data:`STRIP_BIAS_PERCENT`).
 
@@ -204,7 +204,7 @@ def few_stations_warning(family: str, per_side: int, stations: int) -> str:
     per_side : int
         Its station count per side of the symmetry plane.
     stations : int
-        The count per side ``[farfield.trefftz] stations`` asks for.
+        The count per side its ``[[farfields]]`` sections entry asks for.
 
     Returns
     -------
@@ -215,8 +215,9 @@ def few_stations_warning(family: str, per_side: int, stations: int) -> str:
         return ""
     nearest = min(STRIP_BIAS_PERCENT, key=lambda count: (abs(count - per_side), count))
     return (
-        f"family {family} has {per_side} stations per side, fewer than the {stations} of "
-        f"[farfield.trefftz]; the strip bias of E_T measured on the definitions page is "
+        f"family {family} has {per_side} stations per side, fewer than the {stations} its "
+        "[[farfields]] sections entry asks for; the strip bias of E_T measured on the "
+        "definitions page is "
         f"{STRIP_BIAS_PERCENT[nearest]} percent at {nearest} stations per side (FR-1019)"
     )
 
