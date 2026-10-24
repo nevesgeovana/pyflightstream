@@ -959,6 +959,9 @@ def write_qsteady_noise_report(
 ) -> Path:
     """Index the exploratory loading signals in the current product manifest.
 
+    A recorded noise request with no products or skips writes an ``empty``
+    outcome, so an enabled post always leaves an inspectable report.
+
     Parameters
     ----------
     root : str or Path or CampaignWorkspace
@@ -977,7 +980,7 @@ def write_qsteady_noise_report(
     Raises
     ------
     ProductError
-        The manifest cannot be read or contains no loading-noise products.
+        The manifest cannot be read or has no noise request, products or skips.
     """
     workspace = root if isinstance(root, CampaignWorkspace) else CampaignWorkspace(Path(root))
     folder = workspace.products_dir(matrix)
@@ -996,7 +999,7 @@ def write_qsteady_noise_report(
         for name, reason in manifest.get("skipped", {}).items()
         if name.startswith("noise/")
     }
-    if not products and not noise_skips:
+    if not products and not noise_skips and manifest.get("noise_requested") is not True:
         raise ProductError(
             "No loading-noise products; post a pproc with exploratory noise enabled."
         )
@@ -1007,6 +1010,7 @@ def write_qsteady_noise_report(
         json.dumps(
             {
                 "validation": "exploratory, not validated",
+                "outcome": "products" if products else "skipped" if noise_skips else "empty",
                 "products": products,
                 "skipped": noise_skips,
             },

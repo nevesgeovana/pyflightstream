@@ -7,6 +7,11 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- An exploratory `[noise]` post writes `noise_report.json` with an `empty`
+  outcome even when its simulations yield neither products nor skips (RXR-04).
+
 ## [0.44.0] - 2026-10-23
 
 ### Changed

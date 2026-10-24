@@ -594,3 +594,68 @@ def test_noise_reference_missing_file_names_the_remedy(tmp_path):
 
     with pytest.raises(ValueError, match="empty string to skip"):
         _reference_values(tmp_path / "absent.csv", "absent.csv")
+
+
+@pytest.mark.parametrize("enabled", [True, False], ids=["P0450-NOISE-EMPTY", "P0450-NO-NOISE"])
+def test_p0450_empty_noise_outcome_is_reported(tmp_path, enabled):
+    """Post a noise pproc before loads are collected: no noise products or skips."""
+    import json
+
+    from tests.tier1_offline.test_goal036_qsteady_corrections import _post_recorded, _recorded_wheel
+
+    noise = """
+[noise]
+exploratory = true
+observers_m = [[10.0, 2.0, 2.0]]
+hub_velocity_m_s = [0.0, 0.0, 0.0]
+sound_speed_m_s = 340.0
+"""
+    workspace = _recorded_wheel(tmp_path, pproc_extra=noise if enabled else "")
+    records = workspace.read_manifest()
+    assert records
+    for record in records:
+        for output in record.outputs:
+            (workspace.sim_dir(record.sim_id) / output).unlink(missing_ok=True)
+    manifest, folder, _log = _post_recorded(workspace)
+    assert not any(name.startswith("noise/") for name in manifest["products"])
+    assert not any(name.startswith("noise/") for name in manifest["skipped"])
+    target = folder / "noise_report.json"
+    assert target.is_file() is enabled
+    if enabled:
+        report = json.loads(target.read_text(encoding="utf-8"))
+        assert report["outcome"] == "empty"
+        assert report["products"] == {}
+        assert report["skipped"] == {}
+        assert report["validation"] == "exploratory, not validated"
+
+
+@pytest.mark.parametrize(
+    ("entries", "skips", "outcome"),
+    [
+        ({"noise/signal.csv": {"kind": "loading_noise"}}, {}, "products"),
+        ({}, {"noise/point": "unsupported axis"}, "skipped"),
+        ({}, {}, None),
+    ],
+    ids=["P0450-NOISE-PRODUCTS", "P0450-NOISE-SKIPS", "P0450-NOISE-UNREQUESTED"],
+)
+def test_p0450_noise_report_preserves_manifest_compatibility(tmp_path, entries, skips, outcome):
+    import json
+
+    from pyflightstream.workspace import CampaignWorkspace
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    folder = workspace.products_dir("matrix")
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "products.json").write_text(
+        json.dumps({"products": entries, "skipped": skips}), encoding="utf-8"
+    )
+    if outcome is None:
+        with pytest.raises(ProductError, match="No loading-noise products"):
+            qn.write_qsteady_noise_report(workspace, matrix="matrix")
+        assert not (folder / "noise_report.json").exists()
+    else:
+        target = qn.write_qsteady_noise_report(workspace, matrix="matrix")
+        report = json.loads(target.read_text(encoding="utf-8"))
+        assert report["outcome"] == outcome
+        assert report["products"] == entries
+        assert report["skipped"] == skips

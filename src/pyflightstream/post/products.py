@@ -882,7 +882,9 @@ def _campaign_products(
             manifest["skipped"] = {**partial.skipped, **skipped}
         carry_marks(products_index, points)  # FR-870
         _write_manifest(out, manifest)
-        if any(name.startswith("noise/") for name in (*products_index, *skipped)):
+        if manifest.get("noise_requested") or any(
+            name.startswith("noise/") for name in (*products_index, *skipped)
+        ):
             from pyflightstream.post.qsteady_noise import write_qsteady_noise_report
 
             write_qsteady_noise_report(workspace, matrix=matrix_stem)
@@ -1024,6 +1026,8 @@ def _write_simulation_products(ctx: _CampaignProducts) -> None:
             ctx.workspace, sim_id, simulation_metadata, ctx.rows_of_the_matrix.get(sim_id)
         )
         ctx.pprocs[sim_id] = effective_pproc[1]
+        if effective_pproc[1] is not None and effective_pproc[1].noise is not None:
+            ctx.manifest["noise_requested"] = True
         try:
             _validate_simulation_references(ctx, sim_id, sim_records, simulation_metadata)
         except ProductError as error:
