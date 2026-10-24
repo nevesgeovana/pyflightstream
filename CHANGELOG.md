@@ -25,6 +25,9 @@ FlightStream versions.
 
 ### Changed
 
+- Far-field validation refuses distinct entry names that sanitize to the same
+  filename, naming both entries and the shared spelling before products are written.
+
 - The Trefftz C lift warning uses an absolute difference of 1e-3 when the
   near-field lift magnitude is below 1e-3, avoiding ratios of round-off values.
 

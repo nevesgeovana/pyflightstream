@@ -13,6 +13,7 @@ states none leaves the geometry to the plan's reuse rule (FR-1042, FR-455).
 from __future__ import annotations
 
 import json
+import re
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
@@ -442,7 +443,7 @@ _KEY_VARIANTS = {
 
 
 def farfield_entries(value: Any) -> Any:
-    """Refuse the retired table with equivalent array entries."""
+    """Refuse the retired table and entry names that share a file spelling."""
     if not isinstance(value, dict):
         return value
     if value.get("farfield") is not None:
@@ -475,4 +476,22 @@ def farfield_entries(value: Any) -> Any:
             + '\nA 0.44.0 "plane" with ledgers on a rotor row becomes the "power" entry (D), '
             'not the "plane" entry (C); keep C only to request the velocity plane as well.'
         )
+    names: dict[str, str] = {}
+    entries = value.get("farfields", [])
+    for entry in entries if isinstance(entries, list | tuple) else ():
+        name = (
+            entry.name
+            if isinstance(entry, FarfieldSpec)
+            else (entry.get("name", entry.get("variant")) if isinstance(entry, dict) else None)
+        )
+        if not isinstance(name, str):
+            continue
+        spelling = re.sub(r"[^A-Za-z0-9_.+-]", "_", name)
+        previous = names.get(spelling)
+        if previous is not None and previous != name:
+            raise ValueError(
+                f"[[farfields]] names {previous!r} and {name!r} share file spelling "
+                f"{spelling!r}; choose names with distinct file spellings"
+            )
+        names[spelling] = name
     return value

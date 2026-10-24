@@ -46,6 +46,18 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("names", [("a/b", "a_b"), ("a_b", "a/b")])
+def test_p0450_ff6_entry_names_refuse_shared_file_spelling(names):
+    """Distinct labels cannot overwrite the same entry-qualified product file."""
+    with pytest.raises(ValidationError) as error:
+        PprocSpec.model_validate(
+            {"farfields": [{"variant": "wake", "name": name} for name in names]}
+        )
+    message = str(error.value)
+    assert all(repr(name) in message for name in names)
+    assert "file spelling 'a_b'" in message
+
+
 @pytest.mark.requirement("FR-3262")
 def test_p0450_d2_power_requires_lattice_placement():
     with pytest.raises(ValidationError, match="rotor|frame"):

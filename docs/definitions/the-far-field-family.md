@@ -38,6 +38,9 @@ Each `[[farfields]]` entry selects one variant. Its optional `name` defaults to
 the variant word and must be unique. Name both entries when selecting a variant
 twice, for example separate section traces for a wing and tail. Both far-field
 tables carry `ENTRY` immediately after `POL`, including every total and ledger row.
+Names must also remain distinct as filenames: characters other than ASCII
+letters, digits, `_`, `.`, `+` and `-` become `_`. Thus `a/b` and `a_b` are
+refused together, naming both entries and their shared file spelling `a_b`.
 
 ```toml
 [[farfields]]
