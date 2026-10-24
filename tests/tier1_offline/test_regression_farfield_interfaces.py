@@ -46,6 +46,16 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("case", ["P0450-API-04"])
+def test_p0450_rel1_sections_refusal_gives_both_remedies(case):
+    message = applies("trefftz:sections", "qsteady_rotor")
+    assert "steady or unsteady_rotor row" in message
+    assert "lifting surfaces" in message
+    assert 'select "power" for the rotor on this row' in message
+    assert applies("trefftz:sections", "steady") == ""
+    assert applies("trefftz:sections", "unsteady_rotor") == ""
+
+
 @pytest.mark.parametrize("case", ["P0450-API-03"])
 def test_p0450_rel1_nested_validation_names_entry_and_key(case):
     with pytest.raises(ValueError) as caught:

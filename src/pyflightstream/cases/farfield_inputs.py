@@ -153,7 +153,11 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
             'select "power"'
         )
     if analysis == "trefftz:sections" and run_type == "qsteady_rotor":
-        return "Trefftz A on qsteady_rotor has no lifting surface outside the rotor"
+        return (
+            "Trefftz A on qsteady_rotor has no lifting surface outside the rotor: "
+            "state the A entry on a steady or unsteady_rotor row that carries the lifting "
+            'surfaces, or select "power" for the rotor on this row'
+        )
     if analysis == "trefftz:wake":
         if rotor or run_type in ROTOR_RUN_TYPES:
             return "a rotor's helical wake is not a streamwise sheet"
