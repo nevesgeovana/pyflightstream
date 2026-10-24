@@ -37,6 +37,11 @@ their dedicated `<point>_farfield_survey.txt` exports and
 `<point>_farfield_survey_iteration=<step>.txt` window snapshots, so rerun the
 plan to obtain them; old fluid-plot histories are not far-field inputs.
 
+Validated `EXPORT_BL_VELOCITY_PROFILE` emission is now refused on FlightStream
+26.125, including with `allow_broken`, following the modal measurement recorded
+in `CMP-26125_2026-10-16_bl-profile`. Use `raw()` only for an explicitly
+supervised interactive script, or use integrated viscous drag for unattended work.
+
 ## 0.44.0
 
 ### Surface deletion keeps survivor IDs

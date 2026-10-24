@@ -15,6 +15,14 @@ FlightStream versions.
 
 ### Fixed
 
+- Far-field `last_revs` validation follows the row's named `CLOCK_MOTION`,
+  matching export scheduling on rows with multiple rotor speeds.
+- Far-field continuation exports use the local march counter and retain the
+  restart offset, so the final averaging window is exported at reachable steps.
+- A corrupt snapshot outside the averaging window is ignored. A corrupt
+  snapshot inside it suppresses the average while preserving the valid final instant.
+- Far-field entry-name uniqueness is checked after Python model normalization,
+  including model objects mixed with dictionaries.
 - Averaged far-field `SPURIOUS_COUNTS` refuses a partial-configuration force
   history even when its user-defined plot group is named `MRP_TOTAL`.
 - A far-field window containing a readable snapshot with missing plane or

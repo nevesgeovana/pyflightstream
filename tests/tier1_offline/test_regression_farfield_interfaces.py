@@ -1515,6 +1515,23 @@ def test_p0450_rv1_definition_keeps_the_bounded_export_policy():
     assert '`export_type = "avg_window"` requests' in applicability
 
 
+@pytest.mark.parametrize(
+    "filename,terms",
+    [
+        ("CHANGELOG.md", ("CLOCK_MOTION", "last_revs")),
+        ("CHANGELOG.md", ("continuation", "local", "window")),
+        ("CHANGELOG.md", ("corrupt", "snapshot", "instant")),
+        ("docs/upgrading.md", ("EXPORT_BL_VELOCITY_PROFILE", "26.125", "raw()", "supervised")),
+    ],
+)
+def test_p0450_rv2_release_guidance_covers_integrated_fixes(filename, terms):
+    """RV2-05: the current release notes and migration page describe the delta."""
+    text = (Path(__file__).resolve().parents[2] / filename).read_text(encoding="utf-8")
+    heading = "## [0.45.0]" if filename == "CHANGELOG.md" else "## 0.45.0"
+    current = text.split(heading, 1)[1].split("\n## ", 1)[0]
+    assert all(term in current for term in terms), (filename, terms)
+
+
 @pytest.mark.parametrize("value", ["last_step", "avg_window", "default"])
 @pytest.mark.requirement("FR-1052")
 def test_p0450_d8_export_type_is_accepted(value):
