@@ -84,8 +84,14 @@ def test_p0420_interactive_profile_is_refused_without_relabelling_the_build():
 
 @pytest.mark.parametrize("version", ["26.123", "26.125"])
 def test_p0420_profile_refusal_does_not_invent_measurements_on_other_builds(version):
-    """P0420-P1-1b: the documented low-level forms remain available for probing."""
+    """P0450-RV2-04: only the still-unmeasured build retains validated emission."""
     script = Script(version)
+    if version == "26.125":
+        before = script.render()
+        with pytest.raises(BrokenCommandError, match="CMP-26125_2026-10-16_bl-profile"):
+            script.emit("EXPORT_BL_VELOCITY_PROFILE", 1, 0.5, 0.0, 0.1, "profile.txt")
+        assert script.render() == before
+        return
     script.emit("EXPORT_BL_VELOCITY_PROFILE", 1, 0.5, 0.0, 0.1, "profile.txt")
     assert "EXPORT_BL_VELOCITY_PROFILE" in script.render()
 
