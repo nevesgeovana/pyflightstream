@@ -146,7 +146,8 @@ def test_p0450_ci3_polar_beta_removal_fulfils_the_ledger_promise():
             beta_deg=loads.sideslip_deg,
         )
     assert caught == []
-    assert row[1] == loads.sideslip_deg
+    assert loads.sideslip_deg == 0.0, "fixture sideslip moved; the row[1] check is the zero case"
+    assert row[1] == 0.0
 
 
 def test_a_group_the_table_carries_none_of_sums_to_zero():

@@ -1887,6 +1887,7 @@ def test_the_committed_compat_corpus_is_readable_and_carries_no_digest():
         document = read_compat_report(path)
         assert document["schema"] == COMPAT_SCHEMA
         digest = document.get("fs_exe_sha256")
+        assert digest != "", f"{path.name}: an empty digest is neither withheld nor measured"
         dated = str(document.get("date") or "")
         if not dated or dated < "2026-08-19":
             assert digest is None, (
