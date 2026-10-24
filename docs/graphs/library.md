@@ -168,6 +168,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases.windows">pyflightstream.cases.windows</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._condition">pyflightstream.post._condition</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._rotor_plan">pyflightstream.post._rotor_plan</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._sim">pyflightstream.post._sim</a> (typing)</li>
 <li>&rarr; <a href="#pyflightstream.post._stage">pyflightstream.post._stage</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._tables">pyflightstream.post._tables</a> (module)</li>

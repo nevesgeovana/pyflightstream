@@ -5554,6 +5554,11 @@
     },
     {
       "source": "pyflightstream.post._reduction_stage",
+      "target": "pyflightstream.post._rotor_plan",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._reduction_stage",
       "target": "pyflightstream.post._sim",
       "kind": "typing"
     },
