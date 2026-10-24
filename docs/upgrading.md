@@ -9,6 +9,8 @@ describe the older releases that supplied them.
 
 ## 0.45.0
 
+`unsteady_samples` is no longer public; read far-field per-step surveys through post.
+
 Replace `[farfield]` with `[[farfields]]`, one entry per analysis, as shown in
 the [far-field definition](definitions/the-far-field-family.md#selecting-analyses).
 `variant` is one word. Give repeated variants distinct names. Move `families`

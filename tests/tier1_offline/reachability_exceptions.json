@@ -10,15 +10,6 @@
  "classification": "the rows outside routed later were classified by the release session under the owner delegation of 2026-10-12",
  "rows": [
   {
-   "id": "RX-FIX38b",
-   "capability": "Per-step probe export reader for user scripts",
-   "reason": "Python-only by design",
-   "decision": "FIX38b adopted usability choice by the orchestrator for owner review: reader of a per-step probe export for user scripts; the workspace reads the far-field per-step survey through its own reduction",
-   "names": [
-    "pyflightstream.post.farfield_fields.unsteady_samples"
-   ]
-  },
-  {
    "id": "RX-13",
    "capability": "Route-2 sector-offset calibration written from a recorded wheel point and sector point",
    "reason": "Python-only by design",

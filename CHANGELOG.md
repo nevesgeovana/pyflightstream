@@ -7,6 +7,10 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Removed
+
+- `unsteady_samples` is no longer public; read far-field per-step surveys through post.
+
 ### Fixed
 
 - Missing far-field point sets retain their named plane or lattice skip in the

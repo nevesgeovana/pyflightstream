@@ -79,7 +79,6 @@ from pyflightstream.post.farfield_fields import (
     lattice_samples,
     ledger_values,
     rotor_lattice,
-    unsteady_samples,
 )
 from pyflightstream.post.products import read_csv_table as _rfixb_madv__read_csv_table
 from pyflightstream.post.products import write_rotor_table
@@ -297,18 +296,13 @@ class TestFarfieldLedgers:
 
     @staticmethod
     @pytest.mark.requirement("FR-38")
-    def test_p0400_ledgers_unsteady_samples_read_each_vertex():
-        """P0400-LEDGERS (FR-1052): fluid plots by vertex; a missing plot is NaN, never zero."""
-        series = {
-            "VX1": np.array([1.0, 2.0]),
-            "VY1": np.array([0.0, 0.0]),
-            "VZ1": np.array([0.0, 0.0]),
-            "CP_REF1": np.array([0.1, 0.2]),
-        }
-        positions = {1: (0.0, 0.0, 0.0, "REFERENCE"), 2: (1.0, 0.0, 0.0, "REFERENCE")}
-        samples = unsteady_samples(series, positions, 1)
-        assert samples.velocity[0].tolist() == [2.0, 0.0, 0.0] and samples.cp[0] == 0.2
-        assert math.isnan(samples.velocity[1, 0]) and math.isnan(samples.cp[1])
+    def test_p0450_fix38_unsteady_samples_is_not_public():
+        """P0450-FIX38: per-step far-field surveys are read through post."""
+        from scripts.gen_api_reference import subpackage_page
+
+        assert "unsteady_samples" not in farfield_fields.__all__
+        assert not hasattr(farfield_fields, "unsteady_samples")
+        assert "unsteady_samples" not in subpackage_page(farfield_fields.__name__, set())
 
     @staticmethod
     @pytest.mark.requirement("FR-38")

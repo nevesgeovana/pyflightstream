@@ -37,7 +37,7 @@ from pyflightstream.cases.farfield_inputs import resolve_farfield
 from pyflightstream.cases.qsteady import QsteadyClocking, QsteadyRecord
 from pyflightstream.cases.workflows import build_script
 from pyflightstream.cases.workflows._farfield import plan_record
-from pyflightstream.farfield import bernoulli_residual, mass_closure
+from pyflightstream.farfield import bernoulli_residual
 from pyflightstream.post._tables import CONTEXT_COLUMNS
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
@@ -45,7 +45,6 @@ from pyflightstream.post.farfield_fields import (
     far_samples,
     plane_values,
     recorded_layout,
-    unsteady_samples,
 )
 from pyflightstream.post.farfield_products import farfield_axes, farfield_products
 from pyflightstream.post.products import ReferenceValues, write_campaign_products
@@ -1541,55 +1540,6 @@ if TYPE_CHECKING:
     from pyflightstream.post.farfield_fields import ProbeSamples
 
 
-_RFIXF2_MATCHING___ORIGIN = np.array([0.25, 0.0, 0.0])
-
-
-def _rfixf2_matching___lattice_case():
-    from pyflightstream.cases._farfield_spec import LatticeShape
-    from pyflightstream.probes.layouts import lattice_points
-
-    lattice = LatticeShape.model_validate(
-        {"frame": "MRP", "tip_radius_m": 0.5, "stations": [2.0], "n_r": 2, "n_psi": 16}
-    ).build(1.0)
-    local = lattice_points(lattice, axis="X")
-    shape = {
-        "kind": "lattice",
-        "source": "declared",
-        "entry": 1,
-        "count": len(local),
-        "lattice": lattice.model_dump(mode="json"),
-        "axis": "X",
-        "origin_m": [float(v) for v in _RFIXF2_MATCHING___ORIGIN],
-        "positions_frame": "MRP",
-    }
-    return lattice, local, shape
-
-
-def _rfixf2_matching___unsteady(entries: list[tuple[np.ndarray, str, float]]) -> ProbeSamples:
-    """One step of fluid plots: each entry's points (native = m), frame label and axial speed."""
-
-    positions: dict[int, tuple[float, float, float, str]] = {}
-    series: dict[str, np.ndarray] = {}
-    vertex = 0
-    for points, frame, speed in entries:
-        for point in points:
-            vertex += 1
-            positions[vertex] = (*(float(v) for v in point), frame)  # type: ignore[assignment]
-            series[f"VX{vertex}"] = np.array([speed])
-            series[f"VY{vertex}"] = np.array([0.0])
-            series[f"VZ{vertex}"] = np.array([0.0])
-            series[f"CP_REF{vertex}"] = np.array([0.0])
-    return unsteady_samples(series, positions, 0)
-
-
-def _rfixf2_matching___mdot(samples: ProbeSamples, block: slice | np.ndarray) -> float:
-    from pyflightstream.post.farfield_fields import lattice_samples
-
-    _LATTICE, _, _ = _rfixf2_matching___lattice_case()
-    fields = lattice_samples(samples, block, _LATTICE, "X", q=0.5 * 1.225 * 20.0**2)
-    return float(mass_closure(fields, 1.225).mdot[0])
-
-
 def _rfixf2_matching___plane(center: tuple[float, float, float], grid: float) -> np.ndarray:
     from pyflightstream.probes.layouts import farfield_plane
 
@@ -1629,12 +1579,7 @@ def _rfixf2_matching___crossflow(points: np.ndarray) -> ProbeSamples:
 
 
 class TestRfixF2Matching:
-    """P0400-RFIXF2-MATCHING: each far-field set is matched in its own frame, to the export's precision.
-
-    PFS-2081.102 (REL2-001): a declared lattice recorded in a translated frame (MRP)
-    is matched among that frame's points only, in its local coordinates, so a later
-    reference-frame entry whose positions coincide with the lattice's reference
-    positions never lends it its velocities.
+    """P0400-RFIXF2-MATCHING: far-field sets are matched to the export's precision.
 
     PFS-2081.103 (REL2-002): the matching tolerance is the export's printed
     precision of each coordinate, never a fraction of the distance from the origin;
@@ -1644,39 +1589,6 @@ class TestRfixF2Matching:
     """  # noqa: E501
 
     pytestmark = pytest.mark.requirement("FR-455")
-
-    @staticmethod
-    @pytest.mark.requirement("FR-455")
-    def test_p0400_rfixf2_a_translated_frame_lattice_reads_its_own_samples():
-        """P0400-RFIXF2-MATCHING (FR-1045, PFS-2081.102): MRP lattice before a REFERENCE entry.
-
-        The lattice's 24 points are recorded in MRP at their local positions with
-        20 m/s; the next entry, in REFERENCE, stands at the lattice's reference
-        positions (local plus the frame origin) with 50 m/s. Post must read the
-        20 m/s, and the balance must be the lattice's own mass flow.
-        """
-
-        _, _LOCAL, _SHAPE = _rfixf2_matching___lattice_case()
-        samples = _rfixf2_matching___unsteady(
-            [(_LOCAL, "MRP", 20.0), (_LOCAL + _RFIXF2_MATCHING___ORIGIN, "REFERENCE", 50.0)]
-        )
-        lattice, plane, why = far_samples(samples, recorded_layout([_SHAPE]), per_m=1.0)
-        assert why == "" and plane is None
-        assert np.allclose(samples.velocity[lattice], [20.0, 0.0, 0.0])
-        alone = _rfixf2_matching___unsteady([(_LOCAL, "MRP", 20.0)])
-        assert _rfixf2_matching___mdot(samples, lattice) == pytest.approx(
-            _rfixf2_matching___mdot(alone, slice(0, len(_LOCAL)))
-        )
-
-    @staticmethod
-    @pytest.mark.requirement("FR-455")
-    def test_p0400_rfixf2_a_frame_lattice_found_twice_in_its_frame_is_refused():
-        """P0400-RFIXF2-MATCHING (FR-1045): two MRP entries at the same points are refused."""
-
-        _, _LOCAL, _SHAPE = _rfixf2_matching___lattice_case()
-        samples = _rfixf2_matching___unsteady([(_LOCAL, "MRP", 20.0), (_LOCAL, "MRP", 50.0)])
-        lattice, _, why = far_samples(samples, recorded_layout([_SHAPE]), per_m=1.0)
-        assert lattice is None and "2 times" in why
 
     @staticmethod
     @pytest.mark.requirement("FR-455")

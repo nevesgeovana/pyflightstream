@@ -79,7 +79,6 @@ __all__ = [
     "rotor_lattice",
     "rotor_values",
     "steady_samples",
-    "unsteady_samples",
 ]
 
 
@@ -273,50 +272,6 @@ def _printed_digits(text: str) -> int:
                         counts.append(len(digits))
             break
     return min(counts) if counts else _DEFAULT_DIGITS
-
-
-def unsteady_samples(
-    series: Mapping[str, np.ndarray],
-    positions: Mapping[int, Sequence[object]],
-    row: int,
-) -> ProbeSamples:
-    """Read one time step of the fluid plots into probe samples, in vertex order.
-
-    ``series`` is the plots export keyed by column; a vertex whose plots are
-    absent is NaN, so the integrals that need it are ``NA``.
-
-    Parameters
-    ----------
-    series : Mapping[str, np.ndarray]
-        Fluid-plot history columns keyed by their native names.
-    positions : Mapping[int, Sequence[object]]
-        Probe vertex ids mapped to their recorded positions.
-    row : int
-        Zero-based time-step row to read from each history column.
-
-    Returns
-    -------
-    ProbeSamples
-        One step of probe samples in vertex order, with missing histories as NaN.
-    """
-    vertices = sorted(positions)
-
-    def at(name: str) -> float:
-        column = series.get(name)
-        return float(column[row]) if column is not None and row < len(column) else _NA
-
-    xyz = np.array([[float(str(v)) for v in list(positions[n])[:3]] for n in vertices]).reshape(
-        -1, 3
-    )
-    velocity = np.array([[at(f"{c}{n}") for c in ("VX", "VY", "VZ")] for n in vertices])
-    cp = np.array([at(f"CP_REF{n}") for n in vertices])
-    # PFS-2081.102: each vertex keeps the frame it was recorded in, so a set is
-    # matched among its own entry's points, in that frame's coordinates.
-    frames = tuple(
-        str(list(positions[n])[3]).strip().upper() if len(list(positions[n])) > 3 else _REFERENCE
-        for n in vertices
-    )
-    return ProbeSamples(xyz, velocity.reshape(-1, 3), cp, frames)
 
 
 def coordinate_tolerance(points: np.ndarray, digits: int | None) -> np.ndarray:
