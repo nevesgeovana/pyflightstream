@@ -46,6 +46,23 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("case", ["P0450-TW-01"])
+def test_p0450_rel1_inside_body_remedy_names_entry(tmp_path, case):
+    pytest.importorskip("rtree")
+    entry = {
+        "variant": "power",
+        "rotor": "ROTOR",
+        "stations": [0.0],
+        "n_r": 2,
+        "n_psi": 16,
+        "m_max": 2,
+    }
+    with pytest.raises(CampaignConfigError, match="inside the body") as caught:
+        _farfield_plan___script(_farfield_plan___case(tmp_path, [entry]))
+    assert "the [[farfields]] entry" in str(caught.value)
+    assert "in [farfield]" not in str(caught.value)
+
+
 @pytest.mark.parametrize("case", ["P0450-API-04"])
 def test_p0450_rel1_sections_refusal_gives_both_remedies(case):
     message = applies("trefftz:sections", "qsteady_rotor")

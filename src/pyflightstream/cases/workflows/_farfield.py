@@ -1061,8 +1061,8 @@ def _check_added(case: SimCase, native: np.ndarray, what: str) -> None:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: {count} point(s) of the far-field {what} the plan adds lie "
             f"inside the body, the first at {detail} (native units); state the geometry in "
-            "[farfield] (the plane's extent and distance, or the lattice's r_inner and "
-            "stations) so it clears the body (FR-1050)."
+            "the [[farfields]] entry (the plane's extent and distance, or the lattice's "
+            "r_inner and stations) so it clears the body (FR-1050)."
         )
 
 

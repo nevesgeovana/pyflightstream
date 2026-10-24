@@ -17,6 +17,7 @@ FlightStream versions.
 ### Fixed
 
 - Far-field station-count warnings name the requesting `[[farfields]]` sections entry.
+- The inside-body far-field refusal directs geometry corrections to `[[farfields]]`.
 - Duplicate far-field balances are refused using the entry's `balances` key.
 - The sections refusal on a quasi-steady rotor row explains both supported remedies.
 - Far-field lattice validation names the entry and offending key; unknown balances
