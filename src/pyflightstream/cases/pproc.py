@@ -44,7 +44,12 @@ from pyflightstream._tokens import REDUCTION_COLUMNS
 
 # The quasi-steady wheel's correction choice, a table of the pproc; its
 # module imports only the floor, so the package may import it while it loads.
-from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape, farfield_entries
+from pyflightstream.cases._farfield_spec import (
+    FarfieldSpec,
+    LatticeShape,
+    _refuse_filename_collisions,
+    farfield_entries,
+)
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
 from pyflightstream.cases.reference_blocks import CampaignConfigError
 from pyflightstream.cases.selection import EVERY_FAMILY
@@ -2173,6 +2178,7 @@ class PprocSpec(BaseModel):
             raise ValueError(
                 f"[[farfields]] names {names!r} must be unique; name repeated variants separately"
             )
+        _refuse_filename_collisions(entries)
         return entries
 
     @property

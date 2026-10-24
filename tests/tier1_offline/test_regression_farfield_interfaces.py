@@ -64,6 +64,28 @@ def test_p0450_d2_power_requires_lattice_placement():
         FarfieldSpec.model_validate({"variant": "power"})
 
 
+@pytest.mark.parametrize("representation", ["bytes", "iterator"])
+def test_p0450_rv2_collision_check_uses_normalized_entries(representation):
+    """RV2-03: every supported Python input obeys the adopted filename collision rule."""
+    entries: list[dict[str, object]] = [
+        {"variant": "wake", "name": "a/b"},
+        {"variant": "wake", "name": "a_b"},
+    ]
+    if representation == "bytes":
+        entries[0]["name"] = b"a/b"
+    value = iter(entries) if representation == "iterator" else entries
+    with pytest.raises(ValidationError, match="share file spelling"):
+        PprocSpec.model_validate({"farfields": value})
+    valid = PprocSpec.model_validate(
+        {
+            "farfields": iter(
+                [{"variant": "wake", "name": "a/b"}, {"variant": "wake", "name": "a-b"}]
+            )
+        }
+    )
+    assert [entry.name for entry in valid.farfields] == ["a/b", "a-b"]
+
+
 @pytest.mark.parametrize(
     "outer,expected", [(1.5, 2.5), (3.0, 3.0)], ids=["P0450-small", "P0450-large"]
 )

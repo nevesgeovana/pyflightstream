@@ -443,7 +443,7 @@ _KEY_VARIANTS = {
 
 
 def farfield_entries(value: Any) -> Any:
-    """Refuse the retired table and entry names that share a file spelling."""
+    """Refuse the retired table with equivalent array entries."""
     if not isinstance(value, dict):
         return value
     if value.get("farfield") is not None:
@@ -476,7 +476,6 @@ def farfield_entries(value: Any) -> Any:
             + '\nA 0.44.0 "plane" with ledgers on a rotor row becomes the "power" entry (D), '
             'not the "plane" entry (C); keep C only to request the velocity plane as well.'
         )
-    _refuse_filename_collisions(value.get("farfields", []))
     return value
 
 
