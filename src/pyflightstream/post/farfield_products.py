@@ -16,7 +16,6 @@ products keep their bytes (FR-1060).
 from __future__ import annotations
 
 import math
-import os
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -49,6 +48,7 @@ from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
     ProbeSamples,
     _average_entry_rows,
+    _named,
     _Tables,
     far_samples,
     lattice_samples,
@@ -187,25 +187,6 @@ def _skip(ctx: SimContext, key: str, point: str, reason: str) -> None:
         PyflightstreamWarning,
         stacklevel=3,
     )
-
-
-def _named(ctx: SimContext, paths: Sequence[Path | str | None]) -> list[str]:
-    """Return the export files a product consumed, relative to the simulation folder."""
-    present = [path for path in paths if path is not None]
-    if not present:
-        return []
-    root = ctx.workspace.sim_dir(ctx.sim_id)
-    names: list[str] = []
-    for path in paths:
-        if path is None:
-            continue
-        try:
-            name = Path(os.path.relpath(path, root)).as_posix()
-        except ValueError:
-            name = Path(path).as_posix()
-        if name not in names:
-            names.append(name)
-    return names
 
 
 def _symmetry(ctx: SimContext) -> tuple[bool, bool]:
@@ -755,13 +736,22 @@ def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[
             if unsteady and _spec(ctx).export_type == "avg_window"
             else {}
         )
-        return [
-            *[
-                _Instant(steady_samples(path.read_text(encoding="utf-8")), step)
-                for step, path in sorted(files.items())
-            ],
-            final,
-        ], ""
+        window, _ = _farfield_window(ctx, point, int(_step(final))) if files else (None, "")
+        instants = []
+        for step, path in sorted(files.items()):
+            if window is None or not window[0] <= step <= window[1]:
+                continue
+            try:
+                instants.append(_Instant(steady_samples(path.read_text(encoding="utf-8")), step))
+            except (PyflightstreamError, OSError) as error:
+                _skip(
+                    ctx,
+                    f"{FARFIELD_DIR}/average#point={point.name}#step={step}",
+                    point.name,
+                    f"far-field snapshot cannot be read: {error}; restore or collect "
+                    "the complete snapshot, or rerun the point",
+                )
+        return [*instants, final], ""
     except (PyflightstreamError, OSError) as error:
         return [], f"the probe values cannot be read: {error}"
 
@@ -942,12 +932,22 @@ def _probe_point(
             raise PyflightstreamError(why)
         last, chosen = _last_and_window(ctx, point, instants, unsteady and not normal)
         sets = [(last, _instant_values(ctx, point, last, probe, analyses))]
+    except PyflightstreamError as error:
+        _skip(ctx, key, point.name, f"the far-field probes cannot be read: {error}")
+        return
+    try:
         averaged = [
             (i, _instant_values(ctx, point, i, probe, analyses, final=i is last)) for i in chosen
         ]
     except PyflightstreamError as error:
-        _skip(ctx, key, point.name, f"the far-field probes cannot be read: {error}")
-        return
+        averaged = []
+        _skip(
+            ctx,
+            f"{key}#average",
+            point.name,
+            f"the far-field window cannot be read: {error}; restore or collect "
+            "complete window snapshots, or rerun the point",
+        )
     if "plane" in sets[0][1] or "rotor" in sets[0][1]:
         _warn_compressible(ctx, point)
     if "plane" in sets[0][1]:

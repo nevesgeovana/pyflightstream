@@ -19,6 +19,7 @@ named skip, never a guess.
 from __future__ import annotations
 
 import math
+import os
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -61,6 +62,7 @@ from pyflightstream.probes.layouts import farfield_plane, lattice_points
 from pyflightstream.results.loads import parse_probe_points
 
 if TYPE_CHECKING:
+    from pyflightstream.post._sim import SimContext
     from pyflightstream.workspace import RunRecord
 
 __all__ = [
@@ -81,6 +83,25 @@ __all__ = [
     "steady_samples",
     "unsteady_samples",
 ]
+
+
+def _named(ctx: SimContext, paths: Sequence[Path | str | None]) -> list[str]:
+    """Return the export files a product consumed, relative to the simulation folder."""
+    present = [path for path in paths if path is not None]
+    if not present:
+        return []
+    root = ctx.workspace.sim_dir(ctx.sim_id)
+    names: list[str] = []
+    for path in paths:
+        if path is None:
+            continue
+        try:
+            name = Path(os.path.relpath(path, root)).as_posix()
+        except ValueError:
+            name = Path(path).as_posix()
+        if name not in names:
+            names.append(name)
+    return names
 
 
 @dataclass

@@ -1928,6 +1928,25 @@ def test_p0450_d1_rotor_plane_posts_instant_and_average(tmp_path):
         assert (rows[0]["VARIANT"], rows[0]["FAMILY"], rows[0]["STEP"]) == ("C", "net", step)
 
 
+@pytest.mark.parametrize("broken_step", [1, 7])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_rv1_bad_snapshot_preserves_valid_instant(tmp_path, broken_step):
+    """P0450-RV1-03: only the average needing a broken snapshot is lost."""
+    workspace = _p0450_plane_series(tmp_path)
+    path = next(workspace.sim_dir("3207").rglob(f"*_farfield_probes_iteration={broken_step}.txt"))
+    path.write_text("truncated export", encoding="utf-8")
+    _ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    instant = _rfixf_layout___rows(root, "farfield/*_trefftz_instant.csv")
+    assert len(instant) == 1 and instant[0]["STEP"] == "8"
+    assert float(instant[0]["CDI_T"]) > 0
+    average = _rfixf_layout___rows(root, "farfield/*_trefftz_average.csv")
+    assert bool(average) is (broken_step == 1)
+    if broken_step == 7:
+        skipped = str(_ffproof_post___manifest(root)["skipped"])
+        assert "step=7" in skipped and "restore" in skipped.lower()
+
+
 def test_p0450_d2_rotor_lattice_and_plane_write_both(tmp_path):
     table = _FFPROOF_POST___LEDGERS.replace('frame = "MRP"\ntip_radius_m = 1.0', 'rotor = "ROTOR"')
     workspace = _p0450_plane_series(tmp_path, "\n" + table)
