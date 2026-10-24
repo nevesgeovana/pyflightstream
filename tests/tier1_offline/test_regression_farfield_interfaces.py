@@ -255,6 +255,27 @@ def test_p0450_d4_window_keys_are_exclusive():
         FarfieldSpec.model_validate({"variant": "plane", "last_revs": 1, "last_steps": 2})
 
 
+@pytest.mark.requirement("FR-1052")
+def test_p0450_rv1_motion_clock_accepts_farfield_revolutions():
+    """P0450-RV1-01: entry validation uses the same named motion clock as its exports."""
+    from pyflightstream.cases.workflows._farfield import farfield_export_windows
+    from tests.tier1_offline.test_regression_workflow_emission import (
+        _cases_workflows_clock___two_speeds,
+    )
+
+    case = _cases_workflows_clock___two_speeds()
+    case = case.model_copy(
+        update={
+            "pproc": PprocSpec.model_validate(
+                {"farfields": [{"variant": "plane", "export_type": "avg_window", "last_revs": 1}]}
+            )
+        }
+    )
+    outputs = row_outputs(case, "unsteady_rotor")
+    assert any(name.endswith("_farfield_probes.txt") for name in outputs)
+    assert farfield_export_windows(case) == ((37, 72, "farfield_probes"),)
+
+
 @pytest.mark.parametrize(
     "key,value",
     [

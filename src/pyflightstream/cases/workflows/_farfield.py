@@ -75,7 +75,7 @@ from ._rows import (
     _the_rotor_a_flat_row_turns,
     _variable,
 )
-from ._timing import rotor_time_stepping, unsteady_time_stepping
+from ._timing import unsteady_time_stepping
 from ._vocabulary import ROTOR_ORIGIN_VARIABLE
 
 __all__ = [
@@ -165,7 +165,7 @@ def _entry_window(spec: FarfieldSpec, case: SimCase) -> None:
         why = 'requires export_type = "avg_window"'
     elif key == "last_revs":
         if _rotor(case):
-            per_revolution = rotor_time_stepping(case).steps_per_revolution
+            per_revolution = rotor_row_stepping(case).steps_per_revolution
         if per_revolution is None:
             why = "has no rotor clock; state last_steps"
     if why:
