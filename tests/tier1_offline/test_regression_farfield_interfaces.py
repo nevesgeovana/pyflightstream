@@ -1435,6 +1435,26 @@ def test_the_farfield_core_performs_no_file_or_environment_io():
     assert not found, found
 
 
+@pytest.mark.requirement("FR-1052")
+def test_p0450_rv1_definition_keeps_the_bounded_export_policy():
+    """P0450-RV1-05: the planning and applicability guidance agrees with amended D8."""
+    page = (
+        Path(__file__).resolve().parents[2] / "docs/definitions/the-far-field-family.md"
+    ).read_text(encoding="utf-8")
+    planning = page.split("Every addition is stated", 1)[1].split(
+        "### Where each analysis applies", 1
+    )[0]
+    applicability = page.split("### Where each analysis applies", 1)[1].split(
+        "### Python entry points", 1
+    )[0]
+    assert "one fluid plot per point and parameter" not in planning
+    assert all(
+        word in planning for word in ("conventional probe points", '"avg_window"', '"default"')
+    )
+    assert "A does not add" not in applicability
+    assert '`export_type = "avg_window"` requests' in applicability
+
+
 @pytest.mark.parametrize("value", ["last_step", "avg_window", "default"])
 @pytest.mark.requirement("FR-1052")
 def test_p0450_d8_export_type_is_accepted(value):

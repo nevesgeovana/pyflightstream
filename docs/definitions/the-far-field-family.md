@@ -546,8 +546,10 @@ distribution beyond the one the coupling uses, and a probe point the plan adds
 inside the body. A probe point the user declared inside the body is kept, with a
 WARNING.
 
-On an unsteady row the plane or lattice the plan adds is sampled at every time
-step (one fluid plot per point and parameter); the plan states that count.
+On an unsteady row the plane or lattice uses conventional probe points.
+`"default"` and `"last_step"` export only after the march; `"avg_window"`
+requests snapshots only over the final averaging window. The plan states
+the point count per exported step and the number of exported steps.
 
 ### Where each analysis applies
 
@@ -566,9 +568,10 @@ and points to the reference aliases for lifting surfaces. A on `qsteady_rotor`
 is refused. On unsteady rows A writes the end-of-run sectional trace as instant;
 its average computes each step's trace before averaging. Missing per-step
 sectional exports produce a named average skip in the manifest and `post.log`.
-The existing row keys `EXPORT_UNSTEADY_AFTER_REV` and
-`EXPORT_UNSTEADY_AFTER_ITER` request stamped per-step exports; A does not add
-that request automatically.
+For A, `export_type = "avg_window"` requests the stamped sectional-load
+exports automatically over its final window, independently of the row's
+`EXPORT_UNSTEADY_*` threshold. Average products in the table above require
+`"avg_window"`; `"default"` and `"last_step"` produce only the instant.
 
 A "no" for B is a named skip: the point appears in `products.json` `skipped` with the
 reason, and in `post.log`.
