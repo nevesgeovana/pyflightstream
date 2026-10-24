@@ -884,7 +884,11 @@ def plane_values(
             "probes before the lattice are the plane the plan laid"
         )
     offsets = (points - points[0]) @ laid.axes[0]
-    if points.shape[0] != shape[0] * shape[1] or np.abs(offsets).max() > grid[2] * 1e-3:
+    tolerance = coordinate_tolerance(samples.positions[block], samples.digits) / per_m
+    normal_tolerance = (tolerance + tolerance[0]) @ np.abs(laid.axes[0])
+    if points.shape[0] != shape[0] * shape[1] or np.any(
+        np.abs(offsets) > normal_tolerance + grid[2] * 1e-3
+    ):
         raise PyflightstreamError(
             "the probes before the lattice are not the plane the plan laid normal to this "
             "point's free stream"

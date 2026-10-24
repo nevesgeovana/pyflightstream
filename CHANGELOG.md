@@ -40,6 +40,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Trefftz C accepts tilted planes within their exported coordinate precision,
+  while still refusing probes that do not match the laid plane.
 - An exploratory `[noise]` post writes `noise_report.json` with an `empty`
   outcome even when its simulations yield neither products nor skips (RXR-04).
 

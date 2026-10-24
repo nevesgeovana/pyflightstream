@@ -107,6 +107,62 @@ _FARFIELD_PRODUCTS__STATIONS = 160
 _FARFIELD_PRODUCTS___RULE = " " + "-" * 100 + "\n"
 
 
+def _ff5_printed_samples(points: np.ndarray, velocity: np.ndarray) -> ProbeSamples:
+    """Read coordinates printed in the solver's four-digit 0.xxxxE form."""
+    from pyflightstream.post.farfield_fields import steady_samples
+
+    lines = _rfixf_layout___export(points, velocity).splitlines(keepends=True)
+    index = 0
+    for i, line in enumerate(lines):
+        if re.match(r"\s*[-+]?\d\.\d+E", line):
+            cells = line.split(",")
+            for j, value in enumerate(points[index]):
+                mantissa, exponent = f"{value:.3E}".split("E")
+                cells[j] = f" {float(mantissa) / 10:.4f}E{int(exponent) + 1:+03d}"
+            lines[i] = ",".join(cells)
+            index += 1
+    assert index == len(points)
+    return steady_samples("".join(lines))
+
+
+@pytest.mark.parametrize("alpha,beta", [(4.0, 0.0), (0.0, 3.0)], ids=["P0450-alpha", "P0450-beta"])
+@pytest.mark.parametrize("per_m", [1.0, 1000.0])
+def test_p0450_ff5_rounded_plane_keeps_drag_and_refuses_wrong_plane(alpha, beta, per_m):
+    """LIC-01: reading a four-digit tilted plane preserves CDI_T; a shifted plane fails."""
+    from pyflightstream._errors import PyflightstreamError
+    from pyflightstream.post.farfield_fields import FarLayout
+
+    a, b = math.radians(alpha), math.radians(beta)
+    direction = (math.cos(a) * math.cos(b), -math.cos(a) * math.sin(b), math.sin(a))
+    grid = (0.4, 0.4, 0.08)
+    laid = farfield_plane(
+        (0.0, 0.0, 0.0),
+        direction=direction,
+        distance=2.27415,
+        half_width=grid[0],
+        half_height=grid[1],
+        spacing=grid[2],
+    )
+    velocity = np.tile([30.0, 1.0, 0.5], (len(laid.points), 1))
+    samples = _ff5_printed_samples(laid.points * per_m, velocity)
+    assert samples.digits == 4
+    layout = FarLayout(plane_m=laid.points, plane_grid=grid, plane_placed=True)
+    _, block, why = far_samples(samples, layout, per_m=per_m)
+    assert block is not None, why
+    args = dict(flow=(1.2, 30.0, alpha, beta), grid=grid, per_m=per_m, q_ref=540.0)
+    exact = replace(samples, positions=laid.points * per_m, digits=None)
+    expected = plane_values(exact, block, **args)["D"] / (540.0 * 2.0)
+    actual = plane_values(samples, block, **args)["D"] / (540.0 * 2.0)
+    assert actual > 0.0
+    assert actual == pytest.approx(expected, rel=1e-6)
+    shifted = _ff5_printed_samples((laid.points + 0.04 * laid.axes[0]) * per_m, velocity)
+    assert far_samples(shifted, layout, per_m=per_m)[1] is None
+    warped = samples.positions.copy()
+    warped[-1] += 0.04 * per_m * laid.axes[0]
+    with pytest.raises(PyflightstreamError, match="not the plane"):
+        plane_values(replace(samples, positions=warped), block, **args)
+
+
 def _farfield_products___sloads() -> str:
     q = 0.5 * _FARFIELD_PRODUCTS__RHO * _FARFIELD_PRODUCTS__SPEED * _FARFIELD_PRODUCTS__SPEED
     peak = (

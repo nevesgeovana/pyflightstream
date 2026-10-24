@@ -369,6 +369,8 @@ WARNING with both values. `E_T` of the C row is formed with `CL_near`.
 
 **Quadrature and validity.** The plane uses the trapezoid rule (corners a
 quarter, edges a half of a cell). Missing samples make the integral `NA`;
+Plane-normal offsets allow each coordinate's printed precision, including the
+first point's precision, projected onto the normal, plus 0.001 of the spacing.
 `COVERAGE` is the finite sampled area fraction. Every other grid point gives
 the second value used for `CDI_T_QERR`. Relations are incompressible; Mach
 above 0.3 warns. Crossflow energy outside the finite plane is omitted, and
