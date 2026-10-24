@@ -2864,15 +2864,24 @@ def _ff_helpers():
 
 def _ff_posted(tmp_path, *, steps, record=None, pproc=None):
     helpers = _ff_helpers()
-    count = len(helpers._FFPROOF_POST___POINTS_M)
+    # D8/D8b: average only stamped conventional far-field probe exports.
+    stem = helpers._FFPROOF_POST___STEM
+    files = {
+        f"{stem}_farfield_probes_iteration={step}.txt": helpers._ffproof_post___probe_export(
+            helpers._FFPROOF_POST___POINTS_M, helpers._ffproof_post___speed(step)
+        )
+        for step in range(5, steps + 1)
+    }
+    files[f"{stem}_farfield_probes.txt"] = helpers._ffproof_post___probe_export(
+        helpers._FFPROOF_POST___POINTS_M, helpers._ffproof_post___speed(steps)
+    )
     workspace = helpers._ffproof_post___campaign(
         tmp_path,
-        pproc=pproc or helpers._FFPROOF_POST___LEDGERS,
-        files={
-            f"{helpers._FFPROOF_POST___STEM}_plots.txt": helpers._ffproof_post___plots_export(
-                count, steps
-            )
-        },
+        pproc=pproc
+        or helpers._FFPROOF_POST___LEDGERS.replace(
+            "[[farfields]]", '[[farfields]]\nexport_type = "avg_window"'
+        ),
+        files=files,
         recipe="unsteady",
         reductions=helpers._FFPROOF_POST___WINDOW,
         positions=True,
@@ -2906,6 +2915,7 @@ def test_p0430_f126_a_window_the_recorded_steps_only_partly_cover_writes_no_aver
 def test_p0430_f145_a_normal_probe_row_carries_the_recorded_stop(tmp_path):
     """F-145: a run stopped at step 6 of 8 labels its normal-probe instant 6."""
     helpers = _ff_helpers()
+    stem = helpers._FFPROOF_POST___STEM
     probes = (
         '[[probes]]\nframe = "MRP"\nkind = "normal"\nparameters = ["VX"]\n'
         '[[probes.lattices]]\nframe = "MRP"\ntip_radius_m = 1.0\nstations = [-1.0, 1.0]\n'
@@ -2915,7 +2925,8 @@ def test_p0430_f145_a_normal_probe_row_carries_the_recorded_stop(tmp_path):
         tmp_path,
         pproc=probes + helpers._FFPROOF_POST___LEDGERS,
         files={
-            f"{helpers._FFPROOF_POST___STEM}_probes.txt": helpers._ffproof_post___probe_export(
+            # D8b: the far field reads its dedicated conventional export.
+            f"{stem}_farfield_probes.txt": helpers._ffproof_post___probe_export(
                 helpers._FFPROOF_POST___POINTS_M, helpers._ffproof_post___speed(6)
             )
         },
@@ -2997,7 +3008,8 @@ def test_p0430_f125_e_t_puts_the_native_cl_on_the_free_stream_dynamic_pressure(t
         tmp_path,
         pproc=helpers._RFIXF_PLANE_LIFT___TABLE,
         files={
-            f"{helpers._FFPROOF_POST___STEM}_probes.txt": helpers._rfixf_layout___export(
+            # D8b: the far field reads its dedicated conventional export.
+            f"{helpers._FFPROOF_POST___STEM}_farfield_probes.txt": helpers._rfixf_layout___export(
                 helpers._RFIXF_PLANE_LIFT___PLANE.points, helpers._rfixf_plane_lift___crossflow(1.0)
             )
         },

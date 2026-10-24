@@ -1049,23 +1049,19 @@ def test_f4_0304_a_reduced_far_field_file_records_its_window_and_sample_count(tm
     import tests.tier1_offline.test_regression_farfield_products as wing
 
     stem = wing._FFPROOF_POST___STEM
-    workspace = wing._ffproof_post___campaign(
-        tmp_path,
-        pproc=wing._FFPROOF_POST___LEDGERS,
-        files={
-            f"{stem}_plots.txt": wing._ffproof_post___plots_export(
-                len(wing._FFPROOF_POST___POINTS_M), 8
-            )
-        },
-        recipe="unsteady",
-        reductions=wing._FFPROOF_POST___WINDOW,
-        positions=True,
-    )
-    wing._ffproof_post___post(workspace)
-    manifest = wing._ffproof_post___manifest(Path(workspace.root))
+    # D8/D8b: four conventional snapshots supply the explicitly requested average.
+    from tests.tier1_offline.test_post_products import _ff_posted
+
+    _, root = _ff_posted(tmp_path, steps=8)
+    manifest = wing._ffproof_post___manifest(Path(root))
     average = wing._ffproof_post___entry(manifest, "_ledgers_average.csv")
-    assert average["reduced_from"] == {stem: {"window": [5.0, 8.0], "samples": 4}}
-    assert average["inputs"] == {stem: [f"outputs/{stem}_plots.txt"]}
+    # D0/D4: window metadata includes its source and entry identity.
+    metadata = {"window": [5.0, 8.0], "samples": 4, "source": "LAST_ITERS_AVG: 4"}
+    assert average["reduced_from"] == {stem: {**metadata, "entries": {"power": metadata}}}
+    assert average["inputs"] == {
+        stem: [f"outputs/{stem}_farfield_probes.txt"]
+        + [f"outputs/{stem}_farfield_probes_iteration={step}.txt" for step in range(5, 9)]
+    }
     assert "reduced_from" not in wing._ffproof_post___entry(manifest, "_ledgers_instant.csv")
 
 

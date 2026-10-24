@@ -1920,12 +1920,12 @@ _RFIXF_LAYOUT___SREF = 50.0
 _RFIXF_LAYOUT___Q = 0.5 * _RFIXF_LAYOUT___RHO * _RFIXF_LAYOUT___SPEED**2
 
 
-def _rfixf_layout___export(points: np.ndarray, velocity: np.ndarray) -> str:
+def _rfixf_layout___export(points: np.ndarray, velocity: np.ndarray, *, digits: int = 6) -> str:
     """A steady probe-points export of ``points`` (native) with ``velocity`` (m/s) at each."""
     rows = "".join(
         "     "
         + ", ".join(
-            f"{v: .6E}"
+            f"{v: .{digits}E}"
             for v in (*p, 0.1, 0.0, *u, float(np.linalg.norm(u)), 0.0)  # X Y Z Mach Cp_ref vxyz
         )
         + ", 0.0000E+00" * 6
