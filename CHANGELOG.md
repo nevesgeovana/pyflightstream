@@ -7,6 +7,35 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Every far-field entry accepts `export_type`: `default` and `last_step` read
+  only the last unsteady step; `avg_window` exports and averages the final
+  window, independently of other export thresholds. Planes and lattices always
+  use dedicated conventional probe exports. Manifests record each entry's policy.
+- Per-entry `last_revs` or `last_steps` selects the far-field averaging window
+  without changing instant products; manifests state each entry's window source.
+- Trefftz D (`variant = "power"`) writes lattice power channels on rotor and
+  power-off rows, with optional balance ledgers. Efficiency is `NA` at nonpositive
+  useful propulsive power. These channels were the rotor reading of C in 0.44.0.
+
+### Changed
+
+- Trefftz B, C and D identify whole-flow rows with `FAMILY = net`. B's spanwise
+  file and manifest key use `_trefftz_net.csv`. A keeps its family
+  rows and `TOTAL`. Super-file columns include each entry's name, for example
+  `CL_T_A_wing` and `CDI_T_C_plane`, so repeated variants retain separate cells.
+- Trefftz A accepts unsteady lifting-surface traces, including nonrotor families
+  on rotor rows. Rotor-owned families are refused. Available per-step sectional
+  exports supply the average; absent exports produce a named skip. In 0.44.0,
+  A was limited to steady rows that turned no rotor.
+- Trefftz C uses the whole-configuration plane on rotor rows as well as wing
+  rows. Quasi-steady rotor rows refuse C and name `power` instead.
+- Far-field requests use `[[farfields]]`, one named entry per analysis. Each
+  variant accepts only the keys it reads; family selection belongs to sections
+  alone. The retired `[farfield]` table is refused with replacement entries.
+  Far-field Trefftz and ledger tables carry `ENTRY` immediately after `POL`.
+
 ## [0.44.0] - 2026-10-23
 
 ### Changed

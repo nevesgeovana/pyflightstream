@@ -77,10 +77,12 @@ class FarfieldInput:
     state: str
     source: str = ""
     reason: str = ""
+    entry: str = ""
 
     def as_record(self) -> dict[str, str]:
         """Return the input as the plan output states it (FR-1047)."""
         return {
+            "entry": self.entry,
             "analysis": self.analysis,
             "input": self.input,
             "state": self.state,
@@ -145,11 +147,18 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
     >>> bool(applies('trefftz:wake', 'unsteady_rotor'))
     True
     """
-    if analysis in ("trefftz:sections", "trefftz:wake"):
+    if analysis == "trefftz:plane" and run_type == "qsteady_rotor":
+        return (
+            "Trefftz C requires a uniform freestream; qsteady_rotor uses a rotating frame: "
+            'select "power"'
+        )
+    if analysis == "trefftz:sections" and run_type == "qsteady_rotor":
+        return "Trefftz A on qsteady_rotor has no lifting surface outside the rotor"
+    if analysis == "trefftz:wake":
         if rotor or run_type in ROTOR_RUN_TYPES:
             return "a rotor's helical wake is not a streamwise sheet"
         if run_type in UNSTEADY_RUN_TYPES:
-            return "variants A and B serve steady rows"
+            return "variant B serves steady rows"
     return ""
 
 
@@ -216,7 +225,7 @@ def _analyses(spec: FarfieldSpec) -> list[str]:
     out = []
     if spec.trefftz is not None:
         out += [f"trefftz:{variant}" for variant in spec.trefftz.variant]
-    if spec.ledgers is not None:
+    if spec.balances:
         out.append("ledgers")
     return out
 
@@ -240,7 +249,7 @@ def resolve_farfield(
     Parameters
     ----------
     spec : FarfieldSpec
-        The row's ``[farfield]`` table.
+        The row's named ``[[farfields]]`` entry.
     run_type : str
         The row's run type (``steady``, ``unsteady``, ``unsteady_rotor``,
         ``qsteady_rotor``).
@@ -248,7 +257,7 @@ def resolve_farfield(
         The families a declared ``[sections]`` distribution cuts in plane XZ of a
         reference-axes frame (FR-1045).
     selected_families : sequence of str
-        The families ``[farfield] families`` resolves to on the row's geometry.
+        The families the ``[[farfields]]`` entry resolves to on the row's geometry.
     exports : dict of str to bool
         The artifact's ``[exports]`` table, as stated.
     declares_lattice, declares_plane : bool
@@ -282,13 +291,17 @@ def resolve_farfield(
                 analysis,
                 "families",
                 "refused",
-                reason=f"[farfield] families = {spec.families!r} names no family of the geometry",
+                reason=(
+                    f"[[farfields]] entry {spec.name!r}: families = {spec.families!r} "
+                    "names no family of the geometry"
+                ),
             )
         return FarfieldResolution(tuple(resolver.inputs))
     for analysis in _analyses(spec):
         why = applies(analysis, run_type, rotor=rotor)
         if why:
-            resolver.item(analysis, "run_type", "not_applicable", reason=why)
+            state = "refused" if analysis != "trefftz:wake" else "not_applicable"
+            resolver.item(analysis, "run_type", state, reason=why)
         elif analysis == "trefftz:sections":
             resolver.sections(analysis, selected_families, coupled)
         elif analysis == "trefftz:wake":
@@ -305,7 +318,7 @@ def resolve_farfield(
             )
         else:
             # A rotor's Trefftz C reads a lattice station, as _Resolver.probes says (PFS-2081.101).
-            reads_lattice = analysis == "ledgers" or resolver.rotor
+            reads_lattice = analysis in ("ledgers", "trefftz:power")
             declared = declares_lattice if reads_lattice else declares_plane
             resolver.probes(analysis, declared)
     return FarfieldResolution(tuple(resolver.inputs))
@@ -330,8 +343,6 @@ class _Resolver:
 
     def lacks(self, analysis: str, name: str) -> bool:
         command = _COMMANDS[name]
-        if name == "probe_points" and self.run_type in UNSTEADY_RUN_TYPES:
-            command = "UNSTEADY_SOLVER_NEW_FLUID_PLOT"
         if self.has_command(command):
             return False
         self.item(analysis, name, "refused", reason=f"the selected build has no {command}")
@@ -387,7 +398,7 @@ class _Resolver:
         self.export(analysis, "sectional_loads", "sectional_loads_export", True)
 
     def probes(self, analysis: str, declared: bool) -> None:
-        shape = "lattice" if analysis == "ledgers" or self.rotor else "plane"
+        shape = "lattice" if analysis in ("ledgers", "trefftz:power") else "plane"
         self.needed(
             analysis,
             "probe_points",
@@ -395,7 +406,4 @@ class _Resolver:
             f"the declared [[probes]] {shape}",
             f"the far-field {shape} as probe points",
         )
-        if self.run_type in UNSTEADY_RUN_TYPES:
-            self.item(analysis, "probe_export", "added", "per-step fluid plots of every point")
-        else:
-            self.export(analysis, "probes", "probe_export", True)
+        self.item(analysis, "probe_export", "added", "the dedicated farfield_probes export")

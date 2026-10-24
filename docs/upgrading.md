@@ -7,6 +7,29 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.45.0
+
+Replace `[farfield]` with `[[farfields]]`, one entry per analysis, as shown in
+the [far-field definition](definitions/the-far-field-family.md#selecting-analyses).
+`variant` is one word. Give repeated variants distinct names. Move `families`
+to the `sections` entry alone, and the old ledger keys to a `power` entry.
+The loader refuses the retired table and prints replacement entries, including
+the distinction between the old rotor power channels and the velocity plane.
+Far-field CSV readers must account for `ENTRY` immediately after `POL`.
+Select `FAMILY = net` for B, C and D, replacing `TOTAL`; A retains its family
+rows and `TOTAL`. Read B's spanwise product at `sections/<point>_trefftz_net.csv`.
+Its manifest key changes with it. Super-file far-field columns now include
+the entry name: `<quantity>_<VARIANT>_<ENTRY>`, for example `CL_T_A_wing`,
+`CDI_T_A_tail` and `CDI_T_C_net`. Default entry names also appear, as in
+`CDI_T_C_plane`. Update readers to select each entry's cells.
+
+Far-field entries now default to the last unsteady step only. Set
+`export_type = "avg_window"` to export and average a final window for A, C or D.
+Use `last_revs` or `last_steps` only with that policy; they remain optional.
+The row's `EXPORT_UNSTEADY_*` keys do not select far-field samples. C/D read
+their dedicated `_farfield_probes.txt` exports and window snapshots, so rerun
+the plan to obtain them; old fluid-plot histories are not far-field inputs.
+
 ## 0.44.0
 
 ### Surface deletion keeps survivor IDs

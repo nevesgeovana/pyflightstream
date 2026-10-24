@@ -21,7 +21,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -81,6 +81,80 @@ __all__ = [
     "steady_samples",
     "unsteady_samples",
 ]
+
+
+@dataclass
+class _Tables:
+    """The rows of one simulation's far-field files, by file suffix."""
+
+    rows: dict[str, list[tuple[object, ...]]] = field(default_factory=dict)
+    owners: dict[str, list[str]] = field(default_factory=dict)
+    runs: dict[str, list[str]] = field(default_factory=dict)
+    inputs: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    #: Per suffix and point, the averaging window and the sample count of a reduced file.
+    reduced: dict[str, dict[str, dict[str, object]]] = field(default_factory=dict)
+
+    def extend(
+        self,
+        suffix: str,
+        point: str,
+        exports: Sequence[str],
+        rows: list,
+        *,
+        runs: Sequence[str],
+        window: Sequence[float] | None = None,
+        samples: int | None = None,
+        source: str = "",
+    ) -> None:
+        """Add a point's rows; ``exports`` names the input exports the rows were read from."""
+        if not rows:
+            return
+        self.rows.setdefault(suffix, []).extend(rows)
+        self.owners.setdefault(suffix, []).extend([point] * len(rows))
+        held = self.runs.setdefault(suffix, [])
+        held += [run for run in runs if run not in held]
+        inputs = self.inputs.setdefault(suffix, {}).setdefault(point, [])
+        inputs.extend(path for path in exports if path not in inputs)
+        if samples is not None:
+            metadata = {
+                "window": None if window is None else [float(window[0]), float(window[1])],
+                "samples": int(samples),
+                "source": source,
+            }
+            reduced = self.reduced.setdefault(suffix, {}).setdefault(point, dict(metadata))
+            entries = reduced.setdefault("entries", {})
+            if isinstance(entries, dict):
+                entries[str(rows[0][1])] = metadata
+
+    def super_rows(self) -> list[tuple[tuple[object, ...], str]]:
+        """Return the rows the super file reads: steady, else each point's average or instant."""
+        out = list(zip(self.rows.get("trefftz", []), self.owners.get("trefftz", []), strict=True))
+        averaged = {
+            (point, row[1])
+            for row, point in zip(
+                self.rows.get("trefftz_average", []),
+                self.owners.get("trefftz_average", []),
+                strict=True,
+            )
+        }
+        for suffix in ("trefftz_average", "trefftz_instant"):
+            pairs = zip(self.rows.get(suffix, []), self.owners.get(suffix, []), strict=True)
+            out += [
+                (row, point)
+                for row, point in pairs
+                if suffix == "trefftz_average" or (point, row[1]) not in averaged
+            ]
+        return out
+
+
+def _average_entry_rows(rows: list, first: int) -> list:
+    """Average numerical cells while preserving the entry label after POL."""
+    if not rows:
+        return []
+    name = rows[0][0][1]
+    stripped = [[row[:1] + row[2:] for row in step] for step in rows]
+    return [row[:1] + (name,) + row[1:] for row in average_rows(stripped, first)]
+
 
 _NA = float("nan")
 _REFERENCE = "REFERENCE"
@@ -892,7 +966,7 @@ def rotor_values(fields: LatticeFields, *, rho: float, speed: float, station: fl
         "P_SWIRL_W": channels.p_swirl,
         "P_CROSSFLOW_W": channels.p_crossflow,
         "P_TOTAL_W": channels.p_total,
-        "ETA_FF": channels.eta_ff,
+        "ETA_FF": channels.eta_ff if channels.thrust * speed > 0.0 else _NA,
         "COVERAGE": channels.coverage,
         "X_T_M": channels.station * float(fields.tip_radius),
         "N_TRACE": float(fields["u"].shape[-1] * fields["u"].shape[-2]),

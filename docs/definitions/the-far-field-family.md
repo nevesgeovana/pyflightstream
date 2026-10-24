@@ -4,7 +4,7 @@
     Far-field lift, induced drag and span efficiency from three independent
     traces of the wake (the section loads, the solver's wake lines, a plane of
     probes), and the conservation balances of a probe survey, selected in the
-    `[farfield]` table of the pproc artifact and written to `farfield/`.
+    `[[farfields]]` entries of the pproc artifact and written to `farfield/`.
 
 **The far field is an instrument, not a second solver.** It integrates what the
 solver already exported, downstream of the body, and states a number the solver
@@ -14,19 +14,94 @@ does not compute: the solver reports no force in a Trefftz plane (its log's
 
 The analyses and where they are written:
 
-| analysis | `[farfield]` selection | reads | writes |
+| analysis | `[[farfields]]` selection | reads | writes |
 |---|---|---|---|
-| Trefftz A, section loads | `[farfield.trefftz] variant = "sections"` | the sectional loads export | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_<family>.csv` |
-| Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | the same two files, family `TOTAL` |
-| Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane or lattice | `farfield/<group>_trefftz.csv` |
-| Balances | `[farfield.ledgers]` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
+| Trefftz A, section loads | `variant = "sections"` | the sectional loads export | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_<family>.csv` |
+| Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_net.csv` |
+| Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane | `farfield/<group>_trefftz.csv` |
+| Trefftz D, power | `variant = "power"` | the survey lattice | `farfield/<group>_trefftz.csv` |
+| Balances | `variant = "power"` with `balances` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
+
+B, C and D identify the whole flow with lowercase `net` in `FAMILY`.
+A retains its selected family rows and their `TOTAL` row. B's spanwise file
+and its product-manifest key use `_trefftz_net.csv`.
+The super file reads A's `TOTAL` and B/C/D's `net` rows into
+`CL_T_<VARIANT>_<ENTRY>`, `CDI_T_<VARIANT>_<ENTRY>` and
+`E_T_<VARIANT>_<ENTRY>` columns, one set per entry. For example, A entries
+named `wing` and `tail` write `CL_T_A_wing` and `CDI_T_A_tail`; C named `net`
+writes `CDI_T_C_net`. An unnamed C entry uses `CDI_T_C_plane`.
+
+### Selecting analyses
+
+Each `[[farfields]]` entry selects one variant. Its optional `name` defaults to
+the variant word and must be unique. Name both entries when selecting a variant
+twice, for example separate section traces for a wing and tail. Both far-field
+tables carry `ENTRY` immediately after `POL`, including every total and ledger row.
+
+```toml
+[[farfields]]
+name = "wing"
+variant = "sections"
+families = ["Wing"]
+stations = 80
+
+[[farfields]]
+name = "tail"
+variant = "sections"
+families = ["HTail"]
+
+[[farfields]]
+variant = "plane"
+distance_bref = 0.25
+half_width_bref = 0.75
+half_height_bref = 0.5
+spacing_bref = 0.01
+```
+
+Keys belong to the analysis that reads them; a key on another variant is refused
+with the variants that accept it. `families` is required on `sections` and refused
+on `wake`, `plane` and `power`: these read the whole field, respectively every wake
+line, the plane and the lattice. `stations` is a count per side on `sections` and
+a list of x/R positions on `power`. `distance_bref` belongs to `wake` and `plane`;
+the half extents and spacing belong to `plane` alone. `station`, `rotor`, `frame`,
+`tip_radius_m`, `n_r`, `r_inner`, `r_outer`, `n_psi`, `lateral_radius`,
+`lateral_stations`, `hub_width`, `tip_width`, `m_max` and `balances` belong to `power`.
+Its placement requires `rotor`, or `frame` together with `tip_radius_m`.
+
+Every entry accepts `export_type = "default"`, `"last_step"` or `"avg_window"`.
+Unstated means `"default"`. Other values, including `"all_steps"`, are refused.
+On steady rows all three values produce the same single-step products.
+On unsteady rows `"default"` and `"last_step"` read only the last step,
+regardless of the row's `EXPORT_UNSTEADY_*` keys. They write `_instant` only;
+the manifest names the absent average. A needs no explicit window to plan.
+
+`"avg_window"` exports A's sectional loads and C/D's conventional probe points
+at exactly the steps in the final averaging window. Each entry may specify
+`last_revs` (positive turns of the row's rotor clock) or `last_steps` (positive
+integer), exclusively; otherwise it uses `LAST_REVS_AVG` or `LAST_ITERS_AVG`.
+The window ends at the last recorded step and clips to the run if longer.
+Multiple entries export the union of their windows. Other per-step products
+retain the row's export threshold. The average is the mean of the per-step
+analysis results, and is skipped if any window snapshot is missing.
+B retains its steady-only applicability.
+
+`last_revs` and `last_steps` are refused on steady rows and with `export_type`
+other than `"avg_window"`. `last_revs` without a rotor clock is refused naming
+`last_steps`. Normal declared probes do not restrict the far-field window.
+The manifest records each entry's `export_type`; each average also records
+its window, sample count and source under `reduced_from`.
+
+The 0.44.0 `[farfield]` spelling is refused at load with equivalent array entries.
+Its families move to A alone. Its ledgers become a `power` entry. A 0.44.0 rotor
+`plane` analysis with ledgers means the power analysis; request a separate `plane`
+entry only when a velocity plane is also wanted.
 
 `<group>` is the stem of the simulation's polar table. Every row of these files, and
 of the spanwise files, ends with `STATUS`, the point's solver termination status as
 `campaign_sweep.csv` writes it, so a point that is not converged says so on its rows. On an unsteady row each
-file is written twice, `<group>_<analysis>_instant.csv` (the last time step)
-and `<group>_<analysis>_average.csv` (the average over the row's averaging
-window), and each manifest entry states `reduction` as `instant` or `average`.
+file has `<group>_<analysis>_instant.csv` (the last time step), and under
+`"avg_window"`, `<group>_<analysis>_average.csv` (the entry's window average).
+Each manifest entry states `reduction` as `instant` or `average`.
 
 What each analysis needs and is not declared, the plan adds and says so; see
 [What the plan adds](#what-the-plan-adds).
@@ -219,7 +294,7 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   as converged as the wake the solver relaxed.
 - The plane must lie inside the wake: a line that ends before it makes the
   point's B value `NA`.
-- One `TOTAL` row per point: the export does not say which family a line
+- One `net` row per point: the export does not say which family a line
   belongs to.
 - Rotors are not traced.
 
@@ -227,12 +302,13 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
 
 ### Trefftz C, from a plane of probes
 
-**Input.** The probe values on the far-field plane: for a wing, a uniform
+**Input.** The probe values on the far-field plane: a uniform
 rectangular grid normal to the free stream of each point (it turns with the
 angle of attack and the sideslip), centered on the free-stream line through the
-moment reference point, at `distance_bref BREF` behind the selected families;
-for a rotor, one station of its survey lattice. Velocities are turned to wind
-axes (wing) or lattice axes (rotor); the static pressure is `p - p_inf = Cp_ref q_ref`,
+moment reference point, at `distance_bref BREF` behind the whole geometry.
+This includes steady RPM and `unsteady_rotor` rows. A `qsteady_rotor` row is
+refused: its rotating frame has no uniform freestream for C; select `power`.
+Velocities are turned to wind axes; the static pressure is `p - p_inf = Cp_ref q_ref`,
 the export's coefficient on the reference velocity, which a rotor at rest still has
 (on a wing at speed with the reference velocity the free stream, `Cp q`). The
 probe positions are in the simulation's length unit, read as for Trefftz B.
@@ -244,7 +320,11 @@ probe positions are in the simulation's length unit, read as for Trefftz B.
 The integrand is the crossflow-energy integrand of the balances
 ([The balances](#the-balances)) with the advecting velocity set to `V`; the
 balance advects with the sampled `u`, which differs at second order in the
-perturbation. Written as `CDI_T`.
+perturbation. Written as `CDI_T`. On rotor configurations this is the net
+configuration induced drag, including swirl; efficiency uses configuration
+`CL`, and the Bernoulli residual remains an informative field check.
+The propeller slipstream's total-pressure gain can make that residual depart
+from zero; this is information about the powered field, not an error.
 
 **Induced drag, the vorticity (Maskell).** From the streamwise vorticity
 `xi = dw/dy - dv/dz` (central differences on the grid) and its stream function
@@ -287,7 +367,21 @@ than 10 percent, the probe field does not hold that circulation and its crossflo
 energy is not the loads' induced drag: the row is written and post writes a
 WARNING with both values. `E_T` of the C row is formed with `CL_near`.
 
-**Rotor channels** at a lattice station, `u' = u - V`, `v_theta_0` the azimuthal
+**Quadrature and validity.** The plane uses the trapezoid rule (corners a
+quarter, edges a half of a cell). Missing samples make the integral `NA`;
+`COVERAGE` is the finite sampled area fraction. Every other grid point gives
+the second value used for `CDI_T_QERR`. Relations are incompressible; Mach
+above 0.3 warns. Crossflow energy outside the finite plane is omitted, and
+probes close to wake lines need spacing refinement.
+
+### Trefftz D, power on the survey lattice
+
+`variant = "power"` reads `station` in x/R, defaulting to the last lattice
+station, on every row type, including power-off rows. Placement requires
+`rotor` or `frame` plus `tip_radius_m`. The row has `VARIANT = D` and
+`FAMILY = net`; `balances` additionally requests the ledger rows.
+
+**Power channels** at a lattice station, `u' = u - V`, `v_theta_0` the azimuthal
 mean of the swirl:
 
     P_AXIAL     = (rho / 2) integral u'^2 u dS
@@ -297,7 +391,7 @@ mean of the swirl:
     ETA_FF      = T V / (T V + P_AXIAL + P_SWIRL + P_CROSSFLOW)
 
 with `T` the axial force of the balance between the inlet and that station;
-`ETA_FF` is `NA` at `V = 0`.
+`ETA_FF` is `NA` where `T V <= 0`, including static and power-off conditions.
 
 **The quasi-steady rotor.** A `qsteady_rotor` point holds the blades still and
 carries the rotation in the free stream, so its probe velocities are those of
@@ -313,20 +407,7 @@ otherwise the row's own speed in the quasi-steady record beside the loads export
 which a `qsteady_rotor` run always writes. It is signed by the rotor's hand
 (`rpm_sign` times the row's `RPM`), and that sign alone gives the sense of `Omega`.
 
-**Quadrature.** The trapezoid rule on the grid (corners a quarter, edges a half
-of a cell); a missing sample makes the integral `NA` and `COVERAGE` states the
-fraction of the plane's AREA whose samples are finite, each sample weighted by the area its weight integrates. The same samples integrated on every other grid point give a
-second value; `CDI_T_QERR` is the difference.
-
-**Assumptions and validity.**
-
-- Incompressible relations. Above Mach 0.3 the row is written with a WARNING.
-- The crossflow energy is truncated at the plane's edges; the energy outside a
-  plane of half-width `a` falls as `1/a^2` for a wing's far wake. The vorticity
-  path is not truncated this way.
-- Probes close to a wake line sample a velocity that grows as the inverse of the
-  distance; the grid spacing and `CDI_T_QERR` say how much the plane resolves it.
-- Static rotor (`V = 0`): the channels are written; `ETA_FF` is `NA`.
+The annular quadrature and coverage are those of the balances below.
 
 <a id="the-balances"></a>
 
@@ -414,8 +495,14 @@ On a steady row the added plane and lattice are written to one staged
 placement for a lattice added alone) and appended by one
 `PROBE_POINTS_IMPORT`. The file starts with its point count, uses volume
 type 1 and preserves the recorded order, plane before lattice. Distinct
-point sets have distinct content-derived filenames. Unsteady rows keep
-their per-step fluid plots.
+point sets have distinct content-derived filenames. On every row type the
+far field uses conventional probe points, never fluid plots. Its own export is
+`<point>_farfield_probes.txt`, with
+`<point>_farfield_probes_iteration=<step>.txt` at each `"avg_window"` step.
+The FR-1052 warning states points per exported step and the exported step count.
+Declared unsteady probes keep their fluid plots and `probes/<point>_probes.csv`.
+With normal declared probes, the far-field export also contains those points;
+the far field selects its own by recorded positions.
 
 <a id="what-the-plan-adds"></a>
 
@@ -425,13 +512,14 @@ their per-step fluid plots.
 |---|---|---|---|
 | A | a section distribution over each family, planes XZ, reference axes; the sectional loads export | reused | added: frame `MRP`, plane XZ, 80 stations per side |
 | B | the VTK export with the wake | reused | the wake switched on in the VTK export, the export added if the row has none |
-| C | the plane (wing) or the lattice (rotor); the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
+| C | the configuration plane; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
+| D | the entry's survey lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | the stated lattice is laid as probe points |
 | balances | the lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
 
 **Which declaration is reused.** A declared plane or lattice is the far field's when
 its points after layout are the far field's own (same frame, every coordinate equal
 at the precision a probe position is written in), so a key stated at its default
-is the same geometry as the key left out. Where `[farfield]` states no geometry, the
+is the same geometry as the key left out. Where an entry states no geometry, the
 one declaration that qualifies is reused: a lattice on the same rotor, or in the
 same frame with the same tip radius, whose azimuths carry `m_max`; a rectangle of
 the reference frame that is a Trefftz C plane of the point (one spacing both ways,
@@ -466,13 +554,23 @@ step (one fluid plot per point and parameter); the plan states that count.
 | row | A | B | C | balances |
 |---|---|---|---|---|
 | steady, fixed wing | yes | yes | yes | yes |
-| steady rotor | no | no | rotor channels | yes |
-| `unsteady_rotor` | no | no | rotor channels, instant and average | instant and average |
-| `qsteady_rotor` | no | no | rotor channels, in the hub frame | yes, in the hub frame |
-| unsteady, fixed wing | no | no | instant and average | instant and average |
+| steady rotor | nonrotor families | no | configuration plane | yes |
+| `unsteady_rotor` | nonrotor families | no | configuration plane, instant and average | instant and average |
+| `qsteady_rotor` | no | no | refused; select D | yes, in the hub frame |
+| unsteady, fixed wing | yes | no | instant and average | instant and average |
 | coupled FSI, steady | the coupled distribution | yes | refused (no probes) | refused (no probes) |
 
-A "no" is a named skip: the point appears in `products.json` `skipped` with the
+A refuses any selection, including selector words, that resolves to a rotor
+block's blade or general families. The refusal names the rotor and families
+and points to the reference aliases for lifting surfaces. A on `qsteady_rotor`
+is refused. On unsteady rows A writes the end-of-run sectional trace as instant;
+its average computes each step's trace before averaging. Missing per-step
+sectional exports produce a named average skip in the manifest and `post.log`.
+The existing row keys `EXPORT_UNSTEADY_AFTER_REV` and
+`EXPORT_UNSTEADY_AFTER_ITER` request stamped per-step exports; A does not add
+that request automatically.
+
+A "no" for B is a named skip: the point appears in `products.json` `skipped` with the
 reason, and in `post.log`.
 
 

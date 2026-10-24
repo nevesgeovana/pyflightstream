@@ -1,4 +1,15 @@
 uid,destination,target,new_uids,file
+FR-3270,l3,FR-454,,tests/requirements_l3.csv
+FR-3271,l3,FR-455,,tests/requirements_l3.csv
+FR-3272,l3,FR-1054,,tests/requirements_l3.csv
+FR-3268,l3,FR-455,,tests/requirements_l3.csv
+FR-3269,l3,FR-1054,,tests/requirements_l3.csv
+FR-3266,l3,FR-1054,,tests/requirements_l3.csv
+FR-3267,l3,FR-454,,tests/requirements_l3.csv
+FR-3264,l3,FR-455,,tests/requirements_l3.csv
+FR-3265,l3,FR-1054,,tests/requirements_l3.csv
+FR-3262,l3,FR-454,,tests/requirements_l3.csv
+FR-3263,l3,FR-1054,,tests/requirements_l3.csv
 FR-1621,kept,,FR-3257,docs/unpublished/requirements/spcm.md
 FR-3257,l3,FR-1621,,tests/requirements_l3.csv
 FR-1620,kept,,FR-3256 FR-3258,docs/unpublished/requirements/spcm.md

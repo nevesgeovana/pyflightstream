@@ -106,12 +106,6 @@
    "statements": 22,
    "positional": 6
   },
-  "cases/workflows/_farfield.py:farfield_probes": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 27,
-   "positional": 3
-  },
   "cases/workflows/_frames.py:_rotations": {
    "complexity": 16,
    "branches": 15,

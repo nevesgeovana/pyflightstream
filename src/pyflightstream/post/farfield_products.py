@@ -19,7 +19,7 @@ import math
 import os
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -42,13 +42,14 @@ from pyflightstream.farfield import (
     wake_crossings,
 )
 from pyflightstream.post._condition import _last_time_step
-from pyflightstream.post._reduction_stage import _NA, _flow, _hub, _layout, _Probe
+from pyflightstream.post._reduction_stage import _NA, _farfield_window, _flow, _hub, _layout, _Probe
 from pyflightstream.post._tables import CONTEXT_COLUMNS, _cell, context_row, write_csv_table
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
     ProbeSamples,
-    average_rows,
+    _average_entry_rows,
+    _Tables,
     far_samples,
     lattice_samples,
     ledger_values,
@@ -56,10 +57,10 @@ from pyflightstream.post.farfield_fields import (
     plane_values,
     rotor_values,
     steady_samples,
-    unsteady_samples,
 )
 from pyflightstream.post.section_distributions import distributions_of
-from pyflightstream.results.loads import drag_pair, parse_unsteady_plots
+from pyflightstream.post.series import stamped_exports
+from pyflightstream.results.loads import drag_pair
 from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.results.wake import parse_wake_export
 from pyflightstream.workspace.naming import sweep_file_stem
@@ -165,56 +166,6 @@ def farfield_axes(alpha_deg: float, beta_deg: float) -> np.ndarray:
     return EXPORT_TO_BODY @ body_to_wind(alpha_deg, beta_deg) @ EXPORT_TO_BODY
 
 
-@dataclass
-class _Tables:
-    """The rows of one simulation's far-field files, by file suffix."""
-
-    rows: dict[str, list[tuple[object, ...]]] = field(default_factory=dict)
-    owners: dict[str, list[str]] = field(default_factory=dict)
-    runs: dict[str, list[str]] = field(default_factory=dict)
-    inputs: dict[str, dict[str, list[str]]] = field(default_factory=dict)
-    #: Per suffix and point, the averaging window and the sample count of a reduced file.
-    reduced: dict[str, dict[str, dict[str, object]]] = field(default_factory=dict)
-
-    def extend(
-        self,
-        suffix: str,
-        point: str,
-        exports: Sequence[str],
-        rows: list,
-        *,
-        runs: Sequence[str],
-        window: Sequence[float] | None = None,
-        samples: int | None = None,
-    ) -> None:
-        """Add a point's rows; ``exports`` names the input exports the rows were read from."""
-        if not rows:
-            return
-        self.rows.setdefault(suffix, []).extend(rows)
-        self.owners.setdefault(suffix, []).extend([point] * len(rows))
-        held = self.runs.setdefault(suffix, [])
-        held += [run for run in runs if run not in held]
-        self.inputs.setdefault(suffix, {}).setdefault(point, list(exports))
-        if samples is not None:
-            self.reduced.setdefault(suffix, {})[point] = {
-                "window": None if window is None else [float(window[0]), float(window[1])],
-                "samples": int(samples),
-            }
-
-    def super_rows(self) -> list[tuple[tuple[object, ...], str]]:
-        """Return the rows the super file reads: steady, else each point's average or instant."""
-        out = list(zip(self.rows.get("trefftz", []), self.owners.get("trefftz", []), strict=True))
-        averaged = set(self.owners.get("trefftz_average", []))
-        for suffix in ("trefftz_average", "trefftz_instant"):
-            pairs = zip(self.rows.get(suffix, []), self.owners.get(suffix, []), strict=True)
-            out += [
-                (row, point)
-                for row, point in pairs
-                if suffix == "trefftz_average" or point not in averaged
-            ]
-        return out
-
-
 def _spec(ctx: SimContext) -> FarfieldSpec:
     """Return the simulation's ``[farfield]`` table; the step runs only where there is one."""
     return cast("FarfieldSpec", ctx.pproc.farfield)
@@ -229,8 +180,13 @@ def _ledgers(ctx: SimContext) -> LedgersSpec:
 
 
 def _skip(ctx: SimContext, key: str, point: str, reason: str) -> None:
-    ctx.skipped[key] = reason
-    warn(f"point={point} product=farfield: {reason}", PyflightstreamWarning, stacklevel=3)
+    name = _spec(ctx).name
+    ctx.skipped[key if "#entry=" in key else f"{key}#entry={name}"] = reason
+    warn(
+        f"point={point} product=farfield entry={name}: {reason}",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
 
 
 def _named(ctx: SimContext, paths: Sequence[Path | str | None]) -> list[str]:
@@ -335,7 +291,7 @@ def _row(ctx: SimContext, point: PolarPoint, step: object, values: Mapping[str, 
         **values,
     }
     cells = (merged.get(column, _NA) for column in TREFFTZ_COLUMNS)
-    return (ctx.sim_id, step, *_context(ctx, point), *cells)
+    return (ctx.sim_id, _spec(ctx).name, step, *_context(ctx, point), *cells)
 
 
 def _trace_rows(
@@ -349,7 +305,7 @@ def _trace_rows(
     extra: Mapping[str, float],
     blank: Sequence[str] = (),
 ) -> list[tuple[object, ...]]:
-    """Return the rows of one trace: each family where there are several, then TOTAL."""
+    """Return A's family rows and TOTAL, or B's whole-flow net row."""
     rho, speed, _alpha, _beta = _flow(point)
     q = 0.5 * rho * speed * speed
     sref, bref = float(ctx.reference.sref_m2), float(ctx.reference.bref_m)
@@ -367,9 +323,8 @@ def _trace_rows(
                     count,
                 )
             )
-    entries.append(
-        ("TOTAL", result.lift, result.side_force, result.induced_drag, _NA, len(result.y))
-    )
+    total = "TOTAL" if variant == "sections" else "net"
+    entries.append((total, result.lift, result.side_force, result.induced_drag, _NA, len(result.y)))
     rows = []
     for name, lift, side, drag, alone, count in entries:
         c = trace_coefficients(
@@ -454,9 +409,11 @@ def _sheet(result: TraceResult, index: int) -> TraceResult:
     )
 
 
-def _a_blocks(ctx: SimContext, point: PolarPoint, key: str) -> dict[str, np.ndarray] | None:
+def _a_blocks(
+    ctx: SimContext, point: PolarPoint, key: str, sloads: Path | None = None
+) -> dict[str, np.ndarray] | None:
     """Return the sectional-load rows of each family cut in XZ of a reference frame, or skip."""
-    sloads = ctx.exports.get(point.name, (None, None, None))[0]
+    sloads = sloads or ctx.exports.get(point.name, (None, None, None))[0]
     if sloads is None:
         _skip(
             ctx,
@@ -518,7 +475,7 @@ def _a_sheets(
     return ys, zs, gammas, sheets, chords
 
 
-def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
+def _variant_a(ctx: SimContext, point: PolarPoint, sloads: Path | None = None) -> list:
     """Trefftz A of one steady point (FR-451): rows, or a named skip."""
     spec = _spec(ctx)
     key = f"{FARFIELD_DIR}/trefftz#point={point.name}#variant=sections"
@@ -535,11 +492,11 @@ def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
     if not (math.isfinite(rho) and speed > 0.0):
         _skip(ctx, key, point.name, "the point states no density or free-stream speed")
         return []
-    blocks = _a_blocks(ctx, point, key)
+    blocks = _a_blocks(ctx, point, key, sloads)
     if blocks is None:
         return []
     inventory = ctx.record_of[point.name].inventory or list(blocks)
-    selected = _selected(spec.families, inventory, ctx.aliases, ctx.pproc.is_blade)
+    selected = _selected(spec.families or "all", inventory, ctx.aliases, ctx.pproc.is_blade)
     chosen = [name for name in selected if name in blocks]
     for name in (name for name in selected if name not in blocks):
         _skip(
@@ -586,7 +543,7 @@ def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
     except PyflightstreamError as error:
         _skip(ctx, key, point.name, f"the trace cannot be formed: {error}")
         return []
-    for index, name in enumerate(chosen):
+    for index, name in enumerate(chosen if sloads is None else []):
         _spanwise(
             ctx,
             point,
@@ -700,7 +657,7 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
             else ""
         )
         _skip(ctx, key, point.name, f"no trace at x = {x_t:.4g} m: {trace.problem}{length}")
-        values = {"FAMILY": "TOTAL", "VARIANT": "B", "X_T_M": x_t}
+        values = {"FAMILY": "net", "VARIANT": "B", "X_T_M": x_t}
         return [_row(ctx, point, _NA, values)]
     try:
         raw = trace.forces(rho=rho, v_inf=speed, mirror=mirror)
@@ -724,13 +681,13 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
             "the point has no near-field CL to calibrate "
             "the wake values from, so E_T alone is written",
         )
-    _spanwise(ctx, point, variant="wake", name="TOTAL", result=result, chords=None)
+    _spanwise(ctx, point, variant="wake", name="net", result=result, chords=None)
     return _trace_rows(
         ctx,
         point,
         result,
         variant="wake",
-        names=["TOTAL"],
+        names=["net"],
         factor=factor,
         extra={"X_T_M": x_t, "GAMMA_SCALE": k},
         blank=() if calibrated else ("CL_T", "CDI_T", "CY_T"),
@@ -777,32 +734,45 @@ class _Instant:
 
 
 def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[_Instant], str]:
-    """Return the instants a point's probes give: one steady, or every step of a window."""
-    _sloads, plots, probes = ctx.exports.get(point.name, (None, None, None))
+    """Read only the far field's conventional probe exports, including stamped steps."""
+    probes = _output(ctx, point, "farfield_probes")
     try:
-        if not unsteady:
-            if probes is None:
-                return [], "the point exported no probe values"
-            per_m = _per_m(ctx, point)
-            if per_m != 1.0:
-                return [], (
-                    f"steady probe velocity units are unmeasured at {per_m!r} simulation "
-                    "length units per metre; use a metre simulation until a measured "
-                    "velocity conversion is available"
-                )
-            return [_Instant(steady_samples(Path(probes).read_text(encoding="utf-8")), _NA)], ""
-        if plots is None:
-            return [], "the point exported no fluid plots"
-        series = parse_unsteady_plots(Path(plots).read_text(encoding="utf-8")).series_by_name()
+        if probes is None:
+            return [], "the point exported no far-field probe values"
+        per_m = _per_m(ctx, point)
+        if per_m != 1.0:
+            return (
+                [],
+                f"conventional probe velocity units are unmeasured at {per_m!r} "
+                "simulation length units per metre",
+            )
+        final = _Instant(
+            steady_samples(probes.read_text(encoding="utf-8")),
+            _last_step(ctx.record_of[point.name]) if unsteady else _NA,
+        )
+        files = (
+            _probe_exports(ctx, point)
+            if unsteady and _spec(ctx).export_type == "avg_window"
+            else {}
+        )
+        return [
+            *[
+                _Instant(steady_samples(path.read_text(encoding="utf-8")), step)
+                for step, path in sorted(files.items())
+            ],
+            final,
+        ], ""
     except (PyflightstreamError, OSError) as error:
         return [], f"the probe values cannot be read: {error}"
-    steps = series.get("Time-step")
-    count = len(next(iter(series.values()))) if series else 0
-    out = []
-    for row in range(count):
-        step = int(steps[row]) if steps is not None and math.isfinite(steps[row]) else row + 1
-        out.append(_Instant(unsteady_samples(series, ctx.probe_positions, row), step))
-    return out, "" if out else "the fluid plots hold no time step"
+
+
+def _probe_exports(ctx: SimContext, point: PolarPoint) -> dict[int, Path]:
+    """Find stamped exports beside the run's recorded outputs."""
+    root = ctx.workspace.sim_dir(ctx.sim_id)
+    record = ctx.record_of[point.name]
+    return stamped_exports(
+        root, point.name, *(root / Path(name).parent for name in record.outputs)
+    ).get(("_farfield_probes", "txt"), {})
 
 
 def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
@@ -836,8 +806,8 @@ def _instant_values(
     layout = probe.layout
     lattice_at, plane_at, why = far_samples(instant.samples, layout, per_m=probe.per_m)
     # A wing's Trefftz C reads the plane; a rotor's reads a lattice station.
-    wants_plane = "trefftz:plane" in analyses and not probe.rotor
-    wants_lattice = "ledgers" in analyses or ("trefftz:plane" in analyses and probe.rotor)
+    wants_plane = "trefftz:plane" in analyses
+    wants_lattice = "ledgers" in analyses or "trefftz:power" in analyses
     no_plane, no_lattice = wants_plane and plane_at is None, wants_lattice and lattice_at is None
     if no_plane or no_lattice:
         usable = (wants_plane and not no_plane) or (wants_lattice and not no_lattice)
@@ -870,7 +840,7 @@ def _instant_values(
     if probe.hub is not None:
         hub = (probe.hub[0], probe.hub[1], probe.hub[2])
     fields = lattice_samples(instant.samples, lattice_at, lattice, axis, q=q_ref, hub=hub)
-    if "trefftz:plane" in analyses and probe.rotor and "plane" not in out:
+    if "trefftz:power" in analyses:
         station = _trefftz(ctx).station
         station = float(lattice.stations[-1]) if station is None else float(station)
         out["rotor"] = rotor_values(fields, rho=rho, speed=speed, station=station)
@@ -896,7 +866,7 @@ def _c_row(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: 
         aspect = float(ctx.reference.bref_m) ** 2 / float(ctx.reference.sref_m2)
         e = cl * cl / (math.pi * aspect * cdi) if math.isfinite(cdi) and cdi else _NA
         cells = {
-            "FAMILY": "TOTAL",
+            "FAMILY": "net",
             "VARIANT": "C",
             "CL_T": plane["L"] / qs,
             "CDI_T": cdi,
@@ -911,7 +881,7 @@ def _c_row(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: 
         }
         return _row(ctx, point, step, cells)
     rotor = values["rotor"]
-    cells = {"FAMILY": _ledgers(ctx).rotor, "VARIANT": "C", **rotor}
+    cells = {"FAMILY": "net", "VARIANT": "D", **rotor}
     return _row(ctx, point, step, cells)
 
 
@@ -921,27 +891,30 @@ def _ledger_rows(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], 
     rows = []
     for station in values["ledgers"]:
         cells = {"LATTICE": name, "STATUS": _status(ctx, point), **station}
-        rows.append((ctx.sim_id, step, *context, *(cells.get(c, _NA) for c in LEDGER_COLUMNS)))
+        rows.append(
+            (
+                ctx.sim_id,
+                _spec(ctx).name,
+                step,
+                *context,
+                *(cells.get(c, _NA) for c in LEDGER_COLUMNS),
+            )
+        )
     return rows
 
 
-def _last_and_window(
-    ctx: SimContext, point: PolarPoint, instants: list[_Instant], windowed: bool, normal: bool
-):
+def _last_and_window(ctx: SimContext, point: PolarPoint, instants: list[_Instant], windowed: bool):
     """Return the last instant and the window's instants (none when it is partly covered)."""
     if windowed:
-        window = ctx.point_windows.get(point.name)
         last = instants[-1]
-        chosen = [i for i in instants if window and window[0] <= _step(i) <= window[1]]
+        window, _ = _farfield_window(ctx, point, int(_step(last)))
+        chosen = [i for i in instants[:-1] if window and window[0] <= _step(i) <= window[1]]
         # The average is of the whole window or it is not written: a window
         # the recorded steps only partly cover would average fewer steps.
-        if window and not (_step(instants[0]) <= window[0] and _step(last) >= window[1]):
+        if window and {_step(i) for i in chosen} != set(range(int(window[0]), int(window[1]) + 1)):
             chosen = []
         return last, chosen
-    last = instants[0]
-    if normal:
-        last = replace(last, step=_last_step(ctx.record_of[point.name]))
-    return last, []
+    return instants[0], []
 
 
 def _probe_point(
@@ -960,15 +933,14 @@ def _probe_point(
     key = f"{FARFIELD_DIR}/probes#point={point.name}"
     if rotor is None:
         rotor = run_type in ROTOR_RUN_TYPES or (run_type == "steady" and _spins(ctx, record))
-    # FR-1052: an unsteady row whose [[probes]] entries are of kind normal
-    # holds its probes at the last time step only, in the probe export.
-    normal = unsteady and _normal_probes(ctx)
+    # Each entry chooses its window independently of declared probes.
+    normal = unsteady and spec.export_type != "avg_window"
     try:
         probe = _locate(ctx, point, spec, rotor)
-        instants, why = _instants(ctx, point, unsteady and not normal)
+        instants, why = _instants(ctx, point, unsteady)
         if why:
             raise PyflightstreamError(why)
-        last, chosen = _last_and_window(ctx, point, instants, unsteady and not normal, normal)
+        last, chosen = _last_and_window(ctx, point, instants, unsteady and not normal)
         sets = [(last, _instant_values(ctx, point, last, probe, analyses))]
         averaged = [
             (i, _instant_values(ctx, point, i, probe, analyses, final=i is last)) for i in chosen
@@ -981,8 +953,13 @@ def _probe_point(
     if "plane" in sets[0][1]:
         _flag_a_plane_short_of_the_lift(ctx, point, sets[0][1]["plane"])
     runs = ctx.sources[point.name]
-    _sloads, plots, probes = ctx.exports.get(point.name, (None, None, None))
-    taken = _named(ctx, [plots] if unsteady and not normal else [probes])
+    taken = _named(
+        ctx,
+        [
+            _output(ctx, point, "farfield_probes"),
+            *(_probe_exports(ctx, point).values() if unsteady and not normal else []),
+        ],
+    )
     for suffix, group in _suffixes(unsteady, sets, averaged, ctx, point, normal=normal):
         c_rows = [
             _c_row(ctx, point, values, inst.step)
@@ -995,11 +972,12 @@ def _probe_point(
             if "ledgers" in values
         ]
         if suffix.endswith("average"):
-            c_rows = average_rows([[row] for row in c_rows], 2 + len(CONTEXT_COLUMNS) + 2)
-            l_rows = [average_rows(l_rows, 2 + len(CONTEXT_COLUMNS) + 1)] if l_rows else []
+            c_rows = _average_entry_rows([[row] for row in c_rows], 2 + len(CONTEXT_COLUMNS) + 2)
+            l_rows = [_average_entry_rows(l_rows, 2 + len(CONTEXT_COLUMNS) + 1)] if l_rows else []
         reduced: dict[str, Any] = {}
         if suffix.endswith("average"):
-            reduced = {"window": ctx.point_windows.get(point.name), "samples": len(averaged)}
+            window, source = _farfield_window(ctx, point, int(_step(last)))
+            reduced = {"window": window, "samples": len(averaged), "source": source}
         tables.extend(f"trefftz{suffix}", point.name, taken, c_rows, runs=runs, **reduced)
         tables.extend(
             f"ledgers{suffix}",
@@ -1014,14 +992,6 @@ def _probe_point(
 def _step(instant: _Instant) -> float:
     step = instant.step
     return float(step) if isinstance(step, int | float) else math.nan
-
-
-def _normal_probes(ctx: SimContext) -> bool:
-    """Whether the row's ``[[probes]]`` entries are all of kind normal (FR-417, FR-1052)."""
-    try:
-        return bool(ctx.pproc.samples_normal_probes())
-    except PyflightstreamError:
-        return False
 
 
 def _last_step(record: object) -> object:
@@ -1086,22 +1056,17 @@ def _suffixes(
     out = [("_instant", sets)]
     if averaged:
         out.append(("_average", averaged))
-    elif normal:
-        _skip(
-            ctx,
-            f"{FARFIELD_DIR}/average#point={point.name}",
-            point.name,
-            'the far-field probes of this unsteady row are [[probes]] of kind = "normal", '
-            "which hold the last time step only: the instant is written and the average "
-            "is not (FR-1052)",
-        )
     else:
+        reason = (
+            f"export_type = {_spec(ctx).export_type!r} reads the last step only"
+            if normal
+            else "the per-step far-field probes do not cover the averaging window"
+        )
         _skip(
             ctx,
             f"{FARFIELD_DIR}/average#point={point.name}",
             point.name,
-            "the point has no "
-            "averaging window, or no plotted step inside it, so no average is written",
+            reason + "; no average is written",
         )
     return out
 
@@ -1110,27 +1075,29 @@ def _analyses(spec, run_type: str, rotor: bool) -> tuple[list[str], dict[str, st
     selected = []
     if spec.trefftz is not None:
         selected += [f"trefftz:{variant}" for variant in spec.trefftz.variant]
-    if spec.ledgers is not None:
+    if spec.balances:
         selected.append("ledgers")
     reasons = {a: applies(a, run_type, rotor=rotor) for a in selected}
     return [a for a in selected if not reasons[a]], {a: r for a, r in reasons.items() if r}
 
 
 def _super_cells(rows: Sequence[tuple[tuple[object, ...], str]]) -> dict[str, dict[str, str]]:
-    """Return per point the super-file cells of its TOTAL rows, as the tables write them.
+    """Return super-file cells from A's TOTAL and the whole-flow variants' net rows.
 
     (FR-1062).
     """
-    first = 2 + len(CONTEXT_COLUMNS)
+    first = 3 + len(CONTEXT_COLUMNS)
     family = first + TREFFTZ_COLUMNS.index("FAMILY")
     variant = first + TREFFTZ_COLUMNS.index("VARIANT")
     out: dict[str, dict[str, str]] = {}
     for row, point in rows:
-        if row[family] != "TOTAL":
+        if row[family] != ("TOTAL" if row[variant] == "A" else "net"):
             continue
         cells = out.setdefault(point, {})
         for column in ("CL_T", "CDI_T", "E_T"):
-            cells[f"{column}_{row[variant]}"] = _cell(row[first + TREFFTZ_COLUMNS.index(column)])
+            cells[f"{column}_{row[variant]}_{row[1]}"] = _cell(
+                row[first + TREFFTZ_COLUMNS.index(column)]
+            )
     return out
 
 
@@ -1142,10 +1109,22 @@ def farfield_products(ctx: SimContext) -> None:
     ctx : SimContext
         Product context carrying the resolved case, exports and output destinations.
     """
-    spec = getattr(ctx.pproc, "farfield", None)
-    if spec is None:
+    if not ctx.pproc.farfields:
         return
     tables = _Tables()
+    for entry in ctx.pproc.farfields:
+        selected = (
+            ctx
+            if len(ctx.pproc.farfields) == 1
+            else replace(ctx, pproc=ctx.pproc.model_copy(update={"farfields": [entry]}))
+        )
+        _entry_products(selected, tables)
+    _write(ctx, tables)
+    ctx.farfield_super.update(_super_cells(tables.super_rows()))
+
+
+def _entry_products(ctx: SimContext, tables: _Tables) -> None:
+    spec = _spec(ctx)
     for point in ctx.points:
         record = ctx.record_of[point.name]
         run_type = str(record.recipe or "steady")
@@ -1162,17 +1141,62 @@ def farfield_products(ctx: SimContext) -> None:
         steady_rows = []
         read: list[Path | None] = []
         if "trefftz:sections" in analyses:
-            steady_rows += _variant_a(ctx, point)
-            read.append(ctx.exports.get(point.name, (None, None, None))[0])
+            _sections_products(ctx, point, tables, run_type)
         if "trefftz:wake" in analyses:
             steady_rows += _variant_b(ctx, point)
             vtk = _output(ctx, point, "vtk")
             read.append(None if vtk is None else vtk.with_name(vtk.stem + "_wakes.vtk"))
         tables.extend("trefftz", point.name, _named(ctx, read), steady_rows, runs=runs)
-        if "trefftz:plane" in analyses or "ledgers" in analyses:
+        if any(a in analyses for a in ("trefftz:plane", "trefftz:power", "ledgers")):
             _probe_point(ctx, point, analyses, tables, rotor=rotor)
-    _write(ctx, spec, tables)
-    ctx.farfield_super.update(_super_cells(tables.super_rows()))
+
+
+def _sections_products(ctx: SimContext, point: PolarPoint, tables: _Tables, run_type: str) -> None:
+    """Trace the final sections and each stamped export inside the averaging window."""
+    source = ctx.exports.get(point.name, (None, None, None))[0]
+    runs = ctx.sources[point.name]
+    rows = _variant_a(ctx, point)
+    if run_type not in UNSTEADY_RUN_TYPES:
+        tables.extend("trefftz", point.name, _named(ctx, [source]), rows, runs=runs)
+        return
+    key = f"farfield/trefftz_average#point={point.name}#entry={_spec(ctx).name}"
+    record = ctx.record_of[point.name]
+    instant = [row[:2] + (_last_step(record),) + row[3:] for row in rows]
+    tables.extend("trefftz_instant", point.name, _named(ctx, [source]), instant, runs=runs)
+    if _spec(ctx).export_type != "avg_window":
+        reason = f"export_type = {_spec(ctx).export_type!r} reads the last step only"
+        _skip(ctx, key, point.name, reason + "; no average is written")
+        return
+    last_step = _last_step(record)
+    window, source_name = _farfield_window(
+        ctx,
+        point,
+        int(last_step) if isinstance(last_step, int | float) and math.isfinite(last_step) else 0,
+    )
+    root = ctx.workspace.sim_dir(ctx.sim_id)
+    files = stamped_exports(
+        root, point.name, *(root / Path(output).parent for output in record.outputs)
+    ).get(("_sloads", "txt"), {})
+    steps = range(int(window[0]), int(window[1]) + 1) if window else range(0)
+    if not steps or any(step not in files for step in steps):
+        reason = "Trefftz A average needs per-step sectional exports covering its window"
+        _skip(ctx, key, point.name, reason)
+        return
+    samples = [_variant_a(ctx, point, files[step]) for step in steps]
+    if not all(samples) or any(len(sample) != len(samples[0]) for sample in samples):
+        reason = "per-step sectional traces do not cover the same families at every step"
+        _skip(ctx, key, point.name, reason)
+        return
+    tables.extend(
+        "trefftz_average",
+        point.name,
+        _named(ctx, [files[step] for step in steps]),
+        _average_entry_rows(samples, 2 + len(CONTEXT_COLUMNS) + 2),
+        runs=runs,
+        window=window,
+        samples=len(samples),
+        source=source_name,
+    )
 
 
 def _spins(ctx: SimContext, record: object) -> bool:
@@ -1185,8 +1209,8 @@ def _spins(ctx: SimContext, record: object) -> bool:
     return any(str(name).upper() in ("RPM", "MOTIONS") for name in stated)
 
 
-def _write(ctx: SimContext, spec, tables: _Tables) -> None:
-    variants = list(spec.trefftz.variant) if spec.trefftz is not None else []
+def _write(ctx: SimContext, tables: _Tables) -> None:
+    variants = list(dict.fromkeys(entry.variant for entry in ctx.pproc.farfields))
     for suffix, rows in tables.rows.items():
         analysis = suffix.split("_")[0]
         columns = TREFFTZ_COLUMNS if analysis == "trefftz" else LEDGER_COLUMNS
@@ -1195,12 +1219,15 @@ def _write(ctx: SimContext, spec, tables: _Tables) -> None:
         group = sweep_file_stem(ctx.sim_id, ctx.table_name)
         path = ctx.target(ctx.out / FARFIELD_DIR / f"{group}_{suffix}.csv")
         path.parent.mkdir(parents=True, exist_ok=True)
-        write_csv_table(path, ("POL", "STEP", *CONTEXT_COLUMNS, *columns), rows)
+        write_csv_table(path, ("POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *columns), rows)
         entry: dict[str, object] = {
             "runs": tables.runs[suffix],
             "analysis": analysis,
             "variants": variants if analysis == "trefftz" else [],
             "inputs": tables.inputs.get(suffix, {}),
+            "entries": {
+                item.name: {"export_type": item.export_type} for item in ctx.pproc.farfields
+            },
         }
         if "_" in suffix:
             entry["reduction"] = suffix.split("_")[1]

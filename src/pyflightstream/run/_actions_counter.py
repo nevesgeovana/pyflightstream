@@ -88,6 +88,7 @@ TIME_ITERATIONS = <TIME_ITERATIONS>
 THRESHOLD_FORM = <THRESHOLD_FORM>
 THRESHOLD = <THRESHOLD>
 EXPORTS = <EXPORTS>
+FARFIELD_WINDOWS = <FARFIELD_WINDOWS>
 INTERPRETER = <INTERPRETER>
 
 HERE = Path(__file__).resolve().parent
@@ -140,9 +141,28 @@ _FIRST_STEP_CREATES = (
     '    SCRIPT_FILE.write_text(text, encoding="utf-8", newline="\\n")\n'
 )
 
+_WINDOW_REWRITE = (
+    '    text = EXPORTS if current["exporting"] else ""\n'
+    "    for first, last, exports in FARFIELD_WINDOWS:\n"
+    '        if first <= current["count"] <= last:\n'
+    "            text += exports\n"
+    "    starts = [first for first, _, exports in FARFIELD_WINDOWS\n"
+    '              if "EXPORT_PROBE_POINTS" in exports]\n'
+    '    if starts and current["count"] == min(starts):\n'
+    "        text = FARFIELD_CREATE + text\n"
+    '    elif (CREATE and current["count"] == <ROW_FIRST_STEP>\n'
+    '          and (not starts or current["count"] < min(starts))):\n'
+    "        text = CREATE + text\n"
+    '    SCRIPT_FILE.write_text(text, encoding="utf-8", newline="\\n")\n'
+)
+
 
 def render_program(
-    threshold: UnsteadyExportThreshold, *, interpreter: str, creation: str = ""
+    threshold: UnsteadyExportThreshold,
+    *,
+    interpreter: str,
+    creation: str = "",
+    farfield_creation: str = "",
 ) -> str:
     r"""Return the program text for one point.
 
@@ -158,6 +178,8 @@ def render_program(
         The lines that create the row's normal probe points (FR-890),
         written on the first exporting step only; empty, the program is the
         one every other row gets.
+    farfield_creation : str, optional
+        Conventional probe creation at the first far-field probe export step.
 
     Returns
     -------
@@ -176,7 +198,7 @@ def render_program(
     >>> "THRESHOLD = 4.0" in render_program(threshold, interpreter="python")
     True
     """
-    values = {
+    values: dict[str, object] = {
         "STEP_DEG": threshold.step_deg,
         "RPM": threshold.rpm,
         "DELTA_TIME_S": threshold.delta_time_s,
@@ -188,11 +210,15 @@ def render_program(
         "COUNT_NAME": PurePosixPath(UNSTEADY_ACTION_COUNT).name,
         "SCRIPT_NAME": PurePosixPath(UNSTEADY_ACTION_SCRIPT).name,
     }
-    text = TEMPLATE
-    if creation:
-        text = text.replace("EXPORTS = <EXPORTS>\n", "EXPORTS = <EXPORTS>\nCREATE = <CREATE>\n")
-        text = text.replace(_PLAIN_REWRITE, _FIRST_STEP_CREATES)
-        values["CREATE"] = creation
+    values["FARFIELD_WINDOWS"] = threshold.farfield_windows
+    values["ROW_FIRST_STEP"] = threshold.first_step
+    values["CREATE"] = creation
+    values["FARFIELD_CREATE"] = farfield_creation
+    text = TEMPLATE.replace(
+        "EXPORTS = <EXPORTS>\n",
+        "EXPORTS = <EXPORTS>\nCREATE = <CREATE>\nFARFIELD_CREATE = <FARFIELD_CREATE>\n",
+    )
+    text = text.replace(_PLAIN_REWRITE, _WINDOW_REWRITE)
     return _fill(text, values)
 
 
@@ -295,7 +321,15 @@ def stage_counter(
         render_program(
             threshold,
             interpreter=sys.executable,
-            creation=normal_probe_creation(point_case, fs_version),
+            creation=normal_probe_creation(
+                point_case.model_copy(
+                    update={"pproc": point_case.pproc.model_copy(update={"farfields": []})}
+                )
+                if point_case.pproc is not None
+                else point_case,
+                fs_version,
+            ),
+            farfield_creation=normal_probe_creation(point_case, fs_version),
         )
         if threshold is not None
         else render_count_program(unsteady_counter_steps(point_case), interpreter=sys.executable),

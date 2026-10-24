@@ -48,6 +48,7 @@ from pyflightstream.cases.farfield_inputs import (
     traced_family,
 )
 from pyflightstream.cases.field_coverage import operated_corners
+from pyflightstream.cases.windows import averaging_steps
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.probes.geometry import apply_geometry_gate, load_surface_mesh, points_inside
 from pyflightstream.probes.layouts import (
@@ -63,6 +64,7 @@ from pyflightstream.probes.layouts import (
 from pyflightstream.script import Script
 
 from ._conventions import declared_run_type
+from ._freestream import rotor_row_stepping
 from ._motion import _origin
 from ._names import _inventory
 from ._rows import (
@@ -73,6 +75,7 @@ from ._rows import (
     _the_rotor_a_flat_row_turns,
     _variable,
 )
+from ._timing import rotor_time_stepping, unsteady_time_stepping
 from ._vocabulary import ROTOR_ORIGIN_VARIABLE
 
 __all__ = [
@@ -114,6 +117,15 @@ def _spec(case: SimCase) -> FarfieldSpec | None:
     return getattr(case.pproc, "farfield", None) if case.pproc is not None else None
 
 
+def _entry_cases(case: SimCase) -> list[SimCase]:
+    if case.pproc is None or len(case.pproc.farfields) < 2:
+        return []
+    return [
+        case.model_copy(update={"pproc": case.pproc.model_copy(update={"farfields": [entry]})})
+        for entry in case.pproc.farfields
+    ]
+
+
 def _run_type(case: SimCase) -> str:
     return str(declared_run_type(case) or "steady")
 
@@ -125,24 +137,57 @@ def _rotor(case: SimCase) -> bool:
 
 
 def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
+    _entry_window(spec, case)
     selected = []
     if spec.trefftz is not None:
         selected += [f"trefftz:{variant}" for variant in spec.trefftz.variant]
-    if spec.ledgers is not None:
+    if spec.balances:
         selected.append("ledgers")
     run_type, rotor = _run_type(case), _rotor(case)
+    if "trefftz:plane" in selected and run_type == "qsteady_rotor":
+        raise CampaignConfigError(applies("trefftz:plane", run_type))
+    if "trefftz:sections" in selected and run_type == "qsteady_rotor":
+        raise CampaignConfigError(applies("trefftz:sections", run_type))
     return [analysis for analysis in selected if not applies(analysis, run_type, rotor=rotor)]
+
+
+def _entry_window(spec: FarfieldSpec, case: SimCase) -> None:
+    """Refuse a far-field window the row cannot sample or clock."""
+    key = "last_revs" if spec.last_revs is not None else "last_steps"
+    value = getattr(spec, key)
+    if value is None:
+        return
+    why = ""
+    per_revolution = None
+    if _run_type(case) not in ("unsteady", "unsteady_rotor"):
+        why = "requires an unsteady row"
+    elif spec.export_type != "avg_window":
+        why = 'requires export_type = "avg_window"'
+    elif key == "last_revs":
+        if _rotor(case):
+            per_revolution = rotor_time_stepping(case).steps_per_revolution
+        if per_revolution is None:
+            why = "has no rotor clock; state last_steps"
+    if why:
+        raise CampaignConfigError(f"case {case.sim_id!r}: {key} {why}")
+    averaging_steps(
+        {"LAST_REVS_AVG" if key == "last_revs" else "LAST_ITERS_AVG": value},
+        per_revolution=per_revolution,
+    )
 
 
 def wants_wake(case: SimCase) -> bool:
     """Whether the row's far field reads the wake export (Trefftz B applies)."""
+    entries = _entry_cases(case)
+    if entries:
+        return any(wants_wake(entry) for entry in entries)
     spec = _spec(case)
     return spec is not None and "trefftz:wake" in _analyses(spec, case)
 
 
 def _needs_plane(case: SimCase) -> bool:
     spec = _spec(case)
-    return spec is not None and "trefftz:plane" in _analyses(spec, case) and not _rotor(case)
+    return spec is not None and "trefftz:plane" in _analyses(spec, case)
 
 
 def _needs_lattice(case: SimCase) -> bool:
@@ -150,12 +195,17 @@ def _needs_lattice(case: SimCase) -> bool:
     if spec is None:
         return False
     analyses = _analyses(spec, case)
-    return "ledgers" in analyses or ("trefftz:plane" in analyses and _rotor(case))
+    return "ledgers" in analyses or "trefftz:power" in analyses
 
 
 def needs_fresh_probes(case: SimCase) -> bool:
     """Whether the row's far field lays probes, so a steady point starts from none."""
-    return _needs_plane(case) or _needs_lattice(case)
+    entries = _entry_cases(case)
+    return (
+        any(needs_fresh_probes(entry) for entry in entries)
+        if entries
+        else (_needs_plane(case) or _needs_lattice(case))
+    )
 
 
 def _normal(case: SimCase) -> bool:
@@ -174,6 +224,11 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
     An ``[exports]`` entry set to false that the far field needs is turned on
     for this row, with a WARNING naming the entry and the analysis.
     """
+    entries = _entry_cases(case)
+    if entries:
+        for entry in entries:
+            names = farfield_outputs(entry, workflow, names)
+        return list(names)
     spec = _spec(case)
     if spec is None:
         return list(names)
@@ -186,8 +241,7 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
     if needs_fresh_probes(case):
         # FR-1052: an unsteady row whose [[probes]] entries are of kind normal
         # samples the far field with them, as probe points exported once.
-        kind = "plots" if workflow.startswith("unsteady") and not _normal(case) else "probes"
-        wanted.append((kind, f"{{name}}_{kind}.txt", "trefftz:plane or ledgers"))
+        wanted.append(("farfield_probes", "{name}_farfield_probes.txt", "trefftz:plane or ledgers"))
     out = list(names)
     present = classify_outputs(out)
     exports = dict(case.pproc.exports) if case.pproc is not None else {}
@@ -209,13 +263,21 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
 def _selected(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> list[str]:
     is_blade = case.pproc.is_blade if case.pproc is not None else (lambda name: False)
     groups = select_families(
-        spec.families, inventory, is_blade, aliases=_the_names_a_rotor_answers_to(case)
+        spec.families or "all", inventory, is_blade, aliases=_the_names_a_rotor_answers_to(case)
     )
     chosen: list[str] = []
     for group in groups:
         for name in group or list(inventory):
             if name not in chosen:
                 chosen.append(name)
+    if spec.variant == "sections":
+        for alias, rotor in case.rotors.items():
+            overlap = set(chosen).intersection(rotor.families_blades + rotor.families_general)
+            if overlap:
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: Trefftz A selects rotor {alias} families "
+                    f"{', '.join(sorted(overlap))}; select the reference's lifting-surface aliases"
+                )
     return chosen
 
 
@@ -565,11 +627,21 @@ def farfield_shapes(
         The plane (a wing's Trefftz C) and the lattice (the balances, or a
         rotor's Trefftz C), each where the row needs it.
     """
+    entries = _entry_cases(case)
+    if entries:
+        return [
+            shape
+            for entry in entries
+            for shape in farfield_shapes(entry, script, frames, native_per_m)
+        ]
     shapes: list[FarfieldShape] = []
     if _needs_plane(case):
         shapes.append(_plane_choice(case, native_per_m, script))
     if _needs_lattice(case):
         shapes.append(_lattice_choice(case, script, frames, native_per_m))
+    spec = _spec(case)
+    for shape in shapes:
+        shape.geometry["farfield_entry"] = spec.name if spec is not None else ""
     return shapes
 
 
@@ -591,14 +663,25 @@ def _resolve(
     shapes: Sequence[Mapping[str, Any]] = (),
 ) -> FarfieldResolution | None:
     """Resolve the row's inputs; ``shapes`` is the probe selection the script recorded."""
+    entries = _entry_cases(case)
+    if entries:
+        resolved = [_resolve(entry, inventory, view, shapes) for entry in entries]
+        return FarfieldResolution(
+            tuple(item for result in resolved if result for item in result.inputs)
+        )
     spec = _spec(case)
     if spec is None:
         return None
 
     def declares(kind: str) -> bool:
-        return any(s.get("kind") == kind and s.get("source") == "declared" for s in shapes)
+        return any(
+            s.get("kind") == kind
+            and s.get("source") == "declared"
+            and s.get("farfield_entry", spec.name) == spec.name
+            for s in shapes
+        )
 
-    return resolve_farfield(
+    resolution = resolve_farfield(
         spec,
         run_type=_run_type(case),
         covered_families=_covered(case, inventory),
@@ -611,6 +694,7 @@ def _resolve(
         has_command=_command_test(view),
         rotor=_rotor(case),
     )
+    return FarfieldResolution(tuple(replace(item, entry=spec.name) for item in resolution.inputs))
 
 
 def farfield_resolution(case: SimCase, script: Script) -> FarfieldResolution | None:
@@ -673,6 +757,11 @@ def _refuse(case: SimCase, resolution: FarfieldResolution) -> None:
 
 def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
     """Add the section distribution Trefftz A needs over the uncovered families (FR-1046)."""
+    entries = _entry_cases(case)
+    if entries:
+        for entry in entries:
+            farfield_sections(entry, script, frames)
+        return
     spec = _spec(case)
     if spec is None or "trefftz:sections" not in _analyses(spec, case):
         return
@@ -695,11 +784,12 @@ def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
     frame = _pproc_frame(case, frames, "MRP", "the far-field section distribution", missing)
     args = {arg.name for arg in script.registry.for_version(script.version)[_SECTION_COMMAND].args}
     sections = spec_sections(case)
+    first = max(len(sections.distributions), len(script.section_blocks))
     for offset, name in enumerate(missing, start=1):
         index = script.resolve_boundary(name, context="far-field section")
         script.section_blocks.append(
             {
-                "distribution": len(sections.distributions) + offset,
+                "distribution": first + offset,
                 "distribution_families": [name],
                 "families": [name],
                 "plane": "XZ",
@@ -1090,39 +1180,46 @@ def farfield_probes(
     records = [shape.record() for shape in shapes]
     script.farfield_layout.append({"point": dict(case.point), "shapes": records})
     imported: list[tuple[float, float, float]] = []
-    for shape, recorded in zip(shapes, records, strict=True):
-        if shape.source != "added":
-            if unsteady:
-                _complete_declared_plots(case, script, frames, shape, recorded, native_per_m)
-            continue
+    for shape, recorded in _unique_shapes(shapes, records):
         what, points = shape.kind, shape.points_m
         native = np.round(points * native_per_m, 5)
-        _check_added(case, native, what)
-        if unsteady:
+        if shape.source == "added":
+            _check_added(case, native, what)
+        if _run_type(case) in ("unsteady", "unsteady_rotor"):
+            windows = farfield_export_windows(case)
+            steps = max(
+                (end - start + 1 for start, end, kind in windows if kind == "farfield_probes"),
+                default=1,
+            )
             warn(
-                f"case {case.sim_id!r}: the far-field {what} samples {len(points)} points at "
-                f"every time step, {len(points) * len(FARFIELD_PLOT_PARAMETERS)} fluid plots "
-                "(FR-1052).",
+                f"case {case.sim_id!r}: the far-field {what} samples {len(points)} points "
+                f"per exported step, {steps} exported steps (FR-1052).",
                 PyflightstreamWarning,
                 stacklevel=2,
             )
+        if shape.source != "added" and (
+            _run_type(case) not in ("unsteady", "unsteady_rotor") or _normal(case)
+        ):
+            continue
+        recorded["positions_frame"] = "REFERENCE"
         for x, y, z in native.tolist():
             vertex += 1
-            script.probe_points.append((vertex, float(x), float(y), float(z), "REFERENCE"))
-            if not unsteady:
-                imported.append((x, y, z))
-                continue
-            for parameter in FARFIELD_PLOT_PARAMETERS:
-                script.emit(
-                    "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
-                    frame=_PLOT_FRAME,
-                    parameter=parameter,
-                    name=f"{parameter}{vertex}",
-                    vertex=" ".join(str(value / native_per_m) for value in (x, y, z)),
-                )
+            if not (_run_type(case) in ("unsteady", "unsteady_rotor") and not _normal(case)):
+                script.probe_points.append((vertex, float(x), float(y), float(z), "REFERENCE"))
+            imported.append((x, y, z))
     if imported:
         _stage_import(script, shapes, imported, native_per_m)
     return vertex
+
+
+def _unique_shapes(shapes: Sequence[FarfieldShape], records: list[dict[str, Any]]):
+    """Emit identical sample positions once while retaining each entry's layout record."""
+    seen = set()
+    for shape, recorded in zip(shapes, records, strict=True):
+        key = (shape.kind, shape.source, shape.entry, shape.points_m.tobytes())
+        if key not in seen:
+            seen.add(key)
+            yield shape, recorded
 
 
 def _stage_import(
@@ -1141,7 +1238,7 @@ def _stage_import(
     """
     staged = io.StringIO()
     added = [shape for shape in shapes if shape.source == "added"]
-    if len(added) == 1 and added[0].kind == "lattice":
+    if len(added) == 1 and added[0].kind == "lattice" and len(imported) == len(added[0].points_m):
         write_probe_csv(
             added[0].lattice,
             staged,
@@ -1203,3 +1300,41 @@ def planar_points(case: SimCase, probes: ProbesSpec, native_per_m: float) -> lis
                 )
         points.extend(native.tolist())
     return points
+
+
+def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
+    """Resolve independent far-field export windows on the row's solver clock."""
+    from pyflightstream.cases.windows import averaging_span
+
+    if case.pproc is None or _run_type(case) not in ("unsteady", "unsteady_rotor"):
+        return ()
+    entries = [entry for entry in case.pproc.farfields if entry.export_type == "avg_window"]
+    if not entries:
+        return ()
+    clock = (
+        rotor_row_stepping(case)
+        if _run_type(case) == "unsteady_rotor"
+        else unsteady_time_stepping(case)
+    )
+    windows: dict[str, tuple[int, int]] = {}
+    for entry in entries:
+        if entry.variant == "wake":
+            continue
+        variables = (
+            {"LAST_REVS_AVG": entry.last_revs}
+            if entry.last_revs is not None
+            else {"LAST_ITERS_AVG": entry.last_steps}
+            if entry.last_steps is not None
+            else case.variables
+        )
+        span = averaging_span(
+            variables, last_step=clock.time_iterations, per_revolution=clock.steps_per_revolution
+        )
+        if span is None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: export_type avg_window needs an averaging window"
+            )
+        kind = "sectional_loads" if entry.variant == "sections" else "farfield_probes"
+        previous = windows.get(kind, span)
+        windows[kind] = (min(previous[0], span[0]), span[1])
+    return tuple((first, last, kind) for kind, (first, last) in windows.items())

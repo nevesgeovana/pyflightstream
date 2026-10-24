@@ -44,7 +44,7 @@ from pyflightstream._tokens import REDUCTION_COLUMNS
 
 # The quasi-steady wheel's correction choice, a table of the pproc; its
 # module imports only the floor, so the package may import it while it loads.
-from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape
+from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape, farfield_entries
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
 from pyflightstream.cases.reference_blocks import CampaignConfigError
 from pyflightstream.cases.selection import EVERY_FAMILY
@@ -127,6 +127,7 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
     ("sections", "_cp.txt", "EXPORT_ALL_SURFACE_SECTIONS", False),
     ("sectional_loads", "_sloads.txt", "EXPORT_SURFACE_SECTIONAL_LOADS", False),
     ("probes", "_probes.txt", "EXPORT_PROBE_POINTS", False),
+    ("farfield_probes", "_farfield_probes.txt", "EXPORT_PROBE_POINTS", False),
     ("plots", "_plots.txt", "UNSTEADY_SOLVER_EXPORT_PLOTS", True),
     ("plot_residuals", "_plot_residuals.txt", "SAVE_PLOT_TO_FILE", False),
     ("plot_loads", "_plot_loads.txt", "SAVE_PLOT_TO_FILE", False),
@@ -148,7 +149,7 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
 #: (FR-460) and the trajectory of a row's ``SIXDOF`` input (FR-461). Each is
 #: written once, where its command sits, and never by a per-step action.
 TABLE_DECLARED_KINDS: frozenset[str] = frozenset(
-    {"streamlines_surface", "streamlines_off_body", "trajectory_6dof"}
+    {"streamlines_surface", "streamlines_off_body", "trajectory_6dof", "farfield_probes"}
 )
 
 #: The plot each solver-plot kind chooses with ``SET_PLOT_TYPE`` before its
@@ -2034,8 +2035,8 @@ class PprocSpec(BaseModel):
         families.
     probes : list of ProbesSpec
         The fluid probe entries, one per frame sampled.
-    farfield : FarfieldSpec, optional
-        The far-field analyses and what they are computed over (FR-454);
+    farfields : list of FarfieldSpec
+        Named far-field entries, one variant and optional window each (FR-454);
         absent, the artifact plans and posts as before.
     products : ProductsSpec
         Which post-processed tables the campaign writes.
@@ -2157,7 +2158,17 @@ class PprocSpec(BaseModel):
     #: Native surface-property histories, separate from fluid samples and field products.
     surface_probes: list[SurfaceProbeSpec] = Field(default_factory=list)
     #: FR-454: the far-field family's table; absent, nothing changes.
-    farfield: FarfieldSpec | None = None
+    farfields: list[FarfieldSpec] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _farfield_entries(cls, value: object) -> object:
+        return farfield_entries(value)
+
+    @property
+    def farfield(self) -> FarfieldSpec | None:
+        """Return the entry of an analysis-specific planning or post context."""
+        return self.farfields[0] if self.farfields else None
 
     @field_validator("surface_probes")
     @classmethod

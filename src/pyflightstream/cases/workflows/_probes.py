@@ -270,6 +270,7 @@ def _pproc_probes(
     # Unsteady fluid plots are placed in INIT; steady and normal probes in
     # ANALYSIS, after the solve or the time march.
     if analysis != (not unsteady or normal):
+        _farfield_after_march(case, script, frames, enabled=analysis, separate=True)
         return
     # FR-417: a normal entry is emitted exactly as a steady row's.
     unsteady = unsteady and not normal
@@ -317,19 +318,23 @@ def _pproc_probes(
     _pproc_sampled_volume(case, script, frames, vertex, unsteady=unsteady)
     # FR-455 and FR-1074: the far field's plane and lattice after
     # every declared point, then the inside-the-body check of the declared ones.
-    farfield_probes(
-        case,
-        script,
-        max((point[0] for point in script.probe_points), default=0),
-        unsteady=unsteady,
-        frames=frames,
-    )
+    _farfield_after_march(case, script, frames, enabled=not unsteady, separate=False)
     warn_declared_inside(case, declared)
     if sampled and previous_layout and previous_layout != script.probe_field_layout:
         raise CampaignConfigError(
             "a steady job changed its sampled field layout between points; "
             "run these points separately to retain each field's placement"
         )
+
+
+def _farfield_after_march(case, script, frames, *, enabled: bool, separate: bool) -> None:
+    """Create conventional far-field points without touching declared fluid histories."""
+    if not enabled or not needs_fresh_probes(case):
+        return
+    if separate:
+        script.emit("DELETE_PROBE_POINTS")
+    vertex = 0 if separate else max((point[0] for point in script.probe_points), default=0)
+    farfield_probes(case, script, vertex, unsteady=False, frames=frames)
 
 
 def _open_the_probe_points(
@@ -501,7 +506,7 @@ def _normal_probes_of_a_continuation(
     and its probe-point commands, positions and layout are taken from there.
     Empty for a row whose probes are not normal, which then emits as before.
     """
-    if case.pproc is None or not _normal_probes_of(case):
+    if case.pproc is None or not (_normal_probes_of(case) or needs_fresh_probes(case)):
         return []
     scratch = _built_from_the_mesh(case, script, build)
     script.probe_points[:] = scratch.script.probe_points
@@ -521,7 +526,7 @@ def _creation_of_normal_probes(
     """
     if declared_run_type(case) not in ("unsteady", "unsteady_rotor"):
         return ""
-    if case.pproc is None or not _normal_probes_of(case):
+    if case.pproc is None or not (_normal_probes_of(case) or needs_fresh_probes(case)):
         return ""
     if not _has_a_per_step_window(case, script):
         return ""

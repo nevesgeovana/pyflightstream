@@ -343,7 +343,7 @@ def _export_updates(
     # F01: only a row that still exports probe points updates them; an
     # unsteady row samples its probes through fluid plots and has none, unless
     # they are normal probes (FR-417), created after the march.
-    if "probes" in kinds:
+    if "probes" in kinds or "farfield_probes" in kinds:
         script.emit("UPDATE_PROBE_POINTS")
 
 
@@ -501,7 +501,13 @@ def _record_surface_translation(script: Script, case: SimCase, kinds: dict[str, 
 #: the probe points, so the three updates precede the exports when any is
 #: declared. The section Cp plot is one: it plots the sections, and a point
 #: whose pproc switched every other section export off still updates them.
-_UPDATED_KINDS: tuple[str, ...] = ("sections", "sectional_loads", "probes", "plot_sections_cp")
+_UPDATED_KINDS: tuple[str, ...] = (
+    "sections",
+    "sectional_loads",
+    "probes",
+    "farfield_probes",
+    "plot_sections_cp",
+)
 
 
 def _exports_its_log(case: SimCase) -> bool:

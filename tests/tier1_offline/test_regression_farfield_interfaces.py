@@ -18,8 +18,8 @@ import pyflightstream.farfield as ff
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._retired_names import RETIRED_ATTRIBUTES
 from pyflightstream.cases import CampaignConfigError, PprocSpec, ReferenceData
-from pyflightstream.cases._farfield_spec import BALANCES, FarfieldSpec, LatticeShape
-from pyflightstream.cases.farfield_inputs import applies, resolve_farfield
+from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape
+from pyflightstream.cases.farfield_inputs import FarfieldResolution, applies, resolve_farfield
 from pyflightstream.cases.workflows import build_script, row_outputs
 from pyflightstream.farfield import (
     bernoulli_residual,
@@ -44,6 +44,99 @@ from pyflightstream.workspace.sidecars import read_mesh_import
 from tests.tier1_offline.test_workflows import FIXTURE_ROTOR as _FARFIELD_PLAN__FIXTURE_ROTOR
 from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case_for
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
+
+
+@pytest.mark.requirement("FR-3262")
+def test_p0450_d2_power_requires_lattice_placement():
+    with pytest.raises(ValidationError, match="rotor|frame"):
+        FarfieldSpec.model_validate({"variant": "power"})
+
+
+def test_p0450_d0_named_farfield_entries():
+    """P0450-D0: one analysis per entry, including two separately named A traces."""
+    entries = [
+        {"variant": "sections", "name": "wing", "families": ["Wing"]},
+        {"variant": "sections", "name": "tail", "families": ["Tail"]},
+        {"variant": "wake"},
+        {"variant": "plane"},
+        {"variant": "power", "rotor": "ROTOR"},
+    ]
+    try:
+        spec = PprocSpec.model_validate({"farfields": entries})
+    except ValidationError as error:
+        pytest.fail(f"[[farfields]] must load one analysis per entry: {error}")
+    assert [entry.name for entry in spec.farfields] == ["wing", "tail", "wake", "plane", "power"]
+
+
+@pytest.mark.parametrize("variant", ["wake", "plane", "power"])
+def test_p0450_d0_whole_field_refuses_families(variant):
+    entry = {"variant": variant, "families": ["Wing"]}
+    with pytest.raises(ValidationError) as caught:
+        PprocSpec.model_validate({"farfields": [entry]})
+    message = str(caught.value)
+    assert "sections" in message and "whole field" in message
+
+
+def test_p0450_d0_legacy_table_prints_replacement():
+    with pytest.raises(ValidationError) as caught:
+        PprocSpec.model_validate(
+            {"farfield": {"families": ["Wing"], "trefftz": {"variant": ["sections", "plane"]}}}
+        )
+    message = str(caught.value)
+    assert "[[farfields]]" in message
+    assert 'variant = "sections"' in message and 'variant = "plane"' in message
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "variant", "readers"),
+    [
+        ("distance_bref", 1, "sections", "wake, plane"),
+        *[
+            (key, 0.1, "wake", "plane")
+            for key in ("half_width_bref", "half_height_bref", "spacing_bref")
+        ],
+        *[
+            (key, 1, "plane", "power")
+            for key in (
+                "station",
+                "rotor",
+                "frame",
+                "tip_radius_m",
+                "n_r",
+                "r_inner",
+                "r_outer",
+                "n_psi",
+                "lateral_radius",
+                "lateral_stations",
+                "hub_width",
+                "tip_width",
+                "m_max",
+                "balances",
+            )
+        ],
+        ("stations", 4, "wake", "sections, power"),
+    ],
+)
+def test_p0450_d0_unused_keys_name_their_readers(key, value, variant, readers):
+    with pytest.raises(ValidationError) as caught:
+        PprocSpec.model_validate({"farfields": [{"variant": variant, key: value}]})
+    assert key in str(caught.value) and readers in str(caught.value)
+
+
+def test_p0450_d0_two_planes_share_samples_but_keep_names(tmp_path):
+    entries = [
+        {"variant": "plane", "name": name, "spacing_bref": 0.25} for name in ("first", "second")
+    ]
+    try:
+        script = _farfield_plan___script(_farfield_plan___case(tmp_path, entries))
+    except ValidationError as error:
+        pytest.fail(f"named entries must plan: {error}")
+    assert len(script.probe_points) == 35
+    assert [shape["farfield_entry"] for shape in script.farfield_layout[-1]["shapes"]] == [
+        "first",
+        "second",
+    ]
+
 
 _FARFIELD_PLAN___VERTICES = [
     (x, y, z) for x in (0.0, 1.0) for y in (-2.0, 2.0) for z in (-0.1, 0.1)
@@ -77,7 +170,7 @@ def _farfield_plan___box(root: Path) -> Path:
 def _farfield_plan___case(root: Path, farfield: dict, **pproc: object):
     mesh = _farfield_plan___box(root)
     sidecar = root / "box.boundaries.toml"
-    spec = PprocSpec.model_validate({"groups": {"1": "all"}, "farfield": farfield, **pproc})
+    spec = PprocSpec.model_validate({"groups": {"1": "all"}, "farfields": farfield or [], **pproc})
     case = _farfield_plan__steady_case(geometry=str(mesh)).model_copy(
         update={
             "inventory": ("W",),
@@ -98,6 +191,109 @@ def _farfield_plan___case(root: Path, farfield: dict, **pproc: object):
     return case.model_copy(update={"outputs": row_outputs(case, "steady")})
 
 
+def _p0450_rotor_case(root, entries, run_type="unsteady_rotor"):
+    case = _farfield_plan___case(root, entries)
+    rotor = _FARFIELD_PLAN__FIXTURE_ROTOR.model_copy(update={"families_blades": ["W"]})
+    variables = dict(_ffproof_plan___case_for(run_type).variables)
+    if run_type == "unsteady_rotor":
+        variables["BLADES"] = 1
+    return case.model_copy(
+        update={"recipe": run_type, "variables": variables, "rotors": {"ROTOR": rotor}}
+    )
+
+
+@pytest.mark.parametrize("run_type", ["unsteady_rotor", "qsteady_rotor"])
+def test_p0450_d1_rotor_plane_plans_or_names_power(tmp_path, run_type):
+    case = _p0450_rotor_case(tmp_path, [{"variant": "plane", "spacing_bref": 0.25}], run_type)
+    if run_type == "qsteady_rotor":
+        with pytest.raises(CampaignConfigError, match="power"):
+            _farfield_plan___script(case)
+    else:
+        script = _farfield_plan___script(case)
+        assert script.farfield_layout, "C on a rotor row must record its velocity plane"
+        assert script.farfield_layout[-1]["shapes"][0]["kind"] == "plane"
+        assert script.farfield_layout[-1]["shapes"][0]["count"] == 35
+        assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in script.render()
+
+
+@pytest.mark.parametrize("selection", [["W"], "all", "each"])
+def test_p0450_d3_sections_refuse_rotor_families(tmp_path, selection):
+    case = _p0450_rotor_case(tmp_path, [{"variant": "sections", "families": selection}])
+    with pytest.raises(CampaignConfigError, match="ROTOR.*W.*aliases"):
+        _farfield_plan___script(case)
+
+
+def test_p0450_d3_sections_plan_nonrotor_wing(tmp_path):
+    case = _p0450_rotor_case(tmp_path, [{"variant": "sections", "families": ["W"]}])
+    mesh = tmp_path / "box.obj"
+    mesh.write_text(mesh.read_text() + "g B\nf 1 2 3\n", encoding="utf-8")
+    rotor = case.rotors["ROTOR"].model_copy(update={"families_blades": ["B"]})
+    case = case.model_copy(update={"rotors": {"ROTOR": rotor}, "inventory": ("W", "B")})
+    script = _farfield_plan___script(case)
+    assert script.section_blocks
+
+
+def test_p0450_d3_qsteady_sections_are_refused(tmp_path):
+    case = _p0450_rotor_case(
+        tmp_path, [{"variant": "sections", "families": ["W"]}], "qsteady_rotor"
+    )
+    with pytest.raises(CampaignConfigError, match="Trefftz A.*qsteady_rotor"):
+        _farfield_plan___script(case)
+
+
+def test_p0450_d2_windmilling_efficiency_is_na():
+    from pyflightstream.post.farfield_fields import rotor_values
+
+    _, fields = _farfield_plane___slipstream(30.0, omega=6.0, jump=-4.0)
+    channels = rotor_channels(fields, rho=1.2, v_inf=30.0, station=2.0)
+    assert channels.thrust < 0.0
+    assert math.isnan(rotor_values(fields, rho=1.2, speed=30.0, station=2.0)["ETA_FF"])
+
+
+def test_p0450_d4_window_keys_are_exclusive():
+    with pytest.raises(ValidationError, match="both last_revs and last_steps"):
+        FarfieldSpec.model_validate({"variant": "plane", "last_revs": 1, "last_steps": 2})
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("last_steps", 0),
+        ("last_steps", 1.5),
+        ("last_steps", True),
+        ("last_revs", -1),
+        ("last_revs", float("nan")),
+    ],
+)
+def test_p0450_d4_invalid_windows_are_refused(key, value):
+    with pytest.raises(ValidationError, match=key) as caught:
+        FarfieldSpec.model_validate({"variant": "plane", key: value})
+    assert "extra_forbidden" not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    "run_type,key,normal",
+    [
+        ("steady", "last_steps", False),
+        ("steady", "last_revs", False),
+        ("unsteady", "last_revs", False),
+        ("unsteady_rotor", "last_steps", True),
+        ("unsteady_rotor", "last_revs", True),
+    ],
+)
+def test_p0450_d4_plan_refuses_unusable_window(tmp_path, run_type, key, normal):
+    case = _p0450_rotor_case(tmp_path, [{"variant": "plane"}], run_type)
+    spec = PprocSpec.model_validate(
+        {
+            "farfields": [{"variant": "plane", key: 1}],
+            "probes": [{"kind": "normal", "parameters": ["VX"]}] if normal else [],
+        }
+    )
+    case = case.model_copy(update={"pproc": spec})
+    with pytest.raises(CampaignConfigError, match=f"7002.*{key}"):
+        _farfield_plan___script(case)
+
+
 def _farfield_plan___script(case) -> Script:
     script = Script("26.124")
     build_script(case, script)
@@ -108,7 +304,7 @@ def _farfield_plan___distributions(text: str) -> int:
     return text.splitlines().count("NEW_SURFACE_SECTION_DISTRIBUTION")
 
 
-_FARFIELD_PLAN___SECTIONS = {"families": "all", "trefftz": {"variant": "sections", "stations": 20}}
+_FARFIELD_PLAN___SECTIONS = [{"variant": "sections", "families": "all", "stations": 20}]
 
 
 _FARFIELD_PLAN___DECLARED = {
@@ -120,14 +316,13 @@ def _farfield_plan___resolve(**overrides: object):
     spec = PprocSpec.model_validate(
         {
             "groups": {"1": "all"},
-            "farfield": {
-                "families": "all",
-                "trefftz": {"variant": ["sections", "plane"]},
-                "ledgers": {"rotor": "ROTOR"},
-            },
+            "farfields": [
+                {"variant": "sections", "families": "all"},
+                {"variant": "plane"},
+                {"variant": "power", **{"rotor": "ROTOR"}},
+            ],
         }
-    ).farfield
-    assert spec is not None
+    ).farfields
     arguments: dict[str, Any] = {
         "run_type": "steady",
         "covered_families": {"W"},
@@ -140,7 +335,30 @@ def _farfield_plan___resolve(**overrides: object):
         "has_command": lambda command: True,
     }
     arguments.update(overrides)
-    return resolve_farfield(spec, **arguments)
+    return FarfieldResolution(
+        tuple(item for entry in spec for item in resolve_farfield(entry, **arguments).inputs)
+    )
+
+
+def test_p0450_d7_missing_a_family_names_the_entry():
+    """P0450-D7: a missing family points at its named farfields entry."""
+    spec = PprocSpec.model_validate(
+        {"farfields": [{"name": "wing", "variant": "sections", "families": ["missing"]}]}
+    ).farfields[0]
+    resolution = resolve_farfield(
+        spec,
+        run_type="steady",
+        covered_families=set(),
+        selected_families=[],
+        exports={},
+        declares_lattice=False,
+        declares_plane=False,
+        coupled=False,
+        admits_probes=True,
+        has_command=lambda command: True,
+    )
+    reason = resolution.inputs[0].reason
+    assert "[[farfields]]" in reason and "wing" in reason and "missing" in reason
 
 
 class TestFarfieldPlan:
@@ -174,7 +392,7 @@ class TestFarfieldPlan:
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_the_wake_is_switched_on(tmp_path):
         """P0400-FFPLAN (FR-1046): Trefftz B adds the VTK export with the wake switch."""
-        case = _farfield_plan___case(tmp_path, {"families": "all", "trefftz": {"variant": "wake"}})
+        case = _farfield_plan___case(tmp_path, [{"variant": "wake"}])
         assert any(name.endswith(".vtk") for name in case.outputs)
         text = _farfield_plan___script(case).render()
         assert "SET_VTK_EXPORT_VARIABLES -1 ENABLE" in text
@@ -190,7 +408,7 @@ class TestFarfieldPlan:
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_the_plane_is_added_as_probes(tmp_path):
         """P0400-FFPLAN (FR-1046, FR-1033): the C plane, behind the body, normal to the stream."""  # noqa: E501
-        farfield = {"families": "all", "trefftz": {"variant": "plane", "spacing_bref": 0.25}}
+        farfield = [{"variant": "plane", "spacing_bref": 0.25}]
         case = _farfield_plan___case(tmp_path, farfield)
         script = _farfield_plan___script(case)
         assert len(script.probe_points) == 7 * 5
@@ -206,14 +424,14 @@ class TestFarfieldPlan:
         """P0400-FFPLAN (FR-1045): an identical declared lattice is not emitted twice."""
         lattice = {"rotor": "ROTOR", "stations": [2.0], "n_r": 2, "n_psi": 16, "r_inner": 0.5}
         added = _farfield_plan___script(
-            _farfield_plan___case(tmp_path, {"families": "all", "ledgers": dict(lattice, m_max=2)})
+            _farfield_plan___case(tmp_path, [{"variant": "power", **dict(lattice, m_max=2)}])
         )
         other = tmp_path / "declared"
         other.mkdir()
         reused = _farfield_plan___script(
             _farfield_plan___case(
                 other,
-                {"families": "all", "ledgers": dict(lattice, m_max=2)},
+                [{"variant": "power", **dict(lattice, m_max=2)}],
                 probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [lattice]}],
             )
         )
@@ -233,7 +451,7 @@ class TestFarfieldPlan:
             "m_max": 2,
         }
         script = _farfield_plan___script(
-            _farfield_plan___case(tmp_path, {"families": "all", "ledgers": ledgers})
+            _farfield_plan___case(tmp_path, [{"variant": "power", **ledgers}])
         )
         shape = LatticeShape.model_validate({k: v for k, v in ledgers.items() if k != "m_max"})
         assert len(script.probe_points) == shape.build(0.5).point_count
@@ -245,10 +463,12 @@ class TestFarfieldPlan:
     def test_p0400_ffplan_an_added_point_inside_the_body_is_refused(tmp_path):
         """P0400-FFPLAN (FR-1050): a lattice station inside the box is refused, naming the remedy."""  # noqa: E501
         pytest.importorskip("rtree")
-        farfield = {
-            "families": "all",
-            "ledgers": {"rotor": "ROTOR", "stations": [0.0], "n_r": 2, "n_psi": 16, "m_max": 2},
-        }
+        farfield = [
+            {
+                "variant": "power",
+                **{"rotor": "ROTOR", "stations": [0.0], "n_r": 2, "n_psi": 16, "m_max": 2},
+            }
+        ]
         with pytest.raises(CampaignConfigError, match="inside the body") as caught:
             _farfield_plan___script(_farfield_plan___case(tmp_path, farfield))
         assert "r_inner and stations" in str(caught.value)
@@ -279,7 +499,7 @@ class TestFarfieldPlan:
         assert states[("trefftz:sections", "section_distribution")] == "reused"
         assert states[("trefftz:plane", "probe_points")] == "added"
         rotor = _farfield_plan___resolve(run_type="unsteady_rotor")
-        assert rotor.state_of("trefftz:sections") == "not_applicable"
+        assert rotor.state_of("trefftz:sections") == "ready"
         assert not rotor.refused
         assert {"inputs"} == set(resolution.as_record())
 
@@ -293,7 +513,7 @@ class TestFarfieldPlan:
                 "EXPORT_SURFACE_SECTIONAL_LOADS",
             ),
             ({"admits_probes": False, "coupled": True}, "trefftz:plane", "takes no probes"),
-            ({"selected_families": []}, "ledgers", "names no family"),
+            ({"selected_families": []}, "trefftz:power", "names no family"),
             ({"coupled": True, "covered_families": set()}, "trefftz:sections", "exactly one"),
         ],
     )
@@ -639,7 +859,7 @@ class TestFarfieldPlane:
 def _farfield_spec___pproc(farfield: object | None = None, **extra: object) -> PprocSpec:
     data: dict[str, object] = {"groups": {"1": "all"}, **extra}
     if farfield is not None:
-        data["farfield"] = farfield
+        data["farfields"] = farfield
     return PprocSpec.model_validate(data)
 
 
@@ -650,9 +870,7 @@ class TestFarfieldSpec:
     @pytest.mark.requirement("FR-454")
     def test_p0400_fftable_keys_and_defaults():
         """P0400-FFTABLE (FR-1039): each key with its type and default."""
-        spec = _farfield_spec___pproc(
-            {"families": "all", "trefftz": {"variant": "sections"}}
-        ).farfield
+        spec = _farfield_spec___pproc([{"variant": "sections", "families": "all"}]).farfield
         assert spec is not None and spec.trefftz is not None
         assert spec.trefftz.variant == ["sections"]
         assert spec.trefftz.stations == 80
@@ -661,46 +879,46 @@ class TestFarfieldSpec:
         assert spec.trefftz.station is None
         assert spec.ledgers is None
         ledgers = _farfield_spec___pproc(
-            {"families": "W", "ledgers": {"rotor": "ROTOR"}}
+            [{"variant": "power", **{"rotor": "ROTOR"}}]
         ).farfield.ledgers
-        assert ledgers.balances == list(BALANCES) and ledgers.m_max == 6
+        assert ledgers.balances == [] and ledgers.m_max == 6
         assert ledgers.build(2.0).tip_radius == 2.0
 
     @staticmethod
     @pytest.mark.requirement("FR-454")
-    def test_p0400_fftable_variant_is_a_word_or_a_list():
-        """P0400-FFTABLE (FR-1041): ``variant`` reads like ``families``."""
-        word = FarfieldSpec.model_validate({"families": "all", "trefftz": {"variant": "wake"}})
-        many = FarfieldSpec.model_validate(
-            {"families": ["W", "HT"], "trefftz": {"variant": ["sections", "wake", "plane"]}}
-        )
+    def test_p0450_d0_variant_is_one_word():
+        """P0450-D0: each entry selects exactly one variant."""
+        word = FarfieldSpec.model_validate({"variant": "wake"})
+        many = FarfieldSpec.model_validate({"variant": "sections", "families": ["W", "HT"]})
         assert word.trefftz.variant == ["wake"]
-        assert many.trefftz.variant == ["sections", "wake", "plane"]
+        assert many.trefftz.variant == ["sections"]
+        with pytest.raises(ValidationError, match="variant"):
+            FarfieldSpec.model_validate({"variant": ["wake", "plane"]})
 
     @staticmethod
     @pytest.mark.parametrize(
         ("farfield", "words"),
         [
-            ({"families": "all", "trefftz": {"variant": "sections"}, "extra": 1}, "extra"),
-            ({"families": "all", "trefftz": {"variant": "sections", "stationz": 3}}, "stationz"),
-            ({"families": "all", "trefftz": {"variant": "helix"}}, "variant"),
-            ({"families": "all", "trefftz": {"variant": ["wake", "wake"]}}, "wake"),
-            ({"families": "all", "trefftz": {}}, "variant"),
-            ({"families": "all", "trefftz": {"variant": "plane", "stations": 1}}, "stations"),
-            ({"families": "all", "trefftz": {"variant": "plane", "distance_bref": 0}}, "distance"),
+            ([{"variant": "sections", "families": "all", "extra": 1}], "extra"),
+            ([{"variant": "sections", "families": "all", "stationz": 3}], "stationz"),
+            ([{"variant": "helix"}], "variant"),
+            ([{"variant": "wake"}, {"variant": "wake"}], "wake"),
+            ([{"families": "all"}], "variant"),
+            ([{"variant": "sections", "families": "all", "stations": 1}], "stations"),
+            ([{"variant": "plane", "distance_bref": 0}], "distance"),
             (
-                {"families": "all", "trefftz": {"variant": "plane", "spacing_bref": "nan"}},
+                [{"variant": "plane", "spacing_bref": "nan"}],
                 "spacing",
             ),
-            ({"families": "all"}, "selects no analysis"),
-            ({"families": [], "trefftz": {"variant": "sections"}}, "families"),
-            ({"families": "all", "ledgers": {}}, "rotor"),
-            ({"families": "all", "ledgers": {"rotor": "R", "frame": "F"}}, "rotor"),
-            ({"families": "all", "ledgers": {"rotor": "R", "balances": ["mass", "mass"]}}, "mass"),
-            ({"families": "all", "ledgers": {"rotor": "R", "balances": ["drag"]}}, "balances"),
-            ({"families": "all", "ledgers": {"rotor": "R", "m_max": 40}}, "m_max"),
+            ([{"families": "all"}], "variant"),
+            ([{"variant": "sections", "families": []}], "families"),
+            ([{"variant": "power", **{}}], "rotor"),
+            ([{"variant": "power", **{"rotor": "R", "frame": "F"}}], "rotor"),
+            ([{"variant": "power", **{"rotor": "R", "balances": ["mass", "mass"]}}], "mass"),
+            ([{"variant": "power", **{"rotor": "R", "balances": ["drag"]}}], "balances"),
+            ([{"variant": "power", **{"rotor": "R", "m_max": 40}}], "m_max"),
             (
-                {"families": "all", "ledgers": {"rotor": "R", "r_inner": 2.0, "r_outer": 1.0}},
+                [{"variant": "power", **{"rotor": "R", "r_inner": 2.0, "r_outer": 1.0}}],
                 "ring_edges",
             ),
         ],
@@ -753,10 +971,10 @@ class TestFarfieldSpec:
 _FFPROOF_INPUTS___HEAD = '[groups]\n"1" = "all"\n'
 
 
-_FFPROOF_INPUTS___TREFFTZ = '[farfield]\nfamilies = "all"\n[farfield.trefftz]\n'
+_FFPROOF_INPUTS___TREFFTZ = "[[farfields]]\n"
 
 
-_FFPROOF_INPUTS___LEDGERS = '[farfield]\nfamilies = "all"\n[farfield.ledgers]\n'
+_FFPROOF_INPUTS___LEDGERS = '[[farfields]]\nvariant = "power"\n'
 
 
 class TestFfproofInputs:
@@ -772,8 +990,7 @@ class TestFfproofInputs:
         ("table", "key"),
         [
             pytest.param(
-                _FFPROOF_INPUTS___TREFFTZ.replace("[farfield.", "extra = 1\n[farfield.")
-                + 'variant = "wake"\n',
+                _FFPROOF_INPUTS___TREFFTZ + "extra = 1\n" + 'variant = "wake"\n',
                 "extra",
                 id="unknown-key",
             ),
@@ -812,7 +1029,7 @@ class TestFfproofInputs:
                 id="not-finite",
             ),
             pytest.param(
-                '[farfield]\nfamilies = []\n[farfield.trefftz]\nvariant = "wake"\n',
+                '[[farfields]]\nfamilies = []\nvariant = "sections"\n',
                 "families",
                 id="empty-families",
             ),
@@ -865,11 +1082,13 @@ class TestFfproofInputs:
         workspace = CampaignWorkspace.init(tmp_path / "camp")
         path = Path(workspace.inputs_dir) / "pproc" / "p007.toml"
         path.write_text(
-            _FFPROOF_INPUTS___HEAD + _FFPROOF_INPUTS___TREFFTZ + 'variant = ["wake", "plane"]\n',
+            _FFPROOF_INPUTS___HEAD
+            + _FFPROOF_INPUTS___TREFFTZ
+            + 'variant = "wake"\n[[farfields]]\nvariant = "plane"\n',
             encoding="utf-8",
         )
         loaded = resolve_pproc(workspace.inputs_dir, "p007")
-        assert loaded.farfield is not None and loaded.farfield.trefftz.variant == ["wake", "plane"]
+        assert [entry.variant for entry in loaded.farfields] == ["wake", "plane"]
 
 
 _FFPROOF_UPGRADING__REPO = Path(__file__).resolve().parents[2]
@@ -1076,7 +1295,7 @@ class TestFfproofPlan:
         so once, with the bias the definitions page measured at 40 (1.05 percent).
         A distribution of 160 sections (80 per side) is reused in silence.
         """
-        farfield = {"families": "all", "trefftz": {"variant": "sections"}}
+        farfield = [{"variant": "sections", "families": "all"}]
         text, messages = _ffproof_plan___built(
             _farfield_plan___case(tmp_path, farfield, sections=_ffproof_plan___declared(80))
         )
@@ -1103,16 +1322,16 @@ class TestFfproofPlan:
         script carries exactly that many fluid plots, four parameters per point.
         """
         case = _ffproof_plan___unsteady(
-            tmp_path, {"families": "all", "ledgers": dict(_FFPROOF_PLAN___LATTICE, m_max=2)}
+            tmp_path, [{"variant": "power", **dict(_FFPROOF_PLAN___LATTICE, m_max=2)}]
         )
         text, messages = _ffproof_plan___built(case)
-        assert text.count(_FFPROOF_PLAN___PLOT) == 4 * _FFPROOF_PLAN___POINTS
+        assert text.count(_FFPROOF_PLAN___PLOT) == 0
         stated = [m for m in messages if "FR-1052" in m]
         assert stated == [
-            f"case '7002': the far-field lattice samples {_FFPROOF_PLAN___POINTS} points at every time step, "  # noqa: E501
-            f"{4 * _FFPROOF_PLAN___POINTS} fluid plots (FR-1052)."
+            f"case '7002': the far-field lattice samples {_FFPROOF_PLAN___POINTS} points "
+            "per exported step, 1 exported steps (FR-1052)."
         ]
-        assert any(name.endswith("_plots.txt") for name in case.outputs)
+        assert any(name.endswith("_farfield_probes.txt") for name in case.outputs)
 
     @staticmethod
     @pytest.mark.requirement("FR-455")
@@ -1129,14 +1348,14 @@ class TestFfproofPlan:
             "parameters": ["VX"],
             "lattices": [_FFPROOF_PLAN___LATTICE],
         }
-        farfield = {"families": "all", "ledgers": dict(_FFPROOF_PLAN___LATTICE, m_max=2)}
+        farfield = [{"variant": "power", **dict(_FFPROOF_PLAN___LATTICE, m_max=2)}]
         case = _ffproof_plan___unsteady(tmp_path, farfield, probes=[entry])
         text, messages = _ffproof_plan___built(case)
         assert text.count("NEW_PROBE_POINT") == _FFPROOF_PLAN___POINTS, (
             "the declared lattice, laid once"
         )
         assert _FFPROOF_PLAN___PLOT not in text
-        assert not [m for m in messages if "FR-1052" in m]
+        assert any("1 exported steps (FR-1052)" in m for m in messages)
         assert any(name.endswith("_probes.txt") for name in case.outputs)
 
     @staticmethod
@@ -1182,3 +1401,95 @@ def test_the_farfield_core_performs_no_file_or_environment_io():
             for name in names & forbidden_modules:
                 found.append(f"{source.name}:{node.lineno} imports {name}")
     assert not found, found
+
+
+@pytest.mark.parametrize("value", ["last_step", "avg_window", "default"])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_export_type_is_accepted(value):
+    """P0450-D8: each supported sampling policy is retained by the input model."""
+    from pyflightstream.cases._farfield_spec import FarfieldSpec
+
+    entry = FarfieldSpec.model_validate({"variant": "plane", "export_type": value})
+    assert entry.export_type == value
+
+
+@pytest.mark.parametrize("value", ["all_steps", "unknown"])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_export_type_refusal_names_choices(value):
+    """P0450-D8: a refused policy names all three supported choices."""
+    from pyflightstream.cases._farfield_spec import FarfieldSpec
+
+    with pytest.raises(ValueError) as caught:
+        FarfieldSpec.model_validate({"variant": "plane", "export_type": value})
+    assert all(word in str(caught.value) for word in ("last_step", "avg_window", "default"))
+
+
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_default_has_own_conventional_probe_export(tmp_path):
+    """P0450-D8b: an unstated policy samples once in its own conventional export."""
+    case = _ffproof_plan___unsteady(
+        tmp_path, [{"variant": "power", **dict(_FFPROOF_PLAN___LATTICE, m_max=2)}]
+    )
+    text, messages = _ffproof_plan___built(case)
+    assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in text
+    assert any(name.endswith("_farfield_probes.txt") for name in case.outputs)
+    assert "EXPORT_PROBE_POINTS" in text
+    cost = [message for message in messages if "FR-1052" in message]
+    assert any("per exported step" in message and "1 exported step" in message for message in cost)
+
+
+@pytest.mark.parametrize("value", ["last_step", "default"])
+@pytest.mark.parametrize("key", ["last_steps", "last_revs"])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_window_requires_avg_window(tmp_path, value, key):
+    """P0450-D8: a last-step policy refuses an explicit averaging window at plan."""
+    case = _p0450_rotor_case(tmp_path, [{"variant": "plane"}], "unsteady_rotor")
+    case = case.model_copy(
+        update={
+            "pproc": PprocSpec.model_validate(
+                {"farfields": [{"variant": "plane", "export_type": value, key: 1}]}
+            )
+        }
+    )
+    with pytest.raises(CampaignConfigError, match="export_type"):
+        _farfield_plan___script(case)
+
+
+@pytest.mark.parametrize("value", ["default", "last_step", "avg_window"])
+@pytest.mark.parametrize("kind", ["normal", "unsteady"])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_declared_probe_kind_does_not_route_farfield(tmp_path, value, kind):
+    """P0450-D8b: declared fluid histories stay declared, with no far-field histories added."""
+    entry = {
+        "frame": "MRP",
+        "kind": kind,
+        "parameters": ["VX"],
+        "lattices": [_FFPROOF_PLAN___LATTICE],
+    }
+    case = _ffproof_plan___unsteady(
+        tmp_path,
+        [{"variant": "power", "export_type": value, **dict(_FFPROOF_PLAN___LATTICE, m_max=2)}],
+        probes=[entry],
+    )
+    text, _ = _ffproof_plan___built(case)
+    assert text.count(_FFPROOF_PLAN___PLOT) == (_FFPROOF_PLAN___POINTS if kind == "unsteady" else 0)
+    assert "EXPORT_PROBE_POINTS" in text and "_farfield_probes.txt" in text
+
+
+@pytest.mark.parametrize("variant", ["sections", "plane", "power"])
+@pytest.mark.parametrize("value", ["default", "last_step", "avg_window"])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_d8_steady_policies_emit_identical_products(tmp_path, variant, value):
+    """P0450-D8: every policy is accepted on a steady row without changing the script."""
+    entry = {"variant": variant}
+    if variant == "sections":
+        entry["families"] = "all"
+    if variant == "power":
+        entry.update(dict(_FFPROOF_PLAN___LATTICE, m_max=2))
+    case = _farfield_plan___case(tmp_path, [entry])
+    baseline, _ = _ffproof_plan___built(case)
+    changed = case.model_copy(
+        update={"pproc": PprocSpec.model_validate({"farfields": [{**entry, "export_type": value}]})}
+    )
+    text, _ = _ffproof_plan___built(changed)
+    assert text == baseline
