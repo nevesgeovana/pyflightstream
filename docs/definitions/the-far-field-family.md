@@ -97,8 +97,8 @@ other than `"avg_window"`. `last_revs` without a rotor clock is refused naming
 The manifest records each entry's `export_type`; each average also records
 its window, sample count and source under `reduced_from`.
 
-The 0.44.0 `[farfield]` spelling is refused at load with equivalent array entries.
-Its families move to A alone. Its ledgers become a `power` entry. A 0.44.0 rotor
+The retired `[farfield]` spelling is refused at load with equivalent array entries.
+Its families move to A alone. Its ledgers become a `power` entry. A retired rotor
 `plane` analysis with ledgers means the power analysis; request a separate `plane`
 entry only when a velocity plane is also wanted.
 
