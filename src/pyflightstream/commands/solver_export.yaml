@@ -296,10 +296,12 @@ EXPORT_BL_VELOCITY_PROFILE:
 
     Validated emission on 26.122 refuses this modal operation before adding
     any script lines, citing RPT-027. An explicitly supervised interactive
-    script can use raw(), whose validation bypass is recorded. The refusal
-    does not extend the measurement to 26.123 or 26.125.
+    script can use raw(), whose validation bypass is recorded. On 26.125 the
+    same modal restriction is measured by CMP-26125_2026-10-16_bl-profile:
+    the harness terminated the modal without clicking, no END sentinel appeared,
+    and no profile was written. The measurement does not extend to 26.123.
 
-    No status is written from that. It is a fact about the interface
+    No 26.122 status is written from RPT-027. It is a fact about the interface
     rather than a refusal by the solver, which is a different claim from
     the one `broken` makes, and a status rests on a committed probe
     report rather than on a hand run (invariant 3). What it does mean is
@@ -311,7 +313,7 @@ EXPORT_BL_VELOCITY_PROFILE:
       note: "FSM-26.122 p.377, the first edition to document it"
     "26.123": {status: documented, note: "FSM-26.123 p.377, unchanged from FSM-26.122 p.377"}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-25_bl-profile.yaml", note: "Measured 2026-09-25 on FlightStream 26.124: EXPORT_BL_VELOCITY_PROFILE 1 at a solved-surface node, its file on the next line before EXPORT_LOG, held the script until its 120 s timeout. The control finished in 9.4 s. Earlier exports were written, but neither the profile nor the following log appeared (RPT-075)."}
-    "26.125": {status: documented, note: "FSM-26.125 p.383, unchanged from FSM-26.124 p.377; 26.124 recorded it broken (CMP-26124_2026-09-25_bl-profile), and 26.125 has not run it"}
+    "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-16_bl-profile.yaml", note: "Measured 2026-10-16 on FlightStream 26.125, build 10052026: the command reached a wing node and opened the Boundary layer velocity profile modal with a Done button. The harness terminated it without clicking after 2.0652324999973644 s; END was missing and no profile file was written. Use raw() only for an explicitly supervised interactive script, or use the integrated viscous drag."}
 
 DELETE_BL_VELOCITY_PROFILE:
   layout: bare

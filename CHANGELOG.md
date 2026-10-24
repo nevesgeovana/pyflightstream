@@ -35,6 +35,10 @@ FlightStream versions.
   over the same steps as the far-field flux. Missing history produces `NA`
   with a named skip; instant ledger values retain the final loads comparison.
 
+- Validated `EXPORT_BL_VELOCITY_PROFILE` emission is refused on FlightStream
+  26.125, citing its recorded modal interruption in
+  `CMP-26125_2026-10-16_bl-profile`. Use `raw()` only for an explicitly
+  supervised interactive script, or use the integrated viscous drag.
 - Trefftz B, C and D identify whole-flow rows with `FAMILY = net`. B's spanwise
   file and manifest key use `_trefftz_net_<entry>.csv` (default entry `wake`),
   preserving separate files for multiple B entries. A keeps its family

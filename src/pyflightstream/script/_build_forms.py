@@ -200,13 +200,17 @@ def _wake_argument_alias(entry: CommandEntry, key: str) -> str:
 
 def _refuse_interactive_profile(script: Script, entry: CommandEntry) -> None:
     """Keep a measured modal operation out of a validated batch script."""
-    if entry.name == "EXPORT_BL_VELOCITY_PROFILE" and script.version.canonical == "26.122":
+    reports = {
+        "26.122": "RPT-027",
+        "26.125": "reports/compat/CMP-26125_2026-10-16_bl-profile.yaml",
+    }
+    version = script.version.canonical
+    if entry.name == "EXPORT_BL_VELOCITY_PROFILE" and version in reports:
         raise CommandArgumentError(
-            "EXPORT_BL_VELOCITY_PROFILE on 26.122 waits for a modal Done button "
-            "even under -hidden (RPT-027), so a validated unattended script refuses it. "
-            "The database remains documented: this is an interface restriction, "
-            "not a new broken probe verdict. Use raw() only for an explicitly "
-            "supervised interactive run."
+            f"EXPORT_BL_VELOCITY_PROFILE on {version} waits for a modal Done button "
+            f"even under -hidden ({reports[version]}), so a validated unattended script "
+            "refuses it even with allow_broken. Use raw() only for an explicitly "
+            "supervised interactive script, or use the integrated viscous drag."
         )
 
 
