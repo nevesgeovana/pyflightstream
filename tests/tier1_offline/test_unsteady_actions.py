@@ -118,6 +118,47 @@ ACTION_INTERPRETER = (
 )
 
 
+@pytest.mark.parametrize("offset", [4, 8])
+@pytest.mark.parametrize("row_exports", [False, True])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_rv1_continued_farfield_uses_local_counter(tmp_path, offset, row_exports):
+    """P0450-RV1-02: a continued march exports its final two steps, not the old end."""
+    from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
+    from pyflightstream.cases.workflows import unsteady_export_threshold
+    from pyflightstream.run._actions_counter import render_program
+    from tests.tier1_offline.test_regression_farfield_interfaces import _ffproof_plan___unsteady
+
+    case = _ffproof_plan___unsteady(
+        tmp_path,
+        [{"variant": "plane", "export_type": "avg_window"}],
+    )
+    variables = {
+        **case.variables,
+        "TIME_ITERATIONS": "8",
+        "LAST_ITERS_AVG": "2",
+        "RESTART": "{ADDITIONAL_ITERS=4}",
+        "RESTART_FROM": "saved.fsm",
+        "RESTART_ITERATIONS": "4",
+        RESTART_STEP_OFFSET_VARIABLE: str(offset),
+    }
+    if row_exports:
+        variables[ITER] = str(offset + 1)
+    case = case.model_copy(update={"variables": variables})
+    threshold = unsteady_export_threshold(case, version="26.124")
+    assert threshold is not None
+    program = tmp_path / "counter.py"
+    program.write_text(render_program(threshold, interpreter=sys.executable), encoding="utf-8")
+    ns = runpy.run_path(str(program))
+    exported = []
+    for step in range(1, 6):
+        ns["main"]()
+        if "EXPORT_PROBE_POINTS" in ns["SCRIPT_FILE"].read_text():
+            exported.append(step)
+    assert exported == [3, 4]
+    assert threshold.time_iterations == 4
+    assert threshold.step_offset == offset
+
+
 def steady_case(**variables) -> SimCase:
     return SimCase(
         sim_id="7002",
