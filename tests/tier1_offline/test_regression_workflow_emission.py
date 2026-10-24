@@ -2259,7 +2259,12 @@ _INTEGFIX_BLADES___ONE_FAMILY = RotorBlock(
 
 
 def _integfix_blades___row(**stated: str) -> SimCase:
-    variables = {"WORKFLOW": "unsteady_rotor", "ROTOR_AXIS": "X", "RPM": "600", **stated}
+    variables: dict[str, str | float | int | bool] = {
+        "WORKFLOW": "unsteady_rotor",
+        "ROTOR_AXIS": "X",
+        "RPM": "600",
+        **stated,
+    }
     return SimCase(
         sim_id="7001",
         aircraft="RotorRig",
