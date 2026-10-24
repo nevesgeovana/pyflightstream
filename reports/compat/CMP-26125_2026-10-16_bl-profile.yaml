@@ -1,0 +1,65 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.125'
+date: '2026-10-16'
+fs_exe: Flightstream_26125.exe
+fs_exe_sha256: 'not recorded in the launch receipts; build 10052026'
+measured_at: '2026-10-16T16:53:51+00:00'
+source: >
+  Transcription of the 0.42.0 licensed run GOAL-033-G52, source revision
+  3891a52dfe79a1f18685c33f342f386ec3ddbe72, receipt batch
+  3891a52dfe79a1f18685c33f342f386ec3ddbe72-8933767bab1e4ac0ba898140525c17c1.
+  Evidence: analysis.json, job-0-observations.json, job-0.log,
+  launch-13c38641bc5d4b7395ae8062609284ef.json and its started receipt,
+  and launch-43a71cbc667647639218b1c069f67828.json (control).
+  No new measurement is claimed; no solver was invoked while writing this
+  transcription. This is the lane's one new tracked file, justified within
+  the approved 2030-file cap because the build-specific refusal needs durable,
+  machine-readable evidence rather than a citation to another build's run.
+summary:
+  verified: 0
+  broken: 1
+  removed: 0
+  unprobed: 0
+commands:
+  EXPORT_BL_VELOCITY_PROFILE:
+    outcome: broken
+    detail: >-
+      Measured 2026-10-16 on FlightStream 26.125, build 10052026, under -hidden.
+      The control solve completed with return code 0 in 7.68511999999464 s.
+      The target loaded that solved state and reached
+      PYFS_PROBE_BEGIN_EXPORT_BL_VELOCITY_PROFILE at a selected wing node.
+      The solver opened a modal titled "Boundary layer velocity profile" with
+      a "Done" button. The harness terminated its owned process without
+      clicking the dialog. The END sentinel and following log never appeared,
+      and no profile file was written. The target returned 1 after
+      2.0652324999973644 s, before its 120.0 s timeout. The receipt's effect
+      signal is null; the empty profile-file inventory is recorded separately.
+      Use raw() only for an explicitly supervised interactive script, or use
+      the integrated viscous drag. This run does not establish a profile format.
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: null
+      log_errors:
+        - '2026-10-16T16:53:53+00:00 solver modal/error detected pid=33068; terminating this owned solver process without clicking its dialog.'
+    return_code: 1
+    profile_files: []
+    measurement:
+      - variant: EXPORT_BL_VELOCITY_PROFILE
+        timeout_s: 120.0
+        wall_time_s: 2.0652324999973644
+        timed_out: false
+        script_sha256: 0670d80c1bd8db2a69c27ea4f10fc37ebde66bc3353258f4fdc820f3aafb904a
+        point:
+          frame: 1
+          x: 9.048473650206406
+          y: -3.511328170924997
+          z: 0.2999142613698904
+          half_span: 10.000000000010072
+          span_axis: y
+          wing_nodes_in_tecplot: 4406
+          candidates: 504
+          spanwise_fraction: 0.35113281709214605
+          rule: 'highest z among wing nodes with 0.35 <= |y|/half_span <= 0.45, frame 1'
+          tecplot_sha256: ada5f4f020fa9033f1e77abbd0970342ad47ff2aa28b8347c79dd2baf34a7b7e
+          state_sha256: 8b1713ad7bb0d81cf072ef58c9eafe333cfb90f1c3fdbcf8a2680951702fe8cf

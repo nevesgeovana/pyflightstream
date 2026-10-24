@@ -21,6 +21,10 @@ FlightStream versions.
 
 ### Changed
 
+- Validated `EXPORT_BL_VELOCITY_PROFILE` emission is refused on FlightStream
+  26.125, citing its recorded modal interruption in
+  `CMP-26125_2026-10-16_bl-profile`. Use `raw()` only for an explicitly
+  supervised interactive script, or use the integrated viscous drag.
 - Trefftz B, C and D identify whole-flow rows with `FAMILY = net`. B's spanwise
   file and manifest key use `_trefftz_net.csv`. A keeps its family
   rows and `TOTAL`. Super-file columns include each entry's name, for example

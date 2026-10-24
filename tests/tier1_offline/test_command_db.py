@@ -29,6 +29,62 @@ REPORTS_DIR = REPO_ROOT / "reports"
 COMMANDS_DIR = REPO_ROOT / "src" / "pyflightstream" / "commands"
 
 
+@pytest.mark.requirement("FR-3216")
+def test_p0450_g52_profile_status_cites_its_26125_measurement():
+    entry = CommandRegistry.load().commands["EXPORT_BL_VELOCITY_PROFILE"]
+    row = entry.versions["26.125"]
+    assert row.status is Status.BROKEN
+    assert row.report == "reports/compat/CMP-26125_2026-10-16_bl-profile.yaml"
+    assert "26.125 has not run it" not in row.note
+    assert "does not extend the measurement to 26.123 or 26.125" not in entry.notes
+    assert entry.versions["26.124"].status is Status.BROKEN
+    assert entry.versions["26.124"].report == (
+        "reports/compat/CMP-26124_2026-09-25_bl-profile.yaml"
+    )
+
+
+@pytest.mark.requirement("FR-3216")
+def test_p0450_g52_profile_report_preserves_receipt_signals():
+    from pyflightstream.qa.compat import read_compat_report
+
+    path = REPORTS_DIR / "compat" / "CMP-26125_2026-10-16_bl-profile.yaml"
+    assert path.is_file(), "the measured refusal needs its committed report"
+    report = read_compat_report(path)
+    assert report["fs_version"] == "26.125"
+    assert report["date"] == "2026-10-16"
+    assert report["summary"] == dict(verified=0, broken=1, removed=0, unprobed=0)
+    command = report["commands"]["EXPORT_BL_VELOCITY_PROFILE"]
+    assert command["outcome"] == "broken"
+    assert command["signals"] == {
+        "sentinel_before": True,
+        "sentinel_after": False,
+        "effect": None,
+        "log_errors": [
+            "2026-10-16T16:53:53+00:00 solver modal/error detected pid=33068; "
+            "terminating this owned solver process without clicking its dialog."
+        ],
+    }
+    assert command["return_code"] == 1
+    measurement = command["measurement"][0]
+    assert measurement["wall_time_s"] == 2.0652324999973644
+    assert measurement["timed_out"] is False
+    assert measurement["script_sha256"] == (
+        "0670d80c1bd8db2a69c27ea4f10fc37ebde66bc3353258f4fdc820f3aafb904a"
+    )
+    assert measurement["point"]["frame"] == 1
+    assert [measurement["point"][axis] for axis in ("x", "y", "z")] == [
+        9.048473650206406,
+        -3.511328170924997,
+        0.2999142613698904,
+    ]
+    assert measurement["point"]["rule"] == (
+        "highest z among wing nodes with 0.35 <= |y|/half_span <= 0.45, frame 1"
+    )
+    assert command["profile_files"] == []
+    assert "0.42.0 licensed run GOAL-033-G52" in report["source"]
+    assert "no solver was invoked" in report["source"]
+
+
 @pytest.mark.requirement("FR-04")
 def test_p0430_fd02_absent_build_refusal_cites_the_command_evidence():
     """A refusal must let a caller locate the known command's contract."""
