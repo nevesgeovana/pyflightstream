@@ -2942,13 +2942,7 @@ def test_p0430_f145_a_normal_probe_row_carries_the_recorded_stop(tmp_path):
 
 
 def test_p0430_f144_a_steady_row_that_spins_is_a_rotor_for_the_probe_point(tmp_path):
-    """F-144: the probe stage is told the row is a rotor, as the product stage decided.
-
-    The wing's probes are one plane. A spinning row reads a rotor lattice instead, so
-    the plane is not read as a Trefftz plane: the point is skipped with the reason
-    and no Trefftz table is written. The control, the same row without a speed, writes
-    the plane's table.
-    """
+    """D1: steady RPM rows retain their configuration Trefftz C plane."""
     helpers = _ff_helpers()
 
     def posted(root, point):
@@ -2962,9 +2956,11 @@ def test_p0430_f144_a_steady_row_that_spins_is_a_rotor_for_the_probe_point(tmp_p
     tables, _skipped = posted(tmp_path / "wing", {"alpha": 4.0})
     assert tables
     tables, skipped = posted(tmp_path / "rotor", {"alpha": 4.0, "RPM": 1200.0})
-    assert not tables
-    (why,) = [v for k, v in skipped.items() if k.startswith("farfield/probes#point=")]
-    assert "the run laid no far-field probes these analyses read" in why
+    # D1 replaces the rotor-lattice interpretation of C with a configuration plane.
+    assert tables
+    (row,) = [r for r in helpers._farfield_products___table(tables[0]) if r["VARIANT"] == "C"]
+    assert row["FAMILY"] == "net"
+    assert not any(k.startswith("farfield/probes#point=") for k in skipped)
 
 
 def test_p0430_f1811_the_spanwise_table_carries_the_condition_and_reference_block(tmp_path):
