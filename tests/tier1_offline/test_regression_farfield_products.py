@@ -168,6 +168,32 @@ def test_p0450_ff6_g4_uses_same_window_loads(tmp_path, history):
         )
 
 
+@pytest.mark.parametrize("variant", ["plane", "power"])
+@pytest.mark.requirement("FR-1052")
+def test_p0450_rv2_wrong_geometry_cannot_shorten_average(tmp_path, variant):
+    """RV2-01: a readable snapshot missing its point set cannot become a partial mean."""
+    if variant == "plane":
+        workspace = _p0450_plane_series(tmp_path)
+    else:
+        workspace = _ffproof_post___campaign(
+            tmp_path,
+            pproc=_FFPROOF_POST___LEDGERS + 'export_type = "avg_window"\n',
+            files=_p0450_probe_series(_FFPROOF_POST___POINTS_M),
+            recipe="unsteady",
+            reductions=_FFPROOF_POST___WINDOW,
+        )
+    source = next(workspace.sim_dir("3207").rglob("*_farfield_survey_iteration=7.txt"))
+    source.write_text(_ffproof_post___probe_export(np.array([[99.0, 0.0, 0.0]]), 17.0))
+    _ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    assert _rfixf_layout___rows(root, "farfield/*_trefftz_instant.csv")
+    assert not _rfixf_layout___rows(root, "farfield/*_trefftz_average.csv")
+    assert not _rfixf_layout___rows(root, "farfield/*_ledgers_average.csv")
+    skipped = str(_ffproof_post___manifest(root)["skipped"])
+    assert f"absent={'plane' if variant == 'plane' else 'lattice'}" in skipped
+    assert "average" in skipped and "restore" in skipped
+
+
 def _ff5_printed_samples(points: np.ndarray, velocity: np.ndarray) -> ProbeSamples:
     """Read coordinates printed in the solver's four-digit 0.xxxxE form."""
     from pyflightstream.post.farfield_fields import steady_samples

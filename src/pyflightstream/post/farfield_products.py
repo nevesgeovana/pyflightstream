@@ -793,6 +793,8 @@ def _instant_values(
             point.name,
             f"{left} cannot be read: {reason}",
         )
+        if not final and not ((wants_plane and not no_plane) or (wants_lattice and not no_lattice)):
+            raise PyflightstreamError(reason)
     out: dict[str, Any] = {}
     if plane_at is not None and "trefftz:plane" in analyses:
         out["plane"] = plane_values(

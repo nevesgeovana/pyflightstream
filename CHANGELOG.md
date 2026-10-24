@@ -15,6 +15,9 @@ FlightStream versions.
 
 ### Fixed
 
+- A far-field window containing a readable snapshot with missing plane or
+  lattice points no longer writes a partial average. The valid final instant
+  and the named missing-set outcome are retained.
 - Missing far-field point sets retain their named plane or lattice skip in the
   product manifest, including when that set is the entry's only analysis.
 
