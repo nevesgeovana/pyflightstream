@@ -168,6 +168,56 @@ def test_p0450_ff6_g4_uses_same_window_loads(tmp_path, history):
         )
 
 
+@pytest.mark.parametrize("parameters", ['"FX"', '"FX", "FY", "FZ", "MX", "MY", "MZ"'])
+@pytest.mark.parametrize("families", ['["Wing"]', '"all"', '["Wing", "Tail"]'])
+@pytest.mark.parametrize("recorded", [False, True])
+def test_p0450_rv2_g4_requires_whole_configuration(tmp_path, parameters, families, recorded):
+    """RV2-02: a user-defined MRP_TOTAL may hold only one part of the configuration."""
+    files = _p0450_probe_series(_FFPROOF_POST___POINTS_M)
+    files[f"{_FFPROOF_POST___STEM}_plots.txt"] = (
+        _FFPROOF_POST__PLOTS_HEADER
+        + "Time-step,FX_MRP_TOTAL\n7,-10,\n8,-30,\n"
+        + "-" * 60
+        + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #7012026\n"
+    )
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=_FFPROOF_POST___LEDGERS
+        + 'export_type = "avg_window"\nlast_steps = 2\n'
+        + f'[plots]\nparameters = [{parameters}]\n[[plots.groups]]\nname = "MRP_TOTAL"\n'
+        + f'frame = "MRP"\nfamilies = {families}\n',
+        files=files,
+        recipe="unsteady",
+        reductions=_FFPROOF_POST___WINDOW,
+    )
+    reductions = dict(_FFPROOF_POST___WINDOW)
+    if recorded:
+        reductions["plot_groups"] = [
+            {
+                "name": "MRP_TOTAL",
+                "frame": "MRP",
+                "parameters": ["FX"],
+                "families": ["Wing"] if families == '["Wing"]' else ["Wing", "Tail"],
+            }
+        ]
+        # Current declarations cannot turn a recorded subset into a total.
+        path = workspace.inputs_dir / "pproc" / "p001.toml"
+        path.write_text(path.read_text().replace(f"families = {families}", 'families = "all"'))
+    _ffproof_post___set_record(workspace, inventory=["Wing", "Tail"], reductions=reductions)
+    _ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    rows = _rfixf_layout___rows(root, "farfield/*_ledgers_average.csv")
+    assert rows
+    if families == '["Wing"]':
+        assert all(row["SPURIOUS_COUNTS"] == "NA" for row in rows)
+        assert "whole-configuration" in str(_ffproof_post___manifest(root)["skipped"])
+    else:
+        expected = 20.0 / (0.5 * _FFPROOF_POST___RHO * 68.058**2 * 50.0) * 1e4
+        assert all(
+            float(row["SPURIOUS_COUNTS"]) == pytest.approx(expected, rel=1e-5) for row in rows
+        )
+
+
 @pytest.mark.parametrize("variant", ["plane", "power"])
 @pytest.mark.requirement("FR-1052")
 def test_p0450_rv2_wrong_geometry_cannot_shorten_average(tmp_path, variant):

@@ -15,6 +15,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Averaged far-field `SPURIOUS_COUNTS` refuses a partial-configuration force
+  history even when its user-defined plot group is named `MRP_TOTAL`.
 - A far-field window containing a readable snapshot with missing plane or
   lattice points no longer writes a partial average. The valid final instant
   and the named missing-set outcome are retained.

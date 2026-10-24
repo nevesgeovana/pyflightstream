@@ -30,10 +30,11 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream.cases import AXES_PLOT_GROUP, DEFAULT_DRIFT_LIMIT_PCT
+from pyflightstream.cases import AXES_PLOT_GROUP, DEFAULT_DRIFT_LIMIT_PCT, select_families
 from pyflightstream.cases.windows import AZIMUTHAL, averaging_span
 from pyflightstream.cases.workflows import PER_ROTOR_REDUCTIONS, REDUCTION_NAMES, ROTORS_KEY
 from pyflightstream.post._condition import _last_time_step, _recorded_speeds, row_rotor_speeds
+from pyflightstream.post._rotor_plan import _plot_name_can_emit
 from pyflightstream.post._stage import (
     _MOMENT_POINT_COLUMNS,
     _PER_BLADE,
@@ -96,6 +97,55 @@ def _step(instant: _Instant) -> float:
     return float(step) if isinstance(step, int | float) else math.nan
 
 
+def _whole_configuration_force(ctx: SimContext, point: str, axis: str) -> bool:
+    """Check the selected force's surface ownership, preferring the recorded emission."""
+    record = ctx.record_of[point]
+    inventory = record.inventory or ()
+    parameter = f"F{axis}"
+    plan = record.reductions or {}
+    if "plot_groups" in plan:
+        emitted = plan["plot_groups"]
+        if not isinstance(emitted, list):
+            return False
+        owners = [
+            group
+            for group in emitted
+            if isinstance(group, Mapping)
+            and group.get("name") == AXES_PLOT_GROUP
+            and parameter in group.get("parameters", ())
+        ]
+        return (
+            len(owners) == 1
+            and owners[0].get("frame", "").upper() == "MRP"
+            and bool(inventory)
+            and set(owners[0].get("families", ())) == set(inventory)
+        )
+    if AXES_PLOT_GROUP not in global_frame_plot_groups(
+        ctx.pproc, inventory=inventory, aliases=ctx.aliases
+    ):
+        return False
+    if parameter in ctx.pproc.plots.parameters:
+        for group in ctx.pproc.plots.groups:
+            if not _plot_name_can_emit(
+                group.name,
+                AXES_PLOT_GROUP,
+                group.families,
+                inventory=inventory,
+                is_blade=ctx.pproc.is_blade,
+                aliases=ctx.aliases,
+                frame=group.frame,
+            ):
+                continue
+            selected = select_families(
+                group.families, inventory, ctx.pproc.is_blade, ctx.aliases, strict=False
+            )
+            if not selected or any(
+                own and (not inventory or set(own) != set(inventory)) for own in selected
+            ):
+                return False
+    return True
+
+
 def _window_near_forces(
     ctx: SimContext, point: str, chosen: list[_Instant], axis: str
 ) -> dict[float, float]:
@@ -109,10 +159,7 @@ def _window_near_forces(
         if source is None:
             raise ValueError("no point plots table")
         _, series = plots_table_series(source)
-        groups = global_frame_plot_groups(
-            ctx.pproc, inventory=ctx.record_of[point].inventory or (), aliases=ctx.aliases
-        )
-        if AXES_PLOT_GROUP not in groups or column not in series.fields:
+        if column not in series.fields or not _whole_configuration_force(ctx, point, axis):
             raise ValueError(f"no whole-configuration global force {column}")
         forces = dict(zip(series.steps, -series.fields[column][:, 0], strict=True))
         missing = [
