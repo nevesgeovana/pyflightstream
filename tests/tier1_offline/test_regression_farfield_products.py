@@ -116,25 +116,13 @@ _FARFIELD_PRODUCTS___RULE = " " + "-" * 100 + "\n"
         (0.002, 0.0, True),
     ],
 )
-def test_p0450_ff6_plane_lift_near_zero(cl_plane, cl_near, flagged):
+def test_p0450_ff6_plane_lift_near_zero(tmp_path, cl_plane, cl_near, flagged):
     """LIC-05: compare absolute lift below 1e-3, relative lift above it."""
-    from pyflightstream.post.farfield_products import _flag_a_plane_short_of_the_lift
-
-    loads = replace(
-        parse_loads(_LITB_POST__LOADS), freestream_velocity_m_s=10.0, reference_velocity_m_s=10.0
+    row, flags = _rfixf_plane_lift___post(
+        tmp_path, cl_plane / _RFIXF_PLANE_LIFT___CL, near_cl=cl_near
     )
-    loads.total["CL"] = cl_near
-    point = SimpleNamespace(
-        name="point",
-        loads=loads,
-        state=SimpleNamespace(density_kg_m3=2.0),
-        vorticity_selection=None,
-    )
-    ctx = SimpleNamespace(reference=ReferenceValues(1.0, 1.0, 1.0))
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        _flag_a_plane_short_of_the_lift(ctx, point, {"L": 100.0 * cl_plane})
-    assert bool(caught) is flagged
+    assert float(row["CL_T"]) == pytest.approx(cl_plane, rel=0.02, abs=1e-8)
+    assert bool(flags) is flagged
 
 
 @pytest.mark.parametrize("history", ["complete", "absent", "gap"])
@@ -2740,14 +2728,19 @@ def _rfixf_plane_lift___crossflow(scale: float) -> np.ndarray:
     return np.asarray(_RFIXF_PLANE_LIFT___DIRECTION) * _RFIXF_PLANE_LIFT___SPEED + cross
 
 
-def _rfixf_plane_lift___post(tmp_path: Path, scale: float) -> tuple[dict[str, str], list[str]]:
+def _rfixf_plane_lift___post(
+    tmp_path: Path, scale: float, *, near_cl: float = _RFIXF_PLANE_LIFT___CL
+) -> tuple[dict[str, str], list[str]]:
     workspace = _rfixf_plane_lift__ffpost._ffproof_post___campaign(
         tmp_path,
         pproc=_RFIXF_PLANE_LIFT___TABLE,
         files={
+            f"{_FFPROOF_POST___STEM}.txt": _FFPROOF_POST__LOADS.replace(
+                "+0.1882829", f"{near_cl:+.7f}"
+            ),
             f"{_FFPROOF_POST___STEM}_farfield_probes.txt": _rfixf_layout___export(
                 _RFIXF_PLANE_LIFT___PLANE.points, _rfixf_plane_lift___crossflow(scale)
-            )
+            ),
         },
     )
     _rfixf_plane_lift__ffpost._ffproof_post___set_record(

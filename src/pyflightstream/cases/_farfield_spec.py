@@ -476,8 +476,13 @@ def farfield_entries(value: Any) -> Any:
             + '\nA 0.44.0 "plane" with ledgers on a rotor row becomes the "power" entry (D), '
             'not the "plane" entry (C); keep C only to request the velocity plane as well.'
         )
+    _refuse_filename_collisions(value.get("farfields", []))
+    return value
+
+
+def _refuse_filename_collisions(entries: Any) -> None:
+    """Keep different entry labels from writing the same sanitized filename."""
     names: dict[str, str] = {}
-    entries = value.get("farfields", [])
     for entry in entries if isinstance(entries, list | tuple) else ():
         name = (
             entry.name
@@ -494,4 +499,3 @@ def farfield_entries(value: Any) -> Any:
                 f"{spelling!r}; choose names with distinct file spellings"
             )
         names[spelling] = name
-    return value
