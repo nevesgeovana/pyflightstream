@@ -21,6 +21,9 @@ FlightStream versions.
 
 ### Changed
 
+- The Trefftz C lift warning uses an absolute difference of 1e-3 when the
+  near-field lift magnitude is below 1e-3, avoiding ratios of round-off values.
+
 - Averaged far-field `SPURIOUS_COUNTS` now uses the near-field force history
   over the same steps as the far-field flux. Missing history produces `NA`
   with a named skip; instant ledger values retain the final loads comparison.

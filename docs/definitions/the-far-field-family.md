@@ -366,7 +366,8 @@ the Kutta-Joukowski lift of the trailing vorticity the plane holds (for a flat s
 of strip circulation `Gamma` it is `rho V integral Gamma dy`, and roll-up does not
 change it), written as `CL_T` of the C row. A plane that holds the wake the loads
 shed carries the solver's lift; where `CL_T` departs from `CL_near` by more
-than 10 percent, the probe field does not hold that circulation and its crossflow
+than 10 percent (or by an absolute difference greater than 1e-3 when
+`|CL_near| < 1e-3`), the probe field does not hold that circulation and its crossflow
 energy is not the loads' induced drag: the row is written and post writes a
 WARNING with both values. `E_T` of the C row is formed with `CL_near`.
 

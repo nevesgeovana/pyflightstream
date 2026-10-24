@@ -1023,13 +1023,19 @@ def _flag_a_plane_short_of_the_lift(
     rho, speed, _alpha, _beta = _flow(point)
     qs = 0.5 * rho * speed * speed * float(ctx.reference.sref_m2)
     cl_plane, cl_near = plane["L"] / qs, _near_cl_on_vinf(point)
-    if not (math.isfinite(cl_plane) and math.isfinite(cl_near) and cl_near):
+    if not (math.isfinite(cl_plane) and math.isfinite(cl_near)):
         return
-    ratio = cl_plane / cl_near
-    if abs(ratio - 1.0) > _PLANE_LIFT_TOLERANCE:
+    difference = abs(cl_plane - cl_near)
+    tolerance = 1e-3 if abs(cl_near) < 1e-3 else _PLANE_LIFT_TOLERANCE * abs(cl_near)
+    comparison = (
+        f"absolute difference {difference:.4g} from"
+        if abs(cl_near) < 1e-3
+        else f"{cl_plane / cl_near:.3g} times"
+    )
+    if difference > tolerance:
         warn(
             f"point={point.name} product=farfield: the Trefftz C plane carries a lift of its own "
-            f"vorticity CL_T = {cl_plane:.4g}, {ratio:.3g} times the solver's CL {cl_near:.4g}; "
+            f"vorticity CL_T = {cl_plane:.4g}, {comparison} the solver's CL {cl_near:.4g}; "
             "the probe field does not hold the circulation the loads shed, so its crossflow "
             "energy is not their induced drag (FR-1038, RPT-171)",
             PyflightstreamWarning,

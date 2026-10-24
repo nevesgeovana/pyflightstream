@@ -107,6 +107,36 @@ _FARFIELD_PRODUCTS__STATIONS = 160
 _FARFIELD_PRODUCTS___RULE = " " + "-" * 100 + "\n"
 
 
+@pytest.mark.parametrize(
+    "cl_plane,cl_near,flagged",
+    [
+        (-5.4e-15, -7.4e-5, False),
+        (0.0034, 0.0023, True),
+        (0.334, 0.3342, False),
+        (0.002, 0.0, True),
+    ],
+)
+def test_p0450_ff6_plane_lift_near_zero(cl_plane, cl_near, flagged):
+    """LIC-05: compare absolute lift below 1e-3, relative lift above it."""
+    from pyflightstream.post.farfield_products import _flag_a_plane_short_of_the_lift
+
+    loads = replace(
+        parse_loads(_LITB_POST__LOADS), freestream_velocity_m_s=10.0, reference_velocity_m_s=10.0
+    )
+    loads.total["CL"] = cl_near
+    point = SimpleNamespace(
+        name="point",
+        loads=loads,
+        state=SimpleNamespace(density_kg_m3=2.0),
+        vorticity_selection=None,
+    )
+    ctx = SimpleNamespace(reference=ReferenceValues(1.0, 1.0, 1.0))
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _flag_a_plane_short_of_the_lift(ctx, point, {"L": 100.0 * cl_plane})
+    assert bool(caught) is flagged
+
+
 @pytest.mark.parametrize("history", ["complete", "absent", "gap"])
 def test_p0450_ff6_g4_uses_same_window_loads(tmp_path, history):
     """LIC-04: post a two-step window; G4 compares the two means, never final loads."""
