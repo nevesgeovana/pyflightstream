@@ -1,4 +1,4 @@
-"""The ``[farfield]`` table of the pproc artifact and the lattice shape of ``[[probes]]``.
+"""The ``[[farfields]]`` entries of the pproc artifact and the lattice shape of ``[[probes]]``.
 
 Pipeline role: the input model of the far-field family (FR-454) and of the
 survey-lattice probe shape (FR-1072), validated at load with
@@ -82,7 +82,7 @@ def _unique(words: list[str], what: str) -> list[str]:
 class LatticeShape(BaseModel):
     """A survey lattice, by its rotor or its frame and the ``build_lattice`` parameters.
 
-    The keys of ``[farfield.ledgers]`` geometry and of one entry of a
+    The keys of ``[[farfields]]`` lattice geometry and of one entry of a
     ``[[probes]]`` entry's ``lattices`` (FR-1072): ``rotor`` names the rotor
     whose hub frame and tip radius place the lattice, or ``frame`` and
     ``tip_radius_m`` place a lattice that belongs to no rotor; the rest are the
@@ -172,7 +172,7 @@ class LatticeShape(BaseModel):
 
 
 class TrefftzSpec(BaseModel):
-    """The ``[farfield.trefftz]`` sub-table: the Trefftz variants and their geometry (FR-454).
+    """The internal translation of ``[[farfields]]`` Trefftz variants and geometry (FR-454).
 
     Attributes
     ----------
@@ -230,7 +230,7 @@ class TrefftzSpec(BaseModel):
 
     @model_validator(mode="after")
     def _each_variant_once(self) -> TrefftzSpec:
-        _unique(list(self.variant), "[farfield.trefftz] variant")
+        _unique(list(self.variant), "Trefftz variant")
         return self
 
     @property
@@ -251,7 +251,7 @@ class TrefftzSpec(BaseModel):
 
 
 class LedgersSpec(LatticeShape):
-    """The ``[farfield.ledgers]`` sub-table: the balances and their survey lattice (FR-38, FR-454).
+    """The internal translation of ``[[farfields]]`` balances and lattice (FR-38, FR-454).
 
     Attributes
     ----------

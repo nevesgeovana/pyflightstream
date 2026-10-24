@@ -46,6 +46,23 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("case", ["P0450-TW-04-SWEEP"])
+def test_p0450_rel1_retired_tables_only_in_translation(case):
+    root = Path(__file__).resolve().parents[2] / "src/pyflightstream"
+    found = []
+    for source in root.rglob("*.py"):
+        text = source.read_text(encoding="utf-8")
+        allowed = set()
+        if source.relative_to(root).as_posix() == "cases/_farfield_spec.py":
+            for node in ast.walk(ast.parse(text)):
+                if isinstance(node, ast.FunctionDef) and node.name == "farfield_entries":
+                    allowed.update(range(node.lineno, node.end_lineno + 1))
+        for number, line in enumerate(text.splitlines(), 1):
+            if re.search(r"\[farfield(?:\]|\.)", line) and number not in allowed:
+                found.append(f"{source.relative_to(root)}:{number}: {line.strip()}")
+    assert not found, found
+
+
 @pytest.mark.parametrize("case", ["P0450-TW-04-LAYOUT"])
 def test_p0450_rel1_plane_spacing_remedy_names_entry(case):
     from pyflightstream.probes.layouts import ProbeGeometryError, farfield_plane

@@ -1445,7 +1445,7 @@ def _point_record(entry: PointPlan) -> dict[str, Any]:
         del record["streamlines"]
     # FR-69: the summary and the run record state the default angles; plan.json keeps its layout.
     del record["angles_not_stated"]
-    # FR-1047: the far-field resolution, on a row with [farfield] only.
+    # FR-1047: the far-field resolution, on a row with [[farfields]] only.
     if not entry.farfield:
         del record["farfield"]
     for key in ("fsi", "inflow_harmonics"):

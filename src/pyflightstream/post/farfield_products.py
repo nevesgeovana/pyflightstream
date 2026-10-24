@@ -10,7 +10,7 @@ far-field axes (FR-1005), and states every point an analysis cannot serve as
 a named skip in ``products.json`` and a WARNING in ``post.log`` (FR-1007).
 Which analysis applies to which row is the one function the plan uses
 (:func:`pyflightstream.cases.farfield_inputs.applies`). A simulation whose pproc
-artifact has no ``[farfield]`` table writes nothing and logs nothing, so its
+artifact has no ``[[farfields]]`` entries writes nothing and logs nothing, so its
 products keep their bytes (FR-1060).
 """
 
@@ -164,7 +164,7 @@ def farfield_axes(alpha_deg: float, beta_deg: float) -> np.ndarray:
 
 
 def _spec(ctx: SimContext) -> FarfieldSpec:
-    """Return the simulation's ``[farfield]`` table; the step runs only where there is one."""
+    """Return the simulation's ``[[farfields]]`` entry; the step runs only where there is one."""
     return cast("FarfieldSpec", ctx.pproc.farfield)
 
 
@@ -1083,7 +1083,7 @@ def _analyses(spec, run_type: str, rotor: bool) -> tuple[list[str], dict[str, st
 
 
 def farfield_products(ctx: SimContext) -> None:
-    """Write the far-field tables of one simulation (FR-456), or nothing without ``[farfield]``.
+    """Write far-field tables of one simulation (FR-456), or nothing without ``[[farfields]]``.
 
     Parameters
     ----------

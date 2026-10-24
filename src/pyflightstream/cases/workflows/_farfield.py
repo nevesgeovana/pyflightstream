@@ -1,18 +1,18 @@
 """What the plan adds to a row's script for the far field (FR-455, FR-1074).
 
 The emission half of the far-field family: where a row's pproc artifact carries
-``[farfield]``, the builders call these functions to declare the outputs the far
+``[[farfields]]``, the builders call these functions to declare the outputs the far
 field reads, to add a section distribution over the families no declared one
 covers, to switch the wake on in the VTK export, and to lay the far-field
 plane or survey lattice as probe points. What is reused, added, not applicable
 or refused is the resolver's (:mod:`pyflightstream.cases.farfield_inputs`);
 the geometry is laid out by :mod:`pyflightstream.probes.layouts`. A row whose
-artifact has no ``[farfield]`` reaches none of this, so its script keeps its
+artifact has no ``[[farfields]]`` reaches none of this, so its script keeps its
 bytes.
 
 The plane and the lattice are chosen once (:func:`farfield_shapes`): a
 declared ``[[probes]]`` shape is reused when it is the far field's geometry
-after layout, or, where ``[farfield]`` states no geometry, when it is the one
+after layout, or, where ``[[farfields]]`` states no geometry, when it is the one
 declaration that qualifies; what is not declared is appended after every
 declared probe. Every chosen shape is recorded on the script for the run
 record, and post matches the exported positions to it (PFS-2081.56, .58).
@@ -568,7 +568,7 @@ def _lattice_choice(
 ) -> FarfieldShape:
     """Choose the survey lattice: a declared one, or the one the plan lays (FR-1045).
 
-    A ``[farfield.ledgers]`` that states no lattice key reuses the one declared
+    A ``[[farfields]]`` power entry that states no lattice key reuses the one declared
     lattice placed on its rotor or frame, when exactly one is and its azimuths
     carry the table's ``m_max``; otherwise a declaration whose laid-out points
     are the far field's own is reused, and none is added.
@@ -578,7 +578,7 @@ def _lattice_choice(
     if wanted is None:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: Trefftz C on a rotor row reads a station of the survey "
-            "lattice; state [farfield.ledgers] with the rotor"
+            "lattice; state the [[farfields]] power entry with the rotor"
         )
     own = _lattice_shape(case, script, frames, wanted, native_per_m, source="added", entry=None)
     qualifying: list[FarfieldShape] = []
@@ -811,7 +811,7 @@ def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
 
 
 def spec_sections(case: SimCase) -> Any:
-    """Return the row's ``[sections]`` table; a row with ``[farfield]`` has a pproc."""
+    """Return the row's ``[sections]`` table; a row with ``[[farfields]]`` has a pproc."""
     if case.pproc is None:
         raise CampaignConfigError(f"case {case.sim_id!r}: the far field needs a pproc artifact")
     return case.pproc.sections
