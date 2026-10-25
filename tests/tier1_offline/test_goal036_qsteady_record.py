@@ -138,7 +138,7 @@ def test_p0420_the_writer_keeps_key_order_and_records_the_datum_frame_axis():
         "rotor": "PROP",
         "blades": 3,
         "rpm": 1200.0,
-        "shaft_frame_axis": "Z",
+        "shaft_frame_axis": "X",
         "hub_m": [0.0, 0.0, 0.0],
         "axis_vector": [1.0, 0.0, 0.0],
         "diameter_m": 2.0,

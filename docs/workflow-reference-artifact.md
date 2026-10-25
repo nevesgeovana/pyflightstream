@@ -84,6 +84,29 @@ is the length of `families_blades`** and nothing else, so a row states
 no count and a sector mesh carrying one blade of four still reduces
 over four.
 
+`axis = "X"` (also Y or Z) is shorthand for
+`axis = { shaft = "X", vector_wrt_global = [1, 0, 0] }`.
+For an installed shaft, write for example:
+
+```toml
+axis = { shaft = "X", vector_wrt_global = [0.996, 0, 0.087] }
+blade1 = { azimuth_deg = 0.0, zero = "Y" }
+```
+
+The vector is normalized and must lie within 45 degrees of the positive global
+axis named by `shaft`. A bare vector is refused with its table translation.
+`zero` names one of the two remaining axes, with an optional sign such as `-Y`.
+Its signed global direction is projected onto the disk plane and normalized.
+
+`<ALIAS>_SMRP` is at the hub: its named shaft axis follows the installation
+vector, its named zero axis follows that projection, and the third axis makes
+the frame right-handed. An untilted shaft with an unsigned zero gives exactly
+the global axes. `<ALIAS>_RMRP` turns with the motion; `<ALIAS>_RMRP<k>` is
+turned to blade k, from `azimuth_deg` in the existing right-handed sense.
+`<ALIAS>_BMRP` is created for every rotor at the hub with global body axes.
+Use it in probes, sections, plot groups, framed far-field entries or a row
+geometry axis such as `AXIS: PUSHER_BMRP-X`.
+
 **`diameter_m` is per rotor, and it is what an advance ratio resolves
 against for a motion citing that block.** The top-level
 `rotor_diameter_m` above still answers for a row that names no
@@ -95,12 +118,10 @@ the block.
 record naming a rotor takes the sign from its block, and a record
 stating both is refused naming both.
 
-Nothing in the package reads the recorded rotor block except its `position`:
-the two unsteady run types turn it into a coordinate system
-named `<ALIAS>_SMRP` for the rotor it belongs to, the frame the reference probe lines and rotor plots are
-defined in, and the frame a rotor row turns about unless it states
-`ROTOR_ORIGIN`. The rest of the block, `radius_m` (optional and checked against the diameter when stated) and `n_blades`,
-stays recorded and changes no emitted script. See [The four rotor facts](mesh/reference.md#the-four-rotor-facts-a-reference-artifact-once-carried) for the retired fields and their replacement.
+The hub, installed shaft, blade datum, sign and families all determine the
+emitted rotor motion. `ROTOR_ORIGIN` overrides the hub on a flat rotor row.
+See [The four rotor facts](mesh/reference.md#the-four-rotor-facts-a-reference-artifact-once-carried)
+for the retired fields and their replacement.
 
 AND THE ARTIFACT DOES NOT REACH A RECIPE, which is worth knowing before
 you write one. `resolve_matrix` narrows this artifact to the reference

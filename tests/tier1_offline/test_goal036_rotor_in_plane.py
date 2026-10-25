@@ -39,9 +39,12 @@ IN_PLANE = ("CN_PUSHER", "CS_PUSHER", "CMN_PUSHER", "CMS_PUSHER")
 def _rotor(axis, *, hub=(0.0, 0.0, 0.0), zero="Y"):
     from pyflightstream.cases import BladeDatum, RotorBlock
 
-    return RotorBlock(
+    shaft = axis if isinstance(axis, str) else "XYZ"[max(range(3), key=lambda i: abs(axis[i]))]
+    rotor = RotorBlock(
         alias="PUSHER",
-        axis=axis,
+        axis=shaft
+        if isinstance(axis, str)
+        else {"shaft": shaft, "vector_wrt_global": [abs(v) for v in axis]},
         x_m=hub[0],
         y_m=hub[1],
         z_m=hub[2],
@@ -49,6 +52,13 @@ def _rotor(axis, *, hub=(0.0, 0.0, 0.0), zero="Y"):
         families_blades=["Blade1", "Blade2"],
         blade1=BladeDatum(zero=zero),
     )
+    if not isinstance(axis, str):
+        # Post also reads historical loads on negative global axes. Construct that
+        # old direction explicitly; new input validation forbids a >45-degree tilt.
+        rotor = rotor.model_copy(
+            update={"axis": rotor.axis.model_copy(update={"vector_wrt_global": tuple(axis)})}
+        )
+    return rotor
 
 
 def _row(run_id="camp/sim_1/P1", **coefficients):

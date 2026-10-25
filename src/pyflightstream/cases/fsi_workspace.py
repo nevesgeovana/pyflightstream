@@ -876,7 +876,7 @@ def wire_workspace_fsi(
     blades = list(rotor.families_blades)
     if len(blades) != cfg.blade_count or len(set(blades)) != len(blades):
         raise CampaignConfigError("FSI blade count differs from the unique resolved rotor blades.")
-    if rotor.axis != "X" or rotor.blade1.zero != "Z":
+    if rotor.axis_vector != (1.0, 0.0, 0.0) or rotor.blade1.zero != "Z":
         raise CampaignConfigError(
             "FSI rotor_frame requires shaft X and blade datum Z; another node/load basis "
             "has not been established by this adapter."
@@ -1211,7 +1211,7 @@ def wire_quasi_steady_sector_fsi(
             "blade, blade one, and the others are its periodic images."
         )
     if (
-        rotor.axis != "X"
+        rotor.axis_vector != (1.0, 0.0, 0.0)
         or rotor.blade1.zero != "Z"
         or abs(rotor.blade1.azimuth_deg) > 1e-12
         or any(abs(value) > _ORIGIN_TOLERANCE_M for value in rotor.origin)

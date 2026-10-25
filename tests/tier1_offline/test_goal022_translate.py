@@ -326,14 +326,15 @@ def test_goal022_frames_move_every_frame_the_rotor_owns_moves_to_its_new_origin(
     names = frame_names("\n".join(lines))
     moved = {names[int(line.split()[1])]: line.split()[2:] for line in origin_moves(lines)}
     assert sorted(moved) == [
+        "PUSHER_BMRP",
         "PUSHER_RMRP",
         "PUSHER_RMRP1",
         "PUSHER_RMRP2",
         "PUSHER_RMRP3",
         "PUSHER_SMRP",
     ], moved
-    # PFS-2119.024: this datum uses hub X along global Y and hub Z along the shaft X.
-    assert all(values == ["7.2", "0.05", "0.0", "METER"] for values in moved.values()), moved
+    # PFS-2168: the hub retains the global X/Y/Z labels for this untilted shaft.
+    assert all(values == ["7.25", "0.0", "0.0", "METER"] for values in moved.values()), moved
     assert not any(name.startswith("LIFT_L1") for name in moved), "the other rotor stays"
 
 
@@ -347,7 +348,7 @@ def test_goal022_frames_move_a_second_record_moves_them_from_where_the_first_lef
     hub = index_of_frame(lines, "PUSHER_SMRP")
     moves = [line.split() for line in origin_moves(lines) if line.split()[1] == str(hub)]
     assert len(moves) == 2
-    for move, expected in zip(moves, [(7.2, 0.05, 0.0), (7.18, 0.05, 0.0)], strict=True):
+    for move, expected in zip(moves, [(7.25, 0.0, 0.0), (7.25, 0.0, -0.02)], strict=True):
         assert move[-1] == "METER"
         assert tuple(map(float, move[2:5])) == pytest.approx(expected)
 
@@ -377,7 +378,7 @@ def test_goal022_frames_move_no_frame_moves_twice_however_many_names_it_answers_
         "AUX_FRAMES: PUSHER_SMRP,PUSHER_RMRP}",
     )
     frames = [line.split()[1] for line in origin_moves(lines_of(case))]
-    assert len(frames) == len(set(frames)) == 5, frames
+    assert len(frames) == len(set(frames)) == 6, frames  # including the body frame
 
 
 def test_goal022_frames_move_a_rotorless_alias_moves_no_frame_unless_named(tmp_path):

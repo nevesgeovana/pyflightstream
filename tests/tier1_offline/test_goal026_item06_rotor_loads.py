@@ -46,7 +46,7 @@ def _rotor(axis, *, hub=(0.0, 0.0, 0.0)):
 
     return RotorBlock(
         alias="PUSHER",
-        axis=axis,
+        axis=axis if isinstance(axis, str) else {"shaft": "Z", "vector_wrt_global": axis},
         x_m=hub[0],
         y_m=hub[1],
         z_m=hub[2],

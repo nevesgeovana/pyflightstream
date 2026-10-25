@@ -222,12 +222,12 @@ def emit_rotor_motion(
     if rotor is not None:
         frame_axis = _rotor_frame_axis(rotor)
         # X-F-1147: the block owns the axis, so a cell that disagrees is refused, not replaced.
-        if isinstance(rotor.axis, str) and axis.upper() not in {rotor.axis.upper(), frame_axis}:
+        if axis.upper() != frame_axis:
             raise CampaignConfigError(
                 f"case {case.sim_id!r} states {ROTOR_AXIS_VARIABLE} = {axis!r}, and its "
                 f"reference declares one rotor block, {rotor.alias}, whose axis is "
                 f"{rotor.axis!r}. The reference owns the axis, so the two cannot differ: "
-                f"write {ROTOR_AXIS_VARIABLE}: {rotor.axis} or delete the cell."
+                f"write {ROTOR_AXIS_VARIABLE}: {frame_axis} or delete the cell."
             )
         axis = frame_axis
     boundaries: Sequence[int | str] | str = "all"
@@ -665,7 +665,16 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         script,
         frame="rotor",
         speed=speed,
-        moving_frames=sorted(blade_frames.values()) if blade_frames else "all",
+        moving_frames=(
+            sorted(
+                {
+                    *blade_frames.values(),
+                    *(index for name, index in setup_frames.items() if name.endswith("_RMRP")),
+                }
+            )
+            if blade_frames or any(name.endswith("_RMRP") for name in setup_frames)
+            else "all"
+        ),
     )
     # THE CLOCK COMES OFF THE SAME RESOLVER THE WINDOW USES, so a row
     # stating its azimuthal step and its revolutions emits the seconds

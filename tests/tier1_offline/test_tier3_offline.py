@@ -955,7 +955,7 @@ def test_a_setup_with_frames_renders_them_after_the_packages_own_and_before_the_
     # A frame is a keyword block: EDIT_COORDINATE_SYSTEM, then FRAME n, then NAME.
     edits = [i for i, line in enumerate(lines) if line == "EDIT_COORDINATE_SYSTEM"]
     names = [lines[i + 2].split(" ", 1)[1] for i in edits]
-    assert names[:3] == ["MRP", "NAC", "ROTOR_SMRP"], names
+    assert names[:4] == ["MRP", "ROTOR_BMRP", "NAC", "ROTOR_SMRP"], names
     named = lines.index("NAME NAC")
     motion = next(i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_MOTION"))
     assert named < motion, "the setup's frame must exist before the motion is created"

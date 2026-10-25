@@ -7,6 +7,20 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.45.1
+
+Rotor frames keep the axis labels stated by the reference. For example,
+`axis = "X"` and `blade1 = { azimuth_deg = 0, zero = "Y" }` now give SMRP
+the global axes. Remove coordinate permutations that compensated for the
+0.42.0 to 0.45.0 Z-shaft frame. `<ALIAS>_BMRP` provides global body axes at
+the hub even when the shaft is tilted.
+
+Replace bare vectors such as `axis = [0.996, 0, 0.087]` with
+`axis = { shaft = "X", vector_wrt_global = [0.996, 0, 0.087] }`.
+The shaft letter names the rotor-frame axis; the vector gives its direction
+in global coordinates. The direction must be within 45 degrees of that
+positive global axis. `blade1.zero` must name another axis, with an optional sign.
+
 ## 0.45.0
 
 Pass `beta_deg` to `polar_row`, including `beta_deg=0.0` for zero sideslip.

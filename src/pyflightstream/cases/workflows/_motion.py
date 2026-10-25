@@ -431,9 +431,7 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         # the row's variables, so filling them here makes the whole rotor
         # path read the reference without one of those readers changing.
         variables[MOVING_BOUNDARIES_VARIABLE] = rotor.alias
-        # For a vector shaft, _hub_basis makes the shaft the hub frame's third
-        # axis, so the motion uses Z of that frame. A row variable holds a string,
-        # not a vector. A letter shaft retains the identity frame and that letter.
+        # Both input spellings retain the named shaft axis in the hub frame.
         variables[ROTOR_AXIS_VARIABLE] = _rotor_frame_axis(rotor)
         variables[ROTOR_ORIGIN_VARIABLE] = "{},{},{}".format(*rotor.origin)
         variables[BLADES_VARIABLE] = str(rotor.blade_count)

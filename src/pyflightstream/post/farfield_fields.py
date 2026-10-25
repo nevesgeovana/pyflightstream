@@ -57,7 +57,7 @@ from pyflightstream.farfield import (
 )
 from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.lattice import ProbeLattice
-from pyflightstream.probes.layouts import farfield_plane, lattice_points
+from pyflightstream.probes.layouts import farfield_plane, lattice_basis, lattice_points
 from pyflightstream.results.loads import parse_probe_points
 
 if TYPE_CHECKING:
@@ -68,6 +68,7 @@ __all__ = [
     "FarLayout",
     "ProbeSamples",
     "average_rows",
+    "axial_coefficient",
     "coordinate_tolerance",
     "derived_layout",
     "far_samples",
@@ -84,6 +85,31 @@ __all__ = [
 
 _NA = float("nan")
 _REFERENCE = "REFERENCE"
+
+
+def axial_coefficient(total: Mapping[str, Any], axis: str | Sequence[float]) -> float:
+    """Project global force coefficients onto a letter or installed shaft direction.
+
+    Parameters
+    ----------
+    total : mapping
+        Global Cx, Cy and Cz load coefficients.
+    axis : str or sequence of float
+        Shaft letter or unit direction in global coordinates.
+
+    Returns
+    -------
+    float
+        Signed axial coefficient; missing contributing components give NaN.
+    """
+    weights = {axis: 1.0} if isinstance(axis, str) else dict(zip("XYZ", axis, strict=True))
+    return sum(
+        weight * float(total.get(f"C{letter.lower()}", _NA))
+        for letter, weight in weights.items()
+        if weight
+    )
+
+
 #: The columns of ``farfield/<group>_ledgers*.csv`` after ``POL``, ``STEP`` and the
 #: condition block (FR-1056).
 LEDGER_COLUMNS: tuple[str, ...] = (
@@ -373,8 +399,8 @@ class FarLayout:
         The survey lattice, in metres.
     lattice_m : numpy.ndarray or None
         The lattice's points.
-    axis : str
-        The lattice's shaft axis letter.
+    axis : str or tuple of float
+        The lattice's shaft letter or global unit direction.
     lattice_local_m : numpy.ndarray or None
         The lattice's points in the frame its positions were recorded in, where
         that is not the reference frame (a declared lattice of a frame).
@@ -396,7 +422,7 @@ class FarLayout:
     plane_grid: tuple[float, float, float] | None = None
     lattice: ProbeLattice | None = None
     lattice_m: np.ndarray | None = None
-    axis: str = "X"
+    axis: str | tuple[float, float, float] = "X"
     lattice_local_m: np.ndarray | None = None
     lattice_origin_m: np.ndarray | None = None
     plane_placed: bool = True
@@ -449,7 +475,7 @@ def recorded_layout(shapes: Sequence[Mapping[str, Any]]) -> FarLayout:
                 count = len(laid.points)
             elif kind == "lattice":
                 lattice = ProbeLattice.model_validate(shape["lattice"])
-                axis = str(shape["axis"])
+                axis = shape["axis"]
                 origin = np.asarray([float(v) for v in shape["origin_m"]])
                 points = lattice_points(lattice, axis=axis) + origin
                 frame = str(shape.get("positions_frame", _REFERENCE)).strip().upper()
@@ -481,7 +507,7 @@ def derived_layout(
     *,
     plane_grid: tuple[float, float, float] | None = None,
     direction: Sequence[float] | None = None,
-    lattice: tuple[ProbeLattice, np.ndarray | None, str] | None = None,
+    lattice: tuple[ProbeLattice, np.ndarray | None, str | tuple[float, float, float]] | None = None,
 ) -> FarLayout:
     """Lay the far-field probes a record without a layout should hold, from the table as it stands.
 
@@ -657,7 +683,9 @@ def frame_lattice(shape: LatticeShape) -> tuple[ProbeLattice, None, str]:
     return shape.build(float(shape.tip_radius_m or 0.0)), None, "X"
 
 
-def rotor_lattice(shape: LatticeShape, rotor: Any) -> tuple[ProbeLattice, np.ndarray, str]:
+def rotor_lattice(
+    shape: LatticeShape, rotor: Any
+) -> tuple[ProbeLattice, np.ndarray, str | tuple[float, float, float]]:
     """Return a rotor's lattice, its points in metres (reference frame) and its axis letter.
 
     Parameters
@@ -677,12 +705,7 @@ def rotor_lattice(shape: LatticeShape, rotor: Any) -> tuple[ProbeLattice, np.nda
     PyflightstreamError
         If the rotor axis is not an axis letter.
     """
-    axis = str(getattr(rotor, "axis", "")).strip().upper()
-    if axis not in _CYCLIC:
-        raise PyflightstreamError(
-            f"the rotor {shape.rotor!r} states its axis as {getattr(rotor, 'axis', None)!r}; a "
-            "lattice is laid along an axis letter"
-        )
+    axis = rotor.axis if isinstance(rotor.axis, str) else rotor.axis_vector
     lattice = shape.build(float(rotor.diameter_m) / 2.0)
     origin = np.array([float(getattr(rotor, name, 0.0)) for name in ("x_m", "y_m", "z_m")])
     return lattice, lattice_points(lattice, axis=axis) + origin, axis
@@ -782,7 +805,7 @@ def lattice_samples(
     samples: ProbeSamples,
     block: slice | np.ndarray,
     lattice: ProbeLattice,
-    axis: str,
+    axis: str | Sequence[float],
     *,
     q: float,
     hub: tuple[float, np.ndarray, np.ndarray] | None = None,
@@ -803,10 +826,7 @@ def lattice_samples(
             axis=shaft,
             origin=origin,
         )
-    order = _CYCLIC[axis]
-    local = np.empty_like(velocity)
-    for source, target in enumerate(order):
-        local[:, source] = velocity[:, target]
+    local = velocity @ lattice_basis(axis).T
     p_prime = samples.cp[block] * q
     planes = len(lattice.stations) * lattice.n_r * lattice.n_psi
     shape = (len(lattice.stations), lattice.n_r, lattice.n_psi)

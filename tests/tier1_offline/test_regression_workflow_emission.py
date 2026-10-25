@@ -429,15 +429,17 @@ class TestCasesWorkflowsExports:
 _CASES_WORKFLOWS_FRAMES__SHAFT = (1.0, 0.0, 0.1)
 
 
-_CASES_WORKFLOWS_FRAMES__PUSHER = RotorBlock(
-    alias="PUSHER",
-    axis=_CASES_WORKFLOWS_FRAMES__SHAFT,
-    rpm_sign=1,
-    diameter_m=1.8,
-    x_m=7.2,
-    families_general=["Spinner"],
-    families_blades=["Blade1", "Blade2", "Blade3"],
-    blade1=BladeDatum(azimuth_deg=30.0, zero="Y"),
+_CASES_WORKFLOWS_FRAMES__PUSHER = RotorBlock.model_validate(
+    dict(
+        alias="PUSHER",
+        axis={"shaft": "X", "vector_wrt_global": _CASES_WORKFLOWS_FRAMES__SHAFT},
+        rpm_sign=1,
+        diameter_m=1.8,
+        x_m=7.2,
+        families_general=["Spinner"],
+        families_blades=["Blade1", "Blade2", "Blade3"],
+        blade1=BladeDatum(azimuth_deg=30.0, zero="Y"),
+    )
 )
 
 
@@ -453,7 +455,7 @@ def _cases_workflows_frames___flat_row(tmp_path, **variables: str) -> SimCase:
             "WORKFLOW": "unsteady_rotor",
             "VELOCITY": "30.0",
             "RPM": "1200",
-            "ROTOR_AXIS": "Z",
+            "ROTOR_AXIS": "X",
             "DELTA_TIME": "0.0001",
             "TIME_ITERATIONS": "720",
             "LAST_REVS_AVG": "1",
@@ -544,7 +546,7 @@ class TestCasesWorkflowsFrames:
             and rotation[2] != "ROTATION_AXIS Y"
         }
         assert [turns[int(blade["FRAME"])] for blade in blades] == [
-            [f"ROTATION_FRAME {int(hub['FRAME'])}", "ROTATION_AXIS Z", f"ANGLE {angle}"]
+            [f"ROTATION_FRAME {int(hub['FRAME'])}", "ROTATION_AXIS X", f"ANGLE {angle}"]
             for angle in (30.0, 150.0, 270.0)
         ]
 
@@ -558,7 +560,7 @@ class TestCasesWorkflowsFrames:
                 update={"blade1": BladeDatum(azimuth_deg=30.0, zero="-Y")}
             )
         )
-        assert minus[0] == pytest.approx(tuple(-each for each in plus[0])), requirement
+        assert minus[0] == pytest.approx(plus[0]), requirement
         assert minus[1] == pytest.approx(tuple(-each for each in plus[1]))
 
     @staticmethod
@@ -627,11 +629,14 @@ class TestCasesWorkflowsMotion:
 
     @staticmethod
     def test_p0400_cw_motion_a_vector_shaft_on_a_motions_row_uses_its_shaft(tmp_path):
-        """P0400-CW-MOTION (PFS-2104.008): local Z follows the declared vector shaft."""
+        """PFS-2168: the declared local X follows the installed vector shaft."""
         requirement = "P0400-CW-MOTION"
         case = _cases_workflows_motion__two_rotor_case(tmp_path)
         tilted = type(_CASES_WORKFLOWS_MOTION__PUSHER).model_validate(
-            {**_CASES_WORKFLOWS_MOTION__PUSHER.model_dump(), "axis": (1.0, 0.0, 0.1)}
+            {
+                **_CASES_WORKFLOWS_MOTION__PUSHER.model_dump(),
+                "axis": {"shaft": "X", "vector_wrt_global": (1.0, 0.0, 0.1)},
+            }
         )
         case = case.model_copy(update={"rotors": {**case.rotors, "PUSHER": tilted}})
         script = Script("26.124")
@@ -642,7 +647,7 @@ class TestCasesWorkflowsMotion:
             if line == "EDIT_COORDINATE_SYSTEM":
                 name = lines[at + 2].split(" ", 1)[1]
                 fields = dict(each.split(" ", 1) for each in lines[at + 3 : at + 15])
-                placements[name] = tuple(float(fields[f"VECTOR_Z_{axis}"]) for axis in "XYZ")
+                placements[name] = tuple(float(fields[f"VECTOR_X_{axis}"]) for axis in "XYZ")
         for name in ("PUSHER_SMRP", "PUSHER_RMRP"):
             assert placements[name] == pytest.approx(tilted.axis_vector), requirement
 

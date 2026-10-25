@@ -140,21 +140,30 @@ def _flat_rotor_frames(case: SimCase, index: int | None) -> dict[str, int | None
 
 
 def _hub_basis(block: RotorBlock | None) -> tuple[tuple[float, ...], tuple[float, ...]]:
-    """Return the hub frame's first two axes, square to the rotor's shaft.
+    """Return the labelled hub frame's X and Y directions.
 
     A row that turns no declared rotor keeps the geometry's own axes because
     there is no shaft to align to.
     """
     if block is None or _uses_letter_frame(block):
-        # Keep the geometry basis only for its own datum. Batch 8 measured
-        # that a letter frame ignores a different blade1.zero.
+        # An untilted shaft and an unsigned datum retain all global labels.
         return (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)
     datum = AXIS_UNIT_VECTORS[block.blade1.zero.lstrip("+-")]
     # THE SIGN IS KEPT: it reverses the direction the azimuth is measured FROM
-    # (`BladeDatum`), so `-Y` and `+Y` are opposite hub x axes, not one.
+    # (`BladeDatum`), so `-Y` and `+Y` prescribe opposite hub Y directions.
     if block.blade1.zero.startswith("-"):
         datum = (-datum[0], -datum[1], -datum[2])
-    return frame_basis_for_shaft(block.axis_vector, datum)
+    radial, _ = frame_basis_for_shaft(block.axis_vector, datum)
+    axes = {block.shaft: block.axis_vector, block.blade1.zero.lstrip("+-"): radial}
+    missing = next(name for name in "XYZ" if name not in axes)
+    left, right = {"X": ("Y", "Z"), "Y": ("Z", "X"), "Z": ("X", "Y")}[missing]
+    a, b = axes[left], axes[right]
+    axes[missing] = (
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    )
+    return axes["X"], axes["Y"]
 
 
 def _rotor_frame(case: SimCase, script: Script) -> int | None:
@@ -179,9 +188,7 @@ def _rotor_frame(case: SimCase, script: Script) -> int | None:
         )
     else:
         return None
-    # The hub frame follows the shaft, including its installed pitch and toe.
-    # A matching letter datum retains the geometry basis; any other datum
-    # uses the shaft-aligned vector basis measured in batch 8.
+    # Installed pitch and toe change directions, never the user's axis labels.
     x_axis, y_axis = _hub_basis(block)
     return helpers.coordinate_frame(
         script,
@@ -274,15 +281,41 @@ def _pproc_frame(
 
 
 def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:
-    """Create the custom frames the row's setup defines, returning name to index.
+    """Create rotor body frames and custom frames, returning name to index.
 
     PFS-2034.01 (design/69). Emitted after the
-    package's own frame (MRP) so their indices stay what the reference
-    scripts numbered them, and before any motion, so a rotor whose axis
+    package's own frame (MRP), and before any motion, so a rotor whose axis
     frame is one of these turns about a frame that exists. A setup that
-    defines none emits nothing, which is every golden.
+    defines no custom frames still creates each declared rotor's global-axis BMRP.
     """
     created: dict[str, int] = {}
+    block = _the_rotor_a_flat_row_turns(case)
+    hub_index = script.entities.labels("frames").get("rotor")
+    if block is not None and not case.motions and hub_index is not None:
+        placement = script.frame_placements[hub_index]
+        assert placement.origin is not None
+        name = f"{block.alias}_RMRP"
+        created[name] = helpers.coordinate_frame(
+            script,
+            name=name,
+            origin=placement.origin,
+            x_axis=_hub_basis(block)[0],
+            y_axis=_hub_basis(block)[1],
+            label=name,
+        )
+    for block in case.rotors.values():
+        name = f"{block.alias}_BMRP"
+        origin = _point_from_metres(case, script, block.origin, "rotor x_m/y_m/z_m")
+        if not case.motions and _variable(case, ROTOR_ORIGIN_VARIABLE) is not None:
+            origin = _origin(case)
+        created[name] = helpers.coordinate_frame(
+            script,
+            name=name,
+            origin=origin,
+            x_axis=(1.0, 0.0, 0.0),
+            y_axis=(0.0, 1.0, 0.0),
+            label=name,
+        )
     for spec in case.frames:
         created[spec.name] = helpers.coordinate_frame(
             script,
@@ -545,7 +578,7 @@ def _translations(
         _keep_the_frame_this_alias_turns_from(case, record, script, frames, kept)
         owned = _frames_the_alias_owns(case, record, frames)
         aux_names = [part.strip() for part in record.get("AUX_FRAMES", "").split(",")]
-        sources = {name: f"ALIAS: {cited}" for name in owned}
+        sources = {name: f"ALIAS: {cited}" for name in _translated_frames(record, frames, owned)}
         sources.update({name: "AUX_FRAMES" for name in aux_names if name and name not in owned})
         moving_frames = [
             _rotation_frame(case, name, frames, "AUX_FRAMES", TRANSLATE_VARIABLE)
@@ -603,6 +636,14 @@ def _translations(
                 units="METER",
             )
     return _the_copies_kept(frames)
+
+
+def _translated_frames(
+    record: Mapping[str, str], frames: Mapping[str, int], owned: list[str]
+) -> list[str]:
+    """Include the global-axis body frame when translating its hub."""
+    body_name = (record.get(ROTATION_ALIAS_KEY) or "").strip().upper() + "_BMRP"
+    return [*owned, *([body_name] if body_name in frames else [])]
 
 
 def _finite_angle(case: SimCase, text: object) -> float:
@@ -1111,8 +1152,7 @@ def _rotor_blade_frames(
             "ROTATE_COORDINATE_SYSTEM",
             frame=index,
             rotation_frame=hub,
-            # A datum-aligned hub turns about its local Z. The preserved
-            # letter basis turns about the original letter.
+            # The shaft keeps the axis label chosen in the reference.
             rotation_axis=_rotor_frame_axis(rotor),
             angle=rotor.blade1.azimuth_deg + (number - 1) * 360.0 / count,
         )

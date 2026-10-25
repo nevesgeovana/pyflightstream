@@ -385,11 +385,7 @@ def _refuse_what_is_not_the_rotor(
 
 
 def _the_shaft_letter(rotor: RotorBlock) -> str:
-    """Return the axis of the hub frame the rotor turns about: its letter, or Z of a shaft.
-
-    :func:`_hub_basis` builds a vector shaft's hub frame with the shaft as its
-    third axis, as :func:`_motion_view` reads it.
-    """
+    """Return the declared shaft axis of the labelled hub frame."""
     return _rotor_frame_axis(rotor)
 
 

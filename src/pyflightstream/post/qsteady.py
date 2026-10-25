@@ -711,7 +711,7 @@ def shaft_in_section_frame(record: QsteadyRecord, frame: str) -> tuple[float, fl
     clocked = _CLOCKING_FRAME.match(name)
     if clocked is not None:
         name = clocked.group("frame")
-    if name in GEOMETRY_SECTION_FRAMES:
+    if name in GEOMETRY_SECTION_FRAMES or name == f"{record.rotor_alias}_BMRP".upper():
         vector = tuple(float(value) for value in record.axis_vector)
         return (vector[0], vector[1], vector[2])
     alias = str(record.rotor_alias).strip().upper()

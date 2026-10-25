@@ -147,21 +147,27 @@ def _whole_configuration_force(ctx: SimContext, point: str, axis: str) -> bool:
 
 
 def _window_near_forces(
-    ctx: SimContext, point: str, chosen: list[_Instant], axis: str
+    ctx: SimContext, point: str, chosen: list[_Instant], axis: str | Sequence[float]
 ) -> dict[float, float]:
     """Read whole-configuration forces in N on exactly the probe window's steps."""
     assert ctx.pproc.farfield is not None
     if not chosen or "axial" not in ctx.pproc.farfield.balances:
         return {}
     source = ctx.plots_tables.get(point)
-    column = f"F{axis}_{AXES_PLOT_GROUP}"
+    weights = {axis: 1.0} if isinstance(axis, str) else dict(zip("XYZ", axis, strict=True))
     try:
         if source is None:
             raise ValueError("no point plots table")
         _, series = plots_table_series(source)
-        if column not in series.fields or not _whole_configuration_force(ctx, point, axis):
-            raise ValueError(f"no whole-configuration global force {column}")
-        forces = dict(zip(series.steps, -series.fields[column][:, 0], strict=True))
+        projected = np.zeros(len(series.steps))
+        for letter, weight in weights.items():
+            if weight == 0:
+                continue
+            column = f"F{letter}_{AXES_PLOT_GROUP}"
+            if column not in series.fields or not _whole_configuration_force(ctx, point, letter):
+                raise ValueError(f"no whole-configuration global force {column}")
+            projected -= weight * series.fields[column][:, 0]
+        forces = dict(zip(series.steps, projected, strict=True))
         missing = [
             int(_step(i)) for i in chosen if not math.isfinite(forces.get(_step(i), math.nan))
         ]
@@ -1041,7 +1047,9 @@ _NA = float("nan")
 _AXES = {"X": np.array([1.0, 0.0, 0.0]), "Y": np.array([0.0, 1.0, 0.0]), "Z": np.array([0, 0, 1.0])}
 
 
-def _lattice_of(ctx: SimContext, spec) -> tuple[Any, np.ndarray | None, str] | None:
+def _lattice_of(
+    ctx: SimContext, spec
+) -> tuple[Any, np.ndarray | None, str | tuple[float, float, float]] | None:
     if spec.ledgers is None:
         return None
     if spec.ledgers.rotor is None:
@@ -1090,13 +1098,14 @@ def _hub(
     if layout.lattice_origin_m is not None:
         letter, origin = layout.axis, np.asarray(layout.lattice_origin_m, dtype=np.float64)
     elif rotor is not None:
-        letter = str(rotor.axis)
+        letter = rotor.axis_vector
         origin = np.asarray([rotor.x_m, rotor.y_m, rotor.z_m], dtype=np.float64)
     else:
         raise PyflightstreamError(
             f"the reference names no rotor {alias!r}, so the hub its probes turn about is unknown"
         )
-    return 2.0 * math.pi * float(rpm) / 60.0, _AXES[letter.strip().upper()], origin
+    shaft = _AXES[letter.strip().upper()] if isinstance(letter, str) else np.asarray(letter)
+    return 2.0 * math.pi * float(rpm) / 60.0, shaft, origin
 
 
 def _flow(point: PolarPoint) -> tuple[float, float, float, float]:

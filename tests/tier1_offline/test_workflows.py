@@ -184,7 +184,7 @@ from tests.tier1_offline.test_restart_continuation import SAVED as _FR314_COUNTE
 from tests.tier1_offline.test_restart_continuation import (
     _continuing_case as _fr314_counter_everywhere___continuing_case,
 )
-from tests.workflow_payloads import WORKFLOW_PAYLOADS, workflow_payload
+from tests.workflow_payloads import WORKFLOW_PAYLOADS, before_frame_labels_0451, workflow_payload
 from tests.workflow_payloads import workflow_payload as _fr314_counter_everywhere__workflow_payload
 
 REPO = Path(__file__).resolve().parents[2]
@@ -871,7 +871,7 @@ def test_the_rotor_step_emits_the_whole_motion_from_the_row():
         "SET_MOTION_BOUNDARIES 1 -1",
         "SET_MOTION_MOVING_FRAMES 1 -1",
         "SET_MOTION_COORDINATE_SYSTEM 1 2",
-        "SET_MOTION_ROTOR_AXIS 1 Z",
+        "SET_MOTION_ROTOR_AXIS 1 X",
         "SET_MOTION_ROTOR_RPM 1 1200.0",
     ], f"the motion block is not what the row says; got {emitted}"
 
@@ -1696,7 +1696,7 @@ def rotor_case_full() -> SimCase:
     return rotor_case(
         LAST_REVS_AVG=None,
         LAST_ITERS_AVG="36",
-        ROTOR_AXIS="Z",
+        ROTOR_AXIS="X",
         ROTOR_ORIGIN="0.1,0.2,0.3",
         MOVING_BOUNDARIES="1,2",
         DELTA_TIME="0.00025",
@@ -4582,23 +4582,23 @@ def test_the_rotor_run_creates_one_axis_frame_per_blade_and_moves_them(tmp_path)
     lines = rendered(case).splitlines()
     assert "NAME BladeAxis1" in lines
     at = lines.index("NAME BladeAxis1")
-    assert lines[at - 1] == "FRAME 4", "MRP is 2, ROTOR_SMRP is 3, the first blade axis is 4"
+    assert lines[at - 1] == "FRAME 6", "MRP 2, SMRP 3, RMRP 4, BMRP 5, first blade 6"
     rotate = lines.index("ROTATE_COORDINATE_SYSTEM")
     assert lines[rotate + 1 : rotate + 5] == [
-        "FRAME 4",
+        "FRAME 6",
         "ROTATION_FRAME 3",
-        "ROTATION_AXIS Z",
+        "ROTATION_AXIS X",
         "ANGLE 0.0",
     ]
-    moving = lines.index("SET_MOTION_MOVING_FRAMES 1 1")
-    assert lines[moving + 1] == "4", "the blade axis frame turns with the blades"
+    moving = lines.index("SET_MOTION_MOVING_FRAMES 1 2")
+    assert lines[moving + 1] == "4,6", "the rotating hub and blade frame turn with the blades"
     # The pproc entries citing BLADE_AXIS take the blade's own frame: the
     # section in XY and the LOCAL plots, one per blade.
     section = [i for i, line in enumerate(lines) if line == "NEW_SURFACE_SECTION_DISTRIBUTION"]
-    assert lines[section[0] + 1 : section[0] + 3] == ["FRAME 4", "PLANE XY"]
+    assert lines[section[0] + 1 : section[0] + 3] == ["FRAME 6", "PLANE XY"]
     assert "NAME CL_LOCAL_Blade1" in lines
     at = lines.index("NAME CL_LOCAL_Blade1")
-    assert lines[at - 3] == "FRAME 4"
+    assert lines[at - 3] == "FRAME 6"
     assert "NAME CL_PROP_X" in lines and "NAME CL_PROP_XS" in lines
     at = lines.index("NAME CL_PROP_XS")
     assert lines[at + 1 : at + 3] == ["BOUNDARIES 2", "1,2"], "the blade and the spinner"
@@ -4831,7 +4831,7 @@ def test_two_motions_emit_two_motion_blocks_with_their_frames(tmp_path):
     lines = text.splitlines()
     assert lines.count("CREATE_NEW_MOTION ROTARY") == 2
     assert "SET_MOTION_ROTOR_RPM 1 1200.0" in lines and "SET_MOTION_ROTOR_RPM 2 2400.0" in lines
-    assert "SET_MOTION_ROTOR_AXIS 1 Z" in lines and "SET_MOTION_ROTOR_AXIS 2 Z" in lines
+    assert "SET_MOTION_ROTOR_AXIS 1 X" in lines and "SET_MOTION_ROTOR_AXIS 2 X" in lines
     boundaries = {
         line.split()[1]: lines[index + 1]
         for index, line in enumerate(lines)
@@ -4863,16 +4863,16 @@ def test_two_motions_emit_two_motion_blocks_with_their_frames(tmp_path):
         for i, line in enumerate(lines)
         if line.startswith("ORIGIN_X")
     ]
-    # THREE FRAMES PER ROTOR SINCE 0.15.0, all at that rotor's hub: the
+    # FOUR FRAMES PER ROTOR, all at that rotor's hub: the body BMRP,
     # static <ALIAS>_SMRP, the moving <ALIAS>_RMRP, and one <ALIAS>_RMRP1
     # for the rotor's single blade family. The per-blade frame is what the
     # reference's `families_blades` buys, and it did not exist while a
     # record named a boundary rather than a rotor.
-    assert origins.count((0.0, 1.5, 0.0)) == 3 and origins.count((0.0, -1.5, 0.0)) == 3, (
+    assert origins.count((0.0, 1.5, 0.0)) == 4 and origins.count((0.0, -1.5, 0.0)) == 4, (
         f"the frames do not sit at the two hubs: {origins}"
     )
-    assert lines.count("CREATE_NEW_COORDINATE_SYSTEM") == 6, (
-        "three frames per rotor and no package-level one (no reference, so no MRP)"
+    assert lines.count("CREATE_NEW_COORDINATE_SYSTEM") == 8, (
+        "four frames per rotor and no package-level one (no reference, so no MRP)"
     )
 
 
@@ -6759,12 +6759,25 @@ _FR314_COUNTER_EVERYWHERE__CHANGED_GOLDENS = {
 def _fr314_counter_everywhere___sha(text: str) -> str:
     import hashlib
 
+    text = before_frame_labels_0451(text)
     digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
     # SWEEP-REF-1 changes only the manual id in the shared 25.000 refusal.
     # Keep the recorded tag digest intact, admitting only these exact bytes.
     if digest == "2d2d375b913177226b6d1cf4c536cf592f77b661e1a20575bb54bf0b037f483d":
         return "b2326e835eb707bbf4fac84f0e64a0232d8a7f2d77a9e61ed33d3eb3dbdb50f5"
     return _P0420_GOLDEN_DIGESTS["digests"].get(digest, digest)
+
+
+def test_p0451_frame_golden_admissions_reject_an_unrelated_command():
+    records = json.loads(
+        (Path(__file__).parent / "fixtures" / "golden_frames_0451.json").read_text()
+    )
+    assert records["paths"]
+    for name in records["paths"]:
+        text = "\n".join((_FR314_COUNTER_EVERYWHERE__REPO / name).read_text().splitlines())
+        assert before_frame_labels_0451(text) != text, name
+        planted = text + "\nSTART_SOLVER"
+        assert before_frame_labels_0451(planted) == planted, name
 
 
 def test_p0420_datum_golden_admissions_reject_an_unrelated_command():
@@ -6774,6 +6787,7 @@ def test_p0420_datum_golden_admissions_reject_an_unrelated_command():
     assert len(_P0420_GOLDEN_DIGESTS["paths"]) == 28
     for name in _P0420_GOLDEN_DIGESTS["paths"]:
         text = "\n".join((_FR314_COUNTER_EVERYWHERE__REPO / name).read_text().splitlines())
+        text = before_frame_labels_0451(text)
         digest = hashlib.sha256(text.encode()).hexdigest()
         previous = _P0420_GOLDEN_DIGESTS["digests"][digest]
         assert _fr314_counter_everywhere___sha(text) == previous
@@ -7004,6 +7018,7 @@ def _fr314_counter_everywhere___golden_classes(record: dict) -> tuple[set, set, 
             .read_text(encoding="utf-8")
             .splitlines()
         )
+        text = before_frame_labels_0451(text)
         if _fr314_counter_everywhere___sha(text) == digest:
             continue
         if (
@@ -7263,6 +7278,7 @@ class TestFr314CounterEverywhere:
                 .read_text(encoding="utf-8")
                 .splitlines()
             )
+            text = before_frame_labels_0451(text)
             stripped = _fr314_counter_everywhere___strip_fr321_wake(text)
             assert (
                 stripped is not None
@@ -7298,6 +7314,7 @@ class TestFr314CounterEverywhere:
             .read_text(encoding="utf-8")
             .splitlines()
         )
+        text = before_frame_labels_0451(text)
         if name in _FR314_COUNTER_EVERYWHERE__FR321_GOLDENS:
             # The row also keeps the 4R wake of FR-321 (0.34.0): that line out first, alone.
             text = _fr314_counter_everywhere___strip_fr321_wake(text) or ""
@@ -7958,7 +7975,14 @@ def test_p0430_f028_a_rotor_owns_its_blade_frames_and_not_a_name_that_shares_the
     lines = lines_of(case)
     names = frame_names("\n".join(lines))
     moved = sorted(names[int(line.split()[1])] for line in origin_moves(lines))
-    assert moved == ["PUSHER_RMRP", "PUSHER_RMRP1", "PUSHER_RMRP2", "PUSHER_RMRP3", "PUSHER_SMRP"]
+    assert moved == [
+        "PUSHER_BMRP",
+        "PUSHER_RMRP",
+        "PUSHER_RMRP1",
+        "PUSHER_RMRP2",
+        "PUSHER_RMRP3",
+        "PUSHER_SMRP",
+    ]
 
 
 @pytest.mark.parametrize("angle", ["nan", "inf", "three"])

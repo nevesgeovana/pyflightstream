@@ -134,7 +134,7 @@ def rendered(case: SimCase) -> str:
     ],
 )
 def test_p0420_p1_1d_blade_datum_matches_measured_quarter_turn(tmp_path, shaft, zero, expected):
-    """PFS-2119.024 batch 8: blade 2's X axis after a right-handed quarter turn."""
+    """PFS-2168: the named zero axis keeps the measured right-handed quarter turn."""
     case = two_rotor_case(tmp_path)
     lifter = LIFTER.model_copy(update={"axis": shaft, "blade1": BladeDatum(zero=zero)})
     case = case.model_copy(update={"rotors": {**case.rotors, "LIFT_L1": lifter}})
@@ -145,14 +145,14 @@ def test_p0420_p1_1d_blade_datum_matches_measured_quarter_turn(tmp_path, shaft, 
     lines = script.render().splitlines()
     start = next(i for i, line in enumerate(lines) if line == f"FRAME {blade2}")
     values = dict(line.split(maxsplit=1) for line in lines[start + 1 : start + 16] if " " in line)
-    x = [float(values[f"VECTOR_X_{axis}"]) for axis in "XYZ"]
+    x = [float(values[f"VECTOR_{zero.lstrip('+-')}_{axis}"]) for axis in "XYZ"]
     # Batch 8 measured +90 as a right-handed turn. This independent oracle
     # applies it to the emitted blade X direction, not to a package helper.
     turned = {"X": (x[0], -x[2], x[1]), "Y": (x[2], x[1], -x[0]), "Z": (-x[1], x[0], x[2])}[shaft]
     assert turned == pytest.approx(expected, abs=1e-12)
     turn = lines.index("ROTATE_COORDINATE_SYSTEM", start)
     assert lines[turn + 1] == f"FRAME {blade2}"
-    assert lines[turn + 3 : turn + 5] == ["ROTATION_AXIS Z", "ANGLE 90.0"]
+    assert lines[turn + 3 : turn + 5] == [f"ROTATION_AXIS {shaft}", "ANGLE 90.0"]
 
 
 def motion_payloads(text: str) -> list[str]:
@@ -1172,7 +1172,7 @@ def test_a_motion_turns_only_the_blade_frames_of_its_own_rotor_alias(tmp_path):
     lines = rendered(case).splitlines()
     first = next(i for i, line in enumerate(lines) if line.startswith("SET_MOTION_MOVING_FRAMES 1"))
     # The moving frame, then the four blade frames of LIFT_L1 and none of the other rotor's.
-    assert lines[first + 1] == "3,4,5,6,7"
+    assert lines[first + 1] == "5,6,7,8,9"
 
 
 def test_a_handed_rotor_speed_that_the_row_does_not_state_is_refused():

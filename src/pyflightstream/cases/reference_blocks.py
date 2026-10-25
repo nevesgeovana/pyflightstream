@@ -116,6 +116,29 @@ class BladeDatum(BaseModel):
         return token
 
 
+class _RotorAxis(BaseModel):
+    """The named shaft axis and its installed direction in global coordinates."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    shaft: Literal["X", "Y", "Z"]
+    vector_wrt_global: tuple[float, float, float]
+
+    @model_validator(mode="after")
+    def _usable_direction(self) -> _RotorAxis:
+        scale = max(abs(value) for value in self.vector_wrt_global)
+        if scale == 0:
+            raise ValueError("vector_wrt_global has zero length; state the shaft direction")
+        scaled = tuple(value / scale for value in self.vector_wrt_global)
+        component = scaled["XYZ".index(self.shaft)] / math.hypot(*scaled)
+        angle = math.degrees(math.acos(max(-1.0, min(1.0, component))))
+        if angle > 45.0 + 1e-10:
+            raise ValueError(
+                f"vector_wrt_global is {angle:.2f} degrees from shaft {self.shaft}; "
+                "at most 45 degrees is accepted. Choose the matching shaft letter"
+            )
+        return self
+
+
 class RotorBlock(BaseModel):
     """One rotor, declared as one block of the reference artifact (FR-60).
 
@@ -151,8 +174,8 @@ class RotorBlock(BaseModel):
         a type check is what found it.
     x_m, y_m, z_m : float
         The hub, in the geometry's own frame.
-    axis : str
-        The axis it turns about.
+    axis : str or mapping
+        A shaft letter or ``{shaft, vector_wrt_global}`` installation declaration.
     rpm_sign : int
         ``+1`` is the right-hand rule about ``axis``, which is the one
         reading that does not depend on where the reader stands.
@@ -178,7 +201,7 @@ class RotorBlock(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     alias: str
-    axis: str | tuple[float, float, float] | list[float]
+    axis: str | _RotorAxis
     diameter_m: float = Field(gt=0.0)
     families_blades: list[str]
     x_m: float = 0.0
@@ -207,14 +230,7 @@ class RotorBlock(BaseModel):
     @field_validator("axis", mode="before")
     @classmethod
     def _an_axis(cls, value: object) -> object:
-        """Accept a LETTER or a three-component VECTOR.
-
-        The letter keeps its exact meaning: `Z` IS the vector (0, 0, 1), so the
-        letter spelling is a special case of a vector. A mesh can arrive
-        with its pitch and toe
-        already in it, and a shaft installed at an angle lies on no geometry
-        axis at all.
-        """
+        """Accept a letter or an explicit shaft table; translate retired bare vectors."""
         if isinstance(value, str):
             token = value.strip().upper()
             if token not in ("X", "Y", "Z"):
@@ -223,8 +239,8 @@ class RotorBlock(BaseModel):
                 # documentation carries. Widening what `axis` accepts may add to
                 # the sentence and may not replace it.
                 raise ValueError(
-                    f"axis = {value!r} is not an axis; write X, Y or Z, or the three "
-                    "components of the shaft direction for a rotor installed at an angle"
+                    f"axis = {value!r} is not an axis; write X, Y or Z, or a table "
+                    "with shaft and vector_wrt_global for a rotor installed at an angle"
                 )
             return token
         if isinstance(value, (list, tuple)):
@@ -244,8 +260,17 @@ class RotorBlock(BaseModel):
                     f"axis = {value!r} has no length, so it names no direction, and a rotor "
                     "turns about a direction"
                 )
-            return components
+            nearest = "XYZ"[max(range(3), key=lambda i: abs(components[i]))]
+            raise ValueError(
+                f"axis = {list(value)!r} did not say which frame axis is the shaft; "
+                f'write axis = {{ shaft = "{nearest}", vector_wrt_global = {list(value)!r} }}'
+            )
         return value
+
+    @property
+    def shaft(self) -> str:
+        """The rotor-frame axis named as the shaft."""
+        return self.axis if isinstance(self.axis, str) else self.axis.shaft
 
     @property
     def axis_vector(self) -> tuple[float, float, float]:
@@ -258,7 +283,8 @@ class RotorBlock(BaseModel):
         stated = self.axis
         if isinstance(stated, str):
             return AXIS_UNIT_VECTORS[stated]
-        components = tuple(float(component) for component in stated)
+        scale = max(abs(value) for value in stated.vector_wrt_global)
+        components = tuple(value / scale for value in stated.vector_wrt_global)
         length = math.hypot(*components)
         return (components[0] / length, components[1] / length, components[2] / length)
 
@@ -277,9 +303,9 @@ class RotorBlock(BaseModel):
     def _an_alias_no_frame_can_be_mistaken_for(cls, value: str) -> str:
         if not value.strip() or value != value.strip() or any(c.isspace() for c in value):
             raise ValueError(f"alias = {value!r} must be one word, with no blank or space in it")
-        if value.upper().endswith(("_SMRP", "_RMRP")):
+        if value.upper().endswith(("_SMRP", "_RMRP", "_BMRP")):
             raise ValueError(
-                f"alias = {value!r} ends in _SMRP or _RMRP, the radical of the frames the "
+                f"alias = {value!r} ends in _SMRP or _RMRP or _BMRP, the radical of the frames the "
                 "package builds from a rotor's name, so a rotor and a frame would spell the "
                 "same; choose another name"
             )
@@ -302,6 +328,11 @@ class RotorBlock(BaseModel):
         # Compare directions by angle, not spelling. An axis (0, 0.02, 0.9998)
         # is only one degree from a Z datum even though their strings differ.
         # A nearly parallel datum cannot define a useful azimuth and is refused.
+        if self.blade1.zero.lstrip("+-") == self.shaft:
+            raise ValueError(
+                f"blade1.zero {self.blade1.zero} equals shaft {self.shaft}; "
+                "choose one of the two remaining axes"
+            )
         shaft = self.axis_vector
         datum = AXIS_UNIT_VECTORS[self.blade1.zero.lstrip("+-")]
         alignment = abs(sum(a * b for a, b in zip(shaft, datum, strict=True)))

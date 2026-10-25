@@ -107,7 +107,7 @@ def test_passage_positions_is_read_as_every_count_of_a_row():
     """`2.0` is two clockings; `2.5` and `two` are refused naming the key."""
     # P0300-QS-PASSAGE-POSITIONS
     lines, _ = _lines(_case(PASSAGE_POSITIONS="2.0", ALPHA_POINT=5.0))
-    assert _rotations(lines)[0] == "ROTATE_SURFACE 2 Z 60.0 -1 DISABLE"
+    assert _rotations(lines)[0] == "ROTATE_SURFACE 2 X 60.0 -1 DISABLE"
     with pytest.raises(CampaignConfigError, match="PASSAGE_POSITIONS.*fractional"):
         _lines(_case(PASSAGE_POSITIONS="2.5", ALPHA_POINT=5.0))
     with pytest.raises(CampaignConfigError, match="PASSAGE_POSITIONS.*not a number"):
@@ -161,17 +161,17 @@ def test_the_relative_free_stream_turns_about_the_hub_not_the_origin(tmp_path):
 
 
 def test_a_rotor_whose_shaft_is_a_vector_turns_along_that_vector(tmp_path):
-    """Shaft (-1, 0, 0), right-handed at 1200 rev/min: the air at (0, 1, 0) meets +40 pi in z.
+    """Shaft (1, 0, 0), right-handed at 1200 rev/min: the air at (0, 1, 0) meets -40 pi in z.
 
-    Omega axis x p = 40 pi (-1, 0, 0) x (0, 1, 0) = 40 pi (0, 0, -1), so
-    v_rel_z = 0 - (-40 pi) = +40 pi. Without a field the free stream turns about
-    the hub frame's third axis, the shaft of a vector rotor (``Z``), and the
+    Omega axis x p = 40 pi (1, 0, 0) x (0, 1, 0) = 40 pi (0, 0, 1), so
+    v_rel_z = 0 - 40 pi. Without a field the free stream turns about
+    the declared hub-frame shaft axis (``X``), and the
     clockings rotate about it too.
     """
     # P0300-QS-WHEEL
     aft = RotorBlock(
         alias="PROP",
-        axis=(-1.0, 0.0, 0.0),
+        axis={"shaft": "X", "vector_wrt_global": [1.0, 0.0, 0.0]},
         diameter_m=2.0,
         families_blades=["Blade1", "Blade2", "Blade3"],
         blade1=ROTOR.blade1,
@@ -179,10 +179,10 @@ def test_a_rotor_whose_shaft_is_a_vector_turns_along_that_vector(tmp_path):
     path = _field(tmp_path, [(0.0, 1.0, 0.0, 30.0, 0.0, 0.0), (0.0, 0.0, 1.0, 30.0, 0.0, 0.0)])
     lines, script = _lines(_custom(_case(rotor=aft, PASSAGE_POSITIONS="2"), path))
     at = next(row for row in _field_rows(script, lines) if row[1] == pytest.approx(1.0))
-    assert at[3:] == pytest.approx([30.0, 0.0, OMEGA], abs=1e-9)
+    assert at[3:] == pytest.approx([30.0, 0.0, -OMEGA], abs=1e-9)
     plain, _ = _lines(_case(rotor=aft, PASSAGE_POSITIONS="2", ALPHA_POINT=5.0))
-    assert "SET_FREESTREAM ROTATION 2 Z 1200.0" in plain
-    assert _rotations(plain)[0].startswith("ROTATE_SURFACE 2 Z 60.0")
+    assert "SET_FREESTREAM ROTATION 2 X 1200.0" in plain
+    assert _rotations(plain)[0].startswith("ROTATE_SURFACE 2 X 60.0")
 
 
 # ------------------------------------------------------ C: FSI on a sector --

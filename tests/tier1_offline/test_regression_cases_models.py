@@ -763,7 +763,10 @@ def _f5_rotor(**overrides):
 
 def test_f057_a_huge_finite_axis_normalizes_to_a_unit_vector():
     """F-057: the norm of (1e200, 1e200, 0) overflowed to infinity and the axis became zero."""
-    axis = _f5_rotor(axis=[1e200, 1e200, 0.0], blade1={"azimuth_deg": 0.0, "zero": "Z"}).axis_vector
+    axis = _f5_rotor(
+        axis={"shaft": "X", "vector_wrt_global": [1e200, 1e200, 0.0]},
+        blade1={"azimuth_deg": 0.0, "zero": "Z"},
+    ).axis_vector
     assert axis == pytest.approx((math.sqrt(0.5), math.sqrt(0.5), 0.0))
 
 

@@ -39,6 +39,7 @@ __all__ = [
     "emit_probe_points",
     "farfield_plane",
     "lattice_points",
+    "lattice_basis",
     "line_points",
     "rectangle_points",
     "write_points_csv",
@@ -258,7 +259,44 @@ def circle_points(circle: _Circle, *, scale: float) -> list[list[float]]:
 _CYCLIC = {"X": (0, 1, 2), "Y": (1, 2, 0), "Z": (2, 0, 1)}
 
 
-def lattice_points(lattice: ProbeLattice, *, axis: str = "X") -> np.ndarray:
+def lattice_basis(axis: str | Sequence[float]) -> np.ndarray:
+    """Return shaft, radial and quadrature unit vectors in global coordinates.
+
+    A letter retains the cyclic lattice convention. An installed shaft uses
+    the nearest letter's radial axis projected onto its disk plane.
+
+    Parameters
+    ----------
+    axis : str or sequence of float
+        Global shaft direction, as X, Y, Z or three components.
+
+    Returns
+    -------
+    numpy.ndarray
+        Three orthonormal row vectors, with the first along the shaft.
+
+    Raises
+    ------
+    ProbeGeometryError
+        If the shaft has no finite direction or the letter is unknown.
+    """
+    if isinstance(axis, str):
+        order = _CYCLIC.get(axis.strip().upper())
+        if order is None:
+            raise ProbeGeometryError(f"a lattice's shaft axis is X, Y or Z, not {axis!r}")
+        return np.eye(3)[list(order)]
+    shaft = np.asarray(axis, dtype=float)
+    length = np.linalg.norm(shaft)
+    if shaft.shape != (3,) or not np.isfinite(shaft).all() or length == 0:
+        raise ProbeGeometryError(f"lattice shaft {axis!r} needs three finite, nonzero components")
+    shaft = shaft / length
+    radial = np.eye(3)[(int(np.argmax(np.abs(shaft))) + 1) % 3]
+    radial = radial - np.dot(radial, shaft) * shaft
+    radial /= np.linalg.norm(radial)
+    return np.array([shaft, radial, np.cross(shaft, radial)])
+
+
+def lattice_points(lattice: ProbeLattice, *, axis: str | Sequence[float] = "X") -> np.ndarray:
     """Lay out a survey lattice in a frame whose ``axis`` is the shaft (FR-1072).
 
     The lattice's own coordinates (x along the shaft, ``y = r sin psi``,
@@ -272,8 +310,8 @@ def lattice_points(lattice: ProbeLattice, *, axis: str = "X") -> np.ndarray:
     ----------
     lattice : ProbeLattice
         The survey lattice.
-    axis : {"X", "Y", "Z"}
-        The frame axis along the shaft.
+    axis : str or sequence of float
+        The shaft letter or installed direction in the global frame.
 
     Returns
     -------
@@ -286,6 +324,12 @@ def lattice_points(lattice: ProbeLattice, *, axis: str = "X") -> np.ndarray:
     ProbeGeometryError
         If the requested axis is not supported.
     """
+    if not isinstance(axis, str):
+        basis = lattice_basis(axis)
+        for index, unit in enumerate(np.eye(3)):
+            if np.array_equal(basis[0], unit):
+                return lattice_points(lattice, axis="XYZ"[index])
+        return lattice.dimensional_points() @ basis
     order = _CYCLIC.get(str(axis).strip().upper())
     if order is None:
         raise ProbeGeometryError(f"a lattice's shaft axis is X, Y or Z, not {axis!r}")
@@ -410,7 +454,10 @@ def farfield_plane(
 
 
 def _placed(
-    lattice: ProbeLattice, axis: str | None, origin: Sequence[float] | None, scale: float
+    lattice: ProbeLattice,
+    axis: str | Sequence[float] | None,
+    origin: Sequence[float] | None,
+    scale: float,
 ) -> np.ndarray:
     """Return a lattice's positions laid along ``axis``, moved to ``origin``, then scaled.
 
@@ -430,7 +477,7 @@ def emit_probe_points(
     script: Script,
     lattice: ProbeLattice,
     *,
-    axis: str | None = None,
+    axis: str | Sequence[float] | None = None,
     origin: Sequence[float] | None = None,
     scale: float = 1.0,
     decimals: int | None = None,
@@ -490,7 +537,7 @@ def write_probe_csv(
     lattice: ProbeLattice,
     path: str | Path | TextIO,
     *,
-    axis: str | None = None,
+    axis: str | Sequence[float] | None = None,
     origin: Sequence[float] | None = None,
     scale: float = 1.0,
     decimals: int | None = None,

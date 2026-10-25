@@ -7,8 +7,15 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Rotor `axis = { shaft, vector_wrt_global }` declarations and `<ALIAS>_BMRP`,
+  a frame at every rotor hub with global body axes.
+
 ### Changed
 
+- Bare rotor-axis vectors are refused with the explicit table translation,
+  because a vector alone does not name the rotor-frame shaft axis.
 - Probe `kind` values are `default` and `instantaneous`. Omitting `kind` now
   samples once after the march on unsteady rows. Migration: set
   `kind = "instantaneous"` to retain per-step fluid-plot histories. Both values
@@ -22,6 +29,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Rotor frames keep the user's axis labels again (0.42.0 to 0.45.0 put the
+  shaft on SMRP Z for a non-native blade datum or a vector axis, moving probe
+  coordinates).
 - Unsteady far-field window actions import only the sets needed by averaging
   entries. Final-only sets join them after the march in a separate import.
   Shared sets are imported once, and layout records identify their exports.

@@ -40,6 +40,7 @@ _UNIT_SUFFIX = re.compile(
 
 
 _DIMENSIONLESS_OR_DEBT = {
+    "vector_wrt_global",  # Rotor axis: a dimensionless direction, normalized at consumption.
     # D0/D2: distances divided by BREF and the power station x/R are ratios.
     "distance_bref",
     "half_width_bref",

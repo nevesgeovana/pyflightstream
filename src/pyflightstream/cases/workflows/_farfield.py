@@ -485,7 +485,7 @@ def _plane_choice(
 
 def _lattice_placement(
     case: SimCase, script: Script, frames: Any, shape: LatticeShape, native_per_m: float
-) -> tuple[Any, str, np.ndarray]:
+) -> tuple[Any, str | tuple[float, float, float], np.ndarray]:
     """Return a lattice, its shaft axis letter and its origin in metres (reference frame)."""
     if shape.rotor is not None:
         return _rotor_placement(case, shape, native_per_m)
@@ -495,7 +495,7 @@ def _lattice_placement(
 
 def _rotor_placement(
     case: SimCase, shape: LatticeShape, native_per_m: float = 1.0
-) -> tuple[Any, str, np.ndarray]:
+) -> tuple[Any, str | tuple[float, float, float], np.ndarray]:
     """Return a rotor's lattice, its shaft axis letter and its hub in metres (FR-1072).
 
     The hub is the one the run places: a row stating ROTOR_ORIGIN moves the hub of
@@ -508,12 +508,7 @@ def _rotor_placement(
             f"case {case.sim_id!r}: a lattice names the rotor {shape.rotor!r}, which the "
             f"reference does not declare ({', '.join(sorted(case.rotors)) or 'none'})"
         )
-    axis = rotor.axis if isinstance(rotor.axis, str) else ""
-    if axis.strip().upper() not in ("X", "Y", "Z"):
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: the rotor {shape.rotor!r} states its axis as "
-            f"{rotor.axis!r}; a lattice is laid along an axis letter X, Y or Z"
-        )
+    axis = rotor.axis if isinstance(rotor.axis, str) else rotor.axis_vector
     origin = np.array([rotor.x_m, rotor.y_m, rotor.z_m])
     if _variable(case, ROTOR_ORIGIN_VARIABLE) is not None and (
         _the_rotor_a_flat_row_turns(case) is rotor

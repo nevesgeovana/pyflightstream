@@ -25,6 +25,7 @@ import re
 import tomllib
 import warnings
 from pathlib import Path
+from typing import Literal, cast
 
 import numpy as np
 import pytest
@@ -229,6 +230,18 @@ def test_a_row_that_chooses_no_route_is_byte_identical_to_0_36_fr_341(tmp_path):
         masked = _INTERPRETER.sub('"PY" "fsi_callback.py"', rendered).replace(str(tmp_path), "TMP")
         assert f"FILE TMP{os.sep}blade.obj" in masked.splitlines()  # native, before the fold
         masked = fold_separators(masked)  # one hash on Windows and Linux (FR-1189)
+        # PFS-2168 adds the rotating hub and body frame. Admit precisely those
+        # independently specified identity frames before the historical hash.
+        for index, suffix in ((3, "RMRP"), (4, "BMRP")):
+            frame = (
+                "CREATE_NEW_COORDINATE_SYSTEM\nEDIT_COORDINATE_SYSTEM\n"
+                f"FRAME {index}\nNAME PROP_{suffix}\n"
+                "ORIGIN_X 0.0\nORIGIN_Y 0.0\nORIGIN_Z 0.0\n"
+                + "".join(f"VECTOR_{a}_{b} {float(a == b)}\n" for a in "XYZ" for b in "XYZ")
+                + "\n"
+            )
+            assert masked.count(frame) == 1
+            masked = masked.replace(frame, "", 1)
         assert _sha256(masked) == MAPPED_SCRIPT_SHA256
         staged = effective_fsi_config(case)
         assert staged is not None
@@ -353,7 +366,7 @@ def _rotating_config(morphing: str) -> FsiConfig:
         omega_rad_per_s=50.0,
         blade=blade,
         phases=PhaseSchedule(coupling_relaxation=0.4),
-        morphing=morphing,
+        morphing=cast("Literal['mapped', 'direct']", morphing),
     )
 
 

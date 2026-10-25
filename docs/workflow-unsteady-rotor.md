@@ -321,10 +321,13 @@ cell and the block's axis in the message. A row may state several: `MOTIONS: {..
 inside separated by `/` as in the flat cell and the records by commas. The
 builder then creates, per record, a fixed frame at the record's hub
 (`<ALIAS>_SMRP`, one per record), a moving frame turned by the motion
-(`RotorAxis1`,...) and one `CREATE_NEW_MOTION` block citing its own frame,
+(`<ALIAS>_RMRP`), blade frames `<ALIAS>_RMRP<k>`, and one `CREATE_NEW_MOTION` block citing its own frame,
 axis, speed and boundaries; each rotor's `<ALIAS>_SMRP` is the frame the pproc
 entries cite, the time step follows the rotor `CLOCK_MOTION` names, and the run record
-lists every record as bound. A record's `ROTOR_ORIGIN` may name a point of
+lists every record as bound. The shaft stays on the axis named by `axis.shaft`
+(or the shorthand letter); `blade1.zero` keeps its own axis label. Every rotor
+also has `<ALIAS>_BMRP` at its hub with global body axes, citable by the same
+pproc entries. A record's `ROTOR_ORIGIN` may name a point of
 `inputs/reference_points.toml` instead of three coordinates; the point must
 be a rotor point, `ERP` or `ERP1` through `ERPn` by the naming convention,
 and a motion on a point declared `kind = "airframe"` is refused naming the

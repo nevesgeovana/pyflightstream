@@ -974,7 +974,7 @@ _ACTUATOR_ONLY_KEYS = ("tip_radius_m", "hub_radius_m", "profile_units", "swirl")
 #: name against: ``<ALIAS>_SMRP``, ``<ALIAS>_RMRP`` and ``<ALIAS>_RMRP<k>``
 #: for each blade k. The digits are matched rather than enumerated,
 #: because a block's blade count is not known where a name is checked.
-_ROTOR_FRAME_SUFFIX = re.compile(r"_(SMRP|RMRP\d*)$")
+_ROTOR_FRAME_SUFFIX = re.compile(r"_(BMRP|SMRP|RMRP\d*)$")
 
 
 def _frame_of_a_rotor(spelling: str, rotors: Mapping[str, Any]) -> str | None:
@@ -1089,7 +1089,7 @@ def _refuse_a_malformed_rotor(name: str, block: dict[str, Any], path: Path) -> N
             "the reader then fills in from the name.",
             kind="reference",
         )
-    collision = next((part for part in ("_SMRP", "_RMRP") if part in name.upper()), None)
+    collision = next((part for part in ("_SMRP", "_RMRP", "_BMRP") if part in name.upper()), None)
     if collision is not None:
         raise InputArtifactError(
             f"the reference artifact {path} declares the rotor {name!r}, whose name "

@@ -1108,7 +1108,7 @@ def _the_rotor_whose_frame_this_is(case: SimCase, frame: str) -> str | None:
     """
     wanted = frame.strip().casefold()
     for alias, block in case.rotors.items():
-        owned = {f"{alias}_SMRP".casefold(), f"{alias}_RMRP".casefold()}
+        owned = {f"{alias}_{suffix}".casefold() for suffix in ("SMRP", "RMRP", "BMRP")}
         owned |= {
             f"{alias}_RMRP{number}".casefold()
             for number in range(1, len(block.families_blades) + 1)

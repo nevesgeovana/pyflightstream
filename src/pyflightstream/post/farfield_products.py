@@ -47,6 +47,7 @@ from pyflightstream.post._tables import CONTEXT_COLUMNS, context_row, write_csv_
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
+    axial_coefficient,
     far_samples,
     lattice_samples,
     ledger_values,
@@ -818,7 +819,7 @@ def _instant_values(
         out["rotor"] = rotor_values(fields, rho=rho, speed=speed, station=station)
     if "ledgers" in analyses:
         near = (
-            -float(point.loads.total.get(f"C{axis.lower()}", _NA)) * q_ref * ctx.reference.sref_m2
+            -axial_coefficient(point.loads.total, axis) * q_ref * ctx.reference.sref_m2
             if final
             else near
         )
