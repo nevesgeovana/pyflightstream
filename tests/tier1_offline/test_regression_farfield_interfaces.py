@@ -1633,7 +1633,7 @@ class TestFfproofPlan:
         stated = [m for m in messages if "FR-1052" in m]
         assert stated == [
             f"case '7002': the far-field lattice samples {_FFPROOF_PLAN___POINTS} points "
-            "per exported step, 1 exported steps (FR-1052)."
+            "per exported step; window exported steps none; final export after the march (FR-1052)."
         ]
         assert any(name.endswith("_farfield_survey.txt") for name in case.outputs)
 
@@ -1655,11 +1655,9 @@ class TestFfproofPlan:
         farfield = [{"variant": "power", **dict(_FFPROOF_PLAN___LATTICE, m_max=2)}]
         case = _ffproof_plan___unsteady(tmp_path, farfield, probes=[entry])
         text, messages = _ffproof_plan___built(case)
-        assert text.count("NEW_PROBE_POINT") == _FFPROOF_PLAN___POINTS, (
-            "the declared lattice, laid once"
-        )
+        assert text.count("PROBE_POINTS_IMPORT") == 1, "the declared lattice, laid once"
         assert _FFPROOF_PLAN___PLOT not in text
-        assert any("1 exported steps (FR-1052)" in m for m in messages)
+        assert any("window exported steps none" in m for m in messages)
         assert any(name.endswith("_probes.txt") for name in case.outputs)
 
     @staticmethod
@@ -1776,7 +1774,10 @@ def test_p0450_d8_default_has_own_conventional_probe_export(tmp_path):
     assert any(name.endswith("_farfield_survey.txt") for name in case.outputs)
     assert "EXPORT_PROBE_POINTS" in text
     cost = [message for message in messages if "FR-1052" in message]
-    assert any("per exported step" in message and "1 exported step" in message for message in cost)
+    assert any(
+        "per exported step" in message and "window exported steps none" in message
+        for message in cost
+    )
 
 
 @pytest.mark.parametrize("value", ["last_step", "default"])

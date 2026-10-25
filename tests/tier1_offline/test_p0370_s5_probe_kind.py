@@ -129,9 +129,8 @@ def test_p0370_s5_normal_entry_is_probe_points_after_the_march(tmp_path, run_typ
     assert exported.endswith("P_probes.txt"), exported
     # THE SAME COMMANDS, IN THE SAME ORDER, AS A STEADY ROW (FR-884).
     steady = _script(tmp_path / "steady", "steady", spec)
-    assert [line for line in _commands(script) if line.split()[0] in _PROBE_CREATION] == [
-        line for line in _commands(steady) if line.split()[0] in _PROBE_CREATION
-    ]
+    assert script.probe_points == steady.probe_points
+    assert heads.count("PROBE_POINTS_IMPORT") == 1
     assert [point[0] for point in script.probe_points] == list(range(1, 8))
 
 
@@ -155,28 +154,13 @@ def test_p0370_s5_unsteady_kind_and_no_kind_render_as_0_36_0(tmp_path, run_type)
 
 @pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
 def test_p0370_s5_mixed_kinds_are_refused_naming_both_lists(tmp_path, run_type):
-    """P0370-S5-PROBE-KIND (FR-885): one unsteady row samples its entries one way."""
-    spec = _spec(_entry("normal"), _entry(), _entry("normal"))
-    with pytest.raises(CampaignConfigError) as refused:
-        _script(tmp_path, run_type, spec)
-    message = str(refused.value)
-    assert "unsteady (fluid plots at every time step) 2;" in message, message
-    assert "normal (probe points at the last time step) 1, 3." in message, message
-    assert "State one kind on every entry" in message, message
-    sectioned = _spec(
-        _entry("normal"),
-        volume_section={
-            "shape": "rectangle",
-            "frame": "REFERENCE",
-            "plane": "YZ",
-            "offset_m": 0,
-            "corners_m": [-1, -2, 1, 2],
-            "points": [2, 2],
-            "format": "vtk",
-        },
-    )
-    with pytest.raises(CampaignConfigError, match=r"\[volume_section\]; normal"):
-        _script(tmp_path / "vsec", run_type, sectioned)
+    """P0451: mixed entries retain both sampling routes."""
+    spec = _spec(_entry("normal"), _entry("unsteady"), _entry("normal"))
+    script = _script(tmp_path, run_type, spec)
+    heads = _heads(script)
+    assert heads.count("UNSTEADY_SOLVER_NEW_FLUID_PLOT") == 21
+    assert heads.count("PROBE_POINTS_IMPORT") == 1
+    assert heads.index("PROBE_POINTS_IMPORT") > heads.index("START_SOLVER")
 
 
 def test_p0370_s5_a_steady_row_accepts_kind_and_changes_nothing(tmp_path):
@@ -389,26 +373,14 @@ def _windowed(tmp_path: Path, run_type: str, kind: str = "normal") -> tuple[SimC
 
 @pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
 def test_p0370_s5_a_window_updates_and_exports_normal_probes_every_step(tmp_path, run_type):
-    """P0370-S5-PROBE-KIND (FR-890): the per-step action updates, then exports the probes."""
+    """P0451: declared last-step probes are excluded from march actions."""
     case, script = _windowed(tmp_path, run_type)
     action = action_export_lines(WorkflowConventions(), case, version="26.124")
-    assert "UPDATE_PROBE_POINTS" in action, "the per-step action does not update the probes"
-    export = action.index("EXPORT_PROBE_POINTS")
-    assert action[export + 1] == "P_probes.txt" and action.index("UPDATE_PROBE_POINTS") < export
-    rescue = action_export_lines(WorkflowConventions(), case, whole_run=True, version="26.124")
-    assert "EXPORT_PROBE_POINTS" not in rescue, "the rescue may fire before the points exist"
-    created = [line for line in _commands(script) if line.split()[0] in _PROBE_CREATION]
-    creation = normal_probe_creation(case, "26.124")
-    assert creation == "".join(f"{line}\n" for line in ["DELETE_PROBE_POINTS", *created])
+    assert "UPDATE_PROBE_POINTS" not in action
+    assert "EXPORT_PROBE_POINTS" not in action
+    assert normal_probe_creation(case, "26.124") == ""
     heads = _heads(script)
-    march = heads.index("START_SOLVER")
-    assert heads[march + 1] == "DELETE_PROBE_POINTS", "the post-march creation deletes first"
-    unwindowed = _script(tmp_path / "plain", run_type, _spec(_entry("normal", frame="MRP")))
-    assert "DELETE_PROBE_POINTS" not in _heads(unwindowed)
-    windowless = {k: v for k, v in case.variables.items() if not k.startswith("EXPORT_UNSTEADY")}
-    assert normal_probe_creation(case.model_copy(update={"variables": windowless}), "26.124") == ""
-    fluid_case, _ = _windowed(tmp_path / "fluid", run_type, kind="unsteady")
-    assert normal_probe_creation(fluid_case, "26.124") == ""
+    assert heads.index("PROBE_POINTS_IMPORT") > heads.index("START_SOLVER")
 
 
 def _run_counter(tmp_path: Path, case: SimCase, script: Script, steps: int) -> list[str]:
@@ -429,20 +401,12 @@ def _run_counter(tmp_path: Path, case: SimCase, script: Script, steps: int) -> l
 
 
 def test_p0370_s5_the_first_exporting_step_creates_the_points_once(tmp_path):
-    """P0370-S5-PROBE-KIND (FR-890): creation on the first exporting step, then exports."""
+    """P0451: the counter never imports declared final-only points."""
     case, script = _windowed(tmp_path, "unsteady")
     steps = _run_counter(tmp_path, case, script, 4)
-    creation = normal_probe_creation(case, "26.124")
-    assert creation.startswith("DELETE_PROBE_POINTS\nNEW_PROBE_LINE")
-    assert steps[0] == "", "step 1 precedes the window"
-    assert steps[1].startswith(creation), "the first exporting step does not create the points"
-    assert "UPDATE_PROBE_POINTS\n" in steps[1] and "EXPORT_PROBE_POINTS\nP_probes.txt\n" in steps[1]
-    for later in steps[2:]:
-        assert "NEW_PROBE" not in later and "DELETE_PROBE_POINTS" not in later, later
-        assert "UPDATE_PROBE_POINTS\n" in later and "EXPORT_PROBE_POINTS\nP_probes.txt\n" in later
-    fluid_case, fluid = _windowed(tmp_path / "fluid", "unsteady", kind="unsteady")
-    program = _run_counter(tmp_path / "fluid", fluid_case, fluid, 2)
-    assert "PROBE" not in "".join(program)
+    assert normal_probe_creation(case, "26.124") == ""
+    assert all("PROBE_POINTS" not in text for text in steps)
+    assert steps[0] == ""
 
 
 def test_p0370_s5_stamped_normal_exports_feed_the_probes_series(tmp_path, monkeypatch):
@@ -494,4 +458,4 @@ def test_p0370_s5_a_raw_probe_line_is_not_replayed_by_the_continuation(tmp_path)
         warnings.simplefilter("ignore")
         build_script(case, script)
     assert _commands(script).count("NEW_PROBE_POINT VOLUME 7.0 8.0 9.0") == 1
-    assert "NEW_PROBE_LINE" in _heads(script), "the normal probes were not created"
+    assert "PROBE_POINTS_IMPORT" in _heads(script), "the normal probes were not created"

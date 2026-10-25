@@ -356,6 +356,11 @@
       "path": "cases/workflows/_pproc.py"
     },
     {
+      "id": "pyflightstream.cases.workflows._probe_imports",
+      "layer": 3,
+      "path": "cases/workflows/_probe_imports.py"
+    },
+    {
       "id": "pyflightstream.cases.workflows._probes",
       "layer": 3,
       "path": "cases/workflows/_probes.py"
@@ -2454,11 +2459,6 @@
     },
     {
       "source": "pyflightstream.cases.pproc",
-      "target": "pyflightstream.cases.reference_blocks",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases.pproc",
       "target": "pyflightstream.cases.selection",
       "kind": "module"
     },
@@ -3134,6 +3134,11 @@
     },
     {
       "source": "pyflightstream.cases.workflows._farfield",
+      "target": "pyflightstream.cases.workflows._probe_imports",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._farfield",
       "target": "pyflightstream.cases.workflows._rows",
       "kind": "module"
     },
@@ -3518,6 +3523,21 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.cases.workflows._probe_imports",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._probe_imports",
+      "target": "pyflightstream.probes.layouts",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._probe_imports",
+      "target": "pyflightstream.script",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.cases.workflows._probes",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -3555,6 +3575,11 @@
     {
       "source": "pyflightstream.cases.workflows._probes",
       "target": "pyflightstream.cases.workflows._names",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._probes",
+      "target": "pyflightstream.cases.workflows._probe_imports",
       "kind": "module"
     },
     {

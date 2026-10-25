@@ -521,6 +521,13 @@ far field uses conventional probe points, never fluid plots. Its own export is
 `<point>_farfield_survey.txt`, with
 `<point>_farfield_survey_iteration=<step>.txt` at each `"avg_window"` step.
 The FR-1052 warning states points per exported step and the exported step count.
+On unsteady rows, sets used by any `avg_window` entry are imported at the
+window-start action. Sets needed only by `last_step` or `default` entries
+are appended after the march. Each phase parks its own counted CSV and emits
+one import. A shared set is imported once, at window start, and remains in
+the final export. Window snapshots exclude final-only sets. Each recorded
+shape names its import phase and the exports carrying it; warnings state each
+set's point count, window steps and final export.
 Declared unsteady probes keep their fluid plots and `probes/<point>_probes.csv`.
 With normal declared probes, the far-field export also contains those points;
 the far field selects its own by recorded positions.
@@ -571,6 +578,10 @@ On an unsteady row the plane or lattice uses conventional probe points.
 `"default"` and `"last_step"` export only after the march; `"avg_window"`
 requests snapshots only over the final averaging window. The plan states
 the point count per exported step and the number of exported steps.
+Post selects each entry's recorded sets for its own export: for example, C
+`last_step` reads its plane from the final survey while D `avg_window` reads
+its lattice from the window snapshots. A missing or duplicated set remains a
+named skip. Steady and quasi-steady rotor scripts retain their analysis route.
 
 ### Where each analysis applies
 

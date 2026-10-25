@@ -584,7 +584,7 @@ class TestCasesReview:
 
     @staticmethod
     def test_p0400_review_probe_kind_decision_includes_volume_section(tmp_path):
-        """P0400-REVIEW-PROBES: outputs and builders refuse the same mixed source."""
+        """P0451: a volume history and last-step entries retain both native sources."""
         spec = _CasesReviewPprocSpec.model_validate(
             {
                 "probes": [_CASES_PPROC__NORMAL_PROBES],
@@ -599,10 +599,11 @@ class TestCasesReview:
         case = _cases_review___with_pproc(
             _cases_review___case_for("unsteady"), _cases_review___wb_geometry(tmp_path), pproc=spec
         )
-        with pytest.raises(CampaignConfigError, match="volume_section"):
-            spec.outputs(True)
-        with pytest.raises(CampaignConfigError, match="volume_section"):
-            build_script(case, Script("26.124"))
+        assert {"{name}_plots.txt", "{name}_probes.txt"} <= set(spec.outputs(True))
+        script = Script("26.124")
+        build_script(case, script)
+        assert "PROBE_POINTS_IMPORT" in script.render()
+        assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" in script.render()
         assert spec.outputs(False)
 
     @staticmethod

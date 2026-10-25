@@ -7,6 +7,15 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- Unsteady far-field window actions import only the sets needed by averaging
+  entries. Final-only sets join them after the march in a separate import.
+  Shared sets are imported once, and layout records identify their exports.
+- Mixed probe kinds on an unsteady row retain their fluid histories and their
+  last-step probe table separately. Last-step declarations share one analysis
+  import with the final-only far-field sets.
+
 ## [0.45.0] - 2026-10-24
 
 ### Removed

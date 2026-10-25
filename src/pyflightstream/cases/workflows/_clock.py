@@ -285,8 +285,7 @@ def _action_export_kinds(
     # FR-890: the per-step exports of a row whose probes are NORMAL update and
     # export them at every step of the window; the wall clock's rescue does not,
     # since the points may not exist when it fires.
-    normal = not whole_run and case.pproc is not None and case.pproc.samples_normal_probes()
-    if declared_run_type(case) in _UNSTEADY_RECIPES and not normal:
+    if declared_run_type(case) in _UNSTEADY_RECIPES:
         for kind in STEADY_ONLY_EXPORT_KINDS:
             kinds.pop(kind, None)
     # G05: an action fires during the march and a volume section is cut after

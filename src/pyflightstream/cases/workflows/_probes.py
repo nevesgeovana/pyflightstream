@@ -16,6 +16,7 @@ import warnings
 from collections.abc import (
     Callable,
 )
+from copy import deepcopy
 from pathlib import (
     Path,
 )
@@ -46,6 +47,7 @@ from ._conventions import declared_run_type
 from ._farfield import (
     declared_lattices,
     emit_declared_lattices,
+    farfield_export_windows,
     farfield_probes,
     needs_fresh_probes,
     planar_points,
@@ -57,6 +59,7 @@ from ._frames import (
 from ._names import (
     _artifact_of,
 )
+from ._probe_imports import _stage_import
 from ._rows import (
     _from_metres,
     _rotor_of,
@@ -214,6 +217,8 @@ def _record_probe_field(
         {
             "entry": entry_number,
             "kind": "probe-field",
+            "probe_kind": probes.kind,
+            "exports": ["history"] if unsteady else ["final"],
             "probe_ids": list(range(first_vertex, vertex + 1)),
             "frame": resolved_frame if unsteady else "REFERENCE",
             "frame_index": frame_index if unsteady else 1,
@@ -259,21 +264,16 @@ def _pproc_probes(
     pproc = case.pproc
     if pproc is None:
         return
+    if unsteady:
+        _phased_declared_probes(case, script, frames, analysis=analysis)
+        return
     if pproc.surface_probes and not unsteady:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: [[surface_probes]] requires an unsteady march"
         )
-    normal = unsteady and _normal_probes_of(case)
-    if unsteady and not analysis:
-        _pproc_surface_probes(case, script, frames)
-    # F01: every declaration follows the run type, including cited profiles.
-    # Unsteady fluid plots are placed in INIT; steady and normal probes in
-    # ANALYSIS, after the solve or the time march.
-    if analysis != (not unsteady or normal):
-        _farfield_after_march(case, script, frames, enabled=analysis, separate=True)
+    if not analysis:
         return
-    # FR-417: a normal entry is emitted exactly as a steady row's.
-    unsteady = unsteady and not normal
+    normal = False
     sampled = pproc.volume_section is not None or any(
         entry.field_formats or entry.reusable_inflow for entry in pproc.probes
     )
@@ -331,10 +331,123 @@ def _farfield_after_march(case, script, frames, *, enabled: bool, separate: bool
     """Create conventional far-field points without touching declared fluid histories."""
     if not enabled or not needs_fresh_probes(case):
         return
-    if separate:
+    if separate and not any(
+        kind == "farfield_probes" for _, _, kind in farfield_export_windows(case)
+    ):
         script.emit("DELETE_PROBE_POINTS")
     vertex = 0 if separate else max((point[0] for point in script.probe_points), default=0)
     farfield_probes(case, script, vertex, unsteady=False, frames=frames)
+
+
+def _phased_declared_probes(case, script, frames, *, analysis):
+    """Keep fluid histories in INIT and assemble last-step points in ANALYSIS."""
+    if not analysis:
+        _fluid_entries(case, script, frames)
+        return
+    scratch, points = _last_step_entries(case, script, frames)
+    has_window = any(kind == "farfield_probes" for _, _, kind in farfield_export_windows(case))
+    if not has_window and (points or needs_fresh_probes(case)):
+        script.emit("DELETE_PROBE_POINTS")
+    farfield_probes(
+        case, script, len(points), unsteady=False, frames=frames, analysis_points=points
+    )
+    if points:
+        _stage_import(script, [], points, _from_metres(case, script, "probe coordinates"))
+    _record_analysis_points(script, scratch, points)
+
+
+def _fluid_entries(case, script, frames):
+    """Emit only the history entries, retaining their plot vertex identities."""
+    pproc = case.pproc
+    _pproc_surface_probes(case, script, frames)
+    vertex = len(script.probe_points)
+    for number, probes in enumerate(pproc.probes, 1):
+        if probes.kind == "normal":
+            continue
+        _refuse_unavailable_fluid_plot_parameters(case, script, probes)
+        first = vertex + 1
+        vertex = _emit_one_probe_table(case, script, frames, probes, vertex, unsteady=True)
+        if vertex >= first:
+            _record_probe_field(
+                case,
+                script,
+                frames,
+                probes,
+                number,
+                first_vertex=first,
+                vertex=vertex,
+                unsteady=True,
+                normal=False,
+            )
+    _pproc_sampled_volume(case, script, frames, vertex, unsteady=True)
+
+
+def _last_step_entries(case, script, frames):
+    """Collect validated native placements without emitting to the main script."""
+    pproc = case.pproc
+    scratch = deepcopy(script)
+    scratch.probe_points.clear()
+    scratch.probe_field_layout.clear()
+    for number, probes in enumerate(pproc.probes, 1):
+        if probes.kind != "normal":
+            continue
+        first = len(scratch.probe_points) + 1
+        _warn_steady_parameter_list(case, probes, number, normal=True)
+        vertex = _emit_one_probe_table(case, scratch, frames, probes, first - 1, unsteady=False)
+        if vertex >= first:
+            _record_probe_field(
+                case,
+                scratch,
+                frames,
+                probes,
+                number,
+                first_vertex=first,
+                vertex=vertex,
+                unsteady=False,
+                normal=True,
+            )
+    points = [tuple(point[1:4]) for point in scratch.probe_points]
+    for record in scratch.probe_field_layout:
+        probes = pproc.probes[int(record["entry"]) - 1]
+        if probes.points_file and probes.scale == "m" and probes.frame == "REFERENCE":
+            rows = list(
+                csv.reader(
+                    Path(probes.resolved_points_file).read_text(encoding="utf-8-sig").splitlines()
+                )
+            )[1:]
+            for index, row in zip(record["probe_ids"], rows, strict=True):
+                points[index - 1] = (*points[index - 1], int(row[3]))
+    return scratch, points
+
+
+def _record_analysis_points(script, scratch, points):
+    """Map declared field IDs onto the window-plus-final export order."""
+    window_points = []
+    creation = script.pending_input_files.get("farfield_window_create.txt", "")
+    if creation:
+        lines = creation.splitlines()
+        name = lines[lines.index("PROBE_POINTS_IMPORT") + 3]
+        window_points = [
+            tuple(map(float, row[:3]))
+            for row in csv.reader(script.pending_input_files[name].splitlines()[1:])
+        ]
+    combined = window_points + [point[:3] for point in points]
+    for record in scratch.probe_field_layout:
+        record["probe_ids"] = [
+            next(
+                index
+                for index, actual in enumerate(combined, 1)
+                if np.allclose(actual, point, rtol=0, atol=1e-5)
+            )
+            for point in record["points_native"]
+        ]
+        if any(index <= len(window_points) for index in record["probe_ids"]):
+            record["exports"] = ["window", "final"]
+    script.probe_field_layout.extend(scratch.probe_field_layout)
+    if not script.probe_points:
+        script.probe_points.extend(
+            (index, *point, "REFERENCE") for index, point in enumerate(combined, 1)
+        )
 
 
 def _open_the_probe_points(
@@ -486,7 +599,9 @@ def _built_from_the_mesh(
             "pyfs-matrix run --force-rerun <point>."
         ) from error
     for name, payload in scratch.script.pending_input_files.items():
-        if name in scratch.recorded_text:
+        if name in scratch.recorded_text or name in scratch.script.pending_input_files.get(
+            "farfield_window_create.txt", ""
+        ):
             script.park_input_file(name, payload)
     return scratch
 
@@ -530,7 +645,10 @@ def _creation_of_normal_probes(
         return ""
     if not _has_a_per_step_window(case, script):
         return ""
-    return _built_from_the_mesh(case, script, build).recorded_text
+    creation = _built_from_the_mesh(case, script, build).script.pending_input_files.get(
+        "farfield_window_create.txt", ""
+    )
+    return creation.decode("utf-8") if isinstance(creation, bytes) else creation
 
 
 #: FR-91: the simulation subfolder for generated probe positions, per SIM

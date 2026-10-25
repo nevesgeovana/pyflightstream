@@ -20,11 +20,9 @@ record, and post matches the exported positions to it (PFS-2081.56, .58).
 
 from __future__ import annotations
 
-import io
 import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -53,13 +51,10 @@ from pyflightstream.commands import CommandRegistry
 from pyflightstream.probes.geometry import apply_geometry_gate, load_surface_mesh, points_inside
 from pyflightstream.probes.layouts import (
     FarfieldPlane,
-    emit_probe_import,
     emit_probe_points,
     farfield_plane,
     lattice_points,
     rectangle_points,
-    write_points_csv,
-    write_probe_csv,
 )
 from pyflightstream.script import Script
 
@@ -67,6 +62,7 @@ from ._conventions import declared_run_type
 from ._freestream import rotor_row_stepping
 from ._motion import _origin
 from ._names import _inventory
+from ._probe_imports import _phased_farfield, _stage_import
 from ._rows import (
     _angle,
     _from_metres,
@@ -643,6 +639,7 @@ def farfield_shapes(
     spec = _spec(case)
     for shape in shapes:
         shape.geometry["farfield_entry"] = spec.name if spec is not None else ""
+        shape.geometry["export_type"] = spec.export_type if spec is not None else "default"
     return shapes
 
 
@@ -1164,7 +1161,13 @@ def _complete_declared_plots(
 
 
 def farfield_probes(
-    case: SimCase, script: Script, vertex: int, *, unsteady: bool, frames: Any = None
+    case: SimCase,
+    script: Script,
+    vertex: int,
+    *,
+    unsteady: bool,
+    frames: Any = None,
+    analysis_points: list | None = None,
 ) -> int:
     """Lay the far-field plane and lattice as probe points after the declared ones (FR-455).
 
@@ -1181,34 +1184,31 @@ def farfield_probes(
     native_per_m = _from_metres(case, script, "far-field probe coordinates")
     shapes = farfield_shapes(case, script, frames, native_per_m)
     records = [shape.record() for shape in shapes]
+    for shape in shapes:
+        if shape.source == "added":
+            _check_added(case, np.round(shape.points_m * native_per_m, 5), shape.kind)
+    if _run_type(case) in ("unsteady", "unsteady_rotor"):
+        return _phased_farfield(
+            case,
+            script,
+            shapes,
+            records=records,
+            vertex=vertex,
+            native_per_m=native_per_m,
+            analysis_points=analysis_points,
+            windows=farfield_export_windows(case),
+        )
     script.farfield_layout.append({"point": dict(case.point), "shapes": records})
     imported: list[tuple[float, float, float]] = []
     for shape, recorded in _unique_shapes(shapes, records):
-        what, points = shape.kind, shape.points_m
+        points = shape.points_m
         native = np.round(points * native_per_m, 5)
-        if shape.source == "added":
-            _check_added(case, native, what)
-        if _run_type(case) in ("unsteady", "unsteady_rotor"):
-            windows = farfield_export_windows(case)
-            steps = max(
-                (end - start + 1 for start, end, kind in windows if kind == "farfield_probes"),
-                default=1,
-            )
-            warn(
-                f"case {case.sim_id!r}: the far-field {what} samples {len(points)} points "
-                f"per exported step, {steps} exported steps (FR-1052).",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
-        if shape.source != "added" and (
-            _run_type(case) not in ("unsteady", "unsteady_rotor") or _normal(case)
-        ):
+        if shape.source != "added":
             continue
         recorded["positions_frame"] = "REFERENCE"
         for x, y, z in native.tolist():
             vertex += 1
-            if not (_run_type(case) in ("unsteady", "unsteady_rotor") and not _normal(case)):
-                script.probe_points.append((vertex, float(x), float(y), float(z), "REFERENCE"))
+            script.probe_points.append((vertex, float(x), float(y), float(z), "REFERENCE"))
             imported.append((x, y, z))
     if imported:
         _stage_import(script, shapes, imported, native_per_m)
@@ -1223,39 +1223,6 @@ def _unique_shapes(shapes: Sequence[FarfieldShape], records: list[dict[str, Any]
         if key not in seen:
             seen.add(key)
             yield shape, recorded
-
-
-def _stage_import(
-    script: Script,
-    shapes: Sequence[FarfieldShape],
-    imported: Sequence[tuple[float, float, float]],
-    native_per_m: float,
-) -> None:
-    """Park the csv of a steady row's added far-field points and import it (FR-455).
-
-    THE PROBES HOME WRITES THE CSV (PFS-2140.001): the public writer of the
-    PROBE_POINTS_IMPORT format is what the plan runs, into the text it parks. A
-    lattice added alone is written from the lattice, placed and rounded as
-    :func:`farfield_probes` recorded it; a plane, alone or before the lattice,
-    from the recorded points.
-    """
-    staged = io.StringIO()
-    added = [shape for shape in shapes if shape.source == "added"]
-    if len(added) == 1 and added[0].kind == "lattice" and len(imported) == len(added[0].points_m):
-        write_probe_csv(
-            added[0].lattice,
-            staged,
-            axis=added[0].geometry["axis"],
-            origin=added[0].geometry["origin_m"],
-            scale=native_per_m,
-            decimals=5,
-        )
-    else:
-        write_points_csv(np.asarray(imported, dtype=float), staged)
-    payload = staged.getvalue()
-    path = f"farfield_probes_{sha256(payload.encode()).hexdigest()}.csv"
-    script.park_input_file(path, payload)
-    emit_probe_import(script, path, units=script.simulation_length_unit or "METER")
 
 
 def planar_points(case: SimCase, probes: ProbesSpec, native_per_m: float) -> list[list[float]]:

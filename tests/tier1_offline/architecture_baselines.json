@@ -1364,6 +1364,7 @@
     "_export_first_step",
     "_exports",
     "_farfield",
+    "_probe_imports",
     "_reductions",
     "_freestream",
     "_solver_settings",

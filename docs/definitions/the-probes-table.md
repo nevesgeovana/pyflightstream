@@ -26,6 +26,13 @@ Each row opens with `POL`, then `PROBE`, `X`, `Y`, `Z`, `FRAME`, `STEP` and the
 condition block, then the export's own columns (steady, normal) or the sampled
 parameters (unsteady).
 
+An unsteady row may mix the two kinds in separate `[[probes]]` entries.
+The last-step table keeps `probes/<point>_probes.csv`; on a mixed row the
+fluid-plot histories use `probes/<point>_probes_history.csv`. Single-kind rows
+keep their existing table name. Last-step entries are imported together after
+the march, along with any final-only far-field sets, and are never added to a
+window merely because the row requests per-step exports.
+
 On steady and normal-probe rows, exported `X`, `Y`, `Z` take precedence:
 they use the solver's native length unit and `FRAME` is `REFERENCE`.
 On unsteady history rows, coordinates are the recorded emitted positions in

@@ -718,7 +718,7 @@ class TestCasesWorkflowsProbes:
         requirement = "P0400-CW-PROBES"
         case, script = _cases_workflows_probes___averaged(tmp_path)
         creation = normal_probe_creation(case, "26.124")
-        assert creation.startswith("DELETE_PROBE_POINTS\nNEW_PROBE_LINE"), (requirement, creation)
+        assert creation == "", (requirement, creation)
         heads = _cases_workflows_probes___heads(script)
         assert heads[heads.index("START_SOLVER") + 1] == "DELETE_PROBE_POINTS", heads
 

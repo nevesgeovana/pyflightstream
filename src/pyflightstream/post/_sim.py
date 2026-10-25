@@ -953,6 +953,16 @@ def _write_fields(
     record = ctx.record_of.get(point_name)
     if record is None or not record.probe_field_layout:
         return
+    source_kind = "unsteady-fluid-plot" if step_source is not None else "steady-probe"
+    layouts = [
+        layout
+        for layout in record.probe_field_layout
+        if layout.get("export_kind", source_kind) == source_kind
+        and (layout.get("formats") or layout.get("reusable_inflow"))
+    ]
+    if not layouts:
+        return
+    record = record.model_copy(update={"probe_field_layout": layouts})
     try:
         fields = point_field_products(
             table, record, ctx.out, point_name, prepare=ctx.target, step_source=step_source
@@ -1042,7 +1052,12 @@ def _plots_products(
     plots = ctx.pproc.products.plots
     # FR-417: normal probes are not in the plots history; their table and
     # fields come from the probe-points export (`_probes_products`).
-    fluid = unsteady and not _normal_probes(ctx, record, legacy_profiles)
+    fluid = unsteady and (
+        ctx.pproc.volume_section is not None
+        or any(entry.kind != "normal" for entry in ctx.pproc.probes)
+    )
+    if fluid and _normal_probes(ctx, record, legacy_profiles):
+        probe_relative = f"{PROBES_DIR}/{point.name}_probes_history.csv"
     field_requested = fluid and bool(ctx.record_of.get(point.name) and record.probe_field_layout)
     probe_requested = fluid and (plots or field_requested) and bool(_probe_parameters(ctx.pproc))
     if probe_requested:
@@ -1114,7 +1129,9 @@ def _unsteady_probes(
 ) -> None:
     """Write an unsteady point's probes table, cut from the fluid-plots history it wrote."""
     probe_relative = f"{PROBES_DIR}/{point.name}_probes.csv"
-    probe_target = ctx.target(ctx.out / PROBES_DIR / f"{point.name}_probes.csv")
+    if ctx.pproc.samples_normal_probes():
+        probe_relative = f"{PROBES_DIR}/{point.name}_probes_history.csv"
+    probe_target = ctx.target(ctx.out / probe_relative)
     probe_notes: list[str] = []
     try:
         field = write_unsteady_probes_table(
@@ -1607,6 +1624,8 @@ def _probe_parameters(pproc, *, drawn_only: bool = False) -> tuple[str, ...]:
     """
     out: list[str] = []
     for entry in getattr(pproc, "probes", None) or []:
+        if entry.kind == "normal":
+            continue
         if drawn_only and entry.points_file:
             continue
         for parameter in getattr(entry, "parameters", None) or []:

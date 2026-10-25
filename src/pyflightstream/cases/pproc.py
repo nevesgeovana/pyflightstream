@@ -51,7 +51,6 @@ from pyflightstream.cases._farfield_spec import (
     farfield_entries,
 )
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
-from pyflightstream.cases.reference_blocks import CampaignConfigError
 from pyflightstream.cases.selection import EVERY_FAMILY
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.probes.planar import PlanarProbeGrid
@@ -2462,12 +2461,7 @@ class PprocSpec(BaseModel):
             # history is in the plots export whatever the [[probes]] kind is
             # (PFS-2105.002).
             sources.append("{name}_plots.txt")
-        if self.volume_section is not None or any(
-            entry.field_formats or entry.reusable_inflow for entry in self.probes
-        ):
-            # FR-418: a NORMAL entry's field is read from the probe-points
-            # export on an unsteady row too, not from the plots history.
-            sources.append("{name}_plots.txt" if unsteady and not normal else "{name}_probes.txt")
+        sources.extend(self._field_exports(unsteady))
         for source in sources:
             if source not in names:
                 names.append(source)
@@ -2475,6 +2469,20 @@ class PprocSpec(BaseModel):
             if name not in names:
                 names.append(name)
         return names
+
+    def _field_exports(self, unsteady: bool) -> list[str]:
+        """Request both native sources when mixed entries require sampled fields."""
+        sources = []
+        if self.volume_section is not None:
+            sources.append("{name}_plots.txt" if unsteady else "{name}_probes.txt")
+        for entry in self.probes:
+            if entry.field_formats or entry.reusable_inflow:
+                sources.append(
+                    "{name}_plots.txt"
+                    if unsteady and entry.kind != "normal"
+                    else "{name}_probes.txt"
+                )
+        return sources
 
     def _streamline_exports(self) -> list[str]:
         """Return the files the streamline traces are exported to (FR-1078)."""
@@ -2487,31 +2495,15 @@ class PprocSpec(BaseModel):
         return [f"{{name}}{suffix[kind]}" for kind in traced]
 
     def samples_normal_probes(self) -> bool:
-        """Whether an unsteady row samples this artifact's probes as NORMAL probe points.
+        """Whether an unsteady row has entries sampled as normal probe points.
 
         True when the artifact declares at least one ``[[probes]]`` entry and
-        every entry states ``kind = "normal"`` (FR-417); an entry that states no
-        kind and a volume section are ``unsteady``. A mixture is refused here,
-        naming the entries of each kind. Steady callers do not ask this question.
+        at least one entry states ``kind = "normal"``. Mixed entries keep their
+        independent sampling routes. Steady callers do not ask this question.
 
         Returns
         -------
         bool
-            Whether the entries are all normal probes.
+            Whether any entry needs the final probe-points export.
         """
-        normal = [str(n) for n, entry in enumerate(self.probes, 1) if entry.kind == "normal"]
-        if not normal:
-            return False
-        unsteady = [str(n) for n, entry in enumerate(self.probes, 1) if entry.kind != "normal"]
-        if self.volume_section is not None:
-            unsteady.append("[volume_section]")
-        if unsteady:
-            raise CampaignConfigError(
-                "mixes probe kinds on an unsteady row: unsteady (fluid plots at every time step) "
-                f"{', '.join(unsteady)}; normal (probe points at the last time step) "
-                f"{', '.join(normal)}. One unsteady row samples every [[probes]] entry one "
-                'way, an entry stating no kind counting as kind = "unsteady", and a '
-                "[volume_section] is sampled through fluid plots. State one kind on every "
-                "entry, or move the other entries to a second pproc on their own row."
-            )
-        return True
+        return any(entry.kind == "normal" for entry in self.probes)
