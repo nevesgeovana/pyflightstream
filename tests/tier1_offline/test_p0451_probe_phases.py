@@ -460,3 +460,43 @@ def test_p0451_rv1_distinct_history_lattices_keep_their_conventional_samples(
         selected, _, reason = far_samples(samples, layout, per_m=1)
         assert not reason
         np.testing.assert_allclose(points[selected], layout.lattice_m, atol=1e-5)
+
+
+@pytest.mark.parametrize(
+    "version,kind,history",
+    [
+        ("0.45.0", None, True),
+        ("0.45.1", None, False),
+        ("0.45.0", "default", False),
+        ("0.45.0", "instantaneous", True),
+    ],
+)
+def test_p0451_rv1_old_run_keeps_its_implicit_probe_history(tmp_path, version, kind, history):
+    from pyflightstream.post.products import read_csv_table, write_campaign_products
+    from pyflightstream.run._pending import _write_probe_points
+    from tests.tier1_offline.test_post_products import PLOTS_HEADER, _unsteady_workspace
+
+    workspace = _unsteady_workspace(tmp_path, reductions=None, recipe="unsteady")
+    table = '[[probes]]\nframe = "MRP"\nparameters = ["VX"]\n'
+    if kind is not None:
+        table += f'kind = "{kind}"\n'
+    (workspace.inputs_dir / "pproc/p001.toml").write_text(table, encoding="utf-8")
+    positions = _write_probe_points(workspace.sim_dir("7001"), "7001", [(1, 0.0, 1.0, 2.0, "MRP")])
+    products._ffproof_post___set_record(
+        workspace, package_version=version, probe_points_file=positions
+    )
+    (workspace.sim_dir("7001") / "outputs/AL-020_plots.txt").write_text(
+        PLOTS_HEADER
+        + "Time-step,VX1\n1,11,\n2,21,\n"
+        + "-" * 60
+        + "\n     Force Units: Coefficients\n"
+        "Software : Flightstream version 26.1, build #7012026\n",
+        encoding="utf-8",
+    )
+    write_campaign_products(workspace)
+    target = workspace.root / "post/products/probes/AL-020_probes.csv"
+    assert target.is_file() is history
+    if history:
+        _, rows = read_csv_table(target)
+        assert [row["STEP"] for row in rows] == ["1", "2"]
+        assert [float(row["VX"]) for row in rows] == [11.0, 21.0]

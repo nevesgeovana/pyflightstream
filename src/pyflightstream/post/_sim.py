@@ -812,12 +812,31 @@ def _point_products(ctx: SimContext) -> None:
         # older unsteady run cannot supply or replace a fluid-plots history.
         release = re.match(r"(\d+)\.(\d+)", ctx.record_of[point.name].package_version)
         legacy_profiles = bool(release and tuple(map(int, release.groups())) < (0, 25))
-        _probes_products(ctx, point, probes_path, legacy_profiles)
-        _plots_products(ctx, point, plots_path, legacy_profiles)
+        probe_ctx = _recorded_probe_defaults(ctx, ctx.record_of[point.name])
+        _probes_products(probe_ctx, point, probes_path, legacy_profiles)
+        _plots_products(probe_ctx, point, plots_path, legacy_profiles)
         # FR-1083: the streamline products of the point, from its exports.
         from pyflightstream.post.streamlines import write_point_streamlines
 
         write_point_streamlines(ctx, point.name)
+
+
+def _recorded_probe_defaults(ctx: SimContext, record: RunRecord) -> SimContext:
+    """Keep the pre-0.45.1 sampling default when reading an older run's history."""
+    release = re.match(r"(\d+)\.(\d+)(?:\.(\d+))?", record.package_version)
+    if (
+        record.recipe not in ("unsteady", "unsteady_rotor")
+        or release is None
+        or tuple(int(part or 0) for part in release.groups()) >= (0, 45, 1)
+    ):
+        return ctx
+    probes = [
+        entry
+        if "kind" in entry.model_fields_set
+        else entry.model_copy(update={"kind": "instantaneous"})
+        for entry in ctx.pproc.probes
+    ]
+    return replace(ctx, pproc=ctx.pproc.model_copy(update={"probes": probes}))
 
 
 def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | None) -> None:
