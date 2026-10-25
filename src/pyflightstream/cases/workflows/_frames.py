@@ -578,7 +578,9 @@ def _translations(
         _keep_the_frame_this_alias_turns_from(case, record, script, frames, kept)
         owned = _frames_the_alias_owns(case, record, frames)
         aux_names = [part.strip() for part in record.get("AUX_FRAMES", "").split(",")]
-        sources = {name: f"ALIAS: {cited}" for name in _translated_frames(record, frames, owned)}
+        sources = {
+            name: f"ALIAS: {cited}" for name in _translated_frames(case, record, frames, owned)
+        }
         sources.update({name: "AUX_FRAMES" for name in aux_names if name and name not in owned})
         moving_frames = [
             _rotation_frame(case, name, frames, "AUX_FRAMES", TRANSLATE_VARIABLE)
@@ -639,10 +641,14 @@ def _translations(
 
 
 def _translated_frames(
-    record: Mapping[str, str], frames: Mapping[str, int], owned: list[str]
+    case: SimCase, record: Mapping[str, str], frames: Mapping[str, int], owned: list[str]
 ) -> list[str]:
     """Include the global-axis body frame when translating its hub."""
-    body_name = (record.get(ROTATION_ALIAS_KEY) or "").strip().upper() + "_BMRP"
+    alias = (record.get(ROTATION_ALIAS_KEY) or "").strip().casefold()
+    radical = next((name for name in case.rotors if name.casefold() == alias), None)
+    if radical is None:
+        return owned
+    body_name = f"{radical}_BMRP"
     return [*owned, *([body_name] if body_name in frames else [])]
 
 

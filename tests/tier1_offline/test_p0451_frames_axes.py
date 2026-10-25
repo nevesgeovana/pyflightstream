@@ -193,3 +193,43 @@ def test_p0451_tilted_lattice_stations_follow_global_shaft(tmp_path):
     axial = (layout.lattice_m - np.array(rotor.origin)) @ np.array(rotor.axis_vector)
     expected = layout.lattice.dimensional_points()[:, 0]
     np.testing.assert_allclose(axial, expected, atol=1e-12)
+
+
+def test_p0451_rv1_body_frame_follows_mixed_case_rotor_translation(tmp_path):
+    from tests.tier1_offline.test_goal022_translate import (
+        frame_names,
+        lines_of,
+        moving_rotor,
+        origin_moves,
+    )
+
+    case = moving_rotor(tmp_path, "{DISTANCE: 0.05 / AXIS: Pusher_SMRP-X / ALIAS: Pusher}")
+    rotor = case.rotors["PUSHER"].model_copy(update={"alias": "Pusher"})
+    case = case.model_copy(
+        update={
+            "rotors": {"LIFT_L1": case.rotors["LIFT_L1"], "Pusher": rotor},
+            "aliases": {"LIFT_L1": case.aliases["LIFT_L1"], "Pusher": case.aliases["PUSHER"]},
+            "motions": [case.motions[0], dict(case.motions[1], MOVING_BC_ALIAS="Pusher")],
+        }
+    )
+    lines = lines_of(case)
+    names = frame_names("\n".join(lines))
+    moved = {names[int(line.split()[1])]: line.split()[2:] for line in origin_moves(lines)}
+    assert moved["Pusher_BMRP"] == moved["Pusher_SMRP"] == ["7.25", "0.0", "0.0", "METER"]
+
+
+def test_p0451_rv1_nonrotor_alias_does_not_own_a_custom_body_named_frame(tmp_path):
+    from pyflightstream.cases import FrameSpec
+    from tests.tier1_offline.test_goal022_translate import (
+        lines_of,
+        origin_moves,
+        translations,
+        wing_case,
+    )
+
+    case = wing_case(
+        tmp_path,
+        frames=[FrameSpec(name="AIRFRAME_BMRP", origin=(0.4, 0.0, 0.1))],
+        translations=translations("{DISTANCE: 0.05 / AXIS: MRP-X / ALIAS: airframe}"),
+    )
+    assert origin_moves(lines_of(case)) == []
