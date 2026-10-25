@@ -62,7 +62,7 @@ from ._conventions import declared_run_type
 from ._freestream import rotor_row_stepping
 from ._motion import _origin
 from ._names import _inventory
-from ._probe_imports import _phased_farfield, _stage_import
+from ._probe_imports import _phased_farfield, _shape_key, _stage_import
 from ._rows import (
     _angle,
     _from_metres,
@@ -366,6 +366,7 @@ class FarfieldShape:
     points_m: np.ndarray
     geometry: dict[str, Any]
     lattice: Any = field(default=None, compare=False, repr=False)
+    component: tuple[str, int] | None = None
 
     def record(self) -> dict[str, Any]:
         """Return the shape as the run record and ``plan.json`` carry it (FR-1047)."""
@@ -469,15 +470,22 @@ def _plane_choice(
     for number, entry in enumerate(entries, start=1):
         if not _emitted(entry) or entry.frame.strip().upper() != "REFERENCE" or entry.scale != "m":
             continue
-        for rectangle in entry.rectangles:
+        for index, rectangle in enumerate(entry.rectangles):
             # Laid as `[[probes]]` lays it, in the simulation's unit, then in metres.
             native = rectangle_points(rectangle, scale=native_per_m)
             points = np.array(native, dtype=float) / native_per_m
             if _same_points(points, own.points_m, native_per_m):
-                identical.append(replace(own, source="declared", entry=number))
+                identical.append(
+                    replace(own, source="declared", entry=number, component=("rectangle", index))
+                )
             chosen = _qualifying_plane(rectangle, laid.axes, reach)
             if chosen is not None:
-                qualifying.append(_plane_shape("declared", number, chosen[0], direction, chosen[1]))
+                qualifying.append(
+                    replace(
+                        _plane_shape("declared", number, chosen[0], direction, chosen[1]),
+                        component=("rectangle", index),
+                    )
+                )
     if not trefftz.states_plane and len(qualifying) == 1:
         return qualifying[0]
     return identical[0] if identical else own
@@ -578,12 +586,13 @@ def _lattice_choice(
     for number, entry in enumerate(entries, start=1):
         if not _emitted(entry):
             continue
-        for shape in entry.lattices:
+        for index, shape in enumerate(entry.lattices):
             if not _placed_alike(wanted, shape, entry.frame.strip().upper()):
                 continue
             declared = _lattice_shape(
                 case, script, frames, shape, native_per_m, source="declared", entry=number
             )
+            declared = replace(declared, component=("lattice", index))
             if _same_points(declared.points_m, own.points_m, native_per_m):
                 identical.append(declared)
             if 2 * wanted.m_max < shape.build(1.0).n_psi:
@@ -1163,6 +1172,7 @@ def farfield_probes(
     unsteady: bool,
     frames: Any = None,
     analysis_points: list | None = None,
+    declared_spans: dict[int, tuple[int, dict[tuple[str, int], int]]] | None = None,
 ) -> int:
     """Lay the far-field plane and lattice as probe points after the declared ones (FR-455).
 
@@ -1195,9 +1205,13 @@ def farfield_probes(
         )
     script.farfield_layout.append({"point": dict(case.point), "shapes": records})
     imported: list[tuple[float, float, float]] = []
+    placements: dict[tuple, dict[str, Any]] = {}
     for shape, recorded in _unique_shapes(shapes, records):
         points = shape.points_m
         native = np.round(points * native_per_m, 5)
+        placements[_shape_key(shape)] = _steady_probe_span(
+            shape, declared_spans, len(imported), vertex, len(placements)
+        )
         if shape.source != "added":
             continue
         recorded["positions_frame"] = "REFERENCE"
@@ -1205,16 +1219,46 @@ def farfield_probes(
             vertex += 1
             script.probe_points.append((vertex, float(x), float(y), float(z), "REFERENCE"))
             imported.append((x, y, z))
+    _record_shape_spans(shapes, records, placements)
     if imported:
         _stage_import(script, shapes, imported, native_per_m)
     return vertex
+
+
+def _record_shape_spans(shapes, records, placements):
+    """Give each reader of a shared shape the span assigned to its one import."""
+    for shape, recorded in zip(shapes, records, strict=True):
+        recorded.update(placements.get(_shape_key(shape), {}))
+
+
+def _steady_probe_span(shape, declared_spans, offset, vertex, number):
+    """Record a steady shape at the declared or appended position already known."""
+    if shape.source == "added":
+        return dict(
+            id=f"farfield:{shape.kind}:{number}",
+            offset=offset,
+            final_offset=vertex,
+            import_phase="after-march",
+            exports=["final"],
+        )
+    if declared_spans is None or shape.entry not in declared_spans:
+        return {}
+    first, parts = declared_spans[shape.entry]
+    return dict(
+        id=f"probes[{shape.entry}]",
+        offset=first,
+        final_offset=first,
+        sample_offset=parts.get(shape.component, 0),
+        import_phase="after-march",
+        exports=["final"],
+    )
 
 
 def _unique_shapes(shapes: Sequence[FarfieldShape], records: list[dict[str, Any]]):
     """Emit identical sample positions once while retaining each entry's layout record."""
     seen = set()
     for shape, recorded in zip(shapes, records, strict=True):
-        key = (shape.kind, shape.source, shape.entry, shape.points_m.tobytes())
+        key = _shape_key(shape)
         if key not in seen:
             seen.add(key)
             yield shape, recorded

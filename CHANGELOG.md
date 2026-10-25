@@ -32,6 +32,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Probe import planning records each set's offsets as it appends the set,
+  avoiding coordinate searches on large surveys. Distinct declarations with
+  equal coordinates retain their own probe IDs.
 - Rotor frames keep the user's axis labels again (0.42.0 to 0.45.0 put the
   shaft on SMRP Z for a non-native blade datum or a vector axis, moving probe
   coordinates).

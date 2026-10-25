@@ -428,6 +428,8 @@ class FarLayout:
     plane_placed: bool = True
     lattice_placed: bool = True
     lattice_frame: str | None = None
+    plane_record: Mapping[str, Any] | None = None
+    lattice_record: Mapping[str, Any] | None = None
 
 
 def recorded_layout(shapes: Sequence[Mapping[str, Any]]) -> FarLayout:
@@ -456,6 +458,8 @@ def recorded_layout(shapes: Sequence[Mapping[str, Any]]) -> FarLayout:
     found: dict[str, Any] = {}
     for shape in shapes:
         kind = str(shape.get("kind"))
+        if "offset" in shape:
+            found[f"{kind}_record"] = shape
         try:
             if kind == "plane":
                 grid = (
@@ -609,7 +613,7 @@ def _locate_one(
 
 
 def far_samples(
-    samples: ProbeSamples, layout: FarLayout, *, per_m: float
+    samples: ProbeSamples, layout: FarLayout, *, per_m: float, final: bool = True
 ) -> tuple[slice | np.ndarray | None, slice | np.ndarray | None, str]:
     """Locate the lattice and the plane among a point's probes (FR-1045, PFS-2081.58).
 
@@ -631,6 +635,8 @@ def far_samples(
         :func:`derived_layout`).
     per_m : float
         Number of native simulation length units per metre.
+    final : bool
+        Select final-export offsets; False selects window-import offsets.
 
     Returns
     -------
@@ -650,21 +656,41 @@ def far_samples(
             expected = layout.lattice_m * per_m
         # A steady export states every position in the reference frame.
         owner = frame if samples.frames is not None else None
-        lattice, why = _locate_one(
-            samples, expected, frame=owner, by_shape=not layout.lattice_placed, what="lattice"
+        lattice, why = (
+            _recorded_selection(samples, layout.lattice_record, final=final)
+            if layout.lattice_record is not None
+            else _locate_one(
+                samples, expected, frame=owner, by_shape=not layout.lattice_placed, what="lattice"
+            )
         )
         reasons += [why] if why else []
     if layout.plane_m is not None:
         owner = _REFERENCE if layout.plane_placed and samples.frames is not None else None
-        plane, why = _locate_one(
-            samples,
-            layout.plane_m * per_m,
-            frame=owner,
-            by_shape=not layout.plane_placed,
-            what="plane",
+        plane, why = (
+            _recorded_selection(samples, layout.plane_record, final=final)
+            if layout.plane_record is not None
+            else _locate_one(
+                samples,
+                layout.plane_m * per_m,
+                frame=owner,
+                by_shape=not layout.plane_placed,
+                what="plane",
+            )
         )
         reasons += [why] if why else []
     return lattice, plane, "; ".join(reasons)
+
+
+def _recorded_selection(samples, record, *, final):
+    """Read the construction span; equal coordinates never change its identity."""
+    if not final and "window" not in record.get("exports", []):
+        return None, "the recorded probe set is absent from window exports"
+    start = int(record["final_offset"] if final else record["offset"])
+    start += int(record.get("sample_offset", 0))
+    count = int(record["count"])
+    if start < 0 or count < 0 or start + count > len(samples.positions):
+        return None, "the probe export is shorter than its recorded probe set span"
+    return slice(start, start + count), ""
 
 
 def frame_lattice(shape: LatticeShape) -> tuple[ProbeLattice, None, str]:

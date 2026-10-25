@@ -778,7 +778,7 @@ def _instant_values(
     rho, speed, alpha, beta = _flow(point)
     q_ref = ff._q_ref(point, rho)
     layout = probe.layout
-    lattice_at, plane_at, why = far_samples(instant.samples, layout, per_m=probe.per_m)
+    lattice_at, plane_at, why = far_samples(instant.samples, layout, per_m=probe.per_m, final=final)
     # C reads a plane on every applicable row; D and balances read a lattice.
     wants_plane = "trefftz:plane" in analyses
     wants_lattice = "ledgers" in analyses or "trefftz:power" in analyses

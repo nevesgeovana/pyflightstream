@@ -59,7 +59,7 @@ from ._frames import (
 from ._names import (
     _artifact_of,
 )
-from ._probe_imports import _stage_import
+from ._probe_imports import _emit_probe_sets, _ProbeSet
 from ._rows import (
     _from_metres,
     _rotor_of,
@@ -216,6 +216,12 @@ def _record_probe_field(
     script.probe_field_layout.append(
         {
             "entry": entry_number,
+            "id": f"probes[{entry_number}]",
+            "offset": first_vertex - 1,
+            "final_offset": first_vertex - 1,
+            "count": vertex - first_vertex + 1,
+            "set_count": vertex - first_vertex + 1,
+            "import_phase": "init" if unsteady else "after-march",
             "kind": "probe-field",
             "probe_kind": probes.kind,
             "exports": ["history"] if unsteady else ["final"],
@@ -285,13 +291,18 @@ def _pproc_probes(
     _open_the_probe_points(case, script, sampled=sampled, steady=not unsteady, normal=normal)
     # Number from the points that survive the opening, so a replaced survey restarts at 1.
     vertex = len(script.probe_points)
+    declared_spans = {}
     for entry_number, probes in enumerate(pproc.probes, start=1):
         if not unsteady and probes.parameters:
             _warn_steady_parameter_list(case, probes, entry_number, normal=normal)
         if unsteady and probes.parameters:
             _refuse_unavailable_fluid_plot_parameters(case, script, probes)
         first_vertex = vertex + 1
-        vertex = _emit_one_probe_table(case, script, frames, probes, vertex, unsteady=unsteady)
+        parts: dict[tuple[str, int], int] = {}
+        vertex = _emit_one_probe_table(
+            case, script, frames, probes, vertex, unsteady=unsteady, parts=parts
+        )
+        declared_spans[entry_number] = (first_vertex - 1, parts)
         declared.append(
             (
                 entry_number,
@@ -318,7 +329,9 @@ def _pproc_probes(
     _pproc_sampled_volume(case, script, frames, vertex, unsteady=unsteady)
     # FR-455 and FR-1074: the far field's plane and lattice after
     # every declared point, then the inside-the-body check of the declared ones.
-    _farfield_after_march(case, script, frames, enabled=not unsteady, separate=False)
+    _farfield_after_march(
+        case, script, frames, enabled=not unsteady, separate=False, declared_spans=declared_spans
+    )
     warn_declared_inside(case, declared)
     if sampled and previous_layout and previous_layout != script.probe_field_layout:
         raise CampaignConfigError(
@@ -327,7 +340,9 @@ def _pproc_probes(
         )
 
 
-def _farfield_after_march(case, script, frames, *, enabled: bool, separate: bool) -> None:
+def _farfield_after_march(
+    case, script, frames, *, enabled: bool, separate: bool, declared_spans=None
+) -> None:
     """Create conventional far-field points without touching declared fluid histories."""
     if not enabled or not needs_fresh_probes(case):
         return
@@ -336,7 +351,9 @@ def _farfield_after_march(case, script, frames, *, enabled: bool, separate: bool
     ):
         script.emit("DELETE_PROBE_POINTS")
     vertex = 0 if separate else max((point[0] for point in script.probe_points), default=0)
-    farfield_probes(case, script, vertex, unsteady=False, frames=frames)
+    farfield_probes(
+        case, script, vertex, unsteady=False, frames=frames, declared_spans=declared_spans
+    )
 
 
 def _phased_declared_probes(case, script, frames, *, analysis):
@@ -344,15 +361,12 @@ def _phased_declared_probes(case, script, frames, *, analysis):
     if not analysis:
         _fluid_entries(case, script, frames)
         return
-    scratch, points = _last_step_entries(case, script, frames)
+    scratch, sets = _last_step_entries(case, script, frames)
     has_window = any(kind == "farfield_probes" for _, _, kind in farfield_export_windows(case))
-    if not has_window and (points or needs_fresh_probes(case)):
+    if not has_window and (sets or needs_fresh_probes(case)):
         script.emit("DELETE_PROBE_POINTS")
-    farfield_probes(
-        case, script, len(points), unsteady=False, frames=frames, analysis_points=points
-    )
-    if points:
-        _stage_import(script, [], points, _from_metres(case, script, "probe coordinates"))
+    farfield_probes(case, script, 0, unsteady=False, frames=frames, analysis_points=sets)
+    points = _emit_probe_sets(script, sets, _from_metres(case, script, "probe coordinates"))
     _record_analysis_points(script, scratch, points)
 
 
@@ -388,12 +402,16 @@ def _last_step_entries(case, script, frames):
     scratch = deepcopy(script)
     scratch.probe_points.clear()
     scratch.probe_field_layout.clear()
+    sets = []
     for number, probes in enumerate(pproc.probes, 1):
         if probes.kind != "default":
             continue
         first = len(scratch.probe_points) + 1
         _warn_steady_parameter_list(case, probes, number, normal=True)
-        vertex = _emit_one_probe_table(case, scratch, frames, probes, first - 1, unsteady=False)
+        parts = {}
+        vertex = _emit_one_probe_table(
+            case, scratch, frames, probes, first - 1, unsteady=False, parts=parts
+        )
         if vertex >= first:
             _record_probe_field(
                 case,
@@ -406,47 +424,34 @@ def _last_step_entries(case, script, frames):
                 unsteady=False,
                 normal=True,
             )
-    points = [tuple(point[1:4]) for point in scratch.probe_points]
-    for record in scratch.probe_field_layout:
-        probes = pproc.probes[int(record["entry"]) - 1]
+        if vertex < first:
+            continue
+        record = scratch.probe_field_layout[-1]
+        points = [tuple(point[1:4]) for point in scratch.probe_points[first - 1 : vertex]]
         if probes.points_file and probes.scale == "m" and probes.frame == "REFERENCE":
             rows = list(
                 csv.reader(
                     Path(probes.resolved_points_file).read_text(encoding="utf-8-sig").splitlines()
                 )
             )[1:]
-            for index, row in zip(record["probe_ids"], rows, strict=True):
-                points[index - 1] = (*points[index - 1], int(row[3]))
-    return scratch, points
+            points = [(*point, int(row[3])) for point, row in zip(points, rows, strict=True)]
+        sets.append(
+            _ProbeSet(
+                f"probes[{record['entry']}]", points, "default", records=[record], parts=parts
+            )
+        )
+    return scratch, sets
 
 
 def _record_analysis_points(script, scratch, points):
-    """Map declared field IDs onto the window-plus-final export order."""
-    window_points = []
-    creation = script.pending_input_files.get("farfield_window_create.txt", "")
-    if creation:
-        lines = creation.splitlines()
-        name = lines[lines.index("PROBE_POINTS_IMPORT") + 3]
-        window_points = [
-            tuple(map(float, row[:3]))
-            for row in csv.reader(script.pending_input_files[name].splitlines()[1:])
-        ]
-    combined = window_points + [point[:3] for point in points]
+    """Use the offsets recorded while each declaration was appended."""
     for record in scratch.probe_field_layout:
-        record["probe_ids"] = [
-            next(
-                index
-                for index, actual in enumerate(combined, 1)
-                if np.allclose(actual, point, rtol=0, atol=1e-5)
-            )
-            for point in record["points_native"]
-        ]
-        if any(index <= len(window_points) for index in record["probe_ids"]):
-            record["exports"] = ["window", "final"]
+        first = record["final_offset"] + 1
+        record["probe_ids"] = list(range(first, first + record["count"]))
     script.probe_field_layout.extend(scratch.probe_field_layout)
     if not script.probe_points:
         script.probe_points.extend(
-            (index, *point, "REFERENCE") for index, point in enumerate(combined, 1)
+            (index, *point[:3], "REFERENCE") for index, point in enumerate(points, 1)
         )
 
 
@@ -772,8 +777,11 @@ def _emit_surveyed_probes(case, script, probes, vertex: int, *, unsteady: bool) 
     return None
 
 
-def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady: bool) -> int:
+def _emit_one_probe_table(
+    case, script, frames, probes, vertex: int, *, unsteady: bool, parts=None
+) -> int:
     """Emit one `[[probes]]` entry, returning the vertex count after it."""
+    entry_start = vertex
     if not probes.parameters:
         return vertex
     imported_count = _emit_surveyed_probes(case, script, probes, vertex, unsteady=unsteady)
@@ -903,16 +911,20 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             [value * scale for value in point]
             for point in _read_probe_profile(probes.resolved_points_file, volume_only=not unsteady)
         ]
-    for rectangle in probes.rectangles:
+    for index, rectangle in enumerate(probes.rectangles):
+        _record_component(parts, ("rectangle", index), vertex - entry_start + len(lattice))
         lattice += rectangle_points(rectangle, scale=scale)
     for circle in probes.circles:
         lattice += circle_points(circle, scale=scale)
     lattice += planar_points(case, probes, native_per_m)
-    # FR-1072: the survey lattices, laid by `probes`. A steady entry
-    # in the reference frame has the probes home emit them too
-    # (`emit_declared_lattices`), placed and rounded as recorded here; in
-    # another frame each point is carried into the reference one.
-    surveyed = declared_lattices(case, probes, native_per_m, unsteady=unsteady)
+    surveyed = _survey_components(
+        case,
+        probes,
+        native_per_m,
+        unsteady=unsteady,
+        offset=vertex - entry_start + len(lattice),
+        parts=parts,
+    )
     by_probes = not unsteady and frame == 1 and bool(surveyed)
     for points, emit in ((lattice, True), (surveyed, not by_probes)):
         vertex = _lay_points(
@@ -929,6 +941,28 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
     if by_probes:
         emit_declared_lattices(case, script, probes, native_per_m)
     return vertex
+
+
+def _record_component(parts, key, offset):
+    """Keep a component's relative position when the caller records declarations."""
+    if parts is not None:
+        parts[key] = offset
+
+
+def _survey_components(case, probes, native_per_m, *, unsteady, offset, parts):
+    """Lay each declared lattice and retain its position within the entry."""
+    surveyed: list[list[float]] = []
+    for index, shape in enumerate(probes.lattices):
+        _record_component(parts, ("lattice", index), offset + len(surveyed))
+        surveyed.extend(
+            declared_lattices(
+                case,
+                probes.model_copy(update={"lattices": [shape]}),
+                native_per_m,
+                unsteady=unsteady,
+            )
+        )
+    return surveyed
 
 
 def _lay_points(

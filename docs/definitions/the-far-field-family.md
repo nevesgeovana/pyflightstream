@@ -531,7 +531,14 @@ set's point count, window steps and final export.
 Declared `instantaneous` probes keep their fluid plots and history table
 (`probes/<point>_probes_history.csv` when mixed with default entries).
 With `default` declared probes, the final far-field export also contains those points;
-the far field selects its own by recorded positions.
+the far field selects its own by the offsets recorded during construction.
+Each set has an identity, a zero-based offset within its phase's import,
+a count, and a final-export offset. A reused declaration keeps its identity;
+two exports reading the same far-field shape share one imported set. Equal
+coordinates in distinct declared entries do not merge their identities.
+When a declaration contains several shapes, `sample_offset` locates the
+far-field shape within that declaration and `count` retains its shape count;
+`set_count` records the entire imported declaration's size.
 
 <a id="what-the-plan-adds"></a>
 

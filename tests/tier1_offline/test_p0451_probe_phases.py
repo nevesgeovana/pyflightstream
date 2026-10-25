@@ -4,6 +4,7 @@ The public builder must import each set in the latest required phase, with
 one CSV per phase. No solver is invoked.
 """
 
+import time
 import warnings
 from pathlib import Path
 
@@ -161,6 +162,8 @@ def test_p0451_split_exports_post_c_final_and_d_window(tmp_path):
         farfield_entry="plane",
         exports=["final"],
         import_phase="after-march",
+        offset=0,
+        final_offset=len(lattice),
     )
     lattice_record = dict(
         kind="lattice",
@@ -173,6 +176,8 @@ def test_p0451_split_exports_post_c_final_and_d_window(tmp_path):
         positions_frame="REFERENCE",
         exports=["window", "final"],
         import_phase="window-start",
+        offset=0,
+        final_offset=0,
         lattice=products._FFPROOF_POST___SHAPE.build(1.0).model_dump(mode="json"),
     )
     products._ffproof_post___set_record(
@@ -281,3 +286,140 @@ def test_p0451_instantaneous_keeps_init_plots(tmp_path):
     assert lines.count("UNSTEADY_SOLVER_NEW_FLUID_PLOT") == 3
     assert lines.index("UNSTEADY_SOLVER_NEW_FLUID_PLOT") < lines.index("START_SOLVER")
     assert not _imports(script)
+
+
+def test_p0451_probesets_equal_coordinates_keep_declared_identity(tmp_path):
+    script = _build(_case(tmp_path, [], [_entry("default"), _entry("default")]))
+    records = script.probe_field_layout
+    assert [record["probe_ids"] for record in records] == [[1, 2, 3], [4, 5, 6]]
+    assert [record.get("offset") for record in records] == [0, 3]
+    assert len({record.get("id") for record in records}) == 2
+
+
+def test_p0451_probesets_shared_plane_has_constructed_offsets(tmp_path):
+    script = _build(_case(tmp_path, [_plane(name="a"), _plane("avg_window", name="b")]))
+    records = script.farfield_layout[-1]["shapes"]
+    assert [record.get("offset") for record in records] == [0, 0]
+    assert records[0].get("id") == records[1].get("id")
+    assert records[0].get("id") is not None
+    assert not _imports(script)
+
+
+def test_p0451_probesets_reused_lattice_has_one_window_set(tmp_path):
+    lattice = dict(rotor="ROTOR", stations=[-10, 1, 2], n_r=3, n_psi=16)
+    declared = dict(kind="default", frame="REFERENCE", parameters=["VX"], lattices=[lattice])
+    script = _build(_case(tmp_path, [_power()], [declared]))
+    shape = script.farfield_layout[-1]["shapes"][0]
+    record = script.probe_field_layout[0]
+    assert shape["source"] in {"reused", "declared"}
+    assert shape.get("id") == record.get("id") and shape.get("id") is not None
+    assert shape.get("offset") == record.get("offset") == 0
+    assert record.get("import_phase") == "window-start"
+    assert not _imports(script)
+
+
+def test_p0451_probesets_two_large_points_plan_under_two_seconds(tmp_path):
+    import sys
+
+    from pyflightstream.cases import Campaign, SweepAxis
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run import plan_campaign
+    from pyflightstream.workspace import CampaignWorkspace
+
+    # A plane has odd axis counts: 123 * 123 is the nearest square above 15000.
+    plane = dict(
+        _plane("avg_window"), half_width_bref=0.61, half_height_bref=0.61, spacing_bref=0.01
+    )
+    power = dict(_power(), n_psi=90)
+    case = _case(tmp_path, [plane, power], [_entry("default"), _entry("default")])
+    case = case.model_copy(update={"sweep": SweepAxis(type="alpha", values=[0, 1])})
+    campaign = Campaign(name="probe_sets", fs_version="26.124", fs_exe=sys.executable, sims=[case])
+    start = time.perf_counter()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        plan = plan_campaign(
+            campaign,
+            CampaignWorkspace(tmp_path / "campaign"),
+            write_plan=False,
+            recipes=workflow_registry(),
+        )
+    elapsed = time.perf_counter() - start
+    print(f"PROBESETS two-point plan: {elapsed:.6f} seconds")
+    assert len(plan.ready) == 2, plan.summary()
+    assert elapsed < 2.0, f"two-point plan took {elapsed:.6f}s"
+    scripts = [_build(case.model_copy(update={"point": {"ALPHA": alpha}})) for alpha in (0, 1)]
+    for script in scripts:
+        shapes = script.farfield_layout[-1]["shapes"]
+        assert [shape["count"] for shape in shapes] == [15129, 1080]
+        assert [shape.get("offset") for shape in shapes] == [0, 15129]
+        assert [record.get("offset") for record in script.probe_field_layout] == [0, 3]
+        assert [record["probe_ids"] for record in script.probe_field_layout] == [
+            [16210, 16211, 16212],
+            [16213, 16214, 16215],
+        ]
+        assert _imports(script)[0][2] == 6
+        action = script.pending_input_files["farfield_window_create.txt"].splitlines()
+        csv_name = action[action.index("PROBE_POINTS_IMPORT") + 3]
+        rows = script.pending_input_files[csv_name].splitlines()
+        assert int(rows[0]) == 16209
+        for shape in shapes:
+            from pyflightstream.post.farfield_fields import recorded_layout
+
+            layout = recorded_layout([shape])
+            expected = layout.plane_m if shape["kind"] == "plane" else layout.lattice_m
+            start = shape["offset"] + 1
+            actual = [
+                [float(v) for v in row.split(",")[:3]]
+                for row in rows[start : start + shape["count"]]
+            ]
+            np.testing.assert_allclose(actual, np.round(expected, 5), atol=1e-5)
+
+
+def test_p0451_probesets_post_uses_identity_with_equal_coordinates(tmp_path):
+    from pyflightstream.post.farfield_fields import ProbeSamples, far_samples, recorded_layout
+
+    script = _build(_case(tmp_path, [_plane()]))
+    record = dict(script.farfield_layout[-1]["shapes"][0])
+    count = record["count"]
+    # Two distinct sets can have the same coordinates, including a permuted block.
+    # The recorded span remains authoritative for selecting their different values.
+    record.update(id="farfield:plane:second", offset=count, final_offset=count)
+    layout = recorded_layout([record])
+    points = np.vstack([layout.plane_m[::-1], layout.plane_m])
+    samples = ProbeSamples(points, np.arange(2 * count * 3).reshape(-1, 3), np.zeros(2 * count))
+    _, selected, reason = far_samples(samples, layout, per_m=1)
+    assert not reason
+    assert selected == slice(count, 2 * count)
+    points[:count] = layout.plane_m
+    _, selected, reason = far_samples(samples, layout, per_m=1)
+    assert not reason and selected == slice(count, 2 * count)
+
+
+def test_p0451_probesets_steady_offsets_follow_declared_points(tmp_path):
+    script = _build(_case(tmp_path, [_plane()], [_entry("default")], "steady"))
+    record = script.farfield_layout[-1]["shapes"][0]
+    assert record.get("offset") == 0
+    assert record.get("final_offset") == 3
+    assert record.get("import_phase") == "after-march"
+    assert _imports(script)[0][2] == record["count"]
+
+
+@pytest.mark.parametrize("run_type", ["steady", "unsteady_rotor"])
+def test_p0451_probesets_reused_component_keeps_its_entry_and_span(tmp_path, run_type):
+    lattice = dict(rotor="ROTOR", stations=[-10, 1, 2], n_r=3, n_psi=16)
+    declared = dict(_entry("default"), lattices=[lattice])
+    power = _power() if run_type == "unsteady_rotor" else dict(_power(), export_type="last_step")
+    if run_type == "steady":
+        power.pop("last_steps")
+    script = _build(_case(tmp_path, [power], [declared], run_type))
+    shape = script.farfield_layout[-1]["shapes"][0]
+    if run_type == "unsteady_rotor":
+        assert not _imports(script), "a reused declaration must not be split between imports"
+    assert shape.get("offset") == 0
+    assert shape.get("sample_offset") == 3
+    assert shape["count"] == 192
+    if run_type == "unsteady_rotor":
+        record = script.probe_field_layout[0]
+        assert record["count"] == 195
+        assert record["import_phase"] == "window-start"
+        assert not _imports(script)
