@@ -84,20 +84,28 @@ def _p1021_pair() -> tuple[str, str]:
     v0.33.0 golden byte for byte (asserted wherever the tag is in the clone).
     """
     release = _P1021_GOLDEN.read_text(encoding="utf-8")
-    # PFS-2119.024 changes the datum basis. This historical FR-51/FR-321
-    # composite still isolates those two changes; undo only the pinned basis.
+    # P0451-CIFIX: PFS-2168 restores the v0.33.0 basis, so no axis undo is
+    # needed. Remove only the added BMRP and undo the resulting frame IDs.
+    body_frame = (
+        "CREATE_NEW_COORDINATE_SYSTEM\nEDIT_COORDINATE_SYSTEM\n"
+        "FRAME 3\nNAME PUSHER_BMRP\n"
+        "ORIGIN_X 4.5\nORIGIN_Y 0.0\nORIGIN_Z 0.0\n"
+        "VECTOR_X_X 1.0\nVECTOR_X_Y 0.0\nVECTOR_X_Z 0.0\n"
+        "VECTOR_Y_X 0.0\nVECTOR_Y_Y 1.0\nVECTOR_Y_Z 0.0\n"
+        "VECTOR_Z_X 0.0\nVECTOR_Z_Y 0.0\nVECTOR_Z_Z 1.0\n\n"
+    )
+    assert release.count(body_frame) == 1
+    release = release.replace(body_frame, "", 1)
     for before, after, count in (
-        ("VECTOR_X_X 0.0", "VECTOR_X_X 1.0", 3),
-        ("VECTOR_X_Y 1.0", "VECTOR_X_Y 0.0", 3),
-        ("VECTOR_Y_Y 0.0", "VECTOR_Y_Y 1.0", 3),
-        ("VECTOR_Y_Z 1.0", "VECTOR_Y_Z 0.0", 3),
-        ("VECTOR_Z_X 1.0", "VECTOR_Z_X 0.0", 3),
-        ("VECTOR_Z_Z 0.0", "VECTOR_Z_Z 1.0", 3),
-        ("ROTATION_AXIS Z", "ROTATION_AXIS X", 1),
-        ("SET_MOTION_ROTOR_AXIS 1 Z", "SET_MOTION_ROTOR_AXIS 1 X", 1),
+        ("FRAME 4", "FRAME 3", 191),
+        ("FRAME 5", "FRAME 4", 1),
+        ("FRAME 6", "FRAME 5", 12),
+        ("ROTATION_FRAME 4", "ROTATION_FRAME 3", 1),
+        ("5,6", "4,5", 1),
+        ("SET_MOTION_COORDINATE_SYSTEM 1 4", "SET_MOTION_COORDINATE_SYSTEM 1 3", 1),
     ):
         assert release.splitlines().count(before) == count
-        release = release.replace(before + "\n", after + "\n")
+        release = release.replace("\n" + before + "\n", "\n" + after + "\n")
     assert release.count(_TERMINATION) == 1 and "SECTIONS_CP" not in release
     base = release.replace(_TERMINATION, "", 1).replace(
         _EXPORT_LOG, "\n" + _P1021_PLOT + "EXPORT_LOG\n", 1
