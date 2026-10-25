@@ -423,3 +423,40 @@ def test_p0451_probesets_reused_component_keeps_its_entry_and_span(tmp_path, run
         assert record["count"] == 195
         assert record["import_phase"] == "window-start"
         assert not _imports(script)
+
+
+@pytest.mark.parametrize("second_export", ["avg_window", "last_step"])
+def test_p0451_rv1_distinct_history_lattices_keep_their_conventional_samples(
+    tmp_path, second_export
+):
+    from pyflightstream.post.farfield_fields import ProbeSamples, far_samples, recorded_layout
+
+    first = _power()
+    second = dict(_power(), name="second", stations=[-10, 3, 4], station=3)
+    lattices = [
+        {key: value for key, value in entry.items() if key in {"rotor", "stations", "n_r", "n_psi"}}
+        for entry in (first, second)
+    ]
+    second["export_type"] = second_export
+    if second_export == "last_step":
+        second.pop("last_steps")
+    probe = dict(kind="instantaneous", frame="REFERENCE", parameters=["VX"], lattices=lattices)
+    script = _build(_case(tmp_path, [first, second], [probe]))
+    records = script.farfield_layout[-1]["shapes"]
+    action = script.pending_input_files["farfield_window_create.txt"].splitlines()
+    window_path = action[action.index("PROBE_POINTS_IMPORT") + 3]
+    window = script.pending_input_files[window_path].splitlines()
+    expected_window_count = 384 if second_export == "avg_window" else 192
+    assert int(window[0]) == expected_window_count
+    assert records[0]["id"] != records[1]["id"]
+    rows = window[1:]
+    for _, path, _ in _imports(script):
+        rows += script.pending_input_files[path].splitlines()[1:]
+    points = np.array([[float(value) for value in row.split(",")[:3]] for row in rows])
+    assert len(points) == 384
+    samples = ProbeSamples(points, np.zeros_like(points), np.zeros(len(points)))
+    for record in records:
+        layout = recorded_layout([record])
+        selected, _, reason = far_samples(samples, layout, per_m=1)
+        assert not reason
+        np.testing.assert_allclose(points[selected], layout.lattice_m, atol=1e-5)

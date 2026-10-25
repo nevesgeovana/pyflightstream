@@ -66,13 +66,14 @@ def _phased_farfield(
     """Import window sets once at window start, and append final-only sets later."""
     sets = analysis_points if analysis_points is not None else []
     by_id = {probe_set.id: probe_set for probe_set in sets}
+    declared_ids = set(by_id)
     shape_ids = {}
     spans = [(first, last) for first, last, kind in windows if kind == "farfield_probes"]
     for shape, record in zip(shapes, records, strict=True):
         key = _shape_key(shape)
         identity = (
             f"probes[{shape.entry}]"
-            if shape.source in {"reused", "declared"}
+            if shape.source in {"reused", "declared"} and f"probes[{shape.entry}]" in declared_ids
             else (shape_ids.setdefault(key, f"farfield:{shape.kind}:{len(shape_ids)}"))
         )
         if identity not in by_id:
