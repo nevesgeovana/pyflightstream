@@ -27,7 +27,19 @@ def test_p0410_shared_payloads_keep_every_execution(monkeypatch):
     monkeypatch.setattr(module, "render_or_refusal", render)
     rendered = module.build()
     assert calls == module.GOLDEN_RENDERS
-    assert len(rendered) == 31
+    # P0451-CIFIX: PFS-2169 compacted three byte-identical qsteady payloads.
+    # Every logical case still executes; only these physical files are shared.
+    shared = {
+        "qsteady_rotor__bare__26.100.txt": "qsteady_rotor__bare__25.100.txt",
+        "qsteady_rotor__full__26.100.txt": "qsteady_rotor__full__25.100.txt",
+        "qsteady_rotor__resolved__26.101.txt": "qsteady_rotor__resolved__26.100.txt",
+    }
+    for name, target in shared.items():
+        assert module.workflow_payload(module.GOLDENS / name) == module.GOLDENS / target
+        assert module.GOLDENS / name not in rendered
+        assert module.GOLDENS / target in rendered
+    assert len(rendered) == 28
+    assert set(rendered) == set(module.GOLDENS.glob("*.txt"))
     assert all(path.read_bytes() == data for path, data in rendered.items())
 
 
