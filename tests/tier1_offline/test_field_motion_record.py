@@ -145,7 +145,7 @@ def test_continuation_preserves_predecessor_motion_without_replacing_history(tmp
     )
     pproc_text = (
         '[groups]\n"1"="all"\n[products]\nplots=false\n'
-        '[[probes]]\nframe="REFERENCE"\nfield_formats=["vtk"]\n'
+        '[[probes]]\nkind = "instantaneous"\nframe="REFERENCE"\nfield_formats=["vtk"]\n'
         'parameters=["VX","VY","VZ"]\n'
     )
     (workspace.inputs_dir / "pproc/p001.toml").write_text(pproc_text, encoding="utf-8")

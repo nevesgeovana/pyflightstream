@@ -2180,6 +2180,7 @@ frame = "MRP"
 families = "all"
 
 [[probes]]
+kind = "instantaneous"
 frame = "ROTOR_MRP"
 parameters = ["MACH"]
 points = 3

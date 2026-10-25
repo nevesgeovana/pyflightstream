@@ -153,7 +153,7 @@ def _warn_steady_parameter_list(
     warn(
         f"case {case.sim_id!r}: {_artifact_of(case)} [[probes]] entry {entry_number} "
         f"(frame {probes.frame!r}) lists parameters, but on "
-        + ('a normal probe entry (kind = "normal") ' if normal else "a steady run ")
+        + ('a normal probe entry (kind = "default") ' if normal else "a steady run ")
         + "this list only enables the entry; it does not filter the probe-points "
         "export's fixed set of variables. On an unsteady "
         + ("entry" if normal else "run")
@@ -256,7 +256,7 @@ def _pproc_probes(
     measured in a committed report).
 
     NORMAL PROBES OF AN UNSTEADY ROW (FR-417) take the steady route: an
-    unsteady row whose entries all state ``kind = "normal"`` places none of
+    unsteady row whose entries all state ``kind = "default"`` places none of
     them in INIT and creates them in ANALYSIS, after the time march, with the
     commands and in the order a steady row uses; the export block then
     updates and exports them once.
@@ -362,7 +362,7 @@ def _fluid_entries(case, script, frames):
     _pproc_surface_probes(case, script, frames)
     vertex = len(script.probe_points)
     for number, probes in enumerate(pproc.probes, 1):
-        if probes.kind == "normal":
+        if probes.kind == "default":
             continue
         _refuse_unavailable_fluid_plot_parameters(case, script, probes)
         first = vertex + 1
@@ -389,7 +389,7 @@ def _last_step_entries(case, script, frames):
     scratch.probe_points.clear()
     scratch.probe_field_layout.clear()
     for number, probes in enumerate(pproc.probes, 1):
-        if probes.kind != "normal":
+        if probes.kind != "default":
             continue
         first = len(scratch.probe_points) + 1
         _warn_steady_parameter_list(case, probes, number, normal=True)
@@ -495,28 +495,20 @@ def _refuse_unmeasured_normal_probes(case: SimCase, script: Script) -> None:
     """Enforce the measured version boundary before a normal-probe script is emitted."""
     if declared_run_type(case) not in ("unsteady", "unsteady_rotor") or case.pproc is None:
         return
-    if any(entry.kind == "normal" for entry in case.pproc.probes):
+    if any(entry.kind == "default" for entry in case.pproc.probes):
         if script.version.canonical not in NORMAL_PROBE_BUILDS:
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: normal probes of an unsteady run are verified only "
                 f"on FlightStream {' and '.join(NORMAL_PROBE_BUILDS)}. Select one of those "
-                "builds or use kind = 'unsteady' for the probe entries."
+                "builds or use kind = 'instantaneous' for the probe entries."
             )
 
 
 def _normal_probes_of(case: SimCase) -> bool:
-    """Whether an unsteady row samples its pproc's probes as normal probe points (FR-885).
+    """Whether any declared entry needs the final probe-points export.
 
-    Every ``[[probes]]`` entry of one unsteady row is of one kind, an entry
-    that states none counting as unsteady. The pproc's ``[volume_section]`` is
-    sampled through fluid plots on an unsteady row, so it counts as an unsteady
-    entry: a normal probes table and a fluid-plot history would write one
-    ``probes/<point>_probes.csv``.
-
-    Raises
-    ------
-    CampaignConfigError
-        The pproc mixes the two kinds on this row, naming the entries of each.
+    Default entries can coexist with instantaneous entries and a sampled
+    volume; post keeps their final samples and histories in separate tables.
     """
     pproc = case.pproc
     if pproc is None:
@@ -633,11 +625,10 @@ def _normal_probes_of_a_continuation(
 def _creation_of_normal_probes(
     case: SimCase, script: Script, build: Callable[[SimCase, Script], None]
 ) -> str:
-    """Return the lines the first exporting step runs to create the normal probes (FR-890).
+    """Return the window-start import of sets needed by avg_window entries.
 
-    ``DELETE_PROBE_POINTS`` and the creation commands of the post-march route,
-    taken from the row built from the mesh on a scratch script; empty for a
-    row whose probes are not normal or that states no per-step window.
+    The parked command block contains only window sets. Final-only sets are
+    imported after the march, and a row without window sets returns no lines.
     """
     if declared_run_type(case) not in ("unsteady", "unsteady_rotor"):
         return ""

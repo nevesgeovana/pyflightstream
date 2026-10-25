@@ -815,6 +815,7 @@ def test_every_command_a_workflow_declares_is_one_it_really_emits():
             "plots": {"groups": [{"name": "MRP_TOTAL", "families": "all"}]},
             "probes": [
                 {
+                    "kind": "instantaneous",
                     "frame": "MRP",
                     "parameters": ["MACH"],
                     "points": 2,
@@ -4441,6 +4442,7 @@ def _her_pproc():
             },
             "probes": [
                 {
+                    "kind": "instantaneous",
                     "frame": "ROTOR_SMRP",
                     "parameters": ["MACH", "VELOCITY"],
                     "points": 3,
@@ -5775,12 +5777,14 @@ def test_one_artifact_probes_two_frames_on_one_row(tmp_path):
             "groups": {"1": "all"},
             "probes": [
                 {
+                    "kind": "instantaneous",
                     "frame": "MRP",
                     "parameters": ["VELOCITY"],
                     "points": 2,
                     "lines": [{"start": [0.0, 0.0, 0.0], "end": [1.0, 0.0, 0.0]}],
                 },
                 {
+                    "kind": "instantaneous",
                     "frame": "MRP",
                     "parameters": ["MACH"],
                     "points": 3,
@@ -5830,6 +5834,7 @@ def test_the_0_15_0_probes_table_is_refused_naming_the_edit():
             {
                 "groups": {"1": "W"},
                 "probes": {
+                    "kind": "instantaneous",
                     "frame": "MRP",
                     "parameters": ["VELOCITY"],
                     "lines": [{"start": [0.0, 0.0, 0.0], "end": [1.0, 0.0, 0.0]}],
@@ -5865,6 +5870,7 @@ def test_no_workflow_exports_probe_points_it_never_created(tmp_path):
             "groups": {"1": "all"},
             "probes": [
                 {
+                    "kind": "instantaneous",
                     "frame": "MRP",
                     "parameters": ["VELOCITY"],
                     "points": 4,
@@ -5926,6 +5932,7 @@ def test_a_probe_entry_may_cite_a_points_file_the_user_wrote(tmp_path):
             "groups": {"1": "all"},
             "probes": [
                 {
+                    "kind": "instantaneous",
                     "frame": "REFERENCE",
                     "parameters": ["VELOCITY"],
                     "points_file": "disk_survey.txt",
@@ -5982,7 +5989,12 @@ def test_an_unresolved_survey_citation_is_refused_rather_than_emitted(tmp_path):
         {
             "groups": {"1": "all"},
             "probes": [
-                {"frame": "MRP", "parameters": ["VELOCITY"], "points_file": "disk_survey.txt"}
+                {
+                    "kind": "instantaneous",
+                    "frame": "MRP",
+                    "parameters": ["VELOCITY"],
+                    "points_file": "disk_survey.txt",
+                }
             ],
         }
     )
@@ -6004,6 +6016,7 @@ def test_a_pproc_file_may_not_state_the_resolved_survey_path():
                 "groups": {"1": "W"},
                 "probes": [
                     {
+                        "kind": "instantaneous",
                         "frame": "MRP",
                         "parameters": ["VELOCITY"],
                         "points_file": "s.txt",
@@ -6029,6 +6042,7 @@ def test_a_probe_entry_states_its_points_once(tmp_path):
     with pytest.raises(ValidationError) as both:
         ProbesSpec.model_validate(
             {
+                "kind": "instantaneous",
                 "frame": "MRP",
                 "parameters": ["VELOCITY"],
                 "points_file": "disk.txt",
@@ -6039,7 +6053,12 @@ def test_a_probe_entry_states_its_points_once(tmp_path):
 
     with pytest.raises(ValidationError) as path:
         ProbesSpec.model_validate(
-            {"frame": "MRP", "parameters": ["VELOCITY"], "points_file": "sub/disk.txt"}
+            {
+                "kind": "instantaneous",
+                "frame": "MRP",
+                "parameters": ["VELOCITY"],
+                "points_file": "sub/disk.txt",
+            }
         )
     assert "names a path" in str(path.value)
 
@@ -6065,6 +6084,7 @@ def test_a_probe_entry_prescribes_a_rectangle_and_a_circle_point_by_point(tmp_pa
             "groups": {"1": "all"},
             "probes": [
                 {
+                    "kind": "instantaneous",
                     "frame": "MRP",
                     "parameters": ["VELOCITY"],
                     "points": 3,
@@ -7992,7 +8012,14 @@ def test_p0430_f064_two_probe_sets_one_quantization_step_apart_are_not_one(tmp_p
             tmp_path,
             # D0/D2: the power entry owns the lattice.
             [dict(lattice, variant="power", m_max=2, balances=["mass"])],
-            probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [declared]}],
+            probes=[
+                {
+                    "kind": "instantaneous",
+                    "frame": "REFERENCE",
+                    "parameters": ["VX"],
+                    "lattices": [declared],
+                }
+            ],
         )
         return len(_farfield_plan___script(case).probe_points)
 

@@ -445,6 +445,7 @@ def test_the_recorded_position_is_the_emitted_position(tmp_path):
         pproc=PprocSpec(
             probes=[
                 ProbesSpec(
+                    kind="instantaneous",
                     frame="MRP",
                     parameters=["MACH"],
                     points=3,
@@ -614,6 +615,7 @@ def test_a_rectangle_and_a_circle_record_every_point_they_place(tmp_path):
         pproc=PprocSpec(
             probes=[
                 ProbesSpec(
+                    kind="instantaneous",
                     frame="MRP",
                     parameters=["MACH"],
                     rectangles=[
@@ -680,6 +682,7 @@ def test_a_steady_row_records_its_points_too(tmp_path):
         pproc=PprocSpec(
             probes=[
                 ProbesSpec(
+                    kind="instantaneous",
                     frame="MRP",
                     parameters=["MACH"],
                     points=3,
@@ -726,6 +729,7 @@ def test_a_steady_row_emits_each_declared_probe_line_once(tmp_path):
         pproc=PprocSpec(
             probes=[
                 ProbesSpec(
+                    kind="instantaneous",
                     frame="MRP",
                     parameters=["MACH", "VELOCITY", "STATIC_PRESSURE_RATIO"],
                     points=11,
@@ -772,6 +776,7 @@ def test_a_steady_row_places_probes_declared_in_a_frame_in_the_reference_frame(t
         pproc=PprocSpec(
             probes=[
                 ProbesSpec(
+                    kind="instantaneous",
                     frame="MRP",
                     parameters=["MACH"],
                     points=2,

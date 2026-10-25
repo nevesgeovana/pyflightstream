@@ -5,6 +5,7 @@ and three velocity components. Add the formats to an existing pproc artifact:
 
 ```toml
 [[probes]]
+kind = "instantaneous"
 frame = "REFERENCE"
 field_formats = ["vtk", "tecplot"]
 reusable_inflow = true
@@ -31,7 +32,7 @@ establish the actual native indices; this limitation is not repaired by the
 probe adapter. New locations or histories require recorded samples or a supported
 extraction; post-processing cannot reconstruct an unrecorded flow field.
 
-On an unsteady row an entry with `kind = "normal"`  is sampled
+On an unsteady row an entry with `kind = "default"` (also when absent) is sampled
 by probe points after the time march, as on a steady row: its layout records
 the steady probe-points export, its fields and `<stem>.inflow.dat` are the ones a
 steady row writes from the same probe values, and the file is named and

@@ -281,7 +281,7 @@ points = 11                       # points per line, both ends included
 scale = "m"                       # m, or rotor_radius
 field_formats = []               # opt in with ["vtk", "tecplot"]
 reusable_inflow = false           # requires a global YZ plane and proved SI vectors
-kind = "unsteady"                 # unsteady row: unsteady (every step) or normal (last step)
+kind = "instantaneous"           # every step on unsteady rows; default samples only the last step
 
 [[probes.lines]]
 start = [2.0, -1.0, 0.0]

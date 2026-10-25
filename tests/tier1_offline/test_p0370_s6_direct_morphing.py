@@ -534,4 +534,4 @@ def test_f5_1718_small_refusals_and_wording(tmp_path):
     assert "as the mesh does" in str(caught.value)
     for bad in ("..", "C:name.txt"):
         with pytest.raises(ValidationError, match="names a path"):
-            ProbesSpec(points_file=bad, parameters=["VX"])
+            ProbesSpec(kind="instantaneous", points_file=bad, parameters=["VX"])

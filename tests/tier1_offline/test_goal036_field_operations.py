@@ -448,6 +448,7 @@ def test_an_airframe_only_unsteady_row_requests_per_step_probe_fields(tmp_path):
             "groups": {"1": "all"},
             "probes": [
                 {
+                    "kind": "instantaneous",
                     "frame": "REFERENCE",
                     "reusable_inflow": True,
                     "rectangles": [

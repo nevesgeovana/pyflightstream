@@ -144,6 +144,7 @@ def test_p0430_a_calendar_jump_between_steps_does_not_stop_the_run(tmp_path):
         (
             [
                 {
+                    "kind": "instantaneous",
                     "frame": "REFERENCE",
                     "field_formats": ["vtk"],
                     "rectangles": [
@@ -162,6 +163,7 @@ def test_p0430_a_calendar_jump_between_steps_does_not_stop_the_run(tmp_path):
         (
             [
                 {
+                    "kind": "instantaneous",
                     "frame": "MRP",
                     "parameters": ["MACH"],
                     "points": 2,

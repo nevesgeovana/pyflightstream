@@ -206,7 +206,7 @@ def needs_fresh_probes(case: SimCase) -> bool:
 
 
 def _normal(case: SimCase) -> bool:
-    """Whether the row's ``[[probes]]`` entries are all of kind normal (FR-417)."""
+    """Whether any declared entry needs the final probe-points export."""
     if case.pproc is None:
         return False
     try:
@@ -236,8 +236,8 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
     if "trefftz:wake" in analyses:
         wanted.append(("vtk", "{name}.vtk", "trefftz:wake"))
     if needs_fresh_probes(case):
-        # FR-1052: an unsteady row whose [[probes]] entries are of kind normal
-        # samples the far field with them, as probe points exported once.
+        # FR-1052: the far field owns a conventional probe-points export,
+        # independent of the declared entries' sampling kinds.
         wanted.append(("farfield_probes", "{name}_farfield_survey.txt", "trefftz:plane or ledgers"))
     out = list(names)
     present = classify_outputs(out)

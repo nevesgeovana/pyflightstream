@@ -135,7 +135,7 @@ def test_goal021_inputs_absolute_a_probe_survey_the_user_cited(tmp_path):
     workspace = _workspace(tmp_path)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = "all"\n\n'
-        "[[probes]]\n"
+        '[[probes]]\nkind = "instantaneous"\n'
         'frame = "MRP"\n'
         'parameters = ["VELOCITY"]\n'
         'points_file = "disk_survey.txt"\n',
@@ -221,7 +221,7 @@ def test_goal021_inputs_absolute_a_survey_the_profiles_folder_does_not_hold_is_r
     workspace = _workspace(tmp_path)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = "all"\n\n'
-        "[[probes]]\n"
+        '[[probes]]\nkind = "instantaneous"\n'
         'frame = "MRP"\n'
         'parameters = ["VELOCITY"]\n'
         'points_file = "missing_survey.txt"\n',

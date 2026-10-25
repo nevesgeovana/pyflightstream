@@ -47,7 +47,7 @@ def _pproc_toml(kind: str) -> str:
     )
 
 
-def _built(tmp_path: Path, *, steady: bool, kind: str = "normal") -> Script:
+def _built(tmp_path: Path, *, steady: bool, kind: str = "default") -> Script:
     spec = PprocSpec.model_validate(
         {
             "groups": {"1": "all"},
@@ -92,7 +92,7 @@ def _probe_export(rows: list[tuple[float, ...]]) -> str:
     return "\n".join([*head, *body, *lines[count + 4 + 12 :]]) + "\n"
 
 
-def _posted(tmp_path, monkeypatch, *, steady: bool, kind: str = "normal") -> Path:
+def _posted(tmp_path, monkeypatch, *, steady: bool, kind: str = "default") -> Path:
     """Post one recorded point of the two routes, from the same probe values."""
     monkeypatch.undo()  # the manifest of an earlier call is not this workspace's
     script = _built(tmp_path / "build", steady=steady, kind=kind)
@@ -147,7 +147,7 @@ def test_p0370_s5_normal_entry_records_the_steady_layout(tmp_path):
     assert normal[0]["coordinate_source"] == "native-export-reference"
     assert normal[0]["sampled_at"] == "last-time-step"
     assert {k: v for k, v in normal[0].items() if k != "sampled_at"} == steady[0]
-    fluid = _built(tmp_path / "u", steady=False, kind="unsteady").probe_field_layout
+    fluid = _built(tmp_path / "u", steady=False, kind="instantaneous").probe_field_layout
     assert fluid[0]["export_kind"] == "unsteady-fluid-plot" and "sampled_at" not in fluid[0]
 
 
@@ -170,7 +170,7 @@ def test_p0370_s5_normal_inflow_equals_the_steady_routes(tmp_path, monkeypatch):
 
 def test_p0370_s5_unsteady_inflow_entry_keeps_its_history_route(tmp_path):
     """P0370-S5-NORMAL-INFLOW (FR-893): an unsteady entry still samples fluid plots."""
-    kind = "unsteady"
+    kind = "instantaneous"
     script = _built(tmp_path, steady=False, kind=kind)
     text = script.render()
     assert text.count("UNSTEADY_SOLVER_NEW_FLUID_PLOT\n") == 6 * 3

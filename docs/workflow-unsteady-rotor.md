@@ -361,13 +361,11 @@ See [Upgrading](upgrading.md#older-layouts) for retired artifact and matrix layo
 
 ## Normal probes on a rotor row
 
-A `[[probes]]` entry of a rotor row is a fluid plot per point and parameter,
-written at every time step, unless it states `kind = "normal"`: then it is a
-probe point created after the march and exported once, at the last time step,
-as on the `unsteady` run type
-([Probes: unsteady or normal](workflow-unsteady.md#probes-unsteady-or-normal)).
-With `EXPORT_UNSTEADY_AFTER_REV` or `EXPORT_UNSTEADY_LAST_REV` they are also
-exported at every step of that window, `<point>_probes_iteration=<step>.txt`.
+A `[[probes]]` entry defaults to last-step probe points (`kind = "default"`).
+Use `kind = "instantaneous"` for fluid plots sampled at every step. Both kinds
+may coexist, as on the [unsteady run type](workflow-unsteady.md#probes-unsteady-or-normal).
+Export thresholds do not move default entries into the march. Far-field
+`avg_window` sets have their own window-start import.
 
 ## Exports that begin after a threshold
 

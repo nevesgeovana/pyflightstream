@@ -528,8 +528,9 @@ one import. A shared set is imported once, at window start, and remains in
 the final export. Window snapshots exclude final-only sets. Each recorded
 shape names its import phase and the exports carrying it; warnings state each
 set's point count, window steps and final export.
-Declared unsteady probes keep their fluid plots and `probes/<point>_probes.csv`.
-With normal declared probes, the far-field export also contains those points;
+Declared `instantaneous` probes keep their fluid plots and history table
+(`probes/<point>_probes_history.csv` when mixed with default entries).
+With `default` declared probes, the final far-field export also contains those points;
 the far field selects its own by recorded positions.
 
 <a id="what-the-plan-adds"></a>

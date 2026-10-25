@@ -16,7 +16,7 @@ from tests.tier1_offline.test_post_products import _products_manifest, _unsteady
 
 PROBED = (
     '[groups]\n"1" = "all"\n'
-    "\n[[probes]]\n"
+    '\n[[probes]]\nkind = "instantaneous"\n'
     'frame = "MRP"\n'
     'parameters = ["MACH", "VELOCITY"]\n'
     "[[probes.lines]]\n"

@@ -1858,7 +1858,7 @@ class TestLitBBulk:
         spec = PprocSpec.model_validate(
             {
                 "groups": {"1": "all"},
-                "probes": [_litb_bulk___entry("normal", frame="MRP")],
+                "probes": [_litb_bulk___entry("default", frame="MRP")],
                 "farfields": [
                     {
                         "variant": "power",

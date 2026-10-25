@@ -1999,7 +1999,7 @@ def test_the_probe_positions_the_record_names_reach_the_delivered_table(tmp_path
     # these parameters rather than matching a pattern against the header.
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = "all"\n'
-        "\n[[probes]]\n"
+        '\n[[probes]]\nkind = "instantaneous"\n'
         'frame = "PUSHER_SMRP"\n'
         'parameters = ["MACH", "VELOCITY"]\n',
         encoding="utf-8",
@@ -2121,7 +2121,7 @@ def test_an_unsteady_point_with_a_steady_probe_export_gets_the_history_table(tmp
     workspace = _unsteady_workspace(tmp_path, reductions=None)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = "all"\n'
-        "\n[[probes]]\n"
+        '\n[[probes]]\nkind = "instantaneous"\n'
         'frame = "PUSHER_SMRP"\n'
         'parameters = ["MACH", "VELOCITY"]\n',
         encoding="utf-8",
@@ -2943,7 +2943,7 @@ def test_p0430_f145_a_normal_probe_row_carries_the_recorded_stop(tmp_path):
     helpers = _ff_helpers()
     stem = helpers._FFPROOF_POST___STEM
     probes = (
-        '[[probes]]\nframe = "MRP"\nkind = "normal"\nparameters = ["VX"]\n'
+        '[[probes]]\nframe = "MRP"\nkind = "default"\nparameters = ["VX"]\n'
         '[[probes.lattices]]\nframe = "MRP"\ntip_radius_m = 1.0\nstations = [-1.0, 1.0]\n'
         "n_r = 2\nn_psi = 16\n"
     )

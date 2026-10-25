@@ -8,19 +8,19 @@ The run type selects the source of `probes/<point>_probes.csv` for every
 `[[probes]]` declaration, including drawn shapes and cited `points_file`
 profiles.
 
-- **Unsteady:** each point and requested parameter is sampled by a fluid plot.
+- **Unsteady, `kind = "instantaneous"`:** each point and requested parameter is sampled by a fluid plot.
   One table combines all available probe histories, with one row per point and
   solver step. The positions and frame come from the run's recorded probe
   positions; the samples come from the plots history. A probe-points instant
   export never supplies this table.
 - **Steady:** both declaration forms use standard probe points, and the table
   contains the probe-points export. `STEP` is `NA`.
-- **Unsteady, normal probes** (`kind = "normal"` on every `[[probes]]` entry): the probe points are created after the time march with the steady
+- **Unsteady, default probes** (`kind = "default"`, also when absent): the probe points are created after the time march with the steady
   commands, updated and exported once. The table contains that probe-points
   export, laid out as the steady table, and `STEP` is the run's last time step
   as the run record states it: the step a stopped run stopped at, else the
   plan's `time_iterations`. No value is averaged over time. An entry that states
-  no `kind` is an unsteady probe, sampled as above.
+  no `kind` uses this last-step route.
 
 Each row opens with `POL`, then `PROBE`, `X`, `Y`, `Z`, `FRAME`, `STEP` and the
 condition block, then the export's own columns (steady, normal) or the sampled
@@ -65,5 +65,9 @@ On a **steady** run, a `[[probes]]` entry's `parameters` list only enables
 the entry when nonempty (an empty list disables it). It does **not** select or
 filter the exported variables: the solver's probe-points export carries its
 fixed set. `pyfs-matrix plan` warns for each steady entry with a nonempty list,
-naming its entry number and frame. On an **unsteady** run, `parameters` selects
+naming its entry number and frame. For an **instantaneous** entry on an unsteady run, `parameters` selects
 the fluid-plot variables sampled by the entry.
+
+The deprecated aliases `normal` and `unsteady` resolve to `default` and
+`instantaneous`, respectively, with one warning per entry. On steady and
+quasi-steady rotor rows both canonical kinds produce the same probe points.

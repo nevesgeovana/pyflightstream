@@ -657,7 +657,7 @@ class TestCasesWorkflowsMotion:
 
 def _cases_workflows_probes___averaged(tmp_path):
     spec = _cases_workflows_probes___spec(
-        _cases_workflows_probes___entry("normal", frame="MRP"), time_averaging={"last_iters": 3}
+        _cases_workflows_probes___entry("default", frame="MRP"), time_averaging={"last_iters": 3}
     )
     case = _cases_workflows_probes___with_pproc(
         _cases_workflows_probes___case_for("unsteady"),
@@ -729,6 +729,7 @@ class TestCasesWorkflowsProbes:
         survey = tmp_path / "survey.txt"
         survey.write_text("1\n2,3,4,1\n", encoding="utf-8", newline="\n")
         entry = {
+            "kind": "instantaneous",
             "frame": "REFERENCE",
             "parameters": ["MACH"],
             "points_file": "survey.txt",
@@ -751,7 +752,12 @@ class TestCasesWorkflowsProbes:
         requirement = "P0400-CW-PROBES"
         survey = tmp_path / "survey.txt"
         survey.write_text("1" + chr(10) + "2,3,4,1" + chr(10), encoding="utf-8")
-        entry = {"frame": "PROBE_F", "parameters": ["MACH"], "points_file": "survey.txt"}
+        entry = {
+            "kind": "instantaneous",
+            "frame": "PROBE_F",
+            "parameters": ["MACH"],
+            "points_file": "survey.txt",
+        }
         case = _cases_workflows_probes___steady_with(
             tmp_path, entry, frames=[_CASES_WORKFLOWS_PROBES__TILTED]
         )
@@ -768,7 +774,12 @@ class TestCasesWorkflowsProbes:
         requirement = "P0400-CW-PROBES"
         survey = tmp_path / "survey.txt"
         survey.write_text("1" + chr(10) + "2,3,4,0" + chr(10), encoding="utf-8")
-        entry = {"frame": "PROBE_F", "parameters": ["MACH"], "points_file": "survey.txt"}
+        entry = {
+            "kind": "instantaneous",
+            "frame": "PROBE_F",
+            "parameters": ["MACH"],
+            "points_file": "survey.txt",
+        }
         case = _cases_workflows_probes___steady_with(
             tmp_path, entry, frames=[_CASES_WORKFLOWS_PROBES__TILTED]
         )
@@ -786,6 +797,7 @@ class TestCasesWorkflowsProbes:
         """P0400-CW-PROBES (PFS-2104.038): an x_axis of length 2 doubled the line's reach."""
         requirement = "P0400-CW-PROBES"
         entry = {
+            "kind": "instantaneous",
             "frame": "PROBE_F",
             "parameters": ["MACH"],
             "points": 2,
@@ -805,6 +817,7 @@ class TestCasesWorkflowsProbes:
         requirement = "P0400-CW-PROBES"
         square = FrameSpec(name="PROBE_F", origin=(1.0, 0.0, 0.0))
         entry = {
+            "kind": "instantaneous",
             "frame": "PROBE_F",
             "parameters": ["VX", "VY", "VZ"],
             "points": 2,
@@ -2361,7 +2374,14 @@ class TestRfixr3Azimuths:
             tmp_path,
             # D0/D2: the power entry owns the lattice and its balances.
             [{"variant": "power", "rotor": "ROTOR", "m_max": 7, "balances": ["mass"]}],
-            probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [declared]}],
+            probes=[
+                {
+                    "kind": "instantaneous",
+                    "frame": "REFERENCE",
+                    "parameters": ["VX"],
+                    "lattices": [declared],
+                }
+            ],
         )
         script = _rfixr3_azimuths___script(case)
         count = LatticeShape.model_validate(declared).build(1.0).point_count

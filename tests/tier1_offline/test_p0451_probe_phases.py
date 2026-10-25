@@ -9,7 +9,9 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from pydantic import ValidationError
 
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError, PprocSpec
 from pyflightstream.cases.workflows import normal_probe_creation, row_outputs
 from tests.tier1_offline import test_regression_farfield_products as products
@@ -111,7 +113,7 @@ def _entry(kind):
 
 def test_p0451_mixed_row_loads_and_places_each_kind_in_its_phase(tmp_path):
     try:
-        case = _case(tmp_path, [], [_entry("unsteady"), _entry("normal")])
+        case = _case(tmp_path, [], [_entry("instantaneous"), _entry("default")])
     except CampaignConfigError as error:
         pytest.fail(f"mixed probe kinds must load: {error}")
     script = _build(case)
@@ -125,7 +127,7 @@ def test_p0451_mixed_row_loads_and_places_each_kind_in_its_phase(tmp_path):
 
 @pytest.mark.parametrize("run_type", ["steady", "qsteady_rotor"])
 def test_p0451_steady_declared_lines_keep_their_commands(tmp_path, run_type):
-    script = _build(_case(tmp_path, [], [_entry("normal"), _entry("normal")], run_type))
+    script = _build(_case(tmp_path, [], [_entry("default"), _entry("default")], run_type))
     imports = _imports(script)
     assert not imports
     lines = script.render().splitlines()
@@ -194,7 +196,7 @@ def test_p0451_mixed_post_writes_last_step_and_history_tables(tmp_path, monkeypa
     pproc = workspace.inputs_dir / "pproc" / "p001.toml"
     pproc.write_text(
         pproc.read_text(encoding="utf-8")
-        + '\n[[probes]]\nkind = "unsteady"\nframe = "MRP"\nparameters = ["VX"]\n'
+        + '\n[[probes]]\nkind = "instantaneous"\nframe = "MRP"\nparameters = ["VX"]\n'
         "points = 3\nlines = [{start = [0, 0, 0], end = [1, 0, 0]}]\n",
         encoding="utf-8",
     )
@@ -216,3 +218,66 @@ def test_p0451_mixed_post_writes_last_step_and_history_tables(tmp_path, monkeypa
     assert {row["STEP"] for row in final} == {"96"}
     assert [float(row["vx"]) for row in final] == [31, 32, 33]
     assert len(history) == 6 and {row["STEP"] for row in history} == {"1", "2"}
+
+
+@pytest.mark.parametrize("kind", ["default", "instantaneous"], ids=lambda k: f"P0451-{k}")
+def test_p0451_new_kind_values_load(kind):
+    try:
+        spec = PprocSpec.model_validate(dict(probes=[_entry(kind)]))
+    except ValidationError as error:
+        pytest.fail(f"the public probe kind {kind!r} must load: {error}")
+    assert spec.probes[0].kind == kind
+
+
+def test_p0451_absent_kind_samples_only_after_march(tmp_path):
+    entry = _entry("default")
+    del entry["kind"]
+    script = _build(_case(tmp_path, [], [entry]))
+    lines = script.render().splitlines()
+    assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in lines
+    imports = _imports(script)
+    assert len(imports) == 1 and imports[0][0] > lines.index("START_SOLVER")
+
+
+@pytest.mark.parametrize(
+    "alias,canonical",
+    [("normal", "default"), ("unsteady", "instantaneous")],
+    ids=["P0451-normal-alias", "P0451-unsteady-alias"],
+)
+def test_p0451_alias_warns_once_and_normalizes(alias, canonical):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        spec = PprocSpec.model_validate(dict(probes=[_entry(alias)]))
+    notices = [item for item in caught if issubclass(item.category, PyflightstreamWarning)]
+    assert len(notices) == 1
+    assert canonical in str(notices[0].message)
+    assert spec.probes[0].kind == canonical
+
+
+def test_p0451_unknown_kind_names_the_two_values_and_aliases():
+    with pytest.raises(ValidationError) as caught:
+        PprocSpec.model_validate(dict(probes=[_entry("unknown")]))
+    for spelling in ("default", "instantaneous", "normal", "unsteady"):
+        assert spelling in str(caught.value)
+
+
+@pytest.mark.parametrize("run_type", ["steady", "qsteady_rotor"])
+def test_p0451_instantaneous_on_steady_keeps_default_script(tmp_path, run_type):
+    default = _build(_case(tmp_path, [], [_entry("default")], run_type)).render()
+    instant = _build(_case(tmp_path, [], [_entry("instantaneous")], run_type)).render()
+    assert instant == default
+
+
+@pytest.mark.parametrize("alias,canonical", [("normal", "default"), ("unsteady", "instantaneous")])
+def test_p0451_alias_and_canonical_scripts_are_identical(tmp_path, alias, canonical):
+    with pytest.warns(PyflightstreamWarning, match=canonical):
+        alias_case = _case(tmp_path, [], [_entry(alias)])
+    assert _build(alias_case).render() == _build(_case(tmp_path, [], [_entry(canonical)])).render()
+
+
+def test_p0451_instantaneous_keeps_init_plots(tmp_path):
+    script = _build(_case(tmp_path, [], [_entry("instantaneous")]))
+    lines = script.render().splitlines()
+    assert lines.count("UNSTEADY_SOLVER_NEW_FLUID_PLOT") == 3
+    assert lines.index("UNSTEADY_SOLVER_NEW_FLUID_PLOT") < lines.index("START_SOLVER")
+    assert not _imports(script)

@@ -8,7 +8,7 @@ from pyflightstream.script import Script
 from tests.tier1_offline.test_workflows import _wb_geometry, _with_pproc, steady_case, unsteady_case
 
 
-@pytest.mark.parametrize("kind", ["normal", "unsteady"])
+@pytest.mark.parametrize("kind", ["default", "instantaneous"])
 @pytest.mark.parametrize(
     "source", [{"lines": [{"start": [0, 0, 0], "end": [1, 0, 0]}]}, {"points_file": "survey.csv"}]
 )
@@ -30,6 +30,7 @@ def test_field_request_samples_components_and_records_layout(tmp_path, steady):
             "groups": {"1": "all"},
             "probes": [
                 {
+                    "kind": "instantaneous",
                     "frame": "REFERENCE",
                     "field_formats": ["vtk", "tecplot"],
                     "reusable_inflow": True,
@@ -64,7 +65,7 @@ def test_field_request_samples_components_and_records_layout(tmp_path, steady):
 
 
 def test_field_request_resolves_the_existing_default_frame():
-    spec = ProbesSpec(field_formats=["vtk"])
+    spec = ProbesSpec(kind="instantaneous", field_formats=["vtk"])
     assert {"VX", "VY", "VZ"} <= set(spec.parameters)
 
 
@@ -124,7 +125,7 @@ def test_fields_with_general_plots_disabled(tmp_path, monkeypatch):
     w = _post_workspace(tmp_path, monkeypatch)
     (w.inputs_dir / "pproc/p001.toml").write_text(
         '[groups]\n"1"="all"\n[products]\nplots=false\n'
-        '[[probes]]\nframe="REFERENCE"\nfield_formats=["vtk","tecplot"]\n'
+        '[[probes]]\nkind = "instantaneous"\nframe="REFERENCE"\nfield_formats=["vtk","tecplot"]\n'
         "reusable_inflow=true\nrectangles=[{origin=[0,-1,-2],"
         "along_u=[0,1,-2],along_v=[0,-1,2],points_u=2,points_v=2}]\n",
         encoding="utf-8",
@@ -190,6 +191,7 @@ def test_unsteady_named_frame_keeps_local_samples_and_resolved_index(tmp_path, k
     if kind == "probe":
         payload["probes"] = [
             {
+                "kind": "instantaneous",
                 "frame": "MRP",
                 "field_formats": ["vtk"],
                 "rectangles": [
@@ -315,6 +317,7 @@ def test_f1292_a_rotor_shaped_probe_frame_no_declared_rotor_owns_is_refused(tmp_
             "groups": {"1": "all"},
             "probes": [
                 {
+                    "kind": "instantaneous",
                     "frame": "GHOST_SMRP",
                     "lines": [{"start": [0, 0, 0], "end": [1, 0, 0]}],
                     "points": 3,

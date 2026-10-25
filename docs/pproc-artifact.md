@@ -83,6 +83,7 @@ frame = "SMRP"
 families = "LIFT"
 
 [[probes]] # UNSTEADY_SOLVER_NEW_FLUID_PLOT per vertex and parameter
+kind = "instantaneous" # use "default" for last-step probe points
 frame = "LIFT_SMRP" # a rotor frame: one probe set per rotor it reaches
 parameters = ["MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO"]
 points = 25
@@ -90,7 +91,6 @@ scale = "rotor_radius" # or "m"; the radius is THAT rotor's, not the configurati
 [[probes.lines]]
 start = [-2.0, -1.0, 0.0]
 end = [-2.0, 1.0, 0.0]
-# kind = "normal" # unsteady rows: probe points at the last time step
 
 [products] # the post-processed CSV tables the campaign writes
 polars = true # one polar table per group, per simulation
@@ -461,40 +461,48 @@ definition and the steady-plan warning.
 
 ### The probe kind of an unsteady row
 
-On an `unsteady` or `unsteady_rotor` row a `[[probes]]` entry states how it is
-sampled with `kind`:
+`kind` accepts `"default"` and `"instantaneous"`. An absent key is `"default"`.
+On `steady` and `qsteady_rotor` rows both values produce the same probe points.
+On `unsteady` and `unsteady_rotor` rows:
 
-- `kind = "unsteady"`, the default: one fluid plot per point and parameter,
- which the solver evaluates at every time step.
- The probes table holds one row per point and step.
-- `kind = "normal"` (FlightStream 26.124 and 26.125): probe points created after the time march with the
- commands a steady row uses (`NEW_PROBE_LINE`, `NEW_PROBE_POINT`,
- `PROBE_POINTS_IMPORT`), then `UPDATE_PROBE_POINTS` and `EXPORT_PROBE_POINTS`
- once, to `<point>_probes.txt`, which becomes a declared output of the row. No
- fluid plot is created for them, and the probes table holds the last time step.
+- `"default"` creates probe points after the march, in one counted CSV import
+  shared with final-only far-field sets. They are updated and exported once to
+  `<point>_probes.txt`; `STEP` in the product is the last recorded solver step.
+- `"instantaneous"` creates fluid plots in INIT and samples every solver step.
+  Use it to retain the per-step history of an older artifact that omitted `kind`.
 
-Every entry of one unsteady row is of one kind; a pproc mixing the two (an entry
-with no `kind` counts as unsteady, and a `[volume_section]` is sampled through
-fluid plots) is refused when the row is built, naming the entries of each kind.
-Any other value is refused when the pproc is read. On a steady row `kind` is
-accepted and changes nothing. A stopped march saved its state before its normal
-probes were created, so a continuation of it (`RESTART`) creates them after the
-continued march with the commands and the order of the row's full script, and
-emits no frame to do so. When that full script cannot be built (its mesh is no
-longer where the row names it, for example), the continuation is refused, naming
-the entries; run the row again from the mesh with
-`pyfs-matrix run --force-rerun <point>`.
+Entries may mix both kinds. The last-step table keeps `<point>_probes.csv`;
+the mixed row's history table is `<point>_probes_history.csv`. A single-kind
+row keeps `<point>_probes.csv`. A `[volume_section]` uses fluid plots on an
+unsteady row and may coexist with default entries.
 
-A row with normal probes that states a per-step export window
-(`EXPORT_UNSTEADY_AFTER_REV`, `EXPORT_UNSTEADY_AFTER_ITER`,
-`EXPORT_UNSTEADY_LAST_REV` or `EXPORT_UNSTEADY_LAST_ITER`) also exports them at
-every step of the window, as `<point>_probes_iteration=<step>.txt`, which the
-post tables in `series/<point>_probes_series.csv`, one row per step and probe.
-The exports script creates the probe points on the first exporting step
-(`DELETE_PROBE_POINTS`, then the same creation commands as after the march) and
-then runs `UPDATE_PROBE_POINTS` and `EXPORT_PROBE_POINTS` at every step. The
-creation after the march is kept and deletes the points first, so the final
-export holds each point once.
+Aliases `"normal"` and `"unsteady"` are deprecated and resolve to `"default"`
+and `"instantaneous"`, respectively, warning once per entry. Other values are
+refused, naming both canonical values and both aliases. Serialized probe kinds
+always use the canonical value.
+
+```toml
+[[probes]]
+kind = "default"
+frame = "REFERENCE"
+parameters = ["VX"]
+points = 3
+lines = [{start = [3, 0, 0], end = [4, 0, 0]}]
+
+[[probes]]
+kind = "instantaneous"
+frame = "REFERENCE"
+parameters = ["VX"]
+points = 3
+lines = [{start = [5, 0, 0], end = [6, 0, 0]}]
+```
+
+This mixed declaration is exercised by the offline P0451 script and synthetic
+post tests. Per-step export thresholds do not move default declarations into
+the march. Only sets required by an `avg_window` far-field entry are imported
+at window start, and a reused set is imported once. A continuation rebuilds
+the declared placements from the full row; if that row can no longer be built,
+run it again from its mesh with `pyfs-matrix run --force-rerun <point>`.
 
 The `[products]` table names three kinds of CSV table, every one a header
 line and one row per record, so a spreadsheet or a dataframe opens it with

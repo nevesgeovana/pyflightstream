@@ -7,6 +7,19 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- Probe `kind` values are `default` and `instantaneous`. Omitting `kind` now
+  samples once after the march on unsteady rows. Migration: set
+  `kind = "instantaneous"` to retain per-step fluid-plot histories. Both values
+  keep the existing probe-point behavior on steady and quasi-steady rotor rows.
+
+### Deprecated
+
+- Probe kinds `normal` and `unsteady` remain accepted as aliases for `default`
+  and `instantaneous`, respectively, with one warning per entry. Records use
+  the canonical values.
+
 ### Fixed
 
 - Unsteady far-field window actions import only the sets needed by averaging

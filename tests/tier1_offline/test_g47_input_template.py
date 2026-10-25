@@ -904,6 +904,7 @@ def test_g47_a_steady_rectangle_or_circle_emits_volume_probe_points(tmp_path):
         {
             "probes": [
                 {
+                    "kind": "instantaneous",
                     "frame": "MRP",
                     "parameters": ["VX"],
                     "rectangles": [

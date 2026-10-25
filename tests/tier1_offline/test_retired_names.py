@@ -66,7 +66,7 @@ def _provoke(entry: RetiredName, tmp_path: Path) -> str:
         from pyflightstream.cases import ProbesSpec
 
         with pytest.raises(Exception) as caught:
-            ProbesSpec(frame="PUSHER_SMRP", scale="propeller_radius")
+            ProbesSpec(kind="instantaneous", frame="PUSHER_SMRP", scale="propeller_radius")
         return str(caught.value)
     if entry.owner == "a frame citation":
         # THE SPELLING AS A USER WRITES IT, which for the positional form is

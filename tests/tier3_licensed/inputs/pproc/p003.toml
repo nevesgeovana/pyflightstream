@@ -51,6 +51,7 @@ frame = "LOCAL_AXIS"
 families = "blades"
 
 [[probes]]
+kind = "instantaneous"
 frame = "PUSHER_SMRP"
 parameters = ["MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO"]
 points = 15

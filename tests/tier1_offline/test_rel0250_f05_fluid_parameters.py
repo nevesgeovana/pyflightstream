@@ -25,7 +25,8 @@ def probe_case(tmp_path, parameter):
     directory = tmp_path / "pproc"
     directory.mkdir(exist_ok=True)
     (directory / "p900.toml").write_text(
-        f'[[probes]]\nframe = "MRP"\nparameters = ["{parameter}"]\npoints = 2\n'
+        '[[probes]]\nkind = "instantaneous"\nframe = "MRP"\n'
+        f'parameters = ["{parameter}"]\npoints = 2\n'
         "[[probes.lines]]\nstart = [0, 0, 0]\nend = [1, 0, 0]\n",
         encoding="utf-8",
         newline="\n",

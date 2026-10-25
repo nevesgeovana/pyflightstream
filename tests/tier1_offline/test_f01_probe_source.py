@@ -26,12 +26,14 @@ def _case(tmp_path, *, steady=False, profile="2\n2,3,4,1\n5,6,7,0\n"):
             "groups": {"1": "all"},
             "probes": [
                 {
+                    "kind": "instantaneous",
                     "frame": "MRP",
                     "parameters": ["MACH", "VELOCITY"],
                     "points": 2,
                     "lines": [{"start": [0, 0, 0], "end": [1, 0, 0]}],
                 },
                 {
+                    "kind": "instantaneous",
                     "frame": "MRP",
                     "parameters": ["MACH", "VELOCITY"],
                     "points_file": "survey.txt",
@@ -142,11 +144,12 @@ def _post_workspace(
     pproc = '[groups]\n"1" = "all"\n'
     if drawn:
         pproc += (
-            '\n[[probes]]\nframe = "MRP"\nparameters = ["MACH", "VELOCITY"]\n'
+            '\n[[probes]]\nkind = "instantaneous"\nframe = "MRP"\n'
+            'parameters = ["MACH", "VELOCITY"]\n'
             "points = 2\nlines = [{start = [0, 0, 0], end = [1, 0, 0]}]\n"
         )
     pproc += (
-        f'\n[[probes]]\nframe = "MRP"\nparameters = {cited_parameters}\n'
+        f'\n[[probes]]\nkind = "instantaneous"\nframe = "MRP"\nparameters = {cited_parameters}\n'
         'points_file = "survey.txt"\n'
     )
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(pproc, encoding="utf-8", newline="\n")
@@ -278,7 +281,12 @@ def _steady_field_case(tmp_path, profile):
         {
             "groups": {"1": "all"},
             "probes": [
-                {"frame": "REFERENCE", "field_formats": ["vtk"], "points_file": "survey.txt"},
+                {
+                    "kind": "instantaneous",
+                    "frame": "REFERENCE",
+                    "field_formats": ["vtk"],
+                    "points_file": "survey.txt",
+                },
             ],
         }
     )

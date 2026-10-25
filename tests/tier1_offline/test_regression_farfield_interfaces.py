@@ -590,7 +590,7 @@ def test_p0450_d4_plan_refuses_unusable_window(tmp_path, run_type, key, normal):
     spec = PprocSpec.model_validate(
         {
             "farfields": [{"variant": "plane", key: 1}],
-            "probes": [{"kind": "normal", "parameters": ["VX"]}] if normal else [],
+            "probes": [{"kind": "default", "parameters": ["VX"]}] if normal else [],
         }
     )
     case = case.model_copy(update={"pproc": spec})
@@ -736,7 +736,14 @@ class TestFarfieldPlan:
             _farfield_plan___case(
                 other,
                 [{"variant": "power", **dict(lattice, m_max=2)}],
-                probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [lattice]}],
+                probes=[
+                    {
+                        "kind": "instantaneous",
+                        "frame": "REFERENCE",
+                        "parameters": ["VX"],
+                        "lattices": [lattice],
+                    }
+                ],
             )
         )
         count = LatticeShape.model_validate(lattice).build(1.0).point_count
@@ -1252,6 +1259,7 @@ class TestFarfieldSpec:
             None,
             probes=[
                 {
+                    "kind": "instantaneous",
                     "frame": "REFERENCE",
                     "parameters": ["VX"],
                     "lattices": [{"rotor": "ROTOR", "n_psi": 24}],
@@ -1640,7 +1648,7 @@ class TestFfproofPlan:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffproof_a_reused_normal_lattice_is_laid_once_as_probe_points(tmp_path):
-        """P0400-FFPROOF (FR-1045, FR-1052): a lattice declared in a ``kind = "normal"`` entry.
+        """P0400-FFPROOF (FR-1045, FR-1052): a lattice declared in a ``kind = "default"`` entry.
 
         The far field reuses it by identity: the lattice is laid once, as probe
         points after the march (no fluid plot, no cost WARNING), and the row
@@ -1648,7 +1656,7 @@ class TestFfproofPlan:
         """
         entry = {
             "frame": "MRP",
-            "kind": "normal",
+            "kind": "default",
             "parameters": ["VX"],
             "lattices": [_FFPROOF_PLAN___LATTICE],
         }
@@ -1668,7 +1676,12 @@ class TestFfproofPlan:
         One plan WARNING states its fluid-plot count, the points times the
         entry's parameters, which is the count of fluid plots the script carries.
         """
-        entry = {"frame": "MRP", "parameters": ["VX", "VY"], "lattices": [_FFPROOF_PLAN___LATTICE]}
+        entry = {
+            "kind": "instantaneous",
+            "frame": "MRP",
+            "parameters": ["VX", "VY"],
+            "lattices": [_FFPROOF_PLAN___LATTICE],
+        }
         case = _ffproof_plan___unsteady(tmp_path, None, probes=[entry])
         text, messages = _ffproof_plan___built(case)
         stated = [m for m in messages if "FR-1075" in m]
@@ -1798,7 +1811,7 @@ def test_p0450_d8_window_requires_avg_window(tmp_path, value, key):
 
 
 @pytest.mark.parametrize("value", ["default", "last_step", "avg_window"])
-@pytest.mark.parametrize("kind", ["normal", "unsteady"])
+@pytest.mark.parametrize("kind", ["default", "instantaneous"])
 @pytest.mark.requirement("FR-1052")
 def test_p0450_d8_declared_probe_kind_does_not_route_farfield(tmp_path, value, kind):
     """P0450-D8b: declared fluid histories stay declared, with no far-field histories added."""
@@ -1814,7 +1827,9 @@ def test_p0450_d8_declared_probe_kind_does_not_route_farfield(tmp_path, value, k
         probes=[entry],
     )
     text, _ = _ffproof_plan___built(case)
-    assert text.count(_FFPROOF_PLAN___PLOT) == (_FFPROOF_PLAN___POINTS if kind == "unsteady" else 0)
+    assert text.count(_FFPROOF_PLAN___PLOT) == (
+        _FFPROOF_PLAN___POINTS if kind == "instantaneous" else 0
+    )
     assert "EXPORT_PROBE_POINTS" in text and "_farfield_survey.txt" in text
 
 

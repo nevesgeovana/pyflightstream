@@ -806,7 +806,7 @@ class TestFr153FieldBuildWarning:
         w = _post_workspace(tmp_path, monkeypatch)
         (w.inputs_dir / "pproc/p001.toml").write_text(
             '[groups]\n"1"="all"\n[products]\nplots=false\n'
-            '[[probes]]\nframe="REFERENCE"\nfield_formats=["vtk"]\n'
+            '[[probes]]\nkind = "instantaneous"\nframe="REFERENCE"\nfield_formats=["vtk"]\n'
             "reusable_inflow=true\nrectangles=[{origin=[0,-1,-2],"
             "along_u=[0,1,-2],along_v=[0,-1,2],points_u=2,points_v=2}]\n",
             encoding="utf-8",

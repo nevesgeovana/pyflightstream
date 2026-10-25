@@ -20,6 +20,7 @@ import yaml
 
 import pyflightstream.cases.workflows._exports as exports_module
 import pyflightstream.cases.workflows._farfield as farfield_module
+import pyflightstream.cases.workflows._probe_imports as probe_imports_module
 import pyflightstream.post.farfield_fields as farfield_fields
 import pyflightstream.probes.geometry as gate
 from pyflightstream._fsm import trailing_edge_midpoints
@@ -1755,6 +1756,7 @@ _REACH2_ROUTES___REQUIREMENT = "P0400-REACH2"
 
 #: A steady entry with one line of three points and a two-by-two rectangle.
 _REACH2_ROUTES___STEADY_ENTRY = {
+    "kind": "instantaneous",
     "frame": "REFERENCE",
     "parameters": ["VX"],
     "points": 3,
@@ -1935,7 +1937,7 @@ class TestReach2Routes:
         ``x,y,z,1`` row per point in the order the plan laid them.
         """
         written = _reach2_routes___spy(
-            monkeypatch, farfield_module, "write_points_csv", write_points_csv
+            monkeypatch, probe_imports_module, "write_points_csv", write_points_csv
         )
         # D0: plane geometry belongs to a single entry.
         farfield = [{"variant": "plane", "spacing_bref": 0.25}]
@@ -1982,6 +1984,7 @@ class TestReach2Routes:
         )
         declared = dict(_REACH2_ROUTES___ROTOR_LATTICE, stations=[-1.3, 3.1], n_psi=20)
         entry = {
+            "kind": "instantaneous",
             "frame": "REFERENCE",
             "parameters": ["VX"],
             "points": 3,
@@ -2018,7 +2021,7 @@ class TestReach2Routes:
         five-decimal positions as ``x,y,z,1`` rows.
         """
         written = _reach2_routes___spy(
-            monkeypatch, farfield_module, "write_probe_csv", write_probe_csv
+            monkeypatch, probe_imports_module, "write_probe_csv", write_probe_csv
         )
         # D0/D2: power owns the lattice, without a family selection.
         farfield = [dict(_REACH2_ROUTES___ROTOR_LATTICE, variant="power", m_max=2)]
@@ -2079,7 +2082,8 @@ class TestReach2Routes:
         w = _post_workspace(tmp_path, monkeypatch)
         pproc = (
             '[groups]\n"1"="all"\n[products]\nplots=false\n'
-            '[[probes]]\nframe="REFERENCE"\nfield_formats=["tecplot","tecplot-points"]\n'
+            '[[probes]]\nkind = "instantaneous"\nframe="REFERENCE"\n'
+            'field_formats=["tecplot","tecplot-points"]\n'
             "rectangles=[{origin=[0,-1,-2],along_u=[0,1,-2],along_v=[0,-1,2],points_u=2,points_v=2}]\n"
         )
         (w.inputs_dir / "pproc/p001.toml").write_text(pproc, encoding="utf-8")

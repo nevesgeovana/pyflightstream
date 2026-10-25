@@ -588,7 +588,10 @@ def test_the_probe_scale_is_the_rotor_radius():
     the release uses: a rotor, not a propeller."""
     from pyflightstream.cases import ProbesSpec
 
-    assert ProbesSpec(frame="PUSHER_SMRP", scale="rotor_radius").scale == "rotor_radius"
+    assert (
+        ProbesSpec(kind="instantaneous", frame="PUSHER_SMRP", scale="rotor_radius").scale
+        == "rotor_radius"
+    )
 
 
 def test_the_older_probe_scale_is_refused_naming_the_word_to_write():
@@ -604,7 +607,7 @@ def test_the_older_probe_scale_is_refused_naming_the_word_to_write():
     from pyflightstream.cases import ProbesSpec
 
     with pytest.raises(ValidationError, match=r"propeller_radius.*rotor_radius"):
-        ProbesSpec(frame="PUSHER_SMRP", scale="propeller_radius")
+        ProbesSpec(kind="instantaneous", frame="PUSHER_SMRP", scale="propeller_radius")
 
 
 def test_the_committed_artifact_of_this_shape_validates_everywhere():

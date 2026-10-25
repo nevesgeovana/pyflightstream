@@ -149,6 +149,7 @@ def test_g61_a_probe_sampled_field_becomes_the_custom_inflow_of_another_run(tmp_
             "groups": {"1": "all"},
             "probes": [
                 {
+                    "kind": "instantaneous",
                     "frame": "REFERENCE",
                     "field_formats": ["vtk"],
                     "reusable_inflow": True,

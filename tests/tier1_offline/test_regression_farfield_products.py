@@ -1203,7 +1203,7 @@ class TestFfproofPost:
     # ----------------------------------------------------------------- FR-1052
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffproof_a_normal_declaration_gives_the_instant_only(tmp_path):
-        """P0400-FFPROOF (FR-1052): a reused ``kind = "normal"`` lattice holds the last step.
+        """P0400-FFPROOF (FR-1052): a reused ``kind = "default"`` lattice holds the last step.
 
         The far field reuses a ``[[probes]]`` lattice of kind normal on an
         unsteady row: the probe export of the last step (18 m/s) gives the
@@ -1211,7 +1211,7 @@ class TestFfproofPost:
         and it is a named skip in ``products.json`` and a WARNING in ``post.log``.
         """
         probes = (
-            '[[probes]]\nframe = "MRP"\nkind = "normal"\nparameters = ["VX"]\n'
+            '[[probes]]\nframe = "MRP"\nkind = "default"\nparameters = ["VX"]\n'
             '[[probes.lattices]]\nframe = "MRP"\ntip_radius_m = 1.0\nstations = [-1.0, 1.0]\n'
             "n_r = 2\nn_psi = 16\n"
         )
@@ -1801,7 +1801,14 @@ class TestRfixF2PlanStates:
         case = _rfixf2_plan_states___case(
             tmp_path,
             [{"variant": "power", "rotor": "ROTOR", "m_max": 2, "balances": ["mass"]}],
-            probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [lattice]}],
+            probes=[
+                {
+                    "kind": "instantaneous",
+                    "frame": "REFERENCE",
+                    "parameters": ["VX"],
+                    "lattices": [lattice],
+                }
+            ],
         )
         case = case.model_copy(update={"point": {**case.point, "RPM": 1000.0}})
         script = _rfixf2_plan_states___script(case)
@@ -1849,7 +1856,12 @@ class TestRfixF2Plots:
         histories post reads, so one step of synthetic plots under those names
         leaves no NaN in the matched lattice.
         """
-        entry = {"frame": "MRP", "parameters": ["VX"], "lattices": [_RFIXF2_PLOTS___LATTICE]}
+        entry = {
+            "kind": "instantaneous",
+            "frame": "MRP",
+            "parameters": ["VX"],
+            "lattices": [_RFIXF2_PLOTS___LATTICE],
+        }
         case = _rfixf2_plots___unsteady(
             tmp_path,
             [{"variant": "power", **dict(_RFIXF2_PLOTS___LATTICE, m_max=2)}],
@@ -1875,6 +1887,7 @@ class TestRfixF2Plots:
     def test_p0400_rfixf2_a_lattice_stating_every_history_adds_none(tmp_path):
         """P0400-RFIXF2-PLOTS (FR-1045): nothing is added to an entry that states all four."""
         entry = {
+            "kind": "instantaneous",
             "frame": "MRP",
             "parameters": ["VX", "VY", "VZ", "CP_REF"],
             "lattices": [_RFIXF2_PLOTS___LATTICE],
@@ -2419,7 +2432,14 @@ class TestRfixFLayout:
         case = _rfixf_layout___case(
             tmp_path,
             [{"variant": "power", **{"rotor": "ROTOR", "m_max": 2}}],
-            probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [declared]}],
+            probes=[
+                {
+                    "kind": "instantaneous",
+                    "frame": "REFERENCE",
+                    "parameters": ["VX"],
+                    "lattices": [declared],
+                }
+            ],
         )
         script = _rfixf_layout___script(case)
         count = LatticeShape.model_validate(declared).build(1.0).point_count
@@ -2444,7 +2464,14 @@ class TestRfixFLayout:
         case = _rfixf_layout___case(
             tmp_path,
             [{"variant": "power", **dict(shape, r_inner=0.05, m_max=2)}],
-            probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [shape]}],
+            probes=[
+                {
+                    "kind": "instantaneous",
+                    "frame": "REFERENCE",
+                    "parameters": ["VX"],
+                    "lattices": [shape],
+                }
+            ],
         )
         script = _rfixf_layout___script(case)
         assert len(script.probe_points) == LatticeShape.model_validate(shape).build(1.0).point_count
@@ -2474,7 +2501,14 @@ class TestRfixFLayout:
         case = _rfixf_layout___case(
             tmp_path,
             [{"variant": "plane"}],
-            probes=[{"frame": "REFERENCE", "parameters": ["VX"], "rectangles": [rectangle]}],
+            probes=[
+                {
+                    "kind": "instantaneous",
+                    "frame": "REFERENCE",
+                    "parameters": ["VX"],
+                    "rectangles": [rectangle],
+                }
+            ],
         )
         script = _rfixf_layout___script(case)
         assert len(script.probe_points) == 15, "the declared rectangle alone"
@@ -2503,7 +2537,14 @@ class TestRfixFLayout:
         case = _rfixf_layout___case(
             tmp_path,
             [{"variant": "plane", "spacing_bref": 0.25}],
-            probes=[{"frame": "REFERENCE", "parameters": ["VX"], "rectangles": [rectangle]}],
+            probes=[
+                {
+                    "kind": "instantaneous",
+                    "frame": "REFERENCE",
+                    "parameters": ["VX"],
+                    "rectangles": [rectangle],
+                }
+            ],
         )
         script = _rfixf_layout___script(case)
         (shape,) = script.farfield_layout[-1]["shapes"]

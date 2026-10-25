@@ -56,6 +56,7 @@ UNSTEADY_TYPES = ("unsteady", "unsteady_rotor")
 def _entry(kind: str | None = None, **extra: object) -> dict[str, object]:
     """One probe entry in the reference frame: a line of three and a 2 by 2 rectangle."""
     entry: dict[str, object] = {
+        "kind": "instantaneous",
         "frame": "REFERENCE",
         "parameters": ["VX", "VY", "VZ"],
         "points": 3,
@@ -108,7 +109,7 @@ _PROBE_CREATION = ("NEW_PROBE_LINE", "NEW_PROBE_POINT", "PROBE_POINTS_IMPORT")
 @pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
 def test_p0370_s5_normal_entry_is_probe_points_after_the_march(tmp_path, run_type):
     """P0370-S5-PROBE-KIND (FR-884, FR-886): steady shapes after the march, update, export."""
-    spec = _spec(_entry("normal"))
+    spec = _spec(_entry("default"))
     script = _script(tmp_path, run_type, spec)
     heads = _heads(script)
     assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in heads, (
@@ -136,9 +137,9 @@ def test_p0370_s5_normal_entry_is_probe_points_after_the_march(tmp_path, run_typ
 
 @pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
 def test_p0370_s5_unsteady_kind_and_no_kind_render_as_0_36_0(tmp_path, run_type):
-    """P0370-S5-PROBE-KIND (FR-886): no kind is unsteady, byte for byte, and the goldens hold."""
+    """P0451: explicit instantaneous fixtures retain their historical plot scripts."""
     unstated = _script(tmp_path / "a", run_type, _spec(_entry()))
-    stated = _script(tmp_path / "b", run_type, _spec(_entry("unsteady")))
+    stated = _script(tmp_path / "b", run_type, _spec(_entry("instantaneous")))
     assert stated.render().replace(str(tmp_path / "b"), "<T>") == unstated.render().replace(
         str(tmp_path / "a"), "<T>"
     )
@@ -155,7 +156,7 @@ def test_p0370_s5_unsteady_kind_and_no_kind_render_as_0_36_0(tmp_path, run_type)
 @pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
 def test_p0370_s5_mixed_kinds_are_refused_naming_both_lists(tmp_path, run_type):
     """P0451: mixed entries retain both sampling routes."""
-    spec = _spec(_entry("normal"), _entry("unsteady"), _entry("normal"))
+    spec = _spec(_entry("default"), _entry("instantaneous"), _entry("default"))
     script = _script(tmp_path, run_type, spec)
     heads = _heads(script)
     assert heads.count("UNSTEADY_SOLVER_NEW_FLUID_PLOT") == 21
@@ -165,7 +166,7 @@ def test_p0370_s5_mixed_kinds_are_refused_naming_both_lists(tmp_path, run_type):
 
 def test_p0370_s5_a_steady_row_accepts_kind_and_changes_nothing(tmp_path):
     """P0370-S5-PROBE-KIND (FR-885): on a steady row `kind` is accepted and inert."""
-    mixed = _script(tmp_path / "a", "steady", _spec(_entry("normal"), _entry("unsteady")))
+    mixed = _script(tmp_path / "a", "steady", _spec(_entry("default"), _entry("instantaneous")))
     plain = _script(tmp_path / "b", "steady", _spec(_entry(), _entry()))
     assert mixed.render().replace(str(tmp_path / "a"), "<T>") == plain.render().replace(
         str(tmp_path / "b"), "<T>"
@@ -178,9 +179,9 @@ def test_p0370_s5_an_unknown_kind_is_refused_naming_the_two(value):
     with pytest.raises(ValidationError) as refused:
         _spec(_entry(value))  # type: ignore[arg-type]
     message = str(refused.value)
-    assert "'unsteady' or 'normal'" in message, message
-    assert _spec(_entry("normal")).probes[0].kind == "normal"
-    assert _spec(_entry()).probes[0].kind == "unsteady"
+    assert "'default' or 'instantaneous'" in message, message
+    assert _spec(_entry("default")).probes[0].kind == "default"
+    assert _spec(_entry()).probes[0].kind == "instantaneous"
 
 
 def _probe_export(rows: list[tuple[float, ...]]) -> str:
@@ -204,7 +205,7 @@ def _normal_workspace(tmp_path, monkeypatch, *, stopped_at=None, export=True):
     """A recorded unsteady point whose pproc's one entry is normal, with its export."""
     workspace = _unsteady_workspace(tmp_path, reductions=None, recipe="unsteady")
     pproc = (
-        '[groups]\n"1" = "all"\n\n[[probes]]\nframe = "MRP"\nkind = "normal"\n'
+        '[groups]\n"1" = "all"\n\n[[probes]]\nframe = "MRP"\nkind = "default"\n'
         'parameters = ["VX"]\npoints = 3\nlines = [{start = [0, 0, 0], end = [1, 0, 0]}]\n'
     )
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(pproc, encoding="utf-8", newline="\n")
@@ -259,7 +260,7 @@ def test_p0370_s5_post_names_a_missing_normal_export(tmp_path, monkeypatch):
     assert not (workspace.root / "post/products/probes/AL-020_probes.csv").exists()
     skipped = _products_manifest(workspace).get("skipped", {})
     reason = skipped.get("probes/AL-020_probes.csv", "")
-    assert "probe points export" in reason and 'kind = "normal"' in reason, skipped
+    assert "probe points export" in reason and 'kind = "default"' in reason, skipped
 
 
 def _continuation(tmp_path: Path, run_type: str, spec: PprocSpec) -> tuple[Script, Script]:
@@ -292,7 +293,7 @@ _FRAME_HEADS = ("CREATE_NEW_COORDINATE_SYSTEM", "SET_COORDINATE_SYSTEM", "INITIA
 @pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
 def test_p0370_s5_a_continuation_creates_the_normal_probes_after_its_march(tmp_path, run_type):
     """P0370-S5-PROBE-KIND (FR-889): the full script's probe commands, after the march."""
-    spec = _spec(_entry("normal", frame="MRP"))
+    spec = _spec(_entry("default", frame="MRP"))
     full, continued = _continuation(tmp_path, run_type, spec)
     heads = _heads(continued)
     assert heads[0] == "OPEN" and not set(heads) & set(_FRAME_HEADS), (
@@ -316,7 +317,7 @@ def test_p0370_s5_a_continuation_without_normal_probes_creates_none(tmp_path, ru
     assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in heads and continued.probe_points == []
 
 
-@pytest.mark.parametrize("kind", ["unsteady", "normal"])
+@pytest.mark.parametrize("kind", ["instantaneous", "default"])
 def test_p0370_s5_a_continuation_that_cannot_place_its_normal_probes_is_refused(tmp_path, kind):
     """P0370-S5-PROBE-KIND (FR-889): without its full script, a rerun from the mesh."""
     spec = _spec(_entry(kind, frame="MRP"), _entry(kind, frame="MRP"))
@@ -337,7 +338,7 @@ def test_p0370_s5_a_continuation_that_cannot_place_its_normal_probes_is_refused(
         }
     )
     script = Script("26.124")
-    if kind == "unsteady":
+    if kind == "instantaneous":
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             build_script(case, script)
@@ -350,7 +351,7 @@ def test_p0370_s5_a_continuation_that_cannot_place_its_normal_probes_is_refused(
     assert "moved_away.fsm" in message and "pyfs-matrix run --force-rerun <point>" in message
 
 
-def _windowed(tmp_path: Path, run_type: str, kind: str = "normal") -> tuple[SimCase, Script]:
+def _windowed(tmp_path: Path, run_type: str, kind: str = "default") -> tuple[SimCase, Script]:
     """A row with one probe entry of ``kind`` and a per-step window from step 2."""
     spec = _spec(_entry(kind, frame="MRP"))
     key = "EXPORT_UNSTEADY_AFTER_ITER" if run_type == "unsteady" else "EXPORT_UNSTEADY_LAST_ITER"
@@ -441,7 +442,7 @@ def test_p0370_s5_a_raw_probe_line_is_not_replayed_by_the_continuation(tmp_path)
     from pyflightstream.cases import RawCommand
 
     raw = RawCommand(command="NEW_PROBE_POINT VOLUME 7.0 8.0 9.0", before="analysis")
-    spec = _spec(_entry("normal", frame="MRP"))
+    spec = _spec(_entry("default", frame="MRP"))
     base = _case_for("unsteady")
     restart = {
         RESTART_VARIABLE: "{ADDITIONAL_ITERS=12}",

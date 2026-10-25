@@ -258,7 +258,7 @@ def _the_fields_ask_for_plots(pproc: PprocSpec) -> bool:
         pproc.surface_probes
         or pproc.volume_section is not None
         or any(
-            (entry.field_formats or entry.reusable_inflow) and entry.kind != "normal"
+            (entry.field_formats or entry.reusable_inflow) and entry.kind != "default"
             for entry in pproc.probes
         )
     )

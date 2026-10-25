@@ -64,6 +64,7 @@ def test_b10_plan_warns_only_for_enabled_steady_probe_parameters(tmp_path, unste
     pproc = PprocSpec(
         probes=[
             {
+                "kind": "instantaneous",
                 "frame": "MRP",
                 "parameters": parameters,
                 "points": 2,

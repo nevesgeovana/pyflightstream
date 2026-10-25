@@ -41,35 +41,11 @@ The solver log is always exported through the pproc `[exports]` table. `LOG_OUTP
 
 ## Probes: unsteady or normal
 
-A pproc `[[probes]]` entry on this run type is an UNSTEADY probe unless it
-states `kind = "normal"`: one fluid plot per point and parameter,
-whose history the solver writes at every time step. A NORMAL probe is a probe
-point created after the time march, updated and exported once, so the probes
-table and any sampled field or reusable inflow hold the run's last time step.
-Use it when only the end of the run is needed. Every entry of one row is of one
-kind. The script of a normal entry, after the march:
-
-```text
-START_SOLVER
-NEW_PROBE_LINE... / NEW_PROBE_POINT VOLUME... / PROBE_POINTS_IMPORT...
-UPDATE_ALL_SURFACE_SECTIONS
-COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS
-UPDATE_PROBE_POINTS
-SAVEAS...
-EXPORT_PROBE_POINTS <point>_probes.txt
-```
-
-With a per-step export window, the normal probes are also exported at every
-step of the window: the exports script of the first exporting step creates them,
-and every step of the window runs
-
-```text
-UPDATE_PROBE_POINTS
-EXPORT_PROBE_POINTS
-<point>_probes.txt
-```
-
-beside the other per-step exports, stamped `<point>_probes_iteration=<step>.txt`.
+A `[[probes]]` entry defaults to `kind = "default"`: probe points imported
+after the march, updated and exported once at the last step. State
+`kind = "instantaneous"` for fluid plots sampled at every step. Entries may
+mix both kinds, keeping their last-step and history tables separately.
+Per-step export thresholds do not add default entries to the window.
 See [the probe kind](pproc-artifact.md#the-probe-kind-of-an-unsteady-row).
 
 ## The reductions of an unsteady point

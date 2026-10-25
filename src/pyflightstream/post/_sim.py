@@ -1002,7 +1002,7 @@ def _probes_products(
     if normal and (probes_path is None or not probes_path.is_file()):
         ctx.skipped[probe_relative] = (
             "no probes table: missing probe points export. The probes of this unsteady "
-            'point are normal (kind = "normal"), sampled once after the march; restore or '
+            'point are normal (kind = "default"), sampled once after the march; restore or '
             "collect the recorded probe points export, or run again if none was recorded."
         )
         return
@@ -1054,7 +1054,7 @@ def _plots_products(
     # fields come from the probe-points export (`_probes_products`).
     fluid = unsteady and (
         ctx.pproc.volume_section is not None
-        or any(entry.kind != "normal" for entry in ctx.pproc.probes)
+        or any(entry.kind != "default" for entry in ctx.pproc.probes)
     )
     if fluid and _normal_probes(ctx, record, legacy_profiles):
         probe_relative = f"{PROBES_DIR}/{point.name}_probes_history.csv"
@@ -1624,7 +1624,7 @@ def _probe_parameters(pproc, *, drawn_only: bool = False) -> tuple[str, ...]:
     """
     out: list[str] = []
     for entry in getattr(pproc, "probes", None) or []:
-        if entry.kind == "normal":
+        if entry.kind == "default":
             continue
         if drawn_only and entry.points_file:
             continue

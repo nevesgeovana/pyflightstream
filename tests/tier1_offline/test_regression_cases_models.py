@@ -317,7 +317,7 @@ _CASES_PPROC__SURFACE_PROBE = {
 
 
 _CASES_PPROC__NORMAL_PROBES = {
-    "kind": "normal",
+    "kind": "default",
     "parameters": ["VX"],
     "lines": [{"start": [0, 0, 0], "end": [1, 0, 0]}],
 }
@@ -433,8 +433,14 @@ class TestCasesPproc:
     @staticmethod
     def test_p0400_probe_frame_written_empty_is_the_hub_frame():
         """P0400-PROBE-FRAME (PFS-2095.005): frame = "" means what the omitted key means."""
-        assert ProbesSpec(frame="").frame == ProbesSpec().frame == ""
-        assert ProbesSpec(frame="  ").frame == ""
+        assert (
+            ProbesSpec(kind="instantaneous", frame="").frame
+            == ProbesSpec(
+                kind="instantaneous",
+            ).frame
+            == ""
+        )
+        assert ProbesSpec(kind="instantaneous", frame="  ").frame == ""
 
     @staticmethod
     def test_p0400_classify_outputs_does_not_fall_through_to_a_shorter_suffix():
@@ -724,9 +730,13 @@ class TestCasesReview:
         line = {"start": [0, 0, 0], "end": [1, 0, 0]}
         with pytest.raises(ValidationError, match="requires nonempty parameters"):
             ProbesSpec.model_validate({"lines": [line]})
-        kept = ProbesSpec.model_validate({"lines": [line], "parameters": ["VX"]})
+        kept = ProbesSpec.model_validate(
+            {"kind": "instantaneous", "lines": [line], "parameters": ["VX"]}
+        )
         assert kept.parameters == ["VX"]
-        added = ProbesSpec.model_validate({"lines": [line], "field_formats": ["vtk"]})
+        added = ProbesSpec.model_validate(
+            {"kind": "instantaneous", "lines": [line], "field_formats": ["vtk"]}
+        )
         assert added.parameters == ["VX", "VY", "VZ"]
 
 
@@ -839,7 +849,11 @@ def test_f1309_a_drive_relative_points_file_is_refused_like_a_path():
 
     with pytest.raises(ValidationError, match="names a path"):
         ProbesSpec(
-            points_file="C:survey.csv", frame="REFERENCE", scale="m", parameters=["VELOCITY"]
+            kind="instantaneous",
+            points_file="C:survey.csv",
+            frame="REFERENCE",
+            scale="m",
+            parameters=["VELOCITY"],
         )
 
 

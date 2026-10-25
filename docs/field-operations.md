@@ -102,14 +102,14 @@ workspace settings files.
 ## Per-step fields of an unsteady row
 
 On an unsteady row, including one with no rotor, a pproc `[[probes]]` entry
-with `reusable_inflow = true` becomes one fluid plot per point and velocity
+with `kind = "instantaneous"` and `reusable_inflow = true` becomes one fluid plot per point and velocity
 component, which the solver records at every time step. The post then writes
 one `fields/<point>_field_NN_step_<N>.inflow.dat` per step. The per-step
 export window (`EXPORT_UNSTEADY_AFTER_ITER`) is not needed for them and does
 not change them: the fluid plots sample every step of the run, and
 `field time-mean --last K` chooses the steps averaged.
 
-An entry that states `kind = "normal"` is sampled once, by probe points after
+An entry that states `kind = "default"` is sampled once, by probe points after
 the time march, and the post writes one
 `fields/<point>_field_NN_step_<N>.inflow.dat` for the run's last time step `N`
 see [sampled fields](sampled-fields.md).

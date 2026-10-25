@@ -405,6 +405,7 @@ def test_p0410_planar_grid_reaches_workspace_plan(tmp_path):
     declaration = {
         "probes": [
             {
+                "kind": "instantaneous",
                 "frame": "REFERENCE",
                 "scale": "m",
                 "parameters": ["VX"],

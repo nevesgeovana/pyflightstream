@@ -67,6 +67,7 @@ families = ["lifters", "PUSHER"]
 frame = "LOCAL_AXIS"
 
 [[probes]]
+kind = "instantaneous"
 frame = "PUSHER_SMRP"
 parameters = ["MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO"]
 points = 25

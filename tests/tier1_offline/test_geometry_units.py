@@ -57,6 +57,7 @@ def test_probe_metres_become_native_coordinates_once(unsteady):
     script.emit("SET_SIMULATION_LENGTH_UNITS", "MILLIMETER")
     frame = _frames._moment_frame(case, script)
     probes = ProbesSpec(
+        kind="instantaneous",
         frame="MRP",
         parameters=["VELOCITY"],
         points=2,
@@ -176,7 +177,7 @@ def test_fluid_plot_vertices_are_si_but_recorded_positions_remain_native(unit, f
             ]
         }
     )
-    probes = ProbesSpec(frame="MRP", parameters=["VX"], points=2, **geometry)
+    probes = ProbesSpec(kind="instantaneous", frame="MRP", parameters=["VX"], points=2, **geometry)
     _probes._emit_one_probe_table(case, script, {"MRP": frame}, probes, 0, unsteady=True)
     emitted = [line for line in script.render().splitlines() if line.startswith("VERTEX ")]
     assert tuple(map(float, emitted[0].split()[1:])) == pytest.approx((0.1, 0.2, 0.3))

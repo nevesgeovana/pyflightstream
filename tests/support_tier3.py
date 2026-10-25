@@ -741,6 +741,7 @@ frame = "SMRP"
 families = "rotors"
 
 [[probes]]
+kind = "instantaneous"
 frame = "{ALIAS}_SMRP"
 parameters = ["VX", "VZ"]
 points = {TIP_POINTS}

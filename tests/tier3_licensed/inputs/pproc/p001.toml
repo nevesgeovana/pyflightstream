@@ -71,6 +71,7 @@ frame = "LOCAL_AXIS"
 families = "blades"
 
 [[probes]]
+kind = "instantaneous"
 # Three lines across the rotor disk, in rotor radii of the reference,
 # 15 vertices each.
 frame = "ROTOR_SMRP"

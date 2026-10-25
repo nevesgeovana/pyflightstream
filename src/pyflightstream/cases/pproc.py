@@ -37,7 +37,7 @@ from pydantic import (
 )
 
 from pyflightstream._deprecations import ROW_EACH_BLADE, refusal_text
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
 from pyflightstream._expressions import ALLOWED_FUNCTIONS, expression_symbols
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS
 from pyflightstream._tokens import REDUCTION_COLUMNS
@@ -201,10 +201,8 @@ EXPORT_KIND_SINCE: dict[str, tuple[int, int]] = {
 #: are saved once after the march (GOAL-033 T40, 26.124 build 8172026).
 STEADY_ONLY_EXPORT_KINDS: frozenset[str] = frozenset({"probes"})
 
-#: FR-417: the probe kinds a ``[[probes]]`` entry may state. ``unsteady`` (the
-#: default) samples through fluid plots at every time step; ``normal`` creates
-#: probe points after the time march and exports them once.
-ProbeKind = Literal["unsteady", "normal"]
+#: PFS-2167: default samples once; instantaneous requests an unsteady history.
+ProbeKind = Literal["default", "instantaneous"]
 PROBE_KINDS: tuple[str, ...] = get_args(ProbeKind)
 
 #: The kinds a pproc must switch ON: every other kind is on unless its
@@ -1185,10 +1183,10 @@ class ProbesSpec(_LocatedSpec):
     points_file : str, optional
         The name of a points file of ``inputs/profiles/``, cited instead of
         drawing lines and planes.
-    kind : {'unsteady', 'normal'}
-        How an unsteady row samples the entry: ``unsteady``, one
+    kind : {'default', 'instantaneous'}
+        How an unsteady row samples the entry: ``instantaneous``, one
         fluid plot per point and parameter evaluated at every time step, or
-        ``normal``, probe points created after the time march and exported
+        ``default`` (also when absent), probe points created after the time march and exported
         once, at the last time step. A steady row accepts either and samples
         probe points.
     """
@@ -1237,26 +1235,35 @@ class ProbesSpec(_LocatedSpec):
     #: committed report).
     #: Excluded from every dump, so no machine path reaches a record or a plan.
     resolved_points_file: str | None = Field(default=None, exclude=True)
-    #: FR-417: how an unsteady row samples this entry. ``unsteady`` (the
-    #: default) is one fluid plot per point and
-    #: parameter, a history at every time step; ``normal`` is probe points
+    #: How an unsteady row samples this entry. ``instantaneous`` is one fluid
+    #: plot per point and parameter, a history at every time step; ``default`` is probe points
     #: created after the time march with the steady commands, updated and
     #: exported once, so they hold the solution at the end of the march (RPT-153,
     #: "normal probes after an unsteady march", 2026-10-05; not the same sample as
     #: the last fluid-plot step). A steady row samples
     #: probe points whatever the entry states.
-    kind: ProbeKind = "unsteady"
+    kind: ProbeKind = "default"
 
     @field_validator("kind", mode="before")
     @classmethod
     def _a_known_probe_kind(cls, value: object) -> object:
         """Refuse a probe kind other than the two, naming both (FR-888)."""
+        aliases = {"normal": "default", "unsteady": "instantaneous"}
+        if isinstance(value, str) and value in aliases:
+            canonical = aliases[value]
+            warn(
+                f"probe kind {value!r} is deprecated; use kind = {canonical!r} instead.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            return canonical
         if value not in PROBE_KINDS:
             raise ValueError(
                 f"probe kind {value!r} is not one of {' or '.join(map(repr, PROBE_KINDS))}: "
-                'write kind = "unsteady" for a fluid plot per point and parameter, '
-                'evaluated at every time step, or kind = "normal" for probe points '
-                "sampled once, at the last time step"
+                'write kind = "instantaneous" for a fluid plot per point and parameter, '
+                'evaluated at every time step, or kind = "default" for probe points '
+                "sampled once, at the last time step. Deprecated aliases: 'unsteady' "
+                "and 'normal', respectively."
             )
         return value
 
@@ -2479,7 +2486,7 @@ class PprocSpec(BaseModel):
             if entry.field_formats or entry.reusable_inflow:
                 sources.append(
                     "{name}_plots.txt"
-                    if unsteady and entry.kind != "normal"
+                    if unsteady and entry.kind != "default"
                     else "{name}_probes.txt"
                 )
         return sources
@@ -2498,7 +2505,7 @@ class PprocSpec(BaseModel):
         """Whether an unsteady row has entries sampled as normal probe points.
 
         True when the artifact declares at least one ``[[probes]]`` entry and
-        at least one entry states ``kind = "normal"``. Mixed entries keep their
+        at least one entry states ``kind = "default"``. Mixed entries keep their
         independent sampling routes. Steady callers do not ask this question.
 
         Returns
@@ -2506,4 +2513,4 @@ class PprocSpec(BaseModel):
         bool
             Whether any entry needs the final probe-points export.
         """
-        return any(entry.kind == "normal" for entry in self.probes)
+        return any(entry.kind == "default" for entry in self.probes)

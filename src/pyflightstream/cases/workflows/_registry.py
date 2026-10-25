@@ -299,13 +299,11 @@ def normal_probe_creation(
     *,
     conventions: WorkflowConventions | None = None,
 ) -> str:
-    """Return the lines that create a row's normal probes on its first exporting step.
+    """Return the conventional probe creation needed at far-field window start.
 
-    FR-890: a row whose probes are normal and which states a per-step
-    export window exports them at every step of the window, so the exports
-    script of the window's first step creates them: ``DELETE_PROBE_POINTS``,
-    then the creation commands the row's full script emits after the march,
-    taken from that script built on a scratch script that is never written.
+    Only sets needed by an ``avg_window`` far-field entry are created here.
+    Final-only and default declared entries remain after the march. The
+    commands are validated on an in-memory script with the full row's placement.
 
     Parameters
     ----------
@@ -319,8 +317,8 @@ def normal_probe_creation(
     Returns
     -------
     str
-        The lines, each ending in a newline; empty for a row whose probes are
-        not normal or that states no per-step window.
+        The lines, each ending in a newline; empty when no far-field window
+        requires conventional points.
 
     Raises
     ------

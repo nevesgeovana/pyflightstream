@@ -43,7 +43,7 @@ scale = "m"
 [[probes]]
 frame = "MRP"
 parameters = ["VX", "VY", "VZ"]
-kind = "normal"
+kind = "default"
 
 [[probes.lattices]]
 frame = "MRP"
