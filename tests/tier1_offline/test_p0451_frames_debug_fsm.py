@@ -74,6 +74,18 @@ def test_p0451_debug_each_wheel_clocking(tmp_path):
     assert set(saves) <= set(case.outputs)
 
 
+@pytest.mark.parametrize("count", ["2", "2.0", "2e0"])
+def test_p0451_rv1_debug_accepts_integral_clocking_spellings(count):
+    from tests.tier1_offline.test_goal035_qsteady_rotor import _case as wheel
+    from tests.tier1_offline.test_goal035_qsteady_rotor import _lines
+
+    case = _enabled(wheel(PASSAGE_POSITIONS=count))
+    lines, _ = _lines(case)
+    saves = [lines[i + 2] for i, line in enumerate(lines) if line == "START_SOLVER"]
+    assert saves == ["{name}_c1_debug.fsm", "{name}_c0_debug.fsm"]
+    assert set(saves) <= set(case.outputs)
+
+
 @pytest.mark.parametrize("run_type", ["steady", "unsteady", "unsteady_rotor", "qsteady_rotor"])
 def test_p0451_debug_off_is_byte_identical(tmp_path, run_type):
     case = _case(tmp_path, [], [_entry("default")], run_type)

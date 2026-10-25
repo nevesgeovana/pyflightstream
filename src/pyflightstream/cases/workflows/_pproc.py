@@ -55,10 +55,12 @@ from ._names import (
     _selected_families,
 )
 from ._rows import (
+    _required_int,
     _the_names_a_rotor_answers_to,
     _variable,
 )
 from ._vocabulary import (
+    PASSAGE_POSITIONS_VARIABLE,
     Frames,
 )
 
@@ -625,7 +627,13 @@ def row_outputs(case: SimCase, workflow: str) -> list[str]:
         and pproc.exports.get("debug_fsm", False)
         and str(_variable(case, "SYMMETRY") or "").upper() != "PERIODIC"
     ):
-        count = int(_variable(case, "PASSAGE_POSITIONS") or 1)
+        count = (
+            _required_int(
+                case, PASSAGE_POSITIONS_VARIABLE, quantity="count of clockings", unit="positions"
+            )
+            if _variable(case, PASSAGE_POSITIONS_VARIABLE) is not None
+            else 1
+        )
         names = [name for name in names if not name.endswith("_debug.fsm")]
         names += [f"{{name}}_c{index}_debug.fsm" for index in range(count)]
     plot = classify_outputs(names).get("plot_sections_cp")
