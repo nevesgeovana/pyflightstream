@@ -163,7 +163,12 @@ def resolve_continuation(
     iterations = restart_steps(request, previous)
     step_offset = _continued_step_offset(workspace, previous)
     saved = next(
-        (name for name in previous.outputs if str(name).lower().endswith(SIMULATION_SUFFIX)),
+        (
+            name
+            for name in previous.outputs
+            if str(name).lower().endswith(SIMULATION_SUFFIX)
+            and not str(name).lower().endswith("_debug.fsm")
+        ),
         None,
     )
     if saved is None:

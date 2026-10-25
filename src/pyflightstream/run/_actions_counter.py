@@ -35,7 +35,7 @@ from pathlib import Path, PurePosixPath
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream.cases import SimCase
+from pyflightstream.cases import SimCase, classify_outputs
 from pyflightstream.cases.windows import ExportThresholdRecord
 from pyflightstream.cases.workflows import (
     UNSTEADY_ACTION_COUNT,
@@ -163,6 +163,7 @@ def render_program(
     interpreter: str,
     creation: str = "",
     farfield_creation: str = "",
+    debug_save: str = "",
 ) -> str:
     r"""Return the program text for one point.
 
@@ -180,6 +181,8 @@ def render_program(
         one every other row gets.
     farfield_creation : str, optional
         Conventional probe creation at the first far-field probe export step.
+    debug_save : str, optional
+        SAVEAS command prepended once, before the first window's output setup.
 
     Returns
     -------
@@ -219,6 +222,18 @@ def render_program(
         "EXPORTS = <EXPORTS>\nCREATE = <CREATE>\nFARFIELD_CREATE = <FARFIELD_CREATE>\n",
     )
     text = text.replace(_PLAIN_REWRITE, _WINDOW_REWRITE)
+    if debug_save:
+        starts = [first for first, _, _ in threshold.farfield_windows]
+        if threshold.exports:
+            starts.append(threshold.first_step)
+        values["DEBUG_FIRST_STEP"] = min(starts or [threshold.first_step])
+        values["DEBUG_SAVE"] = debug_save
+        text = text.replace(
+            "    SCRIPT_FILE.write_text(text,",
+            '    if current["count"] == <DEBUG_FIRST_STEP>:\n'
+            "        text = <DEBUG_SAVE> + text\n"
+            "    SCRIPT_FILE.write_text(text,",
+        )
     return _fill(text, values)
 
 
@@ -316,6 +331,11 @@ def stage_counter(
     threshold = unsteady_export_threshold(point_case, version=fs_version)
     program = work_dir / UNSTEADY_ACTION_PROGRAM
     program.parent.mkdir(parents=True, exist_ok=True)
+    debug = Script(fs_version)
+    if point_case.pproc is not None and point_case.pproc.exports.get("debug_fsm", False):
+        name = classify_outputs(point_case.outputs).get("debug_fsm")
+        if name is not None:
+            debug.emit("SAVEAS", name)
     _textio.write_text(
         program,
         render_program(
@@ -330,6 +350,7 @@ def stage_counter(
                 fs_version,
             ),
             farfield_creation=normal_probe_creation(point_case, fs_version),
+            debug_save=debug.render() if debug.render().strip() else "",
         )
         if threshold is not None
         else render_count_program(unsteady_counter_steps(point_case), interpreter=sys.executable),

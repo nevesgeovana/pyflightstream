@@ -813,6 +813,19 @@ def _campaign_products(
         "log": _POST_LOG,
         "log_json": _POST_LOG_JSON,
     }
+    debug_artifacts = [
+        {
+            "kind": "debug_fsm",
+            "run_id": point.run_id,
+            "path": (workspace.sim_dir(point.sim_id) / name).relative_to(workspace.root).as_posix(),
+        }
+        for point in points
+        if sims is None or point.sim_id in sims
+        for name in point.outputs
+        if name.endswith("_debug.fsm")
+    ]
+    if debug_artifacts:
+        manifest["debug_artifacts"] = debug_artifacts
     # PFS-2031.16: record a simulation product's refusal as a skip with its
     # reason and continue other products. An existing destination without
     # overwrite refuses the whole stage because it concerns the caller's flag.

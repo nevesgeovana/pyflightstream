@@ -282,6 +282,7 @@ def _action_export_kinds(
         for kind, name in classify_outputs(names).items()
         if whole_run or kind not in (*WHOLE_RUN_EXPORT_KINDS, *END_OF_RUN_EXPORT_KINDS)
     }
+    kinds.pop("debug_fsm", None)  # Saved once at the window start, never on every step.
     # FR-890: the per-step exports of a row whose probes are NORMAL update and
     # export them at every step of the window; the wall clock's rescue does not,
     # since the points may not exist when it fires.

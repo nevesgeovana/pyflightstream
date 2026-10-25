@@ -35,6 +35,7 @@ which is a different artifact under a similar name.
 
 from __future__ import annotations
 
+import lzma
 import sys
 from pathlib import Path
 
@@ -77,7 +78,10 @@ def write_goldens(matrix: Path) -> int:
     for stem, text in rendered.items():
         target = golden_of(matrix, stem)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8", newline="\n")
+        if target.suffix == ".xz":
+            target.write_bytes(lzma.compress(text.encode("utf-8")))
+        else:
+            target.write_text(text, encoding="utf-8", newline="\n")
     return count
 
 

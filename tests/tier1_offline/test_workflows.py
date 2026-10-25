@@ -146,6 +146,7 @@ from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.support_helpers import saved_mesh_fixture as _saved_simulation
+from tests.support_tier3 import read_golden
 from tests.tier1_offline._workflow_docs import MESH_DOCS, WORKFLOW_DOCS
 from tests.tier1_offline.test_fsm_saved_actions import (
     ACTIONS as _FR313_PLAN_GEOMETRY_WARNING__ACTIONS,
@@ -6774,7 +6775,9 @@ def test_p0451_frame_golden_admissions_reject_an_unrelated_command():
     )
     assert records["paths"]
     for name in records["paths"]:
-        text = "\n".join((_FR314_COUNTER_EVERYWHERE__REPO / name).read_text().splitlines())
+        text = "\n".join(
+            read_golden(workflow_payload(_FR314_COUNTER_EVERYWHERE__REPO / name)).splitlines()
+        )
         assert before_frame_labels_0451(text) != text, name
         planted = text + "\nSTART_SOLVER"
         assert before_frame_labels_0451(planted) == planted, name
@@ -6786,7 +6789,9 @@ def test_p0420_datum_golden_admissions_reject_an_unrelated_command():
 
     assert len(_P0420_GOLDEN_DIGESTS["paths"]) == 28
     for name in _P0420_GOLDEN_DIGESTS["paths"]:
-        text = "\n".join((_FR314_COUNTER_EVERYWHERE__REPO / name).read_text().splitlines())
+        text = "\n".join(
+            read_golden(workflow_payload(_FR314_COUNTER_EVERYWHERE__REPO / name)).splitlines()
+        )
         text = before_frame_labels_0451(text)
         digest = hashlib.sha256(text.encode()).hexdigest()
         previous = _P0420_GOLDEN_DIGESTS["digests"][digest]
@@ -7014,9 +7019,9 @@ def _fr314_counter_everywhere___golden_classes(record: dict) -> tuple[set, set, 
     refused = set()
     for name, digest in sorted(record["digests"].items()):
         text = "\n".join(
-            _fr314_counter_everywhere__workflow_payload(_FR314_COUNTER_EVERYWHERE__REPO / name)
-            .read_text(encoding="utf-8")
-            .splitlines()
+            read_golden(
+                _fr314_counter_everywhere__workflow_payload(_FR314_COUNTER_EVERYWHERE__REPO / name)
+            ).splitlines()
         )
         text = before_frame_labels_0451(text)
         if _fr314_counter_everywhere___sha(text) == digest:
@@ -7218,9 +7223,11 @@ class TestFr314CounterEverywhere:
         for name in sorted(_FR314_COUNTER_EVERYWHERE__FR331_GOLDENS):
             digest = record["digests"][name]
             text = "\n".join(
-                _fr314_counter_everywhere__workflow_payload(_FR314_COUNTER_EVERYWHERE__REPO / name)
-                .read_text(encoding="utf-8")
-                .splitlines()
+                read_golden(
+                    _fr314_counter_everywhere__workflow_payload(
+                        _FR314_COUNTER_EVERYWHERE__REPO / name
+                    )
+                ).splitlines()
             )
             assert _fr314_counter_everywhere___sha(text) != digest, (
                 requirement,
@@ -7274,9 +7281,11 @@ class TestFr314CounterEverywhere:
         for name in sorted(_FR314_COUNTER_EVERYWHERE__FR321_GOLDENS):
             digest = record["digests"][name]
             text = "\n".join(
-                _fr314_counter_everywhere__workflow_payload(_FR314_COUNTER_EVERYWHERE__REPO / name)
-                .read_text(encoding="utf-8")
-                .splitlines()
+                read_golden(
+                    _fr314_counter_everywhere__workflow_payload(
+                        _FR314_COUNTER_EVERYWHERE__REPO / name
+                    )
+                ).splitlines()
             )
             text = before_frame_labels_0451(text)
             stripped = _fr314_counter_everywhere___strip_fr321_wake(text)
@@ -7310,9 +7319,9 @@ class TestFr314CounterEverywhere:
         (name,) = sorted(_FR314_COUNTER_EVERYWHERE__FR51_GOLDENS)
         digest = record["digests"][name]
         text = "\n".join(
-            _fr314_counter_everywhere__workflow_payload(_FR314_COUNTER_EVERYWHERE__REPO / name)
-            .read_text(encoding="utf-8")
-            .splitlines()
+            read_golden(
+                _fr314_counter_everywhere__workflow_payload(_FR314_COUNTER_EVERYWHERE__REPO / name)
+            ).splitlines()
         )
         text = before_frame_labels_0451(text)
         if name in _FR314_COUNTER_EVERYWHERE__FR321_GOLDENS:

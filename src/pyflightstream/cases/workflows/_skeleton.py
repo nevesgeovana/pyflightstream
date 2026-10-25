@@ -44,6 +44,7 @@ from ._conventions import (
     select_workflow,
 )
 from ._exports import (
+    _debug_fsm,
     _declared_export_kinds,
     _export_block,
     _export_surface_vtk,
@@ -752,6 +753,7 @@ def _script_solve_and_export(
     if unsteady:
         _vorticity_list_before_the_solve(script)
     helpers.start_solver(script)
+    _debug_fsm(case, script)
     if not unsteady:
         _setup_link.loads_selections(case, script)
         if case.solver.clear_vorticity_drag_boundaries:

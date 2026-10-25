@@ -199,8 +199,7 @@ _PPROC_EXAMPLE = """\
 # in pproc/VARIABLES.md, and how to write an equation in
 # pproc/WRITING-EQUATIONS.md; the input glossary is inputs/INPUTS.md.
 
-# Top-level keys come before the first [table]; written under one, TOML files
-# them in that table.
+# Top-level keys precede the first [table]; otherwise TOML assigns them to that table.
 blade_pattern = '^Blade\\d+$'      # a regular expression telling a blade family from the airframe
 base_regions = ["Base"]           # boundaries made base regions after the mesh opens;
                                   # a row's BASE_REGIONS wins over it
@@ -223,6 +222,7 @@ tecplot = true
 vtk = true
 csv = false
 force_distributions = false       # the per-panel forces
+debug_fsm = false                 # inspect the solver state before output setup
 sections = true
 sectional_loads = true
 probes = true                     # steady rows

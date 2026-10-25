@@ -7,6 +7,7 @@ by importing this module or by its offline readers.
 from __future__ import annotations
 
 import csv
+import lzma
 import math
 import os
 import re
@@ -593,7 +594,17 @@ def render(matrix: Path) -> tuple[int, dict[str, str]]:
 
 
 def golden_of(matrix: Path, stem: str) -> Path:
-    return GOLDENS / matrix.stem / f"{stem}.txt"
+    path = GOLDENS / matrix.stem / f"{stem}.txt"
+    compressed = path.with_suffix(".txt.xz")
+    return compressed if compressed.is_file() else path
+
+
+def read_golden(path: Path) -> str:
+    """Read a plain or losslessly compressed expected script as normalized text."""
+    if path.suffix != ".xz" and not path.exists():
+        path = path.with_suffix(path.suffix + ".xz")
+    data = lzma.decompress(path.read_bytes()) if path.suffix == ".xz" else path.read_bytes()
+    return data.decode("utf-8").replace("\r\n", "\n")
 
 
 def compare(matrix: Path) -> tuple[int, list[str], list[str], list[str]]:
@@ -609,11 +620,15 @@ def compare(matrix: Path) -> tuple[int, list[str], list[str], list[str]]:
         golden = golden_of(matrix, stem)
         if not golden.is_file():
             absent.append(stem)
-        elif golden.read_text(encoding="utf-8").replace("\r\n", "\n") != text:
+        elif read_golden(golden) != text:
             differ.append(stem)
     folder = GOLDENS / matrix.stem
     orphans = (
-        sorted(p.stem for p in folder.glob("*.txt") if p.stem not in rendered)
+        sorted(
+            p.name.removesuffix(".xz").removesuffix(".txt")
+            for p in folder.glob("*.txt*")
+            if p.name.removesuffix(".xz").removesuffix(".txt") not in rendered
+        )
         if folder.is_dir()
         else []
     )

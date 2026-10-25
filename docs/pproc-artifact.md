@@ -397,6 +397,20 @@ point was run for. The volume section's file (`_vsec.vtk` or `_vsec.dat`) is
 not an `[exports]` kind: `[volume_section]` declares it, and `[exports]`
 naming `volume_section_vtk` or `volume_section_tecplot` is refused.
 
+| `[exports]` key | Default | Output |
+| --- | --- | --- |
+| `debug_fsm` | `false` | `<point>_debug.fsm`, the solver state before output setup |
+
+With `debug_fsm = true`, steady rows save immediately after the solve and
+before probe creation, section updates or exports. A quasi-steady wheel
+saves `<point>_c<k>_debug.fsm` at each clocking. Unsteady rows with a per-step
+export window save once as the first command of the window-start action,
+before defining or importing any output. This includes `EXPORT_UNSTEADY_LAST_REV`,
+`EXPORT_UNSTEADY_LAST_ITER`, `EXPORT_UNSTEADY_AFTER_REV`, `EXPORT_UNSTEADY_AFTER_ITER`
+and far-field or sections `avg_window` windows. A continued run saves in the
+march that reaches that window. Without a window, it saves just after the
+march, before post-march output setup. Leaving the flag off changes no script.
+
 The top-level key `singularity_strength` decides whether the
 Tecplot surface carries the nodal `Singularity_strength`. The VTK the surface
 is written from does not hold it, so carrying it costs a second, native Tecplot
@@ -454,6 +468,11 @@ native/custom section commands remain available under their command evidence,
 but callers must establish any indices inherited from the FSM themselves.
 
 ## What the products are
+
+The optional debug FSM sits beside the point's normal FSM and is listed in
+the run record's `outputs`. `products.json` lists it under `debug_artifacts`
+with its run id and path. It is an inspection artifact: post-processing does
+not read it, and continuation opens the normal saved simulation.
 
 The meaning of a `[[probes]]` entry's `parameters` list depends on the run type;
 see [Probe parameters](post-processing-definitions.md#probe-parameters) for the

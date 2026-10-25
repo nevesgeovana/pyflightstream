@@ -56,6 +56,7 @@ from ._names import (
 )
 from ._rows import (
     _the_names_a_rotor_answers_to,
+    _variable,
 )
 from ._vocabulary import (
     Frames,
@@ -619,6 +620,14 @@ def row_outputs(case: SimCase, workflow: str) -> list[str]:
     if pproc is None:
         return default_outputs(unsteady) + trajectory
     names = pproc.outputs(unsteady)
+    if (
+        workflow == "qsteady_rotor"
+        and pproc.exports.get("debug_fsm", False)
+        and str(_variable(case, "SYMMETRY") or "").upper() != "PERIODIC"
+    ):
+        count = int(_variable(case, "PASSAGE_POSITIONS") or 1)
+        names = [name for name in names if not name.endswith("_debug.fsm")]
+        names += [f"{{name}}_c{index}_debug.fsm" for index in range(count)]
     plot = classify_outputs(names).get("plot_sections_cp")
     if plot is None or case.inventory is None or _cuts_a_section(case, pproc, case.inventory):
         # FR-1046: the exports the far field reads; none without [[farfields]].

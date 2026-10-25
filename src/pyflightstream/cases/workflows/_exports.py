@@ -29,6 +29,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases import (
     windows as _windows,
 )
+from pyflightstream.cases._unsteady_actions import UNSTEADY_EXPORTS_ACTION
 from pyflightstream.probes.layouts import emit_probe_export
 from pyflightstream.script import (
     Script,
@@ -429,6 +430,21 @@ def _export_block(
         _export_log(conventions, case, script, claimed=tuple(claimed))
 
 
+def _debug_fsm(case: SimCase, script: Script, *, clocking: int | None = None) -> None:
+    """Save the opt-in inspection state before post-solve output setup."""
+    if case.pproc is None or not case.pproc.exports.get("debug_fsm", False):
+        return
+    if any(action.name == UNSTEADY_EXPORTS_ACTION for action in script.unsteady_actions):
+        return  # The window-start action owns this save.
+    names = [name for name in case.outputs if name.endswith("_debug.fsm")]
+    if not names:
+        return
+    if clocking is None and any(name.endswith("_c0_debug.fsm") for name in names):
+        clocking = 0
+    name = next((name for name in names if name.endswith(f"_c{clocking}_debug.fsm")), names[0])
+    script.emit("SAVEAS", name)
+
+
 def _export_each_kind(
     script: Script,
     case: SimCase,
@@ -457,6 +473,8 @@ def _export_each_kind(
         if kind == "log" and skip_log:
             continue
         claimed.append(names.index(kinds[kind]) + 1)
+        if kind == "debug_fsm":
+            continue  # Already saved before output setup, or at the window start.
         if kind == "probes":
             # THE PROBES HOME'S EXPORT (PFS-2140.001): the public emitter is what
             # the workspace runs. UPDATE_PROBE_POINTS was emitted with the other

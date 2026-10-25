@@ -145,6 +145,7 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
     # FR-461: a free body's trajectory, declared only by a row's SIXDOF
     # input. Its command is a setup command, emitted with the motion it names.
     ("trajectory_6dof", "_trajectory_6dof.txt", "EXPORT_6DOF_TRAJECTORY", True),
+    ("debug_fsm", "_debug.fsm", "SAVEAS", False),
     ("log", "_log.txt", "EXPORT_LOG", False),
 )
 
@@ -209,7 +210,7 @@ PROBE_KINDS: tuple[str, ...] = get_args(ProbeKind)
 #: ``[exports]`` entry says false. The surface fields and the per-panel force
 #: distribution (G10) grow with the mesh, so they are asked for
 #: where they are wanted.
-OPT_IN_EXPORT_KINDS: tuple[str, ...] = ("vtk", "csv", "force_distributions")
+OPT_IN_EXPORT_KINDS: tuple[str, ...] = ("vtk", "csv", "force_distributions", "debug_fsm")
 
 #: What each kind an ``[exports]`` table may name leaves, one sentence each,
 #: for the generated input glossary ``INPUTS.md`` (G08). The command
@@ -218,6 +219,7 @@ OPT_IN_EXPORT_KINDS: tuple[str, ...] = ("vtk", "csv", "force_distributions")
 #: The two volume-section kinds are not here: ``[exports]`` cannot name them.
 EXPORT_KIND_MEANINGS: dict[str, str] = {
     "simulation": "The point's final saved simulation, its solver state after the solve.",
+    "debug_fsm": "The solver state before output setup, for inspection only.",
     "loads": "The loads table, the export every run is judged by.",
     "tecplot": (
         "The surface solution in Tecplot format, written by the package from the VTK "

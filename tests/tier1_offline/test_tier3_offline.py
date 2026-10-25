@@ -468,12 +468,12 @@ def test_every_tier3_row_marking_base_regions_names_the_boundary_that_becomes_th
             f"{geometry}, whose boundaries are {names}; the key names the boundary that "
             "becomes the base, and the body's own boundary marks nothing (RPT-066)"
         )
-        goldens = sorted((offline.GOLDENS / matrix.stem).glob(f"P{row.pol}-*.txt"))
+        goldens = sorted((offline.GOLDENS / matrix.stem).glob(f"P{row.pol}-*.txt*"))
         assert goldens, f"POL {row.pol} has no golden"
         for golden in goldens:
             detected = [
                 line
-                for line in golden.read_text(encoding="utf-8").splitlines()
+                for line in offline.read_golden(golden).splitlines()
                 if line.startswith("DETECT_BASE_REGIONS_BY_SURFACE")
             ]
             assert detected == [f"DETECT_BASE_REGIONS_BY_SURFACE {names.index('Base') + 1}"], (
@@ -737,8 +737,8 @@ def test_no_golden_carries_a_machine_path(matrix):
     golden carries a backslash or a drive letter anywhere."""
     folder = offline.GOLDENS / matrix.stem
     bad = []
-    for golden in sorted(folder.glob("*.txt")):
-        for number, line in enumerate(golden.read_text(encoding="utf-8").splitlines(), 1):
+    for golden in sorted(folder.glob("*.txt*")):
+        for number, line in enumerate(offline.read_golden(golden).splitlines(), 1):
             if "\\" in line or re.search(r"\b[A-Za-z]:[/\\]", line):
                 bad.append(f"{golden.name}:{number}: {line.strip()[:60]}")
     assert not bad, f"{len(bad)} golden line(s) carry a machine path: {bad[:4]}"

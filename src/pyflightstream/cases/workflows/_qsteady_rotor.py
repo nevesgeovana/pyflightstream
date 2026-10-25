@@ -64,6 +64,7 @@ from ._conventions import (
     declared_run_type,
 )
 from ._exports import (
+    _debug_fsm,
     _declared_export_kinds,
     _surface_export,
 )
@@ -918,6 +919,7 @@ def _solve_one_clocking(
     """
     _raw_commands(case, script, "exec")
     helpers.start_solver(script)
+    _debug_fsm(case, script, clocking=index)
     _setup_link.loads_selections(case, script)
     if case.solver.clear_vorticity_drag_boundaries:
         script.emit("DELETE_VORTICITY_DRAG_BOUNDARIES")

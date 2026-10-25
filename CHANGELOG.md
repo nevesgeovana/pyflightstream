@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Added
 
+- Optional `[exports] debug_fsm = true` saves `<point>_debug.fsm` before
+  output setup, once at an unsteady export window's start or just after
+  the solve otherwise. Quasi-steady wheels save one `_c<k>_debug.fsm` per clocking.
 - Rotor `axis = { shaft, vector_wrt_global }` declarations and `<ALIAS>_BMRP`,
   a frame at every rotor hub with global body axes.
 
