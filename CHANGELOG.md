@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.45.1] - 2026-10-25
+
 ### Added
 
 - Optional `[exports] debug_fsm = true` saves `<point>_debug.fsm` before
