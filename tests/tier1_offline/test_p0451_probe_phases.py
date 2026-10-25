@@ -500,3 +500,17 @@ def test_p0451_rv1_old_run_keeps_its_implicit_probe_history(tmp_path, version, k
         _, rows = read_csv_table(target)
         assert [row["STEP"] for row in rows] == ["1", "2"]
         assert [float(row["VX"]) for row in rows] == [11.0, 21.0]
+
+
+@pytest.mark.parametrize("run_type", ["unsteady", "unsteady_rotor"])
+def test_p0451_rv1_history_only_rows_have_no_conventional_probe_actions(tmp_path, run_type):
+    """Restore the history-only action exclusions removed from the 0.37 regressions."""
+    from pyflightstream.cases.workflows import WorkflowConventions, action_export_lines
+    from tests.tier1_offline.test_p0370_s5_probe_kind import _run_counter, _windowed
+
+    case, script = _windowed(tmp_path, run_type, kind="instantaneous")
+    assert normal_probe_creation(case, "26.124") == ""
+    steps = _run_counter(tmp_path, case, script, 4)
+    assert "PROBE" not in "".join(steps)
+    rescue = action_export_lines(WorkflowConventions(), case, whole_run=True, version="26.124")
+    assert "EXPORT_PROBE_POINTS" not in rescue
