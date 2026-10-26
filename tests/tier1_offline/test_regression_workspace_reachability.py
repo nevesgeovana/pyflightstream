@@ -55,10 +55,12 @@ _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
 # 273: N3 removes five retired RX-19/RX-20 migration names; no new exception.
 # P0420-P1-1d: launch instruction h authorizes the four new QA maintainer
 # APIs; minimal_workflow is now reached and leaves the register.
-_REACH_GUARD___REGISTER_CEILING = 217
+# P0460-INT: D7 removes the raw-run callers; the owner's integration instruction
+# classifies the retained legacy model and QA parser in RX-38 and RX-39.
+_REACH_GUARD___REGISTER_CEILING = 219
 
 
-_REACH_GUARD___REGISTER_DIGEST = "4dc521af7bbeaf342bb89093ff5418051382632e8298aad2143040820845b830"
+_REACH_GUARD___REGISTER_DIGEST = "355538af14dc0f6d157d7433294d060727aa5148ee487fb0c80b55bc1631f7df"
 
 
 _REACH_GUARD__REASONS = (
@@ -914,6 +916,20 @@ class TestReachGuard:
     @staticmethod
     # --------------------------------------------------------------------------
     # The guard
+    def test_p0460_retired_raw_route_capabilities_are_classified(
+        verdict: _ReachGuardVerdict, register: dict[str, Any]
+    ) -> None:
+        """P0460-REACH: D7 leaves the legacy model and QA log parser outside workspace."""
+        names = set(_reach_guard__register_names(register))
+        for name in (
+            "pyflightstream.cases.RawMeshConditions",
+            "pyflightstream.results.imported_trailing_edges",
+        ):
+            capability = verdict.capability_named(name)
+            assert capability is not None and capability.definition not in verdict.reached
+            assert name in names
+
+    @staticmethod
     def test_p0400_reach_guard_every_public_capability_is_reached_or_registered(
         verdict: _ReachGuardVerdict, register: dict[str, Any]
     ) -> None:
@@ -962,6 +978,8 @@ class TestReachGuard:
             "pyflightstream.cases.pproc.classify_outputs",
             "pyflightstream.workspace.sidecars.inventory_sidecar",
             "pyflightstream.post.corrections.sector_offset_calibration",
+            "pyflightstream.workspace._mark_boundaries._emit_fsi_marking",
+            "pyflightstream.workspace._mark_boundaries.plan_mark_boundaries",
         )
         graph = _ReachGuardGraph(modules)
         missing = []
