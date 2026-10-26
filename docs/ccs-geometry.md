@@ -3,15 +3,16 @@
 !!! note "Build the body first"
     A CCS file is lofted once by the geometry stage, `[ccs]` in an instruction file with the
     keys of `[import.ccs]` below, and the row names the built `.fsm`
-    ([Geometry: build a body before the run](geometry.md)). The in-row route below still
-    runs, warned at plan, and is deprecated: a later release refuses it.
+    ([Geometry: build a body before the run](geometry.md)). A matrix row naming the
+    CCS file itself is refused: every row except an FSI row opens an `.fsm`.
+    `pyfs-workspace geometry from-sidecar <file>.csv --apply` converts the sidecar
+    below into that instruction file.
 
-A matrix row can name a CCS file (Component Cross-Section, the solver's
-parametric geometry format) in its `GEOMETRY` cell. The solver then makes the
+A CCS file (Component Cross-Section, the solver's parametric geometry format)
+is lofted by the geometry stage into the `.fsm` a row names. The solver makes the
 mesh itself, from the cross-sections of the file, with its CCS commands: a
 wing, a fuselage or a body of revolution lofted from one component, or every
-component of the file imported whole. Nothing is meshed by hand and no saved
-simulation is needed.
+component of the file imported whole. Nothing is meshed by hand.
 
 The file carries the `.csv` or the `.ccs` extension; the manual states both,
 and the extension only routes the file.
