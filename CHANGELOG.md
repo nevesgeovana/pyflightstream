@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- Saved-state boundary-marking probes compare unchanged controls on 26.124 and 26.125, with separate initialization measurements and a combine-persistence observation.
+
 ## [0.45.1] - 2026-10-25
 
 ### Added
