@@ -438,7 +438,7 @@ the arguments of `pyfs-matrix refine`, `audit-mesh`, `inventory` and
 `degenerate` and give the same result. The `pyfs-matrix` names still work and
 warn that the group is their home.
 
-## Matrix geometry in 0.46.0
+## Matrix geometry
 
 `GEOMETRY` accepts only a saved simulation (`.fsm`). No flag enables an OBJ
 matrix row. Prepare and mark the OBJ once, inspect the saved geometry, and
@@ -472,10 +472,8 @@ record is accepted, including one prepared in the GUI. A row's `FS_BUILD`
 different from the record's `fs_build` produces one campaign warning listing
 all affected rows. It does not prevent planning.
 
-
-
 FSI rows retain raw OBJ imports because coupling requires the mesh at each import.
 They read `<mesh>.obj.boundaries.toml` with the same strict named declarations as
-`mark-boundaries` and use its D3 emitter and VERIFIED command gate at each import.
+`mark-boundaries` and use its marking emitter and VERIFIED command gate at each import.
 Every other matrix row requires an `.fsm`; prepare it once with
 `pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`.
