@@ -360,13 +360,12 @@ and passage series. Plots, per-blade and azimuthal headings retain their names.
 \begin{columns}[T]
 \begin{column}{0.50\textwidth}
 \begin{lstlisting}[style=ftsbase]
-# wing/wing.boundaries.toml, beside wing.obj
+# wing/wing.obj.boundaries.toml, beside wing.obj
+fs_build = "26.125"
 boundaries = ["Wing"]      # OBJ: from its groups
-
 [import]
 units = "METER"            # the FILE's unit
-
-[trailing_edges]
+[trailing_edges.wing]      # one named entry per set
 file = "wing.te.txt"       # points file
 type = "STANDARD"
 \end{lstlisting}
@@ -379,15 +378,15 @@ measured.
 \end{column}
 \begin{column}{0.46\textwidth}
 \begin{itemize}\small
-  \item \code{GEOMETRY: wing.obj}, like a \code{.fsm}. The script starts a
-        new simulation, imports in the stated unit, then works in metres.
-  \item No \code{[import]}: refused at plan. An OBJ with no sidecar gets
-        one from the plan, its \code{boundaries} read from the file's groups.
-        \textbf{Still by hand}: the \code{[import]} unit, the
-        trailing edge, and an STL's names, where a name in the wrong place
-        cites the wrong surface.
+  \item \code{pyfs-workspace geometry mark-boundaries wing.obj} previews;
+        \code{--apply} (licensed) marks once and saves \code{wing.fsm}.
+  \item The row names \code{GEOMETRY: wing.fsm}; an OBJ there is refused,
+        except on an FSI row.
+  \item \code{geometry inventory} writes the sidecar from the groups.
+        \textbf{By hand}: \code{fs\_build}, the unit, the trailing-edge
+        entries, and an STL's names.
   \item \code{[[import.operations]]}: scale, rename, mirror, translate,
-        rotate, in the order written.
+        rotate, in order, at marking.
 \end{itemize}
 \end{column}
 \end{columns}
@@ -399,15 +398,15 @@ METER                                   # the unit of the points
 0.216872113,-0.002159825,0.223199974    # one MID-POINT of an edge per line
 \end{lstlisting}
 \begin{itemize}\small
-  \item \textbf{The default route.} Every point is checked against the mesh at
-        plan; the first one off an edge is refused by line and position.
-  \item The run writes the node file in metres, imports it with
-        \code{IMPORT\_WAKE\_EDGES\_FROM\_FILE}, and compares the solver's count
-        with the points: a difference is \code{FAILED\_SCRIPT}. A point that
-        misses an edge is otherwise \textbf{silent}.
-  \item \textbf{26.124 only} [3]. The row must export its log.
+  \item \textbf{The default route.} Every point is checked against the mesh
+        when marking previews; the first one off an edge is refused by line
+        and position.
+  \item The marking pass writes the node file in metres, imports it with
+        \code{IMPORT\_WAKE\_EDGES\_FROM\_FILE}, and checks the saved trailing
+        edges before it publishes the \code{.fsm}. Runs never import them.
+  \item VERIFIED on 26.124 and 26.125.
   \item Detection is the second route, written in full: \code{detect = "auto"},
-        or by surface with a sweep angle.
+        or by surface with a sweep angle, with \code{type = "STANDARD"}.
   \item \code{BASE\_REGIONS} names the \textbf{base}, not the body [3].
 \end{itemize}
 \end{frame}
@@ -424,8 +423,8 @@ METER                                   # the unit of the points
         placed by a rotor block of the reference (Guide 5), from any
         propeller geometry the user holds.
   \item Mesh it with the site's mesher, export OBJ \textbf{in metres}, and
-        write its \code{<stem>.boundaries.toml} beside it: the route of the
-        two previous frames.
+        write its \code{<stem>.obj.boundaries.toml} beside it, then mark it:
+        the route of the two previous frames.
 \end{itemize}
 \end{column}
 \begin{column}{0.42\textwidth}

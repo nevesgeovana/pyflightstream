@@ -120,8 +120,11 @@ family (`[refine 14:02:11 +3.2 s] grid 1 of 2: Wing (...)`), so a long
 refinement shows it is moving; `--log-level quiet` hides them. At the end the
 console names each family with the method it took (`Wing: grid`), prints
 the audit's summary and then every file written. The level is a geometry of its
-own, so a row names it as it names any geometry, `W1_R2.obj` in its `GEOMETRY`
-column, and the sidecar written beside it is the one the run reads.
+own and is marked like any OBJ: name its new `W1_R2.te.txt` in the level's
+`[trailing_edges.<label>] file`, run
+`pyfs-workspace geometry mark-boundaries inputs/geometries/W1_R2/W1_R2.obj --apply`,
+and name the saved `W1_R2.fsm` in a row's `GEOMETRY` column. A row naming
+`W1_R2.obj` is refused ([matrix geometry](../geometry.md#matrix-geometry)).
 
 The level folder goes beside the folder holding the source. For a geometry kept
 in its own folder (`inputs/geometries/W1/W1.obj`) that is the geometry library,

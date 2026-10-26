@@ -39,9 +39,9 @@ file stem as the label). Move `[wake_termination]` to `wake_termination_nodes`
 on the entry it serves, or the first entry if it served all. Replace base-region
 autodetection with one named base table per family. The marking loader refuses
 these old table forms with their translation. Matrix planning refuses all
-marking declaration tables; only mark-boundaries consumes them. `[trailing_edges] none = true` remains supported for
-a mesh with no trailing edge, alone without named entries. State `fs_build`
-when declaring boundaries.
+marking declaration tables; only mark-boundaries consumes them.
+`[trailing_edges] none = true` remains supported for a mesh with no trailing
+edge, alone without named entries. State `fs_build` when declaring boundaries.
 
 ### The surface names
 
@@ -794,8 +794,9 @@ refused until their saved-state persistence is measured.
 
 The output `.fsm.boundaries.toml` contains only inventory fields and
 `marked_by`; it carries no import or marking declarations. The original
-`.obj.boundaries.toml` remains the authoring source. The matrix refuses declaration tables;
-the marking verb refuses unnamed forms with their named-table translation.
+`.obj.boundaries.toml` remains the authoring source. The matrix refuses
+declaration tables; the marking verb refuses unnamed forms with their
+named-table translation.
 
 ## What this policy is not
 
@@ -804,36 +805,8 @@ solver's scripting interface documents a command for them; when that
 happens, the command enters the database with its citation and the
 step graduates from this page to the reference.
 
-## Matrix geometry in 0.46.0
+## Matrix geometry
 
-`GEOMETRY` accepts only a saved simulation (`.fsm`). No flag enables an OBJ
-matrix row. Prepare and mark the OBJ once, inspect the saved geometry, and
-name the FSM in the matrix:
-
-```text
-pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj --apply
-pyfs-matrix plan
-```
-
-Marking requires a licensed solver; planning does not run one. Geometry build
-keeps its own solver pass. Matrix runs open the saved simulation and never
-import a raw mesh or mark its trailing edges or wake-termination nodes.
-The row's `BASE_REGIONS` selection on an opened simulation remains supported.
-
-For `wing.fsm`, planning reads the first existing file in this order:
-
-1. `wing.fsm.boundaries.toml`
-2. `wing.boundaries.toml`
-3. `wing.obj.boundaries.toml`
-
-The plan names the file read. Any `import`, `trailing_edges`,
-`wake_termination` or `base_regions` declaration table in that file is
-refused with the marking command. When none exists, the inventory read from
-the FSM is written to `wing.fsm.boundaries.toml`.
-
-If `wing.mark.json` exists, planning compares every recorded input digest.
-A changed or missing mesh, declaration sidecar or points file is refused by
-name; repeat marking with `--apply --overwrite`. An FSM with no marking
-record is accepted, including one prepared in the GUI. A row's `FS_BUILD`
-different from the record's `fs_build` produces one campaign warning listing
-all affected rows. It does not prevent planning.
+A matrix row names the saved simulation that marking produces. The order in
+which planning reads its inventory, the stale-input refusals and the raw OBJ
+imports kept by FSI rows are in [matrix geometry](../geometry.md#matrix-geometry).

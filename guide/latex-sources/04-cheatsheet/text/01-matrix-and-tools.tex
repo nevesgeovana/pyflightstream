@@ -21,7 +21,7 @@
 \begin{multicols}{4}
 
 \stage{1. PREPARE THE WORKSPACE AND THE MATRIX}
-\sub{inventory <geometry>}{write \texttt{<stem>.boundaries.toml} beside a saved simulation (.fsm, from its mesh block) or an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed}
+\sub{inventory <geometry>}{write \texttt{<stem>.fsm.boundaries.toml} beside a saved simulation (from its mesh block) or \texttt{<stem>.obj.boundaries.toml} beside an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed}
 \begin{flags}
 \item \fl{--overwrite} rewrite an existing .fsm sidecar (an OBJ sidecar is never rewritten)
 \item \fl{--clean} remove the saved solver actions; copy kept as \texttt{<file>.bak-<stamp>}
@@ -302,6 +302,11 @@ See the website's Upgrading page for supported workspace conversion.
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \begin{flags}
 \item \fl{--workspace DIR} the workspace root (default: the current folder)
+\end{flags}
+\sub{geometry mark-boundaries <OBJ>}{preview offline the marking of the named \texttt{[trailing\_edges.<label>]} and \texttt{[base\_regions.<family>]} declarations of \texttt{<stem>.obj.boundaries.toml}; with \fl{--apply} run the licensed solver once and save \texttt{<stem>.fsm}, the file a matrix row names, with its \texttt{.fsm.boundaries.toml} and \texttt{<stem>.mark.json}}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
+\begin{flags}
+\item \fl{--apply} import, mark and save \quad \fl{--overwrite} mark again after an input changed \quad \fl{--fs-exe PATH} the executable, over the registry
 \end{flags}
 \sub{geometry from-sidecar <geometry>}{print the instruction file that builds the same body as the sidecar of a CCS, IGES or raw-mesh geometry; the sidecar and the matrices are never edited}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.

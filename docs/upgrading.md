@@ -1,24 +1,74 @@
 # Upgrading
 
-## 0.46.0: mark once, run the FSM
-
-Replace OBJ `GEOMETRY` cells with the FSM produced by
-`pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`. Move old unnamed
-marking tables to the [named declaration format](mesh/reference.md). Keep the
-OBJ declarations in `<mesh>.obj.boundaries.toml` and the clean saved inventory
-in `<mesh>.fsm.boundaries.toml`. Planning refuses declarations in its selected
-FSM sidecar and stale marking inputs; repeat marking with `--overwrite` after
-changing an input. GUI-authored FSM files need no marking record. Build
-mismatches warn once per campaign. Per-run raw imports, marking and wake-edge
-import verdicts have been removed. Geometry build and the row `BASE_REGIONS`
-selection on a saved simulation remain available.
-
 ## Which version are you on
 
 Read the section for each release after the version used by the workspace, in
 ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
+
+## 0.46.0
+
+### Mark once, run the FSM
+
+Replace OBJ `GEOMETRY` cells with the FSM produced by
+`pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`. Move old unnamed
+marking tables to the [named declaration format](mesh/reference.md#named-boundary-declarations). Keep the
+OBJ declarations in `<mesh>.obj.boundaries.toml` and the clean saved inventory
+in `<mesh>.fsm.boundaries.toml`. Planning refuses declarations in its selected
+FSM sidecar and stale marking inputs; repeat marking with `--apply --overwrite`
+after changing an input. GUI-authored FSM files need no marking record. Build
+mismatches warn once per campaign. Per-run raw imports, marking and wake-edge
+import verdicts have been removed. Geometry build and the row `BASE_REGIONS`
+selection on a saved simulation remain available. The order in which planning
+reads the inventory is in [matrix geometry](geometry.md#matrix-geometry).
+
+FSI rows keep their raw OBJ imports, because coupling needs the mesh at each
+import. Move their marking tables to the named declarations of
+`<mesh>.obj.boundaries.toml`; each import passes the same VERIFIED command
+gate as `mark-boundaries`.
+
+### Refinement reads its trailing edge from the refine file
+
+Refinement reads trailing-edge points only from `[trailing_edge] file` in the
+refine file, also when the factors come from the command line. It no longer
+falls back to the boundaries sidecar or to a
+`<stem>.te.txt` beside the mesh. Add the key to the refine file before keeping
+an interface row or using directional factors. A level now writes
+`<stem>_<tag>.obj.boundaries.toml` with the source's declarations preserved and
+warns when a declared points file is stale; name the level's new `.te.txt` in
+its `[trailing_edges.<label>] file` yourself
+([the files of a level](mesh/reference.md#the-files-of-a-level)).
+
+### The matrix row outranks setup flight-condition pins
+
+A row stating `ALTFT` or `dISA` now drops all five setup pins, and a row
+stating `REmi` alone drops the setup's `RHOkgm3` and `PPA` and keeps `TK`,
+`MUPas` and `ASMPS`. A row stating `ALTFT` under a setup that pins `TK` and
+`PPA` therefore resolves at its altitude where it used to take the tunnel
+state. Plan warns once per campaign, naming each affected POL and dropped pin.
+Pins written on the row itself keep their authority
+([where a pin may live](flight-conditions.md#where-a-pin-may-live-the-row-or-the-setup-it-names)).
+
+### Far-field gates on rotor lattices
+
+G4 (`SPURIOUS_COUNTS`) now compares the far-field balance with the inviscid
+near-field force: `F_NEAR_N` is the inviscid part and `F_NEAR_VISCOUS_N` the
+projected viscous part, so their sum is the old total. Averaged G4 is `NA`
+with a named skip when the history carries no whole-configuration viscous
+drag. For a power entry naming `rotor = ...` and for every `unsteady_rotor` or
+`qsteady_rotor` row, G4 and `F_NEAR_N` are `NA` with a named skip; wings keep
+G4. On a rotor lattice of B blades, G3 (`SYMMETRY_FLOOR`) omits the orders B,
+2B, ... through `m_max`, and the manifest's `symmetry_excluded_orders` lists
+them. Readers that compared these columns across releases must expect the
+new values ([the balances on the survey lattice](definitions/the-far-field-family.md#the-balances-on-the-survey-lattice)).
+
+### Power entries refuse an undeclared station
+
+A power far-field entry whose explicit `station` matches no declared lattice
+station is now refused at load, naming the entry, the requested station and
+the declared ones. Set `station` to one of the declared stations
+([Trefftz D](definitions/the-far-field-family.md#trefftz-d-power-on-the-survey-lattice)).
 
 ## 0.45.1
 
@@ -773,10 +823,3 @@ behaviour was the defect this release fixes.
 `REmi` and let the Reynolds number be derived: `MACH:0.1441` alone
 resolves at the standard density for its altitude. Keep `REmi` when you
 meant it as a constraint.
-
-
-FSI rows retain raw OBJ imports because coupling requires the mesh at each import.
-They read `<mesh>.obj.boundaries.toml` with the same strict named declarations as
-`mark-boundaries` and use its D3 emitter and VERIFIED command gate at each import.
-Every other matrix row requires an `.fsm`; prepare it once with
-`pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`.

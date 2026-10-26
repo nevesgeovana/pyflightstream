@@ -16,7 +16,7 @@
 \guihead
 Open a saved simulation & row key \code{GEOMETRY} naming a \code{.fsm}; setup key \code{load\_solver\_initialization} loads the solver state it was saved with & 26.100 to 26.124 \\
 See the boundaries a saved simulation carries, in its order & sidecar key \code{boundaries}, which \code{pyfs-matrix inventory} writes from the file & none \\
-Start a new simulation and import a mesh file in its length unit & row key \code{GEOMETRY} naming an \code{.obj} or \code{.stl}; sidecar table \code{[import]} with its \code{units}, and sidecar key \code{boundaries}, the file's surface names in its order, which the plan writes from an OBJ's groups; setup key \code{simulation\_length\_unit} states the simulation's own length unit & 26.101 to 26.124, except one \\
+Start a new simulation and import a mesh file in its length unit & \code{pyfs-workspace geometry mark-boundaries <mesh>.obj --apply} imports an OBJ once and saves the \code{.fsm} that row key \code{GEOMETRY} names; an STL is first prepared into a saved body or an OBJ; sidecar table \code{[import]} with its \code{units}, and sidecar key \code{boundaries}, the file's surface names in its order, which \code{pyfs-workspace geometry inventory} writes from an OBJ's groups; setup key \code{simulation\_length\_unit} states the simulation's own length unit & 26.101 to 26.124, except one \\
 \bottomrule
 \end{tabularx}}
 \guisource{Geometry and mesh}

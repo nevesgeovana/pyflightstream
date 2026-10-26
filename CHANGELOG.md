@@ -7,6 +7,17 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Named boundary declarations for geometry marking, with independent trailing-edge
+  types and termination nodes, and base regions with optional family merges.
+  Migration: replace unnamed trailing-edge files with `[trailing_edges.<label>]`,
+  move `[wake_termination]` onto the entry as `wake_termination_nodes`, and declare
+  each base as `[base_regions.<family>]`. Declarations require `fs_build`.
+- Geometry inventory writes `<mesh>.obj.boundaries.toml` for an OBJ and
+  `<mesh>.fsm.boundaries.toml` for a saved simulation. Existing OBJ inventories
+  are never overwritten.
+
 ### Changed
 
 - Document the experimental Python boundary-marking API and its explicit runner contract.
@@ -20,53 +31,16 @@ FlightStream versions.
   file; add the level's updated `.te.txt` to its boundaries declarations yourself.
 
 - Matrix rows now require saved `.fsm` geometry. Mark OBJ boundaries once with
-  `pyfs-workspace geometry mark-boundaries --apply`; plans name their inventory,
-  refuse declaration tables and stale marking inputs, and warn once for build
-  mismatches. Raw imports, boundary marking and wake-edge verdicts no longer run
-  per point. CLI examples follow the prepare, mark, plan sequence.
-
-### Fixed
-
-- Geometry build writes kind-qualified inventories with face counts and digests.
-  Exported OBJ declarations include the build and a named `STANDARD` edge entry,
-  ready for boundary marking; rebuilds preserve named termination and base settings.
-
-- OBJ inventory guidance names the required build and named trailing-edge and
-  base-region declarations, including the explicit no-edge form.
-
-- `geometry mark-boundaries` prints readable entry, group, termination, base-region,
-  merge and output-file lines after read-back; the JSON record retains its mapping.
-
-- Planning refuses a probe entry whose rotor frame is absent from its row,
-  naming the frame and row before any run.
-
-- `pyfs-matrix plan` names the selected boundaries inventory once per row
-  in its command-line output, including supported fallback filenames.
-
-- `mark-boundaries` accepts zero wake-termination nodes from automatic detection,
-  warns when none are marked, and records the count; explicit nodes retain their minimum.
-
-- `mark-boundaries` gates only its marking commands on VERIFIED evidence;
-  documented session and mesh-import commands no longer block preview or apply.
-
-- Marking commands carry verified evidence on 26.124 and 26.125, enabling
-  explicit wake-termination files.
-
-- Matrix flight-condition constraints now outrank setup defaults. `ALTFT` or
-  `dISA` drops all five setup pins; `REmi` alone drops density and pressure
-  defaults, retaining tunnel temperature, viscosity and sonic velocity.
-  Plan warns once per campaign, naming each affected POL and dropped pin.
-  Migration: a row stating `ALTFT` under a `TK`/`PPA` setup now resolves at
-  its altitude. Pins stated on the row retain their authority.
-
-- Power far-field entries refuse a station absent from their lattice at load,
-  naming the entry, requested station and declared stations.
-
-- Retired far-field function diagnostics point only to external Euler CFD tools providing total enthalpy and entropy, with no supported replacement in this package (PFS-2144).
-
-- Saved-state boundary-marking probes compare unchanged controls on 26.124 and 26.125, with separate initialization measurements and a combine-persistence observation.
-
-### Changed
+  `pyfs-workspace geometry mark-boundaries --apply`; plans read their inventory
+  in the documented order ([matrix geometry](docs/geometry.md#matrix-geometry))
+  and name it, refuse declaration tables and stale marking inputs, and warn once
+  for build mismatches. Raw imports, boundary marking and wake-edge verdicts no
+  longer run per point. CLI examples follow the prepare, mark, plan sequence, and
+  CLI and API planning refuse an unmarked example. FSI rows keep their raw OBJ
+  imports: each import reads the strict named declarations of
+  `<mesh>.obj.boundaries.toml` and passes the same VERIFIED command gate as
+  `mark-boundaries`.
+  Migration: prepare every non-FSI mesh with `mark-boundaries` before planning.
 
 - Rotor power entries and rotor recipes now report G4 (`SPURIOUS_COUNTS`)
   and `F_NEAR_N` as NA with a named skip: probe pressure carries no disk
@@ -100,16 +74,50 @@ FlightStream versions.
 - Boundary-marking scripts can explicitly opt into the measured no-initialization
   ordering on 26.124 and 26.125; ordinary run scripts keep their phase guard.
 
-### Added
+### Fixed
 
-- Named boundary declarations for geometry marking, with independent trailing-edge
-  types and termination nodes, and base regions with optional family merges.
-  Migration: replace unnamed trailing-edge files with `[trailing_edges.<label>]`,
-  move `[wake_termination]` onto the entry as `wake_termination_nodes`, and declare
-  each base as `[base_regions.<family>]`. Declarations require `fs_build`.
-- Geometry inventory writes `<mesh>.obj.boundaries.toml` for an OBJ and
-  `<mesh>.fsm.boundaries.toml` for a saved simulation. Existing OBJ inventories
-  are never overwritten.
+- `mark-boundaries` accepts zero wake-termination nodes from automatic detection,
+  warns when none are marked, and records the count; explicit nodes retain their minimum.
+
+- `mark-boundaries` gates only its marking commands on VERIFIED evidence;
+  documented session and mesh-import commands no longer block preview or apply.
+
+- Boundary-marking commands now carry VERIFIED evidence on builds 26.124 and
+  26.125, enabling explicit wake-termination files.
+
+- Matrix flight-condition constraints now outrank setup defaults. `ALTFT` or
+  `dISA` drops all five setup pins; `REmi` alone drops density and pressure
+  defaults, retaining tunnel temperature, viscosity and sonic velocity.
+  Plan warns once per campaign, naming each affected POL and dropped pin.
+  Migration: a row stating `ALTFT` under a `TK`/`PPA` setup now resolves at
+  its altitude. Pins stated on the row retain their authority.
+
+- Power far-field entries refuse a station absent from their lattice at load,
+  naming the entry, requested station and declared stations.
+
+- Retired far-field function diagnostics point only to external Euler CFD tools providing total enthalpy and entropy, with no supported replacement in this package (PFS-2144).
+
+- Saved-state boundary-marking probes compare unchanged controls on 26.124 and 26.125, with separate initialization measurements and a combine-persistence observation.
+  They accept route-dependent termination records, count added wake-edge
+  midpoints and read the actual edge-type row. The automatic wake-termination
+  probe marks the trailing edges of a synthetic sharp wing joined to a body
+  before saving its unchanged control.
+
+- Geometry build writes kind-qualified inventories with face counts and digests.
+  Exported OBJ declarations include the build and a named `STANDARD` edge entry,
+  ready for boundary marking; rebuilds preserve named termination and base settings.
+
+- OBJ inventory guidance names the required build and named trailing-edge and
+  base-region declarations, including the explicit no-edge form.
+
+- `geometry mark-boundaries` prints readable entry, group, termination, base-region,
+  merge and output-file lines after read-back; the JSON record retains its mapping.
+
+- Planning refuses a probe entry whose rotor frame is absent from its row,
+  naming the frame and row before any run.
+
+- `pyfs-matrix plan` names the selected boundaries inventory once per row
+  in its command-line output, including supported fallback filenames.
 
 ## [0.45.1] - 2026-10-25
 
@@ -2125,7 +2133,10 @@ archives remain available for recovery. (no requirement: preserve records during
   seven public names of `pyflightstream.workspace`; `pyflightstream.workspace._degenerate`
   stays importable.
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.43.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.45.1...HEAD
+[0.45.1]: https://github.com/nevesgeovana/pyflightstream/compare/v0.45.0...v0.45.1
+[0.45.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.44.0...v0.45.0
+[0.44.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.42.0...v0.43.0
 [0.42.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.40.0...v0.41.0

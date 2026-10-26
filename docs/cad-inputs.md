@@ -3,8 +3,12 @@
 !!! note "Build the body first"
     An IGES file is converted once by the geometry stage, `[cad]` in an instruction file,
     with its CAD body operations, and the row names the built `.fsm`
-    ([Geometry: build a body before the run](geometry.md)). The in-row route below still
-    runs, warned at plan, and is deprecated: a later release refuses it.
+    ([Geometry: build a body before the run](geometry.md)). A matrix row naming the
+    IGES file itself is refused: every row except an FSI row opens an `.fsm`. The
+    sidecar below is what `pyfs-workspace geometry from-sidecar <file>.igs --apply`
+    converts into that instruction file, its `[trailing_edges]` table included; the
+    instruction file reads that table with the `file`, `detect` and `none = true`
+    routes ([trailing edges](geometry.md#trailing-edges)).
 
 A workflow can import IGES (`.igs` or `.iges`) through the native CAD importer,
 then convert selected CAD bodies into a surface mesh. STEP (`.step` or `.stp`)

@@ -412,8 +412,8 @@ def add_inventory_parser(subparsers: Any) -> None:
     inventory = subparsers.add_parser(
         "inventory",
         help=(
-            "write <stem>.boundaries.toml beside a saved simulation, from its mesh block, "
-            "or beside an OBJ, from its groups"
+            "write <stem>.fsm.boundaries.toml beside a saved simulation, from its mesh "
+            "block, or <stem>.obj.boundaries.toml beside an OBJ, from its groups"
         ),
         description=(
             "Reads the mesh block of a saved simulation and writes its boundary order as "
