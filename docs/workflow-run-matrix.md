@@ -106,37 +106,18 @@ them close the gap that made the capability unusable:
   `wing_clean.fsm` staged, the cell reads `GEOMETRY: wing_clean.fsm`, and
   `blade.v2.fsm` reads one way and no other. A bare stem is refused
   naming the files that carry it. What the name buys is that the cell
-  says what the file is: a `.fsm` is a saved simulation and is opened,
-  and an `.obj` or `.stl` is a raw mesh and is imported.
-  The workflow opens or imports the file first, before anything else,
-  and it reads the STAGED copy, so the file the manifest hashed and the
-  file the solver read are the same bytes.
+  says what the file is: a `.fsm` is a saved simulation and is opened.
+  The workflow reads the staged copy, so the bytes hashed are the bytes opened.
+  All other suffixes are refused. Run
+  `pyfs-workspace geometry mark-boundaries <mesh>.obj --apply` once and name
+  the resulting `.fsm`. There is no OBJ override flag.
 
-    A WORKFLOW opens a `.fsm` and imports an `.obj` or `.stl`, and
-    refuses any other suffix. A raw mesh takes its length units as an
-    argument  and the file carries none, so the
-    `<stem>.boundaries.toml` beside it states them in an `[import]`
-    table, `units = "MILLIMETER"`, beside the `boundaries` list: for an
-    `.obj` with no sidecar the plan writes that list from the file's
-    groups, in the order the solver numbers them, and
-    for an `.stl` it is written by hand. A raw mesh without the table is
-    refused before any seat is spent, naming the key, because a defaulted
-    unit is a body of the wrong size whose coefficients solve, export and
-    report without a word. The file's unit goes to `IMPORT` alone and the
-    simulation is set to metres, the unit of every length the row states.
-    The same sidecar declares the mesh's trailing edge in a
-    `[trailing_edges]` table: `file = "<points
-    file>"`, the default route, whose edge mid-points are checked against
-    the mesh at plan and imported with `IMPORT_WAKE_EDGES_FROM_FILE` on
-    26.124, or `detect = "auto"` (or by surface), detection, which applies
-    only when written; `[wake_termination]` and `[base_regions]` detect
-    when written. A raw mesh that declares no trailing edge is refused
-    before any seat is spent, since without one there is no wake and the
-    solver answers anyway, and a `.fsm` whose sidecar states any of the
-    three tables is refused, since its own marking is in the file.
-    [Mesh inputs and GUI-only operations](mesh/how-to.md) carries the
-    route in full. A recipe of your own receives whatever the library
-    staged and imports it declaring the units itself.
+  Planning names the selected inventory: `<mesh>.fsm.boundaries.toml`, then
+  `<mesh>.boundaries.toml`, then `<mesh>.obj.boundaries.toml`. Declaration
+  tables are refused with the marking command. No sidecar means an inventory
+  is written from the saved mesh. A marking record makes changed input
+  digests a refusal; missing records are accepted. Different `FS_BUILD`
+  values produce one warning listing the rows. See [geometry](geometry.md).
 * `SYMMETRY: <mode>` and, where the mode needs it, `PERIODIC_COPIES: <n>`.
   The accepted modes are read from the command database for the row's own
   build, never from a list written here. **This one is not a

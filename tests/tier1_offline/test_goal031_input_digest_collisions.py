@@ -56,7 +56,6 @@ from tests.tier1_offline.test_matrix_run import (
     CountingStub,
     converged,
 )
-from tests.tier1_offline.test_raw_mesh_conditions import FILE_ROUTE, _library
 from tests.tier1_offline.test_run_wake_edge_count import (
     LOG_AROUND,
     MIDPOINTS,
@@ -135,30 +134,6 @@ def _assert_refused_before_the_solver(record, stub, *, key: str, declared: Path,
     for needle in (repr(key), str(declared), str(sim_dir), "inputs_sha256"):
         assert needle in (record.error or ""), f"the refusal does not name {needle}: {record.error}"
     assert record.inputs_sha256.get(key) == file_sha256(declared), record.inputs_sha256
-
-
-@PATHS
-def test_a_free_stream_named_like_the_trailing_edge_node_file_is_refused_before_the_solver(
-    tmp_path, condition, values
-):
-    """G15 beside G02: ``FREESTREAM: wing.wake_nodes`` on the file-route wing ``wing.stl``.
-    The solver would read two files named ``wing.wake_nodes.txt``, the field and the node
-    file the run writes, and one key of the record cannot hold both digests."""
-    workspace = _library(tmp_path, FILE_ROUTE)
-    field = workspace.inputs_dir / "freestreams" / "wing.wake_nodes.txt"
-    field.parent.mkdir(exist_ok=True)
-    field.write_text(SHEARED, encoding="utf-8")
-    matrix = _one_row(
-        tmp_path, condition=condition, values=values, cell="FREESTREAM: wing.wake_nodes"
-    )
-    record, stub = _run(workspace, matrix, "26.124")
-    _assert_refused_before_the_solver(
-        record,
-        stub,
-        key="wing.wake_nodes.txt",
-        declared=field.resolve(),
-        sim_dir=workspace.sim_dir("7001"),
-    )
 
 
 @PATHS

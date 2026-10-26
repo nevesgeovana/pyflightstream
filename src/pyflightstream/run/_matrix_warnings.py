@@ -25,6 +25,7 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace.matrix import ResolvedMatrix
+from pyflightstream.workspace.sidecars import read_marking_record
 
 if TYPE_CHECKING:  # annotation only: the package root does not import this module
     from pyflightstream.run import CampaignPlan
@@ -34,6 +35,23 @@ def _warn_matrix_inputs(resolved: ResolvedMatrix) -> None:
     """Report input defaults superseded by rows and missing recovery declarations."""
     _warn_superseded_setup_pins(resolved)
     _warn_the_legacy_rows_saving_no_simulation(resolved)
+    rows = []
+    for index, case in enumerate(resolved.campaign.sims):
+        if case.geometry is None or not str(case.geometry).lower().endswith(".fsm"):
+            continue
+        record = read_marking_record(case.geometry)
+        row_build = resolved.row_builds[index] if index < len(resolved.row_builds) else None
+        build = row_build or resolved.campaign.fs_version
+        if record and record.get("fs_build") != build:
+            rows.append(
+                f"POL {case.sim_id}: FS_BUILD {build}, marked build {record.get('fs_build')}"
+            )
+    if rows:
+        warn(
+            "Matrix rows differ from their marked build: " + "; ".join(rows),
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _warn_superseded_setup_pins(resolved: ResolvedMatrix) -> None:

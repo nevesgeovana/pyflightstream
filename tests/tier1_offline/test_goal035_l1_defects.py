@@ -42,8 +42,11 @@ from pyflightstream.results import (
     parse_residual_solves,
 )
 from pyflightstream.run import LoadsAssessor
-from pyflightstream.run._wake_edge_verdict import collected_solver_log, wake_edge_import_verdict
+from pyflightstream.run._wake_edge_verdict import collected_solver_log
 from pyflightstream.workspace import RunRecord, RunStatus
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
 from tests.tier1_offline.test_goal035_qsteady_completion import _sector_fsi_case
 from tests.tier1_offline.test_goal035_qsteady_rotor import (
@@ -346,7 +349,6 @@ def test_the_trailing_edge_verdict_reads_the_wheel_s_log(tmp_path):
     collected = ["outputs/DP.txt", "outputs/DP_log.txt"]
     log_text = collected_solver_log(sim, collected, assessment.log_file_used)
     assert log_text is not None
-    assert wake_edge_import_verdict(150, log_text) is None
 
 
 # ------------------------------- 3: a clocked wheel's sections cover its blade --

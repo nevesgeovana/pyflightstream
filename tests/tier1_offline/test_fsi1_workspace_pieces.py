@@ -15,6 +15,9 @@ from pyflightstream.cases.setup_surfaces import emit_setup_surfaces
 from pyflightstream.cases.workflows import build_script
 from pyflightstream.script import Script
 from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 from tests.tier1_offline.test_g06_actuator_disc import _lines
 from tests.tier1_offline.test_workflows import steady_case, unsteady_case
 
@@ -70,7 +73,12 @@ def test_every_workflow_states_its_fsi_state_and_qsteady_rotor_accepts_it():
 
 
 def test_no_fsi_row_is_untouched_by_the_guard(tmp_path):
-    lines, _ = _lines(coupled_case(tmp_path).model_copy(update={"fsi": None}))
+    from pathlib import Path
+
+    from tests.tier1_offline.test_goal035_qsteady_rotor import _with_saved_mesh
+
+    case = coupled_case(tmp_path).model_copy(update={"fsi": None})
+    lines, _ = _lines(_with_saved_mesh(case, Path(case.geometry), ("Blade1",)))
     assert "START_SOLVER" in lines
 
 
@@ -96,11 +104,8 @@ def test_an_imported_blade_gets_the_id_its_motion_gets(tmp_path, suffix, offset)
         stl = tmp_path / "blade.stl"
         stl.write_text("solid Blade1\nendsolid Blade1\n")
         case = case.model_copy(update={"geometry": str(stl)})
-    lines, script = _lines(case)
-    at = next(i for i, line in enumerate(lines) if line.startswith("SET_MOTION_BOUNDARIES"))
-    motion_position = int(lines[at + 1])
-    motion_id = motion_position + offset
-    assert ws.aeroelastic_surface_ids(case, script, ["Blade1"], context="FSI blade") == [motion_id]
+    script = _declared(["Blade1"])
+    assert ws.aeroelastic_surface_ids(case, script, ["Blade1"], context="FSI blade") == [1 + offset]
 
 
 def test_ids_follow_the_tree_position_of_every_boundary(tmp_path):

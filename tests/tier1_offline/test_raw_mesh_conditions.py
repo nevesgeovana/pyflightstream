@@ -28,38 +28,28 @@ imported from a file and detected by angle on 26.124 (RPT-061, RPT-065).
 
 from __future__ import annotations
 
-import hashlib
 import os
 import sys
 from pathlib import Path
 
 import pytest
 
-from pyflightstream.cases import CampaignConfigError
-from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import (
     WORKFLOW_KEY,
-    _vocabulary,
     build_script,
     build_steady_sweep,
     workflow_registry,
 )
-from pyflightstream.commands import CommandNotInVersionError
-from pyflightstream.qa.geometry import WingSpec, generate_wing_stl
 from pyflightstream.run import (
     Assessment,
-    CampaignErrors,
     LocalExecutor,
-    PlanStatus,
     SubmittingExecutor,
-    run_campaign,
 )
-from pyflightstream.run.matrix import plan_matrix, run_matrix
+from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import InputArtifactError, RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
 from pyflightstream.workspace.matrix import resolve_matrix
-from tests.tier1_offline._workflow_docs import MESH_DOCS
 from tests.tier1_offline.test_goal024_profile_log import LOG_TABLE as NATIVE_LOG_TABLE
 from tests.tier1_offline.test_goal024_profile_log import PROFILE as NATIVE_LOG_PROFILE
 from tests.tier1_offline.test_matrix_run import RECIPES, make_library, write_matrix
@@ -608,20 +598,16 @@ def _points_text(points=MIDPOINTS, unit="METER") -> str:
     return unit + "\n" + "".join(f"{x!r},{y!r},{z!r}\n" for x, y, z in points)
 
 
-def _library(tmp_path, tables, *, build="26.124", points=None, suffix=".stl"):
+def _library(tmp_path, tables, *, build="26.124", points=None, suffix=".fsm"):
     """A workspace holding the qa wing, its sidecar with ``tables`` and its points file."""
     workspace = make_library(tmp_path, register_build=(build, Path(sys.executable).as_posix()))
     geometries = workspace.inputs_dir / "geometries"
     mesh = geometries / f"wing{suffix}"
-    if suffix == ".stl":
-        spec = WingSpec(naca="0012", chord_m=1.0, span_m=8.0, n_chord=12, n_span=16)
-        generate_wing_stl(spec, mesh, name="Wing")
-        unit_table = '[import]\nunits = "METER"\n\n'
-    else:
-        mesh.write_bytes(b"a saved simulation")
-        unit_table = ""
-    (geometries / "wing.boundaries.toml").write_text(
-        'boundaries = ["Wing"]\n\n' + unit_table + tables, encoding="utf-8"
+    from tests.support_helpers import saved_mesh_fixture
+
+    saved_mesh_fixture(mesh, ["Wing"])
+    (geometries / "wing.fsm.boundaries.toml").write_text(
+        'boundaries = ["Wing"]\n', encoding="utf-8"
     )
     (geometries / "wing.te.txt").write_text(
         points if points is not None else _points_text(), encoding="utf-8"
@@ -629,12 +615,12 @@ def _library(tmp_path, tables, *, build="26.124", points=None, suffix=".stl"):
     return workspace
 
 
-def _matrix(tmp_path, build="26.124", outputs=WITH_LOG, geometry="wing.stl", tail=""):
+def _matrix(tmp_path, build="26.124", outputs=WITH_LOG, geometry="wing.fsm", tail=""):
     row = ROW.format(build=build, outputs=outputs, geometry=geometry, tail=tail)
     return write_matrix(tmp_path / "raw_mesh.fs", [row])
 
 
-def _case(tmp_path, workspace, *, build="26.124", outputs=WITH_LOG, geometry="wing.stl", tail=""):
+def _case(tmp_path, workspace, *, build="26.124", outputs=WITH_LOG, geometry="wing.fsm", tail=""):
     """Bind the one row and return its case, at its one point."""
     resolved = resolve_matrix(
         _matrix(tmp_path, build, outputs, geometry, tail),
@@ -652,47 +638,6 @@ def _render(case, build="26.124") -> str:
     script = Script(build)
     build_script(case, script)
     return script.render()
-
-
-@pytest.mark.parametrize("build", ["26.124", "26.125"])
-def test_p0440_multiple_edge_files_keep_types_and_order(tmp_path, build):
-    tables = (
-        '[trailing_edges]\nfiles = [{file="wing.te.txt", type="STANDARD"}, '
-        '{file="junction.te.txt", type="RELAXED"}]\n'
-    )
-    workspace = _library(tmp_path, tables, build=build, points=_points_text(MIDPOINTS[:8]))
-    (workspace.inputs_dir / "geometries" / "junction.te.txt").write_text(
-        _points_text(MIDPOINTS[8:])
-    )
-    try:
-        case = _case(tmp_path, workspace, build=build)
-    except (ValueError, InputArtifactError) as error:
-        pytest.fail(f"two disjoint edge files must bind: {error}")
-    text = _render(case, build)
-    first = "IMPORT_WAKE_EDGES_FROM_FILE STANDARD"
-    second = "IMPORT_WAKE_EDGES_FROM_FILE RELAXED"
-    assert text.index(first) < text.index(second)
-    assert "wing.wake_nodes.txt" in text
-    assert "wing.wake_nodes.2.txt" in text
-    assert [len(s.points_m) for s in case.raw_mesh_conditions.trailing_edges.sets] == [8, 8]
-    with pytest.warns(UserWarning, match="unmeasured.*saved state.*PFS-2149.01"):
-        _plan(tmp_path, workspace, build=build)
-
-
-def test_p0440_multiple_files_refuse_overlapping_edges(tmp_path):
-    tables = (
-        '[trailing_edges]\nfiles = [{file="wing.te.txt", type="STANDARD"}, '
-        '{file="junction.te.txt", type="RELAXED"}]\n'
-    )
-    workspace = _library(tmp_path, tables)
-    (workspace.inputs_dir / "geometries" / "junction.te.txt").write_text(
-        _points_text(MIDPOINTS[:1])
-    )
-    with pytest.raises(
-        (ValueError, InputArtifactError),
-        match="wing.te.txt.*junction.te.txt|junction.te.txt.*wing.te.txt",
-    ):
-        _case(tmp_path, workspace)
 
 
 def test_p0440_geometry_build_cannot_silently_discard_a_second_file(tmp_path):
@@ -716,153 +661,6 @@ def test_p0440_geometry_build_cannot_silently_discard_a_second_file(tmp_path):
     assert "saved-state check" in str(caught.value)
 
 
-@pytest.mark.parametrize("sweep", ["0.0", "0.0,2.0"])
-@pytest.mark.parametrize("submitted", [False, True])
-def test_p0440_multi_file_records_survive_local_and_submitted_runs(tmp_path, sweep, submitted):
-    from tests.tier1_offline.test_fsm_trailing_edges import _LIBRARY
-
-    tables = (
-        '[trailing_edges]\nfiles=[{file="wing.te.txt",type="STANDARD"},'
-        '{file="junction.te.txt",type="RELAXED"}]\n'
-    )
-    workspace = _library(tmp_path, tables, points=_points_text(MIDPOINTS[:8]))
-    (workspace.inputs_dir / "geometries" / "junction.te.txt").write_text(
-        _points_text(MIDPOINTS[8:])
-    )
-    source = _LIBRARY / "10_WING.fsm"
-    stub = tmp_path / "stand_in.py"
-    stub.write_text(
-        STUB.replace(
-            '    if line == "EXPORT_LOG":',
-            '    if line == "SAVEAS":\n'
-            "        pathlib.Path(lines[index + 1]).write_bytes("
-            f"pathlib.Path({str(source)!r}).read_bytes())\n"
-            '    if line == "EXPORT_LOG":',
-        )
-    )
-    log = tmp_path / "import_log.txt"
-    log.write_text("8 trailing edges imported for boundary Wing\n" * 2)
-    row = ROW.format(
-        build="26.124", outputs=WITH_LOG + ",state_{point}.fsm", geometry="wing.stl", tail=""
-    )
-    matrix = write_matrix(tmp_path / "multi.fs", [row.replace("| AL | 0.0 |", f"| AL | {sweep} |")])
-    try:
-        run_matrix(
-            matrix,
-            workspace,
-            name="matrix",
-            default_fs_version="26.124",
-            recipes=RECIPES,
-            assess=_converged_reading_the_exported_log,
-            executor=_submitting(workspace) if submitted else _Solver(stub, log),
-            recipe_registry=workflow_registry(),
-        )
-    except (CampaignErrors, InputArtifactError) as error:
-        pytest.fail(f"the declared multi-file run did not complete: {error}")
-    (record,) = workspace.read_manifest()
-    assert record.status == (RunStatus.SUBMITTED if submitted else RunStatus.CONVERGED), (
-        record.error
-    )
-    assert [(entry["type"], entry["count"]) for entry in record.wake_edge_sets] == [
-        ("STANDARD", 8),
-        ("RELAXED", 8),
-    ]
-    if submitted:
-        assert record.submission["wake_edge_sets"] == record.wake_edge_sets
-
-
-@pytest.mark.parametrize("build", ["26.124", "26.125"])
-def test_p0460_wake_termination_file_is_verified(tmp_path, build):
-    workspace = _library(
-        tmp_path, DETECT_AUTO + '[wake_termination]\nfile="tips.wt.txt"\n', build=build
-    )
-    (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(
-        _points_text([(1.0, -4.0, 0.0)])
-    )
-    case = _case(tmp_path, workspace, build=build)
-    assert "MARK_WAKE_TERMINATION_NODES" in _render(case, build)
-
-
-@pytest.mark.parametrize("point,tolerance,count", [((9, 9, 9), 0.0001, 0), ((1, -4, 0), 1.0, None)])
-def test_p0440_termination_points_must_match_one_vertex(tmp_path, point, tolerance, count):
-    tables = DETECT_AUTO + f'[wake_termination]\nfile="tips.wt.txt"\ntolerance={tolerance}\n'
-    workspace = _library(tmp_path, tables)
-    (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(_points_text([point]))
-    with pytest.raises((ValueError, InputArtifactError)) as caught:
-        _case(tmp_path, workspace)
-    assert "tips.wt.txt" in str(caught.value) and "require exactly one" in str(caught.value)
-
-
-def test_p0440_one_file_record_keeps_published_bytes(tmp_path):
-    import hashlib
-
-    from pyflightstream.cases import TrailingEdgeMarking
-
-    marking = TrailingEdgeMarking(
-        route="file", edge_type="STANDARD", points_m=((1, 2, 3),), points_file="wing.te.txt"
-    )
-    assert marking.model_dump_json() == (
-        '{"route":"file","edge_type":"STANDARD","tolerance":0.0001,'
-        '"points_m":[[1.0,2.0,3.0]],"detect_surfaces":[],"sweep_angle_deg":null}'
-    )
-    case = _case(tmp_path, _library(tmp_path, FILE_ROUTE))
-    script = _render(case).replace(case.geometry, "wing.stl")
-    # Base 932e90bc, with only the machine-local geometry path normalized.
-    assert hashlib.sha256(script.encode()).hexdigest() == (
-        "25eac8d3d685402810416eac3b37a441e1a1fd528b56c916cdda921015fd8893"
-    )
-
-
-@pytest.mark.parametrize("build", ["26.124", "26.125"])
-def test_p0460_verified_termination_selects_nodes_before_marking(tmp_path, build):
-    from pyflightstream.commands import CommandRegistry, Status
-
-    workspace = _library(
-        tmp_path, DETECT_AUTO + '[wake_termination]\nfile="tips.wt.txt"\n', build=build
-    )
-    (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(
-        _points_text([(1.0, -4.0, 0.0)])
-    )
-    try:
-        case = _case(tmp_path, workspace, build=build)
-    except (ValueError, InputArtifactError) as exc:
-        pytest.fail(f"explicit termination points must bind: {exc}")
-    registry = CommandRegistry.load()
-    entry = registry.commands["MARK_WAKE_TERMINATION_NODES"]
-    assert entry.versions[build].status is Status.VERIFIED
-    script = Script(build, registry=registry)
-    build_script(case, script, registry=registry)
-    lines = script.render().splitlines()
-    index = lines.index("MARK_WAKE_TERMINATION_NODES")
-    nodes = case.raw_mesh_conditions.wake_termination.nodes
-    assert lines[index - 1] == f"SELECT_MESH_NODE {nodes[0]}"
-
-
-@pytest.mark.parametrize(
-    "table,reason",
-    [
-        ("files=[]", "nonempty"),
-        (
-            'files=[{file="wing.te.txt",type="STANDARD"}]\nfile="wing.te.txt"',
-            "files cannot be combined with file",
-        ),
-        (
-            'files=[{file="wing.te.txt",type="STANDARD"},{file="wing.te.txt",type="RELAXED"}]',
-            "listed twice",
-        ),
-        ('files=[{file="wing.te.txt",type="UNKNOWN"}]', "UNKNOWN"),
-    ],
-)
-def test_p0440_multiple_file_declarations_are_unambiguous(tmp_path, table, reason):
-    from pyflightstream.workspace.sidecars import read_raw_mesh_conditions
-
-    path = tmp_path / "wing.boundaries.toml"
-    path.write_text("[trailing_edges]\n" + table)
-    with pytest.raises(InputArtifactError) as caught:
-        read_raw_mesh_conditions(path)
-    assert reason in str(caught.value)
-
-
 def _normalized(text: str, tmp_path: Path) -> str:
     """The render with the machine's folder replaced, in one separator."""
     return (
@@ -875,236 +673,7 @@ def _normalized(text: str, tmp_path: Path) -> str:
 # --- the default and the second route ------------------------------------------------
 
 
-def test_a_raw_mesh_whose_sidecar_declares_no_trailing_edge_is_refused_at_plan(tmp_path):
-    """No trailing edge, no wake, and the solver answers anyway: refused, naming the table.
-
-    Matched on the table's name, never on the exception type alone: the
-    type is raised for other reasons by the same builder.
-    """
-    workspace = _library(tmp_path, "")
-    case = _case(tmp_path, workspace)
-    with pytest.raises(CampaignConfigError, match=r"\[trailing_edges\]") as caught:
-        _render(case)
-    message = str(caught.value)
-    for needle in ("wing.boundaries.toml", 'file = "', 'detect = "auto"', "docs/mesh-inputs.md"):
-        assert needle in message, f"the refusal does not name {needle!r}: {message}"
-    # THE PAGE'S OWN WORDS: the refusal says which sentence to search for, and
-    # a quoted phrase the page does not carry sends a blocked user nowhere.
-    anchor = _vocabulary._CONDITIONS_PAGE_ANCHOR
-    assert anchor in message, message
-    page = MESH_DOCS
-    assert anchor in page.read_text(encoding="utf-8"), f"{page.name} does not carry {anchor!r}"
-
-
-def test_detection_is_emitted_only_when_written(tmp_path):
-    """The file route marks by the file alone; the detect route by detection alone.
-
-    A silent default would be the file route ALSO emitting a detection, or
-    a table naming neither meaning detection.
-    """
-    detections = ("AUTO_DETECT_TRAILING_EDGES", "DETECT_TRAILING_EDGES_BY_SURFACE")
-    by_file = _render(_case(tmp_path, _library(tmp_path, FILE_ROUTE))).splitlines()
-    assert "IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER" in by_file, by_file
-    assert not [line for line in by_file if line.startswith(detections)], by_file
-
-    other = tmp_path / "detect"
-    other.mkdir()
-    by_detection = _render(_case(other, _library(other, DETECT_AUTO))).splitlines()
-    assert "AUTO_DETECT_TRAILING_EDGES" in by_detection, by_detection
-    assert not [line for line in by_detection if line.startswith("IMPORT_WAKE_EDGES")]
-
-
-@pytest.mark.parametrize(
-    ("name", "tables"),
-    [
-        ("te_file__26.124", FILE_ROUTE),
-        ("te_detect_auto__26.124", DETECT_AUTO),
-        (
-            "te_detect_by_surface_with_wake_and_base__26.124",
-            DETECT_BY_SURFACE_WITH_WAKE_AND_BASE,
-        ),
-        ("te_file_with_wake_and_base__26.124", FILE_ROUTE_WITH_WAKE_AND_BASE),
-    ],
-    ids=["file", "detect-auto", "detect-by-surface-wake-base", "file-wake-base"],
-)
-def test_each_raw_mesh_route_renders_its_committed_bytes(tmp_path, name, tables):
-    """One golden per route, byte for byte, with the machine's folder as <WORKDIR>."""
-    rendered = _normalized(_render(_case(tmp_path, _library(tmp_path, tables))), tmp_path)
-    golden = GOLDENS / f"{name}.txt"
-    assert golden.is_file(), f"{golden.name} is not committed; run this module with --write"
-    assert rendered.encode("utf-8") == golden.read_bytes(), (
-        f"the {name} render moved; if the change is intended, run this module with --write "
-        "and read the diff"
-    )
-
-
-def test_the_file_route_writes_the_checked_points_in_metres_in_the_folder_the_script_runs_in(
-    tmp_path,
-):
-    """The node file is parked for the run: the count, the placeholder, then the points.
-
-    It is named inside the folder the run gives the script (G02), by absolute
-    path, as the geometry is, and never beside the staged geometry: a staged
-    geometry is a link into the input library that every simulation on the
-    same mesh shares. With no folder given, the bare file name.
-    """
-    points = [(1000.0 * x, 1000.0 * y, 1000.0 * z) for x, y, z in MIDPOINTS]
-    workspace = _library(tmp_path, FILE_ROUTE, points=_points_text(points, "MILLIMETER"))
-    case = _case(tmp_path, workspace)
-    folder = tmp_path / "camp" / "sims" / "sim_7001" / "datapoints" / "DP-point"
-    script = Script("26.124")
-    script.working_dir = str(folder)
-    build_script(case, script)
-    lines = script.render().splitlines()
-    at = lines.index("IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER")
-    assert Path(lines[at + 1]) == folder / "wing.wake_nodes.txt", lines[at + 1]
-    parked = script.pending_input_files[lines[at + 1]].splitlines()
-    assert parked[:3] == ["16", "0,0,0", "1.0,-3.75,0.0"], parked
-    assert script.wake_edge_points == 16
-
-    bare = Script("26.124")
-    build_script(case, bare)
-    rendered = bare.render().splitlines()
-    assert rendered[rendered.index(lines[at]) + 1] == "wing.wake_nodes.txt", rendered
-
-
-@pytest.mark.parametrize(
-    ("build", "needles"),
-    [("26.123", ("RPT-061", "26.124")), ("26.121", ("26.121", "does not carry"))],
-    ids=["unmeasured-build", "build-without-the-command"],
-)
-def test_the_file_route_is_refused_on_a_build_it_was_not_measured_on(tmp_path, build, needles):
-    """The import line was run on 26.124 only; no other build is emitted a form for it."""
-    workspace = _library(tmp_path, FILE_ROUTE, build=build)
-    case = _case(tmp_path, workspace, build=build)
-    with pytest.raises(CommandNotInVersionError) as caught:
-        _render(case, build)
-    for needle in needles:
-        assert needle in str(caught.value), caught.value
-
-
-def test_a_file_route_row_that_exports_no_solver_log_is_refused_at_plan(tmp_path):
-    """The count check reads the solver log, and the solver writes one of its own only on an
-    abnormal end: a file-route row with no log among its outputs could never pass it."""
-    workspace = _library(tmp_path, FILE_ROUTE)
-    case = _case(tmp_path, workspace, outputs=WITHOUT_LOG)
-    with pytest.raises(CampaignConfigError, match=r"_log\.txt") as caught:
-        _render(case)
-    assert "trailing" in str(caught.value) and "count" in str(caught.value), caught.value
-
-
 # --- the refusals of the tables -------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("tables", "needles"),
-    [
-        (FILE_ROUTE + 'detect = "auto"\n', ("both file and detect", "one of")),
-        ("[trailing_edges]\n", ("neither file nor detect", "one of")),
-        (FILE_ROUTE + "angle = 30\n", ("angle",)),
-        ('[trailing_edges]\ndetect = "yes"\n', ("'yes'", "auto")),
-        (DETECT_AUTO + "tolerance = 0.001\n", ("tolerance", "detect")),
-        ("[trailing_edges]\ndetect = { surfaces = [] }\n", ("surfaces",)),
-        (FILE_ROUTE + "tolerance = 0\n", ("tolerance",)),
-        (FILE_ROUTE + '\n[wake_termination]\ndetect = "all"\n', ("wake_termination", "'all'")),
-        (
-            FILE_ROUTE + '\n[base_regions]\ndetect = { surfaces = ["Wing"] }\n',
-            ("base_regions", "auto"),
-        ),
-        ('[trailing_edges]\nfile = "wing.te.txt"\n', ("no type", "VORTEX_SHEDDING", "STANDARD")),
-    ],
-    ids=[
-        "file-and-detect",
-        "neither",
-        "a-key-it-does-not-read",
-        "a-detect-word",
-        "a-tolerance-detection-does-not-read",
-        "no-surface",
-        "a-zero-tolerance",
-        "a-wake-termination-word",
-        "base-regions-by-surface",
-        "pfs-2124-055-a-file-without-a-type",
-    ],
-)
-def test_a_table_that_does_not_hold_its_shape_is_refused_at_binding(tmp_path, tables, needles):
-    """Each table is read at binding, so a malformed one is refused with the row, by name."""
-    workspace = _library(tmp_path, tables)
-    with pytest.raises(InputArtifactError) as caught:
-        _case(tmp_path, workspace)
-    message = str(caught.value)
-    assert "POL 7001" in message and "wing.boundaries.toml" in message, message
-    for needle in needles:
-        assert needle in message, f"the refusal does not name {needle!r}: {message}"
-
-
-def test_p0430_the_upgrade_notes_show_the_untyped_file_route_refusal(tmp_path):
-    """PFS-2124.055: a 0.42.0 sidecar whose file route states no type is refused in 0.43.0.
-
-    The upgrade notes tell the user the former default (STANDARD) and show the message the
-    refusal prints, so it is read from the refusal itself rather than retyped.
-    """
-    workspace = _library(tmp_path, '[trailing_edges]\nfile = "wing.te.txt"\n')
-    with pytest.raises(InputArtifactError) as caught:
-        _case(tmp_path, workspace)
-    message = str(caught.value)
-    shown = message[message.index("the [trailing_edges] table states") :]
-    page = (Path(__file__).resolve().parents[2] / "docs/upgrading.md").read_text(encoding="utf-8")
-    notes = page[page.index("## 0.43.0") : page.index("## 0.42.0")]
-    assert shown in notes, shown
-    assert 'type = "STANDARD"' in notes and "former default" in notes
-
-
-def test_a_points_file_that_misses_the_mesh_is_refused_at_binding_naming_the_line(tmp_path):
-    """Point 3 moved 0.2 mm aft marks nothing, silently; it is refused before any seat."""
-    moved = list(MIDPOINTS)
-    moved[2] = (1.0002, moved[2][1], 0.0)
-    workspace = _library(tmp_path, FILE_ROUTE, points=_points_text(moved))
-    with pytest.raises(InputArtifactError) as caught:
-        _case(tmp_path, workspace)
-    message = str(caught.value)
-    for needle in ("POL 7001", "wing.te.txt", "point 3 of 16", "file line 4", "0.0002"):
-        assert needle in message, f"the refusal does not name {needle!r}: {message}"
-
-
-@pytest.mark.parametrize("table", [FILE_ROUTE, DETECT_AUTO, '[base_regions]\ndetect = "auto"\n'])
-def test_a_saved_simulation_whose_sidecar_marks_edges_is_refused(tmp_path, table):
-    """A .fsm carries its own marking; a second pass from the sidecar would mark twice."""
-    workspace = _library(tmp_path, table, suffix=".fsm")
-    case = _case(tmp_path, workspace, geometry="wing.fsm")
-    with pytest.raises(CampaignConfigError) as caught:
-        _render(case)
-    name = table.split("]")[0].lstrip("[")
-    assert f"[{name}]" in str(caught.value) and "wing.fsm" in str(caught.value), caught.value
-
-
-def test_a_surface_the_sidecar_does_not_name_is_refused_listing_the_names(tmp_path):
-    """Detection by surface cites the sidecar's names exactly, never by position."""
-    workspace = _library(tmp_path, '[trailing_edges]\ndetect = { surfaces = ["Wng"] }\n')
-    with pytest.raises(CampaignConfigError) as caught:
-        _render(_case(tmp_path, workspace))
-    assert "'Wng'" in str(caught.value) and "'Wing'" in str(caught.value), caught.value
-
-
-def test_the_file_route_beside_an_operation_that_moves_the_body_is_refused(tmp_path):
-    """The points name edges of the file as written; a scale would carry them away."""
-    scale = '\n[[import.operations]]\nop = "scale"\nfactors = [2.0, 2.0, 2.0]\n'
-    workspace = _library(tmp_path, FILE_ROUTE + scale)
-    with pytest.raises(CampaignConfigError) as caught:
-        _render(_case(tmp_path, workspace))
-    message = str(caught.value)
-    assert "operation 1 (scale)" in message and "wing.te.txt" in message, message
-
-
-def test_the_two_options_emit_their_detection_only_when_written(tmp_path):
-    """No option written, no option emitted; each written one emits its command."""
-    bare = _render(_case(tmp_path, _library(tmp_path, DETECT_AUTO)))
-    assert "WAKE_TERMINATION_NODES" not in bare and "BASE_REGIONS" not in bare, bare
-    other = tmp_path / "options"
-    other.mkdir()
-    tables = DETECT_AUTO + '\n[wake_termination]\ndetect = "auto"\n'
-    lines = _render(_case(other, _library(other, tables))).splitlines()
-    detected = lines.index("AUTO_DETECT_TRAILING_EDGES")
-    assert lines[detected + 1] == "AUTO_DETECT_WAKE_TERMINATION_NODES", lines
 
 
 # --- the wake termination of the file route waits for an initialisation (T07) -----------
@@ -1148,43 +717,6 @@ def _assert_detected_between_two_initializations(lines: list[str], marks: list[s
     )
 
 
-@pytest.mark.parametrize(
-    ("detect", "marks"),
-    [
-        ('"auto"', ["AUTO_DETECT_WAKE_TERMINATION_NODES"]),
-        ('{ surfaces = ["Wing"] }', ["DETECT_WAKE_TERMINATION_NODES_BY_SURFACE 1"]),
-    ],
-    ids=["auto", "by-surface"],
-)
-def test_the_file_route_detects_its_wake_termination_between_two_initializations(
-    tmp_path, detect, marks
-):
-    """G02, T07 on 26.124. Run right after an import from a file, the termination
-    detection marks nothing; run after the initialisation it marks the node, which
-    the solver, initialised without it, does not use until it initialises again (the
-    log reports the trailing-edge groups only during an initialisation, the inferred
-    reason). So the file route initialises, detects, and initialises again with the
-    same settings, then starts the solver."""
-    tables = FILE_ROUTE + f"\n[wake_termination]\ndetect = {detect}\n"
-    lines = _render(_case(tmp_path, _library(tmp_path, tables))).splitlines()
-    _assert_detected_between_two_initializations(lines, marks)
-
-
-@pytest.mark.parametrize(
-    "tables",
-    [DETECT_AUTO + '\n[wake_termination]\ndetect = "auto"\n', FILE_ROUTE],
-    ids=["detection-route-with-wake-termination", "file-route-without-wake-termination"],
-)
-def test_a_script_with_nothing_waiting_for_an_initialization_initializes_once(tmp_path, tables):
-    """The detection route marks the ends with the edges it detects, before the
-    initialisation, and a file route with no ``[wake_termination]`` has nothing to
-    detect: each initialises once, as before (the goldens pin the bytes)."""
-    lines = _render(_case(tmp_path, _library(tmp_path, tables))).splitlines()
-    assert lines.count("INITIALIZE_SOLVER") == 1, lines
-    marks = [at for at, line in enumerate(lines) if "WAKE_TERMINATION_NODES" in line]
-    assert all(at < lines.index("INITIALIZE_SOLVER") for at in marks), lines
-
-
 def _unsteady(case, run_type: str):
     """The raw-mesh case as a row of an unsteady run type, the steady row's own keys dropped."""
     variables = {k: v for k, v in case.variables.items() if k not in ("OUTPUTS", "RECIPE")}
@@ -1219,54 +751,6 @@ def _steady_job(case, *, cold: bool) -> Script:
     script = Script("26.124")
     build_steady_sweep(points, script, cold=cold)
     return script
-
-
-@pytest.mark.parametrize(
-    "run_type",
-    ["steady", "steady-job-warm", "steady-job-cold", "unsteady", "unsteady_rotor"],
-)
-def test_every_run_type_on_the_file_route_detects_between_two_initializations(tmp_path, run_type):
-    """G02, T07: every run type that imports a raw mesh takes the same order, a steady
-    row of several points (one job, warm or cold) included; its points begin after
-    the second initialisation, so each solves with the node marked."""
-    tables = FILE_ROUTE + '\n[wake_termination]\ndetect = "auto"\n'
-    case = _case(tmp_path, _library(tmp_path, tables))
-    if run_type.startswith("steady-job"):
-        script = _steady_job(case, cold=run_type.endswith("cold"))
-    else:
-        script = Script("26.124")
-        build_script(case if run_type == "steady" else _unsteady(case, run_type), script)
-    _assert_detected_between_two_initializations(
-        script.render().splitlines(), ["AUTO_DETECT_WAKE_TERMINATION_NODES"]
-    )
-
-
-def test_a_continuation_of_a_file_route_row_marks_nothing_and_initializes_once(tmp_path):
-    """A continuation reopens the simulation the stopped run saved, which carries the
-    edges and the node that run marked, so it imports nothing and detects nothing."""
-    tables = FILE_ROUTE + '\n[wake_termination]\ndetect = "auto"\n'
-    case = _unsteady(_case(tmp_path, _library(tmp_path, tables)), "unsteady")
-    case.variables.update(
-        RESTART="{FINISH_PENDING}", RESTART_FROM="stopped.fsm", RESTART_ITERATIONS="6"
-    )
-    script = Script("26.124")
-    build_script(case, script)
-    lines = script.render().splitlines()
-    assert lines[:3] == ["OPEN", "stopped.fsm", "LOAD_SOLVER_INITIALIZATION ENABLE"], lines[:3]
-    marking = [line for line in lines if "IMPORT" in line or "WAKE_TERMINATION_NODES" in line]
-    assert not marking, lines
-    # FR-396 (0.35.0): a continuation keeps the reopened state, no re-initialisation
-    assert lines.count("INITIALIZE_SOLVER") == 0, lines
-
-
-def test_base_regions_declared_by_the_sidecar_and_by_the_row_is_refused(tmp_path):
-    """The sidecar's detection marks every base; the row's key would mark one again."""
-    tables = DETECT_AUTO + '\n[base_regions]\ndetect = "auto"\n'
-    workspace = _library(tmp_path, tables)
-    case = _case(tmp_path, workspace, tail=" / BASE_REGIONS: Wing")
-    with pytest.raises(CampaignConfigError) as caught:
-        _render(case)
-    assert "[base_regions]" in str(caught.value) and "BASE_REGIONS" in str(caught.value)
 
 
 # --- the whole path: the row, the node file, the import and the solver's count ---------
@@ -1306,45 +790,6 @@ def _converged_reading_the_exported_log(case, execution, sim_dir):
     )
 
 
-@pytest.mark.parametrize(
-    ("imported", "status"),
-    [(16, RunStatus.CONVERGED), (15, RunStatus.FAILED_SCRIPT)],
-    ids=["every-point-imported", "one-point-dropped"],
-)
-def test_a_file_route_row_runs_end_to_end_and_is_held_to_the_solver_count(
-    tmp_path, imported, status
-):
-    """Through run_matrix: the node file is written before the solver, the import is
-    emitted, and the solver's logged count against the 16 points written decides."""
-    workspace = _library(tmp_path, FILE_ROUTE)
-    stub = tmp_path / "stub_solver.py"
-    stub.write_text(STUB, encoding="utf-8")
-    log = tmp_path / "log_to_write.txt"
-    log.write_text(f"{imported} trailing edges imported for boundary Wing\n", encoding="utf-8")
-    try:
-        run_matrix(
-            _matrix(tmp_path),
-            workspace,
-            name="matrix",
-            default_fs_version="26.124",
-            recipes=RECIPES,
-            assess=_converged_reading_the_exported_log,
-            executor=_Solver(stub, log),
-            recipe_registry=workflow_registry(),
-        )
-    except CampaignErrors:
-        pass  # a failed point is recorded in the manifest, which is what is read
-    (record,) = workspace.read_manifest()
-    assert record.status is status, (record.status, record.error)
-    if status is RunStatus.FAILED_SCRIPT:
-        assert "16" in record.error and "15" in record.error, record.error
-    # The stand-in writes where it runs, the point's own folder since 0.27.0.
-    sim_dir = workspace.sim_dir("7001") / "datapoints" / f"DP-{record.point_name}"
-    seen = (sim_dir / "node_file_seen.txt").read_text(encoding="utf-8").splitlines()
-    assert seen[:3] == ["16", "0,0,0", "1.0,-3.75,0.0"] and len(seen) == 18, seen
-    assert "wing.wake_nodes.txt" in record.inputs_sha256
-
-
 def _residual_log(line: str) -> str:
     """A recorded solver log with ``line`` printed before its residual table.
 
@@ -1358,47 +803,6 @@ def _residual_log(line: str) -> str:
     assert anchor in text and "build #7012026" in text, "the fixture moved"
     text = text.replace("build #7012026", "build #8172026", 1)
     return text.replace(anchor, f"{anchor}\n{line}\n", 1)
-
-
-@pytest.mark.parametrize(
-    ("imported", "status"),
-    [(16, RunStatus.CONVERGED), (15, RunStatus.FAILED_SCRIPT)],
-    ids=["every-point-imported", "one-point-dropped"],
-)
-def test_a_file_route_row_judged_by_an_assessor_that_names_no_log_reads_the_exported_one(
-    tmp_path, imported, status
-):
-    """A caller's assessor answers with a status and need not say which file it read.
-    The count is then read from the log the package's own assessor would find among
-    the collected outputs, so 16 of 16 keeps the verdict and 15 is FAILED_SCRIPT;
-    neither is the FAILED_INCOMPLETE_OUTPUT of a log that was collected and unread."""
-    workspace = _library(tmp_path, FILE_ROUTE)
-    stub = tmp_path / "stub_solver.py"
-    stub.write_text(STUB, encoding="utf-8")
-    log = tmp_path / "log_to_write.txt"
-    line = f"{imported} trailing edges imported for boundary Wing"
-    log.write_text(_residual_log(line), encoding="utf-8")
-
-    def names_no_log(case, execution, sim_dir):
-        return Assessment(status=RunStatus.CONVERGED, iterations=120, residual=3.2e-6)
-
-    try:
-        run_matrix(
-            _matrix(tmp_path),
-            workspace,
-            name="matrix",
-            default_fs_version="26.124",
-            recipes=RECIPES,
-            assess=names_no_log,
-            executor=_Solver(stub, log),
-            recipe_registry=workflow_registry(),
-        )
-    except CampaignErrors:
-        pass  # a failed point is recorded in the manifest, which is what is read
-    (record,) = workspace.read_manifest()
-    assert record.status is status, (record.status, record.error)
-    if status is RunStatus.FAILED_SCRIPT:
-        assert "16" in record.error and "15" in record.error, record.error
 
 
 class _Launches(_Solver):
@@ -1423,70 +827,6 @@ def _plan(tmp_path, workspace, **matrix):
         recipe_registry=workflow_registry(),
         write_plan=False,
     )
-
-
-def test_a_file_route_row_that_turns_its_log_export_off_is_refused_before_any_launch(tmp_path):
-    """EXPORT_LOG: false in the row leaves the declared log with nothing to write it.
-    The script then exports no log, the count the run is held to cannot be read, and
-    the point would be FAILED_INCOMPLETE_OUTPUT after the seat. The plan reads the
-    script it built, refuses the point, and run_matrix, whose pre-flight is that
-    plan, launches nothing and records nothing."""
-    workspace = _library(tmp_path, FILE_ROUTE)
-    (blocked,) = _plan(tmp_path, workspace, tail=" / EXPORT_LOG: false").blocked
-    for needle in ("EXPORT_LOG", "trailing", "native_log"):
-        assert needle in blocked.error, f"the refusal does not name {needle!r}: {blocked.error}"
-
-    stub = tmp_path / "stub_solver.py"
-    stub.write_text(STUB, encoding="utf-8")
-    log = tmp_path / "log_to_write.txt"
-    log.write_text(_residual_log(_SIXTEEN_ON_WING), encoding="utf-8")
-    solver = _Launches(stub, log)
-    with pytest.raises(MatrixError, match="nothing was executed"):
-        run_matrix(
-            _matrix(tmp_path, tail=" / EXPORT_LOG: false"),
-            workspace,
-            name="matrix",
-            default_fs_version="26.124",
-            recipes=RECIPES,
-            assess=_converged_reading_the_exported_log,
-            executor=solver,
-            recipe_registry=workflow_registry(),
-        )
-    assert solver.launched == []
-    assert not workspace.manifest_path.is_file() or workspace.read_manifest() == []
-
-
-def test_a_file_route_row_that_exports_its_log_plans(tmp_path):
-    """The control: the same row without the switch plans READY."""
-    workspace = _library(tmp_path, FILE_ROUTE)
-    plan = _plan(tmp_path, workspace)
-    assert [point.status for point in plan.points] == [PlanStatus.READY], plan.summary()
-
-
-def test_a_file_route_row_is_submitted_where_the_machine_writes_its_own_log(tmp_path):
-    """The machine's profile turns EXPORT_LOG off and names the log its scheduler
-    writes, which collect copies to the declared name, where the count is read. That
-    is a log the run reads, so the file-route row is submitted, holding its 16 points,
-    and its script carries no EXPORT_LOG."""
-    workspace = _library(tmp_path, FILE_ROUTE)
-    profile = workspace.inputs_dir / "hpc" / "h001.toml"
-    profile.parent.mkdir(parents=True, exist_ok=True)
-    profile.write_text(NATIVE_LOG_PROFILE + NATIVE_LOG_TABLE, encoding="utf-8")
-    executor = SubmittingExecutor(read_hpc_profile(profile), values={}, submit=False)
-    (record,) = run_matrix(
-        _matrix(tmp_path),
-        workspace,
-        name="matrix",
-        default_fs_version="26.124",
-        recipes=RECIPES,
-        assess=_converged_reading_the_exported_log,
-        executor=executor,
-        recipe_registry=workflow_registry(),
-    )
-    assert record.status is RunStatus.SUBMITTED, (record.status, record.error)
-    assert record.submission["wake_edge_points"] == 16, record.submission
-    script = workspace.sim_dir("7001") / record.script_path
-    assert "EXPORT_LOG" not in script.read_text(encoding="utf-8").splitlines()
 
 
 # --- the node file is the run's own, never a file of the input library (G02) ----------
@@ -1523,148 +863,6 @@ def _real(path: Path) -> Path:
     return Path(os.path.realpath(path))
 
 
-@pytest.mark.parametrize("sweep", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
-def test_two_queued_cases_on_one_mesh_each_keep_the_edges_they_declared(tmp_path, sweep):
-    """G02. Two cases on one mesh, each stating half the span in Python, are
-    submitted and left queued: one point each, or one steady job of two points
-    each. Staging links each simulation's inputs to the library folder of the
-    mesh, so a node file named beside the staged geometry is ONE file for both,
-    and the second submission replaced the first's selection before its job
-    read it, with the same count, so the count check could not tell. Each job's
-    script must name a file of its own run folder holding its own points, and
-    each record must hash the bytes its job reads."""
-    workspace = _library(tmp_path, FILE_ROUTE)
-    matrix = write_matrix(
-        tmp_path / "raw_mesh.fs",
-        [
-            ROW.format(build="26.124", outputs=WITH_LOG, geometry="wing.stl", tail="").replace(
-                "| AL | 0.0 |", f"| AL | {sweep} |"
-            )
-        ],
-    )
-    resolved = resolve_matrix(
-        matrix, workspace, name="matrix", fs_version="26.124", recipes=RECIPES
-    )
-    (case,) = resolved.campaign.sims
-    marking = case.raw_mesh_conditions.trailing_edges
-    halves = {
-        "7001": tuple(point for point in MIDPOINTS if point[1] < 0),
-        "7002": tuple(point for point in MIDPOINTS if point[1] > 0),
-    }
-    cases = []
-    for sim_id, points in halves.items():
-        stated = marking.model_copy(update={"points_m": points})
-        conditions = case.raw_mesh_conditions.model_copy(update={"trailing_edges": stated})
-        cases.append(case.model_copy(update={"sim_id": sim_id, "raw_mesh_conditions": conditions}))
-    library = _real(workspace.inputs_dir / "geometries")
-    held_before = sorted(path.name for path in library.iterdir())
-    records = run_campaign(
-        resolved.campaign.model_copy(update={"sims": cases}),
-        _submitting(workspace),
-        workspace,
-        assess=_converged_reading_the_exported_log,
-        recipes=workflow_registry(),
-        quiet=True,
-    )
-    assert sorted(record.sim_id for record in records) == ["7001", "7002"], records
-    for record in records:
-        assert record.status is RunStatus.SUBMITTED, (record.status, record.error)
-        named = _named_node_file(workspace, record)
-        held = _points_in(named)
-        assert held == list(halves[record.sim_id]), (
-            f"sim {record.sim_id}'s job names {named}, which holds the points of y from "
-            f"{held[0][1]} to {held[-1][1]}, and the case declared y from "
-            f"{halves[record.sim_id][0][1]} to {halves[record.sim_id][-1][1]}"
-        )
-        assert _real(named).is_relative_to(_real(workspace.sim_dir(record.sim_id))), (
-            f"sim {record.sim_id}'s node file {named} is on disk at {_real(named)}, "
-            "outside its own simulation folder"
-        )
-        assert not _real(named).is_relative_to(library), _real(named)
-        digest = hashlib.sha256(named.read_bytes()).hexdigest()
-        assert record.inputs_sha256[named.name] == digest, record.inputs_sha256
-    held_after = sorted(path.name for path in library.iterdir())
-    assert held_after == held_before, f"a run wrote into the input library: {held_after}"
-
-
-def test_a_points_file_named_like_the_node_file_is_left_as_its_author_wrote_it(tmp_path):
-    """G02. The sidecar may name its points file ``wing.wake_nodes.txt``, the name
-    the run gives its node file. The points file is the author's, with its unit
-    line, and a run writes nothing into the library that holds it."""
-    table = '[trailing_edges]\nfile = "wing.wake_nodes.txt"\ntype = "STANDARD"\n'
-    workspace = _library(tmp_path, table)
-    authored = workspace.inputs_dir / "geometries" / "wing.wake_nodes.txt"
-    authored.write_text(_points_text(), encoding="utf-8")
-    before = authored.read_bytes()
-    (record,) = run_matrix(
-        _matrix(tmp_path),
-        workspace,
-        name="matrix",
-        default_fs_version="26.124",
-        recipes=RECIPES,
-        assess=_converged_reading_the_exported_log,
-        executor=_submitting(workspace),
-        recipe_registry=workflow_registry(),
-    )
-    assert record.status is RunStatus.SUBMITTED, (record.status, record.error)
-    assert authored.read_bytes() == before, (
-        "the run wrote over the author's points file: it now starts "
-        f"{authored.read_text(encoding='utf-8').splitlines()[:2]}"
-    )
-    assert _points_in(_named_node_file(workspace, record)) == MIDPOINTS
-
-
-@pytest.mark.parametrize("sweep", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
-@pytest.mark.parametrize(
-    "points_file",
-    ["wing.te.txt", "wing.wake_nodes.txt"],
-    ids=["points-file-of-its-own-name", "points-file-named-like-the-node-file"],
-)
-def test_reconstruct_verifies_the_node_file_where_the_run_wrote_it(tmp_path, sweep, points_file):
-    """The node file is an input the record hashes, and it is written in the folder
-    the run ran in, never among the simulation's staged inputs. A reconstruction
-    checks it there: it matches while it is the file the run wrote, differs once
-    edited, and is missing once deleted, even where the input library holds a
-    points file of the same name, which the staged inputs lead to."""
-    from pyflightstream.run import reconstruct
-
-    workspace = _library(tmp_path, f'[trailing_edges]\nfile = "{points_file}"\ntype = "STANDARD"\n')
-    (workspace.inputs_dir / "geometries" / points_file).write_text(_points_text(), encoding="utf-8")
-    stub = tmp_path / "stub_solver.py"
-    stub.write_text(STUB, encoding="utf-8")
-    log = tmp_path / "log_to_write.txt"
-    log.write_text(f"{_SIXTEEN_ON_WING}\n", encoding="utf-8")
-    run_matrix(
-        write_matrix(
-            tmp_path / "raw_mesh.fs",
-            [
-                ROW.format(build="26.124", outputs=WITH_LOG, geometry="wing.stl", tail="").replace(
-                    "| AL | 0.0 |", f"| AL | {sweep} |"
-                )
-            ],
-        ),
-        workspace,
-        name="matrix",
-        default_fs_version="26.124",
-        recipes=RECIPES,
-        assess=_converged_reading_the_exported_log,
-        executor=_Solver(stub, log),
-        recipe_registry=workflow_registry(),
-    )
-    (record,) = workspace.read_manifest()
-    assert record.status is RunStatus.CONVERGED, (record.status, record.error)
-    key = "inputs/wing.wake_nodes.txt"
-    rebuilt = reconstruct(record, workspace=workspace)
-    assert rebuilt.verified[key] == "match", rebuilt.verified
-    assert rebuilt.faithful, rebuilt.verified
-
-    node_file = _named_node_file(workspace, record)
-    node_file.write_text("16\n0,0,0\n", encoding="utf-8")
-    assert reconstruct(record, workspace=workspace).verified[key] == "differs"
-    node_file.unlink()
-    assert reconstruct(record, workspace=workspace).verified[key] == "missing"
-
-
 if __name__ == "__main__":  # pragma: no cover - the golden writer, run by hand
     import tempfile
 
@@ -1684,38 +882,6 @@ if __name__ == "__main__":  # pragma: no cover - the golden writer, run by hand
         print(f"wrote {golden}.txt")
 
 
-@pytest.mark.parametrize(("unit", "factor"), [("METER", 1.0), ("MILLIMETER", 1000.0)])
-def test_p0420_the_file_route_writes_points_and_tolerance_in_the_simulation_unit(
-    tmp_path, unit, factor
-):
-    """PFS-2130.013: metres in the sidecar, the setup's simulation unit in the script.
-
-    The points and the tolerance are checked in metres at binding and converted to the unit
-    the setup states, which the import line names; the tolerance is in metres in the sidecar.
-    """
-    workspace = _library(tmp_path, FILE_ROUTE)
-    case = _case(tmp_path, workspace)
-    solver = case.solver.model_copy(update={"simulation_length_unit": unit})
-    script = Script("26.124")
-    build_script(case.model_copy(update={"solver": solver}), script)
-    lines = script.render().splitlines()
-    assert f"IMPORT_WAKE_EDGES_FROM_FILE STANDARD {0.0001 * factor} {unit}" in lines
-    (parked,) = script.pending_input_files.values()
-    first = [float(v) for v in parked.splitlines()[2].split(",")]
-    assert first == pytest.approx([1.0 * factor, -3.75 * factor, 0.0])
-
-
-def test_p0440_ad_f3_a_refused_files_entry_is_named_by_its_number(tmp_path):
-    """AD-F3: a malformed entry in a files list is refused naming its position and keys."""
-    tables = (
-        '[trailing_edges]\nfiles = [{file="wing.te.txt", type="STANDARD"}, '
-        '{file="junction.te.txt"}]\n'
-    )
-    workspace = _library(tmp_path, tables)
-    with pytest.raises((ValueError, InputArtifactError), match="files entry 2 has"):
-        _case(tmp_path, workspace)
-
-
 @pytest.mark.parametrize("build", ["25.000", "26.123"])
 def test_p0460_marking_policy_refuses_unmeasured_builds(build):
     from pyflightstream.script import ScriptOrderError
@@ -1733,3 +899,21 @@ def test_p0460_runner_failure_retains_diagnostics(tmp_path):
     assert (plan.work / "wing.mark.txt").read_text() == plan.script
     assert "10052026" in (plan.work / "wing.mark.log").read_text()
     assert not any(path.exists() for path in plan.outputs)
+
+
+@pytest.mark.parametrize(
+    "point,tolerance",
+    [("4,4,4", 0.0001), ("0,0,0", 2.0)],
+    ids=["P0460-NODE-ABSENT", "P0460-NODE-AMBIGUOUS"],
+)
+def test_p0460_termination_points_require_exactly_one_vertex(tmp_path, point, tolerance):
+    from pyflightstream.cases.mesh import WakeTerminationMarking
+    from pyflightstream.workspace.wake_edges import matched_wake_termination_nodes
+
+    mesh = tmp_path / "wing.obj"
+    mesh.write_text("o Wing\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
+    points = tmp_path / "tips.wt.txt"
+    points.write_text("METER\n" + point + "\n")
+    marking = WakeTerminationMarking(points_file=str(points), tolerance=tolerance)
+    with pytest.raises(InputArtifactError, match="tips.wt.txt.*require exactly one"):
+        matched_wake_termination_nodes(marking, mesh, "METER")

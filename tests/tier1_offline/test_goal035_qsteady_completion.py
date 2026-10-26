@@ -37,7 +37,6 @@ from pyflightstream.cases import (
     CampaignConfigError,
     MeshImport,
     PprocSpec,
-    RawMeshConditions,
     RotorBlock,
     SimCase,
 )
@@ -54,6 +53,9 @@ from pyflightstream.run._pending import _write_pending_files
 from pyflightstream.script import Script
 from tests.tier1_offline._workflow_docs import workflow_docs_text
 from tests.tier1_offline.conftest import make_uniform_blade_config
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 from tests.tier1_offline.test_goal035_qsteady_rotor import (
     OMEGA,
     ROTOR,
@@ -198,13 +200,10 @@ def _sector_fsi_case(tmp_path: Path, *, omega: float = 0.0, **variables) -> SimC
     geometry.write_text("o Blade1\nv 0 0 0.2\nv 0 .1 .2\nv 0 0 1.2\nf 1 2 3\n")
     rotor = ROTOR.model_copy(update={"blade1": BladeDatum(azimuth_deg=0.0, zero="Z")})
     base = _case(rotor=rotor, SYMMETRY="PERIODIC", PERIODIC_COPIES="3", **variables)
-    return base.model_copy(
+    case = base.model_copy(
         update={
             "geometry": str(geometry),
             "mesh_import": MeshImport(units="METER"),
-            "raw_mesh_conditions": RawMeshConditions.model_validate(
-                {"trailing_edges": {"route": "detect"}}
-            ),
             "inventory": ("Blade1",),
             "fsi": make_uniform_blade_config(blade_count=1, omega_rad_per_s=omega),
             "pproc": PprocSpec.model_validate(
@@ -220,6 +219,10 @@ def _sector_fsi_case(tmp_path: Path, *, omega: float = 0.0, **variables) -> SimC
             ),
         }
     )
+
+    from tests.tier1_offline.test_aeroelastic_typed_setup import _named_fsi_case
+
+    return _named_fsi_case(case)
 
 
 def test_a_sector_couples_steady_with_its_structure_turning_at_the_row_speed(tmp_path):

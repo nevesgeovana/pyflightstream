@@ -1,47 +1,20 @@
 # Mesh inputs and GUI-only operations
 
-This page is for a user who brings a mesh to a run. Two inputs are canonical,
-and a workflow row takes both:
-
-* a raw surface mesh, an `.obj` or an `.stl`, which the script IMPORTS through
- the mesh-import family, with OBJ as the reference format; and
-* a saved simulation, a `.fsm`, which the script OPENS, made once in the
- FlightStream GUI when a step has no scripting command.
-
-This page walks through preparing a raw mesh or a saved simulation. The
-[reference](reference.md) defines their sidecars, build support and measured
-limits; [the complete example](example.md#a-complete-example-a-wing-obj-with-its-trailing-edge-by-file)
-provides a wing OBJ setup to copy.
-
-A workflow row imports `.obj` and `.stl` and opens `.fsm`. Explicit IGES
-conversion is a separate route described in the [reference](reference.md); STEP remains refused. A
-recipe of your own reaches every format the mesh-import family documents;
-the other formats `IMPORT` documents stay there, because what the solver
-makes of their surfaces' names and order is unmeasured.
+A matrix row names a saved simulation (`.fsm`). Start from an OBJ by
+preparing its named declarations, running `geometry mark-boundaries --apply`
+once, and inspecting the resulting FSM. GUI-prepared FSM files are accepted
+without a marking record. CAD, CCS and STL construction belong to
+[geometry build](../geometry.md), which keeps its own solver pass.
 
 ## Starting from an OBJ or STL
 
-A mesh file carries surfaces and nothing else: no length unit, no name this
-package reads, no trailing edge. So everything a run needs to know about it is
-written in one file beside it, `<stem>.boundaries.toml` (`wing.boundaries.toml`
-beside `wing.obj`), and every row that names the mesh shares it. The row names
-the mesh as it names any geometry, `wing.obj` in its `GEOMETRY` column.
-
-The sidecar says, in this order:
-
-1. `boundaries`: the names of the mesh's surfaces, in the order the solver
-   numbers them, which the plan writes for an `.obj` from its groups when it
-   has no sidecar;
-2. `[import]`: `units`, the length unit the file is written in;
-3. `[[import.operations]]`: the operations that make the file into the body,
-   when it is not the body yet;
-4. `[trailing_edges]`: how the trailing edge is marked, by a points file (the
-   default), by detection, or explicitly absent with `none = true`;
-5. `[wake_termination]` and `[base_regions]`: two detections, each applied
-   only when written.
-
-The [reference](reference.md) describes each sidecar field, build support and
-measured limits. The next section shows how to write the points file.
+For an OBJ, write `<stem>.obj.boundaries.toml` with the boundary inventory,
+`fs_build`, `[import] units`, and named `[trailing_edges.<label>]` entries.
+Termination nodes belong to their trailing-edge entry and base regions to
+`[base_regions.<family>]`. Use the [reference](reference.md) for the complete
+form. Preview marking without a solver, then apply it with a licensed solver.
+The matrix names `<stem>.fsm`, never the OBJ. An STL first needs geometry
+preparation into a saved body or an OBJ suitable for marking.
 
 ### Writing a points file from a blade's mesh
 
@@ -52,8 +25,7 @@ points file. The points come back in the MESH's own reference frame and length
 units, because they are mid-points of mesh edges and nothing transforms them.
 The rotor axis and hub you pass in are what the CRITERION is computed in, not
 what the output is expressed in. The file it writes is the file a
-`[trailing_edges]` table names, `file = "blade.te.txt"`, and a row naming the
-blade then marks exactly these edges.
+`[trailing_edges]` table names, `file = "blade.te.txt"`, and the marking pass saves these edges before a row runs.
 
 <!-- skip: next -->
 ```python

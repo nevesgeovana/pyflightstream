@@ -2,10 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.cases import RawMeshConditions, SimCase, SolverSettings, SweepAxis
+from pyflightstream.cases import SimCase, SolverSettings, SweepAxis
 from pyflightstream.cases.workflows._geometry import (
     _detect_base_regions,
-    _raw_mesh_boundary_conditions,
 )
 from pyflightstream.script import Script, ScriptOrderError
 
@@ -148,23 +147,6 @@ def test_base_remesh_converts_metre_radius_and_precedes_initialization(tmp_path)
     script.emit("SOLVER_SET_AOA", 0.0)
     with pytest.raises(ScriptOrderError):
         script.emit("REMESH_BASE_REGION", 1, 0.0, 4, "1", 1.0)
-
-
-def test_detection_angle_precedes_auto_detection_and_is_not_emitted_twice(tmp_path):
-    from pyflightstream.cases import TrailingEdgeMarking
-
-    setup = SolverSettings(base_region_bending_angle_deg=25.0)
-    conditions = RawMeshConditions(
-        trailing_edges=TrailingEdgeMarking(route="none"), base_regions="auto"
-    )
-    body = case(setup, geometry=str(tmp_path / "body.obj"), raw_mesh_conditions=conditions)
-    script = Script("26.124")
-    with pytest.warns(UserWarning, match="no wake"):
-        _raw_mesh_boundary_conditions(body, script)
-    _detect_base_regions(body, script)
-    text = script.render()
-    assert text.count("SET_BASE_REGION_BENDING_ANGLE") == 1
-    assert text.index("SET_BASE_REGION_BENDING_ANGLE 25.0") < text.index("AUTO_DETECT_BASE_REGIONS")
 
 
 def test_documented_base_region_example_runs_without_a_solver():

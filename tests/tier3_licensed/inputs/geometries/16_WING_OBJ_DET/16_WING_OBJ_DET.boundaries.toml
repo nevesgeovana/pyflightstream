@@ -1,3 +1,7 @@
+mesh_sha256 = "af6f451a7be9cd867f13d91aa96276666150b080795daf7d0dfb5d623b924b89"
+mesh_faces = 816
+boundary_faces = [816]
+fs_build = "26.124"
 # 16_WING_OBJ_DET: the tier-3 wing, 10_WING.fsm, as a raw mesh, its trailing
 # edge detected by the solver (the second route, applied because it is
 # written here). The OBJ beside this file is generated and never committed;
@@ -15,10 +19,10 @@ op = "rename"
 surface = "WING_OBJ"
 to = "Wing"
 
-[trailing_edges]
+[trailing_edges.mesh]
+type = "STANDARD"
 detect = "auto"
 
 # The saved simulation was prepared with its wake termination nodes detected
 # after its trailing edges (recipes.prepare_geometry), so the import is too.
-[wake_termination]
-detect = "auto"
+wake_termination_nodes = "auto"

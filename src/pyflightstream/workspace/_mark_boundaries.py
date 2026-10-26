@@ -341,78 +341,22 @@ def plan_mark_boundaries(
         Preview, input digests and staging destinations.
     """
     source, sidecar, declarations, spec, names, faces = _marking_inputs(mesh)
-    termination, explicit = _node_routes(sidecar, declarations, spec)
+    _node_routes(sidecar, declarations, spec)
     work = _work_path(source)
     script = Script.for_marking(declarations.fs_build, registry)
     script.working_dir = str(work)
-    pending: dict[str, bytes] = {}
-    sets: list[dict[str, Any]] = []
-    nodes: dict[str, tuple[int, ...]] = {}
-    inputs = {str(source): file_sha256(source), str(sidecar): file_sha256(sidecar)}
-    steps: list[str] = []
-
-    emit = script.emit
-    emit("NEW_SIMULATION")
-    emit("IMPORT", spec.units, "OBJ", str(source), clear=True)
-    before = tuple(names)
-    _import_operations(script, spec, names, faces)
-    declarations = _renamed_declarations(declarations, before, names)
-    script.declare_existing(boundaries={name: i for i, name in enumerate(names, 1)})
-    emit("SET_SIMULATION_LENGTH_UNITS", "METER")
-
-    def mark(label: str, marking: Any) -> None:
-        if marking.route == "detect":
-            if marking.sweep_angle_deg is not None:
-                emit("SET_TRAILING_EDGE_SWEEP_ANGLE", marking.sweep_angle_deg)
-            if marking.detect_surfaces:
-                indices = [names.index(name) + 1 for name in marking.detect_surfaces]
-                emit("DETECT_TRAILING_EDGES_BY_SURFACE", len(indices), indices)
-            else:
-                helpers.detect_every_boundary(script, "trailing_edges")
-            steps.append(f"{label}: STANDARD detected trailing edges")
-            return
-        bound = matched_trailing_edge_sets(marking, source, spec.units)
-        entry = bound.sets[0]
-        assert entry.points_file is not None
-        path = Path(entry.points_file)
-        inputs[str(path)] = file_sha256(path)
-        token = work / f"edges-{len(sets) + 1}.txt"
-        points = _placed_points(entry.points_m, source, spec, bound.tolerance)
-        helpers.mark_wake_edges(
-            script,
-            edge_type=entry.edge_type,
-            tolerance=bound.tolerance,
-            units="METER",
-            node_file=str(token),
-            midpoints=points,
-        )
-        body = script.pending_input_files[str(token)]
-        pending[str(token)] = body.encode("utf-8") if isinstance(body, str) else body
-        sets.append(
-            {
-                "label": label,
-                "type": entry.edge_type,
-                "file": str(path),
-                "points_m": points,
-                "tolerance": bound.tolerance,
-            }
-        )
-        steps.append(f"{label}: {entry.edge_type}, {len(points)} trailing-edge points")
-
-    for entry in declarations.trailing_edges:
-        mark(entry.label, entry.marking)
-    _emit_bases(emit, mark, declarations, names, steps)
-    _emit_nodes(
-        emit,
-        termination,
-        explicit,
-        source=source,
+    script.emit("NEW_SIMULATION")
+    declarations, pending, sets, nodes, inputs, steps = _emit_marking(
+        script,
+        source,
+        sidecar,
+        declarations=declarations,
         spec=spec,
-        inputs=inputs,
-        nodes=nodes,
-        steps=steps,
+        names=names,
+        faces=faces,
+        work=work,
     )
-    _emit_merges(emit, declarations, names, faces, steps)
+    emit = script.emit
     emit("SAVEAS", str(work / source.with_suffix(".fsm").name))
     emit("EXPORT_LOG", str(work / source.with_suffix(".mark.log").name))
     emit("CLOSE_FLIGHTSTREAM")
@@ -699,3 +643,121 @@ def _promote(plan: BoundaryMarkingPlan) -> None:
             raise BoundaryMarkingError(
                 f"promotion failed; prior outputs restored: {error}"
             ) from error
+
+
+def _emit_marking(script, source, sidecar, *, declarations, spec, names, faces, work):
+    """Emit the shared D3 import and marking pass, also used at each FSI import."""
+    termination, explicit = _node_routes(sidecar, declarations, spec)
+    pending: dict[str, bytes] = {}
+    sets: list[dict[str, Any]] = []
+    nodes: dict[str, tuple[int, ...]] = {}
+    inputs = {str(source): file_sha256(source), str(sidecar): file_sha256(sidecar)}
+    steps: list[str] = []
+
+    emit = script.emit
+    emit("IMPORT", spec.units, "OBJ", str(source), clear=True)
+    before = tuple(names)
+    _import_operations(script, spec, names, faces)
+    declarations = _renamed_declarations(declarations, before, names)
+    script.declare_existing(boundaries={name: i for i, name in enumerate(names, 1)})
+    emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+
+    def mark(label: str, marking: Any) -> None:
+        if marking.route == "detect":
+            if marking.sweep_angle_deg is not None:
+                emit("SET_TRAILING_EDGE_SWEEP_ANGLE", marking.sweep_angle_deg)
+            if marking.detect_surfaces:
+                indices = [names.index(name) + 1 for name in marking.detect_surfaces]
+                emit("DETECT_TRAILING_EDGES_BY_SURFACE", len(indices), indices)
+            else:
+                helpers.detect_every_boundary(script, "trailing_edges")
+            steps.append(f"{label}: STANDARD detected trailing edges")
+            return
+        bound = matched_trailing_edge_sets(marking, source, spec.units)
+        entry = bound.sets[0]
+        assert entry.points_file is not None
+        path = Path(entry.points_file)
+        inputs[str(path)] = file_sha256(path)
+        token = work / f"edges-{len(sets) + 1}.txt"
+        points = _placed_points(entry.points_m, source, spec, bound.tolerance)
+        helpers.mark_wake_edges(
+            script,
+            edge_type=entry.edge_type,
+            tolerance=bound.tolerance,
+            units="METER",
+            node_file=str(token),
+            midpoints=points,
+        )
+        body = script.pending_input_files[str(token)]
+        pending[str(token)] = body.encode("utf-8") if isinstance(body, str) else body
+        sets.append(
+            {
+                "label": label,
+                "type": entry.edge_type,
+                "file": str(path),
+                "points_m": points,
+                "tolerance": bound.tolerance,
+            }
+        )
+        steps.append(f"{label}: {entry.edge_type}, {len(points)} trailing-edge points")
+
+    for entry in declarations.trailing_edges:
+        mark(entry.label, entry.marking)
+    _emit_bases(emit, mark, declarations, names, steps)
+    _emit_nodes(
+        emit,
+        termination,
+        explicit,
+        source=source,
+        spec=spec,
+        inputs=inputs,
+        nodes=nodes,
+        steps=steps,
+    )
+    _emit_merges(emit, declarations, names, faces, steps)
+    return declarations, pending, sets, nodes, inputs, steps
+
+
+def _bind_fsi_marking(case):
+    """Bind strict D2 inputs and inject D3 emission without a reverse layer import."""
+    from functools import partial
+
+    source, sidecar, declarations, spec, names, faces = _marking_inputs(case.geometry)
+    _node_routes(sidecar, declarations, spec)
+    case = case.model_copy(
+        update={
+            "inventory": tuple(names),
+            "inventory_source": "sidecar",
+            "boundaries_file": str(sidecar),
+            "mesh_import": spec,
+        }
+    )
+    case._fsi_geometry_emitter = partial(_emit_fsi_marking, source)
+    return case
+
+
+def _emit_fsi_marking(source, imported_mesh, script):
+    """Reload declarations at each import and use the planner's verified command gate."""
+    source, sidecar, declarations, spec, names, faces = _marking_inputs(source)
+    if resolve(declarations.fs_build) != script.version:
+        raise InputArtifactError(f"{sidecar}: FSI fs_build must match the row build")
+    # The marking phase is scoped to the import; the ordinary solver phase guard resumes.
+    preview = plan_mark_boundaries(source, registry=script.registry)
+    if preview.awaiting_evidence:
+        raise InputArtifactError(
+            f"{sidecar}: FSI marking awaits VERIFIED evidence: {preview.awaiting_evidence}"
+        )
+    imported = Path(imported_mesh)
+    if file_sha256(imported) != file_sha256(source):
+        raise InputArtifactError(f"{imported}: staged FSI mesh differs from its declared source")
+    with helpers.marking_import(script):
+        _emit_marking(
+            script,
+            imported,
+            sidecar,
+            declarations=declarations,
+            spec=spec,
+            names=names,
+            faces=faces,
+            work=Path("."),
+        )

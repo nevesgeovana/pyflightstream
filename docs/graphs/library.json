@@ -906,6 +906,11 @@
       "path": "qa/_spec_0400_gapkit.py"
     },
     {
+      "id": "pyflightstream.qa._spec_0460_marking",
+      "layer": 0,
+      "path": "qa/_spec_0460_marking.py"
+    },
+    {
       "id": "pyflightstream.qa._spec_26125",
       "layer": 0,
       "path": "qa/_spec_26125.py"
@@ -1309,6 +1314,11 @@
       "id": "pyflightstream.script._ledger_tables",
       "layer": 4,
       "path": "script/_ledger_tables.py"
+    },
+    {
+      "id": "pyflightstream.script._marking",
+      "layer": 4,
+      "path": "script/_marking.py"
     },
     {
       "id": "pyflightstream.script._phase_order",
@@ -3324,11 +3334,6 @@
     },
     {
       "source": "pyflightstream.cases.workflows._gap_evidence",
-      "target": "pyflightstream.cases.mesh",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.cases.workflows._gap_evidence",
       "target": "pyflightstream.commands",
       "kind": "module"
     },
@@ -3349,17 +3354,7 @@
     },
     {
       "source": "pyflightstream.cases.workflows._geometry",
-      "target": "pyflightstream._lengths",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases.workflows._geometry",
       "target": "pyflightstream.cases",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases.workflows._geometry",
-      "target": "pyflightstream.cases._ccs",
       "kind": "module"
     },
     {
@@ -3374,7 +3369,7 @@
     },
     {
       "source": "pyflightstream.cases.workflows._geometry",
-      "target": "pyflightstream.cases.mesh",
+      "target": "pyflightstream.cases.fsi_workspace",
       "kind": "deferred"
     },
     {
@@ -3404,17 +3399,7 @@
     },
     {
       "source": "pyflightstream.cases.workflows._geometry",
-      "target": "pyflightstream.commands",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases.workflows._geometry",
       "target": "pyflightstream.script",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases.workflows._geometry",
-      "target": "pyflightstream.script.helpers",
       "kind": "module"
     },
     {
@@ -4231,11 +4216,6 @@
       "source": "pyflightstream.cases.workflows._steady",
       "target": "pyflightstream.cases.workflows._freestream",
       "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases.workflows._steady",
-      "target": "pyflightstream.cases.workflows._gap_evidence",
-      "kind": "deferred"
     },
     {
       "source": "pyflightstream.cases.workflows._steady",
@@ -5648,6 +5628,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.post._reduction_stage",
+      "target": "pyflightstream.results.loads",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.post._rotor_plan",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -6435,6 +6420,16 @@
     {
       "source": "pyflightstream.post.farfield_fields",
       "target": "pyflightstream.farfield",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_fields",
+      "target": "pyflightstream.post._condition",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_fields",
+      "target": "pyflightstream.post.axes",
       "kind": "module"
     },
     {
@@ -7968,6 +7963,31 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.qa._spec_0460_marking",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0460_marking",
+      "target": "pyflightstream.qa._spec_kit",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0460_marking",
+      "target": "pyflightstream.qa.probes",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0460_marking",
+      "target": "pyflightstream.script",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0460_marking",
+      "target": "pyflightstream.script.helpers",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.qa._spec_26125",
       "target": "pyflightstream.qa._spec_catalog_b",
       "kind": "module"
@@ -8550,6 +8570,11 @@
     {
       "source": "pyflightstream.qa.specs",
       "target": "pyflightstream.qa._spec_0400_gap",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa.specs",
+      "target": "pyflightstream.qa._spec_0460_marking",
       "kind": "module"
     },
     {
@@ -10369,6 +10394,11 @@
     },
     {
       "source": "pyflightstream.run._matrix_warnings",
+      "target": "pyflightstream.workspace.sidecars",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._matrix_warnings",
       "target": "pyflightstream.workspace.storage",
       "kind": "deferred"
     },
@@ -11048,11 +11078,6 @@
       "kind": "module"
     },
     {
-      "source": "pyflightstream.run._wake_edge_verdict",
-      "target": "pyflightstream.workspace.wake_edges",
-      "kind": "module"
-    },
-    {
       "source": "pyflightstream.run.cli",
       "target": "pyflightstream._cli",
       "kind": "module"
@@ -11683,6 +11708,31 @@
       "kind": "deferred"
     },
     {
+      "source": "pyflightstream.script._marking",
+      "target": "pyflightstream._lengths",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.script._marking",
+      "target": "pyflightstream.commands",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script._marking",
+      "target": "pyflightstream.script",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script._marking",
+      "target": "pyflightstream.script._build_forms",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script._marking",
+      "target": "pyflightstream.script._wake_edge_file",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.script._phase_order",
       "target": "pyflightstream.commands",
       "kind": "module"
@@ -11774,16 +11824,6 @@
     },
     {
       "source": "pyflightstream.script.helpers",
-      "target": "pyflightstream._lengths",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.script.helpers",
-      "target": "pyflightstream.commands",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.script.helpers",
       "target": "pyflightstream.script",
       "kind": "module"
     },
@@ -11795,6 +11835,11 @@
     {
       "source": "pyflightstream.script.helpers",
       "target": "pyflightstream.script._build_forms",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script.helpers",
+      "target": "pyflightstream.script._marking",
       "kind": "module"
     },
     {
@@ -12749,6 +12794,11 @@
     },
     {
       "source": "pyflightstream.workspace._matrix_phases",
+      "target": "pyflightstream.workspace._mark_boundaries",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._matrix_phases",
       "target": "pyflightstream.workspace._matrix_binding",
       "kind": "module"
     },
@@ -12774,12 +12824,12 @@
     },
     {
       "source": "pyflightstream.workspace._matrix_phases",
-      "target": "pyflightstream.workspace.sixdof_setup",
+      "target": "pyflightstream.workspace.sidecars",
       "kind": "module"
     },
     {
       "source": "pyflightstream.workspace._matrix_phases",
-      "target": "pyflightstream.workspace.wake_edges",
+      "target": "pyflightstream.workspace.sixdof_setup",
       "kind": "module"
     },
     {

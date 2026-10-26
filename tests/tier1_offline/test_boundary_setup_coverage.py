@@ -1,14 +1,9 @@
-from hashlib import sha256
-
 import pytest
 
 from pyflightstream.cases import SimCase, SolverSettings, SweepAxis
 from pyflightstream.cases.workflows import build_script
-from pyflightstream.cases.workflows._geometry import _setup_ports
 from pyflightstream.cases.workflows._solver_settings import _settings
 from pyflightstream.script import Script
-from pyflightstream.workspace.inputs import read_raw_mesh_conditions
-from pyflightstream.workspace.matrix import _bind_setup_ports
 
 
 def _case(**kwargs):
@@ -43,46 +38,6 @@ def test_p0440_bare_termination_key_refers_to_explicit_file():
         _settings(_case(solver=SolverSettings(mark_wake_termination_nodes=True)), Script("26.124"))
 
 
-def _port_case(tmp_path, *, inlet=True, outlet=False, profile=True, remesh=False):
-    sidecar = tmp_path / "duct.boundaries.toml"
-    sidecar.write_text('[ports]\nfeed="Inlet"\nexit="Outlet"\n')
-    folder = tmp_path / "profiles"
-    folder.mkdir(exist_ok=True)
-    path = folder / "inlet-profile.txt"
-    path.write_bytes(b"0,1\r\n1,2\r\n")
-    entries = []
-    if inlet:
-        entries.append({"port": "feed", "kind": "inlet", "velocity_variable": "INLET_SPEED"})
-        if profile:
-            entries[-1]["profile_variable"] = "INLET_PROFILE"
-    if outlet:
-        entries.append({"port": "exit", "kind": "outlet", "velocity_variable": "OUTLET_SPEED"})
-    if remesh:
-        entries[-1]["remesh"] = {
-            "inner_radius_m": 0,
-            "radial_faces": 4,
-            "growth_scheme": "successive",
-            "growth_rate": 1.2,
-        }
-    case = _case(
-        geometry=str(tmp_path / "duct.obj"),
-        inventory=["Inlet", "Outlet", "Wall"],
-        raw_mesh_conditions=read_raw_mesh_conditions(sidecar),
-        solver=SolverSettings(ports=entries),
-    )
-    case = case.model_copy(
-        update={
-            "variables": {
-                "VELOCITY": "30",
-                "INLET_SPEED": "-10",
-                "OUTLET_SPEED": "10",
-                "INLET_PROFILE": "inlet-profile.txt",
-            }
-        }
-    )
-    return _bind_setup_ports(case, tmp_path), path
-
-
 def _port_script():
     script = Script("26.124")
     script.declare_existing(boundaries={"Inlet": 1, "Outlet": 2, "Wall": 3})
@@ -90,89 +45,9 @@ def _port_script():
     return script
 
 
-def test_inlet_profile_is_bound_and_staged_without_reinterpreting_file_format(tmp_path):
-    case, profile = _port_case(tmp_path)
-    script = _port_script()
-    _setup_ports(case, script)
-    text = script.render()
-    assert "CREATE_NEW_INLET 1 -10.0" in text
-    assert "SET_INLET_CUSTOM_PROFILE 1" in text
-    assert text.index("CREATE_NEW_INLET") < text.index("SET_INLET_CUSTOM_PROFILE")
-    assert list(script.pending_input_files.values()) == [profile.read_bytes()]
-    assert case.solver.ports[0].profile_sha256
-
-
 def test_outlet_profile_is_refused_because_no_official_command_exists():
     with pytest.raises(ValueError, match="outlet profile has no documented native command"):
         SolverSettings(ports=[{"port": "exit", "kind": "outlet", "profile_variable": "P"}])
-
-
-def test_profile_changed_after_binding_is_refused(tmp_path):
-    case, profile = _port_case(tmp_path)
-    profile.write_bytes(b"changed")
-    with pytest.raises(ValueError, match="profile.*changed"):
-        _setup_ports(case, _port_script())
-
-
-def test_p0430_a_missing_inlet_profile_is_refused_naming_the_file_and_the_port(tmp_path):
-    """PFS-2119.021: the unreadable file is a refusal, not a raw OSError out of the setup."""
-    from pyflightstream.cases import CampaignConfigError
-
-    case, profile = _port_case(tmp_path)
-    profile.unlink()
-    with pytest.raises(CampaignConfigError) as refused:
-        _setup_ports(case, _port_script())
-    assert str(profile) in str(refused.value) and "'Inlet'" in str(refused.value)
-
-
-def test_inlet_profile_pending_writer_preserves_and_hashes_exact_bytes(tmp_path):
-    from pyflightstream.run._pending import _write_pending_files
-
-    case, profile = _port_case(tmp_path)
-    script = _port_script()
-    _setup_ports(case, script)
-    work = tmp_path / "point"
-    work.mkdir()
-    hashes = _write_pending_files(script, work, case=case, recorded={})
-    (name,) = script.pending_input_files
-    assert (work / name).read_bytes() == profile.read_bytes()
-    assert hashes[name] == sha256(profile.read_bytes()).hexdigest()
-
-
-def test_a_boundary_cannot_be_assigned_twice_and_silently_renumber_ports(tmp_path):
-    case, _ = _port_case(tmp_path)
-    case = case.model_copy(
-        update={"solver": case.solver.model_copy(update={"ports": case.solver.ports * 2})}
-    )
-    with pytest.raises(ValueError, match="assigned more than once"):
-        _setup_ports(case, _port_script())
-
-
-def test_p0400_port_remesh_follows_creation_and_precedes_custom_profile(tmp_path):
-    """P0400-REMESH-INLET-LINE (PFS-2135.033): the remesh block names its own inlet."""
-    case, _ = _port_case(tmp_path, remesh=True)
-    script = _port_script()
-    _setup_ports(case, script)
-    text = script.render()
-    assert text.index("CREATE_NEW_INLET") < text.index("REMESH_INLET")
-    assert text.index("REMESH_INLET") < text.index("SET_INLET_CUSTOM_PROFILE")
-    # Read the lines after REMESH_INLET: "INLET 1" is also a substring of the
-    # CREATE_NEW_INLET line, so a search of the whole text cannot fail.
-    lines = text.splitlines()
-    at = lines.index("REMESH_INLET")
-    assert lines[at + 1] == "INLET 1"
-    assert lines[at + 3] == "ELEMENTS 4"
-
-
-@pytest.mark.parametrize("with_inlet, expected_index", [(True, 2), (False, 1)])
-def test_outlet_remesh_uses_combined_created_port_sequence(tmp_path, with_inlet, expected_index):
-    case, _ = _port_case(tmp_path, inlet=with_inlet, outlet=True, profile=False, remesh=True)
-    script = _port_script()
-    _setup_ports(case, script)
-    lines = script.render().splitlines()
-    at = lines.index("REMESH_OUTLET")
-    assert lines[at + 1] == f"OUTLET {expected_index}"
-    assert "CREATE_NEW_OUTLET 2 10.0" in lines
 
 
 def test_proximity_and_remove_initialization_are_emitted_before_initialize():

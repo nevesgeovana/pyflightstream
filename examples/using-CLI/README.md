@@ -8,15 +8,21 @@
 | `mesh-refinement-campaign/` | The same wing at 2 degrees on two mesh densities |
 
 Install pyflightstream, then copy a workspace directory to a writable location.
-From the repository root, prepare its synthetic geometry and plan it first:
+From the repository root, prepare its synthetic geometry, mark each OBJ once
+with a licensed FlightStream installation, then plan the saved simulation:
 
 ```text
 python examples/using-CLI/prepare.py <copied-workspace>
+pyfs-workspace geometry mark-boundaries <copied-workspace>/inputs/geometries/wing.obj --apply --fs-exe <FlightStream-executable>
 pyfs-matrix plan <copied-workspace>/matrix.fs --workspace <copied-workspace>
 ```
 
-Repeat these two commands for any of the four directories. Preparation and
-planning use no solver or license. The committed inputs are text; the meshes
+Use `prop.obj` for either rotor workspace; mark both `wing.obj` and
+`wing_fine.obj` for the refinement campaign. Preparation and planning use no
+solver or license. Marking with `--apply` requires the declared 26.124 build
+and a license; omit `--apply` to preview without running or writing anything.
+Before marking, plan refuses the missing `.fsm` and names `mark-boundaries`.
+The committed inputs are text; the meshes
 are generated locally from analytic wing and blade definitions. `p001` is the
 post-processing input. `inputs/executables.toml` contains a placeholder, which
 the plan can bind without launching it.

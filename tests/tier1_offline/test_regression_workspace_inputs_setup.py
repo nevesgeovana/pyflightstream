@@ -28,7 +28,7 @@ from pyflightstream._errors import InputArtifactError as _Workspace2ReviewInputA
 from pyflightstream._errors import InputArtifactError as _Workspace2SettingsFileInputArtifactError
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError as _Workspace2InputsCampaignConfigError
-from pyflightstream.cases import RawMeshConditions, SimCase, SweepAxis, TrailingEdgeMarking
+from pyflightstream.cases import SimCase, SweepAxis
 from pyflightstream.cases._skipped_families import (
     declared_names_the_geometry_lacks,
     names_no_boundary_answers,
@@ -37,12 +37,10 @@ from pyflightstream.cases.reference_blocks import (
     CampaignConfigError as _IntegfixStrictBoundaryCampaignConfigError,
 )
 from pyflightstream.cases.selection import resolve_alias, select_families, select_group_members
-from pyflightstream.cases.workflows import build_script, row_ncpus, row_symmetry_loads
-from pyflightstream.cases.workflows._geometry import _plan_import_operations
+from pyflightstream.cases.workflows import row_ncpus, row_symmetry_loads
 from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.run import cli
 from pyflightstream.run.cli import main as matrix_cli
-from pyflightstream.script import Script
 from pyflightstream.workspace import (
     CampaignWorkspace,
     PointName,
@@ -165,7 +163,6 @@ from tests.tier1_offline.test_regression_workspace_storage import (
 from tests.tier1_offline.test_trailing_edges import (
     _blade_file as _workspace_1_trailing_edges___blade_file,
 )
-from tests.tier1_offline.test_workflows import steady_case as _workspace_1_degenerate__steady_case
 from tests.tier1_offline.test_workspace import make_record as _workspace_1_init__make_record
 
 _INTEGFIX_SETUP_EVIDENCE__REPORT = (
@@ -819,22 +816,6 @@ class TestWorkspace1Degenerate:
             ("mirror", "Blade1"),
             ("translate", "all"),
         ]
-        case = _workspace_1_degenerate__steady_case().model_copy(
-            update={
-                "geometry": str(result.mesh),
-                "mesh_import": carried,
-                "inventory": tuple(read_inventory(result.sidecar)),
-                "inventory_source": "sidecar",
-                "raw_mesh_conditions": RawMeshConditions(
-                    trailing_edges=TrailingEdgeMarking(route="detect")
-                ),
-            }
-        )
-        steps, final_names = _plan_import_operations(case, Script("26.124"), str(result.sidecar))
-        assert len(steps) == 3 and final_names == ("Blade1",)
-        script = Script("26.124")
-        build_script(case, script)
-        assert "START_SOLVER" in script.render() and "Spinner" not in script.render()
         text = result.sidecar.read_text(encoding="utf-8")
         assert "operation 1 (rename of 'Spinner')" in text
         assert "operation 2 (mirror of 'Hub')" in text

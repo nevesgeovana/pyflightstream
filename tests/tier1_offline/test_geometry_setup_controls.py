@@ -5,11 +5,17 @@ import pytest
 from pyflightstream.cases import MeshImport, ReferenceData, SolverSettings
 from pyflightstream.cases.workflows import _frames, _geometry, _solver_settings
 from pyflightstream.script import Script
-from tests.tier1_offline.test_cad_import import _case
+from tests.support_helpers import saved_mesh_fixture
+from tests.tier1_offline.test_workflows import steady_case
+
+
+def _case(tmp_path):
+    path = saved_mesh_fixture(tmp_path / "wing.fsm", ["Wing"])
+    return steady_case().model_copy(update={"geometry": str(path), "inventory": ["Wing"]})
 
 
 @pytest.mark.parametrize("unit,factor", [("METER", 1), ("MILLIMETER", 1000)])
-@pytest.mark.parametrize("route", ["cad", "mesh", "saved"])
+@pytest.mark.parametrize("route", ["saved"])
 def test_geometry_controls_precede_detection_and_dimensional_frames(tmp_path, unit, factor, route):
     case = _case(tmp_path).model_copy(
         update={
@@ -30,9 +36,7 @@ def test_geometry_controls_precede_detection_and_dimensional_frames(tmp_path, un
     elif route == "saved":
         path = tmp_path / "wing.fsm"
         path.write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n")
-        case = case.model_copy(
-            update={"geometry": str(path), "mesh_import": None, "raw_mesh_conditions": None}
-        )
+        case = case.model_copy(update={"geometry": str(path), "mesh_import": None})
     case = case.model_copy(
         update={
             "solver": SolverSettings(
@@ -79,11 +83,11 @@ def test_geometry_settings_refuse_unmeasured_units_and_invalid_bounds(settings):
         SolverSettings(**settings)
 
 
-def test_unstated_geometry_controls_preserve_existing_cad_script(tmp_path):
+def test_p0460_unstated_geometry_controls_preserve_saved_state(tmp_path):
     script = Script("26.124")
     _geometry._open_geometry(_case(tmp_path), script)
     text = script.render()
-    assert text.count("SET_SIMULATION_LENGTH_UNITS METER") == 1
+    assert "SET_SIMULATION_LENGTH_UNITS" not in text
     assert "SET_VERTEX_MERGE_TOLERANCE" not in text
     assert "SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE" not in text
 

@@ -31,18 +31,15 @@ import pytest
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import (
-    MeshImport,
     PprocSpec,
     ReferenceData,
     SimCase,
     SolverSettings,
-    TrailingEdgeMarking,
 )
 from pyflightstream.cases.workflows import build_script, build_steady_sweep
 from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
 from pyflightstream.script import BrokenCommandError, Script, helpers
 from pyflightstream.versions import resolve
-from tests.tier1_offline.test_boundary_setup_coverage import _port_case
 from tests.tier1_offline.test_g25_surface_time_average import _rotor
 from tests.tier1_offline.test_goal031_g08_glossary_claims import (
     HUB,
@@ -53,11 +50,7 @@ from tests.tier1_offline.test_goal031_g08_glossary_claims import (
     _freestream,
     _over_wing,
     _plain,
-    _ported,
-    _raw_mesh,
 )
-from tests.tier1_offline.test_raw_mesh_conditions import DETECT_AUTO, FILE_ROUTE, _library
-from tests.tier1_offline.test_raw_mesh_conditions import _case as _raw_mesh_row
 from tests.tier1_offline.test_steady_start import _points
 from tests.tier1_offline.test_workflows import (
     _wb_geometry,
@@ -127,43 +120,6 @@ def _referenced(area: float, length: float) -> Make:
     return lambda _: steady_case().model_copy(
         update={"reference": ReferenceData(area=area, length=length)}
     )
-
-
-def _raw_trailing_edges(**marking: object) -> Make:
-    """The raw mesh whose sidecar detects trailing edges as ``marking`` says."""
-
-    def make(tmp: Path) -> SimCase:
-        case = _raw_mesh(tmp)
-        conditions = case.raw_mesh_conditions.model_copy(
-            update={"trailing_edges": TrailingEdgeMarking(route="detect", **marking)}
-        )
-        return case.model_copy(update={"raw_mesh_conditions": conditions})
-
-    return make
-
-
-def _raw_wake_termination(value: object) -> Make:
-    def make(tmp: Path) -> SimCase:
-        case = _raw_mesh(tmp)
-        conditions = case.raw_mesh_conditions.model_copy(update={"wake_termination": value})
-        return case.model_copy(update={"raw_mesh_conditions": conditions})
-
-    return make
-
-
-def _port(**options: bool) -> Make:
-    """The duct's setup ports, on a mesh in metres whose sidecar marks no trailing edge."""
-
-    def make(tmp: Path) -> SimCase:
-        case = _port_case(tmp, **options)[0]
-        conditions = case.raw_mesh_conditions.model_copy(
-            update={"trailing_edges": TrailingEdgeMarking(route="none")}
-        )
-        return case.model_copy(
-            update={"mesh_import": MeshImport(units="METER"), "raw_mesh_conditions": conditions}
-        )
-
-    return make
 
 
 def _base(*operations: dict[str, object]) -> Make:
@@ -303,11 +259,6 @@ ROUTES: dict[str, Route] = {
         ("DELETE_VISCOUS_EXCLUDED_BOUNDARIES",),
     ),
     # The sidecar's declarations, applied against left.
-    "AUTO_DETECT_BASE_REGIONS": _applied("apply_base_regions", "AUTO_DETECT_BASE_REGIONS"),
-    "AUTO_DETECT_TRAILING_EDGES": _applied("apply_trailing_edges", "AUTO_DETECT_TRAILING_EDGES"),
-    "AUTO_DETECT_WAKE_TERMINATION_NODES": _applied(
-        "apply_wake_termination", "AUTO_DETECT_WAKE_TERMINATION_NODES"
-    ),
     # Row keys, read where the builder reads them.
     "SOLVER_SET_AOA": _row("ALPHA", "SOLVER_SET_AOA 4.0"),
     "SOLVER_SET_SIDESLIP": _row("BETA", "SOLVER_SET_SIDESLIP 4.0"),
@@ -366,47 +317,7 @@ ROUTES: dict[str, Route] = {
         ("DELETE_ACTUATOR 1",),
     ),
     # The setup ports the matrix reader binds.
-    "CREATE_NEW_INLET": Route(
-        lambda tmp: _ported(tmp, "feed", "inlet", "-10"),
-        lambda tmp: _ported(tmp, "exit", "outlet", "10"),
-        ("CREATE_NEW_INLET 1 -10.0",),
-    ),
-    "CREATE_NEW_OUTLET": Route(
-        lambda tmp: _ported(tmp, "exit", "outlet", "10"),
-        lambda tmp: _ported(tmp, "feed", "inlet", "-10"),
-        ("CREATE_NEW_OUTLET 2 10.0",),
-    ),
-    "REMESH_INLET": Route(
-        _port(remesh=True, profile=False),
-        _port(profile=False),
-        ("REMESH_INLET", "INLET 1"),
-    ),
-    "REMESH_OUTLET": Route(
-        _port(inlet=False, outlet=True, profile=False, remesh=True),
-        _port(inlet=False, outlet=True, profile=False),
-        ("REMESH_OUTLET", "OUTLET 1"),
-    ),
-    "SET_INLET_CUSTOM_PROFILE": Route(
-        _port(),
-        _port(profile=False),
-        ("SET_INLET_CUSTOM_PROFILE 1", "pfs_inlet_1_6407f9a79378640b.txt"),
-    ),
     # The raw mesh's trailing-edge and wake-termination declarations.
-    "DETECT_TRAILING_EDGES_BY_SURFACE": Route(
-        _raw_trailing_edges(detect_surfaces=("Wing",)),
-        _raw_trailing_edges(),
-        ("DETECT_TRAILING_EDGES_BY_SURFACE", "SURFACES 1", "1"),
-    ),
-    "SET_TRAILING_EDGE_SWEEP_ANGLE": Route(
-        _raw_trailing_edges(sweep_angle_deg=35.0),
-        _raw_trailing_edges(),
-        ("SET_TRAILING_EDGE_SWEEP_ANGLE 35.0",),
-    ),
-    "DETECT_WAKE_TERMINATION_NODES_BY_SURFACE": Route(
-        _raw_wake_termination(("Wing",)),
-        _raw_wake_termination("auto"),
-        ("DETECT_WAKE_TERMINATION_NODES_BY_SURFACE 1",),
-    ),
     # Base-region operations on the region created on the wing's Base.
     "SET_BASE_REGION_CP": Route(
         _base({"operation": "set_pressure", "index": 1, "model": "CUSTOM", "cp": -0.4}),
@@ -525,9 +436,6 @@ def test_setup_command_is_emitted_with_its_stated_argument_on_26124(command, tmp
     GOAL033:setup_bc:operational_commands:INITIALIZE_SOLVER
     GOAL033:setup_bc:operational_commands:DELETE_THIN_BOUNDARIES
     GOAL033:setup_bc:operational_commands:DELETE_VISCOUS_EXCLUDED_BOUNDARIES
-    GOAL033:setup_bc:operational_commands:AUTO_DETECT_BASE_REGIONS
-    GOAL033:setup_bc:operational_commands:AUTO_DETECT_TRAILING_EDGES
-    GOAL033:setup_bc:operational_commands:AUTO_DETECT_WAKE_TERMINATION_NODES
     GOAL033:setup_bc:operational_commands:SOLVER_SET_AOA
     GOAL033:setup_bc:operational_commands:SOLVER_SET_SIDESLIP
     GOAL033:setup_bc:operational_commands:SOLVER_SET_VELOCITY
@@ -549,14 +457,6 @@ def test_setup_command_is_emitted_with_its_stated_argument_on_26124(command, tmp
     GOAL033:setup_bc:operational_commands:SET_ACTUATOR_WAKE_TYPE
     GOAL033:setup_bc:operational_commands:SET_PROP_ACTUATOR_SWIRL
     GOAL033:setup_bc:operational_commands:DELETE_ACTUATOR
-    GOAL033:setup_bc:operational_commands:CREATE_NEW_INLET
-    GOAL033:setup_bc:operational_commands:CREATE_NEW_OUTLET
-    GOAL033:setup_bc:operational_commands:REMESH_INLET
-    GOAL033:setup_bc:operational_commands:REMESH_OUTLET
-    GOAL033:setup_bc:operational_commands:SET_INLET_CUSTOM_PROFILE
-    GOAL033:setup_bc:operational_commands:DETECT_TRAILING_EDGES_BY_SURFACE
-    GOAL033:setup_bc:operational_commands:SET_TRAILING_EDGE_SWEEP_ANGLE
-    GOAL033:setup_bc:operational_commands:DETECT_WAKE_TERMINATION_NODES_BY_SURFACE
     GOAL033:setup_bc:operational_commands:SET_BASE_REGION_CP
     GOAL033:setup_bc:operational_commands:SET_BASE_REGION_TRAILING_EDGES
     GOAL033:setup_bc:operational_commands:SELECT_BASE_REGION_FACES
@@ -693,11 +593,6 @@ def _helper(call: Callable[[Script], None]) -> Lines:
     return lines
 
 
-def _raw_mesh_route(tables: str) -> Lines:
-    """The raw mesh row whose sidecar marks its trailing edges by ``tables``."""
-    return _built(lambda tmp: _raw_mesh_row(tmp, _library(tmp, tables)))
-
-
 def _unsteady_pproc(pproc: dict[str, object]) -> Make:
     """The bare unsteady row post-processed by ``pproc``, exporting what it declares."""
     spec = PprocSpec.model_validate(pproc)
@@ -738,11 +633,6 @@ SCRIPT_ROUTES: dict[str, ScriptRoute] = {
         ("AIR_ALTITUDE 1500.0 METERS",),
     ),
     # The sidecar's file route imports the edges; its detect route does not.
-    "IMPORT_WAKE_EDGES_FROM_FILE": ScriptRoute(
-        _raw_mesh_route(FILE_ROUTE),
-        _raw_mesh_route(DETECT_AUTO),
-        ("IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER", "wing.wake_nodes.txt"),
-    ),
     # A time-averaging window registers the per-step exports action. FR-314
     # changed this expectation: every unsteady row registers the counter now,
     # the control included, so the block the window adds is the exports action.
@@ -800,7 +690,6 @@ def test_setup_command_is_emitted_through_its_script_route_on_26124(command, tmp
     GOAL033:setup_bc:operational_commands:CLEAR_SOLUTION
     GOAL033:setup_bc:operational_commands:SET_SOLVER_STEADY
     GOAL033:setup_bc:operational_commands:AIR_ALTITUDE
-    GOAL033:setup_bc:operational_commands:IMPORT_WAKE_EDGES_FROM_FILE
     GOAL033:setup_bc:operational_commands:SET_NEW_UNSTEADY_SOLVER_ACTION
     GOAL033:setup_bc:operational_commands:NEW_UNSTEADY_SOLVER_SURFACE_PROBE
     GOAL033:setup_bc:operational_commands:UNSTEADY_SOLVER_DELETE_ALL_PLOTS
@@ -1001,7 +890,23 @@ REFUSED_ON_26124: dict[str, type[Exception]] = {
 
 #: Present on 26.124 and excluded from 0.29.0 by the owner (2026-09-27): the
 #: unsteady actions already deliver per-step exports.
-OWNER_EXCLUDED = frozenset({"UNSTEADY_SOLVER_ANIMATION"})
+OWNER_EXCLUDED = frozenset(
+    [
+        "AUTO_DETECT_BASE_REGIONS",
+        "AUTO_DETECT_TRAILING_EDGES",
+        "AUTO_DETECT_WAKE_TERMINATION_NODES",
+        "CREATE_NEW_INLET",
+        "CREATE_NEW_OUTLET",
+        "DETECT_TRAILING_EDGES_BY_SURFACE",
+        "DETECT_WAKE_TERMINATION_NODES_BY_SURFACE",
+        "IMPORT_WAKE_EDGES_FROM_FILE",
+        "REMESH_INLET",
+        "REMESH_OUTLET",
+        "SET_INLET_CUSTOM_PROFILE",
+        "SET_TRAILING_EDGE_SWEEP_ANGLE",
+        "UNSTEADY_SOLVER_ANIMATION",
+    ]
+)
 
 
 @pytest.mark.parametrize("command", [pytest.param(c, id=c) for c in REFUSED_ON_26124])

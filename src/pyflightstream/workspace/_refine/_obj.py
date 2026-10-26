@@ -32,7 +32,7 @@ from pyflightstream.workspace.sidecars import (
     TRAILING_EDGES_TABLE,
     obj_boundary_names,
     obj_face_counts,
-    read_raw_mesh_conditions,
+    read_trailing_edges,
 )
 
 Faces = list[list[int]]
@@ -291,7 +291,7 @@ def te_route(obj: str | Path) -> TrailingRoute:
     ``[trailing_edges]``: the refinement and the audit read it here, and
     the mesh command no longer reads the table. A table that routes the
     trailing edge to detection is read by the workflow's own reader,
-    :func:`pyflightstream.workspace.sidecars.read_raw_mesh_conditions`, so a
+    :func:`pyflightstream.workspace.sidecars.read_trailing_edges`, so a
     ``detect`` the workflow refuses is refused here with the same words. A
     mesh without a boundaries file, or whose file has no such table, states
     nothing.
@@ -311,10 +311,9 @@ def te_route(obj: str | Path) -> TrailingRoute:
     surfaces: tuple[str, ...] = ()
     if "detect" in table:
         try:
-            conditions = read_raw_mesh_conditions(read[0])
+            marking = read_trailing_edges(read[0], table)
         except InputArtifactError as error:
             raise InputArtifactError(f"{error} Nothing was written.", kind=KIND) from error
-        marking = None if conditions is None else conditions.trailing_edges
         surfaces = () if marking is None else marking.detect_surfaces
     return TrailingRoute(
         file=read[0].parent / named if isinstance(named, str) else None,

@@ -28,6 +28,7 @@ from pyflightstream.workspace import CampaignWorkspace
 from tests import support_tier3 as offline
 
 MATRICES = offline.matrices()
+PREPARED_MATRICES = tuple(m for m in MATRICES if m.name != "matriz_mesh.fs")
 
 
 def test_the_tier3_workspace_has_matrices():
@@ -36,6 +37,21 @@ def test_the_tier3_workspace_has_matrices():
 
 @pytest.mark.parametrize("matrix", MATRICES, ids=[m.name for m in MATRICES])
 def test_every_tier3_matrix_plans_ready(matrix):
+    marked_families = (
+        "15_WING_OBJ_TE",
+        "16_WING_OBJ_DET",
+        "17_WING_OBJ_MM",
+        "32_BLADE_OBJ_TE",
+        "33_BLADE_OBJ_DET",
+    )
+    prepared = all(
+        (offline.HERE / "inputs" / "geometries" / name / f"{name}.fsm").is_file()
+        for name in marked_families
+    )
+    if matrix.name == "matriz_mesh.fs" and not prepared:
+        with pytest.raises(PyflightstreamError, match="mark-boundaries"):
+            offline.render(matrix)
+        return
     count, rendered = offline.render(matrix)
     assert count >= 1
     assert len(rendered) == count, "a ready point rendered no script"
@@ -115,7 +131,7 @@ def test_the_unsteady_plots_export_is_named_by_the_run_record():
     unsteady = [n for n in workflow_names() if n.startswith("unsteady")]
     assert unsteady, "the registry names no unsteady run type"
     seen = set()
-    for matrix in MATRICES:
+    for matrix in PREPARED_MATRICES:
         rows = {row.pol: row for row in read_matrix(matrix)}
         _, rendered = offline.render(matrix)
         for stem, script in rendered.items():
@@ -703,7 +719,7 @@ def test_the_workspace_refuses_a_pol_the_tour_already_states(tmp_path):
     assert "1001" in message and "matriz.fs" in message and "second.fs" in message, message
 
 
-@pytest.mark.parametrize("matrix", MATRICES, ids=[m.name for m in MATRICES])
+@pytest.mark.parametrize("matrix", PREPARED_MATRICES, ids=[m.name for m in PREPARED_MATRICES])
 def test_every_tier3_script_equals_its_golden(matrix):
     """The golden is the PLAN-TIME render of the builders (offline.py says how it
     differs from the bytes the solver receives); this pins what a row's cells make
@@ -1347,25 +1363,6 @@ def _without_the_first_initialisation(pol, lines):
     return lines[:first] + lines[second:]
 
 
-def test_t07_the_routes_of_one_body_differ_in_their_geometry_lines_alone():
-    """From the first frame to CLOSE_FLIGHTSTREAM an OBJ row's script is its
-    control's, line for line: the setup, the solve, the exports and the save;
-    the file route adds only its first initialisation and the termination
-    detection it waits for. So a difference between their loads is how the
-    body entered the solver."""
-    rendered = _by_pol(offline.render(MESH)[1])
-    for control, routes in MESH_ROUTES.items():
-        control_stem, control_text = rendered[control]
-        assert control_text.startswith("OPEN\n"), control
-        for pol in routes:
-            stem, text = rendered[pol]
-            assert text.startswith("NEW_SIMULATION\nIMPORT\n"), pol
-            route = _without_the_first_initialisation(pol, _from_the_first_frame(stem, text))
-            assert route == _from_the_first_frame(control_stem, control_text), (
-                f"{pol} differs from {control} beyond the geometry lines"
-            )
-
-
 def test_t07_each_points_file_is_its_saved_simulations_trailing_edge_and_passes_the_check():
     """Q3: the wing's points file is written from the trailing-edge rows of the
     saved 10_WING.fsm (16 mid-points) and the blade's from 30_BLADE.fsm (12),
@@ -1433,7 +1430,7 @@ def test_every_solving_script_of_the_0_27_0_matrices_states_five_farfield_layers
     """Every licensed run of this workspace states five far-field layers from
     0.27.0 on, and each new row's setup carries the line, so every script the
     two matrices render emits it once."""
-    for matrix in (MESH, GUI):
+    for matrix in (GUI,):
         rendered = offline.render(matrix)[1]
         assert rendered, matrix.name
         for stem, text in rendered.items():
@@ -1446,7 +1443,7 @@ def test_every_solving_script_of_every_matrix_states_five_farfield_layers():
     included: a recipe writes its own commands, so the setup's line reaches its
     script only if the recipe hands the setup's value to the helper."""
     solving = 0
-    for matrix in MATRICES:
+    for matrix in PREPARED_MATRICES:
         for stem, text in offline.render(matrix)[1].items():
             if "START_SOLVER" not in text.splitlines():
                 continue

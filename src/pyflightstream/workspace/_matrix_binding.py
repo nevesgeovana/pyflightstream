@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -580,41 +579,10 @@ def _bind_setup_ports(case: SimCase, inputs_dir: Path) -> SimCase:
     """Bind setup port selections to geometry identities and this row's MATRIX values."""
     if not case.solver.ports:
         return case
-    conditions = case.raw_mesh_conditions
-    identities = {} if conditions is None else conditions.ports
-    bound = []
-    seen: set[str] = set()
-    for entry in case.solver.ports:
-        if entry.port is None or entry.kind is None or entry.port not in identities:
-            raise InputArtifactError(
-                f"case {case.sim_id}: setup port {entry.port!r} is absent from geometry [ports]"
-            )
-        boundary = identities[entry.port]
-        if boundary in seen:
-            raise InputArtifactError(f"boundary {boundary!r} assigned more than once to ports")
-        seen.add(boundary)
-        variable = entry.velocity_variable or f"{entry.port.upper()}_VELOCITY"
-        value = case.variables.get(variable)
-        if value is None or isinstance(value, bool):
-            raise InputArtifactError(
-                f"case {case.sim_id}: MATRIX must state {variable} as a number"
-            )
-        try:
-            velocity = float(value)
-        except (ValueError, TypeError) as exc:
-            raise InputArtifactError(f"MATRIX {variable} must be a finite number") from exc
-        if not math.isfinite(velocity):
-            raise InputArtifactError(f"MATRIX {variable} must be a finite number")
-        updates: dict[str, Any] = {
-            "boundary": boundary,
-            "velocity": velocity,
-            "velocity_variable": variable,
-        }
-        if entry.profile_variable is not None:
-            updates.update(_port_profile(case.variables, entry.profile_variable, inputs_dir))
-        bound.append(entry.model_copy(update=updates))
-    solver = case.solver.model_copy(update={"ports": tuple(bound)})
-    return case.model_copy(update={"solver": solver})
+    raise InputArtifactError(
+        f"case {case.sim_id}: setup ports require a fresh mesh import, which the matrix no "
+        "longer performs. Prepare the ports in the saved simulation before planning."
+    )
 
 
 @dataclass

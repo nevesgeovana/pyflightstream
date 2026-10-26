@@ -500,9 +500,9 @@ class SolverSettings(BaseModel):
     mark_wake_termination_nodes: Literal[True] | None = None
     #: Ports selected by setup; surface identity is bound from the geometry and values from MATRIX.
     ports: tuple[PortBoundary, ...] = ()
-    #: Apply the sidecar trailing-edge definition; None adapts the published legacy declaration.
+    #: Compatibility field; marking declarations are applied before ordinary saved-mesh runs.
     apply_trailing_edges: bool | None = None
-    #: Apply the sidecar wake-termination definition; false never clears saved wake nodes.
+    #: Compatibility field; stored wake nodes are prepared before ordinary saved-mesh runs.
     apply_wake_termination: bool | None = None
     #: Apply base-region detection/actions; false never clears saved base regions.
     apply_base_regions: bool | None = None

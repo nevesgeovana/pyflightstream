@@ -5,7 +5,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from pyflightstream._errors import (
     InputArtifactError,
@@ -18,13 +18,10 @@ from pyflightstream.cases import (
     POINT_AXIS_KEYS,
     CampaignConfigError,
     FluidState,
-    MeshImport,
     PointState,
     RawCommand,
-    RawMeshConditions,
     ReferenceData,
     SimCase,
-    SolverSettings,
     point_state_key,
 )
 from pyflightstream.cases.acoustics import resolve_observers_file
@@ -57,9 +54,7 @@ from pyflightstream.cases.workflows import (
     GEOMETRY_VARIABLE,
     IGNORE_MISSING_FAMILIES_VARIABLE,
     PROFILE_VARIABLE,
-    RAW_MESH_FORMATS,
     ROTOR_ORIGIN_POINT_KEY,
-    SIMULATION_LENGTH_UNIT,
     actuator_records,
     read_actuator_profile,
     refuse_an_additional_post_build,
@@ -85,22 +80,19 @@ from pyflightstream.workspace.fsi_setup import resolve_row_fsi
 from pyflightstream.workspace.inputs import (
     PprocArtifact,
     RegisteredBuild,
-    ensure_inventory,
-    inventory_sidecar,
     is_valid_artifact_id,
     read_inventory,
-    read_mesh_import,
-    read_raw_mesh_conditions,
     resolve_build,
     rotor_integration_groups,
 )
 from pyflightstream.workspace.naming import group_token
-from pyflightstream.workspace.sixdof_setup import resolve_row_sixdof
-from pyflightstream.workspace.wake_edges import (
-    bind_wake_termination,
-    length_scale,
-    matched_trailing_edge_sets,
+from pyflightstream.workspace.sidecars import (
+    boundaries_for_matrix,
+    load_toml,
+    read_marking_record,
+    write_inventory,
 )
+from pyflightstream.workspace.sixdof_setup import resolve_row_sixdof
 
 
 def _name_rows(rows: list[MatrixRow], wanted: tuple[str | None, ...], build: str | None) -> str:
@@ -584,15 +576,33 @@ def _inventory_of(geometry: Path, pol: str) -> tuple[tuple[str, ...] | None, str
     AGREES with the file is the builder's check at ``OPEN``, because that
     is where the file's own mesh block is read for the staged copy.
 
-    G30: THE SIDECAR IS REACHED THROUGH :func:`ensure_inventory`, the one
-    function ``pyfs-matrix inventory`` reaches it through too. An OBJ with
-    none gets one written from its groups, here, before the tables beside
-    it are read; one whose sidecar disagrees with its groups draws a
-    warning. A refusal of the OBJ is given the row, as the sidecar's other
-    tables' refusals are.
+    The locator prefers the FSM-qualified inventory, then the legacy name,
+    then the OBJ-qualified name. Declaration tables belong to the marking
+    stage and are refused here. Without a sidecar, write the names read from
+    the saved simulation through the inventory command's writer.
     """
     try:
-        sidecar = ensure_inventory(geometry)
+        sidecar = boundaries_for_matrix(geometry)
+        if sidecar.is_file():
+            data = load_toml(sidecar, "boundaries")
+            declarations = sorted(
+                set(data) & {"import", "trailing_edges", "wake_termination", "base_regions"}
+            )
+            if declarations:
+                raise InputArtifactError(
+                    f"{sidecar} declares {', '.join(declarations)} beside a saved simulation. "
+                    f"Mark the OBJ once with pyfs-workspace geometry mark-boundaries "
+                    f"{geometry.with_suffix('.obj')} --apply --overwrite, "
+                    "then use its clean .fsm inventory. Choose apply (CLI: --apply) and "
+                    "overwrite (CLI: --overwrite) for marking."
+                )
+        else:
+            try:
+                names = boundary_names(geometry)
+            except MeshReadError:
+                names = ()
+            if names:
+                sidecar = write_inventory(geometry)
     except InputArtifactError as error:
         raise InputArtifactError(
             f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names {geometry.name}, "
@@ -605,83 +615,6 @@ def _inventory_of(geometry: Path, pol: str) -> tuple[tuple[str, ...] | None, str
     except MeshReadError:
         return None, None
     return None, ("mesh_block" if declared else None)
-
-
-def _mesh_import_of(geometry: Path, pol: str) -> MeshImport | None:
-    """Return the ``[import]`` table of the sidecar beside the geometry, if it states one (G01).
-
-    Read here, at binding, beside :func:`_inventory_of`, so a table that does
-    not hold its shape is refused with the row before any seat is spent.
-    Whether the geometry is a raw mesh, and whether the build's ``IMPORT``
-    takes the unit, is the builder's check, because both are judged per
-    build and a case built in Python meets them too.
-    """
-    sidecar = inventory_sidecar(geometry)
-    if not sidecar.is_file():
-        return None
-    try:
-        return read_mesh_import(sidecar)
-    except InputArtifactError as error:
-        raise InputArtifactError(
-            f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names {geometry.name}, "
-            f"and {error}"
-        ) from error
-
-
-def _raw_mesh_conditions_of(
-    geometry: Path,
-    pol: str,
-    mesh_import: MeshImport | None,
-    solver: SolverSettings | None = None,
-) -> RawMeshConditions | None:
-    """Return the boundary conditions the geometry's sidecar declares, a points file read (G02).
-
-    Read here, at binding, beside :func:`_mesh_import_of`, so a table that
-    does not hold its shape, a points file that cannot be read, or a point
-    that lies on no edge of the mesh is refused with the row before any
-    seat is spent. The points are checked against the mesh file in the
-    unit its ``[import]`` table states and come back in the simulation's
-    metres, which is what the builder writes for the solver.
-
-    The check is left to the builder's refusals where it cannot be made
-    here: a geometry that is not a raw mesh, a mesh with no stated unit or
-    a unit with no scale, and an import that moves or scales the body,
-    since the points name edges of the file as written. Each is refused by
-    the builder, naming what to change, and a case built in Python meets
-    the same refusals.
-    """
-    sidecar = inventory_sidecar(geometry)
-    if not sidecar.is_file():
-        return None
-    where = f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names {geometry.name}, and"
-    try:
-        declared = read_raw_mesh_conditions(sidecar)
-        declared = bind_wake_termination(declared, geometry, mesh_import, solver)
-    except InputArtifactError as error:
-        raise InputArtifactError(f"{where} {error}") from error
-    marking = None if declared is None else declared.trailing_edges
-    if (
-        declared is None
-        or marking is None
-        or marking.route != "file"
-        or (solver is not None and solver.apply_trailing_edges is False)
-    ):
-        return declared
-    if (
-        geometry.suffix.lower() not in RAW_MESH_FORMATS
-        or mesh_import is None
-        or mesh_import.moving_operations
-    ):
-        return declared
-    try:
-        length_scale(mesh_import.units, SIMULATION_LENGTH_UNIT)
-    except InputArtifactError:
-        return declared
-    try:
-        checked = matched_trailing_edge_sets(marking, geometry, mesh_import.units)
-    except InputArtifactError as error:
-        raise InputArtifactError(f"{where} {error}") from error
-    return declared.model_copy(update={"trailing_edges": checked})
 
 
 def _resolve_geometry(workspace: CampaignWorkspace, name: str, pol: str) -> Path:
@@ -1462,22 +1395,28 @@ def _bind_geometry(binding: _Binding, row: MatrixRow, update: dict[str, object])
         update["sixdof_provenance"] = sixdof.provenance()
     stem = row.variables.get(GEOMETRY_VARIABLE, "")
     if stem:
+        if fsi is None and Path(stem).suffix and Path(stem).suffix.lower() != ".fsm":
+            raise InputArtifactError(
+                f"matrix row POL {row.pol}: GEOMETRY {stem!r} must name an .fsm. "
+                "Only FSI rows retain raw meshes. Prepare this mesh with "
+                f"pyfs-workspace geometry mark-boundaries {Path(stem).with_suffix('.obj')} "
+                "--apply, then name the saved .fsm. Choose apply (CLI: --apply) for marking."
+            )
         geometry_path = _resolve_geometry(binding.workspace, stem, row.pol)
+        if fsi is not None and geometry_path.suffix.lower() != ".fsm":
+            update["geometry"] = str(geometry_path)
+            return
+        read_marking_record(geometry_path)
         update["geometry"] = str(geometry_path)
         update["inventory"], update["inventory_source"] = _inventory_of(geometry_path, row.pol)
-        mesh_import = _mesh_import_of(geometry_path, row.pol)
-        # THE GEOMETRY STAGE (FR-473, FR-476): a built body's record, and the
-        # warning of a route the stage replaces.
+        sidecar = boundaries_for_matrix(geometry_path)
+        update["boundaries_file"] = str(sidecar) if sidecar.is_file() else None
         judge_the_row_geometry(
             geometry_path,
             row.pol,
             fs_build=row.fs_build.strip() or None,
             symmetry=str(row.variables.get("SYMMETRY", "")) or None,
-            mesh_import=mesh_import,
-        )
-        update["mesh_import"] = mesh_import
-        update["raw_mesh_conditions"] = _raw_mesh_conditions_of(
-            geometry_path, row.pol, mesh_import, cast(SolverSettings, update["solver"])
+            mesh_import=None,
         )
 
 
@@ -1643,6 +1582,13 @@ def _bind_rows(binding: _Binding) -> None:
         _bind_states(binding, row, update)
         if row.workflow != LEGACY_WORKFLOW:
             update["outputs"] = row_outputs(case.model_copy(update=update), row.workflow)
-        binding.sims.append(
-            _bind_setup_ports(case.model_copy(update=update), binding.workspace.inputs_dir)
-        )
+        bound_case = case.model_copy(update=update)
+        if (
+            (bound_case.fsi is not None or bound_case.fsi_external is not None)
+            and bound_case.geometry
+            and Path(bound_case.geometry).suffix.lower() != ".fsm"
+        ):
+            from pyflightstream.workspace._mark_boundaries import _bind_fsi_marking
+
+            bound_case = _bind_fsi_marking(bound_case)
+        binding.sims.append(_bind_setup_ports(bound_case, binding.workspace.inputs_dir))

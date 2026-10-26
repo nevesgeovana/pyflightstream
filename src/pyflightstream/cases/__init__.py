@@ -714,11 +714,12 @@ class SimCase(BaseModel):
         turn it (measured on 26.124), so the case's angle of attack and
         sideslip are 0 and its builder refuses any other.
     geometry : str, optional
-        Path of the geometry or simulation file the recipe opens or
-        imports (an ``.fsm`` for OPEN, a mesh file for IMPORT); the
-        campaign loop stages
+        Path of the saved simulation the workflow opens. Matrix rows require
+        an ``.fsm``. The campaign loop stages
         it into ``inputs/`` and rewrites this field to the staged
         copy, so recipes OPEN exactly what the manifest hashed.
+    boundaries_file : str, optional
+        The selected inventory file, reported by the matrix plan.
     sweep : SweepAxis
         The sweep of this case.
     flight_condition_defaults : dict, optional
@@ -913,18 +914,15 @@ class SimCase(BaseModel):
     #: Where the boundary inventory came from: ``sidecar``, ``mesh_block``
     #: or None when the geometry declares none.
     inventory_source: str | None = None
+    #: The boundary inventory file selected by matrix binding.
+    boundaries_file: str | None = None
+    _fsi_geometry_emitter: Callable[[str, Script], None] | None = PrivateAttr(default=None)
     #: The ``[import]`` table of the sidecar beside a raw mesh (G01), bound
     #: by the workspace: the length unit the file is written in. None for a
     #: geometry whose sidecar states no such table, which is every saved
     #: simulation; the builder refuses a raw mesh without one, and a saved
     #: simulation with one.
     mesh_import: MeshImport | None = None
-    #: The ``[trailing_edges]``, ``[wake_termination]`` and ``[base_regions]``
-    #: tables of the same sidecar (G02), bound by the workspace, a file
-    #: route's points read and checked against the mesh. None for a sidecar
-    #: stating none of the three; the builder refuses a raw mesh without a
-    #: trailing edge, and a saved simulation with any of them.
-    raw_mesh_conditions: RawMeshConditions | None = None
     point: dict[str, float] = Field(default_factory=dict)
     #: The state each point of a SWEPT FLOW VARIABLE resolved to, keyed by
     #: :func:`point_state_key`. Empty on every row that sweeps an

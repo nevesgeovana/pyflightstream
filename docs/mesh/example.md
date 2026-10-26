@@ -25,15 +25,27 @@ with open("inputs/geometries/wing.obj", "w", encoding="utf-8") as obj:
     obj.write("o wing_skin\n")
     obj.writelines(f"v {x:.4f} {y:.4f} {z:.4f}\n" for x, y, z in vertices)
     obj.writelines(f"f {a + 1} {b + 1} {c + 1}\n" for a, b, c in faces.reshape(-1, 3))
+
+from pyflightstream.workspace.inputs import write_inventory
+
+sidecar = write_inventory("inputs/geometries/wing.obj")
+with sidecar.open("a", encoding="utf-8") as stream:
+    stream.write('\nfs_build = "26.124"\n[import]\nunits = "MILLIMETER"\n'
+                 '[[import.operations]]\nop = "rename"\nsurface = "wing_skin"\nto = "Wing"\n'
+                 '[trailing_edges.wing]\nfile = "wing.te.txt"\ntype = "STANDARD"\n')
+
 ```
+
+The preparation above writes the measured inventory, face counts and OBJ digest,
+then appends these declarations to `wing.obj.boundaries.toml`.
 
 **The sidecar** names the surface as the file holds it, states the unit,
 renames the surface to the name the study cites, and marks the trailing edge
 by file. The rename is emitted by position, so after it the surface is `Wing`
 whatever name the solver took from the file:
 
-```toml title="inputs/geometries/wing.boundaries.toml"
-boundaries = ["wing_skin"]
+```toml
+fs_build = "26.124"
 
 [import]
 units = "MILLIMETER"
@@ -43,7 +55,7 @@ op = "rename"
 surface = "wing_skin"
 to = "Wing"
 
-[trailing_edges]
+[trailing_edges.wing]
 file = "wing.te.txt"
 type = "STANDARD"
 ```
@@ -92,62 +104,20 @@ the file route was run on:
 ```text title="wing.fs"
 POL  | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION                    | FLIGHT_CONDITION                | SWEEP_VALUES | GEOMETRY | REF  | SET  | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-1001 |    0   |  1  | Wing     | -             | OBJ_wing_trailing_edge_by_file | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0,4.0      | wing.obj | r001 | s001 | p001  | NONE     | -              | -     | -        | 26.124   | steady   |
+1001 |    0   |  1  | Wing     | -             | OBJ_wing_trailing_edge_by_file | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0,4.0      | wing.fsm | r001 | s001 | p001  | NONE     | -              | -     | -        | 26.124   | steady   |
 ```
 
-With `inputs/executables.toml` naming your 26.124 installation, as for any
-row ([workspaces and workflows](../workspace-and-workflows.md)), plan it and run
-it from the workspace root:
+Preview the marking pass without a solver. Then apply it with a licensed
+26.124 installation and inspect the saved geometry before planning:
 
 ```text
+pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj
+pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj --apply --fs-exe PATH
 pyfs-matrix plan wing.fs
 pyfs-matrix run wing.fs
 ```
 
-The plan spends no seat. It binds the row, reads the points file and checks
-every point against the mesh, and builds each point's script; a point that
-misses the mesh, a missing unit or a missing log among the outputs stops it
-here. The script it builds for each point starts:
-
-```text
-NEW_SIMULATION
-IMPORT
-UNITS MILLIMETER
-FILE_TYPE OBJ
-FILE <the point's staged copy of wing.obj>
-CLEAR
-
-SURFACE_RENAME 1 Wing
-SET_SIMULATION_LENGTH_UNITS METER
-IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER
-<the folder the point runs in>/wing.wake_nodes.txt
-```
-
-and the node file the run writes in that folder holds the count, the
-coordinate line the solver consumes, and the eight points in metres:
-
-```text
-8
-0,0,0
-1.0,-1.75,0.0
-1.0,-1.25,0.0
-1.0,-0.75,0.0
-1.0,-0.25,0.0
-1.0,0.25,0.0
-1.0,0.75,0.0
-1.0,1.25,0.0
-1.0,1.75,0.0
-```
-
-**Read the unit once more before copying this.** Conversion was measured on 26.124 with detected edges: the millimetre OBJ matched the metre version to the print. The millimetre file route and other builds are not measured. The file route in millimetres and other builds remain unmeasured.
-none of this example's points lies on it, and the count check records each
-point `FAILED_SCRIPT` rather than letting a solve of the wrong body pass.
-Written in metres, the mesh and the points file both, the example does not
-depend on the answer.
-
-The offline suite runs this example as printed: it writes every titled block above into a temporary workspace, runs the python
-block there, plans the matrix with the command above, and renders both points
-without a solver. It fails when the scripts the package builds and the two
-blocks above differ, and when a key a sidecar block on this page writes is not
-one the sidecar's readers read, or the other way round. A runnable script of
-the same route is `docs/examples/_sources/obj_wing_trailing_edge_file.py`.
+The preview writes nothing. Until marking has produced `wing.fsm`, planning
+refuses the missing saved file and names mark-boundaries. A run opens the
+saved FSM, preserving its marks; it imports no mesh or points file. The
+offline example test exercises preparation, preview and that refusal.

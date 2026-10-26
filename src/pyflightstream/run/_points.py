@@ -105,8 +105,7 @@ from pyflightstream.run._step_exports import missing_step_warning, untranslated_
 from pyflightstream.run._wake_edge_verdict import (
     actuator_profile_verdict,
     collected_log_texts,
-    wake_edge_import_verdict,
-    with_wake_edge_verdict,
+    with_log_verdict,
 )
 from pyflightstream.script import Script
 from pyflightstream.workspace import (
@@ -309,27 +308,6 @@ def _the_local_log(
     return _LocalLog(excused=declared[0], note=_NO_LOCAL_LOG_NOTE)
 
 
-def _no_local_log_verdict(
-    expected: int | None, log_text: str | None, note: str
-) -> tuple[RunStatus, str] | None:
-    """Judge the trailing-edge count of a local run whose machine could write no log.
-
-    G02 on such a machine: the count is read from the log, and with none the
-    point is recorded FAILED_INCOMPLETE_OUTPUT naming the MACHINE as the reason
-    rather than telling the row to export a log it did declare.
-    """
-    if expected is None or log_text is not None:
-        return wake_edge_import_verdict(expected, log_text)
-    return (
-        RunStatus.FAILED_INCOMPLETE_OUTPUT,
-        f"the script imported {expected} trailing-edge points and no solver log was read "
-        f"({note}), so whether the file marked anything cannot be told: a file whose "
-        "points match no edge marks nothing and says nothing. Run this row where its log "
-        "is written, submitted from this cluster (without --local), where the scheduler's "
-        "log is collected",
-    )
-
-
 @dataclass(kw_only=True)
 class _PointJob:
     """Inputs and phase results of one ordered execution."""
@@ -518,9 +496,9 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
         # the point was run for without opening the matrix.
         "pproc": job.case.pproc_id,
         "inventory_source": job.case.inventory_source,
-        "mesh_import": None
-        if job.case.mesh_import is None
-        else job.case.mesh_import.model_dump(mode="json", exclude_none=True),
+        "mesh_import": job.case.mesh_import.model_dump(mode="json")
+        if job.case.mesh_import
+        else None,
         "motions": [dict(record) for record in job.case.motions],
         # Record reduction windows (PFS-2015.04) from a point-bearing case, where
         # the clock and blade count are resolved. The SIM-level case has no point
@@ -801,8 +779,6 @@ def _write_point_script(job: _PointJob) -> RunRecord | None:
         )
     if job.probe_points_file is not None:
         job.base["probe_points_file"] = job.probe_points_file
-    if len(job.script.wake_edge_sets) > 1:
-        job.base["wake_edge_sets"] = job.script.wake_edge_sets
     if job.script.plot_groups and isinstance(job.base.get("reductions"), dict):
         job.base["reductions"]["plot_groups"] = [dict(group) for group in job.script.plot_groups]
     # WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE, recorded
@@ -1076,20 +1052,6 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
                 # the simulation folder so a moved workspace still resolves;
                 # the collector waits on the declared outputs here.
                 "working_dir": job.work_dir.relative_to(job.sim_dir).as_posix(),
-                # G02: the points the script imports, which the collector
-                # compares with the count the solver logs.
-                **(
-                    {
-                        "wake_edge_points": job.script.wake_edge_points,
-                        **(
-                            {"wake_edge_sets": job.script.wake_edge_sets}
-                            if len(job.script.wake_edge_sets) > 1
-                            else {}
-                        ),
-                    }
-                    if job.script.wake_edge_points is not None
-                    else {}
-                ),
                 # G06: every file the point was told to write its log to,
                 # whatever its name, the output its LOG_OUTPUT names among them;
                 # the collector reads the four lines in each.
@@ -1210,26 +1172,14 @@ def _assess_point_record(job: _PointJob) -> RunRecord:
         else ""
     )
     log_text = _run_log_text(job.sim_dir, job.collected, named_log, job.result) or (printed or None)
-    status, error = with_wake_edge_verdict(
-        status,
-        assessment.error,
-        _no_local_log_verdict(job.script.wake_edge_points, log_text, job.local_log.note)
-        if job.local_log.excused and job.local_log.note
-        else wake_edge_import_verdict(
-            job.script.wake_edge_points, log_text, job.script.wake_edge_sets
-        ),
-        sets=job.script.wake_edge_sets,
-        folder=job.sim_dir,
-        collected=job.collected,
-        build=str(job.script.version),
-    )
+    error = assessment.error
     # G06. A run whose log says the solver could not use its actuator disc's
     # profile file went on to the end with a loading that is not the file's, and
     # its outputs look like any other run's; the line is the one statement of it.
     # The log the solver left is read too, where the collected log is another,
     # and so is every collected log, a log that is no residual history too; a
     # log is every file the script or LOG_OUTPUT names as one, whatever its name.
-    status, error = with_wake_edge_verdict(
+    status, error = with_log_verdict(
         status,
         error,
         actuator_profile_verdict(

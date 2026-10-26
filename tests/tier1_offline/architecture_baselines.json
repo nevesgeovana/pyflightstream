@@ -1,7 +1,7 @@
 {
  "about": "Baselines of the architecture guards G1 to G8 (AD-08, work package WP0 of 0.33.0), measured on 2026-09-30 by scripts/arch_metrics.py on the tree of rel/0-33 at 692fee7a and lowered on 2026-10-01 on the tree of rel/0-33 at f888d704 with WP4, WP5 and WP6 merged, and on 2026-10-01 on the tree of rel/0-34 with the wave 1 packages of 0.34.0 merged (RPT-123), and on 2026-10-02 on the tree of rel/0-34 with the wave 2 packages merged (RPT-124). Sizes are code lines without docstrings (the review lens). Every entry only moves down, by hand, in the commit that earns it; a stale entry fails until it is deleted. function_lines and function_limits are at-most ratchets (AD-08 G2: 'at most the recorded value'); module_code_lines, fan_out, fan_out_deferred and facade_lines click: an entry may not grow and a fall fails until the entry is lowered; baseline_sccs, same_row_cross_imports, private_test_names, monkeypatch_targets, monkeypatch_targets_by_module and one_home_allowlist are exact; facade_lines lists every package root holding anything beyond its docstring, imports, __all__ and a lazy __getattr__, and a root absent from it holds none (AD-08 G8); facade_definitions only shrinks; package_order is declared by the packages AD-12 and AD-14 order. metrics is the committed table of the numbers of the architecture metrics record that may only improve (G7). 'python scripts/arch_metrics.py check' runs the guards; 'tables' prints what the tree measures today. Release 0.40.0 final-lane recount on 2026-10-13: recorded counts refreshed on the docsR base 1c1f23f3. Per-module growth, originating lanes and remaining rule failures are recorded in the release architecture report RPT-168. Rule thresholds, import restrictions, modules_at_freeze, SCC membership, literal and facade-definition allowlists remain unchanged. Integration lane integC at 266e255a records rfixAPI, rfixR5 and rfixR6 growth in RPT-173; precise safety-check growth and coupling are re-pinned, with all thresholds and mutation witnesses retained.",
  "module_code_lines": {
-  "post/input_template.py": 1420,
+  "post/input_template.py": 1405,
   "run/matrix.py": 1104,
   "workspace/storage.py": 1384
  },
@@ -142,15 +142,9 @@
    "statements": 32,
    "positional": 1
   },
-  "cases/workflows/_geometry.py:_raw_mesh_boundary_conditions": {
-   "complexity": 12,
-   "branches": 13,
-   "statements": 33,
-   "positional": 2
-  },
   "cases/workflows/_geometry.py:_setup_ports": {
-   "complexity": 14,
-   "branches": 13,
+   "complexity": 13,
+   "branches": 12,
    "statements": 43,
    "positional": 2
   },
@@ -1010,7 +1004,7 @@
   "pyflightstream.cases.workflows._farfield": 1,
   "pyflightstream.cases.workflows._frames": 9,
   "pyflightstream.cases.workflows._freestream": 8,
-  "pyflightstream.cases.workflows._geometry": 5,
+  "pyflightstream.cases.workflows._geometry": 2,
   "pyflightstream.cases.workflows._motion": 3,
   "pyflightstream.cases.workflows._names": 1,
   "pyflightstream.cases.workflows._probes": 6,
@@ -1018,7 +1012,7 @@
   "pyflightstream.cases.workflows._rows": 6,
   "pyflightstream.cases.workflows._skeleton": 1,
   "pyflightstream.cases.workflows._solver_settings": 2,
-  "pyflightstream.cases.workflows._vocabulary": 2,
+  "pyflightstream.cases.workflows._vocabulary": 1,
   "pyflightstream.commands": 1,
   "pyflightstream.fsi.cli": 1,
   "pyflightstream.fsi.driver": 5,
@@ -1097,7 +1091,7 @@
   "pyflightstream.workspace.cli": 1,
   "pyflightstream.workspace.costs": 1,
   "pyflightstream.workspace.hpc": 1,
-  "pyflightstream.workspace.matrix": 13,
+  "pyflightstream.workspace.matrix": 12,
   "pyflightstream.workspace.naming": 1,
   "pyflightstream.workspace.sidecars": 2,
   "pyflightstream.workspace.storage": 6,
@@ -1172,7 +1166,7 @@
  "one_home_allowlist": [],
  "facade_lines": {
   "__init__.py": 9,
-  "cases/__init__.py": 954,
+  "cases/__init__.py": 952,
   "commands/__init__.py": 626,
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,

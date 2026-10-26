@@ -1,3 +1,7 @@
+mesh_sha256 = "595b7246b971bc6c4f3d3bb1b2801e99c763f83a177dabe84e2e2efd99e7973b"
+mesh_faces = 520
+boundary_faces = [520]
+fs_build = "26.124"
 # 33_BLADE_OBJ_DET: the tier-3 blade, 30_BLADE.fsm, as a raw mesh, its
 # trailing edge detected by the solver (the second route, applied because it
 # is written here). The OBJ beside this file is generated and never
@@ -15,10 +19,10 @@ op = "rename"
 surface = "BLADE_OBJ"
 to = "Blade1"
 
-[trailing_edges]
+[trailing_edges.mesh]
+type = "STANDARD"
 detect = "auto"
 
 # The saved simulation was prepared with its wake termination nodes detected
 # after its trailing edges (recipes.prepare_geometry), so the import is too.
-[wake_termination]
-detect = "auto"
+wake_termination_nodes = "auto"

@@ -38,21 +38,12 @@ def test_qsteady_advance_ratio_follows_the_block_diameter(tmp_path):
 
 
 def _wheel(tmp_path, inventory, *, aliases=None, rotor=None, operations=None):
-    from pyflightstream.cases import MeshOperation
     from tests.tier1_offline.test_goal035_qsteady_rotor import _blade_obj, _case, _with_obj
 
     kwargs = {} if rotor is None else {"rotor": rotor}
     case = _with_obj(_case(**kwargs), _blade_obj(tmp_path / "prop.obj"), inventory)
     if aliases:
         case = case.model_copy(update={"aliases": aliases})
-    if operations:
-        case = case.model_copy(
-            update={
-                "mesh_import": case.mesh_import.model_copy(
-                    update={"operations": [MeshOperation(**each) for each in operations]}
-                )
-            }
-        )
     return case
 
 

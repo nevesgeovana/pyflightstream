@@ -124,14 +124,12 @@ _MEANINGS: dict[str, str] = {
         "profile filenames. An empty selection creates no ports and clears none."
     ),
     "apply_trailing_edges": (
-        "Applies the geometry trailing-edge declaration during setup. True requires "
-        "a declaration; false skips redefinition without clearing saved trailing edges. "
-        "Unset preserves published sidecar behavior."
+        "No line of the script carries its value. Mark trailing edges once with "
+        "geometry mark-boundaries; matrix runs preserve the saved geometry."
     ),
     "apply_wake_termination": (
-        "Applies the geometry wake-termination declaration during setup. False skips "
-        "redefinition and preserves saved nodes; unset preserves published sidecar "
-        "behavior. This differs from the number of wake steps or revolutions."
+        "No line of the script carries its value. Mark wake termination once with "
+        "geometry mark-boundaries; matrix runs preserve the saved geometry."
     ),
     "apply_base_regions": (
         "Applies declared base-region detection or explicit setup operations. False "

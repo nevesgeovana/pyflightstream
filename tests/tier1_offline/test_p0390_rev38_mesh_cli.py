@@ -15,6 +15,7 @@ Every source is synthetic (tests/p0380_mesh_fixtures.py).
 from __future__ import annotations
 
 import ast
+import tomllib
 import warnings
 from pathlib import Path
 
@@ -23,7 +24,7 @@ import pytest
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.run import cli
 from pyflightstream.workspace import MeshAudit, refine_mesh
-from pyflightstream.workspace.sidecars import read_raw_mesh_conditions
+from pyflightstream.workspace.sidecars import read_trailing_edges
 from tests.p0380_mesh_fixtures import sheet_with_strips, write_source
 
 REPO = Path(__file__).resolve().parents[2]
@@ -200,7 +201,9 @@ def test_a_detect_shape_the_workflow_refuses_is_refused_by_the_refinement(tmp_pa
     assert routed in text
     sidecar.write_text(text.replace(routed, detect), encoding="utf-8")
     with pytest.raises(InputArtifactError) as workflow:
-        read_raw_mesh_conditions(sidecar)
+        read_trailing_edges(
+            sidecar, tomllib.loads(sidecar.read_text(encoding="utf-8"))["trailing_edges"]
+        )
     out = tmp_path / "out"
     with pytest.raises(InputArtifactError) as refused:
         refine_mesh(src, out_dir=out)
