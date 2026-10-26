@@ -206,7 +206,9 @@ def _p0460_runner(saved, *, fail=False):
     return run
 
 
-@pytest.mark.parametrize("failure", ["solver"])
+@pytest.mark.parametrize(
+    "failure", ["solver", "names", "groups", "edges", "termination", "bases", "promotion"]
+)
 def test_p0460_marking_failure_preserves_all_existing_outputs(tmp_path, monkeypatch, failure):
     from pyflightstream.workspace import _mark_boundaries as mark
 
@@ -304,7 +306,7 @@ def test_p0460_obj_nodes_keep_unreferenced_vertices_in_numbering(tmp_path):
     assert bound.nodes == (2,)
 
 
-@pytest.mark.parametrize("actual,expected", [("8172026", 2), ("unknown", 2)])
+@pytest.mark.parametrize("actual,expected", [("10052026", 0), ("8172026", 2), ("unknown", 2)])
 def test_p0460_cli_checks_executable_before_marking(
     tmp_path, monkeypatch, capsys, actual, expected
 ):
@@ -337,7 +339,7 @@ def test_p0460_cli_checks_executable_before_marking(
     )
     if expected == 0:
         assert calls == ["identity.txt", "wing.mark.txt"]
-        assert all(path.exists() for path in plan.outputs)
+        assert all(plan.outputs[i].exists() for i in (0, 2, 3))
     else:
         assert calls == ["identity.txt"]
         assert not any(path.exists() for path in plan.outputs)

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 import re
+import shutil
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +16,12 @@ import numpy as np
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError, PyflightstreamError
+from pyflightstream._fsm import (
+    boundary_names,
+    saved_base_regions,
+    saved_termination_count,
+    saved_trailing_edge_groups,
+)
 from pyflightstream._lengths import METRES_PER_UNIT
 from pyflightstream.cases.mesh import BoundaryDeclarations, MeshImport, WakeTerminationMarking
 from pyflightstream.commands import CommandRegistry, Status
@@ -32,6 +40,7 @@ from pyflightstream.workspace.sidecars import (
 from pyflightstream.workspace.wake_edges import (
     matched_trailing_edge_sets,
     matched_wake_termination_nodes,
+    saved_wake_edge_verdict,
 )
 
 
@@ -484,6 +493,60 @@ def refuse_mark_boundaries(plan: BoundaryMarkingPlan, *, overwrite: bool) -> Non
             raise InputArtifactError(f"{name} changed; run geometry mark-boundaries again")
 
 
+def _read_back(plan: BoundaryMarkingPlan, saved: Path) -> dict[str, Any]:
+    assert plan.declarations.fs_build is not None
+    if boundary_names(saved) != plan.names:
+        raise BoundaryMarkingError(f"{saved}: saved boundary names differ from {plan.names}")
+    verdict = saved_wake_edge_verdict(
+        plan.sets, saved.parent, [saved.name], plan.declarations.fs_build
+    )
+    if verdict is not None:
+        raise BoundaryMarkingError(verdict[1])
+    groups = saved_trailing_edge_groups(saved)
+    expected = len(plan.declarations.trailing_edges) + len(plan.declarations.base_regions)
+    if len(groups) != expected:
+        raise BoundaryMarkingError(
+            f"{saved}: {len(groups)} trailing-edge groups, expected {expected}"
+        )
+    termination = saved_termination_count(saved)
+    declared = any(entry.wake_termination_nodes for entry in plan.declarations.trailing_edges)
+    required = len({node for values in plan.nodes.values() for node in values})
+    if declared and termination < max(1, required):
+        raise BoundaryMarkingError(
+            f"{saved}: {termination} termination nodes, expected at least {max(1, required)}"
+        )
+    bases = saved_base_regions(saved)
+    expected_bases = tuple(
+        (r.family, r.cp, {"USER": 0, "EMPIRICAL": 1, "AXISYMMETRIC": 2}[r.model])
+        for r in plan.declarations.base_regions
+    )
+    if len(bases) != len(expected_bases) or any(
+        actual[0] != expected[0]
+        or actual[2] != expected[2]
+        or not math.isclose(actual[1], expected[1], rel_tol=1e-6, abs_tol=1e-9)
+        for actual, expected in zip(bases, expected_bases, strict=False)
+    ):
+        raise BoundaryMarkingError(f"{saved}: saved base regions differ from {expected_bases}")
+    return {
+        "boundaries": plan.names,
+        "boundary_faces": plan.faces,
+        "groups": groups,
+        "termination_nodes": termination,
+        "base_regions": bases,
+        "entries": [
+            dict(
+                label=entry.label,
+                type=entry.marking.edge_type,
+                group=groups[index],
+                termination=entry.wake_termination_nodes,
+                explicit_nodes=plan.nodes.get(entry.label, ()),
+            )
+            for index, entry in enumerate(plan.declarations.trailing_edges)
+        ],
+        "steps": plan.steps,
+    }
+
+
 def apply_mark_boundaries(
     plan: BoundaryMarkingPlan,
     *,
@@ -491,7 +554,7 @@ def apply_mark_boundaries(
     overwrite: bool = False,
     package_version: str = "unknown",
 ) -> dict[str, Any]:
-    """Run a gated marking pass; leave successful output staged for saved-state admission.
+    """Run once and admit all five outputs only after saved-state checks succeed.
 
     Parameters
     ----------
@@ -535,6 +598,44 @@ def apply_mark_boundaries(
             f"{outcome.executable}: saved pass did not report the requested build "
             f"{plan.declarations.fs_build}; nothing promoted; inspect {plan.work}"
         )
-    raise BoundaryMarkingError(
-        "saved-state publication is not available in this implementation step"
-    )
+    saved = plan.work / plan.outputs[0].name
+    try:
+        summary = _read_back(plan, saved)
+        refuse_mark_boundaries(plan, overwrite=overwrite)
+    except (OSError, ValueError, PyflightstreamError) as error:
+        raise BoundaryMarkingError(
+            f"read-back failed: {error}; nothing promoted; inspect {plan.work}"
+        ) from error
+    record = {"read_back": summary}
+    _promote(plan)
+    return record
+
+
+def _promote(plan: BoundaryMarkingPlan) -> None:
+    """Back up destinations before replacing them, rolling back a failed promotion."""
+    backups: dict[Path, Path | None] = {}
+    promoted: list[Path] = []
+    with tempfile.TemporaryDirectory(prefix="promote-", dir=plan.work) as directory:
+        try:
+            for index, destination in enumerate(
+                (plan.outputs[0], plan.outputs[2], plan.outputs[3])
+            ):
+                backup = Path(directory) / str(index) if destination.exists() else None
+                if backup is not None:
+                    shutil.copyfile(destination, backup)
+                backups[destination] = backup
+            for destination in (plan.outputs[0], plan.outputs[2], plan.outputs[3]):
+                temporary = Path(directory) / (destination.name + ".new")
+                shutil.copyfile(plan.work / destination.name, temporary)
+                temporary.replace(destination)
+                promoted.append(destination)
+        except OSError as error:
+            for destination in reversed(promoted):
+                backup = backups[destination]
+                if backup is None:
+                    destination.unlink()
+                else:
+                    backup.replace(destination)
+            raise BoundaryMarkingError(
+                f"promotion failed; prior outputs restored: {error}"
+            ) from error

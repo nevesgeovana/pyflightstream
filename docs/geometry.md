@@ -410,6 +410,11 @@ declared build. Apply checks the executable with a log-only identity pass before
 the marking pass. Existing FSM output requires `--overwrite`. Exit 2 names an
 input, evidence or executable refusal; exit 3 names an execution failure.
 
+Saved names, edge points and groups, termination counts and base records
+must agree before publication. Failed attempts retain their work folder and
+preserve previous products. Replacement failures roll back; this does not
+guarantee recovery from power loss.
+
 ## The other geometry verbs
 
 `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate` take
