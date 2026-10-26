@@ -15,6 +15,7 @@ COMMANDS = (
     "CREATE_NEW_BASE_REGION",
     "SET_BASE_REGION_CP",
     "SET_BASE_REGION_TRAILING_EDGES",
+    "SURFACE_COMBINE",
 )
 
 
@@ -107,6 +108,24 @@ def test_p0460_base_rim_requires_all_four_edges_and_preserved_region():
     assert m._verdict(m._RIM, before, before, before) is False
     assert m._verdict(m._RIM, before, replace(after, bases=()), before) is False
     assert m._verdict(m._RIM, before, replace(after, edges=initial.edges), before) is False
+
+
+def test_p0460_combine_requires_lowest_name_in_both_orders():
+    m, before = _states()
+    after = replace(before, names=("Body",))
+    wrong = replace(before, names=("Rim",))
+    assert m._verdict(m._COMBINE, before, after, before, after) is True
+    assert m._verdict(m._COMBINE, before, wrong, before, after) is False
+    assert m._verdict(m._COMBINE, before, after, before, wrong) is False
+    assert m._verdict(m._COMBINE, before, after, before, None) is None
+
+
+def test_p0460_combine_scripts_run_both_list_orders_from_same_save(tmp_path):
+    generate_probe_script(PROBE_SPECS["SURFACE_COMBINE"], "26.125", tmp_path)
+    for name, order in (("forward", "1,2"), ("reverse", "2,1")):
+        script = (tmp_path / f"{name}.txt").read_text()
+        assert "before.fsm" in script
+        assert f"SURFACE_COMBINE 2\n{order}" in script
 
 
 @pytest.mark.parametrize(
