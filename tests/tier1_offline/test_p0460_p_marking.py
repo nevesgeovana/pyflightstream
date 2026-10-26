@@ -42,7 +42,7 @@ def test_p0460_scripts_measure_initialization_and_control(tmp_path, command, ver
         prepare = (tmp_path / "prepare.txt").read_text()
         assert prepare.index("INITIALIZE_SOLVER\n") < prepare.index("control.fsm")
     else:
-        assert "noinit_" not in text
+        assert not (tmp_path / "noinit_prepare.txt").exists()
 
 
 def _states():
@@ -135,6 +135,44 @@ def test_p0460_combine_scripts_run_both_list_orders_from_same_save(tmp_path):
         script = (tmp_path / f"{name}.txt").read_text()
         assert "before.fsm" in script
         assert f"SURFACE_COMBINE 2\n{order}" in script
+
+
+@pytest.mark.parametrize("survives,same_vertex", [(True, True), (False, True), (True, False)])
+def test_p0460_m3_reports_record_and_vertex_independently(
+    tmp_path, monkeypatch, survives, same_vertex
+):
+    m, initial = _states()
+    before = replace(initial, termination=1)
+    after = replace(before, termination=int(survives), names=("Body",))
+    vertices = list(before.vertices)
+    vertices[6] = (2.0, 1.0, 1.25)
+    reference = replace(before, vertices=tuple(vertices))
+    moved = replace(after, vertices=tuple(vertices)) if same_vertex else after
+    states = dict(
+        zip(
+            ("before", "control", "after", "reference_moved", "moved"),
+            (before, before, after, reference, moved),
+            strict=True,
+        )
+    )
+    monkeypatch.setattr(m, "_state", lambda path: states[path.stem])
+    reading = m._m3_read(tmp_path, "")
+    assert reading["record_survives"] is survives
+    assert reading["same_vertex"] is same_vertex
+    # M3's answer cannot affect the separate combine promotion criterion.
+    assert m._verdict(m._COMBINE, initial, after, initial, after) is True
+
+
+def test_p0460_m3_selects_and_moves_before_and_after_combine(tmp_path):
+    generate_probe_script(PROBE_SPECS["SURFACE_COMBINE"], "26.124", tmp_path)
+    for prefix in ("m3_init_", "m3_noinit_"):
+        assert "MARK_WAKE_TERMINATION_NODES" in (tmp_path / f"{prefix}mark.txt").read_text()
+        for name in ("reference_move", "move"):
+            text = (tmp_path / f"{prefix}{name}.txt").read_text()
+            assert "SELECT_MESH_NODE 7" in text
+            assert "TRANSFORM_SELECTED_NODES 1 TRANSLATION 0.0 0.0 0.25" in text
+        prepared = (tmp_path / f"{prefix}prepare.txt").read_text()
+        assert ("INITIALIZE_SOLVER" in prepared) == (prefix == "m3_init_")
 
 
 @pytest.mark.parametrize(

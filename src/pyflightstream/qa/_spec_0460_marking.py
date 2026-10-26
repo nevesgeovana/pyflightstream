@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,7 +20,7 @@ from pathlib import Path
 from pyflightstream._fsm import MeshReadError, _mesh_block, boundary_names
 from pyflightstream.qa._spec_kit import _spec
 from pyflightstream.qa.probes import ProbeArtifacts, emit_solver_setup
-from pyflightstream.script import Script
+from pyflightstream.script import CommandArgumentError, Script
 from pyflightstream.script.helpers import (
     detect_every_boundary,
     initialize_solver,
@@ -191,7 +192,7 @@ def _import(script: Script, workdir: Path, second: bool = False) -> None:
 
 def _prepare(script: Script, workdir: Path, command: str, initialized: bool, prefix: str) -> None:
     if script.version.canonical not in {"26.124", "26.125"}:
-        raise ValueError("marking instruments are bounded to 26.124 and 26.125")
+        raise CommandArgumentError("marking instruments are bounded to 26.124 and 26.125")
     _geometry(script, workdir)
     if command in {_MARK, _AUTO}:
         detect_every_boundary(script, "trailing_edges")
@@ -332,6 +333,10 @@ def _register(command: str) -> None:
                 lambda inner: _target(inner, workdir, command, "noinit_"),
             )
             script.emit("SAVEAS", workdir / "noinit_after.fsm")
+        if command == _COMBINE:
+            if script.version.canonical == "26.124":
+                _m3(script, workdir, True, "m3_init_")
+            _m3(script, workdir, False, "m3_noinit_")
 
     def effect(artifacts: ProbeArtifacts) -> bool | None:
         value = _reading(artifacts.workdir, command)["effect"]
@@ -346,6 +351,10 @@ def _register(command: str) -> None:
         }
         if initialized == "True":
             readings["without_INITIALIZE_SOLVER"] = _reading(artifacts.workdir, command, "noinit_")
+        if command == _COMBINE:
+            readings["M3_without_INITIALIZE_SOLVER"] = _m3_read(artifacts.workdir, "m3_noinit_")
+            if initialized == "True":
+                readings["M3_with_INITIALIZE_SOLVER"] = _m3_read(artifacts.workdir, "m3_init_")
         return json.dumps(readings, sort_keys=True)
 
     _spec(
@@ -359,6 +368,69 @@ def _register(command: str) -> None:
         effect_note="saved marking state against an unchanged control; 26.124 primary initialized, "
         "with an independent no-initialization measurement; 26.125 without INITIALIZE_SOLVER",
     )
+
+
+def _m3(script: Script, workdir: Path, initialized: bool, prefix: str) -> None:
+    """Measure marking across a combine, plus SELECT's vertex by an independent move."""
+    _invoke(
+        script,
+        workdir,
+        prefix + "prepare",
+        lambda inner: _prepare(inner, workdir, _MARK, initialized, prefix),
+    )
+    _invoke(script, workdir, prefix + "mark", lambda inner: _target(inner, workdir, _MARK))
+    script.emit("SAVEAS", workdir / f"{prefix}before.fsm")
+    script.emit("SAVEAS", workdir / f"{prefix}control.fsm")
+
+    def move(inner: Script) -> None:
+        inner.emit("SELECT_MESH_NODE", 7)
+        inner.emit("TRANSFORM_SELECTED_NODES", 1, "TRANSLATION", 0.0, 0.0, 0.25)
+
+    _invoke(script, workdir, prefix + "reference_move", move)
+    script.emit("SAVEAS", workdir / f"{prefix}reference_moved.fsm")
+
+    def combine(inner: Script) -> None:
+        inner.emit("OPEN", workdir / f"{prefix}before.fsm")
+        inner.declare_existing(boundaries=2)
+        inner.emit(_COMBINE, 2, [2, 1])
+
+    _invoke(script, workdir, prefix + "combine", combine)
+    script.emit("SAVEAS", workdir / f"{prefix}after.fsm")
+    _invoke(script, workdir, prefix + "move", move)
+    script.emit("SAVEAS", workdir / f"{prefix}moved.fsm")
+
+
+def _m3_read(workdir: Path, prefix: str) -> dict[str, object]:
+    """Report survival and actual vertex movement; never feed this into promotion."""
+    states = [
+        _state(workdir / f"{prefix}{name}.fsm")
+        for name in ("before", "control", "after", "reference_moved", "moved")
+    ]
+    if any(state is None for state in states):
+        return {"record_survives": None, "same_vertex": None}
+    before, control, after, reference, moved = states
+    assert before is not None and after is not None and reference is not None and moved is not None
+    if before != control or not before.termination or after.names != ("Body",):
+        return {"record_survives": None, "same_vertex": None}
+    original = Counter(before.vertices)
+    combined = Counter(after.vertices)
+    expected = original.copy()
+    expected[_POINTS[6]] -= 1
+    expected[(2.0, 1.0, 1.25)] += 1
+    same = (
+        original == combined
+        and Counter(reference.vertices) == expected
+        and Counter(moved.vertices) == expected
+    )
+    return {
+        "record_survives": after.termination == before.termination,
+        "same_vertex": same,
+        "termination_counts": [before.termination, after.termination],
+        "reference_removed": list((original - Counter(reference.vertices)).elements()),
+        "reference_added": list((Counter(reference.vertices) - original).elements()),
+        "combined_removed": list((combined - Counter(moved.vertices)).elements()),
+        "combined_added": list((Counter(moved.vertices) - combined).elements()),
+    }
 
 
 def _invoke(script: Script, workdir: Path, name: str, build: Callable[[Script], None]) -> None:
