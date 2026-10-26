@@ -21,6 +21,41 @@ COMMANDS = (
 )
 
 
+@pytest.mark.parametrize("version", ["26.124", "26.125"])
+def test_p0460_auto_prepares_wing_body_junction(tmp_path, version):
+    generate_probe_script(PROBE_SPECS[COMMANDS[1]], version, tmp_path)
+    prefixes = ("", "noinit_") if version == "26.124" else ("",)
+    for prefix in prefixes:
+        prepare = (tmp_path / f"{prefix}prepare.txt").read_text()
+        assert "DETECT_TRAILING_EDGES_BY_SURFACE\nSURFACES 1\n1\n" in prepare
+        assert "AUTO_DETECT_TRAILING_EDGES" not in prepare
+        assert COMMANDS[1] not in prepare
+        assert prepare.index("DETECT_TRAILING_EDGES_BY_SURFACE") < prepare.index("control.fsm")
+        assert COMMANDS[1] in (tmp_path / f"{prefix}target.txt").read_text()
+    vertices, groups = [], {}
+    for row in (tmp_path / "marking.obj").read_text().splitlines():
+        kind, *values = row.split()
+        if kind == "v":
+            vertices.append(tuple(map(float, values)))
+        elif kind == "g":
+            faces = groups.setdefault(values[0], [])
+        elif kind == "f":
+            faces.append(tuple(int(value) - 1 for value in values))
+    assert list(groups) == ["Wing", "Body"]
+    root = vertices.index((2.0, 1.0, 0.0))
+    tip = vertices.index((2.0, 3.0, 0.0))
+    assert sum(root in face and tip in face for face in groups["Wing"]) == 2
+    assert any(root in face for face in groups["Body"])
+    assert all(tip not in face for face in groups["Body"])
+    # A conformal, closed skin: every edge has two oppositely wound neighbours.
+    edges = {}
+    for faces in groups.values():
+        for a, b, c in faces:
+            for start, end in ((a, b), (b, c), (c, a)):
+                edges.setdefault(tuple(sorted((start, end))), []).append((start, end))
+    assert all(len(pair) == 2 and pair[0] == pair[1][::-1] for pair in edges.values())
+
+
 @pytest.mark.parametrize("command", COMMANDS)
 def test_p0460_saved_marking_registered(command):
     spec = PROBE_SPECS.get(command)
@@ -173,13 +208,20 @@ def test_p0460_m3_reports_record_and_vertex_independently(tmp_path, saved, survi
 
 
 @pytest.mark.parametrize("command", COMMANDS[:2])
-def test_p0460_auto_and_mark_observe_the_same_record(tmp_path, saved, command):
+@pytest.mark.parametrize("flag", [2, 3])
+def test_p0460_auto_and_mark_observe_the_same_record(tmp_path, saved, command, flag):
     # AUTO's captured run has no record. Use MARK's measured record to exercise
     # AUTO's positive case without misrepresenting that captured outcome.
     saved(COMMANDS[0])
+    path = tmp_path / "after.fsm"
+    path.write_text(
+        path.read_text().replace("5,\n3,\n1,\n$MESH_END$", f"5,\n{flag},\n1,\n$MESH_END$")
+    )
     spec = PROBE_SPECS[command]
     artifacts = SimpleNamespace(workdir=tmp_path)
     assert spec.assert_effect(artifacts) is True
+    reading = json.loads(spec.observe(artifacts))["primary"]
+    assert [state["termination"] for state in reading["states"]] == [0, 1, 0]
 
 
 @pytest.mark.parametrize("mutation", ["one_group", "wrong_type", "lost_first", "lost_group"])

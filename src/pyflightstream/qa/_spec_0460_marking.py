@@ -1,6 +1,7 @@
 """Saved boundary-marking measurements for 26.124 and 26.125 (PFS-2149.01).
 
-Pipeline role: register controlled probes, using a tiny two-family blunt box.
+Pipeline role: register controlled probes, using synthetic two-surface meshes.
+AUTO uses a sharp wing stub joined to a body; other probes use a blunt box.
 The readers accept only the WTN4 and BASE measured layouts. Missing or unknown
 layouts are unobservable. No convergence, log message or whole-file difference
 can verify these commands. On 26.124 the primary trial is initialized and an
@@ -166,14 +167,44 @@ def _state(path: Path) -> _State | None:
         return None
 
 
-def _geometry(script: Script, workdir: Path) -> None:
+def _wing_body() -> list[str]:
+    """Build a closed wing/body skin sharing the trailing-edge root (2, 1, 0).
+
+    Two diamond sections form a sharp, untwisted wing along +Y. The body
+    has a matching root opening, so its surface meets the wing without
+    overlapping faces or a tolerance-dependent gap. Surface 1 is the wing.
+    """
+    section = ((0.0, 0.0), (0.5, -0.2), (2.0, 0.0), (0.5, 0.2))
+    outer = ((-1.0, 0.0), (0.5, -1.0), (3.0, 0.0), (0.5, 1.0))
+    points = [
+        (x, y, z)
+        for ring, y in ((section, 1), (section, 3), (outer, 1), (outer, -1))
+        for x, z in ring
+    ]
+    wing: list[tuple[int, int, int]] = []
+    body: list[tuple[int, int, int]] = []
+    for i in range(4):
+        a, b = i + 1, (i + 1) % 4 + 1
+        wing.extend(((a, a + 4, b + 4), (a, b + 4, b)))
+        body.extend(((a, b, b + 8), (a, b + 8, a + 8)))
+        body.extend(((a + 8, b + 8, b + 12), (a + 8, b + 12, a + 12)))
+    wing.extend(((5, 7, 6), (5, 8, 7)))
+    body.extend(((13, 14, 15), (13, 15, 16)))
+    lines = ["v " + " ".join(map(str, point)) for point in points]
+    for name, faces in (("Wing", wing), ("Body", body)):
+        lines.append("g " + name)
+        lines.extend("f " + " ".join(map(str, face)) for face in faces)
+    return lines
+
+
+def _geometry(script: Script, workdir: Path, *, wing_body: bool = False) -> None:
     path = workdir / "marking.obj"
     lines = ["v " + " ".join(map(str, point)) for point in _POINTS]
     for i, face in enumerate(_FACES):
         if i in (0, 10):
             lines.append("g " + ("Body" if i == 0 else "Rim"))
         lines.append("f " + " ".join(map(str, face)))
-    path.write_text("\n".join(lines) + "\n", encoding="ascii")
+    path.write_text("\n".join(_wing_body() if wing_body else lines) + "\n", encoding="ascii")
     script.emit("NEW_SIMULATION")
     script.emit("IMPORT", "METER", "OBJ", path, clear=True)
     script.declare_existing(boundaries=2)
@@ -195,8 +226,10 @@ def _import(script: Script, workdir: Path, second: bool = False) -> None:
 def _prepare(script: Script, workdir: Path, command: str, initialized: bool, prefix: str) -> None:
     if script.version.canonical not in {"26.124", "26.125"}:
         raise CommandArgumentError("marking instruments are bounded to 26.124 and 26.125")
-    _geometry(script, workdir)
-    if command in {_MARK, _AUTO}:
+    _geometry(script, workdir, wing_body=command == _AUTO)
+    if command == _AUTO:
+        script.emit("DETECT_TRAILING_EDGES_BY_SURFACE", surfaces=1, surface_indices=[1])
+    if command == _MARK:
         detect_every_boundary(script, "trailing_edges")
     if command == _IMPORT:
         _import(script, workdir)
