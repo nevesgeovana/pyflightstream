@@ -85,6 +85,39 @@ def test_p0460_mark_boundaries_preview_writes_nothing(tmp_path, capsys):
     assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
 
 
+@pytest.mark.parametrize("route", ["preview", "fsi"])
+def test_p0460_la02_marking_inputs_and_node_routes_are_computed_once(tmp_path, route):
+    from unittest.mock import patch
+
+    from pyflightstream.workspace import _mark_boundaries as mark
+    from tests.tier1_offline.test_workflows import steady_case
+
+    mesh = _p0460_marking_input(
+        tmp_path,
+        extra='[[import.operations]]\nop="rename"\nsurface="wing"\nto="Renamed"\n'
+        '[trailing_edges.edge]\ndetect={surfaces=["wing"]}\ntype="STANDARD"\n',
+    )
+    registry = _p0460_verified_registry()
+    case = mark._bind_fsi_marking(steady_case().model_copy(update={"geometry": str(mesh)}))
+    for _ in range(2):
+        with (
+            patch.object(mark, "_marking_inputs", wraps=mark._marking_inputs) as inputs,
+            patch.object(mark, "_node_routes", wraps=mark._node_routes) as routes,
+        ):
+            if route == "preview":
+                preview = mark.plan_mark_boundaries(mesh, registry=registry)
+                assert preview.names == ("Renamed",)
+                text = preview.script
+            else:
+                script = Script("26.125", registry=registry)
+                case._fsi_geometry_emitter(str(mesh), script)
+                text = script.render()
+            assert inputs.call_count == 1
+            assert routes.call_count == 1
+            assert text.count("SURFACE_RENAME") == 1
+            assert "DETECT_TRAILING_EDGES_BY_SURFACE" in text
+
+
 def _p0460_verified_registry(*, documented=()):
     from pyflightstream.commands import CommandRegistry, Status
 

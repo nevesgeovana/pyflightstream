@@ -340,8 +340,16 @@ def plan_mark_boundaries(
     BoundaryMarkingPlan
         Preview, input digests and staging destinations.
     """
-    source, sidecar, declarations, spec, names, faces = _marking_inputs(mesh)
-    _node_routes(sidecar, declarations, spec)
+    inputs = _marking_inputs(mesh)
+    _, sidecar, declarations, spec, _, _ = inputs
+    routes = _node_routes(sidecar, declarations, spec)
+    return _plan_mark_boundaries(inputs, routes, registry)
+
+
+def _plan_mark_boundaries(inputs, routes, registry):
+    """Render a preview from one validated input snapshot and node-route resolution."""
+    source, sidecar, declarations, spec, names, faces = inputs
+    names, faces = list(names), list(faces)
     work = _work_path(source)
     script = Script.for_marking(declarations.fs_build, registry)
     script.working_dir = str(work)
@@ -355,6 +363,7 @@ def plan_mark_boundaries(
         names=names,
         faces=faces,
         work=work,
+        routes=routes,
     )
     emit = script.emit
     emit("SAVEAS", str(work / source.with_suffix(".fsm").name))
@@ -651,9 +660,9 @@ def _promote(plan: BoundaryMarkingPlan) -> None:
             ) from error
 
 
-def _emit_marking(script, source, sidecar, *, declarations, spec, names, faces, work):
+def _emit_marking(script, source, sidecar, *, declarations, spec, names, faces, work, routes):
     """Emit the shared D3 import and marking pass, also used at each FSI import."""
-    termination, explicit = _node_routes(sidecar, declarations, spec)
+    termination, explicit = routes
     pending: dict[str, bytes] = {}
     sets: list[dict[str, Any]] = []
     nodes: dict[str, tuple[int, ...]] = {}
@@ -728,7 +737,7 @@ def _bind_fsi_marking(case):
     """Bind strict D2 inputs and inject D3 emission without a reverse layer import."""
     from functools import partial
 
-    source, sidecar, declarations, spec, names, faces = _marking_inputs(case.geometry)
+    source, sidecar, declarations, spec, names, _ = _marking_inputs(case.geometry)
     _node_routes(sidecar, declarations, spec)
     case = case.model_copy(
         update={
@@ -744,11 +753,13 @@ def _bind_fsi_marking(case):
 
 def _emit_fsi_marking(source, imported_mesh, script):
     """Reload declarations at each import and use the planner's verified command gate."""
-    source, sidecar, declarations, spec, names, faces = _marking_inputs(source)
+    inputs = _marking_inputs(source)
+    source, sidecar, declarations, spec, names, faces = inputs
+    routes = _node_routes(sidecar, declarations, spec)
     if resolve(declarations.fs_build) != script.version:
         raise InputArtifactError(f"{sidecar}: FSI fs_build must match the row build")
     # The marking phase is scoped to the import; the ordinary solver phase guard resumes.
-    preview = plan_mark_boundaries(source, registry=script.registry)
+    preview = _plan_mark_boundaries(inputs, routes, script.registry)
     if preview.awaiting_evidence:
         raise InputArtifactError(
             f"{sidecar}: FSI marking awaits VERIFIED evidence: {preview.awaiting_evidence}"
@@ -766,4 +777,5 @@ def _emit_fsi_marking(source, imported_mesh, script):
             names=names,
             faces=faces,
             work=Path("."),
+            routes=routes,
         )
