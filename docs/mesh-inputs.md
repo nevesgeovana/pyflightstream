@@ -150,10 +150,11 @@ For an existing declared OBJ and a configured callback:
 
 <!-- skip: next -->
 ```python
+import pyflightstream
 from pyflightstream.workspace import apply_mark_boundaries, plan_mark_boundaries
 
 plan = plan_mark_boundaries("inputs/geometries/wing.obj")
-record = apply_mark_boundaries(plan, runner=runner, package_version="0.46.0")
+record = apply_mark_boundaries(plan, runner=runner, package_version=pyflightstream.__version__)
 ```
 
 The five promoted outputs are the FSM, its `.fsm.boundaries.toml` inventory,
