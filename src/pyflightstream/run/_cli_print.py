@@ -24,6 +24,7 @@ from pyflightstream.run import (
 from pyflightstream.run._alias import alias_lines, planned_by_sim
 from pyflightstream.run._batch_plan import grouping_table_lines
 from pyflightstream.run._continuation_frame import continuation_block
+from pyflightstream.run._plan_report import boundaries_lines
 
 if TYPE_CHECKING:
     from pyflightstream.run.collect import CollectReport
@@ -345,6 +346,7 @@ def _plan_blocks(
     return [
         ("Cases", cases),
         ("Point aliases", _alias_block(plan, rows)),
+        ("Boundary inventories", boundaries_lines(plan.points)),
         _blocked_block(plan),
         ("Continuations (RESTART)", continuation_block(plan.points)),
         ("Rotor Mach numbers", _rotor_mach_block(plan)),

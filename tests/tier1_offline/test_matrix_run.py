@@ -117,7 +117,7 @@ def test_p0460_matrix_refuses_every_raw_geometry(tmp_path, suffix):
 
 
 @pytest.mark.parametrize("choice", [0, 1, 2], ids=lambda n: f"P0460-SIDECAR-{n}")
-def test_p0460_matrix_names_the_first_sidecar_in_owner_order(tmp_path, choice):
+def test_p0460_matrix_names_the_first_sidecar_in_owner_order(tmp_path, choice, capsys):
     workspace, matrix, saved = _p0460_matrix(tmp_path)
     names = ["wing.fsm.boundaries.toml", "wing.boundaries.toml", "wing.obj.boundaries.toml"]
     for index, name in enumerate(names[choice:], start=choice):
@@ -128,6 +128,14 @@ def test_p0460_matrix_names_the_first_sidecar_in_owner_order(tmp_path, choice):
     plan = _p0460_plan(matrix, workspace)
     assert all(point.status is PlanStatus.READY for point in plan.points)
     assert names[choice] in plan.summary()
+    from pyflightstream.run._cli_print import _print_plan
+
+    capsys.readouterr()
+    _print_plan(plan, str(matrix), [], cost=False)
+    output = capsys.readouterr().out
+    assert output.count(f"POL {plan.points[0].sim_id}: boundaries read from ") == 1
+    assert str(saved.parent / names[choice]) in output
+    assert not any(name in output for name in names[choice + 1 :])
 
 
 @pytest.mark.parametrize(

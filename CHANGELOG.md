@@ -25,6 +25,9 @@ FlightStream versions.
 
 ### Fixed
 
+- `pyfs-matrix plan` names the selected boundaries inventory once per row
+  in its command-line output, including supported fallback filenames.
+
 - `mark-boundaries` accepts zero wake-termination nodes from automatic detection,
   warns when none are marked, and records the count; explicit nodes retain their minimum.
 

@@ -6419,6 +6419,11 @@
     },
     {
       "source": "pyflightstream.post.farfield_fields",
+      "target": "pyflightstream.cases.farfield_inputs",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_fields",
       "target": "pyflightstream.farfield",
       "kind": "module"
     },
@@ -9809,6 +9814,11 @@
     },
     {
       "source": "pyflightstream.run._cli_print",
+      "target": "pyflightstream.run._plan_report",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_print",
       "target": "pyflightstream.run.collect",
       "kind": "typing"
     },
@@ -12925,6 +12935,11 @@
     {
       "source": "pyflightstream.workspace._refine._audit",
       "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._audit",
+      "target": "pyflightstream.workspace.sidecars",
       "kind": "module"
     },
     {
