@@ -440,7 +440,7 @@ class BoundaryBaseRegion(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
     family: str
-    model: str = "EMPIRICAL"
+    model: Literal["EMPIRICAL", "AXISYMMETRIC", "USER", "CUSTOM"] = "EMPIRICAL"
     cp: float = -0.2
     trailing_edges: TrailingEdgeMarking | Literal["auto"]
     merge_into: str | None = None

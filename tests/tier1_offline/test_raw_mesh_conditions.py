@@ -111,6 +111,7 @@ def test_p0460_inventory_uses_mesh_kind_and_keeps_declarations(tmp_path):
         '[trailing_edges.x]\ndetect = "auto"\ntype = "RELAXED"',
         '[trailing_edges]\nnone = true\n[trailing_edges.x]\ndetect = "auto"\ntype = "STANDARD"',
         '[base_regions.absent]\ntrailing_edges = "auto"',
+        '[base_regions.rim]\ntrailing_edges = "auto"\nmodel = "UNKNOWN"',
         '[base_regions.rim]\ntrailing_edges = "auto"\nmerge_into = "rim"',
         '[base_regions.rim]\ntrailing_edges = "auto"\nmerge_into = "wing"\n'
         '[base_regions.wing]\ntrailing_edges = "auto"\nmerge_into = "rim"',
@@ -128,7 +129,7 @@ def test_p0460_named_declarations_refuse_invalid_combinations(tmp_path, body):
 @pytest.mark.parametrize(
     ("body", "remedy"),
     [
-        ('[trailing_edges]\nfile = "wing.te.txt"\ntype = "STANDARD"', "trailing_edges.wing.te"),
+        ('[trailing_edges]\nfile = "wing.te.txt"\ntype = "STANDARD"', 'trailing_edges."wing.te"'),
         ('[wake_termination]\ndetect = "auto"', "wake_termination_nodes"),
         ('[base_regions]\ndetect = "auto"', "base_regions.<family>"),
         ('[trailing_edges.wing]\ndetect = "auto"\ntype = "STANDARD"', "fs_build"),

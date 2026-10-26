@@ -189,7 +189,7 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
         an OBJ whose groups cannot be read (:func:`obj_boundary_names`).
     """
     path = Path(geometry)
-    kind = "obj" if path.suffix.lower() == OBJ_SUFFIX else "fsm"
+    kind: Literal["obj", "fsm"] = "obj" if path.suffix.lower() == OBJ_SUFFIX else "fsm"
     sidecar = inventory_sidecar(path, kind)
     if not path.is_file():
         raise InputArtifactError(
@@ -1034,15 +1034,43 @@ def read_boundary_declarations(sidecar: str | Path):
     InputArtifactError
         Invalid declarations, unknown families or obsolete unnamed tables.
     """
-    from pyflightstream.cases.mesh import (
-        BoundaryBaseRegion,
-        BoundaryDeclarations,
-        BoundaryTrailingEdge,
-    )
+    from pyflightstream.cases.mesh import BoundaryDeclarations
     from pyflightstream.versions import resolve
 
     path = Path(sidecar)
     data = _sidecar_data(path)
+    trailing, bases, none = _named_boundary_tables(path, data)
+    build = data.get("fs_build")
+    if (trailing or bases) and not build:
+        raise InputArtifactError(f'{path}: declarations require fs_build = "26.125"')
+    try:
+        if build is not None:
+            if not isinstance(build, str):
+                raise ValueError("fs_build must be a string")
+            build = resolve(build).canonical
+        entries = (
+            ()
+            if none
+            else tuple(
+                _named_trailing_entry(path, label, table) for label, table in trailing.items()
+            )
+        )
+        families = read_inventory(path)
+        regions = tuple(
+            _named_base_entry(path, family, table, families) for family, table in bases.items()
+        )
+        merged = {region.family for region in regions if region.merge_into is not None}
+        if any(region.merge_into in merged for region in regions):
+            raise ValueError("a merge_into parent may not itself be merged")
+        return BoundaryDeclarations(
+            fs_build=build, trailing_edges=entries, base_regions=regions, no_trailing_edges=none
+        )
+    except (ValueError, TypeError) as error:
+        raise InputArtifactError(f"{path}: invalid boundary declarations: {error}") from error
+
+
+def _named_boundary_tables(path, data):
+    """Separate named tables and refuse obsolete declarations before parsing entries."""
     trailing = data.get("trailing_edges", {})
     bases = data.get("base_regions", {})
     if "wake_termination" in data:
@@ -1063,7 +1091,7 @@ def read_boundary_declarations(sidecar: str | Path):
             if isinstance(files, list)
             else []
         )
-        translated = ", ".join(f"[trailing_edges.{label}]" for label in labels)
+        translated = ", ".join(f"[trailing_edges.{_toml_string(label)}]" for label in labels)
         raise InputArtifactError(
             f"{path}: replace unnamed [trailing_edges] with "
             f"{translated or '[trailing_edges.<label>]'}; "
@@ -1077,81 +1105,60 @@ def read_boundary_declarations(sidecar: str | Path):
     none = "none" in trailing
     if none and (trailing != {"none": True} or trailing["none"] is not True):
         raise InputArtifactError(f"{path}: none = true cannot coexist with named trailing edges")
-    build = data.get("fs_build")
-    if (trailing or bases) and not build:
-        raise InputArtifactError(
-            f'{path}: declarations require fs_build, for example fs_build = "26.125"'
-        )
-    try:
-        if build is not None:
-            if not isinstance(build, str):
-                raise ValueError("fs_build must be a string")
-            build = resolve(build).canonical
-        entries = []
-        for label, table in () if none else trailing.items():
-            if not label.strip() or not isinstance(table, dict):
-                raise ValueError(f"trailing_edges.{label} must be a named table")
-            values = dict(table)
-            nodes = values.pop("wake_termination_nodes", None)
-            if nodes is not None:
-                if nodes != "auto":
-                    nodes = _trailing_edge_file_fields(
-                        path,
-                        f"{path}: trailing_edges.{label}.wake_termination_nodes",
-                        {"file": nodes, "type": "STANDARD"},
-                        0.0001,
-                    )["points_file"]
-            if "type" not in values:
-                raise ValueError(f"trailing_edges.{label} requires type")
-            if "detect" in values:
-                if values.pop("type") != "STANDARD":
-                    raise ValueError(f"trailing_edges.{label}: detect accepts only type STANDARD")
-            marking = read_trailing_edges(path, values)
-            if marking.route == "none":
-                raise ValueError("none = true belongs to the unnamed trailing_edges table")
-            entries.append(
-                BoundaryTrailingEdge(
-                    label=label,
-                    marking=marking,
-                    wake_termination_nodes=nodes,
-                )
-            )
-        families = read_inventory(path)
-        regions = []
-        for family, table in bases.items():
-            if family not in families:
-                raise ValueError(
-                    f"base_regions.{family}: family must exist in boundaries {families}"
-                )
-            if not isinstance(table, dict):
-                raise ValueError(f"base_regions.{family} must be a table")
-            values = dict(table)
-            rim = values.pop("trailing_edges", None)
-            if rim != "auto":
-                if not isinstance(rim, dict) or set(rim) != {"file", "type"}:
-                    raise ValueError(
-                        f"base_regions.{family}: trailing_edges needs auto or file and type"
-                    )
-                rim = read_trailing_edges(path, rim)
-            region = BoundaryBaseRegion(family=family, trailing_edges=rim, **values)
-            if region.merge_into is not None and (
-                region.merge_into not in families or region.merge_into == family
-            ):
-                raise ValueError(
-                    f"base_regions.{family}: merge_into must name another existing family"
-                )
-            regions.append(region)
-        merged = {region.family for region in regions if region.merge_into is not None}
-        if any(region.merge_into in merged for region in regions):
-            raise ValueError("a merge_into parent may not itself be merged")
-        return BoundaryDeclarations(
-            fs_build=build,
-            trailing_edges=tuple(entries),
-            base_regions=tuple(regions),
-            no_trailing_edges=none,
-        )
-    except (ValueError, TypeError) as error:
-        raise InputArtifactError(f"{path}: invalid boundary declarations: {error}") from error
+    return trailing, bases, none
+
+
+def _named_trailing_entry(path, label, table):
+    """Read one named trailing-edge entry and resolve its termination file."""
+    from pyflightstream.cases.mesh import BoundaryTrailingEdge
+
+    if not label.strip() or not isinstance(table, dict):
+        raise ValueError(f"trailing_edges.{label} must be a named table")
+    values = dict(table)
+    nodes = values.pop("wake_termination_nodes", None)
+    if nodes is not None:
+        if nodes != "auto":
+            nodes = _trailing_edge_file_fields(
+                path,
+                f"{path}: trailing_edges.{label}.wake_termination_nodes",
+                {"file": nodes, "type": "STANDARD"},
+                0.0001,
+            )["points_file"]
+    if "type" not in values:
+        raise ValueError(f"trailing_edges.{label} requires type")
+    if "detect" in values:
+        if values.pop("type") != "STANDARD":
+            raise ValueError(f"trailing_edges.{label}: detect accepts only type STANDARD")
+    marking = read_trailing_edges(path, values)
+    if marking.route == "none":
+        raise ValueError("none = true belongs to the unnamed trailing_edges table")
+    return BoundaryTrailingEdge(
+        label=label,
+        marking=marking,
+        wake_termination_nodes=nodes,
+    )
+
+
+def _named_base_entry(path, family, table, families):
+    """Validate one base family, its rim and its merge destination."""
+    from pyflightstream.cases.mesh import BoundaryBaseRegion
+
+    if family not in families:
+        raise ValueError(f"base_regions.{family}: family must exist in boundaries {families}")
+    if not isinstance(table, dict):
+        raise ValueError(f"base_regions.{family} must be a table")
+    values = dict(table)
+    rim = values.pop("trailing_edges", None)
+    if rim != "auto":
+        if not isinstance(rim, dict) or set(rim) != {"file", "type"}:
+            raise ValueError(f"base_regions.{family}: trailing_edges needs auto or file and type")
+        rim = read_trailing_edges(path, rim)
+    region = BoundaryBaseRegion(family=family, trailing_edges=rim, **values)
+    if region.merge_into is not None and (
+        region.merge_into not in families or region.merge_into == family
+    ):
+        raise ValueError(f"base_regions.{family}: merge_into must name another existing family")
+    return region
 
 
 def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
