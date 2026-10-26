@@ -482,7 +482,23 @@ orders. If no order remains, G3 is `NA`: no symmetry floor was measured.
 A six-blade signal with `|c_6| = 0.4828 m/s` and `|c_1| = 3.47e-5 m/s`
 therefore reports `3.47e-5 m/s` at `m_max = 6`, the same as at `m_max = 5`.
 
-G4 compares like with like: `F_near` is the inviscid near-field axial force,
+G4 is not applicable to a power entry naming `rotor = ...`, or to any
+`unsteady_rotor` or `qsteady_rotor` row, including an entry naming a frame.
+`SPURIOUS_COUNTS` and its comparison column `F_NEAR_N` are `NA` in the instant
+and averaged ledgers, with a named skip: the probe pressure is the free-stream
+Bernoulli pressure and carries no disk total-pressure jump, so the lattice
+axial balance cannot balance rotor thrust. Flux and other ledger columns stay;
+`F_NEAR_VISCOUS_N` remains available when the loads supply it.
+
+The PFS-2165 measurement (G4SPLIT, 2026-10-26, "Full-plane split" and
+"Bernoulli test", FlightStream 26.124) found a pressure/Bernoulli integral
+ratio of approximately 1.01053 upstream and downstream, with pointwise residual
+at most 3.32605 Pa. At 2 R the window momentum flux was 680.83791 N and the
+pressure contribution was -993.97923 N, giving -313.14132 N versus 646.7 N
+near-field thrust. No disk total-pressure rise was evident in the probes.
+These are measurements of the exported field, not a correction to its pressure.
+
+A wing with no rotor keeps G4. It compares like with like: `F_near` is the inviscid near-field axial force,
 written as `F_NEAR_N`. The total projection minus `F_NEAR_VISCOUS_N` gives
 `F_NEAR_N`; adding those two columns reconstructs the old total.
 The viscous force is assumed to act along the free-stream direction with
@@ -490,9 +506,7 @@ magnitude `CDo q S` (`CDv` in newer loads exports), using the loads reference
 dynamic pressure. It is projected on the lattice axis with exactly the same
 sign as the total force. For example, a total of -29.106 N, a viscous projection
 of -29.106 N and a far-field force of 7.938 N at `q S = 4410 N` give
-`F_NEAR_N = 0` and G4 = -18 counts. On rotor rows blade friction is mostly
-swirl-wise; the error of this free-stream-direction assumption is bounded by
-`CDo` itself.
+`F_NEAR_N = 0` and G4 = -18 counts.
 
 For an averaged ledger, G4 compares the window mean axial flux difference with
 the mean inviscid near-field axial force over exactly the same steps. The latter comes

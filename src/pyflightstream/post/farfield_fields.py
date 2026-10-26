@@ -32,6 +32,7 @@ from pyflightstream._fsm import saved_length_unit
 from pyflightstream._lengths import scale
 from pyflightstream.cases import classify_outputs
 from pyflightstream.cases._farfield_spec import LatticeShape, LedgersSpec
+from pyflightstream.cases.farfield_inputs import ROTOR_RUN_TYPES
 from pyflightstream.farfield import (
     LatticeFields,
     axial_flux,
@@ -986,6 +987,11 @@ def symmetry_excluded_orders(
     return list(range(count, spec.m_max + 1, count)) if count else []
 
 
+def rotor_g4(spec: LedgersSpec | None, recipe: str | None) -> bool:
+    """Whether a power entry serves a rotor and cannot compare thrust to probe flux."""
+    return spec is not None and (spec.rotor is not None or recipe in ROTOR_RUN_TYPES)
+
+
 def ledger_values(
     fields: LatticeFields,
     spec: LedgersSpec,
@@ -995,6 +1001,7 @@ def ledger_values(
     near: tuple[float, float],
     viscous: float = _NA,
     excluded_orders: Sequence[int] = (),
+    rotor: bool = False,
 ) -> list[dict[str, float]]:
     """Return one mapping of ledger columns per lattice station (FR-38, FR-1056).
 
@@ -1021,6 +1028,10 @@ def ledger_values(
         Viscous axial force in N, projected along the free-stream direction.
     excluded_orders : sequence of int
         Blade-passage orders omitted from G3 on this row's rotor lattice.
+    rotor : bool
+        Whether the row is a rotor recipe, even when the entry names a frame.
+        Rotor entries and rows omit G4 and its near-force comparison because
+        probe pressure carries no disk total-pressure jump.
 
     Returns
     -------
@@ -1048,7 +1059,12 @@ def ledger_values(
     # weighted by the annular cell it stands for (PFS-2139.008, PFS-2019.01).
     coverage = sample_area_coverage(fields["u"], fields)
     far = float(flux[-1] - flux[0])
-    spurious = spurious_diagnostic(near[0], far, rho_inf=rho, v_inf=speed, s_ref=near[1])
+    compare = not (rotor or spec.rotor is not None)
+    spurious = (
+        spurious_diagnostic(near[0], far, rho_inf=rho, v_inf=speed, s_ref=near[1])
+        if compare
+        else _NA
+    )
     rows = []
     for index, station in enumerate(stations):
         row: dict[str, float] = {"STATION_X_R": station, "COVERAGE": float(coverage[index])}
@@ -1058,7 +1074,7 @@ def ledger_values(
         if "axial" in chosen:
             row["AXIAL_FLUX_N"] = float(flux[index])
             row["SPURIOUS_COUNTS"] = spurious
-            row["F_NEAR_N"] = near[0]
+            row["F_NEAR_N"] = near[0] if compare else _NA
             row["F_NEAR_VISCOUS_N"] = viscous
         if "torque" in chosen:
             row["TORQUE_NM"] = float(torque[index])

@@ -240,6 +240,40 @@ def test_p0460_g3_recorded_copies_before_declared_families(plan, expected):
     assert farfield_fields.symmetry_excluded_orders(spec, record, rotors) == expected
 
 
+@pytest.mark.requirement("P0460-G4-ROTOR")
+def test_p0460_g4_preserves_measured_rotor_flux():
+    """PFS-2165 aggregate replay: preserve G4SPLIT window flux, without claiming thrust."""
+    spec = LedgersSpec(
+        rotor="R",
+        stations=(-2.0, 2.0, 4.0),
+        n_r=2,
+        n_psi=16,
+        m_max=2,
+        balances=["mass", "axial", "torque", "crossflow_energy"],
+    )
+    lattice = spec.build(1.0)
+    points = lattice_points(lattice, axis="X")
+    area = np.pi * (lattice.ring_edges[-1] ** 2 - lattice.ring_edges[0] ** 2)
+    # Measured full-plane M and P, G4SPLIT (2026-10-26), window 109 through 144.
+    # Uniform synthetic planes reproduce these integrals, not the measured spatial field.
+    momentum = np.array([181.01582, 680.83791, 511.25321])
+    pressure = np.array([-183.99682, -993.97923, -695.95682])
+    speed, rho = 49.0, 1.225
+    u = (speed + np.sqrt(speed**2 + 4 * momentum / (rho * area))) / 2
+    velocity = np.zeros_like(points)
+    count = len(u) * lattice.n_r * lattice.n_psi
+    velocity[:, 0] = speed
+    velocity[:count, 0] = np.repeat(u, lattice.n_r * lattice.n_psi)
+    cp = np.zeros(len(points))
+    cp[:count] = np.repeat(pressure / area, lattice.n_r * lattice.n_psi)
+    samples = ProbeSamples(points, velocity, cp)
+    fields = lattice_samples(samples, slice(None), lattice, "X", q=1.0)
+    rows = ledger_values(fields, spec, rho=rho, speed=speed, near=(646.7, 1.0))
+    assert [r["AXIAL_FLUX_N"] for r in rows] == pytest.approx([-2.981, -313.14132, -184.70361])
+    assert [r["FX_N"] for r in rows[1:]] == pytest.approx([-310.16032, -181.72261])
+    assert all(math.isnan(r["SPURIOUS_COUNTS"]) and math.isnan(r["F_NEAR_N"]) for r in rows)
+
+
 class TestFarfieldLedgers:
     """P0400-LEDGERS: the balances from a point's probes, instant and average (FR-478 to FR-484).
 

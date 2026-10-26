@@ -55,6 +55,7 @@ from pyflightstream.post.farfield_fields import (
     ledger_values,
     native_per_m,
     plane_values,
+    rotor_g4,
     rotor_values,
     steady_samples,
     symmetry_excluded_orders,
@@ -829,6 +830,7 @@ def _instant_values(
             speed=speed,
             near=(near[0], ctx.reference.sref_m2),
             viscous=near[1],
+            rotor=rotor_g4(_ledgers(ctx), ctx.record_of[point.name].recipe),
             excluded_orders=symmetry_excluded_orders(
                 _ledgers(ctx), ctx.record_of[point.name], getattr(ctx.live, "rotors", None) or {}
             ),
@@ -901,6 +903,23 @@ def _last_and_window(
     return instants[0], []
 
 
+def _skip_rotor_g4(ctx: SimContext, point: PolarPoint, analyses: Sequence[str]) -> None:
+    """Name the rotor-pressure limitation without dropping any measured ledger flux."""
+    if (
+        "ledgers" in analyses
+        and "axial" in _ledgers(ctx).balances
+        and rotor_g4(_ledgers(ctx), ctx.record_of[point.name].recipe)
+    ):
+        _skip(
+            ctx,
+            f"{FARFIELD_DIR}/ledgers#point={point.name}#SPURIOUS_COUNTS#F_NEAR_N",
+            point.name,
+            "G4 (SPURIOUS_COUNTS) and F_NEAR_N are NA on rotor rows: the probe pressure "
+            "is the free-stream Bernoulli pressure and carries no disk total-pressure jump, "
+            "so the lattice axial balance cannot balance rotor thrust",
+        )
+
+
 def _probe_point(
     ctx: SimContext,
     point: PolarPoint,
@@ -929,6 +948,7 @@ def _probe_point(
     except PyflightstreamError as error:
         _skip(ctx, key, point.name, f"the far-field probes cannot be read: {error}")
         return
+    _skip_rotor_g4(ctx, point, analyses)
     try:
         near = (
             ff._window_near_forces(ctx, point, chosen, probe.layout.axis)
