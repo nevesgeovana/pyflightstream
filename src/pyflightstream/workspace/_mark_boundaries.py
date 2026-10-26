@@ -472,11 +472,17 @@ def _read_back(plan: BoundaryMarkingPlan, saved: Path) -> dict[str, Any]:
             f"{saved}: {len(groups)} trailing-edge groups, expected {expected}"
         )
     termination = saved_termination_count(saved)
-    declared = any(entry.wake_termination_nodes for entry in plan.declarations.trailing_edges)
     required = len({node for values in plan.nodes.values() for node in values})
-    if declared and termination < max(1, required):
+    if termination < required:
         raise BoundaryMarkingError(
-            f"{saved}: {termination} termination nodes, expected at least {max(1, required)}"
+            f"{saved}: {termination} termination nodes, expected at least {required}"
+        )
+    if termination == 0 and any(
+        entry.wake_termination_nodes == "auto" for entry in plan.declarations.trailing_edges
+    ):
+        print(
+            "warning: the autodetect marked no wake-termination node: "
+            "no trailing-edge end meets another surface on this mesh"
         )
     bases = saved_base_regions(saved)
     expected_bases = tuple(

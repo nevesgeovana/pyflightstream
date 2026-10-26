@@ -17,6 +17,9 @@ FlightStream versions.
 
 ### Fixed
 
+- `mark-boundaries` accepts zero wake-termination nodes from automatic detection,
+  warns when none are marked, and records the count; explicit nodes retain their minimum.
+
 - `mark-boundaries` gates only its marking commands on VERIFIED evidence;
   documented session and mesh-import commands no longer block preview or apply.
 
