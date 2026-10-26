@@ -145,10 +145,22 @@ def test_p0460_matrix_names_the_first_sidecar_in_owner_order(tmp_path, choice, c
     plan = _p0460_plan(matrix, workspace)
     assert all(point.status is PlanStatus.READY for point in plan.points)
     assert names[choice] in plan.summary()
-    from pyflightstream.run._cli_print import _print_plan
-
     capsys.readouterr()
-    _print_plan(plan, str(matrix), [], cost=False)
+    assert (
+        main(
+            [
+                "plan",
+                str(matrix),
+                "--workspace",
+                str(workspace.root),
+                "--fs-version",
+                "26.120",
+                "--fs-exe",
+                sys.executable,
+            ]
+        )
+        == 0
+    )
     output = capsys.readouterr().out
     assert output.count(f"POL {plan.points[0].sim_id}: boundaries read from ") == 1
     assert str(saved.parent / names[choice]) in output
