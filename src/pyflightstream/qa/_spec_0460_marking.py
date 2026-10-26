@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pyflightstream._fsm import MeshReadError, _mesh_block, boundary_names
+from pyflightstream._textio import write_text
 from pyflightstream.qa._spec_kit import _spec
 from pyflightstream.qa.probes import ProbeArtifacts, emit_solver_setup
 from pyflightstream.script import CommandArgumentError, Script
@@ -204,7 +205,7 @@ def _geometry(script: Script, workdir: Path, *, wing_body: bool = False) -> None
         if i in (0, 10):
             lines.append("g " + ("Body" if i == 0 else "Rim"))
         lines.append("f " + " ".join(map(str, face)))
-    path.write_text("\n".join(_wing_body() if wing_body else lines) + "\n", encoding="ascii")
+    write_text(path, "\n".join(_wing_body() if wing_body else lines) + "\n", encoding="ascii")
     script.emit("NEW_SIMULATION")
     script.emit("IMPORT", "METER", "OBJ", path, clear=True)
     script.declare_existing(boundaries=2)
@@ -213,7 +214,7 @@ def _geometry(script: Script, workdir: Path, *, wing_body: bool = False) -> None
 
 def _import(script: Script, workdir: Path, second: bool = False) -> None:
     path = workdir / ("second.txt" if second else "first.txt")
-    path.write_text(render_wake_edge_node_file([_SECOND if second else _FIRST]), encoding="ascii")
+    write_text(path, render_wake_edge_node_file([_SECOND if second else _FIRST]), encoding="ascii")
     script.emit(
         _IMPORT,
         "RELAXED" if second else "STANDARD",
@@ -348,7 +349,7 @@ def _reading(workdir: Path, command: str, prefix: str = "") -> dict[str, object]
 def _register(command: str) -> None:
     def prelude(script: Script, workdir: Path) -> None:
         initialized = script.version.canonical == "26.124"
-        (workdir / "initialization.txt").write_text(str(initialized), encoding="ascii")
+        write_text(workdir / "initialization.txt", str(initialized), encoding="ascii")
         _invoke(
             script,
             workdir,
@@ -502,7 +503,7 @@ def _invoke(script: Script, workdir: Path, name: str, build: Callable[[Script], 
         inner.allow_broken(command, reason="boundary-marking probe: measure the saved effect")
     build(inner)
     path = workdir / f"{name}.txt"
-    path.write_text(inner.render(), encoding="utf-8")
+    write_text(path, inner.render(), encoding="utf-8")
     script.emit("RUN_SCRIPT", path)
 
 
