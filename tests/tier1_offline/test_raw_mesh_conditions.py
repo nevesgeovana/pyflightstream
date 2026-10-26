@@ -95,7 +95,7 @@ def test_p0460_mark_boundaries_preview_writes_nothing(tmp_path, capsys):
     assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
 
 
-def _p0460_verified_registry():
+def _p0460_verified_registry(*, documented=()):
     from pyflightstream.commands import CommandRegistry, Status
 
     return CommandRegistry(
@@ -103,7 +103,13 @@ def _p0460_verified_registry():
             name: entry.model_copy(
                 update={
                     "versions": {
-                        key: record.model_copy(update={"status": Status.VERIFIED})
+                        key: record.model_copy(
+                            update={
+                                "status": Status.DOCUMENTED
+                                if name in documented
+                                else Status.VERIFIED
+                            }
+                        )
                         for key, record in entry.versions.items()
                     }
                 }
@@ -127,7 +133,7 @@ def test_p0460_auto_termination_gate_names_command(tmp_path, build):
         extra='[trailing_edges.edge]\nfile="edge.txt"\ntype="STANDARD"\nwake_termination_nodes="auto"\n',
     )
     (tmp_path / "edge.txt").write_text("METER\n0.5,0,0\n")
-    registry = _p0460_verified_registry()
+    registry = _p0460_verified_registry(documented=("IMPORT",))
     commands = dict(registry.commands)
     entry = commands["AUTO_DETECT_WAKE_TERMINATION_NODES"]
     commands[entry.name] = entry.model_copy(
@@ -204,6 +210,41 @@ def _p0460_runner(saved, *, fail=False):
         )
 
     return run
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "NEW_SIMULATION",
+        "IMPORT",
+        "SET_SIMULATION_LENGTH_UNITS",
+        "SAVEAS",
+        "EXPORT_LOG",
+        "CLOSE_FLIGHTSTREAM",
+    ],
+)
+def test_p0460_b1fix_documented_session_commands_preview_and_apply(
+    tmp_path, monkeypatch, capsys, command
+):
+    """Mark-boundaries must admit documented IMPORT when its markings are verified."""
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.workspace import apply_mark_boundaries, plan_mark_boundaries
+    from pyflightstream.workspace.cli import main
+
+    initial, saved = _p0460_saved_plan(tmp_path)
+    registry = _p0460_verified_registry(documented=(command,))
+    monkeypatch.setattr(CommandRegistry, "load", lambda: registry)
+    before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    assert main(["geometry", "mark-boundaries", str(initial.mesh)]) == 0
+    assert "awaiting_evidence: none" in capsys.readouterr().out
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
+
+    plan = plan_mark_boundaries(initial.mesh, registry=registry)
+    assert any(line.split()[:1] == [command] for line in plan.script.splitlines())
+    assert not plan.awaiting_evidence
+    record = apply_mark_boundaries(plan, runner=_p0460_runner(saved))
+    assert record["solver"]["executable"] == "offline-stub"
+    assert all(path.is_file() for path in plan.outputs)
 
 
 def test_p0460_marking_publishes_five_outputs_after_readback(tmp_path):
