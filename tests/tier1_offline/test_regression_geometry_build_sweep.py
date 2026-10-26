@@ -185,6 +185,36 @@ def _geometry_build__verified_registry() -> CommandRegistry:
     return CommandRegistry(commands=commands)
 
 
+@pytest.mark.parametrize("outputs", ['["obj"]', '["fsm", "obj"]'])
+def test_p0460_built_obj_is_ready_for_named_boundary_marking(tmp_path, outputs):
+    import tomllib
+
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    folder = _geometry_build__geometry(
+        _geometry_build__workspace(tmp_path),
+        "wing",
+        _GEOMETRY_BUILD__MESH_INSTRUCTION.replace('["fsm", "obj"]', outputs),
+    )
+    registry = _geometry_build__verified_registry()
+    plan = plan_geometry_build(folder, registry=registry)
+    built = apply_geometry_build(plan, runner=_geometry_build__runner())
+    assert built[0].promoted
+    mesh_folder = folder if outputs == '["obj"]' else folder.with_name("wing_obj")
+    mesh = mesh_folder / f"{mesh_folder.name}.obj"
+    sidecar = mesh.with_suffix(".obj.boundaries.toml")
+    assert sidecar.is_file()
+    data = tomllib.loads(sidecar.read_text(encoding="utf-8"))
+    assert data["fs_build"] == "26.125"
+    assert data["trailing_edges"][mesh.stem]["type"] == "STANDARD"
+    marked = plan_mark_boundaries(mesh, registry=registry)
+    assert marked.sets and marked.names == ("Wing",)
+    if "fsm" in outputs:
+        saved_inventory = folder / "wing.fsm.boundaries.toml"
+        assert saved_inventory.is_file()
+        assert "trailing_edges" not in tomllib.loads(saved_inventory.read_text(encoding="utf-8"))
+
+
 class TestGeometryBuild:
     """Tier 1, 0.40.0: ``pyfs-workspace geometry build`` previews and builds a body (FR-471).
 
@@ -302,7 +332,7 @@ class TestGeometryBuild:
         assert [item.passed for item in built] == [True]
         for name in (
             "wing.fsm",
-            "wing.boundaries.toml",
+            "wing.fsm.boundaries.toml",
             "wing.preview.vtk",
             "wing.build.json",
             "wing.audit.json",
@@ -884,17 +914,19 @@ class TestGeometryComplete:
         root = workspace(tmp_path)
         folder = geometry(root, "wing", MESH_INSTRUCTION)
         (folder / "src.boundaries.toml").write_text(
-            'boundaries = ["Wing"]\n[import]\nunits = "METER"\n'
+            'fs_build = "26.125"\nboundaries = ["Wing"]\n[import]\nunits = "METER"\n'
             '[[import.operations]]\nop = "translate"\nvector = [1.0, 0.0, 0.0]\n'
-            '[wake_termination]\ndetect = "auto"\n',
+            '[trailing_edges.wing_obj]\ndetect = "auto"\ntype = "STANDARD"\n'
+            'wake_termination_nodes = "auto"\n',
             encoding="utf-8",
         )
         plan = plan_geometry_build(folder, registry=verified_registry())
         (built,) = apply_geometry_build(plan, runner=runner())
-        sidecar = folder.with_name("wing_obj") / "wing_obj.boundaries.toml"
+        sidecar = folder.with_name("wing_obj") / "wing_obj.obj.boundaries.toml"
         text = sidecar.read_text(encoding="utf-8")
-        assert 'op = "translate"' in text and "[wake_termination]" in text
-        assert 'detect = "auto"' in text.split("[trailing_edges]")[1]
+        assert 'op = "translate"' in text and "[wake_termination]" not in text
+        assert 'wake_termination_nodes = "auto"' in text
+        assert 'file = "wing_obj.te.txt"' in text
         assert any("carried over the sidecar operations translate" in note for note in built.notes)
         sidecar.write_text(
             text.replace('op = "translate"', 'op = "rotate"').replace(
@@ -905,6 +937,7 @@ class TestGeometryComplete:
         apply_geometry_build(plan, runner=runner(), overwrite=True)
         rebuilt = sidecar.read_text(encoding="utf-8")
         assert 'op = "rotate"' in rebuilt and 'op = "translate"' not in rebuilt
+        assert 'wake_termination_nodes = "auto"' in rebuilt
 
 
 _GEOMETRY_INSTRUCTION__CCS_WING = (
@@ -1656,7 +1689,7 @@ class TestRfixHGeometryOrder:
         assert built[0].promoted
         mesh_folder = folder if outputs == '["obj"]' else folder.with_name("wing_obj")
         stem = mesh_folder.name
-        sidecar = tomllib.loads((mesh_folder / f"{stem}.boundaries.toml").read_text())
+        sidecar = tomllib.loads((mesh_folder / f"{stem}.obj.boundaries.toml").read_text())
         export = np.array(
             [
                 [float(value) for value in line.split()[1:]]
@@ -3176,7 +3209,7 @@ class TestRfixGAudit:
         assert (partial / record["audit"]["file"]).is_file()
         assert (partial / "wing.preview.vtk").is_file()
         assert (partial / "mesh/wing_obj.te.txt").is_file()
-        assert (partial / "mesh/wing_obj.boundaries.toml").is_file()
+        assert (partial / "mesh/wing_obj.obj.boundaries.toml").is_file()
 
     @staticmethod
     @pytest.mark.requirement("FR-471")
@@ -3418,7 +3451,7 @@ class TestRfixR5Sweep:
 
     @staticmethod
     @pytest.mark.requirement("FR-471")
-    @pytest.mark.parametrize("suffix", [".build.log", ".build.txt", ".boundaries.toml"])
+    @pytest.mark.parametrize("suffix", [".build.log", ".build.txt", ".fsm.boundaries.toml"])
     def test_p0400_rfixr5_preflight_all_promoted_files(tmp_path, suffix):
         """P0400-SWEEP-01: an unrecorded generated file is refused before the runner."""
         _, folder = _geometry_complete___sweep(tmp_path)
@@ -3769,9 +3802,11 @@ class TestF2Wave1GeometryBuildContracts:
         apply_geometry_build(
             plan_geometry_build(folder, registry=registry), runner=_geometry_build__runner()
         )
-        sidecar = folder.with_name("wing_obj") / "wing_obj.boundaries.toml"
+        sidecar = folder.with_name("wing_obj") / "wing_obj.obj.boundaries.toml"
         sidecar.write_text("this is [not toml", encoding="utf-8")
-        with pytest.raises(GeometryBuildError, match="wing_obj.boundaries.toml.*cannot be read"):
+        with pytest.raises(
+            GeometryBuildError, match="wing_obj.obj.boundaries.toml.*cannot be read"
+        ):
             apply_geometry_build(
                 plan_geometry_build(folder, registry=registry),
                 runner=_geometry_build__runner(),
@@ -4034,8 +4069,13 @@ class TestF2Package0607Geometry:
         from pyflightstream.workspace._geometry_sidecar import sidecar_text, toml_value
 
         assert tomllib.loads(f"key = {toml_value(text)}")["key"] == text
-        body, _ = sidecar_text([text, "B"], "METER", None)
-        assert tomllib.loads(body)["boundaries"] == [text, "B"]
+        bases = {text: {"cp": -0.2, "trailing_edges": "auto"}}
+        body, _ = sidecar_text(
+            [text, "B"], "METER", None, {"base_regions": bases}, fs_build="26.125"
+        )
+        parsed = tomllib.loads(body)
+        assert parsed["boundaries"] == [text, "B"]
+        assert parsed["base_regions"] == bases
 
 
 class TestF2Package0607Workspace:

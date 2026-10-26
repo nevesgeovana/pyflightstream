@@ -6419,6 +6419,11 @@
     },
     {
       "source": "pyflightstream.post.farfield_fields",
+      "target": "pyflightstream.cases.farfield_inputs",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_fields",
       "target": "pyflightstream.farfield",
       "kind": "module"
     },
@@ -9809,6 +9814,11 @@
     },
     {
       "source": "pyflightstream.run._cli_print",
+      "target": "pyflightstream.run._plan_report",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_print",
       "target": "pyflightstream.run.collect",
       "kind": "typing"
     },
@@ -12413,6 +12423,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._geometry_build",
+      "target": "pyflightstream.workspace.sidecars",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._geometry_clean",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -12525,6 +12540,21 @@
     {
       "source": "pyflightstream.workspace._geometry_record",
       "target": "pyflightstream.cases.mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_sidecar",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_sidecar",
+      "target": "pyflightstream.workspace._refine._obj",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_sidecar",
+      "target": "pyflightstream.workspace.sidecars",
       "kind": "module"
     },
     {
@@ -12925,6 +12955,11 @@
     {
       "source": "pyflightstream.workspace._refine._audit",
       "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._audit",
+      "target": "pyflightstream.workspace.sidecars",
       "kind": "module"
     },
     {

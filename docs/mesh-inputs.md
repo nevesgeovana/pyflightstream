@@ -135,3 +135,66 @@ They read `<mesh>.obj.boundaries.toml` with the same strict named declarations a
 `mark-boundaries` and use its D3 emitter and VERIFIED command gate at each import.
 Every other matrix row requires an `.fsm`; prepare it once with
 `pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`.
+
+## Boundary marking from Python
+
+**Experimental**: the five boundary-marking names exported by
+`pyflightstream.workspace` may change without a deprecation window. Use them
+to preview a marking pass or connect it to an explicit solver runner.
+They use the same declarations and evidence gates as the CLI.
+
+- `plan_mark_boundaries(mesh, *, registry=None)` reads the OBJ and its boundary
+  sidecar and returns a `BoundaryMarkingPlan` without writing files or running
+  a solver. Inspect `script`, `steps`, `outputs` and `awaiting_evidence`.
+- `refuse_mark_boundaries(plan, *, overwrite)` checks command evidence, input
+  digests and output collisions before execution. Invalid inputs or unavailable
+  evidence raise `InputArtifactError`.
+- `apply_mark_boundaries(plan, *, runner, overwrite=False, package_version="unknown")`
+  runs the supplied callback and returns the marking record after saved-state
+  read-back and promotion. `BoundaryMarkingError` reports execution, read-back
+  or publication failures. Inspect the staging directory named in the error.
+
+This solver-free example creates a minimal input with an explicit no-edge
+declaration and inspects its preview:
+
+```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from pyflightstream.workspace import plan_mark_boundaries, refuse_mark_boundaries
+from pyflightstream.workspace.sidecars import write_inventory
+
+with TemporaryDirectory() as folder:
+    mesh = Path(folder) / "wing.obj"
+    mesh.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\ng Wing\nf 1 2 3\n")
+    sidecar = write_inventory(mesh)
+    with sidecar.open("a") as stream:
+        stream.write('\nfs_build = "26.125"\n[import]\nunits = "METER"\n')
+        stream.write("[trailing_edges]\nnone = true\n")
+    plan = plan_mark_boundaries(mesh)
+    refuse_mark_boundaries(plan, overwrite=False)
+    assert plan.outputs[0] == mesh.with_suffix(".fsm")
+    assert not plan.work.exists()
+```
+
+Applying requires a licensed solver. The caller supplies `runner(script_path,
+working_directory)`, which executes the script using the declared build and
+returns an outcome with `log`, `failed`, `diagnosis`, `executable`, `return_code`
+and `wall_s` attributes. On success, the saved FSM and log must be in the
+working directory. The callback is the execution boundary; this API does not
+select or launch an executable on its own.
+
+For an existing declared OBJ and a configured callback:
+
+<!-- skip: next -->
+```python
+from pyflightstream.workspace import apply_mark_boundaries, plan_mark_boundaries
+
+plan = plan_mark_boundaries("inputs/geometries/wing.obj")
+record = apply_mark_boundaries(plan, runner=runner, package_version="0.46.0")
+```
+
+The five promoted outputs are the FSM, its `.fsm.boundaries.toml` inventory,
+the `.mark.txt` script, `.mark.log` and `.mark.json` record. Set
+`overwrite=True` only when replacing an existing saved simulation is intended.
+Planning and fixture tests do not establish solver or physical validity.

@@ -102,6 +102,9 @@ def _open_geometry(case: SimCase, script: Script) -> None:
         return
     suffix = PurePath(case.geometry).suffix.lower()
     if suffix != SIMULATION_SUFFIX and (case.fsi is not None or case.fsi_external is not None):
+        # Keep the adapter's loads/results dependencies local to the FSI branch.
+        # Its injected emitter avoids a cases -> workspace -> cases dependency
+        # cycle; importing workspace's marking implementation here would add it.
         from pyflightstream.cases.fsi_workspace import _import_fsi_geometry
 
         _import_fsi_geometry(case, script)
@@ -116,7 +119,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: GEOMETRY {case.geometry!r} must be an .fsm. "
             f"Run pyfs-workspace geometry mark-boundaries {mesh} --apply, "
-            "then run the saved simulation. Choose apply (CLI: --apply) for marking. "
+            "then run the saved simulation. "
             "Only FSI rows retain raw meshes. "
             "See docs/mesh-inputs.md."
         )

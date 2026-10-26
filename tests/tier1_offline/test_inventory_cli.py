@@ -31,6 +31,22 @@ def test_inventory_writes_the_sidecar_beside_the_geometry(tmp_path, capsys):
     assert data == {"file": "30_WB.fsm", "boundaries": ["W", "B", "Blade1"]}
 
 
+def test_p0460_obj_inventory_guides_named_boundary_entries(tmp_path, capsys):
+    from pyflightstream.workspace.cli import main as workspace_main
+
+    mesh = tmp_path / "wing.obj"
+    mesh.write_text("o wing\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
+    assert workspace_main(["geometry", "inventory", str(mesh)]) == 0
+    output = capsys.readouterr()
+    sidecar = mesh.with_suffix(".obj.boundaries.toml")
+    for text in (output.err, sidecar.read_text(encoding="utf-8")):
+        assert "[trailing_edges.<label>]" in text
+        assert "fs_build" in text and "type" in text and "[import]" in text
+        assert "[base_regions.<family>]" in text
+        assert "none = true" in text
+        assert "the [trailing_edges] table" not in text
+
+
 def test_inventory_refuses_to_overwrite_without_the_flag(tmp_path, capsys):
     geometry = _saved_simulation(tmp_path / "30_WB.fsm", ["W", "B"])
     sidecar = tmp_path / "30_WB.fsm.boundaries.toml"

@@ -32,19 +32,23 @@ PointPlan = Any  # the PointPlan of run._plan, which imports this module
 
 def _point_lines(points: Sequence[PointPlan]) -> list[str]:
     """Return the per-point lines of the plan's summary in display order."""
-    lines: list[str] = []
-    lines += list(
+    lines = boundaries_lines(points)
+    lines += _mach_lines(points)
+    lines += _validity_lines(points)
+    lines += _wake_lines(points)
+    lines += _angle_lines(points)
+    return lines + _streamline_lines(points) + _farfield_lines(points)
+
+
+def boundaries_lines(points: Sequence[PointPlan]) -> list[str]:
+    """Name the selected boundaries file once per planned row."""
+    return list(
         dict.fromkeys(
             f"  POL {point.sim_id}: boundaries read from {point.boundaries_file}"
             for point in points
             if point.boundaries_file
         )
     )
-    lines += _mach_lines(points)
-    lines += _validity_lines(points)
-    lines += _wake_lines(points)
-    lines += _angle_lines(points)
-    return lines + _streamline_lines(points) + _farfield_lines(points)
 
 
 def _mach_lines(points: Sequence[PointPlan]) -> list[str]:

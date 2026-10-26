@@ -1,5 +1,9 @@
 ## The probes table
 
+A probe entry must name a frame its row places. Planning refuses a rotor frame
+on a row without that rotor, naming the row and frame. Use `MRP`, `REFERENCE`,
+or another frame placed by that row, or select a pproc artifact without the entry.
+
 The probes table, `probes/<point>_probes.csv`, lists the solver's values at
 the probe points a point's `[[probes]]` declarations name: one row per probe
 point, and one per solver step where the run samples a history.

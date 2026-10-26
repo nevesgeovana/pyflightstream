@@ -19,6 +19,12 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def test_p0460_changelog_describes_changes_without_personal_attribution():
+    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    unreleased = text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+    assert not re.search(r"\bowner (?:decision|instruction|usability choice)\b", unreleased)
+
+
 _UNTRACKED_DIRS = {".git", "_private", "site", ".venv", "__pycache__", "build", "dist"}
 
 

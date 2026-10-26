@@ -69,6 +69,23 @@ def _p0460_marking_input(tmp_path, *, build="26.125", extra=""):
     return mesh
 
 
+@pytest.mark.parametrize("suffix", [".obj", ".stl"])
+def test_p0460_la05_raw_geometry_refusal_gives_one_marking_remedy(suffix):
+    from pyflightstream.cases import CampaignConfigError
+    from tests.tier1_offline.test_workflows import steady_case
+
+    geometry = f"inputs/wing{suffix}"
+    with pytest.raises(CampaignConfigError) as caught:
+        build_script(steady_case(geometry=geometry), Script("26.125"))
+    message = str(caught.value)
+    assert geometry in message and "must be an .fsm" in message
+    mesh = Path("inputs/wing.obj")
+    assert f"pyfs-workspace geometry mark-boundaries {mesh} --apply" in message
+    assert message.count("--apply") == 1
+    assert "then run the saved simulation." in message
+    assert "Only FSI rows retain raw meshes." in message
+
+
 def test_p0460_mark_boundaries_preview_writes_nothing(tmp_path, capsys):
     from pyflightstream.workspace.cli import main
 
@@ -83,6 +100,54 @@ def test_p0460_mark_boundaries_preview_writes_nothing(tmp_path, capsys):
     assert "SAVEAS" in output and "wing.fsm.boundaries.toml" in output
     assert "INITIALIZE_SOLVER" not in output
     assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
+
+
+@pytest.mark.parametrize("route", ["preview", "fsi"])
+def test_p0460_la02_marking_inputs_and_node_routes_are_computed_once(tmp_path, route):
+    from pyflightstream import workspace
+    from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
+
+    if route == "preview":
+        mesh = _p0460_marking_input(
+            tmp_path,
+            extra='[[import.operations]]\nop="rename"\nsurface="wing"\nto="Renamed"\n'
+            '[trailing_edges.edge]\ndetect={surfaces=["wing"]}\ntype="STANDARD"\n',
+        )
+    else:
+        case = steady_wing_case(tmp_path)
+        sidecar = Path(case.boundaries_file)
+        with sidecar.open("a") as stream:
+            stream.write('\n[[import.operations]]\nop="scale"\nsurface="Wing"\nfactors=[1,1,1]\n')
+    registry = _p0460_verified_registry()
+    module_path = Path(workspace.__file__).with_name("_mark_boundaries.py")
+    for _ in range(2):
+        calls = {"_marking_inputs": 0, "_node_routes": 0}
+
+        def count_calls(frame, event, arg, counts=calls):
+            if (
+                event == "call"
+                and frame.f_code.co_name in counts
+                and Path(frame.f_code.co_filename) == module_path
+            ):
+                counts[frame.f_code.co_name] += 1
+
+        previous = sys.getprofile()
+        sys.setprofile(count_calls)
+        try:
+            if route == "preview":
+                preview = workspace.plan_mark_boundaries(mesh, registry=registry)
+                assert preview.names == ("Renamed",)
+                text = preview.script
+            else:
+                script = Script("26.124", registry=registry)
+                build_script(case, script)
+                text = script.render()
+        finally:
+            sys.setprofile(previous)
+        assert calls == {"_marking_inputs": 1, "_node_routes": 1}
+        operation = "SURFACE_RENAME" if route == "preview" else "SURFACE_SCALE"
+        assert text.count(operation) == 1
+        assert "TRAILING_EDGES" in text
 
 
 def _p0460_verified_registry(*, documented=()):
@@ -425,6 +490,8 @@ def test_p0460_obj_nodes_keep_unreferenced_vertices_in_numbering(tmp_path):
 def test_p0460_cli_checks_executable_before_marking(
     tmp_path, monkeypatch, capsys, actual, expected
 ):
+    import json
+
     from pyflightstream.commands import CommandRegistry
     from pyflightstream.run import ExecutionResult, LocalExecutor
     from pyflightstream.workspace.cli import main
@@ -455,6 +522,16 @@ def test_p0460_cli_checks_executable_before_marking(
     if expected == 0:
         assert calls == ["identity.txt", "wing.mark.txt"]
         assert all(path.exists() for path in plan.outputs)
+        output = capsys.readouterr().out
+        record = json.loads(plan.outputs[-1].read_text(encoding="utf-8"))
+        readback = record["read_back"]
+        entry = readback["entries"][0]
+        assert f"entry {entry['label']}: type {entry['type']}, group {entry['group']}" in output
+        assert f"termination nodes: {readback['termination_nodes']}" in output
+        assert "base regions: none" in output
+        assert "merges: none" in output
+        assert all(f"wrote {path}" in output for path in plan.outputs)
+        assert str(readback) not in output
     else:
         assert calls == ["identity.txt"]
         assert not any(path.exists() for path in plan.outputs)

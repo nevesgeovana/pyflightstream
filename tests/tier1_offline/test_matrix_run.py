@@ -109,6 +109,23 @@ def _p0460_plan(matrix, workspace):
     )
 
 
+@pytest.mark.parametrize("frame", ["ROTOR_SMRP", "ROTOR_RMRP1", "MRP", "REFERENCE"])
+def test_p0460_plan_refuses_probe_frames_missing_from_the_row(tmp_path, frame):
+    workspace, matrix, _ = _p0460_matrix(tmp_path)
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        f'[[probes]]\nframe = "{frame}"\nscale = "m"\nparameters = ["VX"]\n'
+        "points = 2\n[[probes.lines]]\nstart = [2, 0, 0]\nend = [2, 1, 0]\n",
+        encoding="utf-8",
+    )
+    plan = _p0460_plan(matrix, workspace)
+    if frame.startswith("ROTOR"):
+        assert all(point.status is PlanStatus.BLOCKED for point in plan.points)
+        message = plan.summary()
+        assert frame in message and "7002" in message and "probe" in message
+    else:
+        assert all(point.status is PlanStatus.READY for point in plan.points)
+
+
 @pytest.mark.parametrize("suffix", ["obj", "stl", "igs", "ccs"], ids=lambda s: f"P0460-FSM-{s}")
 def test_p0460_matrix_refuses_every_raw_geometry(tmp_path, suffix):
     workspace, matrix, _ = _p0460_matrix(tmp_path, f"wing.{suffix}")
@@ -117,7 +134,7 @@ def test_p0460_matrix_refuses_every_raw_geometry(tmp_path, suffix):
 
 
 @pytest.mark.parametrize("choice", [0, 1, 2], ids=lambda n: f"P0460-SIDECAR-{n}")
-def test_p0460_matrix_names_the_first_sidecar_in_owner_order(tmp_path, choice):
+def test_p0460_matrix_names_the_first_sidecar_in_owner_order(tmp_path, choice, capsys):
     workspace, matrix, saved = _p0460_matrix(tmp_path)
     names = ["wing.fsm.boundaries.toml", "wing.boundaries.toml", "wing.obj.boundaries.toml"]
     for index, name in enumerate(names[choice:], start=choice):
@@ -128,6 +145,26 @@ def test_p0460_matrix_names_the_first_sidecar_in_owner_order(tmp_path, choice):
     plan = _p0460_plan(matrix, workspace)
     assert all(point.status is PlanStatus.READY for point in plan.points)
     assert names[choice] in plan.summary()
+    capsys.readouterr()
+    assert (
+        main(
+            [
+                "plan",
+                str(matrix),
+                "--workspace",
+                str(workspace.root),
+                "--fs-version",
+                "26.120",
+                "--fs-exe",
+                sys.executable,
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert output.count(f"POL {plan.points[0].sim_id}: boundaries read from ") == 1
+    assert str(saved.parent / names[choice]) in output
+    assert not any(name in output for name in names[choice + 1 :])
 
 
 @pytest.mark.parametrize(

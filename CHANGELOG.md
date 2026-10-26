@@ -9,6 +9,8 @@ FlightStream versions.
 
 ### Changed
 
+- Document the experimental Python boundary-marking API and its explicit runner contract.
+
 - Refinement reads trailing-edge points only from `[trailing_edge] file` in
   its refine file, including with command-line factors. Kept rows and directional
   factors require that key. Levels write `.obj.boundaries.toml` with preserved
@@ -25,13 +27,30 @@ FlightStream versions.
 
 ### Fixed
 
+- Geometry build writes kind-qualified inventories with face counts and digests.
+  Exported OBJ declarations include the build and a named `STANDARD` edge entry,
+  ready for boundary marking; rebuilds preserve named termination and base settings.
+
+- OBJ inventory guidance names the required build and named trailing-edge and
+  base-region declarations, including the explicit no-edge form.
+
+- `geometry mark-boundaries` prints readable entry, group, termination, base-region,
+  merge and output-file lines after read-back; the JSON record retains its mapping.
+
+- Planning refuses a probe entry whose rotor frame is absent from its row,
+  naming the frame and row before any run.
+
+- `pyfs-matrix plan` names the selected boundaries inventory once per row
+  in its command-line output, including supported fallback filenames.
+
 - `mark-boundaries` accepts zero wake-termination nodes from automatic detection,
   warns when none are marked, and records the count; explicit nodes retain their minimum.
 
 - `mark-boundaries` gates only its marking commands on VERIFIED evidence;
   documented session and mesh-import commands no longer block preview or apply.
 
-- Marking commands now carry verified evidence on 26.124 and 26.125, enabling explicit wake-termination files; retaining two folded YAML reports is an owner usability choice that raises `reports_files` from 91 to 93 (+2) and `reports_lines` from 138156 to 138762 (+606).
+- Marking commands carry verified evidence on 26.124 and 26.125, enabling
+  explicit wake-termination files.
 
 - Matrix flight-condition constraints now outrank setup defaults. `ALTFT` or
   `dISA` drops all five setup pins; `REmi` alone drops density and pressure

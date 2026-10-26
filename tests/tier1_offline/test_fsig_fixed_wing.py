@@ -603,6 +603,26 @@ def test_p0460_fsi_marks_every_import_and_keeps_solver_initialization(tmp_path):
         assert "SAVEAS" not in text
 
 
+@pytest.mark.parametrize("deep", [False, True])
+def test_p0460_la04_two_case_copies_retain_the_fsi_emitter(tmp_path, deep):
+    case = steady_wing_case(tmp_path)
+    first = case.model_copy(deep=deep)
+    second = first.model_copy(deep=deep)
+    assert first is not case and second is not first
+    for copied in (first, second):
+        assert callable(copied._fsi_geometry_emitter)
+        _, script = _lines(copied)
+        text = script.render()
+        assert text.splitlines().count("IMPORT") == 1
+        assert text.count("AUTO_DETECT_TRAILING_EDGES") == 1
+        assert text.index("AUTO_DETECT_TRAILING_EDGES") < text.index("INITIALIZE_SOLVER")
+
+    # Negative control: dropping the private binding must refuse before emission.
+    second._fsi_geometry_emitter = None
+    with pytest.raises(CampaignConfigError, match="workspace binding"):
+        _lines(second)
+
+
 def test_p0460_fsi_reloads_strict_named_declarations_at_import(tmp_path):
     case = steady_wing_case(tmp_path)
     sidecar = Path(case.boundaries_file)
