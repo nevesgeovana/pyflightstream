@@ -41,6 +41,10 @@ LEAN_CAPS = {
     "tests_lines": 392000,
 }
 
+#: Measured and reported, not enforced, in 0.46.0: the tests review before 1.0.0 (PFS-2177)
+#: sets these two caps again.
+REPORTED_ONLY = frozenset({"tests_files", "tests_lines"})
+
 
 def _assert_lean_caps(files: Iterable[tuple[bytes, bytes]]) -> dict[str, int]:
     """Count tracked paths and literal LF bytes, then report every exceeded cap."""
@@ -54,7 +58,7 @@ def _assert_lean_caps(files: Iterable[tuple[bytes, bytes]]) -> dict[str, int]:
     exceeded = [
         f"{key}: measured {measured[key]}, cap {cap}"
         for key, cap in LEAN_CAPS.items()
-        if measured[key] > cap
+        if measured[key] > cap and key not in REPORTED_ONLY
     ]
     assert not exceeded, "Lean repository caps exceeded:\n" + "\n".join(exceeded)
     return measured
@@ -114,7 +118,8 @@ def test_repository_lean_caps_control() -> None:
         return files
 
     assert _assert_lean_caps(listing(LEAN_CAPS)) == LEAN_CAPS
-    for key, cap in LEAN_CAPS.items():
+    enforced = {key: cap for key, cap in LEAN_CAPS.items() if key not in REPORTED_ONLY}
+    for key, cap in enforced.items():
         over = {**LEAN_CAPS, key: cap + 1}
         with pytest.raises(AssertionError) as caught:
             _assert_lean_caps(listing(over))
@@ -122,10 +127,14 @@ def test_repository_lean_caps_control() -> None:
         assert all(
             f"{other}: measured" not in str(caught.value) for other in LEAN_CAPS if other != key
         )
+    for key in REPORTED_ONLY:
+        over = {**LEAN_CAPS, key: LEAN_CAPS[key] + 1}
+        assert _assert_lean_caps(listing(over)) == over
     with pytest.raises(AssertionError) as caught:
         _assert_lean_caps(listing({key: cap + 1 for key, cap in LEAN_CAPS.items()}))
     for key, cap in LEAN_CAPS.items():
-        assert f"{key}: measured {cap + 1}, cap {cap}" in str(caught.value)
+        reported = f"{key}: measured {cap + 1}, cap {cap}" in str(caught.value)
+        assert reported is (key not in REPORTED_ONLY), key
 
 
 def _run(*argv: str) -> subprocess.CompletedProcess[str]:
