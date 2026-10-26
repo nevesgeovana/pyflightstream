@@ -16,6 +16,7 @@ COMMANDS = (
     "SET_BASE_REGION_CP",
     "SET_BASE_REGION_TRAILING_EDGES",
     "SURFACE_COMBINE",
+    "SURFACE_RENAME",
 )
 
 
@@ -118,6 +119,14 @@ def test_p0460_combine_requires_lowest_name_in_both_orders():
     assert m._verdict(m._COMBINE, before, wrong, before, after) is False
     assert m._verdict(m._COMBINE, before, after, before, wrong) is False
     assert m._verdict(m._COMBINE, before, after, before, None) is None
+
+
+def test_p0460_rename_requires_saved_name_change_and_control():
+    m, before = _states()
+    after = replace(before, names=("Body", "RenamedRim"))
+    assert m._verdict(m._RENAME, before, after, before) is True
+    assert m._verdict(m._RENAME, before, before, before) is False
+    assert m._verdict(m._RENAME, before, after, after) is None
 
 
 def test_p0460_combine_scripts_run_both_list_orders_from_same_save(tmp_path):
