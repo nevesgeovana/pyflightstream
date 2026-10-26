@@ -468,6 +468,15 @@ into the plane term.
     SYMMETRY_FLOOR  = max_{m >= 1} |c_m|                    of the axial velocity
     SPURIOUS_COUNTS = 2 (F_near - F_far) / (rho V^2 SREF) 1e4
 
+For a lattice serving a rotor of B blades, G3 (`SYMMETRY_FLOOR`) omits the
+blade-passage orders B, 2B, ... through `m_max`. B comes from the row's recorded
+blade count (including periodic copies), or the rotor's declared blade families.
+A non-rotor lattice retains every order from 1 through `m_max`. The product
+manifest's `symmetry_excluded_orders` maps each point and entry to the excluded
+orders. If no order remains, G3 is `NA`: no symmetry floor was measured.
+A six-blade signal with `|c_6| = 0.4828 m/s` and `|c_1| = 3.47e-5 m/s`
+therefore reports `3.47e-5 m/s` at `m_max = 6`, the same as at `m_max = 5`.
+
 G4 compares like with like: `F_near` is the inviscid near-field axial force,
 written as `F_NEAR_N`. The total projection minus `F_NEAR_VISCOUS_N` gives
 `F_NEAR_N`; adding those two columns reconstructs the old total.

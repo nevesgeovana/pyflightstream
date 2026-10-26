@@ -12,6 +12,9 @@ Which analysis applies to which row is the one function the plan uses
 (:func:`pyflightstream.cases.farfield_inputs.applies`). A simulation whose pproc
 artifact has no ``[[farfields]]`` entries writes nothing and logs nothing, so its
 products keep their bytes (FR-1060).
+
+Size exemption: this family writer keeps per-point diagnostic provenance beside
+the instant/window dispatch that determines it; numerical reductions stay in farfield_fields.
 """
 
 from __future__ import annotations
@@ -54,6 +57,7 @@ from pyflightstream.post.farfield_fields import (
     plane_values,
     rotor_values,
     steady_samples,
+    symmetry_excluded_orders,
 )
 from pyflightstream.post.section_distributions import distributions_of
 from pyflightstream.post.series import stamped_exports
@@ -825,6 +829,9 @@ def _instant_values(
             speed=speed,
             near=(near[0], ctx.reference.sref_m2),
             viscous=near[1],
+            excluded_orders=symmetry_excluded_orders(
+                _ledgers(ctx), ctx.record_of[point.name], getattr(ctx.live, "rotors", None) or {}
+            ),
         )
     return out
 
@@ -1220,4 +1227,18 @@ def _write(ctx: SimContext, tables: ff._Tables) -> None:
             entry["reduced_from"] = tables.reduced[suffix]
         if analysis == "trefftz" and "sections" in variants:
             entry["strip_rule"] = "extended"
+        if analysis == "ledgers":
+            entry["symmetry_excluded_orders"] = {
+                point.name: {
+                    item.name: symmetry_excluded_orders(
+                        item.ledgers,
+                        ctx.record_of[point.name],
+                        getattr(ctx.live, "rotors", None) or {},
+                    )
+                    for item in ctx.pproc.farfields
+                    if item.ledgers is not None
+                }
+                for point in ctx.points
+                if point.name in tables.inputs.get(suffix, {})
+            }
         ctx.add(path, entry)

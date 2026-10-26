@@ -55,6 +55,7 @@ from pyflightstream.farfield import (
     transverse_flux,
     transverse_force,
 )
+from pyflightstream.post._condition import recorded_blade_count
 from pyflightstream.post.axes import free_stream_in_export_frame
 from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.lattice import ProbeLattice
@@ -956,6 +957,35 @@ def _moments(fields: LatticeFields, rho: float, speed: float, outlet: float) -> 
     return out
 
 
+def symmetry_excluded_orders(
+    spec: LedgersSpec, record: RunRecord, rotors: Mapping[str, Any]
+) -> list[int]:
+    """Return blade-passage orders for the rotor this lattice serves.
+
+    Parameters
+    ----------
+    spec : LedgersSpec
+        The selected lattice and maximum harmonic order.
+    record : RunRecord
+        Row record with the planned blade count, including periodic copies.
+    rotors : mapping
+        Resolved reference rotors, whose blade families supply the fallback count.
+
+    Returns
+    -------
+    list of int
+        Positive multiples of B through m_max, or an empty list for a non-rotor lattice.
+    """
+    alias = spec.rotor
+    if alias is None:
+        return []
+    count = recorded_blade_count(record, alias, len(rotors) or 1)
+    if count is None:
+        rotor = rotors.get(alias)
+        count = len(getattr(rotor, "families_blades", ()) or ())
+    return list(range(count, spec.m_max + 1, count)) if count else []
+
+
 def ledger_values(
     fields: LatticeFields,
     spec: LedgersSpec,
@@ -964,6 +994,7 @@ def ledger_values(
     speed: float,
     near: tuple[float, float],
     viscous: float = _NA,
+    excluded_orders: Sequence[int] = (),
 ) -> list[dict[str, float]]:
     """Return one mapping of ledger columns per lattice station (FR-38, FR-1056).
 
@@ -988,6 +1019,8 @@ def ledger_values(
         Inviscid near-field axial force in N and its reference area in m2.
     viscous : float
         Viscous axial force in N, projected along the free-stream direction.
+    excluded_orders : sequence of int
+        Blade-passage orders omitted from G3 on this row's rotor lattice.
 
     Returns
     -------
@@ -1008,7 +1041,9 @@ def ledger_values(
     energy = crossflow_kinetic_energy(fields, rho)
     torque = shaft_torque(fields, rho)
     closure = mass_closure(fields, rho)
-    floor = symmetry_floor(fields["u"], psi=fields.psi, m_max=spec.m_max)
+    floor = symmetry_floor(
+        fields["u"], psi=fields.psi, m_max=spec.m_max, excluded_orders=excluded_orders
+    )
     # sample_area_coverage is the finite fraction of each station's AREA, a missing sample
     # weighted by the annular cell it stands for (PFS-2139.008, PFS-2019.01).
     coverage = sample_area_coverage(fields["u"], fields)

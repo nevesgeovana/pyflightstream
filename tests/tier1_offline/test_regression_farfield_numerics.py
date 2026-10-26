@@ -210,6 +210,36 @@ def _farfield_ledgers___uniform(points: np.ndarray, speed: float) -> ProbeSample
     return ProbeSamples(points, velocity, np.zeros(len(points)))
 
 
+@pytest.mark.requirement("P0460-G3")
+def test_p0460_g3_excludes_every_blade_multiple():
+    psi = np.arange(32) * 2 * np.pi / 32
+    values = 2 * 0.4828 * np.cos(6 * psi) + 4 * np.cos(12 * psi) + 2 * 3.47e-5 * np.cos(psi)
+    assert ff.symmetry_floor(values, psi=psi, m_max=13, excluded_orders=[6, 12]) == pytest.approx(
+        3.47e-5
+    )
+    assert ff.symmetry_floor(values, psi=psi, m_max=5) == pytest.approx(3.47e-5)
+    assert ff.symmetry_floor(values, psi=psi, m_max=13) == pytest.approx(2.0)
+    assert math.isnan(ff.symmetry_floor(values, psi=psi, m_max=2, excluded_orders=[1, 2]))
+    values[0] = np.nan
+    assert math.isnan(ff.symmetry_floor(values, psi=psi, m_max=13, excluded_orders=[6, 12]))
+
+
+@pytest.mark.requirement("P0460-G3")
+@pytest.mark.parametrize(
+    "plan,expected",
+    [
+        ({"rotors": {"R": {"blades": 6}}}, [6, 12]),
+        ({"blades": 6}, [6, 12]),
+        ({}, [3, 6, 9, 12]),
+    ],
+)
+def test_p0460_g3_recorded_copies_before_declared_families(plan, expected):
+    spec = LedgersSpec(rotor="R", stations=(-1, 1), n_r=2, n_psi=32, m_max=13)
+    record = SimpleNamespace(reductions=plan)
+    rotors = {"R": SimpleNamespace(families_blades=["B1", "B2", "B3"])}
+    assert farfield_fields.symmetry_excluded_orders(spec, record, rotors) == expected
+
+
 class TestFarfieldLedgers:
     """P0400-LEDGERS: the balances from a point's probes, instant and average (FR-478 to FR-484).
 

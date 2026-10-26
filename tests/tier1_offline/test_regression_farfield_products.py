@@ -231,6 +231,69 @@ def test_p0460_g4_history_split(tmp_path, viscous, group):
             assert float(row["F_NEAR_VISCOUS_N"]) == pytest.approx(drag, rel=1e-5)
 
 
+@pytest.mark.requirement("P0460-G3")
+@pytest.mark.parametrize("rotor", [False, True])
+@pytest.mark.parametrize("averaged", [False, True])
+def test_p0460_g3_blade_passage(tmp_path, rotor, averaged):
+    """A six-blade passage of .4828 leaves the 3.47e-5 m/s m=1 floor."""
+    points = _FFPROOF_POST___POINTS_M
+    export = _ffproof_post___probe_export(points, 68.058)
+    lines = export.splitlines()
+    for index, line in enumerate(lines):
+        cells = line.split(",")
+        if len(cells) > 10 and cells[0].strip() not in ("X", ""):
+            psi = math.atan2(float(cells[1]), float(cells[2]))
+            u = 68.058 + 2 * 0.4828 * math.cos(6 * psi) + 2 * 3.47e-5 * math.cos(psi)
+            cells[5] = cells[8] = f"{u:.12e}"
+            lines[index] = ",".join(cells)
+    export = "\n".join(lines)
+    files = {f"{_FFPROOF_POST___STEM}_farfield_survey.txt": export}
+    if averaged:
+        files.update(
+            {
+                f"{_FFPROOF_POST___STEM}_farfield_survey_iteration={step}.txt": export
+                for step in (7, 8)
+            }
+        )
+    pproc = _FFPROOF_POST___LEDGERS.replace("m_max = 2", "m_max = 6")
+    if rotor:
+        pproc = pproc.replace('frame = "MRP"\ntip_radius_m = 1.0', 'rotor = "R"')
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=pproc + 'export_type = "avg_window"\nlast_steps = 2\n',
+        files=files,
+        recipe="unsteady_rotor" if averaged else "steady",
+        reductions={**_FFPROOF_POST___WINDOW, "rotors": {"R": {"blades": 6}}},
+    )
+    _ffproof_post___set_record(
+        workspace,
+        farfield_layout={
+            "shapes": [
+                {
+                    "kind": "lattice",
+                    "source": "added",
+                    "entry": None,
+                    "count": len(points),
+                    "axis": "X",
+                    "origin_m": [0.0, 0.0, 0.0],
+                    "positions_frame": "REFERENCE",
+                    "lattice": _FFPROOF_POST___SHAPE.build(1.0).model_dump(mode="json"),
+                }
+            ]
+        },
+    )
+    _ffproof_post___post(workspace)
+    suffix = "_average" if averaged else ""
+    rows = _rfixf_layout___rows(workspace.root, f"farfield/*_ledgers{suffix}.csv")
+    assert rows
+    expected = 3.47e-5 if rotor else 0.4828
+    assert all(float(row["SYMMETRY_FLOOR"]) == pytest.approx(expected, abs=1e-8) for row in rows)
+    entry = _ffproof_post___entry(_ffproof_post___manifest(workspace.root), f"_ledgers{suffix}.csv")
+    assert entry.get("symmetry_excluded_orders", {}).get(_FFPROOF_POST___STEM, {}).get("power") == (
+        [6] if rotor else []
+    )
+
+
 _FARFIELD_PRODUCTS__ALPHA = -2.0
 
 
