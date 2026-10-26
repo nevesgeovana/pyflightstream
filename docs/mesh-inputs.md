@@ -94,7 +94,7 @@ Use the [how-to](mesh/how-to.md), [sidecar reference](mesh/reference.md) or [com
 
 [What this policy is not](mesh/reference.md#what-this-policy-is-not).
 
-## Matrix geometry in 0.46.0
+## Matrix geometry
 
 `GEOMETRY` accepts only a saved simulation (`.fsm`). No flag enables an OBJ
 matrix row. Prepare and mark the OBJ once, inspect the saved geometry, and

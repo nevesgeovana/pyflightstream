@@ -806,7 +806,7 @@ solver's scripting interface documents a command for them; when that
 happens, the command enters the database with its citation and the
 step graduates from this page to the reference.
 
-## Matrix geometry in 0.46.0
+## Matrix geometry
 
 `GEOMETRY` accepts only a saved simulation (`.fsm`). No flag enables an OBJ
 matrix row. Prepare and mark the OBJ once, inspect the saved geometry, and
