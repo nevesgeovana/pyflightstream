@@ -397,9 +397,9 @@ def _emit_bases(emit, mark, declarations, names, steps):
         )
 
 
-def _emit_nodes(emit, termination, explicit, *, source, spec, inputs, nodes, steps):
+def _emit_nodes(script, termination, explicit, *, source, spec, inputs, nodes, steps):
     if any(entry.wake_termination_nodes == "auto" for entry in termination):
-        emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
+        script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
         steps.append("autodetect wake-termination nodes once")
     for entry in explicit:
         assert entry.wake_termination_nodes is not None
@@ -412,8 +412,8 @@ def _emit_nodes(emit, termination, explicit, *, source, spec, inputs, nodes, ste
         )
         nodes[entry.label] = bound_nodes.nodes
         for node in bound_nodes.nodes:
-            emit("SELECT_MESH_NODE", node)
-        emit("MARK_WAKE_TERMINATION_NODES")
+            script.emit("SELECT_MESH_NODE", node)
+        script.emit("MARK_WAKE_TERMINATION_NODES")
         steps.append(f"{entry.label}: {len(bound_nodes.nodes)} explicit termination nodes")
 
 
@@ -711,7 +711,7 @@ def _emit_marking(script, source, sidecar, *, declarations, spec, names, faces, 
         mark(entry.label, entry.marking)
     _emit_bases(emit, mark, declarations, names, steps)
     _emit_nodes(
-        emit,
+        script,
         termination,
         explicit,
         source=source,

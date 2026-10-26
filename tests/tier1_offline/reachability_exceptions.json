@@ -10,6 +10,24 @@
  "classification": "the rows outside routed later were classified by the release session under the owner delegation of 2026-10-12",
  "rows": [
   {
+   "id": "RX-38",
+   "capability": "Legacy raw-mesh boundary-condition model retained for Python callers",
+   "reason": "Python-only by design",
+   "decision": "PFS-2174 D7 removes the ordinary raw-run route; D12 FSI and mark-boundaries use BoundaryDeclarations instead. Classified under the owner's 0.46.0 lane INT instruction: retain the public API and register it when no workspace route remains.",
+   "names": [
+    "pyflightstream.cases.RawMeshConditions"
+   ]
+  },
+  {
+   "id": "RX-39",
+   "capability": "Trailing-edge import-count parser used by QA probe specifications",
+   "reason": "maintainer or developer API",
+   "decision": "PFS-2174 D7 removes per-run import-count verdicts. qa.specs still calls imported_trailing_edges; D12 FSI and mark-boundaries validate saved-state markings without this log parser. Classified under the owner's 0.46.0 lane INT instruction to register capabilities without a workspace route.",
+   "names": [
+    "pyflightstream.results.imported_trailing_edges"
+   ]
+  },
+  {
    "id": "RX-13",
    "capability": "Route-2 sector-offset calibration written from a recorded wheel point and sector point",
    "reason": "Python-only by design",
