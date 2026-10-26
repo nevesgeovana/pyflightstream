@@ -10,7 +10,7 @@ import pytest
 
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases._ccs import CcsImportOptions
-from pyflightstream.cases.workflows import build_script
+from pyflightstream.cases.ccs_wing import emit_ccs_geometry, emit_ccs_wing
 from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.workspace.inputs import read_mesh_import
 from pyflightstream.workspace.matrix import resolve_matrix
@@ -130,7 +130,7 @@ def _case(tmp_path, workspace, geometry: str, tail: str = ""):
 
 def _built(case) -> tuple[Script, list[str]]:
     script = Script(BUILD)
-    build_script(case, script)
+    emit_ccs_geometry(script, case)
     return script, script.render().splitlines()
 
 
@@ -301,3 +301,87 @@ def test_p0320_g35_the_sidecar_table_reads_through_the_import_reader(tmp_path):
     spec = read_mesh_import(path)
     assert spec is not None and spec.units == "FILE"
     assert spec.ccs is not None and spec.ccs.kind == "file"
+
+
+@pytest.mark.requirement("FR-241")
+def test_p0320_ccs1_fuselage_is_lofted_from_its_component(tmp_path):
+    """P0320-CCS1-FUSELAGE: the second component, radial and axial lofts C2 by default."""
+    case = _row_case(tmp_path, "fus", 'kind = "fuselage"\ncomponent = 2\n', ["FUS"])
+    script, lines = _built(case)
+    selected = _curve_route(lines, str(case.geometry), 2)
+    loft = _index(lines, "CAD_CREATE_FUSELAGE_MESH_FROM_CCS FUS TRUE C2 C2")
+    assert selected < loft
+
+
+@pytest.mark.requirement("FR-242")
+def test_p0320_ccs1_revolution_is_revolved_about_the_reference_axis_it_names(tmp_path):
+    """P0320-CCS1-REVOLUTION: the third component, revolved in the reference frame."""
+    ccs = 'kind = "revolution"\ncomponent = 3\naxis = "X"\nend_angle_deg = 180.0\n'
+    case = _row_case(tmp_path, "rev", ccs, ["REV"])
+    script, lines = _built(case)
+    selected = _curve_route(lines, str(case.geometry), 3)
+    loft = _index(lines, "CAD_CREATE_REVOLVE_MESH_FROM_CCS REV 1 X 0.0 180.0 TRUE C2 C2")
+    assert selected < loft
+
+
+@pytest.mark.requirement("FR-243")
+def test_p0320_ccs2_control_surface_is_declared_with_all_ten_arguments_before_the_loft(
+    tmp_path,
+):
+    """P0320-CCS2-CONTROL-SURFACE: the ten-token form, SPACE and AXIS always written.
+
+    Round 1 on 26.124 refused the eight-token line the manual's own sample prints
+    (``Review command syntax and arguments``); FSM-26.124 p.303 declares ten
+    parameters, so the route writes SPACE and AXIS on every declaration.
+    """
+    ccs = 'kind = "wing"\ncomponent = 1\n' + AILERON
+    case = _row_case(tmp_path, "wing", ccs, ["WING"])
+    _, lines = _built(case)
+    selected = _curve_route(lines, str(case.geometry), 1)
+    surface = _index(
+        lines, "NEW_CCS_WING_CONTROL_SURFACE AIL 0.5 0.9 0.25 0.25 0.5 20.0 1.0 PARAMETRIC Y"
+    )
+    loft = _index(lines, "CAD_CREATE_WING_MESH_FROM_CCS WING TRUE SHARP TRUE C2 C0")
+    assert selected < surface < loft
+
+
+@pytest.mark.requirement("FR-295")
+@pytest.mark.requirement("FR-296")
+def test_p0320_ccs2_the_real_form_is_refused_at_plan_naming_rpt_097(tmp_path):
+    """P0320-CCS2-CONTROL-SURFACE: REAL limits ended FAILED_EXECUTION on 26.124 (POL 3205).
+
+    The direct emitter refuses the form, naming the report and the PARAMETRIC form to use.
+    """
+    case = _real_case(tmp_path)
+    with pytest.raises(CampaignConfigError, match="refus") as refusal:
+        _built(case)
+    text = str(refusal.value)
+    assert "RPT-097" in text and "PARAMETRIC" in text and "AIL" in text
+
+
+@pytest.mark.requirement("FR-297")
+@pytest.mark.parametrize("build", ["26.120", "26.121", "26.123", "26.124"])
+def test_p0320_ccs2_the_real_form_is_refused_on_every_build_that_has_it(tmp_path, build):
+    """P0320-CCS2-CONTROL-SURFACE: no build measured REAL working, so none accepts it."""
+    case = _real_case(tmp_path)
+    with pytest.raises(CampaignConfigError, match="refus") as refusal:
+        emit_ccs_wing(Script(build), case)
+    assert "RPT-097" in str(refusal.value)
+
+
+@pytest.mark.requirement("FR-298")
+def test_p0320_ccs2_the_parametric_form_is_still_planned(tmp_path):
+    """P0320-CCS2-CONTROL-SURFACE: the form round 2 confirmed on 26.124 (POL 3204) plans."""
+    case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n' + AILERON, ["WING"])
+    _, lines = _built(case)
+    _index(lines, "NEW_CCS_WING_CONTROL_SURFACE AIL 0.5 0.9 0.25 0.25 0.5 20.0 1.0 PARAMETRIC Y")
+
+
+def test_p0320_ccs2_a_wing_with_control_surfaces_may_name_the_boundaries_they_add(tmp_path):
+    """P0320-CCS2-CONTROL-SURFACE: the loft is the first name, the rest are declared after."""
+    ccs = 'kind = "wing"\ncomponent = 1\n' + AILERON
+    case = _row_case(tmp_path, "wing", ccs, ["WING", "AIL"])
+    script, lines = _built(case)
+    _index(lines, "CAD_CREATE_WING_MESH_FROM_CCS WING TRUE SHARP TRUE C2 C0")
+    with pytest.raises(CampaignConfigError, match="at most 1 more"):
+        _built(case.model_copy(update={"inventory": ("WING", "AIL", "EXTRA")}))
