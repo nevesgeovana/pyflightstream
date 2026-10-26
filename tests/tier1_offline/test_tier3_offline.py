@@ -184,6 +184,14 @@ def _tier3_copy(tmp_path, *, with_tour=False):
     shutil.copytree(
         TIER3 / "inputs", root / "inputs", ignore=shutil.ignore_patterns("*.local.toml")
     )
+    # The flat pusher rows create PUSHER_SMRP, not the tour's ROTOR_SMRP.
+    pproc = root / "inputs" / "pproc"
+    (pproc / "p099.toml").write_text(
+        (pproc / "p001.toml")
+        .read_text(encoding="utf-8")
+        .replace('frame = "ROTOR_SMRP"', 'frame = "PUSHER_SMRP"'),
+        encoding="utf-8",
+    )
     if with_tour:
         shutil.copy(TOUR, root / TOUR.name)
     return root
@@ -213,7 +221,7 @@ STEADY = (
     "| - | - | - | - | 26.120 | steady | "
 )
 ROTOR = (
-    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | 40_PUSHER.fsm | r004 | s002 | p001 "
+    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | 40_PUSHER.fsm | r004 | s002 | p099 "
     "| NONE | - | - | - | 26.120 | unsteady_rotor | "
     "ROTOR_AXIS: X / MOVING_BOUNDARIES: Blade / "
     "DELTA_THETA: 30 / REVOLUTIONS: 0.5 / "
@@ -546,18 +554,18 @@ def test_a_rotor_row_cites_its_moving_boundaries_by_name_at_the_matrix_surface(t
 
 def test_moving_boundaries_may_name_a_group_of_the_pproc_artifact(tmp_path):
     """PFS-2028.00: MOVING_BOUNDARIES accepts a group of the row's pproc artifact as
-    g<number>, resolved to the members the geometry carries. Group 4 of p001 is
+    g<number>, resolved to the members the geometry carries. Group 4 of p099 is
     Blade1 and Blade2; the pusher carries Blade1, so the cell moves boundary 3."""
     root = _tier3_copy(tmp_path)
     grouped = _one_row_matrix(root, "g.fs", _rotor_row("7204", "MOVING_BOUNDARIES: g4"))
     assert _moving_payload(root, grouped) == "3"
-    # Group 2 of p001 is Wing, which the pusher does not carry: a group that
+    # Group 2 of p099 is Wing, which the pusher does not carry: a group that
     # names nothing the geometry holds is refused, not silently emptied.
     empty = _one_row_matrix(root, "e.fs", _rotor_row("7205", "MOVING_BOUNDARIES: g2"))
     plan = _plan(root, empty)
     assert plan.blocked, "a group naming nothing the geometry carries planned READY"
     message = str(plan.blocked[0].error)
-    for fragment in ("7205", "g2", "p001", "'Wing'", "40_PUSHER.fsm", "'Blade1'"):
+    for fragment in ("7205", "g2", "p099", "'Wing'", "40_PUSHER.fsm", "'Blade1'"):
         assert fragment in message, message
 
 
@@ -604,7 +612,7 @@ def test_moving_boundaries_naming_all_moves_every_boundary(tmp_path):
     whose group 1 is `"all"` moves every boundary of 40_PUSHER, the three of its
     inventory, and the artifact plans READY although it cites no name."""
     root = _tier3_copy(tmp_path)
-    _pproc(root, "p001", '[groups]\n"1" = "all"\n')
+    _pproc(root, "p099", '[groups]\n"1" = "all"\n')
     every = _one_row_matrix(root, "all.fs", _rotor_row("7208", "MOVING_BOUNDARIES: g1"))
     assert not _plan(root, every).blocked, "the all selector is every family and plans READY"
     assert _moving_payload(root, every) == "1,2,3"

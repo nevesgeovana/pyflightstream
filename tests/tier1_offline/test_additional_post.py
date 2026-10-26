@@ -133,7 +133,12 @@ def a_point_of(kind: str, tmp_path: Path) -> SimCase:
         geometry = _saved_simulation(tmp_path / "40_PUSHER.fsm", ["Body", "Base", "Blade1"])
         return _with_pproc(_rotor_row(geometry, "Blade1"), geometry)
     make = steady_case if kind == "steady" else unsteady_case
-    return _with_pproc(make(), _wb_geometry(tmp_path))
+    case = _with_pproc(make(), _wb_geometry(tmp_path))
+    if kind == "steady":
+        # R2 refuses probes in rotor frames a steady row never creates.
+        for probe in case.pproc.probes:
+            probe.frame = "MRP"
+    return case
 
 
 RUN_TYPES = ("steady", "unsteady", "unsteady_rotor")

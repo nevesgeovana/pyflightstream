@@ -301,10 +301,10 @@ radius = 0.5
 points_radial = 3                 # from the centre to the rim, both included
 points_azimuth = 8
 
-# ... or a points file of inputs/profiles/, named without a folder, in place
-# of drawing them.
+# ... or a points file of inputs/profiles/, named without a folder, instead of drawing them.
 [[probes]]
 attach = "space"  # fixed in the undeformed REFERENCE space
+frame = "REFERENCE"  # survey coordinates are global, in metres
 parameters = ["VX", "VY", "VZ"]
 points_file = "wake_survey.csv"
 

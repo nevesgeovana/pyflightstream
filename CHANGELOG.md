@@ -78,6 +78,14 @@ FlightStream versions.
 
 ### Fixed
 
+- Runnable examples follow the prepare, mark, then plan workflow on prepared
+  simulations; the boundary-marking errors are listed in the exceptions catalog.
+
+- The generated input template states the global `REFERENCE` frame for its
+  survey points, so its steady example matrices plan without requesting an
+  absent rotor frame. Migration: set `frame = "REFERENCE"` on the
+  `wake_survey.csv` probe entry of an existing generated template.
+
 - `mark-boundaries` accepts zero wake-termination nodes from automatic detection,
   warns when none are marked, and records the count; explicit nodes retain their minimum.
 

@@ -115,6 +115,16 @@ def test_p0430_w012_template_locates_generated_guides(tmp_path):
     assert not (workspace.inputs_dir / "pproc" / "INPUTS.md").exists()
 
 
+def test_p0460_fixa_template_survey_states_its_global_frame(tmp_path):
+    """P0460-FIXA: the metre survey uses REFERENCE on the steady example rows."""
+    workspace = CampaignWorkspace.init(tmp_path / "study")
+    text = (workspace.inputs_dir / TEMPLATE).read_text(encoding="utf-8")
+    body = next(body for _, path, body in examples(text) if path == "inputs/pproc/p001.toml")
+    surveys = [probe for probe in tomllib.loads(body)["probes"] if "points_file" in probe]
+    assert surveys
+    assert all(probe.get("frame") == "REFERENCE" for probe in surveys)
+
+
 def sections(text: str) -> dict[str, str]:
     """The page's second-level sections, heading to body."""
     found: dict[str, str] = {}
