@@ -30,6 +30,34 @@ from pyflightstream._fsm import MeshReadError, surface_mesh, trailing_edge_midpo
 _LIBRARY = Path(__file__).resolve().parents[1] / "tier3_licensed" / "inputs" / "geometries"
 
 
+def test_p0460_physics_boundary_groups(tmp_path):
+    from pyflightstream import _fsm
+
+    path = tmp_path / "marked.fsm"
+    path.write_text(
+        "$PHYSICS_START$\n140\n45\n15\n1\nrim\nF,\n-0.2,\n0,\n0,\n0,\n"
+        "2\nwing\nrim\n1,2,\n0\n1,1,1,0\n0\n0\n0\n0\nAir\n"
+        "1.225\n0.0000178\n340\n288\n101324\n1.4\n0\n1,\n$PHYSICS_END$\n"
+    )
+    groups = getattr(_fsm, "saved_trailing_edge_groups", lambda _: ())
+    bases = getattr(_fsm, "saved_base_regions", lambda _: ())
+    assert groups(path) == ("wing", "rim")
+    assert bases(path) == (("rim", -0.2, 1),)
+
+
+def test_p0460_termination_count_ignores_record_numbers(tmp_path):
+    from pyflightstream import _fsm
+
+    source = (_LIBRARY / "10_WING.fsm").read_text(encoding="utf-8")
+    before, after = source.split("$MESH_END$", 1)
+    lines = before.rstrip().splitlines()
+    assert lines[-1].strip() == "0"
+    path = tmp_path / "marked.fsm"
+    path.write_text("\n".join(lines[:-1]) + "\n2\n3936,98,\n2,2,\n1,1,\n$MESH_END$" + after)
+    read = getattr(_fsm, "saved_termination_count", lambda _: 0)
+    assert read(path) == 2
+
+
 def _flag_row_lines(text: str) -> list[int]:
     """The 0-based line numbers of the mesh block's five T/F rows."""
     lines = text.split("\n")
