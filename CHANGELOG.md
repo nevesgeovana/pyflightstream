@@ -7,6 +7,11 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- Power far-field entries refuse a station absent from their lattice at load,
+  naming the entry, requested station and declared stations.
+
 ## [0.45.1] - 2026-10-25
 
 ### Added
