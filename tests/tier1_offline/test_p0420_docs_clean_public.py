@@ -236,6 +236,19 @@ def published_pages():
         yield path, path.read_text(encoding="utf-8")
 
 
+def test_p0460_no_sister_library_in_runtime_strings():
+    failures = [
+        (path, node.lineno)
+        for path, text in tracked_texts()
+        if path.startswith("src/") and path.endswith(".py")
+        for node in ast.walk(ast.parse(text))
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and "itaca" in node.value.casefold()
+    ]
+    assert not failures, failures
+
+
 def test_p0420_docs_clean_no_deferred_dependency_in_published_pages():
     failures = [
         str(path.relative_to(ROOT))

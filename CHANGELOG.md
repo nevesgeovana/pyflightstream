@@ -19,6 +19,8 @@ FlightStream versions.
 - Power far-field entries refuse a station absent from their lattice at load,
   naming the entry, requested station and declared stations.
 
+- Retired far-field function diagnostics point only to external Euler CFD tools providing total enthalpy and entropy, with no supported replacement in this package (PFS-2144).
+
 ## [0.45.1] - 2026-10-25
 
 ### Added
