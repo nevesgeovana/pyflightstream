@@ -14,6 +14,7 @@ added, so a check that accepts everything cannot pass.
 from __future__ import annotations
 
 import argparse
+import ast
 import functools
 import importlib.util
 import re
@@ -26,12 +27,73 @@ import griffe
 import pytest
 import yaml
 
+from pyflightstream._retired_names import RETIRED_ATTRIBUTES
 from tests.tier1_offline._docs_site import GROUPS
 from tests.tier1_offline.test_public_api import PUBLIC_MODULES
 
 REPO = Path(__file__).resolve().parents[2]
 DOCS = REPO / "docs"
 SCRIPTS = REPO / "scripts"
+
+
+@pytest.mark.parametrize("case", ["P0460-REEXPORTED-API"])
+def test_p0460_api_reference_carries_public_helper_reexports(case):
+    generator = _script("gen_api_reference")
+    pages = generator.api_reference_pages()
+    tree = ast.parse((REPO / "src/pyflightstream/script/helpers.py").read_text(encoding="utf-8"))
+    expected = {
+        alias.name
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom)
+        and node.module
+        in {
+            "pyflightstream.script._build_forms",
+            "pyflightstream.script._relaxed_te",
+            "pyflightstream.script._settings",
+        }
+        for alias in node.names
+        if not (alias.asname or alias.name).startswith("_")
+    }
+    assert expected <= _entries(pages["script/helpers.md"], "pyflightstream.script.helpers")
+    assert "rebuild" in _entries(pages["run/records.md"], "pyflightstream.run.records")
+
+
+@pytest.mark.parametrize("case", ["P0460-DOCUMENTED-API"])
+def test_p0460_every_documented_public_dotted_name_has_an_api_entry(case):
+    generator = _script("gen_api_reference")
+    pages = generator.api_reference_pages()
+    modules = set(generator.public_subpackages())
+    entries = {
+        target
+        for page in pages.values()
+        for target in re.findall(r"^::: ([\w.]+)$", page, re.MULTILINE)
+    }
+    cited = set()
+    short_modules = "|".join(
+        re.escape(module.removeprefix("pyflightstream."))
+        for module in sorted(modules - {"pyflightstream"}, key=len, reverse=True)
+        if module.count(".") >= 2
+    )
+    dotted = re.compile(
+        rf"(?<![\w./])(?:pyflightstream|(?:pyflightstream\.)?(?:{short_modules}))"
+        r"(?:\.[A-Za-z_]\w*)+"
+    )
+    for page in DOCS.rglob("*.md"):
+        for target in dotted.findall(page.read_text(encoding="utf-8")):
+            if not target.startswith("pyflightstream."):
+                target = "pyflightstream." + target
+            if target in RETIRED_ATTRIBUTES:
+                continue  # Migration prose names retired objects, not current API.
+            if any(part.startswith("_") for part in target.split(".")):
+                continue
+            parent = target
+            while parent not in modules and "." in parent:
+                parent = parent.rpartition(".")[0]
+            if parent != target and parent in modules:
+                # Class methods/attributes render within their owning class entry.
+                cited.add(parent + "." + target[len(parent) + 1 :].split(".")[0])
+    assert "pyflightstream.run.records.rebuild" in cited
+    assert cited <= entries, sorted(cited - entries)
 
 
 def test_p0420_doc_theme_config_is_safe_yaml():

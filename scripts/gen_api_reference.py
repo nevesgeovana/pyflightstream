@@ -50,7 +50,31 @@ TIER_ADVANCED = "Advanced"
 #: ``__all__`` so that the names it offers, which the API parity reads, stay
 #: as they are.
 EXPLICIT_ENTRIES: dict[str, tuple[str, ...]] = {
-    "pyflightstream.run.records": ("mark_converged",),
+    "pyflightstream.run.records": ("mark_converged", "rebuild"),
+    "pyflightstream.script.helpers": (
+        "ROTATION_COMMANDS",
+        "assign_selected_ccs_curves",
+        "detect_every_boundary",
+        "every_boundary_detection",
+        "render_actuator_profile",
+        "solver_time_averaging",
+        "takes_every_boundary",
+        "wake_edge_import_token",
+        "DEFAULT_SHEDDING_DIRECTION",
+        "RELAXED_SHEDDING_DIRECTIONS",
+        "RELAXED_TE_FIELDS_WITH_DIRECTION",
+        "RELAXED_TE_FIELDS_WITHOUT_DIRECTION",
+        "RELAXED_TE_KEYWORD",
+        "RelaxedTrailingEdge",
+        "parse_relaxed_trailing_edge",
+        "resolve_shedding_direction",
+        "atmosphere",
+        "fluid_fifth_property",
+        "free_stream",
+        "initialize_solver",
+        "start_solver",
+        "unsteady_solver",
+    ),
 }
 
 _DIRECTIVE = re.compile(r"^::: ([\w.]+)\s*$", re.MULTILINE)
