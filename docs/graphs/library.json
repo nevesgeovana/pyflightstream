@@ -1311,6 +1311,11 @@
       "path": "script/_ledger_tables.py"
     },
     {
+      "id": "pyflightstream.script._phase_order",
+      "layer": 4,
+      "path": "script/_phase_order.py"
+    },
+    {
       "id": "pyflightstream.script._relaxed_te",
       "layer": 4,
       "path": "script/_relaxed_te.py"
@@ -1489,6 +1494,11 @@
       "id": "pyflightstream.workspace._links",
       "layer": 2,
       "path": "workspace/_links.py"
+    },
+    {
+      "id": "pyflightstream.workspace._mark_boundaries",
+      "layer": 2,
+      "path": "workspace/_mark_boundaries.py"
     },
     {
       "id": "pyflightstream.workspace._matrix_binding",
@@ -9549,12 +9559,32 @@
     },
     {
       "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream._textio",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
       "target": "pyflightstream.run._cli_mesh",
       "kind": "module"
     },
     {
       "source": "pyflightstream.run._cli_geometry",
       "target": "pyflightstream.run._executors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream.script",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream.versions",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_geometry",
+      "target": "pyflightstream.workspace",
       "kind": "module"
     },
     {
@@ -11539,6 +11569,11 @@
     },
     {
       "source": "pyflightstream.script",
+      "target": "pyflightstream.script._phase_order",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.script",
       "target": "pyflightstream.script._settings",
       "kind": "deferred"
     },
@@ -11646,6 +11681,21 @@
       "source": "pyflightstream.script._ledger_tables",
       "target": "pyflightstream.script._build_forms",
       "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.script._phase_order",
+      "target": "pyflightstream.commands",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script._phase_order",
+      "target": "pyflightstream.script",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script._phase_order",
+      "target": "pyflightstream.script._ledger_tables",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.script._relaxed_te",
@@ -12015,6 +12065,11 @@
     {
       "source": "pyflightstream.workspace",
       "target": "pyflightstream.workspace._links",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace",
+      "target": "pyflightstream.workspace._mark_boundaries",
       "kind": "module"
     },
     {
@@ -12525,6 +12580,66 @@
     {
       "source": "pyflightstream.workspace._ledger_history",
       "target": "pyflightstream.workspace.record_document",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.cases.mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.commands",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.script",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.script.helpers",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.versions",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.workspace.sidecars",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._mark_boundaries",
+      "target": "pyflightstream.workspace.wake_edges",
       "kind": "module"
     },
     {
