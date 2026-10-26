@@ -24,7 +24,7 @@ from tests.support_helpers import saved_mesh_fixture as _saved_simulation
 def test_inventory_writes_the_sidecar_beside_the_geometry(tmp_path, capsys):
     geometry = _saved_simulation(tmp_path / "30_WB.fsm", ["W", "B", "Blade1"])
     assert main(["inventory", str(geometry)]) == 0
-    sidecar = tmp_path / "30_WB.boundaries.toml"
+    sidecar = tmp_path / "30_WB.fsm.boundaries.toml"
     assert sidecar.is_file()
     assert capsys.readouterr().out.strip() == str(sidecar)
     data = tomllib.loads(sidecar.read_text(encoding="utf-8"))
@@ -33,11 +33,11 @@ def test_inventory_writes_the_sidecar_beside_the_geometry(tmp_path, capsys):
 
 def test_inventory_refuses_to_overwrite_without_the_flag(tmp_path, capsys):
     geometry = _saved_simulation(tmp_path / "30_WB.fsm", ["W", "B"])
-    sidecar = tmp_path / "30_WB.boundaries.toml"
+    sidecar = tmp_path / "30_WB.fsm.boundaries.toml"
     sidecar.write_text('boundaries = ["edited"]\n', encoding="utf-8")
     assert main(["inventory", str(geometry)]) == 2
     err = capsys.readouterr().err
-    assert "30_WB.boundaries.toml" in err and "--overwrite" in err
+    assert "30_WB.fsm.boundaries.toml" in err and "--overwrite" in err
     assert sidecar.read_text(encoding="utf-8") == 'boundaries = ["edited"]\n', (
         "the refusal rewrote it"
     )
