@@ -237,6 +237,43 @@ def test_p0460_b1fix_documented_session_commands_preview_and_apply(
     assert all(path.is_file() for path in plan.outputs)
 
 
+@pytest.mark.parametrize("termination", ["auto", "nodes.txt"])
+def test_p0460_b1fix2_zero_termination_readback(tmp_path, capsys, termination):
+    """Apply an auto declaration to a saved wing with no termination record."""
+    import json
+
+    from pyflightstream._fsm import saved_termination_count, surface_mesh
+    from pyflightstream.workspace import (
+        BoundaryMarkingError,
+        apply_mark_boundaries,
+        plan_mark_boundaries,
+    )
+
+    initial, saved = _p0460_saved_plan(tmp_path)
+    assert saved_termination_count(saved) == 0
+    with initial.sidecar.open("a") as stream:
+        stream.write(f'wake_termination_nodes="{termination}"\n')
+    vertices, _ = surface_mesh(saved)
+    (tmp_path / "nodes.txt").write_text(
+        "METER\n" + "\n".join(",".join(map(str, xyz)) for xyz in vertices[:2]) + "\n"
+    )
+    plan = plan_mark_boundaries(initial.mesh, registry=_p0460_verified_registry())
+    if termination != "auto":
+        with pytest.raises(BoundaryMarkingError, match="0 termination nodes, expected at least 2"):
+            apply_mark_boundaries(plan, runner=_p0460_runner(saved))
+        assert not any(path.exists() for path in plan.outputs)
+        return
+    record = apply_mark_boundaries(plan, runner=_p0460_runner(saved))
+    assert all(path.is_file() for path in plan.outputs)
+    assert record["read_back"]["termination_nodes"] == 0
+    assert json.loads(plan.outputs[4].read_text())["read_back"]["termination_nodes"] == 0
+    output = capsys.readouterr()
+    assert (
+        "the autodetect marked no wake-termination node: "
+        "no trailing-edge end meets another surface on this mesh"
+    ) in output.out + output.err
+
+
 def test_p0460_marking_publishes_five_outputs_after_readback(tmp_path):
     import json
     import tomllib
@@ -301,9 +338,10 @@ def test_p0460_marking_failure_preserves_all_existing_outputs(tmp_path, monkeypa
         plan.sets[0]["points_m"] = ((1000, 1000, 1000),)
     elif failure == "termination":
         entry = plan.declarations.trailing_edges[0].model_copy(
-            update={"wake_termination_nodes": "auto"}
+            update={"wake_termination_nodes": "nodes.txt"}
         )
         plan.declarations = plan.declarations.model_copy(update={"trailing_edges": (entry,)})
+        plan.nodes = {entry.label: (1,)}
     elif failure == "bases":
         altered = tmp_path / "unexpected-base.fsm"
         prefix, body = saved.read_text().split("$PHYSICS_START$", 1)
