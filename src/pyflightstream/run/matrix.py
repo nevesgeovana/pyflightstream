@@ -114,7 +114,7 @@ from pyflightstream.run._additional import (
 from pyflightstream.run._identity import entry_accepted_builds
 from pyflightstream.run._ids import narrow_to_selection, whole_sweeps
 from pyflightstream.run._matrix_warnings import (
-    _warn_the_legacy_rows_saving_no_simulation,
+    _warn_matrix_inputs,
     _warn_the_rows_whose_additional_post_is_one_instant,
     _warn_when_a_helical_mach_may_reach_one,
     _warn_when_a_quasi_steady_point_leaves_its_assumption,
@@ -456,30 +456,6 @@ def _bind_row_builds(
     return campaign.model_copy(update={"sims": sims}), builds
 
 
-def _warn_superseded_setup_pins(resolved: ResolvedMatrix) -> None:
-    """Name all rows whose atmospheric constraints superseded setup defaults once."""
-    rows = []
-    for pol, condition in resolved.conditions.items():
-        if condition.dropped_defaults:
-            pins = ", ".join(
-                f"{key}:{value:g}" for key, value in condition.dropped_defaults.items()
-            )
-            stated = ", ".join(
-                f"{key}:{condition.stated[key]:g}"
-                for key in ("ALTFT", "dISA", "REmi")
-                if key in condition.stated
-            )
-            rows.append(f"POL {pol}: dropped {pins}; row states {stated}")
-    if rows:
-        warnings.warn(
-            "The matrix dropped setup flight-condition pins: "
-            + "; ".join(rows)
-            + ". Setup pins are defaults; the matrix row has priority.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-
-
 def plan_matrix(
     path: str | Path,
     workspace: CampaignWorkspace,
@@ -621,11 +597,10 @@ def plan_matrix(
         ignore_missing_families=ignore_missing_families,
         rows=selected_rows,
     )
-    _warn_superseded_setup_pins(resolved)
     planned_order = whole_sweeps(resolved)
     resolved = narrow_to_selection(resolved, sims, points, workspace)  # FR-326
     warn_a_matrix_outside_the_homes(path, workspace.root)
-    _warn_the_legacy_rows_saving_no_simulation(resolved)
+    _warn_matrix_inputs(resolved)
     _warn_the_rows_whose_additional_post_is_one_instant(resolved)
     warn_saved_actions_of_unsteady_rows(resolved.campaign.sims, WORKFLOW_KEY)  # FR-313
     from pyflightstream.workspace.setup_inspection import inspect_case_setup
