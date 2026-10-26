@@ -184,14 +184,8 @@ def test_the_command_reads_the_points_entry_through_the_one_reader(tmp_path, cap
     ],
     ids=["word", "foreign-key", "no-surface", "file-and-detect"],
 )
-def test_a_detect_shape_the_workflow_refuses_is_refused_by_the_refinement(tmp_path, detect):
-    """P0390-REV38 (NFR-45, PUSH-IND-ARCH-6): the refinement reads detect as the workflow does.
-
-    A ``[trailing_edges]`` routing the trailing edge to detection in a shape
-    the workflow's reader (``read_raw_mesh_conditions``) refuses is refused
-    by the refinement with the same words, before any work: no level folder
-    is written. Control: ``detect = "auto"`` refines.
-    """
+def test_a_detect_shape_the_workflow_refuses_is_preserved_by_the_refinement(tmp_path, detect):
+    """PFS-2172: marking validation does not select or refuse refine input."""
     src = write_source(tmp_path / "src", "wing", sheet_with_strips(GT), refine_toml=FACTOR_2)
     sidecar = src.with_name("wing.boundaries.toml")
     text = sidecar.read_text(encoding="utf-8")
@@ -200,14 +194,10 @@ def test_a_detect_shape_the_workflow_refuses_is_refused_by_the_refinement(tmp_pa
     routed = 'file = "wing.te.txt"\ntype = "STANDARD"'
     assert routed in text
     sidecar.write_text(text.replace(routed, detect), encoding="utf-8")
-    with pytest.raises(InputArtifactError) as workflow:
+    with pytest.raises(InputArtifactError):
         read_trailing_edges(
             sidecar, tomllib.loads(sidecar.read_text(encoding="utf-8"))["trailing_edges"]
         )
     out = tmp_path / "out"
-    with pytest.raises(InputArtifactError) as refused:
-        refine_mesh(src, out_dir=out)
-    assert str(refused.value) == f"{workflow.value} Nothing was written."
-    assert not out.exists()
-    sidecar.write_text(text.replace(routed, 'detect = "auto"'), encoding="utf-8")
-    assert refine_mesh(src, out_dir=out).obj.is_file()
+    level = refine_mesh(src, out_dir=out)
+    assert level.obj.with_suffix(".obj.boundaries.toml").read_bytes() == sidecar.read_bytes()

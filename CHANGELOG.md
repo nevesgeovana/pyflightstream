@@ -9,6 +9,14 @@ FlightStream versions.
 
 ### Changed
 
+- Refinement reads trailing-edge points only from `[trailing_edge] file` in
+  its refine file, including with command-line factors. Kept rows and directional
+  factors require that key. Levels write `.obj.boundaries.toml` with preserved
+  marking declarations and warn about stale declared files. `per_family = true`
+  also exports one `.te.txt` per output family with a trailing edge.
+  Migration: move the refinement's trailing-edge file selection into the refine
+  file; add the level's updated `.te.txt` to its boundaries declarations yourself.
+
 - Matrix rows now require saved `.fsm` geometry. Mark OBJ boundaries once with
   `pyfs-workspace geometry mark-boundaries --apply`; plans name their inventory,
   refuse declaration tables and stale marking inputs, and warn once for build

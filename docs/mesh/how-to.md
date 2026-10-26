@@ -86,9 +86,23 @@ needs no executable, no matrix and no workspace.
 In the examples below `W1.obj` holds two families, a wing grid `Wing` and a
 triangulated tip `Tip`.
 
+Declare the refinement input in `inputs/geometries/W1/W1.refine.toml`:
+
+```toml
+[trailing_edge]
+file = "W1.te.txt"
+per_family = true
+```
+
+Then refine:
+
 ```text
 pyfs-matrix refine inputs/geometries/W1/W1.obj 2
 ```
+
+The level keeps the source's marking declarations. To mark its updated edges,
+edit the level's `[trailing_edges.<label>] file` to name `W1_R2.te.txt`, or
+one of the generated `W1_R2.<family>.te.txt` files.
 
 This writes the level folder `inputs/geometries/W1_R2/`:
 
@@ -96,7 +110,7 @@ This writes the level folder `inputs/geometries/W1_R2/`:
 inputs/geometries/W1_R2/
     W1_R2.obj               the refined mesh
     W1_R2.te.txt            the trailing-edge points, rewritten from the new mesh
-    W1_R2.boundaries.toml   the source's sidecar, naming the new points file
+    W1_R2.obj.boundaries.toml   preserved declarations and updated inventory
     W1_R2.refine.json       what was done to each family
     W1_R2.audit.json        the audit of the level against its source
 ```

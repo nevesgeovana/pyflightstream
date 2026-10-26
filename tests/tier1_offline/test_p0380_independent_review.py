@@ -316,6 +316,10 @@ def test_ind03_a_smooth_tube_of_two_nodes_around_is_refused_by_both_routes(tmp_p
     body = body_of_revolution(pole=True)
     mesh = Composite(body.verts, {"S": body.faces}, np.zeros((0, 3)), {})
     src = write_source(tmp_path / "src", "body", mesh)
+    src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
+    src.with_suffix(".refine.toml").write_text(
+        '[trailing_edge]\nfile = "body.te.txt"\n', encoding="utf-8"
+    )
     with pytest.raises(InputArtifactError) as caught:
         refine_mesh(src, chordwise=2 / 24)
     text = str(caught.value)

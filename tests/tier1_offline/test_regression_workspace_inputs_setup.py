@@ -1378,6 +1378,9 @@ class TestWorkspace2Review:
         src.with_suffix(".boundaries.toml").write_text(
             '[trailing_edges]\ndetect = { surfaces = ["U"] }\n', encoding="utf-8"
         )
+        src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
+        with src.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
+            stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
         with pytest.raises(_Workspace2ReviewInputArtifactError, match=r"\[import\].*units"):
             refine_mesh(src, spanwise=2, families=["U"], keep_first_row=["U"])
 
@@ -1472,6 +1475,9 @@ class TestWorkspace2Review:
             '[trailing_edges]\ndetect = { surfaces = ["Wing"] }\n',
             "utf-8",
         )
+        src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
+        with src.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
+            stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
         level = refine_mesh(src)
         _, actual = read_te(level.obj.with_suffix(".te.txt"))
         assert actual @ direction == pytest.approx(numpy.ones(len(actual)), abs=1e-8)
@@ -1512,6 +1518,9 @@ class TestWorkspace2Review:
             '[trailing_edges]\ndetect = { surfaces = ["Wing"] }\n',
             "utf-8",
         )
+        src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
+        with src.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
+            stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
         with pytest.raises(_Workspace2ReviewInputArtifactError, match="trailing_edge_direction"):
             refine_mesh(src)
 

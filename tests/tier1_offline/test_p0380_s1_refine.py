@@ -201,7 +201,10 @@ def test_r2_the_file_gives_the_factors_only_when_the_call_gives_none(tmp_path):
     assert called.report["G"]["intervals"]["chordwise"] == [18, 36]
     assert _json(called.files[3])["config"] == "wing.refine.toml"
     other = tmp_path / "coarse.toml"
-    other.write_bytes(b'[refine]\ntag = "coarse"\n\n[families.G]\nfactor = 0.5\n')
+    other.write_bytes(
+        b'[trailing_edge]\nfile = "src/wing.te.txt"\n[refine]\ntag = "coarse"\n'
+        b"\n[families.G]\nfactor = 0.5\n"
+    )
     named = refine_mesh(src, config=other)
     assert named.folder.name == "wing_coarse"
     assert named.report["G"]["intervals"]["spanwise"] == [8, 4]
@@ -454,7 +457,7 @@ def test_r4_a_level_holds_its_files_and_refine_json_reports_each_family(tmp_path
     before = _snapshot(src.parent)
     level = refine_mesh(src, 2.0, families=["G", "T"])
     stem = "wing_R-G2-T2"
-    suffixes = (".obj", ".te.txt", ".boundaries.toml", ".refine.json", ".audit.json")
+    suffixes = (".obj", ".te.txt", ".obj.boundaries.toml", ".refine.json", ".audit.json")
     names = [stem + suffix for suffix in suffixes]
     assert [p.name for p in level.files] == names
     assert sorted(p.name for p in level.folder.iterdir()) == sorted(names)
@@ -475,8 +478,8 @@ def test_r4_a_level_holds_its_files_and_refine_json_reports_each_family(tmp_path
     assert record["families"] == level.report
     te = (level.folder / f"{stem}.te.txt").read_text(encoding="utf-8").splitlines()
     assert te[0] == "METER" and len(te) == 1 + 16
-    side = (level.folder / f"{stem}.boundaries.toml").read_text(encoding="utf-8")
-    assert f'file = "{stem}.te.txt"' in side and "wing.te.txt" not in side
+    side = (level.folder / f"{stem}.obj.boundaries.toml").read_text(encoding="utf-8")
+    assert 'file = "wing.te.txt"' in side
     audit = _json(level.folder / f"{stem}.audit.json")
     assert (audit["schema_version"], audit["mesh"], audit["source"]) == (
         1,
@@ -665,7 +668,7 @@ def _resampled_while(call) -> list[str]:
     [
         (
             'boundaries = ["G"]\n[trailing_edges]\nfile = "missing.te.txt"\ntype = "STANDARD"\n',
-            "names the trailing-edge file missing.te.txt, which does not exist",
+            "missing.te.txt",
         ),
         ('boundaries = ["G"\n', "not TOML"),
     ],
@@ -693,6 +696,10 @@ def test_r11_a_sidecar_the_audit_refuses_is_refused_before_any_work(
     first = tmp_path / "wing_R2"
     kept = _snapshot(first)
     src.with_name("wing.boundaries.toml").write_bytes(sidecar.encode("utf-8"))
+    if said == "missing.te.txt":
+        src.with_suffix(".refine.toml").write_text(
+            '[trailing_edge]\nfile = "missing.te.txt"\n', encoding="utf-8"
+        )
     caught: list[InputArtifactError] = []
 
     def refused() -> None:
@@ -837,7 +844,7 @@ def test_r4_the_boundaries_file_is_rewritten_by_its_toml_values(tmp_path, spelli
     values = tomllib.loads(written)
     assert values["boundaries"] == ["Wing"] == list(read_mesh(level.obj)[1])
     assert (
-        values["trailing_edges"] == {"file": "wing_R1.te.txt", "type": "STANDARD"}
+        values["trailing_edges"] == {"file": "wing.te.txt", "type": "STANDARD"}
         and level.files[1].is_file()
     )
     assert values["import"] == {"units": "METER"} and "# stated, never assumed" in written
@@ -1044,7 +1051,9 @@ def test_r9_method_grid_without_a_grid_is_refused_and_auto_remeshes(tmp_path):
     why = text.split("no grid was recovered: ", 1)[1].removesuffix(". Nothing was written.")
     entry = refine_mesh(src).report["T"]
     assert (entry["method"], entry["reason"]) == ("remesh", f"no grid recovered: {why}")
-    src.with_name("wing.refine.toml").write_bytes(b'[families.G]\nfactor = 1\nmethod = "grid"\n')
+    src.with_name("wing.refine.toml").write_bytes(
+        b'[trailing_edge]\nfile = "wing.te.txt"\n[families.G]\nfactor = 1\nmethod = "grid"\n'
+    )
     assert refine_mesh(src).report["G"]["method"] == "grid"
     src.with_name("wing.refine.toml").write_bytes(
         b'[refine]\ntag = "G-remeshed"\n\n[families.G]\nfactor = 1\nmethod = "remesh"\n'
@@ -1161,8 +1170,8 @@ def test_r12_two_runs_under_different_hash_seeds_write_identical_bytes(tmp_path)
     assert coarse["wing_R-G0p5-T0p5.obj"] != runs[0]["wing_R-G2-T2.obj"]
 
 
-def test_r13_no_written_file_holds_a_carriage_return(tmp_path):
-    """P0380-REFINE (FR-927): every level file is free of CR, from a source written in CRLF.
+def test_r13_generated_files_use_lf_and_declarations_keep_source_bytes(tmp_path):
+    """P0380-REFINE (FR-927), PFS-2172: generated files use LF; declarations retain CRLF.
 
     The source's OBJ, points file, boundaries file and refinement file are all
     CRLF (the control: the same byte scan finds CR in each of them).
@@ -1175,7 +1184,9 @@ def test_r13_no_written_file_holds_a_carriage_return(tmp_path):
     assert all(b"\r" in p.read_bytes() for p in src.parent.iterdir())
     level = refine_mesh(src)
     assert len(level.files) == 5
-    assert [p.name for p in level.folder.iterdir() if b"\r" in p.read_bytes()] == []
+    side = level.obj.with_suffix(".obj.boundaries.toml")
+    assert side.read_bytes() == src.with_suffix(".boundaries.toml").read_bytes()
+    assert [p.name for p in level.folder.iterdir() if p != side and b"\r" in p.read_bytes()] == []
 
 
 # ------------------------------------------------------------------- FR-928 layering
@@ -1357,7 +1368,7 @@ def test_p0430_f731_a_symlinked_source_protects_the_folder_of_the_file_it_points
     with pytest.raises(InputArtifactError, match="source's folder"):
         refine_mesh(link, 2.0, out_dir=tmp_path / "real", overwrite=True)
     assert sorted(p.name for p in real.parent.iterdir()) == sorted(
-        ["wing.obj", "wing.te.txt", "wing.boundaries.toml"]
+        ["wing.obj", "wing.te.txt", "wing.boundaries.toml", "wing.refine.toml"]
     )
     # control: the same level folder beside an unrelated source is accepted
     monkeypatch.undo()
@@ -1489,7 +1500,9 @@ INVENTORY_KEYS = ("mesh_faces", "boundary_faces", "mesh_sha256")
 
 
 def _level_boundaries(folder) -> dict:
-    return tomllib.loads((folder / f"{folder.name}.boundaries.toml").read_text(encoding="utf-8"))
+    return tomllib.loads(
+        (folder / f"{folder.name}.obj.boundaries.toml").read_text(encoding="utf-8")
+    )
 
 
 def test_the_levels_boundaries_file_states_the_levels_faces_and_sha256(tmp_path):
@@ -1520,7 +1533,7 @@ def test_the_levels_boundaries_file_states_the_levels_faces_and_sha256(tmp_path)
     assert f"{header}{source['mesh_sha256']}" in src.with_name("wing.boundaries.toml").read_text(
         encoding="utf-8"
     )
-    text = (level.folder / f"{level.folder.name}.boundaries.toml").read_text(encoding="utf-8")
+    text = (level.folder / f"{level.folder.name}.obj.boundaries.toml").read_text(encoding="utf-8")
     assert f"{header}{got['mesh_sha256']}" in text and source["mesh_sha256"] not in text
     plain = write_source(tmp_path / "plain" / "src", "wing", mesh, refine_toml=toml)
     level = refine_mesh(plain, 2.0, families=["G", "T"])
@@ -1535,3 +1548,176 @@ def test_p0440_rb5_46_rewritten_sidecar_escapes_del(tmp_path):
         tmp_path / "wing.boundaries.toml", 'boundaries = ["Wing"]\n', "boundaries", ["Wing"], wanted
     )
     assert tomllib.loads(result) == wanted
+
+
+def source(tmp_path: Path, config: str = "") -> Path:
+    mesh = write_source(tmp_path / "src", "wing", sheet_with_strips(()), boundaries=False)
+    mesh.with_suffix(".refine.toml").write_text(config, encoding="utf-8")
+    return mesh
+
+
+@pytest.mark.parametrize("option", ["keep_first_row", "chordwise", "spanwise"])
+def test_p0460_missing_refine_te_key_is_refused(tmp_path, option):
+    mesh = source(tmp_path)
+    kwargs = {option: ["G"] if option == "keep_first_row" else 2}
+    with pytest.raises(InputArtifactError, match=r"\[trailing_edge\] file"):
+        refine_mesh(mesh, 2, **kwargs)
+
+
+def test_p0460_neighbour_points_are_not_refine_input(tmp_path):
+    mesh = source(tmp_path)
+    mesh.with_suffix(".te.txt").write_text("deliberately unreadable", encoding="utf-8")
+    try:
+        level = refine_mesh(mesh, 1)
+    except InputArtifactError as error:
+        pytest.fail(f"refine read an undeclared points file: {error}")
+    assert not level.obj.with_suffix(".te.txt").exists()
+
+
+def test_p0460_explicit_refine_points_and_preserved_declarations(tmp_path):
+    mesh = source(tmp_path, '[trailing_edge]\nfile = "wing.te.txt"\n')
+    declarations = (
+        'fs_build = "26.125"\n[import]\nunits = "METER"\n'
+        "# Keep this declaration exactly.\n[trailing_edges.wing]\n"
+        'file = "marking.te.txt" # authored choice\ntype = "RELAXED"\n'
+    )
+    mesh.with_suffix(".obj.boundaries.toml").write_text(declarations, encoding="utf-8")
+    mesh.with_suffix(".boundaries.toml").write_text("invalid TOML", encoding="utf-8")
+    try:
+        with pytest.warns(UserWarning, match=r"marking.te.txt.*wing_R2.te.txt"):
+            level = refine_mesh(mesh, 2)
+    except InputArtifactError as error:
+        pytest.fail(f"explicit refine input was refused: {error}")
+    assert level.obj.with_suffix(".te.txt").is_file()
+    assert level.obj.with_suffix(".obj.boundaries.toml").read_text() == declarations
+    assert not level.obj.with_suffix(".boundaries.toml").exists()
+
+
+def test_p0460_per_family_te_is_written(tmp_path):
+    mesh = source(tmp_path, '[trailing_edge]\nfile = "wing.te.txt"\nper_family = true\n')
+    try:
+        level = refine_mesh(mesh, 2)
+    except InputArtifactError as error:
+        pytest.fail(f"per-family refine input was refused: {error}")
+    family = level.folder / f"{level.obj.stem}.G.te.txt"
+    assert family.read_bytes() == level.obj.with_suffix(".te.txt").read_bytes()
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    level.obj.with_suffix(".obj.boundaries.toml").write_text(
+        'fs_build = "26.125"\nboundaries = ["G"]\n'
+        f'mesh_sha256 = "{hashlib.sha256(level.obj.read_bytes()).hexdigest()}"\n'
+        f"boundary_faces = [{sum(obj_face_counts(level.obj))}]\n"
+        f'mesh_faces = {sum(obj_face_counts(level.obj))}\n[import]\nunits = "METER"\n'
+        f'[trailing_edges.selected]\nfile = "{family.name}"\ntype = "STANDARD"\n',
+        encoding="utf-8",
+    )
+    assert plan_mark_boundaries(level.obj).mesh == level.obj
+
+
+def test_p0460_named_detection_component_rename_preserves_declaration(tmp_path):
+    mesh = source(
+        tmp_path,
+        '[trailing_edge]\nfile = "wing.te.txt"\n[components]\nWing = ["G"]\n',
+    )
+    text = (
+        'boundaries = ["G"]\nfs_build = "26.125"\n'
+        '[trailing_edges.chosen]\ntype = "STANDARD" # keep\n'
+        'detect = { surfaces = ["G"], sweep_angle = 30.0 }\n'
+    )
+    mesh.with_suffix(".obj.boundaries.toml").write_text(text, encoding="utf-8")
+    level = refine_mesh(mesh, 1)
+    assert level.obj.with_suffix(".obj.boundaries.toml").read_text() == text.replace(
+        '["G"]', '["Wing"]'
+    )
+
+
+@pytest.mark.parametrize("value", ["file = 3", 'file = ""', 'per_family = "yes"', "typo = true"])
+def test_p0460_refine_trailing_edge_schema_refuses_invalid_values(tmp_path, value):
+    mesh = source(tmp_path, "[trailing_edge]\n" + value + "\n")
+    with pytest.raises(InputArtifactError, match=r"\[trailing_edge\]"):
+        refine_mesh(mesh, 1)
+
+
+def test_p0460_base_family_key_is_renamed_without_reformatting(tmp_path):
+    mesh = source(tmp_path, '[trailing_edge]\nfile = "wing.te.txt"\n[components]\nWing = ["G"]\n')
+    text = 'boundaries = ["G"]\n[base_regions.G] # keep\ncp = -0.2\n'
+    mesh.with_suffix(".obj.boundaries.toml").write_text(text, encoding="utf-8")
+    level = refine_mesh(mesh, 1)
+    assert level.obj.with_suffix(".obj.boundaries.toml").read_text() == (
+        'boundaries = ["Wing"]\n[base_regions."Wing"] # keep\ncp = -0.2\n'
+    )
+
+
+def test_p0460_audit_protects_qualified_boundaries(tmp_path):
+    from pyflightstream.workspace import audit_mesh
+
+    mesh = source(tmp_path)
+    side = mesh.with_suffix(".obj.boundaries.toml")
+    side.write_text('boundaries = ["G"]\n', encoding="utf-8")
+    before = side.read_bytes()
+    audit = audit_mesh(mesh)
+    with pytest.raises(InputArtifactError, match="boundaries file"):
+        audit.write_csv(side)
+    assert side.read_bytes() == before
+
+
+@pytest.mark.parametrize("ending", [b"\n", b"\r\n"])
+def test_p0460_declarations_keep_source_newline_bytes(tmp_path, ending):
+    mesh = source(tmp_path)
+    side = mesh.with_suffix(".obj.boundaries.toml")
+    text = ending.join([b"# authored comment", b"[trailing_edges]", b"none = true", b""])
+    side.write_bytes(text)
+    level = refine_mesh(mesh, 1)
+    assert level.obj.with_suffix(".obj.boundaries.toml").read_bytes() == text
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_p0460_per_family_exports_partition_two_trailing_edges(tmp_path, grouped):
+    from pyflightstream.workspace._refine._obj import read_te
+
+    one = sheet_with_strips(())
+    offset = numpy.array([0, 5, 0])
+    mesh = Composite(
+        numpy.vstack([one.verts, one.verts + offset]),
+        {
+            "A": one.families["G"],
+            "B": [[v + len(one.verts) for v in face] for face in one.families["G"]],
+        },
+        numpy.vstack([one.te, one.te + offset]),
+        {},
+    )
+    config = '[trailing_edge]\nfile = "wing.te.txt"\nper_family = true\n'
+    if grouped:
+        config += '[components]\nWing = ["A", "B"]\n'
+    src = write_source(tmp_path / "src", "wing", mesh, refine_toml=config)
+    level = refine_mesh(src, 2)
+    names = ["Wing"] if grouped else ["A", "B"]
+    points = []
+    for name in names:
+        path = level.folder / f"{level.obj.stem}.{name}.te.txt"
+        assert path in level.files
+        unit, family_points = read_te(path)
+        assert unit == "METER" and len(family_points)
+        if not grouped:
+            assert (
+                numpy.all(family_points[:, 1] < 3)
+                if name == "A"
+                else numpy.all(family_points[:, 1] > 4)
+            )
+        points.extend(map(tuple, family_points))
+    _, combined = read_te(level.obj.with_suffix(".te.txt"))
+    assert sorted(points) == sorted(map(tuple, combined))
+
+
+def test_p0460_inventory_digest_does_not_rewrite_declaration_filename(tmp_path):
+    mesh = source(tmp_path)
+    digest = hashlib.sha256(mesh.read_bytes()).hexdigest()
+    declaration = f'[trailing_edges.wing]\nfile = "{digest}.te.txt"\ntype = "STANDARD"\n'
+    text = f'# the OBJ\'s sha256 was {digest}\nmesh_sha256 = "{digest}"\n' + declaration
+    mesh.with_suffix(".obj.boundaries.toml").write_bytes(text.encode())
+    level = refine_mesh(mesh, 2)
+    copied = level.obj.with_suffix(".obj.boundaries.toml").read_text()
+    assert copied.endswith(declaration)
+    new_digest = hashlib.sha256(level.obj.read_bytes()).hexdigest()
+    assert tomllib.loads(copied)["mesh_sha256"] == new_digest != digest
+    assert f"# the OBJ's sha256 was {new_digest}" in copied

@@ -102,6 +102,8 @@ def _write(
         bottom = numpy.nonzero(numpy.abs(mesh.verts[:, 2]) < 1e-12)[0]
         mid = 0.5 * (mesh.verts[bottom[:-1]] + mesh.verts[bottom[1:]])
         _obj.write_te(folder / f"{name}.te.txt", "METER", mid)
+    if te:
+        refine = (refine or "") + f'\n[trailing_edge]\nfile = "{name}.te.txt"\n'
     if refine is not None:
         _textio.write_text(folder / f"{name}.refine.toml", refine)
     return source

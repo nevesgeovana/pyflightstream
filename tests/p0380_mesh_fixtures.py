@@ -457,6 +457,8 @@ def write_source(
         if len(mesh.te):
             text += f'\n[trailing_edges]\nfile = "{stem}.te.txt"\ntype = "STANDARD"\n'
         (folder / f"{stem}.boundaries.toml").write_bytes(text.encode("utf-8"))
+    if len(mesh.te) and "[trailing_edge]" not in (refine_toml or ""):
+        refine_toml = (refine_toml or "") + f'\n[trailing_edge]\nfile = "{stem}.te.txt"\n'
     if refine_toml is not None:
         (folder / f"{stem}.refine.toml").write_bytes(refine_toml.encode("utf-8"))
     return obj
