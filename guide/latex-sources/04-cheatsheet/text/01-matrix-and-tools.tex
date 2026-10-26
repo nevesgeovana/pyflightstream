@@ -21,7 +21,7 @@
 \begin{multicols}{4}
 
 \stage{1. PREPARE THE WORKSPACE AND THE MATRIX}
-\sub{inventory <geometry>}{write \texttt{<stem>.boundaries.toml} beside a saved simulation (.fsm, from its mesh block) or an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed}
+\sub{inventory <geometry>}{write \texttt{<stem>.fsm.boundaries.toml} beside a saved simulation (from its mesh block) or \texttt{<stem>.obj.boundaries.toml} beside an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed}
 \begin{flags}
 \item \fl{--overwrite} rewrite an existing .fsm sidecar (an OBJ sidecar is never rewritten)
 \item \fl{--clean} remove the saved solver actions; copy kept as \texttt{<file>.bak-<stamp>}

@@ -50,7 +50,7 @@ Create the tree once, stage each geometry under \file{inputs/geometries/}, write
 \opt{--workspace DIR}{the workspace root.}
 \opt{--apply}{apply the conversion with backups.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix inventory}{<geometry>}{Write \file{<stem>.boundaries.toml} beside a saved simulation (from its mesh block) or an OBJ (from its groups), and name the solver actions a saved simulation keeps. Needs no executable.}
+\begin{cmdblock}{pyfs-matrix inventory}{<geometry>}{Write \file{<stem>.fsm.boundaries.toml} beside a saved simulation (from its mesh block) or \file{<stem>.obj.boundaries.toml} beside an OBJ (from its groups), and name the solver actions a saved simulation keeps. Needs no executable.}
 \opt{--overwrite}{rewrite a saved simulation's sidecar that already exists.}
 \opt{--clean}{remove the saved solver actions, keeping \file{<file>.bak-<stamp>} (stage 8).}
 \end{cmdblock}
