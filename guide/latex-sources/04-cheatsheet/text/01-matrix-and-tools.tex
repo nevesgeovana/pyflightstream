@@ -303,6 +303,11 @@ See the website's Upgrading page for supported workspace conversion.
 \begin{flags}
 \item \fl{--workspace DIR} the workspace root (default: the current folder)
 \end{flags}
+\sub{geometry mark-boundaries <OBJ>}{preview offline the marking of the named \texttt{[trailing\_edges.<label>]} and \texttt{[base\_regions.<family>]} declarations of \texttt{<stem>.obj.boundaries.toml}; with \fl{--apply} run the licensed solver once and save \texttt{<stem>.fsm}, the file a matrix row names, with its \texttt{.fsm.boundaries.toml} and \texttt{<stem>.mark.json}}
+\fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
+\begin{flags}
+\item \fl{--apply} import, mark and save \quad \fl{--overwrite} mark again after an input changed \quad \fl{--fs-exe PATH} the executable, over the registry
+\end{flags}
 \sub{geometry from-sidecar <geometry>}{print the instruction file that builds the same body as the sidecar of a CCS, IGES or raw-mesh geometry; the sidecar and the matrices are never edited}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \begin{flags}

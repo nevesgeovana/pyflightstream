@@ -50,7 +50,7 @@ Create the tree once, stage each geometry under \file{inputs/geometries/}, write
 \opt{--workspace DIR}{the workspace root.}
 \opt{--apply}{apply the conversion with backups.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix inventory}{<geometry>}{Write \file{<stem>.fsm.boundaries.toml} beside a saved simulation (from its mesh block) or \file{<stem>.obj.boundaries.toml} beside an OBJ (from its groups), and name the solver actions a saved simulation keeps. Needs no executable.}
+\begin{cmdblock}{pyfs-matrix inventory}{<geometry>}{Write \file{<stem>.<kind>.boundaries.toml} beside a saved simulation (kind \texttt{fsm}, from its mesh block) or an OBJ (\texttt{obj}, from its groups), and name the solver actions a saved simulation keeps. Needs no executable.}
 \opt{--overwrite}{rewrite a saved simulation's sidecar that already exists.}
 \opt{--clean}{remove the saved solver actions, keeping \file{<file>.bak-<stamp>} (stage 8).}
 \end{cmdblock}
@@ -107,7 +107,7 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 
 \hd{Files}
 \rd{inputs/geometries/}{the saved simulation or mesh \cmd{pyfs-matrix inventory} reads.}
-\wf{<stem>.boundaries.toml}{beside the geometry: the boundary names every alias and pproc family cites.}
+\wf{<stem>.<kind>.boundaries.toml}{beside the geometry, kind \texttt{fsm} or \texttt{obj}: the boundary names every alias and pproc family cites.}
 \wf{inputs/executables.toml}{the build registry template: each build a row may name, its executable.}
 \rd{pyfs.toml}{with \file{pyfs.local.toml} (this machine's, read over it): \texttt{[defaults]} of the options, \texttt{[log] console}; a typed option wins. \texttt{accept\_unregistered\_build = true} on an \file{inputs/executables.local.toml} entry accepts that build only.}
 \wf{inputs/geometries/README.md}{how to lay out the geometries.}
@@ -121,7 +121,7 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \err{The inventory refuses: the sidecar already exists.}{\fl{--overwrite} rewrites a saved simulation's sidecar; an OBJ's never: edit or remove it.}
 \err{The field file \texttt{<STEM>} already exists.}{another \fl{--out}, or \fl{--overwrite} it and its record.}
 \err{\fl{--fluctuation-only} refuses.}{it needs \fl{--last} K: the fluctuation of the last K steps.}
-\err{A bare stem in a GEOMETRY key is refused.}{name the file, extension included (\file{wing_clean.fsm}).}
+\err{A GEOMETRY key naming an OBJ, or a bare stem, is refused.}{mark an OBJ once, \cmd{pyfs-workspace geometry mark-boundaries} \fl{--apply}, and name the \file{.fsm} with its extension.}
 
 \hd{Where to read more}
 Documentation: \textit{The workspace and the workflow}, \textit{The input library and the solver presets}, \textit{Field operations}; guide 2, \textit{Workspaces}.
