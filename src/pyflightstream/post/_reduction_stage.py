@@ -65,6 +65,7 @@ from pyflightstream.post.farfield_fields import (
     derived_layout,
     frame_lattice,
     recorded_layout,
+    rotor_g4,
     rotor_lattice,
     viscous_projection,
 )
@@ -156,10 +157,9 @@ def _window_near_forces(
     assert ctx.pproc.farfield is not None
     if not chosen or "axial" not in ctx.pproc.farfield.balances:
         return {}
-    source = ctx.plots_tables.get(point.name)
     weights = {axis: 1.0} if isinstance(axis, str) else dict(zip("XYZ", axis, strict=True))
     try:
-        if source is None:
+        if (source := ctx.plots_tables.get(point.name)) is None:
             raise ValueError("no point plots table")
         _, series = plots_table_series(source)
         projected = np.zeros(len(series.steps))
@@ -200,16 +200,17 @@ def _window_near_forces(
             raise ValueError(f"missing finite force at steps {missing}")
         return forces
     except (PyflightstreamError, OSError, ValueError) as error:
-        entry = ctx.pproc.farfield.name
+        if rotor_g4(ctx.pproc.farfield.ledgers, ctx.record_of[point.name].recipe):
+            return {}
         reason = (
             f"SPURIOUS_COUNTS needs loads history covering the same window: {error}; "
             "restore the point's complete global force history"
         )
         ctx.skipped[
-            f"farfield/ledgers_average#point={point.name}#SPURIOUS_COUNTS#entry={entry}"
+            f"farfield/ledgers_average#point={point.name}#SPURIOUS_COUNTS#entry={ctx.pproc.farfield.name}"
         ] = reason
         warn(
-            f"point={point.name} product=farfield entry={entry}: {reason}",
+            f"point={point.name} product=farfield entry={ctx.pproc.farfield.name}: {reason}",
             PyflightstreamWarning,
             stacklevel=3,
         )

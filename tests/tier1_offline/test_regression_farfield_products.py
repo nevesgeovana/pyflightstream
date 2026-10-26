@@ -108,6 +108,79 @@ LOADS = """Aerodynamic loads
 """
 
 
+@pytest.mark.requirement("P0460-G4-ROTOR")
+@pytest.mark.parametrize("recipe", ["steady", "unsteady", "unsteady_rotor", "qsteady_rotor"])
+@pytest.mark.parametrize("named_rotor", [False, True])
+def test_p0460_g4_rotor_is_not_a_thrust_balance(tmp_path, recipe, named_rotor):
+    """Post identical probe fields: rotor G4 is NA; every other ledger value stays."""
+    unsteady = recipe in ("unsteady", "unsteady_rotor")
+    files = _p0450_probe_series(_FFPROOF_POST___POINTS_M)
+    files[f"{_FFPROOF_POST___STEM}_plots.txt"] = (
+        _FFPROOF_POST__PLOTS_HEADER
+        + "Time-step,FX_MRP_TOTAL,CDO_MRP_TOTAL\n7,-10,0,\n8,-30,0,\n"
+        + "-" * 60
+        + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #10052026\n"
+    )
+    results = []
+    for control in (True, False):
+        pproc = _FFPROOF_POST___LEDGERS + 'export_type = "avg_window"\nlast_steps = 2\n'
+        if named_rotor and not control:
+            pproc = pproc.replace('frame = "MRP"\ntip_radius_m = 1.0', 'rotor = "R"')
+        workspace = _ffproof_post___campaign(
+            tmp_path / ("control" if control else "subject"),
+            pproc=pproc,
+            files=files,
+            recipe=("unsteady" if unsteady else "steady") if control else recipe,
+            reductions={
+                **_FFPROOF_POST___WINDOW,
+                "rotors": {"R" if named_rotor and not control else "None": {"rpm": 0.0}},
+            },
+        )
+        _ffproof_post___set_record(
+            workspace,
+            farfield_layout={
+                "shapes": [
+                    {
+                        "kind": "lattice",
+                        "source": "added",
+                        "entry": None,
+                        "count": len(_FFPROOF_POST___POINTS_M),
+                        "axis": "X",
+                        "origin_m": [0.0, 0.0, 0.0],
+                        "positions_frame": "REFERENCE",
+                        "lattice": _FFPROOF_POST___SHAPE.build(1.0).model_dump(mode="json"),
+                    }
+                ]
+            },
+        )
+        _ffproof_post___post(workspace)
+        suffixes = ("_instant", "_average") if unsteady else ("",)
+        results.append(
+            [
+                row
+                for suffix in suffixes
+                for row in _rfixf_layout___rows(workspace.root, f"farfield/*_ledgers{suffix}.csv")
+            ]
+        )
+    control_rows, rows = results
+    assert rows and len(rows) == len(control_rows)
+    rotor = named_rotor or recipe in ("unsteady_rotor", "qsteady_rotor")
+    for baseline, row in zip(control_rows, rows, strict=True):
+        for column in LEDGER_COLUMNS:
+            if column in ("LATTICE", "SPURIOUS_COUNTS", "F_NEAR_N"):
+                continue
+            assert row[column] == baseline[column], column
+        for column in ("SPURIOUS_COUNTS", "F_NEAR_N"):
+            assert baseline[column] != "NA"
+            assert row[column] == ("NA" if rotor else baseline[column])
+    skips = _ffproof_post___manifest(workspace.root)["skipped"]
+    reasons = [reason for key, reason in skips.items() if "SPURIOUS_COUNTS" in key]
+    assert bool(reasons) is rotor
+    if rotor:
+        assert all("free-stream Bernoulli pressure" in reason for reason in reasons)
+        assert all("no disk total-pressure jump" in reason for reason in reasons)
+
+
 @pytest.mark.requirement("P0460-G4")
 @pytest.mark.parametrize("axis", ["X", (0.6, 0.0, 0.8)])
 @pytest.mark.parametrize("split", ["CDo", "CDv"])

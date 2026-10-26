@@ -30,6 +30,11 @@ FlightStream versions.
 
 ### Changed
 
+- Rotor power entries and rotor recipes now report G4 (`SPURIOUS_COUNTS`)
+  and `F_NEAR_N` as NA with a named skip: probe pressure carries no disk
+  total-pressure jump. Flux and other ledger columns stay; wings retain G4
+  (PFS-2180).
+
 - Rotor-lattice G3 (`SYMMETRY_FLOOR`) excludes multiples of the blade count
   through `m_max`; the manifest lists excluded orders per point and entry.
   Non-rotor lattices retain every order (PFS-2179).
