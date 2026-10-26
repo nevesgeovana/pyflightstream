@@ -346,7 +346,7 @@ def plan_mark_boundaries(
     return _plan_mark_boundaries(inputs, routes, registry)
 
 
-def _plan_mark_boundaries(inputs, routes, registry):
+def _plan_mark_boundaries(inputs, routes, registry) -> BoundaryMarkingPlan:
     """Render a preview from one validated input snapshot and node-route resolution."""
     source, sidecar, declarations, spec, names, faces = inputs
     names, faces = list(names), list(faces)
