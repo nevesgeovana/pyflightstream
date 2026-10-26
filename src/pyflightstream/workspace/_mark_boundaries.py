@@ -441,7 +441,20 @@ def _input_output_collisions(plan: BoundaryMarkingPlan) -> None:
 
 
 def refuse_mark_boundaries(plan: BoundaryMarkingPlan, *, overwrite: bool) -> None:
-    """Refuse unverified markings, stale inputs and an unapproved replacement before execution."""
+    """Refuse unverified markings, stale inputs and an unapproved replacement before execution.
+
+    Parameters
+    ----------
+    plan : BoundaryMarkingPlan
+        Preview whose evidence, inputs and output paths are checked.
+    overwrite : bool
+        Whether replacement of an existing saved simulation is allowed.
+
+    Raises
+    ------
+    InputArtifactError
+        Evidence is missing, an input changed or output replacement is refused.
+    """
     _input_output_collisions(plan)
     if plan.awaiting_evidence:
         raise InputArtifactError(
@@ -540,6 +553,11 @@ def apply_mark_boundaries(
     -------
     dict
         The promoted marking record.
+
+    Raises
+    ------
+    BoundaryMarkingError
+        Execution fails or the saved state does not match the declarations.
     """
     refuse_mark_boundaries(plan, overwrite=overwrite)
     assert plan.declarations.fs_build is not None

@@ -103,7 +103,24 @@ DEFAULT_TOLERANCE = 0.0001
 
 
 def saved_wake_edge_verdict(sets, folder: Path, collected: Sequence[str], build: str):
-    """Compare the marked saved mesh with every declared set in physical metres."""
+    """Compare the marked saved mesh with every declared set in physical metres.
+
+    Parameters
+    ----------
+    sets : sequence of mappings
+        Declared edge points, tolerances and source files.
+    folder : Path
+        Folder containing the collected saved simulation.
+    collected : sequence of str
+        Collected output names, including exactly one saved simulation.
+    build : str
+        Solver build associated with the marking pass.
+
+    Returns
+    -------
+    tuple or None
+        Failure status and diagnosis, or None when every declared point is marked.
+    """
     saves = [folder / name for name in collected if Path(name).suffix.lower() == ".fsm"]
     if len(saves) != 1:
         return (

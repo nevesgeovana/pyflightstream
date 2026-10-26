@@ -158,6 +158,11 @@ def detect_every_boundary(script: Script, kind: str) -> str:
     str
         The command emitted.
 
+    Raises
+    ------
+    CommandArgumentError
+        The build requires a boundary inventory and none has been declared.
+
     Examples
     --------
     >>> from pyflightstream.script import Script
