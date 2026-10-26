@@ -69,6 +69,23 @@ def _p0460_marking_input(tmp_path, *, build="26.125", extra=""):
     return mesh
 
 
+@pytest.mark.parametrize("suffix", [".obj", ".stl"])
+def test_p0460_la05_raw_geometry_refusal_gives_one_marking_remedy(suffix):
+    from pyflightstream.cases import CampaignConfigError
+    from tests.tier1_offline.test_workflows import steady_case
+
+    geometry = f"inputs/wing{suffix}"
+    with pytest.raises(CampaignConfigError) as caught:
+        build_script(steady_case(geometry=geometry), Script("26.125"))
+    message = str(caught.value)
+    assert geometry in message and "must be an .fsm" in message
+    mesh = Path("inputs/wing.obj")
+    assert f"pyfs-workspace geometry mark-boundaries {mesh} --apply" in message
+    assert message.count("--apply") == 1
+    assert "then run the saved simulation." in message
+    assert "Only FSI rows retain raw meshes." in message
+
+
 def test_p0460_mark_boundaries_preview_writes_nothing(tmp_path, capsys):
     from pyflightstream.workspace.cli import main
 

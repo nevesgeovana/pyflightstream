@@ -119,7 +119,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: GEOMETRY {case.geometry!r} must be an .fsm. "
             f"Run pyfs-workspace geometry mark-boundaries {mesh} --apply, "
-            "then run the saved simulation. Choose apply (CLI: --apply) for marking. "
+            "then run the saved simulation. "
             "Only FSI rows retain raw meshes. "
             "See docs/mesh-inputs.md."
         )
