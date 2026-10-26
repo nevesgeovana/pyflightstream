@@ -9,10 +9,14 @@ import pytest
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace.fsi_setup import FSI_TEMPLATE
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 from tests.tier1_offline.test_p0351_batch_fsi import (
     _MATRIX_HEADER,
     BUILD,
     _build_coupled_inputs,
+    _pin_mesh_inventory,
 )
 
 
@@ -23,8 +27,9 @@ def _coupled_sector_inputs(root):
     (geometry / "coupled_wing.obj").write_text(
         "o Blade1\nv 0 0 .1\nv 0 .02 .1\nv 0 0 .5\nf 1 2 3\n", encoding="utf-8"
     )
-    (geometry / "coupled_wing.boundaries.toml").write_text(
-        'boundaries = ["Blade1"]\n[import]\nunits = "METER"\n[trailing_edges]\ndetect = "auto"\n',
+    (geometry / "coupled_wing.obj.boundaries.toml").write_text(
+        'fs_build = "26.124"\nboundaries = ["Blade1"]\n[import]\nunits = "METER"\n'
+        '[trailing_edges.main]\ndetect = "auto"\ntype = "STANDARD"\n',
         encoding="utf-8",
     )
     (inputs / "references/r340.toml").write_text(
@@ -53,15 +58,17 @@ def test_p0360_gf_coupled_steady_stays_out(tmp_path, capsys, options, run_type):
     root = workspace.root
     _build_coupled_inputs(root)
     # A single initialization keeps the independent double-initialization exclusion out.
-    sidecar = root / "inputs/geometries/coupled_wing/coupled_wing.boundaries.toml"
+    sidecar = root / "inputs/geometries/coupled_wing/coupled_wing.obj.boundaries.toml"
     sidecar.write_text(
-        'boundaries = ["Wing"]\n[import]\nunits = "METER"\n[trailing_edges]\ndetect = "auto"\n',
+        'fs_build = "26.124"\nboundaries = ["Wing"]\n[import]\nunits = "METER"\n'
+        '[trailing_edges.main]\ndetect = "auto"\ntype = "STANDARD"\n',
         encoding="utf-8",
     )
     symmetry, variables = "NONE", "FSI: f340"
     if run_type == "qsteady_rotor":
         _coupled_sector_inputs(root)
         symmetry, variables = "PERIODIC", "FSI: f340 / RPM: 1200 / PERIODIC_COPIES: 3"
+    _pin_mesh_inventory(root / "inputs/geometries/coupled_wing/coupled_wing.obj")
     matrix = root / "gf.fs"
     row = (
         "7001 | 1 | 1 | SYNTHETIC | - | coupled | MACH:sweep, REmi:3.0, ALPHA:0.0 | "

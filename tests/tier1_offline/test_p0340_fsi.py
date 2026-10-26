@@ -30,6 +30,9 @@ from pyflightstream.fsi import driver, nodes
 from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import SectionFamilyMap
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 from tests.tier1_offline.test_fsi_driver import CALL2, driver_config, run_sequence, stage_run
 from tests.tier1_offline.test_fsig_fixed_wing import (
     STATIONS,
