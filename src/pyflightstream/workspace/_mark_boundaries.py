@@ -326,7 +326,7 @@ def _awaiting(script: Script) -> tuple[str, ...]:
 def plan_mark_boundaries(
     mesh: str | Path, *, registry: CommandRegistry | None = None
 ) -> BoundaryMarkingPlan:
-    """Validate declarations and render a marking pass without writing any file.
+    r"""Validate declarations and render a marking pass without writing any file.
 
     Parameters
     ----------
@@ -339,6 +339,22 @@ def plan_mark_boundaries(
     -------
     BoundaryMarkingPlan
         Preview, input digests and staging destinations.
+
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> from tempfile import TemporaryDirectory
+    >>> from pyflightstream.workspace import plan_mark_boundaries
+    >>> from pyflightstream.workspace.sidecars import write_inventory
+    >>> with TemporaryDirectory() as folder:
+    ...     mesh = Path(folder) / "wing.obj"
+    ...     _ = mesh.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\ng Wing\nf 1 2 3\n")
+    ...     with write_inventory(mesh).open("a") as stream:
+    ...         _ = stream.write('\nfs_build = "26.125"\n[import]\nunits = "METER"\n')
+    ...         _ = stream.write("[trailing_edges]\nnone = true\n")
+    ...     plan = plan_mark_boundaries(mesh)
+    ...     print(plan.outputs[0].name, plan.work.exists())
+    wing.fsm False
     """
     inputs = _marking_inputs(mesh)
     _, sidecar, declarations, spec, _, _ = inputs
@@ -450,7 +466,7 @@ def _input_output_collisions(plan: BoundaryMarkingPlan) -> None:
 
 
 def refuse_mark_boundaries(plan: BoundaryMarkingPlan, *, overwrite: bool) -> None:
-    """Refuse unverified markings, stale inputs and an unapproved replacement before execution.
+    r"""Refuse unverified markings, stale inputs and an unapproved replacement before execution.
 
     Parameters
     ----------
@@ -463,6 +479,28 @@ def refuse_mark_boundaries(plan: BoundaryMarkingPlan, *, overwrite: bool) -> Non
     ------
     InputArtifactError
         Evidence is missing, an input changed or output replacement is refused.
+
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> from tempfile import TemporaryDirectory
+    >>> from pyflightstream._errors import InputArtifactError
+    >>> from pyflightstream.workspace import plan_mark_boundaries, refuse_mark_boundaries
+    >>> from pyflightstream.workspace.sidecars import write_inventory
+    >>> with TemporaryDirectory() as folder:
+    ...     mesh = Path(folder) / "wing.obj"
+    ...     _ = mesh.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\ng Wing\nf 1 2 3\n")
+    ...     with write_inventory(mesh).open("a") as stream:
+    ...         _ = stream.write('\nfs_build = "26.125"\n[import]\nunits = "METER"\n')
+    ...         _ = stream.write("[trailing_edges]\nnone = true\n")
+    ...     plan = plan_mark_boundaries(mesh)
+    ...     refuse_mark_boundaries(plan, overwrite=False)
+    ...     _ = plan.outputs[0].write_text("")
+    ...     try:
+    ...         refuse_mark_boundaries(plan, overwrite=False)
+    ...     except InputArtifactError as error:
+    ...         print(str(error).endswith("pass overwrite=True (CLI: --overwrite) to replace it"))
+    True
     """
     _input_output_collisions(plan)
     if plan.awaiting_evidence:
@@ -545,7 +583,7 @@ def apply_mark_boundaries(
     overwrite: bool = False,
     package_version: str = "unknown",
 ) -> dict[str, Any]:
-    """Run once and admit all five outputs only after saved-state checks succeed.
+    r"""Run once and admit all five outputs only after saved-state checks succeed.
 
     Parameters
     ----------
@@ -567,6 +605,38 @@ def apply_mark_boundaries(
     ------
     BoundaryMarkingError
         Execution fails or the saved state does not match the declarations.
+
+    Examples
+    --------
+    Running needs a licensed solver behind ``runner``. Offline, a runner that
+    reports a failure shows the contract: nothing is promoted and the error
+    names the staging directory to inspect.
+
+    >>> from pathlib import Path
+    >>> from tempfile import TemporaryDirectory
+    >>> from types import SimpleNamespace
+    >>> from pyflightstream.workspace import (
+    ...     BoundaryMarkingError,
+    ...     apply_mark_boundaries,
+    ...     plan_mark_boundaries,
+    ... )
+    >>> from pyflightstream.workspace.sidecars import write_inventory
+    >>> def unlicensed(script, working_directory):
+    ...     return SimpleNamespace(log="", failed=True, diagnosis="no licence")
+    >>> with TemporaryDirectory() as folder:
+    ...     mesh = Path(folder) / "wing.obj"
+    ...     _ = mesh.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\ng Wing\nf 1 2 3\n")
+    ...     with write_inventory(mesh).open("a") as stream:
+    ...         _ = stream.write('\nfs_build = "26.125"\n[import]\nunits = "METER"\n')
+    ...         _ = stream.write("[trailing_edges]\nnone = true\n")
+    ...     plan = plan_mark_boundaries(mesh)
+    ...     try:
+    ...         apply_mark_boundaries(plan, runner=unlicensed)
+    ...     except BoundaryMarkingError as error:
+    ...         print(str(error).split(";")[0])
+    ...     print(plan.outputs[0].exists())
+    mark-boundaries failed: no licence
+    False
     """
     refuse_mark_boundaries(plan, overwrite=overwrite)
     assert plan.declarations.fs_build is not None
