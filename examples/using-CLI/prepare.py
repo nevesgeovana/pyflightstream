@@ -1,11 +1,27 @@
 """Write synthetic meshes for a copied classic workspace, without FlightStream."""
 
 import argparse
+import hashlib
 from pathlib import Path
 
 import numpy as np
 
 from pyflightstream.qa.geometry import BladeSpec, WingSpec, blade_triangles, wing_triangles
+
+
+def _declarations(geometries: Path, mesh: str, boundaries: list[str], faces: list[int]) -> None:
+    """Write the declarations consumed by mark-boundaries beside one generated OBJ."""
+    import json
+
+    (geometries / f"{mesh}.obj.boundaries.toml").write_text(
+        'fs_build = "26.124"\n'
+        f'mesh_sha256 = "{hashlib.sha256((geometries / f"{mesh}.obj").read_bytes()).hexdigest()}"\n'
+        f"boundaries = {json.dumps(boundaries)}\n"
+        f"boundary_faces = {json.dumps(faces)}\nmesh_faces = {sum(faces)}\n\n"
+        '[import]\nunits = "METER"\n\n'
+        f'[trailing_edges.{mesh}]\ntype = "STANDARD"\ndetect = "auto"\n',
+        encoding="utf-8",
+    )
 
 
 def prepare(workspace: Path) -> None:
@@ -17,7 +33,7 @@ def prepare(workspace: Path) -> None:
         A copy of one of the four example workspaces.
     """
     geometries = workspace / "inputs" / "geometries"
-    if (geometries / "prop.boundaries.toml").is_file():
+    if (geometries / "prop.obj.boundaries.toml").is_file():
         triangles = blade_triangles(BladeSpec(r_tip_m=1.0, n_chord=12, n_span=8))
         with (geometries / "prop.obj").open("w", encoding="utf-8") as stream:
             offset = 0
@@ -30,8 +46,9 @@ def prepare(workspace: Path) -> None:
                 for a, b, c in np.arange(len(vertices)).reshape(-1, 3) + offset + 1:
                     stream.write(f"f {a} {b} {c}\n")
                 offset += len(vertices)
+        _declarations(geometries, "prop", ["Blade1", "Blade2"], [len(triangles)] * 2)
     else:
-        for level in (1, 2) if (geometries / "wing_fine.boundaries.toml").is_file() else (1,):
+        for level in (1, 2) if (geometries / "wing_fine.obj.boundaries.toml").is_file() else (1,):
             name = "wing" if level == 1 else "wing_fine"
             triangles = wing_triangles(
                 WingSpec(chord_m=1.0, span_m=4.0, n_chord=12 * level, n_span=8 * level)
@@ -43,6 +60,7 @@ def prepare(workspace: Path) -> None:
                     stream.write(f"v {x:.12g} {y:.12g} {z:.12g}\n")
                 for a, b, c in indices.reshape(-1, 3) + 1:
                     stream.write(f"f {a} {b} {c}\n")
+            _declarations(geometries, name, ["Wing"], [len(triangles)])
 
 
 if __name__ == "__main__":

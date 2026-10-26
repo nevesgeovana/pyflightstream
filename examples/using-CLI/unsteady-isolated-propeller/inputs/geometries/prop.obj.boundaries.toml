@@ -1,7 +1,9 @@
+fs_build = "26.124"
 boundaries = ["Blade1", "Blade2"]
 
 [import]
 units = "METER"
 
-[trailing_edges]
+[trailing_edges.prop]
+type = "STANDARD"
 detect = "auto"

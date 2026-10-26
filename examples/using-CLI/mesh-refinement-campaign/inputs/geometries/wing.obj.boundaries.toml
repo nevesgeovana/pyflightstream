@@ -1,7 +1,9 @@
+fs_build = "26.124"
 boundaries = ["Wing"]
 
 [import]
 units = "METER"
 
-[trailing_edges]
+[trailing_edges.wing]
+type = "STANDARD"
 detect = "auto"
