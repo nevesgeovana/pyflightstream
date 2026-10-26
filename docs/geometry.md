@@ -393,27 +393,41 @@ itself never launches the solver.
 
 ## Mark boundaries once into a saved simulation
 
-The boundary-marking planner reads an OBJ and its named declarations, validates
-the inventory and point files, and renders trailing edges, base regions,
-termination nodes and merges in order without initializing or solving.
-The Python API is `pyflightstream.workspace.plan_mark_boundaries(mesh)`.
-It writes nothing. `apply_mark_boundaries` takes an explicit runner callback
-and refuses unverified commands, stale inputs and an existing FSM without overwrite.
+`mark-boundaries` reads an OBJ and its `.obj.boundaries.toml`, marks the
+declared trailing edges and base regions without initializing or solving,
+and saves an FSM for inspection in FlightStream. A legacy `.boundaries.toml`
+filename is accepted when the kind-qualified file is absent.
 
 ```text
 pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj
 pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj --apply --fs-exe PATH
 ```
 
-Preview writes nothing and lists commands awaiting VERIFIED evidence for the
-declared build. Apply checks the executable with a log-only identity pass before
-the marking pass. Existing FSM output requires `--overwrite`. Exit 2 names an
-input, evidence or executable refusal; exit 3 names an execution failure.
+Preview validates the mesh and point files, prints the ordered script and all
+five destinations, and writes nothing. `--apply` refuses every command whose
+status is not VERIFIED on the declared `fs_build`, naming it. In particular,
+an unverified `AUTO_DETECT_WAKE_TERMINATION_NODES` blocks an `"auto"` entry.
+Rendering a script does not establish solver support. Apply first checks the
+executable's build banner with a small log-only pass, then runs one marking
+pass in a fresh work folder. An existing FSM requires `--overwrite`.
 
-Saved names, edge points and groups, termination counts and base records
-must agree before publication. Failed attempts retain their work folder and
-preserve previous products. Replacement failures roll back; this does not
-guarantee recovery from power loss.
+The saved surface names, trailing-edge points and group count, termination
+count and base-region records must agree before publication. The five outputs
+are `wing.fsm`, `wing.fsm.boundaries.toml`, `wing.mark.json`, `wing.mark.txt`
+and `wing.mark.log`. Publication rolls back replacements if a file operation
+fails; this is not a guarantee against power loss. The declaration sidecar
+is never rewritten. The clean FSM inventory sums OBJ face counts after merges,
+and the JSON record hashes the inputs, script and saved FSM. Failed attempts
+keep their work folder for diagnosis and preserve prior published products.
+
+Exit codes: 0 preview or successful marking, 2 input/evidence/executable
+refusal, 3 solver, saved-state or publication failure. See the
+[boundary declaration reference](mesh/reference.md) for named entries.
+
+The following solver-free preview is also exercised by the offline tests:
+inventory a triangular OBJ, add `fs_build = "26.125"`, `[import] units = "METER"`
+and `[trailing_edges] none = true`, then run the first command above. It emits
+`SAVEAS`, never `INITIALIZE_SOLVER`, and leaves every input byte unchanged.
 
 ## The other geometry verbs
 

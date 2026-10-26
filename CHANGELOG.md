@@ -19,6 +19,9 @@ FlightStream versions.
 - Admit saved surface names, trailing-edge points and groups, termination
   counts and base records before publishing marking products; roll back a failed replacement.
 
+- Publish a clean FSM inventory and provenance record alongside the marked
+  FSM, script and log; authored declarations stay unchanged.
+
 - Boundary-marking scripts can explicitly opt into the measured no-initialization
   ordering on 26.124 and 26.125; ordinary run scripts keep their phase guard.
 

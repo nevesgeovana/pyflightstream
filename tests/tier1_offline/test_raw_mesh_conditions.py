@@ -206,6 +206,50 @@ def _p0460_runner(saved, *, fail=False):
     return run
 
 
+def test_p0460_marking_publishes_five_outputs_after_readback(tmp_path):
+    import json
+    import tomllib
+
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.workspace import apply_mark_boundaries
+
+    plan, saved = _p0460_saved_plan(tmp_path)
+    original = plan.sidecar.read_bytes()
+    record = apply_mark_boundaries(plan, runner=_p0460_runner(saved), package_version="test")
+    assert all(path.is_file() for path in plan.outputs)
+    assert plan.sidecar.read_bytes() == original
+    inventory = tomllib.loads(plan.outputs[1].read_text())
+    assert set(inventory) == {
+        "boundaries",
+        "boundary_faces",
+        "mesh_faces",
+        "mesh_sha256",
+        "marked_by",
+    }
+    assert inventory["boundary_faces"] == [816]
+    assert inventory["mesh_sha256"] == file_sha256(plan.outputs[0])
+    assert record["read_back"]["groups"] == ("Wing",)
+    assert record["script_sha256"] == file_sha256(plan.outputs[2])
+    assert json.loads(plan.outputs[4].read_text())["inputs"] == plan.inputs
+
+
+def test_p0460_record_write_failure_preserves_products(tmp_path, monkeypatch):
+    import pyflightstream._textio as textio
+    from pyflightstream.workspace import BoundaryMarkingError, apply_mark_boundaries
+
+    plan, saved = _p0460_saved_plan(tmp_path)
+    for path in plan.outputs:
+        path.write_bytes(b"prior product")
+
+    def fail(*args, **kwargs):
+        raise OSError("record write failed")
+
+    monkeypatch.setattr(textio, "write_json", fail)
+    with pytest.raises(BoundaryMarkingError, match="publication failed"):
+        apply_mark_boundaries(plan, runner=_p0460_runner(saved), overwrite=True)
+    assert all(path.read_bytes() == b"prior product" for path in plan.outputs)
+
+
 @pytest.mark.parametrize(
     "failure", ["solver", "names", "groups", "edges", "termination", "bases", "promotion"]
 )
@@ -339,7 +383,7 @@ def test_p0460_cli_checks_executable_before_marking(
     )
     if expected == 0:
         assert calls == ["identity.txt", "wing.mark.txt"]
-        assert all(plan.outputs[i].exists() for i in (0, 2, 3))
+        assert all(path.exists() for path in plan.outputs)
     else:
         assert calls == ["identity.txt"]
         assert not any(path.exists() for path in plan.outputs)

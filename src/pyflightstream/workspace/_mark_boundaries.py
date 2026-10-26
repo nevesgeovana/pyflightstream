@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import re
 import shutil
@@ -606,7 +607,50 @@ def apply_mark_boundaries(
         raise BoundaryMarkingError(
             f"read-back failed: {error}; nothing promoted; inspect {plan.work}"
         ) from error
-    record = {"read_back": summary}
+    try:
+        return _publish_record(plan, outcome, summary, package_version)
+    except OSError as error:
+        raise BoundaryMarkingError(
+            f"publication failed: {error}; nothing promoted; inspect {plan.work}"
+        ) from error
+
+
+def _publish_record(plan, outcome, summary, package_version):
+    """Stage inventory and provenance before promoting the complete output set."""
+    assert plan.declarations.fs_build is not None
+    saved = plan.work / plan.outputs[0].name
+    script = plan.work / plan.outputs[2].name
+    inventory = plan.work / plan.outputs[1].name
+    _textio.write_text(
+        inventory,
+        "\n".join(
+            (
+                f"boundaries = {json.dumps(plan.names)}",
+                f"boundary_faces = {json.dumps(plan.faces)}",
+                f"mesh_faces = {sum(plan.faces)}",
+                f"mesh_sha256 = {json.dumps(file_sha256(saved))}",
+                f"marked_by = {json.dumps(plan.outputs[4].name)}",
+            )
+        )
+        + "\n",
+    )
+    record = {
+        "schema_version": 1,
+        "package_version": package_version,
+        "fs_build": plan.declarations.fs_build,
+        "solver": {
+            "build_id": resolve(plan.declarations.fs_build).build,
+            "version": plan.declarations.fs_build,
+            "executable": outcome.executable,
+            "return_code": outcome.return_code,
+            "wall_s": outcome.wall_s,
+        },
+        "inputs": plan.inputs,
+        "script_sha256": file_sha256(script),
+        "fsm_sha256": file_sha256(saved),
+        "read_back": summary,
+    }
+    _textio.write_json(plan.work / plan.outputs[4].name, record)
     _promote(plan)
     return record
 
@@ -617,14 +661,12 @@ def _promote(plan: BoundaryMarkingPlan) -> None:
     promoted: list[Path] = []
     with tempfile.TemporaryDirectory(prefix="promote-", dir=plan.work) as directory:
         try:
-            for index, destination in enumerate(
-                (plan.outputs[0], plan.outputs[2], plan.outputs[3])
-            ):
+            for index, destination in enumerate(plan.outputs):
                 backup = Path(directory) / str(index) if destination.exists() else None
                 if backup is not None:
                     shutil.copyfile(destination, backup)
                 backups[destination] = backup
-            for destination in (plan.outputs[0], plan.outputs[2], plan.outputs[3]):
+            for destination in plan.outputs:
                 temporary = Path(directory) / (destination.name + ".new")
                 shutil.copyfile(plan.work / destination.name, temporary)
                 temporary.replace(destination)

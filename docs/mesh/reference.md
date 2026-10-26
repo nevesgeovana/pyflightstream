@@ -1180,14 +1180,23 @@ None of this was ever read by an emitter, and the sense of rotation does
 not determine the sign of the rotor speed on its own: the sign is the
 mesh's, the sense is the propeller's, and the row is where the two meet.
 
-### Planning named boundary declarations
+## Applying named boundary declarations
 
-The marking planner requires a current OBJ inventory, `[import] units` and
-`fs_build`. Points follow ordered import transforms; explicit termination
-nodes retain written OBJ vertex indices. Vertex-changing operations and
-termination nodes across merges are refused until their numbering is measured.
-The legacy run reader still accepts unnamed declarations; the marking planner
-refuses them with the named-table translation.
+Run `pyfs-workspace geometry mark-boundaries <mesh>.obj` to preview the
+declarations, then add `--apply` on a licensed machine. The verb requires a
+current OBJ inventory, explicit `[import] units`, and `fs_build`. Each named
+file entry becomes one import; detection remains STANDARD only. Source points
+are matched before import operations and carried through their scale, rotation,
+translation and mirror transformations in metres. Explicit termination nodes
+use the written OBJ vertex indices and are refused after vertex-changing
+operations. Termination nodes combined with merging remain conservatively
+refused until their saved-state persistence is measured.
+
+The output `.fsm.boundaries.toml` contains only inventory fields and
+`marked_by`; it carries no import or marking declarations. The original
+`.obj.boundaries.toml` remains the authoring source. The legacy run reader
+continues accepting unnamed declarations for compatibility in this lane;
+the new verb refuses those forms with their named-table translation.
 
 ## What this policy is not
 
