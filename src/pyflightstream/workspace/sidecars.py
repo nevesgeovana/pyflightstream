@@ -223,7 +223,7 @@ def read_marking_record(geometry: str | Path) -> dict[str, Any] | None:
 
 
 def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
-    """Write a kind-qualified boundary inventory beside a saved simulation or OBJ.
+    r"""Write a kind-qualified boundary inventory beside a saved simulation or OBJ.
 
     The surface order is read from the geometry (PFS-2029.06.02). A sidecar supplies declarations
     by name; it does not override the order that the solver assigns to the imported surfaces.
@@ -258,6 +258,17 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
         sidecar that already exists, naming it and ``--overwrite``; an
         OBJ's sidecar that already exists, with ``overwrite`` or without;
         an OBJ whose groups cannot be read (:func:`obj_boundary_names`).
+
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> from tempfile import TemporaryDirectory
+    >>> from pyflightstream.workspace.sidecars import write_inventory
+    >>> with TemporaryDirectory() as folder:
+    ...     mesh = Path(folder) / "wing.obj"
+    ...     _ = mesh.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\ng Wing\nf 1 2 3\n")
+    ...     print(write_inventory(mesh).name)
+    wing.obj.boundaries.toml
     """
     path = Path(geometry)
     kind: Literal["obj", "fsm"] = "obj" if path.suffix.lower() == OBJ_SUFFIX else "fsm"
