@@ -55,9 +55,8 @@ Loading a saved solver initialization during CAD conversion is refused.
 
 In the GUI this corresponds to importing CAD, choosing tessellation,
 converting the CAD body to mesh, inspecting dimensions and boundary names,
-then marking trailing edges. Python users can run
-`docs/examples/_sources/cad_import.py` to emit a complete script without launching the
-solver.
+then marking trailing edges. Use the [geometry preparation route](geometry.md)
+to convert CAD before a matrix row opens its prepared saved simulation.
 
 The command route was exercised on one IGES wing with FlightStream 26.124,
 build 8172026. Changing only the source unit metadata from millimetres to

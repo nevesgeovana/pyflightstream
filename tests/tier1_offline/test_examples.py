@@ -61,7 +61,6 @@ def _child_environment() -> dict[str, str]:
 EXAMPLE_EXTRAS: dict[str, frozenset[str]] = {
     "base_region_setup.py": frozenset(),
     "boundary_layer_sections.py": frozenset(),
-    "cad_import.py": frozenset(),
     "continuation_frame_recovery.py": frozenset(),
     "excel_matrix_sync.py": frozenset({"excel"}),
     "prepare_custom_field.py": frozenset(),
@@ -179,8 +178,6 @@ def _example_arguments(name: str, temporary: Path) -> list[str]:
     """Provide synthetic inputs to argument-taking examples without a solver."""
     if name == "boundary_layer_sections.py":
         return [str(temporary / "boundary-layer.csv")]
-    if name == "cad_import.py":
-        return [str(temporary / "wing.igs"), "--boundary", "Wing"]
     if name == "sampled_field_export.py":
         return ["--output", str(temporary / "sampled-field")]
     if name == "workspace_fsi_calibration.py":

@@ -19,8 +19,8 @@
 #    probes the flow off the body, which a reopened simulation does not give
 #    back.
 #
-# The workspace it prints first is left as a licensed run finds it: no point
-# recorded, and `wing.fs` naming `p002`. The last section runs it.
+# The workspace it prints first has no point recorded and `wing.fs` names
+# `p002`. Replace its offline geometry fixture before any licensed run.
 #
 # A reopened saved simulation was measured on 26.124 alone (RPT-062): the
 # loads, the surface solution, the sections and their sectional loads come
@@ -37,7 +37,6 @@ from pathlib import Path
 import pyflightstream
 from pyflightstream.cases import CampaignConfigError, case_at_point, point_name
 from pyflightstream.cases.workflows import build_script, workflow_registry
-from pyflightstream.qa.geometry import WingSpec, wing_triangles
 from pyflightstream.run.matrix import plan_additional_post, plan_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
@@ -57,11 +56,10 @@ print(f"workspace: {workspace.root}")
 # %% [markdown]
 # ## 1. The wing and its artifacts
 #
-# The synthetic NACA 0012 wing of `pyflightstream.qa.geometry`, chord 1 m and
-# span 8 m, written as an OBJ in metres with its surface named `Wing`, and a
-# sidecar stating the unit and marking the trailing edge by the solver's
-# detection. The reference places the moment point at the quarter chord, so
-# the run creates the frame `MRP`.
+# An offline saved-simulation fixture declares the surface Wing. It has no
+# solver state: prepare a real wing with the geometry and mark-boundaries
+# commands before a licensed run. The reference places the moment point at
+# the quarter chord and declares the dimensions used by this example.
 #
 # Two post-processing artifacts. `p001` is the one the row RUNS with: it sums
 # the wing's loads and cuts nothing. `p002` is the ADDITIONAL one: a
@@ -71,16 +69,15 @@ print(f"workspace: {workspace.root}")
 # surface solution and the total loads, which a reopened file gives back.
 
 # %%
-vertices = wing_triangles(
-    WingSpec(naca="0012", chord_m=1.0, span_m=8.0, n_chord=12, n_span=16)
-).reshape(-1, 3)
-with (inputs / "geometries" / "wing.obj").open("w", encoding="utf-8") as obj:
-    obj.write("o Wing\n")
-    obj.writelines(f"v {x:.8f} {y:.8f} {z:.8f}\n" for x, y, z in vertices)
-    obj.writelines(f"f {i + 1} {i + 2} {i + 3}\n" for i in range(0, len(vertices), 3))
-(inputs / "geometries" / "wing.boundaries.toml").write_text(
-    'boundaries = ["Wing"]\n\n[import]\nunits = "METER"\n\n[trailing_edges]\ndetect = "auto"\n',
+# This text fixture supplies only the inventory needed by the offline planner.
+# It is not a solver-readable simulation. Before a licensed run, replace it
+# with a prepared wing.fsm and its matching inventory from geometry marking.
+(inputs / "geometries" / "wing.fsm").write_text(
+    "$MESH_START$\n9999\n99\n1\n2, T, T, F\nWing\n.5,.5,.5\n$MESH_END$\n",
     encoding="utf-8",
+)
+(inputs / "geometries" / "wing.fsm.boundaries.toml").write_text(
+    'boundaries = ["Wing"]\n', encoding="utf-8"
 )
 (inputs / "references" / "r001.toml").write_text(
     "area_m2 = 8.0\nchord_m = 1.0\nspan_m = 8.0\n\n"
@@ -122,7 +119,7 @@ def write_matrix(path: Path, additional: str, pol: int = 3001) -> Path:
     """
     row = (
         f"{pol} | 0 | 1 | Wing | - | sections_after_the_run | MACH:0.1, REmi:2.3, ALPHA:sweep "
-        f"| {ALPHA_DEG} | wing.obj | r001 | s001 | p001 | NONE | - | - | - | {BUILD} | steady "
+        f"| {ALPHA_DEG} | wing.fsm | r001 | s001 | p001 | NONE | - | - | - | {BUILD} | steady "
         f"| ADDITIONAL_PPROC: {additional}"
     )
     path.write_text("\n".join([HEADER, "-" * len(HEADER), row]) + "\n", encoding="utf-8")
@@ -159,6 +156,7 @@ workspace = CampaignWorkspace(
 matrix = workspace.root / matrix.name
 resolved = resolve_matrix(matrix, workspace, name="wing_study", fs_version=BUILD, recipes={})
 (case,) = resolved.campaign.sims
+workspace.stage_inputs(case.sim_id, [workspace.inputs_dir / "geometries" / "wing.fsm"])
 point = {"alpha": ALPHA_DEG}
 stem = Path(str(point_plan.script_name)).stem
 names = [output.replace("{name}", stem) for output in case.outputs]
@@ -272,7 +270,9 @@ else:
 #
 # The workspace printed first, `wing_study`, is the one to run: no point is
 # recorded there and `wing.fs` names `p002`, which the lines below check. On
-# a licensed machine with 26.124 registered, point `inputs/executables.toml`
+# a licensed machine, first replace the offline wing.fsm fixture with a
+# prepared simulation and matching inventory. With 26.124 registered, point
+# `inputs/executables.toml`
 # at that installation, then, from the workspace, run `pyfs-matrix run
 # wing.fs` and `pyfs-matrix post wing.fs --additional-pproc`. The extraction
 # lands in the point's `datapoints/DP-<point>/additional/p002/`, is recorded

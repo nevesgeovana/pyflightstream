@@ -31,7 +31,6 @@ from pathlib import Path
 
 from pyflightstream.cases import case_at_point
 from pyflightstream.cases.workflows import build_script, workflow_registry
-from pyflightstream.qa.geometry import WingSpec, wing_triangles
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace
@@ -48,24 +47,19 @@ print(f"workspace: {workspace.root}")
 # %% [markdown]
 # ## 1. The wing and its reference
 #
-# The synthetic NACA 0012 wing of `pyflightstream.qa.geometry`, chord 1 m and
-# span 8 m, written as an OBJ in metres with its surface named `Wing`, and a
-# sidecar stating that unit and marking the trailing edge by the solver's
-# detection (written, so applied). The reference places the moment point at
-# the quarter chord and declares the body axes: the wing flies along x, so the
-# roll rate turns about X.
+# An offline saved-simulation fixture declares the surface Wing. It has no
+# solver state: prepare a real wing with the geometry and mark-boundaries
+# commands before a licensed run. The reference places the moment point at
+# the quarter chord and declares the dimensions used by this example.
 
 # %%
-vertices = wing_triangles(
-    WingSpec(naca="0012", chord_m=1.0, span_m=8.0, n_chord=12, n_span=16)
-).reshape(-1, 3)
-with (inputs / "geometries" / "wing.obj").open("w", encoding="utf-8") as obj:
-    obj.write("o Wing\n")
-    obj.writelines(f"v {x:.8f} {y:.8f} {z:.8f}\n" for x, y, z in vertices)
-    obj.writelines(f"f {i + 1} {i + 2} {i + 3}\n" for i in range(0, len(vertices), 3))
-(inputs / "geometries" / "wing.boundaries.toml").write_text(
-    'boundaries = ["Wing"]\n\n[import]\nunits = "METER"\n\n[trailing_edges]\ndetect = "auto"\n',
+# Inventory-only fixture; replace with a prepared simulation before any solver run.
+(inputs / "geometries" / "wing.fsm").write_text(
+    "$MESH_START$\n9999\n99\n1\n2, T, T, F\nWing\n.5,.5,.5\n$MESH_END$\n",
     encoding="utf-8",
+)
+(inputs / "geometries" / "wing.fsm.boundaries.toml").write_text(
+    'boundaries = ["Wing"]\n', encoding="utf-8"
 )
 (inputs / "references" / "r001.toml").write_text(
     "area_m2 = 8.0\nchord_m = 1.0\nspan_m = 8.0\n\n"
@@ -75,8 +69,6 @@ with (inputs / "geometries" / "wing.obj").open("w", encoding="utf-8") as obj:
 )
 (inputs / "setups" / "s001.toml").write_text("NITER = 300\n", encoding="utf-8")
 (inputs / "pproc" / "p001.toml").write_text('[groups]\n"1" = "Wing"\n', encoding="utf-8")
-# The installation's path is machine configuration; the plan binds the build
-# without launching it, so a placeholder serves here.
 (inputs / "executables.toml").write_text(f'"{BUILD}" = "FlightStream.exe"\n', encoding="utf-8")
 
 # %% [markdown]
@@ -96,7 +88,7 @@ HEADER = (
 ROW = (
     "2001 | 0 | 1 | Wing | - | roll_damping "
     "| MACH:0.1, REmi:2.3, ALPHA:4.0, roll_rate:sweep "
-    f"| {','.join(str(rate) for rate in ROLL_RATES_DEG_S)} | wing.obj | r001 | s001 | p001 "
+    f"| {','.join(str(rate) for rate in ROLL_RATES_DEG_S)} | wing.fsm | r001 | s001 | p001 "
     f"| NONE | - | - | - | {BUILD} | steady |"
 )
 matrix = workspace.root / "roll.fs"
