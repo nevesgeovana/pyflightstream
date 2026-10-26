@@ -82,6 +82,46 @@ from tests.tier1_offline.test_excel_sync import matrix as _fr310_matrix_homes_al
 # Codes map to registry names; the callables land in recipe_registry.
 RECIPES = {"003": "steady", "004": "steady"}
 
+
+@pytest.mark.parametrize(
+    "mode",
+    ["reynolds", "altitude", "inherit", "no-pins"],
+    ids=["P0460-RE-WARNING", "P0460-ALT-WARNING", "P0460-INHERIT", "P0460-NO-PINS"],
+)
+def test_p0460_plan_warns_once_for_all_superseded_setup_pins(tmp_path, mode):
+    workspace = make_library(tmp_path)
+    matrix = tmp_path / "conditions.fs"
+    body = FIXTURE.read_text(encoding="utf-8")
+    if mode in {"altitude", "inherit"}:
+        body = re.sub(r", REmi:[0-9.]+", ", ALTFT:3600" if mode == "altitude" else "", body)
+    matrix.write_text(body, encoding="utf-8")
+    if mode != "no-pins":
+        for setup in (workspace.inputs_dir / "setups").glob("*.toml"):
+            with setup.open("a", encoding="utf-8") as stream:
+                stream.write("\n[flight_condition]\nTK = 310.0\nPPA = 120000.0\n")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan_matrix(
+            matrix,
+            workspace,
+            name="matrix",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            write_plan=False,
+            fs_exe=sys.executable,
+        )
+    messages = [
+        str(w.message) for w in caught if "dropped setup flight-condition pins" in str(w.message)
+    ]
+    assert len(messages) == int(mode in {"altitude", "reynolds"})
+    if messages:
+        for row in read_matrix(matrix):
+            assert messages[0].count(f"POL {row.pol}:") == 1
+        assert "PPA" in messages[0]
+        assert ("ALTFT:3600" if mode == "altitude" else "REmi:4.38") in messages[0]
+        assert ("TK" in messages[0]) == (mode == "altitude")
+
+
 HEADER = (
     "POL | AIRCRAFT | DESCRIPTION | RE | MACH | SWEEP_TYPE | SWEEP_VALUES | REF | SET "
     "| ENTRY | FS_SCRIPT | FS_BUILD | HIDDEN | RUN | VAR_NAMES_VALUES"
@@ -3607,7 +3647,8 @@ def test_a_workspace_renders_the_same_script_whichever_file_states_the_pins(tmp_
     the ROWS and once with them in the SETUP -- asserting the rendered
     script text is equal BYTE FOR BYTE, with nothing allowed to differ.
 
-    It is seat-free: nothing here runs a solver.
+    It is seat-free: nothing here runs a solver. The row states no altitude,
+    temperature deviation or Reynolds constraint that supersedes setup defaults.
     """
     from pyflightstream.cases.workflows import build_script
     from pyflightstream.script import Script
@@ -3626,8 +3667,9 @@ def test_a_workspace_renders_the_same_script_whichever_file_states_the_pins(tmp_
             )
         matrix = tmp_path / ("row" if in_the_row else "setup") / "matriz.fs"
         body = FIXTURE.read_text(encoding="utf-8")
+        body = body.replace("MACH:0.1441, REmi:4.38", "MACH:0.1441")
         if in_the_row:
-            body = body.replace("MACH:0.1441, REmi:4.38", f"MACH:0.1441, REmi:4.38, {pins}")
+            body = body.replace("MACH:0.1441", f"MACH:0.1441, {pins}")
         matrix.write_text(body, encoding="utf-8")
         with pytest.warns(UserWarning, match="wake_layers"):
             resolved = resolve_matrix(

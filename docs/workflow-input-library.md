@@ -473,7 +473,10 @@ mistakes belong.
 A preset may also carry a `[flight_condition]` table, which is not a
 solver setting and is not judged as one: it holds the fluid pins
 (`RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`) that every row naming this
-setup inherits for the keys it does not state itself. See
+setup inherits for the keys it does not state itself, unless its atmospheric
+constraints supersede them. `ALTFT` or `dISA` drops all setup pins; `REmi`
+without either drops density and pressure defaults. Row-stated pins stay.
+Plan warns once for the campaign, listing affected rows and dropped pins. See
 [Flight conditions](flight-conditions.md) for what may and may not go in
 it, and why a velocity may not.
 

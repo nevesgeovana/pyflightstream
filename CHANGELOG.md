@@ -7,6 +7,18 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- Matrix flight-condition constraints now outrank setup defaults. `ALTFT` or
+  `dISA` drops all five setup pins; `REmi` alone drops density and pressure
+  defaults, retaining tunnel temperature, viscosity and sonic velocity.
+  Plan warns once per campaign, naming each affected POL and dropped pin.
+  Migration: a row stating `ALTFT` under a `TK`/`PPA` setup now resolves at
+  its altitude. Pins stated on the row retain their authority.
+
+- Power far-field entries refuse a station absent from their lattice at load,
+  naming the entry, requested station and declared stations.
+
 ## [0.45.1] - 2026-10-25
 
 ### Added

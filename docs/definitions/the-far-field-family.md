@@ -393,6 +393,11 @@ station, on every row type, including power-off rows. Placement requires
 `rotor` or `frame` plus `tip_radius_m`. The row has `VARIANT = D` and
 `FAMILY = net`; `balances` additionally requests the ledger rows.
 
+An explicit `station` must select one declared lattice station. Loading refuses
+an absent or ambiguous station and names the entry and available stations.
+An exact match wins; otherwise relative and absolute roundoff tolerances of
+`1e-12` apply, as when reading the sampled field.
+
 **Power channels** at a lattice station, `u' = u - V`, `v_theta_0` the azimuthal
 mean of the swirl:
 

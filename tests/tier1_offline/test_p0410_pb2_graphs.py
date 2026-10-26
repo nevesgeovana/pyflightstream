@@ -11,6 +11,37 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.mark.parametrize(
+    "feature", ["labels", "steps"], ids=["P0460-EXPORT-LABELS", "P0460-EXPORT-STEPS"]
+)
+def test_p0460_workspace_exports_name_step_variants_and_display_labels(monkeypatch, feature):
+    from pyflightstream.cases.pproc import EXPORT_KINDS
+
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    import _workspace_files as inventory
+
+    data = inventory.workspace_data(ROOT)
+    rows = {
+        row["id"].removeprefix("export-"): row
+        for row in data["paths"]
+        if row["id"].startswith("export-")
+    }
+    assert set(rows) == {kind for kind, _, _, _ in EXPORT_KINDS}
+    per_step = {"loads", "tecplot", "vtk", "csv", "sections", "sectional_loads", "farfield_probes"}
+    for kind, suffix, _, _ in EXPORT_KINDS:
+        row = rows[kind]
+        if feature == "labels":
+            assert row.get("label"), kind
+            assert row["label"] in inventory.render_tables(data), kind
+        elif kind in per_step:
+            stem, extension = suffix.rsplit(".", 1)
+            assert f"<stem>{stem}_iteration=<step>.{extension}" in row["note"], kind
+        else:
+            assert "_iteration=" not in row["note"], kind
+    if feature == "labels":
+        assert rows["farfield_probes"]["label"] == "Far-field survey"
+
+
 def test_p0420_doc_charts_ship_pinned_local_libraries():
     """PFS-2143: charts load licensed, hash-pinned libraries without a CDN."""
     import yaml

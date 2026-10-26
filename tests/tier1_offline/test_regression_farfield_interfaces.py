@@ -46,6 +46,17 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.mark.parametrize("case", ["P0460-POWER-STATION"])
+def test_p0460_power_station_is_checked_at_load(case):
+    entry = dict(variant="power", name="shaft", rotor="R", stations=[-1.0, 0.3, 2.0])
+    with pytest.raises(ValidationError) as caught:
+        PprocSpec.model_validate({"farfields": [dict(entry, station=4.0)]})
+    message = str(caught.value)
+    assert all(word in message for word in ("shaft", "4.0", "-1.0", "0.3", "2.0"))
+    for station in (None, 0.3, 0.1 * 3):
+        PprocSpec.model_validate({"farfields": [dict(entry, station=station)]})
+
+
 @pytest.mark.parametrize("case", ["P0450-API-05"])
 def test_p0450_rel1_summary_names_both_entries(tmp_path, case):
     import sys

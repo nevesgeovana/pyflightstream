@@ -16,6 +16,7 @@ import json
 import re
 from typing import Annotated, Any, Literal
 
+import numpy as np
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError, model_validator
 
 from pyflightstream.probes.lattice import ProbeLattice, build_lattice
@@ -400,8 +401,23 @@ class FarfieldSpec(BaseModel):
         if self.variant == "power":
             if isinstance(self.stations, int):
                 raise ValueError('variant = "power" reads stations as a list of x/R positions')
-            _ = self.ledgers
+            self._power_station(self.ledgers)
         return self
+
+    def _power_station(self, lattice: LedgersSpec | None) -> None:
+        """Refuse an explicit power station that selects no unique lattice plane."""
+        if lattice is None or self.station is None:
+            return
+        stations = np.asarray(lattice.build(1.0).stations)
+        matches = stations == self.station
+        if not matches.any():
+            matches = np.isclose(stations, self.station, rtol=1e-12, atol=1e-12)
+        if np.count_nonzero(matches) != 1:
+            raise ValueError(
+                f"[[farfields]] entry {self.name!r}: station = {self.station!r} "
+                f"must select one of the declared stations {stations.tolist()}; "
+                "choose a lattice station (roundoff tolerance 1e-12)"
+            )
 
     @property
     def trefftz(self) -> TrefftzSpec:

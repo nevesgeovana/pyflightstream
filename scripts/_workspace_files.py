@@ -11,6 +11,31 @@ import ast
 import hashlib
 import html
 
+#: Reader-facing export names; every registered kind must have a deliberate label.
+EXPORT_LABELS = {
+    "simulation": "Saved simulation",
+    "loads": "Loads table",
+    "tecplot": "Surface solution (Tecplot)",
+    "vtk": "Surface solution (VTK)",
+    "csv": "Surface solution (CSV)",
+    "force_distributions": "Panel force distributions",
+    "volume_section_vtk": "Volume section (VTK)",
+    "volume_section_tecplot": "Volume section (Tecplot)",
+    "sections": "Surface section pressure",
+    "sectional_loads": "Surface sectional loads",
+    "probes": "Probe points",
+    "farfield_probes": "Far-field survey",
+    "plots": "Unsteady plot histories",
+    "plot_residuals": "Residual history",
+    "plot_loads": "Load history",
+    "plot_sections_cp": "Section pressure plot",
+    "streamlines_surface": "Surface streamlines",
+    "streamlines_off_body": "Off-body streamlines",
+    "trajectory_6dof": "Six-degree-of-freedom trajectory",
+    "debug_fsm": "Debug simulation",
+    "log": "Solver log",
+}
+
 
 class Source:
     def __init__(self, root):
@@ -129,6 +154,7 @@ def workspace_data(root):
         token=None,
         area=None,
         note="",
+        label=None,
     ):
         if isinstance(writers, str):
             writers = (writers,)
@@ -150,6 +176,7 @@ def workspace_data(root):
                 created=created,
                 execution_step=step,
                 note=note,
+                **({"label": label} if label is not None else {}),
                 evidence={
                     "writers": [source.evidence(a) for a in writers],
                     "readers": [source.evidence(a) for a in readers],
@@ -613,9 +640,33 @@ def workspace_data(root):
         token="DP-",
         step="steps-25",
     )
-    for kind, suffix, command, _whole_run in source.value(
-        "pyflightstream.cases.pproc", "EXPORT_KINDS"
-    ):
+    exports = source.value("pyflightstream.cases.pproc", "EXPORT_KINDS")
+    if set(EXPORT_LABELS) != {kind for kind, _, _, _ in exports}:
+        raise ValueError("Every export kind needs a workspace display label")
+    vocabulary = "pyflightstream.cases.workflows._vocabulary"
+    once = set(source.value(vocabulary, "WHOLE_RUN_EXPORT_KINDS"))
+    once.update(source.value(vocabulary, "END_OF_RUN_EXPORT_KINDS"))
+    # These use dedicated one-time routes, outside the ordinary step action.
+    # Far-field surveys use their own per-step action and remain eligible.
+    once.update(
+        {
+            "debug_fsm",
+            "probes",
+            "volume_section_vtk",
+            "volume_section_tecplot",
+            "streamlines_surface",
+            "streamlines_off_body",
+            "trajectory_6dof",
+        }
+    )
+    for kind, suffix, command, _whole_run in exports:
+        stem, extension = suffix.rsplit(".", 1)
+        step_note = (
+            f" Per-step variant: <stem>{stem}_iteration=<step>.{extension}, "
+            "when the row requests exports during an unsteady window."
+            if kind not in once
+            else ""
+        )
         add(
             "export-" + kind,
             "sims/sim_<id>/datapoints/DP-<point>/<stem>" + suffix,
@@ -632,6 +683,7 @@ def workspace_data(root):
             readers=collect,
             step="steps-23" if kind == "log" else "steps-25",
             token=suffix,
+            label=EXPORT_LABELS[kind],
             note=(
                 "Translated from the VTK export by Python."
                 if kind == "tecplot"
@@ -640,7 +692,8 @@ def workspace_data(root):
             + (
                 " The collector moves the file here from the working directory; "
                 "collection is separate from writing the source export."
-            ),
+            )
+            + step_note,
         )
     add(
         "working-exports",
@@ -1007,7 +1060,12 @@ def render_tables(data):
                 + " | ".join(
                     [
                         '<span id="' + row["id"] + '"></span>' + path,
-                        cell(row["holds"])
+                        (
+                            "<strong>" + cell(row["label"]) + "</strong><br>"
+                            if "label" in row
+                            else ""
+                        )
+                        + cell(row["holds"])
                         + " <strong>Created:</strong> "
                         + cell(row["created"])
                         + (" " + cell(row["note"]) if row["note"] else ""),

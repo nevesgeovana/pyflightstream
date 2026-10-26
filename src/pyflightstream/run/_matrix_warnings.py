@@ -30,6 +30,36 @@ if TYPE_CHECKING:  # annotation only: the package root does not import this modu
     from pyflightstream.run import CampaignPlan
 
 
+def _warn_matrix_inputs(resolved: ResolvedMatrix) -> None:
+    """Report input defaults superseded by rows and missing recovery declarations."""
+    _warn_superseded_setup_pins(resolved)
+    _warn_the_legacy_rows_saving_no_simulation(resolved)
+
+
+def _warn_superseded_setup_pins(resolved: ResolvedMatrix) -> None:
+    """Name all rows whose atmospheric constraints superseded setup defaults once."""
+    rows = []
+    for pol, condition in resolved.conditions.items():
+        if condition.dropped_defaults:
+            pins = ", ".join(
+                f"{key}:{value:g}" for key, value in condition.dropped_defaults.items()
+            )
+            stated = ", ".join(
+                f"{key}:{condition.stated[key]:g}"
+                for key in ("ALTFT", "dISA", "REmi")
+                if key in condition.stated
+            )
+            rows.append(f"POL {pol}: dropped {pins}; row states {stated}")
+    if rows:
+        warn(
+            "The matrix dropped setup flight-condition pins: "
+            + "; ".join(rows)
+            + ". Setup pins are defaults; the matrix row has priority.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
 def _warn_the_legacy_rows_saving_no_simulation(resolved: ResolvedMatrix) -> None:
     """Name each LEGACY row whose outputs declare no saved simulation (G11).
 

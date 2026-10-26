@@ -76,8 +76,10 @@ would otherwise repeat the same four numbers thirteen times down the
 FLIGHT_CONDITION column, where a single mistyped digit on one row is a
 physics nobody selected on that row alone. So a setup artifact may carry
 them, and this resolver takes them as ``defaults``: a row that states a
-pin overrides the setup's, key by key, and a row that states none
-inherits it.
+pin overrides the setup's, key by key. Setup pins are only defaults: a row
+stating ALTFT or dISA supersedes all five; a Reynolds-only row supersedes
+density and pressure but keeps the tunnel temperature, viscosity and sonic
+velocity. A row stating none of these constraints inherits every pin.
 
 WHAT MAY NOT BE DEFAULTED, and the line is the design rather than
 caution. The velocity keys and ``REmi`` are what the resolver solves
@@ -88,14 +90,14 @@ atmosphere, which the pins exist to replace rather than to locate. So
 the defaults table holds pins and nothing else, and anything else in it
 is refused naming where it came from.
 
-ONE DEFAULT CAN BE SUPERSEDED WITHOUT CONTRADICTING ANYTHING, and it is
-``RHOkgm3``. A ROW stating both it and ``REmi`` is refused, because each
-fixes the density and the two together are a contradiction. A SETUP
-pinning a density is not making that statement about any one row: a row
-that solves its own density has determined that quantity itself, so the
-default is DROPPED rather than refused, and :attr:`ResolvedCondition.defaulted`
-says so by not listing it. Refusing instead would mean a setup carrying
-a density could never serve a Reynolds row.
+SETUP DEFAULTS CAN BE SUPERSEDED WITHOUT CONTRADICTING ANYTHING.
+``ALTFT`` or ``dISA`` drops all five setup pins so the row resolves at its
+own atmosphere point. ``REmi`` without either drops ``RHOkgm3`` and ``PPA``:
+density is solved and pressure follows ``p = rho R T``. The other three
+setup pins remain. Row-stated pins are never dropped by this rule; a ROW
+stating both ``RHOkgm3`` and ``REmi`` is still refused. The omitted defaults
+are recorded in :attr:`ResolvedCondition.dropped_defaults`, so planning can
+name every affected POL in one campaign warning.
 
 WHY A REYNOLDS CONSTRAINT NEEDS THE REFERENCE (PFS-2027.04). A Reynolds
 number is meaningless without a length, and the dependency is not
@@ -337,6 +339,9 @@ class ResolvedCondition:
     #: record, so a record whose row states four fewer keys names the
     #: file that supplied them.
     defaults_origin: str | None = None
+    #: Setup pins superseded by atmospheric row constraints, excluding pins
+    #: explicitly replaced by the same row key. Values are the discarded defaults.
+    dropped_defaults: dict[str, float] = field(default_factory=dict)
 
 
 def _ideal_gas_pressure(density: float, temperature: float) -> float:
@@ -570,8 +575,8 @@ def resolve_flight_condition(
         Pins the row's SETUP artifact supplies, applied to the keys the
         row does not state (PFS-2030.08). Only the five pins may appear;
         anything else is refused naming ``defaults_origin``. A
-        ``RHOkgm3`` default is dropped, not refused, on a row that states
-        ``REmi``.
+        row stating ``ALTFT`` or ``dISA`` drops all setup pins. A row stating
+        only ``REmi`` drops density and pressure defaults. Row-stated pins stay.
     defaults_origin : str or None
         Where those defaults came from, in words a reader can act on, for
         example ``"setup s001"``. Named in every refusal about the table,
@@ -639,14 +644,18 @@ def resolve_flight_condition(
     # workspace judges the FILE once per setup, and this judges whatever
     # a direct caller passed. Both reach the same list.
     supplied = canonical_condition_defaults(defaults, defaults_origin or "the defaults")
-    # A DEFAULT THE ROW SUPERSEDES IS DROPPED, and `RHOkgm3` under a
-    # stated `REmi` is the only way that happens: see the module
-    # docstring for why this is not the contradiction the row-level check
-    # below refuses.
+    superseded = (
+        set(PINNED_KEYS)
+        if "ALTFT" in stated or "dISA" in stated
+        else {"RHOkgm3", "PPA"}
+        if DENSITY_KEY in stated
+        else set()
+    )
+    dropped_defaults = {
+        key: value for key, value in supplied.items() if key not in stated and key in superseded
+    }
     defaulted = {
-        key: value
-        for key, value in supplied.items()
-        if key not in stated and not (key == "RHOkgm3" and DENSITY_KEY in stated)
+        key: value for key, value in supplied.items() if key not in stated and key not in superseded
     }
     # The row wins key by key in the comprehension above: stated keys never
     # enter defaulted, so the two mappings are disjoint. Retain stated unchanged
@@ -781,4 +790,5 @@ def resolve_flight_condition(
         pinned=pinned,
         defaulted=defaulted,
         defaults_origin=defaults_origin,
+        dropped_defaults=dropped_defaults,
     )

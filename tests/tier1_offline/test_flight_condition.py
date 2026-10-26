@@ -31,8 +31,54 @@ from pyflightstream.workspace.flight_condition import (
     PINNED_KEYS,
     FlightConditionError,
     ResolvedCondition,
+    pinned_state_mismatch,
     resolve_flight_condition,
 )
+
+
+@pytest.mark.parametrize(
+    "row",
+    [{"ALTFT": 3600.0}, {"dISA": 12.0}, {"ALTFT": 3600.0, "REmi": 5.5}],
+    ids=["P0460-ALTFT", "P0460-DISA", "P0460-ALTFT-RE"],
+)
+def test_p0460_atmosphere_row_supersedes_all_setup_pins(row):
+    pins = {"TK": 310.0, "PPA": 120000.0, "RHOkgm3": 1.4, "MUPas": 2e-5, "ASMPS": 350.0}
+    stated = {"MACH": 0.2, **row}
+    state = resolve_flight_condition(stated, pol="P1", reference_length_m=1, defaults=pins)
+    expected = resolve_flight_condition(stated, pol="P1", reference_length_m=1)
+    for name in PINNED_KEYS.values():
+        assert getattr(state, name) == getattr(expected, name)
+    assert state.defaulted == {}
+    assert state.dropped_defaults == pins
+
+
+@pytest.mark.parametrize("case", ["P0460-RE-DEFAULTS"])
+def test_p0460_reynolds_keeps_tunnel_temperature_and_derives_pressure(case):
+    pins = {"TK": 310.0, "PPA": 120000.0, "RHOkgm3": 1.4, "MUPas": 2e-5, "ASMPS": 350.0}
+    state = resolve_flight_condition(
+        {"MACH": 0.2, "REmi": 5.5}, pol="P1", reference_length_m=1, defaults=pins
+    )
+    assert state.defaulted == {"TK": 310.0, "MUPas": 2e-5, "ASMPS": 350.0}
+    assert state.density_kg_m3 == pytest.approx(5.5e6 * 2e-5 / 70)
+    assert state.pressure_pa == pytest.approx(state.density_kg_m3 * 287.05287 * 310)
+    assert state.dropped_defaults == {"PPA": 120000.0, "RHOkgm3": 1.4}
+    assert pinned_state_mismatch(state, pol="P1") is None
+
+
+@pytest.mark.parametrize("case", ["P0460-INHERIT-AND-ROW-PINS"])
+def test_p0460_only_setup_defaults_are_dropped(case):
+    pins = {"TK": 310.0, "PPA": 120000.0, "RHOkgm3": 1.4, "MUPas": 2e-5, "ASMPS": 350.0}
+    inherited = resolve_flight_condition({"MACH": 0.2}, pol="P1", defaults=pins)
+    assert inherited.defaulted == pins
+    assert getattr(inherited, "dropped_defaults", {}) == {}
+    row = {"MACH": 0.2, "ALTFT": 3600.0, "TK": 290.0, "PPA": 90000.0, "RHOkgm3": 2.0}
+    state = resolve_flight_condition(row, pol="P1", defaults=pins)
+    assert state.temperature_k == 290.0
+    assert state.pressure_pa == 90000.0
+    assert state.density_kg_m3 == 2.0
+    assert pinned_state_mismatch(state, pol="P1") is not None
+    assert state.defaulted == {}
+    assert state.dropped_defaults == {"MUPas": 2e-5, "ASMPS": 350.0}
 
 
 def test_the_authors_two_examples_parse_to_the_pairs_they_name():
