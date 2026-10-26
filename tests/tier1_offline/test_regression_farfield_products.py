@@ -1665,8 +1665,7 @@ class TestRfixAProducts:
         case = _rfixa_products__plan._farfield_plan___case(
             tmp_path, [{"variant": "sections", "families": "all", "stations": 80}]
         )
-        mesh = Path(case.geometry)
-        mesh.write_text(mesh.read_text().replace("g W", "g Wing1") + "g Wing2\nf 1 2 4 3\n")
+        _rfixa_products__plan._farfield_plan___box(tmp_path, ("Wing1", "Wing2"))
         case = case.model_copy(update={"inventory": ("Wing1", "Wing2")})
         script = _rfixa_products__plan._farfield_plan___script(case)
         assert [block["families"] for block in script.section_blocks] == [["Wing1"], ["Wing2"]]
