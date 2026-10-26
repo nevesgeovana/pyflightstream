@@ -8,7 +8,11 @@ import pytest
 from pyflightstream.qa.probes import generate_probe_script
 from pyflightstream.qa.specs import PROBE_SPECS
 
-COMMANDS = ("MARK_WAKE_TERMINATION_NODES", "AUTO_DETECT_WAKE_TERMINATION_NODES")
+COMMANDS = (
+    "MARK_WAKE_TERMINATION_NODES",
+    "AUTO_DETECT_WAKE_TERMINATION_NODES",
+    "IMPORT_WAKE_EDGES_FROM_FILE",
+)
 
 
 @pytest.mark.parametrize("command", COMMANDS)
@@ -60,6 +64,21 @@ def test_p0460_autodetect_requires_detected_edges_and_a_record():
     empty = replace(before, edges=frozenset())
     assert m._verdict(m._AUTO, empty, after, empty) is None
     assert m._verdict(m._AUTO, before, after, after) is None
+
+
+def test_p0460_second_import_must_add_group_preserve_first_set_and_type():
+    m, initial = _states()
+    before = replace(initial, groups=("Body",))
+    after = replace(before, groups=("Body", "Rim"), edges=before.edges | {(m._SECOND, 2)})
+    assert m._verdict(m._IMPORT, before, after, before) is True
+    for mutant in (
+        before,
+        replace(after, groups=("Rim",)),
+        replace(after, edges=frozenset({(m._SECOND, 2)})),
+        replace(after, edges=before.edges | {(m._SECOND, 1)}),
+    ):
+        assert m._verdict(m._IMPORT, before, mutant, before) is False
+    assert m._verdict(m._IMPORT, before, after, after) is None
 
 
 @pytest.mark.parametrize(

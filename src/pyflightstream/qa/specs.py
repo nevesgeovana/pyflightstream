@@ -32,6 +32,7 @@ import pyflightstream._textio as _textio
 from pyflightstream.qa.geometry import WingSpec, generate_wing_stl, wing_triangles
 from pyflightstream.qa.probes import (
     ProbeArtifacts,
+    ProbeSpec,
     Requires,
     dump_gained,
     emit_solver_setup,
@@ -421,7 +422,9 @@ def _import_lines_read(artifacts: ProbeArtifacts) -> str:
     return "import lines " + json.dumps(_import_lines(artifacts))
 
 
-_spec(
+# Retain the old log-only instrument for rejudging its historical reports.
+# New campaigns use the controlled saved-state spec in _spec_0460_marking.
+_WAKE_EDGE_IMPORT_LOG_SPEC = ProbeSpec(
     command="IMPORT_WAKE_EDGES_FROM_FILE",
     build_target=_wake_edge_import_target,
     prelude=_wake_edge_wing_prelude,
