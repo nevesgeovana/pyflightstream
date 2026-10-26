@@ -14,6 +14,9 @@ FlightStream versions.
   Migration: replace unnamed trailing-edge files with `[trailing_edges.<label>]`,
   move `[wake_termination]` onto the entry as `wake_termination_nodes`, and declare
   each base as `[base_regions.<family>]`. Declarations require `fs_build`.
+- Geometry inventory writes `<mesh>.obj.boundaries.toml` for an OBJ and
+  `<mesh>.fsm.boundaries.toml` for a saved simulation. Existing OBJ inventories
+  are never overwritten.
 
 ## [0.45.1] - 2026-10-25
 

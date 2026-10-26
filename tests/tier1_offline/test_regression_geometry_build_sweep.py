@@ -2609,11 +2609,11 @@ class TestGeometryGroup:
         mesh = _geometry_build__wing_obj(tmp_path / "wing.obj")
         monkeypatch.chdir(tmp_path)
         assert workspace_cli.main(["geometry", "inventory", str(mesh)]) == 0
-        ours = (tmp_path / "wing.boundaries.toml").read_text(encoding="utf-8")
-        (tmp_path / "wing.boundaries.toml").unlink()
+        ours = (tmp_path / "wing.obj.boundaries.toml").read_text(encoding="utf-8")
+        (tmp_path / "wing.obj.boundaries.toml").unlink()
         with pytest.warns(PyflightstreamWarning, match="pyfs-matrix inventory is an alias"):
             assert matrix_main(["inventory", str(mesh)]) == 0
-        assert (tmp_path / "wing.boundaries.toml").read_text(encoding="utf-8") == ours
+        assert (tmp_path / "wing.obj.boundaries.toml").read_text(encoding="utf-8") == ours
 
     @staticmethod
     @pytest.mark.requirement("FR-477")

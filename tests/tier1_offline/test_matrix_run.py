@@ -3954,7 +3954,7 @@ def test_an_agreeing_sidecar_is_recorded_as_the_inventory_source(tmp_path):
     workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
     library = _saved_simulation_with(workspace.inputs_dir / "geometries" / "wb.fsm", ["W", "B"])
     sidecar = write_inventory(library)
-    assert sidecar == library.with_name("wb.boundaries.toml")
+    assert sidecar == library.with_name("wb.fsm.boundaries.toml")
     matrix = geometry_matrix(tmp_path, " / GEOMETRY: wb.fsm")
     records = run_matrix(
         matrix,
@@ -4023,7 +4023,7 @@ def test_a_row_naming_a_folded_geometry_runs_on_that_folder_alone(tmp_path):
     folder = workspace.inputs_dir / "geometries" / "wb"
     folder.mkdir()
     library = _saved_simulation_with(folder / "wb.fsm", ["W", "B"])
-    assert write_inventory(library) == folder / "wb.boundaries.toml"
+    assert write_inventory(library) == folder / "wb.fsm.boundaries.toml"
     stage_geometry(workspace, "neighbour.fsm")
     matrix = geometry_matrix(tmp_path, " / GEOMETRY: wb.fsm")
     records = run_matrix(
@@ -4040,7 +4040,7 @@ def test_a_row_naming_a_folded_geometry_runs_on_that_folder_alone(tmp_path):
     assert records[0].inventory_source == "sidecar"
     assert records[0].staged_as == "link" and records[0].staged_as_reason is None
     inputs = workspace.sim_dir("7001") / "inputs"
-    assert sorted(path.name for path in inputs.iterdir()) == ["wb.boundaries.toml", "wb.fsm"], (
+    assert sorted(path.name for path in inputs.iterdir()) == ["wb.fsm", "wb.fsm.boundaries.toml"], (
         "the point's inputs show more than its own geometry's files"
     )
     assert os.path.samefile(inputs / "wb.fsm", library), "the point opened a second copy"

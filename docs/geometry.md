@@ -1,5 +1,10 @@
 # Geometry: build a body before the run
 
+Inventory filenames include the mesh format: `geometry inventory wing.obj`
+writes `wing.obj.boundaries.toml`, and inventory of `wing.fsm` writes
+`wing.fsm.boundaries.toml`. OBJ inventories are never overwritten because
+they may contain authored import and boundary declarations.
+
 A run matrix names a finished body: a saved simulation (`.fsm`) or a mesh
 (`.obj`). Everything that makes that body, lofting a CCS file, converting and
 cleaning an IGES assembly, building a primitive or a wing from section files,

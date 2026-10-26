@@ -2569,7 +2569,7 @@ def test_a_geometry_folder_is_read_first_and_staged_alone(tmp_path):
     # The sidecar is written beside the file, which is inside the folder, and
     # the resolver's answer is where the binding looks for it.
     sidecar = write_inventory(folded)
-    assert sidecar == geometries / "30_WB" / "30_WB.boundaries.toml"
+    assert sidecar == geometries / "30_WB" / "30_WB.fsm.boundaries.toml"
     assert inventory_sidecar(workspace.resolve_geometry("30_WB.fsm")) == sidecar
     # A bare stem and an absent file are refused naming what the folder holds.
     with pytest.raises(InputArtifactError) as caught:
@@ -2584,8 +2584,8 @@ def test_a_geometry_folder_is_read_first_and_staged_alone(tmp_path):
     inputs = workspace.sim_dir("9001") / "inputs"
     assert _is_link(inputs), "the folder layout fell back to a copy"
     assert sorted(path.name for path in inputs.iterdir()) == [
-        "30_WB.boundaries.toml",
         "30_WB.fsm",
+        "30_WB.fsm.boundaries.toml",
     ]
     assert hashes == {"30_WB.fsm": file_sha256(folded)}
     assert workspace.staged_as("9001") == ("link", None)

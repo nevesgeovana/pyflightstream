@@ -1,5 +1,10 @@
 # Mesh input reference
 
+The inventory command writes `<mesh>.obj.boundaries.toml` or
+`<mesh>.fsm.boundaries.toml`, according to its input. An existing OBJ inventory
+is never rewritten, including with `--overwrite`. The marking declaration
+locator accepts `<mesh>.boundaries.toml` when the `.obj.` filename is absent.
+
 ## Named boundary declarations
 
 The marking loader reads an ordered table per trailing-edge entry and per base
@@ -590,7 +595,7 @@ refused, and the order is written from the file itself:
 pyfs-matrix inventory inputs/geometries/30_WB.fsm
 ```
 
-writes `inputs/geometries/30_WB.boundaries.toml`, a `boundaries` list in the
+writes `inputs/geometries/30_WB.fsm.boundaries.toml`, a `boundaries` list in the
 file's order, and refuses to overwrite one that exists without `--overwrite`.
 The sidecar sits beside the file, so a geometry kept in its own folder,
 `inputs/geometries/30_WB/30_WB.fsm`, has it inside that folder, and the run reads it

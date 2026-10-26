@@ -130,8 +130,9 @@ def inventory_sidecar(geometry: str | Path, kind: Literal["obj", "fsm"] | None =
     geometry : str or Path
         The geometry file.
     kind : {"obj", "fsm"} or None
-        Include the geometry kind for new inventories. None retains the legacy
-        filename for existing matrix callers until their migration.
+        Include the geometry kind for new inventories. With None, find an
+        existing kind-qualified inventory, otherwise return the legacy name.
+        The matrix's cross-kind fallback belongs to its own resolver.
 
     Returns
     -------
@@ -141,6 +142,10 @@ def inventory_sidecar(geometry: str | Path, kind: Literal["obj", "fsm"] | None =
     path = Path(geometry)
     if kind is not None:
         return path.with_name(f"{path.stem}.{kind}{INVENTORY_SUFFIX}")
+    if path.suffix.lower() in (".obj", ".fsm"):
+        qualified = path.with_name(path.name + INVENTORY_SUFFIX)
+        if qualified.exists():
+            return qualified
     return path.with_name(path.stem + INVENTORY_SUFFIX)
 
 

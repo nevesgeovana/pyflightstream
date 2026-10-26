@@ -358,7 +358,11 @@ def _divergence(blocks: list[Block]) -> tuple[set[tuple[str, ...]], set[tuple[st
     """``(keys the page writes that no reader reads, keys read that the page never writes)``."""
     written: set[tuple[str, ...]] = set()
     for block in blocks:
-        written |= _key_paths(tomllib.loads(block.body))
+        data = tomllib.loads(block.body)
+        # Named declarations are a separate loader, exercised below. This
+        # bidirectional key inventory remains the legacy run reader's contract.
+        if "fs_build" not in data:
+            written |= _key_paths(data)
     read = _reader_key_paths()
     return written - read, read - written
 
@@ -403,7 +407,10 @@ def test_every_sidecar_key_the_page_writes_is_one_the_readers_read_and_back(tmp_
         if BOUNDARIES in data:
             sidecar_reader.read_inventory(sidecar)
         sidecar_reader.read_mesh_import(sidecar)
-        sidecar_reader.read_raw_mesh_conditions(sidecar)
+        if "fs_build" in data:
+            sidecar_reader.read_boundary_declarations(sidecar)
+        else:
+            sidecar_reader.read_raw_mesh_conditions(sidecar)
 
 
 def test_the_key_comparison_sees_a_divergence_in_either_direction():

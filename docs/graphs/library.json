@@ -10999,16 +10999,6 @@
     },
     {
       "source": "pyflightstream.run._wake_edge_verdict",
-      "target": "pyflightstream._fsm",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._wake_edge_verdict",
-      "target": "pyflightstream._lengths",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.run._wake_edge_verdict",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -11025,6 +11015,11 @@
     {
       "source": "pyflightstream.run._wake_edge_verdict",
       "target": "pyflightstream.workspace._missing_log",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._wake_edge_verdict",
+      "target": "pyflightstream.workspace.wake_edges",
       "kind": "module"
     },
     {
@@ -13798,6 +13793,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace.sidecars",
+      "target": "pyflightstream.versions",
+      "kind": "deferred"
+    },
+    {
       "source": "pyflightstream.workspace.sixdof_setup",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -13889,6 +13889,11 @@
     },
     {
       "source": "pyflightstream.workspace.wake_edges",
+      "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.wake_edges",
       "target": "pyflightstream._lengths",
       "kind": "module"
     },
@@ -13925,6 +13930,11 @@
     {
       "source": "pyflightstream.workspace.wake_edges",
       "target": "pyflightstream.workspace.inputs",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.wake_edges",
+      "target": "pyflightstream.workspace.manifest",
       "kind": "module"
     }
   ]
