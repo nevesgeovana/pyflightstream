@@ -799,6 +799,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
                 "from-sidecar",
                 "init",
                 "inventory",
+                "mark-boundaries",
                 "migrate",
                 "mirror",
                 "move",
@@ -846,6 +847,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "apply"): frozenset(
         {
+            "mark-boundaries",
             "export-surface-mesh",
             "migrate",
             "build",
@@ -860,6 +862,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "overwrite"): frozenset(
         {
+            "mark-boundaries",
             "campbell",
             "export-surface-mesh",
             "calibrate",
@@ -903,7 +906,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     # The options of `pyfs-workspace geometry`; the feature tests prove their behavior.
     ("pyfs-workspace", "target"): frozenset({"build", "export-surface-mesh"}),
     ("pyfs-workspace", "build"): frozenset({"build", "from-sidecar", "export-surface-mesh"}),
-    ("pyfs-workspace", "fs_exe"): frozenset({"build", "export-surface-mesh"}),
+    ("pyfs-workspace", "fs_exe"): frozenset({"build", "export-surface-mesh", "mark-boundaries"}),
     ("pyfs-workspace", "png"): frozenset({"build"}),
     ("pyfs-workspace", "only"): frozenset({"build"}),
     ("pyfs-workspace", "parallel"): frozenset({"build"}),
@@ -911,7 +914,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "matrix"): frozenset({"build", "calibrate"}),
     ("pyfs-workspace", "names"): frozenset({"accept"}),
     ("pyfs-workspace", "geometry"): frozenset({"degenerate", "from-sidecar", "inventory"}),
-    ("pyfs-workspace", "mesh"): frozenset({"audit", "refine", "trailing-edge"}),
+    ("pyfs-workspace", "mesh"): frozenset({"audit", "mark-boundaries", "refine", "trailing-edge"}),
     ("pyfs-workspace", "factor"): frozenset({"refine"}),
     ("pyfs-workspace", "families"): frozenset({"refine"}),
     ("pyfs-workspace", "chordwise"): frozenset({"refine"}),
