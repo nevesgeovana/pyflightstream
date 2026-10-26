@@ -157,7 +157,9 @@ def test_r1_method_grid_on_the_second_grid_is_refused_naming_both(tmp_path, caps
     )
     quads = _source(tmp_path / "quads", GG, refine_toml=toml)
     assert refine_mesh(quads, out_dir=tmp_path / "q").report["G2"]["method"] == "grid"
-    src.with_name("wing.refine.toml").write_bytes(b'[families.G2]\nfactor = 2\nmethod = "grid"\n')
+    src.with_name("wing.refine.toml").write_bytes(
+        b'[trailing_edge]\nfile = "wing.te.txt"\n[families.G2]\nfactor = 2\nmethod = "grid"\n'
+    )
     assert refine_mesh(src).report["G2"]["method"] == "grid"
 
 
@@ -300,7 +302,7 @@ def test_r4_a_component_writes_its_members_as_one_family_in_the_sources_order(tm
     wing = face_coordinates(lv, lf["Wing"])
     assert wing == face_coordinates(sv, sf["G"] + sf["T"])
     assert wing != face_coordinates(sv, sf["T"] + sf["G"])
-    side = (level.folder / f"{level.folder.name}.boundaries.toml").read_text(encoding="utf-8")
+    side = (level.folder / f"{level.folder.name}.obj.boundaries.toml").read_text(encoding="utf-8")
     assert 'boundaries = ["Wing", "U"]' in side
     refined = refine_mesh(src, 2.0, families=["G", "T"])
     counts = {n: len(f) for n, f in read_mesh(refined.obj)[1].items()}

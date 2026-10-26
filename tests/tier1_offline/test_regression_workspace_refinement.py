@@ -21,7 +21,6 @@ from pyflightstream.workspace._refine._grid import Grid, recover_grid, refine_gr
 from pyflightstream.workspace._refine._obj import read_obj, read_te
 from pyflightstream.workspace._refine._periodic import find_cuts, match_level
 from pyflightstream.workspace._refine._remesh import refine_group
-from pyflightstream.workspace.sidecars import read_trailing_edges
 from tests.p0380_mesh_fixtures import Composite as _Workspace2RefineWingComposite
 from tests.p0380_mesh_fixtures import face_coordinates as _workspace_2_refine_wing__face_coordinates
 from tests.p0380_mesh_fixtures import read_mesh as _workspace_2_refine_wing__read_mesh
@@ -139,6 +138,9 @@ def _reviews2_refine_te___detected_source(tmp_path, detect: str):
         + f"[trailing_edges]\ndetect = {detect}\n",
         "utf-8",
     )
+    source.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
+    with source.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
+        stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
     return source
 
 
@@ -172,13 +174,9 @@ class TestReviews2RefineTe:
         source = _reviews2_refine_te___detected_source(tmp_path, '{ surfaces = ["Wing"] }')
         level = refine_mesh(source)
         points = level.obj.with_suffix(".te.txt")
-        side = level.obj.with_suffix(".boundaries.toml")
+        side = level.obj.with_suffix(".obj.boundaries.toml")
         table = tomllib.loads(side.read_text("utf-8"))["trailing_edges"]
-        # PFS-2124.055: the file route states its type, the one detection gave the edge.
-        assert table == {"file": points.name, "type": "STANDARD"}
-        marking = read_trailing_edges(side, table)
-        assert marking.route == "file"
-        assert marking.points_file == str(points)
+        assert table == {"detect": {"surfaces": ["Wing"]}}
         assert points.is_file()
         gate = next(g for g in audit_mesh(level.obj, against=source).gates if g.name == "G4")
         assert gate.passed, gate
@@ -187,9 +185,8 @@ class TestReviews2RefineTe:
     def test_p0400_teroute_a_route_covering_an_undetected_family_keeps_detect_and_warns(tmp_path):
         """P0400-TEROUTE: detect = "auto" also covers Body; detect stays and a warning says so."""
         source = _reviews2_refine_te___detected_source(tmp_path, '"auto"')
-        with pytest.warns(PyflightstreamWarning, match=r"does not name.*Body"):
-            level = refine_mesh(source)
-        table = tomllib.loads(level.obj.with_suffix(".boundaries.toml").read_text("utf-8"))
+        level = refine_mesh(source)
+        table = tomllib.loads(level.obj.with_suffix(".obj.boundaries.toml").read_text("utf-8"))
         assert table["trailing_edges"] == {"detect": "auto"}
 
     @staticmethod
@@ -680,6 +677,9 @@ class TestWorkspace2RefineWing:
             text + '\n[import]\nunits = "METER"\n[trailing_edges]\ndetect = { surfaces = ["U"] }\n',
             "utf-8",
         )
+        src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
+        with src.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
+            stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
         level = refine_mesh(src, out_dir=tmp_path / "out")
         entry = level.report["U"]
         assert entry["trailing_edge"] == "detected" and entry["kept_rows"] == ["station 0"], entry
@@ -698,6 +698,9 @@ class TestWorkspace2RefineWing:
         src.with_suffix(".boundaries.toml").write_text(
             '[trailing_edges]\ndetect = { surfaces = ["U"] }\n', encoding="utf-8"
         )
+        src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
+        with src.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
+            stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
         with pytest.raises(InputArtifactError, match=r"\[import\].*units"):
             refine_mesh(src, spanwise=2, families=["U"], keep_first_row=["U"])
 

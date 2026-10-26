@@ -419,7 +419,7 @@ def test_refine_mesh_reports_a_multiblock_grid_and_its_audit_passes(tmp_path, na
             assert gates.get("G6") == "pass", gates
     with pytest.raises(InputArtifactError) as caught:
         refine_mesh(src, chordwise=2.0, out_dir=tmp_path / "c")
-    assert "family M: chordwise and spanwise are not defined" in str(caught.value)
+    assert "state [trailing_edge] file" in str(caught.value)
 
 
 @pytest.mark.parametrize("factor", [0.01, 0.2, 0.24])
@@ -755,7 +755,7 @@ def test_p0440_multiblock_direction_without_trailing_edge_is_refused(tmp_path, d
     mesh = _l_with_trailing_edge()
     mesh.te = np.empty((0, 3))
     src = write_source(tmp_path / "src", "plate", mesh)
-    with pytest.raises(InputArtifactError, match="trailing edge, and it has none"):
+    with pytest.raises(InputArtifactError, match=r"\[trailing_edge\] file"):
         refine_mesh(src, **{direction: 0.5}, out_dir=tmp_path / "bad")
     assert not (tmp_path / "bad").exists()
     assert refine_mesh(src, 0.5, out_dir=tmp_path / "control").report["M"]["method"] == "grid"

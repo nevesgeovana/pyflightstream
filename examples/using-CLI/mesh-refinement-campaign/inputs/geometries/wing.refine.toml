@@ -1,0 +1,9 @@
+[trailing_edge]
+file = "wing.te.txt"
+per_family = true
+
+[refine]
+tag = "refined"
+
+[families.Wing]
+factor = 2

@@ -442,7 +442,9 @@ def test_push_ind2_qa_1_two_sheets_fitting_the_cells_are_refused_naming_the_fami
     text = str(caught.value)
     said = f"{src} family G: method is grid and no grid was recovered: {reason}."
     assert text == f"{said} Nothing was written."
-    src.with_name("wing.refine.toml").write_bytes(b"[families.G]\nfactor = 2\n")
+    src.with_name("wing.refine.toml").write_bytes(
+        b'[trailing_edge]\nfile = "wing.te.txt"\n[families.G]\nfactor = 2\n'
+    )
     with warnings.catch_warnings():
         # The remesh of a sheet of four cells is judged by its audit (its skewness check
         # fails, a warning); its quality is not what this test asserts.

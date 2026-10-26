@@ -313,11 +313,9 @@ A refusal is printed on standard error, names the object, what was refused and
 what to do, and ends with `Nothing was written.`: every refusal of the
 arguments, the refinement file, the family names and the installed extras comes
 before any family is resampled and before any file is written, and so does a
-refusal of the boundaries file or of the points file it names, which the audit
-reads. Both commands read `[trailing_edges] detect` through the reader the
-workflow uses, so a shape the workflow refuses (a word other than `"auto"`, a
-key it does not read, an empty surface list, `file` and `detect` together) is
-refused here too, in the same words, before any work. A level is written into `<folder>.partial`, audited there, and renamed
+refusal of the boundaries TOML or the points file selected in the refine file.
+Refinement does not consume marking declarations as its trailing-edge input.
+A level is written into a staging folder, audited there, and renamed
 once complete, so an error leaves no level folder behind; with `--overwrite`
 the existing level is replaced only then, and kept when an error comes first.
 
@@ -345,7 +343,7 @@ given together with `--out` is refused, naming both.
    warning names `keep_first_row` among what the table no longer states.
    `--keep-first-row` asks the option on either route.
 
-The `[refine]`, `[components]` and `[periodic]` tables of the refinement file
+The `[refine]`, `[components]`, `[periodic]` and `[trailing_edge]` tables of the refinement file
 are read whenever the file exists, whatever gives the factors.
 
 ### The keys of the refinement file
@@ -354,6 +352,10 @@ The block below names every key at once; a real file holds the tables its
 own mesh needs, and every family it names must be a family of that mesh.
 
 ```toml title="every-key.refine.toml"
+[trailing_edge]
+file = "wing.te.txt"
+per_family = true
+
 [refine]
 tag = "fine"
 elements = "triangles"
@@ -388,6 +390,8 @@ copies = 6
 
 | table | key | value | meaning |
 |---|---|---|---|
+| `[trailing_edge]` | `file` | non-empty path | the only trailing-edge points input; relative to this refine file, including with command-line factors. Required for keep_first_row and directional factors |
+| `[trailing_edge]` | `per_family` | boolean, default false | also write `<level>.<family>.te.txt` for each output family with a trailing edge, after component grouping |
 | `[refine]` | `tag` | text | the level's name, `<stem>_<tag>`, in place of the factors |
 | `[refine]` | `elements` | `"triangles"` (default) or `"quad-dominant"` | the elements of every remeshed family that does not state its own |
 | `[families.<name>]` | `elements` | `"triangles"` or `"quad-dominant"` | the elements of a remeshed family: quad-dominant pairs the remeshed triangles into convex quadrilaterals (angles 30 to 150 degrees, warp at most 10 degrees), never across an open boundary, the trailing edge or a ridge; refused with `method = "grid"`, ignored (and said so in `refine.json`) on a family that `"auto"` resolves to a grid |
@@ -469,20 +473,27 @@ through the package's one text route, without a carriage return.
 |---|---|---|
 | `<stem>_<tag>.obj` | always | the level, its families in the source's order (a component in place of its members) |
 | `<stem>_<tag>.te.txt` | the source has a trailing-edge points file | one mid-point per trailing-edge edge of the new mesh, under the source file's unit line |
-| `<stem>_<tag>.boundaries.toml` | the source has a sidecar | the source's sidecar, naming the new points file and each component in place of its members |
+| `<stem>_<tag>.obj.boundaries.toml` | the source has a sidecar | updated inventory and preserved declarations, with component renames only |
 | `<stem>_<tag>.refine.json` | always | what was done to each family |
 | `<stem>_<tag>.audit.json` | always | the audit of the level against its source |
 
-The source's points file is the one its `<stem>.boundaries.toml` names under
-`[trailing_edges] file`, or else `<stem>.te.txt` beside the mesh. Its points
-are in the unit its first line names; when the boundaries file states the
-mesh's unit (`[import] units`) and it differs, the points are converted to it
-before they are matched to the mesh's edges, by `refine` and `audit-mesh`
-alike, and the level's points file is written back in the source file's unit.
-A unit that names no scale (OTHER) is then refused.
+The points input is only `[trailing_edge] file` in the refine file. There is
+no fallback to marking declarations or a `<stem>.te.txt` beside the mesh.
+Relative paths resolve beside the refine file. The first line states the points'
+unit; `[import] units` in the OBJ sidecar supplies the mesh unit for conversion.
+The level's `.te.txt` keeps the input points unit. An unconvertible unit is refused.
+
+The source sidecar is `<mesh>.obj.boundaries.toml`, falling back to the legacy
+`<mesh>.boundaries.toml`. Refinement preserves its declarations, comments and
+formatting, except component renames. It never selects the new points file for
+marking. A stale or missing declared file produces a warning naming it and the
+refined `.te.txt`; edit the level's `[trailing_edges.<label>] file` yourself.
+With `per_family = true`, each `<level>.<family>.te.txt` can be named by one such
+entry, with your chosen type and `fs_build`.
 
 `refine.json` states `schema_version` (2), `source`, `level`, `config` (the
-refinement file read, or null), `specs` (the factors of each family),
+refinement file read, or null), `trailing_edge_files` (the explicit source and
+level points paths, or null), `specs` (the factors of each family),
 `tag_selection` (the selected families, for a tag shortened to the summary and
 the hash),
 `components`, `ignored_families_tables` (the families whose file table was not
@@ -546,14 +557,12 @@ unit keys above; the audit schema remains version 1.
 
 ### The row kept at an interface
 
-Detection that writes a trailing-edge points file requires `[import] units`
-in the boundaries file. When both chordwise extremes are sharp, state
-`trailing_edge_direction = [x, y, z]` in the family's refinement table: a
-nonzero direction in the mesh's coordinate frame, pointing from leading to
-trailing edge. Equal projections or a missing direction are refused; there
-is no assumed global aft axis. Listed trailing-edge points take precedence.
-As with `keep_first_row`, this family option is read when the file supplies
-the refinement factors. Use the refinement file for this route.
+Supply `[trailing_edge] file` in the refine file before asking to keep a row.
+Listed points take precedence. When the explicit file has no matching
+points for a kept-row family, its sharp trailing-edge grid line is detected
+from the source geometry. Detection requires `[import] units`; two sharp
+chordwise extremes require the family's `trailing_edge_direction`.
+A boundaries detection declaration neither enables this nor changes afterward.
 
 `keep_first_row` (the file key, `--keep-first-row FAMILY[,FAMILY...]` or the
 `keep_first_row` keyword of `refine_mesh`; the three routes resolve to the
@@ -577,21 +586,9 @@ edge to keep the spanwise width of its row of panels at another component.
 - **Neighbours.** The band of an unselected neighbour is planned with the
   kept rows, the level's open boundary loops are the source's, and the level
   passes the audit as the same refinement without the option does.
-- **Trailing edge.** The one listed in the trailing-edge points file, else,
-  when the boundaries file routes the trailing edge to detection, the edges
-  the package detects on the source; `refine.json` states which under
-  `trailing_edge` (`"points file"` or `"detected"`). Detection takes the edges
-  sharper than the ridge angle (40 degrees), measured across all families,
-  that form a grid line from station 0 to the far station. Two sharp extremes
-  require the family's `trailing_edge_direction`; the larger projection is
-  the trailing edge. Equal projections are refused. A detected line is
-  written to the level's points file, `<level>.te.txt`, and when every
-  family the `detect` route selects is one whose line was detected, the
-  level's boundaries file states `file = "<level>.te.txt"` in place of
-  `detect`, so the run marks the line the refinement kept and the audit
-  checked. When the route also covers a family the refinement did not
-  detect on, `detect` stays (a boundaries file states one route) and a
-  warning names the points file the run does not read.
+- **Trailing edge.** The points named by `[trailing_edge] file` in the refine
+  file. `refine.json` records that input for the audit. The level's updated
+  points file is independent of its marking declarations.
 - **Record.** The family's entry of `refine.json` holds `kept_rows`, the kept
   end stations; the key is absent when the option is not asked. The family's
   part of the tag carries `k`.
@@ -600,8 +597,7 @@ Each of these is refused before any work, naming the source, the family and
 `keep_first_row`, and ending with `Nothing was written.` (exit 2 from the
 command): a value that is not `true` or `false`; a family stated with
 `method = "remesh"` or with `axial` or `circumferential`; a family whose grid
-is not recovered; a multiblock grid; a grid without a trailing edge, neither
-listed in the points file nor detected; a grid with no end station at another
+is not recovered; a multiblock grid; a grid without a trailing edge listed in the refine points file; a grid with no end station at another
 component; a grid remeshed because it shares nodes with a grid refined
 first; a grid whose kept rows leave no spanwise interval to refine; and, in
 the command and the keyword, a family the mesh does not hold or that the
@@ -654,7 +650,9 @@ G6 is judged only for a level `refine` wrote, which names its grid families at
 factor 1 (and each component whose every member is one) in its `refine.json`
 under `unchanged_grids`; `audit-mesh` reads them from the level's
 `refine.json` when it names that level and the source given with `--against`,
-so a saved level is re-audited as `refine` audited it. G4 reads the same
+so a saved level is re-audited as `refine` audited it. The record's
+`trailing_edge_files` selects its level and source points independently of
+marking declarations. G4 reads the same
 record for a family whose trailing edge `refine` detected: the source's chains
 are the connected chains of its listed edges and the detected edges the record
 lists under `trailing_edge_points`, together, so a detected line that a listed

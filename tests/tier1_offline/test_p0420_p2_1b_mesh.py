@@ -293,10 +293,10 @@ def test_p0430_fr936_the_level_keeps_the_identity_of_the_source_open_loop(tmp_pa
         (r'surfaces = ["Wing", "x\u007fy"]', {"surfaces": ["Wing", "x\x7fy"]}),
     ],
 )
-def test_p0430_f1584_the_text_a_refusal_offers_for_a_value_is_valid_toml(
+def test_p0430_f1584_detect_tables_remain_authored_after_refinement(
     tmp_path, detect_line, expected
 ):
-    """F-1584: a table, a quote, a DEL character and a float are offered in TOML."""
+    """PFS-2172: detection preserves a table, quote, DEL character and float."""
     import tomllib
 
     from tests.tier1_offline.test_p0390_firstrow import (
@@ -324,10 +324,10 @@ def test_p0430_f1584_the_text_a_refusal_offers_for_a_value_is_valid_toml(
     )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)
-        with pytest.raises(InputArtifactError, match="cannot be rewritten") as caught:
-            refine_mesh(src, out_dir=tmp_path / "out")
-    offered = str(caught.value).split("state it as ", 1)[1].split(" and run again", 1)[0]
-    assert tomllib.loads(offered)["detect"] == expected
+        level = refine_mesh(src, out_dir=tmp_path / "out")
+    copied = level.obj.with_suffix(".obj.boundaries.toml").read_bytes()
+    assert copied == side.read_bytes()
+    assert tomllib.loads(copied.decode())["trailing_edges"]["detect"] == expected
 
 
 # ---------------------------------------------------------------- F-1517

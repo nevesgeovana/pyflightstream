@@ -16,7 +16,8 @@ without them.
 WHAT IT WRITES. ``<stem>.audit.json`` beside the mesh audited (a level's
 stem is ``<stem>_<tag>``), with ``schema_version``, through the package's one
 text route; a gate or check that fails is a warning naming it, the family and
-its values. The trailing-edge points file of a mesh is the one its
+its values. A refinement record names the level and source points files explicitly,
+independent of marking declarations. Without that record, the points file is the one its
 ``<stem>.boundaries.toml`` names under ``[trailing_edges] file``, or else
 ``<stem>.te.txt`` beside it; its points are converted from the unit on its
 first line to the mesh's (the ``[import] units`` of the boundaries file)
@@ -77,15 +78,16 @@ from pyflightstream.workspace._refine._geometry import (
 )
 from pyflightstream.workspace._refine._obj import (
     KIND,
-    SIDECAR_SUFFIX,
     TE_SUFFIX,
     ObjMesh,
     TrailingPoints,
     edge_midpoints,
+    points_from_file,
     read_obj,
     te_points,
     te_route,
 )
+from pyflightstream.workspace.sidecars import inventory_sidecar
 
 Faces = list[list[int]]
 Value = float | int | str | bool | None
@@ -353,13 +355,14 @@ def audit_mesh(
         A mesh or source that is not a readable OBJ, or a trailing-edge points
         file named and missing or malformed; nothing is written.
     """
-    level = _read(Path(mesh))
     record = _record_of(Path(mesh))
+    point_files = _refinement_points(record, Path(mesh), against)
+    level = _read(Path(mesh), point_files=point_files)
     # PFS-2130.069: like the grids and the detected edges, the components are read only from a
     # record that names this level and this source.
     components = _components_of(record) if _names_this_level(record, Path(mesh), against) else {}
     detected = _recorded_detected(record, Path(mesh), against)
-    source = None if against is None else _read(Path(against), components, detected)
+    source = None if against is None else _read(Path(against), components, detected, point_files)
     target = Path(mesh).with_name(Path(mesh).stem + AUDIT_SUFFIX)
     _refuse_an_input_as_target(target, Path(mesh), None if against is None else Path(against))
     grids = tuple(unchanged_grids) or _recorded_grids(record, Path(mesh), against)
@@ -399,16 +402,19 @@ def _inputs(mesh: Path, against: Path | None) -> list[tuple[str, Path]]:
     """
     files = [
         ("the OBJ", mesh),
-        ("its boundaries file", mesh.with_name(mesh.stem + SIDECAR_SUFFIX)),
+        ("its boundaries file", inventory_sidecar(mesh)),
         ("its refinement record", mesh.with_name(mesh.stem + RECORD_SUFFIX)),
     ]
     files += [("its trailing-edge points file", p) for p in _points_files(mesh)]
     if against is not None:
         files += [
             ("the source", against),
-            ("the source's boundaries file", against.with_name(against.stem + SIDECAR_SUFFIX)),
+            ("the source's boundaries file", inventory_sidecar(against)),
         ]
         files += [("the source's trailing-edge points file", p) for p in _points_files(against)]
+    chosen = _refinement_points(_record_of(mesh), mesh, against)
+    if chosen is not None:
+        files += [("the refinement's points input", path) for path in chosen.values() if path]
     return files
 
 
@@ -452,6 +458,7 @@ def _read(
     path: Path,
     components: Mapping[str, Sequence[str]] | None = None,
     detected: Mapping[str, list[list[float]] | None] | None = None,
+    point_files: Mapping[Path, Path | None] | None = None,
 ) -> _Mesh:
     """Read an OBJ and its trailing-edge points and measure them.
 
@@ -467,7 +474,11 @@ def _read(
     if not path.is_file():
         raise _refusal(path, "no such OBJ file", "Name an existing OBJ and run again.")
     obj = read_obj(path)
-    te = te_points(path)
+    te = (
+        te_points(path)
+        if point_files is None or path not in point_files
+        else points_from_file(path, point_files.get(path))
+    )
     points = None if te is None else te.points
     measured = _measure(_grouped(obj, components) if components else obj, points)
     if detected is None:
@@ -541,6 +552,23 @@ def _record_of(level: Path) -> dict[str, Any]:
         )
         return {}
     return record
+
+
+def _refinement_points(
+    record: Mapping[str, Any], level: Path, against: str | Path | None
+) -> dict[Path, Path | None] | None:
+    """Resolve the points selected by a refine, independently of marking declarations."""
+    files = record.get("trailing_edge_files")
+    if record.get("level") != level.stem or not isinstance(files, dict):
+        return None
+    paths = {"level": level}
+    if against is not None and record.get("source") == Path(against).name:
+        paths["source"] = Path(against)
+    if any(files.get(key) is not None and not isinstance(files[key], str) for key in paths):
+        return None
+    return {
+        path: path.parent / files[key] if files.get(key) else None for key, path in paths.items()
+    }
 
 
 def _components_of(record: Mapping[str, Any]) -> dict[str, list[str]]:

@@ -41,6 +41,19 @@ loads with the coarse row after running; two densities alone do not establish
 mesh convergence. `pyfs-workspace geometry refine` is the separate route for
 refining an existing mesh; see the site's geometry guide.
 
+The campaign also includes `wing.refine.toml`. Preparation writes its explicit
+`wing.te.txt` input. To exercise refinement independently of the two matrix rows:
+
+```text
+pyfs-workspace geometry refine <copied-workspace>/inputs/geometries/wing.obj
+```
+
+The `wing_refined` folder contains an updated `wing_refined.te.txt` and
+`wing_refined.Wing.te.txt`. Its `.obj.boundaries.toml` keeps the authored detection
+declaration. To mark the exported family file instead, replace that declaration's
+`detect` key with `file = "wing_refined.Wing.te.txt"` before marking the new OBJ.
+Refinement never makes that marking choice for you.
+
 The rotor discretization is deliberately small. Three revolutions and a
 10-degree step demonstrate the workflow, not a converged wake. The quasi-steady
 plan reports its reduced-frequency warning; a ready plan is not an accuracy claim.

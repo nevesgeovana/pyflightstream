@@ -30,6 +30,7 @@ from pyflightstream.workspace.sidecars import (
     MESH_FACES_KEY,
     MESH_SHA256_KEY,
     TRAILING_EDGES_TABLE,
+    inventory_sidecar,
     obj_boundary_names,
     obj_face_counts,
     read_trailing_edges,
@@ -246,7 +247,7 @@ def read_sidecar(obj: str | Path) -> tuple[Path, dict[str, Any]] | None:
     InputArtifactError
         The file is not TOML; nothing was written.
     """
-    sidecar = Path(obj).with_name(Path(obj).stem + SIDECAR_SUFFIX)
+    sidecar = inventory_sidecar(obj)
     if not sidecar.is_file():
         return None
     try:
@@ -287,9 +288,8 @@ class TrailingRoute:
 def te_route(obj: str | Path) -> TrailingRoute:
     """Return what a mesh's boundaries file states of its trailing edge (FR-925, NFR-45).
 
-    The refinement's one reader of the boundaries file's
-    ``[trailing_edges]``: the refinement and the audit read it here, and
-    the mesh command no longer reads the table. A table that routes the
+    The standalone audit's reader of the boundaries file's
+    ``[trailing_edges]``. Refinement selects its points in the refine file. A table that routes the
     trailing edge to detection is read by the workflow's own reader,
     :func:`pyflightstream.workspace.sidecars.read_trailing_edges`, so a
     ``detect`` the workflow refuses is refused here with the same words. A
@@ -329,8 +329,8 @@ def te_file(obj: str | Path) -> Path | None:
     """Return a mesh's trailing-edge points file, or None when it has none.
 
     It is the file the boundaries file names under ``[trailing_edges] file``,
-    or else ``<stem>.te.txt`` beside the mesh. The refinement and the audit
-    both read it here, so they refuse the same inputs (FR-925). A boundaries
+    or else ``<stem>.te.txt`` beside the mesh. The standalone audit
+    reads it here; refinement instead uses its own explicit points input. A boundaries
     file that states ``[trailing_edges] none = true`` has no points file, and
     a ``<stem>.te.txt`` left beside the mesh is not read.
 
@@ -398,6 +398,13 @@ def te_points(obj: str | Path) -> TrailingPoints | None:
         converted (a unit that names no scale); nothing was written.
     """
     file = te_file(obj)
+    if file is None:
+        return None
+    return points_from_file(obj, file)
+
+
+def points_from_file(obj: str | Path, file: Path | None) -> TrailingPoints | None:
+    """Read only the explicitly selected points file, converting to the mesh unit."""
     if file is None:
         return None
     unit, points = read_te(file)
@@ -541,10 +548,9 @@ def level_inventory(side: Path, text: str, obj: Path) -> str:
     (``boundary_faces`` in the level's ``boundaries`` order, after any
     ``[components]`` merge) and its sha256 of those bytes. A file stating none
     is returned as it is. Each value is rewritten in place
-    (:func:`rewrite_value`), every other byte kept. The source's sha256 is
-    cited nowhere in the level's file: the header comment the package writes
-    with an inventory ("the OBJ's sha256 was ..."), and any other place the
-    source's digest appears, names the level OBJ's.
+    (:func:`rewrite_value`), every declaration byte kept. The inventory header
+    comment ("the OBJ's sha256 was ...") names the level OBJ's digest too.
+    A digest appearing in an authored declaration stays unchanged.
 
     Raises
     ------
@@ -554,15 +560,10 @@ def level_inventory(side: Path, text: str, obj: Path) -> str:
     """
     data = tomllib.loads(text)
     sha = file_sha256(obj)
-    cited = {m.group(1) for m in _SOURCE_SHA.finditer(text)}
-    if isinstance(data.get(MESH_SHA256_KEY), str):
-        cited.add(data[MESH_SHA256_KEY])
     keys = [k for k in (MESH_FACES_KEY, BOUNDARY_FACES_KEY, MESH_SHA256_KEY) if k in data]
     if keys:
         text = _counted_inventory(side, text, obj, data, keys, sha=sha)
-    for old in sorted(cited - {sha}):
-        text = text.replace(old, sha)
-    return text
+    return _SOURCE_SHA.sub(lambda match: match.group(0).replace(match.group(1), sha), text)
 
 
 #: The header line the package writes with an OBJ's inventory, naming the OBJ's sha256.
@@ -590,3 +591,17 @@ def _counted_inventory(
         text = rewrite_value(side, text, key, data[key], wanted, value=values[key])
         data = wanted
     return text
+
+
+def rename_table_key(side: Path, text: str, old: str, new: str, wanted: dict[str, Any]) -> str:
+    """Replace only the family key whose parsed result equals the intended declarations."""
+    spellings = [toml_value(old), "'" + old + "'", old]
+    for spelling in spellings:
+        for match in re.finditer(re.escape(spelling), text):
+            candidate = text[: match.start()] + toml_value(new) + text[match.end() :]
+            try:
+                if tomllib.loads(candidate) == wanted:
+                    return candidate
+            except tomllib.TOMLDecodeError:
+                pass
+    raise _refuse(side, f"cannot rename base_regions family {old!r}; use a quoted table key")

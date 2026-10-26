@@ -30,12 +30,25 @@ from tests.p0380_mesh_fixtures import (
     open_loop_count,
     read_mesh,
     sheet_with_strips,
-    write_source,
+)
+from tests.p0380_mesh_fixtures import (
+    write_source as _write_source,
 )
 
 STRIP = (0.03, 0.04, 0.05, 0.065, 0.08)
 GTU = (("T", "tri", STRIP), ("U", "tri", (0.1, 0.1)))
 ROOT = (0.05, 0.06, 0.08)
+
+
+def write_source(*args, **kwargs):
+    """Declare an explicit empty input for cases exercising geometric detection."""
+    source = _write_source(*args, **kwargs)
+    points = source.with_suffix(".te.txt")
+    if not points.exists():
+        points.write_text("METER\n", encoding="utf-8")
+        with source.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
+            stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
+    return source
 
 
 def _toml(factor: float, *, keep: object = True, extra: str = "") -> str:
@@ -302,7 +315,7 @@ def _refusal_cases():
         ("multiblock", _l_source(), "[families.L]\nfactor = 2.0\nkeep_first_row = true\n", {},
          "L", "is a multiblock grid"),
         ("no-trailing-edge", sheet_with_strips(GTU, te=False), _toml(2.0), {}, "G",
-         "does not route its trailing edge to detection"),
+         "state [import] units"),
         ("detected-nothing", sheet_with_strips(GTU, te=False), _toml(2.0), {"detect": True}, "G",
          "the detection marks no edge of the family"),
         ("alone", sheet_with_strips(()), _toml(2.0), {}, "G", "no interface row to keep"),
@@ -399,7 +412,7 @@ def test_a_listed_and_a_detected_trailing_edge_each_state_their_provenance(tmp_p
     src = write_source(tmp_path / "det", "wing", _tube_source(), refine_toml=toml)
     sidecar = src.with_name("wing.boundaries.toml")
     plain = sidecar.read_text(encoding="utf-8")
-    with pytest.raises(InputArtifactError, match="does not route its trailing edge"):
+    with pytest.raises(InputArtifactError, match=r"state \[import\] units"):
         refine_mesh(src, out_dir=tmp_path / "out_none")
     sidecar.write_text(plain + DETECT, encoding="utf-8")
     detected = refine_mesh(src, out_dir=tmp_path / "out_det")
@@ -436,7 +449,8 @@ def test_a_detected_trailing_edge_is_written_to_the_level_points_file(tmp_path, 
     """
     toml = "[families.Wing]\nspanwise = 2.0\nkeep_first_row = true\n"
     src = write_source(tmp_path / "det", "wing", _tube_source(), refine_toml=toml)
-    assert not list(src.parent.glob("*.te.txt"))
+    assert src.with_suffix(".te.txt").read_text().strip() == "METER"
+    src.with_suffix(".te.txt").write_text(units + "\n", encoding="utf-8")
     sidecar = src.with_name("wing.boundaries.toml")
     sidecar.write_text(
         sidecar.read_text(encoding="utf-8") + DETECT.replace("METER", units), encoding="utf-8"
@@ -451,7 +465,7 @@ def test_a_detected_trailing_edge_is_written_to_the_level_points_file(tmp_path, 
     assert points[:, 0] == pytest.approx(np.ones(len(points)), abs=1e-9)
     expected = [0.2] + [0.4 + 0.2 * k + 0.1 for k in range(8)]
     assert np.sort(points[:, 1]) == pytest.approx(expected, abs=1e-9)
-    routed = level.folder / f"{level.folder.name}.boundaries.toml"
+    routed = level.folder / f"{level.folder.name}.obj.boundaries.toml"
     text = routed.read_text(encoding="utf-8")
     assert 'detect = "auto"' in text and "file =" not in text
     g4 = _g4(level.audit)

@@ -40,3 +40,21 @@ def test_p0460_examples_preview_marking_and_refuse_unmarked_plan(
     api = runpy.run_path(str(EXAMPLES / "using-API" / (name.replace("-", "_") + ".py")))
     with pytest.raises(InputArtifactError, match="mark-boundaries"):
         api["dry_run"](workspace)
+
+
+def test_p0460_refine_example_owns_points_and_preserves_marking(tmp_path, monkeypatch):
+    from pyflightstream.workspace import refine_mesh
+
+    def no_solver(*args, **kwargs):
+        pytest.fail("Refinement launched a solver")
+
+    monkeypatch.setattr(LocalExecutor, "run_script", no_solver)
+    workspace = tmp_path / "refine-study"
+    shutil.copytree(EXAMPLES / "using-CLI" / "mesh-refinement-campaign", workspace)
+    runpy.run_path(str(EXAMPLES / "using-CLI" / "prepare.py"))["prepare"](workspace)
+    mesh = workspace / "inputs/geometries/wing.obj"
+    declaration = mesh.with_suffix(".obj.boundaries.toml").read_text()
+    level = refine_mesh(mesh)
+    assert (level.folder / "wing_refined.Wing.te.txt").is_file()
+    written = level.obj.with_suffix(".obj.boundaries.toml").read_text()
+    assert written[written.index("[import]") :] == declaration[declaration.index("[import]") :]

@@ -64,7 +64,7 @@ REFINE_KEYS = ("tag", "elements")
 #: The keys of ``[periodic]`` (FR-427).
 PERIODIC_KEYS = ("axis", "origin", "copies")
 #: The top-level tables of a refinement file.
-TABLES = ("refine", "families", "components", "periodic")
+TABLES = ("refine", "families", "components", "periodic", "trailing_edge")
 
 
 @dataclass(frozen=True)
@@ -132,6 +132,8 @@ class RefineRequest:
     default_elements: str = TRIANGLES
     ignored: tuple[str, ...] = ()
     missing: tuple[str, ...] = ()
+    trailing_edge_file: Path | None = None
+    per_family: bool = False
 
     def elements_of(self, family: str) -> str:
         """Return the element mode of a family: its own, else the file's default."""
@@ -485,7 +487,9 @@ def read_refine_file(
             'source\'s folder, so give a name such as tag = "fine"',
         )
     default = refine.get("elements", TRIANGLES)
+    trailing = _trailing_edge(source, data.get("trailing_edge", {}))
     return {
+        **trailing,
         "specs": specs,
         "keep": keep,
         "unread": unread,
@@ -494,6 +498,25 @@ def read_refine_file(
         "tag": tag,
         "components": _components(source, data.get("components", {}), names),
         "periodic": _periodic(source, data["periodic"]) if "periodic" in data else None,
+    }
+
+
+def _trailing_edge(source: Path, value: object) -> dict[str, Any]:
+    """Validate the refinement's own points input and optional family exports."""
+    where = f"{source} [trailing_edge]"
+    table = _table(where, value, "write file and per_family")
+    unknown = sorted(set(table) - {"file", "per_family"})
+    if unknown:
+        raise _refuse(where, f"unknown key {unknown[0]!r}; the known keys are file, per_family")
+    named = table.get("file")
+    if "file" in table and (not isinstance(named, str) or not named.strip()):
+        raise _refuse(where, "file must be a non-empty path string")
+    per_family = table.get("per_family", False)
+    if not isinstance(per_family, bool):
+        raise _refuse(where, "per_family must be true or false")
+    return {
+        "trailing_edge_file": source.parent / named if named is not None else None,
+        "per_family": per_family,
     }
 
 
@@ -621,6 +644,8 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         default_elements=stated["default_elements"],
         ignored=ignored,
         missing=missing_tables,
+        trailing_edge_file=stated.get("trailing_edge_file"),
+        per_family=stated.get("per_family", False),
     )
 
 

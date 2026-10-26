@@ -31,8 +31,8 @@ The order, from the source to the level folder:
    (FR-426), and rename it once complete; an existing level is replaced only
    then (FR-918, FR-919).
 
-Every input the audit refuses (the boundaries file, the trailing-edge points
-file it names) is read in step 1, so a refusal comes before any work (FR-925).
+The boundaries TOML and the explicitly chosen refinement points file are
+read in step 1, before any resampling (FR-925).
 """
 
 from __future__ import annotations
@@ -41,7 +41,6 @@ import copy
 import dataclasses
 import json
 import os
-import re
 import tempfile
 import tomllib
 from collections.abc import Callable, Mapping, Sequence
@@ -149,7 +148,6 @@ class _Work:
     keep_rows: dict[str, tuple[bool, bool]] = field(default_factory=dict)
     # FR-956: what the boundaries file states of the trailing edge, and per grid asked
     # to keep its rows where its trailing edge comes from ("points file" or "detected")
-    te_route: _obj.TrailingRoute = field(default_factory=_obj.TrailingRoute)
     te_source: dict[str, str] = field(default_factory=dict)
     # FR-956, FR-426 G4: the mid-points of each detected line's edges, in the mesh's unit
     te_detected: dict[str, Points] = field(default_factory=dict)
@@ -184,7 +182,23 @@ def _listed_edges(mesh: ObjMesh, family: str, points: Points, scale: float) -> s
 
 
 def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
-    te = _obj.te_points(source)
+    if request.per_family:
+        owner = {member: name for name, members in request.components.items() for member in members}
+        for name in mesh.families:
+            output_name = owner.get(name, name)
+            problem = _config.folder_name_problem(output_name)
+            if problem:
+                raise _refuse(str(source), f"per_family name {output_name!r} {problem}")
+    for name, spec in request.specs.items():
+        if request.trailing_edge_file is None and (
+            spec.keep_first_row or spec.chordwise is not None or spec.spanwise is not None
+        ):
+            raise _refuse(
+                f"{source} family {name} "
+                f"{'keep_first_row' if spec.keep_first_row else 'chordwise/spanwise'}",
+                "a trailing edge is required; state [trailing_edge] file in the refine file",
+            )
+    te = _obj.points_from_file(source, request.trailing_edge_file)
     # Without a points file, one the level writes (a detected kept row's trailing edge,
     # FR-953, FR-956) is in the mesh's unit, stated as the boundaries file states it.
     unit = (_obj.mesh_unit(source) or "METER") if te is None else te.unit
@@ -204,7 +218,6 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
         fam_v={n: set(mesh.family_vertices(n).tolist()) for n in names},
         te_of={n: _te_vertices(mesh, n, points, scale) for n in names},
         scale=scale,
-        te_route=_obj.te_route(source),
         specs=dict(request.specs),
         te_edges={n: _listed_edges(mesh, n, points, scale) for n in names},
     )
@@ -322,27 +335,15 @@ def _component_of(work: _Work, name: str) -> str:
 def _kept_trailing_edge(work: _Work, name: str) -> None:
     """Take the trailing edge of a grid asked to keep its rows, or refuse it (FR-955, FR-956).
 
-    The trailing edge is the one listed in the trailing-edge points file;
-    else, when the boundaries file routes the family's trailing edge to
-    detection, the edges detected on the source by the rule the refinement
-    uses for a source without a points file: an edge of two faces whose
-    dihedral exceeds the ridge angle (FR-922), kept only where those
-    edges form the grid line that runs from station 0 to the far station at
-    the aft chordwise extreme (:func:`_detected_line`), so a sharp leading
-    edge or a crease is not taken for it. Which of the two it is goes to
-    ``refine.json``. A family with neither is refused before any work.
+    The refine file must explicitly name a points file. Listed points take
+    precedence. If that file has no matching points for this family, recover
+    its sharp trailing-edge grid line from the mesh. Marking declarations
+    neither enable this detection nor change as a result of it.
     """
     where = f"{work.source} family {name} keep_first_row"
     if work.te_of[name]:
         work.te_source[name] = "points file"
         return
-    if not work.te_route.detects(name):
-        raise _refuse(
-            where,
-            "keep_first_row applies to a grid with a trailing edge, and the family has none: "
-            "no edge of it is listed in the trailing-edge points file, and the boundaries file "
-            "does not route its trailing edge to detection",
-        )
     if _obj.mesh_unit(work.source) is None:
         raise _refuse(
             where,
@@ -357,8 +358,9 @@ def _kept_trailing_edge(work: _Work, name: str) -> None:
         )
         raise _refuse(
             where,
-            "keep_first_row applies to a grid with a trailing edge; the boundaries file routes "
-            f"the trailing edge to detection, and {why}. List its trailing edge in the points "
+            "keep_first_row applies to a grid with a trailing edge; "
+            "the refine input supplies no matching points and "
+            f"detection failed: {why}. List its trailing edge in [trailing_edge] file, the points "
             "file",
         )
     work.te_of[name] = line
@@ -1093,14 +1095,10 @@ def _components(work: _Work, faces: dict[str, Faces]) -> dict[str, Faces]:
 
 
 def _boundaries_text(work: _Work, stem: str) -> str | None:
-    """Return the source's boundaries file naming the new points file and the components.
+    """Return the source's declarations with only component names changed.
 
-    The file is read as TOML, and only the two values that change are
-    rewritten in place: ``[trailing_edges] file`` and, with components, the
-    ``boundaries`` list (FR-935); every other byte, comments included, is
-    the source's. Each rewrite is checked by parsing the result, which must
-    equal the source's values with those two replaced, so no spelling of
-    TOML can make a rewrite land on the wrong text.
+    Inventory values are refreshed when written. Declaration formatting and
+    comments are preserved, and every component rewrite is checked by parsing.
 
     Raises
     ------
@@ -1112,14 +1110,7 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
     if read is None:
         return None
     side, data = read
-    text = side.read_text(encoding="utf-8")
-    table = data.get("trailing_edges")
-    named = table.get("file") if isinstance(table, dict) else None
-    if isinstance(named, str):
-        changed = copy.deepcopy(data)
-        changed["trailing_edges"]["file"] = f"{stem}{TE_SUFFIX}"
-        text = _obj.rewrite_value(side, text, "file", named, changed)
-        data = changed
+    text = side.read_bytes().decode("utf-8")
     owner = {m: c for c, members in work.request.components.items() for m in members}
     listed = data.get("boundaries")
     if owner and isinstance(listed, list) and all(isinstance(n, str) for n in listed):
@@ -1130,143 +1121,63 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
         data = changed
     # F-1492: a detection selector (``detect = { surfaces = [...] }``) names families too,
     # and a grouped level no longer holds the members it names.
-    for table_name in (_obj.TRAILING_EDGES_TABLE, "wake_termination", "base_regions"):
-        table = data.get(table_name)
+    paths: list[tuple[str, ...]] = [
+        (name,) for name in (_obj.TRAILING_EDGES_TABLE, "wake_termination", "base_regions")
+    ]
+    trailing = data.get(_obj.TRAILING_EDGES_TABLE, {})
+    if isinstance(trailing, dict):
+        paths += [(_obj.TRAILING_EDGES_TABLE, label) for label in trailing]
+    for path in paths:
+        table = data
+        for key in path:
+            table = table.get(key, {}) if isinstance(table, dict) else {}
         detect = table.get("detect") if isinstance(table, dict) else None
         surfaces = detect.get("surfaces") if isinstance(detect, dict) else None
         if owner and isinstance(surfaces, list) and all(isinstance(n, str) for n in surfaces):
             names = list(dict.fromkeys(owner.get(n, n) for n in surfaces))
             if names != surfaces:
                 changed = copy.deepcopy(data)
-                changed[table_name]["detect"]["surfaces"] = names
+                entry = changed
+                for key in path:
+                    entry = entry[key]
+                entry["detect"]["surfaces"] = names
                 text = _obj.rewrite_value(side, text, "surfaces", surfaces, changed, value=names)
                 data = changed
+    return _base_component_names(side, text, data, owner)
+
+
+def _base_component_names(
+    side: Path, text: str, data: dict[str, Any], owner: dict[str, str]
+) -> str:
+    """Rename base family keys and merge targets without reserializing declarations."""
+    bases = data.get("base_regions", {})
+    if not owner or not isinstance(bases, dict):
+        return text
+    for name in list(bases):
+        entry = bases[name]
+        if not isinstance(entry, dict):
+            continue
+        target = entry.get("merge_into")
+        if isinstance(target, str) and owner.get(target, target) != target:
+            changed = copy.deepcopy(data)
+            changed["base_regions"][name]["merge_into"] = owner[target]
+            text = _obj.rewrite_value(
+                side, text, "merge_into", target, changed, value=owner[target]
+            )
+            data = changed
+        renamed = owner.get(name, name)
+        if renamed == name:
+            continue
+        if renamed in data["base_regions"]:
+            raise _refuse(str(side), f"components combine two base declarations as {renamed!r}")
+        changed = copy.deepcopy(data)
+        changed["base_regions"][renamed] = changed["base_regions"].pop(name)
+        text = _obj.rename_table_key(side, text, name, renamed, changed)
+        data = changed
     return text
 
 
-def _route_detected_te(work: _Work, stem: str) -> None:
-    """Name the level's points file in its boundaries file when the refinement detected it.
-
-    A kept row's trailing edge detected by the refinement (FR-953, FR-956) is
-    written to ``<stem>.te.txt``, and a boundaries file that routes the
-    trailing edge to detection names no file, so the run would mark the
-    trailing edge by the workflow's own rule and never read the audited line
-    (PFS-2088.018). When every family the ``detect`` route selects is one
-    whose line the refinement detected, the level's boundaries file states
-    ``file = "<stem>.te.txt"`` and ``type = "STANDARD"`` in place of ``detect``
-    (a file route states its type, PFS-2124.055, and STANDARD is the type
-    detection gives every edge it marks): the run then marks
-    exactly the line the refinement kept and the audit checked. A ``file``
-    and a ``detect`` cannot both be stated, so when the route also selects a
-    family the refinement did not detect on, ``detect`` stays (that family
-    still needs it) and a warning names the points file as one the run does
-    not read.
-
-    Raises
-    ------
-    InputArtifactError
-        The ``detect`` value cannot be rewritten; nothing was written.
-    """
-    detected = sorted(n for n, how in work.te_source.items() if how == "detected")
-    if not detected or work.sidecar is None:
-        return
-    data = tomllib.loads(work.sidecar)
-    table = data.get(_obj.TRAILING_EDGES_TABLE)
-    if not isinstance(table, dict) or "detect" not in table:
-        return
-    routed = [n for n in work.names if work.te_route.detects(n)]
-    others = [n for n in routed if n not in detected]
-    target = f"{stem}{TE_SUFFIX}"
-    if others:
-        warn(
-            f"{work.source}: the trailing edge of {', '.join(detected)} detected for its kept "
-            f"rows is written to {target}, which the level's boundaries file does not name: "
-            f"its detect route also covers {', '.join(others)}, and a boundaries file states "
-            "either a points file or detection, so the run detects with its own rule. List "
-            "every trailing edge in a points file to make the run read the refined line.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-        return
-    wanted = copy.deepcopy(data)
-    del wanted[_obj.TRAILING_EDGES_TABLE]["detect"]
-    wanted[_obj.TRAILING_EDGES_TABLE]["file"] = target
-    wanted[_obj.TRAILING_EDGES_TABLE]["type"] = DETECTED_EDGE_TYPE
-    typed = tuple(f'{sep}type = "{DETECTED_EDGE_TYPE}"' for sep in ("\n", ", "))
-    rewrite: dict[str, Any] = {"new_key": "file", "new": target, "wanted": wanted, "tails": typed}
-    work.sidecar = _replace_key(work.source, work.sidecar, "detect", table["detect"], **rewrite)
-
-
-#: The edge type detection gives every edge it marks, stated when a detect route
-#: becomes the level's points file (PFS-2124.055: a file route states its type).
-DETECTED_EDGE_TYPE = "STANDARD"
-
-
-def _toml(value: object) -> str:
-    """Return ``value`` as TOML text: strings, booleans, numbers, arrays and inline tables.
-
-    A JSON string is a TOML basic string except for DEL, which TOML refuses raw; a
-    JSON object is not an inline table, so the refusals that tell a user what to
-    write never offer text the parser rejects.
-    """
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, str):
-        return json.dumps(value, ensure_ascii=False).replace("\x7f", "\\u007f")
-    if isinstance(value, dict):
-        return "{ " + ", ".join(f"{_toml(str(k))} = {_toml(v)}" for k, v in value.items()) + " }"
-    if isinstance(value, (list, tuple)):
-        return "[" + ", ".join(_toml(v) for v in value) + "]"
-    return repr(value)
-
-
-def _replace_key(
-    side: Path,
-    text: str,
-    key: str,
-    old: object,
-    *,
-    new_key: str,
-    new: str,
-    wanted: dict[str, Any],
-    tails: tuple[str, ...] = ("",),
-) -> str:
-    """Return ``text`` with ``key = old`` replaced by ``new_key = new``, parsing to ``wanted``.
-
-    The same search as :func:`._obj.rewrite_value`: every spelling of the key, the
-    shortest value text that parses to ``old``, and the first replacement
-    whose whole file parses to ``wanted``. Each of ``tails`` is tried after the
-    new value (another key of the same table, on its own line or, in an inline
-    table, after a comma).
-    """
-    spelled = rf"(?<![\w\-\"'])(?:{key}|\"{key}\"|'{key}')\s*=[ \t]*"
-    for match in re.finditer(spelled, text):
-        start = match.end()
-        # A detect value may be an inline table, closed by its brace.
-        for end in (m.end() for m in re.finditer(r"[\"'\]}]", text[start:])):
-            end += start
-            try:
-                value = tomllib.loads("v = " + text[start:end] + "\n")["v"]
-            except tomllib.TOMLDecodeError:
-                continue
-            if value != old:
-                continue
-            for tail in tails:
-                candidate = text[: match.start()] + f"{new_key} = {_toml(new)}{tail}" + text[end:]
-                try:
-                    if tomllib.loads(candidate) == wanted:
-                        return candidate
-                except tomllib.TOMLDecodeError:
-                    pass
-            break
-    raise _refuse(
-        str(side),
-        f"the trailing-edge route {key} cannot be rewritten to name the level's points file; "
-        f"state it as {key} = {_toml(old)} and run again",
-    )
-
-
-def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]:
+def _record(work: _Work, stem: str, counts: Mapping[str, int], has_te: bool) -> dict[str, Any]:
     # FR-972: every selected family and its factor, a factor-1 family kept unchanged
     # included; the method each got is in "families".
     specs = {
@@ -1280,6 +1191,14 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]
         "source": work.source.name,
         "level": stem,
         "config": None if work.request.config is None else work.request.config.name,
+        "trailing_edge_files": {
+            "source": None
+            if work.request.trailing_edge_file is None
+            else os.path.relpath(
+                work.request.trailing_edge_file.resolve(), work.source.parent.resolve()
+            ).replace(os.sep, "/"),
+            "level": f"{stem}{TE_SUFFIX}" if has_te else None,
+        },
         "specs": specs,
         "components": work.request.components,
         "ignored_families_tables": list(work.request.ignored),
@@ -1292,6 +1211,40 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]
         **shortened,
         **periodic,
     }
+
+
+def _warn_stale_declarations(work: _Work, mesh: ObjMesh, folder: Path) -> None:
+    """Warn when a preserved marking points file cannot mark the refined mesh."""
+    if work.sidecar is None:
+        return
+    declarations = tomllib.loads(work.sidecar).get("trailing_edges", {})
+    if not isinstance(declarations, dict):
+        return
+    faces = [face for group in mesh.families.values() for face in group]
+    _, midpoints = _obj.edge_midpoints(mesh.verts, faces)
+    for entry in declarations.values():
+        if not isinstance(entry, dict) or not isinstance(entry.get("file"), str):
+            continue
+        named = folder / entry["file"]
+        try:
+            points = _obj.points_from_file(work.source, named)
+            assert points is not None
+            distance, _ = NearestIndex(midpoints).query(points.points)
+            tolerance = float(entry.get("tolerance", 0.0001))
+            conversion = length_scale(_obj.mesh_unit(work.source) or "METER", "METER")
+            stale = not len(points.points) or bool(
+                numpy.any(distance * (conversion or 1.0) > tolerance)
+            )
+        except (InputArtifactError, OSError, ValueError, TypeError):
+            stale = True
+        if stale:
+            warn(
+                f"{entry['file']}: the preserved trailing-edge declaration does not match "
+                f"the refined mesh; review {folder.name}{TE_SUFFIX} and explicitly add "
+                "the desired file to the level's boundaries declarations.",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
 
 
 def _write(
@@ -1310,13 +1263,29 @@ def _write(
         target = folder / f"{stem}{TE_SUFFIX}"
         written.append(_obj.write_te(target, work.te_unit, te * work.te_to_file))
     if work.sidecar is not None:  # its face counts and digest are the level OBJ's (FR-348)
-        target = folder / f"{stem}{_obj.SIDECAR_SUFFIX}"
-        side = work.source.with_name(work.source.stem + _obj.SIDECAR_SUFFIX)
+        target = _obj.inventory_sidecar(written[0], "obj")
+        side = _obj.inventory_sidecar(work.source)
         _textio.write_text(target, _obj.level_inventory(side, work.sidecar, written[0]))
         written.append(target)
+    _warn_stale_declarations(work, mesh, folder)
+    if work.request.per_family:
+        for name, family_faces in faces.items():
+            _, mid = _obj.edge_midpoints(verts, family_faces)
+            distance, _ = NearestIndex(mid).query(te)
+            points = te[distance < _geometry.TE_POINT_FRACTION * work.scale]
+            if len(points):
+                written.append(
+                    _obj.write_te(
+                        folder / f"{stem}.{name}{TE_SUFFIX}", work.te_unit, points * work.te_to_file
+                    )
+                )
     record = folder / f"{stem}.refine.json"
     _textio.write_json(
-        record, _record(work, stem, {n: len(fs) for n, fs in faces.items()}), indent=1
+        record,
+        _record(
+            work, stem, {n: len(fs) for n, fs in faces.items()}, work.te_listed or bool(len(te))
+        ),
+        indent=1,
     )
     written.append(record)
     return written
@@ -1418,7 +1387,6 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     )
     _decide(work)
     work.say(f"decided: {len(work.grids)} grid, {len(work.remesh)} remeshed")
-    _route_detected_te(work, stem)
     _refine_grids(work)
     work.say("bands and shared curves")
     _bands(work)

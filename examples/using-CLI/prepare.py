@@ -61,6 +61,19 @@ def prepare(workspace: Path) -> None:
                 for a, b, c in indices.reshape(-1, 3) + 1:
                     stream.write(f"f {a} {b} {c}\n")
             _declarations(geometries, name, ["Wing"], [len(triangles)])
+            if name == "wing" and (geometries / "wing.refine.toml").is_file():
+                faces = indices.reshape(-1, 3)
+                edges = np.unique(
+                    np.sort(
+                        np.vstack([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]]), axis=1
+                    ),
+                    axis=0,
+                )
+                aft = np.isclose(vertices[:, 0], 1.0) & np.isclose(vertices[:, 2], 0.0)
+                ends = edges[aft[edges].all(axis=1)]
+                points = (vertices[ends[:, 0]] + vertices[ends[:, 1]]) / 2
+                text = "METER\n" + "".join(f"{x:.12g},{y:.12g},{z:.12g}\n" for x, y, z in points)
+                (geometries / "wing.te.txt").write_text(text, encoding="utf-8")
 
 
 if __name__ == "__main__":
