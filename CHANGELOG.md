@@ -29,10 +29,16 @@ FlightStream versions.
   file; add the level's updated `.te.txt` to its boundaries declarations yourself.
 
 - Matrix rows now require saved `.fsm` geometry. Mark OBJ boundaries once with
-  `pyfs-workspace geometry mark-boundaries --apply`; plans name their inventory,
-  refuse declaration tables and stale marking inputs, and warn once for build
-  mismatches. Raw imports, boundary marking and wake-edge verdicts no longer run
-  per point. CLI examples follow the prepare, mark, plan sequence.
+  `pyfs-workspace geometry mark-boundaries --apply`; plans read their inventory
+  in the documented order ([matrix geometry](docs/geometry.md#matrix-geometry))
+  and name it, refuse declaration tables and stale marking inputs, and warn once
+  for build mismatches. Raw imports, boundary marking and wake-edge verdicts no
+  longer run per point. CLI examples follow the prepare, mark, plan sequence, and
+  CLI and API planning refuse an unmarked example. FSI rows keep their raw OBJ
+  imports: each import reads the strict named declarations of
+  `<mesh>.obj.boundaries.toml` and passes the same VERIFIED command gate as
+  `mark-boundaries`.
+  Migration: prepare every non-FSI mesh with `mark-boundaries` before planning.
 
 - Rotor power entries and rotor recipes now report G4 (`SPURIOUS_COUNTS`)
   and `F_NEAR_N` as NA with a named skip: probe pressure carries no disk
@@ -90,6 +96,10 @@ FlightStream versions.
 - Retired far-field function diagnostics point only to external Euler CFD tools providing total enthalpy and entropy, with no supported replacement in this package (PFS-2144).
 
 - Saved-state boundary-marking probes compare unchanged controls on 26.124 and 26.125, with separate initialization measurements and a combine-persistence observation.
+  They accept route-dependent termination records, count added wake-edge
+  midpoints and read the actual edge-type row. The automatic wake-termination
+  probe marks the trailing edges of a synthetic sharp wing joined to a body
+  before saving its unchanged control.
 
 ## [0.45.1] - 2026-10-25
 
