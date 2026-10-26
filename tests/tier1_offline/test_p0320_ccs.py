@@ -385,3 +385,42 @@ def test_p0320_ccs2_a_wing_with_control_surfaces_may_name_the_boundaries_they_ad
     _index(lines, "CAD_CREATE_WING_MESH_FROM_CCS WING TRUE SHARP TRUE C2 C0")
     with pytest.raises(CampaignConfigError, match="at most 1 more"):
         _built(case.model_copy(update={"inventory": ("WING", "AIL", "EXTRA")}))
+
+
+@pytest.mark.requirement("FR-240")
+def test_p0460_ccs_wing_preparation_keeps_the_curve_route(tmp_path):
+    """D7 removes the matrix importer; the direct geometry emitter keeps its contract."""
+    case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n', ["WING"])
+    _, lines = _built(case)
+    selected = _curve_route(lines, str(case.geometry), 1)
+    loft = _index(lines, "CAD_CREATE_WING_MESH_FROM_CCS WING TRUE SHARP TRUE C2 C0")
+    assert selected < loft
+    assert not any(line.split(" ")[0] in {"OPEN", "IMPORT", "NEW_SIMULATION"} for line in lines)
+
+
+@pytest.mark.requirement("FR-244")
+def test_p0460_ccs_file_preparation_preserves_component_order(tmp_path):
+    case = _file_case(tmp_path, text=THREE, boundaries=("CCS_WING", "CCS_FUS", "CCS_REV"))
+    script, lines = _built(case)
+    assert _ccs_import_file(lines) == str(case.geometry)
+    assert not script.pending_input_files
+    with pytest.raises(CampaignConfigError, match="file's order"):
+        _built(case.model_copy(update={"inventory": ("CCS_REV", "CCS_FUS", "CCS_WING")}))
+
+
+@pytest.mark.requirement("FR-1600")
+@pytest.mark.parametrize(
+    ("build", "grammar"), [("26.125", " 7.5 PARAMETRIC Y"), ("26.123", " 7.5")]
+)
+def test_p0460_ccs_preparation_emits_morphing_in_the_build_grammar(tmp_path, build, grammar):
+    ccs = 'kind = "wing"\ncomponent = 1\n' + MORPHING
+    case = _row_case(tmp_path, "wing", ccs, ["WING"])
+    case = case.model_copy(update={"variables": {"MORPHING": "FLAP", "MORPHING_ANGLE": "7.5"}})
+    source = Path(str(case.geometry)).read_bytes()
+    script = Script(build)
+    emit_ccs_wing(script, case)
+    lines = script.render().splitlines()
+    surface = _index(lines, "NEW_CCS_WING_MORPHING_SURFACE FLAP 0.1 0.4 0.25 0.25 0.5" + grammar)
+    loft = _index(lines, "CAD_CREATE_WING_MESH_FROM_CCS WING TRUE SHARP TRUE C2 C0")
+    assert surface < loft
+    assert Path(str(case.geometry)).read_bytes() == source
