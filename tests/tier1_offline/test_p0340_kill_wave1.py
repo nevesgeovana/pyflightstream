@@ -265,8 +265,11 @@ _SPEC_GOLDEN_PATH = FIXTURES / "qa_spec_builds.json"
 def _spec_version(command: str) -> str:
     """The build a spec is rendered on, chosen as the existing probe test chooses it."""
     from pyflightstream.commands import CommandRegistry
+    from pyflightstream.qa import PROBE_SPECS
 
     registry = CommandRegistry.load()
+    if PROBE_SPECS[command].build_target.__module__.endswith("._spec_0460_marking"):
+        return "26.124"
     if command in registry.for_version("26.120"):
         return "26.120"
     if command in registry.for_version("26.124"):

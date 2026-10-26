@@ -484,6 +484,7 @@
       "tests/tier1_offline/test_qa_geometry.py",
       "tests/tier1_offline/test_qa_matrix.py",
       "tests/tier1_offline/test_qa_physics.py",
+      "tests/tier1_offline/test_p0460_p_marking.py",
       "tests/tier1_offline/test_qa_probes.py",
       "tests/tier1_offline/test_registry_hygiene.py",
       "tests/tier1_offline/test_regression_core_utilities.py",

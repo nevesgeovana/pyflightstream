@@ -32,6 +32,7 @@ import pyflightstream._textio as _textio
 from pyflightstream.qa.geometry import WingSpec, generate_wing_stl, wing_triangles
 from pyflightstream.qa.probes import (
     ProbeArtifacts,
+    ProbeSpec,
     Requires,
     dump_gained,
     emit_solver_setup,
@@ -56,7 +57,7 @@ from pyflightstream.script.helpers import (
 #: of the supported surface by accident (the rule is stated in
 #: tests/tier1_offline/test_exceptions_catalog.py: an absent __all__ means the module
 #: declares none, and then every top-level name is public).
-__all__ = ["PROBE_SPECS"]
+__all__ = ["PROBE_SPECS", "HISTORICAL_PROBE_SPECS"]
 
 # The shared instruments and the registry are in _spec_kit; the second
 # part of the catalog is imported last, so it registers after this one.
@@ -325,18 +326,6 @@ _spec(
         " itself is not read back"
     ),
 )
-_spec(
-    command="AUTO_DETECT_WAKE_TERMINATION_NODES",
-    build_target=_emit("AUTO_DETECT_WAKE_TERMINATION_NODES"),
-    requires=Requires.SIM,
-    assert_effect=_unobservable,
-    save_state=True,
-    effect_note=(
-        "the saved simulation does not move on the probe geometry (RPT-020); a "
-        "clean synthetic wing may simply have no wake termination nodes to find, "
-        "so this needs a geometry that does"
-    ),
-)
 
 #: The wing the wake-edge import probe marks: the qa wing at the tier-3 10_WING
 #: resolution, 16 spanwise panels, so its trailing edge is 16 mesh edges along
@@ -433,7 +422,9 @@ def _import_lines_read(artifacts: ProbeArtifacts) -> str:
     return "import lines " + json.dumps(_import_lines(artifacts))
 
 
-_spec(
+# Retain the old log-only instrument for rejudging its historical reports.
+# New campaigns use the controlled saved-state spec in _spec_0460_marking.
+_WAKE_EDGE_IMPORT_LOG_SPEC = ProbeSpec(
     command="IMPORT_WAKE_EDGES_FROM_FILE",
     build_target=_wake_edge_import_target,
     prelude=_wake_edge_wing_prelude,
@@ -446,6 +437,10 @@ _spec(
         "only when the import marks something (RPT-061)"
     ),
 )
+#: Retired instruments keyed by command, for rejudging their historical reports only.
+#: Current campaigns must select PROBE_SPECS.
+HISTORICAL_PROBE_SPECS = {"IMPORT_WAKE_EDGES_FROM_FILE": _WAKE_EDGE_IMPORT_LOG_SPEC}
+
 _spec(
     command="SET_FREESTREAM",
     build_target=_emit("SET_FREESTREAM", "CONSTANT"),
@@ -1019,6 +1014,7 @@ _spec(
 
 
 import pyflightstream.qa._spec_0400_gap as _spec_0400_gap  # noqa: E402,F401
+import pyflightstream.qa._spec_0460_marking as _spec_0460_marking  # noqa: E402,F401
 import pyflightstream.qa._spec_26125 as _spec_26125  # noqa: E402,F401
 import pyflightstream.qa._spec_catalog_b as _spec_catalog_b  # noqa: E402,F401
 import pyflightstream.qa._spec_ccs_mesh as _spec_ccs_mesh  # noqa: E402,F401
