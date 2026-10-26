@@ -132,6 +132,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
     ValueError or RuntimeError silently stops catching it.
     """
     expected_builtin = {
+        "BoundaryMarkingError": Exception,
         "AmbiguousLoadsError": ValueError,
         # FR-59: an alias resolves through itself, and a file that cannot be
         # read is a ValueError to every caller who caught one before.
@@ -300,6 +301,7 @@ _COMMON_BASES = (ValueError, RuntimeError, LookupError, KeyError, ImportError)
 #: outside the five as well, and counting them would make the number say
 #: nothing about the rows the comments are beside.
 _UNUSUAL_BASE_CLASSES = (
+    "BoundaryMarkingError",
     # TypeError: a drafting function called with the wrong argument shape
     # (PFS-2022.05, 2026-09-09).
     "ManualCallError",

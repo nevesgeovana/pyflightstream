@@ -3369,11 +3369,6 @@
     },
     {
       "source": "pyflightstream.cases.workflows._geometry",
-      "target": "pyflightstream.cases.fsi_workspace",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.cases.workflows._geometry",
       "target": "pyflightstream.cases.setup_surfaces",
       "kind": "module"
     },
@@ -7970,6 +7965,11 @@
     {
       "source": "pyflightstream.qa._spec_0460_marking",
       "target": "pyflightstream._fsm",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.qa._spec_0460_marking",
+      "target": "pyflightstream._textio",
       "kind": "module"
     },
     {

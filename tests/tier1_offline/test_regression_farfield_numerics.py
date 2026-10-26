@@ -213,7 +213,7 @@ def _farfield_ledgers___uniform(points: np.ndarray, speed: float) -> ProbeSample
     return ProbeSamples(points, velocity, np.zeros(len(points)))
 
 
-@pytest.mark.requirement("P0460-G3")
+@pytest.mark.requirement("FR-38")
 def test_p0460_g3_excludes_every_blade_multiple():
     psi = np.arange(32) * 2 * np.pi / 32
     values = 2 * 0.4828 * np.cos(6 * psi) + 4 * np.cos(12 * psi) + 2 * 3.47e-5 * np.cos(psi)
@@ -227,7 +227,7 @@ def test_p0460_g3_excludes_every_blade_multiple():
     assert math.isnan(ff.symmetry_floor(values, psi=psi, m_max=13, excluded_orders=[6, 12]))
 
 
-@pytest.mark.requirement("P0460-G3")
+@pytest.mark.requirement("FR-38")
 @pytest.mark.parametrize(
     "plan,expected",
     [
@@ -243,7 +243,7 @@ def test_p0460_g3_recorded_copies_before_declared_families(plan, expected):
     assert farfield_fields.symmetry_excluded_orders(spec, record, rotors) == expected
 
 
-@pytest.mark.requirement("P0460-G4-ROTOR")
+@pytest.mark.requirement("FR-38")
 def test_p0460_g4_preserves_measured_rotor_flux():
     """PFS-2165 aggregate replay: preserve G4SPLIT window flux, without claiming thrust."""
     spec = LedgersSpec(

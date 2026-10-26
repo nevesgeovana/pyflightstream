@@ -996,7 +996,10 @@ def test_g12_an_older_record_whose_boundaries_no_hash_recovers_is_skipped_naming
     workspace, matrix = a_recorded_campaign(tmp_path)
     a_record_from_before_0_27_0(workspace)
     swapped = _saved_simulation(tmp_path / "swapped.fsm", ["B", "W"]).read_bytes()
-    stage_geometry(workspace, "wing_clean.fsm", body=swapped)
+    geometry = stage_geometry(workspace, "wing_clean.fsm", body=swapped)
+    from pyflightstream.workspace.sidecars import write_inventory
+
+    write_inventory(geometry, overwrite=True)
     stub = a_stub(tmp_path)
     plans, records = extract(workspace, matrix, stub)
     assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, [

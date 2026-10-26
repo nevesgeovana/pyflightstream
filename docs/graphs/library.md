@@ -774,6 +774,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.qa._spec_0460_marking"><summary><code>pyflightstream.qa._spec_0460_marking</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._fsm">pyflightstream._fsm</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.qa._spec_kit">pyflightstream.qa._spec_kit</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.qa.probes">pyflightstream.qa.probes</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script">pyflightstream.script</a> (module)</li>
@@ -2735,7 +2736,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases._skipped_families">pyflightstream.cases._skipped_families</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.ccs_wing">pyflightstream.cases.ccs_wing</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.cases.fsi_workspace">pyflightstream.cases.fsi_workspace</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.cases.setup_surfaces">pyflightstream.cases.setup_surfaces</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows._conventions">pyflightstream.cases.workflows._conventions</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows._names">pyflightstream.cases.workflows._names</a> (module)</li>

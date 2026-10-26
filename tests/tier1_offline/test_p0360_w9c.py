@@ -52,4 +52,11 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
                 migrate_default(child)
 
     migrate_default(expected[fixture])
+    # D7 removes the raw-route field and adds the optional sidecar identity.
+    for case in expected[fixture]["campaign"]["sims"]:
+        assert case.pop("raw_mesh_conditions") is None
+        case["boundaries_file"] = None
+    # PFS-2170 records rejected default pins; these fixtures reject none.
+    for condition in expected[fixture]["conditions"].values():
+        condition["dropped_defaults"] = {}
     assert actual == expected[fixture]

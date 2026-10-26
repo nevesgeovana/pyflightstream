@@ -103,6 +103,7 @@ from pyflightstream.script._ledger_tables import (
     _LOADS_FRAME_COMMAND,
     _MINIMUM_CP_COMMAND,
     _NEW_MODEL_COMMANDS,
+    _ORDERED_PHASES,
     _REFERENCE_PLACEMENT_INDEX,
     _SURFACE_TRANSFORM_COMMANDS,
     _UNFOLLOWED_FRAME_COMMANDS,
@@ -174,15 +175,6 @@ MARCH_ACTIONS: MarchStrategy = "actions"
 #: The march that registers no action: the plots declared before ONE solver
 #: start over every time step, and every export after it.
 MARCH_SINGLE: MarchStrategy = "single_march"
-
-_ORDERED_PHASES = (
-    Phase.GEOMETRY,
-    Phase.SETUP,
-    Phase.INIT,
-    Phase.EXEC,
-    Phase.ANALYSIS,
-    Phase.EXPORT,
-)
 
 
 class ScriptOrderError(PyflightstreamError, ValueError):
@@ -1662,11 +1654,8 @@ class Script(_ScriptRendering):
         through setup only. All argument and reference checks remain active. Ordinary
         scripts retain their phase guard; marking scripts refuse init and execution.
 
-        Evidence on 26.124 and 26.125: GEO-105 release records 0.46.0,
-        licensed/wtn/WTN4-MARKING-2026-10-26.md G3/G6 and licensed/wtn/w124/;
-        licensed/base/BASE-REPORT-2026-10-26.md C1-C7;
-        licensed/probe-p/CMP-26124_2026-10-26_marking-p.md and
-        CMP-26125_2026-10-26_marking-p2.md. These measure saved marks and
+        Evidence: reports/compat/CMP-26124_2026-10-26_marking.yaml and
+        CMP-26125_2026-10-26_marking.yaml measure saved marks and
         base/merge order without INITIALIZE_SOLVER. Command evidence admission
         remains the planner's separate per-build VERIFIED gate.
         """

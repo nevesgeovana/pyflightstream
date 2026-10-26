@@ -20,7 +20,7 @@ Pipeline layers, dependencies flowing strictly downward:
 - ``workspace``: the managed workspace (input-artifact library plus run
   layout) and the run manifest.
 - ``run``: execution and the campaign loop, one row above ``workspace``: ``run`` imports
-``workspace``, and nothing of
+  ``workspace``, and nothing of
   ``workspace`` imports ``run``.
 - ``post``: results into engineering data (sweep assembly, exports).
 - ``qa``: probe harness and physics regression tooling.

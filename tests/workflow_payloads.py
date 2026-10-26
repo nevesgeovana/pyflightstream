@@ -17,9 +17,10 @@ def workflow_payload(path: Path) -> Path:
 
 def before_frame_labels_0451(text: str) -> str:
     """Undo only complete, digest-pinned PFS-2168 fixture edits for older guards."""
+    text = before_pressure_0460(text)
     records = json.loads(
-        (WORKFLOW_ROOT.parent.parent / "fixtures" / "golden_frames_0451.json").read_text()
-    )
+        (WORKFLOW_ROOT.parent.parent / "fixtures" / "golden_transitions.json").read_text()
+    )["frames_0451"]
     digest = hashlib.sha256(text.encode()).hexdigest()
     record = records["digests"].get(digest)
     if record is None:
@@ -27,6 +28,22 @@ def before_frame_labels_0451(text: str) -> str:
     lines = text.splitlines()
     for start, end, previous in reversed(record["edits"]):
         lines[start:end] = previous
+    previous_text = "\n".join(lines)
+    assert hashlib.sha256(previous_text.encode()).hexdigest() == record["before"]
+    return previous_text
+
+
+def before_pressure_0460(text: str) -> str:
+    """Undo only the forty audited PFS-2171 pressure edits, bound to complete bytes."""
+    records = json.loads(
+        (WORKFLOW_ROOT.parent.parent / "fixtures" / "golden_transitions.json").read_text()
+    )["pressure_0460"]
+    record = records["digests"].get(hashlib.sha256(text.encode()).hexdigest())
+    if record is None:
+        return text
+    lines = text.splitlines()
+    for index, previous in record["edits"]:
+        lines[index] = previous
     previous_text = "\n".join(lines)
     assert hashlib.sha256(previous_text.encode()).hexdigest() == record["before"]
     return previous_text

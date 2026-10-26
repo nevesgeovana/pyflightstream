@@ -108,7 +108,7 @@ LOADS = """Aerodynamic loads
 """
 
 
-@pytest.mark.requirement("P0460-G4-ROTOR")
+@pytest.mark.requirement("FR-38")
 @pytest.mark.parametrize("recipe", ["steady", "unsteady", "unsteady_rotor", "qsteady_rotor"])
 @pytest.mark.parametrize("named_rotor", [False, True])
 def test_p0460_g4_rotor_is_not_a_thrust_balance(tmp_path, recipe, named_rotor):
@@ -181,7 +181,7 @@ def test_p0460_g4_rotor_is_not_a_thrust_balance(tmp_path, recipe, named_rotor):
         assert all("no disk total-pressure jump" in reason for reason in reasons)
 
 
-@pytest.mark.requirement("P0460-G4")
+@pytest.mark.requirement("FR-38")
 @pytest.mark.parametrize("axis", ["X", (0.6, 0.0, 0.8)])
 @pytest.mark.parametrize("split", ["CDo", "CDv"])
 def test_p0460_g4_export_split(tmp_path, axis, split):
@@ -238,7 +238,7 @@ def test_p0460_g4_export_split(tmp_path, axis, split):
     assert float(rows[-1]["F_NEAR_VISCOUS_N"]) == pytest.approx(viscous, abs=1e-5)
 
 
-@pytest.mark.requirement("P0460-G4")
+@pytest.mark.requirement("FR-38")
 @pytest.mark.parametrize("viscous", [False, True])
 @pytest.mark.parametrize("group", ["MRP_TOTAL", "G1"])
 def test_p0460_g4_history_split(tmp_path, viscous, group):
@@ -304,7 +304,7 @@ def test_p0460_g4_history_split(tmp_path, viscous, group):
             assert float(row["F_NEAR_VISCOUS_N"]) == pytest.approx(drag, rel=1e-5)
 
 
-@pytest.mark.requirement("P0460-G3")
+@pytest.mark.requirement("FR-38")
 @pytest.mark.parametrize("rotor", [False, True])
 @pytest.mark.parametrize("averaged", [False, True])
 def test_p0460_g3_blade_passage(tmp_path, rotor, averaged):
@@ -1665,8 +1665,7 @@ class TestRfixAProducts:
         case = _rfixa_products__plan._farfield_plan___case(
             tmp_path, [{"variant": "sections", "families": "all", "stations": 80}]
         )
-        mesh = Path(case.geometry)
-        mesh.write_text(mesh.read_text().replace("g W", "g Wing1") + "g Wing2\nf 1 2 4 3\n")
+        _rfixa_products__plan._farfield_plan___box(tmp_path, ("Wing1", "Wing2"))
         case = case.model_copy(update={"inventory": ("Wing1", "Wing2")})
         script = _rfixa_products__plan._farfield_plan___script(case)
         assert [block["families"] for block in script.section_blocks] == [["Wing1"], ["Wing2"]]

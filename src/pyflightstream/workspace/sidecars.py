@@ -157,7 +157,18 @@ def boundaries_for_marking(geometry: str | Path) -> Path:
 
 
 def boundaries_for_matrix(geometry: str | Path) -> Path:
-    """Locate a saved simulation's inventory in the matrix's declared reading order."""
+    """Locate a saved simulation's inventory in the matrix's declared reading order.
+
+    Parameters
+    ----------
+    geometry : str or Path
+        Saved simulation whose adjacent sidecars are searched.
+
+    Returns
+    -------
+    Path
+        First existing sidecar, or the qualified FSM path when none exists.
+    """
     path = Path(geometry)
     candidates = (
         inventory_sidecar(path, "fsm"),
@@ -168,7 +179,23 @@ def boundaries_for_matrix(geometry: str | Path) -> Path:
 
 
 def read_marking_record(geometry: str | Path) -> dict[str, Any] | None:
-    """Read a marking record and refuse changed or missing recorded inputs."""
+    """Read a marking record and refuse changed or missing recorded inputs.
+
+    Parameters
+    ----------
+    geometry : str or Path
+        Geometry beside the marking record.
+
+    Returns
+    -------
+    dict or None
+        Validated record, or None when no record exists.
+
+    Raises
+    ------
+    InputArtifactError
+        The record is unreadable or its input digests no longer match.
+    """
     path = Path(geometry)
     record = path.with_suffix(".mark.json")
     if not record.exists():
@@ -179,7 +206,7 @@ def read_marking_record(geometry: str | Path) -> dict[str, Any] | None:
     try:
         data = json.loads(record.read_text(encoding="utf-8"))
         if not isinstance(data, dict) or not isinstance(data.get("inputs"), dict):
-            raise ValueError("expected a record with an inputs digest mapping")
+            raise InputArtifactError("expected a record with an inputs digest mapping")
         for name, digest in data["inputs"].items():
             source = Path(name)
             if not source.is_absolute():

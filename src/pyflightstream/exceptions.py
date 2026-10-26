@@ -128,6 +128,7 @@ from pyflightstream.script.entities import ScriptDeclarationTypeError
 from pyflightstream.utils.errors import ManualCallError, ManualDraftError
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError
 from pyflightstream.workspace import (
+    BoundaryMarkingError,
     FsiExternalSetupError,
     InputArtifactError,
     MissingOutputsError,
@@ -146,6 +147,7 @@ __all__ = [
     "AmbiguousVersionAliasError",
     "AnchorNotFoundError",
     "AtmosphereError",
+    "BoundaryMarkingError",
     "BrokenCommandError",
     "BuildCapabilityError",
     "CalibrationError",

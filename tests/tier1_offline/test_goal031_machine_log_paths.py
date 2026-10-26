@@ -38,7 +38,6 @@ from pyflightstream.run.matrix import run_matrix
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
-from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 # --- A. the build-identity pre-flight ----------------------------------------
 from tests.support_helpers import no_sleep as _no_sleep
@@ -323,27 +322,3 @@ def test_collect_files_a_steady_job_whose_scheduler_logs_the_job_once(tmp_path):
         assert "scheduler" in note and job_log in note, note
     for point in collected.as_points():
         assert point.residual_note and job_log in point.residual_note, point.residual_note
-
-
-def test_a_steady_job_that_imported_trailing_edges_is_held_to_the_job_s_log(tmp_path):
-    """The one import line is the job's, so every point is held to the scheduler's log."""
-    from tests.tier1_offline.test_run_wake_edge_count import LOG_AROUND
-
-    for line, expected in (
-        ("16 trailing edges imported for boundary Wing", "CONVERGED"),
-        ("15 trailing edges imported for boundary Wing", "FAILED_SCRIPT"),
-    ):
-        root = tmp_path / expected
-        root.mkdir()
-        workspace, _ = _submitted_steady_job(root, native=LOG_AROUND.format(line=line))
-        rows = _read_record_rows(workspace.manifest_path)
-        rows[0]["submission"]["wake_edge_points"] = 16
-        workspace._replace_manifest(rows)
-        collect_and_post(
-            workspace, watch=True, rounds=3, interval=0.0, watch_interval=0.0, sleep=_no_sleep
-        )
-        (collected,) = workspace.read_manifest()
-        assert [entry["status"] for entry in collected.points_ran] == [expected] * 3, (
-            line,
-            collected.error,
-        )

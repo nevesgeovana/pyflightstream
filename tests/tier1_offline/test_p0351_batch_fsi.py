@@ -55,6 +55,9 @@ from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from pyflightstream.workspace._batches import GroupingReceipt
 from pyflightstream.workspace.inputs import read_hpc_profile
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case, unsteady_wing_case
 from tests.tier1_offline.test_p0350_batch_collect import (
     A2,
@@ -224,6 +227,22 @@ def _fsi_input() -> str:
     )
 
 
+def _pin_mesh_inventory(mesh: Path) -> None:
+    """Bind the strict FSI fixture's declarations to its actual OBJ bytes."""
+    import hashlib
+
+    from pyflightstream.workspace.sidecars import obj_face_counts
+
+    faces = obj_face_counts(mesh)
+    sidecar = mesh.with_suffix(".obj.boundaries.toml")
+    text = sidecar.read_text(encoding="utf-8")
+    sidecar.write_text(
+        f"boundary_faces = {list(faces)}\nmesh_faces = {sum(faces)}\n"
+        f'mesh_sha256 = "{hashlib.sha256(mesh.read_bytes()).hexdigest()}"\n' + text,
+        encoding="utf-8",
+    )
+
+
 def _build_coupled_inputs(root: Path) -> None:
     """Stage the synthetic coupled wing inputs used by this offline submitting test."""
     inputs = root / "inputs"
@@ -231,13 +250,14 @@ def _build_coupled_inputs(root: Path) -> None:
     geometry.mkdir(parents=True, exist_ok=True)
     obj, _ = _wing_obj()
     (geometry / "coupled_wing.obj").write_text(obj, encoding="utf-8")
-    (geometry / "coupled_wing.boundaries.toml").write_text(
-        'boundaries = ["Wing"]\n[import]\nunits = "METER"\n'
-        '[trailing_edges]\nfile = "coupled_wing.te.txt"\ntype = "STANDARD"\n'
-        '[wake_termination]\ndetect = "auto"\n',
+    (geometry / "coupled_wing.obj.boundaries.toml").write_text(
+        'fs_build = "26.124"\nboundaries = ["Wing"]\n[import]\nunits = "METER"\n'
+        '[trailing_edges.main]\nfile = "coupled_wing.te.txt"\ntype = "STANDARD"\n'
+        'wake_termination_nodes = "auto"\n',
         encoding="utf-8",
     )
     (geometry / "coupled_wing.te.txt").write_text(_trailing_edge_points(), encoding="utf-8")
+    _pin_mesh_inventory(geometry / "coupled_wing.obj")
     for folder, name, body in (
         ("setups", "s340.toml", _SETUP),
         ("references", "r340.toml", _REFERENCE),

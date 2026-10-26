@@ -16,6 +16,8 @@ import os
 import subprocess
 from pathlib import Path
 
+from tests.workflow_payloads import before_pressure_0460
+
 REPO = Path(__file__).resolve().parents[2]
 #: What the one ``git show`` below needs to start and find its config, and nothing else.
 _GIT_ENV_KEYS = ("PATH", "SYSTEMROOT", "SystemRoot", "HOME", "USERPROFILE")
@@ -83,7 +85,7 @@ def _p1021_pair() -> tuple[str, str]:
     termination line and with the section plot back before EXPORT_LOG, which is the
     v0.33.0 golden byte for byte (asserted wherever the tag is in the clone).
     """
-    release = _P1021_GOLDEN.read_text(encoding="utf-8")
+    release = before_pressure_0460(_P1021_GOLDEN.read_text(encoding="utf-8").rstrip("\n")) + "\n"
     # P0451-CIFIX: PFS-2168 restores the v0.33.0 basis, so no axis undo is
     # needed. Remove only the added BMRP and undo the resulting frame IDs.
     body_frame = (

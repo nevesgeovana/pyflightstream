@@ -27,6 +27,9 @@ from pyflightstream.fsi.kinematics import NODE_ROLES
 from pyflightstream.fsi.sections import airfoil_section_contour, blade_properties_from_sections
 from pyflightstream.qa.geometry import naca4_contour
 from pyflightstream.script import Script
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 
 RADII = [0.3, 0.6, 0.9]
 CHORDS = [0.20, 0.15, 0.10]

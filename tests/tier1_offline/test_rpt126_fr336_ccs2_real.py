@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.cases import CampaignConfigError
-from tests.tier1_offline.test_p0320_ccs import AILERON, _built, _real_case, _row_case
+from tests.tier1_offline.test_p0320_ccs import AILERON, _real_case, _row_case
 
 REPO = Path(__file__).resolve().parents[2]
 REPORTS = REPO / "reports"
@@ -40,6 +40,16 @@ PAIRS = (
     ("P_s", "P", "none"),
     ("RL_s", "RL", "none"),
 )
+
+
+def _built(case):
+    """Exercise the retained direct CCS wing API, without the removed matrix route."""
+    from pyflightstream.cases.ccs_wing import emit_ccs_wing
+    from pyflightstream.script import Script
+
+    script = Script("26.124")
+    emit_ccs_wing(script, case)
+    return script, script.render().splitlines()
 
 
 def _arms() -> dict[str, dict]:

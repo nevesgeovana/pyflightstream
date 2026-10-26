@@ -102,11 +102,6 @@ def _open_geometry(case: SimCase, script: Script) -> None:
         return
     suffix = PurePath(case.geometry).suffix.lower()
     if suffix != SIMULATION_SUFFIX and (case.fsi is not None or case.fsi_external is not None):
-        # Keep the adapter's loads/results dependencies local to the FSI branch.
-        # Its injected emitter avoids a cases -> workspace -> cases dependency
-        # cycle; importing workspace's marking implementation here would add it.
-        from pyflightstream.cases.fsi_workspace import _import_fsi_geometry
-
         _import_fsi_geometry(case, script)
         _geometry_simulation_controls(case, script, default_unit="METER")
         _setup_surfaces.emit_setup_surfaces(script, case)
@@ -708,3 +703,13 @@ def accepted_symmetry(script: Script) -> tuple[str, ...] | None:
         if argument.name == "symmetry":
             return tuple(argument.values or ())
     return None
+
+
+def _import_fsi_geometry(case: SimCase, script: Script) -> None:
+    """Import and mark each FSI iteration through the workspace-bound B1 emitter."""
+    if case._fsi_geometry_emitter is None:
+        raise CampaignConfigError(
+            "FSI raw geometry requires workspace binding of its named boundary declarations"
+        )
+    assert case.geometry is not None
+    case._fsi_geometry_emitter(str(case.geometry), script)

@@ -116,8 +116,8 @@ Detection quality and resulting topology must be checked for the particular mesh
 Unstated settings preserve existing behavior: raw mesh/CAD imports default to
 METER, and a saved simulation retains its unit. Metre-valued reference origins,
 rotor positions and other dimensional inputs are converted once to the selected
-simulation unit. [The CAD example](examples/cad_import.md) exercises the typed
-route without launching a solver.
+simulation unit. The [geometry preparation route](geometry.md) converts CAD
+before a matrix row opens its prepared saved simulation. RPT-082
 records the measured unit domain and negative controls.
 
 ## Reference compatibility

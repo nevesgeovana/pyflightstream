@@ -23,7 +23,7 @@ from collections.abc import Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from pyflightstream.commands import ArgSpec, ArgType, CommandEntry, Layout, ListSeparator
+from pyflightstream.commands import ArgSpec, ArgType, CommandEntry, Layout, ListSeparator, Phase
 from pyflightstream.script._arg_checks import CommandArgumentError
 
 # Argument names declaring the following list's length. A count that
@@ -541,3 +541,13 @@ class _ScriptRendering:
         if entry.terminator is not None:
             lines.append(entry.terminator)
         return lines, True
+
+
+_ORDERED_PHASES = (
+    Phase.GEOMETRY,
+    Phase.SETUP,
+    Phase.INIT,
+    Phase.EXEC,
+    Phase.ANALYSIS,
+    Phase.EXPORT,
+)
