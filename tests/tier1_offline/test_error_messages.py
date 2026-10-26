@@ -774,17 +774,25 @@ def _names_the_parameter(flag: str, message: str) -> bool:
     ``--cases X (SMI cases need smi_root)`` contains "cases" in prose and
     passed a substring test while naming the flag alone.
 
-    So the two SANCTIONED SHAPES are asked for by name, and there are
-    exactly two in this repository:
+    So the SANCTIONED SHAPES are asked for by name, and there are exactly
+    three in this repository:
 
     * ``smi_root (CLI: --smi-root)``, the parameter with its flag beside
       it, which is what a message written for a Python caller and read by
       a CLI user needs;
     * ``cases=['PHY-01']``, the keyword form, which shows the call rather
-      than describing it.
+      than describing it;
+    * ``pyfs-workspace geometry mark-boundaries wing.obj --apply``, the
+      flag inside a WHOLE COMMAND of one of this package's console
+      scripts, which the reader can run verbatim. That message does not
+      name a flag alone: it names a command, and the flag is one of its
+      words. The tool must be declared under ``[project.scripts]`` in
+      pyproject.toml, at least one subcommand word must follow it, and
+      the words between it and the flag may not end a sentence, so a
+      command in one sentence does not license a bare flag in the next.
 
     Anything else is an offender, including prose that happens to contain
-    the word. A message wanting a third shape should add it here rather
+    the word. A message wanting a fourth shape should add it here rather
     than rely on a coincidence of vocabulary.
 
     ONE PLURAL IS ADMITTED, narrowly and on purpose. Deriving the
@@ -812,7 +820,30 @@ def _names_the_parameter(flag: str, message: str) -> bool:
     # imperative clause, which is how both real messages already write it,
     # "name it: cases=[...]" and "map the code with recipes={...}".
     imperative = rf"(?:pass|name it|map (?:it|the code) with|give)[^.]*?\b{re.escape(parameter)}s?="
-    return re.search(imperative, message) is not None
+    if re.search(imperative, message) is not None:
+        return True
+    # THE COMMAND ARM: the flag is a word of a whole console command of this
+    # package. Subcommand words follow the tool; argument words may hold a
+    # path's dots but may not END in sentence punctuation, so "Run pyfs-x y.
+    # Then pass --flag" is still the flag alone. The raise-site walk joins an
+    # f-string's constant pieces with spaces, so an interpolated argument
+    # arrives as extra whitespace, which the pattern also admits.
+    tools = "|".join(re.escape(tool) for tool in sorted(_console_scripts(), key=len, reverse=True))
+    command = (
+        rf"(?<![\w-])(?:{tools})(?:\s+[a-z][a-z0-9-]*)+"
+        rf"(?:\s+\S*[^\s.,;:])*?\s+{re.escape(flag)}(?![\w-])"
+    )
+    return re.search(command, message) is not None
+
+
+def _console_scripts() -> set[str]:
+    """The console commands this package declares under ``[project.scripts]``."""
+    import tomllib
+
+    pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    scripts = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["scripts"]
+    assert scripts, "pyproject.toml declares no console script, so the command arm checks nothing"
+    return set(scripts)
 
 
 @pytest.mark.parametrize(
@@ -848,6 +879,43 @@ def _names_the_parameter(flag: str, message: str) -> bool:
             "the flag alone as the instruction and the parameter only as a remark "
             "about a default; the second version of this predicate accepted it",
         ),
+        (
+            "--apply",
+            "Run pyfs-workspace geometry mark-boundaries inputs/wing.obj --apply, "
+            "then run the saved simulation.",
+            True,
+            "the flag inside a whole console command the reader can run verbatim",
+        ),
+        (
+            "--apply",
+            "Run pyfs-workspace geometry mark-boundaries   --apply, then run it.",
+            True,
+            "the same command as the raise-site walk sees it, the path a gap",
+        ),
+        (
+            "--apply",
+            "must be an .fsm. Mark its boundaries with --apply, then run the saved simulation.",
+            False,
+            "the control: a bare --apply with no command is still the flag alone",
+        ),
+        (
+            "--apply",
+            "Run pyfs-geometry mark-boundaries wing.obj --apply.",
+            False,
+            "a tool this package does not declare is not a command the reader can run",
+        ),
+        (
+            "--apply",
+            "Run pyfs-workspace --apply.",
+            False,
+            "a tool with no subcommand is not a whole command",
+        ),
+        (
+            "--apply",
+            "Run pyfs-workspace geometry mark-boundaries wing.obj. Then pass --apply.",
+            False,
+            "a command in one sentence does not license a bare flag in the next",
+        ),
     ],
 )
 def test_the_flag_predicate_can_tell_the_defect_from_the_accepted_shape(
@@ -857,7 +925,7 @@ def test_the_flag_predicate_can_tell_the_defect_from_the_accepted_shape(
 
     A guard whose only cases come from the tree goes green the day the
     tree happens to hold nothing it can judge, and says nothing about
-    whether it COULD judge. These nine cases give it red cases that do not
+    whether it COULD judge. These cases give it red cases that do not
     move when the source does, and each is a shape some version of the
     predicate got wrong.
     """
