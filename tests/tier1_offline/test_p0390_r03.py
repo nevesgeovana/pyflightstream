@@ -536,12 +536,9 @@ def test_p0390_r03_a_quiet_plan_says_its_blocked_points_and_its_count(tmp_path, 
     quiet they are said, with the points count, whatever line the plan printed last
     (here the plan.json path, after the blocked block).
     """
-    # A raw mesh stating no length unit blocks its row's point, and no other.
-    blocked = _row("7004").replace("| 0.0 | - |", "| 0.0 | g1.obj |")
+    # A nonnumeric velocity blocks one point during script planning.
+    blocked = _row("7004").replace("VELOCITY: 30.0", "VELOCITY: invalid")
     root = make_workspace(tmp_path, _row("7002") + blocked)
-    (root / "inputs" / "geometries" / "g1.obj").write_text(
-        "o Body\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8"
-    )
     (root / "pyfs.toml").write_text(
         '[defaults]\nfs_version = "26.120"\n[log]\nconsole = "quiet"\n', encoding="utf-8"
     )
@@ -556,7 +553,7 @@ def test_p0390_r03_a_quiet_plan_says_its_blocked_points_and_its_count(tmp_path, 
     assert normal[1].strip().splitlines()[-1].strip().startswith("plan:")
     assert out == "points: 1 ready, 1 blocked, 0 already recorded\n"
     assert "Blocked points (1)\n  camp/sim_7004/V0300RE120AL+000\n" in err
-    assert "states no" in err and "length unit" in err
+    assert "VELOCITY" in err and "invalid" in err
     assert "Cases" not in err and "purpose:" not in err and SIGNATURE in err
 
 
@@ -1085,6 +1082,12 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         pinned
         + b'  "instrument": {\n    "": {\n      "fs_exe": "<PYTHON>",\n'
         + b'      "fs_exe_sha256": "<EXE-SHA>"\n    }\n  },\n  "inputs_sha256": {},\n',
+    )
+    # D7 adds the optional saved marking sidecar to each planned point.
+    old_boundary = b'"wake_termination": {}\n'
+    assert captured[plan_name].count(old_boundary) == 1
+    captured[plan_name] = captured[plan_name].replace(
+        old_boundary, b'"wake_termination": {},\n      "boundaries_file": null\n'
     )
     assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
