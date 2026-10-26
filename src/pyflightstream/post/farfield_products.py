@@ -47,7 +47,6 @@ from pyflightstream.post._tables import CONTEXT_COLUMNS, context_row, write_csv_
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
-    axial_coefficient,
     far_samples,
     lattice_samples,
     ledger_values,
@@ -768,7 +767,7 @@ def _instant_values(
     analyses: Sequence[str],
     *,
     final: bool = True,
-    near: float = _NA,
+    near: tuple[float, float] = (_NA, _NA),
 ) -> dict[str, Any]:
     """Return the C values and the ledger rows of one instant, keyed by analysis.
 
@@ -818,13 +817,14 @@ def _instant_values(
         station = float(lattice.stations[-1]) if station is None else float(station)
         out["rotor"] = rotor_values(fields, rho=rho, speed=speed, station=station)
     if "ledgers" in analyses:
-        near = (
-            -axial_coefficient(point.loads.total, axis) * q_ref * ctx.reference.sref_m2
-            if final
-            else near
-        )
+        near = ff._near_force(point, axis, ctx.reference.sref_m2) if final else near
         out["ledgers"] = ledger_values(
-            fields, _ledgers(ctx), rho=rho, speed=speed, near=(near, ctx.reference.sref_m2)
+            fields,
+            _ledgers(ctx),
+            rho=rho,
+            speed=speed,
+            near=(near[0], ctx.reference.sref_m2),
+            viscous=near[1],
         )
     return out
 
@@ -924,7 +924,7 @@ def _probe_point(
         return
     try:
         near = (
-            ff._window_near_forces(ctx, point.name, chosen, probe.layout.axis)
+            ff._window_near_forces(ctx, point, chosen, probe.layout.axis)
             if "ledgers" in analyses
             else {}
         )
@@ -938,7 +938,7 @@ def _probe_point(
                     probe,
                     analyses,
                     final=False,
-                    near=near.get(ff._step(i), _NA),
+                    near=near.get(ff._step(i), (_NA, _NA)),
                 ),
             )
             for i in chosen

@@ -19,6 +19,9 @@ import pytest
 
 import tests.tier1_offline.test_regression_farfield_interfaces as _rfixa_products__plan
 import tests.tier1_offline.test_regression_farfield_products as _ffproof_post__wing
+
+# P0460 fixtures use the public export parser and the existing product harness.
+import tests.tier1_offline.test_regression_farfield_products as _p0460_fixtures
 import tests.tier1_offline.test_regression_farfield_products as _rfixa_products__post
 import tests.tier1_offline.test_regression_farfield_products as _rfixa_products__wing
 import tests.tier1_offline.test_regression_farfield_products as _rfixf_drag_split__ffpost
@@ -82,6 +85,152 @@ from tests.tier1_offline.test_regression_farfield_interfaces import (
     _ffproof_plan___unsteady as _rfixf2_plots___unsteady,
 )
 
+# Transcribed numeric and header lines from the alpha-zero loads export.
+LOADS = """Aerodynamic loads
+     Angle of attack (Deg)                       .000
+     Side-slip angle (Deg)                       .000
+     Freestream velocity (m/s)                   30.000
+     Requested solver iterations                 500
+     Solver convergence limit                     1.000E-05
+     Force solver to run all iterations           F
+     Solver mode:                                Steady
+     Current solver iteration number:            51
+     Reference velocity (m/s)                    30.000
+     Reference length (m)                        1.000
+     Reference area (m^2)                        8.000
+     Surface, Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz
+     ----------------------------------------------------------------------------------------------------
+     Total,+0.0066,-0.0000,+0.0023,+0.0023,+0.0000,+0.0066,+0.0011,-0.0014,+0.0000
+     ----------------------------------------------------------------------------------------------------
+     Force Units: Coefficients
+     Moment Units: Coefficients
+     Software : Flightstream version 26.1, build #8172026
+"""
+
+
+@pytest.mark.requirement("P0460-G4")
+@pytest.mark.parametrize("axis", ["X", (0.6, 0.0, 0.8)])
+@pytest.mark.parametrize("split", ["CDo", "CDv"])
+def test_p0460_g4_export_split(tmp_path, axis, split):
+    """Post export lines: -18 counts on X and the same projection on a tilted axis."""
+    loads = LOADS.replace("CDi, CDo", "CDp, CDv") if split == "CDv" else LOADS
+    lattice = _FFPROOF_POST___SHAPE.build(1.0)
+    positions = lattice_points(lattice, axis=axis)
+    export = _ffproof_post___probe_export(positions, 30.0)
+    lines = export.splitlines()
+    direction = np.array([1.0, 0.0, 0.0]) if axis == "X" else np.array(axis)
+    # Uniform velocity on both planes cancels; uniform outlet pressure adds 7.938 N.
+    area = np.pi * (lattice.ring_edges[-1] ** 2 - lattice.ring_edges[0] ** 2)
+    for index, line in enumerate(lines):
+        cells = line.split(",")
+        if len(cells) > 10 and cells[0].strip() not in ("X", ""):
+            xyz = np.array([float(c) for c in cells[:3]])
+            cells[4] = str(7.938 / (551.25 * area) if xyz @ direction > 0 else 0)
+            lines[index] = ",".join(cells)
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=_FFPROOF_POST___LEDGERS,
+        files={
+            f"{_FFPROOF_POST___STEM}.txt": loads,
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": "\n".join(lines),
+        },
+    )
+    _ffproof_post___set_record(
+        workspace,
+        point={"alpha": 0.0},
+        reference={"SREF": 8.0, "CREF": 1.0, "BREF": 8.0},
+        farfield_layout={
+            "shapes": [
+                {
+                    "kind": "lattice",
+                    "source": "added",
+                    "entry": None,
+                    "count": len(positions),
+                    "axis": axis,
+                    "origin_m": [0.0, 0.0, 0.0],
+                    "positions_frame": "REFERENCE",
+                    "lattice": lattice.model_dump(mode="json"),
+                }
+            ]
+        },
+    )
+    _ffproof_post___post(workspace)
+    rows = _rfixf_layout___rows(workspace.root, "farfield/*_ledgers.csv")
+    assert rows
+    near = 0.0 if axis == "X" else -0.0023 * 0.8 * 4410
+    viscous = -29.106 * (1.0 if axis == "X" else 0.6)
+    assert float(rows[-1]["FX_N"]) == pytest.approx(7.938, abs=0.001)
+    assert float(rows[-1]["SPURIOUS_COUNTS"]) == pytest.approx((near - 7.938) / 4410 * 1e4, abs=0.1)
+    assert float(rows[-1]["F_NEAR_N"]) == pytest.approx(near, abs=1e-5)
+    assert float(rows[-1]["F_NEAR_VISCOUS_N"]) == pytest.approx(viscous, abs=1e-5)
+
+
+@pytest.mark.requirement("P0460-G4")
+@pytest.mark.parametrize("viscous", [False, True])
+@pytest.mark.parametrize("group", ["MRP_TOTAL", "G1"])
+def test_p0460_g4_history_split(tmp_path, viscous, group):
+    """The window uses its own CDO, or names its absence and leaves near/G4 NA."""
+    files = _p0460_fixtures._p0450_probe_series(_p0460_fixtures._FFPROOF_POST___POINTS_M)
+    columns = "Time-step,FX_MRP_TOTAL" + (f",CDO_{group}" if viscous else "")
+    rows = (
+        "7,-10" + (",0.001" if viscous else "") + ",\n8,-30" + (",0.003" if viscous else "") + ","
+    )
+    files[f"{_p0460_fixtures._FFPROOF_POST___STEM}_plots.txt"] = (
+        _p0460_fixtures._FFPROOF_POST__PLOTS_HEADER
+        + columns
+        + "\n"
+        + rows
+        + "\n"
+        + "-" * 60
+        + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #10052026\n"
+    )
+    workspace = _p0460_fixtures._ffproof_post___campaign(
+        tmp_path,
+        pproc=_p0460_fixtures._FFPROOF_POST___LEDGERS
+        + 'export_type = "avg_window"\nlast_steps = 2\n',
+        files=files,
+        recipe="unsteady",
+        reductions=_p0460_fixtures._FFPROOF_POST___WINDOW,
+        positions=True,
+    )
+    if group == "G1":
+        _ffproof_post___set_record(
+            workspace,
+            inventory=["Wing"],
+            reductions={
+                **_FFPROOF_POST___WINDOW,
+                "plot_groups": [
+                    {
+                        "name": "MRP_TOTAL",
+                        "parameters": ["FX"],
+                        "frame": "MRP",
+                        "families": ["Wing"],
+                    },
+                    {"name": "G1", "parameters": ["CDO"], "frame": "MRP", "families": ["Wing"]},
+                ],
+            },
+        )
+    _p0460_fixtures._ffproof_post___post(workspace)
+    root = workspace.root
+    _, rows = _p0460_fixtures._ffproof_post___table(
+        _p0460_fixtures._ffproof_post___one(root, "farfield/*_ledgers_average.csv")
+    )
+    if not viscous:
+        assert all(row["SPURIOUS_COUNTS"] == "NA" for row in rows)
+        assert all(row.get("F_NEAR_N") == "NA" for row in rows)
+        assert "history has no viscous drag" in str(
+            _p0460_fixtures._ffproof_post___manifest(root)["skipped"]
+        )
+    else:
+        qs = 0.5 * _p0460_fixtures._FFPROOF_POST___RHO * 68.058**2 * 50
+        # The history banner states VREF = 2 VINF; written CDO is scaled by four.
+        drag = -0.002 * 4 * qs * np.cos(np.deg2rad(-2))
+        for row in rows:
+            assert float(row["SPURIOUS_COUNTS"]) == pytest.approx((20 - drag) / qs * 1e4, rel=1e-5)
+            assert float(row["F_NEAR_N"]) == pytest.approx(20 - drag, rel=1e-5)
+            assert float(row["F_NEAR_VISCOUS_N"]) == pytest.approx(drag, rel=1e-5)
+
+
 _FARFIELD_PRODUCTS__ALPHA = -2.0
 
 
@@ -129,9 +278,9 @@ def test_p0450_ff6_g4_uses_same_window_loads(tmp_path, history):
     """LIC-04: post a two-step window; G4 compares the two means, never final loads."""
     files = _p0450_probe_series(_FFPROOF_POST___POINTS_M)
     if history != "absent":
-        rows = "Time-step,FX_MRP_TOTAL\n1,-9000,\n7,-10,\n"
+        rows = "Time-step,FX_MRP_TOTAL,CDO_MRP_TOTAL\n1,-9000,0,\n7,-10,0,\n"
         if history != "gap":
-            rows += "8,-30,\n"
+            rows += "8,-30,0,\n"
         files[f"{_FFPROOF_POST___STEM}_plots.txt"] = (
             _FFPROOF_POST__PLOTS_HEADER
             + rows
@@ -176,7 +325,7 @@ def test_p0450_rv2_g4_requires_whole_configuration(tmp_path, parameters, familie
     files = _p0450_probe_series(_FFPROOF_POST___POINTS_M)
     files[f"{_FFPROOF_POST___STEM}_plots.txt"] = (
         _FFPROOF_POST__PLOTS_HEADER
-        + "Time-step,FX_MRP_TOTAL\n7,-10,\n8,-30,\n"
+        + "Time-step,FX_MRP_TOTAL,CDO_MRP_TOTAL\n7,-10,0,\n8,-30,0,\n"
         + "-" * 60
         + "\n     Force Units: Newtons\nSoftware : Flightstream version 26.1, build #7012026\n"
     )
@@ -196,7 +345,7 @@ def test_p0450_rv2_g4_requires_whole_configuration(tmp_path, parameters, familie
             {
                 "name": "MRP_TOTAL",
                 "frame": "MRP",
-                "parameters": ["FX"],
+                "parameters": ["FX", "CDO"],
                 "families": ["Wing"] if families == '["Wing"]' else ["Wing", "Tail"],
             }
         ]

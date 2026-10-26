@@ -650,9 +650,9 @@ def spurious_diagnostic(
     v_inf: float,
     s_ref: float,
 ) -> float:
-    """Near-field minus far-field load, in counts (gate G4).
+    """Inviscid near-field minus far-field load, in counts (gate G4).
 
-    The residual between the integrated near-field load and the far-field
+    The residual between the integrated inviscid near-field load and the far-field
     balance is treated as numerical, not physical (design note DLV-006
     Sec. 3.5; no dated report measures it); reported in counts so runs are
     comparable across cases and solvers.
@@ -660,7 +660,7 @@ def spurious_diagnostic(
     Parameters
     ----------
     near_field : float
-        Integrated near-field force in N.
+        Integrated inviscid near-field force in N (total minus viscous projection).
     far_field : float
         Far-field force balance in N.
     rho_inf : float

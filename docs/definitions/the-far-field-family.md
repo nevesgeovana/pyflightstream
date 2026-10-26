@@ -468,11 +468,27 @@ into the plane term.
     SYMMETRY_FLOOR  = max_{m >= 1} |c_m|                    of the axial velocity
     SPURIOUS_COUNTS = 2 (F_near - F_far) / (rho V^2 SREF) 1e4
 
+G4 compares like with like: `F_near` is the inviscid near-field axial force,
+written as `F_NEAR_N`. The total projection minus `F_NEAR_VISCOUS_N` gives
+`F_NEAR_N`; adding those two columns reconstructs the old total.
+The viscous force is assumed to act along the free-stream direction with
+magnitude `CDo q S` (`CDv` in newer loads exports), using the loads reference
+dynamic pressure. It is projected on the lattice axis with exactly the same
+sign as the total force. For example, a total of -29.106 N, a viscous projection
+of -29.106 N and a far-field force of 7.938 N at `q S = 4410 N` give
+`F_NEAR_N = 0` and G4 = -18 counts. On rotor rows blade friction is mostly
+swirl-wise; the error of this free-stream-direction assumption is bounded by
+`CDo` itself.
+
 For an averaged ledger, G4 compares the window mean axial flux difference with
-the mean near-field axial force over exactly the same steps. The latter comes
+the mean inviscid near-field axial force over exactly the same steps. The latter comes
 from the point's whole-configuration global force plots history, the series read
-by its unsteady polar. Missing history or a missing window step gives `NA` and
-a named `SPURIOUS_COUNTS` skip; the instant still uses the final loads export.
+by its unsteady polar, subtracting the projected viscous scalar from the same
+history (`CDO_<group>` on 26.125). The written history coefficients are already
+on free-stream dynamic pressure. Missing history, viscous drag (including the
+26.124 control plots), or a missing window step gives `NA` for G4 and
+`F_NEAR_N` and a named `SPURIOUS_COUNTS` skip; the instant still uses the final
+loads export. A drag group must cover the whole configuration.
 
 **Unsteady rows, instant and average.** The instant is the balance of the
 lattice at the last time step. The average is the average, over the row's
