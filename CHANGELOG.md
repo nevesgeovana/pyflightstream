@@ -25,6 +25,9 @@ FlightStream versions.
 
 ### Fixed
 
+- `geometry mark-boundaries` prints readable entry, group, termination, base-region,
+  merge and output-file lines after read-back; the JSON record retains its mapping.
+
 - Planning refuses a probe entry whose rotor frame is absent from its row,
   naming the frame and row before any run.
 

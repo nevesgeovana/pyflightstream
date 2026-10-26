@@ -561,6 +561,36 @@ def _check_marking_executable(executable: Path, build: str, parent: Path) -> Non
             )
 
 
+def _print_marking_readback(plan, readback: dict[str, Any]) -> None:
+    """Print the checked marking result without changing its recorded mapping."""
+    print(f"marked {plan.outputs[0]}")
+    for entry in readback["entries"]:
+        termination = entry["termination"] or "none"
+        explicit = len(entry["explicit_nodes"])
+        print(
+            f"  entry {entry['label']}: type {entry['type']}, group {entry['group']}; "
+            f"termination {termination}, {explicit} explicit nodes"
+        )
+    print(f"  termination nodes: {readback['termination_nodes']} (saved total)")
+    if not readback["base_regions"]:
+        print("  base regions: none")
+    models = {0: "USER", 1: "EMPIRICAL", 2: "AXISYMMETRIC"}
+    for index, (family, cp, model) in enumerate(readback["base_regions"]):
+        group = readback["groups"][len(readback["entries"]) + index]
+        print(f"  base region {family}: model {models[model]}, Cp {cp:g}, rim group {group}")
+    merges = [r for r in plan.declarations.base_regions if r.merge_into is not None]
+    if not merges:
+        print("  merges: none")
+    for region in merges:
+        index = readback["boundaries"].index(region.merge_into)
+        print(
+            f"  merge {region.family} into {region.merge_into}: "
+            f"{readback['boundary_faces'][index]} final OBJ faces"
+        )
+    for output in plan.outputs:
+        print(f"  wrote {output}")
+
+
 def _cmd_mark_boundaries(args: argparse.Namespace) -> int:
     try:
         plan = plan_mark_boundaries(args.mesh)
@@ -589,7 +619,7 @@ def _cmd_mark_boundaries(args: argparse.Namespace) -> int:
             overwrite=args.overwrite,
             package_version=_package_version(),
         )
-        print(f"marked {plan.outputs[0]}: {record['read_back']}")
+        _print_marking_readback(plan, record["read_back"])
         return 0
     except BoundaryMarkingError as error:
         print(str(error), file=sys.stderr)

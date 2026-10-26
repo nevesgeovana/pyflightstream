@@ -425,6 +425,8 @@ def test_p0460_obj_nodes_keep_unreferenced_vertices_in_numbering(tmp_path):
 def test_p0460_cli_checks_executable_before_marking(
     tmp_path, monkeypatch, capsys, actual, expected
 ):
+    import json
+
     from pyflightstream.commands import CommandRegistry
     from pyflightstream.run import ExecutionResult, LocalExecutor
     from pyflightstream.workspace.cli import main
@@ -455,6 +457,16 @@ def test_p0460_cli_checks_executable_before_marking(
     if expected == 0:
         assert calls == ["identity.txt", "wing.mark.txt"]
         assert all(path.exists() for path in plan.outputs)
+        output = capsys.readouterr().out
+        record = json.loads(plan.outputs[-1].read_text(encoding="utf-8"))
+        readback = record["read_back"]
+        entry = readback["entries"][0]
+        assert f"entry {entry['label']}: type {entry['type']}, group {entry['group']}" in output
+        assert f"termination nodes: {readback['termination_nodes']}" in output
+        assert "base regions: none" in output
+        assert "merges: none" in output
+        assert all(f"wrote {path}" in output for path in plan.outputs)
+        assert str(readback) not in output
     else:
         assert calls == ["identity.txt"]
         assert not any(path.exists() for path in plan.outputs)
