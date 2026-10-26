@@ -116,7 +116,7 @@ def saved_wake_edge_verdict(sets, folder: Path, collected: Sequence[str], build:
         unit = saved_mesh_coordinate_unit(saves[0])
         factor = None if unit is None else scale(unit, "METER")
         if factor is None:
-            raise ValueError("saved mesh coordinate unit is unknown")
+            raise MeshReadError("saved mesh coordinate unit is unknown")
         marked = (
             numpy.asarray(trailing_edge_midpoints(saves[0]), dtype=float).reshape(-1, 3) * factor
         )

@@ -179,7 +179,7 @@ def read_marking_record(geometry: str | Path) -> dict[str, Any] | None:
     try:
         data = json.loads(record.read_text(encoding="utf-8"))
         if not isinstance(data, dict) or not isinstance(data.get("inputs"), dict):
-            raise ValueError("expected a record with an inputs digest mapping")
+            raise InputArtifactError("expected a record with an inputs digest mapping")
         for name, digest in data["inputs"].items():
             source = Path(name)
             if not source.is_absolute():
