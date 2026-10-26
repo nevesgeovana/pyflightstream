@@ -263,21 +263,15 @@ def test_p0440_multi_file_records_survive_local_and_submitted_runs(tmp_path, swe
 
 
 @pytest.mark.parametrize("build", ["26.124", "26.125"])
-def test_p0440_wake_termination_file_is_probe_gated(tmp_path, build):
+def test_p0460_wake_termination_file_is_verified(tmp_path, build):
     workspace = _library(
         tmp_path, DETECT_AUTO + '[wake_termination]\nfile="tips.wt.txt"\n', build=build
     )
     (workspace.inputs_dir / "geometries" / "tips.wt.txt").write_text(
         _points_text([(1.0, -4.0, 0.0)])
     )
-    try:
-        case = _case(tmp_path, workspace, build=build)
-        _render(case, build)
-    except (ValueError, InputArtifactError) as exc:
-        reason = str(exc)
-    else:
-        reason = "accepted an unprobed command"
-    assert "MARK_WAKE_TERMINATION_NODES" in reason and "PFS-2149.01" in reason
+    case = _case(tmp_path, workspace, build=build)
+    assert "MARK_WAKE_TERMINATION_NODES" in _render(case, build)
 
 
 @pytest.mark.parametrize("point,tolerance,count", [((9, 9, 9), 0.0001, 0), ((1, -4, 0), 1.0, None)])
@@ -311,9 +305,7 @@ def test_p0440_one_file_record_keeps_published_bytes(tmp_path):
 
 
 @pytest.mark.parametrize("build", ["26.124", "26.125"])
-def test_p0440_verified_termination_selects_nodes_before_marking(tmp_path, build):
-    import copy
-
+def test_p0460_verified_termination_selects_nodes_before_marking(tmp_path, build):
     from pyflightstream.commands import CommandRegistry, Status
 
     workspace = _library(
@@ -326,9 +318,9 @@ def test_p0440_verified_termination_selects_nodes_before_marking(tmp_path, build
         case = _case(tmp_path, workspace, build=build)
     except (ValueError, InputArtifactError) as exc:
         pytest.fail(f"explicit termination points must bind: {exc}")
-    registry = copy.deepcopy(CommandRegistry.load())
+    registry = CommandRegistry.load()
     entry = registry.commands["MARK_WAKE_TERMINATION_NODES"]
-    entry.versions[build] = entry.versions[build].model_copy(update={"status": Status.VERIFIED})
+    assert entry.versions[build].status is Status.VERIFIED
     script = Script(build, registry=registry)
     build_script(case, script, registry=registry)
     lines = script.render().splitlines()

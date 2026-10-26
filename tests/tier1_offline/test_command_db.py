@@ -29,6 +29,29 @@ REPORTS_DIR = REPO_ROOT / "reports"
 COMMANDS_DIR = REPO_ROOT / "src" / "pyflightstream" / "commands"
 
 
+@pytest.mark.parametrize("build", ["26.124", "26.125"])
+def test_p0460_marking_commands_have_verified_evidence(build):
+    from pyflightstream.versions import resolve
+
+    registry = CommandRegistry.load()
+    for name in (
+        "CREATE_NEW_BASE_REGION",
+        "SET_BASE_REGION_CP",
+        "SET_BASE_REGION_TRAILING_EDGES",
+        "SURFACE_COMBINE",
+        "SURFACE_RENAME",
+        "MARK_WAKE_TERMINATION_NODES",
+        "IMPORT_WAKE_EDGES_FROM_FILE",
+        "AUTO_DETECT_WAKE_TERMINATION_NODES",
+        "SELECT_MESH_NODE",
+    ):
+        row = registry.commands[name].status_in(resolve(build))
+        assert row.status is Status.VERIFIED, (build, name, row)
+        assert row.report, (build, name)
+        report = yaml.safe_load((REPO_ROOT / row.report).read_text(encoding="utf-8"))
+        assert report["commands"][name]["outcome"] == "verified"
+
+
 @pytest.mark.requirement("FR-3216")
 def test_p0450_g52_profile_status_cites_its_26125_measurement():
     entry = CommandRegistry.load().commands["EXPORT_BL_VELOCITY_PROFILE"]

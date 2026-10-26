@@ -124,7 +124,8 @@ AUTO_DETECT_WAKE_TERMINATION_NODES:
     "26.120": {status: documented}
     "26.123": {status: documented, note: "FSM-26.123 p.325, unchanged from FSM-26.122 p.325"}
     "26.124":
-      status: documented
+      report: "reports/compat/CMP-26124_2026-10-26_marking.yaml"
+      status: verified
       note: >-
         FSM-26.124 p.325, the FSM-26.123 file, carried from 26.123. Ran on 26.124
         (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07): after IMPORT_WAKE_EDGES_FROM_FILE it marks
@@ -132,7 +133,8 @@ AUTO_DETECT_WAKE_TERMINATION_NODES:
         INITIALIZE_SOLVER clears the first initialisation and initialises
         again with the node it marked
     "26.125":
-      status: documented
+      report: "reports/compat/CMP-26125_2026-10-26_marking.yaml"
+      status: verified
       note: >-
         FSM-26.125 p.331 prints the by-surface form only. The 26.125 solver
         accepted this name in the L4 licensed run (namespace
@@ -537,8 +539,8 @@ MARK_WAKE_TERMINATION_NODES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 p.324, same grammar as 26.120"}
     "26.123": {status: documented, note: "FSM-26.123 p.325, unchanged from FSM-26.122 p.325"}
-    "26.124": {status: documented, note: "FSM-26.124 p.325, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "FSM-26.125 p.331, unchanged from FSM-26.124 p.325"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-26_marking.yaml", note: "FSM-26.124 p.325, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-26_marking.yaml", note: "FSM-26.125 p.331, unchanged from FSM-26.124 p.325"}
   notes: >
     Marks the currently SELECTED mesh nodes as wake termination nodes,
     which is the manual route where the two detection commands are the
