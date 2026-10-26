@@ -68,25 +68,6 @@ from tests.tier1_offline.test_workflows import FIXTURE_ROTOR
 GOLDENS = Path(__file__).parent / "goldens" / "raw_mesh"
 
 
-@pytest.mark.parametrize("build", ["25.000", "26.123"])
-def test_p0460_marking_policy_refuses_unmeasured_builds(build):
-    from pyflightstream.script import ScriptOrderError
-
-    with pytest.raises(ScriptOrderError, match="26.124 and 26.125"):
-        Script.for_marking(build)
-
-
-def test_p0460_runner_failure_retains_diagnostics(tmp_path):
-    from pyflightstream.workspace import BoundaryMarkingError, apply_mark_boundaries
-
-    plan, saved = _p0460_saved_plan(tmp_path)
-    with pytest.raises(BoundaryMarkingError, match="stub failure"):
-        apply_mark_boundaries(plan, runner=_p0460_runner(saved, fail=True))
-    assert (plan.work / "wing.mark.txt").read_text() == plan.script
-    assert "10052026" in (plan.work / "wing.mark.log").read_text()
-    assert not any(path.exists() for path in plan.outputs)
-
-
 def _p0460_marking_input(tmp_path, *, build="26.125", extra=""):
     from pyflightstream.workspace.sidecars import write_inventory
 
@@ -96,6 +77,22 @@ def _p0460_marking_input(tmp_path, *, build="26.125", extra=""):
     with sidecar.open("a") as stream:
         stream.write(f'\nfs_build = "{build}"\n[import]\nunits = "METER"\n' + extra)
     return mesh
+
+
+def test_p0460_mark_boundaries_preview_writes_nothing(tmp_path, capsys):
+    from pyflightstream.workspace.cli import main
+
+    mesh = _p0460_marking_input(tmp_path, extra="[trailing_edges]\nnone = true\n")
+    before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    try:
+        code = main(["geometry", "mark-boundaries", str(mesh)])
+    except SystemExit as error:
+        code = error.code
+    assert code == 0, "the boundary-marking preview must be a registered verb"
+    output = capsys.readouterr().out
+    assert "SAVEAS" in output and "wing.fsm.boundaries.toml" in output
+    assert "INITIALIZE_SOLVER" not in output
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
 
 
 def _p0460_verified_registry():
@@ -305,6 +302,48 @@ def test_p0460_obj_nodes_keep_unreferenced_vertices_in_numbering(tmp_path):
         WakeTerminationMarking(points_file=str(points)), mesh, "METER"
     )
     assert bound.nodes == (2,)
+
+
+@pytest.mark.parametrize("actual,expected", [("8172026", 2), ("unknown", 2)])
+def test_p0460_cli_checks_executable_before_marking(
+    tmp_path, monkeypatch, capsys, actual, expected
+):
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.run import ExecutionResult, LocalExecutor
+    from pyflightstream.workspace.cli import main
+
+    plan, saved = _p0460_saved_plan(tmp_path)
+    registry = _p0460_verified_registry()
+    monkeypatch.setattr(CommandRegistry, "load", lambda: registry)
+    calls = []
+
+    def run_script(executor, script_path, working_dir, timeout_s=None):
+        calls.append(script_path.name)
+        if script_path.name != "identity.txt":
+            (working_dir / "wing.fsm").write_bytes(saved.read_bytes())
+        return ExecutionResult(
+            return_code=0,
+            wall_time_s=0.1,
+            timed_out=False,
+            log_text=f"Simcenter Flightstream 2612, build #{actual}",
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(LocalExecutor, "run_script", run_script)
+    assert (
+        main(["geometry", "mark-boundaries", str(plan.mesh), "--apply", "--fs-exe", sys.executable])
+        == expected
+    )
+    if expected == 0:
+        assert calls == ["identity.txt", "wing.mark.txt"]
+        assert all(path.exists() for path in plan.outputs)
+    else:
+        assert calls == ["identity.txt"]
+        assert not any(path.exists() for path in plan.outputs)
+        error = capsys.readouterr().err
+        assert ("unreadable" if actual == "unknown" else actual) in error
+        assert "26.125" in error
 
 
 def test_p0460_mirror_then_rename_keeps_face_counts(tmp_path):
@@ -1594,3 +1633,22 @@ def test_p0440_ad_f3_a_refused_files_entry_is_named_by_its_number(tmp_path):
     workspace = _library(tmp_path, tables)
     with pytest.raises((ValueError, InputArtifactError), match="files entry 2 has"):
         _case(tmp_path, workspace)
+
+
+@pytest.mark.parametrize("build", ["25.000", "26.123"])
+def test_p0460_marking_policy_refuses_unmeasured_builds(build):
+    from pyflightstream.script import ScriptOrderError
+
+    with pytest.raises(ScriptOrderError, match="26.124 and 26.125"):
+        Script.for_marking(build)
+
+
+def test_p0460_runner_failure_retains_diagnostics(tmp_path):
+    from pyflightstream.workspace import BoundaryMarkingError, apply_mark_boundaries
+
+    plan, saved = _p0460_saved_plan(tmp_path)
+    with pytest.raises(BoundaryMarkingError, match="stub failure"):
+        apply_mark_boundaries(plan, runner=_p0460_runner(saved, fail=True))
+    assert (plan.work / "wing.mark.txt").read_text() == plan.script
+    assert "10052026" in (plan.work / "wing.mark.log").read_text()
+    assert not any(path.exists() for path in plan.outputs)

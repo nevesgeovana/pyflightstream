@@ -400,6 +400,16 @@ The Python API is `pyflightstream.workspace.plan_mark_boundaries(mesh)`.
 It writes nothing. `apply_mark_boundaries` takes an explicit runner callback
 and refuses unverified commands, stale inputs and an existing FSM without overwrite.
 
+```text
+pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj
+pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj --apply --fs-exe PATH
+```
+
+Preview writes nothing and lists commands awaiting VERIFIED evidence for the
+declared build. Apply checks the executable with a log-only identity pass before
+the marking pass. Existing FSM output requires `--overwrite`. Exit 2 names an
+input, evidence or executable refusal; exit 3 names an execution failure.
+
 ## The other geometry verbs
 
 `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate` take

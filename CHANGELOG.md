@@ -12,6 +12,10 @@ FlightStream versions.
 - Plan boundary markings in declaration order with transformed points, original OBJ
   node indices and per-command VERIFIED admission; run through an injected executor.
 
+- Add `pyfs-workspace geometry mark-boundaries` preview and explicit apply,
+  with executable build verification before a marking pass.
+  Migration: use named declarations and explicit `fs_build` for this verb.
+
 - Boundary-marking scripts can explicitly opt into the measured no-initialization
   ordering on 26.124 and 26.125; ordinary run scripts keep their phase guard.
 

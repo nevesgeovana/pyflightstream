@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
+import tempfile
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
@@ -36,6 +38,14 @@ from pyflightstream.run._executors import (
     SurfaceMeshExportError,
     _surface_mesh_script,
     export_surface_mesh,
+)
+from pyflightstream.script import Script
+from pyflightstream.versions import resolve
+from pyflightstream.workspace import (
+    BoundaryMarkingError,
+    apply_mark_boundaries,
+    plan_mark_boundaries,
+    refuse_mark_boundaries,
 )
 from pyflightstream.workspace._geometry_build import (
     GeometryBuildError,
@@ -75,6 +85,7 @@ PYFS_MATRIX_ALIASES = {
 
 #: Every verb of the group.
 GEOMETRY_VERBS = (
+    "mark-boundaries",
     "build",
     "accept",
     "from-sidecar",
@@ -112,6 +123,13 @@ def add_geometry_commands(subparsers: Any) -> None:
         ),
     )
     verbs = geometry.add_subparsers(dest="geometry_command", required=True)
+    marking = verbs.add_parser(
+        "mark-boundaries", help="mark an OBJ's declared boundaries into an FSM"
+    )
+    marking.add_argument("mesh", metavar="OBJ")
+    marking.add_argument("--apply", action="store_true")
+    marking.add_argument("--overwrite", action="store_true")
+    marking.add_argument("--fs-exe", metavar="PATH")
     export = verbs.add_parser(
         "export-surface-mesh",
         help="preview a saved body's surface export for probes, or run it with --apply",
@@ -521,9 +539,71 @@ def _cmd_trailing_edge(args: argparse.Namespace) -> int:
     return 0
 
 
+def _check_marking_executable(executable: Path, build: str, parent: Path) -> None:
+    """Read the executable's banner before allowing a marking pass on that build."""
+    with tempfile.TemporaryDirectory(prefix=".mark-identity-", dir=parent) as folder:
+        work = Path(folder)
+        script = Script(build)
+        script.emit("EXPORT_LOG", str(work / "identity.log"))
+        script.emit("CLOSE_FLIGHTSTREAM")
+        from pyflightstream._textio import write_text
+
+        path = work / "identity.txt"
+        write_text(path, script.render())
+        outcome = _runner(executable)(path, work)
+        found = re.search(r"\bbuild\s*#\s*(\d+)", outcome.log, re.IGNORECASE)
+        expected = resolve(build).build
+        if outcome.failed or found is None or found.group(1) != expected:
+            actual = found.group(1) if found else "unreadable"
+            raise InputArtifactError(
+                f"{executable}: build #{actual}, requested {build} (#{expected}); "
+                "select the matching --fs-exe. No boundary marking ran."
+            )
+
+
+def _cmd_mark_boundaries(args: argparse.Namespace) -> int:
+    try:
+        plan = plan_mark_boundaries(args.mesh)
+        print(f"mark boundaries of {plan.mesh} on {plan.declarations.fs_build}")
+        for step in plan.steps:
+            print(f"  {step}")
+        for output in plan.outputs:
+            print(f"  writes {output}")
+        print(f"awaiting_evidence: {', '.join(plan.awaiting_evidence) or 'none'}")
+        print(plan.script)
+        if not args.apply:
+            print("preview only: nothing was run and nothing was written")
+            return 0
+        refuse_mark_boundaries(plan, overwrite=args.overwrite)
+        assert plan.declarations.fs_build is not None
+        inputs = next((p for p in plan.mesh.parents if p.name == "inputs"), plan.mesh.parent)
+        executable = (
+            Path(args.fs_exe)
+            if args.fs_exe
+            else resolve_build(inputs, plan.declarations.fs_build).fs_exe
+        )
+        _check_marking_executable(executable, plan.declarations.fs_build, plan.mesh.parent)
+        record = apply_mark_boundaries(
+            plan,
+            runner=_runner(executable),
+            overwrite=args.overwrite,
+            package_version=_package_version(),
+        )
+        print(f"marked {plan.outputs[0]}: {record['read_back']}")
+        return 0
+    except BoundaryMarkingError as error:
+        print(str(error), file=sys.stderr)
+        return 3
+    except (PyflightstreamError, OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+
+
 def run_geometry(args: argparse.Namespace) -> int:
     """Run the ``pyfs-workspace geometry`` verb ``args`` names and return its exit code."""
     verb = args.geometry_command
+    if verb == "mark-boundaries":
+        return _cmd_mark_boundaries(args)
     if verb == "export-surface-mesh":
         return _cmd_export_surface_mesh(args)
     if verb == "trailing-edge":
