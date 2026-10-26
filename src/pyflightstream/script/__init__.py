@@ -103,6 +103,7 @@ from pyflightstream.script._ledger_tables import (
     _LOADS_FRAME_COMMAND,
     _MINIMUM_CP_COMMAND,
     _NEW_MODEL_COMMANDS,
+    _ORDERED_PHASES,
     _REFERENCE_PLACEMENT_INDEX,
     _SURFACE_TRANSFORM_COMMANDS,
     _UNFOLLOWED_FRAME_COMMANDS,
@@ -174,15 +175,6 @@ MARCH_ACTIONS: MarchStrategy = "actions"
 #: The march that registers no action: the plots declared before ONE solver
 #: start over every time step, and every export after it.
 MARCH_SINGLE: MarchStrategy = "single_march"
-
-_ORDERED_PHASES = (
-    Phase.GEOMETRY,
-    Phase.SETUP,
-    Phase.INIT,
-    Phase.EXEC,
-    Phase.ANALYSIS,
-    Phase.EXPORT,
-)
 
 
 class ScriptOrderError(PyflightstreamError, ValueError):

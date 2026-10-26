@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import cast
 
 from pyflightstream.commands import CommandEntry, Phase
-from pyflightstream.script import _ORDERED_PHASES, Script, ScriptOrderError
-from pyflightstream.script._ledger_tables import _INITIALIZATION_COMMAND
+from pyflightstream.script import Script, ScriptOrderError
+from pyflightstream.script._ledger_tables import _INITIALIZATION_COMMAND, _ORDERED_PHASES
 
 
 def check_phase(self: Script, entry: CommandEntry) -> tuple[int, tuple[str, int]] | None:
