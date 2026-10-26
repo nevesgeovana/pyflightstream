@@ -1028,10 +1028,21 @@ def matched_wake_termination_nodes(
 ) -> WakeTerminationMarking:
     """Match each point to exactly one mesh vertex, refusing absent or ambiguous matches."""
     read = read_trailing_edge_points(marking.points_file)
-    loaded = read_mesh(mesh)
-    if getattr(loaded, "vertices", None) is None and hasattr(loaded, "to_mesh"):
-        loaded = loaded.to_mesh()
-    vertices = numpy.asarray(loaded.vertices) * length_scale(mesh_unit, "METER")
+    if mesh.suffix.lower() == ".obj":
+        # SELECT uses the written OBJ vertex index. A mesh loader may weld,
+        # reorder or discard vertices, so its indices cannot identify these nodes.
+        vertices = numpy.asarray(
+            [
+                [float(v) for v in line.split()[1:4]]
+                for line in mesh.read_text(encoding="utf-8").splitlines()
+                if line.split() and line.split()[0] == "v"
+            ]
+        ) * length_scale(mesh_unit, "METER")
+    else:
+        loaded = read_mesh(mesh)
+        if getattr(loaded, "vertices", None) is None and hasattr(loaded, "to_mesh"):
+            loaded = loaded.to_mesh()
+        vertices = numpy.asarray(loaded.vertices) * length_scale(mesh_unit, "METER")
     points = read.points * length_scale(read.unit, "METER")
     nodes = []
     for index, point in enumerate(points, start=1):

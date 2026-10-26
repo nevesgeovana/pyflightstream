@@ -9,6 +9,9 @@ FlightStream versions.
 
 - Extract Script phase-order validation without changing ordinary-run ordering.
 
+- Plan boundary markings in declaration order with transformed points, original OBJ
+  node indices and per-command VERIFIED admission; run through an injected executor.
+
 - Boundary-marking scripts can explicitly opt into the measured no-initialization
   ordering on 26.124 and 26.125; ordinary run scripts keep their phase guard.
 

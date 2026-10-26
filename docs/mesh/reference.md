@@ -1180,6 +1180,15 @@ None of this was ever read by an emitter, and the sense of rotation does
 not determine the sign of the rotor speed on its own: the sign is the
 mesh's, the sense is the propeller's, and the row is where the two meet.
 
+### Planning named boundary declarations
+
+The marking planner requires a current OBJ inventory, `[import] units` and
+`fs_build`. Points follow ordered import transforms; explicit termination
+nodes retain written OBJ vertex indices. Vertex-changing operations and
+termination nodes across merges are refused until their numbering is measured.
+The legacy run reader still accepts unnamed declarations; the marking planner
+refuses them with the named-table translation.
+
 ## What this policy is not
 
 It is not a promise to wrap the GUI. Steps stay GUI-only until the

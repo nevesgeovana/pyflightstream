@@ -210,6 +210,13 @@ from pyflightstream.workspace._links import (
 from pyflightstream.workspace._links import (
     _sim_files as _sim_files,
 )
+from pyflightstream.workspace._mark_boundaries import (
+    BoundaryMarkingError,
+    BoundaryMarkingPlan,
+    apply_mark_boundaries,
+    plan_mark_boundaries,
+    refuse_mark_boundaries,
+)
 from pyflightstream.workspace._missing_log import missing_log_warning as missing_log_warning
 from pyflightstream.workspace._refine._audit import MeshAudit as MeshAudit
 from pyflightstream.workspace._refine._audit import audit_mesh as audit_mesh
@@ -284,6 +291,11 @@ from ._layout import write_plan_products as write_plan_products
 from .fsi_setup import structural_assessment as structural_assessment
 
 __all__ = [
+    "BoundaryMarkingError",
+    "BoundaryMarkingPlan",
+    "apply_mark_boundaries",
+    "plan_mark_boundaries",
+    "refuse_mark_boundaries",
     # P0310-POL-CENSUS: shared matrix discovery for sync, storage and plan census.
     "MATRIX_FOLDERS",
     "matrix_files",

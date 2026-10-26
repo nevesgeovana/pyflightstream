@@ -1671,6 +1671,8 @@ class Script(_ScriptRendering):
         remains the planner's separate per-build VERIFIED gate.
         """
         script = cls(version, registry)
+        if script.version.canonical not in {"26.124", "26.125"}:
+            raise ScriptOrderError("marking order is measured only on 26.124 and 26.125")
         script._marking_only = True
         return script
 

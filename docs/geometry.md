@@ -391,6 +391,15 @@ Exit status is 0 for preview or successful export, 2 for invalid inputs or
 filesystem refusals, and 3 when the solver fails or writes no mesh. Planning
 itself never launches the solver.
 
+## Mark boundaries once into a saved simulation
+
+The boundary-marking planner reads an OBJ and its named declarations, validates
+the inventory and point files, and renders trailing edges, base regions,
+termination nodes and merges in order without initializing or solving.
+The Python API is `pyflightstream.workspace.plan_mark_boundaries(mesh)`.
+It writes nothing. `apply_mark_boundaries` takes an explicit runner callback
+and refuses unverified commands, stale inputs and an existing FSM without overwrite.
+
 ## The other geometry verbs
 
 `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate` take
