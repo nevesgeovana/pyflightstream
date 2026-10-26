@@ -28,6 +28,23 @@ def test_p0460_saved_marking_registered(command):
     assert spec.observe is not None
 
 
+@pytest.mark.parametrize(
+    "command,expected",
+    [
+        ("MARK_WAKE_TERMINATION_NODES", "SELECT_MESH_NODE 7\nMARK_WAKE_TERMINATION_NODES"),
+        ("AUTO_DETECT_WAKE_TERMINATION_NODES", "AUTO_DETECT_WAKE_TERMINATION_NODES"),
+        ("IMPORT_WAKE_EDGES_FROM_FILE", "IMPORT_WAKE_EDGES_FROM_FILE RELAXED 0.0001 1"),
+        ("CREATE_NEW_BASE_REGION", "CREATE_NEW_BASE_REGION 2 EMPIRICAL -0.2"),
+        ("SET_BASE_REGION_CP", "SET_BASE_REGION_CP 1 CUSTOM -0.35"),
+        ("SET_BASE_REGION_TRAILING_EDGES", "SET_BASE_REGION_TRAILING_EDGES -1"),
+        ("SURFACE_RENAME", "SURFACE_RENAME 2 RenamedRim"),
+    ],
+)
+def test_p0460_nested_targets_use_the_distinctive_required_arguments(tmp_path, command, expected):
+    generate_probe_script(PROBE_SPECS[command], "26.125", tmp_path)
+    assert expected in (tmp_path / "target.txt").read_text()
+
+
 @pytest.mark.parametrize("command", COMMANDS)
 @pytest.mark.parametrize("version", ["26.124", "26.125"])
 def test_p0460_scripts_measure_initialization_and_control(tmp_path, command, version):

@@ -30,10 +30,11 @@
  },
  "AUTO_DETECT_WAKE_TERMINATION_NODES": {
   "build": [
-   "AUTO_DETECT_WAKE_TERMINATION_NODES"
+   "RUN_SCRIPT",
+   "<WORKDIR>/target.txt"
   ],
-  "requires": "SIM",
-  "version": "26.120"
+  "requires": "NONE",
+  "version": "26.124"
  },
  "CAD_CREATE_CURVE_SELECT": {
   "build": [
@@ -598,8 +599,8 @@
  },
  "IMPORT_WAKE_EDGES_FROM_FILE": {
   "build": [
-   "IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER",
-   "<WORKDIR>/wake_wing.wake_nodes.txt"
+   "RUN_SCRIPT",
+   "<WORKDIR>/target.txt"
   ],
   "requires": "NONE",
   "version": "26.124"

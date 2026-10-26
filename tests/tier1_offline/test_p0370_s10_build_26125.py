@@ -402,4 +402,4 @@ def test_every_probe_specification_builds_its_script_on_26125(tmp_path):
     # RPT-166 leaves three removed names outside this build's view. The
     # SET_VORTICITY_LIFT_MODEL name probe adds one documented spelling without
     # claiming a measured effect or restoring any removed command.
-    assert built == 230  # PFS-2157 adds the automatic cross-section specification.
+    assert built == 236  # P0460 adds six specs and replaces two marking instruments.

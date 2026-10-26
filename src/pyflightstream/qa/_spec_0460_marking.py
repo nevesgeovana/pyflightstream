@@ -260,6 +260,16 @@ def _verdict(
             and before.edges <= after.edges
             and (_SECOND, 2) in after.edges
         )
+    if command in {_CREATE, _CP, _RIM}:
+        return _base_verdict(command, before, after)
+    if before.names != ("Body", "Rim"):
+        return None
+    if command == _COMBINE:
+        return None if forward is None else after.names == forward.names == ("Body",)
+    return after.names == ("Body", "RenamedRim")
+
+
+def _base_verdict(command: str, before: _State, after: _State) -> bool | None:
     if command == _CREATE:
         return not before.bases and after.bases == (("Rim", -0.2),)
     if command == _CP:
@@ -274,11 +284,7 @@ def _verdict(
             and {point for point, _ in after.edges} == _RIM_POINTS
             and len(after.groups) == 1
         )
-    if before.names != ("Body", "Rim"):
-        return None
-    if command == _COMBINE:
-        return None if forward is None else after.names == forward.names == ("Body",)
-    return after.names == ("Body", "RenamedRim")
+    return None
 
 
 def _reading(workdir: Path, command: str, prefix: str = "") -> dict[str, object]:
@@ -343,19 +349,7 @@ def _register(command: str) -> None:
         return value if isinstance(value, bool) else None
 
     def observe(artifacts: ProbeArtifacts) -> str:
-        path = artifacts.workdir / "initialization.txt"
-        initialized = path.read_text(encoding="ascii") if path.exists() else "unknown"
-        readings = {
-            "primary_initialized": initialized,
-            "primary": _reading(artifacts.workdir, command),
-        }
-        if initialized == "True":
-            readings["without_INITIALIZE_SOLVER"] = _reading(artifacts.workdir, command, "noinit_")
-        if command == _COMBINE:
-            readings["M3_without_INITIALIZE_SOLVER"] = _m3_read(artifacts.workdir, "m3_noinit_")
-            if initialized == "True":
-                readings["M3_with_INITIALIZE_SOLVER"] = _m3_read(artifacts.workdir, "m3_init_")
-        return json.dumps(readings, sort_keys=True)
+        return _observe(artifacts, command)
 
     _spec(
         command=command,
@@ -368,6 +362,22 @@ def _register(command: str) -> None:
         effect_note="saved marking state against an unchanged control; 26.124 primary initialized, "
         "with an independent no-initialization measurement; 26.125 without INITIALIZE_SOLVER",
     )
+
+
+def _observe(artifacts: ProbeArtifacts, command: str) -> str:
+    path = artifacts.workdir / "initialization.txt"
+    initialized = path.read_text(encoding="ascii") if path.exists() else "unknown"
+    readings = {
+        "primary_initialized": initialized,
+        "primary": _reading(artifacts.workdir, command),
+    }
+    if initialized == "True":
+        readings["without_INITIALIZE_SOLVER"] = _reading(artifacts.workdir, command, "noinit_")
+    if command == _COMBINE:
+        readings["M3_without_INITIALIZE_SOLVER"] = _m3_read(artifacts.workdir, "m3_noinit_")
+        if initialized == "True":
+            readings["M3_with_INITIALIZE_SOLVER"] = _m3_read(artifacts.workdir, "m3_init_")
+    return json.dumps(readings, sort_keys=True)
 
 
 def _m3(script: Script, workdir: Path, initialized: bool, prefix: str) -> None:
