@@ -181,7 +181,12 @@ def status_of(plan) -> dict[str, set[PlanStatus]]:
 
 def error_of(plan, sim_id: str) -> str:
     """The refusal of the first blocked point of one row."""
-    return next(point.error for point in plan.points if point.sim_id == sim_id and point.error)
+    error = next(point.error for point in plan.points if point.sim_id == sim_id and point.error)
+    return re.sub(
+        r"the sidecar .*?[/\\](wb\.fsm\.boundaries\.toml) beside wb\.fsm",
+        r"the sidecar \1 beside wb.fsm",
+        error,
+    )
 
 
 def script_of(workspace: CampaignWorkspace, records, sim_id: str) -> str:
@@ -396,8 +401,9 @@ def test_without_a_study_the_two_measured_v0380_refusals_stand(tmp_path):
     plan, said = planned(workspace, path)
     assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
     assert error_of(plan, "2001").startswith(
-        "CampaignConfigError: case '2001' states BASE_REGIONS with 'TailBase', and the mesh "
-        "block of wb.fsm declares no boundary of that name or family; it declares 'Wing', "
+        "CampaignConfigError: case '2001' states BASE_REGIONS with 'TailBase', and the sidecar "
+        "wb.fsm.boundaries.toml beside wb.fsm declares no boundary of that name or family; "
+        "it declares 'Wing', "
         "'Body', 'Base'."
     )
     assert fr435_warnings(said) == []
@@ -512,7 +518,8 @@ def test_a_pproc_whose_only_group_is_the_tail_keeps_the_rpt044_refusal(tmp_path)
     assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
     assert error_of(plan, "2001").startswith(
         "CampaignConfigError: case '2001' names the pproc artifact 'p001' "
-        "(inputs/pproc/p001.toml), whose groups cite 'tail', and the mesh block of wb.fsm "
+        "(inputs/pproc/p001.toml), whose groups cite 'tail', and the sidecar "
+        "wb.fsm.boundaries.toml beside wb.fsm "
         "declares none of those names or families; it declares 'Wing', 'Body', 'Base'."
     )
     assert fr435_warnings(said) == []
@@ -907,7 +914,7 @@ def test_a_rotor_name_and_its_families_are_in_the_vocabulary(tmp_path):
         (
             without(SETUP, 'delete_surfaces = ["Sting"]\n'),
             PPROC.replace('base_regions = ["Base", "TailBase"]', 'base_regions = ["Base", "each"]'),
-            "states BASE_REGIONS with 'each', and the mesh block of",
+            "states BASE_REGIONS with 'each', and the sidecar",
         ),
     ],
 )
@@ -946,7 +953,8 @@ def test_the_words_that_name_no_set_are_never_judged_by_the_study(tmp_path, setu
             'base_regions = ["Base", "TailBase"]\n[groups]\nTOTAL = "all"\n',
             "base_regions",
             "TailBase",
-            "states BASE_REGIONS with 'TailBase', and the mesh block of wb.fsm",
+            "states BASE_REGIONS with 'TailBase', and the sidecar "
+            "wb.fsm.boundaries.toml beside wb.fsm",
         ),
         (
             "iterations = 500\n" + CREATE_TAIL_BASE,
