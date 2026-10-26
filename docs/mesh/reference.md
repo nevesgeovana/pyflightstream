@@ -39,9 +39,9 @@ file stem as the label). Move `[wake_termination]` to `wake_termination_nodes`
 on the entry it serves, or the first entry if it served all. Replace base-region
 autodetection with one named base table per family. The marking loader refuses
 these old table forms with their translation. Matrix planning refuses all
-marking declaration tables; only mark-boundaries consumes them. `[trailing_edges] none = true` remains supported for
-a mesh with no trailing edge, alone without named entries. State `fs_build`
-when declaring boundaries.
+marking declaration tables; only mark-boundaries consumes them.
+`[trailing_edges] none = true` remains supported for a mesh with no trailing
+edge, alone without named entries. State `fs_build` when declaring boundaries.
 
 ### The surface names
 
@@ -794,8 +794,9 @@ refused until their saved-state persistence is measured.
 
 The output `.fsm.boundaries.toml` contains only inventory fields and
 `marked_by`; it carries no import or marking declarations. The original
-`.obj.boundaries.toml` remains the authoring source. The matrix refuses declaration tables;
-the marking verb refuses unnamed forms with their named-table translation.
+`.obj.boundaries.toml` remains the authoring source. The matrix refuses
+declaration tables; the marking verb refuses unnamed forms with their
+named-table translation.
 
 ## What this policy is not
 
