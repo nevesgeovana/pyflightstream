@@ -135,7 +135,7 @@ with TemporaryDirectory() as folder:
         stream.write("[trailing_edges]\nnone = true\n")
     plan = plan_mark_boundaries(mesh)
     refuse_mark_boundaries(plan, overwrite=False)
-    assert plan.outputs[0] == mesh.with_suffix(".fsm")
+    assert plan.outputs[0].name == "wing.fsm"
     assert not plan.work.exists()
 ```
 
