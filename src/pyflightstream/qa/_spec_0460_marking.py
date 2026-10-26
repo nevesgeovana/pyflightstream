@@ -389,3 +389,4 @@ def _invoke(script: Script, workdir: Path, name: str, build: Callable[[Script], 
 
 
 _register(_MARK)
+_register(_AUTO)

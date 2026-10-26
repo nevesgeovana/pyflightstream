@@ -325,18 +325,6 @@ _spec(
         " itself is not read back"
     ),
 )
-_spec(
-    command="AUTO_DETECT_WAKE_TERMINATION_NODES",
-    build_target=_emit("AUTO_DETECT_WAKE_TERMINATION_NODES"),
-    requires=Requires.SIM,
-    assert_effect=_unobservable,
-    save_state=True,
-    effect_note=(
-        "the saved simulation does not move on the probe geometry (RPT-020); a "
-        "clean synthetic wing may simply have no wake termination nodes to find, "
-        "so this needs a geometry that does"
-    ),
-)
 
 #: The wing the wake-edge import probe marks: the qa wing at the tier-3 10_WING
 #: resolution, 16 spanwise panels, so its trailing edge is 16 mesh edges along

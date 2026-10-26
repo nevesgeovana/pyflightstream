@@ -8,7 +8,7 @@ import pytest
 from pyflightstream.qa.probes import generate_probe_script
 from pyflightstream.qa.specs import PROBE_SPECS
 
-COMMANDS = ("MARK_WAKE_TERMINATION_NODES",)
+COMMANDS = ("MARK_WAKE_TERMINATION_NODES", "AUTO_DETECT_WAKE_TERMINATION_NODES")
 
 
 @pytest.mark.parametrize("command", COMMANDS)
@@ -50,6 +50,16 @@ def test_p0460_mark_judge_requires_record_and_unchanged_control():
     assert m._verdict(m._MARK, before, before, before) is False
     assert m._verdict(m._MARK, before, after, after) is None
     assert m._verdict(m._MARK, None, after, before) is None
+
+
+def test_p0460_autodetect_requires_detected_edges_and_a_record():
+    m, before = _states()
+    after = replace(before, termination=1)
+    assert m._verdict(m._AUTO, before, after, before) is True
+    assert m._verdict(m._AUTO, before, before, before) is None
+    empty = replace(before, edges=frozenset())
+    assert m._verdict(m._AUTO, empty, after, empty) is None
+    assert m._verdict(m._AUTO, before, after, after) is None
 
 
 @pytest.mark.parametrize(
