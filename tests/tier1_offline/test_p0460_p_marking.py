@@ -12,6 +12,9 @@ COMMANDS = (
     "MARK_WAKE_TERMINATION_NODES",
     "AUTO_DETECT_WAKE_TERMINATION_NODES",
     "IMPORT_WAKE_EDGES_FROM_FILE",
+    "CREATE_NEW_BASE_REGION",
+    "SET_BASE_REGION_CP",
+    "SET_BASE_REGION_TRAILING_EDGES",
 )
 
 
@@ -79,6 +82,31 @@ def test_p0460_second_import_must_add_group_preserve_first_set_and_type():
     ):
         assert m._verdict(m._IMPORT, before, mutant, before) is False
     assert m._verdict(m._IMPORT, before, after, after) is None
+
+
+def test_p0460_base_region_creation_and_cp_require_named_saved_values():
+    m, initial = _states()
+    before = replace(initial, edges=frozenset())
+    created = replace(before, bases=(("Rim", -0.2),))
+    assert m._verdict(m._CREATE, before, created, before) is True
+    assert m._verdict(m._CREATE, before, before, before) is False
+    for bases in ((("Body", -0.2),), (("Rim", 0.0),)):
+        assert m._verdict(m._CREATE, before, replace(created, bases=bases), before) is False
+    base = replace(before, bases=(("Rim", 0.0),))
+    changed = replace(base, bases=(("Rim", -0.35),))
+    assert m._verdict(m._CP, base, changed, base) is True
+    assert m._verdict(m._CP, base, base, base) is False
+    assert m._verdict(m._CP, base, changed, changed) is None
+
+
+def test_p0460_base_rim_requires_all_four_edges_and_preserved_region():
+    m, initial = _states()
+    before = replace(initial, bases=(("Rim", 0.0),), edges=frozenset())
+    after = replace(before, edges=frozenset((point, 1) for point in m._RIM_POINTS), groups=("Rim",))
+    assert m._verdict(m._RIM, before, after, before) is True
+    assert m._verdict(m._RIM, before, before, before) is False
+    assert m._verdict(m._RIM, before, replace(after, bases=()), before) is False
+    assert m._verdict(m._RIM, before, replace(after, edges=initial.edges), before) is False
 
 
 @pytest.mark.parametrize(
