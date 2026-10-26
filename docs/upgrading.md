@@ -543,7 +543,7 @@ that replaces it; all are in `pyflightstream.farfield` except
 | `sample_coverage(integrand: xr.DataArray) -> xr.DataArray` | `sample_coverage(integrand: np.ndarray) -> np.ndarray` |
 | `shaft_torque(ds: xr.Dataset, rho: float) -> xr.DataArray` | `shaft_torque(fields: LatticeFields, rho: float) -> np.ndarray` |
 | `spurious_diagnostic(near_field: float, far_field: float, *, rho_inf: float, v_inf: float, s_ref: float=1.0) -> float` | `spurious_diagnostic(near_field: float, far_field: float, *, rho_inf: float, v_inf: float, s_ref: float) -> float` |
-| `symmetry_floor(da: xr.DataArray, *, m_max: int=6) -> float` | `symmetry_floor(values: np.ndarray, *, psi: np.ndarray, m_max: int=6) -> float` |
+| `symmetry_floor(da: xr.DataArray, *, m_max: int=6) -> float` | `symmetry_floor(values: np.ndarray, *, psi: np.ndarray, m_max: int=6, excluded_orders: Sequence[int]=()) -> float` |
 | `to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float=1.0) -> float` | `to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float) -> float` |
 | `transverse_flux(ds: xr.Dataset, rho: float, *, component: str='w', method: str='quadrature') -> xr.DataArray` | `transverse_flux(fields: LatticeFields, rho: float, *, component: str='w', method: str='quadrature') -> np.ndarray` |
 | `transverse_force(ds: xr.Dataset, rho: float, *, inlet: float, outlet: float, component: str='w', lateral_flux: float=0.0) -> xr.Dataset` | `transverse_force(fields: LatticeFields, rho: float, *, inlet: float, outlet: float, component: str='w', lateral_flux: float=0.0) -> TransverseForce` |
