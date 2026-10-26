@@ -22,7 +22,7 @@ from pyflightstream.qa import (
 )
 
 # Historical log-only evidence stays judged by the instrument that produced it.
-from pyflightstream.qa.specs import _WAKE_EDGE_IMPORT_LOG_SPEC
+from pyflightstream.qa.specs import HISTORICAL_PROBE_SPECS
 from pyflightstream.run import ExecutionResult, LocalExecutor
 from tests.tier1_offline._no_evidence import registry_without_version
 
@@ -1780,7 +1780,7 @@ def test_the_wake_edge_import_probe_emits_the_measured_grammar_and_counts_the_ed
     from pyflightstream.qa.probes import generate_probe_script
     from pyflightstream.script import Script, helpers
 
-    spec = _WAKE_EDGE_IMPORT_LOG_SPEC
+    spec = HISTORICAL_PROBE_SPECS["IMPORT_WAKE_EDGES_FROM_FILE"]
     lines = generate_probe_script(spec, "26.124", tmp_path).render().splitlines()
     (at,) = [i for i, line in enumerate(lines) if line.startswith("IMPORT_WAKE_EDGES_FROM_FILE")]
     assert lines[at] == "IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER"
@@ -1865,7 +1865,7 @@ def test_the_wake_edge_import_probe_verifies_only_the_exact_import_it_wrote(
     A count that merely contains 16, a boundary whose name begins with Wing, and a
     second import line are each an effect other than the one the probe wrote."""
     region = "\r\n\x00\r\n".join(logged) if logged else None
-    check = _WAKE_EDGE_IMPORT_LOG_SPEC.assert_effect
+    check = HISTORICAL_PROBE_SPECS["IMPORT_WAKE_EDGES_FROM_FILE"].assert_effect
     assert check(_wake_edge_region(tmp_path, region)) is verdict
 
 
@@ -1930,7 +1930,7 @@ def test_the_wake_edge_import_probe_s_detail_records_the_import_lines_it_read(
     from pyflightstream.qa.compat import write_compat_report
     from pyflightstream.qa.probes import DEFAULT_ERROR_PATTERNS, ProbeRun, _judge
 
-    spec = _WAKE_EDGE_IMPORT_LOG_SPEC
+    spec = HISTORICAL_PROBE_SPECS["IMPORT_WAKE_EDGES_FROM_FILE"]
     region = "\r\n\x00\r\n".join(logged) if logged else None
     result = _judge(spec, _wake_edge_region(tmp_path, region), DEFAULT_ERROR_PATTERNS, "sha", 60.0)
     verified = read == [{"Wing": 16}]
@@ -1975,7 +1975,7 @@ def test_a_verified_wake_edge_import_report_carries_lines_the_exact_judge_passes
     import yaml
 
     folder = Path(__file__).resolve().parents[2] / "reports" / "compat"
-    check = _WAKE_EDGE_IMPORT_LOG_SPEC.assert_effect
+    check = HISTORICAL_PROBE_SPECS["IMPORT_WAKE_EDGES_FROM_FILE"].assert_effect
     without_lines = []
     for report in sorted(folder.glob("CMP-*.yaml")):
         text = report.read_text(encoding="utf-8")
@@ -2008,7 +2008,9 @@ def test_the_wake_edge_import_probe_is_unprobed_where_the_route_was_not_measured
     from pyflightstream.script import CommandArgumentError
 
     with pytest.raises(CommandArgumentError, match="at most 2 arguments"):
-        generate_probe_script(_WAKE_EDGE_IMPORT_LOG_SPEC, "26.123", tmp_path)
+        generate_probe_script(
+            HISTORICAL_PROBE_SPECS["IMPORT_WAKE_EDGES_FROM_FILE"], "26.123", tmp_path
+        )
 
 
 # --- GOAL-056 package F6-15: judges that read more than they should ----------------

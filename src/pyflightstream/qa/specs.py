@@ -57,7 +57,7 @@ from pyflightstream.script.helpers import (
 #: of the supported surface by accident (the rule is stated in
 #: tests/tier1_offline/test_exceptions_catalog.py: an absent __all__ means the module
 #: declares none, and then every top-level name is public).
-__all__ = ["PROBE_SPECS"]
+__all__ = ["PROBE_SPECS", "HISTORICAL_PROBE_SPECS"]
 
 # The shared instruments and the registry are in _spec_kit; the second
 # part of the catalog is imported last, so it registers after this one.
@@ -437,6 +437,10 @@ _WAKE_EDGE_IMPORT_LOG_SPEC = ProbeSpec(
         "only when the import marks something (RPT-061)"
     ),
 )
+#: Retired instruments keyed by command, for rejudging their historical reports only.
+#: Current campaigns must select PROBE_SPECS.
+HISTORICAL_PROBE_SPECS = {"IMPORT_WAKE_EDGES_FROM_FILE": _WAKE_EDGE_IMPORT_LOG_SPEC}
+
 _spec(
     command="SET_FREESTREAM",
     build_target=_emit("SET_FREESTREAM", "CONSTANT"),
