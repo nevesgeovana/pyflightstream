@@ -7,6 +7,17 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Named boundary declarations for geometry marking, with independent trailing-edge
+  types and termination nodes, and base regions with optional family merges.
+  Migration: replace unnamed trailing-edge files with `[trailing_edges.<label>]`,
+  move `[wake_termination]` onto the entry as `wake_termination_nodes`, and declare
+  each base as `[base_regions.<family>]`. Declarations require `fs_build`.
+- Geometry inventory writes `<mesh>.obj.boundaries.toml` for an OBJ and
+  `<mesh>.fsm.boundaries.toml` for a saved simulation. Existing OBJ inventories
+  are never overwritten.
+
 ### Changed
 
 - Refinement reads trailing-edge points only from `[trailing_edge] file` in
@@ -22,33 +33,6 @@ FlightStream versions.
   refuse declaration tables and stale marking inputs, and warn once for build
   mismatches. Raw imports, boundary marking and wake-edge verdicts no longer run
   per point. CLI examples follow the prepare, mark, plan sequence.
-
-### Fixed
-
-- `mark-boundaries` accepts zero wake-termination nodes from automatic detection,
-  warns when none are marked, and records the count; explicit nodes retain their minimum.
-
-- `mark-boundaries` gates only its marking commands on VERIFIED evidence;
-  documented session and mesh-import commands no longer block preview or apply.
-
-- Boundary-marking commands now carry VERIFIED evidence on builds 26.124 and
-  26.125, enabling explicit wake-termination files.
-
-- Matrix flight-condition constraints now outrank setup defaults. `ALTFT` or
-  `dISA` drops all five setup pins; `REmi` alone drops density and pressure
-  defaults, retaining tunnel temperature, viscosity and sonic velocity.
-  Plan warns once per campaign, naming each affected POL and dropped pin.
-  Migration: a row stating `ALTFT` under a `TK`/`PPA` setup now resolves at
-  its altitude. Pins stated on the row retain their authority.
-
-- Power far-field entries refuse a station absent from their lattice at load,
-  naming the entry, requested station and declared stations.
-
-- Retired far-field function diagnostics point only to external Euler CFD tools providing total enthalpy and entropy, with no supported replacement in this package (PFS-2144).
-
-- Saved-state boundary-marking probes compare unchanged controls on 26.124 and 26.125, with separate initialization measurements and a combine-persistence observation.
-
-### Changed
 
 - Rotor power entries and rotor recipes now report G4 (`SPURIOUS_COUNTS`)
   and `F_NEAR_N` as NA with a named skip: probe pressure carries no disk
@@ -82,16 +66,30 @@ FlightStream versions.
 - Boundary-marking scripts can explicitly opt into the measured no-initialization
   ordering on 26.124 and 26.125; ordinary run scripts keep their phase guard.
 
-### Added
+### Fixed
 
-- Named boundary declarations for geometry marking, with independent trailing-edge
-  types and termination nodes, and base regions with optional family merges.
-  Migration: replace unnamed trailing-edge files with `[trailing_edges.<label>]`,
-  move `[wake_termination]` onto the entry as `wake_termination_nodes`, and declare
-  each base as `[base_regions.<family>]`. Declarations require `fs_build`.
-- Geometry inventory writes `<mesh>.obj.boundaries.toml` for an OBJ and
-  `<mesh>.fsm.boundaries.toml` for a saved simulation. Existing OBJ inventories
-  are never overwritten.
+- `mark-boundaries` accepts zero wake-termination nodes from automatic detection,
+  warns when none are marked, and records the count; explicit nodes retain their minimum.
+
+- `mark-boundaries` gates only its marking commands on VERIFIED evidence;
+  documented session and mesh-import commands no longer block preview or apply.
+
+- Boundary-marking commands now carry VERIFIED evidence on builds 26.124 and
+  26.125, enabling explicit wake-termination files.
+
+- Matrix flight-condition constraints now outrank setup defaults. `ALTFT` or
+  `dISA` drops all five setup pins; `REmi` alone drops density and pressure
+  defaults, retaining tunnel temperature, viscosity and sonic velocity.
+  Plan warns once per campaign, naming each affected POL and dropped pin.
+  Migration: a row stating `ALTFT` under a `TK`/`PPA` setup now resolves at
+  its altitude. Pins stated on the row retain their authority.
+
+- Power far-field entries refuse a station absent from their lattice at load,
+  naming the entry, requested station and declared stations.
+
+- Retired far-field function diagnostics point only to external Euler CFD tools providing total enthalpy and entropy, with no supported replacement in this package (PFS-2144).
+
+- Saved-state boundary-marking probes compare unchanged controls on 26.124 and 26.125, with separate initialization measurements and a combine-persistence observation.
 
 ## [0.45.1] - 2026-10-25
 
