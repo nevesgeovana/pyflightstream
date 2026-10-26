@@ -18,10 +18,6 @@ from collections.abc import Collection, Sequence
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
-import numpy as np
-
-from pyflightstream._fsm import MeshReadError, saved_mesh_coordinate_unit, trailing_edge_midpoints
-from pyflightstream._lengths import scale
 from pyflightstream.cases import EXPORT_KINDS
 from pyflightstream.results import (
     IncompleteOutputError,
@@ -31,6 +27,7 @@ from pyflightstream.results import (
 )
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace._missing_log import script_log_names
+from pyflightstream.workspace.wake_edges import saved_wake_edge_verdict as _saved_wake_edge_verdict
 
 __all__ = [
     "ACTUATOR_PROFILE_REFUSALS",
@@ -429,41 +426,3 @@ def with_wake_edge_verdict(
     if verdict is None or str(status).startswith("FAILED"):
         return status, error
     return verdict[0], "; ".join(part for part in (error, verdict[1]) if part)
-
-
-def _saved_wake_edge_verdict(sets, folder: Path, collected: Sequence[str], build: str):
-    """Compare the marked saved mesh with every declared set in physical metres."""
-    saves = [folder / name for name in collected if Path(name).suffix.lower() == ".fsm"]
-    if len(saves) != 1:
-        return (
-            RunStatus.FAILED_INCOMPLETE_OUTPUT,
-            "multiple wake-edge imports are checked on the saved simulation, and the run "
-            f"collected {len(saves)} .fsm files; list exactly one saved simulation (.fsm) "
-            "among the row's outputs",
-        )
-    try:
-        unit = saved_mesh_coordinate_unit(saves[0])
-        factor = None if unit is None else scale(unit, "METER")
-        if factor is None:
-            raise ValueError("saved mesh coordinate unit is unknown")
-        marked = np.asarray(trailing_edge_midpoints(saves[0]), dtype=float).reshape(-1, 3) * factor
-    except (OSError, ValueError, MeshReadError) as exc:
-        return RunStatus.FAILED_INCOMPLETE_OUTPUT, f"cannot check saved trailing-edge sets: {exc}"
-    missing, present, total = [], 0, 0
-    for entry in sets:
-        found = 0
-        for point in entry["points_m"]:
-            found += bool(
-                len(marked) and np.any(np.linalg.norm(marked - point, axis=1) <= entry["tolerance"])
-            )
-        total += len(entry["points_m"])
-        present += found
-        if found < len(entry["points_m"]):
-            missing.append(entry["file"])
-    if missing:
-        return RunStatus.FAILED_SCRIPT, (
-            f"the saved simulation marks {present} of {total} trailing-edge points; the edges of "
-            f"{', '.join(missing)} are missing, which is what a second wake-edge import replacing "
-            f"the first would leave (unmeasured on {build}, PFS-2149.01)"
-        )
-    return None

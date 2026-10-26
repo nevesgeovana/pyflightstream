@@ -36,6 +36,35 @@ FlightStream versions.
   viscous drag projected along free stream. Averaged G4 is NA with a named
   skip when the history has no whole-configuration viscous drag (PFS-2178).
 
+- Extract Script phase-order validation without changing ordinary-run ordering.
+
+- Plan boundary markings in declaration order with transformed points, original OBJ
+  node indices and per-command VERIFIED admission; run through an injected executor.
+
+- Add `pyfs-workspace geometry mark-boundaries` preview and explicit apply,
+  with executable build verification before a marking pass.
+  Migration: use named declarations and explicit `fs_build` for this verb.
+
+- Admit saved surface names, trailing-edge points and groups, termination
+  counts and base records before publishing marking products; roll back a failed replacement.
+
+- Publish a clean FSM inventory and provenance record alongside the marked
+  FSM, script and log; authored declarations stay unchanged.
+
+- Boundary-marking scripts can explicitly opt into the measured no-initialization
+  ordering on 26.124 and 26.125; ordinary run scripts keep their phase guard.
+
+### Added
+
+- Named boundary declarations for geometry marking, with independent trailing-edge
+  types and termination nodes, and base regions with optional family merges.
+  Migration: replace unnamed trailing-edge files with `[trailing_edges.<label>]`,
+  move `[wake_termination]` onto the entry as `wake_termination_nodes`, and declare
+  each base as `[base_regions.<family>]`. Declarations require `fs_build`.
+- Geometry inventory writes `<mesh>.obj.boundaries.toml` for an OBJ and
+  `<mesh>.fsm.boundaries.toml` for a saved simulation. Existing OBJ inventories
+  are never overwritten.
+
 ## [0.45.1] - 2026-10-25
 
 ### Added

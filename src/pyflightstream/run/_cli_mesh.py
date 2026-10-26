@@ -555,8 +555,8 @@ def run_inventory(args: argparse.Namespace) -> int:
         ]
         for line in said:
             print(line, file=sys.stderr)
-        if inventory_sidecar(geometry).exists() and not args.overwrite:
-            print(inventory_sidecar(geometry))
+        if inventory_sidecar(geometry, "fsm").exists() and not args.overwrite:
+            print(inventory_sidecar(geometry, "fsm"))
             return 0
     elif saved and (warning := saved_action_warning(geometry, args.geometry)) is not None:
         print(f"warning: {warning}", file=sys.stderr)

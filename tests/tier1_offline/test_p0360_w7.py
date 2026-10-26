@@ -5,8 +5,13 @@ import pickle
 
 from pyflightstream import workspace
 
-# The complete __all__ of 42cf219a, in its original order, with each current home.
+# Original exports retain their order and identity; P0460 adds the public marking API.
 PUBLIC_HOMES = {
+    "BoundaryMarkingError": "pyflightstream.workspace._mark_boundaries",
+    "BoundaryMarkingPlan": "pyflightstream.workspace._mark_boundaries",
+    "apply_mark_boundaries": "pyflightstream.workspace._mark_boundaries",
+    "plan_mark_boundaries": "pyflightstream.workspace._mark_boundaries",
+    "refuse_mark_boundaries": "pyflightstream.workspace._mark_boundaries",
     "MATRIX_FOLDERS": "pyflightstream.workspace._layout",
     "matrix_files": "pyflightstream.workspace._layout",
     "find_matrix": "pyflightstream.workspace._layout",

@@ -30,6 +30,49 @@ from pyflightstream.versions import known_versions
 GOLDENS = Path(__file__).parent / "goldens"
 
 
+@pytest.mark.parametrize("version", ["26.124", "26.125"])
+@pytest.mark.parametrize("marking", [False, True])
+def test_p0460_marking_order_is_explicit_and_keeps_run_guard(version, marking):
+    """D3: late selections and combines need the marking-only constructor."""
+    factory = getattr(Script, "for_marking", Script) if marking else Script
+    script = factory(version)
+    script.emit("NEW_SIMULATION")
+    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+    helpers.mark_wake_edges(
+        script,
+        edge_type="STANDARD",
+        tolerance=0.0001,
+        units="METER",
+        node_file="edges.txt",
+        midpoints=[(0, 0, 0)],
+    )
+    script.emit("CREATE_NEW_BASE_REGION", 2, "EMPIRICAL", -0.2)
+    script.emit("SET_BASE_REGION_CP", 1, "EMPIRICAL", -0.2)
+    script.emit("SET_BASE_REGION_TRAILING_EDGES", 1)
+    if not marking:
+        with pytest.raises(ScriptOrderError):
+            script.emit("SELECT_MESH_NODE", 1)
+        return
+    try:
+        script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
+        script.emit("SELECT_MESH_NODE", 1)
+        script.emit("MARK_WAKE_TERMINATION_NODES")
+        script.emit("SURFACE_COMBINE", 2, [2, 1])
+        script.emit("SURFACE_RENAME", 1, "wing")
+    except ScriptOrderError as error:
+        pytest.fail(f"D3 marking order must be accepted: {error}")
+    assert "INITIALIZE_SOLVER" not in script.render()
+    with pytest.raises(ScriptOrderError):
+        helpers.initialize_solver(script)
+
+
+def test_p0460_marking_policy_does_not_open_other_geometry_commands():
+    script = getattr(Script, "for_marking", Script)("26.125")
+    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+    with pytest.raises(ScriptOrderError):
+        script.emit("IMPORT", "METER", "OBJ", "mesh.obj", clear=True)
+
+
 @pytest.mark.parametrize("total,index", [(2, 1.5), (2, True), (2.5, 1), (True, 1)])
 def test_p0430_f1471_renumber_requires_integer_inventory(total, index):
     from pyflightstream.script.entities import EntityRegistry

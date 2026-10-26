@@ -67,6 +67,474 @@ from tests.tier1_offline.test_workflows import FIXTURE_ROTOR
 
 GOLDENS = Path(__file__).parent / "goldens" / "raw_mesh"
 
+
+def _p0460_marking_input(tmp_path, *, build="26.125", extra=""):
+    from pyflightstream.workspace.sidecars import write_inventory
+
+    mesh = tmp_path / "wing.obj"
+    mesh.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\ng wing\nf 1 2 3\n")
+    sidecar = write_inventory(mesh)
+    with sidecar.open("a") as stream:
+        stream.write(f'\nfs_build = "{build}"\n[import]\nunits = "METER"\n' + extra)
+    return mesh
+
+
+def test_p0460_mark_boundaries_preview_writes_nothing(tmp_path, capsys):
+    from pyflightstream.workspace.cli import main
+
+    mesh = _p0460_marking_input(tmp_path, extra="[trailing_edges]\nnone = true\n")
+    before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    try:
+        code = main(["geometry", "mark-boundaries", str(mesh)])
+    except SystemExit as error:
+        code = error.code
+    assert code == 0, "the boundary-marking preview must be a registered verb"
+    output = capsys.readouterr().out
+    assert "SAVEAS" in output and "wing.fsm.boundaries.toml" in output
+    assert "INITIALIZE_SOLVER" not in output
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
+
+
+def _p0460_verified_registry():
+    from pyflightstream.commands import CommandRegistry, Status
+
+    return CommandRegistry(
+        commands={
+            name: entry.model_copy(
+                update={
+                    "versions": {
+                        key: record.model_copy(update={"status": Status.VERIFIED})
+                        for key, record in entry.versions.items()
+                    }
+                }
+            )
+            for name, entry in CommandRegistry.load().commands.items()
+        }
+    )
+
+
+@pytest.mark.parametrize("build", ["26.124", "26.125"])
+def test_p0460_auto_termination_gate_names_command(tmp_path, build):
+    from pyflightstream.commands import CommandRegistry, Status
+    from pyflightstream.workspace import (
+        apply_mark_boundaries,
+        plan_mark_boundaries,
+    )
+
+    mesh = _p0460_marking_input(
+        tmp_path,
+        build=build,
+        extra='[trailing_edges.edge]\nfile="edge.txt"\ntype="STANDARD"\nwake_termination_nodes="auto"\n',
+    )
+    (tmp_path / "edge.txt").write_text("METER\n0.5,0,0\n")
+    registry = _p0460_verified_registry()
+    commands = dict(registry.commands)
+    entry = commands["AUTO_DETECT_WAKE_TERMINATION_NODES"]
+    commands[entry.name] = entry.model_copy(
+        update={
+            "versions": {
+                key: record.model_copy(update={"status": Status.DOCUMENTED})
+                for key, record in entry.versions.items()
+            }
+        }
+    )
+    plan = plan_mark_boundaries(mesh, registry=CommandRegistry(commands=commands))
+    assert plan.awaiting_evidence == ("AUTO_DETECT_WAKE_TERMINATION_NODES",)
+    with pytest.raises(InputArtifactError, match="AUTO_DETECT_WAKE_TERMINATION_NODES"):
+        apply_mark_boundaries(plan, runner=lambda *_: pytest.fail("gate ran solver"))
+    assert not plan.work.exists()
+
+
+def test_p0460_transforms_points_and_preserves_obj_vertex_ids(tmp_path):
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    mesh = _p0460_marking_input(
+        tmp_path,
+        extra='[[import.operations]]\nop="scale"\nfactors=[2,2,2]\n'
+        '[[import.operations]]\nop="translate"\nvector=[1,0,0]\n'
+        '[trailing_edges.edge]\nfile="edge.txt"\ntype="STANDARD"\n'
+        'wake_termination_nodes="nodes.txt"\n',
+    )
+    (tmp_path / "edge.txt").write_text("METER\n0.5,0,0\n")
+    (tmp_path / "nodes.txt").write_text("METER\n1,0,0\n")
+    plan = plan_mark_boundaries(mesh)
+    assert plan.sets[0]["points_m"] == ((2.0, 0.0, 0.0),)
+    assert plan.nodes == {"edge": (2,)}
+    assert "SELECT_MESH_NODE 2" in plan.script
+    assert "INITIALIZE_SOLVER" not in plan.script
+
+
+def _p0460_saved_plan(tmp_path):
+    from pyflightstream._fsm import surface_mesh, trailing_edge_midpoints
+    from pyflightstream.workspace import plan_mark_boundaries
+    from pyflightstream.workspace.sidecars import write_inventory
+
+    saved = Path(__file__).parents[1] / "tier3_licensed/inputs/geometries/10_WING.fsm"
+    vertices, faces = surface_mesh(saved)
+    mesh = tmp_path / "wing.obj"
+    mesh.write_text(
+        "".join("v " + " ".join(map(str, xyz)) + "\n" for xyz in vertices)
+        + "g Wing\n"
+        + "".join("f " + " ".join(str(i + 1) for i in face) + "\n" for face in faces)
+    )
+    sidecar = write_inventory(mesh)
+    with sidecar.open("a") as stream:
+        stream.write(
+            '\nfs_build="26.125"\n[import]\nunits="METER"\n'
+            '[trailing_edges.wing]\nfile="edges.txt"\ntype="STANDARD"\n'
+        )
+    (tmp_path / "edges.txt").write_text(
+        "METER\n" + "\n".join(",".join(map(str, p)) for p in trailing_edge_midpoints(saved)) + "\n"
+    )
+    return plan_mark_boundaries(mesh, registry=_p0460_verified_registry()), saved
+
+
+def _p0460_runner(saved, *, fail=False):
+    from pyflightstream.workspace._geometry_build import SolverOutcome
+
+    def run(script, work):
+        (work / "wing.fsm").write_bytes(saved.read_bytes())
+        return SolverOutcome(
+            fail,
+            int(fail),
+            1.5,
+            "Simcenter Flightstream 2612, build #10052026",
+            "stub failure",
+            "offline-stub",
+        )
+
+    return run
+
+
+def test_p0460_marking_publishes_five_outputs_after_readback(tmp_path):
+    import json
+    import tomllib
+
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.workspace import apply_mark_boundaries
+
+    plan, saved = _p0460_saved_plan(tmp_path)
+    original = plan.sidecar.read_bytes()
+    record = apply_mark_boundaries(plan, runner=_p0460_runner(saved), package_version="test")
+    assert all(path.is_file() for path in plan.outputs)
+    assert plan.sidecar.read_bytes() == original
+    inventory = tomllib.loads(plan.outputs[1].read_text())
+    assert set(inventory) == {
+        "boundaries",
+        "boundary_faces",
+        "mesh_faces",
+        "mesh_sha256",
+        "marked_by",
+    }
+    assert inventory["boundary_faces"] == [816]
+    assert inventory["mesh_sha256"] == file_sha256(plan.outputs[0])
+    assert record["read_back"]["groups"] == ("Wing",)
+    assert record["script_sha256"] == file_sha256(plan.outputs[2])
+    assert json.loads(plan.outputs[4].read_text())["inputs"] == plan.inputs
+
+
+def test_p0460_record_write_failure_preserves_products(tmp_path):
+    from pyflightstream.workspace import BoundaryMarkingError, apply_mark_boundaries
+
+    plan, saved = _p0460_saved_plan(tmp_path)
+    for path in plan.outputs:
+        path.write_bytes(b"prior product")
+
+    runner = _p0460_runner(saved)
+
+    def obstruct_record(script, work):
+        outcome = runner(script, work)
+        (work / plan.outputs[4].name).mkdir()
+        return outcome
+
+    with pytest.raises(BoundaryMarkingError, match="publication failed"):
+        apply_mark_boundaries(plan, runner=obstruct_record, overwrite=True)
+    assert all(path.read_bytes() == b"prior product" for path in plan.outputs)
+
+
+@pytest.mark.parametrize(
+    "failure", ["solver", "names", "groups", "edges", "termination", "bases", "promotion"]
+)
+def test_p0460_marking_failure_preserves_all_existing_outputs(tmp_path, monkeypatch, failure):
+    from pyflightstream.workspace import _mark_boundaries as mark
+
+    plan, saved = _p0460_saved_plan(tmp_path)
+    for index, path in enumerate(plan.outputs):
+        path.write_text(f"old-{index}")
+    before = {path: path.read_bytes() for path in plan.outputs}
+    if failure == "names":
+        plan.names = ("wrong",)
+    elif failure == "groups":
+        plan.declarations = plan.declarations.model_copy(update={"trailing_edges": ()})
+    elif failure == "edges":
+        plan.sets[0]["points_m"] = ((1000, 1000, 1000),)
+    elif failure == "termination":
+        entry = plan.declarations.trailing_edges[0].model_copy(
+            update={"wake_termination_nodes": "auto"}
+        )
+        plan.declarations = plan.declarations.model_copy(update={"trailing_edges": (entry,)})
+    elif failure == "bases":
+        altered = tmp_path / "unexpected-base.fsm"
+        prefix, body = saved.read_text().split("$PHYSICS_START$", 1)
+        _, suffix = body.split("$PHYSICS_END$", 1)
+        altered.write_text(
+            prefix + "$PHYSICS_START$\n140\n45\n15\n1\nrim\nF,\n-0.2,\n0,\n0,\n0,\n"
+            "1\nWing\n1,\n0\n1,1,1,0\n0\n0\n0\n0\nAir\n"
+            "1.225\n0.0000178\n340\n288\n101324\n1.4\n0\n1,\n$PHYSICS_END$" + suffix
+        )
+        saved = altered
+    elif failure == "promotion":
+        replace = Path.replace
+
+        def broken(path, destination):
+            if path.name == "wing.mark.txt.new":
+                raise OSError("injected publication failure")
+            return replace(path, destination)
+
+        monkeypatch.setattr(Path, "replace", broken)
+    with pytest.raises(mark.BoundaryMarkingError):
+        mark.apply_mark_boundaries(
+            plan, runner=_p0460_runner(saved, fail=failure == "solver"), overwrite=True
+        )
+    assert {path: path.read_bytes() for path in plan.outputs} == before
+
+
+def test_p0460_marking_refuses_stale_inputs_and_overwrite(tmp_path):
+    from pyflightstream.workspace import _mark_boundaries as mark
+
+    plan, saved = _p0460_saved_plan(tmp_path)
+    plan.outputs[0].write_text("existing")
+    with pytest.raises(InputArtifactError, match="overwrite"):
+        mark.apply_mark_boundaries(plan, runner=lambda *_: pytest.fail("ran"))
+    plan.mesh.write_text("changed")
+    with pytest.raises(InputArtifactError, match="changed"):
+        mark.apply_mark_boundaries(plan, runner=lambda *_: pytest.fail("ran"), overwrite=True)
+
+
+@pytest.mark.parametrize("build", ["26.124", "26.125"])
+def test_p0460_marking_merges_keep_lowest_slot_and_sum_faces(tmp_path, build):
+    from pyflightstream.workspace import plan_mark_boundaries
+    from pyflightstream.workspace.sidecars import write_inventory
+
+    mesh = tmp_path / "wing.obj"
+    mesh.write_text(
+        "v 0 0 0\nv 1 0 0\nv 0 1 0\nv 2 1 0\ng rim_a\nf 1 2 3\ng wing\nf 2 4 3\ng rim_b\nf 1 3 4\n"
+    )
+    sidecar = write_inventory(mesh)
+    with sidecar.open("a") as stream:
+        stream.write(
+            f'\nfs_build="{build}"\n[import]\nunits="METER"\n'
+            '[base_regions.rim_a]\ntrailing_edges="auto"\nmerge_into="wing"\n'
+            '[base_regions.rim_b]\ntrailing_edges="auto"\nmerge_into="wing"\n'
+        )
+    plan = plan_mark_boundaries(mesh, registry=_p0460_verified_registry())
+    assert plan.names == ("wing",) and plan.faces == (3,)
+    text = plan.script
+    assert text.count("SURFACE_COMBINE") == 2
+    assert text.count("SURFACE_RENAME 1") == 2
+    assert text.index("SET_SIMULATION_LENGTH_UNITS") < text.index("CREATE_NEW_BASE_REGION")
+    assert text.rindex("SET_BASE_REGION_TRAILING_EDGES") < text.index("SURFACE_COMBINE")
+    assert text.rindex("SURFACE_RENAME") < text.index("SAVEAS")
+    assert not plan.awaiting_evidence
+
+
+def test_p0460_obj_nodes_keep_unreferenced_vertices_in_numbering(tmp_path):
+    from pyflightstream.cases.mesh import WakeTerminationMarking
+    from pyflightstream.workspace.wake_edges import matched_wake_termination_nodes
+
+    mesh = tmp_path / "mesh.obj"
+    mesh.write_text("v 99 99 99\nv 1 0 0\nv 0 0 0\nv 0 1 0\ng wing\nf 2 3 4\n")
+    points = tmp_path / "nodes.txt"
+    points.write_text("METER\n1,0,0\n")
+    bound = matched_wake_termination_nodes(
+        WakeTerminationMarking(points_file=str(points)), mesh, "METER"
+    )
+    assert bound.nodes == (2,)
+
+
+@pytest.mark.parametrize("actual,expected", [("10052026", 0), ("8172026", 2), ("unknown", 2)])
+def test_p0460_cli_checks_executable_before_marking(
+    tmp_path, monkeypatch, capsys, actual, expected
+):
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.run import ExecutionResult, LocalExecutor
+    from pyflightstream.workspace.cli import main
+
+    plan, saved = _p0460_saved_plan(tmp_path)
+    registry = _p0460_verified_registry()
+    monkeypatch.setattr(CommandRegistry, "load", lambda: registry)
+    calls = []
+
+    def run_script(executor, script_path, working_dir, timeout_s=None):
+        calls.append(script_path.name)
+        if script_path.name != "identity.txt":
+            (working_dir / "wing.fsm").write_bytes(saved.read_bytes())
+        return ExecutionResult(
+            return_code=0,
+            wall_time_s=0.1,
+            timed_out=False,
+            log_text=f"Simcenter Flightstream 2612, build #{actual}",
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(LocalExecutor, "run_script", run_script)
+    assert (
+        main(["geometry", "mark-boundaries", str(plan.mesh), "--apply", "--fs-exe", sys.executable])
+        == expected
+    )
+    if expected == 0:
+        assert calls == ["identity.txt", "wing.mark.txt"]
+        assert all(path.exists() for path in plan.outputs)
+    else:
+        assert calls == ["identity.txt"]
+        assert not any(path.exists() for path in plan.outputs)
+        error = capsys.readouterr().err
+        assert ("unreadable" if actual == "unknown" else actual) in error
+        assert "26.125" in error
+
+
+def test_p0460_mirror_then_rename_keeps_face_counts(tmp_path):
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    mesh = _p0460_marking_input(
+        tmp_path,
+        extra='[[import.operations]]\nop="mirror"\nsurface="wing"\nplane="XZ"\n'
+        '[[import.operations]]\nop="rename"\nsurface="wing"\nto="renamed"\n'
+        '[base_regions.wing]\ntrailing_edges="auto"\n',
+    )
+    plan = plan_mark_boundaries(mesh)
+    assert plan.names == ("renamed",) and plan.faces == (2,)
+    assert plan.declarations.base_regions[0].family == "renamed"
+
+
+def test_p0460_planner_marks_all_entries_then_auto_then_explicit(tmp_path):
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    mesh = _p0460_marking_input(
+        tmp_path,
+        extra='[trailing_edges.a]\nfile="a.txt"\ntype="STANDARD"\nwake_termination_nodes="auto"\n'
+        '[trailing_edges.b]\nfile="b.txt"\ntype="RELAXED"\nwake_termination_nodes="nodes.txt"\n'
+        '[base_regions.wing]\ntrailing_edges="auto"\n',
+    )
+    (tmp_path / "a.txt").write_text("METER\n0.5,0,0\n")
+    (tmp_path / "b.txt").write_text("METER\n0,0.5,0\n")
+    (tmp_path / "nodes.txt").write_text("METER\n1,0,0\n")
+    plan = plan_mark_boundaries(mesh, registry=_p0460_verified_registry())
+    text = plan.script
+    commands = [
+        "SET_SIMULATION_LENGTH_UNITS",
+        "IMPORT_WAKE_EDGES_FROM_FILE STANDARD",
+        "IMPORT_WAKE_EDGES_FROM_FILE RELAXED",
+        "CREATE_NEW_BASE_REGION",
+        "SET_BASE_REGION_CP",
+        "SET_BASE_REGION_TRAILING_EDGES",
+        "AUTO_DETECT_WAKE_TERMINATION_NODES",
+        "SELECT_MESH_NODE 2",
+        "MARK_WAKE_TERMINATION_NODES",
+        "SAVEAS",
+        "EXPORT_LOG",
+        "CLOSE_FLIGHTSTREAM",
+    ]
+    offsets = [text.index(command) for command in commands]
+    assert offsets == sorted(offsets)
+    assert text.count("AUTO_DETECT_WAKE_TERMINATION_NODES") == 1
+    assert "INITIALIZE_SOLVER" not in text
+    assert len(plan.sets) == 2
+
+
+def test_p0460_marking_never_overwrites_an_authored_points_file(tmp_path):
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    mesh = _p0460_marking_input(
+        tmp_path, extra='[trailing_edges.a]\nfile="wing.mark.txt"\ntype="STANDARD"\n'
+    )
+    points = tmp_path / "wing.mark.txt"
+    points.write_text("METER\n0.5,0,0\n")
+    before = points.read_bytes()
+    with pytest.raises(InputArtifactError, match="also an input"):
+        plan_mark_boundaries(mesh)
+    assert points.read_bytes() == before
+
+
+def test_p0460_named_boundary_declarations(tmp_path):
+    from pyflightstream.workspace import sidecars
+
+    path = tmp_path / "wing.obj.boundaries.toml"
+    path.write_text(
+        'fs_build = "26.125"\nboundaries = ["wing", "rim"]\n'
+        '[trailing_edges.tip]\nfile = "tip.te.txt"\ntype = "RELAXED"\n'
+        'wake_termination_nodes = "auto"\n'
+        '[base_regions.rim]\ntrailing_edges = "auto"\nmerge_into = "wing"\n'
+    )
+    reader = getattr(sidecars, "read_boundary_declarations", None)
+    assert callable(reader), "named boundary declarations need a strict loader"
+    declarations = reader(path)
+    assert declarations.fs_build == "26.125"
+    assert declarations.trailing_edges[0].label == "tip"
+    assert declarations.trailing_edges[0].marking.edge_type == "RELAXED"
+    assert declarations.base_regions[0].cp == -0.2
+    assert declarations.base_regions[0].model == "EMPIRICAL"
+
+
+def test_p0460_inventory_uses_mesh_kind_and_keeps_declarations(tmp_path):
+    from pyflightstream.workspace.sidecars import boundaries_for_marking, write_inventory
+
+    mesh = tmp_path / "wing.obj"
+    mesh.write_text("g wing\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
+    legacy = tmp_path / "wing.boundaries.toml"
+    legacy.write_text('boundaries = ["wing"]\n')
+    assert boundaries_for_marking(mesh) == legacy
+    written = write_inventory(mesh)
+    assert written.name == "wing.obj.boundaries.toml"
+    assert boundaries_for_marking(mesh) == written
+    before = written.read_bytes()
+    with pytest.raises(InputArtifactError, match="never rewritten"):
+        write_inventory(mesh, overwrite=True)
+    assert written.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '[trailing_edges.x]\ndetect = "auto"\ntype = "RELAXED"',
+        '[trailing_edges]\nnone = true\n[trailing_edges.x]\ndetect = "auto"\ntype = "STANDARD"',
+        '[base_regions.absent]\ntrailing_edges = "auto"',
+        '[base_regions.rim]\ntrailing_edges = "auto"\nmodel = "UNKNOWN"',
+        '[base_regions.rim]\ntrailing_edges = "auto"\nmerge_into = "rim"',
+        '[base_regions.rim]\ntrailing_edges = "auto"\nmerge_into = "wing"\n'
+        '[base_regions.wing]\ntrailing_edges = "auto"\nmerge_into = "rim"',
+    ],
+)
+def test_p0460_named_declarations_refuse_invalid_combinations(tmp_path, body):
+    from pyflightstream.workspace.sidecars import read_boundary_declarations
+
+    path = tmp_path / "wing.obj.boundaries.toml"
+    path.write_text('fs_build = "26.125"\nboundaries = ["wing", "rim"]\n' + body)
+    with pytest.raises(InputArtifactError):
+        read_boundary_declarations(path)
+
+
+@pytest.mark.parametrize(
+    ("body", "remedy"),
+    [
+        ('[trailing_edges]\nfile = "wing.te.txt"\ntype = "STANDARD"', 'trailing_edges."wing.te"'),
+        ('[wake_termination]\ndetect = "auto"', "wake_termination_nodes"),
+        ('[base_regions]\ndetect = "auto"', "base_regions.<family>"),
+        ('[trailing_edges.wing]\ndetect = "auto"\ntype = "STANDARD"', "fs_build"),
+    ],
+)
+def test_p0460_legacy_declarations_explain_translation(tmp_path, body, remedy):
+    from pyflightstream.workspace import sidecars
+
+    path = tmp_path / "wing.boundaries.toml"
+    path.write_text(body)
+    reader = getattr(sidecars, "read_boundary_declarations", None)
+    assert callable(reader), "named boundary declarations need a strict loader"
+    with pytest.raises(InputArtifactError, match=remedy):
+        reader(path)
+
+
 #: The sixteen trailing-edge mid-points of the qa wing, by construction.
 MIDPOINTS = [(1.0, -3.75 + 0.5 * k, 0.0) for k in range(16)]
 
@@ -1205,3 +1673,22 @@ def test_p0440_ad_f3_a_refused_files_entry_is_named_by_its_number(tmp_path):
     workspace = _library(tmp_path, tables)
     with pytest.raises((ValueError, InputArtifactError), match="files entry 2 has"):
         _case(tmp_path, workspace)
+
+
+@pytest.mark.parametrize("build", ["25.000", "26.123"])
+def test_p0460_marking_policy_refuses_unmeasured_builds(build):
+    from pyflightstream.script import ScriptOrderError
+
+    with pytest.raises(ScriptOrderError, match="26.124 and 26.125"):
+        Script.for_marking(build)
+
+
+def test_p0460_runner_failure_retains_diagnostics(tmp_path):
+    from pyflightstream.workspace import BoundaryMarkingError, apply_mark_boundaries
+
+    plan, saved = _p0460_saved_plan(tmp_path)
+    with pytest.raises(BoundaryMarkingError, match="stub failure"):
+        apply_mark_boundaries(plan, runner=_p0460_runner(saved, fail=True))
+    assert (plan.work / "wing.mark.txt").read_text() == plan.script
+    assert "10052026" in (plan.work / "wing.mark.log").read_text()
+    assert not any(path.exists() for path in plan.outputs)

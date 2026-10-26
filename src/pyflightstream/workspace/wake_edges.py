@@ -58,6 +58,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 import pyflightstream._textio as _textio
 from pyflightstream._decimal import plain_decimal
+from pyflightstream._fsm import MeshReadError, saved_mesh_coordinate_unit, trailing_edge_midpoints
 from pyflightstream._lengths import METRES_PER_UNIT, scale
 from pyflightstream._mesh import read_mesh
 from pyflightstream.cases.mesh import TrailingEdgeMarking, WakeTerminationMarking
@@ -65,6 +66,7 @@ from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import LENGTH_UNIT_COMMAND, CommandArgumentError
 from pyflightstream.script.helpers import render_wake_edge_node_file
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz
+from pyflightstream.workspace.manifest import RunStatus
 
 __all__ = [
     "DEFAULT_TOLERANCE",
@@ -74,6 +76,7 @@ __all__ = [
     "TrailingEdgePoints",
     "WakeEdgeImport",
     "matched_trailing_edge_points",
+    "saved_wake_edge_verdict",
     "edge_types",
     "evidence_notice",
     "length_scale",
@@ -97,6 +100,47 @@ TRAILING_EDGE_DETECTION_COMMAND = "AUTO_DETECT_TRAILING_EDGES"
 #: recorded here rather than invented, so nobody has to reverse engineer
 #: where it came from.
 DEFAULT_TOLERANCE = 0.0001
+
+
+def saved_wake_edge_verdict(sets, folder: Path, collected: Sequence[str], build: str):
+    """Compare the marked saved mesh with every declared set in physical metres."""
+    saves = [folder / name for name in collected if Path(name).suffix.lower() == ".fsm"]
+    if len(saves) != 1:
+        return (
+            RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            "multiple wake-edge imports are checked on the saved simulation, and the run "
+            f"collected {len(saves)} .fsm files; list exactly one saved simulation (.fsm) "
+            "among the row's outputs",
+        )
+    try:
+        unit = saved_mesh_coordinate_unit(saves[0])
+        factor = None if unit is None else scale(unit, "METER")
+        if factor is None:
+            raise ValueError("saved mesh coordinate unit is unknown")
+        marked = (
+            numpy.asarray(trailing_edge_midpoints(saves[0]), dtype=float).reshape(-1, 3) * factor
+        )
+    except (OSError, ValueError, MeshReadError) as exc:
+        return RunStatus.FAILED_INCOMPLETE_OUTPUT, f"cannot check saved trailing-edge sets: {exc}"
+    missing, present, total = [], 0, 0
+    for entry in sets:
+        found = 0
+        for point in entry["points_m"]:
+            found += bool(
+                len(marked)
+                and numpy.any(numpy.linalg.norm(marked - point, axis=1) <= entry["tolerance"])
+            )
+        total += len(entry["points_m"])
+        present += found
+        if found < len(entry["points_m"]):
+            missing.append(entry["file"])
+    if missing:
+        return RunStatus.FAILED_SCRIPT, (
+            f"the saved simulation marks {present} of {total} trailing-edge points; the edges of "
+            f"{', '.join(missing)} are missing, which is what a second wake-edge import replacing "
+            f"the first would leave (unmeasured on {build}, PFS-2149.01)"
+        )
+    return None
 
 
 def tolerance_unit() -> str:
@@ -984,10 +1028,21 @@ def matched_wake_termination_nodes(
 ) -> WakeTerminationMarking:
     """Match each point to exactly one mesh vertex, refusing absent or ambiguous matches."""
     read = read_trailing_edge_points(marking.points_file)
-    loaded = read_mesh(mesh)
-    if getattr(loaded, "vertices", None) is None and hasattr(loaded, "to_mesh"):
-        loaded = loaded.to_mesh()
-    vertices = numpy.asarray(loaded.vertices) * length_scale(mesh_unit, "METER")
+    if mesh.suffix.lower() == ".obj":
+        # SELECT uses the written OBJ vertex index. A mesh loader may weld,
+        # reorder or discard vertices, so its indices cannot identify these nodes.
+        vertices = numpy.asarray(
+            [
+                [float(v) for v in line.split()[1:4]]
+                for line in mesh.read_text(encoding="utf-8").splitlines()
+                if line.split() and line.split()[0] == "v"
+            ]
+        ) * length_scale(mesh_unit, "METER")
+    else:
+        loaded = read_mesh(mesh)
+        if getattr(loaded, "vertices", None) is None and hasattr(loaded, "to_mesh"):
+            loaded = loaded.to_mesh()
+        vertices = numpy.asarray(loaded.vertices) * length_scale(mesh_unit, "METER")
     points = read.points * length_scale(read.unit, "METER")
     nodes = []
     for index, point in enumerate(points, start=1):

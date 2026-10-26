@@ -67,7 +67,9 @@ def _records_only(path: Path, boundaries) -> Path:
 
 
 def _sidecar(geometry: Path) -> dict:
-    return tomllib.loads(geometry.with_name(geometry.stem + ".boundaries.toml").read_text("utf-8"))
+    from pyflightstream.workspace.sidecars import inventory_sidecar
+
+    return tomllib.loads(inventory_sidecar(geometry).read_text("utf-8"))
 
 
 def test_the_inventory_of_a_saved_simulation_states_its_faces_and_each_boundarys_fr_348(
@@ -325,7 +327,7 @@ def test_the_post_never_counts_and_a_missing_count_is_na_fr_348(tmp_path, monkey
     requirement = "FR-348"
     workspace = _campaign(tmp_path, monkeypatch, digest_of_the_run=None, builder="superfile")
     geometry = workspace.inputs_dir / "geometries" / "wing.fsm"
-    sidecar = geometry.with_name("wing.boundaries.toml")
+    sidecar = geometry.with_name("wing.fsm.boundaries.toml")
     stated, inventory = _sidecar(geometry), sidecar.read_bytes()
     assert stated["mesh_faces"] == 7 and stated["mesh_sha256"] == file_sha256(geometry)
     sidecar.write_text(

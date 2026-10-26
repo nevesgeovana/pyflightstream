@@ -426,6 +426,36 @@ class TrailingEdgeMarking(BaseModel):
         return self
 
 
+class BoundaryTrailingEdge(BaseModel):
+    """One labeled trailing-edge import or detection and its termination nodes."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    label: str
+    marking: TrailingEdgeMarking
+    wake_termination_nodes: str | None = None
+
+
+class BoundaryBaseRegion(BaseModel):
+    """A mesh family's base model, rim and optional merge destination."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+    family: str
+    model: Literal["EMPIRICAL", "AXISYMMETRIC", "USER", "CUSTOM"] = "EMPIRICAL"
+    cp: float = -0.2
+    trailing_edges: TrailingEdgeMarking | Literal["auto"]
+    merge_into: str | None = None
+
+
+class BoundaryDeclarations(BaseModel):
+    """Ordered declarations consumed only by geometry mark-boundaries."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    fs_build: str | None = None
+    trailing_edges: tuple[BoundaryTrailingEdge, ...] = ()
+    base_regions: tuple[BoundaryBaseRegion, ...] = ()
+    no_trailing_edges: bool = False
+
+
 class RadialBoundaryMesh(BaseModel):
     """A radial inlet/outlet mesh, applied after port creation and before initialization."""
 

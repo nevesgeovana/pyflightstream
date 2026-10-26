@@ -1,5 +1,48 @@
 # Mesh input reference
 
+The inventory command writes `<mesh>.obj.boundaries.toml` or
+`<mesh>.fsm.boundaries.toml`, according to its input. An existing OBJ inventory
+is never rewritten, including with `--overwrite`. The marking declaration
+locator accepts `<mesh>.boundaries.toml` when the `.obj.` filename is absent.
+
+## Named boundary declarations
+
+The marking loader reads an ordered table per trailing-edge entry and per base
+family. The family must occur in `boundaries`; trailing-edge labels are free.
+
+```toml
+fs_build = "26.125"
+boundaries = ["wing", "rim"]
+
+[trailing_edges.tip]
+file = "tip.te.txt"
+type = "RELAXED"
+wake_termination_nodes = "auto"
+
+[base_regions.rim]
+trailing_edges = "auto"
+merge_into = "wing"
+```
+
+A trailing-edge entry requires `type`: `STANDARD`, `RELAXED`, `JET_OUTFLOW` or
+`VORTEX_SHEDDING`. Replace `file` with `detect = "auto"` or
+`detect = { surfaces = ["wing"], sweep_angle = 30.0 }` for detection, which
+accepts only `STANDARD`. File matching defaults to `tolerance = 0.0001` metres.
+Termination nodes may name a points file instead of `"auto"`.
+
+Base regions default to `model = "EMPIRICAL"` and `cp = -0.2`. Their rim is
+`"auto"` or `{ file = "rim.te.txt", type = "STANDARD" }`. A merge destination
+must be another existing family and cannot itself be merged.
+
+Migration: each old unnamed trailing-edge file becomes a named entry (use its
+file stem as the label). Move `[wake_termination]` to `wake_termination_nodes`
+on the entry it serves, or the first entry if it served all. Replace base-region
+autodetection with one named base table per family. The marking loader refuses
+these old table forms with their translation. The existing matrix run reader
+temporarily retains them. `[trailing_edges] none = true` remains supported for
+a mesh with no trailing edge, alone without named entries. State `fs_build`
+when declaring boundaries.
+
 ### The surface names
 
 A row cites a raw mesh's names as it cites a `.fsm`'s. Where they come from
@@ -552,7 +595,7 @@ refused, and the order is written from the file itself:
 pyfs-matrix inventory inputs/geometries/30_WB.fsm
 ```
 
-writes `inputs/geometries/30_WB.boundaries.toml`, a `boundaries` list in the
+writes `inputs/geometries/30_WB.fsm.boundaries.toml`, a `boundaries` list in the
 file's order, and refuses to overwrite one that exists without `--overwrite`.
 The sidecar sits beside the file, so a geometry kept in its own folder,
 `inputs/geometries/30_WB/30_WB.fsm`, has it inside that folder, and the run reads it
@@ -1136,6 +1179,24 @@ rotor has to work out once. For the isolated-rotor reference case:
 None of this was ever read by an emitter, and the sense of rotation does
 not determine the sign of the rotor speed on its own: the sign is the
 mesh's, the sense is the propeller's, and the row is where the two meet.
+
+## Applying named boundary declarations
+
+Run `pyfs-workspace geometry mark-boundaries <mesh>.obj` to preview the
+declarations, then add `--apply` on a licensed machine. The verb requires a
+current OBJ inventory, explicit `[import] units`, and `fs_build`. Each named
+file entry becomes one import; detection remains STANDARD only. Source points
+are matched before import operations and carried through their scale, rotation,
+translation and mirror transformations in metres. Explicit termination nodes
+use the written OBJ vertex indices and are refused after vertex-changing
+operations. Termination nodes combined with merging remain conservatively
+refused until their saved-state persistence is measured.
+
+The output `.fsm.boundaries.toml` contains only inventory fields and
+`marked_by`; it carries no import or marking declarations. The original
+`.obj.boundaries.toml` remains the authoring source. The legacy run reader
+continues accepting unnamed declarations for compatibility in this lane;
+the new verb refuses those forms with their named-table translation.
 
 ## What this policy is not
 

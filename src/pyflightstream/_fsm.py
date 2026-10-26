@@ -63,6 +63,9 @@ __all__ = [
     "boundary_owners",
     "resolve_family",
     "saved_actuators",
+    "saved_base_regions",
+    "saved_termination_count",
+    "saved_trailing_edge_groups",
     "saved_solver_actions",
     "saved_length_unit",
     "saved_mesh_coordinate_unit",
@@ -403,6 +406,124 @@ def saved_actuators(path: str | Path) -> tuple[str, ...] | None:
         names.append(name)
     physics.count("count after the actuators")
     return tuple(names)
+
+
+def _boundary_physics(path: str | Path):
+    """Read the base and trailing-edge lists by their counts, retaining the cursor."""
+    lines = _block(path, "PHYSICS")
+    if lines is None:
+        raise MeshReadError(f"{path}: no physics block for boundary read-back")
+    reader = _PhysicsReader(lines, str(path))
+    for position in range(3):
+        reader.values(f"header {position}", 1, "number")
+    size = reader.count("base-region count")
+    bases = tuple(reader.row("base-region name") for _ in range(size))
+    cp: tuple[float, ...] = ()
+    if size:
+        reader.values("base-region flags", size, "flag")
+        at = reader.at
+        reader.values("base-region Cp", size, "number")
+        cp = tuple(float(value) for value in _tokens(lines[at]))
+        for _ in range(3):
+            reader.values("base-region values", size, "number")
+    count = reader.count("trailing-edge group count")
+    groups = tuple(reader.row("trailing-edge group name") for _ in range(count))
+    if count:
+        reader.values("trailing-edge group indices", count, "integer")
+    return reader, bases, cp, groups
+
+
+def saved_trailing_edge_groups(path: str | Path) -> tuple[str, ...]:
+    """Return the physics block's ordered trailing-edge group names.
+
+    Parameters
+    ----------
+    path : str or Path
+        Saved simulation to inspect.
+
+    Returns
+    -------
+    tuple of str
+        One name per group, including repeated names from separate imports.
+    """
+    return _boundary_physics(path)[3]
+
+
+def saved_base_regions(path: str | Path) -> tuple[tuple[str, float, int], ...]:
+    """Read base-region names, Cp and model codes from the measured physics layout.
+
+    Parameters
+    ----------
+    path : str or Path
+        Saved simulation to inspect.
+
+    Returns
+    -------
+    tuple of tuple
+        Name, stored Cp and model code for each region in order.
+    """
+    reader, names, cp, _ = _boundary_physics(path)
+    count = reader.count("third surface-list count")
+    for _ in range(count):
+        reader.row("third surface-list name")
+    if count:
+        reader.values("third surface-list indices", count, "integer")
+    if not _SETTINGS_LINE.match(reader.row("settings")):
+        raise reader.refuse("invalid settings line")
+    reader.values("settings value", 1, "number")
+    _skip_boundary_actuators(reader)
+    # Nonempty post-actuator sections have not been measured for this reader.
+    for label in ("section after actuators", "fluid section"):
+        if reader.count(label) != 0:
+            raise reader.refuse(f"nonempty {label} is not a measured boundary layout")
+    reader.row("fluid name")
+    for _ in range(7):
+        reader.values("fluid value", 1, "number")
+    if not names:
+        return ()
+    at = reader.at
+    reader.values("base-region model codes", len(names), "integer")
+    models = tuple(int(value) for value in _tokens(reader.lines[at]))
+    return tuple(zip(names, cp, models, strict=True))
+
+
+def _skip_boundary_actuators(reader: _PhysicsReader) -> None:
+    """Step over counted actuator records before the base-model codes."""
+    for _ in range(reader.count("actuator count")):
+        reader.row("actuator name")
+        for kind, size in _ACTUATOR_RECORD:
+            for _ in range(size):
+                reader.values("actuator value", 1, kind)
+
+
+def saved_termination_count(path: str | Path) -> int:
+    """Read the termination record's count without interpreting its internal node numbers.
+
+    Parameters
+    ----------
+    path : str or Path
+        Saved simulation to inspect.
+
+    Returns
+    -------
+    int
+        Number of recorded termination nodes; zero for an empty record.
+    """
+    lines = _block(path, "MESH")
+    if not lines:
+        raise MeshReadError(f"{path}: no mesh block for termination read-back")
+    # Validate the mesh first; this also establishes the coordinate rows preceding the tail.
+    _mesh_block(path)
+    if lines[-1].strip() == "0":
+        return 0
+    if len(lines) < 4 or not lines[-4].strip().isdigit():
+        raise MeshReadError(f"{path}: invalid wake-termination record count")
+    count = int(lines[-4])
+    for line in lines[-3:]:
+        values = _tokens(line)
+        if len(values) != count or any(not token.isdigit() for token in values):
+            raise MeshReadError(f"{path}: invalid wake-termination record rows")
+    return count
 
 
 #: The last line of one saved unsteady solver action: the length of its
