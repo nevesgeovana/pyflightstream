@@ -656,7 +656,7 @@ def test_f5_0102_f022_a_point_is_compared_with_the_point_the_instance_holds(tmp_
     lead would restate from its anchor and keep B's frame. Compared with B it
     reopens whole.
     """
-    case = _with_pproc(steady_case(), _wb_geometry(tmp_path), None)
+    case = _with_pproc(steady_case(), _wb_geometry(tmp_path), PprocSpec())
     points = []
     for tag in ("a", "b", "c"):
         point_case = case.model_copy(update={"outputs": [f"P-{tag}.txt"]})

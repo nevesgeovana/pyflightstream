@@ -1327,6 +1327,8 @@ class TestCasesWorkflowsSteady:
             _cases_workflows_steady__steady_case(), _cases_workflows_steady___wb_geometry(tmp_path)
         )
         case.pproc.products.boundary_layer_integrals = True
+        for probe in case.pproc.probes:
+            probe.frame = "MRP"
         script = _cases_workflows_steady___built(_cases_workflows_steady___points(case, (0.0, 5.0)))
         assert script.section_blocks, requirement
         for block in script.section_blocks:
@@ -1361,6 +1363,9 @@ class TestCasesWorkflowsSteady:
         case = _cases_workflows_steady___with_pproc(
             _cases_workflows_steady__steady_case(), _cases_workflows_steady___wb_geometry(tmp_path)
         ).model_copy(update={"reference": reference})
+        for probe in case.pproc.probes:
+            probe.frame = "MRP"
+            probe.scale = "m"
         points = _cases_workflows_steady___points(case, (0.0, 0.0), pitch_rate=2.0)
         points[1] = points[1].model_copy(update={"point": {"alpha": 0.0, "pitch_rate": 4.0}})
         with pytest.raises(CampaignConfigError, match="free stream differently") as refusal:
