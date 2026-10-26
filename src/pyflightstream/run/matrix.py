@@ -456,6 +456,30 @@ def _bind_row_builds(
     return campaign.model_copy(update={"sims": sims}), builds
 
 
+def _warn_superseded_setup_pins(resolved: ResolvedMatrix) -> None:
+    """Name all rows whose atmospheric constraints superseded setup defaults once."""
+    rows = []
+    for pol, condition in resolved.conditions.items():
+        if condition.dropped_defaults:
+            pins = ", ".join(
+                f"{key}:{value:g}" for key, value in condition.dropped_defaults.items()
+            )
+            stated = ", ".join(
+                f"{key}:{condition.stated[key]:g}"
+                for key in ("ALTFT", "dISA", "REmi")
+                if key in condition.stated
+            )
+            rows.append(f"POL {pol}: dropped {pins}; row states {stated}")
+    if rows:
+        warnings.warn(
+            "The matrix dropped setup flight-condition pins: "
+            + "; ".join(rows)
+            + ". Setup pins are defaults; the matrix row has priority.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
 def plan_matrix(
     path: str | Path,
     workspace: CampaignWorkspace,
@@ -597,6 +621,7 @@ def plan_matrix(
         ignore_missing_families=ignore_missing_families,
         rows=selected_rows,
     )
+    _warn_superseded_setup_pins(resolved)
     planned_order = whole_sweeps(resolved)
     resolved = narrow_to_selection(resolved, sims, points, workspace)  # FR-326
     warn_a_matrix_outside_the_homes(path, workspace.root)

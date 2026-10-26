@@ -401,9 +401,8 @@ in a cell, so `mupas` and `MUPas` are one key -- and stating both is
 refused as one pin written twice rather than taken last.
 
 The row wins, key by key. A row stating `ASMPS:335.0` against that setup
-resolves at 335.0 and inherits the other three. A row stating nothing
-inherits all four. Nothing about the resolution changes: the same state
-comes out, whichever file the number was written in.
+resolves at 335.0 and inherits the other three when it states no `ALTFT`,
+`dISA` or `REmi`. Setup pins supply defaults; the matrix has higher authority.
 
 Why bother: a thirteen-point polar repeats those four numbers thirteen
 times in the column, and a single mistyped digit on one row is a physics
@@ -420,12 +419,20 @@ are the design rather than caution.
 * `ALTFT` and `dISA` select a point IN the atmosphere, which the pins
   exist to replace rather than to locate.
 
-One default can be superseded without contradicting anything, and it is
-`RHOkgm3`. A ROW stating both it and `REmi` is refused, because each
-fixes the density; a SETUP pinning a density is not making that statement
-about any one row, so a row that solves its own density simply drops that
-default. Refusing instead would mean a setup carrying a density could
-never serve a Reynolds row.
+The row's constraints supersede setup defaults as follows:
+
+| Row states | Setup pins dropped | Setup pins retained |
+|---|---|---|
+| `ALTFT` or `dISA`, including zero | All five | None |
+| `REmi`, without `ALTFT` or `dISA` | `RHOkgm3`, `PPA` | `TK`, `MUPas`, `ASMPS` |
+| None of these three | None | All five |
+
+Pins stated on the row remain the row's statement. A row stating both
+`RHOkgm3` and `REmi` is still refused. With `REmi`, the setup's tunnel
+temperature remains and pressure is derived as `p = rho R T`, unless the
+row itself pins pressure. Plan emits one campaign warning listing each
+affected POL, the dropped setup pins and the row's atmospheric constraints.
+No dropped defaults means no such warning.
 
 The run record says where each number came from: `flight_condition` is
 the row as written, and `flight_condition_defaults` is what the setup
