@@ -25,6 +25,10 @@ FlightStream versions.
 
 ### Fixed
 
+- Geometry build writes kind-qualified inventories with face counts and digests.
+  Exported OBJ declarations include the build and a named `STANDARD` edge entry,
+  ready for boundary marking; rebuilds preserve named termination and base settings.
+
 - OBJ inventory guidance names the required build and named trailing-edge and
   base-region declarations, including the explicit no-edge form.
 

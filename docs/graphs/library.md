@@ -1754,6 +1754,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._refine._audit">pyflightstream.workspace._refine._audit</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.builds">pyflightstream.workspace.builds</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.sidecars">pyflightstream.workspace.sidecars</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._geometry_clean"><summary><code>pyflightstream.workspace._geometry_clean</code></summary><ul>
@@ -1792,7 +1793,9 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.workspace._geometry_sidecar"><summary><code>pyflightstream.workspace._geometry_sidecar</code></summary><ul>
-<li>No package-internal outgoing imports.</li>
+<li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.sidecars">pyflightstream.workspace.sidecars</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._geometry_vtk"><summary><code>pyflightstream.workspace._geometry_vtk</code></summary><ul>

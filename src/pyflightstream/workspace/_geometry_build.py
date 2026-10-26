@@ -72,7 +72,9 @@ from pyflightstream.workspace._geometry_instruction import (
 from pyflightstream.workspace._geometry_sidecar import (
     UnreadableSidecarError,
     carried_tables,
+    sidecar_candidates,
     sidecar_text,
+    write_mesh_sidecar,
 )
 from pyflightstream.workspace._geometry_vtk import (
     PREVIEW_SUFFIX,
@@ -82,6 +84,7 @@ from pyflightstream.workspace._geometry_vtk import (
 )
 from pyflightstream.workspace._refine._audit import audit_mesh
 from pyflightstream.workspace.builds import resolve_build
+from pyflightstream.workspace.sidecars import inventory_sidecar
 
 __all__ = [
     "BUILD_RECORD_SUFFIX",
@@ -355,7 +358,7 @@ def _inputs(
     """
     found = [(path, "instruction")]
     for variant in variants:
-        for sidecar in _sidecar_candidates(variant, _mesh_name_of(variant)):
+        for sidecar in sidecar_candidates(variant, _mesh_name_of(variant)):
             if sidecar.is_file():
                 found.append((sidecar, "sidecar"))
     source = instruction.source_file()
@@ -450,6 +453,8 @@ def plan_geometry_build(
                 registry=registry,
             )
             variants.append(GeometryVariant(tag, angle, variant, out, script, ordinal=ordinal))
+    for planned_variant in variants:
+        _carried(planned_variant, _mesh_name_of(planned_variant))
     return GeometryBuildPlan(
         path=path,
         instruction=instruction,
@@ -478,9 +483,11 @@ def _outputs_of(variant: GeometryVariant) -> list[Path]:
     ]
     outputs = variant.instruction.outputs
     if "fsm" in outputs:
-        paths += [folder / f"{name}.fsm", folder / f"{name}.boundaries.toml"]
+        saved = folder / f"{name}.fsm"
+        paths += [saved, inventory_sidecar(saved, "fsm")]
     if outputs == ("obj",):
-        paths += [folder / f"{name}{suffix}" for suffix in (".obj", ".boundaries.toml", ".te.txt")]
+        mesh = folder / f"{name}.obj"
+        paths += [mesh, inventory_sidecar(mesh, "obj"), folder / f"{name}.te.txt"]
     elif "obj" in outputs:
         paths.append(folder.with_name(f"{name}_obj"))
     return paths
@@ -520,8 +527,12 @@ def _refuse_existing(plan: GeometryBuildPlan, overwrite: bool) -> None:
                     old = json.loads(target_record.read_text(encoding="utf-8"))
                     owned = set(old.get("owned_files", []))
                     owned.update(Path(item["file"]).name for item in old.get("outputs", []))
-                for suffix in (".obj", ".boundaries.toml", ".te.txt", ".audit.json"):
-                    destination = target / f"{target.name}{suffix}"
+                destinations = [
+                    target / f"{target.name}{suffix}"
+                    for suffix in (".obj", ".te.txt", ".audit.json")
+                ]
+                destinations.append(inventory_sidecar(target / f"{target.name}.obj", "obj"))
+                for destination in destinations:
                     if (
                         destination.exists()
                         and destination.name not in owned
@@ -864,7 +875,8 @@ def _build_one(
         shutil.copyfile(audit_file, work / f"{name}.audit.json")
     if "fsm" in instruction.outputs:
         _textio.write_text(
-            work / f"{name}.boundaries.toml", sidecar_text(instruction.boundaries, None, None)[0]
+            inventory_sidecar(fsm, "fsm"),
+            sidecar_text(instruction.boundaries, None, None, mesh=fsm)[0],
         )
     facts: dict[str, Any] = {
         "outcome": outcome,
@@ -945,7 +957,7 @@ def _read_back(variant: GeometryVariant, fsm: Path) -> dict[str, Any]:
 def _carried(variant: GeometryVariant, mesh_name: str) -> dict[str, Any]:
     """Return what the rebuilt mesh's sidecar, else the [mesh] source's, carries over (FR-1111)."""
     try:
-        return carried_tables(_sidecar_candidates(variant, mesh_name))
+        return carried_tables(sidecar_candidates(variant, mesh_name))
     except UnreadableSidecarError as error:
         raise GeometryBuildError(f"{error}; nothing was promoted") from error
 
@@ -953,19 +965,6 @@ def _carried(variant: GeometryVariant, mesh_name: str) -> dict[str, Any]:
 def _mesh_name_of(variant: GeometryVariant) -> str:
     name = variant.instruction.name
     return name if variant.instruction.outputs == ("obj",) else f"{name}_obj"
-
-
-def _sidecar_candidates(variant: GeometryVariant, mesh_name: str) -> list[Path]:
-    """Return the sidecars a build reads, the rebuilt mesh's first."""
-    instruction = variant.instruction
-    folder = variant.folder
-    built = folder / f"{mesh_name}.boundaries.toml"
-    if instruction.outputs != ("obj",):
-        built = folder.with_name(mesh_name) / f"{mesh_name}.boundaries.toml"
-    candidates = [built]
-    if instruction.mesh is not None:
-        candidates.append(folder / f"{Path(instruction.mesh.file).stem}.boundaries.toml")
-    return candidates
 
 
 def _audit(
@@ -978,24 +977,13 @@ def _audit(
     unit: str,
 ) -> dict[str, Any]:
     """Audit the exported mesh beside the sidecar and points file a built OBJ carries (FR-426)."""
-    import numpy
-
-    from pyflightstream.workspace._refine._obj import write_te
-
     target = mesh_dir / f"{mesh_name}.obj"
     if not obj.is_file():
         raise GeometryBuildError(f"the build exported no {obj.name}; nothing was promoted")
     shutil.move(str(obj), target)
-    te_file = None
-    if midpoints:
-        te_file = f"{mesh_name}.te.txt"
-        write_te(mesh_dir / te_file, unit, numpy.asarray(midpoints, dtype=float))
-    # The export follows the saved simulation unit, not the source import unit (RPT-170).
-    export_unit = unit
-    text, notes = sidecar_text(
-        variant.instruction.boundaries, export_unit, te_file, _carried(variant, mesh_name)
+    notes = write_mesh_sidecar(
+        variant.instruction, target, unit, midpoints, _carried(variant, mesh_name)
     )
-    _textio.write_text(mesh_dir / f"{mesh_name}.boundaries.toml", text)
     try:
         audit = audit_mesh(target)
     except InputArtifactError as error:
@@ -1163,8 +1151,15 @@ def _moves(item: _Staged) -> list[tuple[Path, Path]]:
     folder = variant.folder
     suffixes = [".build.txt", ".build.log", PREVIEW_SUFFIX, ".preview.png", ".audit.json"]
     if "fsm" in variant.instruction.outputs:
-        suffixes += [".fsm", ".boundaries.toml"]
+        suffixes += [".fsm"]
     moves = [(work / f"{name}{suffix}", folder / f"{name}{suffix}") for suffix in suffixes]
+    if "fsm" in variant.instruction.outputs:
+        moves.append(
+            (
+                inventory_sidecar(work / f"{name}.fsm", "fsm"),
+                inventory_sidecar(folder / f"{name}.fsm", "fsm"),
+            )
+        )
     moves = [(source, destination) for source, destination in moves if source.is_file()]
     meshes = sorted(path for path in mesh_dir.iterdir() if path.is_file())
     target = _mesh_target(item)

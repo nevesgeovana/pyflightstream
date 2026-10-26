@@ -212,13 +212,13 @@ record, and moves the outputs into place:
 | file | content |
 |---|---|
 | `<name>.fsm` | the saved body |
-| `<name>.boundaries.toml` | its boundary inventory |
+| `<name>.fsm.boundaries.toml` | its boundary inventory |
 | `<name>.preview.vtk` | open it in ParaView: the surfaces coloured by boundary, the trailing edges as lines |
 | `<name>.audit.json` | the audit of the exported mesh |
 | `<name>.build.json` | every input with its sha256, the build, the solver, the outputs, the audit |
 | `<name>.build.txt`, `<name>.build.log` | the script the solver ran and its log |
 
-With `outputs = ["obj"]` the folder holds `<name>.obj`, its sidecar and its
+With `outputs = ["obj"]` the folder holds `<name>.obj`, its `.obj.boundaries.toml` and its
 trailing-edge points file `<name>.te.txt` instead of the saved simulation; with
 both outputs the mesh is a geometry of its own, `<name>_obj/`. `--png` also
 draws `<name>.preview.png` (the `plot` extra).
@@ -230,15 +230,18 @@ script and log. `--overwrite` replaces recorded mesh outputs individually and
 keeps other files in the sibling folder. An unowned destination is refused
 before the solver runs; preserve or rename it before building.
 
-**What a rebuilt mesh keeps.** The built mesh's sidecar carries over what the
-run reads of a mesh and the build does not make: the `translate` and `rotate`
-operations of `[[import.operations]]`, `[wake_termination]` and
-`[base_regions]`. They are taken from the sidecar the mesh had before the
-rebuild, else from the sidecar of the `[mesh]` source. With a carried
-`translate` or `rotate`, the sidecar marks the trailing edges by detection
-(`detect = "auto"`), because the run refuses a points file beside an
-operation that moves the body; `<name>.te.txt` stays beside the mesh. The
-build prints what it carried over.
+The OBJ inventory includes face counts, its digest, the build that exported it,
+and a named `STANDARD` trailing-edge entry whose label is the mesh stem and
+whose file contains the saved edge midpoints. An export with no marked edges
+declares `[trailing_edges] none = true`. Mark the OBJ before using it in a matrix.
+
+**What a rebuilt mesh keeps.** The sidecar retains `translate` and `rotate`
+operations, the generated entry's `wake_termination_nodes`, and named base
+regions. These come from the rebuilt mesh's sidecar first, otherwise from its
+source sidecar; qualified filenames precede legacy filenames. Operations apply
+during marking, with the edge points transformed consistently. Carried sidecars
+must use the named declaration schema; planning refuses retired declarations
+with their translation. The build prints what it carried over.
 
 An audit failure retains the built outputs and their record in the partial
 folder, including the exported mesh in its `mesh/` subfolder. Nothing is

@@ -12423,6 +12423,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._geometry_build",
+      "target": "pyflightstream.workspace.sidecars",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._geometry_clean",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -12535,6 +12540,21 @@
     {
       "source": "pyflightstream.workspace._geometry_record",
       "target": "pyflightstream.cases.mesh",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_sidecar",
+      "target": "pyflightstream._textio",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_sidecar",
+      "target": "pyflightstream.workspace._refine._obj",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.workspace._geometry_sidecar",
+      "target": "pyflightstream.workspace.sidecars",
       "kind": "module"
     },
     {
