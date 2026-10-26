@@ -1972,6 +1972,8 @@ def test_a_verified_wake_edge_import_report_carries_lines_the_exact_judge_passes
     re-run of the probe, whose report carries its lines. That report is the one
     allowed to carry none; any other verified row without them fails here.
     """
+    import json
+
     import yaml
 
     folder = Path(__file__).resolve().parents[2] / "reports" / "compat"
@@ -1983,6 +1985,26 @@ def test_a_verified_wake_edge_import_report_carries_lines_the_exact_judge_passes
             continue
         entry = yaml.safe_load(text)["commands"]["IMPORT_WAKE_EDGES_FROM_FILE"]
         assert entry["outcome"] == "verified" and entry["signals"]["effect"] is True, entry
+        if report.name in {
+            "CMP-26124_2026-10-26_marking.yaml",
+            "CMP-26125_2026-10-26_marking.yaml",
+        }:
+            # PFS-2170 measures saved-state accumulation, not a log-count claim.
+            observation = json.loads(entry["observation"])
+            measurements = [observation["primary"]]
+            if "26124" in report.name:
+                measurements.append(observation["without_INITIALIZE_SOLVER"])
+            for measured in measurements:
+                before, marked, control = measured["states"]
+                assert measured["effect"] is True
+                assert before == control
+                assert before["edges"] == [[[2.0, 0.0, -1.0], 1]]
+                assert marked["edges"] == before["edges"] + [[[2.0, 0.0, 1.0], 2]]
+                assert marked["groups"] == ["Rim", "Rim"]
+                assert marked["names"] == before["names"] == ["Body", "Rim"]
+                assert marked["bases"] == before["bases"] == []
+                assert marked["termination"] == before["termination"] == 0
+            continue
         read = _import_lines_recorded(entry["detail"])
         if read is None:
             without_lines.append(report.name)
