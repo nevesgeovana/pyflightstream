@@ -33,6 +33,13 @@ PointPlan = Any  # the PointPlan of run._plan, which imports this module
 def _point_lines(points: Sequence[PointPlan]) -> list[str]:
     """Return the per-point lines of the plan's summary in display order."""
     lines: list[str] = []
+    lines += list(
+        dict.fromkeys(
+            f"  POL {point.sim_id}: boundaries read from {point.boundaries_file}"
+            for point in points
+            if point.boundaries_file
+        )
+    )
     lines += _mach_lines(points)
     lines += _validity_lines(points)
     lines += _wake_lines(points)
@@ -224,6 +231,7 @@ def point_facts(
     wake = planned_wake(point_case)
     run = planned_run_wake(point_case)
     return {
+        "boundaries_file": point_case.boundaries_file,
         "rotor_mach": {mach.alias: mach.record() for mach in rotor_machs(point_case)},
         "qsteady_validity": qsteady_validity(point_case, inflow_fft=inflow_fft) or {},
         "wake_termination": {} if wake is None else wake.record(),

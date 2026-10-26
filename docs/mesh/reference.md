@@ -38,438 +38,68 @@ Migration: each old unnamed trailing-edge file becomes a named entry (use its
 file stem as the label). Move `[wake_termination]` to `wake_termination_nodes`
 on the entry it serves, or the first entry if it served all. Replace base-region
 autodetection with one named base table per family. The marking loader refuses
-these old table forms with their translation. The existing matrix run reader
-temporarily retains them. `[trailing_edges] none = true` remains supported for
+these old table forms with their translation. Matrix planning refuses all
+marking declaration tables; only mark-boundaries consumes them. `[trailing_edges] none = true` remains supported for
 a mesh with no trailing edge, alone without named entries. State `fs_build`
 when declaring boundaries.
 
 ### The surface names
 
-A row cites a raw mesh's names as it cites a `.fsm`'s. Where they come from
-depends on the format.
-
-**An OBJ's names are read from its groups.** The solver imports an `.obj` as
-one surface per `o` or `g` group that holds a face, named by the group and
-numbered in the order the groups appear in the file; a group holding no face
-makes no surface and takes no position. So when
-an `.obj` has no sidecar, the plan writes one beside it and says so on stderr:
-`pyfs-matrix plan`, `pyfs-matrix run` and `pyfs-matrix inventory wing.obj`
-reach it the same way. It holds the list and nothing else:
-
-```toml
-# inputs/geometries/wing.boundaries.toml, as the plan writes it beside wing.obj
-# Written by pyflightstream from the groups of wing.obj, which had no sidecar;
-# the OBJ's sha256 was <the sha256 of wing.obj>.
-# One boundary per `o` or `g` group holding a face, named by the group, in the
-# order of the file: how the solver numbers an OBJ's surfaces on import
-# (RPT-078). The package never rewrites this file. Add the [import] table with
-# the file's units, and the [trailing_edges] table, beneath the list
-# (docs/mesh-inputs.md).
-boundaries = [
-    "Wing",
-    "Tail",
-]
-```
-
-Add the `[import]` table and the `[trailing_edges]` table beneath the list
-(the sections below): only you can state the unit the file is written in and
-how its trailing edge is marked, so the plan that wrote the list then blocks
-the row on the missing unit, naming the table.
-
-**The sidecar is never rewritten.** Once one stands beside the `.obj`, written
-by the plan or by you, the package leaves it as it is, and `pyfs-matrix
-inventory` refuses it, `--overwrite` or not, since it carries your tables. At
-each plan its list is compared with the file's groups: when they differ, in a
-name or in the order, the run cites the sidecar's list as written and a
-warning names both lists. Correct the list, or move the file aside, plan
-again, and copy your tables beneath the list the plan writes.
-
-**What the measurement did not settle is refused, by line, and keeps the list
-by hand.** A file that opens groups with both `o` and `g`, a group name opened
-in two places of the file, a face written before the first group, and a group
-statement naming no group or a name of several words are refused when the
-plan would write the sidecar, naming the line. Write the `boundaries` of such
-a file by hand, in the order the solver numbers its surfaces; a sidecar beside
-it is read as it stands.
-
-**An STL's names are written by hand.** An `.stl` names no group this package
-reads, so you write the `boundaries` list yourself, one name per surface in
-the order the file holds them. They are a statement the run trusts rather
-than verifies: a name in the wrong position cites the wrong surface, and
-nothing refuses it before the solver runs. `pyfs-matrix inventory`, which
-writes a saved simulation's names for you
-([below](#the-boundary-inventory-sidecar)), refuses an `.stl` by name, since it
-has no mesh block to read the order from.
+Inventory reads OBJ groups holding faces in file order. The marking pass
+uses those names and publishes the saved FSM inventory after renames and
+base merges. Matrix rows refer to those saved names. Existing OBJ sidecars
+are never overwritten by inventory.
 
 ### The unit
 
-**A RAW MESH STATES ITS UNITS.** The mesh-import family takes the file's
-length units as an argument, and a mesh file carries none. So
-the sidecar states the unit the mesh is written in, in an `[import]` table:
+The OBJ sidecar states its source units; no unit is assumed:
 
 ```toml
-# inputs/geometries/wing.boundaries.toml, beside wing.obj
+fs_build = "26.124"
 boundaries = ["Wing"]
-
 [import]
-units = "MILLIMETER"
+units = "METER"
+[trailing_edges.wing]
+file = "wing.te.txt"
+type = "STANDARD"
+tolerance = 0.0001
 ```
 
-`units` is one of the length units `IMPORT` takes on the row's build, read
-from the command database: `INCH`, `MILLIMETER`, `FEET`, `MILE`, `METER`,
-`KILOMETER`, `MILS`, `MICRON`, `CENTIMETER` or `MICROINCH`. `OTHER`, which
-the command also lists, is refused because it names no length. The script
-starts:
-
-```text
-NEW_SIMULATION
-IMPORT
-UNITS MILLIMETER
-FILE_TYPE OBJ
-FILE <the point's staged copy of wing.obj>
-CLEAR
-
-SET_SIMULATION_LENGTH_UNITS METER
-```
-
-Around the length unit come the operations and the trailing-edge marking the
-same sidecar declares (below), and the script goes on exactly as it does after
-opening a `.fsm`. The file's unit goes to `IMPORT` and nowhere else. The simulation's length unit defaults to metres, and after import the setup's `simulation_length_unit` replaces that default; see [simulation geometry controls](../simulation-geometry-controls.md).
-the reference area, chord and span, a `TRANSLATE` distance, the frames the
-package places. The run record keeps the table as `mesh_import`, because the
-geometry's digest alone cannot tell a run in millimetres from the same file
-run in metres.
-
-**`IMPORT` converts the body from the file's unit into the simulation's
-metres, measured on 26.124**: a wing OBJ written in millimetres, its trailing
-edge detected, solved as the same wing written in metres to the print. The file route in millimetres and every
-other build are not measured, so a mesh written in metres (`units = "METER"`)
-is still the one case whose scale depends on nothing.
-
-A unit is never assumed. A raw mesh whose sidecar states no `[import]` table
-is refused when the script is built, before any seat is spent, naming the
-table, the key, the sidecar and the units the build takes. So is a unit
-`IMPORT` does not take, and so is a setup asking to load the solver
-initialization, since a new simulation has no stored state to load. An
-`[import]` table beside a `.fsm` is refused too, since a saved simulation
-carries its own units and nothing would read it.
+The file matching tolerance is in metres. Points files declare their own
+length unit. The saved simulation carries its coordinate scale into the run.
 
 ### Explicit CAD conversion is a separate route
 
-For an IGES file (`.igs` or `.iges`), the sidecar explicitly selects CAD
-conversion. This compact form uses the existing CAD defaults:
-
-```toml
-boundaries = ["Wing"]
-
-[import]
-units = "FILE"
-cad = {}
-
-[trailing_edges]
-detect = "auto"
-```
-
-`cad = {}` selects MEDIUM tessellation, unreferenced patches, 80 curvature
-subdivisions and all CAD bodies. The inventory must match the inspected
-converted mesh. `units = "FILE"` uses the source CAD metadata; it is not a
-raw-mesh unit or a scale correction. STEP remains refused. See
-[CAD geometry inputs](../cad-inputs.md) for the supported IGES route, explicit
-options, unit observations and mesh-quality limitations. OBJ/STL inputs do not
-accept CAD options.
+CAD and CCS inputs belong to [geometry build](../geometry.md). The matrix
+opens the resulting FSM. Geometry build retains its own solver pass and its
+instruction format; the named OBJ declarations here belong to mark-boundaries.
 
 ### A CCS file is another route
 
-A CCS file (the solver's cross-section format) is routed by a third table of
-the same `[import]`, `[import.ccs]`, which chooses what the solver builds from
-it. The table's keys, what each kind of geometry reads and what is refused are
-on [CCS geometry](../ccs-geometry.md); this page holds only its place in the
-sidecar.
-
-```toml
-boundaries = ["WING"]
-
-[import]
-units = "FILE"
-
-[import.ccs]
-kind = "file"
-```
+Use the [CCS geometry](../ccs-geometry.md) build stage, then run its saved FSM.
 
 ### The mesh operations of an import
 
-A raw mesh is often not yet the body: a CAD export at another scale, half a
-model, surfaces named by the tool that wrote them. The operations that make it
-the body are declared with the geometry, in its sidecar, one
-`[[import.operations]]` table each, so every row that names the file shares
-them:
-
-```toml
-boundaries = ["naca", "tail"]
-
-[import]
-units = "MILLIMETER"
-
-[[import.operations]]
-op = "scale"
-factors = [2.0, 2.0, 2.0]
-
-[[import.operations]]
-op = "rename"
-surface = "naca"
-to = "Wing"
-
-[[import.operations]]
-op = "mirror"
-surface = "Wing"
-plane = "XZ"
-
-[[import.operations]]
-op = "translate"
-surface = "tail"
-vector = [500.0, 0.0, 0.0]
-
-[[import.operations]]
-op = "rotate"
-axis = "Y"
-angle_deg = 2.0
-```
-
-| `op` | it states | it emits | every surface |
-|---|---|---|---|
-| `scale` | `factors = [fx, fy, fz]`, each above zero | `SURFACE_SCALE` | `-1` |
-| `rename` | `surface` and `to`, a name without spaces | `SURFACE_RENAME` | none: it names one surface |
-| `mirror` | `surface` and `plane`: `YZ`, `XZ` or `XY` | `SURFACE_MIRROR` | none: it names one surface |
-| `translate` | `vector = [x, y, z]`, in the `[import]` unit | `TRANSLATE_SURFACE_IN_FRAME` | `0` |
-| `rotate` | `axis` (`X`, `Y` or `Z`) and `angle_deg` | the build's rotation command | `-1` |
-
-Each acts in the reference frame, the one frame that exists before the setup
-creates any. `surface` names the surface acted on by the name the file gives
-it, or by the name an earlier rename gave it, exactly as written and never by
-position; it is `"all"`, every surface, when left out, and the last column is
-the value each command takes for that. A named surface's translation splits
-its vertices from its neighbours, as a row's own translation does; every
-surface together is moved without the split. The rotation is `SURFACE_ROTATE`
-up to 26.121 and `ROTATE_SURFACE` from 26.122, as for a row's `ROTATE`.
-
-**They are applied in the order written, right after the import.** The script
-reads:
-
-```text
-NEW_SIMULATION
-IMPORT ...
-SURFACE_SCALE 1 2.0 2.0 2.0 -1
-SURFACE_RENAME 1 Wing
-SURFACE_MIRROR 1 1 2 TRUE FALSE
-SET_SIMULATION_LENGTH_UNITS METER
-TRANSLATE_SURFACE_IN_FRAME 1 500.0 0.0 0.0 MILLIMETER 2 ENABLE
-<the rotation>
-```
-
-Scale, rename and mirror are geometry commands and come before the
-simulation's length unit; translate and rotate are setup commands and come
-after it. A script's phases only move forward, so an order the phases cannot
-emit, a scale written after a translation, is refused naming both operations
-by position and kind, and is never reordered: write every scale, rename and
-mirror before the first translate or rotate, and restate a translation in the
-scaled size if the scale was meant to act on it.
-
-**A mirror joins its source.** It is emitted with the combine flag on and the
-delete-source flag off, so the mirrored copy is combined with the surface it
-came from and the source is kept, and the inventory the run declares is the
-one it had. The command's other three outcomes, which add or replace a
-surface, are not offered: the name and position the solver gives that surface
-are unmeasured.
-
-**A rename feeds the inventory.** Operations before it cite the file's name,
-and operations after it and every row cite the new one: the names the run
-declares are the sidecar's `boundaries` as the renames leave them. A name
-absent at its step is refused listing the names at that step, and so are a
-name two surfaces carry and a rename onto a name another surface carries, each
-before anything is emitted. A file whose surfaces share a name cannot cite
-them apart; give them distinct names in the mesh file.
-
-**These are the file's, and a row's `TRANSLATE` and `ROTATE` stay the row's.**
-The sidecar's operations make the file into the body, once, for every row that
-names it, before any frame exists. A row's `TRANSLATE` and `ROTATE` are the
-study's own moves of a part, emitted after the frames, and they act on the
-body the operations left. The run record keeps the operations in
-`mesh_import`, beside the unit.
+Import operations belong to preparation. Move geometry construction to a
+geometry instruction. Row `TRANSLATE` and `ROTATE` still act on the saved body
+after the run's frames have been defined.
 
 ### The boundary conditions of a raw mesh
 
-**A RAW MESH DECLARES ITS TRAILING EDGE.** A raw mesh carries no trailing
-edge, and without one the solver makes no wake and still runs and answers. So
-the sidecar declares how the trailing edge is marked, in a `[trailing_edges]`
-table, and a raw mesh whose sidecar has none is refused when the script is
-built, before any seat is spent. The table takes one of two marking routes,
-or an explicit declaration that this geometry has no trailing edges.
-
-**The file route, the default.** `file` names a points file beside the
-sidecar ([its format below](#the-points-file)):
+Use the named declarations above with `geometry mark-boundaries`. Each
+trailing-edge entry has its own label and type. The marking pass checks the
+saved result before publishing it; runs perform no per-point wake-edge
+import-count verdict. An intentional absence of trailing edges is written:
 
 ```toml
-# inputs/geometries/wing.boundaries.toml, beside wing.stl
-boundaries = ["Wing"]
-
-[import]
-units = "METER"
-
-[trailing_edges]
-file = "wing.te.txt"   # the points file, beside the sidecar
-type = "STANDARD"      # required with file: STANDARD, RELAXED, JET_OUTFLOW or VORTEX_SHEDDING
-tolerance = 0.0001     # optional: in the simulation's metres
-```
-
-The points are checked against the mesh when the row is bound, converted to
-metres, the simulation's unit, and marked right after the import and its
-operations:
-
-```text
-IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER
-<the folder the point runs in>/wing.wake_nodes.txt
-```
-
-The points name edges of the mesh as the FILE holds it, so the route is
-refused beside an `[[import.operations]]` that scales, mirrors, translates or
-rotates the body; a rename is accepted. `type` has no default and a
-table with `file` and no `type` is refused: STANDARD is the type the solver's
-detection gives the edges it marks, so one mesh marked by file and by detection
-carries one type when you write it.
-
-Several disjoint sets may carry different types in the raw-mesh run route:
-
-```toml
-[trailing_edges]
-files = [
-  { file = "outer.te.txt", type = "STANDARD" },
-  { file = "junction.te.txt", type = "RELAXED" },
-]
-tolerance = 0.0001  # metres, shared by every file
-```
-
-Imports follow this order, with node files `<stem>.wake_nodes.txt`,
-`<stem>.wake_nodes.2.txt`, and so on. `file` and `files` together, an empty
-list, repeated paths, unsupported types, or two files claiming the same mesh
-edge are refused by name. The one-file spelling and its script stay unchanged.
-
-Plans state that successive imports adding or replacing earlier marks is
-unmeasured on the build (PFS-2149.01). The run checks each logged import count
-and the union of marked midpoints in its saved simulation, in metres. Missing
-edges produce `FAILED_SCRIPT` naming their files. A missing or unreadable save
-produces `FAILED_INCOMPLETE_OUTPUT`. Records carry `wake_edge_sets` with each
-file, type and count. Saved-state flags cannot verify types; their read-back
-remains PFS-2149.01. Geometry build refuses multiple sets because it does not
-perform the run's saved-state check.
-
-The setup's `trailing_edge_types` also accepts `RELAXED` for an explicitly
-numbered trailing edge, subject to the selected build's command record.
-
-**Detection, the second route, applies only when written.** It is never a
-default:
-
-```toml
-[trailing_edges]
-detect = { surfaces = ["Wing"], sweep_angle = 60 }   # or detect = "auto", every surface
-```
-
-`detect = "auto"` emits `AUTO_DETECT_TRAILING_EDGES`. A table of `surfaces`
-emits `DETECT_TRAILING_EDGES_BY_SURFACE` on them, cited by the sidecar's names
-as the renames left them, exactly and never by position (`surfaces = "all"`
-is every surface), and `sweep_angle`, in degrees, emits
-`SET_TRAILING_EDGE_SWEEP_ANGLE` before it. Detection marks an edge where the
-surface creases, so the angle decides what a twisted blade gets (measured
-below). It gives every edge the STANDARD type and matches no points, so `type`
-and `tolerance` beside `detect` are refused. Without `none = true`, a table
-stating both `file` and `detect`, or neither, is refused, and so is a key it
-does not read.
-
-**A geometry without trailing edges states that explicitly.** For a body
-that should not shed a trailing-edge wake, the declaration is:
-
-```toml
+fs_build = "26.124"
 [trailing_edges]
 none = true
 ```
 
-`none = true` must be the only key in this table. It records an intentional
-absence of trailing edges; it is not automatic detection and does not make
-omission of the table equivalent to this declaration. A `<stem>.te.txt` left
-beside the mesh is then not read.
-
-**Explicit termination nodes (probe gated).** A points file uses the same
-unit-first coordinate format as a trailing-edge file:
-
-```toml
-[wake_termination]
-file = "tips.wt.txt"
-tolerance = 0.0001  # metres
-```
-
-Each point must match exactly one source-mesh vertex within the tolerance.
-An absent or ambiguous match names the point and file. `file` and `detect`
-cannot be combined, and moving import operations are refused. The script
-selects the matched nodes after import and then marks them. This route is
-refused at plan until `MARK_WAKE_TERMINATION_NODES` has verified evidence
-on the selected build (PFS-2149.01). The old bare setup key
-`mark_wake_termination_nodes = true` is refused because it selects no nodes.
-
-**Two detection options, each only when written.**
-
-```toml
-[wake_termination]
-detect = { surfaces = ["Wing"] }   # or detect = "auto", every surface
-
-[base_regions]
-detect = "auto"
-```
-
-`[wake_termination]` emits `AUTO_DETECT_WAKE_TERMINATION_NODES`, or one
-`DETECT_WAKE_TERMINATION_NODES_BY_SURFACE` per surface named. On the
-detection route it follows the detected edges, before the solver is
-initialized.
-
-**On the file route the wake termination waits for the solver.** Right after
-the edges are imported from a file, the detection finds no termination node,
-and the solver uses a node it marks only when it initializes. So the script
-initializes the solver, detects, and initializes it again with the same
-settings; the second initialization replaces the first, and the solver then
-runs once, with the node:
-
-```text
-INITIALIZE_SOLVER
-SOLVER_MODEL INCOMPRESSIBLE
-SURFACES -1
-WAKE_TERMINATION_X DEFAULT
-SYMMETRY NONE
-
-AUTO_DETECT_WAKE_TERMINATION_NODES
-INITIALIZE_SOLVER
-SOLVER_MODEL INCOMPRESSIBLE
-SURFACES -1
-WAKE_TERMINATION_X DEFAULT
-SYMMETRY NONE
-
-...
-START_SOLVER
-```
-
-Without that order a twisted blade lost the termination node at its root and
-solved 1.8 % low in induced drag; with it, the file route equals the detection
-route and the saved simulation. Every run type takes this order, a steady row
-of several points included, since its points all begin after the second
-initialization. A file route without `[wake_termination]` initializes once, as
-before.
-
-`[base_regions]` emits `AUTO_DETECT_BASE_REGIONS`. It is refused beside a
-row's `BASE_REGIONS` or a pproc's `base_regions`, which would mark the base a
-second time.
-
-**A saved simulation declares none of the three.** A `.fsm` carries the
-trailing edges, wake-termination nodes and base regions it was saved with, so
-a sidecar beside one stating any of these tables is refused: a second marking
-pass would mark them twice. A row marks base regions on a saved simulation
-with its `BASE_REGIONS` key.
+Explicit termination points are named by `wake_termination_nodes = "tips.wt.txt"`
+inside the trailing-edge entry. Use `"auto"` only where the build's recorded
+evidence permits the automatic command. Preview does not establish support.
 
 ### The points file
 
@@ -502,45 +132,17 @@ are refused as well, since the solver would mark that edge once. A file of the
 edges' end vertices fails this check at its first point. The checked points
 come back in metres.
 
-**The run writes the solver's node file and holds the solver to it.** The run
-writes the node file in the folder the point runs in,
-`sims/sim_<id>/datapoints/DP-<point>/`, or the simulation folder for a steady
-row of several points, which runs as one job, before the solver starts, and
-records its digest among the run's inputs. Nothing is written into
-`inputs/geometries/`: every simulation on one mesh reads that folder, so two
-runs on the mesh never share a node file, and a points file named
-`<stem>.wake_nodes.txt` is left as written. A point that matches no
-edge marks nothing and the solver says nothing about it, so after the run the
-package compares the number of edges the solver logs as imported with the
-points it wrote, and records the point `FAILED_SCRIPT` when they differ. That
-number is read from the solver log, so the log has to be among the row's
-outputs: a file-route row declares one, a name ending in `_log.txt`, which a
-run type's default outputs carry, and a row that declares none is refused when
-its script is built, and a row that states `EXPORT_LOG: false`, which leaves
-the script exporting no log, is refused at plan. A machine whose HPC profile
-turns the export off itself (`export_log = false` beside a `native_log`) runs
-the row: `collect` copies the log its scheduler writes to the declared name,
-and the count is read from it there. Run there with `--local`, where no
-scheduler writes a log, the count is read from what the solver printed, and a
-point whose solver printed nothing is recorded `FAILED_INCOMPLETE_OUTPUT`
-naming the machine. A recipe of your own that imports a file
-and exports no log is recorded `FAILED_INCOMPLETE_OUTPUT`. The count is read
-from the collected log the assessor names; an assessor of your own that names
-none, locally or at `collect`, has it read from the one collected output that
-parses as a residual history, the log the package's own assessor would find.
+The marking pass writes any solver node files in its work folder and checks
+the saved result before publication. Matrix runs open that result and do not
+write marking files or apply per-run trailing-edge count verdicts.
 
 ### Which build runs what, and what is measured
 
-| What | Where it stands |
-|---|---|
-| The file route: the import line, the node file, a file of mid-points | Runs on FlightStream 26.124, the one build it was run on. 26.122 and 26.123 document a form 26.124 refuses, and are refused naming the report; a build that does not carry the command is refused too. |
-| What the file marks | Exactly the edges it names, since initialisation adds none. |
-| What detection marks | An edge where the surface creases, so the angle decides: on 26.124 a blade detected with the default angle marked 12 edges, and with 10 degrees 3 of them. |
-| `[base_regions]` | On 26.124 it marked the flat base of a body, the same faces the by-surface form marks when given the base boundary. |
-| `[wake_termination]` | On 26.124 the automatic form marked the root end of a twisted blade, on the detection route and on the file route between two initializations; right after a file import neither form marked anything. On the steady point measured, that order made the file route equal the other routes; an unsteady run takes the same order and is not measured. On the geometry tried before, neither command changed the saved state. |
-| The mesh operations | Not measured after an import: the grammar is the manual's, and the vertex split is carried over from the row's translation, where it was measured. |
-| `IMPORT`'s unit | Converts on 26.124: a wing OBJ in millimetres, trailing edge detected, equalled the one in metres to the print (above). The file route in millimetres and other builds are not measured; on the file route, a body that does not come out in metres leaves the node file's points off its edges, and the count check records the point `FAILED_SCRIPT`. |
-| The surface names | An OBJ's are read from its groups in file order, the order `IMPORT` numbers them in; an STL's, which names no group, are trusted, not verified. |
+Marking checks the command evidence on the sidecar's declared `fs_build`
+before applying. Unverified commands are refused by name. The saved-state
+checks cover surfaces, trailing edges, termination counts and base regions;
+see [marking and publication](../geometry.md#mark-boundaries-once-into-a-saved-simulation).
+The matrix does not repeat marking or certify a GUI-authored FSM.
 
 ### What that content hash is, and what it leaves out
 
@@ -1194,9 +796,8 @@ refused until their saved-state persistence is measured.
 
 The output `.fsm.boundaries.toml` contains only inventory fields and
 `marked_by`; it carries no import or marking declarations. The original
-`.obj.boundaries.toml` remains the authoring source. The legacy run reader
-continues accepting unnamed declarations for compatibility in this lane;
-the new verb refuses those forms with their named-table translation.
+`.obj.boundaries.toml` remains the authoring source. The matrix refuses declaration tables;
+the marking verb refuses unnamed forms with their named-table translation.
 
 ## What this policy is not
 
@@ -1204,3 +805,37 @@ It is not a promise to wrap the GUI. Steps stay GUI-only until the
 solver's scripting interface documents a command for them; when that
 happens, the command enters the database with its citation and the
 step graduates from this page to the reference.
+
+## Matrix geometry in 0.46.0
+
+`GEOMETRY` accepts only a saved simulation (`.fsm`). No flag enables an OBJ
+matrix row. Prepare and mark the OBJ once, inspect the saved geometry, and
+name the FSM in the matrix:
+
+```text
+pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj --apply
+pyfs-matrix plan
+```
+
+Marking requires a licensed solver; planning does not run one. Geometry build
+keeps its own solver pass. Matrix runs open the saved simulation and never
+import a raw mesh or mark its trailing edges or wake-termination nodes.
+The row's `BASE_REGIONS` selection on an opened simulation remains supported.
+
+For `wing.fsm`, planning reads the first existing file in this order:
+
+1. `wing.fsm.boundaries.toml`
+2. `wing.boundaries.toml`
+3. `wing.obj.boundaries.toml`
+
+The plan names the file read. Any `import`, `trailing_edges`,
+`wake_termination` or `base_regions` declaration table in that file is
+refused with the marking command. When none exists, the inventory read from
+the FSM is written to `wing.fsm.boundaries.toml`.
+
+If `wing.mark.json` exists, planning compares every recorded input digest.
+A changed or missing mesh, declaration sidecar or points file is refused by
+name; repeat marking with `--apply --overwrite`. An FSM with no marking
+record is accepted, including one prepared in the GUI. A row's `FS_BUILD`
+different from the record's `fs_build` produces one campaign warning listing
+all affected rows. It does not prevent planning.

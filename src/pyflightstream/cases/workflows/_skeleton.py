@@ -56,7 +56,6 @@ from ._freestream import (
     wake_end_plane,
 )
 from ._geometry import (
-    _wake_termination_after_initialization,
     accepted_symmetry,
 )
 from ._motion import (
@@ -254,17 +253,9 @@ def _initialize_the_solver(case: SimCase, script: Script) -> None:
     from the step the saved state reached. :func:`_script_init` calls this
     only for a script that does not reopen a saved state.
 
-    The file route's wake termination sits between two initializations (G02,
-    T07): after a file import the detection marks nothing until the solver has
-    initialized, and the solver uses what it marked only once it initializes
-    again. The first is the final one's settings exactly, since the second
-    clears it; nothing else moves.
+    Boundary marking has already been saved by the geometry stage. A fresh
+    run initializes once and performs no intervening marking pass.
     """
-    detection = _wake_termination_after_initialization(case, script)
-    if detection:
-        _initialize(case, script)
-        for command, arguments in detection:
-            script.emit_after_initialization(command, *arguments)
     _initialize(case, script)
 
 

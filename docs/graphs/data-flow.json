@@ -127,7 +127,7 @@
       ],
       "products": "Steady polar coefficients, sections and provenance",
       "example_sha256": {
-        "workspace": "386ad631127675bbf97a6332906e7b3873ec8944807e51d778b2817fceb1bd7e",
+        "workspace": "d4ca5d4c811b6b74cfa4c5602b81165ddac60a60a576f11f663ca6fb3d6147c3",
         "api": "cd387231f0b0ebc3bc3b4281195cdf2a42769895b592442a6bc558b4bffede36"
       }
     },
@@ -146,7 +146,7 @@
       ],
       "products": "Windowed rotor coefficients and configured unsteady reductions",
       "example_sha256": {
-        "workspace": "b76fbe1389d376baaeab02378ebda3ae3e328bd4c54bf34340009dacb3c9abec",
+        "workspace": "d4b54434c877ba6d23a0dcd9f305a8d7133f530d124f74611413512e471818d7",
         "api": "78b2fcddc1d0c18e09e022410e19b4d9f9db3ba797313056263064c2065d9428"
       }
     },
@@ -166,7 +166,7 @@
       ],
       "products": "Comparable polar tables for the original and refined mesh",
       "example_sha256": {
-        "workspace": "42fde9dff9b66165aa75b9b4852784597521bb5c6ba7f1d9936aebb3e933021b",
+        "workspace": "eccbb4b7ee4144a8097abd45faea13bef5d49e38a8203e0f21bde1e8cfb616ca",
         "api": "e574cb3ff658eb9e217f7344077b6e2715543f4e5a994265474897acb6604ae6"
       }
     }

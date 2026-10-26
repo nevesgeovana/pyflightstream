@@ -39,8 +39,6 @@ from pyflightstream.post import farfield_products
 from pyflightstream.probes import ProbeLattice
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError, resolve_pproc
-from pyflightstream.workspace.inputs import read_raw_mesh_conditions
-from pyflightstream.workspace.sidecars import read_mesh_import
 from tests.tier1_offline.test_workflows import FIXTURE_ROTOR as _FARFIELD_PLAN__FIXTURE_ROTOR
 from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case_for
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
@@ -447,29 +445,56 @@ _FARFIELD_PLAN___FACES = [
 ]
 
 
-def _farfield_plan___box(root: Path) -> Path:
-    mesh = root / "box.obj"
-    mesh.write_text(
-        "g W\n"
-        + "".join(f"v {x} {y} {z}\n" for x, y, z in _FARFIELD_PLAN___VERTICES)
-        + "".join("f " + " ".join(map(str, face)) + "\n" for face in _FARFIELD_PLAN___FACES),
-        encoding="utf-8",
-    )
-    (root / "box.boundaries.toml").write_text(
-        '[import]\nunits = "METER"\n[trailing_edges]\ndetect = "auto"\n', encoding="utf-8"
-    )
-    return mesh
+def _farfield_plan___box(root: Path, names=("W",)) -> Path:
+    """Saved box with explicit mesh vertices, faces and boundary owners."""
+    import trimesh
+
+    vertices = _FARFIELD_PLAN___VERTICES
+    triangles = [(f[0], f[1], f[2]) for f in _FARFIELD_PLAN___FACES]
+    triangles += [(f[0], f[2], f[3]) for f in _FARFIELD_PLAN___FACES]
+    owners = [1] * len(triangles)
+    if len(names) == 2:
+        triangles += [(1, 2, 3)]
+        owners += [2]
+    count = len(triangles)
+
+    def row(values):
+        return ",".join(str(value) for value in values) + ","
+
+    lines = [
+        "26,1",
+        "8172026",
+        "$GLOBAL_START$",
+        "1",
+        "5",
+        "$GLOBAL_END$",
+        "$MESH_START$",
+        "header one",
+        "header two",
+        str(len(names)),
+    ]
+    for index, name in enumerate(names, 1):
+        lines += [f"{index}, T, F, F", name, ".5,.5,.5"]
+    lines += [str(count), row(range(1, count + 1)), row([3] * count)]
+    lines += [row(t[slot] for t in triangles) for slot in range(3)]
+    lines += [row(owners if index == 6 else [0] * count) for index in range(15)]
+    lines += [row([" F"] * count)] * 5
+    lines += ["0", str(len(vertices))]
+    lines += [row(v[axis] for v in vertices) for axis in range(3)]
+    path = root / "box.fsm"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    trimesh.Trimesh(
+        vertices=vertices, faces=[[v - 1 for v in t] for t in triangles], process=False
+    ).export(root / "box.surface.stl")
+    return path
 
 
 def _farfield_plan___case(root: Path, farfield: list[dict] | dict | None, **pproc: object):
     mesh = _farfield_plan___box(root)
-    sidecar = root / "box.boundaries.toml"
     spec = PprocSpec.model_validate({"groups": {"1": "all"}, "farfields": farfield or [], **pproc})
     case = _farfield_plan__steady_case(geometry=str(mesh)).model_copy(
         update={
             "inventory": ("W",),
-            "mesh_import": read_mesh_import(sidecar),
-            "raw_mesh_conditions": read_raw_mesh_conditions(sidecar),
             "reference": ReferenceData(
                 area=4.0, length=1.0, span_m=4.0, moment_point_m=(0.25, 0.0, 0.0)
             ),
@@ -519,8 +544,7 @@ def test_p0450_d3_sections_refuse_rotor_families(tmp_path, selection):
 
 def test_p0450_d3_sections_plan_nonrotor_wing(tmp_path):
     case = _p0450_rotor_case(tmp_path, [{"variant": "sections", "families": ["W"]}])
-    mesh = tmp_path / "box.obj"
-    mesh.write_text(mesh.read_text() + "g B\nf 1 2 3\n", encoding="utf-8")
+    _farfield_plan___box(tmp_path, ("W", "B"))
     rotor = case.rotors["ROTOR"].model_copy(update={"families_blades": ["B"]})
     case = case.model_copy(update={"rotors": {"ROTOR": rotor}, "inventory": ("W", "B")})
     script = _farfield_plan___script(case)

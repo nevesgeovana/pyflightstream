@@ -1,5 +1,18 @@
 # Upgrading
 
+## 0.46.0: mark once, run the FSM
+
+Replace OBJ `GEOMETRY` cells with the FSM produced by
+`pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`. Move old unnamed
+marking tables to the [named declaration format](mesh/reference.md). Keep the
+OBJ declarations in `<mesh>.obj.boundaries.toml` and the clean saved inventory
+in `<mesh>.fsm.boundaries.toml`. Planning refuses declarations in its selected
+FSM sidecar and stale marking inputs; repeat marking with `--overwrite` after
+changing an input. GUI-authored FSM files need no marking record. Build
+mismatches warn once per campaign. Per-run raw imports, marking and wake-edge
+import verdicts have been removed. Geometry build and the row `BASE_REGIONS`
+selection on a saved simulation remain available.
+
 ## Which version are you on
 
 Read the section for each release after the version used by the workspace, in
@@ -760,3 +773,10 @@ behaviour was the defect this release fixes.
 `REmi` and let the Reynolds number be derived: `MACH:0.1441` alone
 resolves at the standard density for its altitude. Keep `REmi` when you
 meant it as a constraint.
+
+
+FSI rows retain raw OBJ imports because coupling requires the mesh at each import.
+They read `<mesh>.obj.boundaries.toml` with the same strict named declarations as
+`mark-boundaries` and use its D3 emitter and VERIFIED command gate at each import.
+Every other matrix row requires an `.fsm`; prepare it once with
+`pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`.

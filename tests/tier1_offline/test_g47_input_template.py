@@ -65,7 +65,6 @@ from pyflightstream.workspace.inputs import (
     read_hpc_profile,
     read_inventory,
     read_mesh_import,
-    read_raw_mesh_conditions,
     resolve_build,
     resolve_geometry,
     resolve_hpc_profile,
@@ -293,17 +292,20 @@ def _read_every_example(workspace: CampaignWorkspace, blocks) -> dict[str, str]:
     for sidecar in sorted(inputs.glob(f"geometries/**/*{INVENTORY_SUFFIX}")):
         assert read_inventory(sidecar)
         read_mesh_import(sidecar)
-        conditions = read_raw_mesh_conditions(sidecar)
-        claim(sidecar, "read_inventory, read_mesh_import and read_raw_mesh_conditions")
-        marking = None if conditions is None else conditions.trailing_edges
-        if marking is not None and marking.points_file is not None:
-            points_file = Path(marking.points_file)
-            assert read_trailing_edge_points(points_file).points.size
-            claim(points_file, "read_trailing_edge_points")
-        stem = sidecar.name.removesuffix(INVENTORY_SUFFIX)
+        from pyflightstream.workspace.sidecars import read_boundary_declarations
+
+        declarations = read_boundary_declarations(sidecar)
+        claim(sidecar, "read_inventory, read_mesh_import and read_boundary_declarations")
+        for entry in declarations.trailing_edges:
+            if entry.marking.points_file is not None:
+                points_file = Path(entry.marking.points_file)
+                assert read_trailing_edge_points(points_file).points.size
+                claim(points_file, "read_trailing_edge_points")
         geometry = tomllib.loads(sidecar.read_text(encoding="utf-8"))["file"]
-        # The resolver finds the geometry, never a sidecar or a record beside it.
-        assert resolve_geometry(inputs, geometry).name == geometry, stem
+        if geometry.endswith(".fsm"):
+            assert resolve_geometry(inputs, geometry).name == geometry
+        else:
+            assert resolve_geometry(inputs, geometry).name == geometry
     for record in sorted(inputs.glob(f"geometries/**/*{PROVENANCE_SUFFIX}")):
         # The package reads no key of a provenance record; it keeps it beside
         # its geometry and out of what a GEOMETRY cell could name. It must
@@ -589,7 +591,12 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
         "`[[import.operations]]`": [
             e for f in data for e in f.get("import", {}).get("operations", [])
         ],
-        "`[trailing_edges]`": [f.get("trailing_edges", {}) for f in data],
+        "`[trailing_edges]`": [
+            entry
+            for f in data
+            for entry in f.get("trailing_edges", {}).values()
+            if isinstance(entry, dict)
+        ],
         "`detect = { ... }` of `[trailing_edges]`": [
             f["trailing_edges"]["detect"]
             for f in data
@@ -695,8 +702,8 @@ BREAKS: dict[str, tuple[str, str]] = {
     "inputs/references/r001.toml": ("\narea_m2 =", "\narea_m3 ="),
     f"inputs/{REFERENCE_POINTS_FILE}": ("\nx_m =", "\nx_mm ="),
     "inputs/geometries/aircraft/aircraft.boundaries.toml": ("\nboundaries =", "\nboundary ="),
-    "inputs/geometries/wing_raw/wing_raw.boundaries.toml": ("\ntolerance =", "\ntolerence ="),
-    "inputs/geometries/duct/duct.boundaries.toml": ('feed = "Inlet"', "feed = 42"),
+    "inputs/geometries/wing_raw/wing_raw.obj.boundaries.toml": ("\ntolerance =", "\ntolerence ="),
+    "inputs/geometries/duct/duct.fsm.boundaries.toml": ("boundaries =", "boundary ="),
     "inputs/geometries/wing_cad/wing_cad.boundaries.toml": (
         "\nnum_curvature =",
         "\nnum_curvatre =",

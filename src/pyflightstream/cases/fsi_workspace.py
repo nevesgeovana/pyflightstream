@@ -1416,3 +1416,13 @@ def wire_fixed_wing_fsi(
         steady=workflow == "steady",
     )
     return [dict(translation) for translation in post.surface_translations]
+
+
+def _import_fsi_geometry(case: SimCase, script: Script) -> None:
+    """Import and mark each FSI iteration through the workspace-bound B1 emitter."""
+    if case._fsi_geometry_emitter is None:
+        raise CampaignConfigError(
+            "FSI raw geometry requires workspace binding of its named boundary declarations"
+        )
+    assert case.geometry is not None
+    case._fsi_geometry_emitter(str(case.geometry), script)

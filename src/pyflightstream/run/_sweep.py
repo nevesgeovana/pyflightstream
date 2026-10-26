@@ -79,7 +79,6 @@ from pyflightstream.run._pending import (
 )
 from pyflightstream.run._points import (
     _NO_JOB_LOG_NOTE,
-    _no_local_log_verdict,
     _PointProgress,
     _reference_block,
     _sections_layout,
@@ -92,8 +91,7 @@ from pyflightstream.run._step_exports import untranslated_surfaces
 from pyflightstream.run._wake_edge_verdict import (
     actuator_profile_verdict,
     collected_log_texts,
-    wake_edge_import_verdict,
-    with_wake_edge_verdict,
+    with_log_verdict,
 )
 from pyflightstream.script import Script
 from pyflightstream.workspace import (
@@ -276,9 +274,7 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
         "pproc": job.case.pproc_id,
         "velocity_requested_m_s": job.case.velocity,
         "inventory_source": job.case.inventory_source,
-        "mesh_import": None
-        if job.case.mesh_import is None
-        else job.case.mesh_import.model_dump(mode="json", exclude_none=True),
+        "mesh_import": None,
         "motions": [dict(record) for record in job.case.motions],
         "point_name_template": job.workspace.naming.point_name,
         "description": job.case.description or None,
@@ -364,8 +360,6 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
 
 def _write_sweep_script(job: _SweepJob) -> RunRecord | None:
     """Write sweep script."""
-    if len(job.script.wake_edge_sets) > 1:
-        job.base["wake_edge_sets"] = job.script.wake_edge_sets
     job.base["probe_field_layout"] = list(job.script.probe_field_layout) or None
     # FR-1047 (PFS-2081.58): each point's far-field plane turns with its
     # attitude, so the layouts are keyed by point name, as the rotor Mach numbers are.
@@ -547,21 +541,6 @@ def _run_sweep_solver(job: _SweepJob) -> RunRecord | None:
                 "points_by_tag": {
                     point_name(job.case, point): dict(point) for point, _, _ in job.point_cases
                 },
-                # G02: the points the job's one script imports. The job writes
-                # one log with one import line, so every point is held to this
-                # number and it is never multiplied by the points.
-                **(
-                    {
-                        "wake_edge_points": job.script.wake_edge_points,
-                        **(
-                            {"wake_edge_sets": job.script.wake_edge_sets}
-                            if len(job.script.wake_edge_sets) > 1
-                            else {}
-                        ),
-                    }
-                    if job.script.wake_edge_points is not None
-                    else {}
-                ),
                 # G06: every file the job was told to write a point's log to,
                 # whatever its name; the collector reads the four lines in each.
                 "declared_logs": list(
@@ -692,24 +671,12 @@ def _assess_sweep_points(job: _SweepJob) -> RunRecord | None:
         log_text = _run_log_text(job.sim_dir, collected, assessment.log_file_used, job.result) or (
             job.printed or None
         )
-        status, error = with_wake_edge_verdict(
-            assessment.status,
-            assessment.error,
-            _no_local_log_verdict(job.script.wake_edge_points, log_text, _NO_JOB_LOG_NOTE)
-            if job.cannot_log
-            else wake_edge_import_verdict(
-                job.script.wake_edge_points, log_text, job.script.wake_edge_sets
-            ),
-            sets=job.script.wake_edge_sets,
-            folder=job.sim_dir,
-            collected=collected,
-            build=str(job.script.version),
-        )
+        status, error = assessment.status, assessment.error
         # G06. A point whose log says the solver could not use its actuator
         # disc's profile file ran on with a loading that is not the file's. Every
         # collected log is read for it, a log that is no residual history too,
         # and a log is every file the script or LOG_OUTPUT names as one.
-        status, error = with_wake_edge_verdict(
+        status, error = with_log_verdict(
             status,
             error,
             actuator_profile_verdict(

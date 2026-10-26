@@ -93,3 +93,45 @@ Use the [how-to](mesh/how-to.md), [sidecar reference](mesh/reference.md) or [com
 <a id="what-this-policy-is-not"></a>
 
 [What this policy is not](mesh/reference.md#what-this-policy-is-not).
+
+## Matrix geometry in 0.46.0
+
+`GEOMETRY` accepts only a saved simulation (`.fsm`). No flag enables an OBJ
+matrix row. Prepare and mark the OBJ once, inspect the saved geometry, and
+name the FSM in the matrix:
+
+```text
+pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj --apply
+pyfs-matrix plan
+```
+
+Marking requires a licensed solver; planning does not run one. Geometry build
+keeps its own solver pass. Matrix runs open the saved simulation and never
+import a raw mesh or mark its trailing edges or wake-termination nodes.
+The row's `BASE_REGIONS` selection on an opened simulation remains supported.
+
+For `wing.fsm`, planning reads the first existing file in this order:
+
+1. `wing.fsm.boundaries.toml`
+2. `wing.boundaries.toml`
+3. `wing.obj.boundaries.toml`
+
+The plan names the file read. Any `import`, `trailing_edges`,
+`wake_termination` or `base_regions` declaration table in that file is
+refused with the marking command. When none exists, the inventory read from
+the FSM is written to `wing.fsm.boundaries.toml`.
+
+If `wing.mark.json` exists, planning compares every recorded input digest.
+A changed or missing mesh, declaration sidecar or points file is refused by
+name; repeat marking with `--apply --overwrite`. An FSM with no marking
+record is accepted, including one prepared in the GUI. A row's `FS_BUILD`
+different from the record's `fs_build` produces one campaign warning listing
+all affected rows. It does not prevent planning.
+
+
+
+FSI rows retain raw OBJ imports because coupling requires the mesh at each import.
+They read `<mesh>.obj.boundaries.toml` with the same strict named declarations as
+`mark-boundaries` and use its D3 emitter and VERIFIED command gate at each import.
+Every other matrix row requires an `.fsm`; prepare it once with
+`pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`.

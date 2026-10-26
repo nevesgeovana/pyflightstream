@@ -236,14 +236,8 @@ def _inventory_source(case: SimCase) -> str:
     """Say where this case's boundary inventory was read from, for a message."""
     file_name = PurePath(str(case.geometry)).name
     if case.inventory is not None:
-        sidecar = f"the sidecar {PurePath(str(case.geometry)).stem}.boundaries.toml"
-        # A RAW MESH'S NAMES ARE THE SIDECAR'S AS ITS RENAMES LEFT THEM (G03), so
-        # a refusal listing them says so, or the list reads as a misquote.
-        renames = case.mesh_import is not None and any(
-            operation.op == "rename" for operation in case.mesh_import.operations
-        )
-        after = " (after the renames of its [[import.operations]])" if renames else ""
-        return f"{sidecar} beside {file_name}{after}"
+        sidecar = case.boundaries_file or f"{PurePath(str(case.geometry)).stem}.fsm.boundaries.toml"
+        return f"the sidecar {sidecar} beside {file_name}"
     return f"the mesh block of {file_name}"
 
 

@@ -61,21 +61,6 @@ PROBE_GATED_COMMANDS: Mapping[str, str] = MappingProxyType(
 )
 
 
-def refuse_unprobed_wake_termination(case: SimCase, script: Script) -> None:
-    """Check the selected explicit termination route before geometry emission."""
-    from pyflightstream.cases.mesh import WakeTerminationMarking
-
-    conditions = case.raw_mesh_conditions
-    if (
-        conditions is not None
-        and case.solver.apply_wake_termination is not False
-        and isinstance(conditions.wake_termination, WakeTerminationMarking)
-    ):
-        refuse_unprobed_commands(
-            case, script, ["MARK_WAKE_TERMINATION_NODES"], capability="[wake_termination] file"
-        )
-
-
 def command_verified(script: Script, command: str) -> bool:
     """Say whether a probe recorded ``command`` verified on the script's build.
 

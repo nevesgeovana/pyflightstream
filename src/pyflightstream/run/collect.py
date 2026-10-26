@@ -1356,8 +1356,7 @@ def _log_verdicts(
         actuator_profile_verdict,
         collected_log_texts,
         collected_solver_log,
-        wake_edge_import_verdict,
-        with_wake_edge_verdict,
+        with_log_verdict,
     )
 
     log_text = collected_solver_log(sim_dir, collected, log_file_used)
@@ -1365,18 +1364,6 @@ def _log_verdicts(
     # a machine that exports none (_job_log_name).
     if log_text is None:
         log_text = job_log
-    expected = (record.submission or {}).get("wake_edge_points")
-    sets = (record.submission or {}).get("wake_edge_sets", [])
-    if isinstance(expected, int):
-        status, verdict = with_wake_edge_verdict(
-            status,
-            verdict,
-            wake_edge_import_verdict(expected, log_text, sets),
-            sets=sets,
-            folder=sim_dir,
-            collected=collected,
-            build=record.fs_version_requested,
-        )
     declared = declared_log_names(record, sim_dir)
     # The solver's own log, where the job ran, whether or not a row declared it:
     # it carries the four lines on a job that collected nothing else as a log.
@@ -1395,7 +1382,7 @@ def _log_verdicts(
         for folder in dict.fromkeys(ran_in or [sim_dir])
         if (folder / SOLVER_OWN_LOG).is_file()
     ]
-    return with_wake_edge_verdict(
+    return with_log_verdict(
         status,
         verdict,
         actuator_profile_verdict(

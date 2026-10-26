@@ -22,11 +22,9 @@ import pytest
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import (
     MeshImport,
-    RawMeshConditions,
     ReferenceData,
     SimCase,
     SolverSettings,
-    TrailingEdgeMarking,
 )
 from pyflightstream.cases.workflows import (
     RESTART_FROM_VARIABLE,
@@ -41,6 +39,7 @@ from pyflightstream.cases.workflows import (
     build_script,
 )
 from pyflightstream.script import Script
+from tests.support_helpers import saved_mesh_fixture
 from tests.tier1_offline.test_restart_continuation import SAVED, _continuing_case
 from tests.tier1_offline.test_rpt134_fr96_continuation_history import (
     PER_REV,
@@ -91,13 +90,10 @@ def _with_geometry(case: SimCase, tmp_path: Path, **solver: object) -> SimCase:
     """``case`` with a raw mesh of two families and the setup ``solver`` states."""
     return case.model_copy(
         update={
-            "geometry": str(tmp_path / "rotor.obj"),
+            "geometry": str(saved_mesh_fixture(tmp_path / "rotor.fsm", ("Blade", "Hub"))),
             "inventory": ("Blade", "Hub"),
             "inventory_source": "sidecar",
             "mesh_import": MeshImport(units="METER"),
-            "raw_mesh_conditions": RawMeshConditions(
-                trailing_edges=TrailingEdgeMarking(route="detect")
-            ),
             "reference": ReferenceData(area=1.0, length=0.1, span_m=1.0),
             "solver": SolverSettings(**solver),
         }

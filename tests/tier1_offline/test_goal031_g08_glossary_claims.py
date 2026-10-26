@@ -52,11 +52,9 @@ from pyflightstream.cases import (
     MeshImport,
     PprocSpec,
     RawCommand,
-    RawMeshConditions,
     ReferenceData,
     SimCase,
     SolverSettings,
-    TrailingEdgeMarking,
     case_at_point,
 )
 from pyflightstream.cases.acoustics import with_acoustic_signals
@@ -77,10 +75,11 @@ from pyflightstream.post.guides import input_glossary_markdown
 from pyflightstream.run._ids import _is_cold_start
 from pyflightstream.script import Script
 from pyflightstream.workspace.fsi_setup import resolve_row_fsi
-from pyflightstream.workspace.inputs import read_raw_mesh_conditions
-from pyflightstream.workspace.matrix import _bind_setup_ports
 from tests.tier1_offline._p0400_gaps_rt_support import registry_with
 from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 from tests.tier1_offline.test_goal031_g08_input_glossary import parsed_page
 from tests.tier1_offline.test_rotor_by_alias import saved_simulation, two_rotor_case
 from tests.tier1_offline.test_workflows import (
@@ -520,13 +519,19 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
         lambda tmp: _profile(tmp, "prop_ct"), lambda tmp: _profile(tmp, "prop_cq")
     ),
     "CCS_SHEDDING": Variation(
-        lambda tmp: _ccs_shedding(tmp, "AXIAL"), lambda tmp: _ccs_shedding(tmp, "AZIMUTH")
+        lambda tmp: steady_case(),
+        lambda tmp: steady_case(CCS_SHEDDING="AXIAL"),
+        refusal="CCS_SHEDDING",
     ),
     "MORPHING": Variation(
-        lambda tmp: _morphing(tmp, "FLAP", "5"), lambda tmp: _morphing(tmp, "AIL", "5")
+        lambda tmp: steady_case(),
+        lambda tmp: steady_case(MORPHING="FLAP"),
+        refusal="MORPHING",
     ),
     "MORPHING_ANGLE": Variation(
-        lambda tmp: _morphing(tmp, "FLAP", "5"), lambda tmp: _morphing(tmp, "FLAP", "10")
+        lambda tmp: steady_case(),
+        lambda tmp: steady_case(MORPHING_ANGLE="5"),
+        refusal="MORPHING_ANGLE",
     ),
     "FREESTREAM": Variation(
         lambda tmp: _freestream(tmp, "fs_a", 30.0), lambda tmp: _freestream(tmp, "fs_b", 32.0)
@@ -733,24 +738,9 @@ def _slow_rotor_in_air(_: Path) -> SimCase:
 
 
 def _raw_mesh(tmp: Path) -> SimCase:
-    """A raw mesh whose sidecar detects its trailing edges, wake termination and base.
-
-    The three declarations an ``apply_*`` choice applies or leaves, and the
-    detection a base-region bending angle precedes.
-    """
-    return steady_case().model_copy(
-        update={
-            "geometry": str(tmp / "wing.obj"),
-            "mesh_import": MeshImport(units="METER"),
-            "inventory": ("Wing", "Base"),
-            "inventory_source": "sidecar",
-            "raw_mesh_conditions": RawMeshConditions(
-                trailing_edges=TrailingEdgeMarking(route="detect"),
-                wake_termination="auto",
-                base_regions="auto",
-            ),
-        }
-    )
+    """Saved geometry on which row base-region selection remains supported."""
+    case = _over_wing(tmp)
+    return case.model_copy(update={"variables": {**case.variables, "BASE_REGIONS": "Base"}})
 
 
 def _disc(_: Path) -> SimCase:
@@ -759,23 +749,16 @@ def _disc(_: Path) -> SimCase:
 
 
 def _ported(tmp: Path, port: str, kind: str, speed: str) -> SimCase:
-    """One setup port as the matrix reader binds it: the sidecar's surface, the row's speed."""
-    sidecar = tmp / "duct.boundaries.toml"
-    sidecar.write_text(
-        '[ports]\nfeed="Inlet"\nexit="Outlet"\n[trailing_edges]\nnone=true\n', encoding="utf-8"
-    )
-    ports = [{"port": port, "kind": kind, "velocity_variable": "PORT_SPEED"}]
-    case = steady_case(PORT_SPEED=speed).model_copy(
+    """Port creation remains available on the fresh FSI import."""
+    from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
+
+    return steady_wing_case(tmp).model_copy(
         update={
-            "geometry": str(tmp / "duct.obj"),
-            "mesh_import": MeshImport(units="METER"),
-            "inventory": ("Inlet", "Outlet"),
-            "inventory_source": "sidecar",
-            "raw_mesh_conditions": read_raw_mesh_conditions(sidecar),
-            "solver": SolverSettings(ports=ports),
+            "solver": SolverSettings(
+                ports=[{"port": port, "kind": kind, "boundary": "Wing", "velocity": float(speed)}]
+            )
         }
     )
-    return _bind_setup_ports(case, tmp)
 
 
 _TOGGLES = (
@@ -1038,7 +1021,13 @@ def _render(case: SimCase, build: str, sweep: bool) -> tuple[str | None, str]:
     # built against the database with its 6DOF commands recorded verified.
     script = Script(
         build,
-        None
+        registry_with(
+            ("IMPORT", "AUTO_DETECT_TRAILING_EDGES", "DETECT_TRAILING_EDGES_BY_SURFACE"),
+            build,
+            Status.VERIFIED,
+        )
+        if case.fsi is not None
+        else None
         if case.sixdof is None
         else registry_with(sixdof_commands(case.sixdof), build, Status.VERIFIED),
     )
@@ -1061,7 +1050,10 @@ def _render(case: SimCase, build: str, sweep: bool) -> tuple[str | None, str]:
                 build_script(case, script)
     except PyflightstreamError as error:
         return None, str(error)
-    return script.render(), ""
+    rendered = script.render()
+    if case.fsi is not None:
+        rendered = rendered.replace(str(case.geometry), "FSI_MESH")
+    return rendered, ""
 
 
 def _measure(variation: Variation, tmp: Path) -> Outcome:
@@ -1195,6 +1187,9 @@ def _states(case: SimCase, table: tuple[str, str], key: str) -> bool:
 
 #: The keys refused in 0.29.0 whatever their value, by table.
 REFUSED_IN_THIS_RELEASE = {
+    (ROW_KEYS, "CCS_SHEDDING"),
+    (ROW_KEYS, "MORPHING"),
+    (ROW_KEYS, "MORPHING_ANGLE"),
     (SETTINGS, "mark_wake_termination_nodes"),
     (ROW_KEYS, "ROTOR_SHEDDING"),
     (SETTINGS, "legacy_solver_model"),

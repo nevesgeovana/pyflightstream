@@ -25,7 +25,7 @@ import sys
 import tomllib
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Literal, NamedTuple, cast
+from typing import Any, Literal, NamedTuple
 
 from pydantic import ValidationError
 
@@ -37,7 +37,6 @@ from pyflightstream.cases import (
     EVERY_SURFACE,
     InputKey,
     MeshImport,
-    RawMeshConditions,
     TrailingEdgeMarking,
 )
 from pyflightstream.cases._ccs import CCS_FORMATS
@@ -63,12 +62,13 @@ __all__ = [
     "TRAILING_EDGES_TABLE",
     "TRAILING_EDGE_DETECT_KEYS",
     "WAKE_TERMINATION_TABLE",
+    "boundaries_for_matrix",
+    "read_marking_record",
     "ensure_inventory",
     "inventory_sidecar",
     "obj_boundary_names",
     "read_inventory",
     "read_mesh_import",
-    "read_raw_mesh_conditions",
     "write_inventory",
 ]
 
@@ -154,6 +154,45 @@ def boundaries_for_marking(geometry: str | Path) -> Path:
     path = Path(geometry)
     qualified = inventory_sidecar(path, "obj")
     return qualified if qualified.exists() else inventory_sidecar(path)
+
+
+def boundaries_for_matrix(geometry: str | Path) -> Path:
+    """Locate a saved simulation's inventory in the matrix's declared reading order."""
+    path = Path(geometry)
+    candidates = (
+        inventory_sidecar(path, "fsm"),
+        path.with_name(path.stem + INVENTORY_SUFFIX),
+        inventory_sidecar(path, "obj"),
+    )
+    return next((candidate for candidate in candidates if candidate.exists()), candidates[0])
+
+
+def read_marking_record(geometry: str | Path) -> dict[str, Any] | None:
+    """Read a marking record and refuse changed or missing recorded inputs."""
+    path = Path(geometry)
+    record = path.with_suffix(".mark.json")
+    if not record.exists():
+        return None
+    remedy = (
+        f"pyfs-workspace geometry mark-boundaries {path.with_suffix('.obj')} --apply --overwrite"
+    )
+    try:
+        data = json.loads(record.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or not isinstance(data.get("inputs"), dict):
+            raise ValueError("expected a record with an inputs digest mapping")
+        for name, digest in data["inputs"].items():
+            source = Path(name)
+            if not source.is_absolute():
+                source = record.parent / source
+            if not source.is_file() or file_sha256(source) != digest:
+                raise InputArtifactError(
+                    f"{path}: recorded input {source} changed or is missing; run {remedy}."
+                )
+    except (OSError, ValueError, TypeError) as error:
+        raise InputArtifactError(
+            f"{record}: cannot read marking record: {error}; run {remedy}."
+        ) from error
+    return data
 
 
 def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
@@ -1166,131 +1205,6 @@ def _named_base_entry(path, family, table, families):
     return region
 
 
-def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
-    """Return the boundary conditions a raw mesh's sidecar declares, or None (G02).
-
-    Three tables, each read only when written::
-
-        [trailing_edges]
-        file = "wing.te.txt"      # the default route: a points file
-        type = "STANDARD"         # required with file, the edge type of every point
-        tolerance = 0.0001        # optional, in metres
-
-        # or detection, only when written:
-        # detect = "auto"
-        # detect = { surfaces = ["Wing"], sweep_angle = 60 }
-
-        [wake_termination]
-        detect = "auto"           # or { surfaces = ["Wing"] }
-
-        [base_regions]
-        detect = "auto"
-
-    Read at binding, beside :func:`read_mesh_import`, so a table that does
-    not hold its shape is refused with the row before any seat is spent.
-    ``file`` is resolved against the sidecar's folder here; its points are
-    read and checked against the mesh by the binding, which knows the
-    mesh's unit, and whether the geometry is a raw mesh at all is the
-    builder's to judge.
-
-    Parameters
-    ----------
-    sidecar : str or Path
-        The ``<stem>.boundaries.toml`` beside the geometry.
-
-    Returns
-    -------
-    RawMeshConditions or None
-        None when the file holds none of the three tables. A file route's
-        ``points_m`` are empty here and ``points_file`` names the file.
-
-    Raises
-    ------
-    InputArtifactError
-        A table written as anything but a table, a key a table does not
-        read, a ``[trailing_edges]`` stating both ``file`` and ``detect`` or
-        neither, a ``type`` or ``tolerance`` beside ``detect``, a ``detect``
-        of a shape its table does not take, an empty surface list, or a
-        tolerance that is not a positive number; each naming the sidecar
-        and the table.
-    """
-    path = Path(sidecar)
-    data = _sidecar_data(path)
-    if any(name in data for name in ("inlets", "outlets")):
-        raise InputArtifactError(
-            f"{path}: inlet/outlet conditions belong to setup [[ports]] and MATRIX values; "
-            "keep only [ports] identity-to-surface mappings in this geometry sidecar."
-        )
-    ports = data.get("ports", {})
-    if not isinstance(ports, dict) or any(
-        not isinstance(key, str)
-        or not key.strip()
-        or not isinstance(value, str)
-        or not value.strip()
-        for key, value in ports.items()
-    ):
-        raise InputArtifactError(f"{path}: [ports] maps each nonempty identity to a surface name")
-    tables: dict[str, dict[str, Any] | None] = {}
-    for name in RAW_MESH_CONDITION_TABLES:
-        table = data.get(name)
-        if table is not None and not isinstance(table, dict):
-            raise InputArtifactError(
-                f"{path} states `{name}` as a {type(table).__name__}; write it as the table "
-                f"[{name}] with its keys beneath it (docs/mesh-inputs.md)."
-            )
-        tables[name] = table
-    if all(table is None for table in tables.values()) and not ports:
-        return None
-    trailing = tables[TRAILING_EDGES_TABLE]
-    wake = tables[WAKE_TERMINATION_TABLE]
-    base = tables[BASE_REGIONS_TABLE]
-    # The reader returns DETECT_EVERYWHERE or, by surface, the surfaces' names,
-    # and refuses anything else; the casts state that to the type checker,
-    # which cannot see it through the reader's one return type.
-    try:
-        return RawMeshConditions(
-            trailing_edges=None if trailing is None else read_trailing_edges(path, trailing),
-            wake_termination=(
-                None
-                if wake is None
-                else cast(
-                    "Literal['auto'] | tuple[str, ...]",
-                    _read_wake_termination(path, wake),
-                )
-            ),
-            base_regions=(
-                None
-                if base is None
-                else cast(
-                    "Literal['auto']",
-                    _read_detection(path, BASE_REGIONS_TABLE, base, by_surface=False),
-                )
-            ),
-            ports=ports,
-        )
-    except ValueError as exc:
-        raise InputArtifactError(f"{path}: invalid mesh boundary conditions: {exc}") from exc
-
-
-def _read_wake_termination(path: Path, table: Mapping[str, Any]):
-    """Read explicit termination points or the existing detection declaration."""
-    from pyflightstream.cases.mesh import WakeTerminationMarking
-
-    if "file" not in table:
-        return _read_detection(path, WAKE_TERMINATION_TABLE, table, by_surface=True)
-    foreign = sorted(set(table) - {"file", "tolerance"})
-    if foreign:
-        raise InputArtifactError(
-            f"{path}: [wake_termination] file cannot be combined with {', '.join(foreign)}"
-        )
-    fields = _trailing_edge_file_fields(
-        path, f"{path}: [wake_termination]", {**table, "type": "STANDARD"}, 0.0001
-    )
-    return WakeTerminationMarking(
-        points_file=fields["points_file"], tolerance=table.get("tolerance", 0.0001)
-    )
-
-
 def _trailing_edge_file_fields(
     path: Path, where: str, table: Mapping[str, Any], tolerance: float
 ) -> dict[str, Any]:
@@ -1466,32 +1380,6 @@ def _surface_names(where: str, surfaces: object, *, every: bool) -> tuple[str, .
             f'non-empty list of the sidecar\'s names, surfaces = ["<name>"]{also}.'
         )
     return tuple(name.strip() for name in surfaces)
-
-
-def _read_detection(
-    path: Path, name: str, table: Mapping[str, Any], *, by_surface: bool
-) -> str | tuple[str, ...]:
-    """Read ``[wake_termination]`` or ``[base_regions]``: one ``detect`` key."""
-    where = f"{path}: the [{name}] table"
-    shapes = f'detect = "{DETECT_EVERYWHERE}"' + (
-        ' or detect = { surfaces = ["<name>"] }' if by_surface else ""
-    )
-    foreign = sorted(set(table) - set(RAW_MESH_CONDITION_KEYS[name]))
-    if foreign or "detect" not in table:
-        stated = f"reads no {', '.join(foreign)}" if foreign else "states no detect"
-        raise InputArtifactError(f"{where} {stated}; it reads one key, {shapes}.")
-    detect = table["detect"]
-    if detect == DETECT_EVERYWHERE:
-        return DETECT_EVERYWHERE
-    if by_surface and isinstance(detect, dict) and set(detect) == {"surfaces"}:
-        return _surface_names(where, detect["surfaces"], every=False)
-    why = (
-        ""
-        if by_surface
-        else ". A base region is detected on a named boundary by the row's BASE_REGIONS "
-        "key, which names the boundary that becomes the base"
-    )
-    raise InputArtifactError(f"{where} states detect = {detect!r}; it takes {shapes}{why}.")
 
 
 def _where_in_the_import_table(loc: Sequence[int | str]) -> str:

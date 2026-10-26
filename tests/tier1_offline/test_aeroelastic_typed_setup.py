@@ -13,7 +13,6 @@ from pyflightstream.cases import (
     BladeDatum,
     MeshImport,
     PprocSpec,
-    RawMeshConditions,
     SolverSettings,
 )
 from pyflightstream.cases.workflows._skeleton import _script_init
@@ -56,13 +55,10 @@ def coupled_case(tmp_path):
     )
     cfg = make_uniform_blade_config(blade_count=1, omega_rad_per_s=40 * math.pi)
     cfg = cfg.model_copy(update={"time_increment_s": 0.0001})
-    return rotor_case(MOVING_BOUNDARIES="Blade1", BLADES="1").model_copy(
+    case = rotor_case(MOVING_BOUNDARIES="Blade1", BLADES="1").model_copy(
         update={
             "geometry": str(geometry),
             "mesh_import": MeshImport(units="METER"),
-            "raw_mesh_conditions": RawMeshConditions.model_validate(
-                {"trailing_edges": {"route": "detect"}}
-            ),
             "inventory": ["Blade1"],
             "rotors": {"ROTOR": rotor},
             "fsi": cfg,
@@ -82,6 +78,8 @@ def coupled_case(tmp_path):
             ),
         }
     )
+
+    return _named_fsi_case(case)
 
 
 def test_selected_fsi_wires_existing_driver_and_stages_single_source(tmp_path):
@@ -177,6 +175,9 @@ def test_unproved_continuation_refuses_before_initializing(tmp_path):
 
 def test_no_fsi_preserves_existing_run_without_callback(tmp_path):
     case = coupled_case(tmp_path).model_copy(update={"fsi": None})
+    from tests.tier1_offline.test_goal035_qsteady_rotor import _with_saved_mesh
+
+    case = _with_saved_mesh(case, __import__("pathlib").Path(case.geometry), ("Blade1",))
     lines, script = _lines(case)
     assert not any("AEROELASTIC" in line for line in lines)
     assert not any(name.startswith("fsi_") for name in script.pending_input_files)
@@ -186,9 +187,7 @@ def test_saved_fsm_section_order_is_not_guessed(tmp_path):
     case = coupled_case(tmp_path)
     saved = tmp_path / "existing.fsm"
     saved.write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n")
-    case = case.model_copy(
-        update={"geometry": str(saved), "mesh_import": None, "raw_mesh_conditions": None}
-    )
+    case = case.model_copy(update={"geometry": str(saved), "mesh_import": None})
     with pytest.raises(ValueError, match="inherited.*section|saved.*section"):
         _lines(case)
 
@@ -225,3 +224,75 @@ def test_pending_node_input_collision_is_refused_before_coupling(tmp_path):
         build_script(coupled_case(tmp_path), script)
     assert script.pending_input_files["FSI_NODES.CSV"] == "user-owned contents"
     assert "SET_AEROELASTIC_COUPLING_IN_UNSTEADY" not in script.render()
+
+
+def _named_fsi_case(case):
+    """Supply strict named declarations for a test-local raw FSI mesh."""
+    import hashlib
+    from pathlib import Path
+
+    from pyflightstream.workspace.sidecars import obj_boundary_names, obj_face_counts
+
+    mesh = Path(case.geometry)
+    names, faces = obj_boundary_names(mesh), obj_face_counts(mesh)
+    mesh.with_suffix(".obj.boundaries.toml").write_text(
+        'fs_build = "26.124"\n'
+        + "boundaries = "
+        + json.dumps(names)
+        + "\n"
+        + "boundary_faces = "
+        + json.dumps(faces)
+        + "\n"
+        + f"mesh_faces = {sum(faces)}\n"
+        + 'mesh_sha256 = "'
+        + hashlib.sha256(mesh.read_bytes()).hexdigest()
+        + '"\n'
+        + '[import]\nunits = "METER"\n'
+        + '[trailing_edges.main]\ndetect = "auto"\ntype = "STANDARD"\n'
+    )
+    import shutil
+    import sys
+    import tempfile
+
+    from tests.support_helpers import make_library
+    from tests.tier1_offline.test_raw_mesh_conditions import _case as bind_row
+    from tests.tier1_offline.test_workspace_fsi_setup import SUPPLIED
+
+    # Exercise public matrix binding, then retain the controlled structural case.
+    root = Path(tempfile.mkdtemp(dir=mesh.parent))
+    workspace = make_library(root, register_build=("26.124", Path(sys.executable).as_posix()))
+    shutil.copy2(mesh, workspace.inputs_dir / "geometries" / mesh.name)
+    sidecar = mesh.with_suffix(".obj.boundaries.toml")
+    shutil.copy2(sidecar, workspace.inputs_dir / "geometries" / sidecar.name)
+    (workspace.inputs_dir / "fsi" / "f001.toml").write_text(SUPPLIED)
+    bound = bind_row(root, workspace, geometry=mesh.name, tail=" / FSI: f001")
+    case = case.model_copy(
+        update={
+            "inventory": tuple(names),
+            "inventory_source": "sidecar",
+            "geometry": bound.geometry,
+            "boundaries_file": bound.boundaries_file,
+            "mesh_import": bound.mesh_import,
+        }
+    )
+    case._fsi_geometry_emitter = bound._fsi_geometry_emitter
+    return case
+
+
+@pytest.fixture(autouse=True)
+def verified_marking_registry(monkeypatch):
+    """Offline wiring uses a controlled verified registry, never licensed evidence."""
+    from pyflightstream.commands import CommandRegistry, Status
+
+    registry = CommandRegistry.load()
+    for name in ("IMPORT", "AUTO_DETECT_TRAILING_EDGES", "DETECT_TRAILING_EDGES_BY_SURFACE"):
+        entry = registry.commands[name]
+        registry.commands[name] = entry.model_copy(
+            update={
+                "versions": {
+                    key: value.model_copy(update={"status": Status.VERIFIED})
+                    for key, value in entry.versions.items()
+                }
+            }
+        )
+    monkeypatch.setattr(CommandRegistry, "load", classmethod(lambda cls: registry))

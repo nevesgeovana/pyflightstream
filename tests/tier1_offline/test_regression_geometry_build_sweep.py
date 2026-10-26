@@ -1454,13 +1454,13 @@ class TestRfixGRecord:
         )
         folder = workspace.inputs_dir / "geometries" / "body"
         folder.mkdir()
-        (folder / "body.obj").write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
+        (folder / "body.fsm").write_text("", encoding="utf-8")
         (folder / "body.boundaries.toml").write_text('boundaries = ["Body"]\n', encoding="utf-8")
         record = folder / "body.build.json"
         record.write_text(json.dumps(_rfixg_record__legacy_record()), encoding="utf-8")
         row = (
             "9401 | TestGeom | GEOM | 3.10 | 0.0890 | AL | 0.0 | r003 | s002 | e001 "
-            "| 003 | 26.125 | 0 | 1 | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / GEOMETRY: body.obj"  # noqa: E501
+            "| 003 | 26.125 | 0 | 1 | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / GEOMETRY: body.fsm"  # noqa: E501
         )
         matrix = _rfixg_record__write_matrix(tmp_path / "matrix.fs", [row])
         with pytest.raises(InputArtifactError) as caught:
@@ -2693,16 +2693,6 @@ class TestGeometryMigration:
         )
         assert _geometry_migration___warnings(geometry, staying) == []
         assert _geometry_migration___warnings(tmp_path / "plain.fsm") == []
-
-    @staticmethod
-    @pytest.mark.requirement("FR-476")
-    def test_p0400_geom_migrate_the_plan_of_a_ccs_row_warns_and_still_binds(tmp_path):
-        """P0400-GEOM-MIGRATE (PFS-2081.41): FR-1134, through the plan's binding."""
-        from tests.tier1_offline.test_p0320_ccs import THREE, _row_case
-
-        with pytest.warns(PyflightstreamWarning, match="currently warns without refusing"):
-            case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n', ["W1"], text=THREE)
-        assert case.mesh_import is not None and case.mesh_import.ccs is not None
 
     @staticmethod
     @pytest.mark.requirement("FR-476")

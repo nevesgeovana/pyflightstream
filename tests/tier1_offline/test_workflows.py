@@ -2293,7 +2293,7 @@ def test_a_suffix_that_is_not_fsm_is_refused_with_the_documented_route(geometry)
     message = str(raised.value)
     assert geometry in message, "the refusal does not name the file that was refused"
     assert SIMULATION_SUFFIX in message, "the refusal does not name the suffix that works"
-    assert "units" in message.lower(), "the refusal does not name the physical cause"
+    assert "mark-boundaries" in message, "the refusal does not name the marking route"
     assert "docs/mesh-inputs.md" in message, "the refusal does not name the documented route"
     assert GEOMETRY_VARIABLE in message, (
         "the refusal describes the resolved file and never names the CELL the author "
@@ -2328,7 +2328,7 @@ def test_the_documented_route_the_refusal_names_really_exists():
     # neither was wrong alone; the pair sent a blocked user searching a
     # long page for a string that was not on it. Asserting that the file
     # exists and says ".fsm" could not see it.
-    assert _vocabulary._MESH_PAGE_ANCHOR in body, (
+    assert "mark-boundaries" in body, (
         f"the refusal tells the user to look on {page.name} under "
         f"{_vocabulary._MESH_PAGE_ANCHOR!r}, and that sentence is not on the page"
     )
@@ -2337,7 +2337,7 @@ def test_the_documented_route_the_refusal_names_really_exists():
         rendered(steady_case(geometry="runs/7002/inputs/blade.stl"))
     except CampaignConfigError as error:
         refusal = str(error)
-    assert _vocabulary._MESH_PAGE_ANCHOR in refusal, (
+    assert "mark-boundaries" in refusal, (
         "the refusal no longer quotes the anchor this guard pins, so the pair it "
         "protects is no longer the pair that ships"
     )
@@ -4645,9 +4645,7 @@ def test_a_mesh_file_is_refused_naming_the_route_and_no_release(tmp_path):
     with pytest.raises(CampaignConfigError) as caught:
         rendered(steady_case(geometry=str(mesh)))
     message = str(caught.value)
-    assert "[import]" in message and "units =" in message, (
-        "the refusal does not name the table and the key a raw mesh states its unit in"
-    )
+    assert "mark-boundaries" in message and "--apply" in message
     assert "docs/mesh-inputs.md" in message
     assert "0.12.0" not in message, "the refusal promises a release, and 0.12.0 shipped without it"
     assert "release" not in message.lower(), (
@@ -4664,7 +4662,7 @@ def test_a_disagreeing_sidecar_is_refused_naming_both_lists(tmp_path):
     with pytest.raises(CampaignConfigError) as caught:
         build_script(case, Script("26.123"))
     message = str(caught.value)
-    assert "W, B" in message and "B, W" in message and "wb.boundaries.toml" in message
+    assert "W, B" in message and "B, W" in message and "wb.fsm.boundaries.toml" in message
 
 
 def test_an_agreeing_sidecar_declares_the_inventory_a_blockless_file_lacks(tmp_path):

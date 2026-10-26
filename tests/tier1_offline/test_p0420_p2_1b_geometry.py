@@ -16,9 +16,6 @@ def test_p0420_the_tolerance_is_stated_in_metres_in_all_three_places(tmp_path):
     """PFS-2130.013: the glossary, the docstring and the refusal all say metres."""
     from pyflightstream.workspace import sidecars
 
-    assert "tolerance = 0.0001        # optional, in metres" in str(
-        sidecars.read_raw_mesh_conditions.__doc__
-    )
     with pytest.raises(Exception, match=r"tolerance = 'x'.*in metres"):
         read_trailing_edges(tmp_path / "a.boundaries.toml", {"file": "a.te.txt", "tolerance": "x"})
     with pytest.raises(ValueError, match=r"in metres"):

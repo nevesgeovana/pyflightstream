@@ -909,7 +909,7 @@ def test_a_label_absent_from_a_declared_inventory_names_the_inventory(tmp_path):
     )
     with pytest.raises(CampaignConfigError) as sidecar:
         build_script(with_sidecar, Script("26.123"))
-    assert "the sidecar sector.boundaries.toml" in str(sidecar.value)
+    assert "the sidecar sector.fsm.boundaries.toml" in str(sidecar.value)
 
 
 def test_the_rebuild_command_a_failed_products_write_offers_is_one_post_accepts(

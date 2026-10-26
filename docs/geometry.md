@@ -5,8 +5,7 @@ writes `wing.obj.boundaries.toml`, and inventory of `wing.fsm` writes
 `wing.fsm.boundaries.toml`. OBJ inventories are never overwritten because
 they may contain authored import and boundary declarations.
 
-A run matrix names a finished body: a saved simulation (`.fsm`) or a mesh
-(`.obj`). Everything that makes that body, lofting a CCS file, converting and
+A run matrix names a finished body: a saved simulation (`.fsm`). Everything that makes that body, lofting a CCS file, converting and
 cleaning an IGES assembly, building a primitive or a wing from section files,
 scaling, renaming, mirroring, copying, cutting or repairing a mesh, happens
 once, before any run, in the geometry stage:
@@ -18,8 +17,7 @@ pyfs-workspace geometry accept wing        # after looking at the body
 ```
 
 Translate and rotate are not geometry operations: they stay in the run, as the
-row keys `TRANSLATE` and `ROTATE` and as the `translate` and `rotate`
-operations of a mesh's sidecar ([Mesh sidecar reference](mesh/reference.md)).
+row keys `TRANSLATE` and `ROTATE` on the opened saved simulation.
 
 Unlike post, a build refuses to replace outputs unless asked with `--overwrite`:
 its outputs are inputs of runs. Inspect the body before replacing them.
@@ -56,7 +54,7 @@ The command does not sort nodes or split gaps. Export
 each chain separately. Blank lines and `#` comments are ignored. Fewer than two
 nodes, repeated node ids, rows other than five fields and non-finite coordinates
 are refused with the file and line to correct. An existing output needs
-`--overwrite`. Use the resulting file in the mesh sidecar's `[trailing_edges]`
+`--overwrite`. Use the resulting file in the mesh sidecar's `[trailing_edges.wing]`
 table. The existing mesh extraction form still takes `mesh output --axis ...
 --hub ... --unit ...`.
 
@@ -435,3 +433,45 @@ and `[trailing_edges] none = true`, then run the first command above. It emits
 the arguments of `pyfs-matrix refine`, `audit-mesh`, `inventory` and
 `degenerate` and give the same result. The `pyfs-matrix` names still work and
 warn that the group is their home.
+
+## Matrix geometry in 0.46.0
+
+`GEOMETRY` accepts only a saved simulation (`.fsm`). No flag enables an OBJ
+matrix row. Prepare and mark the OBJ once, inspect the saved geometry, and
+name the FSM in the matrix:
+
+```text
+pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj --apply
+pyfs-matrix plan
+```
+
+Marking requires a licensed solver; planning does not run one. Geometry build
+keeps its own solver pass. Matrix runs open the saved simulation and never
+import a raw mesh or mark its trailing edges or wake-termination nodes.
+The row's `BASE_REGIONS` selection on an opened simulation remains supported.
+
+For `wing.fsm`, planning reads the first existing file in this order:
+
+1. `wing.fsm.boundaries.toml`
+2. `wing.boundaries.toml`
+3. `wing.obj.boundaries.toml`
+
+The plan names the file read. Any `import`, `trailing_edges`,
+`wake_termination` or `base_regions` declaration table in that file is
+refused with the marking command. When none exists, the inventory read from
+the FSM is written to `wing.fsm.boundaries.toml`.
+
+If `wing.mark.json` exists, planning compares every recorded input digest.
+A changed or missing mesh, declaration sidecar or points file is refused by
+name; repeat marking with `--apply --overwrite`. An FSM with no marking
+record is accepted, including one prepared in the GUI. A row's `FS_BUILD`
+different from the record's `fs_build` produces one campaign warning listing
+all affected rows. It does not prevent planning.
+
+
+
+FSI rows retain raw OBJ imports because coupling requires the mesh at each import.
+They read `<mesh>.obj.boundaries.toml` with the same strict named declarations as
+`mark-boundaries` and use its D3 emitter and VERIFIED command gate at each import.
+Every other matrix row requires an `.fsm`; prepare it once with
+`pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`.

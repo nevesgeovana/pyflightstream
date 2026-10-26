@@ -27,13 +27,10 @@ from pyflightstream._errors import ProductError, PyflightstreamWarning
 from pyflightstream.cases import (
     BladeDatum,
     CampaignConfigError,
-    MeshImport,
-    RawMeshConditions,
     ReferenceData,
     RotorBlock,
     SimCase,
     SweepAxis,
-    TrailingEdgeMarking,
 )
 from pyflightstream.cases import qsteady as arithmetic
 from pyflightstream.cases.workflows import (
@@ -233,16 +230,52 @@ def _blade_obj(path: Path, *, blades: int = 3, extra: str = "") -> Path:
 
 
 def _with_obj(case: SimCase, obj: Path, inventory: tuple[str, ...]) -> SimCase:
-    return case.model_copy(
-        update={
-            "geometry": str(obj),
-            "mesh_import": MeshImport(units="METER"),
-            "inventory": inventory,
-            "raw_mesh_conditions": RawMeshConditions(
-                trailing_edges=TrailingEdgeMarking(route="detect")
-            ),
-        }
-    )
+    return _with_saved_mesh(case, obj, inventory)
+
+
+def _with_saved_mesh(case: SimCase, obj: Path, inventory: tuple[str, ...]) -> SimCase:
+    """Write the synthetic wheel as saved mesh records for non-FSI workflows."""
+    vertices, faces, owners = [], [], []
+    owner = 1
+    for line in obj.read_text().splitlines():
+        cells = line.split()
+        if not cells:
+            continue
+        if cells[0] in {"o", "g"}:
+            owner = inventory.index(cells[1]) + 1 if cells[1] in inventory else 0
+        elif cells[0] == "v":
+            vertices.append(tuple(float(v) for v in cells[1:4]))
+        elif cells[0] == "f" and owner:
+            faces.append(tuple(int(v) for v in cells[1:4]))
+            owners.append(owner)
+
+    def row(values):
+        return ",".join(str(value) for value in values) + ","
+
+    count = len(faces)
+    lines = [
+        "26,1",
+        "8172026",
+        "$GLOBAL_START$",
+        "1",
+        "5",
+        "$GLOBAL_END$",
+        "$MESH_START$",
+        "header one",
+        "header two",
+        str(len(inventory)),
+    ]
+    for index, name in enumerate(inventory, 1):
+        lines += [f"{index}, T, F, F", name, ".5,.5,.5"]
+    lines += [str(count), row(range(1, count + 1)), row([3] * count)]
+    lines += [row(face[axis] for face in faces) for axis in range(3)]
+    lines += [row(owners if index == 6 else [0] * count) for index in range(15)]
+    lines += [row([" F"] * count)] * 5
+    lines += ["0", str(len(vertices))]
+    lines += [row(vertex[axis] for vertex in vertices) for axis in range(3)]
+    saved = obj.with_suffix(".fsm")
+    saved.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return case.model_copy(update={"geometry": str(saved), "inventory": inventory})
 
 
 # ------------------------------------------------------------- the arithmetic --

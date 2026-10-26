@@ -10,12 +10,10 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import (
     CampaignConfigError,
     MeshImport,
-    RawMeshConditions,
     ReferenceData,
     SimCase,
     SolverSettings,
     SweepAxis,
-    TrailingEdgeMarking,
 )
 from pyflightstream.cases._setup_link import analysis_frame_and_moments, moments_model_of
 from pyflightstream.cases.matrix import MatrixError
@@ -46,6 +44,7 @@ from pyflightstream.script.solver_setup import (
 from pyflightstream.workspace import RunRecord, RunStatus
 from pyflightstream.workspace._row_setup import structured_setup_keys
 from pyflightstream.workspace.matrix import resolve_matrix
+from tests.support_helpers import saved_mesh_fixture
 from tests.tier1_offline._no_evidence import registry_without
 from tests.tier1_offline.test_matrix_run import RECIPES as _FR316_ROW_SETUP_KEYS__RECIPES
 from tests.tier1_offline.test_matrix_run import make_library as _fr316_row_setup_keys__make_library
@@ -1694,11 +1693,10 @@ def _fr317_fr318_moments_model___wing(tmp_path, **solver: object) -> SimCase:
         recipe="steady",
         sweep=SweepAxis(type="alpha", values=[2.0]),
         variables={"WORKFLOW": "steady", "VELOCITY": "30.0"},
-        geometry=str(tmp_path / "wb.obj"),
+        geometry=str(saved_mesh_fixture(tmp_path / "wb.fsm", ("W", "B"))),
         inventory=("W", "B"),
         inventory_source="sidecar",
         mesh_import=MeshImport(units="METER"),
-        raw_mesh_conditions=RawMeshConditions(trailing_edges=TrailingEdgeMarking(route="detect")),
         solver=SolverSettings(**solver),
         reference=ReferenceData(area=50.0, length=2.5, span_m=20.0, moment_point_m=(0.6, 0.0, 0.0)),
         point={"alpha": 2.0, "beta": 0.0},
@@ -1831,13 +1829,10 @@ class TestFr317Fr318MomentsModel:
         """
         case = _fr317_fr318_moments_model__rotor_case().model_copy(
             update={
-                "geometry": str(tmp_path / "rotor.obj"),
+                "geometry": str(saved_mesh_fixture(tmp_path / "rotor.fsm", ("Blade", "Hub"))),
                 "inventory": ("Blade", "Hub"),
                 "inventory_source": "sidecar",
                 "mesh_import": MeshImport(units="METER"),
-                "raw_mesh_conditions": RawMeshConditions(
-                    trailing_edges=TrailingEdgeMarking(route="detect")
-                ),
                 "reference": ReferenceData(area=1.0, length=0.1, span_m=1.0),
                 "solver": SolverSettings(vorticity_drag_families=["Blade"]),
             }
@@ -1860,13 +1855,10 @@ class TestFr317Fr318MomentsModel:
         ).model_copy(
             update={
                 "recipe": "steady",
-                "geometry": str(tmp_path / "rotor.obj"),
+                "geometry": str(saved_mesh_fixture(tmp_path / "rotor.fsm", ("Blade", "Hub"))),
                 "inventory": ("Blade", "Hub"),
                 "inventory_source": "sidecar",
                 "mesh_import": MeshImport(units="METER"),
-                "raw_mesh_conditions": RawMeshConditions(
-                    trailing_edges=TrailingEdgeMarking(route="detect")
-                ),
                 "reference": ReferenceData(area=1.0, length=0.1, span_m=1.0),
                 "solver": SolverSettings(vorticity_drag_families=["Blade"]),
             }

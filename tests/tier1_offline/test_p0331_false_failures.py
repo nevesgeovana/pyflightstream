@@ -62,8 +62,6 @@ from tests.tier1_offline.test_raw_mesh_conditions import (
     ROW,
     WITH_LOG,
     _library,
-    _named_node_file,
-    _points_in,
     _points_text,
     write_matrix,
 )
@@ -120,7 +118,7 @@ def _steady_job_of_two_points(tmp_path, job_stub=JOB_STUB):
     logs[0].write_text(text[: text.index("Angle of attack (Deg)", first + 1)], encoding="utf-8")
     logs[1].write_text(text, encoding="utf-8")
     (tmp_path / "job_stub.py").write_text(job_stub, encoding="utf-8")
-    row = ROW.format(build="26.124", outputs=WITH_LOG, geometry="wing.stl", tail="")
+    row = ROW.format(build="26.124", outputs=WITH_LOG, geometry="wing.fsm", tail="")
     write_matrix(tmp_path / "job.fs", [row.replace("| AL | 0.0 |", "| AL | 0.0,2.0 |")])
     return workspace, _run_steady_job(tmp_path, workspace)
 
@@ -156,8 +154,7 @@ def test_point_2_of_a_steady_job_reads_its_cumulative_log_and_converges(tmp_path
     assert text.count("8 trailing edges imported for boundary Wing") == 1, "the fixture moved"
     assert "\n28 " in text and "\n1 " in text, "the fixture lost its counter reset"
     workspace, record = _steady_job_of_two_points(tmp_path)
-    wake_edge_points = len(_points_in(_named_node_file(workspace, record)))
-    assert wake_edge_points == 8, wake_edge_points
+    assert not list(workspace.sim_dir("7001").glob("**/*nodes*.txt"))
     statuses = [entry["status"] for entry in record.points_ran]
     assert len(statuses) == 2, record.points_ran
     assert statuses == [RunStatus.CONVERGED.value, RunStatus.CONVERGED.value], (

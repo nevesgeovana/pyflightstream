@@ -501,58 +501,28 @@ mesh_sha256 = "3f1c9a0e5b7d2c4f8a6e1b0d9c7f5a3e2d4b6c8a0f1e3d5c7b9a2e4f6d8c0b1a"
 """
 
 _RAW_MESH_SIDECAR_EXAMPLE = """\
-# The sidecar of a raw mesh, wing_raw.obj. An OBJ's boundaries are its groups
-# that hold a face, in the order of the file: when no sidecar stands beside it,
-# the plan writes this list from them, and the tables below go beneath it. An
-# STL names no group, so its list is written by hand. A mesh file carries no
-# length unit, so the [import] table is always written by hand.
+# Mark this OBJ once with pyfs-workspace geometry mark-boundaries --apply.
+# Matrix GEOMETRY names the resulting wing_raw.fsm.
 file = "wing_raw.obj"
-boundaries = ["naca"]             # the file's surfaces, in the file's order
-
+fs_build = "26.124"
+boundaries = ["naca"]
 [import]
-units = "MILLIMETER"              # the unit the mesh file is written in; never assumed
-
-# The operations applied right after the import, in the order written, each
-# naming the surface it acts on by the file's name or an earlier rename's.
-# A rename is shown; the others are
-#   op = "scale",     factors = [fx, fy, fz]        (each above zero)
-#   op = "translate", vector = [x, y, z]            (in the [import] unit)
-#   op = "rotate",    axis = "Z", angle_deg = 90.0
-#   op = "mirror",    surface = "<name>", plane = "XZ"
-# A scale, a translation and a rotation take surface = "all" by default. A
-# trailing-edge points file names edges of the file as written, so a mesh
-# whose edges come from one takes no operation but a rename.
+units = "MILLIMETER"
 [[import.operations]]
 op = "rename"
 surface = "naca"
 to = "Wing"
-
-# The trailing edges, marked from a points file beside this sidecar (the file
-# below). The other route is the solver's detection, in place of these three
-# keys: detect = "auto", or detect = { surfaces = ["Wing"], sweep_angle = 60.0 }.
-[trailing_edges]
+[trailing_edges.wing]
 file = "wing_raw.te.txt"
 type = "STANDARD"                 # @EDGE_TYPES@
-tolerance = 0.0001                # m: how close an edge's mid-point is to a point of the file
-
-[wake_termination]                # only when written
-detect = "auto"                   # or { surfaces = ["Wing"] }
-
-[base_regions]                    # only when written
-detect = "auto"
+tolerance = 0.0001                # metres
+wake_termination_nodes = "auto"
 """
 
 _DUCT_SIDECAR_EXAMPLE = """\
-# Synthetic duct with outward-facing inlet and outlet faces.
-file = "duct.obj"
+# Synthetic duct, prepared and saved before a matrix run.
+file = "duct.fsm"
 boundaries = ["Inlet", "Outlet", "Wall"]
-[import]
-units = "METER"
-[trailing_edges]
-none = true
-[ports]
-feed = "Inlet"
-exit = "Outlet"
 """
 
 _TRAILING_EDGE_POINTS_EXAMPLE = """\
@@ -1190,13 +1160,10 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
     TemplateSection(
         heading=ARTIFACT_HEADINGS["geometry"],
         intro=(
-            "The file beside a geometry that names its boundaries, `<stem>.boundaries.toml`. "
-            "A geometry sits in `inputs/geometries/` directly, or in a folder named by its stem "
-            "with everything that belongs to it, which is the layout the examples use; a row's "
-            "`GEOMETRY` names the file the same way in both. A saved simulation (`.fsm`) gets "
-            "its sidecar from `pyfs-matrix inventory`. An OBJ with no sidecar gets one from the "
-            "plan, its `boundaries` read from the OBJ's groups, and an STL's is written by hand; "
-            "beside a raw mesh, you add how it is imported and where its trailing edges are."
+            "A matrix names a saved FSM. Its clean inventory lives in "
+            "<mesh>.fsm.boundaries.toml. Prepare OBJ declarations in "
+            "<mesh>.obj.boundaries.toml and run geometry mark-boundaries --apply "
+            "once before planning. CAD import metadata belongs to geometry build."
         ),
         examples=(
             TemplateExample(
@@ -1206,7 +1173,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                 note="Beside a saved simulation, `aircraft.fsm`:",
             ),
             TemplateExample(
-                "inputs/geometries/wing_raw/wing_raw.boundaries.toml",
+                "inputs/geometries/wing_raw/wing_raw.obj.boundaries.toml",
                 "toml",
                 _filled(_RAW_MESH_SIDECAR_EXAMPLE),
                 note="Beside a raw mesh, `wing_raw.obj`:",
@@ -1227,13 +1194,11 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                     "num_curvature = 80\n"
                     "body_index = -1\n"
                     "\n"
-                    "[trailing_edges]\n"
-                    'detect = "auto"\n'
                 ),
                 note="CAD conversion: inspect source dimensions and converted boundaries:",
             ),
             TemplateExample(
-                "inputs/geometries/duct/duct.boundaries.toml",
+                "inputs/geometries/duct/duct.fsm.boundaries.toml",
                 "toml",
                 _DUCT_SIDECAR_EXAMPLE,
                 note="Uniform normal-velocity ports on a synthetic closed duct:",
@@ -1241,6 +1206,16 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
         ),
         left_out=MappingProxyType(
             {
+                "Top-level keys and tables": {
+                    "retired run declarations; named marking tables are documented separately": (
+                        "wake_termination",
+                        "base_regions",
+                        "ports",
+                    )
+                },
+                "`[base_regions]`": {
+                    "retired autodetection; use a named family declaration": ("detect",)
+                },
                 "`[[import.operations]]`": MappingProxyType(
                     {
                         "the keys of the other operations, shown in the comment": (
@@ -1252,9 +1227,19 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                         ),
                     }
                 ),
-                "`[trailing_edges]`": {"multiple typed files are shown in mesh-inputs": ("files",)},
+                "`[trailing_edges]`": {
+                    "use named entries; none is the explicit empty alternative": (
+                        "files",
+                        "none",
+                        "detect",
+                    )
+                },
                 "`[wake_termination]`": {
-                    "explicit node files remain probe-gated; see mesh-inputs": ("file", "tolerance")
+                    "retired table; use wake_termination_nodes on an entry": (
+                        "file",
+                        "tolerance",
+                        "detect",
+                    )
                 },
                 "`detect = { ... }` of `[trailing_edges]`": MappingProxyType(
                     {_IN_THE_COMMENT: ("surfaces", "sweep_angle")}

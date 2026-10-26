@@ -186,18 +186,21 @@ from pyflightstream.workspace.sidecars import (
     TRAILING_EDGE_DETECT_KEYS,
     TRAILING_EDGES_TABLE,
     WAKE_TERMINATION_TABLE,
+    boundaries_for_matrix,
     ensure_inventory,
     inventory_sidecar,
     is_sidecar,
     load_toml,
     obj_boundary_names,
     read_inventory,
+    read_marking_record,
     read_mesh_import,
-    read_raw_mesh_conditions,
     write_inventory,
 )
 
 __all__ = [
+    "boundaries_for_matrix",
+    "read_marking_record",
     "ACTUATOR_KIND",
     "ALIASES_TABLE",
     "BASE_REGIONS_TABLE",
@@ -257,7 +260,6 @@ __all__ = [
     "read_hpc_profile",
     "read_inventory",
     "read_mesh_import",
-    "read_raw_mesh_conditions",
     "refuse_empty_selections",
     "resolve_build",
     "resolve_executable",
@@ -1591,7 +1593,8 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
             f"geometry {name!r} is not under {directory}; it holds "
             f"{', '.join(staged) if staged else 'no file at all'}. Stage the file "
             f"there under exactly that name (directly, or as {stem}/{name}), or fix "
-            "the cell.",
+            f"the cell. To create a marked simulation, run pyfs-workspace geometry "
+            f"mark-boundaries {stem}.obj --apply; choose apply (CLI: --apply) for marking.",
             kind="geometry",
             artifact_id=name,
             available=tuple(staged),
@@ -1643,7 +1646,7 @@ def _staged_geometries(
         elif entry.is_dir():
             for path in sorted(entry.iterdir()):
                 derived = (
-                    path.suffix.lower() == ".obj"
+                    path.suffix.lower() in {".obj", ".fsm"}
                     and path.stem.startswith(entry.name + "_")
                     and path.stem.endswith("_thin_blade")
                 )

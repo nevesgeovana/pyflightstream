@@ -12,6 +12,9 @@ from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run import plan_campaign
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace.fsi_setup import FsiSetupError, resolve_fsi_setup
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
 
 
@@ -402,6 +405,15 @@ def test_p0410_planar_grid_reaches_workspace_plan(tmp_path):
     from pyflightstream.script import Script
 
     case = steady_wing_case(tmp_path).model_copy(update={"fsi": None})
+    from tests.tier1_offline.test_goal035_qsteady_rotor import _with_saved_mesh
+
+    case = _with_saved_mesh(case, Path(case.geometry), ("Wing",))
+    surface = Path(case.geometry).with_suffix(".surface.stl")
+    surface.write_text(
+        "solid Wing\nfacet normal 0 0 1\nouter loop\n"
+        "vertex 0 0 0\nvertex 1 0 0\nvertex 0 4 0\n"
+        "endloop\nendfacet\nendsolid Wing\n"
+    )
     declaration = {
         "probes": [
             {
@@ -446,7 +458,6 @@ def test_p0410_planar_grid_reaches_workspace_plan(tmp_path):
         update={
             "geometry": str(tmp_path / "wing.fsm"),
             "mesh_import": None,
-            "raw_mesh_conditions": None,
         }
     )
     with pytest.raises(ValueError, match="wing.surface.stl") as refusal:

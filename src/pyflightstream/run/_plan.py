@@ -51,7 +51,6 @@ from pyflightstream.cases.workflows import (
     ACTUATOR_VARIABLE,
     GEOMETRY_VARIABLE,
     PROFILE_VARIABLE,
-    RAW_MESH_FORMATS,
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
     STEADY_RUN_TYPES,
@@ -256,6 +255,7 @@ class PointPlan:
     fsi: dict[str, object] = field(default_factory=dict)
     inflow_harmonics: list[str] = field(default_factory=list)
     angles_not_stated: tuple[str, ...] = ()
+    boundaries_file: str | None = None
 
 
 @dataclass(frozen=True)
@@ -347,20 +347,12 @@ def _marked_trailing_edges(case) -> int | None:
 
     A row marking none answers 0, which is then a measurement.
 
-    A RAW MESH IS READ FROM ITS DECLARED INVENTORY (G01, G03). An ``.obj``
-    or ``.stl`` carries no mesh block, so its names are the sidecar's
-    ``boundaries`` as the import's renames leave them, which is exactly
-    what the builder declares.
     """
     families = getattr(getattr(case, "solver", None), "vorticity_drag_families", None)
     if not families:
         return 0  # a measured none: the row marks no family
     inventory: Sequence[str] | None = None
-    if case.geometry is not None and Path(str(case.geometry)).suffix.lower() in RAW_MESH_FORMATS:
-        declared = tuple(case.inventory or ())
-        spec = case.mesh_import
-        inventory = declared if spec is None else spec.names_after_renames(declared)
-    elif case.geometry is not None:
+    if case.geometry is not None:
         try:
             from pyflightstream._fsm import boundary_names
 

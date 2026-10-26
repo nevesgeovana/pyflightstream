@@ -479,20 +479,6 @@ def emit_ccs_geometry(script: Script, case: SimCase) -> None:
             f"case {case.sim_id!r}: the CCS route creates a new mesh and cannot load a "
             "saved solver initialization."
         )
-    conditions = case.raw_mesh_conditions
-    declared = [
-        table
-        for table in ("trailing_edges", "wake_termination", "base_regions")
-        if conditions is not None and getattr(conditions, table) is not None
-    ]
-    if declared:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: the sidecar of its CCS file declares "
-            f"{' and '.join(f'[{table}]' for table in declared)}, which mark a raw mesh; "
-            "a CCS wing loft marks its own trailing edges (mark_trailing_edges) and a file "
-            "states Mark_trailing_edges itself, so a second marking pass would mark twice. "
-            "Delete the tables."
-        )
     if spec.kind in CCS_LOFT_KINDS and _shedding(case) is not None:
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares {CCS_SHEDDING_VARIABLE} on a {spec.kind} loft, "
@@ -534,6 +520,16 @@ def refuse_ccs_options_off_a_ccs_file(case: SimCase, suffix: str) -> None:
         ``MORPHING_ANGLE`` and its geometry is not a CCS wing loft, which
         alone carries morphing surfaces (FR-1600).
     """
+    retired = [
+        key
+        for key in (CCS_SHEDDING_VARIABLE, MORPHING_VARIABLE, MORPHING_ANGLE_VARIABLE)
+        if key in case.variables
+    ]
+    if retired and suffix not in CCS_FORMATS:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {', '.join(retired)} is refused in matrix runs; "
+            "prepare the geometry before running its saved .fsm. See docs/upgrading.md."
+        )
     spec = case.mesh_import
     stated = [key for key in (MORPHING_VARIABLE, MORPHING_ANGLE_VARIABLE) if key in case.variables]
     lofted = spec is not None and spec.ccs is not None and spec.ccs.kind == "wing"

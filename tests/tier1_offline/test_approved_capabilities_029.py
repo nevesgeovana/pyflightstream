@@ -30,34 +30,8 @@ from tests.tier1_offline.test_goal031_sections_layout_recorded import (
     _splits_refused,
     _steady,
 )
-from tests.tier1_offline.test_raw_mesh_conditions import (
-    FILE_ROUTE,
-    _assert_detected_between_two_initializations,
-    _library,
-    _unsteady,
-)
-from tests.tier1_offline.test_raw_mesh_conditions import _case as _mesh_case
 from tests.tier1_offline.test_workflows import _wb_geometry, _with_pproc, unsteady_case
 from tests.tier1_offline.test_workspace_fsi_setup import CALCULATED, SUPPLIED
-
-
-def test_g33_file_trailing_edges_keep_the_steady_order_on_unsteady_and_rotor_rows(tmp_path):
-    """G33: the file route for trailing edges, on an unsteady row and on a rotor
-    row, takes the order RPT-069 measured on the steady row: the edges imported,
-    the solver initialised, the wake-termination nodes detected, the same
-    initialisation again, then the start. Emission only; the licensed band
-    comparison of the two run types (T29) is not claimed here."""
-    # GOAL033:capability_ids:items:G33
-    tables = FILE_ROUTE + '\n[wake_termination]\ndetect = "auto"\n'
-    for run_type in ("unsteady", "unsteady_rotor"):
-        folder = tmp_path / run_type
-        folder.mkdir()
-        case = _unsteady(_mesh_case(folder, _library(folder, tables)), run_type)
-        script = Script("26.124")
-        build_script(case, script)
-        lines = script.render().splitlines()
-        assert case.variables["matrix_workflow"] == run_type, case.variables
-        _assert_detected_between_two_initializations(lines, ["AUTO_DETECT_WAKE_TERMINATION_NODES"])
 
 
 def test_g34_metre_reference_origins_reach_a_millimetre_simulation_scaled():

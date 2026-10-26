@@ -142,7 +142,7 @@ from pyflightstream.results import FrozenSolve
 from pyflightstream.workspace.inputs import rotor_integration_groups
 from pyflightstream.workspace.sidecars import (
     OBJ_SUFFIX,
-    inventory_sidecar,
+    boundaries_for_matrix,
     recorded_mesh_faces,
 )
 
@@ -1716,7 +1716,7 @@ def _mesh_faces_of(workspace: CampaignWorkspace, record: RunRecord | None, point
             found.insert(0, workspace.resolve_geometry(name))
         except (PyflightstreamError, OSError):
             pass
-        return [inventory_sidecar(path) for path in found]
+        return [boundaries_for_matrix(path) for path in found]
 
     faces = recorded_mesh_faces(record.inputs_sha256, sidecars)
     if faces is None:

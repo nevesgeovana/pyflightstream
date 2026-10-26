@@ -18,14 +18,13 @@ import pytest
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import (
     MeshImport,
-    RawMeshConditions,
     ReferenceData,
     SolverSettings,
-    TrailingEdgeMarking,
 )
 from pyflightstream.cases.workflows import build_script
 from pyflightstream.results.loads import parse_loads
 from pyflightstream.script import Script
+from tests.support_helpers import saved_mesh_fixture
 from tests.tier1_offline.test_workflows import rotor_case
 
 FIX = Path(__file__).resolve().parent / "fixtures" / "rpt133"
@@ -98,13 +97,10 @@ def test_the_package_emits_the_order_rpt_133_measured_as_arm_b_fr_318(tmp_path):
     # Verifies FR-318.
     case = rotor_case().model_copy(
         update={
-            "geometry": str(tmp_path / "rotor.obj"),
+            "geometry": str(saved_mesh_fixture(tmp_path / "rotor.fsm", ("Blade", "Hub"))),
             "inventory": ("Blade", "Hub"),
             "inventory_source": "sidecar",
             "mesh_import": MeshImport(units="METER"),
-            "raw_mesh_conditions": RawMeshConditions(
-                trailing_edges=TrailingEdgeMarking(route="detect")
-            ),
             "reference": ReferenceData(area=1.0, length=0.1, span_m=1.0),
             "solver": SolverSettings(vorticity_drag_families=["Blade"], moments_model="VORTICITY"),
         }

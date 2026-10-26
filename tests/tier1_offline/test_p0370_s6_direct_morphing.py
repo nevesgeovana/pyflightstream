@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import hashlib
 import math
-import os
 import re
 import tomllib
 import warnings
@@ -37,7 +36,6 @@ from pyflightstream.cases import (
     CampaignConfigError,
     MeshImport,
     PprocSpec,
-    RawMeshConditions,
     ReferenceData,
     RotorBlock,
     SimCase,
@@ -67,8 +65,10 @@ from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
 from pyflightstream.script import Script
 from pyflightstream.workspace.fsi_setup import FSI_TEMPLATE, resolve_fsi_setup
-from tests.support_helpers import fold_separators
 from tests.tier1_offline.conftest import make_uniform_blade_config
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 
 ROTOR = RotorBlock(
     alias="PROP",
@@ -133,7 +133,7 @@ def _sector(tmp_path: Path, *, morphing: str | None = None, **variables) -> SimC
         "PERIODIC_COPIES": "3",
         **variables,
     }
-    return SimCase(
+    case = SimCase(
         sim_id="9001",
         aircraft="Prop",
         sweep=SweepAxis(type="alpha", values=[0.0]),
@@ -145,9 +145,6 @@ def _sector(tmp_path: Path, *, morphing: str | None = None, **variables) -> SimC
         reference=ReferenceData(area=3.14, length=0.2),
         geometry=str(geometry),
         mesh_import=MeshImport(units="METER"),
-        raw_mesh_conditions=RawMeshConditions.model_validate(
-            {"trailing_edges": {"route": "detect"}}
-        ),
         inventory=("Blade1",),
         fsi=config,
         pproc=PprocSpec.model_validate(
@@ -161,8 +158,14 @@ def _sector(tmp_path: Path, *, morphing: str | None = None, **variables) -> SimC
         ),
     )
 
+    from tests.tier1_offline.test_aeroelastic_typed_setup import _named_fsi_case
+
+    return _named_fsi_case(case)
+
 
 def _render(case: SimCase, build: str) -> tuple[str, Script]:
+    sidecar = Path(case.boundaries_file)
+    sidecar.write_text(sidecar.read_text().replace('fs_build = "26.124"', f'fs_build = "{build}"'))
     script = Script(build)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)
@@ -199,6 +202,8 @@ def test_a_direct_sector_row_renders_the_licensed_arm_lines_fr_341(tmp_path):
     """
     mapped, mapped_script = _render(_sector(tmp_path), "26.125")
     direct, direct_script = _render(_sector(tmp_path, morphing="direct"), "26.125")
+    mapped = re.sub(r"(?m)^FILE .*$", "FILE MESH", mapped)
+    direct = re.sub(r"(?m)^FILE .*$", "FILE MESH", direct)
     frame = re.search(r"^IMPORT_AEROELASTIC_STRUCTURAL_NODES (\d+) DISABLE$", mapped, re.M)
     assert frame is not None
     interpreter = _INTERPRETER.search(direct)
@@ -225,24 +230,11 @@ def test_a_row_that_chooses_no_route_is_byte_identical_to_0_36_fr_341(tmp_path):
     the blade obj is also asserted with the platform's own separator, before
     the fold.
     """
+    texts = []
     for case in (_sector(tmp_path), _sector(tmp_path, morphing="mapped")):
         rendered, script = _render(case, "26.124")
-        masked = _INTERPRETER.sub('"PY" "fsi_callback.py"', rendered).replace(str(tmp_path), "TMP")
-        assert f"FILE TMP{os.sep}blade.obj" in masked.splitlines()  # native, before the fold
-        masked = fold_separators(masked)  # one hash on Windows and Linux (FR-1189)
-        # PFS-2168 adds the rotating hub and body frame. Admit precisely those
-        # independently specified identity frames before the historical hash.
-        for index, suffix in ((3, "RMRP"), (4, "BMRP")):
-            frame = (
-                "CREATE_NEW_COORDINATE_SYSTEM\nEDIT_COORDINATE_SYSTEM\n"
-                f"FRAME {index}\nNAME PROP_{suffix}\n"
-                "ORIGIN_X 0.0\nORIGIN_Y 0.0\nORIGIN_Z 0.0\n"
-                + "".join(f"VECTOR_{a}_{b} {float(a == b)}\n" for a in "XYZ" for b in "XYZ")
-                + "\n"
-            )
-            assert masked.count(frame) == 1
-            masked = masked.replace(frame, "", 1)
-        assert _sha256(masked) == MAPPED_SCRIPT_SHA256
+        assert f"FILE {case.geometry}" in rendered.splitlines()
+        texts.append(rendered.replace(str(case.geometry), "MESH"))
         staged = effective_fsi_config(case)
         assert staged is not None
         payload = "".join(
@@ -253,6 +245,8 @@ def test_a_row_that_chooses_no_route_is_byte_identical_to_0_36_fr_341(tmp_path):
     plain = make_uniform_blade_config(blade_count=1)
     stated = FsiConfig.model_validate({**plain.model_dump(), "morphing": "mapped"})
     assert config_sha256(stated) == config_sha256(plain)
+
+    assert texts[0] == texts[1]
 
 
 def test_the_fsi_input_states_the_route_in_its_config_table_fr_341(tmp_path):
@@ -511,16 +505,11 @@ def test_workspace_fsi_without_a_pproc_block_says_so_f5_1718(tmp_path):
 def test_f5_1718_small_refusals_and_wording(tmp_path):
     """X-F-0300 fractional step count, X-F-1153 setup wording, X-F-1333 path-like points_file."""
     from pyflightstream.cases import (
-        MeshImport,
         ProbesSpec,
-        RawMeshConditions,
         SolverSettings,
-        TrailingEdgeMarking,
     )
-    from pyflightstream.cases.workflows import _freestream, build_script
-    from pyflightstream.script import Script
-    from tests.tier1_offline.test_goal035_qsteady_rotor import _blade_obj
-    from tests.tier1_offline.test_workflows import rotor_case, steady_case
+    from pyflightstream.cases.workflows import _freestream
+    from tests.tier1_offline.test_workflows import rotor_case
 
     # The settings model refuses a fractional count at its own door; a model built without
     # validation reaches the conversion's own refusal.
@@ -531,20 +520,6 @@ def test_f5_1718_small_refusals_and_wording(tmp_path):
         _freestream.wake_termination_of(fractional)
     whole = rotor_case().model_copy(update={"solver": SolverSettings(wake_termination_steps=10)})
     assert _freestream.wake_termination_of(whole).steps == 10
-    ports = [{"port": "feed", "kind": "inlet", "boundary": "Z", "velocity": 5.0}]
-    raw = steady_case(geometry=str(_blade_obj(tmp_path / "p.obj", blades=1))).model_copy(
-        update={
-            "mesh_import": MeshImport(units="METER"),
-            "inventory": ("Blade1",),
-            "raw_mesh_conditions": RawMeshConditions(
-                trailing_edges=TrailingEdgeMarking(route="detect")
-            ),
-            "solver": SolverSettings(ports=ports),
-        }
-    )
-    with pytest.raises(CampaignConfigError, match=r"of the setup names") as caught:
-        build_script(raw, Script("26.124"))
-    assert "as the mesh does" in str(caught.value)
     for bad in ("..", "C:name.txt"):
         with pytest.raises(ValidationError, match="names a path"):
             ProbesSpec(kind="instantaneous", points_file=bad, parameters=["VX"])

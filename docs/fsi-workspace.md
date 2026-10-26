@@ -549,3 +549,9 @@ node count and finite translations; staging verifies its recorded digest before
 copying it into the point folder. Direct vertex morphing is refused for this route.
 `allow_configuration_change = true` explicitly permits the driver's existing
 configuration-change handling. Both controls are absent or false by default.
+
+
+FSI rows retain raw OBJ imports and read named declarations from
+`<mesh>.obj.boundaries.toml` through the strict marking loader. Each import
+uses the same D3 emitter and VERIFIED command gate as `mark-boundaries`.
+Every other matrix row requires a prepared `.fsm`.

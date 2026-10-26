@@ -1166,30 +1166,19 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "SET_FREESTREAM",
         ),
         CCS_SHEDDING_VARIABLE: InputKey(
-            "The direction of every Relaxed_TE parametric shedding line of the CCS file "
-            "the row's GEOMETRY names, on the file route (kind = file in its sidecar's "
-            "[import.ccs]). Refused on a CCS loft, whose relaxed trailing-edge commands "
-            "take no direction, and on a file with no Relaxed_TE line.",
-            "AXIAL or 0, the default; AZIMUTH or 1",
-            "CCS_IMPORT",
-            unscripted=(
-                "the run's own copy of the CCS file, each Relaxed_TE line restated in "
-                "this direction, which CCS_IMPORT reads in place of the user's file."
-            ),
+            "Refused in matrix runs; set the CCS shedding direction during geometry preparation.",
+            "AXIAL or AZIMUTH during preparation",
+            "",
         ),
         MORPHING_VARIABLE: InputKey(
-            "The morphing surface of the CCS wing the row's GEOMETRY names that "
-            "MORPHING_ANGLE deflects, one of the [[import.ccs.morphing_surfaces]] of its "
-            "sidecar. The solver deforms the lofted mesh, so the CCS file is not regenerated. "
-            "Refused on a row whose geometry is not a CCS wing loft.",
-            "the name of a declared morphing surface",
-            "NEW_CCS_WING_MORPHING_SURFACE",
+            "Refused in matrix runs; prepare the deflected geometry before running its saved .fsm.",
+            "geometry preparation only",
+            "",
         ),
         MORPHING_ANGLE_VARIABLE: InputKey(
-            "The deflection of the morphing surface MORPHING names, in degrees; without it "
-            "the surface takes the angle_deg of its sidecar entry.",
-            "a finite number of degrees",
-            "NEW_CCS_WING_MORPHING_SURFACE",
+            "Refused in matrix runs; prepare the deflected geometry before running its saved .fsm.",
+            "geometry preparation only",
+            "",
         ),
         FREESTREAM_VARIABLE: InputKey(
             "A custom free stream in place of the uniform one: a velocity field over the YZ "

@@ -1,3 +1,7 @@
+mesh_sha256 = "af6f451a7be9cd867f13d91aa96276666150b080795daf7d0dfb5d623b924b89"
+mesh_faces = 816
+boundary_faces = [816]
+fs_build = "26.124"
 # 15_WING_OBJ_TE: the tier-3 wing, 10_WING.fsm, as a raw mesh, its trailing
 # edge marked by a points file (the default route). The OBJ beside this file
 # is generated and never committed; its provenance record says by what.
@@ -16,7 +20,7 @@ op = "rename"
 surface = "WING_OBJ"
 to = "Wing"
 
-[trailing_edges]
+[trailing_edges.mesh]
 # The 16 edges the saved 10_WING.fsm flags as trailing, by their mid-points.
 file = "15_WING_OBJ_TE.te.txt"
 # The edge type has no default (PFS-2124.055); STANDARD is the type the goldens
@@ -25,5 +29,4 @@ type = "STANDARD"
 
 # The saved simulation was prepared with its wake termination nodes detected
 # after its trailing edges (recipes.prepare_geometry), so the import is too.
-[wake_termination]
-detect = "auto"
+wake_termination_nodes = "auto"

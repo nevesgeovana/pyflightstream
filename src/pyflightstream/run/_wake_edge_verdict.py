@@ -1,13 +1,12 @@
 """The verdicts on a run read off the solver's own log, whatever the assessor said.
 
-G02 (RPT-061, RPT-065): a run that imported trailing edges is held to
-the count the solver logged. G06: a run whose solver could not use the radial
+G06: a run whose solver could not use the radial
 thrust profile of its actuator disc is held to the line the solver logged about
 it. Private to the run layer: the point path and the collect path both apply
 them, so they live beneath both rather than in the package module one of them
 would otherwise reach into. The rule that finds a point's solver log among its
 collected outputs lives here for the same reason: the package's assessor finds
-its log by it, and both verdicts read the log it finds whichever assessor
+its log by it, and the profile verdict reads the log it finds whichever assessor
 judged the point.
 """
 
@@ -16,18 +15,15 @@ from __future__ import annotations
 import re
 from collections.abc import Collection, Sequence
 from pathlib import Path, PureWindowsPath
-from typing import Any
 
 from pyflightstream.cases import EXPORT_KINDS
 from pyflightstream.results import (
     IncompleteOutputError,
-    imported_trailing_edges,
     parse_residual_history,
     parse_residual_solves,
 )
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace._missing_log import script_log_names
-from pyflightstream.workspace.wake_edges import saved_wake_edge_verdict as _saved_wake_edge_verdict
 
 __all__ = [
     "ACTUATOR_PROFILE_REFUSALS",
@@ -38,8 +34,7 @@ __all__ = [
     "reads_as_residual_history",
     "script_log_names",
     "SOLVER_OWN_LOG",
-    "wake_edge_import_verdict",
-    "with_wake_edge_verdict",
+    "with_log_verdict",
 ]
 
 #: The four sentences the solver executable carries for the radial thrust
@@ -344,85 +339,15 @@ def collected_log_texts(
     return texts
 
 
-def wake_edge_import_verdict(
-    expected: int | None, log_text: str | None, sets: Sequence[dict[str, Any]] = ()
-) -> tuple[RunStatus, str] | None:
-    """Judge a run that imported trailing edges by the count the solver logged.
-
-    G02 (RPT-061, RPT-065). The import marks nothing and says nothing for a
-    point that matches no mesh edge, and initialisation does not add what
-    it missed, so the solver's ``N trailing edges imported`` line is the one
-    statement that tells a file that marked from one that did not.
-
-    Parameters
-    ----------
-    expected : int or None
-        The points the script wrote (``Script.wake_edge_points``); None
-        for a script that imports nothing, which is never judged here, so a
-        continuation that opens a saved state is not held to a count.
-    log_text : str or None
-        The run's solver log.
-    sets : sequence of dict, optional
-        Ordered file metadata; multiple imports are checked individually.
-
-    Returns
-    -------
-    tuple of (RunStatus, str) or None
-        None when there is nothing to object to; FAILED_INCOMPLETE_OUTPUT
-        when no log was read; FAILED_SCRIPT when the logged count differs
-        from the points written. Each with its reason.
-    """
-    if expected is None:
-        return None
-    if log_text is None:
-        return (
-            RunStatus.FAILED_INCOMPLETE_OUTPUT,
-            f"the script imported {expected} trailing-edge points and no solver log was "
-            "read, so whether the file marked anything cannot be told: a file whose "
-            "points match no edge marks nothing and says nothing. Export the solver log "
-            "among the row's outputs",
-        )
-    counts = imported_trailing_edges(log_text)
-    if len(sets) > 1:
-        logged_sets = [
-            sum(count.values())
-            for line in log_text.splitlines()
-            if (count := imported_trailing_edges(line))
-        ]
-        expected_sets = [entry["count"] for entry in sets]
-        if logged_sets != expected_sets:
-            return RunStatus.FAILED_SCRIPT, (
-                f"trailing-edge imports of {[entry['file'] for entry in sets]} expected "
-                f"counts {expected_sets}, but the solver logged {logged_sets} in import order"
-            )
-    logged = sum(counts.values())
-    if logged == expected:
-        return None
-    per_boundary = ", ".join(f"{count} for {name}" for name, count in counts.items()) or "none"
-    return (
-        RunStatus.FAILED_SCRIPT,
-        f"the script wrote {expected} trailing-edge points and the solver logged "
-        f"{logged} imported (per boundary: {per_boundary}); a point matching no mesh edge "
-        "is dropped in silence, so this run's wake is not the one declared",
-    )
-
-
-def with_wake_edge_verdict(
+def with_log_verdict(
     status: RunStatus,
     error: str | None,
     verdict: tuple[RunStatus, str] | None,
-    *,
-    sets: Sequence[dict[str, Any]] = (),
-    folder: Path | None = None,
-    collected: Sequence[str] = (),
-    build: str = "unknown",
 ) -> tuple[RunStatus, str | None]:
     """Apply a verdict read off the log over a status that is not already a failure.
 
     The trailing-edge count's (G02) and the actuator profile's (G06) alike.
     """
-    if verdict is None and len(sets) > 1 and folder is not None:
-        verdict = _saved_wake_edge_verdict(sets, folder, collected, build)
     if verdict is None or str(status).startswith("FAILED"):
         return status, error
     return verdict[0], "; ".join(part for part in (error, verdict[1]) if part)

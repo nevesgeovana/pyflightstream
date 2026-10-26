@@ -169,38 +169,6 @@ def test_typed_boundary_controls_reach_setup_phase():
         )
 
 
-def test_explicit_no_trailing_edge_is_preserved_and_emits_no_detection(tmp_path):
-    # GOAL033:capability_ids:items:G17
-    from pyflightstream._errors import PyflightstreamWarning
-    from pyflightstream.cases import RawMeshConditions
-    from pyflightstream.cases.workflows._geometry import _raw_mesh_boundary_conditions
-    from pyflightstream.workspace.inputs import InputArtifactError
-    from pyflightstream.workspace.sidecars import read_trailing_edges
-
-    try:
-        marking = read_trailing_edges(tmp_path / "body.boundaries.toml", {"none": True})
-    except InputArtifactError:
-        marking = None
-    assert marking is not None, "a blunt body can explicitly declare no trailing edge"
-    assert marking.route == "none"
-    case = SimCase(
-        sim_id="9001",
-        aircraft="Body",
-        recipe="steady",
-        geometry=str(tmp_path / "body.stl"),
-        sweep=SweepAxis(type="alpha", values=[0.0]),
-        point={"alpha": 0.0},
-        variables={"VELOCITY": "30"},
-        outputs=["loads.txt"],
-        raw_mesh_conditions=RawMeshConditions(trailing_edges=marking),
-    )
-    script = Script("26.124")
-    with pytest.warns(PyflightstreamWarning, match="no wake"):
-        _raw_mesh_boundary_conditions(case, script)
-    assert "TRAILING" not in script.render()
-    assert case.model_dump()["raw_mesh_conditions"]["trailing_edges"]["route"] == "none"
-
-
 def test_rotor_shedding_matrix_key_is_refused_without_changing_helper():
     from pyflightstream.cases import CampaignConfigError
     from pyflightstream.cases.workflows import build_script, rotor_relaxed_trailing_edges
@@ -255,58 +223,6 @@ def test_multiple_actuator_records_have_independent_speed_and_loading():
     )
     _actuator_disc(case, script, {"MRP": frame}, discs)
     assert script.render().count("CREATE_NEW_ACTUATOR") == 2
-
-
-def test_inlet_outlet_ownership_preserves_order_and_normal_velocity(tmp_path):
-    from pyflightstream._errors import PyflightstreamWarning
-    from pyflightstream.cases import RawMeshConditions
-    from pyflightstream.cases.workflows._geometry import _raw_mesh_boundary_conditions
-    from pyflightstream.cases.workflows._solver_settings import _settings
-    from pyflightstream.workspace.inputs import read_raw_mesh_conditions
-    from pyflightstream.workspace.matrix import _bind_setup_ports
-
-    assert "ports" in RawMeshConditions.model_fields
-    sidecar = tmp_path / "duct.boundaries.toml"
-    sidecar.write_text(
-        'boundaries = ["Inlet", "Outlet"]\n[trailing_edges]\nnone = true\n'
-        '[ports]\nfeed = "Inlet"\nexit = "Outlet"\n',
-        encoding="utf-8",
-    )
-    conditions = read_raw_mesh_conditions(sidecar)
-    assert conditions.ports == {"feed": "Inlet", "exit": "Outlet"}
-    case = SimCase(
-        sim_id="9001",
-        aircraft="Duct",
-        recipe="steady",
-        geometry=str(tmp_path / "duct.obj"),
-        inventory=["Inlet", "Outlet"],
-        raw_mesh_conditions=conditions,
-        sweep=SweepAxis(type="alpha", values=[0.0]),
-        point={"alpha": 0.0},
-        variables={"VELOCITY": "10", "FEED_VELOCITY": "-10", "EXIT_VELOCITY": "10"},
-        solver={
-            "ports": [
-                {"port": "feed", "kind": "inlet"},
-                {"port": "exit", "kind": "outlet"},
-            ]
-        },
-        outputs=["loads.txt"],
-    )
-    case = _bind_setup_ports(case, tmp_path)
-    assert case.solver.ports[0].velocity == -10.0
-    assert case.solver.ports[1].velocity == 10.0
-    script = Script("26.124")
-    script.declare_existing(boundaries={"Inlet": 1, "Outlet": 2})
-    with pytest.warns(PyflightstreamWarning, match="no wake"):
-        _raw_mesh_boundary_conditions(case, script)
-    _settings(case, script)
-    text = script.render()
-    assert text.index("CREATE_NEW_INLET") < text.index("CREATE_NEW_OUTLET")
-    # Each velocity on ITS OWN line: "10.0" is a substring of "-10.0".
-    inlet = next(line for line in text.splitlines() if line.startswith("CREATE_NEW_INLET"))
-    outlet = next(line for line in text.splitlines() if line.startswith("CREATE_NEW_OUTLET"))
-    assert "-10.0" in inlet.split(), inlet
-    assert "10.0" in outlet.split() and "-10.0" not in outlet.split(), outlet
 
 
 @pytest.mark.parametrize("workflow", ["steady", "unsteady_rotor"], ids=["steady", "G35"])
@@ -415,61 +331,6 @@ def test_multiple_profile_inputs_survive_the_pending_input_writer(tmp_path):
     assert len(hashes) == 2
     assert all((tmp_path / name).is_file() for name in hashes)
     assert {name.split(".")[0] for name in hashes} == {"left", "right"}
-
-
-def test_synthetic_duct_import_emits_ports_after_geometry(tmp_path):
-    # GOAL033:capability_ids:items:G07
-    import hashlib
-    from pathlib import Path
-
-    from pyflightstream._errors import PyflightstreamWarning
-    from pyflightstream.cases.workflows._geometry import _open_geometry
-    from pyflightstream.workspace.inputs import read_raw_mesh_conditions
-    from pyflightstream.workspace.matrix import _bind_setup_ports
-    from tests.support_tier3 import write_duct_obj
-
-    fixture = write_duct_obj(tmp_path / "duct.obj")
-    # The whole file, and separately its geometry lines. Only the leading comment
-    # changed when the private provenance header left the generator (GOAL-034):
-    # the geometry lines hash as they did for the measured fixture, 5d9f45af...
-    assert hashlib.sha256(fixture.read_bytes()).hexdigest() == (
-        "3a5b243a5b04de61c107ba69a0b3c39c7998a1337c0f83c4414245f79248f6ee"
-    )
-    geometry = b"".join(
-        line for line in fixture.read_bytes().splitlines(keepends=True) if not line.startswith(b"#")
-    )
-    assert hashlib.sha256(geometry).hexdigest() == (
-        "4bfdbd210f29b7795e875612e85371440e95e904f93cc352457ccc4fc547fb70"
-    )
-    # The sidecar is a tier-1 fixture (GEO-060 B2, CX-7), so this offline test
-    # reads no file of the licensed tier; the generator is only imported.
-    source = Path(__file__).parent / "fixtures" / "duct.boundaries.toml"
-    fixture.with_suffix(".boundaries.toml").write_bytes(source.read_bytes())
-    case = SimCase(
-        sim_id="9001",
-        aircraft="Duct",
-        recipe="steady",
-        sweep=SweepAxis(type="alpha", values=[0.0]),
-        geometry=str(fixture),
-        inventory=["Inlet", "Outlet", "Wall"],
-        mesh_import={"units": "METER"},
-        solver=SolverSettings(
-            ports=[{"port": "feed", "kind": "inlet"}, {"port": "exit", "kind": "outlet"}]
-        ),
-        variables={"VELOCITY": "30", "FEED_VELOCITY": "-10", "EXIT_VELOCITY": "10"},
-        raw_mesh_conditions=read_raw_mesh_conditions(fixture.with_suffix(".boundaries.toml")),
-    )
-    case = _bind_setup_ports(case, tmp_path)
-    script = Script("26.124")
-    with pytest.warns(PyflightstreamWarning, match="no wake"):
-        _open_geometry(case, script)
-    _settings(case, script)
-    emitted = script.render()
-    assert (
-        emitted.index("IMPORT")
-        < emitted.index("CREATE_NEW_INLET")
-        < emitted.index("CREATE_NEW_OUTLET")
-    )
 
 
 def test_matrix_binds_two_actuator_profile_stems(tmp_path):

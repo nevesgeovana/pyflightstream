@@ -22,11 +22,11 @@ from types import SimpleNamespace
 
 import pytest
 
+from pyflightstream._errors import InputArtifactError
 from pyflightstream.cases import (
     CampaignConfigError,
     MeshImport,
     PprocSpec,
-    RawMeshConditions,
     ReferenceData,
     SimCase,
 )
@@ -38,6 +38,9 @@ from pyflightstream.run._executors import _run_until_the_analysis_ends
 from pyflightstream.run._ids import _is_one_job
 from pyflightstream.run._pending import _write_pending_files
 from pyflightstream.script import Script
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 from tests.tier1_offline.test_g06_actuator_disc import _lines
 from tests.tier1_offline.test_workflows import steady_case, unsteady_case
 
@@ -101,9 +104,6 @@ def _wing_update(tmp_path: Path, cfg: FsiConfig | None) -> dict[str, object]:
     return {
         "geometry": str(geometry),
         "mesh_import": MeshImport(units="METER"),
-        "raw_mesh_conditions": RawMeshConditions.model_validate(
-            {"trailing_edges": {"route": "detect"}}
-        ),
         "inventory": ["Wing"],
         "reference": ReferenceData(area=8.0, length=1.0, moment_point_m=(0.0, 0.0, 0.0)),
         "fsi": cfg if cfg is not None else wing_config(),
@@ -120,11 +120,15 @@ def _wing_update(tmp_path: Path, cfg: FsiConfig | None) -> dict[str, object]:
 
 
 def steady_wing_case(tmp_path: Path, cfg: FsiConfig | None = None) -> SimCase:
-    return steady_case().model_copy(update=_wing_update(tmp_path, cfg))
+    from tests.tier1_offline.test_aeroelastic_typed_setup import _named_fsi_case
+
+    return _named_fsi_case(steady_case().model_copy(update=_wing_update(tmp_path, cfg)))
 
 
 def unsteady_wing_case(tmp_path: Path, cfg: FsiConfig | None = None) -> SimCase:
-    return unsteady_case().model_copy(update=_wing_update(tmp_path, cfg))
+    from tests.tier1_offline.test_aeroelastic_typed_setup import _named_fsi_case
+
+    return _named_fsi_case(unsteady_case().model_copy(update=_wing_update(tmp_path, cfg)))
 
 
 # --------------------------------------------------------------------------
@@ -586,3 +590,46 @@ def test_the_beam_helpers_are_the_blade_s():
     beam.solve_static(model)
     tip = beam.extract_solution(model, cfg).flap_deflection_m[-1]
     assert tip == pytest.approx(SPAN_M**4 / (8.0 * 2.0e5), rel=1e-9)
+
+
+def test_p0460_fsi_marks_every_import_and_keeps_solver_initialization(tmp_path):
+    case = steady_wing_case(tmp_path)
+    for _ in range(2):
+        lines, script = _lines(case)
+        text = script.render()
+        assert text.splitlines().count("IMPORT") == 1
+        assert text.count("AUTO_DETECT_TRAILING_EDGES") == 1
+        assert text.index("AUTO_DETECT_TRAILING_EDGES") < text.index("INITIALIZE_SOLVER")
+        assert "SAVEAS" not in text
+
+
+def test_p0460_fsi_reloads_strict_named_declarations_at_import(tmp_path):
+    case = steady_wing_case(tmp_path)
+    sidecar = Path(case.boundaries_file)
+    sidecar.write_text(sidecar.read_text().replace("[trailing_edges.main]", "[trailing_edges]"))
+    with pytest.raises(
+        InputArtifactError,
+        match="named|unnamed|trailing_edges",
+    ):
+        _lines(case)
+
+
+def test_p0460_fsi_uses_the_planner_evidence_gate(tmp_path, monkeypatch):
+    from pyflightstream.commands import CommandRegistry, Status
+
+    case = steady_wing_case(tmp_path)
+    registry = CommandRegistry.load()
+    entry = registry.commands["AUTO_DETECT_TRAILING_EDGES"]
+    registry.commands[entry.name] = entry.model_copy(
+        update={
+            "versions": {
+                key: value.model_copy(update={"status": Status.DOCUMENTED})
+                for key, value in entry.versions.items()
+            }
+        }
+    )
+    with pytest.raises(
+        InputArtifactError,
+        match="VERIFIED.*AUTO_DETECT_TRAILING_EDGES",
+    ):
+        _lines(case)

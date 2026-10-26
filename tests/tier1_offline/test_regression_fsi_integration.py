@@ -40,6 +40,9 @@ from pyflightstream.workspace.fsi_setup import FsiSetupError, resolve_fsi_setup,
 from tests.tier1_offline.test_aeroelastic_typed_setup import (
     coupled_case as _integfix_fsi__coupled_case,
 )
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 from tests.tier1_offline.test_fsi_driver import CALL2 as _FSI_DRIVER__CALL2
 from tests.tier1_offline.test_fsi_driver import driver_config as _fsi_driver__driver_config
 from tests.tier1_offline.test_fsi_driver import driver_config as _fsi_review__driver_config
@@ -706,7 +709,9 @@ def _gaps_rt_fsiext___external_case(tmp_path: Path, make=_gaps_rt_fsiext__steady
     update["fsi"] = None
     update["fsi_external"] = structure
     update["fsi_provenance"] = structure.provenance()
-    return make().model_copy(update=update), structure
+    from tests.tier1_offline.test_aeroelastic_typed_setup import _named_fsi_case
+
+    return _named_fsi_case(make().model_copy(update=update)), structure
 
 
 def test_p0440_external_fsi_staged_provenance_is_portable(tmp_path):

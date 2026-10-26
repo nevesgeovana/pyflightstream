@@ -20,7 +20,6 @@ recipe to record is the shipped one.
 
 from __future__ import annotations
 
-import hashlib
 import sys
 from pathlib import Path
 
@@ -28,106 +27,12 @@ import pytest
 
 from pyflightstream.cases import Campaign, SimCase, SweepAxis
 from pyflightstream.run import Assessment, CampaignErrors, LocalExecutor, run_campaign
-from pyflightstream.run.collect import collect_once
 from pyflightstream.script import helpers
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
-from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 #: The sixteen trailing-edge mid-points of the tier-3 straight wing, which is
 #: the case the solver's line was read on: 16 imported for boundary Wing.
 MIDPOINTS = [(1.0, -3.75 + 0.5 * k, 0.0) for k in range(16)]
-
-
-@pytest.mark.parametrize("keep_all", [False, True])
-def test_p0440_saved_state_checks_every_imported_set(tmp_path, keep_all):
-    from pyflightstream._fsm import surface_mesh
-    from pyflightstream.run._wake_edge_verdict import with_wake_edge_verdict
-    from tests.tier1_offline.test_fsm_trailing_edges import _LIBRARY, _flag_row_lines
-
-    source = _LIBRARY / "10_WING.fsm"
-    text = source.read_text(encoding="utf-8")
-    vertices, faces = surface_mesh(source)
-    lines = text.split("\n")
-    if not keep_all:
-        for row, (a, b) in {2: (0, 1), 3: (1, 2), 4: (2, 0)}.items():
-            index = _flag_row_lines(text)[row - 1]
-            tokens = lines[index].split(",")
-            for face, triangle in enumerate(faces):
-                if (vertices[triangle[a]][1] + vertices[triangle[b]][1]) / 2 < 0:
-                    tokens[face] = " F"
-            lines[index] = ",".join(tokens)
-    (tmp_path / "saved.fsm").write_text("\n".join(lines), encoding="utf-8")
-    sets = [
-        {
-            "file": "outer.te.txt",
-            "type": "STANDARD",
-            "count": 8,
-            "points_m": MIDPOINTS[:8],
-            "tolerance": 0.0001,
-        },
-        {
-            "file": "junction.te.txt",
-            "type": "RELAXED",
-            "count": 8,
-            "points_m": MIDPOINTS[8:],
-            "tolerance": 0.0001,
-        },
-    ]
-    try:
-        status, error = with_wake_edge_verdict(
-            RunStatus.CONVERGED,
-            None,
-            None,
-            sets=sets,
-            folder=tmp_path,
-            collected=["saved.fsm"],
-            build="26.124",
-        )
-    except TypeError as exc:
-        status, error = None, str(exc)
-    assert status == (RunStatus.CONVERGED if keep_all else RunStatus.FAILED_SCRIPT), error
-    if not keep_all:
-        assert "outer.te.txt" in error and "8 of 16" in error and "PFS-2149.01" in error
-    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
-
-    workspace, sim = _submitted_workspace(
-        tmp_path / "collected", declared=("loads.txt", "run_log.txt", "saved.fsm")
-    )
-    raw = _read_record_rows(workspace.manifest_path)
-    raw[0]["submission"].update(wake_edge_points=16, wake_edge_sets=sets)
-    raw[0]["wake_edge_sets"] = sets
-    workspace._replace_manifest(raw)
-    (sim / "loads.txt").write_text("numbers")
-    (sim / "saved.fsm").write_bytes((tmp_path / "saved.fsm").read_bytes())
-    (sim / "run_log.txt").write_text(
-        _residual_log("8 trailing edges imported for boundary Wing\n" * 2)
-    )
-    report = collect_once(
-        workspace,
-        interval=0.0,
-        sleep=_no_sleep,
-        assessor=lambda record, sim_dir: (RunStatus.CONVERGED, None),
-    )
-    (outcome,) = report.collected + report.failed
-    assert outcome.record.status == status, outcome.record.error
-    assert [entry["file"] for entry in outcome.record.wake_edge_sets] == [
-        "outer.te.txt",
-        "junction.te.txt",
-    ]
-
-
-def test_p0440_import_counts_are_checked_per_file():
-    from pyflightstream.run._wake_edge_verdict import wake_edge_import_verdict
-
-    sets = [{"file": "outer.te.txt", "count": 8}, {"file": "junction.te.txt", "count": 8}]
-    log = "7 trailing edges imported for boundary Wing\n9 trailing edges imported for boundary Wing"
-    try:
-        verdict = wake_edge_import_verdict(16, log, sets)
-    except TypeError:
-        verdict = None
-    assert verdict is not None
-    assert verdict[0] == RunStatus.FAILED_SCRIPT
-    assert "outer.te.txt" in verdict[1] and "[7, 9]" in verdict[1]
 
 
 def test_p0440_custom_recipe_is_planned_without_a_run_type():
@@ -271,60 +176,6 @@ def _run(tmp_path, log: str):
     return record, tmp_path / "camp" / "sims" / "sim_9001"
 
 
-def test_a_run_whose_log_counts_fewer_edges_than_the_points_written_is_refused(tmp_path):
-    """16 points written and 15 edges imported: one point matched no edge and the
-    solver said nothing about it, so the run is FAILED_SCRIPT, naming both
-    numbers, whatever the assessor made of the loads."""
-    record, _ = _run(
-        tmp_path, LOG_AROUND.format(line="15 trailing edges imported for boundary Wing")
-    )
-    assert record.status is RunStatus.FAILED_SCRIPT, (record.status, record.error)
-    assert "16" in record.error and "15" in record.error, record.error
-    assert "Wing" in record.error
-
-
-def test_a_run_whose_log_counts_every_point_keeps_the_assessor_s_status(tmp_path):
-    """The control: the same run with the solver logging all 16 is CONVERGED."""
-    record, _ = _run(
-        tmp_path, LOG_AROUND.format(line="16 trailing edges imported for boundary Wing")
-    )
-    assert record.status is RunStatus.CONVERGED, record.error
-    assert record.error is None
-
-
-def test_a_log_with_no_import_line_is_a_file_that_marked_nothing(tmp_path):
-    """No import line is what a file that matched no edge produces, so it is 0
-    imported against 16 written; a detection line is not an import and does not
-    count."""
-    record, _ = _run(tmp_path, LOG_AROUND.format(line="16 trailing edges marked on surface Wing"))
-    assert record.status is RunStatus.FAILED_SCRIPT, (record.status, record.error)
-    assert "16" in record.error and " 0 " in record.error, record.error
-
-
-def test_a_run_with_no_log_cannot_say_whether_its_file_marked_anything(tmp_path):
-    """Without a log the one statement the solver makes is unread, so the run is
-    FAILED_INCOMPLETE_OUTPUT rather than a converged record of an unmarked wake."""
-    record, _ = _run(tmp_path, "NO LOG")
-    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, (record.status, record.error)
-    assert "log" in record.error
-
-
-def test_the_node_file_is_written_before_the_solver_and_hashed(tmp_path):
-    """The node file the helper parked is on disk when the solver starts, with the
-    measured layout, and its digest is among the record's inputs."""
-    record, sim = _run(
-        tmp_path, LOG_AROUND.format(line="16 trailing edges imported for boundary Wing")
-    )
-    # The stand-in writes where it runs, the point's own folder since 0.27.0.
-    folder = sim / "datapoints" / f"DP-{record.point_name}"
-    seen = (folder / "node_file_seen.txt").read_text(encoding="utf-8").splitlines()
-    assert seen[:3] == ["16", "0,0,0", "1.0,-3.75,0.0"], seen
-    assert len(seen) == 18
-    node_file = next(sim.rglob("wing.wake_nodes.txt"))
-    digest = hashlib.sha256(node_file.read_bytes()).hexdigest()
-    assert record.inputs_sha256["wing.wake_nodes.txt"] == digest
-
-
 @pytest.mark.parametrize(
     ("log", "expected"),
     [
@@ -347,40 +198,6 @@ def test_imported_trailing_edges_reads_the_import_line_and_not_the_detection_lin
     assert imported_trailing_edges(log) == expected
 
 
-@pytest.mark.parametrize(("logged", "expected_status"), [(15, "FAILED_SCRIPT"), (16, "CONVERGED")])
-def test_a_collected_job_is_held_to_the_count_its_submission_recorded(
-    tmp_path, monkeypatch, logged, expected_status
-):
-    """A submitted job is judged when it is collected, not when it is sent: its
-    submission records the points its script imported, and the log the assessor
-    read among the collected outputs is held to that number, as the local path
-    holds a point the moment its solver returns."""
-
-    from pyflightstream.run import collect as collect_module
-    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
-
-    workspace, sim = _submitted_workspace(tmp_path)
-    raw = _read_record_rows(workspace.manifest_path)
-    raw[0]["submission"]["wake_edge_points"] = 16
-    workspace._replace_manifest(raw)
-    (sim / "loads.txt").write_text("numbers", encoding="utf-8")
-    line = f"{logged} trailing edges imported for boundary Wing"
-    (sim / "run_log.txt").write_text(LOG_AROUND.format(line=line), encoding="utf-8", newline="")
-    monkeypatch.setattr(
-        collect_module,
-        "assessment_of_collected",
-        lambda record, sim_dir: Assessment(
-            status=RunStatus.CONVERGED, iterations=120, log_file_used="run_log.txt"
-        ),
-    )
-    report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
-    (outcome,) = report.collected + report.failed
-    assert outcome.record is not None
-    assert str(outcome.record.status) == expected_status, outcome.record.error
-    if expected_status == "FAILED_SCRIPT":
-        assert "16" in outcome.record.error and "15" in outcome.record.error
-
-
 def _residual_log(line: str) -> str:
     """A recorded 26.120 solver log with ``line`` printed before its residual table."""
     fixture = Path(__file__).parent / "fixtures" / "log_residuals_26.120.txt"
@@ -388,76 +205,3 @@ def _residual_log(line: str) -> str:
     anchor = "script.txt\n"
     assert anchor in text, "the fixture no longer carries the line the import is put after"
     return text.replace(anchor, f"{anchor}\n{line}\n", 1)
-
-
-@pytest.mark.parametrize(
-    ("logged", "expected_status"),
-    [(16, "CONVERGED"), (15, "FAILED_SCRIPT"), (None, "FAILED_INCOMPLETE_OUTPUT")],
-    ids=["every-point-imported", "one-point-dropped", "no-log-collected"],
-)
-def test_a_collected_job_judged_by_a_custom_assessor_is_held_to_the_count(
-    tmp_path, logged, expected_status
-):
-    """The assessor a caller passes to collect answers ``(status, error)`` and names
-    no file. The count is read from the collected log found the way the package's
-    own assessor finds it, among the collected outputs, so a log carrying all 16
-    keeps the caller's verdict, one carrying 15 is FAILED_SCRIPT, and a job that
-    collected no log is FAILED_INCOMPLETE_OUTPUT."""
-
-    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
-
-    declared = ("loads.txt", "run_log.txt") if logged is not None else ("loads.txt",)
-    workspace, sim = _submitted_workspace(tmp_path, declared=declared)
-    raw = _read_record_rows(workspace.manifest_path)
-    raw[0]["submission"]["wake_edge_points"] = 16
-    workspace._replace_manifest(raw)
-    (sim / "loads.txt").write_text("numbers", encoding="utf-8")
-    if logged is not None:
-        line = f"{logged} trailing edges imported for boundary Wing"
-        (sim / "run_log.txt").write_text(_residual_log(line), encoding="utf-8")
-
-    def the_caller_s(record, sim_dir):
-        return RunStatus.CONVERGED, None
-
-    report = collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=the_caller_s)
-    (outcome,) = report.collected + report.failed
-    assert outcome.record is not None, outcome.detail
-    assert str(outcome.record.status) == expected_status, outcome.record.error
-    if expected_status == "CONVERGED":
-        assert outcome.record.error is None, outcome.record.error
-    elif expected_status == "FAILED_SCRIPT":
-        assert "16" in outcome.record.error and "15" in outcome.record.error
-    else:
-        assert "no solver log was read" in outcome.record.error, outcome.record.error
-
-
-def test_p0440_ter01_missing_saved_simulation_names_the_output_to_list(tmp_path):
-    from pyflightstream.run._wake_edge_verdict import with_wake_edge_verdict
-
-    sets = [
-        {
-            "file": "a.te.txt",
-            "type": "STANDARD",
-            "count": 1,
-            "points_m": [(0, 0, 0)],
-            "tolerance": 0.0001,
-        },
-        {
-            "file": "b.te.txt",
-            "type": "RELAXED",
-            "count": 1,
-            "points_m": [(1, 0, 0)],
-            "tolerance": 0.0001,
-        },
-    ]
-    status, error = with_wake_edge_verdict(
-        RunStatus.CONVERGED,
-        None,
-        None,
-        sets=sets,
-        folder=tmp_path,
-        collected=["loads.txt"],
-        build="26.124",
-    )
-    assert status == RunStatus.FAILED_INCOMPLETE_OUTPUT
-    assert ".fsm" in error and "among the row's outputs" in error

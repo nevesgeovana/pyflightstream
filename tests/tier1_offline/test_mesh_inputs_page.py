@@ -26,35 +26,23 @@ from __future__ import annotations
 import ast
 import importlib
 import re
-import shlex
 import sys
 import tomllib
-import typing
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-import pytest
-
 from pyflightstream.cases import (
     MeshImport,
     MeshOperation,
-    TrailingEdgeMarking,
-    case_at_point,
-    point_name,
 )
 from pyflightstream.cases._ccs import CcsImportOptions
-from pyflightstream.cases.matrix import read_matrix
-from pyflightstream.cases.workflows import SIMULATION_LENGTH_UNIT, build_script
 from pyflightstream.run.cli import main as pyfs_matrix
-from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace
 
 # The sidecar readers are workspace.sidecars since 0.33.0 (AD-11); workspace.inputs
 # re-exports their public names.
 from pyflightstream.workspace import sidecars as sidecar_reader
-from pyflightstream.workspace.matrix import resolve_matrix
-from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR, PointName, datapoint_dir_name
 from tests.tier1_offline._workflow_docs import MESH_DOCS
 
 REPO = Path(__file__).resolve().parents[2]
@@ -142,141 +130,6 @@ def _points(body: str) -> tuple[str, list[tuple[float, float, float]]]:
     rows = [tuple(float(value) for value in line.split(",")) for line in lines[1:]]
     assert all(len(row) == 3 for row in rows), rows
     return lines[0], [(row[0], row[1], row[2]) for row in rows]
-
-
-def test_the_complete_example_plans_and_renders_the_script_the_page_shows(tmp_path, monkeypatch):
-    """The page's example, from its own blocks, through the plan and the render.
-
-    Nothing of the example is written here. Every titled block goes to the
-    path its title names under the root of a fresh workspace, the python
-    block runs in that root (the docs example run skips it, because it writes
-    into its working directory), the plan is the command line the page
-    prints, and each point's script is rendered by the public API the run
-    uses, with no solver. What is asserted is read off the page as well: the
-    unit, the operations and the points from the sidecar and points blocks,
-    the operation commands from the page's own table, and the script head and
-    node file from the two blocks that show them.
-    """
-    text = PAGE.read_text(encoding="utf-8")
-    blocks = _blocks(_section(text, EXAMPLE_HEADING))
-    titled = {block.title: block for block in blocks if block.title}
-    programs = [block for block in blocks if block.language == "python"]
-    shown = [block for block in blocks if block.language == "text" and not block.title]
-    commands = [block for block in shown if block.body.startswith("pyfs-matrix ")]
-    heads = [block for block in shown if block.body.startswith("NEW_SIMULATION")]
-    nodes = [block for block in shown if block not in commands and block not in heads]
-    assert len(programs) == 1, (
-        f"the example holds {len(programs)} python blocks, and writes its mesh with one"
-    )
-    assert (len(commands), len(heads), len(nodes)) == (1, 1, 1), (
-        "the example shows the command that plans it, the head of the script and the node "
-        f"file, one block each; found {len(commands)}, {len(heads)} and {len(nodes)}"
-    )
-    sidecars = [title for title in titled if title.endswith(sidecar_reader.INVENTORY_SUFFIX)]
-    matrices = [title for title in titled if title.endswith(".fs")]
-    assert len(sidecars) == 1 and len(matrices) == 1, sorted(titled)
-
-    workspace = CampaignWorkspace.init(tmp_path / "wing_study")
-    monkeypatch.chdir(workspace.root)
-    for title, block in titled.items():
-        target = workspace.root / title
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(block.body, encoding="utf-8")
-    exec(compile(programs[0].body, f"{PAGE.name}, the example's mesh", "exec"), {})
-
-    matrix = workspace.root / matrices[0]
-    (row,) = read_matrix(matrix)
-    # WHERE THE BUILD IS INSTALLED is machine configuration, which a public
-    # page never names: the page says to register it, and this registers one.
-    registry = workspace.inputs_dir / "executables.toml"
-    registry.write_text(f'"{row.fs_build}" = "{Path(sys.executable).as_posix()}"\n', "utf-8")
-
-    command = shlex.split(commands[0].body.splitlines()[0])
-    assert command[:2] == ["pyfs-matrix", "plan"], command
-    assert pyfs_matrix(command[1:]) == 0, "the page's plan command did not plan every point READY"
-
-    sidecar = tomllib.loads(titled[sidecars[0]].body)
-    folder = sidecars[0].rsplit("/", 1)[0]
-    unit, points = _points(titled[f"{folder}/{sidecar['trailing_edges']['file']}"].body)
-    operations = sidecar["import"].get("operations", [])
-    table = _operation_commands(text)
-    assert operations, "the example states no operation, so the order of none is checked"
-    expected = [table[operation["op"]] for operation in operations]
-    assert all(expected), f"the page's table names no command for {operations}"
-    head = [line.rstrip() for line in heads[0].body.splitlines()]
-    node_lines = [line.strip() for line in nodes[0].body.splitlines() if line.strip()]
-
-    resolved = resolve_matrix(
-        matrix, workspace, name="example", fs_version=row.fs_build, recipes={}
-    )
-    (case,) = resolved.campaign.sims
-    geometry = Path(case.geometry)
-    assert case.sweep.values, "the example's row sweeps nothing"
-    for value in case.sweep.values:
-        point = {case.sweep.type: value}
-        script = Script(row.fs_build)
-        # The folder the run gives the point to run in, where the script names
-        # its node file (G02), so the line the page shows is the run's.
-        folder = SIM_DATAPOINTS_DIR, datapoint_dir_name(PointName(point_name(case, point)))
-        script.working_dir = str(workspace.sim_dir(case.sim_id).joinpath(*folder))
-        build_script(case_at_point(case, point), script)
-        lines = [line.replace("\\", "/") for line in script.render().splitlines()]
-
-        # The import, in the unit the page's sidecar states.
-        assert lines[:4] == [
-            "NEW_SIMULATION",
-            "IMPORT",
-            f"UNITS {sidecar['import']['units']}",
-            f"FILE_TYPE {geometry.suffix[1:].upper()}",
-        ], lines[:6]
-        assert Path(lines[4].removeprefix("FILE ")).name == geometry.name, lines[4]
-
-        # The operations, in the order written, each emitting the command the
-        # page's table names for it.
-        at = next(index for index, line in enumerate(lines) if line.startswith("IMPORT_WAKE_"))
-        places = []
-        cursor = lines.index("CLEAR")
-        for operation, emitted in zip(operations, expected, strict=True):
-            cursor = next(
-                index for index in range(cursor + 1, at) if lines[index].startswith(f"{emitted} ")
-            )
-            if operation["op"] == "rename":
-                assert lines[cursor].split()[-1] == operation["to"], lines[cursor]
-            places.append(cursor)
-        assert places == sorted(places) and len(set(places)) == len(places), places
-        between = [line for line in lines[places[-1] + 1 : at] if line]
-        assert between == [f"SET_SIMULATION_LENGTH_UNITS {SIMULATION_LENGTH_UNIT}"], between
-
-        # The trailing-edge import, right after them, with its node file.
-        marking = sidecar["trailing_edges"]
-        defaults = TrailingEdgeMarking.model_fields
-        words = lines[at].split()
-        assert words[0] == "IMPORT_WAKE_EDGES_FROM_FILE", words
-        assert words[1] == marking["type"], words
-        assert float(words[2]) == marking.get("tolerance", defaults["tolerance"].default), words
-        assert words[3] == SIMULATION_LENGTH_UNIT, words
-        node_path = script.render().splitlines()[at + 1]
-        assert Path(node_path) == Path(script.working_dir, f"{geometry.stem}.wake_nodes.txt"), (
-            node_path
-        )
-        written = script.pending_input_files[node_path].splitlines()
-        assert written == node_lines, (
-            f"the node file the page shows and the one the package writes differ:\n"
-            f"page    {node_lines}\npackage {written}"
-        )
-        assert int(written[0]) == len(points) == script.wake_edge_points, written[:2]
-        converted = [tuple(float(v) for v in line.split(",")) for line in written[2:]]
-        assert converted == pytest.approx(
-            [tuple(METRES_PER[unit] * v for v in point) for point in points]
-        ), "the node file does not hold the page's points in metres"
-
-        # And the head of the script is the block the page shows.
-        for number, (page_line, rendered) in enumerate(zip(head, lines, strict=False), 1):
-            assert _as_pattern(page_line).match(rendered), (
-                f"line {number} of the script head the page shows is {page_line!r} and the "
-                f"package renders {rendered!r}"
-            )
-        assert len(lines) > len(head)
 
 
 #: The one top-level key of a sidecar that is not a table: the surface names.
@@ -367,74 +220,6 @@ def _divergence(blocks: list[Block]) -> tuple[set[tuple[str, ...]], set[tuple[st
     return written - read, read - written
 
 
-def test_every_sidecar_key_the_page_writes_is_one_the_readers_read_and_back(tmp_path):
-    """The page and the sidecar's readers name the same keys, and the page's blocks read.
-
-    Both directions, because each has its own failure: a key on the page that
-    no reader reads is a key a user copies and the run then refuses (or, for
-    a table the reader skips, ignores in silence), and a key a reader reads
-    that the page never writes is a capability nobody can find. The kinds of
-    operation are held the same way, against the model's own list. And every
-    block is read by the readers themselves, so a value the page shows that
-    the reader refuses fails here too.
-    """
-    text = PAGE.read_text(encoding="utf-8")
-    blocks = _sidecar_blocks(text)
-    assert len(blocks) >= 5, f"{PAGE.name} holds {len(blocks)} sidecar blocks; the walk is broken"
-    unread, unwritten = _divergence(blocks)
-    assert not unread, (
-        f"{PAGE.name} writes {sorted(unread)} in a sidecar block, and no reader of the sidecar "
-        "reads it; correct the page, or teach the reader and this test together"
-    )
-    assert not unwritten, (
-        f"the sidecar's readers read {sorted(unwritten)}, and no sidecar block on {PAGE.name} "
-        "writes it; a key a reader takes is a key the page shows"
-    )
-
-    kinds = set(typing.get_args(MeshOperation.model_fields["op"].annotation))
-    written_kinds = {
-        operation["op"]
-        for block in blocks
-        for operation in tomllib.loads(block.body).get("import", {}).get(OPERATIONS, [])
-    }
-    assert written_kinds == kinds, (written_kinds, kinds)
-    assert set(_operation_commands(text)) == kinds, _operation_commands(text)
-
-    for number, block in enumerate(blocks, 1):
-        sidecar = tmp_path / f"block{number}{sidecar_reader.INVENTORY_SUFFIX}"
-        sidecar.write_text(block.body, encoding="utf-8")
-        data = tomllib.loads(block.body)
-        if BOUNDARIES in data:
-            sidecar_reader.read_inventory(sidecar)
-        sidecar_reader.read_mesh_import(sidecar)
-        if "fs_build" in data:
-            sidecar_reader.read_boundary_declarations(sidecar)
-        else:
-            sidecar_reader.read_raw_mesh_conditions(sidecar)
-
-
-def test_the_key_comparison_sees_a_divergence_in_either_direction():
-    """The companion of the test above, which passes on a page that agrees.
-
-    A comparison that had stopped seeing anything would look the same, so
-    both directions are driven: a key no reader reads is reported, and a
-    reader key no block writes is reported. The control is the page itself.
-    """
-    blocks = _sidecar_blocks(PAGE.read_text(encoding="utf-8"))
-    assert _divergence(blocks) == (set(), set())
-    stray = Block("toml", None, "[trailing_edges]\nangle = 30\n")
-    unread, _ = _divergence([*blocks, stray])
-    assert unread == {("trailing_edges", "angle")}, unread
-    without_tolerance = [
-        Block(block.language, block.title, re.sub(r"(?m)^tolerance = .*$", "", block.body))
-        for block in blocks
-    ]
-    _, unwritten = _divergence(without_tolerance)
-    assert unwritten == {("trailing_edges", "tolerance"), ("wake_termination", "tolerance")}, (
-        unwritten
-    )
-
-
 def test_every_name_a_python_block_on_the_page_imports_exists():
     """A block the docs run skips still names the API as it is.
 
@@ -461,3 +246,22 @@ def test_every_name_a_python_block_on_the_page_imports_exists():
                 )
                 checked.append(f"{node.module}.{alias.name}")
     assert len(checked) >= 3, f"the walk checked {checked}; it is not reading the page's blocks"
+
+
+def test_p0460_mesh_example_previews_and_refuses_an_unmarked_plan(tmp_path, monkeypatch):
+    from pyflightstream.workspace.cli import main as workspace_main
+
+    CampaignWorkspace.init(tmp_path)
+    text = PAGE.read_text(encoding="utf-8")
+    blocks = _blocks(_section(text, EXAMPLE_HEADING))
+    monkeypatch.chdir(tmp_path)
+    for block in blocks:
+        if block.title:
+            path = tmp_path / block.title
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(block.body, encoding="utf-8")
+        elif block.language == "python":
+            exec(compile(block.body, "documented preparation", "exec"), {})
+    assert workspace_main(["geometry", "mark-boundaries", "inputs/geometries/wing.obj"]) == 0
+    assert not (tmp_path / "inputs/geometries/wing.fsm").exists()
+    assert pyfs_matrix(["plan", "wing.fs", "--fs-exe", sys.executable]) == 2

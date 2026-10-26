@@ -252,6 +252,14 @@ _NO_SCRIPT_LINE = "No line of the script carries its value"
 #: script byte-identical, and a field not named here changes it.
 _FIELD_UNSCRIPTED: Mapping[tuple[str, str], str] = MappingProxyType(
     {
+        (
+            "SolverSettings",
+            "apply_trailing_edges",
+        ): "mark-boundaries prepares the stored marks before the run.",
+        (
+            "SolverSettings",
+            "apply_wake_termination",
+        ): "mark-boundaries prepares the stored nodes before the run.",
         ("SolverSettings", "timeout_s"): "the executor stops the solver process at it.",
         ("SolverSettings", "walltime_margin_s"): (
             "the wall-clock program the run writes beside the script reads it."
@@ -303,8 +311,8 @@ _ARTIFACT_INTROS: Mapping[str, str] = MappingProxyType(
             "block per rotor, actuator disc and named point. Lengths are in metres."
         ),
         "geometry": (
-            "The file beside a geometry that names its boundaries and, for a raw mesh "
-            "(`.obj`, `.stl`), how it is imported and where its trailing edges are."
+            "The saved FSM inventory a matrix reads. OBJ declarations are consumed once "
+            "by geometry mark-boundaries before the saved simulation runs."
         ),
     }
 )

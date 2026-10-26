@@ -26,6 +26,7 @@ import pytest
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.post.products import COEFFICIENT_COLUMNS, PolarPoint, read_csv_table
 from pyflightstream.results import parse_loads
+from tests.support_helpers import saved_mesh_fixture
 
 #: The printed ``CDi`` of surface B in both loads fixtures used here, the only
 #: occurrence of that token in either.
@@ -140,7 +141,7 @@ def test_the_selection_the_record_carries_is_read_one_way():
     assert declined_induced_drag(parse_loads(LOADS), "all") == (), "no printed zero, no decline"
 
 
-def test_a_raw_mesh_row_declines_the_listed_surface_its_sidecar_names(tmp_path):
+def test_a_p0460_saved_mesh_row_declines_the_listed_surface_its_sidecar_names(tmp_path):
     """G02: a raw mesh's list is resolved through the names its sidecar declares.
 
     An ``.obj`` carries no mesh block, so the induced-drag families of a
@@ -151,12 +152,10 @@ def test_a_raw_mesh_row_declines_the_listed_surface_its_sidecar_names(tmp_path):
     """
     from pyflightstream.cases import (
         MeshImport,
-        RawMeshConditions,
         ReferenceData,
         SimCase,
         SolverSettings,
         SweepAxis,
-        TrailingEdgeMarking,
     )
     from pyflightstream.cases.workflows import build_script
     from pyflightstream.script import Script
@@ -168,13 +167,10 @@ def test_a_raw_mesh_row_declines_the_listed_surface_its_sidecar_names(tmp_path):
             recipe="steady",
             sweep=SweepAxis(type="alpha", values=[-2.0]),
             variables={"WORKFLOW": "steady", "VELOCITY": "30.0"},
-            geometry=str(tmp_path / "wb.obj"),
+            geometry=str(saved_mesh_fixture(tmp_path / "wb.fsm", ("W", "B"))),
             inventory=("W", "B"),
             inventory_source="sidecar",
             mesh_import=MeshImport(units="METER"),
-            raw_mesh_conditions=RawMeshConditions(
-                trailing_edges=TrailingEdgeMarking(route="detect")
-            ),
             solver=SolverSettings(vorticity_drag_families=families),
             reference=ReferenceData(area=50.0, length=2.526, span_m=20.0),
             point={"alpha": -2.0, "beta": 0.0},

@@ -185,24 +185,16 @@ def test_goal020_restart_marches_the_remainder_and_not_the_rows_original_count()
     assert not [line for line in lines if line.startswith("TIME_ITERATIONS 400")], lines
 
 
-def _over_a_raw_mesh(case: SimCase, tmp_path) -> SimCase:
-    """The same row over a raw mesh with its boundaries, which an ordinary row imports."""
-    from pyflightstream.cases import (
-        MeshImport,
-        RawMeshConditions,
-        TrailingEdgeMarking,
-    )
+def _over_a_saved_mesh(case: SimCase, tmp_path) -> SimCase:
+    """The same row over an inspected saved simulation with its boundary names."""
+    from tests.support_helpers import saved_mesh_fixture
 
     return case.model_copy(
         update={
-            "geometry": str(tmp_path / "rig.obj"),
+            "geometry": str(saved_mesh_fixture(tmp_path / "rig.fsm", ("W", "B"))),
             "inventory": ("W", "B"),
             "inventory_source": "sidecar",
             "variables": {**case.variables, "LAST_ITERS_AVG": "100"},
-            "mesh_import": MeshImport(units="METER"),
-            "raw_mesh_conditions": RawMeshConditions(
-                trailing_edges=TrailingEdgeMarking(route="detect")
-            ),
         }
     )
 
@@ -210,10 +202,10 @@ def _over_a_raw_mesh(case: SimCase, tmp_path) -> SimCase:
 def test_goal020_restart_imports_no_mesh_and_declares_no_boundaries(tmp_path):
     """Everything the saved file carries is a line this script does not emit.
 
-    The row carries a raw mesh. The CONTROL is the same row without the RESTART: it imports
-    the mesh, so the absence below is the continuation's and not the case's (PFS-2135.068).
+    The control opens the row's original saved geometry and creates its frames.
+    Continuation opens the restart and preserves the frames already saved there.
     """
-    continuing = _over_a_raw_mesh(
+    continuing = _over_a_saved_mesh(
         _continuing_case(
             "{ADDITIONAL_ITERS=120}",
             **{RESTART_FROM_VARIABLE: SAVED, RESTART_ITERATIONS_VARIABLE: "120"},
@@ -231,7 +223,8 @@ def test_goal020_restart_imports_no_mesh_and_declares_no_boundaries(tmp_path):
     )
     imported = Script("26.123")
     build_script(ordinary, imported)
-    assert "IMPORT" in imported.render(), "the control row does not import its mesh"
+    assert str(ordinary.geometry) in imported.render()
+    assert "INITIALIZE_SOLVER" in imported.render()
 
     script = Script("26.123")
     build_script(continuing, script)

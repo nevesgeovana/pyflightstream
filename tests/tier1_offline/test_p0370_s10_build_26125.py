@@ -17,9 +17,7 @@ import pytest
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import (
     MeshImport,
-    RawMeshConditions,
     SolverSettings,
-    TrailingEdgeMarking,
 )
 from pyflightstream.cases.pproc import FORCE_PLOT_PARAMETERS
 from pyflightstream.cases.workflows import build_script
@@ -100,11 +98,6 @@ def _raw_mesh_auto(tmp_path):
             "mesh_import": MeshImport(units="METER"),
             "inventory": ("Wing", "Base"),
             "inventory_source": "sidecar",
-            "raw_mesh_conditions": RawMeshConditions(
-                trailing_edges=TrailingEdgeMarking(route="detect"),
-                wake_termination="auto",
-                base_regions="auto",
-            ),
         }
     )
 
@@ -215,22 +208,6 @@ def test_every_boundary_detection_takes_the_form_each_build_documents():
         "DETECT_BASE_REGIONS_BY_SURFACE -1",
         "AUTO_DETECT_WAKE_TERMINATION_NODES",
     ]
-
-
-@pytest.mark.requirement("FR-423")
-def test_a_raw_mesh_asking_for_automatic_detection_builds_on_both_builds(tmp_path):
-    """P0370-S10-DETECTION (FR-423): the sidecar's auto detection builds on 26.125 too."""
-    case = _raw_mesh_auto(tmp_path)
-    old, new = _lines(case, "26.124"), _lines(case, "26.125")
-    assert "AUTO_DETECT_TRAILING_EDGES" in old and "AUTO_DETECT_BASE_REGIONS" in old
-    assert [line for line in new if line.startswith("AUTO_DETECT")] == [
-        "AUTO_DETECT_WAKE_TERMINATION_NODES"
-    ]
-    assert "DETECT_BASE_REGIONS_BY_SURFACE -1" in new
-    assert "DETECT_WAKE_TERMINATION_NODES_BY_SURFACE -1" not in new
-    at = new.index("DETECT_TRAILING_EDGES_BY_SURFACE")
-    # The sidecar's mesh declares its two boundaries, so the count and indices are written.
-    assert new[at + 1 : at + 3] == ["SURFACES 2", "1,2"]
 
 
 @pytest.mark.requirement("FR-423")

@@ -1,3 +1,7 @@
+mesh_sha256 = "b812ed27d50fa26f52b7c308bcb8586f224a5a2692cb36afd91d01548772af41"
+mesh_faces = 816
+boundary_faces = [816]
+fs_build = "26.124"
 # 17_WING_OBJ_MM: the tier-3 wing, 10_WING.fsm, as a raw mesh WRITTEN IN
 # MILLIMETRES: the METER export of 16_WING_OBJ_DET with every vertex times
 # 1000, and nothing else changed. The row that imports it asks whether IMPORT
@@ -16,8 +20,8 @@ op = "rename"
 surface = "WING_OBJ"
 to = "Wing"
 
-[trailing_edges]
+[trailing_edges.mesh]
+type = "STANDARD"
 detect = "auto"
 
-[wake_termination]
-detect = "auto"
+wake_termination_nodes = "auto"

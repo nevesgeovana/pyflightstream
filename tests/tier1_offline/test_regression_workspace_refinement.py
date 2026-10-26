@@ -21,7 +21,7 @@ from pyflightstream.workspace._refine._grid import Grid, recover_grid, refine_gr
 from pyflightstream.workspace._refine._obj import read_obj, read_te
 from pyflightstream.workspace._refine._periodic import find_cuts, match_level
 from pyflightstream.workspace._refine._remesh import refine_group
-from pyflightstream.workspace.sidecars import read_raw_mesh_conditions
+from pyflightstream.workspace.sidecars import read_trailing_edges
 from tests.p0380_mesh_fixtures import Composite as _Workspace2RefineWingComposite
 from tests.p0380_mesh_fixtures import face_coordinates as _workspace_2_refine_wing__face_coordinates
 from tests.p0380_mesh_fixtures import read_mesh as _workspace_2_refine_wing__read_mesh
@@ -176,7 +176,7 @@ class TestReviews2RefineTe:
         table = tomllib.loads(side.read_text("utf-8"))["trailing_edges"]
         # PFS-2124.055: the file route states its type, the one detection gave the edge.
         assert table == {"file": points.name, "type": "STANDARD"}
-        marking = read_raw_mesh_conditions(side).trailing_edges
+        marking = read_trailing_edges(side, table)
         assert marking.route == "file"
         assert marking.points_file == str(points)
         assert points.is_file()

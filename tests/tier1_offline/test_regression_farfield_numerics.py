@@ -107,6 +107,9 @@ from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
 from pyflightstream.workspace._geometry_build import GeometryBuildPlan
 from pyflightstream.workspace.cli import _build_parser as workspace_parser
 from pyflightstream.workspace.naming import PointName
+from tests.tier1_offline.test_aeroelastic_typed_setup import (
+    verified_marking_registry as verified_marking_registry,
+)
 from tests.tier1_offline.test_goal026_item06_rotor_loads import (
     _reference as _rfixb_madv___reference,
 )

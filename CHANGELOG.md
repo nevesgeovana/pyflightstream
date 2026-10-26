@@ -7,6 +7,14 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- Matrix rows now require saved `.fsm` geometry. Mark OBJ boundaries once with
+  `pyfs-workspace geometry mark-boundaries --apply`; plans name their inventory,
+  refuse declaration tables and stale marking inputs, and warn once for build
+  mismatches. Raw imports, boundary marking and wake-edge verdicts no longer run
+  per point. CLI examples follow the prepare, mark, plan sequence.
+
 ### Fixed
 
 - Marking commands now carry verified evidence on 26.124 and 26.125, enabling explicit wake-termination files; retaining two folded YAML reports is an owner usability choice that raises `reports_files` from 91 to 93 (+2) and `reports_lines` from 138156 to 138762 (+606).

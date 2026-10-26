@@ -498,29 +498,6 @@ def _file_route_point(tmp_path, *, prints, outputs=None, variables=None):
     return record
 
 
-def test_a_file_route_point_with_nothing_printed_is_recorded_with_the_machine_s_reason(tmp_path):
-    """The imported count is read from the log, and this machine wrote none locally.
-
-    Never silently accepted: the point is FAILED_INCOMPLETE_OUTPUT, and the
-    error says it is the machine that could not write the log, not the row
-    that forgot to declare one.
-    """
-    record = _file_route_point(tmp_path, prints=None)
-    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, (record.status, record.error)
-    assert "export_log = false" in (record.error or ""), record.error
-    assert "16" in (record.error or ""), record.error
-
-
-def test_a_file_route_point_whose_solver_printed_the_count_is_held_to_it(tmp_path):
-    """The captured text becomes the declared log, and the count is read from it by name."""
-    from tests.tier1_offline.test_run_wake_edge_count import LOG_AROUND
-
-    printed = LOG_AROUND.format(line="16 trailing edges imported for boundary Wing")
-    record = _file_route_point(tmp_path, prints=printed)
-    assert record.status is RunStatus.CONVERGED, (record.status, record.error)
-    assert any(name.endswith("_log.txt") for name in record.outputs), record.outputs
-
-
 # --- 3. a local point runs in its own datapoint folder ------------------------
 
 
