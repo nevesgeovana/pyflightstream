@@ -243,10 +243,12 @@ def test_f_1605_a_numbered_frame_citation_gets_the_index_reason():
     assert plain is not None and "ONE rotor frame" in plain.message()
 
 
-def test_f_358_rothalpy_refusal_names_the_itaca_home():
-    """F-358 (FR-458): the refusal identifies ITACA as the evaluation home."""
+def test_f_358_rothalpy_refusal_names_external_euler_cfd_tools():
+    """F-358 (FR-458): the refusal points to external Euler CFD tools."""
     from pyflightstream._retired_names import RETIRED_ATTRIBUTES
 
     for key in ("pyflightstream.farfield.rothalpy", "pyflightstream.farfield.irreversible_deficit"):
         message = RETIRED_ATTRIBUTES[key].message()
-        assert "ITACA" in message and "external Euler CFD tools" in message
+        assert "external Euler CFD tools that provide total enthalpy and entropy" in message
+        assert "no supported replacement" in message
+        assert "itaca" not in message.casefold()

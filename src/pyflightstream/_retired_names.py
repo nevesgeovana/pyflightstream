@@ -292,15 +292,12 @@ _THE_FAR_FIELD_IS_NUMPY = (
     "The far field rests on numpy and xarray is not a required dependency, "
     "so the xarray object this name dealt in has no shim."
 )
-_LEFT_FOR_ITACA = (
+_REQUIRES_EULER_CFD_FIELDS = (
     "It applies to an Euler CFD field, where total enthalpy and entropy exist, "
     "and no FlightStream output carries either, so this package provides no "
     "supported replacement."
 )
-_THE_ITACA_HOME = (
-    "ITACA, the evaluation home of these two functions, or in external Euler CFD "
-    "tools that provide total enthalpy and entropy"
-)
+_EXTERNAL_EULER_CFD_TOOLS = "external Euler CFD tools that provide total enthalpy and entropy"
 RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     "pyflightstream.farfield.lattice_dataset": RetiredName(
         owner="pyflightstream.farfield",
@@ -335,17 +332,17 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     "pyflightstream.farfield.rothalpy": RetiredName(
         owner="pyflightstream.farfield",
         old="rothalpy",
-        new=_THE_ITACA_HOME,
+        new=_EXTERNAL_EULER_CFD_TOOLS,
         retired_in="0.40.0",
-        why=_LEFT_FOR_ITACA,
+        why=_REQUIRES_EULER_CFD_FIELDS,
         instead="Look in",
     ),
     "pyflightstream.farfield.irreversible_deficit": RetiredName(
         owner="pyflightstream.farfield",
         old="irreversible_deficit",
-        new=_THE_ITACA_HOME,
+        new=_EXTERNAL_EULER_CFD_TOOLS,
         retired_in="0.40.0",
-        why=_LEFT_FOR_ITACA,
+        why=_REQUIRES_EULER_CFD_FIELDS,
         instead="Look in",
     ),
 }
