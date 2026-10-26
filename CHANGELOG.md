@@ -7,6 +7,14 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Named boundary declarations for geometry marking, with independent trailing-edge
+  types and termination nodes, and base regions with optional family merges.
+  Migration: replace unnamed trailing-edge files with `[trailing_edges.<label>]`,
+  move `[wake_termination]` onto the entry as `wake_termination_nodes`, and declare
+  each base as `[base_regions.<family>]`. Declarations require `fs_build`.
+
 ## [0.45.1] - 2026-10-25
 
 ### Added

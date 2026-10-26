@@ -67,6 +67,84 @@ from tests.tier1_offline.test_workflows import FIXTURE_ROTOR
 
 GOLDENS = Path(__file__).parent / "goldens" / "raw_mesh"
 
+
+def test_p0460_named_boundary_declarations(tmp_path):
+    from pyflightstream.workspace import sidecars
+
+    path = tmp_path / "wing.obj.boundaries.toml"
+    path.write_text(
+        'fs_build = "26.125"\nboundaries = ["wing", "rim"]\n'
+        '[trailing_edges.tip]\nfile = "tip.te.txt"\ntype = "RELAXED"\n'
+        'wake_termination_nodes = "auto"\n'
+        '[base_regions.rim]\ntrailing_edges = "auto"\nmerge_into = "wing"\n'
+    )
+    reader = getattr(sidecars, "read_boundary_declarations", None)
+    assert callable(reader), "named boundary declarations need a strict loader"
+    declarations = reader(path)
+    assert declarations.fs_build == "26.125"
+    assert declarations.trailing_edges[0].label == "tip"
+    assert declarations.trailing_edges[0].marking.edge_type == "RELAXED"
+    assert declarations.base_regions[0].cp == -0.2
+    assert declarations.base_regions[0].model == "EMPIRICAL"
+
+
+def test_p0460_inventory_uses_mesh_kind_and_keeps_declarations(tmp_path):
+    from pyflightstream.workspace.sidecars import boundaries_for_marking, write_inventory
+
+    mesh = tmp_path / "wing.obj"
+    mesh.write_text("g wing\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
+    legacy = tmp_path / "wing.boundaries.toml"
+    legacy.write_text('boundaries = ["wing"]\n')
+    assert boundaries_for_marking(mesh) == legacy
+    written = write_inventory(mesh)
+    assert written.name == "wing.obj.boundaries.toml"
+    assert boundaries_for_marking(mesh) == written
+    before = written.read_bytes()
+    with pytest.raises(InputArtifactError, match="never rewritten"):
+        write_inventory(mesh, overwrite=True)
+    assert written.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '[trailing_edges.x]\ndetect = "auto"\ntype = "RELAXED"',
+        '[trailing_edges]\nnone = true\n[trailing_edges.x]\ndetect = "auto"\ntype = "STANDARD"',
+        '[base_regions.absent]\ntrailing_edges = "auto"',
+        '[base_regions.rim]\ntrailing_edges = "auto"\nmerge_into = "rim"',
+        '[base_regions.rim]\ntrailing_edges = "auto"\nmerge_into = "wing"\n'
+        '[base_regions.wing]\ntrailing_edges = "auto"\nmerge_into = "rim"',
+    ],
+)
+def test_p0460_named_declarations_refuse_invalid_combinations(tmp_path, body):
+    from pyflightstream.workspace.sidecars import read_boundary_declarations
+
+    path = tmp_path / "wing.obj.boundaries.toml"
+    path.write_text('fs_build = "26.125"\nboundaries = ["wing", "rim"]\n' + body)
+    with pytest.raises(InputArtifactError):
+        read_boundary_declarations(path)
+
+
+@pytest.mark.parametrize(
+    ("body", "remedy"),
+    [
+        ('[trailing_edges]\nfile = "wing.te.txt"\ntype = "STANDARD"', "trailing_edges.wing.te"),
+        ('[wake_termination]\ndetect = "auto"', "wake_termination_nodes"),
+        ('[base_regions]\ndetect = "auto"', "base_regions.<family>"),
+        ('[trailing_edges.wing]\ndetect = "auto"\ntype = "STANDARD"', "fs_build"),
+    ],
+)
+def test_p0460_legacy_declarations_explain_translation(tmp_path, body, remedy):
+    from pyflightstream.workspace import sidecars
+
+    path = tmp_path / "wing.boundaries.toml"
+    path.write_text(body)
+    reader = getattr(sidecars, "read_boundary_declarations", None)
+    assert callable(reader), "named boundary declarations need a strict loader"
+    with pytest.raises(InputArtifactError, match=remedy):
+        reader(path)
+
+
 #: The sixteen trailing-edge mid-points of the qa wing, by construction.
 MIDPOINTS = [(1.0, -3.75 + 0.5 * k, 0.0) for k in range(16)]
 

@@ -1,5 +1,43 @@
 # Mesh input reference
 
+## Named boundary declarations
+
+The marking loader reads an ordered table per trailing-edge entry and per base
+family. The family must occur in `boundaries`; trailing-edge labels are free.
+
+```toml
+fs_build = "26.125"
+boundaries = ["wing", "rim"]
+
+[trailing_edges.tip]
+file = "tip.te.txt"
+type = "RELAXED"
+wake_termination_nodes = "auto"
+
+[base_regions.rim]
+trailing_edges = "auto"
+merge_into = "wing"
+```
+
+A trailing-edge entry requires `type`: `STANDARD`, `RELAXED`, `JET_OUTFLOW` or
+`VORTEX_SHEDDING`. Replace `file` with `detect = "auto"` or
+`detect = { surfaces = ["wing"], sweep_angle = 30.0 }` for detection, which
+accepts only `STANDARD`. File matching defaults to `tolerance = 0.0001` metres.
+Termination nodes may name a points file instead of `"auto"`.
+
+Base regions default to `model = "EMPIRICAL"` and `cp = -0.2`. Their rim is
+`"auto"` or `{ file = "rim.te.txt", type = "STANDARD" }`. A merge destination
+must be another existing family and cannot itself be merged.
+
+Migration: each old unnamed trailing-edge file becomes a named entry (use its
+file stem as the label). Move `[wake_termination]` to `wake_termination_nodes`
+on the entry it serves, or the first entry if it served all. Replace base-region
+autodetection with one named base table per family. The marking loader refuses
+these old table forms with their translation. The existing matrix run reader
+temporarily retains them. `[trailing_edges] none = true` remains supported for
+a mesh with no trailing edge, alone without named entries. State `fs_build`
+when declaring boundaries.
+
 ### The surface names
 
 A row cites a raw mesh's names as it cites a `.fsm`'s. Where they come from
