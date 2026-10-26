@@ -42,7 +42,6 @@ from gen_api_reference import api_reference_pages, exceptions_catalog_markdown  
 from gen_cli_reference import cli_reference_pages  # noqa: E402
 
 EXAMPLES = [
-    "cad_import.py",
     "base_region_setup.py",
     "steady_polar.py",
     "campaign_matrix.py",

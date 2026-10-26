@@ -133,7 +133,6 @@ nav:
           - Mesh example: mesh/example.md
           - Runnable wing example: examples/obj_wing_trailing_edge_file.md
           - CAD inputs: cad-inputs.md
-          - CAD script example: examples/cad_import.md
           - CCS geometry: ccs-geometry.md
           - Removing surfaces: removing-surfaces.md
           - Geometry units and starts: geometry-units-and-starts.md
