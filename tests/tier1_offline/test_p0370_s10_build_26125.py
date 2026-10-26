@@ -148,8 +148,10 @@ def test_every_command_carries_a_26125_row_or_a_documented_absence():
     # CMP-26125_2026-10-16_free-surface-precondition-reanalysis withdraws one
     # broken judgement: the aborted probe did not establish its precondition.
     # GOAL-033:G52 records the measured profile modal as broken on this build.
-    assert (counts[Status.VERIFIED], counts[Status.BROKEN], counts[Status.REMOVED]) == (185, 5, 4)
-    assert counts[Status.DOCUMENTED] == 188
+    # P0460-INT: EV promotes seven documented rows with the accepted measurements
+    # in reports/compat/CMP-26125_2026-10-26_marking.yaml (PFS-2149.01 / PFS-2175).
+    assert (counts[Status.VERIFIED], counts[Status.BROKEN], counts[Status.REMOVED]) == (192, 5, 4)
+    assert counts[Status.DOCUMENTED] == 181
     assert rows["SET_DIRECT_AEROELASTIC_MESH_MORPHING"].status is Status.DOCUMENTED
     assert rows["SET_OUTFLOW_TRAILING_EDGES"].status is Status.REMOVED
     edition = manual_editions()["26.125"]
