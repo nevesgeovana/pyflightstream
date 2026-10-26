@@ -9,6 +9,8 @@ FlightStream versions.
 
 ### Changed
 
+- Document the experimental Python boundary-marking API and its explicit runner contract.
+
 - Refinement reads trailing-edge points only from `[trailing_edge] file` in
   its refine file, including with command-line factors. Kept rows and directional
   factors require that key. Levels write `.obj.boundaries.toml` with preserved

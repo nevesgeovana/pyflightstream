@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
+import re
 import warnings
+from pathlib import Path
 
 import pyflightstream
 from pyflightstream._deprecations import DEPRECATED_MODULES
@@ -346,6 +348,85 @@ def _is_private(name: str) -> bool:
     # workspace._ledger_history and workspace._script_comparison are deliberately
     # private implementations; workspace.ledger is their public query surface.
     return any(part.startswith("_") for part in name.split(".")[1:])
+
+
+# Existing exports covered by generated API reference, without an authored guide
+# mention. Keep this explicit: a new export must earn a guide or a reviewed entry.
+WORKSPACE_REFERENCE_ONLY = {
+    "ADDITIONAL_DIR",
+    "ADDITIONAL_MANIFEST",
+    "ADDITIONAL_MANIFEST_SCHEMA",
+    "ARCHIVE_DIR",
+    "ARCHIVE_STAMP",
+    "AdditionalRecord",
+    "BrokenCommandRecord",
+    "EXECUTABLES_FILE",
+    "ExecutorRecord",
+    "ExtractionStatus",
+    "GEOMETRIES_README",
+    "INPUT_KINDS",
+    "KIND_LETTERS",
+    "KNOWN_MANIFEST_SCHEMAS",
+    "MANIFEST_SCHEMA",
+    "MATRIX_FOLDERS",
+    "NamingTemplate",
+    "NamingTemplateError",
+    "PointName",
+    "PointXyz",
+    "PprocArtifact",
+    "REFERENCE_POINTS_FILE",
+    "ReferencePoints",
+    "RegisteredBuild",
+    "RotorReference",
+    "SIM_DATAPOINTS_DIR",
+    "SOURCE_VERSION_REQUIRED_SINCE",
+    "STEM_REGISTERED_KINDS",
+    "SetupArtifact",
+    "check_reference_point_names",
+    "check_unique_stems",
+    "collection_name",
+    "datapoint_name_of",
+    "expand_group",
+    "find_matrix",
+    "matrix_by_stem",
+    "missing_log_warning",
+    "post_diagnostics",
+    "post_stages",
+    "register_input_guide",
+    "register_post_diagnostics",
+    "register_post_stage",
+    "selected_sims",
+    "write_input_guides",
+}
+
+
+def test_p0460_workspace_exports_are_documented_or_allowlisted():
+    from pyflightstream import workspace
+
+    docs = Path(__file__).resolve().parents[2] / "docs"
+    prose = "\n".join(path.read_text(encoding="utf-8") for path in docs.rglob("*.md"))
+    prose = re.sub(r"<!--.*?-->", "", prose, flags=re.DOTALL)
+    words = set(re.findall(r"[A-Za-z_][A-Za-z_0-9]*", prose))
+    exports = set(workspace.__all__)
+    assert not WORKSPACE_REFERENCE_ONLY - exports, "remove stale allowlist entries"
+    assert not exports - words - WORKSPACE_REFERENCE_ONLY
+
+
+def test_p0460_boundary_marking_has_experimental_python_guidance():
+    docs = Path(__file__).resolve().parents[2] / "docs" / "mesh-inputs.md"
+    text = docs.read_text(encoding="utf-8")
+    heading = "## Boundary marking from Python"
+    assert heading in text
+    section = text.split(heading, 1)[1].split("\n## ", 1)[0]
+    assert "**Experimental**" in section
+    for name in (
+        "BoundaryMarkingError",
+        "BoundaryMarkingPlan",
+        "apply_mark_boundaries",
+        "plan_mark_boundaries",
+        "refuse_mark_boundaries",
+    ):
+        assert re.search(rf"`{name}(?:`|\()", section)
 
 
 def test_every_module_is_classified():
