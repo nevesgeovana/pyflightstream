@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import ast
 import functools
+import html
 import importlib.util
 import re
 import sys
@@ -79,7 +80,7 @@ def test_p0460_every_documented_public_dotted_name_has_an_api_entry(case):
         r"(?:\.[A-Za-z_]\w*)+"
     )
     for page in DOCS.rglob("*.md"):
-        for target in dotted.findall(page.read_text(encoding="utf-8")):
+        for target in dotted.findall(html.unescape(page.read_text(encoding="utf-8"))):
             if not target.startswith("pyflightstream."):
                 target = "pyflightstream." + target
             if target in RETIRED_ATTRIBUTES:

@@ -13,6 +13,7 @@ adoption (D3 resolution: it waits for heavy extras).
 
 from __future__ import annotations
 
+import html
 import importlib
 import pkgutil
 import re
@@ -404,7 +405,9 @@ def test_p0460_workspace_exports_are_documented_or_allowlisted():
     from pyflightstream import workspace
 
     docs = Path(__file__).resolve().parents[2] / "docs"
-    prose = "\n".join(path.read_text(encoding="utf-8") for path in docs.rglob("*.md"))
+    prose = "\n".join(
+        html.unescape(path.read_text(encoding="utf-8")) for path in docs.rglob("*.md")
+    )
     prose = re.sub(r"<!--.*?-->", "", prose, flags=re.DOTALL)
     words = set(re.findall(r"[A-Za-z_][A-Za-z_0-9]*", prose))
     exports = set(workspace.__all__)
