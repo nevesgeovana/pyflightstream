@@ -4,7 +4,7 @@
 
 Replace OBJ `GEOMETRY` cells with the FSM produced by
 `pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`. Move old unnamed
-marking tables to the [named declaration format](mesh/reference.md). Keep the
+marking tables to the [named declaration format](mesh/reference.md#named-boundary-declarations). Keep the
 OBJ declarations in `<mesh>.obj.boundaries.toml` and the clean saved inventory
 in `<mesh>.fsm.boundaries.toml`. Planning refuses declarations in its selected
 FSM sidecar and stale marking inputs; repeat marking with `--overwrite` after
