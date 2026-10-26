@@ -425,6 +425,20 @@ class TestG67CommandCoverage:
     """Retained runtime, privacy and link checks, with shared test support."""
 
     @staticmethod
+    def test_p0460_marking_commands_have_mark_boundaries_witnesses():
+        """P0460-G67: explicit termination belongs to the named marking pass."""
+        commands = {"MARK_WAKE_TERMINATION_NODES", "AUTO_DETECT_WAKE_TERMINATION_NODES"}
+        witnesses = _emissions(ROOT, commands)
+        for command in commands:
+            assert "src/pyflightstream/workspace/_mark_boundaries.py:_emit_nodes" in (
+                witnesses.get(command, [])
+            )
+        rows = {row["command"]: row for row in build_coverage()["rows"]}
+        assert rows["MARK_WAKE_TERMINATION_NODES"]["reachable"] == (
+            "sidecar: trailing_edges.wake_termination_nodes"
+        )
+
+    @staticmethod
     def test_p0400_g67_every_command_has_one_column_and_twins_regenerate():
         """P0400-G67 (FR-151, FR-152): every setup/BC command has a route or a reason."""
         report = build_coverage()
