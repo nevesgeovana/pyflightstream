@@ -1,0 +1,251 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.125'
+date: '2026-10-26'
+package_version: 0.45.1
+fs_exe: Flightstream_26125.exe
+fs_exe_sha256: withheld; build 10052026
+executor: LocalExecutor, -hidden -script (as run; mechanism FSM-26.120 pp.279-280;
+  argument spelling RPT-023)
+solver_identity:
+- 'Simcenter Flightstream 2612, build #10052026'
+aggregation:
+  note: Verified measurements folded from separate runs on the same build; unprobed
+    entries omitted. No new solver run.
+  hash_domain: exact-file-bytes
+  sources:
+  - report: CMP-26125_2026-10-26_marking-p2.yaml
+    sha256: 532c06af0ea44e7ebc010cec436f4f014ccc9ca5ef3fd87067f89366d3d26680
+    commands:
+    - CREATE_NEW_BASE_REGION
+    - SET_BASE_REGION_CP
+    - SET_BASE_REGION_TRAILING_EDGES
+    - MARK_WAKE_TERMINATION_NODES
+    - IMPORT_WAKE_EDGES_FROM_FILE
+    - SURFACE_COMBINE
+    - SURFACE_RENAME
+  - report: CMP-26125_2026-10-26_marking-p3.yaml
+    sha256: d7143810a05413e3b5e91d4fd1ea87979837b1d585e215f49bf4cb4e3742cf19
+    commands:
+    - AUTO_DETECT_WAKE_TERMINATION_NODES
+summary:
+  verified: 8
+  broken: 0
+  removed: 0
+  unprobed: 0
+commands:
+  CREATE_NEW_BASE_REGION:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels,
+      and the effect was observed: saved marking state against an unchanged control;
+      26.124 primary initialized, with an independent no-initialization measurement;
+      26.125 without INITIALIZE_SOLVER. The instrument read: {"primary": {"effect":
+      true, "states": [{"bases": [], "edges": [], "groups": [], "names": ["Body",
+      "Rim"], "termination": 0}, {"bases": [["Rim", -0.2]], "edges": [], "groups":
+      [], "names": ["Body", "Rim"], "termination": 0}, {"bases": [], "edges": [],
+      "groups": [], "names": ["Body", "Rim"], "termination": 0}]}, "primary_initialized":
+      "False"}'
+    expected: saved marking state against an unchanged control; 26.124 primary initialized,
+      with an independent no-initialization measurement; 26.125 without INITIALIZE_SOLVER
+    observation: '{"primary": {"effect": true, "states": [{"bases": [], "edges": [],
+      "groups": [], "names": ["Body", "Rim"], "termination": 0}, {"bases": [["Rim",
+      -0.2]], "edges": [], "groups": [], "names": ["Body", "Rim"], "termination":
+      0}, {"bases": [], "edges": [], "groups": [], "names": ["Body", "Rim"], "termination":
+      0}]}, "primary_initialized": "False"}'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.8
+    return_code: 0
+    script_sha256: ee5c8a21e72454154440d65c44b0da77f7f2a6cbd93d9c2701f7f0947b454903
+  SET_BASE_REGION_CP:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels,
+      and the effect was observed: saved marking state against an unchanged control;
+      26.124 primary initialized, with an independent no-initialization measurement;
+      26.125 without INITIALIZE_SOLVER. The instrument read: {"primary": {"effect":
+      true, "states": [{"bases": [["Rim", 0.0]], "edges": [], "groups": [], "names":
+      ["Body", "Rim"], "termination": 0}, {"bases": [["Rim", -0.35]], "edges": [],
+      "groups": [], "names": ["Body", "Rim"], "termination": 0}, {"bases": [["Rim",
+      0.0]], "edges": [], "groups": [], "names": ["Body", "Rim"], "termination": 0}]},
+      "primary_initialized": "False"}'
+    expected: saved marking state against an unchanged control; 26.124 primary initialized,
+      with an independent no-initialization measurement; 26.125 without INITIALIZE_SOLVER
+    observation: '{"primary": {"effect": true, "states": [{"bases": [["Rim", 0.0]],
+      "edges": [], "groups": [], "names": ["Body", "Rim"], "termination": 0}, {"bases":
+      [["Rim", -0.35]], "edges": [], "groups": [], "names": ["Body", "Rim"], "termination":
+      0}, {"bases": [["Rim", 0.0]], "edges": [], "groups": [], "names": ["Body", "Rim"],
+      "termination": 0}]}, "primary_initialized": "False"}'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.93
+    return_code: 0
+    script_sha256: d4fba26479078ad20aab422a678fea18b87d27b27e144717c5c9e1986553badc
+  SET_BASE_REGION_TRAILING_EDGES:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels,
+      and the effect was observed: saved marking state against an unchanged control;
+      26.124 primary initialized, with an independent no-initialization measurement;
+      26.125 without INITIALIZE_SOLVER. The instrument read: {"primary": {"effect":
+      true, "states": [{"bases": [["Rim", 0.0]], "edges": [], "groups": [], "names":
+      ["Body", "Rim"], "termination": 0}, {"bases": [["Rim", 0.0]], "edges": [[[2.0,
+      -1.0, 0.0], 1], [[2.0, 0.0, -1.0], 1], [[2.0, 0.0, 1.0], 1], [[2.0, 1.0, 0.0],
+      1]], "groups": ["Rim"], "names": ["Body", "Rim"], "termination": 0}, {"bases":
+      [["Rim", 0.0]], "edges": [], "groups": [], "names": ["Body", "Rim"], "termination":
+      0}]}, "primary_initialized": "False"}'
+    expected: saved marking state against an unchanged control; 26.124 primary initialized,
+      with an independent no-initialization measurement; 26.125 without INITIALIZE_SOLVER
+    observation: '{"primary": {"effect": true, "states": [{"bases": [["Rim", 0.0]],
+      "edges": [], "groups": [], "names": ["Body", "Rim"], "termination": 0}, {"bases":
+      [["Rim", 0.0]], "edges": [[[2.0, -1.0, 0.0], 1], [[2.0, 0.0, -1.0], 1], [[2.0,
+      0.0, 1.0], 1], [[2.0, 1.0, 0.0], 1]], "groups": ["Rim"], "names": ["Body", "Rim"],
+      "termination": 0}, {"bases": [["Rim", 0.0]], "edges": [], "groups": [], "names":
+      ["Body", "Rim"], "termination": 0}]}, "primary_initialized": "False"}'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.84
+    return_code: 0
+    script_sha256: e850fdc3b279b892cb7f6999f610199fdcb6f28508d23f0fd5e5e68da871f36e
+  MARK_WAKE_TERMINATION_NODES:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels,
+      and the effect was observed: saved marking state against an unchanged control;
+      26.124 primary initialized, with an independent no-initialization measurement;
+      26.125 without INITIALIZE_SOLVER. The instrument read: {"primary": {"effect":
+      true, "states": [{"bases": [], "edges": [], "groups": [], "names": ["Body",
+      "Rim"], "termination": 0}, {"bases": [], "edges": [], "groups": [], "names":
+      ["Body", "Rim"], "termination": 1}, {"bases": [], "edges": [], "groups": [],
+      "names": ["Body", "Rim"], "termination": 0}]}, "primary_initialized": "False"}'
+    expected: saved marking state against an unchanged control; 26.124 primary initialized,
+      with an independent no-initialization measurement; 26.125 without INITIALIZE_SOLVER
+    observation: '{"primary": {"effect": true, "states": [{"bases": [], "edges": [],
+      "groups": [], "names": ["Body", "Rim"], "termination": 0}, {"bases": [], "edges":
+      [], "groups": [], "names": ["Body", "Rim"], "termination": 1}, {"bases": [],
+      "edges": [], "groups": [], "names": ["Body", "Rim"], "termination": 0}]}, "primary_initialized":
+      "False"}'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.81
+    return_code: 0
+    script_sha256: e4b795f762f284772918fb47e96a02ec9f0a3d64e26323e0db65dadb032691d0
+  IMPORT_WAKE_EDGES_FROM_FILE:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels,
+      and the effect was observed: saved marking state against an unchanged control;
+      26.124 primary initialized, with an independent no-initialization measurement;
+      26.125 without INITIALIZE_SOLVER. The instrument read: {"primary": {"effect":
+      true, "states": [{"bases": [], "edges": [[[2.0, 0.0, -1.0], 1]], "groups": ["Rim"],
+      "names": ["Body", "Rim"], "termination": 0}, {"bases": [], "edges": [[[2.0,
+      0.0, -1.0], 1], [[2.0, 0.0, 1.0], 2]], "groups": ["Rim", "Rim"], "names": ["Body",
+      "Rim"], "termination": 0}, {"bases": [], "edges": [[[2.0, 0.0, -1.0], 1]], "groups":
+      ["Rim"], "names": ["Body", "Rim"], "termination": 0}]}, "primary_initialized":
+      "False"}'
+    expected: saved marking state against an unchanged control; 26.124 primary initialized,
+      with an independent no-initialization measurement; 26.125 without INITIALIZE_SOLVER
+    observation: '{"primary": {"effect": true, "states": [{"bases": [], "edges": [[[2.0,
+      0.0, -1.0], 1]], "groups": ["Rim"], "names": ["Body", "Rim"], "termination":
+      0}, {"bases": [], "edges": [[[2.0, 0.0, -1.0], 1], [[2.0, 0.0, 1.0], 2]], "groups":
+      ["Rim", "Rim"], "names": ["Body", "Rim"], "termination": 0}, {"bases": [], "edges":
+      [[[2.0, 0.0, -1.0], 1]], "groups": ["Rim"], "names": ["Body", "Rim"], "termination":
+      0}]}, "primary_initialized": "False"}'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.81
+    return_code: 0
+    script_sha256: cd7ad71cb9fff411526ab7dbc445620e88dbf04edcc353700fe9231c388ad456
+  SURFACE_COMBINE:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels,
+      and the effect was observed: saved marking state against an unchanged control;
+      26.124 primary initialized, with an independent no-initialization measurement;
+      26.125 without INITIALIZE_SOLVER. The instrument read: {"M3_without_INITIALIZE_SOLVER":
+      {"combined_added": [[2.0, 1.0, 1.25]], "combined_removed": [[2.0, 1.0, 1.0]],
+      "record_survives": true, "reference_added": [[2.0, 1.0, 1.25]], "reference_removed":
+      [[2.0, 1.0, 1.0]], "same_vertex": true, "termination_counts": [1, 1]}, "primary":
+      {"effect": true, "states": [{"bases": [], "edges": [], "groups": [], "names":
+      ["Body", "Rim"], "termination": 0}, {"bases": [], "edges": [], "groups": [],
+      "names": ["Body"], "termination": 0}, {"bases": [], "edges": [], "groups": [],
+      "names": ["Body", "Rim"], "termination": 0}]}, "primary_initialized": "False"}'
+    expected: saved marking state against an unchanged control; 26.124 primary initialized,
+      with an independent no-initialization measurement; 26.125 without INITIALIZE_SOLVER
+    observation: '{"M3_without_INITIALIZE_SOLVER": {"combined_added": [[2.0, 1.0,
+      1.25]], "combined_removed": [[2.0, 1.0, 1.0]], "record_survives": true, "reference_added":
+      [[2.0, 1.0, 1.25]], "reference_removed": [[2.0, 1.0, 1.0]], "same_vertex": true,
+      "termination_counts": [1, 1]}, "primary": {"effect": true, "states": [{"bases":
+      [], "edges": [], "groups": [], "names": ["Body", "Rim"], "termination": 0},
+      {"bases": [], "edges": [], "groups": [], "names": ["Body"], "termination": 0},
+      {"bases": [], "edges": [], "groups": [], "names": ["Body", "Rim"], "termination":
+      0}]}, "primary_initialized": "False"}'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.97
+    return_code: 0
+    script_sha256: cdb657be3613684ff114f43e9704e79e3b60878184282343785a2f90a090612f
+  SURFACE_RENAME:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels,
+      and the effect was observed: saved marking state against an unchanged control;
+      26.124 primary initialized, with an independent no-initialization measurement;
+      26.125 without INITIALIZE_SOLVER. The instrument read: {"primary": {"effect":
+      true, "states": [{"bases": [], "edges": [], "groups": [], "names": ["Body",
+      "Rim"], "termination": 0}, {"bases": [], "edges": [], "groups": [], "names":
+      ["Body", "RenamedRim"], "termination": 0}, {"bases": [], "edges": [], "groups":
+      [], "names": ["Body", "Rim"], "termination": 0}]}, "primary_initialized": "False"}'
+    expected: saved marking state against an unchanged control; 26.124 primary initialized,
+      with an independent no-initialization measurement; 26.125 without INITIALIZE_SOLVER
+    observation: '{"primary": {"effect": true, "states": [{"bases": [], "edges": [],
+      "groups": [], "names": ["Body", "Rim"], "termination": 0}, {"bases": [], "edges":
+      [], "groups": [], "names": ["Body", "RenamedRim"], "termination": 0}, {"bases":
+      [], "edges": [], "groups": [], "names": ["Body", "Rim"], "termination": 0}]},
+      "primary_initialized": "False"}'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.78
+    return_code: 0
+    script_sha256: 7a7775365da95090a0f66c194d1297338bb828dfb38a5b2ffcc9f9c16c3f569b
+  AUTO_DETECT_WAKE_TERMINATION_NODES:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels,
+      and the effect was observed: saved marking state against an unchanged control;
+      26.124 primary initialized, with an independent no-initialization measurement;
+      26.125 without INITIALIZE_SOLVER. The instrument read: {"primary": {"effect":
+      true, "states": [{"bases": [], "edges": [[[2.0, 2.0, 0.0], 1]], "groups": ["Wing"],
+      "names": ["Wing", "Body"], "termination": 0}, {"bases": [], "edges": [[[2.0,
+      2.0, 0.0], 1]], "groups": ["Wing"], "names": ["Wing", "Body"], "termination":
+      1}, {"bases": [], "edges": [[[2.0, 2.0, 0.0], 1]], "groups": ["Wing"], "names":
+      ["Wing", "Body"], "termination": 0}]}, "primary_initialized": "False"}'
+    expected: saved marking state against an unchanged control; 26.124 primary initialized,
+      with an independent no-initialization measurement; 26.125 without INITIALIZE_SOLVER
+    observation: '{"primary": {"effect": true, "states": [{"bases": [], "edges": [[[2.0,
+      2.0, 0.0], 1]], "groups": ["Wing"], "names": ["Wing", "Body"], "termination":
+      0}, {"bases": [], "edges": [[[2.0, 2.0, 0.0], 1]], "groups": ["Wing"], "names":
+      ["Wing", "Body"], "termination": 1}, {"bases": [], "edges": [[[2.0, 2.0, 0.0],
+      1]], "groups": ["Wing"], "names": ["Wing", "Body"], "termination": 0}]}, "primary_initialized":
+      "False"}'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.7
+    return_code: 0
+    script_sha256: 035b66ffadb58935e68f24002bcdd44081856b5c587d2389e1c7478858adb3c5

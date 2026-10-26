@@ -618,9 +618,10 @@ SURFACE_COMBINE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 p.315, same grammar as 26.120"}
     "26.123": {status: documented, note: "FSM-26.123 p.316, unchanged from FSM-26.122 p.316"}
-    "26.124": {status: documented, note: "FSM-26.124 p.316, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-26_marking.yaml", note: "FSM-26.124 p.316, the FSM-26.123 file, carried from 26.123"}
     "26.125":
-      status: documented
+      report: "reports/compat/CMP-26125_2026-10-26_marking.yaml"
+      status: verified
       note: >-
         FSM-26.125 p.322 adds a second sample, -1 with no index line after it,
         which combines every surface; the counted form of FSM-26.124 p.316 is
@@ -704,8 +705,8 @@ SURFACE_RENAME:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 p.313, same grammar as 26.120"}
     "26.123": {status: documented, note: "FSM-26.123 p.314, unchanged from FSM-26.122 p.314"}
-    "26.124": {status: documented, note: "FSM-26.124 p.314, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-26_marking.yaml", note: "FSM-26.124 p.314, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-26_marking.yaml", note: "FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
   notes: >
     Renames a surface, which is worth doing early: the name is what a
     reader of the emitted script sees, and this package's own entity
