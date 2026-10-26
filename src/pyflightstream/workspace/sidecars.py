@@ -1,11 +1,12 @@
 """The files beside a geometry: its boundary inventory, provenance and raw-mesh sidecar.
 
-A geometry of ``inputs/geometries/`` carries up to two files of its own,
-named by its stem: ``<stem>.boundaries.toml``, the boundary inventory
-(PFS-2029.06), which states the boundary order and, beside a raw mesh, the
-``[import]`` table and the raw mesh conditions (trailing edges, wake
-termination, base regions); and ``<stem>.provenance.toml``, the record of
-where the geometry came from, which the package never writes. This module
+A geometry of ``inputs/geometries/`` carries a kind-qualified boundary inventory:
+``<stem>.obj.boundaries.toml`` for raw-mesh declarations and
+``<stem>.fsm.boundaries.toml`` for the saved simulation's inventory. Legacy
+``<stem>.boundaries.toml`` files remain readable. An OBJ's declarations include
+``[import]``, ``fs_build`` and named trailing-edge and base-region entries.
+``<stem>.provenance.toml`` records where the geometry came from; the package
+never writes that provenance file. This module
 writes and checks the inventory (the boundary names read off an OBJ or a
 saved simulation), with the mesh's face count taken at the same time
 (FR-348, which the post carries and never counts: :func:`recorded_mesh_faces`),
@@ -102,8 +103,7 @@ def is_sidecar(name: str) -> bool:
 
 # --- the boundary inventory sidecar (PFS-2029.06) ------------------------------------
 
-#: Suffix of the sidecar that states a geometry's boundary order, appended
-#: to the geometry's stem: ``30_WB.fsm`` has ``30_WB.boundaries.toml``.
+#: Suffix appended to the geometry filename for newly written inventories.
 INVENTORY_SUFFIX = ".boundaries.toml"
 #: Suffix of the record that says where a geometry came from, appended to
 #: its stem the same way. The package writes none: the tier-3 preparer and
@@ -196,7 +196,7 @@ def read_marking_record(geometry: str | Path) -> dict[str, Any] | None:
 
 
 def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
-    """Write ``<stem>.boundaries.toml`` beside a saved simulation.
+    """Write a kind-qualified boundary inventory beside a saved simulation or OBJ.
 
     The surface order is read from the geometry (PFS-2029.06.02). A sidecar supplies declarations
     by name; it does not override the order that the solver assigns to the imported surfaces.
@@ -479,9 +479,11 @@ def ensure_inventory(geometry: str | Path, *, kind: Literal["obj", "fsm"] | None
         f"# the OBJ's sha256 was {sealed or file_sha256(path)}.",
         "# One boundary per `o` or `g` group holding a face, named by the group, in the",
         "# order of the file: how the solver numbers an OBJ's surfaces on import",
-        "# (RPT-078). The package never rewrites this file. Add the [import] table with",
-        "# the file's units, and the [trailing_edges] table, beneath the list",
-        "# (docs/mesh-inputs.md).",
+        "# (RPT-078). The package never rewrites this file. Add fs_build at the top",
+        "# level and [import] units. Add named [trailing_edges.<label>] entries, each",
+        "# with type and file or detect; optionally add [base_regions.<family>] entries.",
+        "# For no trailing edges, declare [trailing_edges] none = true.",
+        "# See docs/mesh-inputs.md for the declaration syntax.",
         "boundaries = [",
         *[f"    {_toml_string(name)}," for name in names],
         "]",
@@ -490,8 +492,10 @@ def ensure_inventory(geometry: str | Path, *, kind: Literal["obj", "fsm"] | None
     _textio.write_text(sidecar, "\n".join(body) + "\n")
     print(
         f"wrote {sidecar}: the boundaries of {path.name}, read from its groups in the "
-        f"order of the file (RPT-078): {', '.join(names)}. Add its [import] units and its "
-        "[trailing_edges] beneath them.",
+        f"order of the file (RPT-078): {', '.join(names)}. Add top-level fs_build and "
+        "[import] units, then named [trailing_edges.<label>] entries with type and "
+        "file or detect, and optional [base_regions.<family>] entries. For no trailing "
+        "edges, declare [trailing_edges] none = true.",
         file=sys.stderr,
         flush=True,
     )

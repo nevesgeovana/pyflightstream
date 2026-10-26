@@ -25,6 +25,9 @@ FlightStream versions.
 
 ### Fixed
 
+- OBJ inventory guidance names the required build and named trailing-edge and
+  base-region declarations, including the explicit no-edge form.
+
 - `geometry mark-boundaries` prints readable entry, group, termination, base-region,
   merge and output-file lines after read-back; the JSON record retains its mapping.
 
