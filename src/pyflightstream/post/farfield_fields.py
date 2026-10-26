@@ -55,6 +55,8 @@ from pyflightstream.farfield import (
     transverse_flux,
     transverse_force,
 )
+from pyflightstream.post._condition import recorded_blade_count
+from pyflightstream.post.axes import free_stream_in_export_frame
 from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.lattice import ProbeLattice
 from pyflightstream.probes.layouts import farfield_plane, lattice_basis, lattice_points
@@ -110,6 +112,32 @@ def axial_coefficient(total: Mapping[str, Any], axis: str | Sequence[float]) -> 
     )
 
 
+def viscous_projection(
+    coefficient: float, axis: str | Sequence[float], *, alpha: float, beta: float, qs: float
+) -> float:
+    """Project scalar viscous drag along free stream, with the near-force sign, in N.
+
+    Parameters
+    ----------
+    coefficient : float
+        CDo (CDv on newer loads exports), dimensionless.
+    axis : str or sequence of float
+        Lattice axis in export coordinates.
+    alpha, beta : float
+        Incidence and sideslip in degrees.
+    qs : float
+        Reference dynamic pressure times reference area, in N.
+
+    Returns
+    -------
+    float
+        Signed viscous axial force, in N.
+    """
+    direction = free_stream_in_export_frame(alpha, beta)
+    components = dict(zip(("Cx", "Cy", "Cz"), direction, strict=True))
+    return -coefficient * qs * axial_coefficient(components, axis)
+
+
 #: The columns of ``farfield/<group>_ledgers*.csv`` after ``POL``, ``STEP`` and the
 #: condition block (FR-1056).
 LEDGER_COLUMNS: tuple[str, ...] = (
@@ -136,6 +164,8 @@ LEDGER_COLUMNS: tuple[str, ...] = (
     "MASS_SPREAD",
     "SYMMETRY_FLOOR",
     "SPURIOUS_COUNTS",
+    "F_NEAR_N",
+    "F_NEAR_VISCOUS_N",
     # PFS-2081.97: the point's solver termination status, as the sweep table writes it.
     "STATUS",
 )
@@ -927,6 +957,35 @@ def _moments(fields: LatticeFields, rho: float, speed: float, outlet: float) -> 
     return out
 
 
+def symmetry_excluded_orders(
+    spec: LedgersSpec, record: RunRecord, rotors: Mapping[str, Any]
+) -> list[int]:
+    """Return blade-passage orders for the rotor this lattice serves.
+
+    Parameters
+    ----------
+    spec : LedgersSpec
+        The selected lattice and maximum harmonic order.
+    record : RunRecord
+        Row record with the planned blade count, including periodic copies.
+    rotors : mapping
+        Resolved reference rotors, whose blade families supply the fallback count.
+
+    Returns
+    -------
+    list of int
+        Positive multiples of B through m_max, or an empty list for a non-rotor lattice.
+    """
+    alias = spec.rotor
+    if alias is None:
+        return []
+    count = recorded_blade_count(record, alias, len(rotors) or 1)
+    if count is None:
+        rotor = rotors.get(alias)
+        count = len(getattr(rotor, "families_blades", ()) or ())
+    return list(range(count, spec.m_max + 1, count)) if count else []
+
+
 def ledger_values(
     fields: LatticeFields,
     spec: LedgersSpec,
@@ -934,10 +993,12 @@ def ledger_values(
     rho: float,
     speed: float,
     near: tuple[float, float],
+    viscous: float = _NA,
+    excluded_orders: Sequence[int] = (),
 ) -> list[dict[str, float]]:
     """Return one mapping of ledger columns per lattice station (FR-38, FR-1056).
 
-    ``near`` is the near-field axial force of the configuration (N) and the
+    ``near`` is the inviscid near-field axial force of the configuration (N) and the
     reference area (m^2) the spurious counts are stated against. A balance the
     table does not select stays out (``NA``); the control-volume columns are
     ``NA`` on the inlet row.
@@ -955,7 +1016,11 @@ def ledger_values(
     speed : float
         Free-stream speed in m/s.
     near : tuple[float, float]
-        Near-field axial force in N and its reference area in m2.
+        Inviscid near-field axial force in N and its reference area in m2.
+    viscous : float
+        Viscous axial force in N, projected along the free-stream direction.
+    excluded_orders : sequence of int
+        Blade-passage orders omitted from G3 on this row's rotor lattice.
 
     Returns
     -------
@@ -976,7 +1041,9 @@ def ledger_values(
     energy = crossflow_kinetic_energy(fields, rho)
     torque = shaft_torque(fields, rho)
     closure = mass_closure(fields, rho)
-    floor = symmetry_floor(fields["u"], psi=fields.psi, m_max=spec.m_max)
+    floor = symmetry_floor(
+        fields["u"], psi=fields.psi, m_max=spec.m_max, excluded_orders=excluded_orders
+    )
     # sample_area_coverage is the finite fraction of each station's AREA, a missing sample
     # weighted by the annular cell it stands for (PFS-2139.008, PFS-2019.01).
     coverage = sample_area_coverage(fields["u"], fields)
@@ -991,6 +1058,8 @@ def ledger_values(
         if "axial" in chosen:
             row["AXIAL_FLUX_N"] = float(flux[index])
             row["SPURIOUS_COUNTS"] = spurious
+            row["F_NEAR_N"] = near[0]
+            row["F_NEAR_VISCOUS_N"] = viscous
         if "torque" in chosen:
             row["TORQUE_NM"] = float(torque[index])
         if "crossflow_energy" in chosen:

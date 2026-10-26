@@ -23,6 +23,17 @@ FlightStream versions.
 
 - Saved-state boundary-marking probes compare unchanged controls on 26.124 and 26.125, with separate initialization measurements and a combine-persistence observation.
 
+### Changed
+
+- Rotor-lattice G3 (`SYMMETRY_FLOOR`) excludes multiples of the blade count
+  through `m_max`; the manifest lists excluded orders per point and entry.
+  Non-rotor lattices retain every order (PFS-2179).
+
+- G4 (`SPURIOUS_COUNTS`) now compares the far-field balance with inviscid
+  near-field force. `F_NEAR_N` and `F_NEAR_VISCOUS_N` expose the split, with
+  viscous drag projected along free stream. Averaged G4 is NA with a named
+  skip when the history has no whole-configuration viscous drag (PFS-2178).
+
 ## [0.45.1] - 2026-10-25
 
 ### Added

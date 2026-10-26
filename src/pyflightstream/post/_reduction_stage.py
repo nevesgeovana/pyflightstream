@@ -61,10 +61,12 @@ from pyflightstream.post.farfield_fields import (
     FarLayout,
     ProbeSamples,
     average_rows,
+    axial_coefficient,
     derived_layout,
     frame_lattice,
     recorded_layout,
     rotor_lattice,
+    viscous_projection,
 )
 from pyflightstream.post.harmonics import whole_revolution_steps
 from pyflightstream.post.point_tables import (
@@ -82,6 +84,7 @@ from pyflightstream.post.unsteady import (
 )
 from pyflightstream.post.unsteady_polar import global_frame_plot_groups
 from pyflightstream.results import FrozenSolve
+from pyflightstream.results.loads import drag_pair
 
 
 @dataclass(frozen=True)
@@ -147,13 +150,13 @@ def _whole_configuration_force(ctx: SimContext, point: str, axis: str) -> bool:
 
 
 def _window_near_forces(
-    ctx: SimContext, point: str, chosen: list[_Instant], axis: str | Sequence[float]
-) -> dict[float, float]:
-    """Read whole-configuration forces in N on exactly the probe window's steps."""
+    ctx: SimContext, point: PolarPoint, chosen: list[_Instant], axis: str | Sequence[float]
+) -> dict[float, tuple[float, float]]:
+    """Read inviscid and viscous forces in N on exactly the probe window's steps."""
     assert ctx.pproc.farfield is not None
     if not chosen or "axial" not in ctx.pproc.farfield.balances:
         return {}
-    source = ctx.plots_tables.get(point)
+    source = ctx.plots_tables.get(point.name)
     weights = {axis: 1.0} if isinstance(axis, str) else dict(zip("XYZ", axis, strict=True))
     try:
         if source is None:
@@ -164,12 +167,34 @@ def _window_near_forces(
             if weight == 0:
                 continue
             column = f"F{letter}_{AXES_PLOT_GROUP}"
-            if column not in series.fields or not _whole_configuration_force(ctx, point, letter):
+            if column not in series.fields or not _whole_configuration_force(
+                ctx, point.name, letter
+            ):
                 raise ValueError(f"no whole-configuration global force {column}")
             projected -= weight * series.fields[column][:, 0]
-        forces = dict(zip(series.steps, projected, strict=True))
+        drag = next(
+            (
+                name
+                for name in series.fields
+                if name.startswith("CDO_") and _whole_configuration_drag(ctx, point.name, name[4:])
+            ),
+            None,
+        )
+        if drag is None:
+            raise ValueError("history has no viscous drag for the whole configuration")
+        rho, speed, alpha, beta = _flow(point)
+        # The written plots table has already restated CDO on VINF.
+        factor = viscous_projection(
+            1.0, axis, alpha=alpha, beta=beta, qs=0.5 * rho * speed**2 * ctx.reference.sref_m2
+        )
+        viscous = series.fields[drag][:, 0] * factor
+        forces = dict(
+            zip(series.steps, zip(projected - viscous, viscous, strict=True), strict=True)
+        )
         missing = [
-            int(_step(i)) for i in chosen if not math.isfinite(forces.get(_step(i), math.nan))
+            int(_step(i))
+            for i in chosen
+            if not all(math.isfinite(v) for v in forces.get(_step(i), (math.nan, math.nan)))
         ]
         if missing:
             raise ValueError(f"missing finite force at steps {missing}")
@@ -180,15 +205,47 @@ def _window_near_forces(
             f"SPURIOUS_COUNTS needs loads history covering the same window: {error}; "
             "restore the point's complete global force history"
         )
-        ctx.skipped[f"farfield/ledgers_average#point={point}#SPURIOUS_COUNTS#entry={entry}"] = (
-            reason
-        )
+        ctx.skipped[
+            f"farfield/ledgers_average#point={point.name}#SPURIOUS_COUNTS#entry={entry}"
+        ] = reason
         warn(
-            f"point={point} product=farfield entry={entry}: {reason}",
+            f"point={point.name} product=farfield entry={entry}: {reason}",
             PyflightstreamWarning,
             stacklevel=3,
         )
         return {}
+
+
+def _whole_configuration_drag(ctx: SimContext, point: str, name: str) -> bool:
+    """Accept a scalar drag history only when its group covers the configuration."""
+    record = ctx.record_of[point]
+    inventory = record.inventory or ()
+    plan = record.reductions or {}
+    if "plot_groups" in plan:
+        groups = plan["plot_groups"]
+        if not isinstance(groups, list):
+            return False
+        owners = [
+            g
+            for g in groups
+            if isinstance(g, Mapping) and g.get("name") == name and "CDO" in g.get("parameters", ())
+        ]
+        return (
+            len(owners) == 1
+            and bool(inventory)
+            and set(owners[0].get("families", ())) == set(inventory)
+        )
+    if name == AXES_PLOT_GROUP:
+        return _whole_configuration_force(ctx, point, "X")
+    for group in ctx.pproc.plots.groups:
+        if group.name == name and "CDO" in ctx.pproc.plots.parameters:
+            selected = select_families(
+                group.families, inventory, ctx.pproc.is_blade, ctx.aliases, strict=False
+            )
+            return bool(selected) and all(
+                not own or (bool(inventory) and set(own) == set(inventory)) for own in selected
+            )
+    return False
 
 
 def _super_cells(
@@ -305,6 +362,20 @@ def _q_ref(point: PolarPoint, rho: float) -> float:
     loads = point.loads
     v_ref = loads.reference_velocity_m_s or loads.freestream_velocity_m_s
     return 0.5 * rho * float(v_ref) ** 2
+
+
+def _near_force(point: PolarPoint, axis: str | Sequence[float], area: float) -> tuple[float, float]:
+    """Split final near force into inviscid and viscous projections in N."""
+    rho, _, alpha, beta = _flow(point)
+    total = point.loads.total
+    try:
+        _, drag = drag_pair(total)
+        coefficient = float(total[drag])
+    except (PyflightstreamError, KeyError):
+        coefficient = _NA
+    qs = _q_ref(point, rho) * area
+    viscous = viscous_projection(coefficient, axis, alpha=alpha, beta=beta, qs=qs)
+    return -axial_coefficient(total, axis) * qs - viscous, viscous
 
 
 def _last_step(record: object) -> object:

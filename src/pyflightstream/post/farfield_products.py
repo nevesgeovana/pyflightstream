@@ -12,6 +12,9 @@ Which analysis applies to which row is the one function the plan uses
 (:func:`pyflightstream.cases.farfield_inputs.applies`). A simulation whose pproc
 artifact has no ``[[farfields]]`` entries writes nothing and logs nothing, so its
 products keep their bytes (FR-1060).
+
+Size exemption: this family writer keeps per-point diagnostic provenance beside
+the instant/window dispatch that determines it; numerical reductions stay in farfield_fields.
 """
 
 from __future__ import annotations
@@ -47,7 +50,6 @@ from pyflightstream.post._tables import CONTEXT_COLUMNS, context_row, write_csv_
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
-    axial_coefficient,
     far_samples,
     lattice_samples,
     ledger_values,
@@ -55,6 +57,7 @@ from pyflightstream.post.farfield_fields import (
     plane_values,
     rotor_values,
     steady_samples,
+    symmetry_excluded_orders,
 )
 from pyflightstream.post.section_distributions import distributions_of
 from pyflightstream.post.series import stamped_exports
@@ -768,7 +771,7 @@ def _instant_values(
     analyses: Sequence[str],
     *,
     final: bool = True,
-    near: float = _NA,
+    near: tuple[float, float] = (_NA, _NA),
 ) -> dict[str, Any]:
     """Return the C values and the ledger rows of one instant, keyed by analysis.
 
@@ -818,13 +821,17 @@ def _instant_values(
         station = float(lattice.stations[-1]) if station is None else float(station)
         out["rotor"] = rotor_values(fields, rho=rho, speed=speed, station=station)
     if "ledgers" in analyses:
-        near = (
-            -axial_coefficient(point.loads.total, axis) * q_ref * ctx.reference.sref_m2
-            if final
-            else near
-        )
+        near = ff._near_force(point, axis, ctx.reference.sref_m2) if final else near
         out["ledgers"] = ledger_values(
-            fields, _ledgers(ctx), rho=rho, speed=speed, near=(near, ctx.reference.sref_m2)
+            fields,
+            _ledgers(ctx),
+            rho=rho,
+            speed=speed,
+            near=(near[0], ctx.reference.sref_m2),
+            viscous=near[1],
+            excluded_orders=symmetry_excluded_orders(
+                _ledgers(ctx), ctx.record_of[point.name], getattr(ctx.live, "rotors", None) or {}
+            ),
         )
     return out
 
@@ -924,7 +931,7 @@ def _probe_point(
         return
     try:
         near = (
-            ff._window_near_forces(ctx, point.name, chosen, probe.layout.axis)
+            ff._window_near_forces(ctx, point, chosen, probe.layout.axis)
             if "ledgers" in analyses
             else {}
         )
@@ -938,7 +945,7 @@ def _probe_point(
                     probe,
                     analyses,
                     final=False,
-                    near=near.get(ff._step(i), _NA),
+                    near=near.get(ff._step(i), (_NA, _NA)),
                 ),
             )
             for i in chosen
@@ -1220,4 +1227,18 @@ def _write(ctx: SimContext, tables: ff._Tables) -> None:
             entry["reduced_from"] = tables.reduced[suffix]
         if analysis == "trefftz" and "sections" in variants:
             entry["strip_rule"] = "extended"
+        if analysis == "ledgers":
+            entry["symmetry_excluded_orders"] = {
+                point.name: {
+                    item.name: symmetry_excluded_orders(
+                        item.ledgers,
+                        ctx.record_of[point.name],
+                        getattr(ctx.live, "rotors", None) or {},
+                    )
+                    for item in ctx.pproc.farfields
+                    if item.ledgers is not None
+                }
+                for point in ctx.points
+                if point.name in tables.inputs.get(suffix, {})
+            }
         ctx.add(path, entry)

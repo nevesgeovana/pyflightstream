@@ -12,6 +12,7 @@ and the coverage functions say how much of a plane was sampled.
 from __future__ import annotations
 
 import numbers
+from collections.abc import Sequence
 from typing import Literal
 
 import numpy as np
@@ -421,10 +422,16 @@ def azimuthal_harmonics(values: np.ndarray, *, psi: np.ndarray, m_max: int = 6) 
     return kept * np.exp(-1j * np.arange(m_max + 1) * psi_0)
 
 
-def symmetry_floor(values: np.ndarray, *, psi: np.ndarray, m_max: int = 6) -> float:
+def symmetry_floor(
+    values: np.ndarray,
+    *,
+    psi: np.ndarray,
+    m_max: int = 6,
+    excluded_orders: Sequence[int] = (),
+) -> float:
     """Largest azimuthal harmonic magnitude above order zero (gate G3).
 
-    At zero incidence every ``m >= 1`` harmonic must vanish to the numerical
+    At zero incidence every retained ``m >= 1`` harmonic must vanish to the numerical
     floor; the recorded floor becomes the detectability threshold for the
     nonzero-incidence step (DLV-006 Sec. 3.2).
 
@@ -442,6 +449,9 @@ def symmetry_floor(values: np.ndarray, *, psi: np.ndarray, m_max: int = 6) -> fl
         Uniform full-turn azimuth coordinates in radians.
     m_max : int
         Highest azimuthal harmonic order to retain, at least 1.
+    excluded_orders : sequence of int
+        Orders omitted from the floor, such as multiples of a rotor's blade count.
+        If no order remains, the floor is NaN rather than a measured zero.
 
     Raises
     ------
@@ -454,4 +464,5 @@ def symmetry_floor(values: np.ndarray, *, psi: np.ndarray, m_max: int = 6) -> fl
             f"m_max={m_max} keeps no harmonic above order zero, so there is no floor to "
             "measure; give m_max of at least 1"
         )
-    return float(np.abs(harmonics[..., 1:]).max())
+    kept = [m for m in range(1, m_max + 1) if m not in excluded_orders]
+    return float(np.abs(harmonics[..., kept]).max()) if kept else float("nan")
