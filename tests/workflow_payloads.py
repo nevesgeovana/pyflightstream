@@ -19,8 +19,8 @@ def before_frame_labels_0451(text: str) -> str:
     """Undo only complete, digest-pinned PFS-2168 fixture edits for older guards."""
     text = before_pressure_0460(text)
     records = json.loads(
-        (WORKFLOW_ROOT.parent.parent / "fixtures" / "golden_frames_0451.json").read_text()
-    )
+        (WORKFLOW_ROOT.parent.parent / "fixtures" / "golden_transitions.json").read_text()
+    )["frames_0451"]
     digest = hashlib.sha256(text.encode()).hexdigest()
     record = records["digests"].get(digest)
     if record is None:
@@ -36,8 +36,8 @@ def before_frame_labels_0451(text: str) -> str:
 def before_pressure_0460(text: str) -> str:
     """Undo only the forty audited PFS-2171 pressure edits, bound to complete bytes."""
     records = json.loads(
-        (WORKFLOW_ROOT.parent.parent / "fixtures" / "golden_pressure_0460.json").read_text()
-    )
+        (WORKFLOW_ROOT.parent.parent / "fixtures" / "golden_transitions.json").read_text()
+    )["pressure_0460"]
     record = records["digests"].get(hashlib.sha256(text.encode()).hexdigest())
     if record is None:
         return text

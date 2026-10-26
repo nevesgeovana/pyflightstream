@@ -6769,8 +6769,8 @@ def _fr314_counter_everywhere___sha(text: str) -> str:
 
 def test_p0451_frame_golden_admissions_reject_an_unrelated_command():
     records = json.loads(
-        (Path(__file__).parent / "fixtures" / "golden_frames_0451.json").read_text()
-    )
+        (Path(__file__).parent / "fixtures" / "golden_transitions.json").read_text()
+    )["frames_0451"]
     assert records["paths"]
     for name in records["paths"]:
         text = "\n".join(
