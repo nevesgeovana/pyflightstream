@@ -404,8 +404,12 @@ pyfs-workspace geometry mark-boundaries inputs/geometries/wing.obj --apply --fs-
 ```
 
 Preview validates the mesh and point files, prints the ordered script and all
-five destinations, and writes nothing. `--apply` refuses every command whose
-status is not VERIFIED on the declared `fs_build`, naming it. In particular,
+five destinations, and writes nothing. `--apply` refuses emitted marking commands whose
+status is not VERIFIED on the declared `fs_build`, naming them. The gate covers
+trailing-edge imports and detection (including a sweep angle when emitted),
+termination-node selection and marking, base-region commands, and surface
+combines and renames. Session and mesh-import commands are outside this gate.
+In particular,
 an unverified `AUTO_DETECT_WAKE_TERMINATION_NODES` blocks an `"auto"` entry.
 Rendering a script does not establish solver support. Apply first checks the
 executable's build banner with a small log-only pass, then runs one marking

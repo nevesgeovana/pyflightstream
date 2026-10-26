@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Fixed
 
+- `mark-boundaries` gates only its marking commands on VERIFIED evidence;
+  documented session and mesh-import commands no longer block preview or apply.
+
 - Marking commands now carry verified evidence on 26.124 and 26.125, enabling explicit wake-termination files; retaining two folded YAML reports is an owner usability choice that raises `reports_files` from 91 to 93 (+2) and `reports_lines` from 138156 to 138762 (+606).
 
 - Matrix flight-condition constraints now outrank setup defaults. `ALTFT` or

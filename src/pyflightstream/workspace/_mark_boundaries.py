@@ -44,6 +44,24 @@ from pyflightstream.workspace.wake_edges import (
     saved_wake_edge_verdict,
 )
 
+EVIDENCE_GATED: frozenset[str] = frozenset(
+    {
+        "IMPORT_WAKE_EDGES_FROM_FILE",
+        "DETECT_TRAILING_EDGES_BY_SURFACE",
+        "AUTO_DETECT_TRAILING_EDGES",
+        "SET_TRAILING_EDGE_SWEEP_ANGLE",
+        "AUTO_DETECT_WAKE_TERMINATION_NODES",
+        "SELECT_MESH_NODE",
+        "MARK_WAKE_TERMINATION_NODES",
+        "CREATE_NEW_BASE_REGION",
+        "SET_BASE_REGION_CP",
+        "SET_BASE_REGION_TRAILING_EDGES",
+        "SURFACE_COMBINE",
+        "SURFACE_RENAME",
+    }
+)
+"""Marking commands requiring verified evidence; session and mesh import are excluded."""
+
 
 class BoundaryMarkingError(PyflightstreamError):
     """A marking pass failed its solver execution or saved-state read-back."""
@@ -295,7 +313,7 @@ def _awaiting(script: Script) -> tuple[str, ...]:
     commands = dict.fromkeys(
         line.split()[0]
         for line in script.render().splitlines()
-        if line.split() and line.split()[0] in script.registry.commands
+        if line.split() and line.split()[0] in EVIDENCE_GATED
     )
     return tuple(
         name
@@ -479,7 +497,7 @@ def _input_output_collisions(plan: BoundaryMarkingPlan) -> None:
 
 
 def refuse_mark_boundaries(plan: BoundaryMarkingPlan, *, overwrite: bool) -> None:
-    """Refuse unverified commands, stale inputs and an unapproved replacement before execution."""
+    """Refuse unverified markings, stale inputs and an unapproved replacement before execution."""
     _input_output_collisions(plan)
     if plan.awaiting_evidence:
         raise InputArtifactError(
