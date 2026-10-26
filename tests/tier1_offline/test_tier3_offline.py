@@ -186,10 +186,10 @@ def _tier3_copy(tmp_path, *, with_tour=False):
     )
     # The flat pusher rows create PUSHER_SMRP, not the tour's ROTOR_SMRP.
     pproc = root / "inputs" / "pproc"
+    tour_pproc = (pproc / "p001.toml").read_text(encoding="utf-8")
+    assert 'frame = "ROTOR_SMRP"' in tour_pproc, "p001 no longer names ROTOR_SMRP: re-derive p099"
     (pproc / "p099.toml").write_text(
-        (pproc / "p001.toml")
-        .read_text(encoding="utf-8")
-        .replace('frame = "ROTOR_SMRP"', 'frame = "PUSHER_SMRP"'),
+        tour_pproc.replace('frame = "ROTOR_SMRP"', 'frame = "PUSHER_SMRP"'),
         encoding="utf-8",
     )
     if with_tour:
