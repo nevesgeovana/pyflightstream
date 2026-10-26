@@ -1,0 +1,1 @@
+Correct saved-state marking observations: accept route-dependent termination records, count added wake-edge midpoints, and read the actual edge-type row. Tests use the public current and historical probe catalogs.

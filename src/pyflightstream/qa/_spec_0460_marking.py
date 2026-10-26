@@ -89,7 +89,7 @@ def _termination(rows: list[str], vertices: int) -> int:
             raise ValueError("truncated termination rows")
         if any(not 1 <= node <= vertices for node in payload[0]):
             raise ValueError("invalid termination node")
-        if set(payload[1]) != {2} or set(payload[2]) != {1}:
+        if not set(payload[1]) <= {2, 3} or set(payload[2]) != {1}:
             raise ValueError("unknown termination flags")
     return count
 
@@ -132,7 +132,7 @@ class _State:
 
 
 def _state(path: Path) -> _State | None:
-    """Read bounded mesh rows and the measured per-face type row (WTN4 G5)."""
+    """Read bounded mesh rows and the measured edge-type row (WTN4 G5)."""
     try:
         text = path.read_text(encoding="utf-8")
         rows = _section(text, "MESH")
@@ -145,7 +145,9 @@ def _state(path: Path) -> _State | None:
         # Fifteen numeric per-face rows precede the five T/F rows in WTN4/BASE.
         if flag != start + 21:
             return None
-        types = tuple(map(int, _tokens(rows[start + 13])))
+        # The first row after connectivity stores type; start + 13 is the
+        # TE group index, which stays 1 for both edge types in the Rim trial.
+        types = tuple(map(int, _tokens(rows[start + 6])))
         if len(types) != len(faces):
             return None
         term = _termination(rows[flag + 10 :], len(vertices))
@@ -247,16 +249,17 @@ def _verdict(
     if before is None or after is None or control != before:
         return None
     if command in {_MARK, _AUTO}:
-        if before.termination or not before.edges:
+        if before.termination:
             return None
-        # Autodetection's eligibility on this synthetic mesh is not yet licensed.
+        # An absent autodetected record cannot establish fixture eligibility.
         return bool(after.termination) or (None if command == _AUTO else False)
     if command == _IMPORT:
         if (_FIRST, 1) not in before.edges or len(before.groups) != 1:
             return None
         return (
-            after.groups[:-1] == before.groups
-            and len(after.groups) == 2
+            set(before.groups) <= set(after.groups)
+            and len({point for point, _ in after.edges})
+            == len({point for point, _ in before.edges}) + 1
             and before.edges <= after.edges
             and (_SECOND, 2) in after.edges
         )
