@@ -797,36 +797,23 @@ def _emit_one_probe_table(
     ):
         return vertex
     probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
-    # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not turn
-    # that rotor places it nowhere. The same rule the plots and the
-    # sections already keep (FR-65): an entry this RUN cannot place is left
-    # out, because one artifact serves a row that turns the pusher and a
-    # row that turns only the lifters, and only one of them has a
-    # PUSHER_SMRP. An entry naming a frame NO ROW could place is still
-    # refused below, by `_pproc_frame`, because that cannot come right on
-    # another row.
+    # A declared probe shape needs a frame this row actually places. Refuse
+    # here during plan instead of leaving post with a declaration but no points.
     if (
         EXPANDING_FRAMES.get(probes.frame.strip().upper()) is None
         and _ROTOR_FRAME_SPELLING.search(probes.frame.strip().upper()) is not None
-        # ONLY A FRAME OF A ROTOR THE REFERENCE DECLARES, or of the unnamed default
-        # rotor (ROTOR, ROTOR<k>), is left out; any other rotor-shaped name no
-        # declared rotor owns is refused below by `_pproc_frame`.
         and (
             _the_rotor_whose_frame_this_is(case, probes.frame) is not None
             or _UNNAMED_ROTOR_FRAME.match(probes.frame.strip().upper()) is not None
         )
         and frames.get(probes.frame) is None
     ):
-        warn(
-            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} lays its probe "
-            f"lines in {probes.frame!r}, a frame of a rotor this row does not turn, so "
-            "they are left out. A row places the frames of the rotors its motions name, "
-            "which is the same rule that lets one artifact serve a wing-body row and a "
-            "rotor row.",
-            PyflightstreamWarning,
-            stacklevel=2,
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} declares probes "
+            f"in {probes.frame!r}, but this row does not place that rotor frame. "
+            "Use a frame this row places (such as MRP or REFERENCE), or select a "
+            "pproc artifact without this probe entry."
         )
-        return vertex
     frame = (
         1
         if probes.frame == "REFERENCE"

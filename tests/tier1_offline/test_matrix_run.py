@@ -109,6 +109,23 @@ def _p0460_plan(matrix, workspace):
     )
 
 
+@pytest.mark.parametrize("frame", ["ROTOR_SMRP", "ROTOR_RMRP1", "MRP", "REFERENCE"])
+def test_p0460_plan_refuses_probe_frames_missing_from_the_row(tmp_path, frame):
+    workspace, matrix, _ = _p0460_matrix(tmp_path)
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        f'[[probes]]\nframe = "{frame}"\nscale = "m"\nparameters = ["VX"]\n'
+        "points = 2\n[[probes.lines]]\nstart = [2, 0, 0]\nend = [2, 1, 0]\n",
+        encoding="utf-8",
+    )
+    plan = _p0460_plan(matrix, workspace)
+    if frame.startswith("ROTOR"):
+        assert all(point.status is PlanStatus.BLOCKED for point in plan.points)
+        message = plan.summary()
+        assert frame in message and "7002" in message and "probe" in message
+    else:
+        assert all(point.status is PlanStatus.READY for point in plan.points)
+
+
 @pytest.mark.parametrize("suffix", ["obj", "stl", "igs", "ccs"], ids=lambda s: f"P0460-FSM-{s}")
 def test_p0460_matrix_refuses_every_raw_geometry(tmp_path, suffix):
     workspace, matrix, _ = _p0460_matrix(tmp_path, f"wing.{suffix}")

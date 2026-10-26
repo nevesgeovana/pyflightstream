@@ -25,6 +25,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Planning refuses a probe entry whose rotor frame is absent from its row,
+  naming the frame and row before any run.
+
 - `pyfs-matrix plan` names the selected boundaries inventory once per row
   in its command-line output, including supported fallback filenames.
 
