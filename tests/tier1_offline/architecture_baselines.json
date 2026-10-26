@@ -1176,7 +1176,7 @@
   "commands/__init__.py": 626,
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
-  "script/__init__.py": 1537,
+  "script/__init__.py": 1507,
   "workspace/__init__.py": 1901
  },
  "facade_definitions": {
