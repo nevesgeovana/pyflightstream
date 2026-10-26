@@ -1029,7 +1029,10 @@ def workspace_data(root):
 
 def render_tables(data):
     def cell(value):
-        return html.escape(str(value)).replace("|", "&#124;")
+        # An underscore is written as an entity. A raw one pairs with another
+        # across rows as emphasis, and Markdown 3.11 then splits the stashed
+        # raw-HTML placeholders and drops row anchors (sim-inputs).
+        return html.escape(str(value)).replace("|", "&#124;").replace("_", "&#95;")
 
     def owners(items):
         return "<br>".join(
