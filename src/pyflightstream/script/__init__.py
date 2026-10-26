@@ -275,6 +275,7 @@ class Script(_ScriptRendering):
         self._view = self._registry.for_version(version)
         self.version: FsVersion = self._view.version
         self.raw_flag = False
+        self._marking_only = False
         # Broken-command waivers (FR-48): the justification per command
         # name the caller allowed, and the record of the ones actually
         # emitted. Two dicts rather than one because a waiver that is
@@ -1673,6 +1674,28 @@ class Script(_ScriptRendering):
             self._through_the_door = False
         self._reinitialization_owed = (name, line)
 
+    @classmethod
+    def for_marking(
+        cls, version: str | FsVersion, registry: CommandRegistry | None = None
+    ) -> Script:
+        """Construct the no-initialization policy used by the boundary-marking planner.
+
+        Late node selections, termination marks, combines and renames are permitted
+        through setup only. All argument and reference checks remain active. Ordinary
+        scripts retain their phase guard; marking scripts refuse init and execution.
+
+        Evidence on 26.124 and 26.125: GEO-105 release records 0.46.0,
+        licensed/wtn/WTN4-MARKING-2026-10-26.md G3/G6 and licensed/wtn/w124/;
+        licensed/base/BASE-REPORT-2026-10-26.md C1-C7;
+        licensed/probe-p/CMP-26124_2026-10-26_marking-p.md and
+        CMP-26125_2026-10-26_marking-p2.md. These measure saved marks and
+        base/merge order without INITIALIZE_SOLVER. Command evidence admission
+        remains the planner's separate per-build VERIFIED gate.
+        """
+        script = cls(version, registry)
+        script._marking_only = True
+        return script
+
     def _check_phase(self, entry: CommandEntry) -> tuple[int, tuple[str, int]] | None:
         """Refuse a command whose phase has passed; return the phase it reaches.
 
@@ -1682,6 +1705,19 @@ class Script(_ScriptRendering):
         refused by a later check does not leave the script in a phase it never
         reached (PFS-2104.019).
         """
+        if self._marking_only:
+            if entry.phase in (Phase.INIT, Phase.EXEC):
+                raise ScriptOrderError(
+                    f"{entry.name}: a marking script cannot initialize or run the solver"
+                )
+            if entry.name in {
+                "SELECT_MESH_NODE",
+                "MARK_WAKE_TERMINATION_NODES",
+                "AUTO_DETECT_WAKE_TERMINATION_NODES",
+                "SURFACE_COMBINE",
+                "SURFACE_RENAME",
+            } and (self._phase_index is None or self._phase_index <= 1):
+                return None
         if entry.phase is Phase.CONTROL:
             return None
         if self._through_the_door:

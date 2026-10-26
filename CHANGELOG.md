@@ -7,6 +7,9 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- Boundary-marking scripts can explicitly opt into the measured no-initialization
+  ordering on 26.124 and 26.125; ordinary run scripts keep their phase guard.
+
 ### Added
 
 - Named boundary declarations for geometry marking, with independent trailing-edge
