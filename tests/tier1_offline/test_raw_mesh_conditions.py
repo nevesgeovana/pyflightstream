@@ -233,20 +233,22 @@ def test_p0460_marking_publishes_five_outputs_after_readback(tmp_path):
     assert json.loads(plan.outputs[4].read_text())["inputs"] == plan.inputs
 
 
-def test_p0460_record_write_failure_preserves_products(tmp_path, monkeypatch):
-    import pyflightstream._textio as textio
+def test_p0460_record_write_failure_preserves_products(tmp_path):
     from pyflightstream.workspace import BoundaryMarkingError, apply_mark_boundaries
 
     plan, saved = _p0460_saved_plan(tmp_path)
     for path in plan.outputs:
         path.write_bytes(b"prior product")
 
-    def fail(*args, **kwargs):
-        raise OSError("record write failed")
+    runner = _p0460_runner(saved)
 
-    monkeypatch.setattr(textio, "write_json", fail)
+    def obstruct_record(script, work):
+        outcome = runner(script, work)
+        (work / plan.outputs[4].name).mkdir()
+        return outcome
+
     with pytest.raises(BoundaryMarkingError, match="publication failed"):
-        apply_mark_boundaries(plan, runner=_p0460_runner(saved), overwrite=True)
+        apply_mark_boundaries(plan, runner=obstruct_record, overwrite=True)
     assert all(path.read_bytes() == b"prior product" for path in plan.outputs)
 
 
