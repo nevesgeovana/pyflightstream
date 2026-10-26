@@ -4,3 +4,5 @@
   and QA import-count parser after the ordinary raw-run route was removed.
 - The 26.125 status census pins the seven accepted marking promotions to their
   evidence report: 192 verified commands and 181 documented commands.
+- Tier-3 offline goldens now reflect Reynolds-derived pressure on rows that
+  state REmi, following the matrix flight-condition precedence of PFS-2171.
