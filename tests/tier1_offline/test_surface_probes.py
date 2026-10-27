@@ -3,6 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError, PprocSpec
 from pyflightstream.cases.workflows import build_script
 from pyflightstream.cases.workflows._probes import _pproc_probes
@@ -100,10 +101,15 @@ def test_surface_probes_build_before_initialization_and_require_history_export()
     assert len(script.surface_probe_layout) == 1
 
 
-def test_surface_probes_refuse_steady_instead_of_silently_omitting_history():
+def test_surface_probes_on_a_steady_row_are_warned_and_skipped_not_silently_omitted():
     pproc = PprocSpec.model_validate({"surface_probes": [_request()]})
-    with pytest.raises(CampaignConfigError, match="surface_probes.*unsteady"):
-        build_script(_steady(pproc), Script("26.124"))
+    script = Script("26.124")
+    with pytest.warns(
+        PyflightstreamWarning, match=r"surface_probes.*unsteady.*ignored on this row"
+    ):
+        build_script(_steady(pproc), script)
+    assert "SURFACE_PROBE" not in script.render()
+    assert script.surface_probe_layout == []
 
 
 def test_surface_plot_csv_preserves_native_values_and_column_identity(tmp_path):
