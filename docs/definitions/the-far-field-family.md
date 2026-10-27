@@ -609,7 +609,9 @@ the probe swirl:
    innermost ring edge), the mapping station's radius standing for the disk's.
 4. The corrected pressure is `p' + dp0(r_d)`. Upstream of the blades `dp0 = 0`; a
    station cut by the blades (`|x/R|` within their reach) is `NA`, never
-   extrapolated.
+   extrapolated. A downstream plane with a nonpositive annular mean axial
+   velocity is also `NA`: the streamtube map is not one-to-one. If that plane
+   is the mapping station, every downstream correction is `NA`.
 
 The corrected columns are written beside the uncorrected ones, which stay:
 `P_PRIME_CORRECTION_N` (the integral of `dp0` over the station),

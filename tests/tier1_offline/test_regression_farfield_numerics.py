@@ -3053,6 +3053,19 @@ def test_p0470_ffr_swirl_term_is_from_the_torque():
     assert rise[2, ring, 0] - base[2, ring, 0] == pytest.approx(0.5 * rho * swirl**2, rel=1e-9)
 
 
+@pytest.mark.parametrize("flow", [0.0, -5.0])
+def test_p0470_r7_disk_mapping_does_not_cross_a_stagnant_or_reversed_annulus(flow):
+    """A mass-flow tube map needs positive throughflow at both mapped planes."""
+    fields, arrays, _, _ = _p0470_ffr_actuator()
+    loading = ff_balances.DiskLoading(**vars(arrays))
+    baseline = ff_balances.disk_pressure_rise(fields, loading, rho=1.225)
+    u = fields["u"].copy()
+    u[3, 10, :] = flow
+    rise = ff_balances.disk_pressure_rise(fields.with_values(u=u), loading, rho=1.225)
+    assert np.isnan(rise[3]).all(), "no one-to-one streamtube map exists across this annulus"
+    np.testing.assert_equal(rise[[0, 2, 4]], baseline[[0, 2, 4]])
+
+
 def _p0470_helical_wake(
     blades: int, *, gamma: np.ndarray, radii: np.ndarray, v: float, omega: float, turns: float
 ) -> tuple[list[np.ndarray], np.ndarray]:

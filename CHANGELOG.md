@@ -50,6 +50,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Disk-pressure corrections are `NA` at a downstream plane with a stagnant or
+  reversed annular mean flow, where equal-mass-flow mapping is not one-to-one.
+
 - A row that turns only some declared rotors also places the static hub frames
   of the inactive rotors, so their hub-frame probes remain available.
 

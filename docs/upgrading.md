@@ -9,6 +9,9 @@ describe the older releases that supplied them.
 
 ## 0.47.0
 
+Disk-pressure corrections are `NA` at a downstream plane with a stagnant or
+reversed annular mean axial flow. Other planes retain their corrections.
+
 Instantaneous rotor pressure corrections use the final blade-load export.
 Window exports no longer replace that instant's loading; reprocess to update it.
 
