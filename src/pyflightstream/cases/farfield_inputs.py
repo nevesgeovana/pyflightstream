@@ -157,6 +157,11 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
             "state the A entry on a steady or unsteady_rotor row that carries the lifting "
             'surfaces, or select "power" for the rotor on this row'
         )
+    if analysis == "trefftz:wake" and run_type == "qsteady_rotor":
+        return (
+            "Trefftz B on qsteady_rotor has no wake of a lifting surface outside the "
+            "rotor: B is traced on a steady row that carries the lifting surfaces"
+        )
     if analysis == "trefftz:wake":
         if rotor or run_type in ROTOR_RUN_TYPES:
             return "a rotor's helical wake is not a streamwise sheet"
@@ -294,8 +299,9 @@ def resolve_farfield(
         has_command=has_command,
         rotor=rotor or run_type in ROTOR_RUN_TYPES,
     )
-    if not selected_families:
-        for analysis in _analyses(spec):
+    applicable = [a for a in _analyses(spec) if not applies(a, run_type, rotor=rotor)]
+    if not selected_families and applicable:
+        for analysis in applicable:
             resolver.item(
                 analysis,
                 "families",
@@ -309,8 +315,9 @@ def resolve_farfield(
     for analysis in _analyses(spec):
         why = applies(analysis, run_type, rotor=rotor)
         if why:
-            state = "refused" if analysis != "trefftz:wake" else "not_applicable"
-            resolver.item(analysis, "run_type", state, reason=why)
+            # Owner rule of 2026-10-27: an analysis that does not apply to the row is
+            # warned and skipped, never refused, so one pproc serves every row type.
+            resolver.item(analysis, "run_type", "not_applicable", reason=why)
         elif analysis == "trefftz:sections":
             resolver.sections(analysis, selected_families, coupled)
         elif analysis == "trefftz:wake":

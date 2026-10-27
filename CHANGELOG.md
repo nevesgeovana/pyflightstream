@@ -25,6 +25,14 @@ FlightStream versions.
   plane lift. Migration: a `plane` entry on a `qsteady_rotor` row, refused before,
   now plans and writes its C row.
 
+### Changed
+
+- Trefftz A and B entries on a `qsteady_rotor` row are stated `not_applicable`
+  with a WARNING and skipped, never refused, so the plan stays ready and one
+  pproc serves the `unsteady_rotor` row that carries the lifting surfaces and the
+  `qsteady_rotor` row of its rotor. Post names both as skips. Migration: a pproc
+  whose A entry was refused on a quasi-steady row now plans; nothing to change.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added

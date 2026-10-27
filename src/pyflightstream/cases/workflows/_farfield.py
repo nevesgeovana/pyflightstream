@@ -148,8 +148,8 @@ def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
     if spec.balances:
         selected.append("ledgers")
     run_type, rotor = _run_type(case), _rotor(case)
-    if "trefftz:sections" in selected and run_type == "qsteady_rotor":
-        raise CampaignConfigError(applies("trefftz:sections", run_type))
+    # An analysis that does not apply to the row is skipped here and stated
+    # `not_applicable` by the plan (owner rule of 2026-10-27), never refused.
     return [analysis for analysis in selected if not applies(analysis, run_type, rotor=rotor)]
 
 
@@ -701,7 +701,9 @@ def _resolve(
         spec,
         run_type=_run_type(case),
         covered_families=_covered(case, inventory),
-        selected_families=_selected(case, spec, inventory),
+        # An entry the row does not apply to selects nothing: its families may be
+        # absent from this row's geometry (a wing on a quasi-steady rotor's pproc).
+        selected_families=_selected(case, spec, inventory) if _analyses(spec, case) else [],
         exports=dict(case.pproc.exports) if case.pproc is not None else {},
         declares_lattice=declares("lattice"),
         declares_plane=declares("plane"),
@@ -758,10 +760,29 @@ def plan_record(case: SimCase, version: str, script: Script | None = None) -> di
     resolution = _resolve(case, inventory, view, shapes)
     if resolution is None:
         return {}
+    if script is not None and _run_type(case) == "qsteady_rotor":
+        _warn_not_applicable(case, resolution)
     record = resolution.as_record()
     if shapes:
         record["probes"] = [dict(shape) for shape in shapes]
     return record
+
+
+def _warn_not_applicable(case: SimCase, resolution: FarfieldResolution) -> None:
+    """Warn of each entry a quasi-steady row skips (owner rule of 2026-10-27).
+
+    A quasi-steady row holds an isolated rotor, so A and B have no family to
+    trace on it; the entries are skipped and the plan stays ready, so the same
+    pproc serves the unsteady row that carries the lifting surfaces.
+    """
+    for item in resolution.inputs:
+        if item.state == "not_applicable":
+            warn(
+                f"case {case.sim_id!r}: [[farfields]] entry {item.entry!r} is not applicable "
+                f"on this row and is skipped: {item.reason}",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
 
 
 def _refuse(case: SimCase, resolution: FarfieldResolution) -> None:

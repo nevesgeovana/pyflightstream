@@ -698,8 +698,12 @@ named skip. Steady and quasi-steady rotor scripts retain their analysis route.
 
 A refuses any selection, including selector words, that resolves to a rotor
 block's blade or general families. The refusal names the rotor and families
-and points to the reference aliases for lifting surfaces. A on `qsteady_rotor`
-is refused. On unsteady rows A writes the end-of-run sectional trace as instant;
+and points to the reference aliases for lifting surfaces. A and B on a
+`qsteady_rotor` row are not applicable, never refused: that row holds an
+isolated rotor, with no lifting surface outside it, so the plan states each
+entry `not_applicable` with a WARNING naming the entry and stays ready, and
+post names the skip. One pproc thus serves the `unsteady_rotor` row that
+carries the lifting surfaces and the `qsteady_rotor` row of its rotor. On unsteady rows A writes the end-of-run sectional trace as instant;
 its average computes each step's trace before averaging. Missing per-step
 sectional exports produce a named average skip in the manifest and `post.log`.
 For A, `export_type = "avg_window"` requests the stamped sectional-load

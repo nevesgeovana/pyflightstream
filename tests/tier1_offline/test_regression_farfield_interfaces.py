@@ -554,11 +554,12 @@ def test_p0450_d3_sections_plan_nonrotor_wing(tmp_path):
 
 
 def test_p0450_d3_qsteady_sections_are_refused(tmp_path):
+    # P0470-FFR: no longer refused; the entry is not applicable and the plan cuts nothing.
     case = _p0450_rotor_case(
         tmp_path, [{"variant": "sections", "families": ["W"]}], "qsteady_rotor"
     )
-    with pytest.raises(CampaignConfigError, match="Trefftz A.*qsteady_rotor"):
-        _farfield_plan___script(case)
+    script = _farfield_plan___script(case)
+    assert "NEW_SURFACE_SECTION_DISTRIBUTION" not in script.render()
 
 
 def test_p0450_d2_windmilling_efficiency_is_na():
@@ -1978,3 +1979,30 @@ def test_p0470_ffr_qsteady_plane_plans_ready(tmp_path):
     assert (shape["kind"], shape["count"]) == ("plane", 35)
     states = _p0470_ffr_q___states(case, script)
     assert states["trefftz:plane"] <= {"added", "reused"}
+
+
+@pytest.mark.requirement("FR-1059")
+def test_p0470_ffr_qsteady_sections_and_wake_warn_and_skip(tmp_path):
+    """P0470-FFR-Q2: A and B on a qsteady_rotor row are not applicable, warned, never refused.
+
+    A quasi-steady row holds an isolated rotor, so it has no non-rotor family for A
+    or B; the same pproc serves an unsteady row that carries the wing, so the plan
+    states both entries not applicable, warns, and stays ready beside the D entry.
+    """
+    entries = [
+        {"name": "wing", "variant": "sections", "families": ["Wing"]},
+        {"name": "wake", "variant": "wake"},
+        {"name": "rotor", "variant": "power", "rotor": "ROTOR", "stations": [1.0], "n_r": 2},
+    ]
+    case = _p0450_rotor_case(tmp_path, entries, "qsteady_rotor")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        script = _farfield_plan___script(case)
+        states = _p0470_ffr_q___states(case, script)
+    messages = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    assert any("'wing'" in m and "Trefftz A" in m and "qsteady_rotor" in m for m in messages)
+    assert any("'wake'" in m and "Trefftz B" in m and "qsteady_rotor" in m for m in messages)
+    assert states["trefftz:sections"] == {"not_applicable"}
+    assert states["trefftz:wake"] == {"not_applicable"}
+    assert "refused" not in set().union(*states.values())
+    assert "NEW_SURFACE_SECTION_DISTRIBUTION" not in script.render()

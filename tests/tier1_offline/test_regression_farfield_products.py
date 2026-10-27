@@ -3635,3 +3635,37 @@ def test_p0470_ffr_qsteady_plane_reads_the_hub_frame(tmp_path, rpm):
     )
     q_s = 0.5 * _RFIXF_PLANE_LIFT___RHO * _RFIXF_PLANE_LIFT___SPEED**2 * _RFIXF_PLANE_LIFT___SREF
     assert raw["D"] / q_s > 2.0 * float(expected["CDI_T"])
+
+
+@pytest.mark.requirement("FR-1059")
+def test_p0470_ffr_qsteady_sections_and_wake_are_named_skips(tmp_path):
+    """P0470-FFR-Q2: post names A and B as skips on a qsteady_rotor row and writes its C row."""
+    workspace = _rfixf_plane_lift__ffpost._ffproof_post___campaign(
+        tmp_path,
+        pproc=(
+            "[[farfields]]\n"
+            'name = "wing"\n'
+            'variant = "sections"\n'
+            'families = ["Wing"]\n'
+            "[[farfields]]\n"
+            'name = "wake"\n'
+            'variant = "wake"\n' + _RFIXF_PLANE_LIFT___TABLE
+        ),
+        recipe="qsteady_rotor",
+        files={
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
+                _RFIXF_PLANE_LIFT___PLANE.points, _p0470_ffr_q___turning(_P0470_FFR_Q___RPM)
+            ),
+            f"{_FFPROOF_POST___STEM}_qsteady.json": _rfixf_qsteady___quasi(_P0470_FFR_Q___RPM),
+        },
+    )
+    _rfixf_plane_lift__ffpost._ffproof_post___set_record(
+        workspace, farfield_layout=_RFIXF_PLANE_LIFT___LAYOUT
+    )
+    _rfixf_plane_lift__ffpost._ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    skipped = str(_ffproof_post___manifest(root)["skipped"])
+    assert "trefftz:sections does not apply" in skipped and "Trefftz A" in skipped
+    assert "trefftz:wake does not apply" in skipped and "Trefftz B" in skipped
+    rows = _rfixf_layout___rows(root, "farfield/*_trefftz.csv")
+    assert [row["VARIANT"] for row in rows] == ["C"]
