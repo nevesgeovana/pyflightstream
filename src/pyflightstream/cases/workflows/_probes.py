@@ -53,8 +53,6 @@ from ._farfield import (
     farfield_export_windows,
     farfield_probes,
     needs_fresh_probes,
-    planar_points,
-    warn_declared_inside,
 )
 from ._frames import (
     _ROTOR_FRAME_SPELLING,
@@ -62,6 +60,10 @@ from ._frames import (
     _a_rotor_frame_the_row_leaves_out,
     _pproc_frame,
     _the_rotor_whose_frame_this_is,
+)
+from ._geometry import (
+    planar_points,
+    warn_declared_inside,
 )
 from ._names import (
     _artifact_of,

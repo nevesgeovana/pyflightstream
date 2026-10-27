@@ -1,10 +1,12 @@
 """What the plan adds to a row's script for the far field (FR-455, FR-1074).
 
 The emission half of the far-field family: where a row's pproc artifact carries
-``[[farfields]]``, the builders call these functions to declare the outputs the far
-field reads, to add a section distribution over the families no declared one
-covers, to switch the wake on in the VTK export, and to lay the far-field
-plane or survey lattice as probe points. What is reused, added, not applicable
+``[[farfields]]``, the builders call these functions to resolve what the far
+field reads, to switch the wake on in the VTK export, and to lay the far-field
+plane or survey lattice as probe points; the outputs it declares and the
+section distributions it adds are emitted beside the other post-processing
+sections (:mod:`._pproc`), and the body the points must clear is read by
+:mod:`._geometry`. What is reused, added, not applicable
 or refused is the resolver's (:mod:`pyflightstream.cases.farfield_inputs`);
 the geometry is laid out by :mod:`pyflightstream.probes.layouts`. A row whose
 artifact has no ``[[farfields]]`` reaches none of this, so its script keeps its
@@ -16,10 +18,6 @@ after layout, or, where ``[[farfields]]`` states no geometry, when it is the one
 declaration that qualifies; what is not declared is appended after every
 declared probe. Every chosen shape is recorded on the script for the run
 record, and post matches the exported positions to it (PFS-2081.56, .58).
-
-Size exemption: the emission of every far-field input stays beside the one
-resolution it follows (plane, lattice, sections, and the blade sections of a
-rotor's disk correction), so plan, script and record cannot disagree.
 """
 
 from __future__ import annotations
@@ -27,7 +25,6 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -35,9 +32,7 @@ import numpy as np
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import (
     CampaignConfigError,
-    ProbesSpec,
     SimCase,
-    classify_outputs,
     select_families,
 )
 from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape
@@ -46,14 +41,11 @@ from pyflightstream.cases.farfield_inputs import (
     FarfieldInput,
     FarfieldResolution,
     applies,
-    few_stations_warning,
     resolve_farfield,
     traced_family,
 )
-from pyflightstream.cases.field_coverage import operated_corners
 from pyflightstream.cases.windows import averaging_steps
 from pyflightstream.commands import CommandRegistry
-from pyflightstream.probes.geometry import apply_geometry_gate, load_surface_mesh, points_inside
 from pyflightstream.probes.layouts import (
     FarfieldPlane,
     emit_probe_points,
@@ -65,6 +57,7 @@ from pyflightstream.script import Script
 
 from ._conventions import declared_run_type
 from ._freestream import rotor_row_stepping
+from ._geometry import _extent_m, _inside
 from ._motion import _origin
 from ._names import _inventory
 from ._probe_imports import _phased_farfield, _shape_key, _stage_import
@@ -86,15 +79,12 @@ __all__ = [
     "declared_lattice_points",
     "declared_lattices",
     "farfield_lattice",
-    "farfield_outputs",
     "farfield_plane_of",
     "farfield_probes",
     "farfield_resolution",
-    "farfield_sections",
     "farfield_shapes",
     "needs_fresh_probes",
     "plan_record",
-    "warn_declared_inside",
     "wants_wake",
 ]
 
@@ -105,11 +95,9 @@ __all__ = [
 FARFIELD_PLOT_PARAMETERS: tuple[str, ...] = ("VX", "VY", "VZ", "CP_REF")
 #: The reference frame of the far-field fluid plots (frame 1, the global frame).
 _PLOT_FRAME = 1
-_SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
 #: The stations of the blade distribution the far field adds for a rotor's disk
 #: loading (P0470-FFR option 1a), as the rotor pproc of the PFS-2165 study cut them.
 _BLADE_STATIONS = 50
-_MESH_SUFFIXES = (".obj", ".stl")
 #: Two laid-out probe sets are one declaration when every coordinate agrees at
 #: the fifth decimal of the simulation's unit, the precision the script writes
 #: a probe position in (FR-1045, PFS-2081.56): after rounding to five decimals
@@ -241,57 +229,6 @@ def _normal(case: SimCase) -> bool:
         return False
 
 
-def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list[str]:
-    """Return ``names`` with the exports the far field reads added (FR-1046).
-
-    An ``[exports]`` entry set to false that the far field needs is turned on
-    for this row, with a WARNING naming the entry and the analysis.
-    """
-    entries = _entry_cases(case)
-    if entries:
-        for entry in entries:
-            names = farfield_outputs(entry, workflow, names)
-        return list(names)
-    spec = _spec(case)
-    if spec is None:
-        return list(names)
-    wanted = _wanted_exports(case, spec)
-    out = list(names)
-    present = classify_outputs(out)
-    exports = dict(case.pproc.exports) if case.pproc is not None else {}
-    for kind, template, analysis in wanted:
-        if kind in present:
-            continue
-        if exports.get(kind) is False:
-            warn(
-                f"case {case.sim_id!r}: [exports] {kind} = false in the pproc artifact "
-                f"{case.pproc_id!r}, and the far field's {analysis} needs it; it is turned on "
-                "for this row (FR-1046).",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
-        out.append(template)
-    return out
-
-
-def _wanted_exports(case: SimCase, spec: FarfieldSpec) -> list[tuple[str, str, str]]:
-    """Return the exports one entry reads: kind, file template and the analysis."""
-    analyses = _analyses(spec, case)
-    wanted: list[tuple[str, str, str]] = []
-    if "trefftz:sections" in analyses:
-        wanted.append(("sectional_loads", "{name}_sloads.txt", "trefftz:sections"))
-    elif blade_loads_state(case, spec)[0] in ("reused", "added"):
-        # P0470-FFR: the rotor's disk total-pressure correction reads the blade loads.
-        wanted.append(("sectional_loads", "{name}_sloads.txt", "the rotor disk correction"))
-    if "trefftz:wake" in analyses:
-        wanted.append(("vtk", "{name}.vtk", "trefftz:wake"))
-    if needs_fresh_probes(case):
-        # FR-1052: the far field owns a conventional probe-points export,
-        # independent of the declared entries' sampling kinds.
-        wanted.append(("farfield_probes", "{name}_farfield_survey.txt", "trefftz:plane or ledgers"))
-    return wanted
-
-
 def _selected(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> list[str]:
     is_blade = case.pproc.is_blade if case.pproc is not None else (lambda name: False)
     groups = select_families(
@@ -332,36 +269,6 @@ def _covered(case: SimCase, inventory: Sequence[str]) -> set[str]:
             if name is not None:
                 covered.add(name)
     return covered
-
-
-def _warn_few_stations(
-    case: SimCase, inventory: Sequence[str], reused: Sequence[str], mirror: bool
-) -> None:
-    """Warn per reused family whose declared distribution has too few stations (FR-1019).
-
-    The stations per side of a family are those of the densest declared
-    distribution that covers it: its count on a mirrored half model, half its
-    count on a full one, as the plan lays its own (``stations`` per side).
-    """
-    spec = _spec(case)
-    if case.pproc is None or spec is None or spec.trefftz is None or not reused:
-        return
-    sections = case.pproc.sections
-    aliases = _the_names_a_rotor_answers_to(case)
-    per_side: dict[str, int] = {}
-    for entry in sections.distributions:
-        if "XZ" not in entry.planes or entry.frame.strip().upper() not in ("MRP", "REFERENCE"):
-            continue
-        count = int(entry.count or sections.count)
-        side = count if mirror else count // 2
-        for group in select_families(entry.families, inventory, case.pproc.is_blade, aliases):
-            name = traced_family(group, inventory)
-            if name is not None:
-                per_side[name] = max(per_side.get(name, 0), side)
-    for name in reused:
-        few = few_stations_warning(name, per_side.get(name, 0), spec.trefftz.stations)
-        if few:
-            warn(f"case {case.sim_id!r}: {few}.", PyflightstreamWarning, stacklevel=3)
 
 
 @dataclass(frozen=True)
@@ -965,60 +872,6 @@ def _refuse(case: SimCase, resolution: FarfieldResolution) -> None:
         )
 
 
-def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
-    """Add the section distribution Trefftz A needs over the uncovered families (FR-1046)."""
-    entries = _entry_cases(case)
-    if entries:
-        for entry in entries:
-            farfield_sections(entry, script, frames)
-        return
-    spec = _spec(case)
-    if spec is None or "trefftz:sections" not in _analyses(spec, case):
-        return
-    resolution = farfield_resolution(case, script)
-    if resolution is None:
-        return
-    _refuse(case, resolution)
-    inventory = _inventory(script)
-    covered = _covered(case, inventory)
-    selected = _selected(case, spec, inventory)
-    missing = [name for name in selected if name not in covered]
-    stations = spec.trefftz.stations if spec.trefftz is not None else 80
-    mirror = str(_variable(case, "SYMMETRY") or "").strip().upper() == "MIRROR"
-    _warn_few_stations(case, inventory, [name for name in selected if name in covered], mirror)
-    if not missing:
-        return
-    from ._frames import _pproc_frame
-
-    count = stations if mirror else 2 * stations
-    frame = _pproc_frame(case, frames, "MRP", "the far-field section distribution", missing)
-    args = {arg.name for arg in script.registry.for_version(script.version)[_SECTION_COMMAND].args}
-    sections = spec_sections(case)
-    first = max(len(sections.distributions), len(script.section_blocks))
-    for offset, name in enumerate(missing, start=1):
-        index = script.resolve_boundary(name, context="far-field section")
-        script.section_blocks.append(
-            {
-                "distribution": first + offset,
-                "distribution_families": [name],
-                "families": [name],
-                "plane": "XZ",
-                "frame": "MRP",
-                "count": count,
-            }
-        )
-        script.emit(
-            _SECTION_COMMAND,
-            frame=frame,
-            plane="XZ",
-            num_sections=count,
-            plot_direction=str(sections.plot_direction),
-            **({"include_symmetry": "DISABLE"} if "include_symmetry" in args else {}),
-            surfaces=1,
-            surface_indices=[index],
-        )
-
-
 def _blade_rotor(case: SimCase, spec: FarfieldSpec) -> tuple[str, Any] | None:
     """Return the alias and block of the rotor a power entry's disk loading reads, or None."""
     if spec.ledgers is None or not _rotor(case):
@@ -1070,63 +923,6 @@ def blade_loads_state(case: SimCase, spec: FarfieldSpec) -> tuple[str, str]:
         f'declare a [[sections.distributions]] entry with frame = "LOCAL_AXIS" over the '
         f"blades, or G4 of the rotor stays NA (WARNING)",
     )
-
-
-def farfield_blade_sections(case: SimCase, script: Script, frames: Any) -> None:
-    """Add one distribution per blade in its own frame for a rotor's disk loading (P0470-FFR)."""
-    done: set[str] = set()
-    for entry in _entry_cases(case) or [case]:
-        spec = _spec(entry)
-        if spec is None or not {"ledgers", "trefftz:power"} & set(_analyses(spec, entry)):
-            continue
-        state, reason = blade_loads_state(entry, spec)
-        if state == "not_applicable":
-            warn(f"case {case.sim_id!r}: {reason}", PyflightstreamWarning, stacklevel=2)
-        found = _blade_rotor(entry, spec)
-        if state != "added" or found is None or found[0] in done:
-            continue
-        alias, block = found
-        done.add(alias)
-        span = block.blade1.zero.lstrip("+-").upper()
-        plane = "".join(letter for letter in "XYZ" if letter != span)
-        sections = spec_sections(case)
-        args = {
-            arg.name for arg in script.registry.for_version(script.version)[_SECTION_COMMAND].args
-        }
-        inventory = set(_inventory(script))
-        for number, family in enumerate(block.families_blades, start=1):
-            frame = frames.get(f"{alias}_RMRP{number}")
-            if family not in inventory or not isinstance(frame, int):
-                continue
-            index = script.resolve_boundary(family, context="far-field blade section")
-            script.section_blocks.append(
-                {
-                    "distribution": max(len(sections.distributions), len(script.section_blocks))
-                    + 1,
-                    "distribution_families": [family],
-                    "families": [family],
-                    "plane": plane,
-                    "frame": f"{alias}_RMRP{number}",
-                    "count": _BLADE_STATIONS,
-                }
-            )
-            script.emit(
-                _SECTION_COMMAND,
-                frame=frame,
-                plane=plane,
-                num_sections=_BLADE_STATIONS,
-                plot_direction=str(sections.plot_direction),
-                **({"include_symmetry": "DISABLE"} if "include_symmetry" in args else {}),
-                surfaces=1,
-                surface_indices=[index],
-            )
-
-
-def spec_sections(case: SimCase) -> Any:
-    """Return the row's ``[sections]`` table; a row with ``[[farfields]]`` has a pproc."""
-    if case.pproc is None:
-        raise CampaignConfigError(f"case {case.sim_id!r}: the far field needs a pproc artifact")
-    return case.pproc.sections
 
 
 def _free_stream(case: SimCase) -> np.ndarray:
@@ -1253,110 +1049,6 @@ def emit_declared_lattices(case: SimCase, script: Script, probes: Any, native_pe
             script, lattice, axis=axis, origin=placed, scale=native_per_m, decimals=5
         )
     return count
-
-
-def _mesh(case: SimCase) -> str | None:
-    geometry = getattr(case, "geometry", None)
-    if geometry and Path(str(geometry)).suffix.lower() in _MESH_SUFFIXES:
-        return str(geometry)
-    if geometry and Path(str(geometry)).suffix.lower() == ".fsm":
-        exported = Path(str(geometry)).with_suffix(".surface.stl")
-        if exported.is_file():
-            return str(exported)
-    return None
-
-
-def _extent_m(
-    case: SimCase, direction: np.ndarray, native_per_m: float, script: Script | None = None
-) -> float | None:
-    """Return how far downstream the solved body reaches, or None when it is not known.
-
-    The source mesh is carried through the surface operations the script emitted
-    (a translation or rotation moves the body the solver solves), so the plane is
-    laid downstream of the body as placed (F-025). An operation the rule does not
-    know leaves the extent unknown.
-    """
-    mesh = _mesh(case)
-    if mesh is None:
-        return None
-    try:
-        from pyflightstream._mesh import read_mesh
-
-        vertices = np.asarray(read_mesh(mesh).vertices, dtype=float) / native_per_m
-    except (OSError, ValueError, PyflightstreamError):
-        return None
-    operations = [] if script is None else script.surface_operations
-    if operations:
-        try:
-            vertices = np.asarray(operated_corners(vertices.tolist(), operations)[0], dtype=float)
-        except (CampaignConfigError, KeyError, TypeError, ValueError):
-            return None
-    return float((vertices @ direction).max())
-
-
-def _moves_the_body(case: SimCase) -> bool:
-    """Whether the row states a ROTATE or TRANSLATE, which moves the body off its mesh file."""
-    return bool(case.rotations or case.translations)
-
-
-def _inside(case: SimCase, native: np.ndarray) -> tuple[int, str]:
-    """Return the count of ``native`` points inside the body and the first ones.
-
-    The count is -1 where the check cannot run, with the reason in place of
-    the points.
-    """
-    mesh = _mesh(case)
-    if mesh is None:
-        return -1, "the row's geometry is not a mesh file the check reads"
-    if _moves_the_body(case):
-        # F-026: the file holds the body where it was before ROTATE or TRANSLATE moved it.
-        return (
-            -1,
-            "the row rotates or translates the body before solving, so the mesh file "
-            "is not where it stands",
-        )
-    from pyflightstream.probes.geometry import points_inside
-
-    report = points_inside(native, mesh_path=mesh)
-    if not report.checked:
-        return -1, str(report.reason)
-    first = ", ".join(str(tuple(round(float(v), 5) for v in p)) for p in report.first(native))
-    return report.count, first
-
-
-def warn_declared_inside(case: SimCase, entries: Sequence[tuple[int, str, np.ndarray]]) -> None:
-    """Warn per declared ``[[probes]]`` entry with points inside the body (FR-1074).
-
-    ``entries`` holds the entry number, its frame and its native points. The
-    points are kept. An entry in a frame other than the reference one, or a row
-    whose mesh the check cannot read, gets one WARNING saying the points were
-    not checked and why; the check never refuses a declared point.
-    """
-    unchecked: list[str] = []
-    for number, frame, native in entries:
-        if not len(native):
-            continue
-        if frame.strip().upper() != "REFERENCE":
-            unchecked.append(f"entry {number} lies in the moving frame {frame!r}")
-            continue
-        count, detail = _inside(case, native)
-        if count < 0:
-            unchecked.append(detail)
-        elif count:
-            warn(
-                f"case {case.sim_id!r}: {count} point(s) of [[probes]] entry {number} lie "
-                f"inside the body, the first at {detail} (native units); they are kept "
-                "(FR-1074).",
-                PyflightstreamWarning,
-                stacklevel=3,
-            )
-    if unchecked:
-        warn(
-            f"case {case.sim_id!r}: probe points were not checked against the body: "
-            f"{'; '.join(dict.fromkeys(unchecked))} (FR-1074).",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
 
 
 def _check_added(case: SimCase, native: np.ndarray, what: str) -> None:
@@ -1584,53 +1276,6 @@ def _unique_shapes(shapes: Sequence[FarfieldShape], records: list[dict[str, Any]
         if key not in seen:
             seen.add(key)
             yield shape, recorded
-
-
-def planar_points(case: SimCase, probes: ProbesSpec, native_per_m: float) -> list[list[float]]:
-    """Place declared grids and refuse added refinement nodes inside the body."""
-    if not probes.grids:
-        return []
-    if _moves_the_body(case):
-        # F-027: the nodes are gated against the mesh file, which a ROTATE or
-        # TRANSLATE row has moved, so a node could pass inside the moved body.
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: planar probe grids are placed and cleared against the "
-            "mesh as the file holds it, and this row states ROTATE or TRANSLATE, which move "
-            "the body before the solve, so a node could lie inside the moved body. Move the "
-            "body in the mesh file itself, or state the probe points in [[probes]]."
-        )
-    source = Path(case.geometry) if case.geometry else None
-    if source is not None and source.suffix.lower() == ".fsm":
-        source = source.with_suffix(".surface.stl")
-        if not source.is_file():
-            raise CampaignConfigError(
-                f"Planar probes need surface mesh export {source.name}; use "
-                "pyflightstream.run.export_surface_mesh "
-                "(CLI: pyfs-workspace geometry export-surface-mesh) "
-                "on the licensed machine before plan. Planning does not launch the solver."
-            )
-    mesh = None
-    if source is not None and source.suffix.lower() in {".stl", ".obj"}:
-        mesh = load_surface_mesh(source, require_watertight=False)
-        mesh.vertices = mesh.vertices / native_per_m
-    points: list[list[float]] = []
-    for grid in probes.grids:
-        planned = apply_geometry_gate(grid, mesh=mesh, cull=False)
-        native = planned.points * native_per_m
-        added = native[grid.point_count :]
-        if len(added) and source is not None:
-            inside = points_inside(added, mesh_path=source)
-            if not inside.checked:
-                raise CampaignConfigError(
-                    f"Planar refinement cannot check added points: {inside.reason}. "
-                    "Supply a closed surface mesh and the geometry extra."
-                )
-            if inside.inside.any():
-                raise CampaignConfigError(
-                    "Planar refinement adds points inside the body; change the grid or band."
-                )
-        points.extend(native.tolist())
-    return points
 
 
 def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:

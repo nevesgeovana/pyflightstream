@@ -2,6 +2,8 @@
 
 The marking stage prepares the saved simulation before a matrix run. This
 module opens its staged copy and retains the row's base-region operations.
+It also reads the body the probe points must clear: the row's mesh, how far
+downstream it reaches, and which points lie inside it.
 """
 
 from __future__ import annotations
@@ -16,7 +18,10 @@ from pathlib import (
     PurePath,
 )
 
+import numpy as np
+
 from pyflightstream._errors import (
+    PyflightstreamError,
     PyflightstreamWarning,
     warn,
 )
@@ -29,6 +34,7 @@ from pyflightstream.cases import (
     BaseRegionOperation,
     CampaignConfigError,
     PortBoundary,
+    ProbesSpec,
     SimCase,
 )
 from pyflightstream.cases import (
@@ -41,6 +47,14 @@ from pyflightstream.cases._skipped_families import (
 )
 from pyflightstream.cases.ccs_wing import (
     refuse_ccs_options_off_a_ccs_file,
+)
+from pyflightstream.cases.field_coverage import (
+    operated_corners,
+)
+from pyflightstream.probes.geometry import (
+    apply_geometry_gate,
+    load_surface_mesh,
+    points_inside,
 )
 from pyflightstream.script import (
     Script,
@@ -713,3 +727,159 @@ def _import_fsi_geometry(case: SimCase, script: Script) -> None:
         )
     assert case.geometry is not None
     case._fsi_geometry_emitter(str(case.geometry), script)
+
+
+# --- FR-1074: the body the probe points must clear -----------------------------
+
+_MESH_SUFFIXES = (".obj", ".stl")
+
+
+def _mesh(case: SimCase) -> str | None:
+    geometry = getattr(case, "geometry", None)
+    if geometry and Path(str(geometry)).suffix.lower() in _MESH_SUFFIXES:
+        return str(geometry)
+    if geometry and Path(str(geometry)).suffix.lower() == ".fsm":
+        exported = Path(str(geometry)).with_suffix(".surface.stl")
+        if exported.is_file():
+            return str(exported)
+    return None
+
+
+def _extent_m(
+    case: SimCase, direction: np.ndarray, native_per_m: float, script: Script | None = None
+) -> float | None:
+    """Return how far downstream the solved body reaches, or None when it is not known.
+
+    The source mesh is carried through the surface operations the script emitted
+    (a translation or rotation moves the body the solver solves), so the plane is
+    laid downstream of the body as placed (F-025). An operation the rule does not
+    know leaves the extent unknown.
+    """
+    mesh = _mesh(case)
+    if mesh is None:
+        return None
+    try:
+        from pyflightstream._mesh import read_mesh
+
+        vertices = np.asarray(read_mesh(mesh).vertices, dtype=float) / native_per_m
+    except (OSError, ValueError, PyflightstreamError):
+        return None
+    operations = [] if script is None else script.surface_operations
+    if operations:
+        try:
+            vertices = np.asarray(operated_corners(vertices.tolist(), operations)[0], dtype=float)
+        except (CampaignConfigError, KeyError, TypeError, ValueError):
+            return None
+    return float((vertices @ direction).max())
+
+
+def _moves_the_body(case: SimCase) -> bool:
+    """Whether the row states a ROTATE or TRANSLATE, which moves the body off its mesh file."""
+    return bool(case.rotations or case.translations)
+
+
+def _inside(case: SimCase, native: np.ndarray) -> tuple[int, str]:
+    """Return the count of ``native`` points inside the body and the first ones.
+
+    The count is -1 where the check cannot run, with the reason in place of
+    the points.
+    """
+    mesh = _mesh(case)
+    if mesh is None:
+        return -1, "the row's geometry is not a mesh file the check reads"
+    if _moves_the_body(case):
+        # F-026: the file holds the body where it was before ROTATE or TRANSLATE moved it.
+        return (
+            -1,
+            "the row rotates or translates the body before solving, so the mesh file "
+            "is not where it stands",
+        )
+    from pyflightstream.probes.geometry import points_inside
+
+    report = points_inside(native, mesh_path=mesh)
+    if not report.checked:
+        return -1, str(report.reason)
+    first = ", ".join(str(tuple(round(float(v), 5) for v in p)) for p in report.first(native))
+    return report.count, first
+
+
+def warn_declared_inside(case: SimCase, entries: Sequence[tuple[int, str, np.ndarray]]) -> None:
+    """Warn per declared ``[[probes]]`` entry with points inside the body (FR-1074).
+
+    ``entries`` holds the entry number, its frame and its native points. The
+    points are kept. An entry in a frame other than the reference one, or a row
+    whose mesh the check cannot read, gets one WARNING saying the points were
+    not checked and why; the check never refuses a declared point.
+    """
+    unchecked: list[str] = []
+    for number, frame, native in entries:
+        if not len(native):
+            continue
+        if frame.strip().upper() != "REFERENCE":
+            unchecked.append(f"entry {number} lies in the moving frame {frame!r}")
+            continue
+        count, detail = _inside(case, native)
+        if count < 0:
+            unchecked.append(detail)
+        elif count:
+            warn(
+                f"case {case.sim_id!r}: {count} point(s) of [[probes]] entry {number} lie "
+                f"inside the body, the first at {detail} (native units); they are kept "
+                "(FR-1074).",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
+    if unchecked:
+        warn(
+            f"case {case.sim_id!r}: probe points were not checked against the body: "
+            f"{'; '.join(dict.fromkeys(unchecked))} (FR-1074).",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
+def planar_points(case: SimCase, probes: ProbesSpec, native_per_m: float) -> list[list[float]]:
+    """Place declared grids and refuse added refinement nodes inside the body."""
+    if not probes.grids:
+        return []
+    if _moves_the_body(case):
+        # F-027: the nodes are gated against the mesh file, which a ROTATE or
+        # TRANSLATE row has moved, so a node could pass inside the moved body.
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: planar probe grids are placed and cleared against the "
+            "mesh as the file holds it, and this row states ROTATE or TRANSLATE, which move "
+            "the body before the solve, so a node could lie inside the moved body. Move the "
+            "body in the mesh file itself, or state the probe points in [[probes]]."
+        )
+    source = Path(case.geometry) if case.geometry else None
+    if source is not None and source.suffix.lower() == ".fsm":
+        source = source.with_suffix(".surface.stl")
+        if not source.is_file():
+            raise CampaignConfigError(
+                f"Planar probes need surface mesh export {source.name}; use "
+                "pyflightstream.run.export_surface_mesh "
+                "(CLI: pyfs-workspace geometry export-surface-mesh) "
+                "on the licensed machine before plan. Planning does not launch the solver."
+            )
+    mesh = None
+    if source is not None and source.suffix.lower() in {".stl", ".obj"}:
+        mesh = load_surface_mesh(source, require_watertight=False)
+        mesh.vertices = mesh.vertices / native_per_m
+    points: list[list[float]] = []
+    for grid in probes.grids:
+        planned = apply_geometry_gate(grid, mesh=mesh, cull=False)
+        native = planned.points * native_per_m
+        added = native[grid.point_count :]
+        if len(added) and source is not None:
+            inside = points_inside(added, mesh_path=source)
+            if not inside.checked:
+                raise CampaignConfigError(
+                    f"Planar refinement cannot check added points: {inside.reason}. "
+                    "Supply a closed surface mesh and the geometry extra."
+                )
+            if inside.inside.any():
+                raise CampaignConfigError(
+                    "Planar refinement adds points inside the body; change the grid or band."
+                )
+        points.extend(native.tolist())
+    return points

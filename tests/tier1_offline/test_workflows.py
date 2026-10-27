@@ -8077,7 +8077,7 @@ def test_p0430_f026_f027_a_moved_body_is_not_checked_or_gated_against_its_mesh_f
     from types import SimpleNamespace
 
     from pyflightstream._errors import PyflightstreamWarning
-    from pyflightstream.cases.workflows._farfield import planar_points, warn_declared_inside
+    from pyflightstream.cases.workflows._geometry import planar_points, warn_declared_inside
 
     moved = rotor_case().model_copy(
         update={

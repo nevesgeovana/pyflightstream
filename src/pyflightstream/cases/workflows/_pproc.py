@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import (
     Sequence,
 )
+from typing import Any
 
 from pyflightstream._errors import (
     PyflightstreamError,
@@ -32,15 +33,32 @@ from pyflightstream.cases import (
     global_frame_plot_declarations,
     select_families,
 )
+from pyflightstream.cases._farfield_spec import FarfieldSpec
 from pyflightstream.cases._skipped_families import (
     saying_the_families_each_row_skips,
+)
+from pyflightstream.cases.farfield_inputs import (
+    few_stations_warning,
+    traced_family,
 )
 from pyflightstream.script import (
     Script,
 )
 
 from ._conventions import declared_run_type
-from ._farfield import farfield_blade_sections, farfield_outputs, farfield_sections
+from ._farfield import (
+    _BLADE_STATIONS,
+    _analyses,
+    _blade_rotor,
+    _covered,
+    _entry_cases,
+    _refuse,
+    _selected,
+    _spec,
+    blade_loads_state,
+    farfield_resolution,
+    needs_fresh_probes,
+)
 from ._frames import (
     _emissions_the_row_places,
     _pproc_frame,
@@ -776,3 +794,199 @@ def creates_surface_sections(text: str) -> bool:
     return any(
         line.split(" ", 1)[0].strip() in _SURFACE_SECTION_COMMANDS for line in text.splitlines()
     )
+
+
+# --- FR-1046: the outputs and the section distributions the far field reads ---
+
+#: The command of a surface section distribution the far field adds.
+_SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
+
+
+def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list[str]:
+    """Return ``names`` with the exports the far field reads added (FR-1046).
+
+    An ``[exports]`` entry set to false that the far field needs is turned on
+    for this row, with a WARNING naming the entry and the analysis.
+    """
+    entries = _entry_cases(case)
+    if entries:
+        for entry in entries:
+            names = farfield_outputs(entry, workflow, names)
+        return list(names)
+    spec = _spec(case)
+    if spec is None:
+        return list(names)
+    wanted = _wanted_exports(case, spec)
+    out = list(names)
+    present = classify_outputs(out)
+    exports = dict(case.pproc.exports) if case.pproc is not None else {}
+    for kind, template, analysis in wanted:
+        if kind in present:
+            continue
+        if exports.get(kind) is False:
+            warn(
+                f"case {case.sim_id!r}: [exports] {kind} = false in the pproc artifact "
+                f"{case.pproc_id!r}, and the far field's {analysis} needs it; it is turned on "
+                "for this row (FR-1046).",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+        out.append(template)
+    return out
+
+
+def _wanted_exports(case: SimCase, spec: FarfieldSpec) -> list[tuple[str, str, str]]:
+    """Return the exports one entry reads: kind, file template and the analysis."""
+    analyses = _analyses(spec, case)
+    wanted: list[tuple[str, str, str]] = []
+    if "trefftz:sections" in analyses:
+        wanted.append(("sectional_loads", "{name}_sloads.txt", "trefftz:sections"))
+    elif blade_loads_state(case, spec)[0] in ("reused", "added"):
+        # P0470-FFR: the rotor's disk total-pressure correction reads the blade loads.
+        wanted.append(("sectional_loads", "{name}_sloads.txt", "the rotor disk correction"))
+    if "trefftz:wake" in analyses:
+        wanted.append(("vtk", "{name}.vtk", "trefftz:wake"))
+    if needs_fresh_probes(case):
+        # FR-1052: the far field owns a conventional probe-points export,
+        # independent of the declared entries' sampling kinds.
+        wanted.append(("farfield_probes", "{name}_farfield_survey.txt", "trefftz:plane or ledgers"))
+    return wanted
+
+
+def _warn_few_stations(
+    case: SimCase, inventory: Sequence[str], reused: Sequence[str], mirror: bool
+) -> None:
+    """Warn per reused family whose declared distribution has too few stations (FR-1019).
+
+    The stations per side of a family are those of the densest declared
+    distribution that covers it: its count on a mirrored half model, half its
+    count on a full one, as the plan lays its own (``stations`` per side).
+    """
+    spec = _spec(case)
+    if case.pproc is None or spec is None or spec.trefftz is None or not reused:
+        return
+    sections = case.pproc.sections
+    aliases = _the_names_a_rotor_answers_to(case)
+    per_side: dict[str, int] = {}
+    for entry in sections.distributions:
+        if "XZ" not in entry.planes or entry.frame.strip().upper() not in ("MRP", "REFERENCE"):
+            continue
+        count = int(entry.count or sections.count)
+        side = count if mirror else count // 2
+        for group in select_families(entry.families, inventory, case.pproc.is_blade, aliases):
+            name = traced_family(group, inventory)
+            if name is not None:
+                per_side[name] = max(per_side.get(name, 0), side)
+    for name in reused:
+        few = few_stations_warning(name, per_side.get(name, 0), spec.trefftz.stations)
+        if few:
+            warn(f"case {case.sim_id!r}: {few}.", PyflightstreamWarning, stacklevel=3)
+
+
+def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
+    """Add the section distribution Trefftz A needs over the uncovered families (FR-1046)."""
+    entries = _entry_cases(case)
+    if entries:
+        for entry in entries:
+            farfield_sections(entry, script, frames)
+        return
+    spec = _spec(case)
+    if spec is None or "trefftz:sections" not in _analyses(spec, case):
+        return
+    resolution = farfield_resolution(case, script)
+    if resolution is None:
+        return
+    _refuse(case, resolution)
+    inventory = _inventory(script)
+    covered = _covered(case, inventory)
+    selected = _selected(case, spec, inventory)
+    missing = [name for name in selected if name not in covered]
+    stations = spec.trefftz.stations if spec.trefftz is not None else 80
+    mirror = str(_variable(case, "SYMMETRY") or "").strip().upper() == "MIRROR"
+    _warn_few_stations(case, inventory, [name for name in selected if name in covered], mirror)
+    if not missing:
+        return
+    count = stations if mirror else 2 * stations
+    frame = _pproc_frame(case, frames, "MRP", "the far-field section distribution", missing)
+    args = {arg.name for arg in script.registry.for_version(script.version)[_SECTION_COMMAND].args}
+    sections = spec_sections(case)
+    first = max(len(sections.distributions), len(script.section_blocks))
+    for offset, name in enumerate(missing, start=1):
+        index = script.resolve_boundary(name, context="far-field section")
+        script.section_blocks.append(
+            {
+                "distribution": first + offset,
+                "distribution_families": [name],
+                "families": [name],
+                "plane": "XZ",
+                "frame": "MRP",
+                "count": count,
+            }
+        )
+        script.emit(
+            _SECTION_COMMAND,
+            frame=frame,
+            plane="XZ",
+            num_sections=count,
+            plot_direction=str(sections.plot_direction),
+            **({"include_symmetry": "DISABLE"} if "include_symmetry" in args else {}),
+            surfaces=1,
+            surface_indices=[index],
+        )
+
+
+def farfield_blade_sections(case: SimCase, script: Script, frames: Any) -> None:
+    """Add one distribution per blade in its own frame for a rotor's disk loading (P0470-FFR)."""
+    done: set[str] = set()
+    for entry in _entry_cases(case) or [case]:
+        spec = _spec(entry)
+        if spec is None or not {"ledgers", "trefftz:power"} & set(_analyses(spec, entry)):
+            continue
+        state, reason = blade_loads_state(entry, spec)
+        if state == "not_applicable":
+            warn(f"case {case.sim_id!r}: {reason}", PyflightstreamWarning, stacklevel=2)
+        found = _blade_rotor(entry, spec)
+        if state != "added" or found is None or found[0] in done:
+            continue
+        alias, block = found
+        done.add(alias)
+        span = block.blade1.zero.lstrip("+-").upper()
+        plane = "".join(letter for letter in "XYZ" if letter != span)
+        sections = spec_sections(case)
+        args = {
+            arg.name for arg in script.registry.for_version(script.version)[_SECTION_COMMAND].args
+        }
+        inventory = set(_inventory(script))
+        for number, family in enumerate(block.families_blades, start=1):
+            frame = frames.get(f"{alias}_RMRP{number}")
+            if family not in inventory or not isinstance(frame, int):
+                continue
+            index = script.resolve_boundary(family, context="far-field blade section")
+            script.section_blocks.append(
+                {
+                    "distribution": max(len(sections.distributions), len(script.section_blocks))
+                    + 1,
+                    "distribution_families": [family],
+                    "families": [family],
+                    "plane": plane,
+                    "frame": f"{alias}_RMRP{number}",
+                    "count": _BLADE_STATIONS,
+                }
+            )
+            script.emit(
+                _SECTION_COMMAND,
+                frame=frame,
+                plane=plane,
+                num_sections=_BLADE_STATIONS,
+                plot_direction=str(sections.plot_direction),
+                **({"include_symmetry": "DISABLE"} if "include_symmetry" in args else {}),
+                surfaces=1,
+                surface_indices=[index],
+            )
+
+
+def spec_sections(case: SimCase) -> Any:
+    """Return the row's ``[sections]`` table; a row with ``[[farfields]]`` has a pproc."""
+    if case.pproc is None:
+        raise CampaignConfigError(f"case {case.sim_id!r}: the far field needs a pproc artifact")
+    return case.pproc.sections

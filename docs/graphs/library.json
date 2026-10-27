@@ -3099,11 +3099,6 @@
     },
     {
       "source": "pyflightstream.cases.workflows._farfield",
-      "target": "pyflightstream._mesh",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.cases.workflows._farfield",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -3120,11 +3115,6 @@
     {
       "source": "pyflightstream.cases.workflows._farfield",
       "target": "pyflightstream.cases.farfield_inputs",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases.workflows._farfield",
-      "target": "pyflightstream.cases.field_coverage",
       "kind": "module"
     },
     {
@@ -3150,6 +3140,11 @@
     {
       "source": "pyflightstream.cases.workflows._farfield",
       "target": "pyflightstream.cases.workflows._freestream",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._farfield",
+      "target": "pyflightstream.cases.workflows._geometry",
       "kind": "module"
     },
     {
@@ -3190,16 +3185,6 @@
     {
       "source": "pyflightstream.cases.workflows._farfield",
       "target": "pyflightstream.commands",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.cases.workflows._farfield",
-      "target": "pyflightstream.probes.geometry",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.cases.workflows._farfield",
-      "target": "pyflightstream.probes.geometry",
       "kind": "module"
     },
     {
@@ -3369,6 +3354,11 @@
     },
     {
       "source": "pyflightstream.cases.workflows._geometry",
+      "target": "pyflightstream._mesh",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._geometry",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -3380,6 +3370,11 @@
     {
       "source": "pyflightstream.cases.workflows._geometry",
       "target": "pyflightstream.cases.ccs_wing",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._geometry",
+      "target": "pyflightstream.cases.field_coverage",
       "kind": "module"
     },
     {
@@ -3405,6 +3400,16 @@
     {
       "source": "pyflightstream.cases.workflows._geometry",
       "target": "pyflightstream.cases.workflows._vocabulary",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._geometry",
+      "target": "pyflightstream.probes.geometry",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._geometry",
+      "target": "pyflightstream.probes.geometry",
       "kind": "module"
     },
     {
@@ -3494,7 +3499,17 @@
     },
     {
       "source": "pyflightstream.cases.workflows._pproc",
+      "target": "pyflightstream.cases._farfield_spec",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._pproc",
       "target": "pyflightstream.cases._skipped_families",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._pproc",
+      "target": "pyflightstream.cases.farfield_inputs",
       "kind": "module"
     },
     {
@@ -3590,6 +3605,11 @@
     {
       "source": "pyflightstream.cases.workflows._probes",
       "target": "pyflightstream.cases.workflows._frames",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._probes",
+      "target": "pyflightstream.cases.workflows._geometry",
       "kind": "module"
     },
     {
