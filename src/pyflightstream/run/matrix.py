@@ -1540,8 +1540,7 @@ def _plan_point(
         )
     if case.variables.get(WORKFLOW_KEY) == LEGACY_WORKFLOW:
         # P0471: the binding skipped the key on a LEGACY row and warned once.
-        why = "a LEGACY row names its own frames; the run-type rows take this key"
-        return _skipped(point, pid, AdditionalSkip.LEGACY_ROW, why)
+        return _skipped(point, pid, AdditionalSkip.LEGACY_ROW, "a LEGACY row names its own frames")
     if point.run_id in superseded:
         return _skipped(
             point,
