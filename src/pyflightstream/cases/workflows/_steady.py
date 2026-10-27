@@ -140,9 +140,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     frames.update(setup_frames)
     # A POWER-OFF ROW PLACES ITS ROTORS' HUBS: <ALIAS>_SMRP for each declared
     # rotor, so the pproc of the power-on row serves this one too.
-    hubs = _declared_hub_frames(case, script, frames)
-    frames.update(hubs)
-    moved = {"MRP": frame, **setup_frames, **hubs}
+    moved = {"MRP": frame, **setup_frames, **_declared_hub_frames(case, script, frames)}
     frames.update(_translations(case, script, moved))
     frames.update(_rotations(case, script, moved))
     _actuator_disc(case, script, frames, disc)
@@ -253,9 +251,7 @@ def build_steady_sweep(
     setup_frames = _setup_frames(first, script)
     frames.update(setup_frames)
     # The hubs of every declared rotor, as the single-point build places them.
-    hubs = _declared_hub_frames(first, script, frames)
-    frames.update(hubs)
-    moved = {"MRP": frame, **setup_frames, **hubs}
+    moved = {"MRP": frame, **setup_frames, **_declared_hub_frames(first, script, frames)}
     frames.update(_translations(first, script, moved))
     frames.update(_rotations(first, script, moved))
     _actuator_disc(first, script, frames, disc)

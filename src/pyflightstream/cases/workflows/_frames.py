@@ -201,7 +201,7 @@ def _rotor_frame(case: SimCase, script: Script) -> int | None:
 
 
 def _declared_hub_frames(
-    case: SimCase, script: Script, placed: Mapping[str, object]
+    case: SimCase, script: Script, frames: MutableMapping[str, int | None | Mapping[str, int]]
 ) -> dict[str, int]:
     """Place ``<ALIAS>_SMRP`` for every rotor the reference declares and the row has not placed.
 
@@ -213,14 +213,15 @@ def _declared_hub_frames(
     moves the hub of the one rotor a flat row turns, exactly as
     :func:`_rotor_frame` reads it. ``<ALIAS>_RMRP`` is not placed: it is the
     frame the blades turn in, and nothing turns on these rows. A name already
-    in ``placed`` is left as it is.
+    placed in ``frames`` is left as it is; each frame created is added to
+    ``frames`` and returned.
     """
     created: dict[str, int] = {}
     flat = _the_rotor_a_flat_row_turns(case)
     stated = _variable(case, ROTOR_ORIGIN_VARIABLE)
     for block in case.rotors.values():
         name = f"{block.alias}_SMRP"
-        if placed.get(name) is not None:
+        if frames.get(name) is not None:
             continue
         if stated is not None and block is flat:
             origin = _origin(case)
@@ -230,6 +231,7 @@ def _declared_hub_frames(
         created[name] = helpers.coordinate_frame(
             script, name=name, origin=origin, x_axis=x_axis, y_axis=y_axis, label=name
         )
+    frames.update(created)
     return created
 
 

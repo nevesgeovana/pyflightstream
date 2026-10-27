@@ -304,7 +304,6 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     # single-rotor reference is placed above and kept; a reference declaring
     # several places each <ALIAS>_SMRP here. Nothing turns, so no RMRP.
     hubs = _declared_hub_frames(case, script, frames)
-    frames.update(hubs)
     moved = {"MRP": frame, **rotor_frames, **setup_frames, **hubs}
     frames.update(_translations(case, script, moved))
     frames.update(_rotations(case, script, moved))
