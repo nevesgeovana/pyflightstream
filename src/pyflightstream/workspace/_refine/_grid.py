@@ -735,10 +735,35 @@ def _sheet_trailing_edge_first(
     cols = _te_columns(ids, te)
     if not cols:
         if not _te_columns(ids.T, te):
-            raise _NotAGridError("the trailing edge is not a grid line")
+            return _sheet_incomplete_trailing_edge_first(ids, te)
         ids = ids.T.copy()
         cols = _te_columns(ids, te)
     return ids[:, ::-1].copy() if cols[0] != 0 else ids
+
+
+def _sheet_incomplete_trailing_edge_first(
+    ids: NDArray[numpy.int64], te: frozenset[int]
+) -> NDArray[numpy.int64]:
+    """Orient a sheet on the boundary line that holds every listed trailing-edge vertex.
+
+    An incomplete trailing-edge points file lists part of the line only. When every
+    trailing-edge vertex of the sheet lies on one boundary line (chordwise index 0 or
+    last, in either index direction) and they are at least half of that line's nodes,
+    that line is the trailing edge; the level completes it and warns. A few points on
+    another boundary (a root or tip chord) are not taken for it. Otherwise the trailing
+    edge is not a grid line.
+    """
+    on = {int(v) for v in ids.ravel()} & set(te)
+    best = None
+    for grid in (ids, ids.T):
+        for col in (0, grid.shape[1] - 1):
+            line = {int(v) for v in grid[:, col]}
+            share = len(on) / len(line)
+            if len(on) >= 2 and on <= line and share >= 0.5 and (best is None or share > best[0]):
+                best = (share, grid[:, ::-1].copy() if col != 0 else grid.copy())
+    if best is None:
+        raise _NotAGridError("the trailing edge is not a grid line")
+    return best[1]
 
 
 def _tube_ends(

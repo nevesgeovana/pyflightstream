@@ -284,9 +284,200 @@ def _grid_with_complete_te_edges(
     represented = {
         (min(a, b), max(a, b)) for chain in chains for a, b in zip(chain, chain[1:], strict=False)
     }
-    if represented != work.te_edges[name]:
-        return "the listed trailing-edge edges are not complete grid lines; use remesh"
+    listed = work.te_edges[name]
+    if represented and listed < represented and not isinstance(found, _blocks.Blocks):
+        # An incomplete points file: every listed edge lies on the grid's trailing-edge
+        # line, so the line is the trailing edge; complete it and say where.
+        warn(
+            f"{work.source} family {name}: the trailing-edge points are incomplete; the grid "
+            f"line completes them. " + _te_mismatch(work, represented, listed),
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        work.te_edges[name] = set(represented)
+        work.te_of[name] = {v for edge in represented for v in edge}
+        return found
+    if represented != listed:
+        return (
+            "the listed trailing-edge edges are not complete grid lines; use remesh. "
+            + _te_mismatch(work, represented, work.te_edges[name])
+        )
     return found
+
+
+def _te_mismatch(
+    work: _Work, line: set[tuple[int, int]], listed: set[tuple[int, int]], shown: int = 5
+) -> str:
+    """Name where the listed trailing edge and the grid's trailing-edge line differ."""
+    verts = work.mesh.verts
+
+    def where(edges: set[tuple[int, int]]) -> str:
+        mids = sorted(
+            tuple(round(float(c), 6) for c in (verts[a] + verts[b]) / 2.0) for a, b in edges
+        )
+        text = "; ".join(f"({x}, {y}, {z})" for x, y, z in mids[:shown])
+        return text + (f"; and {len(mids) - shown} more" if len(mids) > shown else "")
+
+    missing, extra = line - listed, listed - line
+    if not line:
+        return _te_pieces(work, listed)
+    parts = [f"the grid line has {len(line)} edges and the points file matched {len(listed)}"]
+    if missing:
+        parts.append(f"{len(missing)} line edges have no point, mid-points {where(missing)}")
+    if extra:
+        parts.append(f"{len(extra)} matched edges are off the line, mid-points {where(extra)}")
+    return "; ".join(parts) + " (mesh units)"
+
+
+def _te_pieces(work: _Work, listed: set[tuple[int, int]]) -> str:
+    """Name the connected pieces of the listed trailing edge and their end points."""
+    verts = work.mesh.verts
+    touching: dict[int, list[int]] = {}
+    for a, b in listed:
+        touching.setdefault(a, []).append(b)
+        touching.setdefault(b, []).append(a)
+    seen: set[int] = set()
+    pieces = []
+    for start in sorted(touching):
+        if start in seen:
+            continue
+        stack, members = [start], []
+        seen.add(start)
+        while stack:
+            v = stack.pop()
+            members.append(v)
+            for n in touching[v]:
+                if n not in seen:
+                    seen.add(n)
+                    stack.append(n)
+        ends = [v for v in members if len(touching[v]) == 1]
+        pieces.append((len(members) - 1, ends))
+
+    def point(v: int) -> str:
+        x, y, z = (round(float(c), 6) for c in verts[v])
+        return f"({x}, {y}, {z})"
+
+    text = "; ".join(
+        f"piece {i}: {edges} edges, ends {' and '.join(point(v) for v in ends) or 'closed loop'}"
+        for i, (edges, ends) in enumerate(sorted(pieces, key=lambda p: -p[0]), start=1)
+    )
+    return (
+        f"the points file matched {len(listed)} edges in {len(pieces)} pieces: {text} (mesh units)"
+    )
+
+
+def _boundary_sides(verts: Points, faces: Faces) -> list[list[int]]:
+    """Return the sides of a family's single boundary loop, split at its corners.
+
+    A corner is a boundary vertex where the loop turns by more than 45 degrees. A
+    family whose boundary is not one loop, or that has fewer than four corners,
+    has no sides.
+    """
+    count: dict[tuple[int, int], int] = {}
+    for f in faces:
+        for a, b in zip(f, [*f[1:], f[0]], strict=True):
+            key = (min(a, b), max(a, b))
+            count[key] = count.get(key, 0) + 1
+    touching: dict[int, list[int]] = {}
+    for (a, b), n in count.items():
+        if n == 1:
+            touching.setdefault(a, []).append(b)
+            touching.setdefault(b, []).append(a)
+    if not touching or any(len(n) != 2 for n in touching.values()):
+        return []
+    start = min(touching)
+    loop, prev = [start], None
+    while True:
+        here = loop[-1]
+        nxt = touching[here][0] if touching[here][0] != prev else touching[here][1]
+        if nxt == start:
+            break
+        prev = here
+        loop.append(nxt)
+    if len(loop) != len(touching):
+        return []
+    pts = numpy.asarray(verts, dtype=float)
+    corners = []
+    for i, v in enumerate(loop):
+        a = pts[v] - pts[loop[i - 1]]
+        b = pts[loop[(i + 1) % len(loop)]] - pts[v]
+        cos = float(a @ b) / max(float(numpy.linalg.norm(a) * numpy.linalg.norm(b)), 1e-300)
+        if cos < numpy.cos(numpy.radians(45.0)):
+            corners.append(i)
+    if len(corners) < 4:
+        return []
+    sides = []
+    for k, i in enumerate(corners):
+        j = corners[(k + 1) % len(corners)]
+        sides.append(loop[i : j + 1] if j > i else loop[i:] + loop[: j + 1])
+    return sides
+
+
+def _side_length(verts: Points, side: list[int]) -> float:
+    pts = numpy.asarray(verts, dtype=float)[side]
+    return float(numpy.linalg.norm(numpy.diff(pts, axis=0), axis=1).sum())
+
+
+def _assume_trailing_edge(work: _Work, name: str) -> None:
+    """Give a sheet family that found no trailing edge one, before any refusal.
+
+    First from a neighbouring family: the side of this family's boundary that holds
+    the most of the neighbours' trailing-edge vertices, ties broken by the side
+    that continues the neighbours' trailing-edge direction. Else the longest side of
+    the boundary, taken as the spanwise trailing edge. A side is kept only when the
+    grid is recovered with it; the choice is warned. A family that is not a sheet
+    without a trailing edge (a tube, a grid already recovered) is left alone.
+    """
+    verts, faces = work.mesh.verts, work.mesh.families[name]
+    bare = _blocks.recover_family(verts, faces, ())
+    if not (isinstance(bare, str) and bare.startswith("a sheet needs a trailing edge")):
+        return
+    sides = _boundary_sides(verts, faces)
+    if not sides:
+        return
+    others = set().union(*(te for n, te in work.te_of.items() if n != name))
+    other_edges = set().union(*(e for n, e in work.te_edges.items() if n != name))
+    pts = numpy.asarray(verts, dtype=float)
+
+    def follows(side: list[int]) -> float:
+        best = 0.0
+        for end, inner in ((side[0], side[1]), (side[-1], side[-2])):
+            d = pts[inner] - pts[end]
+            for a, b in other_edges:
+                if end in (a, b):
+                    e = pts[b] - pts[a]
+                    cos = abs(float(d @ e)) / max(
+                        float(numpy.linalg.norm(d) * numpy.linalg.norm(e)), 1e-300
+                    )
+                    best = max(best, cos)
+        return best
+
+    tried: list[tuple[str, list[int]]] = []
+    shared = [(len(set(s) & others), follows(s), s) for s in sides]
+    shared = [t for t in shared if t[0]]
+    for _, _, side in sorted(shared, key=lambda t: (-t[0], -t[1])):
+        tried.append(("a neighbouring family's trailing edge", side))
+    for side in sorted(sides, key=lambda s: -_side_length(verts, s)):
+        tried.append(("the longest side of its boundary, taken as spanwise", side))
+    for how, side in tried:
+        found = _blocks.recover_family(verts, faces, side)
+        if isinstance(found, str):
+            continue
+        edges = {(min(a, b), max(a, b)) for a, b in zip(side, side[1:], strict=False)}
+        work.te_of[name] = set(side)
+        work.te_edges[name] = edges
+        ends = " and ".join(
+            "(" + ", ".join(str(round(float(c), 6)) for c in pts[v]) + ")"
+            for v in (side[0], side[-1])
+        )
+        warn(
+            f"{work.source} family {name}: no trailing-edge point matched it; the trailing edge "
+            f"is assumed from {how}: {len(edges)} edges from {ends} (mesh units). Check it, or "
+            "list its points in [trailing_edge] file.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        return
 
 
 def _refuse_or_remesh(work: _Work, name: str, found: str) -> None:
@@ -312,6 +503,10 @@ def _decide_family(work: _Work, name: str) -> None:
         _remesh_or_keep(work, name, "the refinement file states remesh")
         return
     where = f"{work.source} family {name} keep_first_row"
+    if spec.method == "grid" and not work.te_of[name]:
+        # A grid demanded of a sheet that found no trailing edge would be refused;
+        # assume one first (neighbours, then the longest side) and warn.
+        _assume_trailing_edge(work, name)
     if spec.keep_first_row:
         _kept_trailing_edge(work, name)
     found = _blocks.recover_family(work.mesh.verts, work.mesh.families[name], work.te_of[name])

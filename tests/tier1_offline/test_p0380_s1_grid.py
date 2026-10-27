@@ -439,6 +439,37 @@ def test_recovery_reads_the_connectivity_and_names_why_it_fails():
     assert recover_grid(sheet.verts, sheet.faces, stray) == "the trailing edge is not a grid line"
 
 
+def test_an_incomplete_trailing_edge_on_a_sheet_boundary_still_orients_the_grid():
+    """Two trailing-edge vertices missing from the points: the sheet is still recovered.
+
+    Every listed vertex lies on one boundary line and covers most of it, so that line
+    is the trailing edge, and the grid is the one the complete list gives.
+    """
+    sheet = sheet_quads()
+    whole = recover_grid(sheet.verts, sheet.faces, sheet.te)
+    ordered = sorted(sheet.te)
+    partial = set(ordered) - {ordered[len(ordered) // 2], ordered[len(ordered) // 3]}
+    found = recover_grid(sheet.verts, sheet.faces, partial)
+    assert not isinstance(found, str), found
+    assert np.array_equal(found.ids, whole.ids)
+
+
+def test_a_sheet_with_no_trailing_edge_has_four_boundary_sides_one_of_them_a_grid_line():
+    """The sides the level tries when a sheet found no trailing-edge point.
+
+    The boundary of a sheet splits at its four corners into four sides; the sides
+    on the trailing edge's index line recover the grid that the listed points give.
+    """
+    from pyflightstream.workspace._refine._level import _boundary_sides, _side_length
+
+    sheet = sheet_quads()
+    sides = _boundary_sides(sheet.verts, sheet.faces)
+    assert len(sides) == 4
+    assert any(set(s) == set(sheet.te) for s in sides)
+    longest = max(sides, key=lambda s: _side_length(sheet.verts, s))
+    assert not isinstance(recover_grid(sheet.verts, sheet.faces, longest), str)
+
+
 def test_the_grid_runs_with_scipy_and_rtree_unimportable():
     """P0380-REFINE (FR-924): the grid module imports neither scipy nor rtree.
 
