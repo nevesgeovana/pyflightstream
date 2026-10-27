@@ -2034,3 +2034,88 @@ def test_p0470_ffr_a_rotor_wake_entry_switches_the_wake_on(tmp_path):
     (tmp_path / "plain").mkdir()
     plain = _p0450_rotor_case(tmp_path / "plain", [{"variant": "plane", "spacing_bref": 0.25}])
     assert "-1 ENABLE" not in _farfield_plan___script(plain).render()
+
+
+def _p0471_plan(tmp_path, entries):
+    import sys
+
+    from pyflightstream.cases import Campaign
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run import plan_campaign
+
+    campaign = Campaign(
+        name="unplaced_frame",
+        fs_version="26.125",
+        fs_exe=sys.executable,
+        sims=[_farfield_plan___case(tmp_path, entries)],
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan = plan_campaign(
+            campaign,
+            CampaignWorkspace(tmp_path / "campaign"),
+            write_plan=False,
+            recipes=workflow_registry(),
+        )
+    return plan, [str(item.message) for item in caught]
+
+
+def _p0471_entries(frame: str) -> list[dict]:
+    return [
+        {"name": "wing_trace", "variant": "sections", "families": "all"},
+        {
+            "name": "shaft_power",
+            "variant": "power",
+            "balances": ["mass"],
+            **dict(_FFPROOF_PLAN___LATTICE, frame=frame, m_max=2),
+        },
+    ]
+
+
+def test_p0471_a_power_entry_in_an_unplaced_rotor_frame_is_skipped_not_refused(tmp_path):
+    """RED on 022dfca8e: the steady row was BLOCKED ("this run created no such frame").
+
+    The steady row places the declared rotor's hub ROTOR_SMRP and not its turning
+    ROTOR_RMRP, so a power entry whose lattice lies in ROTOR_RMRP is ignored on
+    this row: one plan warning, no lattice laid, a skip record for post, and its
+    lattice analyses stated not applicable. The other entry plans as before.
+    """
+    plan, said = _p0471_plan(tmp_path, _p0471_entries("ROTOR_RMRP"))
+    assert len(plan.ready) == 1, plan.summary()
+    about = [m for m in said if "'ROTOR_RMRP'" in m and "will be ignored" in m]
+    assert len(about) == 1, about
+    assert "[[farfields]] entry 'shaft_power'" in about[0]
+    record = plan.points[0].farfield
+    probes = record.get("probes") or []
+    skipped = [shape for shape in probes if shape.get("kind") == "skipped"]
+    assert [shape["farfield_entry"] for shape in skipped] == ["shaft_power"]
+    assert not any(
+        shape.get("kind") == "lattice" and shape.get("farfield_entry") == "shaft_power"
+        for shape in probes
+    )
+    states = {
+        item["state"]
+        for item in record["inputs"]
+        if item.get("entry") == "shaft_power" and item.get("analysis") == "ledgers"
+    }
+    assert states == {"not_applicable"}
+    assert "far field entry 'wing_trace' (sections) section_distribution added:" in (plan.summary())
+
+
+def test_p0471_a_power_entry_in_a_frame_no_rotor_owns_is_still_refused(tmp_path):
+    """A misspelt frame cannot come right on any row: refused, as before."""
+    plan, said = _p0471_plan(tmp_path, _p0471_entries("ROTR_RMRP"))
+    assert plan.blocked
+    assert "'ROTR_RMRP'" in plan.summary() and "this run created no such frame" in plan.summary()
+    assert not [m for m in said if "will be ignored" in m]
+
+
+def test_p0471_post_names_the_skip_of_a_lattice_the_run_left_out():
+    """RED on 022dfca8e: the record's skip read as an unknown far-field shape."""
+    from pyflightstream.exceptions import PyflightstreamError
+    from pyflightstream.post.farfield_fields import recorded_layout
+
+    reason = "the survey lattice lies in 'ROTOR_RMRP', a rotor frame this row does not place"
+    skipped = {"kind": "skipped", "source": "skipped", "farfield_entry": "shaft_power"}
+    with pytest.raises(PyflightstreamError, match="ROTOR_RMRP"):
+        recorded_layout([dict(skipped, reason=reason)])

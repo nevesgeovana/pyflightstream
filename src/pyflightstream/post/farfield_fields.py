@@ -496,9 +496,14 @@ def recorded_layout(shapes: Sequence[Mapping[str, Any]]) -> FarLayout:
     ------
     PyflightstreamError
         If a shape cannot be rebuilt, or rebuilds to another point count than
-        the run recorded.
+        the run recorded, or the run left the entry's only shape out (a
+        lattice in a rotor frame the row does not place), naming that reason.
     """
     found: dict[str, Any] = {}
+    left_out = [shape for shape in shapes if shape.get("kind") == "skipped"]
+    shapes = [shape for shape in shapes if shape.get("kind") != "skipped"]
+    if left_out and not shapes:
+        raise PyflightstreamError(str(left_out[0].get("reason") or "the run left it out"))
     for shape in shapes:
         kind = str(shape.get("kind"))
         if "offset" in shape:

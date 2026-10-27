@@ -69,6 +69,11 @@ FlightStream versions.
   on a row that does not place it: ignored on that row with one plan warning,
   never refused. A misspelt frame or an undeclared alias is still refused.
 
+- A `[[farfields]]` entry whose survey lattice lies in such a rotor frame is
+  ignored on that row too: no lattice is laid or reused, the plan states its
+  analyses `not_applicable` and warns once, and post names the skip. A
+  `[[probes]]` entry left out of the row is never reused by the far field.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added

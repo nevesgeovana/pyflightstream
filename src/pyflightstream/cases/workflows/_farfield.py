@@ -576,15 +576,54 @@ def _placed_alike(wanted: LatticeShape, shape: LatticeShape, entry_frame: str) -
     )
 
 
+def _unplaced_frame_of(case: SimCase, frames: Any, frame: object) -> bool:
+    """Whether ``frame`` is a declared rotor's frame this row does not place (P0471)."""
+    from ._frames import _an_unplaced_rotor_frame
+
+    name = str(frame or "").strip()
+    return frames is not None and bool(name) and _an_unplaced_rotor_frame(case, frames, name)
+
+
+def _the_lattice_this_row_leaves_out(case: SimCase, frames: Any) -> dict[str, Any] | None:
+    """Return the skip record of an entry whose survey lattice lies in an unplaced rotor frame.
+
+    WARNED AND SKIPPED, NEVER REFUSED (owner rule of 2026-10-27). A lattice laid
+    in a declared rotor's frame that this row does not place (``PUSHER_RMRP`` on
+    a steady row) cannot be laid here, and can on the row that turns the rotor,
+    so the entry's lattice analyses are left out of this row: nothing is laid,
+    the record carries this skip for the plan and post, and the plan says it once.
+    """
+    spec = _spec(case)
+    wanted = spec.ledgers if spec is not None else None
+    if spec is None or wanted is None or wanted.rotor is not None:
+        return None
+    if not _unplaced_frame_of(case, frames, wanted.frame):
+        return None
+    return {
+        "kind": "skipped",
+        "source": "skipped",
+        "entry": None,
+        "count": 0,
+        "farfield_entry": spec.name or "",
+        "frame": str(wanted.frame),
+        "reason": (
+            f"the survey lattice lies in {wanted.frame!r}, a rotor frame this row does not "
+            "place; the entry is ignored on this row"
+        ),
+    }
+
+
 def _lattice_choice(
     case: SimCase, script: Script, frames: Any, native_per_m: float
-) -> FarfieldShape:
+) -> FarfieldShape | None:
     """Choose the survey lattice: a declared one, or the one the plan lays (FR-1045).
 
     A ``[[farfields]]`` power entry that states no lattice key reuses the one declared
     lattice placed on its rotor or frame, when exactly one is and its azimuths
     carry the table's ``m_max``; otherwise a declaration whose laid-out points
-    are the far field's own is reused, and none is added.
+    are the far field's own is reused, and none is added. None when the lattice
+    lies in a rotor frame this row does not place (it is left out, said once);
+    a declared ``[[probes]]`` entry laid in such a frame is not reused.
     """
     spec = _spec(case)
     wanted = spec.ledgers if spec is not None else None
@@ -593,12 +632,20 @@ def _lattice_choice(
             f"case {case.sim_id!r}: Trefftz C on a rotor row reads a station of the survey "
             "lattice; state the [[farfields]] power entry with the rotor"
         )
+    if _the_lattice_this_row_leaves_out(case, frames) is not None:
+        from ._frames import _a_rotor_frame_the_row_leaves_out
+
+        _a_rotor_frame_the_row_leaves_out(
+            case, frames, str(wanted.frame), f"[[farfields]] entry {spec.name!r}"
+        )
+        return None
     own = _lattice_shape(case, script, frames, wanted, native_per_m, source="added", entry=None)
     qualifying: list[FarfieldShape] = []
     identical: list[FarfieldShape] = []
     entries = case.pproc.probes if case.pproc is not None else []
     for number, entry in enumerate(entries, start=1):
-        if not _emitted(entry):
+        # A [[probes]] entry the row leaves out laid nothing, so nothing of it is reused.
+        if not _emitted(entry) or _unplaced_frame_of(case, frames, entry.frame):
             continue
         for index, shape in enumerate(entry.lattices):
             if not _placed_alike(wanted, shape, entry.frame.strip().upper()):
@@ -653,7 +700,9 @@ def farfield_shapes(
     if _needs_plane(case):
         shapes.append(_plane_choice(case, native_per_m, script))
     if _needs_lattice(case):
-        shapes.append(_lattice_choice(case, script, frames, native_per_m))
+        lattice = _lattice_choice(case, script, frames, native_per_m)
+        if lattice is not None:
+            shapes.append(lattice)
     spec = _spec(case)
     for shape in shapes:
         shape.geometry["farfield_entry"] = spec.name if spec is not None else ""
@@ -713,8 +762,30 @@ def _resolve(
         rotor=_rotor(case),
         blade_loads=blade_loads_state(case, spec),
     )
+    # A LATTICE THE SCRIPT LEFT OUT (an unplaced rotor frame) is not applicable on
+    # this row, with the recorded reason: never refused, never claimed as added.
+    left_out = next(
+        (
+            s.get("reason")
+            for s in shapes
+            if s.get("kind") == "skipped" and s.get("farfield_entry", "") == (spec.name or "")
+        ),
+        None,
+    )
     return FarfieldResolution(
-        tuple(replace(item, entry=spec.name, variant=spec.variant) for item in resolution.inputs)
+        tuple(
+            replace(
+                item,
+                entry=spec.name,
+                variant=spec.variant,
+                **(
+                    {"state": "not_applicable", "reason": str(left_out)}
+                    if left_out and item.analysis in ("ledgers", "trefftz:power")
+                    else {}
+                ),
+            )
+            for item in resolution.inputs
+        )
     )
 
 
@@ -1332,7 +1403,7 @@ def farfield_probes(
         if shape.source == "added":
             _check_added(case, np.round(shape.points_m * native_per_m, 5), shape.kind)
     if _run_type(case) in ("unsteady", "unsteady_rotor"):
-        return _phased_farfield(
+        laid = _phased_farfield(
             case,
             script,
             shapes,
@@ -1342,6 +1413,8 @@ def farfield_probes(
             analysis_points=analysis_points,
             windows=farfield_export_windows(case),
         )
+        records.extend(_lattices_left_out(case, frames))
+        return laid
     script.farfield_layout.append({"point": dict(case.point), "shapes": records})
     imported: list[tuple[float, float, float]] = []
     placements: dict[tuple, dict[str, Any]] = {}
@@ -1359,9 +1432,20 @@ def farfield_probes(
             script.probe_points.append((vertex, float(x), float(y), float(z), "REFERENCE"))
             imported.append((x, y, z))
     _record_shape_spans(shapes, records, placements)
+    records.extend(_lattices_left_out(case, frames))
     if imported:
         _stage_import(script, shapes, imported, native_per_m)
     return vertex
+
+
+def _lattices_left_out(case: SimCase, frames: Any) -> list[dict[str, Any]]:
+    """Return the skip records of every entry whose lattice this row leaves out (P0471)."""
+    cases = _entry_cases(case) or [case]
+    found = (
+        _the_lattice_this_row_leaves_out(entry, frames) if _needs_lattice(entry) else None
+        for entry in cases
+    )
+    return [record for record in found if record is not None]
 
 
 def _record_shape_spans(shapes, records, placements):
