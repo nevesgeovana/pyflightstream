@@ -249,9 +249,16 @@ at plan time, naming the rotors and the aliases it could have named,
 because that is a writing error and cannot come right on another mesh. An
 entry whose rotors the reference does declare, but whose frames THIS RUN
 did not place, is LEFT OUT with a warning, exactly as an entry whose
-families the geometry lacks is: a steady row places no rotor frames and a
-lifters-only row places none of the pusher's, and one artifact serves all
+families the geometry lacks is: a steady row places each declared rotor's
+static hub frame `<ALIAS>_SMRP` and none of its turning or blade frames, and
+a lifters-only row places none of the pusher's, and one artifact serves all
 three rows.
+
+A row whose reference declares a rotor places that rotor's `<ALIAS>_SMRP` at
+its hub, on the rotor's hub axes, even when the row turns no blades: a steady
+power-off row and an unsteady row of the `unsteady` run type do. An entry in
+`PUSHER_SMRP` therefore lands on the power-off and the power-on rows alike.
+`<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>` exist only on a row that turns that rotor.
 
 !!! warning "A rotor's frames are named from its alias"
 

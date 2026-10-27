@@ -200,6 +200,41 @@ def _rotor_frame(case: SimCase, script: Script) -> int | None:
     )
 
 
+def _declared_hub_frames(
+    case: SimCase, script: Script, frames: MutableMapping[str, int | None | Mapping[str, int]]
+) -> dict[str, int]:
+    """Place ``<ALIAS>_SMRP`` for every rotor the reference declares and the row has not placed.
+
+    A ROW THAT TURNS NO BLADES STILL NAMES ITS ROTORS' HUBS. A steady
+    power-off row and a rotorless unsteady row of a reference declaring a
+    rotor place that rotor's static hub frame, so one pproc artifact serves
+    the power-off and the power-on rows. Each sits at its hub on the rotor's
+    hub basis, as the hub of a turning row does; a ROTOR_ORIGIN the row states
+    moves the hub of the one rotor a flat row turns, exactly as
+    :func:`_rotor_frame` reads it. ``<ALIAS>_RMRP`` is not placed: it is the
+    frame the blades turn in, and nothing turns on these rows. A name already
+    placed in ``frames`` is left as it is; each frame created is added to
+    ``frames`` and returned.
+    """
+    created: dict[str, int] = {}
+    flat = _the_rotor_a_flat_row_turns(case)
+    stated = _variable(case, ROTOR_ORIGIN_VARIABLE)
+    for block in case.rotors.values():
+        name = f"{block.alias}_SMRP"
+        if frames.get(name) is not None:
+            continue
+        if stated is not None and block is flat:
+            origin = _origin(case)
+        else:
+            origin = _point_from_metres(case, script, block.origin, "rotor x_m/y_m/z_m")
+        x_axis, y_axis = _hub_basis(block)
+        created[name] = helpers.coordinate_frame(
+            script, name=name, origin=origin, x_axis=x_axis, y_axis=y_axis, label=name
+        )
+    frames.update(created)
+    return created
+
+
 def _significant_digits(case: SimCase, script: Script) -> None:
     """Emit SET_SIGNIFICANT_DIGITS where the preset states it (PFS-2030.03.04).
 

@@ -34,6 +34,7 @@ from pyflightstream.cases import (
     ProbesSpec,
     SimCase,
 )
+from pyflightstream.cases._skipped_families import leave_out_an_unplaced_rotor_frame
 from pyflightstream.probes.layouts import circle_points, line_points, rectangle_points
 from pyflightstream.script import (
     Script,
@@ -777,6 +778,18 @@ def _emit_surveyed_probes(case, script, probes, vertex: int, *, unsteady: bool) 
     return None
 
 
+def _leave_out_the_entry(case: SimCase, declared: ProbesSpec, frame: str) -> None:
+    """Say that the `[[probes]]` entry ``declared`` is ignored on this row (laid in ``frame``)."""
+    entries = case.pproc.probes if case.pproc is not None else []
+    number = next((n for n, entry in enumerate(entries, start=1) if entry is declared), None)
+    leave_out_an_unplaced_rotor_frame(
+        case.sim_id,
+        _artifact_of(case),
+        f"[[probes]] entry {number}" if number is not None else "a [[probes]] entry",
+        frame,
+    )
+
+
 def _emit_one_probe_table(
     case, script, frames, probes, vertex: int, *, unsteady: bool, parts=None
 ) -> int:
@@ -796,9 +809,14 @@ def _emit_one_probe_table(
         or probes.grids
     ):
         return vertex
+    declared = probes
     probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
-    # A declared probe shape needs a frame this row actually places. Refuse
-    # here during plan instead of leaving post with a declaration but no points.
+    # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not place
+    # that frame leaves the entry out, warned and never refused: one artifact
+    # serves the power-on row that places PUSHER_RMRP and the power-off row
+    # that places PUSHER_SMRP only. A frame NO declared rotor owns is still
+    # refused below, by `_pproc_frame`, because it cannot come right on
+    # another row.
     if (
         EXPANDING_FRAMES.get(probes.frame.strip().upper()) is None
         and _ROTOR_FRAME_SPELLING.search(probes.frame.strip().upper()) is not None
@@ -808,12 +826,8 @@ def _emit_one_probe_table(
         )
         and frames.get(probes.frame) is None
     ):
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} declares probes "
-            f"in {probes.frame!r}, but this row does not place that rotor frame. "
-            "Use a frame this row places (such as MRP or REFERENCE), or select a "
-            "pproc artifact without this probe entry."
-        )
+        _leave_out_the_entry(case, declared, probes.frame)
+        return vertex
     frame = (
         1
         if probes.frame == "REFERENCE"

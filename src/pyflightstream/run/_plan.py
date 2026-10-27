@@ -44,6 +44,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases._skipped_families import (
     noting_the_families_rows_lack,
     noting_the_study_skips,
+    noting_the_unplaced_rotor_frames,
     saying_the_study_skips,
 )
 from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
@@ -990,6 +991,7 @@ def row_versions(resolved, default: str | None = None) -> dict[str, str]:
 
 @noting_the_families_rows_lack()  # FR-320: each family a row lacks, said once
 @noting_the_study_skips()  # FR-435: each name a study holds and a row's model lacks, said once
+@noting_the_unplaced_rotor_frames()  # each entry left out for its rotor frame, said once
 def plan_campaign(
     campaign: Campaign,
     workspace: CampaignWorkspace,

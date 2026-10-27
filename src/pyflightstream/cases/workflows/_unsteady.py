@@ -45,6 +45,7 @@ from ._exports import (
     _declared_export_kinds,
 )
 from ._frames import (
+    _declared_hub_frames,
     _flat_rotor_frames,
     _moment_frame,
     _rotations,
@@ -299,7 +300,11 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     frames: dict[str, int | None | Mapping[str, int]] = {"MRP": frame, **rotor_frames}
     setup_frames = _setup_frames(case, script)
     frames.update(setup_frames)
-    moved = {"MRP": frame, **rotor_frames, **setup_frames}
+    # EVERY DECLARED ROTOR'S HUB, as on a steady row: the one rotor of a
+    # single-rotor reference is placed above and kept; a reference declaring
+    # several places each <ALIAS>_SMRP here. Nothing turns, so no RMRP.
+    hubs = _declared_hub_frames(case, script, frames)
+    moved = {"MRP": frame, **rotor_frames, **setup_frames, **hubs}
     frames.update(_translations(case, script, moved))
     frames.update(_rotations(case, script, moved))
     # FR-461: the body the row's SIXDOF input frees, after every frame exists.

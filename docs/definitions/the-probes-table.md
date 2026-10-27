@@ -1,8 +1,12 @@
 ## The probes table
 
-A probe entry must name a frame its row places. Planning refuses a rotor frame
-on a row without that rotor, naming the row and frame. Use `MRP`, `REFERENCE`,
-or another frame placed by that row, or select a pproc artifact without the entry.
+A probe entry laid in a rotor frame its row does not place is ignored on that
+row: nothing is emitted for it there, and the plan warns once per campaign,
+naming the entry, the frame and the rows that leave it out. A row turning no
+blades places each declared rotor's hub frame `<ALIAS>_SMRP` and none of its
+`<ALIAS>_RMRP` frames, so one pproc artifact serves the power-off and the
+power-on rows. A frame of an alias the reference does not declare, such as
+`PUSHER_SMRP` over a reference without a `PUSHER` rotor, is still refused.
 
 The probes table, `probes/<point>_probes.csv`, lists the solver's values at
 the probe points a point's `[[probes]]` declarations name: one row per probe

@@ -110,20 +110,27 @@ def _p0460_plan(matrix, workspace):
 
 
 @pytest.mark.parametrize("frame", ["ROTOR_SMRP", "ROTOR_RMRP1", "MRP", "REFERENCE"])
-def test_p0460_plan_refuses_probe_frames_missing_from_the_row(tmp_path, frame):
+def test_p0461_plan_warns_once_and_skips_probe_frames_missing_from_the_row(tmp_path, frame):
+    """RED on v0.46.0 for the two rotor frames: the plan BLOCKED the row instead."""
     workspace, matrix, _ = _p0460_matrix(tmp_path)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         f'[[probes]]\nframe = "{frame}"\nscale = "m"\nparameters = ["VX"]\n'
         "points = 2\n[[probes.lines]]\nstart = [2, 0, 0]\nend = [2, 1, 0]\n",
         encoding="utf-8",
     )
-    plan = _p0460_plan(matrix, workspace)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan = _p0460_plan(matrix, workspace)
+    assert all(point.status is PlanStatus.READY for point in plan.points), plan.summary()
+    about = [str(item.message) for item in caught if f"{frame!r}" in str(item.message)]
+    about = [message for message in about if "will be ignored" in message]
     if frame.startswith("ROTOR"):
-        assert all(point.status is PlanStatus.BLOCKED for point in plan.points)
-        message = plan.summary()
-        assert frame in message and "7002" in message and "probe" in message
+        # ONCE PER CAMPAIGN, although the row plans two points.
+        assert len(about) == 1, about
+        assert "'7002'" in about[0] and "[[probes]] entry 1" in about[0]
+        assert "will be ignored on these rows" in about[0]
     else:
-        assert all(point.status is PlanStatus.READY for point in plan.points)
+        assert not about
 
 
 @pytest.mark.parametrize("suffix", ["obj", "stl", "igs", "ccs"], ids=lambda s: f"P0460-FSM-{s}")

@@ -7,6 +7,19 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.47.0
+
+### Power-off rows place their rotors' hub frames
+
+A steady or `unsteady` row whose reference declares a rotor now places
+`<ALIAS>_SMRP` at that rotor's hub, so a pproc artifact written for the
+power-on row serves the power-off row unchanged. Its script gains one
+coordinate frame per declared rotor, created after the body frames
+`<ALIAS>_BMRP` and the reference's own frames, whose indices do not move.
+A probe entry in a rotor frame the row does not place, such as `<ALIAS>_RMRP`
+on a steady row, is now ignored on that row with one warning per campaign
+instead of blocking the plan. Nothing needs editing.
+
 ## 0.46.0
 
 ### Mark once, run the FSM

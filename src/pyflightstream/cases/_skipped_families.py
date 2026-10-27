@@ -77,11 +77,13 @@ __all__ = [
     "held_by_the_study",
     "ignores_missing_families",
     "judge_a_name_the_model_lacks",
+    "leave_out_an_unplaced_rotor_frame",
     "names_a_row_can_cite",
     "names_no_boundary_answers",
     "note_the_families_a_row_lacks",
     "noting_the_families_rows_lack",
     "noting_the_study_skips",
+    "noting_the_unplaced_rotor_frames",
     "refuses_a_name_the_model_lacks",
     "saying_the_families_each_row_skips",
     "saying_the_study_skips",
@@ -766,3 +768,84 @@ def _the_study_warning(held: Sequence[StudySkip], rows: Sequence[str]) -> str:
         "a name the study holds and a model lacks is skipped, which is how one file serves "
         "every model of a study, and a name the study does not hold is refused (FR-435)."
     )
+
+
+#: What one plan has noted of the pproc entries laid in a rotor frame a row does not
+#: place: (artifact, entry, frame) to the rows leaving it out, in the order first met.
+_UnplacedNoted = dict[tuple[str, str, str], list[str]]
+_UNPLACED: ContextVar[_UnplacedNoted | None] = ContextVar(
+    "pyflightstream_unplaced_rotor_frames", default=None
+)
+#: Why an entry in a rotor frame is ignored on a row rather than refused.
+_WHY_A_ROTOR_FRAME_IS_ABSENT = (
+    "A row places the frames of the rotors it turns, and a row that turns none (a steady "
+    "row, or the unsteady run type) places each declared rotor's hub frame <ALIAS>_SMRP "
+    "only, which is how one pproc artifact serves the power-off and the power-on rows."
+)
+
+
+def leave_out_an_unplaced_rotor_frame(row: str, artifact: str, entry: str, frame: str) -> None:
+    """Say that a pproc entry laid in a rotor frame this row does not place is ignored on it.
+
+    NEVER A REFUSAL. One pproc artifact serves the power-on row, which
+    places a rotor's turning and blade frames, and the power-off row, which
+    places its hub frame only; the entry is left out of the row that cannot
+    place it and nothing is emitted for it there. Inside
+    :func:`noting_the_unplaced_rotor_frames` the row is noted and the plan
+    says it once; outside a plan this warns, naming the row.
+
+    Parameters
+    ----------
+    row : str
+        The row's simulation id.
+    artifact : str
+        The pproc artifact, as a message names it.
+    entry : str
+        The entry, ``[[probes]] entry 2`` for instance.
+    frame : str
+        The rotor frame the entry is laid in.
+    """
+    noted = _UNPLACED.get()
+    if noted is not None:
+        rows = noted.setdefault((artifact, entry, frame), [])
+        if row not in rows:
+            rows.append(row)
+        return
+    warn(
+        f"case {row!r}: {artifact} {entry} is laid in {frame!r}, a rotor frame this row "
+        "does not place, so the entry will be ignored on this row and nothing is emitted "
+        f"for it. {_WHY_A_ROTOR_FRAME_IS_ABSENT}",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+
+
+@contextmanager
+def noting_the_unplaced_rotor_frames() -> Iterator[None]:
+    """Collect the entries each row leaves out for an unplaced rotor frame, then warn once each.
+
+    On leaving the block normally, one :class:`PyflightstreamWarning` is raised
+    per pproc artifact, entry and frame, in the order first noted, naming
+    every row that leaves the entry out. It changes no plan status. A block
+    left by an exception warns nothing.
+
+    Warns
+    -----
+    PyflightstreamWarning
+        Naming the artifact, the entry, the frame and the rows.
+    """
+    noted: _UnplacedNoted = {}
+    token = _UNPLACED.set(noted)
+    try:
+        yield
+    finally:
+        _UNPLACED.reset(token)
+    for (artifact, entry, frame), rows in noted.items():
+        warn(
+            f"{artifact} {entry} is laid in {frame!r}, a rotor frame these rows do not "
+            "place, so it will be ignored on these rows: "
+            f"{', '.join(repr(row) for row in rows)}. Nothing is emitted for it there. "
+            f"{_WHY_A_ROTOR_FRAME_IS_ABSENT}",
+            PyflightstreamWarning,
+            stacklevel=_THE_PLANS_CALLER,
+        )

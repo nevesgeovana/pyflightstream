@@ -58,6 +58,7 @@ from ._exports import (
     surface_time_averaging,
 )
 from ._frames import (
+    _declared_hub_frames,
     _flat_rotor_frames,
     _moment_frame,
     _rotations,
@@ -137,7 +138,9 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     }
     setup_frames = _setup_frames(case, script)
     frames.update(setup_frames)
-    moved = {"MRP": frame, **setup_frames}
+    # A POWER-OFF ROW PLACES ITS ROTORS' HUBS: <ALIAS>_SMRP for each declared
+    # rotor, so the pproc of the power-on row serves this one too.
+    moved = {"MRP": frame, **setup_frames, **_declared_hub_frames(case, script, frames)}
     frames.update(_translations(case, script, moved))
     frames.update(_rotations(case, script, moved))
     _actuator_disc(case, script, frames, disc)
@@ -247,7 +250,8 @@ def build_steady_sweep(
     }
     setup_frames = _setup_frames(first, script)
     frames.update(setup_frames)
-    moved = {"MRP": frame, **setup_frames}
+    # The hubs of every declared rotor, as the single-point build places them.
+    moved = {"MRP": frame, **setup_frames, **_declared_hub_frames(first, script, frames)}
     frames.update(_translations(first, script, moved))
     frames.update(_rotations(first, script, moved))
     _actuator_disc(first, script, frames, disc)
