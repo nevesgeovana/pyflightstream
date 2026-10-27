@@ -3187,7 +3187,9 @@ def _p0470_lattice_vtk(lines: list[np.ndarray], values: np.ndarray, stations: in
     the trailing edge; a shed segment between neighbouring stations in every row
     but the trailing-edge row, carrying the mean of the two trailing values; the
     trailing values fall to zero over the two oldest (start-up) segments; the
-    redundant X, Y, Z point scalars.
+    redundant X, Y, Z point scalars. A segment written towards the trailing
+    edge carries the negated line value (the sign measured on the r1w export
+    from the convection of its rows).
     """
     points: list[np.ndarray] = []
     segments: list[tuple[int, int]] = []
@@ -3202,12 +3204,13 @@ def _p0470_lattice_vtk(lines: list[np.ndarray], values: np.ndarray, stations: in
             ramp = np.ones(rows - 1)
             ramp[-2:] = (0.5, 0.0)
             for k in range(rows - 1):
+                # Written towards the trailing edge, so the line value g is written -g.
                 segments.append((base + j * rows + k + 1, base + j * rows + k))
-                cells.append(float(values[first + j] * ramp[k]))
+                cells.append(-float(values[first + j] * ramp[k]))
         for k in range(1, rows):
             for j in range(stations - 1):
                 segments.append((base + j * rows + k, base + (j + 1) * rows + k))
-                cells.append(0.5 * float(values[first + j] + values[first + j + 1]))
+                cells.append(-0.5 * float(values[first + j] + values[first + j + 1]))
     rows_out = [
         "# vtk DataFile Version 3.0",
         "Simcenter Flightstream vtk output",
@@ -3244,6 +3247,13 @@ def test_p0470_wakefix_a_rotor_wake_lattice_reads_back_its_trailing_circulation(
     lines, values = _p0470_helical_wake(blades, gamma=gamma, radii=radii, v=v, omega=omega, turns=2)
     wake = parse_wake_export(_p0470_lattice_vtk(lines, values, len(radii)))
     assert len(wake.lines) == len(lines)
+    # The per-blade split comes from the lattices: one blade id per lattice, all its stations.
+    assert wake.blades is not None
+    assert sorted(np.bincount(wake.blades).tolist()) == [len(radii)] * blades
+    starts = np.array([line[0] for line in wake.lines])
+    for blade in range(blades):
+        azimuth = np.arctan2(starts[wake.blades == blade, 2], starts[wake.blades == blade, 1])
+        assert np.ptp(azimuth) < 1e-9
     order = sorted(range(len(lines)), key=lambda i: tuple(np.round(wake.lines[i][0], 9)))
     expected = sorted(range(len(lines)), key=lambda i: tuple(np.round(lines[i][0], 9)))
     for got, want in zip(order, expected, strict=True):

@@ -3765,12 +3765,14 @@ def _p0470_wing_lines() -> tuple[list[np.ndarray], np.ndarray]:
     return lines, shed
 
 
-def _p0470_post_rotor_wake(root: Path, lines, values, *, rotor: bool, speed=30.0, rotor_cl=None):
+def _p0470_post_rotor_wake(
+    root: Path, lines, values, *, rotor: bool, speed=30.0, rotor_cl=None, text=None, blades=2
+):
     """Post one steady point through the public far-field stage, a rotor row or a wing row."""
     from pyflightstream.cases.reference_blocks import BladeDatum, RotorBlock
 
     root.mkdir(exist_ok=True)
-    (root / "point_wakes.vtk").write_text(_p0470_wake_vtk(lines, values), encoding="utf-8")
+    (root / "point_wakes.vtk").write_text(text or _p0470_wake_vtk(lines, values), encoding="utf-8")
     (root / "point.fsm").write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n", "utf-8")
     loads = replace(
         parse_loads(_LITB_POST__LOADS),
@@ -3815,7 +3817,7 @@ def _p0470_post_rotor_wake(root: Path, lines, values, *, rotor: bool, speed=30.0
                 outputs=["point.vtk", "point.fsm"],
                 package_version="0.47.0",
                 recipe="steady",
-                reductions={"rotors": {"ROTOR": {"rpm": 1000.0, "blades": 2}}},
+                reductions={"rotors": {"ROTOR": {"rpm": 1000.0, "blades": blades}}},
             )
         },
         sim_id="1",
@@ -3874,6 +3876,44 @@ def test_p0470_ffr_a_rotor_row_writes_the_wake_loads_of_its_rotor(tmp_path):
     assert float(w_row["GAMMA_SCALE"]) == 1.0
     assert int(float(w_row["N_TRACE"])) == len(blade_lines)
     assert columns.index("T_WAKE_N") < columns.index("STATUS") == len(columns) - 1
+
+
+@pytest.mark.requirement("FR-452")
+def test_p0470_wakefix_a_lattice_wake_of_a_periodic_row_gives_every_blades_loads(tmp_path):
+    """P0470-FFR option 3 on the solver's rotor lattice, with the record of a periodic row.
+
+    The r1w record states ``blades: 1`` (one blade meshed, PERIODIC supplying the
+    rest) while the export holds one lattice per turning blade; the loads are
+    those of every lattice, not of one blade over the whole wheel.
+    """
+    from pyflightstream.farfield import wake_rotor_loads
+    from tests.tier1_offline.test_regression_farfield_numerics import (
+        _p0470_helical_wake,
+        _p0470_lattice_vtk,
+    )
+
+    radii = np.linspace(0.2, 1.0, 9)
+    gamma = 1.5 * np.sin(math.pi * (0.5 * (radii[:-1] + radii[1:]) - 0.2) / 0.8)
+    omega = 2.0 * math.pi * 1000.0 / 60.0
+    lines, values = _p0470_helical_wake(2, gamma=gamma, radii=radii, v=30.0, omega=omega, turns=3.0)
+    hub = np.array([3.0, 0.0, 2.0])
+    lines = [line + hub for line in lines]
+    text = _p0470_lattice_vtk(lines, values, len(radii))
+    _, rows, _ = _p0470_post_rotor_wake(tmp_path, [], [], rotor=True, text=text, blades=1)
+    (w_row,) = [row for row in rows if row["VARIANT"] == "W"]
+    expected = wake_rotor_loads(
+        lines,
+        values=values,
+        hub=hub,
+        axis=(1.0, 0.0, 0.0),
+        omega=omega,
+        v_axial=30.0,
+        rho=1.225,
+        blades=2,
+    )
+    assert float(w_row["T_WAKE_N"]) == pytest.approx(expected.thrust, rel=1e-6)
+    assert float(w_row["Q_WAKE_NM"]) == pytest.approx(expected.torque, rel=1e-6)
+    assert int(float(w_row["N_TRACE"])) == len(lines)
 
 
 @pytest.mark.requirement("FR-452")

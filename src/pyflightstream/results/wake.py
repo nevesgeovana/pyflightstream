@@ -55,13 +55,18 @@ class WakeExport:
     lines : tuple of numpy.ndarray
         One ``(n_k, 3)`` array of node coordinates per wake line, ordered from
         the node with the smallest x (the trailing edge, x aft in the export
-        frame) downstream.
+        frame) downstream; a lattice filament runs from its trailing-edge node.
     values : numpy.ndarray
-        One value per line, :data:`WAKE_VALUE`.
+        One value per line, :data:`WAKE_VALUE`, in the sign of the line reading:
+        the line is a filament of strength ``-value`` from its first node.
+    blades : numpy.ndarray or None
+        The lattice (one blade's wake) each line belongs to, ``-1`` for a line
+        read as a line; None when the export holds no lattice.
     """
 
     lines: tuple[np.ndarray, ...]
     values: np.ndarray
+    blades: np.ndarray | None = None
 
 
 def _tokens(rows: Iterator[str], count: int, what: str) -> list[str]:
@@ -428,14 +433,18 @@ def _mixed_export(points: np.ndarray, segments: np.ndarray, values: np.ndarray) 
         if np.any(~in_lattice)
         else WakeExport(lines=(), values=np.zeros(0))
     )
-    lattice = _lattice_export(points, segments[in_lattice], values[in_lattice])
+    lattice = _lattice_export(points, segments[in_lattice], values[in_lattice], label)
+    owners = lattice.blades if lattice.blades is not None else np.zeros(0, dtype=np.int64)
     return WakeExport(
         lines=chains.lines + lattice.lines,
         values=np.concatenate([chains.values, lattice.values]),
+        blades=np.concatenate([np.full(len(chains.lines), -1, dtype=np.int64), owners]),
     )
 
 
-def _lattice_export(points: np.ndarray, segments: np.ndarray, values: np.ndarray) -> WakeExport:
+def _lattice_export(
+    points: np.ndarray, segments: np.ndarray, values: np.ndarray, label: np.ndarray
+) -> WakeExport:
     """Read wake lattices: one line per trailing filament, valued at the trailing edge.
 
     A lattice is written row by row in time. Its trailing-edge nodes join one
@@ -446,7 +455,17 @@ def _lattice_export(points: np.ndarray, segments: np.ndarray, values: np.ndarray
     the trailing values beside it, so it is dropped. Each trailing filament is
     one line from its trailing-edge node downstream, valued by its segment at the
     trailing edge: the loading of the exported step (older segments carry earlier
-    steps, down to zero at the start-up end).
+    steps, down to zero at the start-up end). Each lattice (``label``, one
+    connected component) is one blade.
+
+    The value is signed by the direction its segment is written: a value ``g``
+    on a segment written from the trailing edge downstream is the line value
+    ``g``; one written towards the trailing edge (as 26.125 writes rotor
+    lattices) is ``-g``. Measured on the r1w export (POL 4701, step 144): the
+    axial spacing of the wake rows near the disk gives an induced velocity of
+    1.406 m/s, and the Biot-Savart velocity of the filaments read this way is
+    1.405 m/s (least-squares scale 0.949, correlation 0.991); the opposite sign
+    gives -1.405 m/s.
     """
     neighbours = _neighbours(segments, len(points))
     rows = _sweep(neighbours, [node for node, joined in enumerate(neighbours) if len(joined) == 1])
@@ -459,13 +478,22 @@ def _lattice_export(points: np.ndarray, segments: np.ndarray, values: np.ndarray
     kept, kept_values = segments[trailing], values[trailing]
     lines: list[np.ndarray] = []
     line_values: list[float] = []
+    owners: list[int] = []
     for chain in _chains(kept, len(points)):
         nodes = np.unique(kept[chain].ravel())
         nodes = nodes[np.argsort(rows[nodes], kind="stable")]
         newest = min(chain, key=lambda cell: int(rows[kept[cell]].min()))
+        head, tail = (int(node) for node in kept[newest])
+        downstream = 1.0 if rows[head] < rows[tail] else -1.0
         lines.append(points[nodes])
-        line_values.append(float(kept_values[newest]))
-    return WakeExport(lines=tuple(lines), values=np.asarray(line_values))
+        line_values.append(downstream * float(kept_values[newest]))
+        owners.append(int(label[nodes[0]]))
+    _, blades = np.unique(np.asarray(owners, dtype=np.int64), return_inverse=True)
+    return WakeExport(
+        lines=tuple(lines),
+        values=np.asarray(line_values),
+        blades=np.asarray(blades, dtype=np.int64).reshape(-1),
+    )
 
 
 def _ordered_nodes(points: np.ndarray, segments: np.ndarray, chain: list[int]) -> np.ndarray:

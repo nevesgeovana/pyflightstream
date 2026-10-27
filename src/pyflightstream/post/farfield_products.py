@@ -862,6 +862,11 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
         axis = np.asarray(rotor.axis_vector, dtype=np.float64)
         axis = axis / float(np.linalg.norm(axis))
         count = recorded_blade_count(record, str(alias), len(rotors)) or rotor.blade_count
+        if wake.blades is not None:
+            # Each lattice of the export is one blade's wake; a row whose record states
+            # the meshed blades (one, PERIODIC supplying the rest) still sheds them all.
+            shed = wake.blades[mask]
+            count = max(int(count or 0), len(np.unique(shed[shed >= 0])))
         try:
             wake_loads = wake_rotor_loads(
                 [line for line, own in zip(lines, mask, strict=True) if own],
