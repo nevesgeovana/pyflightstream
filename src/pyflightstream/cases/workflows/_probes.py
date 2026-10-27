@@ -33,7 +33,10 @@ from pyflightstream.cases import (
     ProbesSpec,
     SimCase,
 )
-from pyflightstream.cases._skipped_families import leave_out_an_unplaced_rotor_frame
+from pyflightstream.cases._skipped_families import (
+    leave_out_an_unplaced_rotor_frame,
+    leave_out_what_the_row_cannot_take,
+)
 from pyflightstream.probes.layouts import circle_points, line_points, rectangle_points
 from pyflightstream.script import (
     Script,
@@ -280,9 +283,15 @@ def _pproc_probes(
     if unsteady:
         _phased_declared_probes(case, script, frames, analysis=analysis)
         return
-    if pproc.surface_probes and not unsteady:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: [[surface_probes]] requires an unsteady march"
+    if pproc.surface_probes:
+        # NOT A REFUSAL (owner rule of 2026-10-27): the unsteady rows of the same
+        # artifact take these probes; this row skips them, said once by the plan.
+        leave_out_what_the_row_cannot_take(
+            case.sim_id,
+            _artifact_of(case),
+            "[[surface_probes]]",
+            "needs an unsteady march, which the unsteady and unsteady_rotor run types "
+            f"make, and this row is {declared_run_type(case) or 'steady'}",
         )
     if not analysis:
         return

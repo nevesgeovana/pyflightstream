@@ -258,3 +258,25 @@ def test_p0461_a_frame_no_declared_rotor_owns_is_still_refused(tmp_path, frame):
     assert plan.blocked
     assert f"{frame!r}" in plan.summary() and "this run created no such frame" in plan.summary()
     assert not _ignored(said, frame)
+
+
+_SURFACE_PROBE = (
+    '[[surface_probes]]\nattach = "space"\nname = "upper_cp"\nparameter = "CP_FREE"\n'
+    'frame = "REFERENCE"\npoint_m = [0.25, 0.1, 0.02]\n'
+)
+
+
+def test_p0471_surface_probes_on_a_steady_row_are_warned_once_and_skipped(tmp_path):
+    """RED on 022dfca8e: both steady rows were BLOCKED ("requires an unsteady march")."""
+    pproc = _SURFACE_PROBE + _section("MRP")
+    plan, rendered, said = _plan(
+        tmp_path, pproc, [(7101, "steady", _PUSHER), (7102, "steady", _PUSHER)]
+    )
+    assert not plan.blocked, plan.summary()
+    about = [m for m in said if "[[surface_probes]]" in m and "will be ignored" in m]
+    assert len(about) == 1, about
+    assert "unsteady march" in about[0] and "'7101'" in about[0] and "'7102'" in about[0]
+    assert "Keep the entry in the one pproc artifact" in about[0]
+    for text in rendered.values():
+        assert "NEW_UNSTEADY_SOLVER_SURFACE_PROBE" not in text
+        assert text.splitlines().count("NEW_SURFACE_SECTION_DISTRIBUTION") == 1

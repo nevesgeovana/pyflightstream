@@ -74,6 +74,10 @@ FlightStream versions.
   analyses `not_applicable` and warns once, and post names the skip. A
   `[[probes]]` entry left out of the row is never reused by the far field.
 
+- `[[surface_probes]]` on a row without an unsteady march (steady,
+  `qsteady_rotor`) are skipped with one plan warning naming the rows, instead
+  of refusing the plan, so one pproc artifact serves every row.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added
