@@ -308,9 +308,10 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   point's B value `NA`.
 - One `net` row per point: the export does not say which family a line
   belongs to.
-- On a rotor row (a steady row with a rotor speed, `unsteady_rotor`,
-  `qsteady_rotor`) B traces only the lines that leave another family than the
-  rotors'. A line leaves a rotor when its first node lies within 1.02 tip radii
+- On a rotor row (a steady row with a rotor speed, `unsteady_rotor`) B traces
+  only the lines that leave another family than the rotors'. A `qsteady_rotor`
+  row holds an isolated rotor and no other family, so its wake entry, B and W
+  alike, is not applicable: warned at plan and a named skip in post. A line leaves a rotor when its first node lies within 1.02 tip radii
   of that rotor's axis and within 0.25 tip radii of its hub plane; every other
   line is the wing's, and each line is assigned once. A row whose every line
   leaves a rotor writes no B row, with a named skip. On a row without a rotor B
