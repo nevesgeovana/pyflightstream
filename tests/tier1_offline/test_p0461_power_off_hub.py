@@ -258,3 +258,23 @@ def test_p0461_a_frame_no_declared_rotor_owns_is_still_refused(tmp_path, frame):
     assert plan.blocked
     assert f"{frame!r}" in plan.summary() and "this run created no such frame" in plan.summary()
     assert not _ignored(said, frame)
+
+
+def test_p0470_r6_partly_powered_row_places_the_inactive_rotor_hub(tmp_path):
+    """A powered rotor cannot hide the static hub of another declared rotor."""
+    root = _tier3_copy(tmp_path)
+    (root / "inputs/pproc/p061.toml").write_text(
+        _probe("STARBOARD_SMRP", kind="instantaneous"), encoding="utf-8"
+    )
+    row = _row(7103, "unsteady_rotor", *_TWIN, "p061").replace("PUSHER", "PORT")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        plan, rendered = _rendered(root, _one_row_matrix(root, "partial.fs", row))
+    assert not plan.blocked, plan.summary()
+    text = _only(rendered)
+    assert text.splitlines().count("NAME STARBOARD_SMRP") == 1
+    assert text.splitlines().count("NAME PORT_SMRP") == 1
+    assert "NAME STARBOARD_RMRP" not in text.splitlines()
+    assert text.splitlines().count("UNSTEADY_SOLVER_NEW_FLUID_PLOT") == 2
+    _, idle, _ = _plan(tmp_path / "idle", _probe("STARBOARD_SMRP"), [(7104, "steady", _TWIN)])
+    assert _placement(text, "STARBOARD_SMRP") == _placement(_only(idle), "STARBOARD_SMRP")

@@ -9,6 +9,25 @@ describe the older releases that supplied them.
 
 ## 0.47.0
 
+Wake-window comparisons now require per-step loads exports matching the wake
+snapshots. Restore those exports and reprocess for near-field comparisons and
+B calibration; without them, W still reports dimensional wake loads.
+
+Disk-pressure corrections are `NA` at a downstream plane with a stagnant or
+reversed annular mean axial flow. Other planes retain their corrections.
+
+Instantaneous rotor pressure corrections use the final blade-load export.
+Window exports no longer replace that instant's loading; reprocess to update it.
+
+Wake-window averages require matching rotor identities at every step. Incomplete
+windows now produce a named skip; restore the missing exports before reprocessing.
+
+Trefftz B on mixed wing and rotor rows uses the non-rotor families' lift for
+calibration. Reprocess existing wake exports to update the wing coefficients.
+
+Rotor wake products at hover retain dimensional thrust and torque. Their
+free-stream-normalized differences in counts are `NA`; no input changes are needed.
+
 ### Power-off rows place their rotors' hub frames
 
 A steady or `unsteady` row whose reference declares a rotor now places
@@ -20,6 +39,10 @@ A pproc entry in a declared rotor's frame that the row does not place, such as
 a probe table or a section distribution in `<ALIAS>_RMRP` on a steady row, is
 now ignored on that row with one warning per campaign instead of blocking the
 plan. Nothing needs editing.
+
+An `unsteady_rotor` row that turns only some declared rotors also places the
+inactive rotors' static hubs. Hub-frame probes on those rotors now emit normally;
+their moving frames remain absent. Replan to include the added hubs and probes.
 
 ## 0.46.0
 

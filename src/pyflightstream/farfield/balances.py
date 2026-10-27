@@ -725,8 +725,9 @@ def disk_pressure_rise(fields: LatticeFields, loading: DiskLoading, *, rho: floa
 
     with ``v_a`` the mapping station's mean axial velocity at ``r_d`` and the
     loading interpolated linearly between strip centres, zero outside the strip
-    edges. A station cut by the blades, and every downstream station when the
-    mapping station is not fully sampled, is NaN: never extrapolated.
+    edges. A station cut by the blades or containing a nonpositive mean axial
+    velocity is NaN. Every downstream station is NaN when the mapping station
+    is not fully sampled or has nonpositive throughflow: never extrapolated.
 
     Parameters
     ----------
@@ -761,7 +762,7 @@ def disk_pressure_rise(fields: LatticeFields, loading: DiskLoading, *, rho: floa
     disk_edges = np.concatenate(([0.0], np.cumsum(disk * ring_mass)))
     for index in behind:
         flow = mean[index]
-        if not np.all(np.isfinite(flow)):
+        if not (np.all(np.isfinite(flow)) and np.all(flow > 0.0)):
             rise[index] = np.nan
             continue
         inner = np.concatenate(([0.0], np.cumsum(flow * ring_mass)))[:-1]

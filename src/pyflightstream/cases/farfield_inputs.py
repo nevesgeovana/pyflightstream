@@ -317,7 +317,7 @@ def resolve_farfield(
     for analysis in _analyses(spec):
         why = applies(analysis, run_type, rotor=rotor)
         if why:
-            # Owner rule of 2026-10-27: an analysis that does not apply to the row is
+            # An analysis that does not apply to the row is
             # warned and skipped, never refused, so one pproc serves every row type.
             resolver.item(analysis, "run_type", "not_applicable", reason=why)
         elif analysis == "trefftz:sections":

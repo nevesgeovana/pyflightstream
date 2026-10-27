@@ -51,6 +51,7 @@ from ._conventions import (
 from ._frames import (
     _blade_frames,
     _blade_indices,
+    _declared_hub_frames,
     _flat_rotor_frames,
     _hub_basis,
     _moment_frame,
@@ -870,6 +871,9 @@ def _rotor_motions(
     # and turn them (FR-71). _rotor_blade_frames also returns mesh-family
     # keys for pproc lookup; keep those out of the coordinate-frame namespace.
     named.update({name: index for name, index in blade_frames.items() if "_RMRP" in name})
+    # A motion places only its own rotor. Other declared rotors still have
+    # static hubs, available to the row's transforms and post-processing.
+    named.update(_declared_hub_frames(case, script, {**frames, **named}))
     frames.update(_translations(case, script, named, followers=followers))
     frames.update(_rotations(case, script, named, followers=followers, spinning=spinning))
     # Pproc entries cite rotor frames by these same names.

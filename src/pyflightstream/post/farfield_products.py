@@ -30,7 +30,7 @@ import numpy as np
 
 import pyflightstream.post._reduction_stage as ff
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream.cases import classify_outputs
+from pyflightstream.cases import classify_outputs, select_group_members
 from pyflightstream.cases.farfield_inputs import (
     ROTOR_RUN_TYPES,
     UNSTEADY_RUN_TYPES,
@@ -82,7 +82,7 @@ from pyflightstream.post.farfield_fields import (
 from pyflightstream.post.rotor_table import rotor_shaft_loads
 from pyflightstream.post.section_distributions import distributions_of
 from pyflightstream.post.series import stamped_exports
-from pyflightstream.results.loads import drag_pair
+from pyflightstream.results.loads import drag_pair, parse_loads
 from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.results.wake import parse_wake_export
 from pyflightstream.workspace.naming import sweep_file_stem
@@ -686,8 +686,8 @@ def _variant_b(
             else ""
         )
         _skip(ctx, key, point.name, f"no trace at x = {x_t:.4g} m: {trace.problem}{length}")
-        values = {"FAMILY": "net", "VARIANT": "B", "X_T_M": x_t}
-        return [_row(ctx, point, _NA, values)]
+        unavailable = {"FAMILY": "net", "VARIANT": "B", "X_T_M": x_t}
+        return [_row(ctx, point, _NA, unavailable)]
     try:
         raw = trace.forces(rho=rho, v_inf=speed, mirror=mirror)
     except PyflightstreamError as error:
@@ -696,7 +696,7 @@ def _variant_b(
     factor = 0.5 if half else 1.0
     k = calibration_scale(
         raw.lift * factor,
-        cl_near=_near_field(point)[0],
+        cl_near=_wing_near_cl(ctx, point) if rotor else _near_field(point)[0],
         q=ff._q_ref(point, rho),
         s_ref=ctx.reference.sref_m2,
     )
@@ -774,6 +774,24 @@ def _wing_lines(
     return [line for line, own in zip(lines, bladed, strict=True) if not own], wake.values[~bladed]
 
 
+def _wing_near_cl(ctx: SimContext, point: PolarPoint) -> float:
+    """Return the lift of the non-rotor families used to calibrate their wake trace."""
+    surfaces = point.loads.surfaces
+    rotors = getattr(ctx.live, "rotors", None) or {}
+    members = [member for rotor in rotors.values() for member in rotor.members]
+    owned = (
+        set(
+            select_group_members(
+                members, list(surfaces), getattr(ctx, "aliases", None), strict=False
+            )
+        )
+        if members
+        else set()
+    )
+    lift = [float(row.get("CL", _NA)) for name, row in surfaces.items() if name not in owned]
+    return sum(lift) if lift else _NA
+
+
 def _final_wakes(ctx: SimContext, point: PolarPoint) -> Path | None:
     """Return the wake export beside the point's final surface VTK, or None."""
     vtk = _output(ctx, point, "vtk")
@@ -831,6 +849,8 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
     loads = point.loads
     v_ref = float(loads.reference_velocity_m_s or loads.freestream_velocity_m_s)
     qs = 0.5 * rho * speed * speed * float(ctx.reference.sref_m2)
+    # Hover retains dimensional loads; a zero free-stream pressure defines no counts.
+    qs = qs if qs > 0.0 else _NA
     rows = []
     for alias, rotor in rotors.items():
         mask = _rotor_line_mask({alias: rotor}, lines)
@@ -847,7 +867,7 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
                 [line for line, own in zip(lines, mask, strict=True) if own],
                 values=wake.values[mask],
                 hub=(float(rotor.x_m), float(rotor.y_m), float(rotor.z_m)),
-                axis=axis,
+                axis=axis.tolist(),
                 omega=2.0 * math.pi * float(rpm) / 60.0,
                 v_axial=speed * float(wind @ axis),
                 rho=rho,
@@ -914,35 +934,55 @@ def _wake_rotor_products(
     )
     vtk = _output(ctx, point, "vtk")
     root = ctx.workspace.sim_dir(ctx.sim_id)
-    files = (
+    exports = (
         {}
         if vtk is None
         else stamped_exports(
             root, vtk.stem, *(root / Path(output).parent for output in record.outputs)
-        ).get(("", "vtk"), {})
+        )
     )
+    files = exports.get(("", "vtk"), {})
+    loads = exports.get(("", "txt"), {})
     wakes = {step: path.with_name(path.stem + "_wakes.vtk") for step, path in files.items()}
     steps = range(int(window[0]), int(window[1]) + 1) if window else range(0)
     if not steps or any(step not in wakes or not wakes[step].is_file() for step in steps):
         _skip(ctx, key, point.name, "the wake average needs a wake export at every window step")
         return
-    samples = [
-        _variant_b(ctx, point, wakes[step], rotor=True, spanwise=False)
-        + _variant_w(ctx, point, wakes[step])
-        for step in steps
-    ]
-    if not all(samples) or any(len(sample) != len(samples[0]) for sample in samples):
+    samples = [_wake_step_rows(ctx, point, wakes[step], loads.get(step)) for step in steps]
+    first = 3 + len(CONTEXT_COLUMNS)
+    identities = [[row[first : first + 2] for row in sample] for sample in samples]
+    if not all(samples) or any(identity != identities[0] for identity in identities):
         _skip(ctx, key, point.name, "the per-step wake rows differ between window steps")
         return
     tables.extend(
         "trefftz_average",
         point.name,
-        ff._named(ctx, [wakes[step] for step in steps]),
+        ff._named(ctx, [*map(wakes.get, steps), *map(loads.get, steps)]),
         ff._average_entry_rows(samples, 2 + len(CONTEXT_COLUMNS) + 2),
         runs=runs,
         window=window,
         samples=len(samples),
         source=source_name,
+    )
+
+
+def _wake_step_rows(ctx: SimContext, point: PolarPoint, wake: Path, loads: Path | None) -> list:
+    """Use a wake snapshot's own loads for calibration and near-field comparisons."""
+    try:
+        if loads is None:
+            raise FileNotFoundError("no loads export for this step")
+        report = parse_loads(loads.read_text(encoding="utf-8"))
+    except (PyflightstreamError, OSError) as error:
+        report = replace(point.loads, surfaces={}, total={})
+        _skip(
+            ctx,
+            f"farfield/trefftz_average#point={point.name}#near={wake.name}",
+            point.name,
+            f"near-field comparisons and B calibration are NA for this step: {error}",
+        )
+    sampled = replace(point, loads=report)
+    return _variant_b(ctx, sampled, wake, rotor=True, spanwise=False) + _variant_w(
+        ctx, sampled, wake
     )
 
 
@@ -1038,7 +1078,7 @@ def _plane_hub(ctx: SimContext, point: PolarPoint) -> tuple[float, np.ndarray, n
         origin = np.asarray([rotor.x_m, rotor.y_m, rotor.z_m], dtype=np.float64)
     else:
         try:
-            quasi = read_qsteady_record(loads)
+            quasi = read_qsteady_record(cast("Path", loads))
         except (QsteadyRecordError, TypeError) as error:
             raise PyflightstreamError(
                 f"the reference names no rotor {alias!r} and its quasi-steady record cannot "
@@ -1237,19 +1277,22 @@ def _blade_rows(
     return out
 
 
-def _disk_loading(ctx: SimContext, point: PolarPoint, probe: _Probe) -> DiskLoading | str | None:
+def _disk_loading(
+    ctx: SimContext, point: PolarPoint, probe: _Probe, *, window: bool = False
+) -> DiskLoading | str | None:
     """Return the rotor's disk loading from its blade sectional loads (P0470-FFR).
 
     None on a row without a rotor; a reason where the loads are missing. On an
-    unsteady row the per-step exports of the averaging window are averaged when
-    they cover it; otherwise the final export is read.
+    unsteady window product the per-step exports are averaged when they cover
+    the window; otherwise the final export is read. An instant always reads
+    the final export.
     """
     record = ctx.record_of[point.name]
     spec = _ledgers(ctx)
     if not rotor_g4(spec, record.recipe) or probe.layout.lattice is None:
         return None
     alias = spec.rotor if spec is not None else None
-    paths = _blade_load_paths(ctx, point)
+    paths = _blade_load_paths(ctx, point, window=window)
     if not paths:
         return "the point exported no blade sectional loads"
     try:
@@ -1285,26 +1328,61 @@ def _shaft_letter(axis: object, rotor: Any) -> str:
     return "XYZ"[int(np.argmax(np.abs(np.asarray(axis, dtype=float))))]
 
 
-def _blade_load_paths(ctx: SimContext, point: PolarPoint) -> list[Path]:
+def _blade_load_paths(ctx: SimContext, point: PolarPoint, *, window: bool = False) -> list[Path]:
     """Return the sectional-load exports to average: the window's steps, else the final one."""
     record = ctx.record_of[point.name]
     final = ctx.exports.get(point.name, (None, None, None))[0]
     paths: list[Path] = [] if final is None else [Path(final)]
-    if str(record.recipe or "steady") not in UNSTEADY_RUN_TYPES:
+    if not window or str(record.recipe or "steady") not in UNSTEADY_RUN_TYPES:
         return paths
     last = ff._last_step(record)
     try:
-        window, _ = _farfield_window(ctx, point, int(last) if isinstance(last, int | float) else 0)
+        span, _ = _farfield_window(ctx, point, int(last) if isinstance(last, int | float) else 0)
     except PyflightstreamError:
         return paths
     root = ctx.workspace.sim_dir(ctx.sim_id)
     stamped = stamped_exports(
         root, point.name, *(root / Path(name).parent for name in record.outputs)
     ).get(("_sloads", "txt"), {})
-    steps = range(int(window[0]), int(window[1]) + 1) if window else range(0)
+    steps = range(int(span[0]), int(span[1]) + 1) if span else range(0)
     if steps and all(step in stamped for step in steps):
         return [stamped[step] for step in steps]
     return paths
+
+
+def _probe_window(
+    ctx: SimContext,
+    point: PolarPoint,
+    probe: _Probe,
+    analyses: Sequence[str],
+    chosen: list[ff._Instant],
+) -> list[tuple[ff._Instant, dict[str, Any]]]:
+    """Reduce a complete probe window with its window-averaged blade loads."""
+    if not chosen:
+        return []
+    found = _disk_loading(ctx, point, probe, window=True)
+    loading = found if isinstance(found, DiskLoading) else None
+    near = (
+        ff._window_near_forces(ctx, point, chosen, probe.layout.axis)
+        if "ledgers" in analyses
+        else {}
+    )
+    return [
+        (
+            instant,
+            _instant_values(
+                ctx,
+                point,
+                instant,
+                probe,
+                analyses,
+                final=False,
+                near=near.get(ff._step(instant), (_NA, _NA)),
+                loading=loading,
+            ),
+        )
+        for instant in chosen
+    ]
 
 
 def _probe_point(
@@ -1339,27 +1417,7 @@ def _probe_point(
         return
     _skip_rotor_g4(ctx, point, analyses, found)
     try:
-        near = (
-            ff._window_near_forces(ctx, point, chosen, probe.layout.axis)
-            if "ledgers" in analyses
-            else {}
-        )
-        averaged = [
-            (
-                i,
-                _instant_values(
-                    ctx,
-                    point,
-                    i,
-                    probe,
-                    analyses,
-                    final=False,
-                    near=near.get(ff._step(i), (_NA, _NA)),
-                    loading=loading,
-                ),
-            )
-            for i in chosen
-        ]
+        averaged = _probe_window(ctx, point, probe, analyses, chosen)
     except PyflightstreamError as error:
         averaged = []
         _skip(
@@ -1421,7 +1479,7 @@ def _note_one_clocking(ctx: SimContext, point: PolarPoint) -> None:
     named, never one clocking presented as the average.
     """
     try:
-        quasi = read_qsteady_record(getattr(point, "loads_path", None))
+        quasi = read_qsteady_record(cast("Path", getattr(point, "loads_path", None)))
     except (QsteadyRecordError, TypeError):
         return
     if len(quasi.positions) > 1:

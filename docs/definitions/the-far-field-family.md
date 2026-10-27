@@ -317,6 +317,9 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   leaves a rotor writes no B row, with a named skip. On a row without a rotor B
   reads every line, as before. On `unsteady_rotor`, B is written for the last
   step and, under `"avg_window"`, averaged over the window steps.
+  Its lift calibration uses only the non-rotor families' near-field lift,
+  excluding the rotor families through the reference's family and alias resolver.
+  Missing non-rotor lift leaves the calibrated coefficients unavailable.
 
 <a id="trefftz-w"></a>
 
@@ -359,7 +362,8 @@ and
     DT_WAKE_COUNTS = 1e4 (T_WAKE_N - T_NEAR_N) / (q SREF)
     DQ_WAKE_COUNTS = 1e4 (Q_WAKE_NM - Q_NEAR_NM) / (q SREF BREF)
 
-with `q` on the free stream. On an unsteady row the near field is that of the
+with `q` on the free stream. At hover the counts are `NA`; dimensional wake
+loads remain available. On an unsteady row the near field is that of the
 final loads export on every window step.
 
 **The scale is raw.** The values are read as the circulation itself:
@@ -372,6 +376,11 @@ rotor are the solver's undocumented ones; the licensed measurement of the
 `DT_WAKE_COUNTS` and `DQ_WAKE_COUNTS` stand before `STATUS`, in a table where a
 row holds one; a table of rows without a rotor keeps its columns.
 `N_TRACE` is the count of the rotor's lines.
+Window averaging requires the same families and variants at every step. A
+missing rotor or a changed row identity produces a named average skip.
+Each wake snapshot uses its matching per-step loads export for near-field
+comparisons and B calibration. Missing step loads leave those comparisons
+`NA` with a warning; dimensional W loads are still averaged.
 
 **Assumptions and validity.** The lifting line is at the trailing-edge nodes
 the lines leave, not at the quarter chord. The free stream is taken along the
@@ -584,8 +593,9 @@ the probe swirl:
    tangential force, `Offset` the radius. The blades are averaged, the result is
    summed over the rotor's blade count (periodic copies included) and turned to
    the loading on the fluid, `dT/dr` and `dQ/dr`. On an unsteady row the per-step
-   exports of the averaging window are averaged when they cover it; otherwise the
-   final export is read.
+   exports of the averaging window are averaged for the window product when they
+   cover it; otherwise the final export is read. The instantaneous product always
+   reads the final blade-load export, independently of any averaging window.
 2. Per annulus,
 
         dp0(r_d) = (dT/dr) / (2 pi r_d) + rho v_theta^2 / 2
@@ -602,7 +612,9 @@ the probe swirl:
    innermost ring edge), the mapping station's radius standing for the disk's.
 4. The corrected pressure is `p' + dp0(r_d)`. Upstream of the blades `dp0 = 0`; a
    station cut by the blades (`|x/R|` within their reach) is `NA`, never
-   extrapolated.
+   extrapolated. A downstream plane with a nonpositive annular mean axial
+   velocity is also `NA`: the streamtube map is not one-to-one. If that plane
+   is the mapping station, every downstream correction is `NA`.
 
 The corrected columns are written beside the uncorrected ones, which stay:
 `P_PRIME_CORRECTION_N` (the integral of `dp0` over the station),

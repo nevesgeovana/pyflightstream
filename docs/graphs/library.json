@@ -3224,6 +3224,11 @@
     },
     {
       "source": "pyflightstream.cases.workflows._frames",
+      "target": "pyflightstream.cases._skipped_families",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._frames",
       "target": "pyflightstream.cases.workflows._motion",
       "kind": "module"
     },
@@ -3540,6 +3545,11 @@
     {
       "source": "pyflightstream.cases.workflows._probes",
       "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._probes",
+      "target": "pyflightstream.cases._skipped_families",
       "kind": "module"
     },
     {
