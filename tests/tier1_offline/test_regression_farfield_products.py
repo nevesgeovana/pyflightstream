@@ -3540,7 +3540,7 @@ def test_p0470_qsfix_a_sector_compares_its_wheel(tmp_path):
 
 
 def _p0470_ffr_rotor_post(
-    tmp_path: Path, loads: bool, matrix: str | None = None, recipe: str = "steady"
+    tmp_path: Path, loads: bool, matrix: str | None = None, recipe: str = "steady", repeats: int = 1
 ):
     """Post the 1a actuator-disk rotor row; return its ledger columns, rows, skips, thrust.
 
@@ -3577,7 +3577,7 @@ def _p0470_ffr_rotor_post(
     layout: list[dict[str, object]] = []
     if loads:
         files[f"{_FFPROOF_POST___STEM}_sloads.txt"] = _p0470_ffr_sloads(
-            loading.radius_m, -loading.thrust_per_m / blades
+            np.tile(loading.radius_m, repeats), np.tile(-loading.thrust_per_m / blades, repeats)
         )
         if recipe == "unsteady_rotor":
             files.update(
@@ -3597,7 +3597,7 @@ def _p0470_ffr_rotor_post(
                 "frame": "R_RMRP1",
                 "count": len(loading.radius_m),
             }
-        ]
+        ] * repeats
     workspace = _ffproof_post___campaign(
         tmp_path,
         pproc=_P0470_FFR_LEDGERS,
@@ -4171,3 +4171,21 @@ def test_p0470_r2_periodic_wake_comparisons_use_wheel_loads(tmp_path, symmetry_l
     ):
         expected = 1e4 * (float(after[load]) - factor * float(before[near])) / scale
         assert float(after[counts]) == pytest.approx(expected, rel=1e-5)
+
+
+def test_p0470_r2_repeated_blade_cuts_do_not_add_blades(tmp_path):
+    """P0470-R2: repeating a cut of the same physical blade cannot multiply disk loading."""
+    matrix = (
+        "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | "
+        "FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | "
+        "SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n"
+        "3207 | 1 | 1 | A | - | d | TASmps:68.058, ALPHA:sweep | -2.0 | g.fsm | "
+        "r001 | s001 | p001 | PERIODIC | false | 1 | - | 26.120 | steady | "
+        "PERIODIC_COPIES: 3\n"
+    )
+    _, single, _, _ = _p0470_ffr_rotor_post(tmp_path / "single", True, matrix)
+    _, repeated, _, _ = _p0470_ffr_rotor_post(tmp_path / "repeated", True, matrix, repeats=2)
+    assert float(single[-1]["P_PRIME_CORRECTION_N"]) > 0.0
+    assert float(repeated[-1]["P_PRIME_CORRECTION_N"]) == pytest.approx(
+        float(single[-1]["P_PRIME_CORRECTION_N"])
+    )

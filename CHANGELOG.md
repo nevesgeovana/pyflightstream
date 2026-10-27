@@ -86,7 +86,7 @@ FlightStream versions.
 - The disk total-pressure rise warns and skips a blade distribution cut along
   the blade span, whose `Offset` is not the radius, instead of forming a
   loading inside the hub and adding zero. On a `SYMMETRY PERIODIC` row the
-  loading is summed over at least the exported blade distributions times the
+  loading is summed over at least the distinct exported blade families times the
   row's `PERIODIC_COPIES`, also where the plan recorded the modelled count.
 
 - On a `SYMMETRY PERIODIC` row without `SYMMETRY_LOADS`, `F_NEAR_N` and

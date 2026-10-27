@@ -1304,13 +1304,14 @@ def _skip_rotor_g4(
 
 def _blade_rows(
     ctx: SimContext, point: PolarPoint, path: Path, alias: str | None
-) -> list[tuple[np.ndarray, str]]:
-    """Return the rows and plane of each blade distribution in a blade or rotor frame."""
+) -> tuple[list[tuple[np.ndarray, str]], int]:
+    """Return blade distributions and their distinct physical-family count."""
     record = ctx.record_of[point.name]
     layout, _ = distributions_of(record, ctx.pproc)
     report = parse_sectional_loads(Path(path).read_text(encoding="utf-8"))
     frame = re.compile(rf"{re.escape(alias)}_RMRP\d*" if alias else r".+_RMRP\d*")
     out, start = [], 0
+    families: set[str] = set()
     for block in layout:
         count = int(str(block["count"]))
         rows = report.values[start : start + count]
@@ -1322,7 +1323,8 @@ def _blade_rows(
             and frame.fullmatch(str(block.get("frame") or ""))
         ):
             out.append((rows, str(block.get("plane") or "").upper()))
-    return out
+            families.update(names)
+    return out, len(families)
 
 
 def _disk_loading(
@@ -1344,7 +1346,8 @@ def _disk_loading(
     if not paths:
         return "the point exported no blade sectional loads"
     try:
-        samples = [_blade_rows(ctx, point, path, alias) for path in paths]
+        readings = [_blade_rows(ctx, point, path, alias) for path in paths]
+        samples = [blocks for blocks, _count in readings]
     except (PyflightstreamError, OSError) as error:
         return f"the blade sectional loads cannot be read: {error}"
     if not samples[0] or any(len(sample) != len(samples[0]) for sample in samples):
@@ -1361,7 +1364,7 @@ def _disk_loading(
         count = len(getattr(rotor, "families_blades", ()) or ())
     # A periodic sector holds its modelled blades once; the wheel is that times the
     # row's copies, which a plan recording the modelled count (1 on PFS-2165) misses.
-    count = max(int(count or 0), len(blocks) * _periodic_copies(ctx))
+    count = max(int(count or 0), readings[0][1] * _periodic_copies(ctx))
     return disk_loading(
         blocks,
         shaft=_shaft_letter(probe.layout.axis, rotor),
