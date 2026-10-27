@@ -1638,6 +1638,56 @@ def test_p0460_refine_trailing_edge_schema_refuses_invalid_values(tmp_path, valu
         refine_mesh(mesh, 1)
 
 
+@pytest.mark.parametrize(
+    "value", ["0", "-1e-6", "1", "2.5", '"1e-5"', "true", "nan", "inf", "[1e-5]"]
+)
+def test_refine_te_point_fraction_refuses_values_outside_zero_one(tmp_path, value):
+    """[trailing_edge] point_fraction is a number with 0 < value < 1; nothing else is read."""
+    mesh = source(tmp_path, f'[trailing_edge]\nfile = "wing.te.txt"\npoint_fraction = {value}\n')
+    before = sorted(p.name for p in mesh.parent.parent.iterdir())
+    with pytest.raises(
+        InputArtifactError,
+        match=r"\[trailing_edge\]: point_fraction must be a number greater than 0 and less than 1",
+    ):
+        refine_mesh(mesh, 1)
+    assert sorted(p.name for p in mesh.parent.parent.iterdir()) == before
+
+
+@pytest.mark.parametrize("factor", [1, 2])
+@pytest.mark.parametrize("fraction", [None, 1e-5])
+def test_refine_te_point_fraction_matches_points_off_the_mid_points(tmp_path, factor, fraction):
+    """Points 5e-6 of the size off their edge mid-points match only under point_fraction 1e-5.
+
+    Absent, the fraction is 1e-6 and no point names an edge, so no family's points
+    file is written; at 1e-5 every point names its edge. The level's refine.json
+    records the fraction used, and its audit (G4) uses it too.
+    """
+    from pyflightstream.workspace._refine._obj import read_obj, read_te
+
+    config = '[trailing_edge]\nfile = "wing.te.txt"\nper_family = true\n'
+    if fraction is not None:
+        config += f"point_fraction = {fraction}\n"
+    mesh = source(tmp_path, config)
+    te = mesh.with_suffix(".te.txt")
+    unit, points = read_te(te)
+    shifted = points + numpy.array([0.0, 0.0, 5e-6 * read_obj(mesh).size])
+    rows = [unit] + [",".join(repr(float(c)) for c in point) for point in shifted]
+    te.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    level = refine_mesh(mesh, factor)
+    family = level.folder / f"{level.obj.stem}.G.te.txt"
+    record = _json(level.obj.with_suffix(".refine.json"))
+    assert record["trailing_edge_point_fraction"] == (1e-6 if fraction is None else fraction)
+    if fraction is None:
+        assert not family.exists()
+        return
+    assert family in level.files
+    _, written = read_te(family)
+    assert len(written) == factor * len(points)
+    assert level.audit is not None
+    g4 = next(item for item in level.audit.gates if item.name == "G4")
+    assert g4.values["points_on_edges"] == g4.values["points"]
+
+
 def test_p0460_base_family_key_is_renamed_without_reformatting(tmp_path):
     mesh = source(tmp_path, '[trailing_edge]\nfile = "wing.te.txt"\n[components]\nWing = ["G"]\n')
     text = 'boundaries = ["G"]\n[base_regions.G] # keep\ncp = -0.2\n'

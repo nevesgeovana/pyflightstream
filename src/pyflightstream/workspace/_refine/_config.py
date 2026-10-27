@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
+from pyflightstream.workspace._refine._geometry import TE_POINT_FRACTION
 from pyflightstream.workspace._refine._obj import KIND
 
 #: The methods a family may state (FR-923).
@@ -134,6 +135,7 @@ class RefineRequest:
     missing: tuple[str, ...] = ()
     trailing_edge_file: Path | None = None
     per_family: bool = False
+    point_fraction: float = TE_POINT_FRACTION
 
     def elements_of(self, family: str) -> str:
         """Return the element mode of a family: its own, else the file's default."""
@@ -504,19 +506,31 @@ def read_refine_file(
 def _trailing_edge(source: Path, value: object) -> dict[str, Any]:
     """Validate the refinement's own points input and optional family exports."""
     where = f"{source} [trailing_edge]"
-    table = _table(where, value, "write file and per_family")
-    unknown = sorted(set(table) - {"file", "per_family"})
+    table = _table(where, value, "write file, per_family and point_fraction")
+    unknown = sorted(set(table) - {"file", "per_family", "point_fraction"})
     if unknown:
-        raise _refuse(where, f"unknown key {unknown[0]!r}; the known keys are file, per_family")
+        raise _refuse(
+            where,
+            f"unknown key {unknown[0]!r}; the known keys are file, per_family, point_fraction",
+        )
     named = table.get("file")
     if "file" in table and (not isinstance(named, str) or not named.strip()):
         raise _refuse(where, "file must be a non-empty path string")
     per_family = table.get("per_family", False)
     if not isinstance(per_family, bool):
         raise _refuse(where, "per_family must be true or false")
+    fraction = table.get("point_fraction", TE_POINT_FRACTION)
+    if (
+        isinstance(fraction, bool)
+        or not isinstance(fraction, int | float)
+        or not math.isfinite(fraction)
+        or not 0 < fraction < 1
+    ):
+        raise _refuse(where, "point_fraction must be a number greater than 0 and less than 1")
     return {
         "trailing_edge_file": source.parent / named if named is not None else None,
         "per_family": per_family,
+        "point_fraction": float(fraction),
     }
 
 
@@ -646,6 +660,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         missing=missing_tables,
         trailing_edge_file=stated.get("trailing_edge_file"),
         per_family=stated.get("per_family", False),
+        point_fraction=stated.get("point_fraction", TE_POINT_FRACTION),
     )
 
 

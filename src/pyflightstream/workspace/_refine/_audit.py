@@ -37,6 +37,7 @@ when no listed point lies on its edges.
 from __future__ import annotations
 
 import json
+import math
 import os
 import warnings
 from collections import Counter
@@ -316,6 +317,8 @@ class _Mesh:
     chains: int | None = None
     # and the line those edges form together, None in the same case
     line: _Line | None = None
+    # G4: the fraction of the size within which a trailing-edge point names an edge
+    fraction: float = TE_POINT_FRACTION
 
 
 def audit_mesh(
@@ -357,12 +360,17 @@ def audit_mesh(
     """
     record = _record_of(Path(mesh))
     point_files = _refinement_points(record, Path(mesh), against)
-    level = _read(Path(mesh), point_files=point_files)
+    fraction = _recorded_fraction(record, Path(mesh))
+    level = _read(Path(mesh), point_files=point_files, fraction=fraction)
     # PFS-2130.069: like the grids and the detected edges, the components are read only from a
     # record that names this level and this source.
     components = _components_of(record) if _names_this_level(record, Path(mesh), against) else {}
     detected = _recorded_detected(record, Path(mesh), against)
-    source = None if against is None else _read(Path(against), components, detected, point_files)
+    source = (
+        None
+        if against is None
+        else _read(Path(against), components, detected, point_files, fraction)
+    )
     target = Path(mesh).with_name(Path(mesh).stem + AUDIT_SUFFIX)
     _refuse_an_input_as_target(target, Path(mesh), None if against is None else Path(against))
     grids = tuple(unchanged_grids) or _recorded_grids(record, Path(mesh), against)
@@ -459,6 +467,7 @@ def _read(
     components: Mapping[str, Sequence[str]] | None = None,
     detected: Mapping[str, list[list[float]] | None] | None = None,
     point_files: Mapping[Path, Path | None] | None = None,
+    fraction: float = TE_POINT_FRACTION,
 ) -> _Mesh:
     """Read an OBJ and its trailing-edge points and measure them.
 
@@ -469,7 +478,8 @@ def _read(
     detected to their recorded mid-points (:func:`_recorded_detected`); the
     chains of the listed and the detected edges together are counted once
     (:func:`_g4`). None, without a record, contributes no detected chains
-    to G4.
+    to G4. A trailing-edge point lies on the edge whose mid-point is within
+    ``fraction`` of the mesh size.
     """
     if not path.is_file():
         raise _refusal(path, "no such OBJ file", "Name an existing OBJ and run again.")
@@ -480,16 +490,19 @@ def _read(
         else points_from_file(path, point_files.get(path))
     )
     points = None if te is None else te.points
-    measured = _measure(_grouped(obj, components) if components else obj, points)
+    measured = _measure(_grouped(obj, components) if components else obj, points, fraction)
     if detected is None:
         return measured
     count = sum(n in obj.families for n in detected)
-    chains, line = _union_chains(obj, detected, te)
+    chains, line = _union_chains(obj, detected, te, fraction)
     return replace(measured, detected=count, chains=chains, line=line)
 
 
 def _union_chains(
-    obj: ObjMesh, detected: Mapping[str, list[list[float]] | None], te: TrailingPoints | None
+    obj: ObjMesh,
+    detected: Mapping[str, list[list[float]] | None],
+    te: TrailingPoints | None,
+    fraction: float = TE_POINT_FRACTION,
 ) -> tuple[int, _Line | None]:
     """Return the chains of the listed and the recorded detected edges together, and their line.
 
@@ -500,13 +513,13 @@ def _union_chains(
     """
     points = numpy.zeros((0, 3)) if te is None else te.points
     named = {n: p for n, p in detected.items() if n in obj.families}
-    unlisted = sum(p is None and not _listed_on(obj, n, points) for n, p in named.items())
+    unlisted = sum(p is None and not _listed_on(obj, n, points, fraction) for n, p in named.items())
     scale = 1.0 if te is None else te.to_file
     union = [points] + [
         numpy.array(p, dtype=float).reshape(-1, 3) / scale for p in named.values() if p
     ]
     faces = [f for fs in obj.families.values() for f in fs]
-    on = _on_edges(obj.verts, faces, numpy.vstack(union), obj.size)
+    on = _on_edges(obj.verts, faces, numpy.vstack(union), fraction * obj.size)
     return _components(on) + unlisted, None if unlisted else _line(obj.verts, on)
 
 
@@ -525,13 +538,15 @@ def _line(verts: Array, edges: Array) -> _Line:
     return _Line(verts[nodes[degree == 1]], length)
 
 
-def _listed_on(obj: ObjMesh, family: str, points: Array | None) -> bool:
+def _listed_on(
+    obj: ObjMesh, family: str, points: Array | None, fraction: float = TE_POINT_FRACTION
+) -> bool:
     """Return whether a listed trailing-edge point lies on an edge of the family (G4)."""
     if points is None or not len(points) or not obj.families[family]:
         return False
     _, mids = edge_midpoints(obj.verts, obj.families[family])
     distance, _ = NearestIndex(mids).query(points)
-    return bool((distance <= TE_POINT_FRACTION * obj.size).any())
+    return bool((distance <= fraction * obj.size).any())
 
 
 def _record_of(level: Path) -> dict[str, Any]:
@@ -605,6 +620,24 @@ def _names_this_level(record: Mapping[str, Any], level: Path, against: str | Pat
     return record.get("source") == Path(against).name
 
 
+def _recorded_fraction(record: Mapping[str, Any], level: Path) -> float:
+    """Return the trailing-edge point fraction the level's refinement used (G4).
+
+    A record that names this level and states a number between 0 and 1 gives
+    it; any other record, or none, gives the default ``TE_POINT_FRACTION``.
+    """
+    found = record.get("trailing_edge_point_fraction")
+    if (
+        record.get("level") != level.stem
+        or isinstance(found, bool)
+        or not isinstance(found, int | float)
+        or not math.isfinite(found)
+        or not 0 < found < 1
+    ):
+        return TE_POINT_FRACTION
+    return float(found)
+
+
 def _recorded_detected(
     record: Mapping[str, Any], level: Path, against: str | Path | None
 ) -> dict[str, list[list[float]] | None] | None:
@@ -654,7 +687,7 @@ def _grouped(obj: ObjMesh, components: Mapping[str, Sequence[str]]) -> ObjMesh:
     return ObjMesh(obj.verts, families, obj.header, obj.family_tag)
 
 
-def _measure(obj: ObjMesh, points: Array | None) -> _Mesh:
+def _measure(obj: ObjMesh, points: Array | None, fraction: float = TE_POINT_FRACTION) -> _Mesh:
     """Measure every face and interior edge of a mesh once."""
     faces = [f for fs in obj.families.values() for f in fs]
     family = numpy.repeat(
@@ -675,7 +708,8 @@ def _measure(obj: ObjMesh, points: Array | None) -> _Mesh:
         dihedral=numpy.array([dihedral[e] for e in keys], dtype=float),
         flipped=sum(directed[e] != 1 for e in keys),
         nonmanifold=sum(len(fs) > 2 for fs in ef.values()),
-        trailing=_trailing(obj.verts, faces, ef, points, size),
+        trailing=_trailing(obj.verts, faces, ef, points, fraction * size),
+        fraction=fraction,
     )
 
 
@@ -740,13 +774,13 @@ def _trailing(
     faces: Faces,
     ef: Mapping[tuple[int, int], list[int]],
     points: Array | None,
-    size: float,
+    tolerance: float,
 ) -> _Trailing:
     """Match each trailing-edge point to the mesh edge whose mid-point it is (G4)."""
     touched = numpy.zeros(len(faces), dtype=bool)
     if points is None or not len(points):
         return _Trailing(points is not None, 0, 0, 0, touched, _line(verts, _NO_EDGES))
-    on = _on_edges(verts, faces, points, size)
+    on = _on_edges(verts, faces, points, tolerance)
     for a, b in on:
         touched[ef[(int(a), int(b))]] = True
     sharing = len(on) - len({(int(a), int(b)) for a, b in on})
@@ -758,13 +792,13 @@ def _trailing(
 _NO_EDGES = numpy.zeros((0, 2), dtype=numpy.int64)
 
 
-def _on_edges(verts: Array, faces: Faces, points: Array, size: float) -> Array:
-    """Return, per trailing-edge point that is the mid-point of a mesh edge, that edge (G4)."""
+def _on_edges(verts: Array, faces: Faces, points: Array, tolerance: float) -> Array:
+    """Return, per trailing-edge point within ``tolerance`` of an edge mid-point, that edge (G4)."""
     if not len(points) or not faces:
         return numpy.zeros((0, 2), dtype=numpy.int64)
     edges, mids = edge_midpoints(verts, faces)
     distance, nearest = NearestIndex(mids).query(points)
-    return edges[nearest[distance <= TE_POINT_FRACTION * size]]
+    return edges[nearest[distance <= tolerance]]
 
 
 def _components(edges: Array) -> int:
@@ -1047,7 +1081,7 @@ def _g4(level: _Mesh, source: _Mesh | None) -> AuditItem:
     if source is not None:
         line = source.trailing.line if source.detected is None else source.line
         if line is not None and te.line is not None:
-            missing = _missing_ends(line.ends, te.line.ends, TE_POINT_FRACTION * level.size)
+            missing = _missing_ends(line.ends, te.line.ends, level.fraction * level.size)
             values["source_length"] = line.length
             values["source_ends"] = len(line.ends)
             values["source_ends_missing"] = missing

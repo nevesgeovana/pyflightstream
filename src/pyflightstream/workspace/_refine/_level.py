@@ -158,6 +158,11 @@ class _Work:
     specs: dict[str, FamilySpec] = field(default_factory=dict)
     te_edges: dict[str, set[tuple[int, int]]] = field(default_factory=dict)
 
+    @property
+    def te_tolerance(self) -> float:
+        """Return how close a trailing-edge point lies to the mid-point of the edge it names."""
+        return self.request.point_fraction * self.scale
+
 
 def _refuse(where: str, reason: str) -> InputArtifactError:
     return InputArtifactError(f"{where}: {reason}. Nothing was written.", kind=_obj.KIND)
@@ -166,18 +171,24 @@ def _refuse(where: str, reason: str) -> InputArtifactError:
 # --------------------------------------------------------------------- reading
 
 
-def _te_vertices(mesh: ObjMesh, family: str, points: Points, scale: float) -> set[int]:
+def _te_vertices(mesh: ObjMesh, family: str, points: Points, tolerance: float) -> set[int]:
     """Return the trailing-edge vertices: the ends of the edges whose mid-point is listed."""
-    return {v for edge in _listed_edges(mesh, family, points, scale) for v in edge}
+    return {v for edge in _listed_edges(mesh, family, points, tolerance) for v in edge}
 
 
-def _listed_edges(mesh: ObjMesh, family: str, points: Points, scale: float) -> set[tuple[int, int]]:
-    """Keep the listed edges themselves; their vertex set cannot represent a wake gap."""
+def _listed_edges(
+    mesh: ObjMesh, family: str, points: Points, tolerance: float
+) -> set[tuple[int, int]]:
+    """Keep the listed edges themselves; their vertex set cannot represent a wake gap.
+
+    A point names the edge whose mid-point lies closer than ``tolerance``, the
+    request's ``point_fraction`` of the mesh size.
+    """
     if not len(points):
         return set()
     edges, mid = _obj.edge_midpoints(mesh.verts, mesh.families[family])
     dist, index = NearestIndex(mid).query(points)
-    hit = dist < _geometry.TE_POINT_FRACTION * scale
+    hit = dist < tolerance
     return {(int(a), int(b)) for a, b in edges[index[hit]]}
 
 
@@ -204,6 +215,7 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
     unit = (_obj.mesh_unit(source) or "METER") if te is None else te.unit
     points = numpy.zeros((0, 3)) if te is None else te.points
     scale = mesh.size
+    tolerance = request.point_fraction * scale
     names = list(mesh.families)
     return _Work(
         source=source,
@@ -216,10 +228,10 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
         names=names,
         original={n: list(fs) for n, fs in mesh.families.items()},
         fam_v={n: set(mesh.family_vertices(n).tolist()) for n in names},
-        te_of={n: _te_vertices(mesh, n, points, scale) for n in names},
+        te_of={n: _te_vertices(mesh, n, points, tolerance) for n in names},
         scale=scale,
         specs=dict(request.specs),
-        te_edges={n: _listed_edges(mesh, n, points, scale) for n in names},
+        te_edges={n: _listed_edges(mesh, n, points, tolerance) for n in names},
     )
 
 
@@ -820,8 +832,8 @@ def _bands(work: _Work) -> None:
         work.names = list(families)
         for n in (name, bname):
             work.fam_v[n] = set(work.mesh.family_vertices(n).tolist())
-            work.te_of[n] = _te_vertices(work.mesh, n, work.te_points, work.scale)
-            work.te_edges[n] = _listed_edges(work.mesh, n, work.te_points, work.scale)
+            work.te_of[n] = _te_vertices(work.mesh, n, work.te_points, work.te_tolerance)
+            work.te_edges[n] = _listed_edges(work.mesh, n, work.te_points, work.te_tolerance)
         work.specs[bname] = FamilySpec(factor=1.0, method="remesh")
         work.remesh.append(bname)
         work.conform[bname] = work.conform.pop(name)
@@ -1004,20 +1016,19 @@ def _assemble(work: _Work) -> tuple[Points, dict[str, Faces], Points]:
         faces[family] = order_like(
             verts, faces[family] + faces.pop(band), work.mesh.verts, work.original[family]
         )
-    midpoints = _distinct(numpy.vstack(te) if te else numpy.zeros((0, 3)), work.scale)
+    midpoints = _distinct(numpy.vstack(te) if te else numpy.zeros((0, 3)), work.te_tolerance)
     verts, faces = _source_numbering(verts, faces, work.mesh.verts, work.scale)
     return verts, faces, midpoints
 
 
-def _distinct(points: Points, scale: float) -> Points:
+def _distinct(points: Points, tolerance: float) -> Points:
     """Return the trailing-edge mid-points with each edge's named once, the first kept.
 
     A grid whose trailing-edge nodes did not change and an unchanged family
     holding the same edges both write them; the workflow refuses a points file
-    naming one edge twice, so a point within TE_POINT_FRACTION of the size of
-    one kept before is dropped.
+    naming one edge twice, so a point within ``tolerance`` (the request's
+    ``point_fraction`` of the size) of one kept before is dropped.
     """
-    tolerance = _geometry.TE_POINT_FRACTION * scale
     kept: list[int] = []
     for i, point in enumerate(points):
         if not kept or float(numpy.linalg.norm(points[kept] - point, axis=1).min()) >= tolerance:
@@ -1066,7 +1077,7 @@ def _te_points_of(work: _Work, name: str) -> NDArray[numpy.bool_]:
         return numpy.zeros(0, dtype=bool)
     _, mid = _obj.edge_midpoints(work.mesh.verts, work.mesh.families[name])
     dist, _ = NearestIndex(mid).query(work.te_points)
-    return dist < _geometry.TE_POINT_FRACTION * work.scale
+    return dist < work.te_tolerance
 
 
 def _weld(
@@ -1199,6 +1210,7 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int], has_te: bool) -> 
             ).replace(os.sep, "/"),
             "level": f"{stem}{TE_SUFFIX}" if has_te else None,
         },
+        "trailing_edge_point_fraction": work.request.point_fraction,
         "specs": specs,
         "components": work.request.components,
         "ignored_families_tables": list(work.request.ignored),
@@ -1272,7 +1284,7 @@ def _write(
         for name, family_faces in faces.items():
             _, mid = _obj.edge_midpoints(verts, family_faces)
             distance, _ = NearestIndex(mid).query(te)
-            points = te[distance < _geometry.TE_POINT_FRACTION * work.scale]
+            points = te[distance < work.te_tolerance]
             if len(points):
                 written.append(
                     _obj.write_te(
