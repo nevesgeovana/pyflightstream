@@ -148,8 +148,6 @@ def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
     if spec.balances:
         selected.append("ledgers")
     run_type, rotor = _run_type(case), _rotor(case)
-    if "trefftz:plane" in selected and run_type == "qsteady_rotor":
-        raise CampaignConfigError(applies("trefftz:plane", run_type))
     if "trefftz:sections" in selected and run_type == "qsteady_rotor":
         raise CampaignConfigError(applies("trefftz:sections", run_type))
     return [analysis for analysis in selected if not applies(analysis, run_type, rotor=rotor)]

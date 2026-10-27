@@ -528,16 +528,13 @@ def _p0450_rotor_case(root, entries, run_type="unsteady_rotor"):
 
 @pytest.mark.parametrize("run_type", ["unsteady_rotor", "qsteady_rotor"])
 def test_p0450_d1_rotor_plane_plans_or_names_power(tmp_path, run_type):
+    # P0470-FFR: a qsteady_rotor row lays its plane too; post converts it to the hub frame.
     case = _p0450_rotor_case(tmp_path, [{"variant": "plane", "spacing_bref": 0.25}], run_type)
-    if run_type == "qsteady_rotor":
-        with pytest.raises(CampaignConfigError, match="power"):
-            _farfield_plan___script(case)
-    else:
-        script = _farfield_plan___script(case)
-        assert script.farfield_layout, "C on a rotor row must record its velocity plane"
-        assert script.farfield_layout[-1]["shapes"][0]["kind"] == "plane"
-        assert script.farfield_layout[-1]["shapes"][0]["count"] == 35
-        assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in script.render()
+    script = _farfield_plan___script(case)
+    assert script.farfield_layout, "C on a rotor row must record its velocity plane"
+    assert script.farfield_layout[-1]["shapes"][0]["kind"] == "plane"
+    assert script.farfield_layout[-1]["shapes"][0]["count"] == 35
+    assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in script.render()
 
 
 @pytest.mark.parametrize("selection", [["W"], "all", "each"])
@@ -1952,3 +1949,32 @@ def test_p0470_ffr_plan_reuses_declared_blade_loads_and_warns_where_none(tmp_pat
     )
     state, _source = blade_loads_state(case.model_copy(update={"pproc": declared}), spec)
     assert state == "reused"
+
+
+def _p0470_ffr_q___states(case, script) -> dict[str, set[str]]:
+    from pyflightstream.cases.workflows._farfield import plan_record
+
+    record = plan_record(case, script.version, script)
+    states: dict[str, set[str]] = {}
+    for item in cast("list[dict[str, str]]", record["inputs"]):
+        states.setdefault(item["analysis"], set()).add(item["state"])
+    return states
+
+
+@pytest.mark.requirement("FR-1059")
+def test_p0470_ffr_qsteady_plane_plans_ready(tmp_path):
+    """P0470-FFR-Q1: Trefftz C on a qsteady_rotor row is laid as on any rotor row, never refused.
+
+    The plane's probes are converted to the hub frame in post, as the lattice's are,
+    so the row's rotating free stream no longer bars C; the plan lays the plane.
+    """
+    assert applies("trefftz:plane", "qsteady_rotor") == ""
+    case = _p0450_rotor_case(
+        tmp_path, [{"variant": "plane", "spacing_bref": 0.25}], "qsteady_rotor"
+    )
+    script = _farfield_plan___script(case)
+    assert script.farfield_layout, "C on a qsteady_rotor row must record its velocity plane"
+    shape = script.farfield_layout[-1]["shapes"][0]
+    assert (shape["kind"], shape["count"]) == ("plane", 35)
+    states = _p0470_ffr_q___states(case, script)
+    assert states["trefftz:plane"] <= {"added", "reused"}

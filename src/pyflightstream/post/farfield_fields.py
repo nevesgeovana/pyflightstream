@@ -788,6 +788,7 @@ def plane_values(
     grid: tuple[float, float, float],
     per_m: float,
     q_ref: float,
+    hub: tuple[float, np.ndarray, np.ndarray] | None = None,
 ) -> dict[str, float]:
     """Return the Trefftz C values of a wing's plane, in N and m.
 
@@ -810,6 +811,11 @@ def plane_values(
         Number of native simulation length units per metre.
     q_ref : float
         Recorded reference dynamic pressure in Pa, the basis of ``Cp_ref``.
+    hub : tuple, optional
+        The frame speed (rad/s, signed), axis and origin (m, reference frame) of
+        a quasi-steady rotor whose turning frame the probes were read in; the
+        velocities are converted to the hub frame first, as the lattice's are
+        (FR-1037). The static pressure is kept.
 
     Returns
     -------
@@ -849,7 +855,13 @@ def plane_values(
             "the probes before the lattice are not the plane the plan laid normal to this "
             "point's free stream"
         )
-    turned = samples.velocity[block] @ laid.axes.T
+    velocity = samples.velocity[block]
+    if hub is not None:
+        omega, shaft, origin = hub
+        velocity = hub_frame_velocities(
+            points, velocities=velocity, omega=omega, axis=shaft, origin=origin
+        )
+    turned = velocity @ laid.axes.T
     fields = {
         "u": turned[:, 0].reshape(shape),
         "v": turned[:, 1].reshape(shape),

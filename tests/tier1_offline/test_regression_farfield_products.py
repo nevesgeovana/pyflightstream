@@ -3571,3 +3571,67 @@ def test_p0470_ffr_rotor_g4_reads_the_corrected_pressure(tmp_path, loads):
     far = float(rows[-1]["FX_CORRECTED_N"])
     expected = 2.0 * (near - far) / (rho * speed * speed * 50.0) * 1e4
     assert float(rows[-1]["SPURIOUS_COUNTS"]) == pytest.approx(expected, rel=1e-6)
+
+
+_P0470_FFR_Q___RPM = 60.0
+
+
+def _p0470_ffr_q___turning(rpm: float) -> np.ndarray:
+    """The vortex-pair plane of the plane-lift fixture, sampled in a frame turning about X."""
+    omega = np.array([1.0, 0.0, 0.0]) * 2.0 * math.pi * rpm / 60.0
+    points = _RFIXF_PLANE_LIFT___PLANE.points
+    return _rfixf_plane_lift___crossflow(1.0) - np.cross(omega, points - _RFIXF_QSTEADY___HUB)
+
+
+def _p0470_ffr_q___post(tmp_path: Path, rpm: float) -> tuple[dict[str, str], Path]:
+    """Post a qsteady_rotor point whose C plane reads the turning frame."""
+    workspace = _rfixf_plane_lift__ffpost._ffproof_post___campaign(
+        tmp_path,
+        pproc=_RFIXF_PLANE_LIFT___TABLE,
+        recipe="qsteady_rotor",
+        files={
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
+                _RFIXF_PLANE_LIFT___PLANE.points, _p0470_ffr_q___turning(rpm)
+            ),
+            f"{_FFPROOF_POST___STEM}_qsteady.json": _rfixf_qsteady___quasi(rpm),
+        },
+    )
+    _rfixf_plane_lift__ffpost._ffproof_post___set_record(
+        workspace, farfield_layout=_RFIXF_PLANE_LIFT___LAYOUT
+    )
+    _rfixf_plane_lift__ffpost._ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    rows = [r for r in _rfixf_layout___rows(root, "farfield/*_trefftz.csv") if r["VARIANT"] == "C"]
+    assert len(rows) == 1, rows
+    return rows[0], root
+
+
+@pytest.mark.requirement("FR-1037")
+@pytest.mark.parametrize("rpm", [_P0470_FFR_Q___RPM, -_P0470_FFR_Q___RPM], ids=["right", "left"])
+def test_p0470_ffr_qsteady_plane_reads_the_hub_frame(tmp_path, rpm):
+    """P0470-FFR-Q3: a qsteady_rotor C plane is converted to the hub frame before Munk.
+
+    The plane samples a vortex pair whose crossflow energy and lift are known, read
+    in the frame that turns with the blades. Converted as D converts its lattice
+    (v_hub = v + Omega x (x - x_hub), the row's signed speed), the C row returns the
+    pair's own CDI_T and CL_T, those of the same field posted on a steady row; read
+    as sampled, the frame's swirl would dominate the crossflow energy.
+    """
+    expected, _ = _rfixf_plane_lift___post(tmp_path / "steady", 1.0)
+    row, _root = _p0470_ffr_q___post(tmp_path / "qsteady", rpm)
+    assert float(row["CDI_T"]) == pytest.approx(float(expected["CDI_T"]), rel=1e-3)
+    assert float(row["CL_T"]) == pytest.approx(float(expected["CL_T"]), rel=1e-3)
+    assert float(row["CDI_T_VORT"]) == pytest.approx(float(expected["CDI_T_VORT"]), rel=1e-3)
+    sampled = _rfixf_layout___export(_RFIXF_PLANE_LIFT___PLANE.points, _p0470_ffr_q___turning(rpm))
+    from pyflightstream.post.farfield_fields import steady_samples
+
+    raw = plane_values(
+        steady_samples(sampled),
+        slice(None),
+        flow=(_RFIXF_PLANE_LIFT___RHO, _RFIXF_PLANE_LIFT___SPEED, -2.0, 0.0),
+        grid=(10.0, 5.0, 0.25),
+        per_m=1.0,
+        q_ref=0.5 * _RFIXF_PLANE_LIFT___RHO * _RFIXF_PLANE_LIFT___SPEED**2,
+    )
+    q_s = 0.5 * _RFIXF_PLANE_LIFT___RHO * _RFIXF_PLANE_LIFT___SPEED**2 * _RFIXF_PLANE_LIFT___SREF
+    assert raw["D"] / q_s > 2.0 * float(expected["CDI_T"])

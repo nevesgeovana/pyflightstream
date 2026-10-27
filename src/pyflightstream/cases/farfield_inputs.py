@@ -151,11 +151,6 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
     >>> bool(applies('trefftz:wake', 'unsteady_rotor'))
     True
     """
-    if analysis == "trefftz:plane" and run_type == "qsteady_rotor":
-        return (
-            "Trefftz C requires a uniform freestream; qsteady_rotor uses a rotating frame: "
-            'select "power"'
-        )
     if analysis == "trefftz:sections" and run_type == "qsteady_rotor":
         return (
             "Trefftz A on qsteady_rotor has no lifting surface outside the rotor: "

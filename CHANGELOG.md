@@ -18,6 +18,13 @@ FlightStream versions.
   an `unsteady_rotor` row that declares none. Rows without a rotor keep their
   tables. Migration: none; a rotor row without blade loads keeps the named G4 skip.
 
+- Trefftz C on `qsteady_rotor` rows: the plan lays the velocity plane, and post
+  converts its probe velocities to the hub frame as the survey lattice is
+  converted (`v_hub = v_probe + Omega x (x - x_hub)`, the row's signed speed)
+  before the crossflow energy, the vorticity drag, the Bernoulli residual and the
+  plane lift. Migration: a `plane` entry on a `qsteady_rotor` row, refused before,
+  now plans and writes its C row.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added

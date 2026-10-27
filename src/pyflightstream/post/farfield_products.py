@@ -820,6 +820,8 @@ def _instant_values(
             grid=cast("tuple[float, float, float]", layout.plane_grid),
             per_m=probe.per_m,
             q_ref=q_ref,
+            # A quasi-steady row's plane is read in the turning frame (FR-1037).
+            hub=None if layout.lattice is not None else probe.hub,
         )
     if lattice_at is None or layout.lattice is None:
         return out

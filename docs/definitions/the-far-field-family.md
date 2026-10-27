@@ -315,8 +315,12 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
 rectangular grid normal to the free stream of each point (it turns with the
 angle of attack and the sideslip), centered on the free-stream line through the
 moment reference point, at `distance_bref BREF` behind the whole geometry.
-This includes steady RPM and `unsteady_rotor` rows. A `qsteady_rotor` row is
-refused: its rotating frame has no uniform freestream for C; select `power`.
+This includes steady RPM, `unsteady_rotor` and `qsteady_rotor` rows. On a
+`qsteady_rotor` row the probes read the frame that turns with the blades, so
+their velocities are first converted to the hub frame exactly as the lattice's
+are ([The quasi-steady rotor](#trefftz-d-power-on-the-survey-lattice)),
+`v_hub = v_probe + Omega x (x - x_hub)`, about the row's one rotor with its signed
+speed; the static pressure is frame independent and kept.
 Velocities are turned to wind axes; the static pressure is `p - p_inf = Cp_ref q_ref`,
 the export's coefficient on the reference velocity, which a rotor at rest still has
 (on a wing at speed with the reference velocity the free stream, `Cp q`). The
@@ -688,7 +692,7 @@ named skip. Steady and quasi-steady rotor scripts retain their analysis route.
 | steady, fixed wing | yes | yes | yes | yes |
 | steady rotor | nonrotor families | no | configuration plane | yes |
 | `unsteady_rotor` | nonrotor families | no | configuration plane, instant and average | instant and average |
-| `qsteady_rotor` | no | no | refused; select D | yes, in the hub frame |
+| `qsteady_rotor` | no | no | configuration plane, in the hub frame | yes, in the hub frame |
 | unsteady, fixed wing | yes | no | instant and average | instant and average |
 | coupled FSI, steady | the coupled distribution | yes | refused (no probes) | refused (no probes) |
 

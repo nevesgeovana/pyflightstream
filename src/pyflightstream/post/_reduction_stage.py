@@ -31,6 +31,7 @@ import numpy as np
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import AXES_PLOT_GROUP, DEFAULT_DRIFT_LIMIT_PCT, select_families
+from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
 from pyflightstream.cases.windows import AZIMUTHAL, averaging_span
 from pyflightstream.cases.workflows import PER_ROTOR_REDUCTIONS, REDUCTION_NAMES, ROTORS_KEY
 from pyflightstream.post._condition import _last_time_step, _recorded_speeds, row_rotor_speeds
@@ -1154,13 +1155,22 @@ def _hub(
     turns about the axis by the sign of the speed alone; the hand is not
     applied a second time. The axis and the hub are the lattice's as the run
     recorded it, or the reference's rotor block for a record without a layout.
+
+    A Trefftz C entry, which names no rotor, is converted about the row's one
+    rotor: a quasi-steady row holds an isolated rotor, the one its record turns.
+    Its axis and hub are the reference's rotor block, else the quasi-steady
+    record's.
     """
     record = ctx.record_of[point.name]
-    if str(record.recipe or "") != "qsteady_rotor" or spec.ledgers is None:
+    plane = spec.trefftz is not None and "plane" in spec.trefftz.variant
+    if str(record.recipe or "") != "qsteady_rotor" or (spec.ledgers is None and not plane):
         return None
-    alias = spec.ledgers.rotor
     own = row_rotor_speeds(record, getattr(point, "loads_path", None))
-    rpm = _recorded_speeds(record.reductions, own).get(str(alias))
+    speeds = _recorded_speeds(record.reductions, own)
+    if spec.ledgers is None:
+        return _plane_hub(ctx, point, speeds)
+    alias = spec.ledgers.rotor
+    rpm = speeds.get(str(alias))
     rotor: Any = (getattr(ctx.live, "rotors", None) or {}).get(alias)
     if rpm is None:
         raise PyflightstreamError(
@@ -1177,6 +1187,33 @@ def _hub(
             f"the reference names no rotor {alias!r}, so the hub its probes turn about is unknown"
         )
     shaft = _AXES[letter.strip().upper()] if isinstance(letter, str) else np.asarray(letter)
+    return 2.0 * math.pi * float(rpm) / 60.0, shaft, origin
+
+
+def _plane_hub(
+    ctx: SimContext, point: PolarPoint, speeds: Mapping[str, float]
+) -> tuple[float, np.ndarray, np.ndarray]:
+    """Return the turning frame of a quasi-steady row's C plane: its one rotor's."""
+    if len(speeds) != 1:
+        raise PyflightstreamError(
+            "the quasi-steady row states no single rotor speed in the point's record nor in "
+            "its quasi-steady record, so its plane cannot be converted to the hub frame"
+        )
+    ((alias, rpm),) = speeds.items()
+    rotor: Any = (getattr(ctx.live, "rotors", None) or {}).get(alias)
+    if rotor is not None:
+        axis = rotor.axis_vector
+        origin = np.asarray([rotor.x_m, rotor.y_m, rotor.z_m], dtype=np.float64)
+    else:
+        try:
+            quasi = read_qsteady_record(getattr(point, "loads_path", None))
+        except (QsteadyRecordError, TypeError) as error:
+            raise PyflightstreamError(
+                f"the reference names no rotor {alias!r} and its quasi-steady record cannot "
+                f"be read ({error}), so the hub its plane turns about is unknown"
+            ) from error
+        axis, origin = quasi.axis_vector, np.asarray(quasi.hub_m, dtype=np.float64)
+    shaft = _AXES[axis.strip().upper()] if isinstance(axis, str) else np.asarray(axis, dtype=float)
     return 2.0 * math.pi * float(rpm) / 60.0, shaft, origin
 
 
