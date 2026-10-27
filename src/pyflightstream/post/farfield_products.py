@@ -951,7 +951,9 @@ def _wake_rotor_products(
         + _variant_w(ctx, point, wakes[step])
         for step in steps
     ]
-    if not all(samples) or any(len(sample) != len(samples[0]) for sample in samples):
+    first = 3 + len(CONTEXT_COLUMNS)
+    identities = [[row[first : first + 2] for row in sample] for sample in samples]
+    if not all(samples) or any(identity != identities[0] for identity in identities):
         _skip(ctx, key, point.name, "the per-step wake rows differ between window steps")
         return
     tables.extend(

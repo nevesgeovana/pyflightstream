@@ -9,6 +9,9 @@ describe the older releases that supplied them.
 
 ## 0.47.0
 
+Wake-window averages require matching rotor identities at every step. Incomplete
+windows now produce a named skip; restore the missing exports before reprocessing.
+
 Trefftz B on mixed wing and rotor rows uses the non-rotor families' lift for
 calibration. Reprocess existing wake exports to update the wing coefficients.
 

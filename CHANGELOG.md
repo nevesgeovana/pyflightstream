@@ -50,6 +50,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Wake-window averages check family and variant identities at every step and
+  skip inconsistent windows instead of mixing different rotors' loads.
+
 - Wing-only Trefftz B on a rotor row calibrates against non-rotor lift, so rotor
   lift does not rescale the wing's circulation or induced drag.
 

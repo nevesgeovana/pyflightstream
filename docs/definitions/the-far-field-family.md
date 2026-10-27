@@ -376,6 +376,8 @@ rotor are the solver's undocumented ones; the licensed measurement of the
 `DT_WAKE_COUNTS` and `DQ_WAKE_COUNTS` stand before `STATUS`, in a table where a
 row holds one; a table of rows without a rotor keeps its columns.
 `N_TRACE` is the count of the rotor's lines.
+Window averaging requires the same families and variants at every step. A
+missing rotor or a changed row identity produces a named average skip.
 
 **Assumptions and validity.** The lifting line is at the trailing-edge nodes
 the lines leave, not at the quarter chord. The free stream is taken along the

@@ -3920,3 +3920,39 @@ def test_p0470_r2_wing_wake_calibration_excludes_rotor_lift(tmp_path):
         rows.append(dict(zip(_TREFFTZ_CELLS, row[3 + len(CONTEXT_COLUMNS) :], strict=True)))
     for column in ("CL_T", "CDI_T", "GAMMA_SCALE"):
         assert rows[0][column] == pytest.approx(rows[1][column]), column
+
+
+@pytest.mark.parametrize("complete", [False, True])
+def test_p0470_r3_wake_average_keeps_rotor_identity(tmp_path, complete):
+    """Equal row counts cannot make different rotors into samples of the same load."""
+    from pyflightstream.post._reduction_stage import _Tables
+    from pyflightstream.post.farfield_products import _wake_rotor_products
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
+
+    lines, values = _p0470_helical_wake(
+        2, gamma=np.ones(4), radii=np.linspace(0.2, 1.0, 5), v=10, omega=100, turns=2
+    )
+    first = [line + np.array([3.0, 0.0, 2.0]) for line in lines]
+    second = [line + np.array([3.0, 0.0, 6.0]) for line in lines]
+    _, _, ctx = _p0470_post_rotor_wake(tmp_path, first, values, rotor=True)
+    ctx.live.rotors["OTHER"] = ctx.live.rotors["ROTOR"].model_copy(
+        update={"alias": "OTHER", "z_m": 6.0}
+    )
+    ctx.pproc = PprocSpec.model_validate(
+        {"farfields": [{"variant": "wake", "export_type": "avg_window", "last_steps": 2}]}
+    )
+    record = ctx.record_of["point"]
+    record.recipe = "unsteady_rotor"
+    record.stopped_at = {"step": 2}
+    record.export_window = None
+    record.reductions["rotors"]["OTHER"] = {"rpm": 1000.0, "blades": 2}
+    for step, own in ((1, first), (2, first if complete else second)):
+        (tmp_path / f"point_iteration={step}.vtk").write_text("surface", encoding="utf-8")
+        (tmp_path / f"point_iteration={step}_wakes.vtk").write_text(
+            _p0470_wake_vtk(own, values), encoding="utf-8"
+        )
+    tables = _Tables()
+    _wake_rotor_products(ctx, ctx.points[0], tables, "unsteady_rotor")
+    assert bool(tables.rows.get("trefftz_average")) is complete
+    if not complete:
+        assert any("differ" in reason for reason in ctx.skipped.values())
