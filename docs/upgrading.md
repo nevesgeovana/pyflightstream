@@ -32,6 +32,10 @@ A probe entry in a rotor frame the row does not place, such as `<ALIAS>_RMRP`
 on a steady row, is now ignored on that row with one warning per campaign
 instead of blocking the plan. Nothing needs editing.
 
+An `unsteady_rotor` row that turns only some declared rotors also places the
+inactive rotors' static hubs. Hub-frame probes on those rotors now emit normally;
+their moving frames remain absent. Replan to include the added hubs and probes.
+
 ## 0.46.0
 
 ### Mark once, run the FSM

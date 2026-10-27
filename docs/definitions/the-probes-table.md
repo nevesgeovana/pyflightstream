@@ -5,7 +5,8 @@ row: nothing is emitted for it there, and the plan warns once per campaign,
 naming the entry, the frame and the rows that leave it out. A row turning no
 blades places each declared rotor's hub frame `<ALIAS>_SMRP` and none of its
 `<ALIAS>_RMRP` frames, so one pproc artifact serves the power-off and the
-power-on rows. A frame of an alias the reference does not declare, such as
+power-on rows. A row turning only some declared rotors also places the static
+hub frames of the inactive rotors. A frame of an alias the reference does not declare, such as
 `PUSHER_SMRP` over a reference without a `PUSHER` rotor, is still refused.
 
 The probes table, `probes/<point>_probes.csv`, lists the solver's values at

@@ -50,6 +50,9 @@ FlightStream versions.
 
 ### Fixed
 
+- A row that turns only some declared rotors also places the static hub frames
+  of the inactive rotors, so their hub-frame probes remain available.
+
 - Instantaneous disk-pressure corrections use final blade loads even when the
   row also has per-step exports for an averaging window.
 

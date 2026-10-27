@@ -778,9 +778,9 @@ _UNPLACED: ContextVar[_UnplacedNoted | None] = ContextVar(
 )
 #: Why an entry in a rotor frame is ignored on a row rather than refused.
 _WHY_A_ROTOR_FRAME_IS_ABSENT = (
-    "A row places the frames of the rotors it turns, and a row that turns none (a steady "
-    "row, or the unsteady run type) places each declared rotor's hub frame <ALIAS>_SMRP "
-    "only, which is how one pproc artifact serves the power-off and the power-on rows."
+    "A row places the moving frames of the rotors it turns and the static hub frame "
+    "<ALIAS>_SMRP of every declared rotor, including inactive rotors, which is how one "
+    "pproc artifact serves the power-off and the power-on rows."
 )
 
 
