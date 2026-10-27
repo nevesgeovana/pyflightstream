@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-10-27
+
 ### Added
 
 - The far-field axial balance gains a disk-pressure correction on rotor rows:
@@ -2293,7 +2295,8 @@ archives remain available for recovery. (no requirement: preserve records during
   seven public names of `pyflightstream.workspace`; `pyflightstream.workspace._degenerate`
   stays importable.
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.46.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.47.0...HEAD
+[0.47.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.46.0...v0.47.0
 [0.46.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.45.1...v0.46.0
 [0.45.1]: https://github.com/nevesgeovana/pyflightstream/compare/v0.45.0...v0.45.1
 [0.45.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.44.0...v0.45.0

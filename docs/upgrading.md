@@ -28,6 +28,16 @@ calibration. Reprocess existing wake exports to update the wing coefficients.
 Rotor wake products at hover retain dimensional thrust and torque. Their
 free-stream-normalized differences in counts are `NA`; no input changes are needed.
 
+### Far-field gates and wake loads on rotor rows
+
+On `unsteady_rotor` rows the axial balance carries the disk-pressure
+correction, and G4 (`SPURIOUS_COUNTS`) with `F_NEAR_N` is reported again
+against it: the 0.46.0 note [Far-field gates on rotor lattices](#far-field-gates-on-rotor-lattices),
+which states them `NA` on those rows, no longer applies to them. The new
+`VARIANT = W` row accumulates each blade's bound circulation from the root
+([the far-field family](definitions/the-far-field-family.md)). Reprocess to
+write the new columns; nothing needs editing.
+
 ### Power-off rows place their rotors' hub frames
 
 A steady or `unsteady` row whose reference declares a rotor now places
