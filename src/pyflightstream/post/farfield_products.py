@@ -686,8 +686,8 @@ def _variant_b(
             else ""
         )
         _skip(ctx, key, point.name, f"no trace at x = {x_t:.4g} m: {trace.problem}{length}")
-        values = {"FAMILY": "net", "VARIANT": "B", "X_T_M": x_t}
-        return [_row(ctx, point, _NA, values)]
+        unavailable = {"FAMILY": "net", "VARIANT": "B", "X_T_M": x_t}
+        return [_row(ctx, point, _NA, unavailable)]
     try:
         raw = trace.forces(rho=rho, v_inf=speed, mirror=mirror)
     except PyflightstreamError as error:
@@ -831,6 +831,8 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
     loads = point.loads
     v_ref = float(loads.reference_velocity_m_s or loads.freestream_velocity_m_s)
     qs = 0.5 * rho * speed * speed * float(ctx.reference.sref_m2)
+    # Hover retains dimensional loads; a zero free-stream pressure defines no counts.
+    qs = qs if qs > 0.0 else _NA
     rows = []
     for alias, rotor in rotors.items():
         mask = _rotor_line_mask({alias: rotor}, lines)
@@ -847,7 +849,7 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
                 [line for line, own in zip(lines, mask, strict=True) if own],
                 values=wake.values[mask],
                 hub=(float(rotor.x_m), float(rotor.y_m), float(rotor.z_m)),
-                axis=axis,
+                axis=axis.tolist(),
                 omega=2.0 * math.pi * float(rpm) / 60.0,
                 v_axial=speed * float(wind @ axis),
                 rho=rho,
@@ -1038,7 +1040,7 @@ def _plane_hub(ctx: SimContext, point: PolarPoint) -> tuple[float, np.ndarray, n
         origin = np.asarray([rotor.x_m, rotor.y_m, rotor.z_m], dtype=np.float64)
     else:
         try:
-            quasi = read_qsteady_record(loads)
+            quasi = read_qsteady_record(cast("Path", loads))
         except (QsteadyRecordError, TypeError) as error:
             raise PyflightstreamError(
                 f"the reference names no rotor {alias!r} and its quasi-steady record cannot "
@@ -1421,7 +1423,7 @@ def _note_one_clocking(ctx: SimContext, point: PolarPoint) -> None:
     named, never one clocking presented as the average.
     """
     try:
-        quasi = read_qsteady_record(getattr(point, "loads_path", None))
+        quasi = read_qsteady_record(cast("Path", getattr(point, "loads_path", None)))
     except (QsteadyRecordError, TypeError):
         return
     if len(quasi.positions) > 1:

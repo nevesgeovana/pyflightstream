@@ -50,6 +50,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Rotor wake loads remain available at hover; their free-stream-normalized
+  differences in counts are `NA` when the free-stream speed is zero.
+
 - A row whose reference declares a rotor places that rotor's static hub frame
   `<ALIAS>_SMRP` at the hub, on the rotor's hub axes, also when the row turns
   no blades: steady rows (single and one-script sweeps) and `unsteady` rows.

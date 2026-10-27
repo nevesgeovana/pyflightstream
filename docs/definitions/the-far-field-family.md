@@ -359,7 +359,8 @@ and
     DT_WAKE_COUNTS = 1e4 (T_WAKE_N - T_NEAR_N) / (q SREF)
     DQ_WAKE_COUNTS = 1e4 (Q_WAKE_NM - Q_NEAR_NM) / (q SREF BREF)
 
-with `q` on the free stream. On an unsteady row the near field is that of the
+with `q` on the free stream. At hover the counts are `NA`; dimensional wake
+loads remain available. On an unsteady row the near field is that of the
 final loads export on every window step.
 
 **The scale is raw.** The values are read as the circulation itself:

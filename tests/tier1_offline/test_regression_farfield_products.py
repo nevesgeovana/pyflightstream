@@ -12,7 +12,7 @@ import warnings
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pytest
@@ -3721,7 +3721,9 @@ def test_p0470_ffr_qsteady_wheel_plane_names_its_one_clocking(tmp_path):
 
 def _p0470_wake_vtk(lines: list[np.ndarray], values: np.ndarray) -> str:
     """A wake export of chained two-point segments, one constant value per line."""
-    points, segments, cells = [], [], []
+    points: list[tuple[float, ...]] = []
+    segments: list[tuple[int, int]] = []
+    cells: list[float] = []
     for line, value in zip(lines, values, strict=True):
         start = len(points)
         points += [tuple(node) for node in line]
@@ -3808,7 +3810,7 @@ def _p0470_post_rotor_wake(root: Path, lines, values, *, rotor: bool):
         add=lambda path, entry: products.update({str(path): entry}),
         farfield_super={},
     )
-    farfield_products(ctx)
+    farfield_products(cast("Any", ctx))
     (path,) = list((root / "post" / "farfield").glob("*_trefftz.csv"))
     with path.open(encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
@@ -3873,3 +3875,25 @@ def test_p0470_ffr_b_on_a_wing_and_rotor_row_traces_the_wing_lines_alone(tmp_pat
     for column in ("CL_T", "CDI_T", "E_T", "N_TRACE", "GAMMA_SCALE", "X_T_M"):
         assert b_mixed[column] == b_alone[column], column
     assert "T_WAKE_N" not in columns, "a table of rows without a rotor keeps its columns"
+
+
+def test_p0470_r1_wake_loads_at_hover_keep_dimensional_loads(tmp_path):
+    """A zero free-stream normalization leaves counts NA without losing wake loads."""
+    from pyflightstream.post.farfield_products import _TREFFTZ_CELLS, _variant_w
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
+
+    lines, values = _p0470_helical_wake(
+        2, gamma=np.ones(4), radii=np.linspace(0.2, 1.0, 5), v=10, omega=100, turns=2
+    )
+    lines = [line + np.array([3.0, 0.0, 2.0]) for line in lines]
+    _, _, ctx = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=True)
+    point = ctx.points[0]
+    point.loads = replace(point.loads, freestream_velocity_m_s=0.0)
+    try:
+        rows = _variant_w(ctx, point, tmp_path / "point_wakes.vtk")
+    except ZeroDivisionError:
+        rows = []
+    assert len(rows) == 1, "hover must retain its dimensional wake loads"
+    row = dict(zip(_TREFFTZ_CELLS, rows[0][3 + len(CONTEXT_COLUMNS) :], strict=True))
+    assert math.isfinite(row["T_WAKE_N"]) and math.isfinite(row["Q_WAKE_NM"])
+    assert math.isnan(row["DT_WAKE_COUNTS"]) and math.isnan(row["DQ_WAKE_COUNTS"])

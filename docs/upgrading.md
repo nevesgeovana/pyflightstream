@@ -9,6 +9,9 @@ describe the older releases that supplied them.
 
 ## 0.47.0
 
+Rotor wake products at hover retain dimensional thrust and torque. Their
+free-stream-normalized differences in counts are `NA`; no input changes are needed.
+
 ### Power-off rows place their rotors' hub frames
 
 A steady or `unsteady` row whose reference declares a rotor now places
