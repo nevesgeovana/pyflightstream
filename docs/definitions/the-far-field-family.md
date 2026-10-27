@@ -18,6 +18,7 @@ The analyses and where they are written:
 |---|---|---|---|
 | Trefftz A, section loads | `variant = "sections"` | the sectional loads export | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_<family>.csv` |
 | Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_net_<entry>.csv` |
+| Rotor wake loads (W) | `variant = "wake"` on a rotor row | the rotor's wake lines | `farfield/<group>_trefftz.csv` |
 | Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane | `farfield/<group>_trefftz.csv` |
 | Trefftz D, power | `variant = "power"` | the survey lattice | `farfield/<group>_trefftz.csv` |
 | Balances | `variant = "power"` with `balances` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
@@ -92,7 +93,8 @@ The window ends at the last recorded step and clips to the run if longer.
 Multiple entries export the union of their windows. Other per-step products
 retain the row's export threshold. The average is the mean of the per-step
 analysis results, and is skipped if any window snapshot is missing.
-B retains its steady-only applicability.
+B retains its steady-only applicability on rows without a rotor; on
+`unsteady_rotor` its window exports the surface VTK with the wake at every step.
 
 `last_revs` and `last_steps` are refused on steady rows and with `export_type`
 other than `"avg_window"`. `last_revs` without a rotor clock is refused naming
@@ -243,7 +245,8 @@ flat wing it is the planar trace. Then [The discrete trace](#the-discrete-trace)
   outermost station's; nothing is extrapolated to a tip value of zero.
 - On a coupled FSI row the section cut is fixed in space, so the trace is the
   projected span of the deformed surface.
-- Rotors are not traced: a helical wake is not a streamwise sheet.
+- Rotor families are not traced: a helical wake is not a streamwise sheet; see
+  [The rotor wake loads](#trefftz-w).
 - The trace holds the lift of the selected families only. Where it departs from the
   solver's `CL` by more than 5 percent (a wing selected without its body), post
   writes a WARNING with both lifts: the drag and the span efficiency are then those
@@ -305,7 +308,76 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   point's B value `NA`.
 - One `net` row per point: the export does not say which family a line
   belongs to.
-- Rotors are not traced.
+- On a rotor row (a steady row with a rotor speed, `unsteady_rotor`) B traces
+  only the lines that leave another family than the rotors'. A `qsteady_rotor`
+  row holds an isolated rotor and no other family, so its wake entry, B and W
+  alike, is not applicable: warned at plan and a named skip in post. A line leaves a rotor when its first node lies within 1.02 tip radii
+  of that rotor's axis and within 0.25 tip radii of its hub plane; every other
+  line is the wing's, and each line is assigned once. A row whose every line
+  leaves a rotor writes no B row, with a named skip. On a row without a rotor B
+  reads every line, as before. On `unsteady_rotor`, B is written for the last
+  step and, under `"avg_window"`, averaged over the window steps.
+
+<a id="trefftz-w"></a>
+
+### The rotor wake loads (VARIANT W)
+
+**Selection and input.** A `variant = "wake"` entry on a rotor row also writes,
+per rotor of the reference, one row with `VARIANT = W` and `FAMILY` the rotor
+alias, from the lines that leave that rotor (the start-node rule of
+[Trefftz B](#trefftz-b)), in metres, about the rotor's hub and axis `e_a`.
+
+**Bound circulation.** The lines of one rotor are split into blades at the
+azimuth gaps of their first nodes wider than half a blade passage, and each
+blade's lines are ordered root to tip by radius. The strip between lines `j`
+and `j + 1` carries the accumulated shed circulation from the tip,
+
+    Gamma_j = - sum_{k > j} value_k
+
+the convention of B, at `r_j` the mean radius of the two first nodes, width
+`dr_j` their radial difference. Line `k` is a chain of straight vortex
+segments of strength `-value_k` along the line.
+
+**Loads (Kutta-Joukowski).** At each strip's lifting-line point (the midpoint of
+the two first nodes) the induced velocity `w` of every line of the rotor is
+summed by the Biot-Savart law of a straight segment, with `e_r` radial and
+`e_t = e_a x e_r`:
+
+    T_WAKE_N  = rho sum_blades sum_j Gamma_j (Omega r_j - w_t) dr_j
+    Q_WAKE_NM = rho sum_blades sum_j Gamma_j (V_a + w_a) r_j dr_j
+
+`Omega` is the rotor speed every product of the point reads (rad/s, signed
+about `e_a`), `V_a` the free-stream component along `e_a`. Where fewer blades
+carry lines than the rotor's recorded blade count (a periodic sector), the lines
+are copied about the axis by the sector angle before the sums.
+
+**Against the near field.** `T_NEAR_N` and `Q_NEAR_NM` are the rotor's thrust
+along `e_a` and torque about it at the hub from the point's loads export (the
+rotor table's rule, its own families only; `NA` where the export holds none),
+and
+
+    DT_WAKE_COUNTS = 1e4 (T_WAKE_N - T_NEAR_N) / (q SREF)
+    DQ_WAKE_COUNTS = 1e4 (Q_WAKE_NM - Q_NEAR_NM) / (q SREF BREF)
+
+with `q` on the free stream. On an unsteady row the near field is that of the
+final loads export on every window step.
+
+**The scale is raw.** The values are read as the circulation itself:
+`GAMMA_SCALE` is 1 and nothing is calibrated to the near field, which would
+make the comparison a tautology. The scale and sign of the exported value on a
+rotor are the solver's undocumented ones; the licensed measurement of the
+0.47.0 rotor far field decides them.
+
+**Columns.** `T_WAKE_N`, `Q_WAKE_NM`, `T_NEAR_N`, `Q_NEAR_NM`,
+`DT_WAKE_COUNTS` and `DQ_WAKE_COUNTS` stand before `STATUS`, in a table where a
+row holds one; a table of rows without a rotor keeps its columns.
+`N_TRACE` is the count of the rotor's lines.
+
+**Assumptions and validity.** The lifting line is at the trailing-edge nodes
+the lines leave, not at the quarter chord. The free stream is taken along the
+axis (its in-plane component is not in `V_a`). The bound vortices of the other
+blades induce nothing at the lifting line. A rotor with no speed, or whose
+lines the export does not hold, is a named skip.
 
 <a id="trefftz-c"></a>
 
@@ -315,8 +387,15 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
 rectangular grid normal to the free stream of each point (it turns with the
 angle of attack and the sideslip), centered on the free-stream line through the
 moment reference point, at `distance_bref BREF` behind the whole geometry.
-This includes steady RPM and `unsteady_rotor` rows. A `qsteady_rotor` row is
-refused: its rotating frame has no uniform freestream for C; select `power`.
+This includes steady RPM, `unsteady_rotor` and `qsteady_rotor` rows. On a
+`qsteady_rotor` row the probes read the frame that turns with the blades, so
+their velocities are first converted to the hub frame exactly as the lattice's
+are ([The quasi-steady rotor](#trefftz-d-power-on-the-survey-lattice)),
+`v_hub = v_probe + Omega x (x - x_hub)`, about the row's one rotor with its signed
+speed; the static pressure is frame independent and kept. A sector is one
+solve and writes one C row. A wheel solved at several clockings exports the
+plane with its full export set, at clocking 0 alone: its C row is clocking 0's,
+post names that limitation as a skip, and no clocking average is written.
 Velocities are turned to wind axes; the static pressure is `p - p_inf = Cp_ref q_ref`,
 the export's coefficient on the reference velocity, which a rotor at rest still has
 (on a wing at speed with the reference velocity the free stream, `Cp q`). The
@@ -409,6 +488,9 @@ mean of the swirl:
 
 with `T` the axial force of the balance between the inlet and that station;
 `ETA_FF` is `NA` where `T V <= 0`, including static and power-off conditions.
+On a rotor row with blade loads, `P_TOTAL_CORRECTED_W` and `ETA_FF_CORRECTED`
+are the same channels on the pressure corrected by the disk total-pressure rise
+([The balances](#the-balances)).
 
 **The quasi-steady rotor.** A `qsteady_rotor` point holds the blades still and
 carries the rotation in the free stream, so its probe velocities are those of
@@ -482,21 +564,63 @@ orders. If no order remains, G3 is `NA`: no symmetry floor was measured.
 A six-blade signal with `|c_6| = 0.4828 m/s` and `|c_1| = 3.47e-5 m/s`
 therefore reports `3.47e-5 m/s` at `m_max = 6`, the same as at `m_max = 5`.
 
-G4 is not applicable to a power entry naming `rotor = ...`, or to any
-`unsteady_rotor` or `qsteady_rotor` row, including an entry naming a frame.
-`SPURIOUS_COUNTS` and its comparison column `F_NEAR_N` are `NA` in the instant
-and averaged ledgers, with a named skip: the probe pressure is the free-stream
-Bernoulli pressure and carries no disk total-pressure jump, so the lattice
-axial balance cannot balance rotor thrust. Flux and other ledger columns stay;
-`F_NEAR_VISCOUS_N` remains available when the loads supply it.
+**The rotor's disk total-pressure rise.** On a rotor row (a power entry naming
+`rotor = ...`, or any `unsteady_rotor` or `qsteady_rotor` row, including an entry
+naming a frame) the exported probe pressure is the Bernoulli pressure of the probe
+velocity with the free-stream total pressure: inside the slipstream it lacks the
+total-pressure rise the blades add, so the lattice axial balance alone cannot
+balance the rotor thrust. The PFS-2165 measurement (G4SPLIT, 2026-10-26,
+FlightStream 26.124) found a pressure/Bernoulli integral ratio of approximately
+1.01053, pointwise residual at most 3.32605 Pa, and at 2 R a window momentum flux
+of 680.83791 N with a pressure contribution of -993.97923 N, giving -313.14132 N
+versus 646.7 N near-field thrust.
 
-The PFS-2165 measurement (G4SPLIT, 2026-10-26, "Full-plane split" and
-"Bernoulli test", FlightStream 26.124) found a pressure/Bernoulli integral
-ratio of approximately 1.01053 upstream and downstream, with pointwise residual
-at most 3.32605 Pa. At 2 R the window momentum flux was 680.83791 N and the
-pressure contribution was -993.97923 N, giving -313.14132 N versus 646.7 N
-near-field thrust. No disk total-pressure rise was evident in the probes.
-These are measurements of the exported field, not a correction to its pressure.
+Post reconstructs the rise from the rotor's own blade sectional loads, never from
+the probe swirl:
+
+1. The loads of each blade distribution cut in a blade frame (`LOCAL_AXIS`) or the
+   rotor frame (`<ALIAS>_RMRP`), in planes containing the shaft: the force density
+   along the shaft is the blade's axial force, the other in-plane density its
+   tangential force, `Offset` the radius. The blades are averaged, the result is
+   summed over the rotor's blade count (periodic copies included) and turned to
+   the loading on the fluid, `dT/dr` and `dQ/dr`. On an unsteady row the per-step
+   exports of the averaging window are averaged when they cover it; otherwise the
+   final export is read.
+2. Per annulus,
+
+        dp0(r_d) = (dT/dr) / (2 pi r_d) + rho v_theta^2 / 2
+        v_theta  = (dQ/dr) / (rho v_a 2 pi r_d^2)
+
+   with `v_a` the azimuthal mean axial velocity of the mapping station at `r_d`
+   (for an ideal rotor the swirl term equals the Euler form
+   `Omega (dQ/dr) / (2 pi r v_a)` written as a static jump plus swirl), the loading
+   interpolated linearly between strip centres and zero outside the strip edges.
+3. The mapping station is the first lattice station behind the blades' axial
+   reach (the largest axial quarter-chord coordinate plus the chord). Each ring
+   of that station and of every station behind it is mapped to its disk radius
+   `r_d` by equal mass flow (the azimuthal mean of `rho u` integrated from the
+   innermost ring edge), the mapping station's radius standing for the disk's.
+4. The corrected pressure is `p' + dp0(r_d)`. Upstream of the blades `dp0 = 0`; a
+   station cut by the blades (`|x/R|` within their reach) is `NA`, never
+   extrapolated.
+
+The corrected columns are written beside the uncorrected ones, which stay:
+`P_PRIME_CORRECTION_N` (the integral of `dp0` over the station),
+`AXIAL_FLUX_CORRECTED_N` and `FX_CORRECTED_N` in the ledgers, and
+`P_TOTAL_CORRECTED_W` and `ETA_FF_CORRECTED` on the D row (the same channels on
+the corrected pressure, `T` the corrected axial force). G4 (`SPURIOUS_COUNTS`) and
+`F_NEAR_N` on a rotor row compare the near field with the corrected axial balance.
+These columns appear only in a table where a rotor row carries them, before
+`STATUS`; a table of rows without a rotor keeps its columns and bytes.
+
+Where the row exported no usable blade loads, `SPURIOUS_COUNTS` and `F_NEAR_N` are
+`NA` in the instant and averaged ledgers with a named skip saying why, and the
+corrected columns are absent. Flux and other ledger columns stay;
+`F_NEAR_VISCOUS_N` remains available when the loads supply it. In the ideal
+actuator disk (uniform or smooth loading, exported pressure the Bernoulli
+pressure) the corrected axial balance returns the thrust at every far-wake
+station; at a station close behind the disk the one-dimensional model the
+correction assumes leaves the static pressure outside the slipstream out.
 
 A wing with no rotor keeps G4. It compares like with like: `F_near` is the inviscid near-field axial force,
 written as `F_NEAR_N`. The total projection minus `F_NEAR_VISCOUS_N` gives
@@ -591,10 +715,11 @@ far-field shape within that declaration and `count` retains its shape count;
 | analysis | needs | when declared | when not declared |
 |---|---|---|---|
 | A | a section distribution over each family, planes XZ, reference axes; the sectional loads export | reused | added: frame `MRP`, plane XZ, 80 stations per side |
-| B | the VTK export with the wake | reused | the wake switched on in the VTK export, the export added if the row has none |
+| B, W | the VTK export with the wake | reused | the wake switched on in the VTK export, the export added if the row has none; on `unsteady_rotor` under `"avg_window"`, also at every window step |
 | C | the configuration plane; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
 | D | the entry's survey lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | the stated lattice is laid as probe points |
 | balances | the lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
+| D and balances on a rotor row | the blade sectional loads for the disk total-pressure rise | reused (a distribution in a blade or rotor frame) | `unsteady_rotor`: one distribution per blade in its own frame, 50 stations, and the sectional loads export (per step over the window under `"avg_window"`); other rotor rows: `not_applicable` with a WARNING, G4 stays `NA` |
 
 **Which declaration is reused.** A declared plane or lattice is the far field's when
 its points after layout are the far field's own (same frame, every coordinate equal
@@ -640,16 +765,20 @@ named skip. Steady and quasi-steady rotor scripts retain their analysis route.
 | row | A | B | C | balances |
 |---|---|---|---|---|
 | steady, fixed wing | yes | yes | yes | yes |
-| steady rotor | nonrotor families | no | configuration plane | yes |
-| `unsteady_rotor` | nonrotor families | no | configuration plane, instant and average | instant and average |
-| `qsteady_rotor` | no | no | refused; select D | yes, in the hub frame |
+| steady rotor | nonrotor families | nonrotor lines; W per rotor | configuration plane | yes |
+| `unsteady_rotor` | nonrotor families | nonrotor lines; W per rotor; instant and average | configuration plane, instant and average | instant and average |
+| `qsteady_rotor` | no, warned and skipped | no, warned and skipped | configuration plane, in the hub frame | yes, in the hub frame |
 | unsteady, fixed wing | yes | no | instant and average | instant and average |
 | coupled FSI, steady | the coupled distribution | yes | refused (no probes) | refused (no probes) |
 
 A refuses any selection, including selector words, that resolves to a rotor
 block's blade or general families. The refusal names the rotor and families
-and points to the reference aliases for lifting surfaces. A on `qsteady_rotor`
-is refused. On unsteady rows A writes the end-of-run sectional trace as instant;
+and points to the reference aliases for lifting surfaces. A and B on a
+`qsteady_rotor` row are not applicable, never refused: that row holds an
+isolated rotor, with no lifting surface outside it, so the plan states each
+entry `not_applicable` with a WARNING naming the entry and stays ready, and
+post names the skip. One pproc thus serves the `unsteady_rotor` row that
+carries the lifting surfaces and the `qsteady_rotor` row of its rotor. On unsteady rows A writes the end-of-run sectional trace as instant;
 its average computes each step's trace before averaging. Missing per-step
 sectional exports produce a named average skip in the manifest and `post.log`.
 For A, `export_type = "avg_window"` requests the stamped sectional-load

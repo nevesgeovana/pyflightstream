@@ -39,7 +39,7 @@ from pyflightstream.script import (
     Script,
 )
 
-from ._farfield import farfield_outputs, farfield_sections
+from ._farfield import farfield_blade_sections, farfield_outputs, farfield_sections
 from ._frames import (
     _pproc_frame,
 )
@@ -487,6 +487,7 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
     """Emit the declared section distributions, then the one the far field adds (FR-1046)."""
     _declared_sections(case, script, frames)
     farfield_sections(case, script, frames)
+    farfield_blade_sections(case, script, frames)
 
 
 def _declared_sections(case: SimCase, script: Script, frames: Frames) -> None:

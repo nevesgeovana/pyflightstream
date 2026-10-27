@@ -17,7 +17,12 @@ from pydantic import ValidationError
 import pyflightstream.farfield as ff
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._retired_names import RETIRED_ATTRIBUTES
-from pyflightstream.cases import CampaignConfigError, PprocSpec, ReferenceData
+from pyflightstream.cases import (
+    CampaignConfigError,
+    PprocSpec,
+    ReferenceData,
+    SectionDistribution,
+)
 from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape
 from pyflightstream.cases.farfield_inputs import FarfieldResolution, applies, resolve_farfield
 from pyflightstream.cases.workflows import build_script, row_outputs
@@ -523,16 +528,13 @@ def _p0450_rotor_case(root, entries, run_type="unsteady_rotor"):
 
 @pytest.mark.parametrize("run_type", ["unsteady_rotor", "qsteady_rotor"])
 def test_p0450_d1_rotor_plane_plans_or_names_power(tmp_path, run_type):
+    # P0470-FFR: a qsteady_rotor row lays its plane too; post converts it to the hub frame.
     case = _p0450_rotor_case(tmp_path, [{"variant": "plane", "spacing_bref": 0.25}], run_type)
-    if run_type == "qsteady_rotor":
-        with pytest.raises(CampaignConfigError, match="power"):
-            _farfield_plan___script(case)
-    else:
-        script = _farfield_plan___script(case)
-        assert script.farfield_layout, "C on a rotor row must record its velocity plane"
-        assert script.farfield_layout[-1]["shapes"][0]["kind"] == "plane"
-        assert script.farfield_layout[-1]["shapes"][0]["count"] == 35
-        assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in script.render()
+    script = _farfield_plan___script(case)
+    assert script.farfield_layout, "C on a rotor row must record its velocity plane"
+    assert script.farfield_layout[-1]["shapes"][0]["kind"] == "plane"
+    assert script.farfield_layout[-1]["shapes"][0]["count"] == 35
+    assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in script.render()
 
 
 @pytest.mark.parametrize("selection", [["W"], "all", "each"])
@@ -552,11 +554,12 @@ def test_p0450_d3_sections_plan_nonrotor_wing(tmp_path):
 
 
 def test_p0450_d3_qsteady_sections_are_refused(tmp_path):
+    # P0470-FFR: no longer refused; the entry is not applicable and the plan cuts nothing.
     case = _p0450_rotor_case(
         tmp_path, [{"variant": "sections", "families": ["W"]}], "qsteady_rotor"
     )
-    with pytest.raises(CampaignConfigError, match="Trefftz A.*qsteady_rotor"):
-        _farfield_plan___script(case)
+    script = _farfield_plan___script(case)
+    assert "NEW_SURFACE_SECTION_DISTRIBUTION" not in script.render()
 
 
 def test_p0450_d2_windmilling_efficiency_is_na():
@@ -1885,3 +1888,149 @@ def test_p0450_d8_steady_policies_emit_identical_products(tmp_path, variant, val
     )
     text, _ = _ffproof_plan___built(changed)
     assert text == baseline
+
+
+# ----------------------------------------------------------------- P0470-FFR option 1a
+_P0470_FFR_POWER = {
+    "variant": "power",
+    "rotor": "ROTOR",
+    "balances": ["mass", "axial"],
+    "stations": [-1.0, 1.0],
+    "n_r": 4,
+    "n_psi": 16,
+    "m_max": 2,
+}
+
+
+@pytest.mark.requirement("FR-1046")
+@pytest.mark.parametrize("export_type", ["last_step", "avg_window"])
+def test_p0470_ffr_plan_adds_the_blade_loads_on_an_unsteady_rotor(tmp_path, export_type):
+    """P0470-FFR 1a: a rotor power entry gets one blade distribution in its frame and the loads."""
+    from pyflightstream.cases.workflows._farfield import (
+        farfield_export_windows,
+        farfield_resolution,
+    )
+
+    case = _p0450_rotor_case(tmp_path, [{**_P0470_FFR_POWER, "export_type": export_type}])
+    case = case.model_copy(update={"outputs": row_outputs(case, "unsteady_rotor")})
+    script = _farfield_plan___script(case)
+    blades = [block for block in script.section_blocks if block["frame"] == "ROTOR_RMRP1"]
+    assert blades, script.section_blocks
+    assert blades[0]["families"] == ["W"] and blades[0]["count"] == 50
+    assert any(str(name).endswith("_sloads.txt") for name in case.outputs)
+    resolution = farfield_resolution(case, script)
+    assert resolution is not None
+    states = {item.input: item.state for item in resolution.inputs}
+    assert states.get("blade_sectional_loads") == "added"
+    kinds = {kind for _first, _last, kind in farfield_export_windows(case)}
+    assert ("sectional_loads" in kinds) is (export_type == "avg_window")
+
+
+@pytest.mark.requirement("FR-1046")
+def test_p0470_ffr_plan_reuses_declared_blade_loads_and_warns_where_none(tmp_path):
+    """P0470-FFR 1a: a declared blade distribution is reused; a qsteady row without one warns."""
+    from pyflightstream.cases.workflows._farfield import blade_loads_state
+
+    case = _p0450_rotor_case(tmp_path, [_P0470_FFR_POWER], "qsteady_rotor")
+    spec = case.pproc.farfields[0]
+    state, reason = blade_loads_state(case, spec)
+    assert state == "not_applicable" and "LOCAL_AXIS" in reason
+    declared = case.pproc.model_copy(
+        update={
+            "sections": case.pproc.sections.model_copy(
+                update={
+                    "distributions": [
+                        SectionDistribution.model_validate(
+                            {"families": ["W"], "frame": "LOCAL_AXIS", "planes": ["XZ"]}
+                        )
+                    ]
+                }
+            )
+        }
+    )
+    state, _source = blade_loads_state(case.model_copy(update={"pproc": declared}), spec)
+    assert state == "reused"
+
+
+def _p0470_ffr_q___states(case, script) -> dict[str, set[str]]:
+    from pyflightstream.cases.workflows._farfield import plan_record
+
+    record = plan_record(case, script.version, script)
+    states: dict[str, set[str]] = {}
+    for item in cast("list[dict[str, str]]", record["inputs"]):
+        states.setdefault(item["analysis"], set()).add(item["state"])
+    return states
+
+
+@pytest.mark.requirement("FR-1059")
+def test_p0470_ffr_qsteady_plane_plans_ready(tmp_path):
+    """P0470-FFR-Q1: Trefftz C on a qsteady_rotor row is laid as on any rotor row, never refused.
+
+    The plane's probes are converted to the hub frame in post, as the lattice's are,
+    so the row's rotating free stream no longer bars C; the plan lays the plane.
+    """
+    assert applies("trefftz:plane", "qsteady_rotor") == ""
+    case = _p0450_rotor_case(
+        tmp_path, [{"variant": "plane", "spacing_bref": 0.25}], "qsteady_rotor"
+    )
+    script = _farfield_plan___script(case)
+    assert script.farfield_layout, "C on a qsteady_rotor row must record its velocity plane"
+    shape = script.farfield_layout[-1]["shapes"][0]
+    assert (shape["kind"], shape["count"]) == ("plane", 35)
+    states = _p0470_ffr_q___states(case, script)
+    assert states["trefftz:plane"] <= {"added", "reused"}
+
+
+@pytest.mark.requirement("FR-1059")
+def test_p0470_ffr_qsteady_sections_and_wake_warn_and_skip(tmp_path):
+    """P0470-FFR-Q2: A and B on a qsteady_rotor row are not applicable, warned, never refused.
+
+    A quasi-steady row holds an isolated rotor, so it has no non-rotor family for A
+    or B; the same pproc serves an unsteady row that carries the wing, so the plan
+    states both entries not applicable, warns, and stays ready beside the D entry.
+    """
+    entries = [
+        {"name": "wing", "variant": "sections", "families": ["Wing"]},
+        {"name": "wake", "variant": "wake"},
+        {"name": "rotor", "variant": "power", "rotor": "ROTOR", "stations": [1.0], "n_r": 2},
+    ]
+    case = _p0450_rotor_case(tmp_path, entries, "qsteady_rotor")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        script = _farfield_plan___script(case)
+        states = _p0470_ffr_q___states(case, script)
+    messages = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    assert any("'wing'" in m and "Trefftz A" in m and "qsteady_rotor" in m for m in messages)
+    assert any("'wake'" in m and "Trefftz B" in m and "qsteady_rotor" in m for m in messages)
+    assert states["trefftz:sections"] == {"not_applicable"}
+    assert states["trefftz:wake"] == {"not_applicable"}
+    assert "refused" not in set().union(*states.values())
+    assert "NEW_SURFACE_SECTION_DISTRIBUTION" not in script.render()
+
+
+@pytest.mark.requirement("FR-455")
+def test_p0470_ffr_a_rotor_wake_entry_switches_the_wake_on(tmp_path):
+    """P0470-FFR option 3: a wake entry on a rotor row exports the wake, final and per window step.
+
+    The same command and grammar as a wing row's (SET_VTK_EXPORT_VARIABLES ... ENABLE);
+    a rotor row without a wake entry keeps the wake off.
+    """
+    from pyflightstream.cases.workflows._clock import unsteady_export_threshold
+    from pyflightstream.cases.workflows._farfield import farfield_export_windows
+
+    entry = {"variant": "wake", "export_type": "avg_window"}
+    case = _p0450_rotor_case(tmp_path, [entry])
+    case = case.model_copy(update={"outputs": row_outputs(case, "unsteady_rotor")})
+    assert applies("trefftz:wake", "unsteady_rotor") == ""
+    assert any(name.endswith(".vtk") for name in case.outputs)
+    assert "SET_VTK_EXPORT_VARIABLES -1 ENABLE" in _farfield_plan___script(case).render()
+    windows = farfield_export_windows(case)
+    assert [kind for _first, _last, kind in windows] == ["vtk"]
+    threshold = unsteady_export_threshold(case, version="26.124")
+    assert threshold is not None
+    assert [text for _first, _last, text in threshold.farfield_windows]
+    texts = [text for *_, text in threshold.farfield_windows]
+    assert all("SET_VTK_EXPORT_VARIABLES -1 ENABLE" in text for text in texts)
+    (tmp_path / "plain").mkdir()
+    plain = _p0450_rotor_case(tmp_path / "plain", [{"variant": "plane", "spacing_bref": 0.25}])
+    assert "-1 ENABLE" not in _farfield_plan___script(plain).render()

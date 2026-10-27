@@ -71,6 +71,7 @@ from pyflightstream.farfield.trefftz import (
     PlaneDrag,
     RotorChannels,
     TraceResult,
+    WakeLoads,
     WakeTrace,
     bernoulli_residual,
     calibration_scale,
@@ -78,9 +79,11 @@ from pyflightstream.farfield.trefftz import (
     plane_lift,
     plane_vorticity_drag,
     rotor_channels,
+    rotor_wake_lines,
     trace_coefficients,
     trace_forces,
     wake_crossings,
+    wake_rotor_loads,
 )
 
 __all__ = [
@@ -95,6 +98,7 @@ __all__ = [
     "RotorChannels",
     "TraceResult",
     "TransverseForce",
+    "WakeLoads",
     "WakeTrace",
     "axial_flux",
     "axial_force",
@@ -120,6 +124,7 @@ __all__ = [
     "plane_vorticity_drag",
     "ring_sample_weights",
     "rotor_channels",
+    "rotor_wake_lines",
     "sample_area_coverage",
     "sample_coverage",
     "shaft_torque",
@@ -132,6 +137,7 @@ __all__ = [
     "transverse_flux",
     "transverse_force",
     "wake_crossings",
+    "wake_rotor_loads",
 ]
 
 

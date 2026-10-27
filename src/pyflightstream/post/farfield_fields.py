@@ -56,6 +56,8 @@ from pyflightstream.farfield import (
     transverse_flux,
     transverse_force,
 )
+from pyflightstream.farfield.balances import DiskLoading, disk_pressure_rise
+from pyflightstream.farfield.quadrature import plane_integral, strip_edges
 from pyflightstream.post._condition import recorded_blade_count
 from pyflightstream.post.axes import free_stream_in_export_frame
 from pyflightstream.probes.errors import ProbeGeometryError
@@ -68,12 +70,14 @@ if TYPE_CHECKING:
 
 __all__ = [
     "LEDGER_COLUMNS",
+    "ROTOR_LEDGER_COLUMNS",
     "FarLayout",
     "ProbeSamples",
     "average_rows",
     "axial_coefficient",
     "coordinate_tolerance",
     "derived_layout",
+    "disk_loading",
     "far_samples",
     "frame_lattice",
     "ledger_values",
@@ -169,6 +173,14 @@ LEDGER_COLUMNS: tuple[str, ...] = (
     "F_NEAR_VISCOUS_N",
     # PFS-2081.97: the point's solver termination status, as the sweep table writes it.
     "STATUS",
+)
+#: The ledger columns of the disk total-pressure correction (P0470-FFR option 1a), written
+#: before ``STATUS`` only in a table where a rotor row carries them, so a table of rows
+#: without a rotor keeps its columns.
+ROTOR_LEDGER_COLUMNS: tuple[str, ...] = (
+    "P_PRIME_CORRECTION_N",
+    "AXIAL_FLUX_CORRECTED_N",
+    "FX_CORRECTED_N",
 )
 #: The cyclic order carrying a lattice's own axes onto a frame whose axis letter
 #: is the shaft, as :func:`pyflightstream.probes.layouts.lattice_points` lays it.
@@ -776,6 +788,7 @@ def plane_values(
     grid: tuple[float, float, float],
     per_m: float,
     q_ref: float,
+    hub: tuple[float, np.ndarray, np.ndarray] | None = None,
 ) -> dict[str, float]:
     """Return the Trefftz C values of a wing's plane, in N and m.
 
@@ -798,6 +811,11 @@ def plane_values(
         Number of native simulation length units per metre.
     q_ref : float
         Recorded reference dynamic pressure in Pa, the basis of ``Cp_ref``.
+    hub : tuple, optional
+        The frame speed (rad/s, signed), axis and origin (m, reference frame) of
+        a quasi-steady rotor whose turning frame the probes were read in; the
+        velocities are converted to the hub frame first, as the lattice's are
+        (FR-1037). The static pressure is kept.
 
     Returns
     -------
@@ -837,7 +855,13 @@ def plane_values(
             "the probes before the lattice are not the plane the plan laid normal to this "
             "point's free stream"
         )
-    turned = samples.velocity[block] @ laid.axes.T
+    velocity = samples.velocity[block]
+    if hub is not None:
+        omega, shaft, origin = hub
+        velocity = hub_frame_velocities(
+            points, velocities=velocity, omega=omega, axis=shaft, origin=origin
+        )
+    turned = velocity @ laid.axes.T
     fields = {
         "u": turned[:, 0].reshape(shape),
         "v": turned[:, 1].reshape(shape),
@@ -905,8 +929,19 @@ def lattice_samples(
     return cylindrical_components(lattice_fields(lattice, fields=fields, lateral=lateral))
 
 
-def rotor_values(fields: LatticeFields, *, rho: float, speed: float, station: float) -> dict:
+def rotor_values(
+    fields: LatticeFields,
+    *,
+    rho: float,
+    speed: float,
+    station: float,
+    loading: DiskLoading | None = None,
+) -> dict:
     """Return the rotor channels of FR-1032 at one station, in W.
+
+    With the disk ``loading`` of a rotor row, ``P_TOTAL_CORRECTED_W`` and
+    ``ETA_FF_CORRECTED`` are the same channels on the pressure corrected by the
+    disk total-pressure rise (:func:`corrected_fields`); the uncorrected columns stay.
 
     Parameters
     ----------
@@ -920,6 +955,8 @@ def rotor_values(fields: LatticeFields, *, rho: float, speed: float, station: fl
         Free-stream speed in m/s.
     station : float
         Outlet station coordinate x/R.
+    loading : DiskLoading or None
+        The rotor's disk loading from its blade sectional loads, or None.
 
     Returns
     -------
@@ -927,7 +964,7 @@ def rotor_values(fields: LatticeFields, *, rho: float, speed: float, station: fl
         Rotor far-field product columns in the units named by their keys.
     """
     channels = rotor_channels(fields, rho=rho, v_inf=speed, station=station)
-    return {
+    out = {
         "P_AXIAL_W": channels.p_axial,
         "P_SWIRL_W": channels.p_swirl,
         "P_CROSSFLOW_W": channels.p_crossflow,
@@ -937,6 +974,113 @@ def rotor_values(fields: LatticeFields, *, rho: float, speed: float, station: fl
         "X_T_M": channels.station * float(fields.tip_radius),
         "N_TRACE": float(fields["u"].shape[-1] * fields["u"].shape[-2]),
     }
+    if loading is not None:
+        fixed = rotor_channels(
+            corrected_fields(fields, loading, rho=rho)[0], rho=rho, v_inf=speed, station=station
+        )
+        out["P_TOTAL_CORRECTED_W"] = fixed.p_total
+        out["ETA_FF_CORRECTED"] = fixed.eta_ff if fixed.thrust * speed > 0.0 else _NA
+    return out
+
+
+def corrected_fields(
+    fields: LatticeFields, loading: DiskLoading, *, rho: float
+) -> tuple[LatticeFields, np.ndarray]:
+    """Return the fields with the disk total-pressure rise added to ``p_prime``, and the rise.
+
+    The exported probe pressure is the Bernoulli pressure of the probe velocity with
+    the free-stream total pressure; inside the slipstream the rise the rotor adds
+    is :func:`~pyflightstream.farfield.balances.disk_pressure_rise` (P0470-FFR option 1a).
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey samples in the shaft-aligned axes, tip radius in metres.
+    loading : DiskLoading
+        The rotor's disk loading.
+    rho : float
+        Density in kg/m3.
+
+    Returns
+    -------
+    tuple[LatticeFields, numpy.ndarray]
+        The corrected fields and the rise in Pa, NaN on a station cut by the blades.
+    """
+    rise = disk_pressure_rise(fields, loading, rho=rho)
+    return fields.with_values(p_prime=fields["p_prime"] + rise), rise
+
+
+def disk_loading(
+    blocks: Sequence[tuple[np.ndarray, str]],
+    *,
+    shaft: str,
+    blades: int,
+    tip_radius_m: float,
+) -> DiskLoading | str:
+    """Return a rotor's disk loading from blade sectional loads, or why there is none.
+
+    ``blocks`` holds, per blade distribution (one family, one blade frame, already
+    averaged over the window where the row has one), the export rows (``Offset``,
+    ``Chord``, ``X_QC``, ``Z_QC``, ``Fx``, ``Fz``, ``Moment``) and the cut plane's two
+    letters. In a blade frame the shaft keeps its letter, so the force density along
+    the shaft letter is the blade's axial force and the other in-plane one its
+    tangential force; the span is the third letter and ``Offset`` the signed distance
+    along it. The blades are averaged and the loading is summed over ``blades``,
+    the force and torque on the fluid being opposite to those on the blades.
+
+    Parameters
+    ----------
+    blocks : sequence of (numpy.ndarray, str)
+        Rows and plane letters of each blade distribution.
+    shaft : str
+        The shaft letter of the blade frames.
+    blades : int
+        The rotor's blade count, periodic copies included.
+    tip_radius_m : float
+        The lattice tip radius in m, for the blades' axial reach in x/R.
+
+    Returns
+    -------
+    DiskLoading or str
+        The loading, or the reason it cannot be formed.
+    """
+    letters = "XYZ"
+    shaft = shaft.strip().upper()
+    usable = [(rows, plane) for rows, plane in blocks if shaft in plane and len(plane) == 2]
+    if not usable or blades < 1:
+        return (
+            "no blade sectional loads cut in planes containing the shaft of a blade frame "
+            "were exported"
+        )
+    radius = np.abs(usable[0][0][:, 0])
+    order = np.argsort(radius, kind="stable")
+    radius = radius[order]
+    thrust = np.zeros_like(radius)
+    torque = np.zeros_like(radius)
+    reach = 0.0
+    for rows, plane in usable:
+        first = plane[0] == shaft
+        tangential = plane[1] if first else plane[0]
+        span = next(letter for letter in letters if letter not in plane)
+        cyclic = (letters.index(tangential) - letters.index(span)) % 3 == 1
+        axial = rows[:, 4] if first else rows[:, 5]
+        force_t = rows[:, 5] if first else rows[:, 4]
+        moment = rows[:, 0] * force_t * (1.0 if cyclic else -1.0)
+        own = np.abs(rows[:, 0])
+        sort = np.argsort(own, kind="stable")
+        thrust += np.interp(radius, own[sort], axial[sort])
+        torque += np.interp(radius, own[sort], moment[sort])
+        position = rows[:, 2] if first else rows[:, 3]
+        reach = max(reach, float(np.max(np.abs(position) + rows[:, 1])))
+    scale_ = -float(blades) / len(usable)
+    edges = strip_edges(radius) if len(radius) > 1 else np.array([0.0, radius[0]])
+    return DiskLoading(
+        radius_m=radius,
+        edges_m=np.clip(edges, 0.0, None),
+        thrust_per_m=scale_ * thrust,
+        torque_per_m=scale_ * torque,
+        reach=reach / float(tip_radius_m),
+    )
 
 
 def _lateral(fields: LatticeFields, rho: float, inlet: float, outlet: float, c: str) -> float:
@@ -1002,6 +1146,7 @@ def ledger_values(
     viscous: float = _NA,
     excluded_orders: Sequence[int] = (),
     rotor: bool = False,
+    loading: DiskLoading | None = None,
 ) -> list[dict[str, float]]:
     """Return one mapping of ledger columns per lattice station (FR-38, FR-1056).
 
@@ -1031,7 +1176,12 @@ def ledger_values(
     rotor : bool
         Whether the row is a rotor recipe, even when the entry names a frame.
         Rotor entries and rows omit G4 and its near-force comparison because
-        probe pressure carries no disk total-pressure jump.
+        probe pressure carries no disk total-pressure jump, unless ``loading``
+        supplies it.
+    loading : DiskLoading or None
+        The rotor's disk loading (P0470-FFR option 1a): the corrected columns
+        are written and a rotor's G4 compares the near field with the corrected
+        axial balance.
 
     Returns
     -------
@@ -1060,6 +1210,10 @@ def ledger_values(
     coverage = sample_area_coverage(fields["u"], fields)
     far = float(flux[-1] - flux[0])
     compare = not (rotor or spec.rotor is not None)
+    fixed = _corrected_axial(fields, loading, rho, speed)
+    if fixed is not None:
+        far = float(fixed[0][-1] - fixed[0][0])
+        compare = True
     spurious = (
         spurious_diagnostic(near[0], far, rho_inf=rho, v_inf=speed, s_ref=near[1])
         if compare
@@ -1076,6 +1230,7 @@ def ledger_values(
             row["SPURIOUS_COUNTS"] = spurious
             row["F_NEAR_N"] = near[0] if compare else _NA
             row["F_NEAR_VISCOUS_N"] = viscous
+            row.update(_corrected_cells(fixed, index))
         if "torque" in chosen:
             row["TORQUE_NM"] = float(torque[index])
         if "crossflow_energy" in chosen:
@@ -1094,6 +1249,30 @@ def ledger_values(
                 row["FZ_PLANE_HARMONIC_N"] = float(fz_h[index] - fz_h[0])
         rows.append(row)
     return rows
+
+
+def _corrected_axial(
+    fields: LatticeFields, loading: DiskLoading | None, rho: float, speed: float
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """Return the corrected axial flux and the correction integral per station, or None."""
+    if loading is None:
+        return None
+    corrected, rise = corrected_fields(fields, loading, rho=rho)
+    return axial_flux(corrected, rho, speed), plane_integral(fields, rise)
+
+
+def _corrected_cells(fixed: tuple[np.ndarray, np.ndarray] | None, index: int) -> dict[str, float]:
+    """Return the corrected ledger cells of one station (P0470-FFR option 1a)."""
+    if fixed is None:
+        return {}
+    flux, correction = fixed
+    cells = {
+        "P_PRIME_CORRECTION_N": float(correction[index]),
+        "AXIAL_FLUX_CORRECTED_N": float(flux[index]),
+    }
+    if index:
+        cells["FX_CORRECTED_N"] = float(flux[index] - flux[0])
+    return cells
 
 
 def _control_volume(fields: LatticeFields, chosen: set, rho: float, speed: float, outlet: float):

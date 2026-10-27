@@ -7,6 +7,47 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- The far-field axial balance closes on rotor rows: post reconstructs the disk
+  total-pressure rise from the rotor's own blade sectional loads, maps the lattice
+  stations to the disk by equal mass flow and writes `P_PRIME_CORRECTION_N`,
+  `AXIAL_FLUX_CORRECTED_N`, `FX_CORRECTED_N`, `P_TOTAL_CORRECTED_W` and
+  `ETA_FF_CORRECTED`; G4 (`SPURIOUS_COUNTS`) returns on rotor rows on the
+  corrected balance. The plan adds one distribution per blade in its own frame on
+  an `unsteady_rotor` row that declares none. Rows without a rotor keep their
+  tables. Migration: none; a rotor row without blade loads keeps the named G4 skip.
+
+- Trefftz C on `qsteady_rotor` rows: the plan lays the velocity plane, and post
+  converts its probe velocities to the hub frame as the survey lattice is
+  converted (`v_hub = v_probe + Omega x (x - x_hub)`, the row's signed speed)
+  before the crossflow energy, the vorticity drag, the Bernoulli residual and the
+  plane lift. A wheel solved at several clockings writes the C row of clocking 0
+  and names that as a skip; no clocking average is formed. Migration: a `plane`
+  entry on a `qsteady_rotor` row, refused before, now plans and writes its C row.
+
+- Rotor wake loads: a `variant = "wake"` far-field entry on a rotor row (steady
+  with a rotor speed, `unsteady_rotor`) writes one `VARIANT = W`
+  row per rotor with `T_WAKE_N` and `Q_WAKE_NM`, the Kutta-Joukowski thrust and
+  torque of the circulation its blades shed, with Biot-Savart induced velocities
+  from the same wake lines and no calibration to the near field, beside
+  `T_NEAR_N`, `Q_NEAR_NM` and their differences in counts. The plan switches the
+  wake on in the VTK export of such a row, and on `unsteady_rotor` under
+  `"avg_window"` at every window step. Tables of rows without a rotor keep their
+  columns. New core functions `pyflightstream.farfield.wake_rotor_loads` and
+  `rotor_wake_lines`, and the result type `WakeLoads`.
+- Trefftz B by family: on a row that holds a wing and a rotor, B traces only the
+  wake lines that leave the wing, told apart by where each line starts; an
+  isolated rotor's row writes no B row, with a named skip.
+
+### Changed
+
+- Trefftz A and B entries on a `qsteady_rotor` row are stated `not_applicable`
+  with a WARNING and skipped, never refused, so the plan stays ready and one
+  pproc serves the `unsteady_rotor` row that carries the lifting surfaces and the
+  `qsteady_rotor` row of its rotor. Post names both as skips. Migration: a pproc
+  whose A entry was refused on a quasi-steady row now plans; nothing to change.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added

@@ -681,3 +681,99 @@ def spurious_diagnostic(
         Near-field minus far-field force expressed in drag counts.
     """
     return to_counts(near_field - far_field, rho_inf=rho_inf, v_inf=v_inf, s_ref=s_ref)
+
+
+@dataclass(frozen=True)
+class DiskLoading:
+    """The annulus loading of a rotor disk, summed over its blades (P0470-FFR option 1a).
+
+    Attributes
+    ----------
+    radius_m : numpy.ndarray
+        Strip centres along the blade, distance from the shaft in m, increasing.
+    edges_m : numpy.ndarray
+        Strip edges in m, one more than the centres; outside them the loading is zero.
+    thrust_per_m : numpy.ndarray
+        ``dT/dr`` in N/m, the force the blades exert on the fluid along the lattice's
+        ``+x`` (downstream), summed over the blades.
+    torque_per_m : numpy.ndarray
+        ``dQ/dr`` in N m / m, the torque the blades exert on the fluid about the shaft,
+        summed over the blades; only its square enters the pressure rise.
+    reach : float
+        The blades' axial reach from the hub, x/R; a station with ``|x/R| <= reach`` is
+        cut by the blades.
+    """
+
+    radius_m: np.ndarray
+    edges_m: np.ndarray
+    thrust_per_m: np.ndarray
+    torque_per_m: np.ndarray
+    reach: float = 0.0
+
+
+def disk_pressure_rise(fields: LatticeFields, loading: DiskLoading, *, rho: float) -> np.ndarray:
+    """Total-pressure rise the disk adds at each lattice sample, in Pa (P0470-FFR option 1a).
+
+    Upstream of the blades the rise is zero. At the first station behind the
+    blades (the mapping station) and every station after it, each ring centre is
+    mapped to its disk radius ``r_d`` by equal mass flow (the azimuthal mean of
+    ``rho u`` integrated from the innermost ring edge), the mapping station's
+    radius standing for the disk's, and there
+
+        dp0(r_d)    = (dT/dr) / (2 pi r_d) + rho v_theta^2 / 2
+        v_theta     = (dQ/dr) / (rho v_a 2 pi r_d^2)
+
+    with ``v_a`` the mapping station's mean axial velocity at ``r_d`` and the
+    loading interpolated linearly between strip centres, zero outside the strip
+    edges. A station cut by the blades, and every downstream station when the
+    mapping station is not fully sampled, is NaN: never extrapolated.
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey samples with ``u``; the tip radius in metres.
+    loading : DiskLoading
+        The disk's annulus loading.
+    rho : float
+        Density in kg/m3.
+
+    Returns
+    -------
+    numpy.ndarray
+        The rise, shaped like ``fields["u"]``.
+    """
+    u = np.asarray(fields["u"], dtype=float)
+    rise = np.zeros_like(u)
+    tip = float(fields.tip_radius)
+    stations = np.asarray(fields.stations, dtype=float)
+    behind = np.flatnonzero(stations > loading.reach)
+    rise[np.abs(stations) <= loading.reach] = np.nan
+    if not len(behind):
+        return rise
+    edges = np.asarray(fields.ring_edges, dtype=float) * tip
+    centres = np.asarray(fields.ring_centers, dtype=float) * tip
+    mean = u.mean(axis=-1)
+    disk = mean[behind[0]]
+    if not (np.all(np.isfinite(disk)) and np.all(disk > 0.0)):
+        rise[behind] = np.nan
+        return rise
+    ring_mass = rho * np.pi * (edges[1:] ** 2 - edges[:-1] ** 2)
+    disk_edges = np.concatenate(([0.0], np.cumsum(disk * ring_mass)))
+    for index in behind:
+        flow = mean[index]
+        if not np.all(np.isfinite(flow)):
+            rise[index] = np.nan
+            continue
+        inner = np.concatenate(([0.0], np.cumsum(flow * ring_mass)))[:-1]
+        mass = inner + rho * np.pi * flow * (centres**2 - edges[:-1] ** 2)
+        ring = np.clip(np.searchsorted(disk_edges, mass, side="right") - 1, 0, len(disk) - 1)
+        squared = edges[ring] ** 2 + (mass - disk_edges[ring]) / (rho * np.pi * disk[ring])
+        r_d = np.sqrt(np.maximum(squared, 0.0))
+        inside = (r_d >= loading.edges_m[0]) & (r_d <= loading.edges_m[-1]) & (r_d > 0.0)
+        safe = np.where(inside, r_d, 1.0)
+        thrust = np.interp(safe, loading.radius_m, loading.thrust_per_m)
+        torque = np.interp(safe, loading.radius_m, loading.torque_per_m)
+        swirl = torque / (rho * disk[ring] * 2.0 * np.pi * safe**2)
+        value = thrust / (2.0 * np.pi * safe) + 0.5 * rho * swirl**2
+        rise[index] = np.where(inside, value, 0.0)[:, None]
+    return rise

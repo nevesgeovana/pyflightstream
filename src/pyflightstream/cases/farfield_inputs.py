@@ -62,7 +62,7 @@ class FarfieldInput:
         ``trefftz:sections``, ``trefftz:wake``, ``trefftz:plane`` or ``ledgers``.
     input : str
         What the analysis reads: ``section_distribution``,
-        ``sectional_loads_export``, ``vtk_export``, ``vtk_wake``,
+        ``sectional_loads_export``, ``blade_sectional_loads``, ``vtk_export``, ``vtk_wake``,
         ``probe_points`` or ``probe_export``.
     state : str
         One of :data:`FARFIELD_STATES`.
@@ -148,23 +148,25 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
     --------
     >>> applies('trefftz:sections', 'steady')
     ''
-    >>> bool(applies('trefftz:wake', 'unsteady_rotor'))
+    >>> bool(applies('trefftz:wake', 'unsteady'))
     True
     """
-    if analysis == "trefftz:plane" and run_type == "qsteady_rotor":
-        return (
-            "Trefftz C requires a uniform freestream; qsteady_rotor uses a rotating frame: "
-            'select "power"'
-        )
     if analysis == "trefftz:sections" and run_type == "qsteady_rotor":
         return (
             "Trefftz A on qsteady_rotor has no lifting surface outside the rotor: "
             "state the A entry on a steady or unsteady_rotor row that carries the lifting "
             'surfaces, or select "power" for the rotor on this row'
         )
+    if analysis == "trefftz:wake" and run_type == "qsteady_rotor":
+        return (
+            "Trefftz B on qsteady_rotor has no wake of a lifting surface outside the "
+            "rotor: B is traced on a steady row that carries the lifting surfaces"
+        )
     if analysis == "trefftz:wake":
+        # P0470-FFR: on a rotor row the wake gives the rotor's wake loads (VARIANT W)
+        # and B traces the lines of the other families, so the export is wanted.
         if rotor or run_type in ROTOR_RUN_TYPES:
-            return "a rotor's helical wake is not a streamwise sheet"
+            return ""
         if run_type in UNSTEADY_RUN_TYPES:
             return "variant B serves steady rows"
     return ""
@@ -252,6 +254,7 @@ def resolve_farfield(
     admits_probes: bool,
     has_command: Callable[[str], bool],
     rotor: bool = False,
+    blade_loads: tuple[str, str] = ("", ""),
 ) -> FarfieldResolution:
     """Resolve the inputs of every analysis ``spec`` selects for one row (FR-455).
 
@@ -280,6 +283,10 @@ def resolve_farfield(
         Whether the selected build's command database records a command.
     rotor : bool
         Whether a steady row's far field is a rotor's (FR-1059).
+    blade_loads : tuple of str
+        How a rotor row gets the blade sectional loads its disk total-pressure
+        correction reads (P0470-FFR): the state (``reused``, ``added`` or
+        ``not_applicable``) and its source or reason; empty without a rotor.
 
     Returns
     -------
@@ -294,8 +301,9 @@ def resolve_farfield(
         has_command=has_command,
         rotor=rotor or run_type in ROTOR_RUN_TYPES,
     )
-    if not selected_families:
-        for analysis in _analyses(spec):
+    applicable = [a for a in _analyses(spec) if not applies(a, run_type, rotor=rotor)]
+    if not selected_families and applicable:
+        for analysis in applicable:
             resolver.item(
                 analysis,
                 "families",
@@ -309,8 +317,9 @@ def resolve_farfield(
     for analysis in _analyses(spec):
         why = applies(analysis, run_type, rotor=rotor)
         if why:
-            state = "refused" if analysis != "trefftz:wake" else "not_applicable"
-            resolver.item(analysis, "run_type", state, reason=why)
+            # Owner rule of 2026-10-27: an analysis that does not apply to the row is
+            # warned and skipped, never refused, so one pproc serves every row type.
+            resolver.item(analysis, "run_type", "not_applicable", reason=why)
         elif analysis == "trefftz:sections":
             resolver.sections(analysis, selected_families, coupled)
         elif analysis == "trefftz:wake":
@@ -330,7 +339,14 @@ def resolve_farfield(
             reads_lattice = analysis in ("ledgers", "trefftz:power")
             declared = declares_lattice if reads_lattice else declares_plane
             resolver.probes(analysis, declared)
+            if reads_lattice and blade_loads[0] and analysis == _lattice_reader(spec):
+                resolver.blade_loads(analysis, *blade_loads)
     return FarfieldResolution(tuple(resolver.inputs))
+
+
+def _lattice_reader(spec: FarfieldSpec) -> str:
+    """Return the one analysis of an entry that states the blade loads input (P0470-FFR)."""
+    return "ledgers" if spec.balances else "trefftz:power"
 
 
 @dataclass
@@ -404,6 +420,15 @@ class _Resolver:
                 f"a distribution over {', '.join(missing)}, frame MRP, plane XZ, "
                 f"{stations} stations per side",
             )
+        self.export(analysis, "sectional_loads", "sectional_loads_export", True)
+
+    def blade_loads(self, analysis: str, state: str, text: str) -> None:
+        if state == "not_applicable":
+            self.item(analysis, "blade_sectional_loads", state, reason=text)
+            return
+        if self.lacks(analysis, "section_distribution"):
+            return
+        self.item(analysis, "blade_sectional_loads", state, text)
         self.export(analysis, "sectional_loads", "sectional_loads_export", True)
 
     def probes(self, analysis: str, declared: bool) -> None:

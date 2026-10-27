@@ -6424,6 +6424,16 @@
     },
     {
       "source": "pyflightstream.post.farfield_fields",
+      "target": "pyflightstream.farfield.balances",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_fields",
+      "target": "pyflightstream.farfield.quadrature",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_fields",
       "target": "pyflightstream.post._condition",
       "kind": "module"
     },
@@ -6479,12 +6489,27 @@
     },
     {
       "source": "pyflightstream.post.farfield_products",
+      "target": "pyflightstream.cases.qsteady",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_products",
       "target": "pyflightstream.cases.selection",
       "kind": "deferred"
     },
     {
       "source": "pyflightstream.post.farfield_products",
       "target": "pyflightstream.farfield",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_products",
+      "target": "pyflightstream.farfield.balances",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_products",
+      "target": "pyflightstream.post._condition",
       "kind": "module"
     },
     {
@@ -6516,6 +6541,11 @@
       "source": "pyflightstream.post.farfield_products",
       "target": "pyflightstream.post.polar",
       "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.post.farfield_products",
+      "target": "pyflightstream.post.rotor_table",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.post.farfield_products",

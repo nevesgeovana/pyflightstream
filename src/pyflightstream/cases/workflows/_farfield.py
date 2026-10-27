@@ -16,6 +16,10 @@ after layout, or, where ``[[farfields]]`` states no geometry, when it is the one
 declaration that qualifies; what is not declared is appended after every
 declared probe. Every chosen shape is recorded on the script for the run
 record, and post matches the exported positions to it (PFS-2081.56, .58).
+
+Size exemption: the emission of every far-field input stays beside the one
+resolution it follows (plane, lattice, sections, and the blade sections of a
+rotor's disk correction), so plan, script and record cannot disagree.
 """
 
 from __future__ import annotations
@@ -101,6 +105,9 @@ FARFIELD_PLOT_PARAMETERS: tuple[str, ...] = ("VX", "VY", "VZ", "CP_REF")
 #: The reference frame of the far-field fluid plots (frame 1, the global frame).
 _PLOT_FRAME = 1
 _SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
+#: The stations of the blade distribution the far field adds for a rotor's disk
+#: loading (P0470-FFR option 1a), as the rotor pproc of the PFS-2165 study cut them.
+_BLADE_STATIONS = 50
 _MESH_SUFFIXES = (".obj", ".stl")
 #: Two laid-out probe sets are one declaration when every coordinate agrees at
 #: the fifth decimal of the simulation's unit, the precision the script writes
@@ -141,10 +148,8 @@ def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
     if spec.balances:
         selected.append("ledgers")
     run_type, rotor = _run_type(case), _rotor(case)
-    if "trefftz:plane" in selected and run_type == "qsteady_rotor":
-        raise CampaignConfigError(applies("trefftz:plane", run_type))
-    if "trefftz:sections" in selected and run_type == "qsteady_rotor":
-        raise CampaignConfigError(applies("trefftz:sections", run_type))
+    # An analysis that does not apply to the row is skipped here and stated
+    # `not_applicable` by the plan (owner rule of 2026-10-27), never refused.
     return [analysis for analysis in selected if not applies(analysis, run_type, rotor=rotor)]
 
 
@@ -229,16 +234,7 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
     spec = _spec(case)
     if spec is None:
         return list(names)
-    analyses = _analyses(spec, case)
-    wanted: list[tuple[str, str, str]] = []
-    if "trefftz:sections" in analyses:
-        wanted.append(("sectional_loads", "{name}_sloads.txt", "trefftz:sections"))
-    if "trefftz:wake" in analyses:
-        wanted.append(("vtk", "{name}.vtk", "trefftz:wake"))
-    if needs_fresh_probes(case):
-        # FR-1052: the far field owns a conventional probe-points export,
-        # independent of the declared entries' sampling kinds.
-        wanted.append(("farfield_probes", "{name}_farfield_survey.txt", "trefftz:plane or ledgers"))
+    wanted = _wanted_exports(case, spec)
     out = list(names)
     present = classify_outputs(out)
     exports = dict(case.pproc.exports) if case.pproc is not None else {}
@@ -255,6 +251,24 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
             )
         out.append(template)
     return out
+
+
+def _wanted_exports(case: SimCase, spec: FarfieldSpec) -> list[tuple[str, str, str]]:
+    """Return the exports one entry reads: kind, file template and the analysis."""
+    analyses = _analyses(spec, case)
+    wanted: list[tuple[str, str, str]] = []
+    if "trefftz:sections" in analyses:
+        wanted.append(("sectional_loads", "{name}_sloads.txt", "trefftz:sections"))
+    elif blade_loads_state(case, spec)[0] in ("reused", "added"):
+        # P0470-FFR: the rotor's disk total-pressure correction reads the blade loads.
+        wanted.append(("sectional_loads", "{name}_sloads.txt", "the rotor disk correction"))
+    if "trefftz:wake" in analyses:
+        wanted.append(("vtk", "{name}.vtk", "trefftz:wake"))
+    if needs_fresh_probes(case):
+        # FR-1052: the far field owns a conventional probe-points export,
+        # independent of the declared entries' sampling kinds.
+        wanted.append(("farfield_probes", "{name}_farfield_survey.txt", "trefftz:plane or ledgers"))
+    return wanted
 
 
 def _selected(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> list[str]:
@@ -687,7 +701,9 @@ def _resolve(
         spec,
         run_type=_run_type(case),
         covered_families=_covered(case, inventory),
-        selected_families=_selected(case, spec, inventory),
+        # An entry the row does not apply to selects nothing: its families may be
+        # absent from this row's geometry (a wing on a quasi-steady rotor's pproc).
+        selected_families=_selected(case, spec, inventory) if _analyses(spec, case) else [],
         exports=dict(case.pproc.exports) if case.pproc is not None else {},
         declares_lattice=declares("lattice"),
         declares_plane=declares("plane"),
@@ -695,6 +711,7 @@ def _resolve(
         admits_probes=not (case.fsi is not None and _run_type(case) == "steady"),
         has_command=_command_test(view),
         rotor=_rotor(case),
+        blade_loads=blade_loads_state(case, spec),
     )
     return FarfieldResolution(
         tuple(replace(item, entry=spec.name, variant=spec.variant) for item in resolution.inputs)
@@ -743,10 +760,29 @@ def plan_record(case: SimCase, version: str, script: Script | None = None) -> di
     resolution = _resolve(case, inventory, view, shapes)
     if resolution is None:
         return {}
+    if script is not None and _run_type(case) == "qsteady_rotor":
+        _warn_not_applicable(case, resolution)
     record = resolution.as_record()
     if shapes:
         record["probes"] = [dict(shape) for shape in shapes]
     return record
+
+
+def _warn_not_applicable(case: SimCase, resolution: FarfieldResolution) -> None:
+    """Warn of each entry a quasi-steady row skips (owner rule of 2026-10-27).
+
+    A quasi-steady row holds an isolated rotor, so A and B have no family to
+    trace on it; the entries are skipped and the plan stays ready, so the same
+    pproc serves the unsteady row that carries the lifting surfaces.
+    """
+    for item in resolution.inputs:
+        if item.state == "not_applicable":
+            warn(
+                f"case {case.sim_id!r}: [[farfields]] entry {item.entry!r} is not applicable "
+                f"on this row and is skipped: {item.reason}",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
 
 
 def _refuse(case: SimCase, resolution: FarfieldResolution) -> None:
@@ -811,6 +847,109 @@ def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
             surfaces=1,
             surface_indices=[index],
         )
+
+
+def _blade_rotor(case: SimCase, spec: FarfieldSpec) -> tuple[str, Any] | None:
+    """Return the alias and block of the rotor a power entry's disk loading reads, or None."""
+    if spec.ledgers is None or not _rotor(case):
+        return None
+    alias = spec.ledgers.rotor
+    rotors = dict(case.rotors)
+    if alias is None:
+        if len(rotors) != 1:
+            return None
+        alias = next(iter(rotors))
+    block = rotors.get(alias)
+    return None if block is None else (str(alias), block)
+
+
+def _declares_blade_loads(case: SimCase) -> bool:
+    """Whether a declared distribution cuts the blades in a blade or rotor frame."""
+    if case.pproc is None:
+        return False
+    for entry in case.pproc.sections.distributions:
+        frame = entry.frame.strip().upper()
+        if frame in ("LOCAL_AXIS", "RMRP", "BLADE_AXIS") or frame.rsplit("_", 1)[-1].startswith(
+            "RMRP"
+        ):
+            return True
+    return False
+
+
+def blade_loads_state(case: SimCase, spec: FarfieldSpec) -> tuple[str, str]:
+    """Return how a rotor row gets the blade loads its disk correction reads (P0470-FFR).
+
+    ``("", "")`` for an entry that reads no rotor lattice; else the state
+    (``reused``, ``added`` or ``not_applicable``) and its source or reason.
+    """
+    found = _blade_rotor(case, spec)
+    if found is None:
+        return "", ""
+    alias, block = found
+    if _declares_blade_loads(case):
+        return "reused", "[sections] distributions in the blade frames"
+    if _run_type(case) == "unsteady_rotor" and block.families_blades:
+        return (
+            "added",
+            f"a distribution over each blade of {alias} in its own frame, "
+            f"{_BLADE_STATIONS} stations",
+        )
+    return (
+        "not_applicable",
+        f"a {_run_type(case)} row places no blade frames unless a distribution is declared; "
+        f'declare a [[sections.distributions]] entry with frame = "LOCAL_AXIS" over the '
+        f"blades, or G4 of the rotor stays NA (WARNING)",
+    )
+
+
+def farfield_blade_sections(case: SimCase, script: Script, frames: Any) -> None:
+    """Add one distribution per blade in its own frame for a rotor's disk loading (P0470-FFR)."""
+    done: set[str] = set()
+    for entry in _entry_cases(case) or [case]:
+        spec = _spec(entry)
+        if spec is None or not {"ledgers", "trefftz:power"} & set(_analyses(spec, entry)):
+            continue
+        state, reason = blade_loads_state(entry, spec)
+        if state == "not_applicable":
+            warn(f"case {case.sim_id!r}: {reason}", PyflightstreamWarning, stacklevel=2)
+        found = _blade_rotor(entry, spec)
+        if state != "added" or found is None or found[0] in done:
+            continue
+        alias, block = found
+        done.add(alias)
+        span = block.blade1.zero.lstrip("+-").upper()
+        plane = "".join(letter for letter in "XYZ" if letter != span)
+        sections = spec_sections(case)
+        args = {
+            arg.name for arg in script.registry.for_version(script.version)[_SECTION_COMMAND].args
+        }
+        inventory = set(_inventory(script))
+        for number, family in enumerate(block.families_blades, start=1):
+            frame = frames.get(f"{alias}_RMRP{number}")
+            if family not in inventory or not isinstance(frame, int):
+                continue
+            index = script.resolve_boundary(family, context="far-field blade section")
+            script.section_blocks.append(
+                {
+                    "distribution": max(len(sections.distributions), len(script.section_blocks))
+                    + 1,
+                    "distribution_families": [family],
+                    "families": [family],
+                    "plane": plane,
+                    "frame": f"{alias}_RMRP{number}",
+                    "count": _BLADE_STATIONS,
+                }
+            )
+            script.emit(
+                _SECTION_COMMAND,
+                frame=frame,
+                plane=plane,
+                num_sections=_BLADE_STATIONS,
+                plot_direction=str(sections.plot_direction),
+                **({"include_symmetry": "DISABLE"} if "include_symmetry" in args else {}),
+                surfaces=1,
+                surface_indices=[index],
+            )
 
 
 def spec_sections(case: SimCase) -> Any:
@@ -1331,7 +1470,7 @@ def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
     last_step = resumed[1] if resumed is not None else clock.time_iterations
     windows: dict[str, tuple[int, int]] = {}
     for entry in entries:
-        if entry.variant == "wake":
+        if entry.variant == "wake" and not _rotor(case):
             continue
         variables = (
             {"LAST_REVS_AVG": entry.last_revs}
@@ -1347,7 +1486,18 @@ def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: export_type avg_window needs an averaging window"
             )
-        kind = "sectional_loads" if entry.variant == "sections" else "farfield_probes"
-        previous = windows.get(kind, span)
-        windows[kind] = (min(previous[0], span[0]), span[1])
+        # P0470-FFR: a rotor row's wake entry exports the surface VTK, its wake on, per step.
+        kinds = [
+            {"sections": "sectional_loads", "wake": "vtk"}.get(entry.variant, "farfield_probes")
+        ]
+        if entry.variant == "power":
+            entry_case = case.model_copy(
+                update={"pproc": case.pproc.model_copy(update={"farfields": [entry]})}
+            )
+            if blade_loads_state(entry_case, entry)[0] in ("reused", "added"):
+                # P0470-FFR: the disk correction averages the blade loads over the window.
+                kinds.append("sectional_loads")
+        for kind in kinds:
+            previous = windows.get(kind, span)
+            windows[kind] = (min(previous[0], span[0]), span[1])
     return tuple((first, last, kind) for kind, (first, last) in windows.items())

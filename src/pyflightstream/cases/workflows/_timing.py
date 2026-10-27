@@ -156,7 +156,9 @@ def march_strategy(
             )
         )
     if case.pproc is not None and any(
-        entry.export_type == "avg_window" and entry.variant != "wake"
+        # P0470-FFR: a rotor row's wake entry exports per window step as well.
+        entry.export_type == "avg_window"
+        and (entry.variant != "wake" or select_workflow(case) == "unsteady_rotor")
         for entry in case.pproc.farfields
     ):
         wanted.append(("the far-field averaging window", 'use export_type = "last_step"'))

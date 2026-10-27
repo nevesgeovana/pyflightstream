@@ -3423,3 +3423,453 @@ def test_p0450_d8_last_step_products_and_manifest(tmp_path, policy, variant):
     assert any(
         "export_type" in reason and policy in reason for reason in manifest["skipped"].values()
     )
+
+
+# ----------------------------------------------------------------- P0470-FFR option 1a
+_P0470_FFR_LEDGERS = (
+    "[[farfields]]\n"
+    'variant = "power"\n'
+    'rotor = "R"\n'
+    'balances = ["mass", "axial"]\n'
+    "stations = [-2.0, 0.0, 0.25, 2.0, 4.0]\n"
+    "n_r = 60\n"
+    "r_inner = 0.02\n"
+    "r_outer = 2.0\n"
+    "n_psi = 16\n"
+    "m_max = 2\n"
+)
+
+
+def _p0470_ffr_probe_export(points: np.ndarray, u: np.ndarray, cp_ref: np.ndarray) -> str:
+    """A steady probe-points export of ``points`` (m) with axial ``u`` and ``Cp_ref`` each."""
+    rows = "".join(
+        "     "
+        + ", ".join(f"{v: .9E}" for v in (*p, 0.1, c, s, 0.0, 0.0, s, 0.0))
+        + ", 0.0000E+00" * 6
+        + ",\n"
+        for p, s, c in zip(points, u, cp_ref, strict=True)
+    )
+    parts = _ffproof_post___probe_export(points, 1.0).split(_FFPROOF_POST___RULE)
+    parts[-2] = rows
+    return _FFPROOF_POST___RULE.join(parts)
+
+
+def _p0470_ffr_sloads(radius: np.ndarray, axial: np.ndarray) -> str:
+    """One blade's sectional loads cut in planes XZ of its frame: offsets along Y."""
+    head = _FFPROOF_POST__LOADS.split("     Surface,")[0].replace(
+        "Aerodynamic loads", "Surface Sectional Loads"
+    )
+    rows = "".join(
+        f"     {r: .9E}, 0.2000E-01, 0.0000E+00, 0.0000E+00, {f: .9E}, 0.0000E+00, 0.0000E+00,\n"
+        for r, f in zip(radius, axial, strict=True)
+    )
+    return (
+        head.rsplit(_FFPROOF_POST___RULE, 1)[0]
+        + f"     Number of Surface Sections:                 {len(radius)}\n"
+        + _FFPROOF_POST___RULE
+        + "     Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment\n"
+        + rows
+        + _FFPROOF_POST___RULE
+        + "     Force Units: Newtons\n     Moment Units: Newton-Meter\n"
+        + "     Software : Flightstream\n"
+    )
+
+
+@pytest.mark.requirement("FR-38")
+@pytest.mark.parametrize("loads", [True, False])
+def test_p0470_ffr_rotor_g4_reads_the_corrected_pressure(tmp_path, loads):
+    """P0470-FFR 1a: a rotor row with blade loads closes its axial balance and keeps G4."""
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_ffr_actuator
+
+    rho, speed, blades = _FFPROOF_POST___RHO, 68.058, 2
+    shape = LatticeShape.model_validate(
+        {
+            "frame": "MRP",
+            "tip_radius_m": 1.0,
+            "stations": [-2.0, 0.0, 0.25, 2.0, 4.0],
+            "n_r": 60,
+            "r_inner": 0.02,
+            "r_outer": 2.0,
+            "n_psi": 16,
+        }
+    )
+    lattice = shape.build(1.0)
+    fields, loading, thrust, _added = _p0470_ffr_actuator(v=speed, rho=rho, lattice=lattice)
+    points = lattice_points(lattice, axis="X")
+    # The synthetic field on the lattice's own sampling order: planes, then lateral rings.
+    planes = fields["u"].reshape(-1)
+    u = np.concatenate([planes, np.full(len(points) - len(planes), speed)])
+    p_prime = -0.5 * rho * (u * u - speed * speed)
+    q_ref = 0.5 * rho * speed * speed
+    files = {
+        f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _p0470_ffr_probe_export(
+            points, u, p_prime / q_ref
+        )
+    }
+    layout: list[dict[str, object]] = []
+    if loads:
+        files[f"{_FFPROOF_POST___STEM}_sloads.txt"] = _p0470_ffr_sloads(
+            loading.radius_m, -loading.thrust_per_m / blades
+        )
+        layout = [
+            {
+                "distribution": 1,
+                "distribution_families": ["Blade1"],
+                "families": ["Blade1"],
+                "plane": "XZ",
+                "frame": "R_RMRP1",
+                "count": len(loading.radius_m),
+            }
+        ]
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=_P0470_FFR_LEDGERS,
+        files=files,
+        reductions={"rotors": {"R": {"rpm": 2000.0, "blades": blades}}},
+    )
+    _ffproof_post___set_record(
+        workspace,
+        sections_layout=layout or None,
+        farfield_layout={
+            "shapes": [
+                {
+                    "kind": "lattice",
+                    "source": "added",
+                    "entry": None,
+                    "count": len(points),
+                    "axis": "X",
+                    "origin_m": [0.0, 0.0, 0.0],
+                    "positions_frame": "REFERENCE",
+                    "lattice": lattice.model_dump(mode="json"),
+                }
+            ]
+        },
+    )
+    _ffproof_post___post(workspace)
+    columns, rows = _ffproof_post___table(
+        _ffproof_post___one(workspace.root, "farfield/*_ledgers.csv")
+    )
+    skips = _ffproof_post___manifest(workspace.root)["skipped"]
+    named = [reason for key, reason in skips.items() if "SPURIOUS_COUNTS" in key]
+    if not loads:
+        # Without the blade loads the 0.46.0 table and its named skip stay.
+        assert columns == ["POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *LEDGER_COLUMNS]
+        assert all(row["SPURIOUS_COUNTS"] == "NA" for row in rows)
+        assert named and "no disk total-pressure jump" in named[0]
+        return
+    assert "FX_CORRECTED_N" in columns, columns
+    assert columns[-1] == "STATUS"
+    assert not named
+    by_station = {float(row["STATION_X_R"]): row for row in rows}
+    assert by_station[0.0]["FX_CORRECTED_N"] == "NA"
+    for station in (2.0, 4.0):
+        row = by_station[station]
+        assert float(row["FX_CORRECTED_N"]) == pytest.approx(thrust, rel=5e-3)
+        assert abs(float(row["FX_N"]) - thrust) > 0.2 * thrust
+        assert float(row["P_PRIME_CORRECTION_N"]) > 0.0
+    near = float(rows[-1]["F_NEAR_N"])
+    far = float(rows[-1]["FX_CORRECTED_N"])
+    expected = 2.0 * (near - far) / (rho * speed * speed * 50.0) * 1e4
+    assert float(rows[-1]["SPURIOUS_COUNTS"]) == pytest.approx(expected, rel=1e-6)
+
+
+_P0470_FFR_Q___RPM = 60.0
+
+
+def _p0470_ffr_q___turning(rpm: float) -> np.ndarray:
+    """The vortex-pair plane of the plane-lift fixture, sampled in a frame turning about X."""
+    omega = np.array([1.0, 0.0, 0.0]) * 2.0 * math.pi * rpm / 60.0
+    points = _RFIXF_PLANE_LIFT___PLANE.points
+    return _rfixf_plane_lift___crossflow(1.0) - np.cross(omega, points - _RFIXF_QSTEADY___HUB)
+
+
+def _p0470_ffr_q___post(tmp_path: Path, rpm: float) -> tuple[dict[str, str], Path]:
+    """Post a qsteady_rotor point whose C plane reads the turning frame."""
+    workspace = _rfixf_plane_lift__ffpost._ffproof_post___campaign(
+        tmp_path,
+        pproc=_RFIXF_PLANE_LIFT___TABLE,
+        recipe="qsteady_rotor",
+        files={
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
+                _RFIXF_PLANE_LIFT___PLANE.points, _p0470_ffr_q___turning(rpm)
+            ),
+            f"{_FFPROOF_POST___STEM}_qsteady.json": _rfixf_qsteady___quasi(rpm),
+        },
+    )
+    _rfixf_plane_lift__ffpost._ffproof_post___set_record(
+        workspace, farfield_layout=_RFIXF_PLANE_LIFT___LAYOUT
+    )
+    _rfixf_plane_lift__ffpost._ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    rows = [r for r in _rfixf_layout___rows(root, "farfield/*_trefftz.csv") if r["VARIANT"] == "C"]
+    assert len(rows) == 1, rows
+    return rows[0], root
+
+
+@pytest.mark.requirement("FR-1037")
+@pytest.mark.parametrize("rpm", [_P0470_FFR_Q___RPM, -_P0470_FFR_Q___RPM], ids=["right", "left"])
+def test_p0470_ffr_qsteady_plane_reads_the_hub_frame(tmp_path, rpm):
+    """P0470-FFR-Q3: a qsteady_rotor C plane is converted to the hub frame before Munk.
+
+    The plane samples a vortex pair whose crossflow energy and lift are known, read
+    in the frame that turns with the blades. Converted as D converts its lattice
+    (v_hub = v + Omega x (x - x_hub), the row's signed speed), the C row returns the
+    pair's own CDI_T and CL_T, those of the same field posted on a steady row; read
+    as sampled, the frame's swirl would dominate the crossflow energy.
+    """
+    expected, _ = _rfixf_plane_lift___post(tmp_path / "steady", 1.0)
+    row, _root = _p0470_ffr_q___post(tmp_path / "qsteady", rpm)
+    assert float(row["CDI_T"]) == pytest.approx(float(expected["CDI_T"]), rel=1e-3)
+    assert float(row["CL_T"]) == pytest.approx(float(expected["CL_T"]), rel=1e-3)
+    assert float(row["CDI_T_VORT"]) == pytest.approx(float(expected["CDI_T_VORT"]), rel=1e-3)
+    sampled = _rfixf_layout___export(_RFIXF_PLANE_LIFT___PLANE.points, _p0470_ffr_q___turning(rpm))
+    from pyflightstream.post.farfield_fields import steady_samples
+
+    raw = plane_values(
+        steady_samples(sampled),
+        slice(None),
+        flow=(_RFIXF_PLANE_LIFT___RHO, _RFIXF_PLANE_LIFT___SPEED, -2.0, 0.0),
+        grid=(10.0, 5.0, 0.25),
+        per_m=1.0,
+        q_ref=0.5 * _RFIXF_PLANE_LIFT___RHO * _RFIXF_PLANE_LIFT___SPEED**2,
+    )
+    q_s = 0.5 * _RFIXF_PLANE_LIFT___RHO * _RFIXF_PLANE_LIFT___SPEED**2 * _RFIXF_PLANE_LIFT___SREF
+    assert raw["D"] / q_s > 2.0 * float(expected["CDI_T"])
+
+
+@pytest.mark.requirement("FR-1059")
+def test_p0470_ffr_qsteady_sections_and_wake_are_named_skips(tmp_path):
+    """P0470-FFR-Q2: post names A and B as skips on a qsteady_rotor row and writes its C row."""
+    workspace = _rfixf_plane_lift__ffpost._ffproof_post___campaign(
+        tmp_path,
+        pproc=(
+            "[[farfields]]\n"
+            'name = "wing"\n'
+            'variant = "sections"\n'
+            'families = ["Wing"]\n'
+            "[[farfields]]\n"
+            'name = "wake"\n'
+            'variant = "wake"\n' + _RFIXF_PLANE_LIFT___TABLE
+        ),
+        recipe="qsteady_rotor",
+        files={
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
+                _RFIXF_PLANE_LIFT___PLANE.points, _p0470_ffr_q___turning(_P0470_FFR_Q___RPM)
+            ),
+            f"{_FFPROOF_POST___STEM}_qsteady.json": _rfixf_qsteady___quasi(_P0470_FFR_Q___RPM),
+        },
+    )
+    _rfixf_plane_lift__ffpost._ffproof_post___set_record(
+        workspace, farfield_layout=_RFIXF_PLANE_LIFT___LAYOUT
+    )
+    _rfixf_plane_lift__ffpost._ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    skipped = str(_ffproof_post___manifest(root)["skipped"])
+    assert "trefftz:sections does not apply" in skipped and "Trefftz A" in skipped
+    assert "trefftz:wake does not apply" in skipped and "Trefftz B" in skipped
+    rows = _rfixf_layout___rows(root, "farfield/*_trefftz.csv")
+    assert [row["VARIANT"] for row in rows] == ["C"]
+
+
+@pytest.mark.requirement("FR-1037")
+def test_p0470_ffr_qsteady_wheel_plane_names_its_one_clocking(tmp_path):
+    """P0470-FFR-Q3: a wheel solved at several clockings says its C row is clocking 0's.
+
+    The plane is laid and exported with the point's full export set, at clocking 0
+    alone; the clocking average is not formed, so post writes the row and names
+    the limitation as a skip, never presenting one clocking as the average.
+    """
+    quasi = QsteadyRecord(
+        case="wheel",
+        rotor_alias="ROTOR",
+        blades=2,
+        rpm=_P0470_FFR_Q___RPM,
+        shaft_frame_axis="X",
+        hub_m=(0.5, 0.0, 0.0),
+        axis_vector=(1.0, 0.0, 0.0),
+        diameter_m=2.0,
+        families_general=(),
+        families_blades=("B1", "B2"),
+        blade1_azimuth_deg=0.0,
+        positions=(
+            QsteadyClocking(0, 0.0, 0.0, f"{_FFPROOF_POST___STEM}.txt"),
+            QsteadyClocking(1, 90.0, 90.0, f"{_FFPROOF_POST___STEM}_qs01.txt"),
+        ),
+        validity=None,
+    ).to_text()
+    workspace = _rfixf_plane_lift__ffpost._ffproof_post___campaign(
+        tmp_path,
+        pproc=_RFIXF_PLANE_LIFT___TABLE,
+        recipe="qsteady_rotor",
+        files={
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
+                _RFIXF_PLANE_LIFT___PLANE.points, _p0470_ffr_q___turning(_P0470_FFR_Q___RPM)
+            ),
+            f"{_FFPROOF_POST___STEM}_qsteady.json": quasi,
+        },
+    )
+    _rfixf_plane_lift__ffpost._ffproof_post___set_record(
+        workspace, farfield_layout=_RFIXF_PLANE_LIFT___LAYOUT
+    )
+    _rfixf_plane_lift__ffpost._ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    skipped = str(_ffproof_post___manifest(root)["skipped"])
+    assert "clocking 0" in skipped and "2 clockings" in skipped
+    rows = _rfixf_layout___rows(root, "farfield/*_trefftz.csv")
+    assert [row["VARIANT"] for row in rows] == ["C"]
+
+
+def _p0470_wake_vtk(lines: list[np.ndarray], values: np.ndarray) -> str:
+    """A wake export of chained two-point segments, one constant value per line."""
+    points, segments, cells = [], [], []
+    for line, value in zip(lines, values, strict=True):
+        start = len(points)
+        points += [tuple(node) for node in line]
+        segments += [(start + k, start + k + 1) for k in range(len(line) - 1)]
+        cells += [value] * (len(line) - 1)
+    return (
+        "# vtk DataFile Version 3.0\nwake\nASCII\nDATASET POLYDATA\n"
+        + f"POINTS {len(points)} float\n"
+        + "".join(f"{x:.9f} {y:.9f} {z:.9f}\n" for x, y, z in points)
+        + f"LINES {len(segments)} {3 * len(segments)}\n"
+        + "".join(f"2 {a} {b}\n" for a, b in segments)
+        + f"CELL_DATA {len(segments)}\nSCALARS Normalized_Vorticity float 1\n"
+        + "LOOKUP_TABLE default\n"
+        + "".join(f"{v:.9f}\n" for v in cells)
+    )
+
+
+def _p0470_wing_lines() -> tuple[list[np.ndarray], np.ndarray]:
+    nodes = np.linspace(-2.0, 2.0, 17)
+    centres = 0.5 * (nodes[:-1] + nodes[1:])
+    gamma = np.sqrt(1.0 - (centres / 2.0) ** 2)
+    shed = -np.diff(np.concatenate([[0.0], gamma, [0.0]]))
+    lines = [np.array([(1.0, y, 0.0), (15.0, y, 0.0), (30.0, y, 0.0)]) for y in nodes]
+    return lines, shed
+
+
+def _p0470_post_rotor_wake(root: Path, lines, values, *, rotor: bool):
+    """Post one steady point through the public far-field stage, a rotor row or a wing row."""
+    from pyflightstream.cases.reference_blocks import BladeDatum, RotorBlock
+
+    root.mkdir(exist_ok=True)
+    (root / "point_wakes.vtk").write_text(_p0470_wake_vtk(lines, values), encoding="utf-8")
+    (root / "point.fsm").write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n", "utf-8")
+    loads = replace(
+        parse_loads(_LITB_POST__LOADS), freestream_velocity_m_s=30.0, angle_of_attack_deg=0.0
+    )
+    loads.total["CL"] = 0.3
+    point = SimpleNamespace(
+        name="point",
+        loads=loads,
+        state=SimpleNamespace(density_kg_m3=1.225),
+        vorticity_selection=None,
+    )
+    block = RotorBlock(
+        alias="ROTOR",
+        x_m=3.0,
+        y_m=0.0,
+        z_m=2.0,
+        axis="X",
+        rpm_sign=1,
+        diameter_m=2.0,
+        families_general=[],
+        families_blades=["Blade1", "Blade2"],
+        blade1=BladeDatum(azimuth_deg=0.0, zero="Y"),
+    )
+    products: dict = {}
+
+    def target(path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    ctx = SimpleNamespace(
+        pproc=PprocSpec.model_validate({"farfields": [{"variant": "wake"}]}),
+        workspace=SimpleNamespace(sim_dir=lambda sim: root),
+        record_of={
+            "point": SimpleNamespace(
+                outputs=["point.vtk", "point.fsm"],
+                package_version="0.47.0",
+                recipe="steady",
+                reductions={"rotors": {"ROTOR": {"rpm": 1000.0, "blades": 2}}},
+            )
+        },
+        sim_id="1",
+        points=[point],
+        reference=ReferenceValues(4.0, 1.0, 4.0),
+        matrix_row=SimpleNamespace(variables={"RPM": "1000"} if rotor else {}),
+        live=SimpleNamespace(rotors={"ROTOR": block} if rotor else {}),
+        sources={"point": ["recorded"]},
+        skipped={},
+        out=root / "post",
+        table_name="point",
+        condition=lambda point: {},
+        target=target,
+        add=lambda path, entry: products.update({str(path): entry}),
+        farfield_super={},
+    )
+    farfield_products(ctx)
+    (path,) = list((root / "post" / "farfield").glob("*_trefftz.csv"))
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        return list(reader.fieldnames or []), list(reader), ctx
+
+
+@pytest.mark.requirement("FR-452")
+def test_p0470_ffr_a_rotor_row_writes_the_wake_loads_of_its_rotor(tmp_path):
+    """P0470-FFR option 3: VARIANT W carries T_WAKE_N and Q_WAKE_NM from the rotor's lines."""
+    from pyflightstream.farfield import wake_rotor_loads
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
+
+    radii = np.linspace(0.2, 1.0, 9)
+    gamma = 1.5 * np.sin(math.pi * (0.5 * (radii[:-1] + radii[1:]) - 0.2) / 0.8)
+    omega = 2.0 * math.pi * 1000.0 / 60.0
+    blade_lines, blade_values = _p0470_helical_wake(
+        2, gamma=gamma, radii=radii, v=30.0, omega=omega, turns=3.0
+    )
+    hub = np.array([3.0, 0.0, 2.0])
+    blade_lines = [line + hub for line in blade_lines]
+    wing, shed = _p0470_wing_lines()
+    columns, rows, ctx = _p0470_post_rotor_wake(
+        tmp_path, wing + blade_lines, np.concatenate([shed, blade_values]), rotor=True
+    )
+    (w_row,) = [row for row in rows if row["VARIANT"] == "W"]
+    expected = wake_rotor_loads(
+        blade_lines,
+        values=blade_values,
+        hub=hub,
+        axis=(1.0, 0.0, 0.0),
+        omega=omega,
+        v_axial=30.0,
+        rho=1.225,
+        blades=2,
+    )
+    assert w_row["FAMILY"] == "ROTOR"
+    assert float(w_row["T_WAKE_N"]) == pytest.approx(expected.thrust, rel=1e-6)
+    assert float(w_row["Q_WAKE_NM"]) == pytest.approx(expected.torque, rel=1e-6)
+    assert float(w_row["GAMMA_SCALE"]) == 1.0
+    assert int(float(w_row["N_TRACE"])) == len(blade_lines)
+    assert columns.index("T_WAKE_N") < columns.index("STATUS") == len(columns) - 1
+
+
+@pytest.mark.requirement("FR-452")
+def test_p0470_ffr_b_on_a_wing_and_rotor_row_traces_the_wing_lines_alone(tmp_path):
+    """P0470-FFR B by family: the B row of a wing beside a rotor is the wing's own trace."""
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
+
+    radii = np.linspace(0.2, 1.0, 9)
+    gamma = np.ones(8)
+    blade_lines, blade_values = _p0470_helical_wake(
+        2, gamma=gamma, radii=radii, v=30.0, omega=100.0, turns=3.0
+    )
+    blade_lines = [line + np.array([3.0, 0.0, 2.0]) for line in blade_lines]
+    wing, shed = _p0470_wing_lines()
+    _, mixed, _ = _p0470_post_rotor_wake(
+        tmp_path / "mixed", wing + blade_lines, np.concatenate([shed, blade_values]), rotor=True
+    )
+    columns, alone, _ = _p0470_post_rotor_wake(tmp_path / "alone", wing, shed, rotor=False)
+    (b_mixed,) = [row for row in mixed if row["VARIANT"] == "B"]
+    (b_alone,) = [row for row in alone if row["VARIANT"] == "B"]
+    for column in ("CL_T", "CDI_T", "E_T", "N_TRACE", "GAMMA_SCALE", "X_T_M"):
+        assert b_mixed[column] == b_alone[column], column
+    assert "T_WAKE_N" not in columns, "a table of rows without a rotor keeps its columns"

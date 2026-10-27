@@ -15,6 +15,7 @@ import sys
 import tomllib
 import warnings
 from argparse import Namespace
+from dataclasses import replace
 from inspect import Parameter, signature
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,6 +27,7 @@ import pytest
 from pydantic import ValidationError
 
 import pyflightstream.farfield as ff
+import pyflightstream.farfield.balances as ff_balances
 import tests.tier1_offline.test_regression_farfield_products as _rfixa_evidence__post
 import tests.tier1_offline.test_regression_farfield_products as _rfixa_evidence__wing
 import tests.tier1_offline.test_regression_farfield_products as _rfixa_wake__post
@@ -51,6 +53,7 @@ from pyflightstream.farfield import (
     WakeTrace,
     azimuthal_harmonics,
     calibration_scale,
+    cylindrical_components,
     grid_coverage,
     grid_integral,
     lattice_fields,
@@ -2936,3 +2939,244 @@ def test_last_probe_layout_helpers_refuse_counts_that_divide_by_zero():
     circle.points_radial = 1
     with pytest.raises(ProbeGeometryError, match="at least two radial stations"):
         circle_points(circle, scale=1.0)
+
+
+# ----------------------------------------------------------------- P0470-FFR option 1a
+#: The stations of the actuator-disk survey: inlet, one cut by the disk, the mapping
+#: station just behind it and two far-wake stations.
+_P0470_FFR_STATIONS = (-2.0, 0.0, 0.25, 2.0, 4.0)
+
+
+def _p0470_ffr_actuator(*, v=50.0, w0=6.0, rho=1.225, hub=0.1, torque=0.0, lattice=None):
+    """A smooth actuator-disk slipstream on a 1 m rotor, its disk loading and its thrust.
+
+    The disk adds ``w(r) = w0 sin(pi (r - hub) / (1 - hub))`` between hub and tip; per
+    annulus, momentum theory gives the far-wake velocity ``V + 2 w``, the loading
+    ``dT/dr = 4 pi r rho (V + w) w`` and the total-pressure rise
+    ``rho ((V + 2 w)^2 - V^2) / 2``. Upstream the field is the free stream, just behind
+    the disk it is the disk velocity on the disk radius, downstream it is the far wake,
+    each annulus carried to the radius that conserves its mass flow. The exported
+    pressure is the Bernoulli pressure with the free-stream total pressure.
+    """
+
+    def added(r):
+        s = (np.asarray(r, dtype=float) - hub) / (1.0 - hub)
+        return np.where((s > 0.0) & (s < 1.0), w0 * np.sin(np.pi * np.clip(s, 0.0, 1.0)), 0.0)
+
+    disk = np.linspace(0.0, 1.0, 40001)
+    a = v + added(disk)
+    wake = v + 2.0 * added(disk)
+    # rho u_w 2 pi r_w dr_w = rho v_a 2 pi r_d dr_d, so d(r_w^2) = (v_a / u_w) d(r_d^2).
+    squared = np.concatenate(
+        ([0.0], np.cumsum(np.diff(disk**2) * 0.5 * ((a / wake)[1:] + (a / wake)[:-1])))
+    )
+    thrust_density = 4.0 * np.pi * disk * rho * a * added(disk)
+    thrust = float(np.sum(np.diff(disk) * 0.5 * (thrust_density[1:] + thrust_density[:-1])))
+    lattice = lattice or build_lattice(
+        tip_radius=1.0,
+        stations=_P0470_FFR_STATIONS,
+        n_r=60,
+        r_inner=0.02,
+        r_outer=2.0,
+        n_psi=16,
+        lateral_radius=None,
+    )
+    radius = np.asarray(lattice.ring_centers, dtype=float)
+    u = np.full((len(_P0470_FFR_STATIONS), len(radius), lattice.n_psi), v)
+    for index, station in enumerate(_P0470_FFR_STATIONS):
+        if station < 0.0:
+            continue
+        if station <= 0.25:
+            profile = v + added(radius)
+        else:
+            inside = radius**2 <= squared[-1]
+            origin = np.interp(radius**2, squared, disk)
+            profile = np.where(inside, v + 2.0 * added(origin), v)
+        u[index] = profile[:, None]
+    p_prime = -0.5 * rho * (u * u - v * v)
+    zero = np.zeros_like(u)
+    fields = cylindrical_components(
+        lattice_fields(lattice, fields={"u": u, "v": zero, "w": zero, "p_prime": p_prime})
+    )
+    centres = hub + (np.arange(50) + 0.5) * (1.0 - hub) / 50
+    # The loading as plain arrays, so a caller states it in its own terms.
+    loading = SimpleNamespace(
+        radius_m=centres,
+        edges_m=ff.strip_edges(centres),
+        thrust_per_m=4.0 * np.pi * centres * rho * (v + added(centres)) * added(centres),
+        torque_per_m=np.full_like(centres, torque),
+        reach=0.05,
+    )
+    return fields, loading, thrust, added
+
+
+@pytest.mark.requirement("FR-38")
+def test_p0470_ffr_actuator_disk_closes_on_the_corrected_pressure():
+    """P0470-FFR 1a: the disk rise closes the axial balance of an ideal actuator disk."""
+    rho, v = 1.225, 50.0
+    fields, arrays, thrust, added = _p0470_ffr_actuator(v=v, rho=rho)
+    loading = ff_balances.DiskLoading(**vars(arrays))
+    rise = ff_balances.disk_pressure_rise(fields, loading, rho=rho)
+    flux = ff.axial_flux(fields.with_values(p_prime=fields["p_prime"] + rise), rho, v)
+    plain = ff.axial_flux(fields, rho, v)
+    # Upstream the exported pressure is already the field's: no rise.
+    assert np.all(rise[0] == 0.0)
+    # The station cut by the disk is NA, never extrapolated.
+    assert np.all(np.isnan(rise[1])) and math.isnan(flux[1])
+    # Just behind the disk the rise is the momentum-theory one, annulus by annulus.
+    radius = fields.ring_centers
+    inner = (radius > 0.2) & (radius < 0.95)
+    expected = 0.5 * rho * ((v + 2.0 * added(radius)) ** 2 - v * v)
+    assert rise[2, inner, 0] == pytest.approx(expected[inner], rel=5e-3)
+    assert np.all(rise[2, radius > 1.05] == 0.0)
+    for index in (3, 4):
+        assert flux[index] - flux[0] == pytest.approx(thrust, rel=5e-3)
+        # The exported pressure alone does not balance the thrust.
+        assert abs(plain[index] - plain[0] - thrust) > 0.2 * thrust
+
+
+@pytest.mark.requirement("FR-38")
+def test_p0470_ffr_swirl_term_is_from_the_torque():
+    """P0470-FFR 1a: the swirl term is rho v_theta^2 / 2, v_theta from dQ/dr and v_a."""
+    rho, v, torque = 1.225, 50.0, 30.0
+    fields, arrays, _thrust, _added = _p0470_ffr_actuator(v=v, rho=rho, torque=torque)
+    loading = ff_balances.DiskLoading(**vars(arrays))
+    without, _, _, _ = _p0470_ffr_actuator(v=v, rho=rho)
+    rise = ff_balances.disk_pressure_rise(fields, loading, rho=rho)
+    base = ff_balances.disk_pressure_rise(
+        without, replace(loading, torque_per_m=np.zeros_like(loading.torque_per_m)), rho=rho
+    )
+    ring = int(np.argmin(np.abs(fields.ring_centers - 0.6)))
+    r = float(fields.ring_centers[ring])
+    v_a = float(fields["u"][2, ring].mean())
+    swirl = torque / (rho * v_a * 2.0 * np.pi * r * r)
+    assert rise[2, ring, 0] - base[2, ring, 0] == pytest.approx(0.5 * rho * swirl**2, rel=1e-9)
+
+
+def _p0470_helical_wake(
+    blades: int, *, gamma: np.ndarray, radii: np.ndarray, v: float, omega: float, turns: float
+) -> tuple[list[np.ndarray], np.ndarray]:
+    """Lines shed by each trailing-edge node of a rotor at the origin turning about +x.
+
+    Each line is a helix that keeps the azimuth where it was shed: theta(x) =
+    theta_b - omega x / v, swept downstream at v. The value of line k is the
+    circulation it sheds, outer strip minus inner strip, the Trefftz B convention.
+    """
+    bound = np.concatenate([[0.0], gamma, [0.0]])
+    shed = np.diff(bound)
+    steps = int(36 * turns)
+    x = np.linspace(0.0, 2.0 * math.pi * turns * v / abs(omega), steps + 1)
+    lines, values = [], []
+    for blade in range(blades):
+        theta_b = 2.0 * math.pi * blade / blades
+        for radius, value in zip(radii, shed, strict=True):
+            theta = theta_b - omega * x / v
+            # e1 = +y, e2 = +x cross e1 = +z: the azimuth of the core's hub axes.
+            lines.append(np.column_stack([x, radius * np.cos(theta), radius * np.sin(theta)]))
+            values.append(value)
+    return lines, np.asarray(values)
+
+
+def _p0470_segment_velocity(point: np.ndarray, head: np.ndarray, tail: np.ndarray, g: float):
+    """A straight filament's velocity by the angle form, u = g / (4 pi h) (cos a - cos b) e."""
+    along = tail - head
+    length = float(np.linalg.norm(along))
+    unit = along / length
+    foot = head + float((point - head) @ unit) * unit
+    h_vector = point - foot
+    h = float(np.linalg.norm(h_vector))
+    if h < 1e-12:
+        return np.zeros(3)
+    cos_a = float((point - head) @ unit) / float(np.linalg.norm(point - head))
+    cos_b = float((point - tail) @ unit) / float(np.linalg.norm(point - tail))
+    direction = np.cross(unit, h_vector / h)
+    return g / (4.0 * math.pi * h) * (cos_a - cos_b) * direction
+
+
+@pytest.mark.requirement("FR-452")
+def test_p0470_ffr_a_helical_wake_returns_its_kutta_joukowski_thrust_and_torque():
+    """P0470-FFR option 3: T_w and Q_w of a synthetic helical wake of known Gamma(r).
+
+    The reference sums rho Gamma (Omega r - w_t) dr and rho Gamma (V + w_a) r dr over
+    every blade with the KNOWN strip circulation and the induced velocity of the
+    known filaments (strength Gamma_in - Gamma_out along each line), by the angle
+    form of a straight filament, coded here apart from the core.
+    """
+    blades, rho, v, omega = 3, 1.225, 20.0, 120.0
+    radii = np.linspace(0.2, 1.0, 9)
+    mids = 0.5 * (radii[:-1] + radii[1:])
+    gamma = 2.0 * np.sin(math.pi * (mids - 0.2) / 0.8) + 0.3
+    lines, values = _p0470_helical_wake(
+        blades, gamma=gamma, radii=radii, v=v, omega=omega, turns=6.0
+    )
+    loads = ff.wake_rotor_loads(
+        lines,
+        values=values,
+        hub=(0.0, 0.0, 0.0),
+        axis=(1.0, 0.0, 0.0),
+        omega=omega,
+        v_axial=v,
+        rho=rho,
+        blades=blades,
+    )
+    thrust = torque = 0.0
+    strengths = -np.diff(np.concatenate([[0.0], gamma, [0.0]]))
+    for blade in range(blades):
+        theta_b = 2.0 * math.pi * blade / blades
+        for j, g in enumerate(gamma):
+            point = 0.5 * (lines[blade * len(radii) + j][0] + lines[blade * len(radii) + j + 1][0])
+            w = np.zeros(3)
+            for line, strength in zip(lines, np.tile(strengths, blades), strict=True):
+                for head, tail in zip(line[:-1], line[1:], strict=True):
+                    w += _p0470_segment_velocity(point, head, tail, strength)
+            e_r = np.array([0.0, math.cos(theta_b), math.sin(theta_b)])
+            e_t = np.cross([1.0, 0.0, 0.0], e_r)
+            radius = float(np.linalg.norm(point[1:]))
+            dr = radii[j + 1] - radii[j]
+            thrust += rho * g * (omega * radius - float(w @ e_t)) * dr
+            torque += rho * g * (v + float(w[0])) * radius * dr
+    assert loads.blades == blades
+    assert loads.lines == len(lines)
+    assert loads.thrust == pytest.approx(thrust, rel=0.01)
+    assert loads.torque == pytest.approx(torque, rel=0.01)
+    # The induction is in the answer: without it the thrust is larger by more than 1 percent.
+    bare = blades * rho * float(np.sum(gamma * omega * mids * np.diff(radii)))
+    assert abs(bare - loads.thrust) > 0.01 * abs(bare)
+
+
+@pytest.mark.requirement("FR-452")
+def test_p0470_ffr_a_periodic_sector_wake_is_copied_to_the_whole_rotor():
+    """P0470-FFR option 3: one meshed blade of three gives the loads of the three."""
+    radii = np.linspace(0.2, 1.0, 7)
+    mids = 0.5 * (radii[:-1] + radii[1:])
+    gamma = 1.0 + 0.0 * mids
+    kwargs = {
+        "hub": (0.0, 0.0, 0.0),
+        "axis": (1.0, 0.0, 0.0),
+        "omega": 100.0,
+        "v_axial": 15.0,
+        "rho": 1.2,
+        "blades": 3,
+    }
+    lines, values = _p0470_helical_wake(3, gamma=gamma, radii=radii, v=15.0, omega=100.0, turns=4)
+    whole = ff.wake_rotor_loads(lines, values=values, **kwargs)
+    one = ff.wake_rotor_loads(lines[: len(radii)], values=values[: len(radii)], **kwargs)
+    assert one.blades == 3 and one.lines == len(radii)
+    assert one.thrust == pytest.approx(whole.thrust, rel=1e-9)
+    assert one.torque == pytest.approx(whole.torque, rel=1e-9)
+
+
+@pytest.mark.requirement("FR-452")
+def test_p0470_ffr_a_mixed_export_assigns_every_line_once():
+    """P0470-FFR B by family: rotor lines start in the disk near the hub plane, the rest is wing."""
+    radii = np.linspace(0.2, 1.0, 5)
+    gamma = np.ones(4)
+    rotor, _ = _p0470_helical_wake(2, gamma=gamma, radii=radii, v=10.0, omega=80.0, turns=2)
+    hub = np.array([2.0, 0.0, 0.0])
+    rotor = [line + hub for line in rotor]
+    span = np.linspace(-4.0, 4.0, 17)
+    wing = [
+        np.column_stack([np.linspace(1.0, 9.0, 20), np.full(20, y), np.zeros(20)]) for y in span
+    ]
+    mask = ff.rotor_wake_lines(wing + rotor, hub=hub, axis=(1.0, 0.0, 0.0), radius=1.0, reach=0.25)
+    assert mask.tolist() == [False] * len(wing) + [True] * len(rotor)
