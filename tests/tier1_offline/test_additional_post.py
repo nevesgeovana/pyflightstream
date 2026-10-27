@@ -12,8 +12,8 @@ by a test on its link:
 * a row stating the key plans READY and renders the bytes it renders without
   it, and the plan refuses, by name, what a reopened simulation cannot give:
   an artifact the library lacks, probes (RPT-062), a march-only table, a
-  LEGACY row, a build other than 26.124; it warns that an unsteady row's
-  extraction is one instant;
+  build other than 26.124; a LEGACY row warns and skips the key, and an unsteady row's
+  extraction warns that it is one instant;
 * the extraction script opens the saved file and never solves, saves, creates
   a frame or a probe; it cites the frames the run created and computes the
   sectional loads every time; one golden per pproc kind pins its bytes;
@@ -334,7 +334,7 @@ def test_g12_an_additional_pproc_that_asks_what_a_reopened_file_cannot_give_is_r
     assert named in str(refused.value), str(refused.value)
 
 
-def test_g12_the_key_on_a_legacy_row_is_refused(tmp_path):
+def test_g12_the_key_on_a_legacy_row_is_warned_and_skipped(tmp_path):
     """A LEGACY recipe's frames are its own, so nothing can say which one a distribution cites.
 
     P0471: the key is skipped on that row, warned once,
@@ -1667,3 +1667,23 @@ def test_p0420_the_unchanged_record_of_a_run_with_sections_is_ready(tmp_path):
     plans, records = extract(workspace, matrix, a_stub(tmp_path))
     assert not [plan for plan in plans if plan.reason == "NO_SECTIONS_LAYOUT"], plans
     assert len(records) == 2
+
+
+def test_p0470_r2_legacy_skip_is_independent_of_shared_pproc(tmp_path):
+    """P0470-R2: a run-type row resolving p002 cannot enable it on a LEGACY row."""
+    workspace, matrix = a_recorded_campaign(tmp_path, values="0.0")
+    text = matrix.read_text(encoding="utf-8")
+    row = text.splitlines()[-1]
+    legacy = row.replace(" | steady | ", " | LEGACY | ")
+    legacy = legacy.replace(
+        f"{KEY}: p002", f"{KEY}: p002 / RECIPE: 003 / OUTPUTS: loads_{{point}}.txt"
+    )
+    assert legacy != row
+    other = row.replace("3207 |", "3208 |", 1)
+    matrix.write_text(text.replace(row, legacy + "\n" + other), encoding="utf-8")
+    with pytest.warns(PyflightstreamWarning, match="LEGACY rows"):
+        plans = additional_post().plan_additional_post(
+            matrix, workspace, default_fs_version=BUILD, recipes=RECIPES
+        )
+    assert len(plans) == 1
+    assert plans[0].reason == AdditionalSkip.LEGACY_ROW, plans[0]
