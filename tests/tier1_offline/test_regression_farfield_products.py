@@ -4189,3 +4189,36 @@ def test_p0470_r2_repeated_blade_cuts_do_not_add_blades(tmp_path):
     assert float(repeated[-1]["P_PRIME_CORRECTION_N"]) == pytest.approx(
         float(single[-1]["P_PRIME_CORRECTION_N"])
     )
+
+
+@pytest.mark.parametrize(
+    "relative,stale,current",
+    [
+        (
+            "docs/definitions/the-far-field-family.md",
+            "final loads export on every window step",
+            "each window step's own loads export",
+        ),
+        (
+            "docs/pproc-artifact.md",
+            "with the other policies and on steady rows",
+            "warned and skipped on rows that cannot sample the window",
+        ),
+        (
+            "src/pyflightstream/post/input_template.py",
+            "Select this artifact only for an unsteady row",
+            "Rows without an unsteady march warn and skip these entries",
+        ),
+        (
+            "CHANGELOG.md",
+            "The far-field axial balance closes on rotor rows",
+            "The far-field axial balance gains a disk-pressure correction on rotor rows",
+        ),
+    ],
+)
+def test_p0470_r2_public_guidance_matches_merged_behavior(relative, stale, current):
+    """P0470-R2: the guides describe step loads, reusable pprocs and a limited correction."""
+    text = (Path(__file__).resolve().parents[2] / relative).read_text(encoding="utf-8")
+    folded = " ".join(text.split())
+    assert stale not in folded, relative
+    assert current in folded, relative

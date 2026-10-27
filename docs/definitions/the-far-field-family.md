@@ -313,7 +313,8 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   row holds an isolated rotor and no other family, so its wake entry, B and W
   alike, is not applicable: warned at plan and a named skip in post. A line leaves a rotor when its first node lies within 1.02 tip radii
   of that rotor's axis and within 0.25 tip radii of its hub plane; every other
-  line is the wing's, and each line is assigned once. A row whose every line
+  line is assigned to the wing. This geometric selection cannot establish
+  unique ownership where rotor selection regions overlap. A row whose every line
   leaves a rotor writes no B row, with a named skip. On a row without a rotor B
   reads every line, as before. On `unsteady_rotor`, B is written for the last
   step and, under `"avg_window"`, averaged over the window steps.
@@ -327,8 +328,15 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
 
 **Selection and input.** A `variant = "wake"` entry on a rotor row also writes,
 per rotor of the reference, one row with `VARIANT = W` and `FAMILY` the rotor
-alias, from the lines that leave that rotor (the start-node rule of
-[Trefftz B](#trefftz-b)), in metres, about the rotor's hub and axis `e_a`.
+alias, from the lines selected by that rotor's start-node region (the rule of
+[Trefftz B](#trefftz-b)), in metres, about the rotor's hub and axis `e_a`. This
+spatial selection is not a verified trailing-edge family map: overlapping rotor
+regions or nearby wing trailing edges can make membership ambiguous.
+
+A rotor wake lattice is read as trailing filaments, one line per spanwise
+station from the trailing-edge row. The shed segments connecting stations are
+left out. Each connected lattice represents one blade, and its count supplies
+a lower bound on the recorded blade count before periodic completion.
 
 **Bound circulation.** The lines of one rotor are split into blades at the
 azimuth gaps of their first nodes wider than half a blade passage, and each
@@ -364,14 +372,16 @@ scaled by `PERIODIC_COPIES` on a `SYMMETRY PERIODIC` row without
     DQ_WAKE_COUNTS = 1e4 (Q_WAKE_NM - Q_NEAR_NM) / (q SREF BREF)
 
 with `q` on the free stream. At hover the counts are `NA`; dimensional wake
-loads remain available. On an unsteady row the near field is that of the
-final loads export on every window step.
+loads remain available. An average uses each window step's own loads export.
+Missing step loads warn and leave that step's near-field comparisons unavailable;
+the dimensional wake loads remain available.
 
 **The scale is raw.** The values are read as the circulation itself:
 `GAMMA_SCALE` is 1 and nothing is calibrated to the near field, which would
-make the comparison a tautology. The scale and sign of the exported value on a
-rotor are the solver's undocumented ones; the licensed measurement of the
-0.47.0 rotor far field decides them.
+make the comparison a tautology. For the FlightStream 26.125 rotor lattice, the reader orients each trailing
+filament from its trailing-edge node and signs its value by the written segment
+direction. The recorded wake-convection comparison supports that sign; it does
+not establish load accuracy for every rotor or solver build.
 
 **Columns.** `T_WAKE_N`, `Q_WAKE_NM`, `T_NEAR_N`, `Q_NEAR_NM`,
 `DT_WAKE_COUNTS` and `DQ_WAKE_COUNTS` stand before `STATUS`, in a table where a

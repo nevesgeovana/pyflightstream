@@ -9,14 +9,17 @@ FlightStream versions.
 
 ### Added
 
-- The far-field axial balance closes on rotor rows: post reconstructs the disk
+- The far-field axial balance gains a disk-pressure correction on rotor rows:
+  post reconstructs the disk
   total-pressure rise from the rotor's own blade sectional loads, maps the lattice
   stations to the disk by equal mass flow and writes `P_PRIME_CORRECTION_N`,
   `AXIAL_FLUX_CORRECTED_N`, `FX_CORRECTED_N`, `P_TOTAL_CORRECTED_W` and
   `ETA_FF_CORRECTED`; G4 (`SPURIOUS_COUNTS`) returns on rotor rows on the
   corrected balance. The plan adds one distribution per blade in its own frame on
   an `unsteady_rotor` row that declares none. Rows without a rotor keep their
-  tables. Migration: none; a rotor row without blade loads keeps the named G4 skip.
+  tables. The correction is an experimental reconstruction, not a guarantee of
+  agreement with measured thrust. Migration: none; a rotor row without blade
+  loads keeps the named G4 skip.
 
 - Trefftz C on `qsteady_rotor` rows: the plan lays the velocity plane, and post
   converts its probe velocities to the hub frame as the survey lattice is
@@ -49,6 +52,11 @@ FlightStream versions.
   whose A entry was refused on a quasi-steady row now plans; nothing to change.
 
 ### Fixed
+
+- Rotor wake VTK lattices are read as trailing filaments, with the sign from
+  their written direction and the blade count from their connected lattices.
+  Shed cross-segments do not become extra wake lines.
+- Window loads exports are omitted when the row names no file for that kind.
 
 - The rotor symmetry floor uses the recorded periodic wheel count even when
   reductions record only the meshed blade count or no blade count.
