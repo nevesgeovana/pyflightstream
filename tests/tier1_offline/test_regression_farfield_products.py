@@ -3477,7 +3477,7 @@ def _p0470_ffr_sloads(radius: np.ndarray, axial: np.ndarray) -> str:
 
 @pytest.mark.requirement("FR-38")
 @pytest.mark.parametrize("loads", [True, False])
-def test_p0470_ffr_rotor_g4_reads_the_corrected_pressure(tmp_path, loads):
+def test_p0470_ffr_rotor_g4_reads_the_corrected_pressure(tmp_path, loads, recipe="steady"):
     """P0470-FFR 1a: a rotor row with blade loads closes its axial balance and keeps G4."""
     from tests.tier1_offline.test_regression_farfield_numerics import _p0470_ffr_actuator
 
@@ -3511,6 +3511,15 @@ def test_p0470_ffr_rotor_g4_reads_the_corrected_pressure(tmp_path, loads):
         files[f"{_FFPROOF_POST___STEM}_sloads.txt"] = _p0470_ffr_sloads(
             loading.radius_m, -loading.thrust_per_m / blades
         )
+        if recipe == "unsteady_rotor":
+            files.update(
+                {
+                    f"{_FFPROOF_POST___STEM}_sloads_iteration={step}.txt": _p0470_ffr_sloads(
+                        loading.radius_m, -2.0 * loading.thrust_per_m / blades
+                    )
+                    for step in range(5, 9)
+                }
+            )
         layout = [
             {
                 "distribution": 1,
@@ -3525,7 +3534,11 @@ def test_p0470_ffr_rotor_g4_reads_the_corrected_pressure(tmp_path, loads):
         tmp_path,
         pproc=_P0470_FFR_LEDGERS,
         files=files,
-        reductions={"rotors": {"R": {"rpm": 2000.0, "blades": blades}}},
+        recipe=recipe,
+        reductions={
+            **(_FFPROOF_POST___WINDOW if recipe == "unsteady_rotor" else {}),
+            "rotors": {"R": {"rpm": 2000.0, "blades": blades}},
+        },
     )
     _ffproof_post___set_record(
         workspace,
@@ -3546,8 +3559,9 @@ def test_p0470_ffr_rotor_g4_reads_the_corrected_pressure(tmp_path, loads):
         },
     )
     _ffproof_post___post(workspace)
+    suffix = "_instant" if recipe == "unsteady_rotor" else ""
     columns, rows = _ffproof_post___table(
-        _ffproof_post___one(workspace.root, "farfield/*_ledgers.csv")
+        _ffproof_post___one(workspace.root, f"farfield/*_ledgers{suffix}.csv")
     )
     skips = _ffproof_post___manifest(workspace.root)["skipped"]
     named = [reason for key, reason in skips.items() if "SPURIOUS_COUNTS" in key]
@@ -3750,7 +3764,7 @@ def _p0470_wing_lines() -> tuple[list[np.ndarray], np.ndarray]:
     return lines, shed
 
 
-def _p0470_post_rotor_wake(root: Path, lines, values, *, rotor: bool):
+def _p0470_post_rotor_wake(root: Path, lines, values, *, rotor: bool, speed=30.0, rotor_cl=None):
     """Post one steady point through the public far-field stage, a rotor row or a wing row."""
     from pyflightstream.cases.reference_blocks import BladeDatum, RotorBlock
 
@@ -3759,11 +3773,14 @@ def _p0470_post_rotor_wake(root: Path, lines, values, *, rotor: bool):
     (root / "point.fsm").write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n", "utf-8")
     loads = replace(
         parse_loads(_LITB_POST__LOADS),
-        freestream_velocity_m_s=30.0,
+        freestream_velocity_m_s=speed,
         angle_of_attack_deg=0.0,
         surfaces={"Wing": {"CL": 0.3}},
     )
     loads.total["CL"] = 0.3
+    if rotor_cl is not None:
+        loads.surfaces["Blade1"] = {"CL": rotor_cl}
+        loads.total["CL"] += rotor_cl
     point = SimpleNamespace(
         name="point",
         loads=loads,
@@ -3882,51 +3899,39 @@ def test_p0470_ffr_b_on_a_wing_and_rotor_row_traces_the_wing_lines_alone(tmp_pat
 
 def test_p0470_r1_wake_loads_at_hover_keep_dimensional_loads(tmp_path):
     """A zero free-stream normalization leaves counts NA without losing wake loads."""
-    from pyflightstream.post.farfield_products import _TREFFTZ_CELLS, _variant_w
     from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
 
     lines, values = _p0470_helical_wake(
         2, gamma=np.ones(4), radii=np.linspace(0.2, 1.0, 5), v=10, omega=100, turns=2
     )
     lines = [line + np.array([3.0, 0.0, 2.0]) for line in lines]
-    _, _, ctx = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=True)
-    point = ctx.points[0]
-    point.loads = replace(point.loads, freestream_velocity_m_s=0.0)
     try:
-        rows = _variant_w(ctx, point, tmp_path / "point_wakes.vtk")
+        columns, rows, _ = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=True, speed=0.0)
     except ZeroDivisionError:
         rows = []
     assert len(rows) == 1, "hover must retain its dimensional wake loads"
-    row = dict(zip(_TREFFTZ_CELLS, rows[0][3 + len(CONTEXT_COLUMNS) :], strict=True))
-    assert math.isfinite(row["T_WAKE_N"]) and math.isfinite(row["Q_WAKE_NM"])
-    assert math.isnan(row["DT_WAKE_COUNTS"]) and math.isnan(row["DQ_WAKE_COUNTS"])
+    row = rows[0]
+    assert math.isfinite(float(row["T_WAKE_N"])) and math.isfinite(float(row["Q_WAKE_NM"]))
+    assert "DT_WAKE_COUNTS" not in columns and "DQ_WAKE_COUNTS" not in columns
 
 
 def test_p0470_r2_wing_wake_calibration_excludes_rotor_lift(tmp_path):
     """Changing rotor lift cannot rescale an unchanged wing wake."""
-    from pyflightstream.post.farfield_products import _TREFFTZ_CELLS, _variant_b
-
     lines, values = _p0470_wing_lines()
-    _, _, ctx = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=True)
-    point = ctx.points[0]
     rows = []
-    for rotor_cl in (0.0, 0.6):
-        point.loads = replace(
-            point.loads,
-            total={**point.loads.total, "CL": 0.3 + rotor_cl},
-            surfaces={"Wing": {"CL": 0.3}, "Blade1": {"CL": rotor_cl}},
+    for index, rotor_cl in enumerate((0.0, 0.6)):
+        _, sample, _ = _p0470_post_rotor_wake(
+            tmp_path / str(index), lines, values, rotor=True, rotor_cl=rotor_cl
         )
-        (row,) = _variant_b(ctx, point, tmp_path / "point_wakes.vtk", rotor=True)
-        rows.append(dict(zip(_TREFFTZ_CELLS, row[3 + len(CONTEXT_COLUMNS) :], strict=True)))
+        (row,) = [row for row in sample if row["VARIANT"] == "B"]
+        rows.append(row)
     for column in ("CL_T", "CDI_T", "GAMMA_SCALE"):
-        assert rows[0][column] == pytest.approx(rows[1][column]), column
+        assert float(rows[0][column]) == pytest.approx(float(rows[1][column])), column
 
 
 @pytest.mark.parametrize("complete", [False, True])
 def test_p0470_r3_wake_average_keeps_rotor_identity(tmp_path, complete):
     """Equal row counts cannot make different rotors into samples of the same load."""
-    from pyflightstream.post._reduction_stage import _Tables
-    from pyflightstream.post.farfield_products import _wake_rotor_products
     from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
 
     lines, values = _p0470_helical_wake(
@@ -3951,44 +3956,20 @@ def test_p0470_r3_wake_average_keeps_rotor_identity(tmp_path, complete):
         (tmp_path / f"point_iteration={step}_wakes.vtk").write_text(
             _p0470_wake_vtk(own, values), encoding="utf-8"
         )
-    tables = _Tables()
-    _wake_rotor_products(ctx, ctx.points[0], tables, "unsteady_rotor")
-    assert bool(tables.rows.get("trefftz_average")) is complete
+    farfield_products(cast("Any", ctx))
+    assert bool(list((tmp_path / "post/farfield").glob("*_trefftz_average.csv"))) is complete
     if not complete:
         assert any("differ" in reason for reason in ctx.skipped.values())
 
 
 def test_p0470_r4_last_step_pressure_uses_final_blade_loads(tmp_path):
     """A row's averaging window must not replace the loads of its final instant."""
-    from pyflightstream.post.farfield_products import _blade_load_paths
+    test_p0470_ffr_rotor_g4_reads_the_corrected_pressure(tmp_path, True, recipe="unsteady_rotor")
 
-    final = tmp_path / "point_sloads.txt"
-    for name in (
-        "point_sloads.txt",
-        "point_sloads_iteration=1.txt",
-        "point_sloads_iteration=2.txt",
-    ):
-        (tmp_path / name).write_text("sectional loads", encoding="utf-8")
-    ctx = SimpleNamespace(
-        pproc=PprocSpec.model_validate(
-            {"farfields": [{"variant": "power", "rotor": "R", "stations": [-1, 1]}]}
-        ),
-        record_of={
-            "point": SimpleNamespace(
-                recipe="unsteady_rotor",
-                reductions={},
-                export_window=None,
-                stopped_at={"step": 2},
-                outputs=[final.name],
-            )
-        },
-        exports={"point": (final, None, None)},
-        point_windows={"point": (1, 2)},
-        workspace=SimpleNamespace(sim_dir=lambda sim: tmp_path),
-        sim_id="1",
-    )
-    assert _blade_load_paths(ctx, SimpleNamespace(name="point")) == [final]
-    assert _blade_load_paths(ctx, SimpleNamespace(name="point"), window=True) == [
-        tmp_path / "point_sloads_iteration=1.txt",
-        tmp_path / "point_sloads_iteration=2.txt",
-    ]
+
+def test_p0470_r5_public_source_describes_behavior_without_private_decisions():
+    """Public comments explain behavior without attributing private decisions."""
+    root = Path(__file__).resolve().parents[2] / "src/pyflightstream/cases"
+    for relative in ("farfield_inputs.py", "workflows/_farfield.py"):
+        text = (root / relative).read_text(encoding="utf-8")
+        assert "owner rule of" not in text.lower(), relative

@@ -149,7 +149,7 @@ def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
         selected.append("ledgers")
     run_type, rotor = _run_type(case), _rotor(case)
     # An analysis that does not apply to the row is skipped here and stated
-    # `not_applicable` by the plan (owner rule of 2026-10-27), never refused.
+    # `not_applicable` by the plan, never refused.
     return [analysis for analysis in selected if not applies(analysis, run_type, rotor=rotor)]
 
 
@@ -769,7 +769,7 @@ def plan_record(case: SimCase, version: str, script: Script | None = None) -> di
 
 
 def _warn_not_applicable(case: SimCase, resolution: FarfieldResolution) -> None:
-    """Warn of each entry a quasi-steady row skips (owner rule of 2026-10-27).
+    """Warn of each entry a quasi-steady row skips.
 
     A quasi-steady row holds an isolated rotor, so A and B have no family to
     trace on it; the entries are skipped and the plan stays ready, so the same

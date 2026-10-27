@@ -1332,6 +1332,41 @@ def _blade_load_paths(ctx: SimContext, point: PolarPoint, *, window: bool = Fals
     return paths
 
 
+def _probe_window(
+    ctx: SimContext,
+    point: PolarPoint,
+    probe: _Probe,
+    analyses: Sequence[str],
+    chosen: list[ff._Instant],
+) -> list[tuple[ff._Instant, dict[str, Any]]]:
+    """Reduce a complete probe window with its window-averaged blade loads."""
+    if not chosen:
+        return []
+    found = _disk_loading(ctx, point, probe, window=True)
+    loading = found if isinstance(found, DiskLoading) else None
+    near = (
+        ff._window_near_forces(ctx, point, chosen, probe.layout.axis)
+        if "ledgers" in analyses
+        else {}
+    )
+    return [
+        (
+            instant,
+            _instant_values(
+                ctx,
+                point,
+                instant,
+                probe,
+                analyses,
+                final=False,
+                near=near.get(ff._step(instant), (_NA, _NA)),
+                loading=loading,
+            ),
+        )
+        for instant in chosen
+    ]
+
+
 def _probe_point(
     ctx: SimContext,
     point: PolarPoint,
@@ -1364,30 +1399,7 @@ def _probe_point(
         return
     _skip_rotor_g4(ctx, point, analyses, found)
     try:
-        if chosen:
-            window_loading = _disk_loading(ctx, point, probe, window=True)
-            loading = window_loading if isinstance(window_loading, DiskLoading) else None
-        near = (
-            ff._window_near_forces(ctx, point, chosen, probe.layout.axis)
-            if "ledgers" in analyses
-            else {}
-        )
-        averaged = [
-            (
-                i,
-                _instant_values(
-                    ctx,
-                    point,
-                    i,
-                    probe,
-                    analyses,
-                    final=False,
-                    near=near.get(ff._step(i), (_NA, _NA)),
-                    loading=loading,
-                ),
-            )
-            for i in chosen
-        ]
+        averaged = _probe_window(ctx, point, probe, analyses, chosen)
     except PyflightstreamError as error:
         averaged = []
         _skip(
