@@ -45,11 +45,15 @@ from pyflightstream.farfield import (
     trace_forces,
     wake_crossings,
 )
+from pyflightstream.farfield.balances import DiskLoading
+from pyflightstream.post._condition import recorded_blade_count
 from pyflightstream.post._reduction_stage import _NA, _farfield_window, _flow, _hub, _layout, _Probe
 from pyflightstream.post._tables import CONTEXT_COLUMNS, context_row, write_csv_table
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
+    ROTOR_LEDGER_COLUMNS,
+    disk_loading,
     far_samples,
     lattice_samples,
     ledger_values,
@@ -111,6 +115,12 @@ TREFFTZ_COLUMNS: tuple[str, ...] = (
     # PFS-2081.97: the point's solver termination status, as the sweep table writes it.
     "STATUS",
 )
+#: The D columns of the disk total-pressure correction (P0470-FFR option 1a), written
+#: before ``STATUS`` only in a table where a rotor row carries them.
+_ROTOR_TREFFTZ_COLUMNS: tuple[str, ...] = ("P_TOTAL_CORRECTED_W", "ETA_FF_CORRECTED")
+#: Every cell a row is built with; :func:`_write` drops the rotor columns no row holds.
+_TREFFTZ_CELLS = (*TREFFTZ_COLUMNS[:-1], *_ROTOR_TREFFTZ_COLUMNS, TREFFTZ_COLUMNS[-1])
+_LEDGER_CELLS = (*LEDGER_COLUMNS[:-1], *ROTOR_LEDGER_COLUMNS, LEDGER_COLUMNS[-1])
 #: The columns of A's per-family and B's per-entry spanwise files (FR-1055).
 SPANWISE_COLUMNS: tuple[str, ...] = (
     "POL",
@@ -266,7 +276,7 @@ def _row(ctx: SimContext, point: PolarPoint, step: object, values: Mapping[str, 
         "STATUS": _status(ctx, point),
         **values,
     }
-    cells = (merged.get(column, _NA) for column in TREFFTZ_COLUMNS)
+    cells = (merged.get(column, _NA) for column in _TREFFTZ_CELLS)
     return (ctx.sim_id, _spec(ctx).name, step, *_context(ctx, point), *cells)
 
 
@@ -773,6 +783,7 @@ def _instant_values(
     *,
     final: bool = True,
     near: tuple[float, float] = (_NA, _NA),
+    loading: DiskLoading | None = None,
 ) -> dict[str, Any]:
     """Return the C values and the ledger rows of one instant, keyed by analysis.
 
@@ -820,7 +831,7 @@ def _instant_values(
     if "trefftz:power" in analyses:
         station = _trefftz(ctx).station
         station = float(lattice.stations[-1]) if station is None else float(station)
-        out["rotor"] = rotor_values(fields, rho=rho, speed=speed, station=station)
+        out["rotor"] = rotor_values(fields, rho=rho, speed=speed, station=station, loading=loading)
     if "ledgers" in analyses:
         near = ff._near_force(point, axis, ctx.reference.sref_m2) if final else near
         out["ledgers"] = ledger_values(
@@ -834,6 +845,7 @@ def _instant_values(
             excluded_orders=symmetry_excluded_orders(
                 _ledgers(ctx), ctx.record_of[point.name], getattr(ctx.live, "rotors", None) or {}
             ),
+            loading=loading,
         )
     return out
 
@@ -879,7 +891,7 @@ def _ledger_rows(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], 
                 _spec(ctx).name,
                 step,
                 *context,
-                *(cells.get(c, _NA) for c in LEDGER_COLUMNS),
+                *(cells.get(c, _NA) for c in _LEDGER_CELLS),
             )
         )
     return rows
@@ -903,21 +915,119 @@ def _last_and_window(
     return instants[0], []
 
 
-def _skip_rotor_g4(ctx: SimContext, point: PolarPoint, analyses: Sequence[str]) -> None:
+def _skip_rotor_g4(
+    ctx: SimContext, point: PolarPoint, analyses: Sequence[str], loading: object = None
+) -> None:
     """Name the rotor-pressure limitation without dropping any measured ledger flux."""
     if (
         "ledgers" in analyses
         and "axial" in _ledgers(ctx).balances
         and rotor_g4(_ledgers(ctx), ctx.record_of[point.name].recipe)
+        and not isinstance(loading, DiskLoading)
     ):
+        why = f" ({loading})" if isinstance(loading, str) else ""
         _skip(
             ctx,
             f"{FARFIELD_DIR}/ledgers#point={point.name}#SPURIOUS_COUNTS#F_NEAR_N",
             point.name,
             "G4 (SPURIOUS_COUNTS) and F_NEAR_N are NA on rotor rows: the probe pressure "
             "is the free-stream Bernoulli pressure and carries no disk total-pressure jump, "
-            "so the lattice axial balance cannot balance rotor thrust",
+            "so the lattice axial balance cannot balance rotor thrust, and the jump is "
+            f"reconstructed only from the blade sectional loads{why}",
         )
+
+
+def _blade_rows(
+    ctx: SimContext, point: PolarPoint, path: Path, alias: str | None
+) -> list[tuple[np.ndarray, str]]:
+    """Return the rows and plane of each blade distribution in a blade or rotor frame."""
+    record = ctx.record_of[point.name]
+    layout, _ = distributions_of(record, ctx.pproc)
+    report = parse_sectional_loads(Path(path).read_text(encoding="utf-8"))
+    frame = re.compile(rf"{re.escape(alias)}_RMRP\d*" if alias else r".+_RMRP\d*")
+    out, start = [], 0
+    for block in layout:
+        count = int(str(block["count"]))
+        rows = report.values[start : start + count]
+        start += count
+        names = [str(name) for name in cast("list[object]", block.get("families") or [])]
+        if (
+            len(names) == 1
+            and ctx.pproc.is_blade(names[0])
+            and frame.fullmatch(str(block.get("frame") or ""))
+        ):
+            out.append((rows, str(block.get("plane") or "").upper()))
+    return out
+
+
+def _disk_loading(ctx: SimContext, point: PolarPoint, probe: _Probe) -> DiskLoading | str | None:
+    """Return the rotor's disk loading from its blade sectional loads (P0470-FFR).
+
+    None on a row without a rotor; a reason where the loads are missing. On an
+    unsteady row the per-step exports of the averaging window are averaged when
+    they cover it; otherwise the final export is read.
+    """
+    record = ctx.record_of[point.name]
+    spec = _ledgers(ctx)
+    if not rotor_g4(spec, record.recipe) or probe.layout.lattice is None:
+        return None
+    alias = spec.rotor if spec is not None else None
+    paths = _blade_load_paths(ctx, point)
+    if not paths:
+        return "the point exported no blade sectional loads"
+    try:
+        samples = [_blade_rows(ctx, point, path, alias) for path in paths]
+    except (PyflightstreamError, OSError) as error:
+        return f"the blade sectional loads cannot be read: {error}"
+    if not samples[0] or any(len(sample) != len(samples[0]) for sample in samples):
+        return "no blade distribution in a blade or rotor frame was exported at every step"
+    blocks = [
+        (np.mean([sample[k][0] for sample in samples], axis=0), samples[0][k][1])
+        for k in range(len(samples[0]))
+    ]
+    rotor: Any = (getattr(ctx.live, "rotors", None) or {}).get(alias)
+    count = recorded_blade_count(
+        record, str(alias or ""), len(getattr(ctx.live, "rotors", {}) or {}) or 1
+    )
+    if count is None and rotor is not None:
+        count = len(getattr(rotor, "families_blades", ()) or ())
+    return disk_loading(
+        blocks,
+        shaft=_shaft_letter(probe.layout.axis, rotor),
+        blades=int(count or len(blocks)),
+        tip_radius_m=float(probe.layout.lattice.tip_radius),
+    )
+
+
+def _shaft_letter(axis: object, rotor: Any) -> str:
+    """Return the letter the shaft keeps in the blade frames."""
+    if isinstance(axis, str):
+        return axis.strip().upper()[-1]
+    if rotor is not None and getattr(rotor, "shaft", None):
+        return str(rotor.shaft).strip().upper()[-1]
+    return "XYZ"[int(np.argmax(np.abs(np.asarray(axis, dtype=float))))]
+
+
+def _blade_load_paths(ctx: SimContext, point: PolarPoint) -> list[Path]:
+    """Return the sectional-load exports to average: the window's steps, else the final one."""
+    record = ctx.record_of[point.name]
+    final = ctx.exports.get(point.name, (None, None, None))[0]
+    paths: list[Path] = [] if final is None else [Path(final)]
+    if str(record.recipe or "steady") not in UNSTEADY_RUN_TYPES:
+        return paths
+    last = ff._last_step(record)
+    try:
+        window, _ = _farfield_window(ctx, point, int(last) if isinstance(last, int | float) else 0)
+    except PyflightstreamError:
+        return paths
+    root = ctx.workspace.sim_dir(ctx.sim_id)
+    stamped = stamped_exports(
+        root, point.name, *(root / Path(name).parent for name in record.outputs)
+    ).get(("_sloads", "txt"), {})
+    steps = range(int(window[0]), int(window[1]) + 1) if window else range(0)
+    if steps and all(step in stamped for step in steps):
+        return [stamped[step] for step in steps]
+    return paths
 
 
 def _probe_point(
@@ -940,15 +1050,17 @@ def _probe_point(
     normal = unsteady and spec.export_type != "avg_window"
     try:
         probe = _locate(ctx, point, spec, rotor)
+        found = _disk_loading(ctx, point, probe)
+        loading = found if isinstance(found, DiskLoading) else None
         instants, why = _instants(ctx, point, unsteady)
         if why:
             raise PyflightstreamError(why)
         last, chosen = _last_and_window(ctx, point, instants, unsteady and not normal)
-        sets = [(last, _instant_values(ctx, point, last, probe, analyses))]
+        sets = [(last, _instant_values(ctx, point, last, probe, analyses, loading=loading))]
     except PyflightstreamError as error:
         _skip(ctx, key, point.name, f"the far-field probes cannot be read: {error}")
         return
-    _skip_rotor_g4(ctx, point, analyses)
+    _skip_rotor_g4(ctx, point, analyses, found)
     try:
         near = (
             ff._window_near_forces(ctx, point, chosen, probe.layout.axis)
@@ -966,6 +1078,7 @@ def _probe_point(
                     analyses,
                     final=False,
                     near=near.get(ff._step(i), (_NA, _NA)),
+                    loading=loading,
                 ),
             )
             for i in chosen
@@ -1129,7 +1242,7 @@ def farfield_products(ctx: SimContext) -> None:
         )
         _entry_products(selected, tables)
     _write(ctx, tables)
-    ctx.farfield_super.update(ff._super_cells(tables.super_rows(), TREFFTZ_COLUMNS))
+    ctx.farfield_super.update(ff._super_cells(tables.super_rows(), _TREFFTZ_CELLS))
 
 
 def _entry_products(ctx: SimContext, tables: ff._Tables) -> None:
@@ -1220,11 +1333,36 @@ def _spins(ctx: SimContext, record: object) -> bool:
     return any(str(name).upper() in ("RPM", "MOTIONS") for name in stated)
 
 
+def _held_columns(
+    cells: Sequence[str], optional: Sequence[str], rows: Sequence[tuple[object, ...]]
+) -> tuple[tuple[str, ...], list[tuple[object, ...]]]:
+    """Drop the optional rotor columns no row holds a finite value in (P0470-FFR).
+
+    A table of rows without a rotor keeps exactly the columns it had.
+    """
+    first = 3 + len(CONTEXT_COLUMNS)
+    drop = {
+        first + cells.index(name)
+        for name in optional
+        if not any(
+            isinstance(row[first + cells.index(name)], int | float)
+            and math.isfinite(float(cast("float", row[first + cells.index(name)])))
+            for row in rows
+        )
+    }
+    kept = tuple(name for index, name in enumerate(cells) if first + index not in drop)
+    return kept, [tuple(c for i, c in enumerate(row) if i not in drop) for row in rows]
+
+
 def _write(ctx: SimContext, tables: ff._Tables) -> None:
     variants = list(dict.fromkeys(entry.variant for entry in ctx.pproc.farfields))
     for suffix, rows in tables.rows.items():
         analysis = suffix.split("_")[0]
-        columns = TREFFTZ_COLUMNS if analysis == "trefftz" else LEDGER_COLUMNS
+        columns, rows = _held_columns(
+            _TREFFTZ_CELLS if analysis == "trefftz" else _LEDGER_CELLS,
+            _ROTOR_TREFFTZ_COLUMNS if analysis == "trefftz" else ROTOR_LEDGER_COLUMNS,
+            rows,
+        )
         # FR-1053: <group> is the stem of the simulation's polar tables, so
         # the far-field file sits beside its polars by name.
         group = sweep_file_stem(ctx.sim_id, ctx.table_name)

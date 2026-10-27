@@ -3423,3 +3423,151 @@ def test_p0450_d8_last_step_products_and_manifest(tmp_path, policy, variant):
     assert any(
         "export_type" in reason and policy in reason for reason in manifest["skipped"].values()
     )
+
+
+# ----------------------------------------------------------------- P0470-FFR option 1a
+_P0470_FFR_LEDGERS = (
+    "[[farfields]]\n"
+    'variant = "power"\n'
+    'rotor = "R"\n'
+    'balances = ["mass", "axial"]\n'
+    "stations = [-2.0, 0.0, 0.25, 2.0, 4.0]\n"
+    "n_r = 60\n"
+    "r_inner = 0.02\n"
+    "r_outer = 2.0\n"
+    "n_psi = 16\n"
+    "m_max = 2\n"
+)
+
+
+def _p0470_ffr_probe_export(points: np.ndarray, u: np.ndarray, cp_ref: np.ndarray) -> str:
+    """A steady probe-points export of ``points`` (m) with axial ``u`` and ``Cp_ref`` each."""
+    rows = "".join(
+        "     "
+        + ", ".join(f"{v: .9E}" for v in (*p, 0.1, c, s, 0.0, 0.0, s, 0.0))
+        + ", 0.0000E+00" * 6
+        + ",\n"
+        for p, s, c in zip(points, u, cp_ref, strict=True)
+    )
+    parts = _ffproof_post___probe_export(points, 1.0).split(_FFPROOF_POST___RULE)
+    parts[-2] = rows
+    return _FFPROOF_POST___RULE.join(parts)
+
+
+def _p0470_ffr_sloads(radius: np.ndarray, axial: np.ndarray) -> str:
+    """One blade's sectional loads cut in planes XZ of its frame: offsets along Y."""
+    head = _FFPROOF_POST__LOADS.split("     Surface,")[0].replace(
+        "Aerodynamic loads", "Surface Sectional Loads"
+    )
+    rows = "".join(
+        f"     {r: .9E}, 0.2000E-01, 0.0000E+00, 0.0000E+00, {f: .9E}, 0.0000E+00, 0.0000E+00,\n"
+        for r, f in zip(radius, axial, strict=True)
+    )
+    return (
+        head.rsplit(_FFPROOF_POST___RULE, 1)[0]
+        + f"     Number of Surface Sections:                 {len(radius)}\n"
+        + _FFPROOF_POST___RULE
+        + "     Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment\n"
+        + rows
+        + _FFPROOF_POST___RULE
+        + "     Force Units: Newtons\n     Moment Units: Newton-Meter\n"
+        + "     Software : Flightstream\n"
+    )
+
+
+@pytest.mark.requirement("FR-38")
+@pytest.mark.parametrize("loads", [True, False])
+def test_p0470_ffr_rotor_g4_reads_the_corrected_pressure(tmp_path, loads):
+    """P0470-FFR 1a: a rotor row with blade loads closes its axial balance and keeps G4."""
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_ffr_actuator
+
+    rho, speed, blades = _FFPROOF_POST___RHO, 68.058, 2
+    shape = LatticeShape.model_validate(
+        {
+            "frame": "MRP",
+            "tip_radius_m": 1.0,
+            "stations": [-2.0, 0.0, 0.25, 2.0, 4.0],
+            "n_r": 60,
+            "r_inner": 0.02,
+            "r_outer": 2.0,
+            "n_psi": 16,
+        }
+    )
+    lattice = shape.build(1.0)
+    fields, loading, thrust, _added = _p0470_ffr_actuator(v=speed, rho=rho, lattice=lattice)
+    points = lattice_points(lattice, axis="X")
+    # The synthetic field on the lattice's own sampling order: planes, then lateral rings.
+    planes = fields["u"].reshape(-1)
+    u = np.concatenate([planes, np.full(len(points) - len(planes), speed)])
+    p_prime = -0.5 * rho * (u * u - speed * speed)
+    q_ref = 0.5 * rho * speed * speed
+    files = {
+        f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _p0470_ffr_probe_export(
+            points, u, p_prime / q_ref
+        )
+    }
+    layout: list[dict[str, object]] = []
+    if loads:
+        files[f"{_FFPROOF_POST___STEM}_sloads.txt"] = _p0470_ffr_sloads(
+            loading.radius_m, -loading.thrust_per_m / blades
+        )
+        layout = [
+            {
+                "distribution": 1,
+                "distribution_families": ["Blade1"],
+                "families": ["Blade1"],
+                "plane": "XZ",
+                "frame": "R_RMRP1",
+                "count": len(loading.radius_m),
+            }
+        ]
+    workspace = _ffproof_post___campaign(
+        tmp_path,
+        pproc=_P0470_FFR_LEDGERS,
+        files=files,
+        reductions={"rotors": {"R": {"rpm": 2000.0, "blades": blades}}},
+    )
+    _ffproof_post___set_record(
+        workspace,
+        sections_layout=layout or None,
+        farfield_layout={
+            "shapes": [
+                {
+                    "kind": "lattice",
+                    "source": "added",
+                    "entry": None,
+                    "count": len(points),
+                    "axis": "X",
+                    "origin_m": [0.0, 0.0, 0.0],
+                    "positions_frame": "REFERENCE",
+                    "lattice": lattice.model_dump(mode="json"),
+                }
+            ]
+        },
+    )
+    _ffproof_post___post(workspace)
+    columns, rows = _ffproof_post___table(
+        _ffproof_post___one(workspace.root, "farfield/*_ledgers.csv")
+    )
+    skips = _ffproof_post___manifest(workspace.root)["skipped"]
+    named = [reason for key, reason in skips.items() if "SPURIOUS_COUNTS" in key]
+    if not loads:
+        # Without the blade loads the 0.46.0 table and its named skip stay.
+        assert columns == ["POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *LEDGER_COLUMNS]
+        assert all(row["SPURIOUS_COUNTS"] == "NA" for row in rows)
+        assert named and "no disk total-pressure jump" in named[0]
+        return
+    assert "FX_CORRECTED_N" in columns, columns
+    assert columns[-1] == "STATUS"
+    assert not named
+    by_station = {float(row["STATION_X_R"]): row for row in rows}
+    assert by_station[0.0]["FX_CORRECTED_N"] == "NA"
+    for station in (2.0, 4.0):
+        row = by_station[station]
+        assert float(row["FX_CORRECTED_N"]) == pytest.approx(thrust, rel=5e-3)
+        assert abs(float(row["FX_N"]) - thrust) > 0.2 * thrust
+        assert float(row["P_PRIME_CORRECTION_N"]) > 0.0
+    near = float(rows[-1]["F_NEAR_N"])
+    far = float(rows[-1]["FX_CORRECTED_N"])
+    expected = 2.0 * (near - far) / (rho * speed * speed * 50.0) * 1e4
+    assert float(rows[-1]["SPURIOUS_COUNTS"]) == pytest.approx(expected, rel=1e-6)

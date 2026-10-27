@@ -390,6 +390,8 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases._farfield_spec">pyflightstream.cases._farfield_spec</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.farfield_inputs">pyflightstream.cases.farfield_inputs</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.farfield">pyflightstream.farfield</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.farfield.balances">pyflightstream.farfield.balances</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.farfield.quadrature">pyflightstream.farfield.quadrature</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._condition">pyflightstream.post._condition</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post.axes">pyflightstream.post.axes</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.probes.errors">pyflightstream.probes.errors</a> (module)</li>
@@ -406,6 +408,8 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases.farfield_inputs">pyflightstream.cases.farfield_inputs</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.selection">pyflightstream.cases.selection</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.farfield">pyflightstream.farfield</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.farfield.balances">pyflightstream.farfield.balances</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.post._condition">pyflightstream.post._condition</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._reduction_stage">pyflightstream.post._reduction_stage</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.post._sim">pyflightstream.post._sim</a> (typing)</li>
 <li>&rarr; <a href="#pyflightstream.post._tables">pyflightstream.post._tables</a> (module)</li>

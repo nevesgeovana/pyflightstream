@@ -62,7 +62,7 @@ class FarfieldInput:
         ``trefftz:sections``, ``trefftz:wake``, ``trefftz:plane`` or ``ledgers``.
     input : str
         What the analysis reads: ``section_distribution``,
-        ``sectional_loads_export``, ``vtk_export``, ``vtk_wake``,
+        ``sectional_loads_export``, ``blade_sectional_loads``, ``vtk_export``, ``vtk_wake``,
         ``probe_points`` or ``probe_export``.
     state : str
         One of :data:`FARFIELD_STATES`.
@@ -252,6 +252,7 @@ def resolve_farfield(
     admits_probes: bool,
     has_command: Callable[[str], bool],
     rotor: bool = False,
+    blade_loads: tuple[str, str] = ("", ""),
 ) -> FarfieldResolution:
     """Resolve the inputs of every analysis ``spec`` selects for one row (FR-455).
 
@@ -280,6 +281,10 @@ def resolve_farfield(
         Whether the selected build's command database records a command.
     rotor : bool
         Whether a steady row's far field is a rotor's (FR-1059).
+    blade_loads : tuple of str
+        How a rotor row gets the blade sectional loads its disk total-pressure
+        correction reads (P0470-FFR): the state (``reused``, ``added`` or
+        ``not_applicable``) and its source or reason; empty without a rotor.
 
     Returns
     -------
@@ -330,7 +335,14 @@ def resolve_farfield(
             reads_lattice = analysis in ("ledgers", "trefftz:power")
             declared = declares_lattice if reads_lattice else declares_plane
             resolver.probes(analysis, declared)
+            if reads_lattice and blade_loads[0] and analysis == _lattice_reader(spec):
+                resolver.blade_loads(analysis, *blade_loads)
     return FarfieldResolution(tuple(resolver.inputs))
+
+
+def _lattice_reader(spec: FarfieldSpec) -> str:
+    """Return the one analysis of an entry that states the blade loads input (P0470-FFR)."""
+    return "ledgers" if spec.balances else "trefftz:power"
 
 
 @dataclass
@@ -404,6 +416,15 @@ class _Resolver:
                 f"a distribution over {', '.join(missing)}, frame MRP, plane XZ, "
                 f"{stations} stations per side",
             )
+        self.export(analysis, "sectional_loads", "sectional_loads_export", True)
+
+    def blade_loads(self, analysis: str, state: str, text: str) -> None:
+        if state == "not_applicable":
+            self.item(analysis, "blade_sectional_loads", state, reason=text)
+            return
+        if self.lacks(analysis, "section_distribution"):
+            return
+        self.item(analysis, "blade_sectional_loads", state, text)
         self.export(analysis, "sectional_loads", "sectional_loads_export", True)
 
     def probes(self, analysis: str, declared: bool) -> None:

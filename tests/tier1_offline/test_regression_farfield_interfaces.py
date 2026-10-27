@@ -17,7 +17,12 @@ from pydantic import ValidationError
 import pyflightstream.farfield as ff
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._retired_names import RETIRED_ATTRIBUTES
-from pyflightstream.cases import CampaignConfigError, PprocSpec, ReferenceData
+from pyflightstream.cases import (
+    CampaignConfigError,
+    PprocSpec,
+    ReferenceData,
+    SectionDistribution,
+)
 from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape
 from pyflightstream.cases.farfield_inputs import FarfieldResolution, applies, resolve_farfield
 from pyflightstream.cases.workflows import build_script, row_outputs
@@ -1885,3 +1890,65 @@ def test_p0450_d8_steady_policies_emit_identical_products(tmp_path, variant, val
     )
     text, _ = _ffproof_plan___built(changed)
     assert text == baseline
+
+
+# ----------------------------------------------------------------- P0470-FFR option 1a
+_P0470_FFR_POWER = {
+    "variant": "power",
+    "rotor": "ROTOR",
+    "balances": ["mass", "axial"],
+    "stations": [-1.0, 1.0],
+    "n_r": 4,
+    "n_psi": 16,
+    "m_max": 2,
+}
+
+
+@pytest.mark.requirement("FR-1046")
+@pytest.mark.parametrize("export_type", ["last_step", "avg_window"])
+def test_p0470_ffr_plan_adds_the_blade_loads_on_an_unsteady_rotor(tmp_path, export_type):
+    """P0470-FFR 1a: a rotor power entry gets one blade distribution in its frame and the loads."""
+    from pyflightstream.cases.workflows._farfield import (
+        farfield_export_windows,
+        farfield_resolution,
+    )
+
+    case = _p0450_rotor_case(tmp_path, [{**_P0470_FFR_POWER, "export_type": export_type}])
+    case = case.model_copy(update={"outputs": row_outputs(case, "unsteady_rotor")})
+    script = _farfield_plan___script(case)
+    blades = [block for block in script.section_blocks if block["frame"] == "ROTOR_RMRP1"]
+    assert blades, script.section_blocks
+    assert blades[0]["families"] == ["W"] and blades[0]["count"] == 50
+    assert any(str(name).endswith("_sloads.txt") for name in case.outputs)
+    resolution = farfield_resolution(case, script)
+    assert resolution is not None
+    states = {item.input: item.state for item in resolution.inputs}
+    assert states.get("blade_sectional_loads") == "added"
+    kinds = {kind for _first, _last, kind in farfield_export_windows(case)}
+    assert ("sectional_loads" in kinds) is (export_type == "avg_window")
+
+
+@pytest.mark.requirement("FR-1046")
+def test_p0470_ffr_plan_reuses_declared_blade_loads_and_warns_where_none(tmp_path):
+    """P0470-FFR 1a: a declared blade distribution is reused; a qsteady row without one warns."""
+    from pyflightstream.cases.workflows._farfield import blade_loads_state
+
+    case = _p0450_rotor_case(tmp_path, [_P0470_FFR_POWER], "qsteady_rotor")
+    spec = case.pproc.farfields[0]
+    state, reason = blade_loads_state(case, spec)
+    assert state == "not_applicable" and "LOCAL_AXIS" in reason
+    declared = case.pproc.model_copy(
+        update={
+            "sections": case.pproc.sections.model_copy(
+                update={
+                    "distributions": [
+                        SectionDistribution.model_validate(
+                            {"families": ["W"], "frame": "LOCAL_AXIS", "planes": ["XZ"]}
+                        )
+                    ]
+                }
+            )
+        }
+    )
+    state, _source = blade_loads_state(case.model_copy(update={"pproc": declared}), spec)
+    assert state == "reused"

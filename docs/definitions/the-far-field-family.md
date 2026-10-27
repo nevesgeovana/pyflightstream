@@ -409,6 +409,9 @@ mean of the swirl:
 
 with `T` the axial force of the balance between the inlet and that station;
 `ETA_FF` is `NA` where `T V <= 0`, including static and power-off conditions.
+On a rotor row with blade loads, `P_TOTAL_CORRECTED_W` and `ETA_FF_CORRECTED`
+are the same channels on the pressure corrected by the disk total-pressure rise
+([The balances](#the-balances)).
 
 **The quasi-steady rotor.** A `qsteady_rotor` point holds the blades still and
 carries the rotation in the free stream, so its probe velocities are those of
@@ -482,21 +485,63 @@ orders. If no order remains, G3 is `NA`: no symmetry floor was measured.
 A six-blade signal with `|c_6| = 0.4828 m/s` and `|c_1| = 3.47e-5 m/s`
 therefore reports `3.47e-5 m/s` at `m_max = 6`, the same as at `m_max = 5`.
 
-G4 is not applicable to a power entry naming `rotor = ...`, or to any
-`unsteady_rotor` or `qsteady_rotor` row, including an entry naming a frame.
-`SPURIOUS_COUNTS` and its comparison column `F_NEAR_N` are `NA` in the instant
-and averaged ledgers, with a named skip: the probe pressure is the free-stream
-Bernoulli pressure and carries no disk total-pressure jump, so the lattice
-axial balance cannot balance rotor thrust. Flux and other ledger columns stay;
-`F_NEAR_VISCOUS_N` remains available when the loads supply it.
+**The rotor's disk total-pressure rise.** On a rotor row (a power entry naming
+`rotor = ...`, or any `unsteady_rotor` or `qsteady_rotor` row, including an entry
+naming a frame) the exported probe pressure is the Bernoulli pressure of the probe
+velocity with the free-stream total pressure: inside the slipstream it lacks the
+total-pressure rise the blades add, so the lattice axial balance alone cannot
+balance the rotor thrust. The PFS-2165 measurement (G4SPLIT, 2026-10-26,
+FlightStream 26.124) found a pressure/Bernoulli integral ratio of approximately
+1.01053, pointwise residual at most 3.32605 Pa, and at 2 R a window momentum flux
+of 680.83791 N with a pressure contribution of -993.97923 N, giving -313.14132 N
+versus 646.7 N near-field thrust.
 
-The PFS-2165 measurement (G4SPLIT, 2026-10-26, "Full-plane split" and
-"Bernoulli test", FlightStream 26.124) found a pressure/Bernoulli integral
-ratio of approximately 1.01053 upstream and downstream, with pointwise residual
-at most 3.32605 Pa. At 2 R the window momentum flux was 680.83791 N and the
-pressure contribution was -993.97923 N, giving -313.14132 N versus 646.7 N
-near-field thrust. No disk total-pressure rise was evident in the probes.
-These are measurements of the exported field, not a correction to its pressure.
+Post reconstructs the rise from the rotor's own blade sectional loads, never from
+the probe swirl:
+
+1. The loads of each blade distribution cut in a blade frame (`LOCAL_AXIS`) or the
+   rotor frame (`<ALIAS>_RMRP`), in planes containing the shaft: the force density
+   along the shaft is the blade's axial force, the other in-plane density its
+   tangential force, `Offset` the radius. The blades are averaged, the result is
+   summed over the rotor's blade count (periodic copies included) and turned to
+   the loading on the fluid, `dT/dr` and `dQ/dr`. On an unsteady row the per-step
+   exports of the averaging window are averaged when they cover it; otherwise the
+   final export is read.
+2. Per annulus,
+
+        dp0(r_d) = (dT/dr) / (2 pi r_d) + rho v_theta^2 / 2
+        v_theta  = (dQ/dr) / (rho v_a 2 pi r_d^2)
+
+   with `v_a` the azimuthal mean axial velocity of the mapping station at `r_d`
+   (for an ideal rotor the swirl term equals the Euler form
+   `Omega (dQ/dr) / (2 pi r v_a)` written as a static jump plus swirl), the loading
+   interpolated linearly between strip centres and zero outside the strip edges.
+3. The mapping station is the first lattice station behind the blades' axial
+   reach (the largest axial quarter-chord coordinate plus the chord). Each ring
+   of that station and of every station behind it is mapped to its disk radius
+   `r_d` by equal mass flow (the azimuthal mean of `rho u` integrated from the
+   innermost ring edge), the mapping station's radius standing for the disk's.
+4. The corrected pressure is `p' + dp0(r_d)`. Upstream of the blades `dp0 = 0`; a
+   station cut by the blades (`|x/R|` within their reach) is `NA`, never
+   extrapolated.
+
+The corrected columns are written beside the uncorrected ones, which stay:
+`P_PRIME_CORRECTION_N` (the integral of `dp0` over the station),
+`AXIAL_FLUX_CORRECTED_N` and `FX_CORRECTED_N` in the ledgers, and
+`P_TOTAL_CORRECTED_W` and `ETA_FF_CORRECTED` on the D row (the same channels on
+the corrected pressure, `T` the corrected axial force). G4 (`SPURIOUS_COUNTS`) and
+`F_NEAR_N` on a rotor row compare the near field with the corrected axial balance.
+These columns appear only in a table where a rotor row carries them, before
+`STATUS`; a table of rows without a rotor keeps its columns and bytes.
+
+Where the row exported no usable blade loads, `SPURIOUS_COUNTS` and `F_NEAR_N` are
+`NA` in the instant and averaged ledgers with a named skip saying why, and the
+corrected columns are absent. Flux and other ledger columns stay;
+`F_NEAR_VISCOUS_N` remains available when the loads supply it. In the ideal
+actuator disk (uniform or smooth loading, exported pressure the Bernoulli
+pressure) the corrected axial balance returns the thrust at every far-wake
+station; at a station close behind the disk the one-dimensional model the
+correction assumes leaves the static pressure outside the slipstream out.
 
 A wing with no rotor keeps G4. It compares like with like: `F_near` is the inviscid near-field axial force,
 written as `F_NEAR_N`. The total projection minus `F_NEAR_VISCOUS_N` gives
@@ -595,6 +640,7 @@ far-field shape within that declaration and `count` retains its shape count;
 | C | the configuration plane; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
 | D | the entry's survey lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | the stated lattice is laid as probe points |
 | balances | the lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
+| D and balances on a rotor row | the blade sectional loads for the disk total-pressure rise | reused (a distribution in a blade or rotor frame) | `unsteady_rotor`: one distribution per blade in its own frame, 50 stations, and the sectional loads export (per step over the window under `"avg_window"`); other rotor rows: `not_applicable` with a WARNING, G4 stays `NA` |
 
 **Which declaration is reused.** A declared plane or lattice is the far field's when
 its points after layout are the far field's own (same frame, every coordinate equal

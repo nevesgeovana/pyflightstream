@@ -7,6 +7,17 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- The far-field axial balance closes on rotor rows: post reconstructs the disk
+  total-pressure rise from the rotor's own blade sectional loads, maps the lattice
+  stations to the disk by equal mass flow and writes `P_PRIME_CORRECTION_N`,
+  `AXIAL_FLUX_CORRECTED_N`, `FX_CORRECTED_N`, `P_TOTAL_CORRECTED_W` and
+  `ETA_FF_CORRECTED`; G4 (`SPURIOUS_COUNTS`) returns on rotor rows on the
+  corrected balance. The plan adds one distribution per blade in its own frame on
+  an `unsteady_rotor` row that declares none. Rows without a rotor keep their
+  tables. Migration: none; a rotor row without blade loads keeps the named G4 skip.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added

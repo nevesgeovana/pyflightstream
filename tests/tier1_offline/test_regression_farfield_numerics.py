@@ -15,6 +15,7 @@ import sys
 import tomllib
 import warnings
 from argparse import Namespace
+from dataclasses import replace
 from inspect import Parameter, signature
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,6 +27,7 @@ import pytest
 from pydantic import ValidationError
 
 import pyflightstream.farfield as ff
+import pyflightstream.farfield.balances as ff_balances
 import tests.tier1_offline.test_regression_farfield_products as _rfixa_evidence__post
 import tests.tier1_offline.test_regression_farfield_products as _rfixa_evidence__wing
 import tests.tier1_offline.test_regression_farfield_products as _rfixa_wake__post
@@ -51,6 +53,7 @@ from pyflightstream.farfield import (
     WakeTrace,
     azimuthal_harmonics,
     calibration_scale,
+    cylindrical_components,
     grid_coverage,
     grid_integral,
     lattice_fields,
@@ -2936,3 +2939,115 @@ def test_last_probe_layout_helpers_refuse_counts_that_divide_by_zero():
     circle.points_radial = 1
     with pytest.raises(ProbeGeometryError, match="at least two radial stations"):
         circle_points(circle, scale=1.0)
+
+
+# ----------------------------------------------------------------- P0470-FFR option 1a
+#: The stations of the actuator-disk survey: inlet, one cut by the disk, the mapping
+#: station just behind it and two far-wake stations.
+_P0470_FFR_STATIONS = (-2.0, 0.0, 0.25, 2.0, 4.0)
+
+
+def _p0470_ffr_actuator(*, v=50.0, w0=6.0, rho=1.225, hub=0.1, torque=0.0, lattice=None):
+    """A smooth actuator-disk slipstream on a 1 m rotor, its disk loading and its thrust.
+
+    The disk adds ``w(r) = w0 sin(pi (r - hub) / (1 - hub))`` between hub and tip; per
+    annulus, momentum theory gives the far-wake velocity ``V + 2 w``, the loading
+    ``dT/dr = 4 pi r rho (V + w) w`` and the total-pressure rise
+    ``rho ((V + 2 w)^2 - V^2) / 2``. Upstream the field is the free stream, just behind
+    the disk it is the disk velocity on the disk radius, downstream it is the far wake,
+    each annulus carried to the radius that conserves its mass flow. The exported
+    pressure is the Bernoulli pressure with the free-stream total pressure.
+    """
+
+    def added(r):
+        s = (np.asarray(r, dtype=float) - hub) / (1.0 - hub)
+        return np.where((s > 0.0) & (s < 1.0), w0 * np.sin(np.pi * np.clip(s, 0.0, 1.0)), 0.0)
+
+    disk = np.linspace(0.0, 1.0, 40001)
+    a = v + added(disk)
+    wake = v + 2.0 * added(disk)
+    # rho u_w 2 pi r_w dr_w = rho v_a 2 pi r_d dr_d, so d(r_w^2) = (v_a / u_w) d(r_d^2).
+    squared = np.concatenate(
+        ([0.0], np.cumsum(np.diff(disk**2) * 0.5 * ((a / wake)[1:] + (a / wake)[:-1])))
+    )
+    thrust_density = 4.0 * np.pi * disk * rho * a * added(disk)
+    thrust = float(np.sum(np.diff(disk) * 0.5 * (thrust_density[1:] + thrust_density[:-1])))
+    lattice = lattice or build_lattice(
+        tip_radius=1.0,
+        stations=_P0470_FFR_STATIONS,
+        n_r=60,
+        r_inner=0.02,
+        r_outer=2.0,
+        n_psi=16,
+        lateral_radius=None,
+    )
+    radius = np.asarray(lattice.ring_centers, dtype=float)
+    u = np.full((len(_P0470_FFR_STATIONS), len(radius), lattice.n_psi), v)
+    for index, station in enumerate(_P0470_FFR_STATIONS):
+        if station < 0.0:
+            continue
+        if station <= 0.25:
+            profile = v + added(radius)
+        else:
+            inside = radius**2 <= squared[-1]
+            origin = np.interp(radius**2, squared, disk)
+            profile = np.where(inside, v + 2.0 * added(origin), v)
+        u[index] = profile[:, None]
+    p_prime = -0.5 * rho * (u * u - v * v)
+    zero = np.zeros_like(u)
+    fields = cylindrical_components(
+        lattice_fields(lattice, fields={"u": u, "v": zero, "w": zero, "p_prime": p_prime})
+    )
+    centres = hub + (np.arange(50) + 0.5) * (1.0 - hub) / 50
+    # The loading as plain arrays, so a caller states it in its own terms.
+    loading = SimpleNamespace(
+        radius_m=centres,
+        edges_m=ff.strip_edges(centres),
+        thrust_per_m=4.0 * np.pi * centres * rho * (v + added(centres)) * added(centres),
+        torque_per_m=np.full_like(centres, torque),
+        reach=0.05,
+    )
+    return fields, loading, thrust, added
+
+
+@pytest.mark.requirement("FR-38")
+def test_p0470_ffr_actuator_disk_closes_on_the_corrected_pressure():
+    """P0470-FFR 1a: the disk rise closes the axial balance of an ideal actuator disk."""
+    rho, v = 1.225, 50.0
+    fields, arrays, thrust, added = _p0470_ffr_actuator(v=v, rho=rho)
+    loading = ff_balances.DiskLoading(**vars(arrays))
+    rise = ff_balances.disk_pressure_rise(fields, loading, rho=rho)
+    flux = ff.axial_flux(fields.with_values(p_prime=fields["p_prime"] + rise), rho, v)
+    plain = ff.axial_flux(fields, rho, v)
+    # Upstream the exported pressure is already the field's: no rise.
+    assert np.all(rise[0] == 0.0)
+    # The station cut by the disk is NA, never extrapolated.
+    assert np.all(np.isnan(rise[1])) and math.isnan(flux[1])
+    # Just behind the disk the rise is the momentum-theory one, annulus by annulus.
+    radius = fields.ring_centers
+    inner = (radius > 0.2) & (radius < 0.95)
+    expected = 0.5 * rho * ((v + 2.0 * added(radius)) ** 2 - v * v)
+    assert rise[2, inner, 0] == pytest.approx(expected[inner], rel=5e-3)
+    assert np.all(rise[2, radius > 1.05] == 0.0)
+    for index in (3, 4):
+        assert flux[index] - flux[0] == pytest.approx(thrust, rel=5e-3)
+        # The exported pressure alone does not balance the thrust.
+        assert abs(plain[index] - plain[0] - thrust) > 0.2 * thrust
+
+
+@pytest.mark.requirement("FR-38")
+def test_p0470_ffr_swirl_term_is_from_the_torque():
+    """P0470-FFR 1a: the swirl term is rho v_theta^2 / 2, v_theta from dQ/dr and v_a."""
+    rho, v, torque = 1.225, 50.0, 30.0
+    fields, arrays, _thrust, _added = _p0470_ffr_actuator(v=v, rho=rho, torque=torque)
+    loading = ff_balances.DiskLoading(**vars(arrays))
+    without, _, _, _ = _p0470_ffr_actuator(v=v, rho=rho)
+    rise = ff_balances.disk_pressure_rise(fields, loading, rho=rho)
+    base = ff_balances.disk_pressure_rise(
+        without, replace(loading, torque_per_m=np.zeros_like(loading.torque_per_m)), rho=rho
+    )
+    ring = int(np.argmin(np.abs(fields.ring_centers - 0.6)))
+    r = float(fields.ring_centers[ring])
+    v_a = float(fields["u"][2, ring].mean())
+    swirl = torque / (rho * v_a * 2.0 * np.pi * r * r)
+    assert rise[2, ring, 0] - base[2, ring, 0] == pytest.approx(0.5 * rho * swirl**2, rel=1e-9)

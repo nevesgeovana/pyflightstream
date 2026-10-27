@@ -6424,6 +6424,16 @@
     },
     {
       "source": "pyflightstream.post.farfield_fields",
+      "target": "pyflightstream.farfield.balances",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_fields",
+      "target": "pyflightstream.farfield.quadrature",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_fields",
       "target": "pyflightstream.post._condition",
       "kind": "module"
     },
@@ -6485,6 +6495,16 @@
     {
       "source": "pyflightstream.post.farfield_products",
       "target": "pyflightstream.farfield",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_products",
+      "target": "pyflightstream.farfield.balances",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_products",
+      "target": "pyflightstream.post._condition",
       "kind": "module"
     },
     {
