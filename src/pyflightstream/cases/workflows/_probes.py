@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import csv
 import math
-import re
 import warnings
 from collections.abc import (
     Callable,
@@ -55,7 +54,11 @@ from ._farfield import (
     warn_declared_inside,
 )
 from ._frames import (
+    _ROTOR_FRAME_SPELLING,
+    _UNNAMED_ROTOR_FRAME,
+    _a_rotor_frame_the_row_leaves_out,
     _pproc_frame,
+    _the_rotor_whose_frame_this_is,
 )
 from ._names import (
     _artifact_of,
@@ -112,6 +115,9 @@ def _pproc_surface_probes(case: SimCase, script: Script, frames: Frames) -> None
     scale = _from_metres(case, script, "surface probe coordinates")
     script.surface_probe_layout.clear()
     for probe in pproc.surface_probes:
+        what = f"surface probe {probe.name!r}"
+        if _a_rotor_frame_the_row_leaves_out(case, frames, probe.frame, what):
+            continue
         frame = (
             1
             if probe.frame == "REFERENCE"
@@ -1064,16 +1070,6 @@ def _in_the_reference_frame(
     ]
 
 
-#: The rotor-frame name shape distinguishes a frame this run did not
-#: create from an impossible frame name. Ownership is determined by
-#: _the_rotor_whose_frame_this_is composing each rotor's names: a custom
-#: frame may share a rotor prefix without belonging to that rotor.
-_ROTOR_FRAME_SPELLING = re.compile(r"_(SMRP|RMRP\d*)$")
-
-#: The frames of the unnamed default rotor, which no reference declares.
-_UNNAMED_ROTOR_FRAME = re.compile(r"ROTOR\d*_(SMRP|RMRP\d*)$")
-
-
 def _the_probe_frame(case: SimCase, stated: str) -> str:
     """Resolve an unstated probe frame to a rotor THIS ROW TURNS (FR-65).
 
@@ -1128,31 +1124,6 @@ def _the_probe_frame(case: SimCase, stated: str) -> str:
     )
 
 
-def _the_rotor_whose_frame_this_is(case: SimCase, frame: str) -> str | None:
-    """Return the alias of the rotor that OWNS ``frame``, or None (FR-62, FR-65).
-
-    COMPOSED FORWARD, never parsed backward. A rotor's frames are exactly
-    ``<ALIAS>_SMRP``, ``<ALIAS>_RMRP`` and ``<ALIAS>_RMRP<k>``, so the
-    question is answered by building those names and comparing, which is
-    what `_frames_the_alias_owns` does one layer up.
-
-    Compose the rotor's frame names rather than splitting the supplied
-    name: a custom frame such as `PUSHER_TIP` may share a rotor prefix
-    without belonging to that rotor (FR-72). Its probes must not inherit
-    that rotor's disk scale.
-    """
-    wanted = frame.strip().casefold()
-    for alias, block in case.rotors.items():
-        owned = {f"{alias}_{suffix}".casefold() for suffix in ("SMRP", "RMRP", "BMRP")}
-        owned |= {
-            f"{alias}_RMRP{number}".casefold()
-            for number in range(1, len(block.families_blades) + 1)
-        }
-        if wanted in owned:
-            return alias
-    return None
-
-
 def _the_radius_the_probe_lines_are_in(case: SimCase, frame: str) -> float:
     """Return the diameter a probe table's ``rotor_radius`` is measured against (FR-65).
 
@@ -1188,7 +1159,9 @@ def _the_radius_the_probe_lines_are_in(case: SimCase, frame: str) -> float:
 def _pproc_sampled_volume(case, script, frames, vertex: int, *, unsteady: bool) -> None:
     """Sample a declared volume plane without using the FSM's section indices."""
     section = case.pproc.volume_section
-    if section is None:
+    if section is None or _a_rotor_frame_the_row_leaves_out(
+        case, frames, section.frame, "[volume_section]"
+    ):
         return
     factor = _from_metres(case, script, "sampled volume section coordinates")
     frame = (

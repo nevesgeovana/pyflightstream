@@ -11,6 +11,8 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import (
+    Iterable,
+    Iterator,
     Mapping,
     MutableMapping,
     Sequence,
@@ -29,11 +31,13 @@ from pyflightstream._retired_names import (
 )
 from pyflightstream.cases import (
     AXIS_UNIT_VECTORS,
+    EXPANDING_FRAMES,
     CampaignConfigError,
     RotorBlock,
     SimCase,
     frame_basis_for_shaft,
 )
+from pyflightstream.cases._skipped_families import leave_out_an_unplaced_rotor_frame
 from pyflightstream.script import (
     Script,
     helpers,
@@ -44,6 +48,7 @@ from ._motion import (
 )
 from ._names import (
     ORIGINAL_FRAME_SUFFIX,
+    _artifact_of,
     _declared_labels,
     _inventory,
     _refuse_name_absent_from_inventory,
@@ -313,6 +318,84 @@ def _pproc_frame(
             "<ALIAS>_RMRP<k>."
         )
     return found
+
+
+#: The spelling of a rotor's own hub or turning frame: ``<RADICAL>_SMRP``,
+#: ``<RADICAL>_RMRP`` or ``<RADICAL>_RMRP<k>``.
+_ROTOR_FRAME_SPELLING = re.compile(r"_(SMRP|RMRP\d*)$")
+
+#: The frames of the unnamed default rotor, which no reference declares.
+_UNNAMED_ROTOR_FRAME = re.compile(r"ROTOR\d*_(SMRP|RMRP\d*)$")
+
+
+def _the_rotor_whose_frame_this_is(case: SimCase, frame: str) -> str | None:
+    """Return the alias of the rotor that OWNS ``frame``, or None (FR-62, FR-65).
+
+    COMPOSED FORWARD, never parsed backward. A rotor's frames are exactly
+    ``<ALIAS>_SMRP``, ``<ALIAS>_RMRP`` and ``<ALIAS>_RMRP<k>``, so the
+    question is answered by building those names and comparing, which is
+    what `_frames_the_alias_owns` does one layer up.
+
+    Compose the rotor's frame names rather than splitting the supplied
+    name: a custom frame such as `PUSHER_TIP` may share a rotor prefix
+    without belonging to that rotor (FR-72). Its probes must not inherit
+    that rotor's disk scale.
+    """
+    wanted = frame.strip().casefold()
+    for alias, block in case.rotors.items():
+        owned = {f"{alias}_{suffix}".casefold() for suffix in ("SMRP", "RMRP", "BMRP")}
+        owned |= {
+            f"{alias}_RMRP{number}".casefold()
+            for number in range(1, len(block.families_blades) + 1)
+        }
+        if wanted in owned:
+            return alias
+    return None
+
+
+def _a_rotor_frame_the_row_leaves_out(
+    case: SimCase, frames: Frames, frame: str, entry: str
+) -> bool:
+    """Say, and answer True, when ``frame`` is a rotor's frame this row does not place.
+
+    WARNED AND SKIPPED, NEVER REFUSED. A frame of a rotor the reference
+    declares (or of the unnamed default rotor) is placed by the rows that turn
+    that rotor, and a row turning no blades places its hub frame only, so one
+    pproc artifact serves the power-off and the power-on rows: the entry
+    ``entry`` is left out of this row and the plan says so once
+    (:func:`leave_out_an_unplaced_rotor_frame`). A name no declared rotor
+    owns answers False, and :func:`_pproc_frame` refuses it.
+    """
+    spelled = frame.strip().upper()
+    if (
+        frames.get(frame) is not None
+        or EXPANDING_FRAMES.get(spelled) is not None
+        or _ROTOR_FRAME_SPELLING.search(spelled) is None
+        or (
+            _the_rotor_whose_frame_this_is(case, frame) is None
+            and _UNNAMED_ROTOR_FRAME.match(spelled) is None
+        )
+    ):
+        return False
+    leave_out_an_unplaced_rotor_frame(case.sim_id, _artifact_of(case), entry, frame)
+    return True
+
+
+def _emissions_the_row_places(
+    case: SimCase,
+    frames: Frames,
+    entry: str,
+    emissions: Iterable[tuple[str, list[str], str]],
+) -> Iterator[tuple[str, list[str], str]]:
+    """Yield the emissions of ``entry`` but those in a rotor frame this row leaves out.
+
+    Each left-out emission is said once by :func:`_a_rotor_frame_the_row_leaves_out`;
+    every other one, a frame no declared rotor owns included, is yielded for
+    :func:`_pproc_frame` to resolve or refuse.
+    """
+    for emission in emissions:
+        if not _a_rotor_frame_the_row_leaves_out(case, frames, emission[0], entry):
+            yield emission
 
 
 def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:

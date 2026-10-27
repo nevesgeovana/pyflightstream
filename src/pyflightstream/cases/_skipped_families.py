@@ -801,9 +801,9 @@ def leave_out_an_unplaced_rotor_frame(row: str, artifact: str, entry: str, frame
     artifact : str
         The pproc artifact, as a message names it.
     entry : str
-        The entry, ``[[probes]] entry 2`` for instance.
+        The entry, ``[[probes]] entry 2`` or ``section distribution 1`` for instance.
     frame : str
-        The rotor frame the entry is laid in.
+        The rotor frame the entry cites.
     """
     noted = _UNPLACED.get()
     if noted is not None:
@@ -812,7 +812,7 @@ def leave_out_an_unplaced_rotor_frame(row: str, artifact: str, entry: str, frame
             rows.append(row)
         return
     warn(
-        f"case {row!r}: {artifact} {entry} is laid in {frame!r}, a rotor frame this row "
+        f"case {row!r}: {artifact} {entry} cites {frame!r}, a rotor frame this row "
         "does not place, so the entry will be ignored on this row and nothing is emitted "
         f"for it. {_WHY_A_ROTOR_FRAME_IS_ABSENT}",
         PyflightstreamWarning,
@@ -842,7 +842,7 @@ def noting_the_unplaced_rotor_frames() -> Iterator[None]:
         _UNPLACED.reset(token)
     for (artifact, entry, frame), rows in noted.items():
         warn(
-            f"{artifact} {entry} is laid in {frame!r}, a rotor frame these rows do not "
+            f"{artifact} {entry} cites {frame!r}, a rotor frame these rows do not "
             "place, so it will be ignored on these rows: "
             f"{', '.join(repr(row) for row in rows)}. Nothing is emitted for it there. "
             f"{_WHY_A_ROTOR_FRAME_IS_ABSENT}",

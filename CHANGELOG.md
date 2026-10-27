@@ -22,6 +22,12 @@ FlightStream versions.
   the frame and the rows. A frame of an alias the reference does not declare
   is still refused.
 
+- The same rule now covers section distributions, plot groups, surface
+  probes, the sampled volume section and streamline seed lines and tubes that
+  name a declared rotor's `<ALIAS>_SMRP`, `<ALIAS>_RMRP` or `<ALIAS>_RMRP<k>`
+  on a row that does not place it: ignored on that row with one plan warning,
+  never refused. A misspelt frame or an undeclared alias is still refused.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added

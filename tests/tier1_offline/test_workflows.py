@@ -4621,18 +4621,30 @@ def test_the_rotor_run_creates_one_axis_frame_per_blade_and_moves_them(tmp_path)
 def test_a_pproc_frame_the_run_did_not_create_is_refused_naming_the_created_ones(tmp_path):
     from pyflightstream.cases import CampaignConfigError, PprocSpec
 
-    # The steady run creates no propeller frame, so a section distribution
-    # citing ROTOR_SMRP is refused there naming the one frame it did create.
+    # The steady run declares no PUSHER rotor, so a section distribution citing
+    # PUSHER_SMRP cannot come right on any row: refused there, naming the one
+    # frame it did create. (ROTOR_SMRP, the unnamed rotor's hub, is a frame a
+    # rotor row does create, so since P0461 it is left out with a warning.)
     pproc = PprocSpec.model_validate(
         {
             "sections": {
-                "distributions": [{"families": "all", "frame": "ROTOR_SMRP", "planes": ["XZ"]}]
+                "distributions": [{"families": "all", "frame": "PUSHER_SMRP", "planes": ["XZ"]}]
             }
         }
     )
     case = _with_pproc(steady_case(), _wb_geometry(tmp_path), pproc)
     with pytest.raises(CampaignConfigError, match="created: MRP"):
         rendered(case)
+    unnamed = PprocSpec.model_validate(
+        {
+            "sections": {
+                "distributions": [{"families": "all", "frame": "ROTOR_SMRP", "planes": ["XZ"]}]
+            }
+        }
+    )
+    with pytest.warns(UserWarning, match="ROTOR_SMRP.*will be ignored on this row"):
+        text = rendered(_with_pproc(steady_case(), _wb_geometry(tmp_path), unnamed))
+    assert "NEW_SURFACE_SECTION_DISTRIBUTION" not in text
 
 
 def test_a_mesh_file_is_refused_naming_the_route_and_no_release(tmp_path):
