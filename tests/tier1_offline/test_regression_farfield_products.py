@@ -3511,8 +3511,10 @@ def test_p0470_qsfix_a_sector_compares_its_wheel(tmp_path):
     The lattice reads the field of every periodic copy; a solve without SYMMETRY_LOADS
     exports the modelled sector alone, so F_NEAR_N and F_NEAR_VISCOUS_N are that
     export times PERIODIC_COPIES, and SYMMETRY_LOADS true keeps the export as it is.
+    The disk loading sums the exported blade distribution over the wheel: one
+    distribution times 3 copies is 3 blades, above the 2 the plan records.
     """
-    found = {}
+    found, rise = {}, {}
     for name, loads in {"whole": None, "sector": "false", "loads": "true"}.items():
         matrix = None
         if loads is not None:
@@ -3526,6 +3528,10 @@ def test_p0470_qsfix_a_sector_compares_its_wheel(tmp_path):
             )
         _columns, rows, _skips, _thrust = _p0470_ffr_rotor_post(tmp_path / name, True, matrix)
         found[name] = (float(rows[-1]["F_NEAR_N"]), float(rows[-1]["F_NEAR_VISCOUS_N"]))
+        rise[name] = float(rows[-1]["P_PRIME_CORRECTION_N"])
+    assert rise["whole"] > 0.0
+    assert rise["sector"] == pytest.approx(1.5 * rise["whole"], rel=1e-4)
+    assert rise["loads"] == pytest.approx(rise["sector"], rel=1e-4)
     assert found["whole"][0] != 0.0
     assert found["sector"][0] == pytest.approx(3.0 * found["whole"][0], abs=1e-4)
     assert found["sector"][1] == pytest.approx(3.0 * found["whole"][1], abs=1e-4)

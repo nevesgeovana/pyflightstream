@@ -1310,8 +1310,10 @@ def _disk_loading(ctx: SimContext, point: PolarPoint, probe: _Probe) -> DiskLoad
         record, str(alias or ""), len(getattr(ctx.live, "rotors", {}) or {}) or 1
     )
     if count is None and rotor is not None:
-        # The rotor's blades are its blade families times the row's periodic copies.
-        count = len(getattr(rotor, "families_blades", ()) or ()) * _periodic_copies(ctx)
+        count = len(getattr(rotor, "families_blades", ()) or ())
+    # A periodic sector holds its modelled blades once; the wheel is that times the
+    # row's copies, which a plan recording the modelled count (1 on PFS-2165) misses.
+    count = max(int(count or 0), len(blocks) * _periodic_copies(ctx))
     return disk_loading(
         blocks,
         shaft=_shaft_letter(probe.layout.axis, rotor),

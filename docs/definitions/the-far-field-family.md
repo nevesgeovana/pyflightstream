@@ -607,9 +607,9 @@ the probe swirl:
    whose quarter chord lies farther along the in-plane tangential axis than its
    offset at most sections (chordwise slices stacked across the blade, `Offset` not
    the radius), is warned and skipped. The blades are averaged, the result is
-   summed over the rotor's blade count (periodic copies included: where the record
-   states no count, the rotor's blade families times the row's `PERIODIC_COPIES`
-   under `SYMMETRY PERIODIC`) and turned to
+   summed over the rotor's blade count (periodic copies included: under
+   `SYMMETRY PERIODIC` at least the exported blade distributions times the row's
+   `PERIODIC_COPIES`, whatever count the record states) and turned to
    the loading on the fluid, `dT/dr` and `dQ/dr`. On an unsteady row the per-step
    exports of the averaging window are averaged when they cover it; otherwise the
    final export is read.
