@@ -3480,6 +3480,73 @@ def _p0470_ffr_sloads(radius: np.ndarray, axial: np.ndarray) -> str:
 @pytest.mark.parametrize("loads", [True, False])
 def test_p0470_ffr_rotor_g4_reads_the_corrected_pressure(tmp_path, loads, recipe="steady"):
     """P0470-FFR 1a: a rotor row with blade loads closes its axial balance and keeps G4."""
+    columns, rows, skips, thrust = _p0470_ffr_rotor_post(tmp_path, loads, recipe=recipe)
+    rho, speed = _FFPROOF_POST___RHO, 68.058
+    named = [reason for key, reason in skips.items() if "SPURIOUS_COUNTS" in key]
+    if not loads:
+        # Without the blade loads the 0.46.0 table and its named skip stay.
+        assert columns == ["POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *LEDGER_COLUMNS]
+        assert all(row["SPURIOUS_COUNTS"] == "NA" for row in rows)
+        assert named and "no disk total-pressure jump" in named[0]
+        return
+    assert "FX_CORRECTED_N" in columns, columns
+    assert columns[-1] == "STATUS"
+    assert not named
+    by_station = {float(row["STATION_X_R"]): row for row in rows}
+    assert by_station[0.0]["FX_CORRECTED_N"] == "NA"
+    for station in (2.0, 4.0):
+        row = by_station[station]
+        assert float(row["FX_CORRECTED_N"]) == pytest.approx(thrust, rel=5e-3)
+        assert abs(float(row["FX_N"]) - thrust) > 0.2 * thrust
+        assert float(row["P_PRIME_CORRECTION_N"]) > 0.0
+    near = float(rows[-1]["F_NEAR_N"])
+    far = float(rows[-1]["FX_CORRECTED_N"])
+    expected = 2.0 * (near - far) / (rho * speed * speed * 50.0) * 1e4
+    assert float(rows[-1]["SPURIOUS_COUNTS"]) == pytest.approx(expected, rel=1e-6)
+
+
+@pytest.mark.requirement("FR-38")
+def test_p0470_qsfix_a_sector_compares_its_wheel(tmp_path):
+    """P0470-QSFIX: a PERIODIC sector's G4 compares the wheel's near field with its lattice.
+
+    The lattice reads the field of every periodic copy; a solve without SYMMETRY_LOADS
+    exports the modelled sector alone, so F_NEAR_N and F_NEAR_VISCOUS_N are that
+    export times PERIODIC_COPIES, and SYMMETRY_LOADS true keeps the export as it is.
+    The disk loading sums the exported blade distribution over the wheel: one
+    distribution times 3 copies is 3 blades, above the 2 the plan records.
+    """
+    found, rise = {}, {}
+    for name, loads in {"whole": None, "sector": "false", "loads": "true"}.items():
+        matrix = None
+        if loads is not None:
+            matrix = (
+                "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | "
+                "FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | "
+                "SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n"
+                "3207 | 1 | 1 | A | - | d | TASmps:68.058, ALPHA:sweep | -2.0 | g.fsm | "
+                f"r001 | s001 | p001 | PERIODIC | {loads} | 1 | - | 26.120 | steady | "
+                "PERIODIC_COPIES: 3\n"
+            )
+        _columns, rows, _skips, _thrust = _p0470_ffr_rotor_post(tmp_path / name, True, matrix)
+        found[name] = (float(rows[-1]["F_NEAR_N"]), float(rows[-1]["F_NEAR_VISCOUS_N"]))
+        rise[name] = float(rows[-1]["P_PRIME_CORRECTION_N"])
+    assert rise["whole"] > 0.0
+    assert rise["sector"] == pytest.approx(1.5 * rise["whole"], rel=1e-4)
+    assert rise["loads"] == pytest.approx(rise["sector"], rel=1e-4)
+    assert found["whole"][0] != 0.0
+    assert found["sector"][0] == pytest.approx(3.0 * found["whole"][0], abs=1e-4)
+    assert found["sector"][1] == pytest.approx(3.0 * found["whole"][1], abs=1e-4)
+    assert found["loads"] == pytest.approx(found["whole"], abs=1e-4)
+
+
+def _p0470_ffr_rotor_post(
+    tmp_path: Path, loads: bool, matrix: str | None = None, recipe: str = "steady"
+):
+    """Post the 1a actuator-disk rotor row; return its ledger columns, rows, skips, thrust.
+
+    ``matrix`` is the campaign's matrix text, kept at the workspace root under the
+    record's stem.
+    """
     from tests.tier1_offline.test_regression_farfield_numerics import _p0470_ffr_actuator
 
     rho, speed, blades = _FFPROOF_POST___RHO, 68.058, 2
@@ -3559,33 +3626,19 @@ def test_p0470_ffr_rotor_g4_reads_the_corrected_pressure(tmp_path, loads, recipe
             ]
         },
     )
-    _ffproof_post___post(workspace)
+    if matrix is None:
+        _ffproof_post___post(workspace)
+    else:
+        (Path(workspace.root) / "qsfix.fs").write_text(matrix, encoding="utf-8")
+        _ffproof_post___set_record(workspace, matrix_stem="qsfix")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PyflightstreamWarning)
+            write_campaign_products(workspace, matrix_stem="qsfix")
     suffix = "_instant" if recipe == "unsteady_rotor" else ""
     columns, rows = _ffproof_post___table(
         _ffproof_post___one(workspace.root, f"farfield/*_ledgers{suffix}.csv")
     )
-    skips = _ffproof_post___manifest(workspace.root)["skipped"]
-    named = [reason for key, reason in skips.items() if "SPURIOUS_COUNTS" in key]
-    if not loads:
-        # Without the blade loads the 0.46.0 table and its named skip stay.
-        assert columns == ["POL", "ENTRY", "STEP", *CONTEXT_COLUMNS, *LEDGER_COLUMNS]
-        assert all(row["SPURIOUS_COUNTS"] == "NA" for row in rows)
-        assert named and "no disk total-pressure jump" in named[0]
-        return
-    assert "FX_CORRECTED_N" in columns, columns
-    assert columns[-1] == "STATUS"
-    assert not named
-    by_station = {float(row["STATION_X_R"]): row for row in rows}
-    assert by_station[0.0]["FX_CORRECTED_N"] == "NA"
-    for station in (2.0, 4.0):
-        row = by_station[station]
-        assert float(row["FX_CORRECTED_N"]) == pytest.approx(thrust, rel=5e-3)
-        assert abs(float(row["FX_N"]) - thrust) > 0.2 * thrust
-        assert float(row["P_PRIME_CORRECTION_N"]) > 0.0
-    near = float(rows[-1]["F_NEAR_N"])
-    far = float(rows[-1]["FX_CORRECTED_N"])
-    expected = 2.0 * (near - far) / (rho * speed * speed * 50.0) * 1e4
-    assert float(rows[-1]["SPURIOUS_COUNTS"]) == pytest.approx(expected, rel=1e-6)
+    return columns, rows, _ffproof_post___manifest(workspace.root)["skipped"], thrust
 
 
 _P0470_FFR_Q___RPM = 60.0

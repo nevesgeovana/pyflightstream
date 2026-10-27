@@ -515,6 +515,28 @@ otherwise the row's own speed in the quasi-steady record beside the loads export
 which a `qsteady_rotor` run always writes. It is signed by the rotor's hand
 (`rpm_sign` times the row's `RPM`), and that sign alone gives the sense of `Omega`.
 
+The pressure is converted with the velocity. The probe pressure of the turning
+frame is the frame's rothalpy pressure scaled by Prandtl-Glauert at the frame's
+Mach `M_f = sqrt(V^2 + (Omega r)^2) / a`,
+
+    Cp_ref q = (rho / 2) (V^2 + (Omega r)^2 - |v_probe|^2) / sqrt(1 - M_f^2)
+             = [(rho / 2) (V^2 - |v_hub|^2) + rho (Omega x r) . v_hub] / sqrt(1 - M_f^2)
+
+(PFS-2165 R2, FlightStream 26.125: the ratio of the export to this form is
+1.00000, 0.99999 to 1.00003 over 21619 probes). The second term is the Euler
+term of the probe swirl, which carries the field's circulation over the whole
+lattice, and the factor reaches 1.7 at `r/R = 3`. The lattice therefore states
+the pressure of the hub-frame velocity with the free-stream total pressure at the
+free-stream factor,
+
+    p' = (beta_inf / beta_f) Cp_ref q - beta_inf rho (Omega x r) . v_hub
+       = beta_inf (rho / 2) (V^2 - |v_hub|^2),     beta = 1 / sqrt(1 - M^2)
+
+the convention of an `unsteady_rotor` row's export, so the disk total-pressure
+rise of [The balances](#the-balances) comes from the blade loads alone. `M` is the
+point's Mach where the loads export states a Prandtl-Glauert solve, else 0; a
+sample at a sonic frame Mach is `NA`.
+
 The annular quadrature and coverage are those of the balances below.
 
 <a id="the-balances"></a>
@@ -590,8 +612,13 @@ the probe swirl:
 1. The loads of each blade distribution cut in a blade frame (`LOCAL_AXIS`) or the
    rotor frame (`<ALIAS>_RMRP`), in planes containing the shaft: the force density
    along the shaft is the blade's axial force, the other in-plane density its
-   tangential force, `Offset` the radius. The blades are averaged, the result is
-   summed over the rotor's blade count (periodic copies included) and turned to
+   tangential force, `Offset` the radius. A distribution cut along the blade span,
+   whose quarter chord lies farther along the in-plane tangential axis than its
+   offset at most sections (chordwise slices stacked across the blade, `Offset` not
+   the radius), is warned and skipped. The blades are averaged, the result is
+   summed over the rotor's blade count (periodic copies included: under
+   `SYMMETRY PERIODIC` at least the exported blade distributions times the row's
+   `PERIODIC_COPIES`, whatever count the record states) and turned to
    the loading on the fluid, `dT/dr` and `dQ/dr`. On an unsteady row the per-step
    exports of the averaging window are averaged for the window product when they
    cover it; otherwise the final export is read. The instantaneous product always
@@ -622,6 +649,9 @@ The corrected columns are written beside the uncorrected ones, which stay:
 `P_TOTAL_CORRECTED_W` and `ETA_FF_CORRECTED` on the D row (the same channels on
 the corrected pressure, `T` the corrected axial force). G4 (`SPURIOUS_COUNTS`) and
 `F_NEAR_N` on a rotor row compare the near field with the corrected axial balance.
+The lattice reads the field of every periodic copy, so on a `SYMMETRY PERIODIC` row
+whose `SYMMETRY_LOADS` is not enabled (the loads export holds the modelled sector
+alone) `F_NEAR_N` and `F_NEAR_VISCOUS_N` are the export's times `PERIODIC_COPIES`.
 These columns appear only in a table where a rotor row carries them, before
 `STATUS`; a table of rows without a rotor keeps its columns and bytes.
 

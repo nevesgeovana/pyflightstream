@@ -882,6 +882,62 @@ def plane_values(
     }
 
 
+def _hub_frame_pressure(
+    points: np.ndarray,
+    p_prime: np.ndarray,
+    velocity: np.ndarray,
+    *,
+    hub: tuple[float, np.ndarray, np.ndarray],
+    flow: tuple[float, float, float],
+) -> np.ndarray:
+    """Convert a turning frame's probe pressure to the hub frame's, in Pa (FR-1037).
+
+    The probe pressure of a quasi-steady rotor is the frame's rothalpy pressure scaled
+    by Prandtl-Glauert at the frame's Mach ``M_f = M sqrt(1 + (Omega r / V)^2)``,
+
+        p_probe = beta_f [rho/2 (V^2 - |v_hub|^2) + rho (Omega x r) . v_hub]
+
+    with ``beta = 1 / sqrt(1 - M^2)`` (PFS-2165 R2, FlightStream 26.125). The second
+    term is the Euler term of the probe swirl. The hub frame's pressure is that of an
+    unsteady row's export, the Bernoulli pressure of the hub-frame velocity with the
+    free-stream total pressure at the free-stream factor,
+
+        p' = beta_inf / beta_f p_probe - beta_inf rho (Omega x r) . v_hub
+
+    so the disk total-pressure rise comes from the blade loads alone (P0470-FFR
+    option 1a). A sample at or above a sonic frame Mach is NaN.
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        Probe positions, shape ``(n, 3)``, m.
+    p_prime : numpy.ndarray
+        Exported pressure perturbation, shape ``(n,)``, Pa.
+    velocity : numpy.ndarray
+        Hub-frame velocities, shape ``(n, 3)``, m/s.
+    hub : tuple
+        Frame speed (rad/s, signed), axis and origin (m) of the turning frame.
+    flow : tuple[float, float, float]
+        Density in kg/m3, free-stream speed in m/s and the free-stream Mach of the
+        solver's Prandtl-Glauert scaling (0 for an incompressible solve).
+
+    Returns
+    -------
+    numpy.ndarray
+        Hub-frame pressure perturbation, shape ``(n,)``, Pa.
+    """
+    omega, shaft, origin = hub
+    rho, speed, mach = flow
+    unit = np.asarray(shaft, dtype=float) / float(np.linalg.norm(shaft))
+    frame = omega * np.cross(unit, np.asarray(points, dtype=float) - np.asarray(origin))
+    lift = 1.0 + np.einsum("ij,ij->i", frame, frame) / (speed * speed)
+    m2 = mach * mach
+    with np.errstate(invalid="ignore", divide="ignore"):
+        ratio = np.sqrt(np.where(m2 * lift < 1.0, (1.0 - m2 * lift) / (1.0 - m2), np.nan))
+    euler = rho * np.einsum("ij,ij->i", frame, velocity)
+    return ratio * np.asarray(p_prime) - euler / math.sqrt(1.0 - m2)
+
+
 def lattice_samples(
     samples: ProbeSamples,
     block: slice | np.ndarray,
@@ -890,25 +946,31 @@ def lattice_samples(
     *,
     q: float,
     hub: tuple[float, np.ndarray, np.ndarray] | None = None,
+    flow: tuple[float, float, float] | None = None,
 ) -> LatticeFields:
     """Turn a lattice's probe values to its own axes and assemble them (FR-38, FR-1037).
 
     ``hub`` is the frame speed (rad/s), the axis and the origin (m, reference
     frame) of a rotor whose turning frame the probes were read in; its
-    velocities are converted to the hub frame first.
+    velocities are converted to the hub frame first. With ``flow`` (density in
+    kg/m3, free-stream speed in m/s, and the free-stream Mach of the solver's
+    Prandtl-Glauert scaling, 0 for an incompressible solve) its pressure is
+    converted with them to the hub frame's, the free-stream Bernoulli pressure of the
+    hub-frame velocity at the free-stream factor (``_hub_frame_pressure``).
     """
     velocity = samples.velocity[block]
+    p_prime = samples.cp[block] * q
     if hub is not None:
         omega, shaft, origin = hub
+        points = lattice_points(lattice, axis=axis) + origin
         velocity = hub_frame_velocities(
-            lattice_points(lattice, axis=axis) + origin,
-            velocities=velocity,
-            omega=omega,
-            axis=shaft,
-            origin=origin,
+            points, velocities=velocity, omega=omega, axis=shaft, origin=origin
         )
+        if flow is not None:
+            p_prime = _hub_frame_pressure(
+                points, p_prime, velocity, hub=(omega, shaft, origin), flow=flow
+            )
     local = velocity @ lattice_basis(axis).T
-    p_prime = samples.cp[block] * q
     planes = len(lattice.stations) * lattice.n_r * lattice.n_psi
     shape = (len(lattice.stations), lattice.n_r, lattice.n_psi)
     fields = {
@@ -1010,6 +1072,19 @@ def corrected_fields(
     return fields.with_values(p_prime=fields["p_prime"] + rise), rise
 
 
+def _cut_across_the_span(rows: np.ndarray, plane: str, shaft: str) -> bool:
+    """Whether a blade distribution's sections are cut across the span, ``Offset`` the radius.
+
+    A section cut across the span lies at radius ``|Offset|`` with its quarter chord
+    near the blade's axis, so its in-plane tangential coordinate is smaller than the
+    offset. A cut along the span (the plane holding the blade) stacks chordwise slices
+    at small offsets whose quarter chord sits out along the blade: there the tangential
+    coordinate is the radius and the offset is not.
+    """
+    tangential = rows[:, 3] if plane[0] == shaft else rows[:, 2]
+    return bool(np.median(np.abs(tangential)) < np.median(np.abs(rows[:, 0])))
+
+
 def disk_loading(
     blocks: Sequence[tuple[np.ndarray, str]],
     *,
@@ -1052,6 +1127,15 @@ def disk_loading(
             "no blade sectional loads cut in planes containing the shaft of a blade frame "
             "were exported"
         )
+    across = [(rows, plane) for rows, plane in usable if _cut_across_the_span(rows, plane, shaft)]
+    if not across:
+        planes = ", ".join(sorted({plane for _rows, plane in usable}))
+        return (
+            f"the blade sectional loads in planes {planes} are cut along the blade span, so "
+            "their Offset is not the radius; cut the blade across its span (the plane of the "
+            "shaft and the blade's tangential axis) to give the disk loading"
+        )
+    usable = across
     radius = np.abs(usable[0][0][:, 0])
     order = np.argsort(radius, kind="stable")
     radius = radius[order]

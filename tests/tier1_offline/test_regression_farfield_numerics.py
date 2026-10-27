@@ -365,6 +365,93 @@ class TestFarfieldLedgers:
         assert np.abs(hub["v_theta"]).max() == pytest.approx(0.0, abs=1e-9)
 
     @staticmethod
+    @pytest.mark.requirement("FR-1037")
+    def test_p0470_qsfix_the_turning_frame_pressure_is_converted_with_the_velocity():
+        """P0470-QSFIX (FR-1037, FR-38): the axial balance of a turning frame is the hub's.
+
+        A qsteady_rotor probe exports the frame's rothalpy pressure scaled by
+        Prandtl-Glauert at the frame's Mach (measured on PFS-2165, 26.125). Behind the
+        disk the hub field carries a free vortex, which puts the Euler term
+        rho Omega Gamma / 2 pi on every outlet sample. Converted with its velocity, the
+        lattice pressure is the hub field's Bernoulli pressure with the free-stream total
+        pressure, and the axial balance is that of the same field exported unturned.
+        """
+        rho, speed, sound = 1.225, 49.0, 340.3
+        lattice, points_m, axis = rotor_lattice(_FARFIELD_LEDGERS___SPEC, _FarfieldLedgersRotor())
+        omega, shaft, origin = 50.0, np.array([1.0, 0.0, 0.0]), np.array([0.5, 0.0, 0.0])
+        arm = points_m - origin
+        radius = np.hypot(arm[:, 1], arm[:, 2])
+        theta = np.stack([np.zeros(len(arm)), -arm[:, 2], arm[:, 1]], axis=1) / radius[:, None]
+        swirl = np.where(arm[:, 0] > 0.0, 3.0 / (2.0 * np.pi * radius), 0.0)
+        hub_velocity = np.tile([speed, 0.0, 0.0], (len(arm), 1)) + swirl[:, None] * theta
+        relative = hub_velocity - np.cross(shaft * omega, arm)
+        q = 0.5 * rho * speed * speed
+        rothalpy = 0.5 * rho * (speed**2 + (omega * radius) ** 2 - (relative**2).sum(axis=1))
+        frame_mach = np.sqrt(speed**2 + (omega * radius) ** 2) / sound
+        exported = rothalpy / np.sqrt(1.0 - frame_mach**2) / q
+        # The unturned export: the Bernoulli pressure at the free-stream factor.
+        beta = 1.0 / np.sqrt(1.0 - (speed / sound) ** 2)
+        bernoulli = beta * 0.5 * rho * (speed**2 - (hub_velocity**2).sum(axis=1))
+        block = slice(0, len(points_m))
+        turned = lattice_samples(
+            ProbeSamples(points_m, relative, exported),
+            block,
+            lattice,
+            axis,
+            q=q,
+            hub=(omega, shaft, origin),
+            flow=(rho, speed, speed / sound),
+        )
+        still = lattice_samples(
+            ProbeSamples(points_m, hub_velocity, bernoulli / q), block, lattice, axis, q=q
+        )
+        assert np.asarray(turned["p_prime"]) == pytest.approx(
+            np.asarray(still["p_prime"]), abs=1e-9
+        )
+        spec = _FARFIELD_LEDGERS___SPEC
+        rows = ledger_values(turned, spec, rho=rho, speed=speed, near=(0.0, 1.0))
+        expected = ledger_values(still, spec, rho=rho, speed=speed, near=(0.0, 1.0))
+        kept = lattice_samples(
+            ProbeSamples(points_m, relative, exported),
+            block,
+            lattice,
+            axis,
+            q=q,
+            hub=(omega, shaft, origin),
+        )
+        raw = ledger_values(kept, spec, rho=rho, speed=speed, near=(0.0, 1.0))
+        euler = rho * omega * 3.0 / (2.0 * np.pi) * np.pi  # Pa over the unit disk, N
+        for row, want, as_read in zip(rows[1:], expected[1:], raw[1:], strict=True):
+            assert row["FX_N"] == pytest.approx(want["FX_N"], abs=1e-6)
+            if row["STATION_X_R"] > 0.0:
+                assert abs(as_read["FX_N"] - want["FX_N"]) > euler, "the kept pressure"
+
+    @staticmethod
+    @pytest.mark.requirement("FR-38")
+    def test_p0470_qsfix_a_cut_along_the_span_gives_no_disk_loading():
+        """P0470-QSFIX (FR-38): sections slicing the blade along its span are warned and skipped.
+
+        Planes XZ of a frame holding the blade along Z stack chordwise slices along Y:
+        the offsets span the blade's thickness (centimetres) and the quarter chord sits
+        out along the blade, so the offset is not the radius (PFS-2165 R2, p472).
+        """
+        n = 12
+        offset = np.linspace(-0.027, 0.083, n)
+        span = np.linspace(0.27, 1.5, n)
+        along = np.column_stack(
+            [offset, np.full(n, 1.5), np.zeros(n), span, np.full(n, -4e3), np.full(n, 1e2), offset]
+        )
+        found = farfield_fields.disk_loading(
+            [(along, "XZ")], shaft="X", blades=6, tip_radius_m=1.8288
+        )
+        assert isinstance(found, str) and "cut along the blade span" in found
+        across = along[:, [3, 1, 2, 0, 4, 5, 6]]
+        kept = farfield_fields.disk_loading(
+            [(across, "XZ")], shaft="X", blades=6, tip_radius_m=1.8288
+        )
+        assert not isinstance(kept, str)
+
+    @staticmethod
     @pytest.mark.requirement("FR-38")
     def test_p0450_fix38_unsteady_samples_is_not_public():
         """P0450-FIX38: per-step far-field surveys are read through post."""
