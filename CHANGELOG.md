@@ -17,7 +17,8 @@ FlightStream versions.
   stations to the disk by equal mass flow and writes `P_PRIME_CORRECTION_N`,
   `AXIAL_FLUX_CORRECTED_N`, `FX_CORRECTED_N`, `P_TOTAL_CORRECTED_W` and
   `ETA_FF_CORRECTED`; G4 (`SPURIOUS_COUNTS`) returns on rotor rows on the
-  corrected balance. The plan adds one distribution per blade in its own frame on
+  corrected balance. Not yet validated: on a recorded six-blade rotor it read
+  0.93 to 0.97 of the near-field thrust, the shortfall being in the probe field. The plan adds one distribution per blade in its own frame on
   an `unsteady_rotor` row that declares none. Rows without a rotor keep their
   tables. The correction is an experimental reconstruction, not a guarantee of
   agreement with measured thrust. Migration: none; a rotor row without blade

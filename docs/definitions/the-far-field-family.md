@@ -673,6 +673,14 @@ alone) `F_NEAR_N` and `F_NEAR_VISCOUS_N` are the export's times `PERIODIC_COPIES
 These columns appear only in a table where a rotor row carries them, before
 `STATUS`; a table of rows without a rotor keeps its columns and bytes.
 
+**Not yet validated.** On a recorded six-blade `unsteady_rotor` case the corrected
+axial balance read 0.93 to 0.97 of the near-field thrust at the stations behind the
+disk. The correction carries the disk loading (0.995 of the near-field pressure
+thrust); the shortfall is in the probe field itself, whose slipstream speed-up is
+weaker than the blade loading implies. Treat `FX_CORRECTED_N` and the rotor-row G4
+as indicative until a validation case closes it; the wake loads of `VARIANT = W`
+are the validated rotor thrust.
+
 Where the row exported no usable blade loads, `SPURIOUS_COUNTS` and `F_NEAR_N` are
 `NA` in the instant and averaged ledgers with a named skip saying why, and the
 corrected columns are absent. Flux and other ledger columns stay;
