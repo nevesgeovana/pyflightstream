@@ -351,8 +351,9 @@ tip sum `- sum_{k > j} value_k` of B. The solver's rotor lattice does not close
 at the tip: its outermost filament carries only part of the circulation of the
 strips beside it, so a sum from the tip would offset every strip by the
 missing part. On a recorded six-blade rotor the root sum gave a wake thrust
-within 3 percent of the near-field thrust and the tip sum about a quarter of it. Line `k` is a chain of straight vortex
-segments of strength `-value_k` along the line.
+within 3 percent of the near-field thrust and the tip sum about a quarter of it.
+Line `k` is a chain of straight vortex segments of strength `-value_k` along
+the line.
 
 **Loads (Kutta-Joukowski).** At each strip's lifting-line point (the midpoint of
 the two first nodes) the induced velocity `w` of every line of the rotor is
