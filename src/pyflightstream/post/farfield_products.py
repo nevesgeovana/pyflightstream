@@ -47,8 +47,20 @@ from pyflightstream.farfield import (
     wake_crossings,
 )
 from pyflightstream.farfield.balances import DiskLoading
-from pyflightstream.post._condition import recorded_blade_count
-from pyflightstream.post._reduction_stage import _NA, _farfield_window, _flow, _hub, _layout, _Probe
+from pyflightstream.post._condition import (
+    _recorded_speeds,
+    recorded_blade_count,
+    row_rotor_speeds,
+)
+from pyflightstream.post._reduction_stage import (
+    _AXES,
+    _NA,
+    _farfield_window,
+    _flow,
+    _hub,
+    _layout,
+    _Probe,
+)
 from pyflightstream.post._tables import CONTEXT_COLUMNS, context_row, write_csv_table
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
@@ -772,7 +784,48 @@ def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
             "positions cannot be matched in metres"
         )
     layout = _layout(ctx, point, spec, rotor)
-    return _Probe(per_m=per_m, layout=layout, hub=_hub(ctx, point, spec, layout), rotor=rotor)
+    hub = _hub(ctx, point, spec, layout)
+    record = ctx.record_of[point.name]
+    plane = spec.trefftz is not None and "plane" in spec.trefftz.variant
+    if hub is None and plane and str(record.recipe or "") == "qsteady_rotor":
+        # A quasi-steady row's C plane is read in the turning frame (FR-1037).
+        hub = _plane_hub(ctx, point)
+        _note_one_clocking(ctx, point)
+    return _Probe(per_m=per_m, layout=layout, hub=hub, rotor=rotor)
+
+
+def _plane_hub(ctx: SimContext, point: PolarPoint) -> tuple[float, np.ndarray, np.ndarray]:
+    """Return the turning frame of a quasi-steady row's C plane: its one rotor's.
+
+    The speed is read as D reads it (:func:`pyflightstream.post._reduction_stage._hub`):
+    the record's plan, else the row's own signed speed in the quasi-steady record.
+    A quasi-steady row holds an isolated rotor, so the plane turns about that one;
+    its axis and hub are the reference's rotor block, else the quasi-steady record's.
+    """
+    record = ctx.record_of[point.name]
+    loads = getattr(point, "loads_path", None)
+    speeds = _recorded_speeds(record.reductions, row_rotor_speeds(record, loads))
+    if len(speeds) != 1:
+        raise PyflightstreamError(
+            "the quasi-steady row states no single rotor speed in the point's record nor in "
+            "its quasi-steady record, so its plane cannot be converted to the hub frame"
+        )
+    ((alias, rpm),) = speeds.items()
+    rotor: Any = (getattr(ctx.live, "rotors", None) or {}).get(alias)
+    if rotor is not None:
+        axis = rotor.axis_vector
+        origin = np.asarray([rotor.x_m, rotor.y_m, rotor.z_m], dtype=np.float64)
+    else:
+        try:
+            quasi = read_qsteady_record(loads)
+        except (QsteadyRecordError, TypeError) as error:
+            raise PyflightstreamError(
+                f"the reference names no rotor {alias!r} and its quasi-steady record cannot "
+                f"be read ({error}), so the hub its plane turns about is unknown"
+            ) from error
+        axis, origin = quasi.axis_vector, np.asarray(quasi.hub_m, dtype=np.float64)
+    shaft = _AXES[axis.strip().upper()] if isinstance(axis, str) else np.asarray(axis, dtype=float)
+    return 2.0 * math.pi * float(rpm) / 60.0, shaft, origin
 
 
 def _instant_values(
@@ -1064,8 +1117,6 @@ def _probe_point(
         _skip(ctx, key, point.name, f"the far-field probes cannot be read: {error}")
         return
     _skip_rotor_g4(ctx, point, analyses, found)
-    if run_type == "qsteady_rotor" and "trefftz:plane" in analyses:
-        _note_one_clocking(ctx, point)
     try:
         near = (
             ff._window_near_forces(ctx, point, chosen, probe.layout.axis)
