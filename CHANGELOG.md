@@ -53,6 +53,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Incompressible turning-frame pressure conversion remains finite at zero
+  free-stream speed, without evaluating an undefined Mach ratio.
+
 - Rotor wake VTK lattices are read as trailing filaments, with the sign from
   their written direction and the blade count from their connected lattices.
   Shed cross-segments do not become extra wake lines.

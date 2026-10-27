@@ -3393,3 +3393,24 @@ def test_p0470_r2_g3_uses_recorded_periodic_wheel(blades):
     assert ff.symmetry_floor(signal, psi=psi, m_max=13, excluded_orders=orders) == pytest.approx(
         3.47e-5
     )
+
+
+def test_p0470_r2_incompressible_hover_keeps_hub_pressure():
+    """P0470-R2: zero free-stream speed needs no Mach ratio in an incompressible solve."""
+    lattice, points, axis = rotor_lattice(_FARFIELD_LEDGERS___SPEC, _FarfieldLedgersRotor())
+    origin = np.array([0.5, 0.0, 0.0])
+    shaft = np.array([1.0, 0.0, 0.0])
+    omega, rho = 50.0, 1.225
+    frame = np.cross(omega * shaft, points - origin)
+    velocity = np.tile([2.0, 0.0, 0.0], (len(points), 1)) + 0.1 * frame
+    euler = rho * np.einsum("ij,ij->i", frame, velocity)
+    fields = lattice_samples(
+        ProbeSamples(points, velocity - frame, 12.0 + euler),
+        slice(0, len(points)),
+        lattice,
+        axis,
+        q=1.0,
+        hub=(omega, shaft, origin),
+        flow=(rho, 0.0, 0.0),
+    )
+    assert np.asarray(fields["p_prime"]) == pytest.approx(12.0)
