@@ -823,6 +823,12 @@ def wake_rotor_loads(
     -------
     WakeLoads
         Thrust, torque, the blades traced and the lines read.
+
+    Raises
+    ------
+    FarfieldInputError
+        If the density is invalid, the rotor sheds no wake line, the shed
+        values do not match the lines, or no blade sheds two lines or more.
     """
     _require_density(rho)
     if not lines:
