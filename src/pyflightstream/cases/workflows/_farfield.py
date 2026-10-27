@@ -43,6 +43,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape
 from pyflightstream.cases.farfield_inputs import (
     ROTOR_RUN_TYPES,
+    FarfieldInput,
     FarfieldResolution,
     applies,
     few_stations_warning,
@@ -140,42 +141,62 @@ def _rotor(case: SimCase) -> bool:
     )
 
 
-def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
-    _entry_window(spec, case)
+def _declared_analyses(spec: FarfieldSpec) -> list[str]:
+    """Return the analyses an entry declares, before the row decides which apply."""
     selected = []
     if spec.trefftz is not None:
         selected += [f"trefftz:{variant}" for variant in spec.trefftz.variant]
     if spec.balances:
         selected.append("ledgers")
+    return selected
+
+
+def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
+    if _entry_window(spec, case):
+        return []
     run_type, rotor = _run_type(case), _rotor(case)
     # An analysis that does not apply to the row is skipped here and stated
     # `not_applicable` by the plan (owner rule of 2026-10-27), never refused.
-    return [analysis for analysis in selected if not applies(analysis, run_type, rotor=rotor)]
+    return [
+        analysis
+        for analysis in _declared_analyses(spec)
+        if not applies(analysis, run_type, rotor=rotor)
+    ]
 
 
-def _entry_window(spec: FarfieldSpec, case: SimCase) -> None:
-    """Refuse a far-field window the row cannot sample or clock."""
+def _entry_window(spec: FarfieldSpec, case: SimCase) -> str:
+    """Return why this row cannot take the entry's averaging window, or ``""``.
+
+    A WINDOW THE ROW CANNOT SAMPLE OR CLOCK SKIPS THE ENTRY ON THAT ROW (P0471,
+    owner rule of 2026-10-27): a steady row has no march to average, and a row
+    with no rotor clock counts no revolutions; the unsteady (rotor) rows of the
+    same pproc take the entry. A window stated without ``export_type =
+    "avg_window"`` is a writing error no row can take, and is refused.
+    """
     key = "last_revs" if spec.last_revs is not None else "last_steps"
     value = getattr(spec, key)
     if value is None:
-        return
-    why = ""
+        return ""
     per_revolution = None
     if _run_type(case) not in ("unsteady", "unsteady_rotor"):
-        why = "requires an unsteady row"
-    elif spec.export_type != "avg_window":
-        why = 'requires export_type = "avg_window"'
-    elif key == "last_revs":
+        return f"its {key} window needs an unsteady row, and this row is {_run_type(case)}"
+    if spec.export_type != "avg_window":
+        raise CampaignConfigError(
+            f'case {case.sim_id!r}: {key} requires export_type = "avg_window"'
+        )
+    if key == "last_revs":
         if _rotor(case):
             per_revolution = rotor_row_stepping(case).steps_per_revolution
         if per_revolution is None:
-            why = "has no rotor clock; state last_steps"
-    if why:
-        raise CampaignConfigError(f"case {case.sim_id!r}: {key} {why}")
+            return (
+                "its last_revs window counts rotor revolutions and this row has no rotor "
+                "clock; the rotor rows take it, and last_steps serves every unsteady row"
+            )
     averaging_steps(
         {"LAST_REVS_AVG" if key == "last_revs" else "LAST_ITERS_AVG": value},
         per_revolution=per_revolution,
     )
+    return ""
 
 
 def wants_wake(case: SimCase) -> bool:
@@ -594,23 +615,56 @@ def _the_lattice_this_row_leaves_out(case: SimCase, frames: Any) -> dict[str, An
     the record carries this skip for the plan and post, and the plan says it once.
     """
     spec = _spec(case)
-    wanted = spec.ledgers if spec is not None else None
-    if spec is None or wanted is None or wanted.rotor is not None:
+    if spec is None:
         return None
-    if not _unplaced_frame_of(case, frames, wanted.frame):
-        return None
-    return {
+    wanted = spec.ledgers
+    record = {
         "kind": "skipped",
         "source": "skipped",
         "entry": None,
         "count": 0,
         "farfield_entry": spec.name or "",
-        "frame": str(wanted.frame),
-        "reason": (
+        "frame": "",
+    }
+    if wanted is None:
+        # A WING ENTRY ON A ROTOR ROW: Trefftz C there reads a lattice station, which
+        # only a power entry with the rotor states; the wing rows read its plane.
+        return dict(
+            record,
+            reason=(
+                "Trefftz C on a rotor row reads a station of the survey lattice, which only "
+                "a [[farfields]] power entry with the rotor states; the wing rows read this "
+                "entry's plane"
+            ),
+        )
+    if wanted.rotor is not None or not _unplaced_frame_of(case, frames, wanted.frame):
+        return None
+    return dict(
+        record,
+        frame=str(wanted.frame),
+        reason=(
             f"the survey lattice lies in {wanted.frame!r}, a rotor frame this row does not "
             "place; the entry is ignored on this row"
         ),
-    }
+    )
+
+
+def _say_the_lattice_left_out(case: SimCase, frames: Any, left_out: dict[str, Any] | None) -> None:
+    """Note, once per campaign, an entry whose lattice this row leaves out (P0471)."""
+    from pyflightstream.cases._skipped_families import leave_out_what_the_row_cannot_take
+
+    from ._frames import _a_rotor_frame_the_row_leaves_out
+    from ._names import _artifact_of
+
+    if left_out is None:
+        return
+    entry = f"[[farfields]] entry {left_out['farfield_entry']!r}"
+    if left_out["frame"]:
+        _a_rotor_frame_the_row_leaves_out(case, frames, left_out["frame"], entry)
+    else:
+        leave_out_what_the_row_cannot_take(
+            case.sim_id, _artifact_of(case), entry, f"is skipped on this row: {left_out['reason']}"
+        )
 
 
 def _lattice_choice(
@@ -626,19 +680,11 @@ def _lattice_choice(
     a declared ``[[probes]]`` entry laid in such a frame is not reused.
     """
     spec = _spec(case)
-    wanted = spec.ledgers if spec is not None else None
-    if wanted is None:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: Trefftz C on a rotor row reads a station of the survey "
-            "lattice; state the [[farfields]] power entry with the rotor"
-        )
-    if _the_lattice_this_row_leaves_out(case, frames) is not None:
-        from ._frames import _a_rotor_frame_the_row_leaves_out
-
-        _a_rotor_frame_the_row_leaves_out(
-            case, frames, str(wanted.frame), f"[[farfields]] entry {spec.name!r}"
-        )
+    left_out = _the_lattice_this_row_leaves_out(case, frames)
+    if spec is None or spec.ledgers is None or left_out is not None:
+        _say_the_lattice_left_out(case, frames, left_out)
         return None
+    wanted = spec.ledgers
     own = _lattice_shape(case, script, frames, wanted, native_per_m, source="added", entry=None)
     qualifying: list[FarfieldShape] = []
     identical: list[FarfieldShape] = []
@@ -737,6 +783,22 @@ def _resolve(
     spec = _spec(case)
     if spec is None:
         return None
+    window = _entry_window(spec, case)
+    if window:
+        # P0471: an entry whose window this row cannot take is not applicable here.
+        return FarfieldResolution(
+            tuple(
+                FarfieldInput(
+                    analysis,
+                    "window",
+                    "not_applicable",
+                    reason=window,
+                    entry=spec.name,
+                    variant=spec.variant,
+                )
+                for analysis in _declared_analyses(spec)
+            )
+        )
 
     def declares(kind: str) -> bool:
         return any(
@@ -833,10 +895,47 @@ def plan_record(case: SimCase, version: str, script: Script | None = None) -> di
         return {}
     if script is not None and _run_type(case) == "qsteady_rotor":
         _warn_not_applicable(case, resolution)
+    elif script is not None:
+        # An entry whose lattice the build left out was said there, with its frame.
+        said = {s.get("farfield_entry") for s in shapes if s.get("kind") == "skipped"}
+        _say_what_the_row_skips(case, resolution, said)
     record = resolution.as_record()
     if shapes:
         record["probes"] = [dict(shape) for shape in shapes]
     return record
+
+
+def _say_what_the_row_skips(case: SimCase, resolution: FarfieldResolution, said: set[Any]) -> None:
+    """Say once per campaign each far-field analysis this row skips (P0471).
+
+    The owner's rule of 2026-10-27: an entry a row cannot take (a steady
+    coupled row reads no probes, a coupled row's one distribution does not
+    cover the entry, a window or a lattice the row cannot have) is skipped
+    and never refused. The plan notes the row; one warning names the rows.
+    A blade-loads input stated not applicable is an optional input, not a skip.
+    """
+    from pyflightstream.cases._skipped_families import leave_out_what_the_row_cannot_take
+
+    from ._names import _artifact_of
+
+    # ONE NOTE PER ENTRY AND REASON, naming every analysis it skips.
+    skipped: dict[tuple[str, str], list[str]] = {}
+    for item in resolution.inputs:
+        if (
+            item.state == "not_applicable"
+            and item.input != "blade_sectional_loads"
+            and item.entry not in said
+        ):
+            analyses = skipped.setdefault((item.entry, item.reason), [])
+            if item.analysis not in analyses:
+                analyses.append(item.analysis)
+    for (entry, reason), analyses in skipped.items():
+        leave_out_what_the_row_cannot_take(
+            case.sim_id,
+            _artifact_of(case),
+            f"[[farfields]] entry {entry!r} ({', '.join(analyses)})",
+            f"is not applicable on this row ({reason})",
+        )
 
 
 def _warn_not_applicable(case: SimCase, resolution: FarfieldResolution) -> None:

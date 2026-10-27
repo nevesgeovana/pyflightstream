@@ -613,11 +613,22 @@ def test_p0450_d4_invalid_windows_are_refused(key, value):
     assert "extra_forbidden" not in str(caught.value)
 
 
+@pytest.mark.parametrize("key", ["last_steps", "last_revs"])
+def test_p0471_a_window_on_a_steady_row_skips_the_entry(tmp_path, key):
+    """P0471 (owner rule of 2026-10-27): skipped on the steady row, never refused.
+
+    RED on 022dfca8e ("requires an unsteady row"). The unsteady rows of the same
+    pproc take the window; the steady row lays no far-field probe for the entry.
+    """
+    case = _p0450_rotor_case(tmp_path, [{"variant": "plane"}], "steady")
+    spec = PprocSpec.model_validate({"farfields": [{"variant": "plane", key: 1}]})
+    script = _farfield_plan___script(case.model_copy(update={"pproc": spec}))
+    assert not script.farfield_layout
+
+
 @pytest.mark.parametrize(
     "run_type,key,normal",
     [
-        ("steady", "last_steps", False),
-        ("steady", "last_revs", False),
         ("unsteady", "last_revs", False),
         ("unsteady_rotor", "last_steps", True),
         ("unsteady_rotor", "last_revs", True),
@@ -861,18 +872,39 @@ class TestFarfieldPlan:
                 "trefftz:sections",
                 "EXPORT_SURFACE_SECTIONAL_LOADS",
             ),
-            ({"admits_probes": False, "coupled": True}, "trefftz:plane", "takes no probes"),
             ({"selected_families": []}, "trefftz:power", "names no family"),
-            ({"coupled": True, "covered_families": set()}, "trefftz:sections", "exactly one"),
         ],
     )
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_only_the_impossible_is_refused(overrides, analysis, words):
-        """P0400-FFPLAN (FR-1049): the build, the row type, the families, the coupled cut."""
+        """P0400-FFPLAN (FR-1049): the build and the families (row types: see P0471 below)."""
         resolution = _farfield_plan___resolve(**overrides)
         refused = [item for item in resolution.refused if item.analysis == analysis]
         assert refused and words in refused[0].reason
         assert resolution.state_of(analysis) == "refused"
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("overrides", "analysis", "words"),
+        [
+            ({"admits_probes": False, "coupled": True}, "trefftz:plane", "takes no probes"),
+            ({"coupled": True, "covered_families": set()}, "trefftz:sections", "exactly one"),
+        ],
+    )
+    @pytest.mark.requirement("FR-455")
+    def test_p0471_ffplan_a_row_type_the_entry_does_not_suit_is_not_applicable(
+        overrides, analysis, words
+    ):
+        """P0471 (owner rule of 2026-10-27): a coupled row skips the entry, never refuses it.
+
+        RED on 022dfca8e, where both were refused. The uncoupled rows of the same
+        pproc read the probes and cut the sections.
+        """
+        resolution = _farfield_plan___resolve(**overrides)
+        items = [item for item in resolution.inputs if item.analysis == analysis]
+        assert items and all(item.state == "not_applicable" for item in items)
+        assert any(words in item.reason for item in items)
+        assert resolution.state_of(analysis) == "not_applicable"
 
     @staticmethod
     @pytest.mark.requirement("FR-455")
@@ -2119,3 +2151,24 @@ def test_p0471_post_names_the_skip_of_a_lattice_the_run_left_out():
     skipped = {"kind": "skipped", "source": "skipped", "farfield_entry": "shaft_power"}
     with pytest.raises(PyflightstreamError, match="ROTOR_RMRP"):
         recorded_layout([dict(skipped, reason=reason)])
+
+
+def test_p0471_a_windowed_entry_on_a_steady_row_is_skipped_not_refused(tmp_path):
+    """RED on 022dfca8e: "last_steps requires an unsteady row" refused the steady row.
+
+    The window belongs to the unsteady rows of the same pproc; on a steady row the
+    entry is not applicable, warned once, and the other entry plans as before.
+    """
+    entries = _p0471_entries("MRP")
+    entries[1] = dict(entries[1], export_type="avg_window", last_steps=2)
+    plan, said = _p0471_plan(tmp_path, entries)
+    assert len(plan.ready) == 1, plan.summary()
+    about = [m for m in said if "'shaft_power'" in m and "will be ignored" in m]
+    assert len(about) == 1, about
+    assert "window needs an unsteady row" in about[0]
+    states = {
+        item["state"]
+        for item in plan.points[0].farfield["inputs"]
+        if item["entry"] == "shaft_power"
+    }
+    assert states == {"not_applicable"}

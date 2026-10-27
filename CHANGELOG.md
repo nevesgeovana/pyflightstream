@@ -83,6 +83,14 @@ FlightStream versions.
   and left out of that row's exports, instead of refusing the plan; surface
   streamlines stay on `qsteady_rotor` rows.
 
+- `[[farfields]]` entries a row cannot take are stated `not_applicable` on that
+  row with one plan warning, instead of refusing the plan: an averaging window
+  on a steady row or a `last_revs` window on a row with no rotor clock, the
+  probes of a steady coupled (FSI) row, a coupled row's sections, and a wing
+  entry's lattice on a rotor row. A window without `export_type =
+  "avg_window"`, a family no geometry carries and a command the build lacks
+  are still refused.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added
