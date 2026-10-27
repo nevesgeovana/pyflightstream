@@ -1470,7 +1470,7 @@ def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
     last_step = resumed[1] if resumed is not None else clock.time_iterations
     windows: dict[str, tuple[int, int]] = {}
     for entry in entries:
-        if entry.variant == "wake":
+        if entry.variant == "wake" and not _rotor(case):
             continue
         variables = (
             {"LAST_REVS_AVG": entry.last_revs}
@@ -1486,7 +1486,10 @@ def farfield_export_windows(case: SimCase) -> tuple[tuple[int, int, str], ...]:
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: export_type avg_window needs an averaging window"
             )
-        kinds = ["sectional_loads" if entry.variant == "sections" else "farfield_probes"]
+        # P0470-FFR: a rotor row's wake entry exports the surface VTK, its wake on, per step.
+        kinds = [
+            {"sections": "sectional_loads", "wake": "vtk"}.get(entry.variant, "farfield_probes")
+        ]
         if entry.variant == "power":
             entry_case = case.model_copy(
                 update={"pproc": case.pproc.model_copy(update={"farfields": [entry]})}

@@ -18,6 +18,7 @@ The analyses and where they are written:
 |---|---|---|---|
 | Trefftz A, section loads | `variant = "sections"` | the sectional loads export | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_<family>.csv` |
 | Trefftz B, wake trace | `variant = "wake"` | the wake lines, `<name>_wakes.vtk` | `farfield/<group>_trefftz.csv`, `sections/<point>_trefftz_net_<entry>.csv` |
+| Rotor wake loads (W) | `variant = "wake"` on a rotor row | the rotor's wake lines | `farfield/<group>_trefftz.csv` |
 | Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane | `farfield/<group>_trefftz.csv` |
 | Trefftz D, power | `variant = "power"` | the survey lattice | `farfield/<group>_trefftz.csv` |
 | Balances | `variant = "power"` with `balances` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
@@ -92,7 +93,8 @@ The window ends at the last recorded step and clips to the run if longer.
 Multiple entries export the union of their windows. Other per-step products
 retain the row's export threshold. The average is the mean of the per-step
 analysis results, and is skipped if any window snapshot is missing.
-B retains its steady-only applicability.
+B retains its steady-only applicability on rows without a rotor; on
+`unsteady_rotor` its window exports the surface VTK with the wake at every step.
 
 `last_revs` and `last_steps` are refused on steady rows and with `export_type`
 other than `"avg_window"`. `last_revs` without a rotor clock is refused naming
@@ -243,7 +245,8 @@ flat wing it is the planar trace. Then [The discrete trace](#the-discrete-trace)
   outermost station's; nothing is extrapolated to a tip value of zero.
 - On a coupled FSI row the section cut is fixed in space, so the trace is the
   projected span of the deformed surface.
-- Rotors are not traced: a helical wake is not a streamwise sheet.
+- Rotor families are not traced: a helical wake is not a streamwise sheet; see
+  [The rotor wake loads](#trefftz-w).
 - The trace holds the lift of the selected families only. Where it departs from the
   solver's `CL` by more than 5 percent (a wing selected without its body), post
   writes a WARNING with both lifts: the drag and the span efficiency are then those
@@ -305,7 +308,71 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   point's B value `NA`.
 - One `net` row per point: the export does not say which family a line
   belongs to.
-- Rotors are not traced.
+- On a rotor row (a steady row with a rotor speed, `unsteady_rotor`,
+  `qsteady_rotor`) B is not traced, with a named skip: the rotor's lines give
+  [The rotor wake loads](#trefftz-w).
+
+<a id="trefftz-w"></a>
+
+### The rotor wake loads (VARIANT W)
+
+**Selection and input.** A `variant = "wake"` entry on a rotor row also writes,
+per rotor of the reference, one row with `VARIANT = W` and `FAMILY` the rotor
+alias, from the lines that leave that rotor, in metres, about the rotor's hub
+and axis `e_a`. A line leaves a rotor when its first node lies within 1.02 tip
+radii of that rotor's axis and within 0.25 tip radii of its hub plane.
+
+**Bound circulation.** The lines of one rotor are split into blades at the
+azimuth gaps of their first nodes wider than half a blade passage, and each
+blade's lines are ordered root to tip by radius. The strip between lines `j`
+and `j + 1` carries the accumulated shed circulation from the tip,
+
+    Gamma_j = - sum_{k > j} value_k
+
+the convention of B, at `r_j` the mean radius of the two first nodes, width
+`dr_j` their radial difference. Line `k` is a chain of straight vortex
+segments of strength `-value_k` along the line.
+
+**Loads (Kutta-Joukowski).** At each strip's lifting-line point (the midpoint of
+the two first nodes) the induced velocity `w` of every line of the rotor is
+summed by the Biot-Savart law of a straight segment, with `e_r` radial and
+`e_t = e_a x e_r`:
+
+    T_WAKE_N  = rho sum_blades sum_j Gamma_j (Omega r_j - w_t) dr_j
+    Q_WAKE_NM = rho sum_blades sum_j Gamma_j (V_a + w_a) r_j dr_j
+
+`Omega` is the rotor speed every product of the point reads (rad/s, signed
+about `e_a`), `V_a` the free-stream component along `e_a`. Where fewer blades
+carry lines than the rotor's recorded blade count (a periodic sector), the lines
+are copied about the axis by the sector angle before the sums.
+
+**Against the near field.** `T_NEAR_N` and `Q_NEAR_NM` are the rotor's thrust
+along `e_a` and torque about it at the hub from the point's loads export (the
+rotor table's rule, its own families only; `NA` where the export holds none),
+and
+
+    DT_WAKE_COUNTS = 1e4 (T_WAKE_N - T_NEAR_N) / (q SREF)
+    DQ_WAKE_COUNTS = 1e4 (Q_WAKE_NM - Q_NEAR_NM) / (q SREF BREF)
+
+with `q` on the free stream. On an unsteady row the near field is that of the
+final loads export on every window step.
+
+**The scale is raw.** The values are read as the circulation itself:
+`GAMMA_SCALE` is 1 and nothing is calibrated to the near field, which would
+make the comparison a tautology. The scale and sign of the exported value on a
+rotor are the solver's undocumented ones; the licensed measurement of the
+0.47.0 rotor far field decides them.
+
+**Columns.** `T_WAKE_N`, `Q_WAKE_NM`, `T_NEAR_N`, `Q_NEAR_NM`,
+`DT_WAKE_COUNTS` and `DQ_WAKE_COUNTS` stand before `STATUS`, in a table where a
+row holds one; a table of rows without a rotor keeps its columns.
+`N_TRACE` is the count of the rotor's lines.
+
+**Assumptions and validity.** The lifting line is at the trailing-edge nodes
+the lines leave, not at the quarter chord. The free stream is taken along the
+axis (its in-plane component is not in `V_a`). The bound vortices of the other
+blades induce nothing at the lifting line. A rotor with no speed, or whose
+lines the export does not hold, is a named skip.
 
 <a id="trefftz-c"></a>
 
@@ -643,7 +710,7 @@ far-field shape within that declaration and `count` retains its shape count;
 | analysis | needs | when declared | when not declared |
 |---|---|---|---|
 | A | a section distribution over each family, planes XZ, reference axes; the sectional loads export | reused | added: frame `MRP`, plane XZ, 80 stations per side |
-| B | the VTK export with the wake | reused | the wake switched on in the VTK export, the export added if the row has none |
+| B, W | the VTK export with the wake | reused | the wake switched on in the VTK export, the export added if the row has none; on `unsteady_rotor` under `"avg_window"`, also at every window step |
 | C | the configuration plane; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
 | D | the entry's survey lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | the stated lattice is laid as probe points |
 | balances | the lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
@@ -693,9 +760,9 @@ named skip. Steady and quasi-steady rotor scripts retain their analysis route.
 | row | A | B | C | balances |
 |---|---|---|---|---|
 | steady, fixed wing | yes | yes | yes | yes |
-| steady rotor | nonrotor families | no | configuration plane | yes |
-| `unsteady_rotor` | nonrotor families | no | configuration plane, instant and average | instant and average |
-| `qsteady_rotor` | no | no | configuration plane, in the hub frame | yes, in the hub frame |
+| steady rotor | nonrotor families | W per rotor | configuration plane | yes |
+| `unsteady_rotor` | nonrotor families | W per rotor, instant and average | configuration plane, instant and average | instant and average |
+| `qsteady_rotor` | no, warned and skipped | no, warned and skipped | configuration plane, in the hub frame | yes, in the hub frame |
 | unsteady, fixed wing | yes | no | instant and average | instant and average |
 | coupled FSI, steady | the coupled distribution | yes | refused (no probes) | refused (no probes) |
 

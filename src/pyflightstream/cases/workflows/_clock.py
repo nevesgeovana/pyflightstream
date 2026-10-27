@@ -340,6 +340,7 @@ def _with_farfield_threshold(
     case: SimCase,
     conventions: WorkflowConventions | None,
     threshold: UnsteadyExportThreshold | None,
+    version: str | FsVersion | None = None,
 ) -> UnsteadyExportThreshold | None:
     """Combine the row threshold and independent far-field windows without widening either."""
     windows = farfield_export_windows(case)
@@ -380,6 +381,15 @@ def _with_farfield_threshold(
     )
     exports = []
     for first, last, kind in windows:
+        if kind == "vtk":
+            # P0470-FFR: a rotor row's wake entry, the surface VTK with its wake switched on
+            # by the command and grammar of the final export.
+            if version is None or "vtk" not in names:
+                continue
+            payload = Script(version)
+            _surface_export(payload, case, "vtk", names["vtk"], kinds=names)
+            exports.append((first, last, payload.render()))
+            continue
         verb = (
             "EXPORT_SURFACE_SECTIONAL_LOADS" if kind == "sectional_loads" else "EXPORT_PROBE_POINTS"
         )
@@ -443,7 +453,7 @@ def unsteady_export_threshold(
         else False
     )
     if not stated and not averaged:
-        return _with_farfield_threshold(case, conventions, None)
+        return _with_farfield_threshold(case, conventions, None, version)
     if not stated:
         # G25: [time_averaging] EXPORTS THE SURFACE AT EVERY STEP OF ITS WINDOW,
         # through this machinery, as a row stating EXPORT_UNSTEADY_AFTER_ITER at
@@ -472,6 +482,7 @@ def unsteady_export_threshold(
                     conventions or WorkflowConventions.for_case(case), case, version=version
                 ),
             ),
+            version,
         )
     refuse_two_threshold_keys(case, stated)
     key = next(iter(stated))
@@ -529,6 +540,7 @@ def unsteady_export_threshold(
                 conventions or WorkflowConventions.for_case(case), case, version=version
             ),
         ),
+        version,
     )
 
 

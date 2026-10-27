@@ -26,6 +26,17 @@ FlightStream versions.
   and names that as a skip; no clocking average is formed. Migration: a `plane`
   entry on a `qsteady_rotor` row, refused before, now plans and writes its C row.
 
+- Rotor wake loads: a `variant = "wake"` far-field entry on a rotor row (steady
+  with a rotor speed, `unsteady_rotor`) writes one `VARIANT = W`
+  row per rotor with `T_WAKE_N` and `Q_WAKE_NM`, the Kutta-Joukowski thrust and
+  torque of the circulation its blades shed, with Biot-Savart induced velocities
+  from the same wake lines and no calibration to the near field, beside
+  `T_NEAR_N`, `Q_NEAR_NM` and their differences in counts. The plan switches the
+  wake on in the VTK export of such a row, and on `unsteady_rotor` under
+  `"avg_window"` at every window step. Tables of rows without a rotor keep their
+  columns. New core functions `pyflightstream.farfield.wake_rotor_loads` and
+  `rotor_wake_lines`, and the result type `WakeLoads`.
+
 ### Changed
 
 - Trefftz A and B entries on a `qsteady_rotor` row are stated `not_applicable`

@@ -3051,3 +3051,132 @@ def test_p0470_ffr_swirl_term_is_from_the_torque():
     v_a = float(fields["u"][2, ring].mean())
     swirl = torque / (rho * v_a * 2.0 * np.pi * r * r)
     assert rise[2, ring, 0] - base[2, ring, 0] == pytest.approx(0.5 * rho * swirl**2, rel=1e-9)
+
+
+def _p0470_helical_wake(
+    blades: int, *, gamma: np.ndarray, radii: np.ndarray, v: float, omega: float, turns: float
+) -> tuple[list[np.ndarray], np.ndarray]:
+    """Lines shed by each trailing-edge node of a rotor at the origin turning about +x.
+
+    Each line is a helix that keeps the azimuth where it was shed: theta(x) =
+    theta_b - omega x / v, swept downstream at v. The value of line k is the
+    circulation it sheds, outer strip minus inner strip, the Trefftz B convention.
+    """
+    bound = np.concatenate([[0.0], gamma, [0.0]])
+    shed = np.diff(bound)
+    steps = int(36 * turns)
+    x = np.linspace(0.0, 2.0 * math.pi * turns * v / abs(omega), steps + 1)
+    lines, values = [], []
+    for blade in range(blades):
+        theta_b = 2.0 * math.pi * blade / blades
+        for radius, value in zip(radii, shed, strict=True):
+            theta = theta_b - omega * x / v
+            # e1 = +y, e2 = +x cross e1 = +z: the azimuth of the core's hub axes.
+            lines.append(np.column_stack([x, radius * np.cos(theta), radius * np.sin(theta)]))
+            values.append(value)
+    return lines, np.asarray(values)
+
+
+def _p0470_segment_velocity(point: np.ndarray, head: np.ndarray, tail: np.ndarray, g: float):
+    """A straight filament's velocity by the angle form, u = g / (4 pi h) (cos a - cos b) e."""
+    along = tail - head
+    length = float(np.linalg.norm(along))
+    unit = along / length
+    foot = head + float((point - head) @ unit) * unit
+    h_vector = point - foot
+    h = float(np.linalg.norm(h_vector))
+    if h < 1e-12:
+        return np.zeros(3)
+    cos_a = float((point - head) @ unit) / float(np.linalg.norm(point - head))
+    cos_b = float((point - tail) @ unit) / float(np.linalg.norm(point - tail))
+    direction = np.cross(unit, h_vector / h)
+    return g / (4.0 * math.pi * h) * (cos_a - cos_b) * direction
+
+
+@pytest.mark.requirement("FR-452")
+def test_p0470_ffr_a_helical_wake_returns_its_kutta_joukowski_thrust_and_torque():
+    """P0470-FFR option 3: T_w and Q_w of a synthetic helical wake of known Gamma(r).
+
+    The reference sums rho Gamma (Omega r - w_t) dr and rho Gamma (V + w_a) r dr over
+    every blade with the KNOWN strip circulation and the induced velocity of the
+    known filaments (strength Gamma_in - Gamma_out along each line), by the angle
+    form of a straight filament, coded here apart from the core.
+    """
+    blades, rho, v, omega = 3, 1.225, 20.0, 120.0
+    radii = np.linspace(0.2, 1.0, 9)
+    mids = 0.5 * (radii[:-1] + radii[1:])
+    gamma = 2.0 * np.sin(math.pi * (mids - 0.2) / 0.8) + 0.3
+    lines, values = _p0470_helical_wake(
+        blades, gamma=gamma, radii=radii, v=v, omega=omega, turns=6.0
+    )
+    loads = ff.wake_rotor_loads(
+        lines,
+        values=values,
+        hub=(0.0, 0.0, 0.0),
+        axis=(1.0, 0.0, 0.0),
+        omega=omega,
+        v_axial=v,
+        rho=rho,
+        blades=blades,
+    )
+    thrust = torque = 0.0
+    strengths = -np.diff(np.concatenate([[0.0], gamma, [0.0]]))
+    for blade in range(blades):
+        theta_b = 2.0 * math.pi * blade / blades
+        for j, g in enumerate(gamma):
+            point = 0.5 * (lines[blade * len(radii) + j][0] + lines[blade * len(radii) + j + 1][0])
+            w = np.zeros(3)
+            for line, strength in zip(lines, np.tile(strengths, blades), strict=True):
+                for head, tail in zip(line[:-1], line[1:], strict=True):
+                    w += _p0470_segment_velocity(point, head, tail, strength)
+            e_r = np.array([0.0, math.cos(theta_b), math.sin(theta_b)])
+            e_t = np.cross([1.0, 0.0, 0.0], e_r)
+            radius = float(np.linalg.norm(point[1:]))
+            dr = radii[j + 1] - radii[j]
+            thrust += rho * g * (omega * radius - float(w @ e_t)) * dr
+            torque += rho * g * (v + float(w[0])) * radius * dr
+    assert loads.blades == blades
+    assert loads.lines == len(lines)
+    assert loads.thrust == pytest.approx(thrust, rel=0.01)
+    assert loads.torque == pytest.approx(torque, rel=0.01)
+    # The induction is in the answer: without it the thrust is larger by more than 1 percent.
+    bare = blades * rho * float(np.sum(gamma * omega * mids * np.diff(radii)))
+    assert abs(bare - loads.thrust) > 0.01 * abs(bare)
+
+
+@pytest.mark.requirement("FR-452")
+def test_p0470_ffr_a_periodic_sector_wake_is_copied_to_the_whole_rotor():
+    """P0470-FFR option 3: one meshed blade of three gives the loads of the three."""
+    radii = np.linspace(0.2, 1.0, 7)
+    mids = 0.5 * (radii[:-1] + radii[1:])
+    gamma = 1.0 + 0.0 * mids
+    kwargs = {
+        "hub": (0.0, 0.0, 0.0),
+        "axis": (1.0, 0.0, 0.0),
+        "omega": 100.0,
+        "v_axial": 15.0,
+        "rho": 1.2,
+        "blades": 3,
+    }
+    lines, values = _p0470_helical_wake(3, gamma=gamma, radii=radii, v=15.0, omega=100.0, turns=4)
+    whole = ff.wake_rotor_loads(lines, values=values, **kwargs)
+    one = ff.wake_rotor_loads(lines[: len(radii)], values=values[: len(radii)], **kwargs)
+    assert one.blades == 3 and one.lines == len(radii)
+    assert one.thrust == pytest.approx(whole.thrust, rel=1e-9)
+    assert one.torque == pytest.approx(whole.torque, rel=1e-9)
+
+
+@pytest.mark.requirement("FR-452")
+def test_p0470_ffr_a_mixed_export_assigns_every_line_once():
+    """P0470-FFR B by family: rotor lines start in the disk near the hub plane, the rest is wing."""
+    radii = np.linspace(0.2, 1.0, 5)
+    gamma = np.ones(4)
+    rotor, _ = _p0470_helical_wake(2, gamma=gamma, radii=radii, v=10.0, omega=80.0, turns=2)
+    hub = np.array([2.0, 0.0, 0.0])
+    rotor = [line + hub for line in rotor]
+    span = np.linspace(-4.0, 4.0, 17)
+    wing = [
+        np.column_stack([np.linspace(1.0, 9.0, 20), np.full(20, y), np.zeros(20)]) for y in span
+    ]
+    mask = ff.rotor_wake_lines(wing + rotor, hub=hub, axis=(1.0, 0.0, 0.0), radius=1.0, reach=0.25)
+    assert mask.tolist() == [False] * len(wing) + [True] * len(rotor)

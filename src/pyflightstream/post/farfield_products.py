@@ -42,9 +42,11 @@ from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
 from pyflightstream.farfield import (
     TraceResult,
     calibration_scale,
+    rotor_wake_lines,
     trace_coefficients,
     trace_forces,
     wake_crossings,
+    wake_rotor_loads,
 )
 from pyflightstream.farfield.balances import DiskLoading
 from pyflightstream.post._condition import (
@@ -77,6 +79,7 @@ from pyflightstream.post.farfield_fields import (
     steady_samples,
     symmetry_excluded_orders,
 )
+from pyflightstream.post.rotor_table import rotor_shaft_loads
 from pyflightstream.post.section_distributions import distributions_of
 from pyflightstream.post.series import stamped_exports
 from pyflightstream.results.loads import drag_pair
@@ -128,9 +131,19 @@ TREFFTZ_COLUMNS: tuple[str, ...] = (
     # PFS-2081.97: the point's solver termination status, as the sweep table writes it.
     "STATUS",
 )
-#: The D columns of the disk total-pressure correction (P0470-FFR option 1a), written
-#: before ``STATUS`` only in a table where a rotor row carries them.
-_ROTOR_TREFFTZ_COLUMNS: tuple[str, ...] = ("P_TOTAL_CORRECTED_W", "ETA_FF_CORRECTED")
+#: The rotor columns (P0470-FFR): the D columns of the disk total-pressure correction
+#: (option 1a) and the wake-loads columns (option 3), written before ``STATUS`` only in
+#: a table where a rotor row holds a value, so a table without a rotor keeps its columns.
+_ROTOR_TREFFTZ_COLUMNS: tuple[str, ...] = (
+    "P_TOTAL_CORRECTED_W",
+    "ETA_FF_CORRECTED",
+    "T_WAKE_N",
+    "Q_WAKE_NM",
+    "T_NEAR_N",
+    "Q_NEAR_NM",
+    "DT_WAKE_COUNTS",
+    "DQ_WAKE_COUNTS",
+)
 #: Every cell a row is built with; :func:`_write` drops the rotor columns no row holds.
 _TREFFTZ_CELLS = (*TREFFTZ_COLUMNS[:-1], *_ROTOR_TREFFTZ_COLUMNS, TREFFTZ_COLUMNS[-1])
 _LEDGER_CELLS = (*LEDGER_COLUMNS[:-1], *ROTOR_LEDGER_COLUMNS, LEDGER_COLUMNS[-1])
@@ -151,6 +164,9 @@ SPANWISE_COLUMNS: tuple[str, ...] = (
     "CDI_LOCAL",
     "STATUS",
 )
+#: A blade's trailing edge lies within this fraction of the tip radius of its hub plane
+#: (the start-node rule that tells a rotor's wake lines from a wing's, P0470-FFR).
+_BLADE_REACH = 0.25
 _VARIANT_NAMES = {"sections": "A", "wake": "B", "plane": "C"}
 #: Above this Mach number the C row is written with a WARNING that the
 #: incompressible relations of the definitions page are used (FR-1036).
@@ -605,12 +621,22 @@ def _per_m(ctx: SimContext, point: PolarPoint) -> float | None:
     )
 
 
-def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
-    """Trefftz B of one steady point (FR-452): rows, or a named skip."""
+def _variant_b(
+    ctx: SimContext,
+    point: PolarPoint,
+    wakes: Path | None,
+    *,
+    rotor: bool = False,
+    spanwise: bool = True,
+) -> list:
+    """Trefftz B of one point (FR-452): rows, or a named skip.
+
+    ``wakes`` is the wake export to read (the final one: :func:`_final_wakes`). On a
+    rotor row (``rotor``) B is a named skip (P0470-FFR); the rotors' lines feed the
+    wake loads.
+    """
     spec = _trefftz(ctx)
     key = f"{FARFIELD_DIR}/trefftz#point={point.name}#variant=wake"
-    vtk = _output(ctx, point, "vtk")
-    wakes = None if vtk is None else vtk.with_name(vtk.stem + "_wakes.vtk")
     if wakes is None or not wakes.is_file():
         _skip(
             ctx,
@@ -640,11 +666,20 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
         _skip(ctx, key, point.name, "the point states no density or free-stream speed")
         return []
     turn = farfield_axes(alpha, beta)
-    lines = [(line / per_m) @ turn.T for line in wake.lines]
+    if rotor:
+        _skip(
+            ctx,
+            key,
+            point.name,
+            "B is not traced on a rotor row: the export does not say which family a line "
+            "leaves; the rotor's lines give the wake loads (VARIANT W)",
+        )
+        return []
+    lines, values = [(line / per_m) @ turn.T for line in wake.lines], wake.values
     x_t = max((float(line[0, 0]) for line in lines), default=0.0)
     x_t += spec.distance_bref * ctx.reference.bref_m
     mirror, half = _symmetry(ctx)
-    lines, shed_values = _wake_sheet(ctx, point, lines, wake.values, mirror=mirror)
+    lines, shed_values = _wake_sheet(ctx, point, lines, values, mirror=mirror)
     trace = wake_crossings(lines, values=shed_values, x_t=x_t)
     if trace.problem is not None:
         # FR-1025, FR-1026: the point's B row is written NA, never dropped, and
@@ -681,7 +716,8 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
             "the point has no near-field CL to calibrate "
             "the wake values from, so E_T alone is written",
         )
-    _spanwise(ctx, point, variant="wake", name="net", result=result, chords=None)
+    if spanwise:
+        _spanwise(ctx, point, variant="wake", name="net", result=result, chords=None)
     return _trace_rows(
         ctx,
         point,
@@ -723,6 +759,178 @@ def _wake_sheet(
         )
     keep &= ~omitted
     return [line for line, use in zip(lines, keep, strict=True) if use], values[keep]
+
+
+def _final_wakes(ctx: SimContext, point: PolarPoint) -> Path | None:
+    """Return the wake export beside the point's final surface VTK, or None."""
+    vtk = _output(ctx, point, "vtk")
+    return None if vtk is None else vtk.with_name(vtk.stem + "_wakes.vtk")
+
+
+def _rotor_line_mask(rotors: Mapping[str, Any], lines: Sequence[np.ndarray]) -> np.ndarray:
+    """Return which wake lines (metres, geometry axes) leave a rotor of the reference."""
+    mask = np.zeros(len(lines), dtype=bool)
+    for rotor in rotors.values():
+        radius = float(rotor.diameter_m) / 2.0
+        mask |= rotor_wake_lines(
+            lines,
+            hub=(float(rotor.x_m), float(rotor.y_m), float(rotor.z_m)),
+            axis=rotor.axis_vector,
+            radius=1.02 * radius,
+            reach=_BLADE_REACH * radius,
+        )
+    return mask
+
+
+def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
+    """Return the wake loads of each rotor of one point (option 3, P0470-FFR), or skip."""
+    key = f"{FARFIELD_DIR}/trefftz#point={point.name}#variant=wake_loads"
+    rotors = getattr(ctx.live, "rotors", None) or {}
+    if wakes is None or not wakes.is_file():
+        _skip(
+            ctx,
+            key,
+            point.name,
+            "the point wrote no wake export, so no rotor wake loads are formed; the plan of a "
+            "new run switches the wake on in the VTK export",
+        )
+        return []
+    per_m = _per_m(ctx, point)
+    try:
+        if per_m is None:
+            raise PyflightstreamError(
+                "the point saved no simulation whose length unit the package reads"
+            )
+        wake = parse_wake_export(wakes.read_text(encoding="utf-8"))
+    except (PyflightstreamError, OSError) as error:
+        _skip(ctx, key, point.name, f"the wake export cannot be read: {error}")
+        return []
+    rho, speed, alpha, beta = _flow(point)
+    record = ctx.record_of[point.name]
+    plan = getattr(record, "reductions", None)
+    speeds = _recorded_speeds(plan, row_rotor_speeds(record, getattr(point, "loads_path", None)))
+    flat = plan.get("rpm") if isinstance(plan, Mapping) else None
+    if not speeds and len(rotors) == 1 and isinstance(flat, int | float):
+        # A plan of one rotor states its speed at the row level.
+        speeds = {str(next(iter(rotors))): float(flat)}
+    lines = [line / per_m for line in wake.lines]
+    wind = farfield_axes(alpha, beta)[0]
+    loads = point.loads
+    v_ref = float(loads.reference_velocity_m_s or loads.freestream_velocity_m_s)
+    qs = 0.5 * rho * speed * speed * float(ctx.reference.sref_m2)
+    rows = []
+    for alias, rotor in rotors.items():
+        mask = _rotor_line_mask({alias: rotor}, lines)
+        rpm = speeds.get(str(alias))
+        if rpm is None or not np.any(mask):
+            why = "states no speed" if rpm is None else "sheds no wake line the export holds"
+            _skip(ctx, f"{key}#rotor={alias}", point.name, f"the rotor {alias} {why}")
+            continue
+        axis = np.asarray(rotor.axis_vector, dtype=np.float64)
+        axis = axis / float(np.linalg.norm(axis))
+        count = recorded_blade_count(record, str(alias), len(rotors)) or rotor.blade_count
+        try:
+            wake_loads = wake_rotor_loads(
+                [line for line, own in zip(lines, mask, strict=True) if own],
+                values=wake.values[mask],
+                hub=(float(rotor.x_m), float(rotor.y_m), float(rotor.z_m)),
+                axis=axis,
+                omega=2.0 * math.pi * float(rpm) / 60.0,
+                v_axial=speed * float(wind @ axis),
+                rho=rho,
+                blades=int(count),
+            )
+        except PyflightstreamError as error:
+            reason = f"the wake loads cannot be formed: {error}"
+            _skip(ctx, f"{key}#rotor={alias}", point.name, reason)
+            continue
+        near = rotor_shaft_loads(
+            loads.surfaces,
+            rotor=rotor,
+            reference=ctx.reference,
+            density_kg_m3=rho,
+            speed_m_s=v_ref,
+            alpha_deg=alpha,
+            beta_deg=beta,
+        )
+        # A rotor whose families the loads export does not hold has no near field: NA, not 0.
+        t_near = near.thrust_n if near.families_used else _NA
+        q_near = near.torque_nm if near.families_used else _NA
+        values = {
+            "FAMILY": str(alias),
+            "VARIANT": "W",
+            "N_TRACE": int(np.count_nonzero(mask)),
+            # The raw scale: the exported values are read as the circulation itself.
+            "GAMMA_SCALE": 1.0,
+            "T_WAKE_N": wake_loads.thrust,
+            "Q_WAKE_NM": wake_loads.torque,
+            "T_NEAR_N": t_near,
+            "Q_NEAR_NM": q_near,
+            "DT_WAKE_COUNTS": 1e4 * (wake_loads.thrust - t_near) / qs,
+            "DQ_WAKE_COUNTS": (
+                1e4 * (wake_loads.torque - q_near) / (qs * float(ctx.reference.bref_m))
+            ),
+        }
+        rows.append(_row(ctx, point, _NA, values))
+    return rows
+
+
+def _wake_rotor_products(
+    ctx: SimContext, point: PolarPoint, tables: ff._Tables, run_type: str
+) -> None:
+    """B on the non-rotor lines and the rotors' wake loads: final, and the window average."""
+    final = _final_wakes(ctx, point)
+    runs = ctx.sources[point.name]
+    rows = _variant_b(ctx, point, final, rotor=True) + _variant_w(ctx, point, final)
+    if run_type not in UNSTEADY_RUN_TYPES:
+        tables.extend("trefftz", point.name, ff._named(ctx, [final]), rows, runs=runs)
+        return
+    record = ctx.record_of[point.name]
+    last_step = ff._last_step(record)
+    instant = [row[:2] + (last_step,) + row[3:] for row in rows]
+    tables.extend("trefftz_instant", point.name, ff._named(ctx, [final]), instant, runs=runs)
+    key = f"farfield/trefftz_average#point={point.name}#entry={_spec(ctx).name}"
+    if _spec(ctx).export_type != "avg_window":
+        reason = f"export_type = {_spec(ctx).export_type!r} reads the last step only"
+        _skip(ctx, key, point.name, reason + "; no average is written")
+        return
+    window, source_name = _farfield_window(
+        ctx,
+        point,
+        int(last_step) if isinstance(last_step, int | float) and math.isfinite(last_step) else 0,
+    )
+    vtk = _output(ctx, point, "vtk")
+    root = ctx.workspace.sim_dir(ctx.sim_id)
+    files = (
+        {}
+        if vtk is None
+        else stamped_exports(
+            root, vtk.stem, *(root / Path(output).parent for output in record.outputs)
+        ).get(("", "vtk"), {})
+    )
+    wakes = {step: path.with_name(path.stem + "_wakes.vtk") for step, path in files.items()}
+    steps = range(int(window[0]), int(window[1]) + 1) if window else range(0)
+    if not steps or any(step not in wakes or not wakes[step].is_file() for step in steps):
+        _skip(ctx, key, point.name, "the wake average needs a wake export at every window step")
+        return
+    samples = [
+        _variant_b(ctx, point, wakes[step], rotor=True, spanwise=False)
+        + _variant_w(ctx, point, wakes[step])
+        for step in steps
+    ]
+    if not all(samples) or any(len(sample) != len(samples[0]) for sample in samples):
+        _skip(ctx, key, point.name, "the per-step wake rows differ between window steps")
+        return
+    tables.extend(
+        "trefftz_average",
+        point.name,
+        ff._named(ctx, [wakes[step] for step in steps]),
+        ff._average_entry_rows(samples, 2 + len(CONTEXT_COLUMNS) + 2),
+        runs=runs,
+        window=window,
+        samples=len(samples),
+        source=source_name,
+    )
 
 
 def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[ff._Instant], str]:
@@ -1342,8 +1550,10 @@ def _entry_products(ctx: SimContext, tables: ff._Tables) -> None:
         read: list[Path | None] = []
         if "trefftz:sections" in analyses:
             _sections_products(ctx, point, tables, run_type)
-        if "trefftz:wake" in analyses:
-            steady_rows += _variant_b(ctx, point)
+        if "trefftz:wake" in analyses and rotor:
+            _wake_rotor_products(ctx, point, tables, run_type)
+        elif "trefftz:wake" in analyses:
+            steady_rows += _variant_b(ctx, point, _final_wakes(ctx, point))
             vtk = _output(ctx, point, "vtk")
             read.append(None if vtk is None else vtk.with_name(vtk.stem + "_wakes.vtk"))
         tables.extend("trefftz", point.name, ff._named(ctx, read), steady_rows, runs=runs)

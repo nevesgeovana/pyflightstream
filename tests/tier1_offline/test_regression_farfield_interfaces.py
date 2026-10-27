@@ -2006,3 +2006,31 @@ def test_p0470_ffr_qsteady_sections_and_wake_warn_and_skip(tmp_path):
     assert states["trefftz:wake"] == {"not_applicable"}
     assert "refused" not in set().union(*states.values())
     assert "NEW_SURFACE_SECTION_DISTRIBUTION" not in script.render()
+
+
+@pytest.mark.requirement("FR-455")
+def test_p0470_ffr_a_rotor_wake_entry_switches_the_wake_on(tmp_path):
+    """P0470-FFR option 3: a wake entry on a rotor row exports the wake, final and per window step.
+
+    The same command and grammar as a wing row's (SET_VTK_EXPORT_VARIABLES ... ENABLE);
+    a rotor row without a wake entry keeps the wake off.
+    """
+    from pyflightstream.cases.workflows._clock import unsteady_export_threshold
+    from pyflightstream.cases.workflows._farfield import farfield_export_windows
+
+    entry = {"variant": "wake", "export_type": "avg_window"}
+    case = _p0450_rotor_case(tmp_path, [entry])
+    case = case.model_copy(update={"outputs": row_outputs(case, "unsteady_rotor")})
+    assert applies("trefftz:wake", "unsteady_rotor") == ""
+    assert any(name.endswith(".vtk") for name in case.outputs)
+    assert "SET_VTK_EXPORT_VARIABLES -1 ENABLE" in _farfield_plan___script(case).render()
+    windows = farfield_export_windows(case)
+    assert [kind for _first, _last, kind in windows] == ["vtk"]
+    threshold = unsteady_export_threshold(case, version="26.124")
+    assert threshold is not None
+    assert [text for _first, _last, text in threshold.farfield_windows]
+    texts = [text for *_, text in threshold.farfield_windows]
+    assert all("SET_VTK_EXPORT_VARIABLES -1 ENABLE" in text for text in texts)
+    (tmp_path / "plain").mkdir()
+    plain = _p0450_rotor_case(tmp_path / "plain", [{"variant": "plane", "spacing_bref": 0.25}])
+    assert "-1 ENABLE" not in _farfield_plan___script(plain).render()

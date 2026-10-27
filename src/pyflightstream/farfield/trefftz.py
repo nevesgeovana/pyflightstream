@@ -38,6 +38,7 @@ __all__ = [
     "RotorChannels",
     "RUN_GAP_FACTOR",
     "TraceResult",
+    "WakeLoads",
     "WakeTrace",
     "bernoulli_residual",
     "calibration_scale",
@@ -45,9 +46,11 @@ __all__ = [
     "plane_lift",
     "plane_vorticity_drag",
     "rotor_channels",
+    "rotor_wake_lines",
     "trace_coefficients",
     "trace_forces",
     "wake_crossings",
+    "wake_rotor_loads",
 ]
 
 #: A wake sheet's starting nodes form one ordered run along the trailing edge
@@ -647,6 +650,229 @@ def wake_crossings(lines: Sequence[np.ndarray], *, values: np.ndarray, x_t: floa
         )
     ordered = crossings[order]
     return WakeTrace(ordered[:, 1], ordered[:, 2], values[order], 0, None)
+
+
+@dataclass(frozen=True)
+class WakeLoads:
+    """Rotor thrust and torque from the circulation its blades shed (option 3).
+
+    Attributes
+    ----------
+    thrust : float
+        ``T_w = rho sum_b int Gamma_b (Omega r - w_t) dr``, N, the force on the
+        blades along the rotor axis ``e_a``.
+    torque : float
+        ``Q_w = rho sum_b int Gamma_b (V_a + w_a) r dr``, N m, about ``e_a``.
+    blades : int
+        Blades whose lines were traced, periodic copies included.
+    lines : int
+        Wake lines read, before periodic copies.
+    """
+
+    thrust: float
+    torque: float
+    blades: int
+    lines: int
+
+
+def _unit_vector(vector: Sequence[float]) -> np.ndarray:
+    out = np.asarray(vector, dtype=np.float64)
+    norm = float(np.linalg.norm(out))
+    if not norm > 0.0:
+        raise FarfieldInputError("the rotor axis must be a nonzero vector")
+    return out / norm
+
+
+def _hub_coordinates(
+    points: np.ndarray, hub: np.ndarray, axis: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return the axial offset, the radius and the azimuth of points about the axis."""
+    offset = points - hub
+    axial = offset @ axis
+    radial = offset - axial[:, None] * axis
+    first = np.array([1.0, 0.0, 0.0]) if abs(axis[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+    e1 = first - (first @ axis) * axis
+    e1 /= np.linalg.norm(e1)
+    e2 = np.cross(axis, e1)
+    return axial, np.linalg.norm(radial, axis=1), np.arctan2(radial @ e2, radial @ e1)
+
+
+def rotor_wake_lines(
+    lines: Sequence[np.ndarray],
+    *,
+    hub: Sequence[float],
+    axis: Sequence[float],
+    radius: float,
+    reach: float,
+) -> np.ndarray:
+    """Return which wake lines leave the rotor, by where each one starts.
+
+    A line leaves the rotor when its first node lies within ``radius`` of the
+    rotor axis and within ``reach`` of the hub plane along it; every other
+    line leaves another family (a wing). Each line is assigned exactly once.
+
+    Parameters
+    ----------
+    lines : sequence of numpy.ndarray
+        One ``(n_k, 3)`` array per wake line, its first node on the trailing edge.
+    hub : sequence of float
+        The hub origin, in the lines' unit and frame.
+    axis : sequence of float
+        The rotor axis direction.
+    radius : float
+        The rotor tip radius, in the lines' unit.
+    reach : float
+        The largest axial distance of a blade trailing edge from the hub plane.
+
+    Returns
+    -------
+    numpy.ndarray
+        One bool per line, True for a rotor line.
+    """
+    if not lines:
+        return np.zeros(0, dtype=bool)
+    starts = np.array([np.asarray(line, dtype=np.float64)[0] for line in lines])
+    axial, r, _ = _hub_coordinates(starts, np.asarray(hub, dtype=np.float64), _unit_vector(axis))
+    return (r <= radius) & (np.abs(axial) <= reach)
+
+
+def _blade_groups(azimuth: np.ndarray, blades: int) -> list[np.ndarray]:
+    """Split line indices into blades at the azimuth gaps wider than half a passage."""
+    order = np.argsort(azimuth, kind="stable")
+    angles = azimuth[order]
+    gaps = np.diff(np.concatenate([angles, angles[:1] + 2.0 * math.pi]))
+    wide = gaps > math.pi / max(blades, 1)
+    if not np.any(wide):
+        return [order]
+    start = int(np.flatnonzero(wide)[0]) + 1
+    rolled, rolled_wide = np.roll(order, -start), np.roll(wide, -start)
+    return np.split(rolled, np.flatnonzero(rolled_wide)[:-1] + 1)
+
+
+def _segment_velocity(
+    points: np.ndarray, heads: np.ndarray, tails: np.ndarray, strength: np.ndarray
+) -> np.ndarray:
+    """Biot-Savart velocity at ``points`` of straight vortex segments ``heads -> tails``."""
+    out = np.zeros_like(points)
+    for index, point in enumerate(points):
+        r1 = point - heads
+        r2 = point - tails
+        cross = np.cross(r1, r2)
+        c2 = np.einsum("ij,ij->i", cross, cross)
+        n1 = np.linalg.norm(r1, axis=1)
+        n2 = np.linalg.norm(r2, axis=1)
+        r0 = tails - heads
+        scale = (np.einsum("ij,ij->i", r0, r1 / n1[:, None] - r2 / n2[:, None])) * strength
+        # A point on a segment's line induces nothing from it (a point vortex has no
+        # self-induction); the cutoff is round-off relative to the segment length.
+        live = c2 > 1e-12 * np.einsum("ij,ij->i", r0, r0) ** 2
+        out[index] = (cross[live] * (scale[live] / c2[live])[:, None]).sum(axis=0) / (4.0 * math.pi)
+    return out
+
+
+def wake_rotor_loads(
+    lines: Sequence[np.ndarray],
+    *,
+    values: np.ndarray,
+    hub: Sequence[float],
+    axis: Sequence[float],
+    omega: float,
+    v_axial: float,
+    rho: float,
+    blades: int,
+) -> WakeLoads:
+    """Thrust and torque of a rotor from its shed wake lines (Kutta-Joukowski).
+
+    The lines are split per blade at the azimuth gaps of their first nodes and
+    ordered root to tip. The bound circulation of the strip between lines ``j``
+    and ``j + 1`` is the accumulated shed circulation from the tip,
+    ``Gamma_j = -sum_{k > j} value_k``, the convention of Trefftz B, and line
+    ``k`` is a chain of straight vortex segments of strength ``-value_k`` along
+    the line. At the strip's lifting-line point (the midpoint of the two first
+    nodes) the induced velocity ``w`` of every line (Biot-Savart) gives
+    ``dT = rho Gamma (Omega r - w_t) dr`` and ``dQ = rho Gamma (V_a + w_a) r dr``,
+    with ``e_t = e_a x e_r``. No scale is applied: the values are read as the
+    circulation itself.
+
+    Where fewer blades carry lines than ``blades`` (a periodic sector), the lines
+    are copied about the axis by the sector angle, so the induced field and the
+    sums are those of the whole rotor.
+
+    Parameters
+    ----------
+    lines : sequence of numpy.ndarray
+        The rotor's wake lines, ``(n_k, 3)`` each, in metres, first node on the
+        trailing edge.
+    values : numpy.ndarray
+        The shed circulation of each line, m^2/s.
+    hub, axis : sequence of float
+        Hub origin (m) and rotor axis direction.
+    omega : float
+        Rotor speed about ``axis``, rad/s, signed.
+    v_axial : float
+        Free-stream component along ``axis``, m/s.
+    rho : float
+        Density, kg/m^3.
+    blades : int
+        The rotor's blade count, periodic copies included.
+
+    Returns
+    -------
+    WakeLoads
+        Thrust, torque, the blades traced and the lines read.
+    """
+    _require_density(rho)
+    if not lines:
+        raise FarfieldInputError("the rotor sheds no wake line")
+    values = np.asarray(values, dtype=np.float64)
+    if values.shape != (len(lines),):
+        raise FarfieldInputError("one shed value per wake line is needed")
+    e_a = _unit_vector(axis)
+    origin = np.asarray(hub, dtype=np.float64)
+    arrays = [np.asarray(line, dtype=np.float64) for line in lines]
+    starts = np.array([line[0] for line in arrays])
+    _, radius, azimuth = _hub_coordinates(starts, origin, e_a)
+    groups = [g for g in _blade_groups(azimuth, max(int(blades), 1)) if len(g) >= 2]
+    if not groups:
+        raise FarfieldInputError("no blade sheds two wake lines or more")
+    copies = max(int(blades), len(groups)) // len(groups)
+    turns = [2.0 * math.pi * len(groups) * k / max(int(blades), 1) for k in range(copies)]
+
+    def turned(points: np.ndarray, angle: float) -> np.ndarray:
+        offset = points - origin
+        along = (offset @ e_a)[:, None] * e_a
+        across = offset - along
+        return origin + along + across * math.cos(angle) + np.cross(e_a, across) * math.sin(angle)
+
+    heads, tails, strength = [], [], []
+    for angle in turns:
+        for line, value in zip(arrays, values, strict=True):
+            moved = turned(line, angle)
+            heads.append(moved[:-1])
+            tails.append(moved[1:])
+            strength.append(np.full(len(line) - 1, -value))
+    head, tail, gamma_k = np.concatenate(heads), np.concatenate(tails), np.concatenate(strength)
+    thrust = torque = 0.0
+    for group in groups:
+        group = group[np.argsort(radius[group], kind="stable")]
+        bound = -np.cumsum(values[group][::-1])[::-1][1:]
+        mids = 0.5 * (starts[group][:-1] + starts[group][1:])
+        dr = np.diff(radius[group])
+        _, r_mid, _ = _hub_coordinates(mids, origin, e_a)
+        across = mids - origin - ((mids - origin) @ e_a)[:, None] * e_a
+        e_r = across / r_mid[:, None]
+        e_t = np.cross(e_a, e_r)
+        w = _segment_velocity(mids, head, tail, gamma_k)
+        w_a = w @ e_a
+        w_t = np.einsum("ij,ij->i", w, e_t)
+        thrust += float(np.sum(rho * bound * (omega * r_mid - w_t) * dr))
+        torque += float(np.sum(rho * bound * (v_axial + w_a) * r_mid * dr))
+    return WakeLoads(
+        thrust=thrust * copies,
+        torque=torque * copies,
+        blades=len(groups) * copies,
+        lines=len(arrays),
+    )
 
 
 @dataclass(frozen=True)
