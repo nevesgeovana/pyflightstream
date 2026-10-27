@@ -1214,9 +1214,15 @@ def symmetry_excluded_orders(
     if alias is None:
         return []
     count = recorded_blade_count(record, alias, len(rotors) or 1)
-    if count is None:
-        rotor = rotors.get(alias)
-        count = len(getattr(rotor, "families_blades", ()) or ())
+    copies = max(
+        (
+            int(str(item.get("periodic_copies") or 1))
+            for item in getattr(record, "surface_translations", None) or []
+        ),
+        default=1,
+    )
+    rotor = rotors.get(alias)
+    count = max(count or 0, len(getattr(rotor, "families_blades", ()) or ()) * copies)
     return list(range(count, spec.m_max + 1, count)) if count else []
 
 

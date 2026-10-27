@@ -50,6 +50,9 @@ FlightStream versions.
 
 ### Fixed
 
+- The rotor symmetry floor uses the recorded periodic wheel count even when
+  reductions record only the meshed blade count or no blade count.
+
 - Periodic rotor wake comparisons scale sector near-field thrust and torque to
   the whole wheel when `SYMMETRY_LOADS` is disabled, including window averages
   and their differences in counts.

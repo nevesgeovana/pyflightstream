@@ -589,7 +589,8 @@ into the plane term.
 
 For a lattice serving a rotor of B blades, G3 (`SYMMETRY_FLOOR`) omits the
 blade-passage orders B, 2B, ... through `m_max`. B comes from the row's recorded
-blade count (including periodic copies), or the rotor's declared blade families.
+blade count, with a lower bound of the rotor's declared blade families times
+the periodic copies recorded with the surface exports.
 A non-rotor lattice retains every order from 1 through `m_max`. The product
 manifest's `symmetry_excluded_orders` maps each point and entry to the excluded
 orders. If no order remains, G3 is `NA`: no symmetry floor was measured.
