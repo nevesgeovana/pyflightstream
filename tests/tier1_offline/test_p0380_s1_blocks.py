@@ -418,8 +418,8 @@ def test_refine_mesh_reports_a_multiblock_grid_and_its_audit_passes(tmp_path, na
         if factor == 1.0:
             assert gates.get("G6") == "pass", gates
     with pytest.raises(InputArtifactError) as caught:
-        refine_mesh(src, chordwise=2.0, out_dir=tmp_path / "c")
-    assert "state [trailing_edge] file" in str(caught.value)
+        refine_mesh(src, normal=2.0, out_dir=tmp_path / "c")
+    assert "without a trailing edge" in str(caught.value)
 
 
 @pytest.mark.parametrize("factor", [0.01, 0.2, 0.24])
@@ -720,7 +720,7 @@ def test_a_lone_multiblock_takes_chordwise_and_spanwise_from_its_trailing_edge(t
     single factor 0.5 halves both, as before.
     """
     src = write_source(tmp_path / "src", "plate", _l_with_trailing_edge())
-    level = refine_mesh(src, chordwise=0.5, spanwise=1.0, out_dir=tmp_path / "a")
+    level = refine_mesh(src, normal=0.5, parallel=1.0, out_dir=tmp_path / "a")
     assert _pairs(level.report["M"]) == [
         [(4, 2), (5, 5)],
         [(4, 2), (7, 7)],
@@ -741,7 +741,7 @@ def test_a_patch_whose_two_directions_cannot_be_told_apart_is_refused_naming_it(
     """
     src = write_source(tmp_path / "src", "plate", _l_with_trailing_edge(shear=1.5))
     with pytest.raises(InputArtifactError) as caught:
-        refine_mesh(src, chordwise=0.5, spanwise=1.0, out_dir=tmp_path / "a")
+        refine_mesh(src, normal=0.5, parallel=1.0, out_dir=tmp_path / "a")
     text = str(caught.value)
     assert text.startswith(f"{src} family M: chordwise and spanwise cannot be told apart on ")
     assert "patch 1 of a multiblock of 3 four-sided patches" in text
@@ -755,8 +755,12 @@ def test_p0440_multiblock_direction_without_trailing_edge_is_refused(tmp_path, d
     mesh = _l_with_trailing_edge()
     mesh.te = np.empty((0, 3))
     src = write_source(tmp_path / "src", "plate", mesh)
-    with pytest.raises(InputArtifactError, match=r"\[trailing_edge\] file"):
-        refine_mesh(src, **{direction: 0.5}, out_dir=tmp_path / "bad")
+    with pytest.raises(InputArtifactError, match=r"without a trailing edge"):
+        refine_mesh(
+            src,
+            **{"normal" if direction == "chordwise" else "parallel": 0.5},
+            out_dir=tmp_path / "bad",
+        )
     assert not (tmp_path / "bad").exists()
     assert refine_mesh(src, 0.5, out_dir=tmp_path / "control").report["M"]["method"] == "grid"
 

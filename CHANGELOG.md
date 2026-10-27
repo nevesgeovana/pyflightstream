@@ -7,6 +7,59 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Refinement reference perimeters: a refinement file takes any number of
+  `[[perimeter]]` tables, each naming one node list saved from an ANSA SET's
+  node window (`Id, Name, X, Y, Z`). One list may hold the perimeters of every
+  component, in any node order; a listed node is matched to the mesh vertex
+  within a quarter of that vertex's shortest edge, so rounded coordinates
+  match. A family takes the first line that recovers its grid, the exported
+  lists first: the whole of a list on the family, then each connected piece,
+  then each piece cut at its corners, so a trailing edge and a root listed
+  together are told apart. A list with `export_te_per_family = true` is a
+  trailing edge: the level writes `<level>.te.txt` and
+  `<level>.<family>.te.txt` from it. A node that matches no vertex, and a list
+  that is missing or joins no edge, is warned and skipped.
+- `pyfs-workspace geometry convert2midnodes NODES OUTPUT [--unit U]` writes a
+  `.te.txt` from an ANSA SET node list in any node order: the nodes are ordered
+  along their lines, a long jump starts a new line, and each neighbouring pair
+  gives one mid-point. No mesh is needed. With `--per-family MESH` it writes
+  `<OUTPUT stem>.<family>.te.txt` per family of the OBJ instead, from the mesh
+  edges joining two listed nodes.
+- `--accept-remesh` (`refine_mesh(accept_remesh=True)`): a family given
+  parallel or normal factors whose grid is not recovered is remeshed with
+  `factor`, with a warning, in place of being refused.
+
+### Changed
+
+- A grid's two factors are `parallel_factor` and `normal_factor` (along and
+  across the family's reference perimeter); the command takes `--parallel` and
+  `--normal`, and `refine_mesh` takes `parallel` and `normal`. Migration:
+  `spanwise` and `chordwise` (key, flag and keyword) are still read, as
+  `parallel_factor` and `normal_factor`, with a warning; level tags are
+  unchanged.
+- Parallel and normal factors no longer require a trailing edge. A grid family
+  with none takes the side of its boundary that holds a neighbouring family's
+  trailing edge, else its longest side, and warns which.
+- An incomplete perimeter list on a sheet is completed from the grid line every
+  listed edge lies on, with a warning naming the edges added.
+
+### Removed
+
+- The `[trailing_edge]` table of the refinement file (`file`, `per_family`,
+  `point_fraction`): trailing edges come from `[[perimeter]]` lists. Migration:
+  a file still stating the table is warned and the table skipped; list the
+  trailing-edge nodes in a `[[perimeter]]` file with
+  `export_te_per_family = true`.
+- `keep_first_row` (key, `--keep-first-row`, keyword) and
+  `trailing_edge_direction`, with the trailing-edge detection they used.
+  Migration: a row kept at an interface is a family of its own; the earlier
+  key, flag or keyword is warned and skipped.
+- The body remesh along and around an axis (`axial`, `circumferential`,
+  `axis`, `origin`). Migration: the keys are warned and skipped; a table that
+  also states `factor` is refined by it, and one that does not is skipped.
+
 ## [0.47.0] - 2026-10-27
 
 ### Added

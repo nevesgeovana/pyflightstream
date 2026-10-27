@@ -1,0 +1,466 @@
+"""The lines a grid is oriented by: the [[perimeter]] node lists and a family's trailing edge.
+
+A ``[[perimeter]]`` list gives, per family, the mesh edges joining two of its
+nodes (:func:`perimeter_lines`); a family on several lines keeps the first that
+recovers its grid, the exported lists first (:func:`choose_perimeter_line`). A
+grid family with no line takes a neighbour's trailing edge or its longest side
+(:func:`assume_trailing_edge`), and an incomplete line on a sheet is completed
+from the grid (:func:`grid_with_complete_te_edges`). Only the exported lists
+are the level's trailing edge (:func:`on_exported`).
+
+The functions read and write the refinement's working state, the ``_Work`` of
+:mod:`._level`, passed in as ``work``.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import numpy
+from numpy.typing import NDArray
+
+from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream.workspace._refine import _blocks, _geometry, _grid, _obj
+from pyflightstream.workspace._refine._config import RefineRequest
+from pyflightstream.workspace._refine._obj import Faces, ObjMesh
+
+Points = NDArray[numpy.float64]
+_Work = Any  # the working state of ._level, which imports this module
+
+
+def perimeter_lines(
+    source: Path, request: RefineRequest, mesh: ObjMesh
+) -> tuple[set[tuple[int, int]], set[tuple[int, int]], list[set[tuple[int, int]]]] | None:
+    """Return the source edges of every ``[[perimeter]]`` list, of the exported ones, and per list.
+
+    An edge is a perimeter's when its two ends are nodes of that list. A list
+    that is missing, or whose nodes join no edge, is warned and skipped, and
+    so is a node that matches no vertex; None without ``[[perimeter]]``.
+    """
+    if not request.perimeters:
+        return None
+    every: set[tuple[int, int]] = set()
+    exported: set[tuple[int, int]] = set()
+    sets: list[set[tuple[int, int]]] = []
+    for perimeter in sorted(request.perimeters, key=lambda p: not p.export_te_per_family):
+        if not perimeter.file.is_file():
+            warn(f"{perimeter.file}: no such [[perimeter]] file; it is skipped", stacklevel=3)
+            continue
+        nodes = _obj.read_node_list(perimeter.file)
+        if not nodes.ids:
+            warn(
+                f"{perimeter.file}: no node is read (Id, Name, X, Y, Z); it is skipped",
+                stacklevel=3,
+            )
+            continue
+        found, unmatched = _obj.perimeter_edges(mesh.verts, mesh.families, nodes)
+        if unmatched:
+            shown = ", ".join(str(i) for i in unmatched[:5])
+            warn(
+                f"{perimeter.file}: {len(unmatched)} of {len(nodes.ids)} node(s) match no mesh "
+                f"vertex and are skipped (ids {shown}{' and more' if len(unmatched) > 5 else ''}); "
+                "the list and the OBJ must be saved from the same model, in the same unit",
+                stacklevel=3,
+            )
+        lines = set().union(*found.values())
+        if not lines:
+            warn(
+                f"{perimeter.file}: no mesh edge joins two listed nodes; it is skipped",
+                stacklevel=3,
+            )
+            continue
+        every |= lines
+        sets.append(lines)
+        if perimeter.export_te_per_family:
+            exported |= lines
+    return every, exported, sets
+
+
+def exported_by_family(mesh: ObjMesh, exported: set[tuple[int, int]]) -> dict[str, Points]:
+    out = {}
+    for name, faces in mesh.families.items():
+        edges, _ = _obj.edge_midpoints(mesh.verts, faces)
+        on = {(int(a), int(b)) for a, b in edges} & exported
+        if on:
+            out[name] = midpoints(mesh.verts, on)
+    return out
+
+
+def midpoints(verts: Points, edges: set[tuple[int, int]]) -> Points:
+    pairs = numpy.array(sorted(edges), dtype=numpy.int64).reshape(-1, 2)
+    return 0.5 * (verts[pairs[:, 0]] + verts[pairs[:, 1]])
+
+
+def grid_with_complete_te_edges(
+    work: _Work, name: str, found: _grid.Grid | _blocks.Blocks
+) -> _grid.Grid | _blocks.Blocks | str:
+    """Return the recovered grid, or why the listed trailing-edge edges are not grid lines."""
+    if isinstance(found, _blocks.Blocks):
+        chains = [found.arcs[i] for i in found.te_arcs]
+    elif found.smooth:
+        chains = []
+    else:
+        chains = [found.ids[:, 0].tolist()]
+    represented = {
+        (min(a, b), max(a, b)) for chain in chains for a, b in zip(chain, chain[1:], strict=False)
+    }
+    listed = work.te_edges[name]
+    if represented and listed < represented and not isinstance(found, _blocks.Blocks):
+        # Every listed edge lies on the grid's trailing-edge line, so the line is the
+        # trailing edge. A line edge with an end no list holds is a node left out:
+        # complete it and say where. One whose two ends are listed is a gap the lists
+        # leave on purpose (a wake gap), and stays out.
+        nodes = {v for edge in listed for v in edge}
+        left_out = {e for e in represented - listed if not (e[0] in nodes and e[1] in nodes)}
+        if left_out:
+            warn(
+                f"{work.source} family {name}: the perimeter list is incomplete; the grid "
+                f"line completes it. " + te_mismatch(work, listed | left_out, listed),
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            work.te_edges[name] = listed | left_out
+            work.te_of[name] = {v for edge in work.te_edges[name] for v in edge}
+        return found
+    if represented != listed:
+        return (
+            "the listed trailing-edge edges are not complete grid lines; use remesh. "
+            + te_mismatch(work, represented, work.te_edges[name])
+        )
+    return found
+
+
+def te_mismatch(
+    work: _Work, line: set[tuple[int, int]], listed: set[tuple[int, int]], shown: int = 5
+) -> str:
+    """Name where the listed trailing edge and the grid's trailing-edge line differ."""
+    verts = work.mesh.verts
+
+    def where(edges: set[tuple[int, int]]) -> str:
+        mids = sorted(
+            tuple(round(float(c), 6) for c in (verts[a] + verts[b]) / 2.0) for a, b in edges
+        )
+        text = "; ".join(f"({x}, {y}, {z})" for x, y, z in mids[:shown])
+        return text + (f"; and {len(mids) - shown} more" if len(mids) > shown else "")
+
+    missing, extra = line - listed, listed - line
+    if not line:
+        return te_pieces(work, listed)
+    parts = [f"the grid line has {len(line)} edges and the perimeter lists matched {len(listed)}"]
+    if missing:
+        parts.append(f"{len(missing)} line edges have no point, mid-points {where(missing)}")
+    if extra:
+        parts.append(f"{len(extra)} matched edges are off the line, mid-points {where(extra)}")
+    return "; ".join(parts) + " (mesh units)"
+
+
+def te_pieces(work: _Work, listed: set[tuple[int, int]]) -> str:
+    """Name the connected pieces of the listed trailing edge and their end points."""
+    verts = work.mesh.verts
+    touching: dict[int, list[int]] = {}
+    for a, b in listed:
+        touching.setdefault(a, []).append(b)
+        touching.setdefault(b, []).append(a)
+    seen: set[int] = set()
+    pieces = []
+    for start in sorted(touching):
+        if start in seen:
+            continue
+        stack, members = [start], []
+        seen.add(start)
+        while stack:
+            v = stack.pop()
+            members.append(v)
+            for n in touching[v]:
+                if n not in seen:
+                    seen.add(n)
+                    stack.append(n)
+        ends = [v for v in members if len(touching[v]) == 1]
+        pieces.append((len(members) - 1, ends))
+
+    def point(v: int) -> str:
+        x, y, z = (round(float(c), 6) for c in verts[v])
+        return f"({x}, {y}, {z})"
+
+    text = "; ".join(
+        f"piece {i}: {edges} edges, ends {' and '.join(point(v) for v in ends) or 'closed loop'}"
+        for i, (edges, ends) in enumerate(sorted(pieces, key=lambda p: -p[0]), start=1)
+    )
+    count = f"{len(listed)} edges in {len(pieces)} pieces"
+    return f"the perimeter lists matched {count}: {text} (mesh units)"
+
+
+def boundary_sides(verts: Points, faces: Faces) -> list[list[int]]:
+    """Return the sides of a family's single boundary loop, split at its corners.
+
+    A corner is a boundary vertex where the loop turns by more than 45 degrees. A
+    family whose boundary is not one loop, or that has fewer than four corners,
+    has no sides.
+    """
+    count: dict[tuple[int, int], int] = {}
+    for f in faces:
+        for a, b in zip(f, [*f[1:], f[0]], strict=True):
+            key = (min(a, b), max(a, b))
+            count[key] = count.get(key, 0) + 1
+    touching: dict[int, list[int]] = {}
+    for (a, b), n in count.items():
+        if n == 1:
+            touching.setdefault(a, []).append(b)
+            touching.setdefault(b, []).append(a)
+    if not touching or any(len(n) != 2 for n in touching.values()):
+        return []
+    start = min(touching)
+    loop, prev = [start], None
+    while True:
+        here = loop[-1]
+        nxt = touching[here][0] if touching[here][0] != prev else touching[here][1]
+        if nxt == start:
+            break
+        prev = here
+        loop.append(nxt)
+    if len(loop) != len(touching):
+        return []
+    pts = numpy.asarray(verts, dtype=float)
+    corners = []
+    for i, v in enumerate(loop):
+        a = pts[v] - pts[loop[i - 1]]
+        b = pts[loop[(i + 1) % len(loop)]] - pts[v]
+        cos = float(a @ b) / max(float(numpy.linalg.norm(a) * numpy.linalg.norm(b)), 1e-300)
+        if cos < numpy.cos(numpy.radians(45.0)):
+            corners.append(i)
+    if len(corners) < 4:
+        return []
+    sides = []
+    for k, i in enumerate(corners):
+        j = corners[(k + 1) % len(corners)]
+        sides.append(loop[i : j + 1] if j > i else loop[i:] + loop[: j + 1])
+    return sides
+
+
+def side_length(verts: Points, side: list[int]) -> float:
+    pts = numpy.asarray(verts, dtype=float)[side]
+    return float(numpy.linalg.norm(numpy.diff(pts, axis=0), axis=1).sum())
+
+
+def assume_trailing_edge(work: _Work, name: str) -> None:
+    """Give a sheet family that found no trailing edge one, before any refusal.
+
+    First from a neighbouring family: the side of this family's boundary that holds
+    the most of the neighbours' trailing-edge vertices, ties broken by the side
+    that continues the neighbours' trailing-edge direction. Else the longest side of
+    the boundary, taken as the spanwise trailing edge. A side is kept only when the
+    grid is recovered with it; the choice is warned. A family that is not a sheet
+    without a trailing edge (a tube, a grid already recovered) is left alone.
+    """
+    verts, faces = work.mesh.verts, work.mesh.families[name]
+    bare = _blocks.recover_family(verts, faces, ())
+    if not (isinstance(bare, str) and bare.startswith("a sheet needs a trailing edge")):
+        return
+    sides = boundary_sides(verts, faces)
+    if not sides:
+        return
+    others = set().union(*(te for n, te in work.te_of.items() if n != name))
+    other_edges = set().union(*(e for n, e in work.te_edges.items() if n != name))
+    pts = numpy.asarray(verts, dtype=float)
+
+    def follows(side: list[int]) -> float:
+        best = 0.0
+        for end, inner in ((side[0], side[1]), (side[-1], side[-2])):
+            d = pts[inner] - pts[end]
+            for a, b in other_edges:
+                if end in (a, b):
+                    e = pts[b] - pts[a]
+                    cos = abs(float(d @ e)) / max(
+                        float(numpy.linalg.norm(d) * numpy.linalg.norm(e)), 1e-300
+                    )
+                    best = max(best, cos)
+        return best
+
+    tried: list[tuple[str, list[int]]] = []
+    shared = [(len(set(s) & others), follows(s), s) for s in sides]
+    shared = [t for t in shared if t[0]]
+    for _, _, side in sorted(shared, key=lambda t: (-t[0], -t[1])):
+        tried.append(("a neighbouring family's trailing edge", side))
+    for side in sorted(sides, key=lambda s: -side_length(verts, s)):
+        tried.append(("the longest side of its boundary, taken as parallel", side))
+    for how, side in tried:
+        found = _blocks.recover_family(verts, faces, side)
+        if isinstance(found, str):
+            continue
+        edges = {(min(a, b), max(a, b)) for a, b in zip(side, side[1:], strict=False)}
+        work.te_of[name] = set(side)
+        work.te_edges[name] = edges
+        ends = " and ".join(
+            "(" + ", ".join(str(round(float(c), 6)) for c in pts[v]) + ")"
+            for v in (side[0], side[-1])
+        )
+        warn(
+            f"{work.source} family {name}: no trailing-edge point matched it; the trailing edge "
+            f"is assumed from {how}: {len(edges)} edges from {ends} (mesh units). Check it, or "
+            "list its nodes in a [[perimeter]] file.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        return
+
+
+def choose_perimeter_line(work: _Work, name: str) -> None:
+    """Keep the perimeter line on a family that recovers its grid, trying each list in turn.
+
+    The exported lists come first. Of each list, the whole of it on the family
+    is tried first (a trailing edge in pieces stays whole), then each connected
+    piece from the longest, then each piece cut at its corners, so a trailing
+    edge and a root listed together in one file are told apart. A line is kept
+    when the grid recovered with it holds it on its trailing-edge line; a family
+    no line orients keeps its lines as found, for the refusal or remesh to name.
+    """
+    edges = work.te_edges[name]
+    verts = work.mesh.verts
+    lists = [edges & listed for listed in work.perimeter_sets if edges & listed]
+    # All the lists together first: a trailing edge split over lists (a wake gap) stays whole.
+    lines: list[set[tuple[int, int]]] = [set().union(*lists)] if len(lists) > 1 else []
+    for on in lists:
+        parts = sorted(pieces(on), key=lambda line: -length(verts, line))
+        cut = [c for part in parts for c in corners(verts, part)]
+        lines += [on, *parts, *sorted(cut, key=lambda line: -length(verts, line))]
+    for line in lines:
+        vertices = {v for edge in line for v in edge}
+        found = _blocks.recover_family(verts, work.mesh.families[name], vertices)
+        if not isinstance(found, str) and on_grid_line(found, line):
+            work.te_edges[name] = line
+            work.te_of[name] = vertices
+            return
+
+
+def on_grid_line(found: _grid.Grid | _blocks.Blocks, line: set[tuple[int, int]]) -> bool:
+    """Return whether a line lies on the grid's trailing-edge line (is all of it, on blocks)."""
+    if isinstance(found, _blocks.Blocks):
+        chains = [found.arcs[i] for i in found.te_arcs]
+    elif found.smooth:
+        chains = []
+    else:
+        chains = [found.ids[:, 0].tolist()]
+    represented = {
+        (min(a, b), max(a, b)) for chain in chains for a, b in zip(chain, chain[1:], strict=False)
+    }
+    if isinstance(found, _blocks.Blocks):
+        return bool(represented) and represented == line
+    return bool(represented) and line <= represented
+
+
+def corners(verts: Points, piece: set[tuple[int, int]]) -> list[set[tuple[int, int]]]:
+    """Return a path of edges cut where it turns by more than 45 degrees; a branch is not cut."""
+    touching: dict[int, list[int]] = {}
+    for a, b in piece:
+        touching.setdefault(a, []).append(b)
+        touching.setdefault(b, []).append(a)
+    ends = [v for v, n in touching.items() if len(n) == 1]
+    if len(ends) != 2 or any(len(n) > 2 for n in touching.values()):
+        return []
+    path = [ends[0]]
+    while len(path) < len(touching):
+        path.append(next(n for n in touching[path[-1]] if n not in path[-2:-1]))
+    pts = numpy.asarray(verts, dtype=float)
+    cuts = [0]
+    for i in range(1, len(path) - 1):
+        u, w = pts[path[i]] - pts[path[i - 1]], pts[path[i + 1]] - pts[path[i]]
+        cos = float(u @ w) / max(float(numpy.linalg.norm(u) * numpy.linalg.norm(w)), 1e-300)
+        if cos < numpy.cos(numpy.radians(45.0)):
+            cuts.append(i)
+    cuts.append(len(path) - 1)
+    if len(cuts) == 2:
+        return []
+    return [
+        {(min(a, b), max(a, b)) for a, b in zip(path[i:j], path[i + 1 : j + 1], strict=True)}
+        for i, j in zip(cuts, cuts[1:], strict=False)
+    ]
+
+
+def pieces(edges: set[tuple[int, int]]) -> list[set[tuple[int, int]]]:
+    """Return the connected pieces of a set of edges."""
+    touching: dict[int, set[int]] = {}
+    for a, b in edges:
+        touching.setdefault(a, set()).add(b)
+        touching.setdefault(b, set()).add(a)
+    pieces: list[set[tuple[int, int]]] = []
+    seen: set[int] = set()
+    for start in touching:
+        if start in seen:
+            continue
+        stack, members = [start], {start}
+        while stack:
+            for n in touching[stack.pop()] - members:
+                members.add(n)
+                stack.append(n)
+        seen |= members
+        pieces.append({e for e in edges if e[0] in members})
+    return pieces
+
+
+def length(verts: Points, edges: set[tuple[int, int]]) -> float:
+    return sum(float(numpy.linalg.norm(verts[a] - verts[b])) for a, b in edges)
+
+
+def on_exported(work: _Work, te: Points) -> Points:
+    """Drop the level's trailing-edge points that lie on a list not exported.
+
+    A point on a line of an exported ``[[perimeter]]`` list is kept, and so is
+    a point on no list (a trailing edge a family assumed). A refined grid's
+    points lie on their source line within the grid's surface distance
+    (FR-920), so that distance decides.
+    """
+    assert work.te_export is not None
+    (ea, eb), (oa, ob) = work.te_export
+    if not len(te) or not len(oa):
+        return te
+    reach = _geometry.GRID_SURFACE_DISTANCE * work.scale
+    other, _ = _geometry.segment_distances(te, oa, ob)
+    keep = other > reach
+    if len(ea):
+        exported, _ = _geometry.segment_distances(te, ea, eb)
+        keep |= exported <= reach
+    return te[keep]
+
+
+def on_listed(work: _Work, mids: Points, listed: set[tuple[int, int]]) -> Points:
+    """Keep a refined grid's trailing-edge points that lie on a listed source edge.
+
+    The grid writes its whole trailing-edge line; a gap the lists leave on
+    purpose (a wake gap) is not written. Without listed edges every point stays.
+    """
+    if not len(mids) or not listed:
+        return mids
+    a, b = segments(work.mesh.verts, listed)
+    distance, _ = _geometry.segment_distances(mids, a, b)
+    return mids[distance <= _geometry.GRID_SURFACE_DISTANCE * work.scale]
+
+
+def segments(verts: Points, edges: set[tuple[int, int]]) -> tuple[Points, Points]:
+    """Return the two ends of each edge, in a stable order."""
+    pairs = sorted(edges)
+    return (
+        verts[[a for a, _ in pairs]].reshape(-1, 3),
+        verts[[b for _, b in pairs]].reshape(-1, 3),
+    )
+
+
+def te_vertices(mesh: ObjMesh, family: str, points: Points, tolerance: float) -> set[int]:
+    """Return the trailing-edge vertices: the ends of the edges whose mid-point is listed."""
+    return {v for edge in listed_edges(mesh, family, points, tolerance) for v in edge}
+
+
+def listed_edges(
+    mesh: ObjMesh, family: str, points: Points, tolerance: float
+) -> set[tuple[int, int]]:
+    """Keep the listed edges themselves; their vertex set cannot represent a wake gap.
+
+    A point names the edge whose mid-point lies closer than ``tolerance``, the
+    request's ``point_fraction`` of the mesh size.
+    """
+    if not len(points):
+        return set()
+    edges, mid = _obj.edge_midpoints(mesh.verts, mesh.families[family])
+    dist, index = _geometry.NearestIndex(mid).query(points)
+    hit = dist < tolerance
+    return {(int(a), int(b)) for a, b in edges[index[hit]]}

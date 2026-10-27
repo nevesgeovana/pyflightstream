@@ -94,6 +94,11 @@ def _json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _record(level: RefinedMesh) -> Path:
+    """Return the level's ``refine.json``, whatever the per-family files before it."""
+    return next(p for p in level.files if p.name.endswith(".refine.json"))
+
+
 # ---------------------------------------------------------------- FR-915 factors
 
 
@@ -128,9 +133,9 @@ def test_r1_a_factor_that_is_not_a_number_is_refused_by_both_routes(tmp_path, ca
     assert _command(capsys, str(src), "2", "--overwrite")[0] == 0
 
 
-@pytest.mark.parametrize("flag", ["chordwise", "spanwise"])
+@pytest.mark.parametrize("flag", ["normal", "parallel"])
 def test_r1_a_direction_that_is_not_a_number_is_refused_by_both_routes(tmp_path, capsys, flag):
-    """P0380-REFINE (FR-915, FR-925): ``--chordwise two`` and ``--spanwise two`` alike.
+    """P0380-REFINE (FR-915, FR-925): ``--normal two`` and ``--parallel two`` alike.
 
     The command's refusal is the function's text, naming the flag and the
     value. Control: the same flag with the number 2 exits 0.
@@ -147,7 +152,7 @@ def test_r1_a_direction_that_is_not_a_number_is_refused_by_both_routes(tmp_path,
     ("kwargs", "argv", "said"),
     [
         ({"factor": 0.05}, ["0.05"], "the chordwise factor is 0.05, below 1/18"),
-        ({"factor": 1.0, "spanwise": 0.1}, ["1", "--spanwise", "0.1"], "spanwise factor is 0.1"),
+        ({"factor": 1.0, "parallel": 0.1}, ["1", "--parallel", "0.1"], "spanwise factor is 0.1"),
     ],
     ids=["factor", "spanwise"],
 )
@@ -164,7 +169,7 @@ def test_r1_a_factor_below_one_over_m_is_refused_naming_family_direction_value(
     assert text.startswith("family G: ") and said in text
     code, _, err = _command(capsys, str(src), *argv)
     assert code == 2 and text in err and _left(tmp_path) == []
-    code, _, _ = _command(capsys, str(src), "1", "--spanwise", "0.125")
+    code, _, _ = _command(capsys, str(src), "1", "--parallel", "0.125")
     assert code == 0
     report = _json(tmp_path / "wing_R1s0p125" / "wing_R1s0p125.refine.json")
     assert report["families"]["G"]["intervals"]["spanwise"] == [8, 1]
@@ -173,14 +178,14 @@ def test_r1_a_factor_below_one_over_m_is_refused_naming_family_direction_value(
 # ------------------------------------------------- FR-916 where the factors come from
 
 
-def test_r2_factor_applies_and_chordwise_replaces_one_direction(tmp_path):
-    """P0380-REFINE (FR-916, FR-919): FACTOR doubles both directions; --chordwise replaces one.
+def test_r2_factor_applies_and_normal_replaces_one_direction(tmp_path):
+    """P0380-REFINE (FR-916, FR-919): FACTOR doubles both directions; --normal replaces one.
 
-    Control: the same FACTOR without --chordwise doubles the chordwise count.
+    Control: the same FACTOR without --normal doubles the chordwise count.
     """
     src = _source(tmp_path)
     both = refine_mesh(src, 2.0)
-    one = refine_mesh(src, 2.0, chordwise=1.0)
+    one = refine_mesh(src, 2.0, normal=1.0)
     assert both.report["G"]["intervals"] == {"chordwise": [18, 36], "spanwise": [8, 16]}
     assert one.report["G"]["intervals"] == {"chordwise": [18, 18], "spanwise": [8, 16]}
     assert (both.folder.name, one.folder.name) == ("wing_R2", "wing_R2c1")
@@ -199,11 +204,11 @@ def test_r2_the_file_gives_the_factors_only_when_the_call_gives_none(tmp_path):
     assert from_file.folder.name == "wing_R0p5"
     called = refine_mesh(src, 2.0)
     assert called.report["G"]["intervals"]["chordwise"] == [18, 36]
-    assert _json(called.files[3])["config"] == "wing.refine.toml"
+    assert _json(_record(called))["config"] == "wing.refine.toml"
     other = tmp_path / "coarse.toml"
     other.write_bytes(
-        b'[trailing_edge]\nfile = "src/wing.te.txt"\n[refine]\ntag = "coarse"\n'
-        b"\n[families.G]\nfactor = 0.5\n"
+        b'[[perimeter]]\nfile = "src/wing.te_nodes.txt"\nexport_te_per_family = true\n'
+        b'[refine]\ntag = "coarse"\n\n[families.G]\nfactor = 0.5\n'
     )
     named = refine_mesh(src, config=other)
     assert named.folder.name == "wing_coarse"
@@ -286,19 +291,19 @@ def test_r2_the_files_family_tables_not_read_are_warned_and_recorded(tmp_path):
     src = _two_tubes(tmp_path, BOTH_TABLES)
     with pytest.warns(PyflightstreamWarning, match=r"\[families\.A\], \[families\.B\]") as seen:
         called = refine_mesh(src, 1.0, out_dir=tmp_path / "called")
-    assert "FACTOR, --chordwise or --spanwise gives the factors" in str(seen[0].message)
-    assert _json(called.files[2])["ignored_families_tables"] == ["A", "B"]
+    assert "FACTOR, --parallel or --normal gives the factors" in str(seen[0].message)
+    assert _json(_record(called))["ignored_families_tables"] == ["A", "B"]
     with pytest.warns(PyflightstreamWarning, match=r"\[families\.B\]") as seen:
         one = refine_mesh(src, families=["A"], out_dir=tmp_path / "one")
     assert "--families selects A" in str(seen[0].message)
-    assert _json(one.files[2])["ignored_families_tables"] == ["B"]
+    assert _json(_record(one))["ignored_families_tables"] == ["B"]
     import warnings
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         every = refine_mesh(src, out_dir=tmp_path / "every")
     assert not [w for w in caught if "families." in str(w.message)]
-    assert _json(every.files[2])["ignored_families_tables"] == []
+    assert _json(_record(every))["ignored_families_tables"] == []
 
 
 def test_r2_no_factor_and_no_file_is_refused_by_both_routes(tmp_path, capsys):
@@ -322,20 +327,24 @@ def test_r2_no_factor_and_no_file_is_refused_by_both_routes(tmp_path, capsys):
 
 
 def test_r2_a_direction_on_a_remeshed_family_is_refused(tmp_path):
-    """P0380-REFINE (FR-916, FR-925): --chordwise on a family that is no grid is refused.
+    """P0380-REFINE (FR-916, FR-925): --normal on a family that is no grid is refused.
 
-    T recovers no grid, so it would be remeshed. Control: --chordwise on G
-    alone is accepted.
+    T recovers no grid, so it would be remeshed. Control: --normal on G
+    alone is accepted, and ``accept_remesh`` warns and remeshes T with its factor.
 
     PUSH-W12-QA-2: the growth check of the strip T fails on this fixture, a
     warning the test asserts, so it fails if the warning disappears.
     """
     src = _source(tmp_path, WITH_T)
-    text = _refused(tmp_path, src, chordwise=2.0)
-    assert text.startswith(f"{src} family T: chordwise and spanwise apply to a grid")
+    text = _refused(tmp_path, src, normal=2.0)
+    assert text.startswith(f"{src} family T: parallel_factor and normal_factor apply to a grid, ")
+    assert "this family is remeshed" in text and "--accept-remesh" in text
     with pytest.warns(PyflightstreamWarning, match=GROWTH_ON_T):
-        level = refine_mesh(src, chordwise=2.0, families=["G"])
+        level = refine_mesh(src, normal=2.0, families=["G"])
     assert level.folder.name == "wing_R-G1c2"
+    with pytest.warns(PyflightstreamWarning, match="it is remeshed with factor 1"):
+        accepted = refine_mesh(src, normal=2.0, accept_remesh=True, out_dir=tmp_path / "acc")
+    assert accepted.report["T"]["method"] == "remesh"
 
 
 # --------------------------------------------------------- FR-917 the refinement file
@@ -346,18 +355,22 @@ def test_r2_a_direction_on_a_remeshed_family_is_refused(tmp_path):
     [
         (
             "[families.G]\nfactr = 2\n",
-            "[families.G]: unknown key 'factr'; the known keys are factor, chordwise, "
-            "spanwise, method, axial, circumferential, axis, origin, elements",
+            "[families.G]: unknown key 'factr'; the known keys are factor, "
+            "parallel_factor, normal_factor, method, elements",
         ),
         (
             "[families.Fin]\nfactor = 2\n",
             "[families.Fin]: the mesh holds no family 'Fin'; it holds G",
         ),
         (
-            '[families.G]\nmethod = "remesh"\nchordwise = 2\n',
-            "[families.G]: chordwise and spanwise apply to a grid; a remeshed family takes factor",
+            '[families.G]\nmethod = "remesh"\nnormal_factor = 2\n',
+            "[families.G]: parallel_factor and normal_factor apply to a grid; "
+            "a remeshed family takes factor",
         ),
-        ('[families.G]\nmethod = "grid"\n', "the table states no factor, chordwise or spanwise"),
+        (
+            '[families.G]\nmethod = "grid"\n',
+            "the table states no factor, parallel_factor or normal_factor",
+        ),
         (
             '[refinement]\ntag = "x"\n',
             "unknown table [refinement]; the tables are refine, families, components, periodic",
@@ -457,7 +470,14 @@ def test_r4_a_level_holds_its_files_and_refine_json_reports_each_family(tmp_path
     before = _snapshot(src.parent)
     level = refine_mesh(src, 2.0, families=["G", "T"])
     stem = "wing_R-G2-T2"
-    suffixes = (".obj", ".te.txt", ".obj.boundaries.toml", ".refine.json", ".audit.json")
+    suffixes = (
+        ".obj",
+        ".te.txt",
+        ".obj.boundaries.toml",
+        ".G.te.txt",
+        ".refine.json",
+        ".audit.json",
+    )
     names = [stem + suffix for suffix in suffixes]
     assert [p.name for p in level.files] == names
     assert sorted(p.name for p in level.folder.iterdir()) == sorted(names)
@@ -472,6 +492,7 @@ def test_r4_a_level_holds_its_files_and_refine_json_reports_each_family(tmp_path
     g, t, u = (record["families"][n] for n in ("G", "T", "U"))
     assert g["method"] == "grid" and g["reason"].startswith("a sheet of 9 stations by 19")
     assert g["faces"] == [144, 576] and g["layout"] == "sheet"
+    assert g["trailing_edge"] == "perimeter" and len(g["trailing_edge_points"]) > 0
     assert t["method"] == "remesh" and t["reason"].startswith("no grid recovered: ")
     assert (t["faces_before"], t["faces_after"]) == (180, faces["T"])
     assert u == {"method": "copied"} and faces["U"] == 72
@@ -555,7 +576,7 @@ def test_r5_the_tag_names_the_level_beside_the_sources_folder(
 def test_r5_the_command_writes_the_tagged_level_and_prints_its_files(tmp_path, capsys):
     """P0380-REFINE (FR-919): the command exits 0 and prints each file it wrote."""
     src = _source(tmp_path)
-    code, out, _ = _command(capsys, str(src), "1", "--chordwise", "1.5", "--spanwise", "0.7")
+    code, out, _ = _command(capsys, str(src), "1", "--normal", "1.5", "--parallel", "0.7")
     folder = tmp_path / "wing_R1c1p5s0p7"
     assert code == 0 and "G: grid" in out
     for path in sorted(folder.iterdir()):
@@ -578,7 +599,8 @@ def test_r5_the_refine_help_states_its_exit_status_beside_audit_meshs(capsys):
         help_text[verb] = " ".join(capsys.readouterr().out.split())
     said = help_text["refine"]
     assert "Exits 0 when the level is written, even when its audit fails" in said, said
-    assert "audit-mesh exits 1 on the same audit" in said
+    # argparse may wrap the help at the hyphen of "audit-mesh".
+    assert "audit-mesh exits 1 on the same audit" in said.replace("audit- mesh", "audit-mesh")
     assert "Exits 2 when the request is refused" in said
     assert "Exits 0 when every gate and check passes, 1 when one fails" in help_text["audit-mesh"]
 
@@ -666,13 +688,9 @@ def _resampled_while(call) -> list[str]:
 @pytest.mark.parametrize(
     ("sidecar", "said"),
     [
-        (
-            'boundaries = ["G"]\n[trailing_edges]\nfile = "missing.te.txt"\ntype = "STANDARD"\n',
-            "missing.te.txt",
-        ),
         ('boundaries = ["G"\n', "not TOML"),
     ],
-    ids=["missing-points-file", "malformed-sidecar"],
+    ids=["malformed-sidecar"],
 )
 def test_r11_a_sidecar_the_audit_refuses_is_refused_before_any_work(
     tmp_path, capsys, sidecar, said
@@ -696,10 +714,6 @@ def test_r11_a_sidecar_the_audit_refuses_is_refused_before_any_work(
     first = tmp_path / "wing_R2"
     kept = _snapshot(first)
     src.with_name("wing.boundaries.toml").write_bytes(sidecar.encode("utf-8"))
-    if said == "missing.te.txt":
-        src.with_suffix(".refine.toml").write_text(
-            '[trailing_edge]\nfile = "missing.te.txt"\n', encoding="utf-8"
-        )
     caught: list[InputArtifactError] = []
 
     def refused() -> None:
@@ -902,9 +916,11 @@ def test_r4_points_in_another_unit_are_converted_to_the_meshs_unit(tmp_path, cap
     alone.path.unlink()
     level = refine_mesh(src, factor)
     lines = level.files[1].read_text(encoding="utf-8").split()
-    assert level.files[1].name == f"{level.folder.name}.te.txt" and lines[0] == "MILLIMETER"
+    assert level.files[1].name == f"{level.folder.name}.te.txt"
+    # The trailing edge now comes from the perimeter nodes, in the mesh's unit.
+    assert lines[0] == "METER"
     written = numpy.array([[float(x) for x in r.split(",")] for r in lines[1:]])
-    source = numpy.array([[float(x) for x in r.split(",")] for r in rows])
+    source = numpy.array([[float(x) for x in r.split(",")] for r in rows]) / 1000.0
     if factor == 1.0:
         assert numpy.allclose(written, source, rtol=0, atol=1e-6)
     else:
@@ -917,8 +933,8 @@ def test_r4_points_in_another_unit_are_converted_to_the_meshs_unit(tmp_path, cap
     assert _g4(audit_mesh(control))["points_on_edges"] == 0
     other = _source(tmp_path / "other")
     _points_in(other, "OTHER", 1.0, "METER")
-    with pytest.raises(InputArtifactError, match="OTHER.*Nothing was written"):
-        refine_mesh(other, factor)
+    with pytest.raises(InputArtifactError, match="OTHER"):
+        audit_mesh(other)
 
 
 # ----------------------------------------------------------------- FR-921 face order
@@ -1019,7 +1035,7 @@ def test_r7_a_saved_factor_one_level_is_reaudited_with_g6(tmp_path, capsys, comp
     src = _source(tmp_path, refine_toml=components)
     level = refine_mesh(src, 1.0)
     family = "G" if components is None else "Wing"
-    record = _json(level.files[3])
+    record = _json(_record(level))
     assert record["unchanged_grids"] == [family]
     again = audit_mesh(level.obj, against=src)
     assert [(g.family, g.verdict) for g in again.gates if g.name == "G6"] == [(family, "pass")]
@@ -1029,7 +1045,7 @@ def test_r7_a_saved_factor_one_level_is_reaudited_with_g6(tmp_path, capsys, comp
     capsys.readouterr()
     assert cli.main(["audit-mesh", str(level.obj), "--against", str(src)]) == 1
     record["source"] = "another.obj"
-    level.files[3].write_text(json.dumps(record), encoding="utf-8")
+    _record(level).write_text(json.dumps(record), encoding="utf-8")
     other = audit_mesh(level.obj, against=src)
     assert next(g for g in other.gates if g.name == "G6").verdict == "not judged"
 
@@ -1052,7 +1068,8 @@ def test_r9_method_grid_without_a_grid_is_refused_and_auto_remeshes(tmp_path):
     entry = refine_mesh(src).report["T"]
     assert (entry["method"], entry["reason"]) == ("remesh", f"no grid recovered: {why}")
     src.with_name("wing.refine.toml").write_bytes(
-        b'[trailing_edge]\nfile = "wing.te.txt"\n[families.G]\nfactor = 1\nmethod = "grid"\n'
+        b'[[perimeter]]\nfile = "wing.te_nodes.txt"\nexport_te_per_family = true\n'
+        b'[families.G]\nfactor = 1\nmethod = "grid"\n'
     )
     assert refine_mesh(src).report["G"]["method"] == "grid"
     src.with_name("wing.refine.toml").write_bytes(
@@ -1082,7 +1099,7 @@ def test_r10_without_scipy_and_rtree_a_grid_refines_and_a_remesh_is_refused(
         for name in ("scipy", "scipy.spatial", "rtree"):
             blocked.setitem(sys.modules, name, None)
         level = refine_mesh(alone, 2.0)
-        assert level.report["G"]["method"] == "grid" and len(level.files) == 5
+        assert level.report["G"]["method"] == "grid" and len(level.files) == 6
         text = _refused(root, src, 2.0, error=MissingExtraError)
         assert "family T" in text and 'pip install "pyflightstream[geom]"' in text
         code, _, err = _command(capsys, str(src), "2")
@@ -1126,7 +1143,7 @@ def test_r10_the_band_of_an_unchanged_neighbour_needs_the_extra_before_any_resam
         assert text.endswith("Nothing was written.") and _left(tmp_path) == []
         code, _, err = _command(capsys, str(src), "2", "--families", "G")
         assert code == 2 and text in err and _left(tmp_path) == []
-        kept = refine_mesh(src, 1.0, families=["G"], spanwise=2.0)
+        kept = refine_mesh(src, 1.0, families=["G"], parallel=2.0)
         assert kept.report["T"] == {"method": "copied"}
     with pytest.warns(PyflightstreamWarning, match=GROWTH_ON_T):
         level = refine_mesh(src, 2.0, families=["G"])
@@ -1163,7 +1180,7 @@ def test_r12_two_runs_under_different_hash_seeds_write_identical_bytes(tmp_path)
         )
         assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
         runs.append(_digests(out / "wing_R-G2-T2"))
-    assert runs[0] == runs[1] and len(runs[0]) == 5
+    assert runs[0] == runs[1] and len(runs[0]) == 6
     with pytest.warns(PyflightstreamWarning, match=GROWTH_ON_T):
         other = refine_mesh(src, 0.5, families=["G", "T"], out_dir=tmp_path / "control")
     coarse = _digests(other.folder)
@@ -1183,7 +1200,7 @@ def test_r13_generated_files_use_lf_and_declarations_keep_source_bytes(tmp_path)
         path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
     assert all(b"\r" in p.read_bytes() for p in src.parent.iterdir())
     level = refine_mesh(src)
-    assert len(level.files) == 5
+    assert len(level.files) == 6
     side = level.obj.with_suffix(".obj.boundaries.toml")
     assert side.read_bytes() == src.with_suffix(".boundaries.toml").read_bytes()
     assert [p.name for p in level.folder.iterdir() if p != side and b"\r" in p.read_bytes()] == []
@@ -1368,7 +1385,7 @@ def test_p0430_f731_a_symlinked_source_protects_the_folder_of_the_file_it_points
     with pytest.raises(InputArtifactError, match="source's folder"):
         refine_mesh(link, 2.0, out_dir=tmp_path / "real", overwrite=True)
     assert sorted(p.name for p in real.parent.iterdir()) == sorted(
-        ["wing.obj", "wing.te.txt", "wing.boundaries.toml", "wing.refine.toml"]
+        ["wing.obj", "wing.te.txt", "wing.te_nodes.txt", "wing.boundaries.toml", "wing.refine.toml"]
     )
     # control: the same level folder beside an unrelated source is accepted
     monkeypatch.undo()
@@ -1406,7 +1423,7 @@ def test_f1516_an_unselected_family_table_is_not_validated(tmp_path):
     src = _two_tubes(tmp_path, toml)
     with pytest.warns(PyflightstreamWarning, match=r"\[families\.B\]"):
         one = refine_mesh(src, families=["A"], out_dir=tmp_path / "one")
-    assert _json(one.files[2])["ignored_families_tables"] == ["B"]
+    assert _json(_record(one))["ignored_families_tables"] == ["B"]
     with pytest.warns(PyflightstreamWarning, match=r"\[families\.B\]"):
         called = refine_mesh(src, 2.0, families=["A"], out_dir=tmp_path / "called")
     assert called.report["B"] == {"method": "copied"}
@@ -1550,22 +1567,34 @@ def test_p0440_rb5_46_rewritten_sidecar_escapes_del(tmp_path):
     assert tomllib.loads(result) == wanted
 
 
-def source(tmp_path: Path, config: str = "") -> Path:
+def source(tmp_path: Path, config: str = "", *, perimeter: bool = True) -> Path:
+    """Write the sheet source; its refine file carries ``config`` and, by default, the perimeter."""
     mesh = write_source(tmp_path / "src", "wing", sheet_with_strips(()), boundaries=False)
+    if perimeter:
+        config += '\n[[perimeter]]\nfile = "wing.te_nodes.txt"\nexport_te_per_family = true\n'
     mesh.with_suffix(".refine.toml").write_text(config, encoding="utf-8")
     return mesh
 
 
-@pytest.mark.parametrize("option", ["keep_first_row", "chordwise", "spanwise"])
-def test_p0460_missing_refine_te_key_is_refused(tmp_path, option):
-    mesh = source(tmp_path)
-    kwargs = {option: ["G"] if option == "keep_first_row" else 2}
-    with pytest.raises(InputArtifactError, match=r"\[trailing_edge\] file"):
-        refine_mesh(mesh, 2, **kwargs)
+def test_the_keep_first_row_keyword_is_warned_and_skipped(tmp_path):
+    """keep_first_row is no longer read: the call warns and writes the level without it."""
+    mesh = source(tmp_path, perimeter=False)
+    with pytest.warns(PyflightstreamWarning, match="keep_first_row is no longer read"):
+        level = refine_mesh(mesh, 2, keep_first_row=["G"], out_dir=tmp_path / "kept")
+    plain = refine_mesh(mesh, 2, out_dir=tmp_path / "plain")
+    assert level.report == plain.report
+
+
+@pytest.mark.parametrize("option", ["normal", "parallel"])
+def test_parallel_and_normal_factors_need_no_trailing_edge(tmp_path, option):
+    """A grid family with no [[perimeter]] still takes parallel and normal factors."""
+    mesh = source(tmp_path, perimeter=False)
+    level = refine_mesh(mesh, 2, **{option: 1})
+    assert level.report["G"]["method"] == "grid"
 
 
 def test_p0460_neighbour_points_are_not_refine_input(tmp_path):
-    mesh = source(tmp_path)
+    mesh = source(tmp_path, perimeter=False)
     mesh.with_suffix(".te.txt").write_text("deliberately unreadable", encoding="utf-8")
     try:
         level = refine_mesh(mesh, 1)
@@ -1575,7 +1604,7 @@ def test_p0460_neighbour_points_are_not_refine_input(tmp_path):
 
 
 def test_p0460_explicit_refine_points_and_preserved_declarations(tmp_path):
-    mesh = source(tmp_path, '[trailing_edge]\nfile = "wing.te.txt"\n')
+    mesh = source(tmp_path)
     declarations = (
         'fs_build = "26.125"\n[import]\nunits = "METER"\n'
         "# Keep this declaration exactly.\n[trailing_edges.wing]\n"
@@ -1594,7 +1623,7 @@ def test_p0460_explicit_refine_points_and_preserved_declarations(tmp_path):
 
 
 def test_p0460_per_family_te_is_written(tmp_path):
-    mesh = source(tmp_path, '[trailing_edge]\nfile = "wing.te.txt"\nper_family = true\n')
+    mesh = source(tmp_path)
     try:
         level = refine_mesh(mesh, 2)
     except InputArtifactError as error:
@@ -1617,7 +1646,7 @@ def test_p0460_per_family_te_is_written(tmp_path):
 def test_p0460_named_detection_component_rename_preserves_declaration(tmp_path):
     mesh = source(
         tmp_path,
-        '[trailing_edge]\nfile = "wing.te.txt"\n[components]\nWing = ["G"]\n',
+        '[components]\nWing = ["G"]\n',
     )
     text = (
         'boundaries = ["G"]\nfs_build = "26.125"\n'
@@ -1632,64 +1661,16 @@ def test_p0460_named_detection_component_rename_preserves_declaration(tmp_path):
 
 
 @pytest.mark.parametrize("value", ["file = 3", 'file = ""', 'per_family = "yes"', "typo = true"])
-def test_p0460_refine_trailing_edge_schema_refuses_invalid_values(tmp_path, value):
+def test_p0460_refine_trailing_edge_table_is_warned_and_skipped(tmp_path, value):
+    """[trailing_edge] is no longer read: any content is warned of and skipped, nothing else."""
     mesh = source(tmp_path, "[trailing_edge]\n" + value + "\n")
-    with pytest.raises(InputArtifactError, match=r"\[trailing_edge\]"):
-        refine_mesh(mesh, 1)
-
-
-@pytest.mark.parametrize(
-    "value", ["0", "-1e-6", "1", "2.5", '"1e-5"', "true", "nan", "inf", "[1e-5]"]
-)
-def test_refine_te_point_fraction_refuses_values_outside_zero_one(tmp_path, value):
-    """[trailing_edge] point_fraction is a number with 0 < value < 1; nothing else is read."""
-    mesh = source(tmp_path, f'[trailing_edge]\nfile = "wing.te.txt"\npoint_fraction = {value}\n')
-    before = sorted(p.name for p in mesh.parent.parent.iterdir())
-    with pytest.raises(
-        InputArtifactError,
-        match=r"\[trailing_edge\]: point_fraction must be a number greater than 0 and less than 1",
-    ):
-        refine_mesh(mesh, 1)
-    assert sorted(p.name for p in mesh.parent.parent.iterdir()) == before
-
-
-@pytest.mark.parametrize("factor", [1, 2])
-@pytest.mark.parametrize("fraction", [None, 1e-5])
-def test_refine_te_point_fraction_matches_points_off_the_mid_points(tmp_path, factor, fraction):
-    """Points 5e-6 of the size off their edge mid-points match only under point_fraction 1e-5.
-
-    Absent, the fraction is 1e-6 and no point names an edge, so no family's points
-    file is written; at 1e-5 every point names its edge. The level's refine.json
-    records the fraction used, and its audit (G4) uses it too.
-    """
-    from pyflightstream.workspace._refine._obj import read_obj, read_te
-
-    config = '[trailing_edge]\nfile = "wing.te.txt"\nper_family = true\n'
-    if fraction is not None:
-        config += f"point_fraction = {fraction}\n"
-    mesh = source(tmp_path, config)
-    te = mesh.with_suffix(".te.txt")
-    unit, points = read_te(te)
-    shifted = points + numpy.array([0.0, 0.0, 5e-6 * read_obj(mesh).size])
-    rows = [unit] + [",".join(repr(float(c)) for c in point) for point in shifted]
-    te.write_text("\n".join(rows) + "\n", encoding="utf-8")
-    level = refine_mesh(mesh, factor)
-    family = level.folder / f"{level.obj.stem}.G.te.txt"
-    record = _json(level.obj.with_suffix(".refine.json"))
-    assert record["trailing_edge_point_fraction"] == (1e-6 if fraction is None else fraction)
-    if fraction is None:
-        assert not family.exists()
-        return
-    assert family in level.files
-    _, written = read_te(family)
-    assert len(written) == factor * len(points)
-    assert level.audit is not None
-    g4 = next(item for item in level.audit.gates if item.name == "G4")
-    assert g4.values["points_on_edges"] == g4.values["points"]
+    with pytest.warns(PyflightstreamWarning, match=r"\[trailing_edge\] is no longer read"):
+        level = refine_mesh(mesh, 1)
+    assert level.report["G"]["method"] == "grid"
 
 
 def test_p0460_base_family_key_is_renamed_without_reformatting(tmp_path):
-    mesh = source(tmp_path, '[trailing_edge]\nfile = "wing.te.txt"\n[components]\nWing = ["G"]\n')
+    mesh = source(tmp_path, '[components]\nWing = ["G"]\n')
     text = 'boundaries = ["G"]\n[base_regions.G] # keep\ncp = -0.2\n'
     mesh.with_suffix(".obj.boundaries.toml").write_text(text, encoding="utf-8")
     level = refine_mesh(mesh, 1)
@@ -1736,7 +1717,7 @@ def test_p0460_per_family_exports_partition_two_trailing_edges(tmp_path, grouped
         numpy.vstack([one.te, one.te + offset]),
         {},
     )
-    config = '[trailing_edge]\nfile = "wing.te.txt"\nper_family = true\n'
+    config = ""
     if grouped:
         config += '[components]\nWing = ["A", "B"]\n'
     src = write_source(tmp_path / "src", "wing", mesh, refine_toml=config)
@@ -1771,3 +1752,191 @@ def test_p0460_inventory_digest_does_not_rewrite_declaration_filename(tmp_path):
     new_digest = hashlib.sha256(level.obj.read_bytes()).hexdigest()
     assert tomllib.loads(copied)["mesh_sha256"] == new_digest != digest
     assert f"# the OBJ's sha256 was {new_digest}" in copied
+
+
+# ------------------------------------------------------ [[perimeter]] node lists
+
+
+def _sheet_lines():
+    """Return the sheet's trailing-edge nodes (u = 0) and its root station's, by vertex."""
+    from tests.p0380_mesh_fixtures import sheet_quads
+
+    fx = sheet_quads()
+    place = {p: v for v, p in fx.place.items()}
+    te = [place[(k, 0)] for k in range(fx.stations)]
+    root = [place[(0, i)] for i in range(fx.nodes)]
+    return fx, te, root
+
+
+def _same_level(a: Path, b: Path) -> bool:
+    """Return whether two level OBJs hold the same nodes and the same families."""
+    (va, fa), (vb, fb) = read_mesh(a), read_mesh(b)
+    return numpy.array_equal(va, vb) and fa == fb
+
+
+def _node_list(path: Path, verts, ids, *, first: int = 1001, extra=()) -> Path:
+    """Write the ASCII list ANSA saves from a SET's node window, in a scrambled order."""
+    rows = ["#  Id, Name, X , Y, Z"]
+    order = list(ids)[1::2] + list(ids)[::2]
+    rows += [f"{first + v}, , {x:.6f}, {y:.6f}, {z:.6f}" for v in order for x, y, z in [verts[v]]]
+    rows += [f"{node}, , {x}, {y}, {z}" for node, (x, y, z) in extra]
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    return path
+
+
+def test_perimeter_node_lists_orient_the_grid_and_export_only_the_marked_trailing_edge(tmp_path):
+    """[[perimeter]] lists: node ids from ANSA, rounded and out of order, replace the points file.
+
+    Control: the level is the one the exact trailing-edge points file gives with
+    the same factors. Only the list marked export_te_per_family is written per
+    family; the root station's list orients nothing here and is never written.
+    """
+    fx, te, root = _sheet_lines()
+    factors = "[families.G]\nparallel_factor = 2\nnormal_factor = 1.5\n"
+    old = refine_mesh(_source(tmp_path / "old", refine_toml=factors), out_dir=tmp_path / "o")
+    src = _source(tmp_path / "new", te=False, refine_toml=None)
+    _node_list(src.with_name("te_nodes.txt"), fx.verts, te)
+    _node_list(src.with_name("root_nodes.txt"), fx.verts, root, first=5001)
+    src.with_name("wing.refine.toml").write_text(
+        factors
+        + '[[perimeter]]\nfile = "root_nodes.txt"\n'
+        + '[[perimeter]]\nfile = "te_nodes.txt"\nexport_te_per_family = true\n',
+        encoding="utf-8",
+    )
+    new = refine_mesh(src, out_dir=tmp_path / "n")
+    assert new.report["G"]["method"] == "grid"
+    assert _same_level(new.obj, old.obj)
+    from pyflightstream.workspace._refine._obj import read_te
+
+    _, written = read_te(new.folder / f"{new.obj.stem}.G.te.txt")
+    _, exact = read_te(old.obj.with_suffix(".te.txt"))
+    assert len(written) == 2 * (len(te) - 1)
+    assert numpy.allclose(numpy.sort(written, axis=0), numpy.sort(exact, axis=0), atol=1e-9)
+
+
+def test_a_trailing_edge_and_a_root_in_one_list_are_told_apart_at_their_corner(tmp_path):
+    """One [[perimeter]] list holding the trailing edge and the root, joined at a corner.
+
+    The whole list is not a grid line, so the list is cut at its corner and the
+    piece that recovers the grid orients it. Control: the level is the one the
+    trailing edge alone gives.
+    """
+    fx, te, root = _sheet_lines()
+    factors = "[families.G]\nparallel_factor = 2\nnormal_factor = 1.5\n"
+    alone = refine_mesh(_source(tmp_path / "a", refine_toml=factors), out_dir=tmp_path / "x")
+    src = _source(tmp_path / "b", te=False)
+    _node_list(src.with_name("lines.txt"), fx.verts, [*te, *root[1:]])
+    src.with_name("wing.refine.toml").write_text(
+        factors + '[[perimeter]]\nfile = "lines.txt"\n', encoding="utf-8"
+    )
+    level = refine_mesh(src, out_dir=tmp_path / "y")
+    assert level.report["G"]["method"] == "grid"
+    assert _same_level(level.obj, alone.obj)
+
+
+def test_a_node_left_out_of_a_list_is_completed_from_the_grid_line(tmp_path):
+    """A list missing one middle node of the trailing edge is completed, with a warning.
+
+    The two edges at the missing node have an end no list holds, so the grid
+    line completes them. Control: the level is the one the whole list gives.
+    """
+    fx, te, _ = _sheet_lines()
+    factors = "[families.G]\nparallel_factor = 2\n"
+    whole = refine_mesh(_source(tmp_path / "a", refine_toml=factors), out_dir=tmp_path / "x")
+    src = _source(tmp_path / "b", te=False)
+    _node_list(src.with_name("te.txt"), fx.verts, [v for v in te if v != te[4]])
+    src.with_name("wing.refine.toml").write_text(
+        factors + '[[perimeter]]\nfile = "te.txt"\nexport_te_per_family = true\n',
+        encoding="utf-8",
+    )
+    with pytest.warns(PyflightstreamWarning, match="the perimeter list is incomplete"):
+        level = refine_mesh(src, out_dir=tmp_path / "y")
+    assert _same_level(level.obj, whole.obj)
+
+
+def test_a_perimeter_node_off_the_mesh_is_warned_and_skipped(tmp_path):
+    """A listed node that matches no vertex is named by its id and skipped; the rest orient."""
+    fx, te, _ = _sheet_lines()
+    src = _source(tmp_path, te=False)
+    _node_list(src.with_name("te.txt"), fx.verts, te, extra=[(9999, (50.0, 50.0, 50.0))])
+    src.with_name("wing.refine.toml").write_text(
+        '[families.G]\nparallel_factor = 2\n[[perimeter]]\nfile = "te.txt"\n', encoding="utf-8"
+    )
+    with pytest.warns(PyflightstreamWarning, match=r"1 of 10 node\(s\) match no mesh vertex.*9999"):
+        level = refine_mesh(src)
+    assert level.report["G"]["method"] == "grid"
+    assert not (level.folder / f"{level.obj.stem}.G.te.txt").exists()
+
+
+def test_chordwise_and_spanwise_are_read_as_normal_and_parallel_with_a_warning(tmp_path):
+    """The earlier key names still refine, warned; the level is the one the new names give."""
+    new = refine_mesh(
+        _source(
+            tmp_path / "a", refine_toml="[families.G]\nparallel_factor = 2\nnormal_factor = 3\n"
+        ),
+        out_dir=tmp_path / "x",
+    )
+    with pytest.warns(PyflightstreamWarning, match="chordwise is read as normal_factor"):
+        old = refine_mesh(
+            _source(tmp_path / "b", refine_toml="[families.G]\nspanwise = 2\nchordwise = 3\n"),
+            out_dir=tmp_path / "y",
+        )
+    assert _same_level(old.obj, new.obj)
+    with pytest.warns(PyflightstreamWarning, match="spanwise is read as parallel"):
+        call = refine_mesh(_source(tmp_path / "c"), spanwise=2, chordwise=3, out_dir=tmp_path / "z")
+    assert _same_level(call.obj, new.obj)
+
+
+def test_convert2midnodes_orders_a_scrambled_list_of_two_lines(tmp_path, capsys):
+    """pyfs-workspace geometry convert2midnodes: one mid-point per neighbouring pair, per line.
+
+    Two trailing edges in one list, out of order: the sheet's and a copy of it
+    ten units above, as a second component's would be.
+    """
+    from pyflightstream.workspace import cli as workspace_cli
+    from pyflightstream.workspace._refine._obj import read_te
+
+    fx, te, _ = _sheet_lines()
+    verts = numpy.vstack([fx.verts, fx.verts[te] + (0.0, 0.0, 10.0)])
+    second = list(range(len(fx.verts), len(verts)))
+    listed = _node_list(tmp_path / "nodes.txt", verts, [*te, *second])
+    out = tmp_path / "nodes.te.txt"
+    code = workspace_cli.main(
+        ["geometry", "convert2midnodes", str(listed), str(out), "--unit", "MILLIMETER"]
+    )
+    assert code == 0 and capsys.readouterr().out.strip() == str(out)
+    unit, points = read_te(out)
+    expected = numpy.vstack([0.5 * (verts[ids[:-1]] + verts[ids[1:]]) for ids in (te, second)])
+    assert unit == "MILLIMETER" and len(points) == len(expected)
+    near = numpy.linalg.norm(points[:, None] - expected[None], axis=2).min(axis=1)
+    assert near.max() < 1e-5
+
+
+def test_convert2midnodes_per_family_writes_the_mesh_edges_of_each_family(tmp_path, capsys):
+    """convert2midnodes --per-family MESH: one file per family, the mesh's own edge mid-points.
+
+    The list holds the trailing edges of the sheet G and of the quadrilateral
+    strip Q beside it, rounded and out of order; the strip T is untouched and
+    gets no file.
+    """
+    from pyflightstream.workspace import cli as workspace_cli
+    from pyflightstream.workspace._refine._obj import read_te
+
+    mesh = sheet_with_strips((("Q", "quad", (0.2, 0.2)), ("T", "tri", (0.1,))))
+    src = write_source(tmp_path / "src", "wing", mesh)
+    rows = mesh.rows
+    lines = {"G": [r[0] for r in rows["G"]], "Q": [r[0] for r in rows["Q"]]}
+    listed = _node_list(tmp_path / "nodes.txt", mesh.verts, sorted({*lines["G"], *lines["Q"]}))
+    out = tmp_path / "nodes.te.txt"
+    code = workspace_cli.main(
+        ["geometry", "convert2midnodes", str(listed), str(out), "--per-family", str(src)]
+    )
+    printed = capsys.readouterr().out.split()
+    assert code == 0 and printed == [str(tmp_path / f"nodes.{n}.te.txt") for n in ("G", "Q")]
+    for name, ids in lines.items():
+        unit, points = read_te(tmp_path / f"nodes.{name}.te.txt")
+        expected = 0.5 * (mesh.verts[ids[:-1]] + mesh.verts[ids[1:]])
+        assert unit == "METER" and len(points) == len(expected)
+        near = numpy.linalg.norm(points[:, None] - expected[None], axis=2).min(axis=1)
+        assert near.max() < 1e-8  # the OBJ holds nine decimals
+    assert not out.exists()

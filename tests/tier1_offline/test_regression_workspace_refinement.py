@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import tomllib
 import warnings
 from pathlib import Path
 
@@ -40,19 +39,8 @@ from tests.tier1_offline.test_p0380_s1_refine import _refused as _workspace_1_re
 from tests.tier1_offline.test_p0380_s1_refine import _source as _decided_docs_1_refine_tag___source
 from tests.tier1_offline.test_p0380_s1_refine import _source as _workspace_1_refine___source
 from tests.tier1_offline.test_p0380_s1_refine import _two_tubes as _workspace_1_refine___two_tubes
-from tests.tier1_offline.test_p0380_s4_sector import (
-    PERIODIC as _WORKSPACE_2_REFINE_SECTOR__PERIODIC,
-)
 from tests.tier1_offline.test_p0380_s4_sector import SIX as _WORKSPACE_2_REFINE_SECTOR__SIX
 from tests.tier1_offline.test_p0380_s4_sector import _cells as _workspace_2_refine_sector___cells
-from tests.tier1_offline.test_p0380_s4_sector import _wedge as _workspace_2_refine_sector___wedge
-from tests.tier1_offline.test_p0380_s4_sector import _write as _workspace_2_refine_sector___write
-from tests.tier1_offline.test_p0390_firstrow import (
-    _joined_level as _reviews2_refine_te___joined_level,
-)
-from tests.tier1_offline.test_p0390_firstrow import (
-    _tube_source as _reviews2_refine_te___tube_source,
-)
 
 _DECIDED_DOCS_1_REFINE_TAG__PAGE = (
     Path(__file__).resolve().parents[2] / "docs" / "mesh" / "reference.md"
@@ -124,26 +112,6 @@ class TestDecidedDocs1RefineTag:
         assert "Summary tags hash the exact factors" in text
 
 
-def _reviews2_refine_te___detected_source(tmp_path, detect: str):
-    source = _reviews2_refine_te__write_source(
-        tmp_path / "src",
-        "wing",
-        _reviews2_refine_te___tube_source(),
-        refine_toml="[families.Wing]\nspanwise = 2\nkeep_first_row = true\n",
-    )
-    side = source.with_suffix(".boundaries.toml")
-    side.write_text(
-        side.read_text("utf-8")
-        + '\n[import]\nunits = "METER"\n'
-        + f"[trailing_edges]\ndetect = {detect}\n",
-        "utf-8",
-    )
-    source.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
-    with source.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
-        stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
-    return source
-
-
 def _reviews2_refine_te___drop_last_edge(level) -> None:
     path = level.obj.with_suffix(".te.txt")
     lines = path.read_text("utf-8").splitlines()
@@ -154,45 +122,21 @@ def _reviews2_refine_te___drop_last_edge(level) -> None:
 
 
 class TestReviews2RefineTe:
-    """P0400-TEROUTE (PFS-2088.018) and P0400-TECHAIN (PFS-2099.020): the refined trailing edge.
+    """P0400-TECHAIN (PFS-2099.020): the refined trailing edge of a [[perimeter]] list.
 
-    TEROUTE: a kept row's trailing edge the refinement detects is written to the
-    level's points file, and the level's boundaries file names that file in place
-    of ``detect`` when every family the route selects was detected, so the run
-    reads the line the refinement kept and the audit checked. When the route also
-    covers a family the refinement did not detect on, ``detect`` stays and a
-    warning names the points file the run does not read.
-
-    TECHAIN: gate G4 compares the level's trailing-edge length with the source's,
-    so a trailing-edge chain shortened by a dropped edge fails it while a refined
-    level, whose edges are split but whose line is the same, passes.
+    Gate G4 compares the level's trailing-edge length with the source's, the
+    source's taken from the exported list the record states, so a chain
+    shortened by a dropped edge fails it while a refined level, whose edges are
+    split but whose line is the same, passes.
     """
-
-    @staticmethod
-    def test_p0400_teroute_the_level_names_the_points_file_the_refinement_detected(tmp_path):
-        """P0400-TEROUTE: detect on the kept-row family alone becomes file = <stem>.te.txt."""
-        source = _reviews2_refine_te___detected_source(tmp_path, '{ surfaces = ["Wing"] }')
-        level = refine_mesh(source)
-        points = level.obj.with_suffix(".te.txt")
-        side = level.obj.with_suffix(".obj.boundaries.toml")
-        table = tomllib.loads(side.read_text("utf-8"))["trailing_edges"]
-        assert table == {"detect": {"surfaces": ["Wing"]}}
-        assert points.is_file()
-        gate = next(g for g in audit_mesh(level.obj, against=source).gates if g.name == "G4")
-        assert gate.passed, gate
-
-    @staticmethod
-    def test_p0400_teroute_a_route_covering_an_undetected_family_keeps_detect_and_warns(tmp_path):
-        """P0400-TEROUTE: detect = "auto" also covers Body; detect stays and a warning says so."""
-        source = _reviews2_refine_te___detected_source(tmp_path, '"auto"')
-        level = refine_mesh(source)
-        table = tomllib.loads(level.obj.with_suffix(".obj.boundaries.toml").read_text("utf-8"))
-        assert table["trailing_edges"] == {"detect": "auto"}
 
     @staticmethod
     def test_p0400_techain_a_shortened_trailing_edge_chain_fails_g4(tmp_path):
         """P0400-TECHAIN: removing the tip edge of the refined line fails G4, naming the length."""
-        source, level = _reviews2_refine_te___joined_level(tmp_path, None)
+        source = _reviews2_refine_te__write_source(
+            tmp_path / "src", "wing", _workspace_2_refine_level__sheet_with_strips()
+        )
+        level = refine_mesh(source, 2, out_dir=tmp_path / "out")
         before = next(g for g in audit_mesh(level.obj, against=source).gates if g.name == "G4")
         assert before.passed, before
         _reviews2_refine_te___drop_last_edge(level)
@@ -241,13 +185,33 @@ class TestWorkspace1Refine:
         assert "wing.refine.toml" in text and "cannot be read" in text
 
     @staticmethod
-    def test_p0400_wsrefine_a_keep_first_row_only_table_names_the_fix(tmp_path):
-        """P0400-WSREFINE (PFS-2093.013): the refusal says how to ask keep_first_row instead."""
+    def test_p0400_wsrefine_the_body_keys_are_warned_and_skipped(tmp_path):
+        """P0400-WSREFINE: axial, circumferential, axis and origin are no longer read.
+
+        Control: the level is the one the factor alone gives.
+        """
+        body = "axial = 2\ncircumferential = 3\naxis = [0, 1, 0]\norigin = [0, 0, 0]\n"
         src = _workspace_1_refine___source(
-            tmp_path, refine_toml="[families.G]\nkeep_first_row = true\n"
+            tmp_path / "a", refine_toml="[families.G]\nfactor = 2\n" + body
         )
-        text = _workspace_1_refine___refused(tmp_path, src)
-        assert "--keep-first-row" in text and "states no factor, chordwise or spanwise" in text
+        with pytest.warns(PyflightstreamWarning, match="axial is no longer read"):
+            level = refine_mesh(src, out_dir=tmp_path / "x")
+        plain = refine_mesh(
+            _workspace_1_refine___source(tmp_path / "b", refine_toml="[families.G]\nfactor = 2\n"),
+            out_dir=tmp_path / "y",
+        )
+        assert level.obj.name == plain.obj.name
+        assert level.obj.read_bytes() == plain.obj.read_bytes()
+
+    @staticmethod
+    def test_p0400_wsrefine_a_keep_first_row_only_table_is_warned_and_skipped(tmp_path):
+        """P0400-WSREFINE: keep_first_row is no longer read; a table stating it alone is skipped."""
+        src = _workspace_1_refine___source(
+            tmp_path, refine_toml="[families.G]\nkeep_first_row = true\nfactor = 2\n"
+        )
+        with pytest.warns(PyflightstreamWarning, match="keep_first_row is no longer read"):
+            level = refine_mesh(src, out_dir=tmp_path / "out")
+        assert level.report["G"]["method"] == "grid"
 
     @staticmethod
     def test_p0400_wsrefine_a_trailing_edge_file_that_is_not_utf8_is_refused(tmp_path):
@@ -406,7 +370,7 @@ def _workspace_2_refine_level___record(level) -> dict:
 
 
 def _workspace_2_refine_level___te_rows(level) -> list[str]:
-    return next(Path(level.folder).glob("*.te.txt")).read_text(encoding="utf-8").splitlines()[1:]
+    return level.obj.with_suffix(".te.txt").read_text(encoding="utf-8").splitlines()[1:]
 
 
 class TestWorkspace2RefineLevel:
@@ -464,32 +428,6 @@ class TestWorkspace2RefineSector:
     @pytest.fixture(autouse=True, scope="class")
     def _optional_dependencies():
         pytest.importorskip("trimesh")
-
-    @staticmethod
-    def test_p0400_refinesector_a_body_stretched_unlike_on_a_cut_is_refused(tmp_path):
-        """P0400-REFINESECTOR (PFS-2099.023): a sector of a cylinder at axial 1 and
-        circumferential 3 is refused before any work, naming both factors, where its cut was
-        resampled by max(axial, circumferential) = 3 along the axis."""
-        source = _workspace_2_refine_sector___write(
-            tmp_path,
-            _workspace_2_refine_sector___wedge(na=6, nz=6),
-            _WORKSPACE_2_REFINE_SECTOR__PERIODIC + _workspace_2_refine_sector___body(1, 3),
-        )
-        with pytest.raises(InputArtifactError) as caught:
-            refine_mesh(source)
-        message = str(caught.value)
-        assert "axial 1 and circumferential 3" in message and "[periodic]" in message, message
-        assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
-
-    @staticmethod
-    def test_p0400_refinesector_a_body_stretched_alike_still_refines(tmp_path):
-        """P0400-REFINESECTOR (PFS-2099.023): equal factors leave one factor for the cut; refined."""  # noqa: E501
-        source = _workspace_2_refine_sector___write(
-            tmp_path,
-            _workspace_2_refine_sector___wedge(na=6, nz=6),
-            _WORKSPACE_2_REFINE_SECTOR__PERIODIC + _workspace_2_refine_sector___body(2, 2),
-        )
-        assert refine_mesh(source).obj.is_file()
 
     @staticmethod
     def test_p0400_refinesector_a_finely_spaced_open_edge_beside_a_cut_is_not_the_cut():
@@ -582,7 +520,7 @@ def _workspace_2_refine_wing___source(tmp_path: Path, mesh: _Workspace2RefineWin
 
 
 def _workspace_2_refine_wing___te_rows(level) -> list[tuple[float, ...]]:
-    lines = next(Path(level.folder).glob("*.te.txt")).read_text(encoding="utf-8").splitlines()
+    lines = level.obj.with_suffix(".te.txt").read_text(encoding="utf-8").splitlines()
     return [tuple(round(float(c), 6) for c in row.split(",")) for row in lines[1:]]
 
 
@@ -619,7 +557,8 @@ class TestWorkspace2RefineWing:
             out_dir=tmp_path / "out",
         )
         verts, families = _workspace_2_refine_wing__read_mesh(level.obj)
-        assert level.report["L"] == {"method": "copied"}, level.report["L"]
+        assert level.report["L"]["method"] == "copied", level.report["L"]
+        assert level.report["L"].get("trailing_edge") in (None, "perimeter")
         assert _workspace_2_refine_wing__face_coordinates(
             verts, families["L"]
         ) == _workspace_2_refine_wing__face_coordinates(mesh.verts.round(9), mesh.families["L"])
@@ -658,53 +597,6 @@ class TestWorkspace2RefineWing:
         assert json.loads(next(level.folder.glob("*.refine.json")).read_text("utf-8"))
 
     @staticmethod
-    def test_p0400_refinewing_a_sheet_trailing_edge_is_detected_across_its_families(tmp_path):
-        """P0400-REFINEWING (PFS-2099.017): no points file; the boundaries file routes U's
-        trailing edge to detection and U keeps its root row. U's trailing edge is a boundary of
-        U, sharp only with L's faces beside it; measured on every family's faces it is found."""
-        mesh = _workspace_2_refine_wing__wing()
-        mesh = _Workspace2RefineWingComposite(mesh.verts, mesh.families, numpy.zeros((0, 3)), {})
-        toml = (
-            "[families.U]\nspanwise = 2.0\nkeep_first_row = true\n"
-            "trailing_edge_direction = [1.0, 0.0, 0.0]\n"
-        )
-        src = _workspace_2_refine_wing__write_source(
-            tmp_path / "src", "wing", mesh, refine_toml=toml
-        )
-        sidecar = src.with_name("wing.boundaries.toml")
-        text = sidecar.read_text(encoding="utf-8")
-        sidecar.write_text(
-            text + '\n[import]\nunits = "METER"\n[trailing_edges]\ndetect = { surfaces = ["U"] }\n',
-            "utf-8",
-        )
-        src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
-        with src.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
-            stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
-        level = refine_mesh(src, out_dir=tmp_path / "out")
-        entry = level.report["U"]
-        assert entry["trailing_edge"] == "detected" and entry["kept_rows"] == ["station 0"], entry
-        rows = _workspace_2_refine_wing___te_rows(level)
-        assert rows and all(row[0] == 1.0 for row in rows), rows
-
-    @staticmethod
-    @pytest.mark.requirement("FR-430")
-    def test_p0400_bgtests2_detected_trailing_edges_require_mesh_units(tmp_path):
-        """PFS-2099.006: detection cannot label unknown mesh coordinates as metres."""
-        from pyflightstream.workspace import InputArtifactError
-
-        mesh = _workspace_2_refine_wing__wing()
-        mesh = _Workspace2RefineWingComposite(mesh.verts, mesh.families, numpy.zeros((0, 3)), {})
-        src = _workspace_2_refine_wing___source(tmp_path, mesh)
-        src.with_suffix(".boundaries.toml").write_text(
-            '[trailing_edges]\ndetect = { surfaces = ["U"] }\n', encoding="utf-8"
-        )
-        src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
-        with src.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
-            stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
-        with pytest.raises(InputArtifactError, match=r"\[import\].*units"):
-            refine_mesh(src, spanwise=2, families=["U"], keep_first_row=["U"])
-
-    @staticmethod
     @pytest.mark.requirement("FR-432")
     @pytest.mark.parametrize("unit", ["MILLIMETER", None])
     def test_p0400_bgtests2_shared_edge_targets_state_their_units(tmp_path, unit):
@@ -731,14 +623,27 @@ class TestWorkspace2RefineWing:
     @staticmethod
     @pytest.mark.requirement("FR-426")
     def test_p0400_bgtests2_remesh_preserves_only_listed_trailing_edges(tmp_path):
-        """PFS-2099.021: four TE vertices do not make all four sides trailing edges."""
+        """PFS-2099.021: two trailing edges in two lists do not make the cross sides edges.
+
+        One list holding all four nodes would list the cross sides too (each joins
+        two listed nodes); a list per trailing edge lists only its own side.
+        """
         points = numpy.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], dtype=float)
         te = numpy.array([[0.5, 0, 0], [0.5, 1, 0]])
+        folder = tmp_path / "src"
+        folder.mkdir(parents=True)
+        lists = ""
+        for k, ids in enumerate(((0, 1), (2, 3))):
+            rows = ["#  Id, Name, X , Y, Z"] + [
+                f"{v + 1}, , {points[v][0]}, {points[v][1]}, {points[v][2]}" for v in ids
+            ]
+            (folder / f"te{k}.txt").write_text("\n".join(rows) + "\n", encoding="utf-8")
+            lists += f'\n[[perimeter]]\nfile = "te{k}.txt"\nexport_te_per_family = true\n'
         src = _workspace_2_refine_wing__write_source(
-            tmp_path / "src",
+            folder,
             "plate",
             _Workspace2RefineWingComposite(points, {"A": [[0, 1, 2, 3]]}, te, {}),
-            refine_toml='[families.A]\nfactor = 1\nmethod = "remesh"\n',
+            refine_toml='[families.A]\nfactor = 1\nmethod = "remesh"\n' + lists,
         )
         level = refine_mesh(src)
         assert sorted(_workspace_2_refine_wing___te_rows(level)) == sorted(map(tuple, te.tolist()))

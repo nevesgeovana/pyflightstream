@@ -22,7 +22,7 @@ from numpy.typing import NDArray
 import pyflightstream._textio as _textio
 from pyflightstream._decimal import plain_decimal
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
 from pyflightstream._lengths import METRES_PER_UNIT, scale
 from pyflightstream.workspace._geometry_sidecar import toml_value
 from pyflightstream.workspace.sidecars import (
@@ -485,6 +485,106 @@ def edge_midpoints(
     edges = {(min(a, b), max(a, b)) for f in faces for a, b in zip(f, f[1:] + f[:1], strict=True)}
     e = numpy.array(sorted(edges), dtype=numpy.int64).reshape(-1, 2)
     return e, 0.5 * (verts[e[:, 0]] + verts[e[:, 1]])
+
+
+#: A listed node is the mesh vertex closer to it than this fraction of the vertex's
+#: shortest edge: ANSA writes a node's position rounded, so the match is made within the
+#: local edge length, never within a fraction of the whole mesh.
+NODE_EDGE_FRACTION = 0.25
+
+
+@dataclass(frozen=True)
+class NodeList:
+    """The nodes of an ANSA SET node-window export: their ids and positions, in file order."""
+
+    path: Path
+    ids: list[int]
+    points: NDArray[numpy.float64]
+
+
+def read_node_list(path: str | Path) -> NodeList:
+    """Read the ASCII node list ANSA saves from a SET (``#  Id, Name, X , Y, Z``).
+
+    The header line names the columns, and Id, X, Y and Z are read by name;
+    without a header the five columns are Id, Name, X, Y, Z. Blank lines and
+    other comment lines are skipped. A row that cannot be read, and a node id
+    listed before, is warned and skipped; the caller decides on an empty list.
+    """
+    source = Path(path)
+    try:
+        lines = source.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except OSError as error:
+        raise _refuse(source, f"the node list is not readable ({error})") from error
+    columns = {"ID": 0, "X": 2, "Y": 3, "Z": 4}
+    ids: list[int] = []
+    points: list[list[float]] = []
+    skipped: list[int] = []
+    for number, raw in enumerate(lines, start=1):
+        text = raw.strip()
+        if not text:
+            continue
+        if text.startswith("#"):
+            names = [c.strip().upper() for c in text.lstrip("#").split(",")]
+            if {"ID", "X", "Y", "Z"} <= set(names):
+                columns = {k: names.index(k) for k in ("ID", "X", "Y", "Z")}
+            continue
+        words = [w.strip() for w in text.split(",")]
+        try:
+            node = int(words[columns["ID"]])
+            xyz = [float(words[columns[k]]) for k in ("X", "Y", "Z")]
+        except (ValueError, IndexError):
+            skipped.append(number)
+            continue
+        if node in ids or not all(math.isfinite(v) for v in xyz):
+            skipped.append(number)
+            continue
+        ids.append(node)
+        points.append(xyz)
+    if skipped:
+        shown = ", ".join(str(n) for n in skipped[:5])
+        warn(
+            f"{source}: {len(skipped)} line(s) are skipped (not Id, Name, X, Y, Z, or a node "
+            f"listed before): line(s) {shown}{' and more' if len(skipped) > 5 else ''}",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    return NodeList(source, ids, numpy.array(points, dtype=float).reshape(-1, 3))
+
+
+def perimeter_edges(
+    verts: NDArray[numpy.float64], families: dict[str, Faces], nodes: NodeList
+) -> tuple[dict[str, set[tuple[int, int]]], list[int]]:
+    """Return, per family, the edges whose two ends are listed nodes, and the ids matched to none.
+
+    A mesh vertex is a listed node when it lies closer to one than
+    :data:`NODE_EDGE_FRACTION` of its shortest edge, so two vertices at one
+    position (an open trailing edge) are both listed. The order of the nodes
+    does not matter, and one list may hold the perimeters of several families.
+    """
+    from pyflightstream.workspace._refine._geometry import NearestIndex
+
+    every = [f for fs in families.values() for f in fs]
+    edges, _ = edge_midpoints(verts, every)
+    shortest = numpy.full(len(verts), numpy.inf)
+    if len(edges):
+        length = numpy.linalg.norm(verts[edges[:, 0]] - verts[edges[:, 1]], axis=1)
+        numpy.minimum.at(shortest, edges[:, 0], length)
+        numpy.minimum.at(shortest, edges[:, 1], length)
+    used = numpy.flatnonzero(numpy.isfinite(shortest))
+    listed: set[int] = set()
+    if len(used):
+        dist, _ = NearestIndex(nodes.points).query(verts[used])
+        listed = {int(v) for v in used[dist < NODE_EDGE_FRACTION * shortest[used]]}
+        near, index = NearestIndex(verts[used]).query(nodes.points)
+        hit = near < NODE_EDGE_FRACTION * shortest[used[index]]
+    else:
+        hit = numpy.zeros(len(nodes.ids), dtype=bool)
+    unmatched = [nodes.ids[i] for i in numpy.flatnonzero(~hit)]
+    out = {}
+    for name, faces in families.items():
+        fam, _ = edge_midpoints(verts, faces)
+        out[name] = {(int(a), int(b)) for a, b in fam if int(a) in listed and int(b) in listed}
+    return out, unmatched
 
 
 #: The places a value can be closed: a quote of a string, the bracket of an array, or

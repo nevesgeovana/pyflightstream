@@ -13,14 +13,12 @@ import importlib.util
 import json
 import re
 import sys
-import warnings
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 import pyflightstream
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace import refine_mesh
 from pyflightstream.workspace._refine._geometry import GRID_SURFACE_DISTANCE
 from pyflightstream.workspace._refine._grid import Grid, recover_grid, refine_grid
@@ -414,17 +412,19 @@ def _pinwheel() -> tuple[np.ndarray, list[list[int]]]:
     return verts.reshape(-1, 3).astype(float), faces
 
 
-def test_push_ind2_qa_1_two_sheets_fitting_the_cells_are_refused_naming_the_family(tmp_path):
-    """P0390-REV38 (NFR-45, PUSH-IND2-QA-1; FR-923, FR-925, IND-08): the ambiguity refusal.
+def test_push_ind2_qa_1_two_sheets_fitting_the_cells_are_told_apart_by_the_perimeter_corner(
+    tmp_path,
+):
+    """P0390-REV38 (NFR-45, PUSH-IND2-QA-1; FR-923, FR-925, IND-08): the ambiguity and its cut.
 
     The pinwheel sheet's triangles are the cells of two 2 by 2 sheets, one
     cornered at the corners and one at the sides' middle nodes, and the
     trailing edge (the chordwise index 0 line and the edge from its first
-    node to the next) is a grid line of both. No grid is recovered and the
-    reason says two sheets fit; ``method = "grid"`` is refused naming the
-    file's family and that reason, and ``auto`` remeshes it giving the same
-    reason. Control: the trailing edge of the chordwise line alone gives the
-    one sheet cornered at the corners.
+    node to the next) is a grid line of both: the grid recovery names the
+    ambiguity. A [[perimeter]] list holding those nodes is cut at its corner,
+    and the chordwise line alone gives the one sheet cornered at the corners,
+    so ``method = "grid"`` refines it as a grid. Control: the same line given
+    whole to the recovery is still refused as two sheets.
     """
     pytest.importorskip("trimesh")
     verts, faces = _pinwheel()
@@ -437,17 +437,5 @@ def test_push_ind2_qa_1_two_sheets_fitting_the_cells_are_refused_naming_the_fami
     src = write_source(
         tmp_path / "src", "wing", Composite(verts, {"G": faces}, te, {}), refine_toml=toml
     )
-    with pytest.raises(InputArtifactError) as caught:
-        refine_mesh(src)
-    text = str(caught.value)
-    said = f"{src} family G: method is grid and no grid was recovered: {reason}."
-    assert text == f"{said} Nothing was written."
-    src.with_name("wing.refine.toml").write_bytes(
-        b'[trailing_edge]\nfile = "wing.te.txt"\n[families.G]\nfactor = 2\n'
-    )
-    with warnings.catch_warnings():
-        # The remesh of a sheet of four cells is judged by its audit (its skewness check
-        # fails, a warning); its quality is not what this test asserts.
-        warnings.filterwarnings("ignore", "audit check skewness failed", PyflightstreamWarning)
-        entry = refine_mesh(src).report["G"]
-    assert (entry["method"], entry["reason"]) == ("remesh", f"no grid recovered: {reason}")
+    entry = refine_mesh(src).report["G"]
+    assert entry["method"] == "grid", entry

@@ -114,7 +114,7 @@ def test_a_user_tag_is_used_as_given(tmp_path):
 
 
 def test_same_selection_same_tag_and_any_change_another(tmp_path):
-    """P0390-TAGLEN (FR-971, FR-957): stable tag; a factor or keep_first_row changes it."""
+    """P0390-TAGLEN (FR-971): stable tag; a factor changes it."""
     base = _config.level_tag(_request(tmp_path, NAMES), NAMES)
     assert base == _config.level_tag(_request(tmp_path, NAMES), NAMES)
     assert base == f"R-12fam-{_hash(NAMES)}"
@@ -126,20 +126,8 @@ def test_same_selection_same_tag_and_any_change_another(tmp_path):
     changed = _request(tmp_path, NAMES)
     changed.specs[NAMES[5]] = type(spec)(**{**vars(spec), "factor": 5.0})
     assert _config.level_tag(changed, NAMES) not in (base, other)
-    kept = _request(tmp_path, NAMES, keep={NAMES[5]})
-    assert _config.level_tag(kept, NAMES) not in (base, _config.level_tag(changed, NAMES))
     # a mutant that hashes the selection unordered would give the same tag for a reordered source
     assert _config.level_tag(_request(tmp_path, NAMES), NAMES[::-1]) != base
-
-
-def test_k_in_the_family_part_of_a_short_tag(tmp_path):
-    """P0390-TAGLEN (FR-433, FR-957): a kept first row writes k in its family part."""
-    two = ["Wing", "Body"]
-    plain = _config.level_tag(_request(tmp_path, two), two)
-    kept = _config.level_tag(_request(tmp_path, two, keep={two[0]}), two)
-    assert plain == f"R-{two[0]}2-{two[1]}3" and kept == f"R-{two[0]}2k-{two[1]}3"
-    both = _config.level_tag(_request(tmp_path, two, keep=set(two)), two)
-    assert both == f"R-{two[0]}2k-{two[1]}3k"
 
 
 def test_folder_name_refusal_only_for_the_built_form(tmp_path):
@@ -267,18 +255,9 @@ def test_closely_spaced_factors_give_distinct_selections_and_tags(tmp_path, pair
     assert texts[0] != texts[1] and tags[0] != tags[1]
 
 
-def test_f323_pfs_2124_056_axis_origin_and_a_grid_ignored_mode_in_the_summary(tmp_path):
-    """F-323, PFS-2124.056 (FR-970): a body's axis and origin reach the hash, a grid's mode not."""
+def test_f323_pfs_2124_056_a_grid_ignored_mode_in_the_summary(tmp_path):
+    """F-323, PFS-2124.056 (FR-970): a remeshed family's mode reaches the hash, a grid's not."""
     names = [ALPHA, BETA]
-    body = _config.FamilySpec(method="remesh", axial=2.0, circumferential=2.0, axis=(1.0, 0.0, 0.0))
-    other_axis = dataclasses.replace(body, axis=(0.0, 1.0, 0.0))
-    other_origin = dataclasses.replace(body, origin=(0.0, 0.0, 1.0))
-    texts = []
-    for spec in (body, other_axis, other_origin):
-        request = _two(tmp_path, 2.0)
-        request.specs[ALPHA] = spec
-        texts.append(_config.canonical_selection(request, names))
-    assert len(set(texts)) == 3
     grid = _two(tmp_path, 2.0)
     grid.specs[ALPHA] = _config.FamilySpec(factor=2.0, method="grid")
     base = _config.canonical_selection(grid, names)

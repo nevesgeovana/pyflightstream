@@ -657,7 +657,7 @@ def _recorded_detected(
     return {
         str(name): _recorded_points(entry.get("trailing_edge_points"))
         for name, entry in families.items()
-        if isinstance(entry, dict) and entry.get("trailing_edge") == "detected"
+        if isinstance(entry, dict) and entry.get("trailing_edge") in ("detected", "perimeter")
     }
 
 

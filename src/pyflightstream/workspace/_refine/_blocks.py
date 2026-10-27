@@ -488,10 +488,10 @@ def te_directions(
     """
     if not len(te):
         raise InputArtifactError(
-            f"{family}: chordwise and spanwise are not defined for {what} without a trailing "
-            "edge: its arcs are told chordwise or spanwise by the direction of the family's "
+            f"{family}: parallel and normal are not defined for {what} without a trailing "
+            "edge: its arcs are told parallel or normal by the direction of the family's "
             "trailing edge, and it has none. Give its factor alone, or list its trailing edge "
-            "in the points file, and run again. Nothing was written.",
+            "in a [[perimeter]] file, and run again. Nothing was written.",
             kind=KIND,
         )
     out: dict[int, str] = {}

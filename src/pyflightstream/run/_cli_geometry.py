@@ -155,6 +155,25 @@ def add_geometry_commands(subparsers: Any) -> None:
     edge.add_argument("--unit", help="coordinate unit; METER by default for --from-nodes")
     edge.add_argument("--sections", type=int)
     edge.add_argument("--overwrite", action="store_true")
+    midnodes = verbs.add_parser(
+        "convert2midnodes",
+        help="write a .te.txt from an ANSA SET node list, in any node order; no mesh needed",
+        description=(
+            "Reads the node list ANSA saves from a SET (Id, Name, X, Y, Z), puts the nodes in "
+            "order along their lines (a long jump starts a new line, so one list may hold "
+            "every trailing edge) and writes one mid-point per neighbouring pair."
+        ),
+    )
+    midnodes.add_argument("nodes", metavar="NODES", help="the node list saved from the SET")
+    midnodes.add_argument("output", metavar="OUTPUT", help="the .te.txt to write")
+    midnodes.add_argument("--unit", default="METER", help="the coordinates' unit (default: METER)")
+    midnodes.add_argument("--overwrite", action="store_true", help="replace an existing OUTPUT")
+    midnodes.add_argument(
+        "--per-family",
+        metavar="MESH",
+        help="the OBJ the nodes belong to: write <OUTPUT stem>.<family>.te.txt per family from "
+        "its edges joining two listed nodes, in place of OUTPUT",
+    )
     build = verbs.add_parser(
         "build",
         help="preview a geometry's build, or run it with --apply",
@@ -494,6 +513,32 @@ def _cmd_from_sidecar(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_midnodes(args: argparse.Namespace) -> int:
+    """Write a points file from an ANSA SET node list in any node order."""
+    from pyflightstream.workspace.wake_edges import (
+        write_trailing_edge_midnodes,
+        write_trailing_edge_midnodes_per_family,
+    )
+
+    try:
+        if args.per_family:
+            paths = write_trailing_edge_midnodes_per_family(
+                args.nodes, args.per_family, args.output, unit=args.unit, overwrite=args.overwrite
+            )
+        else:
+            paths = [
+                write_trailing_edge_midnodes(
+                    args.nodes, args.output, unit=args.unit, overwrite=args.overwrite
+                )
+            ]
+    except (PyflightstreamError, OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    for path in paths:
+        print(path)
+    return 0
+
+
 def _cmd_trailing_edge(args: argparse.Namespace) -> int:
     """Keep the ordered-node conversion and existing mesh extraction routes explicit."""
     from pyflightstream.workspace.trailing_edges import write_trailing_edge_node_file
@@ -638,6 +683,8 @@ def run_geometry(args: argparse.Namespace) -> int:
         return _cmd_export_surface_mesh(args)
     if verb == "trailing-edge":
         return _cmd_trailing_edge(args)
+    if verb == "convert2midnodes":
+        return _cmd_midnodes(args)
     if verb == "build":
         return _cmd_build(args)
     if verb == "accept":

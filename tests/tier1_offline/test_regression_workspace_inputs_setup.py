@@ -1371,29 +1371,24 @@ class TestWorkspace2Review:
         assert str(path) in str(caught.value)
 
     @staticmethod
-    def test_p0400_review_detected_points_require_mesh_units(tmp_path):
-        mesh = _workspace_2_review__wing()
-        mesh = _Workspace2ReviewComposite(mesh.verts, mesh.families, numpy.zeros((0, 3)), {})
-        src = _workspace_2_review__write_source(tmp_path / "src", "wing", mesh)
-        src.with_suffix(".boundaries.toml").write_text(
-            '[trailing_edges]\ndetect = { surfaces = ["U"] }\n', encoding="utf-8"
-        )
-        src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
-        with src.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
-            stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
-        with pytest.raises(_Workspace2ReviewInputArtifactError, match=r"\[import\].*units"):
-            refine_mesh(src, spanwise=2, families=["U"], keep_first_row=["U"])
-
-    @staticmethod
     def test_p0400_review_remesh_does_not_invent_trailing_edges(tmp_path):
         points = numpy.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], dtype=float)
         te = numpy.array([[0.5, 0, 0], [0.5, 1, 0]])
         mesh = _Workspace2ReviewComposite(points, {"A": [[0, 1, 2, 3]]}, te, {})
+        folder = tmp_path / "src"
+        folder.mkdir(parents=True)
+        lists = ""
+        # one list per trailing edge: one list of all four nodes would list the cross sides
+        for k, ids in enumerate(((0, 1), (2, 3))):
+            rows = ["#  Id, Name, X , Y, Z"]
+            rows += [f"{v + 1}, , {points[v][0]}, {points[v][1]}, {points[v][2]}" for v in ids]
+            (folder / f"te{k}.txt").write_text("\n".join(rows) + "\n", encoding="utf-8")
+            lists += f'\n[[perimeter]]\nfile = "te{k}.txt"\nexport_te_per_family = true\n'
         src = _workspace_2_review__write_source(
-            tmp_path / "src",
+            folder,
             "plate",
             mesh,
-            refine_toml='[families.A]\nfactor = 1\nmethod = "remesh"\n',
+            refine_toml='[families.A]\nfactor = 1\nmethod = "remesh"\n' + lists,
         )
         level = refine_mesh(src)
         _, actual = read_te(level.obj.with_suffix(".te.txt"))
@@ -1403,8 +1398,25 @@ class TestWorkspace2Review:
     @staticmethod
     def test_p0400_review_grid_does_not_fill_a_wake_gap(tmp_path):
         mesh = _workspace_2_review__wing(root=False)
+        from tests.p0380_mesh_fixtures import te_nodes
+
+        whole = mesh
         mesh = _Workspace2ReviewComposite(mesh.verts, mesh.families, mesh.te[[0, 2, 3]], {})
-        src = _workspace_2_review__write_source(tmp_path / "src", "wing", mesh)
+        folder = tmp_path / "src"
+        folder.mkdir(parents=True)
+        lists = ""
+        # the gap's two nodes are listed, so each side of the gap is a list of its own
+        for k, rows_of in enumerate(([0], [2, 3])):
+            ids = te_nodes(whole.verts, whole.families, whole.te[rows_of])
+            rows = ["#  Id, Name, X , Y, Z"]
+            rows += [
+                f"{v + 1}, , {x!r}, {y!r}, {z!r}"
+                for v in ids
+                for x, y, z in [whole.verts[v].tolist()]
+            ]
+            (folder / f"te{k}.txt").write_text("\n".join(rows) + "\n", encoding="utf-8")
+            lists += f'\n[[perimeter]]\nfile = "te{k}.txt"\nexport_te_per_family = true\n'
+        src = _workspace_2_review__write_source(folder, "wing", mesh, refine_toml=lists)
         level = refine_mesh(src, 1, families=["U"])
         _, actual = read_te(level.obj.with_suffix(".te.txt"))
         assert len(actual) == len(mesh.te)
@@ -1435,54 +1447,6 @@ class TestWorkspace2Review:
             assert entry["shared_edge_target_m"]["max"] < 0.001
 
     @staticmethod
-    @pytest.mark.parametrize("angle", [0, 90, 180])
-    @pytest.mark.parametrize("hand", [-1, 1])
-    def test_p0400_review_trailing_edge_follows_family_orientation(tmp_path, angle, hand):
-        """P0400-TE-ORIENTATION (FR-430): the sharp trailing edge follows the family direction."""
-        from tests.tier1_offline.test_p0390_firstrow import _tube_source
-
-        mesh = _tube_source(sharp_le=True)
-        theta, tilt = numpy.radians([angle, 37])
-        azimuth = numpy.array(
-            [
-                [numpy.cos(theta), -numpy.sin(theta), 0],
-                [numpy.sin(theta), numpy.cos(theta), 0],
-                [0, 0, 1],
-            ]
-        )
-        inclined = numpy.array(
-            [
-                [numpy.cos(tilt), 0, numpy.sin(tilt)],
-                [0, hand, 0],
-                [-numpy.sin(tilt), 0, numpy.cos(tilt)],
-            ]
-        )
-        rotation = azimuth @ inclined
-        direction = rotation @ numpy.array([1.0, 0.0, 0.0])
-        transformed = _Workspace2ReviewComposite(
-            mesh.verts @ rotation.T, mesh.families, numpy.zeros((0, 3)), {}
-        )
-        config = (
-            "[families.Wing]\nspanwise = 2\nkeep_first_row = true\n"
-            f"trailing_edge_direction = {direction.tolist()}\n"
-        )
-        src = _workspace_2_review__write_source(
-            tmp_path / "src", "wing", transformed, refine_toml=config
-        )
-        side = src.with_suffix(".boundaries.toml")
-        side.write_text(
-            side.read_text("utf-8") + '\n[import]\nunits = "METER"\n'
-            '[trailing_edges]\ndetect = { surfaces = ["Wing"] }\n',
-            "utf-8",
-        )
-        src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
-        with src.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
-            stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
-        level = refine_mesh(src)
-        _, actual = read_te(level.obj.with_suffix(".te.txt"))
-        assert actual @ direction == pytest.approx(numpy.ones(len(actual)), abs=1e-8)
-
-    @staticmethod
     def test_p0400_review_inspection_uses_shared_row_resolution():
         from pyflightstream.cases import SimCase, SweepAxis
         from pyflightstream.cases.workflows import row_solver_setting
@@ -1501,28 +1465,6 @@ class TestWorkspace2Review:
         settings = inspect_case_setup(case, "26.124")["settings"]
         assert settings["max_threads"]["value"] == 4
         assert settings["symmetry_loads"]["provenance"] == "setup"
-
-    @staticmethod
-    def test_p0400_review_ambiguous_sharp_edges_are_refused(tmp_path):
-        from tests.tier1_offline.test_p0390_firstrow import _tube_source
-
-        src = _workspace_2_review__write_source(
-            tmp_path / "src",
-            "wing",
-            _tube_source(sharp_le=True),
-            refine_toml="[families.Wing]\nspanwise = 2\nkeep_first_row = true\n",
-        )
-        side = src.with_suffix(".boundaries.toml")
-        side.write_text(
-            side.read_text("utf-8") + '\n[import]\nunits = "METER"\n'
-            '[trailing_edges]\ndetect = { surfaces = ["Wing"] }\n',
-            "utf-8",
-        )
-        src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
-        with src.with_suffix(".refine.toml").open("a", encoding="utf-8") as stream:
-            stream.write('[trailing_edge]\nfile = "wing.te.txt"\n')
-        with pytest.raises(_Workspace2ReviewInputArtifactError, match="trailing_edge_direction"):
-            refine_mesh(src)
 
 
 _WORKSPACE_2_SCRIPT_COMPARISON__EXECUTED = "SET_SOLVER_STEADY\nITERATIONS\n500\nSTART_SOLVER\n"

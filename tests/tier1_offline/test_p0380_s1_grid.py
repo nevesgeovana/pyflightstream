@@ -460,7 +460,12 @@ def test_a_sheet_with_no_trailing_edge_has_four_boundary_sides_one_of_them_a_gri
     The boundary of a sheet splits at its four corners into four sides; the sides
     on the trailing edge's index line recover the grid that the listed points give.
     """
-    from pyflightstream.workspace._refine._level import _boundary_sides, _side_length
+    from pyflightstream.workspace._refine._lines import (
+        boundary_sides as _boundary_sides,
+    )
+    from pyflightstream.workspace._refine._lines import (
+        side_length as _side_length,
+    )
 
     sheet = sheet_quads()
     sides = _boundary_sides(sheet.verts, sheet.faces)

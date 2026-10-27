@@ -92,18 +92,24 @@ def _write(
 ) -> Path:
     """Write the mesh as ``<tmp>/src/<name>.obj`` with, when asked, its refinement file.
 
-    ``te`` writes the bottom arc (z = 0) as the trailing edge, the grid line a
-    sheet is recovered from.
+    ``te`` lists the bottom arc's nodes (z = 0) as the trailing edge, a [[perimeter]]
+    node list, the grid line a sheet is recovered from.
     """
     folder = tmp_path / "src"
     folder.mkdir(parents=True, exist_ok=True)
     source = _obj.write_obj(mesh, folder / f"{name}.obj")
     if te:
         bottom = numpy.nonzero(numpy.abs(mesh.verts[:, 2]) < 1e-12)[0]
-        mid = 0.5 * (mesh.verts[bottom[:-1]] + mesh.verts[bottom[1:]])
-        _obj.write_te(folder / f"{name}.te.txt", "METER", mid)
-    if te:
-        refine = (refine or "") + f'\n[trailing_edge]\nfile = "{name}.te.txt"\n'
+        rows = ["#  Id, Name, X , Y, Z"]
+        rows += [
+            f"{v + 1}, , {float(x)!r}, {float(y)!r}, {float(z)!r}"
+            for v in bottom
+            for x, y, z in [mesh.verts[v]]
+        ]
+        _textio.write_text(folder / f"{name}.te_nodes.txt", "\n".join(rows) + "\n")
+        refine = (refine or "") + (
+            f'\n[[perimeter]]\nfile = "{name}.te_nodes.txt"\nexport_te_per_family = true\n'
+        )
     if refine is not None:
         _textio.write_text(folder / f"{name}.refine.toml", refine)
     return source

@@ -1,6 +1,6 @@
 """What a refinement is asked to do: the arguments and the refinement file (FR-915 to FR-917).
 
-The factors come from the call (FACTOR, ``--chordwise``, ``--spanwise``) or,
+The factors come from the call (FACTOR, ``--parallel``, ``--normal``) or,
 when the call gives none, from the refinement file: ``--config FILE`` or
 ``<stem>.refine.toml`` beside the mesh. The file's ``[components]``,
 ``[periodic]``, ``[refine] tag`` and the element modes (``[refine] elements``
@@ -24,7 +24,6 @@ so.
 
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 import math
 import tomllib
@@ -49,44 +48,47 @@ ELEMENTS = (TRIANGLES, QUAD_DOMINANT)
 #: The keys of a ``[families.<name>]`` table.
 FAMILY_KEYS = (
     "factor",
-    "chordwise",
-    "spanwise",
+    "parallel_factor",
+    "normal_factor",
     "method",
+    "elements",
+)
+#: Keys a [families.<name>] table may still state from earlier releases; each is warned
+#: and skipped: a row kept at an interface is a family of its own.
+RETIRED_FAMILY_KEYS = (
+    "keep_first_row",
+    "trailing_edge_direction",
     "axial",
     "circumferential",
     "axis",
     "origin",
-    "elements",
-    "keep_first_row",
-    "trailing_edge_direction",
 )
+#: The earlier names of a grid's two factors, still read with a warning: the factor
+#: along the reference perimeter (``spanwise``) and the one across it (``chordwise``).
+FACTOR_ALIASES = {"spanwise": "parallel_factor", "chordwise": "normal_factor"}
+#: The keys of a ``[[perimeter]]`` table: one ANSA node list of reference perimeters.
+PERIMETER_KEYS = ("file", "export_te_per_family")
 #: The keys of ``[refine]``.
 REFINE_KEYS = ("tag", "elements")
 #: The keys of ``[periodic]`` (FR-427).
 PERIODIC_KEYS = ("axis", "origin", "copies")
 #: The top-level tables of a refinement file.
-TABLES = ("refine", "families", "components", "periodic", "trailing_edge")
+TABLES = ("refine", "families", "components", "periodic", "trailing_edge", "perimeter")
 
 
 @dataclass(frozen=True)
 class FamilySpec:
     """How one family is refined: its factors, its method and, for a body, its axis.
 
-    ``keep_first_row`` (REF-FIRSTROW, 0.39 development) asks a grid with a
-    trailing edge to keep the spanwise width of its end row at the interface
-    with another component, refining that row chordwise only.
+    ``spanwise`` holds the ``parallel_factor`` (along the reference perimeter)
+    and ``chordwise`` the ``normal_factor`` (across it); the level's tag and
+    the canonical selection keep these names, so a level's folder is unchanged.
     """
 
     factor: float = 1.0
     chordwise: float | None = None
     spanwise: float | None = None
     method: str = "auto"
-    axial: float | None = None
-    circumferential: float | None = None
-    axis: tuple[float, float, float] | None = None
-    origin: tuple[float, float, float] | None = None
-    keep_first_row: bool = False
-    trailing_edge_direction: tuple[float, float, float] | None = None
 
     @property
     def directions(self) -> tuple[float, float]:
@@ -99,8 +101,19 @@ class FamilySpec:
     @property
     def unchanged(self) -> bool:
         """Return whether every factor this spec states is 1."""
-        stated = [self.factor, *self.directions, self.axial, self.circumferential]
-        return all(v is None or v == 1.0 for v in stated)
+        return all(v == 1.0 for v in (self.factor, *self.directions))
+
+
+@dataclass(frozen=True)
+class Perimeter:
+    """One ``[[perimeter]]``: an ANSA SET node list whose lines orient the grids it lies on.
+
+    With ``export_te_per_family`` its lines are trailing edges too, written per
+    family into the level as ``<level>.<family>.te.txt``.
+    """
+
+    file: Path
+    export_te_per_family: bool = False
 
 
 @dataclass(frozen=True)
@@ -136,6 +149,8 @@ class RefineRequest:
     trailing_edge_file: Path | None = None
     per_family: bool = False
     point_fraction: float = TE_POINT_FRACTION
+    perimeters: tuple[Perimeter, ...] = ()
+    accept_remesh: bool = False
 
     def elements_of(self, family: str) -> str:
         """Return the element mode of a family: its own, else the file's default."""
@@ -210,6 +225,7 @@ def elements_mode(where: str, value: Any) -> str:
 
 
 def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
+    table = _renamed_factors(where, table)
     unknown = sorted(set(table) - set(FAMILY_KEYS))
     if unknown:
         raise _refuse(
@@ -222,94 +238,46 @@ def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
         raise _refuse(
             f"{where} elements", "elements applies to a remeshed family; a grid keeps its cells"
         )
-    kept_rows = "keep_first_row" in table
-    table = {
-        k: v
-        for k, v in table.items()
-        if k not in ("elements", "keep_first_row", "trailing_edge_direction")
-    }
-    if any(k in table for k in ("axial", "circumferential")):
-        return _body_spec(where, table, method)
-    if not any(k in table for k in ("factor", "chordwise", "spanwise")):
-        # The refusal names the fix (PFS-2093.013); a table stating keep_first_row alone
-        # was refused with no way out.
+    table = {k: v for k, v in table.items() if k != "elements"}
+    if not any(k in table for k in ("factor", "parallel_factor", "normal_factor")):
         raise _refuse(
             where,
-            "the table states no factor, chordwise or spanwise; add one of them to it"
-            + (
-                ", or take the key out of the table and ask it of the call as "
-                "keep_first_row (CLI: --keep-first-row)"
-                if kept_rows
-                else ""
-            ),
+            "the table states no factor, parallel_factor or normal_factor; add one of them to it",
         )
-    if method == "remesh" and any(k in table for k in ("chordwise", "spanwise")):
+    if method == "remesh" and any(k in table for k in ("parallel_factor", "normal_factor")):
         raise _refuse(
-            where, "chordwise and spanwise apply to a grid; a remeshed family takes factor"
+            where,
+            "parallel_factor and normal_factor apply to a grid; a remeshed family takes factor",
         )
-    if any(k in table for k in ("axis", "origin")):
-        raise _refuse(where, "axis and origin go with axial and circumferential")
     return FamilySpec(
         factor=positive(f"{where} factor", table.get("factor", 1.0)),
-        chordwise=_optional(where, table, "chordwise"),
-        spanwise=_optional(where, table, "spanwise"),
+        chordwise=_optional(where, table, "normal_factor"),
+        spanwise=_optional(where, table, "parallel_factor"),
         method=method,
     )
 
 
-def _keep_flag(where: str, table: Mapping[str, Any]) -> bool:
-    """Return a table's ``keep_first_row`` (FR-950), refusing a value not true or false (FR-955)."""
-    keep = table.get("keep_first_row", False)
-    if not isinstance(keep, bool):
-        raise _refuse(where, f"keep_first_row = {keep!r} is not true or false")
-    return keep
+def _renamed_factors(where: str, table: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a family table with ``chordwise`` and ``spanwise`` read as their new names.
 
-
-def with_kept_rows(where: str, spec: FamilySpec) -> FamilySpec:
-    """Return a family's spec asked to keep its interface rows, or refuse it (FR-955).
-
-    ``keep_first_row`` applies to a grid family: a family stated with
-    ``method = "remesh"``, or with ``axial`` or ``circumferential`` (a body
-    remeshed along and around its axis), is refused before any work.
+    An earlier name is warned and read; beside its new name it is warned and skipped.
     """
-    if spec.axial is not None or spec.circumferential is not None:
-        raise _refuse(
-            where,
-            "keep_first_row applies to a grid family with a trailing edge; axial and "
-            "circumferential remesh a body",
-        )
-    if spec.method == "remesh":
-        raise _refuse(
-            where,
-            "keep_first_row applies to a grid family with a trailing edge; this one is remeshed "
-            '(method = "remesh")',
-        )
-    return dataclasses.replace(spec, keep_first_row=True)
+    out = dict(table)
+    for old, new in FACTOR_ALIASES.items():
+        if old not in out:
+            continue
+        value = out.pop(old)
+        if new in out:
+            text = f"{where}: {old} is skipped; {new} is stated and gives the factor"
+        else:
+            text = f"{where}: {old} is read as {new}; rename the key to {new}"
+            out[new] = value
+        warnings.warn(text, PyflightstreamWarning, stacklevel=4)
+    return out
 
 
 def _optional(where: str, table: Mapping[str, Any], key: str) -> float | None:
     return positive(f"{where} {key}", table[key]) if key in table else None
-
-
-def _body_spec(where: str, table: Mapping[str, Any], method: str) -> FamilySpec:
-    """Return the spec of a body refined along and around its axis (FR-428)."""
-    clash = [k for k in ("factor", "chordwise", "spanwise") if k in table]
-    if clash:
-        raise _refuse(
-            where, f"axial and circumferential replace {clash[0]}; state one or the other"
-        )
-    if "axis" not in table:
-        raise _refuse(where, "axial and circumferential need axis, three numbers")
-    if method == "grid":
-        raise _refuse(where, "axial and circumferential apply to a remeshed family, not a grid")
-    origin = table.get("origin")
-    return FamilySpec(
-        method="remesh",
-        axial=positive(f"{where} axial", table.get("axial", 1.0)),
-        circumferential=positive(f"{where} circumferential", table.get("circumferential", 1.0)),
-        axis=_vector(f"{where} axis", table["axis"], nonzero=True),
-        origin=None if origin is None else _vector(f"{where} origin", origin, nonzero=False),
-    )
 
 
 def _components(path: Path, raw: Any, names: Sequence[str]) -> dict[str, list[str]]:
@@ -405,6 +373,12 @@ def _family_tables(
         )
         if name not in names:
             raise _refuse(where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}")
+        for key in RETIRED_FAMILY_KEYS:
+            if key in table:
+                _skip(f"{where} {key}", "is no longer read")
+        table = {k: v for k, v in table.items() if k not in RETIRED_FAMILY_KEYS}
+        if not table:
+            continue
         if "elements" in table:
             elements[name] = elements_mode(where, table["elements"])
         if read is not None and name not in read:
@@ -416,20 +390,8 @@ def _family_tables(
             if set(table) != {"elements"}:
                 unread.append(name)
             continue
-        named = f"{mesh} family {name} keep_first_row ({where})" if mesh else where
-        if _keep_flag(named, table):
-            keep.append(name)
-        if set(table) != {"elements"}:
+        if set(table) - {"elements"}:
             specs[name] = _family_spec(where, table)
-            if "trailing_edge_direction" in table:
-                specs[name] = dataclasses.replace(
-                    specs[name],
-                    trailing_edge_direction=_vector(
-                        f"{where} trailing_edge_direction",
-                        table["trailing_edge_direction"],
-                        nonzero=True,
-                    ),
-                )
     return specs, elements, keep, unread
 
 
@@ -441,9 +403,8 @@ def read_refine_file(
 ) -> dict[str, Any]:
     """Read a refinement file against the mesh's family names, refusing what it cannot honour.
 
-    ``keep`` lists the families whose table states ``keep_first_row = true``
-    (FR-950); a refusal of that key names ``mesh``, the source, as well.
-    ``read`` names the families whose factors are read: the other tables are
+    ``keep`` is empty: no table keeps a row any more (its earlier key is
+    warned and skipped). ``read`` names the families whose factors are read: the other tables are
     not validated beyond their name and ``elements`` (F-1516).
     """
     source = Path(path)
@@ -492,6 +453,7 @@ def read_refine_file(
     trailing = _trailing_edge(source, data.get("trailing_edge", {}))
     return {
         **trailing,
+        "perimeters": _perimeters(source, data.get("perimeter", [])),
         "specs": specs,
         "keep": keep,
         "unread": unread,
@@ -504,7 +466,18 @@ def read_refine_file(
 
 
 def _trailing_edge(source: Path, value: object) -> dict[str, Any]:
-    """Validate the refinement's own points input and optional family exports."""
+    """Warn that ``[trailing_edge]`` is no longer read: the trailing edges are ``[[perimeter]]``."""
+    if value:
+        _skip(
+            f"{source} [trailing_edge]",
+            "is no longer read; list the trailing-edge nodes in a [[perimeter]] file with "
+            "export_te_per_family = true",
+        )
+    return {}
+
+
+def _points_input(source: Path, value: object) -> dict[str, Any]:
+    """Validate the earlier points input; kept for the refusals its tests prove."""
     where = f"{source} [trailing_edge]"
     table = _table(where, value, "write file, per_family and point_fraction")
     unknown = sorted(set(table) - {"file", "per_family", "point_fraction"})
@@ -534,6 +507,33 @@ def _trailing_edge(source: Path, value: object) -> dict[str, Any]:
     }
 
 
+def _perimeters(source: Path, value: object) -> tuple[Perimeter, ...]:
+    """Return the ``[[perimeter]]`` tables; a table that cannot be read is warned and skipped."""
+    tables = value if isinstance(value, list) else [value]
+    out = []
+    for number, table in enumerate(tables, start=1):
+        where = f"{source} [[perimeter]] {number}"
+        if not isinstance(table, dict):
+            _skip(where, "is not a table with file and export_te_per_family")
+            continue
+        for key in sorted(set(table) - set(PERIMETER_KEYS)):
+            _skip(f"{where} {key}", f"is not a key; the keys are {', '.join(PERIMETER_KEYS)}")
+        named = table.get("file")
+        if not isinstance(named, str) or not named.strip():
+            _skip(where, "states no file, the node list saved from an ANSA SET")
+            continue
+        export = table.get("export_te_per_family", False)
+        if not isinstance(export, bool):
+            _skip(f"{where} export_te_per_family", "is not true or false; false is taken")
+            export = False
+        out.append(Perimeter(source.parent / named, export))
+    return tuple(out)
+
+
+def _skip(where: str, reason: str) -> None:
+    warnings.warn(f"{where} {reason}; it is skipped", PyflightstreamWarning, stacklevel=4)
+
+
 def refine_file_of(mesh: Path, config: str | Path | None) -> Path | None:
     """Return the refinement file: the stated one, else ``<stem>.refine.toml`` if present."""
     if config is not None:
@@ -551,19 +551,18 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     *,
     factor: float | None = None,
     families: Sequence[str] | None = None,
-    chordwise: float | None = None,
-    spanwise: float | None = None,
+    parallel: float | None = None,
+    normal: float | None = None,
     config: str | Path | None = None,
     keep_first_row: Sequence[str] | None = None,
+    accept_remesh: bool = False,
 ) -> RefineRequest:
     """Return what the refinement is asked, from the call and the refinement file (FR-916).
 
-    ``keep_first_row`` names the families that keep their interface rows
-    (FR-950), with the families whose table states the key when the
-    file's tables give the factors.
+    ``keep_first_row``, an earlier option, is warned and skipped when given.
     """
     file = refine_file_of(mesh, config)
-    from_file = factor is None and chordwise is None and spanwise is None
+    from_file = factor is None and parallel is None and normal is None
     stated = (
         read_refine_file(
             file,
@@ -599,7 +598,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         )
     stated_specs: dict[str, FamilySpec] = stated["specs"]
     missing_tables: tuple[str, ...] = ()
-    if factor is None and chordwise is None and spanwise is None:
+    if from_file:
         if not stated_specs and not stated["unread"]:
             raise _refuse(
                 str(mesh),
@@ -625,29 +624,28 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
                 stacklevel=3,
             )
         ignored = tuple(n for n in (*stated_specs, *stated["unread"]) if n not in specs)
-        asked = [n for n in stated["keep"] if n in specs]
     else:
         base = positive(f"{mesh} FACTOR", 1.0 if factor is None else factor)
         specs = {
             n: FamilySpec(
                 factor=base,
-                chordwise=None if chordwise is None else positive(f"{mesh} --chordwise", chordwise),
-                spanwise=None if spanwise is None else positive(f"{mesh} --spanwise", spanwise),
+                chordwise=None if normal is None else positive(f"{mesh} --normal", normal),
+                spanwise=None if parallel is None else positive(f"{mesh} --parallel", parallel),
             )
             for n in chosen
         }
-        reason = "FACTOR, --chordwise or --spanwise gives the factors (FR-916)"
+        reason = "FACTOR, --parallel or --normal gives the factors (FR-916)"
         ignored = (*stated_specs, *stated["unread"])
-        asked = []
     if ignored:
         tables = ", ".join(f"[families.{n}]" for n in ignored)
         warnings.warn(
-            f"{file}: the tables {tables} are not read for their factors, methods and "
-            f"keep_first_row, because {reason}; an elements key in them still applies.",
+            f"{file}: the tables {tables} are not read for their factors and methods, "
+            f"because {reason}; an elements key in them still applies.",
             PyflightstreamWarning,
             stacklevel=3,
         )
-    specs = _kept(mesh, names, specs, [*asked, *(keep_first_row or ())])
+    if keep_first_row:
+        _skip(f"{mesh} keep_first_row", "is no longer read; keep such a row as a family of its own")
     return RefineRequest(
         specs=specs,
         tag=stated["tag"],
@@ -658,33 +656,12 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         default_elements=stated["default_elements"],
         ignored=ignored,
         missing=missing_tables,
+        accept_remesh=accept_remesh,
         trailing_edge_file=stated.get("trailing_edge_file"),
         per_family=stated.get("per_family", False),
         point_fraction=stated.get("point_fraction", TE_POINT_FRACTION),
+        perimeters=stated.get("perimeters", ()),
     )
-
-
-def _kept(
-    mesh: Path, names: Sequence[str], specs: dict[str, FamilySpec], asked: Sequence[str]
-) -> dict[str, FamilySpec]:
-    """Return the specs with ``keep_first_row`` set on each family asked (FR-950, FR-955).
-
-    A family the mesh does not hold, or one the selection leaves out, is
-    refused before any work, naming the source, the family and the option.
-    """
-    out = dict(specs)
-    for name in dict.fromkeys(asked):
-        where = f"{mesh} family {name} keep_first_row"
-        if name not in names:
-            raise _refuse(where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}")
-        if name not in out:
-            raise _refuse(
-                where,
-                f"the selection leaves the family out (it selects {', '.join(out)}); select it "
-                "or ask keep_first_row of a selected family",
-            )
-        out[name] = with_kept_rows(where, out[name])
-    return out
 
 
 def _fmt(value: float) -> str:
@@ -692,20 +669,13 @@ def _fmt(value: float) -> str:
 
 
 def spec_tag(spec: FamilySpec) -> str:
-    """Return a family's part of a level's tag: FR-919 of FR-424, a and t for a body (FR-428).
-
-    A family asked to keep its first row carries ``k`` (FR-957), so a level
-    with kept rows and one without never share a tag.
-    """
-    if spec.axial is not None or spec.circumferential is not None:
-        tag = f"a{_fmt(spec.axial or 1.0)}t{_fmt(spec.circumferential or 1.0)}"
-    else:
-        tag = _fmt(spec.factor)
-        if spec.chordwise is not None:
-            tag += f"c{_fmt(spec.chordwise)}"
-        if spec.spanwise is not None:
-            tag += f"s{_fmt(spec.spanwise)}"
-    return tag + ("k" if spec.keep_first_row else "")
+    """Return a family's part of a level's tag: FR-919 of FR-424, a and t for a body (FR-428)."""
+    tag = _fmt(spec.factor)
+    if spec.chordwise is not None:
+        tag += f"c{_fmt(spec.chordwise)}"
+    if spec.spanwise is not None:
+        tag += f"s{_fmt(spec.spanwise)}"
+    return tag
 
 
 #: Maximum length for an unsummarised built tag (FR-970).
@@ -752,7 +722,7 @@ def canonical_selection(request: RefineRequest, picked: Sequence[str]) -> str:
     for name in picked:
         spec = request.specs[name]
         options: dict[str, object] = {"factor": spec.factor}
-        for key in ("chordwise", "spanwise", "axial", "circumferential"):
+        for key in ("chordwise", "spanwise"):
             if getattr(spec, key) is not None:
                 options[key] = getattr(spec, key)
         if spec.method != "auto":
@@ -760,11 +730,6 @@ def canonical_selection(request: RefineRequest, picked: Sequence[str]) -> str:
         # The element mode reaches a remeshed family only: a grid keeps its cells.
         if request.elements_of(name) != TRIANGLES and spec.method != "grid":
             options["elements"] = request.elements_of(name)
-        for key in ("axis", "origin"):
-            if getattr(spec, key) is not None:
-                options[key] = ",".join(_value(c) for c in getattr(spec, key))
-        if spec.keep_first_row:
-            options["keep_first_row"] = True
         pairs = " ".join(f"{k}={_value(options[k])}" for k in sorted(options))
         lines.append(f"{name} {pairs}")
     return "\n".join(lines)

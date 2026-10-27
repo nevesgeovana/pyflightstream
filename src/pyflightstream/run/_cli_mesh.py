@@ -280,12 +280,12 @@ _REFINE_DESCRIPTION = (
     "<out>/<stem>_<tag>/ holding the OBJ, the trailing-edge points file, the boundaries "
     "file, <stem>_<tag>.refine.json and the audit against the source. FACTOR multiplies the "
     "intervals of each index direction of a grid family and divides the target edge length of "
-    "a remeshed family; --chordwise and --spanwise replace it in one direction of the grid "
-    "families. Without FACTOR, --chordwise or --spanwise, the factors come from the refinement "
+    "a remeshed family; --parallel and --normal replace it along and across the reference "
+    "perimeter of the grid families ([[perimeter]] node lists of the refinement file, else a "
+    "neighbour's trailing edge or the family's longest side). Without FACTOR, --parallel or "
+    "--normal, the factors come from the refinement "
     "file (--config, or <stem>.refine.toml beside the mesh), whose [components], [periodic], "
     "[refine] tag and elements (triangles or quad-dominant) are read whenever it exists. "
-    "--keep-first-row names grid families with a trailing edge whose row of panels at each end "
-    "meeting another component keeps its spanwise width and is refined chordwise only. "
     "Faces are written in the source's order. The "
     "source and its folder are never modified. Remeshing a family needs the geom extra. Needs "
     "no executable. Exits 0 when the level is written, even when its audit fails: each failed "
@@ -323,19 +323,32 @@ def _add_refine_parser(subparsers: Any) -> None:
     )
     refine.add_argument("--families", help="the families to change, comma separated (default: all)")
     refine.add_argument(
-        "--chordwise", type=_number, help="the chordwise factor of the grid families"
+        "--parallel",
+        type=_number,
+        help="the factor of the grid families along their reference perimeter",
     )
-    refine.add_argument("--spanwise", type=_number, help="the spanwise factor of the grid families")
+    refine.add_argument(
+        "--normal",
+        type=_number,
+        help="the factor of the grid families across their reference perimeter",
+    )
+    # The earlier names of --normal and --parallel, read with a warning.
+    refine.add_argument("--chordwise", type=_number, help=argparse.SUPPRESS)
+    refine.add_argument("--spanwise", type=_number, help=argparse.SUPPRESS)
     refine.add_argument(
         "--config", metavar="FILE", help="the refinement file (default: <stem>.refine.toml)"
     )
     refine.add_argument(
+        "--accept-remesh",
+        action="store_true",
+        help="remesh with FACTOR a family given --parallel or --normal whose grid is not "
+        "recovered, with a warning, in place of refusing it",
+    )
+    refine.add_argument(
         "--keep-first-row",
         metavar="FAMILY[,FAMILY...]",
-        help=(
-            "grid families with a trailing edge that keep the spanwise width of their row of "
-            "panels at another component, comma separated"
-        ),
+        # An earlier option, warned and skipped: a row kept at an interface is its own family.
+        help=argparse.SUPPRESS,
     )
     refine.add_argument(
         "--out",
@@ -383,6 +396,8 @@ def run_refine(args: argparse.Namespace) -> int:
             args.mesh,
             args.factor,
             families=_names(args.families),
+            parallel=args.parallel,
+            normal=args.normal,
             chordwise=args.chordwise,
             spanwise=args.spanwise,
             config=args.config,
@@ -390,6 +405,7 @@ def run_refine(args: argparse.Namespace) -> int:
             overwrite=args.overwrite,
             keep_first_row=_names(args.keep_first_row),
             progress=_progress_printer(),
+            accept_remesh=args.accept_remesh,
         )
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)

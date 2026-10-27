@@ -58,6 +58,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 import pyflightstream._textio as _textio
 from pyflightstream._decimal import plain_decimal
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._fsm import MeshReadError, saved_mesh_coordinate_unit, trailing_edge_midpoints
 from pyflightstream._lengths import METRES_PER_UNIT, scale
 from pyflightstream._mesh import read_mesh
@@ -85,6 +86,8 @@ __all__ = [
     "tolerance_unit",
     "write_node_file",
     "write_trailing_edge_points",
+    "write_trailing_edge_midnodes",
+    "write_trailing_edge_midnodes_per_family",
     "write_trailing_edge_points_from_nodes",
 ]
 
@@ -725,6 +728,183 @@ def write_trailing_edge_points_from_nodes(
     return write_trailing_edge_points(
         path, nodes[:-1] / 2 + nodes[1:] / 2, unit=unit, overwrite=overwrite
     )
+
+
+#: A step this many times longer than a node's distance to its nearest node starts a
+#: new line in a node list: along a line the next node is about one spacing away.
+MIDNODE_GAP = 5.0
+
+
+def write_trailing_edge_midnodes(
+    source: str | Path, path: str | Path, *, unit: str = "METER", overwrite: bool = False
+) -> Path:
+    """Write the edge mid-points of an ANSA SET node-window export, in any node order.
+
+    The nodes are put in order along their lines: from an end, each step goes
+    to the nearest node left, and a step longer than :data:`MIDNODE_GAP` times
+    the node's distance to its nearest node starts a new line, so one list may hold the
+    trailing edges of every component. Each neighbouring pair gives one
+    mid-point. No mesh is needed. A closed line loses the mid-point of its
+    closing edge.
+
+    Parameters
+    ----------
+    source : str or pathlib.Path
+        Comma-separated Id, Name, X, Y, Z rows; blank and comment lines are ignored.
+    path : str or pathlib.Path
+        Destination points file.
+    unit : str
+        Length unit of the coordinates, written on the first line.
+    overwrite : bool
+        Allow replacement of an existing destination.
+
+    Returns
+    -------
+    pathlib.Path
+        The written points file.
+
+    Raises
+    ------
+    InputArtifactError
+        For fewer than two nodes, malformed rows, repeated ids or non-finite
+        coordinates, naming the source line; also for an invalid unit or an
+        existing output.
+    """
+    nodes = _ansa_nodes(Path(source))
+    lines = _node_lines(nodes)
+    alone = sum(len(line) == 1 for line in lines)
+    if alone:
+        warn(
+            f"{source}: {alone} node(s) are far from every other and give no mid-point; "
+            "list one continuous line of nodes per trailing edge",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    mids = [
+        (nodes[a] + nodes[b]) / 2.0 for line in lines for a, b in zip(line, line[1:], strict=False)
+    ]
+    return write_trailing_edge_points(
+        path, numpy.asarray(mids).reshape(-1, 3), unit=unit, overwrite=overwrite
+    )
+
+
+def write_trailing_edge_midnodes_per_family(
+    source: str | Path,
+    mesh: str | Path,
+    path: str | Path,
+    *,
+    unit: str = "METER",
+    overwrite: bool = False,
+) -> list[Path]:
+    """Write one points file per family of a mesh from an ANSA SET node list.
+
+    Each listed node is matched to the mesh vertex within a quarter of that
+    vertex's shortest edge, and every edge of a family joining two listed
+    nodes gives its mid-point, so the points are the mesh's own. The files are
+    named ``<path stem>.<family>.te.txt`` beside ``path``; a family no edge
+    of the list lies on gets none, and a node that matches no vertex is
+    warned and skipped.
+
+    Parameters
+    ----------
+    source : str or pathlib.Path
+        The node list saved from the SET (Id, Name, X, Y, Z), in any order.
+    mesh : str or pathlib.Path
+        The OBJ the nodes belong to, in the same unit as the list.
+    path : str or pathlib.Path
+        The points file the per-family names are built from.
+    unit : str
+        Length unit of the coordinates, written on each file's first line.
+    overwrite : bool
+        Allow replacement of existing destinations.
+
+    Returns
+    -------
+    list of pathlib.Path
+        The written points files, in the mesh's family order.
+
+    Raises
+    ------
+    InputArtifactError
+        For a list with no node read, a list that joins no edge of the mesh, an
+        unreadable mesh, an invalid unit or an existing output.
+    """
+    from pyflightstream.workspace._refine._obj import perimeter_edges, read_node_list, read_obj
+
+    nodes = read_node_list(source)
+    if not nodes.ids:
+        raise InputArtifactError(
+            f"{source}: no node is read; save the SET's node window (Id, Name, X, Y, Z)",
+            kind="wake_edges",
+        )
+    obj = read_obj(Path(mesh))
+    found, unmatched = perimeter_edges(obj.verts, obj.families, nodes)
+    if unmatched:
+        shown = ", ".join(str(i) for i in unmatched[:5])
+        warn(
+            f"{source}: {len(unmatched)} of {len(nodes.ids)} node(s) match no vertex of {mesh} "
+            f"and are skipped (ids {shown}{' and more' if len(unmatched) > 5 else ''}); the "
+            "list and the OBJ must be saved from the same model, in the same unit",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    target = Path(path)
+    stem = target.name[: -len(".te.txt")] if target.name.endswith(".te.txt") else target.stem
+    written = []
+    for name, edges in found.items():
+        if not edges:
+            continue
+        pairs = numpy.array(sorted(edges), dtype=numpy.int64)
+        mids = 0.5 * (obj.verts[pairs[:, 0]] + obj.verts[pairs[:, 1]])
+        written.append(
+            write_trailing_edge_points(
+                target.with_name(f"{stem}.{name}.te.txt"), mids, unit=unit, overwrite=overwrite
+            )
+        )
+    if not written:
+        raise InputArtifactError(
+            f"{source}: no edge of {mesh} joins two listed nodes; nothing was written",
+            kind="wake_edges",
+        )
+    return written
+
+
+def _node_lines(nodes: numpy.ndarray) -> list[list[int]]:
+    """Order nodes into lines: grow each line both ways to the nearest node left.
+
+    A step longer than :data:`MIDNODE_GAP` times the node's spacing ends that
+    direction; the line then grows from its other end, so a line started in its
+    middle is still walked whole.
+    """
+    count = len(nodes)
+    spacing = numpy.empty(count)
+    for start in range(0, count, 512):
+        block = numpy.linalg.norm(nodes[start : start + 512, None] - nodes[None], axis=2)
+        block[numpy.arange(len(block)), numpy.arange(start, start + len(block))] = numpy.inf
+        spacing[start : start + 512] = block.min(axis=1)
+    left = numpy.ones(count, dtype=bool)
+
+    def grow(line: list[int]) -> None:
+        while left.any():
+            rest = numpy.flatnonzero(left)
+            distance = numpy.linalg.norm(nodes[rest] - nodes[line[-1]], axis=1)
+            nearest = int(numpy.argmin(distance))
+            if distance[nearest] > MIDNODE_GAP * spacing[line[-1]]:
+                return
+            line.append(int(rest[nearest]))
+            left[line[-1]] = False
+
+    lines: list[list[int]] = []
+    while left.any():
+        rest = numpy.flatnonzero(left)
+        centre = nodes[rest].mean(axis=0)
+        line = [int(rest[numpy.argmax(numpy.linalg.norm(nodes[rest] - centre, axis=1))])]
+        left[line[0]] = False
+        grow(line)
+        line.reverse()
+        grow(line)
+        lines.append(line)
+    return lines
 
 
 def read_trailing_edge_points(path: str | Path) -> TrailingEdgePoints:

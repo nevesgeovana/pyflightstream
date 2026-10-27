@@ -284,52 +284,6 @@ def test_p0430_fr936_the_level_keeps_the_identity_of_the_source_open_loop(tmp_pa
 # ---------------------------------------------------------------- F-1584
 
 
-@pytest.mark.parametrize(
-    ("detect_line", "expected"),
-    [
-        ('surfaces = ["Wing"]', {"surfaces": ["Wing"]}),
-        ('surfaces = ["Wing"]\nsweep_angle = 2.5', {"surfaces": ["Wing"], "sweep_angle": 2.5}),
-        (r'surfaces = ["Wing", "a\"b"]', {"surfaces": ["Wing", 'a"b']}),
-        (r'surfaces = ["Wing", "x\u007fy"]', {"surfaces": ["Wing", "x\x7fy"]}),
-    ],
-)
-def test_p0430_f1584_detect_tables_remain_authored_after_refinement(
-    tmp_path, detect_line, expected
-):
-    """PFS-2172: detection preserves a table, quote, DEL character and float."""
-    import tomllib
-
-    from tests.tier1_offline.test_p0390_firstrow import (
-        FILE_ROUTE,
-        Composite,
-        _tube_source,
-        write_source,
-    )
-
-    lens = _tube_source(sharp_le=True)
-    ring = 6 * 48 + 48
-    body_edge = 0.5 * (lens.verts[ring + 12] + lens.verts[ring + 13])
-    mesh = Composite(lens.verts, lens.families, body_edge[None, :], {})
-    toml = (
-        "[families.Wing]\nspanwise = 2.0\nkeep_first_row = true\n"
-        "trailing_edge_direction = [1.0, 0.0, 0.0]\n"
-    )
-    src = write_source(tmp_path / "lens", "wing", mesh, refine_toml=toml)
-    side = src.with_name("wing.boundaries.toml")
-    # the detect route spelled as a table header: no `detect =` text a rewrite could replace
-    side.write_text(
-        side.read_text(encoding="utf-8").replace(FILE_ROUTE, "").rstrip()
-        + f'\n[trailing_edges.detect]\n{detect_line}\n[import]\nunits = "METER"\n',
-        encoding="utf-8",
-    )
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", PyflightstreamWarning)
-        level = refine_mesh(src, out_dir=tmp_path / "out")
-    copied = level.obj.with_suffix(".obj.boundaries.toml").read_bytes()
-    assert copied == side.read_bytes()
-    assert tomllib.loads(copied.decode())["trailing_edges"]["detect"] == expected
-
-
 # ---------------------------------------------------------------- F-1517
 
 

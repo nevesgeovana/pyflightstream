@@ -421,6 +421,20 @@ def sheet_with_strips(
     return Composite(np.vstack(verts), families, points, rows)
 
 
+def te_nodes(
+    verts: np.ndarray, families: dict[str, list[list[int]]], points: np.ndarray
+) -> list[int]:
+    """Return the vertices at the ends of the edges whose mid-points are the listed points."""
+    found: set[int] = set()
+    for faces in families.values():
+        for f in faces:
+            for a, b in zip(f, f[1:] + f[:1], strict=True):
+                mid = 0.5 * (verts[a] + verts[b])
+                if np.min(np.linalg.norm(points - mid, axis=1)) < 1e-9:
+                    found |= {a, b}
+    return sorted(found)
+
+
 def obj_text(verts: np.ndarray, families: dict[str, list[list[int]]]) -> str:
     """Return the OBJ text of a mesh, nine decimals per coordinate, ``g`` families in order."""
     lines = ["# synthetic source of the 0.38.0 refinement tests"]
@@ -457,8 +471,16 @@ def write_source(
         if len(mesh.te):
             text += f'\n[trailing_edges]\nfile = "{stem}.te.txt"\ntype = "STANDARD"\n'
         (folder / f"{stem}.boundaries.toml").write_bytes(text.encode("utf-8"))
-    if len(mesh.te) and "[trailing_edge]" not in (refine_toml or ""):
-        refine_toml = (refine_toml or "") + f'\n[trailing_edge]\nfile = "{stem}.te.txt"\n'
+    if len(mesh.te) and "[[perimeter]]" not in (refine_toml or ""):
+        nodes = te_nodes(mesh.verts, mesh.families, mesh.te)
+        rows = ["#  Id, Name, X , Y, Z"]
+        rows += [
+            f"{v + 1}, , {x:.9f}, {y:.9f}, {z:.9f}" for v in nodes for x, y, z in [mesh.verts[v]]
+        ]
+        (folder / f"{stem}.te_nodes.txt").write_bytes(("\n".join(rows) + "\n").encode("utf-8"))
+        refine_toml = (refine_toml or "") + (
+            f'\n[[perimeter]]\nfile = "{stem}.te_nodes.txt"\nexport_te_per_family = true\n'
+        )
     if refine_toml is not None:
         (folder / f"{stem}.refine.toml").write_bytes(refine_toml.encode("utf-8"))
     return obj

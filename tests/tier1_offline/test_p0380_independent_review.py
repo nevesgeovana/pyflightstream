@@ -317,27 +317,29 @@ def test_ind03_a_smooth_tube_of_two_nodes_around_is_refused_by_both_routes(tmp_p
     mesh = Composite(body.verts, {"S": body.faces}, np.zeros((0, 3)), {})
     src = write_source(tmp_path / "src", "body", mesh)
     src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
-    src.with_suffix(".refine.toml").write_text(
-        '[trailing_edge]\nfile = "body.te.txt"\n', encoding="utf-8"
-    )
     with pytest.raises(InputArtifactError) as caught:
-        refine_mesh(src, chordwise=2 / 24)
+        refine_mesh(src, normal=2 / 24)
     text = str(caught.value)
     assert "family S: the chordwise factor is 0.0833333, " in text
     assert "2 node(s) around" in text and text.endswith("Nothing was written.")
     assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
-    code = cli.main(["refine", str(src), "--chordwise", str(2 / 24)])
+    code = cli.main(["refine", str(src), "--normal", str(2 / 24)])
     assert code == 2 and text in capsys.readouterr().err
-    assert refine_mesh(src, chordwise=3 / 24).obj.is_file()
+    assert refine_mesh(src, normal=3 / 24).obj.is_file()
 
 
 # ------------------------------------------ IND-04 and IND-05 malformed inputs
 
 
-def _both_commands_refuse(capsys, src: Path, said: str) -> None:
+def _both_commands_refuse(capsys, src: Path, said: str, *, refine: bool = True) -> None:
     """Assert ``refine`` and ``audit-mesh`` exit 2 printing ``said``, writing nothing."""
     before = _tree(src.parent.parent)
-    for argv in (["refine", str(src), "2"], ["audit-mesh", str(src)]):
+    for argv in (
+        (["refine", str(src), "2"] if refine else []),
+        ["audit-mesh", str(src)],
+    ):
+        if not argv:
+            continue
         capsys.readouterr()
         assert cli.main(argv) == 2, argv
         err = capsys.readouterr().err
@@ -411,21 +413,22 @@ def test_ind05_each_trailing_edge_row_holds_three_numbers(tmp_path, capsys, rows
 
     A points file whose rows hold two or four numbers, or a word, or a number
     that is not finite, is refused naming the file and the row before any
-    work, by the function and both commands, and is never reshaped into other
-    points. Control: the fixture's own points file is accepted.
+    work, by the audit and its command, and is never reshaped into other
+    points. Control: the fixture's own points file is accepted. The refinement
+    no longer reads this file (its trailing edge comes from a perimeter file).
     """
     src = _source(tmp_path / "src")
     te = src.with_name("wing.te.txt")
     assert audit_mesh(src).passed
     src.with_suffix(".audit.json").unlink()
     te.write_bytes(_lines(["METER", *rows]))
-    for call in (lambda: refine_mesh(src, 2.0), lambda: audit_mesh(src)):
+    for call in (lambda: audit_mesh(src),):
         with pytest.raises(InputArtifactError) as caught:
             call()
         message = str(caught.value)
         assert message.startswith(f"{te}: line {row} ") and said in message, message
         assert message.endswith("Nothing was written.")
-    _both_commands_refuse(capsys, src, f"{te}: line {row} ")
+    _both_commands_refuse(capsys, src, f"{te}: line {row} ", refine=False)
 
 
 # --------------------------------------------- IND-06 --csv names no input
@@ -987,7 +990,7 @@ def test_ind08_a_split_sheet_refines_as_a_grid_through_refine_mesh(tmp_path, rul
     assert two["method"] == "grid", two
     assert two["intervals"] == {"chordwise": [18, 36], "spanwise": [8, 16]}
     assert two["faces"] == [2 * 18 * 8, 2 * 36 * 16]
-    chord = refine_mesh(src, chordwise=2.0).report["G"]
+    chord = refine_mesh(src, normal=2.0).report["G"]
     assert chord["method"] == "grid"
     assert chord["intervals"] == {"chordwise": [18, 36], "spanwise": [8, 8]}
 

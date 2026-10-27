@@ -158,7 +158,8 @@ def test_r1_method_grid_on_the_second_grid_is_refused_naming_both(tmp_path, caps
     quads = _source(tmp_path / "quads", GG, refine_toml=toml)
     assert refine_mesh(quads, out_dir=tmp_path / "q").report["G2"]["method"] == "grid"
     src.with_name("wing.refine.toml").write_bytes(
-        b'[trailing_edge]\nfile = "wing.te.txt"\n[families.G2]\nfactor = 2\nmethod = "grid"\n'
+        b'[[perimeter]]\nfile = "wing.te_nodes.txt"\nexport_te_per_family = true\n'
+        b'[families.G2]\nfactor = 2\nmethod = "grid"\n'
     )
     assert refine_mesh(src).report["G2"]["method"] == "grid"
 
