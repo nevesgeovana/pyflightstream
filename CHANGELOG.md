@@ -7,6 +7,15 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- A row whose reference declares a rotor places that rotor's static hub frame
+  `<ALIAS>_SMRP` at the hub, on the rotor's hub axes, also when the row turns
+  no blades: steady rows (single and one-script sweeps) and `unsteady` rows.
+  A probe, section distribution or plot in `<ALIAS>_SMRP` now lands on the
+  power-off row as on the power-on row. Rows that already placed the frame
+  emit the same script.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added

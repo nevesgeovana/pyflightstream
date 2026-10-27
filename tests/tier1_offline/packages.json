@@ -90,6 +90,7 @@
       "tests/tier1_offline/test_p0451_frames_axes.py",
       "tests/tier1_offline/test_p0451_frames_debug_fsm.py",
       "tests/tier1_offline/test_p0451_probe_phases.py",
+      "tests/tier1_offline/test_p0461_power_off_hub.py",
       "tests/tier1_offline/test_periodic_native_zones.py",
       "tests/tier1_offline/test_reduce_by_rotor.py",
       "tests/tier1_offline/test_reference_normalization_setup.py",
