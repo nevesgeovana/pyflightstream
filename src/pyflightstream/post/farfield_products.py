@@ -925,8 +925,8 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
             beta_deg=beta,
         )
         # A rotor whose families the loads export does not hold has no near field: NA, not 0.
-        t_near = near.thrust_n if near.families_used else _NA
-        q_near = near.torque_nm if near.families_used else _NA
+        t_near = near.thrust_n * _sector_copies(ctx) if near.families_used else _NA
+        q_near = near.torque_nm * _sector_copies(ctx) if near.families_used else _NA
         values = {
             "FAMILY": str(alias),
             "VARIANT": "W",

@@ -50,6 +50,10 @@ FlightStream versions.
 
 ### Fixed
 
+- Periodic rotor wake comparisons scale sector near-field thrust and torque to
+  the whole wheel when `SYMMETRY_LOADS` is disabled, including window averages
+  and their differences in counts.
+
 - Wake-window near-field comparisons and B calibration read each step's own
   loads export. Missing step loads leave those comparisons `NA` with a warning;
   the dimensional W loads remain available.

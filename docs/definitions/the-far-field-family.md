@@ -357,7 +357,8 @@ are copied about the axis by the sector angle before the sums.
 **Against the near field.** `T_NEAR_N` and `Q_NEAR_NM` are the rotor's thrust
 along `e_a` and torque about it at the hub from the point's loads export (the
 rotor table's rule, its own families only; `NA` where the export holds none),
-and
+scaled by `PERIODIC_COPIES` on a `SYMMETRY PERIODIC` row without
+`SYMMETRY_LOADS`, so every comparison uses the whole wheel. The differences are
 
     DT_WAKE_COUNTS = 1e4 (T_WAKE_N - T_NEAR_N) / (q SREF)
     DQ_WAKE_COUNTS = 1e4 (Q_WAKE_NM - Q_NEAR_NM) / (q SREF BREF)

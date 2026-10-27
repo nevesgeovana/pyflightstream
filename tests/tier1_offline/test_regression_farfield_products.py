@@ -4110,3 +4110,59 @@ def test_p0470_r8_wake_window_uses_same_step_near_loads(tmp_path, stamped):
     else:
         assert "T_NEAR_N" not in columns and "DT_WAKE_COUNTS" not in columns
         assert any("near-field" in reason and "step" in reason for reason in ctx.skipped.values())
+
+
+@pytest.mark.parametrize("symmetry_loads", ["false", "true"])
+@pytest.mark.parametrize("window", [False, True])
+def test_p0470_r2_periodic_wake_comparisons_use_wheel_loads(tmp_path, symmetry_loads, window):
+    """P0470-R2: instant and window wake comparisons use the whole wheel's near loads."""
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
+
+    lines, values = _p0470_helical_wake(
+        2, gamma=np.ones(4), radii=np.linspace(0.2, 1.0, 5), v=10, omega=100, turns=2
+    )
+    lines = [line + np.array([3.0, 0.0, 2.0]) for line in lines]
+    _, _, ctx = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=True)
+    text = _LITB_POST__LOADS.replace("     W,", "     Blade1,").replace("     B,", "     Blade2,")
+    text = text.replace("+0.0000000,-0.0077298", "+0.0300000,-0.0077298")
+    ctx.points = [replace(ctx.points[0], loads=parse_loads(text))]
+    if window:
+        ctx.pproc = PprocSpec.model_validate(
+            {"farfields": [{"variant": "wake", "export_type": "avg_window", "last_steps": 2}]}
+        )
+        record = ctx.record_of["point"]
+        record.recipe = "unsteady_rotor"
+        record.stopped_at = {"step": 2}
+        record.export_window = None
+        for step in (1, 2):
+            (tmp_path / f"point_iteration={step}.vtk").write_text("surface", encoding="utf-8")
+            (tmp_path / f"point_iteration={step}_wakes.vtk").write_text(
+                _p0470_wake_vtk(lines, values), encoding="utf-8"
+            )
+            (tmp_path / f"point_iteration={step}.txt").write_text(text, encoding="utf-8")
+    suffix = "average" if window else "trefftz"
+    farfield_products(cast("Any", ctx))
+    path = next((tmp_path / "post/farfield").glob(f"*_{suffix}.csv"))
+    _, baseline = _ffproof_post___table(path)
+    ctx.matrix_row.variables.update(
+        SYMMETRY="PERIODIC", PERIODIC_COPIES="3", SYMMETRY_LOADS=symmetry_loads
+    )
+    farfield_products(cast("Any", ctx))
+    _, periodic = _ffproof_post___table(path)
+    before, after = baseline[0], periodic[0]
+    factor = 3 if symmetry_loads == "false" else 1
+    assert abs(float(before["T_NEAR_N"])) > 0.0
+    assert abs(float(before["Q_NEAR_NM"])) > 0.0
+    for field in ("T_NEAR_N", "Q_NEAR_NM"):
+        assert float(after[field]) == pytest.approx(factor * float(before[field]), rel=1e-5)
+    for field in ("T_WAKE_N", "Q_WAKE_NM"):
+        assert after[field] == before[field]
+    point = ctx.points[0]
+    qs = 0.5 * point.state.density_kg_m3 * point.loads.freestream_velocity_m_s**2
+    qs *= ctx.reference.sref_m2
+    for load, near, counts, scale in (
+        ("T_WAKE_N", "T_NEAR_N", "DT_WAKE_COUNTS", qs),
+        ("Q_WAKE_NM", "Q_NEAR_NM", "DQ_WAKE_COUNTS", qs * ctx.reference.bref_m),
+    ):
+        expected = 1e4 * (float(after[load]) - factor * float(before[near])) / scale
+        assert float(after[counts]) == pytest.approx(expected, rel=1e-5)
