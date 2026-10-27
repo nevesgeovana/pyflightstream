@@ -38,6 +38,7 @@ from pyflightstream.cases.farfield_inputs import (
     few_stations_warning,
     traced_family,
 )
+from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
 from pyflightstream.farfield import (
     TraceResult,
     calibration_scale,
@@ -1063,6 +1064,8 @@ def _probe_point(
         _skip(ctx, key, point.name, f"the far-field probes cannot be read: {error}")
         return
     _skip_rotor_g4(ctx, point, analyses, found)
+    if run_type == "qsteady_rotor" and "trefftz:plane" in analyses:
+        _note_one_clocking(ctx, point)
     try:
         near = (
             ff._window_near_forces(ctx, point, chosen, probe.layout.axis)
@@ -1135,6 +1138,28 @@ def _probe_point(
             [r for rows in l_rows for r in rows],
             runs=runs,
             **reduced,
+        )
+
+
+def _note_one_clocking(ctx: SimContext, point: PolarPoint) -> None:
+    """Name a wheel's C row as clocking 0's where the wheel was solved at several clockings.
+
+    The plane is exported with the point's full export set, at clocking 0 alone,
+    so the clocking average is not formed; the row is written and the limitation
+    named, never one clocking presented as the average.
+    """
+    try:
+        quasi = read_qsteady_record(getattr(point, "loads_path", None))
+    except (QsteadyRecordError, TypeError):
+        return
+    if len(quasi.positions) > 1:
+        _skip(
+            ctx,
+            f"{FARFIELD_DIR}/trefftz#point={point.name}#variant=plane#clockings",
+            point.name,
+            f"the wheel was solved at {len(quasi.positions)} clockings and its Trefftz C "
+            "plane is exported at clocking 0 alone, so the C row is clocking 0's and "
+            "no clocking average is written",
         )
 
 

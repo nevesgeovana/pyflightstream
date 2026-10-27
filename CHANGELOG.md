@@ -22,8 +22,9 @@ FlightStream versions.
   converts its probe velocities to the hub frame as the survey lattice is
   converted (`v_hub = v_probe + Omega x (x - x_hub)`, the row's signed speed)
   before the crossflow energy, the vorticity drag, the Bernoulli residual and the
-  plane lift. Migration: a `plane` entry on a `qsteady_rotor` row, refused before,
-  now plans and writes its C row.
+  plane lift. A wheel solved at several clockings writes the C row of clocking 0
+  and names that as a skip; no clocking average is formed. Migration: a `plane`
+  entry on a `qsteady_rotor` row, refused before, now plans and writes its C row.
 
 ### Changed
 

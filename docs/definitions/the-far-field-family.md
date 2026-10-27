@@ -320,7 +320,10 @@ This includes steady RPM, `unsteady_rotor` and `qsteady_rotor` rows. On a
 their velocities are first converted to the hub frame exactly as the lattice's
 are ([The quasi-steady rotor](#trefftz-d-power-on-the-survey-lattice)),
 `v_hub = v_probe + Omega x (x - x_hub)`, about the row's one rotor with its signed
-speed; the static pressure is frame independent and kept.
+speed; the static pressure is frame independent and kept. A sector is one
+solve and writes one C row. A wheel solved at several clockings exports the
+plane with its full export set, at clocking 0 alone: its C row is clocking 0's,
+post names that limitation as a skip, and no clocking average is written.
 Velocities are turned to wind axes; the static pressure is `p - p_inf = Cp_ref q_ref`,
 the export's coefficient on the reference velocity, which a rotor at rest still has
 (on a wing at speed with the reference velocity the free stream, `Cp q`). The

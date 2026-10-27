@@ -3669,3 +3669,51 @@ def test_p0470_ffr_qsteady_sections_and_wake_are_named_skips(tmp_path):
     assert "trefftz:wake does not apply" in skipped and "Trefftz B" in skipped
     rows = _rfixf_layout___rows(root, "farfield/*_trefftz.csv")
     assert [row["VARIANT"] for row in rows] == ["C"]
+
+
+@pytest.mark.requirement("FR-1037")
+def test_p0470_ffr_qsteady_wheel_plane_names_its_one_clocking(tmp_path):
+    """P0470-FFR-Q3: a wheel solved at several clockings says its C row is clocking 0's.
+
+    The plane is laid and exported with the point's full export set, at clocking 0
+    alone; the clocking average is not formed, so post writes the row and names
+    the limitation as a skip, never presenting one clocking as the average.
+    """
+    quasi = QsteadyRecord(
+        case="wheel",
+        rotor_alias="ROTOR",
+        blades=2,
+        rpm=_P0470_FFR_Q___RPM,
+        shaft_frame_axis="X",
+        hub_m=(0.5, 0.0, 0.0),
+        axis_vector=(1.0, 0.0, 0.0),
+        diameter_m=2.0,
+        families_general=(),
+        families_blades=("B1", "B2"),
+        blade1_azimuth_deg=0.0,
+        positions=(
+            QsteadyClocking(0, 0.0, 0.0, f"{_FFPROOF_POST___STEM}.txt"),
+            QsteadyClocking(1, 90.0, 90.0, f"{_FFPROOF_POST___STEM}_qs01.txt"),
+        ),
+        validity=None,
+    ).to_text()
+    workspace = _rfixf_plane_lift__ffpost._ffproof_post___campaign(
+        tmp_path,
+        pproc=_RFIXF_PLANE_LIFT___TABLE,
+        recipe="qsteady_rotor",
+        files={
+            f"{_FFPROOF_POST___STEM}_farfield_survey.txt": _rfixf_layout___export(
+                _RFIXF_PLANE_LIFT___PLANE.points, _p0470_ffr_q___turning(_P0470_FFR_Q___RPM)
+            ),
+            f"{_FFPROOF_POST___STEM}_qsteady.json": quasi,
+        },
+    )
+    _rfixf_plane_lift__ffpost._ffproof_post___set_record(
+        workspace, farfield_layout=_RFIXF_PLANE_LIFT___LAYOUT
+    )
+    _rfixf_plane_lift__ffpost._ffproof_post___post(workspace)
+    root = Path(workspace.root)
+    skipped = str(_ffproof_post___manifest(root)["skipped"])
+    assert "clocking 0" in skipped and "2 clockings" in skipped
+    rows = _rfixf_layout___rows(root, "farfield/*_trefftz.csv")
+    assert [row["VARIANT"] for row in rows] == ["C"]
