@@ -362,4 +362,4 @@
       ]
     }
   }
-}}
+},"hub_0461":{"reason":"P0461-HUB (a9d13d140): a row places the hub frame of every rotor its reference declares, moved or not, with that hub's force plots; the four vocabulary goldens were synchronized in b391aae76. Exact full-text admissions retain older compatibility guards; no renderer-derived expected output.","digests":{"d16b910a43d80bf55a4bd1caa24e95bf84fef3c2ec6c667751164379d48e463a":{"before":"abd3016a58661f7571928939d1184759a160eef95f059833effbcf9bce1fc4cf","edits":[[129,146,[]],[220,260,[]]]},"b35382aceb05fa7a2eec3c37a56e06c6131d16c3cff1d98366546f75db90b0a0":{"before":"faf0d2716306a8374f819fda9b6a169712a0fd10e8cfccafb763172d4ff1187c","edits":[[129,146,[]],[148,171,[]],[246,326,[]]]},"49569a916d8e2bc4335fa54e63cd6b3f1f38056b945079da5fe14fa33314c656":{"before":"3abc52914a97abb2adbc9c092f13a5caa2b1199a09d9b6ecaebbb30a7c346f8a","edits":[[129,146,[]],[220,260,[]]]},"84a856917db07e2313ea29e0f7105cf1031bead3c196bd706dede86d83d10a19":{"before":"e02fa38e32f8dfbf15d5ee8002255f607dec34c094de9186bd728760229d04ec","edits":[[130,147,[]],[221,261,[]]]}}}}
