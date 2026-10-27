@@ -3266,6 +3266,101 @@ def test_p0470_ffr_a_periodic_sector_wake_is_copied_to_the_whole_rotor():
     assert one.torque == pytest.approx(whole.torque, rel=1e-9)
 
 
+def _p0470_lattice_vtk(lines: list[np.ndarray], values: np.ndarray, stations: int) -> str:
+    """Write helical lines as the solver writes a rotor wake: one vortex lattice per blade.
+
+    The topology of the recorded 26.125 export: per blade, ``stations`` trailing
+    filaments of one node per time step, each segment written from downstream to
+    the trailing edge; a shed segment between neighbouring stations in every row
+    but the trailing-edge row, carrying the mean of the two trailing values; the
+    trailing values fall to zero over the two oldest (start-up) segments; the
+    redundant X, Y, Z point scalars. A segment written towards the trailing
+    edge carries the negated line value (the sign measured on the r1w export
+    from the convection of its rows).
+    """
+    points: list[np.ndarray] = []
+    segments: list[tuple[int, int]] = []
+    cells: list[float] = []
+    for first in range(0, len(lines), stations):
+        blade = lines[first : first + stations]
+        base = len(points)
+        rows = len(blade[0])
+        for line in blade:
+            points.extend(line)
+        for j in range(stations):
+            ramp = np.ones(rows - 1)
+            ramp[-2:] = (0.5, 0.0)
+            for k in range(rows - 1):
+                # Written towards the trailing edge, so the line value g is written -g.
+                segments.append((base + j * rows + k + 1, base + j * rows + k))
+                cells.append(-float(values[first + j] * ramp[k]))
+        for k in range(1, rows):
+            for j in range(stations - 1):
+                segments.append((base + j * rows + k, base + (j + 1) * rows + k))
+                cells.append(-0.5 * float(values[first + j] + values[first + j + 1]))
+    rows_out = [
+        "# vtk DataFile Version 3.0",
+        "Simcenter Flightstream vtk output",
+        "ASCII",
+        "DATASET POLYDATA",
+        f"POINTS {len(points)} float",
+        *(f"{p[0]:.12g} {p[1]:.12g} {p[2]:.12g}" for p in points),
+        f"LINES {len(segments)} {3 * len(segments)}",
+        *(f"2 {a} {b}" for a, b in segments),
+        "POLYGONS 0 0",
+        f"POINT_DATA {len(points)}",
+    ]
+    for axis, name in enumerate("XYZ"):
+        rows_out += [f"SCALARS {name} FLOAT", "LOOKUP_TABLE default"]
+        rows_out += [f"{p[axis]:.12g}" for p in points]
+    rows_out += [f"CELL_DATA {len(segments)}", "SCALARS Normalized_Vorticity FLOAT"]
+    rows_out += ["LOOKUP_TABLE default", *(f"{value:.12g}" for value in cells)]
+    return "\n".join(rows_out) + "\n"
+
+
+@pytest.mark.requirement("FR-452")
+def test_p0470_wakefix_a_rotor_wake_lattice_reads_back_its_trailing_circulation():
+    """P0470-FFR option 3 on the solver's rotor wake: a lattice per blade, not lines.
+
+    Interior lattice nodes join four segments (two trailing, two shed), which the
+    line reader refused as a branching line. Read back, each blade gives one
+    line per station from its trailing-edge node, valued at the trailing edge,
+    and the wake loads equal those of the same filaments written as lines.
+    """
+    blades, v, omega = 3, 20.0, 120.0
+    radii = np.linspace(0.2, 1.0, 7)
+    mids = 0.5 * (radii[:-1] + radii[1:])
+    gamma = 2.0 * np.sin(math.pi * (mids - 0.2) / 0.8) + 0.3
+    lines, values = _p0470_helical_wake(blades, gamma=gamma, radii=radii, v=v, omega=omega, turns=2)
+    wake = parse_wake_export(_p0470_lattice_vtk(lines, values, len(radii)))
+    assert len(wake.lines) == len(lines)
+    # The per-blade split comes from the lattices: one blade id per lattice, all its stations.
+    assert wake.blades is not None
+    assert sorted(np.bincount(wake.blades).tolist()) == [len(radii)] * blades
+    starts = np.array([line[0] for line in wake.lines])
+    for blade in range(blades):
+        azimuth = np.arctan2(starts[wake.blades == blade, 2], starts[wake.blades == blade, 1])
+        assert np.ptp(azimuth) < 1e-9
+    order = sorted(range(len(lines)), key=lambda i: tuple(np.round(wake.lines[i][0], 9)))
+    expected = sorted(range(len(lines)), key=lambda i: tuple(np.round(lines[i][0], 9)))
+    for got, want in zip(order, expected, strict=True):
+        np.testing.assert_allclose(wake.lines[got], lines[want], atol=1e-9)
+        assert wake.values[got] == pytest.approx(values[want], rel=1e-9, abs=1e-12)
+    kwargs = {
+        "hub": (0.0, 0.0, 0.0),
+        "axis": (1.0, 0.0, 0.0),
+        "omega": omega,
+        "v_axial": v,
+        "rho": 1.225,
+        "blades": blades,
+    }
+    read = ff.wake_rotor_loads(list(wake.lines), values=wake.values, **kwargs)
+    reference = ff.wake_rotor_loads(lines, values=values, **kwargs)
+    assert read.blades == blades
+    assert read.thrust == pytest.approx(reference.thrust, rel=1e-9)
+    assert read.torque == pytest.approx(reference.torque, rel=1e-9)
+
+
 @pytest.mark.requirement("FR-452")
 def test_p0470_ffr_a_mixed_export_assigns_every_line_once():
     """P0470-FFR B by family: rotor lines start in the disk near the hub plane, the rest is wing."""
