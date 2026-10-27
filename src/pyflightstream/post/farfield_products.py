@@ -30,7 +30,7 @@ import numpy as np
 
 import pyflightstream.post._reduction_stage as ff
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream.cases import classify_outputs
+from pyflightstream.cases import classify_outputs, select_group_members
 from pyflightstream.cases.farfield_inputs import (
     ROTOR_RUN_TYPES,
     UNSTEADY_RUN_TYPES,
@@ -696,7 +696,7 @@ def _variant_b(
     factor = 0.5 if half else 1.0
     k = calibration_scale(
         raw.lift * factor,
-        cl_near=_near_field(point)[0],
+        cl_near=_wing_near_cl(ctx, point) if rotor else _near_field(point)[0],
         q=ff._q_ref(point, rho),
         s_ref=ctx.reference.sref_m2,
     )
@@ -772,6 +772,24 @@ def _wing_lines(
         return None
     lines = [(line / per_m) @ turn.T for line, own in zip(wake.lines, bladed, strict=True)]
     return [line for line, own in zip(lines, bladed, strict=True) if not own], wake.values[~bladed]
+
+
+def _wing_near_cl(ctx: SimContext, point: PolarPoint) -> float:
+    """Return the lift of the non-rotor families used to calibrate their wake trace."""
+    surfaces = point.loads.surfaces
+    rotors = getattr(ctx.live, "rotors", None) or {}
+    members = [member for rotor in rotors.values() for member in rotor.members]
+    owned = (
+        set(
+            select_group_members(
+                members, list(surfaces), getattr(ctx, "aliases", None), strict=False
+            )
+        )
+        if members
+        else set()
+    )
+    lift = [float(row.get("CL", _NA)) for name, row in surfaces.items() if name not in owned]
+    return sum(lift) if lift else _NA
 
 
 def _final_wakes(ctx: SimContext, point: PolarPoint) -> Path | None:

@@ -9,6 +9,9 @@ describe the older releases that supplied them.
 
 ## 0.47.0
 
+Trefftz B on mixed wing and rotor rows uses the non-rotor families' lift for
+calibration. Reprocess existing wake exports to update the wing coefficients.
+
 Rotor wake products at hover retain dimensional thrust and torque. Their
 free-stream-normalized differences in counts are `NA`; no input changes are needed.
 

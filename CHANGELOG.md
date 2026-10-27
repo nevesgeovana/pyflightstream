@@ -50,6 +50,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Wing-only Trefftz B on a rotor row calibrates against non-rotor lift, so rotor
+  lift does not rescale the wing's circulation or induced drag.
+
 - Rotor wake loads remain available at hover; their free-stream-normalized
   differences in counts are `NA` when the free-stream speed is zero.
 

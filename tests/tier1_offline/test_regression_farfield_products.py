@@ -3758,7 +3758,10 @@ def _p0470_post_rotor_wake(root: Path, lines, values, *, rotor: bool):
     (root / "point_wakes.vtk").write_text(_p0470_wake_vtk(lines, values), encoding="utf-8")
     (root / "point.fsm").write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n", "utf-8")
     loads = replace(
-        parse_loads(_LITB_POST__LOADS), freestream_velocity_m_s=30.0, angle_of_attack_deg=0.0
+        parse_loads(_LITB_POST__LOADS),
+        freestream_velocity_m_s=30.0,
+        angle_of_attack_deg=0.0,
+        surfaces={"Wing": {"CL": 0.3}},
     )
     loads.total["CL"] = 0.3
     point = SimpleNamespace(
@@ -3897,3 +3900,23 @@ def test_p0470_r1_wake_loads_at_hover_keep_dimensional_loads(tmp_path):
     row = dict(zip(_TREFFTZ_CELLS, rows[0][3 + len(CONTEXT_COLUMNS) :], strict=True))
     assert math.isfinite(row["T_WAKE_N"]) and math.isfinite(row["Q_WAKE_NM"])
     assert math.isnan(row["DT_WAKE_COUNTS"]) and math.isnan(row["DQ_WAKE_COUNTS"])
+
+
+def test_p0470_r2_wing_wake_calibration_excludes_rotor_lift(tmp_path):
+    """Changing rotor lift cannot rescale an unchanged wing wake."""
+    from pyflightstream.post.farfield_products import _TREFFTZ_CELLS, _variant_b
+
+    lines, values = _p0470_wing_lines()
+    _, _, ctx = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=True)
+    point = ctx.points[0]
+    rows = []
+    for rotor_cl in (0.0, 0.6):
+        point.loads = replace(
+            point.loads,
+            total={**point.loads.total, "CL": 0.3 + rotor_cl},
+            surfaces={"Wing": {"CL": 0.3}, "Blade1": {"CL": rotor_cl}},
+        )
+        (row,) = _variant_b(ctx, point, tmp_path / "point_wakes.vtk", rotor=True)
+        rows.append(dict(zip(_TREFFTZ_CELLS, row[3 + len(CONTEXT_COLUMNS) :], strict=True)))
+    for column in ("CL_T", "CDI_T", "GAMMA_SCALE"):
+        assert rows[0][column] == pytest.approx(rows[1][column]), column

@@ -317,6 +317,9 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
   leaves a rotor writes no B row, with a named skip. On a row without a rotor B
   reads every line, as before. On `unsteady_rotor`, B is written for the last
   step and, under `"avg_window"`, averaged over the window steps.
+  Its lift calibration uses only the non-rotor families' near-field lift,
+  excluding the rotor families through the reference's family and alias resolver.
+  Missing non-rotor lift leaves the calibrated coefficients unavailable.
 
 <a id="trefftz-w"></a>
 
