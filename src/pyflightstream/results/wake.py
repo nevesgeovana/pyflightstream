@@ -9,6 +9,14 @@ is read as the circulation shed by that wake line (FR-1023; the reading is
 not measured in a committed solver report). Trefftz B of
 the far-field family reads it (:mod:`pyflightstream.farfield.trefftz`).
 
+A rotor's wake is written as a vortex lattice per blade (26.125): trailing
+filaments of one node per time step, joined in every row but the trailing-edge
+row by shed segments that carry the mean of the trailing values beside them, so
+an interior node joins four segments. Such a component is read as one line per
+trailing filament, from its trailing-edge node downstream, valued by its
+segment at the trailing edge; the shed segments are dropped. Components without
+a node of more than two segments are read as lines, as above.
+
 Refused, as every reader refuses (FR-16, FR-17): a file whose counts do not add
 up, a file that ends inside a block it declared, polygons (a surface is not a
 wake), a segment that is not two points, a chain that branches or closes, and a
@@ -179,6 +187,13 @@ def parse_wake_export(text: str) -> WakeExport:
             "a NaN strength would pass the constancy check and feed the far-field products"
         )
     segments = _shared_nodes(points, segments, values)
+    if len(segments) and np.bincount(segments.ravel()).max() > 2:
+        return _mixed_export(points, segments, values)
+    return _chain_export(points, segments, values)
+
+
+def _chain_export(points: np.ndarray, segments: np.ndarray, values: np.ndarray) -> WakeExport:
+    """Read independent wake lines, one value constant along each (the wing layout)."""
     lines: list[np.ndarray] = []
     line_values: list[float] = []
     for chain in _chains(segments, len(points)):
@@ -364,6 +379,93 @@ def _shared_nodes(points: np.ndarray, segments: np.ndarray, values: np.ndarray) 
     if np.any(shared[:, 0] == shared[:, 1]):
         raise MalformedOutputError("a wake segment joins a node to itself")
     return shared
+
+
+def _neighbours(segments: np.ndarray, n_points: int) -> list[list[int]]:
+    out: list[list[int]] = [[] for _ in range(n_points)]
+    for a, b in segments.tolist():
+        out[a].append(b)
+        out[b].append(a)
+    return out
+
+
+def _sweep(neighbours: list[list[int]], front: list[int]) -> np.ndarray:
+    """Return each node's segment distance from ``front`` (-1 where none reaches)."""
+    distance = np.full(len(neighbours), -1, dtype=np.int64)
+    distance[front] = 0
+    while front:
+        following: list[int] = []
+        for node in front:
+            for other in neighbours[node]:
+                if distance[other] < 0:
+                    distance[other] = distance[node] + 1
+                    following.append(other)
+        front = following
+    return distance
+
+
+def _components(neighbours: list[list[int]]) -> np.ndarray:
+    """Return a component label per node (-1 for a node no segment names)."""
+    label = np.full(len(neighbours), -1, dtype=np.int64)
+    for seed, joined in enumerate(neighbours):
+        if joined and label[seed] < 0:
+            label[_sweep(neighbours, [seed]) >= 0] = seed
+    return label
+
+
+def _mixed_export(points: np.ndarray, segments: np.ndarray, values: np.ndarray) -> WakeExport:
+    """Read a file holding wake lattices (rotor blades), with any wing lines beside them.
+
+    A component with a node that joins more than two segments is a lattice; every
+    other component is read as independent lines, as a wing export is.
+    """
+    neighbours = _neighbours(segments, len(points))
+    label = _components(neighbours)
+    degree = np.array([len(joined) for joined in neighbours])
+    in_lattice = np.isin(label[segments[:, 0]], np.unique(label[degree > 2]))
+    chains = (
+        _chain_export(points, segments[~in_lattice], values[~in_lattice])
+        if np.any(~in_lattice)
+        else WakeExport(lines=(), values=np.zeros(0))
+    )
+    lattice = _lattice_export(points, segments[in_lattice], values[in_lattice])
+    return WakeExport(
+        lines=chains.lines + lattice.lines,
+        values=np.concatenate([chains.values, lattice.values]),
+    )
+
+
+def _lattice_export(points: np.ndarray, segments: np.ndarray, values: np.ndarray) -> WakeExport:
+    """Read wake lattices: one line per trailing filament, valued at the trailing edge.
+
+    A lattice is written row by row in time. Its trailing-edge nodes join one
+    segment each (the newest row has no shed segment; the bound vortex is on the
+    blade), and a node's row is its segment distance from them. A trailing
+    (streamwise) segment joins rows k and k + 1 of one spanwise station; a shed
+    (spanwise) segment joins two stations within one row and carries the mean of
+    the trailing values beside it, so it is dropped. Each trailing filament is
+    one line from its trailing-edge node downstream, valued by its segment at the
+    trailing edge: the loading of the exported step (older segments carry earlier
+    steps, down to zero at the start-up end).
+    """
+    neighbours = _neighbours(segments, len(points))
+    rows = _sweep(neighbours, [node for node, joined in enumerate(neighbours) if len(joined) == 1])
+    if np.any(rows[segments.ravel()] < 0):
+        raise MalformedOutputError(
+            "a wake line branches: a node joins more than two segments, and the lattice "
+            "has no trailing-edge row from which its filaments could be read"
+        )
+    trailing = rows[segments[:, 0]] != rows[segments[:, 1]]
+    kept, kept_values = segments[trailing], values[trailing]
+    lines: list[np.ndarray] = []
+    line_values: list[float] = []
+    for chain in _chains(kept, len(points)):
+        nodes = np.unique(kept[chain].ravel())
+        nodes = nodes[np.argsort(rows[nodes], kind="stable")]
+        newest = min(chain, key=lambda cell: int(rows[kept[cell]].min()))
+        lines.append(points[nodes])
+        line_values.append(float(kept_values[newest]))
+    return WakeExport(lines=tuple(lines), values=np.asarray(line_values))
 
 
 def _ordered_nodes(points: np.ndarray, segments: np.ndarray, chain: list[int]) -> np.ndarray:
