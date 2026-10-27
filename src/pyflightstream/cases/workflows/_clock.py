@@ -390,6 +390,10 @@ def _with_farfield_threshold(
             _surface_export(payload, case, "vtk", names["vtk"], kinds=names)
             exports.append((first, last, payload.render()))
             continue
+        if kind not in names:
+            # A row whose outputs name no file of this kind (its pproc turned the export
+            # off) schedules no window export of it; post names the missing per-step input.
+            continue
         verb = (
             "EXPORT_SURFACE_SECTIONAL_LOADS" if kind == "sectional_loads" else "EXPORT_PROBE_POINTS"
         )

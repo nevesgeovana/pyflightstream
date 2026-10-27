@@ -2068,6 +2068,38 @@ def test_p0470_ffr_a_rotor_wake_entry_switches_the_wake_on(tmp_path):
     assert "-1 ENABLE" not in _farfield_plan___script(plain).render()
 
 
+@pytest.mark.requirement("FR-455")
+def test_p0470_window_loads_export_skips_a_row_that_names_no_loads_file(tmp_path):
+    """RED on a6230df8c: KeyError 'sectional_loads' killed the build of such a row.
+
+    A power entry averaged over the window schedules the blade loads per step; a row
+    whose outputs name no sectional loads file schedules no such export and still builds.
+    """
+    from pyflightstream.cases.workflows._clock import unsteady_export_threshold
+    from pyflightstream.cases.workflows._farfield import farfield_export_windows
+
+    entry = {
+        "variant": "power",
+        "rotor": "ROTOR",
+        "stations": [1.0],
+        "n_r": 2,
+        "n_psi": 16,
+        "m_max": 2,
+        "export_type": "avg_window",
+    }
+    case = _p0450_rotor_case(tmp_path, [entry])
+    named = row_outputs(case, "unsteady_rotor")
+    case = case.model_copy(
+        update={"outputs": [name for name in named if not name.endswith("_sloads.txt")]}
+    )
+    assert "sectional_loads" in [kind for *_, kind in farfield_export_windows(case)]
+    threshold = unsteady_export_threshold(case, version="26.124")
+    assert threshold is not None
+    assert not any(
+        "EXPORT_SURFACE_SECTIONAL_LOADS" in text for *_, text in threshold.farfield_windows
+    )
+
+
 def _p0471_plan(tmp_path, entries):
     import sys
 
