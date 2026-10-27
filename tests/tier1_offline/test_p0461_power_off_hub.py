@@ -150,8 +150,9 @@ def test_p0461_steady_row_cuts_a_section_distribution_in_the_hub_frame(tmp_path)
     assert lines[at + 1] == f"FRAME {_frame_index(_only(rendered), 'PUSHER_SMRP')}"
 
 
-#: The power-on row's script for a PUSHER_SMRP probe and section, measured on v0.46.0.
-_UNSTEADY_ROTOR_SHA256 = "14e92e15029269b168bee158b8c3edda962f2676c08b32b4228879200023f5ef"
+#: The power-on row's script for a PUSHER_SMRP probe and section, measured on v0.46.0,
+#: with the paths under the workspace spelled with forward slashes on every machine.
+_UNSTEADY_ROTOR_SHA256 = "38044d82fdda5cdb80f9d40bfe97dc966c52a6641737734a4dd093aa03e4d262"
 
 
 def test_p0461_unsteady_rotor_row_script_is_unchanged(tmp_path):
@@ -164,7 +165,13 @@ def test_p0461_unsteady_rotor_row_script_is_unchanged(tmp_path):
     root = tmp_path / "ws"
     for spelled in sorted({str(root), root.as_posix(), str(root.resolve())}, key=len, reverse=True):
         text = text.replace(spelled, "<WS>").replace(spelled.replace("\\", "/"), "<WS>")
-    assert hashlib.sha256(text.encode("utf-8")).hexdigest() == _UNSTEADY_ROTOR_SHA256
+    # A path under the workspace is spelled with the machine's own separator
+    # (<WS>\inputs on Windows, <WS>/inputs on Linux): one spelling for both,
+    # as tests/support_tier3.portable does for the tier-3 goldens.
+    text = "\n".join(
+        line if "<WS>" not in line else line.replace("\\", "/") for line in text.split("\n")
+    )
+    assert hashlib.sha256(text.encode("utf-8")).hexdigest() == _UNSTEADY_ROTOR_SHA256, text
 
 
 def test_p0461_a_reference_with_no_rotor_still_refuses_a_hub_frame_probe(tmp_path):
