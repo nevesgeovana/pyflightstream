@@ -39,6 +39,7 @@ from pyflightstream.script import (
     Script,
 )
 
+from ._conventions import declared_run_type
 from ._farfield import farfield_blade_sections, farfield_outputs, farfield_sections
 from ._frames import (
     _emissions_the_row_places,
@@ -62,8 +63,47 @@ from ._rows import (
 )
 from ._vocabulary import (
     PASSAGE_POSITIONS_VARIABLE,
+    QSTEADY_ROTOR,
     Frames,
 )
+
+#: The export each streamline part is written to, and how a warning names the part.
+STREAMLINE_PARTS = {
+    "surface": ("{name}_sls.txt", "[streamlines] surface lines"),
+    "off_body": ("{name}_slo.txt", "[streamlines] off-body seed lines and tubes"),
+}
+
+
+def streamline_parts_the_row_skips(case: SimCase, workflow: str | None = None) -> dict[str, str]:
+    """Return the ``[streamlines]`` parts this row does not trace, each with why (FR-1081).
+
+    SKIPPED, NEVER REFUSED (owner rule of 2026-10-27: refusals only for what no
+    row can produce). A row coupling a structure traces none, because its
+    exports run inside the aeroelastic post-processing script; a
+    ``qsteady_rotor`` row traces no off-body line, because its field is
+    solved in the rotor-fixed frame and a trace through it is unmeasured.
+    The other rows of the same pproc artifact trace them. ``workflow`` is the
+    row's run type where the case does not state it yet (matrix binding).
+    """
+    spec = case.pproc.streamlines if case.pproc is not None else None
+    if spec is None:
+        return {}
+    if case.fsi is not None or case.fsi_external is not None:
+        why = (
+            "is not traced on a row that couples a structure (FSI), whose exports run "
+            "inside the aeroelastic post-processing script; the uncoupled rows trace it"
+        )
+        traced = (("surface", spec.surface), ("off_body", spec.off_body))
+        return {part: why for part, wanted in traced if wanted}
+    if (workflow or declared_run_type(case)) == QSTEADY_ROTOR and spec.off_body:
+        return {
+            "off_body": (
+                "is not traced on a qsteady_rotor row, whose field is solved in the "
+                "rotor-fixed frame so an off-body trace through it is unmeasured; surface "
+                "streamlines stay, and the unsteady_rotor rows trace these lines"
+            )
+        }
+    return {}
 
 
 @saying_the_families_each_row_skips(_the_names_a_rotor_answers_to, _artifact_of)  # FR-320
@@ -628,6 +668,9 @@ def row_outputs(case: SimCase, workflow: str) -> list[str]:
     if pproc is None:
         return default_outputs(unsteady) + trajectory
     names = pproc.outputs(unsteady)
+    # A STREAMLINE PART THE ROW DOES NOT TRACE IS NOT EXPORTED EITHER (FR-1081).
+    skipped = {STREAMLINE_PARTS[part][0] for part in streamline_parts_the_row_skips(case, workflow)}
+    names = [name for name in names if name not in skipped]
     if (
         workflow == "qsteady_rotor"
         and pproc.exports.get("debug_fsm", False)

@@ -10,20 +10,22 @@ the off-body generation, whose export is one of the row's exports.
 from __future__ import annotations
 
 from pyflightstream.cases import CampaignConfigError, SimCase
+from pyflightstream.cases._skipped_families import leave_out_what_the_row_cannot_take
 from pyflightstream.cases.pproc import StreamlineLine, StreamlinesSpec, StreamlineTube
 from pyflightstream.script import Script
 
-from ._conventions import declared_run_type
 from ._frames import _a_rotor_frame_the_row_leaves_out, _pproc_frame
 from ._gap_evidence import refuse_unprobed_commands
+from ._names import _artifact_of
+from ._pproc import STREAMLINE_PARTS, streamline_parts_the_row_skips
 from ._probes import _in_the_reference_frame, _the_radius_the_probe_lines_are_in
 from ._rows import _from_metres
-from ._vocabulary import QSTEADY_ROTOR, Frames
+from ._vocabulary import Frames
 
 __all__ = [
-    "refuse_streamlines_where_they_cannot_run",
     "streamline_commands",
     "streamline_count",
+    "streamlines_the_row_takes",
 ]
 
 _SURFACE = ("GENERATE_ALL_SURFACE_STREAMLINES", "EXPORT_ALL_SURFACE_STREAMLINES")
@@ -80,24 +82,25 @@ def streamline_commands(spec: StreamlinesSpec, *, reopened: bool = False) -> lis
     return commands
 
 
-def refuse_streamlines_where_they_cannot_run(case: SimCase, spec: StreamlinesSpec) -> None:
-    """Refuse the rows FR-1081 names, before the first streamline line."""
-    if case.fsi is not None or case.fsi_external is not None:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} traces streamlines "
-            "and the row couples a structure (FSI). A coupled row's exports run inside the "
-            "aeroelastic post-processing script, a different place in the script, so "
-            "[streamlines] is not traced there; name a pproc without it on this row."
+def streamlines_the_row_takes(case: SimCase, spec: StreamlinesSpec) -> StreamlinesSpec | None:
+    """Return the part of ``spec`` this row traces, saying once what it skips (FR-1081).
+
+    SKIPPED, NEVER REFUSED (owner rule of 2026-10-27): a part this row does not
+    trace (every part on a coupled row, the off-body lines on a qsteady_rotor
+    row) is left out of the row, and of its exports through
+    :func:`row_outputs`, and the plan warns once naming the rows. None when
+    nothing is left to trace.
+    """
+    skipped = streamline_parts_the_row_skips(case)
+    for part, why in skipped.items():
+        leave_out_what_the_row_cannot_take(
+            case.sim_id, _artifact_of(case), STREAMLINE_PARTS[part][1], why
         )
-    if declared_run_type(case) == QSTEADY_ROTOR and spec.off_body:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} seeds off-body "
-            "streamlines on a qsteady_rotor row. There the blade is held still and the free "
-            "stream turns about the shaft, so the field is solved in the rotor-fixed frame and "
-            "what the solver traces through it is unmeasured. Surface streamlines "
-            "(surface = true) stay allowed; remove the lines and tubes, or trace them on an "
-            "unsteady_rotor row."
-        )
+    if "surface" in skipped:
+        spec = spec.model_copy(update={"surface": False})
+    if "off_body" in skipped:
+        spec = spec.model_copy(update={"lines": [], "tubes": []})
+    return spec if spec.surface or spec.off_body else None
 
 
 def _scale_of(case: SimCase, script: Script, frame: str, scale: str) -> float:
@@ -201,9 +204,9 @@ def _pproc_streamlines(
         verified on the build, or a surface trace with no declared output.
     """
     spec = case.pproc.streamlines if case.pproc is not None else None
+    spec = streamlines_the_row_takes(case, spec) if spec is not None else None
     if spec is None:
         return
-    refuse_streamlines_where_they_cannot_run(case, spec)
     rendered = script.render()
     again = reopened or "GENERATE_ALL_SURFACE_STREAMLINES" in rendered
     again = again or "GENERATE_ALL_OFF_BODY_STREAMLINES" in rendered

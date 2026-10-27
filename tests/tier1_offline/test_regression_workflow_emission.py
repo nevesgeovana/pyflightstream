@@ -2121,22 +2121,32 @@ class TestGapsRtStreamlines:
 
     @staticmethod
     # --------------------------------------------------------------------------- FR-1081
-    def test_p0400_streamlines_qsteady_rotor_refuses_off_body_names_the_frame():
-        """P0400-STREAMLINES (FR-1081): off-body lines on qsteady_rotor name the rotor-fixed frame."""  # noqa: E501
-        from pyflightstream.cases.workflows._streamlines import (
-            refuse_streamlines_where_they_cannot_run,
-        )
+    def test_p0400_streamlines_qsteady_rotor_refuses_off_body_names_the_frame(tmp_path):
+        """P0400-STREAMLINES (FR-1081): off-body lines on qsteady_rotor name the rotor-fixed frame.
+
+        P0471: skipped with one warning, never refused (owner rule of 2026-10-27);
+        RED on 022dfca8e, where the qsteady_rotor row was refused. The surface
+        lines stay, and the row's outputs declare no off-body export.
+        """
+        from pyflightstream.cases.workflows import build_script, row_outputs
 
         spec = _gaps_rt_streamlines___spec()
-        assert spec.streamlines is not None
+        assert spec.streamlines is not None and spec.streamlines.surface
         case = _gaps_rt_streamlines___case_for("qsteady_rotor").model_copy(
             update={"pproc": spec, "pproc_id": "p9"}
         )
-        with pytest.raises(CampaignConfigError, match="rotor-fixed frame"):
-            refuse_streamlines_where_they_cannot_run(case, spec.streamlines)
-        surface = _gaps_rt_streamlines___spec(surface=True)
-        assert surface.streamlines is not None
-        refuse_streamlines_where_they_cannot_run(case, surface.streamlines)
+        outputs = row_outputs(case, "qsteady_rotor")
+        assert not any(name.endswith("_slo.txt") for name in outputs)
+        assert any(name.endswith("_sls.txt") for name in outputs)
+        case = case.model_copy(
+            update={"outputs": [name.replace("{name}", "P") for name in outputs]}
+        )
+        script = Script(_GAPS_RT_STREAMLINES__BUILD, _gaps_rt_streamlines___verified(spec))
+        with pytest.warns(UserWarning, match="rotor-fixed frame.*will be ignored on this row"):
+            build_script(case, script)
+        text = script.render()
+        assert "NEW_STREAMLINE_DISTRIBUTION" not in text
+        assert "GENERATE_ALL_SURFACE_STREAMLINES" in text
 
     @staticmethod
     def test_p0400_streamlines_frame_the_run_does_not_create(tmp_path):

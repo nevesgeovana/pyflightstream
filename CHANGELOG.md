@@ -78,6 +78,11 @@ FlightStream versions.
   `qsteady_rotor`) are skipped with one plan warning naming the rows, instead
   of refusing the plan, so one pproc artifact serves every row.
 
+- `[streamlines]` on a row coupling a structure (FSI), and its off-body seed
+  lines and tubes on a `qsteady_rotor` row, are skipped with one plan warning
+  and left out of that row's exports, instead of refusing the plan; surface
+  streamlines stay on `qsteady_rotor` rows.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added
