@@ -9,6 +9,10 @@ describe the older releases that supplied them.
 
 ## 0.47.0
 
+Wake-window comparisons now require per-step loads exports matching the wake
+snapshots. Restore those exports and reprocess for near-field comparisons and
+B calibration; without them, W still reports dimensional wake loads.
+
 Disk-pressure corrections are `NA` at a downstream plane with a stagnant or
 reversed annular mean axial flow. Other planes retain their corrections.
 

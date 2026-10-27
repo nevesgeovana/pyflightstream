@@ -50,6 +50,10 @@ FlightStream versions.
 
 ### Fixed
 
+- Wake-window near-field comparisons and B calibration read each step's own
+  loads export. Missing step loads leave those comparisons `NA` with a warning;
+  the dimensional W loads remain available.
+
 - Disk-pressure corrections are `NA` at a downstream plane with a stagnant or
   reversed annular mean flow, where equal-mass-flow mapping is not one-to-one.
 

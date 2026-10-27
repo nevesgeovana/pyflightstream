@@ -378,6 +378,9 @@ row holds one; a table of rows without a rotor keeps its columns.
 `N_TRACE` is the count of the rotor's lines.
 Window averaging requires the same families and variants at every step. A
 missing rotor or a changed row identity produces a named average skip.
+Each wake snapshot uses its matching per-step loads export for near-field
+comparisons and B calibration. Missing step loads leave those comparisons
+`NA` with a warning; dimensional W loads are still averaged.
 
 **Assumptions and validity.** The lifting line is at the trailing-edge nodes
 the lines leave, not at the quarter chord. The free stream is taken along the

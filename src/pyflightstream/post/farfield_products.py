@@ -82,7 +82,7 @@ from pyflightstream.post.farfield_fields import (
 from pyflightstream.post.rotor_table import rotor_shaft_loads
 from pyflightstream.post.section_distributions import distributions_of
 from pyflightstream.post.series import stamped_exports
-from pyflightstream.results.loads import drag_pair
+from pyflightstream.results.loads import drag_pair, parse_loads
 from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.results.wake import parse_wake_export
 from pyflightstream.workspace.naming import sweep_file_stem
@@ -934,23 +934,21 @@ def _wake_rotor_products(
     )
     vtk = _output(ctx, point, "vtk")
     root = ctx.workspace.sim_dir(ctx.sim_id)
-    files = (
+    exports = (
         {}
         if vtk is None
         else stamped_exports(
             root, vtk.stem, *(root / Path(output).parent for output in record.outputs)
-        ).get(("", "vtk"), {})
+        )
     )
+    files = exports.get(("", "vtk"), {})
+    loads = exports.get(("", "txt"), {})
     wakes = {step: path.with_name(path.stem + "_wakes.vtk") for step, path in files.items()}
     steps = range(int(window[0]), int(window[1]) + 1) if window else range(0)
     if not steps or any(step not in wakes or not wakes[step].is_file() for step in steps):
         _skip(ctx, key, point.name, "the wake average needs a wake export at every window step")
         return
-    samples = [
-        _variant_b(ctx, point, wakes[step], rotor=True, spanwise=False)
-        + _variant_w(ctx, point, wakes[step])
-        for step in steps
-    ]
+    samples = [_wake_step_rows(ctx, point, wakes[step], loads.get(step)) for step in steps]
     first = 3 + len(CONTEXT_COLUMNS)
     identities = [[row[first : first + 2] for row in sample] for sample in samples]
     if not all(samples) or any(identity != identities[0] for identity in identities):
@@ -959,12 +957,32 @@ def _wake_rotor_products(
     tables.extend(
         "trefftz_average",
         point.name,
-        ff._named(ctx, [wakes[step] for step in steps]),
+        ff._named(ctx, [*map(wakes.get, steps), *map(loads.get, steps)]),
         ff._average_entry_rows(samples, 2 + len(CONTEXT_COLUMNS) + 2),
         runs=runs,
         window=window,
         samples=len(samples),
         source=source_name,
+    )
+
+
+def _wake_step_rows(ctx: SimContext, point: PolarPoint, wake: Path, loads: Path | None) -> list:
+    """Use a wake snapshot's own loads for calibration and near-field comparisons."""
+    try:
+        if loads is None:
+            raise FileNotFoundError("no loads export for this step")
+        report = parse_loads(loads.read_text(encoding="utf-8"))
+    except (PyflightstreamError, OSError) as error:
+        report = replace(point.loads, surfaces={}, total={})
+        _skip(
+            ctx,
+            f"farfield/trefftz_average#point={point.name}#near={wake.name}",
+            point.name,
+            f"near-field comparisons and B calibration are NA for this step: {error}",
+        )
+    sampled = replace(point, loads=report)
+    return _variant_b(ctx, sampled, wake, rotor=True, spanwise=False) + _variant_w(
+        ctx, sampled, wake
     )
 
 

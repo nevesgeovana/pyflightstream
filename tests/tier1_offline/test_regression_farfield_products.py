@@ -50,6 +50,7 @@ from pyflightstream.post.farfield_fields import (
     recorded_layout,
 )
 from pyflightstream.post.farfield_products import farfield_axes, farfield_products
+from pyflightstream.post.polar import PolarPoint
 from pyflightstream.post.products import ReferenceValues, write_campaign_products
 from pyflightstream.probes.layouts import farfield_plane, lattice_points
 from pyflightstream.results import parse_loads, sweep_table, write_table
@@ -3781,10 +3782,11 @@ def _p0470_post_rotor_wake(root: Path, lines, values, *, rotor: bool, speed=30.0
     if rotor_cl is not None:
         loads.surfaces["Blade1"] = {"CL": rotor_cl}
         loads.total["CL"] += rotor_cl
-    point = SimpleNamespace(
+    point = PolarPoint(
         name="point",
         loads=loads,
-        state=SimpleNamespace(density_kg_m3=1.225),
+        loads_path=root / "point.txt",
+        state=cast("Any", SimpleNamespace(density_kg_m3=1.225)),
         vorticity_selection=None,
     )
     block = RotorBlock(
@@ -3973,3 +3975,45 @@ def test_p0470_r5_public_source_describes_behavior_without_private_decisions():
     for relative in ("farfield_inputs.py", "workflows/_farfield.py"):
         text = (root / relative).read_text(encoding="utf-8")
         assert "owner rule of" not in text.lower(), relative
+
+
+@pytest.mark.parametrize("stamped", [False, True])
+def test_p0470_r8_wake_window_uses_same_step_near_loads(tmp_path, stamped):
+    """Window comparisons use each step's loads, never a repeated final load."""
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
+
+    lines, values = _p0470_helical_wake(
+        2, gamma=np.ones(4), radii=np.linspace(0.2, 1.0, 5), v=10, omega=100, turns=2
+    )
+    lines = [line + np.array([3.0, 0.0, 2.0]) for line in lines]
+    _, _, ctx = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=True)
+    text = _LITB_POST__LOADS.replace("     W,", "     Blade1,").replace("     B,", "     Blade2,")
+    point = replace(ctx.points[0], loads=parse_loads(text))
+    ctx.points = [point]
+    ctx.pproc = PprocSpec.model_validate(
+        {"farfields": [{"variant": "wake", "export_type": "avg_window", "last_steps": 2}]}
+    )
+    record = ctx.record_of["point"]
+    record.recipe = "unsteady_rotor"
+    record.stopped_at = {"step": 2}
+    record.export_window = None
+    for step in (1, 2):
+        (tmp_path / f"point_iteration={step}.vtk").write_text("surface", encoding="utf-8")
+        (tmp_path / f"point_iteration={step}_wakes.vtk").write_text(
+            _p0470_wake_vtk(lines, values), encoding="utf-8"
+        )
+        if stamped:
+            # Negating each surface coefficient negates its dimensional near loads.
+            changed = text.replace("+0.", "-0.")
+            (tmp_path / f"point_iteration={step}.txt").write_text(changed, encoding="utf-8")
+    farfield_products(cast("Any", ctx))
+    _, instant = _ffproof_post___table(next((tmp_path / "post/farfield").glob("*_instant.csv")))
+    columns, average = _ffproof_post___table(
+        next((tmp_path / "post/farfield").glob("*_average.csv"))
+    )
+    assert math.isfinite(float(average[0]["T_WAKE_N"]))
+    if stamped:
+        assert float(average[0]["T_NEAR_N"]) == pytest.approx(-float(instant[0]["T_NEAR_N"]))
+    else:
+        assert "T_NEAR_N" not in columns and "DT_WAKE_COUNTS" not in columns
+        assert any("near-field" in reason and "step" in reason for reason in ctx.skipped.values())
