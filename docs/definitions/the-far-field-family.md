@@ -309,8 +309,13 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
 - One `net` row per point: the export does not say which family a line
   belongs to.
 - On a rotor row (a steady row with a rotor speed, `unsteady_rotor`,
-  `qsteady_rotor`) B is not traced, with a named skip: the rotor's lines give
-  [The rotor wake loads](#trefftz-w).
+  `qsteady_rotor`) B traces only the lines that leave another family than the
+  rotors'. A line leaves a rotor when its first node lies within 1.02 tip radii
+  of that rotor's axis and within 0.25 tip radii of its hub plane; every other
+  line is the wing's, and each line is assigned once. A row whose every line
+  leaves a rotor writes no B row, with a named skip. On a row without a rotor B
+  reads every line, as before. On `unsteady_rotor`, B is written for the last
+  step and, under `"avg_window"`, averaged over the window steps.
 
 <a id="trefftz-w"></a>
 
@@ -318,9 +323,8 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of A.
 
 **Selection and input.** A `variant = "wake"` entry on a rotor row also writes,
 per rotor of the reference, one row with `VARIANT = W` and `FAMILY` the rotor
-alias, from the lines that leave that rotor, in metres, about the rotor's hub
-and axis `e_a`. A line leaves a rotor when its first node lies within 1.02 tip
-radii of that rotor's axis and within 0.25 tip radii of its hub plane.
+alias, from the lines that leave that rotor (the start-node rule of
+[Trefftz B](#trefftz-b)), in metres, about the rotor's hub and axis `e_a`.
 
 **Bound circulation.** The lines of one rotor are split into blades at the
 azimuth gaps of their first nodes wider than half a blade passage, and each
@@ -760,8 +764,8 @@ named skip. Steady and quasi-steady rotor scripts retain their analysis route.
 | row | A | B | C | balances |
 |---|---|---|---|---|
 | steady, fixed wing | yes | yes | yes | yes |
-| steady rotor | nonrotor families | W per rotor | configuration plane | yes |
-| `unsteady_rotor` | nonrotor families | W per rotor, instant and average | configuration plane, instant and average | instant and average |
+| steady rotor | nonrotor families | nonrotor lines; W per rotor | configuration plane | yes |
+| `unsteady_rotor` | nonrotor families | nonrotor lines; W per rotor; instant and average | configuration plane, instant and average | instant and average |
 | `qsteady_rotor` | no, warned and skipped | no, warned and skipped | configuration plane, in the hub frame | yes, in the hub frame |
 | unsteady, fixed wing | yes | no | instant and average | instant and average |
 | coupled FSI, steady | the coupled distribution | yes | refused (no probes) | refused (no probes) |

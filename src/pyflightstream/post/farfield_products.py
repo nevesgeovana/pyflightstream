@@ -632,8 +632,8 @@ def _variant_b(
     """Trefftz B of one point (FR-452): rows, or a named skip.
 
     ``wakes`` is the wake export to read (the final one: :func:`_final_wakes`). On a
-    rotor row (``rotor``) B is a named skip (P0470-FFR); the rotors' lines feed the
-    wake loads.
+    rotor row (``rotor``) B traces only the lines that leave another family
+    than the rotors' (P0470-FFR); the rotors' lines feed the wake loads.
     """
     spec = _trefftz(ctx)
     key = f"{FARFIELD_DIR}/trefftz#point={point.name}#variant=wake"
@@ -666,16 +666,10 @@ def _variant_b(
         _skip(ctx, key, point.name, "the point states no density or free-stream speed")
         return []
     turn = farfield_axes(alpha, beta)
-    if rotor:
-        _skip(
-            ctx,
-            key,
-            point.name,
-            "B is not traced on a rotor row: the export does not say which family a line "
-            "leaves; the rotor's lines give the wake loads (VARIANT W)",
-        )
+    picked = _wing_lines(ctx, point, key, wake, per_m=per_m, turn=turn) if rotor else None
+    if rotor and picked is None:
         return []
-    lines, values = [(line / per_m) @ turn.T for line in wake.lines], wake.values
+    lines, values = picked or ([(line / per_m) @ turn.T for line in wake.lines], wake.values)
     x_t = max((float(line[0, 0]) for line in lines), default=0.0)
     x_t += spec.distance_bref * ctx.reference.bref_m
     mirror, half = _symmetry(ctx)
@@ -759,6 +753,25 @@ def _wake_sheet(
         )
     keep &= ~omitted
     return [line for line, use in zip(lines, keep, strict=True) if use], values[keep]
+
+
+def _wing_lines(
+    ctx: SimContext, point: PolarPoint, key: str, wake: Any, *, per_m: float, turn: np.ndarray
+) -> tuple[list[np.ndarray], np.ndarray] | None:
+    """Return the wake lines (wind axes) and values that leave no rotor, or skip (P0470-FFR)."""
+    rotors = getattr(ctx.live, "rotors", None) or {}
+    bladed = _rotor_line_mask(rotors, [line / per_m for line in wake.lines])
+    if np.all(bladed):
+        _skip(
+            ctx,
+            key,
+            point.name,
+            "every wake line of the point leaves a rotor's blades, so no wing sheet is "
+            "traced; the rotor's lines give the wake loads (VARIANT W)",
+        )
+        return None
+    lines = [(line / per_m) @ turn.T for line, own in zip(wake.lines, bladed, strict=True)]
+    return [line for line, own in zip(lines, bladed, strict=True) if not own], wake.values[~bladed]
 
 
 def _final_wakes(ctx: SimContext, point: PolarPoint) -> Path | None:

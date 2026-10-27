@@ -3850,3 +3850,26 @@ def test_p0470_ffr_a_rotor_row_writes_the_wake_loads_of_its_rotor(tmp_path):
     assert float(w_row["GAMMA_SCALE"]) == 1.0
     assert int(float(w_row["N_TRACE"])) == len(blade_lines)
     assert columns.index("T_WAKE_N") < columns.index("STATUS") == len(columns) - 1
+
+
+@pytest.mark.requirement("FR-452")
+def test_p0470_ffr_b_on_a_wing_and_rotor_row_traces_the_wing_lines_alone(tmp_path):
+    """P0470-FFR B by family: the B row of a wing beside a rotor is the wing's own trace."""
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
+
+    radii = np.linspace(0.2, 1.0, 9)
+    gamma = np.ones(8)
+    blade_lines, blade_values = _p0470_helical_wake(
+        2, gamma=gamma, radii=radii, v=30.0, omega=100.0, turns=3.0
+    )
+    blade_lines = [line + np.array([3.0, 0.0, 2.0]) for line in blade_lines]
+    wing, shed = _p0470_wing_lines()
+    _, mixed, _ = _p0470_post_rotor_wake(
+        tmp_path / "mixed", wing + blade_lines, np.concatenate([shed, blade_values]), rotor=True
+    )
+    columns, alone, _ = _p0470_post_rotor_wake(tmp_path / "alone", wing, shed, rotor=False)
+    (b_mixed,) = [row for row in mixed if row["VARIANT"] == "B"]
+    (b_alone,) = [row for row in alone if row["VARIANT"] == "B"]
+    for column in ("CL_T", "CDI_T", "E_T", "N_TRACE", "GAMMA_SCALE", "X_T_M"):
+        assert b_mixed[column] == b_alone[column], column
+    assert "T_WAKE_N" not in columns, "a table of rows without a rotor keeps its columns"

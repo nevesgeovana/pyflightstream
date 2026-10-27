@@ -36,6 +36,9 @@ FlightStream versions.
   `"avg_window"` at every window step. Tables of rows without a rotor keep their
   columns. New core functions `pyflightstream.farfield.wake_rotor_loads` and
   `rotor_wake_lines`, and the result type `WakeLoads`.
+- Trefftz B by family: on a row that holds a wing and a rotor, B traces only the
+  wake lines that leave the wing, told apart by where each line starts; an
+  isolated rotor's row writes no B row, with a named skip.
 
 ### Changed
 
