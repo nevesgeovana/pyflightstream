@@ -9,6 +9,9 @@ describe the older releases that supplied them.
 
 ## 0.47.0
 
+Instantaneous rotor pressure corrections use the final blade-load export.
+Window exports no longer replace that instant's loading; reprocess to update it.
+
 Wake-window averages require matching rotor identities at every step. Incomplete
 windows now produce a named skip; restore the missing exports before reprocessing.
 

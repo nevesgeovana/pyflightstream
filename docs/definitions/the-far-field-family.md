@@ -590,8 +590,9 @@ the probe swirl:
    tangential force, `Offset` the radius. The blades are averaged, the result is
    summed over the rotor's blade count (periodic copies included) and turned to
    the loading on the fluid, `dT/dr` and `dQ/dr`. On an unsteady row the per-step
-   exports of the averaging window are averaged when they cover it; otherwise the
-   final export is read.
+   exports of the averaging window are averaged for the window product when they
+   cover it; otherwise the final export is read. The instantaneous product always
+   reads the final blade-load export, independently of any averaging window.
 2. Per annulus,
 
         dp0(r_d) = (dT/dr) / (2 pi r_d) + rho v_theta^2 / 2

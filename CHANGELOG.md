@@ -50,6 +50,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Instantaneous disk-pressure corrections use final blade loads even when the
+  row also has per-step exports for an averaging window.
+
 - Wake-window averages check family and variant identities at every step and
   skip inconsistent windows instead of mixing different rotors' loads.
 

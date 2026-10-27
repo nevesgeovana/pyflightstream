@@ -3956,3 +3956,39 @@ def test_p0470_r3_wake_average_keeps_rotor_identity(tmp_path, complete):
     assert bool(tables.rows.get("trefftz_average")) is complete
     if not complete:
         assert any("differ" in reason for reason in ctx.skipped.values())
+
+
+def test_p0470_r4_last_step_pressure_uses_final_blade_loads(tmp_path):
+    """A row's averaging window must not replace the loads of its final instant."""
+    from pyflightstream.post.farfield_products import _blade_load_paths
+
+    final = tmp_path / "point_sloads.txt"
+    for name in (
+        "point_sloads.txt",
+        "point_sloads_iteration=1.txt",
+        "point_sloads_iteration=2.txt",
+    ):
+        (tmp_path / name).write_text("sectional loads", encoding="utf-8")
+    ctx = SimpleNamespace(
+        pproc=PprocSpec.model_validate(
+            {"farfields": [{"variant": "power", "rotor": "R", "stations": [-1, 1]}]}
+        ),
+        record_of={
+            "point": SimpleNamespace(
+                recipe="unsteady_rotor",
+                reductions={},
+                export_window=None,
+                stopped_at={"step": 2},
+                outputs=[final.name],
+            )
+        },
+        exports={"point": (final, None, None)},
+        point_windows={"point": (1, 2)},
+        workspace=SimpleNamespace(sim_dir=lambda sim: tmp_path),
+        sim_id="1",
+    )
+    assert _blade_load_paths(ctx, SimpleNamespace(name="point")) == [final]
+    assert _blade_load_paths(ctx, SimpleNamespace(name="point"), window=True) == [
+        tmp_path / "point_sloads_iteration=1.txt",
+        tmp_path / "point_sloads_iteration=2.txt",
+    ]

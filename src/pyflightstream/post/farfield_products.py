@@ -1259,19 +1259,22 @@ def _blade_rows(
     return out
 
 
-def _disk_loading(ctx: SimContext, point: PolarPoint, probe: _Probe) -> DiskLoading | str | None:
+def _disk_loading(
+    ctx: SimContext, point: PolarPoint, probe: _Probe, *, window: bool = False
+) -> DiskLoading | str | None:
     """Return the rotor's disk loading from its blade sectional loads (P0470-FFR).
 
     None on a row without a rotor; a reason where the loads are missing. On an
-    unsteady row the per-step exports of the averaging window are averaged when
-    they cover it; otherwise the final export is read.
+    unsteady window product the per-step exports are averaged when they cover
+    the window; otherwise the final export is read. An instant always reads
+    the final export.
     """
     record = ctx.record_of[point.name]
     spec = _ledgers(ctx)
     if not rotor_g4(spec, record.recipe) or probe.layout.lattice is None:
         return None
     alias = spec.rotor if spec is not None else None
-    paths = _blade_load_paths(ctx, point)
+    paths = _blade_load_paths(ctx, point, window=window)
     if not paths:
         return "the point exported no blade sectional loads"
     try:
@@ -1307,23 +1310,23 @@ def _shaft_letter(axis: object, rotor: Any) -> str:
     return "XYZ"[int(np.argmax(np.abs(np.asarray(axis, dtype=float))))]
 
 
-def _blade_load_paths(ctx: SimContext, point: PolarPoint) -> list[Path]:
+def _blade_load_paths(ctx: SimContext, point: PolarPoint, *, window: bool = False) -> list[Path]:
     """Return the sectional-load exports to average: the window's steps, else the final one."""
     record = ctx.record_of[point.name]
     final = ctx.exports.get(point.name, (None, None, None))[0]
     paths: list[Path] = [] if final is None else [Path(final)]
-    if str(record.recipe or "steady") not in UNSTEADY_RUN_TYPES:
+    if not window or str(record.recipe or "steady") not in UNSTEADY_RUN_TYPES:
         return paths
     last = ff._last_step(record)
     try:
-        window, _ = _farfield_window(ctx, point, int(last) if isinstance(last, int | float) else 0)
+        span, _ = _farfield_window(ctx, point, int(last) if isinstance(last, int | float) else 0)
     except PyflightstreamError:
         return paths
     root = ctx.workspace.sim_dir(ctx.sim_id)
     stamped = stamped_exports(
         root, point.name, *(root / Path(name).parent for name in record.outputs)
     ).get(("_sloads", "txt"), {})
-    steps = range(int(window[0]), int(window[1]) + 1) if window else range(0)
+    steps = range(int(span[0]), int(span[1]) + 1) if span else range(0)
     if steps and all(step in stamped for step in steps):
         return [stamped[step] for step in steps]
     return paths
@@ -1361,6 +1364,9 @@ def _probe_point(
         return
     _skip_rotor_g4(ctx, point, analyses, found)
     try:
+        if chosen:
+            window_loading = _disk_loading(ctx, point, probe, window=True)
+            loading = window_loading if isinstance(window_loading, DiskLoading) else None
         near = (
             ff._window_near_forces(ctx, point, chosen, probe.layout.axis)
             if "ledgers" in analyses
