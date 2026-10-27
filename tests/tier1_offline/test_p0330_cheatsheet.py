@@ -156,7 +156,8 @@ def missing_from_cheatsheet(parser: argparse.ArgumentParser, text: str) -> list[
             defects.append(f"{name}: no entry")
             continue
         for action in generator.options(sub):
-            if isinstance(action, argparse._HelpAction):
+            # a hidden option (help suppressed) is left out of --help and of the cheatsheet
+            if isinstance(action, argparse._HelpAction) or action.help == argparse.SUPPRESS:
                 continue
             defects += [
                 f"{name}: {option}" for option in action.option_strings if not _names(option, entry)
@@ -231,7 +232,8 @@ def missing_for_tool(tool: str, parser: argparse.ArgumentParser, section: str, p
     head = section[: first.start()] if first else section
     defects: list[str] = []
     for action in generator.options(parser):
-        if isinstance(action, argparse._HelpAction):
+        # a hidden option (help suppressed) is left out of --help and of the cheatsheet
+        if isinstance(action, argparse._HelpAction) or action.help == argparse.SUPPRESS:
             continue
         defects += [
             f"{tool}: {option}" for option in action.option_strings if not _names(option, head)
@@ -250,7 +252,8 @@ def missing_for_tool(tool: str, parser: argparse.ArgumentParser, section: str, p
             defects.append(f"{tool} {name}: no entry")
             continue
         for action in generator.options(sub):
-            if isinstance(action, argparse._HelpAction):
+            # a hidden option (help suppressed) is left out of --help and of the cheatsheet
+            if isinstance(action, argparse._HelpAction) or action.help == argparse.SUPPRESS:
                 continue
             defects += [
                 f"{tool} {name}: {option}"

@@ -373,7 +373,7 @@ def test_r2_a_direction_on_a_remeshed_family_is_refused(tmp_path):
         ),
         (
             '[refinement]\ntag = "x"\n',
-            "unknown table [refinement]; the tables are refine, families, components, periodic",
+            "unknown table [refinement]; the tables are refine, families, components, perimeter",
         ),
     ],
     ids=["unknown-key", "unknown-family", "chordwise-on-remesh", "no-factor", "unknown-table"],
@@ -425,35 +425,6 @@ def test_r3_a_table_of_the_wrong_shape_is_refused_by_both_routes(tmp_path, capsy
         b'[refine]\ntag = "t"\n[families.G]\nfactor = 1\n[components]\nAll = ["G"]\n'
     )
     assert _command(capsys, str(src), "1")[0] == 0
-
-
-@pytest.mark.parametrize(
-    ("toml", "said"),
-    [
-        (
-            "[periodic]\naxis = [1, 0, 0]\nspin = 1\n",
-            "unknown key spin; missing keys origin, copies; the keys are axis, origin, copies",
-        ),
-        (
-            "[periodic]\naxis = [1, 0, 0]\norigin = [0, 0, 0]\n",
-            "missing key copies; the keys are axis, origin, copies",
-        ),
-        (
-            "[periodic]\naxis = [1, 0, 0]\norigin = [0, 0, 0]\ncopies = 3\nturns = 1\nspin = 2\n",
-            "unknown keys spin, turns; the keys are axis, origin, copies",
-        ),
-    ],
-    ids=["unknown-and-missing", "missing", "unknown"],
-)
-def test_r3_a_periodic_table_names_its_unknown_and_its_missing_keys(tmp_path, toml, said):
-    """P0380-REFINE (FR-917; FR-943): the refusal names each unknown and each missing key.
-
-    The unknown keys and the missing keys are named separately, not as one
-    "unknown or missing" key.
-    """
-    src = _source(tmp_path, refine_toml=toml)
-    text = _refused(tmp_path, src, 1.0)
-    assert f"{src.with_name('wing.refine.toml')} [periodic]: {said}" in text, text
 
 
 # ---------------------------------------------------------- FR-918 what a level holds
@@ -1299,7 +1270,7 @@ def test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allo
         "pyflightstream.run.cli",
     ]
     assert _reaching(planted, PRIVATE) == [f"{REFINE}._grid", f"{REFINE}._level"]
-    names = {"_blocks", "_config", "_grid", "_level", "_periodic", "_remesh"}
+    names = {"_blocks", "_config", "_grid", "_level", "_lines", "_remesh"}
     assert {m.rpartition(".")[2] for m in PRIVATE} >= names
     for module in PRIVATE:
         leaf = module.rpartition(".")[2]
@@ -1343,12 +1314,12 @@ def test_the_shared_thresholds_have_one_home_read_by_every_consumer():
     a shared fraction as a literal; the remesher's own tuning constants are
     named in ``_remesh`` and not shared, so it is not scanned. The rule of a
     node on a shared curve (``ON_CURVE_FRACTION``) is read by the grid's
-    interfaces and the periodic cuts alike. Control: a planted source that
+    interfaces. Control: a planted source that
     spells the trailing-edge distance as a literal is reported.
 
     Release review of 0.38.0: proves the fix of RV-13.
     """
-    from pyflightstream.workspace._refine import _geometry, _periodic
+    from pyflightstream.workspace._refine import _geometry
 
     values = {float(getattr(_geometry, name)) for name in SHARED_THRESHOLDS} - {0.25}
     folder = PACKAGE / "workspace" / "_refine"
@@ -1356,8 +1327,6 @@ def test_the_shared_thresholds_have_one_home_read_by_every_consumer():
         if path.stem in ("_geometry", "_remesh", "__init__"):
             continue
         assert _threshold_literals(path.read_text(encoding="utf-8"), values) == [], path.name
-    assert _periodic.ON_CURVE_FRACTION is _geometry.ON_CURVE_FRACTION
-    assert not hasattr(_periodic, "ON_CUT_FRACTION")
     planted = "def hit(d, scale):\n    return d < 1e-6 * scale\n"
     assert _threshold_literals(planted, values) == [(2, 1e-6)]
 
@@ -1476,10 +1445,20 @@ def test_f1514_f1515_an_oversized_integer_is_the_catalogued_refusal(tmp_path):
 
     with pytest.raises(InputArtifactError, match="too large"):
         _config.positive("[refine] factor", 10**400)
-    toml = f"[periodic]\naxis = [1, 0, {10**400}]\norigin = [0, 0, 0]\ncopies = 2\n"
+    toml = f"[families.G]\nfactor = {10**400}\n"
     src = _source(tmp_path, refine_toml=toml)
     with pytest.raises(InputArtifactError, match="too large"):
-        refine_mesh(src, 2.0)
+        refine_mesh(src)
+
+
+def test_the_periodic_table_is_warned_and_skipped(tmp_path):
+    """[periodic] is no longer read: the level is the one written without it."""
+    toml = "[periodic]\naxis = [1, 0, 0]\norigin = [0, 0, 0]\ncopies = 3\n"
+    src = _source(tmp_path / "a", refine_toml=toml)
+    with pytest.warns(PyflightstreamWarning, match=r"\[periodic\] is no longer read"):
+        level = refine_mesh(src, 2.0, out_dir=tmp_path / "x")
+    plain = refine_mesh(_source(tmp_path / "b"), 2.0, out_dir=tmp_path / "y")
+    assert level.obj.read_bytes() == plain.obj.read_bytes()
 
 
 def test_x_f_0599_a_file_in_the_place_of_the_level_is_refused_before_any_work(tmp_path):

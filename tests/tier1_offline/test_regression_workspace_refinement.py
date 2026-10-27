@@ -18,7 +18,6 @@ from pyflightstream.workspace._refine._config import RefineRequest, level_tag, r
 from pyflightstream.workspace._refine._geometry import order_like
 from pyflightstream.workspace._refine._grid import Grid, recover_grid, refine_grid
 from pyflightstream.workspace._refine._obj import read_obj, read_te
-from pyflightstream.workspace._refine._periodic import find_cuts, match_level
 from pyflightstream.workspace._refine._remesh import refine_group
 from tests.p0380_mesh_fixtures import Composite as _Workspace2RefineWingComposite
 from tests.p0380_mesh_fixtures import face_coordinates as _workspace_2_refine_wing__face_coordinates
@@ -39,8 +38,6 @@ from tests.tier1_offline.test_p0380_s1_refine import _refused as _workspace_1_re
 from tests.tier1_offline.test_p0380_s1_refine import _source as _decided_docs_1_refine_tag___source
 from tests.tier1_offline.test_p0380_s1_refine import _source as _workspace_1_refine___source
 from tests.tier1_offline.test_p0380_s1_refine import _two_tubes as _workspace_1_refine___two_tubes
-from tests.tier1_offline.test_p0380_s4_sector import SIX as _WORKSPACE_2_REFINE_SECTOR__SIX
-from tests.tier1_offline.test_p0380_s4_sector import _cells as _workspace_2_refine_sector___cells
 
 _DECIDED_DOCS_1_REFINE_TAG__PAGE = (
     Path(__file__).resolve().parents[2] / "docs" / "mesh" / "reference.md"
@@ -412,53 +409,6 @@ class TestWorkspace2RefineLevel:
         level = refine_mesh(src, config=src.with_suffix(".refine.toml"), out_dir=tmp_path / "out")
         assert _workspace_2_refine_level___record(level)["families"]["T"]["method"] == "remesh"
         assert len(_workspace_2_refine_level___te_rows(level)) == len(mesh.te)
-
-
-def _workspace_2_refine_sector___body(axial: float, circumferential: float) -> str:
-    return (
-        f"[families.W]\naxial = {axial}\ncircumferential = {circumferential}\n"
-        "axis = [0.0, 0.0, 1.0]\n"
-    )
-
-
-class TestWorkspace2RefineSector:
-    """P0400-REFINESECTOR: a periodic sector's cut is never resampled by an undecided factor."""
-
-    @staticmethod
-    @pytest.fixture(autouse=True, scope="class")
-    def _optional_dependencies():
-        pytest.importorskip("trimesh")
-
-    @staticmethod
-    def test_p0400_refinesector_a_finely_spaced_open_edge_beside_a_cut_is_not_the_cut():
-        """P0400-REFINESECTOR (PFS-2099.022): the wedge's open arcs are spaced 0.3 degrees beside
-        each cut, closer to the cut's corner than a quarter of its first segment. The arc's node is
-        no cut node: the level (here the source itself) matches its cuts node for node, where the
-        distance rule took the arc's node at 0.3 degrees on one cut and at 59.7 on the other and
-        refused a sector that matches."""
-        theta = numpy.radians([0.0, 0.3, 10.0, 20.0, 30.0, 40.0, 50.0, 59.7, 60.0])
-        z = 0.5 * (1.0 - numpy.cos(numpy.pi * numpy.arange(6) / 5))
-        t, h = numpy.meshgrid(theta, z)
-        verts = numpy.column_stack([numpy.cos(t).ravel(), numpy.sin(t).ravel(), h.ravel()])
-        na = len(theta) - 1
-        faces = {
-            "W": _workspace_2_refine_sector___cells(
-                na, [(i, j) for j in range(5) for i in range(na)]
-            )
-        }
-        size = float(numpy.linalg.norm(verts.max(axis=0) - verts.min(axis=0)))
-        cuts = find_cuts(verts, faces, _WORKSPACE_2_REFINE_SECTOR__SIX, size=size, where="wedge")
-        level, report = match_level(
-            verts,
-            faces,
-            cuts,
-            _WORKSPACE_2_REFINE_SECTOR__SIX,
-            source=verts,
-            size=size,
-            where="wedge",
-        )
-        assert report is not None and report["level_distance"] <= 1e-9 * size, report
-        assert report["pairs"][0]["level_nodes"] == [6, 6], report
 
 
 #: Chordwise positions from the trailing edge (column 0) to the leading edge.

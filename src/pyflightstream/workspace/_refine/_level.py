@@ -1,10 +1,6 @@
 """Write a level: the orchestration behind ``pyfs-matrix refine`` and ``refine_mesh``.
 
-FR-424, FR-425 and FR-427. With ``[periodic]``, the source's cut boundaries
-are found, and refused when they do not match, before any work; the remeshed
-sides of the cuts are rebuilt on matching nodes like the neighbours of step
-4; and the level's cuts are matched and measured after assembly
-(:mod:`._periodic`).
+FR-424 and FR-425.
 
 The order, from the source to the level folder:
 
@@ -58,7 +54,6 @@ from pyflightstream.workspace._refine import (
     _grid,
     _lines,
     _obj,
-    _periodic,
 )
 from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import FamilySpec, RefineRequest
@@ -129,7 +124,7 @@ class _Work:
     report: dict[str, dict[str, Any]] = field(default_factory=dict)
     parts: dict[str, tuple[Points, dict[str, Faces], Points]] = field(default_factory=dict)
     conform: dict[str, list[tuple[set[int], Points]]] = field(default_factory=dict)
-    # FR-432: the entries of conform whose grid is a refined side (not a periodic cut's)
+    # FR-432: the entries of conform whose grid is a refined side
     shared: dict[str, list[tuple[set[int], Points]]] = field(default_factory=dict)
     # FR-431: the unchanged neighbours a band would have covered whole, and their record
     rebuilt: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -138,8 +133,6 @@ class _Work:
     # the progress line callback of refine_mesh; silent by default
     say: Callable[[str], None] = field(default=lambda _line: None)
     bands: dict[str, str] = field(default_factory=dict)
-    cuts: list[_periodic.CutPair] = field(default_factory=list)
-    periodic: dict[str, Any] | None = None
     sidecar: str | None = None  # the level's boundaries file, rewritten before any work
     unchanged: list[str] = field(default_factory=list)  # the families G6 compares
     # FR-972: the selected families of a summary tag, taken with the tag before any work
@@ -472,7 +465,7 @@ def _interface_points(
     (``old``). A new boundary node is on it when it lies within
     :data:`._geometry.ON_CURVE_FRACTION` of a segment's length from one of
     those edges AND one of its own boundary edges runs along the curve: both
-    ends within :data:`._periodic.ALONG_FRACTION` of the EDGE's length from it (an edge
+    ends within :data:`._geometry.ALONG_FRACTION` of the EDGE's length from it (an edge
     leaving the curve at a right angle has its far end one length away). A node of another
     boundary curve next to the curve's end, closer to it than a quarter of a
     curve segment, is no node of it: its edges run away from the curve.
@@ -505,7 +498,7 @@ def _interface_points(
     for u, w in edges:
         if u in near and w in near:
             span = float(numpy.linalg.norm(level.points[u] - level.points[w]))
-            if max(near[u], near[w]) < _periodic.ALONG_FRACTION * span:
+            if max(near[u], near[w]) < _geometry.ALONG_FRACTION * span:
                 along.update((u, w))
     keep = [v for v in near if v in along]
     return level.points[keep] if keep else None
@@ -591,25 +584,6 @@ def _band(faces: Faces, seed: set[int], layers: int) -> set[int]:
         selected.update(new)
         vertices |= {v for i in new for v in faces[i]}
     return selected
-
-
-def _conform_cuts(work: _Work) -> None:
-    """Rebuild the remeshed sides of a periodic sector's cuts on matching nodes (FR-427)."""
-    planned = _periodic.plan_conform(
-        work.mesh.verts,
-        work.mesh.families,
-        work.cuts,
-        work.request.periodic,
-        remeshed={n: work.specs[n].factor for n in work.remesh},
-        grids={
-            m: (pts, fams[m])
-            for n, (pts, fams, _) in work.parts.items()
-            if n in work.grids
-            for m in fams
-        },
-    )
-    for name, entries in planned.items():
-        work.conform.setdefault(name, []).extend(entries)
 
 
 def _remesh_groups(work: _Work) -> None:
@@ -893,7 +867,6 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int], has_te: bool) -> 
         n: {k: v for k, v in vars(s).items() if v is not None}
         for n, s in work.request.specs.items()
     }
-    periodic = {} if work.periodic is None else {"periodic": work.periodic}
     shortened = {} if work.tag_selection is None else {"tag_selection": work.tag_selection}
     return {
         "schema_version": REFINE_SCHEMA_VERSION,
@@ -921,7 +894,6 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int], has_te: bool) -> 
         },
         "faces": dict(counts),
         **shortened,
-        **periodic,
     }
 
 
@@ -1130,22 +1102,14 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     )
     work.tag_selection = _config.tag_selection(request, list(obj.families))
     work.sidecar = _boundaries_text(work, stem)
-    where = f"{source} [periodic]"
-    work.cuts = _periodic.find_cuts(
-        obj.verts, obj.families, request.periodic, size=work.scale, where=where
-    )
     _decide(work)
     work.say(f"decided: {len(work.grids)} grid, {len(work.remesh)} remeshed")
     _refine_grids(work)
     work.say("bands and shared curves")
     _bands(work)
-    _conform_cuts(work)
     _remesh_groups(work)
     work.say("assembling the level")
     verts, faces, te = _assemble(work)
-    verts, work.periodic = _periodic.match_level(
-        verts, faces, work.cuts, request.periodic, source=obj.verts, size=work.scale, where=where
-    )
     faces = _components(work, faces)
     work.unchanged = _unchanged_grids(work, list(faces))
     unchanged = work.unchanged

@@ -59,6 +59,9 @@ FlightStream versions.
 - The body remesh along and around an axis (`axial`, `circumferential`,
   `axis`, `origin`). Migration: the keys are warned and skipped; a table that
   also states `factor` is refined by it, and one that does not is skipped.
+- The periodic sector of the refinement (`[periodic]`: `axis`, `origin`,
+  `copies`), which matched the two cut faces node for node. Migration: the
+  table is warned and skipped, and a sector is refined as any mesh.
 
 ## [0.47.0] - 2026-10-27
 

@@ -284,7 +284,7 @@ _REFINE_DESCRIPTION = (
     "perimeter of the grid families ([[perimeter]] node lists of the refinement file, else a "
     "neighbour's trailing edge or the family's longest side). Without FACTOR, --parallel or "
     "--normal, the factors come from the refinement "
-    "file (--config, or <stem>.refine.toml beside the mesh), whose [components], [periodic], "
+    "file (--config, or <stem>.refine.toml beside the mesh), whose [components], "
     "[refine] tag and elements (triangles or quad-dominant) are read whenever it exists. "
     "Faces are written in the source's order. The "
     "source and its folder are never modified. Remeshing a family needs the geom extra. Needs "

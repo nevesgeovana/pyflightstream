@@ -181,42 +181,6 @@ def test_p0430_f305_weld_follows_the_tolerance_not_a_rounding_grid(tmp_path):
     assert level_nodes("edge", [_across_a_bin_edge(2.0, size * _TOL), 0.0, 0.0]) == welded
 
 
-def test_p0430_f330_fixed_side_nodes_follow_the_tolerance():
-    """F-330: the fixed-side cut nodes keep distinct nodes and drop coincident ones by distance."""
-    from pyflightstream.workspace._refine._config import Periodic
-    from pyflightstream.workspace._refine._periodic import CutPair, plan_conform
-
-    periodic = Periodic(axis=(0.0, 0.0, 1.0), origin=(0.0, 0.0, 0.0), copies=4)
-    size = float(numpy.hypot(2.0, 2.0))  # the diagonal of the used vertices' bounding box
-
-    def slave_nodes(gap: float) -> int:
-        # M is fixed, S is remeshed: S's cut is rebuilt on the quarter-turn image of M's cut
-        # nodes, whose last two nodes lie `gap` tolerances apart
-        eps = gap * _TOL * size
-        verts = numpy.array(
-            [
-                [1.0, 0, 0], [2.0, 0, 0], [2.0 + eps, 0, 0], [1.0, 1.0, 0.0],
-                [0, 1.0, 0], [0, 2.0, 0], [0, 2.0 + eps, 0], [-1.0, 1.0, 0.0],
-            ]
-        )  # fmt: skip
-        families = {"M": [[0, 1, 3], [1, 2, 3]], "S": [[4, 5, 7], [5, 6, 7]]}
-        cut = CutPair((0, 1, 2), (4, 5, 6), 1, 0.0, (("M",), ("S",)))
-        planned = plan_conform(verts, families, [cut], periodic, remeshed={"S": 1.0}, grids={})
-        ((_, nodes),) = planned["S"]
-        return len(nodes)
-
-    assert slave_nodes(0.02) == 2  # coincident within the tolerance: one node
-    assert slave_nodes(1.7) == 3  # farther apart than the tolerance: two nodes
-    # RB5: within the tolerance across an edge of a rounding grid of the plan's own pitch (the
-    # bounding box grows with the gap, so the pitch is found with it): still one node
-    for fraction in numpy.linspace(0.05, 0.95, 19):
-        eps = fraction * _TOL * float(numpy.hypot(3.0, 2.0))
-        pitch = _TOL * float(numpy.linalg.norm([(2.0 + eps) + 1.0, 2.0 + eps, 0.0]))
-        if eps < 0.95 * pitch and numpy.round(2.0 / pitch) != numpy.round((2.0 + eps) / pitch):
-            break
-    assert slave_nodes(eps / (_TOL * size)) == 2
-
-
 # ---------------------------------------------------------------- F-331 X-F-0435
 
 

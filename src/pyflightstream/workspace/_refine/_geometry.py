@@ -82,16 +82,13 @@ QUAD_ANGLE_BAND = (30.0, 150.0)
 #: warp_over_10_degrees; the diagonal is the shared edge, so an edge sharper than this is
 #: never merged across.
 QUAD_WARP_DEGREES = 10.0
-#: FR-942: the matched cut nodes of a periodic level lie within this fraction of the size.
-PERIODIC_LEVEL_FRACTION = 1e-9
-#: FR-943: the source's cut boundaries must match within this fraction of the size.
-PERIODIC_SOURCE_FRACTION = 1e-6
-#: FR-945: the projected edge lengths match their factor within this fraction.
-AXIAL_BAND = 0.15
-#: FR-933, FR-934 and FR-427: a level node lies on a source curve (a grid's interface with
-#: a neighbour, a periodic cut) when it is within this fraction of the nearest segment's
-#: length from it.
+#: FR-933, FR-934: a level node lies on a source curve (a grid's interface with a
+#: neighbour) when it is within this fraction of the nearest segment's length from it.
 ON_CURVE_FRACTION = 0.25
+#: FR-933: a boundary edge runs along a curve when both its ends lie within this fraction
+#: of the edge's own length from it; a node near a curve's end whose edges all leave the
+#: curve (the next open boundary) is no node of the curve.
+ALONG_FRACTION = 0.5
 #: FR-936, FR-938 G3: a level loop closes the same opening as a source loop when every
 #: node of each lies within this fraction of the source loop's extent (the diagonal of its
 #: bounding box) from the other's polyline. Resampling a loop moves its polyline by the

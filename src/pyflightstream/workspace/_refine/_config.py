@@ -3,7 +3,7 @@
 The factors come from the call (FACTOR, ``--parallel``, ``--normal``) or,
 when the call gives none, from the refinement file: ``--config FILE`` or
 ``<stem>.refine.toml`` beside the mesh. The file's ``[components]``,
-``[periodic]``, ``[refine] tag`` and the element modes (``[refine] elements``
+``[refine] tag`` and the element modes (``[refine] elements``
 and each family's ``elements``) are read whenever the file exists, whatever
 gives the factors. ``families`` selects the families to change on either
 route: from the call's factors, or from the file's tables, whose unselected
@@ -70,10 +70,10 @@ FACTOR_ALIASES = {"spanwise": "parallel_factor", "chordwise": "normal_factor"}
 PERIMETER_KEYS = ("file", "export_te_per_family")
 #: The keys of ``[refine]``.
 REFINE_KEYS = ("tag", "elements")
-#: The keys of ``[periodic]`` (FR-427).
-PERIODIC_KEYS = ("axis", "origin", "copies")
 #: The top-level tables of a refinement file.
-TABLES = ("refine", "families", "components", "periodic", "trailing_edge", "perimeter")
+TABLES = ("refine", "families", "components", "perimeter")
+#: Tables a refinement file may still state from earlier releases; each is warned and skipped.
+RETIRED_TABLES = ("trailing_edge", "periodic")
 
 
 @dataclass(frozen=True)
@@ -116,7 +116,6 @@ class Perimeter:
     export_te_per_family: bool = False
 
 
-@dataclass(frozen=True)
 class Periodic:
     """The rotation that maps one cut face of a sector onto the other (FR-427)."""
 
@@ -127,7 +126,7 @@ class Periodic:
 
 @dataclass(frozen=True)
 class RefineRequest:
-    """Everything a refinement was asked: specs, tag, components, periodicity and element modes.
+    """Everything a refinement was asked: specs, tag, components and element modes.
 
     ``elements`` holds the modes the file states per family, and
     ``default_elements`` the mode of ``[refine] elements`` (else triangles).
@@ -140,7 +139,6 @@ class RefineRequest:
     specs: dict[str, FamilySpec]
     tag: str | None = None
     components: dict[str, list[str]] = field(default_factory=dict)
-    periodic: Periodic | None = None
     config: Path | None = None
     elements: dict[str, str] = field(default_factory=dict)
     default_elements: str = TRIANGLES
@@ -326,29 +324,6 @@ def _table(where: str, value: Any, remedy: str) -> dict[str, Any]:
     return value
 
 
-def _periodic(path: Path, raw: Any) -> Periodic:
-    """Return ``[periodic]`` (FR-427): axis, origin and the number of copies in a turn."""
-    where = f"{path} [periodic]"
-    if not isinstance(raw, dict):
-        raise _refuse(where, "the table must hold axis, origin and copies")
-    unknown = sorted(set(raw) - set(PERIODIC_KEYS))
-    missing = [k for k in PERIODIC_KEYS if k not in raw]
-    if unknown or missing:
-        said = [_keys("unknown", unknown), _keys("missing", missing)]
-        raise _refuse(
-            where,
-            f"{'; '.join(s for s in said if s)}; the keys are {', '.join(PERIODIC_KEYS)}",
-        )
-    copies = raw["copies"]
-    if isinstance(copies, bool) or not isinstance(copies, int) or copies < 2:
-        raise _refuse(f"{where} copies", f"{copies!r} is not an integer of at least 2")
-    return Periodic(
-        axis=_vector(f"{where} axis", raw["axis"], nonzero=True),
-        origin=_vector(f"{where} origin", raw["origin"], nonzero=False),
-        copies=copies,
-    )
-
-
 def _family_tables(
     source: Path,
     families: Mapping[str, Any],
@@ -413,7 +388,7 @@ def read_refine_file(
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         # Not UTF-8 text is a refusal like any unreadable file (PFS-2099.004).
         raise _refuse(str(source), f"the refinement file cannot be read ({error})") from error
-    unknown = sorted(set(data) - set(TABLES))
+    unknown = sorted(set(data) - set(TABLES) - set(RETIRED_TABLES))
     if unknown:
         raise _refuse(
             str(source), f"unknown table [{unknown[0]}]; the tables are {', '.join(TABLES)}"
@@ -451,6 +426,8 @@ def read_refine_file(
         )
     default = refine.get("elements", TRIANGLES)
     trailing = _trailing_edge(source, data.get("trailing_edge", {}))
+    if "periodic" in data:
+        _skip(f"{source} [periodic]", "is no longer read; a periodic sector is refined as any mesh")
     return {
         **trailing,
         "perimeters": _perimeters(source, data.get("perimeter", [])),
@@ -461,7 +438,6 @@ def read_refine_file(
         "default_elements": elements_mode(f"{source} [refine]", default),
         "tag": tag,
         "components": _components(source, data.get("components", {}), names),
-        "periodic": _periodic(source, data["periodic"]) if "periodic" in data else None,
     }
 
 
@@ -579,7 +555,6 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             "default_elements": TRIANGLES,
             "tag": None,
             "components": {},
-            "periodic": None,
         }
     )
     chosen = list(names) if families is None else list(families)
@@ -650,7 +625,6 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         specs=specs,
         tag=stated["tag"],
         components=stated["components"],
-        periodic=stated["periodic"],
         config=file,
         elements=stated["elements"],
         default_elements=stated["default_elements"],

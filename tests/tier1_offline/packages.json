@@ -135,7 +135,6 @@
       "tests/tier1_offline/test_p0380_s1_grid.py",
       "tests/tier1_offline/test_p0380_s1_quaddom.py",
       "tests/tier1_offline/test_p0380_s1_remesh.py",
-      "tests/tier1_offline/test_p0380_s4_sector.py",
       "tests/tier1_offline/test_p0390_bandswallow.py",
       "tests/tier1_offline/test_p0390_rev38_arch.py",
       "tests/tier1_offline/test_p0390_taglen.py",
