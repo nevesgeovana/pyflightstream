@@ -14,7 +14,7 @@ from pyflightstream.cases.pproc import StreamlineLine, StreamlinesSpec, Streamli
 from pyflightstream.script import Script
 
 from ._conventions import declared_run_type
-from ._frames import _pproc_frame
+from ._frames import _a_rotor_frame_the_row_leaves_out, _pproc_frame
 from ._gap_evidence import refuse_unprobed_commands
 from ._probes import _in_the_reference_frame, _the_radius_the_probe_lines_are_in
 from ._rows import _from_metres
@@ -247,8 +247,12 @@ def _emit_off_body(
         script.emit("SET_OFF_BODY_STREAMLINE_LENGTH", set_length=round(spec.length_m * native, 5))
     elif spec.unrestricted:
         script.emit("SET_OFF_BODY_STREAMLINE_LENGTH", set_unrestricted_length=True)
-    for line in spec.lines:
-        _emit_line(case, script, frames, line, geometry)
-    for tube in spec.tubes:
-        _emit_tube(case, script, frames, tube, geometry)
+    for number, line in enumerate(spec.lines, start=1):
+        what = f"[streamlines] seed line {number}"
+        if not _a_rotor_frame_the_row_leaves_out(case, frames, line.frame, what):
+            _emit_line(case, script, frames, line, geometry)
+    for number, tube in enumerate(spec.tubes, start=1):
+        what = f"[streamlines] tube {number}"
+        if not _a_rotor_frame_the_row_leaves_out(case, frames, tube.frame, what):
+            _emit_tube(case, script, frames, tube, geometry)
     script.emit("GENERATE_ALL_OFF_BODY_STREAMLINES")

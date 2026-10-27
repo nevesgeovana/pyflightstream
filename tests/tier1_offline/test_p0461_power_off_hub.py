@@ -206,3 +206,55 @@ def test_p0461_rotorless_unsteady_row_places_every_declared_hub(tmp_path):
         _, turning = _rendered(root, _one_row_matrix(root, "twin.fs", row))
     for alias in ("PORT", "STARBOARD"):
         assert _placement(text, f"{alias}_SMRP") == _placement(_only(turning), f"{alias}_SMRP")
+
+
+def _ignored(said: list[str], frame: str) -> list[str]:
+    return [message for message in said if f"{frame!r}" in message and "ignored" in message]
+
+
+def test_p0461_a_section_in_an_unplaced_rotor_frame_is_warned_once_and_left_out(tmp_path):
+    """RED on v0.46.0: both steady rows were BLOCKED ("this run created no such frame")."""
+    pproc = _section("MRP") + (
+        '\n[[sections.distributions]]\nfamilies = ["Body"]\nframe = "PUSHER_RMRP"\n'
+        'planes = ["XZ"]\n'
+    )
+    plan, rendered, said = _plan(
+        tmp_path, pproc, [(7101, "steady", _PUSHER), (7102, "steady", _PUSHER)]
+    )
+    assert not plan.blocked, plan.summary()
+    (about,) = _ignored(said, "PUSHER_RMRP")
+    assert "section distribution 2" in about and "'7101'" in about and "'7102'" in about
+    assert "will be ignored on these rows" in about
+    for text in rendered.values():
+        lines = text.splitlines()
+        assert lines.count("NEW_SURFACE_SECTION_DISTRIBUTION") == 1
+        at = lines.index("NEW_SURFACE_SECTION_DISTRIBUTION")
+        assert lines[at + 1] == f"FRAME {_frame_index(text, 'MRP')}"
+
+
+def test_p0461_a_plot_group_in_an_unplaced_blade_frame_is_warned_and_left_out(tmp_path):
+    """RED on v0.46.0: the rotorless unsteady row was BLOCKED on PUSHER_RMRP1."""
+    pproc = (
+        '[plots]\nparameters = ["FX"]\n\n'
+        '[[plots.groups]]\nname = "BODY_MRP"\nframe = "MRP"\nfamilies = "all"\n\n'
+        '[[plots.groups]]\nname = "BLADE_ONE"\nframe = "PUSHER_RMRP1"\nfamilies = "all"\n'
+    )
+    plan, rendered, said = _plan(tmp_path, pproc, [(7101, "unsteady", _PUSHER)])
+    assert not plan.blocked, plan.summary()
+    (about,) = _ignored(said, "PUSHER_RMRP1")
+    assert "plot group 'BLADE_ONE'" in about and "'7101'" in about
+    text = _only(rendered)
+    assert "FX_BODY_MRP" in text and "BLADE_ONE" not in text
+
+
+@pytest.mark.parametrize("frame", ["PUSHR_RMRP", "LIFTER_SMRP"])
+def test_p0461_a_frame_no_declared_rotor_owns_is_still_refused(tmp_path, frame):
+    """A typo or an undeclared alias cannot come right on another row: refused, not skipped."""
+    pproc = (
+        f'{_section("MRP")}\n[[sections.distributions]]\nfamilies = ["Body"]\n'
+        f'frame = "{frame}"\nplanes = ["XZ"]\n'
+    )
+    plan, _, said = _plan(tmp_path, pproc, [(7101, "steady", _PUSHER)])
+    assert plan.blocked
+    assert f"{frame!r}" in plan.summary() and "this run created no such frame" in plan.summary()
+    assert not _ignored(said, frame)

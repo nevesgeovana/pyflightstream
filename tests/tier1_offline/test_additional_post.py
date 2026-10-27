@@ -558,11 +558,16 @@ def test_g12_the_distributions_cite_the_frames_the_run_created(tmp_path):
 
 
 def test_g12_an_additional_pproc_citing_a_frame_the_run_did_not_create_is_refused(tmp_path):
-    """A steady row creates no rotor frame, so a distribution in one is refused by name."""
+    """A frame of a rotor no reference declares cannot come right: refused by name.
+
+    ROTOR_SMRP, the unnamed rotor's hub, is a frame a rotor row creates, so since
+    P0461 a distribution in it is left out with a warning instead; PUSHER_SMRP
+    over a reference declaring no PUSHER is the refusal's case.
+    """
     table = {
         "sections": {
             "distributions": [
-                {"families": ["W"], "frame": "ROTOR_SMRP", "planes": ["XZ"], "count": 4}
+                {"families": ["W"], "frame": "PUSHER_SMRP", "planes": ["XZ"], "count": 4}
             ]
         }
     }

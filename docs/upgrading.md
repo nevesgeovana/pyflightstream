@@ -16,9 +16,10 @@ A steady or `unsteady` row whose reference declares a rotor now places
 power-on row serves the power-off row unchanged. Its script gains one
 coordinate frame per declared rotor, created after the body frames
 `<ALIAS>_BMRP` and the reference's own frames, whose indices do not move.
-A probe entry in a rotor frame the row does not place, such as `<ALIAS>_RMRP`
-on a steady row, is now ignored on that row with one warning per campaign
-instead of blocking the plan. Nothing needs editing.
+A pproc entry in a declared rotor's frame that the row does not place, such as
+a probe table or a section distribution in `<ALIAS>_RMRP` on a steady row, is
+now ignored on that row with one warning per campaign instead of blocking the
+plan. Nothing needs editing.
 
 ## 0.46.0
 

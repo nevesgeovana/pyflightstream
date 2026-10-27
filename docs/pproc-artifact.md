@@ -258,7 +258,14 @@ A row whose reference declares a rotor places that rotor's `<ALIAS>_SMRP` at
 its hub, on the rotor's hub axes, even when the row turns no blades: a steady
 power-off row and an unsteady row of the `unsteady` run type do. An entry in
 `PUSHER_SMRP` therefore lands on the power-off and the power-on rows alike.
-`<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>` exist only on a row that turns that rotor.
+`<ALIAS>_RMRP<k>` exists only on a row that turns that rotor, and
+`<ALIAS>_RMRP` only there and on an `unsteady` row of a single-rotor
+reference, where it stands still at the hub. An entry that names one of a
+declared rotor's frames by its full name (a section distribution, a plot
+group, a probe table, a surface probe, the sampled volume section, a
+streamline seed) on a row that does not place it is LEFT OUT of that row too,
+and the plan says so once per campaign, naming the rows. A frame name no
+declared rotor owns, such as a misspelling, is REFUSED.
 
 !!! warning "A rotor's frames are named from its alias"
 

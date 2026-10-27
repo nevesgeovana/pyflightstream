@@ -3,9 +3,10 @@
 A probe entry laid in a rotor frame its row does not place is ignored on that
 row: nothing is emitted for it there, and the plan warns once per campaign,
 naming the entry, the frame and the rows that leave it out. A row turning no
-blades places each declared rotor's hub frame `<ALIAS>_SMRP` and none of its
-`<ALIAS>_RMRP` frames, so one pproc artifact serves the power-off and the
-power-on rows. A frame of an alias the reference does not declare, such as
+blades places each declared rotor's hub frame `<ALIAS>_SMRP` but none of its
+blade frames `<ALIAS>_RMRP<k>`, and a steady row places no `<ALIAS>_RMRP`
+either, so one pproc artifact serves the power-off and the power-on rows. The same holds for every pproc entry that names a rotor's
+frame, not only probe tables. A frame of an alias the reference does not declare, such as
 `PUSHER_SMRP` over a reference without a `PUSHER` rotor, is still refused.
 
 The probes table, `probes/<point>_probes.csv`, lists the solver's values at

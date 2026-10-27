@@ -41,6 +41,7 @@ from pyflightstream.script import (
 
 from ._farfield import farfield_blade_sections, farfield_outputs, farfield_sections
 from ._frames import (
+    _emissions_the_row_places,
     _pproc_frame,
 )
 from ._motion import (
@@ -292,9 +293,10 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     owners: dict[str, int] = {}
     for position, group in enumerate(pproc.plots.groups):
         what = f"plot group {group.name!r}"
-        for frame_name, families, label in pproc_emissions(
+        emissions = pproc_emissions(
             case, group.frame, group.families, inventory, pproc.is_blade, what, frames
-        ):
+        )
+        for frame_name, families, label in _emissions_the_row_places(case, frames, what, emissions):
             frame = _pproc_frame(case, frames, frame_name, what, families)
             name = group.name.format(family=label) if "{family}" in group.name else group.name
             # THE TWO READINGS OF ONE ROTATED HUB NEED TWO NAMES, or the
@@ -513,7 +515,7 @@ def _declared_sections(case: SimCase, script: Script, frames: Frames) -> None:
         # blade's own axes is one per blade, and one measured in a rotor's
         # is one per rotor. The reference `p010.toml` writes exactly that, over
         # `["lifters", "PUSHER"]`, and means nine distributions.
-        for frame_name, families, _label in pproc_emissions(
+        emissions = pproc_emissions(
             case,
             entry.frame,
             entry.families,
@@ -522,6 +524,9 @@ def _declared_sections(case: SimCase, script: Script, frames: Frames) -> None:
             what,
             frames,
             blades_only=True,  # FR-75
+        )
+        for frame_name, families, _label in _emissions_the_row_places(
+            case, frames, what, emissions
         ):
             frame = _pproc_frame(case, frames, frame_name, "a section distribution", families)
             indices = [script.resolve_boundary(f, context="pproc section") for f in families]
