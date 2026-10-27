@@ -60,6 +60,10 @@ FlightStream versions.
   their written direction and the blade count from their connected lattices.
   Shed cross-segments do not become extra wake lines.
 - Window loads exports are omitted when the row names no file for that kind.
+- Rotor wake loads accumulate each blade's bound circulation from the root. The
+  solver's rotor lattice does not close at the tip, so the sum from the tip
+  offset every strip and gave about a quarter of the near-field thrust; the sum
+  from the root gives it within 3 percent on a recorded six-blade rotor.
 
 - The rotor symmetry floor uses the recorded periodic wheel count even when
   reductions record only the meshed blade count or no blade count.

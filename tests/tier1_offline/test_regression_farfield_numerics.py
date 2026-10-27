@@ -3245,6 +3245,54 @@ def test_p0470_ffr_a_helical_wake_returns_its_kutta_joukowski_thrust_and_torque(
 
 
 @pytest.mark.requirement("FR-452")
+def test_p0470_ffr_a_truncated_tip_filament_leaves_the_bound_circulation_intact():
+    """P0470-FFR option 3: a lattice whose tip filament carries a fraction of its value.
+
+    The recorded 26.125 rotor export does not close Kelvin per blade (its values sum
+    to about half the peak circulation): the outermost trailing filament is short of
+    the circulation the strips beside it carry. The bound circulation is accumulated
+    from the root, so every strip keeps its known Gamma; only the tip filament's own
+    induction changes, and the reference sees the same truncated filament.
+    """
+    blades, rho, v, omega = 3, 1.225, 20.0, 120.0
+    radii = np.linspace(0.2, 1.0, 9)
+    mids = 0.5 * (radii[:-1] + radii[1:])
+    gamma = 2.0 * np.sin(math.pi * (mids - 0.2) / 0.8) + 0.3
+    lines, values = _p0470_helical_wake(
+        blades, gamma=gamma, radii=radii, v=v, omega=omega, turns=6.0
+    )
+    tip = np.arange(len(lines)) % len(radii) == len(radii) - 1
+    values = np.where(tip, 0.25 * values, values)
+    loads = ff.wake_rotor_loads(
+        lines,
+        values=values,
+        hub=(0.0, 0.0, 0.0),
+        axis=(1.0, 0.0, 0.0),
+        omega=omega,
+        v_axial=v,
+        rho=rho,
+        blades=blades,
+    )
+    thrust = torque = 0.0
+    for blade in range(blades):
+        theta_b = 2.0 * math.pi * blade / blades
+        for j, g in enumerate(gamma):
+            point = 0.5 * (lines[blade * len(radii) + j][0] + lines[blade * len(radii) + j + 1][0])
+            w = np.zeros(3)
+            for line, value in zip(lines, values, strict=True):
+                for head, tail in zip(line[:-1], line[1:], strict=True):
+                    w += _p0470_segment_velocity(point, head, tail, -value)
+            e_r = np.array([0.0, math.cos(theta_b), math.sin(theta_b)])
+            e_t = np.cross([1.0, 0.0, 0.0], e_r)
+            radius = float(np.linalg.norm(point[1:]))
+            dr = radii[j + 1] - radii[j]
+            thrust += rho * g * (omega * radius - float(w @ e_t)) * dr
+            torque += rho * g * (v + float(w[0])) * radius * dr
+    assert loads.thrust == pytest.approx(thrust, rel=0.01)
+    assert loads.torque == pytest.approx(torque, rel=0.01)
+
+
+@pytest.mark.requirement("FR-452")
 def test_p0470_ffr_a_periodic_sector_wake_is_copied_to_the_whole_rotor():
     """P0470-FFR option 3: one meshed blade of three gives the loads of the three."""
     radii = np.linspace(0.2, 1.0, 7)

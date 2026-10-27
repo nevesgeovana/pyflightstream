@@ -785,8 +785,11 @@ def wake_rotor_loads(
 
     The lines are split per blade at the azimuth gaps of their first nodes and
     ordered root to tip. The bound circulation of the strip between lines ``j``
-    and ``j + 1`` is the accumulated shed circulation from the tip,
-    ``Gamma_j = -sum_{k > j} value_k``, the convention of Trefftz B, and line
+    and ``j + 1`` is the accumulated shed circulation from the root,
+    ``Gamma_j = sum_{k <= j} value_k``. It equals the tip sum of Trefftz B,
+    ``-sum_{k > j} value_k``, when a blade's values close (sum zero); the
+    solver's rotor lattice does not close at the tip, whose filament carries
+    part of the circulation, so the root anchor keeps every strip. Line
     ``k`` is a chain of straight vortex segments of strength ``-value_k`` along
     the line. At the strip's lifting-line point (the midpoint of the two first
     nodes) the induced velocity ``w`` of every line (Biot-Savart) gives
@@ -855,7 +858,7 @@ def wake_rotor_loads(
     thrust = torque = 0.0
     for group in groups:
         group = group[np.argsort(radius[group], kind="stable")]
-        bound = -np.cumsum(values[group][::-1])[::-1][1:]
+        bound = np.cumsum(values[group])[:-1]
         mids = 0.5 * (starts[group][:-1] + starts[group][1:])
         dr = np.diff(radius[group])
         _, r_mid, _ = _hub_coordinates(mids, origin, e_a)

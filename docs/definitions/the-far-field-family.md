@@ -341,12 +341,17 @@ a lower bound on the recorded blade count before periodic completion.
 **Bound circulation.** The lines of one rotor are split into blades at the
 azimuth gaps of their first nodes wider than half a blade passage, and each
 blade's lines are ordered root to tip by radius. The strip between lines `j`
-and `j + 1` carries the accumulated shed circulation from the tip,
+and `j + 1` carries the accumulated shed circulation from the root,
 
-    Gamma_j = - sum_{k > j} value_k
+    Gamma_j = sum_{k <= j} value_k
 
-the convention of B, at `r_j` the mean radius of the two first nodes, width
-`dr_j` their radial difference. Line `k` is a chain of straight vortex
+at `r_j` the mean radius of the two first nodes, width `dr_j` their radial
+difference. When a blade's values close (their sum is zero) this equals the
+tip sum `- sum_{k > j} value_k` of B. The solver's rotor lattice does not close
+at the tip: its outermost filament carries only part of the circulation of the
+strips beside it, so a sum from the tip would offset every strip by the
+missing part. On a recorded six-blade rotor the root sum gave a wake thrust
+within 3 percent of the near-field thrust and the tip sum about a quarter of it. Line `k` is a chain of straight vortex
 segments of strength `-value_k` along the line.
 
 **Loads (Kutta-Joukowski).** At each strip's lifting-line point (the midpoint of
