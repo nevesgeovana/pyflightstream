@@ -16,6 +16,12 @@ FlightStream versions.
   power-off row as on the power-on row. Rows that already placed the frame
   emit the same script.
 
+- A probe entry laid in a rotor frame its row does not place, such as
+  `PUSHER_RMRP` on a steady row, no longer blocks the plan. The entry is
+  ignored on that row and the plan warns once per campaign, naming the entry,
+  the frame and the rows. A frame of an alias the reference does not declare
+  is still refused.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added

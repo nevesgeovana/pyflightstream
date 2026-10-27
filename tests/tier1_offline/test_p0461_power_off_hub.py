@@ -174,6 +174,22 @@ def test_p0461_a_reference_with_no_rotor_still_refuses_a_hub_frame_probe(tmp_pat
     assert "'PUSHER_SMRP'" in message and "this run created no such frame" in message
 
 
+def test_p0461_a_rotor_frame_the_row_does_not_place_is_warned_once_and_left_out(tmp_path):
+    """RED on v0.46.0: both rows were BLOCKED, refusing the PUSHER_RMRP probe."""
+    pproc = _probe("MRP") + _probe("PUSHER_RMRP")
+    plan, rendered, said = _plan(
+        tmp_path, pproc, [(7101, "steady", _PUSHER), (7102, "steady", _PUSHER)]
+    )
+    assert not plan.blocked, plan.summary()
+    about = [message for message in said if "PUSHER_RMRP" in message and "ignored" in message]
+    assert len(about) == 1, about
+    assert "entry 2" in about[0] and "7101" in about[0] and "7102" in about[0]
+    assert "will be ignored on these rows" in about[0]
+    for text in rendered.values():
+        (line,) = _probe_lines(text)
+        assert line == pytest.approx(_the_line_in(text, "MRP"))
+
+
 def test_p0461_rotorless_unsteady_row_places_every_declared_hub(tmp_path):
     """RED on v0.46.0: a two-rotor reference left both hub frames unplaced."""
     pproc = _probe("PORT_SMRP", kind="instantaneous")
