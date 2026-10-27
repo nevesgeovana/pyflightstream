@@ -91,6 +91,10 @@ FlightStream versions.
   "avg_window"`, a family no geometry carries and a command the build lacks
   are still refused.
 
+- `ADDITIONAL_PPROC` on a LEGACY row no longer refuses the matrix: the plan
+  warns once naming the rows, and the additional post skips their points as
+  `LEGACY_ROW`, so one key and pproc serve every row.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added

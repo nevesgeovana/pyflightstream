@@ -1206,6 +1206,9 @@ class AdditionalSkip(enum.StrEnum):
     #: provably cut none, so the extraction's distributions cannot be numbered after
     #: the run's.
     NO_SECTIONS_LAYOUT = "NO_SECTIONS_LAYOUT"
+    #: The row is LEGACY: its recipe names its own frames, so the additional
+    #: post's distributions cannot be placed in its saved simulation (P0471).
+    LEGACY_ROW = "LEGACY_ROW"
 
 
 @dataclass(frozen=True)
@@ -1534,6 +1537,10 @@ def _plan_point(
             f"the row of POL {point.sim_id} states no {ADDITIONAL_PPROC_VARIABLE}, so there is "
             "no additional pproc to extract",
         )
+    if pid not in resolved.additional_pprocs:
+        # P0471: the binding skipped the key on a LEGACY row and warned once.
+        why = "a LEGACY row names its own frames; the run-type rows take this key"
+        return _skipped(point, pid, AdditionalSkip.LEGACY_ROW, why)
     if point.run_id in superseded:
         return _skipped(
             point,

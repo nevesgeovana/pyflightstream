@@ -1122,19 +1122,17 @@ def _additional_pprocs(
     the string it is on the case: no builder reads it.
     """
     resolved: dict[str, PprocArtifact] = {}
+    legacy: list[str] = []
     for row, build in zip(rows, row_builds, strict=True):
         code = row.variables.get(ADDITIONAL_PPROC_VARIABLE, "")
         if not code:
             continue
         where = f"matrix row POL {row.pol}"
         if row.workflow == LEGACY_WORKFLOW:
-            raise MatrixError(
-                f"POL {row.pol} writes LEGACY and states {ADDITIONAL_PPROC_VARIABLE}: {code}. "
-                "The additional post cuts new distributions in the frames the point's saved "
-                "simulation holds, which it knows by building the row's run type again; a "
-                "LEGACY row is built by its own recipe, so nothing can say which frame is "
-                "which. Name a run type in the WORKFLOW column, or drop the key."
-            )
+            # P0471, owner rule of 2026-10-27: skipped on the LEGACY row (the
+            # additional post names it), never refused; said once below.
+            legacy.append(f"POL {row.pol} ({code})")
+            continue
         registered = builds.get(build) if build else None
         version = (
             (registered.fs_version if registered is not None else None)
@@ -1151,6 +1149,17 @@ def _additional_pprocs(
         _refuse_groups_named_by_a_word(artifact, code, row.pol)
         refuse_what_a_saved_point_cannot_give(artifact, pproc_id=code, where=where)
         resolved[code] = artifact
+    if legacy:
+        warn(
+            f"{ADDITIONAL_PPROC_VARIABLE} will be ignored on these LEGACY rows: "
+            f"{', '.join(legacy)}. The additional post cuts new distributions in the frames "
+            "a point's saved simulation holds, which it knows by building the row's run type "
+            "again, and a LEGACY recipe names its own frames; the rows of a run type take the "
+            "key, so the same key and pproc serve every row, and the additional post names "
+            "each LEGACY point as skipped.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     return resolved
 
 
