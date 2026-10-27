@@ -50,6 +50,22 @@ FlightStream versions.
 
 ### Fixed
 
+- The far-field lattice of a `qsteady_rotor` row converts the probe pressure
+  with the velocity. The solver exports the turning frame's rothalpy pressure,
+  scaled by Prandtl-Glauert at the frame's Mach, which holds the Euler term of
+  the probe swirl; the lattice now states the pressure of the hub-frame
+  velocity with the free-stream total pressure, as on an `unsteady_rotor` row,
+  so its axial balance no longer grows with the station.
+
+- The disk total-pressure rise warns and skips a blade distribution cut along
+  the blade span, whose `Offset` is not the radius, instead of forming a
+  loading inside the hub and adding zero. A rotor whose record states no blade
+  count sums its blade families times the row's `PERIODIC_COPIES`.
+
+- On a `SYMMETRY PERIODIC` row without `SYMMETRY_LOADS`, `F_NEAR_N` and
+  `F_NEAR_VISCOUS_N` are the sector export times `PERIODIC_COPIES`, the wheel
+  whose field the lattice reads, so G4 compares like with like.
+
 - A row whose reference declares a rotor places that rotor's static hub frame
   `<ALIAS>_SMRP` at the hub, on the rotor's hub axes, also when the row turns
   no blades: steady rows (single and one-script sweeps) and `unsteady` rows.

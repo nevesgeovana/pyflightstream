@@ -230,6 +230,39 @@ def _skip(ctx: SimContext, key: str, point: str, reason: str) -> None:
     )
 
 
+def _prandtl_glauert_mach(ctx: SimContext, point: PolarPoint) -> float:
+    """Return the free-stream Mach the solve scaled its pressure by, 0 when it did not."""
+    model = str(getattr(point.loads, "solver_model", None) or "").lower()
+    mach = ctx.condition(point).get("MACH")
+    if "prandtl" not in model or not isinstance(mach, int | float):
+        return 0.0
+    return float(mach) if math.isfinite(float(mach)) else 0.0
+
+
+def _periodic_copies(ctx: SimContext) -> int:
+    """Return the row's periodic copy count (the whole wheel's sectors), 1 without one."""
+    variables: Mapping[str, object] = getattr(ctx.matrix_row, "variables", None) or {}
+    if str(variables.get("SYMMETRY", "")).strip().upper() != "PERIODIC":
+        return 1
+    try:
+        copies = int(float(str(variables.get("PERIODIC_COPIES", ""))))
+    except ValueError:
+        return 1
+    return max(copies, 1)
+
+
+def _sector_copies(ctx: SimContext) -> int:
+    """Return the factor from a periodic sector's loads export to its wheel, 1 for a whole one.
+
+    A periodic solve exports the whole rotor only where its ``SYMMETRY_LOADS`` is
+    enabled; otherwise the export holds the modelled sector alone, while its probes
+    read the field of every copy.
+    """
+    variables: Mapping[str, object] = getattr(ctx.matrix_row, "variables", None) or {}
+    loads = str(variables.get("SYMMETRY_LOADS", "")).strip().lower()
+    return 1 if loads in ("true", "1", "yes", "enable") else _periodic_copies(ctx)
+
+
 def _symmetry(ctx: SimContext) -> tuple[bool, bool]:
     """Return (mirror, half loads) from the row's SYMMETRY and SYMMETRY_LOADS."""
     variables: Mapping[str, object] = getattr(ctx.matrix_row, "variables", None) or {}
@@ -1104,13 +1137,23 @@ def _instant_values(
     hub = None
     if probe.hub is not None:
         hub = (probe.hub[0], probe.hub[1], probe.hub[2])
-    fields = lattice_samples(instant.samples, lattice_at, lattice, axis, q=q_ref, hub=hub)
+    fields = lattice_samples(
+        instant.samples,
+        lattice_at,
+        lattice,
+        axis,
+        q=q_ref,
+        hub=hub,
+        flow=(rho, speed, _prandtl_glauert_mach(ctx, point)),
+    )
     if "trefftz:power" in analyses:
         station = _trefftz(ctx).station
         station = float(lattice.stations[-1]) if station is None else float(station)
         out["rotor"] = rotor_values(fields, rho=rho, speed=speed, station=station, loading=loading)
     if "ledgers" in analyses:
         near = ff._near_force(point, axis, ctx.reference.sref_m2) if final else near
+        # The lattice reads every periodic copy's field; a sector's loads hold one copy.
+        near = (near[0] * _sector_copies(ctx), near[1] * _sector_copies(ctx))
         out["ledgers"] = ledger_values(
             fields,
             _ledgers(ctx),
@@ -1267,7 +1310,8 @@ def _disk_loading(ctx: SimContext, point: PolarPoint, probe: _Probe) -> DiskLoad
         record, str(alias or ""), len(getattr(ctx.live, "rotors", {}) or {}) or 1
     )
     if count is None and rotor is not None:
-        count = len(getattr(rotor, "families_blades", ()) or ())
+        # The rotor's blades are its blade families times the row's periodic copies.
+        count = len(getattr(rotor, "families_blades", ()) or ()) * _periodic_copies(ctx)
     return disk_loading(
         blocks,
         shaft=_shaft_letter(probe.layout.axis, rotor),
