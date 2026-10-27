@@ -64,7 +64,6 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError, PprocSpec, SimCase
 from pyflightstream.cases import matrix as matrix_mod
-from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import build_script, workflow_registry
 from pyflightstream.post.products import read_csv_table, write_campaign_products
 from pyflightstream.run import PlanStatus
@@ -336,7 +335,11 @@ def test_g12_an_additional_pproc_that_asks_what_a_reopened_file_cannot_give_is_r
 
 
 def test_g12_the_key_on_a_legacy_row_is_refused(tmp_path):
-    """A LEGACY recipe's frames are its own, so nothing can say which one a distribution cites."""
+    """A LEGACY recipe's frames are its own, so nothing can say which one a distribution cites.
+
+    P0471: the key is skipped on that row, warned once,
+    never refused; the run-type rows of the matrix take it. RED on 022dfca8e.
+    """
     text = REGISTRY_FIXTURE.read_text(encoding="utf-8")
     stated = text.replace(
         "OUTPUTS: loads_{point}.txt", f"OUTPUTS: loads_{{point}}.txt / {KEY}: p002", 1
@@ -346,7 +349,8 @@ def test_g12_the_key_on_a_legacy_row_is_refused(tmp_path):
     legacy.parent.mkdir()
     legacy.write_text(stated, encoding="utf-8")
     library = make_library(tmp_path / "legacy", register_build=("26.120", "C:/fs/FS.exe"))
-    with pytest.raises(MatrixError) as refused:
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         plan_matrix(
             legacy,
             library,
@@ -356,7 +360,8 @@ def test_g12_the_key_on_a_legacy_row_is_refused(tmp_path):
             recipe_registry={"steady": matrix_recipe},
             write_plan=False,
         )
-    assert "LEGACY" in str(refused.value) and KEY in str(refused.value)
+    said = [str(item.message) for item in caught if "LEGACY rows" in str(item.message)]
+    assert len(said) == 1 and KEY in said[0] and "p002" in said[0], said
 
 
 def test_g12_a_row_on_another_build_is_refused_naming_rpt062(tmp_path):

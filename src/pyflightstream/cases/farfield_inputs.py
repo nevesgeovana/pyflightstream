@@ -328,10 +328,12 @@ def resolve_farfield(
                 analysis, "vtk_wake", False, "", "the wake switched on in the VTK export"
             )
         elif not admits_probes:
+            # P0471: skipped on this row, never refused;
+            # the uncoupled rows of the same pproc read their probes.
             resolver.item(
                 analysis,
                 "probe_points",
-                "refused",
+                "not_applicable",
                 reason="this row type takes no probes (a steady coupled FSI row)",
             )
         else:
@@ -401,25 +403,27 @@ class _Resolver:
     def sections(self, analysis: str, selected: Sequence[str], coupled: bool) -> None:
         missing = [name for name in selected if name not in self.covered]
         if coupled and missing:
+            # P0471: a coupled row's one distribution is the structure's; the entry is
+            # skipped on it, never refused, and the uncoupled rows cut its sections.
             self.item(
                 analysis,
                 "section_distribution",
-                "refused",
+                "not_applicable",
                 reason=(
                     "a coupled row admits exactly one section distribution, and it does not "
                     f"cover {', '.join(missing)}"
                 ),
             )
-        else:
-            stations = self.spec.trefftz.stations if self.spec.trefftz else 80
-            self.needed(
-                analysis,
-                "section_distribution",
-                not missing,
-                "[sections] distributions",
-                f"a distribution over {', '.join(missing)}, frame MRP, plane XZ, "
-                f"{stations} stations per side",
-            )
+            return
+        stations = self.spec.trefftz.stations if self.spec.trefftz else 80
+        self.needed(
+            analysis,
+            "section_distribution",
+            not missing,
+            "[sections] distributions",
+            f"a distribution over {', '.join(missing)}, frame MRP, plane XZ, "
+            f"{stations} stations per side",
+        )
         self.export(analysis, "sectional_loads", "sectional_loads_export", True)
 
     def blade_loads(self, analysis: str, state: str, text: str) -> None:

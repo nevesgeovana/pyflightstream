@@ -78,6 +78,7 @@ __all__ = [
     "ignores_missing_families",
     "judge_a_name_the_model_lacks",
     "leave_out_an_unplaced_rotor_frame",
+    "leave_out_what_the_row_cannot_take",
     "names_a_row_can_cite",
     "names_no_boundary_answers",
     "note_the_families_a_row_lacks",
@@ -835,11 +836,14 @@ def noting_the_unplaced_rotor_frames() -> Iterator[None]:
         Naming the artifact, the entry, the frame and the rows.
     """
     noted: _UnplacedNoted = {}
+    not_taken: _UnplacedNoted = {}
     token = _UNPLACED.set(noted)
+    other = _NOT_TAKEN.set(not_taken)
     try:
         yield
     finally:
         _UNPLACED.reset(token)
+        _NOT_TAKEN.reset(other)
     for (artifact, entry, frame), rows in noted.items():
         warn(
             f"{artifact} {entry} cites {frame!r}, a rotor frame these rows do not "
@@ -849,3 +853,46 @@ def noting_the_unplaced_rotor_frames() -> Iterator[None]:
             PyflightstreamWarning,
             stacklevel=_THE_PLANS_CALLER,
         )
+    for (artifact, entry, why), rows in not_taken.items():
+        warn(
+            f"{artifact} {entry} {why}, so it will be ignored on these rows: "
+            f"{', '.join(repr(row) for row in rows)}. Nothing is emitted for it there. "
+            f"{_ONE_PPROC_FOR_EVERY_ROW}",
+            PyflightstreamWarning,
+            stacklevel=_THE_PLANS_CALLER,
+        )
+
+
+#: What one plan has noted of the pproc entries a row's type cannot take:
+#: (artifact, entry, why) to the rows leaving it out. None outside a plan.
+_NOT_TAKEN: ContextVar[_UnplacedNoted | None] = ContextVar(
+    "pyflightstream_entries_a_row_cannot_take", default=None
+)
+#: How one pproc artifact keeps serving every row.
+_ONE_PPROC_FOR_EVERY_ROW = (
+    "Keep the entry in the one pproc artifact: it applies on the rows that can take it "
+    "and is skipped, never refused, on the others."
+)
+
+
+def leave_out_what_the_row_cannot_take(row: str, artifact: str, entry: str, why: str) -> None:
+    """Say that a pproc entry this row's type cannot take is ignored on the row (P0471).
+
+    NEVER A REFUSAL: refusals are kept for
+    what cannot be produced on ANY row, never for a declaration that does not
+    apply to this one. ``why`` completes "<artifact> <entry> ..." and names
+    the rows that do take it. Inside :func:`noting_the_unplaced_rotor_frames`
+    the row is noted and the plan says it once; outside a plan this warns.
+    """
+    noted = _NOT_TAKEN.get()
+    if noted is not None:
+        rows = noted.setdefault((artifact, entry, why), [])
+        if row not in rows:
+            rows.append(row)
+        return
+    warn(
+        f"case {row!r}: {artifact} {entry} {why}, so the entry will be ignored on this row "
+        f"and nothing is emitted for it. {_ONE_PPROC_FOR_EVERY_ROW}",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )

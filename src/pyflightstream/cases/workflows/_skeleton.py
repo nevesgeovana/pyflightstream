@@ -85,7 +85,7 @@ from ._solver_settings import (
 )
 from ._streamlines import (
     _pproc_streamlines,
-    refuse_streamlines_where_they_cannot_run,
+    streamlines_the_row_takes,
 )
 from ._vocabulary import (
     PERIODIC_COPIES_VARIABLE,
@@ -319,8 +319,9 @@ def _script_tail(
     """
     if case.pproc is not None and case.pproc.streamlines is not None:
         # FR-1081, before the first line of the tail: a coupled steady row
-        # never reaches the trace, and must not reach its exports either.
-        refuse_streamlines_where_they_cannot_run(case, case.pproc.streamlines)
+        # never reaches the trace, so what it skips is said here (its exports
+        # are left out by `row_outputs`); skipped, never refused.
+        streamlines_the_row_takes(case, case.pproc.streamlines)
     _refuse_a_free_body_off_the_unsteady_run(case)
     _script_init(
         case,

@@ -43,6 +43,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape
 from pyflightstream.cases.farfield_inputs import (
     ROTOR_RUN_TYPES,
+    FarfieldInput,
     FarfieldResolution,
     applies,
     few_stations_warning,
@@ -140,42 +141,62 @@ def _rotor(case: SimCase) -> bool:
     )
 
 
-def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
-    _entry_window(spec, case)
+def _declared_analyses(spec: FarfieldSpec) -> list[str]:
+    """Return the analyses an entry declares, before the row decides which apply."""
     selected = []
     if spec.trefftz is not None:
         selected += [f"trefftz:{variant}" for variant in spec.trefftz.variant]
     if spec.balances:
         selected.append("ledgers")
+    return selected
+
+
+def _analyses(spec: FarfieldSpec, case: SimCase) -> list[str]:
+    if _entry_window(spec, case):
+        return []
     run_type, rotor = _run_type(case), _rotor(case)
     # An analysis that does not apply to the row is skipped here and stated
     # `not_applicable` by the plan, never refused.
-    return [analysis for analysis in selected if not applies(analysis, run_type, rotor=rotor)]
+    return [
+        analysis
+        for analysis in _declared_analyses(spec)
+        if not applies(analysis, run_type, rotor=rotor)
+    ]
 
 
-def _entry_window(spec: FarfieldSpec, case: SimCase) -> None:
-    """Refuse a far-field window the row cannot sample or clock."""
+def _entry_window(spec: FarfieldSpec, case: SimCase) -> str:
+    """Return why this row cannot take the entry's averaging window, or ``""``.
+
+    A WINDOW THE ROW CANNOT SAMPLE OR CLOCK SKIPS THE ENTRY ON THAT ROW (P0471):
+    a steady row has no march to average, and a row
+    with no rotor clock counts no revolutions; the unsteady (rotor) rows of the
+    same pproc take the entry. A window stated without ``export_type =
+    "avg_window"`` is a writing error no row can take, and is refused.
+    """
     key = "last_revs" if spec.last_revs is not None else "last_steps"
     value = getattr(spec, key)
     if value is None:
-        return
-    why = ""
+        return ""
     per_revolution = None
     if _run_type(case) not in ("unsteady", "unsteady_rotor"):
-        why = "requires an unsteady row"
-    elif spec.export_type != "avg_window":
-        why = 'requires export_type = "avg_window"'
-    elif key == "last_revs":
+        return f"its {key} window needs an unsteady row, and this row is {_run_type(case)}"
+    if spec.export_type != "avg_window":
+        raise CampaignConfigError(
+            f'case {case.sim_id!r}: {key} requires export_type = "avg_window"'
+        )
+    if key == "last_revs":
         if _rotor(case):
             per_revolution = rotor_row_stepping(case).steps_per_revolution
         if per_revolution is None:
-            why = "has no rotor clock; state last_steps"
-    if why:
-        raise CampaignConfigError(f"case {case.sim_id!r}: {key} {why}")
+            return (
+                "its last_revs window counts rotor revolutions and this row has no rotor "
+                "clock; the rotor rows take it, and last_steps serves every unsteady row"
+            )
     averaging_steps(
         {"LAST_REVS_AVG" if key == "last_revs" else "LAST_ITERS_AVG": value},
         per_revolution=per_revolution,
     )
+    return ""
 
 
 def wants_wake(case: SimCase) -> bool:
@@ -576,29 +597,101 @@ def _placed_alike(wanted: LatticeShape, shape: LatticeShape, entry_frame: str) -
     )
 
 
+def _unplaced_frame_of(case: SimCase, frames: Any, frame: object) -> bool:
+    """Whether ``frame`` is a declared rotor's frame this row does not place (P0471)."""
+    from ._frames import _an_unplaced_rotor_frame
+
+    name = str(frame or "").strip()
+    return frames is not None and bool(name) and _an_unplaced_rotor_frame(case, frames, name)
+
+
+def _the_lattice_this_row_leaves_out(case: SimCase, frames: Any) -> dict[str, Any] | None:
+    """Return the skip record of an entry whose survey lattice lies in an unplaced rotor frame.
+
+    WARNED AND SKIPPED, NEVER REFUSED (P0471). A lattice laid
+    in a declared rotor's frame that this row does not place (``PUSHER_RMRP`` on
+    a steady row) cannot be laid here, and can on the row that turns the rotor,
+    so the entry's lattice analyses are left out of this row: nothing is laid,
+    the record carries this skip for the plan and post, and the plan says it once.
+    """
+    spec = _spec(case)
+    if spec is None:
+        return None
+    wanted = spec.ledgers
+    record = {
+        "kind": "skipped",
+        "source": "skipped",
+        "entry": None,
+        "count": 0,
+        "farfield_entry": spec.name or "",
+        "frame": "",
+    }
+    if wanted is None:
+        # A WING ENTRY ON A ROTOR ROW: Trefftz C there reads a lattice station, which
+        # only a power entry with the rotor states; the wing rows read its plane.
+        return dict(
+            record,
+            reason=(
+                "Trefftz C on a rotor row reads a station of the survey lattice, which only "
+                "a [[farfields]] power entry with the rotor states; the wing rows read this "
+                "entry's plane"
+            ),
+        )
+    if wanted.rotor is not None or not _unplaced_frame_of(case, frames, wanted.frame):
+        return None
+    return dict(
+        record,
+        frame=str(wanted.frame),
+        reason=(
+            f"the survey lattice lies in {wanted.frame!r}, a rotor frame this row does not "
+            "place; the entry is ignored on this row"
+        ),
+    )
+
+
+def _say_the_lattice_left_out(case: SimCase, frames: Any, left_out: dict[str, Any] | None) -> None:
+    """Note, once per campaign, an entry whose lattice this row leaves out (P0471)."""
+    from pyflightstream.cases._skipped_families import leave_out_what_the_row_cannot_take
+
+    from ._frames import _a_rotor_frame_the_row_leaves_out
+    from ._names import _artifact_of
+
+    if left_out is None:
+        return
+    entry = f"[[farfields]] entry {left_out['farfield_entry']!r}"
+    if left_out["frame"]:
+        _a_rotor_frame_the_row_leaves_out(case, frames, left_out["frame"], entry)
+    else:
+        leave_out_what_the_row_cannot_take(
+            case.sim_id, _artifact_of(case), entry, f"is skipped on this row: {left_out['reason']}"
+        )
+
+
 def _lattice_choice(
     case: SimCase, script: Script, frames: Any, native_per_m: float
-) -> FarfieldShape:
+) -> FarfieldShape | None:
     """Choose the survey lattice: a declared one, or the one the plan lays (FR-1045).
 
     A ``[[farfields]]`` power entry that states no lattice key reuses the one declared
     lattice placed on its rotor or frame, when exactly one is and its azimuths
     carry the table's ``m_max``; otherwise a declaration whose laid-out points
-    are the far field's own is reused, and none is added.
+    are the far field's own is reused, and none is added. None when the lattice
+    lies in a rotor frame this row does not place (it is left out, said once);
+    a declared ``[[probes]]`` entry laid in such a frame is not reused.
     """
     spec = _spec(case)
-    wanted = spec.ledgers if spec is not None else None
-    if wanted is None:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: Trefftz C on a rotor row reads a station of the survey "
-            "lattice; state the [[farfields]] power entry with the rotor"
-        )
+    left_out = _the_lattice_this_row_leaves_out(case, frames)
+    if spec is None or spec.ledgers is None or left_out is not None:
+        _say_the_lattice_left_out(case, frames, left_out)
+        return None
+    wanted = spec.ledgers
     own = _lattice_shape(case, script, frames, wanted, native_per_m, source="added", entry=None)
     qualifying: list[FarfieldShape] = []
     identical: list[FarfieldShape] = []
     entries = case.pproc.probes if case.pproc is not None else []
     for number, entry in enumerate(entries, start=1):
-        if not _emitted(entry):
+        # A [[probes]] entry the row leaves out laid nothing, so nothing of it is reused.
+        if not _emitted(entry) or _unplaced_frame_of(case, frames, entry.frame):
             continue
         for index, shape in enumerate(entry.lattices):
             if not _placed_alike(wanted, shape, entry.frame.strip().upper()):
@@ -653,7 +746,9 @@ def farfield_shapes(
     if _needs_plane(case):
         shapes.append(_plane_choice(case, native_per_m, script))
     if _needs_lattice(case):
-        shapes.append(_lattice_choice(case, script, frames, native_per_m))
+        lattice = _lattice_choice(case, script, frames, native_per_m)
+        if lattice is not None:
+            shapes.append(lattice)
     spec = _spec(case)
     for shape in shapes:
         shape.geometry["farfield_entry"] = spec.name if spec is not None else ""
@@ -688,6 +783,22 @@ def _resolve(
     spec = _spec(case)
     if spec is None:
         return None
+    window = _entry_window(spec, case)
+    if window:
+        # P0471: an entry whose window this row cannot take is not applicable here.
+        return FarfieldResolution(
+            tuple(
+                FarfieldInput(
+                    analysis,
+                    "window",
+                    "not_applicable",
+                    reason=window,
+                    entry=spec.name,
+                    variant=spec.variant,
+                )
+                for analysis in _declared_analyses(spec)
+            )
+        )
 
     def declares(kind: str) -> bool:
         return any(
@@ -713,8 +824,30 @@ def _resolve(
         rotor=_rotor(case),
         blade_loads=blade_loads_state(case, spec),
     )
+    # A LATTICE THE SCRIPT LEFT OUT (an unplaced rotor frame) is not applicable on
+    # this row, with the recorded reason: never refused, never claimed as added.
+    left_out = next(
+        (
+            s.get("reason")
+            for s in shapes
+            if s.get("kind") == "skipped" and s.get("farfield_entry", "") == (spec.name or "")
+        ),
+        None,
+    )
     return FarfieldResolution(
-        tuple(replace(item, entry=spec.name, variant=spec.variant) for item in resolution.inputs)
+        tuple(
+            replace(
+                item,
+                entry=spec.name,
+                variant=spec.variant,
+                **(
+                    {"state": "not_applicable", "reason": str(left_out)}
+                    if left_out and item.analysis in ("ledgers", "trefftz:power")
+                    else {}
+                ),
+            )
+            for item in resolution.inputs
+        )
     )
 
 
@@ -762,10 +895,47 @@ def plan_record(case: SimCase, version: str, script: Script | None = None) -> di
         return {}
     if script is not None and _run_type(case) == "qsteady_rotor":
         _warn_not_applicable(case, resolution)
+    elif script is not None:
+        # An entry whose lattice the build left out was said there, with its frame.
+        said = {s.get("farfield_entry") for s in shapes if s.get("kind") == "skipped"}
+        _say_what_the_row_skips(case, resolution, said)
     record = resolution.as_record()
     if shapes:
         record["probes"] = [dict(shape) for shape in shapes]
     return record
+
+
+def _say_what_the_row_skips(case: SimCase, resolution: FarfieldResolution, said: set[Any]) -> None:
+    """Say once per campaign each far-field analysis this row skips (P0471).
+
+    An entry a row cannot take (a steady
+    coupled row reads no probes, a coupled row's one distribution does not
+    cover the entry, a window or a lattice the row cannot have) is skipped
+    and never refused. The plan notes the row; one warning names the rows.
+    A blade-loads input stated not applicable is an optional input, not a skip.
+    """
+    from pyflightstream.cases._skipped_families import leave_out_what_the_row_cannot_take
+
+    from ._names import _artifact_of
+
+    # ONE NOTE PER ENTRY AND REASON, naming every analysis it skips.
+    skipped: dict[tuple[str, str], list[str]] = {}
+    for item in resolution.inputs:
+        if (
+            item.state == "not_applicable"
+            and item.input != "blade_sectional_loads"
+            and item.entry not in said
+        ):
+            analyses = skipped.setdefault((item.entry, item.reason), [])
+            if item.analysis not in analyses:
+                analyses.append(item.analysis)
+    for (entry, reason), analyses in skipped.items():
+        leave_out_what_the_row_cannot_take(
+            case.sim_id,
+            _artifact_of(case),
+            f"[[farfields]] entry {entry!r} ({', '.join(analyses)})",
+            f"is not applicable on this row ({reason})",
+        )
 
 
 def _warn_not_applicable(case: SimCase, resolution: FarfieldResolution) -> None:
@@ -1332,7 +1502,7 @@ def farfield_probes(
         if shape.source == "added":
             _check_added(case, np.round(shape.points_m * native_per_m, 5), shape.kind)
     if _run_type(case) in ("unsteady", "unsteady_rotor"):
-        return _phased_farfield(
+        laid = _phased_farfield(
             case,
             script,
             shapes,
@@ -1342,6 +1512,8 @@ def farfield_probes(
             analysis_points=analysis_points,
             windows=farfield_export_windows(case),
         )
+        records.extend(_lattices_left_out(case, frames))
+        return laid
     script.farfield_layout.append({"point": dict(case.point), "shapes": records})
     imported: list[tuple[float, float, float]] = []
     placements: dict[tuple, dict[str, Any]] = {}
@@ -1359,9 +1531,20 @@ def farfield_probes(
             script.probe_points.append((vertex, float(x), float(y), float(z), "REFERENCE"))
             imported.append((x, y, z))
     _record_shape_spans(shapes, records, placements)
+    records.extend(_lattices_left_out(case, frames))
     if imported:
         _stage_import(script, shapes, imported, native_per_m)
     return vertex
+
+
+def _lattices_left_out(case: SimCase, frames: Any) -> list[dict[str, Any]]:
+    """Return the skip records of every entry whose lattice this row leaves out (P0471)."""
+    cases = _entry_cases(case) or [case]
+    found = (
+        _the_lattice_this_row_leaves_out(entry, frames) if _needs_lattice(entry) else None
+        for entry in cases
+    )
+    return [record for record in found if record is not None]
 
 
 def _record_shape_spans(shapes, records, placements):

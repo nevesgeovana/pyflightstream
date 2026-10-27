@@ -353,6 +353,20 @@ def _the_rotor_whose_frame_this_is(case: SimCase, frame: str) -> str | None:
     return None
 
 
+def _an_unplaced_rotor_frame(case: SimCase, frames: Frames, frame: str) -> bool:
+    """Answer whether ``frame`` is a declared (or unnamed) rotor's frame this row does not place."""
+    spelled = frame.strip().upper()
+    return not (
+        frames.get(frame) is not None
+        or EXPANDING_FRAMES.get(spelled) is not None
+        or _ROTOR_FRAME_SPELLING.search(spelled) is None
+        or (
+            _the_rotor_whose_frame_this_is(case, frame) is None
+            and _UNNAMED_ROTOR_FRAME.match(spelled) is None
+        )
+    )
+
+
 def _a_rotor_frame_the_row_leaves_out(
     case: SimCase, frames: Frames, frame: str, entry: str
 ) -> bool:
@@ -366,16 +380,7 @@ def _a_rotor_frame_the_row_leaves_out(
     (:func:`leave_out_an_unplaced_rotor_frame`). A name no declared rotor
     owns answers False, and :func:`_pproc_frame` refuses it.
     """
-    spelled = frame.strip().upper()
-    if (
-        frames.get(frame) is not None
-        or EXPANDING_FRAMES.get(spelled) is not None
-        or _ROTOR_FRAME_SPELLING.search(spelled) is None
-        or (
-            _the_rotor_whose_frame_this_is(case, frame) is None
-            and _UNNAMED_ROTOR_FRAME.match(spelled) is None
-        )
-    ):
+    if not _an_unplaced_rotor_frame(case, frames, frame):
         return False
     leave_out_an_unplaced_rotor_frame(case.sim_id, _artifact_of(case), entry, frame)
     return True

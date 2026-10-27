@@ -108,6 +108,32 @@ FlightStream versions.
   on a row that does not place it: ignored on that row with one plan warning,
   never refused. A misspelt frame or an undeclared alias is still refused.
 
+- A `[[farfields]]` entry whose survey lattice lies in such a rotor frame is
+  ignored on that row too: no lattice is laid or reused, the plan states its
+  analyses `not_applicable` and warns once, and post names the skip. A
+  `[[probes]]` entry left out of the row is never reused by the far field.
+
+- `[[surface_probes]]` on a row without an unsteady march (steady,
+  `qsteady_rotor`) are skipped with one plan warning naming the rows, instead
+  of refusing the plan, so one pproc artifact serves every row.
+
+- `[streamlines]` on a row coupling a structure (FSI), and its off-body seed
+  lines and tubes on a `qsteady_rotor` row, are skipped with one plan warning
+  and left out of that row's exports, instead of refusing the plan; surface
+  streamlines stay on `qsteady_rotor` rows.
+
+- `[[farfields]]` entries a row cannot take are stated `not_applicable` on that
+  row with one plan warning, instead of refusing the plan: an averaging window
+  on a steady row or a `last_revs` window on a row with no rotor clock, the
+  probes of a steady coupled (FSI) row, a coupled row's sections, and a wing
+  entry's lattice on a rotor row. A window without `export_type =
+  "avg_window"`, a family no geometry carries and a command the build lacks
+  are still refused.
+
+- `ADDITIONAL_PPROC` on a LEGACY row no longer refuses the matrix: the plan
+  warns once naming the rows, and the additional post skips their points as
+  `LEGACY_ROW`, so one key and pproc serve every row.
+
 ## [0.46.0] - 2026-10-26
 
 ### Added
