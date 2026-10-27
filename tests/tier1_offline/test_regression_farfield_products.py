@@ -3540,7 +3540,7 @@ def test_p0470_qsfix_a_sector_compares_its_wheel(tmp_path):
 
 
 def _p0470_ffr_rotor_post(
-    tmp_path: Path, loads: bool, matrix: str | None = None, recipe: str = "steady"
+    tmp_path: Path, loads: bool, matrix: str | None = None, recipe: str = "steady", repeats: int = 1
 ):
     """Post the 1a actuator-disk rotor row; return its ledger columns, rows, skips, thrust.
 
@@ -3577,7 +3577,7 @@ def _p0470_ffr_rotor_post(
     layout: list[dict[str, object]] = []
     if loads:
         files[f"{_FFPROOF_POST___STEM}_sloads.txt"] = _p0470_ffr_sloads(
-            loading.radius_m, -loading.thrust_per_m / blades
+            np.tile(loading.radius_m, repeats), np.tile(-loading.thrust_per_m / blades, repeats)
         )
         if recipe == "unsteady_rotor":
             files.update(
@@ -3597,7 +3597,7 @@ def _p0470_ffr_rotor_post(
                 "frame": "R_RMRP1",
                 "count": len(loading.radius_m),
             }
-        ]
+        ] * repeats
     workspace = _ffproof_post___campaign(
         tmp_path,
         pproc=_P0470_FFR_LEDGERS,
@@ -4064,8 +4064,13 @@ def test_p0470_r4_last_step_pressure_uses_final_blade_loads(tmp_path):
 
 def test_p0470_r5_public_source_describes_behavior_without_private_decisions():
     """Public comments explain behavior without attributing private decisions."""
-    root = Path(__file__).resolve().parents[2] / "src/pyflightstream/cases"
-    for relative in ("farfield_inputs.py", "workflows/_farfield.py"):
+    root = Path(__file__).resolve().parents[2]
+    for relative in (
+        "src/pyflightstream/cases/farfield_inputs.py",
+        "src/pyflightstream/cases/workflows/_farfield.py",
+        "tests/tier1_offline/test_regression_farfield_interfaces.py",
+        "tests/tier1_offline/test_regression_workflow_emission.py",
+    ):
         text = (root / relative).read_text(encoding="utf-8")
         assert "owner rule of" not in text.lower(), relative
 
@@ -4110,3 +4115,110 @@ def test_p0470_r8_wake_window_uses_same_step_near_loads(tmp_path, stamped):
     else:
         assert "T_NEAR_N" not in columns and "DT_WAKE_COUNTS" not in columns
         assert any("near-field" in reason and "step" in reason for reason in ctx.skipped.values())
+
+
+@pytest.mark.parametrize("symmetry_loads", ["false", "true"])
+@pytest.mark.parametrize("window", [False, True])
+def test_p0470_r2_periodic_wake_comparisons_use_wheel_loads(tmp_path, symmetry_loads, window):
+    """P0470-R2: instant and window wake comparisons use the whole wheel's near loads."""
+    from tests.tier1_offline.test_regression_farfield_numerics import _p0470_helical_wake
+
+    lines, values = _p0470_helical_wake(
+        2, gamma=np.ones(4), radii=np.linspace(0.2, 1.0, 5), v=10, omega=100, turns=2
+    )
+    lines = [line + np.array([3.0, 0.0, 2.0]) for line in lines]
+    _, _, ctx = _p0470_post_rotor_wake(tmp_path, lines, values, rotor=True)
+    text = _LITB_POST__LOADS.replace("     W,", "     Blade1,").replace("     B,", "     Blade2,")
+    text = text.replace("+0.0000000,-0.0077298", "+0.0300000,-0.0077298")
+    ctx.points = [replace(ctx.points[0], loads=parse_loads(text))]
+    if window:
+        ctx.pproc = PprocSpec.model_validate(
+            {"farfields": [{"variant": "wake", "export_type": "avg_window", "last_steps": 2}]}
+        )
+        record = ctx.record_of["point"]
+        record.recipe = "unsteady_rotor"
+        record.stopped_at = {"step": 2}
+        record.export_window = None
+        for step in (1, 2):
+            (tmp_path / f"point_iteration={step}.vtk").write_text("surface", encoding="utf-8")
+            (tmp_path / f"point_iteration={step}_wakes.vtk").write_text(
+                _p0470_wake_vtk(lines, values), encoding="utf-8"
+            )
+            (tmp_path / f"point_iteration={step}.txt").write_text(text, encoding="utf-8")
+    suffix = "average" if window else "trefftz"
+    farfield_products(cast("Any", ctx))
+    path = next((tmp_path / "post/farfield").glob(f"*_{suffix}.csv"))
+    _, baseline = _ffproof_post___table(path)
+    ctx.matrix_row.variables.update(
+        SYMMETRY="PERIODIC", PERIODIC_COPIES="3", SYMMETRY_LOADS=symmetry_loads
+    )
+    farfield_products(cast("Any", ctx))
+    _, periodic = _ffproof_post___table(path)
+    before, after = baseline[0], periodic[0]
+    factor = 3 if symmetry_loads == "false" else 1
+    assert abs(float(before["T_NEAR_N"])) > 0.0
+    assert abs(float(before["Q_NEAR_NM"])) > 0.0
+    for field in ("T_NEAR_N", "Q_NEAR_NM"):
+        assert float(after[field]) == pytest.approx(factor * float(before[field]), rel=1e-5)
+    for field in ("T_WAKE_N", "Q_WAKE_NM"):
+        assert after[field] == before[field]
+    point = ctx.points[0]
+    qs = 0.5 * point.state.density_kg_m3 * point.loads.freestream_velocity_m_s**2
+    qs *= ctx.reference.sref_m2
+    for load, near, counts, scale in (
+        ("T_WAKE_N", "T_NEAR_N", "DT_WAKE_COUNTS", qs),
+        ("Q_WAKE_NM", "Q_NEAR_NM", "DQ_WAKE_COUNTS", qs * ctx.reference.bref_m),
+    ):
+        expected = 1e4 * (float(after[load]) - factor * float(before[near])) / scale
+        assert float(after[counts]) == pytest.approx(expected, rel=1e-5)
+
+
+def test_p0470_r2_repeated_blade_cuts_do_not_add_blades(tmp_path):
+    """P0470-R2: repeating a cut of the same physical blade cannot multiply disk loading."""
+    matrix = (
+        "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | "
+        "FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | "
+        "SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n"
+        "3207 | 1 | 1 | A | - | d | TASmps:68.058, ALPHA:sweep | -2.0 | g.fsm | "
+        "r001 | s001 | p001 | PERIODIC | false | 1 | - | 26.120 | steady | "
+        "PERIODIC_COPIES: 3\n"
+    )
+    _, single, _, _ = _p0470_ffr_rotor_post(tmp_path / "single", True, matrix)
+    _, repeated, _, _ = _p0470_ffr_rotor_post(tmp_path / "repeated", True, matrix, repeats=2)
+    assert float(single[-1]["P_PRIME_CORRECTION_N"]) > 0.0
+    assert float(repeated[-1]["P_PRIME_CORRECTION_N"]) == pytest.approx(
+        float(single[-1]["P_PRIME_CORRECTION_N"])
+    )
+
+
+@pytest.mark.parametrize(
+    "relative,stale,current",
+    [
+        (
+            "docs/definitions/the-far-field-family.md",
+            "final loads export on every window step",
+            "each window step's own loads export",
+        ),
+        (
+            "docs/pproc-artifact.md",
+            "with the other policies and on steady rows",
+            "warned and skipped on rows that cannot sample the window",
+        ),
+        (
+            "src/pyflightstream/post/input_template.py",
+            "Select this artifact only for an unsteady row",
+            "Rows without an unsteady march warn and skip these entries",
+        ),
+        (
+            "CHANGELOG.md",
+            "The far-field axial balance closes on rotor rows",
+            "The far-field axial balance gains a disk-pressure correction on rotor rows",
+        ),
+    ],
+)
+def test_p0470_r2_public_guidance_matches_merged_behavior(relative, stale, current):
+    """P0470-R2: the guides describe step loads, reusable pprocs and a limited correction."""
+    text = (Path(__file__).resolve().parents[2] / relative).read_text(encoding="utf-8")
+    folded = " ".join(text.split())
+    assert stale not in folded, relative
+    assert current in folded, relative

@@ -62,6 +62,7 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases import point_name as point_name
 from pyflightstream.cases.matrix import (
+    LEGACY_WORKFLOW,
     MatrixError,
     MatrixRow,
     read_matrix,
@@ -1537,7 +1538,7 @@ def _plan_point(
             f"the row of POL {point.sim_id} states no {ADDITIONAL_PPROC_VARIABLE}, so there is "
             "no additional pproc to extract",
         )
-    if pid not in resolved.additional_pprocs:
+    if case.variables.get(WORKFLOW_KEY) == LEGACY_WORKFLOW:
         # P0471: the binding skipped the key on a LEGACY row and warned once.
         why = "a LEGACY row names its own frames; the run-type rows take this key"
         return _skipped(point, pid, AdditionalSkip.LEGACY_ROW, why)

@@ -3375,3 +3375,42 @@ def test_p0470_ffr_a_mixed_export_assigns_every_line_once():
     ]
     mask = ff.rotor_wake_lines(wing + rotor, hub=hub, axis=(1.0, 0.0, 0.0), radius=1.0, reach=0.25)
     assert mask.tolist() == [False] * len(wing) + [True] * len(rotor)
+
+
+@pytest.mark.parametrize("blades", [None, 1, 6])
+def test_p0470_r2_g3_uses_recorded_periodic_wheel(blades):
+    """P0470-R2: a one-blade sector repeated six times excludes orders 6 and 12 only."""
+    spec = LedgersSpec(rotor="R", stations=(-1, 1), n_r=2, n_psi=32, m_max=13)
+    record = SimpleNamespace(
+        reductions={} if blades is None else {"rotors": {"R": {"blades": blades}}},
+        surface_translations=[{"periodic_copies": 6}],
+    )
+    rotors = {"R": SimpleNamespace(families_blades=["Blade1"])}
+    orders = farfield_fields.symmetry_excluded_orders(spec, record, rotors)
+    assert orders == [6, 12]
+    psi = np.arange(32) * 2 * np.pi / 32
+    signal = 2 * 0.4828 * np.cos(6 * psi) + 2 * 3.47e-5 * np.cos(psi)
+    assert ff.symmetry_floor(signal, psi=psi, m_max=13, excluded_orders=orders) == pytest.approx(
+        3.47e-5
+    )
+
+
+def test_p0470_r2_incompressible_hover_keeps_hub_pressure():
+    """P0470-R2: zero free-stream speed needs no Mach ratio in an incompressible solve."""
+    lattice, points, axis = rotor_lattice(_FARFIELD_LEDGERS___SPEC, _FarfieldLedgersRotor())
+    origin = np.array([0.5, 0.0, 0.0])
+    shaft = np.array([1.0, 0.0, 0.0])
+    omega, rho = 50.0, 1.225
+    frame = np.cross(omega * shaft, points - origin)
+    velocity = np.tile([2.0, 0.0, 0.0], (len(points), 1)) + 0.1 * frame
+    euler = rho * np.einsum("ij,ij->i", frame, velocity)
+    fields = lattice_samples(
+        ProbeSamples(points, velocity - frame, 12.0 + euler),
+        slice(0, len(points)),
+        lattice,
+        axis,
+        q=1.0,
+        hub=(omega, shaft, origin),
+        flow=(rho, 0.0, 0.0),
+    )
+    assert np.asarray(fields["p_prime"]) == pytest.approx(12.0)

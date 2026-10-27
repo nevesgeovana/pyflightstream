@@ -14,9 +14,11 @@ Unstated is `"default"`, which equals `"last_step"` on unsteady rows, regardless
 of `EXPORT_UNSTEADY_*`. Choose `"avg_window"` for an average: it exports A's
 sectional loads and C/D's conventional probe points only over the final window.
 With that policy, optional exclusive `last_revs` or `last_steps` overrides the
-row's averaging window. `last_revs` needs the rotor clock. These keys are refused
-with the other policies and on steady rows. Steady products are identical for
-all three policies. Every entry's manifest states `export_type`.
+row's averaging window. `last_revs` needs the rotor clock. Entries are
+warned and skipped on rows that cannot sample the window, including steady
+rows and `last_revs` on a row without a rotor clock. A window with another
+export policy is a grammar error. Without an explicit window, steady products
+are identical for all three policies. Every entry's manifest states `export_type`.
 
 Far-field planes and lattices always use their own conventional probe export,
 `<point>_farfield_survey.txt`, plus

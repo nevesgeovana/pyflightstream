@@ -935,11 +935,13 @@ def _hub_frame_pressure(
     rho, speed, mach = flow
     unit = np.asarray(shaft, dtype=float) / float(np.linalg.norm(shaft))
     frame = omega * np.cross(unit, np.asarray(points, dtype=float) - np.asarray(origin))
+    euler = rho * np.einsum("ij,ij->i", frame, velocity)
+    if mach == 0.0:
+        return np.asarray(p_prime) - euler
     lift = 1.0 + np.einsum("ij,ij->i", frame, frame) / (speed * speed)
     m2 = mach * mach
     with np.errstate(invalid="ignore", divide="ignore"):
         ratio = np.sqrt(np.where(m2 * lift < 1.0, (1.0 - m2 * lift) / (1.0 - m2), np.nan))
-    euler = rho * np.einsum("ij,ij->i", frame, velocity)
     return ratio * np.asarray(p_prime) - euler / math.sqrt(1.0 - m2)
 
 
@@ -1214,9 +1216,15 @@ def symmetry_excluded_orders(
     if alias is None:
         return []
     count = recorded_blade_count(record, alias, len(rotors) or 1)
-    if count is None:
-        rotor = rotors.get(alias)
-        count = len(getattr(rotor, "families_blades", ()) or ())
+    copies = max(
+        (
+            int(str(item.get("periodic_copies") or 1))
+            for item in getattr(record, "surface_translations", None) or []
+        ),
+        default=1,
+    )
+    rotor = rotors.get(alias)
+    count = max(count or 0, len(getattr(rotor, "families_blades", ()) or ()) * copies)
     return list(range(count, spec.m_max + 1, count)) if count else []
 
 

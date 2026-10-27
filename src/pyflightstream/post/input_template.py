@@ -346,7 +346,8 @@ installed_frame = []  # "probes" and/or "inflow": copies mirrored through y = 0
 _ABOVE = "the table is left out, for the reason above"
 
 _SURFACE_PROBE_EXAMPLE = """\
-# Select this artifact only for an unsteady row. Coordinates are local metres.
+# Rows without an unsteady march warn and skip these entries.
+# Keep one artifact for every row. Coordinates are local metres.
 # This native surface history is separate from off-body fluid probes.
 [[surface_probes]]
 attach = "space"  # fixed in the undeformed REFERENCE space

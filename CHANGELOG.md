@@ -9,14 +9,17 @@ FlightStream versions.
 
 ### Added
 
-- The far-field axial balance closes on rotor rows: post reconstructs the disk
+- The far-field axial balance gains a disk-pressure correction on rotor rows:
+  post reconstructs the disk
   total-pressure rise from the rotor's own blade sectional loads, maps the lattice
   stations to the disk by equal mass flow and writes `P_PRIME_CORRECTION_N`,
   `AXIAL_FLUX_CORRECTED_N`, `FX_CORRECTED_N`, `P_TOTAL_CORRECTED_W` and
   `ETA_FF_CORRECTED`; G4 (`SPURIOUS_COUNTS`) returns on rotor rows on the
   corrected balance. The plan adds one distribution per blade in its own frame on
   an `unsteady_rotor` row that declares none. Rows without a rotor keep their
-  tables. Migration: none; a rotor row without blade loads keeps the named G4 skip.
+  tables. The correction is an experimental reconstruction, not a guarantee of
+  agreement with measured thrust. Migration: none; a rotor row without blade
+  loads keeps the named G4 skip.
 
 - Trefftz C on `qsteady_rotor` rows: the plan lays the velocity plane, and post
   converts its probe velocities to the hub frame as the survey lattice is
@@ -50,6 +53,21 @@ FlightStream versions.
 
 ### Fixed
 
+- Incompressible turning-frame pressure conversion remains finite at zero
+  free-stream speed, without evaluating an undefined Mach ratio.
+
+- Rotor wake VTK lattices are read as trailing filaments, with the sign from
+  their written direction and the blade count from their connected lattices.
+  Shed cross-segments do not become extra wake lines.
+- Window loads exports are omitted when the row names no file for that kind.
+
+- The rotor symmetry floor uses the recorded periodic wheel count even when
+  reductions record only the meshed blade count or no blade count.
+
+- Periodic rotor wake comparisons scale sector near-field thrust and torque to
+  the whole wheel when `SYMMETRY_LOADS` is disabled, including window averages
+  and their differences in counts.
+
 - Wake-window near-field comparisons and B calibration read each step's own
   loads export. Missing step loads leave those comparisons `NA` with a warning;
   the dimensional W loads remain available.
@@ -82,7 +100,7 @@ FlightStream versions.
 - The disk total-pressure rise warns and skips a blade distribution cut along
   the blade span, whose `Offset` is not the radius, instead of forming a
   loading inside the hub and adding zero. On a `SYMMETRY PERIODIC` row the
-  loading is summed over at least the exported blade distributions times the
+  loading is summed over at least the distinct exported blade families times the
   row's `PERIODIC_COPIES`, also where the plan recorded the modelled count.
 
 - On a `SYMMETRY PERIODIC` row without `SYMMETRY_LOADS`, `F_NEAR_N` and
@@ -132,7 +150,8 @@ FlightStream versions.
 
 - `ADDITIONAL_PPROC` on a LEGACY row no longer refuses the matrix: the plan
   warns once naming the rows, and the additional post skips their points as
-  `LEGACY_ROW`, so one key and pproc serve every row.
+  `LEGACY_ROW`, even when another row resolves the same pproc ID, so one key
+  and pproc serve every row.
 
 ## [0.46.0] - 2026-10-26
 
