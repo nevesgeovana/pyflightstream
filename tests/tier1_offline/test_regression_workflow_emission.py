@@ -2124,7 +2124,7 @@ class TestGapsRtStreamlines:
     def test_p0400_streamlines_qsteady_rotor_refuses_off_body_names_the_frame(tmp_path):
         """P0400-STREAMLINES (FR-1081): off-body lines on qsteady_rotor name the rotor-fixed frame.
 
-        P0471: skipped with one warning, never refused (owner rule of 2026-10-27);
+        P0471: skipped with one warning, never refused;
         RED on 022dfca8e, where the qsteady_rotor row was refused. The surface
         lines stay, and the row's outputs declare no off-body export.
         """

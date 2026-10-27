@@ -615,7 +615,7 @@ def test_p0450_d4_invalid_windows_are_refused(key, value):
 
 @pytest.mark.parametrize("key", ["last_steps", "last_revs"])
 def test_p0471_a_window_on_a_steady_row_skips_the_entry(tmp_path, key):
-    """P0471 (owner rule of 2026-10-27): skipped on the steady row, never refused.
+    """P0471: skipped on the steady row, never refused.
 
     RED on 022dfca8e ("requires an unsteady row"). The unsteady rows of the same
     pproc take the window; the steady row lays no far-field probe for the entry.
@@ -895,7 +895,7 @@ class TestFarfieldPlan:
     def test_p0471_ffplan_a_row_type_the_entry_does_not_suit_is_not_applicable(
         overrides, analysis, words
     ):
-        """P0471 (owner rule of 2026-10-27): a coupled row skips the entry, never refuses it.
+        """P0471: a coupled row skips the entry, never refuses it.
 
         RED on 022dfca8e, where both were refused. The uncoupled rows of the same
         pproc read the probes and cut the sections.

@@ -4064,8 +4064,13 @@ def test_p0470_r4_last_step_pressure_uses_final_blade_loads(tmp_path):
 
 def test_p0470_r5_public_source_describes_behavior_without_private_decisions():
     """Public comments explain behavior without attributing private decisions."""
-    root = Path(__file__).resolve().parents[2] / "src/pyflightstream/cases"
-    for relative in ("farfield_inputs.py", "workflows/_farfield.py"):
+    root = Path(__file__).resolve().parents[2]
+    for relative in (
+        "src/pyflightstream/cases/farfield_inputs.py",
+        "src/pyflightstream/cases/workflows/_farfield.py",
+        "tests/tier1_offline/test_regression_farfield_interfaces.py",
+        "tests/tier1_offline/test_regression_workflow_emission.py",
+    ):
         text = (root / relative).read_text(encoding="utf-8")
         assert "owner rule of" not in text.lower(), relative
 
