@@ -61,6 +61,13 @@ FlightStream versions.
   as `<obj stem>.nodes.txt`, the ANSA node list a refine file reads; with an
   ANSA SET node list they are taken among its lines, on a refined level with
   merged families too.
+  Beside each node file it writes the package's points file (`<obj stem>.te.txt`,
+  or `<obj stem>.<family>.te.txt` with `--families`), the form a boundaries file's
+  `[trailing_edges.<label>] file` reads.
+- The trailing-edge nodes of a piece come from one perimeter only, the one reaching
+  furthest aft (identify-te, prepare-to-refine and `te_families`): a hole's or another
+  loop's rearmost edges are not added. Without a node list, identify-te reads a sharp
+  trailing edge inside a closed wing whose leading edge is smooth.
 - `--accept-remesh` (`refine_mesh(accept_remesh=True)`): a family given
   parallel or normal factors whose grid is not recovered is remeshed with
   `factor`, with a warning, in place of being refused.

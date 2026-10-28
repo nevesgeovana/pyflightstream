@@ -944,6 +944,8 @@ def write_trailing_edges_identified(
         read_node_list,
         read_obj,
         rearmost_edges,
+        rearmost_perimeter,
+        write_te,
     )
     from pyflightstream.workspace._refine._prepare import rearmost_lines
 
@@ -974,7 +976,8 @@ def write_trailing_edges_identified(
         b = nodes.points[[j for _, j in pairs]].reshape(-1, 3)
         near = perimeter_edges_near(obj.verts, chosen, a, b)
         for name, faces in chosen.items():
-            found[name] = rearmost_edges(obj.verts, faces, near[name], (x, y, z))
+            on = rearmost_perimeter(obj.verts, faces, near[name], (x, y, z))
+            found[name] = rearmost_edges(obj.verts, faces, on, (x, y, z))
     else:
         for name, faces in chosen.items():
             found[name] = rearmost_lines(obj.verts, faces, (x, y, z), max_angle)
@@ -995,10 +998,12 @@ def write_trailing_edges_identified(
         )
     if families is None:
         files = {target.with_name(f"{target.stem}.nodes.te.txt"): set().union(*found.values())}
+        points = {target.with_name(f"{target.stem}.te.txt"): set().union(*found.values())}
     else:
         files = {target.with_name(f"{target.stem}.{n}.fs.te.txt"): e for n, e in found.items()}
+        points = {target.with_name(f"{target.stem}.{n}.te.txt"): e for n, e in found.items()}
     listing = None if source is not None else target.with_name(f"{target.stem}.nodes.txt")
-    planned = [*files, *([listing] if listing else [])]
+    planned = [*files, *points, *([listing] if listing else [])]
     existing = [f for f in planned if f.exists()]
     if existing and not overwrite:
         raise InputArtifactError(
@@ -1016,6 +1021,9 @@ def write_trailing_edges_identified(
                 path, mids, unit=unit, simulation_unit=simulation_unit or unit, overwrite=True
             )
         )
+    for path, edges in points.items():  # the package's points file, the boundaries file's form
+        ends = numpy.array(sorted(edges), dtype=numpy.int64)
+        written.append(write_te(path, unit, 0.5 * (obj.verts[ends[:, 0]] + obj.verts[ends[:, 1]])))
     if listing is not None:
         rows = ["#  Id, Name, X , Y, Z"]
         for name, edges in found.items():

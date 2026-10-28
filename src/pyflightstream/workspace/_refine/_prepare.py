@@ -187,11 +187,13 @@ def rearmost_lines(
 ) -> set[tuple[int, int]]:
     """Return a family's trailing edge found from the mesh alone.
 
-    The family is cut along its sharp edges (a sharp trailing edge between an
-    upper and a lower surface is then a boundary of both); of each piece's
-    boundary edges, those the piece lies forward of are kept
-    (:func:`._obj.rearmost_edges`) when they lie in or near the yz plane,
-    within ``max_angle`` (:func:`near_yz`).
+    The family is cut along its sharp edges into pieces; a piece's perimeter is
+    its boundary edges and the sharp edges inside it (a sharp trailing edge
+    joins the upper and the lower surface of a wing whose leading edge is
+    smooth). Of each piece, only the perimeter reaching furthest aft is read
+    (:func:`._obj.rearmost_perimeter`), and of it the edges the piece lies
+    forward of (:func:`._obj.rearmost_edges`) that lie in or near the yz
+    plane, within ``max_angle`` (:func:`near_yz`).
     """
     dihedral = _geometry.dihedral_degrees(verts, faces)
     sharp = {e for e, angle in dihedral.items() if angle > _geometry.RIDGE_DEGREES}
@@ -201,8 +203,9 @@ def rearmost_lines(
     for piece in _joined(every, holders, sharp, every):
         members = [faces[i] for i in piece]
         held = _geometry.edge_faces(members)
-        boundary = {e for e, fs in held.items() if len(fs) == 1}
-        found |= _obj.rearmost_edges(verts, members, boundary, aft)
+        perimeter = {e for e, fs in held.items() if len(fs) == 1 or e in sharp}
+        rear = _obj.rearmost_perimeter(verts, members, perimeter, aft)
+        found |= _obj.rearmost_edges(verts, members, rear, aft)
     return near_yz(verts, found, max_angle)
 
 
@@ -250,11 +253,10 @@ def _te_rows(
     for name, faces in families.items():
         if kinds[name] != "grid":
             continue
-        loops = _geometry.boundary_loops(faces)
-        if not loops:
-            continue
-        outer = max(loops, key=lambda loop: float(numpy.ptp(verts[loop], axis=0).max()))
-        ring = {(min(a, b), max(a, b)) for a, b in zip(outer, [*outer[1:], outer[0]], strict=True)}
+        held = _geometry.edge_faces(faces)
+        ring = _obj.rearmost_perimeter(
+            verts, faces, {e for e, fs in held.items() if len(fs) == 1}, aft
+        )
         edges = near_yz(verts, _obj.rearmost_edges(verts, faces, ring, aft), max_angle)
         nodes = sorted({v for e in edges for v in e} - written, key=lambda v: float(verts[v, 1]))
         if not nodes:

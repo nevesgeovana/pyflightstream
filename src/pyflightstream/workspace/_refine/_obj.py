@@ -761,6 +761,76 @@ def rearmost_edges(
     return out
 
 
+def rearmost_perimeter(
+    verts: NDArray[numpy.float64],
+    faces: Faces,
+    edges: set[tuple[int, int]],
+    aft: tuple[float, float, float] = AFT,
+) -> set[tuple[int, int]]:
+    """Return, for each connected piece of the faces, the one perimeter that reaches furthest aft.
+
+    The edges are joined end to end into perimeters; each perimeter belongs to
+    the piece whose faces hold its nodes, and of a piece's perimeters only the
+    one with the node furthest along ``aft`` is kept, so the trailing-edge
+    nodes of a piece come from a single perimeter: a hole's, or a root's apart
+    from it, is never added.
+    """
+    if not edges:
+        return set()
+    direction = numpy.asarray(aft, dtype=float)
+    piece = _pieces_of_vertices(faces)
+    best: dict[int, tuple[float, set[tuple[int, int]]]] = {}
+    for chain in _chains(edges):
+        nodes = sorted({v for e in chain for v in e})
+        owner = next((piece[v] for v in nodes if v in piece), -1)
+        reach = float((verts[nodes] @ direction).max())
+        if owner not in best or reach > best[owner][0]:
+            best[owner] = (reach, chain)
+    return set().union(*(chain for _, chain in best.values()))
+
+
+def _chains(edges: set[tuple[int, int]]) -> list[set[tuple[int, int]]]:
+    """Return the edges joined end to end, each chain once."""
+    at: dict[int, list[tuple[int, int]]] = {}
+    for e in edges:
+        for v in e:
+            at.setdefault(v, []).append(e)
+    out: list[set[tuple[int, int]]] = []
+    seen: set[tuple[int, int]] = set()
+    for start in sorted(edges):
+        if start in seen:
+            continue
+        stack, chain = [start], {start}
+        while stack:
+            for v in stack.pop():
+                for e in at[v]:
+                    if e not in chain:
+                        chain.add(e)
+                        stack.append(e)
+        seen |= chain
+        out.append(chain)
+    return out
+
+
+def _pieces_of_vertices(faces: Faces) -> dict[int, int]:
+    """Return each vertex's piece: faces sharing a vertex are one piece."""
+    parent: dict[int, int] = {}
+
+    def root(v: int) -> int:
+        while parent.setdefault(v, v) != v:
+            parent[v] = parent[parent[v]]
+            v = parent[v]
+        return v
+
+    for face in faces:
+        first = root(face[0])
+        for v in face[1:]:
+            other = root(v)
+            if other != first:
+                parent[other] = first
+    return {v: root(v) for v in parent}
+
+
 def perimeter_edges_near(
     verts: NDArray[numpy.float64],
     families: dict[str, Faces],

@@ -1999,10 +1999,12 @@ def test_identify_te_writes_the_solver_node_file_of_a_refined_merged_family(tmp_
                 str(src.with_name("nodes.txt")),
                 "--families",
                 "Wing,Nope",
+                "--overwrite",  # the level's own <level>.Wing.te.txt is rewritten alike
             ]
         )
     out = level.obj.with_name(f"{level.obj.stem}.Wing.fs.te.txt")
-    assert code == 0 and capsys.readouterr().out.split() == [str(out)]
+    package = level.obj.with_name(f"{level.obj.stem}.Wing.te.txt")
+    assert code == 0 and capsys.readouterr().out.split() == [str(out), str(package)]
     rows = out.read_text(encoding="utf-8").split()
     count = int(rows[0])
     points = numpy.array([[float(c) for c in r.split(",")] for r in rows[2:]])
@@ -2144,7 +2146,12 @@ def test_identify_te_from_the_obj_alone_writes_the_trailing_edge_and_its_node_li
     )
     assert workspace_cli.main(["geometry", "identify-te", str(src)]) == 0
     solver, listing = src.with_name("wing.nodes.te.txt"), src.with_name("wing.nodes.txt")
-    assert capsys.readouterr().out.split() == [str(solver), str(listing)]
+    package = src.with_name("wing.te.txt")
+    assert capsys.readouterr().out.split() == [str(solver), str(package), str(listing)]
+    from pyflightstream.workspace._refine._obj import read_te
+
+    unit, stated = read_te(package)
+    assert unit == "METER"
     place = {p: n for n, p in fx.place.items()}
     te = [place[(k, 0)] for k in range(fx.stations)]
     exact = 0.5 * (fx.verts[te[:-1]] + fx.verts[te[1:]])
@@ -2155,6 +2162,7 @@ def test_identify_te_from_the_obj_alone_writes_the_trailing_edge_and_its_node_li
         return numpy.array([[float(c) for c in r.split(",")] for r in rows[2:]])
 
     got = points(solver)
+    assert numpy.allclose(numpy.sort(stated, axis=0), numpy.sort(got, axis=0), atol=1e-9)
     assert len(got) == len(exact)
     assert numpy.allclose(numpy.sort(got, axis=0), numpy.sort(exact, axis=0), atol=1e-9)
     nodes = read_node_list(listing)
@@ -2189,9 +2197,49 @@ def test_a_rearmost_line_is_a_trailing_edge_within_the_angle_of_the_yz_plane(tur
     turned = plate.verts @ numpy.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
     found = rearmost_lines(turned, plate.families["P"], max_angle=most)
     assert bool(found) is kept
-    if turn == 0.0:
+    if turn == 0.0:  # one perimeter only, the outer aft edge: the hole's front edge is not added
         tangents = numpy.array([turned[b] - turned[a] for a, b in found])
         assert numpy.allclose(tangents[:, 0], 0.0, atol=1e-12)
+        ends = sorted({v for e in found for v in e})
+        assert numpy.allclose(turned[ends, 0], turned[:, 0].max(), atol=1e-12)
+
+
+def test_a_sharp_trailing_edge_of_a_closed_wing_with_a_smooth_leading_edge_is_found():
+    """A finely meshed closed wing is one piece (its leading edge is smooth); its sharp
+    trailing edge, an inside edge of that piece, is its rearmost perimeter.
+
+    Control: the coarse wing, cut at the leading edge too, gives the same column.
+    """
+    from pyflightstream.workspace._refine._prepare import rearmost_lines
+    from tests.p0380_mesh_fixtures import Fixture, build_grid
+
+    for nodes in (24, 96):
+        fx = build_grid(Fixture("closed", True, 9, nodes, ("open", "pole"), None))
+        found = rearmost_lines(fx.verts, fx.faces)
+        assert len(found) == fx.stations - 1
+        assert {fx.place[v][1] for e in found for v in e} == {0}
+
+
+def test_the_rearmost_perimeter_of_a_piece_is_one_loop_the_one_reaching_furthest_aft():
+    """rearmost_perimeter (te_families, identify-te, prepare-to-refine) keeps one loop per piece.
+
+    Given every boundary edge of a plate with a hole, it returns the outer loop
+    alone. Control: given the hole's loop alone, it returns that loop.
+    """
+    from pyflightstream.workspace._refine._geometry import edge_faces
+    from pyflightstream.workspace._refine._obj import rearmost_perimeter
+    from tests.p0380_mesh_fixtures import holed_plate
+
+    plate = holed_plate()
+    faces = plate.families["P"]
+    boundary = {e for e, fs in edge_faces(faces).items() if len(fs) == 1}
+    outer = rearmost_perimeter(plate.verts, faces, boundary)
+    hole = boundary - outer
+    assert outer and hole
+    assert numpy.isclose(
+        plate.verts[sorted({v for e in outer for v in e}), 0].max(), plate.verts[:, 0].max()
+    )
+    assert rearmost_perimeter(plate.verts, faces, hole) == hole
 
 
 def test_the_level_boundaries_file_lists_each_components_trailing_edge_for_mark_boundaries(
