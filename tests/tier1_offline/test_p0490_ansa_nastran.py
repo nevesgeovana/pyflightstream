@@ -430,3 +430,42 @@ def test_govr1_q02_governing_on_grid_auto_is_warned_and_skipped():
     with pytest.warns(PyflightstreamWarning, match="cannot lead; governing is skipped"):
         spec = grid_auto_spec("[families.G]", {"method": "grid_auto"}, governing=True)
     assert spec.method == "grid_auto" and not spec.governing
+
+
+@pytest.mark.parametrize("count", [21, 41, 121])
+def test_patch_pdf_legend_stays_inside_its_column(tmp_path, monkeypatch, count):
+    """GOVR2-001: long names and many patches must not clip the page's legend."""
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    from pyflightstream.workspace._visual_inspect import BOTTOM, RIGHT, TOP, patches_pdf
+
+    source = tmp_path / "patches.obj"
+    names = [f"MainSurface_{i:03d}_grid" for i in range(count)]
+    lines = ["v 0 0 0", "v 1 0 0", "v 1 1 0", "v 0 1 0"]
+    for name in names:
+        lines += [f"g {name}", "f 1 2 3 4"]
+    source.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    save = PdfPages.savefig
+    pages = []
+
+    def checked_save(pdf, fig, **kwargs):
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        legend = fig.legends[0]
+        bounds = legend.get_window_extent(renderer).transformed(fig.transFigure.inverted())
+        width, height = fig.get_size_inches()
+        assert (width - RIGHT) / width <= bounds.x0 < bounds.x1 <= 1 - 0.1 / width
+        assert BOTTOM / height <= bounds.y0 < bounds.y1 <= 1 - TOP / height
+        labels = [t.get_text() for t in legend.get_texts()]
+        assert labels == [f"{names[0]}  (governing)", *names[1:]]
+        for ax in fig.axes[:4]:
+            assert sum("GOVERNING" in t.get_text() for t in ax.texts) == 1
+        pages.append(fig)
+        return save(pdf, fig, **kwargs)
+
+    monkeypatch.setattr(PdfPages, "savefig", checked_save)
+    target = patches_pdf(
+        source, {"MainSurface": names}, {names[0]}, tmp_path / "patches.pdf", dpi=40
+    )
+    assert target.read_bytes().startswith(b"%PDF")
+    assert len(pages) == 1

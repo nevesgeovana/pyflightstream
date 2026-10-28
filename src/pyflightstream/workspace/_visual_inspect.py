@@ -21,6 +21,7 @@ import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -976,15 +977,24 @@ def patches_pdf(
                 )
                 for n in names
             ]
-            fig.legend(
+            add_legend = partial(
+                fig.legend,
                 handles=handles,
                 loc="upper left",
-                fontsize=6,
                 title=f"{family}: {len(names)} patches, {len(scene.highlight)} governing",
-                title_fontsize=7,
-                bbox_to_anchor=((pw - RIGHT + 0.1) / pw, (ph - TOP) / ph),
+                bbox_to_anchor=((pw - RIGHT + 0.1) / pw, (ph - TOP - 0.05) / ph),
                 ncol=1 if len(names) <= 40 else 2,
+                borderaxespad=0,
             )
+            legend = add_legend(fontsize=6, title_fontsize=7)
+            bounds = legend.get_window_extent()
+            width, height = bounds.width / fig.dpi, bounds.height / fig.dpi
+            fit = min(1.0, (RIGHT - 0.2) / width, (ph - TOP - BOTTOM - 0.05) / height)
+            if fit < 1:
+                legend.remove()
+                # Leave room for font metric rounding between the screen and PDF renderers.
+                fit *= 0.9
+                add_legend(fontsize=6 * fit, title_fontsize=7 * fit)
             fig.suptitle(
                 f"{Path(mesh).name}: family {family}", fontsize=10, y=1 - 0.2 / PAGE[1], va="top"
             )
