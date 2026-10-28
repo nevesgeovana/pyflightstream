@@ -637,25 +637,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     if missing and accept_unknown:
         _skip(f"{mesh} families {', '.join(missing)}", "not held by the mesh")
         chosen = [n for n in chosen if n in names]
-    stated = (
-        read_refine_file(
-            file,
-            names,
-            mesh,
-            chosen if from_file else [],
-            accept_unknown=accept_unknown,
-        )
-        if file
-        else {
-            "specs": {},
-            "unread": [],
-            "elements": {},
-            "default_elements": TRIANGLES,
-            "tag": None,
-            "filename": None,
-            "components": {},
-        }
-    )
+    stated = _stated(file, names, mesh, chosen if from_file else [], config, accept_unknown)
     # AN EMPTY SELECTION SELECTS NOTHING TO CHANGE (PFS-2099.005): on the factor route it
     # wrote an unchanged copy of the source as a level tagged R-.
     if not chosen:
@@ -732,6 +714,40 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         force_factors=force_factors,
         perimeters=stated.get("perimeters", ()),
     )
+
+
+def _stated(
+    file: Path | None,
+    names: Sequence[str],
+    mesh: Path,
+    read: Sequence[str],
+    config: str | Path | None,
+    accept_unknown: bool,
+) -> dict[str, Any]:
+    """Return what the refinement file states, or the empty statement without one.
+
+    An implicit ``<stem>.refine.toml`` that cannot be read is refused, or
+    under ``accept_unknown`` warned and skipped as if absent; a file named by
+    ``config`` that cannot be read is refused either way.
+    """
+    empty: dict[str, Any] = {
+        "specs": {},
+        "unread": [],
+        "elements": {},
+        "default_elements": TRIANGLES,
+        "tag": None,
+        "filename": None,
+        "components": {},
+    }
+    if file is None:
+        return empty
+    try:
+        return read_refine_file(file, names, mesh, read, accept_unknown=accept_unknown)
+    except InputArtifactError as error:
+        if config is not None or not accept_unknown or "cannot be read" not in str(error):
+            raise
+        _skip(str(file), "cannot be read and is not named by config (CLI: --config)")
+        return empty
 
 
 def _fmt(value: float) -> str:

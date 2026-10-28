@@ -417,6 +417,23 @@ def test_arch48_force_factors_raises_a_factor_below_the_least_the_grid_allows(tm
     assert intervals["chordwise"] == [18, 1] and intervals["spanwise"] == [8, 1]
 
 
+def test_arch48_accept_unknown_skips_an_implicit_refine_file_that_cannot_be_read(tmp_path):
+    """ARCH48-R7: a <stem>.refine.toml that is not TOML is refused; accept_unknown skips it.
+
+    The factors then come from FACTOR. Control: the same file named by
+    ``config`` stays refused under the option.
+    """
+    src = _source(tmp_path)
+    beside = src.with_name("wing.refine.toml")
+    beside.write_bytes(b"[families\nfactor = = 2\n")
+    assert "cannot be read" in _refused(tmp_path, src, 2.0)
+    with pytest.warns(PyflightstreamWarning, match="cannot be read and is not named"):
+        level = refine_mesh(src, 2.0, accept_unknown=True, out_dir=tmp_path / "acc")
+    assert level.folder.name == "wing_R2" and level.obj.is_file()
+    with pytest.raises(InputArtifactError, match="cannot be read"):
+        refine_mesh(src, 2.0, config=beside, accept_unknown=True, out_dir=tmp_path / "c")
+
+
 def test_arch48_accept_unknown_skips_the_values_the_refinement_cannot_read(tmp_path):
     """ARCH48-R3: a value of the wrong kind in the refinement file is refused by default.
 
