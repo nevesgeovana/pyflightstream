@@ -965,8 +965,16 @@ def plan(
     te_edges: Mapping[str, Collection[Edge]],
     *,
     where: str,
+    accept: bool = False,
 ) -> tuple[dict[str, Layout], list[tuple[str, str, str]]]:
     """Group the grid families that share nodes into layouts, before any work (FR-932).
+
+    Under ``accept`` (``accept_remesh``) a layout that is refused (two
+    families counting a shared curve apart, a patch whose directions cannot
+    be told apart) is warned and left to the rule of the first grid: the
+    first of its families in the source's order is refined as a grid alone
+    and the others are remeshed; a lone multiblock family refused alone is
+    remeshed, listed with its own name as the grid it follows.
 
     Parameters
     ----------
@@ -982,6 +990,9 @@ def plan(
         The trailing-edge edges of each family.
     where : str
         The source, for a refusal or a warning.
+    accept : bool
+        Leave a refused layout to the rule of the first grid, with a
+        warning, instead of refusing it (``accept_remesh``).
 
     Returns
     -------
@@ -1011,9 +1022,14 @@ def plan(
                 dict.fromkeys(group, f"; the grids {', '.join(group)} form no layout: {found}")
             )
             continue
-        layouts.append(
-            _counted(verts, tuple(group), found, grids, specs, te_edges=te_edges, where=where)
-        )
+        try:
+            layouts.append(
+                _counted(verts, tuple(group), found, grids, specs, te_edges=te_edges, where=where)
+            )
+        except InputArtifactError as error:
+            if not accept:
+                raise
+            why.update(dict.fromkeys(group, _skipped_layout(error, group, where)))
     done = [n for lay in layouts for n in lay.names]
     late: list[tuple[str, str, str]] = []
     for name in names:
@@ -1027,12 +1043,31 @@ def plan(
         grid = grids[name]
         if isinstance(grid, Blocks):
             lone = (grid, (0,) * len(grid.patches))
-            layouts.append(
-                _counted(verts, (name,), lone, grids, specs, te_edges=te_edges, where=where)
-            )
+            try:
+                layouts.append(
+                    _counted(verts, (name,), lone, grids, specs, te_edges=te_edges, where=where)
+                )
+            except InputArtifactError as error:
+                if not accept:
+                    raise
+                done.remove(name)
+                late.append((name, name, _skipped_layout(error, [name], where)))
     for layout in layouts:
         _warn_kept(layout, specs, where)
     return {n: lay for lay in layouts for n in lay.names}, late
+
+
+def _skipped_layout(error: InputArtifactError, group: Sequence[str], where: str) -> str:
+    """Warn that a refused layout is left to the first-grid rule and return the reason."""
+    text = str(error).removesuffix(". Nothing was written.").removeprefix(f"{where} ")
+    names = ", ".join(group)
+    warn(
+        f"{where}: {text}; the first of {names} in the source's order is refined as a grid "
+        "alone and the others are remeshed (accept_remesh, CLI --accept-remesh)",
+        PyflightstreamWarning,
+        stacklevel=5,  # past _skipped_layout, plan, _grid_after_grid and _decide
+    )
+    return f"; {text}"
 
 
 def refine_layout(

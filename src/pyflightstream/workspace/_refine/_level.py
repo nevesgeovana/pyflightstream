@@ -347,16 +347,21 @@ def _grid_after_grid(work: _Work) -> None:
         work.specs,
         work.te_edges,
         where=str(work.source),
+        accept=work.request.accept_remesh,
     )
     for name, first, why in late:
-        if work.specs[name].method == "grid":
-            _demanded_grid(
-                work,
-                name,
-                f"method is grid and it shares nodes with {first}, refined as a grid first{why}",
+        if first == name:  # its own layout was refused and accepted as a remesh
+            reason = f"its layout cannot be refined as asked{why}"
+            demanded = f"method is grid and {reason}"
+        else:
+            reason = f"shares nodes with the grid {first}{why}"
+            demanded = (
+                f"method is grid and it shares nodes with {first}, refined as a grid first{why}"
             )
+        if work.specs[name].method == "grid":
+            _demanded_grid(work, name, demanded)
         del work.grids[name]
-        _remesh_or_keep(work, name, f"shares nodes with the grid {first}{why}")
+        _remesh_or_keep(work, name, reason)
     work.remesh.sort(key=work.names.index)
 
 
