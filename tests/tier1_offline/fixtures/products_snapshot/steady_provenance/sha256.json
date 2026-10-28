@@ -6,5 +6,5 @@
  "products/products.json": "6126badcf347ae8bb494bd2d34ac97b94055930a1bbc0b289100b837af52b598",
  "products/provenance/camp_sim_3207_AL+020.prov.json": "2251d80f82898c2330b1907ff25ff35d788291743505352e25757f8708d7463c",
  "products/provenance/camp_sim_3207_AL-020.prov.json": "e28c5b86053829e4052e94648f8d77d54ab094505ac10848f65b79504892c3d4",
- "products/reports/superfile-0430.json": "0f73b5afe0b8d137b6e11cda72922cb41a6e7ce1a50773805f7789559e98470d"
+ "products/reports/superfile-<TAG>.json": "0f73b5afe0b8d137b6e11cda72922cb41a6e7ce1a50773805f7789559e98470d"
 }

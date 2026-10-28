@@ -5,7 +5,7 @@
  "products/post.log.json": "b9c18cf9109a8e94a9bf0547aae8e77253b232d5596de277b88f61202f790ea6",
  "products/products.json": "fce0f384404a6f8c8d097fc53c677ad6a6253a85f3748767f047e59ead6e476d",
  "products/provenance/camp_sim_7001_AL-020.prov.json": "1d093ee741bd42a080fff84910c53b939fd38198b43caed33b54834c1516d14c",
- "products/reports/superfile-0430.json": "1bad8950690327da34cb345d4bfe38887fcc816e70ae4154b9441c579b227192",
+ "products/reports/superfile-<TAG>.json": "1bad8950690327da34cb345d4bfe38887fcc816e70ae4154b9441c579b227192",
  "products/series/AL-020_loads_series.csv": "530b9f4de7c7f700353c4301fc07bb3b2cbf8e20307cada883262c7dd032b566",
  "products/series/AL-020_probes_series.csv": "1ff0033456e474512e6798b28f5ced8179db0b4708ddf5b010e4a9c0c9752dd5",
  "products/series/AL-020_sections_series.csv": "51c1f2d0fe0ea9f36ab022c669693d32f85d3a9db0448139bce924f9693674df"

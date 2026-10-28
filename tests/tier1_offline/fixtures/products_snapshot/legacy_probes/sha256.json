@@ -7,5 +7,5 @@
  "products/probes/AL-020_probes.csv": "09d77676403541bc86d0931e3bb2d6274d2b8bcad2e4a5685a8346f6ff578624",
  "products/products.json": "abd915b1090940c590af0312e957695e825a8ec7bbf7f08aae290906fcc4c561",
  "products/provenance/camp_sim_7001_AL-020.prov.json": "152f1d4eaedd7c6bebfc54bb70482b2e52f4427b9f33a31a07bcca962cc613da",
- "products/reports/superfile-0430.json": "3bc6b97aa03578e84e2d65087ea94506244ff9973f253b6497e8530ae8a9339a"
+ "products/reports/superfile-<TAG>.json": "3bc6b97aa03578e84e2d65087ea94506244ff9973f253b6497e8530ae8a9339a"
 }

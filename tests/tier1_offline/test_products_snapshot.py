@@ -539,12 +539,19 @@ def normalise(name: str, data: bytes, root: Path) -> bytes:
 
 def post_files(root: Path) -> dict[str, bytes]:
     """Every file under ``root/post`` by its relative POSIX path, normalised."""
+    from pyflightstream import __version__
+    from pyflightstream.post.superfile import release_tag
+
     post = root / "post"
+    tag = f"-{release_tag(__version__)}.json"
     out = {}
     for path in sorted(post.rglob("*")):
         if path.is_file():
             name = path.relative_to(post).as_posix()
-            out[_ARCHIVE.sub("<STAMP>", name)] = normalise(name, path.read_bytes(), root)
+            # The measurement reports beside the products are named for the installed
+            # release (post/superfile.py release_tag), which every release changes.
+            key = _ARCHIVE.sub("<STAMP>", name).replace(tag, "-<TAG>.json")
+            out[key] = normalise(name, path.read_bytes(), root)
     return out
 
 
