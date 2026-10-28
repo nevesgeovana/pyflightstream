@@ -87,7 +87,6 @@ EXAMPLE_EXTRAS: dict[str, frozenset[str]] = {
 #: against its declaration; a subpackage absent here is core.
 GATED_SUBPACKAGES = {
     "pyflightstream.fsi": "fsi",
-    "pyflightstream.probes.geometry": "geom",
     "pyflightstream.workspace.excel": "excel",
 }
 
