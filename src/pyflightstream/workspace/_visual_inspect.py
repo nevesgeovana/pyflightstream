@@ -89,24 +89,45 @@ def _skipped(message: str) -> None:
     _warn(message, PyflightstreamWarning, stacklevel=3)
 
 
-def _face(words: list[str], count: int) -> list[int] | None:
-    """Return a face's 0-based vertex indices, or None for fewer than three or a missing vertex."""
+def _face(words: list[str], rows: list[int]) -> list[int] | None:
+    """Return a face's 0-based vertex rows, or None when it is unusable.
+
+    ``rows`` maps each vertex number of the file (in order) to its row in the vertex array,
+    or -1 for a vertex line that did not read. A face with fewer than three vertices, a
+    missing vertex, an unreadable vertex or an index that is not an integer is unusable.
+    """
+    count = len(rows)
     face = []
-    for word in words:
-        index = int(word.split("/")[0])
-        face.append(index - 1 if index > 0 else count + index)
+    try:
+        for word in words:
+            index = int(word.split("/")[0])
+            face.append(index - 1 if index > 0 else count + index)
+    except ValueError:
+        return None
     if len(face) < 3 or min(face) < 0 or max(face) >= count:
         return None
-    return face
+    face = [rows[k] for k in face]
+    return None if min(face) < 0 else face
 
 
 def read_obj(path: Path) -> Mesh:
-    """Read the vertices and the faces of an OBJ, grouped by its ``g`` or ``o`` names."""
+    """Read the vertices and the faces of an OBJ, grouped by its ``g`` or ``o`` names.
+
+    The reader is lenient: it draws what it can and warns. A file that is not UTF-8 is read
+    as latin-1 (every byte kept, so distinct group names stay distinct); a ``v`` or ``f``
+    line that is not numbers is skipped and counted with the faces that cannot be used.
+    """
     try:
-        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        raw = path.read_bytes()
     except OSError as error:
         raise InspectError(f"{path}: the mesh is not readable ({error})") from error
+    try:
+        lines = raw.decode("utf-8").splitlines()
+    except UnicodeDecodeError:
+        lines = raw.decode("latin-1").splitlines()
+        _skipped(f"{path}: the file is not UTF-8; it is read as latin-1")
     verts: list[list[float]] = []
+    rows: list[int] = []
     patches: dict[str, list[list[int]]] = {}
     current = "default"
     skipped = 0
@@ -115,20 +136,30 @@ def read_obj(path: Path) -> Mesh:
         if not words:
             continue
         key = words[0]
-        if key == "v" and len(words) >= 4:
-            verts.append([float(words[1]), float(words[2]), float(words[3])])
+        if key == "v":
+            try:
+                xyz = [float(w) for w in words[1:4]]
+            except ValueError:
+                xyz = []
+            if len(xyz) == 3 and all(math.isfinite(v) for v in xyz):
+                rows.append(len(verts))
+                verts.append(xyz)
+            else:
+                rows.append(-1)
+                skipped += 1
         elif key in ("g", "o"):
             current = " ".join(words[1:]) or "default"
         elif key == "f":
-            face = _face(words[1:], len(verts))
+            face = _face(words[1:], rows)
             if face is None:
                 skipped += 1
             else:
                 patches.setdefault(current, []).append(face)
     if skipped:
         _skipped(
-            f"{path}: {skipped} face(s) with fewer than three vertices or a missing vertex "
-            "are skipped"
+            f"{path}: {skipped} line(s) are skipped: a face with fewer than three vertices, a "
+            "missing or unreadable vertex or a non-integer index, or a v line that is not "
+            "three numbers"
         )
     if not patches:
         raise InspectError(f"{path}: holds no face to draw")

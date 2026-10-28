@@ -215,6 +215,26 @@ def test_an_unknown_nastran_unit_warns_and_reads_the_mesh_unscaled(
         _visual_inspect.visual_inspect(source, nastran_unit="furlong")
 
 
+def test_a_latin1_obj_keeps_distinct_group_names_and_warns(tmp_path: Path) -> None:
+    from pyflightstream.workspace._visual_inspect import read_obj
+
+    obj = tmp_path / "latin.obj"
+    obj.write_bytes(b"v 0 0 0\nv 1 0 0\nv 0 1 0\ng wing\xe9\nf 1 2 3\ng wing\xe8\nf 1 2 3\n")
+    with pytest.warns(PyflightstreamWarning, match="not UTF-8"):
+        mesh = read_obj(obj)
+    assert len(mesh.patches) == 2
+
+
+def test_a_malformed_obj_line_is_skipped_and_counted_not_raised(tmp_path: Path) -> None:
+    from pyflightstream.workspace._visual_inspect import read_obj
+
+    obj = tmp_path / "bad.obj"
+    obj.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nv 1 x 0\nf 1 2 3\nf 1 2 q\nf 1 2 4\n")
+    with pytest.warns(PyflightstreamWarning, match=r"3 line\(s\)"):
+        mesh = read_obj(obj)
+    assert [len(f) for f in mesh.patches.values()] == [1]
+
+
 def test_the_nodes_and_te_flags_can_repeat() -> None:
     from pyflightstream.workspace.cli import _build_parser
 
