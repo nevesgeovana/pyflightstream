@@ -54,8 +54,7 @@
    "decision": "PFS-2140.005 closed at 0.41.0: the workspace writes the trailing-edge points file by detection in the refinement route, or reads the one a sidecar lists (route 'file'); extract_trailing_edge and its node-file writer are the documented Python way to prepare that file from a blade mesh (docs/mesh/how-to.md); classified by the CIFIX lane of 0.43.0 on the release session's instruction, under the owner's delegation of 2026-10-12; the owner confirmed on 2026-10-22",
    "names": [
     "pyflightstream.workspace.TrailingEdge",
-    "pyflightstream.workspace.extract_trailing_edge",
-    "pyflightstream.workspace.wake_edges.write_node_file"
+    "pyflightstream.workspace.extract_trailing_edge"
    ]
   },
   {

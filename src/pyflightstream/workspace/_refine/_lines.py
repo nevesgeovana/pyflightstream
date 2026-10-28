@@ -79,11 +79,19 @@ def perimeter_lines(
 def _listed_edges(perimeter: Any, mesh: ObjMesh) -> dict[str, set[tuple[int, int]]] | None:
     """Return a list's edges per family; None, warned, for a list missing, empty or joining none."""
     if not perimeter.file.is_file():
-        warn(f"{perimeter.file}: no such [[perimeter]] file; it is skipped", stacklevel=4)
+        warn(
+            f"{perimeter.file}: no such [[perimeter]] file; it is skipped",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
         return None
     nodes = _obj.read_node_list(perimeter.file)
     if not nodes.ids:
-        warn(f"{perimeter.file}: no node is read (Id, Name, X, Y, Z); it is skipped", stacklevel=4)
+        warn(
+            f"{perimeter.file}: no node is read (Id, Name, X, Y, Z); it is skipped",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
         return None
     found, unmatched = _obj.perimeter_edges(mesh.verts, mesh.families, nodes)
     if unmatched:
@@ -92,10 +100,15 @@ def _listed_edges(perimeter: Any, mesh: ObjMesh) -> dict[str, set[tuple[int, int
             f"{perimeter.file}: {len(unmatched)} of {len(nodes.ids)} node(s) match no mesh "
             f"vertex and are skipped (ids {shown}{' and more' if len(unmatched) > 5 else ''}); "
             "the list and the OBJ must be saved from the same model, in the same unit",
+            PyflightstreamWarning,
             stacklevel=4,
         )
     if not any(found.values()):
-        warn(f"{perimeter.file}: no mesh edge joins two listed nodes; it is skipped", stacklevel=4)
+        warn(
+            f"{perimeter.file}: no mesh edge joins two listed nodes; it is skipped",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
         return None
     return found
 
@@ -112,6 +125,7 @@ def te_members(perimeter: Any, request: RefineRequest, mesh: ObjMesh) -> list[st
             warn(
                 f"{perimeter.file}: te_families names {name!r}, neither a family of the mesh nor "
                 "a component of [components]; it is skipped",
+                PyflightstreamWarning,
                 stacklevel=4,
             )
     return list(dict.fromkeys(out))

@@ -56,6 +56,8 @@ def omitted_from_source(tools: dict[str, argparse.ArgumentParser], source: str) 
             ):
                 found.append(f"{name}: not named")
             for action in generator.options(each):
+                if action.help == argparse.SUPPRESS:  # a retired alias kept hidden from help
+                    continue
                 for option in action.option_strings:
                     if option not in helps and not _names(option, part):
                         found.append(f"{name}: {option}")
