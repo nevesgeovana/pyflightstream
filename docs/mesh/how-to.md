@@ -385,7 +385,10 @@ optional.
    beside the mesh. `[refine] filename` names the level's folder and OBJ in
    place of `<stem>_<tag>`. The level `inputs/geometries/W1_fine/` holds the
    refined mesh, the trailing edges as `W1_fine.te.txt` and
-   `W1_fine.<family>.te.txt`, and its boundaries file.
+   `W1_fine.<family>.te.txt`, the quad families' trailing edges in the solver's
+   import format (`W1_fine.nodes.te.txt`, `W1_fine.<family>.fs.te.txt`) and as
+   ANSA node lists (`W1_fine.nodes.txt`, `W1_fine.<family>.nodes.txt`), and its
+   boundaries file.
 4. **Edit the level's boundaries file types.** When the trailing edges were
    exported and the source declares none, the level's
    `<level>.obj.boundaries.toml` declares one table per component:

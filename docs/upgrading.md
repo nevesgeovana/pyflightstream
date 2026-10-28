@@ -35,7 +35,11 @@ extras no longer exist.
   until the next whole post.
 - `refine` no longer refuses a grid factor below the least its grid allows: it
   is raised to that least with a warning. Pass `--strict-factors` to keep the
-  refusal; `--force-factors` can be dropped from command lines.
+  refusal (`refine_mesh(force_factors=False)` in Python); `--force-factors` can be
+  dropped from command lines.
+- `geometry identify-te` without `--families` maps only the quad families
+  (quadrilaterals at least 80 percent of the faces); pass `--all-families` for
+  the earlier output.
 
 ## 0.48.0
 

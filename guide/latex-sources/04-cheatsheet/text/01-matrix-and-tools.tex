@@ -41,7 +41,7 @@
 \item \fl{--out FILE} also write the figures as CSV, one row per family and figure; never a file the audit reads; \fl{--csv FILE} is its deprecated alias
 \item \fl{--verbose}, \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
 \end{flags}
-\sub{refine <MESH> [FACTOR]}{refine or coarsen a panel mesh from its OBJ into a new geometry folder \texttt{<stem>\_<tag>/} (OBJ, trailing-edge points, boundaries, \texttt{refine.json}, audit); FACTOR multiplies every selected family, else the factors come from the refinement file; the source is never modified}
+\sub{refine <MESH> [FACTOR]}{refine or coarsen a panel mesh from its OBJ into a new geometry folder \texttt{<stem>\_<tag>/} (OBJ, trailing-edge points, the quad families' trailing edges as solver node files and ANSA node lists, boundaries, \texttt{refine.json}, audit); FACTOR multiplies every selected family, else the factors come from the refinement file; the source is never modified}
 \begin{flags}
 \item \fl{--families A,B} only these families (default: all)
 \item \fl{--parallel F}, \fl{--normal F} the factor in one index direction of the grid families (the parallel or the normal direction)

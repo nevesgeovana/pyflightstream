@@ -1579,6 +1579,11 @@ def test_x_f_1266_a_factor_below_one_over_m_states_its_reason_exactly(tmp_path):
     src = _source(tmp_path)
     text = _refused(tmp_path, src, 0.05, force_factors=False)
     assert "below 1/18: scaled by it, its 18 source intervals come to fewer than one" in text
+    # refine-r1 TW-F1: the advice names the setting that raises it, the default.
+    assert "force_factors=True, the default" in text and "force_factors=False" not in text
+    # TW-F2: a factor that is not a number above zero is never raised, and is not told so.
+    text = _refused(tmp_path, src, -1.0, force_factors=False)
+    assert "above zero" in text and "strict-factors" not in text
 
 
 # ------------------------------------------- the level's own inventory (0.44.0)

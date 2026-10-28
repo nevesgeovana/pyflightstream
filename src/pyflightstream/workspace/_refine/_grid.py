@@ -871,18 +871,19 @@ def check_factors(grid: Grid, family: str, *, chordwise: float, spanwise: float)
     ):
         number = isinstance(value, (int, float)) and not isinstance(value, bool)
         if not (number and math.isfinite(value) and value > 0):
-            reason = f"is {value!r}, not a finite number greater than zero"
-        elif round(value * m, 9) < 1.0:  # 1/m itself is the least: (1/49) * 49 < 1 in floats
-            reason = (
-                f"is {value:g}, below 1/{m}: scaled by it, its {m} source intervals "
-                "come to fewer than one"
+            raise InputArtifactError(
+                f"family {family}: the {direction} factor is {value!r}, not a finite number "
+                f"greater than zero. Give a {direction} factor greater than zero and run again. "
+                "Nothing was written.",
+                kind=KIND,
             )
-        else:
+        if round(value * m, 9) >= 1.0:  # 1/m itself is the least: (1/49) * 49 < 1 in floats
             continue
         raise InputArtifactError(
-            f"family {family}: the {direction} factor {reason}. Give a {direction} factor of "
-            f"at least 1/{m}, or leave out --strict-factors (force_factors=False) to raise it "
-            "with a warning, and run again. Nothing was written.",
+            f"family {family}: the {direction} factor is {value:g}, below 1/{m}: scaled by it, "
+            f"its {m} source intervals come to fewer than one. Give a {direction} factor of "
+            f"at least 1/{m}, or leave out --strict-factors (force_factors=True, the default) "
+            "to raise it with a warning, and run again. Nothing was written.",
             kind=KIND,
         )
     if grid.wrap:
@@ -907,8 +908,9 @@ def _check_section(grid: Grid, family: str, chordwise: float) -> None:
         return
     raise InputArtifactError(
         f"family {family}: the normal factor is {chordwise:g}, which {reason}. Give a "
-        f"normal factor of at least {least}, or leave out --strict-factors (force_factors=False) "
-        "to raise it with a warning, and run again. Nothing was written.",
+        f"normal factor of at least {least}, or leave out --strict-factors "
+        "(force_factors=True, the default) to raise it with a warning, and run again. "
+        "Nothing was written.",
         kind=KIND,
     )
 
