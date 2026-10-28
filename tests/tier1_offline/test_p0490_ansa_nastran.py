@@ -158,3 +158,10 @@ def test_visual_inspect_png_writes_the_views_page_and_one_file_per_view(tmp_path
     views = [f"{pdf.stem}.{view}.png" for view in ("front", "iso", "side", "top")]
     assert pngs == sorted([f"{pdf.stem}.png", *views])
     assert all((pdf.parent / name).read_bytes()[:4] == b"\x89PNG" for name in pngs)
+
+
+def test_a_segment_of_another_layout_does_not_discard_the_side_block() -> None:
+    body = struct.pack(">I", 1) + struct.pack(">IH", 7, 2)
+    good = base64.b64encode(struct.pack(">I", len(body)) + zlib.compress(body)).decode()
+    raw = base64.b64encode(b"\x00\x00\x00\x08rawbytes").decode()
+    assert _nastran._decode_sides("PART_NAME_LONG;" + raw + ";" + good) == [(7, 2)]

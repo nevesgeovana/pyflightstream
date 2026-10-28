@@ -126,15 +126,18 @@ def _decode_sides(text: str) -> list[tuple[int, int]]:
 
     The comment holds ``;``-separated fields: group numbers and base64 blocks.
     The side blocks are the ones whose body is a count and 6-byte records; the
-    other blocks (lists of 4-byte ids) are read past. Raise ValueError when no
-    side block reads.
+    other blocks (lists of 4-byte ids) are read past, and so is a field that is not
+    a zlib block at all. Raise ValueError when no side block reads.
     """
     sides: list[tuple[int, int]] = []
     found = False
     for segment in text.split(";"):
         if len(segment) < 8:
             continue
-        records = _side_records(segment)
+        try:
+            records = _side_records(segment)
+        except (binascii.Error, zlib.error, struct.error):
+            continue
         if records is not None:
             found = True
             sides.extend(records)
