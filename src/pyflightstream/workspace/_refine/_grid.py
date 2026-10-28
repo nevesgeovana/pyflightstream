@@ -911,6 +911,31 @@ def _check_section(grid: Grid, family: str, chordwise: float) -> None:
     )
 
 
+def least_factors(grid: Grid, chordwise: float, spanwise: float) -> tuple[float, float]:
+    """Return the factors raised to the least the grid allows (``force_factors``).
+
+    A factor below ``1/m`` for the ``m`` source intervals of its direction
+    becomes ``1/m``; on a tube the chordwise factor is also raised to the
+    least its section's caps carry (:func:`_check_section`). A factor that
+    is not a finite number above zero is returned as it is, for
+    :func:`check_factors` to refuse.
+    """
+    chord_m, span_m = grid.intervals
+    raised = []
+    for value, m in ((chordwise, chord_m), (spanwise, span_m)):
+        number = isinstance(value, (int, float)) and not isinstance(value, bool)
+        if number and math.isfinite(value) and value > 0 and value * m < 1.0:
+            value = 1.0 / m
+        raised.append(value)
+    chordwise, spanwise = raised
+    if grid.wrap and isinstance(chordwise, (int, float)) and chordwise > 0:
+        if "zipper" in grid.ends:
+            chordwise = max(chordwise, 2.0 / grid.i_le)
+        else:
+            chordwise = max(chordwise, 3.0 / grid.intervals[0])
+    return chordwise, spanwise
+
+
 def curve_changes(
     grid: Grid,
     edges: Iterable[Edge],

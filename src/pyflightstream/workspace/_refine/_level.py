@@ -285,8 +285,33 @@ def _decide_family(work: _Work, name: str) -> None:
         return
     if not isinstance(found, _blocks.Blocks):
         chordwise, spanwise = spec.directions
+        if work.request.force_factors:
+            chordwise, spanwise = _forced_factors(work, name, found, chordwise, spanwise)
         _grid.check_factors(found, name, chordwise=chordwise, spanwise=spanwise)
     work.grids[name] = found
+
+
+def _forced_factors(
+    work: _Work, name: str, grid: _grid.Grid, chordwise: float, spanwise: float
+) -> tuple[float, float]:
+    """Raise a grid's factors to the least it allows, warn, and keep them in its spec.
+
+    ``force_factors`` (CLI ``--force-factors``): the level's counts differ from
+    the factors asked, which ``refine.json`` keeps under ``specs``; the
+    family's record shows the intervals written.
+    """
+    least = _grid.least_factors(grid, chordwise, spanwise)
+    if least == (chordwise, spanwise):
+        return chordwise, spanwise
+    warn(
+        f"{work.source} family {name}: the normal and parallel factors {chordwise:g} and "
+        f"{spanwise:g} are below the least the grid allows and are raised to {least[0]:g} "
+        f"and {least[1]:g} (force_factors, CLI --force-factors)",
+        PyflightstreamWarning,
+        stacklevel=4,
+    )
+    work.specs[name] = dataclasses.replace(work.specs[name], chordwise=least[0], spanwise=least[1])
+    return least
 
 
 def _te_rows(work: _Work, points: Points) -> list[list[float]]:
@@ -1045,6 +1070,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     progress: Callable[[str], None] | None = None,
     accept_remesh: bool = False,
     accept_unknown: bool = False,
+    force_factors: bool = False,
     chordwise: float | None = None,
     spanwise: float | None = None,
 ) -> RefinedMesh:
@@ -1084,6 +1110,10 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         know: an unknown table or key of the refinement file, a family table
         or component member the mesh does not hold, and a selected family it
         does not hold.
+    force_factors : bool
+        Raise a grid factor below the least its grid allows (``1/m`` for its
+        ``m`` intervals, the least a tube's caps carry) to that least, with a
+        warning; by default such a factor is refused.
     chordwise, spanwise : float, optional
         The earlier names of ``normal`` and ``parallel``, read with a warning;
         beside the new name, the earlier one is warned and skipped.
@@ -1124,6 +1154,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         keep_first_row=keep_first_row,
         accept_remesh=accept_remesh,
         accept_unknown=accept_unknown,
+        force_factors=force_factors,
     )
     stem = f"{source.stem}_{_config.level_tag(request, list(obj.families), str(source))}"
     if request.filename:

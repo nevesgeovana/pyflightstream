@@ -352,6 +352,12 @@ def _add_refine_parser(subparsers: Any) -> None:
         "name it does not hold",
     )
     refine.add_argument(
+        "--force-factors",
+        action="store_true",
+        help="raise a grid factor below the least its grid allows (1/m for its m intervals, "
+        "the least a tube's caps carry) to that least, with a warning, in place of refusing it",
+    )
+    refine.add_argument(
         "--keep-first-row",
         metavar="FAMILY[,FAMILY...]",
         # An earlier option, warned and skipped: a row kept at an interface is its own family.
@@ -414,6 +420,7 @@ def run_refine(args: argparse.Namespace) -> int:
             progress=_progress_printer(),
             accept_remesh=args.accept_remesh,
             accept_unknown=args.accept_unknown,
+            force_factors=args.force_factors,
         )
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)

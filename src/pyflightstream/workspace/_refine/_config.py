@@ -153,6 +153,9 @@ class RefineRequest:
     point_fraction: float = TE_POINT_FRACTION
     perimeters: tuple[Perimeter, ...] = ()
     accept_remesh: bool = False
+    #: Raise a grid factor below the least its grid allows to that least, with a
+    #: warning, instead of refusing it (CLI ``--force-factors``).
+    force_factors: bool = False
 
     def elements_of(self, family: str) -> str:
         """Return the element mode of a family: its own, else the file's default."""
@@ -619,6 +622,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     keep_first_row: Sequence[str] | None = None,
     accept_remesh: bool = False,
     accept_unknown: bool = False,
+    force_factors: bool = False,
 ) -> RefineRequest:
     """Return what the refinement is asked, from the call and the refinement file (FR-916).
 
@@ -725,6 +729,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         ignored=ignored,
         missing=missing_tables,
         accept_remesh=accept_remesh,
+        force_factors=force_factors,
         perimeters=stated.get("perimeters", ()),
     )
 

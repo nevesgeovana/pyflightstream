@@ -403,6 +403,20 @@ def test_arch48_accept_empty_writes_nothing_when_no_trailing_edge_is_found(tmp_p
     assert not src.with_name(f"{src.stem}.Nope.fs.te.txt").exists()
 
 
+def test_arch48_force_factors_raises_a_factor_below_the_least_the_grid_allows(tmp_path):
+    """ARCH48-R6: a factor below 1/m is refused; ``force_factors`` raises it to 1/m, warned.
+
+    G has 18 chordwise and 8 spanwise intervals: 0.05 is raised to 1/18 and 1/8,
+    and the level holds one interval in each direction.
+    """
+    src = _source(tmp_path)
+    assert "below 1/18" in _refused(tmp_path, src, factor=0.05)
+    with pytest.warns(PyflightstreamWarning, match="raised to 0.0555556 and 0.125"):
+        level = refine_mesh(src, 0.05, force_factors=True, out_dir=tmp_path / "acc")
+    intervals = level.report["G"]["intervals"]
+    assert intervals["chordwise"] == [18, 1] and intervals["spanwise"] == [8, 1]
+
+
 def test_arch48_accept_unknown_skips_the_values_the_refinement_cannot_read(tmp_path):
     """ARCH48-R3: a value of the wrong kind in the refinement file is refused by default.
 
