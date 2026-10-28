@@ -180,7 +180,7 @@ def add_geometry_commands(subparsers: Any) -> None:
         description=(
             "A trailing edge is a family's rearmost line: the edges its surface lies forward of. "
             "Without NODES they are found from the mesh alone (each family cut at its sharp "
-            "edges, an edge kept when it makes --min-angle or more with the xz plane) and the "
+            "edges, an edge kept when it lies within --max-angle of the yz plane) and the "
             "nodes are also written as <mesh stem>.nodes.txt, the ANSA node list a refine file "
             "reads. With "
             "NODES (an ANSA SET node list, every perimeter in one file, any order) they are "
@@ -202,11 +202,11 @@ def add_geometry_commands(subparsers: Any) -> None:
         help="the families, one file each (default: every family, in one file)",
     )
     identify.add_argument(
-        "--min-angle",
+        "--max-angle",
         type=float,
-        default=20.0,
+        default=45.0,
         metavar="DEG",
-        help="without NODES, the least angle of an edge with the xz plane (default 20)",
+        help="without NODES, the largest angle of an edge with the yz plane (default 45)",
     )
     identify.add_argument(
         "--aft", nargs=3, type=float, metavar=("X", "Y", "Z"), help="the aft direction (default +x)"
@@ -224,17 +224,17 @@ def add_geometry_commands(subparsers: Any) -> None:
             "cut into <family>_<NNN>_grid or _mixed patches, numbered within the family from the "
             "largest extent along y), <stem>_patches.refine.toml (each patch at factor 1, grid "
             "or remesh, [components] putting each family back together) and "
-            "<stem>_patches.nodes.txt (the rearmost line of each grid patch, its edges at "
-            "--min-angle or more from the xz plane, as an ANSA SET node list)."
+            "<stem>_patches.nodes.txt (the rearmost line of each grid patch, its edges "
+            "within --max-angle of the yz plane, as an ANSA SET node list)."
         ),
     )
     prepare.add_argument("mesh", metavar="OBJ", help="the source mesh; it is not modified")
     prepare.add_argument(
-        "--min-angle",
+        "--max-angle",
         type=float,
-        default=20.0,
+        default=45.0,
         metavar="DEG",
-        help="the least angle of a listed edge with the xz plane (default 20)",
+        help="the largest angle of a listed edge with the yz plane (default 45)",
     )
     prepare.add_argument(
         "--aft", nargs=3, type=float, metavar=("X", "Y", "Z"), help="the aft direction (default +x)"
@@ -617,7 +617,7 @@ def _cmd_identify_te(args: argparse.Namespace) -> int:
             if args.families is None
             else [n.strip() for n in args.families.split(",") if n.strip()],
             aft=args.aft or (1.0, 0.0, 0.0),
-            min_angle=args.min_angle,
+            max_angle=args.max_angle,
             unit=args.unit,
             simulation_unit=args.simulation_unit,
             overwrite=args.overwrite,
@@ -637,7 +637,7 @@ def _cmd_prepare_to_refine(args: argparse.Namespace) -> int:
     try:
         x, y, z = args.aft or (1.0, 0.0, 0.0)
         prepared = prepare_to_refine(
-            args.mesh, min_angle=args.min_angle, aft=(x, y, z), overwrite=args.overwrite
+            args.mesh, max_angle=args.max_angle, aft=(x, y, z), overwrite=args.overwrite
         )
     except (PyflightstreamError, OSError, ValueError) as error:
         print(str(error), file=sys.stderr)

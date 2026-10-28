@@ -33,7 +33,7 @@ FlightStream versions.
   (`aft`, default +x, the nose to tail direction), and the level writes
   `<level>.<family>.te.txt` for it by output family. Every family's rearmost
   line is also the first one tried to orient its grid.
-- `pyfs-workspace geometry prepare-to-refine OBJ [--min-angle DEG] [--aft X Y Z]`
+- `pyfs-workspace geometry prepare-to-refine OBJ [--max-angle DEG] [--aft X Y Z]`
   (`workspace.prepare_to_refine`), an optional step: writes `<stem>_patches.obj`
   with every family cut at its sharp edges into `<family>_<NNN>_grid` patches
   (the quadrilaterals the refinement recovers as a grid) and `_mixed` ones,
@@ -41,7 +41,7 @@ FlightStream versions.
   `<stem>_patches.refine.toml` with every patch at factor 1 (grid or remesh),
   `[components]` putting each family back together and a `[[perimeter]]` with
   `te_families`; and `<stem>_patches.nodes.txt`, the rearmost line of each grid
-  patch, its edges at the minimum angle (default 20 degrees) or more from the xz
+  patch, its edges within the maximum angle (default 45 degrees) of the yz
   plane, as an ANSA SET node list.
 - A level whose trailing edges a `[[perimeter]]` list exports declares them in
   its `<level>.obj.boundaries.toml`, one `[trailing_edges.<component>]` table
@@ -52,13 +52,12 @@ FlightStream versions.
   OBJ instead of `<stem>_<tag>`; with both, the filename wins and the tag is
   warned and skipped.
 - `pyfs-workspace geometry identify-te OBJ [NODES] [--families A,B]
-  [--min-angle DEG] [--aft X Y Z] [--unit U] [--simulation-unit U]` writes the
+  [--max-angle DEG] [--aft X Y Z] [--unit U] [--simulation-unit U]` writes the
   trailing edges in the format the solver imports, for marking them without
   refining: `<obj stem>.nodes.te.txt` for every family, or
   `<obj stem>.<family>.fs.te.txt` per family with `--families`. Without NODES
   they are found from the mesh (each family cut at its sharp edges, its
-  rearmost boundary edges at the minimum angle or more from the xz plane, so a
-  wing root or the cut a fuselage holds around it is left out) and also written
+  rearmost boundary edges within the maximum angle of the yz plane) and also written
   as `<obj stem>.nodes.txt`, the ANSA node list a refine file reads; with an
   ANSA SET node list they are taken among its lines, on a refined level with
   merged families too.

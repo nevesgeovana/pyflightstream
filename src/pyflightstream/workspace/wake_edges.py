@@ -876,7 +876,7 @@ def write_trailing_edges_identified(
     families: Sequence[str] | None = None,
     *,
     aft: Sequence[float] = (1.0, 0.0, 0.0),
-    min_angle: float = 20.0,
+    max_angle: float = 45.0,
     unit: str | None = None,
     simulation_unit: str | None = None,
     overwrite: bool = False,
@@ -893,7 +893,7 @@ def write_trailing_edges_identified(
       those segments is on a line, so the OBJ may be a refined level whose nodes
       are not the listed ones;
     - without it, the boundaries of the family cut along its sharp edges, an
-      edge kept when its tangent makes ``min_angle`` degrees or more with the xz
+      edge kept when its tangent makes ``max_angle`` degrees or less with the yz
       plane (:func:`pyflightstream.workspace._refine._prepare.rearmost_lines`).
 
     Beside the mesh, ``families`` given, each family's file is
@@ -915,9 +915,9 @@ def write_trailing_edges_identified(
         family, in one file.
     aft : sequence of float
         The aft direction, from the nose to the tail (default +x).
-    min_angle : float
-        Without ``source``, the least angle in degrees between a trailing-edge
-        edge and the xz plane (default 20).
+    max_angle : float
+        Without ``source``, the largest angle in degrees between a trailing-edge
+        edge and the yz plane (default 45).
     unit : str, optional
         The coordinates' unit; else the ``[import] units`` of the mesh's
         boundaries file, else METER.
@@ -977,7 +977,7 @@ def write_trailing_edges_identified(
             found[name] = rearmost_edges(obj.verts, faces, near[name], (x, y, z))
     else:
         for name, faces in chosen.items():
-            found[name] = rearmost_lines(obj.verts, faces, (x, y, z), min_angle)
+            found[name] = rearmost_lines(obj.verts, faces, (x, y, z), max_angle)
     for name, edges in found.items():
         if not edges and families is not None:
             warn(

@@ -2169,25 +2169,29 @@ def test_identify_te_from_the_obj_alone_writes_the_trailing_edge_and_its_node_li
     assert numpy.allclose(numpy.sort(own, axis=0), numpy.sort(exact, axis=0), atol=1e-9)
 
 
-def test_a_rearmost_line_in_the_xz_plane_is_not_a_trailing_edge():
-    """The minimum angle with the xz plane leaves out a line across y, such as a root cut.
+@pytest.mark.parametrize(
+    ("turn", "most", "kept"), [(0.0, 45.0, True), (25.0, 45.0, True), (25.0, 20.0, False)]
+)
+def test_a_rearmost_line_is_a_trailing_edge_within_the_angle_of_the_yz_plane(turn, most, kept):
+    """A rearmost edge is kept when it lies within the maximum angle of the yz plane.
 
-    A plate with a hole in the xy plane has two rearmost lines, its aft edge and
-    the hole's front edge, both along y. Control: the same plate turned into
-    the xz plane, as a fuselage side holds the cut around a wing root, has none.
+    A flat plate with a hole has two rearmost lines along y, its aft edge and
+    the hole's front edge. Turned about z by 25 degrees they are 25 degrees
+    from the yz plane: kept within 45, left out within 20 (its sides, turned
+    the other way, are not rearmost, their surface 65 degrees from forward).
     """
     from pyflightstream.workspace._refine._prepare import rearmost_lines
     from tests.p0380_mesh_fixtures import holed_plate
 
     plate = holed_plate()
-    plate.verts[:, 2] = 0.0  # flat, so the turned plate lies in the xz plane
-    faces = plate.families["P"]
-    flat = rearmost_lines(plate.verts, faces)
-    assert flat
-    tangents = numpy.array([plate.verts[b] - plate.verts[a] for a, b in flat])
-    assert numpy.allclose(tangents[:, 0], 0.0, atol=1e-12)
-    turned = plate.verts[:, [0, 2, 1]]
-    assert rearmost_lines(turned, faces) == set()
+    plate.verts[:, 2] = 0.0
+    c, s = numpy.cos(numpy.radians(turn)), numpy.sin(numpy.radians(turn))
+    turned = plate.verts @ numpy.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+    found = rearmost_lines(turned, plate.families["P"], max_angle=most)
+    assert bool(found) is kept
+    if turn == 0.0:
+        tangents = numpy.array([turned[b] - turned[a] for a, b in found])
+        assert numpy.allclose(tangents[:, 0], 0.0, atol=1e-12)
 
 
 def test_the_level_boundaries_file_lists_each_components_trailing_edge_for_mark_boundaries(

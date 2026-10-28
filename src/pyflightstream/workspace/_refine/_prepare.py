@@ -19,8 +19,8 @@ any OBJ and refine file without it) writes, beside the mesh:
 3. ``<stem>_patches.nodes.txt``: the node list the refinement reads (an ANSA SET
    node-window export, ``Id, Name, X, Y, Z``): for each grid patch, the nodes of
    the rearmost line of its outer boundary (:func:`._obj.rearmost_edges`) whose
-   edges rise from the xz plane by ``min_angle`` or more
-   (:func:`across_xz`), ordered along y. A node two patches share is listed
+   edges lie in or near the yz plane, within ``max_angle`` (:func:`near_yz`),
+   ordered along y. A node two patches share is listed
    once.
 """
 
@@ -41,10 +41,10 @@ Points = NDArray[numpy.float64]
 
 #: The suffix of the prepared files' stem.
 PATCHES_SUFFIX = "_patches"
-#: The least angle, in degrees, between a trailing-edge edge and the xz plane when none is
-#: stated: a wing's trailing edge runs along y, at 90 degrees less its sweep and its
-#: dihedral, while a wing root, or the cut a fuselage holds around it, lies in the xz plane.
-MIN_ANGLE = 20.0
+#: The largest angle, in degrees, between a trailing-edge edge and the yz plane when none
+#: is stated: a trailing edge runs across the flow (along y on a wing, along z on a fin),
+#: at its sweep from that plane, while a tip or a root line runs along the flow.
+MAX_ANGLE = 45.0
 #: A quadrilateral piece of fewer faces than this is not a grid patch: the islands of
 #: quadrilaterals a quad-dominant mesh holds among its triangles stay in their mixed patch.
 GRID_MIN_FACES = 4
@@ -66,7 +66,7 @@ class PreparedMesh:
 def prepare_to_refine(
     mesh: str | Path,
     *,
-    min_angle: float = MIN_ANGLE,
+    max_angle: float = MAX_ANGLE,
     aft: tuple[float, float, float] = _obj.AFT,
     overwrite: bool = False,
 ) -> PreparedMesh:
@@ -76,9 +76,9 @@ def prepare_to_refine(
     ----------
     mesh : str or pathlib.Path
         The source OBJ; it is never modified.
-    min_angle : float
-        The least angle, in degrees, between a listed edge and the xz plane
-        (default :data:`MIN_ANGLE`).
+    max_angle : float
+        The largest angle, in degrees, between a listed edge and the yz plane
+        (default :data:`MAX_ANGLE`).
     aft : tuple of float
         The direction from the nose to the tail (default +x).
     overwrite : bool
@@ -120,7 +120,7 @@ def prepare_to_refine(
             families[patch] = [faces[i] for i in sorted(members)]
             kinds[patch] = kind
             patches[name].append(patch)
-    rows, listed = _te_rows(obj.verts, families, kinds, min_angle, aft)
+    rows, listed = _te_rows(obj.verts, families, kinds, max_angle, aft)
     note = f"patches of {source.name}, prepared by pyflightstream prepare-to-refine"
     out = ObjMesh(obj.verts, families, list(obj.header), obj.family_tag, list(obj.vertex_text))
     _obj.write_obj(out, targets[0], note)
@@ -183,16 +183,15 @@ def rearmost_lines(
     verts: Points,
     faces: Faces,
     aft: tuple[float, float, float] = _obj.AFT,
-    min_angle: float = MIN_ANGLE,
+    max_angle: float = MAX_ANGLE,
 ) -> set[tuple[int, int]]:
     """Return a family's trailing edge found from the mesh alone.
 
     The family is cut along its sharp edges (a sharp trailing edge between an
     upper and a lower surface is then a boundary of both); of each piece's
     boundary edges, those the piece lies forward of are kept
-    (:func:`._obj.rearmost_edges`) when they rise from the xz plane by
-    ``min_angle`` or more (:func:`across_xz`): a wing root, or the cut a
-    fuselage holds around it, lies in that plane and is left out.
+    (:func:`._obj.rearmost_edges`) when they lie in or near the yz plane,
+    within ``max_angle`` (:func:`near_yz`).
     """
     dihedral = _geometry.dihedral_degrees(verts, faces)
     sharp = {e for e, angle in dihedral.items() if angle > _geometry.RIDGE_DEGREES}
@@ -204,19 +203,19 @@ def rearmost_lines(
         held = _geometry.edge_faces(members)
         boundary = {e for e, fs in held.items() if len(fs) == 1}
         found |= _obj.rearmost_edges(verts, members, boundary, aft)
-    return across_xz(verts, found, min_angle)
+    return near_yz(verts, found, max_angle)
 
 
-def across_xz(
-    verts: Points, edges: set[tuple[int, int]], min_angle: float = MIN_ANGLE
+def near_yz(
+    verts: Points, edges: set[tuple[int, int]], max_angle: float = MAX_ANGLE
 ) -> set[tuple[int, int]]:
-    """Return the edges whose tangent makes ``min_angle`` degrees or more with the xz plane."""
-    least = numpy.sin(numpy.radians(min_angle))
+    """Return the edges whose tangent makes ``max_angle`` degrees or less with the yz plane."""
+    most = numpy.sin(numpy.radians(max_angle))
     out = set()
     for a, b in edges:
         tangent = verts[b] - verts[a]
         length = float(numpy.linalg.norm(tangent))
-        if length > 0.0 and abs(float(tangent[1])) >= least * length:
+        if length > 0.0 and abs(float(tangent[0])) <= most * length:
             out.add((a, b))
     return out
 
@@ -241,7 +240,7 @@ def _te_rows(
     verts: Points,
     families: dict[str, Faces],
     kinds: dict[str, str],
-    min_angle: float,
+    max_angle: float,
     aft: tuple[float, float, float],
 ) -> tuple[list[str], set[str]]:
     """Return the node-list rows of the grid patches' rearmost lines, and the patches listed."""
@@ -256,7 +255,7 @@ def _te_rows(
             continue
         outer = max(loops, key=lambda loop: float(numpy.ptp(verts[loop], axis=0).max()))
         ring = {(min(a, b), max(a, b)) for a, b in zip(outer, [*outer[1:], outer[0]], strict=True)}
-        edges = across_xz(verts, _obj.rearmost_edges(verts, faces, ring, aft), min_angle)
+        edges = near_yz(verts, _obj.rearmost_edges(verts, faces, ring, aft), max_angle)
         nodes = sorted({v for e in edges for v in e} - written, key=lambda v: float(verts[v, 1]))
         if not nodes:
             continue
@@ -267,8 +266,8 @@ def _te_rows(
             rows.append(f"{v + 1}, {name}, {x}, {y}, {z}")
     if not rows:
         warn(
-            "prepare-to-refine: no grid patch has a rearmost line at "
-            f"{min_angle:g} degrees or more from the xz plane; the node list is empty",
+            "prepare-to-refine: no grid patch has a rearmost line within "
+            f"{max_angle:g} degrees of the yz plane; the node list is empty",
             PyflightstreamWarning,
             stacklevel=3,
         )
@@ -302,7 +301,7 @@ def _toml(
         lines.append(f"{_key(family)} = [{listed}]")
     lines += [
         "",
-        "# The rearmost line of each grid patch, its edges off the xz plane; the",
+        "# The rearmost line of each grid patch, its edges near the yz plane; the",
         "# trailing edges of te_families are written per family into the level.",
         "[[perimeter]]",
         f'file = "{nodes.name}"',
