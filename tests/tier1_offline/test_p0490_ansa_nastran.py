@@ -41,7 +41,7 @@ def _ids_block(ids: list[int]) -> str:
     return base64.b64encode(struct.pack(">I", len(body)) + zlib.compress(body)).decode()
 
 
-def _export(path: Path, *, wide: bool, perimeter: str | None) -> Path:
+def _export(path: Path, *, wide: bool, perimeter: str | None, only: bool = False) -> Path:
     lines = ["$ANSA_VERSION;25.1.2;", "BEGIN BULK"]
     for j in range(ROWS + 1):
         for i in range(COLUMNS + 1):
@@ -65,7 +65,7 @@ def _export(path: Path, *, wide: bool, perimeter: str | None) -> Path:
                 lines.append("CQUAD4  " + "".join(f"{v:>8}" for v in (_element(i, j), 1, *g)))
     lines += ["$Sheet", "PSHELL         1       1      1."]
     if perimeter is not None:
-        text = f"0;{perimeter};{_ids_block([1, 3])};1;{_block([])};"
+        text = f"0;{perimeter};" + ("" if only else f"{_ids_block([1, 3])};1;{_block([])};")
         lines.append("$ANSA_FE_PERIMETER;" + text[:60])
         lines += ["$" + text[k : k + 70] for k in range(60, len(text), 70)]
     lines.append("ENDDATA")
@@ -97,7 +97,7 @@ def test_without_a_perimeter_block_the_families_are_cut_at_sharp_edges(tmp_path:
 
 
 def test_a_block_that_does_not_read_is_warned_and_skipped(tmp_path: Path) -> None:
-    source = _export(tmp_path / "bad.nas", wide=False, perimeter="AAAA!!notzlib")
+    source = _export(tmp_path / "bad.nas", wide=False, perimeter="AAAA!!notzlib", only=True)
     with pytest.warns(PyflightstreamWarning, match="does not read"):
         prepared = prepare_to_refine(source)
     assert prepared.patches == {"Sheet": ["Sheet_001_grid"]}
