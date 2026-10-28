@@ -277,14 +277,6 @@ def _decide_family(work: _Work, name: str) -> None:
     work.grids[name] = found
 
 
-def _component_of(work: _Work, name: str) -> str:
-    """Return a family's component: its ``[components]`` entry, else its name to the first ``_``."""
-    for component, members in work.request.components.items():
-        if name in members:
-            return component
-    return name.split("_", 1)[0]
-
-
 def _te_rows(work: _Work, points: Points) -> list[list[float]]:
     """Return trailing-edge mid-points as the level's points file writes them (FR-426 G4).
 
@@ -293,16 +285,6 @@ def _te_rows(work: _Work, points: Points) -> list[list[float]]:
     line it would read in that file.
     """
     return [[float(w) for w in _obj.coordinates(p).split()] for p in points]
-
-
-def _meets(row: NDArray[numpy.int64], wrap: bool, nodes: set[int]) -> bool:
-    """Return whether two consecutive nodes of a station, an edge of it, are in ``nodes``.
-
-    (FR-951).
-    """
-    ids = [int(v) for v in row]
-    pairs = zip(ids, ids[1:] + ids[:1] if wrap else ids[1:], strict=False)
-    return any(a in nodes and b in nodes for a, b in pairs)
 
 
 def _planned_bands(work: _Work) -> list[str]:
