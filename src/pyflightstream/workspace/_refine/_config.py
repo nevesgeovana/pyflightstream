@@ -376,26 +376,35 @@ def _family_tables(
                 where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}", accept
             )
             continue
-        for key in RETIRED_FAMILY_KEYS:
-            if key in table:
-                _skip(f"{where} {key}", "is no longer read")
-        table = {k: v for k, v in table.items() if k not in RETIRED_FAMILY_KEYS}
+        table = _without_retired(where, table)
         if not table:
             continue
         if "elements" in table:
             elements[name] = elements_mode(where, table["elements"])
         if read is not None and name not in read:
-            if "elements" in table and table.get("method") == "grid":
-                raise _refuse(
-                    f"{where} elements",
-                    "elements applies to a remeshed family; a grid keeps its cells",
-                )
+            _check_unread(where, table)
             if set(table) != {"elements"}:
                 unread.append(name)
             continue
         if set(table) - {"elements"}:
             specs[name] = _family_spec(where, table, accept)
     return specs, elements, unread
+
+
+def _without_retired(where: str, table: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a family table without its retired keys, each warned and skipped."""
+    for key in RETIRED_FAMILY_KEYS:
+        if key in table:
+            _skip(f"{where} {key}", "is no longer read")
+    return {k: v for k, v in table.items() if k not in RETIRED_FAMILY_KEYS}
+
+
+def _check_unread(where: str, table: Mapping[str, Any]) -> None:
+    """Refuse ``elements`` on a grid in a table whose factors are not read (F-1516)."""
+    if "elements" in table and table.get("method") == "grid":
+        raise _refuse(
+            f"{where} elements", "elements applies to a remeshed family; a grid keeps its cells"
+        )
 
 
 def read_refine_file(

@@ -219,13 +219,20 @@ def te_pieces(work: _Work, listed: set[tuple[int, int]]) -> str:
     return f"the perimeter lists matched {count}: {text} (mesh units)"
 
 
-def boundary_sides(verts: Points, faces: Faces) -> list[list[int]]:
-    """Return the sides of a family's single boundary loop, split at its corners.
+#: A boundary loop has a corner, and a path of edges is cut, where it turns by more
+#: than this angle in degrees.
+CORNER_DEGREES = 45.0
 
-    A corner is a boundary vertex where the loop turns by more than 45 degrees. A
-    family whose boundary is not one loop, or that has fewer than four corners,
-    has no sides.
-    """
+
+def turns(pts: Points, before: int, at: int, after: int) -> bool:
+    """Return whether the path before -> at -> after turns by more than :data:`CORNER_DEGREES`."""
+    u, w = pts[at] - pts[before], pts[after] - pts[at]
+    cos = float(u @ w) / max(float(numpy.linalg.norm(u) * numpy.linalg.norm(w)), 1e-300)
+    return cos < numpy.cos(numpy.radians(CORNER_DEGREES))
+
+
+def _single_loop(faces: Faces) -> list[int]:
+    """Return the family's boundary as one loop of vertices, empty when it is not one loop."""
     count: dict[tuple[int, int], int] = {}
     for f in faces:
         for a, b in zip(f, [*f[1:], f[0]], strict=True):
@@ -247,16 +254,20 @@ def boundary_sides(verts: Points, faces: Faces) -> list[list[int]]:
             break
         prev = here
         loop.append(nxt)
-    if len(loop) != len(touching):
-        return []
+    return loop if len(loop) == len(touching) else []
+
+
+def boundary_sides(verts: Points, faces: Faces) -> list[list[int]]:
+    """Return the sides of a family's single boundary loop, split at its corners.
+
+    A corner is a boundary vertex where the loop turns by more than
+    :data:`CORNER_DEGREES`. A family whose boundary is not one loop, or that
+    has fewer than four corners, has no sides.
+    """
+    loop = _single_loop(faces)
     pts = numpy.asarray(verts, dtype=float)
-    corners = []
-    for i, v in enumerate(loop):
-        a = pts[v] - pts[loop[i - 1]]
-        b = pts[loop[(i + 1) % len(loop)]] - pts[v]
-        cos = float(a @ b) / max(float(numpy.linalg.norm(a) * numpy.linalg.norm(b)), 1e-300)
-        if cos < numpy.cos(numpy.radians(45.0)):
-            corners.append(i)
+    n = len(loop)
+    corners = [i for i, v in enumerate(loop) if turns(pts, loop[i - 1], v, loop[(i + 1) % n])]
     if len(corners) < 4:
         return []
     sides = []
@@ -291,22 +302,8 @@ def assume_trailing_edge(work: _Work, name: str) -> None:
     others = set().union(*(te for n, te in work.te_of.items() if n != name))
     other_edges = set().union(*(e for n, e in work.te_edges.items() if n != name))
     pts = numpy.asarray(verts, dtype=float)
-
-    def follows(side: list[int]) -> float:
-        best = 0.0
-        for end, inner in ((side[0], side[1]), (side[-1], side[-2])):
-            d = pts[inner] - pts[end]
-            for a, b in other_edges:
-                if end in (a, b):
-                    e = pts[b] - pts[a]
-                    cos = abs(float(d @ e)) / max(
-                        float(numpy.linalg.norm(d) * numpy.linalg.norm(e)), 1e-300
-                    )
-                    best = max(best, cos)
-        return best
-
     tried: list[tuple[str, list[int]]] = []
-    shared = [(len(set(s) & others), follows(s), s) for s in sides]
+    shared = [(len(set(s) & others), _follows(pts, s, other_edges), s) for s in sides]
     shared = [t for t in shared if t[0]]
     for _, _, side in sorted(shared, key=lambda t: (-t[0], -t[1])):
         tried.append(("a neighbouring family's trailing edge", side))
@@ -331,6 +328,21 @@ def assume_trailing_edge(work: _Work, name: str) -> None:
             stacklevel=2,
         )
         return
+
+
+def _follows(pts: Points, side: list[int], other_edges: set[tuple[int, int]]) -> float:
+    """Return how well a side continues the neighbours' trailing edges at its ends (a cosine)."""
+    best = 0.0
+    for end, inner in ((side[0], side[1]), (side[-1], side[-2])):
+        d = pts[inner] - pts[end]
+        for a, b in other_edges:
+            if end in (a, b):
+                e = pts[b] - pts[a]
+                cos = abs(float(d @ e)) / max(
+                    float(numpy.linalg.norm(d) * numpy.linalg.norm(e)), 1e-300
+                )
+                best = max(best, cos)
+    return best
 
 
 def choose_perimeter_line(work: _Work, name: str) -> None:
@@ -378,7 +390,7 @@ def on_grid_line(found: _grid.Grid | _blocks.Blocks, line: set[tuple[int, int]])
 
 
 def corners(verts: Points, piece: set[tuple[int, int]]) -> list[set[tuple[int, int]]]:
-    """Return a path of edges cut where it turns by more than 45 degrees; a branch is not cut."""
+    """Return a path of edges cut where it turns (:func:`turns`); a branch is not cut."""
     touching: dict[int, list[int]] = {}
     for a, b in piece:
         touching.setdefault(a, []).append(b)
@@ -391,11 +403,7 @@ def corners(verts: Points, piece: set[tuple[int, int]]) -> list[set[tuple[int, i
         path.append(next(n for n in touching[path[-1]] if n not in path[-2:-1]))
     pts = numpy.asarray(verts, dtype=float)
     cuts = [0]
-    for i in range(1, len(path) - 1):
-        u, w = pts[path[i]] - pts[path[i - 1]], pts[path[i + 1]] - pts[path[i]]
-        cos = float(u @ w) / max(float(numpy.linalg.norm(u) * numpy.linalg.norm(w)), 1e-300)
-        if cos < numpy.cos(numpy.radians(45.0)):
-            cuts.append(i)
+    cuts += [i for i in range(1, len(path) - 1) if turns(pts, path[i - 1], path[i], path[i + 1])]
     cuts.append(len(path) - 1)
     if len(cuts) == 2:
         return []

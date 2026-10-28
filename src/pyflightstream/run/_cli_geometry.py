@@ -145,6 +145,105 @@ def add_geometry_commands(subparsers: Any) -> None:
     export.add_argument("--fs-exe", metavar="PATH", help="executable, over the registry")
     export.add_argument("--apply", action="store_true", help="run the solver and export the mesh")
     export.add_argument("--overwrite", action="store_true", help="replace an existing surface mesh")
+    _add_mesh_verbs(verbs)
+    build = verbs.add_parser(
+        "build",
+        help="preview a geometry's build, or run it with --apply",
+        description=(
+            "Reads <name>.geometry.toml (the one of the current folder, or of the folder or "
+            "file TARGET names) and prints the script, the boundaries after each step and "
+            "what would be written. With --apply it runs the solver once with no solve, saves "
+            "the body, reads it back, audits it, and writes the preview and the record. Exit "
+            "0 built, 1 built with a failed audit gate, 2 refused, 3 the solver or the "
+            "read-back failed."
+        ),
+    )
+    build.add_argument(
+        "target", nargs="?", metavar="TARGET", help="an instruction file or a geometry folder"
+    )
+    build.add_argument("--apply", action="store_true", help="run the solver and write the geometry")
+    build.add_argument(
+        "--build", metavar="ID", help="the build id, over the instruction's fs_build"
+    )
+    build.add_argument(
+        "--fs-exe", dest="fs_exe", metavar="PATH", help="the executable, over the registry"
+    )
+    build.add_argument(
+        "--png", action="store_true", help="also draw <name>.preview.png (the plot extra)"
+    )
+    build.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="replace the outputs of an earlier build. Unlike post, a build refuses to replace "
+        "outputs unless asked: its outputs are inputs of runs",
+    )
+    build.add_argument(
+        "--only",
+        metavar="TAG[,TAG...]",
+        help="build only these variants of a [sweep], such as AIL+100",
+    )
+    build.add_argument(
+        "--parallel",
+        type=int,
+        default=1,
+        metavar="N",
+        help="run up to N variants of a [sweep] at once, 1 or 2 (default: 1); a variant "
+        "that fails beside another is run again alone",
+    )
+    build.add_argument(
+        "--rows",
+        metavar="POL",
+        help="print, per built geometry, the row POL of --matrix with its CONFIGURATION, "
+        "GEOMETRY and POL cells set for it; nothing is written into the matrix",
+    )
+    build.add_argument("--matrix", metavar="FILE", help="the run matrix --rows copies from")
+    accept = verbs.add_parser(
+        "accept",
+        help="record that a built geometry was inspected",
+        description="Writes who and when into each named geometry's <name>.build.json.",
+    )
+    accept.add_argument(
+        "names", metavar="NAME[,NAME...]", help="geometry folders of inputs/geometries"
+    )
+    accept.add_argument(
+        "--workspace", default=".", help="the workspace root (default: the current directory)"
+    )
+    convert = verbs.add_parser(
+        "from-sidecar",
+        help="write the instruction of a geometry a matrix builds in the row",
+        description=(
+            "Reads the sidecar of a CCS, IGES or raw-mesh geometry of inputs/geometries and "
+            "prints the instruction file that builds the same body; --apply writes it. The "
+            "sidecar and the matrices are never edited."
+        ),
+    )
+    convert.add_argument("geometry", metavar="GEOMETRY", help="the file a GEOMETRY cell names")
+    convert.add_argument("--apply", action="store_true", help="write <stem>.geometry.toml")
+    convert.add_argument("--build", metavar="ID", help="the build id; else the rows' newest")
+    convert.add_argument(
+        "--workspace", default=".", help="the workspace root (default: the current directory)"
+    )
+    for verb, source in matrix_parsers().items():
+        name = next(
+            (group for group, matrix in PYFS_MATRIX_ALIASES.items() if matrix == verb), None
+        )
+        if name is None:
+            continue
+        verbs.add_parser(
+            name,
+            parents=[source],
+            add_help=False,
+            help=f"as pyfs-matrix {verb}, whose home this group is",
+            description=source.description,
+        )
+
+
+def _add_mesh_verbs(verbs: Any) -> None:
+    """Add the verbs that read a mesh or a node list and need no solver.
+
+    ``trailing-edge``, ``convert2midnodes``, ``identify-te`` and
+    ``prepare-to-refine``.
+    """
     edge = verbs.add_parser("trailing-edge", help="extract trailing-edge midpoint coordinates")
     edge.add_argument("mesh", nargs="?")
     edge.add_argument("output", nargs="?")
@@ -240,96 +339,6 @@ def add_geometry_commands(subparsers: Any) -> None:
         "--aft", nargs=3, type=float, metavar=("X", "Y", "Z"), help="the aft direction (default +x)"
     )
     prepare.add_argument("--overwrite", action="store_true", help="replace the prepared files")
-    build = verbs.add_parser(
-        "build",
-        help="preview a geometry's build, or run it with --apply",
-        description=(
-            "Reads <name>.geometry.toml (the one of the current folder, or of the folder or "
-            "file TARGET names) and prints the script, the boundaries after each step and "
-            "what would be written. With --apply it runs the solver once with no solve, saves "
-            "the body, reads it back, audits it, and writes the preview and the record. Exit "
-            "0 built, 1 built with a failed audit gate, 2 refused, 3 the solver or the "
-            "read-back failed."
-        ),
-    )
-    build.add_argument(
-        "target", nargs="?", metavar="TARGET", help="an instruction file or a geometry folder"
-    )
-    build.add_argument("--apply", action="store_true", help="run the solver and write the geometry")
-    build.add_argument(
-        "--build", metavar="ID", help="the build id, over the instruction's fs_build"
-    )
-    build.add_argument(
-        "--fs-exe", dest="fs_exe", metavar="PATH", help="the executable, over the registry"
-    )
-    build.add_argument(
-        "--png", action="store_true", help="also draw <name>.preview.png (the plot extra)"
-    )
-    build.add_argument(
-        "--overwrite",
-        action="store_true",
-        help="replace the outputs of an earlier build. Unlike post, a build refuses to replace "
-        "outputs unless asked: its outputs are inputs of runs",
-    )
-    build.add_argument(
-        "--only",
-        metavar="TAG[,TAG...]",
-        help="build only these variants of a [sweep], such as AIL+100",
-    )
-    build.add_argument(
-        "--parallel",
-        type=int,
-        default=1,
-        metavar="N",
-        help="run up to N variants of a [sweep] at once, 1 or 2 (default: 1); a variant "
-        "that fails beside another is run again alone",
-    )
-    build.add_argument(
-        "--rows",
-        metavar="POL",
-        help="print, per built geometry, the row POL of --matrix with its CONFIGURATION, "
-        "GEOMETRY and POL cells set for it; nothing is written into the matrix",
-    )
-    build.add_argument("--matrix", metavar="FILE", help="the run matrix --rows copies from")
-    accept = verbs.add_parser(
-        "accept",
-        help="record that a built geometry was inspected",
-        description="Writes who and when into each named geometry's <name>.build.json.",
-    )
-    accept.add_argument(
-        "names", metavar="NAME[,NAME...]", help="geometry folders of inputs/geometries"
-    )
-    accept.add_argument(
-        "--workspace", default=".", help="the workspace root (default: the current directory)"
-    )
-    convert = verbs.add_parser(
-        "from-sidecar",
-        help="write the instruction of a geometry a matrix builds in the row",
-        description=(
-            "Reads the sidecar of a CCS, IGES or raw-mesh geometry of inputs/geometries and "
-            "prints the instruction file that builds the same body; --apply writes it. The "
-            "sidecar and the matrices are never edited."
-        ),
-    )
-    convert.add_argument("geometry", metavar="GEOMETRY", help="the file a GEOMETRY cell names")
-    convert.add_argument("--apply", action="store_true", help="write <stem>.geometry.toml")
-    convert.add_argument("--build", metavar="ID", help="the build id; else the rows' newest")
-    convert.add_argument(
-        "--workspace", default=".", help="the workspace root (default: the current directory)"
-    )
-    for verb, source in matrix_parsers().items():
-        name = next(
-            (group for group, matrix in PYFS_MATRIX_ALIASES.items() if matrix == verb), None
-        )
-        if name is None:
-            continue
-        verbs.add_parser(
-            name,
-            parents=[source],
-            add_help=False,
-            help=f"as pyfs-matrix {verb}, whose home this group is",
-            description=source.description,
-        )
 
 
 def _package_version() -> str:
@@ -787,24 +796,19 @@ def _cmd_mark_boundaries(args: argparse.Namespace) -> int:
 def run_geometry(args: argparse.Namespace) -> int:
     """Run the ``pyfs-workspace geometry`` verb ``args`` names and return its exit code."""
     verb = args.geometry_command
-    if verb == "mark-boundaries":
-        return _cmd_mark_boundaries(args)
-    if verb == "export-surface-mesh":
-        return _cmd_export_surface_mesh(args)
-    if verb == "trailing-edge":
-        return _cmd_trailing_edge(args)
-    if verb == "convert2midnodes":
-        return _cmd_midnodes(args)
-    if verb == "identify-te":
-        return _cmd_identify_te(args)
-    if verb == "prepare-to-refine":
-        return _cmd_prepare_to_refine(args)
-    if verb == "build":
-        return _cmd_build(args)
-    if verb == "accept":
-        return _cmd_accept(args)
-    if verb == "from-sidecar":
-        return _cmd_from_sidecar(args)
+    handlers = {
+        "mark-boundaries": _cmd_mark_boundaries,
+        "export-surface-mesh": _cmd_export_surface_mesh,
+        "trailing-edge": _cmd_trailing_edge,
+        "convert2midnodes": _cmd_midnodes,
+        "identify-te": _cmd_identify_te,
+        "prepare-to-refine": _cmd_prepare_to_refine,
+        "build": _cmd_build,
+        "accept": _cmd_accept,
+        "from-sidecar": _cmd_from_sidecar,
+    }
+    if verb in handlers:
+        return handlers[verb](args)
     # THE pyfs-matrix HANDLER ITSELF, named by the copied parser (FR-477).
     args.subcommand = PYFS_MATRIX_ALIASES[verb]
     try:
