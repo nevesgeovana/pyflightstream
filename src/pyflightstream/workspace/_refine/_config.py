@@ -226,13 +226,23 @@ def elements_mode(where: str, value: Any) -> str:
     return str(value)
 
 
-def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
+def _unknown(where: str, reason: str, accept: bool) -> None:
+    """Refuse an entry the refinement does not know, or warn and skip it under ``accept``."""
+    if not accept:
+        raise _refuse(where, reason)
+    _skip(where, reason)
+
+
+def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> FamilySpec:
     table = _renamed_factors(where, table)
     unknown = sorted(set(table) - set(FAMILY_KEYS))
     if unknown:
-        raise _refuse(
-            where, f"unknown key {unknown[0]!r}; the known keys are {', '.join(FAMILY_KEYS)}"
+        _unknown(
+            where,
+            f"unknown key {unknown[0]!r}; the known keys are {', '.join(FAMILY_KEYS)}",
+            accept,
         )
+        table = {k: v for k, v in table.items() if k in FAMILY_KEYS}
     method = table.get("method", "auto")
     if method not in METHODS:
         raise _refuse(f"{where} method", f"{method!r} is not one of {', '.join(METHODS)}")
@@ -282,8 +292,14 @@ def _optional(where: str, table: Mapping[str, Any], key: str) -> float | None:
     return positive(f"{where} {key}", table[key]) if key in table else None
 
 
-def _components(path: Path, raw: Any, names: Sequence[str]) -> dict[str, list[str]]:
-    """Return ``[components]`` checked against the mesh's families (FR-935)."""
+def _components(
+    path: Path, raw: Any, names: Sequence[str], accept: bool = False
+) -> dict[str, list[str]]:
+    """Return ``[components]`` checked against the mesh's families (FR-935).
+
+    A member the mesh does not hold is refused, or warned and left out under
+    ``accept``; a component left without a member is then skipped.
+    """
     where = f"{path} [components]"
     if not isinstance(raw, dict):
         raise _refuse(where, "the table must map a component name to a list of families")
@@ -298,10 +314,15 @@ def _components(path: Path, raw: Any, names: Sequence[str]) -> dict[str, list[st
             raise _refuse(f"{where} {name}", "give a non-empty list of family names")
         missing = [m for m in members if m not in names]
         if missing:
-            raise _refuse(
+            _unknown(
                 f"{where} {name}",
                 f"the mesh holds no family {missing[0]!r}; it holds {', '.join(names)}",
+                accept,
             )
+            members = [m for m in members if m not in missing]
+            if not members:
+                _skip(f"{where} {name}", "names no family of the mesh")
+                continue
         for m in members:
             if m in seen:
                 raise _refuse(f"{where} {name}", f"family {m!r} is also in component {seen[m]!r}")
@@ -333,12 +354,14 @@ def _family_tables(
     families: Mapping[str, Any],
     names: Sequence[str],
     read: Sequence[str] | None = None,
+    accept: bool = False,
 ) -> tuple[dict[str, FamilySpec], dict[str, str], list[str]]:
     """Return the specs, element modes and unread tables of ``[families.<name>]``.
 
     ``read`` names the families whose factors are read; a table of any other
     family is checked for its name and its ``elements`` only (F-1516), and
-    ``None`` reads them all.
+    ``None`` reads them all. Under ``accept`` a table of a family the mesh
+    does not hold, and an unknown key, are warned and skipped.
     """
     specs: dict[str, FamilySpec] = {}
     elements: dict[str, str] = {}
@@ -349,7 +372,10 @@ def _family_tables(
             where, raw, f"write [families.{name}] with the keys {', '.join(FAMILY_KEYS)}"
         )
         if name not in names:
-            raise _refuse(where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}")
+            _unknown(
+                where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}", accept
+            )
+            continue
         for key in RETIRED_FAMILY_KEYS:
             if key in table:
                 _skip(f"{where} {key}", "is no longer read")
@@ -368,7 +394,7 @@ def _family_tables(
                 unread.append(name)
             continue
         if set(table) - {"elements"}:
-            specs[name] = _family_spec(where, table)
+            specs[name] = _family_spec(where, table, accept)
     return specs, elements, unread
 
 
@@ -377,12 +403,16 @@ def read_refine_file(
     names: Sequence[str],
     mesh: str | Path | None = None,
     read: Sequence[str] | None = None,
+    *,
+    accept_unknown: bool = False,
 ) -> dict[str, Any]:
     """Read a refinement file against the mesh's family names, refusing what it cannot honour.
 
     ``read`` names the families whose factors are read: the other tables are
     not validated beyond their name and ``elements`` (F-1516). ``mesh`` is
-    accepted for the callers that name it and is not read.
+    accepted for the callers that name it and is not read. Under
+    ``accept_unknown`` an entry the refinement does not know (a table, a key,
+    a family the mesh does not hold) is warned and skipped instead of refused.
     """
     source = Path(path)
     try:
@@ -392,15 +422,17 @@ def read_refine_file(
         raise _refuse(str(source), f"the refinement file cannot be read ({error})") from error
     unknown = sorted(set(data) - set(TABLES) - set(RETIRED_TABLES))
     if unknown:
-        raise _refuse(
-            str(source), f"unknown table [{unknown[0]}]; the tables are {', '.join(TABLES)}"
+        _unknown(
+            str(source),
+            f"unknown table [{unknown[0]}]; the tables are {', '.join(TABLES)}",
+            accept_unknown,
         )
     families = _table(
         f"{source} [families]",
         data.get("families", {}),
         f"write one [families.<name>] table per family, with the keys {', '.join(FAMILY_KEYS)}",
     )
-    specs, elements, unread = _family_tables(source, families, names, read)
+    specs, elements, unread = _family_tables(source, families, names, read, accept_unknown)
     refine = _table(
         f"{source} [refine]",
         data.get("refine", {}),
@@ -408,9 +440,10 @@ def read_refine_file(
     )
     unknown = sorted(set(refine) - set(REFINE_KEYS))
     if unknown:
-        raise _refuse(
+        _unknown(
             f"{source} [refine]",
             f"unknown key {unknown[0]!r}; the known keys are {', '.join(REFINE_KEYS)}",
+            accept_unknown,
         )
     tag = refine.get("tag")
     if tag is not None and (not isinstance(tag, str) or not tag):
@@ -439,7 +472,7 @@ def read_refine_file(
         "default_elements": elements_mode(f"{source} [refine]", default),
         "tag": tag,
         "filename": filename,
-        "components": _components(source, data.get("components", {}), names),
+        "components": _components(source, data.get("components", {}), names, accept_unknown),
     }
 
 
@@ -532,19 +565,28 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     config: str | Path | None = None,
     keep_first_row: Sequence[str] | None = None,
     accept_remesh: bool = False,
+    accept_unknown: bool = False,
 ) -> RefineRequest:
     """Return what the refinement is asked, from the call and the refinement file (FR-916).
 
     ``keep_first_row``, an earlier option, is warned and skipped when given.
+    Under ``accept_unknown`` a selected family the mesh does not hold, and an
+    unknown entry of the refinement file, are warned and skipped.
     """
     file = refine_file_of(mesh, config)
     from_file = factor is None and parallel is None and normal is None
+    chosen = list(names) if families is None else list(families)
+    missing = [n for n in chosen if n not in names]
+    if missing and accept_unknown:
+        _skip(f"{mesh} families {', '.join(missing)}", "not held by the mesh")
+        chosen = [n for n in chosen if n in names]
     stated = (
         read_refine_file(
             file,
             names,
             mesh,
-            [n for n in (names if families is None else families)] if from_file else [],
+            chosen if from_file else [],
+            accept_unknown=accept_unknown,
         )
         if file
         else {
@@ -557,7 +599,6 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             "components": {},
         }
     )
-    chosen = list(names) if families is None else list(families)
     # AN EMPTY SELECTION SELECTS NOTHING TO CHANGE (PFS-2099.005): on the factor route it
     # wrote an unchanged copy of the source as a level tagged R-.
     if not chosen:
@@ -566,8 +607,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             "no family is selected; name at least one in families (CLI: --families), "
             "or omit it to refine every family",
         )
-    missing = [n for n in chosen if n not in names]
-    if missing:
+    if missing and not accept_unknown:
         raise _refuse(
             str(mesh), f"the mesh holds no family {missing[0]!r}; it holds {', '.join(names)}"
         )

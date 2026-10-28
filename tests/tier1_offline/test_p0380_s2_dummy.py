@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.run import cli
 from pyflightstream.workspace import refine_mesh
 from tests.p0380_mesh_fixtures import (
@@ -157,6 +157,10 @@ def test_r1_method_grid_on_the_second_grid_is_refused_naming_both(tmp_path, caps
     )
     quads = _source(tmp_path / "quads", GG, refine_toml=toml)
     assert refine_mesh(quads, out_dir=tmp_path / "q").report["G2"]["method"] == "grid"
+    # ARCH48-R2: accept_remesh warns and remeshes the demanded grid instead.
+    with pytest.warns(PyflightstreamWarning, match="it is remeshed with factor 2"):
+        accepted = refine_mesh(src, accept_remesh=True, out_dir=tmp_path / "acc")
+    assert accepted.report["G2"]["method"] == "remesh"
     src.with_name("wing.refine.toml").write_bytes(
         b'[[perimeter]]\nfile = "wing.te_nodes.txt"\nexport_te_per_family = true\n'
         b'[families.G2]\nfactor = 2\nmethod = "grid"\n'

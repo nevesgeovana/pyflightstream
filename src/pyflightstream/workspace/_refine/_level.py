@@ -241,14 +241,26 @@ def _decide(work: _Work) -> None:
 
 
 def _refuse_or_remesh(work: _Work, name: str, found: str) -> None:
-    """Refuse a family whose grid was demanded but not recovered, else choose its remesh."""
+    """Refuse a family whose grid was demanded but not recovered, else choose its remesh.
+
+    Under ``accept_remesh`` the demanded grid is warned and remeshed instead.
+    """
     spec = work.specs[name]
     if spec.method == "grid":
-        raise _refuse(
-            f"{work.source} family {name}",
-            f"method is grid and no grid was recovered: {found}",
-        )
+        _demanded_grid(work, name, f"method is grid and no grid was recovered: {found}")
     _remesh_or_keep(work, name, f"no grid recovered: {found}")
+
+
+def _demanded_grid(work: _Work, name: str, why: str) -> None:
+    """Refuse a ``method = "grid"`` family that is no grid, or warn under ``accept_remesh``."""
+    if not work.request.accept_remesh:
+        raise _refuse(f"{work.source} family {name}", why)
+    warn(
+        f"{work.source} family {name}: {why}; it is remeshed with factor "
+        f"{work.specs[name].factor:g} (accept_remesh, CLI --accept-remesh)",
+        PyflightstreamWarning,
+        stacklevel=4,
+    )
 
 
 def _decide_family(work: _Work, name: str) -> None:
@@ -338,8 +350,9 @@ def _grid_after_grid(work: _Work) -> None:
     )
     for name, first, why in late:
         if work.specs[name].method == "grid":
-            raise _refuse(
-                f"{work.source} family {name}",
+            _demanded_grid(
+                work,
+                name,
                 f"method is grid and it shares nodes with {first}, refined as a grid first{why}",
             )
         del work.grids[name]
@@ -1026,6 +1039,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     keep_first_row: Sequence[str] | None = None,
     progress: Callable[[str], None] | None = None,
     accept_remesh: bool = False,
+    accept_unknown: bool = False,
     chordwise: float | None = None,
     spanwise: float | None = None,
 ) -> RefinedMesh:
@@ -1057,9 +1071,14 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         decide, grid, remesh, write, audit), so a long refinement shows it is
         moving; the command prints them. None says nothing.
     accept_remesh : bool
-        Remesh with ``factor`` a family that states ``parallel_factor`` or
-        ``normal_factor`` and whose grid is not recovered, with a warning; by
-        default such a family is refused.
+        Remesh with ``factor``, with a warning, a family whose grid is not
+        recovered although it states ``parallel_factor`` or ``normal_factor``
+        or ``method = "grid"``; by default such a family is refused.
+    accept_unknown : bool
+        Warn and skip, instead of refusing, an entry the refinement does not
+        know: an unknown table or key of the refinement file, a family table
+        or component member the mesh does not hold, and a selected family it
+        does not hold.
     chordwise, spanwise : float, optional
         The earlier names of ``normal`` and ``parallel``, read with a warning;
         beside the new name, the earlier one is warned and skipped.
@@ -1099,6 +1118,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         config=config,
         keep_first_row=keep_first_row,
         accept_remesh=accept_remesh,
+        accept_unknown=accept_unknown,
     )
     stem = f"{source.stem}_{_config.level_tag(request, list(obj.families), str(source))}"
     if request.filename:
