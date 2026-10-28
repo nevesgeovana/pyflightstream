@@ -921,7 +921,8 @@ def visual_inspect(
     Parameters
     ----------
     mesh : str or pathlib.Path
-        An OBJ, or a NASTRAN export (written in ``mesh_unit``, default METER).
+        An OBJ, or a NASTRAN export written in ``nastran_unit`` (default MILLIMETER) and
+        drawn in ``mesh_unit`` (default METER).
     nodes : sequence of path
         Node lists saved from an ANSA SET.
     te : sequence of path
@@ -936,7 +937,8 @@ def visual_inspect(
         ``xmin xmax ymin ymax zmin zmax``: draw only what lies inside.
     mesh_unit : str, optional
         The mesh's length unit: the scale bar names it and gives the ratio, and a
-        points file that states another unit is converted to it.
+        points file that states another unit is converted to it. For a NASTRAN mesh
+        it is the unit the drawing is converted to.
     points_unit : str, optional
         The unit of the node lists and points files that state none; needs ``mesh_unit``.
     nastran_unit : str

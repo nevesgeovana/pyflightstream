@@ -413,7 +413,11 @@ def _add_visual_inspect(verbs: Any) -> None:
         help="draw only the faces and points inside this box",
     )
     inspect.add_argument(
-        "--mesh-unit", help="the mesh's length unit: the scale bar names it and gives the ratio"
+        "--mesh-unit",
+        help=(
+            "the drawing's length unit: an OBJ's own unit, or the unit a NASTRAN mesh is "
+            "converted to (default METER); the scale bar names it"
+        ),
     )
     inspect.add_argument(
         "--points-unit", help="the unit of the node lists and points files that state none"
