@@ -143,3 +143,18 @@ def test_visual_inspect_writes_the_pdf_and_counts_the_marked_points(tmp_path: Pa
     assert marked.points == [0, 2] or marked.points == [2, 0]
     assert marked.total_points == 3
     assert marked.on_no_patch == 1
+
+
+def test_visual_inspect_png_writes_the_views_page_and_one_file_per_view(tmp_path: Path) -> None:
+    from pyflightstream.workspace import visual_inspect
+
+    prepared = prepare_to_refine(
+        _export(tmp_path / "sheet.nas", wide=False, perimeter=_middle_line())
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        pdf = visual_inspect(prepared.obj, mesh_unit="METER", dpi=40, png=True)
+    pngs = sorted(path.name for path in pdf.parent.glob(f"{pdf.stem}*.png"))
+    views = [f"{pdf.stem}.{view}.png" for view in ("front", "iso", "side", "top")]
+    assert pngs == sorted([f"{pdf.stem}.png", *views])
+    assert all((pdf.parent / name).read_bytes()[:4] == b"\x89PNG" for name in pngs)

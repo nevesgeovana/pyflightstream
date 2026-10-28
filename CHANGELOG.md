@@ -7,6 +7,19 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- `geometry prepare-to-refine` reads an ANSA NASTRAN export (`.nas`, `.bdf`,
+  `.dat`). With the FE perimeters written, each family is cut along them, so
+  each patch is one meshing macro; without them the export is warned and cut
+  at its sharp edges. `--unit` and `--obj-unit` set the export's length unit
+  and the unit of the patches OBJ (FR-3289).
+- `geometry visual-inspect` and `pyflightstream.workspace.visual_inspect`
+  write a PDF of a mesh: the top, front, side and isometric views at one
+  scale, one color per patch from `--cmap`, node lists and trailing-edge
+  files over the surface and a table of faces and marked points per patch;
+  `--png` also writes the views as PNG files (FR-3290).
+
 ### Changed
 
 - matplotlib, rtree and scipy are core runtime dependencies (NFR-06). The
