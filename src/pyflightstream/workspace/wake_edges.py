@@ -942,21 +942,10 @@ def write_trailing_edges_identified(
         For a node list with fewer than two nodes, an unreadable mesh, an
         invalid unit, an existing file, or no trailing edge found.
     """
-    from pyflightstream.workspace._refine._obj import (
-        mesh_unit,
-        midpoints,
-        perimeter_edges_near,
-        read_node_list,
-        read_obj,
-        rearmost_edges,
-        rearmost_perimeter,
-        write_te,
-    )
-    from pyflightstream.workspace._refine._prepare import rearmost_lines
+    from pyflightstream.workspace._refine._obj import mesh_unit, read_obj
 
     target = Path(mesh)
     obj = read_obj(target)
-    x, y, z = (float(c) for c in aft)
     names = list(obj.families) if families is None else list(families)
     for name in names:
         if name not in obj.families:
@@ -967,25 +956,8 @@ def write_trailing_edges_identified(
                 stacklevel=2,
             )
     chosen = {n: obj.families[n] for n in names if n in obj.families}
-    found: dict[str, set[tuple[int, int]]] = {}
-    if source is not None:
-        nodes = read_node_list(source)
-        if len(nodes.ids) < 2:
-            raise InputArtifactError(
-                f"{source}: fewer than two nodes are read; save the SET's node window "
-                "(Id, Name, X, Y, Z)",
-                kind="wake_edges",
-            )
-        pairs = _neighbour_pairs(nodes.points)
-        a = nodes.points[[i for i, _ in pairs]].reshape(-1, 3)
-        b = nodes.points[[j for _, j in pairs]].reshape(-1, 3)
-        near = perimeter_edges_near(obj.verts, chosen, a, b)
-        for name, faces in chosen.items():
-            on = rearmost_perimeter(obj.verts, faces, near[name], (x, y, z))
-            found[name] = rearmost_edges(obj.verts, faces, on, (x, y, z))
-    else:
-        for name, faces in chosen.items():
-            found[name] = rearmost_lines(obj.verts, faces, (x, y, z), max_angle)
+    x, y, z = (float(c) for c in aft)
+    found = _identified_edges(obj, chosen, source, (x, y, z), max_angle)
     for name, edges in found.items():
         if not edges and families is not None:
             warn(
@@ -1001,15 +973,8 @@ def write_trailing_edges_identified(
             "nothing was written",
             kind="wake_edges",
         )
-    if families is None:
-        files = {target.with_name(f"{target.stem}.nodes.te.txt"): set().union(*found.values())}
-        points = {target.with_name(f"{target.stem}.te.txt"): set().union(*found.values())}
-    else:
-        files = {target.with_name(f"{target.stem}.{n}.fs.te.txt"): e for n, e in found.items()}
-        points = {target.with_name(f"{target.stem}.{n}.te.txt"): e for n, e in found.items()}
-    listing = None if source is not None else target.with_name(f"{target.stem}.nodes.txt")
-    planned = [*files, *points, *([listing] if listing else [])]
-    existing = [f for f in planned if f.exists()]
+    files, points, listing = _identified_targets(target, found, families, source)
+    existing = [f for f in [*files, *points, *([listing] if listing else [])] if f.exists()]
     if existing and not overwrite:
         raise InputArtifactError(
             f"{existing[0]}: exists; pass overwrite (CLI: --overwrite) to replace it. "
@@ -1017,22 +982,102 @@ def write_trailing_edges_identified(
             kind="wake_edges",
         )
     unit = unit or mesh_unit(target) or "METER"
-    written = []
-    for path, edges in files.items():
-        mids = midpoints(obj.verts, edges)
-        written.append(
-            write_node_file(
-                path, mids, unit=unit, simulation_unit=simulation_unit or unit, overwrite=True
-            )
+    return _write_identified(
+        obj.verts,
+        found,
+        files=files,
+        points=points,
+        listing=listing,
+        unit=unit,
+        simulation_unit=simulation_unit,
+    )
+
+
+def _identified_edges(
+    obj: Any,
+    chosen: dict[str, Any],
+    source: str | Path | None,
+    aft: tuple[float, float, float],
+    max_angle: float,
+) -> dict[str, set[tuple[int, int]]]:
+    """Return each family's trailing-edge edges: among a node list's lines, else from the mesh."""
+    from pyflightstream.workspace._refine._obj import (
+        perimeter_edges_near,
+        read_node_list,
+        rearmost_edges,
+        rearmost_perimeter,
+    )
+    from pyflightstream.workspace._refine._prepare import rearmost_lines
+
+    if source is None:
+        return {n: rearmost_lines(obj.verts, f, aft, max_angle) for n, f in chosen.items()}
+    nodes = read_node_list(source)
+    if len(nodes.ids) < 2:
+        raise InputArtifactError(
+            f"{source}: fewer than two nodes are read; save the SET's node window "
+            "(Id, Name, X, Y, Z)",
+            kind="wake_edges",
         )
-    for path, edges in points.items():  # the package's points file, the boundaries file's form
-        ends = numpy.array(sorted(edges), dtype=numpy.int64)
-        written.append(write_te(path, unit, 0.5 * (obj.verts[ends[:, 0]] + obj.verts[ends[:, 1]])))
+    pairs = _neighbour_pairs(nodes.points)
+    a = nodes.points[[i for i, _ in pairs]].reshape(-1, 3)
+    b = nodes.points[[j for _, j in pairs]].reshape(-1, 3)
+    near = perimeter_edges_near(obj.verts, chosen, a, b)
+    return {
+        name: rearmost_edges(
+            obj.verts, faces, rearmost_perimeter(obj.verts, faces, near[name], aft), aft
+        )
+        for name, faces in chosen.items()
+    }
+
+
+def _identified_targets(
+    target: Path,
+    found: dict[str, set[tuple[int, int]]],
+    families: Sequence[str] | None,
+    source: str | Path | None,
+) -> tuple[dict[Path, set[tuple[int, int]]], dict[Path, set[tuple[int, int]]], Path | None]:
+    """Return the node files, the package points files and the node list identify-te writes."""
+    if families is None:
+        every = set().union(*found.values())
+        files = {target.with_name(f"{target.stem}.nodes.te.txt"): every}
+        points = {target.with_name(f"{target.stem}.te.txt"): every}
+    else:
+        files = {target.with_name(f"{target.stem}.{n}.fs.te.txt"): e for n, e in found.items()}
+        points = {target.with_name(f"{target.stem}.{n}.te.txt"): e for n, e in found.items()}
+    listing = None if source is not None else target.with_name(f"{target.stem}.nodes.txt")
+    return files, points, listing
+
+
+def _write_identified(
+    verts: numpy.ndarray,
+    found: dict[str, set[tuple[int, int]]],
+    *,
+    files: dict[Path, set[tuple[int, int]]],
+    points: dict[Path, set[tuple[int, int]]],
+    listing: Path | None,
+    unit: str,
+    simulation_unit: str | None,
+) -> list[Path]:
+    """Write the node files, then the package points files, then the ANSA node list."""
+    from pyflightstream.workspace._refine._obj import midpoints, write_te
+
+    written = [
+        write_node_file(
+            path,
+            midpoints(verts, edges),
+            unit=unit,
+            simulation_unit=simulation_unit or unit,
+            overwrite=True,
+        )
+        for path, edges in files.items()
+    ]
+    # the package's points file, the form a boundaries file's [trailing_edges] file reads
+    written += [write_te(path, unit, midpoints(verts, edges)) for path, edges in points.items()]
     if listing is not None:
         rows = ["#  Id, Name, X , Y, Z"]
         for name, edges in found.items():
-            for v in sorted({v for e in edges for v in e}, key=lambda v: float(obj.verts[v, 1])):
-                px, py, pz = (repr(float(c)) for c in obj.verts[v])
+            for v in sorted({v for e in edges for v in e}, key=lambda v: float(verts[v, 1])):
+                px, py, pz = (repr(float(c)) for c in verts[v])
                 rows.append(f"{v + 1}, {name}, {px}, {py}, {pz}")
         _textio.write_text(listing, "\n".join(rows) + "\n")
         written.append(listing)

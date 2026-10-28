@@ -50,32 +50,10 @@ def perimeter_lines(
     exported: set[tuple[int, int]] = set()
     sets: list[set[tuple[int, int]]] = []
     for perimeter in sorted(request.perimeters, key=lambda p: not p.exported):
-        if not perimeter.file.is_file():
-            warn(f"{perimeter.file}: no such [[perimeter]] file; it is skipped", stacklevel=3)
+        found = _listed_edges(perimeter, mesh)
+        if found is None:
             continue
-        nodes = _obj.read_node_list(perimeter.file)
-        if not nodes.ids:
-            warn(
-                f"{perimeter.file}: no node is read (Id, Name, X, Y, Z); it is skipped",
-                stacklevel=3,
-            )
-            continue
-        found, unmatched = _obj.perimeter_edges(mesh.verts, mesh.families, nodes)
-        if unmatched:
-            shown = ", ".join(str(i) for i in unmatched[:5])
-            warn(
-                f"{perimeter.file}: {len(unmatched)} of {len(nodes.ids)} node(s) match no mesh "
-                f"vertex and are skipped (ids {shown}{' and more' if len(unmatched) > 5 else ''}); "
-                "the list and the OBJ must be saved from the same model, in the same unit",
-                stacklevel=3,
-            )
         lines = set().union(*found.values())
-        if not lines:
-            warn(
-                f"{perimeter.file}: no mesh edge joins two listed nodes; it is skipped",
-                stacklevel=3,
-            )
-            continue
         rear = {
             name: _obj.rearmost_edges(
                 mesh.verts,
@@ -96,6 +74,30 @@ def perimeter_lines(
         elif perimeter.export_te_per_family:
             exported |= lines
     return every, exported, sets
+
+
+def _listed_edges(perimeter: Any, mesh: ObjMesh) -> dict[str, set[tuple[int, int]]] | None:
+    """Return a list's edges per family; None, warned, for a list missing, empty or joining none."""
+    if not perimeter.file.is_file():
+        warn(f"{perimeter.file}: no such [[perimeter]] file; it is skipped", stacklevel=4)
+        return None
+    nodes = _obj.read_node_list(perimeter.file)
+    if not nodes.ids:
+        warn(f"{perimeter.file}: no node is read (Id, Name, X, Y, Z); it is skipped", stacklevel=4)
+        return None
+    found, unmatched = _obj.perimeter_edges(mesh.verts, mesh.families, nodes)
+    if unmatched:
+        shown = ", ".join(str(i) for i in unmatched[:5])
+        warn(
+            f"{perimeter.file}: {len(unmatched)} of {len(nodes.ids)} node(s) match no mesh "
+            f"vertex and are skipped (ids {shown}{' and more' if len(unmatched) > 5 else ''}); "
+            "the list and the OBJ must be saved from the same model, in the same unit",
+            stacklevel=4,
+        )
+    if not any(found.values()):
+        warn(f"{perimeter.file}: no mesh edge joins two listed nodes; it is skipped", stacklevel=4)
+        return None
+    return found
 
 
 def te_members(perimeter: Any, request: RefineRequest, mesh: ObjMesh) -> list[str]:
