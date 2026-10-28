@@ -213,3 +213,13 @@ def test_an_unknown_nastran_unit_warns_and_reads_the_mesh_unscaled(
     source = _export(tmp_path / "sheet.nas", wide=False, perimeter=_middle_line())
     with pytest.warns(PyflightstreamWarning, match="(?i)furlong"):
         _visual_inspect.visual_inspect(source, nastran_unit="furlong")
+
+
+def test_the_nodes_and_te_flags_can_repeat() -> None:
+    from pyflightstream.workspace.cli import _build_parser
+
+    args = _build_parser().parse_args(
+        ["geometry", "visual-inspect", "wing.obj", "--te", "a", "--te", "b", "--nodes", "n", "m"]
+    )
+    assert [str(x) for x in args.te] == ["a", "b"]
+    assert [str(x) for x in args.nodes] == ["n", "m"]

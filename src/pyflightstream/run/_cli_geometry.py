@@ -383,14 +383,23 @@ def _add_visual_inspect(verbs: Any) -> None:
     )
     inspect.add_argument("mesh", metavar="MESH", help="the OBJ or NASTRAN mesh")
     inspect.add_argument(
-        "--nodes", nargs="+", default=[], metavar="FILE", help="node lists saved from an ANSA SET"
-    )
-    inspect.add_argument(
-        "--te",
+        "--nodes",
+        action="extend",
         nargs="+",
         default=[],
         metavar="FILE",
-        help="trailing-edge points files (.te.txt, .nodes.te.txt, .fs.te.txt), one color each",
+        help="node lists saved from an ANSA SET; repeat the flag or put MESH first",
+    )
+    inspect.add_argument(
+        "--te",
+        action="extend",
+        nargs="+",
+        default=[],
+        metavar="FILE",
+        help=(
+            "trailing-edge points files (.te.txt, .nodes.te.txt, .fs.te.txt), one color each; "
+            "repeat the flag or put MESH first"
+        ),
     )
     inspect.add_argument(
         "--cmap", help="the matplotlib colormap of the patches (default: matplotlib's default)"
