@@ -88,6 +88,7 @@ __all__ = [
     "write_trailing_edge_points",
     "write_trailing_edge_midnodes",
     "write_trailing_edge_midnodes_per_family",
+    "write_trailing_edges_identified",
     "write_trailing_edge_points_from_nodes",
 ]
 
@@ -867,6 +868,142 @@ def write_trailing_edge_midnodes_per_family(
             kind="wake_edges",
         )
     return written
+
+
+def write_trailing_edges_identified(
+    mesh: str | Path,
+    source: str | Path,
+    families: Sequence[str],
+    *,
+    aft: Sequence[float] = (1.0, 0.0, 0.0),
+    unit: str | None = None,
+    simulation_unit: str | None = None,
+    overwrite: bool = False,
+) -> list[Path]:
+    """Write each named family's trailing edge, in the solver's node-file format.
+
+    The nodes of ``source`` (an ANSA SET node-window export, any order, every
+    perimeter in one file) are joined to their near neighbours
+    (:data:`NEIGHBOUR_REACH`); an edge of the mesh whose two ends lie on those
+    segments is a perimeter edge, so the OBJ may be a refined level whose nodes
+    are not the listed ones. Of a family's perimeter
+    edges, the trailing edge is the rearmost: the edges its surface lies forward
+    of (:func:`pyflightstream.workspace._refine._obj.rearmost_edges`, ``aft``
+    the direction from the nose to the tail). Each family's file is
+    ``<mesh stem>.<family>.fs.te.txt`` beside the mesh, written by
+    :func:`write_node_file`.
+
+    Parameters
+    ----------
+    mesh : str or pathlib.Path
+        The OBJ, with its families (merged components, for a refined level).
+    source : str or pathlib.Path
+        The node list saved from the SET (Id, Name, X, Y, Z), in the mesh's unit.
+    families : sequence of str
+        The families whose trailing edge is written; a name the OBJ does not
+        hold, or one no rearmost edge lies on, is warned and skipped.
+    aft : sequence of float
+        The aft direction, from the nose to the tail (default +x).
+    unit : str, optional
+        The coordinates' unit; else the ``[import] units`` of the mesh's
+        boundaries file, else METER.
+    simulation_unit : str, optional
+        The unit the solver reads the file in (default: ``unit``, unconverted).
+    overwrite : bool
+        Replace existing files.
+
+    Returns
+    -------
+    list of pathlib.Path
+        The files written, in the order of ``families``.
+
+    Raises
+    ------
+    InputArtifactError
+        For a node list with no node read, an unreadable mesh, an invalid unit,
+        an existing file, or no family written.
+    """
+    from pyflightstream.workspace._refine._obj import (
+        mesh_unit,
+        perimeter_edges_near,
+        read_node_list,
+        read_obj,
+        rearmost_edges,
+    )
+
+    nodes = read_node_list(source)
+    if len(nodes.ids) < 2:
+        raise InputArtifactError(
+            f"{source}: fewer than two nodes are read; save the SET's node window "
+            "(Id, Name, X, Y, Z)",
+            kind="wake_edges",
+        )
+    target = Path(mesh)
+    obj = read_obj(target)
+    pairs = _neighbour_pairs(nodes.points)
+    a = nodes.points[[i for i, _ in pairs]].reshape(-1, 3)
+    b = nodes.points[[j for _, j in pairs]].reshape(-1, 3)
+    chosen = {n: obj.families[n] for n in families if n in obj.families}
+    for name in families:
+        if name not in obj.families:
+            warn(
+                f"{target}: holds no family {name!r} (it holds {', '.join(obj.families)}); "
+                "it is skipped",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+    near = perimeter_edges_near(obj.verts, chosen, a, b)
+    unit = unit or mesh_unit(target) or "METER"
+    written = []
+    for name, faces in chosen.items():
+        x, y, z = (float(c) for c in aft)
+        edges = rearmost_edges(obj.verts, faces, near[name], (x, y, z))
+        if not edges:
+            warn(
+                f"{target}: no listed line of family {name!r} has its surface forward of it "
+                "(no trailing edge among its nodes); it is skipped",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            continue
+        ends = numpy.array(sorted(edges), dtype=numpy.int64)
+        mids = 0.5 * (obj.verts[ends[:, 0]] + obj.verts[ends[:, 1]])
+        written.append(
+            write_node_file(
+                target.with_name(f"{target.stem}.{name}.fs.te.txt"),
+                mids,
+                unit=unit,
+                simulation_unit=simulation_unit or unit,
+                overwrite=overwrite,
+            )
+        )
+    if not written:
+        raise InputArtifactError(
+            f"{target}: no trailing edge was found on {', '.join(families)}; nothing was written",
+            kind="wake_edges",
+        )
+    return written
+
+
+#: A listed node is joined to each other node closer than this many times its distance
+#: to its nearest node: along a line the two neighbours are about one spacing away, and a
+#: corner where two lines of different spacing meet still joins both.
+NEIGHBOUR_REACH = 2.5
+
+
+def _neighbour_pairs(nodes: numpy.ndarray) -> list[tuple[int, int]]:
+    """Return each pair of listed nodes closer than NEIGHBOUR_REACH times either's spacing."""
+    pairs: set[tuple[int, int]] = set()
+    count = len(nodes)
+    for start in range(0, count, 512):
+        block = numpy.linalg.norm(nodes[start : start + 512, None] - nodes[None], axis=2)
+        rows = numpy.arange(len(block))
+        block[rows, start + rows] = numpy.inf
+        spacing = block.min(axis=1)
+        for r, c in zip(*numpy.nonzero(block <= NEIGHBOUR_REACH * spacing[:, None]), strict=True):
+            i, j = int(start + r), int(c)
+            pairs.add((min(i, j), max(i, j)))
+    return sorted(pairs)
 
 
 def _node_lines(nodes: numpy.ndarray) -> list[list[int]]:

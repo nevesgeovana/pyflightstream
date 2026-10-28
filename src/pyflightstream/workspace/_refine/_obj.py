@@ -705,3 +705,85 @@ def rename_table_key(side: Path, text: str, old: str, new: str, wanted: dict[str
             except tomllib.TOMLDecodeError:
                 pass
     raise _refuse(side, f"cannot rename base_regions family {old!r}; use a quoted table key")
+
+
+#: The aft direction a trailing edge is found by when none is stated: +x, the axis a
+#: fuselage runs along from the nose to the tail in an aircraft's body coordinates.
+AFT = (1.0, 0.0, 0.0)
+#: A listed edge is a trailing edge when the family's surface lies forward of it: the unit
+#: vector from the edge into its faces points against the aft direction with a cosine
+#: below this (within 60 degrees of forward), so a trailing edge swept up to 60 degrees is
+#: one, and a tip, a root or a leading edge, whose surface lies beside or behind it, is not.
+REARMOST_COSINE = -0.5
+
+
+def rearmost_edges(
+    verts: NDArray[numpy.float64],
+    faces: Faces,
+    edges: set[tuple[int, int]],
+    aft: tuple[float, float, float] = AFT,
+) -> set[tuple[int, int]]:
+    """Return the edges the faces lie forward of: a family's trailing edge among its lines.
+
+    For each edge, the vector from its mid-point to the centroid of each face
+    that holds it, less its part along the edge, is summed over those faces;
+    the edge is kept when that inward direction points forward
+    (:data:`REARMOST_COSINE`). An edge two faces hold on opposite sides of a
+    leading edge points aft and is left out; a sharp trailing edge held by an
+    upper and a lower face points forward on both.
+    """
+    direction = numpy.asarray(aft, dtype=float)
+    direction = direction / numpy.linalg.norm(direction)
+    holders: dict[tuple[int, int], list[int]] = {e: [] for e in edges}
+    for i, face in enumerate(faces):
+        for a, b in zip(face, [*face[1:], face[0]], strict=True):
+            key = (min(a, b), max(a, b))
+            if key in holders:
+                holders[key].append(i)
+    out = set()
+    for (a, b), held in holders.items():
+        if not held:
+            continue
+        along = verts[b] - verts[a]
+        along = along / max(float(numpy.linalg.norm(along)), 1e-300)
+        mid = 0.5 * (verts[a] + verts[b])
+        inward = numpy.zeros(3)
+        for i in held:
+            reach = verts[faces[i]].mean(axis=0) - mid
+            reach = reach - (reach @ along) * along
+            size = float(numpy.linalg.norm(reach))
+            if size > 0.0:
+                inward += reach / size
+        size = float(numpy.linalg.norm(inward))
+        # Faces on both sides of an interior edge cancel: only a clear inward direction counts.
+        if size > 0.5 and float(inward @ direction) / size < REARMOST_COSINE:
+            out.add((a, b))
+    return out
+
+
+def perimeter_edges_near(
+    verts: NDArray[numpy.float64],
+    families: dict[str, Faces],
+    a: NDArray[numpy.float64],
+    b: NDArray[numpy.float64],
+) -> dict[str, set[tuple[int, int]]]:
+    """Return, per family, the edges whose two ends lie on the polyline of segments a-b.
+
+    An end lies on it within :data:`NODE_EDGE_FRACTION` of the edge's own
+    length, so a mesh refined or coarsened from the one the nodes were listed
+    on, whose nodes are no longer the listed ones, is read along the same line.
+    """
+    from pyflightstream.workspace._refine._geometry import segment_distances
+
+    out: dict[str, set[tuple[int, int]]] = {}
+    for name, faces in families.items():
+        edges, _ = edge_midpoints(verts, faces)
+        if not len(edges) or not len(a):
+            out[name] = set()
+            continue
+        length = numpy.linalg.norm(verts[edges[:, 0]] - verts[edges[:, 1]], axis=1)
+        da, _ = segment_distances(verts[edges[:, 0]], a, b)
+        db, _ = segment_distances(verts[edges[:, 1]], a, b)
+        near = numpy.maximum(da, db) < NODE_EDGE_FRACTION * length
+        out[name] = {(int(x), int(y)) for x, y in edges[near]}
+    return out

@@ -67,7 +67,7 @@ RETIRED_FAMILY_KEYS = (
 #: along the reference perimeter (``spanwise``) and the one across it (``chordwise``).
 FACTOR_ALIASES = {"spanwise": "parallel_factor", "chordwise": "normal_factor"}
 #: The keys of a ``[[perimeter]]`` table: one ANSA node list of reference perimeters.
-PERIMETER_KEYS = ("file", "export_te_per_family")
+PERIMETER_KEYS = ("file", "export_te_per_family", "te_families", "aft")
 #: The keys of ``[refine]``.
 REFINE_KEYS = ("tag", "elements")
 #: The top-level tables of a refinement file.
@@ -109,19 +109,20 @@ class Perimeter:
     """One ``[[perimeter]]``: an ANSA SET node list whose lines orient the grids it lies on.
 
     With ``export_te_per_family`` its lines are trailing edges too, written per
-    family into the level as ``<level>.<family>.te.txt``.
+    family into the level as ``<level>.<family>.te.txt``. With ``te_families``
+    only the rearmost lines of those families are (:func:`._obj.rearmost_edges`,
+    ``aft`` the direction from the nose to the tail), written per output family.
     """
 
     file: Path
     export_te_per_family: bool = False
+    te_families: tuple[str, ...] = ()
+    aft: tuple[float, float, float] = (1.0, 0.0, 0.0)
 
-
-class Periodic:
-    """The rotation that maps one cut face of a sector onto the other (FR-427)."""
-
-    axis: tuple[float, float, float]
-    origin: tuple[float, float, float]
-    copies: int
+    @property
+    def exported(self) -> bool:
+        """Return whether some of the list's lines are written as trailing edges."""
+        return self.export_te_per_family or bool(self.te_families)
 
 
 @dataclass(frozen=True)
@@ -502,7 +503,17 @@ def _perimeters(source: Path, value: object) -> tuple[Perimeter, ...]:
         if not isinstance(export, bool):
             _skip(f"{where} export_te_per_family", "is not true or false; false is taken")
             export = False
-        out.append(Perimeter(source.parent / named, export))
+        chosen = table.get("te_families", [])
+        if not isinstance(chosen, list) or not all(isinstance(n, str) for n in chosen):
+            _skip(f"{where} te_families", "is not a list of family names")
+            chosen = []
+        aft = (1.0, 0.0, 0.0)
+        if "aft" in table:
+            try:
+                aft = _vector(f"{where} aft", table["aft"], nonzero=True)
+            except InputArtifactError:
+                _skip(f"{where} aft", "is not three numbers, not all zero; +x is taken")
+        out.append(Perimeter(source.parent / named, export, tuple(chosen), aft))
     return tuple(out)
 
 

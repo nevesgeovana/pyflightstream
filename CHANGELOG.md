@@ -27,6 +27,17 @@ FlightStream versions.
   gives one mid-point. No mesh is needed. With `--per-family MESH` it writes
   `<OUTPUT stem>.<family>.te.txt` per family of the OBJ instead, from the mesh
   edges joining two listed nodes.
+- `[[perimeter]] te_families = [...]`: one node list may hold every perimeter;
+  the trailing edge of each named family (a family or a `[components]` name)
+  is its rearmost line, the listed edges its surface lies forward of
+  (`aft`, default +x, the nose to tail direction), and the level writes
+  `<level>.<family>.te.txt` for it by output family. Every family's rearmost
+  line is also the first one tried to orient its grid.
+- `pyfs-workspace geometry identify-te OBJ NODES --families A,B [--aft X Y Z]
+  [--unit U] [--simulation-unit U]` writes `<obj stem>.<family>.fs.te.txt` per
+  family in the format the solver imports, from an ANSA SET node list and an
+  OBJ (a refined level with merged families too: the mesh edges along the
+  listed nodes' lines are read, not the listed nodes themselves).
 - `--accept-remesh` (`refine_mesh(accept_remesh=True)`): a family given
   parallel or normal factors whose grid is not recovered is remeshed with
   `factor`, with a warning, in place of being refused.

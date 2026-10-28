@@ -37,13 +37,19 @@ def perimeter_lines(
     An edge is a perimeter's when its two ends are nodes of that list. A list
     that is missing, or whose nodes join no edge, is warned and skipped, and
     so is a node that matches no vertex; None without ``[[perimeter]]``.
+
+    Of each list, the rearmost edges of every family (:func:`._obj.rearmost_edges`)
+    are a set of their own, ahead of the whole list, so a grid is oriented by its
+    trailing edge first. A list with ``te_families`` exports those families'
+    rearmost edges (a name of ``[components]`` stands for its members); one with
+    ``export_te_per_family`` and no ``te_families`` exports all its edges.
     """
     if not request.perimeters:
         return None
     every: set[tuple[int, int]] = set()
     exported: set[tuple[int, int]] = set()
     sets: list[set[tuple[int, int]]] = []
-    for perimeter in sorted(request.perimeters, key=lambda p: not p.export_te_per_family):
+    for perimeter in sorted(request.perimeters, key=lambda p: not p.exported):
         if not perimeter.file.is_file():
             warn(f"{perimeter.file}: no such [[perimeter]] file; it is skipped", stacklevel=3)
             continue
@@ -70,11 +76,38 @@ def perimeter_lines(
                 stacklevel=3,
             )
             continue
+        rear = {
+            name: _obj.rearmost_edges(mesh.verts, mesh.families[name], edges, perimeter.aft)
+            for name, edges in found.items()
+        }
         every |= lines
+        rearmost = set().union(*rear.values())
+        if rearmost:
+            sets.append(rearmost)
         sets.append(lines)
-        if perimeter.export_te_per_family:
+        if perimeter.te_families:
+            for name in te_members(perimeter, request, mesh):
+                exported |= rear[name]
+        elif perimeter.export_te_per_family:
             exported |= lines
     return every, exported, sets
+
+
+def te_members(perimeter: Any, request: RefineRequest, mesh: ObjMesh) -> list[str]:
+    """Return the mesh families a list's ``te_families`` names, warning a name of neither."""
+    out: list[str] = []
+    for name in perimeter.te_families:
+        if name in request.components:
+            out += [m for m in request.components[name] if m in mesh.families]
+        elif name in mesh.families:
+            out.append(name)
+        else:
+            warn(
+                f"{perimeter.file}: te_families names {name!r}, neither a family of the mesh nor "
+                "a component of [components]; it is skipped",
+                stacklevel=4,
+            )
+    return list(dict.fromkeys(out))
 
 
 def exported_by_family(mesh: ObjMesh, exported: set[tuple[int, int]]) -> dict[str, Points]:

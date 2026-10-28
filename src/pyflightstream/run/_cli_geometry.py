@@ -174,6 +174,29 @@ def add_geometry_commands(subparsers: Any) -> None:
         help="the OBJ the nodes belong to: write <OUTPUT stem>.<family>.te.txt per family from "
         "its edges joining two listed nodes, in place of OUTPUT",
     )
+    identify = verbs.add_parser(
+        "identify-te",
+        help="write each family's trailing edge in the solver's node-file format",
+        description=(
+            "Reads the node list ANSA saves from a SET (Id, Name, X, Y, Z; every perimeter in one "
+            "file, any order) and the OBJ (a refined level with merged families too), takes for "
+            "each named family the listed edges its surface lies forward of, and writes "
+            "<mesh stem>.<family>.fs.te.txt beside the mesh in the format the solver imports."
+        ),
+    )
+    identify.add_argument("mesh", metavar="OBJ", help="the mesh, with its families")
+    identify.add_argument("nodes", metavar="NODES", help="the node list saved from the SET")
+    identify.add_argument(
+        "--families", required=True, metavar="A,B", help="the families, comma separated"
+    )
+    identify.add_argument(
+        "--aft", nargs=3, type=float, metavar=("X", "Y", "Z"), help="the aft direction (default +x)"
+    )
+    identify.add_argument("--unit", help="the coordinates' unit (default: the mesh's, else METER)")
+    identify.add_argument(
+        "--simulation-unit", help="the unit the solver reads the file in (default: --unit)"
+    )
+    identify.add_argument("--overwrite", action="store_true", help="replace existing files")
     build = verbs.add_parser(
         "build",
         help="preview a geometry's build, or run it with --apply",
@@ -539,6 +562,28 @@ def _cmd_midnodes(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_identify_te(args: argparse.Namespace) -> int:
+    """Write each named family's trailing edge in the solver's node-file format."""
+    from pyflightstream.workspace.wake_edges import write_trailing_edges_identified
+
+    try:
+        paths = write_trailing_edges_identified(
+            args.mesh,
+            args.nodes,
+            [n.strip() for n in args.families.split(",") if n.strip()],
+            aft=args.aft or (1.0, 0.0, 0.0),
+            unit=args.unit,
+            simulation_unit=args.simulation_unit,
+            overwrite=args.overwrite,
+        )
+    except (PyflightstreamError, OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    for path in paths:
+        print(path)
+    return 0
+
+
 def _cmd_trailing_edge(args: argparse.Namespace) -> int:
     """Keep the ordered-node conversion and existing mesh extraction routes explicit."""
     from pyflightstream.workspace.trailing_edges import write_trailing_edge_node_file
@@ -685,6 +730,8 @@ def run_geometry(args: argparse.Namespace) -> int:
         return _cmd_trailing_edge(args)
     if verb == "convert2midnodes":
         return _cmd_midnodes(args)
+    if verb == "identify-te":
+        return _cmd_identify_te(args)
     if verb == "build":
         return _cmd_build(args)
     if verb == "accept":

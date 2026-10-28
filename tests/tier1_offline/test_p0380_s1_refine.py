@@ -1919,3 +1919,89 @@ def test_convert2midnodes_per_family_writes_the_mesh_edges_of_each_family(tmp_pa
         near = numpy.linalg.norm(points[:, None] - expected[None], axis=2).min(axis=1)
         assert near.max() < 1e-8  # the OBJ holds nine decimals
     assert not out.exists()
+
+
+# ------------------------------------------- one node list, te_families, identify-te
+
+
+def _whole_boundary(fx) -> list[int]:
+    """Return every boundary node of the sheet: trailing edge, leading edge, root and tip."""
+    from pyflightstream.workspace._refine._lines import boundary_sides
+
+    return sorted({v for side in boundary_sides(fx.verts, fx.faces) for v in side})
+
+
+def _te_families_level(tmp_path: Path, extra: str = ""):
+    fx, te, _ = _sheet_lines()
+    factors = "[families.G]\nparallel_factor = 2\nnormal_factor = 1.5\n"
+    src = _source(tmp_path / "b", te=False)
+    _node_list(src.with_name("nodes.txt"), fx.verts, _whole_boundary(fx))
+    src.with_name("wing.refine.toml").write_text(
+        factors + extra + '[[perimeter]]\nfile = "nodes.txt"\n' + 'te_families = ["Wing"]\n',
+        encoding="utf-8",
+    )
+    return fx, te, factors, src
+
+
+def test_one_node_list_and_te_families_write_the_rearmost_line_by_output_family(tmp_path):
+    """One list holds the whole perimeter; te_families picks each family's rearmost line.
+
+    The sheet's trailing edge (the line its surface lies forward of, +x aft)
+    orients the grid and is written for the output family Wing, the component G
+    is grouped into. Control: the level and its points are those the trailing
+    edge listed alone gives.
+    """
+    fx, te, factors, src = _te_families_level(tmp_path, '[components]\nWing = ["G"]\n')
+    level = refine_mesh(src, out_dir=tmp_path / "y")
+    alone = refine_mesh(
+        _source(tmp_path / "a", refine_toml=factors + '[components]\nWing = ["G"]\n'),
+        out_dir=tmp_path / "x",
+    )
+    assert level.report["G"]["method"] == "grid"
+    assert _same_level(level.obj, alone.obj)
+    from pyflightstream.workspace._refine._obj import read_te
+
+    _, written = read_te(level.folder / f"{level.obj.stem}.Wing.te.txt")
+    _, exact = read_te(alone.obj.with_suffix(".te.txt"))
+    assert len(written) == len(exact) == 2 * (len(te) - 1)
+    assert numpy.allclose(numpy.sort(written, axis=0), numpy.sort(exact, axis=0), atol=1e-9)
+
+
+def test_a_te_families_name_of_nothing_is_warned_and_skipped(tmp_path):
+    """A te_families name that is neither a family nor a component is warned; nothing is written."""
+    _, _, _, src = _te_families_level(tmp_path)
+    with pytest.warns(PyflightstreamWarning, match="te_families names 'Wing'"):
+        level = refine_mesh(src, out_dir=tmp_path / "y")
+    assert not list(level.folder.glob("*.Wing.te.txt"))
+
+
+def test_identify_te_writes_the_solver_node_file_of_a_refined_merged_family(tmp_path, capsys):
+    """pyfs-workspace geometry identify-te: the refined level's Wing trailing edge, solver format.
+
+    The source's node list is read along a level whose nodes are not the listed
+    ones (parallel factor 2); the file is the count, one unread coordinate line
+    and one mid-point per trailing-edge edge, the points the refine wrote.
+    """
+    from pyflightstream.workspace import cli as workspace_cli
+    from pyflightstream.workspace._refine._obj import read_te
+
+    _, _, _, src = _te_families_level(tmp_path, '[components]\nWing = ["G"]\n')
+    level = refine_mesh(src, out_dir=tmp_path / "y")
+    code = workspace_cli.main(
+        [
+            "geometry",
+            "identify-te",
+            str(level.obj),
+            str(src.with_name("nodes.txt")),
+            "--families",
+            "Wing,Nope",
+        ]
+    )
+    out = level.obj.with_name(f"{level.obj.stem}.Wing.fs.te.txt")
+    assert code == 0 and capsys.readouterr().out.split() == [str(out)]
+    rows = out.read_text(encoding="utf-8").split()
+    count = int(rows[0])
+    points = numpy.array([[float(c) for c in r.split(",")] for r in rows[2:]])
+    _, refined = read_te(level.folder / f"{level.obj.stem}.Wing.te.txt")
+    assert count == len(points) == len(refined)
+    assert numpy.allclose(numpy.sort(points, axis=0), numpy.sort(refined, axis=0), atol=1e-9)

@@ -293,6 +293,9 @@ See the website's Upgrading page for supported workspace conversion.
 \sub{geometry convert2midnodes <nodes> <output>}{write a .te.txt from an ANSA SET node list, in any node order}
 \fl{--unit UNIT} the coordinates' unit (METER); \fl{--per-family MESH} one file per family from the OBJ's edges; \fl{--overwrite}.
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
+\sub{geometry identify-te <obj> <nodes>}{write each family's trailing edge, the solver's node file, from an ANSA SET node list}
+\fl{--families A,B} the families (merged ones of a refined level too); \fl{--aft X Y Z} the aft direction (+x); \fl{--overwrite}.
+\fl{--unit UNIT}, \fl{--simulation-unit UNIT}; \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \sub{geometry}{build and accept bodies outside the run matrix; includes the mesh tools of page 1}
 \sub{geometry build [TARGET]}{read \texttt{<name>.geometry.toml} (of the current folder, or of the folder or file TARGET) and print the script, the boundaries after each step and what would be written; with \fl{--apply} run the solver once with no solve, save the body, read it back and audit it}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.

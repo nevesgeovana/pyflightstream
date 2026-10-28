@@ -898,14 +898,16 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int], has_te: bool) -> 
 
 
 def _with_perimeter(work: _Work, name: str, entry: dict[str, Any]) -> dict[str, Any]:
-    """Return a family's record with its source trailing edge when an exported list gives it."""
+    """Return a family's record with its source trailing edge when an exported list gives it.
+
+    A grid's line, completed where the list left a node out, is the one recorded.
+    """
     if name not in work.te_perimeter or entry.get("trailing_edge", "perimeter") != "perimeter":
         return entry
-    return {
-        **entry,
-        "trailing_edge": "perimeter",
-        "trailing_edge_points": _te_rows(work, work.te_perimeter[name]),
-    }
+    points = work.te_perimeter[name]
+    if name in work.grids and work.te_edges.get(name):
+        points = _lines.midpoints(work.mesh.verts, work.te_edges[name])
+    return {**entry, "trailing_edge": "perimeter", "trailing_edge_points": _te_rows(work, points)}
 
 
 def _warn_stale_declarations(work: _Work, mesh: ObjMesh, folder: Path) -> None:
