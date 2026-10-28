@@ -3,7 +3,8 @@
  "products/polars/SUPER-3207-AL-020_g01.csv": "a908ec3ee35797c4014297570c2dd95690a82b78add84adbb81a4be1d057c249",
  "products/post.log": "7b38906b7aea3007e413c5d3137d70bd731962ac8edff4e085f2a9544023f79b",
  "products/post.log.json": "2707195168059730215aff0c687ccf0e8176d104e3146caa30fa191137388b5e",
- "products/products.json": "10be39f14713fea287c149c59e2822f1d40142d02acadf24524c922949d37814",
+ "products/products.json": "6126badcf347ae8bb494bd2d34ac97b94055930a1bbc0b289100b837af52b598",
  "products/provenance/camp_sim_3207_AL+020.prov.json": "2251d80f82898c2330b1907ff25ff35d788291743505352e25757f8708d7463c",
- "products/provenance/camp_sim_3207_AL-020.prov.json": "e28c5b86053829e4052e94648f8d77d54ab094505ac10848f65b79504892c3d4"
+ "products/provenance/camp_sim_3207_AL-020.prov.json": "e28c5b86053829e4052e94648f8d77d54ab094505ac10848f65b79504892c3d4",
+ "products/reports/superfile-0430.json": "0f73b5afe0b8d137b6e11cda72922cb41a6e7ce1a50773805f7789559e98470d"
 }

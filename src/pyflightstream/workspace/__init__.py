@@ -1043,11 +1043,11 @@ class CampaignWorkspace:
     def reports_root(self, matrix_stem: str | None) -> Path:
         """Return the folder whose ``reports/`` receives a post's measurement reports.
 
-        The root, for the products of ``runs.json``. A post of other records
-        (:class:`pyflightstream.run.records.ManifestWorkspace`) keeps
-        its reports inside its own products folder, beside the default ones.
+        The products folder (:meth:`products_dir`): ``post/<matrix>/reports/``.
+        A post of other records (:class:`pyflightstream.run.records.ManifestWorkspace`)
+        names its own products folder, so its reports sit apart too.
         """
-        return self.root
+        return self.products_dir(matrix_stem)
 
     def sim_dir(self, sim_id: str) -> Path:
         """Return the managed folder of one simulation.

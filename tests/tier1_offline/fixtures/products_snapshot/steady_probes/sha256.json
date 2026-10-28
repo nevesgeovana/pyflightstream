@@ -5,6 +5,7 @@
  "products/post.log.json": "1bbfba3ba622a323f868d6b55df7ff62e16855c3ba987f4964f37e597fe2e935",
  "products/probes/AL-020_plots.csv": "2fd403cecee474cd6cc5615da5984ed37bd10da891b692fd965870a9f911efe3",
  "products/probes/AL-020_probes.csv": "469476090ee6e5f58eee8267e3e3a3640331c1617965e10a49529255a171dbc0",
- "products/products.json": "806a95f997cf021b416cc6414e6d863bf6a71ef11f46abc2677169bce53b5525",
- "products/provenance/camp_sim_7001_AL-020.prov.json": "0ff3076ba10338a9d54fdf4be919d9331eaaf2d1afa33f157ebba020e4f27926"
+ "products/products.json": "dc6bc4c438ce3d245982f3253bde6640dd6911b9d1533f9aecc2df65e0164bd4",
+ "products/provenance/camp_sim_7001_AL-020.prov.json": "0ff3076ba10338a9d54fdf4be919d9331eaaf2d1afa33f157ebba020e4f27926",
+ "products/reports/superfile-0430.json": "0e900d43c4f127e4686520fef3aeed34c5aaae3b3d82fc12375fd964d7162580"
 }

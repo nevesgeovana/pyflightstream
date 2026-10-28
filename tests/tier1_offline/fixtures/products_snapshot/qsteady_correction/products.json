@@ -378,7 +378,7 @@
  },
  "log": "post.log",
  "log_json": "post.log.json",
- "superfile_report": "reports/superfile-<TAG>.json",
+ "superfile_report": "post/matriz/reports/superfile-<TAG>.json",
  "skipped": {
   "polars/6002#rotor_tables": "reference 'r002' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r002'; available reference ids: r001"
  },

@@ -150,10 +150,6 @@ class ManifestWorkspace(CampaignWorkspace):
         """Where these records' products land: ``post/<matrix>@<label>/``."""
         return self.root / "post" / f"{matrix_stem or 'products'}{APART_MARK}{self.label}"
 
-    def reports_root(self, matrix_stem: str | None) -> Path:
-        """Keep the post's measurement reports inside the apart folder, never ``reports/``."""
-        return self.products_dir(matrix_stem)
-
     def read_raw_manifest(self) -> list[dict]:
         """Read the named manifest as written, or give each assembled record as JSON."""
         if self._assembled is None:

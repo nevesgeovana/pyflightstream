@@ -37,6 +37,12 @@ FlightStream versions.
   remesh of a refinement run on the base install. An install line that still
   names either extra installs the package and pip warns that the extra does
   not exist (see the 0.49.0 section of the upgrading page).
+- `post` writes its measurement reports (`superfile-<release>.json` and
+  `sections-<release>.json`) beside the matrix's products, in
+  `post/<matrix>/reports/` (`post/products/reports/` without a matrix), and
+  no longer in a `reports/` folder at the workspace root, where two matrices
+  wrote over each other's reports. `superfile_report` and `sections_report`
+  in `products.json` name the new place (FR-3292).
 
 ### Removed
 

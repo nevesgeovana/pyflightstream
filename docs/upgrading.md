@@ -26,6 +26,13 @@ extras no longer exist.
   or needs them (rtree and scipy are core dependencies). Drop the except clause
   or the call. `refuse_before_running` of the geometry build no longer takes
   `png`.
+- `post` writes `superfile-<release>.json` and `sections-<release>.json` in
+  `post/<matrix>/reports/` instead of the workspace's `reports/` folder.
+  A workspace posted before keeps its `reports/` folder as it was, and a
+  whole post writes the reports in the new folder. `superfile_report` and
+  `sections_report` in `products.json` name the file the post kept, so a
+  `post --sims` that leaves a report as it was still names the old folder
+  until the next whole post.
 
 ## 0.48.0
 

@@ -112,11 +112,12 @@ __all__ = [
     "write_superfiles",
 ]
 
-#: Where a workspace's measurements land, beside ``post/`` and ``sims/``.
+#: Where a post's measurements land, inside its products folder
+#: (``post/<matrix>/reports/``).
 REPORTS_DIR = "reports"
 
 #: The stem of the measurement this module writes; the release tag is
-#: appended, so ``reports/superfile-0160.json``.
+#: appended, so ``post/<matrix>/reports/superfile-0160.json``.
 SUPERFILE_REPORT_PREFIX = "superfile-"
 
 #: The suffix of the campaign's own matrix file.
@@ -1024,7 +1025,7 @@ def write_superfile_report(
 
 
 #: The sections measurement sits beside the superfile one, same release tag, so
-#: `reports/sections-0160.json`.
+#: `post/<matrix>/reports/sections-0160.json`.
 SECTIONS_REPORT_PREFIX = "sections-"
 
 # The command a section distribution is emitted as, `SECTION_DISTRIBUTION_COMMAND`, has

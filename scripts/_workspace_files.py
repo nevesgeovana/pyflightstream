@@ -926,8 +926,8 @@ def workspace_data(root):
     )
     add(
         "reports",
-        "reports/",
-        "Measurement reports produced by configured post-processing.",
+        "post/<matrix>/reports/",
+        "Measurement reports produced by configured post-processing, beside the matrix's products.",
         "pyflightstream.post.products:_finish_campaign_products",
         created="On demand",
         token="reports",

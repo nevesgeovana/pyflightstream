@@ -753,9 +753,9 @@ POST_NORMALIZE: list[tuple[str, str, str, str]] = [
     ),
     (
         "*/products.json",
-        r'"(superfile|sections)_report": "reports/(superfile|sections)-'
+        r'"(superfile|sections)_report": "((?:post/[^"/]+/)?)reports/(superfile|sections)-'
         r'\d+(?:-\d+-\d+)?(?:(?:a|b|rc)\d+)?\.json"',
-        r'"\1_report": "reports/\2-<VERSION>.json"',
+        r'"\1_report": "\2reports/\3-<VERSION>.json"',
         "the package version the run was posted with, as the release tag in the report "
         "names (post/superfile.py release_tag: compact numbers when major and patch "
         "each have one digit, otherwise hyphen-separated, with a pre-release label), "

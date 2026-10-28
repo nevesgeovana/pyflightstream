@@ -18,8 +18,8 @@ A product built from several simulations is never written from some of them:
 | product | under `--sims` |
 |---|---|
 | the super files (`polars/SUPER-*`), whose columns are the union over every simulation of the matrix | left as the last whole post wrote them, the named simulations' included |
-| `reports/superfile-<release>.json`, the measurement of the super files | left as it was |
-| `reports/sections-<release>.json`, the sections measurement | rebuilt from every recorded simulation of the matrix, as a whole post rebuilds it, unless another simulation's folder is compacted or deleted; then left as it was |
+| `post/<matrix>/reports/superfile-<release>.json`, the measurement of the super files | left as it was |
+| `post/<matrix>/reports/sections-<release>.json`, the sections measurement | rebuilt from every recorded simulation of the matrix, as a whole post rebuilds it, unless another simulation's folder is compacted or deleted; then left as it was |
 | the provenance documents | written for the named simulations only, under the name a whole post gives them |
 
 Each product left is named with its reason under `partial.not_rebuilt` in

@@ -83,7 +83,6 @@ def test_p0320_runs_name_post_reads_another_manifest_into_its_own_folder(tmp_pat
     workspace = _recorded(tmp_path)
     root = workspace.root
     default = _tree(root / "post" / "matriz")
-    reports = _tree(root / "reports")
     runs_json = workspace.manifest_path.read_bytes()
     name = _without_one_point(workspace, "runs-rebuilt.json")
 
@@ -102,7 +101,8 @@ def test_p0320_runs_name_post_reads_another_manifest_into_its_own_folder(tmp_pat
     # THE DEFAULT POST IS LEFT AS IT WAS, byte for byte, its reports included:
     # the measurement files of the apart post sit inside its own folder.
     assert _tree(root / "post" / "matriz") == default
-    assert _tree(root / "reports") == reports
+    assert (root / "post" / "matriz" / "reports").is_dir()
+    assert not (root / "reports").exists()
     assert (apart / "reports").is_dir()
     assert workspace.manifest_path.read_bytes() == runs_json
     assert manifest["superfile_report"].startswith("post/matriz@runs-rebuilt/reports/")

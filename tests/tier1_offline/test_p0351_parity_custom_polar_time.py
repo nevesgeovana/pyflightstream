@@ -110,15 +110,22 @@ def test_p0390_parity_the_package_version_stamp_of_a_post_is_not_a_difference():
         "m/post.log.json", js.format(v="0.39.0").encode()
     )
     pj = (
-        '{{"superfile_report": "reports/superfile-{t}.json", '
-        '"sections_report": "reports/sections-{t}.json"}}'
+        '{{"superfile_report": "post/m/reports/superfile-{t}.json", '
+        '"sections_report": "post/m/reports/sections-{t}.json"}}'
     )
     assert norm("m/products.json", pj.format(t="0380").encode()) == norm(
         "m/products.json", pj.format(t="0390").encode()
     )
     out = norm("m/products.json", pj.format(t="0390").encode())
-    assert b'"superfile_report": "reports/superfile-<VERSION>.json"' in out
-    assert b'"sections_report": "reports/sections-<VERSION>.json"' in out
+    assert b'"superfile_report": "post/m/reports/superfile-<VERSION>.json"' in out
+    assert b'"sections_report": "post/m/reports/sections-<VERSION>.json"' in out
+    # A manifest of a release that wrote the reports at the workspace root
+    # still normalizes, and the two places stay told apart.
+    old = norm("m/products.json", b'{"superfile_report": "reports/superfile-0480.json"}')
+    assert old == b'{"superfile_report": "reports/superfile-<VERSION>.json"}'
+    assert old != norm(
+        "m/products.json", b'{"superfile_report": "post/m/reports/superfile-0480.json"}'
+    )
 
 
 def test_p0390_parity_a_number_elsewhere_beside_the_version_stamp_still_differs():

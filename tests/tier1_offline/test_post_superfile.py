@@ -967,10 +967,10 @@ def test_the_post_stage_writes_its_own_measurement(tmp_path):
 
     workspace = _workspace(tmp_path)
     _post(workspace)
-    report = (
-        workspace.root / "reports" / f"superfile-{release_tag(pyflightstream.__version__)}.json"
-    )
+    tag = release_tag(pyflightstream.__version__)
+    report = workspace.root / "post" / "matriz" / "reports" / f"superfile-{tag}.json"
     assert report.is_file(), f"no superfile measurement at {report}"
+    assert not (workspace.root / "reports").exists(), "the workspace root holds no reports"
     payload = json.loads(report.read_text(encoding="utf-8"))
     assert payload["known"], "the arm refuses an empty union, and so does this"
     assert len(payload["files"]) == 4
