@@ -1107,9 +1107,10 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         or ``method = "grid"``; by default such a family is refused.
     accept_unknown : bool
         Warn and skip, instead of refusing, an entry the refinement does not
-        know: an unknown table or key of the refinement file, a family table
-        or component member the mesh does not hold, and a selected family it
-        does not hold.
+        know or cannot read: an unknown table or key of the refinement file,
+        a value it cannot read (the key takes its default), an implicit
+        refinement file that cannot be read, a family table or component
+        member the mesh does not hold, and a selected family it does not hold.
     force_factors : bool
         Raise a grid factor below the least its grid allows (``1/m`` for its
         ``m`` intervals, the least a tube's caps carry) to that least, with a

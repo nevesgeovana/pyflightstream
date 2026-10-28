@@ -348,8 +348,9 @@ def _add_refine_parser(subparsers: Any) -> None:
         "--accept-unknown",
         action="store_true",
         help="warn and skip, in place of refusing, an unknown table or key of the refinement "
-        "file, a family table or component member the mesh does not hold, and a --families "
-        "name it does not hold",
+        "file, a value it cannot read (the key takes its default), an implicit refinement "
+        "file that cannot be read, a family table or component member the mesh does not "
+        "hold, and a --families name it does not hold",
     )
     refine.add_argument(
         "--force-factors",
