@@ -973,7 +973,7 @@ def visual_inspect(
     points_unit : str, optional
         The unit of the node lists and points files that state none; needs ``mesh_unit``.
     nastran_unit : str
-        A NASTRAN mesh's length unit (default MILLIMETER).
+        A NASTRAN mesh's length unit (default MILLIMETER; CLI: ``--unit``).
     iso_from : three floats
         The direction the isometric view is seen from (default (1, -1, 1), from +x, -y, +z).
     labels, edges : bool
@@ -1041,9 +1041,7 @@ def _read_mesh(source: Path, mesh_unit: str | None, nastran_unit: str) -> Mesh:
         return read_obj(source)
     drawn_in = mesh_unit if mesh_unit and mesh_unit in METRES_PER_UNIT else "METER"
     if nastran_unit not in METRES_PER_UNIT:
-        _skipped(
-            _unknown_unit("--nastran-unit", nastran_unit) + "; the mesh is read without scaling"
-        )
+        _skipped(_unknown_unit("--unit", nastran_unit) + "; the mesh is read without scaling")
         nastran_unit = drawn_in
     read = _nastran.read_nastran(source, unit=nastran_unit, obj_unit=drawn_in)
     return Mesh(source, read.mesh.verts, dict(read.mesh.families))

@@ -243,3 +243,14 @@ def test_the_nodes_and_te_flags_can_repeat() -> None:
     )
     assert [str(x) for x in args.te] == ["a", "b"]
     assert [str(x) for x in args.nodes] == ["n", "m"]
+
+
+def test_visual_inspect_names_the_nastran_unit_unit_as_prepare_to_refine_does() -> None:
+    from pyflightstream.workspace.cli import _build_parser
+
+    parser = _build_parser()
+    for verb in ("visual-inspect", "prepare-to-refine"):
+        args = parser.parse_args(["geometry", verb, "wing.nas", "--unit", "METER"])
+        assert args.unit == "METER", verb
+    with pytest.raises(SystemExit):
+        parser.parse_args(["geometry", "visual-inspect", "wing.nas", "--nastran-unit", "METER"])

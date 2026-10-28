@@ -230,10 +230,6 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ): "the length unit of a file this call reads or writes, a fact of that file stated per call",
     (
         "pyfs-workspace",
-        "nastran_unit",
-    ): "the length unit of a file this call reads or writes, a fact of that file stated per call",
-    (
-        "pyfs-workspace",
         "obj_unit",
     ): "the length unit of a file this call reads or writes, a fact of that file stated per call",
     (
@@ -600,7 +596,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "axis"): frozenset({"trailing-edge"}),
     ("pyfs-workspace", "hub"): frozenset({"trailing-edge"}),
     ("pyfs-workspace", "unit"): frozenset(
-        {"trailing-edge", "convert2midnodes", "identify-te", "prepare-to-refine"}
+        {"trailing-edge", "convert2midnodes", "identify-te", "prepare-to-refine", "visual-inspect"}
     ),
     ("pyfs-workspace", "sections"): frozenset({"trailing-edge"}),
     ("pyfs-workspace", "from_nodes"): frozenset({"trailing-edge"}),
@@ -1016,7 +1012,6 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "te"): frozenset({"visual-inspect"}),
     ("pyfs-workspace", "mesh_unit"): frozenset({"visual-inspect"}),
     ("pyfs-workspace", "points_unit"): frozenset({"visual-inspect"}),
-    ("pyfs-workspace", "nastran_unit"): frozenset({"visual-inspect"}),
     ("pyfs-workspace", "cmap"): frozenset({"visual-inspect"}),
     ("pyfs-workspace", "box"): frozenset({"visual-inspect"}),
     ("pyfs-workspace", "iso_from"): frozenset({"visual-inspect"}),

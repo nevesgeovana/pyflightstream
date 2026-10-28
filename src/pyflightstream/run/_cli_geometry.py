@@ -423,9 +423,9 @@ def _add_visual_inspect(verbs: Any) -> None:
         "--points-unit", help="the unit of the node lists and points files that state none"
     )
     inspect.add_argument(
-        "--nastran-unit",
+        "--unit",
         default="MILLIMETER",
-        help="a NASTRAN mesh's length unit (default MILLIMETER)",
+        help="a NASTRAN mesh's length unit (default MILLIMETER); not read for an OBJ",
     )
     inspect.add_argument(
         "--iso-from",
@@ -803,7 +803,7 @@ def _cmd_visual_inspect(args: argparse.Namespace) -> int:
             box=args.box,
             mesh_unit=args.mesh_unit,
             points_unit=args.points_unit,
-            nastran_unit=args.nastran_unit,
+            nastran_unit=args.unit,
             iso_from=args.iso_from,
             labels=args.labels,
             edges=not args.no_edges,
