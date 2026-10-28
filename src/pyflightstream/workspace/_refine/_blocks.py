@@ -74,7 +74,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter, defaultdict
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 import numpy
@@ -1010,26 +1010,16 @@ def plan(
     names = tuple(n for n in families if n in grids)
     nodes = {n: {v for f in families[n] for v in f} for n in names}
     joinable = [n for n in names if _joinable(grids[n], families[n])]
-    layouts: list[Layout] = []
-    why: dict[str, str] = {}
-    for group in _touching(joinable, nodes):
-        if len(group) < 2:
-            continue
-        te = {v for n in group for e in te_edges[n] for v in e}
-        found = _join(verts, families, group, te)
-        if isinstance(found, str):
-            why.update(
-                dict.fromkeys(group, f"; the grids {', '.join(group)} form no layout: {found}")
-            )
-            continue
-        try:
-            layouts.append(
-                _counted(verts, tuple(group), found, grids, specs, te_edges=te_edges, where=where)
-            )
-        except InputArtifactError as error:
-            if not accept:
-                raise
-            why.update(dict.fromkeys(group, _skipped_layout(error, group, where)))
+    layouts, why = _grouped(
+        verts,
+        families,
+        grids,
+        specs,
+        te_edges,
+        groups=_touching(joinable, nodes),
+        where=where,
+        accept=accept,
+    )
     done = [n for lay in layouts for n in lay.names]
     late: list[tuple[str, str, str]] = []
     for name in names:
@@ -1055,6 +1045,41 @@ def plan(
     for layout in layouts:
         _warn_kept(layout, specs, where)
     return {n: lay for lay in layouts for n in lay.names}, late
+
+
+def _grouped(
+    verts: Points,
+    families: Mapping[str, Faces],
+    grids: Mapping[str, Recovered],
+    specs: Mapping[str, FamilySpec],
+    te_edges: Mapping[str, Collection[Edge]],
+    *,
+    groups: Iterable[Sequence[str]],
+    where: str,
+    accept: bool,
+) -> tuple[list[Layout], dict[str, str]]:
+    """Return the layouts of the touching groups, and why a group's grids joined none."""
+    layouts: list[Layout] = []
+    why: dict[str, str] = {}
+    for group in groups:
+        if len(group) < 2:
+            continue
+        te = {v for n in group for e in te_edges[n] for v in e}
+        found = _join(verts, families, group, te)
+        if isinstance(found, str):
+            why.update(
+                dict.fromkeys(group, f"; the grids {', '.join(group)} form no layout: {found}")
+            )
+            continue
+        try:
+            layouts.append(
+                _counted(verts, tuple(group), found, grids, specs, te_edges=te_edges, where=where)
+            )
+        except InputArtifactError as error:
+            if not accept:
+                raise
+            why.update(dict.fromkeys(group, _skipped_layout(error, group, where)))
+    return layouts, why
 
 
 def _skipped_layout(error: InputArtifactError, group: Sequence[str], where: str) -> str:
