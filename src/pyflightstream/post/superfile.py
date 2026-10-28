@@ -994,7 +994,8 @@ def write_superfile_report(
     Parameters
     ----------
     root : Path
-        The workspace root; the report goes under its reports folder.
+        The products folder of the posted matrix (``reports_root`` of the
+        workspace); the report goes under its reports folder.
     version : str
         The package version, which names the report.
     files : iterable of (Path, sequence of str, int)
