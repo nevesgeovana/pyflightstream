@@ -427,6 +427,67 @@ def _arcs(
 SPANWISE_COS = math.cos(math.radians(45.0))
 
 
+#: A family's boundary is cut into sides where it turns by more than this, in degrees.
+SIDE_CORNER_DEGREES = 45.0
+
+
+def longest_boundary_side(verts: Points, blocks: Blocks, patches: Sequence[int]) -> Points:
+    """Return the longest side of a family's boundary as segments, shape (n, 2, 3).
+
+    The boundary is the arcs one patch of the family holds; it is cut into sides
+    where it turns by more than :data:`SIDE_CORNER_DEGREES`, and the segments of
+    the longest side are returned in their order along it.
+    """
+    held: dict[int, int] = {}
+    for p in patches:
+        for arc, _ in blocks.sides[p]:
+            held[arc] = held.get(arc, 0) + 1
+    touching: dict[int, list[int]] = {}
+    for arc, count in held.items():
+        if count != 1:
+            continue
+        chain = list(blocks.arcs[arc])
+        for a, b in zip(chain, chain[1:], strict=False):
+            touching.setdefault(a, []).append(b)
+            touching.setdefault(b, []).append(a)
+    pts = numpy.asarray(verts, dtype=float)
+    sides = _boundary_runs(pts, touching)
+    best = max(
+        sides, key=lambda run: float(numpy.linalg.norm(numpy.diff(pts[run], axis=0), axis=1).sum())
+    )
+    return numpy.stack([pts[best[:-1]], pts[best[1:]]], axis=1)
+
+
+def _boundary_runs(pts: Points, touching: dict[int, list[int]]) -> list[list[int]]:
+    """Return the runs of boundary vertices between corners (a turn, or a branch)."""
+    most = math.cos(math.radians(SIDE_CORNER_DEGREES))
+
+    def corner(v: int) -> bool:
+        n = touching[v]
+        if len(n) != 2:
+            return True
+        u, w = pts[v] - pts[n[0]], pts[n[1]] - pts[v]
+        cos = float(u @ w) / max(float(numpy.linalg.norm(u) * numpy.linalg.norm(w)), 1e-300)
+        return cos < most
+
+    runs: list[list[int]] = []
+    seen: set[tuple[int, int]] = set()
+    starts = [v for v in touching if corner(v)] or [next(iter(touching))]
+    for start in starts:
+        for nxt in touching[start]:
+            if (min(start, nxt), max(start, nxt)) in seen:
+                continue
+            run, prev, cur = [start], start, nxt
+            while True:
+                seen.add((min(prev, cur), max(prev, cur)))
+                run.append(cur)
+                if cur == start or corner(cur):
+                    break
+                prev, cur = cur, next(n for n in touching[cur] if n != prev)
+            runs.append(run)
+    return runs
+
+
 def runs_spanwise(verts: Points, chain: Sequence[int], te: Points) -> bool:
     """Return whether an arc runs along the trailing edge (spanwise) rather than across it.
 
@@ -483,16 +544,24 @@ def te_directions(
     Raises
     ------
     InputArtifactError
-        The family has no trailing edge, or a patch's two directions cannot be
-        told apart, naming the patch and where it lies; nothing was written.
+        A patch's two directions cannot be told apart, naming the patch and
+        where it lies; nothing was written. A family with no trailing edge is
+        told against the longest side of its boundary
+        (:func:`longest_boundary_side`), warned.
     """
     if not len(te):
-        raise InputArtifactError(
-            f"{family}: parallel and normal are not defined for {what} without a trailing "
-            "edge: its arcs are told parallel or normal by the direction of the family's "
-            "trailing edge, and it has none. Give its factor alone, or list its trailing edge "
-            "in a [[perimeter]] file, and run again. Nothing was written.",
-            kind=KIND,
+        te = longest_boundary_side(verts, blocks, patches)
+        ends = " and ".join(
+            "(" + ", ".join(f"{float(c):.6g}" for c in point) + ")"
+            for point in (te[0, 0], te[-1, 1])
+        )
+        warn(
+            f"{family}: no trailing edge is listed for {what}; its arcs are told parallel or "
+            f"normal against the longest side of its boundary, {len(te)} edges from {ends} "
+            "(mesh units). List its trailing edge in a [[perimeter]] file to orient it by "
+            "that line.",
+            PyflightstreamWarning,
+            stacklevel=4,
         )
     out: dict[int, str] = {}
     for n, p in enumerate(patches, 1):

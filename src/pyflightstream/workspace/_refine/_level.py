@@ -134,6 +134,9 @@ class _Work:
     # the progress line callback of refine_mesh; silent by default
     say: Callable[[str], None] = field(default=lambda _line: None)
     bands: dict[str, str] = field(default_factory=dict)
+    # The families oriented by the longest side of their boundary, a reference line that is
+    # not written as a trailing edge (_lines.assume_trailing_edge).
+    assumed: set[str] = field(default_factory=set)
     sidecar: str | None = None  # the level's boundaries file, rewritten before any work
     unchanged: list[str] = field(default_factory=list)  # the families G6 compares
     # FR-972: the selected families of a summary tag, taken with the tag before any work
@@ -167,7 +170,8 @@ def _refuse(where: str, reason: str) -> InputArtifactError:
 
 def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
     # A grid's parallel and normal factors need no trailing edge: a family without one
-    # takes a neighbour's or its longest side (_lines.assume_trailing_edge).
+    # takes the longest side of its boundary as reference (_lines.assume_trailing_edge,
+    # _blocks.te_directions), which is not written as a trailing edge.
     perimeter = _lines.perimeter_lines(source, request, mesh)
     # The level's points files are in the mesh's unit, as the boundaries file states it.
     unit = _obj.mesh_unit(source) or "METER"
@@ -641,7 +645,7 @@ def _assemble(work: _Work) -> tuple[Points, dict[str, Faces], Points]:
             blocks.append(pts)
             faces.update({n: [[v + offset for v in f] for f in fs] for n, fs in fams.items()})
             offset += len(pts)
-            if len(mids):
+            if len(mids) and name not in work.assumed:
                 te.append(mids)
         elif name not in changed:
             ids = sorted(work.fam_v[name])

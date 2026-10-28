@@ -3,7 +3,7 @@
 A ``[[perimeter]]`` list gives, per family, the mesh edges joining two of its
 nodes (:func:`perimeter_lines`); a family on several lines keeps the first that
 recovers its grid, the exported lists first (:func:`choose_perimeter_line`). A
-grid family with no line takes a neighbour's trailing edge or its longest side
+grid family with no line takes the longest side of its boundary as reference
 (:func:`assume_trailing_edge`), and an incomplete line on a sheet is completed
 from the grid (:func:`grid_with_complete_te_edges`). Only the exported lists
 are the level's trailing edge (:func:`on_exported`).
@@ -304,14 +304,14 @@ def side_length(verts: Points, side: list[int]) -> float:
 
 
 def assume_trailing_edge(work: _Work, name: str) -> None:
-    """Give a sheet family that found no trailing edge one, before any refusal.
+    """Give a family that found no trailing edge the longest side of its perimeter.
 
-    First from a neighbouring family: the side of this family's boundary that holds
-    the most of the neighbours' trailing-edge vertices, ties broken by the side
-    that continues the neighbours' trailing-edge direction. Else the longest side of
-    the boundary, taken as the spanwise trailing edge. A side is kept only when the
-    grid is recovered with it; the choice is warned. A family that is not a sheet
-    without a trailing edge (a tube, a grid already recovered) is left alone.
+    The reference line of a family with no trailing edge listed for it is the
+    longest side of its boundary, taken as parallel; when the grid is not
+    recovered with it, the next longest is tried. The choice is warned. It applies
+    to a sheet, which needs a line to orient its grid; a multiblock family tells
+    its arcs against the longest side of its own boundary
+    (:func:`._blocks.te_directions`), and a tube is left alone.
     """
     verts, faces = work.mesh.verts, work.mesh.families[name]
     bare = _blocks.recover_family(verts, faces, ())
@@ -320,50 +320,28 @@ def assume_trailing_edge(work: _Work, name: str) -> None:
     sides = boundary_sides(verts, faces)
     if not sides:
         return
-    others = set().union(*(te for n, te in work.te_of.items() if n != name))
-    other_edges = set().union(*(e for n, e in work.te_edges.items() if n != name))
     pts = numpy.asarray(verts, dtype=float)
-    tried: list[tuple[str, list[int]]] = []
-    shared = [(len(set(s) & others), _follows(pts, s, other_edges), s) for s in sides]
-    shared = [t for t in shared if t[0]]
-    for _, _, side in sorted(shared, key=lambda t: (-t[0], -t[1])):
-        tried.append(("a neighbouring family's trailing edge", side))
     for side in sorted(sides, key=lambda s: -side_length(verts, s)):
-        tried.append(("the longest side of its boundary, taken as parallel", side))
-    for how, side in tried:
         found = _blocks.recover_family(verts, faces, side)
         if isinstance(found, str):
             continue
         edges = {(min(a, b), max(a, b)) for a, b in zip(side, side[1:], strict=False)}
         work.te_of[name] = set(side)
         work.te_edges[name] = edges
+        work.assumed.add(name)
         ends = " and ".join(
             "(" + ", ".join(str(round(float(c), 6)) for c in pts[v]) + ")"
             for v in (side[0], side[-1])
         )
         warn(
-            f"{work.source} family {name}: no trailing-edge point matched it; the trailing edge "
-            f"is assumed from {how}: {len(edges)} edges from {ends} (mesh units). Check it, or "
-            "list its nodes in a [[perimeter]] file.",
+            f"{work.source} family {name}: no trailing edge is listed for it; its parallel and "
+            f"normal directions are taken against the longest side of its boundary, {len(edges)} "
+            f"edges from {ends} (mesh units), which is not written as a trailing edge. List its "
+            "trailing edge in a [[perimeter]] file to orient it by that line.",
             PyflightstreamWarning,
             stacklevel=2,
         )
         return
-
-
-def _follows(pts: Points, side: list[int], other_edges: set[tuple[int, int]]) -> float:
-    """Return how well a side continues the neighbours' trailing edges at its ends (a cosine)."""
-    best = 0.0
-    for end, inner in ((side[0], side[1]), (side[-1], side[-2])):
-        d = pts[inner] - pts[end]
-        for a, b in other_edges:
-            if end in (a, b):
-                e = pts[b] - pts[a]
-                cos = abs(float(d @ e)) / max(
-                    float(numpy.linalg.norm(d) * numpy.linalg.norm(e)), 1e-300
-                )
-                best = max(best, cos)
-    return best
 
 
 def choose_perimeter_line(work: _Work, name: str) -> None:

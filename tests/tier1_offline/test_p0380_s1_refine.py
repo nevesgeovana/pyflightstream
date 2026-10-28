@@ -2521,3 +2521,23 @@ def test_a_trailing_edge_listed_in_two_parts_is_one_perimeter():
     faces = plate.families["P"]
     boundary = {e for e, fs in edge_faces(faces).items() if len(fs) == 1}
     assert rearmost_perimeter(plate.verts, faces, boundary) < boundary
+
+
+def test_fr3296_the_level_node_list_ids_are_the_level_obj_vertex_numbers(tmp_path):
+    """FR-3296 (refine-r1 QA-F1): <level>.nodes.txt rows are 1-based OBJ vertices on the TE."""
+    src = _source(tmp_path)
+    level = refine_mesh(src, 0.5)
+    verts = [
+        [float(c) for c in line.split()[1:4]]
+        for line in level.obj.read_text(encoding="utf-8").splitlines()
+        if line.startswith("v ")
+    ]
+    listing = level.folder / f"{level.obj.stem}.nodes.txt"
+    rows = listing.read_text(encoding="utf-8").splitlines()
+    assert rows[0].startswith("#")
+    body = [[c.strip() for c in r.split(",")] for r in rows[1:]]
+    assert body and all(name == "G" for _, name, *_ in body)
+    for vid, _, x, y, z in body:
+        assert verts[int(vid) - 1] == pytest.approx([float(x), float(y), float(z)], abs=1e-6)
+    te = (level.folder / f"{level.obj.stem}.te.txt").read_text(encoding="utf-8").splitlines()
+    assert len(body) <= len(te)  # only trailing-edge vertices, not every vertex of G

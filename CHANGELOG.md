@@ -58,6 +58,11 @@ FlightStream versions.
   (`<level>.nodes.te.txt`, `<level>.<family>.fs.te.txt`) and as ANSA node
   lists (`<level>.nodes.txt`, `<level>.<family>.nodes.txt`), beside its points
   files (FR-3296).
+- `refine` orients a grid family with no trailing edge listed by the longest
+  side of its boundary, warned, and no longer by a neighbouring family's
+  trailing edge; a multiblock family with a directional factor and no
+  trailing edge is no longer refused. The reference line is not written as a
+  trailing edge.
 - `refine` raises a grid factor below the least its grid allows to that
   least with a warning by default; `--strict-factors`
   (`refine_mesh(force_factors=False)`) refuses it. `--force-factors` is still

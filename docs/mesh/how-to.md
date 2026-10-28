@@ -175,9 +175,10 @@ sheet, or as a tube whose ends are open, closed by a fan of triangles around one
 pole node, or closed by a zipper of triangles. A sheet is oriented by its reference perimeter: the line of
 the grid that fixes which edge is index 0, taken from a `[[perimeter]]` node
 list (see [From an OBJ to a marked level](#from-an-obj-to-a-marked-level)) or
-else from the mesh. A grid family with no trailing edge takes the side of its
-boundary that holds a neighbouring family's trailing edge, else its longest
-side, and warns which. A smooth tube is recovered without one, its seam
+else from the mesh. A grid family with no trailing edge listed takes the
+longest side of its boundary as its reference line, warns which, and does not
+write it as a trailing edge; a multiblock family tells its patch sides against
+that side. A smooth tube is recovered without one, its seam
 standing in. The reference perimeter, the leading
 edge and the end stations are knots of the spline, so the clustering is kept
 and they do not move, and the level is written in the source's face order.

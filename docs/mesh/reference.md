@@ -575,9 +575,9 @@ every listed edge lies on, with a warning naming the edges added.
   within 78 degrees where the upper and the lower surface fold at a sharp
   trailing edge. That line is also the
   first tried to orient the family's grid.
-- **No trailing edge.** `--parallel` and `--normal` need none. A grid family
-  with none takes the side of its boundary that holds a neighbouring family's
-  trailing edge, else its longest side, and warns which.
+- **No trailing edge.** `--parallel` and `--normal` need none. A grid family,
+  sheet or multiblock, with none listed takes the longest side of its boundary
+  as its reference line, warns which, and does not write it as a trailing edge.
 - **Warnings.** A node that matches no vertex, a list that is missing or
   joins no edge, and a `te_families` name that matches no family are warned
   and skipped; the refinement goes on.

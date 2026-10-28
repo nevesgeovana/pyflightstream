@@ -418,9 +418,12 @@ def test_refine_mesh_reports_a_multiblock_grid_and_its_audit_passes(tmp_path, na
         assert (written == source) == (factor == 1.0)
         if factor == 1.0:
             assert gates.get("G6") == "pass", gates
-    with pytest.raises(InputArtifactError) as caught:
-        refine_mesh(src, normal=2.0, out_dir=tmp_path / "c")
-    assert "without a trailing edge" in str(caught.value)
+    # With no trailing edge, a directional factor is told against the longest side of the
+    # family's boundary, warned; the reference is not written as a trailing edge.
+    with pytest.warns(PyflightstreamWarning, match="longest side of its boundary"):
+        level = refine_mesh(src, normal=2.0, out_dir=tmp_path / "c")
+    assert level.report["M"]["method"] == "grid"
+    assert not list(level.folder.glob("*.te.txt"))
 
 
 @pytest.mark.parametrize("factor", [0.01, 0.2, 0.24])
@@ -770,17 +773,20 @@ def test_a_patch_whose_two_directions_cannot_be_told_apart_is_refused_naming_it(
 
 
 @pytest.mark.parametrize("direction", ["chordwise", "spanwise"])
-def test_p0440_multiblock_direction_without_trailing_edge_is_refused(tmp_path, direction):
+def test_p0440_multiblock_direction_without_trailing_edge_takes_the_longest_side(
+    tmp_path, direction
+):
+    """A multiblock family with no trailing edge is told against its longest boundary side."""
     mesh = _l_with_trailing_edge()
     mesh.te = np.empty((0, 3))
     src = write_source(tmp_path / "src", "plate", mesh)
-    with pytest.raises(InputArtifactError, match=r"without a trailing edge"):
-        refine_mesh(
+    with pytest.warns(PyflightstreamWarning, match="longest side of its boundary"):
+        level = refine_mesh(
             src,
             **{"normal" if direction == "chordwise" else "parallel": 0.5},
-            out_dir=tmp_path / "bad",
+            out_dir=tmp_path / "side",
         )
-    assert not (tmp_path / "bad").exists()
+    assert level.report["M"]["method"] == "grid"
     assert refine_mesh(src, 0.5, out_dir=tmp_path / "control").report["M"]["method"] == "grid"
 
 

@@ -282,7 +282,7 @@ _REFINE_DESCRIPTION = (
     "intervals of each index direction of a grid family and divides the target edge length of "
     "a remeshed family; --parallel and --normal replace it along and across the reference "
     "perimeter of the grid families ([[perimeter]] node lists of the refinement file, else a "
-    "neighbour's trailing edge or the family's longest side). Without FACTOR, --parallel or "
+    "the family's longest boundary side). Without FACTOR, --parallel or "
     "--normal, the factors come from the refinement "
     "file (--config, or <stem>.refine.toml beside the mesh), whose [components], "
     "[refine] tag and elements (triangles or quad-dominant) are read whenever it exists. "
