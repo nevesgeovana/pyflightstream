@@ -352,7 +352,6 @@ def _grid_after_grid(work: _Work) -> None:
         work.grids,
         work.specs,
         work.te_edges,
-        held=set(),
         where=str(work.source),
     )
     for name, first, why in late:

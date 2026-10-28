@@ -332,10 +332,9 @@ def _family_tables(
     source: Path,
     families: Mapping[str, Any],
     names: Sequence[str],
-    mesh: str | Path | None,
     read: Sequence[str] | None = None,
-) -> tuple[dict[str, FamilySpec], dict[str, str], list[str], list[str]]:
-    """Return the specs, element modes, kept families and unread tables of ``[families.<name>]``.
+) -> tuple[dict[str, FamilySpec], dict[str, str], list[str]]:
+    """Return the specs, element modes and unread tables of ``[families.<name>]``.
 
     ``read`` names the families whose factors are read; a table of any other
     family is checked for its name and its ``elements`` only (F-1516), and
@@ -343,7 +342,6 @@ def _family_tables(
     """
     specs: dict[str, FamilySpec] = {}
     elements: dict[str, str] = {}
-    keep: list[str] = []
     unread: list[str] = []
     for name, raw in families.items():
         where = f"{source} [families.{name}]"
@@ -371,7 +369,7 @@ def _family_tables(
             continue
         if set(table) - {"elements"}:
             specs[name] = _family_spec(where, table)
-    return specs, elements, keep, unread
+    return specs, elements, unread
 
 
 def read_refine_file(
@@ -382,9 +380,9 @@ def read_refine_file(
 ) -> dict[str, Any]:
     """Read a refinement file against the mesh's family names, refusing what it cannot honour.
 
-    ``keep`` is empty: no table keeps a row any more (its earlier key is
-    warned and skipped). ``read`` names the families whose factors are read: the other tables are
-    not validated beyond their name and ``elements`` (F-1516).
+    ``read`` names the families whose factors are read: the other tables are
+    not validated beyond their name and ``elements`` (F-1516). ``mesh`` is
+    accepted for the callers that name it and is not read.
     """
     source = Path(path)
     try:
@@ -402,7 +400,7 @@ def read_refine_file(
         data.get("families", {}),
         f"write one [families.<name>] table per family, with the keys {', '.join(FAMILY_KEYS)}",
     )
-    specs, elements, keep, unread = _family_tables(source, families, names, mesh, read)
+    specs, elements, unread = _family_tables(source, families, names, read)
     refine = _table(
         f"{source} [refine]",
         data.get("refine", {}),
@@ -436,7 +434,6 @@ def read_refine_file(
     return {
         "perimeters": _perimeters(source, data.get("perimeter", [])),
         "specs": specs,
-        "keep": keep,
         "unread": unread,
         "elements": elements,
         "default_elements": elements_mode(f"{source} [refine]", default),
@@ -552,7 +549,6 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         if file
         else {
             "specs": {},
-            "keep": [],
             "unread": [],
             "elements": {},
             "default_elements": TRIANGLES,

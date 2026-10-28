@@ -795,7 +795,6 @@ def test_p0440_union_without_four_sided_layout_joins_none():
         grids,
         {n: FamilySpec(factor=2.0) for n in families},
         edges,
-        held=(),
         where="three sheets sharing one edge",
     )
     assert layouts == {}
