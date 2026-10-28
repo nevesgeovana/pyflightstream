@@ -702,6 +702,8 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             )
         reason = f"--families selects {', '.join(chosen)}"
         missing_tables = _missing_tables(chosen, stated_specs)
+        if any(s.governing for s in specs.values()):
+            specs.update({n: FamilySpec(method=GRID_AUTO) for n in chosen if n not in specs})
         for name in missing_tables:
             warnings.warn(
                 f"{file}: selected family {name!r} has no refinement table and is copied "

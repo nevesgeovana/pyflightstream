@@ -263,7 +263,6 @@ def _grid_auto_specs(work: _Work) -> None:
             )
             del work.specs[name]
         return
-    autos += [n for n in work.names if n not in work.specs]
     group = _node_groups(work)
     size = {n: _boundary_length(work, n) for n in governing}
     for name in autos:
