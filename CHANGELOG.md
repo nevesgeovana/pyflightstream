@@ -34,6 +34,11 @@ FlightStream versions.
 - `GeometryEngineMissingError`, with the refusals for a missing spatial index
   or plotting library it served. FR-924 and FR-1496 are retired; FR-2227 warns
   only when the mesh is not watertight.
+- The `png` keyword of the geometry build's `refuse_before_running`: nothing
+  it checked can fail any more.
+- The `plot` and `geom` entries of `pyflightstream.extras.EXTRAS`;
+  `missing_extra("plot", ...)` and `missing_extra("geom", ...)` now raise
+  `UnknownExtraError`.
 
 ## [0.48.0] - 2026-10-28
 
