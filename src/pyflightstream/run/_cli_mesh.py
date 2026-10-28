@@ -353,10 +353,17 @@ def _add_refine_parser(subparsers: Any) -> None:
         "hold, and a --families name it does not hold",
     )
     refine.add_argument(
+        "--strict-factors",
+        dest="force_factors",
+        action="store_false",
+        help="refuse a grid factor below the least its grid allows (1/m for its m intervals, "
+        "the least a tube's caps carry); by default it is raised to that least with a warning",
+    )
+    refine.add_argument(
         "--force-factors",
+        dest="force_factors",
         action="store_true",
-        help="raise a grid factor below the least its grid allows (1/m for its m intervals, "
-        "the least a tube's caps carry) to that least, with a warning, in place of refusing it",
+        help=argparse.SUPPRESS,
     )
     refine.add_argument(
         "--keep-first-row",
@@ -377,7 +384,7 @@ def _add_refine_parser(subparsers: Any) -> None:
     )
     refine.add_argument("--overwrite", action="store_true", help="replace an existing level folder")
     add_console_arguments(refine, _VERBOSE_HELP)
-    refine.set_defaults(mesh_command=run_refine)
+    refine.set_defaults(mesh_command=run_refine, force_factors=True)
 
 
 def _progress_printer() -> Callable[[str], None]:

@@ -151,8 +151,16 @@ def test_r1_a_direction_that_is_not_a_number_is_refused_by_both_routes(tmp_path,
 @pytest.mark.parametrize(
     ("kwargs", "argv", "said"),
     [
-        ({"factor": 0.05}, ["0.05"], "the chordwise factor is 0.05, below 1/18"),
-        ({"factor": 1.0, "parallel": 0.1}, ["1", "--parallel", "0.1"], "spanwise factor is 0.1"),
+        (
+            {"factor": 0.05, "force_factors": False},
+            ["0.05", "--strict-factors"],
+            "the normal factor is 0.05, below 1/18",
+        ),
+        (
+            {"factor": 1.0, "parallel": 0.1, "force_factors": False},
+            ["1", "--parallel", "0.1", "--strict-factors"],
+            "parallel factor is 0.1",
+        ),
     ],
     ids=["factor", "spanwise"],
 )
@@ -403,17 +411,28 @@ def test_arch48_accept_empty_writes_nothing_when_no_trailing_edge_is_found(tmp_p
 
 
 def test_arch48_force_factors_raises_a_factor_below_the_least_the_grid_allows(tmp_path):
-    """ARCH48-R6: a factor below 1/m is refused; ``force_factors`` raises it to 1/m, warned.
+    """ARCH48-R6: a factor below 1/m is raised to 1/m, warned, by default; strict refuses it.
 
     G has 18 chordwise and 8 spanwise intervals: 0.05 is raised to 1/18 and 1/8,
-    and the level holds one interval in each direction.
+    and the level holds one interval in each direction. ``force_factors=False``
+    (CLI ``--strict-factors``) refuses it.
     """
     src = _source(tmp_path)
-    assert "below 1/18" in _refused(tmp_path, src, factor=0.05)
+    assert "below 1/18" in _refused(tmp_path, src, factor=0.05, force_factors=False)
     with pytest.warns(PyflightstreamWarning, match="raised to 0.0555556 and 0.125"):
-        level = refine_mesh(src, 0.05, force_factors=True, out_dir=tmp_path / "acc")
+        level = refine_mesh(src, 0.05, out_dir=tmp_path / "acc")
     intervals = level.report["G"]["intervals"]
     assert intervals["chordwise"] == [18, 1] and intervals["spanwise"] == [8, 1]
+
+
+def test_the_command_raises_a_factor_below_the_least_by_default(tmp_path, capsys):
+    """ARCH48-R6: pyfs-matrix refine warns and writes the level; --strict-factors refuses."""
+    src = _source(tmp_path)
+    with pytest.warns(PyflightstreamWarning, match="raised to 0.0555556"):
+        code, _, _ = _command(capsys, str(src), "0.05")
+    assert code == 0
+    code, _, err = _command(capsys, str(src), "0.05", "--strict-factors", "--overwrite")
+    assert code == 2 and "below 1/18" in err
 
 
 def test_drev48_r2_a_factor_of_one_over_m_is_accepted_for_every_m():
@@ -1553,7 +1572,7 @@ def test_x_f_0599_a_file_in_the_place_of_the_level_is_refused_before_any_work(tm
 
 def test_x_f_1266_a_factor_below_one_over_m_states_its_reason_exactly(tmp_path):
     src = _source(tmp_path)
-    text = _refused(tmp_path, src, 0.05)
+    text = _refused(tmp_path, src, 0.05, force_factors=False)
     assert "below 1/18: scaled by it, its 18 source intervals come to fewer than one" in text
 
 

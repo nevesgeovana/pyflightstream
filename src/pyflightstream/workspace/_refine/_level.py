@@ -291,8 +291,8 @@ def _forced_factors(
 ) -> tuple[float, float]:
     """Raise a grid's factors to the least it allows, warn, and keep them in its spec.
 
-    ``force_factors`` (CLI ``--force-factors``): the level's counts differ from
-    the factors asked, which ``refine.json`` keeps under ``specs``; the
+    ``force_factors`` (the default; CLI ``--strict-factors`` refuses): the level's counts
+    differ from the factors asked, which ``refine.json`` keeps under ``specs``; the
     family's record shows the intervals written.
     """
     least = _grid.least_factors(grid, chordwise, spanwise)
@@ -301,7 +301,7 @@ def _forced_factors(
     warn(
         f"{work.source} family {name}: the normal and parallel factors {chordwise:g} and "
         f"{spanwise:g} are below the least the grid allows and are raised to {least[0]:g} "
-        f"and {least[1]:g} (force_factors, CLI --force-factors)",
+        f"and {least[1]:g}; pass --strict-factors (force_factors=False) to refuse it instead",
         PyflightstreamWarning,
         stacklevel=4,
     )
@@ -1029,7 +1029,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     progress: Callable[[str], None] | None = None,
     accept_remesh: bool = False,
     accept_unknown: bool = False,
-    force_factors: bool = False,
+    force_factors: bool = True,
     chordwise: float | None = None,
     spanwise: float | None = None,
 ) -> RefinedMesh:
@@ -1073,7 +1073,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     force_factors : bool
         Raise a grid factor below the least its grid allows (``1/m`` for its
         ``m`` intervals, the least a tube's caps carry) to that least, with a
-        warning; by default such a factor is refused.
+        warning (the default); False refuses such a factor (CLI ``--strict-factors``).
     chordwise, spanwise : float, optional
         The earlier names of ``normal`` and ``parallel``, read with a warning;
         beside the new name, the earlier one is warned and skipped.

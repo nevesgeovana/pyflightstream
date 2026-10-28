@@ -507,7 +507,7 @@ def te_directions(
         pts = numpy.asarray(verts, dtype=float)[blocks.patches[p].ravel()]
         where = ", ".join(f"{v:.3g}" for v in pts.mean(axis=0))
         raise InputArtifactError(
-            f"{family}: chordwise and spanwise cannot be told apart on patch {n} of {what} "
+            f"{family}: normal and parallel cannot be told apart on patch {n} of {what} "
             f"(centroid {where}): its rows run {' and '.join(sorted(rows))} and its columns "
             f"{' and '.join(sorted(columns))} of the trailing edge. Give the family's factor "
             "alone and run again. Nothing was written.",
@@ -929,7 +929,7 @@ def _warn_kept(layout: Layout, specs: Mapping[str, FamilySpec], where: str) -> N
         label = (
             f"factor {chordwise:g}"
             if chordwise == spanwise
-            else f"factors chordwise {chordwise:g} and spanwise {spanwise:g}"
+            else f"factors normal {chordwise:g} and parallel {spanwise:g}"
         )
         lines = "; ".join(
             f"patch {k['patch']} {k['side']}: {k['source_intervals']} source interval(s), "

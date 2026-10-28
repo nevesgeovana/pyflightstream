@@ -217,6 +217,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "accept_unknown"): FIELD_OPERATION,
     ("pyfs-workspace", "force_factors"): FIELD_OPERATION,
     ("pyfs-workspace", "accept_empty"): FIELD_OPERATION,
+    ("pyfs-workspace", "all_families"): FIELD_OPERATION,
     ("pyfs-workspace", "nodes"): SUBJECT,
     # 0.49.0: `geometry visual-inspect` and the NASTRAN route of `prepare-to-refine`.
     ("pyfs-workspace", "te"): SUBJECT,
@@ -1007,6 +1008,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "accept_unknown"): frozenset({"refine"}),
     ("pyfs-workspace", "force_factors"): frozenset({"refine"}),
     ("pyfs-workspace", "accept_empty"): frozenset({"convert2midnodes", "identify-te"}),
+    ("pyfs-workspace", "all_families"): frozenset({"identify-te"}),
     ("pyfs-workspace", "nodes"): frozenset({"convert2midnodes", "identify-te", "visual-inspect"}),
     ("pyfs-workspace", "obj_unit"): frozenset({"prepare-to-refine"}),
     ("pyfs-workspace", "te"): frozenset({"visual-inspect"}),

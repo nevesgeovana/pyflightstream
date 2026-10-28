@@ -33,6 +33,9 @@ extras no longer exist.
   `sections_report` in `products.json` name the file the post kept, so a
   `post --sims` that leaves a report as it was still names the old folder
   until the next whole post.
+- `refine` no longer refuses a grid factor below the least its grid allows: it
+  is raised to that least with a warning. Pass `--strict-factors` to keep the
+  refusal; `--force-factors` can be dropped from command lines.
 
 ## 0.48.0
 

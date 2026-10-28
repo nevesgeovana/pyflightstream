@@ -47,7 +47,7 @@
 \item \fl{--parallel F}, \fl{--normal F} the factor in one index direction of the grid families (the parallel or the normal direction)
 \item \fl{--accept-remesh} a family that states parallel and normal factors, or \texttt{method = "grid"}, but recovers no grid is warned and remeshed with its \texttt{factor}, instead of refused
 \item \fl{--accept-unknown} an entry of the refinement file it does not know or cannot read, and a \fl{--families} name the mesh does not hold, are warned and skipped, instead of refused
-\item \fl{--force-factors} a grid factor below the least its grid allows is raised to it, warned, instead of refused
+\item \fl{--strict-factors} a grid factor below the least its grid allows is refused; by default it is raised to it, warned (\fl{--force-factors}, the default, is still read)
 \item \fl{--config FILE} the refinement file (default: \texttt{<stem>.refine.toml} beside the mesh)
 \item \fl{--out DIR} where the level folder goes (default: the parent of the source's folder); \fl{--out-dir DIR} is its deprecated alias
 \item \fl{--overwrite} replace an existing level folder
@@ -299,7 +299,7 @@ See the website's Upgrading page for supported workspace conversion.
 \sub{geometry visual-inspect <mesh>}{a PDF of the top, front, side and isometric views, one color per patch, with marked points and a table}
 \fl{--nodes FILE...}, \fl{--te FILE...}; \fl{--cmap NAME}; \fl{--families A,B}; \fl{--box X0 X1 Y0 Y1 Z0 Z1}; \fl{--mesh-unit}, \fl{--points-unit}, \fl{--unit UNIT}; \fl{--iso-from X Y Z}; \fl{--labels}; \fl{--no-edges}; \fl{--perimeter-width PT}; \fl{--dpi N}; \fl{--png}; \fl{--out}; \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}.
 \sub{geometry identify-te <obj> [<nodes>]}{write the trailing edges in the solver's node file; found from the mesh, or among an ANSA SET node list}
-\fl{--families A,B} one file each (default: one file; without nodes also <obj>.nodes.txt); \fl{--max-angle DEG}; \fl{--aft X Y Z}; \fl{--overwrite}; \fl{--accept-empty}; \fl{--unit UNIT}, \fl{--simulation-unit UNIT}; \fl{--verbose}, \fl{--log-level LEVEL}.
+\fl{--families A,B} one file each (default: one file of the quad families; without nodes also <obj>.nodes.txt); \fl{--all-families} every family, not only the quad ones; \fl{--max-angle DEG}; \fl{--aft X Y Z}; \fl{--overwrite}; \fl{--accept-empty}; \fl{--unit UNIT}, \fl{--simulation-unit UNIT}; \fl{--verbose}, \fl{--log-level LEVEL}.
 \sub{geometry}{build and accept bodies outside the run matrix; includes the mesh tools of page 1}
 \sub{geometry build [TARGET]}{read \texttt{<name>.geometry.toml} (of the current folder, or of the folder or file TARGET) and print the script, the boundaries after each step and what would be written; with \fl{--apply} run the solver once with no solve, save the body, read it back and audit it}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
@@ -327,7 +327,7 @@ See the website's Upgrading page for supported workspace conversion.
 \end{flags}
 \sub{geometry refine <MESH> [FACTOR]}{as \cmd{refine} of \texttt{pyfs-matrix}, whose home this group is}
 \begin{flags}
-\item \fl{--families A,B} \quad \fl{--parallel F} \quad \fl{--normal F} \quad \fl{--accept-remesh} \quad \fl{--accept-unknown} \quad \fl{--force-factors} \quad \fl{--config FILE}
+\item \fl{--families A,B} \quad \fl{--parallel F} \quad \fl{--normal F} \quad \fl{--accept-remesh} \quad \fl{--accept-unknown} \quad \fl{--strict-factors} \quad \fl{--config FILE}
 \item \fl{--out DIR} (\fl{--out-dir} is its deprecated alias) \quad \fl{--overwrite}
 \item \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}

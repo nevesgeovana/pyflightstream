@@ -140,7 +140,7 @@ class Grid:
         k, n = self.ids.shape
         split = "quadrilaterals" if self.cell_diag is None else "split quadrilaterals"
         layout = "smooth tube without trailing edge" if self.smooth else self.layout
-        return f"a {layout} of {k} stations by {n} chordwise nodes of {split}"
+        return f"a {layout} of {k} stations by {n} nodes across the reference line, of {split}"
 
 
 @dataclass(frozen=True, eq=False)
@@ -772,7 +772,7 @@ def _tube_ends(
             raise _NotAGridError("a zipper cap needs a trailing edge")
         return ("open", "pole" if pole is not None else "open"), 0
     if not all(int(v) in te for v in ids[:, 0]):
-        raise _NotAGridError("the trailing edge is not the chordwise index 0 line")
+        raise _NotAGridError("the reference line is not the grid's first line across it")
     n = ids.shape[1]
     mid = ids[ids.shape[0] // 2]
     i_le = int(numpy.argmax(numpy.linalg.norm(verts[mid] - verts[mid[0]], axis=1)))
@@ -867,7 +867,7 @@ def check_factors(grid: Grid, family: str, *, chordwise: float, spanwise: float)
     """
     chord_m, span_m = grid.intervals
     for direction, value, m in zip(
-        ("chordwise", "spanwise"), (chordwise, spanwise), (chord_m, span_m), strict=True
+        ("normal", "parallel"), (chordwise, spanwise), (chord_m, span_m), strict=True
     ):
         number = isinstance(value, (int, float)) and not isinstance(value, bool)
         if not (number and math.isfinite(value) and value > 0):
@@ -881,7 +881,8 @@ def check_factors(grid: Grid, family: str, *, chordwise: float, spanwise: float)
             continue
         raise InputArtifactError(
             f"family {family}: the {direction} factor {reason}. Give a {direction} factor of "
-            f"at least 1/{m} and run again. Nothing was written.",
+            f"at least 1/{m}, or leave out --strict-factors (force_factors=False) to raise it "
+            "with a warning, and run again. Nothing was written.",
             kind=KIND,
         )
     if grid.wrap:
@@ -905,8 +906,9 @@ def _check_section(grid: Grid, family: str, chordwise: float) -> None:
     else:
         return
     raise InputArtifactError(
-        f"family {family}: the chordwise factor is {chordwise:g}, which {reason}. Give a "
-        f"chordwise factor of at least {least} and run again. Nothing was written.",
+        f"family {family}: the normal factor is {chordwise:g}, which {reason}. Give a "
+        f"normal factor of at least {least}, or leave out --strict-factors (force_factors=False) "
+        "to raise it with a warning, and run again. Nothing was written.",
         kind=KIND,
     )
 

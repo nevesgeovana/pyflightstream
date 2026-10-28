@@ -762,7 +762,7 @@ def test_a_patch_whose_two_directions_cannot_be_told_apart_is_refused_naming_it(
     with pytest.raises(InputArtifactError) as caught:
         refine_mesh(src, normal=0.5, parallel=1.0, out_dir=tmp_path / "a")
     text = str(caught.value)
-    assert text.startswith(f"{src} family M: chordwise and spanwise cannot be told apart on ")
+    assert text.startswith(f"{src} family M: normal and parallel cannot be told apart on ")
     assert "patch 1 of a multiblock of 3 four-sided patches" in text
     assert "its rows run spanwise and its columns spanwise" in text
     assert text.endswith("Nothing was written.") and not (tmp_path / "a").exists()

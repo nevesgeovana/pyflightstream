@@ -285,7 +285,7 @@ def test_ind03_a_coarsening_the_caps_cannot_carry_is_refused(make, factor, said)
     with pytest.raises(InputArtifactError) as caught:
         refine_grid(fx.verts, fx.faces, _recovered(fx), chordwise=factor, spanwise=1.0, family="B")
     text = str(caught.value)
-    assert text.startswith(f"family B: the chordwise factor is {factor:g}, ")
+    assert text.startswith(f"family B: the normal factor is {factor:g}, ")
     assert said in text and text.endswith("Nothing was written.")
 
 
@@ -318,12 +318,12 @@ def test_ind03_a_smooth_tube_of_two_nodes_around_is_refused_by_both_routes(tmp_p
     src = write_source(tmp_path / "src", "body", mesh)
     src.with_suffix(".te.txt").write_text("METER\n", encoding="utf-8")
     with pytest.raises(InputArtifactError) as caught:
-        refine_mesh(src, normal=2 / 24)
+        refine_mesh(src, normal=2 / 24, force_factors=False)
     text = str(caught.value)
-    assert "family S: the chordwise factor is 0.0833333, " in text
+    assert "family S: the normal factor is 0.0833333, " in text
     assert "2 node(s) around" in text and text.endswith("Nothing was written.")
     assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
-    code = cli.main(["refine", str(src), "--normal", str(2 / 24)])
+    code = cli.main(["refine", str(src), "--normal", str(2 / 24), "--strict-factors"])
     assert code == 2 and text in capsys.readouterr().err
     assert refine_mesh(src, normal=3 / 24).obj.is_file()
 
