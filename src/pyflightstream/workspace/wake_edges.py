@@ -82,6 +82,7 @@ __all__ = [
     "evidence_notice",
     "length_scale",
     "node_file_units",
+    "quad_families",
     "read_trailing_edge_points",
     "tolerance_unit",
     "write_node_file",
@@ -920,6 +921,22 @@ def write_trailing_edge_midnodes_per_family(
     return written
 
 
+#: The share of quadrilaterals that makes a family a quad family, the one
+#: identify-te maps by default: a structured quad mesh closes a tip or a
+#: singular point with a few triangles (3 percent at most on the SMI families),
+#: while a tria or a paved cap family holds far fewer quads.
+QUAD_FAMILY_SHARE = 0.9
+
+
+def quad_families(families: dict[str, Any]) -> list[str]:
+    """Return the families whose faces are quadrilaterals for :data:`QUAD_FAMILY_SHARE`."""
+    return [
+        name
+        for name, faces in families.items()
+        if faces and sum(len(face) == 4 for face in faces) >= QUAD_FAMILY_SHARE * len(faces)
+    ]
+
+
 def write_trailing_edges_identified(
     mesh: str | Path,
     source: str | Path | None = None,
@@ -931,6 +948,7 @@ def write_trailing_edges_identified(
     simulation_unit: str | None = None,
     overwrite: bool = False,
     accept_empty: bool = False,
+    all_families: bool = False,
 ) -> list[Path]:
     """Find the trailing edges of an OBJ and write them in the solver's node-file format.
 
@@ -964,7 +982,8 @@ def write_trailing_edges_identified(
     families : sequence of str, optional
         The families, one file each; a name the OBJ does not hold, or one on
         which no trailing edge is found, is warned and skipped. Default: every
-        family, in one file.
+        quad family (:func:`quad_families`), in one file; the others are
+        warned and skipped.
     aft : sequence of float
         The aft direction, from the nose to the tail (default +x).
     max_angle : float
@@ -981,6 +1000,9 @@ def write_trailing_edges_identified(
         A node list with fewer than two nodes, or no trailing edge found on
         any family, is warned and nothing is written (an empty list is
         returned); by default it is refused.
+    all_families : bool
+        Without ``families``, map every family, the ones that are not quad
+        families included.
 
     Returns
     -------
@@ -998,7 +1020,7 @@ def write_trailing_edges_identified(
 
     target = Path(mesh)
     obj = read_obj(target)
-    names = list(obj.families) if families is None else list(families)
+    names = _families_to_map(target, obj.families, families, all_families)
     for name in names:
         if name not in obj.families:
             warn(
@@ -1051,6 +1073,32 @@ def write_trailing_edges_identified(
         unit=unit,
         simulation_unit=simulation_unit,
     )
+
+
+def _families_to_map(
+    target: Path,
+    held: dict[str, Any],
+    families: Sequence[str] | None,
+    all_families: bool,
+) -> list[str]:
+    """Return the families identify-te maps: the named ones, else the quad ones, else all."""
+    if families is not None:
+        return list(families)
+    if all_families:
+        return list(held)
+    quads = quad_families(held)
+    others = [name for name in held if name not in quads]
+    if others:
+        verb = "is not a quad family" if len(others) == 1 else "are not quad families"
+        warn(
+            f"{target}: {', '.join(others)} {verb} "
+            f"(quadrilaterals under {QUAD_FAMILY_SHARE:.0%} of the faces); left out of the "
+            "trailing edges and the node list. Pass all_families (CLI: --all-families) to map "
+            "them too.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    return quads
 
 
 def _identified_edges(

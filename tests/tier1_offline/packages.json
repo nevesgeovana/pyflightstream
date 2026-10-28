@@ -607,6 +607,7 @@
       "tests/tier1_offline/test_p0420_docs_clean_public.py",
       "tests/tier1_offline/test_p0490_ansa_nastran.py",
       "tests/tier1_offline/test_p0491_te_twisted_tip.py",
+      "tests/tier1_offline/test_p0492_te_quad_families.py",
       "tests/tier1_offline/test_pfs2006_declined_induced_drag.py",
       "tests/tier1_offline/test_post_products.py",
       "tests/tier1_offline/test_products_snapshot.py",

@@ -285,13 +285,16 @@ def _add_mesh_verbs(verbs: Any) -> None:
             "Without NODES they are found from the mesh alone (each family cut at its sharp "
             "edges, an edge kept when it lies within --max-angle of the plane across --aft, "
             "the yz plane by default; a sharp trailing edge is followed to a twisted tip and a "
-            "closed tip cap's contour is left out) and the "
+            "closed tip cap's contour is left out; a perimeter line found for more than half "
+            "its edges is taken whole, to its corners) and the "
             "nodes are also written as <mesh stem>.nodes.txt, the ANSA node list a refine file "
             "reads. With "
             "NODES (an ANSA SET node list, every perimeter in one file, any order) they are "
             "taken among its lines, on the OBJ or a refined level of it. Written beside the "
             "mesh in the format the solver imports: <mesh stem>.nodes.te.txt for every family, "
-            "or <mesh stem>.<family>.fs.te.txt per family with --families."
+            "or <mesh stem>.<family>.fs.te.txt per family with --families. Without --families "
+            "only quad families are mapped (quadrilaterals at least 90 percent of the faces); "
+            "--all-families maps the others too."
         ),
     )
     identify.add_argument("mesh", metavar="OBJ", help="the mesh, with its families")
@@ -304,7 +307,12 @@ def _add_mesh_verbs(verbs: Any) -> None:
     identify.add_argument(
         "--families",
         metavar="A,B",
-        help="the families, one file each (default: every family, in one file)",
+        help="the families, one file each (default: every quad family, in one file)",
+    )
+    identify.add_argument(
+        "--all-families",
+        action="store_true",
+        help="without --families, map every family, not only the quad families",
     )
     identify.add_argument(
         "--max-angle",
@@ -756,6 +764,7 @@ def _cmd_identify_te(args: argparse.Namespace) -> int:
             simulation_unit=args.simulation_unit,
             overwrite=args.overwrite,
             accept_empty=args.accept_empty,
+            all_families=args.all_families,
         )
     except (PyflightstreamError, OSError, ValueError) as error:
         print(str(error), file=sys.stderr)

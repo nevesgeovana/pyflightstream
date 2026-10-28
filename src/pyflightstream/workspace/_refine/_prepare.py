@@ -214,6 +214,19 @@ def _joined(
     return pieces
 
 
+#: The share of a perimeter line's edges found as trailing edge above which the
+#: whole line is taken: the edges near its ends that the angle tests miss, where
+#: a blade's trailing edge bends into its junction with the hub, are the same
+#: line. A line is cut where the perimeter branches, at a corner of a grid
+#: patch and where it turns by more than :data:`LINE_CORNER_DEGREES`, so a tip
+#: or a root line stays apart.
+LINE_MAJORITY = 0.5
+
+#: The turn, in degrees, that cuts a perimeter line: a trailing edge meets a tip
+#: or a root line at about a right angle, while its bend into a fillet is gentler.
+LINE_CORNER_DEGREES = 60.0
+
+
 def rearmost_lines(
     verts: Points,
     faces: Faces,
@@ -235,6 +248,9 @@ def rearmost_lines(
     piece of its own, and the contour it meets the blade along, which joins the
     trailing edge at its tip, is not a trailing edge. A chain with no fold (the
     rim of a blunt base) keeps every edge, whatever else of the family touches it.
+    A line of the perimeter (its boundary and sharp edges, cut where they branch
+    or turn) more than :data:`LINE_MAJORITY` of whose edges are found is taken
+    whole, to its corners.
     """
     dihedral = _geometry.dihedral_degrees(verts, faces)
     sharp = {e for e, angle in dihedral.items() if angle > _geometry.RIDGE_DEGREES}
@@ -256,7 +272,72 @@ def rearmost_lines(
         chain = _obj.vertex_components([list(e) for e in found])
         folded_chains = {chain[a] for a, _ in folds}
         found = {e for e in found if e in folds or chain[e[0]] not in folded_chains}
-    return near_yz(verts, found, max_angle, aft)
+    feature = sharp | {e for e, fs in holders.items() if len(fs) == 1}
+    return whole_lines(verts, faces, feature, near_yz(verts, found, max_angle, aft))
+
+
+def whole_lines(
+    verts: Points, faces: Faces, perimeter: set[tuple[int, int]], found: set[tuple[int, int]]
+) -> set[tuple[int, int]]:
+    """Return ``found`` with every line of ``perimeter`` mostly found taken whole.
+
+    A line is a chain of perimeter edges cut where the perimeter branches or
+    turns (:func:`perimeter_lines`); it is taken whole when more than
+    :data:`LINE_MAJORITY` of its edges are in ``found``.
+    """
+    out = set(found)
+    for line in perimeter_lines(verts, faces, perimeter):
+        if len(line & found) > LINE_MAJORITY * len(line):
+            out |= line
+    return out
+
+
+def perimeter_lines(
+    verts: Points, faces: Faces, perimeter: set[tuple[int, int]]
+) -> list[set[tuple[int, int]]]:
+    """Return the lines of a family's perimeter edges.
+
+    A line runs through a vertex that joins two of the edges, that more than one
+    face holds (a vertex one face holds is a grid patch's corner) and where the
+    line turns by :data:`LINE_CORNER_DEGREES` or less.
+    """
+    touching: dict[int, list[int]] = {}
+    for a, b in perimeter:
+        touching.setdefault(a, []).append(b)
+        touching.setdefault(b, []).append(a)
+    held: dict[int, int] = {}
+    for face in faces:
+        for v in face:
+            held[v] = held.get(v, 0) + 1
+    pts = numpy.asarray(verts, dtype=float)
+    most = numpy.cos(numpy.radians(LINE_CORNER_DEGREES))
+    through = {
+        v
+        for v, n in touching.items()
+        if len(n) == 2 and held.get(v, 0) > 1 and _turn_cosine(pts, n[0], v, n[1]) >= most
+    }
+    lines: list[set[tuple[int, int]]] = []
+    seen: set[tuple[int, int]] = set()
+    for edge in sorted(perimeter):
+        if edge in seen:
+            continue
+        line, stack = {edge}, [v for v in edge if v in through]
+        while stack:
+            v = stack.pop()
+            for n in touching[v]:
+                step = (min(v, n), max(v, n))
+                if step not in line:
+                    line.add(step)
+                    stack += [n] if n in through else []
+        seen |= line
+        lines.append(line)
+    return lines
+
+
+def _turn_cosine(pts: Points, before: int, at: int, after: int) -> float:
+    """Return the cosine of the turn of the path before -> at -> after."""
+    u, w = pts[at] - pts[before], pts[after] - pts[at]
+    return float(u @ w) / max(float(numpy.linalg.norm(u) * numpy.linalg.norm(w)), 1e-300)
 
 
 def near_yz(

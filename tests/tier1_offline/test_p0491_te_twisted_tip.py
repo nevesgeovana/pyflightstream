@@ -83,3 +83,18 @@ def test_the_fixture_tip_chord_lies_20_degrees_from_the_rotation_plane() -> None
     tip_le = verts[(STATIONS - 1) * n + SECTION]
     chord = (tip_te - tip_le) / np.linalg.norm(tip_te - tip_le)
     assert math.degrees(math.asin(chord[0])) == pytest.approx(20.0, abs=0.5)
+
+
+def test_a_trailing_edge_mostly_found_is_taken_to_its_root() -> None:
+    """FR-3294: a root sheared aft bends the edge out of the yz cone; the line is whole."""
+    verts, faces, trailing, n = _blade()
+    verts = verts.copy()
+    verts[:n, 0] += 0.15  # the root edge now makes about 50 degrees with the yz plane
+    root = (0, n)
+    assert root not in _prepare.near_yz(verts, {root})
+    found = _prepare.rearmost_lines(verts, faces)
+    assert trailing <= found
+    # The tip line, a line of its own past the corner, stays out.
+    ring = range(8 * n, 9 * n)
+    tip = {(min(a, b), max(a, b)) for a, b in zip(ring[:-1], ring[1:], strict=True)}
+    assert not found & tip
