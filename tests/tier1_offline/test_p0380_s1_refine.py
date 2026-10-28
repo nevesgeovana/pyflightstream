@@ -382,6 +382,30 @@ def test_arch48_accept_unknown_skips_the_entries_the_refinement_does_not_know(tm
     assert "All" in level.obj.read_text(encoding="utf-8")
 
 
+def test_arch48_accept_unknown_skips_the_values_the_refinement_cannot_read(tmp_path):
+    """ARCH48-R3: a value of the wrong kind in the refinement file is refused by default.
+
+    Under ``accept_unknown`` the key takes its default (method auto, elements
+    triangles), a table left with no factor is skipped, and a tag that is not
+    one folder name falls back to the built one.
+    """
+    toml = (
+        '[refine]\ntag = "a/b"\nelements = "hexes"\n'
+        '[families.G]\nfactor = 2\nmethod = "gird"\nelements = "blobs"\n'
+        "[families.T]\nfactor = -1\n"
+    )
+    src = _source(tmp_path, WITH_T, refine_toml=toml)
+    assert "is not an element mode" in _refused(tmp_path, src)
+    with pytest.warns(PyflightstreamWarning) as caught:
+        level = refine_mesh(src, accept_unknown=True, out_dir=tmp_path / "acc")
+    said = "\n".join(str(w.message) for w in caught)
+    for word in ("'a/b'", "'hexes'", "'gird'", "'blobs'", "[families.T] factor", "T] states no"):
+        assert word in said, word
+    assert level.folder.name == "wing_R-G2"
+    assert level.report["G"]["method"] == "grid"
+    assert level.report["T"]["method"] in ("unchanged", "copied")
+
+
 # --------------------------------------------------------- FR-917 the refinement file
 
 
