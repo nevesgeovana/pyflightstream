@@ -12,6 +12,7 @@ from __future__ import annotations
 import math
 import re
 import tomllib
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -715,6 +716,29 @@ def rename_table_key(side: Path, text: str, old: str, new: str, wanted: dict[str
 #: The aft direction a trailing edge is found by when none is stated: +x, the axis a
 #: fuselage runs along from the nose to the tail in an aircraft's body coordinates.
 AFT = (1.0, 0.0, 0.0)
+
+
+def aft_direction(aft: Sequence[float], where: str) -> tuple[float, float, float]:
+    """Return a stated aft direction, or +x (:data:`AFT`) with a warning.
+
+    One that is not three finite numbers, not all zero, is warned and +x taken,
+    as a refine file's ``[[perimeter]] aft`` is.
+    """
+    try:
+        x, y, z = (float(c) for c in aft)
+    except (TypeError, ValueError):
+        x = y = z = math.nan
+    if not all(math.isfinite(c) for c in (x, y, z)) or not any((x, y, z)):
+        warn(
+            f"{where}: aft {tuple(aft)} is not a direction (three finite numbers, not all "
+            "zero); +x is taken",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+        return AFT
+    return (x, y, z)
+
+
 #: A listed edge is a trailing edge when the family's surface lies forward of it: the unit
 #: vector from the edge into its faces points against the aft direction with a cosine
 #: below this (within 60 degrees of forward), so a trailing edge swept up to 60 degrees is

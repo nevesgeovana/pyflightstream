@@ -2291,6 +2291,36 @@ def test_drev48_the_maximum_angle_is_taken_from_the_plane_across_the_aft_directi
     assert int(rows[0]) == fx.stations - 1
 
 
+def test_drev48_an_aft_of_zeros_is_warned_and_plus_x_taken(tmp_path, capsys):
+    """DREV48-003: --aft 0 0 0 states no direction; it is warned and +x taken.
+
+    A refine file's [[perimeter]] aft of zeros is warned and +x taken; the
+    commands divided by its length and found no trailing edge (identify-te
+    refused, prepare-to-refine wrote an empty node list). Control: the same
+    files the default aft writes.
+    """
+    from pyflightstream.workspace import cli as workspace_cli
+    from pyflightstream.workspace import prepare_to_refine
+    from tests.p0380_mesh_fixtures import sheet_quads
+
+    fx = sheet_quads()
+    src = write_source(
+        tmp_path / "src",
+        "wing",
+        Composite(fx.verts, {"Wing": fx.faces}, numpy.zeros((0, 3)), {}),
+        boundaries=False,
+    )
+    with pytest.warns(PyflightstreamWarning, match=r"aft .* not a direction.*\+x is taken"):
+        code = workspace_cli.main(["geometry", "identify-te", str(src), "--aft", "0", "0", "0"])
+    assert code == 0, capsys.readouterr().err
+    zeros = src.with_name("wing.nodes.te.txt").read_bytes()
+    assert workspace_cli.main(["geometry", "identify-te", str(src), "--overwrite"]) == 0
+    assert src.with_name("wing.nodes.te.txt").read_bytes() == zeros
+    with pytest.warns(PyflightstreamWarning, match=r"aft .* not a direction.*\+x is taken"):
+        prepared = prepare_to_refine(_one_family_wing(tmp_path / "p"), aft=(0.0, 0.0, 0.0))
+    assert len(prepared.nodes.read_text(encoding="utf-8").splitlines()) == 1 + 11 + 3
+
+
 def test_a_sharp_trailing_edge_of_a_closed_wing_with_a_smooth_leading_edge_is_found():
     """A finely meshed closed wing is one piece (its leading edge is smooth); its sharp
     trailing edge, an inside edge of that piece, is its rearmost perimeter.

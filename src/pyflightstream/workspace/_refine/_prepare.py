@@ -96,6 +96,7 @@ def prepare_to_refine(
         The mesh cannot be read, or a prepared file exists and ``overwrite`` is false.
     """
     source = Path(mesh)
+    aft = _obj.aft_direction(aft, str(source))
     obj = _obj.read_obj(source)
     stem = source.stem + PATCHES_SUFFIX
     targets = [

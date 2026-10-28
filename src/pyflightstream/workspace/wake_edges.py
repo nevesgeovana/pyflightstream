@@ -955,7 +955,7 @@ def write_trailing_edges_identified(
         For a node list with fewer than two nodes, an unreadable mesh, an
         invalid unit, an existing file, or no trailing edge found.
     """
-    from pyflightstream.workspace._refine._obj import mesh_unit, read_obj
+    from pyflightstream.workspace._refine._obj import aft_direction, mesh_unit, read_obj
 
     target = Path(mesh)
     obj = read_obj(target)
@@ -969,8 +969,7 @@ def write_trailing_edges_identified(
                 stacklevel=2,
             )
     chosen = {n: obj.families[n] for n in names if n in obj.families}
-    x, y, z = (float(c) for c in aft)
-    found = _identified_edges(obj, chosen, source, (x, y, z), max_angle)
+    found = _identified_edges(obj, chosen, source, aft_direction(aft, str(target)), max_angle)
     for name, edges in found.items():
         if not edges and families is not None:
             warn(
