@@ -451,14 +451,16 @@ def longest_boundary_side(verts: Points, blocks: Blocks, patches: Sequence[int])
             touching.setdefault(a, []).append(b)
             touching.setdefault(b, []).append(a)
     pts = numpy.asarray(verts, dtype=float)
-    sides = _boundary_runs(pts, touching)
+    sides = boundary_runs(pts, touching)
+    if not sides:  # a closed family: every arc is held by two of its patches
+        return numpy.empty((0, 2, 3))
     best = max(
         sides, key=lambda run: float(numpy.linalg.norm(numpy.diff(pts[run], axis=0), axis=1).sum())
     )
     return numpy.stack([pts[best[:-1]], pts[best[1:]]], axis=1)
 
 
-def _boundary_runs(pts: Points, touching: dict[int, list[int]]) -> list[list[int]]:
+def boundary_runs(pts: Points, touching: dict[int, list[int]]) -> list[list[int]]:
     """Return the runs of boundary vertices between corners (a turn, or a branch)."""
     most = math.cos(math.radians(SIDE_CORNER_DEGREES))
 
@@ -472,7 +474,8 @@ def _boundary_runs(pts: Points, touching: dict[int, list[int]]) -> list[list[int
 
     runs: list[list[int]] = []
     seen: set[tuple[int, int]] = set()
-    starts = [v for v in touching if corner(v)] or [next(iter(touching))]
+    corners = [v for v in touching if corner(v)]
+    starts = corners + [v for v in touching if v not in set(corners)]
     for start in starts:
         for nxt in touching[start]:
             if (min(start, nxt), max(start, nxt)) in seen:
@@ -554,8 +557,17 @@ def te_directions(
     A family with no trailing edge is told against the longest side of its
     boundary (:func:`longest_boundary_side`), warned.
     """
+    all_arcs = {arc for q in patches for arc, _ in blocks.sides[q]}
     if not len(te):
         te = longest_boundary_side(verts, blocks, patches)
+        if not len(te):
+            warn(
+                f"{family}: {what} has no trailing edge listed and no boundary to orient it; "
+                "every arc of the family takes the parallel factor.",
+                PyflightstreamWarning,
+                stacklevel=4,
+            )
+            return dict.fromkeys(all_arcs, "spanwise")
         ends = " and ".join(
             "(" + ", ".join(f"{float(c):.6g}" for c in point) + ")"
             for point in (te[0, 0], te[-1, 1])
@@ -569,7 +581,7 @@ def te_directions(
             stacklevel=4,
         )
     out: dict[int, str] = {}
-    for n, p in enumerate(patches, 1):
+    for n, p in _telling_order(verts, blocks, patches, te, out):
         arcs = [arc for arc, _ in blocks.sides[p]]
         rows_along = _patch_rows_along(verts, blocks, arcs, te, out)
         if rows_along is None:
@@ -582,12 +594,33 @@ def te_directions(
                 PyflightstreamWarning,
                 stacklevel=4,
             )
-            all_arcs = {arc for q in patches for arc, _ in blocks.sides[q]}
             return dict.fromkeys(all_arcs, "spanwise")
         row, column = ("spanwise", "chordwise") if rows_along else ("chordwise", "spanwise")
         for i, arc in enumerate(arcs):
             out.setdefault(arc, row if i < 2 else column)
     return out
+
+
+def _telling_order(
+    verts: Points, blocks: Blocks, patches: Sequence[int], te: Points, told: dict[int, str]
+):
+    """Yield (number, patch) in the order the patches are told.
+
+    The next patch is one that shares an arc already told, else any; among those,
+    the one whose two pairs of sides differ most in how much they run along the
+    reference, so the result does not hang on the source's face numbering.
+    ``told`` is read as it fills.
+    """
+    margin = {}
+    for p in patches:
+        score = [along(verts, blocks.arcs[a], te) for a, _ in blocks.sides[p]]
+        margin[p] = abs((score[0] + score[1]) - (score[2] + score[3]))
+    left = list(patches)
+    while left:
+        linked = [p for p in left if any(a in told for a, _ in blocks.sides[p])]
+        p = min(linked or left, key=lambda q: (-margin[q], patches.index(q)))
+        left.remove(p)
+        yield patches.index(p) + 1, p
 
 
 def _patch_rows_along(

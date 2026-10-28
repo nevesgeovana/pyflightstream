@@ -2541,3 +2541,13 @@ def test_fr3296_the_level_node_list_ids_are_the_level_obj_vertex_numbers(tmp_pat
         assert verts[int(vid) - 1] == pytest.approx([float(x), float(y), float(z)], abs=1e-6)
     te = (level.folder / f"{level.obj.stem}.te.txt").read_text(encoding="utf-8").splitlines()
     assert len(body) <= len(te)  # only trailing-edge vertices, not every vertex of G
+
+
+def test_refine_r2_qa4_a_sheet_oriented_by_its_longest_side_writes_no_trailing_edge(tmp_path):
+    """FR-3297 (refine-r2 QA-4): the reference of a sheet with no line listed is not a TE file."""
+    mesh = source(tmp_path, perimeter=False)
+    with pytest.warns(PyflightstreamWarning, match="longest side of its boundary"):
+        level = refine_mesh(mesh, 2, parallel=1)
+    assert level.report["G"]["method"] == "grid"
+    written = [p.name for p in level.folder.iterdir() if p.name.endswith(("te.txt", "nodes.txt"))]
+    assert written == []

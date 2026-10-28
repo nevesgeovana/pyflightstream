@@ -273,8 +273,8 @@ def _decide_family(work: _Work, name: str) -> None:
         _lines.choose_perimeter_line(work, name)
     if (spec.method == "grid" or directional) and not work.te_of[name]:
         # A grid demanded of a sheet, or asked for parallel and normal factors, that
-        # found no trailing edge would be refused or remeshed; assume one first
-        # (neighbours, then the longest side) and warn.
+        # found no trailing edge takes the longest side of its boundary as reference
+        # (_lines.assume_trailing_edge), not written as a trailing edge, and warns.
         _lines.assume_trailing_edge(work, name)
     found = _blocks.recover_family(work.mesh.verts, work.mesh.families[name], work.te_of[name])
     if not isinstance(found, str) and work.te_edges[name]:

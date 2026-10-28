@@ -820,3 +820,122 @@ def test_p0440_union_without_four_sided_layout_joins_none():
     assert layouts == {}
     assert [row[:2] for row in late] == [("B", "A"), ("C", "A")]
     assert all("form no layout" in row[2] for row in late)
+
+
+# ------------------------------------------- refine-r2: the longest side and the order
+
+
+def _cube_sphere(n: int = 4):
+    """Six n-by-n patches of quadrilaterals closing a sphere: a family with no boundary."""
+    index: dict[tuple[float, ...], int] = {}
+    verts: list[np.ndarray] = []
+
+    def vertex(p: np.ndarray) -> int:
+        key = tuple(np.round(p, 9))
+        if key not in index:
+            index[key] = len(verts)
+            verts.append(p)
+        return index[key]
+
+    g = np.linspace(-1.0, 1.0, n + 1)
+    faces = []
+    for ax in range(3):
+        other = [x for x in range(3) if x != ax]
+        for s in (-1.0, 1.0):
+            for a in range(n):
+                for b in range(n):
+                    quad = []
+                    for i, j in ((a, b), (a + 1, b), (a + 1, b + 1), (a, b + 1)):
+                        p = np.zeros(3)
+                        p[ax], p[other[0]], p[other[1]] = s, g[i], g[j]
+                        quad.append(vertex(p / np.linalg.norm(p)))
+                    faces.append(quad if s > 0 else quad[::-1])
+    return np.asarray(verts), faces
+
+
+def test_refine_r2_qa1_a_closed_multiblock_family_takes_the_parallel_factor(tmp_path):
+    """FR-3297 (refine-r2 QA-1): a family with no boundary and no trailing edge is not a crash."""
+    verts, faces = _cube_sphere()
+    src = write_source(
+        tmp_path / "src", "ball", Composite(verts, {"S": faces}, np.empty((0, 3)), {})
+    )
+    with pytest.warns(PyflightstreamWarning, match="no boundary to orient it"):
+        level = refine_mesh(src, normal=0.5, out_dir=tmp_path / "n")
+    assert level.report["S"]["method"] == "grid"
+
+
+def test_refine_r2_qa2_a_hole_is_a_side_of_the_boundary():
+    """FR-3297 (refine-r2 QA-2): a corner-free loop beside a cornered one is walked too."""
+    from pyflightstream.workspace._refine._blocks import boundary_runs
+
+    square = []
+    for k in range(10):
+        square.append((k - 5.0, -5.0, 0.0))
+    for k in range(10):
+        square.append((5.0, k - 5.0, 0.0))
+    for k in range(10):
+        square.append((5.0 - k, 5.0, 0.0))
+    for k in range(10):
+        square.append((-5.0, 5.0 - k, 0.0))
+    n = len(square)
+    touching = {k: [(k - 1) % n, (k + 1) % n] for k in range(n)}
+    hole = [
+        (3.0 * np.cos(2 * np.pi * k / 72), 3.0 * np.sin(2 * np.pi * k / 72), 0.0) for k in range(72)
+    ]
+    touching.update({n + k: [n + (k - 1) % 72, n + (k + 1) % 72] for k in range(72)})
+    pts = np.asarray(square + hole)
+    runs = boundary_runs(pts, touching)
+    length = [float(np.linalg.norm(np.diff(pts[r], axis=0), axis=1).sum()) for r in runs]
+    assert max(length) == pytest.approx(2 * np.pi * 3, rel=1e-3)
+    walked = [tuple(sorted(e)) for r in runs for e in zip(r, r[1:], strict=False)]
+    assert len(walked) == len(set(walked)) == n + 72
+
+
+def test_refine_r2_qa3_the_directions_do_not_hang_on_the_patch_numbering():
+    """FR-3297 (refine-r2 QA-3): a curved strip of three patches reads the same in any order."""
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._refine._blocks import te_directions
+
+    pts = []
+
+    def add(p):
+        pts.append(p)
+        return len(pts) - 1
+
+    spoke = [
+        [add((r * np.cos(np.radians(a)), r * np.sin(np.radians(a)), 0.0)) for r in (1.0, 1.5, 2.0)]
+        for a in (0, 60, 120, 180)
+    ]
+
+    def ring_arc(k, r):
+        i = 0 if r == 1.0 else 2
+        mid = add((r * np.cos(np.radians(60 * k + 30)), r * np.sin(np.radians(60 * k + 30)), 0.0))
+        return (spoke[k][i], mid, spoke[k + 1][i])
+
+    arcs, rings = [], []
+    for k in range(3):
+        rings.append((len(arcs), len(arcs) + 1))
+        arcs += [ring_arc(k, 1.0), ring_arc(k, 2.0)]
+    spokes = [len(arcs) + i for i in range(4)]
+    arcs += [tuple(s) for s in spoke]
+    sides = tuple(
+        ((rings[k][0], False), (rings[k][1], False), (spokes[k], False), (spokes[k + 1], False))
+        for k in range(3)
+    )
+    blocks = SimpleNamespace(
+        arcs=tuple(arcs), sides=sides, patches=tuple(np.array([[0]]) for _ in range(3))
+    )
+    xs = np.linspace(-3.0, 3.0, 13)
+    te = np.stack(
+        [
+            np.c_[xs[:-1], -0.1 + 0 * xs[:-1], 0 * xs[:-1]],
+            np.c_[xs[1:], -0.1 + 0 * xs[1:], 0 * xs[1:]],
+        ],
+        axis=1,
+    )
+    told = [
+        te_directions(np.asarray(pts), blocks, order, te, family="F", what="x")
+        for order in ([0, 1, 2], [1, 0, 2], [2, 1, 0])
+    ]
+    assert told[0] == told[1] == told[2]
