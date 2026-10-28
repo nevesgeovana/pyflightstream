@@ -943,6 +943,32 @@ def _warn_stale_declarations(work: _Work, mesh: ObjMesh, folder: Path) -> None:
             )
 
 
+def _quad_te_files(
+    work: _Work, folder: Path, verts: Points, faces: dict[str, Faces], te: Points
+) -> list[Path]:
+    """Write the quad families' trailing edges of the level, all and per family, in two formats.
+
+    The edges of each quad family whose mid-points lie on the level's trailing
+    edge go to ``<level>.nodes.te.txt`` and ``<level>.<family>.fs.te.txt``, the
+    files the solver's wake-edge import reads when the FSM is marked, and to
+    ``<level>.nodes.txt`` and ``<level>.<family>.nodes.txt``, ANSA node lists
+    (:func:`pyflightstream.workspace.wake_edges.write_level_trailing_edges`).
+    """
+    from pyflightstream.workspace.wake_edges import quad_families, write_level_trailing_edges
+
+    if not len(te):
+        return []
+    index = NearestIndex(numpy.asarray(te, dtype=float))
+    found: dict[str, set[tuple[int, int]]] = {}
+    for name in quad_families(faces):
+        edges, mid = _obj.edge_midpoints(verts, faces[name])
+        near = index.query(mid)[0] < work.te_tolerance
+        on = {(int(a), int(b)) for (a, b), hit in zip(edges, near, strict=True) if hit}
+        if on:
+            found[name] = on
+    return write_level_trailing_edges(verts, found, folder, folder.name, unit=work.te_unit)
+
+
 def _write(
     work: _Work, folder: Path, verts: Points, faces: dict[str, Faces], te: Points
 ) -> list[Path]:
@@ -987,6 +1013,7 @@ def _write(
     if not listed:
         _warn_stale_declarations(work, mesh, folder)
     written += own.values()
+    written += _quad_te_files(work, folder, verts, faces, te)
     record = folder / f"{stem}.refine.json"
     _textio.write_json(
         record,

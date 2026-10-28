@@ -1973,6 +1973,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._refine._remesh">pyflightstream.workspace._refine._remesh</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._staging">pyflightstream.workspace._refine._staging</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.sidecars">pyflightstream.workspace.sidecars</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace.wake_edges">pyflightstream.workspace.wake_edges</a> (deferred)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._refine._lines"><summary><code>pyflightstream.workspace._refine._lines</code></summary><ul>

@@ -593,6 +593,11 @@ def test_r4_a_level_holds_its_files_and_refine_json_reports_each_family(tmp_path
         ".te.txt",
         ".obj.boundaries.toml",
         ".G.te.txt",
+        # FR-3296: the quad families' trailing edges for the solver and as ANSA node lists
+        ".nodes.te.txt",
+        ".nodes.txt",
+        ".G.fs.te.txt",
+        ".G.nodes.txt",
         ".refine.json",
         ".audit.json",
     )
@@ -1248,7 +1253,7 @@ def test_r12_two_runs_under_different_hash_seeds_write_identical_bytes(tmp_path)
         )
         assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
         runs.append(_digests(out / "wing_R-G2-T2"))
-    assert runs[0] == runs[1] and len(runs[0]) == 6
+    assert runs[0] == runs[1] and len(runs[0]) == 10
     with pytest.warns(PyflightstreamWarning, match=GROWTH_ON_T):
         other = refine_mesh(src, 0.5, families=["G", "T"], out_dir=tmp_path / "control")
     coarse = _digests(other.folder)
@@ -1268,7 +1273,7 @@ def test_r13_generated_files_use_lf_and_declarations_keep_source_bytes(tmp_path)
         path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
     assert all(b"\r" in p.read_bytes() for p in src.parent.iterdir())
     level = refine_mesh(src)
-    assert len(level.files) == 6
+    assert len(level.files) == 10
     side = level.obj.with_suffix(".obj.boundaries.toml")
     assert side.read_bytes() == src.with_suffix(".boundaries.toml").read_bytes()
     assert [p.name for p in level.folder.iterdir() if p != side and b"\r" in p.read_bytes()] == []
@@ -2479,8 +2484,9 @@ def test_the_level_boundaries_file_lists_each_components_trailing_edge_for_mark_
     side = level.obj.with_suffix(".obj.boundaries.toml")
     stated = tomllib.loads(side.read_text(encoding="utf-8"))["trailing_edges"]
     own = sorted(p.name for p in level.folder.glob(f"{level.obj.stem}.*.te.txt"))
-    assert own == [f"{level.obj.stem}.Wing.te.txt"]
-    assert stated == {"Wing": {"file": own[0], "type": "STANDARD"}}
+    stem = level.obj.stem
+    assert own == [f"{stem}.Wing.fs.te.txt", f"{stem}.Wing.te.txt", f"{stem}.nodes.te.txt"]
+    assert stated == {"Wing": {"file": own[1], "type": "STANDARD"}}
     block = side.read_text(encoding="utf-8").split("# The level's trailing edges")[1]
     faces = sum(obj_face_counts(level.obj))
     side.write_text(  # the inventory and units a user's boundaries file states, then the block

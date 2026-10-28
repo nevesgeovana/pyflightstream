@@ -470,6 +470,8 @@ through the package's one text route, without a carriage return.
 | `<stem>_<tag>.obj` | always | the level, its families in the source's order (a component in place of its members) |
 | `<stem>_<tag>.te.txt` | a `[[perimeter]]` list exports trailing edges | one mid-point per trailing-edge edge of the new mesh |
 | `<stem>_<tag>.<family>.te.txt` | a `[[perimeter]]` list exports trailing edges or names `te_families` | the same points for one output family |
+| `<stem>_<tag>.nodes.te.txt`, `<stem>_<tag>.<family>.fs.te.txt` | the level has a trailing edge on a quad family | the trailing edges of every quad family, and of each, in the format the solver's wake-edge import reads when the FSM is marked |
+| `<stem>_<tag>.nodes.txt`, `<stem>_<tag>.<family>.nodes.txt` | the same | the same trailing edges as ANSA node lists (Id, Name, X, Y, Z), the ids the level OBJ's vertex numbers |
 | `<stem>_<tag>.obj.boundaries.toml` | the source has a sidecar, or a perimeter list exports trailing edges | updated inventory and preserved declarations, with component renames only |
 | `<stem>_<tag>.refine.json` | always | what was done to each family |
 | `<stem>_<tag>.audit.json` | always | the audit of the level against its source |

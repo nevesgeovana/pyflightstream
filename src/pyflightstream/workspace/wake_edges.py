@@ -89,6 +89,7 @@ __all__ = [
     "write_trailing_edge_points",
     "write_trailing_edge_midnodes",
     "write_trailing_edge_midnodes_per_family",
+    "write_level_trailing_edges",
     "write_trailing_edges_identified",
     "write_trailing_edge_points_from_nodes",
 ]
@@ -930,7 +931,19 @@ QUAD_FAMILY_SHARE = 0.8
 
 
 def quad_families(families: dict[str, Any]) -> list[str]:
-    """Return the families whose faces are quadrilaterals for :data:`QUAD_FAMILY_SHARE`."""
+    """Return the families whose faces are quadrilaterals for :data:`QUAD_FAMILY_SHARE`.
+
+    Parameters
+    ----------
+    families : dict of str to list of faces
+        Each family's faces, each a sequence of vertex indices.
+
+    Returns
+    -------
+    list of str
+        The quad families, in the order of ``families``; a family with no face
+        is not one.
+    """
     return [
         name
         for name, faces in families.items()
@@ -1198,6 +1211,66 @@ def _write_identified(
                 rows.append(f"{v + 1}, {name}, {px}, {py}, {pz}")
         _textio.write_text(listing, "\n".join(rows) + "\n")
         written.append(listing)
+    return written
+
+
+def write_level_trailing_edges(
+    verts: numpy.ndarray,
+    found: dict[str, set[tuple[int, int]]],
+    folder: Path,
+    stem: str,
+    *,
+    unit: str,
+) -> list[Path]:
+    """Write a refined level's trailing edges, all and per family, for the solver and for ANSA.
+
+    ``<stem>.nodes.te.txt`` and ``<stem>.<family>.fs.te.txt`` in the format the
+    solver's wake-edge import reads (:func:`write_node_file`, in ``unit``), and
+    ``<stem>.nodes.txt`` and ``<stem>.<family>.nodes.txt`` as ANSA node lists
+    (Id, Name, X, Y, Z), the ids the level OBJ's vertex numbers. Families with
+    no edge write nothing; an empty ``found`` writes nothing.
+
+    Parameters
+    ----------
+    verts : numpy.ndarray
+        The level's vertices, shape (n, 3).
+    found : dict of str to set of (int, int)
+        Each family's trailing-edge edges, as vertex index pairs.
+    folder : pathlib.Path
+        The level's folder.
+    stem : str
+        The level's name, the stem of every file written.
+    unit : str
+        The level's length unit; the solver files are written in it.
+
+    Returns
+    -------
+    list of pathlib.Path
+        The files written: the files of every family, then each family's.
+    """
+    found = {name: edges for name, edges in found.items() if edges}
+    if not found:
+        return []
+    every = set().union(*found.values())
+    written = _write_identified(
+        verts,
+        found,
+        files={folder / f"{stem}.nodes.te.txt": every},
+        points={},
+        listing=folder / f"{stem}.nodes.txt",
+        unit=unit,
+        simulation_unit=None,
+    )
+    for name, edges in found.items():
+        written += _write_identified(
+            verts,
+            {name: edges},
+            files={folder / f"{stem}.{name}.fs.te.txt": edges},
+            points={},
+            listing=folder / f"{stem}.{name}.nodes.txt",
+            unit=unit,
+            simulation_unit=None,
+        )
     return written
 
 

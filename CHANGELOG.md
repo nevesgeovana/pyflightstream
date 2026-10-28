@@ -53,6 +53,11 @@ FlightStream versions.
   fairing meshed in triangles no longer adds its contour to the trailing
   edges and the node list; it is warned and left out, and `--all-families`
   maps every family (FR-3293).
+- A refined level writes the trailing edges of its quad families, all
+  together and per family, in the solver's wake-edge import format
+  (`<level>.nodes.te.txt`, `<level>.<family>.fs.te.txt`) and as ANSA node
+  lists (`<level>.nodes.txt`, `<level>.<family>.nodes.txt`), beside its points
+  files (FR-3296).
 - `refine` raises a grid factor below the least its grid allows to that
   least with a warning by default; `--strict-factors`
   (`refine_mesh(force_factors=False)`) refuses it. `--force-factors` is still

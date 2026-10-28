@@ -319,7 +319,8 @@ def test_a_factor_below_one_over_m_is_refused(direction):
         with pytest.raises(InputArtifactError) as caught:
             check_factors(grid, "Wing", **factors)
         text = str(caught.value)
-        assert "family Wing" in text and direction in text and f"1/{m}" in text
+        named = {"chordwise": "normal", "spanwise": "parallel"}[direction]
+        assert "family Wing" in text and f"{named} factor" in text and f"1/{m}" in text
         assert text.endswith("Nothing was written.")
         with pytest.raises(InputArtifactError):
             refine_grid(fx.verts, fx.faces, grid, family="Wing", **factors)
