@@ -591,7 +591,7 @@ None needs a solver.
 pyfs-workspace geometry convert2midnodes NODES OUTPUT [--unit U] [--per-family MESH] [--accept-empty] [--overwrite]
 pyfs-workspace geometry identify-te OBJ [NODES] [--families A,B] [--max-angle DEG] [--aft X Y Z]
                                     [--unit U] [--simulation-unit U] [--accept-empty]
-                                    [--overwrite]
+                                    [--all-families] [--overwrite]
 pyfs-workspace geometry prepare-to-refine OBJ [--max-angle DEG] [--aft X Y Z] [--overwrite]
 ```
 

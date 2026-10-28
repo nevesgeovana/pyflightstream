@@ -441,10 +441,10 @@ of a twisted blade, whose chord turns toward the rotation plane, and the
 contour a closed tip cap meets the surface along is left out. A line of a
 family's perimeter (its boundary and sharp edges, from corner to corner) found
 for more than half of its edges is taken whole, so a trailing edge reaches its
-junction with a hub where it bends out of the angle tests. Only quad families
+junction with a hub where it bends out of the angle tests. Without `--families` only quad families
 are mapped (quadrilaterals at least 90 percent of the faces), so a tip cap or a
 fairing meshed in triangles is warned and left out; `--all-families` maps every
-family. The command writes `W1.nodes.te.txt` for every family (or
+family. The command writes `W1.nodes.te.txt` for the mapped families (or
 `W1.<family>.fs.te.txt` for each family named by `--families`) and, beside it,
 `W1.nodes.txt`, the ANSA node list a refine file reads. With a node list
 saved from a SET, `identify-te W1.obj nodes.txt` takes the trailing edges among

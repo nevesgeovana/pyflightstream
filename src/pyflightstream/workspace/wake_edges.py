@@ -967,7 +967,8 @@ def write_trailing_edges_identified(
       (:func:`pyflightstream.workspace._refine._prepare.rearmost_lines`).
 
     Beside the mesh, ``families`` given, each family's file is
-    ``<mesh stem>.<family>.fs.te.txt``; else every family's trailing edge is
+    ``<mesh stem>.<family>.fs.te.txt``; else the trailing edges of the quad
+    families (every family with ``all_families``) are
     one file, ``<mesh stem>.nodes.te.txt``. Without ``source``, the nodes found
     are also written as ``<mesh stem>.nodes.txt`` in the ANSA format, the node
     list a refine file's ``[[perimeter]]`` reads. The node files are written by
