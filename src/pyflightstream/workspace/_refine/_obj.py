@@ -751,6 +751,17 @@ def aft_direction(aft: Sequence[float], where: str) -> tuple[float, float, float
 #: one, and a tip, a root or a leading edge, whose surface lies beside or behind it, is not.
 REARMOST_COSINE = -0.5
 
+#: A listed edge held by two faces that lie on one side of it, the sum of their two unit
+#: inward vectors longer than this (the faces within about 83 degrees of each other), is
+#: a fold of the surface: a sharp trailing edge, or a sharp leading edge.
+FOLD_SIZE = 1.5
+
+#: A fold is a trailing edge when its faces lie forward of it within about 78 degrees of
+#: forward. The cone is wider than :data:`REARMOST_COSINE` because a fold points one way
+#: only: a twisted blade's chord lies near the rotation plane at the tip (20 degrees from
+#: it at a typical tip pitch), and a leading-edge fold points aft whatever the twist.
+FOLD_COSINE = -0.2
+
 
 def rearmost_edges(
     verts: NDArray[numpy.float64],
@@ -763,19 +774,51 @@ def rearmost_edges(
     For each edge, the vector from its mid-point to the centroid of each face
     that holds it, less its part along the edge, is summed over those faces;
     the edge is kept when that inward direction points forward
-    (:data:`REARMOST_COSINE`). An edge two faces hold on opposite sides of a
-    leading edge points aft and is left out; a sharp trailing edge held by an
-    upper and a lower face points forward on both.
+    (:data:`REARMOST_COSINE`), or, for a fold of the surface
+    (:data:`FOLD_SIZE`), within the wider cone of :data:`FOLD_COSINE`. An edge
+    two faces hold on opposite sides of a leading edge points aft and is left
+    out; a sharp trailing edge held by an upper and a lower face points forward
+    on both.
     """
     direction = numpy.asarray(aft, dtype=float)
     direction = direction / numpy.linalg.norm(direction)
+    out = set()
+    for edge, (held, size, cosine) in _inward(verts, faces, edges, direction).items():
+        # Faces on both sides of an interior edge cancel: only a clear inward direction counts.
+        if size > 0.5 and cosine < REARMOST_COSINE:
+            out.add(edge)
+        elif held == 2 and size > FOLD_SIZE and cosine < FOLD_COSINE:
+            out.add(edge)
+    return out
+
+
+def folded_edges(
+    verts: NDArray[numpy.float64], faces: Faces, edges: set[tuple[int, int]]
+) -> set[tuple[int, int]]:
+    """Return the given edges two of ``faces`` hold on one side of them (:data:`FOLD_SIZE`)."""
+    found = _inward(verts, faces, edges, numpy.asarray(AFT, dtype=float))
+    return {e for e, (held, size, _) in found.items() if held == 2 and size > FOLD_SIZE}
+
+
+def vertex_components(faces: Faces) -> dict[int, int]:
+    """Return each vertex's component: faces sharing a vertex are one component."""
+    return _pieces_of_vertices(faces)
+
+
+def _inward(
+    verts: NDArray[numpy.float64],
+    faces: Faces,
+    edges: set[tuple[int, int]],
+    direction: NDArray[numpy.float64],
+) -> dict[tuple[int, int], tuple[int, float, float]]:
+    """Return per held edge: its face count, its summed inward vector's size and cosine."""
     holders: dict[tuple[int, int], list[int]] = {e: [] for e in edges}
     for i, face in enumerate(faces):
         for a, b in zip(face, [*face[1:], face[0]], strict=True):
             key = (min(a, b), max(a, b))
             if key in holders:
                 holders[key].append(i)
-    out = set()
+    out: dict[tuple[int, int], tuple[int, float, float]] = {}
     for (a, b), held in holders.items():
         if not held:
             continue
@@ -790,9 +833,8 @@ def rearmost_edges(
             if size > 0.0:
                 inward += reach / size
         size = float(numpy.linalg.norm(inward))
-        # Faces on both sides of an interior edge cancel: only a clear inward direction counts.
-        if size > 0.5 and float(inward @ direction) / size < REARMOST_COSINE:
-            out.add((a, b))
+        cosine = float(inward @ direction) / size if size > 0.0 else 0.0
+        out[(a, b)] = (len(held), size, cosine)
     return out
 
 

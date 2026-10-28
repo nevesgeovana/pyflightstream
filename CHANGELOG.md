@@ -7,6 +7,15 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- `geometry identify-te` without a node list follows a twisted blade's
+  trailing edge to the tip: where the surface folds at a sharp trailing edge,
+  the fold counts within 78 degrees of forward (the tip chord of a propeller
+  lies near the rotation plane), and the contour a closed tip cap meets the
+  blade along is no longer taken for the trailing edge. A blunt base keeps
+  its rim (FR-3291).
+
 ### Added
 
 - `geometry prepare-to-refine` reads an ANSA NASTRAN export (`.nas`, `.bdf`,

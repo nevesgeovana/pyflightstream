@@ -435,7 +435,10 @@ pyfs-workspace geometry identify-te inputs/geometries/W1/W1.obj --families Wing,
 
 Without a node list the edges are found from the mesh: each family is cut at
 its sharp edges and its rearmost boundary edges within `--max-angle` of the
-plane across `--aft` (the yz plane by default) are kept. The command writes `W1.nodes.te.txt` for every family (or
+plane across `--aft` (the yz plane by default) are kept. Where the upper and
+the lower surface meet at a sharp trailing edge, that fold is kept to the tip
+of a twisted blade, whose chord turns toward the rotation plane, and the
+contour a closed tip cap meets the surface along is left out. The command writes `W1.nodes.te.txt` for every family (or
 `W1.<family>.fs.te.txt` for each family named by `--families`) and, beside it,
 `W1.nodes.txt`, the ANSA node list a refine file reads. With a node list
 saved from a SET, `identify-te W1.obj nodes.txt` takes the trailing edges among

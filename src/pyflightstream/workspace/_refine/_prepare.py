@@ -229,6 +229,11 @@ def rearmost_lines(
     (:func:`._obj.rearmost_perimeter`), and of it the edges the piece lies
     forward of (:func:`._obj.rearmost_edges`) that lie in or near the plane
     across ``aft`` (the yz plane for +x), within ``max_angle`` (:func:`near_yz`).
+    Where a connected part of the family has a fold among them (the upper and
+    the lower surface meeting at a sharp trailing edge, :func:`._obj.folded_edges`),
+    only its folds are kept: a closed tip cap is a piece of its own, and the
+    contour it meets the blade along is not a trailing edge. A part with no fold
+    (a blunt base) keeps every edge found.
     """
     dihedral = _geometry.dihedral_degrees(verts, faces)
     sharp = {e for e, angle in dihedral.items() if angle > _geometry.RIDGE_DEGREES}
@@ -241,6 +246,15 @@ def rearmost_lines(
         perimeter = {e for e, fs in held.items() if len(fs) == 1 or e in sharp}
         rear = _obj.rearmost_perimeter(verts, members, perimeter, aft)
         found |= _obj.rearmost_edges(verts, members, rear, aft)
+        # A fold is read on the whole family: a sharp leading edge leaves the upper and
+        # the lower surface in two pieces, each holding the trailing edge on one face.
+        folds = _obj.folded_edges(verts, faces, rear)
+        found |= _obj.rearmost_edges(verts, faces, rear, aft) & folds
+    folds = _obj.folded_edges(verts, faces, found)
+    if folds:
+        part = _obj.vertex_components(faces)
+        folded_parts = {part[a] for a, _ in folds}
+        found = {e for e in found if e in folds or part[e[0]] not in folded_parts}
     return near_yz(verts, found, max_angle, aft)
 
 
