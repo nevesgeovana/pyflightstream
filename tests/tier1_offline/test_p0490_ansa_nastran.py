@@ -469,3 +469,23 @@ def test_patch_pdf_legend_stays_inside_its_column(tmp_path, monkeypatch, count):
     )
     assert target.read_bytes().startswith(b"%PDF")
     assert len(pages) == 1
+
+
+def test_grid_auto_governing_reference_matches_file_parsing(tmp_path):
+    """GOVR2-002: the reference must state the adopted grid_auto governing exception."""
+    from pyflightstream.workspace._refine._config import resolve_request
+
+    mesh = tmp_path / "sheet.obj"
+    mesh.with_suffix(".refine.toml").write_text(
+        '[families.G]\nmethod = "grid_auto"\ngoverning = true\n', encoding="utf-8"
+    )
+    with pytest.warns(PyflightstreamWarning, match="cannot lead; governing is skipped"):
+        request = resolve_request(mesh, ["G", "Other"])
+    assert request.specs == {"G": FamilySpec(method="grid_auto")}
+    reference = Path(__file__).resolve().parents[2] / "docs/mesh/reference.md"
+    row = next(
+        line
+        for line in reference.read_text(encoding="utf-8").splitlines()
+        if line.startswith("| `[families.<name>]` | `governing` |")
+    )
+    assert '"grid_auto"' in row and "warned and skipped" in row
