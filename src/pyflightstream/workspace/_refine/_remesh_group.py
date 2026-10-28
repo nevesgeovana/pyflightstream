@@ -27,7 +27,6 @@ from pyflightstream.workspace._refine._geometry import (
     Faces,
     NearestIndex,
     Points,
-    Stretch,
     dihedral_degrees,
     edge_faces,
     order_like,
@@ -70,11 +69,6 @@ class Patch:
         Vertices that never move (shared with a family outside the group).
     frozen : set of tuple
         Curve edges never split nor collapsed.
-    stretch : Stretch or None
-        For a body refined along and around its axis (FR-428), the map into
-        the space the remesh runs in; ``verts`` and ``target`` stay in the
-        real space, and the source surface and curves the nodes are projected
-        onto are the real ones.
     """
 
     verts: Points
@@ -84,7 +78,6 @@ class Patch:
     curve: dict[Edge, str]
     fixed: set[int] = field(default_factory=set)
     frozen: set[Edge] = field(default_factory=set)
-    stretch: Stretch | None = None
 
 
 @dataclass

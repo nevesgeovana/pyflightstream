@@ -348,6 +348,40 @@ def test_r2_a_direction_on_a_remeshed_family_is_refused(tmp_path):
     assert accepted.report["T"]["method"] == "remesh"
 
 
+def test_arch48_accept_remesh_remeshes_a_demanded_grid_that_is_not_recovered(tmp_path):
+    """ARCH48-R2: ``method = "grid"`` on T is refused; ``accept_remesh`` warns and remeshes it."""
+    toml = '[families.T]\nfactor = 2\nmethod = "grid"\n'
+    src = _source(tmp_path, WITH_T, refine_toml=toml)
+    assert "method is grid and no grid was recovered" in _refused(tmp_path, src)
+    with pytest.warns(PyflightstreamWarning, match="it is remeshed with factor 2"):
+        level = refine_mesh(src, accept_remesh=True, out_dir=tmp_path / "acc")
+    assert level.report["T"]["method"] == "remesh"
+
+
+def test_arch48_accept_unknown_skips_the_entries_the_refinement_does_not_know(tmp_path):
+    """ARCH48-R1: unknown tables, keys, family tables, members and names are refused by default.
+
+    Under ``accept_unknown`` each is warned and skipped, and the level is
+    written from what is known.
+    """
+    toml = (
+        "[extra]\nx = 1\n[refine]\nbogus = 1\n"
+        "[families.G]\nfactor = 2\nfactr = 3\n[families.Nope]\nfactor = 2\n"
+        '[components]\nAll = ["G", "Ghost"]\nNone = ["Phantom"]\n'
+    )
+    src = _source(tmp_path, WITH_T, refine_toml=toml)
+    assert "unknown table [extra]" in _refused(tmp_path, src)
+    with pytest.warns(PyflightstreamWarning) as caught:
+        level = refine_mesh(
+            src, families=["G", "Missing"], accept_unknown=True, out_dir=tmp_path / "acc"
+        )
+    said = "\n".join(str(w.message) for w in caught)
+    for word in ("[extra]", "'bogus'", "'factr'", "'Nope'", "'Ghost'", "None names no", "Missing"):
+        assert word in said, word
+    assert level.report["G"]["method"] == "grid"
+    assert "All" in level.obj.read_text(encoding="utf-8")
+
+
 # --------------------------------------------------------- FR-917 the refinement file
 
 

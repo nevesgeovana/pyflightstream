@@ -341,8 +341,15 @@ def _add_refine_parser(subparsers: Any) -> None:
     refine.add_argument(
         "--accept-remesh",
         action="store_true",
-        help="remesh with FACTOR a family given --parallel or --normal whose grid is not "
-        "recovered, with a warning, in place of refusing it",
+        help="remesh with FACTOR a family given --parallel or --normal, or method = grid, "
+        "whose grid is not recovered, with a warning, in place of refusing it",
+    )
+    refine.add_argument(
+        "--accept-unknown",
+        action="store_true",
+        help="warn and skip, in place of refusing, an unknown table or key of the refinement "
+        "file, a family table or component member the mesh does not hold, and a --families "
+        "name it does not hold",
     )
     refine.add_argument(
         "--keep-first-row",
@@ -406,6 +413,7 @@ def run_refine(args: argparse.Namespace) -> int:
             keep_first_row=_names(args.keep_first_row),
             progress=_progress_printer(),
             accept_remesh=args.accept_remesh,
+            accept_unknown=args.accept_unknown,
         )
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)

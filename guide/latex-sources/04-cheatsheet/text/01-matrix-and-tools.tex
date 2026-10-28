@@ -45,7 +45,8 @@
 \begin{flags}
 \item \fl{--families A,B} only these families (default: all)
 \item \fl{--parallel F}, \fl{--normal F} the factor in one index direction of the grid families (the parallel or the normal direction)
-\item \fl{--accept-remesh} a family that states parallel and normal factors but is remeshed is warned and remeshed with its \texttt{factor}, instead of refused
+\item \fl{--accept-remesh} a family that states parallel and normal factors, or \texttt{method = "grid"}, but recovers no grid is warned and remeshed with its \texttt{factor}, instead of refused
+\item \fl{--accept-unknown} an unknown table or key of the refinement file, a family table or component member the mesh does not hold, and a \fl{--families} name it does not hold are warned and skipped, instead of refused
 \item \fl{--config FILE} the refinement file (default: \texttt{<stem>.refine.toml} beside the mesh)
 \item \fl{--out DIR} where the level folder goes (default: the parent of the source's folder); \fl{--out-dir DIR} is its deprecated alias
 \item \fl{--overwrite} replace an existing level folder
@@ -325,7 +326,7 @@ See the website's Upgrading page for supported workspace conversion.
 \end{flags}
 \sub{geometry refine <MESH> [FACTOR]}{as \cmd{refine} of \texttt{pyfs-matrix}, whose home this group is}
 \begin{flags}
-\item \fl{--families A,B} \quad \fl{--parallel F} \quad \fl{--normal F} \quad \fl{--accept-remesh} \quad \fl{--config FILE}
+\item \fl{--families A,B} \quad \fl{--parallel F} \quad \fl{--normal F} \quad \fl{--accept-remesh} \quad \fl{--accept-unknown} \quad \fl{--config FILE}
 \item \fl{--out DIR} (\fl{--out-dir} is its deprecated alias) \quad \fl{--overwrite}
 \item \fl{--verbose} \quad \fl{--log-level LEVEL}
 \end{flags}

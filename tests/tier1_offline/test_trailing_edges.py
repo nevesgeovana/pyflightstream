@@ -1122,14 +1122,6 @@ def test_f348_an_axis_of_extreme_magnitude_keeps_its_direction(tmp_path, magnitu
     assert numpy.allclose(diagonal.axis, (math.sqrt(0.5), math.sqrt(0.5), 0.0))
 
 
-def test_f325_a_stretch_axis_of_extreme_magnitude_keeps_its_direction():
-    from pyflightstream.workspace._refine._geometry import Stretch
-
-    for magnitude in (1.0e200, 1.0e-200):
-        stretch = Stretch((0.0, 0.0, magnitude), (0.0, 0.0, 0.0), 2.0, 3.0)
-        assert numpy.allclose(stretch.axis, (0.0, 0.0, 1.0))
-
-
 @pytest.mark.parametrize("named", ["../wing.te.txt", "sub/../../wing.te.txt", "/wing.te.txt"])
 def test_x_f_1367_a_points_file_not_beside_the_sidecar_is_refused(tmp_path, named):
     """The help says beside the sidecar: an absolute or parent-relative name is refused."""

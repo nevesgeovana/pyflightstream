@@ -61,9 +61,9 @@ edge, :func:`te_directions`). Two families giving one arc different counts
 are refused naming both and the curve, before any work (FR-925). A side whose
 ``f m`` is below 1 is kept and reported, as on a lone multiblock family.
 
-A family that cannot join a layout, a tube, a family with a triangle, or one
-that keeps its first row (FR-430), and the touching grids whose union is not a
-layout of four-sided patches, are left to the rule before this one: the first
+A family that cannot join a layout, a tube or a family with a triangle, and
+the touching grids whose union is not a layout of four-sided patches, are left
+to the rule before this one: the first
 of them in the source's family order is a grid, and a later one sharing its
 nodes is remeshed, or refused under ``method = "grid"``.
 
@@ -964,7 +964,6 @@ def plan(
     specs: Mapping[str, FamilySpec],
     te_edges: Mapping[str, Collection[Edge]],
     *,
-    held: Collection[str],
     where: str,
 ) -> tuple[dict[str, Layout], list[tuple[str, str, str]]]:
     """Group the grid families that share nodes into layouts, before any work (FR-932).
@@ -981,8 +980,6 @@ def plan(
         The request of each family to change.
     te_edges : mapping of str to edges
         The trailing-edge edges of each family.
-    held : collection of str
-        Grids that keep their first row (FR-430), which join no layout.
     where : str
         The source, for a refusal or a warning.
 
@@ -1001,7 +998,7 @@ def plan(
     """
     names = tuple(n for n in families if n in grids)
     nodes = {n: {v for f in families[n] for v in f} for n in names}
-    joinable = [n for n in names if n not in held and _joinable(grids[n], families[n])]
+    joinable = [n for n in names if _joinable(grids[n], families[n])]
     layouts: list[Layout] = []
     why: dict[str, str] = {}
     for group in _touching(joinable, nodes):

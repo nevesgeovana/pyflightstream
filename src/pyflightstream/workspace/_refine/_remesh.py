@@ -18,8 +18,8 @@ never move, unless :meth:`Remesher.conform` first rebuilds it on the new
 nodes of a grid family refined before it.
 
 QUAD-DOMINANT families (the refinement file's ``elements``) are remeshed into
-triangles first, so sizes, curves, frozen and conformed interfaces, the
-trailing edge and a stretch are all honored as above; their triangles are
+triangles first, so sizes, curves, frozen and conformed interfaces and the
+trailing edge are all honored as above; their triangles are
 then paired into quadrilaterals across edges that are no curve, each pair
 merged only into a convex quadrilateral within ``QUAD_ANGLE_BAND`` and
 ``QUAD_WARP_DEGREES`` of :mod:`._geometry`, best quality first; the
@@ -59,7 +59,6 @@ from pyflightstream.workspace._refine._geometry import (
     RIDGE_DEGREES,
     Faces,
     Points,
-    Stretch,
     quad_shapes,
 )
 from pyflightstream.workspace._refine._geometry import (
@@ -192,11 +191,6 @@ def _keeps_direction(n0: Points, n1: Points, cosine: float) -> bool:
 class Remesher:
     """Split, collapse, flip and smooth a patch towards its target edge lengths.
 
-    With a stretch (FR-428) the nodes live in the stretched space while every
-    projection is made in the real one: a moved node is mapped back, placed
-    on the real source surface or curve, and mapped forward again. A fixed
-    node keeps its real coordinates exactly.
-
     Parameters
     ----------
     patch : Patch
@@ -206,10 +200,7 @@ class Remesher:
     def __init__(self, patch: Patch) -> None:
         import trimesh
 
-        self.stretch = patch.stretch
-        real = numpy.asarray(patch.verts, dtype=float)
-        self.V = list(self._to_work(real))
-        self.exact: dict[int, Points] = {v: real[v] for v in patch.fixed} if self.stretch else {}
+        self.V = list(numpy.asarray(patch.verts, dtype=float))
         self.F: dict[int, list[int]] = {i: list(f) for i, f in enumerate(patch.faces)}
         self.L: dict[int, str] = dict(enumerate(patch.labels))
         self.next_face = len(patch.faces)
@@ -241,12 +232,11 @@ class Remesher:
 
         A node where its curve turns by more than the ridge angle keeps its
         place, as a node on two curves does, so a corner of a boundary is
-        not cut by smoothing along it. The turn is measured in the real space,
-        since a stretch (FR-428) changes angles.
+        not cut by smoothing along it.
         """
         if len(ends) != 2:
             return True
-        a, p, b = self._real_points([ends[0], v, ends[1]])
+        a, p, b = self._points([ends[0], v, ends[1]])
         before, after = p - a, b - p
         return not _keeps_direction(before, after, math.cos(math.radians(RIDGE_DEGREES)))
 
@@ -261,26 +251,9 @@ class Remesher:
             for key, es in segments.items()
         }
 
-    # ---- the stretched space (FR-428)
-
-    def _to_work(self, points: Points) -> Points:
-        """Return real points in the space the remesh runs in (themselves without a stretch)."""
-        return points if self.stretch is None else self.stretch.forward(points)
-
-    def _to_real(self, points: Points) -> Points:
-        """Return points of the remesh's space in the real space."""
-        return points if self.stretch is None else self.stretch.inverse(points)
-
-    def _real_points(self, ids: Sequence[int]) -> Points:
-        """Return the real coordinates of some nodes, a fixed node's exactly as it came."""
-        points = numpy.array([self.V[v] for v in ids]).reshape(-1, 3)
-        if self.stretch is None:
-            return points
-        points = self._to_real(points)
-        for i, v in enumerate(ids):
-            if v in self.exact:
-                points[i] = self.exact[v]
-        return points
+    def _points(self, ids: Sequence[int]) -> Points:
+        """Return the coordinates of some nodes, shape (n, 3)."""
+        return numpy.array([self.V[v] for v in ids]).reshape(-1, 3)
 
     # ---- bookkeeping
 
@@ -485,13 +458,12 @@ class Remesher:
         if key not in self.curves:
             return self.V[v]
         a, b = self.curves[key]
-        p = self._to_real(p)
         ab = b - a
         t = numpy.clip(
             ((p - a) * ab).sum(axis=1) / numpy.maximum((ab * ab).sum(axis=1), 1e-300), 0, 1
         )
         on = a + t[:, None] * ab
-        return self._to_work(on[int(numpy.argmin(numpy.linalg.norm(on - p, axis=1)))])
+        return on[int(numpy.argmin(numpy.linalg.norm(on - p, axis=1)))]
 
     def _onto_surface(self, moves: dict[int, Points]) -> None:
         """Place the free moved vertices on the source surface and read their target there."""
@@ -501,12 +473,10 @@ class Remesher:
         free = [v for v in moves if v not in self.vcurve]
         if not free:
             return
-        q, _, tid = closest_point(
-            self.surface, self._to_real(numpy.array([moves[v] for v in free]))
-        )
+        q, _, tid = closest_point(self.surface, numpy.array([moves[v] for v in free]))
         bary = points_to_barycentric(self.surface.triangles[tid], q)
         hq = (bary * self.h_source[self.surface.faces[tid]]).sum(axis=1)
-        for v, p, h in zip(free, self._to_work(q), hq, strict=True):
+        for v, p, h in zip(free, q, hq, strict=True):
             self.V[v] = numpy.asarray(p, dtype=float)
             self.h[v] = float(h)
 
@@ -652,13 +622,9 @@ class Remesher:
         span = numpy.array([self.V[v] for v in sorted(old_set)])
         tol = CONFORM_FRACTION * max(float(numpy.linalg.norm(numpy.ptp(span, axis=0))), 1e-300)
         keep: set[int] = set()
-        real = numpy.asarray(new_points, dtype=float).reshape(-1, 3)
         inserted = 0
-        for p, q in zip(real, self._to_work(real), strict=True):
-            before = set(keep)
+        for q in numpy.asarray(new_points, dtype=float).reshape(-1, 3):
             inserted += self._place(q, chain, keep, tol)
-            if self.stretch is not None:
-                self.exact.update(dict.fromkeys(keep - before, p))
         dropped = [self._drop(o, chain, keep) for o in sorted({v for k in chain for v in k} - keep)]
         self.fixed |= keep
         self.interfaces.append(keep)
@@ -700,9 +666,9 @@ class Remesher:
 
     # ---- quad-dominant: pairing triangles into quadrilaterals
 
-    def _real_all(self) -> Points:
-        """Return the real coordinates of every node, a fixed node's exactly as it came."""
-        return self._real_points(range(len(self.V)))
+    def _all_points(self) -> Points:
+        """Return the coordinates of every node, shape (n, 3)."""
+        return self._points(range(len(self.V)))
 
     def _mergeable(self, k: Edge, labels: set[str]) -> tuple[int, int] | None:
         """Return the two triangles an edge may be merged across, or None.
@@ -736,7 +702,7 @@ class Remesher:
                 quads.append(quad)
         if not quads:
             return [], [], numpy.zeros(0)
-        angle, warp, convex = quad_shapes(self._real_all()[numpy.array(quads)])
+        angle, warp, convex = quad_shapes(self._all_points()[numpy.array(quads)])
         low, high = QUAD_ANGLE_BAND
         valid = convex & (angle.min(axis=1) >= low) & (angle.max(axis=1) <= high)
         valid &= warp <= QUAD_WARP_DEGREES
@@ -810,13 +776,13 @@ class Remesher:
         if not free:
             return 0
         before = {v: (self.V[v].copy(), self.h[v]) for v in free}
-        real = self._real_all()
+        real = self._all_points()
         touched = sorted({i for v in free for i in self.VF[v]})
         normals = {i: _face_normal(real[self.F[i]]) for i in touched}
         self._onto_surface({v: self._tangent_quad_move(v) for v in free})
         moved = set(free)
         while True:
-            real = self._real_all()
+            real = self._all_points()
             bad = [i for i in touched if not self._face_valid(i, real, normals[i])]
             back = {v for i in bad for v in self.F[i] if v in moved}
             if not back:
@@ -846,12 +812,12 @@ class Remesher:
         """Return the points, the faces per family and the trailing-edge mid-points."""
         used = sorted({v for f in self.F.values() for v in f})
         renumber = {v: i for i, v in enumerate(used)}
-        points = self._real_points(used)
+        points = self._points(used)
         families: dict[str, Faces] = defaultdict(list)
         for i, f in self.F.items():
             families[self.L[i]].append([renumber[v] for v in f])
         te = [k for k, key in self.CE.items() if key == TRAILING_EDGE]
-        mid = 0.5 * (self._real_points([a for a, _ in te]) + self._real_points([b for _, b in te]))
+        mid = 0.5 * (self._points([a for a, _ in te]) + self._points([b for _, b in te]))
         return points, dict(families), mid
 
 
@@ -959,24 +925,16 @@ def refine_group(
     factor: float | Mapping[str, float],
     *,
     conform: Sequence[tuple[Iterable[int], Points]] = (),
-    stretch: Stretch | None = None,
     elements: str | Mapping[str, str] = TRIANGLES,
     shared: Sequence[tuple[Iterable[int], Points]] = (),
     te_edges: set[tuple[int, int]] | None = None,
 ) -> Remeshed:
-    """Remesh a group of families together (FR-922, FR-933, FR-428).
+    """Remesh a group of families together (FR-922, FR-933).
 
     An interface between two families of the group is a curve remeshed once
     and shared by both; an interface with any other family of the mesh is
     frozen node for node, unless ``conform`` rebuilds it first on the new
     nodes of a grid family refined before it.
-
-    A body refined along and around its axis (FR-428) is remeshed in the
-    space ``stretch`` maps it into, towards the source's local lengths
-    measured in the real space (its factor is 1): an edge of length L there
-    is L / axial long along the axis and L / circumferential around it once
-    mapped back. The curves (the dihedral of FR-922) are found in the real space
-    and every node is projected onto the real source surface.
 
     Parameters
     ----------
@@ -991,9 +949,6 @@ def refine_group(
     conform : sequence of (iterable of int, ndarray), optional
         For each interface with a grid family refined first, its source
         vertices (mesh numbering) and the grid's new nodes on it.
-    stretch : Stretch, optional
-        The map of a body refined with ``axial`` and ``circumferential``;
-        every family of the group is remeshed in its space.
     elements : str or mapping of str to str, optional
         One element mode for every family, or a mode per family:
         ``"triangles"`` (the default; the remesh is returned as it ends) or
@@ -1006,8 +961,7 @@ def refine_group(
         conformed, a family of the group at factor 1 takes, along and near
         it, the length of the new shared edges (FR-432, :func:`shared_targets`), and
         ``info["shared_edge_target_mesh_units"]`` records it per family in the
-        mesh's coordinate units; the level writer converts declared units to metres. Ignored with
-        a stretch, whose targets are measured in its own space (FR-428).
+        mesh's coordinate units; the level writer converts declared units to metres.
     te_edges : set of tuple of int, optional
         Exact source trailing-edge edges, in mesh numbering. When supplied,
         only these edges and their splits are returned as shedding a wake (the
@@ -1043,16 +997,13 @@ def refine_group(
     )
     curve, frozen = _curves(group, fixed, listed)
     patch = Patch(group.verts, group.faces, group.labels, _targets(group, factors), curve)
-    patch.fixed, patch.frozen, patch.stretch = fixed, frozen, stretch
+    patch.fixed, patch.frozen = fixed, frozen
     remesher = Remesher(patch)
     conformed = [
         remesher.conform([local[v] for v in old if v in local], new) for old, new in conform
     ]
-    if stretch is None:
-        outside = _outside_edges(mesh, others, local)
-        at_curve = _take_shared(remesher, factors, local, conform, shared, outside=outside)
-    else:
-        at_curve = {}
+    outside = _outside_edges(mesh, others, local)
+    at_curve = _take_shared(remesher, factors, local, conform, shared, outside=outside)
     remesher.run()
     modes = dict(elements) if isinstance(elements, Mapping) else dict.fromkeys(names, elements)
     quad_families = [n for n in names if modes.get(n, TRIANGLES) == QUAD_DOMINANT]
@@ -1077,10 +1028,4 @@ def refine_group(
         info["conformed_interfaces"] = conformed
     if at_curve:
         info["shared_edge_target_mesh_units"] = at_curve
-    if stretch is not None:
-        info["stretched"] = {
-            "axis": [round(float(x), 12) for x in stretch.axis],
-            "axial": stretch.factors[0],
-            "circumferential": stretch.factors[1],
-        }
     return Remeshed(points, _ordered(points, families, group), te_mid, info)

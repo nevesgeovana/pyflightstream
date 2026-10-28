@@ -1,8 +1,10 @@
 """Refining, coarsening and auditing a panel mesh from its OBJ (FR-424 to FR-428).
 
 A private package of the workspace layer. It imports nothing of ``run``; the
-command layer reaches it only through ``refine_mesh`` and ``audit_mesh`` of
-:mod:`pyflightstream.workspace`. Its modules, from the floor up:
+command layer reaches it only through ``refine_mesh``, ``audit_mesh`` and
+``prepare_to_refine`` of :mod:`pyflightstream.workspace`, which reads those
+names, and their result records, from this module alone. Its modules, from
+the floor up:
 
 - ``_geometry``: the thresholds the requirements name, each defined once, and
   the shared geometric primitives;
@@ -15,5 +17,15 @@ command layer reaches it only through ``refine_mesh`` and ``audit_mesh`` of
 - ``_remesh``: the remeshing of the other families, with conforming interfaces
   (FR-922, FR-933);
 - ``_config``: the refinement file (FR-916, FR-917);
-- ``_level``: the orchestration that writes a level (FR-424, FR-425).
+- ``_level``: the orchestration that writes a level (FR-424, FR-425);
+- ``_lines``: the perimeter lines a grid is oriented by, and a family's
+  trailing edge;
+- ``_prepare``: the patches, refine file and node list of ``prepare-to-refine``.
 """
+
+from pyflightstream.workspace._refine._audit import MeshAudit as MeshAudit
+from pyflightstream.workspace._refine._audit import audit_mesh as audit_mesh
+from pyflightstream.workspace._refine._level import RefinedMesh as RefinedMesh
+from pyflightstream.workspace._refine._level import refine_mesh as refine_mesh
+from pyflightstream.workspace._refine._prepare import PreparedMesh as PreparedMesh
+from pyflightstream.workspace._refine._prepare import prepare_to_refine as prepare_to_refine

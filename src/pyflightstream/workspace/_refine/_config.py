@@ -78,7 +78,7 @@ RETIRED_TABLES = ("trailing_edge", "periodic")
 
 @dataclass(frozen=True)
 class FamilySpec:
-    """How one family is refined: its factors, its method and, for a body, its axis.
+    """How one family is refined: its factors and its method.
 
     ``spanwise`` holds the ``parallel_factor`` (along the reference perimeter)
     and ``chordwise`` the ``normal_factor`` (across it); the level's tag and
@@ -148,8 +148,8 @@ class RefineRequest:
     default_elements: str = TRIANGLES
     ignored: tuple[str, ...] = ()
     missing: tuple[str, ...] = ()
-    trailing_edge_file: Path | None = None
-    per_family: bool = False
+    #: How close a listed point lies to the mid-point of the edge it names, as a fraction
+    #: of the mesh size; ``refine.json`` records it for the audit's G4.
     point_fraction: float = TE_POINT_FRACTION
     perimeters: tuple[Perimeter, ...] = ()
     accept_remesh: bool = False
@@ -226,13 +226,23 @@ def elements_mode(where: str, value: Any) -> str:
     return str(value)
 
 
-def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
+def _unknown(where: str, reason: str, accept: bool) -> None:
+    """Refuse an entry the refinement does not know, or warn and skip it under ``accept``."""
+    if not accept:
+        raise _refuse(where, reason)
+    _skip(where, reason)
+
+
+def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> FamilySpec:
     table = _renamed_factors(where, table)
     unknown = sorted(set(table) - set(FAMILY_KEYS))
     if unknown:
-        raise _refuse(
-            where, f"unknown key {unknown[0]!r}; the known keys are {', '.join(FAMILY_KEYS)}"
+        _unknown(
+            where,
+            f"unknown key {unknown[0]!r}; the known keys are {', '.join(FAMILY_KEYS)}",
+            accept,
         )
+        table = {k: v for k, v in table.items() if k in FAMILY_KEYS}
     method = table.get("method", "auto")
     if method not in METHODS:
         raise _refuse(f"{where} method", f"{method!r} is not one of {', '.join(METHODS)}")
@@ -282,8 +292,14 @@ def _optional(where: str, table: Mapping[str, Any], key: str) -> float | None:
     return positive(f"{where} {key}", table[key]) if key in table else None
 
 
-def _components(path: Path, raw: Any, names: Sequence[str]) -> dict[str, list[str]]:
-    """Return ``[components]`` checked against the mesh's families (FR-935)."""
+def _components(
+    path: Path, raw: Any, names: Sequence[str], accept: bool = False
+) -> dict[str, list[str]]:
+    """Return ``[components]`` checked against the mesh's families (FR-935).
+
+    A member the mesh does not hold is refused, or warned and left out under
+    ``accept``; a component left without a member is then skipped.
+    """
     where = f"{path} [components]"
     if not isinstance(raw, dict):
         raise _refuse(where, "the table must map a component name to a list of families")
@@ -298,10 +314,15 @@ def _components(path: Path, raw: Any, names: Sequence[str]) -> dict[str, list[st
             raise _refuse(f"{where} {name}", "give a non-empty list of family names")
         missing = [m for m in members if m not in names]
         if missing:
-            raise _refuse(
+            _unknown(
                 f"{where} {name}",
                 f"the mesh holds no family {missing[0]!r}; it holds {', '.join(names)}",
+                accept,
             )
+            members = [m for m in members if m not in missing]
+            if not members:
+                _skip(f"{where} {name}", "names no family of the mesh")
+                continue
         for m in members:
             if m in seen:
                 raise _refuse(f"{where} {name}", f"family {m!r} is also in component {seen[m]!r}")
@@ -332,18 +353,18 @@ def _family_tables(
     source: Path,
     families: Mapping[str, Any],
     names: Sequence[str],
-    mesh: str | Path | None,
     read: Sequence[str] | None = None,
-) -> tuple[dict[str, FamilySpec], dict[str, str], list[str], list[str]]:
-    """Return the specs, element modes, kept families and unread tables of ``[families.<name>]``.
+    accept: bool = False,
+) -> tuple[dict[str, FamilySpec], dict[str, str], list[str]]:
+    """Return the specs, element modes and unread tables of ``[families.<name>]``.
 
     ``read`` names the families whose factors are read; a table of any other
     family is checked for its name and its ``elements`` only (F-1516), and
-    ``None`` reads them all.
+    ``None`` reads them all. Under ``accept`` a table of a family the mesh
+    does not hold, and an unknown key, are warned and skipped.
     """
     specs: dict[str, FamilySpec] = {}
     elements: dict[str, str] = {}
-    keep: list[str] = []
     unread: list[str] = []
     for name, raw in families.items():
         where = f"{source} [families.{name}]"
@@ -351,27 +372,39 @@ def _family_tables(
             where, raw, f"write [families.{name}] with the keys {', '.join(FAMILY_KEYS)}"
         )
         if name not in names:
-            raise _refuse(where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}")
-        for key in RETIRED_FAMILY_KEYS:
-            if key in table:
-                _skip(f"{where} {key}", "is no longer read")
-        table = {k: v for k, v in table.items() if k not in RETIRED_FAMILY_KEYS}
+            _unknown(
+                where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}", accept
+            )
+            continue
+        table = _without_retired(where, table)
         if not table:
             continue
         if "elements" in table:
             elements[name] = elements_mode(where, table["elements"])
         if read is not None and name not in read:
-            if "elements" in table and table.get("method") == "grid":
-                raise _refuse(
-                    f"{where} elements",
-                    "elements applies to a remeshed family; a grid keeps its cells",
-                )
+            _check_unread(where, table)
             if set(table) != {"elements"}:
                 unread.append(name)
             continue
         if set(table) - {"elements"}:
-            specs[name] = _family_spec(where, table)
-    return specs, elements, keep, unread
+            specs[name] = _family_spec(where, table, accept)
+    return specs, elements, unread
+
+
+def _without_retired(where: str, table: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a family table without its retired keys, each warned and skipped."""
+    for key in RETIRED_FAMILY_KEYS:
+        if key in table:
+            _skip(f"{where} {key}", "is no longer read")
+    return {k: v for k, v in table.items() if k not in RETIRED_FAMILY_KEYS}
+
+
+def _check_unread(where: str, table: Mapping[str, Any]) -> None:
+    """Refuse ``elements`` on a grid in a table whose factors are not read (F-1516)."""
+    if "elements" in table and table.get("method") == "grid":
+        raise _refuse(
+            f"{where} elements", "elements applies to a remeshed family; a grid keeps its cells"
+        )
 
 
 def read_refine_file(
@@ -379,12 +412,16 @@ def read_refine_file(
     names: Sequence[str],
     mesh: str | Path | None = None,
     read: Sequence[str] | None = None,
+    *,
+    accept_unknown: bool = False,
 ) -> dict[str, Any]:
     """Read a refinement file against the mesh's family names, refusing what it cannot honour.
 
-    ``keep`` is empty: no table keeps a row any more (its earlier key is
-    warned and skipped). ``read`` names the families whose factors are read: the other tables are
-    not validated beyond their name and ``elements`` (F-1516).
+    ``read`` names the families whose factors are read: the other tables are
+    not validated beyond their name and ``elements`` (F-1516). ``mesh`` is
+    accepted for the callers that name it and is not read. Under
+    ``accept_unknown`` an entry the refinement does not know (a table, a key,
+    a family the mesh does not hold) is warned and skipped instead of refused.
     """
     source = Path(path)
     try:
@@ -394,15 +431,17 @@ def read_refine_file(
         raise _refuse(str(source), f"the refinement file cannot be read ({error})") from error
     unknown = sorted(set(data) - set(TABLES) - set(RETIRED_TABLES))
     if unknown:
-        raise _refuse(
-            str(source), f"unknown table [{unknown[0]}]; the tables are {', '.join(TABLES)}"
+        _unknown(
+            str(source),
+            f"unknown table [{unknown[0]}]; the tables are {', '.join(TABLES)}",
+            accept_unknown,
         )
     families = _table(
         f"{source} [families]",
         data.get("families", {}),
         f"write one [families.<name>] table per family, with the keys {', '.join(FAMILY_KEYS)}",
     )
-    specs, elements, keep, unread = _family_tables(source, families, names, mesh, read)
+    specs, elements, unread = _family_tables(source, families, names, read, accept_unknown)
     refine = _table(
         f"{source} [refine]",
         data.get("refine", {}),
@@ -410,9 +449,10 @@ def read_refine_file(
     )
     unknown = sorted(set(refine) - set(REFINE_KEYS))
     if unknown:
-        raise _refuse(
+        _unknown(
             f"{source} [refine]",
             f"unknown key {unknown[0]!r}; the known keys are {', '.join(REFINE_KEYS)}",
+            accept_unknown,
         )
     tag = refine.get("tag")
     if tag is not None and (not isinstance(tag, str) or not tag):
@@ -430,24 +470,22 @@ def read_refine_file(
         )
     default = refine.get("elements", TRIANGLES)
     filename = _filename(source, refine.get("filename"))
-    trailing = _trailing_edge(source, data.get("trailing_edge", {}))
+    _trailing_edge(source, data.get("trailing_edge", {}))
     if "periodic" in data:
         _skip(f"{source} [periodic]", "is no longer read; a periodic sector is refined as any mesh")
     return {
-        **trailing,
         "perimeters": _perimeters(source, data.get("perimeter", [])),
         "specs": specs,
-        "keep": keep,
         "unread": unread,
         "elements": elements,
         "default_elements": elements_mode(f"{source} [refine]", default),
         "tag": tag,
         "filename": filename,
-        "components": _components(source, data.get("components", {}), names),
+        "components": _components(source, data.get("components", {}), names, accept_unknown),
     }
 
 
-def _trailing_edge(source: Path, value: object) -> dict[str, Any]:
+def _trailing_edge(source: Path, value: object) -> None:
     """Warn that ``[trailing_edge]`` is no longer read: the trailing edges are ``[[perimeter]]``."""
     if value:
         _skip(
@@ -455,38 +493,6 @@ def _trailing_edge(source: Path, value: object) -> dict[str, Any]:
             "is no longer read; list the trailing-edge nodes in a [[perimeter]] file with "
             "export_te_per_family = true",
         )
-    return {}
-
-
-def _points_input(source: Path, value: object) -> dict[str, Any]:
-    """Validate the earlier points input; kept for the refusals its tests prove."""
-    where = f"{source} [trailing_edge]"
-    table = _table(where, value, "write file, per_family and point_fraction")
-    unknown = sorted(set(table) - {"file", "per_family", "point_fraction"})
-    if unknown:
-        raise _refuse(
-            where,
-            f"unknown key {unknown[0]!r}; the known keys are file, per_family, point_fraction",
-        )
-    named = table.get("file")
-    if "file" in table and (not isinstance(named, str) or not named.strip()):
-        raise _refuse(where, "file must be a non-empty path string")
-    per_family = table.get("per_family", False)
-    if not isinstance(per_family, bool):
-        raise _refuse(where, "per_family must be true or false")
-    fraction = table.get("point_fraction", TE_POINT_FRACTION)
-    if (
-        isinstance(fraction, bool)
-        or not isinstance(fraction, int | float)
-        or not math.isfinite(fraction)
-        or not 0 < fraction < 1
-    ):
-        raise _refuse(where, "point_fraction must be a number greater than 0 and less than 1")
-    return {
-        "trailing_edge_file": source.parent / named if named is not None else None,
-        "per_family": per_family,
-        "point_fraction": float(fraction),
-    }
 
 
 def _perimeters(source: Path, value: object) -> tuple[Perimeter, ...]:
@@ -568,24 +574,32 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     config: str | Path | None = None,
     keep_first_row: Sequence[str] | None = None,
     accept_remesh: bool = False,
+    accept_unknown: bool = False,
 ) -> RefineRequest:
     """Return what the refinement is asked, from the call and the refinement file (FR-916).
 
     ``keep_first_row``, an earlier option, is warned and skipped when given.
+    Under ``accept_unknown`` a selected family the mesh does not hold, and an
+    unknown entry of the refinement file, are warned and skipped.
     """
     file = refine_file_of(mesh, config)
     from_file = factor is None and parallel is None and normal is None
+    chosen = list(names) if families is None else list(families)
+    missing = [n for n in chosen if n not in names]
+    if missing and accept_unknown:
+        _skip(f"{mesh} families {', '.join(missing)}", "not held by the mesh")
+        chosen = [n for n in chosen if n in names]
     stated = (
         read_refine_file(
             file,
             names,
             mesh,
-            [n for n in (names if families is None else families)] if from_file else [],
+            chosen if from_file else [],
+            accept_unknown=accept_unknown,
         )
         if file
         else {
             "specs": {},
-            "keep": [],
             "unread": [],
             "elements": {},
             "default_elements": TRIANGLES,
@@ -594,7 +608,6 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             "components": {},
         }
     )
-    chosen = list(names) if families is None else list(families)
     # AN EMPTY SELECTION SELECTS NOTHING TO CHANGE (PFS-2099.005): on the factor route it
     # wrote an unchanged copy of the source as a level tagged R-.
     if not chosen:
@@ -603,8 +616,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             "no family is selected; name at least one in families (CLI: --families), "
             "or omit it to refine every family",
         )
-    missing = [n for n in chosen if n not in names]
-    if missing:
+    if missing and not accept_unknown:
         raise _refuse(
             str(mesh), f"the mesh holds no family {missing[0]!r}; it holds {', '.join(names)}"
         )
@@ -669,9 +681,6 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         ignored=ignored,
         missing=missing_tables,
         accept_remesh=accept_remesh,
-        trailing_edge_file=stated.get("trailing_edge_file"),
-        per_family=stated.get("per_family", False),
-        point_fraction=stated.get("point_fraction", TE_POINT_FRACTION),
         perimeters=stated.get("perimeters", ()),
     )
 
@@ -681,7 +690,7 @@ def _fmt(value: float) -> str:
 
 
 def spec_tag(spec: FamilySpec) -> str:
-    """Return a family's part of a level's tag: FR-919 of FR-424, a and t for a body (FR-428)."""
+    """Return a family's part of a level's tag (FR-919): the factor, then ``c`` and ``s`` ones."""
     tag = _fmt(spec.factor)
     if spec.chordwise is not None:
         tag += f"c{_fmt(spec.chordwise)}"
