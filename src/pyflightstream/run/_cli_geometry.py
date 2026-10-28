@@ -444,7 +444,12 @@ def _add_visual_inspect(verbs: Any) -> None:
         metavar="PT",
         help="width of the patch perimeters in points (default 0.9; 0 draws none)",
     )
-    inspect.add_argument("--dpi", type=int, default=300, help="resolution of the surface (300)")
+    inspect.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+        help="resolution of the rasterized surface in dots per inch (default 300)",
+    )
     inspect.add_argument("--out", help="the PDF (default: <mesh>.inspect.pdf beside the mesh)")
     inspect.add_argument("--overwrite", action="store_true", help="replace an existing PDF")
     inspect.add_argument(

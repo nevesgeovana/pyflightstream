@@ -944,7 +944,7 @@ def visual_inspect(
     nastran_unit : str
         A NASTRAN mesh's length unit (default MILLIMETER).
     iso_from : three floats
-        The direction the isometric view is seen from (default +x -y +z).
+        The direction the isometric view is seen from (default (1, -1, 1), from +x, -y, +z).
     labels, edges : bool
         Write each patch's name at its centre; draw the face edges.
     perimeter_width : float
