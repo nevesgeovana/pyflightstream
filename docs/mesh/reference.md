@@ -287,8 +287,8 @@ audit-mesh`; the walk-through is
 
 ```text
 pyfs-matrix refine MESH [FACTOR] [--families A,B] [--parallel F] [--normal F]
-                   [--accept-remesh] [--accept-unknown] [--config FILE] [--out DIR]
-                   [--overwrite]
+                   [--accept-remesh] [--accept-unknown] [--force-factors] [--config FILE]
+                   [--out DIR] [--overwrite]
 pyfs-matrix audit-mesh OBJ [--against SOURCE] [--out FILE]
 ```
 
@@ -298,8 +298,9 @@ pyfs-matrix audit-mesh OBJ [--against SOURCE] [--out FILE]
 | `FACTOR` | `refine` | the factor of every selected family, a finite number above zero |
 | `--families A,B` | `refine` | the families to change, comma separated (default: every family) |
 | `--parallel F`, `--normal F` | `refine` | the factor of one direction of every selected grid family: `--parallel` along the family's reference perimeter, `--normal` across it (on a multiblock family, of the patch sides running that way against the perimeter); refused for a remeshed family unless `--accept-remesh` is given. `--spanwise F` and `--chordwise F` are read as `--parallel` and `--normal`, with a warning |
-| `--accept-remesh` | `refine` | remesh with FACTOR a family given `--parallel` or `--normal`, or stated `method = "grid"`, whose grid is not recovered, with a warning, in place of refusing it; the `accept_remesh` keyword of `refine_mesh` in Python |
-| `--accept-unknown` | `refine` | warn and skip, in place of refusing, an unknown table or key of the refinement file, a family table or `[components]` member the mesh does not hold, and a `--families` name it does not hold; the `accept_unknown` keyword of `refine_mesh` in Python |
+| `--accept-remesh` | `refine` | remesh with FACTOR a family given `--parallel` or `--normal`, or stated `method = "grid"`, whose grid is not recovered, and a later grid whose layout the blocks refuse (a shared curve counted apart), with a warning, in place of refusing it; the `accept_remesh` keyword of `refine_mesh` in Python |
+| `--accept-unknown` | `refine` | warn and skip, in place of refusing, an unknown table or key of the refinement file, a value it cannot read (the key takes its default, a table left with no factor is skipped, a bad tag gives the built one), an implicit refinement file that cannot be read, a family table or `[components]` member the mesh does not hold, and a `--families` name it does not hold; the `accept_unknown` keyword of `refine_mesh` in Python |
+| `--force-factors` | `refine` | raise a grid factor below the least its grid allows (one interval per side, or what a tube's caps carry) to that least, with a warning, in place of refusing it; the `force_factors` keyword of `refine_mesh` in Python |
 | `--config FILE` | `refine` | the refinement file (default: `<stem>.refine.toml` beside the mesh) |
 | `--out DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source); the `out_dir` keyword of `refine_mesh` in Python; `--out-dir DIR` is a deprecated alias |
 | `--overwrite` | `refine` | replace an existing level folder |
@@ -585,7 +586,7 @@ Three commands of `pyfs-workspace geometry` prepare the lists and files above.
 None needs a solver.
 
 ```text
-pyfs-workspace geometry convert2midnodes NODES OUTPUT [--unit U] [--per-family MESH] [--overwrite]
+pyfs-workspace geometry convert2midnodes NODES OUTPUT [--unit U] [--per-family MESH] [--accept-empty] [--overwrite]
 pyfs-workspace geometry identify-te OBJ [NODES] [--families A,B] [--max-angle DEG] [--aft X Y Z]
                                     [--unit U] [--simulation-unit U] [--overwrite]
 pyfs-workspace geometry prepare-to-refine OBJ [--max-angle DEG] [--aft X Y Z] [--overwrite]
@@ -663,12 +664,12 @@ Each of these is imported from `pyflightstream.workspace`.
 
 | name | what it is |
 |---|---|
-| `refine_mesh(mesh, factor=None, *, families=None, parallel=None, normal=None, config=None, out_dir=None, overwrite=False, accept_remesh=False, accept_unknown=False, progress=None)` | writes a level; `parallel` and `normal` are the two directional factors (`chordwise` and `spanwise` are still read as `normal` and `parallel`, with a warning); `accept_remesh` remeshes with `factor` a family given a directional factor whose grid is not recovered, with a warning; `accept_unknown` warns and skips the entries `--accept-unknown` names; `progress` is called with one line per stage and family (the command prints them to stderr); returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
+| `refine_mesh(mesh, factor=None, *, families=None, parallel=None, normal=None, config=None, out_dir=None, overwrite=False, accept_remesh=False, accept_unknown=False, force_factors=False, progress=None)` | writes a level; `parallel` and `normal` are the two directional factors (`chordwise` and `spanwise` are still read as `normal` and `parallel`, with a warning); `accept_remesh` remeshes with `factor` a family given a directional factor whose grid is not recovered, with a warning; `accept_unknown` warns and skips the entries `--accept-unknown` names; `progress` is called with one line per stage and family (the command prints them to stderr); returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
 | `RefinedMesh` | frozen: `folder` (the level folder), `obj` (its OBJ), `files` (every file written, the OBJ first), `report` (the `families` entry of `refine.json`) and `audit` (the `MeshAudit` of the level) |
 | `prepare_to_refine(mesh, *, max_angle=45.0, aft=(1.0, 0.0, 0.0), overwrite=False)` | the function behind `geometry prepare-to-refine`: writes the patches OBJ, the refine file and the node list beside the source and returns a `PreparedMesh` |
 | `wake_edges.write_trailing_edge_midnodes(source, path, *, unit="METER", overwrite=False)` | the function behind `geometry convert2midnodes`: writes one mid-point per neighbouring pair of the node list's lines, under a line naming `unit`, and returns the path |
 | `wake_edges.write_trailing_edge_midnodes_per_family(source, mesh, path, *, unit="METER", overwrite=False)` | the function behind `convert2midnodes --per-family`: one points file per family of `mesh`, the edges whose two ends are listed |
-| `wake_edges.write_trailing_edges_identified(mesh, source=None, families=None, *, aft=(1.0, 0.0, 0.0), max_angle=45.0, unit=None, simulation_unit=None, overwrite=False)` | the function behind `geometry identify-te`: writes the solver node files, the package points files and, without `source`, the ANSA node list, and returns their paths |
+| `wake_edges.write_trailing_edges_identified(mesh, source=None, families=None, *, aft=(1.0, 0.0, 0.0), max_angle=45.0, unit=None, simulation_unit=None, overwrite=False, accept_empty=False)` | the function behind `geometry identify-te`: writes the solver node files, the package points files and, without `source`, the ANSA node list, and returns their paths |
 | `PreparedMesh` | frozen: `obj`, `config` (the refine file) and `nodes` (the node list) written, and `patches`, the patch names of each original family in order |
 | `audit_mesh(mesh, *, against=None, unchanged_grids=())` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares (default: those the level's `refine.json` lists) |
 | `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks` (each item with `name`, `family`, `values`, `verdict`, `passed` and `line()`), `figures`, `path`, `passed`, `failures`, `as_json()`, `summary()` and `write_csv(path)`; the static method `MeshAudit.files_read(mesh)` returns the files an audit of `mesh` reads, each with what it is (the OBJ, its boundaries file, its trailing-edge points files), a file that does not exist included |

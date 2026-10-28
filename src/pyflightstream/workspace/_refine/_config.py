@@ -153,6 +153,9 @@ class RefineRequest:
     point_fraction: float = TE_POINT_FRACTION
     perimeters: tuple[Perimeter, ...] = ()
     accept_remesh: bool = False
+    #: Raise a grid factor below the least its grid allows to that least, with a
+    #: warning, instead of refusing it (CLI ``--force-factors``).
+    force_factors: bool = False
 
     def elements_of(self, family: str) -> str:
         """Return the element mode of a family: its own, else the file's default."""
@@ -216,24 +219,40 @@ def _vector(where: str, value: Any, *, nonzero: bool) -> tuple[float, float, flo
     return numbers[0], numbers[1], numbers[2]
 
 
-def elements_mode(where: str, value: Any) -> str:
-    """Return an element mode, refusing anything but one of :data:`ELEMENTS`."""
+def elements_mode(where: str, value: Any, accept: bool = False) -> str:
+    """Return an element mode, refusing anything but one of :data:`ELEMENTS`.
+
+    Under ``accept`` another value is warned and skipped: triangles are taken.
+    """
     if value not in ELEMENTS:
-        raise _refuse(
+        _unknown(
             f"{where} elements",
             f"{value!r} is not an element mode; the modes are {', '.join(ELEMENTS)}",
+            accept,
         )
+        return TRIANGLES
     return str(value)
 
 
 def _unknown(where: str, reason: str, accept: bool) -> None:
-    """Refuse an entry the refinement does not know, or warn and skip it under ``accept``."""
+    """Refuse an entry the refinement does not know or cannot read, or warn and skip it.
+
+    ``accept`` (``accept_unknown``, CLI ``--accept-unknown``) chooses the warning.
+    """
     if not accept:
         raise _refuse(where, reason)
     _skip(where, reason)
 
 
-def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> FamilySpec:
+DIRECTIONAL_KEYS = ("parallel_factor", "normal_factor")
+
+
+def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> FamilySpec | None:
+    """Return a family's spec, refusing what cannot be read, or None for a table skipped whole.
+
+    Under ``accept`` a key the refinement cannot read is warned and skipped
+    (its default taken); a table left with no factor is warned and skipped.
+    """
     table = _renamed_factors(where, table)
     unknown = sorted(set(table) - set(FAMILY_KEYS))
     if unknown:
@@ -245,28 +264,57 @@ def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> 
         table = {k: v for k, v in table.items() if k in FAMILY_KEYS}
     method = table.get("method", "auto")
     if method not in METHODS:
-        raise _refuse(f"{where} method", f"{method!r} is not one of {', '.join(METHODS)}")
+        _unknown(f"{where} method", f"{method!r} is not one of {', '.join(METHODS)}", accept)
+        method = "auto"
     if "elements" in table and method == "grid":
-        raise _refuse(
-            f"{where} elements", "elements applies to a remeshed family; a grid keeps its cells"
+        _unknown(
+            f"{where} elements",
+            "elements applies to a remeshed family; a grid keeps its cells",
+            accept,
         )
     table = {k: v for k, v in table.items() if k != "elements"}
-    if not any(k in table for k in ("factor", "parallel_factor", "normal_factor")):
-        raise _refuse(
+    if not any(k in table for k in ("factor", *DIRECTIONAL_KEYS)):
+        _unknown(
             where,
             "the table states no factor, parallel_factor or normal_factor; add one of them to it",
+            accept,
         )
-    if method == "remesh" and any(k in table for k in ("parallel_factor", "normal_factor")):
-        raise _refuse(
+        return None
+    if method == "remesh" and any(k in table for k in DIRECTIONAL_KEYS):
+        _unknown(
             where,
             "parallel_factor and normal_factor apply to a grid; a remeshed family takes factor",
+            accept,
         )
+        table = {k: v for k, v in table.items() if k not in DIRECTIONAL_KEYS}
+    factors = _read_factors(where, table, accept)
+    if not factors:
+        _skip(where, "states no factor that can be read")
+        return None
     return FamilySpec(
-        factor=positive(f"{where} factor", table.get("factor", 1.0)),
-        chordwise=_optional(where, table, "normal_factor"),
-        spanwise=_optional(where, table, "parallel_factor"),
+        factor=factors.get("factor", 1.0),
+        chordwise=factors.get("normal_factor"),
+        spanwise=factors.get("parallel_factor"),
         method=method,
     )
+
+
+def _read_factors(where: str, table: Mapping[str, Any], accept: bool) -> dict[str, float]:
+    """Return the factor keys a table states, each read as a number above zero.
+
+    Under ``accept`` a factor that is not one is warned and skipped.
+    """
+    factors: dict[str, float] = {}
+    for key in ("factor", *DIRECTIONAL_KEYS):
+        if key not in table:
+            continue
+        try:
+            factors[key] = positive(f"{where} {key}", table[key])
+        except InputArtifactError:
+            if not accept:
+                raise
+            _skip(f"{where} {key}", f"{table[key]!r} is not a number above zero")
+    return factors
 
 
 def _renamed_factors(where: str, table: Mapping[str, Any]) -> dict[str, Any]:
@@ -286,10 +334,6 @@ def _renamed_factors(where: str, table: Mapping[str, Any]) -> dict[str, Any]:
             out[new] = value
         warnings.warn(text, PyflightstreamWarning, stacklevel=4)
     return out
-
-
-def _optional(where: str, table: Mapping[str, Any], key: str) -> float | None:
-    return positive(f"{where} {key}", table[key]) if key in table else None
 
 
 def _components(
@@ -380,14 +424,16 @@ def _family_tables(
         if not table:
             continue
         if "elements" in table:
-            elements[name] = elements_mode(where, table["elements"])
+            elements[name] = elements_mode(where, table["elements"], accept)
         if read is not None and name not in read:
-            _check_unread(where, table)
+            _check_unread(where, table, accept)
             if set(table) != {"elements"}:
                 unread.append(name)
             continue
         if set(table) - {"elements"}:
-            specs[name] = _family_spec(where, table, accept)
+            spec = _family_spec(where, table, accept)
+            if spec is not None:
+                specs[name] = spec
     return specs, elements, unread
 
 
@@ -399,11 +445,13 @@ def _without_retired(where: str, table: Mapping[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in table.items() if k not in RETIRED_FAMILY_KEYS}
 
 
-def _check_unread(where: str, table: Mapping[str, Any]) -> None:
+def _check_unread(where: str, table: Mapping[str, Any], accept: bool = False) -> None:
     """Refuse ``elements`` on a grid in a table whose factors are not read (F-1516)."""
     if "elements" in table and table.get("method") == "grid":
-        raise _refuse(
-            f"{where} elements", "elements applies to a remeshed family; a grid keeps its cells"
+        _unknown(
+            f"{where} elements",
+            "elements applies to a remeshed family; a grid keeps its cells",
+            accept,
         )
 
 
@@ -421,7 +469,11 @@ def read_refine_file(
     not validated beyond their name and ``elements`` (F-1516). ``mesh`` is
     accepted for the callers that name it and is not read. Under
     ``accept_unknown`` an entry the refinement does not know (a table, a key,
-    a family the mesh does not hold) is warned and skipped instead of refused.
+    a family the mesh does not hold) or cannot read (a factor that is not a
+    number above zero, an element mode or a method that is none, a key that
+    contradicts the method, a tag that is not one folder name) is warned and
+    skipped instead of refused: the key takes its default, a table left with
+    no factor is skipped, and the tag falls back to the built one.
     """
     source = Path(path)
     try:
@@ -456,18 +508,22 @@ def read_refine_file(
         )
     tag = refine.get("tag")
     if tag is not None and (not isinstance(tag, str) or not tag):
-        raise _refuse(
+        _unknown(
             f"{source} [refine] tag",
             f'{tag!r} is not a text; give the tag as a non-empty string, such as tag = "fine"',
+            accept_unknown,
         )
+        tag = None
     problem = None if tag is None else folder_name_problem(tag)
     if problem is not None:
-        raise _refuse(
+        _unknown(
             f"{source} [refine] tag",
             f'{tag!r} {problem}, so it is not one folder name (no / \\ : < > " | ? *, no .., '
             "not ending with a dot or a space); the level folder is <stem>_<tag> beside the "
             'source\'s folder, so give a name such as tag = "fine"',
+            accept_unknown,
         )
+        tag = None
     default = refine.get("elements", TRIANGLES)
     filename = _filename(source, refine.get("filename"))
     _trailing_edge(source, data.get("trailing_edge", {}))
@@ -478,7 +534,7 @@ def read_refine_file(
         "specs": specs,
         "unread": unread,
         "elements": elements,
-        "default_elements": elements_mode(f"{source} [refine]", default),
+        "default_elements": elements_mode(f"{source} [refine]", default, accept_unknown),
         "tag": tag,
         "filename": filename,
         "components": _components(source, data.get("components", {}), names, accept_unknown),
@@ -575,6 +631,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     keep_first_row: Sequence[str] | None = None,
     accept_remesh: bool = False,
     accept_unknown: bool = False,
+    force_factors: bool = False,
 ) -> RefineRequest:
     """Return what the refinement is asked, from the call and the refinement file (FR-916).
 
@@ -589,24 +646,8 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     if missing and accept_unknown:
         _skip(f"{mesh} families {', '.join(missing)}", "not held by the mesh")
         chosen = [n for n in chosen if n in names]
-    stated = (
-        read_refine_file(
-            file,
-            names,
-            mesh,
-            chosen if from_file else [],
-            accept_unknown=accept_unknown,
-        )
-        if file
-        else {
-            "specs": {},
-            "unread": [],
-            "elements": {},
-            "default_elements": TRIANGLES,
-            "tag": None,
-            "filename": None,
-            "components": {},
-        }
+    stated = _stated(
+        file, names, mesh, chosen if from_file else [], config=config, accept=accept_unknown
     )
     # AN EMPTY SELECTION SELECTS NOTHING TO CHANGE (PFS-2099.005): on the factor route it
     # wrote an unchanged copy of the source as a level tagged R-.
@@ -681,8 +722,44 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         ignored=ignored,
         missing=missing_tables,
         accept_remesh=accept_remesh,
+        force_factors=force_factors,
         perimeters=stated.get("perimeters", ()),
     )
+
+
+def _stated(
+    file: Path | None,
+    names: Sequence[str],
+    mesh: Path,
+    read: Sequence[str],
+    *,
+    config: str | Path | None,
+    accept: bool,
+) -> dict[str, Any]:
+    """Return what the refinement file states, or the empty statement without one.
+
+    An implicit ``<stem>.refine.toml`` that cannot be read is refused, or
+    under ``accept_unknown`` warned and skipped as if absent; a file named by
+    ``config`` that cannot be read is refused either way.
+    """
+    empty: dict[str, Any] = {
+        "specs": {},
+        "unread": [],
+        "elements": {},
+        "default_elements": TRIANGLES,
+        "tag": None,
+        "filename": None,
+        "components": {},
+    }
+    if file is None:
+        return empty
+    try:
+        return read_refine_file(file, names, mesh, read, accept_unknown=accept)
+    except InputArtifactError as error:
+        if config is not None or not accept or "cannot be read" not in str(error):
+            raise
+        _skip(str(file), "cannot be read and is not named by config (CLI: --config)")
+        return empty
 
 
 def _fmt(value: float) -> str:

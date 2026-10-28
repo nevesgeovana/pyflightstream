@@ -75,8 +75,14 @@ FlightStream versions.
   refused.
 - `--accept-unknown` (`refine_mesh(accept_unknown=True)`): an unknown table
   or key of the refinement file, a family table or `[components]` member the
-  mesh does not hold, and a `--families` name it does not hold are warned
-  and skipped, in place of being refused.
+  mesh does not hold, a `--families` name it does not hold, a value of the
+  refinement file it cannot read and an implicit refinement file that cannot
+  be read are warned and skipped, in place of being refused.
+- `--force-factors` (`refine_mesh(force_factors=True)`): a grid factor below
+  the least its grid allows is raised to that least, with a warning.
+- `--accept-empty` on `geometry convert2midnodes` and `geometry identify-te`
+  (`accept_empty=True`): a node list with no usable node, or no trailing edge
+  found, is warned, nothing is written and the command exits 0.
 
 ### Changed
 

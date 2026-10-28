@@ -662,6 +662,24 @@ def test_two_grids_giving_a_shared_curve_different_counts_are_refused_naming_bot
     assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
 
 
+def test_arch48_accept_remesh_leaves_a_refused_layout_to_the_first_grid_rule(tmp_path):
+    """ARCH48-R5: the counts refusal above is bypassed by ``accept_remesh``.
+
+    The first family of the group in the source's order is refined as a grid
+    alone and the others are remeshed, with one warning naming the refusal.
+    """
+    toml = (
+        f"[families.W]\nfactor = {FACTOR}\n\n[families.C]\nfactor = {FACTOR}\n\n"
+        "[families.J]\nfactor = 0.5\n"
+    )
+    src = _source(tmp_path, toml, strip=False)
+    with pytest.warns(PyflightstreamWarning, match="would hold 10 intervals as .*accept_remesh"):
+        level = refine_mesh(src, accept_remesh=True, out_dir=tmp_path / "acc")
+    methods = [level.report[n]["method"] for n in ("W", "C", "J")]
+    assert methods.count("grid") >= 1 and methods.count("remesh") >= 1
+    assert level.report["J"]["method"] == "remesh"
+
+
 # ------------------------------------------- PFS-2150 chordwise and spanwise on a multiblock
 
 

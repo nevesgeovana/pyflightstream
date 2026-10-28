@@ -382,6 +382,82 @@ def test_arch48_accept_unknown_skips_the_entries_the_refinement_does_not_know(tm
     assert "All" in level.obj.read_text(encoding="utf-8")
 
 
+def test_arch48_accept_empty_writes_nothing_when_no_trailing_edge_is_found(tmp_path, capsys):
+    """ARCH48-R4: no trailing edge found is refused; --accept-empty writes nothing, exit 0."""
+    from pyflightstream.workspace import cli as workspace_cli
+    from pyflightstream.workspace.wake_edges import write_trailing_edges_identified
+
+    src = _source(tmp_path, WITH_T)
+    with pytest.warns(PyflightstreamWarning, match="holds no family 'Nope'"):
+        with pytest.raises(InputArtifactError, match="no trailing edge was found on Nope"):
+            write_trailing_edges_identified(src, families=["Nope"])
+    with pytest.warns(
+        PyflightstreamWarning, match="no trailing edge was found.*nothing is written"
+    ):
+        assert write_trailing_edges_identified(src, families=["Nope"], accept_empty=True) == []
+    with pytest.warns(PyflightstreamWarning, match="nothing is written"):
+        code = workspace_cli.main(
+            ["geometry", "identify-te", str(src), "--families", "Nope", "--accept-empty"]
+        )
+    assert code == 0 and capsys.readouterr().out == ""
+    assert not src.with_name(f"{src.stem}.Nope.fs.te.txt").exists()
+
+
+def test_arch48_force_factors_raises_a_factor_below_the_least_the_grid_allows(tmp_path):
+    """ARCH48-R6: a factor below 1/m is refused; ``force_factors`` raises it to 1/m, warned.
+
+    G has 18 chordwise and 8 spanwise intervals: 0.05 is raised to 1/18 and 1/8,
+    and the level holds one interval in each direction.
+    """
+    src = _source(tmp_path)
+    assert "below 1/18" in _refused(tmp_path, src, factor=0.05)
+    with pytest.warns(PyflightstreamWarning, match="raised to 0.0555556 and 0.125"):
+        level = refine_mesh(src, 0.05, force_factors=True, out_dir=tmp_path / "acc")
+    intervals = level.report["G"]["intervals"]
+    assert intervals["chordwise"] == [18, 1] and intervals["spanwise"] == [8, 1]
+
+
+def test_arch48_accept_unknown_skips_an_implicit_refine_file_that_cannot_be_read(tmp_path):
+    """ARCH48-R7: a <stem>.refine.toml that is not TOML is refused; accept_unknown skips it.
+
+    The factors then come from FACTOR. Control: the same file named by
+    ``config`` stays refused under the option.
+    """
+    src = _source(tmp_path)
+    beside = src.with_name("wing.refine.toml")
+    beside.write_bytes(b"[families\nfactor = = 2\n")
+    assert "cannot be read" in _refused(tmp_path, src, 2.0)
+    with pytest.warns(PyflightstreamWarning, match="cannot be read and is not named"):
+        level = refine_mesh(src, 2.0, accept_unknown=True, out_dir=tmp_path / "acc")
+    assert level.folder.name == "wing_R2" and level.obj.is_file()
+    with pytest.raises(InputArtifactError, match="cannot be read"):
+        refine_mesh(src, 2.0, config=beside, accept_unknown=True, out_dir=tmp_path / "c")
+
+
+def test_arch48_accept_unknown_skips_the_values_the_refinement_cannot_read(tmp_path):
+    """ARCH48-R3: a value of the wrong kind in the refinement file is refused by default.
+
+    Under ``accept_unknown`` the key takes its default (method auto, elements
+    triangles), a table left with no factor is skipped, and a tag that is not
+    one folder name falls back to the built one.
+    """
+    toml = (
+        '[refine]\ntag = "a/b"\nelements = "hexes"\n'
+        '[families.G]\nfactor = 2\nmethod = "gird"\nelements = "blobs"\n'
+        "[families.T]\nfactor = -1\n"
+    )
+    src = _source(tmp_path, WITH_T, refine_toml=toml)
+    assert "is not an element mode" in _refused(tmp_path, src)
+    with pytest.warns(PyflightstreamWarning) as caught:
+        level = refine_mesh(src, accept_unknown=True, out_dir=tmp_path / "acc")
+    said = "\n".join(str(w.message) for w in caught)
+    for word in ("'a/b'", "'hexes'", "'gird'", "'blobs'", "[families.T] factor", "T] states no"):
+        assert word in said, word
+    assert level.folder.name == "wing_R-G2"
+    assert level.report["G"]["method"] == "grid"
+    assert level.report["T"]["method"] in ("unchanged", "copied")
+
+
 # --------------------------------------------------------- FR-917 the refinement file
 
 

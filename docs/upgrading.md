@@ -27,7 +27,9 @@ and skipped, or read under its new name.
   not recovered is refused unless `--accept-remesh` (`accept_remesh=True`)
   remeshes it with `factor`. An entry the refinement does not know (a table,
   a key, a family or a member the mesh does not hold) is refused unless
-  `--accept-unknown` (`accept_unknown=True`) warns and skips it.
+  `--accept-unknown` (`accept_unknown=True`) warns and skips it. A grid
+  factor below the least its grid allows is refused unless `--force-factors`
+  raises it to that least.
 - `keep_first_row`, `trailing_edge_direction`, the body remesh keys (`axial`,
   `circumferential`, `axis`, `origin`) and the `[periodic]` table are no longer
   read. Each is warned and skipped; a row kept at an interface is a family of

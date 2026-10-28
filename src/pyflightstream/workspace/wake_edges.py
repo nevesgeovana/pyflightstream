@@ -737,8 +737,13 @@ MIDNODE_GAP = 5.0
 
 
 def write_trailing_edge_midnodes(
-    source: str | Path, path: str | Path, *, unit: str = "METER", overwrite: bool = False
-) -> Path:
+    source: str | Path,
+    path: str | Path,
+    *,
+    unit: str = "METER",
+    overwrite: bool = False,
+    accept_empty: bool = False,
+) -> Path | None:
     """Write the edge mid-points of an ANSA SET node-window export, in any node order.
 
     The nodes are put in order along their lines: from an end, each step goes
@@ -759,11 +764,15 @@ def write_trailing_edge_midnodes(
         Length unit of the coordinates, written on the first line.
     overwrite : bool
         Allow replacement of an existing destination.
+    accept_empty : bool
+        A list with fewer than two nodes, or whose nodes give no mid-point,
+        is warned and nothing is written (None is returned); by default it is
+        refused.
 
     Returns
     -------
-    pathlib.Path
-        The written points file.
+    pathlib.Path or None
+        The written points file; None when ``accept_empty`` wrote nothing.
 
     Raises
     ------
@@ -772,7 +781,13 @@ def write_trailing_edge_midnodes(
         coordinates, naming the source line; also for an invalid unit or an
         existing output.
     """
-    nodes = _ansa_nodes(Path(source))
+    try:
+        nodes = _ansa_nodes(Path(source))
+    except InputArtifactError as error:
+        if not accept_empty or "fewer than two nodes" not in str(error):
+            raise
+        _warn_empty(str(error))
+        return None
     # Two ids at one position (an open trailing edge's upper and lower node) are one
     # node of the line: a twin's zero distance would otherwise be every node's spacing.
     _, first = numpy.unique(nodes, axis=0, return_index=True)
@@ -796,8 +811,20 @@ def write_trailing_edge_midnodes(
     mids = [
         (nodes[a] + nodes[b]) / 2.0 for line in lines for a, b in zip(line, line[1:], strict=False)
     ]
+    if not mids and accept_empty:
+        _warn_empty(f"{source}: no two nodes are near enough to give a mid-point")
+        return None
     return write_trailing_edge_points(
         path, numpy.asarray(mids).reshape(-1, 3), unit=unit, overwrite=overwrite
+    )
+
+
+def _warn_empty(what: str) -> None:
+    """Warn that a verb found nothing to write and wrote nothing (``accept_empty``)."""
+    warn(
+        f"{what}; nothing is written (accept_empty, CLI --accept-empty)",
+        PyflightstreamWarning,
+        stacklevel=3,
     )
 
 
@@ -808,6 +835,7 @@ def write_trailing_edge_midnodes_per_family(
     *,
     unit: str = "METER",
     overwrite: bool = False,
+    accept_empty: bool = False,
 ) -> list[Path]:
     """Write one points file per family of a mesh from an ANSA SET node list.
 
@@ -830,6 +858,10 @@ def write_trailing_edge_midnodes_per_family(
         Length unit of the coordinates, written on each file's first line.
     overwrite : bool
         Allow replacement of existing destinations.
+    accept_empty : bool
+        A list with no node read, or that joins no edge of the mesh, is warned
+        and nothing is written (an empty list is returned); by default it is
+        refused.
 
     Returns
     -------
@@ -851,10 +883,11 @@ def write_trailing_edge_midnodes_per_family(
 
     nodes = read_node_list(source)
     if not nodes.ids:
-        raise InputArtifactError(
-            f"{source}: no node is read; save the SET's node window (Id, Name, X, Y, Z)",
-            kind="wake_edges",
-        )
+        no_node = f"{source}: no node is read; save the SET's node window (Id, Name, X, Y, Z)"
+        if accept_empty:
+            _warn_empty(no_node)
+            return []
+        raise InputArtifactError(no_node, kind="wake_edges")
     obj = read_obj(Path(mesh))
     found, unmatched = perimeter_edges(obj.verts, obj.families, nodes)
     if unmatched:
@@ -879,10 +912,11 @@ def write_trailing_edge_midnodes_per_family(
             )
         )
     if not written:
-        raise InputArtifactError(
-            f"{source}: no edge of {mesh} joins two listed nodes; nothing was written",
-            kind="wake_edges",
-        )
+        no_edge = f"{source}: no edge of {mesh} joins two listed nodes; nothing was written"
+        if accept_empty:
+            _warn_empty(no_edge)
+            return []
+        raise InputArtifactError(no_edge, kind="wake_edges")
     return written
 
 
@@ -896,6 +930,7 @@ def write_trailing_edges_identified(
     unit: str | None = None,
     simulation_unit: str | None = None,
     overwrite: bool = False,
+    accept_empty: bool = False,
 ) -> list[Path]:
     """Find the trailing edges of an OBJ and write them in the solver's node-file format.
 
@@ -942,6 +977,10 @@ def write_trailing_edges_identified(
         The unit the solver reads the file in (default: ``unit``, unconverted).
     overwrite : bool
         Replace existing files.
+    accept_empty : bool
+        A node list with fewer than two nodes, or no trailing edge found on
+        any family, is warned and nothing is written (an empty list is
+        returned); by default it is refused.
 
     Returns
     -------
@@ -969,7 +1008,13 @@ def write_trailing_edges_identified(
                 stacklevel=2,
             )
     chosen = {n: obj.families[n] for n in names if n in obj.families}
-    found = _identified_edges(obj, chosen, source, aft_direction(aft, str(target)), max_angle)
+    try:
+        found = _identified_edges(obj, chosen, source, aft_direction(aft, str(target)), max_angle)
+    except InputArtifactError as error:
+        if not accept_empty or "fewer than two nodes" not in str(error):
+            raise
+        _warn_empty(str(error))
+        return []
     for name, edges in found.items():
         if not edges and families is not None:
             warn(
@@ -980,11 +1025,14 @@ def write_trailing_edges_identified(
             )
     found = {n: e for n, e in found.items() if e}
     if not found:
-        raise InputArtifactError(
+        none = (
             f"{target}: no trailing edge was found on {', '.join(names) or 'any family'}; "
-            "nothing was written",
-            kind="wake_edges",
+            "nothing was written"
         )
+        if accept_empty:
+            _warn_empty(none)
+            return []
+        raise InputArtifactError(none, kind="wake_edges")
     files, points, listing = _identified_targets(target, found, families, source)
     existing = [f for f in [*files, *points, *([listing] if listing else [])] if f.exists()]
     if existing and not overwrite:

@@ -268,6 +268,12 @@ def _add_mesh_verbs(verbs: Any) -> None:
     midnodes.add_argument("--unit", default="METER", help="the coordinates' unit (default: METER)")
     midnodes.add_argument("--overwrite", action="store_true", help="replace an existing OUTPUT")
     midnodes.add_argument(
+        "--accept-empty",
+        action="store_true",
+        help="a list with fewer than two nodes, no usable node or no edge of MESH is warned and "
+        "nothing is written, exit 0, in place of refusing it",
+    )
+    midnodes.add_argument(
         "--per-family",
         metavar="MESH",
         help="the OBJ the nodes belong to: write <OUTPUT stem>.<family>.te.txt per family from "
@@ -316,6 +322,12 @@ def _add_mesh_verbs(verbs: Any) -> None:
         "--simulation-unit", help="the unit the solver reads the file in (default: --unit)"
     )
     identify.add_argument("--overwrite", action="store_true", help="replace existing files")
+    identify.add_argument(
+        "--accept-empty",
+        action="store_true",
+        help="a NODES list with fewer than two nodes, or no trailing edge found, is warned and "
+        "nothing is written, exit 0, in place of refusing it",
+    )
     prepare = verbs.add_parser(
         "prepare-to-refine",
         help="split an OBJ's families into grid and mixed patches and write a refine file for them",
@@ -599,14 +611,22 @@ def _cmd_midnodes(args: argparse.Namespace) -> int:
     try:
         if args.per_family:
             paths = write_trailing_edge_midnodes_per_family(
-                args.nodes, args.per_family, args.output, unit=args.unit, overwrite=args.overwrite
+                args.nodes,
+                args.per_family,
+                args.output,
+                unit=args.unit,
+                overwrite=args.overwrite,
+                accept_empty=args.accept_empty,
             )
         else:
-            paths = [
-                write_trailing_edge_midnodes(
-                    args.nodes, args.output, unit=args.unit, overwrite=args.overwrite
-                )
-            ]
+            written = write_trailing_edge_midnodes(
+                args.nodes,
+                args.output,
+                unit=args.unit,
+                overwrite=args.overwrite,
+                accept_empty=args.accept_empty,
+            )
+            paths = [] if written is None else [written]
     except (PyflightstreamError, OSError, ValueError) as error:
         print(str(error), file=sys.stderr)
         return 2
@@ -631,6 +651,7 @@ def _cmd_identify_te(args: argparse.Namespace) -> int:
             unit=args.unit,
             simulation_unit=args.simulation_unit,
             overwrite=args.overwrite,
+            accept_empty=args.accept_empty,
         )
     except (PyflightstreamError, OSError, ValueError) as error:
         print(str(error), file=sys.stderr)

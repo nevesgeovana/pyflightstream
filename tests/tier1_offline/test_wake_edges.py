@@ -27,6 +27,7 @@ import re
 import numpy
 import pytest
 
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz
 from pyflightstream.workspace.wake_edges import (
@@ -104,6 +105,20 @@ def test_p0440_ansa_list_refuses_bad_rows_before_writing(tmp_path, capsys, rows,
     message = capsys.readouterr().err
     assert str(source) in message and f"line {line}" in message and reason in message
     assert not output.exists()
+
+
+def test_arch48_accept_empty_writes_nothing_for_a_list_with_fewer_than_two_nodes(tmp_path, capsys):
+    """ARCH48-R4: an empty list is refused; --accept-empty warns, writes nothing and exits 0."""
+    from pyflightstream.workspace.cli import main
+
+    source, output = tmp_path / "nodes.txt", tmp_path / "wing.te.txt"
+    source.write_text("#  Id, Name, X , Y, Z\n1, a, 0, 0, 0\n", encoding="utf-8")
+    argv = ["geometry", "convert2midnodes", str(source), str(output)]
+    assert main(argv) == 2
+    assert "fewer than two nodes" in capsys.readouterr().err
+    with pytest.warns(PyflightstreamWarning, match="fewer than two nodes.*nothing is written"):
+        assert main([*argv, "--accept-empty"]) == 0
+    assert capsys.readouterr().out == "" and not output.exists()
 
 
 def test_p0440_ansa_list_preserves_existing_output(tmp_path, capsys):
