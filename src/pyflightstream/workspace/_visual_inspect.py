@@ -207,7 +207,7 @@ def read_points_file(path: Path, mesh_unit: str | None) -> Points:
         unit = first.upper()
         xyz = _rows(lines[1:], path)
         if mesh_unit is not None and unit != mesh_unit:
-            if unit is not None and unit in METRES_PER_UNIT:
+            if unit in METRES_PER_UNIT and mesh_unit in METRES_PER_UNIT:
                 xyz = xyz * float(METRES_PER_UNIT[unit] / METRES_PER_UNIT[mesh_unit])
             else:
                 _skipped(f"{path}: the unit {unit} has no scale; the points are drawn as written")
@@ -969,6 +969,9 @@ def visual_inspect(
     target = Path(out) if out is not None else source.with_name(source.stem + ".inspect.pdf")
     if target.exists() and not overwrite:
         raise InspectError(f"{target}: exists; pass overwrite (CLI: --overwrite) to replace it")
+    mesh_unit = mesh_unit.upper() if mesh_unit else mesh_unit
+    points_unit = points_unit.upper() if points_unit else points_unit
+    nastran_unit = nastran_unit.upper()
     drawn = _read_mesh(source, mesh_unit, nastran_unit)
     unit = mesh_unit or ("METER" if drawn.path.suffix.lower() != ".obj" else None)
     points = [read_node_list(Path(p)) for p in nodes]
@@ -1003,8 +1006,19 @@ def _read_mesh(source: Path, mesh_unit: str | None, nastran_unit: str) -> Mesh:
 
     if not _nastran.is_nastran(source):
         return read_obj(source)
-    read = _nastran.read_nastran(source, unit=nastran_unit, obj_unit=mesh_unit or "METER")
+    drawn_in = mesh_unit if mesh_unit in METRES_PER_UNIT else "METER"
+    if nastran_unit not in METRES_PER_UNIT:
+        _skipped(
+            _unknown_unit("--nastran-unit", nastran_unit) + "; the mesh is read without scaling"
+        )
+        nastran_unit = drawn_in
+    read = _nastran.read_nastran(source, unit=nastran_unit, obj_unit=drawn_in)
     return Mesh(source, read.mesh.verts, dict(read.mesh.families))
+
+
+def _unknown_unit(flag: str, name: str) -> str:
+    """Return the message for a length unit name that has no scale."""
+    return f"{flag} {name} is not a length unit (accepted: {', '.join(sorted(METRES_PER_UNIT))})"
 
 
 def _convert_unitless(points: list[Points], points_unit: str | None, mesh_unit: str | None) -> None:
@@ -1016,6 +1030,10 @@ def _convert_unitless(points: list[Points], points_unit: str | None, mesh_unit: 
         return
     if points_unit == mesh_unit:
         return
+    for flag, name in (("--points-unit", points_unit), ("--mesh-unit", mesh_unit)):
+        if name not in METRES_PER_UNIT:
+            _skipped(_unknown_unit(flag, name) + "; the points are drawn as written")
+            return
     factor = float(METRES_PER_UNIT[points_unit] / METRES_PER_UNIT[mesh_unit])
     for pts in points:
         if pts.kind == "nodes" or "(" not in pts.kind or pts.kind == "te (solver form)":

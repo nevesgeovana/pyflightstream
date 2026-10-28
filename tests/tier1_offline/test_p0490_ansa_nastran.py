@@ -165,3 +165,51 @@ def test_a_segment_of_another_layout_does_not_discard_the_side_block() -> None:
     good = base64.b64encode(struct.pack(">I", len(body)) + zlib.compress(body)).decode()
     raw = base64.b64encode(b"\x00\x00\x00\x08rawbytes").decode()
     assert _nastran._decode_sides("PART_NAME_LONG;" + raw + ";" + good) == [(7, 2)]
+
+
+def _captured_points(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **units: str) -> list:
+    from pyflightstream.workspace import _visual_inspect
+
+    seen: list = []
+    monkeypatch.setattr(_visual_inspect, "render", lambda _m, points, *a, **k: seen.extend(points))
+    source = _export(tmp_path / "sheet.nas", wide=False, perimeter=_middle_line())
+    prepared = prepare_to_refine(source)
+    nodes = tmp_path / "n.txt"
+    nodes.write_text("#  Id, Name, X, Y, Z\n1, a, 1000.0, 0.0, 0.0\n", encoding="utf-8")
+    _visual_inspect.visual_inspect(prepared.obj, nodes=[nodes], **units)
+    return [float(v) for v in seen[0].xyz[0]]
+
+
+def test_length_unit_names_are_case_insensitive(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    (tmp_path / "u").mkdir()
+    (tmp_path / "l").mkdir()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        upper = _captured_points(
+            monkeypatch, tmp_path / "u", mesh_unit="METER", points_unit="MILLIMETER"
+        )
+        lower = _captured_points(
+            monkeypatch, tmp_path / "l", mesh_unit="meter", points_unit="millimeter"
+        )
+    assert lower == upper == pytest.approx([1.0, 0.0, 0.0])
+
+
+def test_an_unknown_unit_warns_and_draws_the_points_as_written(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    with pytest.warns(PyflightstreamWarning, match="(?i)furlong"):
+        xyz = _captured_points(monkeypatch, tmp_path, mesh_unit="METER", points_unit="furlong")
+    assert xyz == [1000.0, 0.0, 0.0]
+
+
+def test_an_unknown_nastran_unit_warns_and_reads_the_mesh_unscaled(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from pyflightstream.workspace import _visual_inspect
+
+    monkeypatch.setattr(_visual_inspect, "render", lambda *a, **k: None)
+    source = _export(tmp_path / "sheet.nas", wide=False, perimeter=_middle_line())
+    with pytest.warns(PyflightstreamWarning, match="(?i)furlong"):
+        _visual_inspect.visual_inspect(source, nastran_unit="furlong")
