@@ -70,10 +70,15 @@ def prepare(workspace: Path) -> None:
                     axis=0,
                 )
                 aft = np.isclose(vertices[:, 0], 1.0) & np.isclose(vertices[:, 2], 0.0)
-                ends = edges[aft[edges].all(axis=1)]
-                points = (vertices[ends[:, 0]] + vertices[ends[:, 1]]) / 2
-                text = "METER\n" + "".join(f"{x:.12g},{y:.12g},{z:.12g}\n" for x, y, z in points)
-                (geometries / "wing.te.txt").write_text(text, encoding="utf-8")
+                nodes = np.unique(edges[aft[edges].all(axis=1)])
+                # The trailing edge's nodes as the node window of an ANSA SET saves them.
+                rows = "".join(
+                    f"{n + 1}, Wing, {x:.12g}, {y:.12g}, {z:.12g}\n"
+                    for n, (x, y, z) in zip(nodes, vertices[nodes], strict=True)
+                )
+                (geometries / "wing.nodes.txt").write_text(
+                    "#  Id, Name, X , Y, Z\n" + rows, encoding="utf-8"
+                )
 
 
 if __name__ == "__main__":

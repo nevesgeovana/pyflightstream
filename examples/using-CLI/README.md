@@ -41,8 +41,10 @@ loads with the coarse row after running; two densities alone do not establish
 mesh convergence. `pyfs-workspace geometry refine` is the separate route for
 refining an existing mesh; see the site's geometry guide.
 
-The campaign also includes `wing.refine.toml`. Preparation writes its explicit
-`wing.te.txt` input. To exercise refinement independently of the two matrix rows:
+The campaign also includes `wing.refine.toml`. Preparation writes the node list
+it names, `wing.nodes.txt`, in the form an ANSA SET's node window saves, and its
+`[[perimeter]]` takes the trailing edge of `Wing` from it (`te_families`). To
+exercise refinement independently of the two matrix rows:
 
 ```text
 pyfs-workspace geometry refine <copied-workspace>/inputs/geometries/wing.obj

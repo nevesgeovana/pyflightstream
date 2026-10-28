@@ -1,6 +1,6 @@
-[trailing_edge]
-file = "wing.te.txt"
-per_family = true
+[[perimeter]]
+file = "wing.nodes.txt"
+te_families = ["Wing"]
 
 [refine]
 tag = "refined"
