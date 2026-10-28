@@ -13323,6 +13323,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._refine._prepare",
+      "target": "pyflightstream.workspace._visual_inspect",
+      "kind": "deferred"
+    },
+    {
       "source": "pyflightstream.workspace._refine._remesh",
       "target": "pyflightstream.workspace._refine._config",
       "kind": "module"

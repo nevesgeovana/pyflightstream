@@ -2010,6 +2010,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._refine._lines">pyflightstream.workspace._refine._lines</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._nastran">pyflightstream.workspace._refine._nastran</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._visual_inspect">pyflightstream.workspace._visual_inspect</a> (deferred)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._refine._remesh"><summary><code>pyflightstream.workspace._refine._remesh</code></summary><ul>

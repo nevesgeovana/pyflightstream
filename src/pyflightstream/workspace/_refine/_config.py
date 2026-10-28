@@ -702,8 +702,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             )
         reason = f"--families selects {', '.join(chosen)}"
         missing_tables = _missing_tables(chosen, stated_specs)
-        if any(s.governing for s in specs.values()):
-            specs.update({n: FamilySpec(method=GRID_AUTO) for n in chosen if n not in specs})
+        _add_followers(specs, chosen)
         for name in missing_tables:
             warnings.warn(
                 f"{file}: selected family {name!r} has no refinement table and is copied "
@@ -856,6 +855,12 @@ def canonical_selection(request: RefineRequest, picked: Sequence[str]) -> str:
         pairs = " ".join(f"{k}={_value(options[k])}" for k in sorted(options))
         lines.append(f"{name} {pairs}")
     return "\n".join(lines)
+
+
+def _add_followers(specs: dict[str, FamilySpec], chosen: Sequence[str]) -> None:
+    """Make every selected family without a table grid_auto when one is governing (FR-3298)."""
+    if any(s.governing for s in specs.values()):
+        specs.update({n: FamilySpec(method=GRID_AUTO) for n in chosen if n not in specs})
 
 
 def _missing_tables(chosen: Sequence[str], specs: Mapping[str, FamilySpec]) -> tuple[str, ...]:

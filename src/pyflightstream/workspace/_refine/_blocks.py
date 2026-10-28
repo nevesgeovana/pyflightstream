@@ -1062,7 +1062,7 @@ def _perimeters(
     return out
 
 
-def _bands(blocks: Blocks, arcs: Iterable[int]) -> dict[int, int]:
+def arc_bands(blocks: Blocks, arcs: Iterable[int]) -> dict[int, int]:
     """Return each arc's band: arcs joined as opposite sides of a patch hold one count."""
     parent = {a: a for a in arcs}
 
@@ -1092,7 +1092,7 @@ def _band_counts(
 ) -> dict[int, int]:
     """Return one count per arc: each band's count from the family that leads it, warned."""
     perimeter = _perimeters(verts, names, blocks, owner)
-    band = _bands(blocks, proposed)
+    band = arc_bands(blocks, proposed)
     members: dict[int, list[tuple[str, int]]] = {}
     for arc, offers in proposed.items():
         members.setdefault(band[arc], []).extend(offers)
