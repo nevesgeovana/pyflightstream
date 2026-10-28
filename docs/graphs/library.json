@@ -1586,6 +1586,11 @@
       "path": "workspace/_refine/_lines.py"
     },
     {
+      "id": "pyflightstream.workspace._refine._nastran",
+      "layer": 2,
+      "path": "workspace/_refine/_nastran.py"
+    },
+    {
       "id": "pyflightstream.workspace._refine._obj",
       "layer": 2,
       "path": "workspace/_refine/_obj.py"
@@ -1639,6 +1644,11 @@
       "id": "pyflightstream.workspace._verdicts",
       "layer": 2,
       "path": "workspace/_verdicts.py"
+    },
+    {
+      "id": "pyflightstream.workspace._visual_inspect",
+      "layer": 2,
+      "path": "workspace/_visual_inspect.py"
     },
     {
       "id": "pyflightstream.workspace.actuator_profiles",
@@ -12234,6 +12244,11 @@
     },
     {
       "source": "pyflightstream.workspace",
+      "target": "pyflightstream.workspace._visual_inspect",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace",
       "target": "pyflightstream.workspace.fsi_external_setup",
       "kind": "module"
     },
@@ -13218,6 +13233,21 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._refine._nastran",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._nastran",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._nastran",
+      "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._refine._obj",
       "target": "pyflightstream._decimal",
       "kind": "module"
@@ -13280,6 +13310,11 @@
     {
       "source": "pyflightstream.workspace._refine._prepare",
       "target": "pyflightstream.workspace._refine._lines",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._prepare",
+      "target": "pyflightstream.workspace._refine._nastran",
       "kind": "module"
     },
     {
@@ -13416,6 +13451,21 @@
       "source": "pyflightstream.workspace._verdicts",
       "target": "pyflightstream.workspace.manifest",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._visual_inspect",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._visual_inspect",
+      "target": "pyflightstream._lengths",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._visual_inspect",
+      "target": "pyflightstream.workspace._refine._nastran",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace.actuator_profiles",

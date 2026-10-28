@@ -338,6 +338,17 @@ optional.
    edges within `--max-angle` (default 45 degrees) of the plane across the
    aft direction, as an ANSA SET node list. `--aft X Y Z` states the nose to
    tail direction (default +x, so the plane is the yz plane). Any OBJ and refine file refine without this step.
+
+   To follow the pre-processor's meshing macros instead of the sharp edges,
+   give an ANSA NASTRAN export written with the FE perimeters on
+   (`comment_output_fe_perimeters`): each family is then cut along those
+   perimeters, so each patch is one macro. `--unit` states the export's
+   length unit (default MILLIMETER) and `--obj-unit` the unit the patches OBJ
+   is written in (default METER):
+
+   ```text
+   pyfs-workspace geometry prepare-to-refine inputs/geometries/W1/W1.nas
+   ```
 2. **Edit the refine file.** Set the factors of the patches and their
    `method`. The file names the node list in a `[[perimeter]]` table:
 
@@ -396,6 +407,23 @@ optional.
    ```
 
 6. **Name the saved simulation** in a row's `GEOMETRY` column.
+
+### Looking at a mesh and its marked points
+
+`visual-inspect` writes a PDF of an OBJ or NASTRAN mesh: the top, front,
+side and isometric views as a technical drawing (one scale, aligned, a scale
+bar), each patch in its own color from `--cmap` with its perimeter in a
+thick line, node lists (`--nodes`) and trailing-edge points files (`--te`)
+over the surface, and a table of each patch's faces and marked points.
+`--png` also writes the pages of views as PNG files. It needs the plot
+extra, `pip install "pyflightstream[plot]"`.
+
+```text
+pyfs-workspace geometry visual-inspect inputs/geometries/W1/W1_patches.obj --nodes inputs/geometries/W1/W1_patches.nodes.txt --mesh-unit METER
+```
+
+From Python, `visual_inspect` of `pyflightstream.workspace` takes the same
+inputs and returns the path of the PDF.
 
 ### Marking trailing edges without refining
 

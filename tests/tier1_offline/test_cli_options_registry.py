@@ -218,6 +218,52 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "force_factors"): FIELD_OPERATION,
     ("pyfs-workspace", "accept_empty"): FIELD_OPERATION,
     ("pyfs-workspace", "nodes"): SUBJECT,
+    # 0.49.0: `geometry visual-inspect` and the NASTRAN route of `prepare-to-refine`.
+    ("pyfs-workspace", "te"): SUBJECT,
+    (
+        "pyfs-workspace",
+        "mesh_unit",
+    ): "the length unit of a file this call reads or writes, a fact of that file stated per call",
+    (
+        "pyfs-workspace",
+        "points_unit",
+    ): "the length unit of a file this call reads or writes, a fact of that file stated per call",
+    (
+        "pyfs-workspace",
+        "nastran_unit",
+    ): "the length unit of a file this call reads or writes, a fact of that file stated per call",
+    (
+        "pyfs-workspace",
+        "obj_unit",
+    ): "the length unit of a file this call reads or writes, a fact of that file stated per call",
+    (
+        "pyfs-workspace",
+        "cmap",
+    ): "a drawing choice of one PDF this call writes, with no process-wide meaning",
+    (
+        "pyfs-workspace",
+        "box",
+    ): "a drawing choice of one PDF this call writes, with no process-wide meaning",
+    (
+        "pyfs-workspace",
+        "iso_from",
+    ): "a drawing choice of one PDF this call writes, with no process-wide meaning",
+    (
+        "pyfs-workspace",
+        "labels",
+    ): "a drawing choice of one PDF this call writes, with no process-wide meaning",
+    (
+        "pyfs-workspace",
+        "no_edges",
+    ): "a drawing choice of one PDF this call writes, with no process-wide meaning",
+    (
+        "pyfs-workspace",
+        "perimeter_width",
+    ): "a drawing choice of one PDF this call writes, with no process-wide meaning",
+    (
+        "pyfs-workspace",
+        "dpi",
+    ): "a drawing choice of one PDF this call writes, with no process-wide meaning",
     ("pyfs-workspace", "aft"): FIELD_OPERATION,
     ("pyfs-workspace", "max_angle"): FIELD_OPERATION,
     ("pyfs-workspace", "simulation_unit"): CASE,
@@ -553,7 +599,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "direction"): frozenset({"preview"}),
     ("pyfs-workspace", "axis"): frozenset({"trailing-edge"}),
     ("pyfs-workspace", "hub"): frozenset({"trailing-edge"}),
-    ("pyfs-workspace", "unit"): frozenset({"trailing-edge", "convert2midnodes", "identify-te"}),
+    ("pyfs-workspace", "unit"): frozenset(
+        {"trailing-edge", "convert2midnodes", "identify-te", "prepare-to-refine"}
+    ),
     ("pyfs-workspace", "sections"): frozenset({"trailing-edge"}),
     ("pyfs-workspace", "from_nodes"): frozenset({"trailing-edge"}),
     ("pyfs-matrix", "build"): frozenset({"support"}),
@@ -816,6 +864,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
                 "create",
                 "identify-te",
                 "prepare-to-refine",
+                "visual-inspect",
                 "degenerate",
                 "export-surface-mesh",
                 "fill-interior",
@@ -866,7 +915,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "last"): frozenset({"profile", "time-mean"}),
     ("pyfs-workspace", "tolerance"): frozenset({"subtract", "time-mean"}),
     ("pyfs-workspace", "out"): frozenset(
-        "audit fill-interior mirror move profile refine subtract time-mean trailing-edge".split()
+        "audit fill-interior mirror move profile refine subtract time-mean trailing-edge "
+        "visual-inspect".split()
     ),
     ("pyfs-workspace", "apply"): frozenset(
         {
@@ -893,6 +943,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "convert2midnodes",
             "identify-te",
             "prepare-to-refine",
+            "visual-inspect",
             "build",
             "degenerate",
             "fill-interior",
@@ -933,7 +984,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "target"): frozenset({"build", "export-surface-mesh"}),
     ("pyfs-workspace", "build"): frozenset({"build", "from-sidecar", "export-surface-mesh"}),
     ("pyfs-workspace", "fs_exe"): frozenset({"build", "export-surface-mesh", "mark-boundaries"}),
-    ("pyfs-workspace", "png"): frozenset({"build"}),
+    ("pyfs-workspace", "png"): frozenset({"build", "visual-inspect"}),
     ("pyfs-workspace", "only"): frozenset({"build"}),
     ("pyfs-workspace", "parallel"): frozenset({"build", "refine"}),
     ("pyfs-workspace", "rows"): frozenset({"build"}),
@@ -941,10 +992,18 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "names"): frozenset({"accept"}),
     ("pyfs-workspace", "geometry"): frozenset({"degenerate", "from-sidecar", "inventory"}),
     ("pyfs-workspace", "mesh"): frozenset(
-        {"audit", "identify-te", "mark-boundaries", "prepare-to-refine", "refine", "trailing-edge"}
+        {
+            "audit",
+            "identify-te",
+            "mark-boundaries",
+            "prepare-to-refine",
+            "refine",
+            "trailing-edge",
+            "visual-inspect",
+        }
     ),
     ("pyfs-workspace", "factor"): frozenset({"refine"}),
-    ("pyfs-workspace", "families"): frozenset({"refine", "identify-te"}),
+    ("pyfs-workspace", "families"): frozenset({"refine", "identify-te", "visual-inspect"}),
     ("pyfs-workspace", "chordwise"): frozenset({"refine"}),
     ("pyfs-workspace", "spanwise"): frozenset({"refine"}),
     ("pyfs-workspace", "normal"): frozenset({"refine"}),
@@ -952,7 +1011,19 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "accept_unknown"): frozenset({"refine"}),
     ("pyfs-workspace", "force_factors"): frozenset({"refine"}),
     ("pyfs-workspace", "accept_empty"): frozenset({"convert2midnodes", "identify-te"}),
-    ("pyfs-workspace", "nodes"): frozenset({"convert2midnodes", "identify-te"}),
+    ("pyfs-workspace", "nodes"): frozenset({"convert2midnodes", "identify-te", "visual-inspect"}),
+    ("pyfs-workspace", "obj_unit"): frozenset({"prepare-to-refine"}),
+    ("pyfs-workspace", "te"): frozenset({"visual-inspect"}),
+    ("pyfs-workspace", "mesh_unit"): frozenset({"visual-inspect"}),
+    ("pyfs-workspace", "points_unit"): frozenset({"visual-inspect"}),
+    ("pyfs-workspace", "nastran_unit"): frozenset({"visual-inspect"}),
+    ("pyfs-workspace", "cmap"): frozenset({"visual-inspect"}),
+    ("pyfs-workspace", "box"): frozenset({"visual-inspect"}),
+    ("pyfs-workspace", "iso_from"): frozenset({"visual-inspect"}),
+    ("pyfs-workspace", "labels"): frozenset({"visual-inspect"}),
+    ("pyfs-workspace", "no_edges"): frozenset({"visual-inspect"}),
+    ("pyfs-workspace", "perimeter_width"): frozenset({"visual-inspect"}),
+    ("pyfs-workspace", "dpi"): frozenset({"visual-inspect"}),
     ("pyfs-workspace", "aft"): frozenset({"identify-te", "prepare-to-refine"}),
     ("pyfs-workspace", "max_angle"): frozenset({"identify-te", "prepare-to-refine"}),
     ("pyfs-workspace", "simulation_unit"): frozenset({"identify-te"}),

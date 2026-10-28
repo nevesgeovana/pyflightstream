@@ -585,6 +585,7 @@
       "tests/tier1_offline/test_p0380_guards.py",
       "tests/tier1_offline/test_p0380_independent_review.py",
       "tests/tier1_offline/test_p0380_s1_refine.py",
+      "tests/tier1_offline/test_p0490_ansa_nastran.py",
       "tests/tier1_offline/test_p0380_s6_degapi.py",
       "tests/tier1_offline/test_p0380_s7_origin.py",
       "tests/tier1_offline/test_p0390_pdfs.py",

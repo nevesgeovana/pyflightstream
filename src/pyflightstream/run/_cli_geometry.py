@@ -330,9 +330,12 @@ def _add_mesh_verbs(verbs: Any) -> None:
     )
     prepare = verbs.add_parser(
         "prepare-to-refine",
-        help="split an OBJ's families into grid and mixed patches and write a refine file for them",
+        help="split a mesh's families into grid and mixed patches and write a refine file for them",
         description=(
-            "Optional step before refine. Writes beside the mesh <stem>_patches.obj (each family "
+            "Optional step before refine. MESH is an OBJ, whose families are cut at their sharp "
+            "edges, or an ANSA NASTRAN export (.nas, .bdf, .dat) written with the FE perimeters "
+            "on, whose families are cut along those perimeters (the meshing macros). Writes "
+            "beside the mesh <stem>_patches.obj (each family "
             "cut into <family>_<NNN>_grid or _mixed patches, numbered within the family from the "
             "largest extent along y), <stem>_patches.refine.toml (each patch at factor 1, grid "
             "or remesh, [components] putting each family back together) and "
@@ -340,7 +343,9 @@ def _add_mesh_verbs(verbs: Any) -> None:
             "within --max-angle of the plane across --aft, as an ANSA SET node list)."
         ),
     )
-    prepare.add_argument("mesh", metavar="OBJ", help="the source mesh; it is not modified")
+    prepare.add_argument(
+        "mesh", metavar="MESH", help="the source OBJ or NASTRAN export; it is not modified"
+    )
     prepare.add_argument(
         "--max-angle",
         type=float,
@@ -352,6 +357,88 @@ def _add_mesh_verbs(verbs: Any) -> None:
         "--aft", nargs=3, type=float, metavar=("X", "Y", "Z"), help="the aft direction (default +x)"
     )
     prepare.add_argument("--overwrite", action="store_true", help="replace the prepared files")
+    prepare.add_argument(
+        "--unit",
+        default="MILLIMETER",
+        help="a NASTRAN mesh's length unit (default MILLIMETER); an OBJ is written as read",
+    )
+    prepare.add_argument(
+        "--obj-unit",
+        default="METER",
+        help="the unit a NASTRAN mesh is written in to the patches OBJ (default METER)",
+    )
+    _add_visual_inspect(verbs)
+
+
+def _add_visual_inspect(verbs: Any) -> None:
+    """Add ``geometry visual-inspect``: a PDF of a mesh's views with its marked points."""
+    inspect = verbs.add_parser(
+        "visual-inspect",
+        help="draw a mesh in three views and an isometric view, with marked points, into a PDF",
+        description=(
+            "Writes <mesh>.inspect.pdf: the top, front, side and isometric views as a technical "
+            "drawing (one scale, aligned, a scale bar), one color per patch from --cmap, each "
+            "patch's perimeter in a thick line, the node lists and trailing-edge points files "
+            "over the surface, and a table of each patch's faces and marked points. MESH is an "
+            "OBJ or a NASTRAN export. Needs the plot extra."
+        ),
+    )
+    inspect.add_argument("mesh", metavar="MESH", help="the OBJ or NASTRAN mesh")
+    inspect.add_argument(
+        "--nodes", nargs="+", default=[], metavar="FILE", help="node lists saved from an ANSA SET"
+    )
+    inspect.add_argument(
+        "--te",
+        nargs="+",
+        default=[],
+        metavar="FILE",
+        help="trailing-edge points files (.te.txt, .nodes.te.txt, .fs.te.txt), one color each",
+    )
+    inspect.add_argument(
+        "--cmap", help="the matplotlib colormap of the patches (default: matplotlib's default)"
+    )
+    inspect.add_argument("--families", metavar="A,B", help="draw only these patches")
+    inspect.add_argument(
+        "--box",
+        nargs=6,
+        type=float,
+        metavar=("XMIN", "XMAX", "YMIN", "YMAX", "ZMIN", "ZMAX"),
+        help="draw only the faces and points inside this box",
+    )
+    inspect.add_argument(
+        "--mesh-unit", help="the mesh's length unit: the scale bar names it and gives the ratio"
+    )
+    inspect.add_argument(
+        "--points-unit", help="the unit of the node lists and points files that state none"
+    )
+    inspect.add_argument(
+        "--nastran-unit",
+        default="MILLIMETER",
+        help="a NASTRAN mesh's length unit (default MILLIMETER)",
+    )
+    inspect.add_argument(
+        "--iso-from",
+        nargs=3,
+        type=float,
+        default=(1.0, -1.0, 1.0),
+        metavar=("X", "Y", "Z"),
+        help="the direction the isometric view is seen from (default 1 -1 1)",
+    )
+    inspect.add_argument("--labels", action="store_true", help="write each patch's name on it")
+    inspect.add_argument("--no-edges", action="store_true", help="draw the faces without edges")
+    inspect.add_argument(
+        "--perimeter-width",
+        type=float,
+        default=0.9,
+        metavar="PT",
+        help="width of the patch perimeters in points (default 0.9; 0 draws none)",
+    )
+    inspect.add_argument("--dpi", type=int, default=300, help="resolution of the surface (300)")
+    inspect.add_argument("--out", help="the PDF (default: <mesh>.inspect.pdf beside the mesh)")
+    inspect.add_argument("--overwrite", action="store_true", help="replace an existing PDF")
+    inspect.add_argument(
+        "--png", action="store_true", help="also write each page of views as a PNG beside the PDF"
+    )
 
 
 def _package_version() -> str:
@@ -668,7 +755,12 @@ def _cmd_prepare_to_refine(args: argparse.Namespace) -> int:
     try:
         x, y, z = args.aft or (1.0, 0.0, 0.0)
         prepared = prepare_to_refine(
-            args.mesh, max_angle=args.max_angle, aft=(x, y, z), overwrite=args.overwrite
+            args.mesh,
+            max_angle=args.max_angle,
+            aft=(x, y, z),
+            overwrite=args.overwrite,
+            unit=args.unit,
+            obj_unit=args.obj_unit,
         )
     except (PyflightstreamError, OSError, ValueError) as error:
         print(str(error), file=sys.stderr)
@@ -677,6 +769,37 @@ def _cmd_prepare_to_refine(args: argparse.Namespace) -> int:
         print(f"{family}: {', '.join(patches)}")
     for path in (prepared.obj, prepared.config, prepared.nodes):
         print(path)
+    return 0
+
+
+def _cmd_visual_inspect(args: argparse.Namespace) -> int:
+    """Write the PDF of a mesh's views with its marked points."""
+    from pyflightstream.workspace import visual_inspect
+
+    try:
+        path = visual_inspect(
+            args.mesh,
+            nodes=args.nodes,
+            te=args.te,
+            out=args.out,
+            cmap=args.cmap,
+            families=args.families.split(",") if args.families else None,
+            box=args.box,
+            mesh_unit=args.mesh_unit,
+            points_unit=args.points_unit,
+            nastran_unit=args.nastran_unit,
+            iso_from=args.iso_from,
+            labels=args.labels,
+            edges=not args.no_edges,
+            perimeter_width=args.perimeter_width,
+            dpi=args.dpi,
+            overwrite=args.overwrite,
+            png=args.png,
+        )
+    except (PyflightstreamError, OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    print(path)
     return 0
 
 
@@ -825,6 +948,7 @@ def run_geometry(args: argparse.Namespace) -> int:
         "convert2midnodes": _cmd_midnodes,
         "identify-te": _cmd_identify_te,
         "prepare-to-refine": _cmd_prepare_to_refine,
+        "visual-inspect": _cmd_visual_inspect,
         "build": _cmd_build,
         "accept": _cmd_accept,
         "from-sidecar": _cmd_from_sidecar,

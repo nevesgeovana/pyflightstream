@@ -1684,6 +1684,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._mark_boundaries">pyflightstream.workspace._mark_boundaries</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._missing_log">pyflightstream.workspace._missing_log</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine">pyflightstream.workspace._refine</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._visual_inspect">pyflightstream.workspace._visual_inspect</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.fsi_external_setup">pyflightstream.workspace.fsi_external_setup</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.fsi_setup">pyflightstream.workspace.fsi_setup</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.inputs">pyflightstream.workspace.inputs</a> (module)</li>
@@ -1984,6 +1985,12 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.workspace._refine._nastran"><summary><code>pyflightstream.workspace._refine._nastran</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.workspace._refine._obj"><summary><code>pyflightstream.workspace._refine._obj</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._decimal">pyflightstream._decimal</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
@@ -2001,6 +2008,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._refine._blocks">pyflightstream.workspace._refine._blocks</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._geometry">pyflightstream.workspace._refine._geometry</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._lines">pyflightstream.workspace._refine._lines</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._nastran">pyflightstream.workspace._refine._nastran</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
 </ul></details>
 
@@ -2056,6 +2064,12 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.workspace._verdicts"><summary><code>pyflightstream.workspace._verdicts</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.workspace.manifest">pyflightstream.workspace.manifest</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._visual_inspect"><summary><code>pyflightstream.workspace._visual_inspect</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._nastran">pyflightstream.workspace._refine._nastran</a> (deferred)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace.actuator_profiles"><summary><code>pyflightstream.workspace.actuator_profiles</code></summary><ul>

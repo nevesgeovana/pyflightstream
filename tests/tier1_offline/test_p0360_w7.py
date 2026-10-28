@@ -77,6 +77,7 @@ PUBLIC_HOMES = {
     "refine_mesh": "pyflightstream.workspace._refine._level",
     "PreparedMesh": "pyflightstream.workspace._refine._prepare",
     "prepare_to_refine": "pyflightstream.workspace._refine._prepare",
+    "visual_inspect": "pyflightstream.workspace._visual_inspect",
     "ThinBlade": "pyflightstream.workspace._degenerate",
     "derive_thin_blade": "pyflightstream.workspace._degenerate",
     "thin_blade_path": "pyflightstream.workspace._degenerate",

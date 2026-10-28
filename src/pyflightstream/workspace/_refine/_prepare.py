@@ -35,7 +35,7 @@ from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
-from pyflightstream.workspace._refine import _blocks, _geometry, _lines, _obj
+from pyflightstream.workspace._refine import _blocks, _geometry, _lines, _nastran, _obj
 from pyflightstream.workspace._refine._obj import Faces, ObjMesh
 
 Points = NDArray[numpy.float64]
@@ -70,13 +70,20 @@ def prepare_to_refine(
     max_angle: float = MAX_ANGLE,
     aft: tuple[float, float, float] = _obj.AFT,
     overwrite: bool = False,
+    unit: str = "MILLIMETER",
+    obj_unit: str = "METER",
 ) -> PreparedMesh:
-    """Split an OBJ's families into patches and write its refine file and node list.
+    """Split a mesh's families into patches and write its refine file and node list.
+
+    The mesh is an OBJ, whose families are cut at their sharp edges, or an ANSA
+    NASTRAN export (``.nas``, ``.bdf``, ``.dat``) written with the FE perimeters
+    on, whose families are cut along those perimeters, so each patch is one of
+    the pre-processor's meshing macros (:mod:`._nastran`).
 
     Parameters
     ----------
     mesh : str or pathlib.Path
-        The source OBJ; it is never modified.
+        The source OBJ or NASTRAN export; it is never modified.
     max_angle : float
         The largest angle, in degrees, between a listed edge and the plane
         across ``aft`` (default :data:`MAX_ANGLE`).
@@ -84,6 +91,10 @@ def prepare_to_refine(
         The direction from the nose to the tail (default +x).
     overwrite : bool
         Replace the prepared files of an earlier run.
+    unit : str
+        A NASTRAN source's length unit (default MILLIMETER); read only for one.
+    obj_unit : str
+        The length unit a NASTRAN source is written in (default METER).
 
     Returns
     -------
@@ -97,7 +108,12 @@ def prepare_to_refine(
     """
     source = Path(mesh)
     aft = _obj.aft_direction(aft, str(source))
-    obj = _obj.read_obj(source)
+    cuts: frozenset[tuple[int, int]] | None = None
+    if _nastran.is_nastran(source):
+        read = _nastran.read_nastran(source, unit=unit, obj_unit=obj_unit)
+        obj, cuts = read.mesh, (read.perimeter or None)
+    else:
+        obj = _obj.read_obj(source)
     stem = source.stem + PATCHES_SUFFIX
     targets = [
         source.with_name(f"{stem}.obj"),
@@ -115,7 +131,10 @@ def prepare_to_refine(
     kinds: dict[str, str] = {}
     patches: dict[str, list[str]] = {}
     for name, faces in obj.families.items():
-        found = sorted(_patches(obj.verts, faces), key=lambda p: -_extent_y(obj.verts, faces, p[1]))
+        split = (
+            _patches(obj.verts, faces) if cuts is None else _macro_patches(obj.verts, faces, cuts)
+        )
+        found = sorted(split, key=lambda p: -_extent_y(obj.verts, faces, p[1]))
         patches[name] = []
         for number, (kind, members) in enumerate(found, start=1):
             patch = f"{name}_{number:03d}_{kind}"
@@ -147,6 +166,20 @@ def _patches(verts: Points, faces: Faces) -> list[tuple[str, list[int]]]:
     rest = set(range(len(faces))) - taken
     for piece in _joined(rest, holders, sharp, rest):
         out.append(("mixed", piece))
+    return out
+
+
+def _macro_patches(
+    verts: Points, faces: Faces, cuts: frozenset[tuple[int, int]]
+) -> list[tuple[str, list[int]]]:
+    """Return a family's patches cut along the given edges; a grid where one is recovered."""
+    holders = _geometry.edge_faces(faces)
+    every = set(range(len(faces)))
+    out: list[tuple[str, list[int]]] = []
+    for piece in _joined(every, holders, set(cuts), every):
+        quads = all(len(faces[i]) == 4 for i in piece)
+        grid = quads and len(piece) >= GRID_MIN_FACES and _is_grid(verts, [faces[i] for i in piece])
+        out.append(("grid" if grid else "mixed", piece))
     return out
 
 
