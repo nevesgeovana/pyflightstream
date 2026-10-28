@@ -221,7 +221,7 @@ record, and moves the outputs into place:
 With `outputs = ["obj"]` the folder holds `<name>.obj`, its `.obj.boundaries.toml` and its
 trailing-edge points file `<name>.te.txt` instead of the saved simulation; with
 both outputs the mesh is a geometry of its own, `<name>_obj/`. `--png` also
-draws `<name>.preview.png` (the `plot` extra).
+draws `<name>.preview.png`.
 
 Existing partial and mesh sibling folders must carry a build ownership record
 for this instruction. A retry preserves an owned partial folder as
@@ -377,8 +377,8 @@ The first command prints the validated export script and destination without
 running the solver or writing files. The second opens the saved simulation,
 exports all surfaces, and closes the solver without solving. It writes
 `inputs/geometries/wing/wing.surface.stl`, in the simulation's units and
-reference frame, where the probe gate already looks. The geometry extra is
-needed for containment queries, not for this export.
+reference frame, where the probe gate already looks. Containment queries
+need a closed surface; the export does not.
 
 `--build` overrides `fs_build` in the saved body's sibling geometry instruction;
 without that instruction, supply `--build`. Executable lookup uses

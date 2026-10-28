@@ -1,6 +1,6 @@
 """The structured grid of a family, recovered and resampled.
 
-(FR-915, FR-920, FR-921, FR-923, FR-924).
+(FR-915, FR-920, FR-921, FR-923).
 
 A GRID FAMILY is recovered from the connectivity alone, never from the vertex
 order of the file: quadrilaterals, or quadrilaterals each split into two
@@ -30,7 +30,7 @@ The surface the orchestrator calls:
   trailing-edge mid-points and the per-family report.
 - :func:`not_a_knot` is the cubic spline the resampling uses, and
   :func:`periodic` the closed one of a smooth tube's sections, both written
-  with numpy alone: this module imports neither scipy nor rtree (FR-924).
+  with numpy alone: this module imports neither scipy nor rtree.
 
 Resampling (FR-920) is a cubic spline in INDEX space, so the clustering of the
 source is kept and only the counts change: ``round(f m)`` intervals per index
@@ -934,40 +934,6 @@ def least_factors(grid: Grid, chordwise: float, spanwise: float) -> tuple[float,
         else:
             chordwise = max(chordwise, 3.0 / grid.intervals[0])
     return chordwise, spanwise
-
-
-def curve_changes(
-    grid: Grid,
-    edges: Iterable[Edge],
-    *,
-    chordwise: float,
-    spanwise: float,
-) -> bool:
-    """Return whether resampling would change the nodes of a curve of the grid's boundary.
-
-    Read from the counts alone, before any family is resampled (FR-424
-    FR-925): a boundary edge along a station keeps its nodes when the
-    chordwise parameters are the source's integers, and an edge along a
-    column when the spanwise ones are; an edge the grid does not place is
-    taken to change. The orchestrator plans the band of an unchanged
-    neighbour with it (FR-934), so its extra is checked first (FR-924).
-    """
-    k, n = grid.ids.shape
-    s, _ = _chordwise_params(grid, chordwise)
-    t = _spanwise_params(k, spanwise)
-    chord = not (len(s) == n and numpy.array_equal(s, numpy.arange(n)))
-    span = not (len(t) == k and numpy.array_equal(t, numpy.arange(k)))
-    place = {int(v): (r, c) for (r, c), v in numpy.ndenumerate(grid.ids)}
-    for a, b in edges:
-        pa, pb = place.get(a), place.get(b)
-        if pa is None or pb is None:
-            return chord or span
-        along_station, along_column = pa[0] == pb[0], pa[1] == pb[1]
-        if (along_station and chord) or (along_column and span):
-            return True
-        if not along_station and not along_column:
-            return chord or span
-    return False
 
 
 # ------------------------------------------------------------- the resampling

@@ -28,11 +28,9 @@ projected onto the source surface as above, curve, fixed and corner nodes
 held, and a move that would break a face is undone. A family in the default
 mode, ``"triangles"``, is returned exactly as the remesh ends.
 
-The projection onto the source surface searches a spatial index that ships
-with the geometry extra, so every import of trimesh, scipy and rtree here is
-deferred: a refinement of grid families alone imports none of them
-(FR-924). :func:`require_geometry_extra` is the check an orchestrator
-calls before any family is resampled.
+The projection onto the source surface searches a spatial index (scipy and
+rtree, through trimesh), and every import of trimesh, scipy and rtree here is
+deferred: a refinement of grid families alone imports none of them.
 
 Two sections live in their own modules below this one, and every name of
 theirs that other modules read is imported here, so each import path of this
@@ -43,7 +41,6 @@ triangles into quadrilaterals, and the element report).
 
 from __future__ import annotations
 
-import importlib
 import math
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
@@ -51,7 +48,6 @@ from typing import Any, NamedTuple
 
 import numpy
 
-from pyflightstream.extras import MissingExtraError, missing_extra
 from pyflightstream.workspace._refine._config import QUAD_DOMINANT, TRIANGLES
 from pyflightstream.workspace._refine._geometry import (
     QUAD_ANGLE_BAND,
@@ -130,57 +126,6 @@ SMOOTH_PASSES = 3
 SMOOTH_COSINE = 0.9
 #: A grid node this close to an interface node (a fraction of the interface's size) keeps it.
 CONFORM_FRACTION = 1e-6
-#: What the geometry extra supplies to a remesh, for the refusal of FR-924.
-SPATIAL_INDEX = "scipy and rtree, the spatial index the projection onto the source surface searches"
-#: The modules whose absence refuses a remesh (FR-924).
-INDEX_MODULES = ("scipy.spatial", "rtree")
-
-
-def geometry_extra_refusal(names: Sequence[str]) -> MissingExtraError:
-    """Return the refusal of a remesh without the geometry extra (FR-924, FR-925).
-
-    Parameters
-    ----------
-    names : sequence of str
-        The families the refinement would remesh.
-
-    Returns
-    -------
-    MissingExtraError
-        Naming the families and ``pip install pyflightstream[geom]``, its
-        message ending "Nothing was written.".
-    """
-    noun = "family" if len(names) == 1 else "families"
-    error = missing_extra(
-        "geom", package=SPATIAL_INDEX, purpose=f"Remeshing the {noun} {', '.join(names)}"
-    )
-    # ImportError prints its ``msg`` attribute, not ``args``: both carry the ending of FR-925.
-    error.msg = f"{error.args[0]}. Nothing was written."
-    error.args = (error.msg,)
-    return error
-
-
-def require_geometry_extra(families: Iterable[str]) -> None:
-    """Refuse a remesh, before any work, when the geometry extra is missing (FR-924).
-
-    Parameters
-    ----------
-    families : iterable of str
-        The families the refinement would remesh; none means no check.
-
-    Raises
-    ------
-    MissingExtraError
-        When scipy or rtree cannot be imported.
-    """
-    names = list(families)
-    if not names:
-        return
-    try:
-        for module in INDEX_MODULES:
-            importlib.import_module(module)
-    except ImportError as error:
-        raise geometry_extra_refusal(names) from error
 
 
 def _keeps_direction(n0: Points, n1: Points, cosine: float) -> bool:
@@ -974,12 +919,7 @@ def refine_group(
     Remeshed
         The points, the faces per family, the trailing-edge mid-points and the info.
 
-    Raises
-    ------
-    MissingExtraError
-        When the geometry extra is missing, before any work (FR-924).
     """
-    require_geometry_extra(names)
     factors = dict(factor) if isinstance(factor, Mapping) else {n: float(factor) for n in names}
     group = _group(mesh, names)
     local = {v: i for i, v in enumerate(group.ids)}

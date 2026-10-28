@@ -29,7 +29,7 @@ states `ratio` and `cluster`. An optional grid `refinement` table states
 
 Declared points inside a closed body warn and remain in the survey. Added
 refinement points inside the body are refused. Refinement needs a readable
-surface mesh and the geometry extra. An open mesh cannot establish inside
+surface mesh. An open mesh cannot establish inside
 versus outside and produces an explicit unchecked warning for declared points.
 
 For a saved `wing.fsm`, export `wing.surface.stl` beside it on the licensed

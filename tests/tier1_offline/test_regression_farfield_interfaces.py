@@ -151,7 +151,6 @@ def test_p0450_rel1_farfield_overview_names_entries(case):
 
 @pytest.mark.parametrize("case", ["P0450-TW-01"])
 def test_p0450_rel1_inside_body_remedy_names_entry(tmp_path, case):
-    pytest.importorskip("rtree")
     entry = {
         "variant": "power",
         "rotor": "ROTOR",
@@ -822,7 +821,6 @@ class TestFarfieldPlan:
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_an_added_point_inside_the_body_is_refused(tmp_path):
         """P0400-FFPLAN (FR-1050): a lattice station inside the box is refused, naming the remedy."""  # noqa: E501
-        pytest.importorskip("rtree")
         farfield = [
             {
                 "variant": "power",

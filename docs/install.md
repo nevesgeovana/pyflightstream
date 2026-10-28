@@ -51,9 +51,9 @@ preserve those notices when redistributing them.
 | PyYAML | 6.0.3 | MIT |
 | trimesh | 4.12.2 and 5.0.0 | MIT |
 | PyNiteFEA (`fsi`) | 3.0.0 | MIT |
-| scipy (`geom`) | 1.18.0 | BSD-3-Clause |
-| rtree (`geom`) | 1.4.1 | MIT |
-| matplotlib (`plot`) | 3.11.1 | Matplotlib License, derived from the PSF license |
+| scipy | 1.18.0 | BSD-3-Clause |
+| rtree | 1.4.1 | MIT |
+| matplotlib | 3.11.1 | Matplotlib License, derived from the PSF license |
 | pypdf (`manual`) | 6.14.2 | BSD-3-Clause |
 | XlsxWriter (`excel`) | 3.2.9 | BSD-2-Clause |
 

@@ -757,7 +757,7 @@ FR-920,l3,FR-424,,tests/requirements_l3.csv
 FR-921,kept,,FR-1490 FR-1491,docs/unpublished/requirements/spcm.md
 FR-922,l3,FR-424,FR-1492 FR-1493 FR-1494 FR-1495,tests/requirements_l3.csv
 FR-923,l3,FR-424,FR-1623,tests/requirements_l3.csv
-FR-924,l3,FR-424,FR-1496,tests/requirements_l3.csv
+FR-924,retired,,,docs/unpublished/requirements/retired.md
 FR-925,l3,FR-424,,tests/requirements_l3.csv
 FR-926,kept,,,docs/unpublished/requirements/spcm.md
 FR-927,l3,FR-918,,tests/requirements_l3.csv

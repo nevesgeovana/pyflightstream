@@ -10,7 +10,7 @@ source only G1, G2 and G4 are judged and the rest is reported (FR-941).
 HOW IT MEASURES. Every measure is computed once on all the faces of a mesh
 and read per family through the family of each face; an edge belongs to a
 family when both its faces do. The audit needs numpy alone and imports
-nothing of the refinement modules (FR-924, FR-928), so it judges a level
+nothing of the refinement modules (FR-928), so it judges a level
 without them.
 
 WHAT IT WRITES. ``<stem>.audit.json`` beside the mesh audited (a level's

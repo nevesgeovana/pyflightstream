@@ -168,9 +168,7 @@ def add_geometry_commands(subparsers: Any) -> None:
     build.add_argument(
         "--fs-exe", dest="fs_exe", metavar="PATH", help="the executable, over the registry"
     )
-    build.add_argument(
-        "--png", action="store_true", help="also draw <name>.preview.png (the plot extra)"
-    )
+    build.add_argument("--png", action="store_true", help="also draw <name>.preview.png")
     build.add_argument(
         "--overwrite",
         action="store_true",
@@ -380,7 +378,7 @@ def _add_visual_inspect(verbs: Any) -> None:
             "drawing (one scale, aligned, a scale bar), one color per patch from --cmap, each "
             "patch's perimeter in a thick line, the node lists and trailing-edge points files "
             "over the surface, and a table of each patch's faces and marked points. MESH is an "
-            "OBJ or a NASTRAN export. Needs the plot extra."
+            "OBJ or a NASTRAN export."
         ),
     )
     inspect.add_argument("mesh", metavar="MESH", help="the OBJ or NASTRAN mesh")
@@ -529,7 +527,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
         if not args.apply:
             print("preview only: nothing was run and nothing was written; add --apply to build")
             return 0
-        refuse_before_running(plan, overwrite=args.overwrite, png=args.png)
+        refuse_before_running(plan, overwrite=args.overwrite)
         executable = (
             Path(args.fs_exe)
             if args.fs_exe

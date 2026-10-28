@@ -287,7 +287,7 @@ _REFINE_DESCRIPTION = (
     "file (--config, or <stem>.refine.toml beside the mesh), whose [components], "
     "[refine] tag and elements (triangles or quad-dominant) are read whenever it exists. "
     "Faces are written in the source's order. The "
-    "source and its folder are never modified. Remeshing a family needs the geom extra. Needs "
+    "source and its folder are never modified. Needs "
     "no executable. Exits 0 when the level is written, even when its audit fails: each failed "
     "gate or check is a warning and the audit is written beside the level, while audit-mesh "
     "exits 1 on the same audit. Exits 2 when the request is refused, and then writes nothing."

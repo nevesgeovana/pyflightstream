@@ -29,8 +29,7 @@ import numpy as np
 import pytest
 
 # scipy is a TEST oracle and one CI leg does not install it.
-Rotation = pytest.importorskip("scipy.spatial.transform").Rotation
-
+from scipy.spatial.transform import Rotation
 
 from pyflightstream.post.polar import group_polar_rows  # noqa: E402
 from pyflightstream.post.products import PolarPoint, group_coefficients, polar_row  # noqa: E402

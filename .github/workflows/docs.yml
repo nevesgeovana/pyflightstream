@@ -41,7 +41,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom,plot]
+        run: pip install -e .[dev,fsi]
       - name: Install guide typesetter
         run: sudo apt-get update && sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended texlive-science cm-super
       - name: Build downloadable guides

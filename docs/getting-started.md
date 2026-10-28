@@ -66,13 +66,14 @@ Optional extras, each gating one subsystem:
 |---|---|
 | `[fsi]` | The aeroelastic coupling loop (PyNiteFEA). Generating a blade's structural properties from its sections and a material (`pyflightstream.fsi.sections`) does not need it |
 | `[manual]` | Reading a vendor manual pdf for `pyfs-manual` (pypdf); maintainer tooling, no run path imports it |
-| `[geom]` | The spatial index behind containment culling for probe lattices (rtree, scipy). The mesh reader, trimesh, is NOT here: it is a runtime dependency because the trailing-edge extraction that reads a blade surface through it is on the default path of a rotor campaign |
-| `[plot]` | matplotlib, for the plotting examples only |
 | `[excel]` | Optional macro-free matrix workbook |
+
+The base install includes matplotlib (figures), rtree and scipy (the spatial index
+behind containment culling for probe lattices), and trimesh (the mesh reader).
 
 Reach one without installing it and you get a single typed refusal
 carrying the exact install command, quoted so that a shell which expands
-brackets runs it as typed (`pip install "pyflightstream[geom]"`):
+brackets runs it as typed (`pip install "pyflightstream[fsi]"`):
 
 ```python
 >>> from pyflightstream.exceptions import MissingExtraError

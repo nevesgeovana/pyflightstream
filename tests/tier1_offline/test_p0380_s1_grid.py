@@ -14,15 +14,9 @@ is read from the file's vertex order.
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
-from pathlib import Path
-
 import numpy as np
 import pytest
 
-import pyflightstream
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.workspace._refine._geometry import GRID_SURFACE_DISTANCE
 from pyflightstream.workspace._refine._grid import (
@@ -475,41 +469,6 @@ def test_a_sheet_with_no_trailing_edge_has_four_boundary_sides_one_of_them_a_gri
     assert not isinstance(recover_grid(sheet.verts, sheet.faces, longest), str)
 
 
-def test_the_grid_runs_with_scipy_and_rtree_unimportable():
-    """P0380-REFINE (FR-924): the grid module imports neither scipy nor rtree.
-
-    A fresh interpreter makes both unimportable before importing the module,
-    then recovers and refines a grid and finds neither loaded.
-    """
-    script = "\n".join(
-        [
-            "import sys",
-            "sys.modules['scipy'] = None",
-            "sys.modules['rtree'] = None",
-            "import numpy as np",
-            "from pyflightstream.workspace._refine._grid import recover_grid, refine_grid",
-            "k, n = 5, 7",
-            "u, v = np.meshgrid(np.arange(n) / (n - 1), np.arange(k) / (k - 1))",
-            "pts = np.stack([1 - u, 2 * v, 0.1 * u * (1 - u)], axis=-1).reshape(-1, 3)",
-            "g = np.arange(k * n).reshape(k, n)",
-            "faces = [[int(g[a, b]), int(g[a, b + 1]), int(g[a + 1, b + 1]), int(g[a + 1, b])]",
-            "         for a in range(k - 1) for b in range(n - 1)]",
-            "grid = recover_grid(pts, faces, set(g[:, 0].tolist()))",
-            "level = refine_grid(pts, faces, grid, chordwise=2.0, spanwise=2.0)",
-            "print(len(level.faces))",
-        ]
-    )
-    src = str(Path(pyflightstream.__file__).resolve().parents[1])
-    env = dict(os.environ, PYTHONPATH=src + os.pathsep + os.environ.get("PYTHONPATH", ""))
-    done = subprocess.run(
-        [sys.executable, "-c", script], capture_output=True, text=True, env=env, timeout=120
-    )
-    # A module set to None in sys.modules makes any import of it raise, so a clean exit IS
-    # the proof; a "loaded" list filtered to non-None entries was always empty (PFS-2135.022).
-    assert done.returncode == 0, done.stderr
-    assert done.stdout.split() == ["96"]
-
-
 def test_the_spline_reproduces_a_cubic_and_keeps_its_knots():
     """P0380-REFINE (FR-920): the index-space spline is exact on a cubic and at the knots.
 
@@ -532,12 +491,13 @@ def test_the_spline_reproduces_a_cubic_and_keeps_its_knots():
 
 
 def test_the_spline_equals_scipys_not_a_knot_where_scipy_is_installed():
-    """P0380-REFINE (FR-920, FR-924): the numpy spline is scipy's not-a-knot to 1e-12.
+    """P0380-REFINE (FR-920): the numpy spline is scipy's not-a-knot to 1e-12.
 
-    Runs only where scipy is installed (the geometry extra); the module itself
+    Needs scipy for its control; the module itself
     never imports it. Control: scipy's natural spline differs.
     """
-    interpolate = pytest.importorskip("scipy.interpolate")
+    from scipy import interpolate
+
     rng = np.random.default_rng(7)
     for m in (3, 4, 5, 8, 33, 200):
         y = rng.normal(size=(m + 1, 2, 3)) * 10

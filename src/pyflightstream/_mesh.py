@@ -16,23 +16,14 @@ workspace layer eagerly, and a reader that costs 3.89 MiB and pulls its
 own numpy machinery has no business being paid for by a user who only
 wanted to build a script.
 
-WHAT HAPPENS WHEN IT IS ABSENT. Trimesh is a
-declared runtime dependency exactly as numpy, pandas and pydantic
-are, and none of those is guarded anywhere in this package: an
-environment missing one is an incomplete install, and the interpreter's
-own ``ModuleNotFoundError``, naming the module and nothing else, is the
-same answer every other runtime dependency gives. Printing
-``pip install pyflightstream[geom]`` here would now send a reader to an
-extra that no longer carries the reader at all, which is the failure
-mode :mod:`pyflightstream.extras` was built to make impossible.
-
-WHAT IS STILL AN EXTRA, so the two are not confused: the SPATIAL INDEX
-(``scipy`` and ``rtree``), which trimesh's containment and
-distance-to-surface queries go through. That is what ``[geom]`` installs
-now, and what
-:class:`~pyflightstream.probes.geometry.GeometryEngineMissingError`
-refuses on. Reading vertices and faces needs none of it, which is why
-the trailing-edge extraction runs on a base install.
+WHAT HAPPENS WHEN IT IS ABSENT. Trimesh is a declared runtime dependency
+exactly as numpy and pydantic are, and none of those is guarded anywhere in
+this package: an environment missing one is an incomplete install, and the
+interpreter's own ``ModuleNotFoundError``, naming the module and nothing
+else, is the same answer every other runtime dependency gives. The same
+holds for the SPATIAL INDEX (``scipy`` and ``rtree``) that trimesh's
+containment and distance-to-surface queries go through: both are runtime
+dependencies too.
 """
 
 from __future__ import annotations

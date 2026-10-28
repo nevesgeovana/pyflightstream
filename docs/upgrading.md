@@ -7,6 +7,23 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.49.0
+
+matplotlib, rtree and scipy come with the base install, so the `plot` and `geom`
+extras no longer exist.
+
+- Drop `plot` and `geom` from your install lines: `pip install
+  "pyflightstream[dev,fsi]"` replaces `pip install
+  "pyflightstream[dev,plot,geom,fsi]"`. An old line that still names them
+  installs the package, and pip prints a warning that the extra does not exist.
+- `--png` of `geometry build`, `geometry visual-inspect`, the probe geometry
+  gate and the remesh of a refinement run on the base install; none refuses
+  for a missing extra any more.
+- `pyflightstream.probes.geometry.GeometryEngineMissingError` and
+  `pyflightstream.exceptions.GeometryEngineMissingError` are removed: nothing
+  raises them. `refuse_before_running` of the geometry build no longer takes
+  `png`.
+
 ## 0.48.0
 
 The refinement is described by a reference perimeter and two factors along and
@@ -726,7 +743,7 @@ Run `pyfs-matrix post` to rebuild products from recorded solver exports.
 - Use `pyfs-workspace archive SIM_ID --workspace ROOT`; positional `archive ROOT SIM_ID` remains available with a deprecation warning.
 - Convert in-row CCS, IGES or STL geometry and sidecar scale, rename or mirror operations with `pyfs-workspace geometry from-sidecar <file> --apply`, then build the folder and name its FSM or OBJ in `GEOMETRY`; these routes warn now and are refused in 0.41.0.
 - Move `CCS_SHEDDING` to `shedding` in the instruction's `[ccs]` table; changing the row to the built body changes its input set and runs its points again.
-- Install `pyflightstream[plot]` for `--png`; a request without matplotlib raises `MissingExtraError`.
+- `--png` draws with matplotlib, which the base install includes.
 - Matrix selection precedes build and artifact resolution, so excluded rows no longer refuse a missing default build or change the selected run's `HIDDEN` mode.
 - Run, post, collect and regeneration overwrite products without archiving by default; use `collect --archive` or `delete-sims --archive` to preserve replaced products.
 - Continued per-step exports record predecessor `step_offset` and local `first_step`; `LAST` and `AFTER` use the continued counter and refuse already-run spans or unprovable predecessor counts.

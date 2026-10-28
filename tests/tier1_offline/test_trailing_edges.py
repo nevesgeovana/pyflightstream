@@ -342,7 +342,7 @@ def test_the_reader_arrives_with_the_package_alone():
     """PFS-2025.20.02: trimesh is a RUNTIME dependency, in no extra.
 
     Both halves, because either alone is satisfiable by a wrong change:
-    a dependency line that stayed in `[geom]` would pass the first, and
+    a dependency line that stayed in an extra would pass the first, and
     a reader named in both places would pass the second.
     """
     import tomllib

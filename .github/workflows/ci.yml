@@ -53,7 +53,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom,excel]
+        run: pip install -e .[dev,fsi,excel]
       - name: Lint
         run: ruff check .
       - name: Format check
@@ -105,7 +105,7 @@ jobs:
     # assertion again. A guard nothing executes is not weaker evidence
     # than a red test, it is no evidence.
     #
-    # The four test legs above deliberately stay at [dev,fsi,geom,excel], which
+    # The four test legs above deliberately stay at [dev,fsi,excel], which
     # is NARROWER than this one and is the point of keeping them
     # separate: widening them would delete that measurement to buy this
     # one.
@@ -113,7 +113,7 @@ jobs:
     # THIS COMMENT USED TO CLAIM THOSE FOUR LEGS PROBED THE PACKAGE
     # WITHOUT THE OPTIONAL EXTRAS, and they install two of them, so the
     # claim was false on its own file (corrected 2026-08-19, DD-27
-    # section 5). What they measure is that [manual] and [plot] are not
+    # section 5). What they measure is that [manual] and [pandas] are not
     # needed. The leg that really installs no user-facing extra is
     # `test-lean` below, and it was added in the same commit as this
     # correction rather than left as a sentence describing a job that
@@ -121,7 +121,7 @@ jobs:
     #
     # tests/tier1_offline/test_extras_isolation.py derives its forbidden set from the
     # INTERSECTION of every install line, so this richer leg does not
-    # weaken it: pypdf and matplotlib stay forbidden for the trees the
+    # weaken it: pypdf and pandas stay forbidden for the trees the
     # other legs run.
     runs-on: ubuntu-latest
     steps:
@@ -132,7 +132,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with every declared extra
-        run: pip install -e .[dev,fsi,geom,excel,manual,plot,pandas]
+        run: pip install -e .[dev,fsi,excel,manual,pandas]
       - name: Tier 1 with nothing skipped for a missing extra
         # Zero skips is NOT asserted here: some tests skip for reasons
         # that have nothing to do with extras (a licensed solver, an
@@ -147,7 +147,8 @@ jobs:
     # base install must be able to do it end to end; if trimesh ever slid
     # back behind an extra, this job is what goes red, and it goes red at
     # the import rather than skipping quietly, which is the failure mode
-    # That gap cost a release.
+    # That gap cost a release. The base install also carries matplotlib,
+    # rtree and scipy, so the geometry gate and the figures run here too.
     #
     # THE BRACKET IS [dev] AND NOT EMPTY, deliberately, so a reader does
     # not correct it. `dev` is the contributor extra: it gates no runtime
@@ -197,7 +198,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom,excel]
+        run: pip install -e .[dev,fsi,excel]
       - name: Pin numpy and pandas to their declared floors
         run: pip install "numpy==2.2.0" "pandas==2.3.0"
       - name: Say which versions run
@@ -217,7 +218,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom,excel]
+        run: pip install -e .[dev,fsi,excel]
       - name: Type check the package
         run: mypy
 
@@ -229,7 +230,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom,excel]
+        run: pip install -e .[dev,fsi,excel]
       - name: Generate linked Understanding views from the checked-out sources
         # The strict build resolves links into the generated view data, as the
         # docs workflow does (PFS-2143). The data is written with --data-only and

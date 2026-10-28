@@ -799,6 +799,9 @@ class TestFarfieldNumpy:
             "pydantic>=2",
             "pyyaml",
             "trimesh>=4.12,<6",
+            "matplotlib",
+            "rtree",
+            "scipy",
         ]
         assert project["optional-dependencies"]["pandas"] == ["pandas>=2.3"]
 
@@ -1084,34 +1087,6 @@ class TestFarfieldProbes:
         report = points_inside(np.zeros((2, 3)), mesh_path=mesh)
         assert not report.checked and "not watertight" in report.reason
         assert report.count == 0
-
-    @staticmethod
-    @pytest.mark.requirement("FR-459")
-    def test_p0400_probehome_a_missing_spatial_index_is_not_checked(tmp_path):
-        """P0400-PROBEHOME (FR-1074): without the [geom] extra the plan warns, never refuses.
-
-        Run in a fresh interpreter where scipy and rtree cannot be imported, which
-        is the installation without the extra.
-        """
-        mesh = _farfield_probes___box(tmp_path / "box.obj")
-        program = (
-            "import sys\n"
-            "sys.modules['rtree'] = None\n"
-            "sys.modules['scipy'] = None\n"
-            "import numpy as np\n"
-            "from pyflightstream.probes.geometry import points_inside\n"
-            f"report = points_inside(np.zeros((2, 3)), mesh_path={str(mesh)!r})\n"
-            "print(report.checked, report.reason)\n"
-        )
-        done = subprocess.run(
-            [sys.executable, "-c", program],
-            capture_output=True,
-            text=True,
-            env={**os.environ, "PYTHONPATH": str(_FARFIELD_PROBES__REPO / "src")},
-            timeout=300,
-        )
-        assert done.returncode == 0, done.stderr[-2000:]
-        assert done.stdout.startswith("False") and "[geom]" in done.stdout
 
     @staticmethod
     @pytest.mark.requirement("FR-459")

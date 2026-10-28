@@ -119,7 +119,6 @@ def test_nastran_reals_take_the_short_exponent() -> None:
 
 
 def test_visual_inspect_writes_the_pdf_and_counts_the_marked_points(tmp_path: Path) -> None:
-    pytest.importorskip("matplotlib")
     from pyflightstream.workspace._visual_inspect import marked_points, visual_inspect
 
     source = _export(tmp_path / "sheet.nas", wide=False, perimeter=_middle_line())

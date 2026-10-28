@@ -52,10 +52,11 @@ an entry point, a pytest plugin, or ``import_module`` with a computed
 argument.
 
 And the forbidden set is not identical on every leg. Import roots are
-resolved from installed metadata, so ``mpl_toolkits`` and ``pylab`` join
-it only where matplotlib is present. The guard is therefore slightly
-weaker on the lean legs, which are the ones it most protects; the
-degradation is to the bare distribution name rather than to nothing.
+resolved from installed metadata, so an import root that differs from its
+distribution name joins the forbidden set only where that distribution is
+present. The guard is therefore slightly weaker on the lean legs, which are
+the ones it most protects; the degradation is to the bare distribution name
+rather than to nothing.
 """
 
 from __future__ import annotations
@@ -97,7 +98,7 @@ SCAN_PARTITION = (*SCAN_ROOTS, "root", "markdown")
 #: OTHER distributions (pip, build, twine) are deliberately not matched.
 #: The dist alternative must tolerate WHITESPACE, which the first draft
 #: did not: the wheel install reads
-#: `pip install "dist/${{ needs.build.outputs.wheel-name }}[dev,fsi,geom]"`
+#: `pip install "dist/${{ needs.build.outputs.wheel-name }}[dev,fsi,excel]"`
 #: and `\S` cannot cross the spaces inside the template expression. That
 #: line therefore matched nothing, so the derivation silently read seven
 #: of the eight install lines, and the one it dropped belongs to the job
@@ -246,8 +247,8 @@ def unavailable_distributions() -> set[str]:
     extras already name, because an extra whose contents arrive anyway is
     not a trap.
 
-    Does NOT subtract transitive dependencies. matplotlib reaches CI
-    today only because PyNiteFEA requires it, which is a third party's
+    Does NOT subtract transitive dependencies. A distribution that reaches
+    CI only because another package requires it is a third party's
     decision that can change in a point release without a commit here.
 
     Returns
@@ -277,7 +278,7 @@ def forbidden_import_roots() -> set[str]:
     A distribution name is not an import name. This repository already
     owns the counter-example: the ``fsi`` extra installs ``PyNiteFEA``
     and the code writes ``import Pynite``. Comparing import roots against
-    distribution names works today only because pypdf and matplotlib
+    distribution names works today only because pypdf and its import root
     happen to coincide, and would silently stop working the day another
     extra left the guaranteed set.
 
@@ -502,7 +503,7 @@ def test_every_package_install_line_is_captured():
     The first version of this file asserted only that the set was
     non-empty, which ci.yml alone satisfies, and its matcher could not
     cross the whitespace inside `${{ ... }}`. So the release job's wheel
-    install, a real CI environment lacking pypdf and matplotlib, was
+    install, a real CI environment lacking pypdf and pandas, was
     invisible to the derivation: narrowing its bracket would not have
     moved the guaranteed set and nothing would have gone red. An install
     line the derivation cannot see makes its claim false in the
@@ -638,7 +639,7 @@ def test_the_import_root_mapping_resolves_a_renamed_distribution(monkeypatch):
 
     The ``fsi`` extra installs PyNiteFEA and the code writes
     ``import Pynite``. Comparing import roots against distribution names
-    works today only because pypdf and matplotlib coincide, and would
+    works today only because pypdf and its import root coincide, and would
     stop working silently the day another extra left the guaranteed set.
 
     Drives ``forbidden_import_roots`` itself rather than asserting that

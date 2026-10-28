@@ -13,7 +13,6 @@ gives each patch's faces and marked points (a point lies on a patch within a
 quarter of the local edge length of one of its vertices or edge mid-points).
 
 Pages: the four views with the table, each view on its own page, the patch list.
-Needs the plot extra (``pip install "pyflightstream[plot]"``).
 """
 
 from __future__ import annotations
@@ -964,18 +963,12 @@ def visual_inspect(
     ------
     InspectError
         (an InputArtifactError) The mesh cannot be read, the PDF exists without
-        ``overwrite``, or matplotlib is not installed.
+        ``overwrite``.
     """
     source = Path(mesh)
     target = Path(out) if out is not None else source.with_name(source.stem + ".inspect.pdf")
     if target.exists() and not overwrite:
         raise InspectError(f"{target}: exists; pass overwrite (CLI: --overwrite) to replace it")
-    try:
-        import matplotlib  # noqa: F401
-    except ImportError as error:
-        raise InspectError(
-            'visual-inspect needs matplotlib: pip install "pyflightstream[plot]"'
-        ) from error
     drawn = _read_mesh(source, mesh_unit, nastran_unit)
     unit = mesh_unit or ("METER" if drawn.path.suffix.lower() != ".obj" else None)
     points = [read_node_list(Path(p)) for p in nodes]

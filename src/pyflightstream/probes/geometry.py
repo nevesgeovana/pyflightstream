@@ -11,20 +11,14 @@ no probe is dropped or added silently.
 
 The containment and distance queries come from trimesh (public library
 per the engineering policy), which reaches them through a SPATIAL INDEX:
-scipy's kd-tree and rtree's bounds tree. Those two are what
-``pip install pyflightstream[geom]`` installs and what this module's
-refusal is about (license evidence reports/RPT-003). The reader itself
-is a runtime dependency, so its absence is a broken installation
-rather than a missing extra. Its accessor lives in
-:mod:`pyflightstream._mesh`. A missing spatial index is remedied by
-installing the geometry extra. This module never runs the solver: it consumes a mesh file that
-already exists.
+scipy's kd-tree and rtree's bounds tree. Both are runtime dependencies
+(license evidence reports/RPT-003), as is the reader itself, whose
+accessor lives in :mod:`pyflightstream._mesh`. This module never runs the
+solver: it consumes a mesh file that already exists.
 """
 
 from __future__ import annotations
 
-import contextlib
-from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -32,7 +26,6 @@ import numpy as np
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._mesh import read_mesh
-from pyflightstream.extras import MissingExtraError
 from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.planar import (
     GeometryGateReport,
@@ -41,34 +34,12 @@ from pyflightstream.probes.planar import (
 )
 
 __all__ = [
-    "GeometryEngineMissingError",
     "InsideReport",
     "OpenMeshError",
     "load_surface_mesh",
     "apply_geometry_gate",
     "points_inside",
 ]
-
-
-class GeometryEngineMissingError(MissingExtraError):
-    """The optional SPATIAL INDEX is not installed.
-
-    Point-in-body containment and distance-to-surface queries are ray
-    and nearest-neighbour searches over the mesh, and trimesh runs them
-    through scipy's kd-tree and rtree's bounds tree. Those two are the
-    ``[geom]`` extra; the plain installation leaves the grids fully
-    usable without culling.
-
-    This refusal identifies a missing spatial index, not a missing mesh
-    reader. trimesh is a runtime dependency; scipy and rtree are optional
-    and supplied by the geometry extra.
-
-    A subclass of :class:`~pyflightstream.extras.MissingExtraError`
-    so callers can catch either ``MissingExtraError`` or
-    ``GeometryEngineMissingError``. The specific name identifies an extra whose
-    absence is RECOVERABLE: the grids stay usable without culling, so a
-    caller has a reason to single it out (PYFS-025).
-    """
 
 
 class OpenMeshError(PyflightstreamError, ValueError):
@@ -79,46 +50,6 @@ class OpenMeshError(PyflightstreamError, ValueError):
     test would return arbitrary answers, so the gate refuses instead
     of guessing.
     """
-
-
-#: What the ``[geom]`` extra actually installs, named once so the two
-#: refusal sites cannot drift into naming different things. It is the
-#: index, not the reader: see :class:`GeometryEngineMissingError`.
-_SPATIAL_INDEX = "scipy and rtree, the spatial index trimesh searches through"
-
-
-@contextlib.contextmanager
-def _spatial_index(purpose: str) -> Iterator[None]:
-    """Turn a missing spatial index into the didactic refusal.
-
-    The guard is around the CALL rather than around an import, and that
-    is not a style choice. trimesh imports scipy and rtree defensively
-    and substitutes a placeholder that re-raises the original
-    ``ImportError`` at the moment it is USED, so an import-time try
-    would catch nothing and the reader would meet the bare
-    ``ImportError`` the didactic refusal exists to replace. The original
-    is chained, so a failure that is not a missing distribution stays
-    diagnosable.
-
-    Parameters
-    ----------
-    purpose : str
-        What the caller was doing, as a sentence subject, for the
-        refusal text.
-
-    Yields
-    ------
-    None
-        The guarded block runs unchanged when the index is present.
-    """
-    try:
-        yield
-    except ImportError as error:
-        raise GeometryEngineMissingError(
-            extra="geom",
-            package=_SPATIAL_INDEX,
-            purpose=purpose,
-        ) from error
 
 
 def load_surface_mesh(path: str | Path, *, require_watertight: bool = True):
@@ -147,10 +78,9 @@ def load_surface_mesh(path: str | Path, *, require_watertight: bool = True):
 
     Notes
     -----
-    Reading a mesh needs no optional extra: it is the reader alone, and
-    the reader is a runtime dependency (:mod:`pyflightstream._mesh`).
-    :class:`GeometryEngineMissingError` belongs to containment and
-    distance queries, which need the optional spatial index.
+    Reading a mesh is the reader alone (:mod:`pyflightstream._mesh`).
+    Containment and distance queries run through the spatial index
+    (scipy and rtree) that trimesh searches.
     """
     mesh = read_mesh(path)
     if require_watertight:
@@ -185,31 +115,15 @@ def _fine_axis(values: np.ndarray, factor: int) -> np.ndarray:
 
 
 def _surface_distance(mesh, points: np.ndarray) -> np.ndarray:
-    # The mesh reader is installed, but spatial queries need the optional
-    # index dependencies. Guard both import and call so either failure
-    # produces the extra-install remedy.
-    with _spatial_index(
-        "the distance-to-surface query behind the geometry gate's "
-        "clearance band (or run the grid without culling)"
-    ):
-        from trimesh.proximity import ProximityQuery
+    from trimesh.proximity import ProximityQuery
 
-        _, distance, _ = ProximityQuery(mesh).on_surface(points)
+    _, distance, _ = ProximityQuery(mesh).on_surface(points)
     return np.asarray(distance)
 
 
 def _inside(mesh, points: np.ndarray) -> np.ndarray:
-    """Point-in-body test, with the same refusal the distance query has.
-
-    trimesh implements contains by ray casting against an rtree bounds
-    tree. Containment therefore needs the spatial-index extra even when
-    the mesh reader is installed. Translate its missing dependency into
-    the shared extra refusal at the apply_geometry_gate boundary.
-    """
-    with _spatial_index(
-        "the point-in-body containment test of the geometry gate (or run the grid without culling)"
-    ):
-        return np.asarray(mesh.contains(points), dtype=bool)
+    """Point-in-body test: trimesh casts rays against an rtree bounds tree."""
+    return np.asarray(mesh.contains(points), dtype=bool)
 
 
 def apply_geometry_gate(
@@ -447,12 +361,12 @@ class InsideReport:
 
 
 def points_inside(points: np.ndarray, *, mesh_path: str | Path) -> InsideReport:
-    """Test probe points against the body, never refusing for a missing tool (FR-1074).
+    """Test probe points against the body, never refusing (FR-1074).
 
     The containment of the geometry gate, run on any probe points. Where it
-    cannot run, because the ``[geom]`` spatial index is absent or the mesh is
-    not watertight, the report says so and flags nothing: a caller warns that
-    the points were not checked and goes on.
+    cannot run, because the mesh is not watertight, the report says so and
+    flags nothing: a caller warns that the points were not checked and goes
+    on.
 
     Parameters
     ----------
@@ -486,8 +400,4 @@ def points_inside(points: np.ndarray, *, mesh_path: str | Path) -> InsideReport:
         return InsideReport(False, f"the mesh {Path(mesh_path).name} is not watertight", unchecked)
     if len(array) == 0:
         return InsideReport(True, None, unchecked)
-    try:
-        inside = _inside(mesh, array)
-    except GeometryEngineMissingError:
-        return InsideReport(False, "the [geom] extra (scipy and rtree) is not installed", unchecked)
-    return InsideReport(True, None, inside)
+    return InsideReport(True, None, _inside(mesh, array))

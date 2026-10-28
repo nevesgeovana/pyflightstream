@@ -6,13 +6,13 @@ claims traceable to evidence, and preserve the clean-room license boundary.
 ## Setup and checks
 
 ```text
-pip install -e ".[dev,fsi,geom]"
+pip install -e ".[dev,fsi]"
 pre-commit install
 pytest
 ```
 
-The fsi and geom extras are needed for the complete offline suite. Add manual
-when changing manual-reading tools and plot when running plotting examples.
+The fsi extra is needed for the complete offline suite. Add manual
+when changing manual-reading tools.
 Guard optional imports at the operation that needs them. [Test tiers](https://nevesgeovana.github.io/pyflightstream/tiers/)
 explains what offline and licensed tests establish.
 

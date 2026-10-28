@@ -14,17 +14,13 @@ from pyflightstream._errors import PyflightstreamError
 __all__ = ["EXTRAS", "MissingExtraError", "UnknownExtraError", "missing_extra"]
 
 #: Optional runtime extras, checked against pyproject.toml by test_extras.py.
-#: dev gates no runtime path and is absent. trimesh is a base dependency;
-#: geom supplies scipy and rtree for containment and distance queries.
-#: Reading vertices and faces, including trailing-edge extraction, needs
-#: neither spatial-index dependency.
+#: dev gates no runtime path and is absent. trimesh, matplotlib, rtree and
+#: scipy are base dependencies and have no extra.
 EXTRAS: dict[str, tuple[str, ...]] = {
     "pandas": ("pandas",),
     "excel": ("XlsxWriter",),
     "fsi": ("PyNiteFEA",),
     "manual": ("pypdf",),
-    "geom": ("rtree", "scipy"),
-    "plot": ("matplotlib",),
 }
 
 

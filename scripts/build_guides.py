@@ -1,6 +1,6 @@
 """Build downloadable guides from source into an artifact directory.
 
-Run ``python scripts/build_guides.py`` with pdflatex and the plot extra installed.
+Run ``python scripts/build_guides.py`` with pdflatex and the package installed.
 Sources and figure generation run in a temporary copy; no tracked file is written.
 """
 

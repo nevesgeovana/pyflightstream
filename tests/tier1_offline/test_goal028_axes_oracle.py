@@ -23,8 +23,8 @@ import math
 
 import numpy as np
 import pytest
+import scipy.spatial.transform as scipy_transform
 
-scipy_transform = pytest.importorskip("scipy.spatial.transform")
 Rotation = scipy_transform.Rotation
 
 from pyflightstream.post import axes  # noqa: E402

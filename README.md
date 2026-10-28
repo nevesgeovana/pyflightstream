@@ -38,12 +38,12 @@ matrix  ->  plan  ->  run  ->  collect  ->  post  ->  products
 ## Install
 
 ```
-pip install "pyflightstream[dev,plot,geom,fsi,excel]"
+pip install "pyflightstream[dev,fsi,excel]"
 ```
 
-The extras add development and documentation tools (`dev`), plotting (`plot`),
-spatial geometry queries (`geom`), structural coupling (`fsi`) and workbook
-authoring (`excel`). Maintainers reading licensed manuals also install
+The extras add development and documentation tools (`dev`), structural coupling
+(`fsi`) and workbook authoring (`excel`). The base install includes matplotlib,
+rtree and scipy. Maintainers reading licensed manuals also install
 `pyflightstream[manual]`.
 
 Python 3.12 or newer. FlightStream itself is licensed separately and is
@@ -123,7 +123,7 @@ for row in pyflightstream.support_table():
 ## Contributing
 
 ```
-pip install -e .[dev,fsi,geom]
+pip install -e .[dev,fsi]
 pre-commit install
 pytest
 ```

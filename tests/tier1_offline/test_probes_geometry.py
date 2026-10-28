@@ -32,7 +32,6 @@ from pyflightstream.probes import (
     emit_probe_export,
 )
 from pyflightstream.probes.geometry import (
-    GeometryEngineMissingError,
     OpenMeshError,
     apply_geometry_gate,
     load_surface_mesh,
@@ -128,87 +127,21 @@ def test_open_mesh_is_refused_with_the_physical_cause(tmp_path):
 
 
 def test_a_missing_reader_is_an_incomplete_install_and_not_an_extra(monkeypatch):
-    """READING a mesh needs no extra, since trimesh left `[geom]`.
+    """READING a mesh needs no extra: trimesh is a runtime dependency.
 
-    This case asserted the OPPOSITE until 2026-08-20, and it was right to
-    when it was written: one extra installed the reader and the index
-    together, so a missing reader and a missing index were the same
-    state and `[geom]` was the answer to both. The promotion split them
-    (PFS-2025.20). The reader is a runtime dependency now, so its
-    absence is an INCOMPLETE INSTALLATION rather than a feature the user
-    declined, and telling them to install an extra would send them to
+    Its absence is an INCOMPLETE INSTALLATION rather than a feature the
+    user declined, and telling them to install an extra would send them to
     reinstall something that would not fix it.
 
     `pyflightstream._mesh` states that choice in its own docstring and
     deliberately does not translate the import failure. What this case
-    pins is that the refusal does not silently come BACK: a
-    `GeometryEngineMissingError` here would mean somebody re-wrapped the
-    reader and started naming an extra that does not carry it.
+    pins is that the refusal does not silently come BACK: a typed
+    missing-extra refusal here would mean somebody re-wrapped the reader
+    and started naming an extra that does not carry it.
     """
     monkeypatch.setitem(sys.modules, "trimesh", None)
     with pytest.raises(ModuleNotFoundError, match="trimesh"):
         load_surface_mesh(CUBE)
-
-
-def test_a_missing_spatial_index_names_the_extra_at_the_query(monkeypatch):
-    """The `[geom]` refusal moved to where the index is actually reached.
-
-    Both guarded sites are checked rather than one, because the second
-    was added by the promotion itself: containment answers by ray
-    casting against an rtree bounds tree, so it needs the index exactly
-    as the distance query does, and an installation carrying trimesh and
-    not rtree is a state the promotion created. A guard on one of two
-    query paths would leave a bare `ImportError` reaching the public
-    `apply_geometry_gate` through the other.
-    """
-    import pyflightstream.probes.geometry as geometry
-
-    # Load the installed reader before simulating missing query dependencies.
-    # Otherwise trimesh caches the simulated import failure for later tests.
-    mesh = load_surface_mesh(CUBE)
-    monkeypatch.setitem(sys.modules, "rtree", None)
-    monkeypatch.setitem(sys.modules, "scipy", None)
-    monkeypatch.setitem(sys.modules, "scipy.spatial", None)
-    points = np.array([[0.0, 0.0, 0.0], [5.0, 5.0, 5.0]])
-
-    reached = []
-    unreached = []
-    for call, what in (
-        (lambda: geometry._inside(mesh, points), "containment"),
-        (lambda: geometry._surface_distance(mesh, points), "distance"),
-    ):
-        try:
-            call()
-        except GeometryEngineMissingError as refusal:
-            assert "[geom]" in str(refusal), (
-                f"the {what} refusal no longer names the extra: {refusal}"
-            )
-            assert refusal.__cause__ is not None, (
-                f"the {what} refusal dropped the original ImportError, so a "
-                "failure that is NOT a missing distribution is undiagnosable"
-            )
-            reached.append(what)
-        else:
-            # trimesh imports its index defensively and substitutes a
-            # placeholder that re-raises on USE, so which of the two calls
-            # actually reaches the index depends on the installed trimesh.
-            # Asserting a raise this trimesh does not make would measure the
-            # library rather than this package.
-            unreached.append(what)
-
-    # AN UNREACHED ARM IS COLLECTED, NEVER PRINTED. The first version of this
-    # loop printed "NOT REACHED" and called that "not a silent pass"; pytest
-    # captures and DISCARDS a passing test's stdout, so it was exactly a
-    # silent pass, and a QA pass on 2026-08-20 said so. Both arms going quiet
-    # is the state that would leave this case measuring nothing at all, and it
-    # is now a failure rather than a line nobody sees.
-    assert reached, (
-        "NEITHER the containment query nor the distance query reached the "
-        f"spatial index with rtree and scipy blanked (unreached: {unreached}). "
-        "This case then asserts nothing about the `[geom]` refusal it exists "
-        "for. The likely cause is a trimesh whose import shape changed, so "
-        "re-aim the blanking rather than deleting the case."
-    )
 
 
 def test_planned_probes_serialization_round_trip():

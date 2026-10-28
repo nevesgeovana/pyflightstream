@@ -875,7 +875,7 @@ def planar_points(case: SimCase, probes: ProbesSpec, native_per_m: float) -> lis
             if not inside.checked:
                 raise CampaignConfigError(
                     f"Planar refinement cannot check added points: {inside.reason}. "
-                    "Supply a closed surface mesh and the geometry extra."
+                    "Supply a closed surface mesh."
                 )
             if inside.inside.any():
                 raise CampaignConfigError(

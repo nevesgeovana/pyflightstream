@@ -34,7 +34,7 @@ is published as a site download.
 
 `python scripts/build_guides.py` from the repository root compiles all ten PDFs
 into `build/guides/`, regenerating the figures in a temporary source copy.
-Install the package with its plot extra before building.
+Install the package before building.
 The platform-specific builders remain available for individual guides. It needs `pdflatex` (MiKTeX or TeX Live)
 with beamer, tcolorbox, listings, tikz, adjustbox, microtype and underscore.
 The build refuses a source with an em or en dash, and prints the number of

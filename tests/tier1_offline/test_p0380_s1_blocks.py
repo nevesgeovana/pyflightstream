@@ -147,11 +147,12 @@ def test_the_periodic_spline_keeps_its_knots_and_is_smooth_across_the_seam():
 
 
 def test_the_periodic_spline_equals_scipys_where_scipy_is_installed():
-    """P0380-BLOCKS (FR-920, FR-924): the numpy periodic spline is scipy's to 1e-12.
+    """P0380-BLOCKS (FR-920): the numpy periodic spline is scipy's to 1e-12.
 
     Control: scipy's not-a-knot spline through the same closed chain differs.
     """
-    interpolate = pytest.importorskip("scipy.interpolate")
+    from scipy import interpolate
+
     rng = np.random.default_rng(5)
     for n in (3, 4, 7, 30):
         y = rng.normal(size=(n, 3))

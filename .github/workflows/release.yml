@@ -138,7 +138,7 @@ jobs:
           # the working tree on the path and this whole job would be
           # testing the same thing ci.yml already tests.
           python -m pip install --upgrade "pip==26.1.2"
-          python -m pip install "dist/${{ needs.build.outputs.wheel-name }}[dev,fsi,geom,excel]"
+          python -m pip install "dist/${{ needs.build.outputs.wheel-name }}[dev,fsi,excel]"
       - name: Confirm the installed distribution is the built one
         shell: bash
         run: |
@@ -184,7 +184,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom,plot]
+        run: pip install -e .[dev,fsi]
       - name: Generate linked Understanding views from the tagged sources
         run: |
           python scripts/gen_understanding_data.py --data-only --revision "$GITHUB_SHA"

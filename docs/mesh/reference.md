@@ -665,7 +665,7 @@ Each of these is imported from `pyflightstream.workspace`.
 
 | name | what it is |
 |---|---|
-| `refine_mesh(mesh, factor=None, *, families=None, parallel=None, normal=None, config=None, out_dir=None, overwrite=False, accept_remesh=False, accept_unknown=False, force_factors=False, progress=None)` | writes a level; `parallel` and `normal` are the two directional factors (`chordwise` and `spanwise` are still read as `normal` and `parallel`, with a warning); `accept_remesh` remeshes with `factor` a family given a directional factor whose grid is not recovered, with a warning; `accept_unknown` warns and skips the entries `--accept-unknown` names; `progress` is called with one line per stage and family (the command prints them to stderr); returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
+| `refine_mesh(mesh, factor=None, *, families=None, parallel=None, normal=None, config=None, out_dir=None, overwrite=False, accept_remesh=False, accept_unknown=False, force_factors=False, progress=None)` | writes a level; `parallel` and `normal` are the two directional factors (`chordwise` and `spanwise` are still read as `normal` and `parallel`, with a warning); `accept_remesh` remeshes with `factor` a family given a directional factor whose grid is not recovered, with a warning; `accept_unknown` warns and skips the entries `--accept-unknown` names; `progress` is called with one line per stage and family (the command prints them to stderr); returns a `RefinedMesh`; raises `InputArtifactError` on every refusal |
 | `RefinedMesh` | frozen: `folder` (the level folder), `obj` (its OBJ), `files` (every file written, the OBJ first), `report` (the `families` entry of `refine.json`) and `audit` (the `MeshAudit` of the level) |
 | `prepare_to_refine(mesh, *, max_angle=45.0, aft=(1.0, 0.0, 0.0), overwrite=False)` | the function behind `geometry prepare-to-refine`: writes the patches OBJ, the refine file and the node list beside the source and returns a `PreparedMesh` |
 | `wake_edges.write_trailing_edge_midnodes(source, path, *, unit="METER", overwrite=False)` | the function behind `geometry convert2midnodes`: writes one mid-point per neighbouring pair of the node list's lines, under a line naming `unit`, and returns the path |
@@ -726,14 +726,13 @@ The library's mesh seam is deliberately narrow: OBJ in and out. READING a
 mesh is a runtime capability through trimesh, because the
 trailing-edge extraction sits on the default path of a rotor campaign and a
 capability behind an extra makes the library promise what a default install
-cannot do. What stays in the
-`[geom]` extra is the SPATIAL INDEX the geometry gate queries through:
-rtree's bounds tree and scipy's kd-tree. Reading vertices and faces needs
-neither. Two standing decisions bound any widening:
+cannot do. The geometry gate queries through the SPATIAL INDEX, rtree's bounds tree
+and scipy's kd-tree, both runtime dependencies as well. Two standing decisions
+bound any widening:
 
 * More formats never enter through raw third-party APIs. If a
- workflow needs formats beyond OBJ, meshio joins the `[geom]` extra
- as a conversion backend behind a project-owned adapter (decision D8): the adapter exposes only what the workflow needs,
+ workflow needs formats beyond OBJ, meshio joins as a
+ conversion backend behind a project-owned adapter (decision D8): the adapter exposes only what the workflow needs,
  a license evidence card is committed at adoption time like every
  dependency, and validity checks stay with trimesh. The dependency assessment
  refused meshio on the committed weight budget, at five new

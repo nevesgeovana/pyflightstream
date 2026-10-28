@@ -85,8 +85,8 @@ boundaries; they do not repeat the chronology of each extraction.
     Storage provenance may read USERNAME or USER; that does not select a solver.
 
 !!! decision "AD-05 Optional heavy dependencies behind extras"
-    Structural analysis, spatial geometry queries, plotting, workbook creation
-    and manual reading use their declared extras. A missing extra produces an
+    Structural analysis, DataFrame conversion, workbook creation and manual
+    reading use their declared extras. A missing extra produces an
     installation remedy at the operation that needs it. Runtime dependencies
     and version bounds have their authoritative list in pyproject.toml.
 

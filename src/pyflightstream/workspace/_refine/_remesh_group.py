@@ -10,7 +10,7 @@ edges returning to the family's own over :data:`SHARED_LAYERS` face layers
 along their source curve: open boundaries, the trailing edge, ridges, and the
 interfaces between families; an interface with a family outside the group is
 FROZEN. The remeshed families are returned oriented and ordered like their
-source faces (FR-921). Nothing here imports the geometry extra.
+source faces (FR-921). Nothing here imports the spatial index.
 """
 
 from __future__ import annotations

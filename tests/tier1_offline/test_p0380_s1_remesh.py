@@ -1,4 +1,4 @@
-"""Tier 1, 0.38.0 S1: the remeshed families of a refinement (FR-922, FR-924, FR-926; FR-933).
+"""Tier 1, 0.38.0 S1: the remeshed families of a refinement (FR-922, FR-926; FR-933).
 
 Every fixture is built in tests/p0380_mesh_fixtures.py: a sphere, a curved
 plate with a square hole, a cube (its twelve edges are ridges) and a plate cut
@@ -10,18 +10,10 @@ cannot pass.
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
-import textwrap
-from pathlib import Path
-
 import numpy
 import pytest
 import trimesh
 
-import pyflightstream
-from pyflightstream.extras import MissingExtraError
 from pyflightstream.workspace._refine._geometry import (
     EDGE_BAND,
     RIDGE_DEGREES,
@@ -36,14 +28,10 @@ from pyflightstream.workspace._refine._obj import ObjMesh
 from pyflightstream.workspace._refine._remesh import (
     TRAILING_EDGE,
     refine_group,
-    require_geometry_extra,
 )
 from tests.p0380_mesh_fixtures import cube, holed_plate, plate_nodes, sphere, two_families
 
-# The remesh and its measurements query trimesh's spatial index, which needs the geom extra:
 # on a dev-only install this module skips instead of failing.
-pytest.importorskip("scipy")
-pytest.importorskip("rtree")
 
 # ---- measurements
 
@@ -293,71 +281,6 @@ def test_conform_makes_the_neighbour_share_exactly_the_new_nodes(ys, counts):
     assert len(boundary_loops(result.families["B"])) == 1
     plain = refine_group(mesh, ["B"], (), 1.0)
     assert not numpy.array_equal(_on_line(plain.points, plain.families["B"]), want)
-
-
-# ---- FR-924: the geometry extra
-
-
-def _block_extra(monkeypatch) -> None:
-    for name in ("scipy", "scipy.spatial", "rtree"):
-        monkeypatch.setitem(sys.modules, name, None)
-
-
-def test_a_remesh_without_the_extra_is_refused_before_any_work(monkeypatch):
-    """P0380-REFINE (FR-924, FR-925): no scipy or rtree refuses, naming the family and the remedy.
-
-    The refusal comes before any work: a family the mesh does not hold would
-    fail on its first use, and it is the refusal that is raised. The control
-    is the same call with the extra present, which is not refused.
-    """
-    require_geometry_extra(["S"])
-    require_geometry_extra([])
-    _block_extra(monkeypatch)
-    with pytest.raises(MissingExtraError) as caught:
-        refine_group(sphere(), ["S"], (), 2.0)
-    text = str(caught.value)
-    assert "family S" in text and 'pip install "pyflightstream[geom]"' in text
-    assert text.endswith("Nothing was written.")
-    with pytest.raises(MissingExtraError, match="Wing, Hub"):
-        refine_group(sphere(), ["Wing", "Hub"], (), 2.0)
-    require_geometry_extra([])
-
-
-def test_the_remesh_module_imports_no_geometry_library_at_import():
-    """P0380-REFINE (FR-924): the remesh module imports no geometry library at import.
-
-    Measured in a fresh interpreter against what the modules it imports have
-    already loaded; the control imports trimesh by hand and is seen.
-    """
-    probe = textwrap.dedent(
-        """
-        import sys
-        import pyflightstream.extras
-        import pyflightstream.workspace._refine._obj
-        import pyflightstream.workspace._refine._geometry
-        watched = ("trimesh", "scipy", "rtree")
-        before = {m for m in watched if m in sys.modules}
-        import pyflightstream.workspace._refine._remesh
-        after = {m for m in watched if m in sys.modules}
-        if sys.argv[1:] == ["control"]:
-            import trimesh
-            after = {m for m in watched if m in sys.modules}
-        print(sorted(after - before))
-        """
-    )
-    # The interpreter imports the package these tests import (the checkout or the wheel).
-    root = str(Path(pyflightstream.__file__).resolve().parents[1])
-    env = {**os.environ, "PYTHONPATH": root}
-    for argv in ([], ["control"]):
-        out = subprocess.run(
-            [sys.executable, "-c", probe, *argv],
-            capture_output=True,
-            text=True,
-            check=True,
-            env=env,
-        ).stdout.strip()
-        assert (out == "[]") is (not argv), out
-        assert ("'trimesh'" in out) is bool(argv), out
 
 
 # ---- FR-926: determinism

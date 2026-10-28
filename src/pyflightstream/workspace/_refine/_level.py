@@ -208,7 +208,7 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
 def _decide(work: _Work) -> None:
     """Recover the grids and choose each family's method, refusing before any work.
 
-    (FR-923, FR-924).
+    (FR-923).
     """
     names = [n for n in work.names if n in work.specs]
     for i, name in enumerate(names, 1):
@@ -233,11 +233,6 @@ def _decide(work: _Work) -> None:
             PyflightstreamWarning,
             stacklevel=2,
         )
-    bands = _planned_bands(work)
-    if work.remesh or bands:
-        from pyflightstream.workspace._refine._remesh import require_geometry_extra
-
-        require_geometry_extra([*work.remesh, *bands])
 
 
 def _refuse_or_remesh(work: _Work, name: str, found: str) -> None:
@@ -322,42 +317,6 @@ def _te_rows(work: _Work, points: Points) -> list[list[float]]:
     line it would read in that file.
     """
     return [[float(w) for w in _obj.coordinates(p).split()] for p in points]
-
-
-def _planned_bands(work: _Work) -> list[str]:
-    """Return the unchanged families whose band will be remeshed (FR-934), before any work.
-
-    An unchanged neighbour gets a band when it shares a curve with a grid
-    family whose nodes on that curve change, which the grid's counts tell
-    without resampling it (:func:`._grid.curve_changes`,
-    :meth:`._blocks.Layout.changes`); its remesh needs the geometry extra like
-    any other (FR-924, FR-925).
-    """
-    planned: list[str] = []
-    for name in [n for n in work.names if n not in work.specs]:
-        for grid_name, grid in work.grids.items():
-            old = work.fam_v[grid_name] & work.fam_v[name]
-            edges = [
-                e
-                for e in _geometry.boundary_edges(work.mesh.families[grid_name])
-                if e[0] in old and e[1] in old
-            ]
-            if not edges:
-                continue
-            chordwise, spanwise = work.specs[grid_name].directions
-            if grid_name in work.layouts or not isinstance(grid, _grid.Grid):
-                changes = work.layouts[grid_name].changes(grid_name)
-            else:
-                changes = _grid.curve_changes(
-                    grid,
-                    edges,
-                    chordwise=chordwise,
-                    spanwise=spanwise,
-                )
-            if changes:
-                planned.append(name)
-                break
-    return planned
 
 
 def _grid_after_grid(work: _Work) -> None:
@@ -1128,8 +1087,6 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     ------
     InputArtifactError
         Every refusal of FR-424 and FR-425, before any file is written.
-    MissingExtraError
-        A family must be remeshed and the geometry extra is missing (FR-924).
 
     Examples
     --------

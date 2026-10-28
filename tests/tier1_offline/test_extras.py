@@ -102,10 +102,10 @@ def test_the_refusal_carries_the_exact_install_command(extra):
 def test_a_refusal_cannot_name_an_extra_that_does_not_exist():
     """The failure mode the composed remedy exists to prevent."""
     with pytest.raises(ValueError, match="not an extra of this package"):
-        missing_extra("geometry", package="scipy", purpose="the gate")
+        missing_extra("geometry", package="PyNiteFEA", purpose="the gate")
     # The control: the real name is accepted, so the refusal is about the
     # value and not about the check being unconditional.
-    assert missing_extra("geom", package="scipy", purpose="the gate").extra == "geom"
+    assert missing_extra("fsi", package="PyNiteFEA", purpose="the gate").extra == "fsi"
 
 
 @pytest.mark.requirement("NFR-25")
@@ -121,8 +121,8 @@ def test_no_extra_installs_a_distribution_the_base_install_already_gives():
     shape the extras module was written to make impossible, one level up
     from the one it already checks.
 
-    It also holds the promotion itself: putting trimesh back under
-    ``[geom]`` while leaving it in ``dependencies`` fails here, and so
+    It also holds the promotion itself: putting a runtime dependency back
+    under an extra while leaving it in ``dependencies`` fails here, and so
     does the reverse of the second half, promoting a distribution and
     forgetting to take it out of its extra.
     """
@@ -213,7 +213,7 @@ def test_every_gated_path_raises_the_shared_type():
     assert _remedies_in_raises(quoted) == [1], "the scan misses the quoted remedy"
     # And it does NOT fire on the same string in a docstring, which is the
     # case an earlier line-based version got wrong.
-    in_prose = '"""Install with pip install pyflightstream[geom]."""\nx = 1\n'
+    in_prose = '"""Install with pip install pyflightstream[fsi]."""\nx = 1\n'
     assert _remedies_in_raises(in_prose) == [], "the scan flags documentation"
 
     offenders = []
@@ -228,7 +228,7 @@ def test_every_gated_path_raises_the_shared_type():
             continue  # the one home of the string
         # Only the literals INSIDE a raise. A module docstring or a
         # comment naming the install command is documentation and is
-        # meant to stay: probes/geometry.py's own top-docstring does
+        # meant to stay: a module docstring that names an extra does
         # exactly that, and an earlier version of this guard flagged it,
         # which would have taught the reader to delete the prose instead
         # of the duplication.
@@ -243,78 +243,12 @@ def test_every_gated_path_raises_the_shared_type():
     )
 
 
-def test_the_geometry_gate_is_still_its_own_catchable_name():
-    """The one extra whose absence is recoverable keeps a name of its own.
-
-    A caller can continue without culling, so singling the geometry gate
-    out is a real need; it is a SUBCLASS so `except MissingExtraError`
-    catches it too.
-    """
-    from pyflightstream.probes.geometry import GeometryEngineMissingError
-
-    assert issubclass(GeometryEngineMissingError, MissingExtraError)
-    assert issubclass(GeometryEngineMissingError, ImportError)
-
-
-def test_a_missing_spatial_index_names_the_index_and_not_the_reader(monkeypatch):
-    """The re-pointed refusal of the geometry gate (DD-27 section 5).
-
-    Both queries the gate makes are searches through scipy's kd-tree and
-    rtree's bounds tree, and both used to refuse by naming trimesh. That
-    was right while one extra installed all three and became wrong the
-    day trimesh was promoted: from then on the only way to reach these
-    branches is with the reader present and the index absent, so a
-    refusal naming the reader sends the reader to reinstall a
-    distribution they already have.
-
-    Driven with objects that raise ``ImportError`` where the index is
-    reached, because the alternative is an environment with trimesh and
-    without scipy, which no leg of this suite has. The containment arm
-    is the one the promotion CREATED: before it, an installation could
-    not carry the reader without the index.
-    """
-    import numpy as np
-    import trimesh.proximity
-
-    from pyflightstream.probes.geometry import _inside, _surface_distance
-
-    class NoIndex:
-        """A mesh whose containment search cannot reach its bounds tree."""
-
-        def contains(self, points):
-            raise ImportError("No module named 'rtree'")
-
-    class NoKdTree:
-        """trimesh's own placeholder shape: it raises when it is USED."""
-
-        def __init__(self, mesh):
-            raise ImportError("No module named 'scipy'")
-
-    monkeypatch.setattr(trimesh.proximity, "ProximityQuery", NoKdTree)
-
-    points = np.zeros((1, 3))
-    for call, arm in ((_inside, "containment"), (_surface_distance, "distance")):
-        with pytest.raises(MissingExtraError) as caught:
-            call(NoIndex(), points)
-        assert caught.value.extra == "geom", arm
-        assert caught.value.package.startswith("scipy and rtree"), (
-            f"the {arm} refusal names {caught.value.package!r} as what is missing; "
-            "after the promotion the missing thing is the spatial index, and naming "
-            "the reader sends a reader to reinstall what they already have"
-        )
-        assert 'pip install "pyflightstream[geom]"' in str(caught.value), arm
-        assert isinstance(caught.value.__cause__, ImportError), (
-            f"the {arm} refusal discarded the original ImportError, so a failure "
-            "that is not a missing distribution is no longer diagnosable"
-        )
-
-
 @pytest.mark.parametrize("extra", sorted(EXTRAS))
 def test_every_extra_has_a_license_card(extra):
     """NFR-02: evidence before adoption, and the cards must cover the set.
 
     Measured at PYFS-025: the runtime dependencies had no card at all
-    and `[plot]` had none either, while `[fsi]` and `[geom]` did. The
+    and `[plot]` had none either, while `[fsi]` did. The
     cards are prose, so this checks coverage rather than content: every
     extra's distributions are named somewhere under `reports/`.
     """
@@ -415,8 +349,8 @@ def test_f_1281_missing_extra_error_survives_pickling():
     """F-1281 X-F-1133: the keyword-only constructor must not break a round trip."""
     import pickle
 
-    error = MissingExtraError(extra="plot", package="matplotlib", purpose="Drawing")
+    error = MissingExtraError(extra="excel", package="XlsxWriter", purpose="Drawing")
     again = pickle.loads(pickle.dumps(error))
     assert isinstance(again, MissingExtraError)
-    assert (again.extra, again.package, again.purpose) == ("plot", "matplotlib", "Drawing")
+    assert (again.extra, again.package, again.purpose) == ("excel", "XlsxWriter", "Drawing")
     assert str(again) == str(error)

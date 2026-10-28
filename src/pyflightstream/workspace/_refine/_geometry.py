@@ -9,8 +9,7 @@ them: ``_remesh.PASSES``, ``_remesh.SPLIT_RATIO``, ``_remesh.COLLAPSE_RATIO``,
 ``_remesh.SMOOTH_COSINE``, ``_remesh.CONFORM_FRACTION`` and
 ``_remesh_pairs.AUGMENT_DEPTH``.
 
-THE PRIMITIVES need numpy alone, so a grid family and the audit run without
-the geometry extra (FR-924): the nearest-point query bins the points into
+THE PRIMITIVES need numpy alone: the nearest-point query bins the points into
 cells, not a k-d tree. Face order (FR-921) is written here too, because a grid family
 that is not one sweep and a remeshed family both take the source's order the
 same way.

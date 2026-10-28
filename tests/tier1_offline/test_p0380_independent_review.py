@@ -1118,8 +1118,8 @@ def test_ind3_01_an_unstructured_closed_triangulation_is_refused_at_once():
     import time
 
     import numpy
+    import scipy.spatial as spatial
 
-    spatial = pytest.importorskip("scipy.spatial")
     from pyflightstream.workspace._refine._grid import recover_grid
 
     rng = numpy.random.default_rng(3)

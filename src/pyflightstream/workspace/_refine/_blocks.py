@@ -67,7 +67,7 @@ to the rule before this one: the first
 of them in the source's family order is a grid, and a later one sharing its
 nodes is remeshed, or refused under ``method = "grid"``.
 
-This module imports neither scipy nor rtree (FR-924).
+This module imports neither scipy nor rtree.
 """
 
 from __future__ import annotations
@@ -810,15 +810,6 @@ class Layout:
         """Return the patches of one family, in layout order."""
         i = self.names.index(name)
         return [p for p, o in enumerate(self.owner) if o == i]
-
-    def changes(self, name: str) -> bool:
-        """Return whether resampling changes the nodes of any side of the family's patches.
-
-        Read from the counts alone, before any family is resampled (FR-424,
-        FR-925); any side changing is taken to change every curve it shares.
-        """
-        arcs = {arc for p in self.patches_of(name) for arc, _ in self.blocks.sides[p]}
-        return any(self.counts[a] != len(self.blocks.arcs[a]) - 1 for a in arcs)
 
 
 def _refuse(text: str) -> InputArtifactError:

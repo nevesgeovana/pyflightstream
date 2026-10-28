@@ -9,7 +9,7 @@
 # 2. sweep rotor speed and extract flap and torsion frequencies;
 # 3. fit the Southwell lines omega_n^2 = omega_0^2 + S Omega^2;
 # 4. draw the Campbell diagram with the 1P to 4P excitation rays
-#    (needs the `[plot]` extra; the numbers print without it).
+#    with matplotlib.
 #
 # The blade is synthetic by policy: no real blade property set ever
 # enters the repository. Its numbers are chosen for didactic clarity,
@@ -19,6 +19,8 @@
 """Campbell diagram example: synthetic blade, rotor speed sweep, Southwell fits."""
 
 import math
+
+import matplotlib.pyplot as plt
 
 from pyflightstream.fsi import centrifugal
 from pyflightstream.fsi.config import BladeProperties, FsiConfig
@@ -100,30 +102,25 @@ for name, track in (("first flap", flap_track), ("first torsion", torsion_track)
 # about 0.3) lives far below the first crossing.
 
 # %%
-try:
-    import matplotlib.pyplot as plt
-except ModuleNotFoundError:
-    print("matplotlib not installed (extra [plot]); skipping the figure")
-else:
-    fig, ax = plt.subplots(figsize=(7.0, 5.0))
-    ax.plot(OMEGAS_RAD_S, flap_track, "o-", label="first flap")
-    ax.plot(OMEGAS_RAD_S, torsion_track, "s-", label="first torsion")
-    omega_max = max(OMEGAS_RAD_S)
-    for harmonic in range(1, 5):
-        ax.plot(
-            [0.0, omega_max],
-            [0.0, harmonic * omega_max],
-            linestyle=":",
-            color="gray",
-            linewidth=1.0,
-        )
-        ax.annotate(f"{harmonic}P", (omega_max, harmonic * omega_max))
-    ax.set_xlabel("rotor speed Omega [rad/s]")
-    ax.set_ylabel("natural frequency omega_n [rad/s]")
-    ax.set_ylim(0.0, math.ceil(1.1 * max(torsion_track)))
-    ax.set_title("Campbell diagram, synthetic uniform blade")
-    ax.legend()
-    fig.tight_layout()
-    out = "fsi_campbell_diagram.png"
-    fig.savefig(out, dpi=150)
-    print(f"figure written to {out}")
+fig, ax = plt.subplots(figsize=(7.0, 5.0))
+ax.plot(OMEGAS_RAD_S, flap_track, "o-", label="first flap")
+ax.plot(OMEGAS_RAD_S, torsion_track, "s-", label="first torsion")
+omega_max = max(OMEGAS_RAD_S)
+for harmonic in range(1, 5):
+    ax.plot(
+        [0.0, omega_max],
+        [0.0, harmonic * omega_max],
+        linestyle=":",
+        color="gray",
+        linewidth=1.0,
+    )
+    ax.annotate(f"{harmonic}P", (omega_max, harmonic * omega_max))
+ax.set_xlabel("rotor speed Omega [rad/s]")
+ax.set_ylabel("natural frequency omega_n [rad/s]")
+ax.set_ylim(0.0, math.ceil(1.1 * max(torsion_track)))
+ax.set_title("Campbell diagram, synthetic uniform blade")
+ax.legend()
+fig.tight_layout()
+out = "fsi_campbell_diagram.png"
+fig.savefig(out, dpi=150)
+print(f"figure written to {out}")

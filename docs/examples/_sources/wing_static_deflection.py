@@ -24,6 +24,8 @@
 
 import math
 
+import matplotlib.pyplot as plt
+
 from pyflightstream.fsi import beam
 from pyflightstream.fsi.config import BladeProperties, FsiConfig
 from pyflightstream.qa.geometry import WingSpec
@@ -150,23 +152,18 @@ for f, kind in zip(modal.frequencies_rad_per_s, modal.kinds, strict=True):
     print(f"{kind:8s} {f / (2.0 * math.pi):6.2f} Hz")
 
 # %% [markdown]
-# ## 5. Spanwise plot (optional, extra [plot])
+# ## 5. Spanwise plot
 
 # %%
-try:
-    import matplotlib.pyplot as plt
-except ModuleNotFoundError:
-    print("matplotlib not installed (extra [plot]); skipping the figure")
-else:
-    fig, (ax_w, ax_t) = plt.subplots(2, 1, sharex=True, figsize=(7.0, 6.0))
-    y = solution.station_radii_m
-    ax_w.plot(y, [w * 100 for w in solution.flap_deflection_m], "o-")
-    ax_w.set_ylabel("deflection w [cm]")
-    ax_w.set_title("Generic wing at the polar design point, prescribed elliptical load")
-    ax_t.plot(y, [math.degrees(t) for t in solution.elastic_twist_rad], "s-", color="tab:red")
-    ax_t.set_ylabel("elastic twist [deg]")
-    ax_t.set_xlabel("span position y [m]")
-    fig.tight_layout()
-    out = "wing_static_deflection.png"
-    fig.savefig(out, dpi=150)
-    print(f"figure written to {out}")
+fig, (ax_w, ax_t) = plt.subplots(2, 1, sharex=True, figsize=(7.0, 6.0))
+y = solution.station_radii_m
+ax_w.plot(y, [w * 100 for w in solution.flap_deflection_m], "o-")
+ax_w.set_ylabel("deflection w [cm]")
+ax_w.set_title("Generic wing at the polar design point, prescribed elliptical load")
+ax_t.plot(y, [math.degrees(t) for t in solution.elastic_twist_rad], "s-", color="tab:red")
+ax_t.set_ylabel("elastic twist [deg]")
+ax_t.set_xlabel("span position y [m]")
+fig.tight_layout()
+out = "wing_static_deflection.png"
+fig.savefig(out, dpi=150)
+print(f"figure written to {out}")

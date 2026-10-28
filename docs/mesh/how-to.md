@@ -185,9 +185,8 @@ and they do not move, and the level is written in the source's face order.
 Any other family is remeshed: refined towards the source's local edge length
 divided by its factor, into triangles whose nodes lie on the source surface.
 Open boundaries, the trailing edge and every edge whose dihedral exceeds 40
-degrees are curves the nodes move along and never leave. Remeshing needs the geometry extra,
-`pip install "pyflightstream[geom]"`; a mesh whose families are all grids refines
-without it. `W1_R2.refine.json` names, per family, the method taken and the
+degrees are curves the nodes move along and never leave. A mesh whose families are all grids refines
+without any remesh. `W1_R2.refine.json` names, per family, the method taken and the
 reason a grid was or was not recovered.
 
 Grids that share nodes stay grids together. Grid families of quadrilaterals
@@ -287,7 +286,7 @@ of a grid only when it is a pole fan or a zipper. The pre-processor route is to
 split the blade into DUMMY FAMILIES, each region a family of its own, for
 example `Blade1_side` (the lateral grid) and `Blade1_tip` (the cap). The
 refinement then resamples the side as a grid and remeshes the cap on its
-new nodes (with the geometry extra), and `[components]` writes the two as the one family the solver must see,
+new nodes, and `[components]` writes the two as the one family the solver must see,
 `Blade1`:
 
 ```toml title="inputs/geometries/B1/B1.refine.toml"
@@ -415,8 +414,7 @@ side and isometric views as a technical drawing (one scale, aligned, a scale
 bar), each patch in its own color from `--cmap` with its perimeter in a
 thick line, node lists (`--nodes`) and trailing-edge points files (`--te`)
 over the surface, and a table of each patch's faces and marked points.
-`--png` also writes the pages of views as PNG files. It needs the plot
-extra, `pip install "pyflightstream[plot]"`.
+`--png` also writes the pages of views as PNG files.
 
 ```text
 pyfs-workspace geometry visual-inspect inputs/geometries/W1/W1_patches.obj --nodes inputs/geometries/W1/W1_patches.nodes.txt --mesh-unit METER

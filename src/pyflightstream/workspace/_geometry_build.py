@@ -61,7 +61,6 @@ from pyflightstream.cases._geometry_instruction import (
     variant_tag,
 )
 from pyflightstream.commands import CommandRegistry
-from pyflightstream.extras import missing_extra
 from pyflightstream.versions import resolve
 from pyflightstream.workspace._geometry_instruction import (
     checked_trailing_edge_points,
@@ -578,14 +577,14 @@ def _promoting(work: Path, instruction: Path) -> frozenset[Path]:
     return frozenset((work / item).resolve() for item in stated if isinstance(item, str))
 
 
-def refuse_before_running(plan: GeometryBuildPlan, *, overwrite: bool, png: bool) -> None:
+def refuse_before_running(plan: GeometryBuildPlan, *, overwrite: bool) -> None:
     """Refuse, before any executable is looked up, what ``--apply`` would refuse (FR-1110).
 
     Raises
     ------
     InputArtifactError
         A command awaiting evidence on the build, an existing output without
-        ``overwrite``, a foreign variant folder, or ``png`` without the plot extra.
+        ``overwrite``, or a foreign variant folder.
     """
     waiting = plan.awaiting_evidence
     if waiting:
@@ -595,8 +594,6 @@ def refuse_before_running(plan: GeometryBuildPlan, *, overwrite: bool, png: bool
             "it, and until then the build is not run there"
         )
     _refuse_existing(plan, overwrite)
-    if png:
-        _require_the_plot_extra()
 
 
 #: At most this many variants run at once: the standing rule for native runs.
@@ -657,7 +654,7 @@ def apply_geometry_build(
             f"parallel (CLI: --parallel) {parallel}: write 1 or {MAX_PARALLEL}, "
             "the native-run limit"
         )
-    refuse_before_running(plan, overwrite=overwrite, png=png)
+    refuse_before_running(plan, overwrite=overwrite)
     _keep_the_previous_overlay(plan)
 
     def build(variant: GeometryVariant) -> _Staged:
@@ -803,13 +800,6 @@ def _stage_the_overlay(plan: GeometryBuildPlan, staged: Sequence[_Staged]) -> Pa
             "partial folder, and no current overlay exists."
         ) from error
     return pending
-
-
-def _require_the_plot_extra() -> None:
-    try:
-        import matplotlib  # noqa: F401
-    except ImportError as error:
-        raise missing_extra("plot", package="matplotlib", purpose="png (CLI: --png)") from error
 
 
 def _build_one(
@@ -998,13 +988,10 @@ def _audit(
 
 def _write_png(target: Path, obj: Path) -> None:
     """Draw three orthographic views and an isometric of the exported mesh, coloured by family."""
-    try:
-        import matplotlib
+    import matplotlib
 
-        matplotlib.use("Agg")
-        from matplotlib import pyplot
-    except ImportError as error:
-        raise missing_extra("plot", package="matplotlib", purpose="png (CLI: --png)") from error
+    matplotlib.use("Agg")
+    from matplotlib import pyplot
 
     from pyflightstream.workspace._refine._obj import read_obj
 

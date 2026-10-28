@@ -95,7 +95,7 @@ from pyflightstream.post.writers import OutputExistsError
 from pyflightstream.probes.errors import (
     ProbeGeometryError,
 )
-from pyflightstream.probes.geometry import GeometryEngineMissingError, OpenMeshError
+from pyflightstream.probes.geometry import OpenMeshError
 from pyflightstream.qa.errors import (
     QaEvidenceError,
 )
@@ -165,7 +165,6 @@ __all__ = [
     "FsiExternalSetupError",
     "FsiInputError",
     "FsiSetupError",
-    "GeometryEngineMissingError",
     "IncompleteOutputError",
     "InputArtifactError",
     "LoadsNotFoundError",

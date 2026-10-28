@@ -7,6 +7,21 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- matplotlib, rtree and scipy are core runtime dependencies (NFR-06). The
+  `plot` and `geom` extras are gone: the geometry `--png`, `visual-inspect`,
+  the containment and distance queries of the probe geometry gate, and the
+  remesh of a refinement run on the base install. An install line that still
+  names either extra installs the package and pip warns that the extra does
+  not exist (see the 0.49.0 section of the upgrading page).
+
+### Removed
+
+- `GeometryEngineMissingError`, with the refusals for a missing spatial index
+  or plotting library it served. FR-924 and FR-1496 are retired; FR-2227 warns
+  only when the mesh is not watertight.
+
 ## [0.48.0] - 2026-10-28
 
 ### Added

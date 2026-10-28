@@ -404,8 +404,8 @@ class TestGeometryBuild:
         plan = plan_geometry_build(folder, registry=verified)
         apply_geometry_build(plan, runner=_geometry_build__runner())
         with pytest.raises(InputArtifactError, match="--overwrite"):
-            refuse_before_running(plan, overwrite=False, png=False)
-        refuse_before_running(plan, overwrite=True, png=False)
+            refuse_before_running(plan, overwrite=False)
+        refuse_before_running(plan, overwrite=True)
         assert apply_geometry_build(plan, runner=_geometry_build__runner(), overwrite=True)[
             0
         ].passed
@@ -3031,12 +3031,12 @@ class TestGeometrySweep:
 
         _, folder = _geometry_sweep___wing(tmp_path)
         plan = plan_geometry_build("wing", cwd=folder.parent, registry=verified_registry())
-        refuse_before_running(plan, overwrite=True, png=False)
+        refuse_before_running(plan, overwrite=True)
         (folder.parent / "wing_AIL+100").mkdir()
         with pytest.raises(
             InputArtifactError, match="AIL\\+100.*was not built from this instruction"
         ):
-            refuse_before_running(plan, overwrite=True, png=False)
+            refuse_before_running(plan, overwrite=True)
 
     @staticmethod
     @pytest.mark.requirement("FR-472")

@@ -22,7 +22,7 @@ from pyflightstream import exceptions
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 from tests.tier1_offline.test_public_api import PUBLIC_MODULES
 
-_OPTIONAL_IMPORTS = {"Pynite", "scipy", "rtree", "matplotlib", "xlsxwriter", "pypdf"}
+_OPTIONAL_IMPORTS = {"Pynite", "xlsxwriter", "pypdf"}
 
 
 def _defined_exception_classes() -> dict[str, type]:
@@ -163,7 +163,6 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "FsiInputError": ValueError,
         "FsiSetupError": ValueError,
         "SixDofSetupError": ValueError,
-        "GeometryEngineMissingError": ImportError,
         "IncompleteOutputError": ValueError,
         "InputArtifactError": RuntimeError,
         "LoadsNotFoundError": ValueError,

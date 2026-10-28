@@ -339,8 +339,8 @@ def prove_guard_a() -> list[str]:
     )
     battery.create(
         REPO / "examples" / "zz_mutant_plot.py",
-        "import matplotlib.pyplot as plt\n",
-        "M5  the other extra, matplotlib",
+        "import xlsxwriter\n",
+        "M5  the other extra, xlsxwriter",
     )
     battery.create(
         REPO / "docs" / "zz_mutant.md",
@@ -387,8 +387,8 @@ def prove_guard_a() -> list[str]:
         REPO / ".github" / "workflows" / "ci.yml",
         # The all-extras leg as ci.yml spells it since excel joined it
         # (2026-09-27); the old spelling left this mutant with no anchor.
-        "        run: pip install -e .[dev,fsi,geom,excel,manual,plot,pandas]",
-        "        run: pip install -e .[dev,fsi,geom,excel]",
+        "        run: pip install -e .[dev,fsi,excel,manual,pandas]",
+        "        run: pip install -e .[dev,fsi,excel]",
         "M14 the all-extras leg reduced to the lean set",
     )
     battery.create(

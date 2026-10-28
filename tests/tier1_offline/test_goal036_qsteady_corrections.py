@@ -299,7 +299,8 @@ def test_route_3_is_refused_because_its_double_counting_is_unmeasured(route):
 def test_the_bessel_functions_hold_to_1e_10_against_scipy():
     """J0, J1, Y0 and Y1 over the reduced frequencies a rotor has, and far beyond."""
     # P0310-ROUTE1-DIAGNOSTIC
-    special = pytest.importorskip("scipy.special")
+    from scipy import special
+
     worst = 0.0
     for x in [1e-6, 1e-3, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 12.5, 29.9, 30.1, 45.0, 200.0]:
         for order in (0, 1):
@@ -521,7 +522,8 @@ def test_the_theodorsen_diagnostic_sits_beside_the_harmonics_and_corrects_nothin
 ):
     """Per station K_1P, |C|, its phase, |S|, its phase, beside the measured 1P amplitude."""
     # P0310-ROUTE1-DIAGNOSTIC
-    special = pytest.importorskip("scipy.special")
+    from scipy import special
+
     _, out, manifest, _ = _wheel_posted(
         tmp_path, monkeypatch, correction={"diagnostic": "theodorsen"}, calibration=None
     )

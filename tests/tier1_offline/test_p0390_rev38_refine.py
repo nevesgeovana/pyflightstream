@@ -135,7 +135,7 @@ def test_push_w3_arch_1_the_remesher_split_keeps_every_import_path():
         assert not names & _defined(REFINE_DIR / "_remesh.py"), module
         homes.update(dict.fromkeys(names, importlib.import_module(module)))
     read = _remesh_reads()
-    assert {"refine_group", "require_geometry_extra", "element_report", "Patch"} <= read
+    assert {"refine_group", "element_report", "Patch"} <= read
     assert "INDEX_MODULES" not in read
     for name in sorted(read):
         assert hasattr(remesh, name), name

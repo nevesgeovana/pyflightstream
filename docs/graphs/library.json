@@ -7759,11 +7759,6 @@
     },
     {
       "source": "pyflightstream.probes.geometry",
-      "target": "pyflightstream.extras",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.probes.geometry",
       "target": "pyflightstream.probes.errors",
       "kind": "module"
     },
@@ -12489,11 +12484,6 @@
     },
     {
       "source": "pyflightstream.workspace._geometry_build",
-      "target": "pyflightstream.extras",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._geometry_build",
       "target": "pyflightstream.versions",
       "kind": "module"
     },
@@ -13320,11 +13310,6 @@
     {
       "source": "pyflightstream.workspace._refine._prepare",
       "target": "pyflightstream.workspace._refine._obj",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._refine._remesh",
-      "target": "pyflightstream.extras",
       "kind": "module"
     },
     {

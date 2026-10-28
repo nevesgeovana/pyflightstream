@@ -45,8 +45,7 @@ classifiers = [
 # xarray LEFT the runtime set in 0.40.0 (FR-457, NFR-06 amended): the far
 # field it carried since the instruction of 2026-07-21 (PLN-006) rests on
 # plain numpy arrays, and no module imports it.
-# trimesh was PROMOTED out of the [geom] extra on 2026-08-19 (design note
-# DD-27, closing PFS-2025.20), making the runtime set six. It is the mesh
+# trimesh is a runtime dependency (design note DD-27, closing PFS-2025.20). It is the mesh
 # reader the trailing-edge extraction reads a blade surface through
 # (pyflightstream.workspace.trailing_edges), and that extraction is on the
 # default path of a rotor campaign: gating it behind an extra would make the
@@ -56,9 +55,16 @@ classifiers = [
 # 4.12.2 carded in reports/RPT-003 and 5.0.0 in reports/RPT-035, so
 # NFR-02 is satisfied across the whole range rather than at one end. This
 # comment said "Apache-2.0 at 4.12 and MIT from 5.0" until 2026-08-20; a
-# review pass read both cards and neither says Apache-2.0. NFR-06's "the
-# count does not grow" is amended rather than ignored, and the amendment
-# is in the requirement itself, which is the home of record for it.
+# review pass read both cards and neither says Apache-2.0. NFR-06 names the
+# runtime set, and the requirement itself is the home of record for it.
+#
+# matplotlib, rtree and scipy are runtime dependencies as well, making the
+# set seven. matplotlib (PSF/BSD-style, MIT-compatible, NFR-02) draws the
+# geometry --png, the visual-inspect figures and the plotting examples.
+# rtree and scipy are the spatial index behind the probe planner's geometry
+# gate (containment culling, distance-to-surface queries) and behind the
+# projection of a remeshed surface onto its source: trimesh queries scipy's
+# kd-tree and rtree's bounds tree (license evidence reports/RPT-003).
 #
 # BOTH ENDS ARE PINNED DELIBERATELY. The floor is the oldest release this
 # package has been exercised against, and the ceiling excludes the next
@@ -78,20 +84,13 @@ dependencies = [
     "pydantic>=2",
     "pyyaml",
     "trimesh>=4.12,<6",
+    "matplotlib",
+    "rtree",
+    "scipy",
 ]
 
 [project.optional-dependencies]
 pandas = ["pandas>=2.3"]
-# matplotlib is PSF/BSD-style, MIT-compatible (NFR-02); it backs the
-# plotting examples only, no core code imports it.
-plot = ["matplotlib"]
-# The SPATIAL INDEX behind the geometry gate of the probe planner:
-# containment culling and distance-to-surface queries go through trimesh,
-# which queries scipy's kd-tree and rtree's bounds tree (license evidence
-# reports/RPT-003). trimesh itself left this extra on 2026-08-19 and is a
-# runtime dependency above (DD-27); reading vertices and faces needs neither
-# of these two, which is why the trailing-edge extraction runs without them.
-geom = ["rtree", "scipy"]
 # FSI structural coupling (M6, DLV-007). PyNiteFEA is MIT; license
 # evidence: reports/RPT-002_pynitefea-license_2026-07-21.md (NFR-02).
 fsi = ["PyNiteFEA>=3.0"]

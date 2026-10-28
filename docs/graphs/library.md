@@ -1754,7 +1754,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases._geometry_emit">pyflightstream.cases._geometry_emit</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases._geometry_instruction">pyflightstream.cases._geometry_instruction</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.commands">pyflightstream.commands</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.extras">pyflightstream.extras</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.versions">pyflightstream.versions</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_instruction">pyflightstream.workspace._geometry_instruction</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._geometry_sidecar">pyflightstream.workspace._geometry_sidecar</a> (module)</li>
@@ -2013,7 +2012,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.workspace._refine._remesh"><summary><code>pyflightstream.workspace._refine._remesh</code></summary><ul>
-<li>&rarr; <a href="#pyflightstream.extras">pyflightstream.extras</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._config">pyflightstream.workspace._refine._config</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._geometry">pyflightstream.workspace._refine._geometry</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
@@ -3239,7 +3237,6 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.probes.geometry"><summary><code>pyflightstream.probes.geometry</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._mesh">pyflightstream._mesh</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.extras">pyflightstream.extras</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.probes.errors">pyflightstream.probes.errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.probes.planar">pyflightstream.probes.planar</a> (module)</li>
 </ul></details>

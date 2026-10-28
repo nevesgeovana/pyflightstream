@@ -30,7 +30,6 @@ import pytest
 import pyflightstream
 import pyflightstream.workspace as workspace
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
-from pyflightstream.extras import MissingExtraError
 from pyflightstream.run import cli
 from pyflightstream.workspace import RefinedMesh, refine_mesh
 from pyflightstream.workspace._refine._grid import recover_grid
@@ -1179,72 +1178,22 @@ def test_r9_method_grid_without_a_grid_is_refused_and_auto_remeshes(tmp_path):
     assert (entry["method"], entry["reason"]) == ("remesh", "the refinement file states remesh")
 
 
-# --------------------------------------------------------------- FR-924 the extra
+# ---------------------------------------------------------------- FR-934 the band
 
 
-def test_r10_without_scipy_and_rtree_a_grid_refines_and_a_remesh_is_refused(
-    tmp_path, monkeypatch, capsys
-):
-    """P0380-REFINE (FR-924, FR-925): scipy and rtree unimportable (``sys.modules`` None).
+def test_r10_the_band_of_an_unchanged_neighbour_is_written_where_the_shared_curve_changes(tmp_path):
+    """P0380-REFINE (FR-934): only G is selected, beside the unchanged strip T.
 
-    The grid-only refinement writes its level. The one that must remesh T is
-    refused by both routes naming T and ``pip install "pyflightstream[geom]"``,
-    before any file. Control: with the extra importable again the same
-    refinement writes the level, T remeshed.
-    """
-    alone = _source(tmp_path / "alone")
-    root = tmp_path / "remesh"
-    src = _source(root, WITH_T)
-    with monkeypatch.context() as blocked:
-        for name in ("scipy", "scipy.spatial", "rtree"):
-            blocked.setitem(sys.modules, name, None)
-        level = refine_mesh(alone, 2.0)
-        assert level.report["G"]["method"] == "grid" and len(level.files) == 6
-        text = _refused(root, src, 2.0, error=MissingExtraError)
-        assert "family T" in text and 'pip install "pyflightstream[geom]"' in text
-        code, _, err = _command(capsys, str(src), "2")
-        assert code == 2 and text in err and _left(root) == []
-    level = refine_mesh(src, 2.0)
-    assert level.report["T"]["method"] == "remesh" and _left(root) == ["wing_R2"]
-
-
-def test_r10_the_band_of_an_unchanged_neighbour_needs_the_extra_before_any_resampling(
-    tmp_path, monkeypatch, capsys
-):
-    """P0380-REFINE (FR-924, FR-925; FR-934): the band's remesh is planned before any work.
-
-    Only G is selected, beside the unchanged strip T; G's tip station, the
-    curve they share, gains nodes at factor 2, so T must be remeshed in its
-    band. With scipy and rtree unimportable the refusal names T and the
-    remedy, by both routes, before any grid is resampled (a profile records
-    every call of the resampling). Controls: at chordwise 1 and spanwise 2
-    the shared station keeps its nodes, so no band is needed and the level is
-    written without the extra; with the extra the band is written.
+    G's tip station, the curve they share, gains nodes at factor 2, so T is
+    remeshed in its band. Control: at chordwise 1 and spanwise 2 the shared
+    station keeps its nodes, so no band is needed and T is copied.
 
     PUSH-W12-QA-2: the growth check of the strip T fails on this fixture, a
     warning the test asserts, so it fails if the warning disappears.
-
-    Release review of 0.38.0: proves the fix of RV-11.
     """
     src = _source(tmp_path, WITH_T)
-    with monkeypatch.context() as blocked:
-        for name in ("scipy", "scipy.spatial", "rtree"):
-            blocked.setitem(sys.modules, name, None)
-        caught: list[MissingExtraError] = []
-
-        def refused() -> None:
-            with pytest.raises(MissingExtraError) as error:
-                refine_mesh(src, 2.0, families=["G"])
-            caught.append(error.value)
-
-        assert _resampled_while(refused) == []
-        text = str(caught[0])
-        assert "family T" in text and "~band" not in text and "pyflightstream[geom]" in text
-        assert text.endswith("Nothing was written.") and _left(tmp_path) == []
-        code, _, err = _command(capsys, str(src), "2", "--families", "G")
-        assert code == 2 and text in err and _left(tmp_path) == []
-        kept = refine_mesh(src, 1.0, families=["G"], parallel=2.0)
-        assert kept.report["T"] == {"method": "copied"}
+    kept = refine_mesh(src, 1.0, families=["G"], parallel=2.0)
+    assert kept.report["T"] == {"method": "copied"}
     with pytest.warns(PyflightstreamWarning, match=GROWTH_ON_T):
         level = refine_mesh(src, 2.0, families=["G"])
     assert level.report["T"]["method"] == "unchanged" and level.report["T"]["band"] > 0
