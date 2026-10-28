@@ -1089,6 +1089,16 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     captured[plan_name] = captured[plan_name].replace(
         old_boundary, b'"wake_termination": {},\n      "boundaries_file": null\n'
     )
+    # FR-3292 writes the post's measurement reports beside its products. The 0.38.0
+    # capture held none (the workspace-root reports/ was never compared), so they are
+    # left out here, and products.json names their new place.
+    outputs = {k: v for k, v in outputs.items() if not k.startswith("tree/post/polars/reports/")}
+    products_name = "tree/post/polars/products.json"
+    old_report = b'"superfile_report": "reports/superfile-<V>.json"'
+    assert captured[products_name].count(old_report) == 1
+    captured[products_name] = captured[products_name].replace(
+        old_report, b'"superfile_report": "post/polars/reports/superfile-<V>.json"'
+    )
     assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
         if name == "tree/runs.json":

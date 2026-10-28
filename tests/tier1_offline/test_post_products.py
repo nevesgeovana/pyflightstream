@@ -1417,6 +1417,7 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
         "post.log.json",
         "products.json",
         "provenance",
+        "reports",  # FR-3292: the superfile measurement, beside the products
     ]
     names = sorted(p.name for p in (out / "polars").iterdir())
     # FR-89 puts the superfile of each group here too; this point sweeps
