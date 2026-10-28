@@ -1039,7 +1039,7 @@ def _read_mesh(source: Path, mesh_unit: str | None, nastran_unit: str) -> Mesh:
 
     if not _nastran.is_nastran(source):
         return read_obj(source)
-    drawn_in = mesh_unit if mesh_unit in METRES_PER_UNIT else "METER"
+    drawn_in = mesh_unit if mesh_unit and mesh_unit in METRES_PER_UNIT else "METER"
     if nastran_unit not in METRES_PER_UNIT:
         _skipped(
             _unknown_unit("--nastran-unit", nastran_unit) + "; the mesh is read without scaling"
