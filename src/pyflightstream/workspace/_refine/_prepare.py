@@ -229,11 +229,12 @@ def rearmost_lines(
     (:func:`._obj.rearmost_perimeter`), and of it the edges the piece lies
     forward of (:func:`._obj.rearmost_edges`) that lie in or near the plane
     across ``aft`` (the yz plane for +x), within ``max_angle`` (:func:`near_yz`).
-    Where a connected part of the family has a fold among them (the upper and
-    the lower surface meeting at a sharp trailing edge, :func:`._obj.folded_edges`),
-    only its folds are kept: a closed tip cap is a piece of its own, and the
-    contour it meets the blade along is not a trailing edge. A part with no fold
-    (a blunt base) keeps every edge found.
+    Where a chain of the edges found (edges sharing a vertex) holds a fold (the
+    upper and the lower surface meeting at a sharp trailing edge,
+    :func:`._obj.folded_edges`), only its folds are kept: a closed tip cap is a
+    piece of its own, and the contour it meets the blade along, which joins the
+    trailing edge at its tip, is not a trailing edge. A chain with no fold (the
+    rim of a blunt base) keeps every edge, whatever else of the family touches it.
     """
     dihedral = _geometry.dihedral_degrees(verts, faces)
     sharp = {e for e, angle in dihedral.items() if angle > _geometry.RIDGE_DEGREES}
@@ -252,9 +253,9 @@ def rearmost_lines(
         found |= _obj.rearmost_edges(verts, faces, rear, aft) & folds
     folds = _obj.folded_edges(verts, faces, found)
     if folds:
-        part = _obj.vertex_components(faces)
-        folded_parts = {part[a] for a, _ in folds}
-        found = {e for e in found if e in folds or part[e[0]] not in folded_parts}
+        chain = _obj.vertex_components([list(e) for e in found])
+        folded_chains = {chain[a] for a, _ in folds}
+        found = {e for e in found if e in folds or chain[e[0]] not in folded_chains}
     return near_yz(verts, found, max_angle, aft)
 
 

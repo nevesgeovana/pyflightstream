@@ -64,6 +64,19 @@ def test_an_open_tip_blade_finds_the_whole_trailing_edge_too() -> None:
     assert _prepare.rearmost_lines(verts, faces) == trailing
 
 
+def test_a_blunt_base_touching_a_sharp_trailing_edge_keeps_its_rim() -> None:
+    """A closed box (blunt base at x = 1) and a wedge fin sharing one vertex with it."""
+    verts = np.asarray(
+        [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)]
+        + [(1, 1, 1), (1, 1.2, 1), (3, 1.1, 1), (1, 1, 2), (1, 1.2, 2), (3, 1.1, 2)],
+        dtype=float,
+    )
+    box = [[0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]
+    fin = [[6, 10, 13, 11], [10, 9, 12, 13], [9, 6, 11, 12], [6, 9, 10], [11, 13, 12]]
+    rim = {(1, 2), (1, 5), (2, 6), (5, 6)}
+    assert _prepare.rearmost_lines(verts, box + fin) == rim | {(10, 13)}
+
+
 def test_the_fixture_tip_chord_lies_20_degrees_from_the_rotation_plane() -> None:
     verts, _, _, n = _blade()
     tip_te = verts[(STATIONS - 1) * n]
