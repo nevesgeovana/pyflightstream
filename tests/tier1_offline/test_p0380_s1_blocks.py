@@ -644,44 +644,64 @@ def test_at_factor_one_each_grouped_family_is_its_source_face_for_face(tmp_path)
     assert all(g.passed for g in level.audit.gates) and "G6 W" in gates, gates
 
 
-def test_two_grids_giving_a_shared_curve_different_counts_are_refused_naming_both(tmp_path):
-    """P0440-LAYOUT (FR-932, FR-925): J at 0.5 beside W and C at 0.76923 is refused.
+def test_two_grids_giving_a_shared_curve_different_counts_follow_the_largest(tmp_path):
+    """FR-3298 (FR-932): J at 0.5 beside W and C at 0.76923 follows the larger family.
 
     A station of 13 intervals would hold round(13 x 0.76923) = 10 intervals on
-    one side and round(13 x 0.5) = 6 on the other; the refusal names both
-    families, the curve and both counts, and nothing is written. Control: J at
-    0.76923 is accepted (the test above).
+    one side and round(13 x 0.5) = 6 on the other. With no governing family the
+    declared family of the largest perimeter on the curves leads, J follows,
+    warned, and all three stay grids. Before FR-3298 this was refused.
     """
     toml = (
         f"[families.W]\nfactor = {FACTOR}\n\n[families.C]\nfactor = {FACTOR}\n\n"
         "[families.J]\nfactor = 0.5\n"
     )
     src = _source(tmp_path, toml, strip=False)
-    with pytest.raises(InputArtifactError) as caught:
-        refine_mesh(src)
-    text = str(caught.value)
-    assert text.startswith(f"{src} families ") and " and J: the curve they share from node " in text
-    assert "of 13 source intervals, would hold 10 intervals as " in text
-    assert "and 6 as J is" in text and text.endswith("Nothing was written.")
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
+    with pytest.warns(
+        PyflightstreamWarning, match=r"family W follows J \(declared, of the largest"
+    ):
+        level = refine_mesh(src, out_dir=tmp_path / "lead")
+    assert [level.report[n]["method"] for n in ("W", "C", "J")] == ["grid"] * 3
 
 
-def test_arch48_accept_remesh_leaves_a_refused_layout_to_the_first_grid_rule(tmp_path):
-    """ARCH48-R5: the counts refusal above is bypassed by ``accept_remesh``.
-
-    The first family of the group in the source's order is refined as a grid
-    alone and the others are remeshed, with one warning naming the refusal.
-    """
+def test_a_governing_family_gives_its_counts_to_the_curves_it_shares(tmp_path):
+    """FR-3298: W marked governing = true leads J, which the largest-perimeter rule would pick."""
     toml = (
-        f"[families.W]\nfactor = {FACTOR}\n\n[families.C]\nfactor = {FACTOR}\n\n"
-        "[families.J]\nfactor = 0.5\n"
+        f"[families.W]\nfactor = {FACTOR}\ngoverning = true\n\n"
+        f"[families.C]\nfactor = {FACTOR}\n\n[families.J]\nfactor = 0.5\n"
     )
     src = _source(tmp_path, toml, strip=False)
-    with pytest.warns(PyflightstreamWarning, match="would hold 10 intervals as .*accept_remesh"):
-        level = refine_mesh(src, accept_remesh=True, out_dir=tmp_path / "acc")
-    methods = [level.report[n]["method"] for n in ("W", "C", "J")]
-    assert methods.count("grid") >= 1 and methods.count("remesh") >= 1
-    assert level.report["J"]["method"] == "remesh"
+    with pytest.warns(PyflightstreamWarning, match=r"family J follows W \(governing\)"):
+        level = refine_mesh(src, out_dir=tmp_path / "gov")
+    assert [level.report[n]["method"] for n in ("W", "C", "J")] == ["grid"] * 3
+
+
+def test_an_undeclared_grid_takes_the_governing_family_factors(tmp_path):
+    """FR-3298: with a governing family, W and C left out of the file are grid_auto.
+
+    They are refined as grids with J's factor (0.76923), and written as
+    method grid_auto in the level's selection.
+    """
+    toml = f"[families.J]\nfactor = {FACTOR}\ngoverning = true\n"
+    src = _source(tmp_path, toml, strip=False)
+    level = refine_mesh(src, out_dir=tmp_path / "auto")
+    assert [level.report[n]["method"] for n in ("W", "C", "J")] == ["grid"] * 3
+    assert level.report["W"]["grid_auto"] == {"follows": "J", "factors": [FACTOR, FACTOR]}
+    assert "grid_auto" not in level.report["J"]
+    control = refine_mesh(
+        _source(tmp_path / "c", f"[families.J]\nfactor = {FACTOR}\n", strip=False),
+        out_dir=tmp_path / "ctl",
+    )
+    assert control.report.get("W", {}).get("method") != "grid"
+
+
+def test_grid_auto_without_a_governing_family_is_kept_unchanged(tmp_path):
+    """FR-3298: method = "grid_auto" with no governing family is warned and kept."""
+    toml = f'[families.J]\nfactor = {FACTOR}\n\n[families.W]\nmethod = "grid_auto"\n'
+    src = _source(tmp_path, toml, strip=False)
+    with pytest.warns(PyflightstreamWarning, match="marks none"):
+        level = refine_mesh(src, out_dir=tmp_path / "none", accept_remesh=True)
+    assert level.report.get("W", {}).get("method") != "grid"
 
 
 # ------------------------------------------- PFS-2150 chordwise and spanwise on a multiblock

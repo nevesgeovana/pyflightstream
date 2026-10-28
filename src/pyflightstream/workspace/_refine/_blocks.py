@@ -1011,9 +1011,15 @@ def _counted(
     te_edges: Mapping[str, Collection[Edge]],
     where: str,
 ) -> Layout:
-    """Return the layout with every arc's count, refusing an arc two families count apart."""
+    """Return the layout with every arc's count, a shared curve counted by its governing family.
+
+    The arcs a count must hold across (opposite sides of a patch, and a curve two
+    families share) form a band; a band takes the count its governing family
+    gives it (``governing = true``), else the family of the largest perimeter
+    on it, and the other families follow, warned (:func:`_band_counts`).
+    """
     blocks, owner = found
-    counts: dict[int, tuple[int, str]] = {}
+    proposed: dict[int, list[tuple[str, int]]] = {}
     kept: dict[str, list[dict[str, object]]] = {}
     for i, name in enumerate(names):
         mine = [p for p, o in enumerate(owner) if o == i]
@@ -1027,22 +1033,97 @@ def _counted(
             family=f"{where} family {name}",
         )
         for arc, f in factors.items():
-            chain = blocks.arcs[arc]
-            new = count(len(chain) - 1, f)
-            old, other = counts.setdefault(arc, (new, name))
-            if old != new:
-                raise _refuse(
-                    f"{where} families {other} and {name}: the curve they share from node "
-                    f"{chain[0] + 1} to node {chain[-1] + 1}, of {len(chain) - 1} source "
-                    f"intervals, would hold {old} intervals as {other} is refined and {new} as "
-                    f"{name} is; grids that share nodes are resampled as one layout, so give "
-                    "the two factors that make one count of it"
-                )
+            proposed.setdefault(arc, []).append((name, count(len(blocks.arcs[arc]) - 1, f)))
         kept[name] = kept_sides(blocks, verts, factors, patches=mine)
+    counts = _band_counts(verts, names, blocks, owner, proposed, specs=specs, where=where)
     kinds = tuple(grids[n].layout for n in names)
     return Layout(
-        names, kinds, blocks, owner, tuple(counts[a][0] for a in range(len(blocks.arcs))), kept
+        names, kinds, blocks, owner, tuple(counts[a] for a in range(len(blocks.arcs))), kept
     )
+
+
+def _perimeters(
+    verts: Points, names: Sequence[str], blocks: Blocks, owner: Sequence[int]
+) -> dict[str, float]:
+    """Return each family's perimeter in the layout: the arcs one of its patches holds."""
+    pts = numpy.asarray(verts, dtype=float)
+    out = {}
+    for i, name in enumerate(names):
+        held: dict[int, int] = {}
+        for p, o in enumerate(owner):
+            if o == i:
+                for arc, _ in blocks.sides[p]:
+                    held[arc] = held.get(arc, 0) + 1
+        out[name] = sum(
+            float(numpy.linalg.norm(numpy.diff(pts[list(blocks.arcs[a])], axis=0), axis=1).sum())
+            for a, n in held.items()
+            if n == 1
+        )
+    return out
+
+
+def _bands(blocks: Blocks, arcs: Iterable[int]) -> dict[int, int]:
+    """Return each arc's band: arcs joined as opposite sides of a patch hold one count."""
+    parent = {a: a for a in arcs}
+
+    def root(a: int) -> int:
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    for sides in blocks.sides:
+        ring = [arc for arc, _ in sides]
+        for x, y in ((ring[0], ring[1]), (ring[2], ring[3])):
+            if x in parent and y in parent:
+                parent[root(x)] = root(y)
+    return {a: root(a) for a in parent}
+
+
+def _band_counts(
+    verts: Points,
+    names: Sequence[str],
+    blocks: Blocks,
+    owner: Sequence[int],
+    proposed: Mapping[int, list[tuple[str, int]]],
+    *,
+    specs: Mapping[str, FamilySpec],
+    where: str,
+) -> dict[int, int]:
+    """Return one count per arc: each band's count from the family that leads it, warned."""
+    perimeter = _perimeters(verts, names, blocks, owner)
+    band = _bands(blocks, proposed)
+    members: dict[int, list[tuple[str, int]]] = {}
+    for arc, offers in proposed.items():
+        members.setdefault(band[arc], []).extend(offers)
+    chosen: dict[int, int] = {}
+    followed: dict[tuple[str, str], int] = {}
+    for key, offers in members.items():
+        rank = {
+            n: (
+                not specs[n].governing,
+                specs[n].method == "grid_auto",
+                -perimeter[n],
+                names.index(n),
+            )
+            for n, _ in offers
+        }
+        lead = min(rank, key=rank.__getitem__)
+        value = next(c for n, c in offers if n == lead)
+        chosen[key] = value
+        for n, c in offers:
+            if c != value:
+                followed[(n, lead)] = followed.get((n, lead), 0) + 1
+    for (n, lead), bands in sorted(followed.items()):
+        how = "governing" if specs[lead].governing else "declared, of the largest perimeter"
+        warn(
+            f"{where} family {n} follows {lead} ({how}) on {bands} band(s) of the curves they "
+            f"share: those curves take {lead}'s counts. Mark the family that should lead with "
+            "governing = true in its [families] table.",
+            PyflightstreamWarning,
+            stacklevel=5,
+        )
+    return {arc: chosen[band[arc]] for arc in proposed}
 
 
 def _warn_kept(layout: Layout, specs: Mapping[str, FamilySpec], where: str) -> None:

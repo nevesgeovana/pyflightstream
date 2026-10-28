@@ -38,7 +38,11 @@ from pyflightstream.workspace._refine._geometry import TE_POINT_FRACTION
 from pyflightstream.workspace._refine._obj import KIND
 
 #: The methods a family may state (FR-923).
-METHODS = ("auto", "grid", "remesh")
+METHODS = ("auto", "grid", "remesh", "grid_auto")
+#: A grid family that takes its factors from the governing family (``governing = true``)
+#: and its shared curves' counts from its neighbours; a grid family the refinement file
+#: does not declare is one when the file has a governing family.
+GRID_AUTO = "grid_auto"
 #: The element mode of a remeshed family that states none (today's triangles).
 TRIANGLES = "triangles"
 #: The element mode whose triangles are paired into quadrilaterals after the remesh.
@@ -52,6 +56,7 @@ FAMILY_KEYS = (
     "normal_factor",
     "method",
     "elements",
+    "governing",
 )
 #: Keys a [families.<name>] table may still state from earlier releases; each is warned
 #: and skipped: a row kept at an interface is a family of its own.
@@ -89,6 +94,9 @@ class FamilySpec:
     chordwise: float | None = None
     spanwise: float | None = None
     method: str = "auto"
+    #: A governing family gives its counts to every curve it shares with other grids,
+    #: and to the curves those pass the count on to (``governing = true``).
+    governing: bool = False
 
     @property
     def directions(self) -> tuple[float, float]:
@@ -266,13 +274,25 @@ def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> 
     if method not in METHODS:
         _unknown(f"{where} method", f"{method!r} is not one of {', '.join(METHODS)}", accept)
         method = "auto"
-    if "elements" in table and method == "grid":
+    if "elements" in table and method in ("grid", GRID_AUTO):
         _unknown(
             f"{where} elements",
             "elements applies to a remeshed family; a grid keeps its cells",
             accept,
         )
     table = {k: v for k, v in table.items() if k != "elements"}
+    governing = table.pop("governing", False)
+    if not isinstance(governing, bool):
+        _unknown(f"{where} governing", f"{governing!r} is not true or false", accept)
+        governing = False
+    if method == GRID_AUTO:
+        if any(k in table for k in ("factor", *DIRECTIONAL_KEYS)):
+            _unknown(
+                where,
+                "grid_auto takes the governing family's factors; its own are skipped",
+                accept,
+            )
+        return FamilySpec(method=GRID_AUTO, governing=governing)
     if not any(k in table for k in ("factor", *DIRECTIONAL_KEYS)):
         _unknown(
             where,
@@ -296,6 +316,7 @@ def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> 
         chordwise=factors.get("normal_factor"),
         spanwise=factors.get("parallel_factor"),
         method=method,
+        governing=governing,
     )
 
 
@@ -680,7 +701,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
                 "or give FACTOR",
             )
         reason = f"--families selects {', '.join(chosen)}"
-        missing_tables = tuple(n for n in chosen if n not in stated_specs)
+        missing_tables = _missing_tables(chosen, stated_specs)
         for name in missing_tables:
             warnings.warn(
                 f"{file}: selected family {name!r} has no refinement table and is copied "
@@ -825,12 +846,25 @@ def canonical_selection(request: RefineRequest, picked: Sequence[str]) -> str:
                 options[key] = getattr(spec, key)
         if spec.method != "auto":
             options["method"] = spec.method
+        if spec.governing:
+            options["governing"] = True
         # The element mode reaches a remeshed family only: a grid keeps its cells.
         if request.elements_of(name) != TRIANGLES and spec.method != "grid":
             options["elements"] = request.elements_of(name)
         pairs = " ".join(f"{k}={_value(options[k])}" for k in sorted(options))
         lines.append(f"{name} {pairs}")
     return "\n".join(lines)
+
+
+def _missing_tables(chosen: Sequence[str], specs: Mapping[str, FamilySpec]) -> tuple[str, ...]:
+    """Return the selected families the file does not declare, none when one is governing.
+
+    With a governing family every undeclared family is grid_auto (FR-3298), so
+    none is copied for want of a table.
+    """
+    if any(s.governing for s in specs.values()):
+        return ()
+    return tuple(n for n in chosen if n not in specs)
 
 
 def tag_selection(request: RefineRequest, names: Sequence[str]) -> list[str] | None:

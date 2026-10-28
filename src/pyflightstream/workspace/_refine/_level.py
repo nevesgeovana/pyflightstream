@@ -57,7 +57,7 @@ from pyflightstream.workspace._refine import (
     _obj,
 )
 from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
-from pyflightstream.workspace._refine._config import FamilySpec, RefineRequest
+from pyflightstream.workspace._refine._config import GRID_AUTO, FamilySpec, RefineRequest
 from pyflightstream.workspace._refine._geometry import NearestIndex, order_like
 from pyflightstream.workspace._refine._obj import Faces, ObjMesh
 from pyflightstream.workspace._refine._staging import (
@@ -137,6 +137,8 @@ class _Work:
     # The families oriented by the longest side of their boundary, a reference line that is
     # not written as a trailing edge (_lines.assume_trailing_edge).
     assumed: set[str] = field(default_factory=set)
+    # The grid_auto families and the governing family each follows (_grid_auto_specs).
+    followers: dict[str, str] = field(default_factory=dict)
     sidecar: str | None = None  # the level's boundaries file, rewritten before any work
     unchanged: list[str] = field(default_factory=list)  # the families G6 compares
     # FR-972: the selected families of a summary tag, taken with the tag before any work
@@ -214,6 +216,7 @@ def _decide(work: _Work) -> None:
 
     (FR-923).
     """
+    _grid_auto_specs(work)
     names = [n for n in work.names if n in work.specs]
     for i, name in enumerate(names, 1):
         work.say(f"family {i} of {len(names)}: {name}, recovering its layout")
@@ -239,12 +242,74 @@ def _decide(work: _Work) -> None:
         )
 
 
+def _grid_auto_specs(work: _Work) -> None:
+    """Give each grid_auto family the factors of the governing family that leads it.
+
+    With a governing family in the file, every family the file does not declare
+    is grid_auto (kept unchanged when it is not a grid). A grid_auto family takes
+    the factors of the governing family it shares nodes with, through other
+    families, else of the governing family of the largest perimeter. Without a
+    governing family, a family declared grid_auto is warned and kept unchanged.
+    """
+    governing = [n for n in work.names if n in work.specs and work.specs[n].governing]
+    autos = [n for n in work.names if n in work.specs and work.specs[n].method == GRID_AUTO]
+    if not governing:
+        for name in autos:
+            warn(
+                f"{work.source} family {name}: grid_auto follows a governing family and the "
+                "refinement file marks none (governing = true); it is kept unchanged",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
+            del work.specs[name]
+        return
+    autos += [n for n in work.names if n not in work.specs]
+    group = _node_groups(work)
+    size = {n: _boundary_length(work, n) for n in governing}
+    for name in autos:
+        near = [g for g in governing if group[g] == group[name]] or governing
+        lead = max(near, key=lambda g: (size[g], -work.names.index(g)))
+        work.specs[name] = dataclasses.replace(work.specs[lead], method=GRID_AUTO, governing=False)
+        work.followers[name] = lead
+
+
+def _node_groups(work: _Work) -> dict[str, int]:
+    """Return each family's group: families that share a node, directly or through others."""
+    nodes = {n: work.fam_v[n] for n in work.names}
+    group: dict[str, int] = {}
+    for start in work.names:
+        if start in group:
+            continue
+        group[start] = len(group)
+        stack = [start]
+        while stack:
+            here = stack.pop()
+            for other in work.names:
+                if other not in group and nodes[here] & nodes[other]:
+                    group[other] = group[start]
+                    stack.append(other)
+    return group
+
+
+def _boundary_length(work: _Work, name: str) -> float:
+    """Return the length of a family's boundary edges."""
+    pts = work.mesh.verts
+    edges = _geometry.boundary_edges(work.mesh.families[name])
+    return float(sum(numpy.linalg.norm(pts[b] - pts[a]) for a, b in edges))
+
+
 def _refuse_or_remesh(work: _Work, name: str, found: str) -> None:
     """Refuse a family whose grid was demanded but not recovered, else choose its remesh.
 
-    Under ``accept_remesh`` the demanded grid is warned and remeshed instead.
+    Under ``accept_remesh`` the demanded grid is warned and remeshed instead. A
+    grid_auto family that is not a grid is kept unchanged.
     """
     spec = work.specs[name]
+    if spec.method == GRID_AUTO:
+        del work.specs[name]
+        work.followers.pop(name, None)
+        work.report[name] = {"method": "unchanged", "reason": f"grid_auto, not a grid: {found}"}
+        return
     if spec.method == "grid":
         _demanded_grid(work, name, f"method is grid and no grid was recovered: {found}")
     _remesh_or_keep(work, name, f"no grid recovered: {found}")
@@ -271,7 +336,7 @@ def _decide_family(work: _Work, name: str) -> None:
     directional = spec.chordwise is not None or spec.spanwise is not None
     if work.te_export is not None and work.te_edges[name]:
         _lines.choose_perimeter_line(work, name)
-    if (spec.method == "grid" or directional) and not work.te_of[name]:
+    if (spec.method in ("grid", GRID_AUTO) or directional) and not work.te_of[name]:
         # A grid demanded of a sheet, or asked for parallel and normal factors, that
         # found no trailing edge takes the longest side of its boundary as reference
         # (_lines.assume_trailing_edge), not written as a trailing edge, and warns.
@@ -424,6 +489,11 @@ def _grid_info(
     info: dict[str, Any] = dict(level.report, method="grid", reason=grid.describe())
     if layout is not None:
         info["kept_sides"] = layout.kept[name]
+    if name in work.followers:  # grid_auto (FR-3298)
+        info["grid_auto"] = {
+            "follows": work.followers[name],
+            "factors": list(work.specs[name].directions),
+        }
     if work.request.elements_of(name) != _config.TRIANGLES:
         info["elements"] = (
             f"{work.request.elements_of(name)} ignored: it applies to a remeshed family, "

@@ -240,3 +240,33 @@ def test_visual_inspect_names_the_nastran_unit_unit_as_prepare_to_refine_does() 
         assert args.unit == "METER", verb
     with pytest.raises(SystemExit):
         parser.parse_args(["geometry", "visual-inspect", "wing.nas", "--nastran-unit", "METER"])
+
+
+def test_fr3298_prepare_marks_one_governing_patch_per_touching_group(tmp_path):
+    """FR-3298: one governing grid patch per touching group; the other grids are left out."""
+    import tomllib
+
+    from pyflightstream.workspace._refine._prepare import prepare_to_refine
+
+    src = tmp_path / "plate.obj"
+    lines = []
+    for j in range(3):
+        for i in range(7):
+            lines.append(f"v {i:.1f} {j:.1f} 0.0")
+    lines.append("g A")
+    for j in range(2):
+        for i in range(3):
+            a = j * 7 + i + 1
+            lines.append(f"f {a} {a + 1} {a + 8} {a + 7}")
+    lines.append("g B")
+    for j in range(2):
+        for i in range(3, 6):
+            a = j * 7 + i + 1
+            lines.append(f"f {a} {a + 1} {a + 8} {a + 7}")
+    src.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    prepared = prepare_to_refine(src)
+    table = tomllib.loads(prepared.config.read_text(encoding="utf-8"))["families"]
+    governing = [n for n, t in table.items() if t.get("governing")]
+    grids = [p for ps in prepared.patches.values() for p in ps if p.endswith("_grid")]
+    assert len(grids) == 2 and len(governing) == 1
+    assert [g for g in grids if g not in table] == [g for g in grids if g not in governing]

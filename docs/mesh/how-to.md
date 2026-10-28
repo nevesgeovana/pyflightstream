@@ -336,7 +336,12 @@ optional.
    It writes, beside the mesh and without modifying it, `W1_patches.obj`,
    `W1_patches.refine.toml` and `W1_patches.nodes.txt`. The refine file holds
    every patch at factor 1 and `[components]` putting each family back
-   together; the node list holds the rearmost line of each grid patch, the
+   together. Grid patches that share nodes are refined as one layout, so the
+   curves they share take one count: in each such group the grid patch of the
+   largest perimeter is written `governing = true` and the others are left
+   out of the file, which makes them `grid_auto`: they follow the governing
+   patch's factors. Set the factors on the governing patches; declare a
+   follower to give it factors of its own. The node list holds the rearmost line of each grid patch, the
    edges within `--max-angle` (default 45 degrees) of the plane across the
    aft direction, as an ANSA SET node list. `--aft X Y Z` states the nose to
    tail direction (default +x, so the plane is the yz plane). Any OBJ and refine file refine without this step.

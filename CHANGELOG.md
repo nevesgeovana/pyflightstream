@@ -23,6 +23,16 @@ FlightStream versions.
 
 ### Added
 
+- Governing families in the refine file (FR-3298). `governing = true` in a
+  `[families.<name>]` table makes a family lead the grids it shares curves
+  with: a curve two grids would count apart takes the governing family's count,
+  else the count of the declared family of the largest perimeter, and the
+  others follow with a warning instead of the refusal. `method = "grid_auto"`
+  takes no factor and refines the family as a grid with its governing family's
+  factors; with a governing family in the file every undeclared family is
+  `grid_auto`. `prepare-to-refine` marks the grid patch of the largest
+  perimeter in each group of touching grid patches governing and leaves the
+  others undeclared.
 - `geometry prepare-to-refine` reads an ANSA NASTRAN export (`.nas`, `.bdf`,
   `.dat`). With the FE perimeters written, each family is cut along them, so
   each patch is one meshing macro; without them the export is warned and cut
