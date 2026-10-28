@@ -34,6 +34,11 @@ and skipped, or read under its new name.
   `circumferential`, `axis`, `origin`) and the `[periodic]` table are no longer
   read. Each is warned and skipped; a row kept at an interface is a family of
   its own, and a sector is refined as any mesh.
+- When a `[[perimeter]]` list exports the trailing edges and the source's
+  boundaries file declares none, the level's `<level>.obj.boundaries.toml`
+  declares one `[trailing_edges.<component>]` table per component, typed
+  `STANDARD`; edit the types before `geometry mark-boundaries`. A source that
+  declares its own trailing edges keeps them.
 - New: `geometry prepare-to-refine`, `geometry identify-te` and
   `[refine] filename`; see
   [From an OBJ to a marked level](mesh/how-to.md#from-an-obj-to-a-marked-level).
