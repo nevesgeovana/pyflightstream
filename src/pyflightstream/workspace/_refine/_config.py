@@ -78,7 +78,7 @@ RETIRED_TABLES = ("trailing_edge", "periodic")
 
 @dataclass(frozen=True)
 class FamilySpec:
-    """How one family is refined: its factors, its method and, for a body, its axis.
+    """How one family is refined: its factors and its method.
 
     ``spanwise`` holds the ``parallel_factor`` (along the reference perimeter)
     and ``chordwise`` the ``normal_factor`` (across it); the level's tag and
@@ -641,7 +641,7 @@ def _fmt(value: float) -> str:
 
 
 def spec_tag(spec: FamilySpec) -> str:
-    """Return a family's part of a level's tag: FR-919 of FR-424, a and t for a body (FR-428)."""
+    """Return a family's part of a level's tag (FR-919): the factor, then ``c`` and ``s`` ones."""
     tag = _fmt(spec.factor)
     if spec.chordwise is not None:
         tag += f"c{_fmt(spec.chordwise)}"
