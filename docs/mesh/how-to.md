@@ -86,30 +86,21 @@ needs no executable, no matrix and no workspace.
 In the examples below `W1.obj` holds two families, a wing grid `Wing` and a
 triangulated tip `Tip`.
 
-Declare the refinement input in `inputs/geometries/W1/W1.refine.toml`:
-
-```toml
-[trailing_edge]
-file = "W1.te.txt"
-per_family = true
-```
-
-Then refine:
+Refine with a factor on the command line:
 
 ```text
 pyfs-matrix refine inputs/geometries/W1/W1.obj 2
 ```
 
-The level keeps the source's marking declarations. To mark its updated edges,
-edit the level's `[trailing_edges.<label>] file` to name `W1_R2.te.txt`, or
-one of the generated `W1_R2.<family>.te.txt` files.
+The level keeps the source's marking declarations. To mark its edges, edit the
+level's `[trailing_edges.<label>] file`; the next section shows how the trailing
+edges are listed and exported.
 
 This writes the level folder `inputs/geometries/W1_R2/`:
 
 ```text
 inputs/geometries/W1_R2/
     W1_R2.obj               the refined mesh
-    W1_R2.te.txt            the trailing-edge points, rewritten from the new mesh
     W1_R2.obj.boundaries.toml   preserved declarations and updated inventory
     W1_R2.refine.json       what was done to each family
     W1_R2.audit.json        the audit of the level against its source
@@ -120,10 +111,9 @@ family (`[refine 14:02:11 +3.2 s] grid 1 of 2: Wing (...)`), so a long
 refinement shows it is moving; `--log-level quiet` hides them. At the end the
 console names each family with the method it took (`Wing: grid`), prints
 the audit's summary and then every file written. The level is a geometry of its
-own and is marked like any OBJ: name its new `W1_R2.te.txt` in the level's
-`[trailing_edges.<label>] file`, run
+own and is marked like any OBJ:
 `pyfs-workspace geometry mark-boundaries inputs/geometries/W1_R2/W1_R2.obj --apply`,
-and name the saved `W1_R2.fsm` in a row's `GEOMETRY` column. A row naming
+and the saved `W1_R2.fsm` is named in a row's `GEOMETRY` column. A row naming
 `W1_R2.obj` is refused ([matrix geometry](../geometry.md#matrix-geometry)).
 
 The level folder goes beside the folder holding the source. For a geometry kept
@@ -152,19 +142,22 @@ level at factor 1 is the control of the study: its OBJ holds the source's
 vertex and face lines, in the source's order.
 
 `--families A,B` changes only the named families and leaves the others as
-they are. `--chordwise F` and `--spanwise F` replace the factor in one index
-direction of the selected grid families (around the section and along the
-stations); they are refused for a family that is remeshed, so here they go with
-`--families Wing`:
+they are. `--parallel F` and `--normal F` replace the factor in one direction
+of the selected grid families: `--parallel` runs along the family's reference
+perimeter, `--normal` across it. They are refused for a family that is
+remeshed, so here they go with `--families Wing`:
 
 ```text
 pyfs-matrix refine inputs/geometries/W1/W1.obj 2 --families Wing
-pyfs-matrix refine inputs/geometries/W1/W1.obj --chordwise 1.5 --spanwise 0.7 --families Wing
+pyfs-matrix refine inputs/geometries/W1/W1.obj --normal 1.5 --parallel 0.7 --families Wing
 ```
 
 The first writes `W1_R-Wing2`, the second `W1_R-Wing1c1p5s0p7`. A mesh whose
-families are all grids takes `--chordwise 1.5 --spanwise 0.7` alone, tagged
-`R1c1p5s0p7`.
+families are all grids takes `--normal 1.5 --parallel 0.7` alone, tagged
+`R1c1p5s0p7`. A family that is not a grid but is given a directional factor is
+refused; `--accept-remesh` remeshes it with FACTOR instead, with a warning.
+The earlier names `--chordwise` and `--spanwise` (and the keys `chordwise` and
+`spanwise`) are read as `--normal` and `--parallel`, with a warning.
 
 A tag built from a long selection, more than 32 characters, is shortened to
 `R-<n>fam-<hash>`: the number of selected families and a hash of the
@@ -179,12 +172,13 @@ whose faces form a structured grid, read from the connectivity alone, is
 resampled along its two index directions by a cubic spline through its nodes:
 quadrilaterals, or quadrilaterals each split into two triangles, laid out as a
 sheet, or as a tube whose ends are open, closed by a fan of triangles around one
-pole node, or closed by a zipper of triangles. A sheet is a grid only with a
-trailing edge: its trailing edge is the grid line that fixes which edge is
-chordwise index 0, so a sheet whose family has no trailing-edge vertex is
-remeshed under `method = "auto"` and refused under `method = "grid"`, both
-naming that reason. Only a smooth tube is recovered without one, its seam
-standing in. The trailing edge, the leading
+pole node, or closed by a zipper of triangles. A sheet is oriented by its reference perimeter: the line of
+the grid that fixes which edge is index 0, taken from a `[[perimeter]]` node
+list (see [From an OBJ to a marked level](#from-an-obj-to-a-marked-level)) or
+else from the mesh. A grid family with no trailing edge takes the side of its
+boundary that holds a neighbouring family's trailing edge, else its longest
+side, and warns which. A smooth tube is recovered without one, its seam
+standing in. The reference perimeter, the leading
 edge and the end stations are knots of the spline, so the clustering is kept
 and they do not move, and the level is written in the source's face order.
 
@@ -203,8 +197,7 @@ both hold the same nodes on it, and each family keeps its own faces, their
 orientation and its face order. The factors of the two families must give a
 shared curve the same number of intervals, or the refinement is refused
 naming both families and the curve; `refine.json` names under `grouped_with`
-the families each grid was resampled with. A tube, a family with triangles,
-or a grid with `keep_first_row` joins no such layout: of grids that share
+the families each grid was resampled with. A tube or a family with triangles joins no such layout: of grids that share
 nodes, the first in the file's family order is then a grid and a later one is
 remeshed under `method = "auto"`, or refused under `method = "grid"`.
 
@@ -235,14 +228,13 @@ they share.
 
 `W1_R2.refine.json` reports the layout `multiblock` for such a family, with the
 number of patches and each patch's rows and columns. A multiblock family has
-no single chordwise or spanwise direction, so `--chordwise` and `--spanwise`
+no single normal or parallel direction, so `--normal` and `--parallel`
 apply to it side by side: a patch side running within 45 degrees of the
-family's trailing edge is spanwise, any other chordwise, so a junction strip
-can be coarsened chordwise only with `chordwise = 0.77` and `spanwise = 1`.
+family's reference perimeter is parallel, any other normal, so a junction strip
+can be coarsened normal only with `normal_factor = 0.77` and `parallel_factor = 1`.
 Opposite sides of a patch must read alike and its two directions must
-differ; a patch whose directions cannot be told apart, or a family without a
-trailing edge, is refused naming it, and then `FACTOR` or a `factor` in its
-table applies to both directions. Across a patch side the level is
+differ; a patch whose directions cannot be told apart is refused naming it,
+and then `FACTOR` or a `factor` in its table applies to both directions. Across a patch side the level is
 continuous but not smooth: no spline crosses it.
 
 A patch side of m intervals that a factor below 1/m cannot coarsen (a strip
@@ -326,82 +318,118 @@ the side, naming why, if its grid is not recovered, rather than remesh it. The
 gives the factors, so `pyfs-matrix refine inputs/geometries/B1/B1.obj 2`
 merges the families too.
 
-### A body, and a periodic sector
+### From an OBJ to a marked level
 
-A body of revolution (a fuselage, a nacelle, a spinner) can be refined along its
-axis and around it independently. Its table states `axial`, `circumferential`
-and `axis` in place of `factor`:
+The path from a mesh to a marked, refined geometry has six steps; the first is
+optional.
 
-```toml title="inputs/geometries/S1/S1.refine.toml"
-[families.Spinner]
-axial = 2
-circumferential = 1
-axis = [1.0, 0.0, 0.0]
-```
+1. **Prepare the patches (optional).** `prepare-to-refine` cuts every family at
+   its sharp edges into patches that the refinement recovers as grids
+   (`<family>_<NNN>_grid`) and patches that it remeshes (`<family>_<NNN>_mixed`):
 
-When `Spinner` is the mesh's only family the level is `S1_Ra2t1`; beside
-other families it is `S1_R-Spinnera2t1`. Remeshing a body needs the geometry
-extra. A periodic sector, one blade of a rotor cut by two planes
-through its axis, keeps its two cut faces matched node for node when the file
-states the rotation that maps one onto the other:
+   ```text
+   pyfs-workspace geometry prepare-to-refine inputs/geometries/W1/W1.obj
+   ```
 
-```toml title="inputs/geometries/P1/P1.refine.toml"
-[families.Blade1]
-factor = 2
+   It writes, beside the mesh and without modifying it, `W1_patches.obj`,
+   `W1_patches.refine.toml` and `W1_patches.nodes.txt`. The refine file holds
+   every patch at factor 1 and `[components]` putting each family back
+   together; the node list holds the rearmost line of each grid patch, the
+   edges within `--max-angle` (default 45 degrees) of the yz plane, as an ANSA
+   SET node list. `--aft X Y Z` states the nose to tail direction (default
+   +x). Any OBJ and refine file refine without this step.
+2. **Edit the refine file.** Set the factors of the patches and their
+   `method`. The file names the node list in a `[[perimeter]]` table:
 
-[periodic]
-axis = [1.0, 0.0, 0.0]
-origin = [0.0, 0.0, 0.0]
-copies = 6
-```
+   ```toml title="inputs/geometries/W1/W1_patches.refine.toml"
+   [refine]
+   filename = "W1_fine"
 
-### Keeping the row at an interface
+   [families.Wing_001_grid]
+   parallel_factor = 2
+   normal_factor = 1.5
+   method = "grid"
 
-On a lifting surface that meets another component (a wing at its fuselage, a
-blade at its hub), the row of panels at that interface sets where the last
-wake filament shed by the trailing edge lies relative to the adjacent
-component. A refinement study changes the width of that row with every level;
-`keep_first_row` keeps it. The row between each end station that meets
-another component and the station next to it is refined chordwise only, and
-keeps the source's spanwise width at every factor, the mid-point of its
-trailing-edge edge included; every other row is refined chordwise and
-spanwise as before.
+   [components]
+   Wing = ["Wing_001_grid", "Wing_002_mixed"]
 
-In the refinement file the option is stated per family:
+   [[perimeter]]
+   file = "W1_patches.nodes.txt"
+   export_te_per_family = true
+   te_families = ["Wing"]
+   ```
 
-```toml title="inputs/geometries/WB/WB.refine.toml"
-[families.Wing]
-spanwise = 2
-keep_first_row = true
-```
+   A node list can also come from the pre-processor: save the nodes of an
+   ANSA SET from its node window. One list may hold the perimeters of every
+   component, in any node order. With `export_te_per_family = true` the list
+   holds trailing edges, and the level writes them; `te_families` instead
+   takes the rearmost line of each named family from a list that holds every
+   perimeter.
+3. **Refine.**
 
-On the command line, `--keep-first-row` names the families, comma separated
-as `--families` takes them, and in Python `refine_mesh` takes the same names;
-the three routes give the same level:
+   ```text
+   pyfs-matrix refine inputs/geometries/W1/W1_patches.obj
+   ```
+
+   With no factor on the command line the factors come from the refine file
+   beside the mesh. `[refine] filename` names the level's folder and OBJ in
+   place of `<stem>_<tag>`. The level `inputs/geometries/W1_fine/` holds the
+   refined mesh, the trailing edges as `W1_fine.te.txt` and
+   `W1_fine.<family>.te.txt`, and its boundaries file.
+4. **Edit the level's boundaries file types.** When the trailing edges were
+   exported and the source declares none, the level's
+   `<level>.obj.boundaries.toml` declares one table per component:
+
+   ```toml
+   [trailing_edges.Wing]
+   file = "W1_fine.Wing.te.txt"
+   type = "STANDARD"
+   ```
+
+   Change the `type` of each, and add `fs_build`, `[import] units` and the
+   other declarations as for any OBJ ([the reference](reference.md)). A
+   source file that declares its own trailing edges keeps them.
+5. **Mark the boundaries.** The level is a geometry of its own:
+
+   ```text
+   pyfs-workspace geometry mark-boundaries inputs/geometries/W1_fine/W1_fine.obj --apply
+   ```
+
+6. **Name the saved simulation** in a row's `GEOMETRY` column.
+
+### Marking trailing edges without refining
+
+`identify-te` writes the trailing edges of an OBJ in the format the solver
+imports, for a mesh that is not refined:
 
 ```text
-pyfs-matrix refine inputs/geometries/WB/WB.obj --spanwise 2 --keep-first-row Wing,Tail
+pyfs-workspace geometry identify-te inputs/geometries/W1/W1.obj
+pyfs-workspace geometry identify-te inputs/geometries/W1/W1.obj --families Wing,Tail
 ```
 
-<!-- skip: next -->
-```python
-from pyflightstream.workspace import refine_mesh
+Without a node list the edges are found from the mesh: each family is cut at
+its sharp edges and its rearmost boundary edges within `--max-angle` of the yz
+plane are kept. The command writes `W1.nodes.te.txt` for every family (or
+`W1.<family>.fs.te.txt` for each family named by `--families`) and, beside it,
+`W1.nodes.txt`, the ANSA node list a refine file reads. With a node list
+saved from a SET, `identify-te W1.obj nodes.txt` takes the trailing edges among
+its lines, on a refined level with merged families too. `--unit` states the
+coordinates' unit and `--simulation-unit` the unit the solver reads the file
+in. Name the written file in the boundaries file,
+`[trailing_edges.<label>] file = "W1.nodes.te.txt"`, and mark the OBJ.
 
-level = refine_mesh("inputs/geometries/WB/WB.obj", spanwise=2.0, keep_first_row=["Wing", "Tail"])
-print(level.report["Wing"]["kept_rows"])  # ['station 0']
+A node list saved from the pre-processor in any node order becomes a points file
+with `convert2midnodes`:
+
+```text
+pyfs-workspace geometry convert2midnodes nodes.txt wing.te.txt
+pyfs-workspace geometry convert2midnodes nodes.txt wing.te.txt --per-family inputs/geometries/W1/W1.obj
 ```
 
-An end station is an interface when an edge of it is shared with a family of
-another component, the `[components]` entry that lists the family, else its
-name up to the first `_`. The trailing edge is the one the points file lists,
-else, when the boundaries file routes the trailing edge to detection, the
-detected one. The family's entry of `refine.json` names the kept end stations
-under `kept_rows` (`"station 0"`, `"far station"`) and the source of the
-trailing edge under `trailing_edge` (`"points file"` or `"detected"`), and its
-part of the tag carries `k`. The option is for a grid family with a trailing
-edge and an end at another component; every other case is refused before
-any work, as listed in the
-[reference](reference.md#the-row-kept-at-an-interface).
+The nodes are ordered along their lines (a long jump starts a new line), and
+each neighbouring pair gives one mid-point. With `--per-family` the file is
+written per family of the OBJ, as `wing.<family>.te.txt`, from the mesh edges
+joining two listed nodes.
 
 ### Checking a level before a run
 

@@ -7,6 +7,32 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.48.0
+
+The refinement is described by a reference perimeter and two factors along and
+across it. Nothing below refuses an existing file: each earlier key is warned
+and skipped, or read under its new name.
+
+- A grid's two factors are `parallel_factor` (along the reference perimeter)
+  and `normal_factor` (across it); the command takes `--parallel` and
+  `--normal`. `spanwise` and `chordwise` (key, flag and keyword) are read as
+  `parallel_factor` and `normal_factor`, with a warning; level tags are
+  unchanged. They no longer need a trailing edge.
+- Trailing edges come from `[[perimeter]]` node lists saved from an ANSA SET
+  (`file`, `export_te_per_family`, `te_families`, `aft`). A `[trailing_edge]`
+  table is skipped with a warning: list its nodes in a `[[perimeter]]` file
+  with `export_te_per_family = true`, or convert a node list with
+  `pyfs-workspace geometry convert2midnodes`.
+- A family given a directional factor whose grid is not recovered is refused
+  unless `--accept-remesh` (`accept_remesh=True`) remeshes it with `factor`.
+- `keep_first_row`, `trailing_edge_direction`, the body remesh keys (`axial`,
+  `circumferential`, `axis`, `origin`) and the `[periodic]` table are no longer
+  read. Each is warned and skipped; a row kept at an interface is a family of
+  its own, and a sector is refined as any mesh.
+- New: `geometry prepare-to-refine`, `geometry identify-te` and
+  `[refine] filename`; see
+  [From an OBJ to a marked level](mesh/how-to.md#from-an-obj-to-a-marked-level).
+
 ## 0.47.0
 
 Wake-window comparisons now require per-step loads exports matching the wake
