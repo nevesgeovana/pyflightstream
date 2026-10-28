@@ -1143,31 +1143,17 @@
       "status": "implemented"
     },
     {
-      "id": "FR-427",
-      "parent": "FR-3020",
-      "area": "SPCM",
-      "hid": "SPCM-8.4",
-      "status": "implemented"
-    },
-    {
-      "id": "FR-430",
-      "parent": "FR-3020",
-      "area": "SPCM",
-      "hid": "SPCM-8.6",
-      "status": "implemented"
-    },
-    {
       "id": "FR-431",
       "parent": "FR-3022",
       "area": "SPCM",
-      "hid": "SPCM-9.3",
+      "hid": "SPCM-9.1",
       "status": "implemented"
     },
     {
       "id": "FR-432",
       "parent": "FR-3022",
       "area": "SPCM",
-      "hid": "SPCM-9.5",
+      "hid": "SPCM-9.3",
       "status": "implemented"
     },
     {
@@ -2130,27 +2116,6 @@
       "status": "implemented"
     },
     {
-      "id": "FR-944",
-      "parent": "FR-3020",
-      "area": "SPCM",
-      "hid": "SPCM-8.5",
-      "status": "implemented"
-    },
-    {
-      "id": "FR-945",
-      "parent": "FR-3022",
-      "area": "SPCM",
-      "hid": "SPCM-9.1",
-      "status": "implemented"
-    },
-    {
-      "id": "FR-946",
-      "parent": "FR-3022",
-      "area": "SPCM",
-      "hid": "SPCM-9.2",
-      "status": "implemented"
-    },
-    {
       "id": "FR-948",
       "parent": "FR-3133",
       "area": "OPER",
@@ -2158,24 +2123,17 @@
       "status": "implemented"
     },
     {
-      "id": "FR-953",
-      "parent": "FR-3020",
-      "area": "SPCM",
-      "hid": "SPCM-8.7",
-      "status": "implemented"
-    },
-    {
       "id": "FR-963",
       "parent": "FR-3022",
       "area": "SPCM",
-      "hid": "SPCM-9.4",
+      "hid": "SPCM-9.2",
       "status": "implemented"
     },
     {
       "id": "FR-968",
       "parent": "FR-3022",
       "area": "SPCM",
-      "hid": "SPCM-9.6",
+      "hid": "SPCM-9.4",
       "status": "implemented"
     },
     {
