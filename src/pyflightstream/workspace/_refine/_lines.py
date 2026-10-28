@@ -116,13 +116,8 @@ def exported_by_family(mesh: ObjMesh, exported: set[tuple[int, int]]) -> dict[st
         edges, _ = _obj.edge_midpoints(mesh.verts, faces)
         on = {(int(a), int(b)) for a, b in edges} & exported
         if on:
-            out[name] = midpoints(mesh.verts, on)
+            out[name] = _obj.midpoints(mesh.verts, on)
     return out
-
-
-def midpoints(verts: Points, edges: set[tuple[int, int]]) -> Points:
-    pairs = numpy.array(sorted(edges), dtype=numpy.int64).reshape(-1, 2)
-    return 0.5 * (verts[pairs[:, 0]] + verts[pairs[:, 1]])
 
 
 def grid_with_complete_te_edges(

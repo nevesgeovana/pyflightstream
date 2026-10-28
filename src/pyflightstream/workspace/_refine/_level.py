@@ -173,7 +173,7 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
     unit = _obj.mesh_unit(source) or "METER"
     # The mid-points of every listed edge orient the grids (te_of, te_edges); only the
     # exported ones are the level's trailing edge (te_points).
-    points = _lines.midpoints(mesh.verts, perimeter[0]) if perimeter else numpy.zeros((0, 3))
+    points = _obj.midpoints(mesh.verts, perimeter[0]) if perimeter else numpy.zeros((0, 3))
     scale = mesh.size
     tolerance = request.point_fraction * scale
     names = list(mesh.families)
@@ -182,7 +182,7 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
         mesh=mesh,
         request=request,
         te_unit=unit,
-        te_points=_lines.midpoints(mesh.verts, perimeter[1]) if perimeter else points,
+        te_points=_obj.midpoints(mesh.verts, perimeter[1]) if perimeter else points,
         te_listed=bool(perimeter and perimeter[1]),
         names=names,
         original={n: list(fs) for n, fs in mesh.families.items()},
@@ -873,7 +873,7 @@ def _with_perimeter(work: _Work, name: str, entry: dict[str, Any]) -> dict[str, 
         return entry
     points = work.te_perimeter[name]
     if name in work.grids and work.te_edges.get(name):
-        points = _lines.midpoints(work.mesh.verts, work.te_edges[name])
+        points = _obj.midpoints(work.mesh.verts, work.te_edges[name])
     return {**entry, "trailing_edge": "perimeter", "trailing_edge_points": _te_rows(work, points)}
 
 

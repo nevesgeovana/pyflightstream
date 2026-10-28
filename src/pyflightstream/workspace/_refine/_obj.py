@@ -25,6 +25,7 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
 from pyflightstream._lengths import METRES_PER_UNIT, scale
 from pyflightstream.workspace._geometry_sidecar import toml_value
+from pyflightstream.workspace._refine._geometry import NearestIndex, segment_distances
 from pyflightstream.workspace.sidecars import (
     BOUNDARY_FACES_KEY,
     MESH_FACES_KEY,
@@ -487,6 +488,12 @@ def edge_midpoints(
     return e, 0.5 * (verts[e[:, 0]] + verts[e[:, 1]])
 
 
+def midpoints(verts: NDArray[numpy.float64], edges: set[tuple[int, int]]) -> NDArray[numpy.float64]:
+    """Return the mid-point of each edge, the edges sorted, shape (n, 3)."""
+    pairs = numpy.array(sorted(edges), dtype=numpy.int64).reshape(-1, 2)
+    return 0.5 * (verts[pairs[:, 0]] + verts[pairs[:, 1]])
+
+
 #: A listed node is the mesh vertex closer to it than this fraction of the vertex's
 #: shortest edge: ANSA writes a node's position rounded, so the match is made within the
 #: local edge length, never within a fraction of the whole mesh.
@@ -561,8 +568,6 @@ def perimeter_edges(
     position (an open trailing edge) are both listed. The order of the nodes
     does not matter, and one list may hold the perimeters of several families.
     """
-    from pyflightstream.workspace._refine._geometry import NearestIndex
-
     every = [f for fs in families.values() for f in fs]
     edges, _ = edge_midpoints(verts, every)
     shortest = numpy.full(len(verts), numpy.inf)
@@ -773,8 +778,6 @@ def perimeter_edges_near(
     length, so a mesh refined or coarsened from the one the nodes were listed
     on, whose nodes are no longer the listed ones, is read along the same line.
     """
-    from pyflightstream.workspace._refine._geometry import segment_distances
-
     out: dict[str, set[tuple[int, int]]] = {}
     for name, faces in families.items():
         edges, _ = edge_midpoints(verts, faces)

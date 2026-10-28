@@ -830,7 +830,12 @@ def write_trailing_edge_midnodes_per_family(
         For a list with no node read, a list that joins no edge of the mesh, an
         unreadable mesh, an invalid unit or an existing output.
     """
-    from pyflightstream.workspace._refine._obj import perimeter_edges, read_node_list, read_obj
+    from pyflightstream.workspace._refine._obj import (
+        midpoints,
+        perimeter_edges,
+        read_node_list,
+        read_obj,
+    )
 
     nodes = read_node_list(source)
     if not nodes.ids:
@@ -855,8 +860,7 @@ def write_trailing_edge_midnodes_per_family(
     for name, edges in found.items():
         if not edges:
             continue
-        pairs = numpy.array(sorted(edges), dtype=numpy.int64)
-        mids = 0.5 * (obj.verts[pairs[:, 0]] + obj.verts[pairs[:, 1]])
+        mids = midpoints(obj.verts, edges)
         written.append(
             write_trailing_edge_points(
                 target.with_name(f"{stem}.{name}.te.txt"), mids, unit=unit, overwrite=overwrite
@@ -940,6 +944,7 @@ def write_trailing_edges_identified(
     """
     from pyflightstream.workspace._refine._obj import (
         mesh_unit,
+        midpoints,
         perimeter_edges_near,
         read_node_list,
         read_obj,
@@ -1009,8 +1014,7 @@ def write_trailing_edges_identified(
     unit = unit or mesh_unit(target) or "METER"
     written = []
     for path, edges in files.items():
-        ends = numpy.array(sorted(edges), dtype=numpy.int64)
-        mids = 0.5 * (obj.verts[ends[:, 0]] + obj.verts[ends[:, 1]])
+        mids = midpoints(obj.verts, edges)
         written.append(
             write_node_file(
                 path, mids, unit=unit, simulation_unit=simulation_unit or unit, overwrite=True
