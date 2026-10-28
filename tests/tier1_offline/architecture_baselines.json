@@ -1038,7 +1038,7 @@
   "pyflightstream.post.series": 1,
   "pyflightstream.post.superfile": 2,
   "pyflightstream.post.unsteady_polar": 2,
-  "pyflightstream.probes.geometry": 2,
+  "pyflightstream.probes.geometry": 1,
   "pyflightstream.qa._spec_0400_gap": 1,
   "pyflightstream.qa._spec_0400_gapkit": 11,
   "pyflightstream.qa._spec_ccs_noise": 1,

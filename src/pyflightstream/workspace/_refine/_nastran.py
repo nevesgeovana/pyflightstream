@@ -121,7 +121,7 @@ def _side_records(segment: str) -> list[tuple[int, int]] | None:
     return [struct.unpack(">IH", body[4 + 6 * k : 10 + 6 * k]) for k in range(count)]
 
 
-def _decode_sides(text: str) -> list[tuple[int, int]]:
+def decode_sides(text: str) -> list[tuple[int, int]]:
     """Return the (element id, side) records of every side block of the comment.
 
     The comment holds ``;``-separated fields: group numbers and base64 blocks.
@@ -195,7 +195,7 @@ def _perimeter_edges(lines, shells, path: Path) -> set[tuple[int, int]]:
         )
         return set()
     try:
-        sides = _decode_sides(text)
+        sides = decode_sides(text)
     except (ValueError, binascii.Error, zlib.error, struct.error) as error:
         warn(
             f"{path}: the {PERIMETER_TAG.rstrip(';')} block does not read ({error}); skipped, "

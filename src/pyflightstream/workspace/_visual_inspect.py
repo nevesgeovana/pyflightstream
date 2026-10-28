@@ -110,6 +110,43 @@ def _face(words: list[str], rows: list[int]) -> list[int] | None:
     return None if min(face) < 0 else face
 
 
+def _vertex(words: list[str]) -> list[float] | None:
+    """Return a ``v`` line's three finite coordinates, or None."""
+    try:
+        xyz = [float(w) for w in words[1:4]]
+    except ValueError:
+        return None
+    return xyz if len(xyz) == 3 and all(math.isfinite(v) for v in xyz) else None
+
+
+def _parse_obj(lines: list[str]) -> tuple[list[list[float]], dict[str, list[list[int]]], int]:
+    """Return an OBJ's vertices, its faces by group name, and the count of lines skipped."""
+    verts: list[list[float]] = []
+    rows: list[int] = []
+    patches: dict[str, list[list[int]]] = {}
+    current = "default"
+    skipped = 0
+    for line in lines:
+        words = line.split()
+        key = words[0] if words else ""
+        if key == "v":
+            xyz = _vertex(words)
+            rows.append(-1 if xyz is None else len(verts))
+            if xyz is None:
+                skipped += 1
+            else:
+                verts.append(xyz)
+        elif key in ("g", "o"):
+            current = " ".join(words[1:]) or "default"
+        elif key == "f":
+            face = _face(words[1:], rows)
+            if face is None:
+                skipped += 1
+            else:
+                patches.setdefault(current, []).append(face)
+    return verts, patches, skipped
+
+
 def read_obj(path: Path) -> Mesh:
     """Read the vertices and the faces of an OBJ, grouped by its ``g`` or ``o`` names.
 
@@ -126,35 +163,7 @@ def read_obj(path: Path) -> Mesh:
     except UnicodeDecodeError:
         lines = raw.decode("latin-1").splitlines()
         _skipped(f"{path}: the file is not UTF-8; it is read as latin-1")
-    verts: list[list[float]] = []
-    rows: list[int] = []
-    patches: dict[str, list[list[int]]] = {}
-    current = "default"
-    skipped = 0
-    for line in lines:
-        words = line.split()
-        if not words:
-            continue
-        key = words[0]
-        if key == "v":
-            try:
-                xyz = [float(w) for w in words[1:4]]
-            except ValueError:
-                xyz = []
-            if len(xyz) == 3 and all(math.isfinite(v) for v in xyz):
-                rows.append(len(verts))
-                verts.append(xyz)
-            else:
-                rows.append(-1)
-                skipped += 1
-        elif key in ("g", "o"):
-            current = " ".join(words[1:]) or "default"
-        elif key == "f":
-            face = _face(words[1:], rows)
-            if face is None:
-                skipped += 1
-            else:
-                patches.setdefault(current, []).append(face)
+    verts, patches, skipped = _parse_obj(lines)
     if skipped:
         _skipped(
             f"{path}: {skipped} line(s) are skipped: a face with fewer than three vertices, a "
@@ -1007,12 +1016,7 @@ def visual_inspect(
     nastran_unit = nastran_unit.upper()
     drawn = _read_mesh(source, mesh_unit, nastran_unit)
     unit = mesh_unit or ("METER" if drawn.path.suffix.lower() != ".obj" else None)
-    points = [read_node_list(Path(p)) for p in nodes]
-    points += [read_points_file(Path(p), unit) for p in te]
-    _convert_unitless(points, points_unit, unit)
-    for pts in points:
-        if len(pts.xyz) == 0:
-            _skipped(f"{pts.path}: holds no point; it is listed and draws nothing")
+    points = load_points(nodes, te, mesh_unit=unit, points_unit=points_unit)
     chosen = [f for f in families if f] if families else None
     window = _ordered_box(box)
     render(
@@ -1031,6 +1035,31 @@ def visual_inspect(
         png=png,
     )
     return target
+
+
+def load_points(
+    nodes: Sequence[str | Path],
+    te: Sequence[str | Path],
+    *,
+    mesh_unit: str | None,
+    points_unit: str | None,
+) -> list[Points]:
+    """Return the node lists and points files, in the mesh's unit where both units are known.
+
+    Unit names are case-insensitive. A file that states its unit is converted to
+    ``mesh_unit``; one that states none is taken in ``points_unit``. An unknown unit,
+    or ``points_unit`` without ``mesh_unit``, is warned and the points kept as written;
+    a file with no point is warned.
+    """
+    mesh_unit = mesh_unit.upper() if mesh_unit else mesh_unit
+    points_unit = points_unit.upper() if points_unit else points_unit
+    points = [read_node_list(Path(p)) for p in nodes]
+    points += [read_points_file(Path(p), mesh_unit) for p in te]
+    _convert_unitless(points, points_unit, mesh_unit)
+    for pts in points:
+        if len(pts.xyz) == 0:
+            _skipped(f"{pts.path}: holds no point; it is listed and draws nothing")
+    return points
 
 
 def _read_mesh(source: Path, mesh_unit: str | None, nastran_unit: str) -> Mesh:
