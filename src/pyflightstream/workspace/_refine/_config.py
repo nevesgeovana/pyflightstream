@@ -148,8 +148,8 @@ class RefineRequest:
     default_elements: str = TRIANGLES
     ignored: tuple[str, ...] = ()
     missing: tuple[str, ...] = ()
-    trailing_edge_file: Path | None = None
-    per_family: bool = False
+    #: How close a listed point lies to the mid-point of the edge it names, as a fraction
+    #: of the mesh size; ``refine.json`` records it for the audit's G4.
     point_fraction: float = TE_POINT_FRACTION
     perimeters: tuple[Perimeter, ...] = ()
     accept_remesh: bool = False
@@ -430,11 +430,10 @@ def read_refine_file(
         )
     default = refine.get("elements", TRIANGLES)
     filename = _filename(source, refine.get("filename"))
-    trailing = _trailing_edge(source, data.get("trailing_edge", {}))
+    _trailing_edge(source, data.get("trailing_edge", {}))
     if "periodic" in data:
         _skip(f"{source} [periodic]", "is no longer read; a periodic sector is refined as any mesh")
     return {
-        **trailing,
         "perimeters": _perimeters(source, data.get("perimeter", [])),
         "specs": specs,
         "keep": keep,
@@ -447,7 +446,7 @@ def read_refine_file(
     }
 
 
-def _trailing_edge(source: Path, value: object) -> dict[str, Any]:
+def _trailing_edge(source: Path, value: object) -> None:
     """Warn that ``[trailing_edge]`` is no longer read: the trailing edges are ``[[perimeter]]``."""
     if value:
         _skip(
@@ -455,38 +454,6 @@ def _trailing_edge(source: Path, value: object) -> dict[str, Any]:
             "is no longer read; list the trailing-edge nodes in a [[perimeter]] file with "
             "export_te_per_family = true",
         )
-    return {}
-
-
-def _points_input(source: Path, value: object) -> dict[str, Any]:
-    """Validate the earlier points input; kept for the refusals its tests prove."""
-    where = f"{source} [trailing_edge]"
-    table = _table(where, value, "write file, per_family and point_fraction")
-    unknown = sorted(set(table) - {"file", "per_family", "point_fraction"})
-    if unknown:
-        raise _refuse(
-            where,
-            f"unknown key {unknown[0]!r}; the known keys are file, per_family, point_fraction",
-        )
-    named = table.get("file")
-    if "file" in table and (not isinstance(named, str) or not named.strip()):
-        raise _refuse(where, "file must be a non-empty path string")
-    per_family = table.get("per_family", False)
-    if not isinstance(per_family, bool):
-        raise _refuse(where, "per_family must be true or false")
-    fraction = table.get("point_fraction", TE_POINT_FRACTION)
-    if (
-        isinstance(fraction, bool)
-        or not isinstance(fraction, int | float)
-        or not math.isfinite(fraction)
-        or not 0 < fraction < 1
-    ):
-        raise _refuse(where, "point_fraction must be a number greater than 0 and less than 1")
-    return {
-        "trailing_edge_file": source.parent / named if named is not None else None,
-        "per_family": per_family,
-        "point_fraction": float(fraction),
-    }
 
 
 def _perimeters(source: Path, value: object) -> tuple[Perimeter, ...]:
@@ -669,9 +636,6 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         ignored=ignored,
         missing=missing_tables,
         accept_remesh=accept_remesh,
-        trailing_edge_file=stated.get("trailing_edge_file"),
-        per_family=stated.get("per_family", False),
-        point_fraction=stated.get("point_fraction", TE_POINT_FRACTION),
         perimeters=stated.get("perimeters", ()),
     )
 

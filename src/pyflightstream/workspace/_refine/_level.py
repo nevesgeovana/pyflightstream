@@ -4,7 +4,8 @@ FR-424 and FR-425.
 
 The order, from the source to the level folder:
 
-1. read the mesh, the request (:mod:`._config`) and the trailing-edge points;
+1. read the mesh, the request (:mod:`._config`) and the ``[[perimeter]]``
+   node lists that orient the grids and give the trailing edges (:mod:`._lines`);
 2. recover the grid of every family asked to change (a sheet, a tube, or a
    multiblock grid of quadrilaterals, :mod:`._blocks`) and decide its
    method, refusing before any work (FR-923 to FR-925);
@@ -24,8 +25,8 @@ The order, from the source to the level folder:
    (FR-426), and rename it once complete; an existing level is replaced only
    then (FR-918, FR-919).
 
-The boundaries TOML and the explicitly chosen refinement points file are
-read in step 1, before any resampling (FR-925).
+The boundaries TOML and the ``[[perimeter]]`` node lists are read in step 1,
+before any resampling (FR-925).
 """
 
 from __future__ import annotations
@@ -111,10 +112,9 @@ class _Work:
     source: Path
     mesh: ObjMesh
     request: RefineRequest
-    te_unit: str
-    te_to_file: float
-    te_points: Points  # in the mesh's unit; te_to_file turns a length into te_unit's
-    te_listed: bool  # whether the source has a trailing-edge points file
+    te_unit: str  # the unit line of the level's points files: the mesh's unit
+    te_points: Points  # the mid-points of the exported [[perimeter]] edges, in the mesh's unit
+    te_listed: bool  # whether a [[perimeter]] list exports trailing edges
     names: list[str]
     original: dict[str, Faces]
     fam_v: dict[str, set[int]]
@@ -166,23 +166,14 @@ def _refuse(where: str, reason: str) -> InputArtifactError:
 
 
 def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
-    if request.per_family:
-        owner = {member: name for name, members in request.components.items() for member in members}
-        for name in mesh.families:
-            output_name = owner.get(name, name)
-            problem = _config.folder_name_problem(output_name)
-            if problem:
-                raise _refuse(str(source), f"per_family name {output_name!r} {problem}")
     # A grid's parallel and normal factors need no trailing edge: a family without one
     # takes a neighbour's or its longest side (_lines.assume_trailing_edge).
     perimeter = _lines.perimeter_lines(source, request, mesh)
-    te: _obj.TrailingPoints | None = None
-    # Without a points file, one the level writes (a detected kept row's trailing edge,
-    # FR-953, FR-956) is in the mesh's unit, stated as the boundaries file states it.
-    unit = (_obj.mesh_unit(source) or "METER") if te is None else te.unit
-    points = numpy.zeros((0, 3)) if te is None else te.points
-    if perimeter:
-        points = _lines.midpoints(mesh.verts, perimeter[0])
+    # The level's points files are in the mesh's unit, as the boundaries file states it.
+    unit = _obj.mesh_unit(source) or "METER"
+    # The mid-points of every listed edge orient the grids (te_of, te_edges); only the
+    # exported ones are the level's trailing edge (te_points).
+    points = _lines.midpoints(mesh.verts, perimeter[0]) if perimeter else numpy.zeros((0, 3))
     scale = mesh.size
     tolerance = request.point_fraction * scale
     names = list(mesh.families)
@@ -191,11 +182,8 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
         mesh=mesh,
         request=request,
         te_unit=unit,
-        te_to_file=1.0 if te is None else te.to_file,
-        # The perimeters' points orient the grids (te_of, te_edges); only the exported
-        # ones are the level's trailing edge.
         te_points=_lines.midpoints(mesh.verts, perimeter[1]) if perimeter else points,
-        te_listed=te is not None or bool(perimeter and perimeter[1]),
+        te_listed=bool(perimeter and perimeter[1]),
         names=names,
         original={n: list(fs) for n, fs in mesh.families.items()},
         fam_v={n: set(mesh.family_vertices(n).tolist()) for n in names},
@@ -300,11 +288,11 @@ def _component_of(work: _Work, name: str) -> str:
 def _te_rows(work: _Work, points: Points) -> list[list[float]]:
     """Return trailing-edge mid-points as the level's points file writes them (FR-426 G4).
 
-    In the points file's unit (``te_to_file``), each coordinate the decimal
-    the points file writes (:func:`_obj.coordinates`), so the audit reads in
-    ``refine.json`` the detected line it would read in that file.
+    Each coordinate is the decimal the points file writes
+    (:func:`_obj.coordinates`), so the audit reads in ``refine.json`` the
+    line it would read in that file.
     """
-    return [[float(w) for w in _obj.coordinates(p * work.te_to_file).split()] for p in points]
+    return [[float(w) for w in _obj.coordinates(p).split()] for p in points]
 
 
 def _meets(row: NDArray[numpy.int64], wrap: bool, nodes: set[int]) -> bool:
@@ -874,12 +862,9 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int], has_te: bool) -> 
         "source": work.source.name,
         "level": stem,
         "config": None if work.request.config is None else work.request.config.name,
+        # The source names no points file: its trailing edges are [[perimeter]] lists.
         "trailing_edge_files": {
-            "source": None
-            if work.request.trailing_edge_file is None
-            else os.path.relpath(
-                work.request.trailing_edge_file.resolve(), work.source.parent.resolve()
-            ).replace(os.sep, "/"),
+            "source": None,
             "level": f"{stem}{TE_SUFFIX}" if has_te else None,
         },
         "trailing_edge_point_fraction": work.request.point_fraction,
@@ -987,20 +972,20 @@ def _write(
     )
     note = f"refined by pyflightstream from {work.source.name}"
     written = [_obj.write_obj(mesh, folder / f"{stem}.obj", note)]
-    # The source's points file, carried to the level under the level's name, else the
-    # trailing edge the level holds without one: a detected kept row's (FR-953, FR-956).
+    # The level's trailing edges under the level's name: the exported [[perimeter]]
+    # lines, else the trailing edge the level holds (an assumed one).
     if work.te_listed or len(te):
         target = folder / f"{stem}{TE_SUFFIX}"
-        written.append(_obj.write_te(target, work.te_unit, te * work.te_to_file))
+        written.append(_obj.write_te(target, work.te_unit, te))
     own: dict[str, Path] = {}
-    if work.request.per_family or work.te_export is not None:
+    if work.te_export is not None:
         for name, family_faces in faces.items():
             _, mid = _obj.edge_midpoints(verts, family_faces)
             distance, _ = NearestIndex(mid).query(te)
             points = te[distance < work.te_tolerance]
             if len(points):
                 own[name] = _obj.write_te(
-                    folder / f"{stem}.{name}{TE_SUFFIX}", work.te_unit, points * work.te_to_file
+                    folder / f"{stem}.{name}{TE_SUFFIX}", work.te_unit, points
                 )
     # The trailing edges a [[perimeter]] list exports are declared per component in the
     # level's boundaries file, for the user to type before mark-boundaries, unless the
