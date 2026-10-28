@@ -348,6 +348,7 @@ class Scene:
         )
         self.edges = edges
         self.box = box
+        self.highlight: set[str] = set()  # names whose label is drawn bold in a red frame
         self.perimeter, self.perimeter_faces = self._perimeters()
 
     def _perimeters(self) -> tuple[np.ndarray, list[list[int]]]:
@@ -444,15 +445,23 @@ def draw_view(
             mine = scene.owner == number
             if mine.any():
                 at = scene.centroids[mine].mean(axis=0) @ to_screen
+                lead = name in scene.highlight
                 ax.text(
                     at[0],
                     at[1],
-                    name,
-                    fontsize=5,
+                    f"{name}\nGOVERNING" if lead else name,
+                    fontsize=6 if lead else 5,
+                    fontweight="bold" if lead else "normal",
                     ha="center",
                     va="center",
-                    zorder=6,
-                    bbox={"boxstyle": "round,pad=0.15", "fc": "white", "ec": "none", "alpha": 0.7},
+                    zorder=7 if lead else 6,
+                    bbox={
+                        "boxstyle": "round,pad=0.2",
+                        "fc": "white",
+                        "ec": "#d62728" if lead else "none",
+                        "lw": 1.2 if lead else 0.0,
+                        "alpha": 0.85 if lead else 0.7,
+                    },
                 )
     ax.set_xlim(extent[0], extent[1])
     ax.set_ylim(extent[2], extent[3])
@@ -920,6 +929,68 @@ def render(
                 fig.savefig(out.with_name(f"{out.stem}.{key}.png"), dpi=dpi)
             plt.close(fig)
         legend_pages(pdf, scene, colors, marked, mesh, cmap_label=cmap_label, dpi=dpi)
+
+
+def patches_pdf(
+    mesh: str | Path,
+    groups: dict[str, list[str]],
+    governing: set[str],
+    out: Path,
+    *,
+    mesh_unit: str | None = None,
+    dpi: int = 200,
+) -> Path:
+    """Write one page per original family of a prepared mesh: its patches colored and named.
+
+    ``groups`` maps each original family to its patches (the families of the
+    patches OBJ ``mesh``); a patch in ``governing`` is labelled GOVERNING in a red
+    frame and listed so beside the views. The pages are the four views of the
+    technical drawing; a family whose patches hold no face is skipped.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+    from matplotlib.patches import Patch
+
+    drawn = read_obj(Path(mesh))
+    views = standard_views((1.0, -1.0, 1.0))
+    with PdfPages(out) as pdf:
+        for family, patches in groups.items():
+            names = [p for p in patches if drawn.patches.get(p)]
+            if not names:
+                continue
+            colors, _ = patch_colors(names, "tab20" if len(names) <= 20 else "turbo")
+            scene = Scene(drawn, names, colors, None, edges=True, perimeter_width=1.2)
+            scene.highlight = {n for n in names if n in governing}
+            fig = plt.figure(figsize=PAGE)
+            views_page(fig, scene, views, [], [], labels=True, unit=mesh_unit)
+            pw, ph = fig.get_size_inches()
+            handles = [
+                Patch(
+                    facecolor=colors[n],
+                    edgecolor="#d62728" if n in scene.highlight else "0.2",
+                    linewidth=1.5 if n in scene.highlight else 0.5,
+                    label=f"{n}  (governing)" if n in scene.highlight else n,
+                )
+                for n in names
+            ]
+            fig.legend(
+                handles=handles,
+                loc="upper left",
+                fontsize=6,
+                title=f"{family}: {len(names)} patches, {len(scene.highlight)} governing",
+                title_fontsize=7,
+                bbox_to_anchor=((pw - RIGHT + 0.1) / pw, (ph - TOP) / ph),
+                ncol=1 if len(names) <= 40 else 2,
+            )
+            fig.suptitle(
+                f"{Path(mesh).name}: family {family}", fontsize=10, y=1 - 0.2 / PAGE[1], va="top"
+            )
+            pdf.savefig(fig, dpi=dpi)
+            plt.close(fig)
+    return out
 
 
 def _chosen(mesh: Mesh, families) -> list[str]:

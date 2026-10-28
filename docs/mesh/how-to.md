@@ -341,7 +341,9 @@ optional.
    largest perimeter is written `governing = true` and the others are left
    out of the file, which makes them `grid_auto`: they follow the governing
    patch's factors. Set the factors on the governing patches; declare a
-   follower to give it factors of its own. The node list holds the rearmost line of each grid patch, the
+   follower to give it factors of its own. `--visual-inspect` also writes
+   `W1_patches.inspect.pdf`: one page per original family, its patches colored
+   and named, the governing ones labelled GOVERNING. The node list holds the rearmost line of each grid patch, the
    edges within `--max-angle` (default 45 degrees) of the plane across the
    aft direction, as an ANSA SET node list. `--aft X Y Z` states the nose to
    tail direction (default +x, so the plane is the yz plane). Any OBJ and refine file refine without this step.

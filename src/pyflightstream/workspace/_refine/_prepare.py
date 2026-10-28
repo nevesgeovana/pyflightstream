@@ -62,6 +62,10 @@ class PreparedMesh:
     config: Path
     nodes: Path
     patches: dict[str, list[str]]
+    #: The grid patches written ``governing = true`` (FR-3298).
+    governing: tuple[str, ...] = ()
+    #: The visual-inspect PDF, one page per original family, when asked for.
+    inspect: Path | None = None
 
 
 def prepare_to_refine(
@@ -72,6 +76,7 @@ def prepare_to_refine(
     overwrite: bool = False,
     unit: str = "MILLIMETER",
     obj_unit: str = "METER",
+    visual_inspect: bool = False,
 ) -> PreparedMesh:
     """Split a mesh's families into patches and write its refine file and node list.
 
@@ -95,6 +100,9 @@ def prepare_to_refine(
         A NASTRAN source's length unit (default MILLIMETER); read only for one.
     obj_unit : str
         The length unit a NASTRAN source is written in (default METER).
+    visual_inspect : bool
+        Also write ``<stem>_patches.inspect.pdf``: one page per original family,
+        each patch colored and named, the governing patches labelled GOVERNING.
 
     Returns
     -------
@@ -120,6 +128,8 @@ def prepare_to_refine(
         source.with_name(f"{stem}.refine.toml"),
         source.with_name(f"{stem}.nodes.txt"),
     ]
+    if visual_inspect:
+        targets.append(source.with_name(f"{stem}.inspect.pdf"))
     existing = [t for t in targets if t.exists()]
     if existing and not overwrite:
         raise InputArtifactError(
@@ -151,7 +161,15 @@ def prepare_to_refine(
     _textio.write_text(
         targets[1], _toml(source, targets[2], patches, kinds, te_families, governing=governing)
     )
-    return PreparedMesh(targets[0], targets[1], targets[2], patches)
+    inspect = None
+    if visual_inspect:
+        from pyflightstream.workspace._visual_inspect import patches_pdf
+
+        unit_name = obj_unit.upper() if cuts is not None or _nastran.is_nastran(source) else None
+        inspect = patches_pdf(targets[0], patches, governing, targets[3], mesh_unit=unit_name)
+    return PreparedMesh(
+        targets[0], targets[1], targets[2], patches, tuple(sorted(governing)), inspect
+    )
 
 
 def _patches(verts: Points, faces: Faces) -> list[tuple[str, list[int]]]:

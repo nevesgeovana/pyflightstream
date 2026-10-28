@@ -374,6 +374,14 @@ def _add_mesh_verbs(verbs: Any) -> None:
         default="METER",
         help="the unit a NASTRAN mesh is written in to the patches OBJ (default METER)",
     )
+    prepare.add_argument(
+        "--visual-inspect",
+        action="store_true",
+        help=(
+            "also write <stem>_patches.inspect.pdf: one page per original family, each patch "
+            "colored and named, the governing patches labelled GOVERNING"
+        ),
+    )
     _add_visual_inspect(verbs)
 
 
@@ -787,14 +795,16 @@ def _cmd_prepare_to_refine(args: argparse.Namespace) -> int:
             overwrite=args.overwrite,
             unit=args.unit,
             obj_unit=args.obj_unit,
+            visual_inspect=args.visual_inspect,
         )
     except (PyflightstreamError, OSError, ValueError) as error:
         print(str(error), file=sys.stderr)
         return 2
     for family, patches in prepared.patches.items():
         print(f"{family}: {', '.join(patches)}")
-    for path in (prepared.obj, prepared.config, prepared.nodes):
-        print(path)
+    for path in (prepared.obj, prepared.config, prepared.nodes, prepared.inspect):
+        if path is not None:
+            print(path)
     return 0
 
 

@@ -264,7 +264,11 @@ def test_fr3298_prepare_marks_one_governing_patch_per_touching_group(tmp_path):
             a = j * 7 + i + 1
             lines.append(f"f {a} {a + 1} {a + 8} {a + 7}")
     src.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    prepared = prepare_to_refine(src)
+    prepared = prepare_to_refine(src, visual_inspect=True)
+    assert prepared.inspect == tmp_path / "plate_patches.inspect.pdf"
+    pdf = prepared.inspect.read_bytes()
+    assert pdf.startswith(b"%PDF") and pdf.count(b"/Type /Page\n") + pdf.count(b"/Type /Page ") >= 2
+    assert len(prepared.governing) == 1
     table = tomllib.loads(prepared.config.read_text(encoding="utf-8"))["families"]
     governing = [n for n, t in table.items() if t.get("governing")]
     grids = [p for ps in prepared.patches.values() for p in ps if p.endswith("_grid")]
