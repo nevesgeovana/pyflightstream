@@ -440,9 +440,10 @@ the lower surface meet at a sharp trailing edge, that fold is kept to the tip
 of a twisted blade, whose chord turns toward the rotation plane, and the
 contour a closed tip cap meets the surface along is left out. A line of a
 family's perimeter (its boundary and sharp edges, from corner to corner) found
-for more than half of its edges is taken whole, so a trailing edge reaches its
-junction with a hub where it bends out of the angle tests. Without `--families` only quad families
-are mapped (quadrilaterals at least 90 percent of the faces), so a tip cap or a
+for more than half of its edges is taken whole within `--max-angle`, so a
+trailing edge reaches its junction with a hub where it bends out of the rearmost
+tests; raise `--max-angle` for a sharper bend. Without `--families` only quad families
+are mapped (quadrilaterals at least 80 percent of the faces), so a tip cap or a
 fairing meshed in triangles is warned and left out; `--all-families` maps every
 family. The command writes `W1.nodes.te.txt` for the mapped families (or
 `W1.<family>.fs.te.txt` for each family named by `--families`) and, beside it,

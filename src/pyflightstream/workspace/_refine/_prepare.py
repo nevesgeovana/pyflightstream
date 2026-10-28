@@ -273,22 +273,32 @@ def rearmost_lines(
         folded_chains = {chain[a] for a, _ in folds}
         found = {e for e in found if e in folds or chain[e[0]] not in folded_chains}
     feature = sharp | {e for e, fs in holders.items() if len(fs) == 1}
-    return whole_lines(verts, faces, feature, near_yz(verts, found, max_angle, aft))
+    kept = near_yz(verts, found, max_angle, aft)
+    return whole_lines(verts, faces, feature, kept, max_angle=max_angle, aft=aft)
 
 
 def whole_lines(
-    verts: Points, faces: Faces, perimeter: set[tuple[int, int]], found: set[tuple[int, int]]
+    verts: Points,
+    faces: Faces,
+    perimeter: set[tuple[int, int]],
+    found: set[tuple[int, int]],
+    *,
+    max_angle: float = MAX_ANGLE,
+    aft: tuple[float, float, float] = _obj.AFT,
 ) -> set[tuple[int, int]]:
     """Return ``found`` with every line of ``perimeter`` mostly found taken whole.
 
     A line is a chain of perimeter edges cut where the perimeter branches or
-    turns (:func:`perimeter_lines`); it is taken whole when more than
-    :data:`LINE_MAJORITY` of its edges are in ``found``.
+    turns (:func:`perimeter_lines`); when more than :data:`LINE_MAJORITY` of its
+    edges are in ``found``, its edges within ``max_angle`` of the plane across
+    ``aft`` (:func:`near_yz`) are added. A tip that continues the trailing edge
+    at a gentle corner runs along the flow and stays out; the edges a trailing
+    edge's bend leaves out of the rearmost tests come back within ``max_angle``.
     """
     out = set(found)
     for line in perimeter_lines(verts, faces, perimeter):
         if len(line & found) > LINE_MAJORITY * len(line):
-            out |= line
+            out |= near_yz(verts, line, max_angle, aft)
     return out
 
 

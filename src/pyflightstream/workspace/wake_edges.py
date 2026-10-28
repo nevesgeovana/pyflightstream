@@ -922,10 +922,11 @@ def write_trailing_edge_midnodes_per_family(
 
 
 #: The share of quadrilaterals that makes a family a quad family, the one
-#: identify-te maps by default: a structured quad mesh closes a tip or a
-#: singular point with a few triangles (3 percent at most on the SMI families),
-#: while a tria or a paved cap family holds far fewer quads.
-QUAD_FAMILY_SHARE = 0.9
+#: identify-te maps by default: a structured quad mesh closes a tip, a pole or a
+#: singular point with a few triangles (3 percent at most on the SMI families,
+#: 11 percent on a coarse wing closed at its poles), while a tria family holds
+#: none.
+QUAD_FAMILY_SHARE = 0.8
 
 
 def quad_families(families: dict[str, Any]) -> list[str]:
@@ -1088,7 +1089,14 @@ def _families_to_map(
     if all_families:
         return list(held)
     quads = quad_families(held)
-    others = [name for name in held if name not in quads]
+    empty = [name for name, faces in held.items() if not faces]
+    if empty:
+        warn(
+            f"{target}: {', '.join(empty)} holds no face; it is skipped",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    others = [name for name in held if name not in quads and name not in empty]
     if others:
         verb = "is not a quad family" if len(others) == 1 else "are not quad families"
         warn(

@@ -293,7 +293,7 @@ def _add_mesh_verbs(verbs: Any) -> None:
             "taken among its lines, on the OBJ or a refined level of it. Written beside the "
             "mesh in the format the solver imports: <mesh stem>.nodes.te.txt for every mapped "
             "family, or <mesh stem>.<family>.fs.te.txt per family with --families. Without "
-            "--families only quad families are mapped (quadrilaterals at least 90 percent of "
+            "--families only quad families are mapped (quadrilaterals at least 80 percent of "
             "the faces); --all-families maps the others too."
         ),
     )

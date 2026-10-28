@@ -66,4 +66,6 @@ def test_a_named_family_is_taken_as_named(tmp_path):
 def test_a_quad_family_may_close_with_a_few_triangles():
     quads = [[0, 1, 2, 3]] * 97
     assert quad_families({"Q": quads + [[0, 1, 2]] * 3, "T": [[0, 1, 2]] * 10}) == ["Q"]
-    assert quad_families({"M": quads[:80] + [[0, 1, 2]] * 20}) == []
+    assert quad_families({"M": quads[:70] + [[0, 1, 2]] * 30}) == []
+    # A coarse wing closed at its poles: 192 quadrilaterals of 216 faces.
+    assert quad_families({"W": quads[:1] * 192 + [[0, 1, 2]] * 24}) == ["W"]

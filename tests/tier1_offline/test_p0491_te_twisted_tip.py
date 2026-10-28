@@ -86,15 +86,65 @@ def test_the_fixture_tip_chord_lies_20_degrees_from_the_rotation_plane() -> None
 
 
 def test_a_trailing_edge_mostly_found_is_taken_to_its_root() -> None:
-    """FR-3294: a root sheared aft bends the edge out of the yz cone; the line is whole."""
+    """FR-3294: a root bent far aft leaves the rearmost tests; its line is taken whole."""
     verts, faces, trailing, n = _blade()
     verts = verts.copy()
-    verts[:n, 0] += 0.15  # the root edge now makes about 50 degrees with the yz plane
+    for k in range(3):  # a bend over three sections: no corner of the line over 60 degrees
+        verts[k * n : (k + 1) * n, 0] += 0.6 * (1 - k / 3) ** 2
     root = (0, n)
-    assert root not in _prepare.near_yz(verts, {root})
-    found = _prepare.rearmost_lines(verts, faces)
+    assert root in _prepare.near_yz(verts, {root}, max_angle=85.0)
+    found = _prepare.rearmost_lines(verts, faces, max_angle=85.0)
     assert trailing <= found
     # The tip line, a line of its own past the corner, stays out.
     ring = range(8 * n, 9 * n)
     tip = {(min(a, b), max(a, b)) for a, b in zip(ring[:-1], ring[1:], strict=True)}
+    assert not found & tip
+
+
+def _lens_plate(tip_x: float, tip_y: float, chord: int = 6, span: int = 12):
+    """Return a thin plate whose upper and lower surfaces meet at every perimeter edge.
+
+    The trailing edge runs along y at x = 1, the tip from (1, 1) to (tip_x, tip_y).
+    """
+
+    def at(u: float, v: float) -> np.ndarray:
+        le = np.array([tip_x, tip_y]) * v
+        te = np.array([1.0, 0.0]) * (1 - v) + np.array([1.0, 1.0]) * v
+        return le * (1 - u) + te * u
+
+    index: dict[tuple[int, int, int], int] = {}
+    verts: list[tuple[float, float, float]] = []
+
+    def vertex(i: int, j: int, side: int) -> int:
+        edge = i in (0, chord) or j in (0, span)
+        key = (i, j, 0 if edge else side)
+        if key not in index:
+            u, v = i / chord, j / span
+            x, y = at(u, v)
+            z = 0.0 if edge else side * 0.12 * math.sin(math.pi * u) * math.sin(math.pi * v)
+            index[key] = len(verts)
+            verts.append((float(x), float(y), z))
+        return index[key]
+
+    faces = []
+    for side in (1, -1):
+        for i in range(chord):
+            for j in range(span):
+                quad = [vertex(i, j, side), vertex(i + 1, j, side)]
+                quad += [vertex(i + 1, j + 1, side), vertex(i, j + 1, side)]
+                faces.append(quad if side > 0 else quad[::-1])
+
+    def pair(a: int, b: int) -> tuple[int, int]:
+        return (min(a, b), max(a, b))
+
+    te = {pair(index[(chord, j, 0)], index[(chord, j + 1, 0)]) for j in range(span)}
+    tip = {pair(index[(i, span, 0)], index[(i + 1, span, 0)]) for i in range(chord)}
+    return np.asarray(verts), faces, te, tip
+
+
+def test_a_raked_tip_fold_is_not_taken_with_the_trailing_edge() -> None:
+    """FR-3294: a tip continuing the trailing edge at a 51 degree corner runs along the flow."""
+    verts, faces, te, tip = _lens_plate(0.5, 1.4)
+    found = _prepare.rearmost_lines(verts, faces)
+    assert te <= found
     assert not found & tip

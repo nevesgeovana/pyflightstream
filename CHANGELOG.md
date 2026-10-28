@@ -17,9 +17,9 @@ FlightStream versions.
   its rim (FR-3291).
 - `geometry identify-te` without a node list takes a perimeter line whole
   when more than half of its edges are found, so a blade's trailing edge
-  reaches its junction with the hub where it bends out of the angle tests.
-  A line runs from corner to corner of the family's boundary and sharp edges
-  (FR-3294).
+  reaches its junction with the hub where it bends out of the rearmost
+  tests. A line runs from corner to corner of the family's boundary and sharp
+  edges; its edges are added within `--max-angle` (FR-3294).
 
 ### Added
 
@@ -49,7 +49,7 @@ FlightStream versions.
   wrote over each other's reports. `superfile_report` and `sections_report`
   in `products.json` name the new place (FR-3292).
 - `geometry identify-te` without `--families` maps only the quad families
-  (quadrilaterals at least 90 percent of a family's faces). A tip cap or a
+  (quadrilaterals at least 80 percent of a family's faces). A tip cap or a
   fairing meshed in triangles no longer adds its contour to the trailing
   edges and the node list; it is warned and left out, and `--all-families`
   maps every family (FR-3293).
