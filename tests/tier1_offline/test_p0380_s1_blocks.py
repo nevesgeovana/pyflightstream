@@ -753,22 +753,17 @@ def test_a_lone_multiblock_takes_chordwise_and_spanwise_from_its_trailing_edge(t
     assert _pairs(half) == [[(4, 2), (5, 2)], [(4, 2), (7, 4)], [(6, 3), (7, 4)]]
 
 
-def test_a_patch_whose_two_directions_cannot_be_told_apart_is_refused_naming_it(tmp_path):
-    """P0440-LAYOUT (FR-915, FR-925, PFS-2150): M sheared until its columns run near the edge.
+def test_a_patch_whose_sides_both_run_near_the_edge_is_told_by_the_closer_pair(tmp_path):
+    """P0440-LAYOUT (FR-915, FR-3297, PFS-2150): M sheared until its columns run near the edge.
 
     Sheared by 1.5, its columns run within 35 degrees of the trailing edge,
-    like its rows, so patch 1 has no chordwise direction: chordwise and
-    spanwise are refused naming the family and the patch, nothing written.
-    Control: the single factor is accepted on the sheared M.
+    like its rows. The pair of opposite sides that runs more along the edge is
+    parallel and the other normal, patch by patch, so the level is written and
+    nothing is refused. Control: the single factor is accepted on the sheared M.
     """
     src = write_source(tmp_path / "src", "plate", _l_with_trailing_edge(shear=1.5))
-    with pytest.raises(InputArtifactError) as caught:
-        refine_mesh(src, normal=0.5, parallel=1.0, out_dir=tmp_path / "a")
-    text = str(caught.value)
-    assert text.startswith(f"{src} family M: normal and parallel cannot be told apart on ")
-    assert "patch 1 of a multiblock of 3 four-sided patches" in text
-    assert "its rows run spanwise and its columns spanwise" in text
-    assert text.endswith("Nothing was written.") and not (tmp_path / "a").exists()
+    level = refine_mesh(src, normal=0.5, parallel=1.0, out_dir=tmp_path / "a")
+    assert level.report["M"]["method"] == "grid"
     assert refine_mesh(src, 0.5, out_dir=tmp_path / "b").report["M"]["method"] == "grid"
 
 

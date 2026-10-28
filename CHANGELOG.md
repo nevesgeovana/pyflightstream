@@ -62,7 +62,9 @@ FlightStream versions.
   side of its boundary, warned, and no longer by a neighbouring family's
   trailing edge; a multiblock family with a directional factor and no
   trailing edge is no longer refused. The reference line is not written as a
-  trailing edge.
+  trailing edge. Each patch of a multiblock family is told by its own pair of
+  opposite sides that runs more along the reference, so a patch whose sides
+  all run near it is no longer refused (FR-3297).
 - `refine` raises a grid factor below the least its grid allows to that
   least with a warning by default; `--strict-factors`
   (`refine_mesh(force_factors=False)`) refuses it. `--force-factors` is still

@@ -232,9 +232,11 @@ no single normal or parallel direction, so `--normal` and `--parallel`
 apply to it side by side: a patch side running within 45 degrees of the
 family's reference perimeter is parallel, any other normal, so a junction strip
 can be coarsened normal only with `normal_factor = 0.77` and `parallel_factor = 1`.
-Opposite sides of a patch must read alike and its two directions must
-differ; a patch whose directions cannot be told apart is refused naming it,
-and then `FACTOR` or a `factor` in its table applies to both directions. Across a patch side the level is
+Each patch is told by its own sides: the pair of opposite sides that runs
+more along the reference line is parallel, the other normal, so its two
+directions always differ. Where the sides a patch shares with its neighbours
+disagree, the family takes the parallel factor everywhere, with a warning;
+nothing is refused. Across a patch side the level is
 continuous but not smooth: no spline crosses it.
 
 A patch side of m intervals that a factor below 1/m cannot coarsen (a strip

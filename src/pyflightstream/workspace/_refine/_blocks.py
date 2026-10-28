@@ -497,6 +497,11 @@ def runs_spanwise(verts: Points, chain: Sequence[int], te: Points) -> bool:
     arc wrapping round a leading edge, whose ends almost meet, is read by its
     edges and not by its chord (FR-915, PFS-2150).
     """
+    return along(verts, chain, te) >= SPANWISE_COS - 1e-14
+
+
+def along(verts: Points, chain: Sequence[int], te: Points) -> float:
+    """Return how much an arc runs along the reference segments: the weighted mean |cos|."""
     p = numpy.asarray(verts, dtype=float)[list(chain)]
     edge = p[1:] - p[:-1]
     mid = 0.5 * (p[1:] + p[:-1])
@@ -508,7 +513,7 @@ def runs_spanwise(verts: Points, chain: Sequence[int], te: Points) -> bool:
     length = numpy.linalg.norm(edge, axis=1)
     scale = numpy.maximum(length * numpy.linalg.norm(near, axis=1), 1e-300)
     cos = numpy.abs((edge * near).sum(axis=1)) / scale
-    return float((cos * length).sum() / max(float(length.sum()), 1e-300)) >= SPANWISE_COS - 1e-14
+    return float((cos * length).sum() / max(float(length.sum()), 1e-300))
 
 
 def te_directions(
@@ -522,9 +527,12 @@ def te_directions(
 ) -> dict[int, str]:
     """Return ``"chordwise"`` or ``"spanwise"`` for each arc of a family's patches (PFS-2150).
 
-    An arc is classified from the family's trailing edge (:func:`runs_spanwise`).
-    Opposite sides of a patch hold the same m and must classify alike, and its
-    rows and its columns must run in different directions.
+    Each patch is told by its own two pairs of opposite sides: the pair that runs
+    more along the reference line (:func:`along`) is parallel (spanwise), the
+    other normal, so its rows and columns always differ. An arc a patch shares
+    with one already told keeps its direction and orients the patch. Where the
+    shared arcs disagree within a patch, the family takes one direction for every
+    arc (the parallel factor), warned; nothing is refused.
 
     Parameters
     ----------
@@ -541,13 +549,10 @@ def te_directions(
     what : str
         The family's layout as a refusal names it.
 
-    Raises
-    ------
-    InputArtifactError
-        A patch's two directions cannot be told apart, naming the patch and
-        where it lies; nothing was written. A family with no trailing edge is
-        told against the longest side of its boundary
-        (:func:`longest_boundary_side`), warned.
+    Notes
+    -----
+    A family with no trailing edge is told against the longest side of its
+    boundary (:func:`longest_boundary_side`), warned.
     """
     if not len(te):
         te = longest_boundary_side(verts, blocks, patches)
@@ -566,23 +571,42 @@ def te_directions(
     out: dict[int, str] = {}
     for n, p in enumerate(patches, 1):
         arcs = [arc for arc, _ in blocks.sides[p]]
-        for arc in arcs:
-            if arc not in out:
-                spanwise = runs_spanwise(verts, blocks.arcs[arc], te)
-                out[arc] = "spanwise" if spanwise else "chordwise"
-        rows, columns = {out[a] for a in arcs[:2]}, {out[a] for a in arcs[2:]}
-        if len(rows) == 1 and len(columns) == 1 and rows != columns:
-            continue
-        pts = numpy.asarray(verts, dtype=float)[blocks.patches[p].ravel()]
-        where = ", ".join(f"{v:.3g}" for v in pts.mean(axis=0))
-        raise InputArtifactError(
-            f"{family}: normal and parallel cannot be told apart on patch {n} of {what} "
-            f"(centroid {where}): its rows run {' and '.join(sorted(rows))} and its columns "
-            f"{' and '.join(sorted(columns))} of the trailing edge. Give the family's factor "
-            "alone and run again. Nothing was written.",
-            kind=KIND,
-        )
+        rows_along = _patch_rows_along(verts, blocks, arcs, te, out)
+        if rows_along is None:
+            pts = numpy.asarray(verts, dtype=float)[blocks.patches[p].ravel()]
+            where = ", ".join(f"{v:.3g}" for v in pts.mean(axis=0))
+            warn(
+                f"{family}: the sides patch {n} of {what} (centroid {where}) shares with its "
+                "neighbours run both parallel and normal; every arc of the family takes the "
+                "parallel factor.",
+                PyflightstreamWarning,
+                stacklevel=4,
+            )
+            all_arcs = {arc for q in patches for arc, _ in blocks.sides[q]}
+            return dict.fromkeys(all_arcs, "spanwise")
+        row, column = ("spanwise", "chordwise") if rows_along else ("chordwise", "spanwise")
+        for i, arc in enumerate(arcs):
+            out.setdefault(arc, row if i < 2 else column)
     return out
+
+
+def _patch_rows_along(
+    verts: Points, blocks: Blocks, arcs: list[int], te: Points, told: dict[int, str]
+) -> bool | None:
+    """Return whether a patch's rows run along the reference; None when its told arcs disagree.
+
+    Arcs already told (shared with an earlier patch) decide; else the pair of
+    opposite sides with the larger mean :func:`along` is the one along it.
+    """
+    votes = {
+        ("spanwise" if i < 2 else "chordwise") == told[a] for i, a in enumerate(arcs) if a in told
+    }
+    if len(votes) > 1:
+        return None
+    if votes:
+        return votes.pop()
+    score = [along(verts, blocks.arcs[a], te) for a in arcs]
+    return (score[0] + score[1]) >= (score[2] + score[3])
 
 
 def kept_sides(

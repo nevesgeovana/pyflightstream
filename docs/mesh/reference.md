@@ -522,8 +522,9 @@ Its `families` entry holds, per family:
   `bbox_max`; empty when none); `--parallel` and `--normal` apply to each
   patch side by its direction against the family's reference perimeter
   (parallel within 45 degrees of it, measured as the length-weighted mean of
-  the absolute cosine against the nearest perimeter segment), refused for a
-  patch whose two directions cannot be told apart, and across a patch side the level is continuous, not smooth;
+  the absolute cosine against the nearest perimeter segment), each patch told
+  by the pair of opposite sides that runs more along it (shared sides that
+  disagree give the family the parallel factor everywhere, warned), and across a patch side the level is continuous, not smooth;
 - a grid resampled with the grids it shares nodes with (one layout) reports
   `grouped_with` (those families), its own `layout` (`"sheet"` or
   `"multiblock"`), and the `patches`, `blocks`, `arcs`, `kept_sides` and

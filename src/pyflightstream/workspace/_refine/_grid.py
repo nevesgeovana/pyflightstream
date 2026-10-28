@@ -882,8 +882,8 @@ def check_factors(grid: Grid, family: str, *, chordwise: float, spanwise: float)
         raise InputArtifactError(
             f"family {family}: the {direction} factor is {value:g}, below 1/{m}: scaled by it, "
             f"its {m} source intervals come to fewer than one. Give a {direction} factor of "
-            f"at least 1/{m}, or leave out --strict-factors (force_factors=True, the default) "
-            "to raise it with a warning, and run again. Nothing was written.",
+            f"at least 1/{m}, or leave force_factors at True, the default, to raise it with a "
+            "warning, and run again. Nothing was written.",
             kind=KIND,
         )
     if grid.wrap:
@@ -908,9 +908,8 @@ def _check_section(grid: Grid, family: str, chordwise: float) -> None:
         return
     raise InputArtifactError(
         f"family {family}: the normal factor is {chordwise:g}, which {reason}. Give a "
-        f"normal factor of at least {least}, or leave out --strict-factors "
-        "(force_factors=True, the default) to raise it with a warning, and run again. "
-        "Nothing was written.",
+        f"normal factor of at least {least}, or leave force_factors at True, the default, to "
+        "raise it with a warning, and run again. Nothing was written.",
         kind=KIND,
     )
 
