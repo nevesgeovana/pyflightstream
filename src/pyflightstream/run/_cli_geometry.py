@@ -279,7 +279,8 @@ def _add_mesh_verbs(verbs: Any) -> None:
         description=(
             "A trailing edge is a family's rearmost line: the edges its surface lies forward of. "
             "Without NODES they are found from the mesh alone (each family cut at its sharp "
-            "edges, an edge kept when it lies within --max-angle of the yz plane) and the "
+            "edges, an edge kept when it lies within --max-angle of the plane across --aft, "
+            "the yz plane by default) and the "
             "nodes are also written as <mesh stem>.nodes.txt, the ANSA node list a refine file "
             "reads. With "
             "NODES (an ANSA SET node list, every perimeter in one file, any order) they are "
@@ -305,7 +306,7 @@ def _add_mesh_verbs(verbs: Any) -> None:
         type=float,
         default=45.0,
         metavar="DEG",
-        help="without NODES, the largest angle of an edge with the yz plane (default 45)",
+        help="without NODES, the largest angle of an edge with the plane across --aft (default 45)",
     )
     identify.add_argument(
         "--aft", nargs=3, type=float, metavar=("X", "Y", "Z"), help="the aft direction (default +x)"
@@ -324,7 +325,7 @@ def _add_mesh_verbs(verbs: Any) -> None:
             "largest extent along y), <stem>_patches.refine.toml (each patch at factor 1, grid "
             "or remesh, [components] putting each family back together) and "
             "<stem>_patches.nodes.txt (the rearmost line of each grid patch, its edges "
-            "within --max-angle of the yz plane, as an ANSA SET node list)."
+            "within --max-angle of the plane across --aft, as an ANSA SET node list)."
         ),
     )
     prepare.add_argument("mesh", metavar="OBJ", help="the source mesh; it is not modified")
@@ -333,7 +334,7 @@ def _add_mesh_verbs(verbs: Any) -> None:
         type=float,
         default=45.0,
         metavar="DEG",
-        help="the largest angle of a listed edge with the yz plane (default 45)",
+        help="the largest angle of a listed edge with the plane across --aft (default 45)",
     )
     prepare.add_argument(
         "--aft", nargs=3, type=float, metavar=("X", "Y", "Z"), help="the aft direction (default +x)"

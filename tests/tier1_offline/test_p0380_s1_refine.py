@@ -2262,6 +2262,35 @@ def test_a_rearmost_line_is_a_trailing_edge_within_the_angle_of_the_yz_plane(tur
         assert numpy.allclose(turned[ends, 0], turned[:, 0].max(), atol=1e-12)
 
 
+def test_drev48_the_maximum_angle_is_taken_from_the_plane_across_the_aft_direction(tmp_path):
+    """DREV48-002: with --aft along y, the trailing edge runs along x and is found.
+
+    The sheet is turned so its nose to tail direction is +y. The angle was
+    measured from the yz plane whatever the aft direction, so the trailing
+    edge, 90 degrees from that plane, was left out and identify-te refused.
+    Control: the sheet as built, aft +x, gives the same edges.
+    """
+    from pyflightstream.workspace import cli as workspace_cli
+    from pyflightstream.workspace._refine._prepare import rearmost_lines
+    from tests.p0380_mesh_fixtures import sheet_quads
+
+    fx = sheet_quads()
+    turn = numpy.array([[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])  # x to y
+    turned = fx.verts @ turn
+    control = rearmost_lines(fx.verts, fx.faces)
+    assert len(control) == fx.stations - 1
+    assert rearmost_lines(turned, fx.faces, aft=(0.0, 1.0, 0.0)) == control
+    src = write_source(
+        tmp_path / "src",
+        "wing",
+        Composite(turned, {"Wing": fx.faces}, numpy.zeros((0, 3)), {}),
+        boundaries=False,
+    )
+    assert workspace_cli.main(["geometry", "identify-te", str(src), "--aft", "0", "1", "0"]) == 0
+    rows = src.with_name("wing.nodes.te.txt").read_text(encoding="utf-8").split()
+    assert int(rows[0]) == fx.stations - 1
+
+
 def test_a_sharp_trailing_edge_of_a_closed_wing_with_a_smooth_leading_edge_is_found():
     """A finely meshed closed wing is one piece (its leading edge is smooth); its sharp
     trailing edge, an inside edge of that piece, is its rearmost perimeter.

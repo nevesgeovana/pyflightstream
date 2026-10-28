@@ -909,8 +909,9 @@ def write_trailing_edges_identified(
       those segments is on a line, so the OBJ may be a refined level whose nodes
       are not the listed ones;
     - without it, the boundaries of the family cut along its sharp edges, an
-      edge kept when its tangent makes ``max_angle`` degrees or less with the yz
-      plane (:func:`pyflightstream.workspace._refine._prepare.rearmost_lines`).
+      edge kept when its tangent makes ``max_angle`` degrees or less with the
+      plane across ``aft``, the yz plane for +x
+      (:func:`pyflightstream.workspace._refine._prepare.rearmost_lines`).
 
     Beside the mesh, ``families`` given, each family's file is
     ``<mesh stem>.<family>.fs.te.txt``; else every family's trailing edge is

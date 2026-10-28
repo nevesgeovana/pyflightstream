@@ -19,7 +19,8 @@ any OBJ and refine file without it) writes, beside the mesh:
 3. ``<stem>_patches.nodes.txt``: the node list the refinement reads (an ANSA SET
    node-window export, ``Id, Name, X, Y, Z``): for each grid patch, the nodes of
    the rearmost line of its outer boundary (:func:`._obj.rearmost_edges`) whose
-   edges lie in or near the yz plane, within ``max_angle`` (:func:`near_yz`),
+   edges lie in or near the plane across the aft direction (the yz plane for
+   +x), within ``max_angle`` (:func:`near_yz`),
    ordered along y. A node two patches share is listed
    once.
 """
@@ -77,8 +78,8 @@ def prepare_to_refine(
     mesh : str or pathlib.Path
         The source OBJ; it is never modified.
     max_angle : float
-        The largest angle, in degrees, between a listed edge and the yz plane
-        (default :data:`MAX_ANGLE`).
+        The largest angle, in degrees, between a listed edge and the plane
+        across ``aft`` (default :data:`MAX_ANGLE`).
     aft : tuple of float
         The direction from the nose to the tail (default +x).
     overwrite : bool
@@ -192,8 +193,8 @@ def rearmost_lines(
     joins the upper and the lower surface of a wing whose leading edge is
     smooth). Of each piece, only the perimeter reaching furthest aft is read
     (:func:`._obj.rearmost_perimeter`), and of it the edges the piece lies
-    forward of (:func:`._obj.rearmost_edges`) that lie in or near the yz
-    plane, within ``max_angle`` (:func:`near_yz`).
+    forward of (:func:`._obj.rearmost_edges`) that lie in or near the plane
+    across ``aft`` (the yz plane for +x), within ``max_angle`` (:func:`near_yz`).
     """
     dihedral = _geometry.dihedral_degrees(verts, faces)
     sharp = {e for e, angle in dihedral.items() if angle > _geometry.RIDGE_DEGREES}
@@ -206,19 +207,28 @@ def rearmost_lines(
         perimeter = {e for e, fs in held.items() if len(fs) == 1 or e in sharp}
         rear = _obj.rearmost_perimeter(verts, members, perimeter, aft)
         found |= _obj.rearmost_edges(verts, members, rear, aft)
-    return near_yz(verts, found, max_angle)
+    return near_yz(verts, found, max_angle, aft)
 
 
 def near_yz(
-    verts: Points, edges: set[tuple[int, int]], max_angle: float = MAX_ANGLE
+    verts: Points,
+    edges: set[tuple[int, int]],
+    max_angle: float = MAX_ANGLE,
+    aft: tuple[float, float, float] = _obj.AFT,
 ) -> set[tuple[int, int]]:
-    """Return the edges whose tangent makes ``max_angle`` degrees or less with the yz plane."""
+    """Return the edges whose tangent makes ``max_angle`` degrees or less with the plane across aft.
+
+    The plane is the one normal to ``aft``, the yz plane for the default +x: a
+    trailing edge runs across the flow, whichever axis the flow runs along.
+    """
     most = numpy.sin(numpy.radians(max_angle))
+    axis = numpy.asarray(aft, dtype=float)
+    axis = axis / float(numpy.linalg.norm(axis))
     out = set()
     for a, b in edges:
         tangent = verts[b] - verts[a]
         length = float(numpy.linalg.norm(tangent))
-        if length > 0.0 and abs(float(tangent[0])) <= most * length:
+        if length > 0.0 and abs(float(tangent @ axis)) <= most * length:
             out.add((a, b))
     return out
 
@@ -257,7 +267,7 @@ def _te_rows(
         ring = _obj.rearmost_perimeter(
             verts, faces, {e for e, fs in held.items() if len(fs) == 1}, aft
         )
-        edges = near_yz(verts, _obj.rearmost_edges(verts, faces, ring, aft), max_angle)
+        edges = near_yz(verts, _obj.rearmost_edges(verts, faces, ring, aft), max_angle, aft)
         nodes = sorted({v for e in edges for v in e} - written, key=lambda v: float(verts[v, 1]))
         if not nodes:
             continue
@@ -269,7 +279,7 @@ def _te_rows(
     if not rows:
         warn(
             "prepare-to-refine: no grid patch has a rearmost line within "
-            f"{max_angle:g} degrees of the yz plane; the node list is empty",
+            f"{max_angle:g} degrees of the plane across the aft direction; the node list is empty",
             PyflightstreamWarning,
             stacklevel=3,
         )

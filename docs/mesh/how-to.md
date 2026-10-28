@@ -335,9 +335,9 @@ optional.
    `W1_patches.refine.toml` and `W1_patches.nodes.txt`. The refine file holds
    every patch at factor 1 and `[components]` putting each family back
    together; the node list holds the rearmost line of each grid patch, the
-   edges within `--max-angle` (default 45 degrees) of the yz plane, as an ANSA
-   SET node list. `--aft X Y Z` states the nose to tail direction (default
-   +x). Any OBJ and refine file refine without this step.
+   edges within `--max-angle` (default 45 degrees) of the plane across the
+   aft direction, as an ANSA SET node list. `--aft X Y Z` states the nose to
+   tail direction (default +x, so the plane is the yz plane). Any OBJ and refine file refine without this step.
 2. **Edit the refine file.** Set the factors of the patches and their
    `method`. The file names the node list in a `[[perimeter]]` table:
 
@@ -408,8 +408,8 @@ pyfs-workspace geometry identify-te inputs/geometries/W1/W1.obj --families Wing,
 ```
 
 Without a node list the edges are found from the mesh: each family is cut at
-its sharp edges and its rearmost boundary edges within `--max-angle` of the yz
-plane are kept. The command writes `W1.nodes.te.txt` for every family (or
+its sharp edges and its rearmost boundary edges within `--max-angle` of the
+plane across `--aft` (the yz plane by default) are kept. The command writes `W1.nodes.te.txt` for every family (or
 `W1.<family>.fs.te.txt` for each family named by `--families`) and, beside it,
 `W1.nodes.txt`, the ANSA node list a refine file reads. With a node list
 saved from a SET, `identify-te W1.obj nodes.txt` takes the trailing edges among

@@ -41,8 +41,8 @@ FlightStream versions.
   `<stem>_patches.refine.toml` with every patch at factor 1 (grid or remesh),
   `[components]` putting each family back together and a `[[perimeter]]` with
   `te_families`; and `<stem>_patches.nodes.txt`, the rearmost line of each grid
-  patch, its edges within the maximum angle (default 45 degrees) of the yz
-  plane, as an ANSA SET node list.
+  patch, its edges within the maximum angle (default 45 degrees) of the plane
+  across the aft direction (the yz plane for +x), as an ANSA SET node list.
 - A level whose trailing edges a `[[perimeter]]` list exports declares them in
   its `<level>.obj.boundaries.toml`, one `[trailing_edges.<component>]` table
   per component (`file = "<level>.<component>.te.txt"`, `type = "STANDARD"`),
@@ -57,7 +57,8 @@ FlightStream versions.
   refining: `<obj stem>.nodes.te.txt` for every family, or
   `<obj stem>.<family>.fs.te.txt` per family with `--families`. Without NODES
   they are found from the mesh (each family cut at its sharp edges, its
-  rearmost boundary edges within the maximum angle of the yz plane) and also written
+  rearmost boundary edges within the maximum angle of the plane across the aft
+  direction, the yz plane for +x) and also written
   as `<obj stem>.nodes.txt`, the ANSA node list a refine file reads; with an
   ANSA SET node list they are taken among its lines, on a refined level with
   merged families too.
