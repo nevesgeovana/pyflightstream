@@ -286,13 +286,7 @@ def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> 
         _unknown(f"{where} governing", f"{governing!r} is not true or false", accept)
         governing = False
     if method == GRID_AUTO:
-        if any(k in table for k in ("factor", *DIRECTIONAL_KEYS)):
-            _unknown(
-                where,
-                "grid_auto takes the governing family's factors; its own are skipped",
-                accept,
-            )
-        return FamilySpec(method=GRID_AUTO, governing=governing)
+        return grid_auto_spec(where, table, governing=governing, accept=accept)
     if not any(k in table for k in ("factor", *DIRECTIONAL_KEYS)):
         _unknown(
             where,
@@ -861,6 +855,27 @@ def _add_followers(specs: dict[str, FamilySpec], chosen: Sequence[str]) -> None:
     """Make every selected family without a table grid_auto when one is governing (FR-3298)."""
     if any(s.governing for s in specs.values()):
         specs.update({n: FamilySpec(method=GRID_AUTO) for n in chosen if n not in specs})
+
+
+def grid_auto_spec(
+    where: str, table: Mapping[str, Any], *, governing: bool, accept: bool = False
+) -> FamilySpec:
+    """Return a grid_auto family's spec: it states no factor and cannot lead (FR-3298).
+
+    Factors in its table are refused (warned and skipped under ``accept``);
+    ``governing = true`` is warned and skipped, since the family takes another's
+    factors.
+    """
+    if any(k in table for k in ("factor", *DIRECTIONAL_KEYS)):
+        _unknown(
+            where, "grid_auto takes the governing family's factors; its own are skipped", accept
+        )
+    if governing:
+        _skip(
+            f"{where} governing",
+            "a grid_auto family takes another's factors and cannot lead; governing is skipped",
+        )
+    return FamilySpec(method=GRID_AUTO)
 
 
 def _missing_tables(chosen: Sequence[str], specs: Mapping[str, FamilySpec]) -> tuple[str, ...]:
