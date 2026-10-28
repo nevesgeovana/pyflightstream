@@ -799,9 +799,9 @@ class TestFarfieldNumpy:
             "pydantic>=2",
             "pyyaml",
             "trimesh>=4.12,<6",
-            "matplotlib",
-            "rtree",
-            "scipy",
+            "matplotlib>=3.10",
+            "rtree>=1.0",
+            "scipy>=1.15",
         ]
         assert project["optional-dependencies"]["pandas"] == ["pandas>=2.3"]
 

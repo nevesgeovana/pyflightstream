@@ -79,14 +79,18 @@ classifiers = [
 # numpy and pandas floors themselves and runs tier 1 on them. pydantic
 # is not a SPEC 0 project: its floor is the major whose API this package
 # is written against (field_validator, model_validator).
+# matplotlib and scipy carry the SPEC 0 floor computed on 2026-10-28 (the oldest
+# minor released within two years): matplotlib 3.10 of 2024-12, scipy 1.15 of
+# 2025-01. rtree is not a SPEC 0 project: its floor is 1.0, the first release
+# whose wheels bundle libspatialindex.
 dependencies = [
     "numpy>=2.2",
     "pydantic>=2",
     "pyyaml",
     "trimesh>=4.12,<6",
-    "matplotlib",
-    "rtree",
-    "scipy",
+    "matplotlib>=3.10",
+    "rtree>=1.0",
+    "scipy>=1.15",
 ]
 
 [project.optional-dependencies]
