@@ -427,6 +427,7 @@ built from the factors, `p` standing for the decimal point:
 | factor 2 on `Wing` only | `R-Wing2` |
 | `Wing` at 2 and `Tip` at 1.5 | `R-Wing2-Tip1p5` |
 | a selection whose built tag is longer than 32 characters | `R-<n>fam-<hash>` |
+| a selection using `governing = true` or `method = "grid_auto"` | `R-<n>fam-<hash>` |
 
 The letters of a built tag are `c` for the normal factor and `s` for the
 parallel factor, the letters their earlier names gave, so a level keeps its
@@ -441,14 +442,15 @@ same tag, and the second level is refused as an existing one unless
 Summary tags hash the exact factors, so matching rounded spellings do not
 imply matching summary tags.
 
-A built tag of at most 32 characters is the tag above. A longer one is
+A built tag of at most 32 characters is the tag above unless the selection
+uses a governing family or `grid_auto`. Those selections and longer tags use
 `R-<n>fam-<hash>`, at most 20 characters for any selection: `<n>` is the number
 of selected families and `<hash>` the first 8 hexadecimal characters of the
 SHA-256 of the canonical selection, encoded as UTF-8. The canonical selection
 holds one line per selected family, in the source's family order, joined by a
 newline: the family's name, then every option its table states that changes
 the level (`factor`, `chordwise` for the normal factor, `spanwise` for the
-parallel factor, `method`, `elements`) as `key=value` pairs sorted by key and
+parallel factor, `method`, `elements`, `governing`) as `key=value` pairs sorted by key and
 separated by single spaces, for example `Wing chordwise=1.5 factor=2
 spanwise=2`. The same selection gives the same tag on every run and machine,
 and two selections that differ in a family or an option give different

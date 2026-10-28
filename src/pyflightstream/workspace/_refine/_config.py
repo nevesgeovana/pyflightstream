@@ -874,13 +874,21 @@ def tag_selection(request: RefineRequest, names: Sequence[str]) -> list[str] | N
     if request.tag:
         return None
     tag, picked, _ = _built_tag(request, names)
-    return picked if len(tag) > TAG_MAX else None
+    return picked if _summary_tag(request, tag) else None
+
+
+def _summary_tag(request: RefineRequest, tag: str) -> bool:
+    """Hash long tags and governing choices that a factor-only tag cannot distinguish."""
+    return len(tag) > TAG_MAX or any(
+        spec.governing or spec.method == GRID_AUTO for spec in request.specs.values()
+    )
 
 
 def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the mesh") -> str:
     """Return the level's tag: the file's, else ``R<factors>``, else ``R-<family><factors>-...``.
 
-    A built tag of more than 32 characters is ``R-<n>fam-<hash>`` (FR-970):
+    A built tag of more than 32 characters, or one using governing families
+    or grid_auto, is ``R-<n>fam-<hash>`` (FR-970, FR-3298):
     ``<hash>`` the first 8 hexadecimal characters of the SHA-256 of the
     :func:`canonical_selection`, encoded as UTF-8. A tag built from family
     names is one folder name (FR-919): a family whose name would put a
@@ -894,7 +902,7 @@ def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the me
         raise _refuse(where, "no family is selected, so the level would change nothing")
     if request.tag:
         return str(request.tag)
-    if len(tag) > TAG_MAX:
+    if _summary_tag(request, tag):
         digest = hashlib.sha256(canonical_selection(request, picked).encode("utf-8")).hexdigest()[
             :8
         ]

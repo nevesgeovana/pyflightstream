@@ -608,6 +608,7 @@
       "tests/tier1_offline/test_p0490_ansa_nastran.py",
       "tests/tier1_offline/test_p0490_governing_prepare.py",
       "tests/tier1_offline/test_p0490_governing_selection.py",
+      "tests/tier1_offline/test_p0490_governing_tags.py",
       "tests/tier1_offline/test_p0491_te_twisted_tip.py",
       "tests/tier1_offline/test_pfs2006_declined_induced_drag.py",
       "tests/tier1_offline/test_post_products.py",
