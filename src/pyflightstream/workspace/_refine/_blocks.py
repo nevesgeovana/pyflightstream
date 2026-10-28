@@ -1111,15 +1111,19 @@ def _band_counts(
         lead = min(rank, key=rank.__getitem__)
         value = next(c for n, c in offers if n == lead)
         chosen[key] = value
-        for n, c in offers:
-            if c != value:
-                followed[(n, lead)] = followed.get((n, lead), 0) + 1
+        for n in {n for n, c in offers if c != value}:
+            followed[(n, lead)] = followed.get((n, lead), 0) + 1
     for (n, lead), bands in sorted(followed.items()):
         how = "governing" if specs[lead].governing else "declared, of the largest perimeter"
+        advice = (
+            'To give this grid_auto family its own counts, declare method = "grid", '
+            "its factors and governing = true in its [families] table."
+            if specs[n].method == "grid_auto"
+            else "Mark the family that should lead with governing = true in its [families] table."
+        )
         warn(
             f"{where} family {n} follows {lead} ({how}) on {bands} band(s) of the curves they "
-            f"share: those curves take {lead}'s counts. Mark the family that should lead with "
-            "governing = true in its [families] table.",
+            f"share: those curves take {lead}'s counts. {advice}",
             PyflightstreamWarning,
             stacklevel=5,
         )
