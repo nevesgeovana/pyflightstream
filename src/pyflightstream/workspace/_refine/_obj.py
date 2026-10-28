@@ -26,7 +26,13 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
 from pyflightstream._lengths import METRES_PER_UNIT, scale
 from pyflightstream.workspace._geometry_sidecar import toml_value
-from pyflightstream.workspace._refine._geometry import NearestIndex, segment_distances
+from pyflightstream.workspace._refine._geometry import (
+    RIDGE_DEGREES,
+    NearestIndex,
+    dihedral_degrees,
+    edge_faces,
+    segment_distances,
+)
 from pyflightstream.workspace.sidecars import (
     BOUNDARY_FACES_KEY,
     MESH_FACES_KEY,
@@ -796,26 +802,39 @@ def rearmost_perimeter(
     edges: set[tuple[int, int]],
     aft: tuple[float, float, float] = AFT,
 ) -> set[tuple[int, int]]:
-    """Return, for each connected piece of the faces, the one perimeter that reaches furthest aft.
+    """Return the given edges on the one perimeter per connected piece that reaches furthest aft.
 
-    The edges are joined end to end into perimeters; each perimeter belongs to
-    the piece whose faces hold its nodes, and of a piece's perimeters only the
-    one with the node furthest along ``aft`` is kept, so the trailing-edge
-    nodes of a piece come from a single perimeter: a hole's, or a root's apart
-    from it, is never added.
+    A perimeter is a loop of the piece's own boundary and sharp edges
+    (:data:`._geometry.RIDGE_DEGREES`), so a trailing edge listed in two parts
+    (a node left out) is one perimeter, and a hole's loop, or a root apart from
+    the trailing edge, is another. A given edge on no such loop forms its own
+    chain. Of a piece's perimeters, only the one whose given edges reach
+    furthest along ``aft`` is kept, so the trailing-edge nodes of a piece come
+    from a single perimeter.
     """
     if not edges:
         return set()
     direction = numpy.asarray(aft, dtype=float)
     piece = _pieces_of_vertices(faces)
+    held = edge_faces(faces)
+    sharp = dihedral_degrees(verts, faces)
+    outline = {e for e, fs in held.items() if len(fs) == 1 or sharp.get(e, 0.0) > RIDGE_DEGREES}
+    loop_of: dict[tuple[int, int], int] = {}
+    for number, loop in enumerate(_chains(outline)):
+        for e in loop:
+            loop_of[e] = number
+    groups: dict[object, set[tuple[int, int]]] = {}
+    for number, chain in enumerate(_chains(edges)):
+        for e in chain:
+            groups.setdefault(loop_of.get(e, ("chain", number)), set()).add(e)
     best: dict[int, tuple[float, set[tuple[int, int]]]] = {}
-    for chain in _chains(edges):
-        nodes = sorted({v for e in chain for v in e})
+    for group in groups.values():
+        nodes = sorted({v for e in group for v in e})
         owner = next((piece[v] for v in nodes if v in piece), -1)
         reach = float((verts[nodes] @ direction).max())
         if owner not in best or reach > best[owner][0]:
-            best[owner] = (reach, chain)
-    return set().union(*(chain for _, chain in best.values()))
+            best[owner] = (reach, group)
+    return set().union(*(group for _, group in best.values()))
 
 
 def _chains(edges: set[tuple[int, int]]) -> list[set[tuple[int, int]]]:

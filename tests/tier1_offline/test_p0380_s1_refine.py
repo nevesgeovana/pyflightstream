@@ -2429,3 +2429,22 @@ def test_the_level_boundaries_file_lists_each_components_trailing_edge_for_mark_
         encoding="utf-8",
     )
     assert plan_mark_boundaries(level.obj).mesh == level.obj
+
+
+def test_a_trailing_edge_listed_in_two_parts_is_one_perimeter():
+    """A trailing edge whose node list leaves a node out gives two chains on one perimeter
+    of the piece: both are kept. Control: a hole's loop stays out (one perimeter only).
+    """
+    from pyflightstream.workspace._refine._geometry import edge_faces
+    from pyflightstream.workspace._refine._obj import rearmost_perimeter
+    from tests.p0380_mesh_fixtures import holed_plate
+
+    fx, te, _ = _sheet_lines()
+    pairs = {(min(a, b), max(a, b)) for a, b in zip(te, te[1:], strict=False)}
+    gap = sorted(pairs)[len(pairs) // 2]
+    kept = rearmost_perimeter(fx.verts, fx.faces, pairs - {gap})
+    assert kept == pairs - {gap}
+    plate = holed_plate()
+    faces = plate.families["P"]
+    boundary = {e for e, fs in edge_faces(faces).items() if len(fs) == 1}
+    assert rearmost_perimeter(plate.verts, faces, boundary) < boundary
