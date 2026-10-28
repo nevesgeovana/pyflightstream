@@ -26,6 +26,7 @@ import numpy as np
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._mesh import read_mesh
+from pyflightstream._retired_names import RetiredAttributeError, retired_attribute
 from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.planar import (
     GeometryGateReport,
@@ -401,3 +402,11 @@ def points_inside(points: np.ndarray, *, mesh_path: str | Path) -> InsideReport:
     if len(array) == 0:
         return InsideReport(True, None, unchecked)
     return InsideReport(True, None, _inside(mesh, array))
+
+
+def __getattr__(name: str) -> object:
+    """Refuse the names retired, naming what replaced them."""
+    entry = retired_attribute(__name__, name)
+    if entry is not None:
+        raise RetiredAttributeError(entry.message())
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

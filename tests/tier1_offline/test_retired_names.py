@@ -252,3 +252,24 @@ def test_f_358_rothalpy_refusal_names_external_euler_cfd_tools():
         assert "external Euler CFD tools that provide total enthalpy and entropy" in message
         assert "no supported replacement" in message
         assert "itaca" not in message.casefold()
+
+
+@pytest.mark.parametrize(
+    ("module", "name"),
+    [
+        ("pyflightstream.exceptions", "GeometryEngineMissingError"),
+        ("pyflightstream.probes.geometry", "GeometryEngineMissingError"),
+        ("pyflightstream.probes.geometry", "require_geometry_extra"),
+    ],
+)
+def test_the_geometry_engine_names_removed_in_0_49_0_are_retired_with_a_message(module, name):
+    """A removed public name is refused with its reason, not left as a bare AttributeError."""
+    import importlib
+
+    from pyflightstream._retired_names import RetiredAttributeError
+
+    with pytest.raises(RetiredAttributeError, match=r"0\.49\.0") as raised:
+        getattr(importlib.import_module(module), name)
+    assert "rtree and scipy are core dependencies" in str(raised.value)
+    with pytest.raises(AttributeError):
+        importlib.import_module(module).not_a_name  # noqa: B018

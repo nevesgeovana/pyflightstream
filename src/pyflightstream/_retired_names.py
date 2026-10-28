@@ -298,7 +298,34 @@ _REQUIRES_EULER_CFD_FIELDS = (
     "supported replacement."
 )
 _EXTERNAL_EULER_CFD_TOOLS = "external Euler CFD tools that provide total enthalpy and entropy"
+_THE_GEOMETRY_ENGINE_IS_CORE = (
+    "rtree and scipy are core dependencies since 0.49.0, so nothing raises or needs it."
+)
 RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
+    "pyflightstream.exceptions.GeometryEngineMissingError": RetiredName(
+        owner="pyflightstream.exceptions",
+        old="GeometryEngineMissingError",
+        new="the except clause that names it",
+        retired_in="0.49.0",
+        why=_THE_GEOMETRY_ENGINE_IS_CORE,
+        instead="Drop",
+    ),
+    "pyflightstream.probes.geometry.GeometryEngineMissingError": RetiredName(
+        owner="pyflightstream.probes.geometry",
+        old="GeometryEngineMissingError",
+        new="the except clause that names it",
+        retired_in="0.49.0",
+        why=_THE_GEOMETRY_ENGINE_IS_CORE,
+        instead="Drop",
+    ),
+    "pyflightstream.probes.geometry.require_geometry_extra": RetiredName(
+        owner="pyflightstream.probes.geometry",
+        old="require_geometry_extra",
+        new="the call",
+        retired_in="0.49.0",
+        why=_THE_GEOMETRY_ENGINE_IS_CORE,
+        instead="Drop",
+    ),
     "pyflightstream.farfield.lattice_dataset": RetiredName(
         owner="pyflightstream.farfield",
         old="lattice_dataset",

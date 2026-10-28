@@ -65,7 +65,7 @@ from pyflightstream._errors import (
     SolverSetupError,
 )
 from pyflightstream._fsm import MeshReadError
-from pyflightstream._retired_names import RetiredAttributeError
+from pyflightstream._retired_names import RetiredAttributeError, retired_attribute
 from pyflightstream.cases import (
     AliasCycleError,
     CampaignConfigError,
@@ -212,3 +212,11 @@ __all__ = [
     "WorkflowCoverageError",
     "WorkspaceError",
 ]
+
+
+def __getattr__(name: str) -> object:
+    """Refuse the names retired, naming what replaced them."""
+    entry = retired_attribute(__name__, name)
+    if entry is not None:
+        raise RetiredAttributeError(entry.message())
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

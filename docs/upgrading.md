@@ -19,9 +19,12 @@ extras no longer exist.
 - `--png` of `geometry build`, `geometry visual-inspect`, the probe geometry
   gate and the remesh of a refinement run on the base install; none refuses
   for a missing extra any more.
-- `pyflightstream.probes.geometry.GeometryEngineMissingError` and
-  `pyflightstream.exceptions.GeometryEngineMissingError` are removed: nothing
-  raises them. `refuse_before_running` of the geometry build no longer takes
+- `pyflightstream.probes.geometry.GeometryEngineMissingError`,
+  `pyflightstream.exceptions.GeometryEngineMissingError` and
+  `pyflightstream.probes.geometry.require_geometry_extra` are retired: reaching
+  for one raises `RetiredAttributeError` with a message, because nothing raises
+  or needs them (rtree and scipy are core dependencies). Drop the except clause
+  or the call. `refuse_before_running` of the geometry build no longer takes
   `png`.
 
 ## 0.48.0
