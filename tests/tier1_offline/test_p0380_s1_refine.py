@@ -382,6 +382,27 @@ def test_arch48_accept_unknown_skips_the_entries_the_refinement_does_not_know(tm
     assert "All" in level.obj.read_text(encoding="utf-8")
 
 
+def test_arch48_accept_empty_writes_nothing_when_no_trailing_edge_is_found(tmp_path, capsys):
+    """ARCH48-R4: no trailing edge found is refused; --accept-empty writes nothing, exit 0."""
+    from pyflightstream.workspace import cli as workspace_cli
+    from pyflightstream.workspace.wake_edges import write_trailing_edges_identified
+
+    src = _source(tmp_path, WITH_T)
+    with pytest.warns(PyflightstreamWarning, match="holds no family 'Nope'"):
+        with pytest.raises(InputArtifactError, match="no trailing edge was found on Nope"):
+            write_trailing_edges_identified(src, families=["Nope"])
+    with pytest.warns(
+        PyflightstreamWarning, match="no trailing edge was found.*nothing is written"
+    ):
+        assert write_trailing_edges_identified(src, families=["Nope"], accept_empty=True) == []
+    with pytest.warns(PyflightstreamWarning, match="nothing is written"):
+        code = workspace_cli.main(
+            ["geometry", "identify-te", str(src), "--families", "Nope", "--accept-empty"]
+        )
+    assert code == 0 and capsys.readouterr().out == ""
+    assert not src.with_name(f"{src.stem}.Nope.fs.te.txt").exists()
+
+
 def test_arch48_accept_unknown_skips_the_values_the_refinement_cannot_read(tmp_path):
     """ARCH48-R3: a value of the wrong kind in the refinement file is refused by default.
 

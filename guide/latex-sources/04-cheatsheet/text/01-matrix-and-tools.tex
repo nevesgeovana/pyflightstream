@@ -292,12 +292,12 @@ See the website's Upgrading page for supported workspace conversion.
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--axis X Y Z}, \fl{--hub X Y Z}, \fl{--unit UNIT}, \fl{--sections N}, \fl{--overwrite}.
 \sub{geometry convert2midnodes <nodes> <output>}{write a .te.txt from an ANSA SET node list, in any node order}
-\fl{--unit UNIT} the coordinates' unit (METER); \fl{--per-family MESH} one file per family from the OBJ's edges; \fl{--overwrite}.
+\fl{--unit UNIT} the coordinates' unit (METER); \fl{--per-family MESH} one file per family from the OBJ's edges; \fl{--overwrite}; \fl{--accept-empty} a list with no usable node writes nothing, warned, exit 0.
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \sub{geometry prepare-to-refine <obj>}{optional: families split into <family>\_<NNN>\_grid or \_mixed patches, a refine file and a node list}
 \fl{--max-angle DEG} the largest angle of a listed edge with the yz plane (default 45); \fl{--aft X Y Z}; \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}.
 \sub{geometry identify-te <obj> [<nodes>]}{write the trailing edges in the solver's node file; found from the mesh, or among an ANSA SET node list}
-\fl{--families A,B} one file each (default: all in <obj>.nodes.te.txt; without nodes also <obj>.nodes.txt); \fl{--max-angle DEG}; \fl{--aft X Y Z}; \fl{--overwrite}.
+\fl{--families A,B} one file each (default: all in <obj>.nodes.te.txt; without nodes also <obj>.nodes.txt); \fl{--max-angle DEG}; \fl{--aft X Y Z}; \fl{--overwrite}; \fl{--accept-empty} no trailing edge found writes nothing, warned, exit 0.
 \fl{--unit UNIT}, \fl{--simulation-unit UNIT}; \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \sub{geometry}{build and accept bodies outside the run matrix; includes the mesh tools of page 1}
 \sub{geometry build [TARGET]}{read \texttt{<name>.geometry.toml} (of the current folder, or of the folder or file TARGET) and print the script, the boundaries after each step and what would be written; with \fl{--apply} run the solver once with no solve, save the body, read it back and audit it}
