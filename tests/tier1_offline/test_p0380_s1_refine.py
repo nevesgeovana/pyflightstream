@@ -2291,6 +2291,48 @@ def test_drev48_the_maximum_angle_is_taken_from_the_plane_across_the_aft_directi
     assert int(rows[0]) == fx.stations - 1
 
 
+def test_drev48_identify_te_units_of_its_three_files(tmp_path, capsys):
+    """DREV48-005: identify-te writes the solver file in --simulation-unit, converted, the
+    package points file under the --unit line, unconverted, and the node list as read.
+
+    The default unit is the mesh's ``[import] units``. Control: the same mesh
+    with no unit stated writes METER and no conversion.
+    """
+    from pyflightstream.workspace import cli as workspace_cli
+    from pyflightstream.workspace._refine._obj import read_node_list, read_te
+    from tests.p0380_mesh_fixtures import sheet_quads
+
+    fx = sheet_quads()
+    src = write_source(
+        tmp_path / "src",
+        "wing",
+        Composite(fx.verts, {"Wing": fx.faces}, numpy.zeros((0, 3)), {}),
+        boundaries=False,
+    )
+
+    def solver_points():
+        rows = src.with_name("wing.nodes.te.txt").read_text(encoding="utf-8").split()
+        return numpy.array([[float(c) for c in r.split(",")] for r in rows[2:]])
+
+    assert workspace_cli.main(["geometry", "identify-te", str(src)]) == 0
+    plain_unit, plain = read_te(src.with_name("wing.te.txt"))
+    assert plain_unit == "METER"
+    assert numpy.allclose(numpy.sort(solver_points(), axis=0), numpy.sort(plain, axis=0))
+    listed = read_node_list(src.with_name("wing.nodes.txt")).points
+    command = ["geometry", "identify-te", str(src), "--simulation-unit", "METER", "--overwrite"]
+    src.with_name("wing.obj.boundaries.toml").write_text(
+        '[import]\nunits = "MILLIMETER"\n', encoding="utf-8"
+    )
+    assert workspace_cli.main(command) == 0, capsys.readouterr().err
+    unit, stated = read_te(src.with_name("wing.te.txt"))
+    assert unit == "MILLIMETER"
+    assert numpy.allclose(numpy.sort(stated, axis=0), numpy.sort(plain, axis=0))
+    assert numpy.allclose(
+        numpy.sort(solver_points(), axis=0), numpy.sort(plain, axis=0) / 1000.0, atol=1e-12
+    )
+    assert numpy.allclose(read_node_list(src.with_name("wing.nodes.txt")).points, listed)
+
+
 def test_drev48_an_aft_of_zeros_is_warned_and_plus_x_taken(tmp_path, capsys):
     """DREV48-003: --aft 0 0 0 states no direction; it is warned and +x taken.
 
