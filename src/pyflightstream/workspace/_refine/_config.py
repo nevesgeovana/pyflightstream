@@ -69,7 +69,7 @@ FACTOR_ALIASES = {"spanwise": "parallel_factor", "chordwise": "normal_factor"}
 #: The keys of a ``[[perimeter]]`` table: one ANSA node list of reference perimeters.
 PERIMETER_KEYS = ("file", "export_te_per_family", "te_families", "aft")
 #: The keys of ``[refine]``.
-REFINE_KEYS = ("tag", "elements")
+REFINE_KEYS = ("tag", "filename", "elements")
 #: The top-level tables of a refinement file.
 TABLES = ("refine", "families", "components", "perimeter")
 #: Tables a refinement file may still state from earlier releases; each is warned and skipped.
@@ -139,6 +139,9 @@ class RefineRequest:
 
     specs: dict[str, FamilySpec]
     tag: str | None = None
+    #: The level's name, ``[refine] filename`` without ``.obj``: the folder and the OBJ
+    #: are ``<filename>`` instead of ``<stem>_<tag>``.
+    filename: str | None = None
     components: dict[str, list[str]] = field(default_factory=dict)
     config: Path | None = None
     elements: dict[str, str] = field(default_factory=dict)
@@ -426,6 +429,7 @@ def read_refine_file(
             'source\'s folder, so give a name such as tag = "fine"',
         )
     default = refine.get("elements", TRIANGLES)
+    filename = _filename(source, refine.get("filename"))
     trailing = _trailing_edge(source, data.get("trailing_edge", {}))
     if "periodic" in data:
         _skip(f"{source} [periodic]", "is no longer read; a periodic sector is refined as any mesh")
@@ -438,6 +442,7 @@ def read_refine_file(
         "elements": elements,
         "default_elements": elements_mode(f"{source} [refine]", default),
         "tag": tag,
+        "filename": filename,
         "components": _components(source, data.get("components", {}), names),
     }
 
@@ -517,6 +522,26 @@ def _perimeters(source: Path, value: object) -> tuple[Perimeter, ...]:
     return tuple(out)
 
 
+def _filename(source: Path, value: object) -> str | None:
+    """Return ``[refine] filename`` without ``.obj``; a name that is not one is warned, skipped."""
+    if value is None:
+        return None
+    where = f"{source} [refine] filename"
+    if not isinstance(value, str) or not value.strip():
+        _skip(where, f"{value!r} is not a text; the level is named by its tag")
+        return None
+    name = value.strip()
+    if name.lower().endswith(".obj"):
+        name = name[:-4]
+    problem = folder_name_problem(name) if name else "is empty"
+    if problem is not None:
+        _skip(
+            where, f"{value!r} {problem}, so it is not one file name; the level is named by its tag"
+        )
+        return None
+    return name
+
+
 def _skip(where: str, reason: str) -> None:
     warnings.warn(f"{where} {reason}; it is skipped", PyflightstreamWarning, stacklevel=4)
 
@@ -565,6 +590,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             "elements": {},
             "default_elements": TRIANGLES,
             "tag": None,
+            "filename": None,
             "components": {},
         }
     )
@@ -635,6 +661,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     return RefineRequest(
         specs=specs,
         tag=stated["tag"],
+        filename=stated["filename"],
         components=stated["components"],
         config=file,
         elements=stated["elements"],

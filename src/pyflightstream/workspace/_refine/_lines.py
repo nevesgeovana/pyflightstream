@@ -439,17 +439,23 @@ def on_exported(work: _Work, te: Points) -> Points:
     """Drop the level's trailing-edge points that lie on a list not exported.
 
     A point on a line of an exported ``[[perimeter]]`` list is kept, and so is
-    a point on no list (a trailing edge a family assumed). A refined grid's
+    a point on no list (a trailing edge a family assumed), except under
+    ``te_families``, where only the rearmost lines picked are trailing edges and
+    a line a grid assumed to orient itself is not written. A refined grid's
     points lie on their source line within the grid's surface distance
     (FR-920), so that distance decides.
     """
     assert work.te_export is not None
     (ea, eb), (oa, ob) = work.te_export
-    if not len(te) or not len(oa):
+    picked = any(p.te_families for p in work.request.perimeters)
+    if not len(te) or (not len(oa) and not picked):
         return te
     reach = _geometry.GRID_SURFACE_DISTANCE * work.scale
-    other, _ = _geometry.segment_distances(te, oa, ob)
-    keep = other > reach
+    if picked:
+        keep = numpy.zeros(len(te), dtype=bool)
+    else:
+        other, _ = _geometry.segment_distances(te, oa, ob)
+        keep = other > reach
     if len(ea):
         exported, _ = _geometry.segment_distances(te, ea, eb)
         keep |= exported <= reach

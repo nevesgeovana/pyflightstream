@@ -872,38 +872,52 @@ def write_trailing_edge_midnodes_per_family(
 
 def write_trailing_edges_identified(
     mesh: str | Path,
-    source: str | Path,
-    families: Sequence[str],
+    source: str | Path | None = None,
+    families: Sequence[str] | None = None,
     *,
     aft: Sequence[float] = (1.0, 0.0, 0.0),
+    min_angle: float = 20.0,
     unit: str | None = None,
     simulation_unit: str | None = None,
     overwrite: bool = False,
 ) -> list[Path]:
-    """Write each named family's trailing edge, in the solver's node-file format.
+    """Find the trailing edges of an OBJ and write them in the solver's node-file format.
 
-    The nodes of ``source`` (an ANSA SET node-window export, any order, every
-    perimeter in one file) are joined to their near neighbours
-    (:data:`NEIGHBOUR_REACH`); an edge of the mesh whose two ends lie on those
-    segments is a perimeter edge, so the OBJ may be a refined level whose nodes
-    are not the listed ones. Of a family's perimeter
-    edges, the trailing edge is the rearmost: the edges its surface lies forward
-    of (:func:`pyflightstream.workspace._refine._obj.rearmost_edges`, ``aft``
-    the direction from the nose to the tail). Each family's file is
-    ``<mesh stem>.<family>.fs.te.txt`` beside the mesh, written by
+    The trailing edge of a family is its rearmost line: the edges its surface
+    lies forward of (:func:`pyflightstream.workspace._refine._obj.rearmost_edges`,
+    ``aft`` the direction from the nose to the tail), taken among
+
+    - with ``source``, the lines of its listed nodes (an ANSA SET node-window
+      export, any order, every perimeter in one file), each node joined to its
+      near neighbours (:data:`NEIGHBOUR_REACH`): an edge whose two ends lie on
+      those segments is on a line, so the OBJ may be a refined level whose nodes
+      are not the listed ones;
+    - without it, the boundaries of the family cut along its sharp edges, an
+      edge kept when its tangent makes ``min_angle`` degrees or more with the xz
+      plane (:func:`pyflightstream.workspace._refine._prepare.rearmost_lines`).
+
+    Beside the mesh, ``families`` given, each family's file is
+    ``<mesh stem>.<family>.fs.te.txt``; else every family's trailing edge is
+    one file, ``<mesh stem>.nodes.te.txt``. Without ``source``, the nodes found
+    are also written as ``<mesh stem>.nodes.txt`` in the ANSA format, the node
+    list a refine file's ``[[perimeter]]`` reads. The node files are written by
     :func:`write_node_file`.
 
     Parameters
     ----------
     mesh : str or pathlib.Path
         The OBJ, with its families (merged components, for a refined level).
-    source : str or pathlib.Path
+    source : str or pathlib.Path, optional
         The node list saved from the SET (Id, Name, X, Y, Z), in the mesh's unit.
-    families : sequence of str
-        The families whose trailing edge is written; a name the OBJ does not
-        hold, or one no rearmost edge lies on, is warned and skipped.
+    families : sequence of str, optional
+        The families, one file each; a name the OBJ does not hold, or one on
+        which no trailing edge is found, is warned and skipped. Default: every
+        family, in one file.
     aft : sequence of float
         The aft direction, from the nose to the tail (default +x).
+    min_angle : float
+        Without ``source``, the least angle in degrees between a trailing-edge
+        edge and the xz plane (default 20).
     unit : str, optional
         The coordinates' unit; else the ``[import] units`` of the mesh's
         boundaries file, else METER.
@@ -915,13 +929,14 @@ def write_trailing_edges_identified(
     Returns
     -------
     list of pathlib.Path
-        The files written, in the order of ``families``.
+        The files written: the node files in the order of ``families``, then
+        the node list.
 
     Raises
     ------
     InputArtifactError
-        For a node list with no node read, an unreadable mesh, an invalid unit,
-        an existing file, or no family written.
+        For a node list with fewer than two nodes, an unreadable mesh, an
+        invalid unit, an existing file, or no trailing edge found.
     """
     from pyflightstream.workspace._refine._obj import (
         mesh_unit,
@@ -930,21 +945,13 @@ def write_trailing_edges_identified(
         read_obj,
         rearmost_edges,
     )
+    from pyflightstream.workspace._refine._prepare import rearmost_lines
 
-    nodes = read_node_list(source)
-    if len(nodes.ids) < 2:
-        raise InputArtifactError(
-            f"{source}: fewer than two nodes are read; save the SET's node window "
-            "(Id, Name, X, Y, Z)",
-            kind="wake_edges",
-        )
     target = Path(mesh)
     obj = read_obj(target)
-    pairs = _neighbour_pairs(nodes.points)
-    a = nodes.points[[i for i, _ in pairs]].reshape(-1, 3)
-    b = nodes.points[[j for _, j in pairs]].reshape(-1, 3)
-    chosen = {n: obj.families[n] for n in families if n in obj.families}
-    for name in families:
+    x, y, z = (float(c) for c in aft)
+    names = list(obj.families) if families is None else list(families)
+    for name in names:
         if name not in obj.families:
             warn(
                 f"{target}: holds no family {name!r} (it holds {', '.join(obj.families)}); "
@@ -952,36 +959,71 @@ def write_trailing_edges_identified(
                 PyflightstreamWarning,
                 stacklevel=2,
             )
-    near = perimeter_edges_near(obj.verts, chosen, a, b)
-    unit = unit or mesh_unit(target) or "METER"
-    written = []
-    for name, faces in chosen.items():
-        x, y, z = (float(c) for c in aft)
-        edges = rearmost_edges(obj.verts, faces, near[name], (x, y, z))
-        if not edges:
+    chosen = {n: obj.families[n] for n in names if n in obj.families}
+    found: dict[str, set[tuple[int, int]]] = {}
+    if source is not None:
+        nodes = read_node_list(source)
+        if len(nodes.ids) < 2:
+            raise InputArtifactError(
+                f"{source}: fewer than two nodes are read; save the SET's node window "
+                "(Id, Name, X, Y, Z)",
+                kind="wake_edges",
+            )
+        pairs = _neighbour_pairs(nodes.points)
+        a = nodes.points[[i for i, _ in pairs]].reshape(-1, 3)
+        b = nodes.points[[j for _, j in pairs]].reshape(-1, 3)
+        near = perimeter_edges_near(obj.verts, chosen, a, b)
+        for name, faces in chosen.items():
+            found[name] = rearmost_edges(obj.verts, faces, near[name], (x, y, z))
+    else:
+        for name, faces in chosen.items():
+            found[name] = rearmost_lines(obj.verts, faces, (x, y, z), min_angle)
+    for name, edges in found.items():
+        if not edges and families is not None:
             warn(
-                f"{target}: no listed line of family {name!r} has its surface forward of it "
-                "(no trailing edge among its nodes); it is skipped",
+                f"{target}: no trailing edge was found on family {name!r} (no line its surface "
+                "lies forward of); it is skipped",
                 PyflightstreamWarning,
                 stacklevel=2,
             )
-            continue
+    found = {n: e for n, e in found.items() if e}
+    if not found:
+        raise InputArtifactError(
+            f"{target}: no trailing edge was found on {', '.join(names) or 'any family'}; "
+            "nothing was written",
+            kind="wake_edges",
+        )
+    if families is None:
+        files = {target.with_name(f"{target.stem}.nodes.te.txt"): set().union(*found.values())}
+    else:
+        files = {target.with_name(f"{target.stem}.{n}.fs.te.txt"): e for n, e in found.items()}
+    listing = None if source is not None else target.with_name(f"{target.stem}.nodes.txt")
+    planned = [*files, *([listing] if listing else [])]
+    existing = [f for f in planned if f.exists()]
+    if existing and not overwrite:
+        raise InputArtifactError(
+            f"{existing[0]}: exists; pass overwrite (CLI: --overwrite) to replace it. "
+            "Nothing was written.",
+            kind="wake_edges",
+        )
+    unit = unit or mesh_unit(target) or "METER"
+    written = []
+    for path, edges in files.items():
         ends = numpy.array(sorted(edges), dtype=numpy.int64)
         mids = 0.5 * (obj.verts[ends[:, 0]] + obj.verts[ends[:, 1]])
         written.append(
             write_node_file(
-                target.with_name(f"{target.stem}.{name}.fs.te.txt"),
-                mids,
-                unit=unit,
-                simulation_unit=simulation_unit or unit,
-                overwrite=overwrite,
+                path, mids, unit=unit, simulation_unit=simulation_unit or unit, overwrite=True
             )
         )
-    if not written:
-        raise InputArtifactError(
-            f"{target}: no trailing edge was found on {', '.join(families)}; nothing was written",
-            kind="wake_edges",
-        )
+    if listing is not None:
+        rows = ["#  Id, Name, X , Y, Z"]
+        for name, edges in found.items():
+            for v in sorted({v for e in edges for v in e}, key=lambda v: float(obj.verts[v, 1])):
+                px, py, pz = (repr(float(c)) for c in obj.verts[v])
+                rows.append(f"{v + 1}, {name}, {px}, {py}, {pz}")
+        _textio.write_text(listing, "\n".join(rows) + "\n")
+        written.append(listing)
     return written
 
 

@@ -176,18 +176,37 @@ def add_geometry_commands(subparsers: Any) -> None:
     )
     identify = verbs.add_parser(
         "identify-te",
-        help="write each family's trailing edge in the solver's node-file format",
+        help="find the trailing edges of an OBJ and write them in the solver's node-file format",
         description=(
-            "Reads the node list ANSA saves from a SET (Id, Name, X, Y, Z; every perimeter in one "
-            "file, any order) and the OBJ (a refined level with merged families too), takes for "
-            "each named family the listed edges its surface lies forward of, and writes "
-            "<mesh stem>.<family>.fs.te.txt beside the mesh in the format the solver imports."
+            "A trailing edge is a family's rearmost line: the edges its surface lies forward of. "
+            "Without NODES they are found from the mesh alone (each family cut at its sharp "
+            "edges, an edge kept when it makes --min-angle or more with the xz plane) and the "
+            "nodes are also written as <mesh stem>.nodes.txt, the ANSA node list a refine file "
+            "reads. With "
+            "NODES (an ANSA SET node list, every perimeter in one file, any order) they are "
+            "taken among its lines, on the OBJ or a refined level of it. Written beside the "
+            "mesh in the format the solver imports: <mesh stem>.nodes.te.txt for every family, "
+            "or <mesh stem>.<family>.fs.te.txt per family with --families."
         ),
     )
     identify.add_argument("mesh", metavar="OBJ", help="the mesh, with its families")
-    identify.add_argument("nodes", metavar="NODES", help="the node list saved from the SET")
     identify.add_argument(
-        "--families", required=True, metavar="A,B", help="the families, comma separated"
+        "nodes",
+        metavar="NODES",
+        nargs="?",
+        help="the node list saved from the SET (default: the edges are found from the mesh)",
+    )
+    identify.add_argument(
+        "--families",
+        metavar="A,B",
+        help="the families, one file each (default: every family, in one file)",
+    )
+    identify.add_argument(
+        "--min-angle",
+        type=float,
+        default=20.0,
+        metavar="DEG",
+        help="without NODES, the least angle of an edge with the xz plane (default 20)",
     )
     identify.add_argument(
         "--aft", nargs=3, type=float, metavar=("X", "Y", "Z"), help="the aft direction (default +x)"
@@ -197,6 +216,30 @@ def add_geometry_commands(subparsers: Any) -> None:
         "--simulation-unit", help="the unit the solver reads the file in (default: --unit)"
     )
     identify.add_argument("--overwrite", action="store_true", help="replace existing files")
+    prepare = verbs.add_parser(
+        "prepare-to-refine",
+        help="split an OBJ's families into grid and mixed patches and write a refine file for them",
+        description=(
+            "Optional step before refine. Writes beside the mesh <stem>_patches.obj (each family "
+            "cut into <family>_<NNN>_grid or _mixed patches, numbered within the family from the "
+            "largest extent along y), <stem>_patches.refine.toml (each patch at factor 1, grid "
+            "or remesh, [components] putting each family back together) and "
+            "<stem>_patches.nodes.txt (the rearmost line of each grid patch, its edges at "
+            "--min-angle or more from the xz plane, as an ANSA SET node list)."
+        ),
+    )
+    prepare.add_argument("mesh", metavar="OBJ", help="the source mesh; it is not modified")
+    prepare.add_argument(
+        "--min-angle",
+        type=float,
+        default=20.0,
+        metavar="DEG",
+        help="the least angle of a listed edge with the xz plane (default 20)",
+    )
+    prepare.add_argument(
+        "--aft", nargs=3, type=float, metavar=("X", "Y", "Z"), help="the aft direction (default +x)"
+    )
+    prepare.add_argument("--overwrite", action="store_true", help="replace the prepared files")
     build = verbs.add_parser(
         "build",
         help="preview a geometry's build, or run it with --apply",
@@ -570,8 +613,11 @@ def _cmd_identify_te(args: argparse.Namespace) -> int:
         paths = write_trailing_edges_identified(
             args.mesh,
             args.nodes,
-            [n.strip() for n in args.families.split(",") if n.strip()],
+            None
+            if args.families is None
+            else [n.strip() for n in args.families.split(",") if n.strip()],
             aft=args.aft or (1.0, 0.0, 0.0),
+            min_angle=args.min_angle,
             unit=args.unit,
             simulation_unit=args.simulation_unit,
             overwrite=args.overwrite,
@@ -580,6 +626,25 @@ def _cmd_identify_te(args: argparse.Namespace) -> int:
         print(str(error), file=sys.stderr)
         return 2
     for path in paths:
+        print(path)
+    return 0
+
+
+def _cmd_prepare_to_refine(args: argparse.Namespace) -> int:
+    """Write the patches OBJ, its refine file and its node list."""
+    from pyflightstream.workspace import prepare_to_refine
+
+    try:
+        x, y, z = args.aft or (1.0, 0.0, 0.0)
+        prepared = prepare_to_refine(
+            args.mesh, min_angle=args.min_angle, aft=(x, y, z), overwrite=args.overwrite
+        )
+    except (PyflightstreamError, OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    for family, patches in prepared.patches.items():
+        print(f"{family}: {', '.join(patches)}")
+    for path in (prepared.obj, prepared.config, prepared.nodes):
         print(path)
     return 0
 
@@ -732,6 +797,8 @@ def run_geometry(args: argparse.Namespace) -> int:
         return _cmd_midnodes(args)
     if verb == "identify-te":
         return _cmd_identify_te(args)
+    if verb == "prepare-to-refine":
+        return _cmd_prepare_to_refine(args)
     if verb == "build":
         return _cmd_build(args)
     if verb == "accept":

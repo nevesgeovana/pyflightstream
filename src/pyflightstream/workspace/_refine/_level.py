@@ -66,6 +66,7 @@ from pyflightstream.workspace._refine._staging import (
     _publish,
     _release,
 )
+from pyflightstream.workspace.sidecars import ensure_inventory
 
 Points = NDArray[numpy.float64]
 
@@ -910,6 +911,36 @@ def _with_perimeter(work: _Work, name: str, entry: dict[str, Any]) -> dict[str, 
     return {**entry, "trailing_edge": "perimeter", "trailing_edge_points": _te_rows(work, points)}
 
 
+#: The type each per-component trailing-edge file of a level's boundaries file is given,
+#: the one the solver's own detection gives every edge it marks; the user edits it there.
+DEFAULT_TE_TYPE = "STANDARD"
+
+
+def _with_te_files(text: str, files: Mapping[str, Path]) -> str:
+    """Return a boundaries file declaring each component's trailing-edge file.
+
+    One ``[trailing_edges.<component>]`` table per file, the form
+    ``mark-boundaries`` reads, each given :data:`DEFAULT_TE_TYPE` for the user to
+    edit before marking. It is called only when the source declares none.
+    """
+    lines = text.rstrip("\n").splitlines()
+    lines += [
+        "",
+        "# The level's trailing edges, one points file per component, written by the refine.",
+        "# Edit each type (STANDARD or VORTEX_SHEDDING) before running mark-boundaries.",
+    ]
+    for name, path in files.items():
+        key = name if name.replace("_", "").replace("-", "").isalnum() else f'"{name}"'
+        lines += [
+            f"[{_obj.TRAILING_EDGES_TABLE}.{key}]",
+            f'file = "{path.name}"',
+            f'type = "{DEFAULT_TE_TYPE}"',
+        ]
+    out = "\n".join(lines) + "\n"
+    tomllib.loads(out)
+    return out
+
+
 def _warn_stale_declarations(work: _Work, mesh: ObjMesh, folder: Path) -> None:
     """Warn when a preserved marking points file cannot mark the refined mesh."""
     if work.sidecar is None:
@@ -961,23 +992,33 @@ def _write(
     if work.te_listed or len(te):
         target = folder / f"{stem}{TE_SUFFIX}"
         written.append(_obj.write_te(target, work.te_unit, te * work.te_to_file))
-    if work.sidecar is not None:  # its face counts and digest are the level OBJ's (FR-348)
-        target = _obj.inventory_sidecar(written[0], "obj")
-        side = _obj.inventory_sidecar(work.source)
-        _textio.write_text(target, _obj.level_inventory(side, work.sidecar, written[0]))
-        written.append(target)
-    _warn_stale_declarations(work, mesh, folder)
+    own: dict[str, Path] = {}
     if work.request.per_family or work.te_export is not None:
         for name, family_faces in faces.items():
             _, mid = _obj.edge_midpoints(verts, family_faces)
             distance, _ = NearestIndex(mid).query(te)
             points = te[distance < work.te_tolerance]
             if len(points):
-                written.append(
-                    _obj.write_te(
-                        folder / f"{stem}.{name}{TE_SUFFIX}", work.te_unit, points * work.te_to_file
-                    )
+                own[name] = _obj.write_te(
+                    folder / f"{stem}.{name}{TE_SUFFIX}", work.te_unit, points * work.te_to_file
                 )
+    # The trailing edges a [[perimeter]] list exports are declared per component in the
+    # level's boundaries file, for the user to type before mark-boundaries, unless the
+    # source's boundaries file declares its own, which are kept (and warned when stale).
+    declared = work.sidecar is not None and _obj.TRAILING_EDGES_TABLE in tomllib.loads(work.sidecar)
+    listed = own if work.te_export is not None and not declared else {}
+    target = _obj.inventory_sidecar(written[0], "obj")
+    if work.sidecar is not None:  # its face counts and digest are the level OBJ's (FR-348)
+        side = _obj.inventory_sidecar(work.source)
+        text = _obj.level_inventory(side, work.sidecar, written[0])
+        _textio.write_text(target, _with_te_files(text, listed) if listed else text)
+        written.append(target)
+    elif listed:
+        written.append(ensure_inventory(written[0], kind="obj"))
+        _textio.write_text(target, _with_te_files(target.read_text(encoding="utf-8"), listed))
+    if not listed:
+        _warn_stale_declarations(work, mesh, folder)
+    written += own.values()
     record = folder / f"{stem}.refine.json"
     _textio.write_json(
         record,
@@ -1094,6 +1135,15 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         accept_remesh=accept_remesh,
     )
     stem = f"{source.stem}_{_config.level_tag(request, list(obj.families), str(source))}"
+    if request.filename:
+        if request.tag:
+            warn(
+                f"{request.config} [refine] states filename and tag; the level is named "
+                f"{request.filename!r} and the tag is skipped",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+        stem = request.filename
     folder = _place(source, stem, out_dir, overwrite)
     work = _start(source, request, obj)
     if progress is not None:

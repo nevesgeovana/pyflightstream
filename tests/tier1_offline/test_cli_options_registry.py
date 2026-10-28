@@ -216,6 +216,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "accept_remesh"): FIELD_OPERATION,
     ("pyfs-workspace", "nodes"): SUBJECT,
     ("pyfs-workspace", "aft"): FIELD_OPERATION,
+    ("pyfs-workspace", "min_angle"): FIELD_OPERATION,
     ("pyfs-workspace", "simulation_unit"): CASE,
     ("pyfs-workspace", "per_family"): SUBJECT,
     ("pyfs-workspace", "keep_first_row"): FIELD_OPERATION,
@@ -807,6 +808,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
                 "convert2midnodes",
                 "create",
                 "identify-te",
+                "prepare-to-refine",
                 "degenerate",
                 "export-surface-mesh",
                 "fill-interior",
@@ -883,6 +885,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "trailing-edge",
             "convert2midnodes",
             "identify-te",
+            "prepare-to-refine",
             "build",
             "degenerate",
             "fill-interior",
@@ -931,7 +934,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "names"): frozenset({"accept"}),
     ("pyfs-workspace", "geometry"): frozenset({"degenerate", "from-sidecar", "inventory"}),
     ("pyfs-workspace", "mesh"): frozenset(
-        {"audit", "identify-te", "mark-boundaries", "refine", "trailing-edge"}
+        {"audit", "identify-te", "mark-boundaries", "prepare-to-refine", "refine", "trailing-edge"}
     ),
     ("pyfs-workspace", "factor"): frozenset({"refine"}),
     ("pyfs-workspace", "families"): frozenset({"refine", "identify-te"}),
@@ -940,7 +943,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "normal"): frozenset({"refine"}),
     ("pyfs-workspace", "accept_remesh"): frozenset({"refine"}),
     ("pyfs-workspace", "nodes"): frozenset({"convert2midnodes", "identify-te"}),
-    ("pyfs-workspace", "aft"): frozenset({"identify-te"}),
+    ("pyfs-workspace", "aft"): frozenset({"identify-te", "prepare-to-refine"}),
+    ("pyfs-workspace", "min_angle"): frozenset({"identify-te", "prepare-to-refine"}),
     ("pyfs-workspace", "simulation_unit"): frozenset({"identify-te"}),
     ("pyfs-workspace", "per_family"): frozenset({"convert2midnodes"}),
     ("pyfs-workspace", "keep_first_row"): frozenset({"refine"}),

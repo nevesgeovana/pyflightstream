@@ -435,7 +435,7 @@ def test_a_family_mode_replaces_the_default_and_a_grid_ignores_it(tmp_path):
         (
             '[refine]\nelement = "triangles"\n',
             "[refine]",
-            "unknown key 'element'; the known keys are tag, elements",
+            "unknown key 'element'; the known keys are tag, filename, elements",
         ),
     ],
     ids=["unknown-default", "unknown-family", "on-a-grid", "unknown-refine-key"],

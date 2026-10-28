@@ -221,6 +221,7 @@ from pyflightstream.workspace._missing_log import missing_log_warning as missing
 from pyflightstream.workspace._refine._audit import MeshAudit as MeshAudit
 from pyflightstream.workspace._refine._audit import audit_mesh as audit_mesh
 from pyflightstream.workspace._refine._level import RefinedMesh, refine_mesh
+from pyflightstream.workspace._refine._prepare import PreparedMesh, prepare_to_refine
 from pyflightstream.workspace.fsi_external_setup import FsiExternalSetupError  # noqa: F401
 from pyflightstream.workspace.inputs import EXECUTABLES_FILE as EXECUTABLES_FILE
 from pyflightstream.workspace.inputs import GEOMETRIES_README as GEOMETRIES_README
@@ -371,6 +372,8 @@ __all__ = [
     "audit_mesh",
     "RefinedMesh",
     "refine_mesh",
+    "PreparedMesh",
+    "prepare_to_refine",
 ]
 # FR-429: public thin-blade derivation.
 __all__ += ["ThinBlade", "derive_thin_blade", "thin_blade_path"]

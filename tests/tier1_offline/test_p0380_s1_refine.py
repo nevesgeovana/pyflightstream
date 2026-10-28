@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 import tomllib
+import warnings
 from pathlib import Path
 
 import numpy
@@ -1653,8 +1654,10 @@ def test_p0460_base_family_key_is_renamed_without_reformatting(tmp_path):
     text = 'boundaries = ["G"]\n[base_regions.G] # keep\ncp = -0.2\n'
     mesh.with_suffix(".obj.boundaries.toml").write_text(text, encoding="utf-8")
     level = refine_mesh(mesh, 1)
-    assert level.obj.with_suffix(".obj.boundaries.toml").read_text() == (
-        'boundaries = ["Wing"]\n[base_regions."Wing"] # keep\ncp = -0.2\n'
+    assert (
+        level.obj.with_suffix(".obj.boundaries.toml")
+        .read_text()
+        .startswith('boundaries = ["Wing"]\n[base_regions."Wing"] # keep\ncp = -0.2\n')
     )
 
 
@@ -1987,16 +1990,17 @@ def test_identify_te_writes_the_solver_node_file_of_a_refined_merged_family(tmp_
 
     _, _, _, src = _te_families_level(tmp_path, '[components]\nWing = ["G"]\n')
     level = refine_mesh(src, out_dir=tmp_path / "y")
-    code = workspace_cli.main(
-        [
-            "geometry",
-            "identify-te",
-            str(level.obj),
-            str(src.with_name("nodes.txt")),
-            "--families",
-            "Wing,Nope",
-        ]
-    )
+    with pytest.warns(PyflightstreamWarning, match="holds no family 'Nope'"):
+        code = workspace_cli.main(
+            [
+                "geometry",
+                "identify-te",
+                str(level.obj),
+                str(src.with_name("nodes.txt")),
+                "--families",
+                "Wing,Nope",
+            ]
+        )
     out = level.obj.with_name(f"{level.obj.stem}.Wing.fs.te.txt")
     assert code == 0 and capsys.readouterr().out.split() == [str(out)]
     rows = out.read_text(encoding="utf-8").split()
@@ -2005,3 +2009,212 @@ def test_identify_te_writes_the_solver_node_file_of_a_refined_merged_family(tmp_
     _, refined = read_te(level.folder / f"{level.obj.stem}.Wing.te.txt")
     assert count == len(points) == len(refined)
     assert numpy.allclose(numpy.sort(points, axis=0), numpy.sort(refined, axis=0), atol=1e-9)
+
+
+# ------------------------------------------------------------------ prepare-to-refine
+
+
+def _one_family_wing(tmp_path: Path) -> Path:
+    """Write Wing: a quad sheet and the quad strip beside it, triangles, then another quad strip."""
+    mesh = sheet_with_strips(
+        (("Q", "quad", (0.2, 0.2)), ("T", "tri", (0.1,)), ("R", "quad", (0.2, 0.2)))
+    )
+    faces = [f for name in ("G", "Q", "T", "R") for f in mesh.families[name]]
+    wing = Composite(mesh.verts, {"Wing": faces}, numpy.zeros((0, 3)), {})
+    return write_source(tmp_path / "src", "wing", wing, boundaries=False)
+
+
+def test_prepare_to_refine_writes_patches_ordered_by_span_a_refine_file_and_a_node_list(
+    tmp_path, capsys
+):
+    """pyfs-workspace geometry prepare-to-refine: patches, the refine file and the node list.
+
+    Wing holds two quad pieces the triangles separate: the sheet with its strip
+    (2.4 along y) and the far strip (0.4), each a grid patch numbered by its
+    extent along y, and the triangles, a mixed patch. Each grid patch lists its
+    rearmost line, the trailing edge (11 and 3 nodes), ordered along y; the
+    refine file reads with no warning and refines.
+    """
+    from pyflightstream.workspace import cli as workspace_cli
+    from pyflightstream.workspace._refine import _config
+    from pyflightstream.workspace._refine._obj import read_node_list, read_obj
+
+    src = _one_family_wing(tmp_path)
+    code = workspace_cli.main(["geometry", "prepare-to-refine", str(src)])
+    assert code == 0, capsys.readouterr()
+    out = capsys.readouterr().out.splitlines()
+    names = ["Wing_001_grid", "Wing_002_grid", "Wing_003_mixed"]
+    assert out[0] == "Wing: " + ", ".join(names)
+    obj = src.with_name("wing_patches.obj")
+    patches = read_obj(obj)
+    assert list(patches.families) == names
+    source = read_obj(src)
+    assert sum(len(f) for f in patches.families.values()) == len(source.families["Wing"])
+    spans = [numpy.ptp(patches.verts[patches.family_vertices(n), 1]) for n in names[:2]]
+    assert spans[0] > 1.0 > spans[1]
+    nodes = read_node_list(src.with_name("wing_patches.nodes.txt"))
+    assert len(nodes.ids) == 11 + 3
+    assert numpy.all(numpy.diff(nodes.points[:, 1]) > 0)
+    assert numpy.allclose(nodes.points[:, 0], patches.verts[numpy.array(nodes.ids) - 1, 0])
+    config = src.with_name("wing_patches.refine.toml")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        stated = _config.read_refine_file(config, names)
+    assert {n: s.method for n, s in stated["specs"].items()} == {
+        "Wing_001_grid": "grid",
+        "Wing_002_grid": "grid",
+        "Wing_003_mixed": "remesh",
+    }
+    assert stated["components"] == {"Wing": names}
+    assert [p.te_families for p in stated["perimeters"]] == [("Wing",)]
+    text = config.read_text(encoding="utf-8").replace(
+        '[families.Wing_001_grid]\nmethod = "grid"\nfactor = 1.0',
+        '[families.Wing_001_grid]\nmethod = "grid"\nparallel_factor = 2.0',
+    )
+    config.write_text(text, encoding="utf-8")
+    level = refine_mesh(obj, out_dir=tmp_path / "out")
+    assert level.report["Wing_001_grid"]["method"] == "grid"
+    te = level.folder / f"{level.obj.stem}.Wing.te.txt"
+    from pyflightstream.workspace._refine._obj import read_te
+
+    assert len(read_te(te)[1]) == 2 * 10 + 1 + 2  # the grid at factor 2, T and R at 1
+
+
+def test_prepare_to_refine_keeps_an_earlier_run_unless_asked(tmp_path):
+    """A second run refuses to replace the prepared files; overwrite replaces them."""
+    from pyflightstream.workspace import prepare_to_refine
+
+    src = _one_family_wing(tmp_path)
+    prepare_to_refine(src)
+    with pytest.raises(InputArtifactError, match="exists; pass overwrite"):
+        prepare_to_refine(src)
+    assert prepare_to_refine(src, overwrite=True).obj.is_file()
+
+
+@pytest.mark.parametrize("stated", ["wing_fine", "wing_fine.obj"])
+def test_refine_filename_names_the_level_and_its_folder(tmp_path, stated):
+    """[refine] filename (with or without .obj) names the level's folder and OBJ.
+
+    Control: the same file with tag names them <stem>_<tag>; with both, the
+    filename names the level and the tag is warned and skipped.
+    """
+    factors = "[families.G]\nfactor = 2\n"
+    named = _source(tmp_path / "a", refine_toml=f'[refine]\nfilename = "{stated}"\n' + factors)
+    level = refine_mesh(named, out_dir=tmp_path / "x")
+    assert level.folder.name == "wing_fine" and level.obj.name == "wing_fine.obj"
+    tagged = _source(tmp_path / "b", refine_toml='[refine]\ntag = "fine"\n' + factors)
+    assert refine_mesh(tagged, out_dir=tmp_path / "y").obj.name == "wing_fine.obj"
+    both = _source(
+        tmp_path / "c",
+        refine_toml='[refine]\ntag = "t"\nfilename = "other.obj"\n' + factors,
+    )
+    with pytest.warns(PyflightstreamWarning, match="the tag is skipped"):
+        assert refine_mesh(both, out_dir=tmp_path / "z").obj.name == "other.obj"
+
+
+def test_refine_filename_that_is_not_a_file_name_is_warned_and_the_tag_names_the_level(tmp_path):
+    """A filename with a path separator is warned and skipped; the level keeps its tag."""
+    src = _source(tmp_path, refine_toml='[refine]\nfilename = "a/b"\n[families.G]\nfactor = 2\n')
+    with pytest.warns(PyflightstreamWarning, match="filename .* not one file name"):
+        level = refine_mesh(src, out_dir=tmp_path / "x")
+    assert level.obj.name == "wing_R2.obj"
+
+
+@pytest.mark.parametrize("closed", [False, True])
+def test_identify_te_from_the_obj_alone_writes_the_trailing_edge_and_its_node_list(
+    tmp_path, capsys, closed
+):
+    """identify-te OBJ, no node list: the trailing edge found from the mesh, solver and ANSA files.
+
+    On an open sheet the trailing edge is a boundary; on a closed wing it is
+    the sharp edge between the upper and the lower surface. The leading edge,
+    the root and the tip are not written. Control: --families writes the same
+    points in the family's own file.
+    """
+    from pyflightstream.workspace import cli as workspace_cli
+    from pyflightstream.workspace._refine._obj import read_node_list
+    from tests.p0380_mesh_fixtures import sheet_quads, tube_pole_quads
+
+    fx = tube_pole_quads() if closed else sheet_quads()
+    src = write_source(
+        tmp_path / "src",
+        "wing",
+        Composite(fx.verts, {"Wing": fx.faces}, numpy.zeros((0, 3)), {}),
+        boundaries=False,
+    )
+    assert workspace_cli.main(["geometry", "identify-te", str(src)]) == 0
+    solver, listing = src.with_name("wing.nodes.te.txt"), src.with_name("wing.nodes.txt")
+    assert capsys.readouterr().out.split() == [str(solver), str(listing)]
+    place = {p: n for n, p in fx.place.items()}
+    te = [place[(k, 0)] for k in range(fx.stations)]
+    exact = 0.5 * (fx.verts[te[:-1]] + fx.verts[te[1:]])
+
+    def points(path):
+        rows = path.read_text(encoding="utf-8").split()
+        assert int(rows[0]) == len(rows) - 2
+        return numpy.array([[float(c) for c in r.split(",")] for r in rows[2:]])
+
+    got = points(solver)
+    assert len(got) == len(exact)
+    assert numpy.allclose(numpy.sort(got, axis=0), numpy.sort(exact, axis=0), atol=1e-9)
+    nodes = read_node_list(listing)
+    assert sorted(i - 1 for i in nodes.ids) == sorted(te)
+    assert numpy.all(numpy.diff(nodes.points[:, 1]) > 0)
+    code = workspace_cli.main(
+        ["geometry", "identify-te", str(src), "--families", "Wing", "--overwrite"]
+    )
+    assert code == 0
+    capsys.readouterr()
+    own = points(src.with_name("wing.Wing.fs.te.txt"))
+    assert numpy.allclose(numpy.sort(own, axis=0), numpy.sort(exact, axis=0), atol=1e-9)
+
+
+def test_a_rearmost_line_in_the_xz_plane_is_not_a_trailing_edge():
+    """The minimum angle with the xz plane leaves out a line across y, such as a root cut.
+
+    A plate with a hole in the xy plane has two rearmost lines, its aft edge and
+    the hole's front edge, both along y. Control: the same plate turned into
+    the xz plane, as a fuselage side holds the cut around a wing root, has none.
+    """
+    from pyflightstream.workspace._refine._prepare import rearmost_lines
+    from tests.p0380_mesh_fixtures import holed_plate
+
+    plate = holed_plate()
+    plate.verts[:, 2] = 0.0  # flat, so the turned plate lies in the xz plane
+    faces = plate.families["P"]
+    flat = rearmost_lines(plate.verts, faces)
+    assert flat
+    tangents = numpy.array([plate.verts[b] - plate.verts[a] for a, b in flat])
+    assert numpy.allclose(tangents[:, 0], 0.0, atol=1e-12)
+    turned = plate.verts[:, [0, 2, 1]]
+    assert rearmost_lines(turned, faces) == set()
+
+
+def test_the_level_boundaries_file_lists_each_components_trailing_edge_for_mark_boundaries(
+    tmp_path,
+):
+    """After a refine that writes per-component trailing edges, the level's boundaries file
+    declares them, one [trailing_edges.<component>] each typed STANDARD, and mark-boundaries plans
+    the level from it.
+
+    Control: the file names exactly the per-component files the level holds.
+    """
+    from pyflightstream.workspace import plan_mark_boundaries
+
+    _, _, _, src = _te_families_level(tmp_path, '[components]\nWing = ["G"]\n')
+    level = refine_mesh(src, out_dir=tmp_path / "y")
+    side = level.obj.with_suffix(".obj.boundaries.toml")
+    stated = tomllib.loads(side.read_text(encoding="utf-8"))["trailing_edges"]
+    own = sorted(p.name for p in level.folder.glob(f"{level.obj.stem}.*.te.txt"))
+    assert own == [f"{level.obj.stem}.Wing.te.txt"]
+    assert stated == {"Wing": {"file": own[0], "type": "STANDARD"}}
+    block = side.read_text(encoding="utf-8").split("# The level's trailing edges")[1]
+    faces = sum(obj_face_counts(level.obj))
+    side.write_text(  # the inventory and units a user's boundaries file states, then the block
+        f'fs_build = "26.125"\nboundaries = ["Wing"]\n'
+        f'mesh_sha256 = "{hashlib.sha256(level.obj.read_bytes()).hexdigest()}"\n'
+        f'boundary_faces = [{faces}]\nmesh_faces = {faces}\n[import]\nunits = "METER"\n'
+        "# The level's trailing edges" + block,
+        encoding="utf-8",
+    )
+    assert plan_mark_boundaries(level.obj).mesh == level.obj
