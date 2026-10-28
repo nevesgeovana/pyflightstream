@@ -979,6 +979,40 @@ def test_the_post_stage_writes_its_own_measurement(tmp_path):
         assert set(payload["known"]) <= set(entry["columns"])
 
 
+def test_the_sections_measurement_lands_beside_the_matrix_products(tmp_path):
+    """FR-3292: the sections report is written in post/<matrix>/reports/, none at the root."""
+    import hashlib
+
+    import pyflightstream
+    from pyflightstream.post.superfile import release_tag
+
+    workspace = _workspace(tmp_path)
+    first = workspace.read_manifest()[0]
+    script = workspace.sim_dir("6001") / "P1.txt"
+    script.write_text(
+        "NEW_SURFACE_SECTION_DISTRIBUTION\nFRAME 1\nNUM_SECTIONS 10\n", encoding="utf-8"
+    )
+    workspace.supersede_records([first.run_id])
+    workspace.append_record(
+        first.model_copy(
+            update={
+                "script_path": "P1.txt",
+                "script_sha256": hashlib.sha256(script.read_bytes()).hexdigest(),
+                "sections_layout": [{"families": ["W"], "planes": ["XZ"], "count": 10}],
+            }
+        )
+    )
+    _post(workspace)
+    tag = release_tag(pyflightstream.__version__)
+    report = workspace.root / "post" / "matriz" / "reports" / f"sections-{tag}.json"
+    assert report.is_file(), f"no sections measurement at {report}"
+    assert not (workspace.root / "reports").exists(), "the workspace root holds no reports"
+    manifest = json.loads(
+        (workspace.root / "post" / "matriz" / "products.json").read_text(encoding="utf-8")
+    )
+    assert manifest["sections_report"] == f"post/matriz/reports/sections-{tag}.json"
+
+
 def test_p0400_the_release_tag_is_the_three_numbers_of_a_release_dev_or_local_version():
     """The tag the measurement's name carries, pinned for the forms a build can have."""
     from pyflightstream.post.superfile import release_tag
