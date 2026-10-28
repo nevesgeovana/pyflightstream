@@ -77,7 +77,12 @@ def perimeter_lines(
             )
             continue
         rear = {
-            name: _obj.rearmost_edges(mesh.verts, mesh.families[name], edges, perimeter.aft)
+            name: _obj.rearmost_edges(
+                mesh.verts,
+                mesh.families[name],
+                _obj.rearmost_perimeter(mesh.verts, mesh.families[name], edges, perimeter.aft),
+                perimeter.aft,
+            )
             for name, edges in found.items()
         }
         every |= lines
