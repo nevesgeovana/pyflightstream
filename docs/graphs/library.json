@@ -7759,6 +7759,11 @@
     },
     {
       "source": "pyflightstream.probes.geometry",
+      "target": "pyflightstream._retired_names",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.probes.geometry",
       "target": "pyflightstream.probes.errors",
       "kind": "module"
     },

@@ -3237,6 +3237,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.probes.geometry"><summary><code>pyflightstream.probes.geometry</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._mesh">pyflightstream._mesh</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._retired_names">pyflightstream._retired_names</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.probes.errors">pyflightstream.probes.errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.probes.planar">pyflightstream.probes.planar</a> (module)</li>
 </ul></details>

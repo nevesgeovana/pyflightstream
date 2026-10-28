@@ -299,7 +299,7 @@ _REQUIRES_EULER_CFD_FIELDS = (
 )
 _EXTERNAL_EULER_CFD_TOOLS = "external Euler CFD tools that provide total enthalpy and entropy"
 _THE_GEOMETRY_ENGINE_IS_CORE = (
-    "rtree and scipy are core dependencies since 0.49.0, so nothing raises or needs it."
+    "rtree and scipy are core dependencies, so nothing raises or needs it."
 )
 RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     "pyflightstream.exceptions.GeometryEngineMissingError": RetiredName(
