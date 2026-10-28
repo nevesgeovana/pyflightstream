@@ -746,7 +746,8 @@ def write_trailing_edge_midnodes(
     the node's distance to its nearest node starts a new line, so one list may hold the
     trailing edges of every component. Each neighbouring pair gives one
     mid-point. No mesh is needed. A closed line loses the mid-point of its
-    closing edge.
+    closing edge. Nodes at one position (two ids) are read once, with a
+    warning.
 
     Parameters
     ----------
@@ -772,6 +773,17 @@ def write_trailing_edge_midnodes(
         existing output.
     """
     nodes = _ansa_nodes(Path(source))
+    # Two ids at one position (an open trailing edge's upper and lower node) are one
+    # node of the line: a twin's zero distance would otherwise be every node's spacing.
+    _, first = numpy.unique(nodes, axis=0, return_index=True)
+    if len(first) < len(nodes):
+        warn(
+            f"{source}: {len(nodes) - len(first)} node(s) repeat the position of another "
+            "and are read once",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        nodes = nodes[numpy.sort(first)]
     lines = _node_lines(nodes)
     alone = sum(len(line) == 1 for line in lines)
     if alone:

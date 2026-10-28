@@ -1928,6 +1928,30 @@ def test_convert2midnodes_orders_a_scrambled_list_of_two_lines(tmp_path, capsys)
     assert near.max() < 1e-5
 
 
+def test_drev48_convert2midnodes_reads_coincident_nodes_once(tmp_path):
+    """DREV48-001: a list naming every trailing-edge position twice (an open trailing
+    edge's upper and lower nodes, two ids at one position) gives the edge mid-points.
+
+    Each node's spacing was its twin's distance, zero, so every line was a twin
+    pair and its mid-point the node itself. Control: the list with each
+    position once gives the same points; the repeat is warned.
+    """
+    from pyflightstream.workspace._refine._obj import read_te
+    from pyflightstream.workspace.wake_edges import write_trailing_edge_midnodes
+
+    fx, te, _ = _sheet_lines()
+    twins = [(5000 + v, tuple(f"{c:.6f}" for c in fx.verts[v])) for v in te]
+    listed = _node_list(tmp_path / "twins.txt", fx.verts, te, extra=twins)
+    with pytest.warns(PyflightstreamWarning, match=r"9 node\(s\) repeat the position"):
+        _, points = read_te(write_trailing_edge_midnodes(listed, tmp_path / "twins.te.txt"))
+    once = _node_list(tmp_path / "once.txt", fx.verts, te)
+    _, alone = read_te(write_trailing_edge_midnodes(once, tmp_path / "once.te.txt"))
+    exact = 0.5 * (fx.verts[te[:-1]] + fx.verts[te[1:]])
+    assert len(points) == len(alone) == len(exact)
+    near = numpy.linalg.norm(points[:, None] - exact[None], axis=2).min(axis=1)
+    assert near.max() < 1e-5
+
+
 def test_convert2midnodes_per_family_writes_the_mesh_edges_of_each_family(tmp_path, capsys):
     """convert2midnodes --per-family MESH: one file per family, the mesh's own edge mid-points.
 
