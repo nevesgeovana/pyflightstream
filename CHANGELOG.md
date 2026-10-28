@@ -70,8 +70,13 @@ FlightStream versions.
   loop's rearmost edges are not added. Without a node list, identify-te reads a sharp
   trailing edge inside a closed wing whose leading edge is smooth.
 - `--accept-remesh` (`refine_mesh(accept_remesh=True)`): a family given
-  parallel or normal factors whose grid is not recovered is remeshed with
-  `factor`, with a warning, in place of being refused.
+  parallel or normal factors, or `method = "grid"`, whose grid is not
+  recovered is remeshed with `factor`, with a warning, in place of being
+  refused.
+- `--accept-unknown` (`refine_mesh(accept_unknown=True)`): an unknown table
+  or key of the refinement file, a family table or `[components]` member the
+  mesh does not hold, and a `--families` name it does not hold are warned
+  and skipped, in place of being refused.
 
 ### Changed
 

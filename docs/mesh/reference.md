@@ -287,7 +287,8 @@ audit-mesh`; the walk-through is
 
 ```text
 pyfs-matrix refine MESH [FACTOR] [--families A,B] [--parallel F] [--normal F]
-                   [--accept-remesh] [--config FILE] [--out DIR] [--overwrite]
+                   [--accept-remesh] [--accept-unknown] [--config FILE] [--out DIR]
+                   [--overwrite]
 pyfs-matrix audit-mesh OBJ [--against SOURCE] [--out FILE]
 ```
 
@@ -297,7 +298,8 @@ pyfs-matrix audit-mesh OBJ [--against SOURCE] [--out FILE]
 | `FACTOR` | `refine` | the factor of every selected family, a finite number above zero |
 | `--families A,B` | `refine` | the families to change, comma separated (default: every family) |
 | `--parallel F`, `--normal F` | `refine` | the factor of one direction of every selected grid family: `--parallel` along the family's reference perimeter, `--normal` across it (on a multiblock family, of the patch sides running that way against the perimeter); refused for a remeshed family unless `--accept-remesh` is given. `--spanwise F` and `--chordwise F` are read as `--parallel` and `--normal`, with a warning |
-| `--accept-remesh` | `refine` | remesh with FACTOR a family given `--parallel` or `--normal` whose grid is not recovered, with a warning, in place of refusing it; the `accept_remesh` keyword of `refine_mesh` in Python |
+| `--accept-remesh` | `refine` | remesh with FACTOR a family given `--parallel` or `--normal`, or stated `method = "grid"`, whose grid is not recovered, with a warning, in place of refusing it; the `accept_remesh` keyword of `refine_mesh` in Python |
+| `--accept-unknown` | `refine` | warn and skip, in place of refusing, an unknown table or key of the refinement file, a family table or `[components]` member the mesh does not hold, and a `--families` name it does not hold; the `accept_unknown` keyword of `refine_mesh` in Python |
 | `--config FILE` | `refine` | the refinement file (default: `<stem>.refine.toml` beside the mesh) |
 | `--out DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source); the `out_dir` keyword of `refine_mesh` in Python; `--out-dir DIR` is a deprecated alias |
 | `--overwrite` | `refine` | replace an existing level folder |
@@ -400,7 +402,9 @@ the known keys: a table or key the list above does not hold, a family the mesh
 does not hold, a family table with neither `factor` nor `parallel_factor` nor
 `normal_factor`, and `parallel_factor` or `normal_factor` on a family whose
 method is `"remesh"` (unless `--accept-remesh` is given, which remeshes a family
-whose grid is not recovered, with a warning). In `[components]`, a member the
+whose grid is not recovered, with a warning). Under `--accept-unknown` a table
+or key the list above does not hold, a family table and a `[components]` member
+the mesh does not hold are warned and skipped instead. In `[components]`, a member the
 mesh does not hold, a family listed in two components, and a component named
 after a family that is not one of its members are refused naming the component
 and the family. A `[[perimeter]]` table that states no file, a `file` that is
@@ -659,7 +663,7 @@ Each of these is imported from `pyflightstream.workspace`.
 
 | name | what it is |
 |---|---|
-| `refine_mesh(mesh, factor=None, *, families=None, parallel=None, normal=None, config=None, out_dir=None, overwrite=False, accept_remesh=False, progress=None)` | writes a level; `parallel` and `normal` are the two directional factors (`chordwise` and `spanwise` are still read as `normal` and `parallel`, with a warning); `accept_remesh` remeshes with `factor` a family given a directional factor whose grid is not recovered, with a warning; `progress` is called with one line per stage and family (the command prints them to stderr); returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
+| `refine_mesh(mesh, factor=None, *, families=None, parallel=None, normal=None, config=None, out_dir=None, overwrite=False, accept_remesh=False, accept_unknown=False, progress=None)` | writes a level; `parallel` and `normal` are the two directional factors (`chordwise` and `spanwise` are still read as `normal` and `parallel`, with a warning); `accept_remesh` remeshes with `factor` a family given a directional factor whose grid is not recovered, with a warning; `accept_unknown` warns and skips the entries `--accept-unknown` names; `progress` is called with one line per stage and family (the command prints them to stderr); returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
 | `RefinedMesh` | frozen: `folder` (the level folder), `obj` (its OBJ), `files` (every file written, the OBJ first), `report` (the `families` entry of `refine.json`) and `audit` (the `MeshAudit` of the level) |
 | `prepare_to_refine(mesh, *, max_angle=45.0, aft=(1.0, 0.0, 0.0), overwrite=False)` | the function behind `geometry prepare-to-refine`: writes the patches OBJ, the refine file and the node list beside the source and returns a `PreparedMesh` |
 | `PreparedMesh` | frozen: `obj`, `config` (the refine file) and `nodes` (the node list) written, and `patches`, the patch names of each original family in order |

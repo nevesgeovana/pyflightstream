@@ -23,8 +23,11 @@ and skipped, or read under its new name.
   table is skipped with a warning: list its nodes in a `[[perimeter]]` file
   with `export_te_per_family = true`, or convert a node list with
   `pyfs-workspace geometry convert2midnodes`.
-- A family given a directional factor whose grid is not recovered is refused
-  unless `--accept-remesh` (`accept_remesh=True`) remeshes it with `factor`.
+- A family given a directional factor, or `method = "grid"`, whose grid is
+  not recovered is refused unless `--accept-remesh` (`accept_remesh=True`)
+  remeshes it with `factor`. An entry the refinement does not know (a table,
+  a key, a family or a member the mesh does not hold) is refused unless
+  `--accept-unknown` (`accept_unknown=True`) warns and skips it.
 - `keep_first_row`, `trailing_edge_direction`, the body remesh keys (`axial`,
   `circumferential`, `axis`, `origin`) and the `[periodic]` table are no longer
   read. Each is warned and skipped; a row kept at an interface is a family of
