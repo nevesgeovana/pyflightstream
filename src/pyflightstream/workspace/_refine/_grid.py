@@ -872,7 +872,7 @@ def check_factors(grid: Grid, family: str, *, chordwise: float, spanwise: float)
         number = isinstance(value, (int, float)) and not isinstance(value, bool)
         if not (number and math.isfinite(value) and value > 0):
             reason = f"is {value!r}, not a finite number greater than zero"
-        elif value * m < 1.0:
+        elif round(value * m, 9) < 1.0:  # 1/m itself is the least: (1/49) * 49 < 1 in floats
             reason = (
                 f"is {value:g}, below 1/{m}: scaled by it, its {m} source intervals "
                 "come to fewer than one"

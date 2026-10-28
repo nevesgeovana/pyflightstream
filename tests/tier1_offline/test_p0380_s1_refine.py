@@ -417,6 +417,24 @@ def test_arch48_force_factors_raises_a_factor_below_the_least_the_grid_allows(tm
     assert intervals["chordwise"] == [18, 1] and intervals["spanwise"] == [8, 1]
 
 
+def test_drev48_r2_a_factor_of_one_over_m_is_accepted_for_every_m():
+    """DREV48-R2-001: 1/m is the least factor the refusal names, and the one force_factors
+    raises to; in floating point (1/49) * 49 is below 1, so for 49 intervals both were
+    refused. Control: a factor just below 1/m stays refused.
+    """
+    from pyflightstream.workspace._refine._grid import check_factors, least_factors
+    from tests.p0380_mesh_fixtures import Fixture, build_grid
+
+    fx = build_grid(Fixture("sheet", False, 9, 50, ("edge", "edge"), None))
+    grid = recover_grid(fx.verts, fx.faces, fx.te)
+    assert grid.intervals == (49, 8)
+    check_factors(grid, "G", chordwise=1 / 49, spanwise=1 / 8)
+    least = least_factors(grid, 0.001, 0.001)
+    check_factors(grid, "G", chordwise=least[0], spanwise=least[1])
+    with pytest.raises(InputArtifactError, match="below 1/49"):
+        check_factors(grid, "G", chordwise=0.0204, spanwise=1.0)
+
+
 def test_arch48_accept_unknown_skips_an_implicit_refine_file_that_cannot_be_read(tmp_path):
     """ARCH48-R7: a <stem>.refine.toml that is not TOML is refused; accept_unknown skips it.
 
