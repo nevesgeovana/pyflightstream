@@ -157,9 +157,18 @@ def prepare_to_refine(
     _obj.write_obj(out, targets[0], note)
     _textio.write_text(targets[2], "\n".join(["#  Id, Name, X , Y, Z", *rows]) + "\n")
     te_families = [n for n, ps in patches.items() if any(p in listed for p in ps)]
-    governing = _governing(obj.verts, families, kinds)
+    governing, followers = _governing(obj.verts, families, kinds)
     _textio.write_text(
-        targets[1], _toml(source, targets[2], patches, kinds, te_families, governing=governing)
+        targets[1],
+        _toml(
+            source,
+            targets[2],
+            patches,
+            kinds,
+            te_families,
+            governing=governing,
+            followers=followers,
+        ),
     )
     inspect = None
     if visual_inspect:
@@ -454,7 +463,8 @@ def _toml(
     kinds: dict[str, str],
     te_families: list[str],
     *,
-    governing: set[str] = frozenset(),
+    governing: set[str] | frozenset[str] = frozenset(),
+    followers: set[str] | frozenset[str] = frozenset(),
 ) -> str:
     """Return the refine file text: one table per patch, the components and the perimeter."""
     lines = [
@@ -468,7 +478,7 @@ def _toml(
     ]
     for members in patches.values():
         for patch in members:
-            if kinds[patch] == "grid" and governing and patch not in governing:
+            if patch in followers:
                 continue  # undeclared: grid_auto, it follows the governing patch of its group
             method = "grid" if kinds[patch] == "grid" else "remesh"
             lines += [f"[families.{_key(patch)}]", f'method = "{method}"', "factor = 1.0"]
@@ -489,8 +499,10 @@ def _toml(
     return "\n".join(lines)
 
 
-def _governing(verts: Points, families: dict[str, Faces], kinds: dict[str, str]) -> set[str]:
-    """Return the grid patch of the largest perimeter in each group of grid patches that touch.
+def _governing(
+    verts: Points, families: dict[str, Faces], kinds: dict[str, str]
+) -> tuple[set[str], set[str]]:
+    """Return the governing patches and their followers in groups of touching grid patches.
 
     Grid patches that share a node are refined as one layout, and the curves they
     share take one count; the patch of the largest perimeter (the length of its
@@ -505,6 +517,7 @@ def _governing(verts: Points, families: dict[str, Faces], kinds: dict[str, str])
         return float(sum(numpy.linalg.norm(pts[b] - pts[a]) for a, b in edges))
 
     out: set[str] = set()
+    followers: set[str] = set()
     left = list(grids)
     while left:
         group, stack = {left[0]}, [left[0]]
@@ -516,8 +529,10 @@ def _governing(verts: Points, families: dict[str, Faces], kinds: dict[str, str])
                     stack.append(other)
         left = [n for n in left if n not in group]
         if len(group) > 1:
-            out.add(max(sorted(group), key=perimeter))
-    return out
+            lead = max(sorted(group), key=perimeter)
+            out.add(lead)
+            followers.update(group - {lead})
+    return out, followers
 
 
 def _key(name: str) -> str:
