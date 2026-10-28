@@ -218,10 +218,12 @@ from pyflightstream.workspace._mark_boundaries import (
     refuse_mark_boundaries,
 )
 from pyflightstream.workspace._missing_log import missing_log_warning as missing_log_warning
-from pyflightstream.workspace._refine._audit import MeshAudit as MeshAudit
-from pyflightstream.workspace._refine._audit import audit_mesh as audit_mesh
-from pyflightstream.workspace._refine._level import RefinedMesh, refine_mesh
-from pyflightstream.workspace._refine._prepare import PreparedMesh, prepare_to_refine
+from pyflightstream.workspace._refine import MeshAudit as MeshAudit
+from pyflightstream.workspace._refine import PreparedMesh as PreparedMesh
+from pyflightstream.workspace._refine import RefinedMesh as RefinedMesh
+from pyflightstream.workspace._refine import audit_mesh as audit_mesh
+from pyflightstream.workspace._refine import prepare_to_refine as prepare_to_refine
+from pyflightstream.workspace._refine import refine_mesh as refine_mesh
 from pyflightstream.workspace.fsi_external_setup import FsiExternalSetupError  # noqa: F401
 from pyflightstream.workspace.inputs import EXECUTABLES_FILE as EXECUTABLES_FILE
 from pyflightstream.workspace.inputs import GEOMETRIES_README as GEOMETRIES_README
