@@ -17,11 +17,11 @@ and `dev` are maintainer extras and are outside this runtime range policy.
 | Dependency | Range | Installation |
 |---|---|---|
 | NumPy | `>=2.2,<3` | Base |
-| Pydantic | `>=2,<3` | Base |
+| Pydantic | `>=2.4.2,<3` | Base |
 | PyYAML | `>=6.0.1,<7` | Base |
 | trimesh | `>=4.12,<6` | Base |
 | matplotlib | `>=3.10,<4` | Base |
-| rtree | `>=1.0,<2` | Base |
+| rtree | `>=1.1,<2` | Base |
 | SciPy | `>=1.15,<2` | Base |
 | pandas | `>=2.3,<3` | `pandas` extra |
 | PyNiteFEA | `>=3.0,<4` | `fsi` extra, which also raises NumPy to `>=2.4` (PyNiteFEA 3 requires it) |
