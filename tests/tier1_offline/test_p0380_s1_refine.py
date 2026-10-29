@@ -56,7 +56,7 @@ GROWTH_ON_T = "audit check growth failed on T"
 
 def test_p0500_retired_refine_requirements_reserve_their_uids():
     """Retired sector and keep-row promises must not remain implemented requirements."""
-    root = PACKAGE.parents[1]
+    root = Path(__file__).resolve().parents[2]
     with (root / "tests/requirements_l3.csv").open(encoding="utf-8", newline="") as stream:
         rows = {row["uid"]: row for row in csv.DictReader(stream)}
     retired = (root / "docs/unpublished/requirements/retired.md").read_text(encoding="utf-8")
