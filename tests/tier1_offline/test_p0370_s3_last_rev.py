@@ -264,8 +264,9 @@ def test_the_revolutions_form_without_a_rotor_clock_names_the_iterations_form():
     """
     recipe_row = _unsteady_row(**{LAST_REV: "1"})
     del recipe_row.variables[WORKFLOW_KEY]
-    assert unsteady_export_threshold(recipe_row, version="26.124") is None
-    with pytest.warns(NotApplicableWarning) as warned:
+    # The default policy, against this module's strict autouse fixture (REL2-008).
+    with option_context("warning_refusals", False), pytest.warns(NotApplicableWarning) as warned:
+        assert unsteady_export_threshold(recipe_row, version="26.124") is None
         build_script(recipe_row, Script("26.124"))
     message = str(warned[0].message)
     assert LAST_REV in message and f"'{LAST_ITER}: <steps>'" in message, message

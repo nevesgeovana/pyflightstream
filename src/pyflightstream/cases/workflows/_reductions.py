@@ -39,6 +39,7 @@ from ._rows import (
 )
 from ._timing import (
     TimeStepping,
+    power_off_clock,
     revolution_keys_without_a_clock,
     rotor_time_stepping,
     unsteady_time_stepping,
@@ -1186,6 +1187,11 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
 
     last_step = stepping.time_iterations
     per_revolution = stepping.steps_per_revolution
+    if not rotor and per_revolution is not None and power_off_clock(case) is None:
+        # A ROW DECLARING NO ROTOR has an azimuthal step, not a rotor whose
+        # revolutions it counts (REL2-001): the plan and the post, which reads
+        # this record, count none of its revolution keys.
+        per_revolution = None
     revolution = None if per_revolution is None else int(round(per_revolution))
 
     # Every unsteady product shares the averaging span stated on the row.

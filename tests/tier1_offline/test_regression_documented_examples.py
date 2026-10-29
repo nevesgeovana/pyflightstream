@@ -15,6 +15,7 @@ import pytest
 
 from pyflightstream import reference
 from pyflightstream._errors import InputArtifactError, PyflightstreamError
+from pyflightstream.cases.pproc import _command_tokens
 from pyflightstream.testing import assert_records_close
 from pyflightstream.workspace.inputs import PprocArtifact, resolve_pproc
 from tests import support_program_checks as _decided_docs_2_tier3__support_program_checks
@@ -373,7 +374,12 @@ class TestDocfixRefusals:
             ),
             (
                 {"vtk_variables": ["NOT_A_VARIABLE"]},
-                "vtk_variables: unknown variable(s) NOT_A_VARIABLE",
+                # REL2-010: the remedy names the variables it points to.
+                "vtk_variables: unknown variable(s) NOT_A_VARIABLE. Use one of "
+                + ", ".join(
+                    sorted(set(_command_tokens("SET_VTK_EXPORT_VARIABLES", "variables").values()))
+                )
+                + ".",
             ),
             ({"unexpected": True}, "unexpected: Extra inputs are not permitted"),
             (

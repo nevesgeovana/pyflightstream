@@ -2226,7 +2226,7 @@ class PprocSpec(_SuggestsKeys):
         if unknown:
             raise InputValueError(
                 f"vtk_variables: unknown variable(s) {', '.join(unknown)}"
-                ". Use one of the variables listed."
+                f". Use one of {', '.join(sorted(set(declared.values())))}."
             )
         spelled = [declared[name.casefold()] for name in value]
         if not spelled or len(set(spelled)) != len(spelled):

@@ -1084,7 +1084,9 @@ def _steady_sweep_matrix(tmp_path, cell=""):
 
 def test_p0420_p1_1d_plan_rehearses_the_one_job_builder(tmp_path):
     # A supplied per-point recipe accepts the row, but the actual shared steady
-    # builder refuses its unknown key. Planning must rehearse that job too.
+    # builder refuses its unknown key. Planning must rehearse that job too. The
+    # unknown key is a demoted refusal since PFS-2184.07, so the strict policy
+    # asks for the refusal the rehearsal must reach (REL2-009).
     workspace, matrix = _steady_sweep_matrix(tmp_path, cell="ONE_JOB_UNKNOWN: 1")
 
     def point_recipe(case, script):
@@ -1093,6 +1095,7 @@ def test_p0420_p1_1d_plan_rehearses_the_one_job_builder(tmp_path):
     plan = plan_matrix(
         matrix,
         workspace,
+        warning_refusals=True,
         name="warm",
         recipes=RECIPES,
         default_fs_version="26.120",

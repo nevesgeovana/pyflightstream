@@ -742,10 +742,37 @@ def revolution_keys_without_a_clock(case: SimCase) -> tuple[str, ...]:
     if not stated or select_workflow(case) != "unsteady":
         return ()
     try:
-        per_revolution = unsteady_time_stepping(case).steps_per_revolution
+        per_revolution = power_off_steps_per_revolution(case)
     except CampaignConfigError:
         return ()
     return () if per_revolution is not None else stated
+
+
+def power_off_steps_per_revolution(case: SimCase) -> float | None:
+    """Return the steps per revolution of a power-off row's declared clock rotor, or None.
+
+    Only the clock of a rotor the reference declares counts revolutions
+    (:func:`power_off_clock`). A row declaring no rotor that states an
+    advance ratio with an azimuthal clock has a step, not a rotor to count.
+
+    Parameters
+    ----------
+    case : SimCase
+        A row of the run type that turns nothing.
+
+    Returns
+    -------
+    float or None
+        The steps of one revolution of the clock rotor, or None.
+
+    Raises
+    ------
+    CampaignConfigError
+        Where the row's clock is refused, as by :func:`unsteady_time_stepping`.
+    """
+    if power_off_clock(case) is None:
+        return None
+    return unsteady_time_stepping(case).steps_per_revolution
 
 
 def unsteady_time_stepping(case: SimCase) -> TimeStepping:
