@@ -1189,6 +1189,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.run._cli_parsers"><summary><code>pyflightstream.run._cli_parsers</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._cli">pyflightstream._cli</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._console">pyflightstream._console</a> (deferred)</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.options">pyflightstream.options</a> (module)</li>
@@ -1313,6 +1314,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.run._field_motion"><summary><code>pyflightstream.run._field_motion</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
 </ul></details>
 
@@ -1507,6 +1509,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.run._rebuild_grouped"><summary><code>pyflightstream.run._rebuild_grouped</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.run._batch_exec">pyflightstream.run._batch_exec</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._batches">pyflightstream.workspace._batches</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._batches">pyflightstream.workspace._batches</a> (module)</li>
@@ -1719,6 +1722,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.workspace._batches"><summary><code>pyflightstream.workspace._batches</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows">pyflightstream.cases.workflows</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace">pyflightstream.workspace</a> (typing)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.manifest">pyflightstream.workspace.manifest</a> (module)</li>
@@ -1912,6 +1916,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.workspace._query_files"><summary><code>pyflightstream.workspace._query_files</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._links">pyflightstream.workspace._links</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace.ledger">pyflightstream.workspace.ledger</a> (typing)</li>
 </ul></details>
@@ -1960,7 +1965,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.workspace._refine._geometry"><summary><code>pyflightstream.workspace._refine._geometry</code></summary><ul>
-<li>No package-internal outgoing imports.</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._refine._grid"><summary><code>pyflightstream.workspace._refine._grid</code></summary><ul>
@@ -3452,7 +3457,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.script._surface_averaging"><summary><code>pyflightstream.script._surface_averaging</code></summary><ul>
-<li>No package-internal outgoing imports.</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.script._wake_edge_file"><summary><code>pyflightstream.script._wake_edge_file</code></summary><ul>
@@ -3485,7 +3490,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.script.motion"><summary><code>pyflightstream.script.motion</code></summary><ul>
-<li>No package-internal outgoing imports.</li>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.script.rotor_vocabulary"><summary><code>pyflightstream.script.rotor_vocabulary</code></summary><ul>
@@ -3599,7 +3604,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream._console"><summary><code>pyflightstream._console</code></summary><ul>
-<li>&rarr; <a href="#pyflightstream.options">pyflightstream.options</a> (module)</li>
+<li>No package-internal outgoing imports.</li>
 </ul></details>
 
 <details id="pyflightstream._decimal"><summary><code>pyflightstream._decimal</code></summary><ul>
@@ -3667,6 +3672,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.options"><summary><code>pyflightstream.options</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._console">pyflightstream._console</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 </ul></details>
 

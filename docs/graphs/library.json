@@ -1863,11 +1863,6 @@
       "kind": "module"
     },
     {
-      "source": "pyflightstream._console",
-      "target": "pyflightstream.options",
-      "kind": "module"
-    },
-    {
       "source": "pyflightstream._deprecations",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -5265,6 +5260,11 @@
     {
       "source": "pyflightstream.fsi.wing",
       "target": "pyflightstream.fsi.nodes",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.options",
+      "target": "pyflightstream._console",
       "kind": "module"
     },
     {
@@ -9929,6 +9929,11 @@
     },
     {
       "source": "pyflightstream.run._cli_parsers",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_parsers",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -10380,6 +10385,11 @@
     {
       "source": "pyflightstream.run._executors",
       "target": "pyflightstream.workspace.inputs",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._field_motion",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -11170,6 +11180,11 @@
     {
       "source": "pyflightstream.run._rebuild_evidence",
       "target": "pyflightstream.workspace.record_document",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._rebuild_grouped",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -12038,6 +12053,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.script._surface_averaging",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.script._wake_edge_file",
       "target": "pyflightstream._decimal",
       "kind": "module"
@@ -12135,6 +12155,11 @@
     {
       "source": "pyflightstream.script.helpers",
       "target": "pyflightstream.versions",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script.motion",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -12485,6 +12510,11 @@
     {
       "source": "pyflightstream.workspace._batch_relocate",
       "target": "pyflightstream.workspace._links",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._batches",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -13134,6 +13164,11 @@
     },
     {
       "source": "pyflightstream.workspace._query_files",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._query_files",
       "target": "pyflightstream.workspace._links",
       "kind": "module"
     },
@@ -13265,6 +13300,11 @@
     {
       "source": "pyflightstream.workspace._refine._config",
       "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._geometry",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
