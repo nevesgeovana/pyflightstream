@@ -796,11 +796,11 @@ class TestFarfieldNumpy:
         )["project"]
         assert project["dependencies"] == [
             "numpy>=2.2,<3",
-            "pydantic>=2,<3",
+            "pydantic>=2.4.2,<3",
             "pyyaml>=6.0.1,<7",
             "trimesh>=4.12,<6",
             "matplotlib>=3.10,<4",
-            "rtree>=1.0,<2",
+            "rtree>=1.1,<2",
             "scipy>=1.15,<2",
         ]
         assert project["optional-dependencies"]["pandas"] == ["pandas>=2.3,<3"]
