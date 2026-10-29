@@ -1,5 +1,35 @@
 # Install pyflightstream
 
+## Supported Python
+
+Use Python 3.12 or newer (`>=3.12`), with no Python upper bound.
+CI tests Python 3.12 on Linux and Windows.
+The `test-lean` CI job runs tier 1 with `pytest -n auto` using the base
+package and development tools, without user-facing extras.
+
+
+## Tested dependency ranges
+
+The endpoint CI jobs run tier 1 at every declared floor and at the newest
+release pip resolves within each range. Both read `pyproject.toml`; `manual`
+and `dev` are maintainer extras and are outside this runtime range policy.
+
+| Dependency | Range | Installation |
+|---|---|---|
+| NumPy | `>=2.2,<3` | Base |
+| Pydantic | `>=2,<3` | Base |
+| PyYAML | `>=6.0.1,<7` | Base |
+| trimesh | `>=4.12,<6` | Base |
+| matplotlib | `>=3.10,<4` | Base |
+| rtree | `>=1.0,<2` | Base |
+| SciPy | `>=1.15,<2` | Base |
+| pandas | `>=2.3,<3` | `pandas` extra |
+| PyNiteFEA | `>=3.0,<4` | `fsi` extra |
+| XlsxWriter | `>=3.2.9,<4` | `excel` extra |
+
+Existing floors are unchanged. PyYAML gains its first explicit floor, 6.0.1.
+The existing trimesh range includes the measured 5.x major; its ceiling remains 6.
+
 ## Choose an installation route
 
 | Environment | Route |

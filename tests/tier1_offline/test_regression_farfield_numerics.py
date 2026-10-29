@@ -795,15 +795,15 @@ class TestFarfieldNumpy:
             (_FARFIELD_NUMPY__REPO / "pyproject.toml").read_text(encoding="utf-8")
         )["project"]
         assert project["dependencies"] == [
-            "numpy>=2.2",
-            "pydantic>=2",
-            "pyyaml",
+            "numpy>=2.2,<3",
+            "pydantic>=2,<3",
+            "pyyaml>=6.0.1,<7",
             "trimesh>=4.12,<6",
-            "matplotlib>=3.10",
-            "rtree>=1.0",
-            "scipy>=1.15",
+            "matplotlib>=3.10,<4",
+            "rtree>=1.0,<2",
+            "scipy>=1.15,<2",
         ]
-        assert project["optional-dependencies"]["pandas"] == ["pandas>=2.3"]
+        assert project["optional-dependencies"]["pandas"] == ["pandas>=2.3,<3"]
 
     @staticmethod
     @pytest.mark.requirement("FR-457")

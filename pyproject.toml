@@ -69,14 +69,14 @@ classifiers = [
 # BOTH ENDS ARE PINNED DELIBERATELY. The floor is the oldest release this
 # package has been exercised against, and the ceiling excludes the next
 # major, which is a boundary this repository has no evidence about; a new
-# install resolves 5.0.0 today. tests/tier1_offline/test_support_window.py holds
+# install stays inside the declared major. tests/tier1_offline/test_support_window.py holds
 # the installed version of each declared dependency inside its declared range,
 # so the envelope is a measurement rather than a hope.
 #
 # numpy and pandas carry the SPEC 0 floor computed on 2026-09-09 (see
 # requires-python above); neither is above the version this tree runs
 # with, which the same test measures. The CI leg `test-floors` installs the
-# numpy and pandas floors themselves and runs tier 1 on them. pydantic
+# floors of every runtime dependency and user extra and runs tier 1 on them. pydantic
 # is not a SPEC 0 project: its floor is the major whose API this package
 # is written against (field_validator, model_validator).
 # matplotlib and scipy carry the SPEC 0 floor computed on 2026-10-28 (the oldest
@@ -84,20 +84,20 @@ classifiers = [
 # 2025-01. rtree is not a SPEC 0 project: its floor is 1.0, the first release
 # whose wheels bundle libspatialindex.
 dependencies = [
-    "numpy>=2.2",
-    "pydantic>=2",
-    "pyyaml",
+    "numpy>=2.2,<3",
+    "pydantic>=2,<3",
+    "pyyaml>=6.0.1,<7",
     "trimesh>=4.12,<6",
-    "matplotlib>=3.10",
-    "rtree>=1.0",
-    "scipy>=1.15",
+    "matplotlib>=3.10,<4",
+    "rtree>=1.0,<2",
+    "scipy>=1.15,<2",
 ]
 
 [project.optional-dependencies]
-pandas = ["pandas>=2.3"]
+pandas = ["pandas>=2.3,<3"]
 # FSI structural coupling (M6, DLV-007). PyNiteFEA is MIT; license
 # evidence: reports/RPT-002_pynitefea-license_2026-07-21.md (NFR-02).
-fsi = ["PyNiteFEA>=3.0"]
+fsi = ["PyNiteFEA>=3.0,<4"]
 # Optional workbook authoring; XlsxWriter is BSD-2-Clause.
 excel = ["XlsxWriter>=3.2.9,<4"]
 # Reading a vendor manual pdf, for pyflightstream.utils.manual. A

@@ -7,6 +7,18 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.50.0
+
+Use Python 3.12 or newer (`>=3.12`), with no Python upper bound.
+The Python floor remains 3.12; CI tests Python 3.12.
+
+Runtime dependencies and the `pandas`, `fsi` and `excel` extras now have
+explicit upper bounds: NumPy and Pydantic `<3`, PyYAML `<7`, matplotlib `<4`,
+rtree and SciPy `<2`, pandas `<3`, and PyNiteFEA `<4`. The existing trimesh
+`<6` and XlsxWriter `<4` bounds remain. All existing floors remain unchanged;
+PyYAML gains the floor `>=6.0.1`. See [installation](install.md) for the full
+ranges. Recreate environments within these bounds before upgrading.
+
 ## 0.49.0
 
 matplotlib, rtree and scipy come with the base install, so the `plot` and `geom`

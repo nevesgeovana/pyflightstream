@@ -46,7 +46,7 @@ The extras add development and documentation tools (`dev`), structural coupling
 rtree and scipy. Maintainers reading licensed manuals also install
 `pyflightstream[manual]`.
 
-Python 3.12 or newer. FlightStream itself is licensed separately and is
+Python 3.12 or newer, tested on 3.12. FlightStream itself is licensed separately and is
 located through your workspace, never guessed.
 
 ## Quick start without a solver

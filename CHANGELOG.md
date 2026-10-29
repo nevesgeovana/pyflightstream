@@ -27,6 +27,17 @@ FlightStream versions.
   remain skipped (FR-3353). W uses the whole wheel's blade count on periodic
   sectors, including exports without blade tags, and reverses the qsteady
   export's circulation sense. Unsteady wake loads keep their existing sense.
+### Changed
+
+- Bound every runtime dependency and user-facing extra, preserving existing
+  floors and adding a PyYAML floor of 6.0.1 (FR-3333, FR-3336).
+  CI resolves every floor from package metadata and exercises newest allowed
+  releases in a new ceilings job (FR-3334, FR-3335).
+
+- Support Python 3.12 or newer (`>=3.12`) without an upper bound, tested on
+  Python 3.12 (FR-3330). See the 0.50.0 upgrade guidance.
+- Run the complete offline tier in parallel in the lean CI job, with no
+  user-facing extras installed (FR-3331, FR-3332).
 
 ## [0.49.0] - 2026-10-29
 

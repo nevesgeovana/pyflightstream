@@ -90,6 +90,9 @@ htmlcov/
 # should ship from here does not belong under `.claude/`.
 .claude/
 
+# Local tool reports written beside a checkout.
+/LANE-REPORT-*.json
+
 # The agent instruction file is the author's WORKING METHOD and is not a
 # product of this library. It was tracked on a PUBLIC remote until
 # 2026-08-25 and is untracked from here: the file stays on disk so a

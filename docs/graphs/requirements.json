@@ -3747,6 +3747,20 @@
       "status": "implemented"
     },
     {
+      "id": "FR-3332",
+      "parent": "FR-3148",
+      "area": "QFLX",
+      "hid": "QFLX-1.4",
+      "status": "implemented"
+    },
+    {
+      "id": "FR-3336",
+      "parent": "FR-3148",
+      "area": "QFLX",
+      "hid": "QFLX-1.5",
+      "status": "implemented"
+    },
+    {
       "id": "NFR-02",
       "parent": "FR-3146",
       "area": "QMNT",
