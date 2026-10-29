@@ -12,8 +12,10 @@ any OBJ and refine file without it) writes, beside the mesh:
    original families keep their order; within each, the patches are numbered
    from the largest extent along y down, and each patch keeps its faces in the
    source's order.
-2. ``<stem>_patches.refine.toml``: one table per patch, ``method = "grid"`` or
-   ``"remesh"`` at factor 1 for the user to edit, the quad-dominant remesh,
+2. ``<stem>_patches.refine.toml``: the planner's declared patches, ``method = "grid"``,
+   ``"remesh"`` or ``"auto"`` at factor 1 for the user to edit. Directional leads
+   carry governing flags; only fully propagated followers are omitted. It uses
+   the quad-dominant remesh,
    ``[components]`` grouping each family's patches back into the family, and a
    ``[[perimeter]]`` naming the node list with ``te_families``.
 3. ``<stem>_patches.nodes.txt``: the node list the refinement reads (an ANSA SET
@@ -35,7 +37,7 @@ from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
-from pyflightstream.workspace._refine import _blocks, _geometry, _lines, _nastran, _obj
+from pyflightstream.workspace._refine import _blocks, _geometry, _level, _lines, _nastran, _obj
 from pyflightstream.workspace._refine._obj import Faces, ObjMesh
 
 Points = NDArray[numpy.float64]
@@ -62,7 +64,7 @@ class PreparedMesh:
     config: Path
     nodes: Path
     patches: dict[str, list[str]]
-    #: The grid patches written ``governing = true`` (FR-3298).
+    #: The grid patches governing either direction (FR-3298).
     governing: tuple[str, ...] = ()
     #: The visual-inspect PDF, one page per original family, when asked for.
     inspect: Path | None = None
@@ -102,7 +104,7 @@ def prepare_to_refine(
         The length unit a NASTRAN source is written in (default METER).
     visual_inspect : bool
         Also write ``<stem>_patches.inspect.pdf``: one page per original family,
-        each patch colored and named, the governing patches labelled GOVERNING.
+        each patch colored and named, with GOVERNING PARALLEL and GOVERNING NORMAL labels.
 
     Returns
     -------
@@ -157,7 +159,24 @@ def prepare_to_refine(
     _obj.write_obj(out, targets[0], note)
     _textio.write_text(targets[2], "\n".join(["#  Id, Name, X , Y, Z", *rows]) + "\n")
     te_families = [n for n, ps in patches.items() if any(p in listed for p in ps)]
-    governing, followers, excluded = _governing(obj.verts, families, kinds)
+    planned = _level.plan_prepared(targets[0], targets[2], patches, kinds, te_families)
+    governing = {
+        n: s.leads for n, s in planned.specs.items() if n in planned.grids and any(s.leads)
+    }
+    followers: set[str] = set()
+    excluded: dict[str, tuple[str, str]] = {}
+    for name, layout in planned.layouts.items():
+        directions = [d for p in layout.patches_of(name) for d in layout.directions[p].values()]
+        if directions and all(d.provenance.startswith("propagated_from:") for d in directions):
+            followers.add(name)
+        reasons = {d.provenance for d in directions if d.provenance.startswith("own_orientation_")}
+        if reasons:
+            leads = ", ".join(n for n in layout.names if n in governing)
+            excluded[name] = (
+                leads,
+                ", ".join(sorted(r.removeprefix("own_orientation_") for r in reasons)),
+            )
+    methods = {n: "grid" if n in planned.grids else "auto" for n in kinds if kinds[n] == "grid"}
     _textio.write_text(
         targets[1],
         _toml(
@@ -169,6 +188,7 @@ def prepare_to_refine(
             governing=governing,
             followers=followers,
             excluded=excluded,
+            methods=methods,
         ),
     )
     inspect = None
@@ -464,9 +484,10 @@ def _toml(
     kinds: dict[str, str],
     te_families: list[str],
     *,
-    governing: set[str] | frozenset[str] = frozenset(),
+    governing: dict[str, tuple[bool, bool]] | None = None,
     followers: set[str] | frozenset[str] = frozenset(),
     excluded: dict[str, tuple[str, str]] | None = None,
+    methods: dict[str, str] | None = None,
 ) -> str:
     """Return the refine file text: one table per patch, the components and the perimeter."""
     lines = [
@@ -482,12 +503,21 @@ def _toml(
         for patch in members:
             if patch in followers:
                 continue  # undeclared: grid_auto, it follows the governing patch of its group
-            method = "grid" if kinds[patch] == "grid" else "remesh"
+            method = (methods or {}).get(patch, "grid" if kinds[patch] == "grid" else "remesh")
+            if method == "auto":
+                lines.append(
+                    "# The planner cannot refine this patch as a grid here; use auto's fallback."
+                )
             if excluded and patch in excluded:
                 lead, reason = excluded[patch]
                 lines.append(f"# not a follower of {lead}: {reason}")
             lines += [f"[families.{_key(patch)}]", f'method = "{method}"', "factor = 1.0"]
-            lines += ["governing = true", ""] if patch in governing else [""]
+            normal, parallel = (governing or {}).get(patch, (False, False))
+            if parallel:
+                lines.append("governing_parallel = true")
+            if normal:
+                lines.append("governing_normal = true")
+            lines.append("")
     lines.append("[components]")
     for family, members in patches.items():
         listed = ", ".join(f'"{m}"' for m in members)
@@ -502,72 +532,6 @@ def _toml(
         "",
     ]
     return "\n".join(lines)
-
-
-def _governing(
-    verts: Points, families: dict[str, Faces], kinds: dict[str, str]
-) -> tuple[set[str], set[str], dict[str, tuple[str, str]]]:
-    """Return the governing patches and their followers in groups of touching grid patches.
-
-    Grid patches are grouped by shared nodes. The patch of the largest perimeter
-    (the length of its boundary edges) in each group of two or more leads them
-    (``governing = true``). Only patches fully reached without a direction conflict
-    through shared curves are followers; the others retain their own tables.
-    """
-    grids = [n for n in families if kinds[n] == "grid"]
-    nodes = {n: {v for f in families[n] for v in f} for n in grids}
-    pts = numpy.asarray(verts, dtype=float)
-
-    def perimeter(name: str) -> float:
-        edges = _geometry.boundary_edges(families[name])
-        return float(sum(numpy.linalg.norm(pts[b] - pts[a]) for a, b in edges))
-
-    out: set[str] = set()
-    followers: set[str] = set()
-    excluded: dict[str, tuple[str, str]] = {}
-    for group in _blocks._touching(grids, nodes):
-        if len(group) > 1:
-            lead = max(sorted(group), key=perimeter)
-            out.add(lead)
-            failed = _group_directions(verts, families, group, lead)
-            followers.update(set(group) - {lead} - set(failed))
-            excluded.update({n: (lead, why) for n, why in failed.items()})
-    return out, followers, excluded
-
-
-def _group_directions(verts, families, group, lead):
-    """Use refinement recovery and propagation to admit only orientable followers."""
-    followers = set(group) - {lead}
-    grid, reference = _direction_grid(verts, families[lead])
-    found = _blocks._join(verts, families, group, ())
-    if isinstance(found, str) or isinstance(grid, str):
-        failed = dict.fromkeys(followers, "unlinked")
-    else:
-        blocks, indices = found
-        owner = tuple(group[i] for i in indices)
-        patches = [p for p, n in enumerate(owner) if n == lead]
-        seed = _blocks._reference_directions(
-            verts, blocks, patches, grid, reference, family=f"prepare-to-refine family {lead}"
-        )
-        _, failed = _blocks.propagate_directions(blocks, owner, seed, followers)
-    for name, reason in failed.items():
-        _blocks.warn_direction_fallback(name, lead, reason, where="prepare-to-refine")
-    return failed
-
-
-def _direction_grid(verts, faces):
-    """Recover with the same longest-side fallback used by refinement."""
-    grid = _blocks.recover_family(verts, faces, ())
-    reference = set()
-    if not isinstance(grid, str):
-        return grid, reference
-    sides = _lines.boundary_sides(verts, faces)
-    for side in sorted(sides, key=lambda s: -_lines.side_length(verts, s)):
-        grid = _blocks.recover_family(verts, faces, side)
-        if not isinstance(grid, str):
-            reference = {(min(a, b), max(a, b)) for a, b in zip(side, side[1:], strict=False)}
-            break
-    return grid, reference
 
 
 def _key(name: str) -> str:

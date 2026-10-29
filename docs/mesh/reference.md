@@ -414,6 +414,14 @@ and the family. A `[[perimeter]]` table that states no file, a `file` that is
 missing, a node that matches no vertex of the mesh and a list that joins no
 edge are warned and skipped.
 
+Prepare-to-refine uses this same planner with the OBJ and node list it writes.
+Within each grid-connected group, the greatest total length of parallel sides
+selects `governing_parallel` and the greatest total length of normal sides selects
+`governing_normal`; ties retain source order. Only families whose every arc has
+propagated directions are omitted. Other grids retain explicit tables, and a
+candidate the planner cannot refine as a grid here is declared `auto` with a
+comment, including a tube excluded from a neighbouring sheet's layout.
+
 ### The tag of a level
 
 The level is named `<stem>_<tag>` unless `[refine] filename` names it. The tag

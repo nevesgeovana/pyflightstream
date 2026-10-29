@@ -211,7 +211,20 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
 # ------------------------------------------------------------------- deciding
 
 
-def _decide(work: _Work) -> None:
+def plan_prepared(source, nodes, components, kinds, te_families):
+    """Plan prepared patches with the exact OBJ and node list written for refinement."""
+    request = RefineRequest(
+        specs={n: FamilySpec(method="grid" if k == "grid" else "remesh") for n, k in kinds.items()},
+        components=components,
+        perimeters=(_config.Perimeter(nodes, te_families=tuple(te_families)),),
+        accept_remesh=True,
+    )
+    work = _start(source, request, _obj.read_obj(source))
+    _decide(work, prepare=True)
+    return work
+
+
+def _decide(work: _Work, *, prepare: bool = False) -> None:
     """Recover the grids and choose each family's method, refusing before any work.
 
     (FR-923).
@@ -220,7 +233,7 @@ def _decide(work: _Work) -> None:
     for i, name in enumerate(names, 1):
         work.say(f"family {i} of {len(names)}: {name}, recovering its layout")
         _decide_family(work, name)
-    _grid_after_grid(work)
+    _grid_after_grid(work, prepare=prepare)
     for name in work.remesh:
         spec = work.specs[name]
         if spec.chordwise is None and spec.spanwise is None:
@@ -331,7 +344,7 @@ def _te_rows(work: _Work, points: Points) -> list[list[float]]:
     return [[float(w) for w in _obj.coordinates(p).split()] for p in points]
 
 
-def _grid_after_grid(work: _Work) -> None:
+def _grid_after_grid(work: _Work, *, prepare: bool = False) -> None:
     """Resample grids that share nodes as one layout; remesh or refuse one that cannot join.
 
     (FR-932, :func:`._blocks.plan`).
@@ -346,6 +359,7 @@ def _grid_after_grid(work: _Work) -> None:
         accept=work.request.accept_remesh,
         followers=work.followers,
         assumed=work.assumed,
+        prepare=prepare,
     )
     for name in work.followers:
         grid = work.grids.get(name)
@@ -442,7 +456,22 @@ def _grid_info(
     if layout is not None:
         info["kept_sides"] = layout.kept[name]
     if name in work.followers:  # grid_auto (FR-3298)
-        direction = layout.direction_sources.get(name) if layout is not None else None
+        directions = (
+            [d for p in layout.patches_of(name) for d in layout.directions[p].values()]
+            if layout is not None
+            else []
+        )
+        sources = list(dict.fromkeys(d.source_family for d in directions))
+        fallback = next(
+            (d.provenance for d in directions if d.provenance.startswith("own_orientation_")), None
+        )
+        direction = (
+            "own reference: " + fallback.removeprefix("own_orientation_")
+            if fallback
+            else "from " + ", ".join(sources)
+            if sources
+            else None
+        )
         if direction is None:
             direction = "own reference: unlinked"
             _blocks.warn_direction_fallback(

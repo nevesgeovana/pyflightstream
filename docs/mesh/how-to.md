@@ -337,22 +337,27 @@ optional.
    `W1_patches.refine.toml` and `W1_patches.nodes.txt`. The refine file holds
    every patch at factor 1 and `[components]` putting each family back
    together. Grid patches that share nodes are refined as one layout, so the
-   curves they share take one count: in each such group the grid patch of the
-   largest perimeter is written `governing = true`. Patches whose parallel and
-   normal directions can be propagated from it through shared curves are left
+   curves they share take one count. The planner reads the node list being written
+   and marks the patch with the greatest total length of parallel sides
+   `governing_parallel = true`, and the greatest total length of normal sides
+   `governing_normal = true`; source order breaks ties. Patches whose every arc's
+   direction can be propagated from these leads through shared curves are left
    out of the file, which makes them `grid_auto`: they follow the governing
-   patch's factors on those directions. A conflict or an unlinked patch (for
+   patches' factors on those directions. A conflict or an unlinked patch (for
    example, one touching only at a corner) is warned and keeps its own
    `method = "grid"`, `factor = 1.0` table, preceded by a comment naming the
-   governing patch and the reason. Set the factors on the governing patches;
+   governing patches and the reason. A candidate the planner cannot refine as a
+   grid with that node list or beside its neighbours, including an unjoinable
+   tube, is declared `method = "auto"` with a comment. Set the factors on the governing patches;
    use `governing_parallel = true` and `governing_normal = true` to select
    separate leads for the two directions. One family may carry both keys.
    For example, a parallel lead with `parallel_factor = 2` and a normal lead
    with `normal_factor = 4` give their grid-auto followers those two factors
    within the same layout. The earlier `governing = true` means both, warned.
-   declare a follower to give it factors of its own. `--visual-inspect` also writes
+   Declare a follower to give it factors of its own. `--visual-inspect` also writes
    `W1_patches.inspect.pdf`: one page per original family, its patches colored
-   and named, the governing ones labelled GOVERNING. The node list holds the rearmost line of each grid patch, the
+   and named, the leads labelled GOVERNING PARALLEL and GOVERNING NORMAL.
+   The node list holds the rearmost line of each grid patch, the
    edges within `--max-angle` (default 45 degrees) of the plane across the
    aft direction, as an ANSA SET node list. `--aft X Y Z` states the nose to
    tail direction (default +x, so the plane is the yz plane). Any OBJ and refine file refine without this step.

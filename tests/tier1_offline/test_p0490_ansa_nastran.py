@@ -282,7 +282,9 @@ def test_fr3298_prepare_marks_one_governing_patch_per_touching_group(tmp_path):
     assert pdf.startswith(b"%PDF") and pdf.count(b"/Type /Page\n") + pdf.count(b"/Type /Page ") >= 2
     assert len(prepared.governing) == 1
     table = tomllib.loads(prepared.config.read_text(encoding="utf-8"))["families"]
-    governing = [n for n, t in table.items() if t.get("governing")]
+    governing = [
+        n for n, t in table.items() if t.get("governing_parallel") and t.get("governing_normal")
+    ]
     grids = [p for ps in prepared.patches.values() for p in ps if p.endswith("_grid")]
     assert len(grids) == 2 and len(governing) == 1
     assert [g for g in grids if g not in table] == [g for g in grids if g not in governing]
@@ -373,10 +375,12 @@ def test_p0490_prepare_declares_isolated_grid_beside_three_touching_grids(tmp_pa
     prepared = prepare_to_refine(source)
     tables = tomllib.loads(prepared.config.read_text(encoding="utf-8"))["families"]
     a, b, c, d = (prepared.patches[n][0] for n in "ABCD")
-    assert tables[c]["governing"] is True
-    assert a not in tables and b not in tables
+    assert tables[a]["governing_parallel"] is True
+    assert tables[c]["governing_normal"] is True
+    assert b not in tables
     assert d in tables, "the isolated grid must retain its own factor table"
     assert tables[d] == {"method": "grid", "factor": 1.0}
+    assert refine_mesh(prepared.obj).obj.is_file()
 
 
 @pytest.mark.parametrize("declared", [False, True])
@@ -465,15 +469,16 @@ def test_patch_pdf_legend_stays_inside_its_column(tmp_path, monkeypatch, count):
         assert (width - RIGHT) / width <= bounds.x0 < bounds.x1 <= 1 - 0.1 / width
         assert BOTTOM / height <= bounds.y0 < bounds.y1 <= 1 - TOP / height
         labels = [t.get_text() for t in legend.get_texts()]
-        assert labels == [f"{names[0]}  (governing)", *names[1:]]
+        assert labels == [f"{names[0]}  (GOVERNING PARALLEL, GOVERNING NORMAL)", *names[1:]]
         for ax in fig.axes[:4]:
             assert sum("GOVERNING" in t.get_text() for t in ax.texts) == 1
+            assert any("GOVERNING PARALLEL\nGOVERNING NORMAL" in t.get_text() for t in ax.texts)
         pages.append(fig)
         return save(pdf, fig, **kwargs)
 
     monkeypatch.setattr(PdfPages, "savefig", checked_save)
     target = patches_pdf(
-        source, {"MainSurface": names}, {names[0]}, tmp_path / "patches.pdf", dpi=40
+        source, {"MainSurface": names}, {names[0]: (True, True)}, tmp_path / "patches.pdf", dpi=40
     )
     assert target.read_bytes().startswith(b"%PDF")
     assert len(pages) == 1
@@ -585,10 +590,10 @@ def test_p0490_topology_prepare_declares_corner_only_patch(tmp_path):
         prepared = prepare_to_refine(source)
     text = prepared.config.read_text(encoding="utf-8")
     tables = tomllib.loads(text)["families"]
-    assert "A_001_grid" not in tables
-    assert tables["B_001_grid"]["governing"] is True
+    assert tables["A_001_grid"]["governing_parallel"] is True
+    assert tables["B_001_grid"]["governing_normal"] is True
     assert tables["C_001_grid"] == {"method": "grid", "factor": 1.0}
-    assert "# not a follower of B_001_grid: unlinked\n[families.C_001_grid]" in text
+    assert "# not a follower of A_001_grid, B_001_grid: unlinked\n[families.C_001_grid]" in text
 
 
 @pytest.mark.requirement("FR-3298")
@@ -669,3 +674,64 @@ def test_p0490_planner_legacy_governing_warns_and_means_both(tmp_path):
         request = resolve_request(source, ["A", "B"])
     assert getattr(request.specs["A"], "leads", ()) == (True, True)
     assert request.specs["B"].method == "grid_auto"
+
+
+def test_p0490_prepare_short_rearmost_line_refines_its_own_toml(tmp_path):
+    """P0490-PLANNER R1: the written reference cannot certify this sheet as a grid."""
+    widths = [2, 4, 6, 8, 10, 10, 10, 8, 6, 4, 2]
+    points = np.array([(i * widths[j] / 2, j, 0) for j in range(11) for i in range(3)])
+    faces = [
+        [j * 3 + i, j * 3 + i + 1, (j + 1) * 3 + i + 1, (j + 1) * 3 + i]
+        for j in range(10)
+        for i in range(2)
+    ]
+    source = write_source(
+        tmp_path / "src", "short_reference", Composite(points, {"A": faces}, np.zeros((0, 3)), {})
+    )
+    prepared = prepare_to_refine(source)
+    assert prepared.patches["A"] == ["A_001_grid"]
+    error = None
+    try:
+        level = refine_mesh(prepared.obj)
+    except InputArtifactError as caught:
+        error = str(caught)
+    assert error is None, f"prepare's own TOML must refine without refusal: {error}"
+    assert level.obj.is_file()
+
+
+def test_p0490_prepare_tube_touching_sheet_refines_its_own_toml(tmp_path):
+    """P0490-PLANNER R3: a tube excluded from the sheet's layout is declared auto."""
+    from tests.p0380_mesh_fixtures import body_of_revolution
+
+    body = body_of_revolution()
+    points = body.verts.copy()
+    points[:, :2] = points[:, :2] @ np.array(
+        [[np.cos(0.2), -np.sin(0.2)], [np.sin(0.2), np.cos(0.2)]]
+    )
+    corner = int(np.argmin(points[:, 0]))
+    origin, sheet = points[corner].copy(), [corner]
+    for j in range(3):
+        for i in range(3):
+            if i or j:
+                sheet.append(len(points))
+                points = np.vstack([points, origin + [-i, j, 0]])
+    faces = [
+        [sheet[j * 3 + i], sheet[j * 3 + i + 1], sheet[(j + 1) * 3 + i + 1], sheet[(j + 1) * 3 + i]]
+        for j in range(2)
+        for i in range(2)
+    ]
+    source = write_source(
+        tmp_path / "src",
+        "tube_sheet",
+        Composite(points, {"A": faces, "B": body.faces}, np.zeros((0, 3)), {}),
+    )
+    prepared = prepare_to_refine(source, max_angle=0)
+    error = None
+    try:
+        level = refine_mesh(prepared.obj)
+    except InputArtifactError as caught:
+        error = str(caught)
+    assert error is None, f"prepare must not demand an unjoinable tube grid: {error}"
+    tables = tomllib.loads(prepared.config.read_text(encoding="utf-8"))["families"]
+    assert tables["B_001_grid"]["method"] == "auto"
+    assert level.obj.is_file()

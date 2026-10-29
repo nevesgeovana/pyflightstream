@@ -9,6 +9,12 @@ FlightStream versions.
 
 ### Fixed
 
+- Prepare-to-refine derives grid methods, directional governors and omitted
+  followers from the refinement planner using its written node list. A short
+  rearmost line and a tube touching a sheet no longer produce a demanded grid
+  that refinement refuses. Each direction's lead has the greatest total side
+  length in that direction, with source-order ties; the inspection PDF labels
+  GOVERNING PARALLEL and GOVERNING NORMAL separately (FR-3298).
 - Grid-auto refinement takes governing factors only from its own grid-connected
   layout. A mixed patch no longer transfers factors between separate grid groups;
   governing selection and curve counts use the same perimeter and source-order
@@ -42,13 +48,13 @@ FlightStream versions.
   factors and its parallel and normal directions propagated through shared
   curves. Conflicting or unlinked directions warn and fall back to the family's
   own reference, recorded in `refine.json`. With a governing family in the file
-  every undeclared family is `grid_auto`. `prepare-to-refine` marks the grid patch of the largest
-  perimeter in each group of touching grid patches governing and leaves the
+  every undeclared family is `grid_auto`. `prepare-to-refine` marks each grid-connected
+  group's directional leads from the planner and leaves the
   fully linked, conflict-free followers undeclared. Other grid patches retain
   their own factor-1 table with a comment naming the reason.
   `prepare-to-refine --visual-inspect` (`visual_inspect=True`)
   also writes `<stem>_patches.inspect.pdf`: one page per original family, its
-  patches colored and named, the governing patches labelled GOVERNING.
+  patches colored and named, with GOVERNING PARALLEL and GOVERNING NORMAL labels.
 - `geometry prepare-to-refine` reads an ANSA NASTRAN export (`.nas`, `.bdf`,
   `.dat`). With the FE perimeters written, each family is cut along them, so
   each patch is one meshing macro; without them the export is warned and cut

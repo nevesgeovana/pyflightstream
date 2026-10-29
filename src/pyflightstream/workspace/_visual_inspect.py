@@ -350,6 +350,7 @@ class Scene:
         self.edges = edges
         self.box = box
         self.highlight: set[str] = set()  # names whose label is drawn bold in a red frame
+        self.highlight_labels: dict[str, str] = {}
         self.perimeter, self.perimeter_faces = self._perimeters()
 
     def _perimeters(self) -> tuple[np.ndarray, list[list[int]]]:
@@ -450,7 +451,7 @@ def draw_view(
                 ax.text(
                     at[0],
                     at[1],
-                    f"{name}\nGOVERNING" if lead else name,
+                    f"{name}\n{scene.highlight_labels.get(name, 'GOVERNING')}" if lead else name,
                     fontsize=6 if lead else 5,
                     fontweight="bold" if lead else "normal",
                     ha="center",
@@ -935,7 +936,7 @@ def render(
 def patches_pdf(
     mesh: str | Path,
     groups: dict[str, list[str]],
-    governing: set[str],
+    governing: dict[str, tuple[bool, bool]] | set[str],
     out: Path,
     *,
     mesh_unit: str | None = None,
@@ -944,8 +945,10 @@ def patches_pdf(
     """Write one page per original family of a prepared mesh: its patches colored and named.
 
     ``groups`` maps each original family to its patches (the families of the
-    patches OBJ ``mesh``); a patch in ``governing`` is labelled GOVERNING in a red
-    frame and listed so beside the views. The pages are the four views of the
+    patches OBJ ``mesh``); ``governing`` maps a patch to its normal and parallel
+    flags. Each lead is labelled GOVERNING NORMAL or GOVERNING PARALLEL in a red
+    frame and listed so beside the views. A set of names means both directions.
+    The pages are the four views of the
     technical drawing; a family whose patches hold no face is skipped.
     """
     import matplotlib
@@ -956,6 +959,15 @@ def patches_pdf(
     from matplotlib.patches import Patch
 
     drawn = read_obj(Path(mesh))
+    flags = governing if isinstance(governing, dict) else dict.fromkeys(governing, (True, True))
+    labels = {
+        n: "\n".join(
+            f"GOVERNING {direction}"
+            for direction, leads in (("PARALLEL", pair[1]), ("NORMAL", pair[0]))
+            if leads
+        )
+        for n, pair in flags.items()
+    }
     views = standard_views((1.0, -1.0, 1.0))
     with PdfPages(out) as pdf:
         for family, patches in groups.items():
@@ -965,6 +977,7 @@ def patches_pdf(
             colors, _ = patch_colors(names, "tab20" if len(names) <= 20 else "turbo")
             scene = Scene(drawn, names, colors, None, edges=True, perimeter_width=1.2)
             scene.highlight = {n for n in names if n in governing}
+            scene.highlight_labels = labels
             fig = plt.figure(figsize=PAGE)
             views_page(fig, scene, views, [], [], labels=True, unit=mesh_unit)
             pw, ph = fig.get_size_inches()
@@ -973,7 +986,9 @@ def patches_pdf(
                     facecolor=colors[n],
                     edgecolor="#d62728" if n in scene.highlight else "0.2",
                     linewidth=1.5 if n in scene.highlight else 0.5,
-                    label=f"{n}  (governing)" if n in scene.highlight else n,
+                    label=f"{n}  ({labels[n].replace(chr(10), ', ')})"
+                    if n in scene.highlight
+                    else n,
                 )
                 for n in names
             ]
