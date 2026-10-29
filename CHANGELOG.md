@@ -7,6 +7,18 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- Bound every runtime dependency and user-facing extra, preserving existing
+  floors and adding the authorized PyYAML floor of 6.0.1 (FR-3333, FR-3336).
+  CI resolves every floor from package metadata and exercises newest allowed
+  releases in a new ceilings job (FR-3334, FR-3335).
+
+- Bound Python support to `>=3.12,<3.13`, matching the minor exercised by CI
+  (FR-3330). See the 0.50.0 upgrade guidance.
+- Run the complete offline tier in parallel in the lean CI job, with no
+  user-facing extras installed (FR-3331, FR-3332).
+
 ## [0.49.0] - 2026-10-29
 
 ### Fixed

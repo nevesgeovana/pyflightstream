@@ -66,7 +66,7 @@ Generated from the SRS registry. [Machine-readable tree](requirements.json).
 
 ## QFLX
 
-<ul><li id="FR-3148"><details><summary>QFLX-1 / FR-3148 (implemented)</summary><ul><li id="FR-457">QFLX-1.3 / FR-457 (implemented)</li><li id="NFR-05">QFLX-1.1 / NFR-05 (implemented)</li><li id="NFR-32">QFLX-1.2 / NFR-32 (implemented)</li></ul></details></li></ul>
+<ul><li id="FR-3148"><details><summary>QFLX-1 / FR-3148 (implemented)</summary><ul><li id="FR-457">QFLX-1.3 / FR-457 (implemented)</li><li id="FR-3332">QFLX-1.4 / FR-3332 (implemented)</li><li id="FR-3336">QFLX-1.5 / FR-3336 (implemented)</li><li id="NFR-05">QFLX-1.1 / NFR-05 (implemented)</li><li id="NFR-32">QFLX-1.2 / NFR-32 (implemented)</li></ul></details></li></ul>
 
 ## EXEC
 

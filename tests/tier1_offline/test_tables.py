@@ -101,7 +101,7 @@ def test_p0440_tables_work_when_pandas_is_absent(monkeypatch, tmp_path):
         (Path(__file__).resolve().parents[2] / "pyproject.toml").read_text(encoding="utf-8")
     )["project"]
     assert not any(dependency.startswith("pandas") for dependency in project["dependencies"])
-    assert project["optional-dependencies"]["pandas"] == ["pandas>=2.3"]
+    assert project["optional-dependencies"]["pandas"] == ["pandas>=2.3,<3"]
     monkeypatch.setitem(sys.modules, "pandas", None)
     report = parse_loads(read_fixture("loads_steady_26.120.txt"))
     table = to_table(report)
