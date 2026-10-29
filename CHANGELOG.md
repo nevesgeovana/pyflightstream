@@ -14,8 +14,8 @@ FlightStream versions.
   CI resolves every floor from package metadata and exercises newest allowed
   releases in a new ceilings job (FR-3334, FR-3335).
 
-- Bound Python support to `>=3.12,<3.13`, matching the minor exercised by CI
-  (FR-3330). See the 0.50.0 upgrade guidance.
+- Support Python 3.12 or newer (`>=3.12`) without an upper bound, tested on
+  Python 3.12 (FR-3330). See the 0.50.0 upgrade guidance.
 - Run the complete offline tier in parallel in the lean CI job, with no
   user-facing extras installed (FR-3331, FR-3332).
 

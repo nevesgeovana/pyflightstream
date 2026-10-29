@@ -78,28 +78,16 @@ def test_p0500_endpoint_resolver_reads_every_declared_range(endpoint, monkeypatc
     assert any(s.get("run") == "pytest -n auto tests/tier1_offline" for s in job["steps"])
     if endpoint == "ceilings":
         setup = next(s for s in job["steps"] if "setup-python@" in s.get("uses", ""))
-        assert setup["with"] == {"python-version-file": "pyproject.toml"}
+        assert setup["with"] == {"python-version": "3.12"}
 
 
 @pytest.mark.requirement("FR-3330")
-def test_p0500_python_ceiling_follows_the_newest_ci_minor():
+def test_p0500_python_keeps_its_floor_without_an_upper_bound():
     spec = SpecifierSet(_pyproject()["project"]["requires-python"])
-    bounds = [Version(s.version) for s in spec if s.operator == "<"]
-    assert len(bounds) == 1, "requires-python must declare one exclusive ceiling"
-    ceiling = bounds[0]
-    versions = []
-    for job in _workflow_jobs().values():
-        versions.extend(job.get("strategy", {}).get("matrix", {}).get("python-version", []))
-        for step in job["steps"]:
-            version = step.get("with", {}).get("python-version", "")
-            if version and not version.startswith("${{"):
-                versions.append(version)
-            if step.get("with", {}).get("python-version-file") == "pyproject.toml":
-                # This leg selects the newest minor allowed by the same metadata.
-                versions.append(f"{ceiling.major}.{ceiling.minor - 1}")
-    newest = max(map(Version, versions))
-    assert all(Version(version) in spec for version in versions)
-    assert ceiling == Version(f"{newest.major}.{newest.minor + 1}")
+    assert not any(s.operator in {"<", "<=", "~=", "==", "==="} for s in spec), (
+        "requires-python must not declare an upper bound"
+    )
+    assert spec == SpecifierSet(">=3.12"), "Preserve the Python 3.12 floor"
 
 
 @pytest.mark.requirement("FR-3331")

@@ -9,9 +9,8 @@ describe the older releases that supplied them.
 
 ## 0.50.0
 
-The supported Python range is now `>=3.12,<3.13`. Install in a Python 3.12
-environment; Python 3.13 and later are outside the measured CI range.
-The Python floor remains 3.12.
+Use Python 3.12 or newer (`>=3.12`), with no Python upper bound.
+The Python floor remains 3.12; CI tests Python 3.12.
 
 Runtime dependencies and the `pandas`, `fsi` and `excel` extras now have
 explicit upper bounds: NumPy and Pydantic `<3`, PyYAML `<7`, matplotlib `<4`,

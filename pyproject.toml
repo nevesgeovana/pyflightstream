@@ -23,7 +23,7 @@ authors = [{name = "Geovana Neves"}]
 # date above, and moving one is a commit that moves the date with it; no test
 # re-derives them from the release dates. tests/tier1_offline/test_support_window.py
 # holds the CI matrices, the ruff target and the classifiers below to this line.
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.12"
 # PyPA well-known metadata (audit 2026-07-23). The SPDX license
 # expression form is deferred with the VCS-versioning item: it needs a
 # setuptools floor bump, and the build toolchain does not move in a

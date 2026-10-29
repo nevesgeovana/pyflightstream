@@ -2,8 +2,8 @@
 
 ## Supported Python
 
-Use Python `>=3.12,<3.13`. CI runs Python 3.12 on Linux and Windows;
-the upper bound excludes the next minor until CI measures it.
+Use Python 3.12 or newer (`>=3.12`), with no Python upper bound.
+CI tests Python 3.12 on Linux and Windows.
 The `test-lean` CI job runs tier 1 with `pytest -n auto` using the base
 package and development tools, without user-facing extras.
 
