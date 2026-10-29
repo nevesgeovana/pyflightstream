@@ -1033,8 +1033,10 @@ _STDLIB_WARNINGS = {
     "Warning",
 }
 # Raises no user input reaches: the command-database schema validators, the maintainer
-# QA specs and the maintainer tools (the inventory classifies them as internal invariants).
-_INTERNAL_RAISE_PREFIXES = ("commands/", "qa/", "_maturity.py", "_signature.py")
+# QA specs and the maintainer tools (the inventory classifies them as internal invariants),
+# and the _textio floor, whose mode argument only the package passes and which imports
+# nothing of the package (FR-1155, REL2-011).
+_INTERNAL_RAISE_PREFIXES = ("commands/", "qa/", "_maturity.py", "_signature.py", "_textio.py")
 _E1_E2_PREFIXES = ("cases/", "workspace/", "run/", "script/")
 
 
