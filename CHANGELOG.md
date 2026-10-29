@@ -33,6 +33,9 @@ FlightStream versions.
 
 ### Added
 
+- Refinement JSON records each family's parallel and normal arc counts and
+  provenance histogram, plus each layout's band leads and their directions.
+  Conflicting local orientations remain visible in these records (FR-3298).
 - Families can govern parallel and normal bands independently with
   `governing_parallel = true` and `governing_normal = true`. Grid-auto followers
   take each factor from their layout's governing family in that direction.

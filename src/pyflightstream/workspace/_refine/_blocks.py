@@ -952,6 +952,8 @@ class Layout:
         Per family, the patch sides its factor cannot coarsen (FR-915).
     directions : mapping of int to mapping of int to ArcDirection
         Per patch and arc, the orientation and its source, including conflicting patch references.
+    band_leads : mapping of int to (str, str)
+        Per band, the family whose count was selected and its local direction.
     """
 
     names: tuple[str, ...]
@@ -961,6 +963,7 @@ class Layout:
     counts: tuple[int, ...]
     kept: Mapping[str, list[dict[str, object]]]
     directions: Mapping[int, Mapping[int, ArcDirection]] = field(default_factory=dict)
+    band_leads: dict[int, tuple[str, str]] = field(default_factory=dict)
 
     def patches_of(self, name: str) -> list[int]:
         """Return the patches of one family, in layout order."""
@@ -1339,10 +1342,11 @@ def _band_counts(
     chosen: dict[int, int] = {}
     followed: dict[tuple[str, str], int] = {}
     for key, candidates in members.items():
-        lead, value, _ = min(
+        lead, value, direction = min(
             candidates, key=lambda row: _lead_rank(row[0], names, specs, perimeter, row[2])
         )
         chosen[key] = value
+        layout.band_leads[key] = (lead, direction)
         for n in {n for n, c, _ in candidates if c != value}:
             followed[(n, lead)] = followed.get((n, lead), 0) + 1
     for (n, lead), bands in sorted(followed.items()):

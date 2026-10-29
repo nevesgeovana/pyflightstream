@@ -512,6 +512,23 @@ or null), `specs` (the factors of each family), `tag_selection` (the selected
 families, for a tag shortened to the summary and the hash),
 `components`, `ignored_families_tables` (the families whose file table was not
 read for its factors) and `faces` (the face count of each family of the output).
+Each grid family also has `directions`, with integer `parallel` and `normal`
+counts, and `provenance`, a histogram of the retained layout arc records.
+An identical arc orientation shared by two patches of the same family counts
+once; conflicting local orientations remain separate records. Standalone native
+grids outside a planned layout have zero counts and an empty histogram. Copied
+and remeshed families have no grid direction fields. These are counts of retained
+arc records, not mesh intervals.
+The provenance keys are `listed_te`, `longest_side`, `sheet_index`,
+`propagated_from:<family>`, `own_orientation_conflict` and
+`own_orientation_unlinked`.
+
+The top-level `layouts` list records each layout once, with its `families` in
+source order and its `bands`. Each band has a layout-local integer `id`, its
+`arcs` (layout-local arc indices), the selected `lead` family and that lead's
+local `direction` (`parallel` or `normal`). These are the planner's decisions
+used for counting, retained even when all offered counts agree.
+
 Its `families` entry holds, per family:
 
 - a grid: `method` (`"grid"`), `reason` (the layout recovered), `layout`,
@@ -536,7 +553,7 @@ Its `families` entry holds, per family:
   (parallel within 45 degrees of it, measured as the length-weighted mean of
   the absolute cosine against the nearest perimeter segment), each patch told
   by the pair of opposite sides that runs more along it (shared sides that
-  disagree give the family the parallel factor everywhere, warned), and across a patch side the level is continuous, not smooth;
+  disagree keep each patch's own orientation, warned per patch), and across a patch side the level is continuous, not smooth;
 - a grid resampled with the grids it shares nodes with (one layout) reports
   `grouped_with` (those families), its own `layout` (`"sheet"` or
   `"multiblock"`), and the `patches`, `blocks`, `arcs`, `kept_sides` and

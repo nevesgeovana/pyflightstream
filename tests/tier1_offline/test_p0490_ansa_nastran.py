@@ -380,7 +380,10 @@ def test_p0490_prepare_declares_isolated_grid_beside_three_touching_grids(tmp_pa
     assert b not in tables
     assert d in tables, "the isolated grid must retain its own factor table"
     assert tables[d] == {"method": "grid", "factor": 1.0}
-    assert refine_mesh(prepared.obj).obj.is_file()
+    level = refine_mesh(prepared.obj)
+    record = next(p for p in level.files if p.name.endswith(".refine.json"))
+    report = json.loads(record.read_text(encoding="utf-8"))["families"]
+    assert report[b]["provenance"] == {f"propagated_from:{a}": 2, f"propagated_from:{c}": 2}
 
 
 @pytest.mark.parametrize("declared", [False, True])
@@ -572,6 +575,7 @@ def test_p0490_topology_fallback_warns_and_records_own_reference(tmp_path, reaso
     record = next(p for p in level.files if p.name.endswith(".refine.json"))
     report = json.loads(record.read_text(encoding="utf-8"))["families"]
     assert report[name]["grid_auto"]["directions"] == f"own reference: {reason}"
+    assert set(report[name].get("provenance", {})) == {f"own_orientation_{reason}"}
     assert level.report[name]["method"] == "grid"
     config = source.with_suffix(".refine.toml")
     config.write_text(
@@ -735,3 +739,34 @@ def test_p0490_prepare_tube_touching_sheet_refines_its_own_toml(tmp_path):
     tables = tomllib.loads(prepared.config.read_text(encoding="utf-8"))["families"]
     assert tables["B_001_grid"]["method"] == "auto"
     assert level.obj.is_file()
+    record = next(p for p in level.files if p.name.endswith(".refine.json"))
+    report = json.loads(record.read_text(encoding="utf-8"))["families"]
+    assert report["A_001_grid"]["directions"] == {"parallel": 0, "normal": 0}
+    assert report["A_001_grid"]["provenance"] == {}
+
+
+@pytest.mark.parametrize("corner", [False, True])
+def test_p0490_planner_json_records_directions_provenance_and_band_leads(tmp_path, corner):
+    """P0490-PLANNER: JSON retains arc direction counts, their origins and each band's lead."""
+    source = _topology_source(tmp_path, corner=corner)
+    level = refine_mesh(source)
+    record = next(p for p in level.files if p.name.endswith(".refine.json"))
+    report = json.loads(record.read_text(encoding="utf-8"))
+    families = report["families"]
+    for name in ("A", "B"):
+        assert families[name].get("directions") == {"parallel": 2, "normal": 2}
+    assert families["A"].get("provenance") == {"longest_side": 4}
+    assert families["B"].get("provenance") == {"propagated_from:A": 4}
+    if corner:
+        assert families["C"].get("directions") == {"parallel": 2, "normal": 2}
+        assert families["C"].get("provenance") == {"own_orientation_unlinked": 4}
+    layouts = report.get("layouts", [])
+    assert len(layouts) == 1
+    assert layouts[0]["families"] == ["A", "B", *(["C"] if corner else [])]
+    bands = layouts[0]["bands"]
+    assert any(
+        b["lead"] == "A" and b["direction"] == "parallel" and len(b["arcs"]) == 3 for b in bands
+    )
+    assert all(b["lead"] in layouts[0]["families"] and b["arcs"] for b in bands)
+    arcs = [a for band in bands for a in band["arcs"]]
+    assert len(arcs) == len(set(arcs)), "each layout arc belongs to exactly one reported band"

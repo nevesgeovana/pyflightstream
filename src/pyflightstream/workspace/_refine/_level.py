@@ -894,6 +894,44 @@ def _base_component_names(
     return text
 
 
+def _direction_record(layout: _blocks.Layout | None, name: str) -> dict[str, Any]:
+    """Count distinct retained arc orientations; conflicting local records remain distinct."""
+    records = (
+        {(a, d) for p in layout.patches_of(name) for a, d in layout.directions[p].items()}
+        if layout is not None
+        else set()
+    )
+    provenance: dict[str, int] = {}
+    for _, direction in records:
+        key = direction.provenance
+        provenance[key] = provenance.get(key, 0) + 1
+    return {
+        "directions": {
+            d: sum(told.direction == d for _, told in records) for d in ("parallel", "normal")
+        },
+        "provenance": dict(sorted(provenance.items())),
+    }
+
+
+def _layout_record(layout: _blocks.Layout) -> dict[str, Any]:
+    """Record each count band's arcs and the lead selected by the planner."""
+    bands: dict[int, list[int]] = {}
+    for arc, band in _blocks.arc_bands(layout.blocks, range(len(layout.blocks.arcs))).items():
+        bands.setdefault(band, []).append(arc)
+    return {
+        "families": list(layout.names),
+        "bands": [
+            {
+                "id": band,
+                "arcs": arcs,
+                "lead": layout.band_leads[band][0],
+                "direction": layout.band_leads[band][1],
+            }
+            for band, arcs in sorted(bands.items())
+        ],
+    }
+
+
 def _record(work: _Work, stem: str, counts: Mapping[str, int], has_te: bool) -> dict[str, Any]:
     # FR-972: every selected family and its factor, a factor-1 family kept unchanged
     # included; the method each got is in "families".
@@ -919,10 +957,17 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int], has_te: bool) -> 
         "missing_families_tables": list(work.request.missing),
         "unchanged_grids": list(work.unchanged),
         "families": {
-            n: _with_perimeter(work, n, work.report.get(n, {"method": "copied"}))
+            n: {
+                **_with_perimeter(work, n, work.report.get(n, {"method": "copied"})),
+                **(_direction_record(work.layouts.get(n), n) if n in work.grids else {}),
+            }
             for n in work.names
             if n not in work.bands
         },
+        "layouts": [
+            _layout_record(layout)
+            for layout in {lay.names: lay for lay in work.layouts.values()}.values()
+        ],
         "faces": dict(counts),
         **shortened,
     }
