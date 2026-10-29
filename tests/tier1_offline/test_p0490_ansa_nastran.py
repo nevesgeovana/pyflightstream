@@ -931,6 +931,24 @@ def test_p0490_planner_legacy_governing_warns_and_means_both(tmp_path):
     assert "B" not in request.specs
 
 
+@pytest.mark.requirement("FR-3298")
+@pytest.mark.parametrize("key", ["governing_parallel", "governing_normal"])
+@pytest.mark.parametrize("value", ['"true"', "1", "[]"])
+def test_p0490_relr1_governing_flags_require_booleans(tmp_path, key, value):
+    """P0490-RELR1-002: malformed governing values need explicit permissive parsing."""
+    from pyflightstream.workspace._refine._config import resolve_request
+
+    source = tmp_path / "plates.obj"
+    source.with_suffix(".refine.toml").write_text(
+        f"[families.A]\nfactor = 2\n{key} = {value}\n", encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match=f"{key}.*not true or false"):
+        resolve_request(source, ["A"])
+    with pytest.warns(PyflightstreamWarning, match=f"{key}.*not true or false"):
+        request = resolve_request(source, ["A"], accept_unknown=True)
+    assert request.specs["A"].leads == (False, False)
+
+
 def test_p0490_prepare_short_rearmost_line_refines_its_own_toml(tmp_path):
     """P0490-PLANNER R1: the written reference cannot certify this sheet as a grid."""
     widths = [2, 4, 6, 8, 10, 10, 10, 8, 6, 4, 2]

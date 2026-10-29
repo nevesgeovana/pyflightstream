@@ -341,9 +341,7 @@ def _governing_flags(where, table, accept):
     for key in ("governing", "governing_parallel", "governing_normal"):
         value = table.pop(key, False)
         if not isinstance(value, bool):
-            _unknown(
-                f"{where} {key}", f"{value!r} is not true or false", accept or key != "governing"
-            )
+            _unknown(f"{where} {key}", f"{value!r} is not true or false", accept)
             value = False
         values.append(value)
     if values[0]:
