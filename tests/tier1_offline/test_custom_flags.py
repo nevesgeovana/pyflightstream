@@ -325,10 +325,15 @@ def test_the_flags_word_is_a_key_the_row_may_state():
 
 def test_a_word_no_flag_declares_is_still_refused():
     """The control for the case above."""
+    from pyflightstream._errors import UnknownKeyWarning
     from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.options import option_context
 
-    with pytest.raises(CampaignConfigError, match="FOO_BAR"):
+    with pytest.warns(UnknownKeyWarning, match="FOO_BAR"):
         rendered(case(flags=[flag()], variables={"FOO_BAR": "1"}))
+    with option_context("warning_refusals", True):
+        with pytest.raises(CampaignConfigError, match="FOO_BAR"):
+            rendered(case(flags=[flag()], variables={"FOO_BAR": "1"}))
 
 
 def test_p0430_x_f0503_two_cells_naming_one_flag_with_different_values_are_refused():

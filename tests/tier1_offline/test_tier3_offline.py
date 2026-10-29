@@ -23,6 +23,7 @@ import pytest
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases.matrix import _COLUMNS, MatrixError
 from pyflightstream.cases.workflows import workflow_registry
+from pyflightstream.options import option_context
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.workspace import CampaignWorkspace
 from tests import support_tier3 as offline
@@ -308,13 +309,16 @@ def test_the_workspace_refuses_a_row_it_cannot_plan_naming_the_cause(tmp_path, c
     row, fragments = REFUSALS[case]
     root = _tier3_copy(tmp_path)
     matrix = _one_row_matrix(root, "refused.fs", row)
-    try:
-        plan = _plan(root, matrix)
-    except PyflightstreamError as error:
-        message = str(error)
-    else:
-        assert plan.blocked, f"{case}: planned READY"
-        message = " ".join(str(point.error) for point in plan.blocked)
+    # The demotable families refuse only under warning_refusals; every other
+    # entry here refuses in both modes.
+    with option_context("warning_refusals", True):
+        try:
+            plan = _plan(root, matrix)
+        except PyflightstreamError as error:
+            message = str(error)
+        else:
+            assert plan.blocked, f"{case}: planned READY"
+            message = " ".join(str(point.error) for point in plan.blocked)
     for fragment in fragments:
         assert fragment in message, f"{case}: {message}"
 

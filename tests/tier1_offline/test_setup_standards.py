@@ -502,7 +502,7 @@ def test_p0500_matrix_cli_refusal_policy_reaches_the_row_reader(monkeypatch, tmp
 
 @pytest.mark.parametrize(
     "workflow,key",
-    [("steady", "EXPORT_UNSTEADY_AFTER_ITER"), ("unsteady", "EXPORT_UNSTEADY_LAST_REV")],
+    [("steady", "EXPORT_UNSTEADY_AFTER_ITER"), ("qsteady_rotor", "EXPORT_UNSTEADY_LAST_REV")],
 )
 def test_p0500_inapplicable_export_threshold_does_not_build_an_unused_clock(workflow, key):
     from pyflightstream.cases.workflows._clock import unsteady_export_threshold

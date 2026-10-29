@@ -4358,8 +4358,15 @@ class TestF2Package0607RowSetup:
         from pyflightstream.script import Script
 
         cases = TestF2Package0607RowSetup._resolve(tmp_path, ("9442", "no_such_setting: 1"))
-        with pytest.raises(CampaignConfigError, match="no_such_setting"):
+        from pyflightstream._errors import UnknownKeyWarning
+        from pyflightstream.options import option_context
+
+        with pytest.warns(UnknownKeyWarning, match="no_such_setting"):
             build_script(cases["9442"], Script(version="26.124"))
+        cases = TestF2Package0607RowSetup._resolve(tmp_path, ("9442", "no_such_setting: 1"))
+        with option_context("warning_refusals", True):
+            with pytest.raises(CampaignConfigError, match="no_such_setting"):
+                build_script(cases["9442"], Script(version="26.124"))
 
     @staticmethod
     @pytest.mark.requirement("FR-586")

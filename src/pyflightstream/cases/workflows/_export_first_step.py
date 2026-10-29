@@ -129,11 +129,13 @@ def refuse_threshold_on_a_steady_run(case: SimCase, key: str, workflow: str) -> 
     CampaignConfigError
         An inapplicable threshold under warning_refusals.
     """
-    if key in _REVOLUTION_KEYS and workflow != "unsteady_rotor":
+    if key == EXPORT_UNSTEADY_LAST_REV_VARIABLE and workflow not in _UNSTEADY_WORKFLOWS:
         error = CampaignConfigError(
             f"case {case.sim_id!r} states {key} and names the {workflow} run type, which "
-            "has no unsteady rotor clock. State "
-            f"'{_ITER_REMEDY[key]}: <steps>' on an unsteady run type instead, or drop the key."
+            "has no unsteady rotor clock: a revolution is counted on a rotor the run turns "
+            "in a time loop, and this run type has neither. State "
+            f"'{EXPORT_UNSTEADY_LAST_ITER_VARIABLE}: <steps>' on an unsteady run type "
+            "instead, or drop the key."
         )
     elif workflow in STEADY_RUN_TYPES:
         error = CampaignConfigError(

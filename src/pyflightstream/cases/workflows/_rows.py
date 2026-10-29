@@ -1723,19 +1723,20 @@ def _require_the_averaging_window(case: SimCase, name: str | None) -> None:
 
 
 def _refuse_rotor_shedding(case: SimCase) -> None:
-    """Skip the unsupported rotor-shedding row key, or restore its refusal."""
     stated = _variable(case, ROTOR_SHEDDING_VARIABLE)
     if stated is not None:
-        demote(
-            CampaignConfigError(
-                f"case {case.sim_id!r} states {ROTOR_SHEDDING_VARIABLE} as {stated!r}; "
-                "every matrix workflow lacks a reader for this key. "
-                "Remove ROTOR_SHEDDING from the row. "
-                "CCS_SHEDDING controls only the CCS file-import shedding digit."
-            ),
-            warning=NotApplicableWarning,
+        # Names the case (its sim_id IS the matrix POL) and the key, and says
+        # the fix, like every sibling refusal of a row.
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {ROTOR_SHEDDING_VARIABLE} as {stated!r}, and "
+            "every matrix workflow refuses it: no workflow command applies the "
+            "wake direction of a relaxed trailing edge, so the run would shed a wake the "
+            f"row did not ask for. Remove {ROTOR_SHEDDING_VARIABLE} from the row. "
+            "CCS_SHEDDING controls the shedding digit on the CCS file-import route; "
+            "it is not a general rotor wake-direction switch. From Python, "
+            "rotor_relaxed_trailing_edges sets the direction in the specifications of "
+            "the component definition."
         )
-        case.variables.pop(ROTOR_SHEDDING_VARIABLE, None)
 
 
 def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
@@ -1764,6 +1765,7 @@ def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
         and key.strip().casefold() not in declared
     )
     known = {key for other in WORKFLOWS.values() for key in other.keys}
+    found: list[tuple[str, bool, CampaignConfigError]] = []
     for key in stated:
         readers = [other.name for other in WORKFLOWS.values() if key in other.keys]
         error = CampaignConfigError(
@@ -1772,7 +1774,14 @@ def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
             + f"Remove it from this row; accepted keys are {', '.join(sorted(workflow.keys))}."
             + (suggest_name(key, known) if not readers else "")
         )
-        if readers:
+        found.append((key, bool(readers), error))
+    from pyflightstream.options import get_option
+
+    if found and get_option("warning_refusals"):
+        # One refusal names every key, as the refusal did before 0.50.0.
+        raise CampaignConfigError(" ".join(str(error) for _, _, error in found))
+    for key, read_elsewhere, error in found:
+        if read_elsewhere:
             demote(error, warning=NotApplicableWarning)
         else:
             demote(error, warning=UnknownKeyWarning)
