@@ -1,5 +1,12 @@
 # Mesh input reference
 
+Refinement files warn and skip the retired `[periodic]` and `[trailing_edge]`
+tables and the family keys `keep_first_row`, `trailing_edge_direction`, `axial`,
+`circumferential`, `axis` and `origin`, including empty or malformed values. Use
+`[[perimeter]]` for reference node lists and trailing-edge export. A row that
+must stay unchanged is a separate family with `method = "keep"`; continuity
+may still require changes along its shared curves.
+
 Refinement audits each written level by default. `refine --audit-off` (also
 available through `pyfs-matrix`) or `refine_mesh(..., audit=False)` skips that
 call and returns a level with `audit=None`. Its `refine.json` records

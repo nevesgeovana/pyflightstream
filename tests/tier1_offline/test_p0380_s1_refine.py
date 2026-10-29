@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import csv
 import dataclasses
 import hashlib
 import json
@@ -51,6 +52,82 @@ WITH_T = (("T", "tri", STRIP),)
 WITH_TU = (("T", "tri", STRIP), ("U", "tri", (0.1, 0.1)))
 #: The audit warning the strip T draws beside a refined G (its growth check fails).
 GROWTH_ON_T = "audit check growth failed on T"
+
+
+def test_p0500_retired_refine_requirements_reserve_their_uids():
+    """Retired sector and keep-row promises must not remain implemented requirements."""
+    root = PACKAGE.parents[1]
+    with (root / "tests/requirements_l3.csv").open(encoding="utf-8", newline="") as stream:
+        rows = {row["uid"]: row for row in csv.DictReader(stream)}
+    retired = (root / "docs/unpublished/requirements/retired.md").read_text(encoding="utf-8")
+    identities = json.loads((root / "docs/srs/reserved-ids.json").read_text())
+    with (root / "docs/srs/uid-migration.csv").open(encoding="utf-8", newline="") as stream:
+        migration = {row["uid"]: row for row in csv.DictReader(stream)}
+    retired_uids = {
+        427,
+        428,
+        430,
+        942,
+        943,
+        944,
+        945,
+        946,
+        950,
+        951,
+        952,
+        953,
+        954,
+        955,
+        956,
+        957,
+        958,
+        971,
+        1507,
+        1508,
+        1509,
+        1510,
+        1511,
+        1512,
+        1513,
+        1516,
+        3020,
+        3021,
+        3023,
+    }
+    for uid in (f"FR-{number}" for number in sorted(retired_uids)):
+        assert uid in identities["reserved_ids"], uid
+        assert migration[uid]["destination"] in {"retired", "merged"}, uid
+        assert uid not in rows or rows[uid]["status"] == "retired", uid
+        assert f"| {uid} |" in retired, uid
+    active = (root / "docs/unpublished/requirements/spcm.md").read_text(encoding="utf-8")
+    assert "| FR-3020 |" not in active
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["keep_first_row", "trailing_edge_direction", "axial", "circumferential", "axis", "origin"],
+)
+def test_p0500_retired_refine_family_keys_warn_and_skip(tmp_path, key):
+    """Even malformed retired values leave the resolved family specification unchanged."""
+    from pyflightstream.workspace._refine._config import read_refine_file
+
+    path = tmp_path / "retired.refine.toml"
+    base = "[families.G]\nfactor = 2\n"
+    path.write_text(base, encoding="utf-8")
+    expected = read_refine_file(path, ["G"])
+    path.write_text(base + f'{key} = "obsolete"\n', encoding="utf-8")
+    with pytest.warns(PyflightstreamWarning, match=key + " is no longer read"):
+        assert read_refine_file(path, ["G"]) == expected
+
+
+def test_p0500_short_factor_tags_keep_exact_record_factors(tmp_path):
+    """The retired keep-row suffix is absent while the record retains the exact factor."""
+    value = 1.000001
+    mesh = source(tmp_path, perimeter=False)
+    with pytest.warns(PyflightstreamWarning, match="keep_first_row is no longer read"):
+        level = refine_mesh(mesh, value, keep_first_row=["G"])
+    assert level.folder.name == "wing_R1"
+    assert _json(_record(level))["specs"]["G"]["factor"] == value
 
 
 def _source(tmp_path: Path, strips=(), *, te=True, boundaries=True, refine_toml=None) -> Path:
@@ -2558,3 +2635,19 @@ def test_refine_r2_qa4_a_sheet_oriented_by_its_longest_side_writes_no_trailing_e
     assert level.report["G"]["method"] == "grid"
     written = [p.name for p in level.folder.iterdir() if p.name.endswith(("te.txt", "nodes.txt"))]
     assert written == []
+
+
+@pytest.mark.parametrize("key", ["periodic", "trailing_edge"])
+@pytest.mark.parametrize("value", ["{}", "false", '"obsolete"'])
+def test_p0500_retired_refine_tables_warn_and_skip_even_empty_values(tmp_path, key, value):
+    """P0500-SRS: every stated retired table warns, even empty or malformed values."""
+    from pyflightstream.workspace._refine._config import read_refine_file
+
+    path = tmp_path / "retired.refine.toml"
+    base = "[families.G]\nfactor = 2\n"
+    path.write_text(base, encoding="utf-8")
+    expected = read_refine_file(path, ["G"])
+    path.write_text(f"{key} = {value}\n" + base, encoding="utf-8")
+    with pytest.warns(PyflightstreamWarning, match=key + ".*no longer read"):
+        actual = read_refine_file(path, ["G"])
+    assert actual == expected

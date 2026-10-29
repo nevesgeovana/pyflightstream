@@ -384,21 +384,26 @@ def test_p0420_l1_rows_follow_the_approved_feature_statements():
     # restored by the instantiation review (R-INST-32) because its behaviour exists;
     # FR-3021, FR-3023 to FR-3026 merged into the refinement features (R-INST-34).
     left = {3004, 3010, 3011, 3017, 3033, 3034, 3035, 3036, 3037, 3040, 3041, 3042, 3043, 3047}
-    left |= {3021, 3023, 3024, 3025, 3026}
+    left |= {3020, 3021, 3023, 3024, 3025, 3026}
     left |= {3056, 3081, 3082, 3090, 3093, 3098, 3100, 3101, 3103, 3104, 3105, 3106, 3107}
     left |= {3110, 3111, 3117, 3121, 3122, 3124, 3126, 3127, 3128, 3130, 3132, 3134, 3138}
     left |= {3140, 3147, 3149, 3151, 3156, 3159, 3162, 3163, 3166}
     # FR-3241 (derived equation products and trimmed polars) split from FR-3094 (R-INST-35).
     # FR-3242 (the numerical uncertainty of a declared refinement study) added at the 0.43.0
     # SRS closing for the method requirement NL-TRST-7 (NL-TRST-7-ROW).
-    expected = [f"FR-{n}" for n in range(3000, 3167) if n not in left] + ["FR-3241", "FR-3242"]
+    expected = [f"FR-{n}" for n in range(3000, 3167) if n not in left] + [
+        "FR-3241",
+        "FR-3242",
+        "FR-3310",
+    ]
     assert [r["uid"] for r in features] == expected
     # Trimmed L1 statements, numeric UID order, UTF-8 joined by LF (no trailing LF); nine
     # rewordings of the 0.43.0 instantiation review (R-INST-17, R-INST-18), the
     # restored FR-3152 (R-INST-32), the two widened refinement features (R-INST-34),
-    # FR-3241 (R-INST-35) and FR-3242 (NL-TRST-7-ROW).
+    # FR-3241 (R-INST-35), FR-3242 (NL-TRST-7-ROW), and the authorized PFS-2184.03
+    # retirement of FR-3020 in favor of retained connectivity FR-3310.
     assert hashlib.sha256("\n".join(r["statement"] for r in features).encode()).hexdigest() == (
-        "88599b001c771e68e3b6634f21e89f81a670f51f1bed35f1ad7bcf8f848b44ec"
+        "2b215cea0a8ec7216e457ff34b8856bba148ed6b86cd3399cd895b8170a0c18f"
     )
     for feature in features:
         members = [

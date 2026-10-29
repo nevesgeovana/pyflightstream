@@ -150,6 +150,12 @@ nothing.
 
 ### Choosing the factors
 
+When upgrading an old refine file, remove `[periodic]`, `[trailing_edge]`,
+`keep_first_row`, `trailing_edge_direction` and the body remesh keys `axial`,
+`circumferential`, `axis` and `origin`. They are warned and skipped. Use the
+`[[perimeter]]` example below for trailing edges, and put a row to keep into
+its own family with `method = "keep"`.
+
 A family named `nodes` is accepted. Its trailing-edge files use a stem such as
 `nodes_family` to keep them separate from the combined `<level>.nodes.te.txt`
 and `<level>.nodes.txt` outputs. Read the warning or `renamed_family_outputs`

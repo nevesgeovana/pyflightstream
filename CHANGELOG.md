@@ -18,9 +18,18 @@ FlightStream versions.
 
 ### Fixed
 
+- Empty or false-valued retired `trailing_edge` entries now warn when skipped,
+  as other stated retired entries do (FR-3284).
 - Refinement warns and renames colliding family output stems, including `nodes`,
   without overwriting combined trailing edges or another family's files. The
   rename is recorded in `refine.json`; OBJ family names stay unchanged (FR-3319).
+
+### Changed
+
+- Retired stale periodic-sector and keep-row requirement promises, preserving their
+  identifiers and split lineage; the retained connectivity, warning-and-skip and
+  factor-tag contracts have explicit coverage (FR-3310, FR-3311, FR-3312, FR-3313,
+  FR-3314, FR-3315, FR-3316, FR-3317, FR-3318).
 
 ## [0.49.0] - 2026-10-29
 

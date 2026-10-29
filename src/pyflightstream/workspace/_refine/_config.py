@@ -586,7 +586,7 @@ def read_refine_file(
     if not isinstance(component_mode, bool):
         _skip(f"{source} [refine] keep_within_component", "expected true or false; using false")
         component_mode = False
-    _trailing_edge(source, data.get("trailing_edge", {}))
+    _trailing_edge(source, "trailing_edge" in data)
     if "periodic" in data:
         _skip(f"{source} [periodic]", "is no longer read; a periodic sector is refined as any mesh")
     return {
@@ -602,9 +602,9 @@ def read_refine_file(
     }
 
 
-def _trailing_edge(source: Path, value: object) -> None:
+def _trailing_edge(source: Path, declared: bool) -> None:
     """Warn that ``[trailing_edge]`` is no longer read: the trailing edges are ``[[perimeter]]``."""
-    if value:
+    if declared:
         _skip(
             f"{source} [trailing_edge]",
             "is no longer read; list the trailing-edge nodes in a [[perimeter]] file with "
@@ -862,7 +862,7 @@ def _built_tag(request: RefineRequest, names: Sequence[str]) -> tuple[str, list[
 
 
 def _value(value: object) -> str:
-    """Return one option value as the canonical selection writes it (FR-970, FR-971).
+    """Return one option value as the canonical selection writes it (FR-970, FR-3318).
 
     A number is written in the shortest text that reads back to the same
     float (:func:`repr`), without a trailing ``.0``, so two factors that
