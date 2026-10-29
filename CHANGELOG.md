@@ -7,6 +7,16 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.50.1] - 2026-10-29
+
+### Added
+
+- Declare values once in a `[vars]` table of the refinement file and reference
+  them later as `${name}`: a whole `"${name}"` keeps the value's type, so
+  `factor = "${f_wing}"` is a number, and `${name}` inside a longer text is
+  interpolated. An undefined reference or a cycle is warned and read as
+  written; `warning_refusals` refuses it (FR-3396).
+
 ## [0.50.0] - 2026-10-29
 
 ### Added

@@ -15,6 +15,7 @@ from pyflightstream._errors import (
     EmptySelectionWarning,
     InputArtifactError,
     PyflightstreamWarning,
+    UnknownKeyWarning,
 )
 from pyflightstream.options import option_context
 from pyflightstream.workspace import WorkspaceError, audit_mesh, refine_mesh, selected_sims
@@ -691,3 +692,114 @@ def test_p0410_pc_refine_refusal_names_explicit_config(
     assert f"A diagnostic PDF: {pdf}." in diagnostic
     assert pdf.read_bytes().startswith(b"%PDF")
     assert {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file() and p != pdf} == before
+
+
+def _p0501_vars_read(tmp_path: Path, text: str, names=("G", "T", "U"), **kwargs) -> dict:
+    """Read ``text`` as a refinement file against the families ``names``."""
+    path = tmp_path / "w.refine.toml"
+    path.write_text(text, encoding="utf-8")
+    return _config.read_refine_file(path, list(names), **kwargs)
+
+
+class TestP0501RefineVars:
+    """P0501-VARS (FR-3396): variables declared once in [vars] and referenced as ${name}."""
+
+    @staticmethod
+    @pytest.mark.requirement("FR-3396")
+    def test_p0501_vars_a_whole_reference_keeps_the_variable_type(tmp_path):
+        """A factor of [families.X] and of a component's governor take the float itself."""
+        text = (
+            "[vars]\nf_wing = 0.35013\nmembers = ['G', 'T']\nlead = true\n"
+            '[families.G]\nmethod = "grid"\nfactor = "${f_wing}"\ngoverning_parallel = "${lead}"\n'
+            '[families.T]\nfactor = "${f_wing}"\n'
+            '[components]\nWing = "${members}"\n'
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            stated = _p0501_vars_read(tmp_path, text)
+        assert stated["specs"]["G"].factor == 0.35013
+        assert stated["specs"]["G"].governing_parallel is True
+        assert stated["specs"]["T"].factor == 0.35013
+        assert stated["components"] == {"Wing": ["G", "T"]}
+
+    @staticmethod
+    def test_p0501_vars_text_interpolation_and_chained_variables(tmp_path):
+        """A reference inside a longer text is written as text; a variable may use another;
+        a ``$`` in any other form stays text."""
+        text = (
+            '[vars]\nsuffix = "0p350"\nfull = "R${suffix}"\nbase = 0.35\nf = "${base}"\n'
+            '[refine]\ntag = "${full}_x$1"\n[families.G]\nfactor = "${f}"\n'
+        )
+        stated = _p0501_vars_read(tmp_path, text)
+        assert stated["tag"] == "R0p350_x$1"
+        assert stated["specs"]["G"].factor == 0.35
+
+    @staticmethod
+    def test_p0501_vars_absent_reads_as_before_and_is_never_an_unknown_table(tmp_path):
+        """Without [vars] the file reads as before; [vars] itself is never warned unknown."""
+        literal = '[refine]\ntag = "R1"\n[families.G]\nfactor = 2\n'
+        first = _p0501_vars_read(tmp_path, literal)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with option_context("warning_refusals", True):
+                second = _p0501_vars_read(
+                    tmp_path, '[vars]\nt = "R1"\n[refine]\ntag = "${t}"\n[families.G]\nfactor = 2\n'
+                )
+        assert first == second
+        assert first["tag"] == "R1"
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("declared", "hint"),
+        [
+            ("f_wng = 2", "no variable 'f_wing' is declared (closest: 'f_wng')"),
+            ('f_wing = "${g}"\ng = "${f_wing}"', "f_wing -> g -> f_wing"),
+        ],
+        ids=["undefined", "cycle"],
+    )
+    def test_p0501_vars_unresolved_warns_and_strict_refuses(tmp_path, declared, hint):
+        """An undefined name or a cycle is warned with the key and the names and left as
+        written, so the factor check decides as for any text factor (refused, or skipped
+        under accept_unknown); warning_refusals refuses at the reference itself."""
+        text = (
+            f'[vars]\n{declared}\n[families.G]\nfactor = "${{f_wing}}"\n[families.T]\nfactor = 2\n'
+        )
+        with pytest.warns(UnknownKeyWarning) as caught, pytest.raises(InputArtifactError) as plain:
+            _p0501_vars_read(tmp_path, text)
+        assert "'${f_wing}'" in str(plain.value) and hint not in str(plain.value), plain.value
+        message = str(caught[0].message)
+        assert "[families.G] factor" in message, message
+        assert hint in message, message
+        with pytest.warns(UnknownKeyWarning):
+            stated = _p0501_vars_read(tmp_path, text, accept_unknown=True)
+        assert "G" not in stated["specs"] and stated["specs"]["T"].factor == 2.0
+        with option_context("warning_refusals", True), pytest.raises(InputArtifactError) as err:
+            _p0501_vars_read(tmp_path, text)
+        assert hint in str(err.value)
+
+    @staticmethod
+    def test_p0501_vars_a_level_matches_the_literal_file(tmp_path):
+        """refine_mesh on a file using variables writes the same level as the literal file,
+        and refine.json records the resolved values."""
+        pytest.importorskip("trimesh")
+        mesh = _workspace_2_refine_level__sheet_with_strips(
+            (("T", "tri", (0.03, 0.04, 0.05, 0.065, 0.08)),)
+        )
+        literal = '[refine]\ntag = "Rv2"\n[families.G]\nfactor = 2\n[families.T]\nfactor = 1\n'
+        using = (
+            '[vars]\nfine = 2\nsame = 1\nname = "v${fine}"\n[refine]\ntag = "R${name}"\n'
+            '[families.G]\nfactor = "${fine}"\n[families.T]\nfactor = "${same}"\n'
+        )
+        levels = []
+        for root, toml in (("a", literal), ("b", using)):
+            src = _workspace_2_refine_level__write_source(
+                tmp_path / root / "src", "wing", mesh, refine_toml=toml
+            )
+            levels.append(refine_mesh(src, config=src.with_suffix(".refine.toml")))
+        first, second = levels
+        assert first.folder.name == second.folder.name == "wing_Rv2"
+        obj = f"{first.folder.name}.obj"
+        assert (first.folder / obj).read_bytes() == (second.folder / obj).read_bytes()
+        record = (second.folder / f"{second.folder.name}.refine.json").read_text("utf-8")
+        assert "${" not in record
+        assert json.loads(record)["specs"]["G"]["factor"] == 2.0
