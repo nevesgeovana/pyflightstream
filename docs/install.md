@@ -17,7 +17,7 @@ and `dev` are maintainer extras and are outside this runtime range policy.
 | Dependency | Range | Installation |
 |---|---|---|
 | NumPy | `>=2.2,<3` | Base |
-| Pydantic | `>=2.4.2,<3` | Base |
+| Pydantic | `>=2.10,<3` | Base |
 | PyYAML | `>=6.0.1,<7` | Base |
 | trimesh | `>=4.12,<6` | Base |
 | matplotlib | `>=3.10,<4` | Base |
