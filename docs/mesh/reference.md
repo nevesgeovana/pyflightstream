@@ -448,6 +448,41 @@ aft = [1.0, 0.0, 0.0]
 | `[[perimeter]]` | `te_families` | list of family or component names | the trailing edge of each named family is its rearmost line, the listed edges its surface lies forward of (a sharp trailing-edge fold within 78 degrees of forward), on the one listed perimeter of each piece that reaches furthest aft; the level writes `<level>.<family>.te.txt` for it by output family. A name that matches no family is warned and skipped |
 | `[[perimeter]]` | `aft` | three numbers, not all zero; default `[1, 0, 0]` | the direction from the nose to the tail, which tells the rearmost line of a family |
 
+#### Variables: `[vars]`
+
+A value used many times is declared once in a `[vars]` table and referenced
+later in the same file as `${name}`:
+
+```toml title="W1.refine.toml"
+[vars]
+f_wing = 0.35013
+suffix = "0p350"
+
+[refine]
+tag = "R${suffix}"
+
+[families.WingLH]
+method = "grid"
+factor = "${f_wing}"
+
+[families.WingRH]
+method = "grid"
+factor = "${f_wing}"
+```
+
+| table | key | value | meaning |
+|---|---|---|---|
+| `[vars]` | a name of letters, digits and underscores, not starting with a digit | a number, text, boolean or a list of them | a text that is exactly `${name}` takes the variable's value with its own type (`factor = "${f_wing}"` is the number 0.35013); `${name}` inside a longer text is written as text (`tag = "R${suffix}"` is `"R0p350"`); a variable's value may reference another variable; a `$` in any other form is plain text |
+
+The references are replaced right after the file is read and before any
+check, so every check and message above applies to the replaced value, and
+`refine.json` records the replaced values. `[vars]` is never reported as an
+unknown table. A reference to a name `[vars]` does not declare, a cycle of
+references, and a `[vars]` entry whose name or value is not one of the above
+are warned (an `UnknownKeyWarning` naming the key, the reference and the
+declared names) and the value is read as written, so its own check then
+decides; `--warning-refusals` refuses them.
+
 Each of these is refused naming the file, the table and the key, and listing
 the known keys: a table or key the list above does not hold, a family the mesh
 does not hold, a family table (except keep or grid_auto) with neither `factor` nor `parallel_factor` nor

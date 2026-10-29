@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 import tomllib
 import warnings
 from collections.abc import Mapping, Sequence
@@ -37,6 +38,7 @@ from pyflightstream._errors import (
     EmptySelectionWarning,
     InputArtifactError,
     PyflightstreamWarning,
+    UnknownKeyWarning,
     demote,
     suggest_name,
 )
@@ -87,6 +89,11 @@ REFINE_KEYS = ("tag", "filename", "elements", "keep_within_component")
 TABLES = ("refine", "families", "components", "perimeter")
 #: Tables a refinement file may still state from earlier releases; each is warned and skipped.
 RETIRED_TABLES = ("trailing_edge", "periodic")
+#: The table of the variables a refinement file declares once (FR-3396): each key a name
+#: of letters, digits and underscores, each value a number, text, boolean or list of them.
+VARS_TABLE = "vars"
+#: A reference to a declared variable inside a text value; a ``$`` in any other form is text.
+VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 @dataclass(frozen=True)
@@ -526,6 +533,99 @@ def _check_unread(where: str, table: Mapping[str, Any], accept: bool = False) ->
         )
 
 
+class _UnresolvedError(Exception):
+    """A ``${name}`` no declared variable resolves: undefined, or part of a cycle."""
+
+
+def _plain(value: Any, nested: bool = True) -> bool:
+    """Return whether a variable's value is a number, text, boolean or a list of them."""
+    if isinstance(value, list) and nested:
+        return all(_plain(item, nested=False) for item in value)
+    return isinstance(value, (bool, int, float, str))
+
+
+def _lookup(name: str, declared: Mapping[str, Any], chain: tuple[str, ...]) -> Any:
+    if name in chain:
+        cycle = " -> ".join((*chain, name))
+        raise _UnresolvedError(f"variable {name!r} refers to itself ({cycle})")
+    if name not in declared:
+        listed = ", ".join(declared) or "none"
+        hint = _closest(name, list(declared))
+        raise _UnresolvedError(f"no variable {name!r} is declared{hint}; [vars] declares {listed}")
+    return _expand(declared[name], declared, (*chain, name))
+
+
+def _expand(value: Any, declared: Mapping[str, Any], chain: tuple[str, ...] = ()) -> Any:
+    """Return a value with every reference replaced: a whole ``${name}`` keeps its type."""
+    if isinstance(value, list):
+        return [_expand(item, declared, chain) for item in value]
+    if not isinstance(value, str):
+        return value
+    whole = VARIABLE.fullmatch(value)
+    if whole:
+        return _lookup(whole[1], declared, chain)
+
+    def text(match: re.Match[str]) -> str:
+        found = _lookup(match[1], declared, chain)
+        return ("true" if found else "false") if isinstance(found, bool) else str(found)
+
+    return VARIABLE.sub(text, value)
+
+
+def _substitute(source: str, keys: tuple[str, ...], node: Any, declared: Mapping[str, Any]) -> Any:
+    """Return a parsed value with its references replaced; ``keys`` is its key path."""
+    if isinstance(node, dict):
+        return {k: _substitute(source, (*keys, k), v, declared) for k, v in node.items()}
+    if isinstance(node, list):
+        last = keys[-1] if keys else ""
+        return [
+            _substitute(source, (*keys[:-1], f"{last}[{i}]"), v, declared)
+            for i, v in enumerate(node)
+        ]
+    if not isinstance(node, str) or not VARIABLE.search(node):
+        return node
+    try:
+        return _expand(node, declared)
+    except _UnresolvedError as error:
+        # Warned and read as written (strict refuses): the key's own check then decides.
+        table = f" [{'.'.join(keys[:-1])}]" if len(keys) > 1 else ""
+        demote(
+            _refuse(f"{source}{table} {keys[-1]}", f"{node!r} is not substituted: {error}"),
+            warning=UnknownKeyWarning,
+        )
+        return node
+
+
+def resolve_variables(source: Path, data: dict[str, Any]) -> dict[str, Any]:
+    """Replace each ``${name}`` by its ``[vars]`` value and drop ``[vars]`` (FR-3396).
+
+    Runs on the parsed file before any check, so every check reads the
+    substituted value. A text that is exactly ``${name}`` takes the variable's
+    own type; inside a longer text the value is written as text. A variable
+    may reference another. A name that is not declared, a cycle, a bad name or
+    a value that is not a number, text, boolean or list of them is warned and
+    left as written (``warning_refusals`` refuses).
+    """
+    if VARS_TABLE not in data:
+        return data
+    raw = data.pop(VARS_TABLE)
+    where = f"{source} [{VARS_TABLE}]"
+    if not isinstance(raw, dict):
+        reason = "is not a table; write one name = value per line; no variable is declared"
+        demote(_refuse(where, reason), warning=UnknownKeyWarning)
+        raw = {}
+    declared: dict[str, Any] = {}
+    for name, value in raw.items():
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) or not _plain(value):
+            reason = "is not a variable: a name of letters, digits and underscores, not starting"
+            reason += " with a digit, and a number, text, boolean or list of them; it is skipped"
+            demote(_refuse(f"{where} {name}", reason), warning=UnknownKeyWarning)
+            continue
+        declared[name] = value
+    resolved: dict[str, Any] = _substitute(str(source), (), data, declared)
+    return resolved
+
+
 def read_refine_file(
     path: str | Path,
     names: Sequence[str],
@@ -552,6 +652,7 @@ def read_refine_file(
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         # Not UTF-8 text is a refusal like any unreadable file (PFS-2099.004).
         raise _refuse(str(source), f"the refinement file cannot be read ({error})") from error
+    data = resolve_variables(source, data)
     unknown = sorted(set(data) - set(TABLES) - set(RETIRED_TABLES))
     if unknown:
         _unknown(

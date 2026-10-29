@@ -315,6 +315,28 @@ quadrilateral beside a triangle reads as a size jump and a paired rhombus as
 skewed; the audit warns only when a figure exceeds its limit, and the level
 is written. Read the reported values in the audit.
 
+### One factor for many families
+
+Declare the factor once in `[vars]` and reference it as `${name}`; changing
+the one line changes every family that uses it (the [reference](reference.md)
+has the rules):
+
+```toml title="inputs/geometries/W1/W1.refine.toml"
+[vars]
+f_wing = 0.35013
+
+[refine]
+tag = "R0p350"
+
+[families.WingLH]
+method = "grid"
+factor = "${f_wing}"
+
+[families.WingRH]
+method = "grid"
+factor = "${f_wing}"
+```
+
 ### Factor 1
 
 At factor 1 a family under `method = "auto"` is copied: a grid family keeps the
