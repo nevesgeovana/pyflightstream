@@ -153,7 +153,7 @@ class ExternalStructure(BaseModel):
         """Refuse a declared name that leaves the point folder (X-F-1334)."""
         for name in value:
             if any(separator in name for separator in ("/", "\\", ":")) or not name.strip(". "):
-                raise ValueError(
+                raise FsiInputError(
                     f"{name!r} is not a file name inside the point folder: a declared "
                     "input or output is a bare name, with no path separator, drive or '..'"
                 )
@@ -165,7 +165,7 @@ class ExternalStructure(BaseModel):
         inputs = {one_file_key(name) for name in self.inputs}
         overlap = [name for name in self.outputs if one_file_key(name) in inputs]
         if overlap:
-            raise ValueError(
+            raise FsiInputError(
                 f"input/output collision: {overlap!r}; use distinct names for inputs and outputs"
             )
         return self

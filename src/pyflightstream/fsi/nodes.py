@@ -244,18 +244,18 @@ class NodeOrderingMap(BaseModel):
     def _consistent(self) -> NodeOrderingMap:
         """Reject maps too inconsistent to order any node row."""
         if list(self.roles) != list(NODE_ROLES):
-            raise ValueError(
+            raise FsiInputError(
                 f"the node roles must be {list(NODE_ROLES)} in that order; a map "
                 f"with roles {self.roles} was not written by this generator and "
                 "cannot order FSIDisp rows (FSI-R14)"
             )
         if self.embedding not in EMBEDDINGS:
-            raise ValueError(
+            raise FsiInputError(
                 f"unknown embedding {self.embedding!r}; the recognized geometric "
                 f"embeddings are {EMBEDDINGS} (module docstring)"
             )
         if (self.embedding == "wing_frame") != (self.span_sign is not None):
-            raise ValueError(
+            raise FsiInputError(
                 "a wing_frame layout states its span_sign, and no other embedding does; "
                 f"got embedding {self.embedding!r} with span_sign {self.span_sign!r}"
             )
@@ -264,7 +264,7 @@ class NodeOrderingMap(BaseModel):
             object.__setattr__(self, "blade_angle_deg", [0.0] * n)
         for name in ("ea_offset_chordwise_m", "ea_offset_normal_m", "le_offset_m", "te_offset_m"):
             if len(getattr(self, name)) != n:
-                raise ValueError(
+                raise FsiInputError(
                     f"'{name}' has {len(getattr(self, name))} entries for {n} "
                     "stations; every per-station list must match station_radii_m"
                 )
@@ -275,18 +275,18 @@ class NodeOrderingMap(BaseModel):
         ):
             values = getattr(self, name)
             if values is not None and len(values) != n:
-                raise ValueError(
+                raise FsiInputError(
                     f"'{name}' has {len(values)} entries for {n} stations; every "
                     "per-station list must match station_radii_m"
                 )
         if len(self.blade_angle_deg) != n:
-            raise ValueError(
+            raise FsiInputError(
                 f"'blade_angle_deg' has {len(self.blade_angle_deg)} entries for "
                 f"{n} stations; every per-station list must match station_radii_m"
             )
         for le, te in zip(self.le_offset_m, self.te_offset_m, strict=True):
             if le <= 0.0 or te >= 0.0:
-                raise ValueError(
+                raise FsiInputError(
                     "leading-edge offsets must be positive (toward the leading "
                     "edge) and trailing-edge offsets negative; equal or crossed "
                     f"offsets (le {le} m, te {te} m) cannot encode twist as a "

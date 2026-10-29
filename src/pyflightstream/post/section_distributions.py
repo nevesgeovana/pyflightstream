@@ -10,6 +10,7 @@ from typing import cast
 
 from pyflightstream._digest import text_sha256
 from pyflightstream._errors import (
+    InputValueError,
     PyflightstreamError,
     PyflightstreamWarning,
     collecting_warnings,
@@ -125,7 +126,9 @@ def _legacy_script_layout(text: str, inventory: Sequence[str]) -> list[dict[str,
     """
     lines = [line.strip() for line in text.splitlines()]
     if not inventory or len(set(inventory)) != len(inventory):
-        raise ValueError("missing or repeated recorded geometry names")
+        raise InputValueError(
+            "missing or repeated recorded geometry names; give each geometry one distinct name"
+        )
     frames: dict[int, str] = {}
     blocks: list[dict[str, object]] = []
     for index, line in enumerate(lines):
@@ -137,17 +140,29 @@ def _legacy_script_layout(text: str, inventory: Sequence[str]) -> list[dict[str,
             "DELETE_SURFACE_SECTION",
             "DELETE_ALL_SURFACE_SECTIONS",
         }:
-            raise ValueError("script changes sections outside explicit distributions")
+            raise InputValueError(
+                "script changes sections outside explicit distributions; "
+                "make section changes only with explicit distribution commands"
+            )
         if line == "EDIT_COORDINATE_SYSTEM":
             if blocks:
-                raise ValueError("script changes coordinate systems after section creation")
+                raise InputValueError(
+                    "script changes coordinate systems after section creation; "
+                    "leave coordinate systems untouched after sections exist"
+                )
             frame = lines[index + 1].split()
             name = lines[index + 2].split(maxsplit=1)
             if len(frame) != 2 or frame[0] != "FRAME" or len(name) != 2 or name[0] != "NAME":
-                raise ValueError("incomplete coordinate-system identity")
+                raise InputValueError(
+                    "incomplete coordinate-system identity; "
+                    "name each coordinate system once, completely"
+                )
             number = int(frame[1])
             if number in frames or name[1] in frames.values():
-                raise ValueError("repeated coordinate-system identity")
+                raise InputValueError(
+                    "repeated coordinate-system identity; "
+                    "name each coordinate system once, completely"
+                )
             frames[number] = name[1]
         if line != "NEW_SURFACE_SECTION_DISTRIBUTION":
             continue
@@ -156,28 +171,38 @@ def _legacy_script_layout(text: str, inventory: Sequence[str]) -> list[dict[str,
         for key in ("FRAME", "PLANE", "NUM_SECTIONS", "PLOT_DIRECTION"):
             parts = lines[cursor].split(maxsplit=1)
             if len(parts) != 2 or parts[0] != key:
-                raise ValueError(f"distribution lacks explicit {key}")
+                raise InputValueError(f"distribution lacks explicit {key}")
             values[key] = parts[1]
             cursor += 1
         if lines[cursor].startswith("INCLUDE_SYMMETRY "):
             if lines[cursor].split()[1:] not in (["ENABLE"], ["DISABLE"]):
-                raise ValueError("invalid symmetry setting")
+                raise InputValueError(
+                    "invalid symmetry setting; use a symmetry setting the solver defines"
+                )
             cursor += 1
         parts = lines[cursor].split()
         if len(parts) != 2 or parts[0] != "SURFACES":
-            raise ValueError("distribution lacks explicit surface selection")
+            raise InputValueError(
+                "distribution lacks explicit surface selection; "
+                "state the surface selection explicitly"
+            )
         selected = int(parts[1])
         if selected == -1:
             indices = list(range(1, len(inventory) + 1))
         else:
             indices = [int(value) for value in lines[cursor + 1].split()]
             if selected < 1 or len(indices) != selected:
-                raise ValueError("surface count disagrees with explicit indices")
+                raise InputValueError(
+                    "surface count disagrees with explicit indices; "
+                    "make the surface count equal the listed indices"
+                )
         if len(set(indices)) != len(indices) or any(i < 1 or i > len(inventory) for i in indices):
-            raise ValueError("surface indices do not uniquely resolve")
+            raise InputValueError("surface indices do not uniquely resolve; list each surface once")
         count = int(values["NUM_SECTIONS"])
         if count < 1 or values["PLANE"] not in {"XY", "XZ", "YZ"}:
-            raise ValueError("invalid distribution plane or count")
+            raise InputValueError(
+                "invalid distribution plane or count; state a valid plane and a positive count"
+            )
         blocks.append(
             {
                 "families": [inventory[i - 1] for i in indices],

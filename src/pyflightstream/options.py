@@ -50,7 +50,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import pyflightstream._errors as _errors
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import InputValueError, PyflightstreamError, UnknownKeyWarning
 from pyflightstream._errors import with_refusal_policy as with_refusal_policy
 
 __all__ = [
@@ -114,6 +114,7 @@ def _unknown_key_error(key: str) -> OptionError:
     return OptionError(
         f"no option is registered under {key!r}. Keys are exact (this "
         f"registry never pattern-matches). Registered keys: {known}."
+        f"{_errors.suggest_name(key, _REGISTRY)}"
     )
 
 
@@ -217,7 +218,8 @@ def set_option(key: str, value: Any) -> None:
         names the option, the received value, and the accepted form.
     """
     if key not in _REGISTRY:
-        raise _unknown_key_error(key)
+        _errors.demote(_unknown_key_error(key), warning=UnknownKeyWarning)
+        return
     _check_value(_REGISTRY[key], value)
     _VALUES[key] = value
 
@@ -237,7 +239,8 @@ def reset_option(key: str) -> None:
         lists every registered key.
     """
     if key not in _REGISTRY:
-        raise _unknown_key_error(key)
+        _errors.demote(_unknown_key_error(key), warning=UnknownKeyWarning)
+        return
     _VALUES.pop(key, None)
 
 
@@ -310,11 +313,14 @@ def option_context(*pairs: Any) -> Iterator[None]:
             f"(got {len(pairs)} arguments); example: "
             "option_context('qa.probe_timeout_s', 10.0)."
         )
-    items = [(pairs[i], pairs[i + 1]) for i in range(0, len(pairs), 2)]
-    for key, value in items:  # validate everything before touching state
+    items = []
+    for i in range(0, len(pairs), 2):  # validate everything before touching state
+        key, value = pairs[i], pairs[i + 1]
         if key not in _REGISTRY:
-            raise _unknown_key_error(key)
+            _errors.demote(_unknown_key_error(key), warning=UnknownKeyWarning)
+            continue
         _check_value(_REGISTRY[key], value)
+        items.append((key, value))
     saved = {key: _VALUES.get(key, _MISSING) for key, _ in items}
     try:
         for key, value in items:
@@ -343,7 +349,7 @@ def positive_seconds(value: Any) -> None:
 
     Raises
     ------
-    ValueError
+    InputValueError
         If the value is not a strictly positive finite real number (NaN and
         infinity included, since ``nan <= 0`` is False); the registry reports
         it as an :class:`OptionError`.
@@ -354,7 +360,7 @@ def positive_seconds(value: Any) -> None:
         or not math.isfinite(value)
         or value <= 0
     ):
-        raise ValueError("a strictly positive, finite number of seconds is required")
+        raise InputValueError("a strictly positive, finite number of seconds is required")
 
 
 def non_empty_path_text(value: Any) -> None:
@@ -367,14 +373,14 @@ def non_empty_path_text(value: Any) -> None:
 
     Raises
     ------
-    ValueError
+    InputValueError
         If the value is not a non-empty string or path; the registry reports it as an
         :class:`OptionError`.
     """
     if isinstance(value, os.PathLike):
         value = os.fspath(value)
     if not isinstance(value, str) or not value.strip():
-        raise ValueError("a non-empty path string or pathlib.Path is required")
+        raise InputValueError("a non-empty path string or pathlib.Path is required")
 
 
 # --- the package's registered options ---------------------------------------

@@ -1015,3 +1015,99 @@ def test_the_rebuild_command_a_failed_products_write_offers_is_one_post_accepts(
         pytest.fail(f"`{offered.group(1)}` is refused by pyfs-matrix's own parser")
     assert parsed.subcommand == "post", parsed
     assert not parsed.force_overwrite, "the remedy must archive, not destroy"
+
+
+# --- global guards of 0.50.0 (PFS-2020.10, PFS-2020.11) ----------------------
+
+_SRC = Path(__file__).resolve().parents[2] / "src" / "pyflightstream"
+_STDLIB_RAISES = {"ValueError", "KeyError", "TypeError"}
+_STDLIB_WARNINGS = {
+    "UserWarning",
+    "DeprecationWarning",
+    "RuntimeWarning",
+    "FutureWarning",
+    "PendingDeprecationWarning",
+    "SyntaxWarning",
+    "ImportWarning",
+    "ResourceWarning",
+    "Warning",
+}
+# Raises no user input reaches: the command-database schema validators, the maintainer
+# QA specs and the maintainer tools (the inventory classifies them as internal invariants).
+_INTERNAL_RAISE_PREFIXES = ("commands/", "qa/", "_maturity.py", "_signature.py")
+_E1_E2_PREFIXES = ("cases/", "workspace/", "run/", "script/")
+
+
+def _src_files():
+    import ast
+
+    for path in sorted(_SRC.rglob("*.py")):
+        rel = path.relative_to(_SRC).as_posix()
+        yield rel, ast.parse(path.read_text(encoding="utf-8"))
+
+
+def _bare_standard_raises():
+    import ast
+
+    found = []
+    for rel, tree in _src_files():
+        if rel.startswith(_INTERNAL_RAISE_PREFIXES):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):
+                func = node.exc.func
+                if isinstance(func, ast.Name) and func.id in _STDLIB_RAISES:
+                    found.append(f"{rel}:{node.lineno} raise {func.id}")
+    return found
+
+
+def _untyped_warns():
+    import ast
+
+    found = []
+    for rel, tree in _src_files():
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "warn"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "warnings"
+            ):
+                continue
+            category = node.args[1] if len(node.args) > 1 else None
+            for keyword in node.keywords:
+                if keyword.arg == "category":
+                    category = keyword.value
+            if rel == "_errors.py" and isinstance(category, ast.Name) and category.id == "category":
+                continue  # the package's one route, which takes the caller's category
+            name = (
+                category.id
+                if isinstance(category, ast.Name)
+                else category.attr
+                if isinstance(category, ast.Attribute)
+                else None
+            )
+            if name is None or not name.endswith("Warning") or name in _STDLIB_WARNINGS:
+                found.append(f"{rel}:{node.lineno} warnings.warn({name})")
+    return found
+
+
+def _only_e1_e2(found):
+    return all(item.startswith(_E1_E2_PREFIXES) for item in found)
+
+
+def test_no_bare_standard_raise_reaches_a_user_input():
+    """PFS-2020.10: user-reachable refusals are PyflightstreamError subclasses."""
+    found = _bare_standard_raises()
+    if found and _only_e1_e2(found):
+        pytest.xfail("green when E1 and E2 merge: " + "; ".join(found[:3]))
+    assert not found, "bare standard-library raises under src: " + "; ".join(found)
+
+
+def test_every_warnings_warn_passes_a_package_category():
+    """PFS-2020.11: a warnings.warn call names a PyflightstreamWarning subclass."""
+    found = _untyped_warns()
+    if found and _only_e1_e2(found):
+        pytest.xfail("green when E1 and E2 merge: " + "; ".join(found[:3]))
+    assert not found, "untyped warnings.warn calls under src: " + "; ".join(found)

@@ -30,6 +30,7 @@ from functools import wraps
 
 import numpy as np
 
+from pyflightstream._errors import InputTypeError
 from pyflightstream.farfield.fields import FarfieldInputError, LatticeFields
 from pyflightstream.farfield.quadrature import (
     azimuthal_harmonics,
@@ -594,7 +595,7 @@ def _requires_reference_area[**CountParameters](
     @wraps(function)
     def checked(*args: CountParameters.args, **kwargs: CountParameters.kwargs) -> float:
         if "s_ref" not in kwargs:
-            raise TypeError(
+            raise InputTypeError(
                 "s_ref is required: supply the reference area in m2 used by the load "
                 "coefficients; there is no safe default"
             )

@@ -770,14 +770,14 @@ def test_no_exempted_definition_grew_a_second_bare_raise_of_the_same_type() -> N
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 5 entries in two tranches, over 6 raise sites: it
+#: The set holds 3 entries in two tranches, over 3 raise sites: it
 #: is keyed on (definition, exception type) since 2026-08-18, and ONE
-#: definition raises the same type twice: `_checked`. Five pairs plus
-#: that second raise is six. NO pair raises ``TypeError`` any more; ONE raises
+#: definition raises the same type twice: none after 0.50.0. Three pairs, so
+#: three raise sites. NO pair raises ``TypeError`` any more; ONE raises
 #: ``FileExistsError`` and is the evidence-overwrite refusal, added on
 #: 2026-08-17 when the walk was widened to see that name at all and
 #: reduced from three to one the same day when the three writers were
-#: given one home; the other 4 are the reachability tranche and are
+#: given one home; the other 2 are the reachability tranche and are
 #: almost all ``ValueError``.
 #:
 #: THE TYPEERROR TRANCHE WAS THREE RAISES AND IS NONE
@@ -864,8 +864,6 @@ _RATCHET = {
     # from `fsi.loads` to `results.sectional_loads` and the exemption followed
     # the site. The debt is unchanged and still owed.
     "pyflightstream.overview._module_doc -> RuntimeError",
-    "pyflightstream.post.writers._checked -> ValueError",
-    "pyflightstream.probes.planar._unit -> ValueError",
     # `qa.compat._rewrite_version_line` held three entries and holds none.
     # One left because the condition it reported turned out to be a real
     # evidence defect rather than a malformed line (apply-compat writing
@@ -885,7 +883,7 @@ _RATCHET = {
 #: the line number was carrying: a SECOND bare raise of the same type
 #: appearing inside an already-exempted definition would otherwise
 #: inherit the exemption in silence. One definition raises twice; the
-#: rest raise once: 5 pairs, 6 raises, re-measured 2026-08-19 as the
+#: rest raise once: 3 pairs, 3 raises, re-measured 2026-08-19 as the
 #: TypeError tranche emptied, `to_table` leaving with two raises and
 #: `EntityRegistry` with one.
 #:
@@ -900,8 +898,6 @@ _RATCHET_COUNTS = {
     "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError": 1,
     "pyflightstream.run.cli._parse_recipes -> ValueError": 1,
     "pyflightstream.overview._module_doc -> RuntimeError": 1,
-    "pyflightstream.post.writers._checked -> ValueError": 2,
-    "pyflightstream.probes.planar._unit -> ValueError": 1,
 }
 
 

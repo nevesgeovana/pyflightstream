@@ -12,6 +12,7 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
+from pyflightstream._errors import InputValueError
 from pyflightstream._tokens import CONTEXT_COLUMNS, POLAR_ID_COLUMN
 from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.kinematics import decode_station_translations
@@ -31,11 +32,16 @@ if TYPE_CHECKING:
 def _decoded_structure(record: Any):
     """Return the folder, source, station rows and tips of a coupled record, or raise."""
     if not record.cwd:
-        raise ValueError("the coupled record has no working folder")
+        raise InputValueError(
+            "the coupled record has no working folder; point the record at its working folder"
+        )
     folder = Path(record.cwd)
     config_path = folder / "config.json"
     if file_sha256(config_path) != record.inputs_sha256.get("config.json"):
-        raise ValueError("config.json differs from the coupled run's recorded input")
+        raise InputValueError(
+            "config.json differs from the coupled run's recorded input; "
+            "restore the recorded config.json or start a new coupled run"
+        )
     config = load_config(config_path)
     layout = generate_node_layout(config)
     source, flat = _recorded_displacements(folder, config, layout)
@@ -160,13 +166,22 @@ def _recorded_displacements(folder: Path, config: FsiConfig, layout: NodeOrderin
         source = folder / "state.json"
         state = load_state(source)
         if state.config_sha256 != config_sha256(config):
-            raise ValueError("direct station state does not match the recorded configuration")
+            raise InputValueError(
+                "direct station state does not match the recorded configuration; "
+                "rerun the coupling with the same configuration"
+            )
         if state.station_displacements_m is None:
-            raise ValueError("direct state has no recorded applied station displacements")
+            raise InputValueError(
+                "direct state has no recorded applied station displacements; "
+                "rerun the coupling so the displacements are recorded"
+            )
         flat = np.asarray(state.station_displacements_m, dtype=float)
     else:
         source = folder / "FSIDisp.txt"
         flat = read_fsidisp(source, expected_rows=layout.total_nodes)
     if not np.isfinite(flat).all():
-        raise ValueError("structural displacements contain non-finite values")
+        raise InputValueError(
+            "structural displacements contain non-finite values; "
+            "check the structural solve that wrote them"
+        )
     return source, flat

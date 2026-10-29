@@ -60,6 +60,8 @@ FlightStream versions.
   identifiers and split lineage; the retained connectivity, warning-and-skip and
   factor-tag contracts have explicit coverage (FR-3310, FR-3311, FR-3312, FR-3313,
   FR-3314, FR-3315, FR-3316, FR-3317, FR-3318).
+- An unregistered option key given to `set_option`, `reset_option` or `option_context` now warns (UnknownKeyWarning, with the closest key) and is skipped; `--warning-refusals` restores the refusal (FR-3388).
+- Refusals of the fsi, post, probes, farfield, options and utility modules that were bare `ValueError` or `TypeError` are now catalogued `PyflightstreamError` subclasses that keep their standard base, and name a remedy (FR-3389). A guard fails on a bare standard raise or an untyped `warnings.warn` under src (FR-3390).
 - Unregistered matrix row keys and keys that belong to another run type now
   warn and are skipped. Retired averaging-window keys warn with their
   replacement names. `--warning-refusals` restores the original refusals

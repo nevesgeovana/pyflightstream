@@ -38,6 +38,8 @@ from pathlib import Path
 from typing import IO, Any
 from uuid import uuid4
 
+from pyflightstream._errors import InputValueError
+
 LINE_END = "\n"
 """The line end of every text file the package writes."""
 
@@ -158,7 +160,9 @@ def open_text(
         When ``mode`` is not a text mode that writes.
     """
     if mode not in _WRITE_MODES:
-        raise ValueError(f"open_text writes text files: mode {mode!r} is not one of 'w', 'a', 'x'")
+        raise InputValueError(
+            f"open_text writes text files: mode {mode!r} is not one of 'w', 'a', 'x'"
+        )
     return open(path, mode, encoding=encoding, errors=errors, newline=LINE_END)  # noqa: SIM115
 
 
