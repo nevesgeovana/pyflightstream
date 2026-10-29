@@ -389,6 +389,12 @@ def _add_refine_parser(subparsers: Any) -> None:
         help="write the level's patches and directions PDF beside its OBJ",
     )
     add_console_arguments(refine, _VERBOSE_HELP)
+    refine.add_argument(
+        "--keep-within-component",
+        action="store_true",
+        default=None,
+        help="share directional governors across each declared component's grid patches",
+    )
     refine.set_defaults(mesh_command=run_refine, force_factors=True)
 
 
@@ -435,6 +441,7 @@ def run_refine(args: argparse.Namespace) -> int:
             accept_unknown=args.accept_unknown,
             force_factors=args.force_factors,
             visual_inspect=args.visual_inspect,
+            keep_within_component=args.keep_within_component,
         )
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)

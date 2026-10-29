@@ -140,6 +140,7 @@ class _Work:
     assumed: set[str] = field(default_factory=set)
     # The grid_auto families and the governing family selected by the planner.
     followers: dict[str, str] = field(default_factory=dict)
+    component_governors: dict[str, dict[str, str]] = field(default_factory=dict)
     sidecar: str | None = None  # the level's boundaries file, rewritten before any work
     unchanged: list[str] = field(default_factory=list)  # the families G6 compares
     # FR-972: the selected families of a summary tag, taken with the tag before any work
@@ -214,13 +215,14 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
 # ------------------------------------------------------------------- deciding
 
 
-def plan_prepared(source, nodes, components, kinds, te_families):
+def plan_prepared(source, nodes, components, kinds, te_families, *, keep_within_component=False):
     """Plan prepared patches with the exact OBJ and node list written for refinement."""
     request = RefineRequest(
         specs={n: FamilySpec(method="grid" if k == "grid" else "remesh") for n, k in kinds.items()},
         components=components,
         perimeters=(_config.Perimeter(nodes, te_families=tuple(te_families)),),
         accept_remesh=True,
+        keep_within_component=keep_within_component,
     )
     work = _start(source, request, _obj.read_obj(source))
     _decide(work, prepare=True)
@@ -374,6 +376,8 @@ def _grid_after_grid(work: _Work, *, prepare: bool = False) -> None:
         followers=work.followers,
         assumed=work.assumed,
         prepare=prepare,
+        components=work.request.components if work.request.keep_within_component else None,
+        component_governors=work.component_governors,
     )
     # Followers use the layout's propagated axes and per-arc minimum counts.
     # Their independently recovered Grid axes may be rotated; checking those
@@ -1007,6 +1011,7 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int], has_te: bool) -> 
         ],
         "faces": dict(counts),
         **shortened,
+        **({"component_governors": work.component_governors} if work.component_governors else {}),
     }
 
 
@@ -1215,6 +1220,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     accept_unknown: bool = False,
     force_factors: bool = True,
     visual_inspect: bool = False,
+    keep_within_component: bool | None = None,
     chordwise: float | None = None,
     spanwise: float | None = None,
 ) -> RefinedMesh:
@@ -1261,6 +1267,9 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         warning (the default); False refuses such a factor (CLI ``--strict-factors``).
     visual_inspect : bool
         Write a patches and directions PDF beside the level OBJ.
+    keep_within_component : bool, optional
+        Share directional governors across each declared component. None reads the file key.
+        Without components the existing layout behavior is retained.
     chordwise, spanwise : float, optional
         The earlier names of ``normal`` and ``parallel``, read with a warning;
         beside the new name, the earlier one is warned and skipped.
@@ -1301,6 +1310,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
             accept_remesh=accept_remesh,
             accept_unknown=accept_unknown,
             force_factors=force_factors,
+            keep_within_component=keep_within_component,
         )
         stem = f"{source.stem}_{_config.level_tag(request, list(obj.families), str(source))}"
         if request.filename:

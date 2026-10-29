@@ -18,6 +18,7 @@ from pyflightstream.workspace._refine._blocks import (
     recover_joined,
     report,
     resample,
+    sheet_blocks,
     sheet_directions,
     te_directions,
 )
@@ -96,6 +97,8 @@ class Layout:
     governing: Mapping[str, str] = field(default_factory=dict)
     continuity: Mapping[str, dict[str, object]] = field(default_factory=dict)
     unchanged: tuple[str, ...] = ()
+    #: Component factor sources for each member, where component governing is active.
+    governing_by_family: Mapping[str, Mapping[str, str]] = field(default_factory=dict)
 
     def patches_of(self, name: str) -> list[int]:
         """Return the patches of one family, in layout order."""
@@ -117,6 +120,55 @@ class _Planner:
     assumed: Collection[str]
     prepare: bool = False
     failures: dict[str, str] = field(default_factory=dict)
+    component_leads: dict[str, dict[str, str]] = field(default_factory=dict)
+
+    def govern_components(self, components, result):
+        """Select component governors from geometric side totals in source order."""
+        if not components:
+            return
+        totals = Counter()
+        for name, grid in self.grids.items():
+            if isinstance(grid, Grid):
+                pts = self.verts[grid.ids]
+                totals[name, "parallel"] = sum(
+                    float(numpy.linalg.norm(numpy.diff(pts[:, i], axis=0), axis=1).sum())
+                    for i in (0, -1)
+                )
+                totals[name, "normal"] = sum(
+                    float(numpy.linalg.norm(numpy.diff(pts[i], axis=0), axis=1).sum())
+                    for i in (0, -1)
+                )
+            else:
+                told = self.arc_directions(
+                    grid, range(len(grid.patches)), name, runs=None, source=None
+                )
+                for directions in told.values():
+                    for arc, direction in directions.items():
+                        totals[name, direction.direction] += float(
+                            numpy.linalg.norm(
+                                numpy.diff(self.verts[list(grid.arcs[arc])], axis=0), axis=1
+                            ).sum()
+                        )
+        original = dict(self.specs)
+        for component, members in components.items():
+            names = [n for n in self.families if n in members and n in self.grids]
+            if not names:
+                continue
+            leads = {d: max(names, key=lambda n: totals[n, d]) for d in ("parallel", "normal")}
+            result[component] = leads
+            for name in names:
+                self.component_leads[name] = leads
+                self.specs[name] = replace(
+                    original[name],
+                    chordwise=original[leads["normal"]].directions[0],
+                    spanwise=original[leads["parallel"]].directions[1],
+                    governing=False,
+                    governing_normal=name == leads["normal"],
+                    governing_parallel=name == leads["parallel"],
+                    method="grid" if name in leads.values() else "grid_auto",
+                )
+                if name not in leads.values():
+                    self.followers[name] = leads["parallel"]
 
     def counted(self, names, found, *, prepare=False) -> Layout:
         """Count one recovered layout and retain its directions and governing decisions."""
@@ -135,7 +187,7 @@ class _Planner:
             for d in ("normal", "parallel")
         }
         for name in names:
-            if specs[name].method == "grid_auto" and governing:
+            if specs[name].method == "grid_auto" and governing and name not in self.component_leads:
                 lead = _band_lead(governing, names, specs, perimeter)
                 specs[name] = FamilySpec(
                     chordwise=specs[leaders["normal"]].directions[0],
@@ -178,11 +230,34 @@ class _Planner:
                     for side in kept_sides(blocks, verts, factors, patches=[p])
                 )
         kinds = tuple(grids[n].layout for n in names)
-        layout = Layout(names, kinds, blocks, owner, (), kept, directions, governing=leaders)
+        component_sources = [self.component_leads[n] for n in names if n in self.component_leads]
+        if component_sources and all(s == component_sources[0] for s in component_sources):
+            leaders = component_sources[0]
+        layout = Layout(
+            names,
+            kinds,
+            blocks,
+            owner,
+            (),
+            kept,
+            directions,
+            governing=leaders,
+            governing_by_family={
+                n: self.component_leads[n] for n in names if n in self.component_leads
+            },
+        )
         if prepare:
             self.prepare_leads(layout, lengths)
             return self.counted(names, found)
-        failed = {n: s for n, s in provenance.items() if isinstance(s, str)} if self.prepare else {}
+        failed = (
+            {
+                n: s
+                for n, s in provenance.items()
+                if isinstance(s, str) and n not in self.component_leads
+            }
+            if self.prepare
+            else {}
+        )
         if failed:
             self.failures.update(failed)
             for n in failed:
@@ -196,11 +271,15 @@ class _Planner:
 
     def prepare_leads(self, layout, lengths):
         """Mark the longest total parallel and normal sides, with source-order ties."""
-        names = layout.names
+        names = tuple(n for n in layout.names if n not in self.component_leads)
+        if not names:
+            return
         totals = Counter()
         for p, told in layout.directions.items():
             for a, d in told.items():
-                totals[names[layout.owner[p]], d.direction] += lengths[a]
+                name = layout.names[layout.owner[p]]
+                if name in names:
+                    totals[name, d.direction] += lengths[a]
         leads = {d: max(names, key=lambda n: totals[n, d]) for d in ("parallel", "normal")}
         for n in names:
             self.specs[n] = replace(
@@ -253,12 +332,30 @@ class _Planner:
 
     def follower_directions(self, names, found, leaders):
         """Propagate each directional leader through the selected followers."""
+        if any(n in self.component_leads for n in names):
+            runs, provenance = {}, {}
+            groups = {}
+            for name in names:
+                sources = self.component_leads.get(name, leaders)
+                groups.setdefault(tuple(sources.items()), []).append(name)
+            for entries, selected in groups.items():
+                sources = dict(entries)
+                targets = [n for n in selected if n not in sources.values()]
+                local = {d: n for d, n in sources.items() if n in names}
+                reached, reasons = self._propagated(names, found, local or sources, targets)
+                runs.update(reached)
+                provenance.update(reasons)
+            return runs, provenance
+        selected = [n for n in names if n in self.followers or self.specs[n].method == "keep"]
+        return self._propagated(names, found, leaders, selected)
+
+    def _propagated(self, names, found, leaders, selected):
+        """Propagate the given seeds to the selected component or layout followers."""
         verts, grids, followers = self.verts, self.grids, self.followers
         te_edges, where = self.te_edges, self.where
         blocks, indices = found
         owner = tuple(names[i] for i in indices)
         runs, provenance = {}, {}
-        selected = [n for n in names if n in followers or self.specs[n].method == "keep"]
         if not selected:
             return runs, provenance
         evidence = {}
@@ -282,7 +379,8 @@ class _Planner:
                 runs[name] = {a: next(iter(ds)) for a, ds in values.items()}
                 provenance[name] = {
                     a: leaders.get(
-                        "parallel" if d == "spanwise" else "normal", followers.get(name, name)
+                        "parallel" if d == "spanwise" else "normal",
+                        next(iter(leaders.values()), followers.get(name, name)),
                     )
                     for a, d in runs[name].items()
                 }
@@ -290,22 +388,22 @@ class _Planner:
 
     def grouped(self, groups, *, accept):
         """Plan each connected group with this planner's recovery and counting context."""
-        verts, families, grids, specs = self.verts, self.families, self.grids, self.specs
+        families, grids, specs = self.families, self.grids, self.specs
         te_edges, where = self.te_edges, self.where
         layouts: list[Layout] = []
         why: dict[str, str] = {}
         for group in groups:
             if all(specs[n].method == "keep" for n in group):
                 continue
-            if not any(any(specs[n].leads) for n in group):
+            if not any(any(specs[n].leads) or n in self.component_leads for n in group):
                 for name in group:
                     if specs[name].method == "grid_auto":
                         _skip_unled(grids, specs, name, where)
                 group = [n for n in group if n in grids]
-            if len(group) < 2:
+            if len(group) < 2 and not any(n in self.component_leads for n in group):
                 continue
             te = {v for n in group for e in te_edges[n] for v in e}
-            found = _join(verts, families, group, te)
+            found = self.joined(group, te)
             if isinstance(found, str):
                 why.update(
                     dict.fromkeys(group, f"; the grids {', '.join(group)} form no layout: {found}")
@@ -323,6 +421,13 @@ class _Planner:
                     raise
                 why.update(dict.fromkeys(group, _skipped_layout(error, group, where)))
         return layouts, why
+
+    def joined(self, group, te):
+        """Recover a connected layout, including a component's isolated sheet."""
+        grid = self.grids[group[0]]
+        if len(group) == 1 and isinstance(grid, Grid) and grid.layout == "sheet":
+            return sheet_blocks(grid, self.families[group[0]], te), (0,)
+        return _join(self.verts, self.families, group, te)
 
 
 def _joinable(grid: Recovered, faces: Faces) -> bool:
@@ -600,6 +705,8 @@ def plan(
     followers: dict[str, str] | None = None,
     assumed: Collection[str] = (),
     prepare: bool = False,
+    components: Mapping[str, Sequence[str]] | None = None,
+    component_governors: dict[str, dict[str, str]] | None = None,
 ) -> tuple[dict[str, Layout], list[tuple[str, str, str]]]:
     """Group the grid families that share nodes into layouts, before any work (FR-932).
 
@@ -634,6 +741,10 @@ def plan(
     prepare : bool
         Select each group's directional leads by total side length, then retain
         only followers whose every arc can propagate with the final declarations.
+    components : mapping, optional
+        Components whose grids share directional governors; absent keeps layout governing.
+    component_governors : dict, optional
+        Output mapping populated with the selected component governors.
 
     Returns
     -------
@@ -662,13 +773,16 @@ def plan(
         assumed,
         prepare,
     )
+    planner.govern_components(
+        components or {}, {} if component_governors is None else component_governors
+    )
     layouts, why = planner.grouped(_touching(joinable, nodes), accept=accept)
     done = [n for lay in layouts for n in lay.names]
     late: list[tuple[str, str, str]] = []
     for name in sorted(names, key=lambda n: specs.get(n, FamilySpec()).method == "keep"):
         if name not in grids or name in done:
             continue
-        if specs[name].method == "grid_auto":
+        if specs[name].method == "grid_auto" and name not in planner.component_leads:
             _skip_unled(grids, specs, name, where)
             continue
         first = [m for m in names if m in done and nodes[name] & nodes[m]]

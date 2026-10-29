@@ -41,6 +41,122 @@ from tests.p0380_mesh_fixtures import (
 COLUMNS, ROWS = 4, 2
 
 
+def _p0500_component_source(tmp_path, *, components=True, factor=2, connected=False):
+    points, families = [], {}
+
+    def vertex(point):
+        if point not in points:
+            points.append(point)
+        return points.index(point)
+
+    for name, x0, width, height in (
+        ("A", 0, 2, 6),
+        ("B", 2 if connected else 10, 2, 6),
+        ("C", 20, 8, 2),
+    ):
+        ids = [
+            [vertex((x0 + width * x / 4, height * y / 4, 0)) for y in range(5)] for x in range(5)
+        ]
+        families[name] = [
+            [
+                ids[x][y],
+                ids[x + 1][y],
+                ids[x + 1][y + 1],
+                ids[x][y + 1],
+            ]
+            for x in range(4)
+            for y in range(4)
+        ]
+    config = "[refine]\nkeep_within_component = true\n"
+    config += "".join(
+        f'[families.{n}]\nmethod = "grid"\nnormal_factor = {factor if n == "C" else 1}\n'
+        f"parallel_factor = {factor if n == 'A' else 1}\n"
+        for n in families
+    )
+    if components:
+        config += '[components]\nwing = ["C", "B", "A"]\n'
+    return write_source(
+        tmp_path / "src",
+        "components",
+        Composite(np.array(points, dtype=float), families, np.zeros((0, 3)), {}),
+        refine_toml=config,
+    )
+
+
+@pytest.mark.parametrize("factor", [2, 0.5])
+@pytest.mark.parametrize("connected", [False, True])
+def test_p0500_component_governors_cross_disconnected_layouts(tmp_path, factor, connected):
+    """P0500-COMPONENT: source-order tie, independent directions and distant followers."""
+    source = _p0500_component_source(tmp_path, factor=factor, connected=connected)
+    # Explicit perimeters fix the same P/N reference for all three plates.
+    rows = ["# Id, Name, X, Y, Z"]
+    from pyflightstream.workspace._refine._obj import read_obj
+
+    obj = read_obj(source)
+    for n, fs in obj.families.items():
+        ids = sorted({v for f in fs for v in f})
+        xmax = max(obj.verts[v, 0] for v in ids)
+        rows += [
+            f"{v + 1}, {n}, " + ", ".join(map(str, obj.verts[v]))
+            for v in ids
+            if obj.verts[v, 0] == xmax
+        ]
+    source.with_suffix(".nodes.txt").write_text("\n".join(rows) + "\n", encoding="utf-8")
+    config = source.with_suffix(".refine.toml")
+    config.write_text(
+        config.read_text() + '\n[[perimeter]]\nfile = "components.nodes.txt"\n', encoding="utf-8"
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        level = refine_mesh(source, accept_unknown=True)
+    record = json.loads(level.obj.with_suffix(".refine.json").read_text())
+    assert record.get("component_governors") == {"wing": {"parallel": "A", "normal": "C"}}
+    assert record["faces"]["wing"] == 3 * round(4 * factor) ** 2
+    provenance = "propagated_from:A" if connected else "own_orientation_unlinked"
+    assert record["families"]["B"]["provenance"][provenance] == 4
+    if not connected:
+        assert any("unlinked" in str(w.message) for w in caught)
+
+
+def test_p0500_component_without_components_is_byte_identical(tmp_path):
+    """P0500-COMPONENT: the switch without a component table changes no output bytes."""
+    import inspect
+
+    source = _p0500_component_source(tmp_path, components=False)
+    config = source.with_suffix(".refine.toml")
+    config.write_text(config.read_text().replace("keep_within_component = true\n", ""))
+    before = refine_mesh(source)
+    expected = {p.name: p.read_bytes() for p in before.files}
+    options = (
+        {"keep_within_component": True}
+        if "keep_within_component" in inspect.signature(refine_mesh).parameters
+        else {}
+    )
+    after = refine_mesh(source, overwrite=True, **options)
+    assert {p.name: p.read_bytes() for p in after.files} == expected
+
+
+def test_p0500_prepare_component_governors_are_persisted(tmp_path):
+    """P0500-COMPONENT: prepare_to_refine(source, keep_within_component=True)."""
+    import inspect
+
+    source = _p0500_component_source(tmp_path)
+    obj = source.read_text().replace("g B", "g A").replace("g C", "g A")
+    source.write_text(obj, encoding="utf-8")
+    options = (
+        {"keep_within_component": True}
+        if "keep_within_component" in inspect.signature(prepare_to_refine).parameters
+        else {}
+    )
+    prepared = prepare_to_refine(source, **options)
+    config = tomllib.loads(prepared.config.read_text())
+    assert config["refine"].get("keep_within_component") is True
+    tables = config["families"]
+    assert sum(bool(s.get("governing_parallel")) for s in tables.values()) == 1
+    assert sum(bool(s.get("governing_normal")) for s in tables.values()) == 1
+    assert sum(s["method"] == "grid_auto" for s in tables.values()) == 1
+
+
 @pytest.mark.parametrize("names", [("nodes", "other"), ("nodes", "nodes_family"), ("A", "A.fs")])
 @pytest.mark.parametrize("declared", [True, False])
 def test_p0500_family_output_stems_do_not_collide(tmp_path, names, declared):

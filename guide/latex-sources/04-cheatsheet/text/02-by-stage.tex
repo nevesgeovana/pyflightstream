@@ -97,6 +97,7 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \hd{Mesh levels}
 \begin{cmdblock}{pyfs-matrix refine}{<MESH> [FACTOR]}{A level in a new geometry folder \file{<stem>_<tag>/} (OBJ, trailing-edge points, boundaries, \file{refine.json}, audit); the source is never modified. FACTOR multiplies every selected family.}
 \opt{--families A,B}{only these; \fl{--parallel F}, \fl{--normal F}: one direction of the grid families.}
+\opt{--keep-within-component}{prepare-to-refine and refine: share parallel and normal governors across each component's grid patches, including disconnected layouts.}
 \opt{--accept-remesh}{a directional family with no grid is remeshed, warned, not refused.}
 \opt{--config FILE}{default \file{<stem>.refine.toml}: \texttt{[families.<name>]} \texttt{factor}, \texttt{parallel\_factor}, \texttt{normal\_factor}, \texttt{method}, \texttt{elements}; \texttt{[refine]} \texttt{tag}, \texttt{elements}; \texttt{[components]}; \texttt{[[perimeter]]} \texttt{file}, \texttt{export\_te\_per\_family}.}
 \opt{--out DIR}{default: beside the source's folder (\fl{--out-dir DIR}, deprecated, warns); \fl{--overwrite} replaces a level.}

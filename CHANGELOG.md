@@ -7,6 +7,13 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- `prepare-to-refine` and `refine` accept `--keep-within-component`, with matching
+  Python arguments and a persisted refine key. One governor per direction supplies
+  factors across a component's grid layouts, with warned own-orientation fallback
+  and recorded governor names (FR-3320).
+
 ### Fixed
 
 - Refinement warns and renames colliding family output stems, including `nodes`,

@@ -79,6 +79,7 @@ def prepare_to_refine(
     unit: str = "MILLIMETER",
     obj_unit: str = "METER",
     visual_inspect: bool = False,
+    keep_within_component: bool = False,
 ) -> PreparedMesh:
     """Split a mesh's families into patches and write its refine file and node list.
 
@@ -105,6 +106,9 @@ def prepare_to_refine(
     visual_inspect : bool
         Also write ``<stem>_patches.inspect.pdf``: one page per original family,
         each patch colored and named, with GOVERNING PARALLEL and GOVERNING NORMAL labels.
+    keep_within_component : bool
+        Select one governor per direction across each original family's grid patches,
+        including disconnected layouts, and persist the option under ``[refine]``.
 
     Returns
     -------
@@ -159,7 +163,46 @@ def prepare_to_refine(
     _obj.write_obj(out, targets[0], note)
     _textio.write_text(targets[2], "\n".join(["#  Id, Name, X , Y, Z", *rows]) + "\n")
     te_families = [n for n, ps in patches.items() if any(p in listed for p in ps)]
-    planned = _level.plan_prepared(targets[0], targets[2], patches, kinds, te_families)
+    planned = _level.plan_prepared(
+        targets[0],
+        targets[2],
+        patches,
+        kinds,
+        te_families,
+        keep_within_component=keep_within_component,
+    )
+    governing, followers, excluded, methods = _declarations(planned, kinds, keep_within_component)
+    _textio.write_text(
+        targets[1],
+        _toml(
+            source,
+            targets[2],
+            patches,
+            kinds,
+            te_families,
+            governing=governing,
+            followers=followers,
+            excluded=excluded,
+            methods=methods,
+            layouts=planned.layouts,
+            keep_within_component=keep_within_component,
+        ),
+    )
+    inspect = None
+    if visual_inspect:
+        from pyflightstream.workspace._visual_inspect import patches_pdf
+
+        unit_name = obj_unit.upper() if cuts is not None or _nastran.is_nastran(source) else None
+        inspect = patches_pdf(
+            targets[0], patches, governing, targets[3], mesh_unit=unit_name, layouts=planned.layouts
+        )
+    return PreparedMesh(
+        targets[0], targets[1], targets[2], patches, tuple(sorted(governing)), inspect
+    )
+
+
+def _declarations(planned, kinds, keep_within_component):
+    """Read prepared tables and fallback comments from the completed planner result."""
     governing = {
         n: s.leads for n, s in planned.specs.items() if n in planned.grids and any(s.leads)
     }
@@ -177,32 +220,9 @@ def prepare_to_refine(
                 ", ".join(sorted(r.removeprefix("own_orientation_") for r in reasons)),
             )
     methods = {n: "grid" if n in planned.grids else "auto" for n in kinds if kinds[n] == "grid"}
-    _textio.write_text(
-        targets[1],
-        _toml(
-            source,
-            targets[2],
-            patches,
-            kinds,
-            te_families,
-            governing=governing,
-            followers=followers,
-            excluded=excluded,
-            methods=methods,
-            layouts=planned.layouts,
-        ),
-    )
-    inspect = None
-    if visual_inspect:
-        from pyflightstream.workspace._visual_inspect import patches_pdf
-
-        unit_name = obj_unit.upper() if cuts is not None or _nastran.is_nastran(source) else None
-        inspect = patches_pdf(
-            targets[0], patches, governing, targets[3], mesh_unit=unit_name, layouts=planned.layouts
-        )
-    return PreparedMesh(
-        targets[0], targets[1], targets[2], patches, tuple(sorted(governing)), inspect
-    )
+    if keep_within_component:
+        followers.update(n for n, s in planned.specs.items() if s.method == "grid_auto")
+    return governing, followers, excluded, methods
 
 
 def _patches(verts: Points, faces: Faces) -> list[tuple[str, list[int]]]:
@@ -492,22 +512,15 @@ def _toml(
     excluded: dict[str, tuple[str, str]] | None = None,
     methods: dict[str, str] | None = None,
     layouts=None,
+    keep_within_component=False,
 ) -> str:
     """Return the refine file text: one table per patch, the components and the perimeter."""
-    lines = [
-        f"# Refine file prepared by pyflightstream prepare-to-refine from {source.name}.",
-        "# Edit the factors (and the method) of each patch; the [components] put each",
-        "# family's patches back together in the level.",
-        "",
-        "[refine]",
-        'elements = "quad-dominant"',
-        "",
-    ]
+    lines = _toml_header(source, keep_within_component)
     for members in patches.values():
         for patch in members:
             layout = (layouts or {}).get(patch)
             if patch in followers and layout is not None:
-                sources = layout.governing
+                sources = layout.governing_by_family.get(patch, layout.governing)
                 lines.append(
                     f"# follows {sources['parallel']} (parallel) and {sources['normal']} (normal)"
                 )
@@ -545,6 +558,22 @@ def _toml(
         "",
     ]
     return "\n".join(lines)
+
+
+def _toml_header(source, keep_within_component):
+    """Introduce the prepared refine table and its optional component mode."""
+    lines = [
+        f"# Refine file prepared by pyflightstream prepare-to-refine from {source.name}.",
+        "# Edit the factors (and the method) of each patch; the [components] put each",
+        "# family's patches back together in the level.",
+        "",
+        "[refine]",
+        'elements = "quad-dominant"',
+        "",
+    ]
+    if keep_within_component:
+        lines.insert(-1, "keep_within_component = true")
+    return lines
 
 
 def _key(name: str) -> str:

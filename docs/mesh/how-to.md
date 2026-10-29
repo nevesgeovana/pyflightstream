@@ -1,5 +1,22 @@
 # Mesh inputs and GUI-only operations
 
+To give all grid patches of an original family the same directional factors,
+prepare its component declarations with:
+
+```text
+pyfs-workspace geometry prepare-to-refine wing.obj --keep-within-component
+pyfs-workspace geometry refine wing_patches.obj
+```
+
+Edit the parallel factor of the patch marked `governing_parallel` and the normal
+factor of the patch marked `governing_normal` in the prepared TOML. Preparation
+persists `[refine] keep_within_component = true`. Each component's other grids
+follow those factors, including across disconnected layouts. Where directions
+cannot propagate, refinement warns and uses the patch's own orientation.
+For a hand-written file with `[components]`, pass `--keep-within-component` to
+`refine`, or `keep_within_component=True` to `refine_mesh`. With no components,
+the option leaves the existing per-layout behavior unchanged.
+
 A matrix row names a saved simulation (`.fsm`). Start from an OBJ by
 preparing its named declarations, running `geometry mark-boundaries --apply`
 once, and inspecting the resulting FSM. GUI-prepared FSM files are accepted

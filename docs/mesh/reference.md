@@ -1,5 +1,22 @@
 # Mesh input reference
 
+`prepare-to-refine --keep-within-component` and
+`prepare_to_refine(..., keep_within_component=True)` select one parallel and
+one normal governing grid patch per original family, grouped by `[components]`.
+Each governor has the greatest total length of its direction's sides; ties use
+source order. The prepared `[refine] keep_within_component = true` key enables
+the same planner decision in refinement. `refine --keep-within-component` and
+`refine_mesh(..., keep_within_component=True)` enable it for a hand-written file.
+Python `None` reads the file key; `False` overrides it. Without the flag/key or
+without components, existing layout governing is unchanged.
+
+All grid patches of a component take its governors' factors per direction.
+Directions propagate through shared grid bands; disconnected patches use their
+own orientation with a warning and recorded provenance. `refine.json` records
+the two selected names under `component_governors`; inspection labels remain
+GOVERNING PARALLEL and GOVERNING NORMAL. A non-boolean file key is warned and
+skipped, using false.
+
 Per-family trailing-edge outputs use a renamed stem when their filenames would
 collide with level-wide files or another family's outputs. For example, family
 `nodes` uses `nodes_family`, or `nodes_family_2` if the former is already used.

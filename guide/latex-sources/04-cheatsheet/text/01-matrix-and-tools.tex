@@ -44,6 +44,7 @@
 \sub{refine <MESH> [FACTOR]}{refine or coarsen a panel mesh from its OBJ into a new geometry folder \texttt{<stem>\_<tag>/} (OBJ, trailing-edge points, the quad families' trailing edges as solver node files and ANSA node lists, boundaries, \texttt{refine.json}, audit); FACTOR multiplies every selected family, else the factors come from the refinement file; the source is never modified}
 \begin{flags}
 \item \fl{--families A,B} only these families (default: all)
+\item \fl{--keep-within-component} share directional governors across each component's grid patches
 \item \fl{--parallel F}, \fl{--normal F} the factor in one index direction of the grid families (the parallel or the normal direction)
 \item \fl{--accept-remesh} a family that states parallel and normal factors, or \texttt{method = "grid"}, but recovers no grid is warned and remeshed with its \texttt{factor}, instead of refused
 \item \fl{--accept-unknown} an entry of the refinement file it does not know or cannot read, and a \fl{--families} name the mesh does not hold, are warned and skipped, instead of refused
@@ -296,6 +297,7 @@ See the website's Upgrading page for supported workspace conversion.
 \sub{geometry convert2midnodes <nodes> <output>}{write a .te.txt from an ANSA SET node list, in any node order}
 \fl{--unit UNIT} the coordinates' unit (METER); \fl{--per-family MESH} one file per family from the OBJ's edges; \fl{--overwrite}; \fl{--accept-empty} an empty list writes nothing, exit 0; \fl{--verbose}, \fl{--log-level LEVEL}.
 \sub{geometry prepare-to-refine <mesh>}{optional: families of an OBJ, or of an ANSA NASTRAN export cut along its FE perimeters, split into <family>\_<NNN>\_grid or \_mixed patches, a refine file and a node list}
+\fl{--keep-within-component} select parallel and normal governors per original family, across disconnected layouts.
 \fl{--max-angle DEG} (45); \fl{--aft X Y Z}; \fl{--unit UNIT} the NASTRAN unit (MILLIMETER), \fl{--obj-unit UNIT} (METER); \fl{--visual-inspect} a PDF with patches then directions per original family, blue parallel and orange normal arcs, P/N labels and bold framed dominant labels; \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}.
 \sub{geometry visual-inspect <mesh>}{a PDF of the top, front, side and isometric views, one color per patch, with marked points and a table}
 \fl{--nodes FILE...}, \fl{--te FILE...}; \fl{--cmap NAME}; \fl{--families A,B}; \fl{--box X0 X1 Y0 Y1 Z0 Z1}; \fl{--mesh-unit}, \fl{--points-unit}, \fl{--unit UNIT}; \fl{--iso-from X Y Z}; \fl{--labels}; \fl{--no-edges}; \fl{--perimeter-width PT}; \fl{--dpi N}; \fl{--png}; \fl{--out}; \fl{--overwrite}; \fl{--verbose}, \fl{--log-level LEVEL}.
@@ -327,6 +329,7 @@ See the website's Upgrading page for supported workspace conversion.
 \item \fl{--apply} write \texttt{<stem>.geometry.toml} \quad \fl{--build ID} the build id (else the rows' newest) \quad \fl{--workspace DIR}
 \end{flags}
 \sub{geometry refine <MESH> [FACTOR]}{as \cmd{refine} of \texttt{pyfs-matrix}, whose home this group is}
+\fl{--keep-within-component} share directional governors across each declared component's grid patches.
 \fl{--visual-inspect} writes the level's patches and directions PDF beside its OBJ.
 \begin{flags}
 \item \fl{--families A,B} \quad \fl{--parallel F} \quad \fl{--normal F} \quad \fl{--accept-remesh} \quad \fl{--accept-unknown} \quad \fl{--strict-factors} \quad \fl{--config FILE}
