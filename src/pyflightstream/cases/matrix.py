@@ -1095,8 +1095,8 @@ def matrix_pol_rows(path: str | Path) -> list[tuple[int, str]]:
     Raises
     ------
     MatrixError
-        The file is not UTF-8, its header is not the matrix header, or a row holds
-        the wrong number of cells.
+        The file is not UTF-8, holds no matrix content, its header is not the matrix
+        header, or a row holds the wrong number of cells.
     """
     pol_index = _COLUMNS.index("POL")
     return [(number, cells[pol_index]) for number, cells in _matrix_data_rows(path)]
