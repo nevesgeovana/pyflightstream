@@ -2732,10 +2732,7 @@ commands:
     script_sha256: null
   CREATE_NEW_MOTION:
     outcome: verified
-    detail: 'Measured 2026-10-29, zero-boundary ROTARY motion: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.50.0/licensed/rmrp-probe/verdict.json
-      and b26124/test.txt. The six-command block completed 16 steps; geometry forces stayed identical to
-      control and a vertex in RMRP returned to the SMRP values at steps 8 and 16, the full turns at 600
-      RPM. This verifies the combined frame-only motion, not an isolated command effect.'
+    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect).'
     signals:
       sentinel_before: true
       sentinel_after: true
@@ -2745,26 +2742,10 @@ commands:
     return_code: null
     script_sha256: 08a01eab1d680f1703ac54530c12152fc6501552aaa4876146726e8b67bd0ca6
     probe_date: '2026-10-29'
-    probe_ref: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.50.0/licensed/rmrp-probe/b26124/test.txt
-    previous_measurement:
-      outcome: unprobed
-      detail: not probed in this run
-      expected: null
-      observation: null
-      signals:
-        sentinel_before: false
-        sentinel_after: false
-        effect: null
-        log_errors: []
-      wall_time_s: null
-      return_code: null
-      script_sha256: null
+    probe_ref: licensed RMRP probe of 2026-10-29 (control and test scripts, zero-boundary ROTARY motion)
   SET_MOTION_BOUNDARIES:
     outcome: verified
-    detail: 'Measured 2026-10-29, zero-boundary ROTARY motion: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.50.0/licensed/rmrp-probe/verdict.json
-      and b26124/test.txt. The six-command block completed 16 steps; geometry forces stayed identical to
-      control and a vertex in RMRP returned to the SMRP values at steps 8 and 16, the full turns at 600
-      RPM. This verifies the combined frame-only motion, not an isolated command effect.'
+    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect).'
     signals:
       sentinel_before: true
       sentinel_after: true
@@ -2774,26 +2755,10 @@ commands:
     return_code: null
     script_sha256: 08a01eab1d680f1703ac54530c12152fc6501552aaa4876146726e8b67bd0ca6
     probe_date: '2026-10-29'
-    probe_ref: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.50.0/licensed/rmrp-probe/b26124/test.txt
-    previous_measurement:
-      outcome: unprobed
-      detail: not probed in this run
-      expected: null
-      observation: null
-      signals:
-        sentinel_before: false
-        sentinel_after: false
-        effect: null
-        log_errors: []
-      wall_time_s: null
-      return_code: null
-      script_sha256: null
+    probe_ref: licensed RMRP probe of 2026-10-29 (control and test scripts, zero-boundary ROTARY motion)
   SET_MOTION_MOVING_FRAMES:
     outcome: verified
-    detail: 'Measured 2026-10-29, zero-boundary ROTARY motion: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.50.0/licensed/rmrp-probe/verdict.json
-      and b26124/test.txt. The six-command block completed 16 steps; geometry forces stayed identical to
-      control and a vertex in RMRP returned to the SMRP values at steps 8 and 16, the full turns at 600
-      RPM. This verifies the combined frame-only motion, not an isolated command effect.'
+    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect).'
     signals:
       sentinel_before: true
       sentinel_after: true
@@ -2803,26 +2768,10 @@ commands:
     return_code: null
     script_sha256: 08a01eab1d680f1703ac54530c12152fc6501552aaa4876146726e8b67bd0ca6
     probe_date: '2026-10-29'
-    probe_ref: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.50.0/licensed/rmrp-probe/b26124/test.txt
-    previous_measurement:
-      outcome: unprobed
-      detail: not probed in this run
-      expected: null
-      observation: null
-      signals:
-        sentinel_before: false
-        sentinel_after: false
-        effect: null
-        log_errors: []
-      wall_time_s: null
-      return_code: null
-      script_sha256: null
+    probe_ref: licensed RMRP probe of 2026-10-29 (control and test scripts, zero-boundary ROTARY motion)
   SET_MOTION_COORDINATE_SYSTEM:
     outcome: verified
-    detail: 'Measured 2026-10-29, zero-boundary ROTARY motion: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.50.0/licensed/rmrp-probe/verdict.json
-      and b26124/test.txt. The six-command block completed 16 steps; geometry forces stayed identical to
-      control and a vertex in RMRP returned to the SMRP values at steps 8 and 16, the full turns at 600
-      RPM. This verifies the combined frame-only motion, not an isolated command effect.'
+    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect).'
     signals:
       sentinel_before: true
       sentinel_after: true
@@ -2832,20 +2781,7 @@ commands:
     return_code: null
     script_sha256: 08a01eab1d680f1703ac54530c12152fc6501552aaa4876146726e8b67bd0ca6
     probe_date: '2026-10-29'
-    probe_ref: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.50.0/licensed/rmrp-probe/b26124/test.txt
-    previous_measurement:
-      outcome: unprobed
-      detail: not probed in this run
-      expected: null
-      observation: null
-      signals:
-        sentinel_before: false
-        sentinel_after: false
-        effect: null
-        log_errors: []
-      wall_time_s: null
-      return_code: null
-      script_sha256: null
+    probe_ref: licensed RMRP probe of 2026-10-29 (control and test scripts, zero-boundary ROTARY motion)
   SET_MOTION_START_TIME:
     outcome: verified
     detail: 'script processing continued past the command, no error between the sentinels, and the effect
@@ -2862,10 +2798,7 @@ commands:
     script_sha256: 47fb4c56480aacc95dc44a7b0e029bdb825e63774e62016fd8d3abeda5ea2973
   SET_MOTION_ROTOR_AXIS:
     outcome: verified
-    detail: 'Measured 2026-10-29, zero-boundary ROTARY motion: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.50.0/licensed/rmrp-probe/verdict.json
-      and b26124/test.txt. The six-command block completed 16 steps; geometry forces stayed identical to
-      control and a vertex in RMRP returned to the SMRP values at steps 8 and 16, the full turns at 600
-      RPM. This verifies the combined frame-only motion, not an isolated command effect.'
+    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect).'
     signals:
       sentinel_before: true
       sentinel_after: true
@@ -2875,26 +2808,10 @@ commands:
     return_code: null
     script_sha256: 08a01eab1d680f1703ac54530c12152fc6501552aaa4876146726e8b67bd0ca6
     probe_date: '2026-10-29'
-    probe_ref: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.50.0/licensed/rmrp-probe/b26124/test.txt
-    previous_measurement:
-      outcome: unprobed
-      detail: not probed in this run
-      expected: null
-      observation: null
-      signals:
-        sentinel_before: false
-        sentinel_after: false
-        effect: null
-        log_errors: []
-      wall_time_s: null
-      return_code: null
-      script_sha256: null
+    probe_ref: licensed RMRP probe of 2026-10-29 (control and test scripts, zero-boundary ROTARY motion)
   SET_MOTION_ROTOR_RPM:
     outcome: verified
-    detail: 'Measured 2026-10-29, zero-boundary ROTARY motion: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.50.0/licensed/rmrp-probe/verdict.json
-      and b26124/test.txt. The six-command block completed 16 steps; geometry forces stayed identical to
-      control and a vertex in RMRP returned to the SMRP values at steps 8 and 16, the full turns at 600
-      RPM. This verifies the combined frame-only motion, not an isolated command effect.'
+    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect).'
     signals:
       sentinel_before: true
       sentinel_after: true
@@ -2904,20 +2821,7 @@ commands:
     return_code: null
     script_sha256: 08a01eab1d680f1703ac54530c12152fc6501552aaa4876146726e8b67bd0ca6
     probe_date: '2026-10-29'
-    probe_ref: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS/0.50.0/licensed/rmrp-probe/b26124/test.txt
-    previous_measurement:
-      outcome: unprobed
-      detail: not probed in this run
-      expected: null
-      observation: null
-      signals:
-        sentinel_before: false
-        sentinel_after: false
-        effect: null
-        log_errors: []
-      wall_time_s: null
-      return_code: null
-      script_sha256: null
+    probe_ref: licensed RMRP probe of 2026-10-29 (control and test scripts, zero-boundary ROTARY motion)
   SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
     outcome: unprobed
     detail: not probed in this run
