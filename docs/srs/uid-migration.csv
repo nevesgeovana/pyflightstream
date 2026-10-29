@@ -779,9 +779,9 @@ FR-940,l3,FR-937,,tests/requirements_l3.csv
 FR-941,l3,FR-937,,tests/requirements_l3.csv
 FR-427,retired,,,docs/unpublished/requirements/retired.md
 FR-942,retired,,,docs/unpublished/requirements/retired.md
-FR-943,retired,,,docs/unpublished/requirements/retired.md
+FR-943,retired,,FR-1507,docs/unpublished/requirements/retired.md
 FR-944,retired,,,docs/unpublished/requirements/retired.md
-FR-428,retired,,,docs/unpublished/requirements/retired.md
+FR-428,retired,,FR-1508 FR-1509,docs/unpublished/requirements/retired.md
 FR-945,retired,,,docs/unpublished/requirements/retired.md
 FR-946,retired,,,docs/unpublished/requirements/retired.md
 FR-429,l3,FR-948,,tests/requirements_l3.csv
@@ -790,12 +790,12 @@ FR-948,kept,,,docs/unpublished/requirements/oper.md
 FR-949,l3,FR-1138,,tests/requirements_l3.csv
 FR-430,retired,,,docs/unpublished/requirements/retired.md
 FR-950,retired,,,docs/unpublished/requirements/retired.md
-FR-951,retired,,,docs/unpublished/requirements/retired.md
-FR-952,retired,,,docs/unpublished/requirements/retired.md
+FR-951,retired,,FR-1510,docs/unpublished/requirements/retired.md
+FR-952,retired,,FR-1511,docs/unpublished/requirements/retired.md
 FR-953,retired,,,docs/unpublished/requirements/retired.md
 FR-954,retired,,,docs/unpublished/requirements/retired.md
 FR-955,retired,,,docs/unpublished/requirements/retired.md
-FR-956,retired,,,docs/unpublished/requirements/retired.md
+FR-956,retired,,FR-1512 FR-1513,docs/unpublished/requirements/retired.md
 FR-957,retired,,,docs/unpublished/requirements/retired.md
 FR-958,retired,,,docs/unpublished/requirements/retired.md
 FR-431,kept,,FR-1514,docs/unpublished/requirements/spcm.md
@@ -813,7 +813,7 @@ FR-968,kept,,,docs/unpublished/requirements/spcm.md
 FR-433,kept,,,docs/unpublished/requirements/spcm.md
 FR-969,kept,,FR-1516 FR-1517 FR-1518,docs/unpublished/requirements/spcm.md
 FR-970,l3,FR-433,FR-1519,tests/requirements_l3.csv
-FR-971,l3,FR-433,FR-1520 FR-1521 FR-1522,tests/requirements_l3.csv
+FR-971,retired,,FR-1520 FR-1521 FR-1522 FR-3318,docs/unpublished/requirements/retired.md
 FR-972,l3,FR-433,,tests/requirements_l3.csv
 FR-973,l3,FR-433,,tests/requirements_l3.csv
 FR-434,l3,FR-866,,tests/requirements_l3.csv
@@ -1178,3 +1178,12 @@ FR-3242,kept,,,docs/unpublished/requirements/trst.md
 FR-3243,kept,,,docs/unpublished/requirements/trst.md
 FR-3244,kept,,,docs/unpublished/requirements/trst.md
 FR-3245,kept,,,docs/unpublished/requirements/trst.md
+FR-1507,retired,,,docs/unpublished/requirements/retired.md
+FR-1508,retired,,,docs/unpublished/requirements/retired.md
+FR-1509,retired,,,docs/unpublished/requirements/retired.md
+FR-1510,retired,,,docs/unpublished/requirements/retired.md
+FR-1511,retired,,,docs/unpublished/requirements/retired.md
+FR-1512,retired,,,docs/unpublished/requirements/retired.md
+FR-1513,retired,,,docs/unpublished/requirements/retired.md
+FR-1516,retired,,FR-3318,docs/unpublished/requirements/retired.md
+FR-3020,retired,,FR-3310,docs/unpublished/requirements/retired.md

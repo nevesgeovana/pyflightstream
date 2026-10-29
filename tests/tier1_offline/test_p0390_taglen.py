@@ -114,7 +114,7 @@ def test_a_user_tag_is_used_as_given(tmp_path):
 
 
 def test_same_selection_same_tag_and_any_change_another(tmp_path):
-    """P0390-TAGLEN (FR-971): stable tag; a factor changes it."""
+    """P0390-TAGLEN (FR-1521, FR-1522): stable tag; a factor changes it."""
     base = _config.level_tag(_request(tmp_path, NAMES), NAMES)
     assert base == _config.level_tag(_request(tmp_path, NAMES), NAMES)
     assert base == f"R-12fam-{_hash(NAMES)}"
@@ -153,7 +153,7 @@ def test_folder_name_refusal_only_for_the_built_form(tmp_path):
 
 
 def test_a_method_or_element_change_alone_changes_the_summary_tag(tmp_path):
-    """P0390-TAGLEN (FR-970, FR-971): every option of the canonical selection reaches the hash."""
+    """P0390-TAGLEN (FR-970, FR-1522): every option of the canonical selection reaches the hash."""
     base = _config.level_tag(_request(tmp_path, NAMES), NAMES)
     spec = _request(tmp_path, NAMES).specs[NAMES[3]]
     remeshed = _request(tmp_path, NAMES)
@@ -234,7 +234,7 @@ def _two(tmp_path: Path, alpha: float, beta: float = 5.0):
     ids=["sixth-digit", "last-bit", "sum"],
 )
 def test_closely_spaced_factors_give_distinct_selections_and_tags(tmp_path, pair):
-    """P0390-TAGLEN (FR-970, FR-971): a factor is written in full, so close factors differ.
+    """P0390-TAGLEN (FR-970, FR-1517): a factor is written in full, so close factors differ.
 
     Two selections whose factors differ past the sixth significant digit
     give two canonical selections, each holding its factor in the shortest

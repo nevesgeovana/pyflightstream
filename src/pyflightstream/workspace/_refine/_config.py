@@ -76,7 +76,7 @@ FACTOR_ALIASES = {"spanwise": "parallel_factor", "chordwise": "normal_factor"}
 #: The keys of a ``[[perimeter]]`` table: one ANSA node list of reference perimeters.
 PERIMETER_KEYS = ("file", "export_te_per_family", "te_families", "aft")
 #: The keys of ``[refine]``.
-REFINE_KEYS = ("tag", "filename", "elements")
+REFINE_KEYS = ("tag", "filename", "elements", "keep_within_component")
 #: The top-level tables of a refinement file.
 TABLES = ("refine", "families", "components", "perimeter")
 #: Tables a refinement file may still state from earlier releases; each is warned and skipped.
@@ -173,6 +173,7 @@ class RefineRequest:
     #: Raise a grid factor below the least its grid allows to that least, with a
     #: warning (the default), instead of refusing it (CLI ``--strict-factors``).
     force_factors: bool = True
+    keep_within_component: bool = False
 
     def elements_of(self, family: str) -> str:
         """Return the element mode of a family: its own, else the file's default."""
@@ -581,7 +582,11 @@ def read_refine_file(
         tag = None
     default = refine.get("elements", TRIANGLES)
     filename = _filename(source, refine.get("filename"))
-    _trailing_edge(source, data.get("trailing_edge", {}))
+    component_mode = refine.get("keep_within_component", False)
+    if not isinstance(component_mode, bool):
+        _skip(f"{source} [refine] keep_within_component", "expected true or false; using false")
+        component_mode = False
+    _trailing_edge(source, "trailing_edge" in data)
     if "periodic" in data:
         _skip(f"{source} [periodic]", "is no longer read; a periodic sector is refined as any mesh")
     return {
@@ -592,13 +597,14 @@ def read_refine_file(
         "default_elements": elements_mode(f"{source} [refine]", default, accept_unknown),
         "tag": tag,
         "filename": filename,
+        "keep_within_component": component_mode,
         "components": _components(source, data.get("components", {}), names, accept_unknown),
     }
 
 
-def _trailing_edge(source: Path, value: object) -> None:
+def _trailing_edge(source: Path, declared: bool) -> None:
     """Warn that ``[trailing_edge]`` is no longer read: the trailing edges are ``[[perimeter]]``."""
-    if value:
+    if declared:
         _skip(
             f"{source} [trailing_edge]",
             "is no longer read; list the trailing-edge nodes in a [[perimeter]] file with "
@@ -687,6 +693,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     accept_remesh: bool = False,
     accept_unknown: bool = False,
     force_factors: bool = True,
+    keep_within_component: bool | None = None,
 ) -> RefineRequest:
     """Return what the refinement is asked, from the call and the refinement file (FR-916).
 
@@ -780,6 +787,11 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         accept_remesh=accept_remesh,
         force_factors=force_factors,
         perimeters=stated.get("perimeters", ()),
+        keep_within_component=(
+            stated.get("keep_within_component", False)
+            if keep_within_component is None
+            else keep_within_component
+        ),
     )
 
 
@@ -850,7 +862,7 @@ def _built_tag(request: RefineRequest, names: Sequence[str]) -> tuple[str, list[
 
 
 def _value(value: object) -> str:
-    """Return one option value as the canonical selection writes it (FR-970, FR-971).
+    """Return one option value as the canonical selection writes it (FR-970, FR-3318).
 
     A number is written in the shortest text that reads back to the same
     float (:func:`repr`), without a trailing ``.0``, so two factors that

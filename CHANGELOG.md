@@ -27,6 +27,13 @@ FlightStream versions.
   remain skipped (FR-3353). W uses the whole wheel's blade count on periodic
   sectors, including exports without blade tags, and reverses the qsteady
   export's circulation sense. Unsteady wake loads keep their existing sense.
+- Refinement accepts `--audit-off` and `refine_mesh(..., audit=False)` to skip
+  the level audit, record that choice and show how to audit later (FR-3321).
+- `prepare-to-refine` and `refine` accept `--keep-within-component`, with matching
+  Python arguments and a persisted refine key. One governor per direction supplies
+  factors across a component's grid layouts, with warned own-orientation fallback
+  and recorded governor names (FR-3320).
+
 ### Changed
 
 - Bound every runtime dependency and user-facing extra, preserving existing
@@ -38,6 +45,18 @@ FlightStream versions.
   Python 3.12 (FR-3330). See the 0.50.0 upgrade guidance.
 - Run the complete offline tier in parallel in the lean CI job, with no
   user-facing extras installed (FR-3331, FR-3332).
+- Retired stale periodic-sector and keep-row requirement promises, preserving their
+  identifiers and split lineage; the retained connectivity, warning-and-skip and
+  factor-tag contracts have explicit coverage (FR-3310, FR-3311, FR-3312, FR-3313,
+  FR-3314, FR-3315, FR-3316, FR-3317, FR-3318).
+
+### Fixed
+
+- Empty or false-valued retired `trailing_edge` entries now warn when skipped,
+  as other stated retired entries do (FR-3284).
+- Refinement warns and renames colliding family output stems, including `nodes`,
+  without overwriting combined trailing edges or another family's files. The
+  rename is recorded in `refine.json`; OBJ family names stay unchanged (FR-3319).
 
 ## [0.49.0] - 2026-10-29
 

@@ -1,5 +1,44 @@
 # Mesh input reference
 
+Refinement files warn and skip the retired `[periodic]` and `[trailing_edge]`
+tables and the family keys `keep_first_row`, `trailing_edge_direction`, `axial`,
+`circumferential`, `axis` and `origin`, including empty or malformed values. Use
+`[[perimeter]]` for reference node lists and trailing-edge export. A row that
+must stay unchanged is a separate family with `method = "keep"`; continuity
+may still require changes along its shared curves.
+
+Refinement audits each written level by default. `refine --audit-off` (also
+available through `pyfs-matrix`) or `refine_mesh(..., audit=False)` skips that
+call and returns a level with `audit=None`. Its `refine.json` records
+`"audit": "skipped (--audit-off)"`; no audit file is written. The command prints
+how to audit the level later with `pyfs-workspace geometry audit <level.obj>
+--against <source.obj>`. The skipped record does not prevent later inspection
+or auditing (FR-3321).
+
+`prepare-to-refine --keep-within-component` and
+`prepare_to_refine(..., keep_within_component=True)` select one parallel and
+one normal governing grid patch per original family, grouped by `[components]`.
+Each governor has the greatest total length of its direction's sides; ties use
+source order. The prepared `[refine] keep_within_component = true` key enables
+the same planner decision in refinement. `refine --keep-within-component` and
+`refine_mesh(..., keep_within_component=True)` enable it for a hand-written file.
+Python `None` reads the file key; `False` overrides it. Without the flag/key or
+without components, existing layout governing is unchanged.
+
+All grid patches of a component take its governors' factors per direction.
+Directions propagate through shared grid bands; disconnected patches use their
+own orientation with a warning and recorded provenance. `refine.json` records
+the two selected names under `component_governors`; inspection labels remain
+GOVERNING PARALLEL and GOVERNING NORMAL. A non-boolean file key is warned and
+skipped, using false.
+
+Per-family trailing-edge outputs use a renamed stem when their filenames would
+collide with level-wide files or another family's outputs. For example, family
+`nodes` uses `nodes_family`, or `nodes_family_2` if the former is already used.
+The operation warns and records the mapping in `refine.json` under
+`renamed_family_outputs`. OBJ family names remain unchanged; generated
+boundaries declarations point to the renamed files.
+
 The inventory command writes `<mesh>.obj.boundaries.toml` or
 `<mesh>.fsm.boundaries.toml`, according to its input. An existing OBJ inventory
 is never rewritten, including with `--overwrite`. The marking declaration

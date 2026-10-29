@@ -383,6 +383,11 @@ def _add_mesh_verbs(verbs: Any) -> None:
         ),
     )
     _add_visual_inspect(verbs)
+    prepare.add_argument(
+        "--keep-within-component",
+        action="store_true",
+        help="share directional governors across each original family's grid patches",
+    )
 
 
 def _add_visual_inspect(verbs: Any) -> None:
@@ -796,6 +801,7 @@ def _cmd_prepare_to_refine(args: argparse.Namespace) -> int:
             unit=args.unit,
             obj_unit=args.obj_unit,
             visual_inspect=args.visual_inspect,
+            keep_within_component=args.keep_within_component,
         )
     except (PyflightstreamError, OSError, ValueError) as error:
         print(str(error), file=sys.stderr)

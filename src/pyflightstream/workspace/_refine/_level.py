@@ -95,8 +95,8 @@ class RefinedMesh:
     report : dict
         The ``families`` entry of ``refine.json``: per family, the method,
         the reason, the layout and the counts before and after.
-    audit : MeshAudit
-        The audit of the level against its source (FR-426), written beside it.
+    audit : MeshAudit or None
+        The audit written beside the level (FR-426), or None when audit=False.
     """
 
     folder: Path
@@ -140,6 +140,8 @@ class _Work:
     assumed: set[str] = field(default_factory=set)
     # The grid_auto families and the governing family selected by the planner.
     followers: dict[str, str] = field(default_factory=dict)
+    component_governors: dict[str, dict[str, str]] = field(default_factory=dict)
+    audit_enabled: bool = True
     sidecar: str | None = None  # the level's boundaries file, rewritten before any work
     unchanged: list[str] = field(default_factory=list)  # the families G6 compares
     # FR-972: the selected families of a summary tag, taken with the tag before any work
@@ -214,13 +216,14 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
 # ------------------------------------------------------------------- deciding
 
 
-def plan_prepared(source, nodes, components, kinds, te_families):
+def plan_prepared(source, nodes, components, kinds, te_families, *, keep_within_component=False):
     """Plan prepared patches with the exact OBJ and node list written for refinement."""
     request = RefineRequest(
         specs={n: FamilySpec(method="grid" if k == "grid" else "remesh") for n, k in kinds.items()},
         components=components,
         perimeters=(_config.Perimeter(nodes, te_families=tuple(te_families)),),
         accept_remesh=True,
+        keep_within_component=keep_within_component,
     )
     work = _start(source, request, _obj.read_obj(source))
     _decide(work, prepare=True)
@@ -374,6 +377,8 @@ def _grid_after_grid(work: _Work, *, prepare: bool = False) -> None:
         followers=work.followers,
         assumed=work.assumed,
         prepare=prepare,
+        components=work.request.components if work.request.keep_within_component else None,
+        component_governors=work.component_governors,
     )
     # Followers use the layout's propagated axes and per-arc minimum counts.
     # Their independently recovered Grid axes may be rotated; checking those
@@ -1007,6 +1012,8 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int], has_te: bool) -> 
         ],
         "faces": dict(counts),
         **shortened,
+        **({"audit": "skipped (--audit-off)"} if not work.audit_enabled else {}),
+        **({"component_governors": work.component_governors} if work.component_governors else {}),
     }
 
 
@@ -1088,7 +1095,13 @@ def _warn_stale_declarations(work: _Work, mesh: ObjMesh, folder: Path) -> None:
 
 
 def _quad_te_files(
-    work: _Work, folder: Path, verts: Points, faces: dict[str, Faces], te: Points
+    work: _Work,
+    folder: Path,
+    verts: Points,
+    faces: dict[str, Faces],
+    te: Points,
+    *,
+    stems: Mapping[str, str],
 ) -> list[Path]:
     """Write the quad families' trailing edges of the level, all and per family, in two formats.
 
@@ -1109,8 +1122,10 @@ def _quad_te_files(
         near = index.query(mid)[0] < work.te_tolerance
         on = {(int(a), int(b)) for (a, b), hit in zip(edges, near, strict=True) if hit}
         if on:
-            found[name] = on
-    return write_level_trailing_edges(verts, found, folder, folder.name, unit=work.te_unit)
+            found[stems[name]] = on
+    written = write_level_trailing_edges(verts, found, folder, folder.name, unit=work.te_unit)
+    _obj.restore_node_names(written, dict(stems))
+    return written
 
 
 def _write(
@@ -1120,6 +1135,7 @@ def _write(
     stem = folder.name
     if work.te_export is not None:
         te = _lines.on_exported(work, te)
+    stems = _obj.output_stems(list(faces)) if len(te) else {n: n for n in faces}
     mesh = ObjMesh(
         verts, faces, list(work.mesh.header), work.mesh.family_tag, _source_text(work, verts)
     )
@@ -1138,7 +1154,7 @@ def _write(
             points = te[distance < work.te_tolerance]
             if len(points):
                 own[name] = _obj.write_te(
-                    folder / f"{stem}.{name}{TE_SUFFIX}", work.te_unit, points
+                    folder / f"{stem}.{stems[name]}{TE_SUFFIX}", work.te_unit, points
                 )
     # The trailing edges a [[perimeter]] list exports are declared per component in the
     # level's boundaries file, for the user to type before mark-boundaries, unless the
@@ -1157,13 +1173,17 @@ def _write(
     if not listed:
         _warn_stale_declarations(work, mesh, folder)
     written += own.values()
-    written += _quad_te_files(work, folder, verts, faces, te)
+    written += _quad_te_files(work, folder, verts, faces, te, stems=stems)
     record = folder / f"{stem}.refine.json"
+    data = _record(
+        work, stem, {n: len(fs) for n, fs in faces.items()}, work.te_listed or bool(len(te))
+    )
+    renamed = {n: s for n, s in stems.items() if n != s}
+    if renamed:
+        data["renamed_family_outputs"] = renamed
     _textio.write_json(
         record,
-        _record(
-            work, stem, {n: len(fs) for n, fs in faces.items()}, work.te_listed or bool(len(te))
-        ),
+        data,
         indent=1,
     )
     written.append(record)
@@ -1202,6 +1222,8 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     accept_unknown: bool = False,
     force_factors: bool = True,
     visual_inspect: bool = False,
+    keep_within_component: bool | None = None,
+    audit: bool = True,
     chordwise: float | None = None,
     spanwise: float | None = None,
 ) -> RefinedMesh:
@@ -1248,6 +1270,12 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         warning (the default); False refuses such a factor (CLI ``--strict-factors``).
     visual_inspect : bool
         Write a patches and directions PDF beside the level OBJ.
+    keep_within_component : bool, optional
+        Share directional governors across each declared component. None reads the file key.
+        Without components the existing layout behavior is retained.
+    audit : bool
+        Audit the written level against its source. False skips the audit and records
+        that choice; the level can be audited later with geometry audit (FR-3321).
     chordwise, spanwise : float, optional
         The earlier names of ``normal`` and ``parallel``, read with a warning;
         beside the new name, the earlier one is warned and skipped.
@@ -1288,6 +1316,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
             accept_remesh=accept_remesh,
             accept_unknown=accept_unknown,
             force_factors=force_factors,
+            keep_within_component=keep_within_component,
         )
         stem = f"{source.stem}_{_config.level_tag(request, list(obj.families), str(source))}"
         if request.filename:
@@ -1301,6 +1330,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
             stem = request.filename
         folder = _place(source, stem, out_dir, overwrite)
         work = inspection.work = _start(source, request, obj)
+        work.audit_enabled = audit
         if progress is not None:
             work.say = progress
         work.say(
@@ -1319,7 +1349,6 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         verts, faces, te = _assemble(work)
         faces = _components(work, faces)
         work.unchanged = _unchanged_grids(work, list(faces))
-        unchanged = work.unchanged
         folder.parent.mkdir(parents=True, exist_ok=True)
         # The run's own folder: created here under a unique name, and the only one it removes.
         owned = Path(tempfile.mkdtemp(prefix=f"{folder.name}{STAGING_SUFFIX}-", dir=folder.parent))
@@ -1328,15 +1357,32 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
             staging.mkdir()
             work.say(f"writing {len(verts)} nodes, {sum(len(f) for f in faces.values())} faces")
             written = inspection.write(_write, work, staging, verts, faces, te)
-            work.say("auditing the level against its source")
-            audit = audit_mesh(written[0], against=source, unchanged_grids=unchanged)
+            result = _audit_level(work, written[0], folder)
             _publish(staging, folder, owned / f"{folder.name}{PREVIOUS_SUFFIX}", overwrite)
         finally:
             _release(owned, folder)
-        files = tuple(folder / p.name for p in (*written, audit.path))
-        audit = dataclasses.replace(audit, mesh=files[0], path=files[-1])
-        report = json.loads(files[-2].read_text(encoding="utf-8"))["families"]
-        return RefinedMesh(folder=folder, obj=files[0], files=files, report=report, audit=audit)
+        if result is not None:
+            written.append(result.path)
+            result = dataclasses.replace(
+                result, mesh=folder / written[0].name, path=folder / result.path.name
+            )
+        files = tuple(folder / p.name for p in written)
+        report = json.loads((folder / f"{stem}.refine.json").read_text(encoding="utf-8"))[
+            "families"
+        ]
+        return RefinedMesh(folder=folder, obj=files[0], files=files, report=report, audit=result)
+
+
+def _audit_level(work: _Work, obj: Path, folder: Path) -> MeshAudit | None:
+    """Audit a staged level when requested, otherwise name the later audit command."""
+    if not work.audit_enabled:
+        work.say(
+            f'audit skipped (--audit-off); run pyfs-workspace geometry audit "{folder / obj.name}" '
+            f'--against "{work.source}"'
+        )
+        return None
+    work.say("auditing the level against its source")
+    return audit_mesh(obj, against=work.source, unchanged_grids=work.unchanged)
 
 
 def _unchanged_grids(work: _Work, families: list[str]) -> list[str]:

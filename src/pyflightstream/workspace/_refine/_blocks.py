@@ -294,6 +294,31 @@ def _recover(
     )
 
 
+def sheet_blocks(grid: Grid, faces: Faces, te: Collection[int]) -> Blocks:
+    """Represent a recovered quadrilateral sheet as one planning patch."""
+    ids = grid.ids
+    lookup = {frozenset(f): i for i, f in enumerate(faces)}
+    cells = numpy.array(
+        [
+            [
+                lookup[frozenset(int(v) for v in ids[k : k + 2, i : i + 2].flat)]
+                for i in range(ids.shape[1] - 1)
+            ]
+            for k in range(ids.shape[0] - 1)
+        ],
+        dtype=numpy.int64,
+    )
+    boundary = {e for e, fs in edge_faces(faces).items() if len(fs) == 1}
+    arcs, sides = _arcs([ids], boundary)
+    return Blocks(
+        (ids,),
+        (cells,),
+        arcs,
+        sides,
+        frozenset(a for a, arc in enumerate(arcs) if all(v in te for v in arc)),
+    )
+
+
 def _patches(topo: _Topology, cut: set[Edge]) -> list[list[int]]:
     """Return the faces of each patch, joined across the edges not cut, by first face."""
     parent = list(range(len(topo.faces)))

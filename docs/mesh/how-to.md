@@ -1,5 +1,29 @@
 # Mesh inputs and GUI-only operations
 
+When the audit can wait, use `pyfs-workspace geometry refine wing.obj 2 --audit-off`
+(or `pyfs-matrix refine wing.obj 2 --audit-off`). In Python, pass `audit=False`
+to `refine_mesh`. The level is written with the skipped audit recorded in
+`refine.json`; the console prints its exact later audit command. Run
+`pyfs-workspace geometry audit <level.obj> --against <source.obj>` when ready.
+Omitting the switch keeps the usual audit enabled (FR-3321).
+
+To give all grid patches of an original family the same directional factors,
+prepare its component declarations with:
+
+```text
+pyfs-workspace geometry prepare-to-refine wing.obj --keep-within-component
+pyfs-workspace geometry refine wing_patches.obj
+```
+
+Edit the parallel factor of the patch marked `governing_parallel` and the normal
+factor of the patch marked `governing_normal` in the prepared TOML. Preparation
+persists `[refine] keep_within_component = true`. Each component's other grids
+follow those factors, including across disconnected layouts. Where directions
+cannot propagate, refinement warns and uses the patch's own orientation.
+For a hand-written file with `[components]`, pass `--keep-within-component` to
+`refine`, or `keep_within_component=True` to `refine_mesh`. With no components,
+the option leaves the existing per-layout behavior unchanged.
+
 A matrix row names a saved simulation (`.fsm`). Start from an OBJ by
 preparing its named declarations, running `geometry mark-boundaries --apply`
 once, and inspecting the resulting FSM. GUI-prepared FSM files are accepted
@@ -125,6 +149,18 @@ folder is refused unless `--overwrite` is given, and a refused request writes
 nothing.
 
 ### Choosing the factors
+
+When upgrading an old refine file, remove `[periodic]`, `[trailing_edge]`,
+`keep_first_row`, `trailing_edge_direction` and the body remesh keys `axial`,
+`circumferential`, `axis` and `origin`. They are warned and skipped. Use the
+`[[perimeter]]` example below for trailing edges, and put a row to keep into
+its own family with `method = "keep"`.
+
+A family named `nodes` is accepted. Its trailing-edge files use a stem such as
+`nodes_family` to keep them separate from the combined `<level>.nodes.te.txt`
+and `<level>.nodes.txt` outputs. Read the warning or `renamed_family_outputs`
+in `refine.json` for the chosen stem. Existing family stems are reserved before
+choosing a replacement, so a family already named `nodes_family` keeps its files.
 
 The FACTOR multiplies the number of intervals of a structured grid along each
 of its two index directions (2 doubles them, 0.5 halves them) and divides the

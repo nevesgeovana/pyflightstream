@@ -18,6 +18,23 @@ rtree and SciPy `<2`, pandas `<3`, and PyNiteFEA `<4`. The existing trimesh
 `<6` and XlsxWriter `<4` bounds remain. All existing floors remain unchanged;
 PyYAML gains the floor `>=6.0.1`. See [installation](install.md) for the full
 ranges. Recreate environments within these bounds before upgrading.
+- Opt in to component-wide directional governors with `prepare-to-refine
+  --keep-within-component` or `refine --keep-within-component`. Preparation
+  persists `keep_within_component = true` under `[refine]`. Without the option
+  or without `[components]`, refinement retains the earlier behavior (FR-3320).
+- Use `refine --audit-off` or `refine_mesh(..., audit=False)` to defer the
+  level audit. The record says it was skipped and the console prints how to
+  run it later; auditing remains on by default (FR-3321).
+- Colliding family output stems, such as `nodes`, are warned and renamed
+  to a safe stem such as `nodes_family`. Read `renamed_family_outputs` in
+  `refine.json` for the mapping; family identities are unchanged (FR-3319).
+- The requirements now retire the remaining periodic-correspondence and
+  keep-row tag promises from the routes removed in 0.48.0, keeping their IDs
+  reserved. Remove the old `[periodic]`, `[trailing_edge]`, `keep_first_row`,
+  `trailing_edge_direction`, `axial`, `circumferential`, `axis` and `origin`
+  entries from refine files: each is warned and skipped, including empty
+  values. Use `[[perimeter]]` for trailing-edge lists and a separate family
+  with `method = "keep"` for an interface row (FR-3311 to FR-3317).
 
 ## 0.49.0
 
