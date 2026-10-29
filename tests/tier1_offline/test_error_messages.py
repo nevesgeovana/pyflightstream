@@ -17,6 +17,7 @@ paths live with their subsystems; this module owns only the wording.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -1037,7 +1038,6 @@ _STDLIB_WARNINGS = {
 # and the _textio floor, whose mode argument only the package passes and which imports
 # nothing of the package (FR-1155, REL2-011).
 _INTERNAL_RAISE_PREFIXES = ("commands/", "qa/", "_maturity.py", "_signature.py", "_textio.py")
-_E1_E2_PREFIXES = ("cases/", "workspace/", "run/", "script/")
 
 
 def _src_files():
@@ -1095,21 +1095,46 @@ def _untyped_warns():
     return found
 
 
-def _only_e1_e2(found):
-    return all(item.startswith(_E1_E2_PREFIXES) for item in found)
-
-
 def test_no_bare_standard_raise_reaches_a_user_input():
     """PFS-2020.10: user-reachable refusals are PyflightstreamError subclasses."""
     found = _bare_standard_raises()
-    if found and _only_e1_e2(found):
-        pytest.xfail("green when E1 and E2 merge: " + "; ".join(found[:3]))
     assert not found, "bare standard-library raises under src: " + "; ".join(found)
 
 
 def test_every_warnings_warn_passes_a_package_category():
     """PFS-2020.11: a warnings.warn call names a PyflightstreamWarning subclass."""
     found = _untyped_warns()
-    if found and _only_e1_e2(found):
-        pytest.xfail("green when E1 and E2 merge: " + "; ".join(found[:3]))
     assert not found, "untyped warnings.warn calls under src: " + "; ".join(found)
+
+
+@pytest.mark.parametrize(
+    ("guard", "planted"),
+    [
+        (test_no_bare_standard_raise_reaches_a_user_input, "raise ValueError('planted')\n"),
+        (
+            test_every_warnings_warn_passes_a_package_category,
+            "import warnings\nwarnings.warn('planted', UserWarning)\n",
+        ),
+    ],
+    ids=["REL3-001-raise", "REL3-001-warn"],
+)
+def test_rel3_001_the_global_guards_refuse_a_planted_site_in_every_layer(
+    monkeypatch, guard, planted
+):
+    """REL3-001: with E1 and E2 merged, no layer has an expected-failure escape."""
+    import ast
+
+    for layer in ("cases/", "workspace/", "run/", "script/", "post/"):
+        tree = ast.parse(planted)
+        monkeypatch.setattr(
+            sys.modules[__name__],
+            "_src_files",
+            lambda layer=layer, tree=tree: [(layer + "x.py", tree)],
+        )
+        try:
+            guard()
+        except AssertionError:
+            continue
+        except BaseException as escaped:  # an imperative xfail is a BaseException
+            pytest.fail(f"{layer}: the guard escaped a planted site: {escaped!r}")
+        pytest.fail(f"{layer}: the guard accepted a planted site")
