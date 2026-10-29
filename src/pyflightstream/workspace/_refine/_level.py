@@ -2,9 +2,6 @@
 
 FR-424 and FR-425.
 
-Size exemption: the level orchestration keeps every step of the order below beside the audit and
-component-governing choices its record states; splitting it would scatter one ordered procedure.
-
 The order, from the source to the level folder:
 
 1. read the mesh, the request (:mod:`._config`) and the ``[[perimeter]]``
@@ -903,38 +900,7 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
                 entry["detect"]["surfaces"] = names
                 text = _obj.rewrite_value(side, text, "surfaces", surfaces, changed, value=names)
                 data = changed
-    return _base_component_names(side, text, data, owner)
-
-
-def _base_component_names(
-    side: Path, text: str, data: dict[str, Any], owner: dict[str, str]
-) -> str:
-    """Rename base family keys and merge targets without reserializing declarations."""
-    bases = data.get("base_regions", {})
-    if not owner or not isinstance(bases, dict):
-        return text
-    for name in list(bases):
-        entry = bases[name]
-        if not isinstance(entry, dict):
-            continue
-        target = entry.get("merge_into")
-        if isinstance(target, str) and owner.get(target, target) != target:
-            changed = copy.deepcopy(data)
-            changed["base_regions"][name]["merge_into"] = owner[target]
-            text = _obj.rewrite_value(
-                side, text, "merge_into", target, changed, value=owner[target]
-            )
-            data = changed
-        renamed = owner.get(name, name)
-        if renamed == name:
-            continue
-        if renamed in data["base_regions"]:
-            raise _refuse(str(side), f"components combine two base declarations as {renamed!r}")
-        changed = copy.deepcopy(data)
-        changed["base_regions"][renamed] = changed["base_regions"].pop(name)
-        text = _obj.rename_table_key(side, text, name, renamed, changed)
-        data = changed
-    return text
+    return _obj.base_component_names(side, text, data, owner)
 
 
 def _direction_record(layout: _blocks.Layout | None, name: str) -> dict[str, Any]:

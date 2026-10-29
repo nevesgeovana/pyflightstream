@@ -9,6 +9,7 @@ package's one text route, so a level holds no carriage return (NFR-32).
 
 from __future__ import annotations
 
+import copy
 import math
 import re
 import tomllib
@@ -1002,3 +1003,34 @@ def perimeter_edges_near(
         near = numpy.maximum(da, db) < NODE_EDGE_FRACTION * length
         out[name] = {(int(x), int(y)) for x, y in edges[near]}
     return out
+
+
+def base_component_names(side: Path, text: str, data: dict[str, Any], owner: dict[str, str]) -> str:
+    """Rename base family keys and merge targets without reserializing declarations."""
+    bases = data.get("base_regions", {})
+    if not owner or not isinstance(bases, dict):
+        return text
+    for name in list(bases):
+        entry = bases[name]
+        if not isinstance(entry, dict):
+            continue
+        target = entry.get("merge_into")
+        if isinstance(target, str) and owner.get(target, target) != target:
+            changed = copy.deepcopy(data)
+            changed["base_regions"][name]["merge_into"] = owner[target]
+            text = rewrite_value(side, text, "merge_into", target, changed, value=owner[target])
+            data = changed
+        renamed = owner.get(name, name)
+        if renamed == name:
+            continue
+        if renamed in data["base_regions"]:
+            raise InputArtifactError(
+                f"{side}: components combine two base declarations as {renamed!r}. "
+                "Nothing was written.",
+                kind=KIND,
+            )
+        changed = copy.deepcopy(data)
+        changed["base_regions"][renamed] = changed["base_regions"].pop(name)
+        text = rename_table_key(side, text, name, renamed, changed)
+        data = changed
+    return text
