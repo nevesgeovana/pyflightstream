@@ -1080,6 +1080,23 @@ def matrix_pol_rows(path: str | Path) -> list[tuple[int, str]]:
 
     Same file-shape refusals as :func:`read_matrix` (header, UTF-8, cell count), none of
     its cell checks, so a row whose content is malformed still states its POL.
+
+    Parameters
+    ----------
+    path : str or Path
+        The matrix file to read.
+
+    Returns
+    -------
+    list of tuple of (int, str)
+        One ``(row_number, pol)`` per data row, in file order, numbered as
+        :func:`read_matrix` numbers them.
+
+    Raises
+    ------
+    MatrixError
+        The file is not UTF-8, its header is not the matrix header, or a row holds
+        the wrong number of cells.
     """
     pol_index = _COLUMNS.index("POL")
     return [(number, cells[pol_index]) for number, cells in _matrix_data_rows(path)]
