@@ -31,6 +31,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import ClassVar
 
+from pyflightstream._errors import InputValueError
+
 
 def parse_version(version: str) -> tuple[int, int, int]:
     """Parse a plain SemVer string into a comparable tuple.
@@ -54,7 +56,7 @@ def parse_version(version: str) -> tuple[int, int, int]:
     """
     parts = version.split(".")
     if len(parts) != 3 or not all(part.isdigit() for part in parts):
-        raise ValueError(
+        raise InputValueError(
             f"Expected a plain MAJOR.MINOR.PATCH version, got {version!r}; "
             "deprecation promises are recorded against plain SemVer releases."
         )

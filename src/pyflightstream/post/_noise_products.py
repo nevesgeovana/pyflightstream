@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import InputValueError, PyflightstreamError
 from pyflightstream._tokens import CONTEXT_COLUMNS, POLAR_ID_COLUMN
 from pyflightstream.cases.qsteady import QsteadyRecord, read_qsteady_record
 from pyflightstream.post._tables import context_row, write_csv_table
@@ -35,10 +35,16 @@ def _point_signals(ctx: SimContext, spec: Any, point: PolarPoint, key: str):
     """Return the sample times and observer signals of one point, or raise its refusal."""
     record = ctx.record_of[point.name]
     if record.recipe != "qsteady_rotor":
-        raise ValueError("exploratory loading noise requires a recorded quasi-steady wheel")
+        raise InputValueError(
+            "exploratory loading noise requires a recorded quasi-steady wheel; "
+            "record the run with a quasi-steady wheel declared"
+        )
     quasi = read_qsteady_record(point.loads_path)
     if quasi.case != "wheel" or not np.allclose(quasi.axis_vector, (1, 0, 0)):
-        raise ValueError("loading-noise reconstruction currently requires a wheel about +X")
+        raise InputValueError(
+            "loading-noise reconstruction currently requires a wheel about +X; "
+            "orient the rotor axis along +X"
+        )
     density = _recorded_density(point, record)
     clockings = clockings_of(
         quasi,
@@ -60,7 +66,9 @@ def _point_signals(ctx: SimContext, spec: Any, point: PolarPoint, key: str):
     )
     omega = quasi.rpm * 2 * math.pi / 60
     if omega == 0:
-        raise ValueError("loading noise requires nonzero rotor speed")
+        raise InputValueError(
+            "loading noise requires nonzero rotor speed; set a nonzero rotor speed in the run"
+        )
     motion = RotorMotion(
         blades=quasi.blades,
         omega_rad_s=omega,
@@ -98,7 +106,9 @@ def _observer_signals(ctx: SimContext, spec: Any, key: str, *, times, motion, lo
                 observer_velocity_m_s=spec.observer_velocity_m_s,
             )
             if not np.isfinite(signal).all():
-                raise ValueError("loading-noise pressure is not finite at the requested observer")
+                raise InputValueError(
+                    "loading-noise pressure is not finite at the requested observer"
+                )
         except (ValueError, PyflightstreamError) as error:
             ctx.skipped[f"{key}_observer_{index}.csv"] = str(error)
             continue
@@ -196,7 +206,7 @@ def _noise_cells(row):
 def _harmonic_rows(spec, index, signal, motion, load):
     columns = ("HARMONIC", "BPF_ORDER", "FREQ_HZ", "RMS_PA", "GUTIN_RMS_PA", "RATIO")
     if spec.gutin_orders * motion.blades >= len(signal) / 2:
-        raise ValueError(
+        raise InputValueError(
             f"gutin_orders={spec.gutin_orders}: increase samples_per_revolution "
             "so every requested blade-passage harmonic is below Nyquist"
         )
@@ -250,7 +260,7 @@ def _comparison_rows(ctx, spec, index, times, signal):
     root = ctx.workspace.root.resolve()
     path = (root / stated).resolve()
     if Path(stated).is_absolute() or not path.is_relative_to(root):
-        raise ValueError(
+        raise InputValueError(
             f"noise reference {stated!r}: use a workspace-relative CSV inside the workspace"
         )
     values = _reference_values(path, stated)
@@ -262,7 +272,7 @@ def _comparison_rows(ctx, spec, index, times, signal):
 
 def _reference_values(path, stated):
     if not path.is_file():
-        raise ValueError(
+        raise InputValueError(
             f"noise reference {stated}: no such file in the workspace; "
             "name an existing CSV or an empty string to skip that observer"
         )
@@ -272,25 +282,27 @@ def _reference_values(path, stated):
         clocks = [name for name in fields if name.lower() == "time_s"]
         pressures = [name for name in fields if name.lower() == "pressure_pa"]
         if len(clocks) != 1 or len(pressures) != 1:
-            raise ValueError(
+            raise InputValueError(
                 f"noise reference {stated}: needs time_s and pressure_pa columns in SI"
             )
         try:
             return np.asarray([(float(row[clocks[0]]), float(row[pressures[0]])) for row in reader])
         except (ValueError, TypeError) as error:
-            raise ValueError(
+            raise InputValueError(
                 f"noise reference {stated}: invalid numeric time or pressure: {error}"
             ) from error
 
 
 def _last_revolution(values, times, period, stated):
     if values.ndim != 2 or values.shape[0] < 2 or not np.isfinite(values).all():
-        raise ValueError(f"noise reference {stated}: needs at least two finite time/pressure rows")
+        raise InputValueError(
+            f"noise reference {stated}: needs at least two finite time/pressure rows"
+        )
     t, p = values[:, 0], values[:, 1]
     if np.any(np.diff(t) <= 0):
-        raise ValueError(f"noise reference {stated}: time_s must increase strictly")
+        raise InputValueError(f"noise reference {stated}: time_s must increase strictly")
     if t[-1] - t[0] < period * (1 - 1e-10):
-        raise ValueError(
+        raise InputValueError(
             f"noise reference {stated}: shorter than one full revolution ({period:g} s)"
         )
     start = t[-1] - period
@@ -318,7 +330,9 @@ def _blade_load_samples(quasi: QsteadyRecord, clockings: list[Clocking]):
             )
             values = clocking.loads[8 * blade : 8 * blade + 6]
             if azimuth is None or len(values) != 6 or any(value is None for value in values):
-                raise ValueError("noise reconstruction needs each blade's force and hub moment")
+                raise InputValueError(
+                    "noise reconstruction needs each blade's force and hub moment"
+                )
             azimuths.append(azimuth)
             forces.append([float(value) for value in values[:3] if value is not None])
             moments.append([float(value) for value in values[3:] if value is not None])
@@ -331,5 +345,7 @@ def _recorded_density(point: PolarPoint, record: RunRecord) -> float:
     if density is None:
         density = record.density_kg_m3
     if density is None:
-        raise ValueError("loading noise needs the recorded density")
+        raise InputValueError(
+            "loading noise needs the recorded density; rerun the point so the density is recorded"
+        )
     return density

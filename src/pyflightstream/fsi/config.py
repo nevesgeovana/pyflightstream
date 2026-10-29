@@ -32,6 +32,7 @@ from pydantic import (
 
 import pyflightstream._textio as _textio
 from pyflightstream._atmosphere import ISA
+from pyflightstream._errors import FsiInputError
 
 __all__ = [
     "DIRECT_MORPHING",
@@ -354,7 +355,7 @@ class BladeProperties(BaseModel):
         if offenders:
             shown = ", ".join(offenders[:6])
             more = f" (and {len(offenders) - 6} more)" if len(offenders) > 6 else ""
-            raise ValueError(
+            raise FsiInputError(
                 f"blade distributions carry non-finite values: {shown}{more}. NaN "
                 "and infinity are not merely out of range: every check in this "
                 "model is a comparison, and a comparison against NaN is False, so "
@@ -371,13 +372,13 @@ class BladeProperties(BaseModel):
     def _radii_increase(cls, radii: list[float]) -> list[float]:
         """Reject stations that do not march from root to tip."""
         if radii[0] < 0.0:
-            raise ValueError(
+            raise FsiInputError(
                 "the root station sits at a negative radius, which has no "
                 f"physical meaning on a rotating blade (got {radii[0]} m)"
             )
         for inboard, outboard in zip(radii, radii[1:], strict=False):
             if outboard <= inboard:
-                raise ValueError(
+                raise FsiInputError(
                     "station radii must strictly increase from root to tip; "
                     f"{outboard} m does not lie outboard of {inboard} m"
                 )
@@ -388,7 +389,7 @@ class BladeProperties(BaseModel):
     def _strictly_positive(cls, values: list[float]) -> list[float]:
         """Reject zero or negative chord and running mass values."""
         if any(v <= 0.0 for v in values):
-            raise ValueError(
+            raise FsiInputError(
                 "chord and running mass must be positive at every station; a "
                 "zero or negative value describes a section that does not exist"
             )
@@ -399,7 +400,7 @@ class BladeProperties(BaseModel):
     def _stiff_enough_to_solve(cls, values: list[float]) -> list[float]:
         """Zero stiffness makes the static beam solve singular."""
         if any(v <= 0.0 for v in values):
-            raise ValueError(
+            raise FsiInputError(
                 "EI and GJ must be positive at every station; a zero or "
                 "negative stiffness makes the static solve k theta = M singular"
             )
@@ -410,7 +411,7 @@ class BladeProperties(BaseModel):
     def _inertia_nonnegative(cls, values: list[float]) -> list[float]:
         """Mass moments of inertia are nonnegative by definition."""
         if any(v < 0.0 for v in values):
-            raise ValueError(
+            raise FsiInputError(
                 "sectional mass moments of inertia are nonnegative by "
                 "definition; a negative I1 or I2 is a sign or unit error"
             )
@@ -442,7 +443,7 @@ class BladeProperties(BaseModel):
         for name in _STATION_ARRAY_FIELDS:
             m = len(getattr(self, name))
             if m != n:
-                raise ValueError(
+                raise FsiInputError(
                     f"distribution '{name}' has {m} entries but there are "
                     f"{n} radial stations; every per-station list must be "
                     "sampled at exactly the stations of station_radii_m"
@@ -455,19 +456,19 @@ class BladeProperties(BaseModel):
             if major < minor
         ]
         if reversed_at:
-            raise ValueError(
+            raise FsiInputError(
                 f"inertia_major_kg_m is smaller than inertia_minor_kg_m at station "
                 f"index {reversed_at[0]}; the major inertia is the larger one, and "
                 "swapped values flip the sign of the centrifugal pitch moment"
             )
         problem = self._section_contours_problem(n)
         if problem is not None:
-            raise ValueError(problem)
+            raise FsiInputError(problem)
         if self.provenance is not None:
             for name in ("torsion_grid_cells", "thin_section_torsion_ratio"):
                 m = len(getattr(self.provenance, name))
                 if m != n:
-                    raise ValueError(
+                    raise FsiInputError(
                         f"provenance '{name}' has {m} entries but there are {n} "
                         "radial stations; a generated blade records one entry per "
                         "station, so a mismatch means the provenance belongs to "
@@ -700,7 +701,7 @@ class FsiConfig(BaseModel):
         2026-10-05: arm Q3 DEFLECTED did not close the exact two-cycle check).
         """
         if isinstance(data, dict) and data.get("morphing") == DIRECT_MORPHING_DEFLECTED:
-            raise ValueError(
+            raise FsiInputError(
                 "morphing = 'direct_deflected' is not offered: with DEFLECTED aerodynamic "
                 "nodes the solver of build 26.125 placed the surface as written after the "
                 "first coupling cycle, and from the second on applied the written "
@@ -714,12 +715,12 @@ class FsiConfig(BaseModel):
     def _direct_morphing_is_rigid_and_turns(self) -> "FsiConfig":
         """Refuse direct morphing on a fixed wing, which couples through its nodes (FR-341)."""
         if self.morphing == DIRECT_MORPHING and self.blade_count != 1:
-            raise ValueError(
+            raise FsiInputError(
                 f"morphing = 'direct' requires blade_count = 1; got {self.blade_count}. "
                 "Use one rotor sector or mapped morphing for several blades."
             )
         if self.morphing == DIRECT_MORPHING and self.wing is not None:
-            raise ValueError(
+            raise FsiInputError(
                 "morphing = 'direct' couples a quasi-steady rotor sector; a fixed wing "
                 "([config.wing]) couples through its structural nodes. Leave morphing out."
             )
@@ -738,13 +739,13 @@ class FsiConfig(BaseModel):
         if self.wing is None:
             return self
         if self.omega_rad_per_s != 0.0:
-            raise ValueError(
+            raise FsiInputError(
                 f"a fixed wing does not turn: omega_rad_per_s is {self.omega_rad_per_s} rad/s "
                 "and a [wing] configuration states 0. A wing at rest carries no centrifugal "
                 "load; its structural solve applies the aerodynamic loads and its own weight."
             )
         if self.blade_count != 1:
-            raise ValueError(
+            raise FsiInputError(
                 f"a fixed-wing configuration is one cantilever, blade_count = 1; got "
                 f"{self.blade_count}. Each wing is its own row's structure."
             )

@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Literal
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import InputValueError, PyflightstreamError
 from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases import select_group_members
 from pyflightstream.post._condition import (
@@ -1069,7 +1069,7 @@ def selected_axes(path: Path, axes: Literal["wind", "stability"] | None) -> None
         groups.insert(0, "")
     required = {quantity + suffix + group for group in groups or [""] for quantity in quantities}
     if not required.issubset(columns):
-        raise ValueError(f"{path}: polar axes require {sorted(required)}")
+        raise InputValueError(f"{path}: polar axes require {sorted(required)}")
     selected = {
         (f"selected_{physical}_coefficient{group}" if group else quantity): quantity
         + suffix
@@ -1079,7 +1079,7 @@ def selected_axes(path: Path, axes: Literal["wind", "stability"] | None) -> None
     }
     added = [*selected, "polar_axes"]
     if collisions := set(added).intersection(columns):
-        raise ValueError(
+        raise InputValueError(
             f"{path}: selected polar axes would replace existing columns {sorted(collisions)}"
         )
     for row in rows:

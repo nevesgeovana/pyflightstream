@@ -105,8 +105,9 @@ def test_partial_keys_never_match():
     """Deliberate difference from pandas: a prefix is an unknown key."""
     with pytest.raises(OptionError, match="Keys are exact"):
         get_option("qa.probe")
-    with pytest.raises(OptionError, match="Keys are exact"):
-        set_option("qa", 1.0)
+    with option_context("warning_refusals", True):
+        with pytest.raises(OptionError, match="Keys are exact"):
+            set_option("qa", 1.0)
 
 
 # --- validation and the message contract ------------------------------------
@@ -161,16 +162,38 @@ def test_path_options_accept_pathlib_paths():
 
 
 def test_reset_and_describe_refuse_unknown_keys():
-    with pytest.raises(OptionError, match="Keys are exact"):
-        reset_option("qa.nope")
+    with option_context("warning_refusals", True):
+        with pytest.raises(OptionError, match="Keys are exact"):
+            reset_option("qa.nope")
     with pytest.raises(OptionError, match="Keys are exact"):
         describe_option("qa.nope")
 
 
 def test_option_context_refuses_unknown_keys_untouched():
-    with pytest.raises(OptionError, match="Keys are exact"):
-        with option_context("qa.nope", 1.0):
-            pass  # pragma: no cover - never entered
+    with option_context("warning_refusals", True):
+        with pytest.raises(OptionError, match="Keys are exact"):
+            with option_context("qa.nope", 1.0):
+                pass  # pragma: no cover - never entered
+
+
+def test_an_unknown_option_key_warns_and_is_skipped_by_default():
+    """PFS-2184.07: unknown key, ignored with a typed warning; refused under the flag."""
+    from pyflightstream._errors import UnknownKeyWarning
+
+    before = get_option("qa.probe_timeout_s")
+    with pytest.warns(
+        UnknownKeyWarning, match="qa.probe_timeoutt_s.*Did you mean 'qa.probe_timeout_s'"
+    ):
+        set_option("qa.probe_timeoutt_s", 3.0)
+    with pytest.warns(UnknownKeyWarning, match="no option is registered"):
+        reset_option("qa.nope")
+    with pytest.warns(UnknownKeyWarning, match="no option is registered"):
+        with option_context("qa.nope", 1.0, "qa.probe_timeout_s", 9.0):
+            assert get_option("qa.probe_timeout_s") == 9.0
+    assert get_option("qa.probe_timeout_s") == before
+    with option_context("warning_refusals", True):
+        with pytest.raises(OptionError, match="no option is registered"):
+            set_option("qa.probe_timeoutt_s", 3.0)
 
 
 # --- option_context ---------------------------------------------------------

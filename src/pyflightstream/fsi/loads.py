@@ -167,7 +167,7 @@ class SectionFamilyMap(BaseModel):
         """Attribution by name requires unique family names."""
         names = [family.name for family in families]
         if len(set(names)) != len(names):
-            raise ValueError(
+            raise FsiInputError(
                 "family names must be unique; a duplicated name makes the "
                 f"per-blade attribution ambiguous (got {names})"
             )

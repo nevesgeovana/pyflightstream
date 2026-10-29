@@ -45,7 +45,7 @@ from pydantic import BaseModel, ConfigDict
 
 import pyflightstream._textio as _textio
 from pyflightstream._deprecations import removed_names_hook as _removed_names_hook
-from pyflightstream._errors import ProductError, ProductExistsError
+from pyflightstream._errors import InputValueError, ProductError, ProductExistsError
 from pyflightstream.post._tables import _refuse_a_token
 from pyflightstream.script.solver_setup import FLAG_SPECS, FlagRecord, SolverSetup
 
@@ -339,7 +339,7 @@ def _refuse_non_finite(what: str, values: np.ndarray) -> None:
 def _checked(points: np.ndarray, fields: Mapping[str, np.ndarray] | None):
     points = np.asarray(points, dtype=float)
     if points.ndim != 2 or points.shape[1] != 3:
-        raise ValueError(f"points must have shape (n, 3), got {points.shape}")
+        raise InputValueError(f"points must have shape (n, 3), got {points.shape}")
     _refuse_non_finite("points", points)
 
     if len(points) == 0:
@@ -349,7 +349,7 @@ def _checked(points: np.ndarray, fields: Mapping[str, np.ndarray] | None):
         _refuse_a_token("field name", str(name))
         array = np.asarray(values, dtype=float)
         if array.shape not in ((len(points),), (len(points), 3)):
-            raise ValueError(
+            raise InputValueError(
                 f"field {name!r} has shape {array.shape}; it must hold one scalar "
                 f"or one 3-vector per probe ({len(points)} probes)"
             )

@@ -75,7 +75,7 @@ def _unit(vector: tuple[float, float, float], name: str) -> np.ndarray:
     scaled = array / scale if scale > 1.0 else array
     norm = float(np.linalg.norm(scaled))
     if norm < _DEGENERATE:
-        raise ValueError(
+        raise ProbeGeometryError(
             f"{name} has near-zero length; a frame axis must be a direction, "
             "and a zero vector defines none"
         )

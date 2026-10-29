@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._errors import InputValueError, PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import AXES_PLOT_GROUP, DEFAULT_DRIFT_LIMIT_PCT, select_families
 from pyflightstream.cases.windows import AZIMUTHAL, averaging_span
 from pyflightstream.cases.workflows import PER_ROTOR_REDUCTIONS, REDUCTION_NAMES, ROTORS_KEY
@@ -160,7 +160,9 @@ def _window_near_forces(
     weights = {axis: 1.0} if isinstance(axis, str) else dict(zip("XYZ", axis, strict=True))
     try:
         if (source := ctx.plots_tables.get(point.name)) is None:
-            raise ValueError("no point plots table")
+            raise InputValueError(
+                "no point plots table; write the point plots table before reducing"
+            )
         _, series = plots_table_series(source)
         projected = np.zeros(len(series.steps))
         for letter, weight in weights.items():
@@ -170,7 +172,7 @@ def _window_near_forces(
             if column not in series.fields or not _whole_configuration_force(
                 ctx, point.name, letter
             ):
-                raise ValueError(f"no whole-configuration global force {column}")
+                raise InputValueError(f"no whole-configuration global force {column}")
             projected -= weight * series.fields[column][:, 0]
         drag = next(
             (
@@ -181,7 +183,10 @@ def _window_near_forces(
             None,
         )
         if drag is None:
-            raise ValueError("history has no viscous drag for the whole configuration")
+            raise InputValueError(
+                "history has no viscous drag for the whole configuration; "
+                "rerun with viscous drag recorded"
+            )
         rho, speed, alpha, beta = _flow(point)
         # The written plots table has already restated CDO on VINF.
         factor = viscous_projection(
@@ -197,7 +202,7 @@ def _window_near_forces(
             if not all(math.isfinite(v) for v in forces.get(_step(i), (math.nan, math.nan)))
         ]
         if missing:
-            raise ValueError(f"missing finite force at steps {missing}")
+            raise InputValueError(f"missing finite force at steps {missing}")
         return forces
     except (PyflightstreamError, OSError, ValueError) as error:
         if rotor_g4(ctx.pproc.farfield.ledgers, ctx.record_of[point.name].recipe):

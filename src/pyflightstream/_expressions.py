@@ -21,7 +21,7 @@ import ast
 import math
 from collections.abc import Callable
 
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, InputValueError
 
 __all__ = [
     "ALLOWED_FUNCTIONS",
@@ -57,7 +57,7 @@ _ARITY: dict[str, tuple[int, int | None]] = {
 def _power(left: float, right: float) -> float:
     """``left ** right``, refusing the case whose value is complex rather than real."""
     if left < 0 and not float(right).is_integer():
-        raise ValueError(
+        raise InputValueError(
             f"the negative base {left!r} raised to the non-integer power {right!r} "
             "has no real value"
         )

@@ -131,18 +131,29 @@ def _check_staged_totals(
     try:
         payload = json.loads(path.read_text(encoding="utf-8-sig"))
         if payload["loads_sha256"] != file_sha256(folder / LOADS_FILE):
-            raise ValueError("loads_sha256 does not match the current sectional export")
+            raise FsiInputError(
+                "loads_sha256 does not match the current sectional export; "
+                "export the loads again from the current run"
+            )
         if payload["solver_iteration"] != report.current_iteration:
-            raise ValueError("solver_iteration does not match the current sectional export")
+            raise FsiInputError(
+                "solver_iteration does not match the current sectional export; "
+                "export the loads again from the current run"
+            )
         blocks = report.split(family_map)
         totals = payload["families"]
         names = {family.name for family in family_map.families if family.is_blade}
         if set(totals) != names:
-            raise ValueError("families must name exactly the coupled blade boundaries")
+            raise FsiInputError(
+                "families must name exactly the coupled blade boundaries; "
+                "list exactly the coupled blade boundary names"
+            )
         for name in sorted(names):
             fx, fz = float(totals[name]["fx_n"]), float(totals[name]["fz_n"])
             if not all(math.isfinite(value) for value in (fx, fz)):
-                raise ValueError("integrated forces must be finite Newton values")
+                raise FsiInputError(
+                    "integrated forces must be finite Newton values; pass finite forces in newtons"
+                )
             cross_check_totals(blocks[name], fx, fz)
     except (KeyError, TypeError, ValueError) as error:
         raise FsiInputError(f"{path.name}: {error}") from error
