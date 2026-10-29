@@ -45,6 +45,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from pyflightstream._errors import InputValueError
 from pyflightstream.script import helpers
 
 __all__ = [
@@ -123,7 +124,7 @@ _LOFT_DEFAULTS: dict[str, tuple[str, str]] = {
 def _one_token(value: str, what: str) -> str:
     """Refuse a name the solver's line would split into several tokens."""
     if not value or any(character.isspace() for character in value):
-        raise ValueError(
+        raise InputValueError(
             f"{what} {value!r} is empty or carries whitespace, and the solver reads the "
             "line as tokens separated by spaces; write one word, such as AIL"
         )
@@ -195,12 +196,12 @@ class CcsControlSurface(BaseModel):
     @model_validator(mode="after")
     def _spanwise_limits_hold(self) -> CcsControlSurface:
         if self.v1 <= self.v0:
-            raise ValueError(
+            raise InputValueError(
                 f"v1 ({self.v1}) is not above v0 ({self.v0}); the outer spanwise limit "
                 "of a control surface lies beyond the inner one (FSM-26.124 p.303)"
             )
         if self.space == "PARAMETRIC" and not (0.0 <= self.v0 and self.v1 <= 1.0):
-            raise ValueError(
+            raise InputValueError(
                 f"v0 and v1 ({self.v0}, {self.v1}) are PARAMETRIC spanwise limits, "
                 "fractions of the span between 0 and 1; write each limit as that "
                 "fraction (the REAL form is refused at plan, RPT-097)"
@@ -258,7 +259,7 @@ class CcsMorphingSurface(BaseModel):
     @model_validator(mode="after")
     def _spanwise_limits_hold(self) -> CcsMorphingSurface:
         if self.v1 <= self.v0:
-            raise ValueError(
+            raise InputValueError(
                 f"v1 ({self.v1}) is not above v0 ({self.v0}); the outer spanwise limit "
                 "of a morphing surface lies beyond the inner one (FSM-26.124 p.303)"
             )
@@ -359,17 +360,20 @@ class CcsImportOptions(BaseModel):
     @model_validator(mode="after")
     def _keys_of_the_kind(self) -> CcsImportOptions:
         if self.kind == "revolution" and not 0 <= self.start_angle_deg < self.end_angle_deg <= 360:
-            raise ValueError("revolution requires 0 <= start_angle_deg < end_angle_deg <= 360")
+            raise InputValueError(
+                "revolution requires 0 <= start_angle_deg < end_angle_deg <= 360"
+                ". State start_angle_deg and end_angle_deg inside that range."
+            )
         allowed = _KIND_KEYS[self.kind]
         stray = sorted(self.model_fields_set - allowed - {"kind"})
         if stray:
-            raise ValueError(
+            raise InputValueError(
                 f"kind = {self.kind!r} reads {', '.join(sorted(allowed)) or 'no other key'}, "
                 f"and the table also states {', '.join(stray)}, which that kind does not "
                 "read; delete it rather than leave a key nothing applies"
             )
         if self.kind in CCS_LOFT_KINDS and self.component is None:
-            raise ValueError(
+            raise InputValueError(
                 f"kind = {self.kind!r} lofts one component of the file and the table names "
                 "none; write component = 1 for the file's first Component line"
             )

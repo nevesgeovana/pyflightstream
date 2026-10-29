@@ -42,6 +42,7 @@ from pyflightstream.cases.matrix import (
     to_campaign,
 )
 from pyflightstream.cases.workflows import workflow_registry
+from pyflightstream.options import option_context
 from pyflightstream.qa.matrix import physics_matrix
 from pyflightstream.qa.physics import PhysicsEnvironmentError
 from pyflightstream.run import (
@@ -4345,7 +4346,8 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
     # builder's inventory check. This synthetic workspace carries no family W.
     setup.write_text("iterations = 800\nvorticity_drag_boundaries = ['W']\n", encoding="utf-8")
     pproc.write_text(kept[0], encoding="utf-8")
-    plan = _plan_first_matrix(workspace, first)
+    with option_context("warning_refusals", True):
+        plan = _plan_first_matrix(workspace, first)
     assert len(plan.points) == 2
     assert all(point.status == PlanStatus.BLOCKED for point in plan.points)
     assert all("absent: W" in point.error for point in plan.points)

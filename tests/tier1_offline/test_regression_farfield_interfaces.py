@@ -49,6 +49,15 @@ from tests.tier1_offline.test_workflows import _case_for as _ffproof_plan___case
 from tests.tier1_offline.test_workflows import steady_case as _farfield_plan__steady_case
 
 
+@pytest.fixture
+def warning_refusals_on():
+    """Run a test whose subject is a refusal that warns by default under the strict policy."""
+    from pyflightstream.options import option_context
+
+    with option_context("warning_refusals", True):
+        yield
+
+
 @pytest.mark.parametrize("case", ["P0460-POWER-STATION"])
 def test_p0460_power_station_is_checked_at_load(case):
     entry = dict(variant="power", name="shaft", rotor="R", stations=[-1.0, 0.3, 2.0])
@@ -195,6 +204,7 @@ def test_p0450_rel1_nested_validation_names_entry_and_key(case):
 
 
 @pytest.mark.parametrize("case", ["P0450-API-02"])
+@pytest.mark.usefixtures("warning_refusals_on")
 def test_p0450_rel1_duplicate_balances_use_entry_vocabulary(case):
     with pytest.raises(ValueError) as caught:
         FarfieldSpec.model_validate(
@@ -205,6 +215,7 @@ def test_p0450_rel1_duplicate_balances_use_entry_vocabulary(case):
 
 
 @pytest.mark.parametrize("case", ["P0450-API-06", "P0450-QA-01"])
+@pytest.mark.usefixtures("warning_refusals_on")
 def test_p0450_rel2_entry_refusal_names_every_cause_and_no_internal_key(case):
     with pytest.raises(ValueError) as caught:
         FarfieldSpec.model_validate(
@@ -1303,6 +1314,7 @@ class TestFarfieldSpec:
         ],
     )
     @pytest.mark.requirement("FR-454")
+    @pytest.mark.usefixtures("warning_refusals_on")
     def test_p0400_fftable_refusals_name_the_key(farfield, words):
         """P0400-FFTABLE (FR-1040): each malformed table is refused at load, naming its key."""
         with pytest.raises((ValidationError, ValueError)) as caught:
@@ -1444,6 +1456,7 @@ class TestFfproofInputs:
         ],
     )
     @pytest.mark.requirement("FR-454")
+    @pytest.mark.usefixtures("warning_refusals_on")
     def test_p0400_ffproof_a_malformed_table_is_refused_naming_the_artifact(tmp_path, table, key):
         """P0400-FFPROOF (FR-1040): refused at load, naming the pproc file and the key."""
         workspace = CampaignWorkspace.init(tmp_path / "camp")

@@ -21,7 +21,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import InputValueError, PyflightstreamError
 
 __all__ = [
     "AXIS_UNIT_VECTORS",
@@ -108,7 +108,7 @@ class BladeDatum(BaseModel):
         # Accept at most one sign. lstrip("+-") would accept a run of signs,
         # including +-X and -+X, which are not valid axis spellings.
         if not _AXIS_TOKEN.match(token):
-            raise ValueError(
+            raise InputValueError(
                 f"blade1 states zero = {value!r}, which is not an axis; write X, Y or Z, "
                 "with at most one leading sign. The sign reverses the direction the "
                 "azimuth is measured FROM, not the sense in which it increases"
@@ -127,12 +127,12 @@ class _RotorAxis(BaseModel):
     def _usable_direction(self) -> _RotorAxis:
         scale = max(abs(value) for value in self.vector_wrt_global)
         if scale == 0:
-            raise ValueError("vector_wrt_global has zero length; state the shaft direction")
+            raise InputValueError("vector_wrt_global has zero length; state the shaft direction")
         scaled = tuple(value / scale for value in self.vector_wrt_global)
         component = scaled["XYZ".index(self.shaft)] / math.hypot(*scaled)
         angle = math.degrees(math.acos(max(-1.0, min(1.0, component))))
         if angle > 45.0 + 1e-10:
-            raise ValueError(
+            raise InputValueError(
                 f"vector_wrt_global is {angle:.2f} degrees from shaft {self.shaft}; "
                 "at most 45 degrees is accepted. Choose the matching shaft letter"
             )
@@ -238,30 +238,33 @@ class RotorBlock(BaseModel):
                 # it is the phrase a user greps for and the one the reference
                 # documentation carries. Widening what `axis` accepts may add to
                 # the sentence and may not replace it.
-                raise ValueError(
+                raise InputValueError(
                     f"axis = {value!r} is not an axis; write X, Y or Z, or a table "
                     "with shaft and vector_wrt_global for a rotor installed at an angle"
                 )
             return token
         if isinstance(value, (list, tuple)):
             if len(value) != 3:
-                raise ValueError(
+                raise InputValueError(
                     f"axis = {value!r} has {len(value)} components; a direction in space has three"
                 )
             try:
                 components = tuple(float(component) for component in value)
             except (TypeError, ValueError) as error:
-                raise ValueError(f"axis = {value!r} is not three numbers: {error}") from error
+                raise InputValueError(
+                    f"axis = {value!r} is not three numbers: {error}. State axis as three numbers."
+                ) from error
             if not all(math.isfinite(component) for component in components):
-                raise ValueError(f"axis = {value!r} must have three finite components")
+                raise InputValueError(f"axis = {value!r} must have three finite components")
             length = math.hypot(*components)
             if length <= _AXIS_TOLERANCE:
-                raise ValueError(
+                raise InputValueError(
                     f"axis = {value!r} has no length, so it names no direction, and a rotor "
                     "turns about a direction"
+                    ". State a non-zero axis."
                 )
             nearest = "XYZ"[max(range(3), key=lambda i: abs(components[i]))]
-            raise ValueError(
+            raise InputValueError(
                 f"axis = {list(value)!r} did not say which frame axis is the shaft; "
                 f'write axis = {{ shaft = "{nearest}", vector_wrt_global = {list(value)!r} }}'
             )
@@ -292,7 +295,7 @@ class RotorBlock(BaseModel):
     @classmethod
     def _a_sign(cls, value: int) -> int:
         if value not in (1, -1):
-            raise ValueError(
+            raise InputValueError(
                 f"rpm_sign = {value!r} is not a sign; write 1 or -1, where +1 is the "
                 "right-hand rule about axis"
             )
@@ -302,9 +305,11 @@ class RotorBlock(BaseModel):
     @classmethod
     def _an_alias_no_frame_can_be_mistaken_for(cls, value: str) -> str:
         if not value.strip() or value != value.strip() or any(c.isspace() for c in value):
-            raise ValueError(f"alias = {value!r} must be one word, with no blank or space in it")
+            raise InputValueError(
+                f"alias = {value!r} must be one word, with no blank or space in it"
+            )
         if value.upper().endswith(("_SMRP", "_RMRP", "_BMRP")):
-            raise ValueError(
+            raise InputValueError(
                 f"alias = {value!r} ends in _SMRP or _RMRP or _BMRP, the radical of the frames the "
                 "package builds from a rotor's name, so a rotor and a frame would spell the "
                 "same; choose another name"
@@ -315,13 +320,15 @@ class RotorBlock(BaseModel):
     @classmethod
     def _a_blade_is_named(cls, value: list[str]) -> list[str]:
         if any(not name.strip() for name in value):
-            raise ValueError("families_blades holds a blank name; name one mesh family per blade")
+            raise InputValueError(
+                "families_blades holds a blank name; name one mesh family per blade"
+            )
         return value
 
     @model_validator(mode="after")
     def _a_rotor_with_blades_and_a_usable_datum(self) -> RotorBlock:
         if not self.families_blades:
-            raise ValueError(
+            raise InputValueError(
                 "families_blades is empty, and the blade count is its length, so this "
                 "rotor has no blades; name one mesh family per blade, in order"
             )
@@ -329,7 +336,7 @@ class RotorBlock(BaseModel):
         # is only one degree from a Z datum even though their strings differ.
         # A nearly parallel datum cannot define a useful azimuth and is refused.
         if self.blade1.zero.lstrip("+-") == self.shaft:
-            raise ValueError(
+            raise InputValueError(
                 f"blade1.zero {self.blade1.zero} equals shaft {self.shaft}; "
                 "choose one of the two remaining axes"
             )
@@ -338,7 +345,7 @@ class RotorBlock(BaseModel):
         alignment = abs(sum(a * b for a, b in zip(shaft, datum, strict=True)))
         if alignment > _DATUM_ALIGNMENT_LIMIT:
             degrees = math.degrees(math.acos(min(1.0, alignment)))
-            raise ValueError(
+            raise InputValueError(
                 f"blade1 measures its azimuth from {self.blade1.zero}, which is "
                 f"{degrees:.2f} degrees from the shaft direction {shaft}. An azimuth "
                 "measured from a datum that nearly lies along the shaft locates nothing, "
@@ -362,10 +369,12 @@ class ActuatorOperation(BaseModel):
     @model_validator(mode="after")
     def _rename_has_its_own_name(self) -> ActuatorOperation:
         if (self.op == "rename") != (self.name is not None):
-            raise ValueError("actuator rename requires name; other actions do not accept name")
+            raise InputValueError("actuator rename requires name; other actions do not accept name")
         for value in (self.actuator, self.name):
             if value is not None and (not value.strip() or any(c.isspace() for c in value)):
-                raise ValueError("actuator and rename name must be nonempty single-token names")
+                raise InputValueError(
+                    "actuator and rename name must be nonempty single-token names"
+                )
         return self
 
 
@@ -433,7 +442,7 @@ class ActuatorBlock(BaseModel):
     @classmethod
     def _a_frame_name(cls, value: str) -> str:
         if not value.strip():
-            raise ValueError(
+            raise InputValueError(
                 "frame names the frame the disc's axis belongs to, a name the reference's "
                 "[[frames]] declares; it is empty"
             )
@@ -443,7 +452,7 @@ class ActuatorBlock(BaseModel):
     @classmethod
     def _a_sign(cls, value: int) -> int:
         if value not in (1, -1):
-            raise ValueError(
+            raise InputValueError(
                 f"rpm_sign = {value!r} is not a sign; write 1 or -1, where +1 is the "
                 "right-hand rule about axis"
             )
@@ -452,9 +461,10 @@ class ActuatorBlock(BaseModel):
     @model_validator(mode="after")
     def _the_hub_is_inside_the_tip(self) -> ActuatorBlock:
         if self.hub_radius_m >= self.tip_radius_m:
-            raise ValueError(
+            raise InputValueError(
                 f"hub_radius_m = {self.hub_radius_m} is not inside tip_radius_m = "
                 f"{self.tip_radius_m}: a disc is the annulus between the two"
+                ". Set hub_radius_m below tip_radius_m."
             )
         return self
 

@@ -23,6 +23,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
 
 from pyflightstream._atmosphere import ISA
+from pyflightstream._errors import InputValueError
 
 # The setup keys' command table and the tables FR-319 added; its module imports
 # only pydantic and the command database, so the package may import it while it loads.
@@ -132,7 +133,7 @@ class ReferenceData(BaseModel):
         folded = [key.strip().lower() for key in value]
         twice = sorted({key for key in folded if folded.count(key) > 1})
         if twice:
-            raise ValueError(
+            raise InputValueError(
                 f"body_axes writes {', '.join(twice)} more than once, differing only in "
                 "case, so which axis the rate turns about would depend on the order of "
                 "the table. Write each rate once."
@@ -140,20 +141,21 @@ class ReferenceData(BaseModel):
         axes = {key.strip().lower(): str(item).strip().upper() for key, item in value.items()}
         unknown = sorted(set(axes) - {"roll", "pitch", "yaw"})
         if unknown:
-            raise ValueError(
+            raise InputValueError(
                 f"body_axes names {', '.join(unknown)}, and a body rate is one of roll, "
                 "pitch or yaw. Write one axis for each rate the model can be given."
             )
         wrong = sorted(key for key, item in axes.items() if item not in {"X", "Y", "Z"})
         if wrong:
-            raise ValueError(
+            raise InputValueError(
                 f"body_axes gives {', '.join(wrong)} an axis that is not X, Y or Z. An "
                 "axis of a coordinate system is one of those three."
             )
         if len(set(axes.values())) != len(axes):
-            raise ValueError(
+            raise InputValueError(
                 f"body_axes writes one axis twice ({axes}), and two body rates cannot turn "
                 "about the same axis of one frame."
+                " State each body axis once."
             )
         return axes
 
@@ -163,9 +165,10 @@ class ReferenceData(BaseModel):
         """Keep rate signs within the axis mapping measured by RPT-052 and RPT-060."""
         standard = {"roll": "X", "pitch": "Y", "yaw": "Z"}
         if any(axis != standard[rate] for rate, axis in axes.items()):
-            raise ValueError(
+            raise InputValueError(
                 "body_axes supports only roll=X, pitch=Y, yaw=Z: RPT-052 and RPT-060 "
                 "did not measure a permuted mesh, so its rate signs are unavailable"
+                ". Use roll=X, pitch=Y, yaw=Z."
             )
         return axes
 
@@ -215,7 +218,7 @@ def _an_end_plane(value: object) -> object:
     elif isinstance(value, str) and _BARE_NUMBER.match(value.strip()):
         number = float(value.strip())
     if number is None or not math.isfinite(number):
-        raise ValueError(
+        raise InputValueError(
             f"wake_termination_x_m takes DEFAULT or the X of the wake end plane in metres in "
             f"the simulation's reference frame, written as a bare finite number such as "
             f"2.75; got {value!r}. A number with a unit, a distance in rotor radii, a "
@@ -530,8 +533,9 @@ class SolverSettings(BaseModel):
     @model_validator(mode="after")
     def _clear_drag_selection_is_unambiguous(self) -> SolverSettings:
         if self.clear_vorticity_drag_boundaries and self.vorticity_drag_families is not None:
-            raise ValueError(
+            raise InputValueError(
                 "clear_vorticity_drag_boundaries cannot be combined with vorticity_drag_families"
+                ". Drop one of the two."
             )
         return self
 
@@ -639,7 +643,7 @@ class SolverSettings(BaseModel):
             self.disable_reference_velocity,
         )
         if sum(value is not None for value in choices) > 1:
-            raise ValueError(
+            raise InputValueError(
                 "choose one reference normalization: reference_velocity_m_per_s, "
                 "reference_mach, or disable_reference_velocity"
             )
@@ -720,11 +724,13 @@ class SolverSettings(BaseModel):
         seen: set[str] = set()
         for action in value or ():
             if action.name.startswith("pfs_"):
-                raise ValueError(
+                raise InputValueError(
                     "unsteady_solver_actions names must not use the reserved prefix pfs_"
                 )
             if action.name in seen:
-                raise ValueError(f"unsteady_solver_actions contains duplicate name {action.name!r}")
+                raise InputValueError(
+                    f"unsteady_solver_actions contains duplicate name {action.name!r}"
+                )
             seen.add(action.name)
         return value
 
@@ -740,7 +746,7 @@ class SolverSettings(BaseModel):
         for token in allowed:
             if token.upper() == str(value).strip().upper():
                 return token
-        raise ValueError(
+        raise InputValueError(
             f"load_units = {value!r} is not one of {', '.join(allowed)} "
             f"(SET_LOADS_AND_MOMENTS_UNITS, {entry.citation})"
         )
@@ -810,9 +816,15 @@ class FluidState(BaseModel):
         }
         for name, value in positive.items():
             if not math.isfinite(value) or value <= 0.0:
-                raise ValueError(f"{name} = {value!r} is not a finite positive air property")
+                raise InputValueError(
+                    f"{name} = {value!r} is not a finite positive air property"
+                    ". State a finite positive value."
+                )
         if not math.isfinite(self.velocity_m_per_s):
-            raise ValueError(f"velocity_m_per_s = {self.velocity_m_per_s!r} is not finite")
+            raise InputValueError(
+                f"velocity_m_per_s = {self.velocity_m_per_s!r} is not finite"
+                ". State a finite velocity."
+            )
         return self
 
 

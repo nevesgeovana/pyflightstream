@@ -30,6 +30,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from pyflightstream._errors import InputValueError
 from pyflightstream._lengths import UNIT_THAT_NAMES_NO_LENGTH
 from pyflightstream.cases._ccs import CcsImportOptions
 from pyflightstream.cases.mesh import CadImportOptions, TrailingEdgeMarking
@@ -101,13 +102,15 @@ _TRANSLATE_ROTATE = (
 def _one_word(value: str, what: str) -> str:
     """Refuse a name the solver would read as several tokens."""
     if not value or any(character.isspace() for character in value):
-        raise ValueError(f"{what} {value!r} is empty or carries whitespace; write one word")
+        raise InputValueError(f"{what} {value!r} is empty or carries whitespace; write one word")
     return value
 
 
 def _finite(values: Sequence[float], what: str) -> None:
     if not all(math.isfinite(value) for value in values):
-        raise ValueError(f"{what} states a value that is not a finite number")
+        raise InputValueError(
+            f"{what} states a value that is not a finite number. Replace it with a finite number."
+        )
 
 
 class GeometryOperation(BaseModel):
@@ -150,9 +153,12 @@ class GeometryOperation(BaseModel):
     @classmethod
     def _a_known_kind(cls, value: str) -> str:
         if value in ("translate", "rotate"):
-            raise ValueError(f"op = {value!r} is not a geometry operation: {_TRANSLATE_ROTATE}")
+            raise InputValueError(
+                f"op = {value!r} is not a geometry operation: {_TRANSLATE_ROTATE}"
+                ". Use one of the listed operations."
+            )
         if value not in _OPERATION_KEYS:
-            raise ValueError(
+            raise InputValueError(
                 f"op = {value!r} is no operation of the instruction; write one of "
                 f"{', '.join(sorted(_OPERATION_KEYS))}"
             )
@@ -166,12 +172,12 @@ class GeometryOperation(BaseModel):
         }
         missing = [key for key in required if getattr(self, key) is None]
         if missing:
-            raise ValueError(
+            raise InputValueError(
                 f"a {self.op} states {', '.join(required)}; {', '.join(missing)} is not stated"
             )
         foreign = sorted(stated - set(required) - set(optional))
         if foreign:
-            raise ValueError(f"a {self.op} does not read {', '.join(foreign)}")
+            raise InputValueError(f"a {self.op} does not read {', '.join(foreign)}")
         self._check_values()
         return self
 
@@ -184,7 +190,7 @@ class GeometryOperation(BaseModel):
         ]
         _finite(numbers, f"a {self.op}")
         if self.factors is not None and min(self.factors) <= 0:
-            raise ValueError(
+            raise InputValueError(
                 f"each scale factor must be greater than zero; got {list(self.factors)}"
             )
         for name in (self.to, self.name, *(self.names or ())):
@@ -207,19 +213,19 @@ class GeometryOperation(BaseModel):
             "remesh_from_sections",
         ):
             if self.surface == _EVERY:
-                raise ValueError(
+                raise InputValueError(
                     f'a {self.op} names the one surface it acts on; it has no "{_EVERY}" form'
                 )
         if self.op in ("circular_copy", "linear_copy") and self.names is not None:
             assert self.count is not None  # required above
             if len(self.names) != self.count - 1:
-                raise ValueError(
+                raise InputValueError(
                     f"a {self.op} of count {self.count} (the original included) creates "
                     f"{self.count - 1} surface(s), and names lists {len(self.names)}; write one "
                     "name per new surface, in creation order"
                 )
         if self.op == "cut" and self.names is not None and len(self.names) < 2:
-            raise ValueError(
+            raise InputValueError(
                 "a cut leaves at least two surfaces; names lists the surfaces it leaves, in order"
             )
 
@@ -228,32 +234,36 @@ class GeometryOperation(BaseModel):
         if len(self.mesh_sha256) != 64 or any(
             c not in "0123456789abcdef" for c in self.mesh_sha256
         ):
-            raise ValueError(
+            raise InputValueError(
                 "mesh_sha256 is the sha256 of the source mesh, 64 lower-case hex digits"
             )
         if not self.nodes or min(self.nodes) < 1:
-            raise ValueError(
+            raise InputValueError(
                 "nodes lists the 1-based node numbers of the source mesh, at least one"
+                ". List at least one node number."
             )
 
     def _check_selection(self) -> None:
         assert self.quantity is not None
         if self.quantity in SOLVED_QUANTITIES:
-            raise ValueError(
+            raise InputValueError(
                 f"quantity = {self.quantity!r} is a solved quantity, and the operations run "
                 "before the solver initialises, so there is nothing solved to select by; "
                 f"write one of {', '.join(_GEOMETRIC_QUANTITIES)}"
             )
         if self.quantity not in _GEOMETRIC_QUANTITIES:
-            raise ValueError(
+            raise InputValueError(
                 f"quantity = {self.quantity!r}; write one of {', '.join(_GEOMETRIC_QUANTITIES)}"
             )
         if self.min is None and self.max is None:
-            raise ValueError(
+            raise InputValueError(
                 f"a {self.op} states min, max or both: the range of {self.quantity} it selects"
+                ". State min, max or both."
             )
         if self.min is not None and self.max is not None and self.max <= self.min:
-            raise ValueError(f"max ({self.max}) is not above min ({self.min})")
+            raise InputValueError(
+                f"max ({self.max}) is not above min ({self.min}) Set max above min."
+            )
 
     def apply(self, names: list[str], position: int) -> None:
         """Apply this operation to a list of names, in place, refusing a missing surface."""
@@ -262,9 +272,10 @@ class GeometryOperation(BaseModel):
             assert self.to is not None
             index = _found(names, self.surface, where)
             if self.to in names and names[index] != self.to:
-                raise ValueError(
+                raise InputValueError(
                     f"{where} renames {self.surface!r} to {self.to!r}, which another "
                     "surface carries"
+                    ". Pick a name no other surface carries."
                 )
             names[index] = self.to
         elif self.op in ("circular_copy", "linear_copy"):
@@ -281,7 +292,7 @@ class GeometryOperation(BaseModel):
         elif self.surface is not None and self.surface != _EVERY:
             _found(names, self.surface, where)
         if len(set(names)) != len(names):
-            raise ValueError(f"after {where} two surfaces carry one name: {', '.join(names)}")
+            raise InputValueError(f"after {where} two surfaces carry one name: {', '.join(names)}")
 
     def undo(self, names: list[str], position: int) -> None:
         """Undo this operation on the names it leaves, in place: the names it was given."""
@@ -292,7 +303,7 @@ class GeometryOperation(BaseModel):
         elif self.op in ("circular_copy", "linear_copy", "extract_faces", "remesh_from_sections"):
             created = list(self.names or ()) if self.name is None else [self.name]
             if names[len(names) - len(created) :] != created:
-                raise ValueError(
+                raise InputValueError(
                     f"{where} creates {', '.join(created)}, which the names it leaves end with; "
                     f"they end with {', '.join(names[-len(created) :]) or 'nothing'}"
                 )
@@ -303,17 +314,19 @@ class GeometryOperation(BaseModel):
                 if names[index : index + len(left)] == left:
                     names[index : index + len(left)] = [self.surface or ""]
                     return
-            raise ValueError(
+            raise InputValueError(
                 f"{where} leaves {', '.join(left)}, which do not follow one another in the names"
+                ". Name surfaces that are neighbours in the list."
             )
 
 
 def _found(names: Sequence[str], surface: str | None, where: str) -> int:
     """Return the position of one named surface, refusing a name absent at that step."""
     if surface is None or surface not in names:
-        raise ValueError(
+        raise InputValueError(
             f"{where} names the surface {surface!r}, and the surfaces at that step are "
             f"{', '.join(repr(name) for name in names) or 'none'}"
+            ". Name a surface present at that step."
         )
     return list(names).index(surface)
 
@@ -356,7 +369,7 @@ class CadBodyOperation(BaseModel):
         }[self.op]
         missing = [key for key in own if getattr(self, key) is None]
         if missing:
-            raise ValueError(
+            raise InputValueError(
                 f"a CAD {self.op} states {', '.join(own)}; {', '.join(missing)} is not stated"
             )
         allowed = set(own) | ({"above_m", "below_m"} if self.op == "delete_by_threshold" else set())
@@ -364,9 +377,11 @@ class CadBodyOperation(BaseModel):
             key for key in type(self).model_fields if key != "op" and getattr(self, key) is not None
         }
         if stated - allowed:
-            raise ValueError(f"a CAD {self.op} does not read {', '.join(sorted(stated - allowed))}")
+            raise InputValueError(
+                f"a CAD {self.op} does not read {', '.join(sorted(stated - allowed))}"
+            )
         if self.op == "delete_by_threshold" and (self.above_m is None) == (self.below_m is None):
-            raise ValueError("a delete_by_threshold states one of above_m and below_m")
+            raise InputValueError("a delete_by_threshold states one of above_m and below_m")
         _finite(
             [
                 *(self.vector_m or ()),
@@ -422,7 +437,7 @@ class CreateBody(BaseModel):
             if key != "shape" and getattr(self, key) is not None
         }
         if missing or stated - set(own):
-            raise ValueError(
+            raise InputValueError(
                 f"a {self.shape} states {', '.join(own)}"
                 + (f"; {', '.join(missing)} is not stated" if missing else "")
                 + (
@@ -435,9 +450,14 @@ class CreateBody(BaseModel):
         if self.lengths_m is not None and (
             len(self.lengths_m) != wanted or min(self.lengths_m) <= 0
         ):
-            raise ValueError(f"a {self.shape} states {wanted} lengths, each above zero")
+            raise InputValueError(
+                f"a {self.shape} states {wanted} lengths, each above zero"
+                ". State each length above zero."
+            )
         if self.radii_m is not None and min(self.radii_m) <= 0:
-            raise ValueError("a cylinder's two radii are each above zero")
+            raise InputValueError(
+                "a cylinder's two radii are each above zero. State both radii above zero."
+            )
         _finite(
             [
                 *(self.center_m or ()),
@@ -500,13 +520,18 @@ class CreateSource(BaseModel):
     @model_validator(mode="after")
     def _one_route(self) -> CreateSource:
         if bool(self.bodies) == bool(self.sections):
-            raise ValueError(
+            raise InputValueError(
                 "[create] states [[create.bodies]] or [[create.sections]], exactly one of them"
             )
         if self.sections and len(self.sections) < 2:
-            raise ValueError("a loft from sections states at least two [[create.sections]]")
+            raise InputValueError(
+                "a loft from sections states at least two [[create.sections]]"
+                ". Add a second [[create.sections]] entry."
+            )
         if self.bodies and self.loft is not None:
-            raise ValueError("[create.loft] lofts sections; a [[create.bodies]] recipe states none")
+            raise InputValueError(
+                "[create.loft] lofts sections; a [[create.bodies]] recipe states none"
+            )
         return self
 
 
@@ -530,13 +555,15 @@ class GeometrySweep(BaseModel):
     @model_validator(mode="after")
     def _distinct_values(self) -> GeometrySweep:
         if not self.angle_deg:
-            raise ValueError("angle_deg lists the angles to build, at least one")
+            raise InputValueError(
+                "angle_deg lists the angles to build, at least one. List at least one angle."
+            )
         _finite(self.angle_deg, "[sweep]")
         if any(not math.isfinite(angle * 10) for angle in self.angle_deg):
-            raise ValueError("angle_deg states an angle too large to name a tag")
+            raise InputValueError("angle_deg states an angle too large to name a tag")
         tags = [variant_tag(self.control_surface, angle) for angle in self.angle_deg]
         if len(set(tags)) != len(tags):
-            raise ValueError(
+            raise InputValueError(
                 "two values of angle_deg give one tag (the tag keeps tenths of a degree): "
                 + ", ".join(tags)
             )
@@ -593,21 +620,26 @@ class GeometryInstruction(BaseModel):
     @model_validator(mode="after")
     def _whole_file(self) -> GeometryInstruction:
         if not self.name or any(not (c.isalnum() or c in "_-") for c in self.name):
-            raise ValueError(f"name = {self.name!r}; write letters, digits, _ and - only")
+            raise InputValueError(f"name = {self.name!r}; write letters, digits, _ and - only")
         if not self.outputs or len(set(self.outputs)) != len(self.outputs):
-            raise ValueError('outputs lists "fsm", "obj" or both, each once')
+            raise InputValueError(
+                'outputs lists "fsm", "obj" or both, each once'
+                '. State outputs as "fsm", "obj" or both.'
+            )
         if not self.boundaries:
-            raise ValueError("boundaries lists the names the saved body must carry; it is empty")
+            raise InputValueError(
+                "boundaries lists the names the saved body must carry; it is empty"
+            )
         for name in self.boundaries:
             _one_word(name, "the boundary name")
         if len(set(self.boundaries)) != len(self.boundaries):
-            raise ValueError("boundaries names one surface twice")
+            raise InputValueError("boundaries names one surface twice. Name each boundary once.")
         self._check_one_source()
         self._check_units()
         self._check_trailing_edges()
         self._check_sweep()
         if any(op.op == "transform_nodes" for op in self.operations) and self.kind != "mesh":
-            raise ValueError(
+            raise InputValueError(
                 "transform_nodes moves nodes of a raw mesh; it is read for a [mesh] source only"
             )
         self._check_remesh_from_sections()
@@ -625,13 +657,13 @@ class GeometryInstruction(BaseModel):
         """
         remeshes = [op for op in self.operations if op.op == "remesh_from_sections"]
         if len(remeshes) > 1:
-            raise ValueError(
+            raise InputValueError(
                 "an instruction states one remesh_from_sections: the loft reads every "
                 "selected curve, so a second cutter would loft the first body's sections "
                 "into its own; build each rebuilt body from its own instruction"
             )
         if remeshes and self.kind in ("ccs", "create"):
-            raise ValueError(
+            raise InputValueError(
                 f"remesh_from_sections rebuilds a body from its own cross-sections, and a "
                 f"[{self.kind}] source leaves its own curves where the loft reads them; it "
                 "is read for a [mesh] or [cad] source"
@@ -641,12 +673,12 @@ class GeometryInstruction(BaseModel):
         stated = [key for key in ("ccs", "cad", "create", "mesh") if getattr(self, key) is not None]
         if len(stated) != 1:
             found = ", ".join(f"[{key}]" for key in stated) or "none"
-            raise ValueError(
+            raise InputValueError(
                 f"an instruction states exactly one source table, [ccs], [cad], [create] or "
                 f"[mesh]; this one states {found}"
             )
         if stated[0] != self.kind:
-            raise ValueError(
+            raise InputValueError(
                 f"kind = {self.kind!r} but the source table is [{stated[0]}]; write both alike"
             )
 
@@ -657,23 +689,23 @@ class GeometryInstruction(BaseModel):
             *(section.units for section in (self.create.sections if self.create else ())),
         ):
             if unit == UNIT_THAT_NAMES_NO_LENGTH:
-                raise ValueError(
+                raise InputValueError(
                     f'units = "{UNIT_THAT_NAMES_NO_LENGTH}" names no length, so the solver would '
                     'choose the scale; write the unit the file is written in, such as "METER"'
                 )
         if self.ccs is not None:
             route = self.ccs.options.kind == "file"
             if route != (self.ccs.units == "FILE"):
-                raise ValueError(
+                raise InputValueError(
                     'kind = "file" reads the file\'s own Units line and takes units = "FILE"; '
                     'a loft reads its curves in a length unit, such as units = "METER"'
                 )
             if self.ccs.shedding is not None and not route:
-                raise ValueError(
+                raise InputValueError(
                     'shedding is read on kind = "file" only, the route that reads Relaxed_TE lines'
                 )
             if any(surface.space == "REAL" for surface in self.ccs.options.control_surfaces):
-                raise ValueError(
+                raise InputValueError(
                     'a control surface with space = "REAL" is refused (RPT-097): write the '
                     'spanwise limits as fractions of the span and space = "PARAMETRIC"'
                 )
@@ -683,7 +715,7 @@ class GeometryInstruction(BaseModel):
             self.create is not None and self.create.loft is not None
         )
         if marks_itself and self.trailing_edges is not None:
-            raise ValueError(
+            raise InputValueError(
                 "[trailing_edges] is refused beside a CCS source or a section loft: their own "
                 "mark_trailing_edges option decides whether the body's trailing edges are "
                 "marked, so a second instruction here would decide it twice. Set "
@@ -694,14 +726,16 @@ class GeometryInstruction(BaseModel):
         if self.sweep is None:
             return
         if self.ccs is None or self.ccs.options.kind != "wing":
-            raise ValueError(
+            raise InputValueError(
                 "[sweep] varies a control surface of a [ccs] wing, and the source is not one"
+                ". Point the sweep at a [ccs] wing source."
             )
         declared = [surface.name for surface in self.ccs.options.control_surfaces]
         if self.sweep.control_surface not in declared:
-            raise ValueError(
+            raise InputValueError(
                 f"[sweep] varies {self.sweep.control_surface!r}, and the wing declares "
                 f"{', '.join(declared) or 'no control surface'}"
+                ". Name a control surface the wing declares."
             )
 
     def marks_trailing_edges(self) -> bool:
@@ -744,7 +778,7 @@ def names_after(
         operation.apply(current, position)
         steps.append((f"operation {position} ({operation.op})", tuple(current)))
     if tuple(current) != instruction.boundaries:
-        raise ValueError(
+        raise InputValueError(
             f"the operations leave {', '.join(current)} and boundaries states "
             f"{', '.join(instruction.boundaries)}"
         )

@@ -607,7 +607,7 @@ if STATE.is_file():
     try:
         loaded = json.loads(STATE.read_text(encoding="utf-8"))
         if not isinstance(loaded, dict):
-            raise ValueError("the state is not a JSON object")
+            raise InputValueError("the state is not a JSON object")
         state.update(loaded)
     except ValueError as error:
         # F-760, F-763: the elapsed time before this call is lost, and the

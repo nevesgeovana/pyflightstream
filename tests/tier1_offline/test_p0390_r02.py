@@ -245,6 +245,15 @@ def run_of_the_study(tmp_path_factory):
 # --- FR-982: one set of files, every model READY --------------------------------
 
 
+@pytest.fixture
+def warning_refusals_on():
+    """Run a test whose subject is a refusal that warns by default under the strict policy."""
+    from pyflightstream.options import option_context
+
+    with option_context("warning_refusals", True):
+        yield
+
+
 def test_every_model_of_the_study_plans_ready_from_one_set_of_files(run_of_the_study):
     """P0390-R02 (FR-982) both rows of the use case plan READY, every point of each."""
     _, plan, _, records = run_of_the_study
@@ -492,6 +501,7 @@ def test_a_misspelled_name_is_blocked_on_every_row_naming_the_vocabulary(
 # --- FR-985, FR-986: the refusals that stand whatever the study holds ---------------
 
 
+@pytest.mark.usefixtures("warning_refusals_on")
 def test_a_family_list_every_name_of_which_is_absent_keeps_its_v0380_refusal(tmp_path):
     """P0390-R02 (FR-985) analysis_families of the tail alone: an empty selection is refused."""
     setup = SETUP.replace(

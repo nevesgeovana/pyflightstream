@@ -27,6 +27,8 @@ from pydantic import (
     model_validator,
 )
 
+from pyflightstream._errors import InputValueError
+
 # The CCS geometry table, a table of a geometry sidecar's [import]; its
 # module imports only pydantic and the script row, so the package may import it
 # while it loads.
@@ -120,21 +122,21 @@ class MeshOperation(BaseModel):
         every = {key for keys in _MESH_OPERATION_KEYS.values() for key in keys}
         missing = [key for key in own if getattr(self, key) is None]
         if missing:
-            raise ValueError(
+            raise InputValueError(
                 f"a {self.op} states {' and '.join(own)}; {', '.join(missing)} is not stated"
             )
         foreign = sorted(key for key in every - set(own) if getattr(self, key) is not None)
         if foreign:
-            raise ValueError(
+            raise InputValueError(
                 f"a {self.op} does not read {', '.join(foreign)}; it states "
                 f"{' and '.join(own)} and, optionally, surface"
             )
         if not self.surface:
-            raise ValueError(
+            raise InputValueError(
                 f'surface is empty; name a surface of the file, or write "{EVERY_SURFACE}"'
             )
         if self.op in ("rename", "mirror") and self.surface == EVERY_SURFACE:
-            raise ValueError(
+            raise InputValueError(
                 f'a {self.op} names the surface it acts on, as surface = "<a name of the '
                 'file>"; it has no every-surface form'
             )
@@ -142,19 +144,22 @@ class MeshOperation(BaseModel):
         if self.angle_deg is not None:
             numbers.append(self.angle_deg)
         if not all(math.isfinite(number) for number in numbers):
-            raise ValueError(f"a {self.op} states a value that is not a finite number")
+            raise InputValueError(
+                f"a {self.op} states a value that is not a finite number"
+                ". Replace it with a finite number."
+            )
         if self.factors is not None and min(self.factors) <= 0:
-            raise ValueError(
+            raise InputValueError(
                 f"each scale factor must be greater than zero, the manual's rule; "
                 f"got {list(self.factors)}"
             )
         if self.to is not None and (not self.to or any(char.isspace() for char in self.to)):
-            raise ValueError(
+            raise InputValueError(
                 f"to = {self.to!r} is not a surface name the solver reads as one word; "
                 "write a name with no spaces"
             )
         if self.to == EVERY_SURFACE:
-            raise ValueError(
+            raise InputValueError(
                 f'to = "{EVERY_SURFACE}" would name a surface with the word for every surface'
             )
         return self
@@ -188,7 +193,7 @@ class CadImportOptions(BaseModel):
     @classmethod
     def _positive_or_all(cls, value: int) -> int:
         if value != -1 and value < 1:
-            raise ValueError("CAD body_index must be -1 (all bodies) or a positive index")
+            raise InputValueError("CAD body_index must be -1 (all bodies) or a positive index")
         return value
 
 
@@ -246,7 +251,7 @@ class MeshImport(BaseModel):
             return value
         spelled = value.strip().upper()
         if not spelled:
-            raise ValueError(
+            raise InputValueError(
                 "`units` is empty; write the length unit the mesh file is written in, "
                 'as units = "MILLIMETER"'
             )
@@ -405,24 +410,34 @@ class TrailingEdgeMarking(BaseModel):
                 or self.detect_surfaces
                 or self.sweep_angle_deg is not None
             ):
-                raise ValueError("no trailing edge cannot also supply points or detection")
+                raise InputValueError("no trailing edge cannot also supply points or detection")
             return self
         if not math.isfinite(self.tolerance) or self.tolerance <= 0.0:
-            raise ValueError(
+            raise InputValueError(
                 f"tolerance = {self.tolerance!r}; it is the distance, in metres, "
                 "within which an edge's mid-point counts as a point of the "
                 "file, and it must be positive and finite"
             )
         if self.route == "file":
             if self.detect_surfaces or self.sweep_angle_deg is not None:
-                raise ValueError("the file route takes no detection surfaces and no sweep angle")
+                raise InputValueError(
+                    "the file route takes no detection surfaces and no sweep angle"
+                    ". Drop them, or use the detect route."
+                )
             return self
         if self.points_m or self.points_file is not None:
-            raise ValueError("the detect route reads no points file")
+            raise InputValueError(
+                "the detect route reads no points file. Drop the points file from the detect route."
+            )
         if not all(name.strip() for name in self.detect_surfaces):
-            raise ValueError("a detection surface is named by an empty string")
+            raise InputValueError(
+                "a detection surface is named by an empty string. Name the detection surface."
+            )
         if self.sweep_angle_deg is not None and not math.isfinite(self.sweep_angle_deg):
-            raise ValueError(f"sweep_angle = {self.sweep_angle_deg!r} is not a finite number")
+            raise InputValueError(
+                f"sweep_angle = {self.sweep_angle_deg!r} is not a finite number"
+                ". State a finite sweep_angle."
+            )
         return self
 
 
@@ -507,15 +522,23 @@ class BaseRegionOperation(BaseModel):
         }.get(self.operation, {"index", "boundary"})
         for name in ("boundary", "index", "model", "cp", "mesh"):
             if name not in allowed and getattr(self, name) is not None:
-                raise ValueError(f"{name} does not apply to base-region {self.operation}")
+                raise InputValueError(
+                    f"{name} does not apply to base-region {self.operation}"
+                    ". Drop that key from the entry."
+                )
         if self.operation == "create":
             if self.boundary is None or self.model is None or self.cp is None:
-                raise ValueError("base-region create requires boundary, model and cp")
+                raise InputValueError(
+                    "base-region create requires boundary, model and cp"
+                    ". State boundary, model and cp."
+                )
             if isinstance(self.boundary, str) and not self.boundary.strip():
-                raise ValueError("base-region boundary cannot be empty")
+                raise InputValueError("base-region boundary cannot be empty. Name the boundary.")
         elif self.operation == "mark_outflow_edges":
             if self.boundary is None or self.boundary == "":
-                raise ValueError("base-region mark_outflow_edges requires boundary")
+                raise InputValueError(
+                    "base-region mark_outflow_edges requires boundary. State boundary."
+                )
         elif self.operation in {
             "set_pressure",
             "delete",
@@ -525,18 +548,25 @@ class BaseRegionOperation(BaseModel):
         }:
             self._followup_selector()
         if self.boundary == "all" and self.operation != "mark_outflow_edges":
-            raise ValueError("base-region create has no documented all form")
+            raise InputValueError(
+                "base-region create has no documented all form. Name the boundaries to create."
+            )
         if self.index == "all" and self.operation not in {"mark_trailing_edges", "select_faces"}:
-            raise ValueError(f"base-region {self.operation} has no documented all form")
+            raise InputValueError(
+                f"base-region {self.operation} has no documented all form. Name the boundaries."
+            )
         if self.operation == "set_pressure":
             if self.model is None or self.model == "USER":
-                raise ValueError(
+                raise InputValueError(
                     "base-region set_pressure requires EMPIRICAL, AXISYMMETRIC or CUSTOM"
+                    ". State one of those models."
                 )
             if self.model == "CUSTOM" and self.cp is None:
-                raise ValueError("CUSTOM base pressure requires cp")
+                raise InputValueError("CUSTOM base pressure requires cp. State cp.")
         if self.operation == "remesh" and self.mesh is None:
-            raise ValueError("base-region remesh requires mesh parameters")
+            raise InputValueError(
+                "base-region remesh requires mesh parameters. State the mesh parameters."
+            )
         return self
 
     def _followup_selector(self) -> None:
@@ -582,11 +612,16 @@ class PortBoundary(BaseModel):
         if self.kind == "outlet" and (
             self.profile is not None or self.profile_variable is not None
         ):
-            raise ValueError("an outlet profile has no documented native command")
+            raise InputValueError(
+                "an outlet profile has no documented native command"
+                ". Use an inlet profile or a file."
+            )
         if self.port is not None and self.kind is None:
-            raise ValueError("a setup port requires kind = inlet or outlet")
+            raise InputValueError(
+                "a setup port requires kind = inlet or outlet. State kind as inlet or outlet."
+            )
         if self.port is None and (self.boundary is None or self.velocity is None):
-            raise ValueError(
+            raise InputValueError(
                 "a port requires a geometry identity or a resolved boundary and velocity"
             )
         return self
@@ -636,7 +671,7 @@ class RawMeshConditions(BaseModel):
         seen: set[str | None] = set()
         for port in (*self.inlets, *self.outlets):
             if port.boundary in seen:
-                raise ValueError(
+                raise InputValueError(
                     f"boundary {port.boundary!r} assigned more than once to inlet/outlet ports; "
                     "the native solver can replace the prior assignment and renumber the ports"
                 )

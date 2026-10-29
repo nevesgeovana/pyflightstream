@@ -39,7 +39,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._errors import (
+    EmptySelectionWarning,
+    PyflightstreamError,
+    PyflightstreamWarning,
+    demote,
+    warn,
+)
 from pyflightstream.cases import CampaignConfigError, SimCase, SolverSettings
 from pyflightstream.cases._setup_keys import DEFAULT_MOMENTS_MODEL
 from pyflightstream.cases._skipped_families import (
@@ -108,12 +114,16 @@ def family_indices(
     # the resolver and not of the check. The QA lens of the closing round
     # measured the mangled sentence.
     if not list(families):
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: the preset states {preset_key} = [], an EMPTY "
-            "selection. The solver reads an empty list as its own default, which is "
-            f"not what a preset naming the key asked for: either name families, or "
-            f"drop {preset_key} so {dropped}."
+        demote(
+            CampaignConfigError(
+                f"case {case.sim_id!r}: the preset states {preset_key} = [], an EMPTY "
+                "selection. The solver reads an empty list as its own default, which is "
+                f"not what a preset naming the key asked for: either name families, or "
+                f"drop {preset_key} so {dropped}."
+            ),
+            warning=EmptySelectionWarning,
         )
+        return None
     # A NAME IS READ AS EVERY OTHER CITED NAME IS (select_group_members: an exact
     # label, an alias, a case-folded family), and the indices are the union. The
     # exact-label lookup alone dropped a family word, an alias or a case variant
@@ -140,19 +150,23 @@ def family_indices(
         if index not in chosen:
             chosen.append(index)
     if not chosen:
-        raise CampaignConfigError(
-            # THE PRESET'S OWN SPELLING, not the helper keyword. This named
-            # `keyword` -- which is the `solver_settings()` Python argument and
-            # is what `resolve_boundary` should be told -- so the refusal sent a
-            # user to `axial_separation_boundaries`, a key they cannot write in a
-            # preset at all. For `vorticity` an alias softened it; for the new
-            # twin there was nothing. The resolver's own docstring promised the
-            # opposite: "so a bad label names the key the user wrote".
-            f"case {case.sim_id!r}: the preset names {preset_key} "
-            f"{', '.join(families)} and the opened geometry carries none of them "
-            f"(absent: {', '.join(absent)}), so the selection would be empty. Name "
-            f"families the geometry carries, or drop {preset_key} so {dropped}."
+        demote(
+            CampaignConfigError(
+                # THE PRESET'S OWN SPELLING, not the helper keyword. This named
+                # `keyword` -- which is the `solver_settings()` Python argument and
+                # is what `resolve_boundary` should be told -- so the refusal sent a
+                # user to `axial_separation_boundaries`, a key they cannot write in a
+                # preset at all. For `vorticity` an alias softened it; for the new
+                # twin there was nothing. The resolver's own docstring promised the
+                # opposite: "so a bad label names the key the user wrote".
+                f"case {case.sim_id!r}: the preset names {preset_key} "
+                f"{', '.join(families)} and the opened geometry carries none of them "
+                f"(absent: {', '.join(absent)}), so the selection would be empty. Name "
+                f"families the geometry carries, or drop {preset_key} so {dropped}."
+            ),
+            warning=EmptySelectionWarning,
         )
+        return None
     return sorted(chosen)
 
 

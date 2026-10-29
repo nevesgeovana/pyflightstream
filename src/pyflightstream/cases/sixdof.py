@@ -19,6 +19,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from pyflightstream._errors import InputValueError
+
 __all__ = [
     "SIXDOF_FREEDOMS",
     "SIXDOF_VARIABLE",
@@ -51,7 +53,10 @@ class SixDofMass(_Strict):
     @model_validator(mode="after")
     def _a_body(self) -> SixDofMass:
         if not self.mass_kg > 0.0:
-            raise ValueError(f"[mass] mass_kg = {self.mass_kg}: a body's mass is above zero")
+            raise InputValueError(
+                f"[mass] mass_kg = {self.mass_kg}: a body's mass is above zero"
+                ". State mass_kg above zero."
+            )
         ixx, iyy, izz, ixy, iyz, izx = self.inertia_kg_m2
         # Sylvester: a symmetric tensor is positive definite when its three
         # leading principal minors are.
@@ -62,7 +67,7 @@ class SixDofMass(_Strict):
             + izx * (ixy * iyz - iyy * izx)
         )
         if not (ixx > 0.0 and minor2 > 0.0 and minor3 > 0.0):
-            raise ValueError(
+            raise InputValueError(
                 f"[mass] inertia_kg_m2 = {list(self.inertia_kg_m2)} (IXX, IYY, IZZ, IXY, IYZ, "
                 "IZX) is not a positive definite inertia tensor; a rigid body's is"
             )
@@ -106,9 +111,10 @@ class SixDofExternalForce(_Strict):
     @model_validator(mode="after")
     def _a_window(self) -> SixDofExternalForce:
         if not self.duration_s > 0.0:
-            raise ValueError(
+            raise InputValueError(
                 f"[[forces]] external duration_s = {self.duration_s}: the force runs from "
                 "start_s for duration_s, a duration above zero (not an end time)"
+                " State duration_s above zero."
             )
         return self
 
@@ -128,17 +134,22 @@ class SixDofSpringForce(_Strict):
     def _lengths(self) -> SixDofSpringForce:
         lengths = (self.free_length_m, self.solid_length_m, self.initial_length_m)
         if min(lengths) <= 0.0:
-            raise ValueError(
+            raise InputValueError(
                 "[[forces]] spring free_length_m, solid_length_m and initial_length_m are "
                 f"each above zero (the manual), got {list(lengths)}"
+                ". State each length above zero."
             )
         if self.solid_length_m > self.free_length_m:
-            raise ValueError(
+            raise InputValueError(
                 f"[[forces]] spring solid_length_m = {self.solid_length_m} exceeds "
                 f"free_length_m = {self.free_length_m}: the fully compressed length is the shorter"
+                ". Set solid_length_m below free_length_m."
             )
         if math.hypot(*self.axis_body) == 0.0:
-            raise ValueError("[[forces]] spring axis_body is a direction and cannot be zero")
+            raise InputValueError(
+                "[[forces]] spring axis_body is a direction and cannot be zero"
+                ". State a non-zero axis_body."
+            )
         return self
 
 
@@ -196,7 +207,7 @@ class SixDofSpec(_Strict):
     @model_validator(mode="after")
     def _something_moves(self) -> SixDofSpec:
         if not any(getattr(self.free, name) for name in SIXDOF_FREEDOMS):
-            raise ValueError(
+            raise InputValueError(
                 "[free] locks every freedom, so nothing moves and the row is an ordinary "
                 "unsteady row; free at least one of u, v, w, p, q, r, or remove SIXDOF"
             )

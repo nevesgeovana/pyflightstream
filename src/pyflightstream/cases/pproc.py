@@ -24,20 +24,28 @@ import re
 import string
 from collections.abc import Mapping, Sequence
 from pathlib import PurePath, PurePosixPath
-from typing import Annotated, Literal, get_args
+from typing import Annotated, Any, Literal, get_args
 
 from pydantic import (
     BaseModel,
     BeforeValidator,
     ConfigDict,
     Field,
+    ValidationError,
     field_serializer,
     field_validator,
     model_validator,
 )
+from pydantic_core import PydanticCustomError
 
 from pyflightstream._deprecations import ROW_EACH_BLADE, refusal_text
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
+from pyflightstream._errors import (
+    InputArtifactError,
+    InputValueError,
+    PyflightstreamWarning,
+    suggest_name,
+    warn,
+)
 from pyflightstream._expressions import ALLOWED_FUNCTIONS, expression_symbols
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS
 from pyflightstream._tokens import REDUCTION_COLUMNS
@@ -510,7 +518,7 @@ Plane = Literal["XY", "XZ", "YZ"]
 def _a_named_frame(value: str) -> str:
     """Refuse a pproc entry's frame that names nothing; WHICH frame is judged at build time."""
     if not value.strip():
-        raise ValueError(
+        raise InputValueError(
             f"frame names one the run creates ({', '.join(PPROC_FRAMES)}, LOCAL_AXIS, "
             "or a rotor's own <ALIAS>_SMRP and <ALIAS>_RMRP) or one the REFERENCE's "
             "[[frames]] table declares; it is empty"
@@ -525,7 +533,7 @@ def _the_radius_is_a_rotors(value: object) -> object:
     :mod:`pyflightstream._retired_names`.
     """
     if value == "propeller_radius":
-        raise ValueError(PROBE_SCALE_PROPELLER_RADIUS.message())
+        raise InputValueError(PROBE_SCALE_PROPELLER_RADIUS.message())
     return value
 
 
@@ -541,24 +549,66 @@ def validated_family_selection(value: object) -> str | list[str]:
     """
     if isinstance(value, str):
         if not value.strip():
-            raise ValueError(
+            raise InputValueError(
                 "families is a selector word, an alias of the setup, a family name, or a "
                 "non-empty list of those; it is empty"
             )
         return value
     if isinstance(value, list) and value and all(isinstance(item, str) for item in value):
         if any(item in ("each", "each_blade") for item in value):
-            raise ValueError("'each' and 'each_blade' expand an entry and stand alone")
+            raise InputValueError(
+                "'each' and 'each_blade' expand an entry and stand alone"
+                ". Remove the other words from that list."
+            )
         if any(not item.strip() for item in value):
-            raise ValueError("families lists an empty word")
+            raise InputValueError("families lists an empty word. Remove the empty word.")
         return list(value)
-    raise ValueError(
+    raise InputValueError(
         "families is a selector word, an alias of the setup, a family name, or a non-empty "
         "list of those"
     )
 
 
-class _LocatedSpec(BaseModel):
+class _SuggestsKeys(BaseModel):
+    """A pproc table that names the closest known key beside an unknown one (PFS-2020.12).
+
+    The refusal of an unknown key stays pydantic's ``extra_forbidden`` error, with its
+    location and type; only its text gains one ``Did you mean 'key'?`` clause when a
+    known key is close (difflib, cutoff 0.75), and none when no key is.
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _an_unknown_key_names_its_nearest(cls, data: Any) -> Any:
+        if not isinstance(data, dict) or cls.model_config.get("extra") != "forbid":
+            return data
+        known = {
+            name
+            for field_name, field in cls.model_fields.items()
+            for name in (field_name, field.alias)
+            if name is not None
+        }
+        unknown = [key for key in data if isinstance(key, str) and key not in known]
+        if not unknown or not any(suggest_name(key, known) for key in unknown):
+            return data
+        raise ValidationError.from_exception_data(
+            cls.__name__,
+            [
+                {
+                    "type": PydanticCustomError(
+                        "extra_forbidden",
+                        "Extra inputs are not permitted"
+                        + (("." + suggest_name(key, known)) if suggest_name(key, known) else ""),
+                    ),
+                    "loc": (key,),
+                    "input": data[key],
+                }
+                for key in unknown
+            ],
+        )
+
+
+class _LocatedSpec(_SuggestsKeys):
     """An output's location is fixed in space unless body attachment is explicit."""
 
     attach: Literal["space", "body"] = Field(
@@ -617,13 +667,14 @@ class SectionDistribution(_LocatedSpec):
         silently accept a selector that cannot be resolved.
         """
         if self.families == "each_blade":
-            raise ValueError(
+            raise InputValueError(
                 f"section distribution over {self.planes}: {refusal_text(ROW_EACH_BLADE)}"
+                ". Change the key named above."
             )
         return self
 
 
-class SectionsSpec(BaseModel):
+class SectionsSpec(_SuggestsKeys):
     """The ``[sections]`` table: NEW_SURFACE_SECTION_DISTRIBUTION per entry and plane.
 
     Attributes
@@ -719,7 +770,10 @@ class VolumeSectionSpec(_LocatedSpec):
         if self.points is not None and (
             min(self.points) < 2 or (self.shape == "circle" and self.points[1] < 3)
         ):
-            raise ValueError("volume grid needs at least 2 samples per axis and 3 around a circle")
+            raise InputValueError(
+                "volume grid needs at least 2 samples per axis and 3 around a circle"
+                ". State the larger sample counts."
+            )
         own = _VOLUME_SECTION_SHAPE_KEYS[self.shape]
         other = next(shape for shape in _VOLUME_SECTION_SHAPE_KEYS if shape != self.shape)
         stray = [
@@ -732,14 +786,14 @@ class VolumeSectionSpec(_LocatedSpec):
             and not (key == "refinement_layers" and self.refinement_layers == 1)
         ]
         if stray:
-            raise ValueError(
+            raise InputValueError(
                 f"[volume_section] shape = {self.shape!r} states {', '.join(stray)}, which "
                 f"{'is' if len(stray) == 1 else 'are'} a {other}'s; a {self.shape} takes "
                 f"{' and '.join(own)}"
             )
         needed = [key for key in own if key != "refinement_layers" and getattr(self, key) is None]
         if needed:
-            raise ValueError(
+            raise InputValueError(
                 f"[volume_section] shape = {self.shape!r} needs {' and '.join(needed)}; "
                 + (
                     "a rectangle takes corners_m, the two diagonal corners x1, y1, x2, y2 "
@@ -752,16 +806,18 @@ class VolumeSectionSpec(_LocatedSpec):
         if self.corners_m is not None:
             x1, y1, x2, y2 = self.corners_m
             if x1 == x2 or y1 == y2:
-                raise ValueError(
+                raise InputValueError(
                     f"[volume_section] corners_m = {list(self.corners_m)} enclose no area: "
                     "two diagonal corners differ in both coordinates"
+                    ". State two corners that differ in both coordinates."
                 )
         if self.radii_m is not None:
             inner, outer = self.radii_m
             if not 0.0 <= inner < outer:
-                raise ValueError(
+                raise InputValueError(
                     f"[volume_section] radii_m = {list(self.radii_m)}: the inner radius r1 "
                     "is at least 0 and smaller than the outer r2"
+                    ". State 0 <= r1 < r2."
                 )
         return self
 
@@ -874,7 +930,7 @@ class ForcePlotGroup(_LocatedSpec):
                 else f"an entry in {self.frame} is ONE group over the families it names"
             )
             carries = "carries" if self.emits_per != "once" else "carries no"
-            raise ValueError(
+            raise InputValueError(
                 f"plot group {self.name!r}: {expands}, so its name {carries} "
                 "{family}, which names what each emission is about. The frames that "
                 f"expand are {', '.join(sorted(EXPANDING_FRAMES))}, and the selector "
@@ -898,7 +954,7 @@ class ForcePlotGroup(_LocatedSpec):
             if field is not None
         ]
         if any(stated != ("family", "", None) for stated in fields):
-            raise ValueError(
+            raise InputValueError(
                 f"plot group {self.name!r}: a plot name may carry only the bare "
                 "placeholder {family}, with no format spec and no conversion"
             )
@@ -906,7 +962,7 @@ class ForcePlotGroup(_LocatedSpec):
         # reader strips whitespace from column names, and a name with a trailing
         # space emitted a history the post stage matched to another group.
         if re.fullmatch(r"(?:[A-Za-z0-9_]|\{family\})+", self.name) is None:
-            raise ValueError(
+            raise InputValueError(
                 f"plot group {self.name!r}: a plot name is letters, digits and "
                 "underscores, and the bare placeholder {family}; no space and no "
                 "other character"
@@ -924,7 +980,7 @@ class ForcePlotGroup(_LocatedSpec):
             "each",
             "each_blade",
         ):
-            raise ValueError(
+            raise InputValueError(
                 f"plot group {self.name!r}: the frame {self.frame} already expands, one "
                 f"per {self.emits_per}, and families = {self.families!r} expands too, so "
                 "the entry states how many it is twice. Name the rotors or the alias "
@@ -937,11 +993,14 @@ class ForcePlotGroup(_LocatedSpec):
     def _the_retired_selector_says_it_in_the_frame(self) -> ForcePlotGroup:
         """`each_blade` said what `LOCAL_AXIS` says, so it is a second home for one fact."""
         if self.families == "each_blade":
-            raise ValueError(f"plot group {self.name!r}: {refusal_text(ROW_EACH_BLADE)}")
+            raise InputValueError(
+                f"plot group {self.name!r}: {refusal_text(ROW_EACH_BLADE)}"
+                ". Change the key named above."
+            )
         return self
 
 
-class PlotsSpec(BaseModel):
+class PlotsSpec(_SuggestsKeys):
     """The ``[plots]`` table: which parameters, over which groups of families.
 
     Attributes
@@ -963,9 +1022,10 @@ class PlotsSpec(BaseModel):
     def _known_parameters(cls, value: list[str]) -> list[str]:
         unknown = [name for name in value if name not in FORCE_PLOT_PARAMETERS]
         if unknown:
-            raise ValueError(
+            raise InputValueError(
                 f"force plot parameter(s) {', '.join(unknown)} are not among "
                 f"{', '.join(FORCE_PLOT_PARAMETERS)}"
+                ". Use one of the parameters listed."
             )
         return value
 
@@ -1002,13 +1062,14 @@ def _a_group_is_one_alias(value: object) -> object:
             # A ValueError, as the equations validator raises, so pydantic wraps it
             # and the loader adds the artifact path; InputArtifactError is a
             # RuntimeError and passed through without it (PFS-2100.001).
-            raise ValueError(
+            raise InputValueError(
                 f"pproc [groups] entry {name!r}: member lists were removed in 0.26.0. "
                 f"Write {replacement} instead."
             )
-        raise ValueError(
+        raise InputValueError(
             f"pproc [groups] entry {name!r} = {stated!r}: a group names ONE alias as a "
             f'string, e.g. {name} = "<alias>"'
+            ". Write one alias string."
         )
     return groups
 
@@ -1023,7 +1084,7 @@ def _probes_are_a_list(value: object) -> object:
     guessing which bracket.
     """
     if isinstance(value, Mapping):
-        raise ValueError(
+        raise InputValueError(
             "`[probes]` is a LIST of tables, so that one artifact can "
             "probe several frames on one row, as `[[plots.groups]]` and "
             "`[[sections.distributions]]` already do. Write `[[probes]]` instead of "
@@ -1034,7 +1095,7 @@ def _probes_are_a_list(value: object) -> object:
     return value
 
 
-class ProbeLine(BaseModel):
+class ProbeLine(_SuggestsKeys):
     """One line of fluid probes, from one vertex to another, sampled at ``points``.
 
     Attributes
@@ -1051,7 +1112,7 @@ class ProbeLine(BaseModel):
     end: tuple[float, float, float]
 
 
-class ProbeRectangle(BaseModel):
+class ProbeRectangle(_SuggestsKeys):
     """A rectangular probe plane, given by three of its vertices (FR-79).
 
     THREE CORNERS AND NOT FOUR. The fourth is determined by the other three,
@@ -1096,16 +1157,17 @@ class ProbeRectangle(BaseModel):
             first[0] * second[1] - first[1] * second[0],
         )
         if sum(value * value for value in cross) <= 0.0:
-            raise ValueError(
+            raise InputValueError(
                 f"a probe rectangle at {self.origin} spans no plane: its three "
                 "corners are collinear or two of them coincide, so there is no "
                 "rectangle to grid. `origin`, `along_u` and `along_v` are three "
                 "DIFFERENT corners and the fourth follows from them."
+                " Give three different corners."
             )
         return self
 
 
-class ProbeCircle(BaseModel):
+class ProbeCircle(_SuggestsKeys):
     """A circular probe plane, discretised in polar coordinates (FR-79).
 
     `points_radial` stations from the centre to the rim INCLUDING both, and
@@ -1139,10 +1201,11 @@ class ProbeCircle(BaseModel):
     def _the_normal_is_a_direction(self) -> ProbeCircle:
         """Refuse a zero normal, which names no plane."""
         if sum(value * value for value in self.normal) <= 0.0:
-            raise ValueError(
+            raise InputValueError(
                 f"a probe circle at {self.center} states `normal = {self.normal}`, "
                 "which is no direction and so names no plane. The normal is the "
                 "axis the disk is perpendicular to."
+                " State a non-zero normal."
             )
         return self
 
@@ -1260,7 +1323,7 @@ class ProbesSpec(_LocatedSpec):
             )
             return canonical
         if value not in PROBE_KINDS:
-            raise ValueError(
+            raise InputValueError(
                 f"probe kind {value!r} is not one of {' or '.join(map(repr, PROBE_KINDS))}: "
                 'write kind = "instantaneous" for a fluid plot per point and parameter, '
                 'evaluated at every time step, or kind = "default" for probe points '
@@ -1278,7 +1341,7 @@ class ProbesSpec(_LocatedSpec):
         should never have to ask of a file they wrote.
         """
         if len(set(self.field_formats)) != len(self.field_formats):
-            raise ValueError("field_formats must not repeat a format")
+            raise InputValueError("field_formats must not repeat a format")
         if self.field_formats or self.reusable_inflow:
             self.parameters = list(dict.fromkeys([*self.parameters, "VX", "VY", "VZ"]))
         drawn = (
@@ -1289,12 +1352,12 @@ class ProbesSpec(_LocatedSpec):
             + len(self.grids)
         )
         if self.grids and (self.frame != "REFERENCE" or self.scale != "m"):
-            raise ValueError(
+            raise InputValueError(
                 "grids use metre coordinates and explicit reference placement; "
                 'state frame="REFERENCE", scale="m".'
             )
         if self.points_file and drawn:
-            raise ValueError(
+            raise InputValueError(
                 f"a probe entry in {self.frame or 'the rotor hub frame'} states both "
                 f"`points_file = {self.points_file!r}` and {drawn} shape(s) of its "
                 "own, which is the survey written twice with nothing keeping the two "
@@ -1305,19 +1368,19 @@ class ProbesSpec(_LocatedSpec):
             or ":" in self.points_file
             or self.points_file in {".", ".."}
         ):
-            raise ValueError(
+            raise InputValueError(
                 f"`points_file = {self.points_file!r}` names a path. It is the NAME of "
                 "a file under the workspace's `inputs/profiles/`, which is "
                 "where a profile lives so that a run never writes over it; a path "
                 "would let one artifact reach outside the workspace it belongs to."
             )
         if self.resolved_points_file is not None:
-            raise ValueError(
+            raise InputValueError(
                 "`resolved_points_file` is set by the package when a row binds and is "
                 "never written in a pproc file; cite the survey with `points_file`."
             )
         if (drawn or self.points_file) and not self.parameters:
-            raise ValueError(
+            raise InputValueError(
                 "a probe entry drawing or citing points requires nonempty parameters; "
                 "state the variables to sample, or request field_formats or reusable_inflow "
                 "to sample VX, VY and VZ"
@@ -1337,9 +1400,10 @@ class ProbesSpec(_LocatedSpec):
     def _known_parameters(cls, value: list[str]) -> list[str]:
         unknown = [name for name in value if name not in FLUID_PLOT_PARAMETERS]
         if unknown:
-            raise ValueError(
+            raise InputValueError(
                 f"fluid plot parameter(s) {', '.join(unknown)} are not among "
                 f"{', '.join(FLUID_PLOT_PARAMETERS)}"
+                ". Use one of the parameters listed."
             )
         return value
 
@@ -1373,7 +1437,7 @@ class _PolarAtSpec(BaseModel):
         )
 
 
-class ProductsSpec(BaseModel):
+class ProductsSpec(_SuggestsKeys):
     """The ``[products]`` table: which post-processed CSV tables the campaign writes.
 
     ``polars``: one table per group of ``[groups]``, the coefficients of the
@@ -1451,7 +1515,7 @@ class ProductsSpec(BaseModel):
         """Refuse a family the post does not mirror, naming the accepted ones."""
         unknown = [name for name in value if name not in INSTALLED_FRAME_FAMILIES]
         if unknown:
-            raise ValueError(
+            raise InputValueError(
                 f"installed_frame names {', '.join(map(repr, unknown))}, which the post does "
                 f"not mirror; the accepted families are {', '.join(INSTALLED_FRAME_FAMILIES)}"
             )
@@ -1461,7 +1525,7 @@ class ProductsSpec(BaseModel):
     @classmethod
     def _profile_requires_an_unattended_native_route(cls, value: bool) -> bool:
         if value:
-            raise ValueError(
+            raise InputValueError(
                 "boundary_layer_velocity_profile is unavailable: EXPORT_BL_VELOCITY_PROFILE "
                 "is interactive on 26.122 (RPT-027) and stalls on 26.124 (RPT-075); "
                 "no supported build has a proved unattended route. Integrals are a "
@@ -1498,7 +1562,7 @@ class ProductsSpec(BaseModel):
         by one and refused by the other.
         """
         if value not in SUPERFILE_FORMATS:
-            raise ValueError(
+            raise InputValueError(
                 f"the super file format {value!r} is not one this package writes; "
                 f"the formats that exist are {', '.join(SUPERFILE_FORMATS)}"
             )
@@ -1512,7 +1576,7 @@ class ProductsSpec(BaseModel):
 DEFAULT_DRIFT_LIMIT_PCT = 1.0
 
 
-class PerRevolutionSpec(BaseModel):
+class PerRevolutionSpec(_SuggestsKeys):
     """The ``[per_revolution]`` table: how far one revolution may differ from the last.
 
     ``drift_limit_pct`` is the per-revolution product's declared threshold, in
@@ -1542,7 +1606,7 @@ class PerRevolutionSpec(BaseModel):
     drift_limit_pct: float = Field(default=DEFAULT_DRIFT_LIMIT_PCT, gt=0.0, allow_inf_nan=False)
 
 
-class RefinementStudySpec(BaseModel):
+class RefinementStudySpec(_SuggestsKeys):
     """The ``[refinement]`` table: a declared refinement study (NL-TRST-7).
 
     ``levels`` names the three simulations of one study, FINEST FIRST: the same
@@ -1575,7 +1639,7 @@ class RefinementStudySpec(BaseModel):
     @model_validator(mode="after")
     def _three_distinct_levels_finest_first(self) -> RefinementStudySpec:
         if len(self.levels) != 3 or len(set(self.levels)) != 3:
-            raise ValueError(
+            raise InputValueError(
                 f"refinement levels {self.levels} are not three distinct simulations; a "
                 "grid convergence index is estimated from exactly three levels, finest first"
             )
@@ -1583,14 +1647,15 @@ class RefinementStudySpec(BaseModel):
         if spacings is not None and (
             len(spacings) != 3 or not 0.0 < spacings[0] < spacings[1] < spacings[2]
         ):
-            raise ValueError(
+            raise InputValueError(
                 f"refinement spacings {spacings} are not three positive sizes increasing "
                 "from the finest level"
+                ". State three increasing positive spacings."
             )
         return self
 
 
-class PhaseLockedSpec(BaseModel):
+class PhaseLockedSpec(_SuggestsKeys):
     """The ``[phase_locked]`` table: when the reduction exists, and over how much.
 
     ``min_revolutions`` is the minimum TOTAL revolutions the matrix row must
@@ -1624,7 +1689,7 @@ class PhaseLockedSpec(BaseModel):
     @model_validator(mode="after")
     def _averages_no_more_than_it_required(self) -> PhaseLockedSpec:
         if self.last_revolutions_avg > self.min_revolutions:
-            raise ValueError(
+            raise InputValueError(
                 f"phase_locked averages over {self.last_revolutions_avg} revolutions but "
                 f"is only generated from {self.min_revolutions}, so it would average over "
                 "more history than it required to exist. Raise min_revolutions, or "
@@ -1646,7 +1711,7 @@ class PhaseLockedSpec(BaseModel):
         return float(revolutions) >= self.min_revolutions * (1.0 - 1e-9)
 
 
-class EquationSpec(BaseModel):
+class EquationSpec(_SuggestsKeys):
     """One entry of ``[equations]``: a coefficient the post stage derives.
 
     AN EQUATION POINTS AT AN ALIAS AND NEVER AT A MESH FAMILY. The alias is
@@ -1696,7 +1761,7 @@ class EquationSpec(BaseModel):
     def _not_blank(cls, value: str) -> str:
         token = value.strip()
         if not token:
-            raise ValueError(
+            raise InputValueError(
                 "an equation needs both an expression and the alias it is about; the "
                 "alias is what every derived coefficient carries as its `_<alias>` suffix"
             )
@@ -1709,7 +1774,7 @@ class EquationSpec(BaseModel):
         try:
             expression_symbols(value)
         except InputArtifactError as refused:
-            raise ValueError(str(refused)) from refused
+            raise InputValueError(str(refused)) from refused
         return value
 
     def symbols(self) -> list[str]:
@@ -1717,7 +1782,7 @@ class EquationSpec(BaseModel):
         return expression_symbols(self.expression)
 
 
-class SurfaceTimeAveragingSpec(BaseModel):
+class SurfaceTimeAveragingSpec(_SuggestsKeys):
     """The last iterations or revolutions used for solver surface averaging.
 
     Attributes
@@ -1738,7 +1803,9 @@ class SurfaceTimeAveragingSpec(BaseModel):
     @model_validator(mode="after")
     def _one_window(self) -> SurfaceTimeAveragingSpec:
         if (self.last_revs is None) == (self.last_iters is None):
-            raise ValueError("[time_averaging] requires exactly one of last_revs or last_iters")
+            raise InputValueError(
+                "[time_averaging] requires exactly one of last_revs or last_iters"
+            )
         return self
 
 
@@ -1773,7 +1840,7 @@ class SurfaceProbeSpec(_LocatedSpec):
     @classmethod
     def _identifier(cls, value: str) -> str:
         if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", value) is None:
-            raise ValueError(
+            raise InputValueError(
                 "surface probe name must start with a letter and use letters, digits or _"
             )
         return value
@@ -1783,7 +1850,7 @@ class SurfaceProbeSpec(_LocatedSpec):
     def _parameter(cls, value: str) -> str:
         declared = _command_tokens("NEW_UNSTEADY_SOLVER_SURFACE_PROBE", "parameter")
         if value.casefold() not in declared:
-            raise ValueError(
+            raise InputValueError(
                 f"surface probe parameter {value!r} must be one of {', '.join(declared.values())}"
             )
         return declared[value.casefold()]
@@ -1792,7 +1859,7 @@ class SurfaceProbeSpec(_LocatedSpec):
     @classmethod
     def _finite_point(cls, value: tuple[float, float, float]) -> tuple[float, float, float]:
         if not all(math.isfinite(component) for component in value):
-            raise ValueError("surface probe point_m must contain three finite coordinates")
+            raise InputValueError("surface probe point_m must contain three finite coordinates")
         return value
 
     _frame_is_named = field_validator("frame")(_a_named_frame)
@@ -1845,7 +1912,7 @@ class StreamlineLine(_LocatedSpec):
     @classmethod
     def _two_or_more(cls, value: int) -> int:
         if value < 2:
-            raise ValueError(
+            raise InputValueError(
                 f"[[streamlines.lines]] count = {value}: a line seeds two streamlines or more. "
                 f"A single seed is {BROKEN_SINGLE_SEED}, recorded broken on 26.124 (the script "
                 "aborts at the command) and on 26.125 (an access violation), so it is never "
@@ -1856,9 +1923,10 @@ class StreamlineLine(_LocatedSpec):
     @model_validator(mode="after")
     def _a_line_has_length(self) -> StreamlineLine:
         if self.start == self.end:
-            raise ValueError(
+            raise InputValueError(
                 f"[[streamlines.lines]] start and end are the same point {list(self.start)}: "
                 "a seed line needs two distinct vertices"
+                ". State two distinct vertices."
             )
         return self
 
@@ -1895,7 +1963,7 @@ class StreamlineTube(_LocatedSpec):
     _frame_is_named = field_validator("frame")(_a_named_frame)
 
 
-class StreamlinesSpec(BaseModel):
+class StreamlinesSpec(_SuggestsKeys):
     """The streamlines every point naming the artifact traces after its solve (FR-460).
 
     Attributes
@@ -1940,12 +2008,12 @@ class StreamlinesSpec(BaseModel):
     @model_validator(mode="after")
     def _a_table_that_traces(self) -> StreamlinesSpec:
         if self.length_m is not None and self.unrestricted:
-            raise ValueError(
+            raise InputValueError(
                 "[streamlines] states length_m and unrestricted = true, which the manual gives "
                 "as alternatives without saying what the solver does with both; state one"
             )
         if not (self.surface or self.off_body):
-            raise ValueError(
+            raise InputValueError(
                 "[streamlines] traces nothing: state surface = true, a [[streamlines.lines]] "
                 "seed line or a [[streamlines.tubes]] tube"
             )
@@ -1959,7 +2027,7 @@ class StreamlinesSpec(BaseModel):
             if value
         ]
         if stated and not self.off_body:
-            raise ValueError(
+            raise InputValueError(
                 f"[streamlines] states {', '.join(stated)}, which apply to off-body "
                 "streamlines, and seeds none; add a [[streamlines.lines]] line or a "
                 "[[streamlines.tubes]] tube, or remove the key"
@@ -1967,7 +2035,7 @@ class StreamlinesSpec(BaseModel):
         return self
 
 
-class _NoiseSpec(BaseModel):
+class _NoiseSpec(_SuggestsKeys):
     """Explicit exploratory loading-noise request in SI coordinates."""
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -1998,11 +2066,14 @@ class _NoiseSpec(BaseModel):
     @model_validator(mode="after")
     def _noise_references(self):
         if self.reference is not None and len(self.reference) != len(self.observers_m):
-            raise ValueError("noise.reference needs one CSV path or empty string per observer")
+            raise InputValueError(
+                "noise.reference needs one CSV path or empty string per observer"
+                ". State one entry per observer."
+            )
         return self
 
 
-class PprocSpec(BaseModel):
+class PprocSpec(_SuggestsKeys):
     """The post-processing specification a matrix row's PPROC cell names.
 
     PFS-2029.07.01, the groups artifact IS the
@@ -2153,10 +2224,13 @@ class PprocSpec(BaseModel):
         declared = _command_tokens("SET_VTK_EXPORT_VARIABLES", "variables")
         unknown = sorted(name for name in value if name.casefold() not in declared)
         if unknown:
-            raise ValueError(f"vtk_variables: unknown variable(s) {', '.join(unknown)}")
+            raise InputValueError(
+                f"vtk_variables: unknown variable(s) {', '.join(unknown)}"
+                ". Use one of the variables listed."
+            )
         spelled = [declared[name.casefold()] for name in value]
         if not spelled or len(set(spelled)) != len(spelled):
-            raise ValueError(
+            raise InputValueError(
                 "vtk_variables must be a nonempty list of distinct command variable names"
             )
         return spelled
@@ -2207,7 +2281,7 @@ class PprocSpec(BaseModel):
     def _unique_farfield_names(cls, entries: list[FarfieldSpec]) -> list[FarfieldSpec]:
         names = [entry.name for entry in entries]
         if len(names) != len(set(names)):
-            raise ValueError(
+            raise InputValueError(
                 f"[[farfields]] names {names!r} must be unique; name repeated variants separately"
             )
         _refuse_filename_collisions(entries)
@@ -2223,7 +2297,7 @@ class PprocSpec(BaseModel):
     def _unique_surface_probe_names(cls, value: list[SurfaceProbeSpec]) -> list[SurfaceProbeSpec]:
         names = [probe.name for probe in value]
         if len(set(names)) != len(names):
-            raise ValueError("surface probe names must be unique within one pproc artifact")
+            raise InputValueError("surface probe names must be unique within one pproc artifact")
         return value
 
     products: ProductsSpec = Field(default_factory=ProductsSpec)
@@ -2359,7 +2433,7 @@ class PprocSpec(BaseModel):
         try:
             self.equation_order()
         except InputArtifactError as circular:
-            raise ValueError(str(circular)) from circular
+            raise InputValueError(str(circular)) from circular
         return self
 
     @field_validator("names")
@@ -2375,18 +2449,18 @@ class PprocSpec(BaseModel):
         taken: dict[str, str] = {}
         for printed, wanted in value.items():
             if wanted in REDUCTION_COLUMNS:
-                raise ValueError(
+                raise InputValueError(
                     f"[names] reduction column {printed!r} cannot be named {wanted!r}: "
                     f"{wanted} is a reserved context or identity column of the product"
                 )
             if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.\-]*", str(wanted)):
-                raise ValueError(
+                raise InputValueError(
                     f"[names] {printed} = {wanted!r}: the name a column is given is one "
                     "word of letters, digits, underscores, dots and hyphens, starting with "
                     "a letter or an underscore, because it becomes a CSV heading"
                 )
             if wanted in taken:
-                raise ValueError(
+                raise InputValueError(
                     f"[names] gives {taken[wanted]} and {printed} the one name {wanted!r}, "
                     "which would put two columns under one heading; give each its own"
                 )
@@ -2406,7 +2480,7 @@ class PprocSpec(BaseModel):
         """
         for name in value:
             if not name.isidentifier() or name in ALLOWED_FUNCTIONS:
-                raise ValueError(
+                raise InputValueError(
                     f"[equations.{name}]: an equation's name becomes the column "
                     f"{name}_<alias> and the symbol other expressions use, so it is letters, "
                     "digits and underscores, not starting with a digit, and not one of the "
@@ -2419,14 +2493,14 @@ class PprocSpec(BaseModel):
     def _known_export_kinds(cls, value: dict[str, bool]) -> dict[str, bool]:
         volume = sorted(set(value) & set(VOLUME_SECTION_KINDS.values()))
         if volume:
-            raise ValueError(
+            raise InputValueError(
                 f"[exports] names {', '.join(volume)}: the volume section export is declared "
                 "by [volume_section] format, not by [exports]; a point exports the one "
                 "section its pproc declares, in the format that table names"
             )
         traced = sorted(set(value) & TABLE_DECLARED_KINDS)
         if traced:
-            raise ValueError(
+            raise InputValueError(
                 f"[exports] names {', '.join(traced)}: a streamline export is declared by "
                 "the [streamlines] table (surface = true, a seed line or a tube) and the 6DOF "
                 "trajectory by the row's SIXDOF input, not by [exports]"
@@ -2438,20 +2512,22 @@ class PprocSpec(BaseModel):
         ]
         unknown = sorted(set(value) - set(kinds))
         if unknown:
-            raise ValueError(
+            raise InputValueError(
                 f"export kind(s) {', '.join(unknown)} are not among the export kinds a point "
                 f"leaves: {', '.join(kinds)}"
+                ". Use one of the kinds listed."
             )
         if not value.get("loads", True):
-            raise ValueError(
+            raise InputValueError(
                 "the loads table cannot be deselected: it is the export this package "
                 "judges a run by"
+                ". Remove loads from the deselection."
             )
         # G11: a point's final state is a guarantee, not a choice.
         # `false` here was the one route by which a row naming a run type left
         # no .fsm, and nothing said so.
         if not value.get("simulation", True):
-            raise ValueError(
+            raise InputValueError(
                 "the saved simulation cannot be deselected: every point of a row naming a "
                 "run type leaves its final .fsm in datapoints/DP-<point>/, hashed in its run "
                 "record; remove 'simulation = false'"
@@ -2464,7 +2540,7 @@ class PprocSpec(BaseModel):
         # artifact declares sections; an explicit true without them would save
         # the plot of no section, so it is refused naming the table it needs.
         if self.exports.get("plot_sections_cp") and not self.sections.distributions:
-            raise ValueError(
+            raise InputValueError(
                 "[exports] plot_sections_cp = true and the artifact declares no "
                 "[[sections.distributions]], so the solver would save the Cp plot of no "
                 "section. Declare the sections to plot, or remove the key: the plot is "
@@ -2478,8 +2554,9 @@ class PprocSpec(BaseModel):
         try:
             re.compile(value)
         except re.error as error:
-            raise ValueError(
+            raise InputValueError(
                 f"blade_pattern {value!r} is not a regular expression: {error}"
+                ". State a valid regular expression."
             ) from error
         return value
 
@@ -2490,14 +2567,17 @@ class PprocSpec(BaseModel):
     @model_validator(mode="after")
     def _boundary_layer_sections_are_declared(self) -> PprocSpec:
         if self.products.boundary_layer_integrals and not self.sections.distributions:
-            raise ValueError("boundary_layer_integrals requires declared sections.distributions")
+            raise InputValueError(
+                "boundary_layer_integrals requires declared sections.distributions"
+                ". Declare sections.distributions."
+            )
         # The product reads the VTK and the sections exports, so an explicit
         # false for either is a contradiction, refused rather than overridden
         # in silence (PFS-2084.003), as the section Cp plot's is above.
         switched_off = [kind for kind in ("vtk", "sections") if self.exports.get(kind) is False]
         if self.products.boundary_layer_integrals and switched_off:
             stated = " and ".join(f"[exports] {kind} = false" for kind in switched_off)
-            raise ValueError(
+            raise InputValueError(
                 f"[products] boundary_layer_integrals = true reads the VTK and the sections "
                 f"exports, and the artifact states {stated}. Remove the export key to let "
                 "the product request its source, or set boundary_layer_integrals = false"
