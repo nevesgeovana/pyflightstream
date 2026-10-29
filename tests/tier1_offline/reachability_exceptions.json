@@ -416,13 +416,9 @@
    "node": "PFS-2184.07",
    "release": "0.50.0",
    "names": [
-    "pyflightstream.exceptions.DemotedRefusalWarning",
     "pyflightstream.exceptions.DuplicateValueWarning",
     "pyflightstream.exceptions.EmptySelectionWarning",
-    "pyflightstream.exceptions.NotApplicableWarning",
-    "pyflightstream.exceptions.OptionalProductWarning",
-    "pyflightstream.exceptions.RetiredKeyWarning",
-    "pyflightstream.exceptions.UnknownKeyWarning"
+    "pyflightstream.exceptions.OptionalProductWarning"
    ]
   }
  ]

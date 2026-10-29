@@ -29,7 +29,11 @@ from typing import (
 )
 
 from pyflightstream._errors import (
+    NotApplicableWarning,
     PyflightstreamWarning,
+    UnknownKeyWarning,
+    demote,
+    suggest_name,
     warn,
 )
 from pyflightstream._fsm import (
@@ -1719,61 +1723,37 @@ def _require_the_averaging_window(case: SimCase, name: str | None) -> None:
 
 
 def _refuse_rotor_shedding(case: SimCase) -> None:
+    """Skip the unsupported rotor-shedding row key, or restore its refusal."""
     stated = _variable(case, ROTOR_SHEDDING_VARIABLE)
     if stated is not None:
-        # Names the case (its sim_id IS the matrix POL) and the key, and says
-        # the fix, like every sibling refusal of a row.
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} states {ROTOR_SHEDDING_VARIABLE} as {stated!r}, and "
-            "every matrix workflow refuses it: no workflow command applies the "
-            "wake direction of a relaxed trailing edge, so the run would shed a wake the "
-            f"row did not ask for. Remove {ROTOR_SHEDDING_VARIABLE} from the row. "
-            "CCS_SHEDDING controls the shedding digit on the CCS file-import route; "
-            "it is not a general rotor wake-direction switch. From Python, "
-            "rotor_relaxed_trailing_edges sets the direction in the specifications of "
-            "the component definition."
+        demote(
+            CampaignConfigError(
+                f"case {case.sim_id!r} states {ROTOR_SHEDDING_VARIABLE} as {stated!r}; "
+                "every matrix workflow lacks a reader for this key. "
+                "Remove ROTOR_SHEDDING from the row. "
+                "CCS_SHEDDING controls only the CCS file-import shedding digit."
+            ),
+            warning=NotApplicableWarning,
         )
+        case.variables.pop(ROTOR_SHEDDING_VARIABLE, None)
 
 
 def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
-    """Refuse a row stating a key the run type does not register.
+    """Warn and drop unregistered row keys; the strict policy restores refusals.
 
-    PFS-2008.02.01: refuse keys the script does not carry before spending
-    a solver seat. The refusal names the case (its ``sim_id`` is
-    the matrix POL), the run type, every key outside the vocabulary with
-    the run types that DO read it, and the keys this run type registers.
-
-    CALLED BY EACH BUILDER AFTER ITS OWN REFUSALS AND BEFORE ITS FIRST
-    EMISSION, not by :func:`build_script` ahead of the builder, and the
-    placement is the point: a rotor key on the run type that turns
-    nothing, or an export threshold on the run type with no time loop,
-    is refused by the builder's own sentence, which says WHY the key
-    cannot be honored there; this check is the general rule behind
-    those sentences and catches what they do not name.
-
-    A row selected through its RECIPE keeps its keys: a LEGACY row whose
-    RECIPE code maps to a run type, or a case authored in Python naming
-    the type as its recipe, is the recipe path, and the recipe is the
-    reader of its keys (design 68). The
-    converter's own ``matrix_`` keys and the workspace's
-    ``ROTOR_ORIGIN_POINT`` are not the row's and are left alone.
+    Recipe-owned keys, declared flags and the converter's private keys keep
+    their existing readers. Only entries outside this run type are skipped.
     """
     _refuse_rotor_shedding(case)
     if _workflow_cell(case) is None:
         return
+    _refuse_retired_window_keys(case)
     workflow = WORKFLOWS[name]
-    # A FLAG'S OWN WORD IS A KEY THE ROW MAY STATE (PFS-2035.20). The
-    # setup declared it, so it is registered by declaration rather than by
-    # the run type's table, and refusing it here would refuse the one key
-    # the preset just said the row could write.
     declared = {flag.name.strip().casefold() for flag in case.flags}
     for port in case.solver.ports:
         for variable in (port.velocity_variable, port.profile_variable):
             if variable is not None:
                 declared.add(variable.casefold())
-    # The continuation facts (RESTART_FROM, RESTART_ITERATIONS and the step
-    # offset) are set on the point case by the run layer from the stopped
-    # record, never by the row, so they are not the row's keys either.
     stated = sorted(
         key
         for key in case.variables
@@ -1783,19 +1763,17 @@ def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
         and key not in workflow.keys
         and key.strip().casefold() not in declared
     )
-    if not stated:
-        return
-    described = []
+    known = {key for other in WORKFLOWS.values() for key in other.keys}
     for key in stated:
-        readers = [name for name, other in WORKFLOWS.items() if key in other.keys]
-        described.append(
-            f"{key} (a key of {', '.join(readers)})" if readers else f"{key} (a key of no run type)"
+        readers = [other.name for other in WORKFLOWS.values() if key in other.keys]
+        error = CampaignConfigError(
+            f"case {case.sim_id!r}: {key} is not registered for run type {name!r}. "
+            + (f"It is read by {', '.join(readers)}. " if readers else "No run type reads it. ")
+            + f"Remove it from this row; accepted keys are {', '.join(sorted(workflow.keys))}."
+            + (suggest_name(key, known) if not readers else "")
         )
-    raise CampaignConfigError(
-        f"case {case.sim_id!r} names the run type {workflow.name!r} and states "
-        f"{', '.join(described)}, which that run type does not register. A key nothing "
-        "reads would change nothing about the run while reading as though it had, so it "
-        f"is refused rather than ignored. The keys {workflow.name!r} registers are: "
-        f"{', '.join(sorted(workflow.keys))}. A LEGACY row keeps its own keys, because its "
-        "RECIPE is their reader; docs/workspace-and-workflows.md says what each key means."
-    )
+        if readers:
+            demote(error, warning=NotApplicableWarning)
+        else:
+            demote(error, warning=UnknownKeyWarning)
+        case.variables.pop(key)

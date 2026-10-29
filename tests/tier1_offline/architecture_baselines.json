@@ -89,8 +89,8 @@
    "positional": 1
   },
   "cases/workflows/_clock.py:unsteady_export_threshold": {
-   "complexity": 11,
-   "branches": 11,
+   "complexity": 14,
+   "branches": 14,
    "statements": 40,
    "positional": 2
   },
@@ -1006,7 +1006,7 @@
   "pyflightstream.cases.workflows._rows": 6,
   "pyflightstream.cases.workflows._skeleton": 1,
   "pyflightstream.cases.workflows._solver_settings": 2,
-  "pyflightstream.cases.workflows._vocabulary": 1,
+  "pyflightstream.cases.workflows._vocabulary": 2,
   "pyflightstream.commands": 1,
   "pyflightstream.fsi.cli": 1,
   "pyflightstream.fsi.driver": 5,
@@ -1065,7 +1065,7 @@
   "pyflightstream.run._rebuild_evidence": 1,
   "pyflightstream.run._rebuild_grouped": 1,
   "pyflightstream.run._solver_windows": 1,
-  "pyflightstream.run.cli": 10,
+  "pyflightstream.run.cli": 11,
   "pyflightstream.run.collect": 5,
   "pyflightstream.run.matrix": 7,
   "pyflightstream.run.records": 2,
@@ -1091,7 +1091,7 @@
   "pyflightstream.workspace.storage": 6,
   "pyflightstream.workspace.wake_edges": 1
  },
- "monkeypatch_targets": 146,
+ "monkeypatch_targets": 147,
  "monkeypatch_targets_by_module": {
   "pyflightstream._cli": 1,
   "pyflightstream._digest": 1,
@@ -1140,7 +1140,7 @@
   "pyflightstream.run._pending": 1,
   "pyflightstream.run._rebuild": 2,
   "pyflightstream.run._solver_windows": 2,
-  "pyflightstream.run.cli": 13,
+  "pyflightstream.run.cli": 14,
   "pyflightstream.run.collect": 3,
   "pyflightstream.run.matrix": 8,
   "pyflightstream.run.records": 3,

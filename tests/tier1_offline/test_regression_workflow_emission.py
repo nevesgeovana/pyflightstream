@@ -367,13 +367,17 @@ class TestCasesWorkflowsClock:
         It fell through to refusals about an unsteady clock, or about a run type
         that "turns nothing", which a quasi-steady rotor does not.
         """
-        requirement = "P0400-CW-CLOCK"
-        case, _ = _cases_workflows_clock___unsteady(["loads_a.txt"], **{key: "1"})
-        with pytest.raises(
-            CampaignConfigError, match="names the qsteady_rotor run type, which has no"
-        ) as refusal:
-            refuse_threshold_on_a_steady_run(case, key, "qsteady_rotor")
-        assert str(refusal.value), requirement
+        from pyflightstream.options import option_context
+
+        # The default skip behavior is covered by the P0500 family tests.
+        with option_context("warning_refusals", True):
+            requirement = "P0400-CW-CLOCK"
+            case, _ = _cases_workflows_clock___unsteady(["loads_a.txt"], **{key: "1"})
+            with pytest.raises(
+                CampaignConfigError, match="names the qsteady_rotor run type, which has no"
+            ) as refusal:
+                refuse_threshold_on_a_steady_run(case, key, "qsteady_rotor")
+            assert str(refusal.value), requirement
 
 
 _CASES_WORKFLOWS_EXPORTS__OUTPUTS = ["loads_a.txt", "surf_a.vtk", "loads_a_log.txt"]

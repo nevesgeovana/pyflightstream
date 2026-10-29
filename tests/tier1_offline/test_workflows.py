@@ -1050,8 +1050,12 @@ def test_p0430_a_window_longer_than_the_run_says_it_was_cut_x_f_0303():
 
 
 def test_a_row_stating_two_window_forms_is_refused():
-    with pytest.raises(CampaignConfigError):
-        ExportWindow.from_case(rotor_case(WINDOW_STEPS="200"))
+    from pyflightstream.options import option_context
+
+    # The default skip behavior is covered by the P0500 family tests.
+    with option_context("warning_refusals", True):
+        with pytest.raises(CampaignConfigError):
+            ExportWindow.from_case(rotor_case(WINDOW_STEPS="200"))
 
 
 # --- PFS-2025.06: four reductions, one window --------------------------------
@@ -1503,17 +1507,21 @@ def test_the_rotor_emitter_refuses_that_row_before_it_emits_anything():
 
 def test_a_rotor_row_asking_for_ineffective_azimuth_direction_is_refused():
     """G35: a matrix control with no native effect is an explicit refusal."""
-    script = Script("26.120")
-    case = rotor_case(ROTOR_SHEDDING="AZIMUTH")
-    refusal = "ROTOR_SHEDDING.*every matrix workflow"
-    with pytest.raises(CampaignConfigError, match=refusal) as raised:
-        build_script(case, script)
-    assert script.render().strip() == ""
-    # Like its siblings, it names the row (sim_id IS the matrix POL) and the fix.
-    message = str(raised.value)
-    assert repr(case.sim_id) in message, message
-    assert "Remove ROTOR_SHEDDING from the row" in message, message
-    assert "Relaxed_TE" not in message, "implementation jargon in a user refusal"
+    from pyflightstream.options import option_context
+
+    # The default skip behavior is covered by the P0500 family tests.
+    with option_context("warning_refusals", True):
+        script = Script("26.120")
+        case = rotor_case(ROTOR_SHEDDING="AZIMUTH")
+        refusal = "ROTOR_SHEDDING.*every matrix workflow"
+        with pytest.raises(CampaignConfigError, match=refusal) as raised:
+            build_script(case, script)
+        assert script.render().strip() == ""
+        # Like its siblings, it names the row (sim_id IS the matrix POL) and the fix.
+        message = str(raised.value)
+        assert repr(case.sim_id) in message, message
+        assert "Remove ROTOR_SHEDDING from the row" in message, message
+        assert "Relaxed_TE" not in message, "implementation jargon in a user refusal"
 
 
 def test_a_specification_the_package_cannot_read_names_which_one_of_how_many():
@@ -4021,13 +4029,17 @@ def test_a_rotor_key_on_a_rotorless_row_is_refused_naming_it(key, value):
     package already refuses a preset key that validates and reaches no
     emitted line, calling it the same wrong answer with a longer path.
     """
-    script = Script("26.123")
-    with pytest.raises(CampaignConfigError) as raised:
-        build_script(unsteady_case(**{key: value}), script)
-    message = str(raised.value)
-    assert key in message
-    assert "7003" in message
-    assert script.render().strip() == "", "the refusal landed after something was emitted"
+    from pyflightstream.options import option_context
+
+    # The default skip behavior is covered by the P0500 family tests.
+    with option_context("warning_refusals", True):
+        script = Script("26.123")
+        with pytest.raises(CampaignConfigError) as raised:
+            build_script(unsteady_case(**{key: value}), script)
+        message = str(raised.value)
+        assert key in message
+        assert "7003" in message
+        assert script.render().strip() == "", "the refusal landed after something was emitted"
 
 
 def test_the_angular_clock_of_a_rotorless_row_needs_a_speed_and_then_resolves():

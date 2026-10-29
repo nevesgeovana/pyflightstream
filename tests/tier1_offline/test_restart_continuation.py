@@ -162,13 +162,17 @@ def test_p0430_a_continuation_refuses_a_key_its_run_type_does_not_register(workf
     nothing reads passed silently; the run layer's own continuation facts
     (RESTART_FROM, RESTART_ITERATIONS) are not the row's keys and pass.
     """
-    case = _continuing_case(
-        "{ADDITIONAL_ITERS=120}",
-        **{RESTART_FROM_VARIABLE: SAVED, RESTART_ITERATIONS_VARIABLE: "120"},
-        **{WORKFLOW_KEY: workflow, "TIME_ITERATON": "400"},
-    ).model_copy(update={"recipe": workflow})
-    with pytest.raises(CampaignConfigError, match="TIME_ITERATON"):
-        build_script(case, Script("26.123"))
+    from pyflightstream.options import option_context
+
+    # The default skip behavior is covered by the P0500 family tests.
+    with option_context("warning_refusals", True):
+        case = _continuing_case(
+            "{ADDITIONAL_ITERS=120}",
+            **{RESTART_FROM_VARIABLE: SAVED, RESTART_ITERATIONS_VARIABLE: "120"},
+            **{WORKFLOW_KEY: workflow, "TIME_ITERATON": "400"},
+        ).model_copy(update={"recipe": workflow})
+        with pytest.raises(CampaignConfigError, match="TIME_ITERATON"):
+            build_script(case, Script("26.123"))
 
 
 def test_goal020_restart_marches_the_remainder_and_not_the_rows_original_count():
@@ -711,17 +715,21 @@ class TestFr96ConvergedContinuation:
         emptied folder. A point recorded FAILED_SCRIPT with no executor moves the
         archived outputs back.
         """
-        workspace = _fr96_converged_continuation___converged(tmp_path)
-        folders = list((workspace.sim_dir("7001") / "datapoints").iterdir())
-        before = {f: sorted(p.name for p in f.iterdir()) for f in folders}
-        assert any(before.values()), before
-        matrix = _fr96_converged_continuation___rotor_row(
-            tmp_path, sweep="0.0", extra=" / RESTART: {ADDITIONAL_REVS=1} / TIME_ITERATON: 400"
-        )
-        with pytest.raises(Exception, match="TIME_ITERATON"):
-            _fr96_converged_continuation___continue(workspace, matrix)
-        after = {f: sorted(p.name for p in f.iterdir()) for f in folders}
-        assert after == before, (before, after)
+        from pyflightstream.options import option_context
+
+        # The default skip behavior is covered by the P0500 family tests.
+        with option_context("warning_refusals", True):
+            workspace = _fr96_converged_continuation___converged(tmp_path)
+            folders = list((workspace.sim_dir("7001") / "datapoints").iterdir())
+            before = {f: sorted(p.name for p in f.iterdir()) for f in folders}
+            assert any(before.values()), before
+            matrix = _fr96_converged_continuation___rotor_row(
+                tmp_path, sweep="0.0", extra=" / RESTART: {ADDITIONAL_REVS=1} / TIME_ITERATON: 400"
+            )
+            with pytest.raises(Exception, match="TIME_ITERATON"):
+                _fr96_converged_continuation___continue(workspace, matrix)
+            after = {f: sorted(p.name for p in f.iterdir()) for f in folders}
+            assert after == before, (before, after)
 
     @staticmethod
     def test_additional_iters_continues_a_converged_unsteady_point_fr_96(tmp_path):

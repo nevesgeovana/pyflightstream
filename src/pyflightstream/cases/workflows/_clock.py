@@ -17,6 +17,7 @@ from pathlib import (
     PurePath,
 )
 
+from pyflightstream._errors import NotApplicableWarning, demote
 from pyflightstream.cases import (
     EXPORT_KINDS,
     STEADY_ONLY_EXPORT_KINDS,
@@ -90,20 +91,20 @@ from ._vocabulary import (
 
 
 def _refuse_rotor_keys_on_a_rotorless_run(case: SimCase) -> None:
-    """Refuse a rotor key on a run type that emits no motion.
-
-    Raised BEFORE the first emission, so a refusal leaves the script
-    exactly as it was.
-    """
+    """Skip rotor keys on a run type that emits no motion, or refuse in strict mode."""
     found = sorted(key for key in ROTORLESS_REFUSED_KEYS if _variable(case, key) is not None)
     if not found:
         return
-    raise CampaignConfigError(
-        f"case {case.sim_id!r} states {', '.join(found)} and names a run type that emits "
-        "no motion, so nothing would read them and the run would be recorded as though "
-        "they had been honoured. State them on the rotor run type, which turns a rotor, "
-        "or drop them from this row."
+    demote(
+        CampaignConfigError(
+            f"case {case.sim_id!r} states {', '.join(found)} and names a run type that emits "
+            "no motion. State them on the rotor run type, which turns a rotor, "
+            "or drop them from this row."
+        ),
+        warning=NotApplicableWarning,
     )
+    for key in found:
+        case.variables.pop(key, None)
 
 
 def _refuse_wake_termination_without_a_rotor(case: SimCase) -> None:
@@ -449,6 +450,11 @@ def unsteady_export_threshold(
         the threshold lies beyond the run, naming both numbers.
     """
     stated = stated_threshold_keys(case)
+    if stated:
+        workflow = select_workflow(case)
+        for key in tuple(stated):
+            if refuse_threshold_on_a_steady_run(case, key, workflow):
+                del stated[key]
     averaged = (
         case.pproc.time_averaging is not None
         and declared_run_type(case) in _UNSTEADY_RECIPES
@@ -491,7 +497,6 @@ def unsteady_export_threshold(
     refuse_two_threshold_keys(case, stated)
     key = next(iter(stated))
     workflow = select_workflow(case)
-    refuse_threshold_on_a_steady_run(case, key, workflow)
     if workflow == "unsteady_rotor":
         stepping = _rotor_clock(case)
     else:

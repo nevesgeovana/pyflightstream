@@ -1,5 +1,15 @@
 # Oper requirements
 
+FR-3371 (L3, parent FR-40, PFS-2184.07): The library shall warn and skip unregistered row keys and keys belonging to another run type, with UnknownKeyWarning or NotApplicableWarning, and restore the original refusal under warning_refusals.
+Code: `pyflightstream.cases.workflows._rows:_refuse_unregistered_keys`.
+Test: `tests/tier1_offline/test_setup_standards.py::test_p0500_unknown_and_inapplicable_row_keys_warn_or_refuse`.
+Status: implemented.
+
+FR-3372 (L3, parent FR-40, PFS-2184.07): The library shall warn and skip retired averaging-window row keys, name their replacements, and restore the original refusal under warning_refusals.
+Code: `pyflightstream.cases.workflows._vocabulary:_refuse_retired_window_keys`.
+Test: `tests/tier1_offline/test_setup_standards.py::test_p0500_retired_row_key_warns_or_refuses`.
+Status: implemented.
+
 FR-3370 (L3, parent FR-40, PFS-2184.07): The library shall expose
 `warning_refusals` as a boolean option defaulting to false, a global CLI flag
 on both user CLIs, and a scoped keyword on the five planning, execution,
