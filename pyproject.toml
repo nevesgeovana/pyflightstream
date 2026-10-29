@@ -84,7 +84,7 @@ classifiers = [
 # 2025-01. rtree is not a SPEC 0 project: its floor is 1.0, the first release
 # whose wheels bundle libspatialindex.
 dependencies = [
-    "numpy>=2.2,<3",
+    "numpy>=2.4,<3",
     "pydantic>=2.10.4,<3",
     "pyyaml>=6.0.1,<7",
     "trimesh>=4.12,<6",
@@ -97,8 +97,9 @@ dependencies = [
 pandas = ["pandas>=2.3,<3"]
 # FSI structural coupling (M6, DLV-007). PyNiteFEA is MIT; license
 # evidence: reports/RPT-002_pynitefea-license_2026-07-21.md (NFR-02).
-# PyNiteFEA 3 requires NumPy 2.4 or newer, so the extra states that floor.
-fsi = ["PyNiteFEA>=3.0,<4", "numpy>=2.4,<3"]
+# PyNiteFEA 3 requires NumPy 2.4 or newer; the base floor is 2.4 so no extra
+# repeats a base dependency.
+fsi = ["PyNiteFEA>=3.0,<4"]
 # Optional workbook authoring; XlsxWriter is BSD-2-Clause.
 excel = ["XlsxWriter>=3.2.9,<4"]
 # Reading a vendor manual pdf, for pyflightstream.utils.manual. A

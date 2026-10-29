@@ -15,7 +15,8 @@ The Python floor remains 3.12; CI tests Python 3.12.
 Runtime dependencies and the `pandas`, `fsi` and `excel` extras now have
 explicit upper bounds: NumPy and Pydantic `<3`, PyYAML `<7`, matplotlib `<4`,
 rtree and SciPy `<2`, pandas `<3`, and PyNiteFEA `<4`. The existing trimesh
-`<6` and XlsxWriter `<4` bounds remain. PyYAML gains the floor `>=6.0.1`, and the
+`<6` and XlsxWriter `<4` bounds remain. PyYAML gains the floor `>=6.0.1`; the NumPy
+floor rises to `>=2.4` (PyNiteFEA 3, the `fsi` backend, requires it); and the
 Pydantic and rtree floors rise to `>=2.10.4` (the package uses `ModelWrapValidatorHandler`,
 first exported in 2.10.4) and `>=1.1` (rtree 1.0 offers no Python 3.12 wheel). See [installation](install.md) for the full
 ranges. Recreate environments within these bounds before upgrading.

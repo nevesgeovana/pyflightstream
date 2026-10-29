@@ -16,7 +16,7 @@ and `dev` are maintainer extras and are outside this runtime range policy.
 
 | Dependency | Range | Installation |
 |---|---|---|
-| NumPy | `>=2.2,<3` | Base |
+| NumPy | `>=2.4,<3` | Base |
 | Pydantic | `>=2.10.4,<3` | Base |
 | PyYAML | `>=6.0.1,<7` | Base |
 | trimesh | `>=4.12,<6` | Base |
@@ -24,10 +24,10 @@ and `dev` are maintainer extras and are outside this runtime range policy.
 | rtree | `>=1.1,<2` | Base |
 | SciPy | `>=1.15,<2` | Base |
 | pandas | `>=2.3,<3` | `pandas` extra |
-| PyNiteFEA | `>=3.0,<4` | `fsi` extra, which also raises NumPy to `>=2.4` (PyNiteFEA 3 requires it) |
+| PyNiteFEA | `>=3.0,<4` | `fsi` extra |
 | XlsxWriter | `>=3.2.9,<4` | `excel` extra |
 
-PyYAML gains its first explicit floor, 6.0.1. The Pydantic floor rises to 2.10.4 and the rtree floor to
+PyYAML gains its first explicit floor, 6.0.1. The NumPy floor rises to 2.4, the Pydantic floor to 2.10.4 and the rtree floor to
 1.1 (see [upgrading](upgrading.md)); the other floors are unchanged.
 The existing trimesh range includes the measured 5.x major; its ceiling remains 6.
 

@@ -62,8 +62,10 @@ FlightStream versions.
   name that matches no recorded point now warn (`EmptySelectionWarning`) and do
   nothing for it; `refine_mesh` returns `None` when it writes no level.
   `--warning-refusals` restores the refusals (FR-3385 to FR-3387).
-- Bound every runtime dependency and user-facing extra, preserving existing
-  floors and adding a PyYAML floor of 6.0.1 (FR-3333, FR-3336).
+- Bound every runtime dependency and user-facing extra, adding a PyYAML floor
+  of 6.0.1 and raising the NumPy floor to 2.4, Pydantic to 2.10.4 and rtree to
+  1.1, the oldest releases that install on Python 3.12 and provide what the
+  package uses (FR-3333, FR-3336).
   CI resolves every floor from package metadata and exercises newest allowed
   releases in a new ceilings job (FR-3334, FR-3335).
 - Support Python 3.12 or newer (`>=3.12`) without an upper bound, tested on

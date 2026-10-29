@@ -795,7 +795,7 @@ class TestFarfieldNumpy:
             (_FARFIELD_NUMPY__REPO / "pyproject.toml").read_text(encoding="utf-8")
         )["project"]
         assert project["dependencies"] == [
-            "numpy>=2.2,<3",
+            "numpy>=2.4,<3",
             "pydantic>=2.10.4,<3",
             "pyyaml>=6.0.1,<7",
             "trimesh>=4.12,<6",
