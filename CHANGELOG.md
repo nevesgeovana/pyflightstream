@@ -33,6 +33,8 @@ FlightStream versions.
   Python arguments and a persisted refine key. One governor per direction supplies
   factors across a component's grid layouts, with warned own-orientation fallback
   and recorded governor names (FR-3320).
+  A member whose own stated factors give way to its governors' is warned, naming
+  both (FR-3323).
 - Global `--warning-off` on all five console programs hides warnings while
   preserving progress, summaries, errors and recorded warnings. Matrix and
   workspace commands also read `[log] warnings`; Python console callers can

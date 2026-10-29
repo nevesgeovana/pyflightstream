@@ -143,6 +143,40 @@ def test_rel1_001_component_member_without_a_table_neither_governs_nor_is_refine
     assert record["faces"]["wing"] == 2 * 64 + 16
 
 
+@pytest.mark.requirement("FR-3323")
+@pytest.mark.parametrize("own", ["", "normal_factor = 3\nparallel_factor = 3\n"])
+def test_p0500_component_member_factors_replaced_by_its_governors_warn(tmp_path, own):
+    """A member's own stated factors given way to its governors' warn once, naming both."""
+    source = _p0500_component_source(tmp_path, connected=True)
+    config = source.with_suffix(".refine.toml")
+    config.write_text(
+        "[refine]\nkeep_within_component = true\n"
+        + "".join(
+            f'[families.{n}]\nmethod = "grid"\nnormal_factor = 2\nparallel_factor = 2\n'
+            for n in ("A", "B")
+        )
+        + '[families.C]\nmethod = "grid"\n'
+        + own
+        + '[components]\nwing = ["A", "B", "C"]\n',
+        encoding="utf-8",
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        level = refine_mesh(source, accept_unknown=True)
+    record = json.loads(level.obj.with_suffix(".refine.json").read_text())
+    leads = record["component_governors"]["wing"]
+    stated = {"A": (2.0, 2.0), "B": (2.0, 2.0), "C": (3.0, 3.0) if own else (1.0, 1.0)}
+    given = (stated[leads["normal"]][0], stated[leads["parallel"]][1])
+    # A member warns when it stated factors of its own and they differ from its governors'.
+    expected = {m for m, f in stated.items() if f != (1.0, 1.0) and f != given}
+    replaced = [str(w.message) for w in caught if "are replaced by" in str(w.message)]
+    warned = {m for m in stated for text in replaced if f"family {m}:" in text}
+    assert warned == expected, (leads, replaced)
+    assert len(replaced) == len(expected), replaced
+    if own:
+        assert expected, "a member stating 3 beside members stating 2 must be overridden"
+
+
 def test_p0500_component_without_components_is_byte_identical(tmp_path):
     """P0500-COMPONENT: the switch without a component table changes no output bytes."""
     import inspect

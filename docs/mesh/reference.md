@@ -26,6 +26,8 @@ Python `None` reads the file key; `False` overrides it. Without the flag/key or
 without components, existing layout governing is unchanged.
 
 All grid patches of a component take its governors' factors per direction.
+A member that states factors of its own other than its governors' is warned, naming
+the factors it stated and the ones it takes.
 A member with no refinement table, or with `method = "keep"`, is copied
 unchanged: it neither governs nor follows. Directions propagate through shared grid bands; disconnected patches use their
 own orientation with a warning and recorded provenance. `refine.json` records

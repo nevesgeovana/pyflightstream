@@ -142,6 +142,7 @@ class _Planner:
             result[component] = leads
             for name in names:
                 self.component_leads[name] = leads
+                self.warn_overridden(name, component, leads, original)
                 normal, parallel = self.component_factors(name, leads, original)
                 self.specs[name] = replace(
                     original[name],
@@ -183,6 +184,27 @@ class _Planner:
                             ).sum()
                         )
         return totals
+
+    def warn_overridden(self, name, component, leads, original):
+        """Warn when a member's own stated factors give way to its component governors'."""
+        own = original[name]
+        if own.unchanged:
+            return
+        given = (
+            original[leads["normal"]].directions[0],
+            original[leads["parallel"]].directions[1],
+        )
+        if own.directions == given:
+            return
+        warn(
+            f"{self.where} family {name}: its stated normal and parallel factors "
+            f"{own.directions[0]:g} and {own.directions[1]:g} are replaced by "
+            f"{given[0]:g} and {given[1]:g} from the governors of component {component} "
+            f"({leads['normal']} normal, {leads['parallel']} parallel); state the factors "
+            "on the governors, or refine without --keep-within-component to keep them",
+            PyflightstreamWarning,
+            stacklevel=5,
+        )
 
     def component_factors(self, name, leads, original):
         """Keep inherited tube factors above the same minimum as directly stated factors."""
