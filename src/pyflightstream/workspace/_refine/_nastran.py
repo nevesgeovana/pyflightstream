@@ -29,7 +29,7 @@ from pathlib import Path
 
 import numpy
 
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
+from pyflightstream._errors import InputArtifactError, InputValueError, PyflightstreamWarning, warn
 from pyflightstream._lengths import scale
 from pyflightstream.workspace._refine._obj import KIND, Faces, ObjMesh
 
@@ -142,7 +142,9 @@ def decode_sides(text: str) -> list[tuple[int, int]]:
             found = True
             sides.extend(records)
     if not found:
-        raise ValueError("no block of element sides")
+        raise InputValueError(
+            "no block of element sides; check that the file is a refined-mesh export"
+        )
     return sides
 
 

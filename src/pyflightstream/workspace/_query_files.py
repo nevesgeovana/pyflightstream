@@ -17,6 +17,7 @@ from typing import IO, TYPE_CHECKING, Any
 from zipfile import ZipFile
 
 from pyflightstream._digest import file_sha256
+from pyflightstream._errors import InputValueError
 from pyflightstream.workspace._links import is_reparse
 
 if TYPE_CHECKING:
@@ -37,6 +38,11 @@ def _json(path: Path, default: Any = None) -> Any:
     -------
     Any
         The parsed document, or ``default``.
+
+    Raises
+    ------
+    InputValueError
+        When the file holds no readable JSON.
     """
     if not path.is_file():
         return default
@@ -44,7 +50,9 @@ def _json(path: Path, default: Any = None) -> Any:
         return json.loads(path.read_text(encoding="utf-8"))
     except ValueError as error:
         # A ValueError still, as the decoder raised; now naming the damaged file.
-        raise ValueError(f"{path}: not readable JSON ({error})") from error
+        raise InputValueError(
+            f"{path}: not readable JSON ({error}); repair or regenerate the file"
+        ) from error
 
 
 def _files(ledger: Ledger, sim: str) -> dict[str, str]:

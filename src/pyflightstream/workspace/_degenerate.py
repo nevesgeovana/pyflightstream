@@ -86,7 +86,7 @@ from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, InputTypeError, InputValueError
 from pyflightstream._fsm import (
     MeshReadError,
     _mesh_block,
@@ -328,7 +328,9 @@ def _obj_face(words: Sequence[str], count: int, where: str) -> list[int]:
         index = int(word.split("/", 1)[0])
         indices.append(index - 1 if index > 0 else count + index)
     if len(indices) < 3 or not all(0 <= i < count for i in indices):
-        raise ValueError(f"{where} names a vertex outside the {count} read before it")
+        raise InputValueError(
+            f"{where} names a vertex outside the {count} read before it; correct the vertex index"
+        )
     return indices
 
 
@@ -347,8 +349,9 @@ def _obj_statements(text: str) -> tuple[list[list[float]], dict[str, list[list[i
             continue
         if words[0] == "v":
             if len(words) < 4:
-                raise ValueError(
-                    f"line {number} states a vertex of {len(words) - 1} coordinates, not three"
+                raise InputValueError(
+                    f"line {number} states a vertex of {len(words) - 1} coordinates, not three;"
+                    f" write x y z"
                 )
             vertices.append([float(word) for word in words[1:4]])
         elif words[0] == "g" and len(words) > 1:
@@ -866,7 +869,7 @@ def _toml_value(value: object) -> str:
         return "[" + ", ".join(_toml_value(item) for item in value) + "]"
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return repr(float(value))
-    raise TypeError(f"a mesh operation holds {value!r}, which the sidecar does not write")
+    raise InputTypeError(f"a mesh operation holds {value!r}, which the sidecar does not write")
 
 
 def _checked_offset(source: Path, root_offset: float) -> float:

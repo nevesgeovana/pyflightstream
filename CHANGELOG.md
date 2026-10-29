@@ -23,6 +23,15 @@ FlightStream versions.
 - Unknown tables and keys of a cost file and of an HPC profile now warn,
   naming the closest known key, and are skipped; `--warning-refusals`
   restores the refusal (FR-3373).
+- A `sims` selection that names a simulation the matrix does not carry, while
+  naming another it does, now warns with `EmptySelectionWarning`, names the
+  closest carried id and skips the unknown one; `--warning-refusals` restores
+  the refusal, and a selection that carries none still refuses (FR-3381).
+- Refusals in the workspace, run and script subpackages that were bare
+  `ValueError` or `TypeError` are now `InputValueError` or `InputTypeError`,
+  keeping the standard base, and each names what to change (FR-3382, FR-3383).
+- A refinement request or file that names a family the mesh does not hold names
+  the closest family (FR-3384).
 
 ## [0.49.0] - 2026-10-29
 

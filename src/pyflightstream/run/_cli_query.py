@@ -24,7 +24,7 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._console import table
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import InputValueError, PyflightstreamError
 from pyflightstream.run._cli_query_history import add_history_parsers, run_history_query
 from pyflightstream.run._cli_query_point import _add_parsers, _run_point_query
 from pyflightstream.run._ids import _add_sim_ids
@@ -205,7 +205,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
         statuses = _status_words(args.statuses)
         sims = None if args.sims is None else listed_sims(args.sims)
         if sims is not None and not sims:
-            raise ValueError(
+            raise InputValueError(
                 "sims (CLI: --sims) names no simulation; give the ids comma separated, for "
                 "example --sims 2006,2007"
             )

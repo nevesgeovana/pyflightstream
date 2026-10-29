@@ -16,7 +16,7 @@ from zipfile import BadZipFile
 
 import pyflightstream._textio as _textio
 from pyflightstream._console import table
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import InputValueError, PyflightstreamError
 from pyflightstream.run._alias import _aliases, _resolve, _with_aliases
 
 # Re-exported through this public import path.
@@ -138,10 +138,14 @@ def _show(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
 def _log(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
     sims = listed_sims(args.sims) if args.sims else []
     if args.storage and args.open_only:
-        raise ValueError("open (CLI: --open) applies to activity stages, not storage calls")
+        raise InputValueError(
+            "open (CLI: --open) applies to activity stages, not storage calls; drop --open"
+        )
     if args.post:
         if any((args.run, args.stage, args.since, args.problems, args.open_only)):
-            raise ValueError("post (CLI: --post) combines only with sims (CLI: --sims)")
+            raise InputValueError(
+                "post (CLI: --post) combines only with sims (CLI: --sims); drop the other selectors"
+            )
         return _post_groups(ledger, args.post, sims=sims)
     run = args.run
     if run and "/" not in run:
@@ -160,7 +164,10 @@ def _log(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
 
 def _trace_rows(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
     if bool(args.product) == bool(args.run):
-        raise ValueError("product (CLI: product) needs a path or run (CLI: --run), exactly one")
+        raise InputValueError(
+            "product (CLI: product) needs a path or run (CLI: --run), exactly one;"
+            " give only one of them"
+        )
     if args.run:
         return [trace_run(ledger, _resolve(ledger, args.run))]
     rows = _trace(ledger, args.product)

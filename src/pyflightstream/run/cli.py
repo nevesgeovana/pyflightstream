@@ -50,7 +50,7 @@ from pyflightstream._console import (
 )
 from pyflightstream._console import table as table
 from pyflightstream._console import wrap as wrap
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import InputValueError, PyflightstreamError, PyflightstreamWarning
 from pyflightstream._progress import (
     LIVE_LOG_COMMANDS,
     command_console,
@@ -138,7 +138,7 @@ def _parse_recipes(pairs: list[str]) -> dict[str, str]:
         code, separator, reference = item.partition("=")
         code, reference = code.strip(), reference.strip()
         if not separator or not code or not reference:
-            raise ValueError(
+            raise InputValueError(
                 f"--recipe expects CODE=module:function (the FS_SCRIPT code and the "
                 f"recipe it maps to), got {item!r}"
             )

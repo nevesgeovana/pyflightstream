@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._cli import _SELECTED_COST_FILE, _SELECTED_HPC, for_this_invocation
+from pyflightstream._errors import InputValueError
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.workflows import (
     read_a_choice,
@@ -73,7 +74,9 @@ def _whole_sims(args: argparse.Namespace) -> list[str]:
     manifest = getattr(args, "runs", None) or "runs.json"
     selected = args.sims
     if not selected:
-        raise ValueError("delete-sims requires --sims ID [ID ...]")
+        raise InputValueError(
+            "delete-sims requires --sims ID [ID ...]; list the simulations to delete"
+        )
     return split_typed_ids(
         listed_sims(selected), args.workspace, manifest=manifest, whole_only=True
     )[0]
