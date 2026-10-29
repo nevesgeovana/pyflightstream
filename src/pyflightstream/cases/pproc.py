@@ -1403,6 +1403,10 @@ class ProductsSpec(BaseModel):
     custom_polar_format: bool = False
     #: FR-2302: beside every polar table, its row at zero pitching moment.
     trimmed_polar: bool = False
+    #: Numeric moment column whose zero defines the trimmed polar (FR-3340).
+    trim_moment: str = Field(default="CMB25", min_length=1)
+    #: Numeric column ordering the trim search; unknown columns warn and skip (FR-3341).
+    trim_axis: str = Field(default="ALPHA", min_length=1)
     #: Raw VTK boundary-layer integral quantities and markers at recorded section cuts.
     #: Retains original cell association; this does not request a velocity profile.
     boundary_layer_integrals: bool = False

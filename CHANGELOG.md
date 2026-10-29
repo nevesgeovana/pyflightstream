@@ -7,6 +7,12 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Select a trimmed polar's moment and axis with `products.trim_moment` and
+  `products.trim_axis`; defaults preserve existing trim tables. Unavailable
+  columns warn and skip the trim (FR-3340 to FR-3342).
+
 ## [0.49.0] - 2026-10-29
 
 ### Fixed

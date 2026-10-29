@@ -511,6 +511,77 @@ def _synthetic_polar(alphas, moment):
     return columns, rows
 
 
+@pytest.mark.requirement("FR-3340", "FR-3341", "FR-3342")
+@pytest.mark.parametrize(
+    "axis,moment",
+    [("CLB", "CYB"), ("missing", "CMB25")],
+    ids=["P0500-named-trim", "P0500-unknown-trim"],
+)
+def test_p0500_trim_uses_the_declared_columns(tmp_path, axis, moment):
+    """The pproc selects a numeric axis and moment; an unknown column only skips trim."""
+    import warnings
+
+    from tests.tier1_offline.test_post_superfile import _workspace as _two_polars
+
+    workspace = _two_polars(tmp_path)
+    for name in ("p001", "p002"):
+        path = workspace.inputs_dir / "pproc" / f"{name}.toml"
+        path.write_text(
+            path.read_text(encoding="utf-8")
+            + f'\n[products]\ntrimmed_polar = true\ntrim_axis = "{axis}"\n'
+            + f'trim_moment = "{moment}"\n',
+            encoding="utf-8",
+        )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    out = workspace.products_dir("matriz")
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    assert any(name.endswith("_g02.csv") for name in manifest["products"])
+    if axis == "missing":
+        assert any("missing" in str(w.message) for w in caught)
+        assert any("missing" in reason for reason in manifest["skipped"].values())
+    else:
+        # CYB is identically zero in this fixture, hence more than one trim.
+        assert any("CYB" in reason for reason in manifest["skipped"].values())
+
+
+@pytest.mark.requirement("FR-3340", "FR-3342")
+def test_p0500_named_trim_interpolates_and_defaults_keep_bytes(tmp_path):
+    """Trim on ALPHA = 0 along CLB; explicit defaults preserve the earlier CSV."""
+    import warnings
+
+    from tests.tier1_offline.test_post_superfile import _workspace as _two_polars
+
+    workspace = _two_polars(tmp_path)
+    path = workspace.inputs_dir / "pproc" / "p001.toml"
+    original = path.read_text(encoding="utf-8") + "\n[products]\ntrimmed_polar = true\n"
+    export = workspace.sim_dir("6001") / "outputs" / "POLAR-6001_M20AL+000BE+000.txt"
+    export.write_text(
+        export.read_text(encoding="utf-8").replace("-0.0077298", "+0.0077298"),
+        encoding="utf-8",
+    )
+    out = workspace.products_dir("matriz")
+    target = out / "polars/P6001-M200RE1177AL+sweepBE+000_g02_trim.csv"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        path.write_text(original, encoding="utf-8")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+        expected = target.read_bytes()
+        path.write_text(original + 'trim_axis = "ALPHA"\ntrim_moment = "CMB25"\n', encoding="utf-8")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+        assert target.read_bytes() == expected
+        path.write_text(original + 'trim_axis = "CLB"\ntrim_moment = "ALPHA"\n', encoding="utf-8")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    _, (row,) = read_csv_table(target)
+    assert float(row["ALPHA"]) == 0
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    assert manifest["products"][target.relative_to(out).as_posix()]["trimmed"] == {
+        "moment": "ALPHA",
+        "angle": "CLB",
+    }
+
+
 @pytest.mark.requirement("FR-2302")
 def test_p0430_the_trimmed_polar_is_the_row_at_zero_pitching_moment():
     """CM = 0.1 - 0.05 alpha is zero at alpha = 2 exactly, where CL = 0.2."""

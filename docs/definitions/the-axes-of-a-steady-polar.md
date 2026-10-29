@@ -130,6 +130,13 @@ inside the sampled angles and never extrapolated.** A pproc with `[products]
 trimmed_polar = true` (off by default) writes, beside every polar table,
 `<polar stem>_trim.csv`: the polar's own columns and one row.
 
+`[products] trim_moment` selects the numeric moment column (default `"CMB25"`)
+and `trim_axis` selects the numeric ordering column (default `"ALPHA"`). The
+steps below use those defaults; substitute the selected column names when
+specified. An unknown or nonnumeric column warns and skips that table's trim,
+leaving the polar available. Unstated keys preserve the existing trim CSV bytes
+(FR-3340 to FR-3342).
+
 1. Read the rows that state a finite `ALPHA` and a finite `CMB25`, ordered by
    `ALPHA`. Fewer than two such rows is refused.
 2. Find where `CMB25` crosses zero: a row whose `CMB25` is exactly zero is the

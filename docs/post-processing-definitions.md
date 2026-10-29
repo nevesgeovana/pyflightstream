@@ -58,6 +58,9 @@ constant factor. Correct the recorded reference or solver inputs before using th
 
 [The trimmed polar](definitions/the-axes-of-a-steady-polar.md#the-trimmed-polar).
 
+The trim selects a numeric moment and ordering axis with `trim_moment` and
+`trim_axis`; defaults remain `CMB25` and `ALPHA` (FR-3340 to FR-3342).
+
 <a id="the-refinement-study-uncertainty"></a>
 
 [The refinement-study uncertainty](definitions/the-axes-of-a-steady-polar.md#the-refinement-study-uncertainty).

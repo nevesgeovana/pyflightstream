@@ -100,6 +100,8 @@ sections = true # one table per point from its sectional loads export
 plots = true # one table per unsteady point from its plots export
 custom_polar_format = false # beside each polar table, the text file the reference tooling opens
 trimmed_polar = false # beside each polar table, its row at zero pitching moment
+trim_moment = "CMB25" # numeric column whose zero defines trim
+trim_axis = "ALPHA" # numeric column ordering the trim search
 settings_codebook = true # per matrix, the numeric settings table of every point and its codebook
 installed_frame = [] # "probes" and/or "inflow": copies mirrored through y = 0
 

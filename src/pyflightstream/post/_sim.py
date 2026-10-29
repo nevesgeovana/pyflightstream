@@ -111,8 +111,6 @@ from pyflightstream.post.point_tables import (
 )
 from pyflightstream.post.polar import POLAR_COLUMNS as POLAR_COLUMNS
 from pyflightstream.post.polar import (
-    TRIM_ANGLE_COLUMN,
-    TRIM_MOMENT_COLUMN,
     TRIM_SUFFIX,
     PolarPoint,
     drag_columned_rows,
@@ -789,14 +787,16 @@ def _trimmed_polar(ctx: SimContext, polar: Path, entry: Mapping[str, object]) ->
     # The destination is prepared first, by the post's archive rule; a refusal then
     # writes nothing and is named, and the retirement removes a stale file left there.
     target = ctx.target(trim)
+    moment, axis = ctx.pproc.products.trim_moment, ctx.pproc.products.trim_axis
     try:
-        write_trimmed_polar(polar, target, overwrite=True)
+        write_trimmed_polar(polar, target, moment=moment, angle=axis, overwrite=True)
     except ProductError as error:
         ctx.skipped[relative] = f"the trimmed polar is not written: {error}"
+        warn(ctx.skipped[relative], PyflightstreamWarning, stacklevel=2)
         return
     ctx.add(
         target,
-        {**entry, "trimmed": {"moment": TRIM_MOMENT_COLUMN, "angle": TRIM_ANGLE_COLUMN}},
+        {**entry, "trimmed": {"moment": moment, "angle": axis}},
     )
 
 
