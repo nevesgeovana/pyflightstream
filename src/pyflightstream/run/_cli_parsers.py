@@ -34,6 +34,7 @@ from pyflightstream.cases.workflows import (
     resolve_workflow,
     workflow_names,
 )
+from pyflightstream.options import get_option
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import split_typed_ids
 from pyflightstream.run._cli_mesh import GEOMETRY_COMMANDS as GEOMETRY_COMMANDS
@@ -373,6 +374,12 @@ def _build_parser() -> argparse.ArgumentParser:
             "Run-matrix tooling: the matrix is a first-class interface of the "
             "file-managed modality, with the matrix as the sole campaign declaration."
         ),
+    )
+    parser.add_argument(
+        "--warning-refusals",
+        action="store_true",
+        default=get_option("warning_refusals"),
+        help="restore refusals for inputs otherwise skipped with typed warnings",
     )
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
     _add_workspace_parsers(subparsers)

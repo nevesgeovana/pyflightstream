@@ -7,6 +7,13 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Typed demoted-refusal warning families and the `warning_refusals` runtime
+  option. Both CLIs accept global `--warning-refusals`; matrix planning,
+  execution, campaign products and refinement entry points accept the Python
+  keyword and restore the previous option after the call (FR-3370).
+
 ## [0.49.0] - 2026-10-29
 
 ### Fixed

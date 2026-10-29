@@ -51,6 +51,7 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
     warn,
+    with_refusal_policy,
 )
 from pyflightstream._progress import workspace_activity
 from pyflightstream.cases import (
@@ -67,7 +68,6 @@ from pyflightstream.cases.matrix import (
     MatrixRow,
     read_matrix,
     refuse_silent_rows_without_default,
-    to_campaign,
 )
 from pyflightstream.cases.workflows import (
     ADDITIONAL_PPROC_VARIABLE,
@@ -113,7 +113,7 @@ from pyflightstream.run._additional import (
     record_additional_extraction as record_additional_extraction,
 )
 from pyflightstream.run._identity import entry_accepted_builds
-from pyflightstream.run._ids import narrow_to_selection, whole_sweeps
+from pyflightstream.run._ids import _selected_rows, narrow_to_selection, whole_sweeps
 from pyflightstream.run._matrix_warnings import (
     _warn_matrix_inputs,
     _warn_the_rows_whose_additional_post_is_one_instant,
@@ -124,7 +124,7 @@ from pyflightstream.run._matrix_warnings import (
 from pyflightstream.run._plan import preflight_resolved_matrix
 from pyflightstream.run._plan import row_versions as _row_versions
 from pyflightstream.script import Script
-from pyflightstream.versions import known_versions, resolve
+from pyflightstream.versions import resolve
 from pyflightstream.workspace import (
     ADDITIONAL_DIR,
     ARCHIVE_STAMP,
@@ -291,52 +291,6 @@ def _refuse_a_run_that_names_no_build(
     refuse_silent_rows_without_default(read_matrix(path) if rows is None else rows, default, path)
 
 
-def _selected_rows(
-    path: str | Path,
-    workspace: CampaignWorkspace,
-    name: str,
-    recipes: Mapping[str, str],
-    sims: Sequence[str] | None,
-    points: Sequence[str] | None,
-    redoing: bool = False,
-) -> list[MatrixRow] | None:
-    """Select rows before resolving builds or input artifacts.
-
-    The scratch campaign's nominal registered version only validates its data
-    model; it selects no executable and emits no script. Actual builds are
-    resolved after filtering. It reuses the point-name and alias rules, and
-    refuses in the order and words :func:`narrow_to_selection` does (FR-326):
-    ``redoing`` is ``force_rerun_all``, refused beside ``points`` first, and an
-    unknown simulation is named with the ones the matrix carries.
-    """
-    if not sims and not points:
-        return None
-    rows = read_matrix(path)
-    if sims:
-        carried = list(dict.fromkeys(row.pol for row in rows))
-        unknown = [sim for sim in sims if sim not in carried]
-        if unknown and not (points and redoing):
-            raise MatrixError(
-                f"sims names {', '.join(unknown)}, which this matrix does not carry; it "
-                f"carries {', '.join(carried)}. Nothing was run."
-            )
-        rows = [row for row in rows if row.pol in sims]
-    campaign = to_campaign(
-        path,
-        name=name,
-        fs_version=known_versions()[0].canonical,
-        fs_exe="",
-        recipes=recipes,
-        require_outputs=False,
-        defer_raw_files=True,
-        rows=rows,
-    )
-    scratch = ResolvedMatrix(campaign=campaign, row_builds=tuple(row.fs_build for row in rows))
-    selected = narrow_to_selection(scratch, sims, points, workspace, redoing=redoing)
-    kept = {case.sim_id for case in selected.campaign.sims}
-    return [row for row in rows if row.pol in kept]
-
-
 def _bind_row_builds(
     resolved: ResolvedMatrix,
     default: str | None,
@@ -457,10 +411,12 @@ def _bind_row_builds(
     return campaign.model_copy(update={"sims": sims}), builds
 
 
+@with_refusal_policy
 def plan_matrix(
     path: str | Path,
     workspace: CampaignWorkspace,
     *,
+    warning_refusals: bool | None = None,
     name: str,
     recipes: Mapping[str, str],
     default_fs_version: str | None = None,
@@ -491,6 +447,8 @@ def plan_matrix(
 
     Parameters
     ----------
+    warning_refusals : bool, optional
+        Restore demoted refusals for this call; None uses the runtime option.
     path, workspace, name, recipes, fs_exe
         As in :func:`pyflightstream.workspace.matrix.resolve_matrix`.
     default_fs_version : str
@@ -586,7 +544,7 @@ def plan_matrix(
     >>> print(plan.summary())               # doctest: +SKIP
     """
     default = _default_version(default_fs_version, fs_version, caller="plan_matrix")
-    selected_rows = _selected_rows(path, workspace, name, recipes, sims, points)
+    selected_rows = _selected_rows(path, workspace, name, recipes, sims=sims, points=points)
     _refuse_a_run_that_names_no_build(path, default, selected_rows)
     resolved = resolve_matrix(
         path,
@@ -871,10 +829,12 @@ def _everything_recorded(
     return names, resolved
 
 
+@with_refusal_policy
 def run_matrix(
     path: str | Path,
     workspace: CampaignWorkspace,
     *,
+    warning_refusals: bool | None = None,
     name: str,
     recipes: Mapping[str, str],
     assess: OutcomeAssessor,
@@ -912,6 +872,8 @@ def run_matrix(
 
     Parameters
     ----------
+    warning_refusals : bool, optional
+        Restore demoted refusals for this call; None uses the runtime option.
     path, workspace, name, recipes, fs_exe
         As in :func:`pyflightstream.workspace.matrix.resolve_matrix`;
         the executable comes from the FS_BUILD column through the build
@@ -1068,7 +1030,7 @@ def run_matrix(
     """
     default = _default_version(default_fs_version, fs_version, caller="run_matrix")
     selected_rows = _selected_rows(
-        path, workspace, name, recipes, sims, points, redoing=force_rerun_all
+        path, workspace, name, recipes, sims=sims, points=points, redoing=force_rerun_all
     )
     _refuse_a_run_that_names_no_build(path, default, selected_rows)
     resolved = resolve_matrix(

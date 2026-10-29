@@ -11,6 +11,7 @@
 \fontsize{7.1}{8.1}\selectfont\raggedright
 \begin{tcolorbox}[colback=acc!8,colframe=acc,boxrule=0.4pt,left=2pt,right=2pt,top=1pt,bottom=1pt]
 {\large\bfseries\color{acc} pyfs-matrix cheatsheet} \hfill {\small \pkgname{} \textbf{\pkgversion} \quad every subcommand and option, by stage \quad \texttt{pyfs-matrix <cmd> -h} (\texttt{--help}) gives the full text}\\[1pt]
+\textbf{Global refusal policy:} \fl{--warning-refusals} before the subcommand of pyfs-matrix or pyfs-workspace restores demoted refusals.\\[1pt]
 \textbf{Typical flow:} \cmd{inventory} (new mesh) $\rightarrow$ \cmd{plan} (mandatory, no solver) $\rightarrow$ \cmd{run} (\fl{--resume} to add points) $\rightarrow$ \cmd{collect} (cluster jobs) $\rightarrow$ \cmd{post} \quad\textbar\quad
 \textbf{Safe by default:} storage, sync, restore, rebuild and mark-failed only PREVIEW until \fl{--apply}. \fl{--workspace} defaults to the current folder; \fl{--runs NAME} picks another manifest than \texttt{runs.json}; a matrix name is found in the workspace root or \texttt{inputs/matrices/}.
 \end{tcolorbox}
@@ -251,6 +252,7 @@ See the website's Upgrading page for supported workspace conversion.
 \begin{multicols}{3}
 
 \tool{pyfs-workspace}{campaign trees, free-stream fields and disc profiles}
+\fl{--warning-refusals} before the subcommand restores demoted refusals.
 \sub{init [root]}{create or complete the campaign tree: \texttt{inputs/} with its library folders, \texttt{sims/}, \texttt{post/}, \texttt{archive/}; writes an \texttt{inputs/executables.toml} template when none exists. Default root: the current folder}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--workspace DIR} names the root; the positional form is deprecated.

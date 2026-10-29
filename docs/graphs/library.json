@@ -9824,6 +9824,11 @@
     },
     {
       "source": "pyflightstream.run._cli_parsers",
+      "target": "pyflightstream.options",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._cli_parsers",
       "target": "pyflightstream.run._alias",
       "kind": "module"
     },
@@ -10400,6 +10405,11 @@
     {
       "source": "pyflightstream.run._ids",
       "target": "pyflightstream.run._alias",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._ids",
+      "target": "pyflightstream.versions",
       "kind": "module"
     },
     {
@@ -11240,6 +11250,11 @@
     {
       "source": "pyflightstream.run.cli",
       "target": "pyflightstream.cases.workflows",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run.cli",
+      "target": "pyflightstream.options",
       "kind": "module"
     },
     {
@@ -13595,6 +13610,11 @@
     {
       "source": "pyflightstream.workspace.cli",
       "target": "pyflightstream._progress",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.cli",
+      "target": "pyflightstream.options",
       "kind": "module"
     },
     {

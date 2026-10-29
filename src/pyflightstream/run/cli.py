@@ -70,6 +70,7 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.cases.workflows import read_a_choice as read_a_choice
 from pyflightstream.cases.workflows import resolve_workflow as resolve_workflow
 from pyflightstream.cases.workflows import workflow_names as workflow_names
+from pyflightstream.options import option_context
 from pyflightstream.results import MalformedOutputError
 from pyflightstream.results.tables import LoadsNotFoundError, sweep_table, write_table
 from pyflightstream.run import (
@@ -237,15 +238,19 @@ def main(argv: list[str] | None = None) -> int:
     args = parsed(parser, _storage_flag_form(argv))
     # Console contract (FR-200 to FR-204): titled opening, final warnings,
     # and a live log for long commands. Plan prints its warnings after its header.
-    with command_console(
-        "pyfs-matrix",
-        args.subcommand,
-        what=command_help(parser, [args.subcommand]),
-        workspace=getattr(args, "workspace", None),
-        # `post --diagnostics` reads and changes no file of the workspace.
-        live_log=args.subcommand in LIVE_LOG_COMMANDS and not getattr(args, "diagnostics", False),
-        header=args.subcommand == "plan",
-        hold=args.subcommand != "plan",
+    with (
+        option_context("warning_refusals", args.warning_refusals),
+        command_console(
+            "pyfs-matrix",
+            args.subcommand,
+            what=command_help(parser, [args.subcommand]),
+            workspace=getattr(args, "workspace", None),
+            # `post --diagnostics` reads and changes no file of the workspace.
+            live_log=args.subcommand in LIVE_LOG_COMMANDS
+            and not getattr(args, "diagnostics", False),
+            header=args.subcommand == "plan",
+            hold=args.subcommand != "plan",
+        ),
     ):
         try:
             # FR-310: every matrix argument over the two homes, before any command reads it.

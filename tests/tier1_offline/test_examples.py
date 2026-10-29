@@ -740,18 +740,21 @@ def _warn_categories_in(source: str) -> list[tuple[int, str]]:
         is_warn = (isinstance(function, ast.Attribute) and function.attr == "warn") or (
             isinstance(function, ast.Name) and function.id == "warn"
         )
-        if not is_warn:
+        is_demote = (isinstance(function, ast.Attribute) and function.attr == "demote") or (
+            isinstance(function, ast.Name) and function.id == "demote"
+        )
+        if not (is_warn or is_demote):
             continue
         category = node.args[1] if len(node.args) >= 2 else None
         for keyword in node.keywords:
-            if keyword.arg == "category":
+            if keyword.arg == ("warning" if is_demote else "category"):
                 category = keyword.value
         found.append((node.lineno, DEFAULT_CATEGORY if category is None else ast.unparse(category)))
     return found
 
 
-#: ``_errors.warn`` forwards the category its caller wrote; the caller's call is the site.
-ROUTER_FORWARDING_CALL = ("_errors.py", "category")
+#: The warning routes forward their caller's category; the caller's call is the site.
+ROUTER_FORWARDING_CALLS = {("_errors.py", "category"), ("_errors.py", "warning")}
 
 
 def _warn_sites() -> list[tuple[str, int, str]]:
@@ -760,9 +763,17 @@ def _warn_sites() -> list[tuple[str, int, str]]:
     for path in sorted(PACKAGE.rglob("*.py")):
         relative = path.relative_to(PACKAGE).as_posix()
         for line, category in _warn_categories_in(path.read_text(encoding="utf-8")):
-            if (relative, category) != ROUTER_FORWARDING_CALL:
+            if (relative, category) not in ROUTER_FORWARDING_CALLS:
                 sites.append((relative, line, category))
     return sites
+
+
+def test_p0500_warning_walk_checks_demote_callers_and_rejects_untyped_calls():
+    assert _warn_categories_in("demote(error, warning=UnknownKeyWarning)") == [
+        (1, "UnknownKeyWarning")
+    ]
+    assert _warn_categories_in("errors.demote(error)") == [(1, DEFAULT_CATEGORY)]
+    assert _warn_categories_in("warnings.warn('missing category')") == [(1, DEFAULT_CATEGORY)]
 
 
 def _module_name(relative: str) -> str:

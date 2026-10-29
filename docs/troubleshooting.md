@@ -1,5 +1,34 @@
 # Troubleshooting
 
+## Refusals and skipped input
+
+A fatal refusal stops work when continuing would write a wrong result, or
+required input cannot be read. A demoted refusal warns and skips an offending
+entry when doing so leaves every written result correct. Its message names
+the cause and remedy and ends with `--warning-refusals makes this a refusal`.
+
+To restore those refusals, put `--warning-refusals` before either CLI's
+subcommand, for example `pyfs-matrix --warning-refusals plan matrix.fs`.
+For Python, use `set_option("warning_refusals", True)` or a scoped context:
+
+```python
+from pyflightstream.options import get_option, option_context
+
+with option_context("warning_refusals", True):
+    assert get_option("warning_refusals") is True
+```
+
+`plan_matrix`, `run_matrix`, `write_campaign_products`, `refine_mesh` and
+`prepare_to_refine` also accept `warning_refusals=True` for one call.
+The default is false. Omitting the keyword uses the current runtime option.
+
+Warnings can be filtered through `pyflightstream.exceptions`:
+`DemotedRefusalWarning` selects all demoted refusals; `UnknownKeyWarning`,
+`NotApplicableWarning`, `EmptySelectionWarning`, `DuplicateValueWarning`,
+`OptionalProductWarning` and `RetiredKeyWarning` select individual families.
+Normal Python warning filters remain available. The strict option raises the
+original exception, preserving the exception class callers already catch.
+
 | Symptom | Likely cause | See |
 |---|---|---|
 | Planning refuses a row | An input, build capability, or geometry check failed. | [Plan a campaign](workflow-plan-and-cost.md) |

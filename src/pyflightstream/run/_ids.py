@@ -15,6 +15,7 @@ import shlex
 import subprocess
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 from pyflightstream._errors import (
@@ -33,7 +34,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases.acoustics import (
     with_acoustic_signals,
 )
-from pyflightstream.cases.matrix import MatrixError
+from pyflightstream.cases.matrix import MatrixError, MatrixRow, read_matrix, to_campaign
 from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
     RATE_VARIABLES,
@@ -42,6 +43,7 @@ from pyflightstream.cases.workflows import (
     with_tecplot_source,
 )
 from pyflightstream.run._alias import selection_with_aliases
+from pyflightstream.versions import known_versions
 from pyflightstream.workspace import JOB_TAG as _WORKSPACE_JOB_TAG
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -605,3 +607,50 @@ def _add_sim_ids(parser: Any, *, help: str = SIMS_IDS_HELP, required: bool = Fal
         action=_SimulationIds,
         help="Use --sims ID [ID ...]; commas and brackets are also accepted. " + help,
     )
+
+
+def _selected_rows(
+    path: str | Path,
+    workspace: CampaignWorkspace,
+    name: str,
+    recipes: Mapping[str, str],
+    *,
+    sims: Sequence[str] | None,
+    points: Sequence[str] | None,
+    redoing: bool = False,
+) -> list[MatrixRow] | None:
+    """Select rows before resolving builds or input artifacts.
+
+    The scratch campaign's nominal registered version only validates its data
+    model; it selects no executable and emits no script. Actual builds are
+    resolved after filtering. It reuses the point-name and alias rules, and
+    refuses in the order and words :func:`narrow_to_selection` does (FR-326):
+    ``redoing`` is ``force_rerun_all``, refused beside ``points`` first, and an
+    unknown simulation is named with the ones the matrix carries.
+    """
+    if not sims and not points:
+        return None
+    rows = read_matrix(path)
+    if sims:
+        carried = list(dict.fromkeys(row.pol for row in rows))
+        unknown = [sim for sim in sims if sim not in carried]
+        if unknown and not (points and redoing):
+            raise MatrixError(
+                f"sims names {', '.join(unknown)}, which this matrix does not carry; it "
+                f"carries {', '.join(carried)}. Nothing was run."
+            )
+        rows = [row for row in rows if row.pol in sims]
+    campaign = to_campaign(
+        path,
+        name=name,
+        fs_version=known_versions()[0].canonical,
+        fs_exe="",
+        recipes=recipes,
+        require_outputs=False,
+        defer_raw_files=True,
+        rows=rows,
+    )
+    scratch = ResolvedMatrix(campaign=campaign, row_builds=tuple(row.fs_build for row in rows))
+    selected = narrow_to_selection(scratch, sims, points, workspace, redoing=redoing)
+    kept = {case.sim_id for case in selected.campaign.sims}
+    return [row for row in rows if row.pol in kept]

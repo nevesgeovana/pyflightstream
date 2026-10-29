@@ -7,6 +7,15 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.50.0
+
+Use the global `--warning-refusals` flag before a `pyfs-matrix` or
+`pyfs-workspace` subcommand to restore refusals for demoted input warnings.
+Python callers can use `option_context("warning_refusals", True)` or the
+`warning_refusals=True` keyword on `plan_matrix`, `run_matrix`,
+`write_campaign_products`, `refine_mesh` and `prepare_to_refine`.
+The keyword applies only during that call, including when it fails.
+
 ## 0.49.0
 
 matplotlib, rtree and scipy come with the base install, so the `plot` and `geom`

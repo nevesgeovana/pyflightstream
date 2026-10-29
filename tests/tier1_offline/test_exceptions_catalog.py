@@ -251,6 +251,13 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         # deprecation one keeps DeprecationWarning as well, which is what
         # makes a caller filtering deprecations still see it.
         "PyflightstreamWarning": UserWarning,
+        "DemotedRefusalWarning": UserWarning,
+        "DuplicateValueWarning": UserWarning,
+        "EmptySelectionWarning": UserWarning,
+        "NotApplicableWarning": UserWarning,
+        "OptionalProductWarning": UserWarning,
+        "RetiredKeyWarning": UserWarning,
+        "UnknownKeyWarning": UserWarning,
         "PyflightstreamDeprecationWarning": DeprecationWarning,
         "VersionMismatchWarning": UserWarning,
         "WorkspaceError": RuntimeError,
