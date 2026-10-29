@@ -32,3 +32,12 @@ def test_a_row_written_as_the_refusal_says_resolves_to_a_window(key):
     replacement = _SUPERSEDED_BY[key]
     value = "250" if replacement == "LAST_ITERS_AVG" else "1.0"
     assert averaging_span({replacement: value}, last_step=1000, per_revolution=250.0) == (751, 1000)
+
+
+@pytest.fixture(autouse=True)
+def _refusals_strict():
+    """These tests assert the refusals; the demoted forms warn by default."""
+    from pyflightstream.options import option_context
+
+    with option_context("warning_refusals", True):
+        yield

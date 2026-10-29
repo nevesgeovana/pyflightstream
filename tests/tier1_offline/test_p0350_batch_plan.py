@@ -396,8 +396,14 @@ def test_p0350_hpc_fr377_max_walltime_and_job_root(tmp_path):
             read_hpc_profile(_profile(tmp_path, bad))
     with pytest.raises(InputArtifactError, match="job_root"):
         read_hpc_profile(_profile(tmp_path, 'job_root = "/scratch/{node}"'))
-    with pytest.raises(InputArtifactError, match="walltime_max"):
+    from pyflightstream._errors import UnknownKeyWarning
+    from pyflightstream.options import option_context
+
+    with pytest.warns(UnknownKeyWarning, match="walltime_max"):
         read_hpc_profile(_profile(tmp_path, 'walltime_max = "48:00:00"'))
+    with option_context("warning_refusals", True):
+        with pytest.raises(InputArtifactError, match="walltime_max"):
+            read_hpc_profile(_profile(tmp_path, 'walltime_max = "48:00:00"'))
 
 
 def test_p0350_plan_fr362_the_command_line_prints_the_table(tmp_path, capsys):

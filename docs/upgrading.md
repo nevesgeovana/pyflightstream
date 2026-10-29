@@ -37,6 +37,15 @@ ranges. Recreate environments within these bounds before upgrading.
   entries from refine files: each is warned and skipped, including empty
   values. Use `[[perimeter]]` for trailing-edge lists and a separate family
   with `method = "keep"` for an interface row (FR-3311 to FR-3317).
+Unregistered row keys, keys of another run type, and retired
+`WINDOW_STEPS`, `WINDOW_REVOLUTIONS` and `WINDOW_DEGREES` entries now warn and
+are skipped. Correct their spelling or use the replacement the warning
+names. Required values and contradictory statements still refuse. Set
+`warning_refusals=True` to restore the former refusal behavior.
+
+Unknown keys and tables of a cost file or an HPC profile warn and are skipped
+in the same way.
+
 Use the global `--warning-refusals` flag before a `pyfs-matrix` or
 `pyfs-workspace` subcommand to restore refusals for demoted input warnings.
 Python callers can use `option_context("warning_refusals", True)` or the

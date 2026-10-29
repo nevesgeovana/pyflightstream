@@ -514,3 +514,12 @@ def test_p0430_f075_a_count_past_53_bits_is_read_as_an_integer():
         DELTA_THETA=None, REVOLUTIONS=None, DELTA_TIME="0.001", TIME_ITERATIONS="9007199254740993"
     )
     assert rotor_time_stepping(case).time_iterations == 9007199254740993
+
+
+@pytest.fixture(autouse=True)
+def _refusals_strict():
+    """These tests assert the refusals; the demoted forms warn by default."""
+    from pyflightstream.options import option_context
+
+    with option_context("warning_refusals", True):
+        yield

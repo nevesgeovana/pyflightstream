@@ -199,3 +199,12 @@ def test_p0420_passage_provenance_states_the_rotors_own_span():
         assert 0 <= remainder < passage["period_steps"]
         assert alias in passage["window_from"]
         assert "own" in passage["window_from"]
+
+
+@pytest.fixture(autouse=True)
+def _refusals_strict():
+    """These tests assert the refusals; the demoted forms warn by default."""
+    from pyflightstream.options import option_context
+
+    with option_context("warning_refusals", True):
+        yield

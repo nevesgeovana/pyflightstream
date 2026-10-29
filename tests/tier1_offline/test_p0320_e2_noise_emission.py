@@ -640,7 +640,9 @@ def test_p0320_noise_order_compute_and_export_on_a_steady_run_are_refused():
 def test_p0320_noise_order_a_steady_row_stating_the_keys_is_refused():
     """P0320-NOISE-ORDER: a steady row stating an acoustic key is refused by the row-key
     guard, naming the unsteady run types that read it."""
-    with pytest.raises(CampaignConfigError, match=r"ACOUSTIC_SOURCES \(a key of unsteady"):
+    with pytest.raises(
+        CampaignConfigError, match=r"ACOUSTIC_SOURCES is not registered.*read by unsteady"
+    ):
         _lines(steady_case(ACOUSTIC_SOURCES="ENABLE"))
 
 
@@ -684,3 +686,12 @@ def test_p0430_observers_file_refusal_names_the_physical_line_after_a_blank_line
     path.write_text("2\n\n0,0,1\nnot,a,row\n", encoding="utf-8")
     with pytest.raises(CampaignConfigError, match="line 4, reads 'not,a,row'"):
         acoustics.read_observers_file(path)
+
+
+@pytest.fixture(autouse=True)
+def _refusals_strict():
+    """These tests assert the refusals; the demoted forms warn by default."""
+    from pyflightstream.options import option_context
+
+    with option_context("warning_refusals", True):
+        yield

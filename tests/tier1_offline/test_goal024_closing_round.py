@@ -67,8 +67,14 @@ def _profile(tmp_path, extra: str = "", *, top: str = "", body: str = PROFILE):
 @pytest.mark.parametrize("key", ["template", "formatt", "field"])
 def test_p0440_unknown_descriptor_keys_are_refused(tmp_path, key):
     body = PROFILE.replace("[descriptor]\n", f'[descriptor]\n{key} = "ignored"\n')
-    with pytest.raises(InputArtifactError, match=rf"{key}.*under \[descriptor\]"):
+    from pyflightstream._errors import UnknownKeyWarning
+    from pyflightstream.options import option_context
+
+    with pytest.warns(UnknownKeyWarning, match=rf"{key}.*under \[descriptor\]"):
         read_hpc_profile(_profile(tmp_path, body=body))
+    with option_context("warning_refusals", True):
+        with pytest.raises(InputArtifactError, match=rf"{key}.*under \[descriptor\]"):
+            read_hpc_profile(_profile(tmp_path, body=body))
 
 
 def test_p0440_descriptor_field_names_remain_scheduler_owned(tmp_path):
@@ -81,8 +87,14 @@ def test_goal024_closing_round_a_profile_key_this_package_does_not_read_is_refus
     """A key at the top level outside the closed set is refused, naming it and the set."""
     path = _profile(tmp_path, top='notes = "the queue is busy on Fridays"')
 
-    with pytest.raises(InputArtifactError) as raised:
+    from pyflightstream._errors import UnknownKeyWarning
+    from pyflightstream.options import option_context
+
+    with pytest.warns(UnknownKeyWarning, match="notes"):
         read_hpc_profile(path)
+    with option_context("warning_refusals", True):
+        with pytest.raises(InputArtifactError) as raised:
+            read_hpc_profile(path)
 
     message = str(raised.value)
     assert "notes" in message, message
@@ -94,8 +106,16 @@ def test_goal024_closing_round_a_log_table_key_this_package_does_not_read_is_ref
     """`[log]` is closed too: a mistyped `native_logs` is a run with no log."""
     path = _profile(tmp_path, '\n[log]\nexport_log = false\nnative_logs = "FTS{sim}.l*"\n')
 
-    with pytest.raises(InputArtifactError) as raised:
-        read_hpc_profile(path)
+    from pyflightstream._errors import UnknownKeyWarning
+    from pyflightstream.options import option_context
+
+    # Skipped with a warning, the typo leaves a run with no log, which still refuses.
+    with pytest.warns(UnknownKeyWarning, match="native_logs"):
+        with pytest.raises(InputArtifactError, match="no native_log"):
+            read_hpc_profile(path)
+    with option_context("warning_refusals", True):
+        with pytest.raises(InputArtifactError) as raised:
+            read_hpc_profile(path)
 
     message = str(raised.value)
     assert "native_logs" in message and "[log]" in message, message

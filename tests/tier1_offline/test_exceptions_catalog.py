@@ -165,6 +165,9 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "SixDofSetupError": ValueError,
         "IncompleteOutputError": ValueError,
         "InputArtifactError": RuntimeError,
+        "InputKeyError": KeyError,
+        "InputTypeError": TypeError,
+        "InputValueError": ValueError,
         "LoadsNotFoundError": ValueError,
         "MalformedOutputError": ValueError,
         "ManualCallError": TypeError,
@@ -308,6 +311,9 @@ _COMMON_BASES = (ValueError, RuntimeError, LookupError, KeyError, ImportError)
 #: nothing about the rows the comments are beside.
 _UNUSUAL_BASE_CLASSES = (
     "BoundaryMarkingError",
+    # TypeError: the family's home for a refusal that had been a bare TypeError
+    # (PFS-2020.10, 0.50.0).
+    "InputTypeError",
     # TypeError: a drafting function called with the wrong argument shape
     # (PFS-2022.05, 2026-09-09).
     "ManualCallError",

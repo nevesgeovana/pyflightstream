@@ -40,6 +40,10 @@ required input cannot be read. A demoted refusal warns and skips an offending
 entry when doing so leaves every written result correct. Its message names
 the cause and remedy and ends with `--warning-refusals makes this a refusal`.
 
+For matrix rows, an unregistered key is ignored with `UnknownKeyWarning`;
+a key of another run type is skipped with `NotApplicableWarning`. Retired
+averaging-window keys use `RetiredKeyWarning` and name their replacements.
+
 To restore those refusals, put `--warning-refusals` before either CLI's
 subcommand, for example `pyfs-matrix --warning-refusals plan matrix.fs`.
 For Python, use `set_option("warning_refusals", True)` or a scoped context:

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 
+from pyflightstream._errors import NotApplicableWarning, demote
 from pyflightstream.cases import CampaignConfigError, SimCase
 
 from ._exports import surface_time_averaging
@@ -106,41 +107,47 @@ def refuse_two_threshold_keys(case: SimCase, stated: dict[str, str]) -> None:
     )
 
 
-def refuse_threshold_on_a_steady_run(case: SimCase, key: str, workflow: str) -> None:
-    """Refuse a threshold key on the steady run type, which has no time loop.
+def refuse_threshold_on_a_steady_run(case: SimCase, key: str, workflow: str) -> bool:
+    """Skip an export threshold the run type cannot use, or restore its refusal.
 
     Parameters
     ----------
     case : SimCase
-        The case, named in the refusal.
+        The case named in the message.
     key : str
         The threshold key the row states.
     workflow : str
         The run type the row names.
 
+    Returns
+    -------
+    bool
+        True when the key was skipped; False when the run type can use it.
+
     Raises
     ------
     CampaignConfigError
-        If ``workflow`` is a steady run type, or the revolutions last form is stated on a
-        run type that has no unsteady clock.
+        An inapplicable threshold under warning_refusals.
     """
     if key == EXPORT_UNSTEADY_LAST_REV_VARIABLE and workflow not in _UNSTEADY_WORKFLOWS:
-        raise CampaignConfigError(
+        error = CampaignConfigError(
             f"case {case.sim_id!r} states {key} and names the {workflow} run type, which "
             "has no unsteady rotor clock: a revolution is counted on a rotor the run turns "
             "in a time loop, and this run type has neither. State "
             f"'{EXPORT_UNSTEADY_LAST_ITER_VARIABLE}: <steps>' on an unsteady run type "
             "instead, or drop the key."
         )
-    # EVERY STEADY RUN TYPE, the quasi-steady rotor included: it fell through to
-    # refusals about an unsteady clock and a run type that "turns nothing".
-    if workflow not in STEADY_RUN_TYPES:
-        return
-    raise CampaignConfigError(
-        f"case {case.sim_id!r} states {key} and names the {workflow} run type, which "
-        "has no time loop: an unsteady solver action runs after each time step, and a "
-        "steady solve has none. State the key on an unsteady run type, or drop it."
-    )
+    elif workflow in STEADY_RUN_TYPES:
+        error = CampaignConfigError(
+            f"case {case.sim_id!r} states {key} and names the {workflow} run type, which "
+            "has no time loop: an unsteady solver action runs after each time step, and a "
+            "steady solve has none. State the key on an unsteady run type, or drop it."
+        )
+    else:
+        return False
+    demote(error, warning=NotApplicableWarning)
+    case.variables.pop(key, None)
+    return True
 
 
 def _steps_of(number: float, per_revolution: float) -> int:

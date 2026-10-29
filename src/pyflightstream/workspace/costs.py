@@ -33,7 +33,13 @@ from pathlib import Path
 from typing import TypeGuard
 
 from pyflightstream._cli import _SELECTED_COST_FILE
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
+from pyflightstream._errors import (
+    InputArtifactError,
+    PyflightstreamWarning,
+    UnknownKeyWarning,
+    demote,
+    suggest_name,
+)
 from pyflightstream.script import CommandArgumentError
 from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.workspace.sidecars import load_toml
@@ -264,21 +270,32 @@ def _number(table: Mapping, key: str, where: str, path: Path, *, positive: bool 
     return float(value)
 
 
-def _refuse_unknown(raw: Mapping, path: Path) -> None:
-    """Refuse a table or key this package does not read, naming it."""
-    for name, table in raw.items():
+def _refuse_unknown(raw: dict, path: Path) -> None:
+    """Skip a table or key this package does not read; refuse it under warning_refusals."""
+    for name in list(raw):
+        table = raw[name]
         if name not in _TABLES or not isinstance(table, Mapping):
-            raise InputArtifactError(
-                f"the cost file {path} states {name!r} at the top level; this package reads "
-                f"the tables {', '.join(sorted(_TABLES))}."
+            demote(
+                InputArtifactError(
+                    f"the cost file {path} states {name!r} at the top level; this package reads "
+                    f"the tables {', '.join(sorted(_TABLES))}." + suggest_name(str(name), _TABLES)
+                ),
+                warning=UnknownKeyWarning,
             )
+            del raw[name]
+            continue
         allowed = _TABLES[name]
         extra = sorted(str(k) for k in table if name != "flags" and k not in allowed)
         if extra:
-            raise InputArtifactError(
-                f"the cost file {path} states {', '.join(extra)} in [{name}], and this package "
-                f"reads {', '.join(sorted(allowed))} there."
+            demote(
+                InputArtifactError(
+                    f"the cost file {path} states {', '.join(extra)} in [{name}], and this package "
+                    f"reads {', '.join(sorted(allowed))} there." + suggest_name(extra[0], allowed)
+                ),
+                warning=UnknownKeyWarning,
             )
+            for key in extra:
+                del table[key]  # type: ignore[attr-defined]
 
 
 def _curve(parallel: Mapping, path: Path) -> tuple[tuple[float, ...], tuple[float, ...]]:

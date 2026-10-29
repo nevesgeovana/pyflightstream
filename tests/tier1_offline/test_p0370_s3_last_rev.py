@@ -540,3 +540,12 @@ def test_the_refusals_of_the_legacy_keys_are_those_of_v0_36_0_byte_for_byte():
     del recipe_row.variables[WORKFLOW_KEY]
     assert _refusal(recipe_row) == _LEGACY_ROTORLESS
     assert _refusal(_averaged_rotor_row(**{AFTER_ITER: "100"})) == _LEGACY_AVERAGING
+
+
+@pytest.fixture(autouse=True)
+def _refusals_strict():
+    """These tests assert the refusals; the demoted forms warn by default."""
+    from pyflightstream.options import option_context
+
+    with option_context("warning_refusals", True):
+        yield

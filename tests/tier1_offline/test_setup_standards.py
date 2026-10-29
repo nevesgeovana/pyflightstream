@@ -5,8 +5,10 @@ import tomllib
 import pytest
 from pydantic import ValidationError
 
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError, SimCase, SolverSettings, SweepAxis
 from pyflightstream.cases.workflows._solver_settings import _settings
+from pyflightstream.options import option_context
 from pyflightstream.run.cli import _build_parser
 from pyflightstream.script import CommandArgumentError, Script
 
@@ -182,7 +184,10 @@ def test_rotor_shedding_matrix_key_is_refused_without_changing_helper():
         variables={"VELOCITY": "30", "ROTOR_SHEDDING": "AZIMUTH"},
         outputs=["loads.txt"],
     )
-    with pytest.raises(CampaignConfigError, match="ROTOR_SHEDDING.*every matrix workflow"):
+    with (
+        option_context("warning_refusals", True),
+        pytest.raises(CampaignConfigError, match="ROTOR_SHEDDING.*every matrix workflow"),
+    ):
         build_script(case, Script("26.124"))
     assert rotor_relaxed_trailing_edges(case, ["0.5;0.1;0.9"]) == ["0.5;0.1;0.9;1"]
 
@@ -238,7 +243,10 @@ def test_rotor_shedding_refused_by_registered_builder_guard(workflow):
         sweep=SweepAxis(type="alpha", values=[0.0]),
         variables={"matrix_workflow": workflow, "ROTOR_SHEDDING": "AZIMUTH"},
     )
-    with pytest.raises(CampaignConfigError, match="ROTOR_SHEDDING.*every matrix workflow"):
+    with (
+        option_context("warning_refusals", True),
+        pytest.raises(CampaignConfigError, match="ROTOR_SHEDDING.*every matrix workflow"),
+    ):
         _refuse_unregistered_keys(case, workflow)
 
 
@@ -409,3 +417,107 @@ def test_solver_settings_refuse_farfield_layers_outside_the_documented_range():
     with pytest.raises(ValidationError):
         SolverSettings(farfield_layers=8)
     assert SolverSettings(farfield_layers=5).farfield_layers == 5
+
+
+def _p0500_case(key):
+    return SimCase(
+        sim_id="9001",
+        aircraft="Wing",
+        recipe="steady",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        variables={"matrix_workflow": "steady", key: "4"},
+    )
+
+
+@pytest.mark.parametrize(
+    "key,category", [("NCPU", "UnknownKeyWarning"), ("RPM", "NotApplicableWarning")]
+)
+def test_p0500_unknown_and_inapplicable_row_keys_warn_or_refuse(key, category):
+    from pyflightstream.cases.workflows._rows import _refuse_unregistered_keys
+
+    case = _p0500_case(key)
+    with pytest.warns(PyflightstreamWarning) as caught:
+        _refuse_unregistered_keys(case, "steady")
+    assert caught[0].category.__name__ == category
+    assert key not in case.variables
+    if key == "NCPU":
+        assert "Did you mean 'NCPUS'?" in str(caught[0].message)
+    with option_context("warning_refusals", True):
+        case = _p0500_case(key)
+        with pytest.raises(CampaignConfigError, match=key):
+            _refuse_unregistered_keys(case, "steady")
+        assert key in case.variables
+
+
+@pytest.mark.parametrize("key", ["NCPU", "RPM", "WINDOW_STEPS"])
+def test_p0500_row_demotions_follow_workspace_cli_flag(monkeypatch, tmp_path, capsys, key):
+    from pyflightstream.cases.workflows._rows import _refuse_unregistered_keys
+    from pyflightstream.workspace import cli
+
+    def command(args):
+        case = _p0500_case(key)
+        _refuse_unregistered_keys(case, "steady")
+        assert key not in case.variables
+        return 0
+
+    monkeypatch.setattr(cli, "_cmd_init", command)
+    with pytest.warns(PyflightstreamWarning, match=key):
+        assert cli.main(["init", str(tmp_path)]) == 0
+    with pytest.raises(CampaignConfigError, match=key):
+        cli.main(["--warning-refusals", "init", str(tmp_path)])
+
+
+def test_p0500_retired_row_key_warns_or_refuses():
+    from pyflightstream.cases.workflows._vocabulary import _refuse_retired_window_keys
+
+    case = _p0500_case("WINDOW_STEPS")
+    with pytest.warns(PyflightstreamWarning, match="LAST_ITERS_AVG") as caught:
+        _refuse_retired_window_keys(case)
+    assert caught[0].category.__name__ == "RetiredKeyWarning"
+    assert "WINDOW_STEPS" not in case.variables
+    with option_context("warning_refusals", True):
+        with pytest.raises(CampaignConfigError, match="WINDOW_STEPS"):
+            _refuse_retired_window_keys(_p0500_case("WINDOW_STEPS"))
+
+
+def test_p0500_matrix_cli_refusal_policy_reaches_the_row_reader(monkeypatch, tmp_path, capsys):
+    from pyflightstream.cases.workflows._rows import _refuse_unregistered_keys
+    from pyflightstream.run import cli
+
+    path = tmp_path / "matrix.fs"
+    path.write_text("POL\n", encoding="utf-8")
+
+    def plan(args, recipes):
+        case = _p0500_case("NCPU")
+        _refuse_unregistered_keys(case, "steady")
+        assert "NCPU" not in case.variables
+        return 0
+
+    monkeypatch.setattr(cli, "_cmd_plan", plan)
+    with pytest.warns(PyflightstreamWarning, match="NCPU"):
+        assert cli.main(["plan", str(path)]) == 0
+    assert cli.main(["--warning-refusals", "plan", str(path)]) == 1
+    assert "NCPU" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "workflow,key",
+    [("steady", "EXPORT_UNSTEADY_AFTER_ITER"), ("qsteady_rotor", "EXPORT_UNSTEADY_LAST_REV")],
+)
+def test_p0500_inapplicable_export_threshold_does_not_build_an_unused_clock(workflow, key):
+    from pyflightstream.cases.workflows._clock import unsteady_export_threshold
+
+    case = _p0500_case(key)
+    case.variables["matrix_workflow"] = workflow
+    case.recipe = workflow
+    with pytest.warns(PyflightstreamWarning) as caught:
+        result = unsteady_export_threshold(case, version="26.124")
+    assert result is None
+    assert key not in case.variables
+    assert caught[0].category.__name__ == "NotApplicableWarning"
+    case = _p0500_case(key)
+    case.variables["matrix_workflow"] = workflow
+    case.recipe = workflow
+    with option_context("warning_refusals", True):
+        with pytest.raises(CampaignConfigError, match=key):
+            unsteady_export_threshold(case, version="26.124")

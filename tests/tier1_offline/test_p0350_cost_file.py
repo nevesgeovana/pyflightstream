@@ -114,11 +114,17 @@ def test_several_files_are_refused_unless_one_is_selected(tmp_path):
         resolve_cost_file(inputs)
 
 
-def test_an_unknown_key_is_refused_by_name(tmp_path):
-    """P0350-COST-FILE (FR-398): a key nothing reads is refused, not ignored."""
+def test_an_unknown_key_warns_by_name_and_refuses_under_warning_refusals(tmp_path):
+    """P0350-COST-FILE (FR-398): a key nothing reads is skipped with a warning, or refused."""
+    from pyflightstream._errors import UnknownKeyWarning
+    from pyflightstream.options import option_context
+
     inputs = _inputs(tmp_path, "c001", text=_FILE.replace("[mesh]", "[mesh]\nexponent = 1"))
-    with pytest.raises(InputArtifactError, match="exponent"):
-        resolve_cost_file(inputs)
+    with pytest.warns(UnknownKeyWarning, match="exponent"):
+        assert resolve_cost_file(inputs) is not None
+    with option_context("warning_refusals", True):
+        with pytest.raises(InputArtifactError, match="exponent"):
+            resolve_cost_file(inputs)
 
 
 def _row(run_id="r1", processors=4):

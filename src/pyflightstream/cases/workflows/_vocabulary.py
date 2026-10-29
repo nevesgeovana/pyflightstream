@@ -22,6 +22,7 @@ from types import (
     MappingProxyType,
 )
 
+from pyflightstream._errors import RetiredKeyWarning, demote
 from pyflightstream._fsi_calibration import (
     MATRIX_FACTORS,
 )
@@ -1398,7 +1399,7 @@ CONVERTER_PREFIX = "matrix_"
 
 
 def _refuse_retired_window_keys(case: SimCase) -> None:
-    """Refuse the three removed row keys, naming the exact replacement."""
+    """Skip removed row keys, naming their replacements; strict mode refuses."""
     for old, new in (
         ("WINDOW_STEPS", "LAST_ITERS_AVG"),
         ("WINDOW_REVOLUTIONS", "LAST_REVS_AVG"),
@@ -1410,7 +1411,11 @@ def _refuse_retired_window_keys(case: SimCase) -> None:
                 if old == "WINDOW_DEGREES"
                 else ""
             )
-            raise CampaignConfigError(
-                f"case {case.sim_id!r}: {old} was removed in 0.26.0; write {new} instead."
-                + conversion
+            demote(
+                CampaignConfigError(
+                    f"case {case.sim_id!r}: {old} was removed in 0.26.0; write {new} instead."
+                    + conversion
+                ),
+                warning=RetiredKeyWarning,
             )
+            case.variables.pop(old)

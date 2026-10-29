@@ -60,6 +60,13 @@ FlightStream versions.
   identifiers and split lineage; the retained connectivity, warning-and-skip and
   factor-tag contracts have explicit coverage (FR-3310, FR-3311, FR-3312, FR-3313,
   FR-3314, FR-3315, FR-3316, FR-3317, FR-3318).
+- Unregistered matrix row keys and keys that belong to another run type now
+  warn and are skipped. Retired averaging-window keys warn with their
+  replacement names. `--warning-refusals` restores the original refusals
+  (FR-3371, FR-3372).
+- Unknown tables and keys of a cost file and of an HPC profile now warn,
+  naming the closest known key, and are skipped; `--warning-refusals`
+  restores the refusal (FR-3373).
 
 ### Fixed
 

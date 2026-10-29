@@ -5,6 +5,7 @@ import pytest
 from pyflightstream import _deprecations
 from pyflightstream.cases import SimCase, SweepAxis
 from pyflightstream.cases.workflows import build_script
+from pyflightstream.options import option_context
 from pyflightstream.script import Script
 
 
@@ -16,7 +17,7 @@ def test_p0410_shedding_refusal_names_the_distinct_ccs_route():
         sweep=SweepAxis(type="alpha", values=[0.0]),
         variables={"ROTOR_SHEDDING": "AZIMUTH"},
     )
-    with pytest.raises(ValueError) as caught:
+    with option_context("warning_refusals", True), pytest.raises(ValueError) as caught:
         build_script(case, Script(version="26.124"))
     message = str(caught.value)
     assert "7001" in message and "AZIMUTH" in message

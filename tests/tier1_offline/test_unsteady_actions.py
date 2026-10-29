@@ -1162,3 +1162,12 @@ def test_goal019_watchdog_the_rescue_writes_the_whole_run_exports_too(tmp_path):
         "export and is the reason the whole-run kinds are dropped there"
     )
     assert not any("PLOTS" in line for line in per_step.splitlines())
+
+
+@pytest.fixture(autouse=True)
+def _refusals_strict():
+    """These tests assert the refusals; the demoted forms warn by default."""
+    from pyflightstream.options import option_context
+
+    with option_context("warning_refusals", True):
+        yield

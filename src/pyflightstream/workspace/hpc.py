@@ -24,7 +24,13 @@ from pathlib import Path, PureWindowsPath
 
 from pyflightstream._cli import _SELECTED_HPC
 from pyflightstream._digest import aliased_name_fault
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
+from pyflightstream._errors import (
+    InputArtifactError,
+    PyflightstreamWarning,
+    UnknownKeyWarning,
+    demote,
+    suggest_name,
+)
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
 from pyflightstream.workspace.sidecars import load_toml
 
@@ -322,12 +328,15 @@ def _refuse_unknown_keys(
     unknown = sorted(str(key) for key in table if str(key) not in allowed)
     if not unknown:
         return
-    raise InputArtifactError(
-        f"the HPC profile {target} states {', '.join(unknown)} {where}, and this package "
-        f"reads {', '.join(sorted(allowed))} there. A key nothing reads is a key that looks "
-        "like it works: a misplaced export_log leaves EXPORT_LOG in the script on the very "
-        "machine the table exists for. Correct the spelling, or move the key to the table "
-        "that takes it."
+    demote(
+        InputArtifactError(
+            f"the HPC profile {target} states {', '.join(unknown)} {where}, and this package "
+            f"reads {', '.join(sorted(allowed))} there. A key nothing reads is a key that looks "
+            "like it works: a misplaced export_log leaves EXPORT_LOG in the script on the very "
+            "machine the table exists for. Correct the spelling, or move the key to the table "
+            "that takes it." + suggest_name(unknown[0], allowed)
+        ),
+        warning=UnknownKeyWarning,
     )
 
 

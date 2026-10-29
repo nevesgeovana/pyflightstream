@@ -1608,8 +1608,17 @@ class TestFr316RowSetupKeys:
         cases = _fr316_row_setup_keys___resolve(
             tmp_path, _fr316_row_setup_keys___row("9407", "viscous_couplingg: ENABLE")
         )
-        with pytest.raises(CampaignConfigError, match="viscous_couplingg"):
+        from pyflightstream._errors import UnknownKeyWarning
+        from pyflightstream.options import option_context
+
+        with pytest.warns(UnknownKeyWarning, match="viscous_couplingg"):
             build_script(cases["9407"], Script(version="26.124"))
+        cases = _fr316_row_setup_keys___resolve(
+            tmp_path, _fr316_row_setup_keys___row("9407", "viscous_couplingg: ENABLE")
+        )
+        with option_context("warning_refusals", True):
+            with pytest.raises(CampaignConfigError, match="viscous_couplingg"):
+                build_script(cases["9407"], Script(version="26.124"))
 
     @staticmethod
     def test_a_table_valued_key_is_refused_naming_what_a_row_can_carry(tmp_path):
