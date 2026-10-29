@@ -34,6 +34,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from pyflightstream._errors import InputValueError
 from pyflightstream.cases import SimCase, SweepAxis
 from pyflightstream.cases._ccs import CCS_SHEDDING_VARIABLE
 from pyflightstream.cases._geometry_instruction import (
@@ -388,7 +389,9 @@ def _emit_section_loft(
     """Emit each section placed at its station, then the CCS wing loft (FR-1132)."""
     loft = create.loft
     if loft is None:
-        raise ValueError("[[create.sections]] are lofted by [create.loft]; the table is not stated")
+        raise InputValueError(
+            "[[create.sections]] are lofted by [create.loft]; the table is not stated"
+        )
     for index, section in enumerate(create.sections, start=1):
         script.emit(
             "CAD_CREATE_IMPORT_CURVE_TXT",

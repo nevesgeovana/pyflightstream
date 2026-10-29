@@ -67,7 +67,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from pyflightstream._digest import text_sha256
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import InputValueError, PyflightstreamError
 
 __all__ = [
     "AXES",
@@ -256,7 +256,7 @@ class QsteadyCorrectionSpec(BaseModel):
         if isinstance(value, str):
             why = unoffered_route(value)
             if why is not None:
-                raise ValueError(f"[qsteady_correction] {why}")
+                raise InputValueError(f"[qsteady_correction] {why}")
         return value
 
     @field_validator("file")
@@ -268,7 +268,7 @@ class QsteadyCorrectionSpec(BaseModel):
         # one form, so it is accepted and dropped rather than refused.
         stem = value[: -len(".toml")] if value.lower().endswith(".toml") else value
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", stem):
-            raise ValueError(
+            raise InputValueError(
                 f"[qsteady_correction] file = {value!r}: name the calibration by its id, the "
                 "stem of inputs/calibrations/<id>.toml (the .toml suffix may be written), "
                 "with no folder"
@@ -278,7 +278,7 @@ class QsteadyCorrectionSpec(BaseModel):
     @model_validator(mode="after")
     def _a_route_names_its_file(self) -> QsteadyCorrectionSpec:
         if self.route != "none" and not self.file:
-            raise ValueError(
+            raise InputValueError(
                 f'[qsteady_correction] route = "{self.route}" names no file: write file = '
                 '"<id>" for the calibration inputs/calibrations/<id>.toml it applies'
             )

@@ -18,7 +18,7 @@ from typing import Annotated, NoReturn
 from pydantic import AfterValidator
 
 from pyflightstream._deprecations import ROW_AIRFRAME_SELECTOR, ROW_BLADES_SELECTOR, refusal_text
-from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream._errors import InputValueError, PyflightstreamWarning, warn
 from pyflightstream._fsm import names_of
 from pyflightstream.cases.reference_blocks import (
     AliasCycleError,
@@ -234,34 +234,34 @@ def _check_aliases(value: dict[str, list[str]]) -> dict[str, list[str]]:
     folded = [name.strip().casefold() for name in value]
     twice = sorted({name for name in folded if folded.count(name) > 1})
     if twice:
-        raise ValueError(
+        raise InputValueError(
             f"the [aliases] table names {', '.join(twice)} more than once, differing only "
             "in case or surrounding space, so which one a cited name selects would depend "
             "on the order of the table. Give each alias one spelling"
         )
     for name, members in value.items():
         if not name.strip():
-            raise ValueError("an alias needs a name; the [aliases] table holds an empty one")
+            raise InputValueError("an alias needs a name; the [aliases] table holds an empty one")
         if name.strip().casefold() in EXPANDING_SELECTORS:
-            raise ValueError(
+            raise InputValueError(
                 f"alias {name!r} takes a word that expands an entry rather than naming a "
                 f"set of surfaces ({', '.join(EXPANDING_SELECTORS)}): an alias may shadow "
                 "airframe and blades, which name a set, and not these. Choose another name"
             )
         if _GROUP_SPELLING.match(name.strip()):
-            raise ValueError(
+            raise InputValueError(
                 f"alias {name!r} is spelled as a pproc group, which a boundary-citing cell "
                 f"reads as [groups] entry {name.strip()[1:]!r}; choose a name that is not "
                 "g<number>"
             )
         if not members:
-            raise ValueError(
+            raise InputValueError(
                 f"alias {name!r} names no member; an alias stands for the boundary names "
                 "or families listed after it"
             )
         for member in members:
             if not isinstance(member, str) or not member.strip():
-                raise ValueError(
+                raise InputValueError(
                     f"alias {name!r} lists {member!r}, and a member is a boundary name or a "
                     "family name (a string)"
                 )

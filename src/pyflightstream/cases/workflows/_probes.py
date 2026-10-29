@@ -23,6 +23,7 @@ from pathlib import (
 import numpy as np
 
 from pyflightstream._errors import (
+    InputValueError,
     PyflightstreamError,
     PyflightstreamWarning,
     warn,
@@ -698,18 +699,21 @@ def _read_probe_profile(path: str, *, volume_only: bool = False) -> list[list[fl
         with Path(path).open(encoding="utf-8-sig", newline="") as handle:
             rows = list(csv.reader(handle))
         if not rows or len(rows[0]) != 1:
-            raise ValueError("the first line must contain the point count")
+            raise InputValueError("the first line must contain the point count")
         count = int(rows[0][0])
         if count < 0 or len(rows) - 1 != count:
             blank = sum(1 for row in rows[1:] if not row)
             note = f" ({blank} of them blank lines; remove them)" if blank else ""
-            raise ValueError(f"declares {count} points but contains {len(rows) - 1} rows{note}")
+            raise InputValueError(
+                f"declares {count} points but contains {len(rows) - 1} rows{note}"
+                ". Make the declared count match the rows."
+            )
         points = []
         for number, row in enumerate(rows[1:], start=1):
             if len(row) != 4 or row[3].strip() not in ("0", "1"):
-                raise ValueError(f"point {number} must be X,Y,Z,TYPE with TYPE 0 or 1")
+                raise InputValueError(f"point {number} must be X,Y,Z,TYPE with TYPE 0 or 1")
             if volume_only and row[3].strip() == "0":
-                raise ValueError(
+                raise InputValueError(
                     f"point {number}: a surface TYPE 0 row cannot be expanded as a "
                     "volume probe; a steady row that scales or transforms a survey, "
                     "or requests a field, volume section or reusable inflow, expands "
@@ -719,7 +723,9 @@ def _read_probe_profile(path: str, *, volume_only: bool = False) -> list[list[fl
                 )
             point = [float(value) for value in row[:3]]
             if not all(math.isfinite(value) for value in point):
-                raise ValueError(f"point {number} has a non-finite coordinate")
+                raise InputValueError(
+                    f"point {number} has a non-finite coordinate. Replace it with a finite number."
+                )
             points.append(point)
         return points
     except (OSError, UnicodeError, ValueError, csv.Error) as error:

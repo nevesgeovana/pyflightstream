@@ -113,6 +113,7 @@ from pydantic import (
 )
 
 from pyflightstream._digest import text_sha256
+from pyflightstream._errors import InputValueError
 from pyflightstream._retired_names import retired_frame
 from pyflightstream.cases._setup_keys import FLAG_PHASES as FLAG_PHASES
 from pyflightstream.cases._setup_keys import RAW_PHASES as RAW_PHASES
@@ -637,15 +638,15 @@ class FrameSpec(BaseModel):
     def _a_name_of_its_own(self) -> FrameSpec:
         name = self.name
         if not name:
-            raise ValueError("a frame needs a name")
+            raise InputValueError("a frame needs a name")
         retired = retired_frame(name)
         if retired is not None:
             # REFUSED WHERE IT IS WRITTEN, not only where it is cited. A reference
             # may not declare a retired frame spelling such as PROP_MRP and then
             # encounter the retirement only when another artifact cites it.
-            raise ValueError(retired.message(wrote=name))
+            raise InputValueError(retired.message(wrote=name))
         if name.upper() in RESERVED_FRAME_NAMES or RESERVED_FRAME_PATTERN.match(name.upper()):
-            raise ValueError(
+            raise InputValueError(
                 f"the frame name {self.name!r} is one the package creates itself "
                 f"({', '.join(RESERVED_FRAME_NAMES)}, and BladeAxis<k> on a rotor "
                 "row); choose another name. A rotor's own frames are protected "
@@ -939,7 +940,7 @@ class SimCase(BaseModel):
         """Refuse an id that is not one folder name: ``sims/sim_<id>`` is made from it."""
         bad = sorted({c for c in value if c in '<>:"/\\|?*' or ord(c) < 32})
         if not value or bad or value != value.strip() or value.endswith("."):
-            raise ValueError(
+            raise InputValueError(
                 f"sim_id {value!r} cannot name the folder sims/sim_<id>: it is empty, has "
                 f"leading or trailing space, ends in a dot or holds {bad!r}. Use letters, "
                 "digits, '-' and '_'."

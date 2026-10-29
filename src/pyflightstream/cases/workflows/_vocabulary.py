@@ -22,7 +22,7 @@ from types import (
     MappingProxyType,
 )
 
-from pyflightstream._errors import RetiredKeyWarning, demote
+from pyflightstream._errors import InputValueError, RetiredKeyWarning, demote
 from pyflightstream._fsi_calibration import (
     MATRIX_FACTORS,
 )
@@ -671,7 +671,7 @@ def read_a_choice(word: object, *, context: str) -> bool:
         return CHOICE_WORDS[text]
     yes = ", ".join(name for name, state in CHOICE_WORDS.items() if state)
     no = ", ".join(name for name, state in CHOICE_WORDS.items() if not state)
-    raise ValueError(
+    raise InputValueError(
         f"{context}: {str(word)!r} is not a yes or a no. Write one of {yes} for yes, or "
         f"one of {no} for no. A word this reader does not know is refused rather than "
         "read as the default, because reading it as the default would give you the "

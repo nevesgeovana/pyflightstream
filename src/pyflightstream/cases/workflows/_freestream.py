@@ -59,6 +59,7 @@ from types import (
 )
 
 from pyflightstream._errors import (
+    InputValueError,
     PyflightstreamWarning,
     warn,
 )
@@ -753,15 +754,18 @@ def _finish_custom_field_coverage(case: SimCase, script: Script) -> None:
 
     try:
         if script.raw_flag:
-            raise ValueError("raw commands can change geometry or its frames")
+            raise InputValueError("raw commands can change geometry or its frames")
         vertices = _body_vertices_m(case)
         if vertices is None:
-            raise ValueError("mesh coordinates or their physical units are unavailable")
+            raise InputValueError(
+                "mesh coordinates or their physical units are unavailable"
+                ". Open a mesh whose units the script knows."
+            )
         bounds, notes = spatial_envelope(
             vertices, script.surface_operations, list(script.frame_motions.values())
         )
         if moved and not script.surface_operations and not _a_frame_may_move(script):
-            raise ValueError("the requested geometry change has no emitted placement record")
+            raise InputValueError("the requested geometry change has no emitted placement record")
     except (ValueError, TypeError, KeyError) as error:
         script.custom_field_coverage = {"state": "unknown", "reason": str(error)}
         warn(

@@ -29,6 +29,7 @@ from typing import (
 )
 
 from pyflightstream._errors import (
+    InputValueError,
     NotApplicableWarning,
     PyflightstreamWarning,
     UnknownKeyWarning,
@@ -1204,7 +1205,7 @@ def row_solver_setting(case: SimCase, key: str) -> tuple[int | bool | None, bool
     if key == "symmetry_loads":
         stated = _variable(case, SYMMETRY_LOADS_VARIABLE) is not None
         return row_symmetry_loads(case, None if stated else case.solver.symmetry_loads), stated
-    raise ValueError(f"unknown row solver setting {key!r}; use max_threads or symmetry_loads")
+    raise InputValueError(f"unknown row solver setting {key!r}; use max_threads or symmetry_loads")
 
 
 def _stated_rate(case: SimCase, key: str) -> float | None:

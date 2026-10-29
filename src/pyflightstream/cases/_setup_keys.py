@@ -31,6 +31,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from pyflightstream._errors import InputValueError
 from pyflightstream.commands import CommandRegistry, Phase
 
 __all__ = [
@@ -62,14 +63,15 @@ def _a_moments_model(value: str) -> str:
     if not allowed:
         # AN EMPTY LIST REFUSES EVERY WORD, and says why: a database entry that
         # lost its token list must not read as "your value is not one of ()".
-        raise ValueError(
+        raise InputValueError(
             f"moments_model = {value!r} cannot be checked: the command database lists no "
             "token for SET_ANALYSIS_MOMENTS_MODEL (commands/solver_analysis.yaml)"
+            " Choose another moments model."
         )
     for token in allowed:
         if token.upper() == str(value).strip().upper():
             return token
-    raise ValueError(
+    raise InputValueError(
         f"moments_model = {value!r} is not one of {', '.join(allowed)} "
         "(SET_ANALYSIS_MOMENTS_MODEL, FSM-26.120 p.350)"
     )
@@ -368,21 +370,21 @@ class CustomFlag(BaseModel):
     @model_validator(mode="after")
     def _a_name_and_a_bare_command(self) -> CustomFlag:
         if not self.name:
-            raise ValueError("a flag needs a name, the word a matrix row writes for it")
+            raise InputValueError("a flag needs a name, the word a matrix row writes for it")
         if not self.command:
-            raise ValueError(
+            raise InputValueError(
                 f"the flag {self.name!r} names no command; write the FlightStream "
                 'command it becomes, bare, as command = "SET_SIGNIFICANT_DIGITS"'
             )
         if len(self.command.split()) > 1:
-            raise ValueError(
+            raise InputValueError(
                 f"the flag {self.name!r} states command = {self.command!r}, which carries "
                 "arguments. A flag is the command alone and the ROW states the value; a "
                 "line with its arguments already in it is a [[raw]] entry, which is what "
                 "that table is for."
             )
         if self.before is not None and self.before not in FLAG_PHASES:
-            raise ValueError(
+            raise InputValueError(
                 f"the flag {self.name!r} is declared before {self.before!r}, which is not a "
                 f"seam a flag reaches; a flag is emitted before one of "
                 f"{', '.join(FLAG_PHASES)}, three of the seven a [[raw]] entry reaches. "
@@ -441,14 +443,17 @@ class RawCommand(BaseModel):
     def _one_line_before_a_known_phase(self) -> RawCommand:
         line = self.command
         if not line:
-            raise ValueError("a raw entry needs a command, the line as the solver reads it")
+            raise InputValueError(
+                "a raw entry needs a command, the line as the solver reads it"
+                ". State the command key."
+            )
         if "\n" in line or "\r" in line:
-            raise ValueError(
+            raise InputValueError(
                 f"the raw command {self.command!r} spans several lines; an entry is one "
                 "command line, and a command that is a block is not carried here"
             )
         if self.before not in RAW_PHASES:
-            raise ValueError(
+            raise InputValueError(
                 f"the raw command {line!r} is declared before {self.before!r}, which is not a "
                 f"phase; write one of {', '.join(RAW_PHASES[1:])}, or control for a line at "
                 "the head of the script"
