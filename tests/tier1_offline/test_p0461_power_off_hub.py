@@ -543,8 +543,15 @@ def test_rel2_001_a_row_declaring_no_rotor_counts_no_revolutions(tmp_path):
         assert any(f"states {key}" in message for message in skipped), skipped
     threshold = unsteady_export_threshold(case, version="26.124")
     assert threshold is None or threshold.stated_form != "revolutions", threshold
-    # Two revolutions of 18 steps would be steps 19 to 54; the stated key is not counted.
-    average = reduction_windows(case)["time_average"]
-    assert average["windows"] != [[19, 54]]
-    assert "LAST_REVS_AVG" not in average["window_from"]
+    # Two revolutions of 18 steps would be steps 19 to 54; the skipped key leaves the
+    # whole run, in the plan and in the post that reads the plan's record.
+    from types import SimpleNamespace
+
+    from pyflightstream.post._condition import _matrix_window
+
+    record = reduction_windows(case)
+    assert record["time_average"]["windows"] == [[1, 54]]
+    assert record["steps_per_revolution"] is None
+    row = SimpleNamespace(variables=dict(case.variables))
+    assert _matrix_window(row, SimpleNamespace(reductions=record)) is None
     assert "7621" in _farfield_windows_skipped(plan)
