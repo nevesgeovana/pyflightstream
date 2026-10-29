@@ -918,3 +918,28 @@ def test_p0430_a_declared_refinement_study_writes_the_uncertainty_beside_the_pol
         assert float(row["ORDER"]) == pytest.approx(2.0, abs=0.05)
         assert float(row["EXTRAPOLATED"]) == pytest.approx(exact, abs=2e-4)
         assert abs(finest - exact) <= float(row["U_NUM"])
+
+
+@pytest.mark.requirement("FR-3245", "FR-3343")
+def test_rel1_002_an_interpolated_polar_is_not_a_refinement_level(tmp_path):
+    """REL1-002: [[polar_at]] tables beside each level's polar make no refinement study."""
+    import warnings
+
+    workspace = _three_levels(tmp_path)
+    for path in sorted((workspace.inputs_dir / "pproc").glob("*.toml")):
+        path.write_text(
+            path.read_text(encoding="utf-8") + '\n[[polar_at]]\naxis = "ALPHA"\nvalues = [1]\n',
+            encoding="utf-8",
+        )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    out = workspace.products_dir("matriz")
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    studies = sorted(
+        name
+        for name, entry in manifest["products"].items()
+        if entry.get("kind") == "refinement_study"
+    )
+    assert studies == ["polars/GCI-P6001_g01.csv", "polars/GCI-P6001_g02.csv"]
+    assert any(name.endswith("_at_alpha.csv") for name in manifest["products"])

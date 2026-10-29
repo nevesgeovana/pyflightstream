@@ -485,7 +485,10 @@ def write_refinement_studies(ctx: _CampaignProducts) -> None:
     }
     polars: dict[str, dict[str, Path]] = {}
     for name, entry in ctx.products_index.items():
-        found = None if name.endswith("_trim.csv") else _POLAR_NAME.match(name)
+        # A trimmed or [[polar_at]] table beside a polar shares its name pattern but
+        # is no level of the study; read as one, it made a study of a fabricated group.
+        derived = name.endswith("_trim.csv") or entry.get("kind") == "interpolated"
+        found = None if derived else _POLAR_NAME.match(name)
         if found and entry.get("sim_id") == found["sim"]:
             polars.setdefault(found["sim"], {})[found["group"]] = ctx.out / name
     for levels, study in studies.items():
