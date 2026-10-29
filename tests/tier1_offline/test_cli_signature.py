@@ -190,6 +190,19 @@ def test_p0500_warning_defaults_and_strict_refusals(name, tmp_path, capsys, monk
     assert get_option("console_warnings") is True
 
 
+@pytest.mark.requirement("FR-3395")
+def test_rel1_003_every_log_key_is_in_the_settings_table():
+    """REL1-003: the workspace settings page lists every key ``[log]`` accepts."""
+    from pathlib import Path
+
+    from pyflightstream.workspace._settings_file import LOG_KEYS
+
+    page = Path(__file__).resolve().parents[2] / "docs" / "workspace-settings.md"
+    lines = page.read_text(encoding="utf-8").splitlines()
+    row = next(line for line in lines if line.startswith("| `[log]`"))
+    assert [key for key in LOG_KEYS if f"`{key}`" not in row] == []
+
+
 #: The koala with its one phrase, exactly as the owner drew it.
 KOALA = """\
 #################################################################################

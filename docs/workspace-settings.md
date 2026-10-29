@@ -58,7 +58,7 @@ does not. Each value has the type its option takes.
 | table | keys |
 |---|---|
 | `[defaults]` | `fs_version`, `hpc`, `cost_file`, `fs_exe`, `point_name`, `recipe`, `workflow`, `ignore_missing_families`, `check_frozen`, `progress_every`, `local` |
-| `[log]` | `console` (`"quiet"`, `"normal"` or `"verbose"`), `pproc_warnings` |
+| `[log]` | `console` (`"quiet"`, `"normal"` or `"verbose"`), `pproc_warnings`, `warnings` (false hides console warnings; `--warning-off` wins) |
 
 Each of these is refused before any work, with a message naming the key (or
 the parse error) and the file; nothing is written in the workspace and the
