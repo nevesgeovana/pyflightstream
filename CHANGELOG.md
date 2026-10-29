@@ -21,6 +21,16 @@ FlightStream versions.
   An explicit `RPM` turns the frame alone, signed by the rotor block, with no
   moving boundary; absent RPM keeps it fixed with one campaign warning naming
   the rows. Frame entries are placed in both cases (FR-3350, FR-3351).
+- Power-off `unsteady` rows run on the clock of their `unsteady_rotor` twin.
+  A row whose reference declares a rotor and that states its speed
+  (`ADVANCE_RATIO` or `RPM`, with `CLOCK_MOTION` naming the rotor where several
+  are declared) resolves its step, step count, `EXPORT_UNSTEADY_AFTER_REV`,
+  `EXPORT_UNSTEADY_LAST_REV`, `LAST_REVS_AVG` and far-field `last_revs` windows
+  exactly as the twin with the same keys, so both export and average the same
+  steps. Without a speed, those revolution keys warn as not applicable and are
+  skipped; iteration keys are unchanged (FR-3360 to FR-3364).
+  Migration: a power-off row stating revolution keys and no rotor speed now
+  warns and skips them instead of refusing the row.
 - Wake entries on `qsteady_rotor` rows export the final steady wake and write W
   thrust, torque and near-field comparisons using the signed rotating relative
   velocity. Multiple clockings use clocking 0 with a named skip note; A and B

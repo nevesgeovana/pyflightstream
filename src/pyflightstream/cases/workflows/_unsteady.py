@@ -42,6 +42,7 @@ from ._conventions import (
     WorkflowConventions,
     declared_run_type,
 )
+from ._export_first_step import warn_revolution_keys_without_a_clock
 from ._exports import (
     _declared_export_kinds,
 )
@@ -255,8 +256,10 @@ def _refuse_cold_start_on_a_march(case: SimCase, run_type: str) -> None:
 def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
     """Build an unsteady point of a body that does not move.
 
-    The clock is stated directly. Declared rotor blocks place their hub and
-    RMRP frames; an explicit RPM turns the latter with no moving boundary.
+    The clock is stated directly, or, where the reference declares a rotor and
+    the row states its speed, it is that rotor's clock as on the power-on twin
+    (PFS-2184.10). Declared rotor blocks place their hub and RMRP frames; an
+    explicit RPM turns the latter with no moving boundary.
     """
     _refuse_the_loads_selections_on_a_march(case)
     _refuse_cold_start_on_a_march(case, "unsteady")
@@ -288,6 +291,8 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     threshold = unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "unsteady")
     _require_the_averaging_window(case, "unsteady")
+    # PFS-2184.10: revolutions with no rotor clock to count them are skipped.
+    warn_revolution_keys_without_a_clock(case)
     disc = _the_actuator_the_row_names(case)
     custom = _the_custom_freestream(case)
     _raw_commands(case, script, "control")

@@ -363,3 +363,157 @@ def test_p0471_surface_probes_on_a_steady_row_are_warned_once_and_skipped(tmp_pa
     for text in rendered.values():
         assert "NEW_UNSTEADY_SOLVER_SURFACE_PROBE" not in text
         assert text.splitlines().count("NEW_SURFACE_SECTION_DISTRIBUTION") == 1
+
+
+# --- PFS-2184.10: a power-off row runs on its power-on twin's clock ------------------
+
+
+def _point_cases(tmp_path, rows, condition="MACH:0.1, REmi:2.3, ALPHA:sweep", pproc=""):
+    """Plan ``rows`` (POL, run type, configuration, cell); return the plan, cases and warnings.
+
+    The cases are the rows as the workspace resolves them, at their one point.
+    """
+    from pyflightstream.workspace import CampaignWorkspace
+    from pyflightstream.workspace.matrix import resolve_matrix
+    from tests.tier1_offline.test_tier3_offline import _plan as plan_the_matrix
+
+    root = _tier3_copy(tmp_path)
+    (root / "inputs" / "pproc" / "p061.toml").write_text(pproc, encoding="utf-8")
+    # A build that documents the unsteady solver actions the export thresholds run on.
+    (root / "inputs" / "executables.toml").write_text(
+        '"26.124" = {path = "FlightStream.exe", version = "26.124"}\n', encoding="utf-8"
+    )
+    header, rule = TOUR.read_text(encoding="utf-8").splitlines()[:2]
+    lines = [
+        f"{pol} | 0 | 1 | Pusher | - | P0500 | {condition} | 0.0 | {geometry} | {reference} "
+        f"| s002 | p061 | NONE | - | - | - | 26.124 | {workflow} | {cell}"
+        for pol, workflow, (geometry, reference), cell in rows
+    ]
+    matrix = root / "p0500.fs"
+    matrix.write_text("\n".join([header, rule, *lines]) + "\n", encoding="utf-8")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan = plan_the_matrix(root, matrix)
+        resolved = resolve_matrix(
+            matrix, CampaignWorkspace(root), name="p0500", fs_version="26.124", recipes={}
+        )
+    cases = {
+        case.sim_id: case.model_copy(update={"point": {"alpha": 0.0}})
+        for case in resolved.campaign.sims
+    }
+    return plan, cases, list(caught)
+
+
+#: One far-field entry averaging the last half revolution.
+_LAST_REVS_FARFIELD = (
+    '[[farfields]]\nvariant = "plane"\nexport_type = "avg_window"\nlast_revs = 0.5\n'
+)
+
+
+def _farfield_windows_skipped(plan) -> dict[str, str]:
+    """The reason each planned row records for not taking a far-field window, by row."""
+    return {
+        point.sim_id: entry["reason"]
+        for point in plan.points
+        for entry in (point.farfield or {}).get("inputs", [])
+        if entry.get("input") == "window" and entry.get("state") == "not_applicable"
+    }
+
+
+#: Each clock a power-off row states as its power-on twin does: the configuration,
+#: the flight condition, the speed and clock-rotor keys of each row, and the clock and
+#: window keys both rows share.
+_TWIN_CLOCKS = {
+    "advance-ratio-azimuthal-after-rev": (
+        _PUSHER,
+        "MACH:0.1, REmi:2.3, ALPHA:sweep, ADVANCE_RATIO:0.9",
+        "CLOCK_MOTION: PUSHER / MOTIONS: {MOVING_BC_ALIAS: PUSHER}",
+        "CLOCK_MOTION: PUSHER",
+        "DELTA_THETA: 10 / REVOLUTIONS: 3 / EXPORT_UNSTEADY_AFTER_REV: 2 / LAST_REVS_AVG: 1",
+    ),
+    "rpm-explicit-last-rev-two-rotors": (
+        _TWIN,
+        "MACH:0.1, REmi:2.3, ALPHA:sweep, RPM:800",
+        "CLOCK_MOTION: PORT / MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD}",
+        "CLOCK_MOTION: PORT",
+        "DELTA_TIME: 0.0025 / TIME_ITERATIONS: 90 / EXPORT_UNSTEADY_LAST_REV: 0.5 / "
+        "LAST_REVS_AVG: 1.5",
+    ),
+}
+
+
+@pytest.mark.requirement("FR-3360")
+@pytest.mark.requirement("FR-3361")
+@pytest.mark.requirement("FR-3362")
+@pytest.mark.parametrize("clock", sorted(_TWIN_CLOCKS))
+def test_p0500_power_off_row_runs_on_its_power_on_twins_clock(tmp_path, clock):
+    """PFS-2184.10: same step, count, export threshold and averaging windows on both rows."""
+    from pyflightstream.cases.workflows import (
+        reduction_windows,
+        unsteady_export_threshold,
+        unsteady_time_stepping,
+    )
+    from pyflightstream.cases.workflows._farfield import farfield_export_windows
+    from pyflightstream.cases.workflows._freestream import rotor_row_stepping
+
+    where, condition, on_keys, off_keys, shared = _TWIN_CLOCKS[clock]
+    rows = [
+        (7601, "unsteady_rotor", where, f"{on_keys} / {shared}"),
+        (7602, "unsteady", where, f"{off_keys} / {shared}"),
+    ]
+    plan, cases, _ = _point_cases(tmp_path, rows, condition, _LAST_REVS_FARFIELD)
+    assert not plan.blocked, plan.summary()
+    assert not _farfield_windows_skipped(plan), plan.summary()
+    on, off = cases["7601"], cases["7602"]
+    powered = rotor_row_stepping(on)
+    assert powered.steps_per_revolution is not None
+    assert unsteady_time_stepping(off) == powered
+    thresholds = [unsteady_export_threshold(case, version="26.124") for case in (on, off)]
+    assert None not in thresholds
+    fields = ("stated_form", "stated_value", "first_step", "time_iterations")
+    fields += ("delta_time_s", "step_deg", "rpm")
+    assert [getattr(thresholds[1], name) for name in fields] == [
+        getattr(thresholds[0], name) for name in fields
+    ]
+    windows = [reduction_windows(case)["time_average"]["windows"] for case in (on, off)]
+    assert windows[1] == windows[0]
+    assert farfield_export_windows(off) == farfield_export_windows(on) != ()
+
+
+@pytest.mark.requirement("FR-3363")
+@pytest.mark.requirement("FR-3364")
+def test_p0500_revolution_keys_without_a_clock_warn_and_skip(tmp_path):
+    """No ADVANCE_RATIO or RPM: revolution keys warn and are skipped; iteration keys hold."""
+    from pyflightstream._errors import NotApplicableWarning
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import (
+        build_script,
+        reduction_windows,
+        unsteady_export_threshold,
+    )
+    from pyflightstream.options import option_context
+    from pyflightstream.script import Script
+
+    clock = "DELTA_TIME: 0.01 / TIME_ITERATIONS: 12"
+    rows = [
+        (7611, "unsteady", _PUSHER, f"{clock} / EXPORT_UNSTEADY_AFTER_REV: 1 / LAST_REVS_AVG: 1"),
+        (7612, "unsteady", _PUSHER, f"{clock} / EXPORT_UNSTEADY_AFTER_ITER: 4 / LAST_ITERS_AVG: 6"),
+    ]
+    plan, cases, caught = _point_cases(tmp_path, rows)
+    assert not plan.blocked, plan.summary()
+    skipped = [
+        str(item.message) for item in caught if issubclass(item.category, NotApplicableWarning)
+    ]
+    for key in ("EXPORT_UNSTEADY_AFTER_REV", "LAST_REVS_AVG"):
+        said = [message for message in skipped if f"states {key}" in message]
+        assert said, skipped
+        assert all("'ADVANCE_RATIO: <J>'" in m and "'RPM: <rev/min>'" in m for m in said), said
+    clockless, counted = cases["7611"], cases["7612"]
+    assert unsteady_export_threshold(clockless, version="26.124") is None
+    assert reduction_windows(clockless)["time_average"]["windows"] == [[1, 12]]
+    threshold = unsteady_export_threshold(counted, version="26.124")
+    assert (threshold.stated_form, threshold.first_step) == ("iterations", 4)
+    assert reduction_windows(counted)["time_average"]["windows"] == [[7, 12]]
+    with option_context("warning_refusals", True), pytest.raises(CampaignConfigError) as refused:
+        build_script(clockless, Script("26.124"))
+    assert "'ADVANCE_RATIO: <J>'" in str(refused.value)

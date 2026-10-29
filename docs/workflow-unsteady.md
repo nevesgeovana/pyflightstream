@@ -9,12 +9,31 @@ needs the unsteady answer for a shape with no rotor in it, and because a
 powered and an unpowered configuration are only comparable when they are
 solved on the SAME discretisation.
 
-**Its clock is `DELTA_TIME` and `TIME_ITERATIONS`, and the azimuthal pair
-is refused on it.** `DELTA_THETA` and `REVOLUTIONS` are not a clock: they
-become one by dividing by a rotor speed, and a run that turns nothing has
-none. The refusal says so and does not offer you a rotor speed, because a
-speed stated to satisfy it would set the physical time step of a run that
-turns no blades. A row carrying `RPM_SIGN`,
+**Its clock is `DELTA_TIME` and `TIME_ITERATIONS`, or the clock of its
+power-on twin.** `DELTA_THETA` and `REVOLUTIONS` are not a clock by
+themselves: they become one by dividing by a rotor speed, and a row stating
+the pair with no speed is refused.
+
+**A power-off row states its clock as its power-on twin does.** When the
+reference declares a rotor and the row states that rotor's speed,
+`ADVANCE_RATIO` (J) or `RPM`, the row runs on the clock the `unsteady_rotor`
+row with the same keys runs on: the same step from the azimuth per step, the
+same revolution count, and the same `EXPORT_UNSTEADY_AFTER_REV`,
+`EXPORT_UNSTEADY_LAST_REV`, `LAST_REVS_AVG` and far-field `last_revs` windows.
+Where the reference declares several rotors, `CLOCK_MOTION: <rotor>` names the
+one whose speed owns the clock, as on the twin. For example, a power-on row
+`CLOCK_MOTION: PUSHER / MOTIONS: {MOVING_BC_ALIAS: PUSHER} / DELTA_THETA: 10 /
+REVOLUTIONS: 3 / LAST_REVS_AVG: 1` and the power-off row `CLOCK_MOTION: PUSHER
+/ DELTA_THETA: 10 / REVOLUTIONS: 3 / LAST_REVS_AVG: 1`, both at
+`ADVANCE_RATIO:0.9` in their flight condition, march 108 steps of the same
+length and average the same last 36. Nothing turns but the clock: no geometry
+moves and no motion boundary is added; the RMRP frames turn only at an
+explicit `RPM`, as below.
+
+Without a rotor speed, a revolution key (`EXPORT_UNSTEADY_AFTER_REV`,
+`EXPORT_UNSTEADY_LAST_REV`, `LAST_REVS_AVG`) warns as not applicable, naming
+`ADVANCE_RATIO` and `RPM`, and is skipped; the iteration keys are unchanged. A
+row carrying `RPM_SIGN`,
 `ROTOR_AXIS`, `ROTOR_ORIGIN` or `MOVING_BOUNDARIES` is refused for the
 same reason: nothing would read them, and the run would be recorded as
 though they had been honoured.
@@ -24,7 +43,8 @@ and `<ALIAS>_RMRP` at the hub, on its axes. An explicit `RPM` magnitude turns
 only each RMRP, signed by that block's `rpm_sign`, with no boundary attached
 to the motion. For example, `DELTA_TIME: 0.01 / TIME_ITERATIONS: 12 /
 LAST_ITERS_AVG: 6 / RPM: 600` turns the frames at 600 rev/min while the
-surfaces stay fixed. The time step still comes from `DELTA_TIME`.
+surfaces stay fixed. The time step still comes from `DELTA_TIME`, and the
+revolutions of the turning frames are counted on it.
 
 Without `RPM`, each RMRP stays at the SMRP pose and its entries are placed.
 One campaign warning names these rows: "placed fixed: the row states no RPM".
@@ -46,8 +66,9 @@ different refusal for a different reason, and a rotor row meets none.
 time steps: `EXPORT_UNSTEADY_AFTER_ITER: <step>` begins them at a step, and
 `EXPORT_UNSTEADY_LAST_ITER: <steps>` covers the last `<steps>` steps of the run
 (first exported step `TIME_ITERATIONS - <steps> + 1`), at most one of the two
-per row. The revolutions forms are refused here, having no rotor clock;
-the refusal names the iterations form. See [the last revolutions or the last
+per row. The revolutions forms count the rotor clock of a power-off row that
+states one; without it they warn and are skipped, naming the iterations form
+and the rotor speed. See [the last revolutions or the last
 steps of a run](workflow-unsteady-rotor.md#the-last-revolutions-or-the-last-steps-of-a-run).
 
 The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` is for cases written in Python; workflow rows refuse it. See [Upgrading](upgrading.md) for older matrices.

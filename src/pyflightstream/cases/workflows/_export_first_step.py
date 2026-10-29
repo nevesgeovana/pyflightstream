@@ -20,13 +20,15 @@ from pyflightstream.cases import CampaignConfigError, SimCase
 
 from ._exports import surface_time_averaging
 from ._rows import _required_float, _required_int, _variable
-from ._timing import TimeStepping
+from ._timing import POWER_OFF_CLOCK_REMEDY, TimeStepping, revolution_keys_without_a_clock
 from ._vocabulary import (
     EXPORT_THRESHOLD_VARIABLES,
     EXPORT_UNSTEADY_AFTER_ITER_VARIABLE,
     EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
     EXPORT_UNSTEADY_LAST_ITER_VARIABLE,
     EXPORT_UNSTEADY_LAST_REV_VARIABLE,
+    LAST_ITERS_AVG_VARIABLE,
+    LAST_REVS_AVG_VARIABLE,
     STEADY_RUN_TYPES,
 )
 
@@ -47,7 +49,37 @@ _LAST_KEYS = (EXPORT_UNSTEADY_LAST_REV_VARIABLE, EXPORT_UNSTEADY_LAST_ITER_VARIA
 _ITER_REMEDY = {
     EXPORT_UNSTEADY_AFTER_REV_VARIABLE: EXPORT_UNSTEADY_AFTER_ITER_VARIABLE,
     EXPORT_UNSTEADY_LAST_REV_VARIABLE: EXPORT_UNSTEADY_LAST_ITER_VARIABLE,
+    LAST_REVS_AVG_VARIABLE: LAST_ITERS_AVG_VARIABLE,
 }
+#: What skipping each revolution key leaves the row with.
+_SKIPPED = {
+    EXPORT_UNSTEADY_AFTER_REV_VARIABLE: "no per-step export begins from it",
+    EXPORT_UNSTEADY_LAST_REV_VARIABLE: "no per-step export begins from it",
+    LAST_REVS_AVG_VARIABLE: "the products average the whole run",
+}
+
+
+def warn_revolution_keys_without_a_clock(case: SimCase) -> None:
+    """Warn that a power-off row's revolution keys are skipped, naming the clock (PFS-2184.10).
+
+    Every reader of the keys skips them through
+    :func:`~._timing.revolution_keys_without_a_clock`; the builder of the run
+    type that turns nothing calls this once, before its first emission, so
+    the warning, or the refusal under ``warning_refusals``, reaches the plan.
+
+    Parameters
+    ----------
+    case : SimCase
+        A row of the run type that turns nothing.
+    """
+    for key in revolution_keys_without_a_clock(case):
+        refusal = CampaignConfigError(
+            f"case {case.sim_id!r} states {key} and names a run type with no rotor "
+            "clock: a revolution is counted on a rotor the run turns, and this one "
+            f"turns nothing. State '{_ITER_REMEDY[key]}: <steps>' instead. "
+            f"{POWER_OFF_CLOCK_REMEDY} Skipped: {_SKIPPED[key]}."
+        )
+        demote(refusal, warning=NotApplicableWarning)
 
 
 def stated_threshold_keys(case: SimCase) -> dict[str, str]:
@@ -70,6 +102,30 @@ def stated_threshold_keys(case: SimCase) -> dict[str, str]:
         for key in EXPORT_THRESHOLD_VARIABLES
         if (text := _variable(case, key)) is not None
     }
+
+
+def applicable_threshold_keys(case: SimCase) -> dict[str, str]:
+    """Return the threshold keys the row states that its run can count (PFS-2184.10).
+
+    A revolution key a power-off row has no rotor clock to count is skipped; its
+    builder warns once (:func:`warn_revolution_keys_without_a_clock`). Two keys
+    stay two statements of one step, and are refused before either is skipped.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case whose variables are read.
+
+    Returns
+    -------
+    dict of str to str
+        :func:`stated_threshold_keys` without the skipped ones.
+    """
+    stated = stated_threshold_keys(case)
+    skipped = revolution_keys_without_a_clock(case)
+    if skipped:
+        refuse_two_threshold_keys(case, stated)
+    return {key: text for key, text in stated.items() if key not in skipped}
 
 
 def refuse_two_threshold_keys(case: SimCase, stated: dict[str, str]) -> None:
@@ -161,10 +217,14 @@ def _steps_of(number: float, per_revolution: float) -> int:
 def _revolutions_to_steps(
     case: SimCase, key: str, stepping: TimeStepping, workflow: str
 ) -> tuple[float, int]:
-    """Return the revolutions a row states and the steps they make, or refuse a rotorless run."""
+    """Return the revolutions a row states and the steps they make, or refuse a rotorless run.
+
+    A power-off row whose clock has a revolution counts it as its power-on twin
+    does (PFS-2184.10); one without is skipped before this is reached.
+    """
     number = _required_float(case, key, quantity="export threshold", unit="revolutions")
     per_revolution = stepping.steps_per_revolution
-    if workflow == "unsteady_rotor" and per_revolution is not None:
+    if workflow in _UNSTEADY_WORKFLOWS and per_revolution is not None:
         return number, _steps_of(number, per_revolution)
     hint = ""
     if per_revolution is not None:

@@ -70,7 +70,7 @@ from ._rows import (
     _variable,
     continuation_of,
 )
-from ._timing import unsteady_time_stepping
+from ._timing import POWER_OFF_CLOCK_REMEDY, unsteady_time_stepping
 from ._vocabulary import ROTOR_ORIGIN_VARIABLE
 
 __all__ = [
@@ -173,12 +173,21 @@ def _entry_window(spec: FarfieldSpec, case: SimCase) -> str:
             f'case {case.sim_id!r}: {key} requires export_type = "avg_window"'
         )
     if key == "last_revs":
+        remedy = ""
         if _rotor(case):
             per_revolution = rotor_row_stepping(case).steps_per_revolution
+        else:
+            # A POWER-OFF ROW counts its declared rotor's revolutions once it states
+            # that rotor's speed, on its power-on twin's clock (PFS-2184.10).
+            remedy = f". {POWER_OFF_CLOCK_REMEDY.rstrip('.')}"
+            try:
+                per_revolution = unsteady_time_stepping(case).steps_per_revolution
+            except CampaignConfigError:
+                per_revolution = None
         if per_revolution is None:
             return (
                 "its last_revs window counts rotor revolutions and this row has no rotor "
-                "clock; the rotor rows take it, and last_steps serves every unsteady row"
+                f"clock; the rotor rows take it, and last_steps serves every unsteady row{remedy}"
             )
     averaging_steps(
         {"LAST_REVS_AVG" if key == "last_revs" else "LAST_ITERS_AVG": value},

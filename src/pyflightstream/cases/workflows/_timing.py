@@ -36,6 +36,8 @@ from ._conventions import (
     select_workflow,
 )
 from ._motion import (
+    _clock_speed,
+    _motion_view,
     _optional_rotor_speed,
 )
 from ._rows import (
@@ -43,15 +45,22 @@ from ._rows import (
     _own_speed,
     _required_float,
     _required_int,
+    _stated_advance_ratio,
+    _stated_rpm,
     _variable,
     parse_restart,
+    rotor_speed,
     row_walltime_s,
 )
 from ._vocabulary import (
     ADVANCE_RATIO_VARIABLE,
+    CLOCK_MOTION_VARIABLE,
     DELTA_THETA_VARIABLE,
     DELTA_TIME_VARIABLE,
     EXPORT_THRESHOLD_VARIABLES,
+    EXPORT_UNSTEADY_LAST_REV_VARIABLE,
+    LAST_REVS_AVG_VARIABLE,
+    MOVING_BC_ALIAS_VARIABLE,
     RESTART_ADDITIONAL_ITERS,
     RESTART_ADDITIONAL_REVS,
     RESTART_FINISH_PENDING,
@@ -129,8 +138,11 @@ def march_strategy(
     if select_workflow(case) not in ("unsteady", "unsteady_rotor"):
         return None
     wanted: list[tuple[str, str]] = []
+    # A revolution key a power-off row cannot count is skipped, so it asks for no
+    # export action either (PFS-2184.10).
+    skipped = revolution_keys_without_a_clock(case)
     for key in EXPORT_THRESHOLD_VARIABLES:
-        if _variable(case, key) is not None:
+        if _variable(case, key) is not None and key not in skipped:
             wanted.append(
                 (
                     f"per-step snapshot exports ({key})",
@@ -644,6 +656,98 @@ def _run_wake_stepping(case: SimCase, speed: RotorSpeed | None) -> TimeStepping:
 # --- PFS-2028.01: the third run type, unsteady with nothing turning ----------
 
 
+def power_off_clock(case: SimCase) -> SimCase | None:
+    """Return the row whose rotor states a power-off row's clock, or None (PFS-2184.10).
+
+    A power-off row turns nothing, and its reference may still declare the
+    rotors its power-on twin turns. When the row states their speed
+    (``ADVANCE_RATIO`` or ``RPM``), its clock is resolved as the twin's: a
+    reference declaring one rotor is read as the twin's flat row, and
+    ``CLOCK_MOTION`` names which of several rotors owns the step, each rotor
+    seen as the twin's motion record of that rotor sees it. The speed is read
+    as :func:`~._unsteady._rotorless_frame_motions` reads it for the RMRP
+    frames, so the frames and the clock turn at one speed.
+
+    Parameters
+    ----------
+    case : SimCase
+        A row of the run type that turns nothing.
+
+    Returns
+    -------
+    SimCase or None
+        The row itself, or the view of the clock rotor; None where the
+        reference declares no rotor, the row states no speed, or several
+        rotors are declared and ``CLOCK_MOTION`` names none of them.
+
+    Raises
+    ------
+    CampaignConfigError
+        Where ``CLOCK_MOTION`` names no declared rotor, or the speed of one
+        cannot be resolved.
+    """
+    if not case.rotors:
+        return None
+    stated_rpm = _stated_rpm(case)
+    if stated_rpm is None and _stated_advance_ratio(case) is None:
+        return None
+    if _variable(case, CLOCK_MOTION_VARIABLE) is None:
+        return case if len(case.rotors) == 1 else None
+    speed = {} if stated_rpm is None else {RPM_VARIABLE: str(stated_rpm)}
+    views = [
+        _motion_view(case, {MOVING_BC_ALIAS_VARIABLE: alias, **speed}) for alias in case.rotors
+    ]
+    speeds = [rotor_speed(view) for view in views]
+    return views[speeds.index(_clock_speed(case, views, speeds))]
+
+
+#: How a power-off row counts revolutions: the speed of the rotor its reference
+#: declares, as its power-on twin states it (PFS-2184.10).
+POWER_OFF_CLOCK_REMEDY = (
+    "Or, where the reference declares the rotor, state its speed "
+    f"('{ADVANCE_RATIO_VARIABLE}: <J>' or '{RPM_VARIABLE}: <rev/min>', with "
+    f"'{CLOCK_MOTION_VARIABLE}: <rotor>' where several are declared), and the row "
+    "counts that rotor's revolutions on the clock of its unsteady_rotor twin."
+)
+#: The keys a row states in revolutions of its clock rotor (PFS-2184.10).
+REVOLUTION_KEYS: tuple[str, ...] = (
+    EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
+    EXPORT_UNSTEADY_LAST_REV_VARIABLE,
+    LAST_REVS_AVG_VARIABLE,
+)
+
+
+def revolution_keys_without_a_clock(case: SimCase) -> tuple[str, ...]:
+    """Return the revolution keys a power-off row states and has no rotor clock to count.
+
+    A row of the run type that turns nothing counts revolutions on the clock
+    of the rotor its reference declares once it states that rotor's speed
+    (:func:`power_off_clock`); without one, its revolution keys are skipped
+    with a warning (PFS-2184.10), and every reader of them reads this.
+
+    Parameters
+    ----------
+    case : SimCase
+        The row.
+
+    Returns
+    -------
+    tuple of str
+        The keys of :data:`REVOLUTION_KEYS` the row states, in that order;
+        empty on every other run type, on a row whose clock has a revolution,
+        and on a row whose clock is refused, which its builder refuses with
+        its own message.
+    """
+    stated = tuple(key for key in REVOLUTION_KEYS if _variable(case, key) is not None)
+    if not stated or select_workflow(case) != "unsteady":
+        return ()
+    try:
+        per_revolution = unsteady_time_stepping(case).steps_per_revolution
+    except CampaignConfigError:
+        return ()
+    return () if per_revolution is not None else stated
+
+
 def unsteady_time_stepping(case: SimCase) -> TimeStepping:
     """Resolve the physical clock of a run that turns nothing.
 
@@ -679,7 +783,19 @@ def unsteady_time_stepping(case: SimCase) -> TimeStepping:
         divide by, states neither pair, or states half of the explicit
         one. Each message names the case, which is the matrix POL, and
         the keys involved.
+
+    Notes
+    -----
+    A POWER-OFF ROW RUNS ON ITS POWER-ON TWIN'S CLOCK (PFS-2184.10): where the
+    reference declares a rotor and the row states its speed
+    (:func:`power_off_clock`), the clock is that rotor's, resolved by
+    :func:`rotor_time_stepping` exactly as the ``unsteady_rotor`` row with
+    the same keys resolves it, so the step, the count, the revolution
+    thresholds and the averaging windows of the two rows agree.
     """
+    clock = power_off_clock(case)
+    if clock is not None:
+        return rotor_time_stepping(clock)
     angular = {
         key: value
         for key in (DELTA_THETA_VARIABLE, REVOLUTIONS_VARIABLE)

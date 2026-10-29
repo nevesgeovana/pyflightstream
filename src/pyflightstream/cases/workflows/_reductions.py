@@ -39,6 +39,7 @@ from ._rows import (
 )
 from ._timing import (
     TimeStepping,
+    revolution_keys_without_a_clock,
     rotor_time_stepping,
     unsteady_time_stepping,
 )
@@ -871,7 +872,9 @@ def _averaging_window(
     A ROW THAT STATES REVOLUTIONS WITHOUT A CLOCK IS REFUSED rather than guessed:
     without `steps_per_revolution` a count of revolutions has no length in steps.
     The refusal names the row, and :func:`reduction_windows` records it as every
-    reduction skipped with that reason.
+    reduction skipped with that reason. A POWER-OFF ROW with no rotor clock is
+    the exception: its revolutions were skipped with a warning when it was
+    built, so it states no window here (PFS-2184.10).
     """
     try:
         stated = _windows.stated_key(case.variables)
@@ -881,6 +884,8 @@ def _averaging_window(
     if stated is None:
         return None
     key, value = stated
+    if steps is None and key in revolution_keys_without_a_clock(case):
+        return None
     if steps is None:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {key} = {value:g} and the row "
