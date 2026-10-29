@@ -562,8 +562,19 @@ class TestScriptHelpers:
             case = case.model_copy(update={"variables": {**case.variables, "RPM": "1200"}})
         script = Script("26.100")
         if workflow == "steady":
-            with pytest.raises(CampaignConfigError, match="RPM"):
-                build_script(case, script)
+            # Since PFS-2184.07 a foreign key is skipped with a warning and dropped;
+            # warning_refusals restores its refusal (REL2-009).
+            from pyflightstream._errors import NotApplicableWarning
+            from pyflightstream.options import option_context
+
+            with pytest.warns(NotApplicableWarning, match="RPM"):
+                build_script(case.model_copy(deep=True), script)
+            assert "SET_MOTION_ROTOR_RPM" not in script.render()
+            with (
+                option_context("warning_refusals", True),
+                pytest.raises(CampaignConfigError, match="RPM"),
+            ):
+                build_script(case, Script("26.100"))
         else:
             build_script(case, script)
             assert "START_SOLVER" in script.render()
