@@ -61,8 +61,8 @@ The default is false. Omitting the keyword uses the current runtime option.
 
 Warnings can be filtered through `pyflightstream.exceptions`:
 `DemotedRefusalWarning` selects all demoted refusals; `UnknownKeyWarning`,
-`NotApplicableWarning`, `EmptySelectionWarning`, `DuplicateValueWarning`,
-`OptionalProductWarning` and `RetiredKeyWarning` select individual families.
+`NotApplicableWarning`, `EmptySelectionWarning`, `DuplicateValueWarning`
+and `RetiredKeyWarning` select individual families.
 Normal Python warning filters remain available. The strict option raises the
 original exception, preserving the exception class callers already catch.
 

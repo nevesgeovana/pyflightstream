@@ -408,18 +408,6 @@
     "pyflightstream.cases.derived_body_sha256",
     "pyflightstream.cases.workflows.rotor_relaxed_trailing_edges"
    ]
-  },
-  {
-   "id": "RX-40",
-   "capability": "Typed demoted-refusal families introduced before their input-reader routes",
-   "reason": "routed later",
-   "node": "PFS-2184.07",
-   "release": "0.50.0",
-   "names": [
-    "pyflightstream.exceptions.DuplicateValueWarning",
-    "pyflightstream.exceptions.EmptySelectionWarning",
-    "pyflightstream.exceptions.OptionalProductWarning"
-   ]
   }
  ]
 }

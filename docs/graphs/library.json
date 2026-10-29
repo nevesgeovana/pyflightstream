@@ -1869,6 +1869,11 @@
     },
     {
       "source": "pyflightstream._deprecations",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream._deprecations",
       "target": "pyflightstream._retired_names",
       "kind": "deferred"
     },
@@ -1908,8 +1913,18 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream._textio",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.cases",
       "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -1984,7 +1999,17 @@
     },
     {
       "source": "pyflightstream.cases._ccs",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases._ccs",
       "target": "pyflightstream.script.helpers",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases._farfield_spec",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -2029,6 +2054,11 @@
     },
     {
       "source": "pyflightstream.cases._geometry_emit",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases._geometry_emit",
       "target": "pyflightstream.cases",
       "kind": "module"
     },
@@ -2065,6 +2095,11 @@
     {
       "source": "pyflightstream.cases._geometry_emit",
       "target": "pyflightstream.script.helpers",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases._geometry_instruction",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -2110,6 +2145,11 @@
     {
       "source": "pyflightstream.cases._matrix_upgrade",
       "target": "pyflightstream.cases._matrix_layouts",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases._setup_keys",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -2459,6 +2499,11 @@
     },
     {
       "source": "pyflightstream.cases.mesh",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.mesh",
       "target": "pyflightstream.cases._ccs",
       "kind": "module"
     },
@@ -2564,6 +2609,11 @@
     },
     {
       "source": "pyflightstream.cases.settings",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.settings",
       "target": "pyflightstream.cases._setup_keys",
       "kind": "module"
     },
@@ -2615,6 +2665,11 @@
     {
       "source": "pyflightstream.cases.setup_surfaces",
       "target": "pyflightstream.script.helpers",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.sixdof",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -4839,6 +4894,11 @@
     },
     {
       "source": "pyflightstream.farfield.balances",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.farfield.balances",
       "target": "pyflightstream.farfield.fields",
       "kind": "module"
     },
@@ -4985,6 +5045,11 @@
     {
       "source": "pyflightstream.fsi.config",
       "target": "pyflightstream._atmosphere",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.fsi.config",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {
@@ -6205,6 +6270,11 @@
     {
       "source": "pyflightstream.post._structure",
       "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._structure",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {

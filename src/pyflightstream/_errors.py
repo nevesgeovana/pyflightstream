@@ -365,10 +365,6 @@ class DuplicateValueWarning(DemotedRefusalWarning):
     """An identical repeated value was ignored."""
 
 
-class OptionalProductWarning(DemotedRefusalWarning):
-    """An optional product cannot be made for this point and was skipped."""
-
-
 class RetiredKeyWarning(UnknownKeyWarning):
     """A retired spelling was ignored; use the replacement named in the message."""
 

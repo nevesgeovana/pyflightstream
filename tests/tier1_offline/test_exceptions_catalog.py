@@ -258,7 +258,6 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "DuplicateValueWarning": UserWarning,
         "EmptySelectionWarning": UserWarning,
         "NotApplicableWarning": UserWarning,
-        "OptionalProductWarning": UserWarning,
         "RetiredKeyWarning": UserWarning,
         "UnknownKeyWarning": UserWarning,
         "PyflightstreamDeprecationWarning": DeprecationWarning,
