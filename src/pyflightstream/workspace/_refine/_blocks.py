@@ -20,7 +20,11 @@ alone:
    rectangle of rows by columns of quadrilaterals, and the cut into ARCS,
    each the whole side of one patch or the side two patches share. Lines
    traced to their ends cross one another rather than stopping, so a side
-   never meets a corner of the patch beside it: the arcs are the sides.
+   never meets a corner of the patch beside it: the arcs are the sides;
+4. a cut line no patch corner needs, between patches of one family and ending
+   on the boundary where the sides beside it run straight on, is joined
+   across (:func:`_loose_lines`, FR-3397), so a vertex where two boundaries
+   only touch does not leave the family in patches of one interval.
 
 Resampling (FR-920) keeps that structure: each arc is resampled ONCE, by the
 cubic spline of :func:`._grid.not_a_knot` through its source nodes in index
@@ -240,11 +244,111 @@ def _seeds(verts: Points, topo: _Topology, te: frozenset[int]) -> list[tuple[int
         for u in sorted(topo.adj[v])
         if len(topo.emap[_key(v, u)]) == 2
     ]
-    sharp = dihedral_degrees(verts, topo.faces)
-    for (a, b), angle in sorted(sharp.items()):
-        if angle > RIDGE_DEGREES or (a in te and b in te):
-            seeds += [(a, b), (b, a)]
+    for a, b in sorted(_features(verts, topo, te)):
+        seeds += [(a, b), (b, a)]
     return seeds
+
+
+def _features(verts: Points, topo: _Topology, te: frozenset[int]) -> set[Edge]:
+    """Return the ridge and trailing-edge edges, each traced as a separatrix both ways."""
+    sharp = dihedral_degrees(verts, topo.faces)
+    return {e for e, angle in sharp.items() if angle > RIDGE_DEGREES or (e[0] in te and e[1] in te)}
+
+
+@dataclass(frozen=True, eq=False)
+class _Cuts:
+    """The arcs of a traced layout, the patches holding each, for finding loose lines."""
+
+    verts: Points
+    arcs: Sequence[tuple[int, ...]]
+    sides: Sequence[Sequence[tuple[int, bool]]]
+    held: Mapping[int, list[int]]
+
+    def rail(self, p: int, n: int, e: int) -> int | None:
+        """Return the side of patch p other than arc n that ends at vertex e."""
+        arcs = self.arcs
+        found = [a for a, _ in self.sides[p] if a != n and e in (arcs[a][0], arcs[a][-1])]
+        return found[0] if len(found) == 1 else None
+
+    def straight(self, a: int, b: int, e: int) -> bool:
+        """Return whether arcs a and b, both leaving e, run on within SIDE_CORNER_DEGREES."""
+        u, w = (
+            self.verts[self.arcs[x][1 if self.arcs[x][0] == e else -2]] - self.verts[e]
+            for x in (a, b)
+        )
+        norm = max(float(numpy.linalg.norm(u) * numpy.linalg.norm(w)), 1e-300)
+        return -float(u @ w) / norm >= math.cos(math.radians(SIDE_CORNER_DEGREES))
+
+    def beyond(self, n: int, e: int) -> int | None:
+        """Return n at a free end at e, the arc it runs on into across four patches, else None."""
+        p, q = self.held[n]
+        rp, rq = self.rail(p, n, e), self.rail(q, n, e)
+        if rp is None or rq is None or rp == rq:
+            return None
+        if self.held[rp] == [p] and self.held[rq] == [q]:
+            return n if self.straight(rp, rq, e) else None
+        p2 = next((x for x in self.held[rp] if x != p), None)
+        q2 = next((x for x in self.held[rq] if x != q), None)
+        if len(self.held[rp]) != 2 or len(self.held[rq]) != 2 or p2 is None or q2 is None:
+            return None
+        c = self.rail(p2, rp, e)
+        ahead = {p2, q2}
+        if len(ahead) != 2 or ahead & {p, q} or c is None or c != self.rail(q2, rq, e):
+            return None
+        return c if set(self.held[c]) == ahead else None
+
+    def eligible(self, n: int, kept: Collection[Edge]) -> bool:
+        """Return whether arc n lies between two patches and holds no kept edge."""
+        arc = self.arcs[n]
+        return (
+            len(self.held[n]) == 2
+            and arc[0] != arc[-1]
+            and not any(_key(a, b) in kept for a, b in zip(arc, arc[1:], strict=False))
+        )
+
+
+def _root(parent: dict[int, int], n: int) -> int:
+    while parent[n] != n:
+        parent[n] = parent[parent[n]]
+        n = parent[n]
+    return n
+
+
+def _loose_lines(
+    verts: Points,
+    arcs: Sequence[tuple[int, ...]],
+    sides: Sequence[Sequence[tuple[int, bool]]],
+    kept: Collection[Edge],
+) -> set[Edge]:
+    """Return the edges of the cut lines no patch corner needs, so their patches join (FR-3397).
+
+    A separatrix from a vertex where two boundaries only touch (a node a
+    neighbour holds on a curve the family spans with one edge) cuts the family
+    across its grid lines where it has no corner, and every patch side of one
+    interval keeps its count. A LOOSE line is a chain of arcs, each between two
+    patches of one family and holding no ridge, trailing-edge or join edge
+    (``kept``), continued through vertices where four patches meet, whose two
+    ends are boundary vertices where the sides beside it are held by those
+    patches alone and run on within ``SIDE_CORNER_DEGREES``. Joining across it
+    leaves every arc a whole side of its patches.
+    """
+    held: dict[int, list[int]] = defaultdict(list)
+    for p, mine in enumerate(sides):
+        for arc, _ in mine:
+            held[arc].append(p)
+    cuts = _Cuts(verts, arcs, sides, held)
+    parent = {n: n for n in range(len(arcs)) if cuts.eligible(n, kept)}
+    bad: set[int] = set()
+    for n in list(parent):
+        for e in (arcs[n][0], arcs[n][-1]):
+            c = cuts.beyond(n, e)
+            if c is None or c not in parent:
+                bad.add(n)
+            else:
+                parent[_root(parent, c)] = _root(parent, n)
+    spoiled = {_root(parent, n) for n in bad}
+    loose = [n for n in parent if _root(parent, n) not in spoiled]
+    return {_key(a, b) for n in loose for a, b in zip(arcs[n], arcs[n][1:], strict=False)}
 
 
 def recover_joined(
@@ -284,6 +388,15 @@ def _recover(
         raise _OnePatchError
     grids = [_patch_grid(topo, group, cut) for group in groups]
     arcs, sides = _arcs([ids for ids, _ in grids], cut)
+    loose = _loose_lines(verts, arcs, sides, _features(verts, topo, te) | joins)
+    if loose:
+        try:
+            merged = _patches(topo, cut - loose)
+            if len(merged) >= 2:
+                grids = [_patch_grid(topo, group, cut - loose) for group in merged]
+                arcs, sides = _arcs([ids for ids, _ in grids], cut - loose)
+        except _NoLayoutError:
+            pass  # the joined patches are not four-sided: the layout stays as traced
     te_arcs = frozenset(n for n, arc in enumerate(arcs) if all(v in te for v in arc))
     return Blocks(
         tuple(ids for ids, _ in grids),

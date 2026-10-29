@@ -845,6 +845,12 @@ Each of these is imported from `pyflightstream.workspace`.
  nodes. Its interval count is `max(1, round(f m))` from each family holding
  it, `f` the family's factor in the curve's direction; two counts that differ
  are refused naming both families, the curve's end nodes and both counts.
+ A cut no patch corner needs is joined across before counting: a line
+ between patches of one family, with no ridge, trailing edge or shared curve
+ on it, whose ends lie on the boundary where the patch sides run straight on,
+ as from the nodes a family shares with a neighbour that holds an extra node
+ between them. Such a family coarsens like the same family beside a matching
+ neighbour, and the neighbour's extra nodes stay where they are.
  A tube, a family with triangles, and touching
  grids whose union has no layout of four-sided patches join none: of grids
  that share nodes the first in the source's family order is then a grid and a

@@ -7,6 +7,18 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.50.2] - 2026-10-29
+
+### Fixed
+
+- A grid family beside a neighbour that holds an extra node on the curve
+  between them (two edges where the family has one) coarsens like the same
+  family beside a matching neighbour. The vertices where their boundaries only
+  touched cut the family across its grid lines into patches of one interval,
+  which no factor below 1 coarsened; such cut lines, between patches of one
+  family and ending where the patch sides run straight on, are now joined
+  across before counting (FR-3397).
+
 ## [0.50.1] - 2026-10-29
 
 ### Added
@@ -2668,7 +2680,8 @@ archives remain available for recovery. (no requirement: preserve records during
   seven public names of `pyflightstream.workspace`; `pyflightstream.workspace._degenerate`
   stays importable.
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.50.1...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.50.2...HEAD
+[0.50.2]: https://github.com/nevesgeovana/pyflightstream/compare/v0.50.1...v0.50.2
 [0.50.1]: https://github.com/nevesgeovana/pyflightstream/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.49.0...v0.50.0
 [0.49.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.48.0...v0.49.0
