@@ -1913,11 +1913,6 @@
       "kind": "module"
     },
     {
-      "source": "pyflightstream._textio",
-      "target": "pyflightstream._errors",
-      "kind": "module"
-    },
-    {
       "source": "pyflightstream.cases",
       "target": "pyflightstream._digest",
       "kind": "module"
@@ -4535,6 +4530,11 @@
     {
       "source": "pyflightstream.cases.workflows._unsteady",
       "target": "pyflightstream.cases.workflows._conventions",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.cases.workflows._unsteady",
+      "target": "pyflightstream.cases.workflows._export_first_step",
       "kind": "module"
     },
     {
