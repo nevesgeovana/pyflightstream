@@ -824,21 +824,40 @@ class Resampled:
     te_midpoints: Points
 
 
-def resample(verts: Points, faces: Faces, blocks: Blocks, counts: Sequence[int]) -> Resampled:
+def resample(
+    verts: Points,
+    faces: Faces,
+    blocks: Blocks,
+    counts: Sequence[int],
+    *,
+    keep: Collection[int] = (),
+) -> Resampled:
     """Resample every arc of a layout to its count, then every patch inside its arcs (FR-920).
 
     ``counts`` holds each arc's new interval count; opposite sides of a patch
     must hold the same. ``faces`` are the faces the layout was recovered on.
+    Patches in ``keep`` retain their original faces and coordinates without interpolation.
     """
     verts = numpy.asarray(verts, dtype=float)
     arcs = [
-        not_a_knot(verts[list(arc)], numpy.linspace(0, len(arc) - 1, counts[n] + 1))
+        verts[list(arc)]
+        if counts[n] == len(arc) - 1
+        else not_a_knot(verts[list(arc)], numpy.linspace(0, len(arc) - 1, counts[n] + 1))
         for n, arc in enumerate(blocks.arcs)
     ]
     nodes = _Nodes()
     cells: list[Faces] = []
     shapes = []
     for p, ids in enumerate(blocks.patches):
+        if p in keep:
+            cells.append(
+                [
+                    [nodes.node(("v", v), verts[v]) for v in faces[int(cell)]]
+                    for cell in blocks.cells[p].flat
+                ]
+            )
+            shapes.append((tuple(ids.shape), tuple(ids.shape)))
+            continue
         grid = _patch_nodes(verts, blocks, p, arcs, nodes, counts=counts)
         same = _forward(faces[int(blocks.cells[p][0, 0])], int(ids[0, 0]), int(ids[0, 1]))
         built: Faces = []

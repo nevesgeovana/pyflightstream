@@ -9,7 +9,7 @@ FlightStream versions.
 
 ### Fixed
 
-- Prepare-to-refine derives grid methods, directional governors and omitted
+- Prepare-to-refine derives grid methods, directional governors and grid-auto
   followers from the refinement planner using its written node list. A short
   rearmost line and a tube touching a sheet no longer produce a demanded grid
   that refinement refuses. Each direction's lead has the greatest total side
@@ -33,6 +33,11 @@ FlightStream versions.
 
 ### Added
 
+- Undeclared families and `method = "keep"` retain their source mesh unless
+  continuity needs a change. Grids change only the necessary count bands;
+  mixed families remesh only beside changed curves. Refinement JSON records
+  the directions, band labels and causing families. Keep factors are warned
+  and skipped (FR-3299).
 - Refinement layouts name their bands P1, P2 and N1, N2 in stable lead-family
   and arc order. The JSON records each label, direction, count, lead family
   and dominant arc (FR-3300).
@@ -53,10 +58,10 @@ FlightStream versions.
   takes no factor and refines the family as a grid with its governing family's
   factors and its parallel and normal directions propagated through shared
   curves. Conflicting or unlinked directions warn and fall back to the family's
-  own reference, recorded in `refine.json`. With a governing family in the file
-  every undeclared family is `grid_auto`. `prepare-to-refine` marks each grid-connected
-  group's directional leads from the planner and leaves the
-  fully linked, conflict-free followers undeclared. Other grid patches retain
+  own reference, recorded in `refine.json`. `prepare-to-refine` marks each grid-connected
+  group's directional leads from the planner and declares the
+  fully linked, conflict-free followers as `grid_auto`, with comments naming
+  both governors; governing tables name their P/N bands. Other grid patches retain
   their own factor-1 table with a comment naming the reason.
   `prepare-to-refine --visual-inspect` (`visual_inspect=True`)
   also writes `<stem>_patches.inspect.pdf`: one page per original family, its

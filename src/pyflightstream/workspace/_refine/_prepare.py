@@ -14,7 +14,7 @@ any OBJ and refine file without it) writes, beside the mesh:
    source's order.
 2. ``<stem>_patches.refine.toml``: the planner's declared patches, ``method = "grid"``,
    ``"remesh"`` or ``"auto"`` at factor 1 for the user to edit. Directional leads
-   carry governing flags; only fully propagated followers are omitted. It uses
+   carry governing flags; fully propagated followers have grid_auto tables. It uses
    the quad-dominant remesh,
    ``[components]`` grouping each family's patches back into the family, and a
    ``[[perimeter]]`` naming the node list with ``te_families``.
@@ -189,6 +189,7 @@ def prepare_to_refine(
             followers=followers,
             excluded=excluded,
             methods=methods,
+            layouts=planned.layouts,
         ),
     )
     inspect = None
@@ -488,6 +489,7 @@ def _toml(
     followers: set[str] | frozenset[str] = frozenset(),
     excluded: dict[str, tuple[str, str]] | None = None,
     methods: dict[str, str] | None = None,
+    layouts=None,
 ) -> str:
     """Return the refine file text: one table per patch, the components and the perimeter."""
     lines = [
@@ -501,8 +503,17 @@ def _toml(
     ]
     for members in patches.values():
         for patch in members:
-            if patch in followers:
-                continue  # undeclared: grid_auto, it follows the governing patch of its group
+            layout = (layouts or {}).get(patch)
+            if patch in followers and layout is not None:
+                sources = layout.governing
+                lines.append(
+                    f"# follows {sources['parallel']} (parallel) and {sources['normal']} (normal)"
+                )
+                lines += [f"[families.{_key(patch)}]", 'method = "grid_auto"', ""]
+                continue
+            if layout is not None and any((governing or {}).get(patch, ())):
+                labels = [label for label, (lead, _) in layout.leads.items() if lead == patch]
+                lines.append("# leads " + ", ".join(labels))
             method = (methods or {}).get(patch, "grid" if kinds[patch] == "grid" else "remesh")
             if method == "auto":
                 lines.append(

@@ -100,8 +100,8 @@ def test_r1_two_grids_of_quadrilaterals_sharing_nodes_are_both_grids(tmp_path):
     the FR-932 rule it checked before, that G2 sharing G's nodes is remeshed. Grids
     of quadrilaterals that share nodes are now resampled as one layout: both are
     grids, each names the other under ``grouped_with``, and their shared station
-    holds the same 37 nodes from both sides. Control: G2 alone is a grid with no
-    ``grouped_with``.
+    holds the same 37 nodes from both sides. P0490-KEEP control: selecting G2
+    alone changes G only in the direction needed by their shared station.
     """
     src = _source(tmp_path, GG)
     level = refine_mesh(src, 2.0)
@@ -114,7 +114,9 @@ def test_r1_two_grids_of_quadrilaterals_sharing_nodes_are_both_grids(tmp_path):
     )
     assert all(g.passed for g in level.audit.gates), [g.verdict for g in level.audit.gates]
     alone = refine_mesh(src, 2.0, families=["G2"]).report
-    assert alone["G2"]["method"] == "grid" and "grouped_with" not in alone["G2"]
+    assert alone["G2"]["method"] == "grid" and alone["G2"]["grouped_with"] == ["G"]
+    assert alone["G"]["continuity"]["directions"] == ["normal"]
+    assert alone["G"]["continuity"]["because"] == ["G2"]
 
 
 def test_r1_a_grid_that_cannot_join_the_layout_is_remeshed_under_auto(tmp_path):
@@ -252,7 +254,12 @@ def test_r3_an_unchanged_neighbour_changes_only_in_its_two_layer_band(tmp_path):
     assert set(target) == {"min", "mean", "max"}
     assert all(isinstance(v, float) and v > 0 for v in target.values())
     assert target["min"] <= target["mean"] <= target["max"]
-    assert entry == {"method": "unchanged", "band": count, "faces": 180}
+    assert entry == {
+        "method": "unchanged",
+        "band": count,
+        "faces": 180,
+        "continuity": {"band": "remeshed", "because": ["G"]},
+    }
     sv, sf = read_mesh(src)
     assert face_coordinates(lv, lf["U"]) == face_coordinates(sv, sf["U"])
     assert len(lf["T"]) > len(sf["T"])

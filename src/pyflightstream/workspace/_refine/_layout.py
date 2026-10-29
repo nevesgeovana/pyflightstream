@@ -75,6 +75,12 @@ class Layout:
         Per arc, its band's stable parallel (P) or normal (N) label.
     leads : mapping of str to (str, int)
         Per label, the lead family and the arc that supplied its selected count.
+    governing : mapping of str to str
+        The selected factor source in each direction.
+    continuity : mapping of str to dict
+        Per keep family changed by a band, its directions, labels and causing families.
+    unchanged : tuple of str
+        Keep families whose every arc retains its source count; copied without resampling.
     """
 
     names: tuple[str, ...]
@@ -87,6 +93,9 @@ class Layout:
     band_leads: dict[int, tuple[str, str]] = field(default_factory=dict)
     labels: dict[int, str] = field(default_factory=dict)
     leads: dict[str, tuple[str, int]] = field(default_factory=dict)
+    governing: Mapping[str, str] = field(default_factory=dict)
+    continuity: Mapping[str, dict[str, object]] = field(default_factory=dict)
+    unchanged: tuple[str, ...] = ()
 
     def patches_of(self, name: str) -> list[int]:
         """Return the patches of one family, in layout order."""
@@ -120,7 +129,7 @@ class _Planner:
         }
         perimeter = _perimeters(lengths, names, blocks, owner)
         governing = [n for n in names if any(specs[n].leads)]
-        declared = [n for n in names if specs[n].method != "grid_auto"]
+        declared = [n for n in names if specs[n].method not in ("grid_auto", "keep")] or list(names)
         leaders = {
             d: _band_lead(declared, names, specs, perimeter, direction=d)
             for d in ("normal", "parallel")
@@ -136,9 +145,12 @@ class _Planner:
                 followers[name] = lead
         proposed: dict[int, list[tuple[str, int, int]]] = {}
         kept: dict[str, list[dict[str, object]]] = {}
-        runs, provenance = self.follower_directions(
-            names, found, {d: n for d, n in leaders.items() if specs[n].leads[d == "parallel"]}
+        seeds = (
+            leaders
+            if any(specs[n].method == "keep" for n in names)
+            else {d: n for d, n in leaders.items() if specs[n].leads[d == "parallel"]}
         )
+        runs, provenance = self.follower_directions(names, found, seeds)
         directions = {}
         for i, name in enumerate(names):
             mine = [p for p, o in enumerate(owner) if o == i]
@@ -166,7 +178,7 @@ class _Planner:
                     for side in kept_sides(blocks, verts, factors, patches=[p])
                 )
         kinds = tuple(grids[n].layout for n in names)
-        layout = Layout(names, kinds, blocks, owner, (), kept, directions)
+        layout = Layout(names, kinds, blocks, owner, (), kept, directions, governing=leaders)
         if prepare:
             self.prepare_leads(layout, lengths)
             return self.counted(names, found)
@@ -178,7 +190,9 @@ class _Planner:
                 followers.pop(n, None)
             return self.counted(names, found)
         counts = _band_counts(layout, proposed, specs, perimeter, where=where)
-        return replace(layout, counts=tuple(counts[a] for a in range(len(blocks.arcs))))
+        return _continuity(
+            replace(layout, counts=tuple(counts[a] for a in range(len(blocks.arcs)))), specs
+        )
 
     def prepare_leads(self, layout, lengths):
         """Mark the longest total parallel and normal sides, with source-order ties."""
@@ -244,7 +258,7 @@ class _Planner:
         blocks, indices = found
         owner = tuple(names[i] for i in indices)
         runs, provenance = {}, {}
-        selected = [n for n in names if n in followers]
+        selected = [n for n in names if n in followers or self.specs[n].method == "keep"]
         if not selected:
             return runs, provenance
         evidence = {}
@@ -267,7 +281,9 @@ class _Planner:
             else:
                 runs[name] = {a: next(iter(ds)) for a, ds in values.items()}
                 provenance[name] = {
-                    a: leaders.get("parallel" if d == "spanwise" else "normal", followers[name])
+                    a: leaders.get(
+                        "parallel" if d == "spanwise" else "normal", followers.get(name, name)
+                    )
                     for a, d in runs[name].items()
                 }
         return runs, provenance
@@ -279,6 +295,8 @@ class _Planner:
         layouts: list[Layout] = []
         why: dict[str, str] = {}
         for group in groups:
+            if all(specs[n].method == "keep" for n in group):
+                continue
             if not any(any(specs[n].leads) for n in group):
                 for name in group:
                     if specs[name].method == "grid_auto":
@@ -296,7 +314,7 @@ class _Planner:
             try:
                 layouts.append(self.counted(tuple(group), found, prepare=self.prepare))
             except InputArtifactError as error:
-                if not accept:
+                if not accept and not any(specs[n].method == "keep" for n in group):
                     raise
                 why.update(dict.fromkeys(group, _skipped_layout(error, group, where)))
         return layouts, why
@@ -438,7 +456,13 @@ def _lead_rank(name, names, specs, perimeter, direction):
     governing = (
         any(specs[name].leads) if direction is None else specs[name].leads[direction == "parallel"]
     )
-    return not governing, specs[name].method == "grid_auto", -perimeter[name], names.index(name)
+    return (
+        not governing,
+        specs[name].method == "keep",
+        specs[name].method == "grid_auto",
+        -perimeter[name],
+        names.index(name),
+    )
 
 
 def _band_lead(candidates, names, specs, perimeter, *, direction=None):
@@ -477,9 +501,9 @@ def _band_counts(
     for (n, lead), bands in sorted(followed.items()):
         how = "governing" if any(specs[lead].leads) else "declared, of the largest perimeter"
         advice = (
-            'To give this grid_auto family its own counts, declare method = "grid", '
+            f'To give this {specs[n].method} family its own counts, declare method = "grid", '
             "its factors and governing = true in its [families] table."
-            if specs[n].method == "grid_auto"
+            if specs[n].method in ("grid_auto", "keep")
             else "Mark the family that should lead with governing = true in its [families] table."
         )
         warn(
@@ -503,6 +527,31 @@ def _label_bands(layout, bands, dominant):
         label = ("P" if direction == "parallel" else "N") + str(serial[direction])
         layout.leads[label] = (lead, dominant[band])
         layout.labels.update({a: label for a, b in bands.items() if b == band})
+
+
+def _continuity(layout, specs):
+    """Retain the minimum changes and untouched keep families from the resolved counts."""
+    changed, untouched = {}, []
+    for name in layout.names:
+        if specs[name].method != "keep":
+            continue
+        arcs = {
+            a: d.direction
+            for p in layout.patches_of(name)
+            for a, d in layout.directions[p].items()
+            if layout.counts[a] != len(layout.blocks.arcs[a]) - 1
+        }
+        if not arcs:
+            untouched.append(name)
+            continue
+        labels = [label for label in layout.leads if label in {layout.labels[a] for a in arcs}]
+        causes = {layout.leads[label][0] for label in labels}
+        changed[name] = {
+            "directions": [d for d in ("parallel", "normal") if d in arcs.values()],
+            "bands": labels,
+            "because": [n for n in layout.names if n in causes and n != name],
+        }
+    return replace(layout, continuity=changed, unchanged=tuple(untouched))
 
 
 def _warn_kept(layout: Layout, specs: Mapping[str, FamilySpec], where: str) -> None:
@@ -611,7 +660,7 @@ def plan(
     layouts, why = planner.grouped(_touching(joinable, nodes), accept=accept)
     done = [n for lay in layouts for n in lay.names]
     late: list[tuple[str, str, str]] = []
-    for name in names:
+    for name in sorted(names, key=lambda n: specs.get(n, FamilySpec()).method == "keep"):
         if name not in grids or name in done:
             continue
         if specs[name].method == "grid_auto":
@@ -620,6 +669,8 @@ def plan(
         first = [m for m in names if m in done and nodes[name] & nodes[m]]
         if first:
             late.append((name, first[0], why.get(name, "")))
+            continue
+        if specs[name].method == "keep":
             continue
         done.append(name)
         grid = grids[name]
@@ -655,7 +706,7 @@ def _skipped_layout(error: InputArtifactError, group: Sequence[str], where: str)
     names = ", ".join(group)
     warn(
         f"{where}: {text}; the first of {names} in the source's order is refined as a grid "
-        "alone and the others are remeshed (accept_remesh, CLI --accept-remesh)",
+        "alone; other families follow their remesh or continuity-only rule",
         PyflightstreamWarning,
         stacklevel=5,  # past _skipped_layout, plan, _grid_after_grid and _decide
     )
@@ -673,12 +724,24 @@ def refine_layout(
     """
     verts = numpy.asarray(verts, dtype=float)
     faces = [f for n in layout.names for f in families[n]]
-    done = resample(verts, faces, layout.blocks, layout.counts)
+    copied = {p for name in layout.unchanged for p in layout.patches_of(name)}
+    done = resample(verts, faces, layout.blocks, layout.counts, keep=copied)
     out: dict[str, GridLevel] = {}
     for i, name in enumerate(layout.names):
         mine = layout.patches_of(name)
         built = [f for p in mine for f in done.cells[p]]
-        ordered = order_like(done.points, built, verts, families[name])
+        ordered = (
+            [
+                f
+                for _, f in sorted(
+                    (int(source), f)
+                    for p in mine
+                    for source, f in zip(layout.blocks.cells[p].flat, done.cells[p], strict=True)
+                )
+            ]
+            if name in layout.unchanged
+            else order_like(done.points, built, verts, families[name])
+        )
         entry = report(layout.blocks, done, mine, (len(families[name]), len(ordered)))
         if len(layout.names) > 1:
             entry["layout"] = layout.kinds[i]

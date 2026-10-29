@@ -341,8 +341,8 @@ optional.
    and marks the patch with the greatest total length of parallel sides
    `governing_parallel = true`, and the greatest total length of normal sides
    `governing_normal = true`; source order breaks ties. Patches whose every arc's
-   direction can be propagated from these leads through shared curves are left
-   out of the file, which makes them `grid_auto`: they follow the governing
+   direction can be propagated from these leads through shared curves have
+   explicit `method = "grid_auto"` tables: they follow the governing
    patches' factors on those directions. A conflict or an unlinked patch (for
    example, one touching only at a corner) is warned and keeps its own
    `method = "grid"`, `factor = 1.0` table, preceded by a comment naming the
@@ -354,7 +354,12 @@ optional.
    For example, a parallel lead with `parallel_factor = 2` and a normal lead
    with `normal_factor = 4` give their grid-auto followers those two factors
    within the same layout. The earlier `governing = true` means both, warned.
-   Declare a follower to give it factors of its own. `--visual-inspect` also writes
+   The `# follows` comment names both directional governors; governing tables
+   have a `# leads P1, N2` comment naming their bands. Change a follower to
+   `method = "grid"` to give it factors of its own. To isolate one governing
+   patch, delete the other family tables or write `method = "keep"` in them.
+   Those families stay unchanged except for the directions or mixed-neighbour
+   bands needed to keep the shared curves continuous. `--visual-inspect` also writes
    `W1_patches.inspect.pdf`: one page per original family, its patches colored
    and named, the leads labelled GOVERNING PARALLEL and GOVERNING NORMAL.
    The node list holds the rearmost line of each grid patch, the

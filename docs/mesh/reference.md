@@ -391,8 +391,8 @@ aft = [1.0, 0.0, 0.0]
 | `[families.<name>]` | `elements` | `"triangles"` or `"quad-dominant"` | the elements of a remeshed family: quad-dominant pairs the remeshed triangles into convex quadrilaterals (angles 30 to 150 degrees, warp at most 10 degrees), never across an open boundary, the trailing edge or a ridge; refused with `method = "grid"`, ignored (and said so in `refine.json`) on a family that `"auto"` resolves to a grid |
 | `[families.<name>]` | `factor` | number above zero | multiplies the intervals of each index direction of a grid; divides the target edge length of a remeshed family |
 | `[families.<name>]` | `parallel_factor`, `normal_factor` | number above zero | the factor of one direction of a grid, replacing `factor` there: along the family's reference perimeter and across it. They need no trailing edge. `spanwise` and `chordwise` are read as `parallel_factor` and `normal_factor`, with a warning |
-| `[families.<name>]` | `method` | `"auto"` (default), `"grid"`, `"remesh"` or `"grid_auto"` | `"auto"` takes the grid when it is recovered and remeshes otherwise; `"grid"` refuses a family whose grid is not recovered, naming why; `"remesh"` remeshes it; `"grid_auto"` takes no factor: the family is refined as a grid with each factor from the governing family for that direction in its own grid-connected layout, choosing the largest perimeter and then source order when several govern; a mixed patch does not connect layouts, with parallel and normal directions propagated from that family through shared curves. Conflicting or unlinked directions warn and use the follower's own geometric reference; `refine.json` records `directions` as `from <governing>`, `own reference: conflict` or `own reference: unlinked`. The family is kept unchanged when it is not a grid or when no family is governing (warned) |
-| `[families.<name>]` | `governing_parallel`, `governing_normal` | boolean, default false | lead parallel or normal bands independently; one family may lead both. Each band takes its count from its directional governor, else the declared family of the largest perimeter; ties use source order. Grid-auto followers take each factor from their own layout's lead in that direction, falling back to the largest declared perimeter when that direction has no governor. Directions propagate through shared curves; conflicting governing patches retain their own geometric orientation, warned per patch. Undeclared families become `"grid_auto"` when any family governs. Governing on a grid-auto family is warned and skipped |
+| `[families.<name>]` | `method` | `"auto"` (default), `"grid"`, `"remesh"`, `"grid_auto"` or `"keep"` | `"auto"` takes the grid when it is recovered and remeshes otherwise; `"grid"` refuses a family whose grid is not recovered, naming why; `"remesh"` remeshes it; `"grid_auto"` takes no factor: the family is refined as a grid with each factor from the governing family for that direction in its own grid-connected layout, choosing the largest perimeter and then source order when several govern; a mixed patch does not connect layouts, with parallel and normal directions propagated from that family through shared curves. Conflicting or unlinked directions warn and use the follower's own geometric reference; `refine.json` records `directions` as `from <governing>`, `own reference: conflict` or `own reference: unlinked`. The family is kept unchanged when it is not a grid or when no family is governing (warned) |
+| `[families.<name>]` | `governing_parallel`, `governing_normal` | boolean, default false | lead parallel or normal bands independently; one family may lead both. Each band takes its count from its directional governor, else the declared family of the largest perimeter; ties use source order. Grid-auto followers take each factor from their own layout's lead in that direction, falling back to the largest declared perimeter when that direction has no governor. Directions propagate through shared curves; conflicting governing patches retain their own geometric orientation, warned per patch. Undeclared families use `"keep"` and change only for continuity. Governing on a grid-auto or keep family is warned and skipped |
 | `[families.<name>]` | `governing` | boolean, default false | earlier spelling: true means both governing directions, with a warning; it remains accepted. On a `"grid_auto"` family governing is warned and skipped |
 | `[components]` | `NAME = [...]` | a non-empty list of family names | the members written as one family `NAME` of the output, their faces in the source's family order |
 | `[[perimeter]]` | `file` | non-empty path | a node list saved from an ANSA SET node window (`Id, Name, X, Y, Z`), relative to this refine file; any number of `[[perimeter]]` tables may be stated, and one list may hold the perimeters of every component, in any node order |
@@ -402,7 +402,7 @@ aft = [1.0, 0.0, 0.0]
 
 Each of these is refused naming the file, the table and the key, and listing
 the known keys: a table or key the list above does not hold, a family the mesh
-does not hold, a family table with neither `factor` nor `parallel_factor` nor
+does not hold, a family table (except keep or grid_auto) with neither `factor` nor `parallel_factor` nor
 `normal_factor`, and `parallel_factor` or `normal_factor` on a family whose
 method is `"remesh"` (unless `--accept-remesh` is given, which remeshes a family
 whose grid is not recovered, with a warning). Under `--accept-unknown` a table
@@ -414,11 +414,26 @@ and the family. A `[[perimeter]]` table that states no file, a `file` that is
 missing, a node that matches no vertex of the mesh and a list that joins no
 edge are warned and skipped.
 
+A family with no table, or with `method = "keep"`, is copied unchanged unless
+continuity requires it to change. Keep takes no factor; factors in keep and
+grid_auto tables are warned and skipped. A keep grid joins touching refined
+grids at factor 1 and follows only the bands whose counts change. Declared
+families lead before keep families. If every band retains its source count,
+its vertices and faces are copied without resampling. Otherwise its
+`refine.json` family record adds `continuity` with `directions` (parallel,
+normal or both), `bands` (P/N labels), and `because` (lead family names).
+A keep mixed family changes only in the FR-934 band beside a changed curve;
+its record adds `continuity: {"band": "remeshed", "because": [families]}`.
+Beside no changed curve it is copied unchanged.
+
 Prepare-to-refine uses this same planner with the OBJ and node list it writes.
 Within each grid-connected group, the greatest total length of parallel sides
 selects `governing_parallel` and the greatest total length of normal sides selects
 `governing_normal`; ties retain source order. Only families whose every arc has
-propagated directions are omitted. Other grids retain explicit tables, and a
+propagated directions become explicit `method = "grid_auto"` tables, preceded by
+a `# follows <parallel lead> (parallel) and <normal lead> (normal)` comment.
+Governing tables name their bands in a `# leads P1, N2` comment.
+Other grids retain explicit tables, and a
 candidate the planner cannot refine as a grid here is declared `auto` with a
 comment, including a tube excluded from a neighbouring sheet's layout.
 

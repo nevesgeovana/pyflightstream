@@ -35,6 +35,155 @@ from tests.p0380_mesh_fixtures import Composite, face_coordinates, read_mesh, wr
 COLUMNS, ROWS = 4, 2
 
 
+def _continuity_source(tmp_path, *, shape="side", factor=2, keep=False):
+    """Write two synthetic families for refine_mesh(source), with only A refined."""
+    points, families = [], {"A": [], "B": []}
+
+    def vertex(x, y):
+        point = (x, y, 0)
+        if point not in points:
+            points.append(point)
+        return points.index(point)
+
+    def cell(name, x, y, *, mixed=False):
+        a, b, c, d = (vertex(x, y), vertex(x + 1, y), vertex(x + 1, y + 1), vertex(x, y + 1))
+        families[name].extend([[a, b, c], [a, c, d]] if mixed else [[a, b, c, d]])
+
+    height = 2 if shape == "both" else 6
+    for x in range(2):
+        for y in range(height):
+            cell("A", x, y)
+    if shape == "both":
+        for x in range(4):
+            for y in range(4):
+                if x >= 2 or y >= 2:
+                    cell("B", x, y)
+    else:
+        start, stop = (10, 12) if shape == "isolated" else (2, 8 if shape == "mixed" else 4)
+        for x in range(start, stop):
+            for y in range(height):
+                cell("B", x, y, mixed=shape == "mixed")
+    config = (
+        f'[families.A]\nmethod = "grid"\nnormal_factor = {factor}\n'
+        f"parallel_factor = {factor}\ngoverning_parallel = true\ngoverning_normal = true\n"
+    )
+    if keep:
+        config += '\n[families.B]\nmethod = "keep"\n'
+    return write_source(
+        tmp_path / "src",
+        "continuity",
+        Composite(np.array(points, dtype=float), families, np.zeros((0, 3)), {}),
+        refine_toml=config,
+    )
+
+
+def _continuity_level(source):
+    """Assert the continuity contract accepts the request before checking its mesh."""
+    level, error = None, None
+    try:
+        level = refine_mesh(source)
+    except InputArtifactError as caught:
+        error = str(caught)
+    assert error is None, f"continuity must warn and skip, not refuse: {error}"
+    assert level is not None
+    return level
+
+
+@pytest.mark.requirement("FR-3299")
+@pytest.mark.parametrize("governing", [False, True])
+@pytest.mark.parametrize(
+    "shape, directions", [("side", ["parallel"]), ("both", ["parallel", "normal"])]
+)
+def test_p0490_continuity_undeclared_grid_changes_only_crossing_bands(
+    tmp_path, shape, directions, governing
+):
+    """P0490-KEEP: one shared direction changes one axis; an L neighbour needs both."""
+    source = _continuity_source(tmp_path, shape=shape)
+    if not governing:
+        config = source.with_suffix(".refine.toml")
+        config.write_text(config.read_text().replace(" = true", " = false"), encoding="utf-8")
+    level = _continuity_level(source)
+    entry = level.report["B"]
+    assert entry.get("continuity", {}).get("directions") == directions
+    assert entry["continuity"]["because"] == ["A"]
+    assert entry["continuity"]["bands"]
+    points, families = read_mesh(level.obj)
+    held = points[sorted({v for f in families["B"] for v in f})]
+    if shape == "side":
+        assert len(set(held[:, 0])) == 3
+        assert len(set(held[:, 1])) == 13
+    else:
+        assert len(set(held[:, 0])) == len(set(held[:, 1])) == 7
+    record = json.loads(next(p for p in level.files if p.name.endswith(".refine.json")).read_text())
+    labels = {b["label"] for layout in record["layouts"] for b in layout["bands"]}
+    assert set(entry["continuity"]["bands"]) <= labels
+    assert "B" not in record["unchanged_grids"]
+
+
+@pytest.mark.requirement("FR-3299")
+@pytest.mark.parametrize("shape, factor", [("side", 1), ("isolated", 2), ("side", 2), ("both", 2)])
+def test_p0490_continuity_keep_and_omitted_tables_write_the_same_mesh(tmp_path, shape, factor):
+    """P0490-KEEP: explicit keep equals omission, and unaffected families are exact copies."""
+    source = _continuity_source(tmp_path / "implicit", shape=shape, factor=factor)
+    implicit = _continuity_level(source)
+    explicit = _continuity_level(
+        _continuity_source(tmp_path / "explicit", shape=shape, factor=factor, keep=True)
+    )
+    a, af = read_mesh(implicit.obj)
+    b, bf = read_mesh(explicit.obj)
+    assert a.tobytes() == b.tobytes() and af == bf
+    if factor == 1 or shape == "isolated":
+        before, faces = read_mesh(source)
+        assert face_coordinates(a, af["B"]) == face_coordinates(before, faces["B"])
+        assert implicit.report["B"]["method"] in ("copied", "unchanged")
+        assert "continuity" not in implicit.report["B"]
+
+
+@pytest.mark.requirement("FR-3299")
+@pytest.mark.parametrize("factor", [1, 2])
+@pytest.mark.parametrize("keep", [False, True])
+def test_p0490_continuity_mixed_changes_only_the_neighbour_band(tmp_path, factor, keep):
+    """P0490-KEEP: mixed neighbours retain every face beyond the two-layer band."""
+    source = _continuity_source(tmp_path, shape="mixed", factor=factor, keep=keep)
+    level = _continuity_level(source)
+    before, old = read_mesh(source)
+    after, new = read_mesh(level.obj)
+    old_faces, new_faces = face_coordinates(before, old["B"]), face_coordinates(after, new["B"])
+    if factor == 1:
+        assert old_faces == new_faces
+        assert "continuity" not in level.report["B"]
+    else:
+        assert level.report["B"].get("continuity") == {"band": "remeshed", "because": ["A"]}
+        assert level.report["B"]["band"] < len(old["B"])
+        assert [f for f in old_faces if min(p[0] for p in f) >= 5] == [
+            f for f in new_faces if min(p[0] for p in f) >= 5
+        ]
+
+
+@pytest.mark.requirement("FR-3299")
+def test_p0490_continuity_keep_factors_warn_and_are_skipped(tmp_path):
+    """P0490-KEEP: a factor in a keep table warns and cannot request refinement."""
+    source = _continuity_source(tmp_path, shape="isolated", keep=True)
+    config = source.with_suffix(".refine.toml")
+    config.write_text(config.read_text() + "factor = 9\n", encoding="utf-8")
+    with pytest.warns(PyflightstreamWarning, match="keep.*skipped"):
+        level = _continuity_level(source)
+    before, old = read_mesh(source)
+    after, new = read_mesh(level.obj)
+    assert face_coordinates(after, new["B"]) == face_coordinates(before, old["B"])
+
+
+@pytest.mark.requirement("FR-3299")
+def test_p0490_continuity_prepare_declares_followers_and_band_comments(tmp_path):
+    """P0490-KEEP: prepared followers explicitly request both governing factors."""
+    prepared = prepare_to_refine(_continuity_source(tmp_path))
+    text = prepared.config.read_text(encoding="utf-8")
+    tables = tomllib.loads(text)["families"]
+    assert tables.get("B_001_grid") == {"method": "grid_auto"}
+    assert "# follows A_001_grid (parallel) and A_001_grid (normal)\n[families.B_001_grid]" in text
+    assert "# leads " in text and "P1" in text and "N1" in text
+
+
 def _node(i: int, j: int) -> int:
     return 1 + i + (COLUMNS + 1) * j
 
@@ -287,7 +436,7 @@ def test_fr3298_prepare_marks_one_governing_patch_per_touching_group(tmp_path):
     ]
     grids = [p for ps in prepared.patches.values() for p in ps if p.endswith("_grid")]
     assert len(grids) == 2 and len(governing) == 1
-    assert [g for g in grids if g not in table] == [g for g in grids if g not in governing]
+    assert all(table[g] == {"method": "grid_auto"} for g in grids if g not in governing)
 
 
 # ------------------------------------- FR-3298 governing families: governing-r1 cases
@@ -445,7 +594,7 @@ def test_p0490_declared_family_leads_larger_grid_auto_and_warning_explains_overr
 
 
 def test_p0490_prepare_declares_isolated_grid_beside_three_touching_grids(tmp_path):
-    """P0490-GOVERNING (FR-3298): only members of a touching group are omitted."""
+    """P0490-GOVERNING (FR-3298): touching followers are explicit grid_auto tables."""
     source = tmp_path / "plates.obj"
     lines = [f"v {x} {y} 0" for x in range(15) for y in range(3)]
     for name, start, end in (("A", 0, 2), ("B", 2, 5), ("C", 5, 9), ("D", 12, 14)):
@@ -460,7 +609,7 @@ def test_p0490_prepare_declares_isolated_grid_beside_three_touching_grids(tmp_pa
     a, b, c, d = (prepared.patches[n][0] for n in "ABCD")
     assert tables[a]["governing_parallel"] is True
     assert tables[c]["governing_normal"] is True
-    assert b not in tables
+    assert tables[b] == {"method": "grid_auto"}
     assert d in tables, "the isolated grid must retain its own factor table"
     assert tables[d] == {"method": "grid", "factor": 1.0}
     level = refine_mesh(prepared.obj)
@@ -634,7 +783,8 @@ def _topology_source(tmp_path, *, corner=False, ring=False):
         "topology",
         mesh,
         refine_toml='[families.A]\nmethod = "grid"\nnormal_factor = 2\n'
-        "parallel_factor = 3\ngoverning = true\n",
+        "parallel_factor = 3\ngoverning = true\n"
+        + "".join(f'\n[families.{n}]\nmethod = "grid_auto"\n' for n in families if n != "A"),
     )
 
 
@@ -662,7 +812,7 @@ def test_p0490_topology_fallback_warns_and_records_own_reference(tmp_path, reaso
     assert level.report[name]["method"] == "grid"
     config = source.with_suffix(".refine.toml")
     config.write_text(
-        config.read_text(encoding="utf-8")
+        config.read_text(encoding="utf-8").replace(f'[families.{name}]\nmethod = "grid_auto"\n', "")
         + f'\n[families.{name}]\nmethod = "grid"\nnormal_factor = 2\nparallel_factor = 3\n',
         encoding="utf-8",
     )
@@ -714,6 +864,7 @@ def test_p0490_planner_factors_do_not_cross_a_mixed_bridge(tmp_path):
         refine_toml='[families.A]\nmethod = "grid"\nnormal_factor = 2\n'
         'parallel_factor = 3\ngoverning = true\n[families.C]\nmethod = "grid"\n'
         "normal_factor = 4\nparallel_factor = 5\ngoverning = true\n"
+        '[families.B]\nmethod = "grid_auto"\n[families.D]\nmethod = "grid_auto"\n'
         "[families.bridge_mixed]\nfactor = 1\n",
     )
     level = refine_mesh(source)
@@ -760,7 +911,7 @@ def test_p0490_planner_legacy_governing_warns_and_means_both(tmp_path):
     with pytest.warns(PyflightstreamWarning, match="earlier spelling"):
         request = resolve_request(source, ["A", "B"])
     assert getattr(request.specs["A"], "leads", ()) == (True, True)
-    assert request.specs["B"].method == "grid_auto"
+    assert "B" not in request.specs
 
 
 def test_p0490_prepare_short_rearmost_line_refines_its_own_toml(tmp_path):

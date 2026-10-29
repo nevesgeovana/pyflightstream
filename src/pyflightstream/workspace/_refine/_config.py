@@ -38,10 +38,10 @@ from pyflightstream.workspace._refine._geometry import TE_POINT_FRACTION
 from pyflightstream.workspace._refine._obj import KIND
 
 #: The methods a family may state (FR-923).
-METHODS = ("auto", "grid", "remesh", "grid_auto")
+METHODS = ("auto", "grid", "remesh", "grid_auto", "keep")
 #: A grid family that takes its factors from the governing family (``governing = true``)
-#: and its shared curves' counts from its neighbours; a grid family the refinement file
-#: does not declare is one when the file has a governing family.
+#: and its shared curves' counts from its neighbours. Undeclared families are kept
+#: unless continuity requires a change.
 GRID_AUTO = "grid_auto"
 #: The element mode of a remeshed family that states none (today's triangles).
 TRIANGLES = "triangles"
@@ -291,6 +291,8 @@ def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> 
         )
     table = {k: v for k, v in table.items() if k != "elements"}
     governing, parallel, normal = _governing_flags(where, table, accept)
+    if method == "keep":
+        return _keep_spec(where, table, governing or parallel or normal)
     if method == GRID_AUTO:
         return grid_auto_spec(
             where, table, governing=governing or parallel or normal, accept=accept
@@ -322,6 +324,15 @@ def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> 
         governing_parallel=parallel,
         governing_normal=normal,
     )
+
+
+def _keep_spec(where, table, governing):
+    """Read keep without factors or governing flags, warning about either."""
+    if any(k in table for k in ("factor", *DIRECTIONAL_KEYS)):
+        _skip(where, "keep takes no factors; its own are skipped")
+    if governing:
+        _skip(where, "keep cannot lead; governing is skipped")
+    return FamilySpec(method="keep")
 
 
 def _governing_flags(where, table, accept):
@@ -727,11 +738,11 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             )
         reason = f"--families selects {', '.join(chosen)}"
         missing_tables = _missing_tables(chosen, stated_specs)
-        _add_followers(specs, chosen)
         for name in missing_tables:
             warnings.warn(
                 f"{file}: selected family {name!r} has no refinement table and is copied "
-                f"unchanged; add [families.{name}] to {file}, or give FACTOR.",
+                f"unchanged unless continuity needs it; add [families.{name}] to {file}, "
+                "or give FACTOR.",
                 PyflightstreamWarning,
                 stacklevel=3,
             )
@@ -883,25 +894,17 @@ def canonical_selection(request: RefineRequest, picked: Sequence[str]) -> str:
     return "\n".join(lines)
 
 
-def _add_followers(specs: dict[str, FamilySpec], chosen: Sequence[str]) -> None:
-    """Make every selected family without a table grid_auto when one is governing (FR-3298)."""
-    if any(any(s.leads) for s in specs.values()):
-        specs.update({n: FamilySpec(method=GRID_AUTO) for n in chosen if n not in specs})
-
-
 def grid_auto_spec(
     where: str, table: Mapping[str, Any], *, governing: bool, accept: bool = False
 ) -> FamilySpec:
     """Return a grid_auto family's spec: it states no factor and cannot lead (FR-3298).
 
-    Factors in its table are refused (warned and skipped under ``accept``);
+    Factors in its table are warned and skipped;
     ``governing = true`` is warned and skipped, since the family takes another's
     factors.
     """
     if any(k in table for k in ("factor", *DIRECTIONAL_KEYS)):
-        _unknown(
-            where, "grid_auto takes the governing family's factors; its own are skipped", accept
-        )
+        _skip(where, "grid_auto takes the governing family's factors; its own are skipped")
     if governing:
         _skip(
             f"{where} governing",
@@ -911,13 +914,7 @@ def grid_auto_spec(
 
 
 def _missing_tables(chosen: Sequence[str], specs: Mapping[str, FamilySpec]) -> tuple[str, ...]:
-    """Return the selected families the file does not declare, none when one is governing.
-
-    With a governing family every undeclared family is grid_auto (FR-3298), so
-    none is copied for want of a table.
-    """
-    if any(any(s.leads) for s in specs.values()):
-        return ()
+    """Return selected families kept by default because the file does not declare them."""
     return tuple(n for n in chosen if n not in specs)
 
 

@@ -195,7 +195,7 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
         fam_v={n: set(mesh.family_vertices(n).tolist()) for n in names},
         te_of={n: _lines.te_vertices(mesh, n, points, tolerance) for n in names},
         scale=scale,
-        specs=dict(request.specs),
+        specs={n: request.specs.get(n, FamilySpec(method="keep")) for n in names},
         te_edges={n: _lines.listed_edges(mesh, n, points, tolerance) for n in names},
         perimeter_sets=perimeter[2] if perimeter else [],
         te_perimeter=_lines.exported_by_family(mesh, perimeter[1]) if perimeter else {},
@@ -234,6 +234,10 @@ def _decide(work: _Work, *, prepare: bool = False) -> None:
         work.say(f"family {i} of {len(names)}: {name}, recovering its layout")
         _decide_family(work, name)
     _grid_after_grid(work, prepare=prepare)
+    for name in work.grids:
+        if work.specs[name].method == "keep" and name not in work.layouts:
+            del work.specs[name]
+            work.report[name] = {"method": "copied"}
     for name in work.remesh:
         spec = work.specs[name]
         if spec.chordwise is None and spec.spanwise is None:
@@ -261,10 +265,12 @@ def _refuse_or_remesh(work: _Work, name: str, found: str) -> None:
     grid_auto family that is not a grid is kept unchanged.
     """
     spec = work.specs[name]
-    if spec.method == GRID_AUTO:
+    if spec.method in (GRID_AUTO, "keep"):
         del work.specs[name]
         work.followers.pop(name, None)
-        work.report[name] = {"method": "unchanged", "reason": f"grid_auto, not a grid: {found}"}
+        work.report[name] = {"method": "unchanged", "reason": f"{spec.method}, not a grid: {found}"}
+        if spec.method == "keep":
+            work.report[name] = {"method": "copied"}
         return
     if spec.method == "grid":
         _demanded_grid(work, name, f"method is grid and no grid was recovered: {found}")
@@ -292,7 +298,7 @@ def _decide_family(work: _Work, name: str) -> None:
     directional = spec.chordwise is not None or spec.spanwise is not None
     if work.te_export is not None and work.te_edges[name]:
         _lines.choose_perimeter_line(work, name)
-    if (spec.method in ("grid", GRID_AUTO) or directional) and not work.te_of[name]:
+    if (spec.method in ("grid", GRID_AUTO, "keep") or directional) and not work.te_of[name]:
         # A grid demanded of a sheet, or asked for parallel and normal factors, that
         # found no trailing edge takes the longest side of its boundary as reference
         # (_lines.assume_trailing_edge), not written as a trailing edge, and warns.
@@ -393,7 +399,7 @@ def _remesh_or_keep(work: _Work, name: str, reason: str) -> None:
     refinement file states ``method = "remesh"`` is remeshed at any factor.
     """
     spec = work.specs[name]
-    if spec.unchanged and spec.method == "auto":
+    if spec.unchanged and spec.method in ("auto", "keep"):
         del work.specs[name]
         work.report[name] = {"method": "unchanged", "reason": f"factor 1 ({reason})"}
         return
@@ -405,6 +411,8 @@ def _refine_grids(work: _Work) -> None:
     """Refine every grid family and record what its neighbours must take (FR-933, FR-934)."""
     levels: dict[str, _grid.GridLevel] = {}
     for i, (name, grid) in enumerate(work.grids.items(), 1):
+        if name not in work.specs:
+            continue
         chordwise, spanwise = work.specs[name].directions
         work.say(f"grid {i} of {len(work.grids)}: {name} ({grid.describe()})")
         layout = work.layouts.get(name)  # every multiblock family has one (FR-932)
@@ -434,6 +442,11 @@ def _refine_grids(work: _Work) -> None:
             work.conform.setdefault(other, []).append((old, new))
             work.shared.setdefault(other, []).append((old, new))
             interfaces[other] = f"{len(old)} -> {len(new)} nodes"
+            if other not in work.specs:
+                continuity = work.report.setdefault(other, {}).setdefault(
+                    "continuity", {"band": "remeshed", "because": []}
+                )
+                continuity["because"].append(name)
         if interfaces:
             info["interfaces"] = interfaces
         work.report[name] = info
@@ -455,6 +468,10 @@ def _grid_info(
     info: dict[str, Any] = dict(level.report, method="grid", reason=grid.describe())
     if layout is not None:
         info["kept_sides"] = layout.kept[name]
+        if name in layout.continuity:
+            info["continuity"] = layout.continuity[name]
+        if name in layout.unchanged:
+            info["method"] = "unchanged"
     if name in work.followers:  # grid_auto (FR-3298)
         directions = (
             [d for p in layout.patches_of(name) for d in layout.directions[p].values()]
@@ -580,6 +597,7 @@ def _bands(work: _Work) -> None:
             work.shared[bname] = work.shared.pop(name)
         work.bands[bname] = name
         work.report[name] = {
+            **work.report.get(name, {}),
             "method": "unchanged",
             "band": len(band),
             "faces": len(work.original[name]),
@@ -598,7 +616,7 @@ def _rebuild_whole(work: _Work, name: str, band: int) -> None:
         "band": band,
         "faces": faces,
     }
-    work.report[name] = dict(work.rebuilt[name])
+    work.report[name] = {**work.report.get(name, {}), **work.rebuilt[name]}
     warn(
         f"{work.source} family {name}: the band of {_geometry.BAND_LAYERS} face layers beside "
         f"the refined grid covers all {faces} faces of the family, so it was rebuilt whole at "
@@ -962,7 +980,11 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int], has_te: bool) -> 
         "families": {
             n: {
                 **_with_perimeter(work, n, work.report.get(n, {"method": "copied"})),
-                **(_direction_record(work.layouts.get(n), n) if n in work.grids else {}),
+                **(
+                    _direction_record(work.layouts.get(n), n)
+                    if n in work.grids and n in work.specs
+                    else {}
+                ),
             }
             for n in work.names
             if n not in work.bands
@@ -1308,7 +1330,12 @@ def _unchanged_grids(work: _Work, families: list[str]) -> list[str]:
     one, in the level's family order. ``refine.json`` lists them, so the
     audit of a saved level judges G6 as the refinement's own audit does.
     """
-    ones = {n for n in work.grids if work.specs[n].directions == (1.0, 1.0)}
+    ones = {
+        n
+        for n in work.grids
+        if work.specs.get(n, FamilySpec()).directions == (1.0, 1.0)
+        and "continuity" not in work.report.get(n, {})
+    }
     components = work.request.components
     return [
         n

@@ -507,7 +507,8 @@ class TestWorkspace2RefineWing:
             out_dir=tmp_path / "out",
         )
         verts, families = _workspace_2_refine_wing__read_mesh(level.obj)
-        assert level.report["L"]["method"] == "copied", level.report["L"]
+        assert level.report["L"]["method"] == "unchanged", level.report["L"]
+        assert "continuity" not in level.report["L"]
         assert level.report["L"].get("trailing_edge") in (None, "perimeter")
         assert _workspace_2_refine_wing__face_coordinates(
             verts, families["L"]
@@ -619,7 +620,8 @@ class TestWorkspace2RefineWing:
             out_dir=tmp_path / "out",
         )
         assert level.report["U"]["method"] == "grid"
-        assert level.report["L"]["method"] == "copied"
+        assert level.report["L"]["method"] == "unchanged"
+        assert "continuity" not in level.report["L"]
         midpoints = _workspace_2_refine_wing___te_rows(level)
         assert len(midpoints) == len(mesh.te)
         assert sorted(midpoints) == sorted(map(tuple, mesh.te.tolist()))

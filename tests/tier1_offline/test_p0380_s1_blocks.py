@@ -676,13 +676,14 @@ def test_a_governing_family_gives_its_counts_to_the_curves_it_shares(tmp_path):
     assert [level.report[n]["method"] for n in ("W", "C", "J")] == ["grid"] * 3
 
 
-def test_an_undeclared_grid_takes_the_governing_family_factors(tmp_path):
-    """FR-3298: with a governing family, W and C left out of the file are grid_auto.
+def test_explicit_grid_auto_takes_the_governing_family_factors(tmp_path):
+    """FR-3298: with a governing family, W and C explicitly declare grid_auto.
 
     They are refined as grids with J's factor (0.76923), and written as
     method grid_auto in the level's selection.
     """
-    toml = f"[families.J]\nfactor = {FACTOR}\ngoverning = true\n"
+    followers = '\n[families.W]\nmethod = "grid_auto"\n[families.C]\nmethod = "grid_auto"\n'
+    toml = f"[families.J]\nfactor = {FACTOR}\ngoverning = true\n" + followers
     src = _source(tmp_path, toml, strip=False)
     level = refine_mesh(src, out_dir=tmp_path / "auto")
     assert [level.report[n]["method"] for n in ("W", "C", "J")] == ["grid"] * 3
@@ -693,7 +694,7 @@ def test_an_undeclared_grid_takes_the_governing_family_factors(tmp_path):
     }
     assert "grid_auto" not in level.report["J"]
     control = refine_mesh(
-        _source(tmp_path / "c", f"[families.J]\nfactor = {FACTOR}\n", strip=False),
+        _source(tmp_path / "c", f"[families.J]\nfactor = {FACTOR}\n" + followers, strip=False),
         out_dir=tmp_path / "ctl",
     )
     assert control.report.get("W", {}).get("method") != "grid"
