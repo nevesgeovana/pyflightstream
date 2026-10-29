@@ -13,6 +13,10 @@ FlightStream versions.
   An explicit `RPM` turns the frame alone, signed by the rotor block, with no
   moving boundary; absent RPM keeps it fixed with one campaign warning naming
   the rows. Frame entries are placed in both cases (FR-3350, FR-3351).
+- Wake entries on `qsteady_rotor` rows export the final steady wake and write W
+  thrust, torque and near-field comparisons using the signed rotating relative
+  velocity. Multiple clockings use clocking 0 with a named skip note; A and B
+  remain skipped (FR-3353).
 
 ## [0.49.0] - 2026-10-29
 

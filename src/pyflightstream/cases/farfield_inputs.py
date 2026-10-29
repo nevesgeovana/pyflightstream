@@ -157,11 +157,6 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
             "state the A entry on a steady or unsteady_rotor row that carries the lifting "
             'surfaces, or select "power" for the rotor on this row'
         )
-    if analysis == "trefftz:wake" and run_type == "qsteady_rotor":
-        return (
-            "Trefftz B on qsteady_rotor has no wake of a lifting surface outside the "
-            "rotor: B is traced on a steady row that carries the lifting surfaces"
-        )
     if analysis == "trefftz:wake":
         # P0470-FFR: on a rotor row the wake gives the rotor's wake loads (VARIANT W)
         # and B traces the lines of the other families, so the export is wanted.

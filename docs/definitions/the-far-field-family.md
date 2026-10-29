@@ -333,6 +333,15 @@ alias, from the lines selected by that rotor's start-node region (the rule of
 spatial selection is not a verified trailing-edge family map: overlapping rotor
 regions or nearby wing trailing edges can make membership ambiguous.
 
+This includes `qsteady_rotor`: the plan exports the wake VTK after the final
+steady solve. W uses the signed point speed read by D's hub conversion. At
+position `r` relative to the hub its relative velocity is
+`V_relative = V_axial e_a - Omega e_a cross r + w`, where `w` is the induced
+velocity of the wake filaments. Projecting its Kutta-Joukowski force gives
+the thrust and torque below. A wheel solved at multiple clockings exports
+this wake at clocking 0 only: the W row is clocking 0's, with a named skip
+note for the unavailable clocking average. A and B remain skipped on this row.
+
 A rotor wake lattice is read as trailing filaments, one line per spanwise
 station from the trailing-edge row. The shed segments connecting stations are
 left out. Each connected lattice represents one blade, and its count supplies
@@ -835,7 +844,7 @@ named skip. Steady and quasi-steady rotor scripts retain their analysis route.
 | steady, fixed wing | yes | yes | yes | yes |
 | steady rotor | nonrotor families | nonrotor lines; W per rotor | configuration plane | yes |
 | `unsteady_rotor` | nonrotor families | nonrotor lines; W per rotor; instant and average | configuration plane, instant and average | instant and average |
-| `qsteady_rotor` | no, warned and skipped | no, warned and skipped | configuration plane, in the hub frame | yes, in the hub frame |
+| `qsteady_rotor` | no, warned and skipped | B skipped; W at the final solve | configuration plane, in the hub frame | yes, in the hub frame |
 | unsteady, fixed wing | yes | no | instant and average | instant and average |
 | coupled FSI, steady | the coupled distribution | yes | refused (no probes) | refused (no probes) |
 
@@ -844,7 +853,7 @@ block's blade or general families. The refusal names the rotor and families
 and points to the reference aliases for lifting surfaces. A and B on a
 `qsteady_rotor` row are not applicable, never refused: that row holds an
 isolated rotor, with no lifting surface outside it, so the plan states each
-entry `not_applicable` with a WARNING naming the entry and stays ready, and
+analysis `not_applicable` with a WARNING naming the entry and stays ready, and
 post names the skip. One pproc thus serves the `unsteady_rotor` row that
 carries the lifting surfaces and the `qsteady_rotor` row of its rotor. On unsteady rows A writes the end-of-run sectional trace as instant;
 its average computes each step's trace before averaging. Missing per-step
