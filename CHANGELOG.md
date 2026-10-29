@@ -16,7 +16,9 @@ FlightStream versions.
 - Wake entries on `qsteady_rotor` rows export the final steady wake and write W
   thrust, torque and near-field comparisons using the signed rotating relative
   velocity. Multiple clockings use clocking 0 with a named skip note; A and B
-  remain skipped (FR-3353).
+  remain skipped (FR-3353). W uses the whole wheel's blade count on periodic
+  sectors, including exports without blade tags, and reverses the qsteady
+  export's circulation sense. Unsteady wake loads keep their existing sense.
 
 ## [0.49.0] - 2026-10-29
 

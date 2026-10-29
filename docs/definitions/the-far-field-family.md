@@ -334,7 +334,12 @@ spatial selection is not a verified trailing-edge family map: overlapping rotor
 regions or nearby wing trailing edges can make membership ambiguous.
 
 This includes `qsteady_rotor`: the plan exports the wake VTK after the final
-steady solve. W uses the signed point speed read by D's hub conversion. At
+steady solve. W uses the whole wheel's blade count: the rotor block's count
+times the sector-load factor (the same factor used for the near field), with
+the exported lattice tags supplying a lower bound where present. The exported
+circulation is negated on `qsteady_rotor` rows only: the licensed 26.125
+comparison of 2026-10-29 measured the opposite sense to the unsteady export.
+W uses the signed point speed read by D's hub conversion. At
 position `r` relative to the hub its relative velocity is
 `V_relative = V_axial e_a - Omega e_a cross r + w`, where `w` is the induced
 velocity of the wake filaments. Projecting its Kutta-Joukowski force gives
@@ -391,7 +396,8 @@ loads remain available. An average uses each window step's own loads export.
 Missing step loads warn and leave that step's near-field comparisons unavailable;
 the dimensional wake loads remain available.
 
-**The scale is raw.** The values are read as the circulation itself:
+**The scale is raw.** The values, with the qsteady sense correction above,
+are read as the circulation itself:
 `GAMMA_SCALE` is 1 and nothing is calibrated to the near field, which would
 make the comparison a tautology. For the FlightStream 26.125 rotor lattice, the reader orients each trailing
 filament from its trailing-edge node and signs its value by the written segment

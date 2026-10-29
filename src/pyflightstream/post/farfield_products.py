@@ -895,6 +895,11 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
         axis = np.asarray(rotor.axis_vector, dtype=np.float64)
         axis = axis / float(np.linalg.norm(axis))
         count = recorded_blade_count(record, str(alias), len(rotors)) or rotor.blade_count
+        count = (
+            max(int(count or 0), rotor.blade_count * _sector_copies(ctx))
+            if str(record.recipe or "") == "qsteady_rotor"
+            else count
+        )
         if wake.blades is not None:
             # Each lattice of the export is one blade's wake; a row whose record states
             # the meshed blades (one, PERIODIC supplying the rest) still sheds them all.
@@ -903,7 +908,14 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
         try:
             wake_loads = wake_rotor_loads(
                 [line for line, own in zip(lines, mask, strict=True) if own],
-                values=wake.values[mask],
+                # PFS-2184.02, licensed 26.125 measurement of 2026-10-29:
+                # qsteady exports the opposite sense to unsteady; wheel blades and
+                # reversed circulation gave T/near = 0.990 and Q/near = 0.945.
+                values=(
+                    -wake.values[mask]
+                    if str(record.recipe or "") == "qsteady_rotor"
+                    else wake.values[mask]
+                ),
                 hub=(float(rotor.x_m), float(rotor.y_m), float(rotor.z_m)),
                 axis=axis.tolist(),
                 omega=2.0 * math.pi * float(rpm) / 60.0,
