@@ -13,6 +13,7 @@ import pytest
 import yaml
 from packaging.requirements import Requirement
 from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
 from packaging.version import Version
 
 REPO = Path(__file__).resolve().parents[2]
@@ -69,10 +70,18 @@ def test_p0500_endpoint_resolver_reads_every_declared_range(endpoint, monkeypatc
     assert args[1:4] == ["-m", "pip", "install"]
     assert ".[dev]" in args
     expected = []
+    highest = {}
     for text in _user_ranges(data["project"]):
         req = Requirement(text)
-        floor = next(s.version for s in req.specifier if s.operator == ">=")
-        expected.append(f"{req.name}=={floor}" if endpoint == "floors" else text)
+        floor = Version(next(s.version for s in req.specifier if s.operator == ">="))
+        key = canonicalize_name(req.name)
+        if key not in highest or floor > highest[key][1]:
+            highest[key] = (highest.get(key, (req.name,))[0], floor)
+        if endpoint != "floors":
+            expected.append(text)
+    if endpoint == "floors":
+        # One pin per package, at the highest floor any range declares (fsi raises numpy).
+        expected = [f"{name}=={floor}" for name, floor in highest.values()]
     assert args[args.index(".[dev]") + 1 :] == expected
     assert ("--upgrade" in args) == (endpoint == "ceilings")
     assert any(s.get("run") == "pytest -n auto tests/tier1_offline" for s in job["steps"])

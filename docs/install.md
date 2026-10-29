@@ -24,7 +24,7 @@ and `dev` are maintainer extras and are outside this runtime range policy.
 | rtree | `>=1.0,<2` | Base |
 | SciPy | `>=1.15,<2` | Base |
 | pandas | `>=2.3,<3` | `pandas` extra |
-| PyNiteFEA | `>=3.0,<4` | `fsi` extra |
+| PyNiteFEA | `>=3.0,<4` | `fsi` extra, which also raises NumPy to `>=2.4` (PyNiteFEA 3 requires it) |
 | XlsxWriter | `>=3.2.9,<4` | `excel` extra |
 
 Existing floors are unchanged. PyYAML gains its first explicit floor, 6.0.1.

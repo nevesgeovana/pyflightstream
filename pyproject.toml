@@ -97,7 +97,8 @@ dependencies = [
 pandas = ["pandas>=2.3,<3"]
 # FSI structural coupling (M6, DLV-007). PyNiteFEA is MIT; license
 # evidence: reports/RPT-002_pynitefea-license_2026-07-21.md (NFR-02).
-fsi = ["PyNiteFEA>=3.0,<4"]
+# PyNiteFEA 3 requires NumPy 2.4 or newer, so the extra states that floor.
+fsi = ["PyNiteFEA>=3.0,<4", "numpy>=2.4,<3"]
 # Optional workbook authoring; XlsxWriter is BSD-2-Clause.
 excel = ["XlsxWriter>=3.2.9,<4"]
 # Reading a vendor manual pdf, for pyflightstream.utils.manual. A

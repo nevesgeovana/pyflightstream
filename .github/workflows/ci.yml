@@ -203,6 +203,8 @@ jobs:
           from importlib import metadata
           from pathlib import Path
           from packaging.requirements import Requirement
+          from packaging.utils import canonicalize_name
+          from packaging.version import Version
 
           project = tomllib.loads(Path("pyproject.toml").read_text())["project"]
           ranges = project["dependencies"] + [
@@ -213,10 +215,14 @@ jobs:
           ]
           requirements = [Requirement(text) for text in ranges]
           floors = os.environ["DEPENDENCY_ENDPOINT"] == "floors"
-          selected = [
-              f"{req.name}=={next(s.version for s in req.specifier if s.operator == '>=')}"
-              for req in requirements
-          ] if floors else ranges
+          # A package an extra raises (numpy for fsi) installs at its highest floor.
+          highest = {}
+          for req in requirements:
+              floor = Version(next(s.version for s in req.specifier if s.operator == ">="))
+              key = canonicalize_name(req.name)
+              if key not in highest or floor > highest[key][1]:
+                  highest[key] = (highest.get(key, (req.name,))[0], floor)
+          selected = [f"{name}=={floor}" for name, floor in highest.values()] if floors else ranges
           subprocess.check_call([
               sys.executable, "-m", "pip", "install",
               *([] if floors else ["--upgrade"]), "-e", ".[dev]", *selected,
