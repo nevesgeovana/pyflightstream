@@ -544,6 +544,14 @@ def _plain(value: Any, nested: bool = True) -> bool:
     return isinstance(value, (bool, int, float, str))
 
 
+class _Declared(dict):  # type: ignore[type-arg]
+    """The declared variables, plus the names a ``[vars]`` entry gave that were skipped."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.skipped: list[str] = []
+
+
 def _lookup(name: str, declared: Mapping[str, Any], chain: tuple[str, ...]) -> Any:
     if name in chain:
         cycle = " -> ".join((*chain, name))
@@ -551,6 +559,8 @@ def _lookup(name: str, declared: Mapping[str, Any], chain: tuple[str, ...]) -> A
     if name not in declared:
         listed = ", ".join(declared) or "none"
         hint = _closest(name, list(declared))
+        if name in getattr(declared, "skipped", ()):
+            hint += f" ({name} was skipped as invalid, see the earlier warning)"
         raise _UnresolvedError(f"no variable {name!r} is declared{hint}; [vars] declares {listed}")
     return _expand(declared[name], declared, (*chain, name))
 
@@ -614,12 +624,13 @@ def resolve_variables(source: Path, data: dict[str, Any]) -> dict[str, Any]:
         reason = "is not a table; write one name = value per line; no variable is declared"
         demote(_refuse(where, reason), warning=UnknownKeyWarning)
         raw = {}
-    declared: dict[str, Any] = {}
+    declared = _Declared()
     for name, value in raw.items():
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) or not _plain(value):
             reason = "is not a variable: a name of letters, digits and underscores, not starting"
             reason += " with a digit, and a number, text, boolean or list of them; it is skipped"
             demote(_refuse(f"{where} {name}", reason), warning=UnknownKeyWarning)
+            declared.skipped.append(str(name))
             continue
         declared[name] = value
     resolved: dict[str, Any] = _substitute(str(source), (), data, declared)

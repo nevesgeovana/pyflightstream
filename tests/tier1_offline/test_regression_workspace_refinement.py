@@ -778,6 +778,15 @@ class TestP0501RefineVars:
         assert hint in str(err.value)
 
     @staticmethod
+    def test_p0501_f5_a_skipped_variable_is_named_when_a_reference_needs_it(tmp_path):
+        """A variable skipped as invalid is not declared; the later reference says so."""
+        text = '[vars]\nbad = [[1, 2]]\n[families.G]\nfactor = "${bad}"\n[families.T]\nfactor = 2\n'
+        with pytest.warns(UnknownKeyWarning) as caught, pytest.raises(InputArtifactError):
+            _p0501_vars_read(tmp_path, text)
+        said = " ".join(str(w.message) for w in caught)
+        assert "bad was skipped as invalid, see the earlier warning" in said, said
+
+    @staticmethod
     def test_p0501_vars_a_level_matches_the_literal_file(tmp_path):
         """refine_mesh on a file using variables writes the same level as the literal file,
         and refine.json records the resolved values."""
