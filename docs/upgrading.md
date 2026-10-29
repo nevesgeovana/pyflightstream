@@ -16,8 +16,8 @@ Runtime dependencies and the `pandas`, `fsi` and `excel` extras now have
 explicit upper bounds: NumPy and Pydantic `<3`, PyYAML `<7`, matplotlib `<4`,
 rtree and SciPy `<2`, pandas `<3`, and PyNiteFEA `<4`. The existing trimesh
 `<6` and XlsxWriter `<4` bounds remain. PyYAML gains the floor `>=6.0.1`, and the
-Pydantic and rtree floors rise to `>=2.10` (the oldest release providing every Pydantic
-name the package uses) and `>=1.1` (the first rtree installable on Python 3.12). See [installation](install.md) for the full
+Pydantic and rtree floors rise to `>=2.10` (the package uses `ModelWrapValidatorHandler`,
+which 2.9 lacks) and `>=1.1` (rtree 1.0 offers no Python 3.12 wheel). See [installation](install.md) for the full
 ranges. Recreate environments within these bounds before upgrading.
 
 - Opt in to component-wide directional governors with `prepare-to-refine
