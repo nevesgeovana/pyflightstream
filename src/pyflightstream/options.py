@@ -50,7 +50,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import pyflightstream._errors as _errors
-from pyflightstream._errors import InputValueError, PyflightstreamError
+from pyflightstream._errors import InputValueError, PyflightstreamError, UnknownKeyWarning
 from pyflightstream._errors import with_refusal_policy as with_refusal_policy
 
 __all__ = [
@@ -218,7 +218,7 @@ def set_option(key: str, value: Any) -> None:
         names the option, the received value, and the accepted form.
     """
     if key not in _REGISTRY:
-        _errors.demote(_unknown_key_error(key), warning=_errors.UnknownKeyWarning)
+        _errors.demote(_unknown_key_error(key), warning=UnknownKeyWarning)
         return
     _check_value(_REGISTRY[key], value)
     _VALUES[key] = value
@@ -239,7 +239,7 @@ def reset_option(key: str) -> None:
         lists every registered key.
     """
     if key not in _REGISTRY:
-        _errors.demote(_unknown_key_error(key), warning=_errors.UnknownKeyWarning)
+        _errors.demote(_unknown_key_error(key), warning=UnknownKeyWarning)
         return
     _VALUES.pop(key, None)
 
@@ -317,7 +317,7 @@ def option_context(*pairs: Any) -> Iterator[None]:
     for i in range(0, len(pairs), 2):  # validate everything before touching state
         key, value = pairs[i], pairs[i + 1]
         if key not in _REGISTRY:
-            _errors.demote(_unknown_key_error(key), warning=_errors.UnknownKeyWarning)
+            _errors.demote(_unknown_key_error(key), warning=UnknownKeyWarning)
             continue
         _check_value(_REGISTRY[key], value)
         items.append((key, value))
@@ -349,7 +349,7 @@ def positive_seconds(value: Any) -> None:
 
     Raises
     ------
-    ValueError
+    InputValueError
         If the value is not a strictly positive finite real number (NaN and
         infinity included, since ``nan <= 0`` is False); the registry reports
         it as an :class:`OptionError`.
@@ -373,7 +373,7 @@ def non_empty_path_text(value: Any) -> None:
 
     Raises
     ------
-    ValueError
+    InputValueError
         If the value is not a non-empty string or path; the registry reports it as an
         :class:`OptionError`.
     """
