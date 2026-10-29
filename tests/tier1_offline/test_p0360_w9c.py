@@ -45,6 +45,7 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
             if "farfield" in value:
                 assert value.pop("farfield") is None
                 value["farfields"] = []
+                value["polar_at"] = []
             if "trimmed_polar" in value:
                 value["trim_moment"] = "CMB25"
                 value["trim_axis"] = "ALPHA"

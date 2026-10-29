@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import get_args
 
 import pytest
+from pydantic import BaseModel
 
 import pyflightstream.post.guides as guides
 from pyflightstream.cases import (
@@ -112,7 +113,7 @@ REPO = Path(__file__).resolve().parents[2]
 ARTIFACTS = ("matrix", "setup", "pproc", "reference", "geometry")
 
 
-def _fields(model: type, *, dropping: tuple[str, ...] = ()) -> set[str]:
+def _fields(model: type[BaseModel], *, dropping: tuple[str, ...] = ()) -> set[str]:
     """The keys a model table must carry: its fields, less the ones the package sets."""
     package_set = {field for owner, field in guides.PACKAGE_SET_FIELDS if owner == model.__name__}
     return set(model.model_fields) - package_set - set(dropping)
@@ -211,6 +212,9 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         # FR-454 (0.40.0): the far-field family's table.
         ("pproc", "`[[farfields]]`"): _fields(FarfieldSpec),
         ("pproc", "`[products]`"): _fields(ProductsSpec),
+        ("pproc", "`[[polar_at]]`"): _fields(
+            get_args(PprocSpec.model_fields["polar_at"].annotation)[0]
+        ),
         # --- the reference artifact -----------------------------------------
         ("reference", "Top-level keys and tables"): _fields(
             ReferenceArtifact, dropping=tuple(blocks)

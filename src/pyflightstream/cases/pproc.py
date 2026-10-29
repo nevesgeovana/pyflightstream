@@ -1353,6 +1353,26 @@ SUPERFILE_FORMATS: tuple[str, ...] = ("csv", "legacy_polar")
 INSTALLED_FRAME_FAMILIES: tuple[str, ...] = ("probes", "inflow")
 
 
+class _PolarAtSpec(BaseModel):
+    """One requested sampling of a finished polar along a numeric column."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: Numeric polar column used for interpolation and re-parameterization.
+    axis: str = Field(min_length=1)
+    #: Requested finite coordinates, in output order; outside or ambiguous values become NA.
+    values: list[Annotated[float, Field(strict=True, allow_inf_nan=False)]]
+    #: Output suffix; absent uses the axis lower-cased. Unsafe characters become underscores.
+    name: str | None = None
+
+    @property
+    def output_name(self) -> str:
+        """Return the filename spelling, shared by collision checks and the writer."""
+        return re.sub(
+            r"[^A-Za-z0-9_.+-]", "_", self.axis.lower() if self.name is None else self.name
+        )
+
+
 class ProductsSpec(BaseModel):
     """The ``[products]`` table: which post-processed CSV tables the campaign writes.
 
@@ -2207,6 +2227,41 @@ class PprocSpec(BaseModel):
         return value
 
     products: ProductsSpec = Field(default_factory=ProductsSpec)
+    #: Interpolated polar tables, one row per requested value along each numeric axis.
+    polar_at: list[_PolarAtSpec] = Field(default_factory=list)
+
+    @field_validator("polar_at", mode="before")
+    @classmethod
+    def _polar_at_entries(cls, value: object) -> list[_PolarAtSpec]:
+        """Warn and skip malformed entries or colliding sanitized names (FR-3348, FR-3349)."""
+        if not isinstance(value, list):
+            warn(
+                "polar_at must be an array of tables; skipping it. Use [[polar_at]].",
+                PyflightstreamWarning,
+            )
+            return []
+        entries: list[_PolarAtSpec] = []
+        names: set[str] = set()
+        for index, raw in enumerate(value, 1):
+            try:
+                entry = _PolarAtSpec.model_validate(raw)
+            except ValueError as error:
+                warn(
+                    f"polar_at entry {index} is invalid and skipped: {error}", PyflightstreamWarning
+                )
+                continue
+            spelling = entry.output_name.casefold()
+            if spelling in names:
+                warn(
+                    f"polar_at entry {index} name {entry.output_name!r} collides after sanitizing "
+                    "and ignoring case; skipping the second entry. Choose a distinct name.",
+                    PyflightstreamWarning,
+                )
+                continue
+            names.add(spelling)
+            entries.append(entry)
+        return entries
+
     #: How a blade family is told from the airframe: a regular expression
     #: over the family name. The reference ones were Blade1 to Blade6.
     blade_pattern: str = r"^Blade\d+$"

@@ -342,6 +342,11 @@ boundary_layer_velocity_profile = false
 superfile_format = "csv"
 settings_codebook = true
 installed_frame = []  # "probes" and/or "inflow": copies mirrored through y = 0
+
+[[polar_at]]  # interpolate every numeric column without extrapolating
+axis = "CLB"  # re-parameterize by a numeric column of the finished polar
+values = [0.1, 0.2]  # outside or multiply bracketed values produce NA rows
+name = "lift"  # optional; default is the axis lower-cased
 """
 
 #: The reason a key of a left-out table is left out: its table is, for the reason above.

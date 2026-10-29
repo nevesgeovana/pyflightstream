@@ -1,5 +1,11 @@
 # Dred requirements
 
+The finished-sweep obligations of PFS-2013.03.03 are recorded as L3 rows in
+`tests/requirements_l3.csv`: FR-3340 to FR-3342 select and preserve the trim,
+and FR-3343 to FR-3349 specify interpolation, re-parameterization, unavailable
+rows, collision handling, provenance and input guidance. Their numerical
+definition is the steady-polar definitions page.
+
 | UID | Parent | HID | Level | Status | Verification method | Statement | Rationale | Derives from | Code | Test |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | FR-3094 | - | DRED-1 | L1 | implemented | analysis | pyflightstream shall assemble parsed results into tables carrying the recorded experiment identity and condition. | - | NL-DRED NL-DRED-1 | - | - |

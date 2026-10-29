@@ -511,6 +511,169 @@ def _synthetic_polar(alphas, moment):
     return columns, rows
 
 
+@pytest.mark.requirement("FR-3343", "FR-3347", "FR-3348")
+def test_p0500_polar_at_is_reachable_and_names_its_provenance(tmp_path):
+    """A finished sweep asks for ALPHA -1 and CLB re-parameterization in its pproc."""
+    import warnings
+
+    from tests.tier1_offline.test_post_superfile import _workspace as _two_polars
+
+    workspace = _two_polars(tmp_path)
+    path = workspace.inputs_dir / "pproc" / "p001.toml"
+    path.write_text(
+        path.read_text(encoding="utf-8")
+        + '\n[[polar_at]]\naxis = "ALPHA"\nvalues = [-1, 9]\n'
+        + '[[polar_at]]\naxis = "CLB"\nvalues = [0.1]\nname = "lift/a"\n'
+        + '[[polar_at]]\naxis = "ALPHA"\nvalues = [-2]\nname = "LIFT_A"\n',
+        encoding="utf-8",
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    out = workspace.products_dir("matriz")
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    stem = "polars/P6001-M200RE1177AL+sweepBE+000_g02"
+    assert stem + "_at_alpha.csv" in manifest["products"]
+    entry = manifest["products"][stem + "_at_alpha.csv"]
+    assert (entry["kind"], entry["axis"], entry["values"]) == ("interpolated", "ALPHA", [-1, 9])
+    columns, rows = read_csv_table(out / (stem + "_at_alpha.csv"))
+    assert columns[:2] == ("POL", "ALPHA")
+    assert [float(row["ALPHA"]) for row in rows] == [-1, 9]
+    assert rows[1]["CLB"] == "NA"
+    assert float(rows[0]["ALPHA"]) == -1
+    lift = manifest["products"][stem + "_at_lift_a.csv"]
+    assert lift["axis"] == "CLB"
+    assert any("lift_a" in str(w.message).lower() and "skip" in str(w.message) for w in caught)
+    assert any("ALPHA" in str(w.message) and "9" in str(w.message) for w in caught)
+
+
+@pytest.mark.requirement("FR-3344", "FR-3345", "FR-3346")
+@pytest.mark.parametrize(
+    "coordinates,values,expected",
+    [
+        ([0, 2, 4], [1, 2, 3, -1, 5], [10, 20, 30, None, None]),
+        ([4, 2, 0], [1, 3], [10, 30]),
+        ([0, 2, 0], [1, 2], [None, 20]),
+        ([0, 2, 2, 4], [2, 3], [None, 30]),
+        ([0, None, 4], [2], [None]),
+    ],
+    ids=["P0500-brackets", "P0500-descending", "P0500-turn", "P0500-plateau", "P0500-gap"],
+)
+def test_p0500_polar_at_interpolates_only_one_bracket(tmp_path, coordinates, values, expected):
+    """Manufactured CLB = 10 * CUSTOM; no extrapolation, branch choice or gap bridging."""
+    import warnings
+
+    from pyflightstream.post.polar import write_interpolated_polar
+
+    source = tmp_path / "polar.csv"
+    source.write_text(
+        "POL,CUSTOM,CLB,TEXT,MISSING\n"
+        + "".join(
+            f"7,{x if x is not None else 'NA'},{10 * x if x is not None else 'NA'},"
+            f"{'same' if i < 2 else 'different'},NA\n"
+            for i, x in enumerate(coordinates)
+        ),
+        encoding="utf-8",
+    )
+    target = tmp_path / "at.csv"
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        write_interpolated_polar(source, target, axis="CUSTOM", values=values)
+    columns, rows = read_csv_table(target)
+    assert columns[:2] == ("POL", "CUSTOM")
+    assert len(rows) == len(values)
+    assert len(caught) == expected.count(None)
+    for row, value, answer in zip(rows, values, expected, strict=True):
+        assert row["POL"] == "7"
+        assert float(row["CUSTOM"]) == value
+        assert row["MISSING"] == "NA"
+        assert (row["CLB"] == "NA") if answer is None else float(row["CLB"]) == answer
+    if coordinates == [0, 2, 4]:
+        assert [row["TEXT"] for row in rows] == ["same", "same", "NA", "NA", "NA"]
+
+
+@pytest.mark.requirement("FR-3349")
+def test_p0500_polar_at_keys_have_meanings_and_invalid_entries_warn():
+    """The input guide describes the keys and malformed entries do not refuse the pproc."""
+    import warnings
+
+    from pyflightstream.cases import PprocSpec
+    from pyflightstream.post.glossary import input_glossary_markdown
+    from pyflightstream.post.input_template import input_template_markdown
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        spec = PprocSpec.model_validate({"polar_at": [{"axis": "CLB", "values": [float("inf")]}]})
+    assert not spec.polar_at
+    assert caught and "polar_at" in str(caught[0].message)
+    for key in ("polar_at", "trim_axis", "trim_moment"):
+        assert key in input_glossary_markdown()
+        assert key in input_template_markdown()
+
+
+@pytest.mark.requirement("FR-3343", "FR-3344")
+def test_p0500_polar_at_reparameterizes_on_lift(tmp_path):
+    """Lift 0.5 lies one quarter of the way from (ALPHA, CLB) = (0, 0) to (4, 2)."""
+    from pyflightstream.post.polar import write_interpolated_polar
+
+    source, target = tmp_path / "polar.csv", tmp_path / "at.csv"
+    source.write_text("POL,ALPHA,CLB,NOTE\n7,0,0,first\n7,4,2,second\n", encoding="utf-8")
+    write_interpolated_polar(source, target, axis="CLB", values=[0.5])
+    columns, (row,) = read_csv_table(target)
+    assert columns == ("POL", "CLB", "ALPHA", "NOTE")
+    assert float(row["ALPHA"]) == 1
+    assert float(row["CLB"]) == 0.5
+    assert row["NOTE"] == "NA"
+
+
+@pytest.mark.requirement("FR-3343")
+def test_p0500_polar_at_cli_rebuilds_finished_sweep(tmp_path):
+    """pyfs-matrix post reaches the declared interpolation without launching a solver."""
+    from pyflightstream.run.cli import main
+    from tests.tier1_offline.test_post_superfile import _workspace as _two_polars
+
+    workspace = _two_polars(tmp_path)
+    path = workspace.inputs_dir / "pproc" / "p001.toml"
+    path.write_text(
+        path.read_text(encoding="utf-8") + '\n[[polar_at]]\naxis = "ALPHA"\nvalues = [-1]\n',
+        encoding="utf-8",
+    )
+    assert (
+        main(["post", str(workspace.root / "matriz.fs"), "--workspace", str(workspace.root)]) == 0
+    )
+    target = (
+        workspace.products_dir("matriz") / "polars/P6001-M200RE1177AL+sweepBE+000_g02_at_alpha.csv"
+    )
+    assert target.is_file()
+    _, (row,) = read_csv_table(target)
+    assert float(row["ALPHA"]) == -1
+
+
+@pytest.mark.requirement("FR-3343")
+def test_p0500_polar_at_unknown_axis_skips_only_its_product(tmp_path):
+    """An unavailable column leaves the original polar and names the skipped product."""
+    import warnings
+
+    from tests.tier1_offline.test_post_superfile import _workspace as _two_polars
+
+    workspace = _two_polars(tmp_path)
+    path = workspace.inputs_dir / "pproc" / "p001.toml"
+    path.write_text(
+        path.read_text(encoding="utf-8") + '\n[[polar_at]]\naxis = "NOT_A_COLUMN"\nvalues = [0]\n',
+        encoding="utf-8",
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
+    out = workspace.products_dir("matriz")
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    stem = "polars/P6001-M200RE1177AL+sweepBE+000_g02"
+    assert stem + ".csv" in manifest["products"]
+    assert "NOT_A_COLUMN" in manifest["skipped"][stem + "_at_not_a_column.csv"]
+    assert not (out / (stem + "_at_not_a_column.csv")).exists()
+    assert any("NOT_A_COLUMN" in str(w.message) for w in caught)
+
+
 @pytest.mark.requirement("FR-3340", "FR-3341", "FR-3342")
 @pytest.mark.parametrize(
     "axis,moment",

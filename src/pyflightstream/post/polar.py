@@ -2,7 +2,8 @@
 
 One of the product families of :mod:`pyflightstream.post` (AD-13, work
 package WP5), written by the post stage of
-:mod:`pyflightstream.post.products`, which re-exports every name here.
+:mod:`pyflightstream.post.products`, which re-exports the legacy product surface.
+The interpolation writer is available directly from this domain module.
 
 A POLAR table per boundary GROUP of the pproc artifact, under ``polars/``
 (FR-88): one row per point, the reference block and the coefficients of the
@@ -37,7 +38,7 @@ from pathlib import Path
 from typing import Literal
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases import select_group_members
 from pyflightstream.post._condition import (
@@ -93,6 +94,7 @@ __all__ = [
     "TRIM_SUFFIX",
     "trimmed_polar_row",
     "write_trimmed_polar",
+    "write_interpolated_polar",
 ]
 
 #: WHY THE ADVANCE RATIO HAS A COLUMN AT ALL (FR-85), kept here beside its one
@@ -1288,6 +1290,90 @@ def write_trimmed_polar(
     except ProductError as error:
         raise ProductError(f"{source.name}: {error}") from error
     return write_csv_table(target, columns, [[row[name] for name in columns]])
+
+
+def _interpolated_row(
+    columns: Sequence[str],
+    rows: Sequence[Mapping[str, object]],
+    axis: str,
+    value: float,
+) -> dict[str, object] | None:
+    """Return the unique exact hit or strict adjacent bracket, in sweep order.
+
+    Exact hits count once, even at an interior vertex. Repeated hits and multiple
+    brackets are ambiguous. Missing axis cells break adjacency rather than bridge
+    a gap. Sorting by the requested axis would erase branches and is never done.
+    """
+    coordinates = [_trim_number(row.get(axis)) for row in rows]
+    matches = [(row, row, 0.0) for row, x in zip(rows, coordinates, strict=True) if x == value]
+    for index, (low, high) in enumerate(zip(coordinates, coordinates[1:], strict=False)):
+        if low is not None and high is not None and min(low, high) < value < max(low, high):
+            matches.append((rows[index], rows[index + 1], (value - low) / (high - low)))
+    if len(matches) != 1:
+        return None
+    first, second, fraction = matches[0]
+    return {name: _trim_cell(first.get(name), second.get(name), fraction) for name in columns}
+
+
+def write_interpolated_polar(
+    polar: str | Path, target: str | Path, *, axis: str, values: Sequence[float]
+) -> Path:
+    """Write requested coordinates with POL then axis, warning once per unavailable row.
+
+    Every numeric cell is linear in the selected coordinate. Text survives only
+    when both bracket rows agree. Unavailable rows retain their requested axis
+    value and common POL identity; all other cells are NA (FR-3343 to FR-3347).
+    The caller prepares the destination using the existing product archive rule.
+
+    Parameters
+    ----------
+    polar : str or Path
+        Source polar CSV in sweep order.
+    target : str or Path
+        Destination CSV, replaced if it already exists.
+    axis : str
+        Numeric column used as the interpolation coordinate, in its recorded units.
+    values : sequence of float
+        Requested finite coordinates in output order and the axis column's units.
+
+    Returns
+    -------
+    Path
+        The written table, including warned NA rows where no unique bracket exists.
+
+    Raises
+    ------
+    ProductError
+        If the axis is absent or wholly nonnumeric. The campaign post catches
+        this error and warns and skips only the requested product.
+    """
+    polar, target = Path(polar), Path(target)
+    columns, source = read_csv_table(polar)
+    if axis not in columns or not any(_trim_number(row.get(axis)) is not None for row in source):
+        raise ProductError(
+            f"{polar.name}: axis {axis!r} is not an available numeric polar column; "
+            "choose a numeric column present in this table"
+        )
+    ordered = list(dict.fromkeys([POLAR_ID_COLUMN, axis, *columns]))
+    identity = source[0].get(POLAR_ID_COLUMN) if source else None
+    if any(row.get(POLAR_ID_COLUMN) != identity for row in source):
+        identity = None
+    output: list[list[object]] = []
+    for value in values:
+        row = _interpolated_row(columns, source, axis, value)
+        if row is None:
+            warn(
+                f"{polar.name}: {axis}={value:g} has no unique interpolation bracket "
+                "(outside the sweep, a gap, or multiple brackets); writing NA. "
+                "Choose a value on a single sampled branch; nothing is extrapolated.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            row = {name: None for name in ordered}
+            row[POLAR_ID_COLUMN] = identity
+        row[axis] = value
+        output.append([row.get(name) for name in ordered])
+    return write_csv_table(target, ordered, output)
 
 
 #: NL-TRST-7: the safety factor of the grid convergence index of a three-level study.

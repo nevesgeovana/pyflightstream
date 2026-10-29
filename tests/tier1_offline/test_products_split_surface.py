@@ -111,6 +111,8 @@ _PRODUCTS_PRIVATE_ALIASES = {
 # because the trimmed polar and the refinement study were added without widening the legacy
 # products surface (its inventory above only gains the two product writers).
 _KEPT_OFF_PRODUCTS = {
+    # FR-3343: the interpolation writer belongs to the domain module's API.
+    "write_interpolated_polar",
     "GCI_SAFETY_FACTOR",
     "GridConvergence",
     "TRIM_ANGLE_COLUMN",
@@ -238,6 +240,7 @@ def test_extracted_product_modules_preserve_the_public_surface():
                 "grid_convergence",
                 "trimmed_polar_row",
                 "write_trimmed_polar",
+                "write_interpolated_polar",
             },
         ),
         # 0.33.0 (AD-13, WP5): a product family cut out of post.products.

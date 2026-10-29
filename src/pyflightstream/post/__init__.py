@@ -179,8 +179,9 @@ advertised it for three releases and a reader has no other way to find
 out. There is no ``ResultArray`` facade: no ``interp_along``, no
 ``reparametrize``, no ``trim`` method. The trimmed polar is a product of its
 own, :func:`write_trimmed_polar`, carried by FR-2302 and FR-2303 and asked for by the pproc's
-``[products] trimmed_polar``; AD-06 sends the interpolation half to the sister
-library.
+``[products] trimmed_polar``. The ``[[polar_at]]`` entries expose linear
+interpolation and re-parameterization as CSV products through
+:func:`pyflightstream.post.polar.write_interpolated_polar` (FR-3343 to FR-3349).
 Sweep assembly is not here either, it is
 :mod:`pyflightstream.results.tables`.
 """

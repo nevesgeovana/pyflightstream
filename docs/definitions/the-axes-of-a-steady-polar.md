@@ -157,6 +157,41 @@ the moment and the angle it was read on. `pyflightstream.post.write_trimmed_pola
 writes the same file from any polar table; it refuses a file already there
 unless `overwrite=True`.
 
+<a id="the-interpolated-polar"></a>
+
+### The interpolated polar and re-parameterization
+
+`[[polar_at]]` samples a finished polar on a named numeric column. This is also
+re-parameterization: `axis = "CLB"` expresses the other columns at requested lift
+coefficients, instead of at the original sweep coordinates (FR-3343 to FR-3349).
+Each entry writes `<polar stem>_at_<name>.csv`, with `POL` first and the selected
+axis next, then the remaining source columns in their original order. The name
+defaults to the lower-cased axis. Unsafe filename characters become underscores;
+names are compared ignoring case after sanitizing, and a collision warns and
+skips the second entry.
+
+Rows keep the source sweep order. For each requested value, an exact sampled
+hit counts once; otherwise a pair of adjacent rows must strictly bracket it.
+Every numeric column is interpolated linearly with fraction `(value - x0) /
+(x1 - x0)`. Text is kept only where the two rows agree; missing cells are `NA`.
+Missing axis cells break adjacency. Descending axes are supported. A
+non-monotonic axis is never sorted to choose a branch: multiple brackets or
+repeated exact hits are ambiguous. Values outside the sampled range are never
+extrapolated. Each unavailable value produces one warning naming the table,
+axis and value, and one row with the requested axis and common `POL` identity
+retained and every other cell `NA`. A turning vertex sampled exactly once is
+one hit, whereas a plateau has repeated hits and is ambiguous.
+
+For example, `(CUSTOM, CLB) = (0, 0), (2, 20), (4, 40)` sampled at `CUSTOM = 1`
+gives `CLB = 10`; at `CUSTOM = 5`, it gives `NA`. With coordinates `0, 2, 0`,
+`CUSTOM = 1` is ambiguous and gives `NA`. These cases are executed by
+`test_p0500_polar_at_interpolates_only_one_bracket`.
+Unknown or wholly nonnumeric axes warn and skip that table's requested product.
+Malformed entries warn and skip at pproc validation. `products.json` records
+each written file with `kind = "interpolated"`, its `axis` and requested `values`.
+`pyflightstream.post.polar.write_interpolated_polar` writes the same table from
+a supplied polar CSV and explicit destination.
+
 <a id="the-refinement-study-uncertainty"></a>
 
 ### The refinement-study uncertainty

@@ -61,6 +61,12 @@ constant factor. Correct the recorded reference or solver inputs before using th
 The trim selects a numeric moment and ordering axis with `trim_moment` and
 `trim_axis`; defaults remain `CMB25` and `ALPHA` (FR-3340 to FR-3342).
 
+<a id="the-interpolated-polar"></a>
+
+[Interpolation and re-parameterization](definitions/the-axes-of-a-steady-polar.md#the-interpolated-polar)
+sample a named numeric axis without extrapolation. Multiple brackets on a
+non-monotonic axis produce a warned NA row, never a selected branch.
+
 <a id="the-refinement-study-uncertainty"></a>
 
 [The refinement-study uncertainty](definitions/the-axes-of-a-steady-polar.md#the-refinement-study-uncertainty).
