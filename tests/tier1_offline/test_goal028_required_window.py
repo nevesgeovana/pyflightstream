@@ -78,8 +78,24 @@ def test_a_windowless_rotor_row_is_refused_when_its_script_is_built():
 
 @pytest.mark.parametrize("key", ["WINDOW_STEPS", "WINDOW_REVOLUTIONS", "WINDOW_DEGREES"])
 def test_a_retired_window_cannot_satisfy_the_required_window(key):
-    """A former accepted spelling must now fail with the key to write."""
-    with pytest.raises(CampaignConfigError, match=key + ".*LAST_"):
+    """A former spelling warns with the key to write and satisfies nothing (REL2-002).
+
+    Since PFS-2184.07 the retired key is a RetiredKeyWarning and is skipped, so
+    the row still fails for its missing window; warning_refusals restores the
+    retired-key refusal itself.
+    """
+    from pyflightstream._errors import RetiredKeyWarning
+    from pyflightstream.options import option_context
+
+    with (
+        pytest.warns(RetiredKeyWarning, match=key + ".*LAST_"),
+        pytest.raises(CampaignConfigError, match="states no LAST_REVS_AVG"),
+    ):
+        _require_the_averaging_window(_case("unsteady_rotor", **{key: "1"}), "unsteady_rotor")
+    with (
+        option_context("warning_refusals", True),
+        pytest.raises(CampaignConfigError, match=key + ".*LAST_"),
+    ):
         _require_the_averaging_window(_case("unsteady_rotor", **{key: "1"}), "unsteady_rotor")
 
 
