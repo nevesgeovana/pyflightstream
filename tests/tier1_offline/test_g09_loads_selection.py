@@ -21,7 +21,6 @@ import json
 
 import pytest
 
-from pyflightstream._errors import EmptySelectionWarning
 from pyflightstream.cases import CampaignConfigError, SolverSettings, case_at_point
 from pyflightstream.cases.workflows import build_steady_sweep
 from pyflightstream.options import option_context
@@ -115,12 +114,12 @@ def test_g09_analysis_families_the_geometry_lacks_are_refused_naming_the_key(tmp
     case = steady_case(geometry=str(_wb_geometry(tmp_path))).model_copy(
         update={"solver": SolverSettings(analysis_families=["P", "N"])}
     )
-    with pytest.warns(EmptySelectionWarning, match="analysis_families"):
-        _render(case)
-    with option_context("warning_refusals", True):
-        with pytest.raises(CampaignConfigError, match="analysis_families") as raised:
-            _render(case)
-    assert "carries none of them" in str(raised.value), raised.value
+    # A fatal site under every policy (REL2-003): going on would load every boundary.
+    for strict in (False, True):
+        with option_context("warning_refusals", strict):
+            with pytest.raises(CampaignConfigError, match="analysis_families") as raised:
+                _render(case)
+        assert "carries none of them" in str(raised.value), raised.value
     with pytest.raises(InputArtifactError, match="analysis_families = \\[\\]"):
         setup_case(tmp_path, "analysis_families = []\n")
 

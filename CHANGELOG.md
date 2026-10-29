@@ -80,10 +80,11 @@ FlightStream versions.
   naming the closest known key, and are skipped; `--warning-refusals`
   restores the refusal (FR-3373).
 
-- A repeated farfield Trefftz variant or ledger balance, and a preset family
-  list that is empty or selects nothing, now warn (`DuplicateValueWarning`,
-  `EmptySelectionWarning`) and are read once or skipped; `--warning-refusals`
-  restores the refusal (FR-3374, FR-3375).
+- A repeated farfield Trefftz variant or ledger balance now warns
+  (`DuplicateValueWarning`) and is read once; `--warning-refusals` restores the
+  refusal (FR-3374). A preset family list that is empty or selects nothing stays
+  a refusal: the solver default would cover boundaries the preset did not ask
+  for (FR-3375).
 - The input refusals of the cases subpackage that were bare `ValueError` now
   raise `InputValueError` (still a `ValueError`), and the ones that named no
   remedy state one; which inputs refuse is unchanged (FR-3376, FR-3377,

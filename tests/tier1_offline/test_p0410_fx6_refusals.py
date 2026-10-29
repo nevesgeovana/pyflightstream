@@ -11,7 +11,6 @@ import pyflightstream.cases as _e1_cases_package
 from pyflightstream import _deprecations
 from pyflightstream._errors import (
     DuplicateValueWarning,
-    EmptySelectionWarning,
     InputValueError,
     PyflightstreamError,
     PyflightstreamWarning,
@@ -72,10 +71,10 @@ def test_fr3374_a_repeated_trefftz_variant_warns_and_is_read_once_or_refuses():
             TrefftzSpec(variant=["wake", "wake"])
 
 
-def test_fr3375_an_empty_preset_family_list_warns_and_is_skipped_or_refuses():
+def test_fr3375_an_empty_preset_family_list_refuses_under_every_policy():
     kwargs = {"keyword": "families", "preset_key": "vorticity_drag_families", "dropped": "x"}
-    with pytest.warns(EmptySelectionWarning, match="EMPTY selection"):
-        assert family_indices(_case(), None, [], **kwargs) is None
+    with pytest.raises(CampaignConfigError, match="EMPTY selection"):
+        family_indices(_case(), None, [], **kwargs)
     with option_context("warning_refusals", True):
         with pytest.raises(CampaignConfigError, match="EMPTY selection"):
             family_indices(_case(), None, [], **kwargs)
