@@ -71,6 +71,10 @@ class Layout:
         Per patch and arc, the orientation and its source, including conflicting patch references.
     band_leads : mapping of int to (str, str)
         Per band, the family whose count was selected and its local direction.
+    labels : mapping of int to str
+        Per arc, its band's stable parallel (P) or normal (N) label.
+    leads : mapping of str to (str, int)
+        Per label, the lead family and the arc that supplied its selected count.
     """
 
     names: tuple[str, ...]
@@ -81,6 +85,8 @@ class Layout:
     kept: Mapping[str, list[dict[str, object]]]
     directions: Mapping[int, Mapping[int, ArcDirection]] = field(default_factory=dict)
     band_leads: dict[int, tuple[str, str]] = field(default_factory=dict)
+    labels: dict[int, str] = field(default_factory=dict)
+    leads: dict[str, tuple[str, int]] = field(default_factory=dict)
 
     def patches_of(self, name: str) -> list[int]:
         """Return the patches of one family, in layout order."""
@@ -451,21 +457,23 @@ def _band_counts(
     """Return one count per arc: each band's count from the family that leads it, warned."""
     names = layout.names
     band = arc_bands(layout.blocks, proposed)
-    members: dict[int, list[tuple[str, int, str]]] = {}
+    members: dict[int, list[tuple[str, int, str, int]]] = {}
     for arc, offers in proposed.items():
         members.setdefault(band[arc], []).extend(
-            (n, c, layout.directions[p][arc].direction) for n, p, c in offers
+            (n, c, layout.directions[p][arc].direction, arc) for n, p, c in offers
         )
     chosen: dict[int, int] = {}
+    dominant: dict[int, int] = {}
     followed: dict[tuple[str, str], int] = {}
     for key, candidates in members.items():
-        lead, value, direction = min(
+        lead, value, direction, dominant[key] = min(
             candidates, key=lambda row: _lead_rank(row[0], names, specs, perimeter, row[2])
         )
         chosen[key] = value
         layout.band_leads[key] = (lead, direction)
-        for n in {n for n, c, _ in candidates if c != value}:
+        for n in {n for n, c, _, _ in candidates if c != value}:
             followed[(n, lead)] = followed.get((n, lead), 0) + 1
+    _label_bands(layout, band, dominant)
     for (n, lead), bands in sorted(followed.items()):
         how = "governing" if any(specs[lead].leads) else "declared, of the largest perimeter"
         advice = (
@@ -481,6 +489,20 @@ def _band_counts(
             stacklevel=5,
         )
     return {arc: chosen[band[arc]] for arc in proposed}
+
+
+def _label_bands(layout, bands, dominant):
+    """Assign labels by the selected lead's source order, then its count-setting arc."""
+    serial = {"parallel": 0, "normal": 0}
+    ordered = sorted(
+        layout.band_leads, key=lambda b: (layout.names.index(layout.band_leads[b][0]), dominant[b])
+    )
+    for band in ordered:
+        lead, direction = layout.band_leads[band]
+        serial[direction] += 1
+        label = ("P" if direction == "parallel" else "N") + str(serial[direction])
+        layout.leads[label] = (lead, dominant[band])
+        layout.labels.update({a: label for a, b in bands.items() if b == band})
 
 
 def _warn_kept(layout: Layout, specs: Mapping[str, FamilySpec], where: str) -> None:

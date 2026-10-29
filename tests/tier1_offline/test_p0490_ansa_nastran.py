@@ -322,6 +322,89 @@ def _layout(specs):
     return layouts["A"], [str(w.message) for w in caught]
 
 
+@pytest.mark.requirement("FR-3300")
+def test_p0490_continuity_band_labels_are_stable_and_name_the_dominant_arc():
+    """P0490-LABELS: source-order leads and their first arcs number each direction."""
+
+    def planned():
+        return _layout(
+            {
+                "A": FamilySpec(factor=2, governing_parallel=True),
+                "B": FamilySpec(factor=3, governing_normal=True),
+                "C": FamilySpec(factor=1),
+            }
+        )[0]
+
+    first, second = planned(), planned()
+    labels = getattr(first, "labels", {})
+    assert set(labels) == set(range(len(first.blocks.arcs))), "the planner must label every band"
+    assert labels == second.labels and first.leads == second.leads
+    bands = _blocks.arc_bands(first.blocks, labels)
+    assert len(set(labels.values())) == len(set(bands.values()))
+    for arc, label in labels.items():
+        lead, dominant = first.leads[label]
+        mine = {a for p in first.patches_of(lead) for a, _ in first.blocks.sides[p]}
+        assert dominant == min(a for a in mine if labels[a] == label)
+        assert labels[dominant] == label
+        assert all(labels[a] == label for a in labels if bands[a] == bands[arc])
+    for prefix in ("P", "N"):
+        ordered = sorted(
+            (label for label in first.leads if label.startswith(prefix)),
+            key=lambda label: (first.names.index(first.leads[label][0]), first.leads[label][1]),
+        )
+        assert ordered == [f"{prefix}{i}" for i in range(1, len(ordered) + 1)]
+
+
+@pytest.mark.requirement("FR-3300")
+def test_p0490_continuity_json_records_label_direction_lead_and_count(tmp_path):
+    """P0490-LABELS: the written record retains the planner's band identifiers."""
+    source = _topology_source(tmp_path)
+    level = refine_mesh(source)
+    record = next(p for p in level.files if p.name.endswith(".refine.json"))
+    bands = json.loads(record.read_text(encoding="utf-8"))["layouts"][0]["bands"]
+    assert bands and all("label" in band and "count" in band for band in bands)
+    for band in bands:
+        assert band["label"].startswith("P" if band["direction"] == "parallel" else "N")
+        assert band["lead"] in ("A", "B")
+        assert band["dominant_arc"] in band["arcs"]
+        assert band["count"] > 0
+
+
+@pytest.mark.requirement("FR-3300")
+def test_p0490_continuity_dominant_arc_supplies_the_selected_directional_count():
+    """P0490-LABELS: conflicting local directions retain the count-setting arc."""
+    points = np.array([(0, 0, 0), (1, 0, 0), (0, 1, 0), (1, 1, 0), (2, 0, 0), (2, 1, 0)])
+    blocks = _blocks.Blocks(
+        arcs=((2, 3), (0, 1), (0, 2), (1, 3), (1, 4), (3, 5)),
+        sides=(
+            ((1, False), (0, False), (2, False), (3, False)),
+            ((1, False), (2, False), (4, False), (5, False)),
+        ),
+        patches=(np.array([[0, 1], [2, 3]]), np.array([[0, 2], [4, 5]])),
+        cells=(np.array([[0]]), np.array([[1]])),
+        te_arcs=frozenset(),
+    )
+    layouts, late = _blocks.plan(
+        points,
+        {"B": [[0, 1, 3, 2], [0, 2, 5, 4]]},
+        {"B": blocks},
+        {"B": FamilySpec(chordwise=3, spanwise=2, governing_normal=True)},
+        {"B": {(0, 1)}},
+        where="conflicting patches",
+    )
+    assert not late
+    layout = layouts["B"]
+    assert hasattr(layout, "labels"), "the planner must retain its band labels"
+    assert layout.counts[0] == 3
+    lead, dominant = layout.leads[layout.labels[0]]
+    assert lead == "B" and dominant != 0
+    assert any(
+        told[dominant].direction == "normal"
+        for told in layout.directions.values()
+        if dominant in told
+    )
+
+
 def test_p0490_a_shared_band_crosses_three_families_with_one_count():
     """P0490-GOVERNING (FR-3298): opposite sides and shared arcs propagate A's count."""
     layout, messages = _layout(

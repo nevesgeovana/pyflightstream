@@ -529,6 +529,13 @@ source order and its `bands`. Each band has a layout-local integer `id`, its
 local `direction` (`parallel` or `normal`). These are the planner's decisions
 used for counting, retained even when all offered counts agree.
 
+Each band also records its `count`, `label` and `dominant_arc`. Parallel bands
+are labelled `P1`, `P2`, and so on; normal bands are `N1`, `N2`, and so on.
+Within each direction, labels follow the lead family's source order, then
+its arc order. The dominant arc is the lead family's arc that supplied the count.
+Every arc in a band carries the same label in the planner, so repeated runs
+on the same source and declarations give the same labels (FR-3300).
+
 Its `families` entry holds, per family:
 
 - a grid: `method` (`"grid"`), `reason` (the layout recovered), `layout`,

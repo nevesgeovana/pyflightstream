@@ -926,6 +926,9 @@ def _layout_record(layout: _blocks.Layout) -> dict[str, Any]:
                 "arcs": arcs,
                 "lead": layout.band_leads[band][0],
                 "direction": layout.band_leads[band][1],
+                "label": layout.labels[arcs[0]],
+                "dominant_arc": layout.leads[layout.labels[arcs[0]]][1],
+                "count": layout.counts[arcs[0]],
             }
             for band, arcs in sorted(bands.items())
         ],

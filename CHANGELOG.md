@@ -33,6 +33,9 @@ FlightStream versions.
 
 ### Added
 
+- Refinement layouts name their bands P1, P2 and N1, N2 in stable lead-family
+  and arc order. The JSON records each label, direction, count, lead family
+  and dominant arc (FR-3300).
 - Refinement JSON records each family's parallel and normal arc counts and
   provenance histogram, plus each layout's band leads and their directions.
   Conflicting local orientations remain visible in these records (FR-3298).
