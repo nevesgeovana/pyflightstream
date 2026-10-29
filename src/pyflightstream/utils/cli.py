@@ -57,6 +57,7 @@ from importlib import resources
 from pathlib import Path
 
 from pyflightstream._cli import cli_entrypoint
+from pyflightstream._console import add_warning_option
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.utils.database import register_edition
 from pyflightstream.utils.errors import ManualDraftError
@@ -371,6 +372,7 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="with --write, replace --out when it already exists; refused without it",
     )
+    add_warning_option(parser)
     return parser
 
 

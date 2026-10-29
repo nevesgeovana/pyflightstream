@@ -33,6 +33,7 @@ from importlib import resources
 from pathlib import Path
 
 from pyflightstream._cli import cli_entrypoint
+from pyflightstream._console import add_warning_option
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError
@@ -333,6 +334,7 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="METRIC",
         help="a reference metric the report does not carry, removed deliberately; repeatable",
     )
+    add_warning_option(parser)
     return parser
 
 

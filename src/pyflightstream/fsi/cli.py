@@ -38,6 +38,7 @@ from pathlib import Path
 
 import pyflightstream._textio as _textio
 from pyflightstream._cli import cli_entrypoint
+from pyflightstream._console import add_warning_option
 from pyflightstream.fsi._direct_morphing import AERO_NODES_FILE
 from pyflightstream.fsi.state import DISPLACEMENT_FILE, LOADS_FILE
 
@@ -330,6 +331,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_external.add_argument(
         "--out", dest="dir", type=Path, default=Path.cwd(), help="the coupling run directory"
     )
+    add_warning_option(parser)
     return parser
 
 
@@ -363,8 +365,9 @@ def main(argv: list[str] | None = None) -> int:
         The process exit code, 0 on success.
     """
     argv = sys.argv[1:] if argv is None else argv
-    if not argv or argv[0] not in ("init-dummy", "step", "external", "-h", "--help"):
-        return _solver_call(argv)
+    dispatch = argv[1:] if argv and argv[0] == "--warning-off" else argv
+    if not dispatch or dispatch[0] not in ("init-dummy", "step", "external", "-h", "--help"):
+        return _solver_call(dispatch)
     parser = _build_parser()
     args = parser.parse_args(argv)
     if getattr(args, "legacy_dir", None) is not None:

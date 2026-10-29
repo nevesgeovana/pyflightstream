@@ -9,6 +9,11 @@ FlightStream versions.
 
 ### Added
 
+- Global `--warning-off` on all five console programs hides warnings while
+  preserving progress, summaries, errors and recorded warnings. Matrix and
+  workspace commands also read `[log] warnings`; Python console callers can
+  set `console_warnings` (default true). Strict refusals remain errors (FR-3395).
+
 - Typed demoted-refusal warning families and the `warning_refusals` runtime
   option. Both CLIs accept global `--warning-refusals`; matrix planning,
   execution, campaign products and refinement entry points accept the Python

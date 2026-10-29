@@ -29,6 +29,29 @@ import textwrap
 import warnings
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
+from contextvars import ContextVar
+
+from pyflightstream.options import get_option
+
+CONSOLE_WARNINGS: ContextVar[bool | None] = ContextVar("pyfs_console_warnings", default=None)
+
+
+def console_warnings() -> bool:
+    """Return the invocation's warning visibility, falling back to the Python option."""
+    chosen = CONSOLE_WARNINGS.get()
+    return bool(get_option("console_warnings")) if chosen is None else chosen
+
+
+def add_warning_option(parser: argparse.ArgumentParser) -> None:
+    """Add the global console-only warning switch to a program's root parser."""
+    parser.add_argument(
+        "--warning-off",
+        dest="console_warnings",
+        action="store_false",
+        default=get_option("console_warnings"),
+        help="hide console warnings while keeping every recorded warning in its log",
+    )
+
 
 _Subparsers = argparse._SubParsersAction
 

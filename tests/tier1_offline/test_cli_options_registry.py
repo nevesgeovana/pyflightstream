@@ -525,6 +525,11 @@ ALLOWLIST: dict[tuple[str, str], str] = {
 #: the key is set to it. Measured, not declared: the parser is rebuilt
 #: under ``option_context`` and the default must move.
 RESOLVED: dict[tuple[str, str, str], tuple[str, object]] = {
+    ("pyfs-matrix", "", "console_warnings"): ("console_warnings", False),
+    ("pyfs-workspace", "", "console_warnings"): ("console_warnings", False),
+    ("pyfs-qa", "", "console_warnings"): ("console_warnings", False),
+    ("pyfs-fsi", "", "console_warnings"): ("console_warnings", False),
+    ("pyfs-manual", "", "console_warnings"): ("console_warnings", False),
     ("pyfs-matrix", "", "warning_refusals"): ("warning_refusals", True),
     ("pyfs-workspace", "", "warning_refusals"): ("warning_refusals", True),
     ("pyfs-qa", "probe", "workroot"): ("qa.scratch_root", "probe-root-of-this-test"),
@@ -591,6 +596,11 @@ def test_every_console_script_builds_its_parser_in_a_callable_function():
 #: directions: a dest that spreads to a new subcommand, and one that
 #: stops appearing on a subcommand it used to cover.
 COVERS: dict[tuple[str, str], frozenset[str]] = {
+    ("pyfs-matrix", "console_warnings"): frozenset({""}),
+    ("pyfs-workspace", "console_warnings"): frozenset({""}),
+    ("pyfs-qa", "console_warnings"): frozenset({""}),
+    ("pyfs-fsi", "console_warnings"): frozenset({""}),
+    ("pyfs-manual", "console_warnings"): frozenset({""}),
     ("pyfs-matrix", "warning_refusals"): frozenset({""}),
     ("pyfs-workspace", "warning_refusals"): frozenset({""}),
     ("pyfs-workspace", "calibration_id"): frozenset({"calibrate"}),

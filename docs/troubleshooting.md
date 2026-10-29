@@ -1,5 +1,38 @@
 # Troubleshooting
 
+## Hide warnings on the console
+
+Use `--warning-off` before any subcommand of `pyfs-matrix`, `pyfs-workspace`,
+`pyfs-fsi`, `pyfs-qa` or `pyfs-manual` to hide warning lines and their grouped
+block. For example, `pyfs-matrix --warning-off post --workspace study` keeps
+progress, summaries, errors, the final line and the signature visible.
+Warnings remain in the activity log, live log, `post.log`, `post.log.json`
+and `refine.json` wherever that operation normally records them. The grouped
+post-processing lines that `--pproc-warnings` asks for stay visible, because
+that flag is an explicit request for them.
+
+Matrix and workspace commands can take the same default from `pyfs.toml`
+(or its local overlay):
+
+```toml
+[log]
+warnings = false
+```
+
+The command-line flag wins over that default, including `warnings = true`.
+For Python-driven console commands, use the boolean runtime option:
+
+```python
+from pyflightstream.options import get_option, option_context
+
+with option_context("console_warnings", False):
+    assert get_option("console_warnings") is False
+```
+
+The default is `True`. This controls display only: warning capture and
+warning-to-error filters still operate. In particular, `--warning-refusals`
+still raises a demoted refusal even together with `--warning-off`.
+
 ## Refusals and skipped input
 
 A fatal refusal stops work when continuing would write a wrong result, or

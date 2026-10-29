@@ -396,6 +396,9 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_query_parsers(subparsers)
     add_mark_converged_parser(subparsers)  # FR-414
     add_mesh_parsers(subparsers)  # FR-426
+    from pyflightstream._console import add_warning_option
+
+    add_warning_option(parser)
     return parser
 
 

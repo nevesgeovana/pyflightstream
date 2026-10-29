@@ -12,6 +12,7 @@
 \begin{tcolorbox}[colback=acc!8,colframe=acc,boxrule=0.4pt,left=2pt,right=2pt,top=1pt,bottom=1pt]
 {\large\bfseries\color{acc} pyfs-matrix cheatsheet} \hfill {\small \pkgname{} \textbf{\pkgversion} \quad every subcommand and option, by stage \quad \texttt{pyfs-matrix <cmd> -h} (\texttt{--help}) gives the full text}\\[1pt]
 \textbf{Global refusal policy:} \fl{--warning-refusals} before the subcommand of pyfs-matrix or pyfs-workspace restores demoted refusals.\\[1pt]
+\textbf{Console warnings:} \fl{--warning-off} before any subcommand of all five programs hides warnings, keeping logs and other output. Matrix and workspace also read \texttt{[log] warnings = false}; Python uses \texttt{console\_warnings}. Strict refusals still raise.\\[1pt]
 \textbf{Typical flow:} \cmd{inventory} (new mesh) $\rightarrow$ \cmd{plan} (mandatory, no solver) $\rightarrow$ \cmd{run} (\fl{--resume} to add points) $\rightarrow$ \cmd{collect} (cluster jobs) $\rightarrow$ \cmd{post} \quad\textbar\quad
 \textbf{Safe by default:} storage, sync, restore, rebuild and mark-failed only PREVIEW until \fl{--apply}. \fl{--workspace} defaults to the current folder; \fl{--runs NAME} picks another manifest than \texttt{runs.json}; a matrix name is found in the workspace root or \texttt{inputs/matrices/}.
 \end{tcolorbox}
@@ -253,6 +254,7 @@ See the website's Upgrading page for supported workspace conversion.
 
 \tool{pyfs-workspace}{campaign trees, free-stream fields and disc profiles}
 \fl{--warning-refusals} before the subcommand restores demoted refusals.
+\fl{--warning-off} before the subcommand hides console warnings only.
 \sub{init [root]}{create or complete the campaign tree: \texttt{inputs/} with its library folders, \texttt{sims/}, \texttt{post/}, \texttt{archive/}; writes an \texttt{inputs/executables.toml} template when none exists. Default root: the current folder}
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 \fl{--workspace DIR} names the root; the positional form is deprecated.
@@ -389,6 +391,7 @@ See the website's Upgrading page for supported workspace conversion.
 \fl{--verbose}, \fl{--log-level LEVEL}: the console level, as in \cmd{plan}.
 
 \tool{pyfs-fsi}{the coupling executable the solver's aeroelastic toolbox calls once per time step. With no arguments it runs one coupling step in the current folder: coupled when \texttt{config.json} is there, the dummy (zero displacements) otherwise}
+\fl{--warning-off} before the subcommand hides console warnings only.
 \sub{init-dummy}{write the dummy configuration into a run folder}
 \begin{flags}
 \item \fl{--node-count N} \textbf{required} \quad \fl{--out DIR} run folder (default: current); \fl{--dir} is its deprecated alias
@@ -403,6 +406,7 @@ See the website's Upgrading page for supported workspace conversion.
 \end{flags}
 
 \tool{pyfs-qa}{evidence tooling of the command database: probes run the solver locally on a licensed machine}
+\fl{--warning-off} before the subcommand hides console warnings only.
 \sub{probe}{run command-validity probes and write the compat report pair}
 \begin{flags}
 \item \fl{--fs-version V} \textbf{required}: canonical build, e.g. \texttt{26.120}
@@ -452,6 +456,7 @@ See the website's Upgrading page for supported workspace conversion.
 
 \columnbreak
 \tool{pyfs-manual}{maintainer tool, the \texttt{[manual]} extra: compares a vendor manual with the command database. The manual path is passed explicitly and nothing of it is copied}
+\fl{--warning-off} before the subcommand hides console warnings only.
 \sub{coverage}{what the manual documents and the database does not}
 \begin{flags}
 \item \fl{--manual PDF} \quad \fl{--source ID} \quad \fl{--chapter-pages FIRST-LAST} all \textbf{required}

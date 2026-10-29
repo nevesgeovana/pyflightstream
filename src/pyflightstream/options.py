@@ -386,7 +386,7 @@ def non_empty_path_text(value: Any) -> None:
 
 def _boolean(value: Any) -> None:
     if not isinstance(value, bool):
-        raise OptionError("warning_refusals requires a bool; use True or False")
+        raise OptionError("the option requires a bool; use True or False")
 
 
 register_option(
@@ -397,6 +397,13 @@ register_option(
 )
 _errors._warning_refusals = lambda: get_option("warning_refusals")
 _errors._refusal_context = lambda value: option_context("warning_refusals", value)
+
+register_option(
+    "console_warnings",
+    default=True,
+    doc="Show console warnings; disabling this keeps warnings in their existing records.",
+    validator=_boolean,
+)
 
 
 register_option(

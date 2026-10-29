@@ -84,7 +84,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._cli import cli_entrypoint
-from pyflightstream._console import CONSOLE_LEVELS, command_help
+from pyflightstream._console import CONSOLE_LEVELS, add_warning_option, command_help
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._progress import command_console, say_summary
@@ -294,6 +294,7 @@ def _build_parser() -> argparse.ArgumentParser:
             add_console_arguments(
                 leaf, "print every value taken from the settings files and more detail"
             )
+    add_warning_option(parser)
     return parser
 
 
@@ -675,7 +676,11 @@ def _take_the_console_level(args: argparse.Namespace) -> None:
     typed = getattr(args, "log_level", None) or (
         "verbose" if getattr(args, "verbose", False) else None
     )
-    taken = TakenDefaults(console=typed) if typed else console_only(settings)
+    taken = (
+        take_defaults(settings, {"log_level": typed}, (), console=True)
+        if typed
+        else console_only(settings)
+    )
     declare_invocation(taken, verbose=taken.console == "verbose")
 
 
