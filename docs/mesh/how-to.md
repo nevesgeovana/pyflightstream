@@ -345,6 +345,11 @@ optional.
    example, one touching only at a corner) is warned and keeps its own
    `method = "grid"`, `factor = 1.0` table, preceded by a comment naming the
    governing patch and the reason. Set the factors on the governing patches;
+   use `governing_parallel = true` and `governing_normal = true` to select
+   separate leads for the two directions. One family may carry both keys.
+   For example, a parallel lead with `parallel_factor = 2` and a normal lead
+   with `normal_factor = 4` give their grid-auto followers those two factors
+   within the same layout. The earlier `governing = true` means both, warned.
    declare a follower to give it factors of its own. `--visual-inspect` also writes
    `W1_patches.inspect.pdf`: one page per original family, its patches colored
    and named, the governing ones labelled GOVERNING. The node list holds the rearmost line of each grid patch, the

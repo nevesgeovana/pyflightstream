@@ -869,14 +869,18 @@ def test_p0490_planner_retains_each_arc_direction_and_source():
     )
     assert not late
     directions = layouts["A"].directions
-    assert set(directions) == {"A", "B"}
+    assert set(directions) == set(range(len(layouts["A"].blocks.patches)))
+    records = {}
     for name in families:
         arcs = {a for p in layouts[name].patches_of(name) for a, _ in layouts[name].blocks.sides[p]}
-        assert set(directions[name]) == arcs
-        assert {d.direction for d in directions[name].values()} == {"parallel", "normal"}
-        assert {d.source_family for d in directions[name].values()} == {"A"}
-    assert {d.provenance for d in directions["A"].values()} == {"listed_te"}
-    assert {d.provenance for d in directions["B"].values()} == {"propagated_from:A"}
+        records[name] = {
+            a: d for p in layouts[name].patches_of(name) for a, d in directions[p].items()
+        }
+        assert set(records[name]) == arcs
+        assert {d.direction for d in records[name].values()} == {"parallel", "normal"}
+        assert {d.source_family for d in records[name].values()} == {"A"}
+    assert {d.provenance for d in records["A"].values()} == {"listed_te"}
+    assert {d.provenance for d in records["B"].values()} == {"propagated_from:A"}
     assumed, _ = plan(
         vertices,
         families,
@@ -887,7 +891,11 @@ def test_p0490_planner_retains_each_arc_direction_and_source():
         followers={"B": "A"},
         assumed={"A"},
     )
-    assert {d.provenance for d in assumed["A"].directions["A"].values()} == {"longest_side"}
+    assert {
+        d.provenance
+        for p in assumed["A"].patches_of("A")
+        for d in assumed["A"].directions[p].values()
+    } == {"longest_side"}
 
 
 # ------------------------------------------- refine-r2: the longest side and the order
@@ -1007,3 +1015,43 @@ def test_refine_r2_qa3_the_directions_do_not_hang_on_the_patch_numbering():
         for order in ([0, 1, 2], [1, 0, 2], [2, 1, 0])
     ]
     assert told[0] == told[1] == told[2]
+
+
+def test_p0490_governing_conflict_keeps_each_patch_orientation():
+    """P0490-PLANNER Q4: a conflict must not replace a whole family by parallel arcs."""
+    import inspect
+    import warnings
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._refine._blocks import te_directions
+
+    points = np.array([(0, 0, 0), (1, 0, 0), (0, 1, 0), (1, 1, 0), (2, 0, 0), (2, 1, 0)])
+    blocks = SimpleNamespace(
+        arcs=((0, 1), (2, 3), (0, 2), (1, 3), (1, 4), (3, 5)),
+        sides=(
+            ((0, False), (1, False), (2, False), (3, False)),
+            ((0, False), (2, False), (4, False), (5, False)),
+        ),
+        patches=(np.array([[0, 1], [2, 3]]), np.array([[0, 2], [4, 5]])),
+    )
+    local = {}
+    options = (
+        {"patch_runs": local} if "patch_runs" in inspect.signature(te_directions).parameters else {}
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        runs = te_directions(
+            points,
+            blocks,
+            [0, 1],
+            np.array([[[0, 0, 0], [1, 0, 0]]]),
+            family="governing",
+            what="two patches",
+            **options,
+        )
+    if not local:
+        local = {p: {a: runs[a] for a, _ in blocks.sides[p]} for p in (0, 1)}
+    assert all(set(told.values()) == {"chordwise", "spanwise"} for told in local.values())
+    assert any(
+        "patch" in str(w.message) and "own geometric orientation" in str(w.message) for w in caught
+    )

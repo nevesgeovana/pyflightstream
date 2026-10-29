@@ -27,6 +27,12 @@ FlightStream versions.
 
 ### Added
 
+- Families can govern parallel and normal bands independently with
+  `governing_parallel = true` and `governing_normal = true`. Grid-auto followers
+  take each factor from their layout's governing family in that direction.
+  The earlier `governing = true` spelling still means both, with a warning.
+  Conflicting governing patches retain their individual geometric orientations
+  instead of propagating a family-wide all-parallel fallback (FR-3298).
 - Governing families in the refine file (FR-3298). `governing = true` in a
   `[families.<name>]` table makes a family lead the grids it shares curves
   with: a curve two grids would count apart takes the governing family's count,

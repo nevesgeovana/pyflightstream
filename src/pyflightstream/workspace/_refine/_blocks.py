@@ -77,6 +77,7 @@ import warnings
 from collections import Counter, defaultdict, deque
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from functools import partial
 
 import numpy
 from numpy.typing import NDArray
@@ -528,6 +529,7 @@ def te_directions(
     *,
     family: str,
     what: str,
+    patch_runs: dict[int, dict[int, str]] | None = None,
 ) -> dict[int, str]:
     """Return ``"chordwise"`` or ``"spanwise"`` for each arc of a family's patches (PFS-2150).
 
@@ -535,8 +537,9 @@ def te_directions(
     more along the reference line (:func:`along`) is parallel (spanwise), the
     other normal, so its rows and columns always differ. An arc a patch shares
     with one already told keeps its direction and orients the patch. Where the
-    shared arcs disagree within a patch, the family takes one direction for every
-    arc (the parallel factor), warned; nothing is refused.
+    shared arcs disagree within a patch, that patch keeps its own geometric
+    orientation, warned; nothing is refused. ``patch_runs`` preserves each patch's
+    decision where a shared arc has conflicting local orientations.
 
     Parameters
     ----------
@@ -552,6 +555,8 @@ def te_directions(
         The source and family, for a refusal.
     what : str
         The family's layout as a refusal names it.
+    patch_runs : dict, optional
+        Retain each patch's orientation on conflict instead of the earlier family-wide fallback.
 
     Notes
     -----
@@ -590,13 +595,15 @@ def te_directions(
             where = ", ".join(f"{v:.3g}" for v in pts.mean(axis=0))
             warn(
                 f"{family}: the sides patch {n} of {what} (centroid {where}) shares with its "
-                "neighbours run both parallel and normal; every arc of the family takes the "
-                "parallel factor.",
+                "neighbours run both parallel and normal; this patch keeps its own "
+                "geometric orientation.",
                 PyflightstreamWarning,
                 stacklevel=4,
             )
-            return dict.fromkeys(all_arcs, "spanwise")
+            rows_along = _patch_rows_along(verts, blocks, arcs, te, {})
         row, column = ("spanwise", "chordwise") if rows_along else ("chordwise", "spanwise")
+        if patch_runs is not None:
+            patch_runs[p] = {a: row if i < 2 else column for i, a in enumerate(arcs)}
         for i, arc in enumerate(arcs):
             out.setdefault(arc, row if i < 2 else column)
     return out
@@ -945,8 +952,8 @@ class Layout:
         Per arc, its new interval count.
     kept : dict
         Per family, the patch sides its factor cannot coarsen (FR-915).
-    directions : mapping of str to mapping of int to ArcDirection
-        Per family and arc, the orientation and its source.
+    directions : mapping of int to mapping of int to ArcDirection
+        Per patch and arc, the orientation and its source, including conflicting patch references.
     direction_sources : mapping of str to str
         The earlier grid_auto summary, retained for the existing report.
     """
@@ -957,7 +964,7 @@ class Layout:
     owner: tuple[int, ...]
     counts: tuple[int, ...]
     kept: Mapping[str, list[dict[str, object]]]
-    directions: Mapping[str, Mapping[int, ArcDirection]] = field(default_factory=dict)
+    directions: Mapping[int, Mapping[int, ArcDirection]] = field(default_factory=dict)
     direction_sources: Mapping[str, str] = field(default_factory=dict)
 
     def patches_of(self, name: str) -> list[int]:
@@ -1023,83 +1030,111 @@ def _counted(
     blocks, owner = found
     perimeter = _perimeters(verts, names, blocks, owner)
     followers = {} if followers is None else followers
-    governing = [n for n in names if specs[n].governing]
+    governing = [n for n in names if any(specs[n].leads)]
+    declared = [n for n in names if specs[n].method != "grid_auto"]
+    leaders = {
+        d: _band_lead(declared, names, specs, perimeter, direction=d)
+        for d in ("normal", "parallel")
+    }
     for name in names:
         if specs[name].method == "grid_auto" and governing:
             lead = _band_lead(governing, names, specs, perimeter)
-            specs[name] = replace(specs[lead], method="grid_auto", governing=False)
+            specs[name] = FamilySpec(
+                chordwise=specs[leaders["normal"]].directions[0],
+                spanwise=specs[leaders["parallel"]].directions[1],
+                method="grid_auto",
+            )
             followers[name] = lead
-    proposed: dict[int, list[tuple[str, int]]] = {}
+    proposed: dict[int, list[tuple[str, int, int]]] = {}
     kept: dict[str, list[dict[str, object]]] = {}
     runs, provenance = _follower_directions(
-        verts, names, found, grids, followers or {}, te_edges=te_edges, where=where
+        verts,
+        names,
+        found,
+        grids,
+        followers or {},
+        te_edges=te_edges,
+        where=where,
+        leaders={d: n for d, n in leaders.items() if specs[n].leads[d == "parallel"]},
     )
     directions = {}
     for i, name in enumerate(names):
         mine = [p for p, o in enumerate(owner) if o == i]
-        directions[name] = _arc_directions(
-            verts,
-            blocks,
-            mine,
-            grids[name],
-            specs[name],
-            runs=runs.get(name),
-            edges=te_edges[name],
-            name=name,
-            source=provenance.get(name),
-            where=where,
-            assumed=name in assumed,
+        directions.update(
+            _arc_directions(
+                verts,
+                blocks,
+                mine,
+                grids[name],
+                specs[name],
+                runs=runs.get(name),
+                edges=te_edges[name],
+                name=name,
+                source=provenance.get(name),
+                where=where,
+                assumed=name in assumed,
+            )
         )
-        factors = {
-            a: specs[name].directions[d.direction == "parallel"]
-            for a, d in directions[name].items()
-        }
-        for arc, f in factors.items():
-            proposed.setdefault(arc, []).append((name, count(len(blocks.arcs[arc]) - 1, f)))
-        kept[name] = kept_sides(blocks, verts, factors, patches=mine)
-    counts = _band_counts(names, blocks, proposed, specs, perimeter, where=where)
+        kept[name] = []
+        for number, p in enumerate(mine, 1):
+            factors = {
+                a: specs[name].directions[d.direction == "parallel"]
+                for a, d in directions[p].items()
+            }
+            for arc, f in factors.items():
+                proposed.setdefault(arc, []).append((name, p, count(len(blocks.arcs[arc]) - 1, f)))
+            kept[name].extend(
+                dict(side, patch=number) for side in kept_sides(blocks, verts, factors, patches=[p])
+            )
     kinds = tuple(grids[n].layout for n in names)
-    return Layout(
-        names,
-        kinds,
-        blocks,
-        owner,
-        tuple(counts[a] for a in range(len(blocks.arcs))),
-        kept,
-        directions,
-        provenance,
-    )
+    summaries = {
+        n: s if isinstance(s, str) else "from " + ", ".join(dict.fromkeys(s.values()))
+        for n, s in provenance.items()
+    }
+    layout = Layout(names, kinds, blocks, owner, (), kept, directions, summaries)
+    counts = _band_counts(layout, proposed, specs, perimeter, where=where)
+    return replace(layout, counts=tuple(counts[a] for a in range(len(blocks.arcs))))
 
 
 def _arc_directions(
     verts, blocks, patches, grid, spec, *, runs, edges, name, source, where, assumed
 ):
     """Retain an orientation even when equal factors do not need it for counting."""
+    local = {}
     if runs is None:
         # Equal factors did not request geometric warnings before directions were
         # retained. Recording their orientation must not add those diagnostics.
         with warnings.catch_warnings():
-            if spec.directions[0] == spec.directions[1]:
+            if spec.directions[0] == spec.directions[1] and not any(spec.leads):
                 warnings.simplefilter("ignore", PyflightstreamWarning)
             runs = _reference_directions(
-                verts, blocks, patches, grid, edges, family=f"{where} family {name}"
+                verts,
+                blocks,
+                patches,
+                grid,
+                edges,
+                family=f"{where} family {name}",
+                patch_runs=local,
             )
     provenance = (
         "listed_te" if edges else "sheet_index" if isinstance(grid, Grid) else "longest_side"
     )
     if assumed:
         provenance = "longest_side"
-    origin = name
-    if source is not None:
-        if source.startswith("from "):
-            origin = source.removeprefix("from ")
-            provenance = f"propagated_from:{origin}"
-        else:
-            provenance = "own_orientation_" + source.removeprefix("own reference: ")
-    arcs = {a for p in patches for a, _ in blocks.sides[p]}
+    if isinstance(source, str):
+        provenance = "own_orientation_" + source.removeprefix("own reference: ")
+    if not local:
+        local = {p: {a: runs[a] for a, _ in blocks.sides[p]} for p in patches}
     return {
-        a: ArcDirection("parallel" if runs[a] == "spanwise" else "normal", origin, provenance)
-        for a in arcs
+        p: {
+            a: ArcDirection(
+                "parallel" if d == "spanwise" else "normal",
+                source[a] if isinstance(source, dict) else name,
+                f"propagated_from:{source[a]}" if isinstance(source, dict) else provenance,
+            )
+            for a, d in told.items()
+        }
+        for p, told in local.items()
     }
 
 
@@ -1149,39 +1184,56 @@ def propagate_directions(
     }, failures
 
 
-def _reference_directions(verts, blocks, patches, grid, te_edges, *, family):
+def _reference_directions(verts, blocks, patches, grid, te_edges, *, family, patch_runs=None):
     """Read a family's directions using the existing geometric reference path."""
     arcs = {a for p in patches for a, _ in blocks.sides[p]}
     if isinstance(grid, Grid):
         return sheet_directions(grid, blocks, arcs)
     te = numpy.asarray(verts, dtype=float)[sorted(te_edges)].reshape(-1, 2, 3)
-    return te_directions(verts, blocks, patches, te, family=family, what="its patches")
+    local = {} if patch_runs is None else patch_runs
+    runs = te_directions(
+        verts, blocks, patches, te, family=family, what="its patches", patch_runs=local
+    )
+    return {
+        a: d for a, d in runs.items() if len({told[a] for told in local.values() if a in told}) <= 1
+    }
 
 
-def _follower_directions(verts, names, found, grids, followers, *, te_edges, where):
+def _follower_directions(verts, names, found, grids, followers, *, te_edges, where, leaders):
     """Orient each leader geometrically once and pass its directions to its followers."""
     blocks, indices = found
     owner = tuple(names[i] for i in indices)
     runs, provenance = {}, {}
-    for lead in dict.fromkeys(followers.values()):
-        selected = [n for n in names if followers.get(n) == lead]
-        if not selected:
-            continue
+    selected = [n for n in names if n in followers]
+    if not selected:
+        return runs, provenance
+    evidence = {}
+    for lead in dict.fromkeys(leaders.values() if leaders else followers.values()):
         seed = {}
         if lead in names:
             patches = [p for p, n in enumerate(owner) if n == lead]
             seed = _reference_directions(
                 verts, blocks, patches, grids[lead], te_edges[lead], family=f"{where} family {lead}"
             )
-        told, failures = propagate_directions(blocks, owner, seed, selected)
-        for name in selected:
-            if name in failures:
-                reason = failures[name]
-                warn_direction_fallback(name, lead, reason, where=where)
-                provenance[name] = f"own reference: {reason}"
-            else:
-                runs[name] = told
-                provenance[name] = f"from {lead}"
+        evidence[lead] = propagate_directions(blocks, owner, seed, selected)
+    for name in selected:
+        arcs = {a for p, n in enumerate(owner) if n == name for a, _ in blocks.sides[p]}
+        failures = [failed[name] for _, failed in evidence.values() if name in failed]
+        values = {a: {told[a] for told, _ in evidence.values() if a in told} for a in arcs}
+        if failures or any(len(ds) != 1 for ds in values.values()):
+            reason = (
+                "conflict"
+                if "conflict" in failures or any(len(ds) > 1 for ds in values.values())
+                else "unlinked"
+            )
+            warn_direction_fallback(name, ", ".join(evidence), reason, where=where)
+            provenance[name] = f"own reference: {reason}"
+        else:
+            runs[name] = {a: next(iter(ds)) for a, ds in values.items()}
+            provenance[name] = {
+                a: leaders.get("parallel" if d == "spanwise" else "normal", followers[name])
+                for a, d in runs[name].items()
+            }
     return runs, provenance
 
 
@@ -1202,11 +1254,7 @@ def _perimeters(
     pts = numpy.asarray(verts, dtype=float)
     out = {}
     for i, name in enumerate(names):
-        held: dict[int, int] = {}
-        for p, o in enumerate(owner):
-            if o == i:
-                for arc, _ in blocks.sides[p]:
-                    held[arc] = held.get(arc, 0) + 1
+        held = Counter(a for p, o in enumerate(owner) if o == i for a, _ in blocks.sides[p])
         out[name] = sum(
             float(numpy.linalg.norm(numpy.diff(pts[list(blocks.arcs[a])], axis=0), axis=1).sum())
             for a, n in held.items()
@@ -1233,43 +1281,46 @@ def arc_bands(blocks: Blocks, arcs: Iterable[int]) -> dict[int, int]:
     return {a: root(a) for a in parent}
 
 
-def _band_lead(candidates, names, specs, perimeter):
-    """Select a governing or declared family by perimeter, then source order."""
-    return min(
-        candidates,
-        key=lambda n: (
-            not specs[n].governing,
-            specs[n].method == "grid_auto",
-            -perimeter[n],
-            names.index(n),
-        ),
+def _lead_rank(name, names, specs, perimeter, direction):
+    """Rank a band's eligible directional governor, then declared perimeter and source order."""
+    governing = (
+        any(specs[name].leads) if direction is None else specs[name].leads[direction == "parallel"]
     )
+    return not governing, specs[name].method == "grid_auto", -perimeter[name], names.index(name)
+
+
+def _band_lead(candidates, names, specs, perimeter, *, direction=None):
+    """Select a governing or declared family by perimeter, then source order."""
+    return min(candidates, key=lambda n: _lead_rank(n, names, specs, perimeter, direction))
 
 
 def _band_counts(
-    names: Sequence[str],
-    blocks: Blocks,
-    proposed: Mapping[int, list[tuple[str, int]]],
+    layout: Layout,
+    proposed: Mapping[int, list[tuple[str, int, int]]],
     specs: Mapping[str, FamilySpec],
     perimeter: Mapping[str, float],
     *,
     where: str,
 ) -> dict[int, int]:
     """Return one count per arc: each band's count from the family that leads it, warned."""
-    band = arc_bands(blocks, proposed)
-    members: dict[int, list[tuple[str, int]]] = {}
+    names = layout.names
+    band = arc_bands(layout.blocks, proposed)
+    members: dict[int, list[tuple[str, int, str]]] = {}
     for arc, offers in proposed.items():
-        members.setdefault(band[arc], []).extend(offers)
+        members.setdefault(band[arc], []).extend(
+            (n, c, layout.directions[p][arc].direction) for n, p, c in offers
+        )
     chosen: dict[int, int] = {}
     followed: dict[tuple[str, str], int] = {}
-    for key, offers in members.items():
-        lead = _band_lead([n for n, _ in offers], names, specs, perimeter)
-        value = next(c for n, c in offers if n == lead)
+    for key, candidates in members.items():
+        lead, value, _ = min(
+            candidates, key=lambda row: _lead_rank(row[0], names, specs, perimeter, row[2])
+        )
         chosen[key] = value
-        for n in {n for n, c in offers if c != value}:
+        for n in {n for n, c, _ in candidates if c != value}:
             followed[(n, lead)] = followed.get((n, lead), 0) + 1
     for (n, lead), bands in sorted(followed.items()):
-        how = "governing" if specs[lead].governing else "declared, of the largest perimeter"
+        how = "governing" if any(specs[lead].leads) else "declared, of the largest perimeter"
         advice = (
             'To give this grid_auto family its own counts, declare method = "grid", '
             "its factors and governing = true in its [families] table."
@@ -1373,6 +1424,16 @@ def plan(
     names = tuple(n for n in families if n in grids)
     nodes = {n: {v for f in families[n] for v in f} for n in names}
     joinable = [n for n in names if _joinable(grids[n], families[n])]
+    count_layout = partial(
+        _counted,
+        verts,
+        grids=grids,
+        specs=specs,
+        te_edges=te_edges,
+        where=where,
+        followers=followers,
+        assumed=assumed,
+    )
     layouts, why = _grouped(
         verts,
         families,
@@ -1380,17 +1441,14 @@ def plan(
         specs,
         te_edges,
         groups=_touching(joinable, nodes),
+        count_layout=count_layout,
         where=where,
         accept=accept,
-        followers=followers,
-        assumed=assumed,
     )
     done = [n for lay in layouts for n in lay.names]
     late: list[tuple[str, str, str]] = []
     for name in names:
-        if name not in grids:
-            continue
-        if name in done:
+        if name not in grids or name in done:
             continue
         if specs[name].method == "grid_auto":
             _skip_unled(grids, specs, name, where)
@@ -1404,19 +1462,7 @@ def plan(
         if isinstance(grid, Blocks):
             lone = (grid, (0,) * len(grid.patches))
             try:
-                layouts.append(
-                    _counted(
-                        verts,
-                        (name,),
-                        lone,
-                        grids,
-                        specs,
-                        te_edges=te_edges,
-                        where=where,
-                        followers=followers,
-                        assumed=assumed,
-                    )
-                )
+                layouts.append(count_layout((name,), lone))
             except InputArtifactError as error:
                 if not accept:
                     raise
@@ -1427,24 +1473,12 @@ def plan(
     return {n: lay for lay in layouts for n in lay.names}, late
 
 
-def _grouped(
-    verts: Points,
-    families: Mapping[str, Faces],
-    grids: dict[str, Recovered],
-    specs: dict[str, FamilySpec],
-    te_edges: Mapping[str, Collection[Edge]],
-    *,
-    groups: Iterable[Sequence[str]],
-    where: str,
-    accept: bool,
-    followers: dict[str, str] | None = None,
-    assumed: Collection[str] = (),
-) -> tuple[list[Layout], dict[str, str]]:
-    """Return the layouts of the touching groups, and why a group's grids joined none."""
+def _grouped(verts, families, grids, specs, te_edges, *, groups, count_layout, where, accept):
+    """Plan each connected group using the caller's shared counting context."""
     layouts: list[Layout] = []
     why: dict[str, str] = {}
     for group in groups:
-        if not any(specs[n].governing for n in group):
+        if not any(any(specs[n].leads) for n in group):
             for name in group:
                 if specs[name].method == "grid_auto":
                     _skip_unled(grids, specs, name, where)
@@ -1459,19 +1493,7 @@ def _grouped(
             )
             continue
         try:
-            layouts.append(
-                _counted(
-                    verts,
-                    tuple(group),
-                    found,
-                    grids,
-                    specs,
-                    te_edges=te_edges,
-                    where=where,
-                    followers=followers,
-                    assumed=assumed,
-                )
-            )
+            layouts.append(count_layout(tuple(group), found))
         except InputArtifactError as error:
             if not accept:
                 raise

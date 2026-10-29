@@ -57,6 +57,8 @@ FAMILY_KEYS = (
     "method",
     "elements",
     "governing",
+    "governing_parallel",
+    "governing_normal",
 )
 #: Keys a [families.<name>] table may still state from earlier releases; each is warned
 #: and skipped: a row kept at an interface is a family of its own.
@@ -97,6 +99,13 @@ class FamilySpec:
     #: A governing family gives its counts to every curve it shares with other grids,
     #: and to the curves those pass the count on to (``governing = true``).
     governing: bool = False
+    governing_parallel: bool = False
+    governing_normal: bool = False
+
+    @property
+    def leads(self) -> tuple[bool, bool]:
+        """Return whether this family governs the normal and parallel directions."""
+        return self.governing or self.governing_normal, self.governing or self.governing_parallel
 
     @property
     def directions(self) -> tuple[float, float]:
@@ -281,12 +290,11 @@ def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> 
             accept,
         )
     table = {k: v for k, v in table.items() if k != "elements"}
-    governing = table.pop("governing", False)
-    if not isinstance(governing, bool):
-        _unknown(f"{where} governing", f"{governing!r} is not true or false", accept)
-        governing = False
+    governing, parallel, normal = _governing_flags(where, table, accept)
     if method == GRID_AUTO:
-        return grid_auto_spec(where, table, governing=governing, accept=accept)
+        return grid_auto_spec(
+            where, table, governing=governing or parallel or normal, accept=accept
+        )
     if not any(k in table for k in ("factor", *DIRECTIONAL_KEYS)):
         _unknown(
             where,
@@ -311,7 +319,30 @@ def _family_spec(where: str, table: Mapping[str, Any], accept: bool = False) -> 
         spanwise=factors.get("parallel_factor"),
         method=method,
         governing=governing,
+        governing_parallel=parallel,
+        governing_normal=normal,
     )
+
+
+def _governing_flags(where, table, accept):
+    """Read the directional flags and warn when the earlier spelling supplies both."""
+    values = []
+    for key in ("governing", "governing_parallel", "governing_normal"):
+        value = table.pop(key, False)
+        if not isinstance(value, bool):
+            _unknown(
+                f"{where} {key}", f"{value!r} is not true or false", accept or key != "governing"
+            )
+            value = False
+        values.append(value)
+    if values[0]:
+        warnings.warn(
+            f"{where}: governing is the earlier spelling; it is read as both "
+            "governing_parallel and governing_normal. Use the directional keys.",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
+    return values
 
 
 def _read_factors(where: str, table: Mapping[str, Any], accept: bool) -> dict[str, float]:
@@ -841,8 +872,9 @@ def canonical_selection(request: RefineRequest, picked: Sequence[str]) -> str:
                 options[key] = getattr(spec, key)
         if spec.method != "auto":
             options["method"] = spec.method
-        if spec.governing:
-            options["governing"] = True
+        for key in ("governing", "governing_parallel", "governing_normal"):
+            if getattr(spec, key):
+                options[key] = True
         # The element mode reaches a remeshed family only: a grid keeps its cells.
         if request.elements_of(name) != TRIANGLES and spec.method != "grid":
             options["elements"] = request.elements_of(name)
@@ -853,7 +885,7 @@ def canonical_selection(request: RefineRequest, picked: Sequence[str]) -> str:
 
 def _add_followers(specs: dict[str, FamilySpec], chosen: Sequence[str]) -> None:
     """Make every selected family without a table grid_auto when one is governing (FR-3298)."""
-    if any(s.governing for s in specs.values()):
+    if any(any(s.leads) for s in specs.values()):
         specs.update({n: FamilySpec(method=GRID_AUTO) for n in chosen if n not in specs})
 
 
@@ -884,7 +916,7 @@ def _missing_tables(chosen: Sequence[str], specs: Mapping[str, FamilySpec]) -> t
     With a governing family every undeclared family is grid_auto (FR-3298), so
     none is copied for want of a table.
     """
-    if any(s.governing for s in specs.values()):
+    if any(any(s.leads) for s in specs.values()):
         return ()
     return tuple(n for n in chosen if n not in specs)
 
@@ -900,7 +932,7 @@ def tag_selection(request: RefineRequest, names: Sequence[str]) -> list[str] | N
 def _summary_tag(request: RefineRequest, tag: str) -> bool:
     """Hash long tags and governing choices that a factor-only tag cannot distinguish."""
     return len(tag) > TAG_MAX or any(
-        spec.governing or spec.method == GRID_AUTO for spec in request.specs.values()
+        any(spec.leads) or spec.method == GRID_AUTO for spec in request.specs.values()
     )
 
 

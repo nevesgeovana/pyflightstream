@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace import prepare_to_refine, refine_mesh
 from pyflightstream.workspace._refine import _blocks, _nastran
 from pyflightstream.workspace._refine._config import (
@@ -629,3 +629,43 @@ def test_p0490_planner_factors_do_not_cross_a_mixed_bridge(tmp_path):
     assert level.report["B"]["grid_auto"]["factors"] == [2, 3]
     assert level.report["D"]["grid_auto"]["follows"] == "C"
     assert level.report["D"]["grid_auto"]["factors"] == [4, 5]
+
+
+def test_p0490_planner_governing_is_resolved_per_direction(tmp_path):
+    """P0490-PLANNER: A leads parallel, C leads normal, and B inherits both factors."""
+    from pyflightstream.workspace._refine._config import resolve_request
+
+    source = tmp_path / "plates.obj"
+    source.with_suffix(".refine.toml").write_text(
+        "[families.A]\nfactor = 2\ngoverning_parallel = true\n"
+        '[families.B]\nmethod = "grid_auto"\n'
+        "[families.C]\nfactor = 4\ngoverning_normal = true\n",
+        encoding="utf-8",
+    )
+    request = None
+    try:
+        request = resolve_request(source, ["A", "B", "C"])
+    except InputArtifactError:
+        pass
+    assert request is not None, "directional governing keys must be accepted"
+    layout, _ = _layout(request.specs)
+    shared = set(a for a, _ in layout.blocks.sides[0]) & set(a for a, _ in layout.blocks.sides[1])
+    assert {layout.counts[a] for a in shared} == {8}
+    assert request.specs["B"].directions == (4, 2)
+    records = [d for p in layout.patches_of("B") for d in layout.directions[p].values()]
+    assert {(d.direction, d.source_family) for d in records} == {("parallel", "A"), ("normal", "C")}
+
+
+def test_p0490_planner_legacy_governing_warns_and_means_both(tmp_path):
+    """P0490-PLANNER: the earlier spelling remains accepted as both directions."""
+    from pyflightstream.workspace._refine._config import resolve_request
+
+    source = tmp_path / "plates.obj"
+    source.with_suffix(".refine.toml").write_text(
+        "[families.A]\nfactor = 2\ngoverning = true\n",
+        encoding="utf-8",
+    )
+    with pytest.warns(PyflightstreamWarning, match="earlier spelling"):
+        request = resolve_request(source, ["A", "B"])
+    assert getattr(request.specs["A"], "leads", ()) == (True, True)
+    assert request.specs["B"].method == "grid_auto"
