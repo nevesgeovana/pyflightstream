@@ -846,6 +846,50 @@ def test_p0440_union_without_four_sided_layout_joins_none():
     assert all("form no layout" in row[2] for row in late)
 
 
+def test_p0490_planner_retains_each_arc_direction_and_source():
+    """P0490-PLANNER: orientation survives planning, including shared-curve propagation."""
+    from pyflightstream.workspace._refine._blocks import plan
+    from pyflightstream.workspace._refine._config import FamilySpec
+
+    vertices = np.array([[x, y, 0] for x in range(3) for y in range(2)], dtype=float)
+    families = {"A": [[0, 2, 3, 1]], "B": [[2, 4, 5, 3]]}
+    edges = {"A": {(0, 1)}, "B": set()}
+    grids = {
+        n: recover_family(vertices, faces, {0, 1} if n == "A" else {2, 3})
+        for n, faces in families.items()
+    }
+    layouts, late = plan(
+        vertices,
+        families,
+        grids,
+        {"A": FamilySpec(factor=2, governing=True), "B": FamilySpec(factor=2)},
+        edges,
+        where="two sheets",
+        followers={"B": "A"},
+    )
+    assert not late
+    directions = layouts["A"].directions
+    assert set(directions) == {"A", "B"}
+    for name in families:
+        arcs = {a for p in layouts[name].patches_of(name) for a, _ in layouts[name].blocks.sides[p]}
+        assert set(directions[name]) == arcs
+        assert {d.direction for d in directions[name].values()} == {"parallel", "normal"}
+        assert {d.source_family for d in directions[name].values()} == {"A"}
+    assert {d.provenance for d in directions["A"].values()} == {"listed_te"}
+    assert {d.provenance for d in directions["B"].values()} == {"propagated_from:A"}
+    assumed, _ = plan(
+        vertices,
+        families,
+        grids,
+        {"A": FamilySpec(factor=2, governing=True), "B": FamilySpec(factor=2)},
+        edges,
+        where="two sheets",
+        followers={"B": "A"},
+        assumed={"A"},
+    )
+    assert {d.provenance for d in assumed["A"].directions["A"].values()} == {"longest_side"}
+
+
 # ------------------------------------------- refine-r2: the longest side and the order
 
 

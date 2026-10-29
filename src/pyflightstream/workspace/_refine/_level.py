@@ -401,6 +401,7 @@ def _grid_after_grid(work: _Work) -> None:
         where=str(work.source),
         accept=work.request.accept_remesh,
         followers=work.followers,
+        assumed=work.assumed,
     )
     for name, first, why in late:
         if first == name:  # its own layout was refused and accepted as a remesh
@@ -490,7 +491,7 @@ def _grid_info(
     if layout is not None:
         info["kept_sides"] = layout.kept[name]
     if name in work.followers:  # grid_auto (FR-3298)
-        direction = layout.directions.get(name) if layout is not None else None
+        direction = layout.direction_sources.get(name) if layout is not None else None
         if direction is None:
             direction = "own reference: unlinked"
             _blocks.warn_direction_fallback(

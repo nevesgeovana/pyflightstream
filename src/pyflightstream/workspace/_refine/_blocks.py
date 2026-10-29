@@ -73,6 +73,7 @@ This module imports neither scipy nor rtree.
 from __future__ import annotations
 
 import math
+import warnings
 from collections import Counter, defaultdict, deque
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -905,6 +906,27 @@ def refine_blocks(verts: Points, faces: Faces, blocks: Blocks, *, factor: float)
 Recovered = Grid | Blocks
 
 
+@dataclass(frozen=True)
+class ArcDirection:
+    """The orientation of an arc and the family and reference that supplied it.
+
+    Attributes
+    ----------
+    direction : str
+        ``parallel`` or ``normal`` to the reference.
+    source_family : str
+        The family supplying the orientation, including a propagated seed.
+    provenance : str
+        ``listed_te``, ``longest_side``, ``sheet_index``,
+        ``propagated_from:<family>``, ``own_orientation_conflict`` or
+        ``own_orientation_unlinked``.
+    """
+
+    direction: str
+    source_family: str
+    provenance: str
+
+
 @dataclass(frozen=True, eq=False)
 class Layout:
     """Grid families resampled as one multiblock layout.
@@ -923,8 +945,10 @@ class Layout:
         Per arc, its new interval count.
     kept : dict
         Per family, the patch sides its factor cannot coarsen (FR-915).
-    directions : mapping of str to str
-        Per grid_auto family, propagated directions or the geometric fallback reason.
+    directions : mapping of str to mapping of int to ArcDirection
+        Per family and arc, the orientation and its source.
+    direction_sources : mapping of str to str
+        The earlier grid_auto summary, retained for the existing report.
     """
 
     names: tuple[str, ...]
@@ -933,7 +957,8 @@ class Layout:
     owner: tuple[int, ...]
     counts: tuple[int, ...]
     kept: Mapping[str, list[dict[str, object]]]
-    directions: Mapping[str, str] = field(default_factory=dict)
+    directions: Mapping[str, Mapping[int, ArcDirection]] = field(default_factory=dict)
+    direction_sources: Mapping[str, str] = field(default_factory=dict)
 
     def patches_of(self, name: str) -> list[int]:
         """Return the patches of one family, in layout order."""
@@ -1018,6 +1043,7 @@ def _counted(
     te_edges: Mapping[str, Collection[Edge]],
     where: str,
     followers: Mapping[str, str] | None = None,
+    assumed: Collection[str] = (),
 ) -> Layout:
     """Return the layout with every arc's count, a shared curve counted by its governing family.
 
@@ -1032,8 +1058,22 @@ def _counted(
     runs, provenance = _follower_directions(
         verts, names, found, grids, followers or {}, te_edges=te_edges, where=where
     )
+    directions = {}
     for i, name in enumerate(names):
         mine = [p for p, o in enumerate(owner) if o == i]
+        directions[name] = _arc_directions(
+            verts,
+            blocks,
+            mine,
+            grids[name],
+            specs[name],
+            runs=runs.get(name),
+            edges=te_edges[name],
+            name=name,
+            source=provenance.get(name),
+            where=where,
+            assumed=name in assumed,
+        )
         factors = _arc_factors(
             verts,
             blocks,
@@ -1042,7 +1082,10 @@ def _counted(
             specs[name],
             te_edges=te_edges[name],
             family=f"{where} family {name}",
-            directions=runs.get(name),
+            directions={
+                a: "spanwise" if d.direction == "parallel" else "chordwise"
+                for a, d in directions[name].items()
+            },
         )
         for arc, f in factors.items():
             proposed.setdefault(arc, []).append((name, count(len(blocks.arcs[arc]) - 1, f)))
@@ -1056,8 +1099,41 @@ def _counted(
         owner,
         tuple(counts[a] for a in range(len(blocks.arcs))),
         kept,
+        directions,
         provenance,
     )
+
+
+def _arc_directions(
+    verts, blocks, patches, grid, spec, *, runs, edges, name, source, where, assumed
+):
+    """Retain an orientation even when equal factors do not need it for counting."""
+    if runs is None:
+        # Equal factors did not request geometric warnings before directions were
+        # retained. Recording their orientation must not add those diagnostics.
+        with warnings.catch_warnings():
+            if spec.directions[0] == spec.directions[1]:
+                warnings.simplefilter("ignore", PyflightstreamWarning)
+            runs = _reference_directions(
+                verts, blocks, patches, grid, edges, family=f"{where} family {name}"
+            )
+    provenance = (
+        "listed_te" if edges else "sheet_index" if isinstance(grid, Grid) else "longest_side"
+    )
+    if assumed:
+        provenance = "longest_side"
+    origin = name
+    if source is not None:
+        if source.startswith("from "):
+            origin = source.removeprefix("from ")
+            provenance = f"propagated_from:{origin}"
+        else:
+            provenance = "own_orientation_" + source.removeprefix("own reference: ")
+    arcs = {a for p in patches for a, _ in blocks.sides[p]}
+    return {
+        a: ArcDirection("parallel" if runs[a] == "spanwise" else "normal", origin, provenance)
+        for a in arcs
+    }
 
 
 def _direction_links(blocks: Blocks, owner: Sequence[str], followers: Collection[str]):
@@ -1279,6 +1355,7 @@ def plan(
     where: str,
     accept: bool = False,
     followers: Mapping[str, str] | None = None,
+    assumed: Collection[str] = (),
 ) -> tuple[dict[str, Layout], list[tuple[str, str, str]]]:
     """Group the grid families that share nodes into layouts, before any work (FR-932).
 
@@ -1308,6 +1385,8 @@ def plan(
         warning, instead of refusing it (``accept_remesh``).
     followers : mapping of str to str, optional
         Each grid_auto family's already selected governing family.
+    assumed : collection of str
+        Families whose reference edges were assumed from their longest boundary side.
 
     Returns
     -------
@@ -1335,6 +1414,7 @@ def plan(
         where=where,
         accept=accept,
         followers=followers,
+        assumed=assumed,
     )
     done = [n for lay in layouts for n in lay.names]
     late: list[tuple[str, str, str]] = []
@@ -1360,6 +1440,7 @@ def plan(
                         te_edges=te_edges,
                         where=where,
                         followers=followers,
+                        assumed=assumed,
                     )
                 )
             except InputArtifactError as error:
@@ -1383,6 +1464,7 @@ def _grouped(
     where: str,
     accept: bool,
     followers: Mapping[str, str] | None = None,
+    assumed: Collection[str] = (),
 ) -> tuple[list[Layout], dict[str, str]]:
     """Return the layouts of the touching groups, and why a group's grids joined none."""
     layouts: list[Layout] = []
@@ -1408,6 +1490,7 @@ def _grouped(
                     te_edges=te_edges,
                     where=where,
                     followers=followers,
+                    assumed=assumed,
                 )
             )
         except InputArtifactError as error:
