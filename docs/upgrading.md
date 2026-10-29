@@ -41,6 +41,19 @@ extras no longer exist.
   (quadrilaterals at least 80 percent of the faces); pass `--all-families` for
   the earlier output.
 
+- A refine file names the governing patches per direction:
+  `governing_parallel = true` and `governing_normal = true` (both may sit on one
+  patch). `governing = true` is still read as both, with a warning.
+- A family the refine file does not declare, or one written `method = "keep"`,
+  is copied unchanged unless a curve it shares with a refined family changes
+  count; then a grid changes only the bands that cross that curve and a mixed
+  family is remeshed only in the band beside it, recorded under `continuity` in
+  `refine.json`. Write `method = "grid_auto"` to make a grid follow the governing
+  factors in both directions; `prepare-to-refine` writes its followers that way.
+- `prepare-to-refine --visual-inspect` and `refine --visual-inspect` write the
+  inspection PDF (a patches page and a directions page per family); a refusal
+  after the mesh is read writes `<stem>.refine-refusal.pdf` beside it.
+
 ## 0.48.0
 
 The refinement is described by a reference perimeter and two factors along and
