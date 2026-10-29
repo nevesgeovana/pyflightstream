@@ -17,6 +17,12 @@ FlightStream versions.
   refusal. Planning one matrix reads the other matrices of the workspace for
   their POLs only, so a malformed row in one of them no longer stops the plan
   of every matrix, and it still claims its POL (FR-3391).
+- `refine_mesh` documents its `None` return when no family is selected, the
+  mesh reference says that selection is warned and skipped, the how-to
+  example guards for `None`, and `pyfs-matrix refine` prints "no family
+  selected: no level written" to stderr (FR-3385).
+- The warning for a `force_rerun` name that matches no recorded point now says
+  the name is skipped and the matched points still re-run (FR-3387).
 
 ## [0.50.0] - 2026-10-29
 

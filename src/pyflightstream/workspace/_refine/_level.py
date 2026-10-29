@@ -1261,8 +1261,9 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
 
     Returns
     -------
-    RefinedMesh
+    RefinedMesh or None
         The level folder, its files, the per-family report and the audit.
+        None, with an EmptySelectionWarning and no level written, when no family is selected.
 
     Raises
     ------

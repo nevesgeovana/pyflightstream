@@ -196,7 +196,7 @@ def test_goal026_a_name_no_recorded_point_carries_is_refused(tmp_path):
     workspace = _ran_once(tmp_path)
 
     # Demoted in 0.50.0 (FR-3387): warned, never quiet, and refused under the strict policy.
-    with pytest.warns(EmptySelectionWarning, match="NOT\\+A\\+POINT"):
+    with pytest.warns(EmptySelectionWarning, match="NOT\\+A\\+POINT") as caught:
         run_matrix(
             REGISTRY_FIXTURE,
             workspace,
@@ -204,6 +204,10 @@ def test_goal026_a_name_no_recorded_point_carries_is_refused(tmp_path):
             force_rerun=["NOT+A+POINT"],
             **KEYWORDS,
         )
+    # REL4-API-003: the name is skipped, and the sentence never says nothing re-runs.
+    said = " ".join(str(w.message) for w in caught if "NOT+A+POINT" in str(w.message))
+    assert "so it is skipped; the matched points still re-run" in said, said
+    assert "re-runs nothing" not in said, said
     with option_context("warning_refusals", True):
         with pytest.raises(WorkspaceError) as raised:
             run_matrix(

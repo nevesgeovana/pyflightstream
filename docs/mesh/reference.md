@@ -389,7 +389,9 @@ skipped.
    file's tables: an unselected family is not changed, and a selected name the
    mesh does not hold is refused, as on the FACTOR route.
 3. With no factor on the command and no file, a file that states no family,
-   or a selection the file states no factor for, the command is refused.
+   or a selection the file states no factor for, the command is refused. A
+   selection of no family is warned and skipped: no level is written, and
+   `--warning-refusals` restores the refusal.
 4. A `[families.<name>]` table whose factors are not read (every one when the
    command gives the factors, an unselected one under `--families`) is a
    warning naming it, and `refine.json` lists it under

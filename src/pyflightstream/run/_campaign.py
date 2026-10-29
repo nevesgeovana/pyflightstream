@@ -909,8 +909,9 @@ def _preflight_campaign_schedule(state: _CampaignState) -> None:
         demote(
             WorkspaceError(
                 f"force_rerun names {', '.join(sorted(state.unmatched))}, which no recorded "
-                f"point of this campaign carries in {state.workspace.root}, so it re-runs "
-                "nothing. Name a point by its point name or by its full run_id, as the "
+                f"point of this campaign carries in {state.workspace.root}, so it is skipped; "
+                "the matched points still re-run. Name a point by its point name or by its "
+                "full run_id, as the "
                 "manifest spells it."
             ),
             warning=EmptySelectionWarning,

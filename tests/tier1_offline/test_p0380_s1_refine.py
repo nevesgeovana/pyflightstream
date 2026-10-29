@@ -2651,3 +2651,14 @@ def test_p0500_retired_refine_tables_warn_and_skip_even_empty_values(tmp_path, k
     with pytest.warns(PyflightstreamWarning, match=key + ".*no longer read"):
         actual = read_refine_file(path, ["G"])
     assert actual == expected
+
+
+def test_p0501_api002_an_empty_selection_is_said_on_stderr(tmp_path, capsys):
+    """REL4-API-002: no family selected writes no level and says so on stderr, not stdout."""
+    src = _source(tmp_path, refine_toml="[families.G]\nfactor = 2\n")
+    with pytest.warns(PyflightstreamWarning, match="no family is selected"):
+        code, out, err = _command(capsys, str(src), "2", "--families", ",")
+    assert code == 0, err
+    assert "no family selected: no level written" in err, err
+    assert "no family selected" not in out, out
+    assert _left(tmp_path) == []

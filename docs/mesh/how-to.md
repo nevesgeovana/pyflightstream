@@ -603,6 +603,8 @@ the two commands call, with the same files and the same refusals:
 from pyflightstream.workspace import audit_mesh, refine_mesh
 
 level = refine_mesh("inputs/geometries/W1/W1.obj", 2)
+if level is None:
+    raise SystemExit("no family selected: no level written")
 print(level.folder.name)  # W1_R2
 for name, family in level.report.items():
     print(name, family["method"])

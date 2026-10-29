@@ -453,7 +453,7 @@ def run_refine(args: argparse.Namespace) -> int:
         print(str(error), file=sys.stderr)
         return EXIT_REFUSED
     if level is None:
-        print("no family selected: no level written")
+        print("no family selected: no level written", file=sys.stderr)
         return EXIT_PASSED
     for name, entry in level.report.items():
         print(f"{name}: {entry.get('method', 'copied')}")
