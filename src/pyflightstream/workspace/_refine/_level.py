@@ -95,8 +95,8 @@ class RefinedMesh:
     report : dict
         The ``families`` entry of ``refine.json``: per family, the method,
         the reason, the layout and the counts before and after.
-    audit : MeshAudit
-        The audit of the level against its source (FR-426), written beside it.
+    audit : MeshAudit or None
+        The audit written beside the level (FR-426), or None when audit=False.
     """
 
     folder: Path
@@ -141,6 +141,7 @@ class _Work:
     # The grid_auto families and the governing family selected by the planner.
     followers: dict[str, str] = field(default_factory=dict)
     component_governors: dict[str, dict[str, str]] = field(default_factory=dict)
+    audit_enabled: bool = True
     sidecar: str | None = None  # the level's boundaries file, rewritten before any work
     unchanged: list[str] = field(default_factory=list)  # the families G6 compares
     # FR-972: the selected families of a summary tag, taken with the tag before any work
@@ -1011,6 +1012,7 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int], has_te: bool) -> 
         ],
         "faces": dict(counts),
         **shortened,
+        **({"audit": "skipped (--audit-off)"} if not work.audit_enabled else {}),
         **({"component_governors": work.component_governors} if work.component_governors else {}),
     }
 
@@ -1221,6 +1223,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     force_factors: bool = True,
     visual_inspect: bool = False,
     keep_within_component: bool | None = None,
+    audit: bool = True,
     chordwise: float | None = None,
     spanwise: float | None = None,
 ) -> RefinedMesh:
@@ -1270,6 +1273,9 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     keep_within_component : bool, optional
         Share directional governors across each declared component. None reads the file key.
         Without components the existing layout behavior is retained.
+    audit : bool
+        Audit the written level against its source. False skips the audit and records
+        that choice; the level can be audited later with geometry audit (FR-3321).
     chordwise, spanwise : float, optional
         The earlier names of ``normal`` and ``parallel``, read with a warning;
         beside the new name, the earlier one is warned and skipped.
@@ -1324,6 +1330,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
             stem = request.filename
         folder = _place(source, stem, out_dir, overwrite)
         work = inspection.work = _start(source, request, obj)
+        work.audit_enabled = audit
         if progress is not None:
             work.say = progress
         work.say(
@@ -1342,7 +1349,6 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         verts, faces, te = _assemble(work)
         faces = _components(work, faces)
         work.unchanged = _unchanged_grids(work, list(faces))
-        unchanged = work.unchanged
         folder.parent.mkdir(parents=True, exist_ok=True)
         # The run's own folder: created here under a unique name, and the only one it removes.
         owned = Path(tempfile.mkdtemp(prefix=f"{folder.name}{STAGING_SUFFIX}-", dir=folder.parent))
@@ -1351,15 +1357,32 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
             staging.mkdir()
             work.say(f"writing {len(verts)} nodes, {sum(len(f) for f in faces.values())} faces")
             written = inspection.write(_write, work, staging, verts, faces, te)
-            work.say("auditing the level against its source")
-            audit = audit_mesh(written[0], against=source, unchanged_grids=unchanged)
+            result = _audit_level(work, written[0], folder)
             _publish(staging, folder, owned / f"{folder.name}{PREVIOUS_SUFFIX}", overwrite)
         finally:
             _release(owned, folder)
-        files = tuple(folder / p.name for p in (*written, audit.path))
-        audit = dataclasses.replace(audit, mesh=files[0], path=files[-1])
-        report = json.loads(files[-2].read_text(encoding="utf-8"))["families"]
-        return RefinedMesh(folder=folder, obj=files[0], files=files, report=report, audit=audit)
+        if result is not None:
+            written.append(result.path)
+            result = dataclasses.replace(
+                result, mesh=folder / written[0].name, path=folder / result.path.name
+            )
+        files = tuple(folder / p.name for p in written)
+        report = json.loads((folder / f"{stem}.refine.json").read_text(encoding="utf-8"))[
+            "families"
+        ]
+        return RefinedMesh(folder=folder, obj=files[0], files=files, report=report, audit=result)
+
+
+def _audit_level(work: _Work, obj: Path, folder: Path) -> MeshAudit | None:
+    """Audit a staged level when requested, otherwise name the later audit command."""
+    if not work.audit_enabled:
+        work.say(
+            f'audit skipped (--audit-off); run pyfs-workspace geometry audit "{folder / obj.name}" '
+            f'--against "{work.source}"'
+        )
+        return None
+    work.say("auditing the level against its source")
+    return audit_mesh(obj, against=work.source, unchanged_grids=work.unchanged)
 
 
 def _unchanged_grids(work: _Work, families: list[str]) -> list[str]:

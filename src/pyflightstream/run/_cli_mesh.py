@@ -396,6 +396,11 @@ def _add_refine_parser(subparsers: Any) -> None:
         help="share directional governors across each declared component's grid patches",
     )
     refine.set_defaults(mesh_command=run_refine, force_factors=True)
+    refine.add_argument(
+        "--audit-off",
+        action="store_true",
+        help="skip the level audit and print how to run it later",
+    )
 
 
 def _progress_printer() -> Callable[[str], None]:
@@ -442,6 +447,7 @@ def run_refine(args: argparse.Namespace) -> int:
             force_factors=args.force_factors,
             visual_inspect=args.visual_inspect,
             keep_within_component=args.keep_within_component,
+            audit=not args.audit_off,
         )
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)

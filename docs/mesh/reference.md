@@ -1,5 +1,13 @@
 # Mesh input reference
 
+Refinement audits each written level by default. `refine --audit-off` (also
+available through `pyfs-matrix`) or `refine_mesh(..., audit=False)` skips that
+call and returns a level with `audit=None`. Its `refine.json` records
+`"audit": "skipped (--audit-off)"`; no audit file is written. The command prints
+how to audit the level later with `pyfs-workspace geometry audit <level.obj>
+--against <source.obj>`. The skipped record does not prevent later inspection
+or auditing (FR-3321).
+
 `prepare-to-refine --keep-within-component` and
 `prepare_to_refine(..., keep_within_component=True)` select one parallel and
 one normal governing grid patch per original family, grouped by `[components]`.

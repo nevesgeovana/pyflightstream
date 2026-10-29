@@ -45,6 +45,7 @@
 \begin{flags}
 \item \fl{--families A,B} only these families (default: all)
 \item \fl{--keep-within-component} share directional governors across each component's grid patches
+\item \fl{--audit-off} skip the level audit; print the command to run it later
 \item \fl{--parallel F}, \fl{--normal F} the factor in one index direction of the grid families (the parallel or the normal direction)
 \item \fl{--accept-remesh} a family that states parallel and normal factors, or \texttt{method = "grid"}, but recovers no grid is warned and remeshed with its \texttt{factor}, instead of refused
 \item \fl{--accept-unknown} an entry of the refinement file it does not know or cannot read, and a \fl{--families} name the mesh does not hold, are warned and skipped, instead of refused
@@ -330,6 +331,7 @@ See the website's Upgrading page for supported workspace conversion.
 \end{flags}
 \sub{geometry refine <MESH> [FACTOR]}{as \cmd{refine} of \texttt{pyfs-matrix}, whose home this group is}
 \fl{--keep-within-component} share directional governors across each declared component's grid patches.
+\fl{--audit-off} writes the level without auditing it and prints the later audit command.
 \fl{--visual-inspect} writes the level's patches and directions PDF beside its OBJ.
 \begin{flags}
 \item \fl{--families A,B} \quad \fl{--parallel F} \quad \fl{--normal F} \quad \fl{--accept-remesh} \quad \fl{--accept-unknown} \quad \fl{--strict-factors} \quad \fl{--config FILE}

@@ -9,6 +9,8 @@ FlightStream versions.
 
 ### Added
 
+- Refinement accepts `--audit-off` and `refine_mesh(..., audit=False)` to skip
+  the level audit, record that choice and show how to audit later (FR-3321).
 - `prepare-to-refine` and `refine` accept `--keep-within-component`, with matching
   Python arguments and a persisted refine key. One governor per direction supplies
   factors across a component's grid layouts, with warned own-orientation fallback

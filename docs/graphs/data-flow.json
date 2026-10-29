@@ -106,9 +106,9 @@
       "outputs": [
         "geometry"
       ],
-      "parameters": "mesh: str | os.PathLike[str], factor: float | None=None, *, families: Sequence[str] | None=None, parallel: float | None=None, normal: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None, progress: Callable[[str], None] | None=None, accept_remesh: bool=False, accept_unknown: bool=False, force_factors: bool=True, visual_inspect: bool=False, keep_within_component: bool | None=None, chordwise: float | None=None, spanwise: float | None=None",
+      "parameters": "mesh: str | os.PathLike[str], factor: float | None=None, *, families: Sequence[str] | None=None, parallel: float | None=None, normal: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None, progress: Callable[[str], None] | None=None, accept_remesh: bool=False, accept_unknown: bool=False, force_factors: bool=True, visual_inspect: bool=False, keep_within_component: bool | None=None, audit: bool=True, chordwise: float | None=None, spanwise: float | None=None",
       "returns": "RefinedMesh",
-      "source_sha256": "f94e2a86008febd39fd853438c8ae2c492b3d6d0d69c853dde7c7081fbad343a"
+      "source_sha256": "c6e69c7d4ee4be9c8f07435e2304a90126e44388731e2f15e5a0d37cfb496b76"
     }
   ],
   "cases": [

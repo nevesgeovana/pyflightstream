@@ -1407,3 +1407,57 @@ def test_p0490_visual_refine_annotations_come_from_saved_record(tmp_path, monkey
     assert pdf.is_file()
     assert any("A: continuity" in t and "normal" in t for t in texts)
     assert any("B: continuity remeshed band (7 source faces)" in t for t in texts)
+
+
+def test_p0500_audit_off_skips_the_call_and_allows_a_later_audit(tmp_path, monkeypatch):
+    """P0500-AUDIT: refine_mesh(source, audit=False) writes an auditable level."""
+    import inspect
+
+    from pyflightstream.workspace import audit_mesh
+    from pyflightstream.workspace._refine import _level
+
+    source = write_source(tmp_path / "src", "sheet", sheet_with_strips(()))
+    calls = []
+    original = _level.audit_mesh
+
+    def observed(*args, **kwargs):
+        calls.append(args)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(_level, "audit_mesh", observed)
+    ordinary = refine_mesh(source, 1)
+    assert ordinary.audit is not None and len(calls) == 1
+    calls.clear()
+    progress = []
+    options = {"audit": False} if "audit" in inspect.signature(refine_mesh).parameters else {}
+    level = refine_mesh(source, 1, overwrite=True, progress=progress.append, **options)
+    assert calls == [], "audit=False must not enter the audit"
+    assert level.audit is None and not level.obj.with_suffix(".audit.json").exists()
+    assert all(p.is_file() for p in level.files)
+    record = json.loads(level.obj.with_suffix(".refine.json").read_text())
+    assert record["audit"] == "skipped (--audit-off)"
+    advice = [line for line in progress if "audit skipped" in line]
+    assert len(advice) == 1 and "geometry audit" in advice[0] and "--against" in advice[0]
+    later = audit_mesh(level.obj, against=source)
+    assert later.path.is_file()
+
+
+@pytest.mark.parametrize("command", ["workspace", "matrix"])
+def test_p0500_audit_off_cli_writes_a_level_and_names_the_later_command(tmp_path, capsys, command):
+    """P0500-AUDIT: both CLI entry points accept the owner's --audit-off flag."""
+    from pyflightstream.run import cli as matrix
+    from pyflightstream.workspace import cli as workspace
+
+    source = write_source(tmp_path / "src", "sheet", sheet_with_strips(()))
+    main, prefix = (workspace.main, ["geometry"]) if command == "workspace" else (matrix.main, [])
+    try:
+        code = main([*prefix, "refine", str(source), "1", "--audit-off"])
+    except SystemExit as error:
+        code = error.code
+    assert code == 0
+    captured = capsys.readouterr()
+    text = captured.out + captured.err
+    assert "audit skipped" in text and "geometry audit" in text and "--against" in text
+    records = list(tmp_path.glob("sheet_R1/*.refine.json"))
+    assert len(records) == 1
+    assert json.loads(records[0].read_text())["audit"] == "skipped (--audit-off)"

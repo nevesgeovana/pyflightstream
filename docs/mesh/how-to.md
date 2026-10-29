@@ -1,5 +1,12 @@
 # Mesh inputs and GUI-only operations
 
+When the audit can wait, use `pyfs-workspace geometry refine wing.obj 2 --audit-off`
+(or `pyfs-matrix refine wing.obj 2 --audit-off`). In Python, pass `audit=False`
+to `refine_mesh`. The level is written with the skipped audit recorded in
+`refine.json`; the console prints its exact later audit command. Run
+`pyfs-workspace geometry audit <level.obj> --against <source.obj>` when ready.
+Omitting the switch keeps the usual audit enabled (FR-3321).
+
 To give all grid patches of an original family the same directional factors,
 prepare its component declarations with:
 
