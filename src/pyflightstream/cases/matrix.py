@@ -152,6 +152,7 @@ from pyflightstream.cases.workflows import WALLTIME_VARIABLE as WALLTIME_VARIABL
 
 __all__ = [
     "MATRIX_COLUMNS",
+    "matrix_pol_rows",
     "RECOGNIZED_MATRIX_LAYOUTS",
     "COLUMN_MEANINGS",
     "COLUMNS_NEW_AT_0_17_0",
@@ -994,58 +995,12 @@ def matrix_content_line(line: str) -> bool:
     return bool(stripped) and not stripped.startswith("#") and not set(stripped) <= set("-:+| \t")
 
 
-def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow]:
-    """Read a pipe-delimited ``matrix.fs`` run matrix.
+def _matrix_data_rows(path: str | Path) -> list[tuple[int, list[str]]]:
+    """Return ``(row_number, cells)`` of every data row, after the file-shape checks.
 
-    Decode strict UTF-8 with an optional BOM. Skip hash comments, blank lines
-    and separator rules using the same classifier as Excel sync.
-
-    Parameters
-    ----------
-    path : str or Path
-        Matrix file location.
-    active_only : bool
-        Keep only rows with RUN = 1, the matrix activity filter;
-        False returns every row. Keyword-only, so a bare boolean
-        never hides in the call.
-
-    Returns
-    -------
-    list of MatrixRow
-        Parsed rows in file order.
-
-    Raises
-    ------
-    MatrixError
-        If the file carries the column layout of an earlier release, a column the layout
-        does not know (named with the closest known column), or a LEGACY row states a raw
-        command, a rotation or a translation.
-
-    Warns
-    -----
-    NotApplicableWarning
-        A row whose ``ROTATE`` or ``TRANSLATE`` AXIS is not of the form frame-axis is
-        skipped, naming the file, the row and the POL; the other rows are read. Under
-        ``warning_refusals`` it is refused as before (FR-3391).
-
-    Examples
-    --------
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from pyflightstream.cases.matrix import MATRIX_COLUMNS
-    >>> cells = dict.fromkeys(MATRIX_COLUMNS, "NA")
-    >>> cells.update(
-    ...     POL="9001", HIDDEN="0", RUN="1", AIRCRAFT="Wing", DESCRIPTION="POLAR",
-    ...     FLIGHT_CONDITION="MACH:0.1, ALPHA:sweep", SWEEP_VALUES="0.0,2.0",
-    ...     FS_BUILD="MANUAL", WORKFLOW="LEGACY",
-    ...     VAR_NAMES_VALUES="OUTPUTS: loads_{point}.txt / RECIPE: 003",
-    ... )
-    >>> path = Path(tempfile.mkdtemp()) / "matrix.fs"
-    >>> with path.open("w", encoding="utf-8") as stream:
-    ...     print(" | ".join(cells), file=stream)
-    ...     print(" | ".join(cells.values()), file=stream)
-    >>> [(row.pol, row.run) for row in read_matrix(path)]
-    [('9001', 1)]
+    The one place the matrix grammar is read: UTF-8 with an optional signature, the
+    content lines, the header against the verified layout, the row numbering and the
+    cell-count check. :func:`read_matrix` and :func:`matrix_pol_rows` both call it.
     """
     try:
         lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
@@ -1108,7 +1063,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             f"There are {len(header)} columns where {len(_COLUMNS)} are expected, and "
             f"{first_difference}.{_unknown_columns_sentence(header)}{remedy}"
         )
-    rows: list[MatrixRow] = []
+    data: list[tuple[int, list[str]]] = []
     for row_number, line in enumerate(content[1:], start=1):
         cells = [cell.strip() for cell in line.split("|")]
         if len(cells) != len(_COLUMNS):
@@ -1116,6 +1071,75 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
                 f"data row {row_number} of {path} holds {len(cells)} cells against "
                 f"the {len(_COLUMNS)} verified columns: {line.strip()[:60]}..."
             )
+        data.append((row_number, cells))
+    return data
+
+
+def matrix_pol_rows(path: str | Path) -> list[tuple[int, str]]:
+    """Return ``(row_number, pol)`` of every data row, before any cell is parsed.
+
+    Same file-shape refusals as :func:`read_matrix` (header, UTF-8, cell count), none of
+    its cell checks, so a row whose content is malformed still states its POL.
+    """
+    pol_index = _COLUMNS.index("POL")
+    return [(number, cells[pol_index]) for number, cells in _matrix_data_rows(path)]
+
+
+def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow]:
+    """Read a pipe-delimited ``matrix.fs`` run matrix.
+
+    Decode strict UTF-8 with an optional BOM. Skip hash comments, blank lines
+    and separator rules using the same classifier as Excel sync.
+
+    Parameters
+    ----------
+    path : str or Path
+        Matrix file location.
+    active_only : bool
+        Keep only rows with RUN = 1, the matrix activity filter;
+        False returns every row. Keyword-only, so a bare boolean
+        never hides in the call.
+
+    Returns
+    -------
+    list of MatrixRow
+        Parsed rows in file order.
+
+    Raises
+    ------
+    MatrixError
+        If the file carries the column layout of an earlier release, a column the layout
+        does not know (named with the closest known column), or a LEGACY row states a raw
+        command, a rotation or a translation.
+
+    Warns
+    -----
+    NotApplicableWarning
+        A row whose ``ROTATE`` or ``TRANSLATE`` AXIS is not of the form frame-axis is
+        skipped, naming the file, the row and the POL; the other rows are read. Under
+        ``warning_refusals`` it is refused as before (FR-3391).
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> from pyflightstream.cases.matrix import MATRIX_COLUMNS
+    >>> cells = dict.fromkeys(MATRIX_COLUMNS, "NA")
+    >>> cells.update(
+    ...     POL="9001", HIDDEN="0", RUN="1", AIRCRAFT="Wing", DESCRIPTION="POLAR",
+    ...     FLIGHT_CONDITION="MACH:0.1, ALPHA:sweep", SWEEP_VALUES="0.0,2.0",
+    ...     FS_BUILD="MANUAL", WORKFLOW="LEGACY",
+    ...     VAR_NAMES_VALUES="OUTPUTS: loads_{point}.txt / RECIPE: 003",
+    ... )
+    >>> path = Path(tempfile.mkdtemp()) / "matrix.fs"
+    >>> with path.open("w", encoding="utf-8") as stream:
+    ...     print(" | ".join(cells), file=stream)
+    ...     print(" | ".join(cells.values()), file=stream)
+    >>> [(row.pol, row.run) for row in read_matrix(path)]
+    [('9001', 1)]
+    """
+    rows: list[MatrixRow] = []
+    for row_number, cells in _matrix_data_rows(path):
         record = dict(zip(_COLUMNS, cells, strict=True))
         variables = _parse_variables(record["VAR_NAMES_VALUES"])
         variables = _fold_columns_into_variables(record, variables, record["POL"])

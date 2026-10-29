@@ -84,6 +84,7 @@ from pyflightstream.cases.matrix import VELOCITY_KEYS as VELOCITY_KEYS
 from pyflightstream.cases.matrix import MatrixError as MatrixError
 from pyflightstream.cases.matrix import MatrixRow as MatrixRow
 from pyflightstream.cases.matrix import matrix_content_line as matrix_content_line
+from pyflightstream.cases.matrix import matrix_pol_rows as matrix_pol_rows
 from pyflightstream.cases.matrix import read_matrix as read_matrix
 from pyflightstream.cases.matrix import (
     refuse_silent_rows_without_default as refuse_silent_rows_without_default,
@@ -349,19 +350,11 @@ def _row_pols(path: Path) -> list[tuple[int, str]]:
     content is malformed still claims its POL and stops nothing: what is wrong
     inside it is said when that matrix is planned, where the row is. The rows
     are counted as :func:`~pyflightstream.cases.matrix.read_matrix` counts them.
-    A file that is not a matrix of the current layout cannot state its POLs, and
-    the reader's own refusal says why.
+    A wrong header, bad encoding or a row of the wrong number of cells in a sibling
+    still refuses, with the reader's own message: the shape of the file is checked
+    by the one reader, only what is inside a well-shaped row is not.
     """
-    try:
-        lines = path.read_text(encoding="utf-8-sig").splitlines()
-    except UnicodeDecodeError:
-        lines = []
-    content = [line for line in lines if matrix_content_line(line)]
-    if not content or tuple(cell.strip() for cell in content[0].split("|")) != MATRIX_COLUMNS:
-        return [(row.row_number, row.pol) for row in read_matrix(path, active_only=False)]
-    return [
-        (number, line.split("|")[0].strip()) for number, line in enumerate(content[1:], start=1)
-    ]
+    return matrix_pol_rows(path)
 
 
 def _pol_claims(

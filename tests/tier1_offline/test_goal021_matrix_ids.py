@@ -417,3 +417,28 @@ def test_p0501_axis_the_command_line_plans_beside_a_malformed_matrix(tmp_path, c
     captured = capsys.readouterr()
     assert status == 0, (status, captured.err)
     assert (workspace.root / "post" / "planned" / "plan.json").is_file()
+
+
+def test_p0501_f1_pol_rows_agree_with_the_reader(tmp_path):
+    """The POL census and the reader count and read rows by one grammar."""
+    from pyflightstream.cases.matrix import matrix_pol_rows
+
+    matrix = _matrix(tmp_path, "m.fs", [row(8001), row(8002, run=0), row(8003)])
+    expected = [(r.row_number, r.pol) for r in _read_quiet(matrix)]
+    assert matrix_pol_rows(matrix) == expected == [(1, "8001"), (2, "8002"), (3, "8003")]
+
+
+def _read_quiet(matrix):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return read_matrix(matrix, active_only=False)
+
+
+def test_p0501_f1_a_short_sibling_row_still_stops_the_plan(tmp_path):
+    """A sibling row of the wrong cell count refuses with the reader's own message."""
+    workspace = _workspace(tmp_path)
+    matrix = _matrix(workspace.root, "planned.fs", [row(8001)])
+    short = row(9002).rsplit("|", 2)[0]
+    _matrix(workspace.root, "other.fs", [row(9001), short])
+    message = _refusal(workspace, matrix)
+    assert "data row 2" in message and "cells against" in message, message
