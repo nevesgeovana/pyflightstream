@@ -9,6 +9,10 @@ FlightStream versions.
 
 ### Fixed
 
+- Grid-auto refinement takes governing factors only from its own grid-connected
+  layout. A mixed patch no longer transfers factors between separate grid groups;
+  governing selection and curve counts use the same perimeter and source-order
+  tie break (FR-3298).
 - `geometry identify-te` without a node list follows a twisted blade's
   trailing edge to the tip: where the surface folds at a sharp trailing edge,
   the fold counts within 78 degrees of forward (the tip chord of a propeller

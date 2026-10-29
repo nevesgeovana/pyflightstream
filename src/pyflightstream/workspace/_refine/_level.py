@@ -137,7 +137,7 @@ class _Work:
     # The families oriented by the longest side of their boundary, a reference line that is
     # not written as a trailing edge (_lines.assume_trailing_edge).
     assumed: set[str] = field(default_factory=set)
-    # The grid_auto families and the governing family each follows (_grid_auto_specs).
+    # The grid_auto families and the governing family selected by the planner.
     followers: dict[str, str] = field(default_factory=dict)
     sidecar: str | None = None  # the level's boundaries file, rewritten before any work
     unchanged: list[str] = field(default_factory=list)  # the families G6 compares
@@ -216,7 +216,6 @@ def _decide(work: _Work) -> None:
 
     (FR-923).
     """
-    _grid_auto_specs(work)
     names = [n for n in work.names if n in work.specs]
     for i, name in enumerate(names, 1):
         work.say(f"family {i} of {len(names)}: {name}, recovering its layout")
@@ -240,61 +239,6 @@ def _decide(work: _Work) -> None:
             PyflightstreamWarning,
             stacklevel=2,
         )
-
-
-def _grid_auto_specs(work: _Work) -> None:
-    """Give each grid_auto family the factors of the governing family that leads it.
-
-    With a governing family in the file, every family the file does not declare
-    is grid_auto (kept unchanged when it is not a grid). A grid_auto family takes
-    the factors of the governing family it shares nodes with, through other
-    families, else of the governing family of the largest perimeter. Without a
-    governing family, a family declared grid_auto is warned and kept unchanged.
-    """
-    governing = [n for n in work.names if n in work.specs and work.specs[n].governing]
-    autos = [n for n in work.names if n in work.specs and work.specs[n].method == GRID_AUTO]
-    if not governing:
-        for name in autos:
-            warn(
-                f"{work.source} family {name}: grid_auto follows a governing family and the "
-                "refinement file marks none (governing = true); it is kept unchanged",
-                PyflightstreamWarning,
-                stacklevel=3,
-            )
-            del work.specs[name]
-        return
-    group = _node_groups(work)
-    size = {n: _boundary_length(work, n) for n in governing}
-    for name in autos:
-        near = [g for g in governing if group[g] == group[name]] or governing
-        lead = max(near, key=lambda g: (size[g], -work.names.index(g)))
-        work.specs[name] = dataclasses.replace(work.specs[lead], method=GRID_AUTO, governing=False)
-        work.followers[name] = lead
-
-
-def _node_groups(work: _Work) -> dict[str, int]:
-    """Return each family's group: families that share a node, directly or through others."""
-    nodes = {n: work.fam_v[n] for n in work.names}
-    group: dict[str, int] = {}
-    for start in work.names:
-        if start in group:
-            continue
-        group[start] = len(group)
-        stack = [start]
-        while stack:
-            here = stack.pop()
-            for other in work.names:
-                if other not in group and nodes[here] & nodes[other]:
-                    group[other] = group[start]
-                    stack.append(other)
-    return group
-
-
-def _boundary_length(work: _Work, name: str) -> float:
-    """Return the length of a family's boundary edges."""
-    pts = work.mesh.verts
-    edges = _geometry.boundary_edges(work.mesh.families[name])
-    return float(sum(numpy.linalg.norm(pts[b] - pts[a]) for a, b in edges))
 
 
 def _refuse_or_remesh(work: _Work, name: str, found: str) -> None:
@@ -403,6 +347,13 @@ def _grid_after_grid(work: _Work) -> None:
         followers=work.followers,
         assumed=work.assumed,
     )
+    for name in work.followers:
+        grid = work.grids.get(name)
+        if isinstance(grid, _grid.Grid):
+            chordwise, spanwise = work.specs[name].directions
+            if work.request.force_factors:
+                chordwise, spanwise = _forced_factors(work, name, grid, chordwise, spanwise)
+            _grid.check_factors(grid, name, chordwise=chordwise, spanwise=spanwise)
     for name, first, why in late:
         if first == name:  # its own layout was refused and accepted as a remesh
             reason = f"its layout cannot be refined as asked{why}"

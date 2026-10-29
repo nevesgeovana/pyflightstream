@@ -76,7 +76,7 @@ import math
 import warnings
 from collections import Counter, defaultdict, deque
 from collections.abc import Collection, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy
 from numpy.typing import NDArray
@@ -1001,48 +1001,16 @@ def _join(
     return found, tuple(int(family[int(cells[0, 0])]) for cells in found.cells)
 
 
-def _arc_factors(
-    verts: Points,
-    blocks: Blocks,
-    patches: Sequence[int],
-    grid: Recovered,
-    spec: FamilySpec,
-    *,
-    te_edges: Collection[Edge],
-    family: str,
-    directions: Mapping[int, str] | None = None,
-) -> dict[int, float]:
-    """Return the factor of each arc of a family's patches, in the arc's direction.
-
-    A sheet's arcs take its own index directions; a multiblock family's are
-    classified from its trailing edge (:func:`.te_directions`). Propagated
-    follower directions override that geometric reference.
-    """
-    chordwise, spanwise = spec.directions
-    arcs = sorted({arc for p in patches for arc, _ in blocks.sides[p]})
-    if chordwise == spanwise:
-        return dict.fromkeys(arcs, chordwise)
-    if directions is not None:
-        runs = directions
-    elif isinstance(grid, Grid):
-        runs = sheet_directions(grid, blocks, arcs)
-    else:
-        te = numpy.asarray(verts, dtype=float)[sorted(te_edges)].reshape(-1, 2, 3)
-        what = grid.describe() if len(patches) == len(blocks.patches) else "its patches"
-        runs = te_directions(verts, blocks, patches, te, family=family, what=what)
-    return {a: chordwise if runs[a] == "chordwise" else spanwise for a in arcs}
-
-
 def _counted(
     verts: Points,
     names: tuple[str, ...],
     found: tuple[Blocks, tuple[int, ...]],
     grids: Mapping[str, Recovered],
-    specs: Mapping[str, FamilySpec],
+    specs: dict[str, FamilySpec],
     *,
     te_edges: Mapping[str, Collection[Edge]],
     where: str,
-    followers: Mapping[str, str] | None = None,
+    followers: dict[str, str] | None = None,
     assumed: Collection[str] = (),
 ) -> Layout:
     """Return the layout with every arc's count, a shared curve counted by its governing family.
@@ -1053,6 +1021,14 @@ def _counted(
     on it, and the other families follow, warned (:func:`_band_counts`).
     """
     blocks, owner = found
+    perimeter = _perimeters(verts, names, blocks, owner)
+    followers = {} if followers is None else followers
+    governing = [n for n in names if specs[n].governing]
+    for name in names:
+        if specs[name].method == "grid_auto" and governing:
+            lead = _band_lead(governing, names, specs, perimeter)
+            specs[name] = replace(specs[lead], method="grid_auto", governing=False)
+            followers[name] = lead
     proposed: dict[int, list[tuple[str, int]]] = {}
     kept: dict[str, list[dict[str, object]]] = {}
     runs, provenance = _follower_directions(
@@ -1074,23 +1050,14 @@ def _counted(
             where=where,
             assumed=name in assumed,
         )
-        factors = _arc_factors(
-            verts,
-            blocks,
-            mine,
-            grids[name],
-            specs[name],
-            te_edges=te_edges[name],
-            family=f"{where} family {name}",
-            directions={
-                a: "spanwise" if d.direction == "parallel" else "chordwise"
-                for a, d in directions[name].items()
-            },
-        )
+        factors = {
+            a: specs[name].directions[d.direction == "parallel"]
+            for a, d in directions[name].items()
+        }
         for arc, f in factors.items():
             proposed.setdefault(arc, []).append((name, count(len(blocks.arcs[arc]) - 1, f)))
         kept[name] = kept_sides(blocks, verts, factors, patches=mine)
-    counts = _band_counts(verts, names, blocks, owner, proposed, specs=specs, where=where)
+    counts = _band_counts(names, blocks, proposed, specs, perimeter, where=where)
     kinds = tuple(grids[n].layout for n in names)
     return Layout(
         names,
@@ -1266,18 +1233,29 @@ def arc_bands(blocks: Blocks, arcs: Iterable[int]) -> dict[int, int]:
     return {a: root(a) for a in parent}
 
 
+def _band_lead(candidates, names, specs, perimeter):
+    """Select a governing or declared family by perimeter, then source order."""
+    return min(
+        candidates,
+        key=lambda n: (
+            not specs[n].governing,
+            specs[n].method == "grid_auto",
+            -perimeter[n],
+            names.index(n),
+        ),
+    )
+
+
 def _band_counts(
-    verts: Points,
     names: Sequence[str],
     blocks: Blocks,
-    owner: Sequence[int],
     proposed: Mapping[int, list[tuple[str, int]]],
-    *,
     specs: Mapping[str, FamilySpec],
+    perimeter: Mapping[str, float],
+    *,
     where: str,
 ) -> dict[int, int]:
     """Return one count per arc: each band's count from the family that leads it, warned."""
-    perimeter = _perimeters(verts, names, blocks, owner)
     band = arc_bands(blocks, proposed)
     members: dict[int, list[tuple[str, int]]] = {}
     for arc, offers in proposed.items():
@@ -1285,16 +1263,7 @@ def _band_counts(
     chosen: dict[int, int] = {}
     followed: dict[tuple[str, str], int] = {}
     for key, offers in members.items():
-        rank = {
-            n: (
-                not specs[n].governing,
-                specs[n].method == "grid_auto",
-                -perimeter[n],
-                names.index(n),
-            )
-            for n, _ in offers
-        }
-        lead = min(rank, key=rank.__getitem__)
+        lead = _band_lead([n for n, _ in offers], names, specs, perimeter)
         value = next(c for n, c in offers if n == lead)
         chosen[key] = value
         for n in {n for n, c in offers if c != value}:
@@ -1348,13 +1317,13 @@ def _warn_kept(layout: Layout, specs: Mapping[str, FamilySpec], where: str) -> N
 def plan(
     verts: Points,
     families: Mapping[str, Faces],
-    grids: Mapping[str, Recovered],
-    specs: Mapping[str, FamilySpec],
+    grids: dict[str, Recovered],
+    specs: dict[str, FamilySpec],
     te_edges: Mapping[str, Collection[Edge]],
     *,
     where: str,
     accept: bool = False,
-    followers: Mapping[str, str] | None = None,
+    followers: dict[str, str] | None = None,
     assumed: Collection[str] = (),
 ) -> tuple[dict[str, Layout], list[tuple[str, str, str]]]:
     """Group the grid families that share nodes into layouts, before any work (FR-932).
@@ -1375,7 +1344,7 @@ def plan(
     grids : mapping of str to Grid or Blocks
         The families recovered as grids.
     specs : mapping of str to FamilySpec
-        The request of each family to change.
+        Working specs, updated with each layout's governing factors for its followers.
     te_edges : mapping of str to edges
         The trailing-edge edges of each family.
     where : str
@@ -1384,7 +1353,7 @@ def plan(
         Leave a refused layout to the rule of the first grid, with a
         warning, instead of refusing it (``accept_remesh``).
     followers : mapping of str to str, optional
-        Each grid_auto family's already selected governing family.
+        Working mapping populated with each grid_auto family's governing family.
     assumed : collection of str
         Families whose reference edges were assumed from their longest boundary side.
 
@@ -1419,7 +1388,12 @@ def plan(
     done = [n for lay in layouts for n in lay.names]
     late: list[tuple[str, str, str]] = []
     for name in names:
+        if name not in grids:
+            continue
         if name in done:
+            continue
+        if specs[name].method == "grid_auto":
+            _skip_unled(grids, specs, name, where)
             continue
         first = [m for m in names if m in done and nodes[name] & nodes[m]]
         if first:
@@ -1456,20 +1430,25 @@ def plan(
 def _grouped(
     verts: Points,
     families: Mapping[str, Faces],
-    grids: Mapping[str, Recovered],
-    specs: Mapping[str, FamilySpec],
+    grids: dict[str, Recovered],
+    specs: dict[str, FamilySpec],
     te_edges: Mapping[str, Collection[Edge]],
     *,
     groups: Iterable[Sequence[str]],
     where: str,
     accept: bool,
-    followers: Mapping[str, str] | None = None,
+    followers: dict[str, str] | None = None,
     assumed: Collection[str] = (),
 ) -> tuple[list[Layout], dict[str, str]]:
     """Return the layouts of the touching groups, and why a group's grids joined none."""
     layouts: list[Layout] = []
     why: dict[str, str] = {}
     for group in groups:
+        if not any(specs[n].governing for n in group):
+            for name in group:
+                if specs[name].method == "grid_auto":
+                    _skip_unled(grids, specs, name, where)
+            group = [n for n in group if n in grids]
         if len(group) < 2:
             continue
         te = {v for n in group for e in te_edges[n] for v in e}
@@ -1498,6 +1477,18 @@ def _grouped(
                 raise
             why.update(dict.fromkeys(group, _skipped_layout(error, group, where)))
     return layouts, why
+
+
+def _skip_unled(grids, specs, name, where):
+    """Keep a grid_auto family unchanged when its layout has no governing family."""
+    warn(
+        f"{where} family {name}: grid_auto follows a governing family and the "
+        "refinement file marks none in its grid-connected layout (governing = true); "
+        "it is kept unchanged",
+        PyflightstreamWarning,
+        stacklevel=4,
+    )
+    del grids[name], specs[name]
 
 
 def _skipped_layout(error: InputArtifactError, group: Sequence[str], where: str) -> str:

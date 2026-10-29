@@ -300,8 +300,14 @@ def _layout(specs):
             for x in range(start, end)
             for y in range(2)
         ]
+    if "D" in specs:
+        # A corner connects the layout without adding D to the A/B/C shared band.
+        verts = np.vstack([verts, [(9, 3, 0), (10, 2, 0), (10, 3, 0)]])
+        families["D"] = [[29, 31, 32, 30]]
     grids = {
-        n: _blocks.recover_family(verts, fs, {v for f in fs for v in f if verts[v, 1] == 0})
+        n: _blocks.recover_family(
+            verts, fs, {v for f in fs for v in f if verts[v, 1] == (2 if n == "D" else 0)}
+        )
         for n, fs in families.items()
     }
     assert all(not isinstance(g, str) for g in grids.values())
@@ -344,6 +350,7 @@ def test_p0490_declared_family_leads_larger_grid_auto_and_warning_explains_overr
             "A": FamilySpec(factor=2, method="grid_auto"),
             "B": FamilySpec(factor=3),
             "C": FamilySpec(factor=4, method="grid_auto"),
+            "D": FamilySpec(factor=2, governing=True),
         }
     )
     shared = set(a for a, _ in layout.blocks.sides[0]) & set(a for a, _ in layout.blocks.sides[1])
@@ -582,3 +589,43 @@ def test_p0490_topology_prepare_declares_corner_only_patch(tmp_path):
     assert tables["B_001_grid"]["governing"] is True
     assert tables["C_001_grid"] == {"method": "grid", "factor": 1.0}
     assert "# not a follower of B_001_grid: unlinked\n[families.C_001_grid]" in text
+
+
+@pytest.mark.requirement("FR-3298")
+def test_p0490_planner_factors_do_not_cross_a_mixed_bridge(tmp_path):
+    """P0490-PLANNER R2: each follower takes the governing factors of its grid layout."""
+    points, families = [], {}
+
+    def vertex(x, y):
+        point = (x, y, 0)
+        if point not in points:
+            points.append(point)
+        return points.index(point)
+
+    def plate(name, xs):
+        families[name] = [
+            [vertex(x, y), vertex(u, y), vertex(u, y + 1), vertex(x, y + 1)]
+            for x, u in zip(xs, xs[1:], strict=False)
+            for y in range(6)
+        ]
+
+    plate("A", [0, 1, 2])
+    plate("B", [2, 7, 12])
+    plate("C", [30, 40, 50])
+    plate("D", [50, 51, 52])
+    families["bridge_mixed"] = [[vertex(12, 6), vertex(30, 6), vertex(20, 8)]]
+    mesh = Composite(np.array(points, dtype=float), families, np.zeros((0, 3)), {})
+    source = write_source(
+        tmp_path / "src",
+        "groups",
+        mesh,
+        refine_toml='[families.A]\nmethod = "grid"\nnormal_factor = 2\n'
+        'parallel_factor = 3\ngoverning = true\n[families.C]\nmethod = "grid"\n'
+        "normal_factor = 4\nparallel_factor = 5\ngoverning = true\n"
+        "[families.bridge_mixed]\nfactor = 1\n",
+    )
+    level = refine_mesh(source)
+    assert level.report["B"]["grid_auto"]["follows"] == "A"
+    assert level.report["B"]["grid_auto"]["factors"] == [2, 3]
+    assert level.report["D"]["grid_auto"]["follows"] == "C"
+    assert level.report["D"]["grid_auto"]["factors"] == [4, 5]
