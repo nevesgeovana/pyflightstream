@@ -137,14 +137,18 @@ def test_rel1_001_component_member_without_a_table_neither_governs_nor_is_refine
         level = refine_mesh(source, accept_unknown=True)
     record = json.loads(level.obj.with_suffix(".refine.json").read_text())
     governors = record.get("component_governors", {}).get("wing", {})
-    assert set(governors.values()) <= {"A", "B"}, governors
+    assert governors and set(governors.values()) <= {"A", "B"}, governors
     assert record["families"]["C"]["method"] == "copied"
     # A and B are refined 2 by 2 (16 faces to 64 each); C keeps its 16 faces.
     assert record["faces"]["wing"] == 2 * 64 + 16
 
 
 @pytest.mark.requirement("FR-3323")
-@pytest.mark.parametrize("own", ["", "normal_factor = 3\nparallel_factor = 3\n"])
+@pytest.mark.parametrize(
+    "own",
+    ["", "normal_factor = 2\nparallel_factor = 2\n", "normal_factor = 3\nparallel_factor = 3\n"],
+    ids=["states-nothing", "states-the-governors-factors", "states-other-factors"],
+)
 def test_p0500_component_member_factors_replaced_by_its_governors_warn(tmp_path, own):
     """A member's own stated factors given way to its governors' warn once, naming both."""
     source = _p0500_component_source(tmp_path, connected=True)
@@ -165,7 +169,8 @@ def test_p0500_component_member_factors_replaced_by_its_governors_warn(tmp_path,
         level = refine_mesh(source, accept_unknown=True)
     record = json.loads(level.obj.with_suffix(".refine.json").read_text())
     leads = record["component_governors"]["wing"]
-    stated = {"A": (2.0, 2.0), "B": (2.0, 2.0), "C": (3.0, 3.0) if own else (1.0, 1.0)}
+    c_factor = float(own.split("= ")[1].splitlines()[0]) if own else 1.0
+    stated = {"A": (2.0, 2.0), "B": (2.0, 2.0), "C": (c_factor, c_factor)}
     given = (stated[leads["normal"]][0], stated[leads["parallel"]][1])
     # A member warns when it stated factors of its own and they differ from its governors'.
     expected = {m for m, f in stated.items() if f != (1.0, 1.0) and f != given}
@@ -173,25 +178,21 @@ def test_p0500_component_member_factors_replaced_by_its_governors_warn(tmp_path,
     warned = {m for m in stated for text in replaced if f"family {m}:" in text}
     assert warned == expected, (leads, replaced)
     assert len(replaced) == len(expected), replaced
-    if own:
+    if c_factor == 3.0:
         assert expected, "a member stating 3 beside members stating 2 must be overridden"
+    if c_factor == 2.0:
+        assert not expected, "a member stating its governors' factors is not warned"
 
 
 def test_p0500_component_without_components_is_byte_identical(tmp_path):
     """P0500-COMPONENT: the switch without a component table changes no output bytes."""
-    import inspect
 
     source = _p0500_component_source(tmp_path, components=False)
     config = source.with_suffix(".refine.toml")
     config.write_text(config.read_text().replace("keep_within_component = true\n", ""))
     before = refine_mesh(source)
     expected = {p.name: p.read_bytes() for p in before.files}
-    options = (
-        {"keep_within_component": True}
-        if "keep_within_component" in inspect.signature(refine_mesh).parameters
-        else {}
-    )
-    after = refine_mesh(source, overwrite=True, **options)
+    after = refine_mesh(source, overwrite=True, keep_within_component=True)
     assert {p.name: p.read_bytes() for p in after.files} == expected
 
 

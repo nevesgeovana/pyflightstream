@@ -38,7 +38,8 @@ still raises a demoted refusal even together with `--warning-off`.
 A fatal refusal stops work when continuing would write a wrong result, or
 required input cannot be read. A demoted refusal warns and skips an offending
 entry when doing so leaves every written result correct. Its message names
-the cause and remedy and ends with `--warning-refusals makes this a refusal`.
+the cause and remedy and ends with `(warning_refusals=True, or --warning-refusals, makes this a
+refusal)`.
 
 For matrix rows, an unregistered key is ignored with `UnknownKeyWarning`;
 a key of another run type is skipped with `NotApplicableWarning`. Retired

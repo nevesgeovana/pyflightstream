@@ -18,6 +18,7 @@ rtree and SciPy `<2`, pandas `<3`, and PyNiteFEA `<4`. The existing trimesh
 `<6` and XlsxWriter `<4` bounds remain. All existing floors remain unchanged;
 PyYAML gains the floor `>=6.0.1`. See [installation](install.md) for the full
 ranges. Recreate environments within these bounds before upgrading.
+
 - Opt in to component-wide directional governors with `prepare-to-refine
   --keep-within-component` or `refine --keep-within-component`. Preparation
   persists `keep_within_component = true` under `[refine]`. Without the option
@@ -37,6 +38,29 @@ ranges. Recreate environments within these bounds before upgrading.
   entries from refine files: each is warned and skipped, including empty
   values. Use `[[perimeter]]` for trailing-edge lists and a separate family
   with `method = "keep"` for an interface row (FR-3311 to FR-3317).
+- A member whose own factors differ from its component governors' is warned,
+  naming both (FR-3323).
+- Power-off `unsteady` rows that declare a rotor and state its speed
+  (`ADVANCE_RATIO` or `RPM`, with `CLOCK_MOTION` where several rotors are
+  declared) run on the clock of their `unsteady_rotor` twin: the same step,
+  revolution keys and averaging windows (FR-3360 to FR-3364). Without a speed,
+  revolution keys warn and are skipped.
+- Rotorless `unsteady` rows place every declared rotor's RMRP beside its hub;
+  an explicit `RPM` turns the frame alone (FR-3350, FR-3351).
+- `qsteady_rotor` W wake loads use the whole wheel's blade count on periodic
+  sectors and the reversed qsteady circulation sense. Re-run the post of
+  earlier qsteady W results; unsteady wake loads are unchanged (FR-3353).
+- New and optional: `products.trim_moment` and `products.trim_axis` (defaults
+  keep existing trim tables), and `[[polar_at]]` to sample finished polars
+  (FR-3340 to FR-3349).
+- `--warning-off` before the subcommand of any console program, `[log]
+  warnings = false` or the `console_warnings` option hides warnings on the
+  console; recorded warnings stay and refusals remain errors (FR-3395).
+- Unknown keys, families and `--sims` ids name the closest known name; an
+  unknown id beside known ones warns and is skipped (FR-3373, FR-3379 to
+  FR-3384). An unregistered option key given to `set_option`,
+  `reset_option` or `option_context` warns and is skipped (FR-3388).
+
 Unregistered row keys, keys of another run type, and retired
 `WINDOW_STEPS`, `WINDOW_REVOLUTIONS` and `WINDOW_DEGREES` entries now warn and
 are skipped. Correct their spelling or use the replacement the warning

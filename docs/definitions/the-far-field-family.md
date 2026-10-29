@@ -336,9 +336,12 @@ regions or nearby wing trailing edges can make membership ambiguous.
 This includes `qsteady_rotor`: the plan exports the wake VTK after the final
 steady solve. W uses the whole wheel's blade count: the rotor block's count
 times the sector-load factor (the same factor used for the near field), with
-the exported lattice tags supplying a lower bound where present. The exported
-circulation is negated on `qsteady_rotor` rows only: the licensed 26.125
-comparison of 2026-10-29 measured the opposite sense to the unsteady export.
+the exported lattice tags supplying a lower bound where present (measured on
+one six-blade periodic sector, whose record states the one meshed blade). The
+exported circulation is negated on `qsteady_rotor` rows only: a licensed
+comparison on one rotor with FlightStream 26.125 measured the opposite sense
+to the unsteady export; the cause is not established and other builds are
+unmeasured.
 W uses the signed point speed read by D's hub conversion. At
 position `r` relative to the hub its relative velocity is
 `V_relative = V_axial e_a - Omega e_a cross r + w`, where `w` is the induced

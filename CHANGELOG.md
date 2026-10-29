@@ -49,7 +49,6 @@ FlightStream versions.
   preserving progress, summaries, errors and recorded warnings. Matrix and
   workspace commands also read `[log] warnings`; Python console callers can
   set `console_warnings` (default true). Strict refusals remain errors (FR-3395).
-
 - Typed demoted-refusal warning families and the `warning_refusals` runtime
   option. Both CLIs accept global `--warning-refusals`; matrix planning,
   execution, campaign products and refinement entry points accept the Python
@@ -61,7 +60,6 @@ FlightStream versions.
   floors and adding a PyYAML floor of 6.0.1 (FR-3333, FR-3336).
   CI resolves every floor from package metadata and exercises newest allowed
   releases in a new ceilings job (FR-3334, FR-3335).
-
 - Support Python 3.12 or newer (`>=3.12`) without an upper bound, tested on
   Python 3.12 (FR-3330). See the 0.50.0 upgrade guidance.
 - Run the complete offline tier in parallel in the lean CI job, with no
@@ -79,7 +77,6 @@ FlightStream versions.
 - Unknown tables and keys of a cost file and of an HPC profile now warn,
   naming the closest known key, and are skipped; `--warning-refusals`
   restores the refusal (FR-3373).
-
 - A repeated farfield Trefftz variant or ledger balance now warns
   (`DuplicateValueWarning`) and is read once; `--warning-refusals` restores the
   refusal (FR-3374). A preset family list that is empty or selects nothing stays

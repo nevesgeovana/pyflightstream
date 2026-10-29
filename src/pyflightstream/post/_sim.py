@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pyflightstream._errors import (
+    NotApplicableWarning,
     ProductExistsError,
     PyflightstreamError,
     PyflightstreamWarning,
@@ -748,7 +749,7 @@ def _group_polar(
             write_interpolated_polar(target, interpolated, axis=sample.axis, values=sample.values)
         except ProductError as error:
             ctx.skipped[interpolated.relative_to(ctx.out).as_posix()] = str(error)
-            warn(str(error), PyflightstreamWarning, stacklevel=2)
+            warn(str(error), NotApplicableWarning, stacklevel=2)
         else:
             ctx.add(
                 interpolated,
@@ -805,7 +806,7 @@ def _trimmed_polar(ctx: SimContext, polar: Path, entry: Mapping[str, object]) ->
         write_trimmed_polar(polar, target, moment=moment, angle=axis, overwrite=True)
     except ProductError as error:
         ctx.skipped[relative] = f"the trimmed polar is not written: {error}"
-        warn(ctx.skipped[relative], PyflightstreamWarning, stacklevel=2)
+        warn(ctx.skipped[relative], NotApplicableWarning, stacklevel=2)
         return
     ctx.add(
         target,

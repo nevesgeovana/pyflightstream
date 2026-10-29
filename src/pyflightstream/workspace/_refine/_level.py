@@ -1249,7 +1249,8 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     visual_inspect : bool
         Write a patches and directions PDF beside the level OBJ.
     keep_within_component : bool, optional
-        Share directional governors across each declared component. None reads the file key.
+        Share directional governors across each declared component. None (the default) reads
+        ``keep_within_component`` under ``[refine]`` of the refine file; True or False overrides it.
         Without components the existing layout behavior is retained.
     audit : bool
         Audit the written level against its source. False skips the audit and records

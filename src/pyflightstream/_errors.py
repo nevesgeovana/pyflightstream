@@ -407,7 +407,11 @@ def demote(exc: Exception, *, warning: type[DemotedRefusalWarning]) -> None:
     """
     if _warning_refusals():
         raise exc
-    warn(f"{exc} (--warning-refusals makes this a refusal)", warning, stacklevel=2)
+    warn(
+        f"{exc} (warning_refusals=True, or --warning-refusals, makes this a refusal)",
+        warning,
+        stacklevel=2,
+    )
 
 
 def suggest_name(name: str, known: Iterable[str]) -> str:

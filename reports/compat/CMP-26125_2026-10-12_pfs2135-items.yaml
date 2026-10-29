@@ -2810,7 +2810,7 @@ commands:
     script_sha256: null
   CREATE_NEW_MOTION:
     outcome: verified
-    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect).'
+    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect; decided by comparing a vertex in the turning frame with the fixed one at the full turns, the force judge does not discriminate this form).'
     signals:
       sentinel_before: true
       sentinel_after: true
@@ -2823,7 +2823,7 @@ commands:
     probe_ref: licensed RMRP probe of 2026-10-29 (control and test scripts, zero-boundary ROTARY motion)
   SET_MOTION_BOUNDARIES:
     outcome: verified
-    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect).'
+    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect; decided by comparing a vertex in the turning frame with the fixed one at the full turns, the force judge does not discriminate this form).'
     signals:
       sentinel_before: true
       sentinel_after: true
@@ -2836,7 +2836,7 @@ commands:
     probe_ref: licensed RMRP probe of 2026-10-29 (control and test scripts, zero-boundary ROTARY motion)
   SET_MOTION_MOVING_FRAMES:
     outcome: verified
-    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect).'
+    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect; decided by comparing a vertex in the turning frame with the fixed one at the full turns, the force judge does not discriminate this form).'
     signals:
       sentinel_before: true
       sentinel_after: true
@@ -2849,7 +2849,7 @@ commands:
     probe_ref: licensed RMRP probe of 2026-10-29 (control and test scripts, zero-boundary ROTARY motion)
   SET_MOTION_COORDINATE_SYSTEM:
     outcome: verified
-    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect).'
+    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect; decided by comparing a vertex in the turning frame with the fixed one at the full turns, the force judge does not discriminate this form).'
     signals:
       sentinel_before: true
       sentinel_after: true
@@ -2876,7 +2876,7 @@ commands:
     script_sha256: 85724e9b01f7d08fd772944428b5d8542ded8f9f00b2a9f60770e8cae58443db
   SET_MOTION_ROTOR_AXIS:
     outcome: verified
-    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect).'
+    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect; decided by comparing a vertex in the turning frame with the fixed one at the full turns, the force judge does not discriminate this form).'
     signals:
       sentinel_before: true
       sentinel_after: true
@@ -2889,7 +2889,7 @@ commands:
     probe_ref: licensed RMRP probe of 2026-10-29 (control and test scripts, zero-boundary ROTARY motion)
   SET_MOTION_ROTOR_RPM:
     outcome: verified
-    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect).'
+    detail: 'Licensed probe 2026-10-29: a zero-boundary ROTARY motion turned its frame at the stated rate over 16 steps with every surface unmoved (the combined frame-only motion, not an isolated command effect; decided by comparing a vertex in the turning frame with the fixed one at the full turns, the force judge does not discriminate this form).'
     signals:
       sentinel_before: true
       sentinel_after: true
