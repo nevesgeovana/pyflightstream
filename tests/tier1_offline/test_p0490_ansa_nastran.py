@@ -1461,3 +1461,44 @@ def test_p0500_audit_off_cli_writes_a_level_and_names_the_later_command(tmp_path
     records = list(tmp_path.glob("sheet_R1/*.refine.json"))
     assert len(records) == 1
     assert json.loads(records[0].read_text())["audit"] == "skipped (--audit-off)"
+
+
+@pytest.mark.parametrize("case", ["coarsening", "closed_length"])
+def test_p0500_component_tubes_use_closed_lengths_and_warn_at_the_minimum(tmp_path, case):
+    """P0500-COMPONENT: full rings select governors; inherited factors keep tubes writable."""
+    import inspect
+
+    from tests.p0380_mesh_fixtures import Composite, body_of_revolution
+
+    a = body_of_revolution(stations=7, nodes=24)
+    b = body_of_revolution(stations=3 if case == "coarsening" else 7, nodes=12)
+    av = a.verts * (2 if case == "coarsening" else 1)
+    bv = b.verts.copy()
+    if case == "closed_length":
+        # The 12-sided ring at 1.02 radius is longer than the 24-sided ring at 1.
+        bv[:, 1:] *= 1.02
+    bv[:, 0] += 10
+    mesh = Composite(
+        np.vstack([av, bv]),
+        {"A": a.faces, "B": [[v + len(av) for v in f] for f in b.faces]},
+        np.zeros((0, 3)),
+        {},
+    )
+    factor = 0.2 if case == "coarsening" else 2
+    config = (
+        "[refine]\nkeep_within_component = true\n"
+        '[components]\nbody = ["A", "B"]\n'
+        f'[families.A]\nmethod = "grid"\nfactor = {factor}\n'
+        '[families.B]\nmethod = "grid"\nfactor = 1\n'
+    )
+    source = write_source(tmp_path / "src", "body", mesh, boundaries=False, refine_toml=config)
+    options = {"audit": False} if "audit" in inspect.signature(refine_mesh).parameters else {}
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        level = refine_mesh(source, accept_unknown=True, **options)
+    data = json.loads(level.obj.with_suffix(".refine.json").read_text())
+    if case == "closed_length":
+        assert data.get("component_governors", {}).get("body", {}).get("normal") == "B"
+    else:
+        assert data["faces"] == {"body": 8}
+        assert any("inherited" in str(w.message) and "raised" in str(w.message) for w in caught)

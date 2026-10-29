@@ -32,6 +32,10 @@ the two selected names under `component_governors`; inspection labels remain
 GOVERNING PARALLEL and GOVERNING NORMAL. A non-boolean file key is warned and
 skipped, using false.
 
+Tube ring lengths include their closing edge when choosing a component governor.
+An inherited factor below a tube's representable minimum is raised to that
+minimum with a warning, as for directly stated factors (FR-3322).
+
 Per-family trailing-edge outputs use a renamed stem when their filenames would
 collide with level-wide files or another family's outputs. For example, family
 `nodes` uses `nodes_family`, or `nodes_family_2` if the former is already used.

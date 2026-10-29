@@ -22,6 +22,8 @@ ranges. Recreate environments within these bounds before upgrading.
   --keep-within-component` or `refine --keep-within-component`. Preparation
   persists `keep_within_component = true` under `[refine]`. Without the option
   or without `[components]`, refinement retains the earlier behavior (FR-3320).
+  Tube governors count complete closed rings; inherited factors below a tube's
+  representable minimum are raised with a warning (FR-3322).
 - Use `refine --audit-off` or `refine_mesh(..., audit=False)` to defer the
   level audit. The record says it was skipped and the console prints how to
   run it later; auditing remains on by default (FR-3321).

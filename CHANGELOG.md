@@ -52,6 +52,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Component governors include each tube ring's closing edge in their side
+  totals. Inherited tube factors below the representable minimum are raised
+  with a warning, keeping coarsened levels writable (FR-3322).
 - Empty or false-valued retired `trailing_edge` entries now warn when skipped,
   as other stated retired entries do (FR-3284).
 - Refinement warns and renames colliding family output stems, including `nodes`,

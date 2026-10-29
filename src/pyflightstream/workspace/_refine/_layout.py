@@ -24,7 +24,7 @@ from pyflightstream.workspace._refine._blocks import (
 )
 from pyflightstream.workspace._refine._config import FamilySpec
 from pyflightstream.workspace._refine._geometry import Faces, Points, edge_faces, order_like
-from pyflightstream.workspace._refine._grid import Grid, GridLevel
+from pyflightstream.workspace._refine._grid import Grid, GridLevel, least_factors
 
 Recovered = Grid | Blocks
 
@@ -126,6 +126,31 @@ class _Planner:
         """Select component governors from geometric side totals in source order."""
         if not components:
             return
+        totals = self.component_totals()
+        original = dict(self.specs)
+        for component, members in components.items():
+            names = [n for n in self.families if n in members and n in self.grids]
+            if not names:
+                continue
+            leads = {d: max(names, key=lambda n: totals[n, d]) for d in ("parallel", "normal")}
+            result[component] = leads
+            for name in names:
+                self.component_leads[name] = leads
+                normal, parallel = self.component_factors(name, leads, original)
+                self.specs[name] = replace(
+                    original[name],
+                    chordwise=normal,
+                    spanwise=parallel,
+                    governing=False,
+                    governing_normal=name == leads["normal"],
+                    governing_parallel=name == leads["parallel"],
+                    method="grid" if name in leads.values() else "grid_auto",
+                )
+                if name not in leads.values():
+                    self.followers[name] = leads["parallel"]
+
+    def component_totals(self):
+        """Measure every directional side, including the closing edge of a tube ring."""
         totals = Counter()
         for name, grid in self.grids.items():
             if isinstance(grid, Grid):
@@ -134,6 +159,8 @@ class _Planner:
                     float(numpy.linalg.norm(numpy.diff(pts[:, i], axis=0), axis=1).sum())
                     for i in (0, -1)
                 )
+                if grid.wrap:
+                    pts = numpy.concatenate((pts, pts[:, :1]), axis=1)
                 totals[name, "normal"] = sum(
                     float(numpy.linalg.norm(numpy.diff(pts[i], axis=0), axis=1).sum())
                     for i in (0, -1)
@@ -149,26 +176,27 @@ class _Planner:
                                 numpy.diff(self.verts[list(grid.arcs[arc])], axis=0), axis=1
                             ).sum()
                         )
-        original = dict(self.specs)
-        for component, members in components.items():
-            names = [n for n in self.families if n in members and n in self.grids]
-            if not names:
-                continue
-            leads = {d: max(names, key=lambda n: totals[n, d]) for d in ("parallel", "normal")}
-            result[component] = leads
-            for name in names:
-                self.component_leads[name] = leads
-                self.specs[name] = replace(
-                    original[name],
-                    chordwise=original[leads["normal"]].directions[0],
-                    spanwise=original[leads["parallel"]].directions[1],
-                    governing=False,
-                    governing_normal=name == leads["normal"],
-                    governing_parallel=name == leads["parallel"],
-                    method="grid" if name in leads.values() else "grid_auto",
-                )
-                if name not in leads.values():
-                    self.followers[name] = leads["parallel"]
+        return totals
+
+    def component_factors(self, name, leads, original):
+        """Keep inherited tube factors above the same minimum as directly stated factors."""
+        factors = (
+            original[leads["normal"]].directions[0],
+            original[leads["parallel"]].directions[1],
+        )
+        grid = self.grids[name]
+        if not isinstance(grid, Grid) or not grid.wrap:
+            return factors
+        least = least_factors(grid, *factors)
+        if least != factors:
+            warn(
+                f"{self.where} family {name}: inherited normal and parallel factors "
+                f"{factors[0]:g} and {factors[1]:g} are below the least the tube allows "
+                f"and are raised to {least[0]:g} and {least[1]:g}",
+                PyflightstreamWarning,
+                stacklevel=5,
+            )
+        return least
 
     def counted(self, names, found, *, prepare=False) -> Layout:
         """Count one recovered layout and retain its directions and governing decisions."""

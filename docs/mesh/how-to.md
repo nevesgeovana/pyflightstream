@@ -1,5 +1,9 @@
 # Mesh inputs and GUI-only operations
 
+Component governing also includes closed tube rings. If an inherited factor
+would leave too few tube intervals or section nodes, it is raised to the tube's
+minimum with a warning (FR-3322).
+
 When the audit can wait, use `pyfs-workspace geometry refine wing.obj 2 --audit-off`
 (or `pyfs-matrix refine wing.obj 2 --audit-off`). In Python, pass `audit=False`
 to `refine_mesh`. The level is written with the skipped audit recorded in
