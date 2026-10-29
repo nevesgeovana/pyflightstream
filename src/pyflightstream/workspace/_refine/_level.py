@@ -375,13 +375,9 @@ def _grid_after_grid(work: _Work, *, prepare: bool = False) -> None:
         assumed=work.assumed,
         prepare=prepare,
     )
-    for name in work.followers:
-        grid = work.grids.get(name)
-        if isinstance(grid, _grid.Grid):
-            chordwise, spanwise = work.specs[name].directions
-            if work.request.force_factors:
-                chordwise, spanwise = _forced_factors(work, name, grid, chordwise, spanwise)
-            _grid.check_factors(grid, name, chordwise=chordwise, spanwise=spanwise)
+    # Followers use the layout's propagated axes and per-arc minimum counts.
+    # Their independently recovered Grid axes may be rotated; checking those
+    # here can refuse valid counts or change factors after the plan is final.
     for name, first, why in late:
         if first == name:  # its own layout was refused and accepted as a remesh
             reason = f"its layout cannot be refined as asked{why}"

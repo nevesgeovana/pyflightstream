@@ -799,6 +799,23 @@ def test_p0490_topology_follower_uses_governing_directions(tmp_path):
 
 
 @pytest.mark.requirement("FR-3298")
+@pytest.mark.parametrize("force", [False, True])
+def test_p0490_relr1_coarsening_checks_propagated_directions(tmp_path, force):
+    """P0490-RELR1-001: follower limits use the planner's propagated axes."""
+    source = _topology_source(tmp_path)
+    config = source.with_suffix(".refine.toml")
+    config.write_text(
+        config.read_text()
+        .replace("normal_factor = 2", "normal_factor = 1")
+        .replace("parallel_factor = 3", "parallel_factor = 0.25"),
+        encoding="utf-8",
+    )
+    level = refine_mesh(source, force_factors=force)
+    assert level.report["B"]["grid_auto"]["factors"] == [1, 0.25]
+    assert level.report["B"]["blocks"] == [{"rows": [2, 2], "columns": [6, 2]}]
+
+
+@pytest.mark.requirement("FR-3298")
 @pytest.mark.parametrize("reason", ["conflict", "unlinked"])
 def test_p0490_topology_fallback_warns_and_records_own_reference(tmp_path, reason):
     source = _topology_source(tmp_path, ring=reason == "conflict", corner=reason == "unlinked")
