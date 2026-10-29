@@ -845,12 +845,18 @@ Each of these is imported from `pyflightstream.workspace`.
  nodes. Its interval count is `max(1, round(f m))` from each family holding
  it, `f` the family's factor in the curve's direction; two counts that differ
  are refused naming both families, the curve's end nodes and both counts.
- A cut no patch corner needs is joined across before counting: a line
- between patches of one family, with no ridge, trailing edge or shared curve
- on it, whose ends lie on the boundary where the patch sides run straight on,
- as from the nodes a family shares with a neighbour that holds an extra node
- between them. Such a family coarsens like the same family beside a matching
- neighbour, and the neighbour's extra nodes stay where they are.
+ A family is refined as the structured grid it came from (one ANSA macro
+ of a Nastran file is one such grid): an extra node a neighbour holds on
+ the perimeter between them does not split it into more patches; its own
+ corners, ridges and trailing edges and the curves it shares edge for edge
+ with another grid family do. A cut no patch corner
+ needs is joined across before counting: a line between patches of one
+ family, with no ridge, trailing edge or shared curve on it, whose ends lie
+ on the boundary where the patch sides run straight on, as from the nodes a
+ family shares with a neighbour that holds an extra node between them, in
+ one station interval or in every one. Such a family is counted over its
+ whole run of intervals and coarsens like the same family beside a matching
+ neighbour; the neighbour's extra nodes stay where they are.
  A tube, a family with triangles, and touching
  grids whose union has no layout of four-sided patches join none: of grids
  that share nodes the first in the source's family order is then a grid and a

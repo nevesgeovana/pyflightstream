@@ -1069,17 +1069,20 @@ def test_p0490_governing_conflict_keeps_each_patch_orientation():
 # ------------------------------------- P0502 a node a neighbour adds on a junction perimeter
 
 
-def _junction_side(mesh, sign: float, side: str, *, extra: bool, stacked: bool) -> None:
+def _junction_side(mesh, sign: float, side: str, *, extra: bool, nx: int, splits=()) -> list:
     """Add one side of a wing-body junction to ``mesh`` (verts list, families, te list).
 
-    The wing W spans 3 station intervals along x and 19 across y, split across
-    into W1 and W2 at row 9 when ``stacked``; its trailing edge is its far row.
-    The body B below it shares W's junction nodes; with ``extra`` B holds one
-    more node on the junction in each station interval (two edges where W has
-    one), as a finer neighbour mesh does. ``sign`` mirrors the side in x.
+    The wing spans ``nx`` station intervals along x and 19 across y, one
+    family W, or W1, W2, ... cut across at the rows in ``splits``. The body
+    B below it shares the wing's junction nodes; with ``extra`` B holds one
+    more node on the junction in
+    each station interval (two edges where the wing has one), as a finer
+    neighbour mesh does, so the wing's shared edge meets a corner at every
+    station. Each wing family's trailing edge is its far row. ``sign`` mirrors
+    the side in x. Returns the wing's family stems.
     """
     verts, families, te = mesh
-    nx, ny, by = 3, 19, 4
+    ny, by = 19, 4
     at: dict[tuple, int] = {}
 
     def node(key, x, y):
@@ -1090,20 +1093,21 @@ def _junction_side(mesh, sign: float, side: str, *, extra: bool, stacked: bool) 
 
     for k in range(nx + 1):
         for j in range(ny + 1):
-            node(("w", k, j), 0.5 * k, 0.1 * j)
-    rows = {"W1": range(9), "W2": range(9, ny)} if stacked else {"W": range(ny)}
-    for name, band in rows.items():
-        families[name + side] = [
+            node(("w", k, j), 1.5 * k / nx, 0.1 * j)
+    cuts = [0, *splits, ny]
+    stems = [f"W{n + 1}" for n in range(len(cuts) - 1)] if splits else ["W"]
+    for stem, lo, hi in zip(stems, cuts, cuts[1:], strict=False):
+        families[stem + side] = [
             [at[("w", k, j)], at[("w", k + 1, j)], at[("w", k + 1, j + 1)], at[("w", k, j + 1)]]
             for k in range(nx)
-            for j in band
+            for j in range(lo, hi)
         ]
     bx = 2 * nx if extra else nx
     for k in range(bx + 1):
         for j in range(by + 1):
             if j == by and (k * nx) % bx == 0:
                 at[("b", k, j)] = at[("w", k * nx // bx, 0)]
-            node(("b", k, j), 0.5 * k * nx / bx, -0.1 * (by - j))
+            node(("b", k, j), 1.5 * k / bx, -0.1 * (by - j))
     families["B" + side] = [
         [at[("b", k, j)], at[("b", k + 1, j)], at[("b", k + 1, j + 1)], at[("b", k, j + 1)]]
         for k in range(bx)
@@ -1112,44 +1116,55 @@ def _junction_side(mesh, sign: float, side: str, *, extra: bool, stacked: bool) 
     if sign < 0:
         for name in [n for n in families if n.endswith(side)]:
             families[name] = [f[::-1] for f in families[name]]
-    far = np.array([verts[at[("w", k, ny)]] for k in range(nx + 1)])
-    te.append(0.5 * (far[:-1] + far[1:]))
+    for row in cuts[1:]:
+        far = np.array([verts[at[("w", k, row)]] for k in range(nx + 1)])
+        te.append(0.5 * (far[:-1] + far[1:]))
+    return stems
 
 
-@pytest.mark.parametrize("stacked", [False, True])
-def test_p0502_an_extra_junction_node_does_not_stop_a_family_coarsening(tmp_path, stacked):
+_GOVERNED = "normal_factor = 0.455\nparallel_factor = 0.75\ngoverning_parallel = true\n"
+
+
+@pytest.mark.parametrize(
+    ("nx", "splits", "table", "station_counts"),
+    [
+        (3, (), _GOVERNED, [3, 2]),
+        (3, (9,), _GOVERNED, [3, 2]),
+        (8, (5, 10, 15), "factor = 0.35013\n", [8, 3]),
+    ],
+    ids=["one-family", "two-stacked", "corner-at-every-station"],
+)
+def test_p0502_an_extra_junction_node_does_not_stop_a_family_coarsening(
+    tmp_path, nx, splits, table, station_counts
+):
     """FR-3397 (FR-915, FR-932): a family beside a finer neighbour coarsens like its mirror.
 
-    Both sides are grid families of 3 station intervals by 19 at normal 0.455
-    and parallel 0.75, parallel governing. On the right the body holds an
-    extra node on the junction in each station interval: the vertices it
-    shares with the wing are where two boundaries only touch, and their
-    separatrices cut the wing into patches of 1 station interval each, which
-    no factor coarsens (57 to 27 faces before FR-3397, the mirror 57 to 18).
-    Joined across those loose lines, each wing family coarsens 3 to 2 and 19
-    to 9 like its mirror, and the body, declared to nobody, is unchanged.
+    On the right the body holds an extra node on the junction in every station
+    interval: each node it shares with the wing is where two boundaries only
+    touch, and its separatrix cut every wing family into patches of 1 station
+    interval, which no factor coarsens (3 stations at normal 0.455 and
+    parallel 0.75: 57 to 27 faces, the mirror 57 to 18; 8 stations at 0.35013
+    in four stacked families: 8 kept sides of 1 per family). Joined across
+    those loose lines, each wing family is one patch counted over its whole
+    run of station intervals, round(f m) as the unsplit mirror, and the body,
+    declared to nobody, is unchanged.
     """
     mesh: tuple[list, dict, list] = ([], {}, [])
-    _junction_side(mesh, 1.0, "R", extra=True, stacked=stacked)
-    _junction_side(mesh, -1.0, "L", extra=False, stacked=stacked)
+    stems = _junction_side(mesh, 1.0, "R", extra=True, nx=nx, splits=splits)
+    _junction_side(mesh, -1.0, "L", extra=False, nx=nx, splits=splits)
     verts, families, te = mesh
-    wings = ["W1", "W2"] if stacked else ["W"]
-    toml = "".join(
-        f"[families.{w}{s}]\nnormal_factor = 0.455\nparallel_factor = 0.75\n"
-        "governing_parallel = true\n\n"
-        for w in wings
-        for s in "RL"
-    )
+    toml = "".join(f"[families.{w}{s}]\n{table}\n" for w in stems for s in "RL")
     source = Composite(np.array(verts, dtype=float), families, np.vstack(te), {})
     src = write_source(tmp_path / "src", "junction", source, refine_toml=toml)
     report = refine_mesh(src, out_dir=tmp_path / "level").report
-    for w in wings:
+    for w in stems:
         right, left = report[w + "R"], report[w + "L"]
         assert right["method"] == left["method"] == "grid", (right, left)
         assert right["blocks"] == left["blocks"], (right["blocks"], left["blocks"])
         assert right["faces"] == left["faces"], (right["faces"], left["faces"])
+        assert [b["rows"] for b in right["blocks"]] == [station_counts], right["blocks"]
         assert right["kept_sides"] == [], right["kept_sides"]
-    if not stacked:
+    if not splits:
         assert report["WR"]["faces"] == [57, 18]
         assert report["WR"]["blocks"] == [{"rows": [3, 2], "columns": [19, 9]}]
-    assert report["BR"]["faces"][0] == report["BR"]["faces"][1] == 24
+    assert report["BR"]["faces"][0] == report["BR"]["faces"][1] == 8 * nx

@@ -12,10 +12,11 @@ FlightStream versions.
 ### Fixed
 
 - A grid family beside a neighbour that holds an extra node on the curve
-  between them (two edges where the family has one) coarsens like the same
-  family beside a matching neighbour. The vertices where their boundaries only
-  touched cut the family across its grid lines into patches of one interval,
-  which no factor below 1 coarsened; such cut lines, between patches of one
+  between them (two edges where the family has one, in one station interval
+  or in every one) coarsens like the same family beside a matching neighbour.
+  The vertices where their boundaries only touched cut the family across its
+  grid lines into patches of one interval, up to one patch per station, which
+  no factor below 1 coarsened; such cut lines, between patches of one
   family and ending where the patch sides run straight on, are now joined
   across before counting (FR-3397).
 
