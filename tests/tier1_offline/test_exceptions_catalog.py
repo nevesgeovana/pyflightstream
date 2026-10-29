@@ -768,14 +768,14 @@ def test_no_exempted_definition_grew_a_second_bare_raise_of_the_same_type() -> N
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 3 entries in two tranches, over 3 raise sites: it
+#: The set holds 2 entries in two tranches, over 2 raise sites: it
 #: is keyed on (definition, exception type) since 2026-08-18, and ONE
-#: definition raises the same type twice: none after 0.50.0. Three pairs, so
-#: three raise sites. NO pair raises ``TypeError`` any more; ONE raises
+#: definition raises the same type twice: none after 0.50.0. Two pairs, so
+#: two raise sites. NO pair raises ``TypeError`` any more; ONE raises
 #: ``FileExistsError`` and is the evidence-overwrite refusal, added on
 #: 2026-08-17 when the walk was widened to see that name at all and
 #: reduced from three to one the same day when the three writers were
-#: given one home; the other 2 are the reachability tranche and are
+#: given one home; the other 1 are the reachability tranche and are
 #: almost all ``ValueError``.
 #:
 #: THE TYPEERROR TRANCHE WAS THREE RAISES AND IS NONE
@@ -855,7 +855,6 @@ _RATCHET = {
     # than the address. The debt is unchanged and still owed: this helper
     # should raise a catalogued class, and when it does BOTH rows below
     # go, because the staleness guard will name them.
-    "pyflightstream.run.cli._parse_recipes -> ValueError",
     # `fsi.driver._verified_layout` left in 0.40.0: it raises the catalogued
     # `FsiInputError` now.
     # RE-KEYED in 0.33.0 (AD-10, P0330-WP2), not re-decided: the parser moved
@@ -881,7 +880,7 @@ _RATCHET = {
 #: the line number was carrying: a SECOND bare raise of the same type
 #: appearing inside an already-exempted definition would otherwise
 #: inherit the exemption in silence. One definition raises twice; the
-#: rest raise once: 3 pairs, 3 raises, re-measured 2026-08-19 as the
+#: rest raise once: 2 pairs, 2 raises, re-measured 2026-08-19 as the
 #: TypeError tranche emptied, `to_table` leaving with two raises and
 #: `EntityRegistry` with one.
 #:
@@ -894,7 +893,6 @@ _RATCHET = {
 #: which is why they are written as digits rather than as words.
 _RATCHET_COUNTS = {
     "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError": 1,
-    "pyflightstream.run.cli._parse_recipes -> ValueError": 1,
     "pyflightstream.overview._module_doc -> RuntimeError": 1,
 }
 

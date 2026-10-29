@@ -88,13 +88,14 @@ from pydantic import (
     model_validator,
 )
 
+from pyflightstream._digest import aliased_name_fault as aliased_name_fault
+from pyflightstream._digest import file_sha256 as file_sha256
+
 # InputArtifactError is defined in _errors below all layers and re-exported
 # here and from workspace. Matrix-binding layers can catch it without an
 # upward dependency. The other imports below preserve public import paths
 # checked by scripts/check_parity.py.
-from pyflightstream._digest import aliased_name_fault as aliased_name_fault
-from pyflightstream._digest import file_sha256 as file_sha256
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, InputValueError
 from pyflightstream._errors import PyflightstreamWarning as PyflightstreamWarning
 from pyflightstream._errors import warn as warn
 from pyflightstream._fsm import MeshReadError as MeshReadError
@@ -358,9 +359,9 @@ class PointXyz(BaseModel):
         # value in an existing workspace and the generic refusal below
         # would send its writer looking for a kind that never existed.
         if value == _POINT_KIND_ENGINE_WORD:
-            raise ValueError(POINT_KIND_ENGINE.message())
+            raise InputValueError(POINT_KIND_ENGINE.message())
         if value is not None and value not in POINT_KINDS:
-            raise ValueError(
+            raise InputValueError(
                 f"kind={value!r} names no point kind; a reference point is one of "
                 f"{', '.join(POINT_KINDS)}"
             )
@@ -417,7 +418,7 @@ class RotorReference(BaseModel):
         found = [key for key in ROTOR_FACT_KEYS if key in data]
         if not found:
             return data
-        raise ValueError(
+        raise InputValueError(
             f"the rotor block states {', '.join(found)}, which the reference artifact "
             "cannot supply to a builder. What a script needs is stated "
             "elsewhere: the hand is rpm_sign on a rotor block of the reference (or RPM_SIGN "
@@ -584,7 +585,7 @@ class ReferenceArtifact(BaseModel):
             return self
         diameter = self.rotor_diameter_m
         if diameter is None:
-            raise ValueError(
+            raise InputValueError(
                 f"[rotor] states radius_m = {rotor.radius_m} and the artifact "
                 "states no rotor_diameter_m. The diameter is the length this package "
                 "reads (the advance ratio, the probe lines), so state "
@@ -592,7 +593,7 @@ class ReferenceArtifact(BaseModel):
                 "radius may then be dropped."
             )
         if abs(diameter - 2 * rotor.radius_m) > 1e-9 * max(1.0, diameter):
-            raise ValueError(
+            raise InputValueError(
                 f"rotor_diameter_m = {diameter} and [rotor] radius_m = "
                 f"{rotor.radius_m} disagree: twice the radius is "
                 f"{2 * rotor.radius_m}. One rotor has one length; fix one of "
@@ -662,7 +663,7 @@ class SetupArtifact(BaseModel):
         for frame in self.frames:
             key = frame.name.strip().upper()
             if key in seen:
-                raise ValueError(
+                raise InputValueError(
                     f"the frame name {frame.name!r} is defined twice; one definition per name"
                 )
             seen.add(key)

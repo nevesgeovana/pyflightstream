@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, suggest_name
 from pyflightstream.workspace._refine._geometry import TE_POINT_FRACTION
 from pyflightstream.workspace._refine._obj import KIND
 
@@ -178,6 +178,17 @@ class RefineRequest:
     def elements_of(self, family: str) -> str:
         """Return the element mode of a family: its own, else the file's default."""
         return self.elements.get(family, self.default_elements)
+
+
+def no_such_family(name: str, names: Sequence[str]) -> str:
+    """Return the refusal sentence for a family the mesh lacks, naming the closest (PFS-2020.12)."""
+    return f"the mesh holds no family {name!r}{_closest(name, names)}; it holds {', '.join(names)}"
+
+
+def _closest(name: str, names: Sequence[str]) -> str:
+    """Return ``" (closest: 'x')"`` for the one near name, else an empty string."""
+    hint = suggest_name(name, names).strip()
+    return f" ({hint[:-1].replace('Did you mean', 'closest:')})" if hint else ""
 
 
 def _refuse(where: str, reason: str) -> InputArtifactError:
@@ -416,7 +427,7 @@ def _components(
         if missing:
             _unknown(
                 f"{where} {name}",
-                f"the mesh holds no family {missing[0]!r}; it holds {', '.join(names)}",
+                no_such_family(missing[0], names),
                 accept,
             )
             members = [m for m in members if m not in missing]
@@ -472,9 +483,7 @@ def _family_tables(
             where, raw, f"write [families.{name}] with the keys {', '.join(FAMILY_KEYS)}"
         )
         if name not in names:
-            _unknown(
-                where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}", accept
-            )
+            _unknown(where, no_such_family(name, names), accept)
             continue
         table = _without_retired(where, table)
         if not table:
@@ -706,7 +715,10 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     chosen = list(names) if families is None else list(families)
     missing = [n for n in chosen if n not in names]
     if missing and accept_unknown:
-        _skip(f"{mesh} families {', '.join(missing)}", "not held by the mesh")
+        _skip(
+            f"{mesh} families {', '.join(missing)}",
+            "not held by the mesh" + _closest(missing[0], names),
+        )
         chosen = [n for n in chosen if n in names]
     stated = _stated(
         file, names, mesh, chosen if from_file else [], config=config, accept=accept_unknown
@@ -720,9 +732,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             "or omit it to refine every family",
         )
     if missing and not accept_unknown:
-        raise _refuse(
-            str(mesh), f"the mesh holds no family {missing[0]!r}; it holds {', '.join(names)}"
-        )
+        raise _refuse(str(mesh), no_such_family(missing[0], names))
     stated_specs: dict[str, FamilySpec] = stated["specs"]
     missing_tables: tuple[str, ...] = ()
     if from_file:

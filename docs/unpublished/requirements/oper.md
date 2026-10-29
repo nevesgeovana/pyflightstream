@@ -63,6 +63,10 @@ Status: implemented.
 | FR-1198 | FR-3136 | OPER-5.2 | L2 | implemented | inspection | pyflightstream shall publish generated PDF downloads with source hashes, PDF hashes and typesetter version in the build record. | 0.43.0 trim wording; former statement: The library's documentation workflow shall publish generated PDF downloads with source hashes, PDF hashes and typesetter version in the build record. The inherited stand-in build test checks receipt source selection, not publication by the documentation workflow; inspect workflow and build records. | NL-OPER | scripts.build_guides:build | tests/tier1_offline/test_regression_maintainer_tools.py::TestReviewR10PdfRecord::test_pdf_receipt_reads_the_log_of_the_checkout_it_built |
 
 FR-3373 (L3, parent FR-40, PFS-2184.07): The library shall warn and skip unknown tables and keys of a cost file and of an HPC profile, name the closest known key, and restore the original refusal under warning_refusals.
+FR-3381 (L3, parent FR-40, PFS-2184.07): The library shall skip, with an EmptySelectionWarning naming the closest carried id, a simulation of a sims selection that the matrix does not carry while another one is carried, and refuse again under warning_refusals; a selection that carries none still refuses.
+FR-3382 (L3, parent FR-40, PFS-2020.10): The library shall raise InputValueError or InputTypeError, each naming a remedy, in place of the bare ValueError and TypeError that a user input reaches in the workspace, run and script subpackages, keeping the standard base.
+FR-3383 (L3, parent FR-40, PFS-2020.11): The library shall pass a PyflightstreamWarning subclass to every warnings.warn call of the workspace, run and script subpackages.
+FR-3384 (L3, parent FR-40, PFS-2020.12): The library shall name the closest family of the mesh, as one suggestion or none, when a refinement request or file names a family the mesh does not hold.
 Code: `pyflightstream.workspace.costs:_refuse_unknown`.
 Test: `tests/tier1_offline/test_p0350_cost_file.py::test_an_unknown_key_warns_by_name_and_refuses_under_warning_refusals`.
 Status: implemented.

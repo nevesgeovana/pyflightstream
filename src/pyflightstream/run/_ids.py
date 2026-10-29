@@ -19,7 +19,10 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._errors import (
+    EmptySelectionWarning,
     PyflightstreamError,
+    demote,
+    suggest_name,
 )
 from pyflightstream._progress import (
     record_activity,
@@ -503,6 +506,28 @@ def _only_these_points(case: SimCase, wanted: set[str]) -> SimCase | None:
     return case.model_copy(update={"sweep": case.sweep.model_copy(update={"values": kept})})
 
 
+def carried_sims(sims: Sequence[str], carried: Sequence[str]) -> list[str]:
+    """Return the simulations of ``sims`` the matrix carries, warning of those it does not.
+
+    A simulation the matrix does not carry selects nothing, so it is warned and skipped
+    (PFS-2184.07; ``warning_refusals`` makes it a refusal again). When none of ``sims`` is
+    carried the selection is empty and is refused whatever the option, with the closest
+    carried id named for the first one.
+    """
+    unknown = [sim for sim in sims if sim not in carried]
+    if not unknown:
+        return list(sims)
+    said = (
+        f"sims names {', '.join(unknown)}, which this matrix does not carry; it "
+        f"carries {', '.join(carried)}.{suggest_name(unknown[0], carried)}"
+    )
+    kept = [sim for sim in sims if sim in carried]
+    if not kept:
+        raise MatrixError(said + " Nothing was run.")
+    demote(MatrixError(said + " It is left out of the selection."), warning=EmptySelectionWarning)
+    return kept
+
+
 def narrow_to_selection(
     resolved: ResolvedMatrix,
     sims: Sequence[str] | None,
@@ -563,12 +588,7 @@ def narrow_to_selection(
         )
     campaign = resolved.campaign
     carried = [case.sim_id for case in campaign.sims]
-    unknown = [sim for sim in sims if sim not in carried]
-    if unknown:
-        raise MatrixError(
-            f"sims names {', '.join(unknown)}, which this matrix does not carry; it "
-            f"carries {', '.join(carried)}. Nothing was run."
-        )
+    sims = carried_sims(sims, carried)
     chosen = [case for case in campaign.sims if case.sim_id in set(sims)]
     if points:
         existing = [name for case in chosen for name in _names_of(case)]
@@ -633,12 +653,8 @@ def _selected_rows(
     rows = read_matrix(path)
     if sims:
         carried = list(dict.fromkeys(row.pol for row in rows))
-        unknown = [sim for sim in sims if sim not in carried]
-        if unknown and not (points and redoing):
-            raise MatrixError(
-                f"sims names {', '.join(unknown)}, which this matrix does not carry; it "
-                f"carries {', '.join(carried)}. Nothing was run."
-            )
+        if not (points and redoing):
+            sims = carried_sims(sims, carried)
         rows = [row for row in rows if row.pol in sims]
     campaign = to_campaign(
         path,

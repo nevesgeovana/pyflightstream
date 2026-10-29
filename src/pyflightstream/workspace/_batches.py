@@ -19,6 +19,7 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
+from pyflightstream._errors import InputTypeError
 from pyflightstream.cases.workflows import BATCH_DIR, BATCH_STEM_PREFIX
 from pyflightstream.workspace.manifest import WorkspaceError
 from pyflightstream.workspace.naming import sim_id_of_folder
@@ -361,7 +362,9 @@ def read_grouping(path: Path) -> tuple[GroupingReceipt | None, str | None]:
         if block is None:
             return None, None
         if not isinstance(block, Mapping):
-            raise TypeError(f"a {type(block).__name__}, not a table")
+            raise InputTypeError(
+                f"a {type(block).__name__}, not a table; write the grouping block as a table"
+            )
         return GroupingReceipt.from_json(block), None
     except (OSError, ValueError, KeyError, TypeError, AttributeError, WorkspaceError) as error:
         return None, (

@@ -9,6 +9,8 @@ from typing import Annotated, Any
 
 from pydantic import AfterValidator, ValidationInfo
 
+from pyflightstream._errors import InputValueError
+
 __all__ = [
     "FRAME_AXES_TOLERANCE",
     "MotionLedger",
@@ -92,7 +94,7 @@ def _second_axis_defines_a_system(
     x_axis = info.data.get("x_axis")
     problem = None if x_axis is None else frame_axes_problem(x_axis, value)
     if problem is not None:
-        raise ValueError(
+        raise InputValueError(
             f"the frame {info.data.get('name')!r} defines no coordinate system: {problem}; "
             f"x_axis = {x_axis}, y_axis = {value}. Give two non-zero, orthogonal directions; "
             "the third axis is their right-handed cross product"

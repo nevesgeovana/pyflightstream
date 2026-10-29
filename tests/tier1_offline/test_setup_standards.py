@@ -521,3 +521,54 @@ def test_p0500_inapplicable_export_threshold_does_not_build_an_unused_clock(work
     with option_context("warning_refusals", True):
         with pytest.raises(CampaignConfigError, match=key):
             unsteady_export_threshold(case, version="26.124")
+
+
+def test_p0500_unknown_sim_in_a_selection_warns_or_refuses():
+    """PFS-2184.07: a sim the matrix does not carry is skipped with a typed warning, or refused."""
+    from pyflightstream._errors import EmptySelectionWarning
+    from pyflightstream.cases.matrix import MatrixError
+    from pyflightstream.run._ids import carried_sims
+
+    with pytest.warns(EmptySelectionWarning, match="9999") as caught:
+        assert carried_sims(["2006", "9999"], ["2006", "2007"]) == ["2006"]
+    assert "warning-refusals" in str(caught[0].message)
+    with option_context("warning_refusals", True):
+        with pytest.raises(MatrixError, match="9999"):
+            carried_sims(["2006", "9999"], ["2006", "2007"])
+    with pytest.raises(MatrixError, match="Nothing was run"):
+        carried_sims(["9999"], ["2006", "2007"])
+
+
+def test_p0500_refine_family_typo_names_the_closest_family():
+    """PFS-2020.12: an unknown family names the closest known one, or none."""
+    from pyflightstream.workspace._refine._config import no_such_family
+
+    assert "(closest: 'Wing')" in no_such_family("Wnig", ["Wing", "Fin"])
+    assert "closest" not in no_such_family("Zzzzz", ["Wing", "Fin"])
+
+
+def test_p0500_lane_e2_warnings_are_typed_and_raises_are_catalogued():
+    """PFS-2020.10 and PFS-2020.11: no bare warn or bare standard raise a user input reaches."""
+    import ast
+    import pathlib
+
+    import pyflightstream
+
+    root = pathlib.Path(pyflightstream.__file__).parent
+    internal = {("workspace/_refine/_geometry.py", 318), ("workspace/_degenerate.py", 869)}
+    untyped, bare = [], []
+    for sub in ("workspace", "run", "script"):
+        for path in (root / sub).rglob("*.py"):
+            rel = path.relative_to(root).as_posix()
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(node, ast.Call) and ast.unparse(node.func) == "warnings.warn":
+                    if len(node.args) < 2:
+                        untyped.append((rel, node.lineno))
+                if (
+                    isinstance(node, ast.Raise)
+                    and isinstance(node.exc, ast.Call)
+                    and ast.unparse(node.exc.func) in {"ValueError", "TypeError", "KeyError"}
+                    and (rel, node.lineno) not in internal
+                ):
+                    bare.append((rel, node.lineno))
+    assert untyped == [] and bare == []

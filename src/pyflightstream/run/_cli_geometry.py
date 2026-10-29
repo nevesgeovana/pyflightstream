@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._deprecations import MATRIX_GEOMETRY_ALIASES
-from pyflightstream._errors import InputArtifactError, PyflightstreamError
+from pyflightstream._errors import InputArtifactError, InputValueError, PyflightstreamError
 from pyflightstream.run._cli_mesh import (
     add_degenerate_parser,
     add_inventory_parser,
@@ -856,7 +856,7 @@ def _cmd_trailing_edge(args: argparse.Namespace) -> int:
                 value is not None
                 for value in (args.mesh, args.output, args.axis, args.hub, args.sections)
             ):
-                raise ValueError(
+                raise InputValueError(
                     "--from-nodes takes no mesh, output positional, --axis, --hub or --sections; "
                     "use --out"
                 )
@@ -870,7 +870,7 @@ def _cmd_trailing_edge(args: argparse.Namespace) -> int:
             if args.out is not None or any(
                 value is None for value in (args.mesh, args.output, args.axis, args.hub, args.unit)
             ):
-                raise ValueError(
+                raise InputValueError(
                     "mesh extraction needs mesh output --axis --hub --unit; "
                     "--out belongs to --from-nodes"
                 )

@@ -23,6 +23,8 @@ from collections import defaultdict
 import numpy
 from numpy.typing import NDArray
 
+from pyflightstream._errors import InputValueError
+
 Points = NDArray[numpy.float64]
 Faces = list[list[int]]
 
@@ -315,7 +317,10 @@ class NearestIndex:
     def __init__(self, points: Points) -> None:
         self.points = numpy.asarray(points, dtype=float).reshape(-1, 3)
         if not len(self.points):
-            raise ValueError("a nearest-point index needs at least one point")
+            raise InputValueError(
+                "a nearest-point index needs at least one point; the family holds no "
+                "vertices, so check the mesh export or drop the empty family"
+            )
         self.low = self.points.min(axis=0)
         diagonal = float(numpy.linalg.norm(self.points.max(axis=0) - self.low))
         self.cell = max(2.0 * diagonal / max(len(self.points) ** 0.5, 1.0), 1e-12)

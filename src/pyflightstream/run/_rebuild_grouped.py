@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePath
 from typing import Any
 
+from pyflightstream._errors import InputValueError
 from pyflightstream.run._batch_exec import receipt_digest
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt, batch_sim_dirs
 from pyflightstream.workspace.naming import sim_id_of_folder
@@ -188,7 +189,9 @@ def grouped_point(
     """
     sim = sim_id_of_folder(home.name)
     if sim is None:
-        raise ValueError(f"unrecognised simulation folder {home}")
+        raise InputValueError(
+            f"unrecognised simulation folder {home}; pass a folder made by this workspace"
+        )
     label = batch_label(executed, sim)
     receipt, unreadable = _read_receipt(base, stem)
     job = next((item for item in (receipt.jobs if receipt else ()) if run_id in item.points), None)

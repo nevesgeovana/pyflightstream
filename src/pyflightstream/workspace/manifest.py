@@ -33,7 +33,7 @@ from pydantic import (
 )
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import InputValueError, PyflightstreamError
 from pyflightstream.cases import BoundaryAliases, RawCommand
 from pyflightstream.cases.windows import (
     ExportThresholdRecord,
@@ -579,7 +579,9 @@ class RunRecord(BaseModel):
     def _refuse_old_matrix_key(cls, data: object) -> object:
         """Name the current key and the explicit migration for an older record."""
         if isinstance(data, dict) and "matrix" in data:
-            raise ValueError("matrix was replaced by matrix_stem; run `pyfs-workspace migrate`")
+            raise InputValueError(
+                "matrix was replaced by matrix_stem; run `pyfs-workspace migrate`"
+            )
         return data
 
     #: The resolved flow state, and WHICH BRANCH produced the density.
@@ -773,7 +775,7 @@ class RunRecord(BaseModel):
     def _refuse_old_waived_commands_key(cls, data: object) -> object:
         """Refuse the earlier key; only explicit migration translates it."""
         if isinstance(data, dict) and "broken_commands" in data:
-            raise ValueError(
+            raise InputValueError(
                 "broken_commands was replaced by waived_commands; run `pyfs-workspace migrate`"
             )
         return data
@@ -969,9 +971,9 @@ class RunRecord(BaseModel):
             fields = (
                 "last_iters" if "last_iters" in window else "last_revs and steps_per_revolution"
             )
-            raise ValueError(
+            raise InputValueError(
                 f"iterations {window['iterations']} contradict recorded {fields}; "
-                f"expected {resolved['iterations']}"
+                f"expected {resolved['iterations']}; correct the iterations or the record"
             )
         return window
 
@@ -989,9 +991,9 @@ class RunRecord(BaseModel):
             per_revolution=window.get("steps_per_revolution"),
         )
         if window["iterations"] != resolved["iterations"]:
-            raise ValueError(
+            raise InputValueError(
                 f"iterations {window['iterations']} contradict the recorded request; "
-                f"expected {resolved['iterations']}"
+                f"expected {resolved['iterations']}; correct the iterations or the record"
             )
         return window
 
@@ -1007,19 +1009,19 @@ class RunRecord(BaseModel):
         for index, entry in enumerate(entries):
             point = entry.get("point")
             if point is not None and not isinstance(point, Mapping):
-                raise ValueError(
+                raise InputValueError(
                     f"entry {index} has point {point!r}; expected a mapping or null. "
                     "Restore the point mapping from the original run record."
                 )
             status = entry.get("status")
             if status is not None and (not isinstance(status, str) or status not in known):
-                raise ValueError(
+                raise InputValueError(
                     f"entry {index} has status {status!r}, which is not a run status this "
-                    f"release reads ({', '.join(sorted(known))})"
+                    f"release reads ({', '.join(sorted(known))}); use one of them"
                 )
             tag = entry.get("tag")
             if tag is not None and not isinstance(tag, str):
-                raise ValueError(f"entry {index} has tag {tag!r}, and a tag is text")
+                raise InputValueError(f"entry {index} has tag {tag!r}, and a tag is text; quote it")
         return entries
 
     def as_points(self) -> list[RunRecord]:

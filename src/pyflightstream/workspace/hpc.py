@@ -26,6 +26,7 @@ from pyflightstream._cli import _SELECTED_HPC
 from pyflightstream._digest import aliased_name_fault
 from pyflightstream._errors import (
     InputArtifactError,
+    InputValueError,
     PyflightstreamWarning,
     UnknownKeyWarning,
     demote,
@@ -615,10 +616,12 @@ def _log_pattern(target: Path, key: str, pattern: str) -> str:
         allowed = _JOB_ROOT_FIELDS | {"point"}
         unknown = fields - allowed
         if unknown:
-            raise ValueError(f"unknown placeholder(s): {', '.join(sorted(unknown))}")
+            raise InputValueError(
+                f"unknown placeholder(s): {', '.join(sorted(unknown))}; remove them"
+            )
         pattern.format(**dict.fromkeys(allowed, "value"))
         if not pattern.strip():
-            raise ValueError("an empty pattern")
+            raise InputValueError("an empty pattern; state a non-empty one")
     except (KeyError, IndexError, ValueError) as error:
         raise InputArtifactError(
             f"the HPC profile {target} states {key} = {pattern!r}: {error}. "

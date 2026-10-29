@@ -5,6 +5,7 @@ from copy import deepcopy
 from math import isclose
 from pathlib import Path
 
+from pyflightstream._errors import InputValueError
 from pyflightstream.cases.workflows import PROBE_POSITIONS_MARKER
 
 
@@ -58,12 +59,18 @@ def _recorded_points(source):
             stream.seek(0)
         reader = csv.DictReader(stream)
         if reader.fieldnames != ["PROBE", "X", "Y", "Z", "FRAME"]:
-            raise ValueError("continued sample-position file has an unrecognized header")
+            raise InputValueError(
+                "continued sample-position file has an unrecognized header;"
+                " restore the recorded file"
+            )
         points = {}
         for row in reader:
             number = float(row["PROBE"])
             if not number.is_integer() or int(number) in points:
-                raise ValueError("continued sample-position file has invalid sample IDs")
+                raise InputValueError(
+                    "continued sample-position file has invalid sample IDs;"
+                    " restore the recorded file"
+                )
             points[int(number)] = ([float(row[a]) for a in ("X", "Y", "Z")], row["FRAME"])
     return points
 
@@ -74,16 +81,25 @@ def continued_field_inputs(previous, sim_dir):
     if not layout:
         return {}
     if previous.solver_setup is None or not previous.probe_points_file:
-        raise ValueError("continued fields need the predecessor's setup and sample-position file")
+        raise InputValueError(
+            "continued fields need the predecessor's setup and sample-position file;"
+            " run the predecessor first"
+        )
     root = Path(sim_dir).resolve()
     source = (root / previous.probe_points_file).resolve()
     if not source.is_relative_to(root):
-        raise ValueError("continued sample-position evidence escapes the simulation folder")
+        raise InputValueError(
+            "continued sample-position evidence escapes the simulation folder;"
+            " keep the file inside it"
+        )
     points = _recorded_points(source)
     for item in layout:
         ids, coordinates = item.get("probe_ids", []), item.get("points_native", [])
         if not ids or len(ids) != len(coordinates):
-            raise ValueError("continued field layout has no complete recorded local coordinates")
+            raise InputValueError(
+                "continued field layout has no complete recorded local coordinates;"
+                " rerun the predecessor"
+            )
         expected_frame = (
             "REFERENCE"
             if item.get("coordinate_source") == "native-export-reference"
@@ -91,7 +107,10 @@ def continued_field_inputs(previous, sim_dir):
         )
         for number, xyz in zip(ids, coordinates, strict=True):
             if points.get(number) != (list(xyz), expected_frame):
-                raise ValueError("continued sample-position file differs from the recorded layout")
+                raise InputValueError(
+                    "continued sample-position file differs from the recorded layout;"
+                    " restore the recorded file"
+                )
     return {
         "probe_field_layout": layout,
         "probe_points_file": previous.probe_points_file,

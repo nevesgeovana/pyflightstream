@@ -13,6 +13,8 @@ from typing import Annotated, Literal, NotRequired, TypedDict
 
 from pydantic import AfterValidator, Field, StrictInt
 
+from pyflightstream._errors import InputValueError
+
 
 class _ResolvedWindow(TypedDict):
     """Inclusive time-step bounds and the request that resolved them."""
@@ -29,11 +31,17 @@ class _ResolvedWindow(TypedDict):
 
 def _validate(window: _ResolvedWindow) -> _ResolvedWindow:
     if window["iterations"][0] > window["iterations"][1]:
-        raise ValueError("iterations must be increasing inclusive bounds [first, last]")
+        raise InputValueError(
+            "iterations must be increasing inclusive bounds [first, last]; swap them"
+        )
     if ("last_iters" in window) == ("last_revs" in window):
-        raise ValueError("state exactly one of last_iters or last_revs in the recorded window")
+        raise InputValueError(
+            "state exactly one of last_iters or last_revs in the recorded window; drop the other"
+        )
     if "last_revs" in window and "steps_per_revolution" not in window:
-        raise ValueError("last_revs requires recorded steps_per_revolution")
+        raise InputValueError(
+            "last_revs requires recorded steps_per_revolution; record it or use last_iters"
+        )
     return window
 
 
