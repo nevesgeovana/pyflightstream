@@ -442,3 +442,14 @@ cases that declare only `matrix_workflow`. Conflicting declarations remain
 refused. Custom recipe strings retain their earlier interpretation and do
 not acquire registered-workflow reduction windows merely by using this
 shared reader.
+
+In 0.50.0 the refusal policy became one scoped decision. A problem whose
+continuation cannot write a wrong result, such as an entry that does not apply
+to a row or an unknown key, is demotable: it is skipped with a typed warning
+and the run goes on. The `warning_refusals` option, set by the global
+`--warning-refusals` flag or `option_context("warning_refusals", True)`,
+restores the refusal for every demotable site in its scope. Fatal sites refuse
+regardless. Refinement can govern factors per declared component instead of
+per patch (`--keep-within-component`), and every runtime dependency and extra
+declares a tested range whose floor and ceiling CI exercises, with no upper
+bound on Python.
