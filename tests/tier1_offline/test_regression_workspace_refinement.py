@@ -787,6 +787,43 @@ class TestP0501RefineVars:
         assert "bad was skipped as invalid, see the earlier warning" in said, said
 
     @staticmethod
+    def test_p0501_f4_a_table_key_is_not_substituted(tmp_path):
+        """Only values are substituted: a ${name} written as a key stays text."""
+        text = (
+            '[vars]\nn = "G"\n[families.G]\nfactor = 2\n[families."${n}"]\nfactor = 1\n'
+            "[families.T]\nfactor = 2\n"
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                stated = _p0501_vars_read(tmp_path, text, names=("G", "T", "${n}"))
+            except InputArtifactError as error:
+                assert "${n}" in str(error), error
+            else:
+                assert "${n}" in stated["specs"] and stated["specs"]["G"].factor == 2.0
+
+    @staticmethod
+    def test_p0501_f4_a_nested_value_in_vars_is_rejected_with_a_warning(tmp_path):
+        """A nested table or an array of arrays is not a variable: warned and skipped."""
+        text = "[vars]\ngood = 2\n[vars.nest]\na = 1\n[families.G]\nfactor = 1\n"
+        with pytest.warns(UnknownKeyWarning, match="nest"):
+            _p0501_vars_read(tmp_path, text)
+        text = "[vars]\nrows = [[1, 2]]\n[families.G]\nfactor = 1\n"
+        with pytest.warns(UnknownKeyWarning, match="rows"):
+            _p0501_vars_read(tmp_path, text)
+
+    @staticmethod
+    def test_p0501_f4_a_variable_in_a_governing_family_factor_resolves(tmp_path):
+        """The governor of a component states its factors through a variable."""
+        text = (
+            '[vars]\nf = 0.5\n[families.G]\ngoverning = true\nfactor = "${f}"\n'
+            '[families.T]\nfactor = 2\n[components]\nWing = ["G", "T"]\n'
+        )
+        stated = _p0501_vars_read(tmp_path, text)
+        assert stated["specs"]["G"].factor == 0.5 and stated["specs"]["G"].governing is True
+        assert stated["components"] == {"Wing": ["G", "T"]}
+
+    @staticmethod
     def test_p0501_vars_a_level_matches_the_literal_file(tmp_path):
         """refine_mesh on a file using variables writes the same level as the literal file,
         and refine.json records the resolved values."""
