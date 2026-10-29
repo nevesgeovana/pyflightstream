@@ -76,5 +76,5 @@ write_campaign_products(workspace: CampaignWorkspace, *, overwrite: bool=False, 
 ### Refine source mesh
 
 ```text
-refine_mesh(mesh: str | os.PathLike[str], factor: float | None=None, *, families: Sequence[str] | None=None, parallel: float | None=None, normal: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None, progress: Callable[[str], None] | None=None, accept_remesh: bool=False, accept_unknown: bool=False, force_factors: bool=True, chordwise: float | None=None, spanwise: float | None=None) -> RefinedMesh
+refine_mesh(mesh: str | os.PathLike[str], factor: float | None=None, *, families: Sequence[str] | None=None, parallel: float | None=None, normal: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None, progress: Callable[[str], None] | None=None, accept_remesh: bool=False, accept_unknown: bool=False, force_factors: bool=True, visual_inspect: bool=False, chordwise: float | None=None, spanwise: float | None=None) -> RefinedMesh
 ```

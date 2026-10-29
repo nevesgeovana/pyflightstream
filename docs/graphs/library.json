@@ -1486,6 +1486,11 @@
       "path": "workspace/_geometry_vtk.py"
     },
     {
+      "id": "pyflightstream.workspace._inspect_pages",
+      "layer": 2,
+      "path": "workspace/_inspect_pages.py"
+    },
+    {
       "id": "pyflightstream.workspace._layout",
       "layer": 2,
       "path": "workspace/_layout.py"
@@ -12683,6 +12688,16 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.workspace._inspect_pages",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._inspect_pages",
+      "target": "pyflightstream.workspace._visual_inspect",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._layout",
       "target": "pyflightstream.cases",
       "kind": "module"
@@ -13174,6 +13189,11 @@
     },
     {
       "source": "pyflightstream.workspace._refine._level",
+      "target": "pyflightstream.workspace._inspect_pages",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._refine._level",
       "target": "pyflightstream.workspace._refine._audit",
       "kind": "module"
     },
@@ -13491,6 +13511,11 @@
       "source": "pyflightstream.workspace._visual_inspect",
       "target": "pyflightstream._lengths",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._visual_inspect",
+      "target": "pyflightstream.workspace._inspect_pages",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace._visual_inspect",

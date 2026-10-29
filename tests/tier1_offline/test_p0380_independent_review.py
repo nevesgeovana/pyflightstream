@@ -35,12 +35,12 @@ def _source(folder: Path, stem: str = "wing", refine_toml: str | None = None) ->
     return write_source(folder, stem, sheet_with_strips((), te=True), refine_toml=refine_toml)
 
 
-def _tree(folder: Path) -> dict[str, bytes]:
+def _tree(folder: Path, *, ignore: Path | None = None) -> dict[str, bytes]:
     """Return every file under ``folder`` by its relative path, with its bytes."""
     return {
         p.relative_to(folder).as_posix(): p.read_bytes()
         for p in sorted(folder.rglob("*"))
-        if p.is_file()
+        if p.is_file() and p != ignore
     }
 
 
@@ -130,24 +130,28 @@ def test_ind01_a_level_holding_the_source_is_refused_before_any_work(tmp_path, c
     with pytest.raises(InputArtifactError) as caught:
         refine_mesh(src, 2.0, out_dir=tmp_path / "study", overwrite=True)
     text = str(caught.value)
-    assert "holds the source's folder" in text and text.endswith("Nothing was written.")
+    pdf = src.with_suffix(".refine-refusal.pdf")
+    assert "holds the source's folder" in text and text.endswith(f"A diagnostic PDF: {pdf}.")
+    assert pdf.read_bytes().startswith(b"%PDF")
     code = cli.main(["refine", str(src), "2", "--out-dir", str(tmp_path / "study"), "--overwrite"])
     assert code == 2 and text in capsys.readouterr().err
-    assert _tree(tmp_path / "study") == before
+    assert _tree(tmp_path / "study", ignore=pdf) == before
 
 
 def test_ind01_a_level_inside_the_sources_folder_is_refused(tmp_path):
-    """P0380-REFINE (FR-919, FR-925, IND-01): nothing is written into the source's folder.
+    """P0380-REFINE (FR-919, FR-925, IND-01): no level is written into the source's folder.
 
     ``out_dir`` is the source's own folder; the refinement is refused and
-    the folder is kept byte for byte.
+    the source files are kept byte for byte, beside the diagnostic PDF.
     """
     src = _source(tmp_path / "src")
     before = _tree(src.parent)
     with pytest.raises(InputArtifactError, match="lies inside the source's folder") as caught:
         refine_mesh(src, 2.0, out_dir=src.parent)
-    assert str(caught.value).endswith("Nothing was written.")
-    assert _tree(src.parent) == before
+    pdf = src.with_suffix(".refine-refusal.pdf")
+    assert str(caught.value).endswith(f"A diagnostic PDF: {pdf}.")
+    assert pdf.read_bytes().startswith(b"%PDF")
+    assert _tree(src.parent, ignore=pdf) == before
 
 
 @pytest.mark.parametrize("tag", ["../up", "a/b", "a\\b", "..", "."])
@@ -163,7 +167,9 @@ def test_ind01_a_tag_that_is_not_one_folder_name_is_refused(tmp_path, tag):
         refine_mesh(src, 2.0)
     text = str(caught.value)
     assert f"{src.with_suffix('.refine.toml')} [refine] tag" in text
-    assert "one folder name" in text and text.endswith("Nothing was written.")
+    assert "one folder name" in text and text.endswith(
+        f"A diagnostic PDF: {src.with_suffix('.refine-refusal.pdf')}."
+    )
     assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
     src.with_suffix(".refine.toml").write_bytes(b'[refine]\ntag = "fine"\n')
     assert refine_mesh(src, 2.0).folder == tmp_path / "wing_fine"
@@ -321,7 +327,9 @@ def test_ind03_a_smooth_tube_of_two_nodes_around_is_refused_by_both_routes(tmp_p
         refine_mesh(src, normal=2 / 24, force_factors=False)
     text = str(caught.value)
     assert "family S: the normal factor is 0.0833333, " in text
-    assert "2 node(s) around" in text and text.endswith("Nothing was written.")
+    assert "2 node(s) around" in text and text.endswith(
+        f"A diagnostic PDF: {src.with_suffix('.refine-refusal.pdf')}."
+    )
     assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
     code = cli.main(["refine", str(src), "--normal", str(2 / 24), "--strict-factors"])
     assert code == 2 and text in capsys.readouterr().err
@@ -670,12 +678,14 @@ def test_ind01_a_family_name_that_is_not_one_folder_name_is_refused(
         refine_mesh(src, 1.0, families=[family], out_dir=levels, overwrite=overwrite)
     text = str(caught.value)
     assert f"the family {family!r}" in text and "one folder name" in text, text
-    assert text.endswith("Nothing was written.")
+    assert text.endswith(f"A diagnostic PDF: {src.with_suffix('.refine-refusal.pdf')}.")
     argv = ["refine", str(src), "1", "--families", family, "--out-dir", str(levels)]
     capsys.readouterr()
     assert cli.main(argv + (["--overwrite"] if overwrite else [])) == 2
     assert text in capsys.readouterr().err
-    assert _tree(tmp_path / "study") == before and not levels.exists()
+    pdf = src.with_suffix(".refine-refusal.pdf")
+    assert pdf.read_bytes().startswith(b"%PDF")
+    assert _tree(tmp_path / "study", ignore=pdf) == before and not levels.exists()
     plain = sheet_with_strips([("B", "quad", [0.1, 0.1])], grid="A")
     src = write_source(tmp_path / "plain", "wing", plain)
     assert refine_mesh(src, 1.0, families=["A"], out_dir=levels).folder == levels / "wing_R-A1"
@@ -694,7 +704,9 @@ def test_ind01_a_tag_holding_a_reserved_character_is_refused(tmp_path, tag):
         refine_mesh(src, 2.0)
     text = str(caught.value)
     assert f"{src.with_suffix('.refine.toml')} [refine] tag" in text
-    assert "one folder name" in text and text.endswith("Nothing was written.")
+    assert "one folder name" in text and text.endswith(
+        f"A diagnostic PDF: {src.with_suffix('.refine-refusal.pdf')}."
+    )
     assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
     src.with_suffix(".refine.toml").write_bytes(b'[refine]\ntag = "fine"\n')
     assert refine_mesh(src, 2.0).folder == tmp_path / "wing_fine"
@@ -721,7 +733,7 @@ def test_ind01_a_level_path_resolving_outside_out_dir_is_refused(tmp_path, overw
         refine_mesh(src, 2.0, out_dir=levels, overwrite=overwrite)
     text = str(caught.value)
     assert f"is not a folder directly inside out_dir {levels}" in text, text
-    assert text.endswith("Nothing was written.")
+    assert text.endswith(f"A diagnostic PDF: {src.with_suffix('.refine-refusal.pdf')}.")
     assert (levels / "wing_R2").is_junction()
     assert _tree(tmp_path / "study" / "victim") == victim
     assert sorted(p.name for p in levels.iterdir()) == ["wing_R2"]

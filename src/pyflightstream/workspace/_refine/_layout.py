@@ -290,6 +290,11 @@ class _Planner:
             try:
                 layouts.append(self.counted(tuple(group), found, prepare=self.prepare))
             except InputArtifactError as error:
+                error.where = {
+                    "families": list(group),
+                    "nodes": sorted({v for n in group for f in families[n] for v in f}),
+                    **error.where,
+                }
                 if not accept:
                     raise
                 why.update(dict.fromkeys(group, _skipped_layout(error, group, where)))
@@ -606,6 +611,7 @@ def plan(
             try:
                 layouts.append(planner.counted((name,), lone))
             except InputArtifactError as error:
+                error.where = {"families": [name], "nodes": sorted(nodes[name]), **error.where}
                 if not accept:
                     raise
                 done.remove(name)

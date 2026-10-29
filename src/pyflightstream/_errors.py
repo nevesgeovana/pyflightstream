@@ -140,6 +140,9 @@ class InputArtifactError(PyflightstreamError, RuntimeError):
         what the library holds. The distinction is stated because an
         empty tuple would otherwise be read as an empty library;
         ``tests/tier1_offline/test_exceptions_catalog.py`` pins both branches.
+    where : dict
+        Optional diagnostic locations: family names, zero-based mesh vertex
+        indices in ``nodes``, and mesh-coordinate triples in ``points``.
     """
 
     def __init__(
@@ -149,11 +152,13 @@ class InputArtifactError(PyflightstreamError, RuntimeError):
         kind: str | None = None,
         artifact_id: str | None = None,
         available: tuple[str, ...] = (),
+        where: dict | None = None,
     ) -> None:
         super().__init__(message)
         self.kind = kind
         self.artifact_id = artifact_id
         self.available = available
+        self.where = {} if where is None else where
 
 
 class SolverSetupError(PyflightstreamError, RuntimeError):

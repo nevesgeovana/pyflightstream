@@ -770,3 +770,199 @@ def test_p0490_planner_json_records_directions_provenance_and_band_leads(tmp_pat
     assert all(b["lead"] in layouts[0]["families"] and b["arcs"] for b in bands)
     arcs = [a for band in bands for a in band["arcs"]]
     assert len(arcs) == len(set(arcs)), "each layout arc belongs to exactly one reported band"
+
+
+def test_p0490_visual_prepare_has_patches_then_direction_colors(tmp_path, monkeypatch):
+    from matplotlib.backends.backend_pdf import PdfPages
+    from matplotlib.colors import to_rgba
+
+    pages = []
+    save = PdfPages.savefig
+
+    def capture(pdf, fig, **kwargs):
+        texts = [t.get_text() for legend in fig.legends for t in legend.get_texts()]
+        colors = [
+            tuple(c) for ax in fig.axes[:4] for c in ax.collections for c in c.get_edgecolors()
+        ]
+        pages.append((texts, colors))
+        return save(pdf, fig, **kwargs)
+
+    monkeypatch.setattr(PdfPages, "savefig", capture)
+    source = _export(tmp_path / "sheet.nas", wide=False, perimeter=_middle_line())
+    prepared = prepare_to_refine(source, visual_inspect=True)
+    assert len(pages) == 2 * len(prepared.patches)
+    texts, colors = pages[1]
+    assert "parallel" in texts and "normal" in texts
+    assert to_rgba("#0072b2") in colors and to_rgba("#d55e00") in colors
+
+
+def test_p0490_visual_dominant_label_is_bold_and_framed(tmp_path, monkeypatch):
+    import inspect
+    from types import SimpleNamespace
+
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    from pyflightstream.workspace._visual_inspect import patches_pdf
+
+    assert "layouts" in inspect.signature(patches_pdf).parameters
+    source = tmp_path / "sheet.obj"
+    source.write_text("v 0 0 0\nv 2 0 0\nv 2 1 0\nv 0 1 0\ng A\nf 1 2 3 4\n")
+    layout = SimpleNamespace(
+        names=("A",),
+        owner=(0,),
+        blocks=SimpleNamespace(arcs=((0, 1), (1, 2), (2, 3), (3, 0))),
+        directions={
+            0: {
+                a: _blocks.ArcDirection("parallel" if a % 2 == 0 else "normal", "A", "longest_side")
+                for a in range(4)
+            }
+        },
+        labels={0: "P1", 1: "N1", 2: "P1", 3: "N1"},
+        leads={"P1": ("A", 0), "N1": ("A", 1)},
+    )
+    captured = []
+    save = PdfPages.savefig
+
+    def capture(pdf, fig, **kwargs):
+        captured.append([t for ax in fig.axes[:4] for t in ax.texts])
+        return save(pdf, fig, **kwargs)
+
+    monkeypatch.setattr(PdfPages, "savefig", capture)
+    patches_pdf(
+        source,
+        {"A": ["A"]},
+        {"A": (True, True)},
+        tmp_path / "out.pdf",
+        layouts={"A": layout},
+        dpi=40,
+    )
+    labels = [t for t in captured[1] if t.get_text() in {"P1", "N1"}]
+    assert len(labels) == 16
+    assert sum(t.get_fontweight() == "bold" and t.get_bbox_patch() is not None for t in labels) == 8
+    assert sum(t.get_fontweight() == "normal" and t.get_bbox_patch() is None for t in labels) == 8
+
+
+def test_p0490_visual_refine_writes_pdf_beside_level(tmp_path):
+    import inspect
+
+    assert "visual_inspect" in inspect.signature(refine_mesh).parameters
+    (tmp_path / "source").mkdir()
+    source = _export(tmp_path / "source/sheet.nas", wide=False, perimeter=_middle_line())
+    prepared = prepare_to_refine(source)
+    level = refine_mesh(prepared.obj, 2, out_dir=tmp_path / "levels", visual_inspect=True)
+    pdf = level.folder / f"{level.folder.name}.inspect.pdf"
+    assert pdf in level.files and pdf.read_bytes().startswith(b"%PDF")
+    assert level.audit.path.is_file() and level.report
+
+
+def test_p0490_visual_strict_factor_refusal_has_pdf_and_location(tmp_path):
+    (tmp_path / "source").mkdir()
+    source = _export(tmp_path / "source/sheet.nas", wide=False, perimeter=_middle_line())
+    prepared = prepare_to_refine(source)
+    levels = tmp_path / "levels"
+    with pytest.raises(InputArtifactError) as caught:
+        refine_mesh(prepared.obj, 0.01, out_dir=levels, force_factors=False)
+    pdf = prepared.obj.with_name(prepared.obj.stem + ".refine-refusal.pdf")
+    assert pdf.is_file()
+    assert str(caught.value).endswith(f"A diagnostic PDF: {pdf}.")
+    assert caught.value.where["families"]
+    assert not levels.exists()
+
+
+def test_p0490_visual_refusal_uses_structured_locations(tmp_path, monkeypatch):
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    from pyflightstream.workspace import _inspect_pages as pages
+    from pyflightstream.workspace._visual_inspect import Mesh
+
+    source = tmp_path / "mesh.obj"
+    mesh = Mesh(
+        source,
+        np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
+        {"A": [[0, 1, 2]], "B": [[0, 2, 1]]},
+    )
+    error = InputArtifactError(
+        "A name in prose does not select a family",
+        where={"families": ["B"], "nodes": [1], "points": [[0.5, 0.5, 0.0]]},
+    )
+    seen = []
+    save = PdfPages.savefig
+
+    def capture(pdf, fig, **kwargs):
+        seen.append(fig.axes[0].collections)
+        return save(pdf, fig, **kwargs)
+
+    monkeypatch.setattr(PdfPages, "savefig", capture)
+    pages.patches_pdf(
+        mesh, {"all": ["A", "B"]}, {}, tmp_path / "locations.pdf", refusal=error, dpi=40
+    )
+    surfaces = seen[0][0].get_facecolors()
+    assert sum(c[3] == 0.4 for c in surfaces) == 1
+    assert sum(c[0] > c[1] and c[3] == 1 for c in surfaces) == 1
+    points = seen[0][-1]
+    np.testing.assert_array_equal(points.get_offsets(), [[0.5, 0.5], [2.0, 0.0]])
+    np.testing.assert_array_equal(points.get_facecolors(), [[1.0, 0.0, 0.0, 1.0]])
+
+
+def test_p0490_visual_drawing_failure_preserves_original_refusal(tmp_path, monkeypatch):
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    (tmp_path / "source").mkdir()
+    source = _export(tmp_path / "source/sheet.nas", wide=False, perimeter=_middle_line())
+    prepared = prepare_to_refine(source)
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("drawing failed")
+
+    monkeypatch.setattr(PdfPages, "savefig", fail)
+    with (
+        pytest.warns(UserWarning, match="could not write the diagnostic PDF"),
+        pytest.raises(InputArtifactError) as caught,
+    ):
+        refine_mesh(prepared.obj, 0.01, force_factors=False, out_dir=tmp_path / "levels")
+    assert "below 1/" in str(caught.value)
+    assert "A diagnostic PDF" not in str(caught.value)
+    assert not (tmp_path / "levels").exists()
+
+
+def test_p0490_visual_refine_annotations_come_from_saved_record(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    from pyflightstream.workspace._inspect_pages import refined_pdf
+
+    vertices = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    work = SimpleNamespace(
+        mesh=SimpleNamespace(verts=vertices, families={"A": [[0, 1, 2]], "B": [[0, 2, 1]]}),
+        bands={},
+        parts={},
+        specs={},
+        layouts={},
+        te_unit="METER",
+    )
+    record = tmp_path / "level.refine.json"
+    record.write_text(
+        json.dumps(
+            {
+                "components": {"All": ["A", "B"]},
+                "families": {
+                    "A": {"continuity": {"directions": ["normal"]}},
+                    "B": {"band": 7},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    texts = []
+    save = PdfPages.savefig
+
+    def capture(pdf, fig, **kwargs):
+        texts.extend(t.get_text() for t in fig.texts)
+        return save(pdf, fig, **kwargs)
+
+    monkeypatch.setattr(PdfPages, "savefig", capture)
+    pdf = refined_pdf(work, tmp_path / "level.obj", record)
+    assert pdf.is_file()
+    assert any("A: continuity" in t and "normal" in t for t in texts)
+    assert any("B: continuity remeshed band (7 source faces)" in t for t in texts)

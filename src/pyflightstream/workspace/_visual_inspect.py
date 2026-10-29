@@ -19,10 +19,10 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from functools import partial
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -351,6 +351,7 @@ class Scene:
         self.box = box
         self.highlight: set[str] = set()  # names whose label is drawn bold in a red frame
         self.highlight_labels: dict[str, str] = {}
+        self.direction_arcs: list[tuple[np.ndarray, str, str, bool]] = []
         self.perimeter, self.perimeter_faces = self._perimeters()
 
     def _perimeters(self) -> tuple[np.ndarray, list[list[int]]]:
@@ -437,6 +438,7 @@ def draw_view(
     )
     collection.set_rasterized(True)
     ax.add_collection(collection)
+    _draw_directions(ax, scene, to_screen)
     for pts, style in zip(points, styles, strict=True):
         xyz = scene.clip(pts)
         if len(xyz):
@@ -933,6 +935,36 @@ def render(
         legend_pages(pdf, scene, colors, marked, mesh, cmap_label=cmap_label, dpi=dpi)
 
 
+def _draw_directions(ax, scene: Scene, to_screen: np.ndarray) -> None:
+    """Draw retained planner arcs and band labels above the neutral surface."""
+    from matplotlib.collections import LineCollection
+
+    for xyz, direction, label, lead in scene.direction_arcs:
+        xy = xyz @ to_screen
+        color = DIRECTION_COLORS[direction]
+        ax.add_collection(
+            LineCollection([xy], colors=[color], linewidths=3.5 if lead else 2, zorder=4)
+        )
+        if label:
+            lengths = np.linalg.norm(np.diff(xyz, axis=0), axis=1)
+            distance = np.concatenate(([0.0], np.cumsum(lengths)))
+            at = np.array([np.interp(distance[-1] / 2, distance, xy[:, i]) for i in (0, 1)])
+            ax.text(
+                *at,
+                label,
+                color=color,
+                fontsize=7,
+                ha="center",
+                va="center",
+                zorder=8,
+                fontweight="bold" if lead else "normal",
+                bbox={"fc": "white", "ec": color, "boxstyle": "round,pad=0.2"} if lead else None,
+            )
+
+
+DIRECTION_COLORS = {"parallel": "#0072b2", "normal": "#d55e00"}
+
+
 def patches_pdf(
     mesh: str | Path,
     groups: dict[str, list[str]],
@@ -941,81 +973,12 @@ def patches_pdf(
     *,
     mesh_unit: str | None = None,
     dpi: int = 200,
+    layouts: Mapping[str, Any] | None = None,
 ) -> Path:
-    """Write one page per original family of a prepared mesh: its patches colored and named.
+    """Write patches and planner directions pages for each original family."""
+    from pyflightstream.workspace._inspect_pages import patches_pdf as write_pages
 
-    ``groups`` maps each original family to its patches (the families of the
-    patches OBJ ``mesh``); ``governing`` maps a patch to its normal and parallel
-    flags. Each lead is labelled GOVERNING NORMAL or GOVERNING PARALLEL in a red
-    frame and listed so beside the views. A set of names means both directions.
-    The pages are the four views of the
-    technical drawing; a family whose patches hold no face is skipped.
-    """
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    from matplotlib.backends.backend_pdf import PdfPages
-    from matplotlib.patches import Patch
-
-    drawn = read_obj(Path(mesh))
-    flags = governing if isinstance(governing, dict) else dict.fromkeys(governing, (True, True))
-    labels = {
-        n: "\n".join(
-            f"GOVERNING {direction}"
-            for direction, leads in (("PARALLEL", pair[1]), ("NORMAL", pair[0]))
-            if leads
-        )
-        for n, pair in flags.items()
-    }
-    views = standard_views((1.0, -1.0, 1.0))
-    with PdfPages(out) as pdf:
-        for family, patches in groups.items():
-            names = [p for p in patches if drawn.patches.get(p)]
-            if not names:
-                continue
-            colors, _ = patch_colors(names, "tab20" if len(names) <= 20 else "turbo")
-            scene = Scene(drawn, names, colors, None, edges=True, perimeter_width=1.2)
-            scene.highlight = {n for n in names if n in governing}
-            scene.highlight_labels = labels
-            fig = plt.figure(figsize=PAGE)
-            views_page(fig, scene, views, [], [], labels=True, unit=mesh_unit)
-            pw, ph = fig.get_size_inches()
-            handles = [
-                Patch(
-                    facecolor=colors[n],
-                    edgecolor="#d62728" if n in scene.highlight else "0.2",
-                    linewidth=1.5 if n in scene.highlight else 0.5,
-                    label=f"{n}  ({labels[n].replace(chr(10), ', ')})"
-                    if n in scene.highlight
-                    else n,
-                )
-                for n in names
-            ]
-            add_legend = partial(
-                fig.legend,
-                handles=handles,
-                loc="upper left",
-                title=f"{family}: {len(names)} patches, {len(scene.highlight)} governing",
-                bbox_to_anchor=((pw - RIGHT + 0.1) / pw, (ph - TOP - 0.05) / ph),
-                ncol=1 if len(names) <= 40 else 2,
-                borderaxespad=0,
-            )
-            legend = add_legend(fontsize=6, title_fontsize=7)
-            bounds = legend.get_window_extent()
-            width, height = bounds.width / fig.dpi, bounds.height / fig.dpi
-            fit = min(1.0, (RIGHT - 0.2) / width, (ph - TOP - BOTTOM - 0.05) / height)
-            if fit < 1:
-                legend.remove()
-                # Leave room for font metric rounding between the screen and PDF renderers.
-                fit *= 0.9
-                add_legend(fontsize=6 * fit, title_fontsize=7 * fit)
-            fig.suptitle(
-                f"{Path(mesh).name}: family {family}", fontsize=10, y=1 - 0.2 / PAGE[1], va="top"
-            )
-            pdf.savefig(fig, dpi=dpi)
-            plt.close(fig)
-    return out
+    return write_pages(mesh, groups, governing, out, mesh_unit=mesh_unit, dpi=dpi, layouts=layouts)
 
 
 def _chosen(mesh: Mesh, families) -> list[str]:

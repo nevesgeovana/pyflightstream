@@ -71,14 +71,19 @@ def _snapshot(folder: Path) -> dict[str, bytes]:
 
 
 def _refused(root: Path, src: Path, *args, error=InputArtifactError, **kwargs) -> str:
-    """Return the text of a refine_mesh refusal, asserting nothing was written."""
+    """Return the refusal text, checking only its diagnostic PDF was written."""
+    pdf = src.with_name(src.stem + ".refine-refusal.pdf")
     before = _snapshot(src.parent)
     with pytest.raises(error) as caught:
         refine_mesh(src, *args, **kwargs)
     text = str(caught.value)
-    assert text.endswith("Nothing was written."), text
+    assert text.endswith(f"A diagnostic PDF: {pdf}."), text
+    assert pdf.read_bytes().startswith(b"%PDF")
     assert _left(root) == []
-    assert _snapshot(src.parent) == before
+    after = _snapshot(src.parent)
+    before.pop(pdf.name, None)
+    after.pop(pdf.name)
+    assert after == before
     return text
 
 
@@ -122,7 +127,7 @@ def test_r1_a_factor_that_is_not_a_number_is_refused_by_both_routes(tmp_path, ca
     """P0380-REFINE (FR-915, FR-925): FACTOR ``two`` is refused alike by the function and command.
 
     The command exits 2 with the function's own text, which names the value
-    and ends "Nothing was written.". Control: the number 2 passes both.
+    and ends with its diagnostic PDF path. Control: the number 2 passes both.
     """
     src = _source(tmp_path)
     text = _refused(tmp_path, src, "two")
@@ -325,7 +330,7 @@ def test_r2_no_factor_and_no_file_is_refused_by_both_routes(tmp_path, capsys):
     assert (
         f"{src}: no factor was given and no refinement file states one; give FACTOR "
         f"or add a [families.<name>] factor table to {src.with_name('wing.refine.toml')}. "
-        "Nothing was written."
+        f"No level was written. A diagnostic PDF: {src.with_suffix('.refine-refusal.pdf')}."
     ) == text
     code, _, err = _command(capsys, str(src))
     assert code == 2 and text in err and _left(tmp_path) == []
@@ -557,7 +562,7 @@ def test_r3_a_table_of_the_wrong_shape_is_refused_by_both_routes(tmp_path, capsy
     """P0380-REFINE (FR-917, FR-925): valid TOML whose table is a scalar, a list or falsey.
 
     Each is refused by the function and the command alike with the standard
-    refusal (the file, the table, what to write, "Nothing was written."), not
+    refusal (the file, the table, what to write, its diagnostic PDF path), not
     a Python exception. The factor is given in the call, so the file is read
     only for its tables. Control: the file's tables written as tables pass.
 
@@ -742,7 +747,7 @@ def test_r5_an_existing_level_is_refused_unless_overwrite(tmp_path, capsys):
     text = str(caught.value)
     assert text == (
         f"{first.folder}: the level exists; give overwrite=True (--overwrite) to replace it. "
-        "Nothing was written."
+        f"No level was written. A diagnostic PDF: {src.with_suffix('.refine-refusal.pdf')}."
     )
     code, _, err = _command(capsys, str(src), "2")
     assert code == 2 and text in err
@@ -846,7 +851,9 @@ def test_r11_a_sidecar_the_audit_refuses_is_refused_before_any_work(
 
     assert _resampled_while(refused) == []
     text = str(caught[0])
-    assert said in text and text.endswith("Nothing was written."), text
+    assert said in text and text.endswith(
+        f"A diagnostic PDF: {src.with_suffix('.refine-refusal.pdf')}."
+    ), text
     assert _left(tmp_path) == ["wing_R2"] and _snapshot(first) == kept
     code, _, err = _command(capsys, str(src), "1")
     assert code == 2 and said in err and _left(tmp_path) == ["wing_R2"]
@@ -1187,7 +1194,7 @@ def test_r9_method_grid_without_a_grid_is_refused_and_auto_remeshes(tmp_path):
     text = _refused(tmp_path, src)
     assert text.startswith(f"{src} family T: method is grid and no grid was recovered: ")
     src.with_name("wing.refine.toml").write_bytes(b"[families.T]\nfactor = 2\n")
-    why = text.split("no grid was recovered: ", 1)[1].removesuffix(". Nothing was written.")
+    why = text.split("no grid was recovered: ", 1)[1].split(". No level was written.", 1)[0]
     entry = refine_mesh(src).report["T"]
     assert (entry["method"], entry["reason"]) == ("remesh", f"no grid recovered: {why}")
     src.with_name("wing.refine.toml").write_bytes(

@@ -663,5 +663,7 @@ def test_p0410_pc_refine_refusal_names_explicit_config(
     assert code != 0
     assert str(config) in diagnostic, diagnostic
     assert "factor" in diagnostic.lower(), diagnostic
-    assert "Nothing was written." in diagnostic
-    assert {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()} == before
+    pdf = source.with_suffix(".refine-refusal.pdf")
+    assert f"A diagnostic PDF: {pdf}." in diagnostic
+    assert pdf.read_bytes().startswith(b"%PDF")
+    assert {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file() and p != pdf} == before

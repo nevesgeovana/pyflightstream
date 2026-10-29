@@ -48,6 +48,7 @@ from numpy.typing import NDArray
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
 from pyflightstream._lengths import scale as length_scale
+from pyflightstream.workspace._inspect_pages import Inspection
 from pyflightstream.workspace._refine import (
     _blocks,
     _config,
@@ -163,8 +164,10 @@ class _Work:
         return self.request.point_fraction * self.scale
 
 
-def _refuse(where: str, reason: str) -> InputArtifactError:
-    return InputArtifactError(f"{where}: {reason}. Nothing was written.", kind=_obj.KIND)
+def _refuse(context: str, reason: str, *, where: dict | None = None) -> InputArtifactError:
+    return InputArtifactError(
+        f"{context}: {reason}. Nothing was written.", kind=_obj.KIND, where=where
+    )
 
 
 # --------------------------------------------------------------------- reading
@@ -245,6 +248,7 @@ def _decide(work: _Work, *, prepare: bool = False) -> None:
                 f"parallel_factor and normal_factor apply to a grid, and this family is "
                 f"remeshed ({why}); give factor, or accept the remesh with factor "
                 f"{spec.factor:g} with --accept-remesh (refine_mesh: accept_remesh=True)",
+                where={"families": [name]},
             )
         warn(
             f"{work.source} family {name}: parallel_factor and normal_factor apply to a grid "
@@ -271,10 +275,14 @@ def _refuse_or_remesh(work: _Work, name: str, found: str) -> None:
     _remesh_or_keep(work, name, f"no grid recovered: {found}")
 
 
-def _demanded_grid(work: _Work, name: str, why: str) -> None:
+def _demanded_grid(work: _Work, name: str, why: str, *, where: dict | None = None) -> None:
     """Refuse a ``method = "grid"`` family that is no grid, or warn under ``accept_remesh``."""
     if not work.request.accept_remesh:
-        raise _refuse(f"{work.source} family {name}", why)
+        raise _refuse(
+            f"{work.source} family {name}",
+            why,
+            where=where or {"families": [name], "nodes": sorted(work.fam_v[name])},
+        )
     warn(
         f"{work.source} family {name}: {why}; it is remeshed with factor "
         f"{work.specs[name].factor:g} (accept_remesh, CLI --accept-remesh)",
@@ -378,7 +386,15 @@ def _grid_after_grid(work: _Work, *, prepare: bool = False) -> None:
                 f"method is grid and it shares nodes with {first}, refined as a grid first{why}"
             )
         if work.specs[name].method == "grid":
-            _demanded_grid(work, name, demanded)
+            _demanded_grid(
+                work,
+                name,
+                demanded,
+                where={
+                    "families": list(dict.fromkeys((name, first))),
+                    "nodes": sorted(work.fam_v[name] & work.fam_v[first]),
+                },
+            )
         del work.grids[name]
         _remesh_or_keep(work, name, reason)
     work.remesh.sort(key=work.names.index)
@@ -1164,6 +1180,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     accept_remesh: bool = False,
     accept_unknown: bool = False,
     force_factors: bool = True,
+    visual_inspect: bool = False,
     chordwise: float | None = None,
     spanwise: float | None = None,
 ) -> RefinedMesh:
@@ -1172,7 +1189,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     Parameters
     ----------
     mesh : path-like
-        The source OBJ; it and its folder are never modified.
+        The source OBJ, kept unchanged. A refusal may write a diagnostic PDF beside it.
     factor : float, optional
         The factor of every selected family; without it, and without
         ``parallel`` or ``normal``, the factors come from the refinement file.
@@ -1208,6 +1225,8 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         Raise a grid factor below the least its grid allows (``1/m`` for its
         ``m`` intervals, the least a tube's caps carry) to that least, with a
         warning (the default); False refuses such a factor (CLI ``--strict-factors``).
+    visual_inspect : bool
+        Write a patches and directions PDF beside the level OBJ.
     chordwise, spanwise : float, optional
         The earlier names of ``normal`` and ``parallel``, read with a warning;
         beside the new name, the earlier one is warned and skipped.
@@ -1220,7 +1239,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     Raises
     ------
     InputArtifactError
-        Every refusal of FR-424 and FR-425, before any file is written.
+        A refinement refusal. After reading the source, a diagnostic PDF is attempted.
 
     Examples
     --------
@@ -1233,69 +1252,70 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     if not source.is_file():
         raise _refuse(str(source), "no such OBJ file; name an existing OBJ and run again")
     obj = _obj.read_obj(source)
-    parallel = _renamed_keyword("spanwise", spanwise, "parallel", parallel)
-    normal = _renamed_keyword("chordwise", chordwise, "normal", normal)
-    request = _config.resolve_request(
-        source,
-        list(obj.families),
-        factor=factor,
-        families=[families] if isinstance(families, str) else families,
-        parallel=parallel,
-        normal=normal,
-        config=config,
-        keep_first_row=keep_first_row,
-        accept_remesh=accept_remesh,
-        accept_unknown=accept_unknown,
-        force_factors=force_factors,
-    )
-    stem = f"{source.stem}_{_config.level_tag(request, list(obj.families), str(source))}"
-    if request.filename:
-        if request.tag:
-            warn(
-                f"{request.config} [refine] states filename and tag; the level is named "
-                f"{request.filename!r} and the tag is skipped",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
-        stem = request.filename
-    folder = _place(source, stem, out_dir, overwrite)
-    work = _start(source, request, obj)
-    if progress is not None:
-        work.say = progress
-    work.say(
-        f"read {source.name}: {len(obj.families)} families, "
-        f"{sum(len(f) for f in obj.families.values())} faces; level {stem}"
-    )
-    work.tag_selection = _config.tag_selection(request, list(obj.families))
-    work.sidecar = _boundaries_text(work, stem)
-    _decide(work)
-    work.say(f"decided: {len(work.grids)} grid, {len(work.remesh)} remeshed")
-    _refine_grids(work)
-    work.say("bands and shared curves")
-    _bands(work)
-    _remesh_groups(work)
-    work.say("assembling the level")
-    verts, faces, te = _assemble(work)
-    faces = _components(work, faces)
-    work.unchanged = _unchanged_grids(work, list(faces))
-    unchanged = work.unchanged
-    folder.parent.mkdir(parents=True, exist_ok=True)
-    # The run's own folder: created here under a unique name, and the only one it removes.
-    owned = Path(tempfile.mkdtemp(prefix=f"{folder.name}{STAGING_SUFFIX}-", dir=folder.parent))
-    try:
-        staging = owned / folder.name
-        staging.mkdir()
-        work.say(f"writing {len(verts)} nodes, {sum(len(f) for f in faces.values())} faces")
-        written = _write(work, staging, verts, faces, te)
-        work.say("auditing the level against its source")
-        audit = audit_mesh(written[0], against=source, unchanged_grids=unchanged)
-        _publish(staging, folder, owned / f"{folder.name}{PREVIOUS_SUFFIX}", overwrite)
-    finally:
-        _release(owned, folder)
-    files = tuple(folder / p.name for p in (*written, audit.path))
-    audit = dataclasses.replace(audit, mesh=files[0], path=files[-1])
-    report = json.loads(files[-2].read_text(encoding="utf-8"))["families"]
-    return RefinedMesh(folder=folder, obj=files[0], files=files, report=report, audit=audit)
+    with Inspection(source, obj, visual_inspect) as inspection:
+        parallel = _renamed_keyword("spanwise", spanwise, "parallel", parallel)
+        normal = _renamed_keyword("chordwise", chordwise, "normal", normal)
+        request = _config.resolve_request(
+            source,
+            list(obj.families),
+            factor=factor,
+            families=[families] if isinstance(families, str) else families,
+            parallel=parallel,
+            normal=normal,
+            config=config,
+            keep_first_row=keep_first_row,
+            accept_remesh=accept_remesh,
+            accept_unknown=accept_unknown,
+            force_factors=force_factors,
+        )
+        stem = f"{source.stem}_{_config.level_tag(request, list(obj.families), str(source))}"
+        if request.filename:
+            if request.tag:
+                warn(
+                    f"{request.config} [refine] states filename and tag; the level is named "
+                    f"{request.filename!r} and the tag is skipped",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
+            stem = request.filename
+        folder = _place(source, stem, out_dir, overwrite)
+        work = inspection.work = _start(source, request, obj)
+        if progress is not None:
+            work.say = progress
+        work.say(
+            f"read {source.name}: {len(obj.families)} families, "
+            f"{sum(len(f) for f in obj.families.values())} faces; level {stem}"
+        )
+        work.tag_selection = _config.tag_selection(request, list(obj.families))
+        work.sidecar = _boundaries_text(work, stem)
+        _decide(work)
+        work.say(f"decided: {len(work.grids)} grid, {len(work.remesh)} remeshed")
+        _refine_grids(work)
+        work.say("bands and shared curves")
+        _bands(work)
+        _remesh_groups(work)
+        work.say("assembling the level")
+        verts, faces, te = _assemble(work)
+        faces = _components(work, faces)
+        work.unchanged = _unchanged_grids(work, list(faces))
+        unchanged = work.unchanged
+        folder.parent.mkdir(parents=True, exist_ok=True)
+        # The run's own folder: created here under a unique name, and the only one it removes.
+        owned = Path(tempfile.mkdtemp(prefix=f"{folder.name}{STAGING_SUFFIX}-", dir=folder.parent))
+        try:
+            staging = owned / folder.name
+            staging.mkdir()
+            work.say(f"writing {len(verts)} nodes, {sum(len(f) for f in faces.values())} faces")
+            written = inspection.write(_write, work, staging, verts, faces, te)
+            work.say("auditing the level against its source")
+            audit = audit_mesh(written[0], against=source, unchanged_grids=unchanged)
+            _publish(staging, folder, owned / f"{folder.name}{PREVIOUS_SUFFIX}", overwrite)
+        finally:
+            _release(owned, folder)
+        files = tuple(folder / p.name for p in (*written, audit.path))
+        audit = dataclasses.replace(audit, mesh=files[0], path=files[-1])
+        report = json.loads(files[-2].read_text(encoding="utf-8"))["families"]
+        return RefinedMesh(folder=folder, obj=files[0], files=files, report=report, audit=audit)
 
 
 def _unchanged_grids(work: _Work, families: list[str]) -> list[str]:

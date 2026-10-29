@@ -355,8 +355,11 @@ optional.
    with `normal_factor = 4` give their grid-auto followers those two factors
    within the same layout. The earlier `governing = true` means both, warned.
    Declare a follower to give it factors of its own. `--visual-inspect` also writes
-   `W1_patches.inspect.pdf`: one page per original family, its patches colored
-   and named, the leads labelled GOVERNING PARALLEL and GOVERNING NORMAL.
+   `W1_patches.inspect.pdf`: two pages per original family. The first colors and
+   names patches and marks GOVERNING PARALLEL and GOVERNING NORMAL. The second
+   shows grey faces with blue parallel and orange normal perimeter arcs, relative
+   to the trailing edge or longest side. Planner band labels (P1, N1, and onward)
+   identify followers; the dominant arc is thicker with a bold framed label.
    The node list holds the rearmost line of each grid patch, the
    edges within `--max-angle` (default 45 degrees) of the plane across the
    aft direction, as an ANSA SET node list. `--aft X Y Z` states the nose to
@@ -435,6 +438,23 @@ optional.
 6. **Name the saved simulation** in a row's `GEOMETRY` column.
 
 ### Looking at a mesh and its marked points
+
+To inspect a refinement as it is produced, run:
+
+```text
+pyfs-matrix refine inputs/geometries/W1/W1_patches.obj 2 --visual-inspect
+```
+
+Or call `refine_mesh("inputs/geometries/W1/W1_patches.obj", 2, visual_inspect=True)`.
+Open `<level>.inspect.pdf` beside the resulting OBJ: each output family or
+component has a patches page and a directions page with the same colors and P/N
+labels as preparation. Recorded continuity changes are annotated.
+If refinement refuses after reading the source, open the
+`<stem>.refine-refusal.pdf` named at the end of the error. Its first page locates
+the affected families, nodes and points from structured refusal data; family
+pages follow. This diagnostic does not require the flag and creates no level
+folder. If drawing fails, the original refusal remains and a warning explains
+the drawing failure.
 
 `visual-inspect` writes a PDF of an OBJ or NASTRAN mesh: the top, front,
 side and isometric views as a technical drawing (one scale, aligned, a scale

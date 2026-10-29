@@ -196,7 +196,9 @@ def prepare_to_refine(
         from pyflightstream.workspace._visual_inspect import patches_pdf
 
         unit_name = obj_unit.upper() if cuts is not None or _nastran.is_nastran(source) else None
-        inspect = patches_pdf(targets[0], patches, governing, targets[3], mesh_unit=unit_name)
+        inspect = patches_pdf(
+            targets[0], patches, governing, targets[3], mesh_unit=unit_name, layouts=planned.layouts
+        )
     return PreparedMesh(
         targets[0], targets[1], targets[2], patches, tuple(sorted(governing)), inspect
     )
