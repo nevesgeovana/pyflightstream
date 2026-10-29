@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-10-29
+
 ### Added
 
 - Select a trimmed polar's moment and axis with `products.trim_moment` and
@@ -2635,7 +2637,8 @@ archives remain available for recovery. (no requirement: preserve records during
   seven public names of `pyflightstream.workspace`; `pyflightstream.workspace._degenerate`
   stays importable.
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.49.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.50.0...HEAD
+[0.50.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.49.0...v0.50.0
 [0.49.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.48.0...v0.49.0
 [0.48.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.47.0...v0.48.0
 [0.47.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.46.0...v0.47.0
