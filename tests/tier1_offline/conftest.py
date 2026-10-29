@@ -422,8 +422,7 @@ def pytest_make_collect_report(collector):
     outcome = yield
     report = outcome.get_result()
     if report.failed:
-        crash = getattr(report.longrepr, "reprcrash", None)
-        text = getattr(crash, "message", "") or ""
+        text = str(report.longrepr)
         marker = "No module named '"
         if marker in text:
             name = text.split(marker, 1)[1].split("'", 1)[0]
