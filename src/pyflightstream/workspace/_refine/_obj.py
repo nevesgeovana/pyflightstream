@@ -50,6 +50,63 @@ Faces = list[list[int]]
 DEFAULT_FAMILY = "default"
 
 
+def output_stems(names: Sequence[str]) -> dict[str, str]:
+    """Reserve level and family filenames, renaming collisions in source order (FR-3319)."""
+    suffixes = (".te.txt", ".fs.te.txt", ".nodes.txt")
+
+    def paths(name: str) -> set[str]:
+        return {f".{name}{suffix}".casefold() for suffix in suffixes}
+
+    occupied = {
+        ".obj",
+        ".te.txt",
+        ".nodes.te.txt",
+        ".nodes.txt",
+        ".refine.json",
+        ".audit.json",
+        ".inspect.pdf",
+        ".obj.boundaries.toml",
+    }
+    original = set().union(*(paths(name) for name in names))
+    stems = {}
+    for name in names:
+        stem = name
+        if paths(stem) & occupied:
+            stem = name + "_family"
+            number = 2
+            while paths(stem) & (occupied | original):
+                stem = f"{name}_family_{number}"
+                number += 1
+            warn(
+                f"refine family {name}: output stem {name!r} collides with another level "
+                f"output; using {stem!r} for its files",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
+        stems[name] = stem
+        occupied.update(paths(stem))
+    return stems
+
+
+def restore_node_names(paths: Sequence[Path], stems: dict[str, str]) -> None:
+    """Keep original family labels in node lists written under safe output stems."""
+    renamed = {stem: name for name, stem in stems.items() if name != stem}
+    if not renamed:
+        return
+    for path in paths:
+        if not path.name.endswith(".nodes.txt"):
+            continue
+        lines = []
+        for line in path.read_text(encoding="utf-8").splitlines(keepends=True):
+            node, separator, rest = line.partition(", ")
+            for stem, name in renamed.items():
+                if separator and rest.startswith(stem + ", "):
+                    line = node + separator + name + rest[len(stem) :]
+                    break
+            lines.append(line)
+        _textio.write_text(path, "".join(lines))
+
+
 @dataclass
 class ObjMesh:
     """One OBJ: vertices, families in file order, the header comments and the family keyword."""

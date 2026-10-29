@@ -1,5 +1,12 @@
 # Mesh input reference
 
+Per-family trailing-edge outputs use a renamed stem when their filenames would
+collide with level-wide files or another family's outputs. For example, family
+`nodes` uses `nodes_family`, or `nodes_family_2` if the former is already used.
+The operation warns and records the mapping in `refine.json` under
+`renamed_family_outputs`. OBJ family names remain unchanged; generated
+boundaries declarations point to the renamed files.
+
 The inventory command writes `<mesh>.obj.boundaries.toml` or
 `<mesh>.fsm.boundaries.toml`, according to its input. An existing OBJ inventory
 is never rewritten, including with `--overwrite`. The marking declaration

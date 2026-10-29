@@ -30,9 +30,65 @@ from pyflightstream.workspace._refine._config import (
     level_tag,
     tag_selection,
 )
-from tests.p0380_mesh_fixtures import Composite, face_coordinates, read_mesh, write_source
+from tests.p0380_mesh_fixtures import (
+    Composite,
+    face_coordinates,
+    read_mesh,
+    sheet_with_strips,
+    write_source,
+)
 
 COLUMNS, ROWS = 4, 2
+
+
+@pytest.mark.parametrize("names", [("nodes", "other"), ("nodes", "nodes_family"), ("A", "A.fs")])
+@pytest.mark.parametrize("declared", [True, False])
+def test_p0500_family_output_stems_do_not_collide(tmp_path, names, declared):
+    """Refine two sheets without overwriting aggregate or another family's edge files."""
+    from pyflightstream.workspace._refine._obj import read_te
+
+    one = sheet_with_strips(())
+    offset = np.array([0, 5, 0])
+    mesh = Composite(
+        np.vstack([one.verts, one.verts + offset]),
+        {
+            names[0]: one.families["G"],
+            names[1]: [[v + len(one.verts) for v in f] for f in one.families["G"]],
+        },
+        np.vstack([one.te, one.te + offset]),
+        {},
+    )
+    source = write_source(tmp_path / "src", "wing", mesh, boundaries=declared)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", PyflightstreamWarning)
+        try:
+            level = refine_mesh(source, 1)
+        except InputArtifactError as error:
+            pytest.fail(f"A colliding family output must be renamed, not refused: {error}")
+    record = json.loads(level.obj.with_suffix(".refine.json").read_text(encoding="utf-8"))
+    renamed = record.get("renamed_family_outputs", {})
+    assert renamed, "The collision must be resolved and recorded"
+    assert any("output stem" in str(w.message) for w in caught)
+    assert list(read_mesh(level.obj)[1]) == list(names)
+    assert len({p.name.casefold() for p in level.files}) == len(level.files)
+    points = []
+    for index, name in enumerate(names):
+        stem = renamed.get(name, name)
+        target = level.folder / f"{level.obj.stem}.{stem}.te.txt"
+        _, own = read_te(target)
+        assert len(own)
+        assert np.all(own[:, 1] < 3) if index == 0 else np.all(own[:, 1] > 4)
+        points.extend(map(tuple, own))
+        assert (level.folder / f"{level.obj.stem}.{stem}.fs.te.txt").is_file()
+        assert (level.folder / f"{level.obj.stem}.{stem}.nodes.txt").is_file()
+        listing = (level.folder / f"{level.obj.stem}.{stem}.nodes.txt").read_text()
+        assert all(row.split(", ")[1] == name for row in listing.splitlines()[1:])
+        if not declared:
+            side = tomllib.loads(level.obj.with_suffix(".obj.boundaries.toml").read_text())
+            assert side["trailing_edges"][name]["file"] == target.name
+    _, combined = read_te(level.obj.with_suffix(".te.txt"))
+    assert sorted(points) == sorted(map(tuple, combined))
+    assert level.obj.with_suffix(".nodes.txt").read_text().startswith("#")
 
 
 def _continuity_source(tmp_path, *, shape="side", factor=2, keep=False):

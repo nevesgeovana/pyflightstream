@@ -126,6 +126,12 @@ nothing.
 
 ### Choosing the factors
 
+A family named `nodes` is accepted. Its trailing-edge files use a stem such as
+`nodes_family` to keep them separate from the combined `<level>.nodes.te.txt`
+and `<level>.nodes.txt` outputs. Read the warning or `renamed_family_outputs`
+in `refine.json` for the chosen stem. Existing family stems are reserved before
+choosing a replacement, so a family already named `nodes_family` keeps its files.
+
 The FACTOR multiplies the number of intervals of a structured grid along each
 of its two index directions (2 doubles them, 0.5 halves them) and divides the
 target edge length of any other family. A study of three levels is three

@@ -1088,7 +1088,13 @@ def _warn_stale_declarations(work: _Work, mesh: ObjMesh, folder: Path) -> None:
 
 
 def _quad_te_files(
-    work: _Work, folder: Path, verts: Points, faces: dict[str, Faces], te: Points
+    work: _Work,
+    folder: Path,
+    verts: Points,
+    faces: dict[str, Faces],
+    te: Points,
+    *,
+    stems: Mapping[str, str],
 ) -> list[Path]:
     """Write the quad families' trailing edges of the level, all and per family, in two formats.
 
@@ -1109,8 +1115,10 @@ def _quad_te_files(
         near = index.query(mid)[0] < work.te_tolerance
         on = {(int(a), int(b)) for (a, b), hit in zip(edges, near, strict=True) if hit}
         if on:
-            found[name] = on
-    return write_level_trailing_edges(verts, found, folder, folder.name, unit=work.te_unit)
+            found[stems[name]] = on
+    written = write_level_trailing_edges(verts, found, folder, folder.name, unit=work.te_unit)
+    _obj.restore_node_names(written, dict(stems))
+    return written
 
 
 def _write(
@@ -1120,6 +1128,7 @@ def _write(
     stem = folder.name
     if work.te_export is not None:
         te = _lines.on_exported(work, te)
+    stems = _obj.output_stems(list(faces)) if len(te) else {n: n for n in faces}
     mesh = ObjMesh(
         verts, faces, list(work.mesh.header), work.mesh.family_tag, _source_text(work, verts)
     )
@@ -1138,7 +1147,7 @@ def _write(
             points = te[distance < work.te_tolerance]
             if len(points):
                 own[name] = _obj.write_te(
-                    folder / f"{stem}.{name}{TE_SUFFIX}", work.te_unit, points
+                    folder / f"{stem}.{stems[name]}{TE_SUFFIX}", work.te_unit, points
                 )
     # The trailing edges a [[perimeter]] list exports are declared per component in the
     # level's boundaries file, for the user to type before mark-boundaries, unless the
@@ -1157,13 +1166,17 @@ def _write(
     if not listed:
         _warn_stale_declarations(work, mesh, folder)
     written += own.values()
-    written += _quad_te_files(work, folder, verts, faces, te)
+    written += _quad_te_files(work, folder, verts, faces, te, stems=stems)
     record = folder / f"{stem}.refine.json"
+    data = _record(
+        work, stem, {n: len(fs) for n, fs in faces.items()}, work.te_listed or bool(len(te))
+    )
+    renamed = {n: s for n, s in stems.items() if n != s}
+    if renamed:
+        data["renamed_family_outputs"] = renamed
     _textio.write_json(
         record,
-        _record(
-            work, stem, {n: len(fs) for n, fs in faces.items()}, work.te_listed or bool(len(te))
-        ),
+        data,
         indent=1,
     )
     written.append(record)

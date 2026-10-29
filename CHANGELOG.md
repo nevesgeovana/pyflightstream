@@ -7,6 +7,12 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- Refinement warns and renames colliding family output stems, including `nodes`,
+  without overwriting combined trailing edges or another family's files. The
+  rename is recorded in `refine.json`; OBJ family names stay unchanged (FR-3319).
+
 ## [0.49.0] - 2026-10-29
 
 ### Fixed
