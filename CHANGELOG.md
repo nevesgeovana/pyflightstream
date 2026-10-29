@@ -7,6 +7,13 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Rotorless `unsteady` rows place every declared rotor's RMRP beside its hub.
+  An explicit `RPM` turns the frame alone, signed by the rotor block, with no
+  moving boundary; absent RPM keeps it fixed with one campaign warning naming
+  the rows. Frame entries are placed in both cases (FR-3350, FR-3351).
+
 ## [0.49.0] - 2026-10-29
 
 ### Fixed

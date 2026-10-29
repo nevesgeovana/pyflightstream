@@ -205,7 +205,7 @@ def test_p0461_rotorless_unsteady_row_places_every_declared_hub(tmp_path):
     text = _only(rendered)
     names = text.splitlines()
     assert names.count("NAME PORT_SMRP") == 1 and names.count("NAME STARBOARD_SMRP") == 1
-    assert "NAME PORT_RMRP" not in names and "NAME STARBOARD_RMRP" not in names
+    assert "NAME PORT_RMRP" in names and "NAME STARBOARD_RMRP" in names
     root = _tier3_copy(tmp_path / "tour")
     row = next(line for line in TOUR.read_text().splitlines() if line.startswith("1022 "))
     with warnings.catch_warnings():
@@ -285,6 +285,62 @@ def test_p0470_r6_partly_powered_row_places_the_inactive_rotor_hub(tmp_path):
     assert text.splitlines().count("UNSTEADY_SOLVER_NEW_FLUID_PLOT") == 2
     _, idle, _ = _plan(tmp_path / "idle", _probe("STARBOARD_SMRP"), [(7104, "steady", _TWIN)])
     assert _placement(text, "STARBOARD_SMRP") == _placement(_only(idle), "STARBOARD_SMRP")
+
+
+@pytest.mark.requirement("FR-3350")
+@pytest.mark.parametrize("version", ["26.124", "26.125"])
+def test_p0500_rotorless_rmrp_motion_has_no_boundaries(tmp_path, version):
+    """RPM: 600 on an unsteady twin row turns frames alone (FR-3350)."""
+    root = _tier3_copy(tmp_path)
+    (root / "inputs/executables.toml").write_text(
+        f'"{version}" = {{path = "FlightStream.exe", version = "{version}"}}\n',
+        encoding="utf-8",
+    )
+    (root / "inputs/pproc/p061.toml").write_text(
+        _probe("PORT_RMRP", kind="instantaneous"), encoding="utf-8"
+    )
+    row = _row(7501, "unsteady", *_TWIN, "p061").replace("26.120", version)
+    row += " / RPM: 600"
+    plan, rendered = _rendered(root, _one_row_matrix(root, "frames.fs", row))
+    assert not plan.blocked, plan.summary()
+    text = _only(rendered)
+    for motion, alias, sign in [(1, "PORT", 1), (2, "STARBOARD", -1)]:
+        assert f"NAME {alias}_RMRP" in text
+        hub = _frame_index(text, f"{alias}_SMRP")
+        moving = _frame_index(text, f"{alias}_RMRP")
+        assert moving == hub + 1
+        assert _placement(text, f"{alias}_RMRP") == _placement(text, f"{alias}_SMRP")
+        block = (
+            f"CREATE_NEW_MOTION ROTARY\nSET_MOTION_BOUNDARIES {motion} 0\n"
+            f"SET_MOTION_MOVING_FRAMES {motion} 1\n{moving}\n\n"
+            f"SET_MOTION_COORDINATE_SYSTEM {motion} {hub}\n"
+            f"SET_MOTION_ROTOR_AXIS {motion} X\n"
+            f"SET_MOTION_ROTOR_RPM {motion} {sign * 600.0}\n"
+        )
+        assert block in text
+        assert text.index(block) < text.index("SET_SOLVER_UNSTEADY")
+    assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" in text
+
+
+@pytest.mark.requirement("FR-3351")
+def test_p0500_rotorless_fixed_rmrp_warns_once_per_campaign(tmp_path):
+    """Absent RPM places the RMRP and its entries; one warning names both rows."""
+    plan, rendered, said = _plan(
+        tmp_path,
+        _probe("PUSHER_RMRP", kind="instantaneous"),
+        [(7501, "unsteady", _PUSHER), (7502, "unsteady", _PUSHER)],
+    )
+    assert not plan.blocked, plan.summary()
+    fixed = [message for message in said if "placed fixed: the row states no RPM" in message]
+    assert len(fixed) == 1, said
+    assert "7501" in fixed[0] and "7502" in fixed[0]
+    assert not _ignored(said, "PUSHER_RMRP")
+    for text in rendered.values():
+        assert "NAME PUSHER_RMRP" in text
+        assert _frame_index(text, "PUSHER_RMRP") == _frame_index(text, "PUSHER_SMRP") + 1
+        assert _placement(text, "PUSHER_RMRP") == _placement(text, "PUSHER_SMRP")
+        assert "CREATE_NEW_MOTION" not in text
+        assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" in text
 
 
 _SURFACE_PROBE = (

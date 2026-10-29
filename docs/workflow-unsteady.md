@@ -14,10 +14,23 @@ is refused on it.** `DELTA_THETA` and `REVOLUTIONS` are not a clock: they
 become one by dividing by a rotor speed, and a run that turns nothing has
 none. The refusal says so and does not offer you a rotor speed, because a
 speed stated to satisfy it would set the physical time step of a run that
-emits no motion. A row carrying `RPM`, `ADVANCE_RATIO`, `RPM_SIGN`,
+turns no blades. A row carrying `RPM_SIGN`,
 `ROTOR_AXIS`, `ROTOR_ORIGIN` or `MOVING_BOUNDARIES` is refused for the
 same reason: nothing would read them, and the run would be recorded as
 though they had been honoured.
+
+When the reference declares rotor blocks, every block places `<ALIAS>_SMRP`
+and `<ALIAS>_RMRP` at the hub, on its axes. An explicit `RPM` magnitude turns
+only each RMRP, signed by that block's `rpm_sign`, with no boundary attached
+to the motion. For example, `DELTA_TIME: 0.01 / TIME_ITERATIONS: 12 /
+LAST_ITERS_AVG: 6 / RPM: 600` turns the frames at 600 rev/min while the
+surfaces stay fixed. The time step still comes from `DELTA_TIME`.
+
+Without `RPM`, each RMRP stays at the SMRP pose and its entries are placed.
+One campaign warning names these rows: "placed fixed: the row states no RPM".
+References without rotor blocks retain their existing behaviour. The
+zero-boundary motion was measured on builds 26.124 and 26.125; it does not
+create blade frames or turn the geometry.
 
 **And one refusal reaches an `unsteady` row without its author touching
 the row at all.** A solver preset stating a wake termination in

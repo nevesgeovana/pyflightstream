@@ -95,7 +95,11 @@ def _refuse_rotor_keys_on_a_rotorless_run(case: SimCase) -> None:
     Raised BEFORE the first emission, so a refusal leaves the script
     exactly as it was.
     """
-    found = sorted(key for key in ROTORLESS_REFUSED_KEYS if _variable(case, key) is not None)
+    found = sorted(
+        key
+        for key in ROTORLESS_REFUSED_KEYS
+        if _variable(case, key) is not None and not (key == "RPM" and case.rotors)
+    )
     if not found:
         return
     raise CampaignConfigError(

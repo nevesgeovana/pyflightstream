@@ -839,11 +839,16 @@ def noting_the_unplaced_rotor_frames() -> Iterator[None]:
     not_taken: _UnplacedNoted = {}
     token = _UNPLACED.set(noted)
     other = _NOT_TAKEN.set(not_taken)
+    fixed: list[str] = []
+    fixed_token = _FIXED_ROTOR_FRAMES.set(fixed)
     try:
         yield
     finally:
         _UNPLACED.reset(token)
         _NOT_TAKEN.reset(other)
+        _FIXED_ROTOR_FRAMES.reset(fixed_token)
+    if fixed:
+        _warn_fixed_rotor_frames(fixed)
     for (artifact, entry, frame), rows in noted.items():
         warn(
             f"{artifact} {entry} cites {frame!r}, a rotor frame these rows do not "
@@ -868,6 +873,38 @@ def noting_the_unplaced_rotor_frames() -> Iterator[None]:
 _NOT_TAKEN: ContextVar[_UnplacedNoted | None] = ContextVar(
     "pyflightstream_entries_a_row_cannot_take", default=None
 )
+
+_FIXED_ROTOR_FRAMES: ContextVar[list[str] | None] = ContextVar(
+    "pyflightstream_fixed_rotor_frames", default=None
+)
+
+
+def note_fixed_rotor_frames(row: str) -> None:
+    """Collect a rotorless row whose RMRP frames are fixed for absent RPM (FR-3351).
+
+    Parameters
+    ----------
+    row : str
+        Simulation identifier of the row whose rotor frames stay fixed.
+    """
+    noted = _FIXED_ROTOR_FRAMES.get()
+    if noted is None:
+        _warn_fixed_rotor_frames([row])
+    elif row not in noted:
+        noted.append(row)
+
+
+def _warn_fixed_rotor_frames(rows: Sequence[str]) -> None:
+    """Name all rows with fixed RMRP frames in one campaign warning."""
+    warn(
+        "Rotor RMRP frames placed fixed: the row states no RPM. Rows: "
+        + ", ".join(repr(row) for row in rows)
+        + ". Each RMRP retains its SMRP pose; entries in that frame are placed.",
+        PyflightstreamWarning,
+        stacklevel=_THE_PLANS_CALLER,
+    )
+
+
 #: How one pproc artifact keeps serving every row.
 _ONE_PPROC_FOR_EVERY_ROW = (
     "Keep the entry in the one pproc artifact: it applies on the rows that can take it "

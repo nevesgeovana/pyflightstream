@@ -52,8 +52,8 @@ CREATE_NEW_MOTION:
     "26.101": {status: documented, note: "FSM-26.101 p.331, the first edition naming the type ROTARY"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "FSM-26.123 p.337, unchanged from FSM-26.122 p.337"}
-    "26.124": {status: documented, note: "FSM-26.124 p.337, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "FSM-26.125 p.344, unchanged from FSM-26.124 p.337"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml", note: "FSM-26.124 p.337. Zero-boundary ROTARY motion measured 2026-10-29 in the cited report from rmrp-probe: RMRP turns about SMRP with geometry fixed."}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml", note: "FSM-26.125 p.344. Zero-boundary ROTARY motion measured 2026-10-29 in the cited report from rmrp-probe: RMRP turns about SMRP with geometry fixed."}
   notes: >
     Rotary motion is the blade-resolved alternative to the actuator
     disc surrogate (FSM-26.120 p.234); it requires the unsteady solver.
@@ -97,12 +97,14 @@ SET_MOTION_BOUNDARIES:
     "26.101": {status: documented, note: "FSM-26.101 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "FSM-26.123 p.337, unchanged from FSM-26.122 p.337"}
-    "26.124": {status: documented, note: "FSM-26.124 p.337, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "FSM-26.125 p.344, unchanged from FSM-26.124 p.337"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml", note: "FSM-26.124 p.337. Zero-boundary ROTARY motion measured 2026-10-29 in the cited report from rmrp-probe: RMRP turns about SMRP with geometry fixed."}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml", note: "FSM-26.125 p.344. Zero-boundary ROTARY motion measured 2026-10-29 in the cited report from rmrp-probe: RMRP turns about SMRP with geometry fixed."}
   notes: >
     Assigns geometry boundaries to the motion; the comma-separated
     index line follows. NUM_BOUNDARIES -1 selects all boundaries and
-    takes no index line.
+    takes no index line. NUM_BOUNDARIES 0 with an empty list takes no
+    index line and attaches no boundary; the frame-only ROTARY motion
+    was measured on 26.124 and 26.125 in the rmrp-probe record cited by these version rows.
 
 SET_MOTION_MOVING_FRAMES:
   layout: payload_lines
@@ -128,8 +130,8 @@ SET_MOTION_MOVING_FRAMES:
     "26.101": {status: documented, note: "FSM-26.101 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "FSM-26.123 p.337, unchanged from FSM-26.122 p.337"}
-    "26.124": {status: documented, note: "FSM-26.124 p.337, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "FSM-26.125 p.344, unchanged from FSM-26.124 p.337"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml", note: "FSM-26.124 p.337. Zero-boundary ROTARY motion measured 2026-10-29 in the cited report from rmrp-probe: RMRP turns about SMRP with geometry fixed."}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml", note: "FSM-26.125 p.344. Zero-boundary ROTARY motion measured 2026-10-29 in the cited report from rmrp-probe: RMRP turns about SMRP with geometry fixed."}
   notes: >
     Attaches user-defined local frames to the motion; -1 selects all
     local coordinate systems and takes no index line.
@@ -155,8 +157,8 @@ SET_MOTION_COORDINATE_SYSTEM:
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.337, unchanged from FSM-26.122 p.337"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.337, the FSM-26.123 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.344, unchanged from FSM-26.124 p.337"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.337, the FSM-26.123 file, carried from 26.123. Zero-boundary ROTARY motion corroborated 2026-10-29 in reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml, rmrp-probe: the RMRP turns about the stated SMRP with geometry fixed."}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.344, unchanged from FSM-26.124 p.337. Zero-boundary ROTARY motion corroborated 2026-10-29 in reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml, rmrp-probe: the RMRP turns about the stated SMRP with geometry fixed."}
 
 SET_MOTION_START_TIME:
   layout: inline
@@ -212,8 +214,8 @@ SET_MOTION_ROTOR_AXIS:
     "26.101": {status: documented, note: "FSM-26.101 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "FSM-26.123 p.338, unchanged from FSM-26.122 p.338"}
-    "26.124": {status: documented, note: "FSM-26.124 p.338, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml", note: "FSM-26.124 p.338. Zero-boundary ROTARY motion measured 2026-10-29 in the cited report from rmrp-probe: RMRP turns about SMRP with geometry fixed."}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml", note: "FSM-26.125 p.345. Zero-boundary ROTARY motion measured 2026-10-29 in the cited report from rmrp-probe: RMRP turns about SMRP with geometry fixed."}
 
 SET_MOTION_ROTOR_RPM:
   layout: inline
@@ -231,8 +233,8 @@ SET_MOTION_ROTOR_RPM:
     "26.101": {status: documented, note: "FSM-26.101 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "FSM-26.123 p.338, unchanged from FSM-26.122 p.338"}
-    "26.124": {status: documented, note: "FSM-26.124 p.338, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml", note: "FSM-26.124 p.338. Zero-boundary ROTARY motion measured 2026-10-29 in the cited report from rmrp-probe: RMRP turns about SMRP with geometry fixed."}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml", note: "FSM-26.125 p.345. Zero-boundary ROTARY motion measured 2026-10-29 in the cited report from rmrp-probe: RMRP turns about SMRP with geometry fixed."}
 
 SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
   layout: inline
@@ -659,7 +661,7 @@ SET_MOTION_CUSTOM_TABLE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "FSM-26.121 p.336, same grammar as 26.120"}
     "26.123": {status: documented, note: "FSM-26.123 p.338, unchanged from FSM-26.122 p.338"}
-    "26.124": {status: documented, note: "FSM-26.124 p.338, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: documented, note: "FSM-26.124 p.338. Zero-boundary ROTARY motion measured 2026-10-29 in the cited report from rmrp-probe: RMRP turns about SMRP with geometry fixed."}
     "26.125": {status: documented, note: "FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
   notes: >
     Reads a motion from a table in a text file, the path on the line
