@@ -1937,9 +1937,9 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 
 <details id="pyflightstream.workspace._refine._blocks"><summary><code>pyflightstream.workspace._refine._blocks</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
-<li>&rarr; <a href="#pyflightstream.workspace._refine._config">pyflightstream.workspace._refine._config</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._geometry">pyflightstream.workspace._refine._geometry</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._grid">pyflightstream.workspace._refine._grid</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._layout">pyflightstream.workspace._refine._layout</a> (deferred)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._refine._config"><summary><code>pyflightstream.workspace._refine._config</code></summary><ul>
@@ -1956,6 +1956,14 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._geometry">pyflightstream.workspace._refine._geometry</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
+</ul></details>
+
+<details id="pyflightstream.workspace._refine._layout"><summary><code>pyflightstream.workspace._refine._layout</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._blocks">pyflightstream.workspace._refine._blocks</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._config">pyflightstream.workspace._refine._config</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._geometry">pyflightstream.workspace._refine._geometry</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._refine._grid">pyflightstream.workspace._refine._grid</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.workspace._refine._level"><summary><code>pyflightstream.workspace._refine._level</code></summary><ul>
