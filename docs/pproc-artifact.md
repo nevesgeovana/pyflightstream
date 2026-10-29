@@ -100,6 +100,8 @@ sections = true # one table per point from its sectional loads export
 plots = true # one table per unsteady point from its plots export
 custom_polar_format = false # beside each polar table, the text file the reference tooling opens
 trimmed_polar = false # beside each polar table, its row at zero pitching moment
+trim_moment = "CMB25" # numeric column whose zero defines trim
+trim_axis = "ALPHA" # numeric column ordering the trim search
 settings_codebook = true # per matrix, the numeric settings table of every point and its codebook
 installed_frame = [] # "probes" and/or "inflow": copies mirrored through y = 0
 
@@ -722,6 +724,42 @@ fewer than two points, gets no trimmed polar, and the post names it under
 `skipped` in `products.json` with the moment range it read. Off by default.
 `pyflightstream.post.write_trimmed_polar` writes the same file from any polar
 table.
+
+`products.trim_moment` and `products.trim_axis` select the numeric columns for
+the trim; the description above uses their defaults, `"CMB25"` and `"ALPHA"`.
+An unavailable column warns and skips that trim while leaving its polar written.
+
+### Interpolated and re-parameterized polars
+
+Sample a finished sweep at new coordinates, including lift in place of angle:
+
+```toml
+[products]
+trimmed_polar = true
+trim_moment = "CMB25"
+trim_axis = "ALPHA"
+
+[[polar_at]]
+axis = "ALPHA"
+values = [-1, 9]
+
+[[polar_at]]
+axis = "CLB"
+values = [0.1]
+name = "lift"
+```
+
+Each entry writes `<polar stem>_at_<name>.csv`; `name` defaults to the axis
+lower-cased. Its first columns are `POL` and the selected axis. Every numeric
+column is linearly interpolated between adjacent source rows, and text survives
+only where both rows agree. Outside values and multiple brackets on a
+non-monotonic axis produce NA rows and one warning per requested value. The
+requested axis value and common polar identity remain available on an NA row.
+Nothing is extrapolated. Sanitized filename collisions warn and skip the
+second entry. The manifest records kind `interpolated`, axis and values.
+See the [definition](definitions/the-axes-of-a-steady-polar.md#the-interpolated-polar)
+for exact hits, missing cells and non-monotonic axes. The finished-sweep example
+is exercised by `test_p0500_polar_at_is_reachable_and_names_its_provenance`.
 
 ### Numerical uncertainty from a refinement study
 

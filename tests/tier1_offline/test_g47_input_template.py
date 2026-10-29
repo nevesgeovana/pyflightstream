@@ -572,6 +572,7 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
             e for f in data for p in f.get("probes", []) for e in p.get("lattices", [])
         ],
         "`[products]`": [f.get("products", {}) for f in data],
+        "`[[polar_at]]`": [entry for f in data for entry in f.get("polar_at", [])],
         "`[moment_point]`": [f.get("moment_point", {}) for f in data],
         "`[body_axes]`": [f.get("body_axes", {}) for f in data],
         # FR-980 (0.39.0): the study's vocabulary, a requirement that adds the table.

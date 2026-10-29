@@ -7,6 +7,17 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Select a trimmed polar's moment and axis with `products.trim_moment` and
+  `products.trim_axis`; defaults preserve existing trim tables. Unavailable
+  columns warn and skip the trim (FR-3340 to FR-3342).
+- Sample or re-parameterize finished polars with `[[polar_at]]`, selecting a
+  numeric axis and values. Every numeric column is interpolated without
+  extrapolation; ambiguous and outside values become warned NA rows. Product
+  manifests retain axis and values, and colliding names warn and skip
+  (FR-3343 to FR-3349).
+
 ## [0.49.0] - 2026-10-29
 
 ### Fixed

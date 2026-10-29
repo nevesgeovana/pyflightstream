@@ -334,12 +334,19 @@ sections = true
 plots = true
 custom_polar_format = false
 trimmed_polar = false  # beside each polar table, its row at zero pitching moment
+trim_moment = "CMB25"  # numeric column whose zero defines trim
+trim_axis = "ALPHA"  # numeric column ordering the trim search
 # Raw native integrals at declared cuts; the distinct velocity profile is refused where unavailable.
 boundary_layer_integrals = false
 boundary_layer_velocity_profile = false
 superfile_format = "csv"
 settings_codebook = true
 installed_frame = []  # "probes" and/or "inflow": copies mirrored through y = 0
+
+[[polar_at]]  # interpolate every numeric column without extrapolating
+axis = "CLB"  # re-parameterize by a numeric column of the finished polar
+values = [0.1, 0.2]  # outside or multiply bracketed values produce NA rows
+name = "lift"  # optional; default is the axis lower-cased
 """
 
 #: The reason a key of a left-out table is left out: its table is, for the reason above.

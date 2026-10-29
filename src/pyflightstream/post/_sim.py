@@ -111,8 +111,6 @@ from pyflightstream.post.point_tables import (
 )
 from pyflightstream.post.polar import POLAR_COLUMNS as POLAR_COLUMNS
 from pyflightstream.post.polar import (
-    TRIM_ANGLE_COLUMN,
-    TRIM_MOMENT_COLUMN,
     TRIM_SUFFIX,
     PolarPoint,
     drag_columned_rows,
@@ -123,6 +121,7 @@ from pyflightstream.post.polar import (
     selected_axes,
     swept_axes,
     swept_polar_file_name,
+    write_interpolated_polar,
     write_trimmed_polar,
 )
 from pyflightstream.post.provenance import refuse_an_existing_product as _refuse_an_existing_product
@@ -743,6 +742,18 @@ def _group_polar(
     ctx.add(target, dict(entry))
     if ctx.pproc.products.trimmed_polar:
         _trimmed_polar(ctx, target, entry)
+    for sample in ctx.pproc.polar_at:
+        interpolated = ctx.target(target.with_name(f"{target.stem}_at_{sample.output_name}.csv"))
+        try:
+            write_interpolated_polar(target, interpolated, axis=sample.axis, values=sample.values)
+        except ProductError as error:
+            ctx.skipped[interpolated.relative_to(ctx.out).as_posix()] = str(error)
+            warn(str(error), PyflightstreamWarning, stacklevel=2)
+        else:
+            ctx.add(
+                interpolated,
+                {**entry, "kind": "interpolated", "axis": sample.axis, "values": sample.values},
+            )
     if ctx.pproc.products.custom_polar_format:
         # PFS-2014.01.01: the same rows, a second time, in the
         # format the existing tooling opens, beside the table.
@@ -789,14 +800,16 @@ def _trimmed_polar(ctx: SimContext, polar: Path, entry: Mapping[str, object]) ->
     # The destination is prepared first, by the post's archive rule; a refusal then
     # writes nothing and is named, and the retirement removes a stale file left there.
     target = ctx.target(trim)
+    moment, axis = ctx.pproc.products.trim_moment, ctx.pproc.products.trim_axis
     try:
-        write_trimmed_polar(polar, target, overwrite=True)
+        write_trimmed_polar(polar, target, moment=moment, angle=axis, overwrite=True)
     except ProductError as error:
         ctx.skipped[relative] = f"the trimmed polar is not written: {error}"
+        warn(ctx.skipped[relative], PyflightstreamWarning, stacklevel=2)
         return
     ctx.add(
         target,
-        {**entry, "trimmed": {"moment": TRIM_MOMENT_COLUMN, "angle": TRIM_ANGLE_COLUMN}},
+        {**entry, "trimmed": {"moment": moment, "angle": axis}},
     )
 
 
