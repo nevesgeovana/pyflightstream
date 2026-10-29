@@ -884,7 +884,7 @@ def _averaging_window(
     if stated is None:
         return None
     key, value = stated
-    if steps is None and key in revolution_keys_without_a_clock(case):
+    if key in revolution_keys_without_a_clock(case):
         return None
     if steps is None:
         raise CampaignConfigError(

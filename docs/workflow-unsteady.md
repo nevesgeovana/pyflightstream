@@ -30,7 +30,9 @@ length and average the same last 36. Nothing turns but the clock: no geometry
 moves and no motion boundary is added; the RMRP frames turn only at an
 explicit `RPM`, as below.
 
-Without a rotor speed, a revolution key (`EXPORT_UNSTEADY_AFTER_REV`,
+Without a declared rotor and its speed (a row whose reference declares no
+rotor counts no revolutions, even on an `ADVANCE_RATIO` azimuthal clock), a
+revolution key (`EXPORT_UNSTEADY_AFTER_REV`,
 `EXPORT_UNSTEADY_LAST_REV`, `LAST_REVS_AVG`) warns as not applicable, naming
 `ADVANCE_RATIO` and `RPM`, and is skipped; the iteration keys are unchanged. A
 row carrying `RPM_SIGN`,

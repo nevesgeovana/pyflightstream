@@ -517,3 +517,34 @@ def test_p0500_revolution_keys_without_a_clock_warn_and_skip(tmp_path):
     with option_context("warning_refusals", True), pytest.raises(CampaignConfigError) as refused:
         build_script(clockless, Script("26.124"))
     assert "'ADVANCE_RATIO: <J>'" in str(refused.value)
+
+
+@pytest.mark.requirement("FR-3360")
+@pytest.mark.requirement("FR-3363")
+def test_rel2_001_a_row_declaring_no_rotor_counts_no_revolutions(tmp_path):
+    """REL2-001: J with an azimuthal clock on a rotorless reference is no rotor clock."""
+    from pyflightstream._errors import NotApplicableWarning
+    from pyflightstream.cases.workflows import reduction_windows, unsteady_export_threshold
+
+    cell = "DELTA_THETA: 20 / REVOLUTIONS: 3 / EXPORT_UNSTEADY_AFTER_REV: 2 / LAST_REVS_AVG: 2"
+    plan, cases, caught = _point_cases(
+        tmp_path,
+        [(7621, "unsteady", _WING, cell)],
+        "MACH:0.1, REmi:2.3, ALPHA:sweep, ADVANCE_RATIO:1.3",
+        _LAST_REVS_FARFIELD,
+    )
+    assert not plan.blocked, plan.summary()
+    case = cases["7621"]
+    assert not case.rotors
+    skipped = [
+        str(item.message) for item in caught if issubclass(item.category, NotApplicableWarning)
+    ]
+    for key in ("EXPORT_UNSTEADY_AFTER_REV", "LAST_REVS_AVG"):
+        assert any(f"states {key}" in message for message in skipped), skipped
+    threshold = unsteady_export_threshold(case, version="26.124")
+    assert threshold is None or threshold.stated_form != "revolutions", threshold
+    # Two revolutions of 18 steps would be steps 19 to 54; the stated key is not counted.
+    average = reduction_windows(case)["time_average"]
+    assert average["windows"] != [[19, 54]]
+    assert "LAST_REVS_AVG" not in average["window_from"]
+    assert "7621" in _farfield_windows_skipped(plan)

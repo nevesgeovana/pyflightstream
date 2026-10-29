@@ -70,7 +70,11 @@ from ._rows import (
     _variable,
     continuation_of,
 )
-from ._timing import POWER_OFF_CLOCK_REMEDY, unsteady_time_stepping
+from ._timing import (
+    POWER_OFF_CLOCK_REMEDY,
+    power_off_steps_per_revolution,
+    unsteady_time_stepping,
+)
 from ._vocabulary import ROTOR_ORIGIN_VARIABLE
 
 __all__ = [
@@ -181,7 +185,7 @@ def _entry_window(spec: FarfieldSpec, case: SimCase) -> str:
             # that rotor's speed, on its power-on twin's clock (PFS-2184.10).
             remedy = f". {POWER_OFF_CLOCK_REMEDY.rstrip('.')}"
             try:
-                per_revolution = unsteady_time_stepping(case).steps_per_revolution
+                per_revolution = power_off_steps_per_revolution(case)
             except CampaignConfigError:
                 per_revolution = None
         if per_revolution is None:
