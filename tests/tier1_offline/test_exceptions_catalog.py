@@ -165,7 +165,6 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "SixDofSetupError": ValueError,
         "IncompleteOutputError": ValueError,
         "InputArtifactError": RuntimeError,
-        "InputKeyError": KeyError,
         "InputTypeError": TypeError,
         "InputValueError": ValueError,
         "LoadsNotFoundError": ValueError,

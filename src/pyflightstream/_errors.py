@@ -247,18 +247,6 @@ class InputValueError(PyflightstreamError, ValueError):
     """
 
 
-class InputKeyError(PyflightstreamError, KeyError):
-    """A name given by the user is not known; the message names the cause and the remedy.
-
-    The family's home for a refusal that had been a bare ``KeyError``; ``KeyError``
-    stays a base.
-    """
-
-    def __str__(self) -> str:
-        """Render the message as prose (KeyError would quote it)."""
-        return str(self.args[0]) if self.args else ""
-
-
 class InputTypeError(PyflightstreamError, TypeError):
     """An argument given by the user has the wrong type; the message names the remedy.
 
