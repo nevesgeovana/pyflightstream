@@ -157,7 +157,7 @@ def prepare_to_refine(
     _obj.write_obj(out, targets[0], note)
     _textio.write_text(targets[2], "\n".join(["#  Id, Name, X , Y, Z", *rows]) + "\n")
     te_families = [n for n, ps in patches.items() if any(p in listed for p in ps)]
-    governing, followers = _governing(obj.verts, families, kinds)
+    governing, followers, excluded = _governing(obj.verts, families, kinds)
     _textio.write_text(
         targets[1],
         _toml(
@@ -168,6 +168,7 @@ def prepare_to_refine(
             te_families,
             governing=governing,
             followers=followers,
+            excluded=excluded,
         ),
     )
     inspect = None
@@ -465,6 +466,7 @@ def _toml(
     *,
     governing: set[str] | frozenset[str] = frozenset(),
     followers: set[str] | frozenset[str] = frozenset(),
+    excluded: dict[str, tuple[str, str]] | None = None,
 ) -> str:
     """Return the refine file text: one table per patch, the components and the perimeter."""
     lines = [
@@ -481,6 +483,9 @@ def _toml(
             if patch in followers:
                 continue  # undeclared: grid_auto, it follows the governing patch of its group
             method = "grid" if kinds[patch] == "grid" else "remesh"
+            if excluded and patch in excluded:
+                lead, reason = excluded[patch]
+                lines.append(f"# not a follower of {lead}: {reason}")
             lines += [f"[families.{_key(patch)}]", f'method = "{method}"', "factor = 1.0"]
             lines += ["governing = true", ""] if patch in governing else [""]
     lines.append("[components]")
@@ -501,12 +506,13 @@ def _toml(
 
 def _governing(
     verts: Points, families: dict[str, Faces], kinds: dict[str, str]
-) -> tuple[set[str], set[str]]:
+) -> tuple[set[str], set[str], dict[str, tuple[str, str]]]:
     """Return the governing patches and their followers in groups of touching grid patches.
 
-    Grid patches that share a node are refined as one layout, and the curves they
-    share take one count; the patch of the largest perimeter (the length of its
-    boundary edges) in each group of two or more leads them (``governing = true``).
+    Grid patches are grouped by shared nodes. The patch of the largest perimeter
+    (the length of its boundary edges) in each group of two or more leads them
+    (``governing = true``). Only patches fully reached without a direction conflict
+    through shared curves are followers; the others retain their own tables.
     """
     grids = [n for n in families if kinds[n] == "grid"]
     nodes = {n: {v for f in families[n] for v in f} for n in grids}
@@ -518,21 +524,50 @@ def _governing(
 
     out: set[str] = set()
     followers: set[str] = set()
-    left = list(grids)
-    while left:
-        group, stack = {left[0]}, [left[0]]
-        while stack:
-            here = stack.pop()
-            for other in left:
-                if other not in group and nodes[here] & nodes[other]:
-                    group.add(other)
-                    stack.append(other)
-        left = [n for n in left if n not in group]
+    excluded: dict[str, tuple[str, str]] = {}
+    for group in _blocks._touching(grids, nodes):
         if len(group) > 1:
             lead = max(sorted(group), key=perimeter)
             out.add(lead)
-            followers.update(group - {lead})
-    return out, followers
+            failed = _group_directions(verts, families, group, lead)
+            followers.update(set(group) - {lead} - set(failed))
+            excluded.update({n: (lead, why) for n, why in failed.items()})
+    return out, followers, excluded
+
+
+def _group_directions(verts, families, group, lead):
+    """Use refinement recovery and propagation to admit only orientable followers."""
+    followers = set(group) - {lead}
+    grid, reference = _direction_grid(verts, families[lead])
+    found = _blocks._join(verts, families, group, ())
+    if isinstance(found, str) or isinstance(grid, str):
+        failed = dict.fromkeys(followers, "unlinked")
+    else:
+        blocks, indices = found
+        owner = tuple(group[i] for i in indices)
+        patches = [p for p, n in enumerate(owner) if n == lead]
+        seed = _blocks._reference_directions(
+            verts, blocks, patches, grid, reference, family=f"prepare-to-refine family {lead}"
+        )
+        _, failed = _blocks.propagate_directions(blocks, owner, seed, followers)
+    for name, reason in failed.items():
+        _blocks.warn_direction_fallback(name, lead, reason, where="prepare-to-refine")
+    return failed
+
+
+def _direction_grid(verts, faces):
+    """Recover with the same longest-side fallback used by refinement."""
+    grid = _blocks.recover_family(verts, faces, ())
+    reference = set()
+    if not isinstance(grid, str):
+        return grid, reference
+    sides = _lines.boundary_sides(verts, faces)
+    for side in sorted(sides, key=lambda s: -_lines.side_length(verts, s)):
+        grid = _blocks.recover_family(verts, faces, side)
+        if not isinstance(grid, str):
+            reference = {(min(a, b), max(a, b)) for a, b in zip(side, side[1:], strict=False)}
+            break
+    return grid, reference
 
 
 def _key(name: str) -> str:

@@ -29,10 +29,14 @@ FlightStream versions.
   else the count of the declared family of the largest perimeter, and the
   others follow with a warning instead of the refusal. `method = "grid_auto"`
   takes no factor and refines the family as a grid with its governing family's
-  factors; with a governing family in the file every undeclared family is
-  `grid_auto`. `prepare-to-refine` marks the grid patch of the largest
+  factors and its parallel and normal directions propagated through shared
+  curves. Conflicting or unlinked directions warn and fall back to the family's
+  own reference, recorded in `refine.json`. With a governing family in the file
+  every undeclared family is `grid_auto`. `prepare-to-refine` marks the grid patch of the largest
   perimeter in each group of touching grid patches governing and leaves the
-  others undeclared. `prepare-to-refine --visual-inspect` (`visual_inspect=True`)
+  fully linked, conflict-free followers undeclared. Other grid patches retain
+  their own factor-1 table with a comment naming the reason.
+  `prepare-to-refine --visual-inspect` (`visual_inspect=True`)
   also writes `<stem>_patches.inspect.pdf`: one page per original family, its
   patches colored and named, the governing patches labelled GOVERNING.
 - `geometry prepare-to-refine` reads an ANSA NASTRAN export (`.nas`, `.bdf`,

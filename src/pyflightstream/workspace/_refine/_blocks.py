@@ -73,9 +73,9 @@ This module imports neither scipy nor rtree.
 from __future__ import annotations
 
 import math
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from collections.abc import Collection, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy
 from numpy.typing import NDArray
@@ -923,6 +923,8 @@ class Layout:
         Per arc, its new interval count.
     kept : dict
         Per family, the patch sides its factor cannot coarsen (FR-915).
+    directions : mapping of str to str
+        Per grid_auto family, propagated directions or the geometric fallback reason.
     """
 
     names: tuple[str, ...]
@@ -931,6 +933,7 @@ class Layout:
     owner: tuple[int, ...]
     counts: tuple[int, ...]
     kept: Mapping[str, list[dict[str, object]]]
+    directions: Mapping[str, str] = field(default_factory=dict)
 
     def patches_of(self, name: str) -> list[int]:
         """Return the patches of one family, in layout order."""
@@ -982,17 +985,21 @@ def _arc_factors(
     *,
     te_edges: Collection[Edge],
     family: str,
+    directions: Mapping[int, str] | None = None,
 ) -> dict[int, float]:
     """Return the factor of each arc of a family's patches, in the arc's direction.
 
     A sheet's arcs take its own index directions; a multiblock family's are
-    classified from its trailing edge (:func:`.te_directions`).
+    classified from its trailing edge (:func:`.te_directions`). Propagated
+    follower directions override that geometric reference.
     """
     chordwise, spanwise = spec.directions
     arcs = sorted({arc for p in patches for arc, _ in blocks.sides[p]})
     if chordwise == spanwise:
         return dict.fromkeys(arcs, chordwise)
-    if isinstance(grid, Grid):
+    if directions is not None:
+        runs = directions
+    elif isinstance(grid, Grid):
         runs = sheet_directions(grid, blocks, arcs)
     else:
         te = numpy.asarray(verts, dtype=float)[sorted(te_edges)].reshape(-1, 2, 3)
@@ -1010,6 +1017,7 @@ def _counted(
     *,
     te_edges: Mapping[str, Collection[Edge]],
     where: str,
+    followers: Mapping[str, str] | None = None,
 ) -> Layout:
     """Return the layout with every arc's count, a shared curve counted by its governing family.
 
@@ -1021,6 +1029,9 @@ def _counted(
     blocks, owner = found
     proposed: dict[int, list[tuple[str, int]]] = {}
     kept: dict[str, list[dict[str, object]]] = {}
+    runs, provenance = _follower_directions(
+        verts, names, found, grids, followers or {}, te_edges=te_edges, where=where
+    )
     for i, name in enumerate(names):
         mine = [p for p, o in enumerate(owner) if o == i]
         factors = _arc_factors(
@@ -1031,6 +1042,7 @@ def _counted(
             specs[name],
             te_edges=te_edges[name],
             family=f"{where} family {name}",
+            directions=runs.get(name),
         )
         for arc, f in factors.items():
             proposed.setdefault(arc, []).append((name, count(len(blocks.arcs[arc]) - 1, f)))
@@ -1038,7 +1050,105 @@ def _counted(
     counts = _band_counts(verts, names, blocks, owner, proposed, specs=specs, where=where)
     kinds = tuple(grids[n].layout for n in names)
     return Layout(
-        names, kinds, blocks, owner, tuple(counts[a] for a in range(len(blocks.arcs))), kept
+        names,
+        kinds,
+        blocks,
+        owner,
+        tuple(counts[a] for a in range(len(blocks.arcs))),
+        kept,
+        provenance,
+    )
+
+
+def _direction_links(blocks: Blocks, owner: Sequence[str], followers: Collection[str]):
+    """Join follower sides with equal or opposite direction constraints."""
+    links: dict[int, list[tuple[int, bool]]] = defaultdict(list)
+    for p, name in enumerate(owner):
+        if name not in followers:
+            continue
+        arcs = [a for a, _ in blocks.sides[p]]
+        for i, a in enumerate(arcs):
+            for j, b in enumerate(arcs):
+                links[a].append((b, (i < 2) != (j < 2)))
+    return links
+
+
+def propagate_directions(
+    blocks: Blocks, owner: Sequence[str], seed: Mapping[int, str], followers: Collection[str]
+) -> tuple[dict[int, str], dict[str, str]]:
+    """Propagate seeded arc directions through follower patches, reporting conflict or unlinked.
+
+    Opposite sides retain a direction and adjacent sides switch it. Only follower
+    patches transmit directions; a corner or a remeshed family cannot transmit one.
+    Both directions are retained during traversal so a conflict cannot be hidden
+    by patch order. Failed families must use their own geometric reference.
+    """
+    links = _direction_links(blocks, owner, followers)
+    reached: dict[int, set[bool]] = defaultdict(set)
+    queue = deque((a, d == "spanwise") for a, d in seed.items())
+    while queue:
+        arc, direction = queue.popleft()
+        if direction in reached[arc]:
+            continue
+        reached[arc].add(direction)
+        queue.extend((other, direction != flip) for other, flip in links.get(arc, ()))
+    failures = {}
+    for name in followers:
+        arcs = {a for p, n in enumerate(owner) if n == name for a, _ in blocks.sides[p]}
+        if any(len(reached[a]) == 2 for a in arcs):
+            failures[name] = "conflict"
+        elif not arcs or any(not reached[a] for a in arcs):
+            failures[name] = "unlinked"
+    return {
+        a: "spanwise" if True in values else "chordwise"
+        for a, values in reached.items()
+        if len(values) == 1
+    }, failures
+
+
+def _reference_directions(verts, blocks, patches, grid, te_edges, *, family):
+    """Read a family's directions using the existing geometric reference path."""
+    arcs = {a for p in patches for a, _ in blocks.sides[p]}
+    if isinstance(grid, Grid):
+        return sheet_directions(grid, blocks, arcs)
+    te = numpy.asarray(verts, dtype=float)[sorted(te_edges)].reshape(-1, 2, 3)
+    return te_directions(verts, blocks, patches, te, family=family, what="its patches")
+
+
+def _follower_directions(verts, names, found, grids, followers, *, te_edges, where):
+    """Orient each leader geometrically once and pass its directions to its followers."""
+    blocks, indices = found
+    owner = tuple(names[i] for i in indices)
+    runs, provenance = {}, {}
+    for lead in dict.fromkeys(followers.values()):
+        selected = [n for n in names if followers.get(n) == lead]
+        if not selected:
+            continue
+        seed = {}
+        if lead in names:
+            patches = [p for p, n in enumerate(owner) if n == lead]
+            seed = _reference_directions(
+                verts, blocks, patches, grids[lead], te_edges[lead], family=f"{where} family {lead}"
+            )
+        told, failures = propagate_directions(blocks, owner, seed, selected)
+        for name in selected:
+            if name in failures:
+                reason = failures[name]
+                warn_direction_fallback(name, lead, reason, where=where)
+                provenance[name] = f"own reference: {reason}"
+            else:
+                runs[name] = told
+                provenance[name] = f"from {lead}"
+    return runs, provenance
+
+
+def warn_direction_fallback(name: str, lead: str, reason: str, *, where: str) -> None:
+    """Warn that a follower's topology cannot inherit its governing directions."""
+    warn(
+        f"{where} family {name}: not a follower of {lead} in directions: {reason}; "
+        "using its own reference. Declare its own grid table to set independent factors.",
+        PyflightstreamWarning,
+        stacklevel=4,
     )
 
 
@@ -1168,6 +1278,7 @@ def plan(
     *,
     where: str,
     accept: bool = False,
+    followers: Mapping[str, str] | None = None,
 ) -> tuple[dict[str, Layout], list[tuple[str, str, str]]]:
     """Group the grid families that share nodes into layouts, before any work (FR-932).
 
@@ -1195,6 +1306,8 @@ def plan(
     accept : bool
         Leave a refused layout to the rule of the first grid, with a
         warning, instead of refusing it (``accept_remesh``).
+    followers : mapping of str to str, optional
+        Each grid_auto family's already selected governing family.
 
     Returns
     -------
@@ -1221,6 +1334,7 @@ def plan(
         groups=_touching(joinable, nodes),
         where=where,
         accept=accept,
+        followers=followers,
     )
     done = [n for lay in layouts for n in lay.names]
     late: list[tuple[str, str, str]] = []
@@ -1237,7 +1351,16 @@ def plan(
             lone = (grid, (0,) * len(grid.patches))
             try:
                 layouts.append(
-                    _counted(verts, (name,), lone, grids, specs, te_edges=te_edges, where=where)
+                    _counted(
+                        verts,
+                        (name,),
+                        lone,
+                        grids,
+                        specs,
+                        te_edges=te_edges,
+                        where=where,
+                        followers=followers,
+                    )
                 )
             except InputArtifactError as error:
                 if not accept:
@@ -1259,6 +1382,7 @@ def _grouped(
     groups: Iterable[Sequence[str]],
     where: str,
     accept: bool,
+    followers: Mapping[str, str] | None = None,
 ) -> tuple[list[Layout], dict[str, str]]:
     """Return the layouts of the touching groups, and why a group's grids joined none."""
     layouts: list[Layout] = []
@@ -1275,7 +1399,16 @@ def _grouped(
             continue
         try:
             layouts.append(
-                _counted(verts, tuple(group), found, grids, specs, te_edges=te_edges, where=where)
+                _counted(
+                    verts,
+                    tuple(group),
+                    found,
+                    grids,
+                    specs,
+                    te_edges=te_edges,
+                    where=where,
+                    followers=followers,
+                )
             )
         except InputArtifactError as error:
             if not accept:

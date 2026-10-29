@@ -686,7 +686,11 @@ def test_an_undeclared_grid_takes_the_governing_family_factors(tmp_path):
     src = _source(tmp_path, toml, strip=False)
     level = refine_mesh(src, out_dir=tmp_path / "auto")
     assert [level.report[n]["method"] for n in ("W", "C", "J")] == ["grid"] * 3
-    assert level.report["W"]["grid_auto"] == {"follows": "J", "factors": [FACTOR, FACTOR]}
+    assert level.report["W"]["grid_auto"] == {
+        "follows": "J",
+        "factors": [FACTOR, FACTOR],
+        "directions": "from J",
+    }
     assert "grid_auto" not in level.report["J"]
     control = refine_mesh(
         _source(tmp_path / "c", f"[families.J]\nfactor = {FACTOR}\n", strip=False),

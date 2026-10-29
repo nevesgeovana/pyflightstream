@@ -400,6 +400,7 @@ def _grid_after_grid(work: _Work) -> None:
         work.te_edges,
         where=str(work.source),
         accept=work.request.accept_remesh,
+        followers=work.followers,
     )
     for name, first, why in late:
         if first == name:  # its own layout was refused and accepted as a remesh
@@ -489,9 +490,16 @@ def _grid_info(
     if layout is not None:
         info["kept_sides"] = layout.kept[name]
     if name in work.followers:  # grid_auto (FR-3298)
+        direction = layout.directions.get(name) if layout is not None else None
+        if direction is None:
+            direction = "own reference: unlinked"
+            _blocks.warn_direction_fallback(
+                name, work.followers[name], "unlinked", where=str(work.source)
+            )
         info["grid_auto"] = {
             "follows": work.followers[name],
             "factors": list(work.specs[name].directions),
+            "directions": direction,
         }
     if work.request.elements_of(name) != _config.TRIANGLES:
         info["elements"] = (

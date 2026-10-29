@@ -9,6 +9,7 @@ zlib data: a count, then a 32-bit element id and a 16-bit side per record).
 from __future__ import annotations
 
 import base64
+import json
 import struct
 import tomllib
 import warnings
@@ -489,3 +490,95 @@ def test_grid_auto_governing_reference_matches_file_parsing(tmp_path):
         if line.startswith("| `[families.<name>]` | `governing` |")
     )
     assert '"grid_auto"' in row and "warned and skipped" in row
+
+
+def _topology_source(tmp_path, *, corner=False, ring=False):
+    """Synthetic plates: refine_mesh(source) must transfer directions through curves."""
+    points, families = [], {}
+
+    def vertex(x, y):
+        point = (x, y, 0)
+        if point not in points:
+            points.append(point)
+        return points.index(point)
+
+    def plate(name, xs, ys):
+        families[name] = [
+            [vertex(x, y), vertex(u, y), vertex(u, v), vertex(x, v)]
+            for x, u in zip(xs, xs[1:], strict=False)
+            for y, v in zip(ys, ys[1:], strict=False)
+        ]
+
+    if ring:
+        plate("A", [-1, 0, 1], [-1, 0, 1])
+        edge = [(-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0)]
+        for side, name in enumerate("BCDE"):
+            families[name] = [
+                [
+                    vertex(s * x, s * y),
+                    vertex(s * u, s * v),
+                    vertex((s + 1) * u, (s + 1) * v),
+                    vertex((s + 1) * x, (s + 1) * y),
+                ][::-1]
+                for s in (1, 2)
+                for (x, y), (u, v) in list(zip(edge, edge[1:] + edge[:1], strict=True))[
+                    side * 2 : side * 2 + 2
+                ]
+            ]
+    else:
+        plate("A", [0, 1, 2], list(range(7)))
+        plate("B", [2, 7, 12], list(range(7)))
+        if corner:
+            plate("C", [0, -1, -2], [6, 7, 8])
+    mesh = Composite(np.array(points, dtype=float), families, np.zeros((0, 3)), {})
+    return write_source(
+        tmp_path / "src",
+        "topology",
+        mesh,
+        refine_toml='[families.A]\nmethod = "grid"\nnormal_factor = 2\n'
+        "parallel_factor = 3\ngoverning = true\n",
+    )
+
+
+@pytest.mark.requirement("FR-3298")
+def test_p0490_topology_follower_uses_governing_directions(tmp_path):
+    source = _topology_source(tmp_path)
+    level = refine_mesh(source)
+    record = next(p for p in level.files if p.name.endswith(".refine.json"))
+    report = json.loads(record.read_text(encoding="utf-8"))["families"]
+    assert report["B"]["blocks"] == [{"rows": [2, 4], "columns": [6, 18]}]
+    assert report["B"]["grid_auto"]["directions"] == "from A"
+
+
+@pytest.mark.requirement("FR-3298")
+@pytest.mark.parametrize("reason", ["conflict", "unlinked"])
+def test_p0490_topology_fallback_warns_and_records_own_reference(tmp_path, reason):
+    source = _topology_source(tmp_path, ring=reason == "conflict", corner=reason == "unlinked")
+    name = "B" if reason == "conflict" else "C"
+    with pytest.warns(PyflightstreamWarning, match=f"family {name}.*{reason}"):
+        level = refine_mesh(source)
+    record = next(p for p in level.files if p.name.endswith(".refine.json"))
+    report = json.loads(record.read_text(encoding="utf-8"))["families"]
+    assert report[name]["grid_auto"]["directions"] == f"own reference: {reason}"
+    assert level.report[name]["method"] == "grid"
+    config = source.with_suffix(".refine.toml")
+    config.write_text(
+        config.read_text(encoding="utf-8")
+        + f'\n[families.{name}]\nmethod = "grid"\nnormal_factor = 2\nparallel_factor = 3\n',
+        encoding="utf-8",
+    )
+    own = refine_mesh(source, out_dir=tmp_path / "own")
+    assert level.report[name]["blocks"] == own.report[name]["blocks"]
+
+
+@pytest.mark.requirement("FR-3298")
+def test_p0490_topology_prepare_declares_corner_only_patch(tmp_path):
+    source = _topology_source(tmp_path, corner=True)
+    with pytest.warns(PyflightstreamWarning, match="C_001_grid.*unlinked"):
+        prepared = prepare_to_refine(source)
+    text = prepared.config.read_text(encoding="utf-8")
+    tables = tomllib.loads(text)["families"]
+    assert "A_001_grid" not in tables
+    assert tables["B_001_grid"]["governing"] is True
+    assert tables["C_001_grid"] == {"method": "grid", "factor": 1.0}
+    assert "# not a follower of B_001_grid: unlinked\n[families.C_001_grid]" in text

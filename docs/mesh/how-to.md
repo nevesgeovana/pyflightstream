@@ -338,10 +338,14 @@ optional.
    every patch at factor 1 and `[components]` putting each family back
    together. Grid patches that share nodes are refined as one layout, so the
    curves they share take one count: in each such group the grid patch of the
-   largest perimeter is written `governing = true` and the others are left
+   largest perimeter is written `governing = true`. Patches whose parallel and
+   normal directions can be propagated from it through shared curves are left
    out of the file, which makes them `grid_auto`: they follow the governing
-   patch's factors. Set the factors on the governing patches; declare a
-   follower to give it factors of its own. `--visual-inspect` also writes
+   patch's factors on those directions. A conflict or an unlinked patch (for
+   example, one touching only at a corner) is warned and keeps its own
+   `method = "grid"`, `factor = 1.0` table, preceded by a comment naming the
+   governing patch and the reason. Set the factors on the governing patches;
+   declare a follower to give it factors of its own. `--visual-inspect` also writes
    `W1_patches.inspect.pdf`: one page per original family, its patches colored
    and named, the governing ones labelled GOVERNING. The node list holds the rearmost line of each grid patch, the
    edges within `--max-angle` (default 45 degrees) of the plane across the
