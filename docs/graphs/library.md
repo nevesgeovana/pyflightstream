@@ -2959,6 +2959,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.cases.workflows._conventions">pyflightstream.cases.workflows._conventions</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows._row_cells">pyflightstream.cases.workflows._row_cells</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.cases.workflows._vocabulary">pyflightstream.cases.workflows._vocabulary</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.options">pyflightstream.options</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.script">pyflightstream.script</a> (module)</li>
 </ul></details>
 

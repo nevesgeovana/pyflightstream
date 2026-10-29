@@ -20,6 +20,9 @@ FlightStream versions.
   warn and are skipped. Retired averaging-window keys warn with their
   replacement names. `--warning-refusals` restores the original refusals
   (FR-3371, FR-3372).
+- Unknown tables and keys of a cost file and of an HPC profile now warn,
+  naming the closest known key, and are skipped; `--warning-refusals`
+  restores the refusal (FR-3373).
 
 ## [0.49.0] - 2026-10-29
 
