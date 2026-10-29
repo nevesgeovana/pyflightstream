@@ -478,3 +478,19 @@ def test_p0501_f2_a_run_zero_row_with_a_bad_axis_is_still_skipped_and_named(tmp_
     rows, said = _axis_warnings(matrix, active_only=False)
     assert [r.pol for r in rows] == ["8001"]
     assert len(said) == 1 and "POL 8002" in said[0], said
+
+
+def test_p0501_f3_a_plan_warns_once_per_malformed_row(tmp_path):
+    workspace = _workspace(tmp_path)
+    matrix = _matrix(workspace.root, "planned.fs", [row(8001), _malformed(8002)])
+    _matrix(workspace.root, "other.fs", [row(9001), _malformed(9002)])
+    from pyflightstream._errors import NotApplicableWarning
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan_matrix(
+            matrix, workspace, name="p", default_fs_version="26.120", recipes={"003": "steady"}
+        )
+    said = [str(w.message) for w in caught if issubclass(w.category, NotApplicableWarning)]
+    assert len([t for t in said if "POL 8002" in t]) == 1, said
+    assert not [t for t in said if "9002" in t], said
