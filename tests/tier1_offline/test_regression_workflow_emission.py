@@ -1020,9 +1020,17 @@ class TestCasesWorkflowsReductions:
         raised where the docstring promised a skipped reduction with its reason.
         """
         requirement = "P0400-CW-REDUCTIONS"
-        plan = reduction_windows(_cases_workflows_reductions___row("unsteady", LAST_REVS_AVG="1"))
+        # Since PFS-2184.10 a power-off row's clockless LAST_REVS_AVG is skipped with a
+        # warning at build, so the window refusal that must stay recorded is one both
+        # run types still meet: two averaging keys at once.
+        row = _cases_workflows_reductions___row("unsteady", LAST_REVS_AVG="1", LAST_ITERS_AVG="6")
+        plan = reduction_windows(row)
         assert plan is not None, requirement
-        assert "no rotor speed" in plan["time_average"]["skipped"]
+        assert "two ways to say one window" in plan["time_average"]["skipped"]
+        skipped = reduction_windows(
+            _cases_workflows_reductions___row("unsteady", LAST_REVS_AVG="1")
+        )
+        assert skipped is not None and skipped["time_average"]["windows"] == [[1, 720]]
 
     @staticmethod
     def test_p0400_cw_reductions_a_window_longer_than_the_run_says_it_was_cut():

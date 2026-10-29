@@ -44,11 +44,11 @@ from ._conventions import (
     select_workflow,
 )
 from ._export_first_step import (
+    applicable_threshold_keys,
     refuse_a_threshold_after_the_averaging_start,
     refuse_threshold_on_a_steady_run,
     refuse_two_threshold_keys,
     resolve_first_step,
-    stated_threshold_keys,
 )
 from ._exports import (
     _UPDATED_KINDS,
@@ -452,7 +452,7 @@ def unsteady_export_threshold(
         form that would work; if the value is not a positive number; or if
         the threshold lies beyond the run, naming both numbers.
     """
-    stated = stated_threshold_keys(case)
+    stated = applicable_threshold_keys(case)
     averaged = (
         case.pproc.time_averaging is not None
         and declared_run_type(case) in _UNSTEADY_RECIPES

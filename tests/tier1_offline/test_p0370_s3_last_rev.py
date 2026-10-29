@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream._errors import NotApplicableWarning
 from pyflightstream.cases import (
     BladeDatum,
     CampaignConfigError,
@@ -31,6 +32,7 @@ from pyflightstream.cases.workflows import (
     build_script,
     unsteady_export_threshold,
 )
+from pyflightstream.options import option_context
 from pyflightstream.run._actions_counter import render_program, stage_counter
 from pyflightstream.script import Script
 
@@ -255,23 +257,25 @@ def test_the_revolutions_form_without_a_rotor_clock_names_the_iterations_form():
     """P0370-S3-LAST-REV (FR-415) FR-874: LAST_REV on the run type that turns nothing names
      LAST_ITER.
 
-    Reached through the resolver on a row that names its run type by recipe (the
-    row-key guard refuses it first on a row with a WORKFLOW cell, naming the keys the
-    run type registers, LAST_ITER among them), as AFTER_REV is.
+    Since PFS-2184.10 a power-off row with no rotor clock skips the key with a
+    NotApplicableWarning, which ``warning_refusals`` restores to this refusal; the
+    resolver reads the skipped key as unstated, on a row naming its run type by
+    recipe or by a WORKFLOW cell alike, as AFTER_REV is.
     """
     recipe_row = _unsteady_row(**{LAST_REV: "1"})
     del recipe_row.variables[WORKFLOW_KEY]
-    with pytest.raises(CampaignConfigError) as refused:
-        unsteady_export_threshold(recipe_row, version="26.124")
-    message = str(refused.value)
+    assert unsteady_export_threshold(recipe_row, version="26.124") is None
+    with pytest.warns(NotApplicableWarning) as warned:
+        build_script(recipe_row, Script("26.124"))
+    message = str(warned[0].message)
     assert LAST_REV in message and f"'{LAST_ITER}: <steps>'" in message, message
-    with pytest.raises(CampaignConfigError) as guarded:
+    with option_context("warning_refusals", True), pytest.raises(CampaignConfigError) as guarded:
         build_script(_unsteady_row(**{LAST_REV: "1"}), Script("26.124"))
     assert LAST_REV in str(guarded.value) and LAST_ITER in str(guarded.value), guarded.value
     control = _unsteady_row(**{AFTER_REV: "1"})
     del control.variables[WORKFLOW_KEY]
-    with pytest.raises(CampaignConfigError) as before:
-        unsteady_export_threshold(control, version="26.124")
+    with option_context("warning_refusals", True), pytest.raises(CampaignConfigError) as before:
+        build_script(control, Script("26.124"))
     assert f"'{AFTER_ITER}: <steps>'" in str(before.value), before.value
 
 
@@ -468,8 +472,12 @@ def test_the_rounded_count_is_bounded_after_the_tolerance_is_applied():
 @pytest.mark.requirement("FR-415")
 @pytest.mark.parametrize("row", [_steady_row, _qsteady_row, _unsteady_row])
 def test_last_rev_without_an_unsteady_rotor_clock_names_last_iter_in_every_run_type(row):
-    """P0370-S3-LAST-REV (FR-415) FR-874: steady, qsteady_rotor and unsteady all name LAST_ITER."""
-    with pytest.raises(CampaignConfigError) as refused:
+    """P0370-S3-LAST-REV (FR-415) FR-874: steady, qsteady_rotor and unsteady all name LAST_ITER.
+
+    The unsteady row's refusal is its skip warning restored by ``warning_refusals``
+    (PFS-2184.10).
+    """
+    with option_context("warning_refusals", True), pytest.raises(CampaignConfigError) as refused:
         build_script(row(**{LAST_REV: "1"}), Script("26.124"))
     message = str(refused.value)
     assert LAST_REV in message and f"'{LAST_ITER}: <steps>'" in message, message
@@ -538,5 +546,9 @@ def test_the_refusals_of_the_legacy_keys_are_those_of_v0_36_0_byte_for_byte():
     assert _refusal(_unsteady_row(**{AFTER_ITER: "481"})) == _LEGACY_BEYOND
     recipe_row = _unsteady_row(**{AFTER_REV: "1"})
     del recipe_row.variables[WORKFLOW_KEY]
-    assert _refusal(recipe_row) == _LEGACY_ROTORLESS
+    # PFS-2184.10: the rotorless text is now the skip warning that warning_refusals
+    # restores, kept whole and followed by the power-off clock's remedy.
+    with option_context("warning_refusals", True), pytest.raises(CampaignConfigError) as rotorless:
+        build_script(recipe_row, Script("26.124"))
+    assert str(rotorless.value).startswith(_LEGACY_ROTORLESS + " Or, "), rotorless.value
     assert _refusal(_averaged_rotor_row(**{AFTER_ITER: "100"})) == _LEGACY_AVERAGING

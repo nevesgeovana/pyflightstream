@@ -513,7 +513,8 @@ def test_a_key_the_registry_marks_for_a_run_type_or_a_build_says_so(page):
         stated = rows[key][accepted].split(";")[0]
         expected = "every run type" if len(readers) == len(WORKFLOWS) else ", ".join(readers)
         assert stated == expected, (key, stated, expected)
-    assert rows["LAST_REVS_AVG"][accepted] == "unsteady_rotor"
+    # PFS-2184.10: a power-off row counts its declared rotor's revolutions too.
+    assert rows["LAST_REVS_AVG"][accepted] == "unsteady, unsteady_rotor"
     settings = dict(page[("setup", "Solver settings")])
     # G14: the coupling step is documented by three editions alone.
     assert "26.000" in settings["unsteady_viscous_coupling_iteration"][accepted]

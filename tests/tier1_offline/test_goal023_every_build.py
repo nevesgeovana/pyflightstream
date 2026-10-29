@@ -211,7 +211,8 @@ def test_goal023_told_not_hidden_march_strategy_refuses_without_building():
 
 def test_goal023_told_not_hidden_the_refusal_names_the_cell_to_change_and_each_threshold():
     """Api lens L2 and L3: FS_BUILD is named, and each threshold's remedy names its own key."""
-    case = unsteady_case(EXPORT_UNSTEADY_AFTER_ITER="2", EXPORT_UNSTEADY_AFTER_REV="1")
+    # On the rotor row: a clockless power-off row skips AFTER_REV (PFS-2184.10).
+    case = rotor_case(EXPORT_UNSTEADY_AFTER_ITER="2", EXPORT_UNSTEADY_AFTER_REV="1")
     with pytest.raises(BuildCapabilityError) as refused:
         build_script(case, Script("26.120"))
     message = str(refused.value)

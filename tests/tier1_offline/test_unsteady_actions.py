@@ -32,6 +32,7 @@ import pytest
 
 from pyflightstream.cases import Campaign, CampaignConfigError, SimCase, SweepAxis
 from pyflightstream.cases.workflows import WORKFLOW_KEY, build_script, workflow_registry
+from pyflightstream.options import option_context
 from pyflightstream.post.products import NOT_APPLICABLE
 from pyflightstream.run import run_campaign
 from pyflightstream.script import Script
@@ -194,8 +195,9 @@ def test_a_steady_row_stating_a_threshold_is_refused(key):
 
 
 def test_an_unsteady_row_stating_revolutions_is_refused_naming_the_rotor_clock():
+    # PFS-2184.10: the skip warning of a clockless power-off row, restored by the option.
     case = unsteady_case(**{REV: "1"})
-    with pytest.raises(CampaignConfigError) as refused:
+    with option_context("warning_refusals", True), pytest.raises(CampaignConfigError) as refused:
         build_script(case, Script("26.123"))
     message = str(refused.value)
     assert REV in message and ITER in message, message

@@ -909,6 +909,14 @@ _STEADY_KEYS: tuple[str, ...] = (
     # builders, which refuse it by name (`_refuse_cold_start_on_a_march`).
     COLD_START_VARIABLE,
 )
+#: The rotor run type's clock and window keys a power-off row also reads
+#: (PFS-2184.10).
+_POWER_OFF_CLOCK_KEYS: tuple[str, ...] = (
+    LAST_REVS_AVG_VARIABLE,
+    CLOCK_MOTION_VARIABLE,
+    EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
+    EXPORT_UNSTEADY_LAST_REV_VARIABLE,
+)
 _UNSTEADY_KEYS: tuple[str, ...] = (
     *_STEADY_KEYS,
     RPM_VARIABLE,
@@ -934,13 +942,17 @@ _UNSTEADY_KEYS: tuple[str, ...] = (
     # rotor run type below leaves it out (a free body with a rotor turning is
     # outside the route).
     SIXDOF_VARIABLE,
+    # PFS-2184.10: a power-off row counts the revolutions of the rotor its
+    # reference declares once it states that rotor's speed (ADVANCE_RATIO or
+    # RPM, and CLOCK_MOTION where several are declared), on the windows of its
+    # power-on twin. Without a speed these keys warn and are skipped.
+    *_POWER_OFF_CLOCK_KEYS,
 )
 _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
-    *(key for key in _UNSTEADY_KEYS if key != SIXDOF_VARIABLE),
-    # ITEM 16's KEY FOR A ROW THAT TURNS A ROTOR, in REVOLUTIONS. It is the
-    # rotor type's alone, because a count of turns has no length without a
-    # speed -- which is also what `_averaging_window` refuses when a row states
-    # it with no clock.
+    *(key for key in _UNSTEADY_KEYS if key != SIXDOF_VARIABLE and key not in _POWER_OFF_CLOCK_KEYS),
+    # ITEM 16's KEY FOR A ROW THAT TURNS A ROTOR, in REVOLUTIONS. A count of
+    # turns has no length without a speed -- which is also what
+    # `_averaging_window` refuses when a rotor row states it with no clock.
     LAST_REVS_AVG_VARIABLE,
     # FR-64: which of the row's motions owns the time step.
     CLOCK_MOTION_VARIABLE,
