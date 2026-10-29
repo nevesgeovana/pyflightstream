@@ -11,8 +11,13 @@ import numpy
 import numpy as np
 import pytest
 
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
-from pyflightstream.workspace import audit_mesh, refine_mesh
+from pyflightstream._errors import (
+    EmptySelectionWarning,
+    InputArtifactError,
+    PyflightstreamWarning,
+)
+from pyflightstream.options import option_context
+from pyflightstream.workspace import WorkspaceError, audit_mesh, refine_mesh, selected_sims
 from pyflightstream.workspace._refine import _config
 from pyflightstream.workspace._refine._config import RefineRequest, level_tag, resolve_request
 from pyflightstream.workspace._refine._geometry import order_like
@@ -160,11 +165,27 @@ class TestWorkspace1Refine:
     @staticmethod
     @pytest.mark.parametrize("families", [[], ()], ids=["list", "tuple"])
     def test_p0400_wsrefine_an_empty_family_selection_is_refused(tmp_path, families):
-        """P0400-WSREFINE (PFS-2099.005): no family selected writes no unchanged R- level."""
+        """P0400-WSREFINE (PFS-2099.005): no family selected writes no unchanged R- level.
+
+        Demoted in 0.50.0 (FR-3385): warned and nothing written by default, refused strict.
+        """
         src = _workspace_1_refine___source(tmp_path)
-        text = _workspace_1_refine___refused(tmp_path, src, 2.0, families=families)
+        with pytest.warns(EmptySelectionWarning, match="no family is selected"):
+            assert refine_mesh(src, 2.0, families=families) is None
+        assert _workspace_1_refine___left(tmp_path) == []
+        with option_context("warning_refusals", True):
+            text = _workspace_1_refine___refused(tmp_path, src, 2.0, families=families)
         assert "no family is selected" in text
         assert _workspace_1_refine___left(tmp_path) == []
+
+    @staticmethod
+    def test_fr3386_an_empty_sims_selection_warns_and_selects_nothing_or_refuses():
+        """FR-3386: an empty --sims selects nothing with a warning; strict refuses."""
+        with pytest.warns(EmptySelectionWarning, match="names no simulation"):
+            assert selected_sims([], [" ", ""], scope="in the manifest") == frozenset()
+        with option_context("warning_refusals", True):
+            with pytest.raises(WorkspaceError, match="names no simulation"):
+                selected_sims([], [""], scope="in the manifest")
 
     @staticmethod
     @pytest.mark.parametrize("tag", [None, "empty"])
@@ -290,8 +311,9 @@ class TestWorkspace1Refine:
     def test_p0400_wsrefine_refine_mesh_takes_no_empty_selection_through_the_library_call(tmp_path):
         """P0400-WSREFINE (PFS-2099.005): the public call refuses before any work, by class."""
         src = _workspace_1_refine___source(tmp_path)
-        with pytest.raises(InputArtifactError):
-            refine_mesh(src, 2.0, families=[])
+        with option_context("warning_refusals", True):
+            with pytest.raises(InputArtifactError):
+                refine_mesh(src, 2.0, families=[])
 
 
 _WORKSPACE_2_REFINE_ENTRY__WITH_T = (("T", "tri", (0.03, 0.04, 0.05, 0.065, 0.08)),)

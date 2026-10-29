@@ -23,6 +23,7 @@ import pyflightstream.run._campaign as campaign_module
 import pyflightstream.run._identity as identity_module
 from pyflightstream.cases import Campaign, SimCase, SweepAxis
 from pyflightstream.exceptions import PyflightstreamWarning
+from pyflightstream.options import option_context
 from pyflightstream.results import (
     DATA_ORIGIN_CODES,
     REDUCTION_CODES,
@@ -4141,8 +4142,9 @@ def test_f6_0102_naming_a_point_the_recorded_job_never_ran_does_not_redo_the_job
     workspace, matrix = _recorded_sweep(tmp_path, SWEPT + ",4.0")
     before = [record.run_id for record in workspace.read_manifest()]
     stub = CountingStub(WRITES_EVERY_EXPORT)
-    with pytest.raises(WorkspaceError, match="no recorded point"):
-        _run(workspace, matrix, stub, force_rerun=["M100RE230AL+040BE+000"])
+    with option_context("warning_refusals", True):
+        with pytest.raises(WorkspaceError, match="no recorded point"):
+            _run(workspace, matrix, stub, force_rerun=["M100RE230AL+040BE+000"])
     assert [record.run_id for record in workspace.read_manifest()] == before
     assert not stub.invocations
 

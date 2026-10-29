@@ -33,7 +33,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, suggest_name
+from pyflightstream._errors import (
+    EmptySelectionWarning,
+    InputArtifactError,
+    PyflightstreamWarning,
+    demote,
+    suggest_name,
+)
 from pyflightstream.workspace._refine._geometry import TE_POINT_FRACTION
 from pyflightstream.workspace._refine._obj import KIND
 
@@ -703,7 +709,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     accept_unknown: bool = False,
     force_factors: bool = True,
     keep_within_component: bool | None = None,
-) -> RefineRequest:
+) -> RefineRequest | None:
     """Return what the refinement is asked, from the call and the refinement file (FR-916).
 
     ``keep_first_row``, an earlier option, is warned and skipped when given.
@@ -726,11 +732,16 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     # AN EMPTY SELECTION SELECTS NOTHING TO CHANGE (PFS-2099.005): on the factor route it
     # wrote an unchanged copy of the source as a level tagged R-.
     if not chosen:
-        raise _refuse(
-            str(mesh),
-            "no family is selected; name at least one in families (CLI: --families), "
-            "or omit it to refine every family",
+        # Nothing selected is nothing to do: warned, and no level is written (strict refuses).
+        demote(
+            _refuse(
+                str(mesh),
+                "no family is selected, so no level is written; name at least one in families "
+                "(CLI: --families), or omit it to refine every family",
+            ),
+            warning=EmptySelectionWarning,
         )
+        return None
     if missing and not accept_unknown:
         raise _refuse(str(mesh), no_such_family(missing[0], names))
     stated_specs: dict[str, FamilySpec] = stated["specs"]

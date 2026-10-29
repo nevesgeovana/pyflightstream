@@ -30,7 +30,9 @@ from pyflightstream._digest import (
     file_sha256,
 )
 from pyflightstream._errors import (
+    EmptySelectionWarning,
     PyflightstreamWarning,
+    demote,
 )
 from pyflightstream._progress import (
     quiet_keeps,
@@ -903,12 +905,15 @@ def _preflight_campaign_schedule(state: _CampaignState) -> None:
             accepted_builds=state.accepted_builds,
         )
     if state.unmatched:
-        raise WorkspaceError(
-            f"force_rerun names {', '.join(sorted(state.unmatched))}, which no recorded point "
-            f"of this campaign carries in {state.workspace.root}. A name that matches nothing "
-            "is refused rather than passed over, because a forced re-run that quietly "
-            "redid nothing reads exactly like one that worked. Name a point by its point "
-            "name or by its full run_id, as the manifest spells it."
+        # Warned, never quiet: the name is skipped and the matched points still re-run.
+        demote(
+            WorkspaceError(
+                f"force_rerun names {', '.join(sorted(state.unmatched))}, which no recorded "
+                f"point of this campaign carries in {state.workspace.root}, so it re-runs "
+                "nothing. Name a point by its point name or by its full run_id, as the "
+                "manifest spells it."
+            ),
+            warning=EmptySelectionWarning,
         )
     # SUPERSEDE HERE, once, with the schedule settled and the preflight passed:
     # every refusal that could still fire has fired, so nothing is archived for

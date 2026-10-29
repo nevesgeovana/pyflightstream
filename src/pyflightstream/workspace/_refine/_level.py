@@ -1202,7 +1202,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     audit: bool = True,
     chordwise: float | None = None,
     spanwise: float | None = None,
-) -> RefinedMesh:
+) -> RefinedMesh | None:
     """Refine or coarsen a panel mesh from its OBJ into a new geometry folder (FR-424, FR-425).
 
     Parameters
@@ -1297,6 +1297,9 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
             force_factors=force_factors,
             keep_within_component=keep_within_component,
         )
+        if request is None:
+            # No family selected: warned by the request, and nothing is written.
+            return None
         stem = f"{source.stem}_{_config.level_tag(request, list(obj.families), str(source))}"
         if request.filename:
             if request.tag:

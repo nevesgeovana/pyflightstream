@@ -160,6 +160,7 @@ from pydantic import model_validator as model_validator
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
+from pyflightstream._errors import EmptySelectionWarning, demote
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
 from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream._progress import workspace_activity
@@ -511,10 +512,15 @@ def selected_sims(
     which in the refusal, for example ``"of matrix 'matriz'"``.
     """
     if not (named := list(dict.fromkeys(str(s).strip() for s in sims if str(s).strip()))):
-        raise WorkspaceError(
-            "sims (CLI: --sims) names no simulation; give the ids comma separated, for "
-            "example --sims 2006,2007"
+        # An empty selection selects nothing: warned and nothing is done (strict refuses).
+        demote(
+            WorkspaceError(
+                "sims (CLI: --sims) names no simulation, so nothing is selected; give the ids "
+                "comma separated, for example --sims 2006,2007"
+            ),
+            warning=EmptySelectionWarning,
         )
+        return frozenset()
     recorded = sorted({record.sim_id for record in records})
     if unknown := [sim for sim in named if sim not in recorded]:
         raise WorkspaceError(

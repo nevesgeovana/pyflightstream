@@ -58,6 +58,10 @@ FlightStream versions.
 
 ### Changed
 
+- A refine that selects no family, an empty `--sims` selection and a `force_rerun`
+  name that matches no recorded point now warn (`EmptySelectionWarning`) and do
+  nothing for it; `refine_mesh` returns `None` when it writes no level.
+  `--warning-refusals` restores the refusals (FR-3385 to FR-3387).
 - Bound every runtime dependency and user-facing extra, preserving existing
   floors and adding a PyYAML floor of 6.0.1 (FR-3333, FR-3336).
   CI resolves every floor from package metadata and exercises newest allowed

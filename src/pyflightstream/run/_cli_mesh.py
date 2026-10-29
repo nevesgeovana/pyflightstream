@@ -452,6 +452,9 @@ def run_refine(args: argparse.Namespace) -> int:
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)
         return EXIT_REFUSED
+    if level is None:
+        print("no family selected: no level written")
+        return EXIT_PASSED
     for name, entry in level.report.items():
         print(f"{name}: {entry.get('method', 'copied')}")
     summary = [] if level.audit is None else level.audit.summary()

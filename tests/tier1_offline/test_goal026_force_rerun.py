@@ -30,6 +30,8 @@ import re
 
 import pytest
 
+from pyflightstream._errors import EmptySelectionWarning
+from pyflightstream.options import option_context
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import WorkspaceError
 from tests.tier1_offline.test_matrix_run import (
@@ -193,7 +195,8 @@ def test_goal026_a_name_no_recorded_point_carries_is_refused(tmp_path):
     """
     workspace = _ran_once(tmp_path)
 
-    with pytest.raises(WorkspaceError) as raised:
+    # Demoted in 0.50.0 (FR-3387): warned, never quiet, and refused under the strict policy.
+    with pytest.warns(EmptySelectionWarning, match="NOT\\+A\\+POINT"):
         run_matrix(
             REGISTRY_FIXTURE,
             workspace,
@@ -201,6 +204,15 @@ def test_goal026_a_name_no_recorded_point_carries_is_refused(tmp_path):
             force_rerun=["NOT+A+POINT"],
             **KEYWORDS,
         )
+    with option_context("warning_refusals", True):
+        with pytest.raises(WorkspaceError) as raised:
+            run_matrix(
+                REGISTRY_FIXTURE,
+                workspace,
+                executor=StubSolver(WRITES_LOADS),
+                force_rerun=["NOT+A+POINT"],
+                **KEYWORDS,
+            )
 
     detail = str(raised.value)
     assert "NOT+A+POINT" in detail, detail
