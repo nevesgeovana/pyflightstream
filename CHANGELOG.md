@@ -43,9 +43,9 @@ FlightStream versions.
   and dominant arc (FR-3300).
 - Preparation inspection PDFs include a separate directions page per original
   family, using planner arc directions and P/N band labels. Refinement accepts
-  `--visual-inspect` to write the same views beside its output OBJ, with recorded
-  continuity changes. Refusals after reading the source attempt a diagnostic PDF
-  beside it, highlighting structured family, node and point locations and naming
+  `refine --visual-inspect` to write the same views beside its output OBJ, with recorded
+  continuity changes. Refusals after reading the source attempt a diagnostic PDF,
+  `<stem>.refine-refusal.pdf`, beside it, highlighting structured family, node and point locations and naming
   the PDF in the error; a drawing failure preserves the original refusal.
 - Refinement JSON records each family's parallel and normal arc counts and
   provenance histogram, plus each layout's band leads and their directions.

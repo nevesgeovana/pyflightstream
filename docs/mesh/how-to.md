@@ -359,7 +359,8 @@ optional.
    `method = "grid"` to give it factors of its own. To isolate one governing
    patch, delete the other family tables or write `method = "keep"` in them.
    Those families stay unchanged except for the directions or mixed-neighbour
-   bands needed to keep the shared curves continuous. `--visual-inspect` also writes
+   bands needed to keep the shared curves continuous.
+   `pyfs-workspace geometry prepare-to-refine W1.nas --visual-inspect` also writes
    `W1_patches.inspect.pdf`: two pages per original family. The first colors and
    names patches and marks GOVERNING PARALLEL and GOVERNING NORMAL. The second
    shows grey faces with blue parallel and orange normal perimeter arcs, relative

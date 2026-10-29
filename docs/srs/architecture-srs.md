@@ -268,6 +268,74 @@ Architecture rule FR-928: Layering. The refinement lives in a private package of
 
 Code: `pyflightstream.workspace._refine._level:refine_mesh`. Test: `tests/tier1_offline/test_p0380_s1_refine.py::test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allows`.
 
+Refinement has one planner, `workspace._refine._layout.plan`. It decides the
+layouts of grid families sharing nodes, the governing family per direction,
+each patch arc's direction and provenance, and each arc's count band. Preparation,
+refinement, `refine.json`, TOML comments and inspection PDFs consume that one
+result without independently recomputing those decisions.
+
+The configuration methods are `auto`, `grid`, `remesh`, `grid_auto` and `keep`.
+`governing_parallel` and `governing_normal` select independent directional
+governors; the earlier `governing = true` is read as both, with a warning.
+A `grid_auto` follower takes each factor from its own layout's governor in that
+direction. Preparation plans the exact patches OBJ and node list it writes,
+selects directional leads by greatest total side length with source-order ties,
+and writes fully linked, conflict-free followers as `grid_auto`. Its TOML
+comments name both governors and their P/N bands; other patches retain their own
+factor-1 tables with the planner's reason, using `auto` when a grid is unavailable.
+
+Governing families supply the geometric orientation seeds. Directions reach
+followers by topological propagation through shared arcs and opposite patch
+sides, with opposite sides retaining a direction and adjacent sides switching it.
+Only governing families are oriented by geometry for this propagation; followers
+use their own orientation only on conflict or an unlinked path, with a warning.
+The planner's `ArcDirection` retains direction, source family and provenance:
+listed trailing edge (`listed_te`), longest side (`longest_side`), sheet index
+(`sheet_index`), propagation from a governing family (`propagated_from:<family>`),
+or own orientation on conflict or an unlinked path
+(`own_orientation_conflict`, `own_orientation_unlinked`). Conflicting local
+governing-patch orientations remain visible.
+
+Opposite-side arcs share a count band. Each arc retains its stable label,
+`P1`, `P2`, ... for parallel or `N1`, `N2`, ... for normal, together with the
+band's lead family and dominant arc supplying its count. Label order follows
+lead-family source order, then dominant arc. Eligible directional governors lead
+counts; otherwise declared families are ranked by perimeter and source order.
+`refine.json` records labels, counts and band leads, per-family direction counts
+and provenance histograms.
+
+Undeclared and `keep` families retain their source mesh unless a shared curve
+changes. A grid then changes only the count bands crossing that curve, in one
+direction or both. A mixed family remeshes only the adjacent band of two face
+layers; a band covering the whole family requires a recorded, warned rebuild at
+factor 1. `refine.json` records why, including changed directions, band labels and
+causing families for grids and the adjacent remeshed band for mixed families.
+Factors stated on `keep` are warned and skipped.
+
+Inspection is part of the refinement contract. `prepare-to-refine --visual-inspect`
+writes `<stem>_patches.inspect.pdf`, with a patches page and a directions page per
+original family. `refine --visual-inspect` writes `<level>.inspect.pdf` beside the
+output OBJ with the same page pair per output component or ungrouped family,
+including continuity notes from the record. Patches pages distinguish GOVERNING
+PARALLEL and GOVERNING NORMAL; directions pages draw planner arcs, P/N band labels
+and leads. A refusal after the mesh is read attempts
+`<stem>.refine-refusal.pdf` beside the source, regardless of the inspection flag.
+Its refusal page highlights the structured family, node and point locations the
+error carries. Drawing failure preserves the original refusal; a successful PDF
+is named in the error.
+
+| Refinement concern | Owning module |
+|---|---|
+| Recovery, orientation primitives and resampling | `workspace._refine._blocks` |
+| Layouts, directional propagation, governing families and count bands | `workspace._refine._layout` |
+| `refine_mesh` orchestration, continuity records and refusal-PDF hook | `workspace._refine._level` |
+| Prepared OBJ, node list and TOML from the planner | `workspace._refine._prepare` |
+| Methods and directional governing declarations | `workspace._refine._config` |
+| Inspection page composition | `workspace._inspect_pages`, over `workspace._visual_inspect` primitives |
+
+Compatibility exports in `_blocks` resolve planning names from `_layout`; they
+do not provide a second planner.
+
 Architecture rule FR-1073: The far field takes its lattice from here. `[farfield]` lattices and planes are built by `probes` and emitted as probe shapes; no other module builds probe geometry, and a tier-1 guard fails when a module outside `probes/` defines a probe layout.
 
 Code: `pyflightstream.cases.workflows._farfield:farfield_probes`. Test: `tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldProbes::test_p0400_probehome_no_module_outside_probes_defines_a_layout`.
@@ -277,7 +345,7 @@ Note: the `[farfield]` table this rule names is written as `[[farfields]]` entri
 Geometry instruction models belong to cases; workspace plans, audits and stores
 geometry builds; run supplies the executor. The geometry command group registers
 with workspace.cli, preserving the dependency direction. Grid refinement and
-audit run without the spatial-query extras; remeshing uses its declared extras.
+audit and remeshing run on the base installation, as does inspection.
 Native geometry commands remain gated by their build evidence.
 
 FSI owns structural solves and the coupling-program interface. Workspace binds
