@@ -1779,7 +1779,7 @@ def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
     from pyflightstream.options import get_option
 
     if found and get_option("warning_refusals"):
-        # One refusal names every key, as the refusal did before 0.50.0.
+        # The strict refusal names every unregistered key in one message.
         raise CampaignConfigError(" ".join(str(error) for _, _, error in found))
     for key, read_elsewhere, error in found:
         if read_elsewhere:
