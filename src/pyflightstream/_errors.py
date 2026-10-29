@@ -238,6 +238,35 @@ class FsiInputError(PyflightstreamError, ValueError):
         self.problems = problems
 
 
+class InputValueError(PyflightstreamError, ValueError):
+    """A value given by the user cannot be used; the message names the cause and the remedy.
+
+    The family's home for a refusal that had been a bare ``ValueError`` and has no
+    domain class of its own. ``ValueError`` stays a base, so ``except ValueError``
+    still catches it.
+    """
+
+
+class InputKeyError(PyflightstreamError, KeyError):
+    """A name given by the user is not known; the message names the cause and the remedy.
+
+    The family's home for a refusal that had been a bare ``KeyError``; ``KeyError``
+    stays a base.
+    """
+
+    def __str__(self) -> str:
+        """Render the message as prose (KeyError would quote it)."""
+        return str(self.args[0]) if self.args else ""
+
+
+class InputTypeError(PyflightstreamError, TypeError):
+    """An argument given by the user has the wrong type; the message names the remedy.
+
+    The family's home for a refusal that had been a bare ``TypeError``; ``TypeError``
+    stays a base.
+    """
+
+
 class ContractNotImplementedError(PyflightstreamError, NotImplementedError):
     """A contract function whose body its work package has not filled yet.
 
