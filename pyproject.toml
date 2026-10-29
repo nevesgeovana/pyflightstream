@@ -16,7 +16,8 @@ authors = [{name = "Geovana Neves"}]
 # oldest version still inside that window on the date it was computed.
 # Computed on 2026-09-09: Python 3.11 (released 2022-10-24) left the window
 # in 2025-10, so the floor is 3.12; numpy 2.2 (2024-12-08) and pandas 2.3
-# (2025-06-05) are the oldest of theirs still inside it. Until then the
+# (2025-06-05) are the oldest of theirs still inside it (numpy later rose to
+# 2.4, which PyNiteFEA 3 requires). Until then the
 # window was chosen (">=3.11" since the first release, no floor on the
 # numerical dependencies), and a user reading it could not know how it
 # would move. The floors are derived by hand from the release dates and the
@@ -81,8 +82,8 @@ classifiers = [
 # is written against (field_validator, model_validator).
 # matplotlib and scipy carry the SPEC 0 floor computed on 2026-10-28 (the oldest
 # minor released within two years): matplotlib 3.10 of 2024-12, scipy 1.15 of
-# 2025-01. rtree is not a SPEC 0 project: its floor is 1.0, the first release
-# whose wheels bundle libspatialindex.
+# 2025-01. rtree is not a SPEC 0 project: its floor is 1.1, the first release
+# with a Python 3.12 wheel (1.0 was the first to bundle libspatialindex).
 dependencies = [
     "numpy>=2.4,<3",
     "pydantic>=2.10.4,<3",
