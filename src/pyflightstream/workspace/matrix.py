@@ -74,6 +74,7 @@ from pyflightstream.cases.corrections import read_calibration as read_calibratio
 from pyflightstream.cases.matrix import ATTITUDE_KEYS as ATTITUDE_KEYS
 from pyflightstream.cases.matrix import DEFAULT_VERSION_OPTION as DEFAULT_VERSION_OPTION
 from pyflightstream.cases.matrix import LEGACY_WORKFLOW as LEGACY_WORKFLOW
+from pyflightstream.cases.matrix import MATRIX_COLUMNS as MATRIX_COLUMNS
 from pyflightstream.cases.matrix import RAW_BEFORE_KEY as RAW_BEFORE_KEY
 from pyflightstream.cases.matrix import RAW_COMMAND_KEY as RAW_COMMAND_KEY
 from pyflightstream.cases.matrix import RAW_FILE_KEY as RAW_FILE_KEY
@@ -82,6 +83,7 @@ from pyflightstream.cases.matrix import SWEEP_WORD as SWEEP_WORD
 from pyflightstream.cases.matrix import VELOCITY_KEYS as VELOCITY_KEYS
 from pyflightstream.cases.matrix import MatrixError as MatrixError
 from pyflightstream.cases.matrix import MatrixRow as MatrixRow
+from pyflightstream.cases.matrix import matrix_content_line as matrix_content_line
 from pyflightstream.cases.matrix import read_matrix as read_matrix
 from pyflightstream.cases.matrix import (
     refuse_silent_rows_without_default as refuse_silent_rows_without_default,
@@ -340,10 +342,32 @@ class PolChange:
     new: str
 
 
+def _row_pols(path: Path) -> list[tuple[int, str]]:
+    """Return the row number and POL of every data row of one matrix, and nothing else.
+
+    FR-3391: the census asks a matrix for its identities only, so a row whose
+    content is malformed still claims its POL and stops nothing: what is wrong
+    inside it is said when that matrix is planned, where the row is. The rows
+    are counted as :func:`~pyflightstream.cases.matrix.read_matrix` counts them.
+    A file that is not a matrix of the current layout cannot state its POLs, and
+    the reader's own refusal says why.
+    """
+    try:
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
+    except UnicodeDecodeError:
+        lines = []
+    content = [line for line in lines if matrix_content_line(line)]
+    if not content or tuple(cell.strip() for cell in content[0].split("|")) != MATRIX_COLUMNS:
+        return [(row.row_number, row.pol) for row in read_matrix(path, active_only=False)]
+    return [
+        (number, line.split("|")[0].strip()) for number, line in enumerate(content[1:], start=1)
+    ]
+
+
 def _pol_claims(
     path: str | Path, workspace: CampaignWorkspace
-) -> tuple[list[MatrixRow], dict[Path, list[MatrixRow]]]:
-    """Every row of the matrix and of every other matrix of the workspace.
+) -> tuple[list[tuple[int, str]], dict[Path, list[tuple[int, str]]]]:
+    """Return the row number and POL of every row of this matrix and every other one.
 
     "Of the workspace" is the list ``sync`` reads
     (:func:`pyflightstream.workspace.matrix_files`): the root AND
@@ -358,12 +382,13 @@ def _pol_claims(
 
     A sibling that cannot be read is named as the problem rather than skipped,
     because a check that skips what it cannot read accepts the collision it
-    exists to refuse.
+    exists to refuse. A sibling whose ROW is malformed CAN be read for its POLs
+    (:func:`_row_pols`), so it stops no plan of another matrix (FR-3391).
     """
     matrix = Path(path).resolve()
     root = Path(workspace.root).resolve()
-    mine = read_matrix(matrix, active_only=False)
-    siblings: dict[Path, list[MatrixRow]] = {}
+    mine = _row_pols(matrix)
+    siblings: dict[Path, list[tuple[int, str]]] = {}
     # P0320-MATRICES-HOME, RST-1: the root and inputs/matrices/ are one home,
     # so a stem held in both is ONE matrix, read once, when the bytes are the
     # same, and refused, naming both, when they are not. It was read twice and
@@ -379,7 +404,7 @@ def _pol_claims(
         if sibling.resolve() == matrix or (in_a_home and stem == matrix.stem):
             continue
         try:
-            siblings[sibling] = read_matrix(sibling, active_only=False)
+            siblings[sibling] = _row_pols(sibling)
         except MatrixError as error:
             raise MatrixError(
                 f"{sibling.name} shares this workspace with {matrix.name} and could not be "
@@ -407,8 +432,8 @@ def _refuse_a_repeated_pol(path: str | Path, workspace: CampaignWorkspace) -> No
     mine, siblings = _pol_claims(path, workspace)
     where: dict[str, list[str]] = {}
     for name, rows in ((matrix.name, mine), *((s.name, r) for s, r in siblings.items())):
-        for row in rows:
-            where.setdefault(row.pol, []).append(f"{name} row {row.row_number}")
+        for number, pol in rows:
+            where.setdefault(pol, []).append(f"{name} row {number}")
     repeated = {pol: places for pol, places in where.items() if len(places) > 1}
     if not repeated:
         return
@@ -477,7 +502,7 @@ def renumber_repeated_pols(
     """
     matrix = Path(path)
     mine, siblings = _pol_claims(path, workspace)
-    claimed_elsewhere = {row.pol for rows in siblings.values() for row in rows}
+    claimed_elsewhere = {pol for rows in siblings.values() for _, pol in rows}
     records = workspace.read_manifest()
     sims = Path(workspace.root) / "sims"
     # A compacted sims/sim_<id>.zip and a batch's sims/batch/<label>/sim_<id> claim their id
@@ -492,7 +517,7 @@ def renumber_repeated_pols(
     ]
     every = [
         *claimed_elsewhere,
-        *(row.pol for row in mine),
+        *(pol for _, pol in mine),
         *(record.sim_id for record in records),
         *folders,
     ]
@@ -501,9 +526,9 @@ def renumber_repeated_pols(
     stem = matrix.stem
     seen: set[str] = set()
     changes: list[PolChange] = []
-    for row in mine:
-        if row.pol not in claimed_elsewhere and row.pol not in seen:
-            seen.add(row.pol)
+    for number, pol in mine:
+        if pol not in claimed_elsewhere and pol not in seen:
+            seen.add(pol)
             continue
         # THE FIRST ROW OF THIS FILE KEEPS THE POL (DEC-0181). A run record names a POL and
         # never a row, so
@@ -514,31 +539,27 @@ def renumber_repeated_pols(
         # occurrence when another matrix also states the POL and this matrix
         # has runs of it: there is no other row of this file to keep it, so
         # moving it is the orphaning itself.
-        first = row.pol not in seen
-        if first and any(
-            record.sim_id == row.pol and record.matrix_stem == stem for record in records
-        ):
+        first = pol not in seen
+        if first and any(record.sim_id == pol and record.matrix_stem == stem for record in records):
             # The remedy is one that clears the condition: archiving the
             # simulation zips its folder and leaves its records in the
             # manifest, so the same records would refuse again.
             others = sorted(
-                other.name
-                for other, rows in siblings.items()
-                if any(r.pol == row.pol for r in rows)
+                other.name for other, rows in siblings.items() if any(p == pol for _, p in rows)
             )
             raise MatrixError(
-                f"{matrix.name} row {row.row_number} states POL {row.pol}, which another matrix "
+                f"{matrix.name} row {number} states POL {pol}, which another matrix "
                 f"of this workspace also states, and {workspace.manifest_path.name} already holds "
-                f"runs of POL {row.pol} from {matrix.name}. Moving this row would orphan those "
+                f"runs of POL {pol} from {matrix.name}. Moving this row would orphan those "
                 "runs from the row that produced them, and nothing was renumbered. Renumber the "
                 "other matrix instead (renumber_repeated_pols on it, update_ids (CLI: "
                 f"--update-ids) of its plan: pyfs-matrix plan {' / '.join(others)} --update-ids "
-                f"moves its row), and this one then keeps POL {row.pol}. Archiving the "
+                f"moves its row), and this one then keeps POL {pol}. Archiving the "
                 f"simulation does not clear this: its records stay in "
                 f"{workspace.manifest_path.name}."
             )
         ceiling += 1
-        changes.append(PolChange(row_number=row.row_number, old=row.pol, new=str(ceiling)))
+        changes.append(PolChange(row_number=number, old=pol, new=str(ceiling)))
         seen.add(str(ceiling))
     if changes and in_place:
         renumber_pols(matrix, {change.row_number: change.new for change in changes}, in_place=True)

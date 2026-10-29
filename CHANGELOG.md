@@ -7,6 +7,17 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.50.1] - 2026-10-29
+
+### Fixed
+
+- A matrix row whose `ROTATE` or `TRANSLATE` AXIS is not of the form
+  frame-axis is skipped with a `NotApplicableWarning` naming the file, the row
+  and the POL, and the other rows plan; `--warning-refusals` restores the
+  refusal. Planning one matrix reads the other matrices of the workspace for
+  their POLs only, so a malformed row in one of them no longer stops the plan
+  of every matrix, and it still claims its POL (FR-3391).
+
 ## [0.50.0] - 2026-10-29
 
 ### Added
@@ -2643,7 +2654,8 @@ archives remain available for recovery. (no requirement: preserve records during
   seven public names of `pyflightstream.workspace`; `pyflightstream.workspace._degenerate`
   stays importable.
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.50.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.50.1...HEAD
+[0.50.1]: https://github.com/nevesgeovana/pyflightstream/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.49.0...v0.50.0
 [0.49.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.48.0...v0.49.0
 [0.48.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.47.0...v0.48.0

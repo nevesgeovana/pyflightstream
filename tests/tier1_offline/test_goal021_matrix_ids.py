@@ -337,3 +337,83 @@ def test_p0430_f758_renumber_refuses_a_short_row_it_was_not_asked_to_change(tmp_
     with pytest.raises(MatrixError, match="data row 2"):
         renumber_pols(matrix, {1: "9000"}, in_place=True)
     assert matrix.read_bytes() == before
+
+
+# --- 0.50.1: a malformed row is skipped, and another matrix's never stops a plan --------
+
+
+def _malformed(pol, run=1):
+    """A row whose ROTATE axis is not of the form frame-axis, as a workspace held one."""
+    return row(pol, run=run) + " / ROTATE: {ANGLE: 3 / AXIS: HINGE-ELEV / ALIAS: S}"
+
+
+def test_p0501_axis_a_malformed_row_of_another_matrix_never_stops_the_plan(tmp_path):
+    """FR-3391: the sibling is read for its POLs only, so its malformed row stops nothing."""
+    from pyflightstream.options import option_context
+
+    workspace = _workspace(tmp_path)
+    matrix = _matrix(workspace.root, "planned.fs", [row(8001)])
+    _matrix(workspace.root, "other.fs", [row(9001), _malformed(9002)])
+    for strict in (False, True):
+        with option_context("warning_refusals", strict):
+            plan = _plan(workspace, matrix)
+        assert sorted({point.sim_id for point in plan.points}) == ["8001"], strict
+
+
+def test_p0501_axis_a_malformed_row_still_claims_its_pol(tmp_path):
+    """FR-3391: the identity census still counts the malformed row of either matrix."""
+    workspace = _workspace(tmp_path)
+    matrix = _matrix(workspace.root, "planned.fs", [row(9002)])
+    _matrix(workspace.root, "other.fs", [_malformed(9002)])
+    message = _refusal(workspace, matrix)
+    assert message.count("POL 9002 in planned.fs row 1, other.fs row 1") == 1, message
+
+
+def test_p0501_axis_a_malformed_row_of_the_planned_matrix_is_skipped_with_a_warning(tmp_path):
+    """FR-3391: the row is skipped with a NotApplicableWarning naming the file, the POL and
+    the remedy, the other rows plan, and warning_refusals restores the refusal."""
+    from pyflightstream._errors import NotApplicableWarning
+    from pyflightstream.options import option_context
+
+    workspace = _workspace(tmp_path)
+    matrix = _matrix(workspace.root, "planned.fs", [row(8001), _malformed(8002)])
+    with pytest.warns(NotApplicableWarning) as caught:
+        plan = plan_matrix(
+            matrix, workspace, name="p", default_fs_version="26.120", recipes={"003": "steady"}
+        )
+    assert sorted({point.sim_id for point in plan.points}) == ["8001"]
+    said = [str(w.message) for w in caught if issubclass(w.category, NotApplicableWarning)]
+    assert any(
+        "planned.fs" in text and "POL 8002" in text and "HINGE-ELEV" in text and "NAC-Y" in text
+        for text in said
+    ), said
+    with option_context("warning_refusals", True), pytest.raises(MatrixError) as refused:
+        _plan(workspace, matrix)
+    message = str(refused.value)
+    assert message.count("POL 8002: ROTATE AXIS is 'HINGE-ELEV'") == 1, message
+    assert message.count("frame-axis") == 1, message
+
+
+def test_p0501_axis_the_command_line_plans_beside_a_malformed_matrix(tmp_path, capsys):
+    """FR-3391, the reported shape: pyfs-matrix plan of one matrix of a workspace whose
+    other matrix holds a malformed row plans, and writes its plan."""
+    workspace = _workspace(tmp_path)
+    matrix = _matrix(workspace.root, "planned.fs", [row(8001)])
+    _matrix(workspace.root, "other.fs", [_malformed(9002)])
+    status = main(
+        [
+            "plan",
+            str(matrix),
+            "--name",
+            "p",
+            "--fs-version",
+            "26.120",
+            "--workspace",
+            str(workspace.root),
+            "--workflow",
+            "003=steady",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert status == 0, (status, captured.err)
+    assert (workspace.root / "post" / "planned" / "plan.json").is_file()

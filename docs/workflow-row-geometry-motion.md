@@ -70,12 +70,14 @@ still read as a geometric rotation sweep of its own, and a row sweeping it
 beside an aerodynamic axis is refused as it always was; it is not the way
 to state the study's angles, `ROTATE` is.
 
-A family the geometry lacks, a frame nothing defined, an axis token not of
-the form `frame-axis`, a record missing one of its three keys or carrying a
-key a rotation does not read, an angle that is not a number, and the key on
-a `LEGACY` row (whose recipe reads its keys and reads no rotation) are each
-refused at `pyfs-matrix plan` naming the row, and the first two name what
-the case DOES define:
+An axis token not of the form `frame-axis`, in `ROTATE` or `TRANSLATE`, is
+warned at `pyfs-matrix plan` naming the file, the row and the POL, and that
+row is skipped while the other rows plan; `--warning-refusals` refuses it
+(FR-3391). A family the geometry lacks, a frame nothing defined, a record
+missing one of its three keys or carrying a key a rotation does not read, an
+angle that is not a number, and the key on a `LEGACY` row (whose recipe reads
+its keys and reads no rotation) are each refused at `pyfs-matrix plan` naming
+the row, and the first two name what the case DOES define:
 
 ```text
 case '1020' states ROTATE with 'NoSuchFamily', and the sidecar

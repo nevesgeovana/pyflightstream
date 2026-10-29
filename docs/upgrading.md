@@ -7,6 +7,14 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.50.1
+
+A matrix row whose `ROTATE` or `TRANSLATE` AXIS is not of the form frame-axis
+(as `NAC-Y`) now warns and is skipped while the other rows plan, where it
+refused the whole matrix; correct the AXIS to plan the row. A malformed row of
+another matrix of the workspace no longer stops a plan. Use
+`--warning-refusals` to restore the refusal (FR-3391).
+
 ## 0.50.0
 
 Use Python 3.12 or newer (`>=3.12`), with no Python upper bound.

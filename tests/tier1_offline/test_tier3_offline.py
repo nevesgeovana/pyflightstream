@@ -1107,11 +1107,20 @@ def test_a_rotation_naming_an_unknown_frame_is_refused(tmp_path):
 
 
 def test_a_rotation_axis_not_of_the_form_frame_axis_is_refused(tmp_path):
-    """PFS-2034.03: the axis token is refused when the matrix is read, naming the POL,
-    so no point of the row is ever planned."""
+    """PFS-2034.03, FR-3391: under warning_refusals the axis token is refused when the
+    matrix is read, naming the POL; by default the row is skipped with a warning naming
+    the file, the row and the POL. Either way no point of the row is ever planned."""
+    from pyflightstream._errors import NotApplicableWarning
+    from pyflightstream.cases.matrix import read_matrix
+
     root, matrix = _rotor_row_on_a_setup_with_nac(tmp_path, ROTATE_TWO.replace("NAC-Y", "NACY"))
-    with pytest.raises(MatrixError, match="POL 1020.*ROTATE.*NACY.*frame-axis"):
+    with (
+        option_context("warning_refusals", True),
+        pytest.raises(MatrixError, match="POL 1020.*ROTATE.*NACY.*frame-axis"),
+    ):
         _rendered(root, matrix)
+    with pytest.warns(NotApplicableWarning, match="rotate.fs data row 1, POL 1020.*NACY.*skipped"):
+        assert read_matrix(matrix, active_only=False) == []
 
 
 def test_a_rotation_on_a_legacy_row_is_refused(tmp_path):

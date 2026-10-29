@@ -57,7 +57,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import pyflightstream._textio as _textio
+from pyflightstream._errors import NotApplicableWarning as NotApplicableWarning
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
+from pyflightstream._errors import demote as demote
 from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
 from pyflightstream.cases import ROTATION_OFFSET_KEY as ROTATION_OFFSET_KEY
 from pyflightstream.cases import (
@@ -693,7 +695,9 @@ def _refuse_the_packages_continuation_keys(variables: Mapping[str, str], pol: st
     )
 
 
-def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
+def _parse_rotations(
+    variables: dict[str, str], pol: str, *, malformed: list[MatrixError] | None = None
+) -> list[dict[str, str]]:
     """Take the ``ROTATE`` list out of the flat variables and read its records.
 
     PFS-2034.02 uses the ``MOTIONS`` record grammar. Records are read in input order. Each states
@@ -701,6 +705,9 @@ def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]
     ``AUX_FRAMES``. ``FAMILIES`` is refused with the ``ALIAS`` remedy. Unknown keys, missing
     required keys, nonnumeric angles and invalid axis tokens are refused at plan time. The
     builder resolves frame and family names against the geometry and setup.
+
+    ``malformed``, when given, receives an axis token's refusal instead of raising it and
+    the reading stops there, so :func:`read_matrix` can skip that one row (FR-3391).
     """
     text = variables.pop(ROTATE_VARIABLE, None)
     if text is None:
@@ -739,15 +746,21 @@ def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]
                 "finite number; write the angle in degrees, as 3 or -2.5."
             )
         if not _ROTATION_AXIS.match(record["AXIS"]):
-            raise MatrixError(
+            error = MatrixError(
                 f"POL {pol}: {ROTATE_VARIABLE} AXIS is {record['AXIS']!r}, which is not of the "
                 "form frame-axis; write the frame's name, a hyphen and X, Y or Z (the axis letter "
                 "uppercase), as NAC-Y."
             )
+            if malformed is None:
+                raise error
+            malformed.append(error)
+            return records
     return records
 
 
-def _parse_translations(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
+def _parse_translations(
+    variables: dict[str, str], pol: str, *, malformed: list[MatrixError] | None = None
+) -> list[dict[str, str]]:
     """Take the ``TRANSLATE`` list out of the flat variables and read its records.
 
     FR-100, PFS-2034.06: the grammar of ``ROTATE``. Each record states
@@ -756,7 +769,8 @@ def _parse_translations(variables: dict[str, str], pol: str) -> list[dict[str, s
     ``AUX_FRAMES``; a key outside those four, a missing one, no alias, a
     distance that is not a finite number and an axis token of another shape are
     refused here, naming the row, so a row is refused at plan time and never
-    at the solver. What the names RESOLVE to is the builder's.
+    at the solver. What the names RESOLVE to is the builder's. ``malformed``
+    receives an axis token's refusal as :func:`_parse_rotations` does.
     """
     text = variables.pop(TRANSLATE_VARIABLE, None)
     if text is None:
@@ -798,11 +812,15 @@ def _parse_translations(variables: dict[str, str], pol: str) -> list[dict[str, s
                 "a finite number; write the distance in metres, as 0.05 or -0.02."
             )
         if not _ROTATION_AXIS.match(record["AXIS"]):
-            raise MatrixError(
+            error = MatrixError(
                 f"POL {pol}: {TRANSLATE_VARIABLE} AXIS is {record['AXIS']!r}, which is not of the "
                 "form frame-axis; write the frame's name, a hyphen and X, Y or Z (the axis letter "
                 "uppercase), as PUSHER_SMRP-X."
             )
+            if malformed is None:
+                raise error
+            malformed.append(error)
+            return records
     return records
 
 
@@ -1003,6 +1021,13 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         does not know (named with the closest known column), or a LEGACY row states a raw
         command, a rotation or a translation.
 
+    Warns
+    -----
+    NotApplicableWarning
+        A row whose ``ROTATE`` or ``TRANSLATE`` AXIS is not of the form frame-axis is
+        skipped, naming the file, the row and the POL; the other rows are read. Under
+        ``warning_refusals`` it is refused as before (FR-3391).
+
     Examples
     --------
     >>> import tempfile
@@ -1096,8 +1121,14 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         variables = _fold_columns_into_variables(record, variables, record["POL"])
         _refuse_the_packages_continuation_keys(variables, record["POL"])
         motions = _parse_motions(variables, record["POL"])
-        rotations = _parse_rotations(variables, record["POL"])
-        translations = _parse_translations(variables, record["POL"])
+        malformed: list[MatrixError] = []
+        rotations = _parse_rotations(variables, record["POL"], malformed=malformed)
+        translations = (
+            [] if malformed else _parse_translations(variables, record["POL"], malformed=malformed)
+        )
+        if malformed:
+            _skip_a_row_with_a_malformed_axis(malformed[0], path, row_number)
+            continue
         raw = _raw_records(variables, record["POL"])
         _refuse_legacy_motion(record, bool(rotations), bool(translations))
         if raw and record["WORKFLOW"] == LEGACY_WORKFLOW:
@@ -1169,6 +1200,27 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         if row.run == 1 or not active_only:
             rows.append(row)
     return rows
+
+
+def _skip_a_row_with_a_malformed_axis(
+    error: MatrixError, path: str | Path, row_number: int
+) -> None:
+    """Warn that a row is skipped for its axis token, or refuse it under warning_refusals.
+
+    FR-3391: the row cannot be built, and leaving it out writes no wrong result for any
+    other row, so it is skipped rather than stopping the whole matrix. The strict refusal
+    is the reader's own sentence, unchanged.
+    """
+    try:
+        demote(
+            MatrixError(
+                f"{Path(path).name} data row {row_number}, {error} The row is skipped, so "
+                "none of its points is planned or run until its AXIS is corrected."
+            ),
+            warning=NotApplicableWarning,
+        )
+    except MatrixError:
+        raise error from None
 
 
 def _refuse_a_choice_that_belongs_to_the_invocation(row: MatrixRow) -> None:
