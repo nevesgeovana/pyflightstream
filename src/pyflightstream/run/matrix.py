@@ -113,7 +113,7 @@ from pyflightstream.run._additional import (
     record_additional_extraction as record_additional_extraction,
 )
 from pyflightstream.run._identity import entry_accepted_builds
-from pyflightstream.run._ids import _selected_rows, narrow_to_selection, whole_sweeps
+from pyflightstream.run._ids import _selected, narrow_to_selection, whole_sweeps
 from pyflightstream.run._matrix_warnings import (
     _warn_matrix_inputs,
     _warn_the_rows_whose_additional_post_is_one_instant,
@@ -544,7 +544,7 @@ def plan_matrix(
     >>> print(plan.summary())               # doctest: +SKIP
     """
     default = _default_version(default_fs_version, fs_version, caller="plan_matrix")
-    selected_rows = _selected_rows(path, workspace, name, recipes, sims=sims, points=points)
+    selected_rows, sims = _selected(path, workspace, name, recipes, sims=sims, points=points)
     _refuse_a_run_that_names_no_build(path, default, selected_rows)
     resolved = resolve_matrix(
         path,
@@ -1029,7 +1029,7 @@ def run_matrix(
     ... )
     """
     default = _default_version(default_fs_version, fs_version, caller="run_matrix")
-    selected_rows = _selected_rows(
+    selected_rows, sims = _selected(
         path, workspace, name, recipes, sims=sims, points=points, redoing=force_rerun_all
     )
     _refuse_a_run_that_names_no_build(path, default, selected_rows)

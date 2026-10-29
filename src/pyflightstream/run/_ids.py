@@ -629,6 +629,29 @@ def _add_sim_ids(parser: Any, *, help: str = SIMS_IDS_HELP, required: bool = Fal
     )
 
 
+def _selected(
+    path: str | Path,
+    workspace: CampaignWorkspace,
+    name: str,
+    recipes: Mapping[str, str],
+    *,
+    sims: Sequence[str] | None,
+    points: Sequence[str] | None,
+    redoing: bool = False,
+) -> tuple[list[MatrixRow] | None, Sequence[str] | None]:
+    """Return :func:`_selected_rows` and the ``sims`` those rows carry.
+
+    The row selection already warned of (or refused) a simulation the matrix does not
+    carry; narrowing the resolved campaign with the same list again would say it twice
+    (REL3-002), so the caller narrows with the sims the rows kept.
+    """
+    rows = _selected_rows(path, workspace, name, recipes, sims=sims, points=points, redoing=redoing)
+    if not sims or rows is None:
+        return rows, sims
+    kept = {row.pol for row in rows}
+    return rows, [sim for sim in sims if sim in kept]
+
+
 def _selected_rows(
     path: str | Path,
     workspace: CampaignWorkspace,

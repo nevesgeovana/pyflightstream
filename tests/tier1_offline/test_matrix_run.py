@@ -1105,6 +1105,28 @@ def test_p0420_p1_1d_plan_rehearses_the_one_job_builder(tmp_path):
     assert all(p.status == PlanStatus.BLOCKED and "ONE_JOB_UNKNOWN" in p.error for p in plan.points)
 
 
+@pytest.mark.requirement("FR-3381")
+def test_rel3_002_an_uncarried_sim_is_warned_once_per_plan(tmp_path):
+    """REL3-002: the row selection and the campaign narrowing do not both say it."""
+    from pyflightstream._errors import EmptySelectionWarning
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan = plan_matrix(
+            matrix,
+            workspace,
+            name="warm",
+            recipes=RECIPES,
+            default_fs_version="26.120",
+            sims=["5001", "9999"],
+        )
+    assert len(plan.points) == 3
+    said = [w for w in caught if issubclass(w.category, EmptySelectionWarning)]
+    assert len(said) == 1, [str(w.message) for w in said]
+    assert "9999" in str(said[0].message)
+
+
 def test_p0420_p1_1d_plan_names_thin_blade_beside_source(tmp_path):
     from pyflightstream.workspace._degenerate import derive_thin_blade
     from pyflightstream.workspace.sidecars import inventory_sidecar
