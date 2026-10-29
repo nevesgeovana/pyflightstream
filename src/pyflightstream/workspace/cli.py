@@ -84,10 +84,11 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._cli import cli_entrypoint
-from pyflightstream._console import CONSOLE_LEVELS, command_help
+from pyflightstream._console import CONSOLE_LEVELS, add_warning_option, command_help
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._progress import command_console, say_summary
+from pyflightstream.options import get_option, option_context
 from pyflightstream.workspace import (
     INPUT_KINDS,
     CampaignWorkspace,
@@ -212,6 +213,12 @@ def _build_parser() -> argparse.ArgumentParser:
             "pyflightstream and never hand-built."
         ),
     )
+    parser.add_argument(
+        "--warning-refusals",
+        action="store_true",
+        default=get_option("warning_refusals"),
+        help="restore refusals for inputs otherwise skipped with typed warnings",
+    )
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
     migration = subparsers.add_parser(
         "migrate",
@@ -287,6 +294,7 @@ def _build_parser() -> argparse.ArgumentParser:
             add_console_arguments(
                 leaf, "print every value taken from the settings files and more detail"
             )
+    add_warning_option(parser)
     return parser
 
 
@@ -610,11 +618,14 @@ def main(argv: list[str] | None = None) -> int:
     # and the warnings at the end, as every pyfs-matrix command.
     group = getattr(args, f"{args.subcommand}_command", None)
     names = [args.subcommand, *([group] if group else [])]
-    with command_console(
-        "pyfs-workspace",
-        " ".join(names),
-        what=command_help(parser, names),
-        workspace=getattr(args, "workspace", None) or getattr(args, "root", None),
+    with (
+        option_context("warning_refusals", args.warning_refusals),
+        command_console(
+            "pyfs-workspace",
+            " ".join(names),
+            what=command_help(parser, names),
+            workspace=getattr(args, "workspace", None) or getattr(args, "root", None),
+        ),
     ):
         if args.subcommand == "archive":
             return _cmd_archive(args)
@@ -665,7 +676,11 @@ def _take_the_console_level(args: argparse.Namespace) -> None:
     typed = getattr(args, "log_level", None) or (
         "verbose" if getattr(args, "verbose", False) else None
     )
-    taken = TakenDefaults(console=typed) if typed else console_only(settings)
+    taken = (
+        take_defaults(settings, {"log_level": typed}, (), console=True)
+        if typed
+        else console_only(settings)
+    )
     declare_invocation(taken, verbose=taken.console == "verbose")
 
 

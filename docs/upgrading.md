@@ -37,6 +37,12 @@ ranges. Recreate environments within these bounds before upgrading.
   entries from refine files: each is warned and skipped, including empty
   values. Use `[[perimeter]]` for trailing-edge lists and a separate family
   with `method = "keep"` for an interface row (FR-3311 to FR-3317).
+Use the global `--warning-refusals` flag before a `pyfs-matrix` or
+`pyfs-workspace` subcommand to restore refusals for demoted input warnings.
+Python callers can use `option_context("warning_refusals", True)` or the
+`warning_refusals=True` keyword on `plan_matrix`, `run_matrix`,
+`write_campaign_products`, `refine_mesh` and `prepare_to_refine`.
+The keyword applies only during that call, including when it fails.
 
 ## 0.49.0
 

@@ -53,7 +53,7 @@ from types import MappingProxyType
 from typing import Any
 
 from pyflightstream._cli import for_this_invocation, set_console_level, set_post_warning_policy
-from pyflightstream._console import CONSOLE_LEVELS
+from pyflightstream._console import CONSOLE_LEVELS, CONSOLE_WARNINGS
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.workspace.builds import LOCAL_EXECUTABLES_FILE
 
@@ -115,7 +115,9 @@ DEFAULT_KEYS: Mapping[str, str] = MappingProxyType(
 
 #: Every key ``[log]`` may set, and its kind: the console level and the grouped
 #: post-processing warnings.
-LOG_KEYS: Mapping[str, str] = MappingProxyType({"console": "level", "pproc_warnings": "switch"})
+LOG_KEYS: Mapping[str, str] = MappingProxyType(
+    {"console": "level", "pproc_warnings": "switch", "warnings": "switch"}
+)
 
 #: The options that act on one invocation: refused in a file, because a file that
 #: made one of them the default would act without being asked (FR-995).
@@ -356,6 +358,7 @@ class TakenDefaults:
     console: str | None = None
     post_warnings: bool | None = None
     refused_acceptance: bool = False
+    console_warnings: bool | None = None
 
 
 def take_defaults(
@@ -424,7 +427,12 @@ def take_defaults(
             key = "log.pproc_warnings"
             sources[key], values[key] = settings.sources[key], post
     refused = typed.get("accept_unregistered_build") is False
-    return TakenDefaults(sources, values, level, post, refused)
+    visible = None
+    if CONSOLE_WARNINGS.get() is None and "warnings" in settings.log:
+        visible = bool(settings.log["warnings"])
+        sources["log.warnings"] = settings.sources["log.warnings"]
+        values["log.warnings"] = visible
+    return TakenDefaults(sources, values, level, post, refused, visible)
 
 
 def console_only(settings: WorkspaceSettings) -> TakenDefaults:
@@ -441,11 +449,7 @@ def console_only(settings: WorkspaceSettings) -> TakenDefaults:
         The console level of ``[log]`` and its file, or nothing; no key of
         ``[defaults]`` reaches a ``pyfs-workspace`` command.
     """
-    if "console" not in settings.log:
-        return TakenDefaults()
-    level = str(settings.log["console"])
-    source = settings.sources["log.console"]
-    return TakenDefaults({"log.console": source}, {"log.console": level}, level)
+    return take_defaults(settings, {}, (), console=True)
 
 
 def defaults_lines(taken: TakenDefaults) -> list[str]:
@@ -548,6 +552,8 @@ def declare_invocation(taken: TakenDefaults, *, verbose: bool) -> None:
         set_console_level(taken.console)
     if taken.post_warnings is not None:
         set_post_warning_policy(taken.post_warnings)
+    if taken.console_warnings is not None:
+        for_this_invocation(CONSOLE_WARNINGS, taken.console_warnings)
     for_this_invocation(_INVOCATION, Invocation(taken.sources, not taken.refused_acceptance))
     if verbose:
         for line in defaults_lines(taken):

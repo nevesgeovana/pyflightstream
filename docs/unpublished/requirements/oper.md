@@ -1,5 +1,24 @@
 # Oper requirements
 
+FR-3395 (L3, parent FR-201, PFS-2184.09): Every command of the five console
+programs shall accept global `--warning-off`, hiding warning lines and held
+warning blocks without changing progress, summaries, errors, the final line
+or signature, or warnings recorded by the operation. Matrix and workspace
+commands shall read `[log] warnings = false` at the existing settings boundary,
+with the CLI winning. The boolean Python option `console_warnings` shall
+default to true. Strict demoted refusals shall still raise.
+Code: `pyflightstream._cli:cli_entrypoint`.
+Test: `tests/tier1_offline/test_cli_signature.py::test_p0500_warning_off_keeps_command_output_and_warning_log`.
+Status: implemented.
+
+FR-3370 (L3, parent FR-40, PFS-2184.07): The library shall expose
+`warning_refusals` as a boolean option defaulting to false, a global CLI flag
+on both user CLIs, and a scoped keyword on the five planning, execution,
+products and refinement entry points. When enabled it restores the original
+exception for an otherwise demoted refusal. Code: `pyflightstream._errors:demote`.
+Test: `tests/tier1_offline/test_options.py::test_p0500_warning_refusals_policy_preserves_exception_and_restores_option`.
+Status: implemented.
+
 | UID | Parent | HID | Level | Status | Verification method | Statement | Rationale | Derives from | Code | Test |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | FR-3129 | - | OPER-1 | L1 | implemented | analysis | pyflightstream shall present command identity, progress and warnings on the documented console streams. | - | NL-OPER NL-OPER-5 | - | - |

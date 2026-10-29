@@ -33,6 +33,15 @@ FlightStream versions.
   Python arguments and a persisted refine key. One governor per direction supplies
   factors across a component's grid layouts, with warned own-orientation fallback
   and recorded governor names (FR-3320).
+- Global `--warning-off` on all five console programs hides warnings while
+  preserving progress, summaries, errors and recorded warnings. Matrix and
+  workspace commands also read `[log] warnings`; Python console callers can
+  set `console_warnings` (default true). Strict refusals remain errors (FR-3395).
+
+- Typed demoted-refusal warning families and the `warning_refusals` runtime
+  option. Both CLIs accept global `--warning-refusals`; matrix planning,
+  execution, campaign products and refinement entry points accept the Python
+  keyword and restore the previous option after the call (FR-3370).
 
 ### Changed
 

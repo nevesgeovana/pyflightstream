@@ -19,6 +19,177 @@ from pyflightstream import _cli, _signature
 SEES_YOU = "geoversegoddess sees you"
 BORDER = "#" * 81
 
+
+@pytest.mark.requirement("FR-3395")
+def test_p0500_warning_off_preserves_post_and_refine_records(tmp_path, capsys, monkeypatch):
+    """P0500-WARNOFF: real post and refinement warnings retain their durable records."""
+    import json
+    import warnings
+
+    from pyflightstream.run.cli import main as matrix_main
+    from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
+    from tests.tier1_offline.test_p0380_s1_refine import BOTH_TABLES, _two_tubes
+
+    def show(message, category, filename, lineno, file=None, line=None):
+        print(
+            warnings.formatwarning(message, category, filename, lineno, line),
+            end="",
+            file=file or sys.stderr,
+        )
+
+    monkeypatch.setattr(warnings, "showwarning", show)
+    recorded = []
+    for disabled in (False, True):
+        folder = tmp_path / str(disabled)
+        folder.mkdir()
+        workspace = _post_workspace(folder / "post", 2413, (60, 61))
+        flags = ["--warning-off"] if disabled else []
+        assert (
+            matrix_main([*flags, "post", "--workspace", str(workspace.root), "--pproc-warnings"])
+            == 0
+        )
+        output = capsys.readouterr()
+        assert "[warning]" not in output.err
+        post = workspace.products_dir(None)
+        text = (post / "post.log").read_text(encoding="utf-8")
+        record = json.loads((post / "post.log.json").read_text(encoding="utf-8"))
+        assert "WARNING" in text and "frozen" in text
+        assert "frozen" in json.dumps(record)
+        mesh_dir = folder / "mesh"
+        mesh_dir.mkdir()
+        mesh = _two_tubes(mesh_dir, BOTH_TABLES)
+        assert (
+            matrix_main([*flags, "refine", str(mesh), "1", "--out-dir", str(folder / "refined")])
+            == 0
+        )
+        output = capsys.readouterr()
+        assert ("[warning]" in output.err) is (not disabled)
+        reports = list((folder / "refined").rglob("*.refine.json"))
+        assert len(reports) == 1
+        refined = json.loads(reports[0].read_text(encoding="utf-8"))
+        assert refined["ignored_families_tables"] == ["A", "B"]
+        recorded.append(refined["ignored_families_tables"])
+    assert recorded[0] == recorded[1]
+
+
+@pytest.mark.parametrize("name", ["run", "workspace", "qa", "utils", "fsi"])
+@pytest.mark.requirement("FR-3395")
+def test_p0500_warning_off_keeps_command_output_and_warning_log(
+    name, tmp_path, capsys, monkeypatch
+):
+    """P0500-WARNOFF: each program parses the flag and preserves recorded warnings."""
+    import warnings
+
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream._progress import command_console
+
+    def show(message, category, filename, lineno, file=None, line=None):
+        print(
+            warnings.formatwarning(message, category, filename, lineno, line),
+            end="",
+            file=file or sys.stderr,
+        )
+
+    monkeypatch.setattr(warnings, "showwarning", show)
+    module = importlib.import_module(f"pyflightstream.{name}.cli")
+    builder = "_parser" if name == "utils" else "_build_parser"
+    parser = getattr(module, builder)()
+    assert "--warning-off" in parser.format_help()
+    root = tmp_path / name
+    (root / "inputs").mkdir(parents=True)
+    calls = {
+        "run": (["post", "--workspace", str(root)], "_cmd_post"),
+        "workspace": (["init", str(root)], "_cmd_init"),
+        "qa": (["cost", str(root)], "_cmd_cost"),
+        "utils": (["surface", "--editions", "editions.yaml"], "_surface"),
+        "fsi": (["step", "--out", str(root)], "_step"),
+    }
+
+    def operation(*args, **kwargs):
+        with command_console(
+            "test", "post", what="exercise warnings", workspace=root, live_log=True
+        ):
+            print("progress retained", file=sys.stderr)
+            warnings.warn("recorded warning", PyflightstreamWarning, stacklevel=2)
+            print("summary retained")
+            print("error retained", file=sys.stderr)
+        return 0
+
+    argv, handler = calls[name]
+    monkeypatch.setattr(module, handler, operation)
+    if name == "utils":
+        monkeypatch.setattr(module, "_manual_extra_error", lambda: None)
+    for flags in ([], ["--warning-off"]):
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            assert module.main([*flags, *argv]) == 0
+        output = capsys.readouterr()
+        assert "summary retained" in output.out
+        assert "progress retained" in output.err
+        assert "error retained" in output.err
+        assert output.err.count(SEES_YOU) == 1
+        assert ("[warning]" in output.err) is (not flags)
+        assert ("Warnings (" in output.err) is (not flags)
+    # Matrix already owns a live console; the other dispatchers use the probe's console.
+    logs = list((root / "logs").glob("post-*.log"))
+    if name != "workspace":
+        assert len(logs) == 2
+        assert all("recorded warning" in log.read_text(encoding="utf-8") for log in logs)
+
+
+@pytest.mark.parametrize("name", ["run", "workspace"])
+@pytest.mark.requirement("FR-3395")
+def test_p0500_warning_defaults_and_strict_refusals(name, tmp_path, capsys, monkeypatch):
+    """P0500-WARNOFF: files set visibility, CLI wins, and a refusal still raises."""
+    import warnings
+
+    from pyflightstream._errors import InputArtifactError, UnknownKeyWarning, demote
+    from pyflightstream.options import describe_option, get_option, option_context
+
+    module = importlib.import_module(f"pyflightstream.{name}.cli")
+    args = ["post", "--workspace", str(tmp_path)] if name == "run" else ["init", str(tmp_path)]
+    handler = "_cmd_post" if name == "run" else "_cmd_init"
+    seen = []
+
+    def operation(*args):
+        from pyflightstream._console import console_warnings
+
+        seen.append(console_warnings())
+        demote(InputArtifactError("unknown optional entry; remove it"), warning=UnknownKeyWarning)
+        return 0
+
+    monkeypatch.setattr(module, handler, operation)
+    assert "console_warnings" in describe_option()
+    assert get_option("console_warnings") is True
+    with option_context("console_warnings", False), warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
+        assert module.main(args) == 0
+        assert seen[-1] is False
+    assert get_option("console_warnings") is True
+    for value, flags, expected in (
+        (False, [], False),
+        (True, [], True),
+        (True, ["--warning-off"], False),
+    ):
+        (tmp_path / "pyfs.toml").write_text(
+            f"[log]\nwarnings = {str(value).lower()}\n", encoding="utf-8"
+        )
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            assert module.main([*flags, *args]) == 0
+        assert seen[-1] is expected
+    # Matrix catches its ordinary input errors; workspace propagates from this probe.
+    strict = ["--warning-off", "--warning-refusals", *args]
+    if name == "run":
+        assert module.main(strict) != 0
+        assert "unknown optional entry" in capsys.readouterr().err
+    else:
+        with pytest.raises(InputArtifactError, match="unknown optional entry"):
+            module.main(strict)
+    assert get_option("warning_refusals") is False
+    assert get_option("console_warnings") is True
+
+
 #: The koala with its one phrase, exactly as the owner drew it.
 KOALA = """\
 #################################################################################

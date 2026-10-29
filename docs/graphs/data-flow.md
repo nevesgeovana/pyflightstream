@@ -70,11 +70,11 @@ collect_once(workspace: CampaignWorkspace, *, interval: float=DEFAULT_SETTLE_INT
 ### Build engineering products
 
 ```text
-write_campaign_products(workspace: CampaignWorkspace, *, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None) -> list[Path]
+write_campaign_products(workspace: CampaignWorkspace, *, warning_refusals: bool | None=None, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None) -> list[Path]
 ```
 
 ### Refine source mesh
 
 ```text
-refine_mesh(mesh: str | os.PathLike[str], factor: float | None=None, *, families: Sequence[str] | None=None, parallel: float | None=None, normal: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None, progress: Callable[[str], None] | None=None, accept_remesh: bool=False, accept_unknown: bool=False, force_factors: bool=True, visual_inspect: bool=False, keep_within_component: bool | None=None, audit: bool=True, chordwise: float | None=None, spanwise: float | None=None) -> RefinedMesh
+refine_mesh(mesh: str | os.PathLike[str], factor: float | None=None, *, warning_refusals: bool | None=None, families: Sequence[str] | None=None, parallel: float | None=None, normal: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None, progress: Callable[[str], None] | None=None, accept_remesh: bool=False, accept_unknown: bool=False, force_factors: bool=True, visual_inspect: bool=False, keep_within_component: bool | None=None, audit: bool=True, chordwise: float | None=None, spanwise: float | None=None) -> RefinedMesh
 ```

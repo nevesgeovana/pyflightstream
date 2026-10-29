@@ -36,7 +36,12 @@ import numpy
 from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
+from pyflightstream._errors import (
+    InputArtifactError,
+    PyflightstreamWarning,
+    warn,
+    with_refusal_policy,
+)
 from pyflightstream.workspace._refine import _blocks, _geometry, _level, _lines, _nastran, _obj
 from pyflightstream.workspace._refine._obj import Faces, ObjMesh
 
@@ -70,9 +75,11 @@ class PreparedMesh:
     inspect: Path | None = None
 
 
+@with_refusal_policy
 def prepare_to_refine(
     mesh: str | Path,
     *,
+    warning_refusals: bool | None = None,
     max_angle: float = MAX_ANGLE,
     aft: tuple[float, float, float] = _obj.AFT,
     overwrite: bool = False,
@@ -90,6 +97,8 @@ def prepare_to_refine(
 
     Parameters
     ----------
+    warning_refusals : bool, optional
+        Restore demoted refusals for this call; None uses the runtime option.
     mesh : str or pathlib.Path
         The source OBJ or NASTRAN export; it is never modified.
     max_angle : float

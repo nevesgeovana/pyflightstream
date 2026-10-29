@@ -40,6 +40,7 @@ import pyflightstream._textio as _textio
 from pyflightstream._console import (
     blocks,
     clock_text,
+    console_warnings,
     held_warnings,
     opening_lines,
     progress_done_text,
@@ -886,6 +887,13 @@ def _say_opening(opening: str) -> None:
         print(opening, end="", file=sys.stderr, flush=True)
 
 
+def log_console_warning(text: str) -> None:
+    """Keep a suppressed console warning in the active live log, when there is one."""
+    terminal = _TERMINAL.get()
+    if terminal is not None and terminal.console is not None and terminal.console.log is not None:
+        terminal.console.log.write(text)
+
+
 def print_held_warnings(held: list[warnings.WarningMessage]) -> None:
     """Print held warnings as one titled block on stderr, a blank line before and after.
 
@@ -893,6 +901,10 @@ def print_held_warnings(held: list[warnings.WarningMessage]) -> None:
     prints it after its header, every other command at its end.
     """
     if not held:
+        return
+    if not console_warnings():
+        log_console_warning(f"\n{warnings_title(len(held))}\n")
+        release_warnings(held)
         return
     with _chatter():
         print(f"\n{warnings_title(len(held))}", file=sys.stderr, flush=True)

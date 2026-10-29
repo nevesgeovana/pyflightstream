@@ -24,11 +24,12 @@ import warnings
 from collections.abc import Callable
 from contextvars import ContextVar
 from functools import wraps
-from typing import TextIO
+from io import StringIO
+from typing import Any, TextIO
 
 import pyflightstream._progress as _progress
 import pyflightstream._signature as _signature
-from pyflightstream._console import warning_text
+from pyflightstream._console import CONSOLE_WARNINGS, console_warnings, warning_text
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._progress import command_terminal
 
@@ -198,6 +199,28 @@ def _short_warnings(standard: Callable[..., str]) -> Callable[..., str]:
     return formatwarning
 
 
+def _visible_warnings(show: Callable[..., None]) -> Callable[..., None]:
+    """Filter only the warning's console rendering, after its recording and error policy."""
+
+    def shown(*args: Any, **kwargs: Any) -> None:
+        # The signature of warnings.showwarning: message, category, filename, lineno, file, line.
+        call = dict(
+            zip(("message", "category", "filename", "lineno", "file", "line"), args, strict=False)
+        )
+        call.update(kwargs)
+        file = call.get("file")
+        elsewhere = file is not None and file is not sys.stderr
+        elsewhere = elsewhere and file is not sys.stdout
+        if console_warnings() or elsewhere:
+            show(*args, **kwargs)
+        else:
+            with StringIO() as hidden:
+                show(**{**call, "file": hidden})
+                _progress.log_console_warning(hidden.getvalue())
+
+    return shown
+
+
 def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
     """Report the actual CLI outcome once, without changing CLI semantics.
 
@@ -237,6 +260,11 @@ def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
         scoped: list[Callable[[], None]] = []
         scoped_token = _SCOPED.set(scoped)
         show = warnings.showwarning
+        warning_args = list(argv)
+        if "--" in warning_args:
+            warning_args = warning_args[: warning_args.index("--")]
+        for_this_invocation(CONSOLE_WARNINGS, False if "--warning-off" in warning_args else None)
+        warnings.showwarning = _visible_warnings(show)
         if not verbose:
             warnings.formatwarning = _short_warnings(standard)
         outcome = "failed"

@@ -2,6 +2,9 @@
 
 FR-424 and FR-425.
 
+Size exemption: the level orchestration keeps every step of the order below beside the audit and
+component-governing choices its record states; splitting it would scatter one ordered procedure.
+
 The order, from the source to the level folder:
 
 1. read the mesh, the request (:mod:`._config`) and the ``[[perimeter]]``
@@ -46,7 +49,12 @@ import numpy
 from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
+from pyflightstream._errors import (
+    InputArtifactError,
+    PyflightstreamWarning,
+    warn,
+    with_refusal_policy,
+)
 from pyflightstream._lengths import scale as length_scale
 from pyflightstream.workspace._inspect_pages import Inspection
 from pyflightstream.workspace._refine import (
@@ -1206,10 +1214,12 @@ def _renamed_keyword(
     return old_value
 
 
+@with_refusal_policy
 def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     mesh: str | os.PathLike[str],
     factor: float | None = None,
     *,
+    warning_refusals: bool | None = None,
     families: Sequence[str] | None = None,
     parallel: float | None = None,
     normal: float | None = None,
@@ -1231,6 +1241,8 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
 
     Parameters
     ----------
+    warning_refusals : bool, optional
+        Restore demoted refusals for this call; None uses the runtime option.
     mesh : path-like
         The source OBJ, kept unchanged. A refusal may write a diagnostic PDF beside it.
     factor : float, optional

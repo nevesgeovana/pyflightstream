@@ -91,9 +91,9 @@
       "outputs": [
         "product tables, provenance and post log"
       ],
-      "parameters": "workspace: CampaignWorkspace, *, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None",
+      "parameters": "workspace: CampaignWorkspace, *, warning_refusals: bool | None=None, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None",
       "returns": "list[Path]",
-      "source_sha256": "1763b0ddea9000e408497584eab813fe593175123484f052d0c300df27ecc377"
+      "source_sha256": "d45072b3264f14b5e9b8024144fabb246f53a04e85232de588ee7ea6360f60db"
     },
     {
       "id": "refine",
@@ -106,9 +106,9 @@
       "outputs": [
         "geometry"
       ],
-      "parameters": "mesh: str | os.PathLike[str], factor: float | None=None, *, families: Sequence[str] | None=None, parallel: float | None=None, normal: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None, progress: Callable[[str], None] | None=None, accept_remesh: bool=False, accept_unknown: bool=False, force_factors: bool=True, visual_inspect: bool=False, keep_within_component: bool | None=None, audit: bool=True, chordwise: float | None=None, spanwise: float | None=None",
+      "parameters": "mesh: str | os.PathLike[str], factor: float | None=None, *, warning_refusals: bool | None=None, families: Sequence[str] | None=None, parallel: float | None=None, normal: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None, progress: Callable[[str], None] | None=None, accept_remesh: bool=False, accept_unknown: bool=False, force_factors: bool=True, visual_inspect: bool=False, keep_within_component: bool | None=None, audit: bool=True, chordwise: float | None=None, spanwise: float | None=None",
       "returns": "RefinedMesh",
-      "source_sha256": "c6e69c7d4ee4be9c8f07435e2304a90126e44388731e2f15e5a0d37cfb496b76"
+      "source_sha256": "e1f695e3ce20f65b16a9c2240a4abf4179b69c4d0c4a92227881088ce3f7cf63"
     }
   ],
   "cases": [

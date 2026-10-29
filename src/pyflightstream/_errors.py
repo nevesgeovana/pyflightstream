@@ -54,9 +54,13 @@ from __future__ import annotations
 
 import sys
 import warnings
-from collections.abc import Iterator
-from contextlib import contextmanager
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from contextvars import ContextVar
+from difflib import get_close_matches
+from functools import wraps
+from types import CodeType, FrameType, FunctionType
+from typing import cast
 
 
 class PyflightstreamError(Exception):
@@ -312,6 +316,106 @@ class PyflightstreamDeprecationWarning(PyflightstreamWarning, DeprecationWarning
     """
 
 
+class DemotedRefusalWarning(PyflightstreamWarning):
+    """An offending input was skipped without changing the correctness of written results."""
+
+
+class UnknownKeyWarning(DemotedRefusalWarning):
+    """An unknown key, option or table was ignored."""
+
+
+class NotApplicableWarning(DemotedRefusalWarning):
+    """An entry does not apply to this run type, build or geometry and was skipped."""
+
+
+class EmptySelectionWarning(DemotedRefusalWarning):
+    """A selection names no applicable entries and was skipped."""
+
+
+class DuplicateValueWarning(DemotedRefusalWarning):
+    """An identical repeated value was ignored."""
+
+
+class OptionalProductWarning(DemotedRefusalWarning):
+    """An optional product cannot be made for this point and was skipped."""
+
+
+class RetiredKeyWarning(UnknownKeyWarning):
+    """A retired spelling was ignored; use the replacement named in the message."""
+
+
+# Options installs this reader at registration, keeping the floor independent of its consumer.
+_warning_refusals: Callable[[], bool] = bool
+_REFUSAL_WRAPPERS: set[CodeType] = set()
+
+
+def _default_refusal_context(value: bool) -> AbstractContextManager[None]:
+    return nullcontext()
+
+
+_refusal_context: Callable[[bool], AbstractContextManager[None]] = _default_refusal_context
+
+
+def with_refusal_policy[**P, Result](function: Callable[P, Result]) -> Callable[P, Result]:
+    """Scope an entry point's explicit warning_refusals keyword to that call.
+
+    Parameters
+    ----------
+    function : callable
+        Entry point declaring a keyword-only warning_refusals argument.
+
+    Returns
+    -------
+    callable
+        The entry point with its option restored even when the call fails.
+    """
+
+    @wraps(function)
+    def scoped(*args: P.args, **kwargs: P.kwargs) -> Result:
+        selected = kwargs.get("warning_refusals")
+        if selected is None:
+            return function(*args, **kwargs)
+        with _refusal_context(cast(bool, selected)):
+            return function(*args, **kwargs)
+
+    _REFUSAL_WRAPPERS.add(cast(FunctionType, scoped).__code__)
+    return scoped
+
+
+def demote(exc: Exception, *, warning: type[DemotedRefusalWarning]) -> None:
+    """Warn about an input the caller skips, or restore its original refusal.
+
+    Parameters
+    ----------
+    exc : Exception
+        Original refusal, including its cause and remedy.
+    warning : type of DemotedRefusalWarning
+        Category identifying the skipped input's family.
+    """
+    if _warning_refusals():
+        raise exc
+    warn(f"{exc} (--warning-refusals makes this a refusal)", warning, stacklevel=2)
+
+
+def suggest_name(name: str, known: Iterable[str]) -> str:
+    """Return one close-name suggestion, or an empty string.
+
+    Parameters
+    ----------
+    name : str
+        Unknown input name.
+    known : iterable of str
+        Accepted names, compared with a similarity cutoff of 0.75.
+
+    Returns
+    -------
+    str
+        A sentence suitable for appending to a cause and remedy.
+    """
+    matches = get_close_matches(name, sorted(known), n=1, cutoff=0.75)
+    return f" Did you mean {matches[0]!r}?" if matches else ""
+
+
 #: The warnings the running post collects, or None outside every post. Held
 #: per context, and a new thread starts with an empty context on CPython
 #: 3.12, so two posts in two threads never share a sink (RPT-058).
@@ -351,12 +455,21 @@ def warn(
     >>> [str(warning.message) for warning in caught]
     ['the campaign declares no outputs']
     """
+    # Policy wrappers are transparent to the caller attribution of existing warnings.
+    frame: FrameType | None = sys._getframe()
+    effective = 0
+    remaining = stacklevel
+    while remaining > 0 and frame is not None:
+        frame = frame.f_back
+        effective += 1
+        if frame is None or frame.f_code not in _REFUSAL_WRAPPERS:
+            remaining -= 1
     sink = _SINK.get()
     if sink is None:
-        warnings.warn(message, category, stacklevel=stacklevel + 1)
+        warnings.warn(message, category, stacklevel=effective + 1)
         return
     try:
-        frame = sys._getframe(stacklevel)
+        frame = sys._getframe(effective)
         where = (frame.f_code.co_filename, frame.f_lineno)
     except ValueError:  # a stack shallower than asked, as warnings.warn reads it
         where = ("sys", 1)

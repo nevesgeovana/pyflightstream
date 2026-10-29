@@ -106,6 +106,7 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
     collecting_warnings,
     warn,
+    with_refusal_policy,
 )
 from pyflightstream._progress import tracked, workspace_activity
 from pyflightstream._tokens import REDUCTION_COLUMNS as REDUCTION_COLUMNS
@@ -487,9 +488,11 @@ def _sweep_rows(
 
 
 @workspace_activity("post")
+@with_refusal_policy
 def write_campaign_products(
     workspace: CampaignWorkspace,
     *,
+    warning_refusals: bool | None = None,
     overwrite: bool = False,
     archive: bool = False,
     archive_stamp: datetime | None = None,
@@ -530,6 +533,8 @@ def write_campaign_products(
 
     Parameters
     ----------
+    warning_refusals : bool, optional
+        Restore demoted refusals for this call; None uses the runtime option.
     workspace : CampaignWorkspace
         The campaign workspace whose recorded runs are posted.
     overwrite : bool, default False

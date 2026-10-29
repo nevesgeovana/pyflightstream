@@ -228,13 +228,11 @@
   },
   {
    "id": "RX-25",
-   "capability": "Package options (the registered options are QA timeouts and scratch root)",
+   "capability": "Runtime option inspection and Python setters",
    "reason": "maintainer or developer API",
    "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.describe_option",
-    "pyflightstream.get_option",
-    "pyflightstream.option_context",
     "pyflightstream.reset_option",
     "pyflightstream.set_option"
    ]
@@ -409,6 +407,22 @@
    "names": [
     "pyflightstream.cases.derived_body_sha256",
     "pyflightstream.cases.workflows.rotor_relaxed_trailing_edges"
+   ]
+  },
+  {
+   "id": "RX-40",
+   "capability": "Typed demoted-refusal families introduced before their input-reader routes",
+   "reason": "routed later",
+   "node": "PFS-2184.07",
+   "release": "0.50.0",
+   "names": [
+    "pyflightstream.exceptions.DemotedRefusalWarning",
+    "pyflightstream.exceptions.DuplicateValueWarning",
+    "pyflightstream.exceptions.EmptySelectionWarning",
+    "pyflightstream.exceptions.NotApplicableWarning",
+    "pyflightstream.exceptions.OptionalProductWarning",
+    "pyflightstream.exceptions.RetiredKeyWarning",
+    "pyflightstream.exceptions.UnknownKeyWarning"
    ]
   }
  ]

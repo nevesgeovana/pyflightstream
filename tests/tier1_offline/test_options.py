@@ -26,6 +26,64 @@ from pyflightstream.options import (
 # --- exact keys, get/set/reset ----------------------------------------------
 
 
+def test_p0500_warning_refusals_policy_preserves_exception_and_restores_option():
+    from pyflightstream import _errors
+
+    assert "warning_refusals" in describe_option()
+    error = OptionError("unknown entry; remove it")
+    assert get_option("warning_refusals") is False
+    with pytest.warns(_errors.UnknownKeyWarning, match="--warning-refusals"):
+        _errors.demote(error, warning=_errors.UnknownKeyWarning)
+    with option_context("warning_refusals", True):
+        with pytest.raises(OptionError) as caught:
+            _errors.demote(error, warning=_errors.UnknownKeyWarning)
+        assert caught.value is error
+    assert get_option("warning_refusals") is False
+
+
+def test_p0500_warning_refusals_requires_a_boolean():
+    assert "warning_refusals" in describe_option()
+    with pytest.raises(OptionError, match="bool"):
+        set_option("warning_refusals", "false")
+
+
+def test_p0500_warning_refusals_python_entry_points_restore_policy(monkeypatch):
+    import inspect
+
+    from pyflightstream import _errors
+    from pyflightstream.post.products import write_campaign_products
+    from pyflightstream.run.matrix import plan_matrix, run_matrix
+    from pyflightstream.workspace._refine._level import refine_mesh
+    from pyflightstream.workspace._refine._prepare import prepare_to_refine
+
+    for entry in (plan_matrix, run_matrix, write_campaign_products, refine_mesh, prepare_to_refine):
+        assert "warning_refusals" in inspect.signature(entry).parameters
+
+    @options.with_refusal_policy
+    def example(*, warning_refusals=None):
+        _errors.demote(OptionError("unknown entry; remove it"), warning=_errors.UnknownKeyWarning)
+
+    with pytest.raises(OptionError):
+        example(warning_refusals=True)
+    assert get_option("warning_refusals") is False
+    with pytest.warns(_errors.UnknownKeyWarning):
+        example(warning_refusals=False)
+
+
+@pytest.mark.parametrize("module", ["pyflightstream.run.cli", "pyflightstream.workspace.cli"])
+def test_p0500_warning_refusals_global_cli_flag(module):
+    import importlib
+
+    parser = importlib.import_module(module)._build_parser()
+    assert "--warning-refusals" in parser.format_help()
+    args = parser.parse_args(
+        ["--warning-refusals", "init"]
+        if "workspace" in module
+        else ["--warning-refusals", "plan", "matrix.fs"]
+    )
+    assert args.warning_refusals is True
+
+
 def test_set_get_reset_round_trip():
     assert get_option("qa.probe_timeout_s") == 120.0
     set_option("qa.probe_timeout_s", 30.0)

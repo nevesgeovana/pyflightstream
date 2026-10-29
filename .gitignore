@@ -133,3 +133,9 @@ tests/tier3_licensed/reports/
 # file and its provenance record, in the same folder, do.
 tests/tier3_licensed/inputs/geometries/*/*.obj
 tests/tier3_licensed/inputs/geometries/*/.*.tmp
+
+# Local refusal-lane evidence and its required uncommitted handoff report.
+/.refusal-evidence/
+/LANE-REPORT-refusal.json
+# Rebuilt by the Understanding generator; not part of the tracked source inventory.
+/docs/understanding/data/

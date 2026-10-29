@@ -49,7 +49,9 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
+import pyflightstream._errors as _errors
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import with_refusal_policy as with_refusal_policy
 
 __all__ = [
     "OptionError",
@@ -185,6 +187,13 @@ def get_option(key: str) -> Any:
     OptionError
         If no option is registered under the exact key; the message
         lists every registered key.
+
+    Examples
+    --------
+    >>> from pyflightstream.options import get_option, option_context
+    >>> with option_context("warning_refusals", True):
+    ...     get_option("warning_refusals")
+    True
     """
     if key not in _REGISTRY:
         raise _unknown_key_error(key)
@@ -285,6 +294,15 @@ def option_context(*pairs: Any) -> Iterator[None]:
     ------
     OptionError
         Unknown key or refused value, before anything is changed.
+
+    Examples
+    --------
+    >>> from pyflightstream.options import get_option, option_context
+    >>> previous = get_option("warning_refusals")
+    >>> with option_context("warning_refusals", True):
+    ...     assert get_option("warning_refusals") is True
+    >>> get_option("warning_refusals") == previous
+    True
     """
     if len(pairs) % 2:
         raise OptionError(
@@ -311,7 +329,6 @@ def option_context(*pairs: Any) -> Iterator[None]:
 
 
 _MISSING = object()
-
 
 # --- validators -------------------------------------------------------------
 
@@ -365,6 +382,29 @@ def non_empty_path_text(value: Any) -> None:
 # CLI reads its scratch and timeout defaults here, so a programmatic
 # driver of the qa entry points sets them once per process; terminal
 # users tune the same quantities through the CLI flags.
+
+
+def _boolean(value: Any) -> None:
+    if not isinstance(value, bool):
+        raise OptionError("the option requires a bool; use True or False")
+
+
+register_option(
+    "warning_refusals",
+    default=False,
+    doc="Restore refusals for entries otherwise skipped with a demoted-refusal warning.",
+    validator=_boolean,
+)
+_errors._warning_refusals = lambda: get_option("warning_refusals")
+_errors._refusal_context = lambda value: option_context("warning_refusals", value)
+
+register_option(
+    "console_warnings",
+    default=True,
+    doc="Show console warnings; disabling this keeps warnings in their existing records.",
+    validator=_boolean,
+)
+
 
 register_option(
     "qa.scratch_root",
