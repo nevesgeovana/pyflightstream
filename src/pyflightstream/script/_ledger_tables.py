@@ -499,6 +499,9 @@ class _ScriptRendering:
 
                 _check_inline_token(entry, spec, value)
                 inline_parts.append(self._format_scalar(value))
+        # FR-3350: the measured frame-only motion has no boundary payload or blank line.
+        if entry.name == "SET_MOTION_BOUNDARIES" and inline_parts[-1] == "0":
+            return [" ".join(inline_parts)], False
         return [" ".join(inline_parts), *tail_lines], True
 
     def _render_param_lines(

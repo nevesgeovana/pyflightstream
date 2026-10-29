@@ -3734,7 +3734,7 @@ def test_p0470_ffr_qsteady_sections_and_wake_are_named_skips(tmp_path):
     root = Path(workspace.root)
     skipped = str(_ffproof_post___manifest(root)["skipped"])
     assert "trefftz:sections does not apply" in skipped and "Trefftz A" in skipped
-    assert "trefftz:wake does not apply" in skipped and "Trefftz B" in skipped
+    assert "Trefftz B" in skipped and "no wake export" in skipped
     rows = _rfixf_layout___rows(root, "farfield/*_trefftz.csv")
     assert [row["VARIANT"] for row in rows] == ["C"]
 
@@ -3819,7 +3819,19 @@ def _p0470_wing_lines() -> tuple[list[np.ndarray], np.ndarray]:
 
 
 def _p0470_post_rotor_wake(
-    root: Path, lines, values, *, rotor: bool, speed=30.0, rotor_cl=None, text=None, blades=2
+    root: Path,
+    lines,
+    values,
+    *,
+    rotor: bool,
+    speed=30.0,
+    rotor_cl=None,
+    text=None,
+    blades=2,
+    recipe="steady",
+    rpm=1000.0,
+    clockings=1,
+    sector_copies=1,
 ):
     """Post one steady point through the public far-field stage, a rotor row or a wing row."""
     from pyflightstream.cases.reference_blocks import BladeDatum, RotorBlock
@@ -3827,6 +3839,25 @@ def _p0470_post_rotor_wake(
     root.mkdir(exist_ok=True)
     (root / "point_wakes.vtk").write_text(text or _p0470_wake_vtk(lines, values), encoding="utf-8")
     (root / "point.fsm").write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n", "utf-8")
+    if recipe == "qsteady_rotor":
+        quasi = QsteadyRecord(
+            case="wheel",
+            rotor_alias="ROTOR",
+            blades=blades,
+            rpm=rpm,
+            shaft_frame_axis="X",
+            hub_m=(3.0, 0.0, 2.0),
+            axis_vector=(1.0, 0.0, 0.0),
+            diameter_m=2.0,
+            families_general=(),
+            families_blades=tuple(f"Blade{i + 1}" for i in range(blades)),
+            blade1_azimuth_deg=0.0,
+            positions=tuple(
+                QsteadyClocking(i, i * 90.0, i * 90.0, "point.txt") for i in range(clockings)
+            ),
+            validity=None,
+        )
+        (root / "point_qsteady.json").write_text(quasi.to_text(), encoding="utf-8")
     loads = replace(
         parse_loads(_LITB_POST__LOADS),
         freestream_velocity_m_s=speed,
@@ -3836,6 +3867,10 @@ def _p0470_post_rotor_wake(
     loads.total["CL"] = 0.3
     if rotor_cl is not None:
         loads.surfaces["Blade1"] = {"CL": rotor_cl}
+        if recipe == "qsteady_rotor":
+            loads.surfaces["Blade1"].update(
+                {"Cx": -0.1, "Cy": 0.0, "Cz": 0.0, "CMx": -0.01, "CMy": 0.0, "CMz": 0.0}
+            )
         loads.total["CL"] += rotor_cl
     point = PolarPoint(
         name="point",
@@ -3853,7 +3888,7 @@ def _p0470_post_rotor_wake(
         rpm_sign=1,
         diameter_m=2.0,
         families_general=[],
-        families_blades=["Blade1", "Blade2"],
+        families_blades=[f"Blade{i + 1}" for i in range(blades)],
         blade1=BladeDatum(azimuth_deg=0.0, zero="Y"),
     )
     products: dict = {}
@@ -3869,14 +3904,26 @@ def _p0470_post_rotor_wake(
             "point": SimpleNamespace(
                 outputs=["point.vtk", "point.fsm"],
                 package_version="0.47.0",
-                recipe="steady",
-                reductions={"rotors": {"ROTOR": {"rpm": 1000.0, "blades": blades}}},
+                recipe=recipe,
+                reductions=(
+                    {}
+                    if recipe == "qsteady_rotor"
+                    else {"rotors": {"ROTOR": {"rpm": rpm, "blades": blades}}}
+                ),
             )
         },
         sim_id="1",
         points=[point],
         reference=ReferenceValues(4.0, 1.0, 4.0),
-        matrix_row=SimpleNamespace(variables={"RPM": "1000"} if rotor else {}),
+        matrix_row=SimpleNamespace(
+            variables=(
+                {"RPM": "1000", "SYMMETRY": "PERIODIC", "PERIODIC_COPIES": str(sector_copies)}
+                if rotor and sector_copies > 1
+                else {"RPM": "1000"}
+                if rotor
+                else {}
+            )
+        ),
         live=SimpleNamespace(rotors={"ROTOR": block} if rotor else {}),
         sources={"point": ["recorded"]},
         skipped={},
@@ -3888,10 +3935,75 @@ def _p0470_post_rotor_wake(
         farfield_super={},
     )
     farfield_products(cast("Any", ctx))
-    (path,) = list((root / "post" / "farfield").glob("*_trefftz.csv"))
+    paths = list((root / "post" / "farfield").glob("*_trefftz.csv"))
+    if not paths:
+        return [], [], ctx
+    (path,) = paths
     with path.open(encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         return list(reader.fieldnames or []), list(reader), ctx
+
+
+@pytest.mark.requirement("FR-3353")
+@pytest.mark.parametrize("rpm", [1000.0, -1000.0])
+@pytest.mark.parametrize("tagged", [False, True], ids=["P0500-sector-untagged", "P0500-lattice"])
+def test_p0500_qsteady_wake_lattice_writes_kutta_joukowski_thrust(tmp_path, rpm, tagged):
+    """W uses wheel blades and reverses qsteady export sense for both Kutta-Joukowski loads."""
+    from tests.tier1_offline.test_regression_farfield_numerics import (
+        _p0470_helical_wake,
+        _p0470_lattice_vtk,
+        _p0470_segment_velocity,
+    )
+
+    radii = np.linspace(0.2, 1.0, 5)
+    gamma = np.array([0.8, 1.3, 1.1, 0.4])
+    omega = 2.0 * math.pi * rpm / 60.0
+    lines, values = _p0470_helical_wake(6, gamma=gamma, radii=radii, v=30.0, omega=omega, turns=1.0)
+    thrust = 0.0
+    torque = 0.0
+    for blade in range(6):
+        for j, circulation in enumerate(gamma):
+            mid = (lines[blade * len(radii) + j][0] + lines[blade * len(radii) + j + 1][0]) / 2
+            induced = np.zeros(3)
+            for line, value in zip(lines, values, strict=True):
+                for head, tail in zip(line[:-1], line[1:], strict=True):
+                    induced += _p0470_segment_velocity(mid, head, tail, -value)
+            relative = np.array([30.0, 0.0, 0.0]) - np.cross([omega, 0.0, 0.0], mid)
+            radial = mid / np.linalg.norm(mid)
+            force = 1.225 * circulation * np.cross(relative + induced, radial)
+            thrust += force[0] * (radii[j + 1] - radii[j])
+            torque += np.cross(mid, force)[0] * (radii[j + 1] - radii[j])
+    lines = [line + np.array([3.0, 0.0, 2.0]) for line in lines]
+    # Qsteady exports the opposite circulation sense to a turning-blade wake.
+    text = (
+        _p0470_lattice_vtk(lines, -values, len(radii))
+        if tagged
+        else _p0470_wake_vtk(lines, -values)
+    )
+    from pyflightstream.results.wake import parse_wake_export
+
+    assert (parse_wake_export(text).blades is not None) == tagged
+    columns, rows, ctx = _p0470_post_rotor_wake(
+        tmp_path,
+        [],
+        [],
+        rotor=True,
+        recipe="qsteady_rotor",
+        rotor_cl=0.1,
+        rpm=rpm,
+        clockings=2,
+        blades=1,
+        sector_copies=1 if tagged else 6,
+        text=text,
+    )
+    assert [row["VARIANT"] for row in rows] == ["W"], ctx.skipped
+    assert {"T_WAKE_N", "Q_WAKE_NM"} <= set(columns)
+    assert float(rows[0]["T_WAKE_N"]) == pytest.approx(thrust, rel=1e-6)
+    assert float(rows[0]["Q_WAKE_NM"]) == pytest.approx(torque, rel=1e-6)
+    assert thrust * rpm > 0.0
+    assert torque > 0.0
+    assert {"T_NEAR_N", "Q_NEAR_NM", "DT_WAKE_COUNTS", "DQ_WAKE_COUNTS"} <= set(columns)
+    assert "W row is clocking 0's" in str(ctx.skipped)
 
 
 @pytest.mark.requirement("FR-452")

@@ -853,6 +853,15 @@ def _warn_not_applicable(case: SimCase, resolution: FarfieldResolution) -> None:
     pproc serves the unsteady row that carries the lifting surfaces.
     """
     for item in resolution.inputs:
+        if item.analysis == "trefftz:wake" and item.state in ("added", "reused"):
+            warn(
+                f"case {case.sim_id!r}: [[farfields]] entry {item.entry!r}: "
+                "Trefftz B on qsteady_rotor has no wake of a lifting surface outside the "
+                "rotor: B is traced on a steady row that carries the lifting surfaces. "
+                "B is skipped; the rotor wake loads W are written.",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
         if item.state == "not_applicable":
             warn(
                 f"case {case.sim_id!r}: [[farfields]] entry {item.entry!r} is not applicable "

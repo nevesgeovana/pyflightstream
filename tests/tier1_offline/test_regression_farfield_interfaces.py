@@ -2033,9 +2033,20 @@ def test_p0470_ffr_qsteady_sections_and_wake_warn_and_skip(tmp_path):
     assert any("'wing'" in m and "Trefftz A" in m and "qsteady_rotor" in m for m in messages)
     assert any("'wake'" in m and "Trefftz B" in m and "qsteady_rotor" in m for m in messages)
     assert states["trefftz:sections"] == {"not_applicable"}
-    assert states["trefftz:wake"] == {"not_applicable"}
+    assert states["trefftz:wake"] <= {"added", "reused"}
     assert "refused" not in set().union(*states.values())
     assert "NEW_SURFACE_SECTION_DISTRIBUTION" not in script.render()
+
+
+@pytest.mark.requirement("FR-3353")
+def test_p0500_qsteady_wake_exports_after_the_steady_solve(tmp_path):
+    """W needs the final wake VTK even though qsteady has no time march."""
+    case = _p0450_rotor_case(tmp_path, [{"variant": "wake"}], "qsteady_rotor")
+    case = case.model_copy(update={"outputs": row_outputs(case, "qsteady_rotor")})
+    assert applies("trefftz:wake", "qsteady_rotor", rotor=True) == ""
+    text = _farfield_plan___script(case).render()
+    assert "SET_VTK_EXPORT_VARIABLES -1 ENABLE" in text
+    assert text.index("START_SOLVER") < text.index("SET_VTK_EXPORT_VARIABLES -1 ENABLE")
 
 
 @pytest.mark.requirement("FR-455")

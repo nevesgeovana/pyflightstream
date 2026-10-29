@@ -263,8 +263,10 @@ its hub, on the rotor's hub axes, even when the row turns no blades: a steady
 power-off row and an unsteady row of the `unsteady` run type do. An entry in
 `PUSHER_SMRP` therefore lands on the power-off and the power-on rows alike.
 `<ALIAS>_RMRP<k>` exists only on a row that turns that rotor, and
-`<ALIAS>_RMRP` only there and on an `unsteady` row of a single-rotor
-reference, where it stands still at the hub. An entry that names one of a
+`<ALIAS>_RMRP` also exists on an `unsteady` row for every rotor block.
+Its explicit `RPM` turns the frame alone with the block's hand; absent RPM
+keeps it fixed at the SMRP pose with one campaign warning naming the rows.
+Entries in these frames are placed in both cases. An entry that names one of a
 declared rotor's frames by its full name (a section distribution, a plot
 group, a probe table, a surface probe, the sampled volume section, a
 streamline seed) on a row that does not place it is LEFT OUT of that row too,

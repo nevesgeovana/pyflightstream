@@ -19,6 +19,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases import (
     acoustics as _acoustics,
 )
+from pyflightstream.cases._skipped_families import note_fixed_rotor_frames
 from pyflightstream.cases._unsteady_actions import (
     register_unsteady_actions,
 )
@@ -64,6 +65,7 @@ from ._geometry import (
     _open_geometry,
 )
 from ._motion import (
+    _motion_view,
     _optional_rotor_speed,
 )
 from ._pproc import (
@@ -76,6 +78,8 @@ from ._probes import (
 from ._rows import (
     _refuse_unregistered_keys,
     _require_the_averaging_window,
+    _rotor_frame_axis,
+    _stated_rpm,
     continuation_of,
     rotor_speed,
     row_walltime_s,
@@ -251,9 +255,8 @@ def _refuse_cold_start_on_a_march(case: SimCase, run_type: str) -> None:
 def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
     """Build an unsteady point of a body that does not move.
 
-    The rotor builder without the rotor: no coordinate system, no
-    motion, and a clock stated directly rather than derived from a
-    speed. Both refusals run before the first emission.
+    The clock is stated directly. Declared rotor blocks place their hub and
+    RMRP frames; an explicit RPM turns the latter with no moving boundary.
     """
     _refuse_the_loads_selections_on_a_march(case)
     _refuse_cold_start_on_a_march(case, "unsteady")
@@ -302,8 +305,8 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     frames.update(setup_frames)
     # EVERY DECLARED ROTOR'S HUB, as on a steady row: the one rotor of a
     # single-rotor reference is placed above and kept; a reference declaring
-    # several places each <ALIAS>_SMRP here. Nothing turns, so no RMRP.
-    hubs = _declared_hub_frames(case, script, frames)
+    # several places each SMRP followed by its RMRP here (FR-3350).
+    hubs = _declared_hub_frames(case, script, frames, moving=True)
     moved = {"MRP": frame, **rotor_frames, **setup_frames, **hubs}
     frames.update(_translations(case, script, moved))
     frames.update(_rotations(case, script, moved))
@@ -324,6 +327,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _fluid(case, script)
     _acoustic_setup(case, script)
     stepping = unsteady_time_stepping(case)
+    _rotorless_frame_motions(case, script, frames)
     helpers.unsteady_solver(
         script,
         time_iterations=stepping.time_iterations,
@@ -334,3 +338,24 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _settings(case, script, wake_termination_time_steps=case.solver.wake_termination_steps)
     register_unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
+
+
+def _rotorless_frame_motions(
+    case: SimCase, script: Script, frames: Mapping[str, int | None | Mapping[str, int]]
+) -> None:
+    """Turn each declared RMRP alone at the row's RPM, or report fixed placement (FR-3350)."""
+    if not case.rotors:
+        return
+    stated = _stated_rpm(case)
+    if stated is None:
+        note_fixed_rotor_frames(case.sim_id)
+        return
+    for alias, rotor in case.rotors.items():
+        speed = rotor_speed(_motion_view(case, {"MOVING_BC_ALIAS": alias, "RPM": str(stated)}))
+        motion = script.num_motions + 1
+        script.emit("CREATE_NEW_MOTION", "ROTARY")
+        script.emit("SET_MOTION_BOUNDARIES", motion, 0, [])
+        script.emit("SET_MOTION_MOVING_FRAMES", motion, 1, [frames[f"{alias}_RMRP"]])
+        script.emit("SET_MOTION_COORDINATE_SYSTEM", motion, frames[f"{alias}_SMRP"])
+        script.emit("SET_MOTION_ROTOR_AXIS", motion, _rotor_frame_axis(rotor))
+        script.emit("SET_MOTION_ROTOR_RPM", motion, speed.rpm)

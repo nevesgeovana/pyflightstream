@@ -214,7 +214,8 @@ VERIFIED = {
     # (CMP-26124_2026-10-12_pfs2135-items): 162.
     # +1 the same day: EXPORT_6DOF_TRAJECTORY, verified after the march (RPT-167): 163.
     # Seven marking promotions: CMP-26124_2026-10-26_marking.yaml.
-    "26.124": 170,
+    # FR-3350: five motion rows promoted by CMP-26124_2026-10-12_pfs2135-items.
+    "26.124": 175,
     # 2026-10-05 (item S10): the probe campaign of 0.37.0 on 26.125, far field 5
     # (CMP-26125_2026-10-05_probe-campaign, five lines re-probed the same day): 141.
     # +44 on 2026-10-12, the same runs on this build (CMP-26125_2026-10-12_*): 185.
@@ -222,7 +223,8 @@ VERIFIED = {
     # probe having read the END sentinel as the filename (RPT-036b finding 1): 184.
     # +1 the same day: EXPORT_6DOF_TRAJECTORY, verified after the march (RPT-167): 185.
     # Seven marking promotions: CMP-26125_2026-10-26_marking.yaml.
-    "26.125": 192,
+    # FR-3350: five motion rows promoted by CMP-26125_2026-10-12_pfs2135-items.
+    "26.125": 197,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the

@@ -911,6 +911,7 @@ _STEADY_KEYS: tuple[str, ...] = (
 )
 _UNSTEADY_KEYS: tuple[str, ...] = (
     *_STEADY_KEYS,
+    RPM_VARIABLE,
     DELTA_TIME_VARIABLE,
     TIME_ITERATIONS_VARIABLE,
     DELTA_THETA_VARIABLE,
@@ -943,7 +944,6 @@ _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
     LAST_REVS_AVG_VARIABLE,
     # FR-64: which of the row's motions owns the time step.
     CLOCK_MOTION_VARIABLE,
-    RPM_VARIABLE,
     RPM_SIGN_VARIABLE,
     ROTOR_AXIS_VARIABLE,
     ROTOR_ORIGIN_VARIABLE,
@@ -1288,7 +1288,8 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         ),
         RPM_VARIABLE: InputKey(
             "The rotor speed; stated in the FLIGHT_CONDITION cell, it reaches every motion "
-            "that states none.",
+            "that states none. On unsteady rows with rotor blocks it turns only each "
+            "RMRP frame, signed by that block's rpm_sign; absent RPM leaves it fixed.",
             "rev/min",
             "SET_MOTION_ROTOR_RPM",
         ),

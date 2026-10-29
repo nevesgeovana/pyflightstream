@@ -895,6 +895,11 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
         axis = np.asarray(rotor.axis_vector, dtype=np.float64)
         axis = axis / float(np.linalg.norm(axis))
         count = recorded_blade_count(record, str(alias), len(rotors)) or rotor.blade_count
+        count = (
+            max(int(count or 0), rotor.blade_count * _sector_copies(ctx))
+            if str(record.recipe or "") == "qsteady_rotor"
+            else count
+        )
         if wake.blades is not None:
             # Each lattice of the export is one blade's wake; a row whose record states
             # the meshed blades (one, PERIODIC supplying the rest) still sheds them all.
@@ -903,7 +908,14 @@ def _variant_w(ctx: SimContext, point: PolarPoint, wakes: Path | None) -> list:
         try:
             wake_loads = wake_rotor_loads(
                 [line for line, own in zip(lines, mask, strict=True) if own],
-                values=wake.values[mask],
+                # PFS-2184.02, licensed 26.125 measurement of 2026-10-29:
+                # qsteady exports the opposite sense to unsteady; wheel blades and
+                # reversed circulation gave T/near = 0.990 and Q/near = 0.945.
+                values=(
+                    -wake.values[mask]
+                    if str(record.recipe or "") == "qsteady_rotor"
+                    else wake.values[mask]
+                ),
                 hub=(float(rotor.x_m), float(rotor.y_m), float(rotor.z_m)),
                 axis=axis.tolist(),
                 omega=2.0 * math.pi * float(rpm) / 60.0,
@@ -952,7 +964,18 @@ def _wake_rotor_products(
     """B on the non-rotor lines and the rotors' wake loads: final, and the window average."""
     final = _final_wakes(ctx, point)
     runs = ctx.sources[point.name]
-    rows = _variant_b(ctx, point, final, rotor=True) + _variant_w(ctx, point, final)
+    if run_type == "qsteady_rotor":
+        _skip(
+            ctx,
+            f"{FARFIELD_DIR}/trefftz#point={point.name}#variant=wake",
+            point.name,
+            "Trefftz B on qsteady_rotor has no wake of a lifting surface outside the "
+            "rotor: B is traced on a steady row that carries the lifting surfaces",
+        )
+        _note_one_clocking(ctx, point, variant="wake_loads", label="W wake")
+        rows = _variant_w(ctx, point, final)
+    else:
+        rows = _variant_b(ctx, point, final, rotor=True) + _variant_w(ctx, point, final)
     if run_type not in UNSTEADY_RUN_TYPES:
         tables.extend("trefftz", point.name, ff._named(ctx, [final]), rows, runs=runs)
         return
@@ -1525,7 +1548,9 @@ def _probe_point(
         )
 
 
-def _note_one_clocking(ctx: SimContext, point: PolarPoint) -> None:
+def _note_one_clocking(
+    ctx: SimContext, point: PolarPoint, *, variant: str = "plane", label: str = "C plane"
+) -> None:
     """Name a wheel's C row as clocking 0's where the wheel was solved at several clockings.
 
     The plane is exported with the point's full export set, at clocking 0 alone,
@@ -1539,10 +1564,10 @@ def _note_one_clocking(ctx: SimContext, point: PolarPoint) -> None:
     if len(quasi.positions) > 1:
         _skip(
             ctx,
-            f"{FARFIELD_DIR}/trefftz#point={point.name}#variant=plane#clockings",
+            f"{FARFIELD_DIR}/trefftz#point={point.name}#variant={variant}#clockings",
             point.name,
-            f"the wheel was solved at {len(quasi.positions)} clockings and its Trefftz C "
-            "plane is exported at clocking 0 alone, so the C row is clocking 0's and "
+            f"the wheel was solved at {len(quasi.positions)} clockings and its Trefftz {label} "
+            f"is exported at clocking 0 alone, so the {label.split()[0]} row is clocking 0's and "
             "no clocking average is written",
         )
 

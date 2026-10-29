@@ -206,7 +206,11 @@ def _rotor_frame(case: SimCase, script: Script) -> int | None:
 
 
 def _declared_hub_frames(
-    case: SimCase, script: Script, frames: MutableMapping[str, int | None | Mapping[str, int]]
+    case: SimCase,
+    script: Script,
+    frames: MutableMapping[str, int | None | Mapping[str, int]],
+    *,
+    moving: bool = False,
 ) -> dict[str, int]:
     """Place ``<ALIAS>_SMRP`` for every rotor the reference declares and the row has not placed.
 
@@ -216,8 +220,8 @@ def _declared_hub_frames(
     the power-off and the power-on rows. Each sits at its hub on the rotor's
     hub basis, as the hub of a turning row does; a ROTOR_ORIGIN the row states
     moves the hub of the one rotor a flat row turns, exactly as
-    :func:`_rotor_frame` reads it. ``<ALIAS>_RMRP`` is not placed: it is the
-    frame the blades turn in, and nothing turns on these rows. A name already
+    :func:`_rotor_frame` reads it. With ``moving=True``, each new hub is followed
+    by its RMRP at the same pose for a rotorless unsteady row (FR-3350). A name already
     placed in ``frames`` is left as it is; each frame created is added to
     ``frames`` and returned.
     """
@@ -236,6 +240,11 @@ def _declared_hub_frames(
         created[name] = helpers.coordinate_frame(
             script, name=name, origin=origin, x_axis=x_axis, y_axis=y_axis, label=name
         )
+        if moving:
+            peer = f"{block.alias}_RMRP"
+            created[peer] = helpers.coordinate_frame(
+                script, name=peer, origin=origin, x_axis=x_axis, y_axis=y_axis, label=peer
+            )
     frames.update(created)
     return created
 
