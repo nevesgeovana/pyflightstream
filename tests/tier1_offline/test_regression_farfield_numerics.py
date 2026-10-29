@@ -796,7 +796,7 @@ class TestFarfieldNumpy:
         )["project"]
         assert project["dependencies"] == [
             "numpy>=2.2,<3",
-            "pydantic>=2.10,<3",
+            "pydantic>=2.10.4,<3",
             "pyyaml>=6.0.1,<7",
             "trimesh>=4.12,<6",
             "matplotlib>=3.10,<4",
