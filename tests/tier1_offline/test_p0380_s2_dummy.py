@@ -61,11 +61,13 @@ def _all(families) -> list[list[int]]:
 
 
 def _refused(tmp_path: Path, src: Path, capsys, *args, **kwargs) -> str:
-    """Return the text of a refusal, the same from the command, with nothing written."""
+    """Return the refusal text, the same from the command, with no level written."""
     with pytest.raises(InputArtifactError) as caught:
         refine_mesh(src, *args, **kwargs)
     text = str(caught.value)
-    assert text.endswith("Nothing was written.") and _left(tmp_path) == []
+    pdf = src.with_suffix(".refine-refusal.pdf")
+    assert text.endswith(f"A diagnostic PDF: {pdf}.") and _left(tmp_path) == []
+    assert pdf.read_bytes().startswith(b"%PDF")
     capsys.readouterr()
     argv = [str(a) for a in args]
     if kwargs.get("families"):
@@ -155,7 +157,7 @@ def test_r1_method_grid_on_the_second_grid_is_refused_naming_both(tmp_path, caps
     text = _refused(tmp_path, src, capsys)
     assert text == (
         f"{src} family G2: method is grid and it shares nodes with G, refined as a grid first. "
-        "Nothing was written."
+        f"No level was written. A diagnostic PDF: {src.with_suffix('.refine-refusal.pdf')}."
     )
     quads = _source(tmp_path / "quads", GG, refine_toml=toml)
     assert refine_mesh(quads, out_dir=tmp_path / "q").report["G2"]["method"] == "grid"

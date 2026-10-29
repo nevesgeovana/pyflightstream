@@ -1812,6 +1812,11 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.workspace._refine._obj">pyflightstream.workspace._refine._obj</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.workspace._inspect_pages"><summary><code>pyflightstream.workspace._inspect_pages</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._visual_inspect">pyflightstream.workspace._visual_inspect</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.workspace._layout"><summary><code>pyflightstream.workspace._layout</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream.cases">pyflightstream.cases</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._links">pyflightstream.workspace._links</a> (module)</li>
@@ -1970,6 +1975,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._textio">pyflightstream._textio</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._inspect_pages">pyflightstream.workspace._inspect_pages</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._audit">pyflightstream.workspace._refine._audit</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._blocks">pyflightstream.workspace._refine._blocks</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._config">pyflightstream.workspace._refine._config</a> (module)</li>
@@ -2077,6 +2083,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <details id="pyflightstream.workspace._visual_inspect"><summary><code>pyflightstream.workspace._visual_inspect</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.workspace._inspect_pages">pyflightstream.workspace._inspect_pages</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.workspace._refine._nastran">pyflightstream.workspace._refine._nastran</a> (deferred)</li>
 </ul></details>
 

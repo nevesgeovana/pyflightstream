@@ -876,6 +876,7 @@ def check_factors(grid: Grid, family: str, *, chordwise: float, spanwise: float)
                 f"greater than zero. Give a {direction} factor greater than zero and run again. "
                 "Nothing was written.",
                 kind=KIND,
+                where={"families": [family], "nodes": grid.ids.ravel().tolist()},
             )
         if round(value * m, 9) >= 1.0:  # 1/m itself is the least: (1/49) * 49 < 1 in floats
             continue
@@ -885,6 +886,7 @@ def check_factors(grid: Grid, family: str, *, chordwise: float, spanwise: float)
             f"at least 1/{m}, or leave force_factors at True, the default, to raise it with a "
             "warning, and run again. Nothing was written.",
             kind=KIND,
+            where={"families": [family], "nodes": grid.ids.ravel().tolist()},
         )
     if grid.wrap:
         _check_section(grid, family, chordwise)
@@ -911,6 +913,7 @@ def _check_section(grid: Grid, family: str, chordwise: float) -> None:
         f"normal factor of at least {least}, or leave force_factors at True, the default, to "
         "raise it with a warning, and run again. Nothing was written.",
         kind=KIND,
+        where={"families": [family], "nodes": grid.ids.ravel().tolist()},
     )
 
 

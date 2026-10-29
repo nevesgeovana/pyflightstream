@@ -198,6 +198,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "fs_exe"): SOLVER,
     ("pyfs-workspace", "png"): SWITCH,
     ("pyfs-workspace", "visual_inspect"): SWITCH,
+    ("pyfs-matrix", "visual_inspect"): SWITCH,
     ("pyfs-workspace", "parallel"): (
         "how many variants of one sweep this call builds at once, 1 or 2 (FR-1117); a "
         "variant refused a seat beside another is built again alone, so it changes the "
@@ -983,7 +984,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "build"): frozenset({"build", "from-sidecar", "export-surface-mesh"}),
     ("pyfs-workspace", "fs_exe"): frozenset({"build", "export-surface-mesh", "mark-boundaries"}),
     ("pyfs-workspace", "png"): frozenset({"build", "visual-inspect"}),
-    ("pyfs-workspace", "visual_inspect"): frozenset({"prepare-to-refine"}),
+    ("pyfs-workspace", "visual_inspect"): frozenset({"prepare-to-refine", "refine"}),
+    ("pyfs-matrix", "visual_inspect"): frozenset({"refine"}),
     ("pyfs-workspace", "only"): frozenset({"build"}),
     ("pyfs-workspace", "parallel"): frozenset({"build", "refine"}),
     ("pyfs-workspace", "rows"): frozenset({"build"}),

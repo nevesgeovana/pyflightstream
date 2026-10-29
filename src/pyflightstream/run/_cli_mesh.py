@@ -383,6 +383,11 @@ def _add_refine_parser(subparsers: Any) -> None:
         help="deprecated alias of --out, with the identical result",
     )
     refine.add_argument("--overwrite", action="store_true", help="replace an existing level folder")
+    refine.add_argument(
+        "--visual-inspect",
+        action="store_true",
+        help="write the level's patches and directions PDF beside its OBJ",
+    )
     add_console_arguments(refine, _VERBOSE_HELP)
     refine.set_defaults(mesh_command=run_refine, force_factors=True)
 
@@ -429,6 +434,7 @@ def run_refine(args: argparse.Namespace) -> int:
             accept_remesh=args.accept_remesh,
             accept_unknown=args.accept_unknown,
             force_factors=args.force_factors,
+            visual_inspect=args.visual_inspect,
         )
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)

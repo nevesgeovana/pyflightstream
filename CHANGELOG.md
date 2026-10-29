@@ -41,6 +41,12 @@ FlightStream versions.
 - Refinement layouts name their bands P1, P2 and N1, N2 in stable lead-family
   and arc order. The JSON records each label, direction, count, lead family
   and dominant arc (FR-3300).
+- Preparation inspection PDFs include a separate directions page per original
+  family, using planner arc directions and P/N band labels. Refinement accepts
+  `--visual-inspect` to write the same views beside its output OBJ, with recorded
+  continuity changes. Refusals after reading the source attempt a diagnostic PDF
+  beside it, highlighting structured family, node and point locations and naming
+  the PDF in the error; a drawing failure preserves the original refusal.
 - Refinement JSON records each family's parallel and normal arc counts and
   provenance histogram, plus each layout's band leads and their directions.
   Conflicting local orientations remain visible in these records (FR-3298).

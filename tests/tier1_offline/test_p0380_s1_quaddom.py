@@ -444,7 +444,7 @@ def test_an_unknown_mode_is_refused_naming_the_file_table_and_modes(tmp_path, to
     """P0380-QUADDOM (FR-917, FR-925): each bad value is refused before anything is written.
 
     The message names the file, the table and the key, lists the allowed
-    values, and ends "Nothing was written."; no level folder is left. The
+    values, and ends with the diagnostic PDF path; no level folder is left. The
     control is the same source with a valid mode, which writes its level.
     """
     src = _two_source(tmp_path, toml)
@@ -452,7 +452,9 @@ def test_an_unknown_mode_is_refused_naming_the_file_table_and_modes(tmp_path, to
         refine_mesh(src, 2.0)
     text = str(caught.value)
     assert text.startswith(f"{src.with_name('two.refine.toml')} {where}: {said}"), text
-    assert text.endswith("Nothing was written.")
+    pdf = src.with_suffix(".refine-refusal.pdf")
+    assert text.endswith(f"A diagnostic PDF: {pdf}.")
+    assert pdf.read_bytes().startswith(b"%PDF")
     assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
     src.with_name("two.refine.toml").write_bytes(f'[refine]\nelements = "{QD}"\n'.encode())
     assert refine_mesh(src, 2.0).report["A"]["elements"] == QD

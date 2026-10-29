@@ -857,6 +857,30 @@ step graduates from this page to the reference.
 
 ## Matrix geometry
 
+### Refinement inspection PDFs
+
+`prepare-to-refine --visual-inspect` writes `<stem>_patches.inspect.pdf` beside
+the prepared OBJ. `refine --visual-inspect` (API `refine_mesh(visual_inspect=True)`)
+writes `<level>.inspect.pdf` beside the level OBJ and includes it in `level.files`.
+Preparation groups pages by original family; refinement groups them by output
+family or component. Each has a colored patches page followed by a directions
+page in the same top, front, side and isometric views.
+
+Direction pages have light grey faces, faint mixed patches, blue parallel arcs
+and orange normal arcs. The reference is the trailing edge, else the longest
+side. Directions and P/N labels come from the planner. A band's dominant arc
+is thicker and its label bold and framed; following arcs carry the same label.
+The legend names governing patches and what they lead. Refinement annotates
+continuity changes from its saved record.
+
+An `InputArtifactError` after refinement reads the mesh attempts to write
+`<stem>.refine-refusal.pdf` beside the source, even without `--visual-inspect`.
+Its first page shows the refusal and the whole mesh, highlighting the families
+and red nodes or points supplied by the refusal. Per-family pages follow.
+Absent location data highlights nothing. The error ends with the PDF path;
+if drawing fails, a warning accompanies the original refusal. No level folder
+is created by a refused refinement.
+
 A matrix row names the saved simulation that marking produces. The order in
 which planning reads its inventory, the stale-input refusals and the raw OBJ
 imports kept by FSI rows are in [matrix geometry](../geometry.md#matrix-geometry).
