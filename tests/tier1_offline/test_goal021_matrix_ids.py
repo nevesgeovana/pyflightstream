@@ -442,3 +442,39 @@ def test_p0501_f1_a_short_sibling_row_still_stops_the_plan(tmp_path):
     _matrix(workspace.root, "other.fs", [row(9001), short])
     message = _refusal(workspace, matrix)
     assert "data row 2" in message and "cells against" in message, message
+
+
+_BAD_ROTATE = " / ROTATE: {ANGLE: 3 / AXIS: HINGE-ELEV / ALIAS: S}"
+_BAD_TRANSLATE = " / TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHERX / ALIAS: S}"
+
+
+def _axis_warnings(matrix, **kwargs):
+    from pyflightstream._errors import NotApplicableWarning
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        rows = read_matrix(matrix, **kwargs)
+    said = [str(w.message) for w in caught if issubclass(w.category, NotApplicableWarning)]
+    return rows, said
+
+
+def test_p0501_f2_a_bad_translate_axis_alone_skips_the_row(tmp_path):
+    matrix = _matrix(tmp_path, "m.fs", [row(8001), row(8002) + _BAD_TRANSLATE])
+    rows, said = _axis_warnings(matrix)
+    assert [r.pol for r in rows] == ["8001"]
+    assert len(said) == 1 and "POL 8002" in said[0] and "PUSHERX" in said[0], said
+
+
+def test_p0501_f2_one_warning_names_every_malformed_axis_of_the_row(tmp_path):
+    matrix = _matrix(tmp_path, "m.fs", [row(8002) + _BAD_ROTATE + _BAD_TRANSLATE])
+    rows, said = _axis_warnings(matrix)
+    assert rows == []
+    assert len(said) == 1, said
+    assert "HINGE-ELEV" in said[0] and "PUSHERX" in said[0], said
+
+
+def test_p0501_f2_a_run_zero_row_with_a_bad_axis_is_still_skipped_and_named(tmp_path):
+    matrix = _matrix(tmp_path, "m.fs", [row(8001), row(8002, run=0) + _BAD_ROTATE])
+    rows, said = _axis_warnings(matrix, active_only=False)
+    assert [r.pol for r in rows] == ["8001"]
+    assert len(said) == 1 and "POL 8002" in said[0], said

@@ -1147,11 +1147,9 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         motions = _parse_motions(variables, record["POL"])
         malformed: list[MatrixError] = []
         rotations = _parse_rotations(variables, record["POL"], malformed=malformed)
-        translations = (
-            [] if malformed else _parse_translations(variables, record["POL"], malformed=malformed)
-        )
+        translations = _parse_translations(variables, record["POL"], malformed=malformed)
         if malformed:
-            _skip_a_row_with_a_malformed_axis(malformed[0], path, row_number)
+            _skip_a_row_with_a_malformed_axis(malformed, path, row_number)
             continue
         raw = _raw_records(variables, record["POL"])
         _refuse_legacy_motion(record, bool(rotations), bool(translations))
@@ -1227,7 +1225,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
 
 
 def _skip_a_row_with_a_malformed_axis(
-    error: MatrixError, path: str | Path, row_number: int
+    errors: list[MatrixError], path: str | Path, row_number: int
 ) -> None:
     """Warn that a row is skipped for its axis token, or refuse it under warning_refusals.
 
@@ -1238,13 +1236,14 @@ def _skip_a_row_with_a_malformed_axis(
     try:
         demote(
             MatrixError(
-                f"{Path(path).name} data row {row_number}, {error} The row is skipped, so "
+                f"{Path(path).name} data row {row_number}, {' '.join(str(e) for e in errors)} "
+                "The row is skipped, so "
                 "none of its points is planned or run until its AXIS is corrected."
             ),
             warning=NotApplicableWarning,
         )
     except MatrixError:
-        raise error from None
+        raise errors[0] from None
 
 
 def _refuse_a_choice_that_belongs_to_the_invocation(row: MatrixRow) -> None:
