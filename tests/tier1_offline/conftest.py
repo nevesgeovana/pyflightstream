@@ -352,3 +352,86 @@ def elliptical_lift_distribution(
 
     peak = 4.0 * half_wing_lift_n / (math.pi * half_span_m)
     return [peak * math.sqrt(max(0.0, 1.0 - (r / half_span_m) ** 2)) for r in radii]
+
+
+# Optional extras (src/pyflightstream/extras.py): a test or a module that
+# needs one is SKIPPED, not failed, exactly when that extra is absent from
+# the environment (find_spec is None). With every extra installed the hooks
+# below never change an outcome.
+_EXTRA_MODULES = {
+    "pynite": "Pynite",
+    "pandas": "pandas",
+    "xlsxwriter": "xlsxwriter",
+    "pypdf": "pypdf",
+}
+_PACKAGE_TO_MODULE = {"pynitefea": "pynite"}
+
+
+def _module_if_absent(name: str | None) -> str | None:
+    """The import name of an extra module when ``name`` is one and it is absent."""
+    import importlib.util
+
+    if not name:
+        return None
+    low = name.replace("-", "_").split(".")[0].lower()
+    low = _PACKAGE_TO_MODULE.get(low, low)
+    module = _EXTRA_MODULES.get(low)
+    if module is None:
+        return None
+    if importlib.util.find_spec(module) is None:
+        return module
+    return None
+
+
+def _absent_extra_module(exc: BaseException | None) -> str | None:
+    """The missing optional module that caused ``exc``, or None."""
+    from pyflightstream.extras import EXTRAS, MissingExtraError
+
+    seen = 0
+    while exc is not None and seen < 8:
+        seen += 1
+        if isinstance(exc, MissingExtraError):
+            for dist in EXTRAS.get(exc.extra, ()):
+                found = _module_if_absent(dist)
+                if found:
+                    return found
+        elif isinstance(exc, ImportError):
+            found = _module_if_absent(getattr(exc, "name", None))
+            if found:
+                return found
+        exc = exc.__cause__ or exc.__context__
+    return None
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Report a call or fixture failure caused by an absent extra as skipped."""
+    outcome = yield
+    report = outcome.get_result()
+    if report.failed and call.excinfo is not None:
+        module = _absent_extra_module(call.excinfo.value)
+        if module is not None:
+            path, line, _ = item.location
+            report.outcome = "skipped"
+            report.longrepr = (str(path), (line or 0) + 1, f"needs the optional extra: {module}")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_make_collect_report(collector):
+    """Report a collection error caused by an absent extra as skipped."""
+    outcome = yield
+    report = outcome.get_result()
+    if report.failed:
+        crash = getattr(report.longrepr, "reprcrash", None)
+        text = getattr(crash, "message", "") or ""
+        marker = "No module named '"
+        if marker in text:
+            name = text.split(marker, 1)[1].split("'", 1)[0]
+            module = _module_if_absent(name)
+            if module:
+                report.outcome = "skipped"
+                report.longrepr = (
+                    str(getattr(collector, "path", collector.nodeid)),
+                    1,
+                    f"needs the optional extra: {module}",
+                )

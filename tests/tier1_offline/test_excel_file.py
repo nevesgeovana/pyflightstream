@@ -1,3 +1,4 @@
+import importlib.util
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -5,6 +6,11 @@ import pytest
 
 from pyflightstream.workspace.excel import main
 from tests.tier1_offline.test_excel_sync import matrix
+
+pytestmark = pytest.mark.skipif(
+    importlib.util.find_spec("xlsxwriter") is None,
+    reason="needs the optional extra: excel (XlsxWriter)",
+)
 
 
 def test_macro_free_factory_and_bidirectional_cli(tmp_path: Path) -> None:

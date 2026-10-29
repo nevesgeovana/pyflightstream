@@ -572,6 +572,10 @@ def test_a_campaign_posted_with_text_mode_forced_to_crlf_holds_no_cr_in_any_prod
     assert held, f"{name}: a bypassed route left no CR, so the check above proves nothing"
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("Pynite") is None,
+    reason="needs the optional extra: fsi (PyNiteFEA)",
+)
 def test_the_scripts_a_campaign_emits_hold_no_cr_with_text_mode_forced_to_crlf(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -707,6 +711,10 @@ def test_the_parity_byte_control_is_caught_alone_over_a_crlf_base() -> None:
         parity.compare_texts = blind
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("Pynite") is None,
+    reason="needs the optional extra: fsi (PyNiteFEA)",
+)
 def test_the_snapshot_receipt_judges_line_ends_and_names_its_platform() -> None:
     """P0340-LF-PRODUCTS, FR-1156: this platform's receipt judges line ends and counts 0 CR."""
     from tests.tier1_offline.test_products_snapshot import _platform, snapshot_receipt
@@ -720,6 +728,10 @@ def test_the_snapshot_receipt_judges_line_ends_and_names_its_platform() -> None:
     assert control[1] == control[3] and int(control[1]) > 0
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("Pynite") is None,
+    reason="needs the optional extra: fsi (PyNiteFEA)",
+)
 def test_the_lf_receipt_script_posts_a_campaign_and_writes_the_lines_the_goal_reads(
     tmp_path: Path,
 ) -> None:

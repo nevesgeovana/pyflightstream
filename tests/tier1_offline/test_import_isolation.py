@@ -43,8 +43,9 @@ _CHILD = (
     "allowed = set(sys.argv[2:])\n"
     "try:\n"
     "    importlib.import_module(name)\n"
-    "except ModuleNotFoundError as error:\n"
-    "    missing = error.name or ''\n"
+    "except ImportError as error:\n"
+    "    cause = error.__cause__\n"
+    "    missing = getattr(error, 'name', None) or getattr(cause, 'name', None) or ''\n"
     "    if missing in allowed:\n"
     f"        print({_MISSING!r} + missing)\n"
     "        sys.exit(3)\n"
@@ -73,14 +74,17 @@ def test_the_tolerated_roots_are_exactly_the_declared_extras():
     import re
     import tomllib
 
-    extras = tomllib.loads((_REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"][
-        "optional-dependencies"
-    ]
+    project = tomllib.loads((_REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    extras = project["optional-dependencies"]
+    root = re.compile(r"[\s<>=!~;\[]")
+    # A core dependency that an extra also pins (a floor) is never absent.
+    core = {root.split(r, maxsplit=1)[0] for r in project["dependencies"]}
     declared = {
-        re.split(r"[\s<>=!~;\[]", requirement, maxsplit=1)[0]
+        root.split(requirement, maxsplit=1)[0]
         for name, requirements in extras.items()
         if name != "dev"
         for requirement in requirements
+        if root.split(requirement, maxsplit=1)[0] not in core
     }
     assert declared == set(_EXTRA_IMPORT_ROOTS), (
         f"the user-facing extras declare {sorted(declared)}, and this test tolerates "

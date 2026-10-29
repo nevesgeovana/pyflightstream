@@ -212,6 +212,12 @@ def _example_arguments(name: str, temporary: Path) -> list[str]:
 @pytest.mark.requirement("NFR-01d")
 @pytest.mark.parametrize("name", sorted(EXAMPLE_EXTRAS))
 def test_each_example_runs(name, tmp_path):
+    import importlib.util
+
+    modules = {"excel": "xlsxwriter", "fsi": "Pynite", "pandas": "pandas", "manual": "pypdf"}
+    for extra in sorted(EXAMPLE_EXTRAS[name]):
+        if importlib.util.find_spec(modules[extra]) is None:
+            pytest.skip(f"needs the optional extra: {extra}")
     """The examples execute, which nothing checked before.
 
     Run as a subprocess rather than imported, because that is how a

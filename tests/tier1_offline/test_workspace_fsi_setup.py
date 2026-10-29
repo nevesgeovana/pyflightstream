@@ -1,3 +1,5 @@
+import importlib.util
+
 # The evidence line of these requirements cites this module
 # (docs/unpublished/requirements/functional-requirements.md):
 import json
@@ -35,6 +37,10 @@ geometric_pitch_deg = [0.0, 0.0]
 """
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("Pynite") is None,
+    reason="needs the optional extra: fsi (PyNiteFEA)",
+)
 @pytest.mark.requirement("FR-3250")
 def test_p0440_campbell_cli_writes_workspace_study(tmp_path, capsys):
     """pyfs-workspace fsi campbell f001 --rpm 0 600 3 --modes 2."""
@@ -91,6 +97,10 @@ def test_p0440_campbell_cli_writes_workspace_study(tmp_path, capsys):
     [(0, 600, 2), (-1, 600, 3), (600, 600, 3), (0, 600, 3.5), (0, float("inf"), 3)],
     ids=lambda value: f"P0440-{value}",
 )
+@pytest.mark.skipif(
+    importlib.util.find_spec("Pynite") is None,
+    reason="needs the optional extra: fsi (PyNiteFEA)",
+)
 def test_p0440_campbell_refuses_invalid_sweep(tmp_path, rpm, capsys):
     from pyflightstream.workspace.cli import main
 
@@ -105,6 +115,10 @@ def test_p0440_campbell_refuses_invalid_sweep(tmp_path, rpm, capsys):
     assert not (tmp_path / "post/fsi/f001/campbell.csv").exists()
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("Pynite") is None,
+    reason="needs the optional extra: fsi (PyNiteFEA)",
+)
 def test_p0440_campbell_crossings_and_missing_family(tmp_path, monkeypatch, capsys):
     import csv
     from types import SimpleNamespace
@@ -148,6 +162,10 @@ def test_p0440_campbell_crossings_and_missing_family(tmp_path, monkeypatch, caps
     assert float(rows[0]["OMEGA0_HZ"]) == pytest.approx(5 / math.pi)
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("Pynite") is None,
+    reason="needs the optional extra: fsi (PyNiteFEA)",
+)
 def test_p0440_campbell_refuses_external_mode_before_program_binding(tmp_path, capsys):
     from pyflightstream.workspace.cli import main
 

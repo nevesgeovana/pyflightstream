@@ -28,6 +28,10 @@ class TestCoreSmallGenGoldens:
     the pytest process's own path cannot hide the failure.
     """
 
+    @pytest.mark.skipif(
+        importlib.util.find_spec("Pynite") is None,
+        reason="needs the optional extra: fsi (PyNiteFEA)",
+    )
     @staticmethod
     def test_p0400_goldensimport_the_script_starts_outside_pytest(tmp_path: Path) -> None:
         """P0400-GOLDENSIMPORT: ``--help`` exits 0, so every import at the top succeeded."""
