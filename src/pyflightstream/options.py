@@ -49,6 +49,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
+import pyflightstream._console as _console
 import pyflightstream._errors as _errors
 from pyflightstream._errors import InputValueError, PyflightstreamError, UnknownKeyWarning
 from pyflightstream._errors import with_refusal_policy as with_refusal_policy
@@ -410,6 +411,7 @@ register_option(
     doc="Show console warnings; disabling this keeps warnings in their existing records.",
     validator=_boolean,
 )
+_console._option_warnings = lambda: get_option("console_warnings")
 
 
 register_option(

@@ -443,7 +443,7 @@ refused. Custom recipe strings retain their earlier interpretation and do
 not acquire registered-workflow reduction windows merely by using this
 shared reader.
 
-In 0.50.0 the refusal policy became one scoped decision. A problem whose
+The refusal policy is one scoped decision. A problem whose
 continuation cannot write a wrong result, such as an entry that does not apply
 to a row or an unknown key, is demotable: it is skipped with a typed warning
 and the run goes on. The `warning_refusals` option, set by the global

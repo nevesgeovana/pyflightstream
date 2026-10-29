@@ -8,7 +8,7 @@ Status: implemented.
 FR-3372 (L3, parent FR-40, PFS-2184.07): The library shall warn and skip retired averaging-window row keys, name their replacements, and restore the original refusal under warning_refusals.
 Code: `pyflightstream.cases.workflows._vocabulary:_refuse_retired_window_keys`.
 Test: `tests/tier1_offline/test_setup_standards.py::test_p0500_retired_row_key_warns_or_refuses`.
-FR-3395 (L3, parent FR-201, PFS-2184.09): Every command of the five console
+FR-3395 (L3, parent FR-200, PFS-2184.09): Every command of the five console
 programs shall accept global `--warning-off`, hiding warning lines and held
 warning blocks without changing progress, summaries, errors, the final line
 or signature, or warnings recorded by the operation. Matrix and workspace

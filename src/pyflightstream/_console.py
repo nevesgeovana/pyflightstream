@@ -27,19 +27,26 @@ from __future__ import annotations
 import argparse
 import textwrap
 import warnings
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 
-from pyflightstream.options import get_option
-
 CONSOLE_WARNINGS: ContextVar[bool | None] = ContextVar("pyfs_console_warnings", default=None)
+
+
+# Options installs this reader at registration, keeping the support floor free of its consumer.
+def _shown_by_default() -> bool:
+    """Show console warnings until options installs its reader."""
+    return True
+
+
+_option_warnings: Callable[[], bool] = _shown_by_default
 
 
 def console_warnings() -> bool:
     """Return the invocation's warning visibility, falling back to the Python option."""
     chosen = CONSOLE_WARNINGS.get()
-    return bool(get_option("console_warnings")) if chosen is None else chosen
+    return bool(_option_warnings()) if chosen is None else chosen
 
 
 def add_warning_option(parser: argparse.ArgumentParser) -> None:
@@ -48,7 +55,7 @@ def add_warning_option(parser: argparse.ArgumentParser) -> None:
         "--warning-off",
         dest="console_warnings",
         action="store_false",
-        default=get_option("console_warnings"),
+        default=_option_warnings(),
         help="hide console warnings while keeping every recorded warning in its log",
     )
 
