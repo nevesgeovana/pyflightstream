@@ -19,6 +19,7 @@ from typing import Annotated, Any, Literal
 import numpy as np
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError, model_validator
 
+from pyflightstream._errors import DuplicateValueWarning, InputValueError, demote
 from pyflightstream.probes.lattice import ProbeLattice, build_lattice
 
 __all__ = [
@@ -80,8 +81,11 @@ def _one_or_list(value: object) -> object:
 def _unique(words: list[str], what: str) -> list[str]:
     repeated = sorted({word for word in words if words.count(word) > 1})
     if repeated:
-        raise ValueError(f"{what} repeats {', '.join(repeated)}; state each once")
-    return words
+        demote(
+            InputValueError(f"{what} repeats {', '.join(repeated)}; state each once"),
+            warning=DuplicateValueWarning,
+        )
+    return list(dict.fromkeys(words))
 
 
 class LatticeShape(BaseModel):
@@ -146,16 +150,19 @@ class LatticeShape(BaseModel):
     @model_validator(mode="after")
     def _placed_once(self) -> LatticeShape:
         if self.rotor is not None and self.frame is not None:
-            raise ValueError(
+            raise InputValueError(
                 "a lattice states rotor or frame, not both: the rotor's hub frame places it, "
                 "or a frame with tip_radius_m does"
             )
         if self.rotor is None and (self.frame is None or self.tip_radius_m is None):
-            raise ValueError(
+            raise InputValueError(
                 "a lattice states rotor, or frame together with tip_radius_m, to be placed"
+                ". State rotor, or frame with tip_radius_m."
             )
         if self.rotor is not None and self.tip_radius_m is not None:
-            raise ValueError("tip_radius_m places a frame's lattice; a rotor's is its own radius")
+            raise InputValueError(
+                "tip_radius_m places a frame's lattice; a rotor's is its own radius"
+            )
         # The geometry is validated by the lattice itself, with a unit radius:
         # the radius scales every coordinate and changes no rule.
         self.build(1.0)
@@ -235,7 +242,9 @@ class TrefftzSpec(BaseModel):
 
     @model_validator(mode="after")
     def _each_variant_once(self) -> TrefftzSpec:
-        _unique(list(self.variant), "Trefftz variant")
+        once = _unique(list(self.variant), "Trefftz variant")
+        if len(once) != len(self.variant):
+            self.variant = once  # type: ignore[assignment]
         return self
 
     @property
@@ -277,12 +286,15 @@ class LedgersSpec(LatticeShape):
 
     @model_validator(mode="after")
     def _the_orders_fit_the_azimuths(self) -> LedgersSpec:
-        _unique(list(self.balances), "balances")
+        once = _unique(list(self.balances), "balances")
+        if len(once) != len(self.balances):
+            self.balances = once  # type: ignore[assignment]
         n_psi = self.build(1.0).n_psi
         if 2 * self.m_max >= n_psi:
-            raise ValueError(
+            raise InputValueError(
                 f"m_max = {self.m_max} needs more than {2 * self.m_max} azimuths to avoid "
                 f"aliasing, and the lattice has n_psi = {n_psi}"
+                ". Lower m_max or raise n_psi."
             )
         return self
 
@@ -382,25 +394,32 @@ class FarfieldSpec(BaseModel):
                         "; wake, plane and power read the whole field, "
                         "so there is no family selection"
                     )
-                raise ValueError(f"{key} is read by {', '.join(readers)}, not {variant!r}{reason}")
+                raise InputValueError(
+                    f"{key} is read by {', '.join(readers)}, not {variant!r}{reason}"
+                )
         return value
 
     @model_validator(mode="after")
     def _analysis_geometry(self) -> FarfieldSpec:
         if self.last_revs is not None and self.last_steps is not None:
-            raise ValueError("state only one window, not both last_revs and last_steps")
+            raise InputValueError("state only one window, not both last_revs and last_steps")
         if not self.name:
             self.name = self.variant
         if self.variant == "sections":
             if self.families is None:
-                raise ValueError('variant = "sections" requires families')
+                raise InputValueError(
+                    'variant = "sections" requires families. Add families to the table.'
+                )
             if self.stations is not None and (
                 not isinstance(self.stations, int) or self.stations < 2
             ):
-                raise ValueError('variant = "sections" reads stations as a count of at least 2')
+                raise InputValueError(
+                    'variant = "sections" reads stations as a count of at least 2'
+                    ". State stations of 2 or more."
+                )
         if self.variant == "power":
             if isinstance(self.stations, int):
-                raise ValueError('variant = "power" reads stations as a list of x/R positions')
+                raise InputValueError('variant = "power" reads stations as a list of x/R positions')
             self._power_station(self.ledgers)
         return self
 
@@ -413,7 +432,7 @@ class FarfieldSpec(BaseModel):
         if not matches.any():
             matches = np.isclose(stations, self.station, rtol=1e-12, atol=1e-12)
         if np.count_nonzero(matches) != 1:
-            raise ValueError(
+            raise InputValueError(
                 f"[[farfields]] entry {self.name!r}: station = {self.station!r} "
                 f"must select one of the declared stations {stations.tolist()}; "
                 "choose a lattice station (roundoff tolerance 1e-12)"
@@ -502,7 +521,7 @@ def farfield_entries(value: Any) -> Any:
             + "\n".join(f"{key} = {json.dumps(val)}" for key, val in entry.items())
             for entry in entries
         )
-        raise ValueError(
+        raise InputValueError(
             "[farfield] was replaced by [[farfields]], one analysis per entry:\n"
             + replacement
             + '\nA 0.44.0 "plane" with ledgers on a rotor row becomes the "power" entry (D), '
@@ -525,7 +544,7 @@ def _refuse_filename_collisions(entries: Any) -> None:
         spelling = re.sub(r"[^A-Za-z0-9_.+-]", "_", name).casefold()
         previous = names.get(spelling)
         if previous is not None and previous != name:
-            raise ValueError(
+            raise InputValueError(
                 f"[[farfields]] names {previous!r} and {name!r} share file spelling "
                 f"{spelling!r} ignoring case; choose names with distinct file spellings"
             )

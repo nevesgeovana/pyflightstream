@@ -268,6 +268,15 @@ def rotor_case(**overrides) -> SimCase:
     )
 
 
+@pytest.fixture
+def warning_refusals_on():
+    """Run a test whose subject is a refusal that warns by default under the strict policy."""
+    from pyflightstream.options import option_context
+
+    with option_context("warning_refusals", True):
+        yield
+
+
 def test_p0430_a_stated_animation_folder_warns_that_it_has_no_effect():
     """X-F-1049: ``animation_folder`` is accepted, changes nothing, and says so.
 
@@ -4234,6 +4243,7 @@ def test_vorticity_drag_families_resolve_through_the_inventory(tmp_path):
     )
 
 
+@pytest.mark.usefixtures("warning_refusals_on")
 def test_vorticity_drag_families_the_geometry_lacks_entirely_are_refused(tmp_path):
     from pyflightstream.cases import CampaignConfigError, SolverSettings
 
@@ -6417,6 +6427,7 @@ def test_axial_separation_families_resolve_through_the_inventory(tmp_path):
     )
 
 
+@pytest.mark.usefixtures("warning_refusals_on")
 def test_axial_separation_families_the_geometry_lacks_entirely_are_refused(tmp_path):
     """An empty selection would read to the solver as the DEFAULT, which the preset did not ask for.
 
