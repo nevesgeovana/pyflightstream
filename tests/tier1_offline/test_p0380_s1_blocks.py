@@ -16,6 +16,7 @@ reproduce exactly, so every level node is known to lie on the surface.
 
 from __future__ import annotations
 
+import csv
 from collections import Counter
 from pathlib import Path
 
@@ -1056,3 +1057,10 @@ def test_p0490_governing_conflict_keeps_each_patch_orientation():
     assert any(
         "patch" in str(w.message) and "own geometric orientation" in str(w.message) for w in caught
     )
+    # P0490-RELR1-003: the requirement must retain this same conflict policy.
+    with (Path(__file__).parents[1] / "requirements_l3.csv").open(encoding="utf-8") as stream:
+        statement = next(
+            row["statement"] for row in csv.DictReader(stream) if row["uid"] == "FR-915"
+        )
+    assert "parallel factor everywhere" not in statement
+    assert "each conflicting patch retains its own geometric orientation" in statement
