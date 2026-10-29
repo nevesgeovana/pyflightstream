@@ -118,6 +118,31 @@ def test_p0500_component_governors_cross_disconnected_layouts(tmp_path, factor, 
         assert any("unlinked" in str(w.message) for w in caught)
 
 
+@pytest.mark.requirement("FR-3320")
+def test_rel1_001_component_member_without_a_table_neither_governs_nor_is_refined(tmp_path):
+    """REL1-001: a kept member keeps its faces and never supplies the others' factors."""
+    source = _p0500_component_source(tmp_path, connected=True)
+    config = source.with_suffix(".refine.toml")
+    config.write_text(
+        "[refine]\nkeep_within_component = true\n"
+        + "".join(
+            f'[families.{n}]\nmethod = "grid"\nnormal_factor = 2\nparallel_factor = 2\n'
+            for n in ("A", "B")
+        )
+        + '[components]\nwing = ["C", "B", "A"]\n',
+        encoding="utf-8",
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        level = refine_mesh(source, accept_unknown=True)
+    record = json.loads(level.obj.with_suffix(".refine.json").read_text())
+    governors = record.get("component_governors", {}).get("wing", {})
+    assert set(governors.values()) <= {"A", "B"}, governors
+    assert record["families"]["C"]["method"] == "copied"
+    # A and B are refined 2 by 2 (16 faces to 64 each); C keeps its 16 faces.
+    assert record["faces"]["wing"] == 2 * 64 + 16
+
+
 def test_p0500_component_without_components_is_byte_identical(tmp_path):
     """P0500-COMPONENT: the switch without a component table changes no output bytes."""
     import inspect

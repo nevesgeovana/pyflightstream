@@ -129,7 +129,13 @@ class _Planner:
         totals = self.component_totals()
         original = dict(self.specs)
         for component, members in components.items():
-            names = [n for n in self.families if n in members and n in self.grids]
+            # A kept member (no table, or method keep) is copied unchanged: it neither
+            # governs nor follows, so it never replaces the factors the others declare.
+            names = [
+                n
+                for n in self.families
+                if n in members and n in self.grids and original[n].method != "keep"
+            ]
             if not names:
                 continue
             leads = {d: max(names, key=lambda n: totals[n, d]) for d in ("parallel", "normal")}
