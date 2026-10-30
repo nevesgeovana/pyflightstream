@@ -42,6 +42,19 @@ FlightStream versions.
   `wake_termination_nodes` accepts such a file, read in the `[import]` unit,
   so `mark-boundaries` marks those nodes as wake-termination nodes (FR-3401).
 
+### Fixed
+
+- A remesh in `refine` no longer writes faces of zero or near-zero area. A
+  source polygon is cut with no sliver where one can be avoided, and after
+  the remesh a triangle below 1e-3 of its family's median face area, or with
+  an angle under 1 degree, is repaired by an edge flip or an edge collapse
+  that never moves a node on a boundary, a trailing edge or `[[perimeter]]`
+  line, or shared with another family. The audit's G1 now counts a face of
+  zero area against its own family's median area too (a sliver of a fine
+  family passed against the whole mesh's size), `audit.json` lists each such
+  face under `degenerate_faces` with its family, face index and centroid, and
+  `refine` warns with their count and the `audit.json` path (FR-3403).
+
 ## [0.50.3] - 2026-10-30
 
 ### Fixed

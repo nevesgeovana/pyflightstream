@@ -22,6 +22,8 @@ from dataclasses import dataclass, field
 import numpy
 
 from pyflightstream.workspace._refine._geometry import (
+    DEGENERATE_ANGLE_DEGREES,
+    DIAGONAL_TIE,
     RIDGE_DEGREES,
     SHARED_LAYERS,
     Faces,
@@ -29,6 +31,7 @@ from pyflightstream.workspace._refine._geometry import (
     Points,
     dihedral_degrees,
     edge_faces,
+    min_angle_degrees,
     order_like,
     orient_like,
 )
@@ -96,47 +99,87 @@ def _newell(points: Points) -> Points:
     return numpy.cross(points, numpy.roll(points, -1, axis=0)).sum(axis=0)
 
 
+def _turned_with(verts: Points, faces: Faces, normal: Points) -> bool:
+    """Return whether every triangle turns with the polygon's normal."""
+    return all(float(numpy.dot(_newell(verts[t]), normal)) > 0.0 for t in faces)
+
+
+def _least_area(verts: Points, faces: Faces) -> float:
+    """Return the smallest area of some triangles."""
+    return min(0.5 * float(numpy.linalg.norm(_newell(verts[t]))) for t in faces)
+
+
+def _least_angle(verts: Points, faces: Faces) -> float:
+    """Return the smallest angle, in degrees, of some triangles."""
+    return min(min_angle_degrees(verts[t]) for t in faces)
+
+
+def _fan(f: list[int], k: int = 0) -> Faces:
+    """Return the fan of a polygon from its corner k."""
+    g = f[k:] + f[:k]
+    return [[g[0], g[j], g[j + 1]] for j in range(1, len(g) - 1)]
+
+
 def _triangulate(verts: Points, f: list[int]) -> Faces:
     """Return a polygon's triangles: the fan of its first corner, else ear clipping (F-309).
 
-    The fan of a convex polygon is kept as it was. A concave polygon's fan can
-    overlap itself (a triangle turned against the polygon's normal), and those
-    triangles would define the projection surface; the polygon is then cut by
-    ear clipping, every triangle turned with the polygon.
+    The fan of a convex polygon is kept as it was, unless it holds a sliver
+    (an angle below :data:`DEGENERATE_ANGLE_DEGREES`): then the fan of the
+    corner whose least angle is greatest is taken (FR-3403). A quadrilateral
+    is cut along the diagonal whose smaller triangle is the larger, the first
+    corner's diagonal on a tie within :data:`DIAGONAL_TIE`. A concave
+    polygon's fan can overlap itself (a triangle turned against the polygon's
+    normal), and those triangles would define the projection surface; the
+    polygon is then cut by ear clipping, every triangle turned with the
+    polygon, each ear the valid one whose least angle is greatest.
     """
     if len(f) == 3:
         return [list(f)]
     normal = _newell(verts[f])
-    fan = [[f[0], f[k], f[k + 1]] for k in range(1, len(f) - 1)]
-    if all(float(numpy.dot(_newell(verts[t]), normal)) > 0.0 for t in fan):
-        return fan
+    fan = _fan(f)
+    if _turned_with(verts, fan, normal):
+        if len(f) == 4:
+            other = _fan(f, 1)
+            gain = _least_area(verts, other) > _least_area(verts, fan) * (1.0 + DIAGONAL_TIE)
+            return other if _turned_with(verts, other, normal) and gain else fan
+        if _least_angle(verts, fan) >= DEGENERATE_ANGLE_DEGREES:
+            return fan
+        fans = [g for g in (_fan(f, k) for k in range(len(f))) if _turned_with(verts, g, normal)]
+        return max(fans, key=lambda g: _least_angle(verts, g))  # the first on a tie
     rest, out = list(f), []
     while len(rest) > 3:
-        for i in range(len(rest)):
-            a, b, c = rest[i - 1], rest[i], rest[(i + 1) % len(rest)]
-            tri = verts[[a, b, c]]
-            if float(numpy.dot(_newell(tri), normal)) <= 0.0:
-                continue
-            inside = False
-            for v in rest:
-                if v in (a, b, c):
-                    continue
-                p = verts[v]
-                signs = [
-                    float(numpy.dot(numpy.cross(tri[(k + 1) % 3] - tri[k], p - tri[k]), normal))
-                    for k in range(3)
-                ]
-                if all(s >= 0.0 for s in signs):
-                    inside = True
-                    break
-            if not inside:
-                out.append([a, b, c])
-                del rest[i]
-                break
-        else:
+        ears = [i for i in range(len(rest)) if _is_ear(verts, rest, i, normal)]
+        if not ears:
             return fan  # no ear (a degenerate polygon): keep the fan rather than lose faces
+        i = max(ears, key=lambda e: _least_angle(verts, [_ear(rest, e)]))  # the first on a tie
+        out.append(_ear(rest, i))
+        del rest[i]
     out.append(rest)
     return out
+
+
+def _ear(rest: list[int], i: int) -> list[int]:
+    """Return the triangle of the corner i of a polygon and its two neighbours."""
+    return [rest[i - 1], rest[i], rest[(i + 1) % len(rest)]]
+
+
+def _is_ear(verts: Points, rest: list[int], i: int, normal: Points) -> bool:
+    """Return whether the corner i is an ear: turned with the polygon, no other corner inside."""
+    a, b, c = _ear(rest, i)
+    tri = verts[[a, b, c]]
+    if float(numpy.dot(_newell(tri), normal)) <= 0.0:
+        return False
+    for v in rest:
+        if v in (a, b, c):
+            continue
+        p = verts[v]
+        signs = [
+            float(numpy.dot(numpy.cross(tri[(k + 1) % 3] - tri[k], p - tri[k]), normal))
+            for k in range(3)
+        ]
+        if all(s >= 0.0 for s in signs):
+            return False
+    return True
 
 
 def _group(mesh: ObjMesh, names: Sequence[str]) -> _Group:

@@ -50,11 +50,14 @@ import numpy
 
 from pyflightstream.workspace._refine._config import QUAD_DOMINANT, TRIANGLES
 from pyflightstream.workspace._refine._geometry import (
+    DEGENERATE_ANGLE_DEGREES,
     QUAD_ANGLE_BAND,
     QUAD_WARP_DEGREES,
     RIDGE_DEGREES,
     Faces,
     Points,
+    below_family_area,
+    min_angle_degrees,
     quad_shapes,
 )
 from pyflightstream.workspace._refine._geometry import (
@@ -126,6 +129,9 @@ SMOOTH_PASSES = 3
 SMOOTH_COSINE = 0.9
 #: A grid node this close to an interface node (a fraction of the interface's size) keeps it.
 CONFORM_FRACTION = 1e-6
+#: The passes of the repair of degenerate faces at most; a pass repairs every face it can,
+#: and the bound keeps a face no flip or collapse improves from being tried forever.
+REPAIR_PASSES = 4
 
 
 def _keeps_direction(n0: Points, n1: Points, cosine: float) -> bool:
@@ -496,6 +502,99 @@ class Remesher:
                 if k in self.E:
                     self.try_flip(*k)
             self.smooth_and_project()
+
+    # ---- repairing degenerate faces (FR-3403)
+
+    def degenerate_faces(self) -> list[int]:
+        """Return the faces of near-zero area or of a sliver's angle, in face order.
+
+        A face is degenerate when its area is below
+        :data:`._geometry.DEGENERATE_AREA_FRACTION` of its family's median face area, or
+        its smallest angle is below :data:`DEGENERATE_ANGLE_DEGREES`.
+        """
+        ids = sorted(self.F)
+        if not ids:
+            return []
+        p = [self._points(self.F[i]) for i in ids]
+        area = numpy.array([0.5 * float(numpy.linalg.norm(_face_normal(q))) for q in p])
+        names = sorted(set(self.L.values()))
+        family = numpy.array([names.index(self.L[i]) for i in ids], dtype=numpy.int64)
+        small = below_family_area(area, family)
+        return [
+            i
+            for i, q, low in zip(ids, p, small, strict=True)
+            if low or min_angle_degrees(q) < DEGENERATE_ANGLE_DEGREES
+        ]
+
+    def _held_node(self, v: int) -> bool:
+        """Return whether a repair may not move or remove v (a curve, fixed or corner node)."""
+        return v in self.fixed or v in self.corner or v in self.vcurve
+
+    def _repair_flip(self, k: Edge) -> bool:
+        """Flip k when it joins two faces of one family and the worse face's angle grows."""
+        fs = sorted(self.E.get(k, ()))
+        if len(fs) != 2 or k in self.CE or k in self.frozen or self.L[fs[0]] != self.L[fs[1]]:
+            return False
+        a, b = k
+        f0, f1 = self.F[fs[0]], self.F[fs[1]]
+        if len(f0) != 3 or len(f1) != 3:
+            return False
+        c = next(v for v in f0 if v not in (a, b))
+        d = next(v for v in f1 if v not in (a, b))
+        if _ek(c, d) in self.E:
+            return False
+        j = f0.index(a)
+        n0, n1 = ([a, d, c], [b, c, d]) if f0[(j + 1) % 3] == b else ([a, c, d], [b, d, c])
+        before = [self._points(f) for f in (f0, f1)]
+        after = [self._points(f) for f in (n0, n1)]
+        normal = _unit_normal(before[0]) + _unit_normal(before[1])
+        if not all(_keeps_direction(normal, _unit_normal(q), FLIP_COSINE) for q in after):
+            return False
+        if min(map(min_angle_degrees, after)) <= min(map(min_angle_degrees, before)):
+            return False
+        label = self.L[fs[0]]
+        self._del_face(fs[0])
+        self._del_face(fs[1])
+        self._new_face(n0, label)
+        self._new_face(n1, label)
+        return True
+
+    def _repair_collapse(self, k: Edge) -> bool:
+        """Collapse a free end of k onto the other when the surface stays a manifold, unfolded."""
+        for a, b in (k, k[::-1]):
+            if not self._held_node(a) and self._link_ok(a, b) and self._no_fold(a, b):
+                self.collapse(a, b)
+                return True
+        return False
+
+    def repair_degenerate(self) -> list[int]:
+        """Repair the degenerate faces a remesh left; return the faces left degenerate (FR-3403).
+
+        Each degenerate triangle has its longest edge flipped with its
+        neighbour of the same family when that makes the worse of the two
+        faces' least angle larger, else its shortest edge collapsed onto one
+        end. A node on a curve (an open boundary, the trailing edge or a
+        listed perimeter, a ridge, an interface), a node shared with a family
+        outside the group and a corner never move nor go: a face held by them
+        is left, and the audit reports it. A mesh with no degenerate face is
+        not touched. At most :data:`REPAIR_PASSES` passes run.
+        """
+        for _ in range(REPAIR_PASSES):
+            bad = self.degenerate_faces()
+            repaired = False
+            for i in bad:
+                f = self.F.get(i)
+                if f is None or len(f) != 3:
+                    continue
+                edges = sorted(
+                    (_ek(a, b) for a, b in zip(f, f[1:] + f[:1], strict=True)),
+                    key=lambda e: (self._length(e), e),
+                )
+                if self._repair_flip(edges[-1]) or self._repair_collapse(edges[0]):
+                    repaired = True
+            if not repaired:
+                return bad
+        return self.degenerate_faces()
 
     # ---- conforming an interface to a grid's new nodes (FR-933)
 
@@ -945,6 +1044,7 @@ def refine_group(
     outside = _outside_edges(mesh, others, local)
     at_curve = _take_shared(remesher, factors, local, conform, shared, outside=outside)
     remesher.run()
+    remesher.repair_degenerate()
     modes = dict(elements) if isinstance(elements, Mapping) else dict.fromkeys(names, elements)
     quad_families = [n for n in names if modes.get(n, TRIANGLES) == QUAD_DOMINANT]
     if quad_families:

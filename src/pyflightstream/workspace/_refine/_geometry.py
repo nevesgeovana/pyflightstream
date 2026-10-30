@@ -6,8 +6,8 @@ requires a reason in the SRS revision row that changes it. The remesher's own
 tuning constants, which no requirement states, live beside the code that reads
 them: ``_remesh.PASSES``, ``_remesh.SPLIT_RATIO``, ``_remesh.COLLAPSE_RATIO``,
 ``_remesh.COLLAPSE_COSINE``, ``_remesh.FLIP_COSINE``, ``_remesh.SMOOTH_PASSES``,
-``_remesh.SMOOTH_COSINE``, ``_remesh.CONFORM_FRACTION`` and
-``_remesh_pairs.AUGMENT_DEPTH``.
+``_remesh.SMOOTH_COSINE``, ``_remesh.CONFORM_FRACTION``,
+``_remesh.REPAIR_PASSES`` and ``_remesh_pairs.AUGMENT_DEPTH``.
 
 THE PRIMITIVES need numpy alone: the nearest-point query bins the points into
 cells, not a k-d tree. Face order (FR-921) is written here too, because a grid family
@@ -38,6 +38,16 @@ GRID_SURFACE_DISTANCE = 1e-3
 DUPLICATE_FRACTION = 1e-9
 #: FR-938 G1: a face whose area is below this fraction of the size squared has zero area.
 ZERO_AREA_FRACTION = 1e-12
+#: FR-938 G1, FR-3403: a face whose area is below this fraction of its own family's median
+#: face area is degenerate: a factor of 4 grades an area 16 times, so a face a thousand
+#: times below its family's median is a sliver, not a grading, and far above rounding.
+DEGENERATE_AREA_FRACTION = 1e-3
+#: FR-3403: a remeshed triangle whose smallest angle is below this many degrees is repaired
+#: too: a sliver this thin has a normal set by rounding, whatever its area.
+DEGENERATE_ANGLE_DEGREES = 1.0
+#: FR-3403: a quadrilateral keeps its first corner's diagonal unless the other diagonal's
+#: smaller triangle is larger by more than this fraction, so rounding never turns a diagonal.
+DIAGONAL_TIE = 1e-6
 #: FR-938 G4: a trailing-edge point lies on the edge whose mid-point is this close (of the size).
 TE_POINT_FRACTION = 1e-6
 #: FR-939: the 95th percentile of the equiangle skewness may grow by this much.
@@ -123,6 +133,50 @@ def normals_and_centroids(verts: Points, faces: Faces) -> tuple[Points, Points]:
             numpy.zeros(3),
         )
     return normals, centroids
+
+
+def min_angle_degrees(p: Points) -> float:
+    """Return a polygon's smallest interior angle in degrees, 0 with a side of zero length.
+
+    Parameters
+    ----------
+    p : ndarray
+        The corners in order, shape (n, 3).
+
+    Returns
+    -------
+    float
+        The smallest angle between two consecutive sides.
+    """
+    side = numpy.roll(p, -1, axis=0) - p
+    length = numpy.linalg.norm(side, axis=1)
+    if float(length.min()) == 0.0:
+        return 0.0
+    before = numpy.roll(side, 1, axis=0)
+    cosine = -(side * before).sum(axis=1) / (length * numpy.roll(length, 1))
+    return float(numpy.degrees(numpy.arccos(numpy.clip(cosine, -1.0, 1.0))).min())
+
+
+def below_family_area(area: Points, family: NDArray[numpy.int64]) -> NDArray[numpy.bool_]:
+    """Return per face whether its area is below its family's median by DEGENERATE_AREA_FRACTION.
+
+    Parameters
+    ----------
+    area : ndarray
+        Each face's area, shape (F,).
+    family : ndarray
+        Each face's family, any integer label, shape (F,).
+
+    Returns
+    -------
+    ndarray of bool
+        True for a degenerate face (FR-938 G1, FR-3403).
+    """
+    out = numpy.zeros(len(area), dtype=bool)
+    for label in numpy.unique(family):
+        rows = numpy.nonzero(family == label)[0]
+        out[rows] = area[rows] < DEGENERATE_AREA_FRACTION * float(numpy.median(area[rows]))
+    return out
 
 
 def edge_faces(faces: Faces) -> dict[tuple[int, int], list[int]]:
