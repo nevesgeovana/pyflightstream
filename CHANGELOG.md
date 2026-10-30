@@ -9,6 +9,15 @@ FlightStream versions.
 
 ### Added
 
+- FlightStream 26.126 (vendor 26.12, build 10282026, the end-of-October
+  build) is a supported build: `--fs-version 26.126` and `FS_BUILD 26.126`
+  plan and run. Its package ships an older manual edition than FSM-26.125,
+  so every command row is carried from 26.125 citing FSM-26.125: rows
+  verified on 26.125 are documented on 26.126 until a run on 26.126
+  promotes them, and documented, broken and removed rows keep their status.
+  Where 26.125 has its own script form (the trailing-edge detection form,
+  the aeroelastic frame check, the marking order), 26.126 takes the same
+  (FR-3402).
 - A refined level with a trailing edge on a quad family also writes
   `<level>.fs.nodes.txt` and `<level>.<family>.fs.nodes.txt`: the trailing
   edge's nodes (the edges' end vertices, not their mid-points) in the solver

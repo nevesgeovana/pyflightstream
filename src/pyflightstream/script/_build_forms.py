@@ -177,7 +177,7 @@ def detect_every_boundary(script: Script, kind: str) -> str:
     """
     command, all_arguments = every_boundary_detection(script, kind)
     arguments: tuple[object, ...] = all_arguments
-    if kind == "trailing_edges" and script.version.canonical == "26.125":
+    if kind == "trailing_edges" and script.version.canonical in {"26.125", "26.126"}:
         from pyflightstream.script import CommandArgumentError
 
         indices = script.entities.boundary_indices()
@@ -701,7 +701,7 @@ def _check_references(script: Script, entry: CommandEntry, bound: dict[str, obje
     frames = bound.get("frame_indices")
     if (
         entry.name == "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS"
-        and script.version.canonical in {"26.124", "26.125"}
+        and script.version.canonical in {"26.124", "26.125", "26.126"}
         and isinstance(frames, Sequence)
         and 1 in frames
     ):

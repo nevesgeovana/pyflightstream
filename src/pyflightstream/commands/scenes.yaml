@@ -30,6 +30,7 @@ VIEW_RESIZE:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Refits the view to the contents of the scene. The one command in the
     chapter whose page states outright that it has no parameters, rather
@@ -51,6 +52,7 @@ CHANGE_SCENE_TO_CAD:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Switches the active scene to the CAD view. Scene switching is a
     display action and may appear anywhere in a script; it does not
@@ -72,6 +74,7 @@ CHANGE_SCENE_TO_GEOMETRY:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Switches the active scene to the geometry view.
 
@@ -91,6 +94,7 @@ CHANGE_SCENE_TO_SOLVER:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Switches the active scene to the solver view, which is where the
     surface contours of a converged solution are displayed.
@@ -111,6 +115,7 @@ CHANGE_SCENE_TO_PLOTS:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Switches the active scene to the plots view. Each version row cites the page in its own manual edition.
 
@@ -133,6 +138,7 @@ SAVE_SCENE_AS_IMAGE:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Writes the current scene to an image file, the destination on the
     line after the command and nothing on the command's own line. The
@@ -160,6 +166,7 @@ SET_SCENE_DEFAULTVIEW:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Restores the default isometric viewpoint.
 
@@ -179,6 +186,7 @@ SET_SCENE_XY_POSITIVE:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Views the XY plane from the positive side of the remaining axis.
     The six plane views are named for the plane in view and the sign of
@@ -202,6 +210,7 @@ SET_SCENE_XY_NEGATIVE:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Views the XY plane from the negative side of the remaining axis.
 
@@ -221,6 +230,7 @@ SET_SCENE_XZ_POSITIVE:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Views the XZ plane from the positive side of the remaining axis.
 
@@ -240,6 +250,7 @@ SET_SCENE_XZ_NEGATIVE:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Views the XZ plane from the negative side of the remaining axis.
 
@@ -259,6 +270,7 @@ SET_SCENE_YZ_POSITIVE:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Views the YZ plane from the positive side of the remaining axis.
 
@@ -278,5 +290,6 @@ SET_SCENE_YZ_NEGATIVE:
     "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
     "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Views the YZ plane from the negative side of the remaining axis.

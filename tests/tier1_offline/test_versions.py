@@ -483,3 +483,45 @@ def test_the_registry_overrides_what_a_hand_built_version_claims_either_way():
     denying = FsVersion(canonical="26.121", alias="26.12", index=4, inherits_base=False)
     evidence = entry.evidence_in(denying)
     assert evidence is not None and evidence.inherited and evidence.source == "26.120", name
+
+
+def test_p0510_26126_is_registered_with_the_build_its_log_prints():
+    """FR-3402: 26.126 is registered with build 10282026, after 26.125, inheriting nothing.
+
+    Control: 26.125 keeps its own build.
+    """
+    v126, v125 = resolve("26.126"), resolve("26.125")
+    assert (v126.build, v126.prints, v126.inherits_base) == ("10282026", "2612", False)
+    assert v125.build == "10052026" and v125 < v126
+
+
+def test_p0510_every_26125_row_is_carried_to_26126_with_its_status_mapped():
+    """FR-3402: each command with a 26.125 row has a 26.126 row; verified becomes documented,
+    the rest keep their status, and every carried note says it was carried.
+
+    Control: no command gains a 26.126 row without a 26.125 one.
+    """
+    from pyflightstream.commands import CommandRegistry
+
+    registry = CommandRegistry.load()
+    v126, v125 = resolve("26.126"), resolve("26.125")
+    carried = 0
+    for name, entry in registry.commands.items():
+        old, new = entry.versions.get("26.125"), entry.versions.get("26.126")
+        assert (old is None) == (new is None), name
+        if old is None:
+            continue
+        carried += 1
+        expected = "documented" if str(old.status) == "verified" else str(old.status)
+        assert str(new.status) == expected, name
+        assert new.note.startswith("Carried from 26.125"), name
+        assert entry.status_in(v126) == new and entry.status_in(v125) == old
+    assert carried > 370
+
+
+def test_p0510_26126_is_operational():
+    """FR-3402: the support table reports 26.126 operational (the minimal workflow builds)."""
+    import pyflightstream
+
+    rows = [r.summary for r in pyflightstream.support_table() if "26.126 is" in r.summary]
+    assert len(rows) == 1 and "26.126 is operational" in rows[0]

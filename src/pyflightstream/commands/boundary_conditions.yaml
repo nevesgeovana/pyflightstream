@@ -53,6 +53,7 @@ SET_TRAILING_EDGE_TYPE:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.323, unchanged from FSM-26.122 p.324"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.323, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
   notes: >
     STANDARD sheds the full net circulation (Kutta factor 1.0);
     RELAXED sheds half, approximating body carryover at non-lifting
@@ -110,6 +111,7 @@ DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.323, unchanged from FSM-26.122 p.324"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.323, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
 
 AUTO_DETECT_WAKE_TERMINATION_NODES:
   layout: bare
@@ -144,6 +146,7 @@ AUTO_DETECT_WAKE_TERMINATION_NODES:
         it marked one strand proximal to termination nodes, as on 26.124, and
         the run gave the same lift as 26.124 to seven digits, where the
         by-surface form with -1 marked none and lowered the lift by 5.2 percent
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.331 prints the by-surface form only. The 26.125 solver accepted this name in the L4 licensed run (namespace 56c681b8cc27218a38b80d4a184f681e4acfc918-63503b6a211c4733b4ca067cf44ca9bd, file PFS-2131.001-C/reports/compat/CMP-26124-26125_L4_PFS-2131.001-C.yaml under GeoverseArtifacts/pyflightstream/GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS, licensed/receipts): it marked one strand proximal to termination nodes, as on 26.124, and the run gave the same lift as 26.124 to seven digits, where the by-surface form with -1 marked none and lowered the lift by 5.2 percent"}
   notes: >
     Finds and marks all wake termination nodes in the geometry.
 
@@ -203,6 +206,7 @@ SET_FREESTREAM:
     "26.123": {status: documented, note: "FSM-26.123 p.326, unchanged from FSM-26.122 p.326"}
     "26.124": {status: documented, note: "FSM-26.124 p.326, the FSM-26.123 file, carried from 26.123; the ROTATION form ran on 26.124 in GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md (TWO ROTATION points against one CONSTANT baseline, all three CONVERGED), which measured its SENSE and is not an acceptance of the other two forms; the CUSTOM STRUCTURED form ran on 26.124 under the licensed probe T14 (RPT-071): a uniform field of the row's own speed loaded as the CONSTANT free stream at 0 deg, a field sheared in z moved the lift, and SOLVER_SET_AOA did not turn the field at 4 deg; the CUSTOM UNSTRUCTURED form ran on 26.124 under the licensed probe T16 (RPT-077) and read the same rows as the STRUCTURED one, a field did not reach beyond its grid (closest to the free stream there), a field carrying the incidence loaded the body as that incidence with CL and CDi printed in the stated angle's axes, and a saved simulation kept its field until SET_FREESTREAM was given again"}
     "26.125": {status: documented, note: "FSM-26.125 p.332, unchanged from FSM-26.124 p.326"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.332, unchanged from FSM-26.124 p.326"}
   notes: >
     CONSTANT needs no further input. CUSTOM appends a FILETYPE token
     (STRUCTURED or UNSTRUCTURED) and takes the profile file path on
@@ -284,6 +288,7 @@ FLUID_PROPERTIES:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.333, unchanged from FSM-26.122 p.333"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.333, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.340, unchanged from FSM-26.124 p.333"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.340, unchanged from FSM-26.124 p.333"}
   notes: >
     Sets the working fluid state as KEY VALUE lines. Sonic velocity is
     derived from temperature and specific heat ratio; it is no longer
@@ -328,6 +333,7 @@ AIR_ALTITUDE:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.333, unchanged from FSM-26.122 p.333"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.333, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.340, unchanged from FSM-26.124 p.333"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.340, unchanged from FSM-26.124 p.333"}
   notes: >
     Sets the air properties from a standard-atmosphere altitude.
 
@@ -402,6 +408,7 @@ DETECT_TRAILING_EDGES_BY_SURFACE:
         - name: surface_indices
           cites: boundaries
           required: false
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.329 adds a second sample, SURFACES -1 with no index line after it, which checks every surface; the counted form of FSM-26.124 p.323 is unchanged", "args": [{"name": "surfaces", "cites": null}, {"name": "surface_indices", "cites": "boundaries", "required": false}]}
   notes: >
     Runs trailing-edge detection on a named set of boundaries rather
     than the whole geometry, using the sweep and bluntness thresholds.
@@ -523,6 +530,7 @@ DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
         - name: surface_id
           cites: boundaries
           all_sentinel: -1
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.331 adds -1, every boundary, to the surface index FSM-26.124 p.325 took as one surface, and its second sample passes it", "args": [{"name": "surface_id", "cites": "boundaries", "all_sentinel": -1}]}
   notes: >
     Detects wake termination nodes on one boundary, where
     AUTO_DETECT_WAKE_TERMINATION_NODES does the whole geometry. Through
@@ -541,6 +549,7 @@ MARK_WAKE_TERMINATION_NODES:
     "26.123": {status: documented, note: "FSM-26.123 p.325, unchanged from FSM-26.122 p.325"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-26_marking.yaml", note: "FSM-26.124 p.325, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-26_marking.yaml", note: "FSM-26.125 p.331, unchanged from FSM-26.124 p.325"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.331, unchanged from FSM-26.124 p.325"}
   notes: >
     Marks the currently SELECTED mesh nodes as wake termination nodes,
     which is the manual route where the two detection commands are the
@@ -662,6 +671,7 @@ DETECT_LEADING_EDGES_WAKES_BY_SURFACE:
     "26.123": {status: documented, note: "FSM-26.123 p.323, unchanged from FSM-26.122 p.323"}
     "26.124": {status: documented, note: "FSM-26.124 p.323, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
 
 IMPORT_WAKE_EDGES_FROM_FILE:
   layout: inline
@@ -814,3 +824,4 @@ IMPORT_WAKE_EDGES_FROM_FILE:
         - name: file
           type: path
           own_line: true
+    "26.126": {"layout": "mixed_inline", "status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.329 prints the third token 26.124 was measured to require (RPT-061) and names it: EDGE_TYPE, 1 when the file lists edge mid-points and 2 when it lists edge corner nodes, with the node file's path on the line after the command. FSM-26.124 p.323 printed two values and no path", "args": [{"name": "type"}, {"name": "tolerance"}, {"name": "edge_type", "type": "enum", "values": ["1", "2"]}, {"name": "file", "type": "path", "own_line": true}]}

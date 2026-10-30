@@ -24,6 +24,7 @@ CAD_BODY_DELETE:
     "26.123": {status: documented, note: "FSM-26.123 p.291, unchanged from FSM-26.122 p.291"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.291, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
   notes: >
     Deletes one CAD body by its 1-based index; -1 deletes every one of
     them (FSM-26.120 p.287). The parameter table row for this index is the
@@ -50,6 +51,7 @@ CAD_BODY_MIRROR:
     "26.123": {status: documented, note: "FSM-26.123 p.291, unchanged from FSM-26.122 p.291"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.291, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
   notes: >
     Mirrors one CAD body across a plane OF THE REFERENCE COORDINATE
     SYSTEM, not of a frame the caller chooses: this command takes no
@@ -78,6 +80,7 @@ CAD_BODY_ROTATE:
     "26.123": {status: documented, note: "FSM-26.123 p.291, unchanged from FSM-26.122 p.291"}
     "26.124": {status: documented, note: "FSM-26.124 p.291, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
   notes: >
     Rotates one CAD body about an axis of the reference coordinate
     system. The angle is in DEGREES, which the manual states and which
@@ -116,6 +119,7 @@ CAD_BODY_SCALE:
     "26.123": {status: documented, note: "FSM-26.123 p.291, unchanged from FSM-26.122 p.291"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.291, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
   notes: >
     Uniform scale factor, dimensionless and greater than zero
     (FSM-26.120 p.287). It scales the BODY, so a body scaled after its
@@ -146,6 +150,7 @@ CAD_BODY_TRANSLATE:
     "26.123": {status: documented, note: "FSM-26.123 p.291, unchanged from FSM-26.122 p.291"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.291, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
   notes: >
     Translation vector in the reference coordinate system, with its own
     UNITS argument rather than the simulation length units: this command
@@ -181,6 +186,7 @@ CAD_BODY_SELECT_BY_THRESHOLD:
     "26.123": {status: documented, note: "FSM-26.123 p.292, unchanged from FSM-26.122 p.292"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.292, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.297, unchanged from FSM-26.124 p.292"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.297, unchanged from FSM-26.124 p.292"}
   notes: >
     Selects or deletes the CAD faces on one side of a coordinate
     threshold. FRAME is the 1-based index of the coordinate system the
@@ -244,6 +250,7 @@ IMPORT_CAD:
     "26.123": {status: documented, note: "FSM-26.123 p.290, unchanged from FSM-26.122 p.290"}
     "26.124": {status: documented, note: "FSM-26.124 p.290, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.295, unchanged from FSM-26.124 p.290"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.295, unchanged from FSM-26.124 p.290"}
   notes: >
     Imports a CAD file, the path on the line after the inline arguments.
     The result is a CAD body, not a mesh: CONVERT_CAD_TO_MESH is what
@@ -282,6 +289,7 @@ CONVERT_CAD_TO_MESH:
     "26.123": {status: documented, note: "FSM-26.123 p.290, unchanged from FSM-26.122 p.290"}
     "26.124": {status: documented, note: "FSM-26.124 p.290, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.295, unchanged from FSM-26.124 p.290"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.295, unchanged from FSM-26.124 p.290"}
   notes: >
     Transfers a CAD body into the simulation's mesh, which is the step
     that makes an imported CAD file something the solver acts on, and

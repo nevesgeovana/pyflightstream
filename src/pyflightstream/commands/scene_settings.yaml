@@ -64,6 +64,7 @@ SET_SCENE_COLORMAP_TYPE:
           on_command_line: true
         - name: type
           on_command_line: true
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.363 writes the command on one line, the colormap then the ramp name, where FSM-26.124 p.362 wrote a keyword line for each; the eleven ramp names are unchanged", "args": [{"name": "colormap", "on_command_line": true}, {"name": "type", "on_command_line": true}]}
   notes: >
     Selects the colour ramp. The eleven names are the manual's own, in
     the order it prints them, and all four editions list the same
@@ -111,6 +112,7 @@ SET_SCENE_COLORMAP_SIZE:
         - name: height
           cites: null
           on_command_line: true
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.363 writes the command on one line, the colormap, the thickness and the height in pixels, where FSM-26.124 p.362 wrote a keyword line for each", "args": [{"name": "colormap", "on_command_line": true}, {"name": "thickness", "cites": null, "on_command_line": true}, {"name": "height", "cites": null, "on_command_line": true}]}
   notes: >
     Size of the colour bar in screen pixels. THICKNESS IS THE LONG
     DIMENSION HERE, not the short one the word suggests: the manual's
@@ -156,6 +158,7 @@ SET_SCENE_COLORMAP_POSITION:
         - name: y
           cites: null
           on_command_line: true
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.363 writes the command on one line, the colormap then X and Y in pixels, where FSM-26.124 p.362 wrote a keyword line for each", "args": [{"name": "colormap", "on_command_line": true}, {"name": "x", "cites": null, "on_command_line": true}, {"name": "y", "cites": null, "on_command_line": true}]}
   notes: >
     Position of the colour bar in screen pixels. These are window
     coordinates and not a location in the model's reference frame; no
@@ -198,6 +201,7 @@ SET_SCENE_COLORMAP_SHADING:
           on_command_line: true
         - name: smooth
           on_command_line: true
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.363 writes the command on one line, the colormap, the reverse toggle and the smooth toggle, where FSM-26.124 p.362 wrote a keyword line for each", "args": [{"name": "colormap", "on_command_line": true}, {"name": "reverse", "on_command_line": true}, {"name": "smooth", "on_command_line": true}]}
   notes: >
     REVERSE flips the ramp end for end; SMOOTH draws it as a continuous
     gradient rather than as discrete bands. Both are display choices and
@@ -235,6 +239,7 @@ SET_SCENE_COLORMAP_CUSTOM_MODE:
           on_command_line: true
         - name: custom_range
           on_command_line: true
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.363 writes the command on one line, the colormap then the toggle, where FSM-26.124 p.363 wrote a keyword line for each", "args": [{"name": "colormap", "on_command_line": true}, {"name": "custom_range", "on_command_line": true}]}
   notes: >
     Switches the colour scale between automatic limits and the custom
     ones. It is the gate for SET_SCENE_COLORMAP_CUSTOM_RANGE below: the
@@ -286,6 +291,7 @@ SET_SCENE_COLORMAP_CUSTOM_RANGE:
           on_command_line: true
         - name: minimum
           on_command_line: true
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.364 writes the command on one line, the colormap, the cut-off mode, the maximum and the minimum, where FSM-26.124 p.363 wrote a keyword line for each (its sample names the custom-mode command, the signature this one)", "args": [{"name": "colormap", "on_command_line": true}, {"name": "cut_off_mode", "on_command_line": true}, {"name": "maximum", "on_command_line": true}, {"name": "minimum", "on_command_line": true}]}
   notes: >
     Limits of the custom colour range and what is done with values
     outside them. CUT_OFF_MODE selects which tail is clipped: OFF clips

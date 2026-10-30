@@ -7,6 +7,18 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.51.0
+
+FlightStream 26.126 (vendor 26.12, build 10282026) is a supported build. To
+run on it, add its executable to `inputs/executables.toml` under `"26.126"` and
+set `FS_BUILD` to `26.126` in the matrix rows, or pass `--fs-version 26.126`;
+then plan again. Results from 26.125 and 26.126 are separate builds: compare
+them only as two builds, never as one series (FR-3402).
+
+A refined level also writes `<level>.fs.nodes.txt` and
+`<level>.<family>.fs.nodes.txt`; a boundaries file's `wake_termination_nodes`
+can name one of them (FR-3401).
+
 ## 0.50.3
 
 A level whose `[[perimeter]]` list names a front and a rear panel in

@@ -232,6 +232,21 @@ versions:
     # its total drag 10.8 to 15.0 percent higher. A property of the solver
     # build, not of the package; the package does not compensate for it.
     inherits_base: false
+  - canonical: "26.126"
+    alias: "26.12"
+    # The vendor's end-of-October 26.12 build (frozen 2026-10-30), the corrected
+    # package that starts without the licence dialog of the first one. build and
+    # prints come from its log: "Simcenter Flightstream version 2612, build
+    # #10282026" (GEO-109 arrival-26126.md).
+    #
+    # Its package ships an OLDER manual edition (created 2026-04-24, 409 pages,
+    # 363 commands, the pre-26.125 names) than FSM-26.125 (2026-09-25), so its
+    # rows are carried from 26.125 and cite FSM-26.125: verified becomes
+    # documented until a run on this build promotes it; documented, broken and
+    # removed are carried as they are. Every row says so in its note.
+    build: "10282026"
+    prints: "2612"
+    inherits_base: false
 
 # Each edition states two inclusive ranges: pages carrying scripting
 # signature headings, and the contiguous Script Index pages parsed for

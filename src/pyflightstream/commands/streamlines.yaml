@@ -35,6 +35,7 @@ NEW_OFF_BODY_STREAMLINE:
     "26.123": {status: broken, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "script processing aborted at the command: after a five-iteration steady solve the solver exited with an access violation (return code 3221225477) at the command and its POSITION lines, as it aborted on 26.124"}
+    "26.126": {"status": "broken", "report": "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. script processing aborted at the command: after a five-iteration steady solve the solver exited with an access violation (return code 3221225477) at the command and its POSITION lines, as it aborted on 26.124"}
 
 NEW_STREAMLINE_DISTRIBUTION:
   layout: keyword_block
@@ -68,6 +69,7 @@ NEW_STREAMLINE_DISTRIBUTION:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.374, unchanged from FSM-26.122 p.374"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.374, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.380, unchanged from FSM-26.124 p.374"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.380, unchanged from FSM-26.124 p.374"}
   notes: >
     SUBDIVISIONS is N+1 for N streamlines between the start and end
     vertices.
@@ -89,6 +91,7 @@ GENERATE_ALL_OFF_BODY_STREAMLINES:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.374, unchanged from FSM-26.122 p.374"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.374, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.380, unchanged from FSM-26.124 p.374"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.380, unchanged from FSM-26.124 p.374"}
 
 EXPORT_ALL_OFF_BODY_STREAMLINES:
   layout: param_lines
@@ -109,6 +112,7 @@ EXPORT_ALL_OFF_BODY_STREAMLINES:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.375, unchanged from FSM-26.122 p.375"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.375, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.381, unchanged from FSM-26.124 p.375"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.381, unchanged from FSM-26.124 p.375"}
 
 NEW_OFF_BODY_STREAMTUBE:
   layout: inline
@@ -192,6 +196,7 @@ NEW_OFF_BODY_STREAMTUBE:
     "26.123": {status: documented, note: "FSM-26.123 p.374, unchanged from FSM-26.122 p.374"}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.374, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166) Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
     "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.380, unchanged from FSM-26.124 p.374 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
+    "26.126": {"status": "broken", "report": "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.380, unchanged from FSM-26.124 p.374 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
   notes: >
     Seeds a cylindrical bundle of off-body streamlines in one call,
     which is how a propeller or rotor slipstream is visualised without
@@ -232,6 +237,7 @@ SET_OFF_BODY_STREAMLINE_LENGTH:
     "26.123": {status: documented, note: "FSM-26.123 p.374, unchanged from FSM-26.122 p.374"}
     "26.124": {status: removed, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.374 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P3-02 (RPT-166): both documented forms, SET_LENGTH and SET_UNRESTRICTED_LENGTH, were refused as an unrecognised command, so the edition documents a command the build does not carry"}
     "26.125": {status: removed, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.380 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P3-02 (RPT-166): both documented forms were refused as an unrecognised command, which 26.125 prints on its standard output only"}
+    "26.126": {"status": "removed", "report": "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.380 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P3-02 (RPT-166): both documented forms were refused as an unrecognised command, which 26.125 prints on its standard output only"}
   notes: >
     How far a newly created off-body streamline is propagated: to a
     stated length, or until it leaves the domain.
@@ -266,6 +272,7 @@ SET_ALL_OFF_BODY_STREAMLINES_UPSTREAM:
     "26.123": {status: documented, note: "FSM-26.123 p.374, unchanged from FSM-26.122 p.374"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.374, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.380, unchanged from FSM-26.124 p.374"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.380, unchanged from FSM-26.124 p.374"}
   notes: >
     Propagates every off-body streamline against the flow, back toward
     where its fluid came from. Applies to all of them at once; there is
@@ -287,6 +294,7 @@ SET_ALL_OFF_BODY_STREAMLINES_DOWNSTREAM:
     "26.123": {status: documented, note: "FSM-26.123 p.374, unchanged from FSM-26.122 p.374"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.374, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.380, unchanged from FSM-26.124 p.374"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.380, unchanged from FSM-26.124 p.374"}
   notes: >
     Propagates every off-body streamline with the flow. The pair with
     the command above, and neither states which is the default.
@@ -307,6 +315,7 @@ DELETE_ALL_OFF_BODY_STREAMLINES:
     "26.123": {status: documented, note: "FSM-26.123 p.375, unchanged from FSM-26.122 p.375"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.375, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.381, unchanged from FSM-26.124 p.375"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.381, unchanged from FSM-26.124 p.375"}
   notes: >
     Deletes every off-body streamline and streamtube. There is no
     command deleting one, so a seed placed wrongly costs the whole set.
@@ -327,6 +336,7 @@ GENERATE_ALL_SURFACE_STREAMLINES:
     "26.123": {status: documented, note: "FSM-26.123 p.376, unchanged from FSM-26.122 p.376"}
     "26.124": {status: documented, note: "FSM-26.124 p.376, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.382, unchanged from FSM-26.124 p.376"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.382, unchanged from FSM-26.124 p.376"}
   notes: >
     Generates the on-body streamlines, which are surface friction lines
     rather than paths through the fluid: they follow the direction of
@@ -353,6 +363,7 @@ DELETE_ALL_SURFACE_STREAMLINES:
     "26.123": {status: documented, note: "FSM-26.123 p.376, unchanged from FSM-26.122 p.376"}
     "26.124": {status: documented, note: "FSM-26.124 p.376, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.382, unchanged from FSM-26.124 p.376"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.382, unchanged from FSM-26.124 p.376"}
   notes: >
     Deletes every on-body streamline.
 
@@ -377,6 +388,7 @@ EXPORT_ALL_SURFACE_STREAMLINES:
     "26.123": {status: documented, note: "FSM-26.123 p.376, unchanged from FSM-26.122 p.376"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.376, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.382, unchanged from FSM-26.124 p.376"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.382, unchanged from FSM-26.124 p.376"}
   notes: >
     Writes every on-body streamline to one file, the path on the next
     line. The off-body counterpart is EXPORT_ALL_OFF_BODY_STREAMLINES,

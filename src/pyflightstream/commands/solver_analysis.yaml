@@ -28,6 +28,7 @@ SET_VORTICITY_DRAG_BOUNDARIES:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.356, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
   notes: >
     Boundaries whose induced drag is computed from surface vorticity
     circulation integration; -1 selects all boundaries. Boundaries
@@ -59,6 +60,7 @@ DELETE_VORTICITY_DRAG_BOUNDARIES:
     "26.123": {status: documented, note: "FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
     "26.124": {status: documented, note: "FSM-26.124 p.356, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
 
 SET_SOLVER_ANALYSIS_LOADS_FRAME:
   layout: inline
@@ -80,6 +82,7 @@ SET_SOLVER_ANALYSIS_LOADS_FRAME:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.356, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
   notes: >
     Coordinate system used for evaluating aerodynamic loads and
     moments; index 1 is the reference frame. Phase init on measured
@@ -109,6 +112,7 @@ SET_ANALYSIS_MOMENTS_MODEL:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
   notes: >
     PRESSURE is the solver default. Phase init with the loads frame
     (RPT-064, 26.124, 2026-09-24): the package emits the two together,
@@ -134,6 +138,7 @@ SET_ANALYSIS_SYMMETRY_LOADS:
     "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...] Prior edition evidence: FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
     "26.124": {status: documented, note: "FSM-26.124 p.356, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
   notes: >
     Includes the loads of symmetry boundaries in the analysis; relevant
     to half-model and periodic runs. Phase init on empirical evidence
@@ -166,6 +171,7 @@ SET_LOADS_AND_MOMENTS_UNITS:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.356, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
 
 SET_SOLVER_ANALYSIS_BOUNDARIES:
   layout: payload_lines
@@ -189,6 +195,7 @@ SET_SOLVER_ANALYSIS_BOUNDARIES:
     "26.123": {status: documented, note: "FSM-26.123 p.357, unchanged from FSM-26.122 p.357"}
     "26.124": {status: documented, note: "FSM-26.124 p.357, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.366, unchanged from FSM-26.124 p.357"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.366, unchanged from FSM-26.124 p.357"}
   notes: >
     Enables the listed boundaries in the analysis tab; boundaries not
     listed are disabled in the analysis (FSM-26.120 p.351).
@@ -213,6 +220,7 @@ SET_INVISCID_LOADS:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
   notes: >
     Restricts the analysis to inviscid loads and moments only.
 
@@ -245,6 +253,7 @@ SET_VORTICITY_LIFT_MODEL:
         another name, and whether the builds before 26.124 answer it, is not
         measured
     "26.125": {status: documented, note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356; 26.124 answered it as an unrecognized command (its removed row), and 26.125 has not run it"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.365, unchanged from FSM-26.124 p.356; 26.124 answered it as an unrecognized command (its removed row), and 26.125 has not run it"}
   notes: >
     Computes lift from the vorticity field rather than by integrating
     surface pressure.

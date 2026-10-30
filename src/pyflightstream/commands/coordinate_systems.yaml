@@ -20,6 +20,7 @@ CREATE_NEW_COORDINATE_SYSTEM:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.334, unchanged from FSM-26.122 p.334"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.334, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
   notes: >
     Appends a new local coordinate system; configure it afterwards
     with the SET_COORDINATE_SYSTEM commands or EDIT_COORDINATE_SYSTEM.
@@ -70,6 +71,7 @@ EDIT_COORDINATE_SYSTEM:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.334, unchanged from FSM-26.122 p.334"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.334, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
   notes: >
     Full edit of a local frame: origin and the three axis vectors,
     all expressed in the reference frame.
@@ -104,6 +106,7 @@ SET_COORDINATE_SYSTEM_ORIGIN:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.334, unchanged from FSM-26.122 p.334"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.334, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
   notes: >
     Origin position relative to the reference coordinate system.
 
@@ -139,6 +142,7 @@ SET_COORDINATE_SYSTEM_AXIS:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.335, unchanged from FSM-26.122 p.335"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.335, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
   notes: >
     Sets one axis direction vector of a local frame; the vector is
     normalized automatically, and NORMALIZE_FRAME TRUE renormalizes
@@ -172,6 +176,7 @@ ROTATE_COORDINATE_SYSTEM:
     "26.123": {status: documented, note: "FSM-26.123 p.335, unchanged from FSM-26.122 p.335"}
     "26.124": {status: documented, note: "FSM-26.124 p.335, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
   notes: >
     Rotates the local coordinate system FRAME about ROTATION_AXIS of
     ROTATION_FRAME by ANGLE degrees.
@@ -197,6 +202,7 @@ SET_COORDINATE_SYSTEM_NAME:
     "26.123": {status: documented, note: "FSM-26.123 p.334, unchanged from FSM-26.122 p.334"}
     "26.124": {status: documented, note: "FSM-26.124 p.334, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
   notes: >
     Renames a local coordinate system. The manual requires the index to
     be greater than 1, the reference frame having a fixed name.
@@ -220,6 +226,7 @@ NORMALIZE_COORDINATE_SYSTEM:
     "26.123": {status: documented, note: "FSM-26.123 p.335, unchanged from FSM-26.122 p.335"}
     "26.124": {status: documented, note: "FSM-26.124 p.335, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
   notes: >
     Rescales the axes of a coordinate system to unit length, which
     matters because SET_COORDINATE_SYSTEM_AXIS takes a direction vector
@@ -269,6 +276,7 @@ TRANSLATE_COORDINATE_SYSTEM:
     "26.123": {status: documented, note: "FSM-26.123 p.335, unchanged from FSM-26.122 p.335"}
     "26.124": {status: documented, note: "FSM-26.124 p.335, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
   notes: >
     Moves a local coordinate system by a vector, where
     SET_COORDINATE_SYSTEM_ORIGIN sets its position absolutely. The two
@@ -300,6 +308,7 @@ DUPLICATE_COORDINATE_SYSTEM:
     "26.123": {status: documented, note: "FSM-26.123 p.336, unchanged from FSM-26.122 p.336"}
     "26.124": {status: documented, note: "FSM-26.124 p.336, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.343, unchanged from FSM-26.124 p.336"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.343, unchanged from FSM-26.124 p.336"}
   notes: >
     Appends a copy of a local coordinate system. Nothing reports the
     index the copy takes, and no edition states how one is allocated, so
@@ -331,6 +340,7 @@ MIRROR_COORDINATE_SYSTEM:
     "26.123": {status: documented, note: "FSM-26.123 p.336, unchanged from FSM-26.122 p.336"}
     "26.124": {status: documented, note: "FSM-26.124 p.336, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.343, unchanged from FSM-26.124 p.336"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.343, unchanged from FSM-26.124 p.336"}
   notes: >
     DUPLICATES AND THEN MIRRORS, which the manual states in the FRAME
     row rather than in the command's own description: the original frame
@@ -364,6 +374,7 @@ DELETE_COORDINATE_SYSTEM:
     "26.123": {status: documented, note: "FSM-26.123 p.336, unchanged from FSM-26.122 p.336"}
     "26.124": {status: documented, note: "FSM-26.124 p.336, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.343, unchanged from FSM-26.124 p.336"}
+    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.343, unchanged from FSM-26.124 p.336"}
   notes: >
     Deletes a local coordinate system; the reference frame cannot be
     deleted and the manual requires an index greater than 1.
