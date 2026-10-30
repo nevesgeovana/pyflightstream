@@ -11,12 +11,15 @@ FlightStream versions.
 
 ### Fixed
 
-- Under `[[perimeter]]` `te_families`, a rear panel's `<level>.<family>.te.txt`
-  holds the family's own trailing edge, not the hinge it shares with the front
-  panel, and the level's `te.txt` no longer lists that hinge. Every coarsened
-  interval of a curved trailing edge is written; before, a coarsened chord whose
-  sagitta exceeded the surface distance was dropped. Export format and file
-  names are unchanged (FR-3400).
+- Under `[[perimeter]]` `te_families`, a rear panel whose front edge is the
+  listed rearmost line of the panel ahead (a hinge) writes its own trailing
+  edge to `<level>.<family>.te.txt` and to the level's trailing-edge files,
+  never the hinge: a family's line is taken from its own rearmost listed edges
+  first, not from the longest listed piece on it. A coarsened interval on a
+  curved listed line is kept by the ends of its edge, source nodes on the line,
+  so no mid-point whose chord sits off the curve by more than the grid's
+  surface distance is dropped. Export format and file names are unchanged
+  (FR-3400).
 
 ## [0.50.2] - 2026-10-29
 
@@ -57,14 +60,6 @@ FlightStream versions.
   migration: a level refined again can have fewer faces on such families than
   the same level refined with 0.49.0 to 0.50.1; state factor 1 on a family
   whose counts must hold.
-- Under `te_families`, a rear panel whose front edge is the listed rearmost
-  line of the panel ahead (a hinge) writes its own trailing edge to
-  `<level>.<family>.te.txt` and to the level's trailing-edge files, never the
-  hinge: a family's line is taken from its own rearmost listed edges first,
-  not from the longest listed piece on it. A coarsened interval on a curved
-  listed line is kept by the ends of its edge, source nodes on the line, so no
-  mid-point whose chord sits off the curve by more than the grid's surface
-  distance is dropped (FR-3400).
 
 ## [0.50.1] - 2026-10-29
 
