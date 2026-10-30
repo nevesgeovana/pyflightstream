@@ -68,6 +68,7 @@ from pyflightstream.workspace._refine._geometry import (
     WARP_FLOOR_DEGREES,
     ZERO_AREA_FRACTION,
     NearestIndex,
+    below_family_area,
     boundary_edges,
     boundary_loops,
     close_pairs,
@@ -161,6 +162,10 @@ class MeshAudit:
         95th percentiles the checks read.
     path : Path
         The ``<stem>.audit.json`` written beside the mesh.
+    degenerate_faces : tuple of Mapping
+        Each face G1 counts of zero area (FR-938, FR-3403): its ``family``, its
+        ``face`` index in that family (from 0, in file order), its
+        ``centroid`` and its ``area_ratio`` to its family's median face area.
     """
 
     mesh: Path
@@ -169,6 +174,7 @@ class MeshAudit:
     checks: tuple[AuditItem, ...]
     figures: Mapping[str, Mapping[str, Value]]
     path: Path
+    degenerate_faces: tuple[Mapping[str, object], ...] = ()
 
     @property
     def passed(self) -> bool:
@@ -190,6 +196,7 @@ class MeshAudit:
             "gates": [item.as_json() for item in self.gates],
             "checks": [item.as_json() for item in self.checks],
             "figures": {family: dict(values) for family, values in self.figures.items()},
+            "degenerate_faces": [dict(face) for face in self.degenerate_faces],
         }
 
     def summary(self) -> list[str]:
@@ -386,6 +393,7 @@ def audit_mesh(
             {name: MappingProxyType(values) for name, values in figures.items()}
         ),
         path=target,
+        degenerate_faces=_degenerate_faces(level),
     )
     _textio.write_json(target, audit.as_json())
     for item in audit.failures:
@@ -910,6 +918,41 @@ def _gates(level: _Mesh, source: _Mesh | None, grids: tuple[str, ...]) -> tuple[
     )
 
 
+def _zero_area(m: _Mesh) -> Array:
+    """Return per face whether G1 counts it of zero area (FR-938, FR-3403).
+
+    A face is of zero area below ``ZERO_AREA_FRACTION`` of the size squared,
+    or below ``DEGENERATE_AREA_FRACTION`` of its own family's median face
+    area, so a sliver of a fine family is not hidden by the whole mesh's size.
+    """
+    area = m.shape["area"]
+    return (area < ZERO_AREA_FRACTION * m.size**2) | below_family_area(area, m.family)
+
+
+def _degenerate_faces(m: _Mesh) -> tuple[Mapping[str, object], ...]:
+    """Return each face G1 counts of zero area: family, face index, centroid, area ratio."""
+    rows = numpy.nonzero(_zero_area(m))[0]
+    if not len(rows):
+        return ()
+    names = list(m.obj.families)
+    start = numpy.concatenate([[0], numpy.cumsum([len(fs) for fs in m.obj.families.values()])])
+    out: list[Mapping[str, object]] = []
+    for r in rows.tolist():
+        family = int(m.family[r])
+        mine = m.shape["area"][start[family] : start[family + 1]]
+        median = float(numpy.median(mine))
+        ratio = None if median <= 0.0 else float(f"{m.shape['area'][r] / median:.6g}")
+        out.append(
+            {
+                "family": names[family],
+                "face": r - int(start[family]),
+                "centroid": [round(float(x), 9) for x in m.obj.verts[m.faces[r]].mean(axis=0)],
+                "area_ratio": ratio,
+            }
+        )
+    return tuple(out)
+
+
 def _g1(m: _Mesh) -> AuditItem:
     """G1: no edge of more than two faces, no two nodes at one position, no face of zero area."""
     used = numpy.unique(numpy.fromiter((v for f in m.faces for v in f), dtype=numpy.int64))
@@ -918,7 +961,7 @@ def _g1(m: _Mesh) -> AuditItem:
         "node_pairs_at_one_position": len(
             close_pairs(m.obj.verts[used], DUPLICATE_FRACTION * m.size)
         ),
-        "faces_of_zero_area": int((m.shape["area"] < ZERO_AREA_FRACTION * m.size**2).sum()),
+        "faces_of_zero_area": int(_zero_area(m).sum()),
     }
     return _item("gate", "G1", WHOLE_MESH, values, any(v != 0 for v in values.values()))
 

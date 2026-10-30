@@ -388,3 +388,187 @@ def test_p0390_zeroarea_family_sharing_no_curve_is_unchanged(tmp_path):
     v1, f1 = read_mesh(refined.obj)
     v2, f2 = read_mesh(control.obj)
     assert face_coordinates(v1, f1["U"]) == face_coordinates(v2, f2["U"])
+
+
+# ---- FR-3403: a remesh writes no face of zero or near-zero area
+
+#: FR-3403's thresholds, restated so that a change of the constants is a change of this test.
+AREA_FRACTION, ANGLE_DEGREES = 1e-3, 1.0
+#: How far a node of a finer neighbour stands off the mid-point of a side of a cell.
+SLIVER = 1e-6
+
+
+def _shapes(points: np.ndarray, faces) -> tuple[np.ndarray, np.ndarray]:
+    """Return each polygon's area (Newell) and its smallest interior angle in degrees."""
+    area, angle = [], []
+    for f in faces:
+        p = points[f]
+        area.append(0.5 * np.linalg.norm(np.cross(p, np.roll(p, -1, axis=0)).sum(axis=0)))
+        side = np.roll(p, -1, axis=0) - p
+        length = np.linalg.norm(side, axis=1)
+        cosine = -(side * np.roll(side, 1, axis=0)).sum(axis=1) / (length * np.roll(length, 1))
+        angle.append(np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0))).min())
+    return np.array(area), np.array(angle)
+
+
+def _degenerate(points: np.ndarray, faces) -> int:
+    """Return how many faces are below the area fraction of the median, or the angle."""
+    area, angle = _shapes(points, faces)
+    return int(((area < AREA_FRACTION * np.median(area)) | (angle < ANGLE_DEGREES)).sum())
+
+
+def _hanging_cells(fanned: bool):
+    """Return ``F``, 4 by 2 cells 1 wide and 2 tall, over ``G``, a finer strip below it.
+
+    G holds a node ``SLIVER`` below the mid-point of each bottom side of F, so
+    each bottom cell of F is a convex pentagon whose fan from its first corner
+    is a sliver; ``fanned`` gives F that fan itself, as triangles.
+    """
+    from pyflightstream.workspace._refine._obj import ObjMesh
+
+    pts: list[tuple[float, float, float]] = []
+
+    def node(x: float, y: float) -> int:
+        pts.append((x, y, 0.0))
+        return len(pts) - 1
+
+    grid = {(i, j): node(float(i), 2.0 * j) for j in range(3) for i in range(5)}
+    mid = [node(i + 0.5, -SLIVER) for i in range(4)]
+    low = [node(float(i), -1.0) for i in range(5)]
+    cells = []
+    for j in range(2):
+        for i in range(4):
+            a, b = grid[(i, j)], grid[(i + 1, j)]
+            c, d = grid[(i + 1, j + 1)], grid[(i, j + 1)]
+            cells.append([a, mid[i], b, c, d] if j == 0 else [a, b, c, d])
+    if fanned:
+        cells = [[f[0], f[k], f[k + 1]] for f in cells for k in range(1, len(f) - 1)]
+    strip = []
+    for i in range(4):
+        a, m, b = grid[(i, 0)], mid[i], grid[(i + 1, 0)]
+        strip += [[m, a, low[i]], [b, m, low[i + 1]], [m, low[i], low[i + 1]]]
+    return ObjMesh(np.array(pts), {"F": cells, "G": strip})
+
+
+@pytest.mark.parametrize("fanned", [False, True], ids=["pentagons", "sliver-triangles"])
+def test_fr3403_remesh_leaves_no_degenerate_face(fanned):
+    """FR-3403 a polygon whose fan is a sliver, or a sliver itself, leaves no degenerate face.
+
+    The pentagons are cut where the sliver is not a triangle (prevention); the
+    slivers given as triangles are flipped away (repair). The nodes F shares
+    with G never move.
+    """
+    mesh = _hanging_cells(fanned)
+    sliced = _hanging_cells(True).families["F"]
+    assert _degenerate(mesh.verts, sliced) > 0, "the measure must see the source's slivers"
+    done = refine_group(mesh, ["F"], set(), 1.0)
+    assert _degenerate(done.points, done.families["F"]) == 0
+    shared = np.intersect1d(mesh.family_vertices("F"), mesh.family_vertices("G"))
+    for v in shared:
+        assert np.min(np.linalg.norm(done.points - mesh.verts[v], axis=1)) == 0.0
+
+
+def test_fr3403_triangulation_cuts_no_sliver():
+    """FR-3403 a pentagon and a quadrilateral with a corner on a side are cut with no sliver.
+
+    Their fan from the first corner holds the sliver; the pentagon takes the
+    fan of its best corner, the quadrilateral its other diagonal.
+    """
+    from pyflightstream.workspace._refine._remesh_group import _triangulate
+
+    pentagon = np.array([(0, 0, 0), (0.5, -SLIVER, 0), (1, 0, 0), (1, 2, 0), (0, 2, 0)], float)
+    quad = np.array([(0, 0, 0), (0.5, -SLIVER, 0), (1, 0, 0), (0.5, 2, 0)], float)
+    for verts in (pentagon, quad):
+        cut = _triangulate(verts, list(range(len(verts))))
+        assert len(cut) == len(verts) - 2
+        assert _degenerate(verts, cut) == 0
+        _, fan_angle = _shapes(verts, [[0, k, k + 1] for k in range(1, len(verts) - 1)])
+        assert fan_angle.min() < ANGLE_DEGREES, "the fan of the first corner is the sliver"
+
+
+def test_fr3403_clean_family_comes_out_identical(monkeypatch):
+    """FR-3403 control: a clean quadrilateral family is cut and remeshed as before the repair.
+
+    Each of its quadrilaterals keeps the fan of its first corner, and its
+    remesh with the repair is the remesh without it, node for node and face
+    for face.
+    """
+    from pyflightstream.workspace._refine import _remesh
+    from pyflightstream.workspace._refine._obj import ObjMesh
+    from pyflightstream.workspace._refine._remesh_group import _triangulate
+    from tests.p0380_mesh_fixtures import plate_nodes
+
+    nodes = plate_nodes(8, 8)
+    quads = [
+        [j * 9 + i, j * 9 + i + 1, (j + 1) * 9 + i + 1, (j + 1) * 9 + i]
+        for j in range(8)
+        for i in range(8)
+    ]
+    for f in quads:
+        assert _triangulate(nodes, f) == [[f[0], f[1], f[2]], [f[0], f[2], f[3]]]
+    mesh = ObjMesh(nodes, {"Q": quads})
+    repaired = refine_group(mesh, ["Q"], set(), 2.0)
+    assert _degenerate(repaired.points, repaired.families["Q"]) == 0
+    monkeypatch.setattr(_remesh.Remesher, "repair_degenerate", lambda self: [], raising=False)
+    plain = refine_group(mesh, ["Q"], set(), 2.0)
+    assert np.array_equal(repaired.points, plain.points)
+    assert repaired.families == plain.families
+
+
+def _pinched_strip() -> Composite:
+    """Return ``F``, a strip between ``G`` and ``H`` pinched to ``SLIVER`` at its end.
+
+    Every node of F is shared with G or H, so a remesh may move none of them;
+    its last cell is the sliver b3, b4, p, its longest side b3-b4 on G.
+    """
+    pts: list[tuple[float, float, float]] = []
+
+    def node(x: float, y: float) -> int:
+        pts.append((x, y, 0.0))
+        return len(pts) - 1
+
+    g = [node(float(i), -1.0) for i in range(5)]
+    b = [node(float(i), 0.0) for i in range(5)]
+    t = [node(float(i), 1.0) for i in range(4)] + [node(3.5, SLIVER)]
+    h = [node(float(i), 2.0) for i in range(4)] + [node(3.5, 2.0)]
+    families = {
+        "G": [[g[i], g[i + 1], b[i + 1], b[i]] for i in range(4)],
+        "F": [[b[i], b[i + 1], t[i + 1], t[i]] for i in range(3)]
+        + [[b[3], b[4], t[4]], [b[3], t[4], t[3]]],
+        "H": [[t[i], t[i + 1], h[i + 1], h[i]] for i in range(4)],
+    }
+    return Composite(np.array(pts), families, np.zeros((0, 3)), {})
+
+
+def test_fr3403_held_sliver_is_left_listed_and_warned(tmp_path):
+    """FR-3403 a sliver on nodes no remesh may move is left, listed in audit.json and warned.
+
+    G1 counts it against F's own median area: against the whole mesh's size
+    it would pass, as it did before FR-3403.
+    """
+    mesh = _pinched_strip()
+    src = _source(tmp_path, "strip", mesh, '[families.F]\nfactor = 1\nmethod = "remesh"\n')
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        level = refine_mesh(src, config=src.with_suffix(".refine.toml"), out_dir=tmp_path / "o")
+    verts, fams = read_mesh(level.obj)
+    b3, b4, p = 8, 9, 14  # in _pinched_strip's numbering
+    corner_points = mesh.verts[[b3, b4, p]]
+    held = [np.flatnonzero(np.all(np.abs(verts - q) < 1e-12, axis=1)) for q in corner_points]
+    assert all(len(found) == 1 for found in held), "the sliver's nodes did not move"
+    corners = {int(found[0]) for found in held}
+    index = next(i for i, f in enumerate(fams["F"]) if set(f) == corners)
+    record = json.loads(level.audit.path.read_text(encoding="utf-8"))
+    assert record["degenerate_faces"] == [
+        {
+            "family": "F",
+            "face": index,
+            "centroid": pytest.approx([3.5, SLIVER / 3, 0.0], abs=1e-9),
+            "area_ratio": pytest.approx(record["degenerate_faces"][0]["area_ratio"]),
+        }
+    ]
+    assert record["degenerate_faces"][0]["area_ratio"] < AREA_FRACTION
+    gate = next(item for item in level.audit.gates if item.name == "G1")
+    assert gate.verdict == "fail" and gate.values["faces_of_zero_area"] == 1
+    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    assert any("1 face(s)" in s and str(level.audit.path) in s for s in said), said

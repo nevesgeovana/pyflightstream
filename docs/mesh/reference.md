@@ -762,7 +762,7 @@ FIGURE is reported and never judged.
 
 | gate | fails when |
 |---|---|
-| G1 | an edge is shared by more than two faces, two nodes sit at one position (within 1e-9 of the size, the diagonal of the bounding box), or a face has zero area |
+| G1 | an edge is shared by more than two faces, two nodes sit at one position (within 1e-9 of the size, the diagonal of the bounding box), or a face has zero area: below 1e-12 of the size squared, or below 1e-3 of the median face area of its own family, so a sliver of a fine family is not hidden by the size of the whole mesh. Each such face is listed in `audit.json` under `degenerate_faces` |
 | G2 | two neighbouring faces have opposite orientation, or a closed shell, including one spread across families, does not enclose a positive volume |
 | G3 | the open boundary loops of the mesh are not the source's in number and in the opening each closes: a level loop matches one source loop, one to one, when every node of each lies within a quarter of the source loop's extent (its bounding-box diagonal) from the other's polyline |
 | G4 | a trailing-edge point lies on no mesh edge, two points lie on one mesh edge (`points_sharing_an_edge`), the trailing-edge chains are not the source's in number, or a chain of the source ends where no chain of the level ends (a shortened line); the lines' total lengths are reported, not judged |
@@ -808,7 +808,12 @@ edge continues is one chain.
 `checks` (each with its `name`, `family`, `verdict` (`pass`, `fail` or
 `not judged`) and `values`) and `figures` (per family and `(whole mesh)`). A
 failed gate or check is also a warning: `audit gate G3 failed on (whole mesh):
-open_loops 2, source_open_loops 1, unmatched_loops 1`.
+open_loops 2, source_open_loops 1, unmatched_loops 1`. `degenerate_faces`
+lists each face G1 counts of zero area: its `family`, its `face` index in
+that family (from 0, in file order), its `centroid` and its `area_ratio` to
+the family's median face area, for example
+`{"family": "F", "face": 11, "centroid": [3.5, 3.3e-07, 0.0], "area_ratio": 2.03e-06}`;
+it is empty when there is none.
 
 ### The Python API
 
@@ -825,7 +830,7 @@ Each of these is imported from `pyflightstream.workspace`.
 | `wake_edges.quad_families(families)` | the names of the families, a mapping of name to faces, whose faces are quadrilaterals for at least `QUAD_FAMILY_SHARE` (0.8) of them |
 | `PreparedMesh` | frozen: `obj`, `config` (the refine file) and `nodes` (the node list) written, and `patches`, the patch names of each original family in order |
 | `audit_mesh(mesh, *, against=None, unchanged_grids=())` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares (default: those the level's `refine.json` lists) |
-| `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks` (each item with `name`, `family`, `values`, `verdict`, `passed` and `line()`), `figures`, `path`, `passed`, `failures`, `as_json()`, `summary()` and `write_csv(path)`; the static method `MeshAudit.files_read(mesh)` returns the files an audit of `mesh` reads, each with what it is (the OBJ, its boundaries file, its trailing-edge points files), a file that does not exist included |
+| `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks` (each item with `name`, `family`, `values`, `verdict`, `passed` and `line()`), `figures`, `path`, `degenerate_faces` (as in `audit.json`), `passed`, `failures`, `as_json()`, `summary()` and `write_csv(path)`; the static method `MeshAudit.files_read(mesh)` returns the files an audit of `mesh` reads, each with what it is (the OBJ, its boundaries file, its trailing-edge points files), a file that does not exist included |
 | `derive_thin_blade(geometry, *, root_offset, overwrite=False, boundary=None)` | the function behind `pyfs-matrix degenerate`: derives the thin blade of a blade mesh (an `.fsm` or an OBJ), writes it beside the source and returns a `ThinBlade`; `thin_blade_path` gives the name it writes |
 
 ### Limits of the refinement
@@ -840,6 +845,18 @@ Each of these is imported from `pyflightstream.workspace`.
  at factor 2 warned on both. A warning comes only from a figure above its
  limit; read the reported values.
 - **A multiblock patch side is continuous, not smooth.** No spline crosses it.
+- **A remesh writes no degenerate face it can repair.** A source polygon is
+ cut into triangles with no sliver where one can be avoided: a quadrilateral
+ along the diagonal whose smaller triangle is larger, a polygon whose fan
+ holds an angle under 1 degree from its best corner. After the remesh, a
+ triangle whose area is below 1e-3 of its family's median face area, or whose
+ smallest angle is under 1 degree, has its longest edge flipped with its
+ neighbour of the same family when that widens the worse of the two, else its
+ shortest edge collapsed. A node on an open boundary, a trailing edge or a
+ `[[perimeter]]` line, a ridge, an interface, or shared with another family
+ is never moved nor removed: a face held by such nodes is left, listed by the
+ audit under `degenerate_faces`, and `refine` warns with their count and the
+ `audit.json` path; the repair never touches a family with no degenerate face.
 - **Factor 1.** Under `method = "auto"` a family at factor 1 is copied; a
  family that states `method = "remesh"` is remeshed at any factor.
 - **A component is audited against its members.** A level written with
