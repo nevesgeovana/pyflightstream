@@ -515,16 +515,24 @@ def _has_a_per_step_window(case: SimCase, script: Script) -> bool:
     return unsteady_export_threshold(case, version=script.version) is not None
 
 
-def _refuse_unmeasured_normal_probes(case: SimCase, script: Script) -> None:
-    """Enforce the measured version boundary before a normal-probe script is emitted."""
+def _warn_of_unmeasured_normal_probes(case: SimCase, script: Script) -> None:
+    """Warn where normal probes of a march run on a build no run measured them on (FR-3404).
+
+    They are emitted as on the measured builds (:data:`NORMAL_PROBE_BUILDS`,
+    RPT-153); the warning names the build, which a probe on it settles.
+    """
     if declared_run_type(case) not in ("unsteady", "unsteady_rotor") or case.pproc is None:
         return
     if any(entry.kind == "default" for entry in case.pproc.probes):
         if script.version.canonical not in NORMAL_PROBE_BUILDS:
-            raise CampaignConfigError(
-                f"case {case.sim_id!r}: normal probes of an unsteady run are verified only "
-                f"on FlightStream {' and '.join(NORMAL_PROBE_BUILDS)}. Select one of those "
-                "builds or use kind = 'instantaneous' for the probe entries."
+            warn(
+                f"case {case.sim_id!r}: the normal probes (kind = 'default') of this unsteady "
+                f"run are emitted on FlightStream {script.version.canonical}, where no run has "
+                f"measured them yet; they were measured on "
+                f"{' and '.join(NORMAL_PROBE_BUILDS)}. Use kind = 'instantaneous' for a "
+                "history the fluid plots record on every build.",
+                PyflightstreamWarning,
+                stacklevel=3,
             )
 
 

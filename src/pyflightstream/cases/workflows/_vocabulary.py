@@ -436,11 +436,12 @@ ADDITIONAL_PPROC_VARIABLE = "ADDITIONAL_PPROC"
 #: a row stating the key on another is refused at plan, naming the report.
 ADDITIONAL_POST_BUILDS: tuple[str, ...] = ("26.124",)
 
-#: THE BUILDS NORMAL PROBES OF AN UNSTEADY RUN ARE ADMITTED ON (FR-417). Each
+#: THE BUILDS NORMAL PROBES OF AN UNSTEADY RUN ARE MEASURED ON (FR-417). Each
 #: was measured with a licence (RPT-153, "normal probes after an unsteady march on
 #: 26.124", 2026-10-05, on 26.124 and 26.125): the probes created after the march represent
 #: the marched solution and need the update action the script emits. A named
-#: set, not a range: a build between or after them is refused until measured.
+#: set, not a range: on a build between or after them the probes are emitted and
+#: the plan warns until a run measures them (FR-3404).
 NORMAL_PROBE_BUILDS: tuple[str, ...] = ("26.124", "26.125")
 
 #: The export kinds an additional pproc may not turn ON, because the extraction

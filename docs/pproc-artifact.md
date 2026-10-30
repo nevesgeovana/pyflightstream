@@ -507,6 +507,8 @@ On `unsteady` and `unsteady_rotor` rows:
 - `"default"` creates probe points after the march, in one counted CSV import
   shared with final-only far-field sets. They are updated and exported once to
   `<point>_probes.txt`; `STEP` in the product is the last recorded solver step.
+  They were measured on 26.124 and 26.125; on another build they are emitted
+  the same way and the plan warns, naming that build.
 - `"instantaneous"` creates fluid plots in INIT and samples every solver step.
   Use it to retain the per-step history of an older artifact that omitted `kind`.
 

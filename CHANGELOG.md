@@ -32,6 +32,10 @@ FlightStream versions.
   documented and not verified on the row's build (FR-3404): the plan warns,
   naming the commands and the build, and emits them.
   migration: such a row is planned with the warning where it was blocked.
+- Normal probes (`kind = "default"`) of an `unsteady` or `unsteady_rotor` row
+  are emitted on every build (FR-3404); on a build other than 26.124 and
+  26.125, where they were measured, the plan warns, naming the build.
+  migration: such a row is planned with the warning where it was refused.
 
 ## [0.51.0] - 2026-10-30
 

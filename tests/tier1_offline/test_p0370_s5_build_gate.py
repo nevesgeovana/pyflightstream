@@ -1,19 +1,22 @@
-"""Normal probes are admitted only on the builds with licensed evidence: 26.124 and 26.125."""
+"""Normal probes are measured on 26.124 and 26.125; another build is warned (FR-3404)."""
 
 import pytest
 
-from pyflightstream.cases import CampaignConfigError, PprocSpec, SimCase, SweepAxis
+from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream.cases import PprocSpec, SimCase, SweepAxis
 from pyflightstream.cases.workflows import build_script
 from pyflightstream.script import Script
 
 
 @pytest.mark.parametrize("recipe", ["unsteady", "unsteady_rotor"])
 @pytest.mark.parametrize("version", ["26.120", "26.123", "26.124", "26.125"])
-def test_normal_probes_refuse_an_unmeasured_version(recipe, version):
-    """P0370-S5-PROBE-KIND (FR-417): 26.124 and 26.125 are admitted; no other before measurement.
+def test_normal_probes_of_an_unmeasured_version_are_warned_and_emitted(recipe, version):
+    """P0370-S5-PROBE-KIND (FR-417), P0520-NOREFUSAL-NORMAL-PROBES (FR-3404).
 
-    An admitted build emits the update action the measurement found needed; a
-    refused one names both measured builds and emits nothing.
+    A measured build emits the update action the measurement found needed. THE
+    EXPECTATION CHANGED WITH THE REQUIREMENT (0.52.0): another build emits the same
+    lines and the plan warns, naming that build and the two measured ones, where
+    it refused.
     """
     case = SimCase(
         sim_id="1",
@@ -62,6 +65,6 @@ def test_normal_probes_refuse_an_unmeasured_version(recipe, version):
         build_script(case, script)
         assert "UPDATE_PROBE_POINTS" in script.render()
         return
-    with pytest.raises(CampaignConfigError, match="normal probes.*26.124 and 26.125"):
+    with pytest.warns(PyflightstreamWarning, match=f"normal probes.*{version}.*26.124 and 26.125"):
         build_script(case, script)
-    assert not script.render().strip()
+    assert "UPDATE_PROBE_POINTS" in script.render()

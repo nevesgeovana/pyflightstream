@@ -78,7 +78,7 @@ from ._geometry import (
     _open_geometry,
 )
 from ._probes import (
-    _refuse_unmeasured_normal_probes,
+    _warn_of_unmeasured_normal_probes,
 )
 from ._rows import (
     _angle,
@@ -330,7 +330,7 @@ def _before_the_build(
     own body and skipped every one, the boundary-layer dependency check among them.
     """
     _refuse_retired_window_keys(case)
-    _refuse_unmeasured_normal_probes(case, script)
+    _warn_of_unmeasured_normal_probes(case, script)
     _refuse_rotor_shedding(case)
     if case.pproc is not None and case.pproc.products.boundary_layer_integrals:
         names = list((conventions.outputs if conventions else None) or case.outputs)
