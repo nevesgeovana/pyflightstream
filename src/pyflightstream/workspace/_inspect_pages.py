@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import textwrap
+import warnings
 from collections.abc import Callable, Mapping
 from functools import partial
 from pathlib import Path
@@ -11,7 +12,7 @@ from typing import Any
 
 import numpy as np
 
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace._visual_inspect import (
     BOTTOM,
     DIRECTION_COLORS,
@@ -315,7 +316,17 @@ def refined_pdf(work, source: Path, record: Path) -> Path:
         if entry.get("continuity") or entry.get("band")
     }
     pages = _governors(data, work.layouts, work.specs)
-    factors = factor_rows(data, work)
+    try:
+        factors = factor_rows(data, work)
+    except (KeyError, TypeError, ValueError, AttributeError, IndexError) as exc:
+        # The table is a reading aid: a record it cannot read leaves it out, never the level.
+        warnings.warn(
+            f"{record.name}: the requested and achieved factor table was left out of the "
+            f"inspection PDF ({type(exc).__name__}: {exc})",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        factors = []
     return patches_pdf(
         drawn,
         grouped,
@@ -656,7 +667,10 @@ def factor_rows(data, work) -> list[dict[str, Any]]:
             cells = [name, "-", method, "-", "-", "-", "-", _faces(work, entry, name)]
             rows.append({"cells": cells, "flagged": False})
             continue
-        order = sorted({a[0] for a in axes}, key=("parallel", "normal", "?").index)
+        order = sorted(
+            {a[0] for a in axes},
+            key=lambda d: ("parallel", "normal").index(d) if d in ("parallel", "normal") else 2,
+        )
         rows += [_factor_row(data, work, name, d, [a for a in axes if a[0] == d]) for d in order]
     return rows
 

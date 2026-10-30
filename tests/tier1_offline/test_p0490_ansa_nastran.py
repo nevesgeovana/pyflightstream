@@ -1468,6 +1468,41 @@ def test_p0502_component_governor_governs_its_other_refined_grids(tmp_path, monk
     assert not any("GOVERNS " in page for page in pages[1:3])
 
 
+def test_p0502_unreadable_factor_record_warns_and_still_writes_the_pdf(tmp_path):
+    """The factor table is a reading aid: a record it cannot read leaves it out, never the PDF."""
+    from types import SimpleNamespace
+
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace._inspect_pages import refined_pdf
+    from pyflightstream.workspace._refine._config import FamilySpec
+
+    vertices = np.array([[x, y, 0.0] for x in range(3) for y in range(2)], dtype=float)
+    work = SimpleNamespace(
+        mesh=SimpleNamespace(verts=vertices, families={"A": [[0, 2, 3, 1]], "B": [[2, 4, 5, 3]]}),
+        bands={},
+        parts={},
+        specs={"A": FamilySpec(method="grid", spanwise=2.0), "B": FamilySpec(method="grid_auto")},
+        layouts={},
+        te_unit="METER",
+    )
+    record = tmp_path / "level.refine.json"
+    # A sheet whose intervals lack the chordwise axis cannot be tabulated.
+    record.write_text(
+        json.dumps(
+            {
+                "components": {"Wing": ["A", "B"]},
+                "component_governors": {"Wing": {"parallel": "A"}},
+                "families": {"A": {"intervals": {"spanwise": [1, 2]}, "faces": [1, 2]}},
+                "layouts": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.warns(PyflightstreamWarning, match="factor table was left out"):
+        pdf = refined_pdf(work, tmp_path / "level.obj", record)
+    assert pdf.is_file()
+
+
 def test_p0502_governor_pages_name_families_in_a_legend_of_distinct_colors(tmp_path, monkeypatch):
     """No label over the views; a bold governor and one color per governed family."""
     from types import SimpleNamespace
