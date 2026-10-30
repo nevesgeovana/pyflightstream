@@ -509,6 +509,14 @@ A keep mixed family changes only in the FR-934 band beside a changed curve;
 its record adds `continuity: {"band": "remeshed", "because": [families]}`.
 Beside no changed curve it is copied unchanged.
 
+Touching grids are cut into patches along their reference lines (trailing
+edges, listed perimeter lines, or an assumed longest side), but only along the
+reference edges themselves: an edge whose two ends are reference nodes without
+being a reference edge, such as each edge across a one-element strip between
+two reference lines, cuts nothing. Such a strip, with or without a table, keeps
+its neighbours whole along the stations; with no table it follows its band's
+parallel count and keeps its one interval across (FR-3399).
+
 Prepare-to-refine uses this same planner with the OBJ and node list it writes.
 Within each grid-connected group, the greatest total length of parallel sides
 selects `governing_parallel` and the greatest total length of normal sides selects

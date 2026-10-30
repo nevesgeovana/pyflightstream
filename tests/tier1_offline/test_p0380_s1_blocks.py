@@ -1232,3 +1232,113 @@ def test_p0502_r1_f2_a_real_corner_on_the_cut_line_stays_cut(kwargs):
 def test_p0502_r1_f2_a_trailing_edge_on_the_cut_line_stays_cut():
     te = {20 * k + j for k in (1, 2) for j in range(20)}
     assert len(_wing_patches(_wing_and_body(), te=te)) > 3  # nothing joined
+
+
+# ------- P0502 regression of FR-3299: a base strip between two trailing edges cut every station
+
+
+def _blunt_trailing_edge(tmp_path: Path, families: str, toml: str = "") -> dict:
+    """Refine an upper sheet U and a lower sheet L (8 station intervals by 6) and their base B.
+
+    B, one element across and with no [families] table, closes the blunt trailing
+    edge: its two long sides are U's and L's trailing edges, both in the
+    ``[[perimeter]]`` node list at every station, so every edge across B joins two
+    trailing-edge nodes without being a trailing-edge edge.
+    """
+    verts: list[tuple[float, float, float]] = []
+    at: dict[tuple[str, int, int], int] = {}
+    for side, z in (("u", 0.05), ("l", -0.05)):
+        for k in range(9):
+            for i in range(7):
+                at[side, k, i] = len(verts)
+                x = 1.5 * k / 8
+                verts.append((x, 0.1 * i, z * (1.0 + 0.2 * i) + 0.02 * np.sin(2 * x)))
+    every = {
+        "U": [
+            [at["u", k, i], at["u", k + 1, i], at["u", k + 1, i + 1], at["u", k, i + 1]]
+            for k in range(8)
+            for i in range(6)
+        ],
+        "L": [
+            [at["l", k, i + 1], at["l", k + 1, i + 1], at["l", k + 1, i], at["l", k, i]]
+            for k in range(8)
+            for i in range(6)
+        ],
+        "B": [
+            [at["l", k, 0], at["l", k + 1, 0], at["u", k + 1, 0], at["u", k, 0]] for k in range(8)
+        ],
+    }
+    rows = [np.array([verts[at[s, k, 0]] for k in range(9)]) for s in "ul"]
+    te = np.vstack([0.5 * (row[:-1] + row[1:]) for row in rows])
+    source = Composite(np.array(verts), {n: every[n] for n in families}, te, {})
+    declared = (
+        "[families.U]\nnormal_factor = 0.5\nparallel_factor = 0.5\ngoverning_parallel = true\n\n"
+        "[families.L]\nnormal_factor = 0.5\nparallel_factor = 0.5\n\n"
+    )
+    src = write_source(tmp_path / "src", "blunt", source, refine_toml=declared + toml)
+    return refine_mesh(src, out_dir=tmp_path / "level").report
+
+
+def test_p0502_a_base_strip_between_two_trailing_edges_leaves_each_family_one_patch(tmp_path):
+    """FR-3399 (FR-932, FR-3299): U and L coarsen parallel as one patch each; B follows.
+
+    Since FR-3299 (0.49.0) the undeclared base B joins the layout of U and L, and
+    each edge across it, its two ends on the listed trailing edges, was traced as a
+    trailing-edge line: every station was cut, U and L held their 8 parallel
+    intervals (48 faces to 24) and B was unchanged; before FR-3299 B stayed out of
+    the layout and U and L were one patch, 48 faces to 12.
+    """
+    report = _blunt_trailing_edge(tmp_path, "ULB")
+    for name in ("U", "L"):
+        assert report[name]["faces"] == [48, 12], report[name]
+        assert report[name]["blocks"] == [{"rows": [8, 4], "columns": [6, 3]}], report[name]
+    (base,) = report["B"]["blocks"]  # one patch: 8 station intervals to 4, 1 across kept
+    assert sorted([base["rows"], base["columns"]]) == [[1, 1], [8, 4]], report["B"]
+    assert report["B"]["faces"] == [8, 4]
+    assert report["B"]["continuity"]["directions"] == ["parallel"], report["B"]
+
+
+def test_p0502_control_without_the_base_strip_each_sheet_is_one_patch(tmp_path):
+    """FR-3399 control: U and L alone, the same lists and factors, coarsen as before."""
+    report = _blunt_trailing_edge(tmp_path, "UL")
+    for name in ("U", "L"):
+        assert report[name]["faces"] == [48, 12], report[name]
+
+
+def test_p0502_a_prepare_style_list_of_every_rearmost_line_cuts_no_family(tmp_path):
+    """FR-3399 guard: front panel F, rear panel R and strip S, each rearmost line listed.
+
+    As prepare-to-refine lists them, the hinge F-R, the edge R-S and the trailing
+    edge carry three listed nodes per station; each family stays one patch and
+    coarsens 8 station intervals to 4, S keeping its one interval across.
+    """
+    verts: list[tuple[float, float, float]] = []
+    at: dict[tuple[int, int], int] = {}
+    for k in range(9):
+        for i in range(10):
+            x, y = (0.25 * i if i <= 8 else 2.05), 1.5 * k / 8
+            at[k, i] = len(verts)
+            verts.append((x, y, 0.05 * np.sin(np.pi * min(x, 2.0) / 2) + 0.02 * np.sin(2 * y)))
+
+    def quads(lo: int, hi: int) -> list[list[int]]:
+        return [
+            [at[k, i], at[k, i + 1], at[k + 1, i + 1], at[k + 1, i]]
+            for k in range(8)
+            for i in range(lo, hi)
+        ]
+
+    families = {"F": quads(0, 4), "R": quads(4, 8), "S": quads(8, 9)}
+    folder = tmp_path / "src"
+    src = write_source(folder, "trio", Composite(np.array(verts), families, np.zeros((0, 3)), {}))
+    listed = [at[k, i] for i in (4, 8, 9) for k in range(9)]
+    rows = [f"{v + 1}, , {x:.9f}, {y:.9f}, {z:.9f}" for v in listed for x, y, z in [verts[v]]]
+    (folder / "trio.nodes.txt").write_text("#  Id, Name, X , Y, Z\n" + "\n".join(rows) + "\n")
+    toml = "".join(
+        f"[families.{n}]\nnormal_factor = 0.5\nparallel_factor = 0.5\n{lead}\n"
+        for n, lead in (("F", "governing_parallel = true\n"), ("R", ""))
+    )
+    toml += '[[perimeter]]\nfile = "trio.nodes.txt"\nte_families = ["F", "R", "S"]\n'
+    (folder / "trio.refine.toml").write_text(toml)
+    report = refine_mesh(src, out_dir=tmp_path / "level").report
+    for name, across in (("F", [4, 2]), ("R", [4, 2]), ("S", [1, 1])):
+        assert report[name]["blocks"] == [{"rows": [8, 4], "columns": across}], report[name]

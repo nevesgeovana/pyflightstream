@@ -21,6 +21,14 @@ extra node now coarsens as the macro it came from; a level refined again with
 0.50.2 can have fewer faces on such families than the same level refined with
 0.50.1 (FR-3397).
 
+A grid macro beside a one-element strip whose two long sides are reference
+lines (a blunt trailing-edge base, or a strip between two lines of a
+`[[perimeter]]` list) coarsens in the parallel direction again, as it did
+before 0.49.0; from 0.49.0 to 0.50.1 every station was cut and the parallel
+factor changed nothing. An undeclared strip follows its band's parallel count
+with its one interval across. A level refined again can have fewer faces
+on such families; state factor 1 on a family whose counts must hold (FR-3399).
+
 ## 0.50.1
 
 A matrix row whose `ROTATE` or `TRANSLATE` AXIS is not of the form frame-axis

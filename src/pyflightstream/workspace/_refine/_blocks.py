@@ -236,7 +236,9 @@ def _quad_neighbours(quad: Sequence[int], v: int) -> tuple[int, int]:
     return quad[i - 1], quad[(i + 1) % len(quad)]
 
 
-def _seeds(verts: Points, topo: _Topology, te: frozenset[int]) -> list[tuple[int, int]]:
+def _seeds(
+    verts: Points, topo: _Topology, te: frozenset[int], lines: frozenset[Edge] | None = None
+) -> list[tuple[int, int]]:
     """Return the first edge of every separatrix: the singular vertices', then the ridges'."""
     seeds = [
         (v, u)
@@ -244,15 +246,25 @@ def _seeds(verts: Points, topo: _Topology, te: frozenset[int]) -> list[tuple[int
         for u in sorted(topo.adj[v])
         if len(topo.emap[_key(v, u)]) == 2
     ]
-    for a, b in sorted(_features(verts, topo, te)):
+    for a, b in sorted(_features(verts, topo, te, lines)):
         seeds += [(a, b), (b, a)]
     return seeds
 
 
-def _features(verts: Points, topo: _Topology, te: frozenset[int]) -> set[Edge]:
-    """Return the ridge and trailing-edge edges, each traced as a separatrix both ways."""
+def _features(
+    verts: Points, topo: _Topology, te: frozenset[int], lines: frozenset[Edge] | None = None
+) -> set[Edge]:
+    """Return the ridge and trailing-edge edges, each traced as a separatrix both ways.
+
+    Given ``lines`` (a joined layout's reference edges, FR-3399), a trailing-edge
+    edge is one of them; otherwise it is an edge whose two ends are in ``te``.
+    """
     sharp = dihedral_degrees(verts, topo.faces)
-    return {e for e, angle in sharp.items() if angle > RIDGE_DEGREES or (e[0] in te and e[1] in te)}
+    return {
+        e
+        for e, angle in sharp.items()
+        if angle > RIDGE_DEGREES or (e in lines if lines is not None else e[0] in te and e[1] in te)
+    }
 
 
 #: A family's boundary is cut into sides where it turns by more than this, in degrees.
@@ -358,21 +370,33 @@ def _loose_lines(
 
 
 def recover_joined(
-    verts: Points, faces: Faces, te_vertices: Collection[int], joins: Collection[Edge]
+    verts: Points,
+    faces: Faces,
+    te_vertices: Collection[int],
+    joins: Collection[Edge],
+    te_lines: Collection[Edge] | None = None,
 ) -> Blocks | str:
     """Recover the multiblock grid of several families' quadrilaterals taken as one (FR-932).
 
     ``joins`` are the edges where two of the families meet: they are cut, and
     the grid line through each is traced on in both directions like a
     separatrix, so every patch lies inside one family and every curve two
-    families share is the side of a patch. Returns the reason, as text, when
-    no such layout exists.
+    families share is the side of a patch. ``te_lines``, when given, are the
+    families' reference edges: only they are traced as trailing edges, never an
+    edge that merely joins two reference nodes, such as each edge across a
+    one-element strip between two reference lines (FR-3399). Returns the
+    reason, as text, when no such layout exists.
     """
     if any(len(f) != 4 for f in faces):
         return "a face is not a quadrilateral"
+    lines = None if te_lines is None else frozenset(_key(a, b) for a, b in te_lines)
     try:
         return _recover(
-            numpy.asarray(verts, dtype=float), faces, frozenset(te_vertices), frozenset(joins)
+            numpy.asarray(verts, dtype=float),
+            faces,
+            frozenset(te_vertices),
+            frozenset(joins),
+            lines,
         )
     except _OnePatchError:
         return "the faces form one patch"
@@ -381,12 +405,17 @@ def recover_joined(
 
 
 def _recover(
-    verts: Points, faces: Faces, te: frozenset[int], joins: frozenset[Edge] = frozenset()
+    verts: Points,
+    faces: Faces,
+    te: frozenset[int],
+    joins: frozenset[Edge] = frozenset(),
+    lines: frozenset[Edge] | None = None,
 ) -> Blocks:
     """Return the multiblock grid of a family of quadrilaterals or raise why it has none."""
     topo = _Topology.of(faces)
     cut = {e for e, fs in topo.emap.items() if len(fs) == 1} | joins
-    seeds = _seeds(verts, topo, te) + [s for a, b in sorted(joins) for s in ((a, b), (b, a))]
+    seeds = _seeds(verts, topo, te, lines)
+    seeds += [s for a, b in sorted(joins) for s in ((a, b), (b, a))]
     for a, b in seeds:
         cut.update(topo.trace(a, b))
     groups = _patches(topo, cut)
@@ -394,7 +423,7 @@ def _recover(
         raise _OnePatchError
     grids = [_patch_grid(topo, group, cut) for group in groups]
     arcs, sides = _arcs([ids for ids, _ in grids], cut)
-    loose = _loose_lines(verts, arcs, sides, _features(verts, topo, te) | joins)
+    loose = _loose_lines(verts, arcs, sides, _features(verts, topo, te, lines) | joins)
     if loose:
         try:
             merged = _patches(topo, cut - loose)

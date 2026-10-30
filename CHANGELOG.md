@@ -35,6 +35,17 @@ FlightStream versions.
   no factor below 1 coarsened; such cut lines, between patches of one
   family and ending where the patch sides run straight on, are now joined
   across before counting (FR-3397).
+- A grid macro beside a one-element strip whose two long sides are reference
+  lines (a blunt trailing-edge base, a strip between two listed perimeters)
+  coarsens in the parallel direction again, as before 0.49.0. Since the strip
+  joined the layout (FR-3299), each edge across it, its two ends on reference
+  nodes, was traced as a trailing edge: every station was cut, and the macro
+  and the strip held their parallel counts at any factor. Only reference edges
+  are traced now; an undeclared strip follows its band's parallel count and
+  keeps its one interval across (FR-3399).
+  migration: a level refined again can have fewer faces on such families than
+  the same level refined with 0.49.0 to 0.50.1; state factor 1 on a family
+  whose counts must hold.
 
 ## [0.50.1] - 2026-10-29
 

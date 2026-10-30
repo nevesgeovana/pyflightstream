@@ -459,7 +459,7 @@ class _Planner:
             if len(group) < 2 and not any(n in self.component_leads for n in group):
                 continue
             te = {v for n in group for e in te_edges[n] for v in e}
-            found = self.joined(group, te)
+            found = self.joined(group, te, {e for n in group for e in te_edges[n]})
             if isinstance(found, str):
                 why.update(
                     dict.fromkeys(group, f"; the grids {', '.join(group)} form no layout: {found}")
@@ -478,12 +478,16 @@ class _Planner:
                 why.update(dict.fromkeys(group, _skipped_layout(error, group, where)))
         return layouts, why
 
-    def joined(self, group, te):
-        """Recover a connected layout, including a component's isolated sheet."""
+    def joined(self, group, te, lines=None):
+        """Recover a connected layout, including a component's isolated sheet.
+
+        ``lines`` are the group's reference edges, the only edges traced as
+        trailing edges across the joined families (FR-3399).
+        """
         grid = self.grids[group[0]]
         if len(group) == 1 and isinstance(grid, Grid) and grid.layout == "sheet":
             return sheet_blocks(grid, self.families[group[0]], te), (0,)
-        return _join(self.verts, self.families, group, te)
+        return _join(self.verts, self.families, group, te, lines)
 
 
 def _joinable(grid: Recovered, faces: Faces) -> bool:
@@ -503,7 +507,11 @@ def _touching(names: Sequence[str], nodes: Mapping[str, set[int]]) -> list[list[
 
 
 def _join(
-    verts: Points, families: Mapping[str, Faces], group: Sequence[str], te: Collection[int]
+    verts: Points,
+    families: Mapping[str, Faces],
+    group: Sequence[str],
+    te: Collection[int],
+    lines: Collection[Edge] | None = None,
 ) -> tuple[Blocks, tuple[int, ...]] | str:
     """Return the layout of a group of families taken as one and each patch's family, or why not."""
     faces = [f for n in group for f in families[n]]
@@ -511,7 +519,7 @@ def _join(
     joins = {
         e for e, fs in edge_faces(faces).items() if len(fs) == 2 and family[fs[0]] != family[fs[1]]
     }
-    found = recover_joined(verts, faces, te, joins)
+    found = recover_joined(verts, faces, te, joins, lines)
     if isinstance(found, str):
         return found
     return found, tuple(int(family[int(cells[0, 0])]) for cells in found.cells)
