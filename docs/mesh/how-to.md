@@ -516,7 +516,11 @@ pyfs-matrix refine inputs/geometries/W1/W1_patches.obj 2 --visual-inspect
 Or call `refine_mesh("inputs/geometries/W1/W1_patches.obj", 2, visual_inspect=True)`.
 Open `<level>.refine-governors.pdf` beside the resulting OBJ. Its first page
 lists each governing family, the direction it governs (PARALLEL or NORMAL), its
-bands and the number of families it governs. Then one page per governing family
+bands and the number of families it governs. The next pages compare, per family
+and direction, the factor you requested with the factor achieved (intervals after
+over intervals before) and name the family that governs it; a row in bold red
+with `*` departs from its governor's factor by more than rounding to whole
+intervals explains. Then one page per governing family
 and direction shows the whole aircraft faint, the governing family in a strong
 color and every family it governs in that direction in a color of its own,
 whatever their component, named in the legend with the governing one in bold. Each output family or component then has a patches

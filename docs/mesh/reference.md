@@ -966,7 +966,19 @@ page in the same top, front, side and isometric views.
 The refinement PDF opens with its governor pages, read from the `layouts` bands
 and `component_governors` of `refine.json`. A summary page tabulates each
 governing family, its direction, its bands with their counts, its factor in that
-direction and the number of families it governs. One page follows per governing
+direction and the number of families it governs. Factor comparison pages follow
+it, at most 35 rows each, sorted by family: one row per refined family and
+direction with the family that governs it (`itself` when it leads), its requested
+factor (`spanwise` for PARALLEL, `chordwise` for NORMAL, else `factor`), the
+governor's factor, its intervals before and after summed over its patches, the
+achieved factor (intervals after over intervals before, 3 decimals) and its faces
+before and after. The direction of each patch axis is the planner's direction of
+the arc along it; an axis without one shows `?`. A row is flagged in bold red with
+`*` when some patch's intervals after differ from its intervals before times the
+governor's factor by more than half an interval, which rounding to whole intervals
+cannot explain, for example a factor raised to the least the grid allows. A family
+without interval axes (copied, unchanged or remeshed) is one row with direction
+`-` and its method under Governed by. One page follows per governing
 family and direction, in name order, parallel first: the whole mesh in faint grey
 with grey perimeters, the governing family filled in a strong color, and every
 family it governs in that direction filled in a color of its own. The page title

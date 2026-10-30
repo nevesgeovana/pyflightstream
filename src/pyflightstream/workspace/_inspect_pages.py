@@ -287,9 +287,9 @@ def refusal_diagnostic(source, obj, error: InputArtifactError, work=None) -> Non
 def refined_pdf(work, source: Path, record: Path) -> Path:
     """Draw the governors, then the completed parts under their output components.
 
-    The PDF is ``<level>.refine-governors.pdf`` beside ``record``: a summary page, one
-    page per governing family and direction, then the patches and directions pages
-    with the recorded continuity notes.
+    The PDF is ``<level>.refine-governors.pdf`` beside ``record``: a summary page, the
+    requested and achieved factor pages, one page per governing family and direction,
+    then the patches and directions pages with the recorded continuity notes.
     """
     data = json.loads(record.read_text(encoding="utf-8"))
     vertices = [work.mesh.verts]
@@ -315,6 +315,7 @@ def refined_pdf(work, source: Path, record: Path) -> Path:
         if entry.get("continuity") or entry.get("band")
     }
     pages = _governors(data, work.layouts, work.specs)
+    factors = factor_rows(data, work)
     return patches_pdf(
         drawn,
         grouped,
@@ -324,7 +325,9 @@ def refined_pdf(work, source: Path, record: Path) -> Path:
         notes=notes,
         mesh_unit=work.te_unit,
         arc_verts=work.mesh.verts,
-        first=partial(_governor_pages, pages=pages, specs=work.specs, unit=work.te_unit),
+        first=partial(
+            _governor_pages, pages=pages, specs=work.specs, unit=work.te_unit, factors=factors
+        ),
     )
 
 
@@ -395,11 +398,12 @@ def _factor(specs, lead, direction) -> str:
     return f"{spec.directions[direction == 'parallel']:g}"
 
 
-def _governor_pages(pdf, drawn, views, *, pages, specs, unit, dpi=200):
-    """Draw the summary page, then one page per governing family and direction."""
+def _governor_pages(pdf, drawn, views, *, pages, specs, unit, factors=(), dpi=200):
+    """Draw the summary page, the factor comparison, then one page per governor and direction."""
     from matplotlib import colormaps
 
     _governors_summary(pdf, drawn.path.name, pages, specs, dpi=dpi)
+    factor_pages(pdf, drawn.path.name, factors, dpi=dpi)
     names = list(drawn.patches)
     scene = Scene(drawn, names, dict.fromkeys(names, _FAINT), None, edges=False)
     scene.perimeter_width, scene.perimeter_color = 0.25, (0.6, 0.6, 0.6, 1.0)
@@ -522,6 +526,203 @@ def _governor_page(pdf, scene, views, governor, *, strong, factor, unit, dpi):
     legend.get_texts()[0].set_fontsize(size + 1)
     pdf.savefig(fig, dpi=dpi)
     plt.close(fig)
+
+
+#: Rows per comparison page, so A4 landscape keeps a readable font.
+FACTOR_ROWS_PER_PAGE = 35
+
+FACTOR_COLUMNS = (
+    "Family",
+    "Direction",
+    "Governed by",
+    "Requested\nfactor",
+    "Governor's\nfactor",
+    "Intervals\nbefore -> after",
+    "Achieved\nfactor",
+    "Faces\nbefore -> after",
+)
+
+
+def _requested(data, work, name, direction) -> float | None:
+    """Return a family's own factor in a direction, from the record's specs, else the plan's."""
+    if direction not in ("parallel", "normal"):
+        return None
+    spec = data.get("specs", {}).get(name)
+    if spec is not None:
+        own = spec.get("spanwise" if direction == "parallel" else "chordwise")
+        return float(own if own is not None else spec.get("factor", 1.0))
+    planned = work.specs.get(name)
+    return None if planned is None else float(planned.directions[direction == "parallel"])
+
+
+def _band_leads(data) -> dict[tuple[str, ...], dict[int, tuple[str, str]]]:
+    """Per recorded layout, each arc's band lead and the lead's direction."""
+    return {
+        tuple(record["families"]): {
+            arc: (band["lead"], band["direction"])
+            for band in record["bands"]
+            for arc in band["arcs"]
+        }
+        for record in data.get("layouts", ())
+    }
+
+
+def _block_axes(entry, layout, name, leads):
+    """Yield (direction, before, after, lead, lead direction) per patch axis of a multiblock.
+
+    A patch's columns are counted along its first row's arc and its rows along its first
+    column's (``_refine._blocks.SIDES``); the planner's per-patch arc direction names
+    each axis. Without that record the direction is ``?``.
+    """
+    mine = [] if layout is None else layout.patches_of(name)
+    for i, block in enumerate(entry["blocks"]):
+        patch = mine[i] if i < len(mine) else None
+        for key, side in (("columns", 0), ("rows", 2)):
+            arc = None if patch is None else layout.blocks.sides[patch][side][0]
+            told = None if patch is None else layout.directions.get(patch, {}).get(arc)
+            direction = "?" if told is None else told.direction
+            lead = leads.get(arc, (name, direction))
+            yield (direction, *block[key], *lead)
+
+
+def _axes(data, work, name, entry):
+    """Yield every interval axis of a refined family with the family governing it."""
+    if "intervals" in entry:
+        chord, span = entry["intervals"]["chordwise"], entry["intervals"]["spanwise"]
+        axes = [("parallel", *span, name, "parallel"), ("normal", *chord, name, "normal")]
+    elif "blocks" in entry:
+        layout = work.layouts.get(name)
+        leads = _band_leads(data).get(tuple(layout.names), {}) if layout is not None else {}
+        axes = list(_block_axes(entry, layout, name, leads))
+    else:
+        return []
+    component = next((c for c, ns in data.get("components", {}).items() if name in ns), None)
+    over = data.get("component_governors", {}).get(component, {})
+    return [
+        (d, before, after, *((over[d], d) if d in over else (lead, ld)))
+        for d, before, after, lead, ld in axes
+    ]
+
+
+def _faces(work, entry, name) -> str:
+    faces = entry.get("faces")
+    if isinstance(faces, list) and len(faces) == 2:
+        return f"{faces[0]} -> {faces[1]}"
+    count = len(work.mesh.families.get(name, ()))
+    return f"{count} -> {count}"
+
+
+def _factor_row(data, work, name, direction, axes) -> dict[str, Any]:
+    """Sum one family's axes of a direction and compare the achieved factor with the governor's."""
+    before = sum(a[1] for a in axes)
+    after = sum(a[2] for a in axes)
+    governors = {(a[3], a[4]) for a in axes}
+    factors = {g: _requested(data, work, *g) for g in governors}
+    # One whole interval rounds each patch axis: beyond half an interval of the governor's
+    # count, rounding does not explain the achieved count.
+    flagged = any(
+        (f := factors[(a[3], a[4])]) is not None and abs(a[2] - a[1] * f) > 0.5 + 1e-9 for a in axes
+    )
+    requested = None if direction == "?" else _requested(data, work, name, direction)
+    shown = sorted({"itself" if lead == name else lead for lead, _ in governors})
+    values = sorted({f"{f:g}" for f in factors.values() if f is not None})
+    return {
+        "cells": [
+            name,
+            direction.upper(),
+            ", ".join(shown),
+            "-" if requested is None else f"{requested:g}",
+            ", ".join(values) or "-",
+            f"{before} -> {after}",
+            (f"{after / before:.3f}" if before else "-") + (" *" if flagged else ""),
+            _faces(work, data["families"][name], name),
+        ],
+        "flagged": flagged,
+    }
+
+
+def factor_rows(data, work) -> list[dict[str, Any]]:
+    """Return the requested and achieved factor rows, sorted by family then direction.
+
+    A family without interval axes (copied, unchanged or remeshed) is one row with
+    direction ``-`` and its method in place of its governor.
+    """
+    rows = []
+    for name in sorted(data.get("families", {})):
+        entry = data["families"][name]
+        axes = _axes(data, work, name, entry)
+        if not axes:
+            method = entry.get("method", "copied")
+            cells = [name, "-", method, "-", "-", "-", "-", _faces(work, entry, name)]
+            rows.append({"cells": cells, "flagged": False})
+            continue
+        order = sorted({a[0] for a in axes}, key=("parallel", "normal", "?").index)
+        rows += [_factor_row(data, work, name, d, [a for a in axes if a[0] == d]) for d in order]
+    return rows
+
+
+def factor_pages(pdf, name, rows, *, dpi):
+    """Tabulate requested against achieved factors, at most FACTOR_ROWS_PER_PAGE per page."""
+    import matplotlib.pyplot as plt
+
+    chunks = [rows[i : i + FACTOR_ROWS_PER_PAGE] for i in range(0, len(rows), FACTOR_ROWS_PER_PAGE)]
+    notes = [
+        "* The achieved factor departs from the governor's by more than rounding to whole "
+        "intervals explains (over half an interval in some patch).",
+        "-  A family without interval axes (copied, unchanged or remeshed): its method "
+        "stands under Governed by.",
+    ]
+    if any(r["cells"][1] == "?" for r in rows):
+        notes.append("?  The planner recorded no direction for that patch axis.")
+    for number, chunk in enumerate(chunks, 1):
+        fig = plt.figure(figsize=PAGE)
+        fig.suptitle(
+            f"{name}: requested and achieved factors ({number} of {len(chunks)})",
+            fontsize=16,
+            fontweight="bold",
+        )
+        if number == 1:
+            fig.text(
+                0.04,
+                0.905,
+                "Achieved factor = intervals after / intervals before in that direction, "
+                "summed over the family's patches; a governed family follows its governor.",
+                fontsize=10,
+                va="top",
+            )
+        fig.text(0.04, 0.075, "\n".join(notes), fontsize=9, va="top")
+        _factor_table(fig, chunk)
+        pdf.savefig(fig, dpi=dpi)
+        plt.close(fig)
+
+
+def _factor_table(fig, chunk):
+    """Draw one page of rows: header bold on grey, zebra rows, flagged rows bold red."""
+    ax = fig.add_axes((0.04, 0.12, 0.92, 0.76))
+    ax.set_axis_off()
+    table = ax.table(
+        cellText=[r["cells"] for r in chunk],
+        colLabels=list(FACTOR_COLUMNS),
+        colWidths=[0.21, 0.08, 0.17, 0.08, 0.09, 0.12, 0.08, 0.17],
+        cellLoc="left",
+        loc="upper center",
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(9)
+    # Every page keeps one row height; the header holds two lines.
+    height = 1 / (FACTOR_ROWS_PER_PAGE + 2)
+    for (row, _), cell in table.get_celld().items():
+        cell.set_edgecolor("0.75")
+        cell.set_height(2 * height if row == 0 else height)
+        if row == 0:
+            cell.set_facecolor("0.85")
+            cell.get_text().set_fontweight("bold")
+            continue
+        flagged = chunk[row - 1]["flagged"]
+        cell.set_facecolor("#fde0dc" if flagged else ("0.95" if row % 2 == 0 else "white"))
+        if flagged:
+            cell.get_text().set_fontweight("bold")
+            cell.get_text().set_color("#b00020")
 
 
 def _family_groups(patches, components):

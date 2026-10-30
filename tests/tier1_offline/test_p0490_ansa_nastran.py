@@ -1392,6 +1392,8 @@ def test_p0502_refine_governors_pdf_one_page_per_lead_and_direction(tmp_path, mo
         (lead, d) for g in data.get("component_governors", {}).values() for d, lead in g.items()
     }
     assert len(pairs) == 3  # the fixture's planner leads N1, N2 and P1
+    assert "requested and achieved factors" in pages[1]
+    pages.pop(1)  # the factor comparison sits between the summary and the governors
     governors = pages[1 : 1 + len(pairs)]
     assert "governing families" in pages[0]
     assert all(lead in pages[0] for lead, _ in pairs)
@@ -1527,6 +1529,96 @@ def test_p0502_governor_pages_name_families_in_a_legend_of_distinct_colors(tmp_p
     assert page["labels"][1:3] == ["B", "C"]
     lead, *governed = page["colors"][:3]
     assert len({lead, *governed}) == 3
+
+
+def _p0502_factor_tables(monkeypatch):
+    """Record, per saved page, its title and its table rows keyed by (family, direction)."""
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    pages: list[tuple[str, dict, dict]] = []
+    save = PdfPages.savefig
+
+    def capture(pdf, fig, **kwargs):
+        title = fig._suptitle.get_text() if fig._suptitle else ""
+        rows, bold = {}, {}
+        for table in (tb for ax in fig.axes for tb in ax.tables):
+            cells = table.get_celld()
+            for r in sorted({r for r, _ in cells if r > 0 and (r, 7) in cells}):
+                row = [cells[r, c].get_text().get_text() for c in range(8)]
+                rows[row[0], row[1]] = row
+                bold[row[0], row[1]] = cells[r, 6].get_text().get_fontweight() == "bold"
+        notes = " ".join(t.get_text() for t in fig.texts)
+        pages.append((title + "\n" + notes, rows, bold))
+        return save(pdf, fig, **kwargs)
+
+    monkeypatch.setattr(PdfPages, "savefig", capture)
+    return pages
+
+
+def _p0502_factor_level(folder, monkeypatch, parallel):
+    """Refine the three-plate component with A's parallel factor; return the saved tables."""
+    from pyflightstream.workspace._refine._obj import read_obj
+
+    source = _p0500_component_source(folder, factor=2, connected=True)
+    obj = read_obj(source)
+    rows = ["# Id, Name, X, Y, Z"]
+    for n, fs in obj.families.items():
+        ids = sorted({v for f in fs for v in f})
+        xmax = max(obj.verts[v, 0] for v in ids)
+        rows += [
+            f"{v + 1}, {n}, " + ", ".join(map(str, obj.verts[v]))
+            for v in ids
+            if obj.verts[v, 0] == xmax
+        ]
+    source.with_suffix(".nodes.txt").write_text("\n".join(rows) + "\n", encoding="utf-8")
+    config = source.with_suffix(".refine.toml")
+    text = config.read_text().replace(
+        "normal_factor = 1\nparallel_factor = 2", f"normal_factor = 1\nparallel_factor = {parallel}"
+    )
+    config.write_text(text + '\n[[perimeter]]\nfile = "components.nodes.txt"\n', encoding="utf-8")
+    pages = _p0502_factor_tables(monkeypatch)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        refine_mesh(source, accept_unknown=True, visual_inspect=True)
+    return pages
+
+
+@pytest.mark.requirement("FR-3398")
+def test_p0502_governors_pdf_compares_requested_and_achieved_factors(tmp_path, monkeypatch):
+    """P0502-FACTORS: one row per family and direction, after the summary, flagged off rounding."""
+    pages = _p0502_factor_level(tmp_path / "even", monkeypatch, 2)
+    assert "governing families" in pages[0][0]
+    assert "requested and achieved factors" in pages[1][0]
+    assert "intervals after / intervals before" in pages[1][0]
+    assert "governs the" in pages[2][0]
+    table = pages[1][1]
+    # A asks 2 parallel and 1 normal, C 2 normal and 1 parallel, B 1 and 1; the
+    # component's governors are A (parallel) and C (normal), so every grid reaches 2.
+    expected = {
+        ("A", "PARALLEL"): ["itself", "2", "2"],
+        ("A", "NORMAL"): ["C", "1", "2"],
+        ("B", "PARALLEL"): ["A", "1", "2"],
+        ("B", "NORMAL"): ["C", "1", "2"],
+        ("C", "PARALLEL"): ["A", "1", "2"],
+        ("C", "NORMAL"): ["itself", "2", "2"],
+    }
+    assert set(table) == set(expected)
+    for key, (governor, requested, governing) in expected.items():
+        assert table[key][2:7] == [governor, requested, governing, "4 -> 8", "2.000"], key
+        assert table[key][7] == "16 -> 64"
+    assert list(table) == sorted(table, key=lambda k: (k[0], k[1] != "PARALLEL"))
+    assert not any(pages[1][2].values())
+    # A parallel factor of 0.1 takes 4 intervals to 0.4, raised to the least the grid
+    # allows, 1: the achieved 0.25 departs from 0.1 by more than rounding explains.
+    # A's parallel axis is its columns and C's its rows, so a swapped axis fails here.
+    pages = _p0502_factor_level(tmp_path / "low", monkeypatch, 0.1)
+    low = pages[1][1]
+    for name in "ABC":
+        assert low[name, "PARALLEL"][4:7] == ["0.1", "4 -> 1", "0.250 *"], name
+        assert low[name, "NORMAL"][4:7] == ["2", "4 -> 8", "2.000"], name
+    assert low["A", "PARALLEL"][3] == "0.1" and low["C", "PARALLEL"][3] == "1"
+    assert pages[1][2] == {k: k[1] == "PARALLEL" for k in expected}
+    assert "more than rounding to whole intervals" in pages[1][0]
 
 
 def test_p0490_visual_strict_factor_refusal_has_pdf_and_location(tmp_path):

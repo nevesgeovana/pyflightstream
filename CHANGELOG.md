@@ -19,6 +19,9 @@ FlightStream versions.
   color, each family it governs in that direction (any component) in its own color, named in a legend with the governing one in bold,
   and a title saying PARALLEL or NORMAL with the bands, counts and factor. The
   patches and directions pages follow as before (FR-3398).
+  Pages after the summary compare, per refined family and direction, the
+  requested factor, the governor's factor and the achieved factor (intervals
+  after over before), flagging a departure beyond rounding (FR-3398).
   migration: open `<level>.refine-governors.pdf` where `<level>.inspect.pdf` was read
   (the standalone `visual-inspect` command still writes `<mesh>.inspect.pdf`).
 
