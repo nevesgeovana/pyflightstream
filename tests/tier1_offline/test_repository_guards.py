@@ -36,12 +36,14 @@ TESTS_UNGUARDED_SPAWNS = 5
 #: 0.51.0 (FR-3402) budgets the two 26.126 probe campaigns, the evidence every 26.126 row
 #: cites (reports/compat/CMP-26126_2026-10-30_probe-campaign and -fsm, yaml and md): +4
 #: tracked files, +3 report files counted here, +11505 report lines, measured.
-#: 0.52.0 (FR-3404, FR-3405) budgets the six test modules of the no-refusal lane
-#: (tests/tier1_offline/test_p0520_norefusal*.py): +6 tracked files, measured.
+#: 0.52.0 budgets the six test modules of the no-refusal lane (FR-3404, FR-3405:
+#: tests/tier1_offline/test_p0520_norefusal*.py, +6 tracked files) and the 26.127
+#: evidence (FR-3406, FR-3407: reports/compat/CMP-26127_2026-10-30_probe-campaign and
+#: -fsm, yaml and md, the vendor CCS export report, the 26.127 row of RPT-032), measured.
 LEAN_CAPS = {
-    "tracked_files": 2040,
-    "reports_files": 96,
-    "reports_lines": 150267,
+    "tracked_files": 2045,
+    "reports_files": 101,
+    "reports_lines": 161906,
     "tests_files": 1147,
     "tests_lines": 392000,
 }

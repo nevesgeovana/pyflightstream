@@ -31,7 +31,7 @@ NEW_PROBE_POINT:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.368, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.374, unchanged from FSM-26.124 p.368"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.374, unchanged from FSM-26.124 p.368"}
-    "26.127": {status: documented, note: "FSM-26.127 p.373, unchanged from FSM-26.125 p.374"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.373, unchanged from FSM-26.125 p.374"}
 
 NEW_PROBE_LINE:
   layout: inline
@@ -66,7 +66,7 @@ NEW_PROBE_LINE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.368, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.374, unchanged from FSM-26.124 p.368"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.374, unchanged from FSM-26.124 p.368"}
-    "26.127": {status: documented, note: "FSM-26.127 p.373, unchanged from FSM-26.125 p.374"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.373, unchanged from FSM-26.125 p.374"}
   notes: >
     Survey line with NUMPTS probe vertices between the start and end
     coordinates.
@@ -120,7 +120,7 @@ PROBE_POINTS_IMPORT:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.368, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.374, unchanged from FSM-26.124 p.368"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.374, unchanged from FSM-26.124 p.368"}
-    "26.127": {status: documented, note: "FSM-26.127 p.373, unchanged from FSM-26.125 p.374"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.373, unchanged from FSM-26.125 p.374"}
   notes: >
     Imports a probe lattice from a CSV file whose rows are
     X,Y,Z,TYPE with TYPE 0 for surface and 1 for volume probes; the
@@ -150,7 +150,7 @@ EXPORT_PROBE_POINTS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.369, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.375, unchanged from FSM-26.124 p.369"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.375, unchanged from FSM-26.124 p.369"}
-    "26.127": {status: documented, note: "FSM-26.127 p.374, unchanged from FSM-26.125 p.375"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.374, unchanged from FSM-26.125 p.375"}
   notes: >
     Rows follow the probe creation order, preserved from an imported
     lattice (26.120 build 7012026 round trip,
@@ -180,4 +180,4 @@ DELETE_PROBE_POINTS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.369, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.375, unchanged from FSM-26.124 p.369"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.375, unchanged from FSM-26.124 p.369"}
-    "26.127": {status: documented, note: "FSM-26.127 p.374, unchanged from FSM-26.125 p.375"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.374, unchanged from FSM-26.125 p.375"}

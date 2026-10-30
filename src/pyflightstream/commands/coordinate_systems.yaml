@@ -21,7 +21,7 @@ CREATE_NEW_COORDINATE_SYSTEM:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.334, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
-    "26.127": {status: documented, note: "FSM-26.127 p.340, unchanged from FSM-26.125 p.341"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.340, unchanged from FSM-26.125 p.341"}
   notes: >
     Appends a new local coordinate system; configure it afterwards
     with the SET_COORDINATE_SYSTEM commands or EDIT_COORDINATE_SYSTEM.
@@ -73,7 +73,7 @@ EDIT_COORDINATE_SYSTEM:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.334, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
-    "26.127": {status: documented, note: "FSM-26.127 p.340, unchanged from FSM-26.125 p.341"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.340, unchanged from FSM-26.125 p.341"}
   notes: >
     Full edit of a local frame: origin and the three axis vectors,
     all expressed in the reference frame.
@@ -109,7 +109,7 @@ SET_COORDINATE_SYSTEM_ORIGIN:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.334, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
-    "26.127": {status: documented, note: "FSM-26.127 p.340, unchanged from FSM-26.125 p.341"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.340, unchanged from FSM-26.125 p.341"}
   notes: >
     Origin position relative to the reference coordinate system.
 
@@ -146,7 +146,7 @@ SET_COORDINATE_SYSTEM_AXIS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.335, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
-    "26.127": {status: documented, note: "FSM-26.127 p.341, unchanged from FSM-26.125 p.342"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.341, unchanged from FSM-26.125 p.342"}
   notes: >
     Sets one axis direction vector of a local frame; the vector is
     normalized automatically, and NORMALIZE_FRAME TRUE renormalizes

@@ -290,6 +290,57 @@ def test_the_ccs_curve_assignment_is_written_where_the_build_carries_it():
         assert old.render().strip() == "" and new.render().strip() == command
 
 
+#: FR-3407: each CCS export and the curve assignment that must precede it. On
+#: 2026-10-30 the vendor's export sequence ran on 26.127 with its two models: after
+#: CAD_CREATE_CURVE_SELECT -1 and the assignment the file is written, and without the
+#: assignment the script runs on and no file appears
+#: (reports/compat/CMP-26127_2026-10-30_vendor-ccs-export.md). The builds that get the
+#: step are the ones whose database carries the assignment command, verified by the
+#: probe campaigns of 26.125, 26.126 and 26.127.
+CCS_EXPORTS = {
+    "EXPORT_WING_CCS_FILE": "ASSIGN_SELECTED_CURVES_TO_CCS_WING",
+    "EXPORT_FUSELAGE_CCS_FILE": "ASSIGN_SELECTED_CURVES_TO_CCS_FUSELAGE",
+}
+
+
+@pytest.mark.requirement("FR-3407")
+@pytest.mark.parametrize("build", ["26.126", "26.127"])
+@pytest.mark.parametrize("export", sorted(CCS_EXPORTS))
+def test_p0520_a_ccs_export_follows_the_select_and_assign_step(build, export, tmp_path):
+    """FR-3407: the export's script selects every curve, assigns them to the component and
+    only then exports, on both builds the vendor's sequence applies to.
+
+    Control: 26.124, whose database carries no assignment command, writes none.
+    """
+    from pyflightstream.qa.probes import generate_probe_script
+
+    lines = generate_probe_script(PROBE_SPECS[export], build, tmp_path).render().splitlines()
+    select = lines.index("CAD_CREATE_CURVE_SELECT -1")
+    assign = lines.index(CCS_EXPORTS[export])
+    written = next(i for i, line in enumerate(lines) if line.startswith(export))
+    assert select < assign < written, (build, export)
+    (tmp_path / "old").mkdir()
+    old = generate_probe_script(PROBE_SPECS[export], "26.124", tmp_path / "old")
+    assert CCS_EXPORTS[export] not in old.render().splitlines()
+
+
+@pytest.mark.requirement("FR-3407")
+def test_p0520_the_ccs_case_emitters_assign_on_26127():
+    """FR-3407: the helper the CCS case emitters call writes the assignment on 26.127.
+
+    Control: none on 26.124.
+    """
+    for kind, command in (
+        ("wing", "ASSIGN_SELECTED_CURVES_TO_CCS_WING"),
+        ("fuselage", "ASSIGN_SELECTED_CURVES_TO_CCS_FUSELAGE"),
+        ("revolution", "ASSIGN_SELECTED_CURVES_TO_CCS_REVOLVE_BODY"),
+    ):
+        new, old = Script("26.127"), Script("26.124")
+        assert helpers.assign_selected_ccs_curves(new, kind) == command
+        assert new.render().strip() == command
+        assert helpers.assign_selected_ccs_curves(old, kind) is None
+
+
 @pytest.mark.requirement("FR-423")
 def test_the_26125_setup_keys_write_their_lines_and_nothing_unstated():
     """P0370-S10-SETUP-KEYS (FR-423): each key reaches its command; unstated, no line moves."""

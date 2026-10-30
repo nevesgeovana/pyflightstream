@@ -25,7 +25,7 @@ CAD_BODY_DELETE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.291, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
-    "26.127": {status: documented, note: "FSM-26.127 p.294, unchanged from FSM-26.125 p.296"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.294, unchanged from FSM-26.125 p.296"}
   notes: >
     Deletes one CAD body by its 1-based index; -1 deletes every one of
     them (FSM-26.120 p.287). The parameter table row for this index is the
@@ -53,7 +53,7 @@ CAD_BODY_MIRROR:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.291, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
-    "26.127": {status: documented, note: "FSM-26.127 p.294, unchanged from FSM-26.125 p.296"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.294, unchanged from FSM-26.125 p.296"}
   notes: >
     Mirrors one CAD body across a plane OF THE REFERENCE COORDINATE
     SYSTEM, not of a frame the caller chooses: this command takes no
@@ -123,7 +123,7 @@ CAD_BODY_SCALE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.291, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
-    "26.127": {status: documented, note: "FSM-26.127 p.294, unchanged from FSM-26.125 p.296"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.294, unchanged from FSM-26.125 p.296"}
   notes: >
     Uniform scale factor, dimensionless and greater than zero
     (FSM-26.120 p.287). It scales the BODY, so a body scaled after its
@@ -155,7 +155,7 @@ CAD_BODY_TRANSLATE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.291, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.296, unchanged from FSM-26.124 p.291"}
-    "26.127": {status: documented, note: "FSM-26.127 p.294, unchanged from FSM-26.125 p.296"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.294, unchanged from FSM-26.125 p.296"}
   notes: >
     Translation vector in the reference coordinate system, with its own
     UNITS argument rather than the simulation length units: this command
@@ -192,7 +192,7 @@ CAD_BODY_SELECT_BY_THRESHOLD:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.292, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.297, unchanged from FSM-26.124 p.292"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.297, unchanged from FSM-26.124 p.292"}
-    "26.127": {status: documented, note: "FSM-26.127 p.295, unchanged from FSM-26.125 p.297"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.295, unchanged from FSM-26.125 p.297"}
   notes: >
     Selects or deletes the CAD faces on one side of a coordinate
     threshold. FRAME is the 1-based index of the coordinate system the

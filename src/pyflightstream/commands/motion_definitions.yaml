@@ -166,7 +166,7 @@ SET_MOTION_COORDINATE_SYSTEM:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.337, the FSM-26.123 file, carried from 26.123. Zero-boundary ROTARY motion corroborated 2026-10-29 in reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml, rmrp-probe: the RMRP turns about the stated SMRP with geometry fixed."}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.344, unchanged from FSM-26.124 p.337. Zero-boundary ROTARY motion corroborated 2026-10-29 in reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml, rmrp-probe: the RMRP turns about the stated SMRP with geometry fixed."}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.344, unchanged from FSM-26.124 p.337. Zero-boundary ROTARY motion corroborated 2026-10-29 in reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml, rmrp-probe: the RMRP turns about the stated SMRP with geometry fixed."}
-    "26.127": {status: documented, note: "FSM-26.127 p.343, unchanged from FSM-26.125 p.344"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.343, unchanged from FSM-26.125 p.344"}
 
 SET_MOTION_START_TIME:
   layout: inline
@@ -203,7 +203,7 @@ SET_MOTION_START_TIME:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml", note: "FSM-26.124 p.337; measured 2026-10-12 on a 6DOF motion (RPT-166): the saved simulation changes across the command. L4 run, namespace 56c681b8cc27218a38b80d4a184f681e4acfc918-426bbcf8c68b4963beb5dc26bb5c23ce, file X-F-0163/analysis.json: SET_MOTION_START_TIME 1 0.05 changes one motion-record line (0.0 to 5.00000000000000028E-02) and that line survives NEW_SIMULATION, OPEN and SAVEAS, so the start time is stored and read back"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml", note: "FSM-26.125 p.344; measured 2026-10-12 on a 6DOF motion (RPT-166): the saved simulation changes across the command"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.344; measured 2026-10-12 on a 6DOF motion (RPT-166): the saved simulation changes across the command"}
-    "26.127": {status: documented, note: "FSM-26.127 p.343, unchanged from FSM-26.125 p.344"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.343, unchanged from FSM-26.125 p.344"}
   notes: >
     Start of the motion within the solver physical time; enables
     converging a steady base flow before the motion begins.
@@ -292,7 +292,7 @@ SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
         report promotes it.
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
-    "26.127": {status: documented, note: "FSM-26.127 p.344, unchanged from FSM-26.125 p.345"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.344, unchanged from FSM-26.125 p.345"}
   notes: >
     Stabilizes the slipstream wake of a rotor motion. NUM_BLADES is per
     PROPELLER rather than a total across the motion, which the manual
@@ -333,7 +333,7 @@ SET_MOTION_FSI_EXECUTABLE:
     "26.124": {status: removed, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.340 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
     "26.125": {status: removed, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.347 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. Recorded removed on 26.125 by reports/compat/CMP-26125_2026-10-12_gap-probes.yaml; that run is not a run on this build and FSM-26.125 still documents the command, so the row is documented here until a 26.126 run judges it. FSM-26.125 p.347 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
-    "26.127": {"status": "documented", "note": "Carried from 26.126: pyfs-manual register withheld it as measured on 26.125; FSM-26.125 is the reading; no run on 26.127 yet. The 26.126 note: Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. Recorded removed on 26.125 by reports/compat/CMP-26125_2026-10-12_gap-probes.yaml; that run is not a run on this build and FSM-26.125 still documents the command, so the row is documented here until a 26.126 run judges it. FSM-26.125 p.347 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.127": {"status": "removed", "report": "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", "note": "Measured 2026-10-30: the 26.127 solver refused SET_MOTION_FSI_EXECUTABLE as an unrecognised command, as 26.125 did, while FSM-26.127 p.346 still prints it"}
   notes: >
     FSI seam (FR-23): FlightStream calls the external structural
     executable per coupling step; the executable path follows on the
@@ -373,7 +373,7 @@ SET_MOTION_FSI_STRUCTURAL_NODES:
     "26.124": {status: removed, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.341 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
     "26.125": {status: removed, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.348 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
     "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. Recorded removed on 26.125 by reports/compat/CMP-26125_2026-10-12_gap-probes.yaml; that run is not a run on this build and FSM-26.125 still documents the command, so the row is documented here until a 26.126 run judges it. FSM-26.125 p.348 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
-    "26.127": {"status": "documented", "note": "Carried from 26.126: pyfs-manual register withheld it as measured on 26.125; FSM-26.125 is the reading; no run on 26.127 yet. The 26.126 note: Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. Recorded removed on 26.125 by reports/compat/CMP-26125_2026-10-12_gap-probes.yaml; that run is not a run on this build and FSM-26.125 still documents the command, so the row is documented here until a 26.126 run judges it. FSM-26.125 p.348 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.127": {"status": "removed", "report": "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", "note": "Measured 2026-10-30: the 26.127 solver refused SET_MOTION_FSI_STRUCTURAL_NODES as an unrecognised command, as 26.125 did, while FSM-26.127 p.347 still prints it"}
   notes: >
     Imports the structural displacement node set; the file path
     follows on the line after the motion index. Dry run finding
@@ -614,7 +614,7 @@ SET_MOTION_MASS_PROPERTIES:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.338, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
-    "26.127": {status: documented, note: "FSM-26.127 p.344, unchanged from FSM-26.125 p.345"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.344, unchanged from FSM-26.125 p.345"}
   notes: >
     Mass and inertia tensor of a 6DOF body. MASS is in KILOGRAMS, which
     the manual states; the six inertia components are named as moments
@@ -652,7 +652,7 @@ SET_MOTION_GRAVITY:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.338, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
-    "26.127": {status: documented, note: "FSM-26.127 p.344, unchanged from FSM-26.125 p.345"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.344, unchanged from FSM-26.125 p.345"}
   notes: >
     Gravity vector for a 6DOF motion, in the REFERENCE coordinate
     system. Its neighbours SET_MOTION_6DOF_INITIAL_VELOCITY and
@@ -732,7 +732,7 @@ SET_MOTION_6DOF_INITIAL_VELOCITY:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.339, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
-    "26.127": {status: documented, note: "FSM-26.127 p.345, unchanged from FSM-26.125 p.346"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.345, unchanged from FSM-26.125 p.346"}
   notes: >
     Initial velocity of a 6DOF body, in the BODY coordinate system, not
     the reference one its gravity vector uses. No unit is stated.
@@ -763,7 +763,7 @@ SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.339, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
-    "26.127": {status: documented, note: "FSM-26.127 p.345, unchanged from FSM-26.125 p.346"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.345, unchanged from FSM-26.125 p.346"}
   notes: >
     Initial angular velocity of a 6DOF body, in the body coordinate
     system. The manual states no unit; the value is in radians per
@@ -795,7 +795,7 @@ SET_MOTION_6DOF_ACTIVE_VARIABLES:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.339, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
-    "26.127": {"status": "documented", "note": "Carried from 26.126: FSM-26.127 describes it differently at p.345 (against FSM-26.125 p.346: parameters); the row keeps the FSM-26.125 reading until that difference is read; no run on 26.127 yet. Recorded verified on 26.126 by reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml; that run is not a run on this build, so the row is documented here until a 26.127 run judges it. The 26.126 note: Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "Carried from 26.126: FSM-26.127 describes it differently at p.345 (against FSM-26.125 p.346: parameters); the row keeps the FSM-26.125 reading until that difference is read; judged on 26.127 by CMP-26127_2026-10-30_probe-campaign. Recorded verified on 26.126 by reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml. The 26.126 note: Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
   notes: >
     Frees or locks each degree of freedom, one per line after the
     command: U, V and W are the velocity components and P, Q and R the
@@ -856,7 +856,7 @@ CREATE_NEW_6DOF_EXTERNAL_FORCE:
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.339, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166) Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
     "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.346, unchanged from FSM-26.124 p.339 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
     "26.126": {status: broken, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: Recorded broken on 26.125 by reports/compat/CMP-26125_2026-10-12_gap-probes.yaml; that run is not a run on this build, so the row is documented here until a 26.126 run judges it. FSM-26.125 p.346, unchanged from FSM-26.124 p.339 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
-    "26.127": {"status": "documented", "note": "Carried from 26.126: FSM-26.127 describes it differently at p.345 (against FSM-26.125 p.346: args, sample, parameters, description); the row keeps the FSM-26.125 reading until that difference is read; no run on 26.127 yet. Recorded broken on 26.126 by reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml; that run is not a run on this build, so the row is documented here until a 26.127 run judges it. The 26.126 note: Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: Recorded broken on 26.125 by reports/compat/CMP-26125_2026-10-12_gap-probes.yaml; that run is not a run on this build, so the row is documented here until a 26.126 run judges it. FSM-26.125 p.346, unchanged from FSM-26.124 p.339 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
+    "26.127": {status: broken, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "Carried from 26.126: FSM-26.127 describes it differently at p.345 (against FSM-26.125 p.346: args, sample, parameters, description); the row keeps the FSM-26.125 reading until that difference is read; judged on 26.127 by CMP-26127_2026-10-30_probe-campaign. Recorded broken on 26.126 by reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml. The 26.126 note: Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: Recorded broken on 26.125 by reports/compat/CMP-26125_2026-10-12_gap-probes.yaml; that run is not a run on this build, so the row is documented here until a 26.126 run judges it. FSM-26.125 p.346, unchanged from FSM-26.124 p.339 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
   notes: >
     A force applied at a point of the body for a window of time. Both
     the application point and the force vector are in the BODY frame.
@@ -892,7 +892,7 @@ CREATE_NEW_6DOF_CUSTOM_FORCE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.340, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.347, unchanged from FSM-26.124 p.340"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.347, unchanged from FSM-26.124 p.340"}
-    "26.127": {status: documented, note: "FSM-26.127 p.346, unchanged from FSM-26.125 p.347"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.346, unchanged from FSM-26.125 p.347"}
   notes: >
     A force profile read from a text file, the path on the following
     line. The two tokens use UNDERSCORES where the motion table's
@@ -940,7 +940,7 @@ CREATE_NEW_6DOF_SPRING_FORCE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.340, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.347, unchanged from FSM-26.124 p.340"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.347, unchanged from FSM-26.124 p.340"}
-    "26.127": {status: documented, note: "FSM-26.127 p.346, unchanged from FSM-26.125 p.347"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.346, unchanged from FSM-26.125 p.347"}
   notes: >
     A spring attached to the body. ELEVEN arguments, and the manual's
     heading WRAPS with SPRING_RATE alone on the second line, which is
@@ -1009,7 +1009,7 @@ SET_6DOF_MOTION_SYMMETRY_LOADS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.339, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
-    "26.127": {status: documented, note: "FSM-26.127 p.345, unchanged from FSM-26.125 p.346"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.345, unchanged from FSM-26.125 p.346"}
   notes: >
     Includes the loads on the symmetry boundary in a 6DOF motion, which
     the page's own sample comment describes as converting the motion
@@ -1048,7 +1048,7 @@ EXPORT_6DOF_TRAJECTORY:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_6dof-after-march.yaml", note: "FSM-26.124 p.340, the FSM-26.123 file, carried from 26.123; after-march export verified by RPT-167"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_6dof-after-march.yaml", note: "FSM-26.125 p.347, unchanged from FSM-26.124 p.340"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.347, unchanged from FSM-26.124 p.340"}
-    "26.127": {status: documented, note: "FSM-26.127 p.346, unchanged from FSM-26.125 p.347"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.346, unchanged from FSM-26.125 p.347"}
   notes: >
     Writes a motion's trajectory tables to a file, the path on the
     following line.

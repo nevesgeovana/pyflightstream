@@ -144,8 +144,11 @@ EMITTABLE = {
     "26.126": 380,
     # 2026-10-30 (FR-3406): 339 rows read from FSM-26.127 and 43 carried from
     # 26.126, the measured-removed SET_VORTICITY_LIFT_MODEL documented again (no
-    # run on this build yet) and one row removed by an edition: 381.
-    "26.127": 381,
+    # run on this build yet) and one row removed by an edition: 381. Then -3: the
+    # probe campaigns of 2026-10-30 measured SET_MOTION_FSI_EXECUTABLE,
+    # SET_MOTION_FSI_STRUCTURAL_NODES and SET_VORTICITY_LIFT_MODEL refused
+    # (CMP-26127_2026-10-30_probe-campaign and -fsm): 378.
+    "26.127": 378,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned
@@ -242,8 +245,10 @@ VERIFIED = {
     # (CMP-26126_2026-10-30_probe-campaign and -fsm): 182.
     "26.126": 182,
     # 2026-10-30 (FR-3406): registered with no run of its own; every row is
-    # documented here until a run on this build promotes it.
-    "26.127": 0,
+    # documented here until a run on this build promotes it. +93 and +89 the same
+    # day, the two probe campaigns on this build (CMP-26127_2026-10-30_probe-campaign
+    # and -fsm): 182.
+    "26.127": 182,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the

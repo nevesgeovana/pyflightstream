@@ -49,7 +49,7 @@ CREATE_NEW_RECTANGLE_VOLUME_SECTION:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.372, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.378, unchanged from FSM-26.124 p.372"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.378, unchanged from FSM-26.124 p.372"}
-    "26.127": {status: documented, note: "FSM-26.127 p.377, unchanged from FSM-26.125 p.378"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.377, unchanged from FSM-26.125 p.378"}
   notes: >
     Rectangular flow-field section between two diagonal corners, with
     optional near-wall prism cell layers.
@@ -100,7 +100,7 @@ CREATE_NEW_CIRCLE_VOLUME_SECTION:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.372, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.378, unchanged from FSM-26.124 p.372"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.378, unchanged from FSM-26.124 p.372"}
-    "26.127": {status: documented, note: "FSM-26.127 p.377, unchanged from FSM-26.125 p.378"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.377, unchanged from FSM-26.125 p.378"}
   notes: >
     Annular flow-field section with IPTS radial and JPTS azimuth
     segments between the inner and outer radii; the natural plane for
@@ -179,7 +179,7 @@ EXPORT_VOLUME_SECTION_VTK:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.372, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.378, unchanged from FSM-26.124 p.372"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.378, unchanged from FSM-26.124 p.372"}
-    "26.127": {status: documented, note: "FSM-26.127 p.377, unchanged from FSM-26.125 p.378"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.377, unchanged from FSM-26.125 p.378"}
   notes: >
     The file path follows on the line after the section index.
 
@@ -207,7 +207,7 @@ EXPORT_VOLUME_SECTION_TECPLOT:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.373, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.379, unchanged from FSM-26.124 p.373"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.379, unchanged from FSM-26.124 p.373"}
-    "26.127": {status: documented, note: "FSM-26.127 p.378, unchanged from FSM-26.125 p.379"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.378, unchanged from FSM-26.125 p.379"}
   notes: >
     The file path follows on the line after the section index.
 
@@ -232,7 +232,7 @@ DELETE_VOLUME_SECTION:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.373, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.379, unchanged from FSM-26.124 p.373"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.379, unchanged from FSM-26.124 p.373"}
-    "26.127": {status: documented, note: "FSM-26.127 p.378, unchanged from FSM-26.125 p.379"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.378, unchanged from FSM-26.125 p.379"}
 
 DELETE_ALL_VOLUME_SECTIONS:
   layout: bare

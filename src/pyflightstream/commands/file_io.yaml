@@ -38,7 +38,7 @@ OPEN:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.286, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.291, unchanged from FSM-26.124 p.286"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.291, unchanged from FSM-26.124 p.286"}
-    "26.127": {status: documented, note: "FSM-26.127 p.289, unchanged from FSM-26.125 p.291"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.289, unchanged from FSM-26.125 p.291"}
   notes: >
     Opens an existing simulation (.fsm) file. The optional
     LOAD_SOLVER_INITIALIZATION ENABLE line loads the solver
@@ -64,7 +64,7 @@ SAVEAS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.286, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.291, unchanged from FSM-26.124 p.286"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.291, unchanged from FSM-26.124 p.286"}
-    "26.127": {status: documented, note: "FSM-26.127 p.289, unchanged from FSM-26.125 p.291"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.289, unchanged from FSM-26.125 p.291"}
   notes: >
     Saves the current simulation to the given .fsm path.
 
@@ -106,7 +106,7 @@ CLOSE_FLIGHTSTREAM:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.286, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.291, unchanged from FSM-26.124 p.286"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.291, unchanged from FSM-26.124 p.286"}
-    "26.127": {status: documented, note: "FSM-26.127 p.289, unchanged from FSM-26.125 p.291"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.289, unchanged from FSM-26.125 p.291"}
   notes: >
     Closes FlightStream and exits; the natural last command of a
     headless batch script.
@@ -131,7 +131,7 @@ EXPORT_LOG:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.287, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.292, unchanged from FSM-26.124 p.287"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.292, unchanged from FSM-26.124 p.287"}
-    "26.127": {status: documented, note: "FSM-26.127 p.290, unchanged from FSM-26.125 p.292"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.290, unchanged from FSM-26.125 p.292"}
   notes: >
     Exports the log window messages to a text file; the probe harness
     reads it for sentinel markers and error patterns.
@@ -155,7 +155,7 @@ OUTPUT_SETTINGS_AND_STATUS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.287, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.292, unchanged from FSM-26.124 p.287"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.292, unchanged from FSM-26.124 p.287"}
-    "26.127": {status: documented, note: "FSM-26.127 p.290, unchanged from FSM-26.125 p.292"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.290, unchanged from FSM-26.125 p.292"}
   notes: >
     Writes the fluid properties and solver status to a file.
 

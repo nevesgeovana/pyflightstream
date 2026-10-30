@@ -614,6 +614,7 @@ def test_p0520_every_26126_command_has_a_26127_row_read_or_carried_with_its_gram
             assert on126[name].layout == on127[name].layout, name
         if new.report is not None:
             assert new.report.startswith("reports/compat/CMP-26127_"), name
+            assert "no run on 26.127" not in new.note, name
             judged += 1
         elif new.note.startswith("FSM-26.127 p."):
             assert "unchanged from FSM-26.125" in new.note and str(new.status) == "documented"
@@ -621,6 +622,50 @@ def test_p0520_every_26126_command_has_a_26127_row_read_or_carried_with_its_gram
         else:
             assert new.note.startswith("Carried from 26.126"), name
             carried += 1
-    assert read + carried + judged == 382
+    assert read + carried + judged == 382 and judged > 150
     for dropped in ("ACOUSTIC_SOURCES", "DETECT_LEADING_EDGES_WAKES_BY_SURFACE"):
         assert dropped in on127, dropped
+
+
+def test_p0520_26127_is_operational_on_its_own_runs():
+    """FR-3406: 26.127 is operational on evidence measured on 26.127 itself: the probe
+    campaigns of 2026-10-30 judged its commands and the minimal workflow builds.
+
+    Control: 26.126 stays operational on its own runs.
+    """
+    import pyflightstream
+
+    rows = {r.canonical: r for r in pyflightstream.support_table()}
+    assert "26.127 is operational" in rows["26.127"].summary
+    assert rows["26.127"].commands_probed > 150 and not rows["26.127"].workflow_missing
+    assert "26.126 is operational" in rows["26.126"].summary
+
+
+def test_p0520_the_commands_26127_refuses_are_recorded_by_name():
+    """FR-3406: the probe campaigns on 26.127 measured three names refused and six commands
+    that stop the script or miss their effect; each is recorded so on 26.127 and cites a
+    26.127 run. The Acoustics Toolbox, which FSM-26.127 no longer prints, ran.
+
+    Control: the rotor and solver commands the unsteady rotor workflow emits are verified.
+    """
+    from pyflightstream.commands import CommandRegistry
+
+    commands = CommandRegistry.load().commands
+    v127 = resolve("26.127")
+    expected = {
+        "CAD_CREATE_IMPORT_CURVE_TXT": "broken",
+        "CAD_CREATE_AUTO_CROSS_SECTIONS": "broken",
+        "CREATE_NEW_6DOF_EXTERNAL_FORCE": "broken",
+        "NEW_STREAMLINE_DISTRIBUTION": "broken",
+        "CREATE_FREE_SURFACE_TFI_MESH": "broken",
+        "NEW_OFF_BODY_STREAMLINE": "broken",
+        "SET_MOTION_FSI_EXECUTABLE": "removed",
+        "SET_MOTION_FSI_STRUCTURAL_NODES": "removed",
+        "SET_VORTICITY_LIFT_MODEL": "removed",
+    }
+    for name, status in expected.items():
+        record = commands[name].status_in(v127)
+        assert str(record.status) == status, name
+        assert record.report.startswith("reports/compat/CMP-26127_"), name
+    for name in ("SOLVER_SET_AOA", "ACOUSTIC_SOURCES"):
+        assert str(commands[name].status_in(v127).status) == "verified", name

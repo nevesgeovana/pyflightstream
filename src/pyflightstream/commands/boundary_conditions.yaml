@@ -54,7 +54,7 @@ SET_TRAILING_EDGE_TYPE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.323, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
-    "26.127": {status: documented, note: "FSM-26.127 p.328, unchanged from FSM-26.125 p.329"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.328, unchanged from FSM-26.125 p.329"}
   notes: >
     STANDARD sheds the full net circulation (Kutta factor 1.0);
     RELAXED sheds half, approximating body carryover at non-lifting
@@ -113,7 +113,7 @@ DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.323, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
-    "26.127": {status: documented, note: "FSM-26.127 p.328, unchanged from FSM-26.125 p.329"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.328, unchanged from FSM-26.125 p.329"}
 
 AUTO_DETECT_WAKE_TERMINATION_NODES:
   layout: bare
@@ -293,7 +293,7 @@ FLUID_PROPERTIES:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.333, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.340, unchanged from FSM-26.124 p.333"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.340, unchanged from FSM-26.124 p.333"}
-    "26.127": {status: documented, note: "FSM-26.127 p.339, unchanged from FSM-26.125 p.340"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.339, unchanged from FSM-26.125 p.340"}
   notes: >
     Sets the working fluid state as KEY VALUE lines. Sonic velocity is
     derived from temperature and specific heat ratio; it is no longer
@@ -339,7 +339,7 @@ AIR_ALTITUDE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.333, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.340, unchanged from FSM-26.124 p.333"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.340, unchanged from FSM-26.124 p.333"}
-    "26.127": {status: documented, note: "FSM-26.127 p.339, unchanged from FSM-26.125 p.340"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.339, unchanged from FSM-26.125 p.340"}
   notes: >
     Sets the air properties from a standard-atmosphere altitude.
 

@@ -18,7 +18,7 @@ SET_SOLVER_STEADY:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
-    "26.127": {status: documented, note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
 
 SET_SOLVER_UNSTEADY:
   layout: keyword_block
@@ -44,7 +44,7 @@ SET_SOLVER_UNSTEADY:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
-    "26.127": {status: documented, note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
   notes: >
     Physical time stepping. For rotary cases the manual recommends 8
     to 12 degrees of blade rotation per time step and at least two
@@ -71,7 +71,7 @@ SET_BOUNDARY_LAYER_TYPE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
-    "26.127": {status: documented, note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
   default: TRANSITIONAL
   default_ref: "FSM-26.120 p.203"
   notes: >
@@ -100,7 +100,7 @@ SET_SOLVER_VISCOUS_COUPLING:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.358, unchanged from FSM-26.124 p.346"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.358, unchanged from FSM-26.124 p.346"}
-    "26.127": {status: documented, note: "FSM-26.127 p.357, unchanged from FSM-26.125 p.358"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.357, unchanged from FSM-26.125 p.358"}
   notes: >
     Couples the semi-empirical boundary layer model to the potential
     flow solution. Attached-flow viscosity only; stall capture also
@@ -130,7 +130,7 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
-    "26.127": {status: documented, note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.352, unchanged from FSM-26.125 p.353"}
   notes: >
     Excludes the listed boundaries from viscous coupling; the indices
     follow on the next line as comma-separated values. Documented

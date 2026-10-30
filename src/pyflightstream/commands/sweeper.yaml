@@ -37,7 +37,7 @@ SWEEPER_SET_AOA_SWEEP:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.364, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.370, unchanged from FSM-26.124 p.364"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.370, unchanged from FSM-26.124 p.364"}
-    "26.127": {status: documented, note: "FSM-26.127 p.369, unchanged from FSM-26.125 p.370"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.369, unchanged from FSM-26.125 p.370"}
   notes: >
     Angle of attack axis of the sweeper. Three modes with three
     different tails: UNIFORM takes exactly three numbers, CUSTOM takes
@@ -87,7 +87,7 @@ SWEEPER_SET_BETA_SWEEP:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.364, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.370, unchanged from FSM-26.124 p.364"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.370, unchanged from FSM-26.124 p.364"}
-    "26.127": {status: documented, note: "FSM-26.127 p.369, unchanged from FSM-26.125 p.370"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.369, unchanged from FSM-26.125 p.370"}
   notes: >
     Side-slip axis of the sweeper, with the grammar of
     SWEEPER_SET_AOA_SWEEP above and the same reading of its third
@@ -175,7 +175,7 @@ SWEEPER_POST_RUN_SCRIPT:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.365, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.371, unchanged from FSM-26.124 p.365"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.371, unchanged from FSM-26.124 p.365"}
-    "26.127": {status: documented, note: "FSM-26.127 p.370, unchanged from FSM-26.125 p.371"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.370, unchanged from FSM-26.125 p.371"}
   notes: >
     Per-run post-processing script executed after each sweep point,
     for example a surface section extraction script. The path is
@@ -270,7 +270,7 @@ SWEEPER_START:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.366, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.372, unchanged from FSM-26.124 p.366"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.372, unchanged from FSM-26.124 p.366"}
-    "26.127": {status: documented, note: "FSM-26.127 p.371, unchanged from FSM-26.125 p.372"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.371, unchanged from FSM-26.125 p.372"}
 
 SWEEPER_EXPORT_SPREADSHEET:
   layout: inline
@@ -288,7 +288,7 @@ SWEEPER_EXPORT_SPREADSHEET:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.365, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.371, unchanged from FSM-26.124 p.365"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.371, unchanged from FSM-26.124 p.365"}
-    "26.127": {status: documented, note: "FSM-26.127 p.370, unchanged from FSM-26.125 p.371"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.370, unchanged from FSM-26.125 p.371"}
 
 EXECUTE_SOLVER_SWEEPER:
   layout: param_lines
@@ -399,7 +399,7 @@ RESET_SOLVER_SWEEPER:
   versions:
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.372, the first edition to document it"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.372, the first edition to document it"}
-    "26.127": {status: documented, note: "FSM-26.127 p.371, unchanged from FSM-26.125 p.372"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.371, unchanged from FSM-26.125 p.372"}
   notes: >
     Resets the solver's sweeper toolbox. It takes no argument; the page
     prints the bare command after SWEEPER_START and does not say which

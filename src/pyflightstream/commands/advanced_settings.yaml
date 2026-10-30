@@ -43,7 +43,7 @@ SET_SOLVER_CONVERGENCE_ITERATIONS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
-    "26.127": {status: documented, note: "FSM-26.127 p.355, unchanged from FSM-26.125 p.356"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.355, unchanged from FSM-26.125 p.356"}
   notes: >
     Number of iterations the solver must remain below the convergence
     threshold before convergence is declared.
@@ -68,7 +68,7 @@ SOLVER_MINIMUM_CP:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
-    "26.127": {status: documented, note: "FSM-26.127 p.356, unchanged from FSM-26.125 p.357"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.356, unchanged from FSM-26.125 p.357"}
   default: -20
   default_ref: "FSM-26.120 p.221"
   notes: >
@@ -211,7 +211,7 @@ SET_WAKE_TERMINATION_TIME_STEPS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml", note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
-    "26.127": {status: documented, note: "FSM-26.127 p.355, unchanged from FSM-26.125 p.356"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.355, unchanged from FSM-26.125 p.356"}
   notes: >
     Number of time steps after which a wake vortex filament edge that
     lost all of its strength is removed from the simulation.

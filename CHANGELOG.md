@@ -73,10 +73,28 @@ FlightStream versions.
   ships a new manual edition, FSM-26.127: the 339 commands it describes as
   FSM-26.125 does are read from it, and the rest are carried from 26.126
   with their grammar, among them the nine Acoustics Toolbox commands it no
-  longer prints, which keep their rows. Where 26.126 has its own script form
+  longer prints, which keep their rows. Two probe campaigns on 26.127 then
+  judged 191 commands (CMP-26127 reports: 182 verified, the Acoustics
+  Toolbox among them), so 26.127 is `operational` on its own runs.
+  Measured on 26.127 and refused by the planner on it:
+  `SET_MOTION_FSI_EXECUTABLE`, `SET_MOTION_FSI_STRUCTURAL_NODES` and
+  `SET_VORTICITY_LIFT_MODEL` (unrecognised names, though FSM-26.127 prints
+  them), `CAD_CREATE_IMPORT_CURVE_TXT`, `CREATE_NEW_6DOF_EXTERNAL_FORCE`,
+  `CREATE_FREE_SURFACE_TFI_MESH`, `NEW_OFF_BODY_STREAMLINE` and
+  `NEW_STREAMLINE_DISTRIBUTION` (the script stops at them in the form the
+  package writes) and `CAD_CREATE_AUTO_CROSS_SECTIONS` (it ran, and made
+  more curves than the probe expected). Where 26.126 has its own script form
   (the trailing-edge detection form, the aeroelastic frame check, the
   marking order, the pressure-drag columns), 26.127 takes the same
   (FR-3406).
+- A CCS export on 26.126 and 26.127 follows the selection of every curve
+  and their assignment to the CCS component, as on 26.125: measured on
+  26.127 with the vendor's two models, `EXPORT_WING_CCS_FILE` and
+  `EXPORT_FUSELAGE_CCS_FILE` write their file after
+  `ASSIGN_SELECTED_CURVES_TO_CCS_WING` or `_FUSELAGE` and silently write
+  nothing without it (CMP-26127_2026-10-30_vendor-ccs-export). The package
+  writes the step on every build whose database carries the assignment
+  command (FR-3407).
 
 ## [0.51.0] - 2026-10-30
 

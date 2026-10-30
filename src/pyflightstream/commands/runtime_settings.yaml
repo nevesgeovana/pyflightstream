@@ -23,7 +23,7 @@ SOLVER_SET_AOA:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
-    "26.127": {status: documented, note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
   notes: >
     Angle of attack; magnitude must stay below 90 degrees.
 
@@ -48,7 +48,7 @@ SOLVER_SET_SIDESLIP:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
-    "26.127": {status: documented, note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
   notes: >
     Side-slip angle; magnitude must stay below 90 degrees. Under SYMMETRY MIRROR the
     solver runs at zero sideslip whatever this command states and says so only in the
@@ -77,7 +77,7 @@ SOLVER_SET_VELOCITY:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
-    "26.127": {status: documented, note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
   notes: >
     Free-stream velocity magnitude.
 
@@ -101,7 +101,7 @@ SOLVER_SET_MACH_NUMBER:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
-    "26.127": {status: documented, note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
 
 SOLVER_SET_ITERATIONS:
   layout: inline
@@ -124,7 +124,7 @@ SOLVER_SET_ITERATIONS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
-    "26.127": {status: documented, note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
 
 SOLVER_SET_CONVERGENCE:
   layout: inline
@@ -146,7 +146,7 @@ SOLVER_SET_CONVERGENCE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
-    "26.127": {status: documented, note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
   notes: >
     Residual threshold on surface velocity and pressure below which
     the run is declared converged (FSM-26.120 p.200).
@@ -172,7 +172,7 @@ SOLVER_SET_FORCED_ITERATIONS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
-    "26.127": {status: documented, note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
   notes: >
     When enabled the solver runs the full iteration count regardless
     of the convergence threshold.
@@ -198,7 +198,7 @@ SOLVER_SET_REF_VELOCITY:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
-    "26.127": {status: documented, note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
   notes: >
     Reference velocity for coefficient normalization. For steady runs
     it should equal the free-stream velocity; for rotary or hover
@@ -225,7 +225,7 @@ SOLVER_SET_REF_MACH_NUMBER:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
-    "26.127": {status: documented, note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.350, unchanged from FSM-26.125 p.351"}
 
 SOLVER_SET_REF_AREA:
   layout: inline
@@ -248,7 +248,7 @@ SOLVER_SET_REF_AREA:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.345, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.352, unchanged from FSM-26.124 p.345"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.352, unchanged from FSM-26.124 p.345"}
-    "26.127": {status: documented, note: "FSM-26.127 p.351, unchanged from FSM-26.125 p.352"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.351, unchanged from FSM-26.125 p.352"}
   notes: >
     Reference area S_ref used in Q*S_ref force normalization
     (coefficient definitions, FSM-26.120 p.223).
@@ -274,7 +274,7 @@ SOLVER_SET_REF_LENGTH:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.345, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.352, unchanged from FSM-26.124 p.345"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.352, unchanged from FSM-26.124 p.345"}
-    "26.127": {status: documented, note: "FSM-26.127 p.351, unchanged from FSM-26.125 p.352"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.351, unchanged from FSM-26.125 p.352"}
   notes: >
     Reference length L_ref used in Q*S_ref*L_ref moment normalization
     (coefficient definitions, FSM-26.120 p.223).
@@ -300,4 +300,4 @@ SET_MAX_PARALLEL_THREADS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.345, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.352, unchanged from FSM-26.124 p.345"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign-fsm; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.352, unchanged from FSM-26.124 p.345"}
-    "26.127": {status: documented, note: "FSM-26.127 p.351, unchanged from FSM-26.125 p.352"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign-fsm.yaml", note: "FSM-26.127 p.351, unchanged from FSM-26.125 p.352"}

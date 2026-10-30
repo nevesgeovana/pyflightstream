@@ -42,7 +42,7 @@ CAD_CREATE_INITIALIZE:
     "26.124": {status: documented, note: "FSM-26.124 p.293, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
-    "26.127": {status: documented, note: "FSM-26.127 p.296, unchanged from FSM-26.125 p.298"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.296, unchanged from FSM-26.125 p.298"}
   notes: >
     Opens the CAD Create pane. Whether the commands below REQUIRE it
     first is not stated by the manual and is not asserted here; the
@@ -94,7 +94,7 @@ SET_CAD_CREATE_SPLINE_SEGMENTS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.293, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
-    "26.127": {status: documented, note: "FSM-26.127 p.296, unchanged from FSM-26.125 p.298"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.296, unchanged from FSM-26.125 p.298"}
   default: 200
   default_ref: "FSM-26.120 p.289"
   notes: >
@@ -120,7 +120,7 @@ SET_CAD_CREATE_SPLINE_LOFT:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.293, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
-    "26.127": {status: documented, note: "FSM-26.127 p.296, unchanged from FSM-26.125 p.298"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.296, unchanged from FSM-26.125 p.298"}
   default: C2
   default_ref: "FSM-26.120 p.289"
   notes: >
@@ -146,7 +146,7 @@ SET_CAD_CURVATURE_REFINEMENT:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.293, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
-    "26.127": {status: documented, note: "FSM-26.127 p.296, unchanged from FSM-26.125 p.298"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.296, unchanged from FSM-26.125 p.298"}
   default: 80
   default_ref: "FSM-26.120 p.289"
   notes: >
@@ -201,7 +201,7 @@ CAD_CREATE_BOX:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.294, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.299, unchanged from FSM-26.124 p.294"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.299, unchanged from FSM-26.124 p.294"}
-    "26.127": {status: documented, note: "FSM-26.127 p.297, unchanged from FSM-26.125 p.299"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.297, unchanged from FSM-26.125 p.299"}
   notes: >
     X, Y and Z are the FIRST CORNER VERTEX rather than the centre, and
     the three lengths run from that corner along the frame's axes
@@ -233,7 +233,7 @@ CAD_CREATE_SPHERE:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.294, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.299, unchanged from FSM-26.124 p.294"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.299, unchanged from FSM-26.124 p.294"}
-    "26.127": {status: documented, note: "FSM-26.127 p.297, unchanged from FSM-26.125 p.299"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.297, unchanged from FSM-26.125 p.299"}
   notes: >
     X, Y and Z are the CENTRE here, unlike the box above, which takes a
     corner. The two commands sit on one manual page and differ on this
@@ -269,7 +269,7 @@ CAD_CREATE_CYLINDER:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.294, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.299, unchanged from FSM-26.124 p.294"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.299, unchanged from FSM-26.124 p.294"}
-    "26.127": {status: documented, note: "FSM-26.127 p.297, unchanged from FSM-26.125 p.299"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.297, unchanged from FSM-26.125 p.299"}
   notes: >
     R1 and R2 are the radii at the two ends, so a cone is a cylinder
     with unequal radii and there is no separate cone command. The axis
@@ -304,7 +304,7 @@ CAD_CREATE_SHEET:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.294, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.299, unchanged from FSM-26.124 p.294"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.299, unchanged from FSM-26.124 p.294"}
-    "26.127": {status: documented, note: "FSM-26.127 p.297, unchanged from FSM-26.125 p.299"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.297, unchanged from FSM-26.125 p.299"}
   notes: >
     A flat rectangle in one plane of the frame. OFFSET moves it along
     that plane's normal and MAY BE NEGATIVE, which the manual states
@@ -460,7 +460,7 @@ CAD_CREATE_CURVE_SELECT:
     "26.124": {status: documented, note: "FSM-26.124 p.298, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.303, unchanged from FSM-26.124 p.298"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.303, unchanged from FSM-26.124 p.298"}
-    "26.127": {status: documented, note: "FSM-26.127 p.302, unchanged from FSM-26.125 p.303"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.302, unchanged from FSM-26.125 p.303"}
   notes: >
     Adds one virtual curve to the selection by its 1-based creation
     index; -1 selects every existing curve (FSM-26.120 p.294). Selection is
@@ -487,7 +487,7 @@ CAD_CREATE_CURVE_UNSELECT:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.298, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.303, unchanged from FSM-26.124 p.298"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.303, unchanged from FSM-26.124 p.298"}
-    "26.127": {status: documented, note: "FSM-26.127 p.302, unchanged from FSM-26.125 p.303"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.302, unchanged from FSM-26.125 p.303"}
   notes: >
     Removes one curve from the selection; -1 removes every one
     (FSM-26.120 p.294).
@@ -622,7 +622,7 @@ CAD_CREATE_ROTATE_CURVES:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.299, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
-    "26.127": {status: documented, note: "FSM-26.127 p.303, unchanged from FSM-26.125 p.304"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.303, unchanged from FSM-26.125 p.304"}
   notes: >
     Rotates the selected virtual curves about one axis of the given
     coordinate system. Frame 1 is the reference system, which the
@@ -658,7 +658,7 @@ CAD_CREATE_TRANSLATE_CURVES:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.299, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
-    "26.127": {status: documented, note: "FSM-26.127 p.303, unchanged from FSM-26.125 p.304"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.303, unchanged from FSM-26.125 p.304"}
   notes: >
     Translation vector for the selected virtual curves. It takes NO
     frame argument, unlike the rotation and the mirror, and the manual
@@ -685,7 +685,7 @@ CAD_CREATE_SCALE_CURVES:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.299, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
-    "26.127": {status: documented, note: "FSM-26.127 p.303, unchanged from FSM-26.125 p.304"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.303, unchanged from FSM-26.125 p.304"}
   notes: >
     ONE scale value for all three axes: the command has no per-axis
     form, so a non-uniform scaling is not available here. What the
@@ -805,7 +805,7 @@ CAD_CREATE_REORDER_CURVES:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.300, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.305, unchanged from FSM-26.124 p.300"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.305, unchanged from FSM-26.124 p.300"}
-    "26.127": {status: documented, note: "FSM-26.127 p.304, unchanged from FSM-26.125 p.305"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.304, unchanged from FSM-26.125 p.305"}
   notes: >
     Sorts the selected curves along an axis, and the token is SIGNED:
     the six values are the three axes each way round, so a leading minus
@@ -880,7 +880,7 @@ CAD_CREATE_CURVE_EXPORT_CCS:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.298, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.303, unchanged from FSM-26.124 p.298"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.303, unchanged from FSM-26.124 p.298"}
-    "26.127": {status: documented, note: "FSM-26.127 p.302, unchanged from FSM-26.125 p.303"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.302, unchanged from FSM-26.125 p.303"}
   notes: >
     Writes the SELECTED virtual curves to a file, the command name on
     one line and the path on the next. CCS is the vendor's
@@ -935,7 +935,7 @@ CAD_CREATE_IMPORT_CURVE_TXT:
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.295, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166) Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
     "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.300, unchanged from FSM-26.124 p.295 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
     "26.126": {status: broken, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: Recorded broken on 26.125 by reports/compat/CMP-26125_2026-10-12_gap-probes.yaml; that run is not a run on this build, so the row is documented here until a 26.126 run judges it. FSM-26.125 p.300, unchanged from FSM-26.124 p.295 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
-    "26.127": {"status": "documented", "note": "Carried from 26.126: FSM-26.127 describes it differently at p.298 (against FSM-26.125 p.300: args, sample, parameters, description); the row keeps the FSM-26.125 reading until that difference is read; no run on 26.127 yet. Recorded broken on 26.126 by reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml; that run is not a run on this build, so the row is documented here until a 26.127 run judges it. The 26.126 note: Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: Recorded broken on 26.125 by reports/compat/CMP-26125_2026-10-12_gap-probes.yaml; that run is not a run on this build, so the row is documented here until a 26.126 run judges it. FSM-26.125 p.300, unchanged from FSM-26.124 p.295 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
+    "26.127": {status: broken, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "Carried from 26.126: FSM-26.127 describes it differently at p.298 (against FSM-26.125 p.300: args, sample, parameters, description); the row keeps the FSM-26.125 reading until that difference is read; judged on 26.127 by CMP-26127_2026-10-30_probe-campaign. Recorded broken on 26.126 by reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml. The 26.126 note: Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: Recorded broken on 26.125 by reports/compat/CMP-26125_2026-10-12_gap-probes.yaml; that run is not a run on this build, so the row is documented here until a 26.126 run judges it. FSM-26.125 p.300, unchanged from FSM-26.124 p.295 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
   notes: >
     Reads curve points from a text file. DIMENSIONS decides what the two
     arguments after it mean: under 2D the points are two-dimensional and
@@ -1008,7 +1008,7 @@ CAD_CREATE_IMPORT_CURVE_CCS:
     "26.124": {status: documented, note: "FSM-26.124 p.295, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.300, unchanged from FSM-26.124 p.295"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.300, unchanged from FSM-26.124 p.295"}
-    "26.127": {"status": "documented", "note": "Carried from 26.126: FSM-26.127 describes it differently at p.298 (against FSM-26.125 p.300: parameters); the row keeps the FSM-26.125 reading until that difference is read; no run on 26.127 yet. Recorded verified on 26.126 by reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml; that run is not a run on this build, so the row is documented here until a 26.127 run judges it. The 26.126 note: Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.300, unchanged from FSM-26.124 p.295"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "Carried from 26.126: FSM-26.127 describes it differently at p.298 (against FSM-26.125 p.300: parameters); the row keeps the FSM-26.125 reading until that difference is read; judged on 26.127 by CMP-26127_2026-10-30_probe-campaign. Recorded verified on 26.126 by reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml. The 26.126 note: Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.300, unchanged from FSM-26.124 p.295"}
   notes: >
     Reads cross-sections from a CCS file, which the manual says may
     carry either the .CCS or the .CSV extension, so the extension does
@@ -1050,7 +1050,7 @@ CAD_CREATE_IMPORT_CURVE_P3D:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.295, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.300, unchanged from FSM-26.124 p.295"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.300, unchanged from FSM-26.124 p.295"}
-    "26.127": {status: documented, note: "FSM-26.127 p.299, unchanged from FSM-26.125 p.300"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.299, unchanged from FSM-26.125 p.300"}
   notes: >
     Reads curves from a Plot3D structured grid. SWAP_DIRECTION chooses
     which way the walk over the grid's node data proceeds when building
@@ -1181,7 +1181,7 @@ CAD_CREATE_AUTO_CROSS_SECTIONS:
     "26.124": {status: documented, note: "FSM-26.124 p.296, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.301, unchanged from FSM-26.124 p.296"}
     "26.126": {status: broken, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.301, unchanged from FSM-26.124 p.296 Probe: the command ran (script processing continued past it) but its effect was not observed; expected: the QA wing gains nine CAD Create [...]"}
-    "26.127": {"status": "documented", "note": "Carried from 26.126: FSM-26.127 describes it differently at p.299 (against FSM-26.125 p.301: args, parameters, description); the row keeps the FSM-26.125 reading until that difference is read; no run on 26.127 yet. Recorded broken on 26.126 by reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml; that run is not a run on this build, so the row is documented here until a 26.127 run judges it. The 26.126 note: Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.301, unchanged from FSM-26.124 p.296 Probe: the command ran (script processing continued past it) but its effect was not observed; expected: the QA wing gains nine CAD Create [...]"}
+    "26.127": {status: broken, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "Carried from 26.126: FSM-26.127 describes it differently at p.299 (against FSM-26.125 p.301: args, parameters, description); the row keeps the FSM-26.125 reading until that difference is read; judged on 26.127 by CMP-26127_2026-10-30_probe-campaign. Recorded broken on 26.126 by reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml. The 26.126 note: Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.301, unchanged from FSM-26.124 p.296 Probe: the command ran (script processing continued past it) but its effect was not observed; expected: the QA wing gains nine CAD Create [...]"}
   notes: >
     Sweeps a body along an axis and writes a series of cross-section
     curves. It takes seven arguments on 25.000, without CAD_MESH, and
@@ -1309,7 +1309,7 @@ CAD_CREATE_WING_MESH_FROM_CCS:
         - name: loft_type_u
         - name: loft_type_v
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.309 adds ROUNDED_BLEND to the trailing-edge geometries FSM-26.124 p.304 listed, and its sample passes CLOSED for the end closure; the rest of the grammar is unchanged", args: [{"name": "name"}, {"name": "mark_trailing_edges"}, {"name": "te_geometry", "values": ["SHARP", "BLUNT", "BLEND", "ROUNDED_BLEND", "OPEN"]}, {"name": "close_ends"}, {"name": "loft_type_u"}, {"name": "loft_type_v"}]}
-    "26.127": {"status": "documented", "note": "FSM-26.127 p.308, unchanged from FSM-26.125 p.309", "args": [{"name": "name"}, {"name": "mark_trailing_edges"}, {"name": "te_geometry", "values": ["SHARP", "BLUNT", "BLEND", "ROUNDED_BLEND", "OPEN"]}, {"name": "close_ends"}, {"name": "loft_type_u"}, {"name": "loft_type_v"}]}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.308, unchanged from FSM-26.125 p.309", args: [{"name": "name"}, {"name": "mark_trailing_edges"}, {"name": "te_geometry", "values": ["SHARP", "BLUNT", "BLEND", "ROUNDED_BLEND", "OPEN"]}, {"name": "close_ends"}, {"name": "loft_type_u"}, {"name": "loft_type_v"}]}
   notes: >
     Lofts a wing mesh boundary from the CCS wing component, and NAME is
     the boundary name the rest of a script cites it by.
@@ -1349,7 +1349,7 @@ CAD_CREATE_FUSELAGE_MESH_FROM_CCS:
     "26.124": {status: documented, note: "FSM-26.124 p.306, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.312, read against FSM-26.124 p.306: the parameter table differs in layout spacing only and the sample passes OPEN for the end closure, a token the entry already lists"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.312, read against FSM-26.124 p.306: the parameter table differs in layout spacing only and the sample passes OPEN for the end closure, a token the entry already lists"}
-    "26.127": {status: documented, note: "FSM-26.127 p.311, unchanged from FSM-26.125 p.312"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.311, unchanged from FSM-26.125 p.312"}
   notes: >
     Lofts a fuselage mesh boundary from the CCS fuselage component. Here
     LOFT_TYPE_U is RADIAL and LOFT_TYPE_V is AXIAL, which is NOT what
@@ -1396,7 +1396,7 @@ CAD_CREATE_REVOLVE_MESH_FROM_CCS:
     "26.124": {status: documented, note: "FSM-26.124 p.309, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.315, read against FSM-26.124 p.309: the sample passes CLOSED for the end closure, a token the entry already lists; the signature and table are unchanged"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.315, read against FSM-26.124 p.309: the sample passes CLOSED for the end closure, a token the entry already lists; the signature and table are unchanged"}
-    "26.127": {status: documented, note: "FSM-26.127 p.314, unchanged from FSM-26.125 p.315"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.314, unchanged from FSM-26.125 p.315"}
   notes: >
     Lofts a body of revolution from the CCS revolve component. EIGHT
     arguments, and the signature parser reports seven for the same
@@ -1433,7 +1433,7 @@ CAD_CREATE_MIRROR_CURVES:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.299, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
     "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Judged on 26.126 by CMP-26126_2026-10-30_probe-campaign; FSM-26.125 is the reading (the 26.126 package ships an older edition dated 2026-04-24). The 26.125 note: FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
-    "26.127": {status: documented, note: "FSM-26.127 p.303, unchanged from FSM-26.125 p.304"}
+    "26.127": {status: verified, report: "reports/compat/CMP-26127_2026-10-30_probe-campaign.yaml", note: "FSM-26.127 p.303, unchanged from FSM-26.125 p.304"}
   notes: >
     Mirrors the SELECTED virtual curves across a plane. It takes no
     curve index: which curves are mirrored comes from the selection made
