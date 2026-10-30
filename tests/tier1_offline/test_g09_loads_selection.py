@@ -153,7 +153,10 @@ def test_g09_the_keys_of_an_unsteady_row_precede_the_solve_and_warn(make, solver
     text = " ".join(str(item.message) for item in caught)
     assert repr(case.recipe) in text and "before START_SOLVER" in text, text
     words = [line.split(" ")[0] for line in lines]
-    for command in set(COMMANDS) & set(words):
+    emitted = set(COMMANDS) & set(words)
+    # a key whose command never reaches the script must fail here, not pass an empty loop
+    assert emitted, (key, words)
+    for command in emitted:
         assert words.index(command) < words.index("START_SOLVER"), command
 
 
