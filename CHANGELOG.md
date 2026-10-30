@@ -16,7 +16,18 @@ FlightStream versions.
   26.125 status a run decided (verified, broken, or removed by a run) is
   documented on 26.126, its note naming the 26.125 report, until a run on
   26.126 judges it; documented rows and rows removed by an edition keep
-  their status. Until that run, 26.126 is at the `documented` support level.
+  their status. Two probe campaigns on 26.126 then judged 188 commands
+  (CMP-26126 reports), so 26.126 is `operational` on its own runs. Measured
+  on 26.126 and refused by the planner on it: `SET_VORTICITY_LIFT_MODEL`
+  (unrecognised, as on 26.124), `CREATE_NEW_6DOF_EXTERNAL_FORCE`,
+  `NEW_STREAMLINE_DISTRIBUTION` and two CAD Create commands (the script
+  stops at them).
+  Compatibility note, measured: for an identical unsteady rotor script
+  (periodic blade, J 1.7, 10 deg per step, 4 revolutions), 26.126 gives a
+  rotor thrust 30.7 percent and a torque 25.0 percent higher in magnitude
+  than 26.125, with four times the solver iterations. A property of the
+  build; the package does not compensate for it, so do not mix 26.125 and
+  26.126 results in one series.
   Where 26.125 has its own script form (the trailing-edge detection form,
   the aeroelastic frame check, the marking order), 26.126 takes the same
   (FR-3402).

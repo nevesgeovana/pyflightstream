@@ -57,7 +57,7 @@ UNSTEADY_SOLVER_NEW_FORCE_PLOT:
           cites: null
         - name: boundary_indices
           cites: boundaries
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.359 lists CDP and CDV among the parameters where FSM-26.124 p.352 listed CDI and CDO, as the edition renames the drag split of its loads table to pressure drag and viscous and separation drag (the 26.125 entry of manual_editions in _meta.yaml). The 26.125 solver still ran CDI and CDO in the cross-build runs of 2026-10-05 and wrote them as plot columns, the CDI total equal to the loads table's pressure-drag total (RPT-160), so the four are accepted", "args": [{"name": "frame", "cites": "frames"}, {"name": "units"}, {"name": "parameter", "values": ["CL", "CDI", "CDO", "CDP", "CDV", "CD", "FORCE_X", "FORCE_Y", "FORCE_Z", "MOMENT_X", "MOMENT_Y", "MOMENT_Z"]}, {"name": "name"}, {"name": "boundaries", "cites": null}, {"name": "boundary_indices", "cites": "boundaries"}]}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.359 lists CDP and CDV among the parameters where FSM-26.124 p.352 listed CDI and CDO, as the edition renames the drag split of its loads table to pressure drag and viscous and separation drag (the 26.125 entry of manual_editions in _meta.yaml). The 26.125 solver still ran CDI and CDO in the cross-build runs of 2026-10-05 and wrote them as plot columns, the CDI total equal to the loads table's pressure-drag total (RPT-160), so the four are accepted", args: [{"name": "frame", "cites": "frames"}, {"name": "units"}, {"name": "parameter", "values": ["CL", "CDI", "CDO", "CDP", "CDV", "CD", "FORCE_X", "FORCE_Y", "FORCE_Z", "MOMENT_X", "MOMENT_Y", "MOMENT_Z"]}, {"name": "name"}, {"name": "boundaries", "cites": null}, {"name": "boundary_indices", "cites": "boundaries"}]}
   notes: >
     Samples one force or moment parameter per solver time step, in
     FRAME and UNITS, over the listed boundaries. BOUNDARIES -1 selects
@@ -159,7 +159,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
                    BL_SHAPE_FACTOR, BL_SKIN_FRICTION, BL_TRANSITION_MARKER]
         - name: name
         - name: vertex
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.359, unchanged from FSM-26.124 p.352; the argument list is the one FSM-26.124 prints, carried with the text", "args": [{"name": "frame", "cites": "frames"}, {"name": "parameter", "values": ["CP_FREE", "CP_REF", "MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO", "BL_MOMENTUM_THICKNESS", "BL_DISPLACEMENT_THICKNESS", "BL_TOTAL_THICKNESS", "BL_SHAPE_FACTOR", "BL_SKIN_FRICTION", "BL_TRANSITION_MARKER"]}, {"name": "name"}, {"name": "vertex"}]}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.359, unchanged from FSM-26.124 p.352; the argument list is the one FSM-26.124 prints, carried with the text", args: [{"name": "frame", "cites": "frames"}, {"name": "parameter", "values": ["CP_FREE", "CP_REF", "MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO", "BL_MOMENTUM_THICKNESS", "BL_DISPLACEMENT_THICKNESS", "BL_TOTAL_THICKNESS", "BL_SHAPE_FACTOR", "BL_SKIN_FRICTION", "BL_TRANSITION_MARKER"]}, {"name": "name"}, {"name": "vertex"}]}
   notes: >
     Samples one fluid property per solver time step at a fixed vertex.
     VERTEX takes the three coordinates preformatted on one line
@@ -213,7 +213,7 @@ UNSTEADY_SOLVER_EXPORT_PLOTS:
     "26.123": {status: documented, note: "FSM-26.123 p.352, unchanged from FSM-26.122 p.352"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.352, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.359, unchanged from FSM-26.124 p.352"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.359, unchanged from FSM-26.124 p.352"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.359, unchanged from FSM-26.124 p.352"}
   notes: >
     Exports every unsteady solver plot (force and fluid) with one
     column per plot and one row per time step.
@@ -517,7 +517,7 @@ SET_NEW_UNSTEADY_SOLVER_ACTION:
         folder; exports from an action script are stamped _iteration=N.
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml", note: "FSM-26.124 p.353, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.360, unchanged from FSM-26.124 p.353"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.360, unchanged from FSM-26.124 p.353"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.360, unchanged from FSM-26.124 p.353"}
 
 ENABLE_SOLVER_TIME_AVERAGING:
   layout: inline
@@ -532,7 +532,7 @@ ENABLE_SOLVER_TIME_AVERAGING:
   manual_ref: "FSM-26.125 p.360"
   versions:
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.360, the first edition to document it"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.360, the first edition to document it"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.360, the first edition to document it"}
   notes: >
     Turns on the time averaging of the surface flow properties over a
     window of unsteady time iterations, from the first iteration of the
@@ -552,7 +552,7 @@ DISABLE_SOLVER_TIME_AVERAGING:
   manual_ref: "FSM-26.125 p.360"
   versions:
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.360, the first edition to document it"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.360, the first edition to document it"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.360, the first edition to document it"}
   notes: >
     Turns the time averaging of the surface flow properties off. It
     takes no argument. First documented by the 26.125 edition, beside

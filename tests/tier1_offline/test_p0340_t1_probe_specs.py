@@ -34,11 +34,12 @@ from tests.workflow_payloads import WORKFLOW_PAYLOADS
 
 GOLDENS = Path(__file__).resolve().parent / "goldens" / "workflows"
 #: The three commands the census found and covered, each with the builds that hold it
-#: (26.125, registered by 0.37.0, holds the two the 26.124 database holds).
+#: (26.125, registered by 0.37.0, and 26.126, carried from it, hold the two the 26.124
+#: database holds).
 CENSUS = {
-    "ROTATE_SURFACE": ("26.122", "26.123", "26.124", "26.125"),
+    "ROTATE_SURFACE": ("26.122", "26.123", "26.124", "26.125", "26.126"),
     "SURFACE_ROTATE": ("25.000", "25.100", "26.000", "26.100", "26.101", "26.120", "26.121"),
-    "SET_NEW_UNSTEADY_SOLVER_ACTION": ("26.122", "26.123", "26.124", "26.125"),
+    "SET_NEW_UNSTEADY_SOLVER_ACTION": ("26.122", "26.123", "26.124", "26.125", "26.126"),
 }
 ON_26124 = ("ROTATE_SURFACE", "SET_NEW_UNSTEADY_SOLVER_ACTION")
 #: Rendered by the goldens of builds before 26.101 and held by no database view of 26.120 or

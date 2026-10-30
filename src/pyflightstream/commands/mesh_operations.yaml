@@ -375,7 +375,7 @@ SURFACE_LINEAR_COPY_PASTE:
     "26.123": {status: documented, note: "FSM-26.123 p.315, unchanged from FSM-26.122 p.315"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.315, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.321, unchanged from FSM-26.124 p.315"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.321, unchanged from FSM-26.124 p.315"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.321, unchanged from FSM-26.124 p.315"}
   notes: >
     Copies a surface along a vector, NUM_COPIES times. The translation
     vector follows UNITS here and precedes it on
@@ -426,7 +426,7 @@ SURFACE_CIRCULAR_COPY_PASTE:
     "26.123": {status: documented, note: "FSM-26.123 p.316, unchanged from FSM-26.122 p.316"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.316, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
   notes: >
     Copies a surface around an axis, and NUM_COPIES INCLUDES THE
     ORIGINAL: the manual's own worked case is a two-blade propeller from
@@ -459,7 +459,7 @@ SURFACE_SELECT_BY_ID:
     "26.123": {status: documented, note: "FSM-26.123 p.314, unchanged from FSM-26.122 p.314"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.314, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
   notes: >
     Selects one surface by its 1-based index, or every surface at -1.
     The February 2026 edition calls the same command
@@ -526,7 +526,7 @@ SURFACE_SELECT_BY_THRESHOLD:
     "26.123": {status: documented, note: "FSM-26.123 p.314, unchanged from FSM-26.122 p.314"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.314, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
   notes: >
     Selects mesh FACES, not surfaces, by a scalar threshold. RANGE
     decides which of MIN_VALUE and MAX_VALUE are read, so a range of
@@ -559,7 +559,7 @@ CREATE_NEW_SURFACE_FROM_SELECTION:
     "26.123": {status: documented, note: "FSM-26.123 p.314, unchanged from FSM-26.122 p.314"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.314, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
   notes: >
     Promotes the currently selected faces into a surface of their own,
     which is what makes SURFACE_SELECT_BY_THRESHOLD useful as more than
@@ -594,7 +594,7 @@ SURFACE_CUT_BY_PLANE:
     "26.123": {status: documented, note: "FSM-26.123 p.315, unchanged from FSM-26.122 p.315"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.315, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.321, unchanged from FSM-26.124 p.315"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.321, unchanged from FSM-26.124 p.315"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.321, unchanged from FSM-26.124 p.315"}
   notes: >
     Cuts surfaces with a plane of the named frame, offset along the
     plane normal. A value of -1 on SURFACE cuts every surface, which the
@@ -668,7 +668,7 @@ SURFACE_AUTO_HOLE_FILL:
     "26.123": {status: documented, note: "FSM-26.123 p.316, unchanged from FSM-26.122 p.316"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.316, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
   notes: >
     Fills the holes in one surface. The manual states no -1 form here,
     unlike its neighbours, so this entry does not claim one either.
@@ -750,7 +750,7 @@ DELETE_SELECTED_FACES:
     "26.123": {status: documented, note: "FSM-26.123 p.316, unchanged from FSM-26.122 p.316"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.316, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
   notes: >
     Deletes the faces currently selected, the destructive counterpart of
     CREATE_NEW_SURFACE_FROM_SELECTION and the other reason the threshold
@@ -854,7 +854,7 @@ SELECT_MESH_NODE:
     "26.123": {status: documented, note: "FSM-26.123 p.317, unchanged from FSM-26.122 p.317"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.317, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.323, unchanged from FSM-26.124 p.317"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.323, unchanged from FSM-26.124 p.317"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.323, unchanged from FSM-26.124 p.317"}
   notes: >
     Selects one mesh vertex by its node id, which is a different index
     space from the surface indices the rest of this chapter uses: the
@@ -888,7 +888,7 @@ TRANSFORM_SELECTED_NODES:
     "26.123": {status: documented, note: "FSM-26.123 p.317, unchanged from FSM-26.122 p.317"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.317, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.323, read against FSM-26.124 p.317: the parameter table differs in layout spacing only"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.323, read against FSM-26.124 p.317: the parameter table differs in layout spacing only"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.323, read against FSM-26.124 p.317: the parameter table differs in layout spacing only"}
   notes: >
     Moves the selected nodes. TRANSLATION_TYPE decides what X, Y and Z
     MEAN: under ABSOLUTE they are the node's new coordinates and under
@@ -959,4 +959,4 @@ ROTATE_SURFACE:
     "26.123": {status: documented, note: "FSM-26.123 p.313, unchanged from FSM-26.122 p.313"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml", note: "FSM-26.124 p.313, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.319, unchanged from FSM-26.124 p.313"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.319, unchanged from FSM-26.124 p.313"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.319, unchanged from FSM-26.124 p.313"}

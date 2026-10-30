@@ -510,11 +510,17 @@ def test_p0510_every_26125_row_is_carried_to_26126_with_its_status_mapped():
 
     registry = CommandRegistry.load()
     v126, v125 = resolve("26.126"), resolve("26.125")
-    carried = 0
+    carried = judged = 0
     for name, entry in registry.commands.items():
         old, new = entry.versions.get("26.125"), entry.versions.get("26.126")
         assert (old is None) == (new is None), name
         if old is None:
+            continue
+        assert entry.status_in(v126) == new and entry.status_in(v125) == old
+        if new.report is not None:
+            # judged by a run on 26.126 itself (the 2026-10-30 probe campaign)
+            assert new.report.startswith("reports/compat/CMP-26126_"), name
+            judged += 1
             continue
         carried += 1
         run_decided = str(old.status) in {"verified", "broken"} or (
@@ -522,24 +528,21 @@ def test_p0510_every_26125_row_is_carried_to_26126_with_its_status_mapped():
         )
         expected = "documented" if run_decided else str(old.status)
         assert str(new.status) == expected, name
-        assert new.report is None, name
         if old.report is not None and str(old.status) != "verified":
             assert old.report in new.note, name
         assert new.note.startswith("Carried from 26.125"), name
-        assert entry.status_in(v126) == new and entry.status_in(v125) == old
-    assert carried > 370
+    assert carried + judged > 370 and judged > 150
 
 
-def test_p0510_26126_is_documented_and_its_minimal_workflow_builds():
-    """FR-3402: 26.126 is documented, not operational, until a run on it: no carried row cites
-    a 26.125 run as its own, so no command is measured on this build; the minimal workflow
-    still builds, so the first run on it promotes it without a code change.
+def test_p0510_26126_is_operational_on_its_own_runs():
+    """FR-3402: 26.126 is operational on evidence measured on 26.126 itself: the probe
+    campaigns of 2026-10-30 judged its commands and the minimal workflow builds.
 
     Control: 26.125, whose rows cite its own runs, stays operational.
     """
     import pyflightstream
 
     rows = {r.canonical: r for r in pyflightstream.support_table()}
-    assert "26.126 is documented" in rows["26.126"].summary
-    assert rows["26.126"].commands_probed == 0 and not rows["26.126"].workflow_missing
+    assert "26.126 is operational" in rows["26.126"].summary
+    assert rows["26.126"].commands_probed > 150 and not rows["26.126"].workflow_missing
     assert "26.125 is operational" in rows["26.125"].summary

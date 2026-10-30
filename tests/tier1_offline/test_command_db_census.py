@@ -138,8 +138,10 @@ EMITTABLE = {
     # 2026-10-30 (FR-3402): carried from 26.125, whose FSM-26.125 stays the
     # reading (the 26.126 package ships an older edition). The three rows
     # measured removed on 26.125 are documented here, since no run on this
-    # build has judged them yet: 378 plus three.
-    "26.126": 381,
+    # build has judged them yet: 378 plus three. Then -1: the probe campaign of
+    # 2026-10-30 measured SET_VORTICITY_LIFT_MODEL refused
+    # (CMP-26126_2026-10-30_probe-campaign-fsm): 380.
+    "26.126": 380,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned
@@ -232,7 +234,9 @@ VERIFIED = {
     "26.125": 197,
     # 2026-10-30 (FR-3402): registered with no run of its own; every row
     # verified on 26.125 is documented here until a run on this build promotes it.
-    "26.126": 0,
+    # +93 and +89 the same day, the two probe campaigns on this build
+    # (CMP-26126_2026-10-30_probe-campaign and -fsm): 182.
+    "26.126": 182,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the

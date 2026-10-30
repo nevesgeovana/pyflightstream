@@ -140,7 +140,7 @@ INITIALIZE_SOLVER:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.342, unchanged from FSM-26.122 p.342"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.342, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.349, unchanged from FSM-26.124 p.342"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.349, unchanged from FSM-26.124 p.342"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.349, unchanged from FSM-26.124 p.342"}
   notes: >
     SURFACES takes -1 for all boundaries or a count followed by one
     line per surface with the surface index and the quad mesher toggle
@@ -205,7 +205,7 @@ SOLVER_PROXIMAL_BOUNDARIES:
         - {name: boundary_indices, type: int_list, cites: boundaries, separator: newline, required: false}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.342, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.349, unchanged from FSM-26.124 p.342"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.349, unchanged from FSM-26.124 p.342"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.349, unchanged from FSM-26.124 p.342"}
   notes: >
     Enables solver proximity checking for the listed boundaries, one
     index per line. Must be called before INITIALIZE_SOLVER
@@ -233,7 +233,7 @@ REMOVE_INITIALIZATION:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.343, unchanged from FSM-26.122 p.343"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.343, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.350, unchanged from FSM-26.124 p.343"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.350, unchanged from FSM-26.124 p.343"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.350, unchanged from FSM-26.124 p.343"}
 
 START_SOLVER:
   layout: bare
@@ -252,7 +252,7 @@ START_SOLVER:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.343, unchanged from FSM-26.122 p.343"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.343, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.350, unchanged from FSM-26.124 p.343"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.350, unchanged from FSM-26.124 p.343"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.350, unchanged from FSM-26.124 p.343"}
   notes: >
     Runs the solver with the current runtime settings; convergence is
     declared against the SOLVER_SET_CONVERGENCE threshold.
@@ -273,7 +273,7 @@ CLEAR_SOLUTION:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.343, unchanged from FSM-26.122 p.343"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.343, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.350, unchanged from FSM-26.124 p.343"}
-    "26.126": {"status": "documented", "note": "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.350, unchanged from FSM-26.124 p.343"}
+    "26.126": {status: verified, report: "reports/compat/CMP-26126_2026-10-30_probe-campaign-fsm.yaml", note: "Carried from 26.125: FSM-26.125 is the newest 26.12 edition (the 26.126 package ships an older edition dated 2026-04-24); no run on 26.126 yet. FSM-26.125 p.350, unchanged from FSM-26.124 p.343"}
   notes: >
     Clears the existing solution while keeping the initialization;
     used between sweep points when solution reuse is not wanted.
