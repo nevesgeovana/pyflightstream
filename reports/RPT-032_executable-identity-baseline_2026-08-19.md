@@ -6,6 +6,7 @@ The text below is the report as dated, kept unchanged. Three of its statements a
 
 - The table holds nine rows measured on 2026-08-19 (through 26.123) and two later additions, 26.124 (2026-09-14)
   and 26.125 (2026-10-05), each dated in its own paragraph; neither addition belongs to the original measurement.
+  A third addition, 26.126 (2026-10-30), followed this erratum and is dated in its own paragraph as well.
   Where the text says "the eleven rows" as the executables in hand on the title date, read the nine original rows.
 - The digests are withheld from the public tree (NFR-31), so a row's public build identifies a build, not the
   executable bytes. Build agreement does not establish byte identity.
@@ -57,6 +58,7 @@ and names both files.
 | 26.123 | 8112026 | Flightstream_2612.exe, FlightStream_26123.exe | withheld; build 8112026 | 19194760 |
 | 26.124 | 8172026 | Flightstream_26124.exe | withheld; build 8172026 | 19197320 |
 | 26.125 | 10052026 | Flightstream_26125.exe | withheld; build 10052026 | 19278728 |
+| 26.126 | 10282026 | Flightstream.exe | withheld; build 10282026 | 18795072 |
 
 The 26.124 row was ADDED ON 2026-09-14, when that build was registered, from
 the digest its identity run recorded (`reports/compat/CMP-26124_2026-09-14.yaml`);
@@ -68,6 +70,11 @@ the whole package. Every other row is this report's own measurement of
 The 26.125 row was added on 2026-10-05, when that build was registered: its build
 is the one its identity run printed (`reports/compat/CMP-26125_2026-10-05_identity.yaml`),
 and its size is the file's as delivered.
+
+The 26.126 row was added on 2026-10-30, when that build was registered: its build
+is the one its log printed at start-up (no compat report exists for it yet), and
+its name and size are those of the executable in the corrected vendor package as
+extracted.
 
 EVERY DIGEST IS WITHHELD from the public tree since 2026-09-30 (NFR-31):
 the public tree carries no identity of a user's machine, and each row states

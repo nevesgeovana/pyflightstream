@@ -12,9 +12,11 @@ FlightStream versions.
 - FlightStream 26.126 (vendor 26.12, build 10282026, the end-of-October
   build) is a supported build: `--fs-version 26.126` and `FS_BUILD 26.126`
   plan and run. Its package ships an older manual edition than FSM-26.125,
-  so every command row is carried from 26.125 citing FSM-26.125: rows
-  verified on 26.125 are documented on 26.126 until a run on 26.126
-  promotes them, and documented, broken and removed rows keep their status.
+  so every command row is carried from 26.125 citing FSM-26.125. A row whose
+  26.125 status a run decided (verified, broken, or removed by a run) is
+  documented on 26.126, its note naming the 26.125 report, until a run on
+  26.126 judges it; documented rows and rows removed by an edition keep
+  their status. Until that run, 26.126 is at the `documented` support level.
   Where 26.125 has its own script form (the trailing-edge detection form,
   the aeroelastic frame check, the marking order), 26.126 takes the same
   (FR-3402).

@@ -236,14 +236,17 @@ versions:
     alias: "26.12"
     # The vendor's end-of-October 26.12 build (frozen 2026-10-30), the corrected
     # package that starts without the licence dialog of the first one. build and
-    # prints come from its log: "Simcenter Flightstream version 2612, build
-    # #10282026" (GEO-109 arrival-26126.md).
+    # prints come from its log, which names Simcenter Flightstream version 2612,
+    # build #10282026 (GEO-109 arrival-26126.md).
     #
     # Its package ships an OLDER manual edition (created 2026-04-24, 409 pages,
     # 363 commands, the pre-26.125 names) than FSM-26.125 (2026-09-25), so its
-    # rows are carried from 26.125 and cite FSM-26.125: verified becomes
-    # documented until a run on this build promotes it; documented, broken and
-    # removed are carried as they are. Every row says so in its note.
+    # rows are carried from 26.125 and cite FSM-26.125 (its manual_editions
+    # entry below names that edition). No row cites a 26.125 run as its own:
+    # verified, broken and measured-removed rows become documented, the 26.125
+    # outcome and its report named in the note, until a run on this build
+    # promotes them; documented and edition-removed rows are carried as they
+    # are. Every row says so in its note.
     build: "10282026"
     prints: "2612"
     inherits_base: false
@@ -481,3 +484,11 @@ manual_editions:
     says it of the pressure drag. The force-plot and stability-coefficient
     commands rename their tokens to match (CDP, CDV), and the 26.125 loads
     exports print the new column names (RPT-160).
+  "26.126": >
+    FSM-26.125: Simcenter Flightstream User Guide, 26.12 hotfix build 5
+    edition, 425 pages, scripting reference pp.288-390 with its Script
+    Index at pp.391-397; cited in version notes as "FSM-26.125 p.N".
+    Build 26.126 is read from FSM-26.125 and registers no edition of its
+    own: the manual in its package is an older edition (created 2026-04-24,
+    409 pages, 363 commands under the pre-26.125 names) than FSM-26.125
+    (created 2026-09-25), so the newest 26.12 edition remains the reading.

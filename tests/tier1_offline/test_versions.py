@@ -126,6 +126,7 @@ def test_known_versions_ordered_by_list_position():
         "26.123",
         "26.124",
         "26.125",
+        "26.126",
     ]
     assert [v.index for v in versions] == list(range(len(versions)))
     # strict=False on purpose: this zips the list against itself
@@ -499,6 +500,10 @@ def test_p0510_every_26125_row_is_carried_to_26126_with_its_status_mapped():
     """FR-3402: each command with a 26.125 row has a 26.126 row; verified becomes documented,
     the rest keep their status, and every carried note says it was carried.
 
+    A status a 26.125 run decided (verified, broken, or removed citing its
+    report) is documented on 26.126 and cites no report, because a citation
+    must be a run on its own build; the note names the 26.125 report instead.
+
     Control: no command gains a 26.126 row without a 26.125 one.
     """
     from pyflightstream.commands import CommandRegistry
@@ -512,16 +517,29 @@ def test_p0510_every_26125_row_is_carried_to_26126_with_its_status_mapped():
         if old is None:
             continue
         carried += 1
-        expected = "documented" if str(old.status) == "verified" else str(old.status)
+        run_decided = str(old.status) in {"verified", "broken"} or (
+            str(old.status) == "removed" and old.report is not None
+        )
+        expected = "documented" if run_decided else str(old.status)
         assert str(new.status) == expected, name
+        assert new.report is None, name
+        if old.report is not None and str(old.status) != "verified":
+            assert old.report in new.note, name
         assert new.note.startswith("Carried from 26.125"), name
         assert entry.status_in(v126) == new and entry.status_in(v125) == old
     assert carried > 370
 
 
-def test_p0510_26126_is_operational():
-    """FR-3402: the support table reports 26.126 operational (the minimal workflow builds)."""
+def test_p0510_26126_is_documented_and_its_minimal_workflow_builds():
+    """FR-3402: 26.126 is documented, not operational, until a run on it: no carried row cites
+    a 26.125 run as its own, so no command is measured on this build; the minimal workflow
+    still builds, so the first run on it promotes it without a code change.
+
+    Control: 26.125, whose rows cite its own runs, stays operational.
+    """
     import pyflightstream
 
-    rows = [r.summary for r in pyflightstream.support_table() if "26.126 is" in r.summary]
-    assert len(rows) == 1 and "26.126 is operational" in rows[0]
+    rows = {r.canonical: r for r in pyflightstream.support_table()}
+    assert "26.126 is documented" in rows["26.126"].summary
+    assert rows["26.126"].commands_probed == 0 and not rows["26.126"].workflow_missing
+    assert "26.125 is operational" in rows["26.125"].summary
