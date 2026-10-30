@@ -1352,3 +1352,83 @@ def test_p0502_perimeter_list_orients_never_cuts_a_rectangle(tmp_path):
     assert report["F"]["faces"] == report["R"]["faces"] == [32, 8]
     assert report["S"]["faces"] == [8, 4]
     assert report["S"]["continuity"]["directions"] == ["parallel"], report["S"]
+
+
+def _te_file_points(path: Path) -> np.ndarray:
+    rows = [r for r in path.read_text().splitlines()[1:] if r.strip()]
+    return np.array([[float(w) for w in r.split(",")] for r in rows]).reshape(-1, 3)
+
+
+def test_p0502_rear_panel_te_txt_holds_its_own_trailing_edge_whole(tmp_path):
+    """A rear panel's te.txt holds its own trailing edge, every coarsened interval present.
+
+    Upper and lower skins meet at a sharp trailing edge, slightly curved in
+    planform; a swept hinge, longer than the trailing edge, splits each skin into
+    a front and a rear panel; the prepare-style list holds every panel's rearmost
+    line and ``te_families`` names all four. The rule of the reference
+    ([[perimeter]] te_families): a family's trailing edge is its rearmost listed
+    line, the edges its surface lies forward of. The rear panel lies aft of the
+    hinge, so its trailing edge, and its file, is the trailing edge alone, with
+    the mid-point of every one of its 4 coarsened intervals: a chord across the
+    curved line sits off it by more than the grid's surface distance, and its
+    ends, source nodes, decide. Before the fix the rear panel kept the hinge as
+    the longest listed piece on it, so its te.txt and the level's held the hinge
+    and not the trailing edge, and the mid-point off the curved line was dropped.
+    """
+    verts: list[tuple[float, float, float]] = []
+    at: dict[tuple[str, int, int], int] = {}
+    for k in range(9):
+        y = 1.5 * k / 8
+        x_hinge, x_te = 0.8 + 0.4 * y, 2.0 + 0.08 * np.sin(2 * y)
+        for i in range(9):
+            x = x_hinge * i / 4 if i <= 4 else x_hinge + (x_te - x_hinge) * (i - 4) / 4
+            s = x / x_te
+            thick = 0.12 * np.sqrt(s) * (1.0 - s)
+            for side, sign in (("u", 1.0), ("l", -1.0)):
+                if i == 8 and side == "l":
+                    at["l", k, 8] = at["u", k, 8]  # the sharp trailing edge: one node
+                    continue
+                at[side, k, i] = len(verts)
+                verts.append((x, y, sign * thick))
+
+    def quads(side: str, lo: int, hi: int) -> list[list[int]]:
+        out = []
+        for k in range(8):
+            for i in range(lo, hi):
+                q = [at[side, k, i], at[side, k, i + 1], at[side, k + 1, i + 1], at[side, k + 1, i]]
+                out.append(q if side == "u" else q[::-1])
+        return out
+
+    families = {
+        "FU": quads("u", 0, 4),
+        "RU": quads("u", 4, 8),
+        "FL": quads("l", 0, 4),
+        "RL": quads("l", 4, 8),
+    }
+    folder = tmp_path / "src"
+    src = write_source(folder, "tail", Composite(np.array(verts), families, np.zeros((0, 3)), {}))
+    listed = sorted({at[s, k, i] for s in "ul" for i in (4, 8) for k in range(9)})
+    rows = [f"{v + 1}, , {x:.9f}, {y:.9f}, {z:.9f}" for v in listed for x, y, z in [verts[v]]]
+    (folder / "tail.nodes.txt").write_text("#  Id, Name, X , Y, Z\n" + "\n".join(rows) + "\n")
+    toml = "".join(
+        f"[families.{n}]\nnormal_factor = 0.5\nparallel_factor = 0.5\n{lead}\n"
+        for n, lead in (("FU", "governing_parallel = true\n"), ("RU", ""), ("FL", ""), ("RL", ""))
+    )
+    toml += '[[perimeter]]\nfile = "tail.nodes.txt"\nte_families = ["FU", "RU", "FL", "RL"]\n'
+    (folder / "tail.refine.toml").write_text(toml)
+    report = refine_mesh(src, out_dir=tmp_path / "level").report
+    (level,) = [p for p in (tmp_path / "level").iterdir() if p.is_dir()]
+    for name in ("RU", "RL"):
+        assert report[name]["blocks"] == [{"rows": [8, 4], "columns": [4, 2]}], report[name]
+        recorded = np.array(report[name]["trailing_edge_points"])
+        assert len(recorded) == 8 and (recorded[:, 0] > 1.9).all(), recorded  # its own line
+        own = _te_file_points(level / f"{level.name}.{name}.te.txt")
+        assert len(own) == 4, own  # every coarsened interval, the curved line's included
+        assert (own[:, 0] > 1.9).all(), own  # the trailing edge, never the hinge
+        fs = (level / f"{level.name}.{name}.fs.te.txt").read_text().splitlines()
+        wake = np.array([[float(w) for w in r.split(",")] for r in fs[2:] if r.strip()])
+        assert fs[0].strip() == "4" and len(wake) == 4 and (wake[:, 0] > 1.9).all(), fs
+    front = _te_file_points(level / f"{level.name}.FU.te.txt")
+    assert len(front) == 4 and (front[:, 0] < 1.5).all(), front  # the front panel's rear line
+    whole = _te_file_points(level / f"{level.name}.te.txt")
+    assert len(whole) == 12 and (whole[:, 0] > 1.9).sum() == 4, whole

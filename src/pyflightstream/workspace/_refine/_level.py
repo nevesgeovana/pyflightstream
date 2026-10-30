@@ -164,6 +164,11 @@ class _Work:
     # The source edges of each [[perimeter]] list, the exported ones first: a family's
     # line is chosen from them in that order (_choose_perimeter_line).
     perimeter_sets: list[set[tuple[int, int]]] = field(default_factory=list)
+    # Per source family, its own rearmost listed edges (the edges its surface lies forward
+    # of): the line its trailing edge is taken from, and the only one written for it.
+    te_rear: dict[str, set[tuple[int, int]]] = field(default_factory=dict)
+    # The same two sets of source edges as te_export, the exported and the others.
+    te_sets: tuple[set[tuple[int, int]], set[tuple[int, int]]] | None = None
 
     @property
     def te_tolerance(self) -> float:
@@ -208,6 +213,8 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
         specs={n: request.specs.get(n, FamilySpec(method="keep")) for n in names},
         te_edges={n: _lines.listed_edges(mesh, n, points, tolerance) for n in names},
         perimeter_sets=perimeter[2] if perimeter else [],
+        te_rear=perimeter[3] if perimeter else {},
+        te_sets=(perimeter[1], perimeter[0] - perimeter[1]) if perimeter else None,
         te_perimeter=_lines.exported_by_family(mesh, perimeter[1]) if perimeter else {},
         te_export=None
         if not perimeter
@@ -475,7 +482,8 @@ def _refine_grids(work: _Work) -> None:
         if name == mates[0]:  # a layout's families are one part, under its first family
             fams = {n: levels[n].faces for n in mates} if layout else {name: level.faces}
             listed = set().union(*(work.te_edges[n] for n in mates))
-            mids = _lines.on_listed(work, level.te_midpoints, listed)
+            every = [f for fs in fams.values() for f in fs]
+            mids = _lines.on_listed(work, level.te_midpoints, listed, level.points, every)
             work.parts[name] = (level.points, fams, mids)
 
 
@@ -1090,10 +1098,17 @@ def _quad_te_files(
     if not len(te):
         return []
     index = NearestIndex(numpy.asarray(te, dtype=float))
+    picked = any(p.te_families for p in work.request.perimeters)
     found: dict[str, set[tuple[int, int]]] = {}
     for name in quad_families(faces):
         edges, mid = _obj.edge_midpoints(verts, faces[name])
         near = index.query(mid)[0] < work.te_tolerance
+        if picked and work.te_rear.get(name):
+            # The family's own rearmost line alone, as its <level>.<family>.te.txt.
+            pts = numpy.asarray(verts, dtype=float)
+            near &= _lines.on_line(
+                work, mid, pts[edges[:, 0]], pts[edges[:, 1]], work.te_rear[name]
+            )
         on = {(int(a), int(b)) for (a, b), hit in zip(edges, near, strict=True) if hit}
         if on:
             found[stems[name]] = on
@@ -1107,8 +1122,9 @@ def _write(
 ) -> list[Path]:
     """Write the level's files into ``folder`` and return them, the OBJ first."""
     stem = folder.name
+    every = [f for fs in faces.values() for f in fs]
     if work.te_export is not None:
-        te = _lines.on_exported(work, te)
+        te = _lines.on_exported(work, te, verts, every)
     stems = _obj.output_stems(list(faces)) if len(te) else {n: n for n in faces}
     mesh = ObjMesh(
         verts, faces, list(work.mesh.header), work.mesh.family_tag, _source_text(work, verts)
@@ -1122,14 +1138,7 @@ def _write(
         written.append(_obj.write_te(target, work.te_unit, te))
     own: dict[str, Path] = {}
     if work.te_export is not None:
-        for name, family_faces in faces.items():
-            _, mid = _obj.edge_midpoints(verts, family_faces)
-            distance, _ = NearestIndex(mid).query(te)
-            points = te[distance < work.te_tolerance]
-            if len(points):
-                own[name] = _obj.write_te(
-                    folder / f"{stem}.{stems[name]}{TE_SUFFIX}", work.te_unit, points
-                )
+        own = _lines.own_te_files(work, folder, verts, faces, te, stems=stems)
     # The trailing edges a [[perimeter]] list exports are declared per component in the
     # level's boundaries file, for the user to type before mark-boundaries, unless the
     # source's boundaries file declares its own, which are kept (and warned when stale).

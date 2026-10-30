@@ -14,6 +14,8 @@ The functions read and write the refinement's working state, the ``_Work`` of
 
 from __future__ import annotations
 
+import heapq
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -31,8 +33,16 @@ _Work = Any  # the working state of ._level, which imports this module
 
 def perimeter_lines(
     source: Path, request: RefineRequest, mesh: ObjMesh
-) -> tuple[set[tuple[int, int]], set[tuple[int, int]], list[set[tuple[int, int]]]] | None:
-    """Return the source edges of every ``[[perimeter]]`` list, of the exported ones, and per list.
+) -> (
+    tuple[
+        set[tuple[int, int]],
+        set[tuple[int, int]],
+        list[set[tuple[int, int]]],
+        dict[str, set[tuple[int, int]]],
+    ]
+    | None
+):
+    """Return the ``[[perimeter]]`` source edges: all, exported, per list, per family's rearmost.
 
     An edge is a perimeter's when its two ends are nodes of that list. A list
     that is missing, or whose nodes join no edge, is warned and skipped, and
@@ -40,7 +50,9 @@ def perimeter_lines(
 
     Of each list, the rearmost edges of every family (:func:`._obj.rearmost_edges`)
     are a set of their own, ahead of the whole list, so a grid is oriented by its
-    trailing edge first. A list with ``te_families`` exports those families'
+    trailing edge first; the last element maps each family to its own rearmost
+    edges over every list, the line its trailing edge is taken from before any
+    other listed line on it. A list with ``te_families`` exports those families'
     rearmost edges (a name of ``[components]`` stands for its members); one with
     ``export_te_per_family`` and no ``te_families`` exports all its edges.
     """
@@ -49,6 +61,7 @@ def perimeter_lines(
     every: set[tuple[int, int]] = set()
     exported: set[tuple[int, int]] = set()
     sets: list[set[tuple[int, int]]] = []
+    rears: dict[str, set[tuple[int, int]]] = {}
     for perimeter in sorted(request.perimeters, key=lambda p: not p.exported):
         found = _listed_edges(perimeter, mesh)
         if found is None:
@@ -68,12 +81,14 @@ def perimeter_lines(
         if rearmost:
             sets.append(rearmost)
         sets.append(lines)
+        for name, edges in rear.items():
+            rears[name] = rears.get(name, set()) | edges
         if perimeter.te_families:
             for name in te_members(perimeter, request, mesh):
                 exported |= rear[name]
         elif perimeter.export_te_per_family:
             exported |= lines
-    return every, exported, sets
+    return every, exported, sets, rears
 
 
 def _listed_edges(perimeter: Any, mesh: ObjMesh) -> dict[str, set[tuple[int, int]]] | None:
@@ -347,18 +362,24 @@ def assume_trailing_edge(work: _Work, name: str) -> None:
 def choose_perimeter_line(work: _Work, name: str) -> None:
     """Keep the perimeter line on a family that recovers its grid, trying each list in turn.
 
-    The exported lists come first. Of each list, the whole of it on the family
-    is tried first (a trailing edge in pieces stays whole), then each connected
-    piece from the longest, then each piece cut at its corners, so a trailing
-    edge and a root listed together in one file are told apart. A line is kept
-    when the grid recovered with it holds it on its trailing-edge line; a family
-    no line orients keeps its lines as found, for the refusal or remesh to name.
+    The family's own rearmost listed edges come first (the edges its surface
+    lies forward of, :func:`._obj.rearmost_edges`), so a rear panel whose front
+    edge is the listed rearmost line of the panel ahead keeps its own trailing
+    edge, not the longer hinge. Then the exported lists. Of each list, the
+    whole of it on the family is tried first (a trailing edge in pieces stays
+    whole), then each connected piece from the longest, then each piece cut at
+    its corners, so a trailing edge and a root listed together in one file are
+    told apart. A line is kept when the grid recovered with it holds it on its
+    trailing-edge line; a family no line orients keeps its lines as found, for
+    the refusal or remesh to name.
     """
     edges = work.te_edges[name]
     verts = work.mesh.verts
     lists = [edges & listed for listed in work.perimeter_sets if edges & listed]
-    # All the lists together first: a trailing edge split over lists (a wake gap) stays whole.
-    lines: list[set[tuple[int, int]]] = [set().union(*lists)] if len(lists) > 1 else []
+    own = edges & work.te_rear.get(name, set())
+    lines: list[set[tuple[int, int]]] = [own] if own else []
+    # All the lists together next: a trailing edge split over lists (a wake gap) stays whole.
+    lines += [set().union(*lists)] if len(lists) > 1 else []
     for on in lists:
         parts = sorted(pieces(on), key=lambda line: -length(verts, line))
         cut = [c for part in parts for c in corners(verts, part)]
@@ -437,44 +458,173 @@ def length(verts: Points, edges: set[tuple[int, int]]) -> float:
     return sum(float(numpy.linalg.norm(verts[a] - verts[b])) for a, b in edges)
 
 
-def on_exported(work: _Work, te: Points) -> Points:
+def reach(work: _Work) -> float:
+    """Return how far from its source line a refined grid's node lies at most (FR-920)."""
+    return _geometry.GRID_SURFACE_DISTANCE * work.scale
+
+
+def refined_edge_ends(
+    verts: Points, faces: Faces, te: Points, tolerance: float
+) -> tuple[Points, Points]:
+    """Return the two ends of the refined edge each trailing-edge point is the mid-point of.
+
+    The ends of a coarsened edge are source nodes and lie on their source line,
+    where the mid-point of a chord across a curved line does not (its sagitta
+    grows with the chord). A point that is no edge's mid-point stands for both
+    its ends.
+    """
+    pts = numpy.asarray(te, dtype=float).reshape(-1, 3)
+    a, b = pts.copy(), pts.copy()
+    if not len(pts) or not faces:
+        return a, b
+    edges, mid = _obj.edge_midpoints(verts, faces)
+    distance, index = _geometry.NearestIndex(mid).query(pts)
+    hit = distance < tolerance
+    v = numpy.asarray(verts, dtype=float)
+    a[hit] = v[edges[index[hit], 0]]
+    b[hit] = v[edges[index[hit], 1]]
+    return a, b
+
+
+def on_line(
+    work: _Work, mids: Points, a: Points, b: Points, edges: set[tuple[int, int]]
+) -> NDArray[numpy.bool_]:
+    """Return per trailing-edge point whether it lies on the listed source ``edges``.
+
+    A point within the grid's surface distance of the edges (FR-920) does. So
+    does the mid-point of a coarsened chord across a curved line, off it by its
+    sagitta: its ends ``a`` and ``b`` are source nodes of the edges, joined along
+    them by a path no longer than twice the chord. A chord across a gap left in
+    the list (a wake gap) finds no such path and is not written.
+    """
+    pts = numpy.asarray(mids, dtype=float).reshape(-1, 3)
+    if not len(pts) or not edges:
+        return numpy.zeros(len(pts), dtype=bool)
+    within = reach(work)
+    verts = numpy.asarray(work.mesh.verts, dtype=float)
+    sa, sb = segments(verts, edges)
+    distance, _ = _geometry.segment_distances(pts, sa, sb)
+    keep = distance <= within
+    ends_a = numpy.asarray(a, dtype=float).reshape(-1, 3)
+    ends_b = numpy.asarray(b, dtype=float).reshape(-1, 3)
+    nodes = sorted({v for e in edges for v in e})
+    index = _geometry.NearestIndex(verts[nodes])
+    da, ia = index.query(ends_a)
+    db, ib = index.query(ends_b)
+    chords = numpy.linalg.norm(ends_a - ends_b, axis=1)
+    joined: dict[int, list[tuple[int, float]]] = {}
+    for u, v in edges:
+        span = float(numpy.linalg.norm(verts[u] - verts[v]))
+        joined.setdefault(u, []).append((v, span))
+        joined.setdefault(v, []).append((u, span))
+    for i in numpy.flatnonzero(~keep & (da <= within) & (db <= within) & (ia != ib)):
+        keep[i] = _path_within(joined, nodes[int(ia[i])], nodes[int(ib[i])], 2.0 * float(chords[i]))
+    return keep
+
+
+def _path_within(
+    joined: Mapping[int, list[tuple[int, float]]], start: int, goal: int, limit: float
+) -> bool:
+    """Return whether ``start`` reaches ``goal`` along ``joined`` by a path within ``limit``."""
+    best = {start: 0.0}
+    queue = [(0.0, start)]
+    while queue:
+        so_far, node = heapq.heappop(queue)
+        if node == goal:
+            return True
+        if so_far > best.get(node, numpy.inf):
+            continue
+        for other, span in joined.get(node, ()):
+            total = so_far + span
+            if total <= limit and total < best.get(other, numpy.inf):
+                best[other] = total
+                heapq.heappush(queue, (total, other))
+    return False
+
+
+def on_exported(
+    work: _Work, te: Points, verts: Points | None = None, faces: Faces | None = None
+) -> Points:
     """Drop the level's trailing-edge points that lie on a list not exported.
 
     A point on a line of an exported ``[[perimeter]]`` list is kept, and so is
     a point on no list (a trailing edge a family assumed), except under
     ``te_families``, where only the rearmost lines picked are trailing edges and
-    a line a grid assumed to orient itself is not written. A refined grid's
-    points lie on their source line within the grid's surface distance
-    (FR-920), so that distance decides.
+    a line a grid assumed to orient itself is not written. Whether a point lies
+    on a line is :func:`on_line`'s, given the level's ``verts`` and ``faces``
+    for the ends of the edge each point is the mid-point of.
     """
-    assert work.te_export is not None
-    (ea, eb), (oa, ob) = work.te_export
+    assert work.te_sets is not None
+    exported, other = work.te_sets
     picked = any(p.te_families for p in work.request.perimeters)
-    if not len(te) or (not len(oa) and not picked):
+    if not len(te) or (not other and not picked):
         return te
-    reach = _geometry.GRID_SURFACE_DISTANCE * work.scale
+    if verts is not None and faces is not None:
+        a, b = refined_edge_ends(verts, faces, te, work.te_tolerance)
+    else:
+        a, b = te, te
     if picked:
         keep = numpy.zeros(len(te), dtype=bool)
     else:
-        other, _ = _geometry.segment_distances(te, oa, ob)
-        keep = other > reach
-    if len(ea):
-        exported, _ = _geometry.segment_distances(te, ea, eb)
-        keep |= exported <= reach
+        keep = ~on_line(work, te, a, b, other)
+    keep |= on_line(work, te, a, b, exported)
     return te[keep]
 
 
-def on_listed(work: _Work, mids: Points, listed: set[tuple[int, int]]) -> Points:
+def own_te_files(
+    work: _Work,
+    folder: Path,
+    verts: Points,
+    faces: Mapping[str, Faces],
+    te: Points,
+    *,
+    stems: Mapping[str, str],
+) -> dict[str, Path]:
+    """Write each family's ``<level>.<family>.te.txt``: the level's points on its edges.
+
+    Under ``te_families`` a family's file holds its own rearmost line alone: a
+    listed line it shares with the family ahead of it (a hinge) is that family's.
+    """
+    picked = any(p.te_families for p in work.request.perimeters)
+    every = [f for fs in faces.values() for f in fs]
+    a, b = refined_edge_ends(verts, every, te, work.te_tolerance)
+    own: dict[str, Path] = {}
+    for name, family_faces in faces.items():
+        _, mid = _obj.edge_midpoints(verts, family_faces)
+        distance, _ = _geometry.NearestIndex(mid).query(te)
+        on = distance < work.te_tolerance
+        if picked and work.te_rear.get(name):
+            on &= on_line(work, te, a, b, work.te_rear[name])
+        points = te[on]
+        if len(points):
+            own[name] = _obj.write_te(
+                folder / f"{folder.name}.{stems[name]}{_obj.TE_SUFFIX}", work.te_unit, points
+            )
+    return own
+
+
+def on_listed(
+    work: _Work,
+    mids: Points,
+    listed: set[tuple[int, int]],
+    points: Points | None = None,
+    faces: Faces | None = None,
+) -> Points:
     """Keep a refined grid's trailing-edge points that lie on a listed source edge.
 
     The grid writes its whole trailing-edge line; a gap the lists leave on
     purpose (a wake gap) is not written. Without listed edges every point stays.
+    Given the level's ``points`` and ``faces``, the ends of the edge each point
+    is the mid-point of decide (:func:`refined_edge_ends`), so a coarsened chord
+    across a curved listed line is kept with its ends on the line.
     """
     if not len(mids) or not listed:
         return mids
-    a, b = segments(work.mesh.verts, listed)
-    distance, _ = _geometry.segment_distances(mids, a, b)
-    return mids[distance <= _geometry.GRID_SURFACE_DISTANCE * work.scale]
+    if points is not None and faces is not None:
+        a, b = refined_edge_ends(points, faces, mids, work.te_tolerance)
+    else:
+        a, b = mids, mids
+    return mids[on_line(work, mids, a, b, listed)]
 
 
 def segments(verts: Points, edges: set[tuple[int, int]]) -> tuple[Points, Points]:
