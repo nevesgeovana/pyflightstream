@@ -18,6 +18,14 @@ FlightStream versions.
   rotating blade at its imported azimuth (measured on 26.124 and 26.125).
   migration: a coupled `unsteady_rotor` row that the plan refused now runs,
   with that warning.
+- `morphing = "direct"` is accepted on an `unsteady_rotor` row (FR-3404):
+  `SET_DIRECT_AEROELASTIC_MESH_MORPHING <frame> RIGID` replaces the node
+  import in the blade's rotating frame, and the structural program writes one
+  row per listed vertex on every call of the march. On any build where the
+  command database records the command documented and not verified, the plan
+  warns, naming the command and the build, and emits it.
+  A frozen replay with direct morphing is still refused: its file holds the
+  structural node rows.
 
 ## [0.51.0] - 2026-10-30
 

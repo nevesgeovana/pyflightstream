@@ -635,8 +635,9 @@ class FsiConfig(BaseModel):
         structural nodes, or ``"direct"``, the solver's direct mesh morphing
         with RIGID aerodynamic nodes, where the structural program writes one
         displacement per surface vertex the solver lists. ``"direct"`` is
-        offered on a quasi-steady rotor sector alone, and the plan refuses it
-        elsewhere; ``"direct_deflected"`` is refused here. ``"mapped"`` is not
+        offered on a rotor blade (a quasi-steady sector or an unsteady rotor,
+        FR-3404), and the plan refuses it on a fixed wing;
+        ``"direct_deflected"`` is refused here. ``"mapped"`` is not
         serialised, so a configuration that does not choose a route dumps
         and hashes exactly as before.
 

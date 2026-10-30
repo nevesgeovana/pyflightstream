@@ -38,7 +38,7 @@ from pathlib import PurePath
 from types import MappingProxyType
 
 from pyflightstream._errors import PyflightstreamWarning, warn
-from pyflightstream.commands import CommandRegistry
+from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
@@ -46,6 +46,7 @@ from pyflightstream.fsi.nodes import NodeOrderingMap, generate_node_layout, rend
 from pyflightstream.fsi.state import LOADS_FILE, QUASI_STEADY_ROTOR_FILE
 from pyflightstream.script import Script
 from pyflightstream.versions import FsVersion, known_versions
+from pyflightstream.versions import resolve as resolve_version
 
 from . import CampaignConfigError, RotorBlock, SimCase
 
@@ -55,6 +56,7 @@ __all__ = [
     "DEFORMED_SURFACE_FILE",
     "DIRECT_MORPHING_COMMAND",
     "DIRECT_MORPHING_NODES",
+    "DIRECT_MORPHING_WORKFLOWS",
     "FAMILY_FILE",
     "FIXED_WING_WORKFLOWS",
     "FSI_ROTOR_IN_DEBUG",
@@ -138,7 +140,8 @@ FIXED_WING_WORKFLOWS: tuple[str, ...] = ("steady", "unsteady")
 
 
 #: THE DIRECT MESH MORPHING COMMAND AND ITS NODE TYPE (FR-341, route C). On a
-#: quasi-steady sector it replaces the structural-node import: the solver lists
+#: quasi-steady sector, and on an unsteady rotor blade (FR-3404), it replaces
+#: the structural-node import: the solver lists
 #: the blade's surface vertices in the frame the command names and morphs each
 #: by the displacement written for it. RIGID lists the undeformed vertices at
 #: every call, and on build 26.125 two coupling cycles moved the surface by
@@ -149,17 +152,44 @@ FIXED_WING_WORKFLOWS: tuple[str, ...] = ("steady", "unsteady")
 DIRECT_MORPHING_COMMAND = "SET_DIRECT_AEROELASTIC_MESH_MORPHING"
 DIRECT_MORPHING_NODES = "RIGID"
 
+#: The workflows a row may choose direct morphing on (FR-341, FR-3404): the
+#: rotor blade's, a quasi-steady sector or the unsteady march.
+DIRECT_MORPHING_WORKFLOWS: tuple[str, ...] = (QUASI_STEADY_WORKFLOW, "unsteady_rotor")
+
+
+def _warn_of_an_unverified_direct_morphing(case: SimCase, version: str | FsVersion) -> None:
+    """Warn where the build's database records the direct command and not verified (FR-3404)."""
+    if case.fsi is None or case.fsi.morphing != DIRECT_MORPHING:
+        return
+    entry = CommandRegistry.load().commands.get(DIRECT_MORPHING_COMMAND)
+    if entry is None:
+        return
+    resolved = resolve_version(version)
+    evidence = entry.evidence_in(resolved)
+    if evidence is None or evidence.record.status is Status.VERIFIED:
+        return
+    warn(
+        f"case {case.sim_id!r}: {DIRECT_MORPHING_COMMAND} is documented and not verified on "
+        f"FlightStream {resolved.canonical} in the command database; it is emitted, and no "
+        "probe on that build has judged it yet.",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+
 
 def direct_morphing_refusal(
     case: SimCase, *, workflow: str, version: str | FsVersion
 ) -> str | None:
     """Return why a row's direct mesh morphing is refused, or None (FR-678).
 
-    Direct morphing is offered where it was measured: a ``qsteady_rotor`` row
-    (whose builder accepts FSI on a periodic sector alone), on a build whose
-    command database records :data:`DIRECT_MORPHING_COMMAND`. On
-    ``unsteady_rotor`` the morph of a rotating blade lands at the azimuth it
-    was imported at; the fixed wing couples through its structural nodes.
+    Direct morphing couples a rotor blade: a ``qsteady_rotor`` row (whose
+    builder accepts FSI on a periodic sector alone) or an ``unsteady_rotor``
+    row (FR-3404, planned with the warning of :data:`FSI_ROTOR_IN_DEBUG`), on
+    a build whose command database records :data:`DIRECT_MORPHING_COMMAND`;
+    where the database records it and not verified, the plan warns and emits
+    it (:func:`validate_workspace_fsi`). The fixed wing couples through its
+    structural nodes. A build without the command cannot write it, so that
+    alone is refused.
 
     Parameters
     ----------
@@ -178,18 +208,12 @@ def direct_morphing_refusal(
     """
     if case.fsi is None or case.fsi.morphing != DIRECT_MORPHING:
         return None
-    if workflow == "unsteady_rotor":
+    if workflow not in DIRECT_MORPHING_WORKFLOWS:
         return (
-            "direct morphing (morphing = 'direct' in the FSI input) is not offered on "
-            "unsteady_rotor: the solver morphs a rotating blade at the azimuth it was "
-            "imported at, not where the rotation has carried it. Couple the blade as a "
-            "quasi-steady sector (qsteady_rotor with SYMMETRY PERIODIC), or leave morphing out."
-        )
-    if workflow != QUASI_STEADY_WORKFLOW:
-        return (
-            f"direct morphing (morphing = 'direct' in the FSI input) couples a quasi-steady "
-            f"rotor sector, and the row runs {workflow}. Leave morphing out to couple through "
-            "the structural nodes, or run the blade as a qsteady_rotor sector."
+            f"direct morphing (morphing = 'direct' in the FSI input) couples a rotor blade "
+            f"({' or '.join(DIRECT_MORPHING_WORKFLOWS)}), and the row runs {workflow}. Leave "
+            "morphing out to couple through the structural nodes, or run the blade as a "
+            "qsteady_rotor sector."
         )
     registry = CommandRegistry.load()
     view = registry.for_version(version)
@@ -845,6 +869,7 @@ def _refuse_the_workflow(case: SimCase, workflow: str, version: str | FsVersion)
         refusal = fsi_workflow_refusal(workflow)
     if refusal is not None:
         raise CampaignConfigError(f"case {case.sim_id!r}: {refusal}")
+    _warn_of_an_unverified_direct_morphing(case, version)
 
 
 def wire_workspace_fsi(

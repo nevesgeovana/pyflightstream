@@ -281,15 +281,14 @@ def test_deflected_nodes_are_refused_naming_the_measured_gap_fr_341():
 @pytest.mark.parametrize(
     ("workflow", "words"),
     [
-        ("unsteady_rotor", "the azimuth it was imported at"),
+        # FR-3404 (0.52.0): unsteady_rotor takes direct morphing, so it left this
+        # list (test_p0520_norefusal_direct.py); the fixed wing stays refused.
         ("steady", "the row runs steady"),
         ("unsteady", "the row runs unsteady"),
     ],
 )
-def test_direct_morphing_outside_a_quasi_steady_sector_is_refused_at_plan_fr_341(
-    tmp_path, workflow, words
-):
-    """P0370-S6-DIRECT-MORPHING (FR-341): another workflow hears the direct refusal first."""
+def test_direct_morphing_outside_a_rotor_blade_is_refused_at_plan_fr_341(tmp_path, workflow, words):
+    """P0370-S6-DIRECT-MORPHING (FR-341): a fixed-wing workflow hears the direct refusal first."""
     case = _sector(tmp_path, morphing="direct")
     with pytest.raises(CampaignConfigError) as caught:
         validate_workspace_fsi(case, Script("26.124"), workflow=workflow, continuation=False)

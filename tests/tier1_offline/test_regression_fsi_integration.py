@@ -192,11 +192,17 @@ class TestFsiDriver:
     """  # noqa: E501
 
     @staticmethod
-    def test_p0400_directroute_the_unsteady_route_refuses_direct_morphing(tmp_path):
-        """P0400-DIRECTROUTE: the phase machine writes structural-node rows only."""
+    def test_p0400_directroute_the_unsteady_route_reads_the_vertices_the_solver_lists(tmp_path):
+        """P0400-DIRECTROUTE, P0520-NOREFUSAL-DIRECT-DRIVER: the march writes vertex rows.
+
+        THE EXPECTATION CHANGED WITH THE REQUIREMENT (FR-3404): the unsteady rotor
+        route takes direct morphing and writes one row per vertex the solver lists,
+        so a call without the solver's vertex list is refused naming that file,
+        and writes nothing.
+        """
         _fsi_driver__stage_run(tmp_path, _fsi_driver___direct(_fsi_driver__driver_config()))
         _fsi_driver__write_loads(tmp_path, 100)
-        with pytest.raises(FsiInputError, match="unsteady rotor route"):
+        with pytest.raises(FsiInputError, match="FSInodes.txt"):
             driver.coupling_step(tmp_path)
         assert not (tmp_path / driver.DISPLACEMENT_FILE).exists()
 

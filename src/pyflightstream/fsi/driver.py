@@ -37,7 +37,7 @@ no loads parsing and no solve, so a stored deformation can be held
 fixed for sensitivity runs and Gate 2. The file holds one row per
 structural node, so a configuration with direct morphing, whose solver
 reads one row per surface vertex, is refused in frozen mode; direct
-morphing is honoured on the quasi-steady rotor route only.
+morphing is honoured on the quasi-steady and the unsteady rotor routes.
 
 The convergence log carries the config hash on every row (FSI-R15)
 and states the quasi-steady validity boundary in its header (DLV-007
@@ -566,6 +566,38 @@ def _write_displacements(run_dir: Path, state: FsiState, written: np.ndarray) ->
     state.previous_displacements = written.tolist()
 
 
+def _relaxed_station_rows(
+    state: FsiState,
+    layout: nodes.NodeOrderingMap,
+    solutions: Sequence[Any],
+    relaxation: float,
+) -> np.ndarray:
+    """Relax the structural-node rows of a direct run and keep them as its station state.
+
+    Under direct morphing the written rows are the solver's vertices, so the
+    deformation the next call's loads are projected on, and the twist the
+    unsteady route checks, are read from these node rows instead (FR-341,
+    FR-3404): d_old + lambda (d_calc - d_old) from the previous station state,
+    or from zeros.
+    """
+    rows = _mapped_displacements(layout, solutions)
+    previous = (
+        np.zeros_like(rows)
+        if state.station_displacements_m is None
+        else np.asarray(state.station_displacements_m)
+    )
+    relaxed = previous + relaxation * (rows - previous)
+    state.station_displacements_m = relaxed.tolist()
+    return relaxed
+
+
+def _rows_the_solver_reads(run_dir: Path, cfg: FsiConfig, layout: nodes.NodeOrderingMap) -> int:
+    """How many displacement rows this call writes: a vertex each under direct morphing."""
+    if cfg.morphing == DIRECT_MORPHING:
+        return len(_direct_morphing.read_aero_nodes(run_dir / _direct_morphing.AERO_NODES_FILE))
+    return layout.total_nodes
+
+
 def _relaxed(state: FsiState, computed: np.ndarray, relaxation: float) -> np.ndarray:
     """Relax the computed rows against the previous call's, d_old + lambda (d_calc - d_old).
 
@@ -924,13 +956,7 @@ def _steady_coupling_step(
     computed = _computed_displacements(run_dir, cfg, call.layout, solutions)
     written = _relaxed(state, computed, relaxation)
     if cfg.morphing == DIRECT_MORPHING:
-        station_rows = _mapped_displacements(call.layout, solutions)
-        previous = (
-            np.zeros_like(station_rows)
-            if state.station_displacements_m is None
-            else np.asarray(state.station_displacements_m)
-        )
-        state.station_displacements_m = (previous + relaxation * (station_rows - previous)).tolist()
+        _relaxed_station_rows(state, call.layout, solutions, relaxation)
     _write_displacements(run_dir, state, written)
     state.previous_twist_rad = [list(sol.elastic_twist_rad) for sol in solutions]
     _commit_call(
@@ -1352,7 +1378,11 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
     tip_flap_m = [0.0] * cfg.blade_count
     applied_twist_settled = True
     if solved is None or relaxation is None:
-        written = np.zeros((call.layout.total_nodes, 3))
+        written = np.zeros((_rows_the_solver_reads(run_dir, cfg, call.layout), 3))
+        if cfg.morphing == DIRECT_MORPHING:
+            # FR-3404: the applied station state of a direct run is the zero field too,
+            # so the next call projects its loads on the undeformed stations.
+            state.station_displacements_m = np.zeros((call.layout.total_nodes, 3)).tolist()
     else:
         # Refuse an unconverged structural result before writing displacements.
         # Share this check with the quasi-steady rotor call so a residual above
@@ -1361,12 +1391,20 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
         solutions = tuple(result.solution for result in solved)
         computed = _computed_displacements(run_dir, cfg, call.layout, solutions)
         written = _relaxed(state, computed, relaxation)
+        # The station rows the twist check decodes: the written rows on the mapped
+        # route, the relaxed station state under direct morphing (FR-3404), whose
+        # written rows are the vertices'.
+        station_rows = (
+            _relaxed_station_rows(state, call.layout, solutions, relaxation)
+            if cfg.morphing == DIRECT_MORPHING
+            else written
+        )
         state.previous_twist_rad = [list(sol.elastic_twist_rad) for sol in solutions]
         columns = _rotating_log_columns(solved)
         tip_twist_deg = [math.degrees(sol.elastic_twist_rad[-1]) for sol in solutions]
         tip_flap_m = [sol.flap_deflection_m[-1] for sol in solutions]
         for translations, solution in zip(
-            nodes.unflatten_translations(call.layout, written), solutions, strict=True
+            nodes.unflatten_translations(call.layout, station_rows), solutions, strict=True
         ):
             _, applied_twist = kinematics.decode_station_translations(
                 translations,
@@ -1470,29 +1508,24 @@ def _hold_the_state_to_the_config(run_dir: Path, cfg: FsiConfig, state: FsiState
 def _refuse_direct_morphing_off_its_route(
     cfg: FsiConfig, *, frozen: bool, quasi_steady: bool
 ) -> None:
-    """Refuse direct morphing on a route that writes structural-node rows (PFS-2085.006).
+    """Refuse direct morphing on the frozen replay, which writes structural-node rows.
 
-    Only the quasi-steady rotor route evaluates the beam at the vertices the
-    solver lists (FR-341). The unsteady rotor's phase machine and the frozen
-    replay write, and hold a file to, one row per structural node, while
-    under direct morphing the solver reads one row per vertex of
-    ``FSInodes.txt``, so either would hand it a file of the wrong length
-    (PFS-2085.014). The configuration refuses direct morphing on a wing
-    itself.
+    The quasi-steady rotor route (FR-341) and the unsteady rotor route
+    (FR-3404) evaluate the beam at the vertices the solver lists. The frozen
+    replay holds its file to one row per structural node, while under direct
+    morphing the solver reads one row per vertex of ``FSInodes.txt``, so it
+    would hand the solver a file of the wrong length (PFS-2085.014). The
+    configuration refuses direct morphing on a wing itself. ``quasi_steady``
+    names the route in the message.
     """
-    if cfg.morphing != DIRECT_MORPHING or (quasi_steady and not frozen):
+    if cfg.morphing != DIRECT_MORPHING or not frozen:
         return
-    route = (
-        f"the frozen replay ({FROZEN_FILE}), which holds its file to the structural node rows"
-        if frozen
-        else "the unsteady rotor route, whose phase machine writes one row per structural node"
-    )
+    route = "quasi-steady rotor" if quasi_steady else "unsteady rotor"
     raise FsiInputError(
-        "the configuration asks for direct morphing (morphing = 'direct', FR-341), which "
-        "this executable honours only on the quasi-steady rotor route, where the beam is "
-        "evaluated at every vertex the solver lists; this run folder is on "
-        f"{route}. Leave morphing out of config.json, or stage the run as a quasi-steady "
-        f"rotor sector ({QUASI_STEADY_ROTOR_FILE}) without a frozen file"
+        "the configuration asks for direct morphing (morphing = 'direct', FR-341), and this "
+        f"{route} run folder holds the frozen replay ({FROZEN_FILE}), which holds its file "
+        "to the structural node rows while the solver reads one row per vertex it lists. "
+        f"Remove {FROZEN_FILE} to couple, or leave morphing out of config.json to replay"
     )
 
 
@@ -1532,9 +1565,9 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         Also if the log's columns do not match the expected trace layout
         (FR-339), or the loads export has no finite time increment.
 
-        Also if the configuration asks for direct morphing on the
-        unsteady rotor route or in a frozen replay: only the quasi-steady
-        rotor route writes the vertex rows the solver then reads.
+        Also if the configuration asks for direct morphing in a frozen
+        replay, whose file holds the structural node rows and not the
+        vertex rows the solver then reads.
     StaleLoadsError
         If the loads export's solver iteration is not ahead of the
         previous call's: the solver is running more than one FSI

@@ -177,11 +177,18 @@ must match the complete table, and every node row must contain nine finite
 numbers. A truncated or malformed row refuses the call rather than shifting
 the displacement rows onto different vertices.
 
-Refused by the plan, each naming the remedy: `morphing = "direct_deflected"`; `"direct"` on
-`unsteady_rotor` (the morph of the rotating blade lands at the azimuth it was
-imported at), on `steady` and `unsteady` (a fixed wing couples through its
-structural nodes), on a wheel, and on a build that does not run the command. Leaving `morphing` out, or stating
-`"mapped"`, uses the mapped displacement route.
+A coupled `unsteady_rotor` blade takes the same route (FR-3404): the direct
+command, in the blade's rotating frame, replaces the node import before
+`START_SOLVER`, and every call of the march writes one row per listed vertex,
+zeros while the wake develops and the relaxed beam solution after. The row
+carries the rotor warning [above](#which-workflows-accept-fsi). Where the
+command database records the command documented and not verified on the row's
+build, the plan warns, naming the command and the build, and emits it.
+
+Refused by the plan, each naming the remedy: `morphing = "direct_deflected"`; `"direct"`
+on `steady` and `unsteady` (a fixed wing couples through its structural nodes),
+on a wheel, and on a build that does not run the command. Leaving `morphing`
+out, or stating `"mapped"`, uses the mapped displacement route.
 
 ## Fixed-wing FSI
 
