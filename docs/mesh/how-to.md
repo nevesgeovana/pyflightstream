@@ -518,8 +518,8 @@ Open `<level>.refine-governors.pdf` beside the resulting OBJ. Its first page
 lists each governing family, the direction it governs (PARALLEL or NORMAL), its
 bands and the number of families it governs. Then one page per governing family
 and direction shows the whole aircraft faint, the governing family in a strong
-color and every family it governs in that direction in a lighter tint of it,
-whatever their component. Each output family or component then has a patches
+color and every family it governs in that direction in a color of its own,
+whatever their component, named in the legend with the governing one in bold. Each output family or component then has a patches
 page and a directions page with the same colors and P/N labels as preparation.
 Recorded continuity changes are annotated. `visual-inspect` on the level OBJ
 writes `<level>.inspect.pdf`, a separate file.

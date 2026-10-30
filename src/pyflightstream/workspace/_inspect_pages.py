@@ -459,22 +459,28 @@ def _governors_summary(pdf, name, pages, specs, *, dpi):
 
 
 def _governor_page(pdf, scene, views, governor, *, strong, factor, unit, dpi):
-    """Fill the governor strongly and the families it governs in a tint over the faint outline."""
+    """Fill the governor strongly and each family it governs in its own color."""
     import matplotlib.pyplot as plt
     from matplotlib.patches import Patch
 
     lead, direction, entry = governor
-    tint = (*(0.45 * c + 0.55 for c in strong[:3]), 1.0)
     governed = [n for n in scene.names if n in entry["families"]]
-    fills = {**dict.fromkeys(scene.names, _FAINT), **dict.fromkeys(governed, tint), lead: strong}
+    # tab20 pairs a dark and a light shade of each tab10 hue: leave out both shades of
+    # the governor's hue so no governed family reads as the governor.
+    hues = plt.get_cmap("tab10").colors
+    hue = min(range(len(hues)), key=lambda k: float(np.sum((np.array(hues[k]) - strong[:3]) ** 2)))
+    palette = [c for i, c in enumerate(plt.get_cmap("tab20").colors) if i // 2 != hue]
+    colors = {n: (*palette[i % len(palette)], 1.0) for i, n in enumerate(governed)}
+    fills = {**dict.fromkeys(scene.names, _FAINT), **colors, lead: strong}
     if len(scene.faces):
         scene.base = np.array([fills[n] for n in scene.names])[scene.owner]
-    scene.labelled = {lead, *governed}
-    # The title names the direction; a framed label over the lead would repeat it and hide the mesh.
+    # The legend names every colored family and the title the direction; labels over the
+    # mesh would repeat them and hide it.
+    scene.labelled = set()
     scene.highlight = set()
     scene.highlight_labels = {}
     fig = plt.figure(figsize=PAGE)
-    views_page(fig, scene, views, [], [], labels=True, unit=unit)
+    views_page(fig, scene, views, [], [], labels=False, unit=unit)
     pw, ph = fig.get_size_inches()
     fig.suptitle(
         f"{lead} governs the {direction.upper()} direction",
@@ -496,11 +502,13 @@ def _governor_page(pdf, scene, views, governor, *, strong, factor, unit, dpi):
         va="top",
         fontsize=7,
     )
-    handles = [Patch(facecolor=strong, edgecolor="0.2", label=f"{lead} (governing)")]
-    handles += [Patch(facecolor=tint, edgecolor="0.4", label=n) for n in governed]
+    handles = [
+        Patch(facecolor=strong, edgecolor="black", linewidth=1.5, label=f"{lead} (GOVERNING)")
+    ]
+    handles += [Patch(facecolor=colors[n], edgecolor="0.4", label=n) for n in governed]
     handles.append(Patch(facecolor=_FAINT, edgecolor="0.6", label="other families (outline)"))
     size = 6 if len(handles) <= 40 else max(3.0, 6 * 40 / len(handles))
-    fig.legend(
+    legend = fig.legend(
         handles=handles,
         loc="upper left",
         fontsize=size,
@@ -510,6 +518,8 @@ def _governor_page(pdf, scene, views, governor, *, strong, factor, unit, dpi):
         ncol=1 if len(handles) <= 40 else 2,
         borderaxespad=0,
     )
+    legend.get_texts()[0].set_fontweight("bold")
+    legend.get_texts()[0].set_fontsize(size + 1)
     pdf.savefig(fig, dpi=dpi)
     plt.close(fig)
 

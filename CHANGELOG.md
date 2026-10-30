@@ -16,7 +16,7 @@ FlightStream versions.
   `visual-inspect` on the level OBJ no longer replaces it. The PDF opens with a
   summary of the governing families and one page per governing family and
   direction: the aircraft outline faint, the governing family in a strong
-  color, the families it governs in that direction (any component) in a tint,
+  color, each family it governs in that direction (any component) in its own color, named in a legend with the governing one in bold,
   and a title saying PARALLEL or NORMAL with the bands, counts and factor. The
   patches and directions pages follow as before (FR-3398).
   migration: open `<level>.refine-governors.pdf` where `<level>.inspect.pdf` was read

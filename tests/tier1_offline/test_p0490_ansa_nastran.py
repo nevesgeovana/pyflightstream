@@ -1466,6 +1466,69 @@ def test_p0502_component_governor_governs_its_other_refined_grids(tmp_path, monk
     assert not any("GOVERNS " in page for page in pages[1:3])
 
 
+def test_p0502_governor_pages_name_families_in_a_legend_of_distinct_colors(tmp_path, monkeypatch):
+    """No label over the views; a bold governor and one color per governed family."""
+    from types import SimpleNamespace
+
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    from pyflightstream.workspace._inspect_pages import refined_pdf
+    from pyflightstream.workspace._refine._config import FamilySpec
+
+    seen = []
+    save = PdfPages.savefig
+
+    def capture(pdf, fig, **kwargs):
+        legend = fig.legends[0] if fig.legends else None
+        seen.append(
+            {
+                "view_texts": [t.get_text() for ax in fig.axes for t in ax.texts],
+                "labels": [t.get_text() for t in legend.get_texts()] if legend else [],
+                "weights": [t.get_fontweight() for t in legend.get_texts()] if legend else [],
+                "colors": [tuple(p.get_facecolor()) for p in legend.get_patches()]
+                if legend
+                else [],
+            }
+        )
+        return save(pdf, fig, **kwargs)
+
+    monkeypatch.setattr(PdfPages, "savefig", capture)
+    vertices = np.array([[x, y, 0.0] for x in range(5) for y in range(2)], dtype=float)
+    quad = lambda i: [[2 * i, 2 * i + 2, 2 * i + 3, 2 * i + 1]]  # noqa: E731
+    work = SimpleNamespace(
+        mesh=SimpleNamespace(verts=vertices, families={n: quad(i) for i, n in enumerate("ABCK")}),
+        bands={},
+        parts={},
+        specs={
+            "A": FamilySpec(method="grid", spanwise=2.0),
+            "B": FamilySpec(method="grid", chordwise=3.0),
+            "C": FamilySpec(method="grid_auto"),
+            "K": FamilySpec(method="keep"),
+        },
+        layouts={},
+        te_unit="METER",
+    )
+    record = tmp_path / "level.refine.json"
+    record.write_text(
+        json.dumps(
+            {
+                "components": {"Wing": ["A", "B", "C", "K"]},
+                "component_governors": {"Wing": {"parallel": "A", "normal": "B"}},
+                "families": {},
+                "layouts": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    refined_pdf(work, tmp_path / "level.obj", record)
+    page = seen[1]
+    assert not set("ABCK") & set(page["view_texts"])
+    assert page["labels"][0] == "A (GOVERNING)" and page["weights"][0] == "bold"
+    assert page["labels"][1:3] == ["B", "C"]
+    lead, *governed = page["colors"][:3]
+    assert len({lead, *governed}) == 3
+
+
 def test_p0490_visual_strict_factor_refusal_has_pdf_and_location(tmp_path):
     (tmp_path / "source").mkdir()
     source = _export(tmp_path / "source/sheet.nas", wide=False, perimeter=_middle_line())

@@ -968,9 +968,10 @@ and `component_governors` of `refine.json`. A summary page tabulates each
 governing family, its direction, its bands with their counts, its factor in that
 direction and the number of families it governs. One page follows per governing
 family and direction, in name order, parallel first: the whole mesh in faint grey
-with grey perimeters, the governing family filled in a strong color and labelled
-with its name, the page title naming the PARALLEL or NORMAL direction, and every family it governs in that direction
-filled in a lighter tint of that color and labelled. A family is governed when
+with grey perimeters, the governing family filled in a strong color, and every
+family it governs in that direction filled in a color of its own. The page title
+names the PARALLEL or NORMAL direction; the views carry no labels, and the legend
+names each colored family, the governing one first in bold. A family is governed when
 one of its patches holds an arc of a band the governing family leads, or, under
 `keep_within_component`, when it is another refined grid of the component the
 governing family governs; its component does not matter. The title states
