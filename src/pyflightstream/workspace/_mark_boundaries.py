@@ -16,7 +16,12 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import InputArtifactError, PyflightstreamError
+from pyflightstream._errors import (
+    InputArtifactError,
+    PyflightstreamError,
+    PyflightstreamWarning,
+    warn,
+)
 from pyflightstream._fsm import (
     boundary_names,
     saved_base_regions,
@@ -840,7 +845,13 @@ def _bind_fsi_marking(case):
 
 
 def _emit_fsi_marking(source, imported_mesh, script):
-    """Reload declarations at each import and use the planner's verified command gate."""
+    """Reload declarations at each import and read the planner's verified command gate.
+
+    A marking command documented and not verified on the row's build is warned,
+    naming the commands and the build, and emitted (FR-3404): the build's
+    database has not judged it, which a probe on that build settles; a command
+    the build does not have is still refused by the emitter.
+    """
     inputs = _marking_inputs(source)
     source, sidecar, declarations, spec, names, faces = inputs
     routes = _node_routes(sidecar, declarations, spec)
@@ -849,8 +860,13 @@ def _emit_fsi_marking(source, imported_mesh, script):
     # The marking phase is scoped to the import; the ordinary solver phase guard resumes.
     preview = _plan_mark_boundaries(inputs, routes, script.registry)
     if preview.awaiting_evidence:
-        raise InputArtifactError(
-            f"{sidecar}: FSI marking awaits VERIFIED evidence: {preview.awaiting_evidence}"
+        warn(
+            f"{sidecar.name}: the FSI boundary marking emits "
+            f"{', '.join(preview.awaiting_evidence)}, documented and not verified on "
+            f"FlightStream {script.version.canonical} in the command database; no probe on "
+            "that build has judged them yet.",
+            PyflightstreamWarning,
+            stacklevel=2,
         )
     imported = Path(imported_mesh)
     if file_sha256(imported) != file_sha256(source):

@@ -561,5 +561,7 @@ configuration-change handling. Both controls are absent or false by default.
 
 FSI rows retain raw OBJ imports and read named declarations from
 `<mesh>.obj.boundaries.toml` through the strict marking loader. Each import
-uses the same D3 emitter and VERIFIED command gate as `mark-boundaries`.
+uses the same D3 emitter and VERIFIED command gate as `mark-boundaries`; on a
+coupled row the gate warns, naming each marking command documented and not
+verified on the row's build and the build, and the commands are emitted.
 Every other matrix row requires a prepared `.fsm`.

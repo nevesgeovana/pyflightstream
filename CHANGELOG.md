@@ -26,6 +26,12 @@ FlightStream versions.
   warns, naming the command and the build, and emits it.
   A frozen replay with direct morphing is still refused: its file holds the
   structural node rows.
+- The boundary marking of a coupled (FSI) row no longer refuses a marking
+  command (for example `IMPORT_WAKE_EDGES_FROM_FILE` or
+  `AUTO_DETECT_WAKE_TERMINATION_NODES`) that the command database records
+  documented and not verified on the row's build (FR-3404): the plan warns,
+  naming the commands and the build, and emits them.
+  migration: such a row is planned with the warning where it was blocked.
 
 ## [0.51.0] - 2026-10-30
 

@@ -477,6 +477,7 @@ all affected rows. It does not prevent planning.
 
 FSI rows retain raw OBJ imports because coupling requires the mesh at each import.
 They read `<mesh>.obj.boundaries.toml` with the same strict named declarations as
-`mark-boundaries` and use its marking emitter and VERIFIED command gate at each import.
+`mark-boundaries` and use its marking emitter and VERIFIED command gate at each import,
+where a command documented and not verified on the row's build is warned and emitted.
 Every other matrix row requires an `.fsm`; prepare it once with
 `pyfs-workspace geometry mark-boundaries <mesh>.obj --apply`.

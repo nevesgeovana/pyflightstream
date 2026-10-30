@@ -648,8 +648,8 @@ def test_p0460_fsi_uses_the_planner_evidence_gate(tmp_path, monkeypatch):
             }
         }
     )
-    with pytest.raises(
-        InputArtifactError,
-        match="VERIFIED.*AUTO_DETECT_TRAILING_EDGES",
-    ):
-        _lines(case)
+    # THE EXPECTATION CHANGED WITH THE REQUIREMENT (FR-3404, 0.52.0): the gate's
+    # finding is warned, naming the command and the build, and the command emitted.
+    with pytest.warns(Warning, match="AUTO_DETECT_TRAILING_EDGES.*not verified"):
+        lines, _ = _lines(case)
+    assert any(line.startswith("AUTO_DETECT_TRAILING_EDGES") for line in lines)
