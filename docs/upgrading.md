@@ -7,6 +7,20 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.50.2
+
+`refine --visual-inspect` now writes `<level>.refine-governors.pdf` beside the
+level's `refine.json`, where it wrote `<level>.inspect.pdf`; open the new file
+where the old one was read. It starts with a summary of the governing families
+and one page per governing family and direction, then the patches and
+directions pages as before. The standalone `visual-inspect` command still
+writes `<mesh>.inspect.pdf` (FR-3398).
+
+A grid family that was split into patches of one interval at a neighbour's
+extra node now coarsens as the macro it came from; a level refined again with
+0.50.2 can have fewer faces on such families than the same level refined with
+0.50.1 (FR-3397).
+
 ## 0.50.1
 
 A matrix row whose `ROTATE` or `TRANSLATE` AXIS is not of the form frame-axis
