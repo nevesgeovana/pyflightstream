@@ -521,7 +521,7 @@ def plan_matrix(
     selected_rows, sims = _selected(path, workspace, name, recipes, sims=sims, points=points)
     # Read once: a second read would repeat each malformed-row warning (FR-3391).
     selected_rows = read_matrix(path) if selected_rows is None else selected_rows
-    default = settle_the_matrix_default(
+    default, selected_rows = settle_the_matrix_default(
         path, default, selected_rows, workspace, fs_exe=fs_exe, accepted=accept_unregistered_build
     )
     resolved = resolve_matrix(
@@ -1010,7 +1010,7 @@ def run_matrix(
     selected_rows, sims = _selected(
         path, workspace, name, recipes, sims=sims, points=points, redoing=force_rerun_all
     )
-    default = settle_the_matrix_default(
+    default, selected_rows = settle_the_matrix_default(
         path, default, selected_rows, workspace, fs_exe=fs_exe, accepted=accept_unregistered_build
     )
     resolved = resolve_matrix(

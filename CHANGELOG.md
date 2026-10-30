@@ -47,14 +47,17 @@ FlightStream versions.
 
 ### Fixed
 
-- `--accept-unregistered-build` applies to the builds the matrix rows state
-  (FR-3405): a row whose FS_BUILD names a build id the package does not
-  register, mapped in `inputs/executables.toml`, is planned and run without
-  `--fs-version`. Its scripts are written for the version its entry declares
-  (`version = "..."`), else for the newest registered version not after the
-  build id, which the plan names in a warning. A matrix whose first build
-  entry declares a version now binds the campaign to that version rather than
-  to the build id. Without the flag such rows stay refused.
+- `--accept-unregistered-build` accepts a build the package does not register
+  (FR-3405), such as a new vendor build mapped in `inputs/executables.toml`,
+  wherever the run names it: in the rows' FS_BUILD, in `--fs-version` (rows
+  with an empty FS_BUILD run on it), or in both. Plan and run refused it in
+  all three forms ("FlightStream version ... is not registered"). It now runs
+  on the executable of its entry, and its scripts are written for the version
+  the entry declares (`version = "..."`), else with the command database of
+  the newest registered version at or below it, which the plan names in a
+  warning. A matrix whose first build entry declares a version now binds the
+  campaign to that version rather than to the build id. Without the flag such
+  a build stays refused.
 
 ## [0.51.0] - 2026-10-30
 

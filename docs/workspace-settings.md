@@ -128,13 +128,15 @@ state. In `inputs/executables.toml` the key is refused, naming the key and the
 file. However it is stated, the run warns on every run exactly as the option
 does, naming where the acceptance came from.
 
-A row may name a build the package does not register yet, such as a new
-vendor build mapped in `inputs/executables.toml`. With
-`--accept-unregistered-build` and no `--fs-version`, its scripts are written
-for the version its entry declares (`version = "..."` on a table entry), or,
-when the entry declares none, for the newest registered version not after the
-build id, and the plan warns, naming both. `--fs-version` or a declared
-`version` chooses another.
+A run may name a build the package does not register yet, such as a new
+vendor build mapped in `inputs/executables.toml`, in the rows' `FS_BUILD`, in
+`--fs-version`, or in both. With `--accept-unregistered-build` it runs on the
+executable of that build's entry, and its scripts are written for the version
+the entry declares (`version = "..."` on a table entry), or, when it declares
+none, with the command database of the newest registered version at or below
+the build id; the plan warns, naming both. A row whose `FS_BUILD` is empty
+runs on the build `--fs-version` names. Without the flag such a build is
+refused.
 
 ## What the plan and the records say
 

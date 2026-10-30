@@ -19,7 +19,7 @@ import subprocess
 import tempfile
 import warnings
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -1004,31 +1004,43 @@ def _check_scheduled_builds(
 def settle_the_matrix_default(
     path: str | Path,
     default: str | None,
-    rows: Sequence[MatrixRow] | None,
+    rows: list[MatrixRow] | None,
     workspace: CampaignWorkspace,
     *,
     fs_exe: str | Path | None,
     accepted: bool,
-) -> str | None:
-    """Return the campaign default a matrix binds with, refusing a run naming no build.
+) -> tuple[str | None, list[MatrixRow] | None]:
+    """Return the campaign default and rows a matrix binds with, refusing a run naming no build.
 
     Both entry points of :mod:`pyflightstream.run.matrix` call this BETWEEN
     resolving the default and calling
     :func:`~pyflightstream.workspace.matrix.resolve_matrix`, the one position
     where a refusal leaves no campaign, executable or executor behind
-    (PFS-2009.08.03). With acceptance, no default and no executable override,
-    an accepted unregistered build of the rows gives the default its scripts
-    are written for (:func:`default_for_accepted_builds`, FR-3405); then a
-    silent row with no default is refused
+    (PFS-2009.08.03). With acceptance and no executable override, an
+    unregistered build, named by ``--fs-version`` or by the rows, gives the
+    version its scripts are written for (:func:`default_for_accepted_builds`,
+    FR-3405); then a silent row with no default is refused
     (:func:`~pyflightstream.cases.matrix.refuse_silent_rows_without_default`).
-    The rows are read here when the caller holds none.
+    The rows are read here when the caller holds none, and returned as given
+    unless the acceptance filled their FS_BUILD cells.
     """
-    rows = read_matrix(path) if rows is None else rows
-    if default is None and accepted and fs_exe is None:
-        named = [row.fs_build for row in rows]
-        default = default_for_accepted_builds(None, named, workspace.inputs_dir, accepted=True)
-    refuse_silent_rows_without_default(list(rows), default, path)
-    return default
+    read = read_matrix(path) if rows is None else list(rows)
+    if accepted and fs_exe is None:
+        default, read, filled = default_for_accepted_builds(default, read, workspace.inputs_dir)
+        rows = read if filled else rows
+    refuse_silent_rows_without_default(read, default, path)
+    return default, rows
+
+
+def _registered(version: str) -> bool:
+    """Whether the package registers ``version``; an alias the binding judges counts as one."""
+    try:
+        resolve(version)
+    except UnknownVersionError:
+        return False
+    except ValueError:
+        return True
+    return True
 
 
 def _release_key(build_id: str) -> tuple[int, int] | None:
@@ -1037,58 +1049,11 @@ def _release_key(build_id: str) -> tuple[int, int] | None:
     return (int(head), int(tail)) if head.isdigit() and tail.isdigit() else None
 
 
-def default_for_accepted_builds(
-    default: str | None,
-    named_builds: Sequence[str],
-    inputs_dir: Path,
-    *,
-    accepted: bool,
-) -> str | None:
-    """Give an accepted unregistered build the version its scripts are written for (FR-3405).
-
-    With ``--accept-unregistered-build`` and no ``--fs-version``, a matrix whose
-    first named build is a build id the package does not register (a newer
-    vendor build mapped in ``executables.toml``) has no version to write its
-    scripts for. The registry entry's declared ``version`` answers when it has
-    one, and the campaign binding reads it; an entry declaring none takes the
-    newest registered version not after the build id (the newest registered
-    one for an id of another shape), and the plan warns, naming both and how to
-    pin another. Everything else returns ``default`` unchanged, so a run that
-    states its default, states no acceptance, or names a registered build is
-    untouched.
-
-    Parameters
-    ----------
-    default : str or None
-        The campaign default version the caller was given.
-    named_builds : sequence of str
-        The build ids the active rows name, in file order.
-    inputs_dir : Path
-        The workspace ``inputs/`` directory carrying the build registry.
-    accepted : bool, keyword-only
-        Whether the invocation accepts an unregistered build.
-
-    Returns
-    -------
-    str or None
-        The default the campaign binds with.
-    """
-    first = next((build.strip() for build in named_builds if build.strip()), "")
-    if default is not None or not accepted or not first or first.upper() == "MANUAL":
-        return default
-    try:
-        resolve(first)
-        return default
-    except UnknownVersionError:
-        pass
-    try:
-        if resolve_build(inputs_dir, first).fs_version:
-            return default
-    except InputArtifactError:
-        return default  # the binding refuses it, naming the registry
-    order = _release_key(first)
+def _command_database_for(build_id: str) -> FsVersion:
+    """Return the newest registered version at or below ``build_id``, else the newest of all."""
+    order = _release_key(build_id)
     known = known_versions()
-    chosen = next(
+    return next(
         (
             v
             for v in reversed(known)
@@ -1096,13 +1061,73 @@ def default_for_accepted_builds(
         ),
         known[-1],
     )
+
+
+def default_for_accepted_builds(
+    default: str | None,
+    rows: list[MatrixRow],
+    inputs_dir: Path,
+) -> tuple[str | None, list[MatrixRow], bool]:
+    """Give an accepted unregistered build the version its scripts are written for (FR-3405).
+
+    Under ``--accept-unregistered-build`` a build id the package does not
+    register (a newer vendor build mapped in ``executables.toml``) runs on the
+    executable its registry entry names and writes its scripts with the command
+    database of the newest registered version at or below it, warned once,
+    naming both:
+
+    - named by ``--fs-version``: that version becomes the campaign default and
+      every row whose FS_BUILD cell is empty names the build id, so its
+      executable is still the entry of that id;
+    - named by the first row that names a build, with no ``--fs-version``: an
+      entry declaring ``version`` answers through the campaign binding, and an
+      entry declaring none gives the campaign default.
+
+    A registered build, a MANUAL cell and an id the registry lacks (refused by
+    the binding, naming the registry) leave ``default`` and the rows as they are.
+
+    Parameters
+    ----------
+    default : str or None
+        The campaign default version the caller was given.
+    rows : list of MatrixRow
+        The active rows, in file order.
+    inputs_dir : Path
+        The workspace ``inputs/`` directory carrying the build registry.
+
+    Returns
+    -------
+    tuple of (str or None, list of MatrixRow, bool)
+        The default the campaign binds with, the rows, and whether a row's
+        FS_BUILD cell was filled.
+    """
+    if default is not None and not _registered(default.strip()):
+        build = default.strip()
+        chosen = _command_database_for(build)
+        _warn_accepted(build, chosen, "--fs-version")
+        filled = [row if row.fs_build.strip() else replace(row, fs_build=build) for row in rows]
+        return chosen.canonical, filled, filled != rows
+    first = next((row.fs_build.strip() for row in rows if row.fs_build.strip()), "")
+    if default is not None or not first or first.upper() == "MANUAL" or _registered(first):
+        return default, rows, False
+    try:
+        if resolve_build(inputs_dir, first).fs_version:
+            return default, rows, False
+    except InputArtifactError:
+        return default, rows, False
+    chosen = _command_database_for(first)
+    _warn_accepted(first, chosen, "FS_BUILD")
+    return chosen.canonical, rows, False
+
+
+def _warn_accepted(build: str, chosen: FsVersion, source: str) -> None:
+    """Warn that an accepted unregistered build runs with a registered command database."""
     warnings.warn(
-        f"FS_BUILD {first!r} is not a FlightStream version this package registers, and "
-        f"{ACCEPT_UNREGISTERED_BUILD_FLAG} accepts it: its scripts are written for "
-        f"{chosen.canonical}, the newest registered version not after it. Declare "
-        f'version = "<version>" on its entry in executables.toml, or pass --fs-version, '
-        "to write them for another.",
+        f"{source} {build!r} is not a FlightStream version this package registers, and "
+        f"{ACCEPT_UNREGISTERED_BUILD_FLAG} accepts it: its scripts are written with the "
+        f"command database of {chosen.canonical}, the newest registered version at or below "
+        f"it, and run on the executable of its entry in executables.toml. Declare "
+        f'version = "<version>" on that entry to write them for another.',
         PyflightstreamWarning,
-        stacklevel=3,
+        stacklevel=4,
     )
-    return chosen.canonical
