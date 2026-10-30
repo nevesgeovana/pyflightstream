@@ -19,6 +19,7 @@ import dataclasses
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -2647,6 +2648,32 @@ def test_p0510_refine_writes_the_trailing_edge_nodes_in_the_solver_layout_for_te
     assert sorted(plan.nodes["Wing"]) == sorted(listed)
     assert plan.script.count("SELECT_MESH_NODE") == len(listed)
     assert "MARK_WAKE_TERMINATION_NODES" in plan.script
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("3\n0,0,0\n1,2,3\n4,5,6\n", "first line counts 3 nodes and 2 follow"),
+        ("2\n0,0,0\n1,2,3\n1,2\n", "line 4 is '1,2', not three finite numbers"),
+        ("2\n0,0,0\n1,2,3\nnan,0,0\n", "line 4 is 'nan,0,0', not three finite numbers"),
+    ],
+)
+def test_p0510_a_solver_layout_termination_file_that_disagrees_with_itself_is_refused(
+    tmp_path, text, message
+):
+    """FR-3401: a solver-layout nodes file whose count or a row is wrong is refused by name.
+
+    Control: the same file with the count and rows agreeing is read, in the mesh's unit.
+    """
+    from pyflightstream.workspace.wake_edges import _read_termination_points
+
+    path = tmp_path / "w.Wing.fs.nodes.txt"
+    path.write_text(text, encoding="utf-8")
+    with pytest.raises(InputArtifactError, match=re.escape(message)):
+        _read_termination_points(path, "MILLIMETER")
+    path.write_text("2\n0,0,0\n1,2,3\n4,5,6\n", encoding="utf-8")
+    read = _read_termination_points(path, "MILLIMETER")
+    assert read.unit == "MILLIMETER" and read.points.tolist() == [[1, 2, 3], [4, 5, 6]]
 
 
 def test_a_trailing_edge_listed_in_two_parts_is_one_perimeter():
