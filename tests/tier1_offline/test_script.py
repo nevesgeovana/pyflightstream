@@ -1632,9 +1632,10 @@ def test_every_cad_command_is_available_on_every_registered_build():
     registry = CommandRegistry.load()
     # SET_CCS_TE_BLEND_LENGTH is the one member that arrives LATER, with the
     # 26.125 edition (FR-423, FSM-26.125 p.298); it is pinned to that build here
-    # and kept out of the chapter the claim below is about.
+    # and kept out of the chapter the claim below is about. 26.126 carries the
+    # 26.125 rows (FR-3402).
     later = {"SET_CCS_TE_BLEND_LENGTH"}
-    assert set(registry.commands["SET_CCS_TE_BLEND_LENGTH"].versions) == {"26.125"}
+    assert set(registry.commands["SET_CCS_TE_BLEND_LENGTH"].versions) == {"26.125", "26.126"}
     members = sorted(
         name
         for name, entry in registry.commands.items()
@@ -1670,6 +1671,7 @@ def test_every_cad_command_is_available_on_every_registered_build():
         "26.123",
         "26.124",
         "26.125",
+        "26.126",
     ], (
         "the builds carrying the CAD chapter WHOLE are " + ", ".join(whole) + "; the "
         "chapter arrives at 26.100 and every build from there on documents all of it"
@@ -2085,6 +2087,8 @@ def test_the_renamed_selection_command_is_recorded_once_per_edition():
         "26.124",
         # 26.125 reads it unchanged in its own edition (FSM-26.125, FR-423).
         "26.125",
+        # 26.126 is read from FSM-26.125 and carries its row (FR-3402).
+        "26.126",
     ]
     Script(version="26.100").emit("SELECT_GEOMETRY_BY_ID", 2)
     Script(version="26.120").emit("SURFACE_SELECT_BY_ID", 2)
@@ -2144,6 +2148,7 @@ def test_the_two_surface_deletes_stop_at_the_edition_that_replaced_them():
         "26.123",
         "26.124",
         "26.125",
+        "26.126",
     ]
 
 
@@ -3467,7 +3472,7 @@ def test_the_wake_decay_constant_exists_in_the_hotfix_series_alone():
     here can only have come from reading an edition that does.
     """
     entry = CommandRegistry.load().commands["SET_WAKE_DECAY_CONSTANT"]
-    assert set(entry.versions) == {"26.121", "26.122", "26.123", "26.124", "26.125"}
+    assert set(entry.versions) == {"26.121", "26.122", "26.123", "26.124", "26.125", "26.126"}
     assert entry.manual_ref.startswith("FSM-26.121"), (
         "a command the flagship edition does not document cites the edition that does"
     )

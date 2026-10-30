@@ -112,9 +112,11 @@ def _lines(case, build: str) -> list[str]:
 
 @pytest.mark.requirement("FR-423")
 def test_the_registry_knows_26125_with_its_printed_release_and_build():
-    """P0370-S10-REGISTRY (FR-423): 26.125 is last, build 10052026, printing 2612."""
+    """P0370-S10-REGISTRY (FR-423): 26.125 follows 26.124, build 10052026, printing 2612."""
     version = resolve("26.125")
-    assert known_versions()[-1].canonical == "26.125"
+    # It was last until 26.126 was registered after it (FR-3402); the order it entered holds.
+    canonicals = [known.canonical for known in known_versions()]
+    assert canonicals[canonicals.index("26.124") + 1] == "26.125"
     assert (version.build, version.prints, version.alias) == ("10052026", "2612", "26.12")
     assert version.inherits_base is False
     assert manual_editions()["26.125"].startswith("FSM-26.125")
@@ -171,7 +173,8 @@ def test_the_new_commands_are_entered_on_26125_alone_with_a_probe_each():
     registry = CommandRegistry.load()
     for name in NEW_IN_26125:
         entry = registry.commands[name]
-        assert set(entry.versions) == {"26.125"}, name
+        # 26.126 carries every 26.125 row (FR-3402); no build before 26.125 gains one.
+        assert set(entry.versions) == {"26.125", "26.126"}, name
         row = entry.versions["26.125"]
         assert row.status is Status.DOCUMENTED or row.report.endswith(CAMPAIGN), name
         assert entry.manual_ref.startswith("FSM-26.125 p."), name

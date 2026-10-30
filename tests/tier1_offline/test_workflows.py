@@ -2434,6 +2434,7 @@ EXPECTED_SYMMETRY = {
     "26.123": ("NONE", "MIRROR", "PERIODIC"),
     "26.124": ("NONE", "MIRROR", "PERIODIC"),
     "26.125": ("NONE", "MIRROR", "PERIODIC"),
+    "26.126": ("NONE", "MIRROR", "PERIODIC"),  # carried from FSM-26.125 (FR-3402)
 }
 
 

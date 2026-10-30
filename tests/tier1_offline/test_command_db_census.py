@@ -135,6 +135,11 @@ EMITTABLE = {
     # ROSE by one: AUTO_DETECT_WAKE_TERMINATION_NODES is entered on 26.125, which
     # accepted it in the L4 licensed run (PFS-2131.001).
     "26.125": 378,
+    # 2026-10-30 (FR-3402): carried from 26.125, whose FSM-26.125 stays the
+    # reading (the 26.126 package ships an older edition). The three rows
+    # measured removed on 26.125 are documented here, since no run on this
+    # build has judged them yet: 378 plus three.
+    "26.126": 381,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned
@@ -225,6 +230,9 @@ VERIFIED = {
     # Seven marking promotions: CMP-26125_2026-10-26_marking.yaml.
     # FR-3350: five motion rows promoted by CMP-26125_2026-10-12_pfs2135-items.
     "26.125": 197,
+    # 2026-10-30 (FR-3402): registered with no run of its own; every row
+    # verified on 26.125 is documented here until a run on this build promotes it.
+    "26.126": 0,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the
