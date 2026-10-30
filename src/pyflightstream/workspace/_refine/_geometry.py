@@ -179,6 +179,34 @@ def below_family_area(area: Points, family: NDArray[numpy.int64]) -> NDArray[num
     return out
 
 
+def degenerate(
+    area: Points, min_angle: Points, family: NDArray[numpy.int64]
+) -> NDArray[numpy.bool_]:
+    """Return per face whether it is degenerate, the one rule of the repair and the audit.
+
+    A face is degenerate when its area is below ``DEGENERATE_AREA_FRACTION``
+    of its family's median face area (:func:`below_family_area`) or its
+    smallest angle is below ``DEGENERATE_ANGLE_DEGREES`` (FR-3403).
+
+    Parameters
+    ----------
+    area : ndarray
+        Each face's area, shape (F,).
+    min_angle : ndarray
+        Each face's smallest angle in degrees, shape (F,); NaN is never below.
+    family : ndarray
+        Each face's family, any integer label, shape (F,).
+
+    Returns
+    -------
+    ndarray of bool
+        True for a degenerate face.
+    """
+    with numpy.errstate(invalid="ignore"):
+        sharp = numpy.asarray(min_angle, dtype=float) < DEGENERATE_ANGLE_DEGREES
+    return below_family_area(area, family) | sharp
+
+
 def edge_faces(faces: Faces) -> dict[tuple[int, int], list[int]]:
     """Return each undirected edge (low vertex first) with the faces that use it."""
     out: dict[tuple[int, int], list[int]] = defaultdict(list)

@@ -762,7 +762,7 @@ FIGURE is reported and never judged.
 
 | gate | fails when |
 |---|---|
-| G1 | an edge is shared by more than two faces, two nodes sit at one position (within 1e-9 of the size, the diagonal of the bounding box), or a face has zero area: below 1e-12 of the size squared, or below 1e-3 of the median face area of its own family, so a sliver of a fine family is not hidden by the size of the whole mesh. Each such face is listed in `audit.json` under `degenerate_faces` |
+| G1 | an edge is shared by more than two faces, two nodes sit at one position (within 1e-9 of the size, the diagonal of the bounding box), or a face has zero area (`faces_of_zero_area`): below 1e-12 of the size squared, or below 1e-3 of the median face area of its own family, so a sliver of a fine family is not hidden by the size of the whole mesh. A face with an angle under 1 degree is counted (`faces_under_1_degree`) and judges nothing, since a source's own trailing-edge or pole triangles may be that sharp. Each degenerate face, of either kind (the rule a remesh repairs by), is listed in `audit.json` under `degenerate_faces` |
 | G2 | two neighbouring faces have opposite orientation, or a closed shell, including one spread across families, does not enclose a positive volume |
 | G3 | the open boundary loops of the mesh are not the source's in number and in the opening each closes: a level loop matches one source loop, one to one, when every node of each lies within a quarter of the source loop's extent (its bounding-box diagonal) from the other's polyline |
 | G4 | a trailing-edge point lies on no mesh edge, two points lie on one mesh edge (`points_sharing_an_edge`), the trailing-edge chains are not the source's in number, or a chain of the source ends where no chain of the level ends (a shortened line); the lines' total lengths are reported, not judged |
@@ -809,10 +809,10 @@ edge continues is one chain.
 `not judged`) and `values`) and `figures` (per family and `(whole mesh)`). A
 failed gate or check is also a warning: `audit gate G3 failed on (whole mesh):
 open_loops 2, source_open_loops 1, unmatched_loops 1`. `degenerate_faces`
-lists each face G1 counts of zero area: its `family`, its `face` index in
-that family (from 0, in file order), its `centroid` and its `area_ratio` to
-the family's median face area, for example
-`{"family": "F", "face": 11, "centroid": [3.5, 3.3e-07, 0.0], "area_ratio": 2.03e-06}`;
+lists each face G1 counts degenerate: its `family`, its `face` index in
+that family (from 0, in file order), its `centroid`, its `area_ratio` to
+the family's median face area and its `min_angle_degrees`, for example
+`{"family": "F", "face": 11, "centroid": [3.5, 3.3e-07, 0.0], "area_ratio": 2.03e-06, "min_angle_degrees": 0.000115}`;
 it is empty when there is none.
 
 ### The Python API
@@ -853,10 +853,13 @@ Each of these is imported from `pyflightstream.workspace`.
  smallest angle is under 1 degree, has its longest edge flipped with its
  neighbour of the same family when that widens the worse of the two, else its
  shortest edge collapsed. A node on an open boundary, a trailing edge or a
- `[[perimeter]]` line, a ridge, an interface, or shared with another family
- is never moved nor removed: a face held by such nodes is left, listed by the
- audit under `degenerate_faces`, and `refine` warns with their count and the
- `audit.json` path; the repair never touches a family with no degenerate face.
+ `[[perimeter]]` line, a ridge, an interface, a corner (where a curve ends,
+ branches or turns), or fixed (shared with a family outside the remesh) is
+ never moved nor removed: a face held by such nodes is left, listed by the
+ audit under `degenerate_faces` whether its area or its angle made it
+ degenerate, and `refine` warns with their count and the `audit.json` path;
+ inspect those faces, or re-cut the source near them. The repair never
+ touches a family with no degenerate face.
 - **Factor 1.** Under `method = "auto"` a family at factor 1 is copied; a
  family that states `method = "remesh"` is remeshed at any factor.
 - **A component is audited against its members.** A level written with

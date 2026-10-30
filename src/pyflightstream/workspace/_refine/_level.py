@@ -1378,11 +1378,13 @@ def _audit_level(work: _Work, obj: Path, folder: Path) -> MeshAudit | None:
     audit = audit_mesh(obj, against=work.source, unchanged_grids=work.unchanged)
     if audit.degenerate_faces:  # FR-3403: what no repair could reach is warned, never refused
         warn(
-            f"{folder / obj.name}: {len(audit.degenerate_faces)} face(s) of zero or near-zero "
-            f"area are left (below {_geometry.DEGENERATE_AREA_FRACTION:g} of their family's "
-            "median area, on nodes a remesh may not move or in a family not remeshed); each "
-            "is listed with its family, face "
-            f"index and centroid under degenerate_faces in {folder / audit.path.name}",
+            f"{folder / obj.name}: {len(audit.degenerate_faces)} degenerate face(s) are left "
+            f"(an area below {_geometry.DEGENERATE_AREA_FRACTION:g} of their family's median "
+            f"or an angle below {_geometry.DEGENERATE_ANGLE_DEGREES:g} degree, on nodes a remesh "
+            "may not move or in a family not remeshed); each is listed with its family, face "
+            f"index and centroid under degenerate_faces in {folder / audit.path.name}; inspect "
+            "those faces, or re-cut the source near them (a node on a boundary or shared with "
+            "another family is not moved by refine)",
             PyflightstreamWarning,
             stacklevel=3,
         )

@@ -50,13 +50,12 @@ import numpy
 
 from pyflightstream.workspace._refine._config import QUAD_DOMINANT, TRIANGLES
 from pyflightstream.workspace._refine._geometry import (
-    DEGENERATE_ANGLE_DEGREES,
     QUAD_ANGLE_BAND,
     QUAD_WARP_DEGREES,
     RIDGE_DEGREES,
     Faces,
     Points,
-    below_family_area,
+    degenerate,
     min_angle_degrees,
     quad_shapes,
 )
@@ -508,9 +507,9 @@ class Remesher:
     def degenerate_faces(self) -> list[int]:
         """Return the faces of near-zero area or of a sliver's angle, in face order.
 
-        A face is degenerate when its area is below
-        :data:`._geometry.DEGENERATE_AREA_FRACTION` of its family's median face area, or
-        its smallest angle is below :data:`DEGENERATE_ANGLE_DEGREES`.
+        A face is degenerate by :func:`._geometry.degenerate`, the audit's rule:
+        its area below ``DEGENERATE_AREA_FRACTION`` of its family's median face
+        area, or its smallest angle below ``DEGENERATE_ANGLE_DEGREES``.
         """
         ids = sorted(self.F)
         if not ids:
@@ -519,12 +518,8 @@ class Remesher:
         area = numpy.array([0.5 * float(numpy.linalg.norm(_face_normal(q))) for q in p])
         names = sorted(set(self.L.values()))
         family = numpy.array([names.index(self.L[i]) for i in ids], dtype=numpy.int64)
-        small = below_family_area(area, family)
-        return [
-            i
-            for i, q, low in zip(ids, p, small, strict=True)
-            if low or min_angle_degrees(q) < DEGENERATE_ANGLE_DEGREES
-        ]
+        angle = numpy.array([min_angle_degrees(q) for q in p])
+        return [i for i, bad in zip(ids, degenerate(area, angle, family), strict=True) if bad]
 
     def _held_node(self, v: int) -> bool:
         """Return whether a repair may not move or remove v (a curve, fixed or corner node)."""

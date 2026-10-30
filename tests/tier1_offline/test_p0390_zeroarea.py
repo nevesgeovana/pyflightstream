@@ -509,7 +509,7 @@ def test_fr3403_clean_family_comes_out_identical(monkeypatch):
     mesh = ObjMesh(nodes, {"Q": quads})
     repaired = refine_group(mesh, ["Q"], set(), 2.0)
     assert _degenerate(repaired.points, repaired.families["Q"]) == 0
-    monkeypatch.setattr(_remesh.Remesher, "repair_degenerate", lambda self: [], raising=False)
+    monkeypatch.setattr(_remesh.Remesher, "repair_degenerate", lambda self: [])
     plain = refine_group(mesh, ["Q"], set(), 2.0)
     assert np.array_equal(repaired.points, plain.points)
     assert repaired.families == plain.families
@@ -565,10 +565,149 @@ def test_fr3403_held_sliver_is_left_listed_and_warned(tmp_path):
             "face": index,
             "centroid": pytest.approx([3.5, SLIVER / 3, 0.0], abs=1e-9),
             "area_ratio": pytest.approx(record["degenerate_faces"][0]["area_ratio"]),
+            "min_angle_degrees": pytest.approx(np.degrees(np.arctan(2 * SLIVER)), rel=1e-3),
         }
     ]
     assert record["degenerate_faces"][0]["area_ratio"] < AREA_FRACTION
     gate = next(item for item in level.audit.gates if item.name == "G1")
     assert gate.verdict == "fail" and gate.values["faces_of_zero_area"] == 1
     said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
-    assert any("1 face(s)" in s and str(level.audit.path) in s for s in said), said
+    assert any("1 degenerate face(s)" in s and str(level.audit.path) in s for s in said), said
+    assert any("re-cut the source near them" in s for s in said), said
+
+
+# ---- FR-3403: the nodes a repair holds, and the thresholds bracketed
+
+
+def _sliver_remesher(delta: float, held: str | None = None, cluster: float = 0.0):
+    """Return a Remesher of ``F``: the sliver A, C, B over the open side A-C, fanned to the top.
+
+    A (0, 0), C (1, 0) and B (0.5, ``delta``); D, P, E along y = 1. ``held``
+    makes B a node no repair may move: on an open ``boundary`` curve, on a
+    listed ``trailing_edge`` line (B-P), a ``corner`` or ``fixed`` (shared
+    with a family outside the group). ``cluster`` adds to F, apart, nine
+    squares cut into eighteen triangles of that area, so F's median face area
+    is ``cluster`` and the sliver's area ratio is set by it alone.
+    """
+    from pyflightstream.workspace._refine._geometry import edge_faces
+    from pyflightstream.workspace._refine._remesh import (
+        BOUNDARY,
+        TRAILING_EDGE,
+        Patch,
+        Remesher,
+    )
+
+    pts = [(0.0, 0.0), (1.0, 0.0), (0.5, delta), (0.0, 1.0), (1.0, 1.0), (0.5, 1.0)]
+    a, c, b, d, e, p = range(6)
+    faces = [[a, c, b], [a, b, d], [b, c, e], [b, e, p], [b, p, d]]
+    if cluster:
+        side = float(np.sqrt(2.0 * cluster))
+        base = len(pts)
+        pts += [(10.0 + i * side, j * side) for j in range(4) for i in range(4)]
+        for j in range(3):
+            for i in range(3):
+                q = base + 4 * j + i
+                faces += [[q, q + 1, q + 5], [q, q + 5, q + 4]]
+    curve = {k: BOUNDARY for k, fs in edge_faces(faces).items() if len(fs) == 1}
+    if held in ("boundary", "trailing_edge"):
+        curve[(b, p)] = BOUNDARY if held == "boundary" else TRAILING_EDGE
+    verts = np.array([(x, y, 0.0) for x, y in pts])
+    patch = Patch(verts, faces, ["F"] * len(faces), np.ones(len(verts)), curve)
+    if held == "fixed":
+        patch.fixed = {b}
+    remesher = Remesher(patch)
+    if held == "corner":
+        remesher.corner.add(b)
+    return remesher
+
+
+@pytest.mark.parametrize("held", ["boundary", "trailing_edge", "corner", "fixed"])
+def test_fr3403_repair_never_moves_a_held_node(held):
+    """FR-3403 a sliver on a curve, trailing-edge, corner or fixed node is left as it is.
+
+    The repair would collapse B onto A (the control, B free); held, B and
+    every other node keep their place and number, every face is kept, and
+    the sliver is what the repair returns as left.
+    """
+    free = _sliver_remesher(SLIVER)
+    assert free.repair_degenerate() == []
+    assert all(2 not in f for f in free.F.values()), "control: the free B is collapsed"
+    remesher = _sliver_remesher(SLIVER, held)
+    faces, points = dict(remesher.F), [v.copy() for v in remesher.V]
+    left = remesher.repair_degenerate()
+    assert [remesher.F[i] for i in left] == [[0, 1, 2]]
+    assert remesher.F == faces
+    assert all(np.array_equal(v, w) for v, w in zip(remesher.V, points, strict=True))
+
+
+#: The bracket of each threshold: a factor either side of it.
+BRACKET = (0.8, 1.2)
+
+
+@pytest.mark.parametrize("scale", BRACKET, ids=["below", "above"])
+def test_fr3403_area_threshold_is_bracketed(scale, tmp_path):
+    """FR-3403 a well-shaped sliver 0.8 of 1e-3 of F's median area is repaired, 1.2 is not.
+
+    Its least angle is 5.7 degrees, so its area alone decides. The audit of
+    the same faces counts it (G1) and lists it below the threshold, not above.
+    """
+    from pyflightstream.workspace import audit_mesh
+    from pyflightstream.workspace._refine._obj import ObjMesh
+    from tests.p0380_mesh_fixtures import obj_text
+
+    delta = 0.05  # the sliver's area is delta / 2
+    remesher = _sliver_remesher(delta, cluster=delta / 2 / (scale * AREA_FRACTION))
+    faces = dict(remesher.F)
+    obj = tmp_path / "f.obj"
+    mesh = ObjMesh(np.array(remesher.V), {"F": list(faces.values())})
+    obj.write_bytes(obj_text(mesh.verts, mesh.families).encode("utf-8"))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        audit = audit_mesh(obj)
+    g1 = next(item for item in audit.gates if item.name == "G1")
+    listed = [face["face"] for face in audit.degenerate_faces]
+    left = remesher.repair_degenerate()
+    if scale < 1.0:
+        assert left == [] and all(2 not in f for f in remesher.F.values())
+        assert g1.values["faces_of_zero_area"] == 1 and listed == [0]
+    else:
+        assert left == [] and remesher.F == faces
+        assert g1.values["faces_of_zero_area"] == 0 and listed == []
+
+
+@pytest.mark.parametrize("held", [None, "fixed"], ids=["free", "held"])
+@pytest.mark.parametrize("scale", BRACKET, ids=["below", "above"])
+def test_fr3403_angle_threshold_is_bracketed(scale, held, tmp_path):
+    """FR-3403 a sliver of 0.8 degree is repaired, or held and listed; 1.2 degrees is neither.
+
+    Its area is 2 percent of F's median, so its angle alone decides; the
+    audit counts it under G1's faces_under_1_degree and lists it with its
+    least angle.
+    """
+    from pyflightstream.workspace import audit_mesh
+    from pyflightstream.workspace._refine._obj import ObjMesh
+    from tests.p0380_mesh_fixtures import obj_text
+
+    angle = scale * ANGLE_DEGREES
+    remesher = _sliver_remesher(0.5 * np.tan(np.radians(angle)), held)
+    faces = dict(remesher.F)
+    obj = tmp_path / "f.obj"
+    mesh = ObjMesh(np.array(remesher.V), {"F": list(faces.values())})
+    obj.write_bytes(obj_text(mesh.verts, mesh.families).encode("utf-8"))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        audit = audit_mesh(obj)
+    g1 = next(item for item in audit.gates if item.name == "G1")
+    left = remesher.repair_degenerate()
+    if scale > 1.0:
+        assert left == [] and remesher.F == faces
+        assert g1.values["faces_under_1_degree"] == 0 and audit.degenerate_faces == ()
+        return
+    assert g1.values["faces_of_zero_area"] == 0 and g1.values["faces_under_1_degree"] == 1
+    assert g1.passed, "an angle sliver is counted and listed, never a failure of G1"
+    assert [face["face"] for face in audit.degenerate_faces] == [0]
+    assert audit.degenerate_faces[0]["min_angle_degrees"] == pytest.approx(angle, rel=1e-3)
+    if held is None:
+        assert left == [] and all(2 not in f for f in remesher.F.values())
+    else:
+        assert [remesher.F[i] for i in left] == [[0, 1, 2]] and remesher.F == faces
