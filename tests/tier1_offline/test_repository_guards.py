@@ -33,10 +33,13 @@ SHIPPED_SURFACE_CONFIG = TOOLS / "shipped_surface.conf"
 TESTS_UNGUARDED_SPAWNS = 5
 
 
+#: 0.51.0 (FR-3402) budgets the two 26.126 probe campaigns, the evidence every 26.126 row
+#: cites (reports/compat/CMP-26126_2026-10-30_probe-campaign and -fsm, yaml and md): +4
+#: tracked files, +3 report files counted here, +11505 report lines, measured.
 LEAN_CAPS = {
-    "tracked_files": 2030,
-    "reports_files": 93,
-    "reports_lines": 138762,
+    "tracked_files": 2034,
+    "reports_files": 96,
+    "reports_lines": 150267,
     "tests_files": 1147,
     "tests_lines": 392000,
 }
