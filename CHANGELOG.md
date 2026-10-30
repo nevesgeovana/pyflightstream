@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-10-30
+
 ### Changed
 
 - FSI on an `unsteady_rotor` row is planned and built (FR-3404): the
@@ -64,6 +66,7 @@ FlightStream versions.
   warning. A matrix whose first build entry declares a version now binds the
   campaign to that version rather than to the build id. Without the flag such
   a build stays refused.
+
 ### Added
 
 - FlightStream 26.127 (vendor 26.12, the corrected build of 2026-10-30) is a
