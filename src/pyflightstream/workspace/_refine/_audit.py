@@ -72,6 +72,7 @@ from pyflightstream.workspace._refine._geometry import (
     boundary_edges,
     boundary_loops,
     close_pairs,
+    degenerate,
     dihedral_degrees,
     edge_faces,
     normals_and_centroids,
@@ -163,9 +164,10 @@ class MeshAudit:
     path : Path
         The ``<stem>.audit.json`` written beside the mesh.
     degenerate_faces : tuple of Mapping
-        Each face G1 counts of zero area (FR-938, FR-3403): its ``family``, its
+        Each face G1 counts degenerate (FR-938, FR-3403): its ``family``, its
         ``face`` index in that family (from 0, in file order), its
-        ``centroid`` and its ``area_ratio`` to its family's median face area.
+        ``centroid``, its ``area_ratio`` to its family's median face area and
+        its ``min_angle_degrees``.
     """
 
     mesh: Path
@@ -726,7 +728,7 @@ def _face_shapes(verts: Array, faces: Faces) -> dict[str, Array]:
     n = len(faces)
     shape = {
         key: numpy.full(n, numpy.nan)
-        for key in ("aspect", "skewness", "warp", "quad_min_angle", "tri_min_angle")
+        for key in ("aspect", "skewness", "warp", "quad_min_angle", "tri_min_angle", "min_angle")
     }
     shape.update(perimeter=numpy.zeros(n), max_abs_y=numpy.zeros(n))
     sides = numpy.array([len(f) for f in faces])
@@ -756,6 +758,7 @@ def _polygon_shapes(p: Array, rows: Array, shape: dict[str, Array]) -> None:
     shape["skewness"][rows] = numpy.maximum(
         (angle.max(axis=1) - ideal) / (180.0 - ideal), (ideal - angle.min(axis=1)) / ideal
     )
+    shape["min_angle"][rows] = angle.min(axis=1)
     if n == 3:
         shape["tri_min_angle"][rows] = angle.min(axis=1)
     if n == 4:
@@ -929,9 +932,20 @@ def _zero_area(m: _Mesh) -> Array:
     return (area < ZERO_AREA_FRACTION * m.size**2) | below_family_area(area, m.family)
 
 
+def _degenerate(m: _Mesh) -> Array:
+    """Return per face whether it is degenerate: of zero area, or of an angle below 1 degree.
+
+    The rule the remesh repairs by (:func:`._geometry.degenerate`, FR-3403),
+    with the zero area of the size squared besides.
+    """
+    area = m.shape["area"]
+    whole = area < ZERO_AREA_FRACTION * m.size**2
+    return whole | degenerate(area, m.shape["min_angle"], m.family)
+
+
 def _degenerate_faces(m: _Mesh) -> tuple[Mapping[str, object], ...]:
-    """Return each face G1 counts of zero area: family, face index, centroid, area ratio."""
-    rows = numpy.nonzero(_zero_area(m))[0]
+    """Return each degenerate face: family, face index, centroid, area ratio, least angle."""
+    rows = numpy.nonzero(_degenerate(m))[0]
     if not len(rows):
         return ()
     names = list(m.obj.families)
@@ -948,22 +962,30 @@ def _degenerate_faces(m: _Mesh) -> tuple[Mapping[str, object], ...]:
                 "face": r - int(start[family]),
                 "centroid": [round(float(x), 9) for x in m.obj.verts[m.faces[r]].mean(axis=0)],
                 "area_ratio": ratio,
+                "min_angle_degrees": float(f"{m.shape['min_angle'][r]:.6g}"),
             }
         )
     return tuple(out)
 
 
 def _g1(m: _Mesh) -> AuditItem:
-    """G1: no edge of more than two faces, no two nodes at one position, no face of zero area."""
+    """G1: no edge of more than two faces, no two nodes at one position, no face of zero area.
+
+    A face with an angle below 1 degree and an area above the zero-area rule
+    is counted under ``faces_under_1_degree`` and listed with the degenerate
+    faces, and judges nothing: a source's own trailing-edge or pole triangles
+    may be that sharp, and a new failure of G1 would refuse a geometry build.
+    """
     used = numpy.unique(numpy.fromiter((v for f in m.faces for v in f), dtype=numpy.int64))
-    values: dict[str, Value] = {
+    judged: dict[str, Value] = {
         "edges_of_more_than_two_faces": m.nonmanifold,
         "node_pairs_at_one_position": len(
             close_pairs(m.obj.verts[used], DUPLICATE_FRACTION * m.size)
         ),
         "faces_of_zero_area": int(_zero_area(m).sum()),
     }
-    return _item("gate", "G1", WHOLE_MESH, values, any(v != 0 for v in values.values()))
+    values = {**judged, "faces_under_1_degree": int((_degenerate(m) & ~_zero_area(m)).sum())}
+    return _item("gate", "G1", WHOLE_MESH, values, any(v != 0 for v in judged.values()))
 
 
 def _volume(verts: Array, faces: Faces) -> float | None:

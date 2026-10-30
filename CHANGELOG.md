@@ -49,11 +49,15 @@ FlightStream versions.
   the remesh a triangle below 1e-3 of its family's median face area, or with
   an angle under 1 degree, is repaired by an edge flip or an edge collapse
   that never moves a node on a boundary, a trailing edge or `[[perimeter]]`
-  line, or shared with another family. The audit's G1 now counts a face of
-  zero area against its own family's median area too (a sliver of a fine
-  family passed against the whole mesh's size), `audit.json` lists each such
-  face under `degenerate_faces` with its family, face index and centroid, and
-  `refine` warns with their count and the `audit.json` path (FR-3403).
+  line, a corner, or shared with another family. G1 counts a face below 1e-3
+  of its family's median area as degenerate and fails on it
+  (`faces_of_zero_area`; such a sliver of a fine family passed against the
+  whole mesh's size), and counts a face with an angle under 1 degree
+  (`faces_under_1_degree`) without judging it; `audit.json` lists both kinds
+  under `degenerate_faces` with their family, face index, centroid,
+  area ratio and least angle, `MeshAudit.degenerate_faces` exposes the same
+  list, and `refine` warns with their count and the `audit.json` path
+  (FR-3403).
 
 ## [0.50.3] - 2026-10-30
 
