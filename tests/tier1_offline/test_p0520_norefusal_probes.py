@@ -3,8 +3,8 @@
 Normal (``kind = "default"``) probes of an unsteady row were measured on the
 builds of ``NORMAL_PROBE_BUILDS`` (RPT-153). On another build the plan warns,
 naming the build, and emits them after the march as on the measured builds.
-The test narrows the measured set to 26.124 and builds on 26.125, so it names
-no build the registry has not judged.
+The test builds on 26.123, a build the registry lists and no run measured
+the probes on.
 """
 
 from __future__ import annotations
@@ -25,11 +25,8 @@ _RECTANGLE = {
 
 
 @pytest.mark.requirement("FR-3404")
-def test_p0520_normal_probes_of_an_unmeasured_build_warn_and_emit(tmp_path, monkeypatch):
+def test_p0520_normal_probes_of_an_unmeasured_build_warn_and_emit(tmp_path):
     # P0520-NOREFUSAL-NORMAL-PROBES
-    from pyflightstream.cases.workflows import _probes
-
-    monkeypatch.setattr(_probes, "NORMAL_PROBE_BUILDS", ("26.124",))
     spec = PprocSpec.model_validate(
         {
             "groups": {"1": "all"},
@@ -44,10 +41,10 @@ def test_p0520_normal_probes_of_an_unmeasured_build_warn_and_emit(tmp_path, monk
         }
     )
     case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=spec)
-    script, caught = build(case, "26.125")
+    script, caught = build(case, "26.123")
     words = first_words(script.render())
     # The probe points are created after the march, as on a measured build.
     assert "PROBE_POINTS_IMPORT" in words
     assert words.index("START_SOLVER") < words.index("PROBE_POINTS_IMPORT")
     named = [m for m in messages(caught) if "normal probes" in m]
-    assert named and "26.125" in named[0], messages(caught)
+    assert named and "26.123" in named[0], messages(caught)

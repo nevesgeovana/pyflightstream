@@ -87,3 +87,65 @@ def check_after_initialization(self: Script, name: str) -> None:
             f"only through a second {_INITIALIZATION_COMMAND}, emitted before the "
             "solver starts"
         )
+
+
+#: The loads selections :func:`selection_before_the_solve` carries before
+#: START_SOLVER on a march (FR-3404), in the order a setup states them.
+SELECTIONS_BEFORE_THE_SOLVE: tuple[str, ...] = (
+    "SET_LOADS_AND_MOMENTS_UNITS",
+    "SET_SOLVER_ANALYSIS_BOUNDARIES",
+    "SET_INVISCID_LOADS",
+    "DELETE_VORTICITY_DRAG_BOUNDARIES",
+    "SET_VORTICITY_DRAG_BOUNDARIES",
+)
+
+
+def selection_before_the_solve(script: Script, name: str, /, *args: object) -> None:
+    """Emit one loads selection of a march right before ``START_SOLVER`` (FR-3404).
+
+    The loads selections are analysis-phase commands in the database. On a
+    march a selection stated after the solve starts reached the final export
+    and no step export where it was measured (RPT-064 for the loads frame,
+    RPT-133 for the vorticity drag list), so a march states them before. This
+    carries one of :data:`SELECTIONS_BEFORE_THE_SOLVE` past the phase guard
+    without moving the phase, as
+    :meth:`~pyflightstream.script.Script.emit_deferred_vorticity_before_solve`
+    does for the drag list; every other check of the emitter applies.
+
+    Parameters
+    ----------
+    script : Script
+        The march's script, before ``START_SOLVER``.
+    name : str
+        One of :data:`SELECTIONS_BEFORE_THE_SOLVE`.
+    *args
+        The command's arguments, as :meth:`~pyflightstream.script.Script.emit` takes them.
+
+    Raises
+    ------
+    ScriptOrderError
+        If ``name`` is not a loads selection, or the solver was already started.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import Script, helpers
+    >>> script = Script(version="26.124")
+    >>> helpers.selection_before_the_solve(script, "DELETE_VORTICITY_DRAG_BOUNDARIES")
+    >>> script.emit("START_SOLVER")
+    >>> script.render().split()
+    ['DELETE_VORTICITY_DRAG_BOUNDARIES', 'START_SOLVER']
+    """
+    if name not in SELECTIONS_BEFORE_THE_SOLVE:
+        raise ScriptOrderError(
+            f"{name} is not a loads selection; only {', '.join(SELECTIONS_BEFORE_THE_SOLVE)} "
+            "may be stated before the solve this way"
+        )
+    exec_phase = _ORDERED_PHASES.index(Phase.EXEC)
+    if script._phase_index is not None and script._phase_index >= exec_phase:
+        raise ScriptOrderError(f"{name}: a selection before the solve must precede START_SOLVER")
+    previous = script._through_the_door
+    script._through_the_door = True
+    try:
+        script.emit(name, *args)
+    finally:
+        script._through_the_door = previous

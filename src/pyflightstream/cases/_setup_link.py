@@ -248,19 +248,19 @@ def loads_selections_before_the_solve(case: SimCase, script: Script) -> list[str
     solver = case.solver
     emitted: list[str] = []
     if solver.load_units is not None:
-        script.emit_before_the_solve("SET_LOADS_AND_MOMENTS_UNITS", solver.load_units)
+        helpers.selection_before_the_solve(script, "SET_LOADS_AND_MOMENTS_UNITS", solver.load_units)
         emitted.append("SET_LOADS_AND_MOMENTS_UNITS")
     boundaries = analysis_indices(case, script)
     if boundaries is not None:
-        script.emit_before_the_solve(
-            "SET_SOLVER_ANALYSIS_BOUNDARIES", len(boundaries), list(boundaries)
+        helpers.selection_before_the_solve(
+            script, "SET_SOLVER_ANALYSIS_BOUNDARIES", len(boundaries), list(boundaries)
         )
         emitted.append("SET_SOLVER_ANALYSIS_BOUNDARIES")
     if solver.inviscid_loads:
-        script.emit_before_the_solve("SET_INVISCID_LOADS", "ENABLE")
+        helpers.selection_before_the_solve(script, "SET_INVISCID_LOADS", "ENABLE")
         emitted.append("SET_INVISCID_LOADS")
     if solver.clear_vorticity_drag_boundaries:
-        script.emit_before_the_solve("DELETE_VORTICITY_DRAG_BOUNDARIES")
+        helpers.selection_before_the_solve(script, "DELETE_VORTICITY_DRAG_BOUNDARIES")
         emitted.append("DELETE_VORTICITY_DRAG_BOUNDARIES")
     return emitted
 

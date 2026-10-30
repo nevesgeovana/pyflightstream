@@ -99,6 +99,9 @@ from pyflightstream.script._build_forms import (  # noqa: F401  (this module is 
 )
 from pyflightstream.script._marking import mark_wake_edges as mark_wake_edges
 from pyflightstream.script._marking import marking_import as marking_import
+from pyflightstream.script._phase_order import (
+    selection_before_the_solve as selection_before_the_solve,
+)
 from pyflightstream.script._relaxed_te import (  # noqa: F401  (this module is the public path)
     DEFAULT_SHEDDING_DIRECTION,
     RELAXED_SHEDDING_DIRECTIONS,

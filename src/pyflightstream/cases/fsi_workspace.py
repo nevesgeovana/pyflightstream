@@ -792,13 +792,6 @@ def validate_workspace_fsi(
         return
     _check_output_attachment(case)
     _refuse_the_workflow(case, workflow, script.version)
-    if workflow == "unsteady_rotor":
-        warn(
-            f"case {case.sim_id!r} couples a rotating blade on unsteady_rotor: "
-            f"{FSI_ROTOR_IN_DEBUG}",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )
     _refuse_a_wing_mismatch(case, workflow)
     if continuation:
         raise CampaignConfigError(
@@ -863,12 +856,24 @@ def _refuse_a_wing_mismatch(case: SimCase, workflow: str) -> None:
 
 
 def _refuse_the_workflow(case: SimCase, workflow: str, version: str | FsVersion) -> None:
-    """Refuse a row whose morphing route or workflow takes no FSI here, morphing first."""
+    """Refuse a row whose morphing route or workflow takes no FSI here, morphing first.
+
+    A row it accepts is warned where a measurement is missing: the rotating
+    blade's morph (:data:`FSI_ROTOR_IN_DEBUG`) and an unverified direct
+    morphing command (FR-3404).
+    """
     refusal = direct_morphing_refusal(case, workflow=workflow, version=version)
     if refusal is None:
         refusal = fsi_workflow_refusal(workflow)
     if refusal is not None:
         raise CampaignConfigError(f"case {case.sim_id!r}: {refusal}")
+    if workflow == "unsteady_rotor":
+        warn(
+            f"case {case.sim_id!r} couples a rotating blade on unsteady_rotor: "
+            f"{FSI_ROTOR_IN_DEBUG}",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     _warn_of_an_unverified_direct_morphing(case, version)
 
 
